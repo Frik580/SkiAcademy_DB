@@ -39,6 +39,8 @@ describe('T32.4 canonical Admin lesson booking boundary', () => {
 
     expect(reads).toContain('queryLessonBookingReadModels');
     expect(commands).toContain('executeAuthenticatedCanonicalCommand');
+    expect(commands).toContain("attempt.kind === 'resolve_booking_change_request'");
+    expect(commands).toContain('bookingRevision');
     expect(commands).toContain("attempt.kind === 'record_provider_payment_event'");
     expect(commands).toContain("sourceKind: 'cash'");
     expect(detail).toContain('canRecordGuestPayment');

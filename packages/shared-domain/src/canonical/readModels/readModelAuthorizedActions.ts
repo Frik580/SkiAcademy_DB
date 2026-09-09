@@ -6,6 +6,7 @@ export const LessonBookingReadModelAuthorizedActionsSchema = z
     canRequestCancellation: z.boolean(),
     canWithdrawCancellation: z.boolean(),
     canReschedule: z.boolean(),
+    canCreateChangeRequest: z.boolean(),
   })
   .strict();
 
@@ -33,6 +34,18 @@ export const BookingChangeRequestReadModelAuthorizedActionsSchema = z
 
 export type BookingChangeRequestReadModelAuthorizedActions = z.output<
   typeof BookingChangeRequestReadModelAuthorizedActionsSchema
+>;
+
+export const AdminBookingChangeRequestReadModelAuthorizedActionsSchema = z
+  .object({
+    canResolveRescheduled: z.boolean(),
+    canResolveBookingCancelled: z.boolean(),
+    canResolveNoChange: z.boolean(),
+  })
+  .strict();
+
+export type AdminBookingChangeRequestReadModelAuthorizedActions = z.output<
+  typeof AdminBookingChangeRequestReadModelAuthorizedActionsSchema
 >;
 
 export const ParticipantInstructorAccessReadModelAuthorizedActionsSchema = z

@@ -280,6 +280,19 @@ function createAdminReadFirestore(input: {
           }),
         };
       }
+      if (name === 'booking_change_requests') {
+        return {
+          where: (_field: string, _operator: string, bookingIdValue: string) => ({
+            limit: () => ({
+              get: async () => ({
+                docs: Object.entries(input.documents.booking_change_requests ?? {})
+                  .filter(([, data]) => data.bookingId === bookingIdValue)
+                  .map(([id, data]) => ({ id, data: () => data })),
+              }),
+            }),
+          }),
+        };
+      }
       return {
         doc: (id: string) => ({
           get: async () => {
@@ -540,6 +553,7 @@ describe('Admin lesson booking read models', () => {
         suggestedRefund: 50_000,
       },
       relatedIssues: [{ issueId: issue.issueId }],
+      relatedOpenChangeRequests: [],
       scheduleRevision: 3,
       serviceParticipantIds: booking.occurrence.serviceParty.participantIds,
       authorizedActions: {

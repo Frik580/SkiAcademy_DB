@@ -16,6 +16,7 @@ export const ADMIN_TAB_QUERY_KEY = 'tab';
 export const ADMIN_ISSUE_QUERY_KEY = 'issue';
 export const ADMIN_ISSUE_VIEW_QUERY_KEY = 'issueView';
 export const ADMIN_ISSUE_SEVERITY_QUERY_KEY = 'issueSeverity';
+export const ADMIN_CHANGE_REQUEST_QUERY_KEY = 'changeRequest';
 export const ADMIN_FINANCE_ACCOUNT_QUERY_KEY = 'account';
 export const ADMIN_FINANCE_PAYMENT_QUERY_KEY = 'payment';
 export const ADMIN_FINANCE_MOVEMENT_FOCUS_QUERY_KEY = 'movement';

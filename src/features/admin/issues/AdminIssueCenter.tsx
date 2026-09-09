@@ -1,6 +1,8 @@
 import {
   AdminIssueIdSchema,
   ADMIN_ISSUE_SEVERITIES,
+  BookingChangeRequestIdSchema,
+  type AdminBookingChangeRequestInboxItem,
   type AdminIssueInboxItem,
 } from '@ski-academy/shared-domain';
 import { ChevronRight, Info, Loader2, RefreshCw, ShieldAlert, X } from 'lucide-react';
@@ -10,6 +12,7 @@ import {
   ADMIN_ISSUE_QUERY_KEY,
   ADMIN_ISSUE_SEVERITY_QUERY_KEY,
   ADMIN_ISSUE_VIEW_QUERY_KEY,
+  ADMIN_CHANGE_REQUEST_QUERY_KEY,
   ADMIN_FINANCE_PAYMENT_QUERY_KEY,
   ADMIN_LESSON_BOOKING_QUERY_KEY,
   ADMIN_COURSE_ENROLLMENT_QUERY_KEY,
@@ -22,6 +25,7 @@ import {
   ADMIN_ISSUE_GUIDANCE_KEYS,
   ADMIN_ISSUE_KIND_LABEL_KEYS,
 } from './adminIssuePresentation';
+import { useAdminAttentionChangeRequests } from './useAdminAttentionChangeRequests';
 import { useAdminIssueReadModels } from './useAdminIssueReadModels';
 import { useAdminIssueTranslations } from './useAdminIssueTranslations';
 
@@ -39,6 +43,44 @@ function severityClasses(severity: AdminIssueInboxItem['severity']): string {
   return 'border-[var(--border)] bg-black/5 text-[var(--ink-dim)]';
 }
 
+type AttentionInboxEntry =
+  | {
+      readonly source: 'admin_issue';
+      readonly id: string;
+      readonly sortSeconds: number;
+      readonly issue: AdminIssueInboxItem;
+    }
+  | {
+      readonly source: 'booking_change_request';
+      readonly id: string;
+      readonly sortSeconds: number;
+      readonly changeRequest: AdminBookingChangeRequestInboxItem;
+    };
+
+function mergeAttentionInbox(
+  issues: readonly AdminIssueInboxItem[],
+  changeRequests: readonly AdminBookingChangeRequestInboxItem[]
+): AttentionInboxEntry[] {
+  const entries: AttentionInboxEntry[] = [
+    ...issues.map((issue) => ({
+      source: 'admin_issue' as const,
+      id: issue.issueId,
+      sortSeconds: issue.updatedAt.seconds,
+      issue,
+    })),
+    ...changeRequests.map((changeRequest) => ({
+      source: 'booking_change_request' as const,
+      id: changeRequest.requestId,
+      sortSeconds: changeRequest.createdAt.seconds,
+      changeRequest,
+    })),
+  ];
+  return entries.sort((left, right) => {
+    if (left.sortSeconds !== right.sortSeconds) return right.sortSeconds - left.sortSeconds;
+    return left.id.localeCompare(right.id);
+  });
+}
+
 export function AdminIssueCenter() {
   const { t, language } = useAdminIssueTranslations();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -47,12 +89,22 @@ export function AdminIssueCenter() {
   const selectedIssueParam = searchParams.get(ADMIN_ISSUE_QUERY_KEY);
   const selectedIssueResult = AdminIssueIdSchema.safeParse(selectedIssueParam);
   const selectedIssueId = selectedIssueResult.success ? selectedIssueResult.data : undefined;
+  const selectedChangeRequestParam = searchParams.get(ADMIN_CHANGE_REQUEST_QUERY_KEY);
+  const selectedChangeRequestResult =
+    BookingChangeRequestIdSchema.safeParse(selectedChangeRequestParam);
+  const selectedChangeRequestId = selectedChangeRequestResult.success
+    ? selectedChangeRequestResult.data
+    : undefined;
 
   const { list, detail, retryList, retryDetail, loadMore } = useAdminIssueReadModels({
     enabled: true,
     scope: view === 'history' ? 'admin_history' : 'admin_open',
     ...(severity === undefined ? {} : { severity }),
     ...(selectedIssueId === undefined ? {} : { selectedIssueId }),
+  });
+  const changeRequests = useAdminAttentionChangeRequests({
+    enabled: view === 'open',
+    ...(selectedChangeRequestId === undefined ? {} : { selectedRequestId: selectedChangeRequestId }),
   });
 
   const updateQuery = useCallback(
@@ -78,6 +130,12 @@ export function AdminIssueCenter() {
       dateStyle: 'medium',
       timeStyle: 'short',
     }).format(timestampDate(value));
+  const formatOccurrence = (item: AdminBookingChangeRequestInboxItem) =>
+    new Intl.DateTimeFormat(locale, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZone: item.occurrence.timeZone,
+    }).format(timestampDate(item.occurrence.startsAt));
   const formatMoney = (canonicalKzt: number) =>
     new Intl.NumberFormat(locale, {
       style: 'currency',
@@ -92,6 +150,25 @@ export function AdminIssueCenter() {
     detail.item?.subjectRef.subjectKind === 'course_enrollment'
       ? detail.item.subjectRef.enrollmentId
       : undefined;
+  const inboxEntries =
+    view === 'open' ? mergeAttentionInbox(list.items, changeRequests.list.items) : list.items.map(
+        (issue) => ({
+          source: 'admin_issue' as const,
+          id: issue.issueId,
+          sortSeconds: issue.updatedAt.seconds,
+          issue,
+        })
+      );
+  const inboxLoading =
+    list.loading || (view === 'open' && changeRequests.list.loading && inboxEntries.length === 0);
+  const inboxError = list.error;
+  const selectedChangeRequest =
+    changeRequests.detail.item ??
+    changeRequests.list.items.find((item) => item.requestId === selectedChangeRequestId);
+  const retryInbox = () => {
+    void retryList();
+    if (view === 'open') void changeRequests.retryList();
+  };
 
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.8fr)]">
@@ -105,6 +182,7 @@ export function AdminIssueCenter() {
                 updateQuery({
                   [ADMIN_ISSUE_VIEW_QUERY_KEY]: 'open',
                   [ADMIN_ISSUE_QUERY_KEY]: undefined,
+                  [ADMIN_CHANGE_REQUEST_QUERY_KEY]: undefined,
                 })
               }
               className={`px-3 py-2 text-xs font-mono uppercase tracking-wider ${
@@ -120,6 +198,7 @@ export function AdminIssueCenter() {
                 updateQuery({
                   [ADMIN_ISSUE_VIEW_QUERY_KEY]: 'history',
                   [ADMIN_ISSUE_QUERY_KEY]: undefined,
+                  [ADMIN_CHANGE_REQUEST_QUERY_KEY]: undefined,
                 })
               }
               className={`px-3 py-2 text-xs font-mono uppercase tracking-wider ${
@@ -159,7 +238,27 @@ export function AdminIssueCenter() {
           </label>
         </div>
 
-        {list.loading ? (
+        {view === 'open' && changeRequests.list.error && !list.error ? (
+          <div role="alert" className="border border-red-500/30 bg-red-500/5 p-4 text-sm">
+            <p className="text-red-700 dark:text-red-300">
+              {t(
+                changeRequests.list.error === 'permission-denied'
+                  ? 'adminIssuePermissionDenied'
+                  : 'adminIssueReadFailed'
+              )}
+            </p>
+            <button
+              type="button"
+              onClick={() => void changeRequests.retryList()}
+              className="mt-3 inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 text-xs font-mono uppercase tracking-wider"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              {t('retry')}
+            </button>
+          </div>
+        ) : null}
+
+        {inboxLoading ? (
           <div
             role="status"
             className="flex min-h-36 items-center justify-center gap-2 text-sm text-[var(--ink-dim)]"
@@ -167,86 +266,137 @@ export function AdminIssueCenter() {
             <Loader2 className="h-4 w-4 animate-spin" />
             {t('adminIssueLoading')}
           </div>
-        ) : list.error ? (
+        ) : inboxError ? (
           <div role="alert" className="border border-red-500/30 bg-red-500/5 p-4 text-sm">
             <p className="text-red-700 dark:text-red-300">
               {t(
-                list.error === 'permission-denied'
+                inboxError === 'permission-denied'
                   ? 'adminIssuePermissionDenied'
                   : 'adminIssueReadFailed'
               )}
             </p>
             <button
               type="button"
-              onClick={() => void retryList()}
+              onClick={() => void retryInbox()}
               className="mt-3 inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 text-xs font-mono uppercase tracking-wider"
             >
               <RefreshCw className="h-3.5 w-3.5" />
               {t('retry')}
             </button>
           </div>
-        ) : list.items.length === 0 ? (
+        ) : inboxEntries.length === 0 ? (
           <div className="border border-dashed border-[var(--border)] p-8 text-center">
             <Info className="mx-auto mb-3 h-5 w-5 text-[var(--ink-dim)]" />
             <p className="text-sm text-[var(--ink-dim)]">
-              {t(view === 'open' ? 'adminIssueEmptyOpen' : 'adminIssueEmptyHistory')}
+              {t(
+                view === 'open' ? 'adminAttentionEmptyOpen' : 'adminIssueEmptyHistory'
+              )}
             </p>
           </div>
         ) : (
           <div className="space-y-2">
-            {list.items.map((item) => (
-              <button
-                type="button"
-                key={item.issueId}
-                onClick={() => updateQuery({ [ADMIN_ISSUE_QUERY_KEY]: item.issueId })}
-                className={`w-full border p-4 text-left transition hover:border-[var(--ink-dim)] ${
-                  selectedIssueId === item.issueId
-                    ? 'border-[var(--ink)] bg-black/5'
-                    : 'border-[var(--border)]'
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 space-y-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span
-                        className={`border px-2 py-1 text-[10px] font-mono uppercase tracking-wider ${severityClasses(
-                          item.severity
-                        )}`}
-                      >
-                        {t(
-                          item.severity === 'critical'
-                            ? 'adminIssueSeverityCritical'
-                            : item.severity === 'urgent'
-                              ? 'adminIssueSeverityUrgent'
-                              : 'adminIssueSeverityNormal'
-                        )}
-                      </span>
-                      <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
-                        {item.lifecycle.status}
-                      </span>
-                      <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
-                        {item.actionRequirement === 'action_required'
-                          ? t('adminIssueActionRequired')
-                          : t('adminIssueInformational')}
-                      </span>
+            {inboxEntries.map((entry) =>
+              entry.source === 'booking_change_request' ? (
+                <button
+                  type="button"
+                  key={entry.changeRequest.requestId}
+                  onClick={() =>
+                    updateQuery({
+                      [ADMIN_CHANGE_REQUEST_QUERY_KEY]: entry.changeRequest.requestId,
+                      [ADMIN_ISSUE_QUERY_KEY]: undefined,
+                    })
+                  }
+                  className={`w-full border p-4 text-left transition hover:border-[var(--ink-dim)] ${
+                    selectedChangeRequestId === entry.changeRequest.requestId
+                      ? 'border-[var(--ink)] bg-black/5'
+                      : 'border-[var(--border)]'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-amber-700 dark:text-amber-300">
+                          {t('adminIssueActionRequired')}
+                        </span>
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+                          {entry.changeRequest.lifecycle.status}
+                        </span>
+                      </div>
+                      <h4 className="text-sm text-[var(--ink)]">
+                        {t('adminAttentionChangeRequestKind')}
+                      </h4>
+                      <p className="truncate text-xs text-[var(--ink-dim)]">
+                        {entry.changeRequest.instructor.displayName} ·{' '}
+                        {entry.changeRequest.participants
+                          .map((participant) => participant.displayName)
+                          .join(', ')}
+                      </p>
+                      <p className="text-[11px] text-[var(--ink-dim)]">
+                        {formatOccurrence(entry.changeRequest)}
+                      </p>
                     </div>
-                    <h4 className="text-sm text-[var(--ink)]">
-                      {t(ADMIN_ISSUE_KIND_LABEL_KEYS[item.kind])}
-                    </h4>
-                    <p className="truncate text-xs text-[var(--ink-dim)]">
-                      {item.subjectRef.subjectKind} ·{' '}
-                      {item.subjectRef.subjectKind === 'booking'
-                        ? item.subjectRef.bookingId
-                        : item.subjectRef.enrollmentId}
-                    </p>
-                    <p className="text-[11px] text-[var(--ink-dim)]">
-                      {formatDate(item.updatedAt)}
-                    </p>
+                    <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-[var(--ink-dim)]" />
                   </div>
-                  <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-[var(--ink-dim)]" />
-                </div>
-              </button>
-            ))}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  key={entry.issue.issueId}
+                  onClick={() =>
+                    updateQuery({
+                      [ADMIN_ISSUE_QUERY_KEY]: entry.issue.issueId,
+                      [ADMIN_CHANGE_REQUEST_QUERY_KEY]: undefined,
+                    })
+                  }
+                  className={`w-full border p-4 text-left transition hover:border-[var(--ink-dim)] ${
+                    selectedIssueId === entry.issue.issueId
+                      ? 'border-[var(--ink)] bg-black/5'
+                      : 'border-[var(--border)]'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={`border px-2 py-1 text-[10px] font-mono uppercase tracking-wider ${severityClasses(
+                            entry.issue.severity
+                          )}`}
+                        >
+                          {t(
+                            entry.issue.severity === 'critical'
+                              ? 'adminIssueSeverityCritical'
+                              : entry.issue.severity === 'urgent'
+                                ? 'adminIssueSeverityUrgent'
+                                : 'adminIssueSeverityNormal'
+                          )}
+                        </span>
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+                          {entry.issue.lifecycle.status}
+                        </span>
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+                          {entry.issue.actionRequirement === 'action_required'
+                            ? t('adminIssueActionRequired')
+                            : t('adminIssueInformational')}
+                        </span>
+                      </div>
+                      <h4 className="text-sm text-[var(--ink)]">
+                        {t(ADMIN_ISSUE_KIND_LABEL_KEYS[entry.issue.kind])}
+                      </h4>
+                      <p className="truncate text-xs text-[var(--ink-dim)]">
+                        {entry.issue.subjectRef.subjectKind} ·{' '}
+                        {entry.issue.subjectRef.subjectKind === 'booking'
+                          ? entry.issue.subjectRef.bookingId
+                          : entry.issue.subjectRef.enrollmentId}
+                      </p>
+                      <p className="text-[11px] text-[var(--ink-dim)]">
+                        {formatDate(entry.issue.updatedAt)}
+                      </p>
+                    </div>
+                    <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-[var(--ink-dim)]" />
+                  </div>
+                </button>
+              )
+            )}
             {list.hasMore && (
               <button
                 type="button"
@@ -265,7 +415,106 @@ export function AdminIssueCenter() {
         aria-label={t('adminIssueDetailTitle')}
         className="min-h-56 border border-[var(--border)] p-4"
       >
-        {!selectedIssueParam ? (
+        {selectedChangeRequestParam ? (
+          !selectedChangeRequestResult.success ? (
+            <div role="alert" className="space-y-3 text-sm text-red-700">
+              <p>{t('adminIssueNotFound')}</p>
+              <button
+                type="button"
+                onClick={() => updateQuery({ [ADMIN_CHANGE_REQUEST_QUERY_KEY]: undefined })}
+                className="border border-[var(--border)] px-3 py-2 text-xs"
+              >
+                {t('adminIssueClose')}
+              </button>
+            </div>
+          ) : changeRequests.detail.loading && !selectedChangeRequest ? (
+            <div role="status" className="flex min-h-48 items-center justify-center">
+              <Loader2 className="h-5 w-5 animate-spin" />
+            </div>
+          ) : changeRequests.detail.error ? (
+            <div role="alert" className="space-y-3 text-sm text-red-700">
+              <p>
+                {t(
+                  changeRequests.detail.error === 'permission-denied'
+                    ? 'adminIssuePermissionDenied'
+                    : 'adminIssueReadFailed'
+                )}
+              </p>
+              <button
+                type="button"
+                onClick={() => void changeRequests.retryDetail()}
+                className="inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 text-xs"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                {t('retry')}
+              </button>
+            </div>
+          ) : !selectedChangeRequest ? (
+            <p className="text-sm text-[var(--ink-dim)]">{t('adminIssueNotFound')}</p>
+          ) : (
+            <div className="space-y-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+                    {selectedChangeRequest.sourceRef.bookingChangeRequestId}
+                  </p>
+                  <h3 className="mt-2 text-base text-[var(--ink)]">
+                    {t('adminAttentionChangeRequestKind')}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  aria-label={t('adminIssueClose')}
+                  onClick={() => updateQuery({ [ADMIN_CHANGE_REQUEST_QUERY_KEY]: undefined })}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="flex gap-3 border border-amber-500/30 bg-amber-500/5 p-3">
+                <ShieldAlert className="h-4 w-4 shrink-0 text-amber-600" />
+                <div className="text-xs">
+                  <p className="font-medium text-[var(--ink)]">{t('adminIssueActionRequired')}</p>
+                  <p className="mt-1 text-[var(--ink-dim)]">
+                    {t('adminLessonInstructorRequestedChange')}
+                  </p>
+                </div>
+              </div>
+
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-xs">
+                <dt className="text-[var(--ink-dim)]">{t('adminAttentionInstructor')}</dt>
+                <dd>{selectedChangeRequest.instructor.displayName}</dd>
+                <dt className="text-[var(--ink-dim)]">{t('adminAttentionParticipants')}</dt>
+                <dd>
+                  {selectedChangeRequest.participants
+                    .map((participant) => participant.displayName)
+                    .join(', ')}
+                </dd>
+                <dt className="text-[var(--ink-dim)]">{t('adminAttentionLessonTime')}</dt>
+                <dd>{formatOccurrence(selectedChangeRequest)}</dd>
+                <dt className="text-[var(--ink-dim)]">{t('adminAttentionReason')}</dt>
+                <dd>{selectedChangeRequest.reason}</dd>
+                <dt className="text-[var(--ink-dim)]">{t('adminAttentionCreatedAt')}</dt>
+                <dd>{formatDate(selectedChangeRequest.createdAt)}</dd>
+              </dl>
+
+              <button
+                type="button"
+                onClick={() =>
+                  updateQuery({
+                    [ADMIN_TAB_QUERY_KEY]: 'operations',
+                    [ADMIN_LESSON_BOOKING_QUERY_KEY]: selectedChangeRequest.bookingId,
+                    [ADMIN_CHANGE_REQUEST_QUERY_KEY]: selectedChangeRequest.requestId,
+                  })
+                }
+                className="inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 text-xs font-mono uppercase tracking-wider"
+              >
+                {t('adminAttentionOpenItem')}
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )
+        ) : !selectedIssueParam ? (
           <div className="flex min-h-48 items-center justify-center text-center text-sm text-[var(--ink-dim)]">
             {t('adminIssueSelectPrompt')}
           </div>

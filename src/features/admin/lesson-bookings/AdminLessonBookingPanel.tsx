@@ -1,10 +1,11 @@
-import { BookingIdSchema, type LessonBookingReadModel } from '@ski-academy/shared-domain';
+import { BookingChangeRequestIdSchema, BookingIdSchema, type LessonBookingReadModel } from '@ski-academy/shared-domain';
 import { ChevronRight, Loader2, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   ADMIN_FINANCE_PAYMENT_QUERY_KEY,
   ADMIN_ISSUE_QUERY_KEY,
+  ADMIN_CHANGE_REQUEST_QUERY_KEY,
   ADMIN_LESSON_BOOKING_QUERY_KEY,
   ADMIN_LESSON_BOOKING_VIEW_QUERY_KEY,
   ADMIN_PLANNER_DATE_QUERY_KEY,
@@ -73,6 +74,11 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
   const bookingParam = searchParams.get(ADMIN_LESSON_BOOKING_QUERY_KEY);
   const parsedBooking = BookingIdSchema.safeParse(bookingParam);
   const selectedBookingId = parsedBooking.success ? parsedBooking.data : undefined;
+  const changeRequestParam = searchParams.get(ADMIN_CHANGE_REQUEST_QUERY_KEY);
+  const parsedChangeRequest = BookingChangeRequestIdSchema.safeParse(changeRequestParam);
+  const focusedChangeRequestId = parsedChangeRequest.success
+    ? parsedChangeRequest.data
+    : undefined;
   const reads = useAdminLessonBookingReadModels({
     enabled: true,
     view,
@@ -349,6 +355,7 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
               onRequestAttempt={(attempt, message) =>
                 requestDetailAttempt(detail, attempt, message)
               }
+              focusedChangeRequestId={focusedChangeRequestId}
               onOpenPlanner={() => {
                 const parts = localParts(detail);
                 updateQuery({

@@ -3,18 +3,34 @@ import { IdempotencyKeySchema } from '../commands/commandContext';
 import {
   BookingChangeRequestIdSchema,
   BookingIdSchema,
+  InstructorIdSchema,
+  ParticipantIdSchema,
 } from '../identifiers';
 import {
   BookingChangeRequestTypeSchema,
   BookingChangeRequestResolutionSchema,
 } from '../bookingOccurrenceProposalChange';
-import { AggregateRevisionSchema, CanonicalTimestampSchema } from '../primitives';
-import { BookingChangeRequestReadModelAuthorizedActionsSchema } from './readModelAuthorizedActions';
+import {
+  AggregateRevisionSchema,
+  CanonicalTimestampSchema,
+  IanaTimeZoneSchema,
+} from '../primitives';
+import {
+  AdminBookingChangeRequestReadModelAuthorizedActionsSchema,
+  BookingChangeRequestReadModelAuthorizedActionsSchema,
+} from './readModelAuthorizedActions';
 
-export const BOOKING_CHANGE_REQUEST_READ_SCOPES = ['account_open', 'instructor_open'] as const;
+export const BOOKING_CHANGE_REQUEST_READ_SCOPES = [
+  'account_open',
+  'instructor_open',
+  'admin_open',
+  'admin_detail',
+] as const;
 export type BookingChangeRequestReadScope = (typeof BOOKING_CHANGE_REQUEST_READ_SCOPES)[number];
 
 export const BookingChangeRequestReadScopeSchema = z.enum(BOOKING_CHANGE_REQUEST_READ_SCOPES);
+
+export const BOOKING_CHANGE_REQUEST_ATTENTION_SOURCE_KIND = 'booking_change_request' as const;
 
 export const BookingChangeRequestReadModelLifecycleSchema = z.discriminatedUnion('status', [
   z.object({ status: z.literal('open') }).strict(),
@@ -43,23 +59,125 @@ export const BookingChangeRequestReadModelSchema = z
 
 export type BookingChangeRequestReadModel = z.output<typeof BookingChangeRequestReadModelSchema>;
 
+export const BookingChangeRequestAttentionSourceRefSchema = z
+  .object({
+    sourceKind: z.literal(BOOKING_CHANGE_REQUEST_ATTENTION_SOURCE_KIND),
+    bookingChangeRequestId: BookingChangeRequestIdSchema,
+  })
+  .strict();
+
+export type BookingChangeRequestAttentionSourceRef = z.output<
+  typeof BookingChangeRequestAttentionSourceRefSchema
+>;
+
+export const AdminBookingChangeRequestInboxItemSchema = z
+  .object({
+    sourceRef: BookingChangeRequestAttentionSourceRefSchema,
+    requestId: BookingChangeRequestIdSchema,
+    revision: AggregateRevisionSchema,
+    bookingId: BookingIdSchema,
+    bookingRevision: AggregateRevisionSchema,
+    requestType: BookingChangeRequestTypeSchema,
+    reason: z.string().trim().min(1).max(2_000),
+    lifecycle: BookingChangeRequestReadModelLifecycleSchema,
+    instructor: z
+      .object({
+        instructorId: InstructorIdSchema,
+        displayName: z.string().trim().min(1).max(200),
+      })
+      .strict(),
+    participants: z
+      .array(
+        z
+          .object({
+            participantId: ParticipantIdSchema,
+            displayName: z.string().trim().min(1).max(200),
+          })
+          .strict()
+      )
+      .min(1)
+      .max(16),
+    occurrence: z
+      .object({
+        startsAt: CanonicalTimestampSchema,
+        endsAt: CanonicalTimestampSchema,
+        timeZone: IanaTimeZoneSchema,
+      })
+      .strict(),
+    authorizedActions: AdminBookingChangeRequestReadModelAuthorizedActionsSchema,
+    createdAt: CanonicalTimestampSchema,
+    updatedAt: CanonicalTimestampSchema,
+  })
+  .strict();
+
+export type AdminBookingChangeRequestInboxItem = z.output<
+  typeof AdminBookingChangeRequestInboxItemSchema
+>;
+
+export const AdminBookingChangeRequestDetailReadModelSchema =
+  AdminBookingChangeRequestInboxItemSchema.extend({
+    actionRequirement: z.literal('action_required'),
+  }).strict();
+
+export type AdminBookingChangeRequestDetailReadModel = z.output<
+  typeof AdminBookingChangeRequestDetailReadModelSchema
+>;
+
 export const QueryBookingChangeRequestReadModelsInputSchema = z
   .object({
     scope: BookingChangeRequestReadScopeSchema,
+    requestId: BookingChangeRequestIdSchema.optional(),
     idempotencyKey: IdempotencyKeySchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((input, context) => {
+    if (input.scope === 'admin_detail') {
+      if (!input.requestId) {
+        context.addIssue({
+          code: 'custom',
+          path: ['requestId'],
+          message: 'requestId is required for admin_detail scope',
+        });
+      }
+    } else if (input.requestId !== undefined) {
+      context.addIssue({
+        code: 'custom',
+        path: ['requestId'],
+        message: 'requestId is only allowed for admin_detail scope',
+      });
+    }
+  });
 
 export type QueryBookingChangeRequestReadModelsInput = z.output<
   typeof QueryBookingChangeRequestReadModelsInputSchema
 >;
 
-export const QueryBookingChangeRequestReadModelsResultSchema = z
+const BookingChangeRequestCollaborationReadModelsResultSchema = z
   .object({
-    scope: BookingChangeRequestReadScopeSchema,
+    scope: z.enum(['account_open', 'instructor_open']),
     items: z.array(BookingChangeRequestReadModelSchema),
   })
   .strict();
+
+const AdminBookingChangeRequestOpenReadModelsResultSchema = z
+  .object({
+    scope: z.literal('admin_open'),
+    items: z.array(AdminBookingChangeRequestInboxItemSchema),
+  })
+  .strict();
+
+const AdminBookingChangeRequestDetailReadModelsResultSchema = z
+  .object({
+    scope: z.literal('admin_detail'),
+    item: AdminBookingChangeRequestDetailReadModelSchema.optional(),
+  })
+  .strict();
+
+export const QueryBookingChangeRequestReadModelsResultSchema = z.discriminatedUnion('scope', [
+  BookingChangeRequestCollaborationReadModelsResultSchema,
+  AdminBookingChangeRequestOpenReadModelsResultSchema,
+  AdminBookingChangeRequestDetailReadModelsResultSchema,
+]);
 
 export type QueryBookingChangeRequestReadModelsResult = z.output<
   typeof QueryBookingChangeRequestReadModelsResultSchema

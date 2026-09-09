@@ -89,7 +89,7 @@ export const InstructorCollaborationPanel: React.FC<InstructorCollaborationPanel
         )}
       </div>
 
-      {bookingId && (
+      {bookingId && (openChangeRequest || onCreateChangeRequest) && (
         <div className="space-y-2">
           <h5 className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink-dim)]">
             {copy.changeRequestOpen}

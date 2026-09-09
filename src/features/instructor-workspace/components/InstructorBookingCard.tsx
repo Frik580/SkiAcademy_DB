@@ -216,8 +216,15 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
             })
           }
           onWithdrawProposal={collaboration.handleWithdrawProposal}
-          onCreateChangeRequest={(reason: string) =>
-            collaboration.handleCreateChangeRequest(b.id, reason)
+          onCreateChangeRequest={
+            b.authorizedActions.canCreateChangeRequest
+              ? (reason: string) =>
+                  collaboration.handleCreateChangeRequest({
+                    bookingId: b.id,
+                    reason,
+                    expectedRevision: b.revision,
+                  })
+              : undefined
           }
           onWithdrawChangeRequest={collaboration.handleWithdrawChangeRequest}
           submittingId={collaboration.submittingId}

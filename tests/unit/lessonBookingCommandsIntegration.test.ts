@@ -121,16 +121,23 @@ describe('lessonBooking commands integration', () => {
   it('requests authenticated cancellation with expected revision', async () => {
     const accountId = 'account_fixture_01';
     const bookingId = 'booking_cancel_01';
-    executeAuthenticatedMock.mockResolvedValueOnce({ status: 'success', payload: {} });
+    executeAuthenticatedMock.mockResolvedValueOnce({
+      status: 'success',
+      kind: 'request_booking_cancellation',
+      correlationId: 'correlation_cancel_01',
+      payload: { lifecycleStatus: 'cancelled' },
+    });
     queryReadModelsMock.mockResolvedValueOnce({ scope: 'account_hot', items: [], hasMore: false });
 
     const { result } = renderHook(() => useLessonBookingCommands(accountId));
-    await result.current.requestCancellation({
+    const outcome = await result.current.requestCancellation({
       bookingId,
       expectedRevision: 4,
       idempotencyKey: `cancel:${bookingId}:4`,
       exercisedCapability: 'account_owner',
     });
+
+    expect(outcome).toEqual({ lifecycleStatus: 'cancelled', refreshFailed: false });
 
     expect(executeAuthenticatedMock).toHaveBeenCalledWith(
       accountId,

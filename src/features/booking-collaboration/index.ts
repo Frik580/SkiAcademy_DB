@@ -15,5 +15,6 @@ export * from './components/BookingCollaborationActions';
 export * from './components/CustomerProposalInbox';
 export * from './components/ParticipantAccessControls';
 export * from './components/InstructorCollaborationPanel';
+export * from './components/StudentOpenChangeRequestNotice';
 export * from './components/CreateProposalModal';
 export * from './components/CoachParticipantAccessPanel';

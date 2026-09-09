@@ -2,6 +2,7 @@ import type {
   LessonBookingAdminProjection,
   LessonBookingReadModel,
 } from '@ski-academy/shared-domain';
+import { useMemo, useState } from 'react';
 import { formatLessonDifficultyOrUnspecified } from '../../../lib/i18n/bookingLabels';
 import type { Language, TranslationKey } from '../../../lib/i18n/translations';
 import { AdminManagedParticipantPicker } from '../identity';
@@ -69,6 +70,7 @@ export interface AdminLessonBookingDetailProps {
   readonly onClose: () => void;
   readonly onOpenPayment: (paymentId: string) => void;
   readonly onOpenIssue: (issueId: string) => void;
+  readonly focusedChangeRequestId?: string;
 }
 
 function formatOccurrenceParts(
@@ -152,8 +154,26 @@ export function AdminLessonBookingDetail({
   onClose,
   onOpenPayment,
   onOpenIssue,
+  focusedChangeRequestId,
 }: AdminLessonBookingDetailProps) {
   const occurrence = formatOccurrenceParts(detail, locale);
+  const [rescheduleDate, setRescheduleDate] = useState(() => {
+    const start = new Date(detail.occurrence.startsAt.seconds * 1_000);
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: detail.occurrence.timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(start);
+    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return {
+      date: `${values.year}-${values.month}-${values.day}`,
+      time: `${values.hour === '24' ? '00' : values.hour}:${values.minute}`,
+    };
+  });
   const formatKzt = (value: number) =>
     new Intl.NumberFormat(locale, {
       style: 'currency',
@@ -194,6 +214,18 @@ export function AdminLessonBookingDetail({
     Number.isInteger(parsedPaymentAmount) &&
     parsedPaymentAmount > 0 &&
     parsedPaymentAmount <= payment.outstanding;
+  const openChangeRequests = useMemo(
+    () => admin.relatedOpenChangeRequests ?? [],
+    [admin.relatedOpenChangeRequests]
+  );
+  const focusedChangeRequest =
+    openChangeRequests.find((item) => item.requestId === focusedChangeRequestId) ??
+    openChangeRequests[0];
+  const canResolveFocused =
+    focusedChangeRequest !== undefined &&
+    Boolean(actionReason.trim()) &&
+    rescheduleDate.date.length > 0 &&
+    rescheduleDate.time.length > 0;
 
   return (
     <div className="space-y-4">
@@ -241,6 +273,132 @@ export function AdminLessonBookingDetail({
             <p className="mt-1 text-[var(--ink-dim)]">{t('adminLessonGuestApprovalUnavailable')}</p>
           )}
         </div>
+      )}
+
+      {focusedChangeRequest && (
+        <section
+          id={`admin-change-request-${focusedChangeRequest.requestId}`}
+          className="space-y-3 border border-amber-500/30 bg-amber-500/5 p-3"
+        >
+          <div>
+            <p className="text-xs font-medium">{t('adminLessonInstructorRequestedChange')}</p>
+            <p className="mt-1 text-xs text-[var(--ink-dim)]">
+              {t('collabWaitingAdminDecision')}
+            </p>
+          </div>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
+            <dt className="text-[var(--ink-dim)]">{t('adminLessonChangeRequestReason')}</dt>
+            <dd>{focusedChangeRequest.reason}</dd>
+            <dt className="text-[var(--ink-dim)]">{t('adminAttentionCreatedAt')}</dt>
+            <dd>{formatInstant(focusedChangeRequest.createdAt, locale, detail.occurrence.timeZone)}</dd>
+          </dl>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block text-xs">
+              {t('adminLessonNewLessonDate')}
+              <input
+                type="date"
+                aria-label={t('adminLessonNewLessonDate')}
+                value={rescheduleDate.date}
+                onChange={(event) =>
+                  setRescheduleDate((current) => ({ ...current, date: event.target.value }))
+                }
+                className="mt-1 w-full border border-[var(--border)] bg-transparent p-2"
+              />
+            </label>
+            <label className="block text-xs">
+              {t('adminLessonNewLessonTime')}
+              <input
+                type="time"
+                aria-label={t('adminLessonNewLessonTime')}
+                value={rescheduleDate.time}
+                onChange={(event) =>
+                  setRescheduleDate((current) => ({ ...current, time: event.target.value }))
+                }
+                className="mt-1 w-full border border-[var(--border)] bg-transparent p-2"
+              />
+            </label>
+          </div>
+          <ReasonField
+            value={actionReason}
+            onChange={onActionReasonChange}
+            t={t}
+            ariaLabel={t('adminLessonReason')}
+          />
+          <label className="block text-xs">
+            {t('adminLessonRefund')}
+            <input
+              aria-label={t('adminLessonRefund')}
+              type="number"
+              min="0"
+              max={admin.cancellationFinancial?.maximumRefund}
+              value={refundAmount}
+              onChange={(event) => onRefundAmountChange(event.target.value)}
+              className="mt-1 w-full border border-[var(--border)] bg-transparent p-2"
+            />
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={!canResolveFocused}
+              onClick={() =>
+                onRequestAttempt(
+                  {
+                    kind: 'resolve_booking_change_request',
+                    bookingChangeRequestId: focusedChangeRequest.requestId,
+                    requestRevision: focusedChangeRequest.revision,
+                    resolution: 'rescheduled',
+                    reasonExplanation: actionReason.trim(),
+                    localDate: rescheduleDate.date,
+                    localTime: rescheduleDate.time,
+                    durationMinutes: detail.occurrence.durationMinutes,
+                    timezone: detail.occurrence.timeZone,
+                  },
+                  t('adminLessonResolveChangeReschedule')
+                )
+              }
+              className="border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
+            >
+              {t('adminLessonResolveChangeReschedule')}
+            </button>
+            <button
+              type="button"
+              disabled={!actionReason.trim() || !refundValid}
+              onClick={() =>
+                onRequestAttempt(
+                  {
+                    kind: 'resolve_booking_change_request',
+                    bookingChangeRequestId: focusedChangeRequest.requestId,
+                    requestRevision: focusedChangeRequest.revision,
+                    resolution: 'booking_cancelled',
+                    refundAmount: Number(refundAmount),
+                    reasonExplanation: actionReason.trim(),
+                  },
+                  t('adminLessonResolveChangeCancel')
+                )
+              }
+              className="border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
+            >
+              {t('adminLessonResolveChangeCancel')}
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                onRequestAttempt(
+                  {
+                    kind: 'resolve_booking_change_request',
+                    bookingChangeRequestId: focusedChangeRequest.requestId,
+                    requestRevision: focusedChangeRequest.revision,
+                    resolution: 'no_change',
+                  },
+                  t('adminLessonResolveChangeReject')
+                )
+              }
+              className="border border-[var(--border)] px-3 py-2 text-xs"
+            >
+              {t('adminLessonResolveChangeReject')}
+            </button>
+          </div>
+        </section>
       )}
 
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-xs">

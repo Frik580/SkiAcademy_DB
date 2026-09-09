@@ -3,8 +3,10 @@ import {
   canonicalPaths,
   normalizeFirestoreDocument,
   readAggregateRevision,
+  type Booking,
   type BookingChangeRequest,
 } from '@ski-academy/shared-domain';
+import type { Firestore } from 'firebase-admin/firestore';
 
 export const BOOKING_CHANGE_REQUEST_PLANNING_ESTIMATES = {
   requestBytes: 768,
@@ -39,4 +41,28 @@ export function toFirestoreWritePayload(
   data: Record<string, unknown>
 ): Record<string, unknown> {
   return Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined));
+}
+
+export function isOpenBookingChangeRequest(changeRequest: BookingChangeRequest): boolean {
+  return changeRequest.lifecycle.status === 'open';
+}
+
+export async function loadOpenChangeRequestsForBooking(
+  firestore: Firestore,
+  bookingId: Booking['bookingId']
+): Promise<BookingChangeRequest[]> {
+  const snapshot = await firestore
+    .collection('booking_change_requests')
+    .where('bookingId', '==', bookingId)
+    .limit(10)
+    .get();
+
+  const requests: BookingChangeRequest[] = [];
+  for (const doc of snapshot.docs) {
+    const parsed = parseBookingChangeRequest(doc.data() as Record<string, unknown>);
+    if (parsed && isOpenBookingChangeRequest(parsed)) {
+      requests.push(parsed);
+    }
+  }
+  return requests;
 }

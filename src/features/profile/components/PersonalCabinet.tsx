@@ -190,7 +190,6 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
       onConfirm: async (reason?: string) => {
         try {
           await onCancel(booking.id, reason);
-          addNotification('success', t('cancellationRequested'), t('cancellationRequestedDesc'));
         } catch {
           addNotification('error', t('requestFailed'), t('requestFailedDesc'));
         }

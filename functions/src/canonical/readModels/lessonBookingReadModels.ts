@@ -19,6 +19,7 @@ import {
   paymentIdMatchesSubject,
   refundableRetainedAmount,
   evaluateLessonBookingAuthorizedActions,
+  evaluateInstructorLessonBookingAuthorizedActions,
   sanitizeParticipantProfileForInstructor,
   evaluateAdminGuestBookingIdentityLinkAvailability,
   type Account,
@@ -53,6 +54,7 @@ import type { Firestore, Query, QueryDocumentSnapshot } from 'firebase-admin/fir
 import { parseAdminIssue } from '../adminIssues';
 import { verifyGuestActionCredentialPartsAuthoritative } from '../bookings/guestCredentialVerification';
 import { parseBooking, parseInstructorCatalog } from '../bookings/bookingStore';
+import { loadOpenChangeRequestsForBooking } from '../bookings/bookingChangeRequestStore';
 import { parseAttendance } from '../bookings/attendanceStore';
 import { parsePayment } from '../finance/financeStore';
 import { parseAccount, parseParticipant } from '../participantAccess/participantAccessStore';
@@ -296,6 +298,7 @@ const INSTRUCTOR_LESSON_DENIED_ACTIONS = {
   canRequestCancellation: false,
   canWithdrawCancellation: false,
   canReschedule: false,
+  canCreateChangeRequest: false,
 };
 
 function safeAdminAccountIdentity(
@@ -435,6 +438,7 @@ export async function buildAdminLessonBookingReadModel(
     paymentSnap,
     administratorSnap,
     relatedIssues,
+    relatedOpenChangeRequests,
     participantSnaps,
     attendanceSnaps,
   ] = await Promise.all([
@@ -442,6 +446,7 @@ export async function buildAdminLessonBookingReadModel(
     readContext.payment(booking.paymentId),
     readContext.account(actor.accountId),
     loadRelatedBookingAdminIssues(firestore, booking),
+    loadOpenChangeRequestsForBooking(firestore, booking.bookingId),
     Promise.all(
       booking.party.participantIds.map((participantId) => readContext.participant(participantId))
     ),
@@ -650,6 +655,13 @@ export async function buildAdminLessonBookingReadModel(
         blocksOutcome: issue.blocksOutcome,
         blocksDelivery: issue.blocksDelivery,
         updatedAt: issue.updatedAt,
+      })),
+      relatedOpenChangeRequests: relatedOpenChangeRequests.map((changeRequest) => ({
+        requestId: changeRequest.requestId,
+        revision: changeRequest.revision,
+        requestType: changeRequest.requestType,
+        reason: changeRequest.reason,
+        createdAt: changeRequest.createdAt,
       })),
       attendance,
       scheduleRevision: booking.occurrence.scheduleRevision,
@@ -874,7 +886,10 @@ export async function buildInstructorLessonBookingReadModel(
     occurrence,
     lifecycle: buildLifecycleProjection(booking),
     bookingOrigin: booking.attribution.bookingOrigin,
-    authorizedActions: INSTRUCTOR_LESSON_DENIED_ACTIONS,
+    authorizedActions: evaluateInstructorLessonBookingAuthorizedActions({
+      instructorId,
+      booking,
+    }),
     ...lessonContentFromBooking(booking),
     updatedAt: booking.updatedAt,
   };

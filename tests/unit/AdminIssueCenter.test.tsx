@@ -3,10 +3,15 @@ import { MemoryRouter, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const useReadModelsMock = vi.fn();
+const useAttentionMock = vi.fn();
 const retryListMock = vi.fn();
 
 vi.mock('../../src/features/admin/issues/useAdminIssueReadModels', () => ({
   useAdminIssueReadModels: (...args: unknown[]) => useReadModelsMock(...args),
+}));
+
+vi.mock('../../src/features/admin/issues/useAdminAttentionChangeRequests', () => ({
+  useAdminAttentionChangeRequests: (...args: unknown[]) => useAttentionMock(...args),
 }));
 
 vi.mock('../../src/features/admin/issues/useAdminIssueTranslations', () => ({
@@ -50,6 +55,13 @@ describe('AdminIssueCenter', () => {
   beforeEach(() => {
     retryListMock.mockReset();
     useReadModelsMock.mockReset();
+    useAttentionMock.mockReset();
+    useAttentionMock.mockReturnValue({
+      list: { items: [], loading: false },
+      detail: { loading: false },
+      retryList: vi.fn(),
+      retryDetail: vi.fn(),
+    });
   });
 
   it('renders an empty canonical inbox state', () => {
@@ -70,7 +82,7 @@ describe('AdminIssueCenter', () => {
         <AdminIssueCenter />
       </MemoryRouter>
     );
-    expect(screen.getByText('adminIssueEmptyOpen')).toBeInTheDocument();
+    expect(screen.getByText('adminAttentionEmptyOpen')).toBeInTheDocument();
   });
 
   it('renders attendance_payment_conflict context and deferred server actions', () => {
@@ -242,5 +254,78 @@ describe('AdminIssueCenter', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: /retry/i }));
     expect(retryListMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders an open BookingChangeRequest as an attention item and opens booking detail', () => {
+    const requestId = 'booking_change_request_component_01';
+    const changeRequest = {
+      sourceRef: {
+        sourceKind: 'booking_change_request' as const,
+        bookingChangeRequestId: requestId,
+      },
+      requestId,
+      revision: 1,
+      bookingId: 'booking_component_change_01',
+      bookingRevision: 4,
+      requestType: 'instructor_unavailable' as const,
+      reason: 'Instructor is unavailable that morning',
+      lifecycle: { status: 'open' as const },
+      instructor: {
+        instructorId: 'instructor_component_01',
+        displayName: 'Coach Anna',
+      },
+      participants: [
+        { participantId: 'participant_component_01', displayName: 'Safe Participant' },
+      ],
+      occurrence: {
+        startsAt: { seconds: 1_788_250_000, nanoseconds: 0 },
+        endsAt: { seconds: 1_788_253_600, nanoseconds: 0 },
+        timeZone: 'Asia/Almaty',
+      },
+      authorizedActions: {
+        canResolveRescheduled: true,
+        canResolveBookingCancelled: true,
+        canResolveNoChange: true,
+      },
+      createdAt: { seconds: 3, nanoseconds: 0 },
+      updatedAt: { seconds: 3, nanoseconds: 0 },
+    };
+    useReadModelsMock.mockReturnValue({
+      list: {
+        items: [],
+        loading: false,
+        loadingMore: false,
+        hasMore: false,
+      },
+      detail: { loading: false },
+      retryList: retryListMock,
+      retryDetail: vi.fn(),
+      loadMore: vi.fn(),
+    });
+    useAttentionMock.mockReturnValue({
+      list: { items: [changeRequest], loading: false },
+      detail: { loading: false, item: { ...changeRequest, actionRequirement: 'action_required' } },
+      retryList: vi.fn(),
+      retryDetail: vi.fn(),
+    });
+    render(
+      <MemoryRouter initialEntries={[`/admin?tab=operations&changeRequest=${requestId}`]}>
+        <AdminIssueCenter />
+        <LocationProbe />
+      </MemoryRouter>
+    );
+
+    expect(screen.getAllByText('adminAttentionChangeRequestKind').length).toBeGreaterThan(0);
+    expect(screen.getByText('Coach Anna')).toBeInTheDocument();
+    expect(screen.getByText('Instructor is unavailable that morning')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /resolve/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'adminAttentionOpenItem' }));
+    expect(screen.getByLabelText('location')).toHaveTextContent('tab=operations');
+    expect(screen.getByLabelText('location')).toHaveTextContent(
+      'booking=booking_component_change_01'
+    );
+    expect(screen.getByLabelText('location')).toHaveTextContent(
+      `changeRequest=${requestId}`
+    );
   });
 });

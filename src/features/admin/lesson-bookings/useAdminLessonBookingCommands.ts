@@ -2,9 +2,11 @@ import { useCallback } from 'react';
 import {
   AccountIdSchema,
   AggregateRevisionSchema,
+  BookingChangeRequestIdSchema,
   BookingIdSchema,
   canonicalDeterministicHash,
   InstructorIdSchema,
+  IanaTimeZoneSchema,
   KztMinorUnitsSchema,
   ParticipantIdSchema,
   PaymentIdSchema,
@@ -183,6 +185,43 @@ export async function executeAdminLessonBookingAttempt(
         },
         idempotencyKey: attempt.idempotencyKey,
         expectedRevision,
+        administratorContext: true,
+      })
+    );
+    return;
+  }
+
+  if (attempt.kind === 'resolve_booking_change_request') {
+    await assertCommandSucceeded(
+      executeAuthenticatedCanonicalCommand(adminAccountId, {
+        kind: attempt.kind,
+        intent: {
+          bookingChangeRequestId: BookingChangeRequestIdSchema.parse(
+            attempt.bookingChangeRequestId
+          ),
+          resolution: attempt.resolution,
+          ...(attempt.refundAmount === undefined
+            ? {}
+            : { refundAmount: KztMinorUnitsSchema.parse(attempt.refundAmount) }),
+          ...(attempt.reasonExplanation
+            ? { reasonExplanation: attempt.reasonExplanation }
+            : {}),
+        },
+        idempotencyKey: attempt.idempotencyKey,
+        expectedRevision: AggregateRevisionSchema.parse(attempt.requestRevision),
+        ...(attempt.resolution === 'no_change'
+          ? {}
+          : { bookingRevision: expectedRevision }),
+        ...(attempt.resolution === 'rescheduled'
+          ? {
+              calendarInput: {
+                localDate: attempt.localDate!,
+                localTime: attempt.localTime!,
+                durationMinutes: attempt.durationMinutes!,
+              },
+              timezone: IanaTimeZoneSchema.parse(attempt.timezone),
+            }
+          : {}),
         administratorContext: true,
       })
     );

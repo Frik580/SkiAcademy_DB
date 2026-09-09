@@ -479,7 +479,10 @@ function requestAuthenticatedCourseEnrollmentCancellationHandler(
             }
           }
         }
-        return commandSuccessResult(envelope.kind, envelope.context.correlationId);
+        return commandSuccessResult(envelope.kind, envelope.context.correlationId, {
+          lifecycleStatus:
+            timing.kind === 'direct_cancel' ? 'cancelled' : 'pending_cancellation',
+        });
       },
     };
 

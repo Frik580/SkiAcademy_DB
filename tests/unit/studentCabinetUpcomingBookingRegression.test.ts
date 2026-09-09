@@ -49,6 +49,7 @@ function buildFutureAccountHotItem(bookingId: string) {
       canRequestCancellation: true,
       canWithdrawCancellation: false,
       canReschedule: true,
+      canCreateChangeRequest: false,
     },
     paymentPresentation: {
       kind: 'visible' as const,

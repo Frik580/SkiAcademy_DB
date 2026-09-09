@@ -4,3 +4,4 @@ export {
   mergeAdminIssueInboxItems,
   useAdminIssueReadModels,
 } from './useAdminIssueReadModels';
+export { useAdminAttentionChangeRequests } from './useAdminAttentionChangeRequests';

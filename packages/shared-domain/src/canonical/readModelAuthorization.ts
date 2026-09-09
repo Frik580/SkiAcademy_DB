@@ -40,6 +40,7 @@ import type {
 import { sortedCourseDays } from './courseEnrollmentCreation';
 import type { CanonicalTimestamp } from './primitives';
 import type {
+  AdminBookingChangeRequestReadModelAuthorizedActions,
   BookingChangeRequestReadModelAuthorizedActions,
   BookingProposalReadModelAuthorizedActions,
   CourseAttendanceReadModelAuthorizedActions,
@@ -241,6 +242,7 @@ export function evaluateLessonBookingAuthorizedActions(
     canRequestCancellation: false,
     canWithdrawCancellation: false,
     canReschedule: false,
+    canCreateChangeRequest: false,
   };
 
   if (
@@ -287,6 +289,30 @@ export function evaluateLessonBookingAuthorizedActions(
     canRequestCancellation,
     canWithdrawCancellation,
     canReschedule,
+    canCreateChangeRequest: false,
+  };
+}
+
+export function evaluateInstructorLessonBookingAuthorizedActions(
+  input: Readonly<{
+    instructorId: InstructorId;
+    booking: Booking;
+  }>
+): LessonBookingReadModelAuthorizedActions {
+  const denied: LessonBookingReadModelAuthorizedActions = {
+    canRequestCancellation: false,
+    canWithdrawCancellation: false,
+    canReschedule: false,
+    canCreateChangeRequest: false,
+  };
+
+  if (input.booking.occurrence.instructorId !== input.instructorId) {
+    return denied;
+  }
+
+  return {
+    ...denied,
+    canCreateChangeRequest: isConfirmedBooking(input.booking),
   };
 }
 
@@ -373,6 +399,21 @@ export function evaluateBookingChangeRequestAuthorizedActions(
     canWithdraw:
       input.booking.occurrence.instructorId === input.actor.instructorId &&
       input.changeRequest.bookingId === input.booking.bookingId,
+  };
+}
+
+export function evaluateAdminBookingChangeRequestAuthorizedActions(
+  input: Readonly<{
+    actor: ReadModelAdministratorActor;
+    changeRequest: BookingChangeRequest;
+  }>
+): AdminBookingChangeRequestReadModelAuthorizedActions {
+  const canResolve =
+    input.actor.kind === 'administrator' && input.changeRequest.lifecycle.status === 'open';
+  return {
+    canResolveRescheduled: canResolve,
+    canResolveBookingCancelled: canResolve,
+    canResolveNoChange: canResolve,
   };
 }
 

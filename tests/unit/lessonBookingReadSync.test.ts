@@ -46,6 +46,7 @@ function buildGuestReadItem(bookingId: string, revision: number) {
       canRequestCancellation: true,
       canWithdrawCancellation: false,
       canReschedule: false,
+      canCreateChangeRequest: false,
     },
     paymentPresentation: { kind: 'withheld' as const },
     updatedAt: timestampFromDate(new Date('2026-06-01T00:00:00.000Z')),

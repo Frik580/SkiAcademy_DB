@@ -6,6 +6,7 @@ import {
   type AdminIssueId,
   type AuditOutboxStagingPlan,
   type BookingCancellationReasonCode,
+  type BookingChangeRequestId,
   type BookingId,
   type CommandEnvelope,
   type MonetaryEventId,
@@ -278,6 +279,10 @@ export function buildResolveCancellationAuditPlan(input: {
   walletAccountId?: AccountId;
   issue?: { readonly issueId: AdminIssueId; readonly revision: number; readonly effect: 'opened' | 'reused' };
   resolvedPendingIssue?: { readonly issueId: AdminIssueId; readonly revision: number };
+  closedChangeRequests?: readonly Readonly<{
+    requestId: BookingChangeRequestId;
+    revision: number;
+  }>[];
   summary: string;
   paymentEffectSummary?: string;
 }): AuditOutboxStagingPlan {
@@ -351,6 +356,9 @@ export function buildResolveCancellationAuditPlan(input: {
         ...(paymentRef ? [paymentRef] : []),
         ...(issueRef ? [issueRef] : []),
         ...(resolvedPendingRef ? [resolvedPendingRef] : []),
+        ...(input.closedChangeRequests ?? []).map((request) =>
+          canonicalReference('booking_change_request', request.requestId)
+        ),
       ],
       effects,
       monetaryEventIds: [...input.monetaryEventIds],
@@ -395,6 +403,10 @@ export function buildResolveCancellationAuditPlan(input: {
               },
             ]
           : []),
+        ...(input.closedChangeRequests ?? []).map((request) => ({
+          subject: canonicalReference('booking_change_request', request.requestId),
+          revision: AggregateRevisionSchema.parse(request.revision),
+        })),
       ],
     },
     outboxObligations: [],

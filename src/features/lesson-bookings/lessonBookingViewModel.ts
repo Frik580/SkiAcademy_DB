@@ -2,6 +2,7 @@ import type { LessonBookingReadModel } from '@ski-academy/shared-domain';
 import type { BookingStatus } from '@ski-academy/shared-domain';
 import type { LessonBookingCabinetItem } from './lessonBookingContracts';
 import { canonicalTimestampToLocalParts } from './mapCalendarInput';
+import { useLessonBookingStore } from './lessonBookingStore';
 
 function mapLifecycleStatus(status: LessonBookingReadModel['lifecycle']['status']): BookingStatus {
   if (status === 'no_show') return 'completed';
@@ -69,4 +70,28 @@ export function mergeLessonBookingRecords(
     }
   }
   return merged;
+}
+
+export function patchLessonBookingCancellationInStore(input: {
+  readonly bookingId: string;
+  readonly lifecycleStatus: 'cancelled' | 'pending_cancellation';
+  readonly nextRevision: number;
+}): void {
+  const existing = useLessonBookingStore.getState().items.get(input.bookingId);
+  if (!existing || input.nextRevision < existing.revision) {
+    return;
+  }
+
+  const updated: LessonBookingCabinetItem = {
+    ...existing,
+    status: input.lifecycleStatus,
+    revision: input.nextRevision,
+    authorizedActions: {
+      canRequestCancellation: false,
+      canWithdrawCancellation: input.lifecycleStatus === 'pending_cancellation',
+      canReschedule: false,
+      canCreateChangeRequest: false,
+    },
+  };
+  useLessonBookingStore.getState().mergeItems(new Map([[input.bookingId, updated]]));
 }

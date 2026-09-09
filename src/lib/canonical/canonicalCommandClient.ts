@@ -29,6 +29,7 @@ export interface CanonicalCommandSubmission<Kind extends CommandKind> {
   readonly timezone?: CommandEnvelope<Kind>['context']['timezone'];
   readonly exercisedCapability?: ClientCallableCapability;
   readonly administratorContext?: boolean;
+  readonly bookingRevision?: CommandEnvelope<Kind>['context']['expectedRevision'];
 }
 
 export interface GuestCanonicalCommandSubmission<Kind extends CommandKind> {
@@ -106,6 +107,9 @@ export async function executeAuthenticatedCanonicalCommand<Kind extends CommandK
       ? { exercisedCapability: submission.exercisedCapability }
       : {}),
     ...(submission.administratorContext ? { administratorContext: true } : {}),
+    ...(submission.bookingRevision !== undefined
+      ? { bookingRevision: submission.bookingRevision }
+      : {}),
   };
 
   try {

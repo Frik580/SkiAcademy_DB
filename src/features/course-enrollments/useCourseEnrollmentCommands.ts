@@ -33,6 +33,11 @@ import {
 import { persistGuestCourseEnrollmentCredential } from './guestCourseEnrollmentCredentialStorage';
 import { useCourseEnrollmentStore } from './courseEnrollmentStore';
 import { mergeCatalogRecords, mergeCourseEnrollmentRecords } from './courseEnrollmentViewModel';
+import {
+  resolveCourseCancellationLifecycleFromStore,
+  type CabinetCancellationCommandResult,
+} from '../student-cabinet/cabinetCancellationOutcome';
+import { resolveCabinetCancellationOutcome } from '../student-cabinet/resolveCabinetCancellationOutcome';
 
 async function refetchAccountHotEnrollments(): Promise<void> {
   const [enrollmentResult, catalogResult] = await Promise.all([
@@ -191,7 +196,7 @@ export function useCourseEnrollmentCommands(accountId: string | undefined) {
       readonly idempotencyKey: string;
       readonly exercisedCapability: ClientCallableCapability;
       readonly guestCredential?: GuestCourseEnrollmentLinkCredential;
-    }): Promise<void> => {
+    }): Promise<CabinetCancellationCommandResult> => {
       if (input.guestCredential) {
         const result = await executeGuestCanonicalCommand({
           kind: 'request_course_enrollment_cancellation',
@@ -205,7 +210,19 @@ export function useCourseEnrollmentCommands(accountId: string | undefined) {
         });
         const error = mapCanonicalCommandResultError(result);
         if (error) throw error;
-        return;
+        return resolveCabinetCancellationOutcome({
+          entityKind: 'course',
+          entityId: input.enrollmentId,
+          nextRevision: input.expectedRevision + 1,
+          commandResult:
+            result.status === 'success' ? result : { status: 'success', payload: undefined },
+          refresh: async () => undefined,
+          readLifecycleFromStore: () =>
+            resolveCourseCancellationLifecycleFromStore(
+              input.enrollmentId,
+              useCourseEnrollmentStore.getState().items
+            ),
+        });
       }
       if (!accountId) {
         throw new Error('Authentication is required.');
@@ -221,7 +238,19 @@ export function useCourseEnrollmentCommands(accountId: string | undefined) {
       });
       const error = mapCanonicalCommandResultError(result);
       if (error) throw error;
-      await refetchAccountHotEnrollments();
+      return resolveCabinetCancellationOutcome({
+        entityKind: 'course',
+        entityId: input.enrollmentId,
+        nextRevision: input.expectedRevision + 1,
+        commandResult:
+          result.status === 'success' ? result : { status: 'success', payload: undefined },
+        refresh: refetchAccountHotEnrollments,
+        readLifecycleFromStore: () =>
+          resolveCourseCancellationLifecycleFromStore(
+            input.enrollmentId,
+            useCourseEnrollmentStore.getState().items
+          ),
+      });
     },
     [accountId]
   );

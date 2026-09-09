@@ -67,6 +67,7 @@ const individualBooking = {
     canRequestCancellation: false,
     canWithdrawCancellation: false,
     canReschedule: false,
+    canCreateChangeRequest: true,
   },
 } as InstructorLessonBookingItem;
 
@@ -110,5 +111,44 @@ describe('useInstructorWorkspace canonical lesson isolation', () => {
       'Lesson Student',
       'Second Student',
     ]);
+  });
+
+  it('preserves canonical authorizedActions on displayed bookings', () => {
+    const pendingBooking = {
+      ...individualBooking,
+      bookingId: 'booking_pending_01',
+      status: 'pending',
+      authorizedActions: {
+        canRequestCancellation: false,
+        canWithdrawCancellation: false,
+        canReschedule: false,
+        canCreateChangeRequest: false,
+      },
+    } as InstructorLessonBookingItem;
+
+    const { result } = renderHook(() =>
+      useInstructorWorkspace({
+        userProfile,
+        instructors: [],
+        lessonBookings: [individualBooking, pendingBooking],
+        reviews: [],
+        courses,
+        usersList: [
+          {
+            uid: 'student_workspace_01',
+            displayName: 'Lesson Student',
+          } as UserProfile,
+        ],
+      })
+    );
+
+    expect(
+      result.current.displayedBookings.find((booking) => booking.id === 'booking_individual_01')
+        ?.authorizedActions.canCreateChangeRequest
+    ).toBe(true);
+    expect(
+      result.current.displayedBookings.find((booking) => booking.id === 'booking_pending_01')
+        ?.authorizedActions.canCreateChangeRequest
+    ).toBe(false);
   });
 });

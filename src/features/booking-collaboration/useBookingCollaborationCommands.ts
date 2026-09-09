@@ -219,7 +219,11 @@ export function useBookingCollaborationCommands(input: {
   );
 
   const createChangeRequest = useCallback(
-    async (params: { readonly bookingId: string; readonly reason: string }): Promise<string> => {
+    async (params: {
+      readonly bookingId: string;
+      readonly reason: string;
+      readonly expectedRevision: number;
+    }): Promise<string> => {
       if (!accountId) throw new Error('Authentication is required.');
       const requestId = createLogicalBookingChangeRequestId();
       const result = await executeAuthenticatedCanonicalCommand(accountId, {
@@ -230,6 +234,7 @@ export function useBookingCollaborationCommands(input: {
           reason: params.reason,
         },
         idempotencyKey: deriveCreateChangeRequestIdempotencyKey(requestId),
+        expectedRevision: AggregateRevisionSchema.parse(params.expectedRevision),
         exercisedCapability: 'instructor',
       });
       const error = mapCanonicalCommandResultError(result);

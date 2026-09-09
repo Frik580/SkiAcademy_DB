@@ -80,6 +80,11 @@ import {
   parseInstructorCatalog,
   toFirestoreWritePayload,
 } from './bookingStore';
+import {
+  commitClosedBookingChangeRequestsForDirectAdminMutation,
+  planCloseOpenBookingChangeRequestsForDirectAdminMutation,
+  type PlannedDirectAdminChangeRequestClose,
+} from './bookingChangeRequestDirectAdminClose';
 
 function priceLessonPartyFromBase(
   envelope: CommandEnvelope,
@@ -169,6 +174,7 @@ function rescheduleBookingHandler(
   let plannedBookingRevision = AggregateRevisionSchema.parse(1);
   let claimSwapPlan!: BookingOccurrenceClaimSwapPlan;
   let notificationAccountId: AccountId | undefined;
+  let plannedChangeRequestCloses: PlannedDirectAdminChangeRequestClose[] = [];
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'reschedule_booking'> = {
     read: async (session) => {
@@ -323,6 +329,15 @@ function rescheduleBookingHandler(
         category: 'aggregate',
         estimatedPayloadBytes: BOOKING_PLANNING_ESTIMATES.bookingBytes,
       });
+
+      plannedChangeRequestCloses = [];
+      if (mode === 'administrator') {
+        plannedChangeRequestCloses = await planCloseOpenBookingChangeRequestsForDirectAdminMutation(
+          session,
+          booking.bookingId,
+          'rescheduled'
+        );
+      }
     },
     planAuditOutbox: async () =>
       buildRescheduleBookingAuditPlan({
@@ -331,6 +346,14 @@ function rescheduleBookingHandler(
         bookingRevision: plannedBookingRevision,
         mode,
         notificationAccountId,
+        ...(plannedChangeRequestCloses.length === 0
+          ? {}
+          : {
+              closedChangeRequests: plannedChangeRequestCloses.map((item) => ({
+                requestId: item.changeRequest.requestId,
+                revision: item.plannedRevision,
+              })),
+            }),
       }),
     execute: async (session, context) => {
       const decidedAt = timestampFromDate(context.decidedAt);
@@ -368,6 +391,12 @@ function rescheduleBookingHandler(
         session,
         claimSwapPlan,
         claimMetadata,
+        context.decidedAt
+      );
+      commitClosedBookingChangeRequestsForDirectAdminMutation(
+        session,
+        plannedChangeRequestCloses,
+        metadata,
         context.decidedAt
       );
 

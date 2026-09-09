@@ -6,7 +6,11 @@ import {
   rejectSpoofedBookingChangeRequestReadInput,
   type QueryBookingChangeRequestReadModelsResult,
 } from '@ski-academy/shared-domain';
-import { queryBookingChangeRequestReadModels } from './bookingChangeRequestReadModels';
+import {
+  BookingChangeRequestAdminReadForbiddenError,
+  queryBookingChangeRequestReadModels,
+} from './bookingChangeRequestReadModels';
+import { resolveCallableAdministratorActor } from './resolveCallableAdministrator';
 import {
   readCallableAccountProfile,
   resolveCallableInstructorId,
@@ -34,6 +38,26 @@ export function createQueryBookingChangeRequestReadModelsHandler(firestore: Fire
       throw new HttpsError('unauthenticated', 'Authentication is required.');
     }
     const readContext = createReadModelRequestContext(firestore);
+
+    if (parsed.data.scope === 'admin_open' || parsed.data.scope === 'admin_detail') {
+      const administratorActor = await resolveCallableAdministratorActor(
+        firestore,
+        request.auth.uid,
+        readContext
+      );
+      try {
+        return await queryBookingChangeRequestReadModels(firestore, parsed.data, {
+          accountId: parsedAccountId.data,
+          administratorActor,
+          readContext,
+        });
+      } catch (error) {
+        if (error instanceof BookingChangeRequestAdminReadForbiddenError) {
+          throw new HttpsError('permission-denied', 'This action is not permitted.');
+        }
+        throw error;
+      }
+    }
 
     let instructorId: ReturnType<typeof resolveCallableInstructorId> | undefined;
     if (parsed.data.scope === 'instructor_open') {

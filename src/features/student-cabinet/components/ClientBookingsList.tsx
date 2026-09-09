@@ -34,7 +34,13 @@ import { ScTextButton } from './student/StudentCabinetUI';
 import { RecommendationIndicator } from './RecommendationIndicator';
 import { ChatUnreadIndicator } from '../../../features/chat';
 import { ApplePagination } from '../../../ui/ApplePagination';
-import { BookingCollaborationActions } from '../../../features/booking-collaboration';
+import {
+  BookingCollaborationActions,
+  selectCollaborationChangeRequests,
+  selectOpenChangeRequestForBooking,
+  StudentOpenChangeRequestNotice,
+  useBookingCollaborationStore,
+} from '../../../features/booking-collaboration';
 import {
   hasBookingRecommendations,
   hasPendingRecommendations,
@@ -92,6 +98,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
   collaborationSubmittingId,
 }) => {
   const { language, t } = useLanguage();
+  const changeRequests = useBookingCollaborationStore(selectCollaborationChangeRequests);
 
   const [hideCancelled, setHideCancelled] = useState<boolean>(() => {
     const saved = localStorage.getItem('alpine_glide_hide_cancelled_bookings');
@@ -417,6 +424,9 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                               {b.cancellationReason}
                             </p>
                           )}
+                          {selectOpenChangeRequestForBooking(changeRequests, b.bookingId) ? (
+                            <StudentOpenChangeRequestNotice />
+                          ) : null}
                         </div>
                       </div>
 

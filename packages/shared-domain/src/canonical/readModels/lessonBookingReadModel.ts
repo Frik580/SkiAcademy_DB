@@ -5,6 +5,7 @@ import {
   ActorRefSchema,
   AdminIssueIdSchema,
   AttendanceIdSchema,
+  BookingChangeRequestIdSchema,
   BookingIdSchema,
   InstructorIdSchema,
   ParticipantIdSchema,
@@ -194,6 +195,16 @@ export const LessonBookingAdminIssueSummarySchema = z
   })
   .strict();
 
+export const LessonBookingAdminOpenChangeRequestSummarySchema = z
+  .object({
+    requestId: BookingChangeRequestIdSchema,
+    revision: AggregateRevisionSchema,
+    requestType: z.literal('instructor_unavailable'),
+    reason: z.string().trim().min(1).max(2_000),
+    createdAt: CanonicalTimestampSchema,
+  })
+  .strict();
+
 export const LessonBookingAdminAttendancePresentationSchema = z
   .object({
     participantId: ParticipantIdSchema,
@@ -261,6 +272,7 @@ export const LessonBookingAdminProjectionSchema = z
     payment: LessonBookingAdminPaymentAccountingSchema,
     cancellationFinancial: LessonBookingAdminCancellationFinancialProjectionSchema,
     relatedIssues: z.array(LessonBookingAdminIssueSummarySchema).max(50),
+    relatedOpenChangeRequests: z.array(LessonBookingAdminOpenChangeRequestSummarySchema).max(8),
     attendance: z.array(LessonBookingAdminAttendancePresentationSchema).min(1),
     scheduleRevision: AggregateRevisionSchema,
     serviceParticipantIds: z.array(ParticipantIdSchema).min(1),

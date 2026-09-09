@@ -4,6 +4,7 @@ import {
   commandSuccessResult,
   CorrelationIdSchema,
   AccountIdSchema,
+  BookingChangeRequestIdSchema,
   BookingIdSchema,
   InstructorIdSchema,
   ParticipantIdSchema,
@@ -188,6 +189,34 @@ describe('callable transport adapter', () => {
     expect(envelope.intent.bookingId).toBe('booking_fn_cmd_04');
     expect(envelope.context.transportMetadata).toEqual({ transport: 'firebase_callable' });
     expect(envelope.intent).not.toHaveProperty('bookingOrigin');
+  });
+
+  it('forwards bookingRevision into transport metadata for change-request OCC', () => {
+    const envelope = buildCommandEnvelopeFromCallable(
+      {
+        accountId,
+        capability: 'administrator',
+        source: 'admin_callable',
+      },
+      {
+        kind: 'resolve_booking_change_request',
+        idempotencyKey: 'callable-booking-rev',
+        correlationId,
+        expectedRevision: 3,
+        bookingRevision: 7,
+        intent: {
+          bookingChangeRequestId: BookingChangeRequestIdSchema.parse(
+            'booking_change_request_fn_cmd_01'
+          ),
+          resolution: 'no_change',
+        },
+      }
+    );
+    expect(envelope.context.expectedRevision).toBe(3);
+    expect(envelope.context.transportMetadata).toEqual({
+      transport: 'firebase_callable',
+      booking_revision: '7',
+    });
   });
 
   it('invokes CanonicalCommands.execute via adapter-assembled envelope', async () => {

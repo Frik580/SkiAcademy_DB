@@ -135,15 +135,19 @@ describe('booking collaboration integration', () => {
     const requestId = await result.current.createChangeRequest({
       bookingId: 'booking_change_01',
       reason: 'Need to move lesson',
+      expectedRevision: 4,
     });
     expect(executeAuthenticatedMock).toHaveBeenNthCalledWith(
       1,
       'account_fixture_01',
       expect.objectContaining({
         kind: 'create_booking_change_request',
+        expectedRevision: 4,
+        exercisedCapability: 'instructor',
         intent: expect.objectContaining({
           bookingId: BookingIdSchema.parse('booking_change_01'),
           bookingChangeRequestId: BookingChangeRequestIdSchema.parse(requestId),
+          reason: 'Need to move lesson',
         }),
       })
     );
@@ -156,6 +160,33 @@ describe('booking collaboration integration', () => {
         expectedRevision: 1,
       })
     );
+  });
+
+  it('surfaces stale_version when instructor change request uses stale booking revision', async () => {
+    executeAuthenticatedMock.mockResolvedValueOnce({
+      status: 'error',
+      error: {
+        code: 'stale_version',
+        message: 'Stale version',
+        retryable: true,
+        correlationId: 'correlation_stale_change_request',
+        currentRevision: 5,
+      },
+    });
+    const { result } = renderHook(() =>
+      useBookingCollaborationCommands({
+        accountId: 'account_fixture_01',
+        instructorId: 'instructor_fixture_01',
+      })
+    );
+    await expect(
+      result.current.createChangeRequest({
+        bookingId: 'booking_change_stale_01',
+        reason: 'Need to move lesson',
+        expectedRevision: 4,
+      })
+    ).rejects.toMatchObject({ code: 'stale_version', currentRevision: 5 });
+    expect(queryBookingChangeRequestReadModelsMock).not.toHaveBeenCalled();
   });
 
   it('declines proposal via cancel_booking_proposal', async () => {

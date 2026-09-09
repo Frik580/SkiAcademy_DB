@@ -55,6 +55,7 @@ export interface EnrichedBooking {
   clientName: string;
   clientAvatar?: string;
   isGuest: boolean;
+  authorizedActions: InstructorLessonBookingItem['authorizedActions'];
 }
 
 export type DisplayBooking = EnrichedBooking;
@@ -129,6 +130,7 @@ export const useInstructorWorkspace = ({
           clientName: primaryParticipant.clientName,
           clientAvatar: primaryParticipant.clientAvatar,
           isGuest: booking.bookingOrigin === 'guest',
+          authorizedActions: booking.authorizedActions,
         };
       });
   }, [lessonBookings, userProfile.instructorId, usersList]);

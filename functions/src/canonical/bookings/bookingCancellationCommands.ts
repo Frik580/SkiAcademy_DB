@@ -86,6 +86,11 @@ import {
   parseBooking,
   toFirestoreWritePayload,
 } from './bookingStore';
+import {
+  commitClosedBookingChangeRequestsForDirectAdminMutation,
+  planCloseOpenBookingChangeRequestsForDirectAdminMutation,
+  type PlannedDirectAdminChangeRequestClose,
+} from './bookingChangeRequestDirectAdminClose';
 import type { GuestBookingCommandEnvironment } from './guestBookingCommands';
 import { requestPendingGuestCancellationHandler } from './guestBookingCancellation';
 
@@ -369,7 +374,9 @@ function requestAuthenticatedBookingCancellationHandler(
           }
         }
       }
-      return commandSuccessResult(envelope.kind, envelope.context.correlationId);
+      return commandSuccessResult(envelope.kind, envelope.context.correlationId, {
+        lifecycleStatus: timing === 'direct_cancel' ? 'cancelled' : 'pending_cancellation',
+      });
     },
   };
 
@@ -500,9 +507,11 @@ function resolveBookingCancellationHandler(
   let auditSummary = '';
   let paymentEffectSummary: string | undefined;
   let plannedResolvedPendingIssue: PlannedUnresolvedPendingCancellationResolution | undefined;
+  let plannedChangeRequestCloses: PlannedDirectAdminChangeRequestClose[] = [];
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'resolve_booking_cancellation'> = {
     read: async (session) => {
+      plannedChangeRequestCloses = [];
       const bookingRead = await session.tx.get({ path: bookingDocumentPath });
       session.plan.planRead({ path: bookingDocumentPath, category: 'aggregate' });
       const parsedBooking = parseBooking(bookingRead.exists ? bookingRead.data : undefined);
@@ -546,6 +555,11 @@ function resolveBookingCancellationHandler(
         await loadPaymentAndPlanCancel(session, refundAmount, now);
         auditSummary = 'Administrator cancelled booking';
         paymentEffectSummary = 'Administrator cancellation refund applied';
+        plannedChangeRequestCloses = await planCloseOpenBookingChangeRequestsForDirectAdminMutation(
+          session,
+          booking.bookingId,
+          'booking_cancelled'
+        );
         return;
       }
 
@@ -575,6 +589,11 @@ function resolveBookingCancellationHandler(
         const refundAmount = KztMinorUnitsSchema.parse(envelope.intent.refundAmount!);
         await loadPaymentAndPlanCancel(session, refundAmount, now);
         auditSummary = 'Administrator approved cancellation';
+        plannedChangeRequestCloses = await planCloseOpenBookingChangeRequestsForDirectAdminMutation(
+          session,
+          booking.bookingId,
+          'booking_cancelled'
+        );
         paymentEffectSummary = 'Approved cancellation refund applied';
         return;
       }
@@ -650,6 +669,14 @@ function resolveBookingCancellationHandler(
               },
         summary: auditSummary,
         paymentEffectSummary,
+        ...(plannedChangeRequestCloses.length === 0
+          ? {}
+          : {
+              closedChangeRequests: plannedChangeRequestCloses.map((item) => ({
+                requestId: item.changeRequest.requestId,
+                revision: item.plannedRevision,
+              })),
+            }),
       }),
     execute: async (session, context) => {
       const decidedAt = timestampFromDate(context.decidedAt);
@@ -709,6 +736,15 @@ function resolveBookingCancellationHandler(
           session,
           plannedResolvedPendingIssue,
           toAdminIssueWritePayload
+        );
+      }
+
+      if (decision === 'approve' || decision === 'direct_cancel') {
+        commitClosedBookingChangeRequestsForDirectAdminMutation(
+          session,
+          plannedChangeRequestCloses,
+          metadata,
+          context.decidedAt
         );
       }
 

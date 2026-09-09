@@ -103,6 +103,42 @@ describe('canonical Admin lesson booking commands', () => {
     expect(executeMock.mock.calls[0]?.[1].intent).not.toHaveProperty('expectedPaymentRevision');
   });
 
+  it('resolves a booking change request with request OCC and booking revision transport', async () => {
+    await executeAdminLessonBookingAttempt('admin_account_01', {
+      kind: 'resolve_booking_change_request',
+      target,
+      idempotencyKey: createAdminLessonBookingAttemptId('resolve_change_request'),
+      bookingChangeRequestId: 'booking_change_request_admin_command_01',
+      requestRevision: 3,
+      resolution: 'rescheduled',
+      reasonExplanation: 'Moved after instructor unavailability',
+      localDate: '2026-09-03',
+      localTime: '11:00',
+      durationMinutes: 60,
+      timezone: 'Asia/Almaty',
+    });
+
+    expect(executeMock).toHaveBeenCalledWith(
+      'admin_account_01',
+      expect.objectContaining({
+        kind: 'resolve_booking_change_request',
+        expectedRevision: 3,
+        bookingRevision: 7,
+        administratorContext: true,
+        calendarInput: {
+          localDate: '2026-09-03',
+          localTime: '11:00',
+          durationMinutes: 60,
+        },
+        timezone: 'Asia/Almaty',
+        intent: expect.objectContaining({
+          bookingChangeRequestId: 'booking_change_request_admin_command_01',
+          resolution: 'rescheduled',
+        }),
+      })
+    );
+  });
+
   it('reassigns an instructor through the canonical command without frontend price math', async () => {
     await executeAdminLessonBookingAttempt('admin_account_01', {
       kind: 'change_booking_instructor',

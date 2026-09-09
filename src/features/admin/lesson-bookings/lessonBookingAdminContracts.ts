@@ -80,6 +80,18 @@ export type AdminLessonBookingMutationAttempt =
       readonly kind: 'resolve_attendance_outcome';
     })
   | (AttemptBase & {
+      readonly kind: 'resolve_booking_change_request';
+      readonly bookingChangeRequestId: string;
+      readonly requestRevision: number;
+      readonly resolution: 'rescheduled' | 'booking_cancelled' | 'no_change';
+      readonly refundAmount?: number;
+      readonly reasonExplanation?: string;
+      readonly localDate?: string;
+      readonly localTime?: string;
+      readonly durationMinutes?: number;
+      readonly timezone?: string;
+    })
+  | (AttemptBase & {
       readonly kind: 'link_guest_booking_to_account_as_administrator';
       readonly targetAccountId: string;
       readonly targetParticipantId: ParticipantId;

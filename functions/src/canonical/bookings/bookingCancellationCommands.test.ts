@@ -286,6 +286,9 @@ describe('booking cancellation commands', () => {
     const envelope = requestCancellationEnvelope('cancel-direct-01');
     const result = await commands.execute(envelope);
     expect(result.status).toBe('success');
+    expect(result.status === 'success' ? result.payload : undefined).toEqual({
+      lifecycleStatus: 'cancelled',
+    });
 
     const snapshot = executor.snapshot();
     expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe('cancelled');
@@ -327,6 +330,9 @@ describe('booking cancellation commands', () => {
     );
     const result = await commands.execute(requestCancellationEnvelope('cancel-pending-01'));
     expect(result.status).toBe('success');
+    expect(result.status === 'success' ? result.payload : undefined).toEqual({
+      lifecycleStatus: 'pending_cancellation',
+    });
 
     const snapshot = executor.snapshot();
     expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe(

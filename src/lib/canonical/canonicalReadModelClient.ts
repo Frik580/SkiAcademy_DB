@@ -372,6 +372,30 @@ export async function queryBookingProposalReadModels(
 }
 
 export async function queryBookingChangeRequestReadModels(
+  input: {
+    readonly scope: 'account_open' | 'instructor_open';
+    readonly idempotencyKey?: QueryBookingChangeRequestReadModelsInput['idempotencyKey'];
+  }
+): Promise<
+  Extract<QueryBookingChangeRequestReadModelsResult, { scope: 'account_open' | 'instructor_open' }>
+>;
+export async function queryBookingChangeRequestReadModels(
+  input: {
+    readonly scope: 'admin_open';
+    readonly idempotencyKey?: QueryBookingChangeRequestReadModelsInput['idempotencyKey'];
+  }
+): Promise<Extract<QueryBookingChangeRequestReadModelsResult, { scope: 'admin_open' }>>;
+export async function queryBookingChangeRequestReadModels(
+  input: {
+    readonly scope: 'admin_detail';
+    readonly requestId: NonNullable<QueryBookingChangeRequestReadModelsInput['requestId']>;
+    readonly idempotencyKey?: QueryBookingChangeRequestReadModelsInput['idempotencyKey'];
+  }
+): Promise<Extract<QueryBookingChangeRequestReadModelsResult, { scope: 'admin_detail' }>>;
+export async function queryBookingChangeRequestReadModels(
+  input: QueryBookingChangeRequestReadModelsInput
+): Promise<QueryBookingChangeRequestReadModelsResult>;
+export async function queryBookingChangeRequestReadModels(
   input: QueryBookingChangeRequestReadModelsInput
 ): Promise<QueryBookingChangeRequestReadModelsResult> {
   const idempotencyKey = `read:booking_change_request:${input.scope}`;

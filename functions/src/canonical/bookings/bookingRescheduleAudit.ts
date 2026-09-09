@@ -3,6 +3,7 @@ import {
   AggregateRevisionSchema,
   canonicalReference,
   type AccountId,
+  type BookingChangeRequestId,
   type BookingId,
   type CommandEnvelope,
   type MonetaryEventId,
@@ -16,6 +17,10 @@ export function buildRescheduleBookingAuditPlan(input: {
   bookingRevision: number;
   mode: 'client_self_service' | 'administrator';
   notificationAccountId?: AccountId;
+  closedChangeRequests?: readonly Readonly<{
+    requestId: BookingChangeRequestId;
+    revision: number;
+  }>[];
 }): AuditOutboxStagingPlan {
   const bookingRef = canonicalReference('booking', input.bookingId);
   const reasonCode =
@@ -53,7 +58,12 @@ export function buildRescheduleBookingAuditPlan(input: {
         id: input.bookingId,
         subjectKey: `booking:${input.bookingId}`,
       },
-      affectedSubjects: [bookingRef],
+      affectedSubjects: [
+        bookingRef,
+        ...(input.closedChangeRequests ?? []).map((request) =>
+          canonicalReference('booking_change_request', request.requestId)
+        ),
+      ],
       effects,
       monetaryEventIds: [],
       adminIssueIds: [],
@@ -62,6 +72,10 @@ export function buildRescheduleBookingAuditPlan(input: {
           subject: bookingRef,
           revision: AggregateRevisionSchema.parse(input.bookingRevision),
         },
+        ...(input.closedChangeRequests ?? []).map((request) => ({
+          subject: canonicalReference('booking_change_request', request.requestId),
+          revision: AggregateRevisionSchema.parse(request.revision),
+        })),
       ],
     },
     outboxObligations:

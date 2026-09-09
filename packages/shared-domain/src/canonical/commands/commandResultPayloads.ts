@@ -76,11 +76,32 @@ export type ApplyCanonicalCourseProvisioningManifestResultPayload = Readonly<
   z.output<typeof ApplyCanonicalCourseProvisioningManifestResultPayloadSchema>
 >;
 
+export const RequestCancellationLifecycleStatusSchema = z.enum([
+  'cancelled',
+  'pending_cancellation',
+]);
+
+export type RequestCancellationLifecycleStatus = Readonly<
+  z.output<typeof RequestCancellationLifecycleStatusSchema>
+>;
+
+export const RequestCancellationResultPayloadSchema = z
+  .object({
+    lifecycleStatus: RequestCancellationLifecycleStatusSchema,
+  })
+  .strict();
+
+export type RequestCancellationResultPayload = Readonly<
+  z.output<typeof RequestCancellationResultPayloadSchema>
+>;
+
 export const CommandResultPayloadSchemaByKind = {
   create_course_enrollments: CreateCourseEnrollmentsResultPayloadSchema,
   create_guest_booking_request: CreateGuestBookingRequestResultPayloadSchema,
   apply_canonical_course_provisioning_manifest:
     ApplyCanonicalCourseProvisioningManifestResultPayloadSchema,
+  request_booking_cancellation: RequestCancellationResultPayloadSchema,
+  request_course_enrollment_cancellation: RequestCancellationResultPayloadSchema,
 } as const;
 
 export type CommandResultPayloadForKind<Kind extends keyof typeof CommandResultPayloadSchemaByKind> =

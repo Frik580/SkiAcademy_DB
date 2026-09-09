@@ -8,7 +8,10 @@ import {
   timestampFromDate,
 } from '@ski-academy/shared-domain';
 import { mapBookingProposalReadModelToCabinetItem } from '../../src/features/booking-collaboration/proposalViewModel';
-import { mapBookingChangeRequestReadModelToCabinetItem } from '../../src/features/booking-collaboration/changeRequestViewModel';
+import {
+  mapBookingChangeRequestReadModelToCabinetItem,
+  mergeChangeRequestRecords,
+} from '../../src/features/booking-collaboration/changeRequestViewModel';
 import { mapParticipantInstructorAccessReadModelToCabinetItem } from '../../src/features/booking-collaboration/participantAccessViewModel';
 import {
   deriveAcceptProposalIdempotencyKey,
@@ -60,6 +63,32 @@ describe('booking collaboration view models', () => {
     });
     expect(item.requestType).toBe('instructor_unavailable');
     expect(item.authorizedActions.canWithdraw).toBe(true);
+    expect(item.sourceScope).toBe('account_open');
+  });
+
+  it('drops open change requests that left an open-scope snapshot', () => {
+    const requestId = BookingChangeRequestIdSchema.parse('booking_change_request_vm_01');
+    const bookingId = BookingIdSchema.parse('booking_vm_01');
+    const existing = new Map([
+      [
+        requestId,
+        mapBookingChangeRequestReadModelToCabinetItem(
+          {
+            requestId,
+            revision: 2,
+            bookingId,
+            requestType: 'instructor_unavailable',
+            reason: 'Sick day',
+            lifecycle: { status: 'open' },
+            authorizedActions: { canWithdraw: true },
+            updatedAt: decidedAt,
+          },
+          'instructor_open'
+        ),
+      ],
+    ]);
+    const merged = mergeChangeRequestRecords(existing, [], 'instructor_open');
+    expect(merged.size).toBe(0);
   });
 
   it('maps participant access read model to cabinet item', () => {

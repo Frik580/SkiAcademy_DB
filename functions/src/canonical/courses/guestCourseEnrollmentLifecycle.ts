@@ -322,7 +322,9 @@ export function requestPendingGuestCourseEnrollmentCancellationHandler(
             );
           }
         }
-        return commandSuccessResult(envelope.kind, envelope.context.correlationId);
+        return commandSuccessResult(envelope.kind, envelope.context.correlationId, {
+          lifecycleStatus: 'cancelled',
+        });
       },
     };
 

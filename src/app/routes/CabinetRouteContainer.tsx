@@ -31,6 +31,10 @@ import {
 } from '../../features/course-enrollments';
 import { useNotifications } from '../../features/notifications';
 import type { Review } from '../../types';
+import {
+  presentCabinetCancellationNotifications,
+  type CabinetCancellationCommandResult,
+} from '../../features/student-cabinet/cabinetCancellationOutcome';
 
 const PersonalCabinet = React.lazy(loadPersonalCabinet);
 
@@ -99,6 +103,22 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
     [lessonBookings, courseEnrollments]
   );
 
+  const notifyCancellationOutcome = useCallback(
+    (
+      entityKind: 'lesson' | 'course',
+      outcome: CabinetCancellationCommandResult
+    ) => {
+      for (const notification of presentCabinetCancellationNotifications(entityKind, outcome)) {
+        addNotification(
+          notification.type,
+          t(notification.titleKey as never),
+          t(notification.messageKey as never)
+        );
+      }
+    },
+    [addNotification, t]
+  );
+
   const handleCanonicalCancel = useCallback(
     async (bookingId: string, _reason?: string) => {
       const booking = lessonBookings.find((item) => item.bookingId === bookingId);
@@ -107,12 +127,13 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
         booking.clientExercisedCapability ??
         (booking.partyKind === 'family_group' ? 'parent_guardian' : 'account_owner');
       try {
-        await requestCancellation({
+        const outcome = await requestCancellation({
           bookingId: booking.bookingId,
           expectedRevision: booking.revision,
           idempotencyKey: deriveCancellationIdempotencyKey(booking.bookingId, booking.revision),
           exercisedCapability,
         });
+        notifyCancellationOutcome('lesson', outcome);
       } catch (error) {
         const presented = presentCanonicalCommandErrorWithContext(error, {
           t: t as (key: string) => string,
@@ -125,7 +146,14 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
         throw error;
       }
     },
-    [addNotification, lessonBookings, refetchAccountHotBookings, requestCancellation, t]
+    [
+      addNotification,
+      lessonBookings,
+      notifyCancellationOutcome,
+      refetchAccountHotBookings,
+      requestCancellation,
+      t,
+    ]
   );
 
   const handleCourseWithdraw = useCallback(
@@ -142,7 +170,7 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
           ),
           exercisedCapability: 'account_owner',
         });
-        addNotification('success', t('cancellationRequested'), t('cancellationRequestedDesc'));
+        addNotification('success', t('courseCancellationWithdrawn'), t('courseCancellationWithdrawnDesc'));
       } catch (error) {
         const presented = presentCanonicalCommandErrorWithContext(error, {
           t: t as (key: string) => string,
@@ -163,7 +191,7 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
       const enrollment = courseEnrollments.find((item) => item.enrollmentId === enrollmentId);
       if (!enrollment?.authorizedActions.canRequestCancellation) return;
       try {
-        await requestCourseCancellation({
+        const outcome = await requestCourseCancellation({
           enrollmentId: enrollment.enrollmentId,
           expectedRevision: enrollment.revision,
           idempotencyKey: deriveRequestCancellationIdempotencyKey(
@@ -172,7 +200,7 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
           ),
           exercisedCapability: 'account_owner',
         });
-        addNotification('success', t('cancellationRequested'), t('cancellationRequestedDesc'));
+        notifyCancellationOutcome('course', outcome);
       } catch (error) {
         const presented = presentCanonicalCommandErrorWithContext(error, {
           t: t as (key: string) => string,
@@ -185,7 +213,7 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
         addNotification('error', t('requestFailed'), presented.message);
       }
     },
-    [addNotification, courseEnrollments, refetchAccountHotEnrollments, requestCourseCancellation, t]
+    [addNotification, courseEnrollments, notifyCancellationOutcome, refetchAccountHotEnrollments, requestCourseCancellation, t]
   );
 
   if (tab && !CABINET_TABS.includes(tab as (typeof CABINET_TABS)[number])) {

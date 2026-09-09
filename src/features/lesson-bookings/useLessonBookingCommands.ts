@@ -23,6 +23,11 @@ import { persistGuestBookingCredential } from './guestCredentialStorage';
 import { useLessonBookingStore } from './lessonBookingStore';
 import { mergeLessonBookingRecords } from './lessonBookingViewModel';
 import { queryLessonBookingReadModels } from '../../lib/canonical/canonicalReadModelClient';
+import {
+  resolveLessonCancellationLifecycleFromStore,
+  type CabinetCancellationCommandResult,
+} from '../student-cabinet/cabinetCancellationOutcome';
+import { resolveCabinetCancellationOutcome } from '../student-cabinet/resolveCabinetCancellationOutcome';
 
 async function refetchAccountHotBookings(_accountId: string): Promise<void> {
   const result = await queryLessonBookingReadModels({ scope: 'account_hot' });
@@ -112,7 +117,7 @@ export function useLessonBookingCommands(accountId: string | undefined) {
       readonly idempotencyKey: string;
       readonly exercisedCapability: ClientCallableCapability;
       readonly guestCredential?: GuestBookingActionCredential;
-    }): Promise<void> => {
+    }): Promise<CabinetCancellationCommandResult> => {
       if (input.guestCredential) {
         const result = await executeGuestCanonicalCommand({
           kind: 'request_booking_cancellation',
@@ -124,7 +129,19 @@ export function useLessonBookingCommands(accountId: string | undefined) {
         });
         const error = mapCanonicalCommandResultError(result);
         if (error) throw error;
-        return;
+        return resolveCabinetCancellationOutcome({
+          entityKind: 'lesson',
+          entityId: input.bookingId,
+          nextRevision: input.expectedRevision + 1,
+          commandResult:
+            result.status === 'success' ? result : { status: 'success', payload: undefined },
+          refresh: async () => undefined,
+          readLifecycleFromStore: () =>
+            resolveLessonCancellationLifecycleFromStore(
+              input.bookingId,
+              useLessonBookingStore.getState().items
+            ),
+        });
       }
       if (!accountId) {
         throw new Error('Authentication is required.');
@@ -138,7 +155,19 @@ export function useLessonBookingCommands(accountId: string | undefined) {
       });
       const error = mapCanonicalCommandResultError(result);
       if (error) throw error;
-      await refetchAccountHotBookings(accountId);
+      return resolveCabinetCancellationOutcome({
+        entityKind: 'lesson',
+        entityId: input.bookingId,
+        nextRevision: input.expectedRevision + 1,
+        commandResult:
+          result.status === 'success' ? result : { status: 'success', payload: undefined },
+        refresh: () => refetchAccountHotBookings(accountId),
+        readLifecycleFromStore: () =>
+          resolveLessonCancellationLifecycleFromStore(
+            input.bookingId,
+            useLessonBookingStore.getState().items
+          ),
+      });
     },
     [accountId]
   );

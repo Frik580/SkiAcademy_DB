@@ -38,10 +38,11 @@ async function loadCustomerCollaborationReads(): Promise<void> {
     );
   useBookingCollaborationStore
     .getState()
-    .mergeChangeRequests(
+    .setChangeRequests(
       mergeChangeRequestRecords(
         useBookingCollaborationStore.getState().changeRequests,
-        changeRequests.items
+        changeRequests.items,
+        'account_open'
       )
     );
 }
@@ -89,10 +90,11 @@ async function loadInstructorCollaborationReads(): Promise<void> {
     );
   useBookingCollaborationStore
     .getState()
-    .mergeChangeRequests(
+    .setChangeRequests(
       mergeChangeRequestRecords(
         useBookingCollaborationStore.getState().changeRequests,
-        changeRequests.items
+        changeRequests.items,
+        'instructor_open'
       )
     );
 }

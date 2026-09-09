@@ -31,7 +31,9 @@ const instructorAccountId = AccountIdSchema.parse('account_change_req_instructor
 const adminAccountId = AccountIdSchema.parse('account_change_req_admin_01');
 const accountId = AccountIdSchema.parse('account_change_req_owner_01');
 const participantId = ParticipantIdSchema.parse('participant_change_req_cmd_01');
+const participantTwoId = ParticipantIdSchema.parse('participant_change_req_cmd_02');
 const managementId = ParticipantManagementIdSchema.parse('management_change_req_cmd_01');
+const managementTwoId = ParticipantManagementIdSchema.parse('management_change_req_cmd_02');
 const instructorId = InstructorIdSchema.parse('instructor_change_req_cmd_01');
 const otherInstructorId = InstructorIdSchema.parse('instructor_change_req_cmd_02');
 const bookingId = BookingIdSchema.parse('booking_change_req_cmd_01');
@@ -138,6 +140,23 @@ function seedBase() {
         correlationId,
       },
     },
+    [`participants/${participantTwoId}`]: {
+      participantId: participantTwoId,
+      displayName: 'Change Request Participant Two',
+      age: { kind: 'age_years', years: 22 },
+      skillLevel: 'intermediate',
+      discipline: 'ski',
+      management: { kind: 'managed', participantManagementId: managementTwoId },
+      lifecycle: { status: 'active' },
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: {
+        createdByCommandId: 'command_seed_participant_two',
+        lastChangedByCommandId: 'command_seed_participant_two',
+        correlationId,
+      },
+    },
     [`participant_management/${managementId}`]: {
       participantManagementId: managementId,
       participantId,
@@ -151,6 +170,22 @@ function seedBase() {
       audit: {
         createdByCommandId: 'command_seed_management',
         lastChangedByCommandId: 'command_seed_management',
+        correlationId,
+      },
+    },
+    [`participant_management/${managementTwoId}`]: {
+      participantManagementId: managementTwoId,
+      participantId: participantTwoId,
+      accountId,
+      role: 'owner',
+      authority: 'self',
+      status: 'active',
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: {
+        createdByCommandId: 'command_seed_management_two',
+        lastChangedByCommandId: 'command_seed_management_two',
         correlationId,
       },
     },
@@ -178,7 +213,7 @@ function seedBase() {
     'lesson_pricing_settings/lesson_booking': {
       settingsId: 'lesson_booking',
       additionalParticipantSurchargePerHourKzt: 6_000,
-      maxParticipantsPerLesson: 1,
+      maxParticipantsPerLesson: 2,
       revision: 1,
       createdAt: decidedAt,
       updatedAt: decidedAt,
@@ -192,7 +227,8 @@ function seedBase() {
 }
 
 async function createConfirmedBooking(
-  executor: ReturnType<typeof createInMemoryCanonicalTransactionExecutor>
+  executor: ReturnType<typeof createInMemoryCanonicalTransactionExecutor>,
+  participantIds: readonly (typeof participantId | typeof participantTwoId)[] = [participantId]
 ) {
   const commands = createProductionCanonicalCommands(
     environment('2026-01-01T00:00:00.000Z'),
@@ -203,7 +239,7 @@ async function createConfirmedBooking(
     context: {
       actor: accountCommandActor(accountId),
       exercisedCapability: 'account_owner',
-      idempotencyKey: 'create-booking-change-req-01',
+      idempotencyKey: `create-booking-change-req-${participantIds.join('-')}`,
       correlationId,
       source: 'client_callable',
       calendarInput: {
@@ -213,7 +249,7 @@ async function createConfirmedBooking(
       },
       timezone: 'Asia/Almaty',
     },
-    intent: { bookingId, instructorId, participantIds: [participantId] },
+    intent: { bookingId, instructorId, participantIds: [...participantIds] },
   });
   expect(result.status).toBe('success');
 }
@@ -299,6 +335,153 @@ describe('booking change request commands', () => {
     if (result.status === 'error') {
       expect(result.error.code).toBe('forbidden');
     }
+  });
+
+  it('rejects create for non-confirmed bookings with invalid_transition unsupported', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
+    await createConfirmedBooking(executor);
+    const pendingDocs = Object.fromEntries(
+      [...executor.snapshot().docs.entries()].map(([path, doc]) => {
+        if (path === `bookings/${bookingId}`) {
+          return [
+            path,
+            {
+              ...doc.data,
+              attribution: {
+                bookingOrigin: 'guest',
+                bookedBy: { kind: 'guest', guestSubjectId: 'guest_change_req_pending' },
+              },
+              lifecycle: {
+                status: 'pending',
+                reservationExpiresAt: timestampFromDate(new Date('2026-01-20T00:00:00.000Z')),
+              },
+            },
+          ];
+        }
+        return [path, doc.data];
+      })
+    );
+    const pendingExecutor = createInMemoryCanonicalTransactionExecutor(pendingDocs);
+    const handlers = createBookingChangeRequestCommandHandlers(pendingExecutor);
+    const result = await handlers.create_booking_change_request(
+      {
+        kind: 'create_booking_change_request',
+        context: instructorContext('create-change-request-pending', 1),
+        intent: {
+          bookingChangeRequestId: changeRequestId,
+          bookingId,
+          reason: 'Unavailable',
+        },
+      },
+      environment('2026-01-02T00:00:00.000Z')
+    );
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('invalid_transition');
+      expect(result.error.details).toEqual({ resourceKind: 'booking', reason: 'unsupported' });
+    }
+  });
+
+  it('rejects create when booking expectedRevision is missing', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
+    await createConfirmedBooking(executor);
+    const handlers = createBookingChangeRequestCommandHandlers(executor);
+    const result = await handlers.create_booking_change_request(
+      {
+        kind: 'create_booking_change_request',
+        context: instructorContext('create-change-request-missing-revision'),
+        intent: {
+          bookingChangeRequestId: changeRequestId,
+          bookingId,
+          reason: 'Unavailable',
+        },
+      },
+      environment('2026-01-02T00:00:00.000Z')
+    );
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('validation');
+      expect(result.error.details).toEqual({ field: 'expectedRevision', reason: 'required' });
+    }
+  });
+
+  it('rejects create when booking expectedRevision is stale', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
+    await createConfirmedBooking(executor);
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-01T12:00:00.000Z'),
+      executor
+    );
+    const rescheduleResult = await commands.execute({
+      kind: 'reschedule_booking',
+      context: {
+        actor: accountCommandActor(adminAccountId),
+        exercisedCapability: 'administrator',
+        idempotencyKey: 'stale-create-change-request-reschedule',
+        correlationId,
+        source: 'admin_callable',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+        calendarInput: {
+          localDate: '2026-01-16',
+          localTime: '10:00',
+          durationMinutes: 60,
+        },
+        timezone: 'Asia/Almaty',
+      },
+      intent: {
+        bookingId,
+        reasonExplanation: 'Admin reschedule before stale change-request create',
+      },
+    });
+    expect(rescheduleResult.status).toBe('success');
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.revision).toBe(2);
+
+    const handlers = createBookingChangeRequestCommandHandlers(executor);
+    const result = await handlers.create_booking_change_request(
+      {
+        kind: 'create_booking_change_request',
+        context: instructorContext('create-change-request-stale-revision', 1),
+        intent: {
+          bookingChangeRequestId: changeRequestId,
+          bookingId,
+          reason: 'Unavailable',
+        },
+      },
+      environment('2026-01-02T00:00:00.000Z')
+    );
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('stale_version');
+      expect(result.error.currentRevision).toBe(2);
+    }
+  });
+
+  it('creates a change request for a multi-party booking', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
+    await createConfirmedBooking(executor, [participantId, participantTwoId]);
+    const handlers = createBookingChangeRequestCommandHandlers(executor);
+    const result = await handlers.create_booking_change_request(
+      {
+        kind: 'create_booking_change_request',
+        context: instructorContext('create-change-request-multi-party', 1),
+        intent: {
+          bookingChangeRequestId: changeRequestId,
+          bookingId,
+          reason: 'Instructor cannot deliver the confirmed occurrence.',
+        },
+      },
+      environment('2026-01-02T00:00:00.000Z')
+    );
+    expect(result.status).toBe('success');
+
+    const snapshot = executor.snapshot();
+    expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.party.participantIds).toEqual([
+      participantId,
+      participantTwoId,
+    ]);
+    expect(
+      snapshot.docs.get(`booking_change_requests/${changeRequestId}`)?.data.lifecycle.status
+    ).toBe('open');
   });
 
   it('withdraws an open request without mutating the booking', async () => {
@@ -472,36 +655,18 @@ describe('booking change request commands', () => {
     const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
     await createConfirmedBooking(executor);
     await createOpenChangeRequest(executor);
-
-    const commands = createProductionCanonicalCommands(
-      environment('2026-01-03T00:00:00.000Z'),
-      executor
-    );
-    const rescheduleResult = await commands.execute({
-      kind: 'reschedule_booking',
-      context: {
-        actor: accountCommandActor(adminAccountId),
-        exercisedCapability: 'administrator',
-        idempotencyKey: 'stale-change-request-reschedule',
-        correlationId,
-        source: 'admin_callable',
-        expectedRevision: AggregateRevisionSchema.parse(1),
-        calendarInput: {
-          localDate: '2026-01-16',
-          localTime: '10:00',
-          durationMinutes: 60,
-        },
-        timezone: 'Asia/Almaty',
-      },
-      intent: {
-        bookingId,
-        reasonExplanation: 'Admin reschedule before stale change-request resolve',
-      },
+    const booking = executor.snapshot().docs.get(`bookings/${bookingId}`)!.data as Record<
+      string,
+      unknown
+    >;
+    const staleExecutor = createInMemoryCanonicalTransactionExecutor({
+      ...Object.fromEntries(
+        [...executor.snapshot().docs.entries()].map(([path, doc]) => [path, doc.data])
+      ),
+      [`bookings/${bookingId}`]: { ...booking, revision: 2 },
     });
-    expect(rescheduleResult.status).toBe('success');
-    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.revision).toBe(2);
 
-    const handlers = createBookingChangeRequestCommandHandlers(executor);
+    const handlers = createBookingChangeRequestCommandHandlers(staleExecutor);
     const resolveResult = await handlers.resolve_booking_change_request(
       {
         kind: 'resolve_booking_change_request',
@@ -522,7 +687,7 @@ describe('booking change request commands', () => {
       expect(resolveResult.error.code).toBe('stale_version');
     }
 
-    const snapshot = executor.snapshot();
+    const snapshot = staleExecutor.snapshot();
     expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.revision).toBe(2);
     expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe('confirmed');
     expect(
@@ -558,5 +723,113 @@ describe('booking change request commands', () => {
         path.startsWith('booking_change_requests/')
       ).length
     ).toBe(1);
+  });
+
+  it('rejects resolve when the change-request expectedRevision is stale', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
+    await createConfirmedBooking(executor);
+    await createOpenChangeRequest(executor);
+    const changeRequest = executor.snapshot().docs.get(
+      `booking_change_requests/${changeRequestId}`
+    )!.data as Record<string, unknown>;
+    const staleExecutor = createInMemoryCanonicalTransactionExecutor({
+      ...Object.fromEntries(
+        [...executor.snapshot().docs.entries()].map(([path, doc]) => [path, doc.data])
+      ),
+      [`booking_change_requests/${changeRequestId}`]: { ...changeRequest, revision: 2 },
+    });
+    const handlers = createBookingChangeRequestCommandHandlers(staleExecutor);
+    const result = await handlers.resolve_booking_change_request(
+      {
+        kind: 'resolve_booking_change_request',
+        context: adminContext('resolve-stale-request-rev', 1, undefined, {
+          [BOOKING_REVISION_TRANSPORT_KEY]: '1',
+        }),
+        intent: {
+          bookingChangeRequestId: changeRequestId,
+          resolution: 'no_change',
+        },
+      },
+      environment('2026-01-04T00:00:00.000Z')
+    );
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('stale_version');
+    }
+  });
+
+  it('closes an open change request as rescheduled after a direct admin reschedule', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
+    await createConfirmedBooking(executor);
+    await createOpenChangeRequest(executor);
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-03T00:00:00.000Z'),
+      executor
+    );
+    const result = await commands.execute({
+      kind: 'reschedule_booking',
+      context: {
+        actor: accountCommandActor(adminAccountId),
+        exercisedCapability: 'administrator',
+        idempotencyKey: 'direct-admin-reschedule-closes-bcr',
+        correlationId,
+        source: 'admin_callable',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+        calendarInput: {
+          localDate: '2026-01-16',
+          localTime: '10:00',
+          durationMinutes: 60,
+        },
+        timezone: 'Asia/Almaty',
+      },
+      intent: {
+        bookingId,
+        reasonExplanation: 'Administrator moved the lesson independently of the request',
+      },
+    });
+    expect(result.status).toBe('success');
+    const snapshot = executor.snapshot();
+    expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe('confirmed');
+    expect(snapshot.docs.get(`booking_change_requests/${changeRequestId}`)?.data.lifecycle).toEqual({
+      status: 'resolved',
+      resolution: 'rescheduled',
+      resolvedAt: expect.anything(),
+    });
+  });
+
+  it('closes an open change request as booking_cancelled after a direct admin cancel', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
+    await createConfirmedBooking(executor);
+    await createOpenChangeRequest(executor);
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-14T12:00:00.000Z'),
+      executor
+    );
+    const result = await commands.execute({
+      kind: 'resolve_booking_cancellation',
+      context: {
+        actor: accountCommandActor(adminAccountId),
+        exercisedCapability: 'administrator',
+        idempotencyKey: 'direct-admin-cancel-closes-bcr',
+        correlationId,
+        source: 'admin_callable',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+      },
+      intent: {
+        bookingId,
+        decision: 'direct_cancel',
+        refundAmount: 12_000,
+        expectedPaymentRevision: 1,
+        reasonExplanation: 'Administrator cancelled independently of the request',
+      },
+    });
+    expect(result.status).toBe('success');
+    const snapshot = executor.snapshot();
+    expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe('cancelled');
+    expect(snapshot.docs.get(`booking_change_requests/${changeRequestId}`)?.data.lifecycle).toEqual({
+      status: 'resolved',
+      resolution: 'booking_cancelled',
+      resolvedAt: expect.anything(),
+    });
   });
 });

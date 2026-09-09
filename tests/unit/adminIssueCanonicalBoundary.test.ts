@@ -6,6 +6,7 @@ describe('AdminIssue canonical UI boundary', () => {
     const sources = [
       'src/features/admin/issues/AdminIssueCenter.tsx',
       'src/features/admin/issues/useAdminIssueReadModels.ts',
+      'src/features/admin/issues/useAdminAttentionChangeRequests.ts',
       'src/lib/canonical/canonicalReadModelClient.ts',
     ]
       .map(readRepoFile)
@@ -16,6 +17,7 @@ describe('AdminIssue canonical UI boundary', () => {
       /(?:collection|doc|onSnapshot|getDocs|getDoc)\s*\([^)]*admin_issues/
     );
     expect(sources).toContain('queryAdminIssueReadModels');
+    expect(sources).toContain('queryBookingChangeRequestReadModels');
   });
 
   it('contains no generic AdminIssue resolution mutation bypass', () => {

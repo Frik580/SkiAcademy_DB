@@ -14,6 +14,8 @@ export function useBookingCollaborationTranslations() {
     rescheduleTitle: t('collabRescheduleTitle'),
     rescheduleConfirm: t('collabRescheduleConfirm'),
     changeRequestOpen: t('collabChangeRequestOpen'),
+    instructorRequestedScheduleChange: t('collabInstructorRequestedScheduleChange'),
+    waitingAdminDecision: t('collabWaitingAdminDecision'),
     createChangeRequest: t('collabCreateChangeRequest'),
     withdrawChangeRequest: t('collabWithdrawChangeRequest'),
     createProposal: t('collabCreateProposal'),

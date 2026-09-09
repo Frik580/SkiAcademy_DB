@@ -92,6 +92,7 @@ function detail(): LessonBookingReadModel {
       canRequestCancellation: false,
       canWithdrawCancellation: false,
       canReschedule: false,
+      canCreateChangeRequest: false,
     },
     updatedAt: { seconds: 10, nanoseconds: 0 },
     admin: {
@@ -140,6 +141,7 @@ function detail(): LessonBookingReadModel {
           updatedAt: { seconds: 9, nanoseconds: 0 },
         },
       ],
+      relatedOpenChangeRequests: [],
       scheduleRevision: 2,
       serviceParticipantIds: ['participant_admin_panel_01'],
       authorizedActions: {

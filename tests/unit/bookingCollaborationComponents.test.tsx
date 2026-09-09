@@ -80,6 +80,7 @@ describe('booking collaboration components', () => {
           canRequestCancellation: false,
           canWithdrawCancellation: true,
           canReschedule: false,
+          canCreateChangeRequest: false,
         })}
         onWithdrawCancellation={vi.fn()}
         onReschedule={vi.fn()}
@@ -92,6 +93,7 @@ describe('booking collaboration components', () => {
           canRequestCancellation: false,
           canWithdrawCancellation: false,
           canReschedule: true,
+          canCreateChangeRequest: false,
         })}
         onWithdrawCancellation={vi.fn()}
         onReschedule={vi.fn()}

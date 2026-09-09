@@ -26,8 +26,8 @@ describe('collaboration read model callable transport contracts', () => {
       name: 'QueryBookingChangeRequestReadModelsInputSchema',
       schema: QueryBookingChangeRequestReadModelsInputSchema,
       input: {
-        scope: 'instructor_open' as const,
-        idempotencyKey: 'read:booking_change_request:instructor_open',
+        scope: 'admin_open' as const,
+        idempotencyKey: 'read:booking_change_request:admin_open',
       },
     },
     {

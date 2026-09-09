@@ -132,7 +132,9 @@ export function requestPendingGuestCancellationHandler(
         metadata,
         context.decidedAt
       );
-      return commandSuccessResult(envelope.kind, envelope.context.correlationId);
+      return commandSuccessResult(envelope.kind, envelope.context.correlationId, {
+        lifecycleStatus: 'cancelled',
+      });
     },
   };
 

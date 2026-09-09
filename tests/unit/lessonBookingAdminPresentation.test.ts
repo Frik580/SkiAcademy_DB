@@ -48,6 +48,7 @@ function baseAdmin() {
       suggestedRefund: 0,
     },
     relatedIssues: [],
+    relatedOpenChangeRequests: [],
     attendance: [
       {
         participantId: 'participant_presentation_01',
@@ -99,6 +100,7 @@ function item(overrides: Partial<LessonBookingReadModel> = {}): LessonBookingRea
       canRequestCancellation: false,
       canWithdrawCancellation: false,
       canReschedule: false,
+      canCreateChangeRequest: false,
     },
     updatedAt: { seconds: 10, nanoseconds: 0 },
     admin: baseAdmin(),

@@ -9,6 +9,7 @@ import {
   type IdempotencyKey,
 } from '@ski-academy/shared-domain';
 import type { CallableRequest } from 'firebase-functions/v2/https';
+import { BOOKING_REVISION_TRANSPORT_KEY } from '../bookings/bookingChangeRequestAuthorization';
 
 export interface CallableCommandTransportInput<Kind extends CommandKind> {
   readonly kind: Kind;
@@ -19,6 +20,7 @@ export interface CallableCommandTransportInput<Kind extends CommandKind> {
   readonly expectedRevision?: CommandContext['expectedRevision'];
   readonly calendarInput?: CommandContext['calendarInput'];
   readonly timezone?: CommandContext['timezone'];
+  readonly bookingRevision?: CommandContext['expectedRevision'];
 }
 
 export interface CallableAuthenticatedAccountContext {
@@ -31,7 +33,13 @@ export function buildCommandContextFromCallableAccount(
   transport: CallableAuthenticatedAccountContext,
   input: Pick<
     CallableCommandTransportInput<CommandKind>,
-    'idempotencyKey' | 'correlationId' | 'causationId' | 'expectedRevision' | 'calendarInput' | 'timezone'
+    | 'idempotencyKey'
+    | 'correlationId'
+    | 'causationId'
+    | 'expectedRevision'
+    | 'calendarInput'
+    | 'timezone'
+    | 'bookingRevision'
   >
 ): CommandContext {
   return {
@@ -46,6 +54,9 @@ export function buildCommandContextFromCallableAccount(
     ...(input.timezone === undefined ? {} : { timezone: input.timezone }),
     transportMetadata: {
       transport: 'firebase_callable',
+      ...(input.bookingRevision === undefined
+        ? {}
+        : { [BOOKING_REVISION_TRANSPORT_KEY]: String(input.bookingRevision) }),
     },
   };
 }

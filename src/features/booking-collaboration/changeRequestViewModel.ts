@@ -1,5 +1,8 @@
 import type { BookingChangeRequestReadModel } from '@ski-academy/shared-domain';
-import type { BookingChangeRequestCabinetItem } from './bookingCollaborationContracts';
+import type {
+  BookingChangeRequestCabinetItem,
+  BookingChangeRequestCabinetSourceScope,
+} from './bookingCollaborationContracts';
 
 export function mapChangeRequestLifecycleLabel(status: string): string {
   switch (status) {
@@ -15,7 +18,8 @@ export function mapChangeRequestLifecycleLabel(status: string): string {
 }
 
 export function mapBookingChangeRequestReadModelToCabinetItem(
-  readModel: BookingChangeRequestReadModel
+  readModel: BookingChangeRequestReadModel,
+  sourceScope: BookingChangeRequestCabinetSourceScope = 'account_open'
 ): BookingChangeRequestCabinetItem {
   return {
     requestId: readModel.requestId,
@@ -25,17 +29,29 @@ export function mapBookingChangeRequestReadModelToCabinetItem(
     reason: readModel.reason,
     lifecycleStatus: readModel.lifecycle.status,
     lifecycleLabel: mapChangeRequestLifecycleLabel(readModel.lifecycle.status),
+    sourceScope,
     authorizedActions: readModel.authorizedActions,
   };
 }
 
 export function mergeChangeRequestRecords(
   existing: ReadonlyMap<string, BookingChangeRequestCabinetItem>,
-  incoming: readonly BookingChangeRequestReadModel[]
+  incoming: readonly BookingChangeRequestReadModel[],
+  sourceScope: BookingChangeRequestCabinetSourceScope
 ): Map<string, BookingChangeRequestCabinetItem> {
   const merged = new Map(existing);
+  const incomingIds = new Set<string>(incoming.map((readModel) => readModel.requestId));
+  for (const [requestId, item] of merged) {
+    if (
+      item.sourceScope === sourceScope &&
+      item.lifecycleStatus === 'open' &&
+      !incomingIds.has(requestId)
+    ) {
+      merged.delete(requestId);
+    }
+  }
   for (const readModel of incoming) {
-    const item = mapBookingChangeRequestReadModelToCabinetItem(readModel);
+    const item = mapBookingChangeRequestReadModelToCabinetItem(readModel, sourceScope);
     const cached = merged.get(item.requestId);
     if (!cached || item.revision >= cached.revision) {
       merged.set(item.requestId, item);

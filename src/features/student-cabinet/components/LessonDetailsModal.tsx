@@ -8,6 +8,12 @@ import { getDifficultyShort, formatBookingDayMonth } from './student/studentCabi
 import { LessonRecommendationsList } from './LessonRecommendationsList';
 import { Course } from '../../../types';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';
+import {
+  selectCollaborationChangeRequests,
+  selectOpenChangeRequestForBooking,
+  StudentOpenChangeRequestNotice,
+  useBookingCollaborationStore,
+} from '../../../features/booking-collaboration';
 
 interface LessonDetailsModalProps {
   booking: Booking | null;
@@ -28,6 +34,10 @@ export const LessonDetailsModal: React.FC<LessonDetailsModalProps> = ({
 }) => {
   const { language, t } = useLanguage();
   const lang = language === 'ru' ? 'ru' : 'en';
+  const changeRequests = useBookingCollaborationStore(selectCollaborationChangeRequests);
+  const openChangeRequest = booking
+    ? selectOpenChangeRequestForBooking(changeRequests, booking.id)
+    : undefined;
 
   if (!booking) return null;
 
@@ -85,6 +95,8 @@ export const LessonDetailsModal: React.FC<LessonDetailsModalProps> = ({
               <p className="text-base text-[var(--ink)]">{dateLabel || shortDate}</p>
               <p className="text-sm text-[var(--ink-dim)]">{booking.instructorName}</p>
             </div>
+
+            {openChangeRequest ? <StudentOpenChangeRequestNotice /> : null}
 
             {(booking.recommendations?.length ?? 0) > 0 ? (
               <LessonRecommendationsList booking={booking} onToggle={onToggleRecommendation} />

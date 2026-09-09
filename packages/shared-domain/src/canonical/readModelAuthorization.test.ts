@@ -13,9 +13,11 @@ import { paymentIdFromBookingId, participantBlockIdFromDirection } from './deter
 import { timestampFromDate } from './primitives';
 import { BookingChangeRequestIdSchema } from './identifiers';
 import {
+  evaluateAdminBookingChangeRequestAuthorizedActions,
   evaluateBookingChangeRequestAuthorizedActions,
   evaluateBookingProposalAuthorizedActions,
   evaluateInstructorCourseRosterReadAccess,
+  evaluateInstructorLessonBookingAuthorizedActions,
   evaluateLessonBookingAuthorizedActions,
   evaluateParticipantInstructorAccessAuthorizedActions,
   isInstructorActiveRosterEnrollment,
@@ -114,6 +116,7 @@ describe('readModelAuthorization', () => {
     expect(actions.canRequestCancellation).toBe(true);
     expect(actions.canWithdrawCancellation).toBe(false);
     expect(actions.canReschedule).toBe(true);
+    expect(actions.canCreateChangeRequest).toBe(false);
   });
 
   it('denies lesson booking actions when participant-instructor pair is blocked', () => {
@@ -149,6 +152,41 @@ describe('readModelAuthorization', () => {
     expect(actions.canRequestCancellation).toBe(false);
   });
 
+  it('allows instructor change requests only for confirmed bookings assigned to the instructor', () => {
+    const confirmed = evaluateInstructorLessonBookingAuthorizedActions({
+      instructorId,
+      booking: confirmedBooking(),
+    });
+    expect(confirmed.canCreateChangeRequest).toBe(true);
+
+    const pending = evaluateInstructorLessonBookingAuthorizedActions({
+      instructorId,
+      booking: {
+        ...confirmedBooking(),
+        lifecycle: { status: 'pending' },
+      },
+    });
+    expect(pending.canCreateChangeRequest).toBe(false);
+
+    const multiParticipant = evaluateInstructorLessonBookingAuthorizedActions({
+      instructorId,
+      booking: {
+        ...confirmedBooking(),
+        party: {
+          kind: 'family_group',
+          participantIds: [participantId, ParticipantIdSchema.parse('participant_access_fixture_02')],
+        },
+      },
+    });
+    expect(multiParticipant.canCreateChangeRequest).toBe(true);
+
+    const otherInstructor = evaluateInstructorLessonBookingAuthorizedActions({
+      instructorId: InstructorIdSchema.parse('instructor_other_auth'),
+      booking: confirmedBooking(),
+    });
+    expect(otherInstructor.canCreateChangeRequest).toBe(false);
+  });
+
   it('represents proposal accept/decline for account and withdraw for instructor', () => {
     const accountActions = evaluateBookingProposalAuthorizedActions({
       actor: accountManagerActor,
@@ -171,6 +209,43 @@ describe('readModelAuthorization', () => {
     expect(instructorActions.canAccept).toBe(false);
     expect(instructorActions.canDecline).toBe(false);
     expect(instructorActions.canWithdraw).toBe(true);
+  });
+
+  it('allows an administrator to resolve an open change request', () => {
+    const changeRequest = {
+      requestId: BookingChangeRequestIdSchema.parse('booking_change_request_auth_01'),
+      bookingId,
+      requestType: 'instructor_unavailable' as const,
+      reason: 'Need substitute',
+      lifecycle: { status: 'open' as const },
+      ...metadata,
+    };
+    const actions = evaluateAdminBookingChangeRequestAuthorizedActions({
+      actor: { kind: 'administrator', accountId },
+      changeRequest,
+    });
+    expect(actions).toEqual({
+      canResolveRescheduled: true,
+      canResolveBookingCancelled: true,
+      canResolveNoChange: true,
+    });
+    expect(
+      evaluateAdminBookingChangeRequestAuthorizedActions({
+        actor: { kind: 'administrator', accountId },
+        changeRequest: {
+          ...changeRequest,
+          lifecycle: {
+            status: 'resolved',
+            resolution: 'no_change',
+            resolvedAt: decidedAt,
+          },
+        },
+      })
+    ).toEqual({
+      canResolveRescheduled: false,
+      canResolveBookingCancelled: false,
+      canResolveNoChange: false,
+    });
   });
 
   it('allows change request withdraw only for the booking instructor', () => {

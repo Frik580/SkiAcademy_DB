@@ -22,6 +22,8 @@ export interface BookingProposalCabinetItem {
   readonly authorizedActions: BookingProposalReadModelAuthorizedActions;
 }
 
+export type BookingChangeRequestCabinetSourceScope = 'account_open' | 'instructor_open';
+
 export interface BookingChangeRequestCabinetItem {
   readonly requestId: string;
   readonly revision: number;
@@ -30,6 +32,7 @@ export interface BookingChangeRequestCabinetItem {
   readonly reason: string;
   readonly lifecycleStatus: string;
   readonly lifecycleLabel: string;
+  readonly sourceScope: BookingChangeRequestCabinetSourceScope;
   readonly authorizedActions: BookingChangeRequestReadModelAuthorizedActions;
 }
 

@@ -89,10 +89,14 @@ export function useInstructorBookingCollaboration(input: {
   );
 
   const handleCreateChangeRequest = useCallback(
-    async (bookingId: string, reason: string) => {
-      setSubmittingId(bookingId);
+    async (changeRequest: {
+      readonly bookingId: string;
+      readonly reason: string;
+      readonly expectedRevision: number;
+    }) => {
+      setSubmittingId(changeRequest.bookingId);
       try {
-        await commands.createChangeRequest({ bookingId, reason });
+        await commands.createChangeRequest(changeRequest);
         input.onNotify(
           'success',
           input.t('collabCreateChangeRequest'),

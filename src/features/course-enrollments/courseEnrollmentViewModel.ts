@@ -5,6 +5,7 @@ import type {
   QueryCourseEnrollmentReadModelsResult,
 } from '@ski-academy/shared-domain';
 import { canonicalTimestampToLocalParts } from '../lesson-bookings/mapCalendarInput';
+import { useCourseEnrollmentStore } from './courseEnrollmentStore';
 import type {
   CourseCatalogOperationalState,
   CourseDaySessionItem,
@@ -168,6 +169,28 @@ export function mergeCourseEnrollmentRecords(
     }
   }
   return merged;
+}
+
+export function patchCourseEnrollmentCancellationInStore(input: {
+  readonly enrollmentId: string;
+  readonly lifecycleStatus: 'cancelled' | 'pending_cancellation';
+  readonly nextRevision: number;
+}): void {
+  const existing = useCourseEnrollmentStore.getState().items.get(input.enrollmentId);
+  if (!existing || input.nextRevision < existing.revision) {
+    return;
+  }
+
+  const updated: CourseEnrollmentCabinetItem = {
+    ...existing,
+    lifecycleStatus: input.lifecycleStatus,
+    revision: input.nextRevision,
+    authorizedActions: {
+      canWithdraw: input.lifecycleStatus === 'pending_cancellation',
+      canRequestCancellation: false,
+    },
+  };
+  useCourseEnrollmentStore.getState().mergeItems(new Map([[input.enrollmentId, updated]]));
 }
 
 export function expandEnrollmentToCourseDaySessions(

@@ -14,7 +14,10 @@ import {
   timestampFromDate,
 } from '@ski-academy/shared-domain';
 import type { Firestore } from 'firebase-admin/firestore';
-import { queryBookingChangeRequestReadModels } from './bookingChangeRequestReadModels';
+import {
+  queryBookingChangeRequestReadModels,
+  BookingChangeRequestAdminReadForbiddenError,
+} from './bookingChangeRequestReadModels';
 import { queryBookingProposalReadModels } from './bookingProposalReadModels';
 import { queryParticipantInstructorAccessReadModels } from './participantInstructorAccessReadModels';
 import { parseBooking } from '../bookings/bookingStore';
@@ -40,6 +43,9 @@ const f3MultiBookingId = BookingIdSchema.parse('booking_t30a_f3_multi_01');
 const proposalId = BookingProposalIdSchema.parse('booking_proposal_t30a_01');
 const otherProposalId = BookingProposalIdSchema.parse('booking_proposal_t30a_02');
 const changeRequestId = BookingChangeRequestIdSchema.parse('booking_change_request_t30a_01');
+const familyChangeRequestId = BookingChangeRequestIdSchema.parse(
+  'booking_change_request_t30a_family_01'
+);
 const decidedAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
 const serviceStart = timestampFromDate(new Date('2026-06-15T09:00:00.000Z'));
 const serviceEnd = timestampFromDate(new Date('2026-06-15T10:00:00.000Z'));
@@ -248,6 +254,14 @@ function createT30aFirestore(): Firestore {
     lifecycle: { status: 'open' },
     ...metadata,
   });
+  seed(`booking_change_requests/${familyChangeRequestId}`, {
+    requestId: familyChangeRequestId,
+    bookingId: f3MultiBookingId,
+    requestType: 'instructor_unavailable',
+    reason: 'Family lesson needs a substitute',
+    lifecycle: { status: 'open' },
+    ...metadata,
+  });
 
   const relationshipId = instructorRelationshipIdFromPair({ participantId, instructorId });
   seed(`instructor_relationships/${relationshipId}`, {
@@ -417,8 +431,13 @@ describe('T30A canonical read models', () => {
       { scope: 'account_open' },
       { accountId, now: new Date('2026-01-01T00:00:00.000Z') }
     );
-    expect(accountResult.items).toHaveLength(1);
-    expect(accountResult.items[0]?.authorizedActions).toEqual({ canWithdraw: false });
+    expect(accountResult.items).toHaveLength(2);
+    expect(accountResult.items.map((item) => item.requestId).sort()).toEqual(
+      [changeRequestId, familyChangeRequestId].sort()
+    );
+    expect(accountResult.items.every((item) => item.authorizedActions.canWithdraw === false)).toBe(
+      true
+    );
 
     const instructorResult = await queryBookingChangeRequestReadModels(
       createT30aFirestore(),
@@ -431,6 +450,75 @@ describe('T30A canonical read models', () => {
     );
     expect(instructorResult.items).toHaveLength(1);
     expect(instructorResult.items[0]?.authorizedActions).toEqual({ canWithdraw: true });
+  });
+
+  it('projects open change requests into the administrator attention inbox', async () => {
+    const adminAccountId = AccountIdSchema.parse('account_t30a_admin_01');
+    const result = await queryBookingChangeRequestReadModels(
+      createT30aFirestore(),
+      { scope: 'admin_open' },
+      {
+        accountId: adminAccountId,
+        administratorActor: { kind: 'administrator', accountId: adminAccountId },
+        now: new Date('2026-01-01T00:00:00.000Z'),
+      }
+    );
+
+    expect(result.scope).toBe('admin_open');
+    expect(result.items.map((item) => item.requestId).sort()).toEqual(
+      [changeRequestId, familyChangeRequestId].sort()
+    );
+    const familyItem = result.items.find((item) => item.requestId === familyChangeRequestId);
+    expect(familyItem?.sourceRef).toEqual({
+      sourceKind: 'booking_change_request',
+      bookingChangeRequestId: familyChangeRequestId,
+    });
+    expect(familyItem?.participants.map((participant) => participant.participantId)).toEqual([
+      participantId,
+      familyParticipantId,
+    ]);
+    expect(familyItem?.reason).toBe('Family lesson needs a substitute');
+    expect(familyItem?.authorizedActions).toEqual({
+      canResolveRescheduled: true,
+      canResolveBookingCancelled: true,
+      canResolveNoChange: true,
+    });
+  });
+
+  it('omits resolved change requests from the administrator attention inbox', async () => {
+    const firestore = createT30aFirestore();
+    const adminAccountId = AccountIdSchema.parse('account_t30a_admin_01');
+    const snapshot = await firestore.collection('booking_change_requests').doc(changeRequestId).get();
+    const current = snapshot.data() as Record<string, unknown>;
+    Object.assign(current, {
+      lifecycle: {
+        status: 'resolved',
+        resolution: 'no_change',
+        resolvedAt: decidedAt,
+      },
+    });
+
+    const result = await queryBookingChangeRequestReadModels(
+      firestore,
+      { scope: 'admin_open' },
+      {
+        accountId: adminAccountId,
+        administratorActor: { kind: 'administrator', accountId: adminAccountId },
+        now: new Date('2026-01-01T00:00:00.000Z'),
+      }
+    );
+    expect(result.items.some((item) => item.requestId === changeRequestId)).toBe(false);
+    expect(result.items.some((item) => item.requestId === familyChangeRequestId)).toBe(true);
+  });
+
+  it('forbids administrator attention projection without an administrator actor', async () => {
+    await expect(
+      queryBookingChangeRequestReadModels(
+        createT30aFirestore(),
+        { scope: 'admin_open' },
+        { accountId, now: new Date('2026-01-01T00:00:00.000Z') }
+      )
+    ).rejects.toBeInstanceOf(BookingChangeRequestAdminReadForbiddenError);
   });
 
   it('returns participant instructor access for authorized account manager', async () => {
@@ -473,6 +561,7 @@ describe('T30A canonical read models', () => {
       canRequestCancellation: false,
       canWithdrawCancellation: false,
       canReschedule: false,
+      canCreateChangeRequest: true,
     });
   });
 

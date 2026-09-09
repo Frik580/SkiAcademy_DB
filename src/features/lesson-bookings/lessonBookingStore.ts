@@ -13,6 +13,7 @@ interface LessonBookingStoreState {
   readonly historyRequestNonce: number;
   setItems: (items: ReadonlyMap<string, LessonBookingCabinetItem>) => void;
   mergeItems: (items: ReadonlyMap<string, LessonBookingCabinetItem>) => void;
+  removeItems: (bookingIds: readonly string[]) => void;
   setHotLoading: (loading: boolean) => void;
   setHistoryLoading: (loading: boolean) => void;
   setHistoryHasMore: (hasMore: boolean) => void;
@@ -61,6 +62,23 @@ export const useLessonBookingStore = create<LessonBookingStoreState>((set) => ({
             merged.set(key, value);
             changed = true;
           }
+        }
+      }
+      if (!changed) {
+        return state;
+      }
+      return {
+        items: merged,
+        itemsList: buildLessonBookingItemsList(merged),
+      };
+    }),
+  removeItems: (bookingIds) =>
+    set((state) => {
+      const merged = new Map(state.items);
+      let changed = false;
+      for (const bookingId of bookingIds) {
+        if (merged.delete(bookingId)) {
+          changed = true;
         }
       }
       if (!changed) {

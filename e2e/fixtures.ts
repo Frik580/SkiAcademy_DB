@@ -98,7 +98,7 @@ export async function openStudentBookingModal(
 
 function getBookingModal(page: Page) {
   return page.locator('.ui-modal').filter({
-    has: page.getByRole('button', { name: 'Date', exact: true }),
+    has: page.getByRole('button', { name: 'Select Date', exact: true }),
   });
 }
 
@@ -163,7 +163,7 @@ export async function selectBookingDateInModal(page: Page, dayOffset: number): P
   const monthLabel = getMonthLabel(targetDate);
   const dayLabel = String(targetDate.getDate());
 
-  const dateButton = bookingModal.getByRole('button', { name: 'Date', exact: true });
+  const dateButton = bookingModal.getByRole('button', { name: 'Select Date', exact: true });
   const currentDisplay = ((await dateButton.locator('span').first().textContent()) ?? '').trim();
 
   if (displayMatchesTargetDate(currentDisplay, targetDate)) {
@@ -208,7 +208,7 @@ export async function fillBookingSelectors(
     await ensureParticipantSelected(bookingModal, options.participantDisplayName);
   }
 
-  const dateButton = bookingModal.getByRole('button', { name: 'Date', exact: true });
+  const dateButton = bookingModal.getByRole('button', { name: 'Select Date', exact: true });
   await expect(dateButton).toBeVisible();
   await selectBookingDateInModal(page, dayOffset);
 

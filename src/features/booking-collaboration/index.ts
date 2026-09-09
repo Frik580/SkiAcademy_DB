@@ -12,6 +12,7 @@ export * from './useBookingCollaborationTranslations';
 export * from './useCustomerBookingCollaboration';
 export * from './useInstructorBookingCollaboration';
 export * from './components/BookingCollaborationActions';
+export * from './components/RescheduleBookingModal';
 export * from './components/CustomerProposalInbox';
 export * from './components/ParticipantAccessControls';
 export * from './components/InstructorCollaborationPanel';

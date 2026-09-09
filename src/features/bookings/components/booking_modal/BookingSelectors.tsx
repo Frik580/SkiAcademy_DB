@@ -94,15 +94,15 @@ export const BookingSelectors: React.FC<BookingSelectorsProps> = ({
     <div className={`grid grid-cols-1 sm:grid-cols-2 ${gapClass}`}>
       <div>
         <label className={labelStyle}>
-          <Calendar className="h-3.5 w-3.5" /> {t('dateLabel')}
+          <Calendar className="h-3.5 w-3.5" /> {t('selectDate')}
         </label>
         <BookingAppleDatePicker
           value={date}
           onChange={setDate}
           min={minBookingDateStr}
           locale={locale}
-          placeholder={t('dateLabel')}
-          aria-label={t('dateLabel')}
+          placeholder={t('selectDate')}
+          aria-label={t('selectDate')}
         />
       </div>
 

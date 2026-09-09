@@ -182,7 +182,7 @@ test.describe('booking migration invariants', () => {
 
     await openStudentBookingModal(page, runtimeConfig);
     const bookingModal = page.locator('.ui-modal').filter({
-      has: page.getByRole('button', { name: 'Date', exact: true }),
+      has: page.getByRole('button', { name: 'Select Date', exact: true }),
     });
     await fillBookingSelectors(page, uniqueDayOffset(14, testInfo), {
       participantDisplayName: runtimeConfig.studentDisplayName,

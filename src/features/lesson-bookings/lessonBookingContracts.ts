@@ -12,6 +12,18 @@ export interface LessonBookingPaymentPresentation {
   readonly price?: number;
 }
 
+export function resolveLessonBookingClientExercisedCapability(
+  booking: Pick<LessonBookingCabinetItem, 'clientExercisedCapability'>
+): ClientCallableCapability | undefined {
+  if (
+    booking.clientExercisedCapability === 'account_owner' ||
+    booking.clientExercisedCapability === 'parent_guardian'
+  ) {
+    return booking.clientExercisedCapability;
+  }
+  return undefined;
+}
+
 export interface LessonBookingCabinetItem {
   readonly id: string;
   readonly bookingId: string;

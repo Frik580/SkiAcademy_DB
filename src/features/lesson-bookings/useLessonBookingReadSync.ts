@@ -4,6 +4,12 @@ import { queryLessonBookingReadModels } from '../../lib/canonical/canonicalReadM
 import { useLessonBookingStore } from './lessonBookingStore';
 import { mergeLessonBookingRecords } from './lessonBookingViewModel';
 import { readGuestBookingCredential } from './guestCredentialStorage';
+import {
+  ACCOUNT_LESSON_BOOKING_REFRESH_MS,
+  applyAccountLessonBookingReadResults,
+  isAccountLessonBookingBackgroundSyncAllowed,
+  syncAccountLessonBookingsFromServer,
+} from './syncAccountLessonBookings';
 
 const DEFAULT_TIMEZONE = 'Asia/Almaty';
 
@@ -16,11 +22,7 @@ export function useLessonBookingReadSync(enabled: boolean, accountId: string | u
     useLessonBookingStore.getState().setError(undefined);
     try {
       const result = await queryLessonBookingReadModels({ scope: 'account_hot' });
-      const merged = mergeLessonBookingRecords(
-        useLessonBookingStore.getState().items,
-        result.items
-      );
-      useLessonBookingStore.getState().mergeItems(merged);
+      applyAccountLessonBookingReadResults({ hotItems: result.items, historyItems: [] });
       useLessonBookingStore.getState().setLoaded(true);
     } catch (error) {
       useLessonBookingStore
@@ -68,6 +70,31 @@ export function useLessonBookingReadSync(enabled: boolean, accountId: string | u
     if (!enabled || !accountId || historyRequestNonce === 0) return;
     void loadHistoryPage();
   }, [historyRequestNonce, enabled, accountId, loadHistoryPage]);
+
+  useEffect(() => {
+    if (!enabled || !accountId) return;
+
+    const refresh = () => {
+      if (!isAccountLessonBookingBackgroundSyncAllowed()) {
+        return;
+      }
+      void syncAccountLessonBookingsFromServer().catch(() => undefined);
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refresh();
+      }
+    };
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    const intervalId = window.setInterval(refresh, ACCOUNT_LESSON_BOOKING_REFRESH_MS);
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.clearInterval(intervalId);
+    };
+  }, [accountId, enabled]);
 
   return { reloadHot: loadHot };
 }

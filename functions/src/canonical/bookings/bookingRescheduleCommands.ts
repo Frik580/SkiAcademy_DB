@@ -26,6 +26,7 @@ import {
   type CommandResult,
   type InstructorId,
   type Payment,
+  type Participant,
   type ParticipantManagement,
   type TimeInterval,
 } from '@ski-academy/shared-domain';
@@ -201,15 +202,6 @@ function rescheduleBookingHandler(
         });
       }
 
-      const resolvedParticipantId = booking.party.participantIds[0]!;
-      const participantDocumentPath = participantPath(resolvedParticipantId);
-      const participantRead = await session.tx.get({ path: participantDocumentPath });
-      session.plan.planRead({ path: participantDocumentPath, category: 'aggregate' });
-      const participant = assertParticipantRecordForReschedule(
-        envelope,
-        parseParticipant(participantRead.exists ? participantRead.data : undefined)
-      );
-
       const actor = requireAccountActor(envelope);
       const accountDocumentPath = accountPath(actor.accountId);
       const accountRead = await session.tx.get({ path: accountDocumentPath });
@@ -221,41 +213,57 @@ function rescheduleBookingHandler(
         });
       }
 
-      let management: ParticipantManagement | undefined;
-      if (participant.management.kind === 'managed') {
-        const managementDocumentPath = participantManagementPath(
-          participant.management.participantManagementId
-        );
-        const managementRead = await session.tx.get({ path: managementDocumentPath });
-        session.plan.planRead({ path: managementDocumentPath, category: 'aggregate' });
-        management = parseParticipantManagement(
-          managementRead.exists ? managementRead.data : undefined
-        );
-        if (management?.status === 'active') {
-          notificationAccountId = management.accountId;
-        }
-      }
-
       const isAdministratorReschedule =
         administratorCapabilityExercisedByAccount(envelope.context) &&
         envelope.context.source === 'admin_callable';
 
-      if (!isAdministratorReschedule) {
-        if (
-          participant.management.kind !== 'managed' ||
-          !management ||
-          management.status !== 'active'
-        ) {
-          throw new CanonicalCommandError('forbidden', {
-            correlationId: envelope.context.correlationId,
-          });
+      const participants: Participant[] = [];
+      const managements: ParticipantManagement[] = [];
+
+      for (const partyParticipantId of booking.party.participantIds) {
+        const participantDocumentPath = participantPath(partyParticipantId);
+        const participantRead = await session.tx.get({ path: participantDocumentPath });
+        session.plan.planRead({ path: participantDocumentPath, category: 'aggregate' });
+        const participant = assertParticipantRecordForReschedule(
+          envelope,
+          parseParticipant(participantRead.exists ? participantRead.data : undefined)
+        );
+        participants.push(participant);
+
+        let management: ParticipantManagement | undefined;
+        if (participant.management.kind === 'managed') {
+          const managementDocumentPath = participantManagementPath(
+            participant.management.participantManagementId
+          );
+          const managementRead = await session.tx.get({ path: managementDocumentPath });
+          session.plan.planRead({ path: managementDocumentPath, category: 'aggregate' });
+          management = parseParticipantManagement(
+            managementRead.exists ? managementRead.data : undefined
+          );
+          if (management?.status === 'active' && !notificationAccountId) {
+            notificationAccountId = management.accountId;
+          }
+        }
+
+        if (!isAdministratorReschedule) {
+          if (
+            participant.management.kind !== 'managed' ||
+            !management ||
+            management.status !== 'active'
+          ) {
+            throw new CanonicalCommandError('forbidden', {
+              correlationId: envelope.context.correlationId,
+            });
+          }
+          managements.push(management);
         }
       }
 
       mode = resolveBookingRescheduleAuthorization(envelope, {
         account,
-        participant,
-        management,
+        participants,
+        managements,
+        participantIds: booking.party.participantIds,
         booking,
       });
 
@@ -272,39 +280,44 @@ function rescheduleBookingHandler(
         assertRescheduleDurationMatches(envelope, booking, schedule.durationMinutes);
       }
 
-      const managerBlockPath = participantBlockPath(
-        participantBlockIdFromDirection({
-          participantId: resolvedParticipantId,
-          instructorId: targetInstructorId,
-          createdByKind: 'participant_manager',
-        })
-      );
-      const instructorBlockPath = participantBlockPath(
-        participantBlockIdFromDirection({
-          participantId: resolvedParticipantId,
-          instructorId: targetInstructorId,
-          createdByKind: 'instructor',
-        })
-      );
-      const managerBlockRead = await session.tx.get({ path: managerBlockPath });
-      session.plan.planRead({ path: managerBlockPath, category: 'authorization_check' });
-      const instructorBlockRead = await session.tx.get({ path: instructorBlockPath });
-      session.plan.planRead({ path: instructorBlockPath, category: 'authorization_check' });
-      const participantBlocks = [
-        parseParticipantBlock(managerBlockRead.exists ? managerBlockRead.data : undefined),
-        parseParticipantBlock(instructorBlockRead.exists ? instructorBlockRead.data : undefined),
-      ].filter((block): block is NonNullable<typeof block> => block !== undefined);
+      for (let index = 0; index < booking.party.participantIds.length; index++) {
+        const partyParticipantId = booking.party.participantIds[index]!;
+        const participant = participants[index]!;
+        const management = managements[index];
+        const managerBlockPath = participantBlockPath(
+          participantBlockIdFromDirection({
+            participantId: partyParticipantId,
+            instructorId: targetInstructorId,
+            createdByKind: 'participant_manager',
+          })
+        );
+        const instructorBlockPath = participantBlockPath(
+          participantBlockIdFromDirection({
+            participantId: partyParticipantId,
+            instructorId: targetInstructorId,
+            createdByKind: 'instructor',
+          })
+        );
+        const managerBlockRead = await session.tx.get({ path: managerBlockPath });
+        session.plan.planRead({ path: managerBlockPath, category: 'authorization_check' });
+        const instructorBlockRead = await session.tx.get({ path: instructorBlockPath });
+        session.plan.planRead({ path: instructorBlockPath, category: 'authorization_check' });
+        const participantBlocks = [
+          parseParticipantBlock(managerBlockRead.exists ? managerBlockRead.data : undefined),
+          parseParticipantBlock(instructorBlockRead.exists ? instructorBlockRead.data : undefined),
+        ].filter((block): block is NonNullable<typeof block> => block !== undefined);
 
-      assertNoActiveServiceBlockForReschedule(
-        envelope.context.correlationId,
-        {
-          account,
-          participant,
-          management,
-          participantBlocks,
-        },
-        targetInstructorId
-      );
+        assertNoActiveServiceBlockForReschedule(
+          envelope.context.correlationId,
+          {
+            account,
+            participant,
+            ...(management === undefined ? {} : { management }),
+            participantBlocks,
+          },
+          targetInstructorId
+        );
+      }
 
       plannedBookingRevision = nextAggregateRevision(booking.revision);
 

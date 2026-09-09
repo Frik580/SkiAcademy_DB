@@ -17,6 +17,7 @@ import type { AppRoutesProps } from './routeTypes';
 import {
   deriveCancellationIdempotencyKey,
   presentCanonicalCommandErrorWithContext,
+  resolveLessonBookingClientExercisedCapability,
   selectLessonBookingItems,
   useLessonBookingCommands,
   useLessonBookingStore,
@@ -123,9 +124,10 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
     async (bookingId: string, _reason?: string) => {
       const booking = lessonBookings.find((item) => item.bookingId === bookingId);
       if (!booking) return;
-      const exercisedCapability =
-        booking.clientExercisedCapability ??
-        (booking.partyKind === 'family_group' ? 'parent_guardian' : 'account_owner');
+      const exercisedCapability = resolveLessonBookingClientExercisedCapability(booking);
+      if (!exercisedCapability) {
+        return;
+      }
       try {
         const outcome = await requestCancellation({
           bookingId: booking.bookingId,

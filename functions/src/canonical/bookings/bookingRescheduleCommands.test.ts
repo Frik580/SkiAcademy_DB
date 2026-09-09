@@ -55,7 +55,7 @@ function environment(at: string) {
 }
 
 function accountContext(
-  capability: 'account_owner' | 'administrator',
+  capability: 'account_owner' | 'parent_guardian' | 'administrator',
   actorAccountId = accountId,
   idempotencyKey = `idem-${Math.random().toString(36).slice(2, 10)}`,
   expectedRevision?: number,
@@ -236,13 +236,14 @@ async function createConfirmedBooking(
 
 function rescheduleEnvelope(
   idempotencyKey: string,
-  capability: 'account_owner' | 'administrator' = 'account_owner',
+  capability: 'account_owner' | 'parent_guardian' | 'administrator' = 'account_owner',
   expectedRevision = 1,
   calendarInput = {
     localDate: '2026-01-16',
     localTime: '11:00',
     durationMinutes: 60,
-  }
+  },
+  targetBookingId = bookingId
 ): CommandEnvelope<'reschedule_booking'> {
   return {
     kind: 'reschedule_booking',
@@ -254,10 +255,160 @@ function rescheduleEnvelope(
       calendarInput
     ),
     intent: {
-      bookingId,
+      bookingId: targetBookingId,
       ...(capability === 'administrator' ? { reasonExplanation: 'Admin reschedule' } : {}),
     },
   };
+}
+
+function resultErrorCode(result: { status: string; error?: { code?: string } }) {
+  return result.status === 'error' ? result.error?.code : undefined;
+}
+
+const childParticipantId = ParticipantIdSchema.parse('participant_reschedule_child_only');
+const childManagementId = ParticipantManagementIdSchema.parse('management_reschedule_child_only');
+const mixedSelfParticipantId = ParticipantIdSchema.parse('participant_reschedule_a_self');
+const mixedChildParticipantId = ParticipantIdSchema.parse('participant_reschedule_z_child');
+const mixedSelfManagementId = ParticipantManagementIdSchema.parse('management_reschedule_a_self');
+const mixedChildManagementId = ParticipantManagementIdSchema.parse('management_reschedule_z_child');
+const childBookingId = BookingIdSchema.parse('booking_reschedule_child_only');
+const mixedPartyBookingId = BookingIdSchema.parse('booking_reschedule_mixed_party');
+
+function seedPartyAuthorizationBase() {
+  return {
+    ...seedBase(),
+    [`participants/${childParticipantId}`]: {
+      participantId: childParticipantId,
+      displayName: 'Child Participant',
+      age: { kind: 'age_years', years: 10 },
+      skillLevel: 'beginner',
+      discipline: 'ski',
+      management: { kind: 'managed', participantManagementId: childManagementId },
+      lifecycle: { status: 'active' },
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: {
+        createdByCommandId: 'command_seed_child_participant',
+        lastChangedByCommandId: 'command_seed_child_participant',
+        correlationId,
+      },
+    },
+    [`participant_management/${childManagementId}`]: {
+      participantManagementId: childManagementId,
+      participantId: childParticipantId,
+      accountId,
+      role: 'owner',
+      authority: 'parent_guardian',
+      status: 'active',
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: {
+        createdByCommandId: 'command_seed_child_management',
+        lastChangedByCommandId: 'command_seed_child_management',
+        correlationId,
+      },
+    },
+    [`participants/${mixedSelfParticipantId}`]: {
+      participantId: mixedSelfParticipantId,
+      displayName: 'Parent Self Participant',
+      age: { kind: 'age_years', years: 30 },
+      skillLevel: 'advanced',
+      discipline: 'ski',
+      management: { kind: 'managed', participantManagementId: mixedSelfManagementId },
+      lifecycle: { status: 'active' },
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: {
+        createdByCommandId: 'command_seed_mixed_self_participant',
+        lastChangedByCommandId: 'command_seed_mixed_self_participant',
+        correlationId,
+      },
+    },
+    [`participant_management/${mixedSelfManagementId}`]: {
+      participantManagementId: mixedSelfManagementId,
+      participantId: mixedSelfParticipantId,
+      accountId,
+      role: 'owner',
+      authority: 'self',
+      status: 'active',
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: {
+        createdByCommandId: 'command_seed_mixed_self_management',
+        lastChangedByCommandId: 'command_seed_mixed_self_management',
+        correlationId,
+      },
+    },
+    [`participants/${mixedChildParticipantId}`]: {
+      participantId: mixedChildParticipantId,
+      displayName: 'Mixed Child Participant',
+      age: { kind: 'age_years', years: 8 },
+      skillLevel: 'beginner',
+      discipline: 'ski',
+      management: { kind: 'managed', participantManagementId: mixedChildManagementId },
+      lifecycle: { status: 'active' },
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: {
+        createdByCommandId: 'command_seed_mixed_child_participant',
+        lastChangedByCommandId: 'command_seed_mixed_child_participant',
+        correlationId,
+      },
+    },
+    [`participant_management/${mixedChildManagementId}`]: {
+      participantManagementId: mixedChildManagementId,
+      participantId: mixedChildParticipantId,
+      accountId,
+      role: 'owner',
+      authority: 'parent_guardian',
+      status: 'active',
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: {
+        createdByCommandId: 'command_seed_mixed_child_management',
+        lastChangedByCommandId: 'command_seed_mixed_child_management',
+        correlationId,
+      },
+    },
+  };
+}
+
+async function createConfirmedBookingForParticipants(
+  executor: ReturnType<typeof createInMemoryCanonicalTransactionExecutor>,
+  input: {
+    readonly targetBookingId: ReturnType<typeof BookingIdSchema.parse>;
+    readonly participantIds: readonly ReturnType<typeof ParticipantIdSchema.parse>[];
+    readonly exercisedCapability: 'account_owner' | 'parent_guardian';
+    readonly idempotencyKey: string;
+  }
+) {
+  const commands = createProductionCanonicalCommands(
+    environment('2026-01-01T00:00:00.000Z'),
+    executor
+  );
+  const result = await commands.execute({
+    kind: 'create_confirmed_booking',
+    context: {
+      ...accountContext('account_owner', accountId, input.idempotencyKey, undefined, {
+        localDate: '2026-01-15',
+        localTime: '09:00',
+        durationMinutes: 60,
+      }),
+      exercisedCapability: input.exercisedCapability,
+    },
+    intent: {
+      bookingId: input.targetBookingId,
+      instructorId,
+      participantIds: [...input.participantIds],
+    },
+  });
+  expect(result.status).toBe('success');
 }
 
 describe('booking reschedule commands', () => {
@@ -448,6 +599,189 @@ describe('booking reschedule commands', () => {
       rescheduleEnvelope('stale-revision', 'account_owner', 99)
     );
     expect(result.status).toBe('error');
+    expect(resultErrorCode(result)).toBe('stale_version');
+  });
+
+  it('rejects consumed client self-service reschedule with invalid_transition', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
+    await createConfirmedBooking(executor);
+    const startsAt = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.occurrence
+      .interval.startsAt;
+    const requestAt = addMillisecondsToCanonicalTimestamp(
+      startsAt,
+      -INDIVIDUAL_BOOKING_CLIENT_RESCHEDULE_WINDOW_MS
+    );
+    const commands = createProductionCanonicalCommands(
+      environment(isoFromTimestamp(requestAt)),
+      executor
+    );
+    await commands.execute(rescheduleEnvelope('reschedule-consumed-first'));
+    const revision = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.revision;
+    const second = await commands.execute(
+      rescheduleEnvelope('reschedule-consumed-second', 'account_owner', revision)
+    );
+    expect(second.status).toBe('error');
+    expect(resultErrorCode(second)).toBe('invalid_transition');
+  });
+
+  it('allows child booking reschedule with parent_guardian capability', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedPartyAuthorizationBase());
+    await createConfirmedBookingForParticipants(executor, {
+      targetBookingId: childBookingId,
+      participantIds: [childParticipantId],
+      exercisedCapability: 'parent_guardian',
+      idempotencyKey: 'create-child-booking',
+    });
+    const startsAt = executor.snapshot().docs.get(`bookings/${childBookingId}`)?.data.occurrence
+      .interval.startsAt;
+    const requestAt = addMillisecondsToCanonicalTimestamp(
+      startsAt,
+      -INDIVIDUAL_BOOKING_CLIENT_RESCHEDULE_WINDOW_MS
+    );
+    const commands = createProductionCanonicalCommands(
+      environment(isoFromTimestamp(requestAt)),
+      executor
+    );
+    const result = await commands.execute(
+      rescheduleEnvelope('reschedule-child', 'parent_guardian', 1, undefined, childBookingId)
+    );
+    expect(result.status).toBe('success');
+  });
+
+  it('allows mixed self+child party reschedule with aggregate parent_guardian capability', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedPartyAuthorizationBase());
+    await createConfirmedBookingForParticipants(executor, {
+      targetBookingId: mixedPartyBookingId,
+      participantIds: [mixedSelfParticipantId, mixedChildParticipantId],
+      exercisedCapability: 'parent_guardian',
+      idempotencyKey: 'create-mixed-party-booking',
+    });
+    const startsAt = executor.snapshot().docs.get(`bookings/${mixedPartyBookingId}`)?.data.occurrence
+      .interval.startsAt;
+    const requestAt = addMillisecondsToCanonicalTimestamp(
+      startsAt,
+      -INDIVIDUAL_BOOKING_CLIENT_RESCHEDULE_WINDOW_MS
+    );
+    const commands = createProductionCanonicalCommands(
+      environment(isoFromTimestamp(requestAt)),
+      executor
+    );
+    const result = await commands.execute(
+      rescheduleEnvelope(
+        'reschedule-mixed-party',
+        'parent_guardian',
+        1,
+        undefined,
+        mixedPartyBookingId
+      )
+    );
+    expect(result.status).toBe('success');
+    expect(
+      executor.snapshot().docs.get(`bookings/${mixedPartyBookingId}`)?.data.party.participantIds
+    ).toEqual([mixedSelfParticipantId, mixedChildParticipantId]);
+  });
+
+  it('rejects mixed self+child party reschedule when aggregate capability is wrong', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedPartyAuthorizationBase());
+    await createConfirmedBookingForParticipants(executor, {
+      targetBookingId: mixedPartyBookingId,
+      participantIds: [mixedSelfParticipantId, mixedChildParticipantId],
+      exercisedCapability: 'parent_guardian',
+      idempotencyKey: 'create-mixed-party-booking-wrong-cap',
+    });
+    const startsAt = executor.snapshot().docs.get(`bookings/${mixedPartyBookingId}`)?.data.occurrence
+      .interval.startsAt;
+    const requestAt = addMillisecondsToCanonicalTimestamp(
+      startsAt,
+      -INDIVIDUAL_BOOKING_CLIENT_RESCHEDULE_WINDOW_MS
+    );
+    const commands = createProductionCanonicalCommands(
+      environment(isoFromTimestamp(requestAt)),
+      executor
+    );
+    const result = await commands.execute(
+      rescheduleEnvelope(
+        'reschedule-mixed-party-wrong-cap',
+        'account_owner',
+        1,
+        undefined,
+        mixedPartyBookingId
+      )
+    );
+    expect(result.status).toBe('error');
+    expect(resultErrorCode(result)).toBe('forbidden');
+  });
+
+  it('rejects reschedule when target participant interval is already claimed', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
+    await createConfirmedBooking(executor);
+    const blockerBookingId = BookingIdSchema.parse('booking_reschedule_participant_blocker');
+    const blockerCommands = createProductionCanonicalCommands(
+      environment('2026-01-01T00:00:00.000Z'),
+      executor
+    );
+    await blockerCommands.execute({
+      kind: 'create_confirmed_booking',
+      context: accountContext('account_owner', accountId, 'create-participant-blocker', undefined, {
+        localDate: '2026-01-16',
+        localTime: '11:00',
+        durationMinutes: 60,
+      }),
+      intent: {
+        bookingId: blockerBookingId,
+        instructorId: instructorTwoId,
+        participantIds: [participantId],
+      },
+    });
+    const startsAt = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.occurrence
+      .interval.startsAt;
+    const requestAt = addMillisecondsToCanonicalTimestamp(
+      startsAt,
+      -INDIVIDUAL_BOOKING_CLIENT_RESCHEDULE_WINDOW_MS
+    );
+    const commands = createProductionCanonicalCommands(
+      environment(isoFromTimestamp(requestAt)),
+      executor
+    );
+    const result = await commands.execute(rescheduleEnvelope('participant-conflict-unit'));
+    expect(result.status).toBe('error');
+    expect(resultErrorCode(result)).toBe('participant_conflict');
+  });
+
+  it('rejects reschedule when target instructor interval is already claimed', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
+    await createConfirmedBooking(executor);
+    const blockerBookingId = BookingIdSchema.parse('booking_reschedule_instructor_blocker');
+    const blockerCommands = createProductionCanonicalCommands(
+      environment('2026-01-01T00:00:00.000Z'),
+      executor
+    );
+    await blockerCommands.execute({
+      kind: 'create_confirmed_booking',
+      context: accountContext('account_owner', accountId, 'create-instructor-blocker', undefined, {
+        localDate: '2026-01-16',
+        localTime: '11:00',
+        durationMinutes: 60,
+      }),
+      intent: {
+        bookingId: blockerBookingId,
+        instructorId,
+        participantIds: [participantTwoId],
+      },
+    });
+    const startsAt = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.occurrence
+      .interval.startsAt;
+    const requestAt = addMillisecondsToCanonicalTimestamp(
+      startsAt,
+      -INDIVIDUAL_BOOKING_CLIENT_RESCHEDULE_WINDOW_MS
+    );
+    const commands = createProductionCanonicalCommands(
+      environment(isoFromTimestamp(requestAt)),
+      executor
+    );
+    const result = await commands.execute(rescheduleEnvelope('instructor-conflict-unit'));
+    expect(result.status).toBe('error');
+    expect(resultErrorCode(result)).toBe('instructor_conflict');
   });
 
   it('replays successful reschedule without duplicate mutation', async () => {

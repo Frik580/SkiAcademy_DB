@@ -1,5 +1,8 @@
 import { useCallback, useState } from 'react';
-import type { LessonBookingCabinetItem } from '../lesson-bookings/lessonBookingContracts';
+import {
+  resolveLessonBookingClientExercisedCapability,
+  type LessonBookingCabinetItem,
+} from '../lesson-bookings/lessonBookingContracts';
 import type { ClientCallableCapability } from '../../lib/canonical/canonicalCommandClient';
 import { presentCanonicalCommandErrorWithContext } from './presentCollaborationError';
 import {
@@ -49,10 +52,11 @@ export function useCustomerBookingCollaboration(input: {
   );
 
   const exercisedCapabilityForBooking = useCallback((booking: LessonBookingCabinetItem) => {
-    return (
-      booking.clientExercisedCapability ??
-      (booking.partyKind === 'family_group' ? 'parent_guardian' : 'account_owner')
-    );
+    const capability = resolveLessonBookingClientExercisedCapability(booking);
+    if (!capability) {
+      throw new Error('Booking command capability is missing from the read model.');
+    }
+    return capability;
   }, []);
 
   const handleWithdrawCancellation = useCallback(
@@ -80,7 +84,9 @@ export function useCustomerBookingCollaboration(input: {
 
   const handleRescheduleSubmit = useCallback(
     async (payload: { localDate: string; localTime: string; durationMinutes: number }) => {
-      if (!rescheduleTarget) return;
+      if (!rescheduleTarget || !resolveLessonBookingClientExercisedCapability(rescheduleTarget)) {
+        return;
+      }
       setSubmittingId(rescheduleTarget.bookingId);
       try {
         await commands.rescheduleBooking({

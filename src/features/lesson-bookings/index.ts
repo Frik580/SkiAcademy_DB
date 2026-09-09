@@ -9,3 +9,4 @@ export * from './guestCredentialStorage';
 export * from './mapCalendarInput';
 export * from './mergeCabinetBookings';
 export * from './deriveBookingIds';
+export * from './syncAccountLessonBookings';

@@ -398,6 +398,105 @@ describe('booking collaboration integration', () => {
     );
   });
 
+  it('reschedules with parent_guardian from the lesson booking read model', async () => {
+    executeAuthenticatedMock.mockResolvedValueOnce({ status: 'success', payload: {} });
+    const onNotify = vi.fn();
+    const booking = {
+      id: 'booking_reschedule_parent_01',
+      bookingId: 'booking_reschedule_parent_01',
+      revision: 2,
+      status: 'confirmed' as const,
+      date: '2026-06-15',
+      time: '08:00',
+      durationHours: 2,
+      instructorId: 'instructor_fixture_01',
+      instructorName: 'Coach',
+      instructorAvatar: '',
+      participantNames: ['Child'],
+      partyKind: 'individual' as const,
+      payment: { kind: 'withheld' as const },
+      bookingOrigin: 'account' as const,
+      isLessonBooking: true,
+      clientExercisedCapability: 'parent_guardian' as const,
+      authorizedActions: {
+        canRequestCancellation: true,
+        canWithdrawCancellation: false,
+        canReschedule: true,
+        canCreateChangeRequest: false,
+      },
+    };
+    const { result } = renderHook(() =>
+      useCustomerBookingCollaboration({
+        accountId: 'account_fixture_01',
+        onNotify,
+        t: (key) => key,
+      })
+    );
+    await act(async () => {
+      result.current.setRescheduleTarget(booking);
+    });
+    await act(async () => {
+      await result.current.handleRescheduleSubmit({
+        localDate: '2026-06-16',
+        localTime: '10:00',
+        durationMinutes: 120,
+      });
+    });
+    expect(executeAuthenticatedMock).toHaveBeenCalledWith(
+      'account_fixture_01',
+      expect.objectContaining({
+        kind: 'reschedule_booking',
+        exercisedCapability: 'parent_guardian',
+        expectedRevision: 2,
+      })
+    );
+  });
+
+  it('does not reschedule when lesson booking capability is missing from the read model', async () => {
+    const onNotify = vi.fn();
+    const booking = {
+      id: 'booking_reschedule_missing_cap_01',
+      bookingId: 'booking_reschedule_missing_cap_01',
+      revision: 2,
+      status: 'confirmed' as const,
+      date: '2026-06-15',
+      time: '08:00',
+      durationHours: 2,
+      instructorId: 'instructor_fixture_01',
+      instructorName: 'Coach',
+      instructorAvatar: '',
+      participantNames: ['Child'],
+      partyKind: 'family_group' as const,
+      payment: { kind: 'withheld' as const },
+      bookingOrigin: 'account' as const,
+      isLessonBooking: true,
+      authorizedActions: {
+        canRequestCancellation: true,
+        canWithdrawCancellation: false,
+        canReschedule: true,
+        canCreateChangeRequest: false,
+      },
+    };
+    const { result } = renderHook(() =>
+      useCustomerBookingCollaboration({
+        accountId: 'account_fixture_01',
+        onNotify,
+        t: (key) => key,
+      })
+    );
+    await act(async () => {
+      result.current.setRescheduleTarget(booking);
+    });
+    await act(async () => {
+      await result.current.handleRescheduleSubmit({
+        localDate: '2026-06-16',
+        localTime: '10:00',
+        durationMinutes: 120,
+      });
+    });
+    expect(executeAuthenticatedMock).not.toHaveBeenCalled();
+  });
+
   it('sends account_owner for a self participant proposal', async () => {
     executeAuthenticatedMock.mockResolvedValueOnce({ status: 'success', payload: {} });
     const proposal = mapBookingProposalReadModelToCabinetItem({

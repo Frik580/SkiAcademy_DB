@@ -21,8 +21,7 @@ import type {
 import { mapLessonBookingCalendarInput } from './mapCalendarInput';
 import { persistGuestBookingCredential } from './guestCredentialStorage';
 import { useLessonBookingStore } from './lessonBookingStore';
-import { mergeLessonBookingRecords } from './lessonBookingViewModel';
-import { queryLessonBookingReadModels } from '../../lib/canonical/canonicalReadModelClient';
+import { syncAccountLessonBookingsFromServer } from './syncAccountLessonBookings';
 import {
   resolveLessonCancellationLifecycleFromStore,
   type CabinetCancellationCommandResult,
@@ -30,9 +29,7 @@ import {
 import { resolveCabinetCancellationOutcome } from '../student-cabinet/resolveCabinetCancellationOutcome';
 
 async function refetchAccountHotBookings(_accountId: string): Promise<void> {
-  const result = await queryLessonBookingReadModels({ scope: 'account_hot' });
-  const merged = mergeLessonBookingRecords(useLessonBookingStore.getState().items, result.items);
-  useLessonBookingStore.getState().mergeItems(merged);
+  await syncAccountLessonBookingsFromServer();
 }
 
 export function useLessonBookingCommands(accountId: string | undefined) {

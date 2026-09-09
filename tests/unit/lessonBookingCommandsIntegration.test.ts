@@ -31,11 +31,17 @@ describe('lessonBooking commands integration', () => {
     const bookingId = 'booking_auth_create_01';
     const accountId = 'account_fixture_01';
     executeAuthenticatedMock.mockResolvedValueOnce({ status: 'success', payload: {} });
-    queryReadModelsMock.mockResolvedValueOnce({
-      scope: 'account_hot',
-      items: [],
-      hasMore: false,
-    });
+    queryReadModelsMock
+      .mockResolvedValueOnce({
+        scope: 'account_hot',
+        items: [],
+        hasMore: false,
+      })
+      .mockResolvedValueOnce({
+        scope: 'account_history',
+        items: [],
+        hasMore: false,
+      });
 
     const { result } = renderHook(() => useLessonBookingCommands(accountId));
     await result.current.createAuthenticatedBooking({
@@ -67,6 +73,7 @@ describe('lessonBooking commands integration', () => {
       })
     );
     expect(queryReadModelsMock).toHaveBeenCalledWith({ scope: 'account_hot' });
+    expect(queryReadModelsMock).toHaveBeenCalledWith({ scope: 'account_history' });
   });
 
   it('creates guest booking, persists credential, and does not call legacy callables', async () => {
@@ -127,7 +134,9 @@ describe('lessonBooking commands integration', () => {
       correlationId: 'correlation_cancel_01',
       payload: { lifecycleStatus: 'cancelled' },
     });
-    queryReadModelsMock.mockResolvedValueOnce({ scope: 'account_hot', items: [], hasMore: false });
+    queryReadModelsMock
+      .mockResolvedValueOnce({ scope: 'account_hot', items: [], hasMore: false })
+      .mockResolvedValueOnce({ scope: 'account_history', items: [], hasMore: false });
 
     const { result } = renderHook(() => useLessonBookingCommands(accountId));
     const outcome = await result.current.requestCancellation({

@@ -117,7 +117,7 @@ test.describe('booking flow', () => {
       time: uniqueTimeSlot(testInfo),
     });
     const bookingModal = page.locator('.ui-modal').filter({
-      has: page.getByRole('button', { name: 'Date', exact: true }),
+      has: page.getByRole('button', { name: 'Select Date', exact: true }),
     });
     await ensureParticipantSelected(bookingModal, runtimeConfig.studentChildDisplayName);
     await waitForFunctionsEmulatorReady();

@@ -181,34 +181,37 @@ describe('cabinet cancellation outcome', () => {
       correlationId: 'correlation_cancel_02',
       payload: { lifecycleStatus: 'cancelled' },
     });
-    queryLessonReadModelsMock.mockResolvedValueOnce({
-      scope: 'account_hot',
-      items: [
-        {
-          bookingId: 'booking_cancel_test',
-          revision: 5,
-          lifecycle: { status: 'cancelled', cancelledAt: { seconds: 1, nanoseconds: 0 } },
-          occurrence: {
-            startsAt: { seconds: 1_718_438_400, nanoseconds: 0 },
-            durationMinutes: 120,
-            timeZone: 'Asia/Almaty',
+    queryLessonReadModelsMock
+      .mockResolvedValueOnce({ scope: 'account_hot', items: [], hasMore: false })
+      .mockResolvedValueOnce({
+        scope: 'account_history',
+        items: [
+          {
+            bookingId: 'booking_cancel_test',
+            revision: 5,
+            lifecycle: { status: 'cancelled', cancelledAt: { seconds: 1, nanoseconds: 0 } },
+            occurrence: {
+              startsAt: { seconds: 1_718_438_400, nanoseconds: 0 },
+              endsAt: { seconds: 1_718_439_200, nanoseconds: 0 },
+              durationMinutes: 120,
+              timeZone: 'Asia/Almaty',
+            },
+            instructor: {
+              instructorId: 'instructor_01',
+              displayName: 'Coach',
+            },
+            participants: [{ displayName: 'Student' }],
+            partyKind: 'individual',
+            paymentPresentation: { kind: 'visible', paymentStatus: 'captured', price: 100 },
+            bookingOrigin: 'account',
+            authorizedActions: {
+              canRequestCancellation: false,
+              canWithdrawCancellation: false,
+            },
           },
-          instructor: {
-            instructorId: 'instructor_01',
-            displayName: 'Coach',
-          },
-          participants: [{ displayName: 'Student' }],
-          partyKind: 'individual',
-          paymentPresentation: { kind: 'visible', paymentStatus: 'captured', price: 100 },
-          bookingOrigin: 'account',
-          authorizedActions: {
-            canRequestCancellation: false,
-            canWithdrawCancellation: false,
-          },
-        },
-      ],
-      hasMore: false,
-    });
+        ],
+        hasMore: false,
+      });
 
     const { result } = renderHook(() => useLessonBookingCommands('account_fixture_01'));
     const outcome = await result.current.requestCancellation({
@@ -305,11 +308,17 @@ describe('cabinet cancellation outcome', () => {
       correlationId: 'correlation_cancel_patch',
       payload: { lifecycleStatus: 'cancelled' },
     });
-    queryLessonReadModelsMock.mockResolvedValueOnce({
-      scope: 'account_hot',
-      items: [],
-      hasMore: false,
-    });
+    queryLessonReadModelsMock
+      .mockResolvedValueOnce({
+        scope: 'account_hot',
+        items: [],
+        hasMore: false,
+      })
+      .mockResolvedValueOnce({
+        scope: 'account_history',
+        items: [],
+        hasMore: false,
+      });
 
     const { result } = renderHook(() => useLessonBookingCommands('account_fixture_01'));
     const outcome = await result.current.requestCancellation({

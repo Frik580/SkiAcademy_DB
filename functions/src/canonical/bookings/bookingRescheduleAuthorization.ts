@@ -5,6 +5,7 @@ import {
   evaluateClientSelfServiceRescheduleTiming,
   isClientSelfServiceRescheduleAllowanceAvailable,
   isRescheduleEligibleBooking,
+  resolveClientCallableCapabilityFromPartyAuthorities,
   type Account,
   type Booking,
   type CommandEnvelope,
@@ -35,12 +36,70 @@ export function resolveRescheduleScheduleContext(
   }
 }
 
+function assertClientCallableRescheduleEnvelope(envelope: CommandEnvelope<'reschedule_booking'>): void {
+  if (envelope.context.source !== 'client_callable') {
+    throw new CanonicalCommandError('forbidden', {
+      correlationId: envelope.context.correlationId,
+    });
+  }
+  if (
+    envelope.context.exercisedCapability !== 'account_owner' &&
+    envelope.context.exercisedCapability !== 'parent_guardian'
+  ) {
+    throw new CanonicalCommandError('forbidden', {
+      correlationId: envelope.context.correlationId,
+    });
+  }
+}
+
+export function assertAuthenticatedBookingPartyRescheduleAuthorization(
+  envelope: CommandEnvelope<'reschedule_booking'>,
+  input: Readonly<{
+    account: Account;
+    participants: readonly Participant[];
+    managements: readonly ParticipantManagement[];
+    participantIds: readonly Participant['participantId'][];
+  }>
+): void {
+  assertClientCallableRescheduleEnvelope(envelope);
+
+  const authorities: ('self' | 'parent_guardian')[] = [];
+  for (const participantId of input.participantIds) {
+    const participant = input.participants.find((entry) => entry.participantId === participantId);
+    const management = input.managements.find((entry) => entry.participantId === participantId);
+    if (!participant || !management || participant.management.kind !== 'managed') {
+      throw new CanonicalCommandError('forbidden', {
+        correlationId: envelope.context.correlationId,
+      });
+    }
+    const access = assertAuthorizedParticipantManager(
+      envelope,
+      { account: input.account, participant, management },
+      participantId
+    );
+    if (!access.allowed) {
+      throw new CanonicalCommandError('forbidden', {
+        correlationId: envelope.context.correlationId,
+      });
+    }
+    authorities.push(access.authority);
+  }
+
+  const expectedCapability = resolveClientCallableCapabilityFromPartyAuthorities(authorities);
+  if (envelope.context.exercisedCapability !== expectedCapability) {
+    throw new CanonicalCommandError('forbidden', {
+      correlationId: envelope.context.correlationId,
+    });
+  }
+}
+
 export function resolveBookingRescheduleAuthorization(
   envelope: CommandEnvelope<'reschedule_booking'>,
   input: Readonly<{
     account: Account;
-    participant: Participant;
-    management?: ParticipantManagement;
+    participants: readonly Participant[];
+    managements: readonly ParticipantManagement[];
+    participantIds: readonly Participant['participantId'][];
     booking: Booking;
   }>
 ): BookingRescheduleMode {
@@ -64,49 +123,12 @@ export function resolveBookingRescheduleAuthorization(
     return 'administrator';
   }
 
-  if (
-    envelope.context.source !== 'client_callable' ||
-    (envelope.context.exercisedCapability !== 'account_owner' &&
-      envelope.context.exercisedCapability !== 'parent_guardian')
-  ) {
-    throw new CanonicalCommandError('forbidden', {
-      correlationId: envelope.context.correlationId,
-    });
-  }
-
-  if (!input.management) {
-    throw new CanonicalCommandError('forbidden', {
-      correlationId: envelope.context.correlationId,
-    });
-  }
-
-  const access = assertAuthorizedParticipantManager(
-    envelope,
-    {
-      account: input.account,
-      participant: input.participant,
-      management: input.management,
-    },
-    input.participant.participantId
-  );
-  if (!access.allowed) {
-    throw new CanonicalCommandError('forbidden', {
-      correlationId: envelope.context.correlationId,
-    });
-  }
-  if (access.authority === 'self' && envelope.context.exercisedCapability !== 'account_owner') {
-    throw new CanonicalCommandError('forbidden', {
-      correlationId: envelope.context.correlationId,
-    });
-  }
-  if (
-    access.authority === 'parent_guardian' &&
-    envelope.context.exercisedCapability !== 'parent_guardian'
-  ) {
-    throw new CanonicalCommandError('forbidden', {
-      correlationId: envelope.context.correlationId,
-    });
-  }
+  assertAuthenticatedBookingPartyRescheduleAuthorization(envelope, {
+    account: input.account,
+    participants: input.participants,
+    managements: input.managements,
+    participantIds: input.participantIds,
+  });
 
   return 'client_self_service';
 }

@@ -111,7 +111,14 @@ export function resolveAdminMonitorLessonStatusFromRow(
 
 export function lessonAdminPrimaryStatusBadgeTone(
   kind: LessonAdminPrimaryStatusKind | 'in_progress'
-): 'pending' | 'confirmed' | 'pending_cancellation' | 'cancelled' | 'completed' | 'no_show' | 'info' {
+):
+  | 'pending'
+  | 'confirmed'
+  | 'pending_cancellation'
+  | 'cancelled'
+  | 'completed'
+  | 'no_show'
+  | 'info' {
   if (kind === 'awaiting_payment') return 'pending';
   if (kind === 'in_progress') return 'info';
   if (kind === 'no_show') return 'no_show';
@@ -124,6 +131,16 @@ export const PAYMENT_STATUS_LABEL_KEYS: Record<PaymentStatus, TranslationKey> = 
   paid: 'paid',
   refunded: 'paymentStatusRefunded',
   partially_refunded: 'paymentStatusPartiallyRefunded',
+};
+
+export const LESSON_ADMIN_ORIGIN_LABEL_KEYS: Record<
+  LessonBookingReadModel['bookingOrigin'],
+  TranslationKey
+> = {
+  guest: 'adminLessonOriginGuest',
+  account: 'adminLessonOriginAccount',
+  admin: 'adminLessonOriginAdmin',
+  instructor: 'adminLessonOriginInstructor',
 };
 
 export type LessonAdminPaymentPrimaryRowId = 'price' | 'paid' | 'outstanding';

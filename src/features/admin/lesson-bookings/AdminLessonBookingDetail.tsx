@@ -2,7 +2,8 @@ import type {
   LessonBookingAdminProjection,
   LessonBookingReadModel,
 } from '@ski-academy/shared-domain';
-import { useMemo, useState } from 'react';
+import { AlertTriangle, CalendarDays, MessageSquareText, X } from 'lucide-react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { formatLessonDifficultyOrUnspecified } from '../../../lib/i18n/bookingLabels';
 import type { Language, TranslationKey } from '../../../lib/i18n/translations';
 import { AdminManagedParticipantPicker } from '../identity';
@@ -19,12 +20,12 @@ import {
   issueSeverityLabelKey,
   issueStatusLabelKey,
   LESSON_ADMIN_EMPTY_ACTIONS_KEYS,
+  LESSON_ADMIN_ORIGIN_LABEL_KEYS,
   LESSON_ADMIN_PAYMENT_ANCILLARY_ROW_KEYS,
   LESSON_ADMIN_PAYMENT_PRIMARY_ROW_KEYS,
   LESSON_ADMIN_PRIMARY_STATUS_KEYS,
   lessonAdminPaymentAncillaryRows,
   lessonAdminPaymentPrimaryRows,
-  lessonAdminPrimaryStatusBadgeTone,
   needsSharedActionReason,
   PAYMENT_STATUS_LABEL_KEYS,
   resolveLessonAdminEmptyActionsReason,
@@ -35,23 +36,13 @@ import {
   shouldShowPayerRow,
   trueAuthorizedActionKeys,
 } from './lessonBookingAdminPresentation';
-
-const BADGE_TONE_CLASS: Record<ReturnType<typeof lessonAdminPrimaryStatusBadgeTone>, string> = {
-  pending:
-    'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:border-amber-500/30 dark:bg-amber-950/40 dark:text-amber-300',
-  confirmed:
-    'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-950/40 dark:text-emerald-300',
-  pending_cancellation:
-    'border-rose-500/20 bg-rose-500/10 text-rose-700 dark:border-rose-500/30 dark:bg-rose-950/40 dark:text-rose-300',
-  cancelled:
-    'border-slate-500/20 bg-slate-500/10 text-slate-600 dark:border-slate-700/40 dark:bg-slate-800/40 dark:text-slate-400',
-  completed:
-    'border-[color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-[var(--accent)]',
-  no_show:
-    'border-orange-500/20 bg-orange-500/10 text-orange-700 dark:border-orange-500/30 dark:bg-orange-950/40 dark:text-orange-300',
-  info:
-    'border-sky-500/20 bg-sky-500/10 text-sky-700 dark:border-sky-500/30 dark:bg-sky-950/40 dark:text-sky-300',
-};
+import {
+  AdminLessonDetailTabs,
+  AdminLessonOriginBadge,
+  AdminLessonPaymentIndicator,
+  AdminLessonStatusChip,
+  type AdminLessonDetailSection,
+} from './AdminLessonBookingUi';
 
 export interface AdminLessonBookingDetailProps {
   readonly detail: LessonBookingReadModel;
@@ -124,10 +115,12 @@ function ReasonField({
   readonly t: (key: TranslationKey) => string;
   readonly ariaLabel: string;
 }) {
+  const inputId = useId();
   return (
-    <label className="block text-xs">
+    <label htmlFor={inputId} className="block text-xs">
       {t('adminLessonReason')}
       <input
+        id={inputId}
         aria-label={ariaLabel}
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -161,23 +154,7 @@ export function AdminLessonBookingDetail({
   focusedChangeRequestId,
 }: AdminLessonBookingDetailProps) {
   const occurrence = formatOccurrenceParts(detail, locale);
-  const [rescheduleDate, setRescheduleDate] = useState(() => {
-    const start = new Date(detail.occurrence.startsAt.seconds * 1_000);
-    const parts = new Intl.DateTimeFormat('en-CA', {
-      timeZone: detail.occurrence.timeZone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    }).formatToParts(start);
-    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-    return {
-      date: `${values.year}-${values.month}-${values.day}`,
-      time: `${values.hour === '24' ? '00' : values.hour}:${values.minute}`,
-    };
-  });
+  const [activeSection, setActiveSection] = useState<AdminLessonDetailSection['id']>('overview');
   const formatKzt = (value: number) =>
     new Intl.NumberFormat(locale, {
       style: 'currency',
@@ -189,7 +166,6 @@ export function AdminLessonBookingDetail({
     .join(', ');
   const primaryStatus = resolveLessonAdminPrimaryStatus(detail);
   const statusLabel = t(LESSON_ADMIN_PRIMARY_STATUS_KEYS[primaryStatus]);
-  const badgeTone = lessonAdminPrimaryStatusBadgeTone(primaryStatus);
   const emptyActions = resolveLessonAdminEmptyActionsReason(detail);
   const showCancellation = shouldShowCancellationSection(detail);
   const showGuest = shouldShowGuestSection(detail);
@@ -205,7 +181,6 @@ export function AdminLessonBookingDetail({
   const reasonInAttendance = showReason && attendanceHasMutations;
   const reasonInCancellation =
     showReason &&
-    !attendanceHasMutations &&
     (admin.authorizedActions.canDirectCancel || admin.authorizedActions.canResolveCancellation);
   const refundValid =
     Number.isInteger(Number(refundAmount)) &&
@@ -213,6 +188,10 @@ export function AdminLessonBookingDetail({
     Number(refundAmount) <= (admin.cancellationFinancial?.maximumRefund ?? 0);
   const payment = admin.payment;
   const awaitingPayment = isPendingUnpaidOutstanding(detail);
+  const showAttendance = (admin.attendance ?? []).length > 0 || attendancePending || showOutcome;
+  const openCriticalIssues = admin.relatedIssues.filter(
+    (issue) => issue.severity === 'critical' && issue.lifecycleStatus === 'open'
+  );
   const parsedPaymentAmount = Number(paymentAmount);
   const paymentAmountValid =
     Number.isInteger(parsedPaymentAmount) &&
@@ -225,433 +204,594 @@ export function AdminLessonBookingDetail({
   const focusedChangeRequest =
     openChangeRequests.find((item) => item.requestId === focusedChangeRequestId) ??
     openChangeRequests[0];
-  const canResolveFocused =
-    focusedChangeRequest !== undefined &&
-    Boolean(actionReason.trim()) &&
-    rescheduleDate.date.length > 0 &&
-    rescheduleDate.time.length > 0;
+  const sections = useMemo<readonly AdminLessonDetailSection[]>(
+    () => [
+      { id: 'overview', label: t('adminLessonOverviewTitle') },
+      {
+        id: 'payment',
+        label: t('adminLessonPaymentTitle'),
+        attention: awaitingPayment,
+      },
+      ...(showAttendance
+        ? [{ id: 'attendance' as const, label: t('adminLessonAttendanceTitle') }]
+        : []),
+      ...(showCancellation
+        ? [
+            {
+              id: 'cancellation' as const,
+              label: t('adminLessonCancellationTitle'),
+              attention: detail.lifecycle.status === 'pending_cancellation',
+            },
+          ]
+        : []),
+      ...(showGuest ? [{ id: 'guest' as const, label: t('adminLessonGuestTitle') }] : []),
+      ...(admin.relatedIssues.length > 0
+        ? [
+            {
+              id: 'issues' as const,
+              label: t('adminLessonRelatedIssues'),
+              attention: admin.relatedIssues.some((issue) => issue.lifecycleStatus === 'open'),
+            },
+          ]
+        : []),
+      { id: 'technical', label: t('adminLessonTechnicalDetails') },
+    ],
+    [
+      admin.relatedIssues,
+      awaitingPayment,
+      detail.lifecycle.status,
+      showAttendance,
+      showCancellation,
+      showGuest,
+      t,
+    ]
+  );
+
+  useEffect(() => {
+    if (!sections.some((section) => section.id === activeSection)) {
+      setActiveSection('overview');
+    }
+  }, [activeSection, sections]);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="text-base font-medium">{participantNames}</h3>
-          <p className="mt-1 text-xs text-[var(--ink-dim)]">{occurrence.header}</p>
-          <p className="mt-0.5 text-xs text-[var(--ink-dim)]">{detail.instructor.displayName}</p>
-          <span
-            className={`mt-2 inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${BADGE_TONE_CLASS[badgeTone]}`}
-          >
-            {statusLabel}
-          </span>
-        </div>
-        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-          <button
-            type="button"
-            aria-label={t('openInPlanner')}
-            onClick={onOpenPlanner}
-            className="border border-[var(--border)] px-3 py-2 text-xs"
-          >
-            {t('openInPlanner')}
-          </button>
-          <button
-            type="button"
-            aria-label={t('adminLessonCloseDetail')}
-            onClick={onClose}
-            className="border border-[var(--border)] px-3 py-2 text-xs"
-          >
-            {t('adminLessonClose')}
-          </button>
-        </div>
-      </div>
-
-      {awaitingPayment && payment && (
-        <div className="border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
-          <p className="font-medium">{t('adminLessonAttentionAwaitingPayment')}</p>
-          <p className="mt-1 text-[var(--ink-dim)]">
-            {t('adminLessonAwaitingPaymentDetail').replace(
-              '{amount}',
-              formatKzt(payment.outstanding)
-            )}
-          </p>
-          {detail.bookingOrigin === 'guest' && (
-            <p className="mt-1 text-[var(--ink-dim)]">{t('adminLessonGuestApprovalUnavailable')}</p>
-          )}
-        </div>
-      )}
-
-      {focusedChangeRequest && (
-        <section
-          id={`admin-change-request-${focusedChangeRequest.requestId}`}
-          className="space-y-3 border border-amber-500/30 bg-amber-500/5 p-3"
-        >
-          <div>
-            <p className="text-xs font-medium">{t('adminLessonInstructorRequestedChange')}</p>
-            <p className="mt-1 text-xs text-[var(--ink-dim)]">
-              {t('collabWaitingAdminDecision')}
-            </p>
+    <div>
+      <div className="sticky top-3 z-20 rounded-t-[var(--radius)] bg-[var(--card-bg)] shadow-[0_8px_20px_-18px_rgba(17,17,17,0.45)] lg:top-0">
+        <header className="space-y-3 p-4 pb-3">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h3 className="truncate text-xl font-medium">{participantNames}</h3>
+              <p className="mt-1 text-xs text-[var(--ink-dim)]">
+                {occurrence.header} · {detail.instructor.displayName}
+              </p>
+              <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                <AdminLessonStatusChip status={primaryStatus} label={statusLabel} />
+                <AdminLessonPaymentIndicator
+                  status={payment.status}
+                  label={t(PAYMENT_STATUS_LABEL_KEYS[payment.status])}
+                />
+                <AdminLessonOriginBadge
+                  origin={detail.bookingOrigin}
+                  label={t(LESSON_ADMIN_ORIGIN_LABEL_KEYS[detail.bookingOrigin])}
+                />
+              </div>
+            </div>
+            <button
+              type="button"
+              aria-label={t('adminLessonCloseDetail')}
+              onClick={onClose}
+              className="flex h-8 w-8 shrink-0 items-center justify-center border border-[var(--border)] text-[var(--ink-dim)] hover:text-[var(--ink)]"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
           </div>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
-            <dt className="text-[var(--ink-dim)]">{t('adminLessonChangeRequestReason')}</dt>
-            <dd>{focusedChangeRequest.reason}</dd>
-            <dt className="text-[var(--ink-dim)]">{t('adminAttentionCreatedAt')}</dt>
-            <dd>{formatInstant(focusedChangeRequest.createdAt, locale, detail.occurrence.timeZone)}</dd>
-          </dl>
-          <div className="grid grid-cols-2 gap-2">
-            <label className="block text-xs">
-              {t('adminLessonNewLessonDate')}
-              <input
-                type="date"
-                aria-label={t('adminLessonNewLessonDate')}
-                value={rescheduleDate.date}
-                onChange={(event) =>
-                  setRescheduleDate((current) => ({ ...current, date: event.target.value }))
-                }
-                className="mt-1 w-full border border-[var(--border)] bg-transparent p-2"
-              />
-            </label>
-            <label className="block text-xs">
-              {t('adminLessonNewLessonTime')}
-              <input
-                type="time"
-                aria-label={t('adminLessonNewLessonTime')}
-                value={rescheduleDate.time}
-                onChange={(event) =>
-                  setRescheduleDate((current) => ({ ...current, time: event.target.value }))
-                }
-                className="mt-1 w-full border border-[var(--border)] bg-transparent p-2"
-              />
-            </label>
-          </div>
-          <ReasonField
-            value={actionReason}
-            onChange={onActionReasonChange}
-            t={t}
-            ariaLabel={t('adminLessonReason')}
-          />
-          <label className="block text-xs">
-            {t('adminLessonRefund')}
-            <input
-              aria-label={t('adminLessonRefund')}
-              type="number"
-              min="0"
-              max={admin.cancellationFinancial?.maximumRefund}
-              value={refundAmount}
-              onChange={(event) => onRefundAmountChange(event.target.value)}
-              className="mt-1 w-full border border-[var(--border)] bg-transparent p-2"
-            />
-          </label>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              disabled={!canResolveFocused}
-              onClick={() =>
-                onRequestAttempt(
-                  {
-                    kind: 'resolve_booking_change_request',
-                    bookingChangeRequestId: focusedChangeRequest.requestId,
-                    requestRevision: focusedChangeRequest.revision,
-                    resolution: 'rescheduled',
-                    reasonExplanation: actionReason.trim(),
-                    localDate: rescheduleDate.date,
-                    localTime: rescheduleDate.time,
-                    durationMinutes: detail.occurrence.durationMinutes,
-                    timezone: detail.occurrence.timeZone,
-                  },
-                  t('adminLessonResolveChangeReschedule')
-                )
-              }
-              className="border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
+              aria-label={t('openInPlanner')}
+              onClick={onOpenPlanner}
+              className="inline-flex items-center gap-1.5 border border-[var(--accent)] bg-[var(--accent-muted)] px-3 py-2 text-xs font-semibold text-[var(--accent)]"
             >
-              {t('adminLessonResolveChangeReschedule')}
+              <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
+              {t('openInPlanner')}
             </button>
             <button
               type="button"
-              disabled={!actionReason.trim() || !refundValid}
-              onClick={() =>
-                onRequestAttempt(
-                  {
-                    kind: 'resolve_booking_change_request',
-                    bookingChangeRequestId: focusedChangeRequest.requestId,
-                    requestRevision: focusedChangeRequest.revision,
-                    resolution: 'booking_cancelled',
-                    refundAmount: Number(refundAmount),
-                    reasonExplanation: actionReason.trim(),
-                  },
-                  t('adminLessonResolveChangeCancel')
-                )
-              }
-              className="border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
+              disabled
+              aria-describedby="admin-lesson-sms-unavailable"
+              title={t('adminLessonSmsUnavailable')}
+              className="inline-flex cursor-not-allowed items-center gap-1.5 border border-[var(--border)] px-3 py-2 text-xs text-[var(--ink-dim)] opacity-60"
             >
-              {t('adminLessonResolveChangeCancel')}
+              <MessageSquareText className="h-3.5 w-3.5" aria-hidden="true" />
+              {t('adminLessonSendSms')}
             </button>
-            <button
-              type="button"
-              onClick={() =>
-                onRequestAttempt(
-                  {
-                    kind: 'resolve_booking_change_request',
-                    bookingChangeRequestId: focusedChangeRequest.requestId,
-                    requestRevision: focusedChangeRequest.revision,
-                    resolution: 'no_change',
-                  },
-                  t('adminLessonResolveChangeReject')
-                )
-              }
-              className="border border-[var(--border)] px-3 py-2 text-xs"
+            <span
+              id="admin-lesson-sms-unavailable"
+              className="basis-full text-[10px] text-[var(--ink-dim)]"
             >
-              {t('adminLessonResolveChangeReject')}
-            </button>
+              {t('adminLessonSmsUnavailable')}
+            </span>
           </div>
-        </section>
-      )}
-
-      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-xs">
-        <dt className="text-[var(--ink-dim)]">{t('adminLessonDate')}</dt>
-        <dd>{occurrence.date}</dd>
-        <dt className="text-[var(--ink-dim)]">{t('adminLessonTime')}</dt>
-        <dd>{occurrence.timeRange}</dd>
-        <dt className="text-[var(--ink-dim)]">{t('adminLessonDuration')}</dt>
-        <dd>{formatLessonAdminDuration(detail.occurrence.durationMinutes, t)}</dd>
-        <dt className="text-[var(--ink-dim)]">{t('adminLessonInstructor')}</dt>
-        <dd>{detail.instructor.displayName}</dd>
-        <dt className="text-[var(--ink-dim)]">
-          {admin.participants.length > 1
-            ? t('adminLessonParticipants')
-            : t('adminLessonParticipant')}
-        </dt>
-        <dd>{participantNames}</dd>
-        {showPayer && admin.payer && (
-          <>
-            <dt className="text-[var(--ink-dim)]">{t('adminLessonPayer')}</dt>
-            <dd>{admin.payer.displayName}</dd>
-          </>
-        )}
-        <dt className="text-[var(--ink-dim)]">{t('adminLessonDifficulty')}</dt>
-        <dd>
-          {formatLessonDifficultyOrUnspecified(
-            detail.difficulty,
-            language,
-            t('difficultyUnspecified'),
-            'short'
-          )}
-        </dd>
-        {detail.notes ? (
-          <>
-            <dt className="text-[var(--ink-dim)]">{t('adminLessonNotes')}</dt>
-            <dd>{detail.notes}</dd>
-          </>
-        ) : null}
-      </dl>
-
-      {payment && (
-        <section className="space-y-2 border-t border-[var(--border)] pt-3">
-          <h4 className="text-xs font-medium uppercase tracking-wide">
-            {t('adminLessonPaymentTitle')}
-          </h4>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
-            {lessonAdminPaymentPrimaryRows(payment).map((row) => (
-              <div key={row.id} className="contents">
-                <dt className="text-[var(--ink-dim)]">
-                  {t(LESSON_ADMIN_PAYMENT_PRIMARY_ROW_KEYS[row.id])}
-                </dt>
-                <dd className="text-right tabular-nums">{formatKzt(row.amount)}</dd>
-              </div>
-            ))}
-            {lessonAdminPaymentAncillaryRows(payment).map((row) => (
-              <div key={row.id} className="contents">
-                <dt className="text-[var(--ink-dim)]">
-                  {t(LESSON_ADMIN_PAYMENT_ANCILLARY_ROW_KEYS[row.id])}
-                </dt>
-                <dd className="text-right tabular-nums">{formatKzt(row.amount)}</dd>
-              </div>
-            ))}
-            <dt className="text-[var(--ink-dim)]">{t('adminLessonPaymentStatus')}</dt>
-            <dd>{t(PAYMENT_STATUS_LABEL_KEYS[payment.status])}</dd>
-          </dl>
-          {admin.authorizedActions.canRecordGuestPayment && (
-            <div className="space-y-2 border-t border-[var(--border)] pt-3">
-              <label htmlFor="admin-guest-payment-amount" className="block text-xs">
-                {t('adminLessonPaymentAmount')}
-                <input
-                  id="admin-guest-payment-amount"
-                  aria-label={t('adminLessonPaymentAmount')}
-                  type="number"
-                  inputMode="numeric"
-                  min="1"
-                  max={payment.outstanding}
-                  step="1"
-                  value={paymentAmount}
-                  onChange={(event) => onPaymentAmountChange(event.target.value)}
-                  className="mt-1 w-full border border-[var(--border)] bg-transparent p-2 tabular-nums"
-                />
-              </label>
-              <button
-                type="button"
-                disabled={!paymentAmountValid}
-                onClick={() =>
-                  onRequestAttempt(
-                    {
-                      kind: 'record_provider_payment_event',
-                      paymentId: payment.paymentId,
-                      paymentRevision: payment.revision,
-                      amount: parsedPaymentAmount,
-                    },
-                    t('adminLessonConfirmPayment').replace(
+          {(awaitingPayment ||
+            detail.lifecycle.status === 'pending_cancellation' ||
+            openCriticalIssues.length > 0 ||
+            focusedChangeRequest) && (
+            <div className="grid gap-2 xl:grid-cols-2">
+              {awaitingPayment && (
+                <div className="rounded-[var(--radius-md)] border border-amber-500/30 bg-amber-500/[0.07] p-3 text-xs">
+                  <p className="flex items-center gap-1.5 font-semibold text-amber-900 dark:text-amber-200">
+                    <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+                    {t('adminLessonAttentionAwaitingPayment')}
+                  </p>
+                  <p className="mt-1 text-[var(--ink-dim)]">
+                    {t('adminLessonAwaitingPaymentDetail').replace(
                       '{amount}',
-                      formatKzt(parsedPaymentAmount)
-                    )
-                  )
-                }
-                className="w-full border border-[var(--ink)] bg-[var(--ink)] px-3 py-2 text-xs text-[var(--bg)] disabled:opacity-50"
-              >
-                {t('adminLessonRecordPayment')}
-              </button>
+                      formatKzt(payment.outstanding)
+                    )}
+                  </p>
+                  {detail.bookingOrigin === 'guest' && (
+                    <p className="mt-1 text-[var(--ink-dim)]">
+                      {t('adminLessonGuestApprovalUnavailable')}
+                    </p>
+                  )}
+                </div>
+              )}
+              {detail.lifecycle.status === 'pending_cancellation' && (
+                <div className="rounded-[var(--radius-md)] border border-rose-500/30 bg-rose-500/[0.07] p-3 text-xs">
+                  <p className="flex items-center gap-1.5 font-semibold text-rose-900 dark:text-rose-200">
+                    <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+                    {t('adminLessonCancellationRequested')}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSection('cancellation')}
+                    className="mt-2 text-xs font-semibold text-rose-700 underline-offset-2 hover:underline dark:text-rose-300"
+                  >
+                    {t('adminLessonOpenCancellation')}
+                  </button>
+                </div>
+              )}
+              {openCriticalIssues.length > 0 && (
+                <div className="rounded-[var(--radius-md)] border border-red-500/30 bg-red-500/[0.07] p-3 text-xs">
+                  <p className="flex items-center gap-1.5 font-semibold text-red-900 dark:text-red-200">
+                    <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+                    {t('adminLessonCriticalIssues').replace(
+                      '{n}',
+                      String(openCriticalIssues.length)
+                    )}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSection('issues')}
+                    className="mt-2 text-xs font-semibold text-red-700 underline-offset-2 hover:underline dark:text-red-300"
+                  >
+                    {t('adminLessonRelatedIssues')}
+                  </button>
+                </div>
+              )}
+              {focusedChangeRequest && (
+                <div
+                  id={`admin-change-request-${focusedChangeRequest.requestId}`}
+                  className="rounded-[var(--radius-md)] border border-amber-500/30 bg-amber-500/[0.07] p-3 text-xs"
+                >
+                  <p className="font-semibold">{t('adminLessonInstructorRequestedChange')}</p>
+                  <p className="mt-1 text-[var(--ink-dim)]">{focusedChangeRequest.reason}</p>
+                  <button
+                    type="button"
+                    onClick={onOpenPlanner}
+                    className="mt-2 font-semibold text-[var(--accent)] underline-offset-2 hover:underline"
+                  >
+                    {t('openInPlanner')}
+                  </button>
+                </div>
+              )}
             </div>
           )}
-          <button
-            type="button"
-            onClick={() => onOpenPayment(payment.paymentId)}
-            className="border border-[var(--border)] px-3 py-2 text-xs"
-          >
-            {t('adminLessonOpenPayment')}
-          </button>
-        </section>
-      )}
+        </header>
+        <AdminLessonDetailTabs
+          sections={sections}
+          activeSection={activeSection}
+          onChange={setActiveSection}
+          ariaLabel={t('adminLessonDetailSections')}
+          attentionLabel={t('adminLessonRequiresAttention')}
+        />
+      </div>
 
-      {((admin.attendance ?? []).length > 0 || attendancePending || showOutcome) && (
-        <section className="space-y-2 border-t border-[var(--border)] pt-3">
-          <h4 className="text-xs font-medium uppercase tracking-wide">
-            {t('adminLessonAttendanceTitle')}
-          </h4>
-          {(admin.attendance ?? []).map((record) => {
-            const participant = admin.participants.find(
-              (candidate) => candidate.participantId === record.participantId
-            );
-            const canPresent = record.authorizedActions.canRecordPresent;
-            const canAbsent = record.authorizedActions.canRecordAbsent;
-            return (
-              <div key={record.participantId} className="space-y-2 text-xs">
-                <p className="font-medium">{participant?.displayName ?? record.participantId}</p>
-                <p className="text-[var(--ink-dim)]">
-                  {t(attendanceStatusLabelKey(record.attendanceStatus))}
-                </p>
-                {(canPresent || canAbsent) && (
-                  <div className="flex flex-wrap gap-2">
-                    {canPresent && (
-                      <button
-                        type="button"
-                        disabled={!actionReason.trim()}
-                        onClick={() =>
-                          onRequestAttempt(
-                            {
-                              kind: 'record_booking_attendance',
-                              participantId: record.participantId,
-                              attendanceStatus: 'present',
-                              ...(record.revision === undefined
-                                ? {}
-                                : { expectedAttendanceRevision: record.revision }),
-                              reasonExplanation: actionReason.trim(),
-                            },
-                            `${t('adminLessonConfirmAttendance')} ${participant?.displayName ?? record.participantId}: ${record.attendanceStatus ?? 'missing'} → present @ booking rev ${detail.revision}${record.revision === undefined ? '' : `, attendance rev ${record.revision}`}`
-                          )
-                        }
-                        className="border border-[var(--border)] px-3 py-2 disabled:opacity-50"
-                      >
-                        {t('adminLessonRecordPresent')}
-                      </button>
-                    )}
-                    {canAbsent && (
-                      <button
-                        type="button"
-                        disabled={!actionReason.trim()}
-                        onClick={() =>
-                          onRequestAttempt(
-                            {
-                              kind: 'record_booking_attendance',
-                              participantId: record.participantId,
-                              attendanceStatus: 'absent',
-                              ...(record.revision === undefined
-                                ? {}
-                                : { expectedAttendanceRevision: record.revision }),
-                              reasonExplanation: actionReason.trim(),
-                            },
-                            `${t('adminLessonConfirmAttendance')} ${participant?.displayName ?? record.participantId}: ${record.attendanceStatus ?? 'missing'} → absent @ booking rev ${detail.revision}${record.revision === undefined ? '' : `, attendance rev ${record.revision}`}`
-                          )
-                        }
-                        className="border border-[var(--border)] px-3 py-2 disabled:opacity-50"
-                      >
-                        {t('adminLessonRecordAbsent')}
-                      </button>
-                    )}
-                  </div>
+      <div
+        id={`admin-lesson-panel-${activeSection}`}
+        role="tabpanel"
+        aria-labelledby={`admin-lesson-tab-${activeSection}`}
+        className="space-y-5 p-4 lg:p-5"
+      >
+        {activeSection === 'overview' && (
+          <section aria-label={t('adminLessonOverviewTitle')} className="space-y-5">
+            <dl className="grid grid-cols-[minmax(8rem,auto)_1fr] gap-x-6 gap-y-3 text-sm">
+              <dt className="text-[var(--ink-dim)]">{t('adminLessonDate')}</dt>
+              <dd>{occurrence.date}</dd>
+              <dt className="text-[var(--ink-dim)]">{t('adminLessonTime')}</dt>
+              <dd>{occurrence.timeRange}</dd>
+              <dt className="text-[var(--ink-dim)]">{t('adminLessonDuration')}</dt>
+              <dd>{formatLessonAdminDuration(detail.occurrence.durationMinutes, t)}</dd>
+              <dt className="text-[var(--ink-dim)]">{t('adminLessonInstructor')}</dt>
+              <dd>{detail.instructor.displayName}</dd>
+              <dt className="text-[var(--ink-dim)]">
+                {admin.participants.length > 1
+                  ? t('adminLessonParticipants')
+                  : t('adminLessonParticipant')}
+              </dt>
+              <dd>{participantNames}</dd>
+              {showPayer && admin.payer && (
+                <>
+                  <dt className="text-[var(--ink-dim)]">{t('adminLessonPayer')}</dt>
+                  <dd>{admin.payer.displayName}</dd>
+                </>
+              )}
+              <dt className="text-[var(--ink-dim)]">{t('adminLessonDifficulty')}</dt>
+              <dd>
+                {formatLessonDifficultyOrUnspecified(
+                  detail.difficulty,
+                  language,
+                  t('difficultyUnspecified'),
+                  'short'
                 )}
-              </div>
-            );
-          })}
-          {attendancePending && (
-            <p className="text-xs text-[var(--ink-dim)]">
-              {t('adminLessonAttendanceAfterConfirm')}
-            </p>
-          )}
-          {showOutcome && (
-            <button
-              type="button"
-              onClick={() =>
-                onRequestAttempt(
-                  { kind: 'resolve_attendance_outcome' },
-                  t('adminLessonConfirmOutcome')
-                )
-              }
-              className="w-full border border-[var(--border)] px-3 py-2 text-xs"
-            >
-              {t('adminLessonResolveOutcome')}
-            </button>
-          )}
-          {reasonInAttendance && (
-            <ReasonField
-              value={actionReason}
-              onChange={onActionReasonChange}
-              t={t}
-              ariaLabel="Action reason"
-            />
-          )}
-        </section>
-      )}
-
-      {showCancellation && (
-        <section className="space-y-2 border-t border-[var(--border)] pt-3">
-          <h4 className="text-xs font-medium uppercase tracking-wide">
-            {t('adminLessonCancellationTitle')}
-          </h4>
-          {detail.lifecycle.status === 'pending_cancellation' && (
-            <p className="text-xs">{t('adminLessonCancellationRequested')}</p>
-          )}
-          {(admin.authorizedActions.canResolveCancellation ||
-            admin.authorizedActions.canDirectCancel) && (
-            <div className="space-y-2">
-              <label className="block text-xs">
-                {t('adminLessonRefund')}
-                <input
-                  aria-label="Cancellation refund"
-                  type="number"
-                  min="0"
-                  max={admin.cancellationFinancial?.maximumRefund}
-                  value={refundAmount}
-                  onChange={(event) => onRefundAmountChange(event.target.value)}
-                  className="mt-1 w-full border border-[var(--border)] bg-transparent p-2"
-                />
-              </label>
-              {reasonInCancellation && (
+              </dd>
+              {detail.notes ? (
+                <>
+                  <dt className="text-[var(--ink-dim)]">{t('adminLessonNotes')}</dt>
+                  <dd>{detail.notes}</dd>
+                </>
+              ) : null}
+            </dl>
+            {focusedChangeRequest && (
+              <div className="space-y-3 rounded-[var(--radius-md)] border border-amber-500/30 bg-amber-500/[0.05] p-4">
+                <div>
+                  <h4 className="text-sm font-medium">
+                    {t('adminLessonInstructorRequestedChange')}
+                  </h4>
+                  <p className="mt-1 text-xs text-[var(--ink-dim)]">
+                    {focusedChangeRequest.reason} ·{' '}
+                    {formatInstant(
+                      focusedChangeRequest.createdAt,
+                      locale,
+                      detail.occurrence.timeZone
+                    )}
+                  </p>
+                </div>
+                <p className="text-xs text-[var(--ink-dim)]">{t('adminLessonScheduleInPlanner')}</p>
                 <ReasonField
                   value={actionReason}
                   onChange={onActionReasonChange}
                   t={t}
-                  ariaLabel="Action reason"
+                  ariaLabel={t('adminLessonReason')}
                 />
-              )}
-              <div className="flex flex-wrap gap-2">
-                {admin.authorizedActions.canResolveCancellation && (
-                  <>
+                <label htmlFor="admin-change-request-refund" className="block text-xs">
+                  {t('adminLessonRefund')}
+                  <input
+                    id="admin-change-request-refund"
+                    aria-label={t('adminLessonRefund')}
+                    type="number"
+                    min="0"
+                    max={admin.cancellationFinancial?.maximumRefund}
+                    value={refundAmount}
+                    onChange={(event) => onRefundAmountChange(event.target.value)}
+                    className="mt-1 w-full border border-[var(--border)] bg-transparent p-2"
+                  />
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={onOpenPlanner}
+                    className="border border-[var(--accent)] bg-[var(--accent-muted)] px-3 py-2 text-xs font-semibold text-[var(--accent)]"
+                  >
+                    {t('openInPlanner')}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!actionReason.trim() || !refundValid}
+                    onClick={() =>
+                      onRequestAttempt(
+                        {
+                          kind: 'resolve_booking_change_request',
+                          bookingChangeRequestId: focusedChangeRequest.requestId,
+                          requestRevision: focusedChangeRequest.revision,
+                          resolution: 'booking_cancelled',
+                          refundAmount: Number(refundAmount),
+                          reasonExplanation: actionReason.trim(),
+                        },
+                        t('adminLessonResolveChangeCancel')
+                      )
+                    }
+                    className="border border-rose-500/40 px-3 py-2 text-xs text-rose-700 disabled:opacity-50 dark:text-rose-300"
+                  >
+                    {t('adminLessonResolveChangeCancel')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onRequestAttempt(
+                        {
+                          kind: 'resolve_booking_change_request',
+                          bookingChangeRequestId: focusedChangeRequest.requestId,
+                          requestRevision: focusedChangeRequest.revision,
+                          resolution: 'no_change',
+                        },
+                        t('adminLessonResolveChangeReject')
+                      )
+                    }
+                    className="border border-[var(--border)] px-3 py-2 text-xs"
+                  >
+                    {t('adminLessonResolveChangeReject')}
+                  </button>
+                </div>
+              </div>
+            )}
+            {(emptyActions || showPlannerHint) && (
+              <div className="rounded-[var(--radius-md)] bg-[var(--profile-bg)] p-3">
+                {showPlannerHint && (
+                  <p className="text-xs text-[var(--ink-dim)]">
+                    {t('adminLessonScheduleInPlanner')}
+                  </p>
+                )}
+                {emptyActions && (
+                  <p className="text-xs text-[var(--ink-dim)]">
+                    {t(LESSON_ADMIN_EMPTY_ACTIONS_KEYS[emptyActions])}
+                  </p>
+                )}
+              </div>
+            )}
+          </section>
+        )}
+
+        {activeSection === 'payment' && payment && (
+          <section aria-label={t('adminLessonPaymentTitle')} className="space-y-4">
+            <h4 className="text-xs font-medium uppercase tracking-wide">
+              {t('adminLessonPaymentTitle')}
+            </h4>
+            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
+              {lessonAdminPaymentPrimaryRows(payment).map((row) => (
+                <div key={row.id} className="contents">
+                  <dt className="text-[var(--ink-dim)]">
+                    {t(LESSON_ADMIN_PAYMENT_PRIMARY_ROW_KEYS[row.id])}
+                  </dt>
+                  <dd className="text-right tabular-nums">{formatKzt(row.amount)}</dd>
+                </div>
+              ))}
+              {lessonAdminPaymentAncillaryRows(payment).map((row) => (
+                <div key={row.id} className="contents">
+                  <dt className="text-[var(--ink-dim)]">
+                    {t(LESSON_ADMIN_PAYMENT_ANCILLARY_ROW_KEYS[row.id])}
+                  </dt>
+                  <dd className="text-right tabular-nums">{formatKzt(row.amount)}</dd>
+                </div>
+              ))}
+              <dt className="text-[var(--ink-dim)]">{t('adminLessonPaymentStatus')}</dt>
+              <dd>{t(PAYMENT_STATUS_LABEL_KEYS[payment.status])}</dd>
+            </dl>
+            {admin.authorizedActions.canRecordGuestPayment && (
+              <div className="space-y-2 border-t border-[var(--border)] pt-3">
+                <label htmlFor="admin-guest-payment-amount" className="block text-xs">
+                  {t('adminLessonPaymentAmount')}
+                  <input
+                    id="admin-guest-payment-amount"
+                    aria-label={t('adminLessonPaymentAmount')}
+                    type="number"
+                    inputMode="numeric"
+                    min="1"
+                    max={payment.outstanding}
+                    step="1"
+                    value={paymentAmount}
+                    onChange={(event) => onPaymentAmountChange(event.target.value)}
+                    className="mt-1 w-full border border-[var(--border)] bg-transparent p-2 tabular-nums"
+                  />
+                </label>
+                <button
+                  type="button"
+                  disabled={!paymentAmountValid}
+                  onClick={() =>
+                    onRequestAttempt(
+                      {
+                        kind: 'record_provider_payment_event',
+                        paymentId: payment.paymentId,
+                        paymentRevision: payment.revision,
+                        amount: parsedPaymentAmount,
+                      },
+                      t('adminLessonConfirmPayment').replace(
+                        '{amount}',
+                        formatKzt(parsedPaymentAmount)
+                      )
+                    )
+                  }
+                  className="w-full border border-[var(--ink)] bg-[var(--ink)] px-3 py-2 text-xs text-[var(--bg)] disabled:opacity-50"
+                >
+                  {t('adminLessonRecordPayment')}
+                </button>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => onOpenPayment(payment.paymentId)}
+              className="border border-[var(--border)] px-3 py-2 text-xs"
+            >
+              {t('adminLessonOpenPayment')}
+            </button>
+          </section>
+        )}
+
+        {activeSection === 'attendance' && showAttendance && (
+          <section aria-label={t('adminLessonAttendanceTitle')} className="space-y-4">
+            <h4 className="text-xs font-medium uppercase tracking-wide">
+              {t('adminLessonAttendanceTitle')}
+            </h4>
+            {(admin.attendance ?? []).map((record) => {
+              const participant = admin.participants.find(
+                (candidate) => candidate.participantId === record.participantId
+              );
+              const canPresent = record.authorizedActions.canRecordPresent;
+              const canAbsent = record.authorizedActions.canRecordAbsent;
+              return (
+                <div key={record.participantId} className="space-y-2 text-xs">
+                  <p className="font-medium">{participant?.displayName ?? record.participantId}</p>
+                  <p className="text-[var(--ink-dim)]">
+                    {t(attendanceStatusLabelKey(record.attendanceStatus))}
+                  </p>
+                  {(canPresent || canAbsent) && (
+                    <div className="flex flex-wrap gap-2">
+                      {canPresent && (
+                        <button
+                          type="button"
+                          disabled={!actionReason.trim()}
+                          onClick={() =>
+                            onRequestAttempt(
+                              {
+                                kind: 'record_booking_attendance',
+                                participantId: record.participantId,
+                                attendanceStatus: 'present',
+                                ...(record.revision === undefined
+                                  ? {}
+                                  : { expectedAttendanceRevision: record.revision }),
+                                reasonExplanation: actionReason.trim(),
+                              },
+                              `${t('adminLessonConfirmAttendance')} ${participant?.displayName ?? record.participantId}: ${record.attendanceStatus ?? 'missing'} → present @ booking rev ${detail.revision}${record.revision === undefined ? '' : `, attendance rev ${record.revision}`}`
+                            )
+                          }
+                          className="border border-[var(--border)] px-3 py-2 disabled:opacity-50"
+                        >
+                          {t('adminLessonRecordPresent')}
+                        </button>
+                      )}
+                      {canAbsent && (
+                        <button
+                          type="button"
+                          disabled={!actionReason.trim()}
+                          onClick={() =>
+                            onRequestAttempt(
+                              {
+                                kind: 'record_booking_attendance',
+                                participantId: record.participantId,
+                                attendanceStatus: 'absent',
+                                ...(record.revision === undefined
+                                  ? {}
+                                  : { expectedAttendanceRevision: record.revision }),
+                                reasonExplanation: actionReason.trim(),
+                              },
+                              `${t('adminLessonConfirmAttendance')} ${participant?.displayName ?? record.participantId}: ${record.attendanceStatus ?? 'missing'} → absent @ booking rev ${detail.revision}${record.revision === undefined ? '' : `, attendance rev ${record.revision}`}`
+                            )
+                          }
+                          className="border border-[var(--border)] px-3 py-2 disabled:opacity-50"
+                        >
+                          {t('adminLessonRecordAbsent')}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {attendancePending && (
+              <p className="text-xs text-[var(--ink-dim)]">
+                {t('adminLessonAttendanceAfterConfirm')}
+              </p>
+            )}
+            {showOutcome && (
+              <button
+                type="button"
+                onClick={() =>
+                  onRequestAttempt(
+                    { kind: 'resolve_attendance_outcome' },
+                    t('adminLessonConfirmOutcome')
+                  )
+                }
+                className="w-full border border-[var(--border)] px-3 py-2 text-xs"
+              >
+                {t('adminLessonResolveOutcome')}
+              </button>
+            )}
+            {reasonInAttendance && (
+              <ReasonField
+                value={actionReason}
+                onChange={onActionReasonChange}
+                t={t}
+                ariaLabel={t('adminLessonReason')}
+              />
+            )}
+          </section>
+        )}
+
+        {activeSection === 'cancellation' && showCancellation && (
+          <section aria-label={t('adminLessonCancellationTitle')} className="space-y-4">
+            <h4 className="text-xs font-medium uppercase tracking-wide">
+              {t('adminLessonCancellationTitle')}
+            </h4>
+            {detail.lifecycle.status === 'pending_cancellation' && (
+              <p className="text-xs">{t('adminLessonCancellationRequested')}</p>
+            )}
+            {(admin.authorizedActions.canResolveCancellation ||
+              admin.authorizedActions.canDirectCancel) && (
+              <div className="space-y-2">
+                <label htmlFor="admin-cancellation-refund" className="block text-xs">
+                  {t('adminLessonRefund')}
+                  <input
+                    id="admin-cancellation-refund"
+                    aria-label="Cancellation refund"
+                    type="number"
+                    min="0"
+                    max={admin.cancellationFinancial?.maximumRefund}
+                    value={refundAmount}
+                    onChange={(event) => onRefundAmountChange(event.target.value)}
+                    className="mt-1 w-full border border-[var(--border)] bg-transparent p-2"
+                  />
+                </label>
+                {reasonInCancellation && (
+                  <ReasonField
+                    value={actionReason}
+                    onChange={onActionReasonChange}
+                    t={t}
+                    ariaLabel={t('adminLessonReason')}
+                  />
+                )}
+                <div className="flex flex-wrap gap-2">
+                  {admin.authorizedActions.canResolveCancellation && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={!actionReason.trim() || !refundValid}
+                        onClick={() =>
+                          onRequestAttempt(
+                            {
+                              kind: 'resolve_booking_cancellation',
+                              paymentId: admin.payment.paymentId,
+                              paymentRevision: admin.payment.revision,
+                              decision: 'approve',
+                              refundAmount: Number(refundAmount),
+                              reasonExplanation: actionReason.trim(),
+                            },
+                            t('adminLessonConfirmApproveCancel')
+                          )
+                        }
+                        className="border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
+                      >
+                        {t('adminLessonApproveCancellation')}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!actionReason.trim()}
+                        onClick={() =>
+                          onRequestAttempt(
+                            {
+                              kind: 'resolve_booking_cancellation',
+                              paymentId: admin.payment.paymentId,
+                              decision: 'reject',
+                              reasonExplanation: actionReason.trim(),
+                            },
+                            t('adminLessonConfirmRejectCancel')
+                          )
+                        }
+                        className="border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
+                      >
+                        {t('adminLessonRejectCancellation')}
+                      </button>
+                    </>
+                  )}
+                  {admin.authorizedActions.canDirectCancel && (
                     <button
                       type="button"
                       disabled={!actionReason.trim() || !refundValid}
@@ -661,240 +801,198 @@ export function AdminLessonBookingDetail({
                             kind: 'resolve_booking_cancellation',
                             paymentId: admin.payment.paymentId,
                             paymentRevision: admin.payment.revision,
-                            decision: 'approve',
+                            decision: 'direct_cancel',
                             refundAmount: Number(refundAmount),
                             reasonExplanation: actionReason.trim(),
                           },
-                          t('adminLessonConfirmApproveCancel')
+                          t('adminLessonConfirmDirectCancel')
                         )
                       }
-                      className="border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
+                      className="border border-rose-500 px-3 py-2 text-xs text-rose-600 disabled:opacity-50"
                     >
-                      {t('adminLessonApproveCancellation')}
+                      {t('adminLessonDirectCancel')}
                     </button>
-                    <button
-                      type="button"
-                      disabled={!actionReason.trim()}
-                      onClick={() =>
-                        onRequestAttempt(
-                          {
-                            kind: 'resolve_booking_cancellation',
-                            paymentId: admin.payment.paymentId,
-                            decision: 'reject',
-                            reasonExplanation: actionReason.trim(),
-                          },
-                          t('adminLessonConfirmRejectCancel')
-                        )
-                      }
-                      className="border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
-                    >
-                      {t('adminLessonRejectCancellation')}
-                    </button>
-                  </>
-                )}
-                {admin.authorizedActions.canDirectCancel && (
-                  <button
-                    type="button"
-                    disabled={!actionReason.trim() || !refundValid}
-                    onClick={() =>
-                      onRequestAttempt(
-                        {
-                          kind: 'resolve_booking_cancellation',
-                          paymentId: admin.payment.paymentId,
-                          paymentRevision: admin.payment.revision,
-                          decision: 'direct_cancel',
-                          refundAmount: Number(refundAmount),
-                          reasonExplanation: actionReason.trim(),
-                        },
-                        t('adminLessonConfirmDirectCancel')
-                      )
-                    }
-                    className="border border-rose-500 px-3 py-2 text-xs text-rose-600 disabled:opacity-50"
-                  >
-                    {t('adminLessonDirectCancel')}
-                  </button>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
-          )}
-        </section>
-      )}
-
-      {showGuest && (
-        <section className="space-y-2 border-t border-[var(--border)] pt-3">
-          <h4 className="text-xs font-medium uppercase tracking-wide">
-            {t('adminLessonGuestTitle')}
-          </h4>
-          <p className="text-xs">
-            {t('adminLessonParticipant')}: {participantNames}
-          </p>
-          {admin.authorizedActions.canLinkGuestToAccount ? (
-            <div className="space-y-2">
-              <p className="text-xs text-[var(--ink-dim)]">{t('adminLessonLinkGuestHint')}</p>
-              <AdminManagedParticipantPicker
-                selected={linkSelection}
-                onChange={(selection) => onLinkSelectionChange(selection)}
-              />
-              <label className="block text-xs">
-                {t('adminLessonReason')}
-                <input
-                  aria-label="Link reason"
-                  value={linkReason}
-                  onChange={(event) => onLinkReasonChange(event.target.value)}
-                  className="mt-1 w-full border border-[var(--border)] bg-[var(--bg)] p-2"
-                />
-              </label>
-              {linkSelection && (
-                <p className="text-xs text-[var(--ink-dim)]">
-                  {t('adminLessonLinkReview')
-                    .replace('{guest}', admin.participants[0]?.displayName ?? detail.bookingId)
-                    .replace(
-                      '{account}',
-                      linkSelection.accountDisplayName ?? linkSelection.accountId
-                    )
-                    .replace('{participant}', linkSelection.displayName)}
-                </p>
-              )}
-              <button
-                type="button"
-                disabled={!linkSelection || !linkReason.trim()}
-                onClick={() => {
-                  if (!linkSelection) return;
-                  onRequestAttempt(
-                    {
-                      kind: 'link_guest_booking_to_account_as_administrator',
-                      targetAccountId: linkSelection.accountId,
-                      targetParticipantId: linkSelection.participantId,
-                      ...(linkSelection.accountDisplayName
-                        ? { targetAccountDisplayName: linkSelection.accountDisplayName }
-                        : {}),
-                      targetParticipantDisplayName: linkSelection.displayName,
-                      reasonExplanation: linkReason.trim(),
-                    },
-                    t('adminLessonConfirmLinkGuest')
-                  );
-                }}
-                className="w-full border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
-              >
-                {t('adminLessonLinkGuest')}
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-1 text-xs text-[var(--ink-dim)]">
-              <p>{t('adminLessonLinkUnavailable')}</p>
-              <p>
-                {t(
-                  guestLinkUnavailableLabelKey(
-                    admin.guestIdentityLinkUnavailableReason ?? 'ineligible_lifecycle'
-                  )
-                )}
-              </p>
-            </div>
-          )}
-        </section>
-      )}
-
-      <section className="space-y-2 border-t border-[var(--border)] pt-3">
-        <h4 className="text-xs font-medium uppercase tracking-wide">
-          {t('adminLessonRelatedIssues')}
-        </h4>
-        {admin.relatedIssues.length === 0 ? (
-          <p className="text-xs text-[var(--ink-dim)]">{t('adminLessonNoRelatedIssues')}</p>
-        ) : (
-          admin.relatedIssues.map((issue) => (
-            <div
-              key={issue.issueId}
-              className="space-y-1 border border-[var(--border)] p-2 text-xs"
-            >
-              <p>
-                {t(issueSeverityLabelKey(issue.severity))} · {t(issueKindLabelKey(issue.kind))} ·{' '}
-                {t(issueStatusLabelKey(issue.lifecycleStatus))}
-              </p>
-              <button
-                type="button"
-                onClick={() => onOpenIssue(issue.issueId)}
-                className="border border-[var(--border)] px-3 py-1.5"
-              >
-                {t('adminLessonOpenIssue')}
-              </button>
-            </div>
-          ))
+            )}
+          </section>
         )}
-      </section>
 
-      {(emptyActions || showPlannerHint) && (
-        <section className="space-y-2 border-t border-[var(--border)] pt-3">
-          <h4 className="text-xs font-medium uppercase tracking-wide">
-            {t('adminLessonAuthorizedActions')}
-          </h4>
-          {showPlannerHint && (
-            <p className="text-xs text-[var(--ink-dim)]">{t('adminLessonScheduleInPlanner')}</p>
-          )}
-          {emptyActions && (
-            <p className="text-xs text-[var(--ink-dim)]">
-              {t(LESSON_ADMIN_EMPTY_ACTIONS_KEYS[emptyActions])}
+        {activeSection === 'guest' && showGuest && (
+          <section aria-label={t('adminLessonGuestTitle')} className="space-y-4">
+            <h4 className="text-xs font-medium uppercase tracking-wide">
+              {t('adminLessonGuestTitle')}
+            </h4>
+            <p className="text-xs">
+              {t('adminLessonParticipant')}: {participantNames}
             </p>
-          )}
-        </section>
-      )}
+            {admin.authorizedActions.canLinkGuestToAccount ? (
+              <div className="space-y-2">
+                <p className="text-xs text-[var(--ink-dim)]">{t('adminLessonLinkGuestHint')}</p>
+                <AdminManagedParticipantPicker
+                  selected={linkSelection}
+                  onChange={(selection) => onLinkSelectionChange(selection)}
+                />
+                <label htmlFor="admin-guest-link-reason" className="block text-xs">
+                  {t('adminLessonReason')}
+                  <input
+                    id="admin-guest-link-reason"
+                    aria-label="Link reason"
+                    value={linkReason}
+                    onChange={(event) => onLinkReasonChange(event.target.value)}
+                    className="mt-1 w-full border border-[var(--border)] bg-[var(--bg)] p-2"
+                  />
+                </label>
+                {linkSelection && (
+                  <p className="text-xs text-[var(--ink-dim)]">
+                    {t('adminLessonLinkReview')
+                      .replace('{guest}', admin.participants[0]?.displayName ?? detail.bookingId)
+                      .replace(
+                        '{account}',
+                        linkSelection.accountDisplayName ?? linkSelection.accountId
+                      )
+                      .replace('{participant}', linkSelection.displayName)}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  disabled={!linkSelection || !linkReason.trim()}
+                  onClick={() => {
+                    if (!linkSelection) return;
+                    onRequestAttempt(
+                      {
+                        kind: 'link_guest_booking_to_account_as_administrator',
+                        targetAccountId: linkSelection.accountId,
+                        targetParticipantId: linkSelection.participantId,
+                        ...(linkSelection.accountDisplayName
+                          ? { targetAccountDisplayName: linkSelection.accountDisplayName }
+                          : {}),
+                        targetParticipantDisplayName: linkSelection.displayName,
+                        reasonExplanation: linkReason.trim(),
+                      },
+                      t('adminLessonConfirmLinkGuest')
+                    );
+                  }}
+                  className="w-full border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
+                >
+                  {t('adminLessonLinkGuest')}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-1 text-xs text-[var(--ink-dim)]">
+                <p>{t('adminLessonLinkUnavailable')}</p>
+                <p>
+                  {t(
+                    guestLinkUnavailableLabelKey(
+                      admin.guestIdentityLinkUnavailableReason ?? 'ineligible_lifecycle'
+                    )
+                  )}
+                </p>
+              </div>
+            )}
+          </section>
+        )}
 
-      <details className="border-t border-[var(--border)] pt-3">
-        <summary className="cursor-pointer text-xs text-[var(--ink-dim)]">
-          {t('adminLessonTechnicalDetails')}
-        </summary>
-        <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 break-all font-mono text-[10px] text-[var(--ink-dim)]">
-          <dt>{t('adminLessonBookingId')}</dt>
-          <dd>{detail.bookingId}</dd>
-          <dt>{t('adminLessonRevisions')}</dt>
-          <dd>
-            booking {detail.revision} · schedule {admin.scheduleRevision}
-          </dd>
-          {payment && (
-            <>
-              <dt>{t('adminLessonPaymentRevision')}</dt>
+        {activeSection === 'issues' && admin.relatedIssues.length > 0 && (
+          <section aria-label={t('adminLessonRelatedIssues')} className="space-y-3">
+            <h4 className="text-xs font-medium uppercase tracking-wide">
+              {t('adminLessonRelatedIssues')}
+            </h4>
+            {admin.relatedIssues.map((issue) => (
+              <div
+                key={issue.issueId}
+                className="space-y-2 rounded-[var(--radius-md)] border border-[var(--border)] p-3 text-xs"
+              >
+                <p>
+                  {t(issueSeverityLabelKey(issue.severity))} · {t(issueKindLabelKey(issue.kind))} ·{' '}
+                  {t(issueStatusLabelKey(issue.lifecycleStatus))}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => onOpenIssue(issue.issueId)}
+                  className="border border-[var(--border)] px-3 py-1.5"
+                >
+                  {t('adminLessonOpenIssue')}
+                </button>
+              </div>
+            ))}
+          </section>
+        )}
+
+        {activeSection === 'technical' && (
+          <details className="rounded-[var(--radius-md)] bg-[var(--profile-bg)] p-3">
+            <summary className="cursor-pointer text-xs text-[var(--ink-dim)]">
+              {t('adminLessonTechnicalDetails')}
+            </summary>
+            <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 break-all font-mono text-[10px] text-[var(--ink-dim)]">
+              <dt>{t('adminLessonBookingId')}</dt>
+              <dd>{detail.bookingId}</dd>
+              <dt>{t('adminLessonRevisions')}</dt>
               <dd>
-                {payment.paymentId} · rev {payment.revision}
+                booking {detail.revision} · schedule {admin.scheduleRevision}
               </dd>
-            </>
-          )}
-          <dt>{t('adminLessonLifecycle')}</dt>
-          <dd>{detail.lifecycle.status}</dd>
-          {payment && (
-            <>
-              <dt>{t('adminLessonPaymentStatus')}</dt>
-              <dd>{payment.status}</dd>
-            </>
-          )}
-          <dt>{t('adminLessonOrigin')}</dt>
-          <dd>{admin.attribution.bookingOrigin}</dd>
-          <dt>{t('adminLessonInstructor')}</dt>
-          <dd>{detail.instructor.instructorId}</dd>
-          <dt>{t('adminLessonParticipants')}</dt>
-          <dd>{admin.participants.map((participant) => participant.participantId).join(', ')}</dd>
-          {admin.payer && (
-            <>
-              <dt>{t('adminLessonPayer')}</dt>
-              <dd>{admin.payer.accountId}</dd>
-            </>
-          )}
-          <dt>{t('adminLessonTimezone')}</dt>
-          <dd>{detail.occurrence.timeZone}</dd>
-          <dt>{t('adminLessonUpdatedAt')}</dt>
-          <dd>{formatInstant(detail.updatedAt, locale, detail.occurrence.timeZone)}</dd>
-          {admin.cancellationFinancial && (
-            <>
-              <dt>{t('adminLessonCancellationFinance')}</dt>
+              {payment && (
+                <>
+                  <dt>{t('adminLessonPaymentRevision')}</dt>
+                  <dd>
+                    {payment.paymentId} · rev {payment.revision}
+                  </dd>
+                </>
+              )}
+              <dt>{t('adminLessonLifecycle')}</dt>
+              <dd>{detail.lifecycle.status}</dd>
+              {payment && (
+                <>
+                  <dt>{t('adminLessonPaymentStatus')}</dt>
+                  <dd>{payment.status}</dd>
+                </>
+              )}
+              <dt>{t('adminLessonOrigin')}</dt>
+              <dd>{admin.attribution.bookingOrigin}</dd>
+              <dt>{t('adminLessonInstructor')}</dt>
+              <dd>{detail.instructor.instructorId}</dd>
+              <dt>{t('adminLessonParticipants')}</dt>
               <dd>
-                {admin.cancellationFinancial.timing} · suggested{' '}
-                {formatKzt(admin.cancellationFinancial.suggestedRefund)} · maximum{' '}
-                {formatKzt(admin.cancellationFinancial.maximumRefund)}
+                {admin.participants.map((participant) => participant.participantId).join(', ')}
               </dd>
-            </>
-          )}
-          <dt>{t('adminLessonAuthorizedActions')}</dt>
-          <dd>{trueAuthorizedActionKeys(admin).join(', ') || '—'}</dd>
-        </dl>
-      </details>
+              {admin.payer && (
+                <>
+                  <dt>{t('adminLessonPayer')}</dt>
+                  <dd>{admin.payer.accountId}</dd>
+                </>
+              )}
+              <dt>{t('adminLessonTimezone')}</dt>
+              <dd>{detail.occurrence.timeZone}</dd>
+              <dt>{t('adminLessonUpdatedAt')}</dt>
+              <dd>{formatInstant(detail.updatedAt, locale, detail.occurrence.timeZone)}</dd>
+              {admin.cancellationFinancial && (
+                <>
+                  <dt>{t('adminLessonCancellationFinance')}</dt>
+                  <dd>
+                    {admin.cancellationFinancial.timing} · suggested{' '}
+                    {formatKzt(admin.cancellationFinancial.suggestedRefund)} · maximum{' '}
+                    {formatKzt(admin.cancellationFinancial.maximumRefund)}
+                  </dd>
+                </>
+              )}
+              <dt>{t('adminLessonAuthorizedActions')}</dt>
+              <dd>{trueAuthorizedActionKeys(admin).join(', ') || '—'}</dd>
+            </dl>
+          </details>
+        )}
+      </div>
+      {sections
+        .filter((section) => section.id !== activeSection)
+        .map((section) => (
+          <div
+            key={section.id}
+            id={`admin-lesson-panel-${section.id}`}
+            role="tabpanel"
+            aria-labelledby={`admin-lesson-tab-${section.id}`}
+            hidden
+          />
+        ))}
     </div>
   );
 }

@@ -1,5 +1,9 @@
-import { BookingChangeRequestIdSchema, BookingIdSchema, type LessonBookingReadModel } from '@ski-academy/shared-domain';
-import { ChevronRight, Loader2, RefreshCw } from 'lucide-react';
+import {
+  BookingChangeRequestIdSchema,
+  BookingIdSchema,
+  type LessonBookingReadModel,
+} from '@ski-academy/shared-domain';
+import { Loader2, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
@@ -24,9 +28,12 @@ import type {
 } from './lessonBookingAdminContracts';
 import {
   formatLessonAdminDuration,
+  LESSON_ADMIN_ORIGIN_LABEL_KEYS,
   LESSON_ADMIN_PRIMARY_STATUS_KEYS,
+  PAYMENT_STATUS_LABEL_KEYS,
   resolveLessonAdminPrimaryStatus,
 } from './lessonBookingAdminPresentation';
+import { AdminLessonBookingListRow } from './AdminLessonBookingUi';
 import { useAdminLessonBookingCommands } from './useAdminLessonBookingCommands';
 import { useAdminLessonBookingReadModels } from './useAdminLessonBookingReadModels';
 import { useSharedAdminMonitorReadModels } from '../operations/AdminMonitorReadModelsContext';
@@ -64,6 +71,28 @@ function localParts(item: LessonBookingReadModel): { date: string; time: string 
   };
 }
 
+function listOccurrenceParts(
+  item: LessonBookingReadModel,
+  locale: string
+): { date: string; time: string } {
+  const start = new Date(item.occurrence.startsAt.seconds * 1_000);
+  return {
+    date: new Intl.DateTimeFormat(locale, {
+      day: 'numeric',
+      month: 'short',
+      timeZone: item.occurrence.timeZone,
+    }).format(start),
+    time: new Intl.DateTimeFormat(locale, {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: item.occurrence.timeZone,
+    })
+      .format(start)
+      .replace(/^24:/, '00:'),
+  };
+}
+
 function readableError(error: { code: string; message: string } | undefined): string | undefined {
   if (!error) return undefined;
   return `${error.message} (${error.code})`;
@@ -79,24 +108,23 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
   const selectedBookingId = parsedBooking.success ? parsedBooking.data : undefined;
   const changeRequestParam = searchParams.get(ADMIN_CHANGE_REQUEST_QUERY_KEY);
   const parsedChangeRequest = BookingChangeRequestIdSchema.safeParse(changeRequestParam);
-  const focusedChangeRequestId = parsedChangeRequest.success
-    ? parsedChangeRequest.data
-    : undefined;
+  const focusedChangeRequestId = parsedChangeRequest.success ? parsedChangeRequest.data : undefined;
   const { refreshAllProjections } = useSharedAdminMonitorReadModels();
   const reads = useAdminLessonBookingReadModels({
     enabled: true,
     view,
     ...(selectedBookingId ? { selectedBookingId } : {}),
   });
+  const refreshLessonBooking = reads.refreshBooking;
   const refreshBookingWithProjections = useCallback(
-    async (bookingId: Parameters<typeof reads.refreshBooking>[0]) => {
-      const result = await reads.refreshBooking(bookingId);
+    async (bookingId: Parameters<typeof refreshLessonBooking>[0]) => {
+      const result = await refreshLessonBooking(bookingId);
       if (result.status === 'success') {
         await refreshAllProjections();
       }
       return result;
     },
-    [reads.refreshBooking, refreshAllProjections]
+    [refreshLessonBooking, refreshAllProjections]
   );
   const commands = useAdminLessonBookingCommands({
     adminAccountId,
@@ -119,8 +147,10 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
       scrollAdminElementIntoView(ADMIN_LESSON_BOOKINGS_SECTION_ID);
       document
         .querySelector(`[data-admin-lesson-booking-id="${bookingId}"]`)
-        ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      detailPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        ?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
+      if (window.matchMedia?.('(max-width: 1023px)').matches) {
+        detailPanelRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
+      }
     }, 320);
   }, []);
 
@@ -130,13 +160,16 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
       return;
     }
     if (lastFocusedBookingRef.current === selectedBookingId) return;
+    const shouldRevealInitialSelection = lastFocusedBookingRef.current === undefined;
     lastFocusedBookingRef.current = selectedBookingId;
-    revealLessonBookingCard(selectedBookingId);
+    if (shouldRevealInitialSelection) revealLessonBookingCard(selectedBookingId);
   }, [revealLessonBookingCard, selectedBookingId]);
 
   useEffect(() => {
     if (!selectedBookingId || reads.detail.loading || !reads.detail.item) return;
-    detailPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (window.matchMedia?.('(max-width: 1023px)').matches) {
+      detailPanelRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
+    }
   }, [reads.detail.item, reads.detail.loading, selectedBookingId]);
 
   useEffect(() => {
@@ -171,13 +204,6 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
       { replace: true }
     );
   };
-
-  const formatDate = (item: LessonBookingReadModel) =>
-    new Intl.DateTimeFormat(locale, {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-      timeZone: item.occurrence.timeZone,
-    }).format(new Date(item.occurrence.startsAt.seconds * 1_000));
 
   const requestAttempt = (attempt: AdminLessonBookingAttempt, message: string) => {
     setMutationError(undefined);
@@ -234,111 +260,129 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
         </div>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(340px,1.1fr)]">
-        <section aria-label="Canonical lesson bookings" className="space-y-3">
-          <div className="inline-flex border border-[var(--border)]">
-            {(['hot', 'history'] as const).map((candidate) => (
-              <button
-                key={candidate}
-                type="button"
-                aria-pressed={view === candidate}
-                onClick={() =>
-                  updateQuery({
-                    [ADMIN_LESSON_BOOKING_VIEW_QUERY_KEY]: candidate,
-                    [ADMIN_LESSON_BOOKING_QUERY_KEY]: undefined,
-                  })
-                }
-                className={`px-3 py-2 text-xs font-mono uppercase ${
-                  view === candidate ? 'bg-[var(--ink)] text-[var(--bg)]' : ''
-                }`}
-              >
-                {candidate === 'hot' ? t('adminLessonHot') : t('adminLessonHistory')}
-              </button>
-            ))}
-          </div>
-
-          {reads.list.loading ? (
-            <div role="status" className="flex min-h-36 items-center justify-center gap-2 text-xs">
-              <Loader2 className="h-4 w-4 animate-spin" /> {t('adminLessonLoading')}
-            </div>
-          ) : reads.list.error ? (
-            <div role="alert" className="border border-red-500/30 p-4 text-xs">
-              {reads.list.error === 'permission-denied'
-                ? t('adminLessonPermissionDenied')
-                : t('adminLessonReadFailed')}
-              <button
-                type="button"
-                onClick={() => void reads.retryList()}
-                className="mt-3 flex items-center gap-2 border border-[var(--border)] px-3 py-2"
-              >
-                <RefreshCw className="h-3.5 w-3.5" /> {t('adminLessonRetry')}
-              </button>
-            </div>
-          ) : reads.list.items.length === 0 ? (
-            <div className="space-y-3 border border-dashed border-[var(--border)] p-8 text-center text-xs text-[var(--ink-dim)]">
-              <p>{t('adminLessonEmpty')}</p>
-              {reads.list.hasMore && (
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(320px,38fr)_minmax(0,62fr)]">
+        <section
+          aria-label="Canonical lesson bookings"
+          className="overflow-hidden rounded-[var(--radius)] bg-[var(--card-bg)] shadow-[var(--shadow-soft)]"
+        >
+          <div className="border-b border-[var(--border)] p-3">
+            <div className="inline-flex rounded-full bg-[var(--profile-bg)] p-1">
+              {(['hot', 'history'] as const).map((candidate) => (
                 <button
+                  key={candidate}
                   type="button"
-                  disabled={reads.list.loadingMore}
-                  onClick={() => void reads.loadMore()}
-                  className="border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
-                >
-                  {reads.list.loadingMore
-                    ? t('adminLessonLoadingMore')
-                    : t('adminLessonLoadNextPage')}
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {reads.list.items.map((item) => (
-                <button
-                  type="button"
-                  key={item.bookingId}
-                  data-admin-lesson-booking-id={item.bookingId}
-                  onClick={() => updateQuery({ [ADMIN_LESSON_BOOKING_QUERY_KEY]: item.bookingId })}
-                  className={`w-full border p-3 text-left ${
-                    selectedBookingId === item.bookingId
-                      ? 'border-[var(--ink)] bg-black/5'
-                      : 'border-[var(--border)]'
+                  aria-pressed={view === candidate}
+                  onClick={() =>
+                    updateQuery({
+                      [ADMIN_LESSON_BOOKING_VIEW_QUERY_KEY]: candidate,
+                      [ADMIN_LESSON_BOOKING_QUERY_KEY]: undefined,
+                    })
+                  }
+                  className={`px-4 py-2 text-xs font-semibold transition-colors ${
+                    view === candidate
+                      ? 'bg-[var(--ink)] text-[var(--bg)] shadow-sm'
+                      : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'
                   }`}
                 >
-                  <div className="flex justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm">
-                        {item.participants.map((participant) => participant.displayName).join(', ')}
-                      </p>
-                      <p className="mt-1 text-xs text-[var(--ink-dim)]">
-                        {formatDate(item)} ·{' '}
-                        {formatLessonAdminDuration(item.occurrence.durationMinutes, t)}
-                      </p>
-                      <p className="mt-1 text-xs text-[var(--ink-dim)]">
-                        {item.instructor.displayName} ·{' '}
-                        {t(LESSON_ADMIN_PRIMARY_STATUS_KEYS[resolveLessonAdminPrimaryStatus(item)])}
-                      </p>
-                    </div>
-                    <ChevronRight className="h-4 w-4 shrink-0" />
-                  </div>
+                  {candidate === 'hot' ? t('adminLessonHot') : t('adminLessonHistory')}
                 </button>
               ))}
-              {reads.list.hasMore && (
+            </div>
+          </div>
+
+          <div className="p-3">
+            {reads.list.loading ? (
+              <div
+                role="status"
+                className="flex min-h-36 items-center justify-center gap-2 text-xs"
+              >
+                <Loader2 className="h-4 w-4 animate-spin" /> {t('adminLessonLoading')}
+              </div>
+            ) : reads.list.error ? (
+              <div role="alert" className="border border-red-500/30 p-4 text-xs">
+                {reads.list.error === 'permission-denied'
+                  ? t('adminLessonPermissionDenied')
+                  : t('adminLessonReadFailed')}
                 <button
                   type="button"
-                  disabled={reads.list.loadingMore}
-                  onClick={() => void reads.loadMore()}
-                  className="w-full border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
+                  onClick={() => void reads.retryList()}
+                  className="mt-3 flex items-center gap-2 border border-[var(--border)] px-3 py-2"
                 >
-                  {reads.list.loadingMore ? t('adminLessonLoadingMore') : t('adminLessonLoadMore')}
+                  <RefreshCw className="h-3.5 w-3.5" /> {t('adminLessonRetry')}
                 </button>
-              )}
-            </div>
-          )}
+              </div>
+            ) : reads.list.items.length === 0 ? (
+              <div className="space-y-3 border border-dashed border-[var(--border)] p-8 text-center text-xs text-[var(--ink-dim)]">
+                <p>{t('adminLessonEmpty')}</p>
+                {reads.list.hasMore && (
+                  <button
+                    type="button"
+                    disabled={reads.list.loadingMore}
+                    onClick={() => void reads.loadMore()}
+                    className="border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
+                  >
+                    {reads.list.loadingMore
+                      ? t('adminLessonLoadingMore')
+                      : t('adminLessonLoadNextPage')}
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {reads.list.items.map((item) => {
+                  const occurrence = listOccurrenceParts(item, locale);
+                  const primaryStatus = resolveLessonAdminPrimaryStatus(item);
+                  const paymentStatus = item.admin?.payment.status;
+                  return (
+                    <AdminLessonBookingListRow
+                      key={item.bookingId}
+                      selected={selectedBookingId === item.bookingId}
+                      onSelect={() =>
+                        updateQuery({ [ADMIN_LESSON_BOOKING_QUERY_KEY]: item.bookingId })
+                      }
+                      item={{
+                        bookingId: item.bookingId,
+                        participantNames: item.participants
+                          .map((participant) => participant.displayName)
+                          .join(', '),
+                        date: occurrence.date,
+                        time: occurrence.time,
+                        instructor: item.instructor.displayName,
+                        duration: formatLessonAdminDuration(item.occurrence.durationMinutes, t),
+                        primaryStatus,
+                        primaryStatusLabel: t(LESSON_ADMIN_PRIMARY_STATUS_KEYS[primaryStatus]),
+                        ...(paymentStatus
+                          ? {
+                              paymentStatus,
+                              paymentStatusLabel: t(PAYMENT_STATUS_LABEL_KEYS[paymentStatus]),
+                            }
+                          : {}),
+                        origin: item.bookingOrigin,
+                        originLabel: t(LESSON_ADMIN_ORIGIN_LABEL_KEYS[item.bookingOrigin]),
+                      }}
+                    />
+                  );
+                })}
+                {reads.list.hasMore && (
+                  <button
+                    type="button"
+                    disabled={reads.list.loadingMore}
+                    onClick={() => void reads.loadMore()}
+                    className="w-full border border-[var(--border)] px-3 py-2 text-xs font-medium disabled:opacity-50"
+                  >
+                    {reads.list.loadingMore
+                      ? t('adminLessonLoadingMore')
+                      : t('adminLessonLoadMore')}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </section>
 
         <aside
           ref={detailPanelRef}
-          className="min-h-64 border border-[var(--border)] p-4"
+          className="min-h-[32rem] rounded-[var(--radius)] bg-[var(--card-bg)] shadow-[var(--shadow-soft)] lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto"
           aria-label="Booking detail"
           tabIndex={-1}
         >
@@ -375,6 +419,7 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
             </p>
           ) : (
             <AdminLessonBookingDetail
+              key={detail.bookingId}
               detail={detail}
               admin={admin}
               language={language}

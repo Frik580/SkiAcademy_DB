@@ -20,6 +20,12 @@ vi.mock('../../src/features/admin/lesson-bookings/useAdminLessonBookingTranslati
   useAdminLessonBookingTranslations: () => ({ language: 'en', t: (key: string) => key }),
 }));
 
+vi.mock('../../src/features/admin/operations/AdminMonitorReadModelsContext', () => ({
+  useSharedAdminMonitorReadModels: () => ({
+    refreshAllProjections: vi.fn().mockResolvedValue(undefined),
+  }),
+}));
+
 vi.mock('../../src/features/admin/identity', () => ({
   AdminManagedParticipantPicker: ({
     selected,
@@ -254,6 +260,10 @@ function renderPanel(
   );
 }
 
+function openDetailSection(name: string) {
+  fireEvent.click(screen.getByRole('tab', { name: new RegExp(`^${name}`) }));
+}
+
 describe('AdminLessonBookingPanel', () => {
   beforeEach(() => {
     readMock.mockReset();
@@ -290,7 +300,16 @@ describe('AdminLessonBookingPanel', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText('adminLessonPaymentTitle')).toBeVisible();
+    expect(screen.getAllByText('paid').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('adminLessonOriginGuest').length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'adminLessonSendSms' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'adminLessonSendSms' })).toHaveAttribute(
+      'title',
+      'adminLessonSmsUnavailable'
+    );
+    expect(screen.getByText('adminLessonSmsUnavailable')).toBeVisible();
+
+    openDetailSection('adminLessonGuestTitle');
     expect(screen.getByText('adminLessonLinkUnavailable')).toBeVisible();
     expect(screen.getByText('adminLessonLinkReasonExpired')).toBeVisible();
     expect(screen.queryByRole('button', { name: 'adminLessonLinkGuest' })).not.toBeInTheDocument();
@@ -299,10 +318,12 @@ describe('AdminLessonBookingPanel', () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByText('complete_booking')).not.toBeInTheDocument();
 
+    openDetailSection('adminLessonPaymentTitle');
     fireEvent.click(screen.getByRole('button', { name: 'adminLessonOpenPayment' }));
     expect(screen.getByLabelText('location')).toHaveTextContent('tab=finance');
     expect(screen.getByLabelText('location')).toHaveTextContent('payment=payment_admin_panel_01');
 
+    openDetailSection('adminLessonRelatedIssues');
     fireEvent.click(screen.getByRole('button', { name: 'adminLessonOpenIssue' }));
     expect(screen.getByLabelText('location')).toHaveTextContent('tab=operations');
     expect(screen.getByLabelText('location')).toHaveTextContent(
@@ -329,6 +350,7 @@ describe('AdminLessonBookingPanel', () => {
         })
     );
     renderPanel(pendingUnpaidAdminDetail());
+    openDetailSection('adminLessonPaymentTitle');
 
     expect(screen.getByText('adminLessonPaymentPrice')).toBeVisible();
     expect(screen.getByText('adminFinancePaid')).toBeVisible();
@@ -358,6 +380,7 @@ describe('AdminLessonBookingPanel', () => {
   it('defaults a new cash Payment attempt to the full canonical remainder', async () => {
     runAttemptMock.mockResolvedValue({ status: 'success' });
     renderPanel(pendingUnpaidAdminDetail());
+    openDetailSection('adminLessonPaymentTitle');
 
     fireEvent.click(screen.getByRole('button', { name: 'adminLessonRecordPayment' }));
     fireEvent.click(screen.getByRole('button', { name: 'adminLessonConfirmSubmit' }));
@@ -374,6 +397,7 @@ describe('AdminLessonBookingPanel', () => {
   it('keeps committed Payment success visible when the authoritative refresh fails', async () => {
     runAttemptMock.mockResolvedValue({ status: 'success', refreshFailed: true });
     renderPanel(pendingUnpaidAdminDetail());
+    openDetailSection('adminLessonPaymentTitle');
 
     fireEvent.click(screen.getByRole('button', { name: 'adminLessonRecordPayment' }));
     fireEvent.click(screen.getByRole('button', { name: 'adminLessonConfirmSubmit' }));
@@ -432,6 +456,7 @@ describe('AdminLessonBookingPanel', () => {
       </MemoryRouter>
     );
 
+    openDetailSection('adminLessonGuestTitle');
     fireEvent.click(screen.getByRole('button', { name: 'pick managed' }));
     fireEvent.change(screen.getByLabelText('Link reason'), {
       target: { value: 'Existing managed identity' },
@@ -517,16 +542,28 @@ describe('AdminLessonBookingPanel', () => {
       screen.queryByRole('button', { name: 'adminLessonChangeDuration' })
     ).not.toBeInTheDocument();
 
-    expect(screen.getByText('adminLessonPaymentTitle')).toBeVisible();
-    expect(screen.getByText('adminLessonAttendanceTitle')).toBeVisible();
+    openDetailSection('adminLessonPaymentTitle');
+    expect(screen.getByText('adminLessonPaymentPrice')).toBeVisible();
+    openDetailSection('adminLessonAttendanceTitle');
     expect(screen.getByRole('button', { name: 'adminLessonRecordPresent' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'adminLessonRecordAbsent' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'adminLessonResolveOutcome' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'adminLessonApproveCancellation' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'adminLessonDirectCancel' })).toBeVisible();
+    openDetailSection('adminLessonCancellationTitle');
+    const cancellationReason = screen.getByLabelText('adminLessonReason');
+    const approveCancellation = screen.getByRole('button', {
+      name: 'adminLessonApproveCancellation',
+    });
+    const directCancel = screen.getByRole('button', { name: 'adminLessonDirectCancel' });
+    expect(cancellationReason).toBeVisible();
+    fireEvent.change(cancellationReason, { target: { value: 'Operational cancellation' } });
+    expect(approveCancellation).toBeEnabled();
+    expect(directCancel).toBeEnabled();
+    openDetailSection('adminLessonOverviewTitle');
     expect(screen.getByText(/Canonical Payer/)).toBeVisible();
+    openDetailSection('adminLessonRelatedIssues');
     expect(screen.getByText(/adminIssueKindMissingAttendance/)).toBeVisible();
-    expect(screen.getByText('booking 5 · schedule 2')).not.toBeVisible();
+    expect(screen.queryByText('booking 5 · schedule 2')).not.toBeInTheDocument();
+    openDetailSection('adminLessonOverviewTitle');
     expect(screen.getByText('adminLessonScheduleInPlanner')).toBeVisible();
     expect(screen.getByText('adminLessonDifficulty')).toBeVisible();
     expect(screen.getByText('Freeride')).toBeVisible();
@@ -559,11 +596,61 @@ describe('AdminLessonBookingPanel', () => {
     );
   });
 
+  it('hands schedule changes to Planner while preserving non-scheduling request resolutions', () => {
+    const item = detail();
+    const changeRequested = {
+      ...item,
+      admin: {
+        ...item.admin!,
+        relatedOpenChangeRequests: [
+          {
+            requestId: 'booking_change_request_admin_panel_01',
+            revision: 2,
+            requestType: 'instructor_unavailable' as const,
+            reason: 'Instructor is unavailable',
+            createdAt: { seconds: 11, nanoseconds: 0 },
+          },
+        ],
+      },
+    } as LessonBookingReadModel;
+    renderPanel(
+      changeRequested,
+      '/admin?tab=operations&booking=booking_admin_panel_01&changeRequest=booking_change_request_admin_panel_01'
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'adminLessonResolveChangeReschedule' })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('adminLessonNewLessonDate')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'openInPlanner' }).length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'adminLessonResolveChangeCancel' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'adminLessonResolveChangeReject' })).toBeVisible();
+  });
+
+  it('supports roving keyboard navigation across detail tabs', () => {
+    renderPanel(detail());
+    const overview = screen.getByRole('tab', { name: 'adminLessonOverviewTitle' });
+    const payment = screen.getByRole('tab', { name: 'adminLessonPaymentTitle' });
+    for (const tab of screen.getAllByRole('tab')) {
+      const controlledPanelId = tab.getAttribute('aria-controls');
+      expect(controlledPanelId).toBeTruthy();
+      expect(document.getElementById(controlledPanelId!)).toBeInTheDocument();
+    }
+
+    overview.focus();
+    fireEvent.keyDown(overview, { key: 'ArrowRight' });
+
+    expect(payment).toHaveFocus();
+    expect(payment).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText('adminLessonPaymentPrice')).toBeVisible();
+  });
+
   it('presents a realistic pending unpaid admin_detail without developer mutations', () => {
     const item = pendingUnpaidAdminDetail();
     renderPanel(item);
 
     expect(screen.getAllByText('adminLessonStatusAwaitingPayment').length).toBeGreaterThan(0);
+    openDetailSection('adminLessonPaymentTitle');
     expect(screen.getByText('adminLessonPaymentRemaining')).toBeVisible();
     expect(screen.getAllByText(/60,000/).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'adminLessonOpenPayment' })).toBeVisible();
@@ -582,26 +669,33 @@ describe('AdminLessonBookingPanel', () => {
     expect(
       screen.queryByRole('button', { name: 'adminLessonApproveCancellation' })
     ).not.toBeInTheDocument();
+    openDetailSection('adminLessonGuestTitle');
     expect(screen.queryByRole('button', { name: 'adminLessonLinkGuest' })).not.toBeInTheDocument();
     expect(
       screen.queryByText(/server currently authorizes no booking mutations/i)
     ).not.toBeInTheDocument();
     expect(screen.queryByText('adminLessonNoActions')).not.toBeInTheDocument();
     expect(screen.queryByText('adminLessonNoActionsAwaitingConfirmation')).not.toBeInTheDocument();
+    openDetailSection('adminLessonPaymentTitle');
     expect(screen.getByRole('button', { name: 'adminLessonRecordPayment' })).toBeVisible();
+    openDetailSection('adminLessonAttendanceTitle');
     expect(screen.getByText('adminLessonAttendanceMissing')).toBeVisible();
+    openDetailSection('adminLessonGuestTitle');
     expect(screen.getByText('adminLessonLinkReasonExpired')).toBeVisible();
-    expect(screen.getByText('adminLessonNoRelatedIssues')).toBeVisible();
+    expect(screen.queryByRole('tab', { name: 'adminLessonRelatedIssues' })).not.toBeInTheDocument();
     expect(screen.queryByText('adminLessonNotes')).not.toBeInTheDocument();
+    openDetailSection('adminLessonPaymentTitle');
     expect(screen.queryByText('adminFinanceRefunded')).not.toBeInTheDocument();
     expect(screen.queryByText('adminFinanceRetained')).not.toBeInTheDocument();
     expect(screen.queryByText('adminFinanceWrittenOff')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'adminLessonReschedule' })).not.toBeInTheDocument();
+    openDetailSection('adminLessonOverviewTitle');
     expect(screen.getByText('Freestyle')).toBeVisible();
-    expect(screen.getByText('adminLessonTechnicalDetails')).toBeVisible();
+    openDetailSection('adminLessonTechnicalDetails');
+    expect(screen.getByText('adminLessonTechnicalDetails', { selector: 'summary' })).toBeVisible();
     expect(screen.getByText('booking_admin_panel_01')).not.toBeVisible();
 
-    fireEvent.click(screen.getByText('adminLessonTechnicalDetails'));
+    fireEvent.click(screen.getByText('adminLessonTechnicalDetails', { selector: 'summary' }));
     expect(screen.getByText('booking_admin_panel_01')).toBeVisible();
     expect(screen.getByText('booking 5 · schedule 2')).toBeVisible();
   });
@@ -639,6 +733,7 @@ describe('AdminLessonBookingPanel', () => {
     renderPanel(confirmedUnauthorized);
 
     expect(screen.getAllByText('adminLessonStatusConfirmed').length).toBeGreaterThan(0);
+    openDetailSection('adminLessonAttendanceTitle');
     expect(screen.getByText('adminLessonAttendancePresent')).toBeVisible();
     expect(
       screen.queryByRole('button', { name: 'adminLessonRecordPresent' })
@@ -686,7 +781,9 @@ describe('AdminLessonBookingPanel', () => {
     };
     renderPanel(absentRecorded);
 
+    openDetailSection('adminLessonAttendanceTitle');
     expect(screen.getByText('adminLessonAttendanceAbsent')).toBeVisible();
+    openDetailSection('adminLessonOverviewTitle');
     expect(screen.queryByText('adminLessonNotes')).not.toBeInTheDocument();
     expect(screen.getByText('difficultyUnspecified')).toBeVisible();
     expect(screen.queryByText('Beginner')).not.toBeInTheDocument();
@@ -697,6 +794,7 @@ describe('AdminLessonBookingPanel', () => {
 
     expect(screen.getAllByText('adminLessonStatusPendingCancellation').length).toBeGreaterThan(0);
     expect(screen.getByText('adminLessonCancellationRequested')).toBeVisible();
+    openDetailSection('adminLessonCancellationTitle');
     expect(screen.getByRole('button', { name: 'adminLessonApproveCancellation' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'adminLessonRejectCancellation' })).toBeVisible();
     expect(
@@ -719,6 +817,7 @@ describe('AdminLessonBookingPanel', () => {
     };
     renderPanel(linkable);
 
+    openDetailSection('adminLessonGuestTitle');
     expect(screen.getByRole('button', { name: 'pick managed' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'adminLessonLinkGuest' })).toBeVisible();
     expect(screen.queryByText('adminLessonLinkUnavailable')).not.toBeInTheDocument();
@@ -726,6 +825,7 @@ describe('AdminLessonBookingPanel', () => {
 
   it('shows meaningful non-zero ancillary payment rows', () => {
     renderPanel(detail());
+    openDetailSection('adminLessonPaymentTitle');
     expect(screen.getByText('adminFinanceRetained')).toBeVisible();
     expect(screen.getByText('adminFinanceSettled')).toBeVisible();
     expect(screen.queryByText('adminFinanceRefunded')).not.toBeInTheDocument();

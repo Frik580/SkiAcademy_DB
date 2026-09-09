@@ -342,7 +342,9 @@ Admin capture of money actually received from a guest for an individual lesson i
 - Booking confirmation must not bypass funding rules;
 - reconciliation may repair a funded-but-unconfirmed mismatch.
 
-F1 is REQUIRED / IN PROGRESS in the migration status document. This ADR does not claim F1 implementation PASS.
+F1 is **PASS / DEPLOYED** in the migration status document
+([T32_CANONICAL_ADMIN_AUDIT.md](../T32_CANONICAL_ADMIN_AUDIT.md)). Admin guest
+lesson payment capture is implemented through canonical `record_provider_payment_event`.
 
 Historical provenance belongs to each immutable event through `sourceKind`, `payerAccountIdAtEvent`, provider/manual references, timestamps, and command/actor information. Later Account linking never rewrites those fields. A linked Account may become the destination for a later Wallet refund, which is recorded on the new refund event without changing original payment provenance. Linking does not confirm the guest subject or change Payment amounts.
 

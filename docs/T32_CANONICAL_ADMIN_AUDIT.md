@@ -7,6 +7,8 @@ Amended: 2026-09-07 — T32.9A.9A.F3 (Canonical Multi-Participant Lesson Booking
 Amended: 2026-09-07 — T32.9A.9A.F2 funded-pending-after-deadline limbo policy documented; reservation deadline vs confirmation reconciliation distinction recorded in ADR-0007
 Amended: 2026-09-08 — T32.9A.9A.F3 implemented for authenticated/managed Participants and moved to READY_FOR_MANUAL_SMOKE; guest creation remains single-participant by explicit boundary; canonical additional-participant surcharge is per hour of lesson duration and is snapshotted with duration
 Amended: 2026-09-08 — T32.9A.9 cutover gates strengthened for incremental production: 9B Reviews/rating continuity; 9P Global Product Parity; 9D0 production-like incremental rehearsal; 9D Selective Destructive Legacy Data Cleanup (not full Firestore reset); 9E technical+product reachability; T40/T41 superseded from empty-database reset to rehearsed selective production cutover. F3 implementation/contract is unchanged.
+Amended: 2026-09-09 — T32.9A.9A.F4 (Canonical Multi-Participant Lesson Attendance UX) documented; per-participant Instructor Attendance for individual and `family_group` lesson Booking; F4 READY_FOR_MANUAL_SMOKE; 9A final integration / production smoke gated after F4
+Amended: 2026-09-09 — T32.9A.9A.F1 reconciled to PASS / DEPLOYED; F3 reconciled to PASS / CLOSED after manual acceptance; F4 remains READY_FOR_MANUAL_SMOKE
 
 Status: historical Admin-runtime audit from 2026-08-30, with later T32.8A–T32.8C and T32.9A/T32.9B migration status below. Findings in this document that describe unpaid Administrator guest approval, missing guest CourseEnrollment confirmation, or identity linking as confirmation are superseded by ADR-0007. Sections below that still describe the 2026-08-30 Admin runtime as fully legacy are historical audit evidence; later migration status in this preamble supersedes them for T32.9A progress.
 
@@ -37,10 +39,11 @@ T32.9 remains split per [ADR-0008](adr/0008-ux-preservation-during-canonical-mig
 | T32.9A.8C                                      | Canonical Courses UX — archived courses + reactivate + cursor pagination | PASS / CLOSED                             |
 | T32.9A.8                                       | Canonical Courses UX                                                     | PASS / CLOSED                             |
 | T32.9A.9A core                                 | Individual Booking lifecycle cutover (authority)                         | PASS at source/production authority level |
-| T32.9A.9A.F1                                   | Canonical Admin Guest Payment Capture                                    | REQUIRED / IN PROGRESS                    |
+| T32.9A.9A.F1                                   | Canonical Admin Guest Payment Capture                                    | PASS / DEPLOYED                           |
 | T32.9A.9A.F2                                   | Guest Unpaid Reservation Expiry                                          | READY_FOR_MANUAL_SMOKE                    |
-| T32.9A.9A.F3                                   | Canonical Multi-Participant Lesson Booking                               | READY_FOR_MANUAL_SMOKE                    |
-| T32.9A.9A final integration / production smoke | 9A close gate after F3                                                   | PENDING                                   |
+| T32.9A.9A.F3                                   | Canonical Multi-Participant Lesson Booking                               | PASS / CLOSED                             |
+| T32.9A.9A.F4                                   | Canonical Multi-Participant Lesson Attendance UX                         | READY_FOR_MANUAL_SMOKE                    |
+| T32.9A.9A final integration / production smoke | 9A close gate after F4                                                   | PENDING                                   |
 | T32.9A.9A                                      | Individual Booking lifecycle cutover (overall)                           | NOT CLOSED — finalization in progress     |
 | T32.9A.9B                                      | Student Booking Stats / Progress / Recommendations / Reviews Cutover     | PENDING                                   |
 | T32.9A.9C                                      | Course Progress / Achievements Cutover                                   | PENDING                                   |
@@ -52,7 +55,7 @@ T32.9 remains split per [ADR-0008](adr/0008-ux-preservation-during-canonical-mig
 | T40                                            | Execute Rehearsed Selective Production Cutover                           | PENDING; after T32.9B                     |
 | T41                                            | Expanded Post-Cutover Verification                                       | PENDING; after T40                        |
 
-Status labels used here: `PASS`, `PASS / CLOSED`, `REQUIRED`, `IN PROGRESS`, `PLANNED`, `READY_FOR_MANUAL_SMOKE`, `PENDING`, `NOT CLOSED`. Do not treat F1, F2, or F3 as `PASS`, `CLOSED`, or `DEPLOYED` until production-smoked.
+Status labels used here: `PASS`, `PASS / CLOSED`, `PASS / DEPLOYED`, `REQUIRED`, `IN PROGRESS`, `PLANNED`, `READY_FOR_MANUAL_SMOKE`, `PENDING`, `NOT CLOSED`. F1 is `PASS / DEPLOYED`; F3 is `PASS / CLOSED`. Do not treat F2 or F4 as `PASS`, `CLOSED`, or `DEPLOYED` until production-smoked.
 
 ### T32.9A.8 — Canonical Courses UX — PASS / CLOSED
 
@@ -72,6 +75,7 @@ T32.9A.9A — Individual Booking lifecycle cutover
   T32.9A.9A.F1 — Canonical Admin Guest Payment Capture
   T32.9A.9A.F2 — Guest Unpaid Reservation Expiry
   T32.9A.9A.F3 — Canonical Multi-Participant Lesson Booking
+  T32.9A.9A.F4 — Canonical Multi-Participant Lesson Attendance UX
   T32.9A.9A final integration / production smoke
 T32.9A.9B — Student Booking Stats / Progress / Recommendations Cutover
          (includes Reviews / Instructor Rating Continuity)
@@ -110,7 +114,7 @@ not progress / presentation / feedback data by default.
 
 #### T32.9A.9A — Individual Booking lifecycle cutover — PARTIAL / FINALIZATION IN PROGRESS
 
-**9A overall is NOT CLOSED** until F1 + F2 + F3 + final integration / production smoke complete.
+**9A overall is NOT CLOSED** until F2 + F4 + final integration / production smoke complete (F1 `PASS / DEPLOYED`; F3 `PASS / CLOSED`).
 
 Core lifecycle cutover (authority level) — recorded as PASS at source/production authority level:
 
@@ -129,7 +133,7 @@ Core lifecycle cutover (authority level) — recorded as PASS at source/producti
 - legacy `scheduledAutoCompleteBookings` removed from source export and deleted from production;
 - legacy Individual Booking lifecycle callables deleted from production (see inventory below).
 
-##### T32.9A.9A.F1 — Canonical Admin Guest Payment Capture — REQUIRED / IN PROGRESS
+##### T32.9A.9A.F1 — Canonical Admin Guest Payment Capture — PASS / DEPLOYED
 
 Goal: Administrator must have a canonical way to record money actually received from a guest for an individual lesson.
 
@@ -158,7 +162,7 @@ Explicit rules:
 - payment success must not be reported as failure if confirmation is temporarily delayed;
 - confirmation/reconciliation remains canonical ([ADR-0007](adr/0007-guest-identity-payment-and-confirmation.md)).
 
-9A cannot close without F1. F1 is decided and required; it is not PASS/CLOSED/DEPLOYED.
+F1 is implemented and deployed to production. Admin guest lesson payment capture uses canonical `record_provider_payment_event` through `executeCanonicalCommand` on the Admin lesson Booking detail surface (`AdminLessonBookingDetail` / `useAdminLessonBookingCommands`). F1 is **PASS / DEPLOYED**.
 
 ##### T32.9A.9A.F2 — Guest Unpaid Reservation Expiry — READY_FOR_MANUAL_SMOKE
 
@@ -208,9 +212,9 @@ Do not invent a new TTL in this document. Use the existing domain reservation-ex
 
 **F3 compatibility requirement.** F2 does not implement multi-participant lesson booking. F2 remains **F3-compatible**: expiry is a lifecycle operation over the Booking/Payment reservation aggregate, not over a single Participant. After F3, one Booking still has one expiry decision, one lifecycle transition, one slot release, and one Payment outcome — regardless of participant count.
 
-9A cannot close without F2 production smoke plus F3. F2 is not PASS/CLOSED/DEPLOYED.
+9A cannot close without F2 production smoke plus F4. F2 is not PASS/CLOSED/DEPLOYED. F3 is already `PASS / CLOSED`.
 
-##### T32.9A.9A.F3 — Canonical Multi-Participant Lesson Booking — READY_FOR_MANUAL_SMOKE
+##### T32.9A.9A.F3 — Canonical Multi-Participant Lesson Booking — PASS / CLOSED
 
 Goal: support booking one individual/private lesson for several managed Participants in a single canonical lesson reservation.
 
@@ -344,7 +348,7 @@ cancel Booking → entire lesson reservation cancelled
 
 Removing one Participant from an existing group lesson booking, if needed later, is a separate explicitly designed workflow — not a hidden part of F3.
 
-**Attendance compatibility.** F3 must be compatible with participant-level attendance semantics. One Booking may have `participantIds = [A, B]` while attendance differs per participant (`A → present`, `B → absent`). Do not collapse multi-participant attendance to a single participant status. F3 need not redesign Attendance, but Booking/read-model architecture must not block per-participant attendance.
+**Attendance compatibility.** F3 must be compatible with participant-level attendance semantics. One Booking may have `participantIds = [A, B]` while attendance differs per participant (`A → present`, `B → absent`). Do not collapse multi-participant attendance to a single participant status. F3 need not redesign Attendance, but Booking/read-model architecture must not block per-participant attendance. **F4** implements the Instructor per-participant Attendance UX and operational path on top of this F3-compatible architecture; F4 does not change F3 Booking aggregates.
 
 **Read models / UI.** F3 must update all lesson Booking read surfaces that assume `one Booking == one Participant`. Audit: client booking history; upcoming lessons; Instructor panel; Admin Lesson Booking; Admin Planner; booking monitor; participant-specific views; notifications; cancellation UI; Payment presentation; attendance UI; activity/audit presentation. UI must display all Participants of a Booking.
 
@@ -370,11 +374,229 @@ Removing one Participant from an existing group lesson booking, if needed later,
 | Read models           | All affected lesson Booking read models show full participant set                                                                                               |
 | Course regression     | CourseEnrollment multi-select still creates independent enrollment per Participant                                                                              |
 
-F3 source, unit, Firestore Emulator, and local browser E2E evidence is complete and the slice is **READY_FOR_MANUAL_SMOKE**. It is not PASS/CLOSED/DEPLOYED. 9A still cannot close without F1/F2/F3 production-equivalent smoke and the final integration gate.
+F3 source, unit, Firestore Emulator, local browser E2E, and manual acceptance evidence are complete. The slice is **PASS / CLOSED**. 9A still cannot close without F2/F4 production-equivalent smoke and the final integration gate.
+
+**F4 dependency.** F3 records the Booking/Payment/slot aggregate for multiple Participants. F4 completes the Instructor Attendance operational path F3 requires. F4 does **not** redesign F3 monetary, slot, or booking-aggregation semantics.
+
+##### T32.9A.9A.F4 — Canonical Multi-Participant Lesson Attendance UX — READY_FOR_MANUAL_SMOKE
+
+Goal: expose canonical factual Attendance to the assigned Instructor **per frozen service participant** for both individual lesson Booking and F3 `family_group` / multi-participant lesson Booking.
+
+F4 does **not** redesign F3 Booking. One canonical Booking may contain multiple frozen `serviceParticipantIds`. Attendance remains a separate canonical aggregate per participant occurrence (`attendance:v1:booking:{occurrenceId}:{participantId}` per [ADR-0004](adr/0004-attendance-outcome-and-admin-issue-model.md)).
+
+**Resolved gaps (pre-F4; documented as fixed, not current defects).**
+
+1. `InstructorBookingCard` rendered `booking.participants[]` but the attendance action targeted only `booking.participantId` (effectively the first participant).
+2. The action was lifecycle-oriented (“complete lesson”) and hardcoded `attendanceStatus = present`.
+3. Instructor lesson Booking read models had no current Attendance status/revision/authorized-action projection per participant.
+4. For `family_group`, one `present` could derive `Booking.lifecycle = completed`, after which existing authorization prevented the Instructor from filling missing Attendance for remaining participants.
+5. Old attendance command idempotency identity was designed for a one-way “complete” action and could collide across factual corrections.
+6. A `family_group` Booking could disappear from the Instructor `confirmed` filter after the first `present` even while remaining participants still needed Attendance.
+
+**Canonical Attendance model (unchanged by F4).**
+
+Stored Attendance statuses remain only `present` and `absent`. Missing Attendance document means **not recorded** — missing factual evidence. It is **not** `absent`, `present`, `no_show`, or `completed`.
+
+F4 did **not** introduce: explicit `unknown` status; a booking-level attendance field; frontend direct Attendance Firestore writes; or legacy `completeBooking` lifecycle mutation. Attendance remains factual evidence. Booking lifecycle remains server-derived.
+
+**Instructor read-model extension.**
+
+Instructor scopes (`instructor_hot`, `instructor_history`) on `queryLessonBookingReadModels` now expose an optional top-level per-participant Attendance projection (`LessonBookingInstructorAttendancePresentation` in `lessonBookingReadModel.ts`):
+
+```text
+attendance: [
+  {
+    participantId,
+    attendanceStatus?: 'present' | 'absent',
+    revision?: number,
+    authorizedActions: {
+      canRecordPresent: boolean,
+      canRecordAbsent: boolean
+    }
+  }
+]
+```
+
+Semantics:
+
+- every frozen `serviceParticipantId` is represented;
+- missing Attendance → `attendanceStatus` and `revision` omitted together (schema-enforced pair);
+- status and revision are loaded from canonical Attendance;
+- `authorizedActions` are server-derived via `evaluateInstructorBookingAttendanceActions` / `bookingAttendancePolicy.ts`;
+- Instructor list projection does not expose Admin-only correction reason/provenance unless already allowed elsewhere.
+
+Admin continues to use `admin.attendance` on the Admin detail projection. Other read scopes remain contract-compatible.
+
+**Instructor UX after F4.**
+
+The Booking-level action “Mark completed” / “Complete lesson” was removed from Instructor lesson cards. Attendance is shown and acted on **per participant**.
+
+For every rendered participant:
+
+| Attendance state | Label        | Actions                         |
+| ---------------- | ------------ | ------------------------------- |
+| Not recorded     | Not recorded | Present / Absent when authorized |
+| Present          | Present      | Absent only when correction authorized |
+| Absent           | Absent       | Present only when correction authorized |
+
+Submitting state is participant-specific (`instructorLessonAttendanceSubmissionId`). After success the canonical read model is refetched; the UI renders server-confirmed Attendance with no authoritative optimistic Attendance state.
+
+**Frontend command contract.**
+
+Conceptual helper: `recordLessonAttendance(...)` in `useBookingCollaborationCommands.ts` (replaces the old `recordLessonCompleted(...)` concept).
+
+Input:
+
+```text
+{
+  bookingId,
+  participantId,
+  attendanceStatus,
+  expectedAttendanceRevision?
+}
+```
+
+Canonical command:
+
+```text
+kind: record_booking_attendance
+exercisedCapability: instructor
+```
+
+`record_booking_attendance` is **not** a standalone Firebase Function. It executes through `executeCanonicalCommand`. The frontend authenticated command surface is `executeCanonicalCommand`. The read-model callable is `queryLessonBookingReadModels`. Do **not** document a deploy target `functions:record_booking_attendance`.
+
+**Revision / OCC semantics.**
+
+- Missing Attendance → omit `expectedAttendanceRevision`.
+- Changing existing Attendance → send exact current Attendance `revision`. The client does not invent revisions.
+- On `stale_version` → refetch authoritative state; do not blindly replay the correction; the user may retry deliberately.
+
+**Idempotency.**
+
+Semantic attempt identity (`deriveRecordInstructorAttendanceIdempotencyKey`):
+
+```text
+attendance:{bookingId}:{participantId}:{attendanceStatus}:{expectedAttendanceRevision|missing}
+```
+
+Invariants:
+
+- duplicate retry of the same deliberate action reuses the same identity;
+- `missing → present` and later `present → absent` cannot collide;
+- idempotency is not keyed by `bookingId` alone.
+
+**`family_group` terminal Attendance policy (domain clarification).**
+
+For `family_group` Booking, Attendance remains independent for every frozen `serviceParticipantId`. Example:
+
+```text
+A → present
+→ server may derive Booking.lifecycle = completed
+```
+
+Even after Booking is terminal `completed`, the assigned Instructor may still, inside the existing Instructor Attendance window (`endsAt + 24h` per ADR-0004), **add missing** Attendance for remaining frozen participants when doing so does not change the already-derived terminal lifecycle (`instructorMayFillMissingFamilyGroupAttendanceOnTerminal`).
+
+Example:
+
+```text
+A = present, Booking = completed
+→ Instructor records B = absent, C = present
+→ A = present, B = absent, C = present, Booking remains completed
+```
+
+**Terminal safety boundary (fail-closed).**
+
+For terminal `family_group` Booking the Instructor may fill **currently missing** participant Attendance when server policy determines the projected lifecycle remains the current terminal lifecycle.
+
+The Instructor may **not**:
+
+- generically rewrite terminal Booking lifecycle;
+- correct existing terminal `family_group` Attendance if that could undermine or alter the terminal outcome;
+- perform `completed ↔ no_show` terminal corrections (Admin-controlled per existing Attendance correction policy).
+
+Participant must belong to frozen `serviceParticipantIds`. All authorization remains server-side.
+
+**Confirmed-filter retention rule (presentation only).**
+
+Without special handling, a `family_group` Booking that becomes `completed` after the first `present` would leave the Instructor `confirmed` filter while B/C still need Attendance.
+
+F4 adds `isInstructorBookingVisibleForStatusFilter` / `hasOutstandingInstructorLessonAttendance`: a `completed` Booking may remain visible on the Instructor `confirmed` view while at least one participant still has a server-authorized Attendance action. This does **not** fake or override lifecycle — `Booking.lifecycle` remains `completed`. The UI only keeps the item reachable while outstanding Attendance work remains.
+
+**Auto-present policy — out of scope.**
+
+F4 does **not** implement automatic `present` after 24 hours. If the Instructor does not record Attendance during the allowed window, missing Attendance remains missing; the system does not invent `present` or `absent`. Existing `missing_attendance` / AdminIssue policy remains authoritative. F4 does **not** change the existing 24-hour Instructor Attendance window.
+
+**Courses — unchanged.**
+
+F4 is lesson-Booking-specific. CourseDay Attendance, `CourseEnrollment.attendanceSummary`, course attendance commands, course attendance UX, and course lifecycle policy are unchanged.
+
+**Legacy boundary.**
+
+F4 does **not** restore or use: legacy `completeBooking` lifecycle path; direct frontend `updateDoc` on canonical Booking lifecycle; or direct frontend Attendance Firestore writes.
+
+`completeBookingService` / `completeBookingViaCallable` remain elsewhere in the repository for non-Instructor legacy paths and are **not** the current Instructor Attendance path. Unused i18n keys such as `instructorCompleteLesson` are cleanup/deferred, not active Instructor behavior.
+
+**Historical data.**
+
+Historical legacy lesson/training records do not need Attendance backfill. No new requirement to migrate historical attendance. Old legacy training/lesson history may be removed according to the accepted cutover policy (9D).
+
+**Verified automated evidence (2026-09-09 worktree).**
+
+| Suite | Result |
+| ----- | ------ |
+| Frontend F4 unit (`instructorLessonAttendanceCard`, `instructorWorkspaceCanonical`, `bookingCollaborationIntegration`, `bookingCollaborationViewModels`, `bookingAttendancePolicy`) | 32 passed |
+| Shared-domain `lessonBookingReadModel.test.ts` | 11 passed |
+| Functions `bookingAttendanceCommands.test.ts` + `lessonBookingReadModels.test.ts` | 33 passed (23 + 10) |
+| Functions `bookingAttendanceCommands.emulator.test.ts` | 20 tests present; skipped without Firestore emulator in the documentation verification run — execute via `npm run test:functions:emulator` |
+| `tests/firestore.rules.test.ts` | 67 tests present; not re-executed in this documentation session |
+| i18n parity (`translationsParity.test.ts`) | 2 passed |
+| `npx tsc --noEmit` (app) | pass |
+| `functions` `tsc --noEmit` + build | pass |
+| `npm run build` (app) | pass |
+| `npm run i18n:check` | pass |
+
+Do not mark F4 `DONE` from automated tests alone.
+
+**Required manual smoke (before `DONE`).**
+
+Individual:
+
+- missing → present;
+- missing → absent.
+
+Family/group (`A`, `B`, `C` all start Not recorded):
+
+- `A → present` → Booking becomes `completed`;
+- `B` / `C` remain reachable on the Instructor lesson list;
+- `B → absent`, `C → present` → Booking remains `completed`.
+
+Confirmed filter:
+
+- Booking remains reachable on `confirmed` while `B` / `C` still have server-authorized Attendance actions.
+
+**Deployment surfaces.**
+
+F4 backend changes require deployment of:
+
+1. `executeCanonicalCommand` — `record_booking_attendance` handler/policy executes through the canonical authenticated command callable.
+2. `queryLessonBookingReadModels` — Instructor Attendance projection changed.
+
+Frontend changes require Firebase Hosting.
+
+No Firestore rules/index deployment is required unless rules/index files change for this slice.
+
+```bash
+npx firebase deploy --only functions:executeCanonicalCommand,functions:queryLessonBookingReadModels
+npx firebase deploy --only hosting
+```
+
+Do **not** deploy `functions:record_booking_attendance` — no such standalone callable exists.
+
+F4 is **READY_FOR_MANUAL_SMOKE** — not PASS/CLOSED/DEPLOYED. 9A still cannot close without F2/F4 production-equivalent smoke and the final integration gate (F1 `PASS / DEPLOYED`; F3 `PASS / CLOSED`).
 
 ##### T32.9A.9A final integration / production smoke — PENDING
 
-Gate after F1 + F2 + F3. Confirms end-to-end individual Booking lifecycle cutover (including guest payment capture, unpaid reservation expiry, and multi-participant lesson booking) on production or production-equivalent smoke paths before 9A may close and 9B begins.
+Gate after F2 + F4 (with F1 `PASS / DEPLOYED` and F3 `PASS / CLOSED` already recorded). Confirms end-to-end individual Booking lifecycle cutover (including guest payment capture, unpaid reservation expiry, multi-participant lesson booking, and per-participant Instructor Attendance) on production or production-equivalent smoke paths before 9A may close and 9B begins.
 
 9A cannot close without this smoke block. It is not PASS/CLOSED/DEPLOYED until executed and recorded.
 
@@ -542,7 +764,7 @@ Minimum capabilities that must appear in the inventory (add rows; do not treat t
 - Student (cabinet current/history, booking, enrollment, cancellation)
 - Instructor (schedule, history, attendance, workspace)
 - Admin (planner, Booking detail, Courses, Finance, People/Instructors)
-- Lesson Booking (including authenticated multi-participant after F3; guest remains the accepted single-participant creation boundary)
+- Lesson Booking (including authenticated multi-participant after F3 and per-participant Instructor Attendance after F4; guest remains the accepted single-participant creation boundary)
 - Course / CourseEnrollment
 - Planner / Schedule
 - Finance
@@ -1541,9 +1763,8 @@ Current structure (authoritative for later status; see preamble):
 - **T32.9A.8** Canonical Courses UX — PASS / CLOSED (8A/8B/8C)
 - **T32.9A.9** FINAL CANONICAL CUTOVER
   - **9A** Individual Booking lifecycle cutover — NOT CLOSED (core PASS at
-    authority level; F1 REQUIRED/IN PROGRESS; F2 READY_FOR_MANUAL_SMOKE;
-    F3 READY_FOR_MANUAL_SMOKE; final integration/production smoke PENDING
-    after F3)
+    authority level; F1 PASS/DEPLOYED; F2 READY_FOR_MANUAL_SMOKE; F3 PASS/CLOSED;
+    F4 READY_FOR_MANUAL_SMOKE; final integration/production smoke PENDING after F4)
   - **9B** Student Booking Stats / Progress / Recommendations Cutover, including Reviews / Instructor Rating Continuity — PENDING
   - **9C** Course Progress / Achievements Cutover — PENDING
   - **9P** Global Product Parity & Legacy Dependency Gate — PENDING
@@ -1558,7 +1779,7 @@ Scope:
   finance, People, monitoring, filtering, and operational workflows on
   canonical read models and commands;
 - add new canonical UX where required (AdminIssue actions, Payment detail,
-  Account / Participant topology, Admin guest payment capture under 9A.F1);
+  Account / Participant topology; Admin guest payment capture under 9A.F1 is PASS/DEPLOYED);
 - complete individual Booking, progress/recommendations, and Course progress
   authority cutovers, then 9P global parity, then 9D0 rehearsal, before selective leftover data disposal;
 - prove information, action, and interaction parity before any leftover

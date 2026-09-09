@@ -251,6 +251,22 @@ Therefore `present, absent, absent` is `completed`; `absent, absent, absent` is 
 
 Payment and lifecycle blockers apply before this sufficiency result may be committed. Time never fills a missing Participant record.
 
+### T32.9A.9A.F4 — Instructor multi-participant lesson Attendance UX
+
+[T32.9A.9A.F4](../T32_CANONICAL_ADMIN_AUDIT.md) applies this ADR without changing canonical Attendance semantics. F4 is lesson-Booking-specific; CourseDay Attendance and `CourseEnrollment.attendanceSummary` are unchanged.
+
+**Model invariants (unchanged).** Stored Attendance remains only `present` or `absent`. Missing Attendance is not recorded factual evidence — not `absent`, not `present`, not `no_show`, not `completed`. Instructors do not directly set `completed` or `no_show`; lifecycle remains server-derived from sufficient factual evidence.
+
+**Terminal `family_group` missing-fill.** After a `family_group` Booking has derived a terminal lifecycle (`completed` or `no_show`), the assigned Instructor may still record **missing** Attendance for other frozen `serviceParticipantIds` inside the existing Instructor window (`endsAt + 24h`) when the projected group outcome would remain the current terminal lifecycle. Example: `A = present` may derive `completed`; the Instructor may later record `B = absent` and `C = present` while the Booking stays `completed`. The Instructor may not correct existing terminal Attendance in ways that would change the terminal lifecycle, perform `completed ↔ no_show` corrections, or rewrite lifecycle generically — those remain Admin-controlled per the correction model above. Policy: `instructorMayFillMissingFamilyGroupAttendanceOnTerminal` in `bookingAttendancePolicy.ts`.
+
+**Instructor read-model projection.** `queryLessonBookingReadModels` Instructor scopes expose per frozen `serviceParticipantId`: optional `attendanceStatus` + `revision` (both or neither), plus server-derived `authorizedActions.canRecordPresent` / `canRecordAbsent`. Admin detail continues to use the Admin attendance projection with correction metadata.
+
+**Command surface.** Instructor mutations use `record_booking_attendance` through `executeCanonicalCommand` with `exercisedCapability: instructor`. It is not a standalone Firebase Function. Idempotency is per `(bookingId, participantId, attendanceStatus, expectedAttendanceRevision|missing)` — not per Booking alone. Corrections require the current Attendance revision; missing evidence omits `expectedAttendanceRevision`.
+
+**No auto-present.** F4 does not implement automatic `present` after the 24-hour Instructor window. Missing evidence after window close remains missing until an Administrator acts; `missing_attendance` / AdminIssue policy remains authoritative.
+
+**Presentation-only confirmed-filter retention.** Instructor UI may keep a terminal `completed` `family_group` Booking visible on the `confirmed` filter while server-authorized Attendance actions remain for other participants. This is list reachability only; it does not override `Booking.lifecycle`.
+
 ## CourseEnrollment outcomes
 
 Course Attendance is one record per Enrollment Participant per canonical CourseDay. At or after `finalCourseDayEndsAt`, the outcome calculator uses the Enrollment's verified Attendance summary and the Course's verified schedule projection:

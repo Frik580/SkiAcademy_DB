@@ -375,12 +375,12 @@ and the later migration status in
   preserves useful Admin UX on canonical read models and commands, and
   completes FINAL CANONICAL CUTOVER under T32.9A.9 (9A–9E, including 9P and 9D0). It is not broad
   legacy UI cleanup.
-- **T32.9A.9A.F1 — Canonical Admin Guest Payment Capture** is required before
-  Individual Booking lifecycle cutover may close. Administrator records money
-  actually received for a guest individual lesson through a canonical finance
-  command. Payment remains numeric authority; Booking status must not become
-  monetary authority; confirmation remains payment-driven and may reconcile a
-  funded-but-unconfirmed mismatch. F1 is REQUIRED / IN PROGRESS — not PASS.
+- **T32.9A.9A.F1 — Canonical Admin Guest Payment Capture** is implemented and
+  deployed. Administrator records money actually received for a guest individual
+  lesson through canonical `record_provider_payment_event` on the Admin lesson
+  Booking surface. Payment remains numeric authority; Booking status must not
+  become monetary authority; confirmation remains payment-driven and may
+  reconcile a funded-but-unconfirmed mismatch. F1 is **PASS / DEPLOYED**.
 - **T32.9A.9A.F2 — Guest Unpaid Reservation Expiry** is required before 9A may
   close. Unpaid guest individual reservations expire through the existing
   canonical command `expire_guest_reservation`. The scheduler
@@ -395,12 +395,17 @@ and the later migration status in
   READY_FOR_MANUAL_SMOKE — not PASS/CLOSED. F2 remains F3-compatible: expiry
   operates on the Booking/Payment aggregate, not on a single Participant; see
   [T32_CANONICAL_ADMIN_AUDIT.md](../T32_CANONICAL_ADMIN_AUDIT.md).
-- **T32.9A.9A.F3 — Canonical Multi-Participant Lesson Booking** is required
-  before 9A final integration / production smoke and 9A close. One lesson slot,
-  one Booking lifecycle, one Payment, `participantIds[]` for N managed
-  Participants. F3 is READY_FOR_MANUAL_SMOKE — not PASS/CLOSED/DEPLOYED. Guest
-  creation remains a deliberate single-Participant boundary. Details and acceptance criteria live in
-  [T32_CANONICAL_ADMIN_AUDIT.md](../T32_CANONICAL_ADMIN_AUDIT.md).
+- **T32.9A.9A.F3 — Canonical Multi-Participant Lesson Booking** is **PASS /
+  CLOSED** after manual acceptance. One lesson slot, one Booking lifecycle, one
+  Payment, `participantIds[]` for N managed Participants. Guest creation remains
+  a deliberate single-Participant boundary. Details and acceptance criteria live
+  in [T32_CANONICAL_ADMIN_AUDIT.md](../T32_CANONICAL_ADMIN_AUDIT.md).
+- **T32.9A.9A.F4 — Canonical Multi-Participant Lesson Attendance UX** completes
+  the Instructor per-participant Attendance path required by F3 `family_group`
+  lesson Booking. F4 does not redesign F3 monetary/slot/booking aggregation.
+  F4 is READY_FOR_MANUAL_SMOKE — not PASS/CLOSED/DEPLOYED. Attendance policy
+  remains [ADR-0004](./0004-attendance-outcome-and-admin-issue-model.md); slice
+  details live in [T32_CANONICAL_ADMIN_AUDIT.md](../T32_CANONICAL_ADMIN_AUDIT.md).
 - **T32.9B — Final Legacy Write / Runtime Cleanup** may remove leftover
   implementation only after T32.9A.9E PASS, canonical replacement, and UX
   parity. Unreachable leftover helpers such as old bundled `confirmBooking`,
@@ -416,8 +421,9 @@ and the later migration status in
 - Booking confirmation must not bypass funding rules;
 - reconciliation may repair a funded-but-unconfirmed mismatch.
 
-Do not document F1 implementation details beyond this boundary until F1 is
-implemented and smoked.
+F1 is implemented and deployed. Further F1 boundary changes belong in ADR-0003
+and [T32_CANONICAL_ADMIN_AUDIT.md](../T32_CANONICAL_ADMIN_AUDIT.md), not in
+ad-hoc product exceptions here.
 
 ### Background jobs (guest confirmation vs completion)
 

@@ -11,6 +11,7 @@ import {
   bookingIdFromAcceptedProposal,
   bookingScopedEvidenceFromQualifyingBooking,
   calculateIndividualBookingPriceKzt,
+  calculateLessonPartyPriceKzt,
   commandErrorResult,
   commandSuccessResult,
   deriveBookingPartyKind,
@@ -26,6 +27,7 @@ import {
   participantBlockIdFromDirection,
   paymentEffectFromProjectionChange,
   paymentIdFromBookingId,
+  proposalParticipantIds,
   resolveBookingScheduleFromCalendarInput,
   resolveCommandIdempotencyIdentity,
   resolveInstructorHourlyRateKzt,
@@ -38,9 +40,11 @@ import {
   type CommandExecutionEnvironment,
   type CommandResult,
   type KztMinorUnits,
+  type LessonPricingSettings,
   type MonetaryEvent,
   type Participant,
   type ParticipantBlock,
+  type ParticipantId,
   type ParticipantManagement,
   type Payment,
   type PaymentAccountingFields,
@@ -95,6 +99,7 @@ import {
   assertCancelProposalAuthorization,
   assertCancelProposalParticipantAuthorization,
   assertCreateProposalAuthorization,
+  assertCreateProposalParty,
   assertCreateProposalServiceStartsInFuture,
   assertExpireProposalAuthorization,
   assertInstructorParticipantRelationship,
@@ -102,6 +107,8 @@ import {
   assertOpenBookingProposal,
   assertProposalAcceptanceWindow,
   assertProposalExpiredForSystemExpiry,
+  assertProposalPartySharesManagingAccount,
+  assertProposalPartyWithinMaxParticipants,
   resolveAcceptProposalParticipantAuthorization,
   type AcceptBookingProposalAuthorization,
 } from './bookingProposalAuthorization';
@@ -112,10 +119,10 @@ import {
   buildExpireProposalAuditPlan,
 } from './bookingProposalAudit';
 import {
-  commitAddOpenProposalToIndex,
-  commitRemoveOpenProposalFromIndex,
-  planOpenProposalIndexMutation,
-  readBookingProposalOpenIndex,
+  commitAddOpenProposalToPartyIndexes,
+  commitRemoveOpenProposalFromPartyIndexes,
+  planOpenProposalIndexMutationsForParty,
+  readBookingProposalOpenIndexesForParty,
   type BookingProposalOpenIndex,
 } from './bookingProposalOpenIndex';
 import {
@@ -133,6 +140,10 @@ import {
   toFirestoreWritePayload as bookingToFirestoreWritePayload,
 } from './bookingStore';
 import type { CanonicalAtomicTransactionSession } from '../transactions/firestoreTransactionExecutor';
+import {
+  LESSON_PRICING_SETTINGS_DOCUMENT_PATH,
+  parseLessonPricingSettings,
+} from '../pricing/lessonPricingSettingsStore';
 
 interface CommandMetadata {
   readonly commandId: ReturnType<typeof resolveCommandIdempotencyIdentity>['commandKey'];
@@ -145,7 +156,7 @@ async function readInstructorProposalBookingScopedEvidence(
   session: CanonicalAtomicTransactionSession,
   input: Readonly<{
     instructorId: BookingProposal['instructorId'];
-    participantId: BookingProposal['participantId'];
+    participantId: ParticipantId;
     at: CanonicalTimestamp;
   }>
 ): Promise<readonly BookingScopedParticipantAccessEvidence[]> {
@@ -179,7 +190,7 @@ async function resolveInstructorProposalStandingEvidence(
   topology: Parameters<typeof evaluateInstructorParticipantAccess>[0],
   input: Readonly<{
     instructorId: BookingProposal['instructorId'];
-    participantId: BookingProposal['participantId'];
+    participantId: ParticipantId;
     at: CanonicalTimestamp;
   }>
 ): Promise<readonly BookingScopedParticipantAccessEvidence[]> {
@@ -263,16 +274,19 @@ async function hasCompetingParticipantGuardEntry(
 async function recoverParticipantConflictAfterGuardCreateCollision(
   envelope: CommandEnvelope<'accept_booking_proposal'>,
   proposalDocumentPath: string,
-  participantClaimPlan: ResourceClaimOperationPlan | undefined,
+  participantClaimPlans: readonly ResourceClaimOperationPlan[],
   error: unknown
 ): Promise<CommandResult<'accept_booking_proposal'>> {
-  if (!isExpectedParticipantGuardCreateCollision(error, participantClaimPlan)) {
+  const collidingPlan = participantClaimPlans.find((plan) =>
+    isExpectedParticipantGuardCreateCollision(error, plan)
+  );
+  if (!collidingPlan) {
     throw error;
   }
   try {
     const [proposalSnapshot, competingParticipantClaim] = await Promise.all([
       getFirestore().doc(proposalDocumentPath).get(),
-      hasCompetingParticipantGuardEntry(participantClaimPlan),
+      hasCompetingParticipantGuardEntry(collidingPlan),
     ]);
     const proposal = parseBookingProposal(
       proposalSnapshot.exists ? (proposalSnapshot.data() as Record<string, unknown>) : undefined
@@ -364,6 +378,127 @@ function durationMinutesFromInterval(interval: {
   return Math.round((endMs - startMs) / 60_000);
 }
 
+async function loadManagedProposalParticipant(
+  session: CanonicalAtomicTransactionSession,
+  envelope: CommandEnvelope,
+  participantId: ParticipantId
+): Promise<{
+  readonly participant: Participant;
+  readonly management: ParticipantManagement;
+}> {
+  const participantDocumentPath = participantPath(participantId);
+  const participantRead = await session.tx.get({ path: participantDocumentPath });
+  session.plan.planRead({ path: participantDocumentPath, category: 'aggregate' });
+  const participant = assertParticipantActive(
+    envelope,
+    parseParticipant(participantRead.exists ? participantRead.data : undefined)
+  );
+  if (participant.management.kind !== 'managed') {
+    throw new CanonicalCommandError('forbidden', {
+      correlationId: envelope.context.correlationId,
+      details: { resourceKind: 'participant', reason: 'conflict' },
+    });
+  }
+  const managementDocumentPath = participantManagementPath(
+    participant.management.participantManagementId
+  );
+  const managementRead = await session.tx.get({ path: managementDocumentPath });
+  session.plan.planRead({
+    path: managementDocumentPath,
+    category: 'authorization_check',
+  });
+  const management = parseParticipantManagement(
+    managementRead.exists ? managementRead.data : undefined
+  );
+  if (!management || management.status !== 'active') {
+    throw new CanonicalCommandError('forbidden', {
+      correlationId: envelope.context.correlationId,
+      details: { resourceKind: 'participant', reason: 'conflict' },
+    });
+  }
+  return { participant, management };
+}
+
+async function assertInstructorAuthorityForProposalParticipant(
+  session: CanonicalAtomicTransactionSession,
+  envelope: CommandEnvelope,
+  input: Readonly<{
+    account: NonNullable<ReturnType<typeof parseAccount>>;
+    participant: Participant;
+    management: ParticipantManagement;
+    instructorId: BookingProposal['instructorId'];
+    at: CanonicalTimestamp;
+  }>
+): Promise<void> {
+  const relationshipDocumentPath = instructorRelationshipPath(
+    instructorRelationshipIdFromPair({
+      participantId: input.participant.participantId,
+      instructorId: input.instructorId,
+    })
+  );
+  const managerBlockPath = participantBlockPath(
+    participantBlockIdFromDirection({
+      participantId: input.participant.participantId,
+      instructorId: input.instructorId,
+      createdByKind: 'participant_manager',
+    })
+  );
+  const instructorBlockPath = participantBlockPath(
+    participantBlockIdFromDirection({
+      participantId: input.participant.participantId,
+      instructorId: input.instructorId,
+      createdByKind: 'instructor',
+    })
+  );
+
+  const relationshipRead = await session.tx.get({ path: relationshipDocumentPath });
+  session.plan.planRead({ path: relationshipDocumentPath, category: 'authorization_check' });
+  const instructorRelationship = parseInstructorRelationship(
+    relationshipRead.exists ? relationshipRead.data : undefined
+  );
+  const managerBlockRead = await session.tx.get({ path: managerBlockPath });
+  session.plan.planRead({ path: managerBlockPath, category: 'authorization_check' });
+  const instructorBlockRead = await session.tx.get({ path: instructorBlockPath });
+  session.plan.planRead({ path: instructorBlockPath, category: 'authorization_check' });
+  const participantBlocks = [
+    parseParticipantBlock(managerBlockRead.exists ? managerBlockRead.data : undefined),
+    parseParticipantBlock(instructorBlockRead.exists ? instructorBlockRead.data : undefined),
+  ].filter((block): block is ParticipantBlock => block !== undefined);
+
+  const topology = buildParticipantAccessTopology({
+    account: input.account,
+    participant: input.participant,
+    management: input.management,
+    instructorRelationship,
+    additionalBlocks: participantBlocks,
+  });
+  const bookingScopedEvidence = await resolveInstructorProposalStandingEvidence(
+    session,
+    topology,
+    {
+      instructorId: input.instructorId,
+      participantId: input.participant.participantId,
+      at: input.at,
+    }
+  );
+  assertInstructorParticipantRelationship(envelope, topology, {
+    instructorId: input.instructorId,
+    participantId: input.participant.participantId,
+    at: input.at,
+    bookingScopedEvidence,
+  });
+  assertNoActiveServiceBlockForProposal(
+    envelope,
+    {
+      account: input.account,
+      participant: input.participant,
+      management: input.management,
+      participantBlocks,
+    },
+    input.instructorId
+  );
+}
+
 function createBookingProposalHandler(
   envelope: CommandEnvelope<'create_booking_proposal'>,
   environment: CommandExecutionEnvironment,
@@ -371,38 +506,15 @@ function createBookingProposalHandler(
 ): Promise<CommandResult<'create_booking_proposal'>> {
   const metadata = metadataFromEnvelope(envelope);
   assertCreateProposalAuthorization(envelope);
+  const { participantIds } = assertCreateProposalParty(envelope);
 
   const proposalDocumentPath = bookingProposalPath(envelope.intent.bookingProposalId);
-  const participantDocumentPath = participantPath(envelope.intent.participantId);
   const instructorDocumentPath = instructorCatalogPath(envelope.intent.instructorId);
-  const relationshipDocumentPath = instructorRelationshipPath(
-    instructorRelationshipIdFromPair({
-      participantId: envelope.intent.participantId,
-      instructorId: envelope.intent.instructorId,
-    })
-  );
-  const managerBlockPath = participantBlockPath(
-    participantBlockIdFromDirection({
-      participantId: envelope.intent.participantId,
-      instructorId: envelope.intent.instructorId,
-      createdByKind: 'participant_manager',
-    })
-  );
-  const instructorBlockPath = participantBlockPath(
-    participantBlockIdFromDirection({
-      participantId: envelope.intent.participantId,
-      instructorId: envelope.intent.instructorId,
-      createdByKind: 'instructor',
-    })
-  );
 
-  let participantRecord!: Participant;
-  let managementRecord!: ParticipantManagement;
-  let accountRecord!: NonNullable<ReturnType<typeof parseAccount>>;
-  let instructorRecord!: NonNullable<ReturnType<typeof parseInstructorCatalog>>;
-  let schedule!: ReturnType<typeof resolveBookingScheduleFromCalendarInput>;
   let notificationAccountId!: ParticipantManagement['accountId'];
-  let openProposalIndex: BookingProposalOpenIndex | undefined;
+  let schedule!: ReturnType<typeof resolveBookingScheduleFromCalendarInput>;
+  let openProposalIndexes: ReadonlyMap<ParticipantId, BookingProposalOpenIndex | undefined> =
+    new Map();
   const plannedProposalRevision = AggregateRevisionSchema.parse(1);
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'create_booking_proposal'> = {
@@ -412,11 +524,7 @@ function createBookingProposalHandler(
         envelope.context.calendarInput!,
         envelope.context.timezone!
       );
-      assertCreateProposalServiceStartsInFuture(
-        envelope,
-        now,
-        schedule.interval.startsAt
-      );
+      assertCreateProposalServiceStartsInFuture(envelope, now, schedule.interval.startsAt);
 
       const proposalRead = await session.tx.get({ path: proposalDocumentPath });
       session.plan.planRead({ path: proposalDocumentPath, category: 'aggregate' });
@@ -427,97 +535,58 @@ function createBookingProposalHandler(
         });
       }
 
-      const participantRead = await session.tx.get({ path: participantDocumentPath });
-      session.plan.planRead({ path: participantDocumentPath, category: 'aggregate' });
-      participantRecord = assertParticipantActive(
+      const pricingSettingsRead = await session.tx.get({
+        path: LESSON_PRICING_SETTINGS_DOCUMENT_PATH,
+      });
+      session.plan.planRead({
+        path: LESSON_PRICING_SETTINGS_DOCUMENT_PATH,
+        category: 'aggregate',
+      });
+      const pricingSettings = parseLessonPricingSettings(
+        pricingSettingsRead.exists ? pricingSettingsRead.data : undefined
+      );
+      if (!pricingSettings) {
+        throw new CanonicalCommandError('validation', {
+          correlationId: envelope.context.correlationId,
+          details: { field: 'lessonPricingSettings', reason: 'required' },
+        });
+      }
+      assertProposalPartyWithinMaxParticipants(envelope, {
+        participantCount: participantIds.length,
+        maxParticipantsPerLesson: pricingSettings.maxParticipantsPerLesson,
+      });
+
+      const participantRecords: Participant[] = [];
+      const managementRecords: ParticipantManagement[] = [];
+      for (const participantId of participantIds) {
+        const loaded = await loadManagedProposalParticipant(session, envelope, participantId);
+        participantRecords.push(loaded.participant);
+        managementRecords.push(loaded.management);
+      }
+      notificationAccountId = assertProposalPartySharesManagingAccount(
         envelope,
-        parseParticipant(participantRead.exists ? participantRead.data : undefined)
+        managementRecords
       );
-      if (participantRecord.management.kind !== 'managed') {
-        throw new CanonicalCommandError('forbidden', {
-          correlationId: envelope.context.correlationId,
-          details: { resourceKind: 'participant', reason: 'conflict' },
-        });
-      }
 
-      const managementRead = await session.tx.get({
-        path: participantManagementPath(participantRecord.management.participantManagementId),
-      });
+      const accountRead = await session.tx.get({ path: accountPath(notificationAccountId) });
       session.plan.planRead({
-        path: participantManagementPath(participantRecord.management.participantManagementId),
+        path: accountPath(notificationAccountId),
         category: 'authorization_check',
       });
-      const parsedManagement = parseParticipantManagement(
-        managementRead.exists ? managementRead.data : undefined
-      );
-      if (!parsedManagement || parsedManagement.status !== 'active') {
-        throw new CanonicalCommandError('forbidden', {
-          correlationId: envelope.context.correlationId,
-          details: { resourceKind: 'participant', reason: 'conflict' },
-        });
-      }
-      managementRecord = parsedManagement;
-      notificationAccountId = managementRecord.accountId;
-
-      const accountRead = await session.tx.get({ path: accountPath(managementRecord.accountId) });
-      session.plan.planRead({
-        path: accountPath(managementRecord.accountId),
-        category: 'authorization_check',
-      });
-      accountRecord = assertAccountActive(
+      const accountRecord = assertAccountActive(
         envelope,
         parseAccount(accountRead.exists ? accountRead.data : undefined)
       );
 
-      const relationshipRead = await session.tx.get({ path: relationshipDocumentPath });
-      session.plan.planRead({ path: relationshipDocumentPath, category: 'authorization_check' });
-      const instructorRelationship = parseInstructorRelationship(
-        relationshipRead.exists ? relationshipRead.data : undefined
-      );
-
-      const managerBlockRead = await session.tx.get({ path: managerBlockPath });
-      session.plan.planRead({ path: managerBlockPath, category: 'authorization_check' });
-      const instructorBlockRead = await session.tx.get({ path: instructorBlockPath });
-      session.plan.planRead({ path: instructorBlockPath, category: 'authorization_check' });
-      const participantBlocks = [
-        parseParticipantBlock(managerBlockRead.exists ? managerBlockRead.data : undefined),
-        parseParticipantBlock(instructorBlockRead.exists ? instructorBlockRead.data : undefined),
-      ].filter((block): block is ParticipantBlock => block !== undefined);
-
-      const topology = buildParticipantAccessTopology({
-        account: accountRecord,
-        participant: participantRecord,
-        management: managementRecord,
-        instructorRelationship,
-        additionalBlocks: participantBlocks,
-      });
-
-      const bookingScopedEvidence = await resolveInstructorProposalStandingEvidence(
-        session,
-        topology,
-        {
-          instructorId: envelope.intent.instructorId,
-          participantId: envelope.intent.participantId,
-          at: now,
-        }
-      );
-
-      assertInstructorParticipantRelationship(envelope, topology, {
-        instructorId: envelope.intent.instructorId,
-        participantId: envelope.intent.participantId,
-        at: now,
-        bookingScopedEvidence,
-      });
-      assertNoActiveServiceBlockForProposal(
-        envelope,
-        {
+      for (let index = 0; index < participantIds.length; index += 1) {
+        await assertInstructorAuthorityForProposalParticipant(session, envelope, {
           account: accountRecord,
-          participant: participantRecord,
-          management: managementRecord,
-          participantBlocks,
-        },
-        envelope.intent.instructorId
-      );
+          participant: participantRecords[index]!,
+          management: managementRecords[index]!,
+          instructorId: envelope.intent.instructorId,
+          at: now,
+        });
+      }
 
       const instructorRead = await session.tx.get({ path: instructorDocumentPath });
       session.plan.planRead({ path: instructorDocumentPath, category: 'authorization_check' });
@@ -531,8 +600,7 @@ function createBookingProposalHandler(
           details: { field: 'instructorId', reason: 'conflict' },
         });
       }
-      instructorRecord = parsedInstructor;
-      if (instructorRecord.isAvailable === false) {
+      if (parsedInstructor.isAvailable === false) {
         throw new CanonicalCommandError('unavailable', {
           correlationId: envelope.context.correlationId,
           details: { resourceKind: 'instructor', reason: 'conflict' },
@@ -546,14 +614,14 @@ function createBookingProposalHandler(
         estimatedPayloadBytes: BOOKING_PROPOSAL_PLANNING_ESTIMATES.proposalBytes,
       });
 
-      openProposalIndex = await readBookingProposalOpenIndex(session, {
-        participantId: envelope.intent.participantId,
+      openProposalIndexes = await readBookingProposalOpenIndexesForParty(session, {
+        participantIds,
         instructorId: envelope.intent.instructorId,
       });
-      planOpenProposalIndexMutation(session, {
-        participantId: envelope.intent.participantId,
+      planOpenProposalIndexMutationsForParty(session, {
+        participantIds,
         instructorId: envelope.intent.instructorId,
-        exists: openProposalIndex !== undefined,
+        indexes: openProposalIndexes,
       });
     },
     planAuditOutbox: async () =>
@@ -566,7 +634,7 @@ function createBookingProposalHandler(
       const decidedAt = timestampFromDate(context.decidedAt);
       const proposal: BookingProposal = BookingProposalSchema.parse({
         proposalId: envelope.intent.bookingProposalId,
-        participantId: envelope.intent.participantId,
+        participantIds,
         instructorId: envelope.intent.instructorId,
         proposedService: {
           interval: schedule.interval,
@@ -583,11 +651,11 @@ function createBookingProposalHandler(
         { path: proposalDocumentPath },
         toFirestoreWritePayload(proposal as Record<string, unknown>)
       );
-      commitAddOpenProposalToIndex(session, {
-        participantId: envelope.intent.participantId,
+      commitAddOpenProposalToPartyIndexes(session, {
+        participantIds,
         instructorId: envelope.intent.instructorId,
         proposalId: envelope.intent.bookingProposalId,
-        existingIndex: openProposalIndex,
+        indexes: openProposalIndexes,
         decidedAt,
       });
 
@@ -629,9 +697,13 @@ function acceptBookingProposalHandler(
   let walletFunding = KztMinorUnitsSchema.parse(0);
   let paymentProjection!: PaymentAccountingProjection;
   let instructorClaimPlan: ResourceClaimOperationPlan | undefined;
-  let participantClaimPlan: ResourceClaimOperationPlan | undefined;
+  let participantClaimPlans: ResourceClaimOperationPlan[] = [];
   let transitionUnavailable = false;
-  let openProposalIndex: BookingProposalOpenIndex | undefined;
+  let openProposalIndexes: ReadonlyMap<ParticipantId, BookingProposalOpenIndex | undefined> =
+    new Map();
+  let pricingSettings!: LessonPricingSettings;
+  let baseLessonPrice!: KztMinorUnits;
+  let lessonDurationMinutes = 0;
   const bookingId = bookingIdFromAcceptedProposal(envelope.intent.bookingProposalId);
   const bookingDocumentPath = bookingPath(bookingId);
   const paymentId = paymentIdFromBookingId(bookingId);
@@ -643,7 +715,7 @@ function acceptBookingProposalHandler(
     read: async (session) => {
       transitionUnavailable = false;
       instructorClaimPlan = undefined;
-      participantClaimPlan = undefined;
+      participantClaimPlans = [];
 
       const now = timestampFromDate(environment.clock.now());
       const proposalRead = await session.tx.get({ path: proposalDocumentPath });
@@ -653,41 +725,44 @@ function acceptBookingProposalHandler(
         parseBookingProposal(proposalRead.exists ? proposalRead.data : undefined)
       );
       assertProposalAcceptanceWindow(envelope, proposal, now);
+      const partyParticipantIds = proposalParticipantIds(proposal);
 
-      const participantDocumentPath = participantPath(proposal.participantId);
-      const participantRead = await session.tx.get({ path: participantDocumentPath });
-      session.plan.planRead({ path: participantDocumentPath, category: 'aggregate' });
-      const participantRecord = assertParticipantActive(
+      const pricingSettingsRead = await session.tx.get({
+        path: LESSON_PRICING_SETTINGS_DOCUMENT_PATH,
+      });
+      session.plan.planRead({
+        path: LESSON_PRICING_SETTINGS_DOCUMENT_PATH,
+        category: 'aggregate',
+      });
+      const currentPricingSettings = parseLessonPricingSettings(
+        pricingSettingsRead.exists ? pricingSettingsRead.data : undefined
+      );
+      if (!currentPricingSettings) {
+        throw new CanonicalCommandError('validation', {
+          correlationId: envelope.context.correlationId,
+          details: { field: 'lessonPricingSettings', reason: 'required' },
+        });
+      }
+      pricingSettings = currentPricingSettings;
+      assertProposalPartyWithinMaxParticipants(envelope, {
+        participantCount: partyParticipantIds.length,
+        maxParticipantsPerLesson: pricingSettings.maxParticipantsPerLesson,
+      });
+
+      const participantRecords: Participant[] = [];
+      const managementRecords: ParticipantManagement[] = [];
+      for (const participantId of partyParticipantIds) {
+        const loaded = await loadManagedProposalParticipant(session, envelope, participantId);
+        participantRecords.push(loaded.participant);
+        managementRecords.push(loaded.management);
+      }
+      const managingAccountId = assertProposalPartySharesManagingAccount(
         envelope,
-        parseParticipant(participantRead.exists ? participantRead.data : undefined)
+        managementRecords
       );
-      if (participantRecord.management.kind !== 'managed') {
-        throw new CanonicalCommandError('forbidden', {
-          correlationId: envelope.context.correlationId,
-          details: { resourceKind: 'participant', reason: 'conflict' },
-        });
-      }
-
-      const managementRead = await session.tx.get({
-        path: participantManagementPath(participantRecord.management.participantManagementId),
-      });
+      const accountRead = await session.tx.get({ path: accountPath(managingAccountId) });
       session.plan.planRead({
-        path: participantManagementPath(participantRecord.management.participantManagementId),
-        category: 'authorization_check',
-      });
-      const managementRecord = parseParticipantManagement(
-        managementRead.exists ? managementRead.data : undefined
-      );
-      if (!managementRecord || managementRecord.status !== 'active') {
-        throw new CanonicalCommandError('forbidden', {
-          correlationId: envelope.context.correlationId,
-          details: { resourceKind: 'participant', reason: 'conflict' },
-        });
-      }
-
-      const accountRead = await session.tx.get({ path: accountPath(managementRecord.accountId) });
-      session.plan.planRead({
-        path: accountPath(managementRecord.accountId),
+        path: accountPath(managingAccountId),
         category: 'authorization_check',
       });
       const accountRecord = assertAccountActive(
@@ -697,77 +772,20 @@ function acceptBookingProposalHandler(
 
       authorization = resolveAcceptProposalParticipantAuthorization(envelope, {
         account: accountRecord,
-        participant: participantRecord,
-        management: managementRecord,
+        participants: participantRecords,
+        managements: managementRecords,
         proposal,
       });
 
-      const managerBlockPath = participantBlockPath(
-        participantBlockIdFromDirection({
-          participantId: proposal.participantId,
-          instructorId: proposal.instructorId,
-          createdByKind: 'participant_manager',
-        })
-      );
-      const instructorBlockPath = participantBlockPath(
-        participantBlockIdFromDirection({
-          participantId: proposal.participantId,
-          instructorId: proposal.instructorId,
-          createdByKind: 'instructor',
-        })
-      );
-      const managerBlockRead = await session.tx.get({ path: managerBlockPath });
-      session.plan.planRead({ path: managerBlockPath, category: 'authorization_check' });
-      const instructorBlockRead = await session.tx.get({ path: instructorBlockPath });
-      session.plan.planRead({ path: instructorBlockPath, category: 'authorization_check' });
-      const participantBlocks = [
-        parseParticipantBlock(managerBlockRead.exists ? managerBlockRead.data : undefined),
-        parseParticipantBlock(instructorBlockRead.exists ? instructorBlockRead.data : undefined),
-      ].filter((block): block is ParticipantBlock => block !== undefined);
-      assertNoActiveServiceBlockForProposal(
-        envelope,
-        {
+      for (let index = 0; index < partyParticipantIds.length; index += 1) {
+        await assertInstructorAuthorityForProposalParticipant(session, envelope, {
           account: accountRecord,
-          participant: participantRecord,
-          management: managementRecord,
-          participantBlocks,
-        },
-        proposal.instructorId
-      );
-
-      const relationshipDocumentPath = instructorRelationshipPath(
-        instructorRelationshipIdFromPair({
-          participantId: proposal.participantId,
+          participant: participantRecords[index]!,
+          management: managementRecords[index]!,
           instructorId: proposal.instructorId,
-        })
-      );
-      const relationshipRead = await session.tx.get({ path: relationshipDocumentPath });
-      session.plan.planRead({ path: relationshipDocumentPath, category: 'authorization_check' });
-      const instructorRelationship = parseInstructorRelationship(
-        relationshipRead.exists ? relationshipRead.data : undefined
-      );
-      const accessTopology = buildParticipantAccessTopology({
-        account: accountRecord,
-        participant: participantRecord,
-        management: managementRecord,
-        instructorRelationship,
-        additionalBlocks: participantBlocks,
-      });
-      const bookingScopedEvidence = await resolveInstructorProposalStandingEvidence(
-        session,
-        accessTopology,
-        {
-          instructorId: proposal.instructorId,
-          participantId: proposal.participantId,
           at: now,
-        }
-      );
-      assertInstructorParticipantRelationship(envelope, accessTopology, {
-        instructorId: proposal.instructorId,
-        participantId: proposal.participantId,
-        at: now,
-        bookingScopedEvidence,
-      });
+        });
+      }
 
       const instructorRead = await session.tx.get({
         path: instructorCatalogPath(proposal.instructorId),
@@ -792,10 +810,18 @@ function acceptBookingProposalHandler(
       }
 
       const schedule = proposal.proposedService;
-      servicePrice = calculateIndividualBookingPriceKzt(
+      lessonDurationMinutes = durationMinutesFromInterval(schedule.interval);
+      baseLessonPrice = calculateIndividualBookingPriceKzt(
         resolveInstructorHourlyRateKzt(instructorRecord),
-        durationMinutesFromInterval(schedule.interval)
+        lessonDurationMinutes
       );
+      servicePrice = calculateLessonPartyPriceKzt({
+        baseLessonPriceKzt: baseLessonPrice,
+        additionalParticipantSurchargePerHourKzt:
+          pricingSettings.additionalParticipantSurchargePerHourKzt,
+        participantCount: partyParticipantIds.length,
+        lessonDurationMinutes,
+      });
 
       if (!transitionUnavailable) {
         walletDocumentPath = walletPath(authorization.payerAccountId);
@@ -877,26 +903,28 @@ function acceptBookingProposalHandler(
           }
         } else {
           instructorClaimPlan = instructorClaimResult.plan;
-          const participantClaimResult = await tryPlanAcquireResourceClaim(session, {
-            ...claimMetadata,
-            identity: ResourceClaimIdentityInputSchema.parse({
-              strategyVersion: 'claim:v1',
-              claimKind: 'participant_booking_occurrence',
-              resourceKind: 'participant',
-              resourceId: proposal.participantId,
-              ownerKind: 'booking',
-              ownerId: bookingId,
-              occurrenceId,
-            }),
-            interval: schedule.interval,
-          });
-          if (!participantClaimResult.ok) {
-            throw new CanonicalCommandError(participantClaimResult.code, {
-              correlationId: envelope.context.correlationId,
-              details: { reason: 'conflict' },
+          for (const participantId of partyParticipantIds) {
+            const participantClaimResult = await tryPlanAcquireResourceClaim(session, {
+              ...claimMetadata,
+              identity: ResourceClaimIdentityInputSchema.parse({
+                strategyVersion: 'claim:v1',
+                claimKind: 'participant_booking_occurrence',
+                resourceKind: 'participant',
+                resourceId: participantId,
+                ownerKind: 'booking',
+                ownerId: bookingId,
+                occurrenceId,
+              }),
+              interval: schedule.interval,
             });
+            if (!participantClaimResult.ok) {
+              throw new CanonicalCommandError(participantClaimResult.code, {
+                correlationId: envelope.context.correlationId,
+                details: { reason: 'conflict' },
+              });
+            }
+            participantClaimPlans.push(participantClaimResult.plan);
           }
-          participantClaimPlan = participantClaimResult.plan;
         }
       }
 
@@ -908,14 +936,14 @@ function acceptBookingProposalHandler(
         estimatedPayloadBytes: BOOKING_PROPOSAL_PLANNING_ESTIMATES.proposalBytes,
       });
 
-      openProposalIndex = await readBookingProposalOpenIndex(session, {
-        participantId: proposal.participantId,
+      openProposalIndexes = await readBookingProposalOpenIndexesForParty(session, {
+        participantIds: proposalParticipantIds(proposal),
         instructorId: proposal.instructorId,
       });
-      planOpenProposalIndexMutation(session, {
-        participantId: proposal.participantId,
+      planOpenProposalIndexMutationsForParty(session, {
+        participantIds: proposalParticipantIds(proposal),
         instructorId: proposal.instructorId,
-        exists: openProposalIndex !== undefined,
+        indexes: openProposalIndexes,
       });
 
       if (!transitionUnavailable) {
@@ -982,18 +1010,18 @@ function acceptBookingProposalHandler(
             { path: proposalDocumentPath },
             toFirestoreWritePayload(unavailableProposal as Record<string, unknown>)
           );
-          commitRemoveOpenProposalFromIndex(session, {
-            participantId: proposal.participantId,
+          commitRemoveOpenProposalFromPartyIndexes(session, {
+            participantIds: proposalParticipantIds(proposal),
             instructorId: proposal.instructorId,
             proposalId: proposal.proposalId,
-            existingIndex: openProposalIndex,
+            indexes: openProposalIndexes,
             decidedAt,
           });
           return commandSuccessResult(envelope.kind, envelope.context.correlationId);
         }
 
         const audit = revisionAuditLink(envelope, metadata);
-        const partyParticipantIds = [proposal.participantId];
+        const partyParticipantIds = proposalParticipantIds(proposal);
         const schedule = proposal.proposedService;
         const booking: Booking = BookingSchema.parse({
           bookingId,
@@ -1018,6 +1046,16 @@ function acceptBookingProposalHandler(
           },
           lifecycle: { status: 'confirmed' },
           paymentId,
+          pricingSnapshot: {
+            strategyVersion: 'lesson_party:v1',
+            baseLessonPriceKzt: baseLessonPrice,
+            additionalParticipantSurchargePerHourKzt:
+              pricingSettings.additionalParticipantSurchargePerHourKzt,
+            settingsRevision: pricingSettings.revision,
+            lessonDurationMinutes,
+            participantCount: partyParticipantIds.length,
+            totalPriceKzt: servicePrice,
+          },
           payerAccountId: authorization.payerAccountId,
           revision: plannedBookingRevision,
           createdAt: decidedAt,
@@ -1127,12 +1165,14 @@ function acceptBookingProposalHandler(
           decidedAt: context.decidedAt,
         };
         commitResourceClaimPlan(session, instructorClaimPlan!, claimMetadata);
-        commitResourceClaimPlan(session, participantClaimPlan!, claimMetadata);
-        commitRemoveOpenProposalFromIndex(session, {
-          participantId: proposal.participantId,
+        for (const plan of participantClaimPlans) {
+          commitResourceClaimPlan(session, plan, claimMetadata);
+        }
+        commitRemoveOpenProposalFromPartyIndexes(session, {
+          participantIds: partyParticipantIds,
           instructorId: proposal.instructorId,
           proposalId: proposal.proposalId,
-          existingIndex: openProposalIndex,
+          indexes: openProposalIndexes,
           decidedAt,
         });
 
@@ -1153,7 +1193,7 @@ function acceptBookingProposalHandler(
     recoverParticipantConflictAfterGuardCreateCollision(
       envelope,
       proposalDocumentPath,
-      participantClaimPlan,
+      participantClaimPlans,
       error
     )
   );
@@ -1172,7 +1212,8 @@ function cancelBookingProposalHandler(
   let plannedProposalRevision = AggregateRevisionSchema.parse(1);
   let lifecycleTarget: 'declined' | 'cancelled' = 'declined';
   let notificationAccountId!: ParticipantManagement['accountId'];
-  let openProposalIndex: BookingProposalOpenIndex | undefined;
+  let openProposalIndexes: ReadonlyMap<ParticipantId, BookingProposalOpenIndex | undefined> =
+    new Map();
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'cancel_booking_proposal'> = {
     read: async (session) => {
@@ -1183,73 +1224,27 @@ function cancelBookingProposalHandler(
         parseBookingProposal(proposalRead.exists ? proposalRead.data : undefined)
       );
       assertCancelProposalActorMatchesProposal(envelope, proposal, cancelActor);
+      const partyParticipantIds = proposalParticipantIds(proposal);
+
+      const participantRecords: Participant[] = [];
+      const managementRecords: ParticipantManagement[] = [];
+      for (const participantId of partyParticipantIds) {
+        const loaded = await loadManagedProposalParticipant(session, envelope, participantId);
+        participantRecords.push(loaded.participant);
+        managementRecords.push(loaded.management);
+      }
+      notificationAccountId = assertProposalPartySharesManagingAccount(
+        envelope,
+        managementRecords
+      );
 
       if (cancelActor === 'instructor') {
         lifecycleTarget = 'cancelled';
-        const participantDocumentPath = participantPath(proposal.participantId);
-        const participantRead = await session.tx.get({ path: participantDocumentPath });
-        session.plan.planRead({ path: participantDocumentPath, category: 'aggregate' });
-        const participantRecord = assertParticipantActive(
-          envelope,
-          parseParticipant(participantRead.exists ? participantRead.data : undefined)
-        );
-        if (participantRecord.management.kind !== 'managed') {
-          throw new CanonicalCommandError('forbidden', {
-            correlationId: envelope.context.correlationId,
-            details: { resourceKind: 'participant', reason: 'conflict' },
-          });
-        }
-        const managementRead = await session.tx.get({
-          path: participantManagementPath(participantRecord.management.participantManagementId),
-        });
-        session.plan.planRead({
-          path: participantManagementPath(participantRecord.management.participantManagementId),
-          category: 'authorization_check',
-        });
-        const managementRecord = parseParticipantManagement(
-          managementRead.exists ? managementRead.data : undefined
-        );
-        if (!managementRecord || managementRecord.status !== 'active') {
-          throw new CanonicalCommandError('forbidden', {
-            correlationId: envelope.context.correlationId,
-            details: { resourceKind: 'participant', reason: 'conflict' },
-          });
-        }
-        notificationAccountId = managementRecord.accountId;
       } else {
         lifecycleTarget = 'declined';
-        const participantDocumentPath = participantPath(proposal.participantId);
-        const participantRead = await session.tx.get({ path: participantDocumentPath });
-        session.plan.planRead({ path: participantDocumentPath, category: 'aggregate' });
-        const participantRecord = assertParticipantActive(
-          envelope,
-          parseParticipant(participantRead.exists ? participantRead.data : undefined)
-        );
-        if (participantRecord.management.kind !== 'managed') {
-          throw new CanonicalCommandError('forbidden', {
-            correlationId: envelope.context.correlationId,
-            details: { resourceKind: 'participant', reason: 'conflict' },
-          });
-        }
-        const managementRead = await session.tx.get({
-          path: participantManagementPath(participantRecord.management.participantManagementId),
-        });
+        const accountRead = await session.tx.get({ path: accountPath(notificationAccountId) });
         session.plan.planRead({
-          path: participantManagementPath(participantRecord.management.participantManagementId),
-          category: 'authorization_check',
-        });
-        const managementRecord = parseParticipantManagement(
-          managementRead.exists ? managementRead.data : undefined
-        );
-        if (!managementRecord || managementRecord.status !== 'active') {
-          throw new CanonicalCommandError('forbidden', {
-            correlationId: envelope.context.correlationId,
-            details: { resourceKind: 'participant', reason: 'conflict' },
-          });
-        }
-        const accountRead = await session.tx.get({ path: accountPath(managementRecord.accountId) });
-        session.plan.planRead({
-          path: accountPath(managementRecord.accountId),
+          path: accountPath(notificationAccountId),
           category: 'authorization_check',
         });
         const accountRecord = assertAccountActive(
@@ -1258,8 +1253,8 @@ function cancelBookingProposalHandler(
         );
         assertCancelProposalParticipantAuthorization(envelope, {
           account: accountRecord,
-          participant: participantRecord,
-          management: managementRecord,
+          participants: participantRecords,
+          managements: managementRecords,
           proposal,
         });
         notificationAccountId = requireAccountActor(envelope).accountId;
@@ -1273,14 +1268,14 @@ function cancelBookingProposalHandler(
         estimatedPayloadBytes: BOOKING_PROPOSAL_PLANNING_ESTIMATES.proposalBytes,
       });
 
-      openProposalIndex = await readBookingProposalOpenIndex(session, {
-        participantId: proposal.participantId,
+      openProposalIndexes = await readBookingProposalOpenIndexesForParty(session, {
+        participantIds: proposalParticipantIds(proposal),
         instructorId: proposal.instructorId,
       });
-      planOpenProposalIndexMutation(session, {
-        participantId: proposal.participantId,
+      planOpenProposalIndexMutationsForParty(session, {
+        participantIds: proposalParticipantIds(proposal),
         instructorId: proposal.instructorId,
-        exists: openProposalIndex !== undefined,
+        indexes: openProposalIndexes,
       });
     },
     planAuditOutbox: async () =>
@@ -1314,11 +1309,11 @@ function cancelBookingProposalHandler(
         { path: proposalDocumentPath },
         toFirestoreWritePayload(updatedProposal as Record<string, unknown>)
       );
-      commitRemoveOpenProposalFromIndex(session, {
-        participantId: proposal.participantId,
+      commitRemoveOpenProposalFromPartyIndexes(session, {
+        participantIds: proposalParticipantIds(proposal),
         instructorId: proposal.instructorId,
         proposalId: proposal.proposalId,
-        existingIndex: openProposalIndex,
+        indexes: openProposalIndexes,
         decidedAt,
       });
       return commandSuccessResult(envelope.kind, envelope.context.correlationId);
@@ -1345,7 +1340,8 @@ function expireBookingProposalHandler(
 
   let proposal!: BookingProposal;
   let plannedProposalRevision = AggregateRevisionSchema.parse(1);
-  let openProposalIndex: BookingProposalOpenIndex | undefined;
+  let openProposalIndexes: ReadonlyMap<ParticipantId, BookingProposalOpenIndex | undefined> =
+    new Map();
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'expire_booking_proposal'> = {
     read: async (session) => {
@@ -1366,14 +1362,14 @@ function expireBookingProposalHandler(
         estimatedPayloadBytes: BOOKING_PROPOSAL_PLANNING_ESTIMATES.proposalBytes,
       });
 
-      openProposalIndex = await readBookingProposalOpenIndex(session, {
-        participantId: proposal.participantId,
+      openProposalIndexes = await readBookingProposalOpenIndexesForParty(session, {
+        participantIds: proposalParticipantIds(proposal),
         instructorId: proposal.instructorId,
       });
-      planOpenProposalIndexMutation(session, {
-        participantId: proposal.participantId,
+      planOpenProposalIndexMutationsForParty(session, {
+        participantIds: proposalParticipantIds(proposal),
         instructorId: proposal.instructorId,
-        exists: openProposalIndex !== undefined,
+        indexes: openProposalIndexes,
       });
     },
     planAuditOutbox: async () =>
@@ -1401,11 +1397,11 @@ function expireBookingProposalHandler(
         { path: proposalDocumentPath },
         toFirestoreWritePayload(updatedProposal as Record<string, unknown>)
       );
-      commitRemoveOpenProposalFromIndex(session, {
-        participantId: proposal.participantId,
+      commitRemoveOpenProposalFromPartyIndexes(session, {
+        participantIds: proposalParticipantIds(proposal),
         instructorId: proposal.instructorId,
         proposalId: proposal.proposalId,
-        existingIndex: openProposalIndex,
+        indexes: openProposalIndexes,
         decidedAt,
       });
       return commandSuccessResult(envelope.kind, envelope.context.correlationId);

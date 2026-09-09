@@ -355,7 +355,7 @@ function createProposalEnvelope(
     intent: {
       bookingProposalId: input.bookingProposalId ?? proposalId,
       instructorId: input.instructorId ?? instructorId,
-      participantId: input.participantId ?? participantId,
+      participantIds: [input.participantId ?? participantId],
     },
   };
 }

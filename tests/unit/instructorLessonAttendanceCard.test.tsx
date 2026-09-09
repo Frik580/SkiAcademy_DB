@@ -100,13 +100,14 @@ function renderCard(
         onUpdateStudentLevel={vi.fn()}
         onOpenEval={vi.fn()}
         canCreateProposal={true}
+        onCreateProposal={vi.fn()}
         collaboration={
           {
             proposals: [],
             changeRequests: [],
             submittingId: collaboration.submittingId,
             handleRecordLessonAttendance: collaboration.handleRecordLessonAttendance,
-            setCreateProposalParticipant: vi.fn(),
+            setCreateProposalParty: vi.fn(),
             handleWithdrawProposal: vi.fn(),
             handleCreateChangeRequest: vi.fn(),
             handleWithdrawChangeRequest: vi.fn(),

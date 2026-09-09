@@ -11,7 +11,7 @@ function proposal(id: string, revision: number, date = '2026-06-15'): BookingPro
   return {
     proposalId: id,
     revision,
-    participantId: 'participant_fixture_01',
+    participantIds: ['participant_fixture_01'],
     instructorId: 'instructor_fixture_01',
     participantDisplayName: 'Student',
     instructorDisplayName: 'Coach',

@@ -53,7 +53,7 @@ describe('booking collaboration components', () => {
           {
             proposalId: 'booking_proposal_component_01',
             revision: 1,
-            participantId: 'participant_fixture_01',
+            participantIds: ['participant_fixture_01'],
             instructorId: 'instructor_fixture_01',
             participantDisplayName: 'Student',
             instructorDisplayName: 'Coach',
@@ -78,7 +78,7 @@ describe('booking collaboration components', () => {
     const openProposal = {
       proposalId: 'booking_proposal_component_01',
       revision: 1,
-      participantId: 'participant_fixture_01',
+      participantIds: ['participant_fixture_01'],
       instructorId: 'instructor_fixture_01',
       participantDisplayName: 'Student',
       instructorDisplayName: 'Coach',

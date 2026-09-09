@@ -20,6 +20,17 @@ export function useBookingCollaborationTranslations() {
     withdrawChangeRequest: t('collabWithdrawChangeRequest'),
     createProposal: t('collabCreateProposal'),
     proposalNotPermitted: t('collabProposalNotPermitted'),
+    proposalParticipantsLabel: t('collabProposalParticipants'),
+    proposalSelectedParticipants: t('collabProposalSelectedParticipants'),
+    proposalParticipantNoAuthority: t('collabProposalParticipantNoAuthority'),
+    proposalParticipantCount: (count: number, max?: number) =>
+      max === undefined
+        ? t('collabProposalParticipantCount').replace('{count}', String(count))
+        : t('collabProposalParticipantCountMax')
+            .replace('{count}', String(count))
+            .replace('{max}', String(max)),
+    proposalPricePreview: (amount: number) =>
+      t('collabProposalPricePreview').replace('{amount}', String(amount)),
     relationshipSection: t('collabRelationshipSection'),
     blockSection: t('collabBlockSection'),
     createRelationship: t('collabCreateRelationship'),

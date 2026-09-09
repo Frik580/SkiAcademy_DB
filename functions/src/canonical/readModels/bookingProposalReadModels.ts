@@ -1,10 +1,14 @@
 import {
   evaluateBookingProposalAuthorizedActions,
+  proposalParticipantIds,
   resolveClientCallableCapabilityFromPartyAuthorities,
   type AccountId,
   type BookingProposal,
   type BookingProposalReadModel,
   type InstructorId,
+  type Participant,
+  type ParticipantId,
+  type ParticipantManagement,
   type QueryBookingProposalReadModelsInput,
   type QueryBookingProposalReadModelsResult,
   timestampFromDate,
@@ -35,6 +39,28 @@ function isOpenProposal(proposal: BookingProposal): boolean {
   return proposal.lifecycle.status === 'open';
 }
 
+async function collectOpenProposalsForParticipant(
+  firestore: Firestore,
+  participantId: ParticipantId
+): Promise<BookingProposal[]> {
+  const [legacySnapshot, partySnapshot] = await Promise.all([
+    firestore.collection('booking_proposals').where('participantId', '==', participantId).limit(50).get(),
+    firestore
+      .collection('booking_proposals')
+      .where('participantIds', 'array-contains', participantId)
+      .limit(50)
+      .get(),
+  ]);
+  const byId = new Map<string, BookingProposal>();
+  for (const doc of [...legacySnapshot.docs, ...partySnapshot.docs]) {
+    const proposal = parseBookingProposal(doc.data() as Record<string, unknown>);
+    if (!proposal || !isOpenProposal(proposal)) continue;
+    if (!proposalParticipantIds(proposal).includes(participantId)) continue;
+    byId.set(proposal.proposalId, proposal);
+  }
+  return [...byId.values()];
+}
+
 async function buildAccountProposalReadModel(
   firestore: Firestore,
   accountId: AccountId,
@@ -43,13 +69,26 @@ async function buildAccountProposalReadModel(
   now: CanonicalTimestamp,
   readContext: ReadModelRequestContext
 ): Promise<BookingProposalReadModel | undefined> {
-  const management = authContext.participantManagement.find(
-    (record) => record.participantId === proposal.participantId
-  );
-  const participant = authContext.participants.find(
-    (record) => record.participantId === proposal.participantId
-  );
-  if (!management || !participant || !authContext.account) {
+  const partyIds = proposalParticipantIds(proposal);
+  const managements: ParticipantManagement[] = [];
+  const participants: Participant[] = [];
+  const authorities: ('self' | 'parent_guardian')[] = [];
+
+  for (const participantId of partyIds) {
+    const management = authContext.participantManagement.find(
+      (record) => record.participantId === participantId
+    );
+    const participant = authContext.participants.find(
+      (record) => record.participantId === participantId
+    );
+    if (!management || !participant || !authContext.account) {
+      return undefined;
+    }
+    managements.push(management);
+    participants.push(participant);
+    authorities.push(management.authority);
+  }
+  if (!authContext.account || managements.length === 0) {
     return undefined;
   }
 
@@ -62,16 +101,23 @@ async function buildAccountProposalReadModel(
     return undefined;
   }
 
-  const blocks = await loadActiveParticipantBlocksForPair(
-    firestore,
-    proposal.participantId,
-    proposal.instructorId,
-    readContext
-  );
+  const blocks = [];
+  for (const participantId of partyIds) {
+    blocks.push(
+      ...(await loadActiveParticipantBlocksForPair(
+        firestore,
+        participantId,
+        proposal.instructorId,
+        readContext
+      ))
+    );
+  }
   const topology = buildParticipantAccessTopology({
     account: authContext.account,
-    participant,
-    management,
+    participant: participants[0],
+    management: managements[0],
+    additionalParticipants: participants.slice(1),
+    additionalManagement: managements.slice(1),
     additionalBlocks: blocks,
   });
 
@@ -79,23 +125,24 @@ async function buildAccountProposalReadModel(
     actor: {
       kind: 'account_manager',
       accountId,
-      participantManagementId: management.participantManagementId,
-      authority: management.authority,
+      participantManagementId: managements[0]!.participantManagementId,
+      authority: managements[0]!.authority,
     },
     proposal,
     account: authContext.account,
-    participant,
-    management,
+    participant: participants[0],
+    management: managements[0],
     topology,
     now,
   });
 
+  const participantDisplayNames = participants.map((participant) => participant.displayName);
   return {
     proposalId: proposal.proposalId,
     revision: proposal.revision,
-    participantId: proposal.participantId,
+    participantIds: [...partyIds],
     instructorId: proposal.instructorId,
-    participantDisplayName: participant.displayName,
+    participantDisplayNames,
     instructorDisplayName: instructorCatalog.name,
     proposedService: {
       startsAt: proposal.proposedService.interval.startsAt,
@@ -108,15 +155,12 @@ async function buildAccountProposalReadModel(
     },
     lifecycle: proposal.lifecycle,
     authorizedActions,
-    clientExercisedCapability: resolveClientCallableCapabilityFromPartyAuthorities([
-      management.authority,
-    ]),
+    clientExercisedCapability: resolveClientCallableCapabilityFromPartyAuthorities(authorities),
     updatedAt: proposal.updatedAt,
   };
 }
 
 async function buildInstructorProposalReadModel(
-  firestore: Firestore,
   instructorId: InstructorId,
   accountId: AccountId,
   proposal: BookingProposal,
@@ -127,12 +171,17 @@ async function buildInstructorProposalReadModel(
     return undefined;
   }
 
-  const participantSnap = await readContext.participant(proposal.participantId);
-  const participant = parseParticipant(
-    participantSnap.data() as Record<string, unknown> | undefined
-  );
-  if (!participant) {
-    return undefined;
+  const partyIds = proposalParticipantIds(proposal);
+  const participantDisplayNames: string[] = [];
+  for (const participantId of partyIds) {
+    const participantSnap = await readContext.participant(participantId);
+    const participant = parseParticipant(
+      participantSnap.data() as Record<string, unknown> | undefined
+    );
+    if (!participant) {
+      return undefined;
+    }
+    participantDisplayNames.push(participant.displayName);
   }
 
   const instructorSnap = await readContext.instructor(instructorId);
@@ -157,9 +206,9 @@ async function buildInstructorProposalReadModel(
   return {
     proposalId: proposal.proposalId,
     revision: proposal.revision,
-    participantId: proposal.participantId,
+    participantIds: [...partyIds],
     instructorId: proposal.instructorId,
-    participantDisplayName: participant.displayName,
+    participantDisplayNames,
     instructorDisplayName: instructorCatalog.name,
     proposedService: {
       startsAt: proposal.proposedService.interval.startsAt,
@@ -198,20 +247,12 @@ export async function queryBookingProposalReadModels(
     const participantIds = authContext.participantManagement.map(
       (management) => management.participantId
     );
-    const items: BookingProposalReadModel[] = [];
+    const itemsById = new Map<string, BookingProposalReadModel>();
 
     for (const participantId of participantIds) {
-      const snapshot = await firestore
-        .collection('booking_proposals')
-        .where('participantId', '==', participantId)
-        .limit(50)
-        .get();
-
-      for (const doc of snapshot.docs) {
-        const proposal = parseBookingProposal(doc.data() as Record<string, unknown>);
-        if (!proposal || !isOpenProposal(proposal)) {
-          continue;
-        }
+      const proposals = await collectOpenProposalsForParticipant(firestore, participantId);
+      for (const proposal of proposals) {
+        if (itemsById.has(proposal.proposalId)) continue;
         const readModel = await buildAccountProposalReadModel(
           firestore,
           options.accountId,
@@ -221,11 +262,12 @@ export async function queryBookingProposalReadModels(
           readContext
         );
         if (readModel) {
-          items.push(readModel);
+          itemsById.set(readModel.proposalId, readModel);
         }
       }
     }
 
+    const items = [...itemsById.values()];
     items.sort((left, right) => right.updatedAt.seconds - left.updatedAt.seconds);
     return { scope: input.scope, items };
   }
@@ -248,7 +290,6 @@ export async function queryBookingProposalReadModels(
       continue;
     }
     const readModel = await buildInstructorProposalReadModel(
-      firestore,
       instructorId,
       options.accountId,
       proposal,

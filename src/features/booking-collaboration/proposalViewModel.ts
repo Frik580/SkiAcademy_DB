@@ -37,9 +37,9 @@ export function mapBookingProposalReadModelToCabinetItem(
   return {
     proposalId: readModel.proposalId,
     revision: readModel.revision,
-    participantId: readModel.participantId,
+    participantIds: readModel.participantIds,
     instructorId: readModel.instructorId,
-    participantDisplayName: readModel.participantDisplayName,
+    participantDisplayName: readModel.participantDisplayNames.join(' · '),
     instructorDisplayName: readModel.instructorDisplayName,
     date,
     time,

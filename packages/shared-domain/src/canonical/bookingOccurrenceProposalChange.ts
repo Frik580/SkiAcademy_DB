@@ -721,10 +721,31 @@ const BookingProposalLifecycleSchema = z.discriminatedUnion('status', [
     .strict(),
 ]);
 
-export const BookingProposalSchema = z
+export function coerceBookingProposalPartyInput(value: unknown): unknown {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return value;
+  }
+  const record = value as Record<string, unknown>;
+  const fromArray = Array.isArray(record.participantIds) ? record.participantIds : undefined;
+  const fromLegacy = record.participantId;
+  const participantIds =
+    fromArray && fromArray.length > 0
+      ? fromArray
+      : fromLegacy === undefined
+        ? fromArray
+        : [fromLegacy];
+  const next: Record<string, unknown> = { ...record };
+  delete next.participantId;
+  if (participantIds !== undefined) {
+    next.participantIds = participantIds;
+  }
+  return next;
+}
+
+const BookingProposalRecordSchema = z
   .object({
     proposalId: BookingProposalIdSchema,
-    participantId: ParticipantIdSchema,
+    participantIds: z.array(ParticipantIdSchema).min(BOOKING_PARTY_MIN),
     instructorId: InstructorIdSchema,
     proposedService: BookingProposalProposedServiceSchema,
     lifecycle: BookingProposalLifecycleSchema,
@@ -735,6 +756,7 @@ export const BookingProposalSchema = z
   })
   .strict()
   .superRefine((proposal, context) => {
+    validateBookingPartyParticipantIds(proposal.participantIds, context, ['participantIds']);
     addRecordChronologyIssue(proposal, context);
     if (isSyntheticCourseInstructorId(proposal.instructorId)) {
       context.addIssue({
@@ -771,6 +793,11 @@ export const BookingProposalSchema = z
       );
     }
   });
+
+export const BookingProposalSchema = z.preprocess(
+  coerceBookingProposalPartyInput,
+  BookingProposalRecordSchema
+);
 
 export type BookingProposal = Readonly<z.output<typeof BookingProposalSchema>>;
 
@@ -828,10 +855,16 @@ export function bookingOccurrenceIdentityIsPresent(
   return OccurrenceIdSchema.safeParse(occurrence.occurrenceId).success;
 }
 
+export function proposalParticipantIds(
+  proposal: Pick<BookingProposal, 'participantIds'>
+): readonly ParticipantId[] {
+  return proposal.participantIds;
+}
+
 export function proposalTargetsExactlyOneParticipant(
-  proposal: Pick<BookingProposal, 'participantId'>
+  proposal: Pick<BookingProposal, 'participantIds'>
 ): boolean {
-  return ParticipantIdSchema.safeParse(proposal.participantId).success;
+  return proposal.participantIds.length === 1;
 }
 
 export function changeRequestLifecycleSeparateFromBookingLifecycle(

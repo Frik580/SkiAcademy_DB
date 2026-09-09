@@ -16,6 +16,7 @@ import type {
   BookingChangeRequest,
   BookingProposal,
 } from './bookingOccurrenceProposalChange';
+import { proposalParticipantIds } from './bookingOccurrenceProposalChange';
 import {
   evaluateClientCancellationTiming,
   isConfirmedBooking,
@@ -341,19 +342,23 @@ export function evaluateBookingProposalAuthorizedActions(
     };
   }
 
+  const partyIds = proposalParticipantIds(input.proposal);
   if (
     !accountIsActive(input.account) ||
-    !input.participant ||
-    input.participant.lifecycle.status !== 'active' ||
-    !input.management ||
     !input.topology ||
-    input.proposal.participantId !== input.participant.participantId
+    partyIds.length === 0
   ) {
     return denied;
   }
 
-  if (!accountManagerAccessAllowed(input.topology, input.actor, input.proposal.participantId)) {
-    return denied;
+  for (const participantId of partyIds) {
+    const decision = evaluateParticipantManagementAccess(input.topology, {
+      accountId: input.actor.accountId,
+      participantId,
+    });
+    if (!decision.allowed) {
+      return denied;
+    }
   }
 
   const expiresAt = resolveBookingProposalExpiresAt({
@@ -365,10 +370,12 @@ export function evaluateBookingProposalAuthorizedActions(
     now: input.now,
     serviceStartsAt: input.proposal.proposedService.interval.startsAt,
   });
-  const blocked = isParticipantInstructorPairBlockedForNewService(input.topology, {
-    participantId: input.proposal.participantId,
-    instructorId: input.proposal.instructorId,
-  });
+  const blocked = partyIds.some((participantId) =>
+    isParticipantInstructorPairBlockedForNewService(input.topology!, {
+      participantId,
+      instructorId: input.proposal.instructorId,
+    })
+  );
 
   const canAccept = !expired && acceptanceWindowOpen && !blocked;
   const canDecline = true;

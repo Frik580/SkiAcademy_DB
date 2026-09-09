@@ -348,6 +348,10 @@ function createT30aFirestore(): Firestore {
               const arrayField = getNestedField(data, field) as unknown[] | undefined;
               return arrayField?.some((entry) => value.includes(entry));
             }
+            if (op === 'array-contains') {
+              const arrayField = getNestedField(data, field) as unknown[] | undefined;
+              return arrayField?.includes(value) === true;
+            }
             if (op !== '==') throw new Error(`Unsupported fixture operator: ${op}`);
             return getNestedField(data, field) === value;
           }),
@@ -402,6 +406,7 @@ describe('T30A canonical read models', () => {
 
     expect(result.items).toHaveLength(1);
     expect(result.items[0]?.proposalId).toBe(proposalId);
+    expect(result.items[0]?.participantIds).toEqual([participantId]);
     expect(result.items[0]?.authorizedActions).toEqual({
       canAccept: true,
       canDecline: true,

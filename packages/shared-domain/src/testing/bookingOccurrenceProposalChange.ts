@@ -122,7 +122,7 @@ const adminGuestBookedByBooking = BookingSchema.parse({
 
 const openProposal = BookingProposalSchema.parse({
   proposalId: 'proposal_fixture_01',
-  participantId: canonicalPrimitiveFixtures.participantId,
+  participantIds: [canonicalPrimitiveFixtures.participantId],
   instructorId: canonicalPrimitiveFixtures.instructorId,
   proposedService: {
     interval: canonicalPrimitiveFixtures.interval,

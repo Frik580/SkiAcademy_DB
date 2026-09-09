@@ -1,10 +1,13 @@
 import {
   CanonicalCommandError,
+  duplicateParticipantIndexes,
   evaluateInstructorParticipantAccess,
   isBookingProposalAcceptanceAllowedBeforeStart,
   isBookingProposalExpired,
   isTerminalBookingProposalStatus,
+  proposalParticipantIds,
   resolveBookingProposalExpiresAt,
+  resolveClientCallableCapabilityFromPartyAuthorities,
   type Account,
   type AccountId,
   type BookingProposal,
@@ -55,6 +58,54 @@ export function assertCreateProposalAuthorization(
   }
   assertInstructorCapability(envelope, envelope.intent.instructorId);
   assertBookingProposalScheduleContext(envelope);
+}
+
+export function assertCreateProposalParty(envelope: CommandEnvelope<'create_booking_proposal'>): {
+  readonly participantIds: CommandEnvelope<'create_booking_proposal'>['intent']['participantIds'];
+} {
+  const participantIds = envelope.intent.participantIds;
+  if (participantIds.length < 1) {
+    throw new CanonicalCommandError('validation', {
+      correlationId: envelope.context.correlationId,
+      details: { field: 'participantIds', reason: 'required' },
+    });
+  }
+  if (duplicateParticipantIndexes(participantIds).length > 0) {
+    throw new CanonicalCommandError('validation', {
+      correlationId: envelope.context.correlationId,
+      details: { field: 'participantIds', reason: 'conflict' },
+    });
+  }
+  return { participantIds };
+}
+
+export function assertProposalPartyWithinMaxParticipants(
+  envelope: CommandEnvelope,
+  input: Readonly<{
+    participantCount: number;
+    maxParticipantsPerLesson: number;
+  }>
+): void {
+  if (input.participantCount > input.maxParticipantsPerLesson) {
+    throw new CanonicalCommandError('validation', {
+      correlationId: envelope.context.correlationId,
+      details: { field: 'participantIds', reason: 'conflict' },
+    });
+  }
+}
+
+export function assertProposalPartySharesManagingAccount(
+  envelope: CommandEnvelope,
+  managements: readonly ParticipantManagement[]
+): ParticipantManagement['accountId'] {
+  const accountIds = new Set(managements.map((management) => management.accountId));
+  if (accountIds.size !== 1 || managements.length === 0) {
+    throw new CanonicalCommandError('forbidden', {
+      correlationId: envelope.context.correlationId,
+      details: { resourceKind: 'participant', reason: 'conflict' },
+    });
+  }
+  return managements[0]!.accountId;
 }
 
 export function assertAcceptProposalAuthorization(
@@ -236,53 +287,56 @@ export function assertNoActiveServiceBlockForProposal(
 }
 
 export function resolveAcceptProposalParticipantAuthorization(
-  envelope: CommandEnvelope<'accept_booking_proposal'>,
+  envelope: CommandEnvelope,
   input: Readonly<{
     account: Account;
-    participant: Participant;
-    management: ParticipantManagement;
+    participants: readonly Participant[];
+    managements: readonly ParticipantManagement[];
     proposal: BookingProposal;
   }>
 ): AcceptBookingProposalAuthorization {
   const actor = requireAccountActor(envelope);
   assertAccountActive(envelope, input.account);
-  assertParticipantActive(envelope, input.participant);
-  if (input.participant.participantId !== input.proposal.participantId) {
-    throw new CanonicalCommandError('validation', {
-      correlationId: envelope.context.correlationId,
-      details: { field: 'participantId', reason: 'conflict' },
-    });
-  }
-  if (input.participant.management.kind !== 'managed') {
+  const partyIds = proposalParticipantIds(input.proposal);
+  if (input.participants.length !== partyIds.length || input.managements.length !== partyIds.length) {
     throw new CanonicalCommandError('forbidden', {
       correlationId: envelope.context.correlationId,
       details: { resourceKind: 'participant', reason: 'conflict' },
     });
   }
 
-  const access = assertAuthorizedParticipantManager(
-    envelope,
-    {
-      account: input.account,
-      participant: input.participant,
-      management: input.management,
-    },
-    input.proposal.participantId
-  );
-  if (!access.allowed) {
-    throw new CanonicalCommandError('forbidden', {
-      correlationId: envelope.context.correlationId,
-    });
+  const authorities: ('self' | 'parent_guardian')[] = [];
+  for (const participantId of partyIds) {
+    const participant = input.participants.find((entry) => entry.participantId === participantId);
+    const management = input.managements.find((entry) => entry.participantId === participantId);
+    if (!participant || !management) {
+      throw new CanonicalCommandError('validation', {
+        correlationId: envelope.context.correlationId,
+        details: { field: 'participantIds', reason: 'conflict' },
+      });
+    }
+    assertParticipantActive(envelope, participant);
+    if (participant.management.kind !== 'managed') {
+      throw new CanonicalCommandError('forbidden', {
+        correlationId: envelope.context.correlationId,
+        details: { resourceKind: 'participant', reason: 'conflict' },
+      });
+    }
+    const access = assertAuthorizedParticipantManager(
+      envelope,
+      { account: input.account, participant, management },
+      participantId
+    );
+    if (!access.allowed) {
+      throw new CanonicalCommandError('forbidden', {
+        correlationId: envelope.context.correlationId,
+      });
+    }
+    authorities.push(access.authority);
   }
-  if (access.authority === 'self' && envelope.context.exercisedCapability !== 'account_owner') {
-    throw new CanonicalCommandError('forbidden', {
-      correlationId: envelope.context.correlationId,
-    });
-  }
-  if (
-    access.authority === 'parent_guardian' &&
-    envelope.context.exercisedCapability !== 'parent_guardian'
-  ) {
+
+  const expectedCapability = resolveClientCallableCapabilityFromPartyAuthorities(authorities);
+  if (envelope.context.exercisedCapability !== expectedCapability) {
     throw new CanonicalCommandError('forbidden', {
       correlationId: envelope.context.correlationId,
     });
@@ -312,45 +366,12 @@ export function assertCancelProposalParticipantAuthorization(
   envelope: CommandEnvelope<'cancel_booking_proposal'>,
   input: Readonly<{
     account: Account;
-    participant: Participant;
-    management: ParticipantManagement;
+    participants: readonly Participant[];
+    managements: readonly ParticipantManagement[];
     proposal: BookingProposal;
   }>
 ): void {
-  assertParticipantActive(envelope, input.participant);
-  if (input.participant.participantId !== input.proposal.participantId) {
-    throw new CanonicalCommandError('validation', {
-      correlationId: envelope.context.correlationId,
-      details: { field: 'participantId', reason: 'conflict' },
-    });
-  }
-  const access = assertAuthorizedParticipantManager(
-    envelope,
-    {
-      account: input.account,
-      participant: input.participant,
-      management: input.management,
-    },
-    input.proposal.participantId
-  );
-  if (!access.allowed) {
-    throw new CanonicalCommandError('forbidden', {
-      correlationId: envelope.context.correlationId,
-    });
-  }
-  if (access.authority === 'self' && envelope.context.exercisedCapability !== 'account_owner') {
-    throw new CanonicalCommandError('forbidden', {
-      correlationId: envelope.context.correlationId,
-    });
-  }
-  if (
-    access.authority === 'parent_guardian' &&
-    envelope.context.exercisedCapability !== 'parent_guardian'
-  ) {
-    throw new CanonicalCommandError('forbidden', {
-      correlationId: envelope.context.correlationId,
-    });
-  }
+  resolveAcceptProposalParticipantAuthorization(envelope, input);
 }
 
 export function assertProposalExpiredForSystemExpiry(

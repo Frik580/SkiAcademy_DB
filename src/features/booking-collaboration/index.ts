@@ -1,6 +1,6 @@
 export * from './bookingCollaborationContracts';
 export * from './bookingCollaborationStore';
-export * from './proposalViewModel';
+export * from './selectInstructorProposalPartyCandidates';
 export * from './changeRequestViewModel';
 export * from './participantAccessViewModel';
 export * from './instructorLessonBookingViewModel';

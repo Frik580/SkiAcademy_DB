@@ -12,7 +12,7 @@ export type BookingProposalCabinetSourceScope = 'account_open' | 'instructor_ope
 export interface BookingProposalCabinetItem {
   readonly proposalId: string;
   readonly revision: number;
-  readonly participantId: string;
+  readonly participantIds: readonly string[];
   readonly instructorId: string;
   readonly participantDisplayName: string;
   readonly instructorDisplayName: string;
@@ -24,6 +24,13 @@ export interface BookingProposalCabinetItem {
   readonly authorizedActions: BookingProposalReadModelAuthorizedActions;
   readonly clientExercisedCapability?: 'account_owner' | 'parent_guardian';
   readonly sourceScope: BookingProposalCabinetSourceScope;
+}
+
+export interface InstructorProposalPartyCandidate {
+  readonly participantId: string;
+  readonly label: string;
+  readonly selectable: boolean;
+  readonly disabledReason?: 'no_authority';
 }
 
 export type BookingChangeRequestCabinetSourceScope = 'account_open' | 'instructor_open';

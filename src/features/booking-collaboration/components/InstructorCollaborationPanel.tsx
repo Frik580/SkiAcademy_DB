@@ -10,7 +10,7 @@ export interface InstructorCollaborationPanelProps {
   readonly proposals: readonly BookingProposalCabinetItem[];
   readonly changeRequests: readonly BookingChangeRequestCabinetItem[];
   readonly bookingId?: string;
-  readonly participantId?: string;
+  readonly participantIds?: readonly string[];
   readonly onCreateProposal?: () => void;
   readonly canCreateProposal?: boolean;
   readonly onWithdrawProposal: (proposal: BookingProposalCabinetItem) => void | Promise<void>;
@@ -25,7 +25,7 @@ export const InstructorCollaborationPanel: React.FC<InstructorCollaborationPanel
   proposals,
   changeRequests,
   bookingId,
-  participantId,
+  participantIds,
   onCreateProposal,
   canCreateProposal = true,
   onWithdrawProposal,
@@ -37,11 +37,15 @@ export const InstructorCollaborationPanel: React.FC<InstructorCollaborationPanel
   const [changeReason, setChangeReason] = useState('');
 
   const scopedProposals = useMemo(() => {
-    if (!participantId) return proposals.filter((proposal) => proposal.lifecycleStatus === 'open');
+    if (!participantIds || participantIds.length === 0) {
+      return proposals.filter((proposal) => proposal.lifecycleStatus === 'open');
+    }
     return proposals.filter(
-      (proposal) => proposal.lifecycleStatus === 'open' && proposal.participantId === participantId
+      (proposal) =>
+        proposal.lifecycleStatus === 'open' &&
+        proposal.participantIds.some((participantId) => participantIds.includes(participantId))
     );
-  }, [participantId, proposals]);
+  }, [participantIds, proposals]);
 
   const openChangeRequest = useMemo(
     () => (bookingId ? selectOpenChangeRequestForBooking(changeRequests, bookingId) : undefined),
@@ -55,7 +59,7 @@ export const InstructorCollaborationPanel: React.FC<InstructorCollaborationPanel
           <h5 className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink-dim)]">
             {copy.proposalInboxTitle}
           </h5>
-          {onCreateProposal && participantId && canCreateProposal ? (
+          {onCreateProposal && participantIds && participantIds.length > 0 && canCreateProposal ? (
             <button
               type="button"
               onClick={onCreateProposal}
@@ -63,7 +67,7 @@ export const InstructorCollaborationPanel: React.FC<InstructorCollaborationPanel
             >
               {copy.createProposal}
             </button>
-          ) : participantId && onCreateProposal ? (
+          ) : participantIds && participantIds.length > 0 && onCreateProposal ? (
             <p className="text-[10px] font-mono text-[var(--ink-dim)] text-right max-w-[14rem]">
               {copy.proposalNotPermitted}
             </p>

@@ -120,9 +120,9 @@ describe('booking collaboration integration', () => {
     const proposal = mapBookingProposalReadModelToCabinetItem({
       proposalId: BookingProposalIdSchema.parse('booking_proposal_accept_01'),
       revision: 1,
-      participantId: ParticipantIdSchema.parse('participant_self_01'),
+      participantIds: [ParticipantIdSchema.parse('participant_self_01')],
       instructorId: InstructorIdSchema.parse('instructor_fixture_01'),
-      participantDisplayName: 'Self',
+      participantDisplayNames: ['Self'],
       instructorDisplayName: 'Coach',
       proposedService: {
         startsAt: timestampFromDate(new Date('2026-06-15T09:00:00.000Z')),
@@ -363,9 +363,9 @@ describe('booking collaboration integration', () => {
     const proposal = mapBookingProposalReadModelToCabinetItem({
       proposalId: BookingProposalIdSchema.parse('booking_proposal_accept_parent_01'),
       revision: 1,
-      participantId: ParticipantIdSchema.parse('participant_child_01'),
+      participantIds: [ParticipantIdSchema.parse('participant_child_01')],
       instructorId: InstructorIdSchema.parse('instructor_fixture_01'),
-      participantDisplayName: 'Child',
+      participantDisplayNames: ['Child'],
       instructorDisplayName: 'Coach',
       proposedService: {
         startsAt: timestampFromDate(new Date('2026-06-15T09:00:00.000Z')),
@@ -403,9 +403,9 @@ describe('booking collaboration integration', () => {
     const proposal = mapBookingProposalReadModelToCabinetItem({
       proposalId: BookingProposalIdSchema.parse('booking_proposal_accept_self_01'),
       revision: 1,
-      participantId: ParticipantIdSchema.parse('participant_self_01'),
+      participantIds: [ParticipantIdSchema.parse('participant_self_01')],
       instructorId: InstructorIdSchema.parse('instructor_fixture_01'),
-      participantDisplayName: 'Self',
+      participantDisplayNames: ['Self'],
       instructorDisplayName: 'Coach',
       proposedService: {
         startsAt: timestampFromDate(new Date('2026-06-15T09:00:00.000Z')),

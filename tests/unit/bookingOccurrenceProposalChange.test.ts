@@ -473,6 +473,23 @@ describe('BookingProposal contracts', () => {
       ...metadata,
     });
     expect(proposalTargetsExactlyOneParticipant(proposal)).toBe(true);
+    expect(proposal.participantIds).toEqual([participantOne]);
+  });
+
+  it('accepts one open proposal bound to three Participants', () => {
+    const proposal = BookingProposalSchema.parse({
+      proposalId: 'proposal_test_party_01',
+      participantIds: [participantOne, participantTwo, participantThree],
+      instructorId,
+      proposedService: {
+        interval: occurrence([participantOne, participantTwo, participantThree]).interval,
+        timeZone: 'Asia/Almaty',
+      },
+      lifecycle: { status: 'open' },
+      ...metadata,
+    });
+    expect(proposal.participantIds).toEqual([participantOne, participantTwo, participantThree]);
+    expect(proposalTargetsExactlyOneParticipant(proposal)).toBe(false);
   });
 
   it('allows overlap and carries no reservation or claim authority', () => {

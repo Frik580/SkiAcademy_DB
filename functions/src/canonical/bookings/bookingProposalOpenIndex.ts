@@ -185,6 +185,85 @@ export function commitRemoveOpenProposalFromIndex(
   session.tx.update({ path: indexPath }, toOpenIndexWritePayload(indexDocument as Record<string, unknown>));
 }
 
+export async function readBookingProposalOpenIndexesForParty(
+  session: CanonicalAtomicTransactionSession,
+  input: {
+    readonly participantIds: readonly ParticipantId[];
+    readonly instructorId: InstructorId;
+  }
+): Promise<ReadonlyMap<ParticipantId, BookingProposalOpenIndex | undefined>> {
+  const indexes = new Map<ParticipantId, BookingProposalOpenIndex | undefined>();
+  for (const participantId of input.participantIds) {
+    indexes.set(
+      participantId,
+      await readBookingProposalOpenIndex(session, {
+        participantId,
+        instructorId: input.instructorId,
+      })
+    );
+  }
+  return indexes;
+}
+
+export function planOpenProposalIndexMutationsForParty(
+  session: CanonicalAtomicTransactionSession,
+  input: {
+    readonly participantIds: readonly ParticipantId[];
+    readonly instructorId: InstructorId;
+    readonly indexes: ReadonlyMap<ParticipantId, BookingProposalOpenIndex | undefined>;
+  }
+): void {
+  for (const participantId of input.participantIds) {
+    planOpenProposalIndexMutation(session, {
+      participantId,
+      instructorId: input.instructorId,
+      exists: input.indexes.get(participantId) !== undefined,
+    });
+  }
+}
+
+export function commitAddOpenProposalToPartyIndexes(
+  session: CanonicalAtomicTransactionSession,
+  input: {
+    readonly participantIds: readonly ParticipantId[];
+    readonly instructorId: InstructorId;
+    readonly proposalId: BookingProposalId;
+    readonly indexes: ReadonlyMap<ParticipantId, BookingProposalOpenIndex | undefined>;
+    readonly decidedAt: CanonicalTimestamp;
+  }
+): void {
+  for (const participantId of input.participantIds) {
+    commitAddOpenProposalToIndex(session, {
+      participantId,
+      instructorId: input.instructorId,
+      proposalId: input.proposalId,
+      existingIndex: input.indexes.get(participantId),
+      decidedAt: input.decidedAt,
+    });
+  }
+}
+
+export function commitRemoveOpenProposalFromPartyIndexes(
+  session: CanonicalAtomicTransactionSession,
+  input: {
+    readonly participantIds: readonly ParticipantId[];
+    readonly instructorId: InstructorId;
+    readonly proposalId: BookingProposalId;
+    readonly indexes: ReadonlyMap<ParticipantId, BookingProposalOpenIndex | undefined>;
+    readonly decidedAt: CanonicalTimestamp;
+  }
+): void {
+  for (const participantId of input.participantIds) {
+    commitRemoveOpenProposalFromIndex(session, {
+      participantId,
+      instructorId: input.instructorId,
+      proposalId: input.proposalId,
+      existingIndex: input.indexes.get(participantId),
+      decidedAt: input.decidedAt,
+    });
+  }
+}
+
 export function timestampFromCommandContext(decidedAt: Date): CanonicalTimestamp {
   return timestampFromDate(decidedAt);
 }

@@ -89,7 +89,7 @@ function confirmedBooking() {
 function openProposal() {
   return {
     proposalId,
-    participantId,
+    participantIds: [participantId],
     instructorId,
     proposedService: {
       interval: { startsAt: serviceStart, endsAt: serviceEnd },

@@ -6,6 +6,7 @@ import {
   bookingScopedEvidenceFromQualifyingBooking,
   evaluateInstructorParticipantAccess,
   instructorMayCreateBookingProposal,
+  instructorMayCreateBookingProposalForParty,
   isBookingProposalAcceptanceAllowedBeforeStart,
   isBookingProposalExpired,
   resolveBookingProposalExpiresAt,
@@ -226,5 +227,34 @@ describe('instructor proposal booking-scoped evidence', () => {
         },
       })
     ).toBe(true);
+  });
+
+  it('requires instructor authority on every party member', () => {
+    expect(
+      instructorMayCreateBookingProposalForParty({
+        instructorId,
+        participantIds: family.party.participantIds,
+        relationshipStatusByParticipantId: new Map(
+          family.party.participantIds.map((id) => [id, 'active' as const])
+        ),
+        bookings: [],
+      })
+    ).toBe(true);
+    expect(
+      instructorMayCreateBookingProposalForParty({
+        instructorId,
+        participantIds: family.party.participantIds,
+        relationshipStatusByParticipantId: new Map([
+          [family.party.participantIds[0]!, 'active'],
+        ]),
+        bookings: [
+          {
+            instructorId,
+            participantIds: [family.party.participantIds[0]!],
+            lifecycleStatus: 'confirmed',
+          },
+        ],
+      })
+    ).toBe(false);
   });
 });

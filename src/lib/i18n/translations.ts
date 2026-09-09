@@ -616,6 +616,12 @@ export const translations = {
     collabNoOpenProposals: 'No open proposals',
     collabSelectTime: 'Time',
     collabDurationMinutes: 'Duration (minutes)',
+    collabProposalParticipants: 'Participants',
+    collabProposalSelectedParticipants: 'Selected',
+    collabProposalParticipantNoAuthority: 'no permission to propose',
+    collabProposalParticipantCount: '{count} selected',
+    collabProposalParticipantCountMax: '{count} / {max} selected',
+    collabProposalPricePreview: 'Estimated price: {amount} ₸ (final at accept)',
 
     // App notifications
     lessonAutoCompleted: 'Lesson Auto-Completed',
@@ -2728,6 +2734,12 @@ export const translations = {
     collabNoOpenProposals: 'Нет открытых предложений',
     collabSelectTime: 'Время',
     collabDurationMinutes: 'Длительность (минуты)',
+    collabProposalParticipants: 'Участники',
+    collabProposalSelectedParticipants: 'Выбраны',
+    collabProposalParticipantNoAuthority: 'нет права предлагать',
+    collabProposalParticipantCount: 'выбрано {count}',
+    collabProposalParticipantCountMax: 'выбрано {count} / {max}',
+    collabProposalPricePreview: 'Ориентировочная цена: {amount} ₸ (окончательная при принятии)',
 
     // App notifications
     lessonAutoCompleted: 'Урок автоматически завершен',

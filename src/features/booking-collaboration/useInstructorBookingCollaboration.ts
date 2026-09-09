@@ -1,4 +1,5 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { queryLessonPricingSettingsReadModel } from '../../lib/canonical/canonicalReadModelClient';
 import { presentCanonicalCommandErrorWithContext } from './presentCollaborationError';
 import {
   selectCollaborationChangeRequests,
@@ -10,6 +11,7 @@ import { instructorLessonAttendanceSubmissionId } from './deriveCollaborationIde
 import type {
   BookingChangeRequestCabinetItem,
   BookingProposalCabinetItem,
+  InstructorProposalPartyCandidate,
 } from './bookingCollaborationContracts';
 
 export function useInstructorBookingCollaboration(input: {
@@ -28,11 +30,33 @@ export function useInstructorBookingCollaboration(input: {
     accountId: input.accountId,
     instructorId: input.instructorId,
   });
-  const [createProposalParticipant, setCreateProposalParticipant] = useState<{
-    participantId: string;
-    label: string;
+  const [createProposalParty, setCreateProposalParty] = useState<{
+    readonly participants: readonly InstructorProposalPartyCandidate[];
+    readonly selectedParticipantIds: readonly string[];
+    readonly hourlyRateKzt?: number;
   } | null>(null);
+  const [maxParticipantsPerLesson, setMaxParticipantsPerLesson] = useState<number | undefined>();
+  const [surchargePerHourKzt, setSurchargePerHourKzt] = useState<number | undefined>();
   const [submittingId, setSubmittingId] = useState<string | undefined>();
+
+  useEffect(() => {
+    let cancelled = false;
+    void queryLessonPricingSettingsReadModel({ scope: 'lesson_pricing_settings' })
+      .then((result) => {
+        if (cancelled || !result.item.configured) return;
+        setMaxParticipantsPerLesson(result.item.maxParticipantsPerLesson);
+        setSurchargePerHourKzt(result.item.additionalParticipantSurchargePerHourKzt);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setMaxParticipantsPerLesson(undefined);
+          setSurchargePerHourKzt(undefined);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleCommandError = useCallback(
     async (error: unknown) => {
@@ -70,23 +94,30 @@ export function useInstructorBookingCollaboration(input: {
   );
 
   const handleCreateProposal = useCallback(
-    async (payload: { localDate: string; localTime: string; durationMinutes: number }) => {
-      if (!createProposalParticipant) return;
-      setSubmittingId(createProposalParticipant.participantId);
+    async (payload: {
+      participantIds: readonly string[];
+      localDate: string;
+      localTime: string;
+      durationMinutes: number;
+    }) => {
+      if (!createProposalParty) return;
+      setSubmittingId(payload.participantIds.join(','));
       try {
         await commands.createProposal({
-          participantId: createProposalParticipant.participantId,
-          ...payload,
+          participantIds: payload.participantIds,
+          localDate: payload.localDate,
+          localTime: payload.localTime,
+          durationMinutes: payload.durationMinutes,
         });
         input.onNotify('success', input.t('collabCreateProposal'), input.t('scheduleUpdatedDesc'));
-        setCreateProposalParticipant(null);
+        setCreateProposalParty(null);
       } catch (error) {
         await handleCommandError(error);
       } finally {
         setSubmittingId(undefined);
       }
     },
-    [commands, createProposalParticipant, handleCommandError, input]
+    [commands, createProposalParty, handleCommandError, input]
   );
 
   const handleCreateChangeRequest = useCallback(
@@ -165,8 +196,10 @@ export function useInstructorBookingCollaboration(input: {
   return {
     proposals,
     changeRequests,
-    createProposalParticipant,
-    setCreateProposalParticipant,
+    createProposalParty,
+    setCreateProposalParty,
+    maxParticipantsPerLesson,
+    surchargePerHourKzt,
     submittingId,
     handleWithdrawProposal,
     handleCreateProposal,

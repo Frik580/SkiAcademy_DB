@@ -1006,12 +1006,12 @@ function blockParticipantHandler(
   let cancelledOpenProposalPlans: readonly BlockCancelledOpenProposalPlan[] = [];
   let openProposalIndexForBlock: Awaited<
     ReturnType<typeof planBlockCancellationOfOpenProposals>
-  >['existingIndex'];
+  >['indexes'] = new Map();
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'block_participant'> = {
     read: async (session) => {
       cancelledOpenProposalPlans = [];
-      openProposalIndexForBlock = undefined;
+      openProposalIndexForBlock = new Map();
 
       const blockRead = await session.tx.get({ path: blockDocumentPath });
       session.plan.planRead({ path: blockDocumentPath, category: 'aggregate' });
@@ -1073,7 +1073,7 @@ function blockParticipantHandler(
           participantId: envelope.intent.participantId,
           instructorId: envelope.intent.instructorId,
         });
-        openProposalIndexForBlock = cancellationPlan.existingIndex;
+        openProposalIndexForBlock = cancellationPlan.indexes;
         cancelledOpenProposalPlans = cancellationPlan.plans;
       }
 
@@ -1173,7 +1173,7 @@ function blockParticipantHandler(
           participantId: envelope.intent.participantId,
           instructorId: envelope.intent.instructorId,
           plans: cancelledOpenProposalPlans,
-          existingIndex: openProposalIndexForBlock,
+          indexes: openProposalIndexForBlock,
           decidedAt,
           commandId: metadata.commandId,
           correlationId: metadata.correlationId,

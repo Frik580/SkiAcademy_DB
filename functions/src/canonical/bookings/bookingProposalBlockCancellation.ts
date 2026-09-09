@@ -1,6 +1,7 @@
 import {
   BookingProposalSchema,
   nextAggregateRevision,
+  proposalParticipantIds,
   type BookingProposal,
   type BookingProposalId,
   type CanonicalTimestamp,
@@ -16,8 +17,10 @@ import {
 } from './bookingProposalStore';
 import {
   commitRemoveOpenProposalsFromIndex,
-  planOpenProposalIndexMutation,
+  planOpenProposalIndexMutationsForParty,
   readBookingProposalOpenIndex,
+  readBookingProposalOpenIndexesForParty,
+  type BookingProposalOpenIndex,
 } from './bookingProposalOpenIndex';
 
 export interface BlockCancelledOpenProposalPlan {
@@ -33,14 +36,15 @@ export async function planBlockCancellationOfOpenProposals(
   }
 ): Promise<{
   readonly plans: readonly BlockCancelledOpenProposalPlan[];
-  readonly existingIndex: Awaited<ReturnType<typeof readBookingProposalOpenIndex>>;
+  readonly indexes: ReadonlyMap<ParticipantId, BookingProposalOpenIndex | undefined>;
 }> {
   const existingIndex = await readBookingProposalOpenIndex(session, input);
   if (!existingIndex || existingIndex.openProposalIds.length === 0) {
-    return { plans: [], existingIndex };
+    return { plans: [], indexes: new Map([[input.participantId, existingIndex]]) };
   }
 
   const plans: BlockCancelledOpenProposalPlan[] = [];
+  const extraParticipantIds = new Set<ParticipantId>([input.participantId]);
   for (const proposalId of existingIndex.openProposalIds) {
     const proposalPath = bookingProposalPath(proposalId);
     const proposalRead = await session.tx.get({ path: proposalPath });
@@ -49,7 +53,7 @@ export async function planBlockCancellationOfOpenProposals(
     if (
       !proposal ||
       proposal.lifecycle.status !== 'open' ||
-      proposal.participantId !== input.participantId ||
+      !proposalParticipantIds(proposal).includes(input.participantId) ||
       proposal.instructorId !== input.instructorId
     ) {
       continue;
@@ -65,17 +69,24 @@ export async function planBlockCancellationOfOpenProposals(
       category: 'aggregate',
       estimatedPayloadBytes: BOOKING_PROPOSAL_PLANNING_ESTIMATES.proposalBytes,
     });
+    for (const participantId of proposalParticipantIds(proposal)) {
+      extraParticipantIds.add(participantId);
+    }
   }
 
+  const indexes = await readBookingProposalOpenIndexesForParty(session, {
+    participantIds: [...extraParticipantIds],
+    instructorId: input.instructorId,
+  });
   if (plans.length > 0) {
-    planOpenProposalIndexMutation(session, {
-      participantId: input.participantId,
+    planOpenProposalIndexMutationsForParty(session, {
+      participantIds: [...extraParticipantIds],
       instructorId: input.instructorId,
-      exists: existingIndex !== undefined,
+      indexes,
     });
   }
 
-  return { plans, existingIndex };
+  return { plans, indexes };
 }
 
 export function commitBlockCancellationOfOpenProposals(
@@ -84,14 +95,14 @@ export function commitBlockCancellationOfOpenProposals(
     readonly participantId: ParticipantId;
     readonly instructorId: InstructorId;
     readonly plans: readonly BlockCancelledOpenProposalPlan[];
-    readonly existingIndex: Awaited<ReturnType<typeof readBookingProposalOpenIndex>>;
+    readonly indexes: ReadonlyMap<ParticipantId, BookingProposalOpenIndex | undefined>;
     readonly decidedAt: CanonicalTimestamp;
     readonly commandId: string;
     readonly correlationId: string;
   }
 ): void {
-  const cancelledIds = new Set(input.plans.map((plan) => plan.proposal.proposalId));
-
+  const cancelledIds = input.plans.map((plan) => plan.proposal.proposalId);
+  const partyIds = new Set<ParticipantId>();
   for (const plan of input.plans) {
     const cancelledProposal = BookingProposalSchema.parse({
       ...plan.proposal,
@@ -112,15 +123,20 @@ export function commitBlockCancellationOfOpenProposals(
       { path: bookingProposalPath(plan.proposal.proposalId) },
       toFirestoreWritePayload(cancelledProposal as Record<string, unknown>)
     );
+    for (const participantId of proposalParticipantIds(plan.proposal)) {
+      partyIds.add(participantId);
+    }
   }
 
-  commitRemoveOpenProposalsFromIndex(session, {
-    participantId: input.participantId,
-    instructorId: input.instructorId,
-    proposalIds: [...cancelledIds],
-    existingIndex: input.existingIndex,
-    decidedAt: input.decidedAt,
-  });
+  for (const participantId of partyIds) {
+    commitRemoveOpenProposalsFromIndex(session, {
+      participantId,
+      instructorId: input.instructorId,
+      proposalIds: cancelledIds,
+      existingIndex: input.indexes.get(participantId),
+      decidedAt: input.decidedAt,
+    });
+  }
 }
 
 export function cancelledProposalIds(

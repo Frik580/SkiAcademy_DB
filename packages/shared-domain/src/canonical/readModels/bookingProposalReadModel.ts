@@ -56,9 +56,9 @@ export const BookingProposalReadModelSchema = z
   .object({
     proposalId: BookingProposalIdSchema,
     revision: AggregateRevisionSchema,
-    participantId: ParticipantIdSchema,
+    participantIds: z.array(ParticipantIdSchema).min(1),
     instructorId: InstructorIdSchema,
-    participantDisplayName: z.string().trim().min(1).max(200),
+    participantDisplayNames: z.array(z.string().trim().min(1).max(200)).min(1),
     instructorDisplayName: z.string().trim().min(1).max(200),
     proposedService: BookingProposalReadModelProposedServiceSchema,
     lifecycle: BookingProposalReadModelLifecycleSchema,
@@ -66,7 +66,16 @@ export const BookingProposalReadModelSchema = z
     clientExercisedCapability: z.enum(['account_owner', 'parent_guardian']).optional(),
     updatedAt: CanonicalTimestampSchema,
   })
-  .strict();
+  .strict()
+  .superRefine((readModel, context) => {
+    if (readModel.participantIds.length !== readModel.participantDisplayNames.length) {
+      context.addIssue({
+        code: 'custom',
+        path: ['participantDisplayNames'],
+        message: 'Participant display names must match participantIds',
+      });
+    }
+  });
 
 export type BookingProposalReadModel = z.output<typeof BookingProposalReadModelSchema>;
 

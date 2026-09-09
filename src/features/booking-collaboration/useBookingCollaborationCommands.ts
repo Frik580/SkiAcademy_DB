@@ -162,7 +162,7 @@ export function useBookingCollaborationCommands(input: {
 
   const createProposal = useCallback(
     async (params: {
-      readonly participantId: string;
+      readonly participantIds: readonly string[];
       readonly localDate: string;
       readonly localTime: string;
       readonly durationMinutes: number;
@@ -180,7 +180,7 @@ export function useBookingCollaborationCommands(input: {
         intent: {
           bookingProposalId: BookingProposalIdSchema.parse(proposalId),
           instructorId: InstructorIdSchema.parse(instructorId),
-          participantId: ParticipantIdSchema.parse(params.participantId),
+          participantIds: params.participantIds.map((id) => ParticipantIdSchema.parse(id)),
         },
         idempotencyKey: deriveCreateProposalIdempotencyKey(proposalId),
         calendarInput,

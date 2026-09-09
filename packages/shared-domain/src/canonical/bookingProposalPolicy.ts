@@ -116,6 +116,26 @@ export function instructorMayCreateBookingProposal(input: {
   );
 }
 
+export function instructorMayCreateBookingProposalForParty(input: {
+  readonly instructorId: string;
+  readonly participantIds: readonly string[];
+  readonly relationshipStatusByParticipantId: ReadonlyMap<
+    string,
+    'active' | 'revoked' | 'expired' | undefined
+  >;
+  readonly bookings: readonly InstructorProposalBookingEvidenceView[];
+}): boolean {
+  if (input.participantIds.length < 1) return false;
+  return input.participantIds.every((participantId) =>
+    instructorMayCreateBookingProposal({
+      instructorId: input.instructorId,
+      participantId,
+      relationshipStatus: input.relationshipStatusByParticipantId.get(participantId),
+      bookings: input.bookings,
+    })
+  );
+}
+
 /** Maximum hold before an open BookingProposal expires. */
 export const BOOKING_PROPOSAL_TTL_MS = 24 * 60 * 60 * 1_000;
 

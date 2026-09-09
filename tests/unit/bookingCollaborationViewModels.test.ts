@@ -32,9 +32,9 @@ describe('booking collaboration view models', () => {
     const item = mapBookingProposalReadModelToCabinetItem({
       proposalId: BookingProposalIdSchema.parse('booking_proposal_vm_01'),
       revision: 3,
-      participantId: ParticipantIdSchema.parse('participant_vm_01'),
+      participantIds: [ParticipantIdSchema.parse('participant_vm_01')],
       instructorId: InstructorIdSchema.parse('instructor_vm_01'),
-      participantDisplayName: 'Student',
+      participantDisplayNames: ['Student'],
       instructorDisplayName: 'Coach',
       proposedService: {
         startsAt: serviceStart,
@@ -52,6 +52,8 @@ describe('booking collaboration view models', () => {
     expect(item.clientExercisedCapability).toBe('parent_guardian');
     expect(item.sourceScope).toBe('account_open');
     expect(item.date).toBe('2026-06-15');
+    expect(item.participantIds).toEqual([ParticipantIdSchema.parse('participant_vm_01')]);
+    expect(item.participantDisplayName).toBe('Student');
   });
 
   it('drops open proposals that left an open-scope snapshot', () => {
@@ -63,9 +65,9 @@ describe('booking collaboration view models', () => {
           {
             proposalId,
             revision: 1,
-            participantId: ParticipantIdSchema.parse('participant_vm_01'),
+            participantIds: [ParticipantIdSchema.parse('participant_vm_01')],
             instructorId: InstructorIdSchema.parse('instructor_vm_01'),
-            participantDisplayName: 'Student',
+            participantDisplayNames: ['Student'],
             instructorDisplayName: 'Coach',
             proposedService: {
               startsAt: serviceStart,
@@ -94,9 +96,9 @@ describe('booking collaboration view models', () => {
           {
             proposalId,
             revision: 1,
-            participantId: ParticipantIdSchema.parse('participant_vm_01'),
+            participantIds: [ParticipantIdSchema.parse('participant_vm_01')],
             instructorId: InstructorIdSchema.parse('instructor_vm_01'),
-            participantDisplayName: 'Student',
+            participantDisplayNames: ['Student'],
             instructorDisplayName: 'Coach',
             proposedService: {
               startsAt: serviceStart,
@@ -159,9 +161,9 @@ describe('booking collaboration view models', () => {
 
   it('maps participant access read model to cabinet item', () => {
     const item = mapParticipantInstructorAccessReadModelToCabinetItem({
-      participantId: ParticipantIdSchema.parse('participant_vm_01'),
+      participantIds: [ParticipantIdSchema.parse('participant_vm_01')],
       instructorId: InstructorIdSchema.parse('instructor_vm_01'),
-      participantDisplayName: 'Student',
+      participantDisplayNames: ['Student'],
       instructorDisplayName: 'Coach',
       authorizedActions: {
         canCreateRelationship: true,

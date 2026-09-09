@@ -37,13 +37,17 @@ export function buildParticipantAccessTopology(
     activeOwnerGuard?: ParticipantManagementActiveOwnerGuard;
     instructorRelationship?: InstructorRelationship;
     participantBlock?: ParticipantBlock;
+    additionalParticipants?: readonly Participant[];
     additionalManagement?: readonly ParticipantManagement[];
     additionalRelationships?: readonly InstructorRelationship[];
     additionalBlocks?: readonly ParticipantBlock[];
   }>
 ): ParticipantAccessTopology {
   const accounts = input.account ? [input.account] : [];
-  const participants = input.participant ? [input.participant] : [];
+  const participants = [
+    ...(input.participant ? [input.participant] : []),
+    ...(input.additionalParticipants ?? []),
+  ];
   const participantManagement = [
     ...(input.management ? [input.management] : []),
     ...(input.additionalManagement ?? []),

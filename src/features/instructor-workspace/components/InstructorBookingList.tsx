@@ -1,15 +1,59 @@
 import React from 'react';
 import { Calendar } from 'lucide-react';
-import { instructorMayCreateBookingProposal } from '@ski-academy/shared-domain';
 import { useInstructorWorkspace } from './useInstructorWorkspace';
 import { InstructorBookingCard } from './InstructorBookingCard';
 import type { useInstructorBookingCollaboration } from '../../booking-collaboration/useInstructorBookingCollaboration';
 import { useBookingCollaborationStore } from '../../booking-collaboration/bookingCollaborationStore';
-import { participantInstructorAccessKey } from '../../booking-collaboration/deriveCollaborationIdempotencyKeys';
+import { selectInstructorProposalPartyCandidates } from '../../booking-collaboration/selectInstructorProposalPartyCandidates';
+import type { InstructorProposalPartyBookingView } from '../../booking-collaboration/selectInstructorProposalPartyCandidates';
+import type { InstructorProposalPartyCandidate } from '../../booking-collaboration/bookingCollaborationContracts';
 
 interface InstructorBookingListProps {
   workspace: ReturnType<typeof useInstructorWorkspace>;
   collaboration: ReturnType<typeof useInstructorBookingCollaboration>;
+}
+
+function instructorProposalBookings(
+  workspace: ReturnType<typeof useInstructorWorkspace>
+): InstructorProposalPartyBookingView[] {
+  return workspace.instructorBookings.map((booking) => ({
+    instructorId: booking.instructorId,
+    participantIds: booking.participantIds,
+    lifecycleStatus: booking.status,
+    participants: booking.participants.map((participant) => ({
+      participantId: participant.participantId,
+      label: participant.clientName,
+      ...(participant.userId ? { accountId: participant.userId } : {}),
+    })),
+  }));
+}
+
+function relationshipStatusByParticipantId(
+  participantAccess: ReturnType<typeof useBookingCollaborationStore.getState>['participantAccess'],
+  instructorId: string
+): Map<string, 'active' | 'revoked' | 'expired' | undefined> {
+  return new Map(
+    [...participantAccess.values()]
+      .filter((item) => item.instructorId === instructorId)
+      .map((item) => [item.participantId, item.relationshipStatus])
+  );
+}
+
+function proposalPartyCandidatesForBooking(
+  workspace: ReturnType<typeof useInstructorWorkspace>,
+  booking: ReturnType<typeof useInstructorWorkspace>['displayedBookings'][number],
+  participantAccess: ReturnType<typeof useBookingCollaborationStore.getState>['participantAccess']
+): readonly InstructorProposalPartyCandidate[] {
+  return selectInstructorProposalPartyCandidates({
+    instructorId: booking.instructorId,
+    seedParticipantIds: booking.participantIds,
+    seedAccountId: booking.userId,
+    bookings: instructorProposalBookings(workspace),
+    relationshipStatusByParticipantId: relationshipStatusByParticipantId(
+      participantAccess,
+      booking.instructorId
+    ),
+  });
 }
 
 export const InstructorBookingList: React.FC<InstructorBookingListProps> = ({
@@ -29,13 +73,9 @@ export const InstructorBookingList: React.FC<InstructorBookingListProps> = ({
     handleUpdateStudentLevel,
     openEvalModal,
     usersList,
+    instructors,
   } = workspace;
   const participantAccess = useBookingCollaborationStore((state) => state.participantAccess);
-  const evidenceBookings = workspace.instructorBookings.map((booking) => ({
-    instructorId: booking.instructorId,
-    participantIds: booking.participantIds,
-    lifecycleStatus: booking.status,
-  }));
 
   const filters: Array<'all' | 'pending' | 'confirmed' | 'completed'> = [
     'all',
@@ -89,32 +129,52 @@ export const InstructorBookingList: React.FC<InstructorBookingListProps> = ({
         </div>
       ) : (
         <div className="space-y-4">
-          {displayedBookings.map((b) => (
-            <InstructorBookingCard
-              key={b.id}
-              booking={b}
-              usersList={usersList}
-              theme={theme}
-              language={language}
-              t={t}
-              hasUnreadChat={hasUnreadChat}
-              onOpenChat={(booking) => {
-                markBookingChatRead(booking);
-                setSelectedChatBooking(booking);
-              }}
-              onUpdateStudentLevel={handleUpdateStudentLevel}
-              onOpenEval={openEvalModal}
-              collaboration={collaboration}
-              canCreateProposal={instructorMayCreateBookingProposal({
-                instructorId: b.instructorId,
-                participantId: b.participantId,
-                relationshipStatus: participantAccess.get(
-                  participantInstructorAccessKey(b.participantId, b.instructorId)
-                )?.relationshipStatus,
-                bookings: evidenceBookings,
-              })}
-            />
-          ))}
+          {displayedBookings.map((b) => {
+            const candidates = proposalPartyCandidatesForBooking(
+              workspace,
+              b,
+              participantAccess
+            );
+            const hourlyRateKzt = instructors.find((instructor) => instructor.id === b.instructorId)
+              ?.pricePerHourKZT;
+            return (
+              <InstructorBookingCard
+                key={b.id}
+                booking={b}
+                usersList={usersList}
+                theme={theme}
+                language={language}
+                t={t}
+                hasUnreadChat={hasUnreadChat}
+                onOpenChat={(booking) => {
+                  markBookingChatRead(booking);
+                  setSelectedChatBooking(booking);
+                }}
+                onUpdateStudentLevel={handleUpdateStudentLevel}
+                onOpenEval={openEvalModal}
+                collaboration={collaboration}
+                canCreateProposal={candidates.some((candidate) => candidate.selectable)}
+                onCreateProposal={() => {
+                  const selectedParticipantIds = b.participantIds.filter((participantId) =>
+                    candidates.some(
+                      (candidate) =>
+                        candidate.participantId === participantId && candidate.selectable
+                    )
+                  );
+                  collaboration.setCreateProposalParty({
+                    participants: candidates,
+                    selectedParticipantIds:
+                      selectedParticipantIds.length > 0
+                        ? selectedParticipantIds
+                        : candidates
+                            .filter((candidate) => candidate.selectable)
+                            .map((candidate) => candidate.participantId),
+                    ...(hourlyRateKzt !== undefined ? { hourlyRateKzt } : {}),
+                  });
+                }}
+              />
+            );
+          })}
         </div>
       )}
     </div>

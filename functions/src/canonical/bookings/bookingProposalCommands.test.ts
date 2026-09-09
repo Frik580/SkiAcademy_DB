@@ -41,9 +41,13 @@ const accountId = AccountIdSchema.parse('account_proposal_cmd_01');
 const instructorAccountId = AccountIdSchema.parse('account_proposal_instructor_01');
 const participantId = ParticipantIdSchema.parse('participant_proposal_cmd_01');
 const participantTwoId = ParticipantIdSchema.parse('participant_proposal_cmd_02');
+const participantThreeId = ParticipantIdSchema.parse('participant_proposal_cmd_03');
 const outsiderParticipantId = ParticipantIdSchema.parse('participant_proposal_cmd_outsider');
+const outsiderAccountId = AccountIdSchema.parse('account_proposal_outsider_01');
 const managementId = ParticipantManagementIdSchema.parse('management_proposal_cmd_01');
 const managementTwoId = ParticipantManagementIdSchema.parse('management_proposal_cmd_02');
+const managementThreeId = ParticipantManagementIdSchema.parse('management_proposal_cmd_03');
+const outsiderManagementId = ParticipantManagementIdSchema.parse('management_proposal_cmd_outsider');
 const instructorId = InstructorIdSchema.parse('instructor_proposal_cmd_01');
 const instructorTwoId = InstructorIdSchema.parse('instructor_proposal_cmd_02');
 const proposalId = BookingProposalIdSchema.parse('booking_proposal_cmd_01');
@@ -250,7 +254,7 @@ function baseFixture(extra: Record<string, unknown> = {}) {
     'lesson_pricing_settings/lesson_booking': {
       settingsId: 'lesson_booking',
       additionalParticipantSurchargePerHourKzt: 6_000,
-      maxParticipantsPerLesson: 1,
+      maxParticipantsPerLesson: 4,
       revision: 1,
       createdAt: decidedAt,
       updatedAt: decidedAt,
@@ -330,7 +334,7 @@ function createProposalEnvelope(
     intent: {
       bookingProposalId: proposalId,
       instructorId,
-      participantId,
+      participantIds: [participantId],
     },
     ...overrides,
   };
@@ -370,7 +374,7 @@ describe('booking proposal commands', () => {
     const snapshot = executor.snapshot();
     const proposal = snapshot.docs.get(`booking_proposals/${proposalId}`)?.data;
     expect(proposal?.lifecycle).toEqual({ status: 'open' });
-    expect(proposal?.participantId).toBe(participantId);
+    expect(proposal?.participantIds).toEqual([participantId]);
     expect(proposal?.instructorId).toBe(instructorId);
     expect(proposal?.proposedService?.timeZone).toBe('Asia/Almaty');
     expect(snapshot.docs.has(`bookings/${bookingId}`)).toBe(false);
@@ -513,7 +517,7 @@ describe('booking proposal commands', () => {
         intent: {
           bookingProposalId: proposalId,
           instructorId: instructorTwoId,
-          participantId,
+          participantIds: [participantId],
         },
       })
     );
@@ -578,7 +582,7 @@ describe('booking proposal commands', () => {
     const createdAt = timestampFromDate(new Date('2026-01-14T10:00:00.000Z'));
     const openProposal: BookingProposal = {
       proposalId,
-      participantId,
+      participantIds: [participantId],
       instructorId,
       proposedService: {
         interval: {
@@ -873,7 +877,7 @@ describe('booking proposal commands', () => {
         intent: {
           bookingProposalId: proposalId,
           instructorId: instructorTwoId,
-          participantId,
+          participantIds: [participantId],
         },
       })
     );
@@ -922,11 +926,448 @@ describe('booking proposal commands', () => {
         intent: {
           bookingProposalId: proposalIdB,
           instructorId,
-          participantId: participantTwoId,
+          participantIds: [participantTwoId],
         },
       })
     );
     expect(resultTwo.status).toBe('success');
+  });
+});
+
+function relationshipFor(targetParticipantId: typeof participantId) {
+  const relationshipIdForPair = instructorRelationshipIdFromPair({
+    participantId: targetParticipantId,
+    instructorId,
+  });
+  return {
+    [`instructor_relationships/${relationshipIdForPair}`]: {
+      ...seedRelationship(),
+      instructorRelationshipId: relationshipIdForPair,
+      participantId: targetParticipantId,
+    },
+  };
+}
+
+function seedManagedParticipantThree() {
+  return {
+    [`participants/${participantThreeId}`]: {
+      ...seedParticipant(),
+      participantId: participantThreeId,
+      displayName: 'Proposal Participant Three',
+      management: { kind: 'managed', participantManagementId: managementThreeId },
+    },
+    [`participant_management/${managementThreeId}`]: {
+      ...seedManagement(),
+      participantManagementId: managementThreeId,
+      participantId: participantThreeId,
+    },
+  };
+}
+
+function threePartyFixture(extra: Record<string, unknown> = {}) {
+  return baseFixture({
+    ...seedManagedParticipantTwo(),
+    ...seedManagedParticipantThree(),
+    ...relationshipFor(participantTwoId),
+    ...relationshipFor(participantThreeId),
+    ...extra,
+  });
+}
+
+function createPartyProposalEnvelope(
+  participantIds: readonly (typeof participantId)[],
+  overrides: Partial<CommandEnvelope<'create_booking_proposal'>> = {}
+): CommandEnvelope<'create_booking_proposal'> {
+  return createProposalEnvelope({
+    ...overrides,
+    intent: {
+      bookingProposalId: proposalId,
+      instructorId,
+      participantIds: [...participantIds],
+      ...overrides.intent,
+    },
+  });
+}
+
+describe('multi-participant booking proposal commands', () => {
+  it('creates one proposal for three participants without booking, payment, or claims', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(threePartyFixture());
+    const result = await proposalCommands(executor).execute(
+      createPartyProposalEnvelope([participantId, participantTwoId, participantThreeId])
+    );
+    expect(result.status).toBe('success');
+    const snapshot = executor.snapshot();
+    const proposalDocs = [...snapshot.docs.keys()].filter((path) =>
+      path.startsWith('booking_proposals/')
+    );
+    expect(proposalDocs).toEqual([`booking_proposals/${proposalId}`]);
+    expect(snapshot.docs.get(`booking_proposals/${proposalId}`)?.data.participantIds).toEqual([
+      participantId,
+      participantTwoId,
+      participantThreeId,
+    ]);
+    expect(snapshot.docs.has(`bookings/${bookingId}`)).toBe(false);
+    expect(snapshot.docs.has(`payments/${paymentId}`)).toBe(false);
+    expect(
+      [...snapshot.docs.keys()].filter((path) => path.startsWith('resource_claims/')).length
+    ).toBe(0);
+  });
+
+  it('rejects duplicate participantIds on create', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    const result = await proposalCommands(executor).execute(
+      createPartyProposalEnvelope([participantId, participantId])
+    );
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('validation');
+    }
+  });
+
+  it('rejects create when the party exceeds current maxParticipantsPerLesson', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(
+      threePartyFixture({
+        'lesson_pricing_settings/lesson_booking': {
+          settingsId: 'lesson_booking',
+          additionalParticipantSurchargePerHourKzt: 6_000,
+          maxParticipantsPerLesson: 2,
+          revision: 1,
+          createdAt: decidedAt,
+          updatedAt: decidedAt,
+          audit: {
+            createdByCommandId: 'command_seed_pricing',
+            lastChangedByCommandId: 'command_seed_pricing',
+            correlationId,
+          },
+        },
+      })
+    );
+    const result = await proposalCommands(executor).execute(
+      createPartyProposalEnvelope([participantId, participantTwoId, participantThreeId])
+    );
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('validation');
+    }
+  });
+
+  it('creates a proposal when the instructor has authority on every participant', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(threePartyFixture());
+    const result = await proposalCommands(executor).execute(
+      createPartyProposalEnvelope([participantId, participantTwoId, participantThreeId])
+    );
+    expect(result.status).toBe('success');
+  });
+
+  it('forbids the whole create when authority is missing for one participant', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(
+      baseFixture({
+        ...seedManagedParticipantTwo(),
+      })
+    );
+    const result = await proposalCommands(executor).execute(
+      createPartyProposalEnvelope([participantId, participantTwoId])
+    );
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('forbidden');
+    }
+    expect(executor.snapshot().docs.has(`booking_proposals/${proposalId}`)).toBe(false);
+  });
+
+  it('creates a multi-participant proposal from relationship authority', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(
+      baseFixture({
+        ...seedManagedParticipantTwo(),
+        ...relationshipFor(participantTwoId),
+      })
+    );
+    const result = await proposalCommands(executor).execute(
+      createPartyProposalEnvelope([participantId, participantTwoId])
+    );
+    expect(result.status).toBe('success');
+  });
+
+  it('creates a multi-participant proposal from booking-scoped evidence', async () => {
+    const evidenceBookingId = BookingIdSchema.parse('booking_proposal_party_evidence_01');
+    const executor = createInMemoryCanonicalTransactionExecutor(
+      fixtureWithoutRelationship({
+        ...seedManagedParticipantTwo(),
+        [`bookings/${evidenceBookingId}`]: seedEvidenceBooking({
+          bookingId: evidenceBookingId,
+          participantIds: [participantId, participantTwoId],
+          lifecycle: { status: 'confirmed' },
+        }),
+      })
+    );
+    const result = await proposalCommands(executor).execute(
+      createPartyProposalEnvelope([participantId, participantTwoId])
+    );
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.has(`instructor_relationships/${relationshipId}`)).toBe(false);
+  });
+
+  it('accepts a party when the client manages every participant', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(threePartyFixture());
+    const createResult = await proposalCommands(executor).execute(
+      createPartyProposalEnvelope([participantId, participantTwoId, participantThreeId])
+    );
+    expect(createResult.status).toBe('success');
+    const result = await proposalCommands(executor).execute(acceptProposalEnvelope());
+    expect(result.status).toBe('success');
+  });
+
+  it('forbids accept when the client does not manage one participant', async () => {
+    const createdAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
+    const executor = createInMemoryCanonicalTransactionExecutor(
+      baseFixture({
+        [`participants/${participantTwoId}`]: {
+          ...seedParticipant(),
+          participantId: participantTwoId,
+          displayName: 'Outsider Party Member',
+          management: { kind: 'managed', participantManagementId: outsiderManagementId },
+        },
+        [`participant_management/${outsiderManagementId}`]: {
+          ...seedManagement(),
+          participantManagementId: outsiderManagementId,
+          participantId: participantTwoId,
+          accountId: outsiderAccountId,
+        },
+        [`users/${outsiderAccountId}`]: seedAccount(outsiderAccountId),
+        ...relationshipFor(participantTwoId),
+        [`booking_proposals/${proposalId}`]: {
+          proposalId,
+          participantIds: [participantId, participantTwoId],
+          instructorId,
+          proposedService: {
+            interval: {
+              startsAt: timestampFromDate(new Date('2026-01-15T09:00:00.000Z')),
+              endsAt: timestampFromDate(new Date('2026-01-15T10:00:00.000Z')),
+            },
+            timeZone: 'Asia/Almaty',
+          },
+          lifecycle: { status: 'open' },
+          revision: 1,
+          createdAt,
+          updatedAt: createdAt,
+          audit: {
+            createdByCommandId: 'command_seed_mixed_party_proposal',
+            lastChangedByCommandId: 'command_seed_mixed_party_proposal',
+            correlationId,
+          },
+        },
+      })
+    );
+    const result = await proposalCommands(executor).execute(acceptProposalEnvelope());
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('forbidden');
+    }
+    expect(executor.snapshot().docs.has(`bookings/${bookingId}`)).toBe(false);
+  });
+
+  it('accepts a multi-participant proposal into one Booking, one Payment, one instructor claim and N participant claims', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(threePartyFixture());
+    await proposalCommands(executor).execute(
+      createPartyProposalEnvelope([participantId, participantTwoId, participantThreeId])
+    );
+    const result = await proposalCommands(executor).execute(acceptProposalEnvelope());
+    expect(result.status).toBe('success');
+    const snapshot = executor.snapshot();
+    expect(snapshot.docs.has(`bookings/${bookingId}`)).toBe(true);
+    expect(snapshot.docs.has(`payments/${paymentId}`)).toBe(true);
+    const claims = [...snapshot.docs.entries()]
+      .filter(([path]) => path.startsWith('resource_claims/'))
+      .map(([, doc]) => doc.data);
+    expect(claims).toHaveLength(4);
+    expect(claims.filter((claim) => claim.claimKind === 'instructor_booking_occurrence')).toHaveLength(
+      1
+    );
+    expect(
+      claims.filter((claim) => claim.claimKind === 'participant_booking_occurrence')
+    ).toHaveLength(3);
+  });
+
+  it.each([
+    [1, 30, 6_000],
+    [1, 60, 12_000],
+    [1, 90, 18_000],
+    [1, 120, 24_000],
+    [2, 30, 9_000],
+    [2, 60, 18_000],
+    [2, 90, 27_000],
+    [2, 120, 36_000],
+    [3, 30, 12_000],
+    [3, 60, 24_000],
+    [3, 90, 36_000],
+    [3, 120, 48_000],
+  ] as const)(
+    'prices %i participants × %i minutes at %i KZT',
+    async (participantCount, durationMinutes, expectedTotal) => {
+      const party = [participantId, participantTwoId, participantThreeId].slice(0, participantCount);
+      const executor = createInMemoryCanonicalTransactionExecutor(threePartyFixture());
+      const createResult = await proposalCommands(executor).execute(
+        createPartyProposalEnvelope(party, {
+          context: {
+            ...accountContext('instructor', instructorAccountId, `proposal-price-${participantCount}-${durationMinutes}`),
+            calendarInput: {
+              localDate: '2026-01-15',
+              localTime: '09:00',
+              durationMinutes,
+            },
+          },
+          intent: {
+            bookingProposalId: proposalId,
+            instructorId,
+            participantIds: [...party],
+          },
+        })
+      );
+      expect(createResult.status).toBe('success');
+      const result = await proposalCommands(executor).execute(
+        acceptProposalEnvelope({
+          context: {
+            ...accountContext(
+              'account_owner',
+              accountId,
+              `proposal-accept-price-${participantCount}-${durationMinutes}`
+            ),
+            expectedRevision: AggregateRevisionSchema.parse(1),
+          },
+        })
+      );
+      expect(result.status).toBe('success');
+      const booking = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data;
+      expect(booking?.pricingSnapshot).toEqual({
+        strategyVersion: 'lesson_party:v1',
+        baseLessonPriceKzt: Math.round((12_000 * durationMinutes) / 60),
+        additionalParticipantSurchargePerHourKzt: 6_000,
+        settingsRevision: 1,
+        lessonDurationMinutes: durationMinutes,
+        participantCount,
+        totalPriceKzt: expectedTotal,
+      });
+    }
+  );
+
+  it('fails the whole accept atomically when one party member has a participant conflict', async () => {
+    const conflictingBookingId = BookingIdSchema.parse('booking_proposal_party_member_conflict_01');
+    const executor = createInMemoryCanonicalTransactionExecutor(
+      threePartyFixture()
+    );
+    const bookingResult = await bookingCommands(executor).execute({
+      kind: 'create_confirmed_booking',
+      context: accountContext('account_owner', accountId, 'party-member-conflict-booking-01'),
+      intent: {
+        bookingId: conflictingBookingId,
+        instructorId: instructorTwoId,
+        participantIds: [participantTwoId],
+      },
+    });
+    expect(bookingResult.status).toBe('success');
+    const createResult = await proposalCommands(executor).execute(
+      createPartyProposalEnvelope([participantId, participantTwoId, participantThreeId], {
+        context: accountContext('instructor', instructorAccountId, 'proposal-create-party-conflict-01'),
+      })
+    );
+    expect(createResult.status).toBe('success');
+    const acceptResult = await proposalCommands(executor).execute(
+      acceptProposalEnvelope({
+        context: {
+          ...accountContext('account_owner', accountId, 'proposal-accept-party-conflict-01'),
+          expectedRevision: AggregateRevisionSchema.parse(1),
+        },
+      })
+    );
+    expect(acceptResult.status).toBe('error');
+    if (acceptResult.status === 'error') {
+      expect(acceptResult.error.code).toBe('participant_conflict');
+    }
+    const snapshot = executor.snapshot();
+    expect(snapshot.docs.get(`booking_proposals/${proposalId}`)?.data.lifecycle).toEqual({
+      status: 'open',
+    });
+    expect(snapshot.docs.has(`bookings/${bookingId}`)).toBe(false);
+    expect(snapshot.docs.has(`payments/${paymentId}`)).toBe(false);
+  });
+
+  it('marks a multi-participant proposal unavailable when the instructor slot conflicts', async () => {
+    const conflictingBookingId = BookingIdSchema.parse('booking_proposal_party_instructor_conflict_01');
+    const executor = createInMemoryCanonicalTransactionExecutor(threePartyFixture());
+    const bookingResult = await bookingCommands(executor).execute({
+      kind: 'create_confirmed_booking',
+      context: accountContext('account_owner', accountId, 'party-instructor-conflict-booking-01'),
+      intent: {
+        bookingId: conflictingBookingId,
+        instructorId,
+        participantIds: [participantId],
+      },
+    });
+    expect(bookingResult.status).toBe('success');
+    const createResult = await proposalCommands(executor).execute(
+      createPartyProposalEnvelope([participantId, participantTwoId], {
+        context: accountContext(
+          'instructor',
+          instructorAccountId,
+          'proposal-create-party-instructor-conflict-01'
+        ),
+      })
+    );
+    expect(createResult.status).toBe('success');
+    const acceptResult = await proposalCommands(executor).execute(
+      acceptProposalEnvelope({
+        context: {
+          ...accountContext(
+            'account_owner',
+            accountId,
+            'proposal-accept-party-instructor-conflict-01'
+          ),
+          expectedRevision: AggregateRevisionSchema.parse(1),
+        },
+      })
+    );
+    expect(acceptResult.status).toBe('success');
+    expect(
+      executor.snapshot().docs.get(`booking_proposals/${proposalId}`)?.data.lifecycle.status
+    ).toBe('unavailable');
+    expect(executor.snapshot().docs.has(`bookings/${bookingId}`)).toBe(false);
+  });
+
+  it('accepts a legacy single-participant Proposal stored with participantId', async () => {
+    const createdAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
+    const executor = createInMemoryCanonicalTransactionExecutor(
+      baseFixture({
+        [`booking_proposals/${proposalId}`]: {
+          proposalId,
+          participantId,
+          instructorId,
+          proposedService: {
+            interval: {
+              startsAt: timestampFromDate(new Date('2026-01-15T09:00:00.000Z')),
+              endsAt: timestampFromDate(new Date('2026-01-15T10:00:00.000Z')),
+            },
+            timeZone: 'Asia/Almaty',
+          },
+          lifecycle: { status: 'open' },
+          revision: 1,
+          createdAt,
+          updatedAt: createdAt,
+          audit: {
+            createdByCommandId: 'command_seed_legacy_proposal',
+            lastChangedByCommandId: 'command_seed_legacy_proposal',
+            correlationId,
+          },
+        },
+      })
+    );
+    const result = await proposalCommands(executor).execute(acceptProposalEnvelope());
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.has(`bookings/${bookingId}`)).toBe(true);
+    expect(executor.snapshot().docs.has(`payments/${paymentId}`)).toBe(true);
+    expect(
+      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('resource_claims/'))
+        .length
+    ).toBe(2);
   });
 });
 

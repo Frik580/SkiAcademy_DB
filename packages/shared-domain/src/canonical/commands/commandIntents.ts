@@ -26,8 +26,10 @@ import { MaxParticipantsPerLessonSchema } from '../lessonPricingSettings';
 import { AggregateRevisionSchema, KztMinorUnitsSchema } from '../primitives';
 import {
   BookingLessonNotesSchema,
+  coerceBookingProposalPartyInput,
   LessonDifficultySchema,
 } from '../bookingOccurrenceProposalChange';
+import { duplicateParticipantIndexes } from '../bookingPartyPolicy';
 import type { CommandKind } from './commandKinds';
 
 const bookingTargetIntent = z.object({ bookingId: BookingIdSchema }).strict();
@@ -529,13 +531,25 @@ export const CommandIntentSchemaByKind = {
         });
       }
     }),
-  create_booking_proposal: z
-    .object({
-      bookingProposalId: BookingProposalIdSchema,
-      instructorId: InstructorIdSchema,
-      participantId: ParticipantIdSchema,
-    })
-    .strict(),
+  create_booking_proposal: z.preprocess(
+    coerceBookingProposalPartyInput,
+    z
+      .object({
+        bookingProposalId: BookingProposalIdSchema,
+        instructorId: InstructorIdSchema,
+        participantIds: z.array(ParticipantIdSchema).min(1),
+      })
+      .strict()
+      .superRefine((intent, context) => {
+        if (duplicateParticipantIndexes(intent.participantIds).length > 0) {
+          context.addIssue({
+            code: 'custom',
+            path: ['participantIds'],
+            message: 'Duplicate Participant identity',
+          });
+        }
+      })
+  ),
   accept_booking_proposal: bookingProposalTargetIntent,
   cancel_booking_proposal: bookingProposalTargetIntent,
   expire_booking_proposal: bookingProposalTargetIntent,

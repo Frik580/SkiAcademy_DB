@@ -90,9 +90,22 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = (props) =
       />
 
       <CreateProposalModal
-        open={collaboration.createProposalParticipant !== null}
-        participantLabel={collaboration.createProposalParticipant?.label}
-        onClose={() => collaboration.setCreateProposalParticipant(null)}
+        open={collaboration.createProposalParty !== null}
+        participants={collaboration.createProposalParty?.participants ?? []}
+        defaultSelectedParticipantIds={
+          collaboration.createProposalParty?.selectedParticipantIds ?? []
+        }
+        maxParticipants={collaboration.maxParticipantsPerLesson}
+        pricingPreview={
+          collaboration.createProposalParty?.hourlyRateKzt !== undefined &&
+          collaboration.surchargePerHourKzt !== undefined
+            ? {
+                hourlyRateKzt: collaboration.createProposalParty.hourlyRateKzt,
+                surchargePerHourKzt: collaboration.surchargePerHourKzt,
+              }
+            : undefined
+        }
+        onClose={() => collaboration.setCreateProposalParty(null)}
         onSubmit={collaboration.handleCreateProposal}
       />
     </div>

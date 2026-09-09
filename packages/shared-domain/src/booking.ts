@@ -5,7 +5,8 @@ export type BookingStatus =
   | 'confirmed'
   | 'cancelled'
   | 'completed'
-  | 'pending_cancellation';
+  | 'pending_cancellation'
+  | 'no_show';
 
 export interface BookingIdentity {
   id: string;

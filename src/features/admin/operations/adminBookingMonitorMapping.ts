@@ -11,11 +11,12 @@ function asBookingStatus(status: string): BookingStatus {
     status === 'confirmed' ||
     status === 'completed' ||
     status === 'cancelled' ||
-    status === 'pending_cancellation'
+    status === 'pending_cancellation' ||
+    status === 'no_show'
   ) {
     return status;
   }
-  if (status === 'withdrawn' || status === 'no_show') return 'cancelled';
+  if (status === 'withdrawn') return 'cancelled';
   return 'confirmed';
 }
 
@@ -32,6 +33,7 @@ export function lessonBookingToMonitorRow(booking: LessonBookingReadModel): Book
     booking.admin?.payment.price ??
     (booking.paymentPresentation?.kind === 'visible' ? booking.paymentPresentation.price : 0);
   const createdAtSeconds = booking.lifecycle.requestedAt?.seconds ?? booking.updatedAt.seconds;
+  const lifecycleStatus = booking.lifecycle.status;
   return {
     id: booking.bookingId,
     userId: booking.admin?.payer?.accountId ?? participant?.participantId ?? booking.bookingId,
@@ -42,7 +44,16 @@ export function lessonBookingToMonitorRow(booking: LessonBookingReadModel): Book
     time: local.time,
     durationHours: booking.occurrence.durationMinutes / 60,
     totalPrice: price,
-    status: asBookingStatus(booking.lifecycle.status),
+    status: asBookingStatus(lifecycleStatus),
+    canonicalLifecycleStatus: lifecycleStatus,
+    occurrenceStartsAtSeconds: booking.occurrence.startsAt.seconds,
+    occurrenceEndsAtSeconds: booking.occurrence.endsAt.seconds,
+    ...(booking.admin?.payment
+      ? {
+          paymentOutstanding: booking.admin.payment.outstanding,
+          paymentStatus: booking.admin.payment.status,
+        }
+      : {}),
     ...(booking.difficulty !== undefined ? { difficulty: booking.difficulty } : {}),
     ...(booking.notes ? { notes: booking.notes } : {}),
     isGuest,

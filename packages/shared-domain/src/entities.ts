@@ -9,6 +9,7 @@ export const BookingStatusSchema = z.enum([
   'cancelled',
   'completed',
   'pending_cancellation',
+  'no_show',
 ]);
 export const WalletLedgerTypeSchema = z.enum([
   'top_up',

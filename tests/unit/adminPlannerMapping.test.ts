@@ -239,6 +239,46 @@ describe('Admin Planner compatibility mapping', () => {
     ).toBe(true);
   });
 
+  it('maps completed and no_show terminal lifecycle statuses for historical planner blocks', () => {
+    const completedId = BookingIdSchema.parse('booking_planner_completed');
+    const noShowId = BookingIdSchema.parse('booking_planner_no_show');
+    const occupancy: AdminPlannerOccupancyItem[] = [
+      {
+        occupancyKind: 'lesson_booking',
+        occupancyId: completedId,
+        bookingId: completedId,
+        instructorId,
+        participantId: ParticipantIdSchema.parse('participant_planner_completed'),
+        interval: interval('2026-09-02T04:00:00.000Z', '2026-09-02T05:00:00.000Z'),
+        timeZone: 'Asia/Almaty',
+        localDate: '2026-09-02',
+        localTime: '09:00',
+        durationMinutes: 60,
+        displayTitle: 'Completed lesson',
+        lifecycleStatus: 'completed',
+        revision: 1,
+      },
+      {
+        occupancyKind: 'lesson_booking',
+        occupancyId: noShowId,
+        bookingId: noShowId,
+        instructorId,
+        participantId: ParticipantIdSchema.parse('participant_planner_no_show'),
+        interval: interval('2026-09-02T06:00:00.000Z', '2026-09-02T07:00:00.000Z'),
+        timeZone: 'Asia/Almaty',
+        localDate: '2026-09-02',
+        localTime: '11:00',
+        durationMinutes: 60,
+        displayTitle: 'No-show lesson',
+        lifecycleStatus: 'no_show',
+        revision: 1,
+      },
+    ];
+    const mapped = mapPlannerOccupancyToBookings(occupancy);
+    expect(mapped).toHaveLength(2);
+    expect(mapped.map((booking) => booking.status)).toEqual(['completed', 'no_show']);
+  });
+
   it('does not use lesson notes as the Planner calendar identity title', () => {
     expect(
       resolveLessonBookingCellTitle({

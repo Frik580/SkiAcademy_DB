@@ -47,6 +47,10 @@ const BADGE_TONE_CLASS: Record<ReturnType<typeof lessonAdminPrimaryStatusBadgeTo
     'border-slate-500/20 bg-slate-500/10 text-slate-600 dark:border-slate-700/40 dark:bg-slate-800/40 dark:text-slate-400',
   completed:
     'border-[color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-[var(--accent)]',
+  no_show:
+    'border-orange-500/20 bg-orange-500/10 text-orange-700 dark:border-orange-500/30 dark:bg-orange-950/40 dark:text-orange-300',
+  info:
+    'border-sky-500/20 bg-sky-500/10 text-sky-700 dark:border-sky-500/30 dark:bg-sky-950/40 dark:text-sky-300',
 };
 
 export interface AdminLessonBookingDetailProps {

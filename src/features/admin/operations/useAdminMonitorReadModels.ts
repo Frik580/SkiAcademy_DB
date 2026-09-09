@@ -10,27 +10,17 @@ export function useAdminMonitorReadModels() {
   const enrollmentsPending = useAdminCourseEnrollmentReadModels({ view: 'pending_guest' });
   const enrollmentsHistory = useAdminCourseEnrollmentReadModels({ view: 'history' });
 
-  const bookings = useMemo(
+  const activeBookings = useMemo(
     () =>
-      mergeAdminBookingMonitorRows(
-        [...lessonsHot.list.items, ...lessonsHistory.list.items],
-        [
-          ...enrollmentsRoster.list.items,
-          ...enrollmentsPending.list.items,
-          ...enrollmentsHistory.list.items,
-        ]
-      ),
-    [
-      enrollmentsHistory.list.items,
-      enrollmentsPending.list.items,
-      enrollmentsRoster.list.items,
-      lessonsHistory.list.items,
-      lessonsHot.list.items,
-    ]
+      mergeAdminBookingMonitorRows(lessonsHot.list.items, [
+        ...enrollmentsRoster.list.items,
+        ...enrollmentsPending.list.items,
+      ]),
+    [enrollmentsPending.list.items, enrollmentsRoster.list.items, lessonsHot.list.items]
   );
 
   return {
-    bookings,
+    bookings: activeBookings,
     lessonsHot,
     lessonsHistory,
     enrollmentsRoster,

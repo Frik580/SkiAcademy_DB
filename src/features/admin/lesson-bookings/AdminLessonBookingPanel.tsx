@@ -1,6 +1,6 @@
 import { BookingChangeRequestIdSchema, BookingIdSchema, type LessonBookingReadModel } from '@ski-academy/shared-domain';
 import { ChevronRight, Loader2, RefreshCw } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   ADMIN_FINANCE_PAYMENT_QUERY_KEY,
@@ -8,7 +8,9 @@ import {
   ADMIN_CHANGE_REQUEST_QUERY_KEY,
   ADMIN_LESSON_BOOKING_QUERY_KEY,
   ADMIN_LESSON_BOOKING_VIEW_QUERY_KEY,
+  ADMIN_LESSON_BOOKINGS_SECTION_ID,
   ADMIN_PLANNER_DATE_QUERY_KEY,
+  scrollAdminElementIntoView,
   ADMIN_PLANNER_FOCUS_QUERY_KEY,
   ADMIN_TAB_QUERY_KEY,
 } from '../adminNavigation';
@@ -27,6 +29,7 @@ import {
 } from './lessonBookingAdminPresentation';
 import { useAdminLessonBookingCommands } from './useAdminLessonBookingCommands';
 import { useAdminLessonBookingReadModels } from './useAdminLessonBookingReadModels';
+import { useSharedAdminMonitorReadModels } from '../operations/AdminMonitorReadModelsContext';
 import {
   captureAdminLessonBookingTarget,
   createAdminLessonBookingAttemptId,
@@ -79,14 +82,25 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
   const focusedChangeRequestId = parsedChangeRequest.success
     ? parsedChangeRequest.data
     : undefined;
+  const { refreshAllProjections } = useSharedAdminMonitorReadModels();
   const reads = useAdminLessonBookingReadModels({
     enabled: true,
     view,
     ...(selectedBookingId ? { selectedBookingId } : {}),
   });
+  const refreshBookingWithProjections = useCallback(
+    async (bookingId: Parameters<typeof reads.refreshBooking>[0]) => {
+      const result = await reads.refreshBooking(bookingId);
+      if (result.status === 'success') {
+        await refreshAllProjections();
+      }
+      return result;
+    },
+    [reads.refreshBooking, refreshAllProjections]
+  );
   const commands = useAdminLessonBookingCommands({
     adminAccountId,
-    refreshBooking: reads.refreshBooking,
+    refreshBooking: refreshBookingWithProjections,
   });
   const [confirmation, setConfirmation] = useState<Confirmation>();
   const [mutationPending, setMutationPending] = useState(false);
@@ -97,6 +111,33 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
   const [paymentAmount, setPaymentAmount] = useState('');
   const [linkSelection, setLinkSelection] = useState<AdminManagedParticipantSelection>();
   const [linkReason, setLinkReason] = useState('');
+  const detailPanelRef = useRef<HTMLElement>(null);
+  const lastFocusedBookingRef = useRef<string>();
+
+  const revealLessonBookingCard = useCallback((bookingId: string) => {
+    window.setTimeout(() => {
+      scrollAdminElementIntoView(ADMIN_LESSON_BOOKINGS_SECTION_ID);
+      document
+        .querySelector(`[data-admin-lesson-booking-id="${bookingId}"]`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      detailPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 320);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedBookingId) {
+      lastFocusedBookingRef.current = undefined;
+      return;
+    }
+    if (lastFocusedBookingRef.current === selectedBookingId) return;
+    lastFocusedBookingRef.current = selectedBookingId;
+    revealLessonBookingCard(selectedBookingId);
+  }, [revealLessonBookingCard, selectedBookingId]);
+
+  useEffect(() => {
+    if (!selectedBookingId || reads.detail.loading || !reads.detail.item) return;
+    detailPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [reads.detail.item, reads.detail.loading, selectedBookingId]);
 
   useEffect(() => {
     const item = reads.detail.item;
@@ -255,6 +296,7 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
                 <button
                   type="button"
                   key={item.bookingId}
+                  data-admin-lesson-booking-id={item.bookingId}
                   onClick={() => updateQuery({ [ADMIN_LESSON_BOOKING_QUERY_KEY]: item.bookingId })}
                   className={`w-full border p-3 text-left ${
                     selectedBookingId === item.bookingId
@@ -294,7 +336,12 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
           )}
         </section>
 
-        <aside className="min-h-64 border border-[var(--border)] p-4" aria-label="Booking detail">
+        <aside
+          ref={detailPanelRef}
+          className="min-h-64 border border-[var(--border)] p-4"
+          aria-label="Booking detail"
+          tabIndex={-1}
+        >
           {!bookingParam ? (
             <p className="flex min-h-52 items-center justify-center text-center text-xs text-[var(--ink-dim)]">
               {t('adminLessonSelectPrompt')}

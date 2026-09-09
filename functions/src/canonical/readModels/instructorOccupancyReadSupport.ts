@@ -17,6 +17,23 @@ import { parseCourse, parseCourseDay } from '../courses/courseStore';
 import { parseAdministrativeAvailabilityBlock } from '../availability/administrativeAvailabilityBlockStore';
 
 const ACTIVE_BOOKING_STATUSES = new Set(['pending', 'confirmed', 'pending_cancellation']);
+const PLANNER_TERMINAL_BOOKING_STATUSES = new Set(['completed', 'no_show']);
+
+export type InstructorOccupancyBookingScope = 'active_capacity' | 'admin_planner_visualization';
+
+function isBookingVisibleForOccupancyScope(
+  lifecycleStatus: string,
+  bookingScope: InstructorOccupancyBookingScope
+): boolean {
+  if (ACTIVE_BOOKING_STATUSES.has(lifecycleStatus)) return true;
+  if (
+    bookingScope === 'admin_planner_visualization' &&
+    PLANNER_TERMINAL_BOOKING_STATUSES.has(lifecycleStatus)
+  ) {
+    return true;
+  }
+  return false;
+}
 const PLANNER_QUERY_PAGE_SIZE = 300;
 const PLANNER_QUERY_SCAN_CAP = 2_000;
 const PLANNER_OCCUPANCY_LOOKBACK_SECONDS = 48 * 60 * 60;
@@ -94,6 +111,8 @@ async function paginateWindowQuery(
 export interface LoadInstructorOccupancyInput {
   readonly window: TimeInterval;
   readonly instructorId?: InstructorId;
+  /** Default `active_capacity` — only lifecycle statuses that reserve instructor capacity. */
+  readonly bookingScope?: InstructorOccupancyBookingScope;
 }
 
 export interface LoadInstructorOccupancyResult {
@@ -146,6 +165,7 @@ export async function loadInstructorOccupancyItems(
 
   let truncated = bookingPage.truncated || blockPage.truncated || dayPage.truncated;
   const occupancy: AdminPlannerOccupancyItem[] = [];
+  const bookingScope = input.bookingScope ?? 'active_capacity';
 
   const bookings = bookingPage.docs
     .map((document) => parseBooking(document.data() as Record<string, unknown>))
@@ -153,7 +173,7 @@ export async function loadInstructorOccupancyItems(
     .filter(
       (booking) =>
         !booking.archival?.isDeleted &&
-        ACTIVE_BOOKING_STATUSES.has(booking.lifecycle.status) &&
+        isBookingVisibleForOccupancyScope(booking.lifecycle.status, bookingScope) &&
         intervalsOverlap(booking.occurrence.interval, input.window) &&
         (!input.instructorId || booking.occurrence.instructorId === input.instructorId)
     );

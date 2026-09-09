@@ -7,8 +7,8 @@ const STATUS_LABELS: Record<string, { en: string; ru: string }> = {
   confirmed: { en: 'Confirmed', ru: 'Подтверждено' },
   cancelled: { en: 'Cancelled', ru: 'Отменено' },
   completed: { en: 'Completed', ru: 'Завершено' },
-  pending: { en: 'Pending', ru: 'Ожидает' },
-  pending_cancellation: { en: 'Pending Cancellation', ru: 'Ожидает отмены' },
+  pending: { en: 'Awaiting confirmation', ru: 'Ожидает подтверждения' },
+  pending_cancellation: { en: 'Cancellation requested', ru: 'Запрос на отмену' },
   no_show: { en: 'No-show', ru: 'Неявка' },
 };
 

@@ -31,6 +31,7 @@ import {
   reschedulePlannerOccupancy,
 } from './adminPlannerCommands';
 import { useAdminPlannerReadModels } from './useAdminPlannerReadModels';
+import { useSharedAdminMonitorReadModels } from './AdminMonitorReadModelsContext';
 
 const EMPTY_PLANNER_OCCUPANCY: readonly AdminPlannerOccupancyItem[] = [];
 
@@ -71,11 +72,17 @@ export function AdminPlannerBoard({
   );
   const [view, setView] = useState<ScheduleViewMode>('day');
   const fetchWindow = useMemo(() => plannerFetchWindow(localDate, view), [localDate, view]);
+  const { registerPlannerRefresh, refreshAllProjections } = useSharedAdminMonitorReadModels();
   const planner = useAdminPlannerReadModels({
     enabled: true,
     localDate: fetchWindow.localDate,
     view: fetchWindow.view,
   });
+
+  useEffect(() => {
+    registerPlannerRefresh(planner.refresh);
+    return () => registerPlannerRefresh(null);
+  }, [planner.refresh, registerPlannerRefresh]);
   const occupancy = planner.item?.occupancy ?? EMPTY_PLANNER_OCCUPANCY;
   const plannerTimeZone = planner.item?.timeZone ?? resolveAdminTimeZone();
   const { t } = useScheduleTranslations();
@@ -136,10 +143,10 @@ export function AdminPlannerBoard({
             adminAccountId: adminProfile.uid,
             booking,
           }),
-        planner.refresh
+        refreshAllProjections
       );
     },
-    [adminProfile.uid, planner.refresh]
+    [adminProfile.uid, refreshAllProjections]
   );
 
   const handleReschedule = useCallback(
@@ -153,10 +160,10 @@ export function AdminPlannerBoard({
             localDate: newDate,
             localTime: newTime,
           }),
-        planner.refresh
+        refreshAllProjections
       );
     },
-    [adminProfile.uid, occupancy, planner.refresh]
+    [adminProfile.uid, occupancy, refreshAllProjections]
   );
 
   const handleReassign = useCallback(
@@ -171,10 +178,10 @@ export function AdminPlannerBoard({
             localDate: newDate,
             localTime: newTime,
           }),
-        planner.refresh
+        refreshAllProjections
       );
     },
-    [adminProfile.uid, occupancy, planner.refresh]
+    [adminProfile.uid, occupancy, refreshAllProjections]
   );
 
   const handleChangeDuration = useCallback(
@@ -187,10 +194,10 @@ export function AdminPlannerBoard({
             occupancyId: id,
             durationMinutes: Math.max(1, Math.round(durationHours * 60)),
           }),
-        planner.refresh
+        refreshAllProjections
       );
     },
-    [adminProfile.uid, occupancy, planner.refresh]
+    [adminProfile.uid, occupancy, refreshAllProjections]
   );
 
   const handleRelease = useCallback(
@@ -202,10 +209,10 @@ export function AdminPlannerBoard({
             occupancy,
             occupancyId: id,
           }),
-        planner.refresh
+        refreshAllProjections
       );
     },
-    [adminProfile.uid, occupancy, planner.refresh]
+    [adminProfile.uid, occupancy, refreshAllProjections]
   );
 
   const handleComplete = useCallback(
@@ -217,10 +224,10 @@ export function AdminPlannerBoard({
             occupancy,
             occupancyId: id,
           }),
-        planner.refresh
+        refreshAllProjections
       );
     },
-    [adminProfile.uid, occupancy, planner.refresh]
+    [adminProfile.uid, occupancy, refreshAllProjections]
   );
 
   const handleLink = useCallback(
@@ -233,10 +240,10 @@ export function AdminPlannerBoard({
             occupancyId: bookingId,
             targetAccountId: targetUserId,
           }),
-        planner.refresh
+        refreshAllProjections
       );
     },
-    [adminProfile.uid, occupancy, planner.refresh]
+    [adminProfile.uid, occupancy, refreshAllProjections]
   );
 
   const handleOpenLessonDetail = useCallback(

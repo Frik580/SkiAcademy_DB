@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronDown, ChevronUp, LucideIcon, Eye, EyeOff } from 'lucide-react';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
+import { scrollAdminElementIntoView } from '../../adminNavigation';
 
 interface AdminCollapsibleSectionProps {
   id: string;
@@ -41,8 +42,14 @@ export const AdminCollapsibleSection: React.FC<AdminCollapsibleSectionProps> = (
   });
 
   useEffect(() => {
-    if (forceOpen) setIsOpen(true);
-  }, [forceOpen, forceOpenToken]);
+    if (!forceOpen) return;
+    setIsOpen(true);
+    if (!forceOpenToken) return;
+    const timeout = window.setTimeout(() => {
+      scrollAdminElementIntoView(id);
+    }, 320);
+    return () => window.clearTimeout(timeout);
+  }, [forceOpen, forceOpenToken, id]);
 
   const toggleOpen = () => {
     setIsOpen((prev) => {
@@ -58,6 +65,7 @@ export const AdminCollapsibleSection: React.FC<AdminCollapsibleSectionProps> = (
 
   return (
     <div
+      id={id}
       className={`border border-[var(--border)] bg-transparent space-y-0 transition-colors duration-300 w-full min-w-0 overflow-hidden ${className}`}
     >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:p-5 border-b border-[var(--border)] bg-black/5 dark:bg-white/5 select-none gap-3">

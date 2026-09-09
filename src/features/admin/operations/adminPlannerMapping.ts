@@ -79,7 +79,11 @@ export function mapPlannerOccupancyToBookings(
           durationMinutes: item.durationMinutes,
         };
     const status: Booking['status'] =
-      item.lifecycleStatus && item.lifecycleStatus !== 'no_show'
+      item.lifecycleStatus === 'pending' ||
+      item.lifecycleStatus === 'confirmed' ||
+      item.lifecycleStatus === 'pending_cancellation' ||
+      item.lifecycleStatus === 'completed' ||
+      item.lifecycleStatus === 'no_show'
         ? item.lifecycleStatus
         : 'confirmed';
     if (item.occupancyKind === 'availability_block') {

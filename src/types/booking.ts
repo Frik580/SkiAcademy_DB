@@ -35,6 +35,14 @@ export interface Booking {
   endsAt?: string;
   /** UTC ISO timestamp when the booking record was created. */
   createdAt?: string;
+  /** Canonical lesson lifecycle from read model (admin monitor). */
+  canonicalLifecycleStatus?: string;
+  /** Lesson occurrence bounds for in-progress presentation (admin monitor). */
+  occurrenceStartsAtSeconds?: number;
+  occurrenceEndsAtSeconds?: number;
+  /** Outstanding payment for awaiting-payment presentation (admin monitor). */
+  paymentOutstanding?: number;
+  paymentStatus?: string;
 }
 
 export interface AvailabilitySlot {

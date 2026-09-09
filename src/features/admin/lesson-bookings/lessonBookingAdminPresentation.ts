@@ -53,11 +53,68 @@ export function resolveLessonAdminPrimaryStatus(
   return item.lifecycle.status;
 }
 
+export type AdminMonitorLessonStatusPresentation =
+  | { readonly kind: LessonAdminPrimaryStatusKind; readonly labelKey: TranslationKey }
+  | { readonly kind: 'in_progress'; readonly labelKey: TranslationKey };
+
+export function resolveAdminMonitorLessonStatusPresentation(
+  item: Pick<LessonBookingReadModel, 'lifecycle' | 'occurrence'> & {
+    readonly admin?: Pick<LessonBookingAdminProjection, 'payment'>;
+  },
+  nowSeconds: number
+): AdminMonitorLessonStatusPresentation {
+  const primary = resolveLessonAdminPrimaryStatus(item);
+  if (
+    primary === 'confirmed' &&
+    item.occurrence.startsAt.seconds <= nowSeconds &&
+    nowSeconds < item.occurrence.endsAt.seconds
+  ) {
+    return { kind: 'in_progress', labelKey: 'adminLessonStatusInProgress' };
+  }
+  return { kind: primary, labelKey: LESSON_ADMIN_PRIMARY_STATUS_KEYS[primary] };
+}
+
+export function resolveAdminMonitorLessonStatusFromRow(
+  row: {
+    readonly canonicalLifecycleStatus?: string;
+    readonly occurrenceStartsAtSeconds?: number;
+    readonly occurrenceEndsAtSeconds?: number;
+    readonly paymentOutstanding?: number;
+    readonly paymentStatus?: string;
+  },
+  nowSeconds: number
+): AdminMonitorLessonStatusPresentation | undefined {
+  if (!row.canonicalLifecycleStatus) return undefined;
+  const lifecycleStatus =
+    row.canonicalLifecycleStatus as LessonBookingReadModel['lifecycle']['status'];
+  let primary: LessonAdminPrimaryStatusKind = lifecycleStatus;
+  if (
+    lifecycleStatus === 'pending' &&
+    row.paymentOutstanding !== undefined &&
+    row.paymentOutstanding > 0 &&
+    row.paymentStatus &&
+    UNPAID_PAYMENT_STATUSES.has(row.paymentStatus as PaymentStatus)
+  ) {
+    primary = 'awaiting_payment';
+  }
+  if (
+    primary === 'confirmed' &&
+    row.occurrenceStartsAtSeconds !== undefined &&
+    row.occurrenceEndsAtSeconds !== undefined &&
+    row.occurrenceStartsAtSeconds <= nowSeconds &&
+    nowSeconds < row.occurrenceEndsAtSeconds
+  ) {
+    return { kind: 'in_progress', labelKey: 'adminLessonStatusInProgress' };
+  }
+  return { kind: primary, labelKey: LESSON_ADMIN_PRIMARY_STATUS_KEYS[primary] };
+}
+
 export function lessonAdminPrimaryStatusBadgeTone(
-  kind: LessonAdminPrimaryStatusKind
-): 'pending' | 'confirmed' | 'pending_cancellation' | 'cancelled' | 'completed' {
+  kind: LessonAdminPrimaryStatusKind | 'in_progress'
+): 'pending' | 'confirmed' | 'pending_cancellation' | 'cancelled' | 'completed' | 'no_show' | 'info' {
   if (kind === 'awaiting_payment') return 'pending';
-  if (kind === 'no_show') return 'cancelled';
+  if (kind === 'in_progress') return 'info';
+  if (kind === 'no_show') return 'no_show';
   return kind;
 }
 

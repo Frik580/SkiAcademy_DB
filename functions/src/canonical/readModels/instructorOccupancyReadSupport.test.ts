@@ -156,7 +156,11 @@ function fakeFirestore(seed: Record<string, Record<string, unknown>>): Firestore
   } as unknown as Firestore;
 }
 
-function bookingForInstructor(bookingId: typeof bookingA, instructorId: typeof instructorA) {
+function bookingForInstructor(
+  bookingId: typeof bookingA,
+  instructorId: typeof instructorA,
+  lifecycleStatus: 'confirmed' | 'completed' | 'no_show' | 'cancelled' = 'confirmed'
+) {
   return BookingSchema.parse({
     bookingId,
     attribution: {
@@ -178,7 +182,18 @@ function bookingForInstructor(bookingId: typeof bookingA, instructorId: typeof i
       scheduleRevision: 1,
       serviceParty: { participantIds: [participantId] },
     },
-    lifecycle: { status: 'confirmed' },
+    lifecycle:
+      lifecycleStatus === 'completed'
+        ? { status: 'completed', completedAt: createdAt }
+        : lifecycleStatus === 'no_show'
+          ? { status: 'no_show', noShowAt: createdAt }
+          : lifecycleStatus === 'cancelled'
+            ? {
+                status: 'cancelled',
+                cancelledAt: createdAt,
+                reasonCode: 'administrator_cancelled',
+              }
+            : { status: lifecycleStatus },
     paymentId: paymentIdFromBookingId(bookingId),
     payerAccountId: 'account_occupancy_support',
     revision: 1,
@@ -334,6 +349,34 @@ describe('instructorOccupancyReadSupport', () => {
 
     const windowSeconds = result.item.window.endsAt.seconds - result.item.window.startsAt.seconds;
     expect(windowSeconds).toBe(24 * 60 * 60);
+  });
+
+  it('includes completed and no_show only for admin planner visualization scope', async () => {
+    const completed = bookingForInstructor(bookingA, instructorA, 'completed');
+    const noShow = bookingForInstructor(bookingB, instructorA, 'no_show');
+    const cancelled = bookingForInstructor(
+      BookingIdSchema.parse('booking_occupancy_cancelled'),
+      instructorA,
+      'cancelled'
+    );
+    const firestore = fakeFirestore({
+      [`bookings/${bookingA}`]: completed,
+      [`bookings/${bookingB}`]: noShow,
+      [`bookings/booking_occupancy_cancelled`]: cancelled,
+      [`participants/${participantId}`]: { participantId, displayName: 'Anna' },
+    });
+    const window = instructorOccupancyWindow(localDate, timeZone, 1);
+
+    const capacityOnly = await loadInstructorOccupancyItems(firestore, { window, instructorId: instructorA });
+    expect(capacityOnly.occupancy).toHaveLength(0);
+
+    const plannerView = await loadInstructorOccupancyItems(firestore, {
+      window,
+      instructorId: instructorA,
+      bookingScope: 'admin_planner_visualization',
+    });
+    expect(plannerView.occupancy.map((item) => item.bookingId)).toEqual([bookingA, bookingB]);
+    expect(plannerView.occupancy.map((item) => item.lifecycleStatus)).toEqual(['completed', 'no_show']);
   });
 
   it('accepts legacy bookings without difficulty or notes', async () => {

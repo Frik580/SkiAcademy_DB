@@ -1,8 +1,10 @@
-import React, { createContext, useCallback, useContext } from 'react';
+import React, { createContext, useCallback, useContext, useRef } from 'react';
 import { useAdminMonitorReadModels } from './useAdminMonitorReadModels';
 
 type AdminMonitorReadModelsValue = ReturnType<typeof useAdminMonitorReadModels> & {
   readonly refreshAll: () => Promise<void>;
+  readonly registerPlannerRefresh: (refresh: (() => Promise<void>) | null) => void;
+  readonly refreshAllProjections: () => Promise<void>;
 };
 
 const AdminMonitorReadModelsContext = createContext<AdminMonitorReadModelsValue | null>(null);
@@ -13,6 +15,7 @@ export function AdminMonitorReadModelsProvider({
   readonly children: React.ReactNode;
 }) {
   const monitor = useAdminMonitorReadModels();
+  const plannerRefreshRef = useRef<(() => Promise<void>) | null>(null);
   const refreshAll = useCallback(async () => {
     await Promise.all([
       monitor.lessonsHot.retryList(),
@@ -28,10 +31,19 @@ export function AdminMonitorReadModelsProvider({
     monitor.lessonsHistory,
     monitor.lessonsHot,
   ]);
+  const registerPlannerRefresh = useCallback((refresh: (() => Promise<void>) | null) => {
+    plannerRefreshRef.current = refresh;
+  }, []);
+  const refreshAllProjections = useCallback(async () => {
+    await refreshAll();
+    await plannerRefreshRef.current?.();
+  }, [refreshAll]);
 
   const value: AdminMonitorReadModelsValue = {
     ...monitor,
     refreshAll,
+    registerPlannerRefresh,
+    refreshAllProjections,
   };
 
   return (

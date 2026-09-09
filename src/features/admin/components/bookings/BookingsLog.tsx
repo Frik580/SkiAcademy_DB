@@ -6,9 +6,10 @@ import {
   formatLessonDifficultyOrUnspecified,
 } from '../../../../app/providers/LanguageContext';
 import { useCurrency } from '../../../../app/providers/CurrencyContext';
-import { isCourseBooking } from '../../../../domain/availability';
 import { formatBookingCreatedAt } from '../../../../domain/booking';
 import { StatusBadge } from '../../../../ui/StatusBadge';
+import { AdminMonitorLessonStatusBadge } from '../../operations/AdminMonitorLessonStatusBadge';
+import { isCourseBooking } from '../../../../domain/availability';
 import { ApplePagination } from '../../../../ui/ApplePagination';
 import {
   filterAdminBookingMonitorRows,
@@ -145,6 +146,9 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
             </option>
             <option value="cancelled" className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]">
               {t('cancelledStatus')}
+            </option>
+            <option value="no_show" className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]">
+              {t('adminLessonStatusNoShow')}
             </option>
           </select>
         </div>
@@ -399,7 +403,11 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                       {formatPrice(b.totalPrice)}
                     </td>
                     <td className="py-3 px-2">
-                      <StatusBadge status={b.status} size="xs" />
+                      {!isCourseBooking(b) && b.canonicalLifecycleStatus ? (
+                        <AdminMonitorLessonStatusBadge booking={b} />
+                      ) : (
+                        <StatusBadge status={b.status} size="xs" />
+                      )}
                     </td>
                     <td className="py-3 px-2 text-right font-mono">
                       {b.status === 'pending' && (

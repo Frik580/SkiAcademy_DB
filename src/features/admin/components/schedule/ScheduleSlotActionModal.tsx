@@ -100,6 +100,7 @@ const isReassignableBooking = (booking: Booking): boolean =>
   booking.userId !== 'system_block_day_off' &&
   booking.status !== 'cancelled' &&
   booking.status !== 'completed' &&
+  booking.status !== 'no_show' &&
   !booking.isDeleted;
 
 const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({

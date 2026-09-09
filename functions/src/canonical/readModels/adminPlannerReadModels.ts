@@ -54,7 +54,10 @@ export async function queryAdminPlannerReadModels(
     })
     .filter((item): item is NonNullable<typeof item> => item !== undefined);
 
-  const loaded = await loadInstructorOccupancyItems(firestore, { window });
+  const loaded = await loadInstructorOccupancyItems(firestore, {
+    window,
+    bookingScope: 'admin_planner_visualization',
+  });
   const occupancy: AdminPlannerOccupancyItem[] = loaded.occupancy;
 
   const item = AdminPlannerReadModelSchema.parse({

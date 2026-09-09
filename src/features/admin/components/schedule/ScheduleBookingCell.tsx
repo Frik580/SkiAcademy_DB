@@ -68,6 +68,8 @@ export const ScheduleBookingCell: React.FC<ScheduleBookingCellProps> = ({
 
   const isPendingCancellation = booking.status === 'pending_cancellation';
   const isCompleted = booking.status === 'completed';
+  const isNoShow = booking.status === 'no_show';
+  const isTerminalHistorical = isCompleted || isNoShow;
   let cardBgClasses =
     'bg-accent-muted border border-accent-soft hover:border-accent text-[var(--ink)]';
   let titleColorClasses = 'text-accent';
@@ -87,6 +89,13 @@ export const ScheduleBookingCell: React.FC<ScheduleBookingCellProps> = ({
       'text-emerald-900 dark:text-emerald-300 line-through decoration-emerald-200/50 dark:decoration-emerald-800/40';
     buttonColorClasses = 'text-emerald-400 hover:text-red-500';
     textTimeClasses = 'text-emerald-650 dark:text-emerald-400';
+  } else if (isNoShow) {
+    cardBgClasses =
+      'bg-orange-50/60 dark:bg-orange-950/10 border border-orange-250/45 dark:border-orange-900/40 hover:border-orange-400 dark:hover:border-orange-700 text-orange-950 dark:text-orange-200';
+    titleColorClasses =
+      'text-orange-900 dark:text-orange-300 line-through decoration-orange-200/50 dark:decoration-orange-800/40';
+    buttonColorClasses = 'text-orange-400 hover:text-red-500';
+    textTimeClasses = 'text-orange-650 dark:text-orange-400';
   }
 
   return (
@@ -123,17 +132,24 @@ export const ScheduleBookingCell: React.FC<ScheduleBookingCellProps> = ({
               ✓ ({t('doneShort')})
             </span>
           )}
+          {isNoShow && (
+            <span className="ml-1 text-[9px] font-bold text-orange-600 dark:text-orange-400">
+              ({t('noShowShort')})
+            </span>
+          )}
         </div>
-        <button
-          onClick={(event) => {
-            event.stopPropagation();
-            onDelete(booking.id);
-          }}
-          className={`opacity-0 group-hover/cell:opacity-100 transition p-0.5 rounded cursor-pointer ${buttonColorClasses}`}
-          title={t('cancelBookingAdmin')}
-        >
-          <X className="w-3.5 h-3.5" />
-        </button>
+        {!isTerminalHistorical && (
+          <button
+            onClick={(event) => {
+              event.stopPropagation();
+              onDelete(booking.id);
+            }}
+            className={`opacity-0 group-hover/cell:opacity-100 transition p-0.5 rounded cursor-pointer ${buttonColorClasses}`}
+            title={t('cancelBookingAdmin')}
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
       <div
         className={`text-[10px] font-mono flex items-center gap-1 mt-0.5 min-w-0 ${textTimeClasses}`}

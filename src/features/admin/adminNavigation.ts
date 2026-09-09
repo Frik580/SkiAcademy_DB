@@ -24,6 +24,29 @@ export const ADMIN_FINANCE_MOVEMENT_PERIOD_QUERY_KEY = 'movementPeriod';
 export const ADMIN_CLIENT_ACCOUNT_QUERY_KEY = 'clientAccount';
 export const ADMIN_LESSON_BOOKING_QUERY_KEY = 'booking';
 export const ADMIN_LESSON_BOOKING_VIEW_QUERY_KEY = 'bookingView';
+/** DOM id for the canonical lesson bookings collapsible section in AdminPanel. */
+export const ADMIN_LESSON_BOOKINGS_SECTION_ID = 'canonical_lesson_bookings';
+
+export function scrollAdminElementIntoView(
+  elementId: string,
+  options?: ScrollIntoViewOptions
+): void {
+  window.requestAnimationFrame(() => {
+    document.getElementById(elementId)?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+      ...options,
+    });
+  });
+}
+
+/** Scroll after collapsible section expand animation (~250ms). */
+export function scrollAdminLessonBookingsSectionIntoView(delayMs = 320): void {
+  window.setTimeout(
+    () => scrollAdminElementIntoView(ADMIN_LESSON_BOOKINGS_SECTION_ID),
+    delayMs
+  );
+}
 export const ADMIN_PLANNER_DATE_QUERY_KEY = 'plannerDate';
 export const ADMIN_PLANNER_FOCUS_QUERY_KEY = 'plannerBooking';
 export const ADMIN_COURSE_ENROLLMENT_QUERY_KEY = 'enrollment';

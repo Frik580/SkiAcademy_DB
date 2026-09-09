@@ -21,27 +21,28 @@ export function AdminActiveBookingMonitor({
   instructors,
 }: AdminActiveBookingMonitorProps) {
   const [, setSearchParams] = useSearchParams();
-  const {
-    bookings,
-    lessonsHot,
-    lessonsHistory,
-    enrollmentsRoster,
-    enrollmentsPending,
-    enrollmentsHistory,
-  } = useSharedAdminMonitorReadModels();
+  const { bookings, lessonsHot, enrollmentsRoster, enrollmentsPending } =
+    useSharedAdminMonitorReadModels();
 
   const loadMore = useCallback(() => {
     if (lessonsHot.list.hasMore) void lessonsHot.loadMore();
-    if (lessonsHistory.list.hasMore) void lessonsHistory.loadMore();
     enrollmentsRoster.loadMore?.();
     enrollmentsPending.loadMore?.();
-    enrollmentsHistory.loadMore?.();
-  }, [enrollmentsHistory, enrollmentsPending, enrollmentsRoster, lessonsHistory, lessonsHot]);
+  }, [enrollmentsPending, enrollmentsRoster, lessonsHot]);
 
   const handleOpenLesson = useCallback(
     (bookingId: string) => {
       const row = bookings.find((booking) => booking.id === bookingId);
-      const view = row?.status === 'completed' || row?.status === 'cancelled' ? 'history' : 'hot';
+      const lifecycle = row?.canonicalLifecycleStatus ?? row?.status;
+      const view =
+        lifecycle === 'completed' ||
+        lifecycle === 'no_show' ||
+        lifecycle === 'cancelled' ||
+        row?.status === 'completed' ||
+        row?.status === 'cancelled' ||
+        row?.status === 'no_show'
+          ? 'history'
+          : 'hot';
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
@@ -88,10 +89,8 @@ export function AdminActiveBookingMonitor({
       onOpenEnrollment={handleOpenEnrollment}
       hasMoreBookings={
         lessonsHot.list.hasMore ||
-        lessonsHistory.list.hasMore ||
         enrollmentsRoster.list.hasMore ||
-        enrollmentsPending.list.hasMore ||
-        enrollmentsHistory.list.hasMore
+        enrollmentsPending.list.hasMore
       }
       onLoadMoreBookings={loadMore}
     />

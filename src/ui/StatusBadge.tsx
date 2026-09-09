@@ -55,6 +55,12 @@ const VARIANT_MAP: Record<string, StyleConfig> = {
     border: 'border-slate-500/20 dark:border-slate-700/40',
     dot: 'bg-slate-400',
   },
+  no_show: {
+    bg: 'bg-orange-500/10 dark:bg-orange-950/40',
+    text: 'text-orange-700 dark:text-orange-300',
+    border: 'border-orange-500/20 dark:border-orange-500/30',
+    dot: 'bg-orange-500',
+  },
   success: {
     bg: 'bg-emerald-500/10 dark:bg-emerald-950/40',
     text: 'text-emerald-700 dark:text-emerald-300',

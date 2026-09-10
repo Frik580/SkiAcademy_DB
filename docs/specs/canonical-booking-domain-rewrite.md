@@ -339,9 +339,9 @@ Current production cutover status (see [T32_CANONICAL_ADMIN_AUDIT.md](../T32_CAN
 There is one production cutover sequence. It supersedes reading Phase 7 / T40 as a full Firestore/Storage reset plus empty seed on a live project.
 
 ```text
-T32.9A.9A (F1 / F2 / F3 / final integration smoke)
+T32.9A.9A — PASS / CLOSED (F1 / F2 / F3 / F4 / final integration smoke)
         ↓
-T32.9A.9B (stats/progress/recommendations + Reviews / instructor rating)
+T32.9A.9B — IN PROGRESS (active): stats/progress/recommendations + Reviews / instructor rating
         ↓
 T32.9A.9C (Course progress / achievements)
         ↓

@@ -479,11 +479,11 @@ Existing useful screens, information, filters, interactions, and workflows must 
 
 Before removing a legacy frontend or runtime implementation, canonical replacement and UX feature parity must be proven.
 
-Details, the parity inventory, role coverage, and the T32.9A / T32.9B boundary are in [ADR-0008](docs/adr/0008-ux-preservation-during-canonical-migration.md). Current T32.9A.8 / T32.9A.9 (FINAL CANONICAL CUTOVER) status lives in [T32_CANONICAL_ADMIN_AUDIT.md](docs/T32_CANONICAL_ADMIN_AUDIT.md). Authoritative production sequence after 9A:
+Details, the parity inventory, role coverage, and the T32.9A / T32.9B boundary are in [ADR-0008](docs/adr/0008-ux-preservation-during-canonical-migration.md). Current T32.9A.8 / T32.9A.9 (FINAL CANONICAL CUTOVER) status lives in [T32_CANONICAL_ADMIN_AUDIT.md](docs/T32_CANONICAL_ADMIN_AUDIT.md). **T32.9A.9A is PASS / CLOSED** (F1–F4 + final integration / production smoke). **Active stage: T32.9A.9B.** Authoritative production sequence:
 
 ```text
-T32.9A.9A (F1 / F2 / F3 / final integration smoke)
-→ T32.9A.9B (stats / progress / recommendations / Reviews and instructor rating)
+T32.9A.9A — PASS / CLOSED (F1 / F2 / F3 / F4 / final integration smoke)
+→ T32.9A.9B — IN PROGRESS (active): stats / progress / recommendations / Reviews and instructor rating
 → T32.9A.9C (Course progress / achievements)
 → T32.9A.9P (Global Product Parity & legacy Dependency Gate)
 → T32.9A.9D0 (production-like incremental rehearsal)

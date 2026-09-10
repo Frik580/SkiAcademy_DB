@@ -9,6 +9,7 @@ Amended: 2026-09-08 — T32.9A.9A.F3 implemented for authenticated/managed Parti
 Amended: 2026-09-08 — T32.9A.9 cutover gates strengthened for incremental production: 9B Reviews/rating continuity; 9P Global Product Parity; 9D0 production-like incremental rehearsal; 9D Selective Destructive Legacy Data Cleanup (not full Firestore reset); 9E technical+product reachability; T40/T41 superseded from empty-database reset to rehearsed selective production cutover. F3 implementation/contract is unchanged.
 Amended: 2026-09-09 — T32.9A.9A.F4 (Canonical Multi-Participant Lesson Attendance UX) documented; per-participant Instructor Attendance for individual and `family_group` lesson Booking; F4 READY_FOR_MANUAL_SMOKE; 9A final integration / production smoke gated after F4
 Amended: 2026-09-09 — T32.9A.9A.F1 reconciled to PASS / DEPLOYED; F3 reconciled to PASS / CLOSED after manual acceptance; F4 remains READY_FOR_MANUAL_SMOKE
+Amended: 2026-09-10 — T32.9A.9A final integration / production smoke PASS; F2/F4 reconciled to PASS / CLOSED; T32.9A.9A overall PASS / CLOSED; active cutover stage → T32.9A.9B
 
 Status: historical Admin-runtime audit from 2026-08-30, with later T32.8A–T32.8C and T32.9A/T32.9B migration status below. Findings in this document that describe unpaid Administrator guest approval, missing guest CourseEnrollment confirmation, or identity linking as confirmation are superseded by ADR-0007. Sections below that still describe the 2026-08-30 Admin runtime as fully legacy are historical audit evidence; later migration status in this preamble supersedes them for T32.9A progress.
 
@@ -40,12 +41,12 @@ T32.9 remains split per [ADR-0008](adr/0008-ux-preservation-during-canonical-mig
 | T32.9A.8                                       | Canonical Courses UX                                                     | PASS / CLOSED                             |
 | T32.9A.9A core                                 | Individual Booking lifecycle cutover (authority)                         | PASS at source/production authority level |
 | T32.9A.9A.F1                                   | Canonical Admin Guest Payment Capture                                    | PASS / DEPLOYED                           |
-| T32.9A.9A.F2                                   | Guest Unpaid Reservation Expiry                                          | READY_FOR_MANUAL_SMOKE                    |
+| T32.9A.9A.F2                                   | Guest Unpaid Reservation Expiry                                          | PASS / CLOSED                             |
 | T32.9A.9A.F3                                   | Canonical Multi-Participant Lesson Booking                               | PASS / CLOSED                             |
-| T32.9A.9A.F4                                   | Canonical Multi-Participant Lesson Attendance UX                         | READY_FOR_MANUAL_SMOKE                    |
-| T32.9A.9A final integration / production smoke | 9A close gate after F4                                                   | PENDING                                   |
-| T32.9A.9A                                      | Individual Booking lifecycle cutover (overall)                           | NOT CLOSED — finalization in progress     |
-| T32.9A.9B                                      | Student Booking Stats / Progress / Recommendations / Reviews Cutover     | PENDING                                   |
+| T32.9A.9A.F4                                   | Canonical Multi-Participant Lesson Attendance UX                         | PASS / CLOSED                             |
+| T32.9A.9A final integration / production smoke | 9A close gate after F4                                                   | PASS                                      |
+| T32.9A.9A                                      | Individual Booking lifecycle cutover (overall)                           | PASS / CLOSED                             |
+| T32.9A.9B                                      | Student Booking Stats / Progress / Recommendations / Reviews Cutover     | IN PROGRESS (active)                      |
 | T32.9A.9C                                      | Course Progress / Achievements Cutover                                   | PENDING                                   |
 | T32.9A.9P                                      | Global Product Parity & Legacy Dependency Gate                           | PENDING                                   |
 | T32.9A.9D0                                     | Production-like Incremental Cutover Rehearsal                            | PENDING                                   |
@@ -55,7 +56,7 @@ T32.9 remains split per [ADR-0008](adr/0008-ux-preservation-during-canonical-mig
 | T40                                            | Execute Rehearsed Selective Production Cutover                           | PENDING; after T32.9B                     |
 | T41                                            | Expanded Post-Cutover Verification                                       | PENDING; after T40                        |
 
-Status labels used here: `PASS`, `PASS / CLOSED`, `PASS / DEPLOYED`, `REQUIRED`, `IN PROGRESS`, `PLANNED`, `READY_FOR_MANUAL_SMOKE`, `PENDING`, `NOT CLOSED`. F1 is `PASS / DEPLOYED`; F3 is `PASS / CLOSED`. Do not treat F2 or F4 as `PASS`, `CLOSED`, or `DEPLOYED` until production-smoked.
+Status labels used here: `PASS`, `PASS / CLOSED`, `PASS / DEPLOYED`, `REQUIRED`, `IN PROGRESS`, `PLANNED`, `READY_FOR_MANUAL_SMOKE`, `PENDING`, `NOT CLOSED`. T32.9A.9A (F1–F4 and final integration / production smoke) is **PASS / CLOSED**. The active FINAL CANONICAL CUTOVER stage is **T32.9A.9B**.
 
 ### T32.9A.8 — Canonical Courses UX — PASS / CLOSED
 
@@ -70,14 +71,14 @@ T32.9A.8C — PASS / CLOSED
 T32.9A.9 is **not** “Admin Integration Smoke only.” It is the final canonical cutover sequence. There is **one** production path (selective/incremental). The original Phase 7 empty-database reset remains historical/reference and T38 nonproduction rehearsal only.
 
 ```text
-T32.9A.9A — Individual Booking lifecycle cutover
+T32.9A.9A — Individual Booking lifecycle cutover — PASS / CLOSED
   T32.9A.9A core
   T32.9A.9A.F1 — Canonical Admin Guest Payment Capture
   T32.9A.9A.F2 — Guest Unpaid Reservation Expiry
   T32.9A.9A.F3 — Canonical Multi-Participant Lesson Booking
   T32.9A.9A.F4 — Canonical Multi-Participant Lesson Attendance UX
   T32.9A.9A final integration / production smoke
-T32.9A.9B — Student Booking Stats / Progress / Recommendations Cutover
+T32.9A.9B — Student Booking Stats / Progress / Recommendations Cutover — IN PROGRESS (active)
          (includes Reviews / Instructor Rating Continuity)
 T32.9A.9C — Course Progress / Achievements Cutover
 T32.9A.9P — Global Product Parity & Legacy Dependency Gate
@@ -112,9 +113,9 @@ Canonical Booking owns lifecycle,
 not progress / presentation / feedback data by default.
 ```
 
-#### T32.9A.9A — Individual Booking lifecycle cutover — PARTIAL / FINALIZATION IN PROGRESS
+#### T32.9A.9A — Individual Booking lifecycle cutover — PASS / CLOSED
 
-**9A overall is NOT CLOSED** until F2 + F4 + final integration / production smoke complete (F1 `PASS / DEPLOYED`; F3 `PASS / CLOSED`).
+**T32.9A.9A is PASS / CLOSED** after production final integration smoke (F1 `PASS / DEPLOYED`; F2/F3/F4 `PASS / CLOSED`). The active cutover stage is **T32.9A.9B**.
 
 Core lifecycle cutover (authority level) — recorded as PASS at source/production authority level:
 
@@ -164,7 +165,7 @@ Explicit rules:
 
 F1 is implemented and deployed to production. Admin guest lesson payment capture uses canonical `record_provider_payment_event` through `executeCanonicalCommand` on the Admin lesson Booking detail surface (`AdminLessonBookingDetail` / `useAdminLessonBookingCommands`). F1 is **PASS / DEPLOYED**.
 
-##### T32.9A.9A.F2 — Guest Unpaid Reservation Expiry — READY_FOR_MANUAL_SMOKE
+##### T32.9A.9A.F2 — Guest Unpaid Reservation Expiry — PASS / CLOSED
 
 Goal: an unpaid guest individual Booking must not hold instructor/resource slots indefinitely.
 
@@ -212,7 +213,7 @@ Do not invent a new TTL in this document. Use the existing domain reservation-ex
 
 **F3 compatibility requirement.** F2 does not implement multi-participant lesson booking. F2 remains **F3-compatible**: expiry is a lifecycle operation over the Booking/Payment reservation aggregate, not over a single Participant. After F3, one Booking still has one expiry decision, one lifecycle transition, one slot release, and one Payment outcome — regardless of participant count.
 
-9A cannot close without F2 production smoke plus F4. F2 is not PASS/CLOSED/DEPLOYED. F3 is already `PASS / CLOSED`.
+F2 production manual smoke and final 9A integration smoke are recorded **PASS / CLOSED** (2026-09-10).
 
 ##### T32.9A.9A.F3 — Canonical Multi-Participant Lesson Booking — PASS / CLOSED
 
@@ -374,11 +375,11 @@ Removing one Participant from an existing group lesson booking, if needed later,
 | Read models           | All affected lesson Booking read models show full participant set                                                                                               |
 | Course regression     | CourseEnrollment multi-select still creates independent enrollment per Participant                                                                              |
 
-F3 source, unit, Firestore Emulator, local browser E2E, and manual acceptance evidence are complete. The slice is **PASS / CLOSED**. 9A still cannot close without F2/F4 production-equivalent smoke and the final integration gate.
+F3 source, unit, Firestore Emulator, local browser E2E, and manual acceptance evidence are complete. The slice is **PASS / CLOSED**.
 
 **F4 dependency.** F3 records the Booking/Payment/slot aggregate for multiple Participants. F4 completes the Instructor Attendance operational path F3 requires. F4 does **not** redesign F3 monetary, slot, or booking-aggregation semantics.
 
-##### T32.9A.9A.F4 — Canonical Multi-Participant Lesson Attendance UX — READY_FOR_MANUAL_SMOKE
+##### T32.9A.9A.F4 — Canonical Multi-Participant Lesson Attendance UX — PASS / CLOSED
 
 Goal: expose canonical factual Attendance to the assigned Instructor **per frozen service participant** for both individual lesson Booking and F3 `family_group` / multi-participant lesson Booking.
 
@@ -573,9 +574,9 @@ Historical legacy lesson/training records do not need Attendance backfill. No ne
 | `npm run build` (app) | pass |
 | `npm run i18n:check` | pass |
 
-Do not mark F4 `DONE` from automated tests alone.
+Do not mark F4 `PASS / CLOSED` from automated tests alone; production manual smoke for F4 is recorded **PASS** as part of T32.9A.9A final integration / production smoke (2026-09-10).
 
-**Required manual smoke (before `DONE`).**
+**Production manual smoke (recorded PASS).**
 
 Individual:
 
@@ -610,13 +611,13 @@ npx firebase deploy --only hosting
 
 Do **not** deploy `functions:record_booking_attendance` — no such standalone callable exists.
 
-F4 is **READY_FOR_MANUAL_SMOKE** — not PASS/CLOSED/DEPLOYED. 9A still cannot close without F2/F4 production-equivalent smoke and the final integration gate (F1 `PASS / DEPLOYED`; F3 `PASS / CLOSED`).
+F4 is **PASS / CLOSED** after production manual acceptance and final 9A integration smoke (2026-09-10).
 
-##### T32.9A.9A final integration / production smoke — PENDING
+##### T32.9A.9A final integration / production smoke — PASS
 
-Gate after F2 + F4 (with F1 `PASS / DEPLOYED` and F3 `PASS / CLOSED` already recorded). Confirms end-to-end individual Booking lifecycle cutover (including guest payment capture, unpaid reservation expiry, multi-participant lesson booking, and per-participant Instructor Attendance) on production or production-equivalent smoke paths before 9A may close and 9B begins.
+Gate after F2 + F4 (with F1 `PASS / DEPLOYED` and F3 `PASS / CLOSED` already recorded). Confirms end-to-end individual Booking lifecycle cutover (including guest payment capture, unpaid reservation expiry, multi-participant lesson booking, and per-participant Instructor Attendance) on production smoke paths before 9A closes and 9B begins.
 
-9A cannot close without this smoke block. It is not PASS/CLOSED/DEPLOYED until executed and recorded.
+Recorded **PASS** in production (2026-09-10). T32.9A.9A overall is **PASS / CLOSED**; **T32.9A.9B** is the active stage.
 
 #### Production Booking inventory (ski-school-8f3ca) — PASS
 
@@ -675,11 +676,11 @@ This is **not** a claim that every legacy function in the project was removed �
 | `scheduledAutoCompleteBookings`                 | Removed (source export + production)                                                       |
 | `scheduledReconcileGuestConfirmationMismatches` | Canonical / active                                                                         |
 | `scheduledPurgeExpiredNotifications`            | Canonical / active                                                                         |
-| Guest unpaid reservation expiry scheduler       | `scheduledExpireGuestLessonReservations` — READY_FOR_MANUAL_SMOKE (`every 5 minutes`, UTC) |
+| Guest unpaid reservation expiry scheduler       | `scheduledExpireGuestLessonReservations` — Canonical / active (`every 5 minutes`, UTC; production-smoked under 9A.F2) |
 
 Do not confuse completion scheduling with payment-confirmation reconciliation.
 
-#### T32.9A.9B — Student Booking Stats / Progress / Recommendations Cutover — PENDING
+#### T32.9A.9B — Student Booking Stats / Progress / Recommendations Cutover — IN PROGRESS (active)
 
 Mandatory scope:
 
@@ -1780,10 +1781,9 @@ Current structure (authoritative for later status; see preamble):
 
 - **T32.9A.8** Canonical Courses UX — PASS / CLOSED (8A/8B/8C)
 - **T32.9A.9** FINAL CANONICAL CUTOVER
-  - **9A** Individual Booking lifecycle cutover — NOT CLOSED (core PASS at
-    authority level; F1 PASS/DEPLOYED; F2 READY_FOR_MANUAL_SMOKE; F3 PASS/CLOSED;
-    F4 READY_FOR_MANUAL_SMOKE; final integration/production smoke PENDING after F4)
-  - **9B** Student Booking Stats / Progress / Recommendations Cutover, including Reviews / Instructor Rating Continuity — PENDING
+  - **9A** Individual Booking lifecycle cutover — **PASS / CLOSED** (core PASS at
+    authority level; F1 PASS/DEPLOYED; F2/F3/F4 PASS/CLOSED; final integration/production smoke PASS)
+  - **9B** Student Booking Stats / Progress / Recommendations Cutover, including Reviews / Instructor Rating Continuity — **IN PROGRESS (active)**
   - **9C** Course Progress / Achievements Cutover — PENDING
   - **9P** Global Product Parity & Legacy Dependency Gate — PENDING
   - **9D0** Production-like Incremental Cutover Rehearsal — PENDING

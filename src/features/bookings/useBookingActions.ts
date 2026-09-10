@@ -3,7 +3,7 @@ import confetti from 'canvas-confetti';
 import { isCourseBooking } from '../../domain/availability';
 import { createNotificationForUser } from '../../domain/notifications';
 import { buildNotification, translateKey } from '../../domain/notifications';
-import { Booking, Instructor, Review } from '../../types';
+import { Booking, Instructor } from '../../types';
 import { notify, t } from '../../store/storeContext';
 import { useAuthStore } from '../auth/authStore';
 import { useProfileStore } from '../profile/profileStore';
@@ -20,7 +20,6 @@ import {
   completeBookingService,
   toggleRecommendationService,
   linkGuestBookingService,
-  addReviewService,
   addInstructorService,
   updateInstructorService,
   deleteInstructorService,
@@ -35,7 +34,6 @@ import { useBookingsStore } from './bookingsStore';
  */
 export function useBookingActions() {
   const bookings = useBookingsStore((state) => state.bookings);
-  const reviews = useBookingsStore((state) => state.reviews);
   const deletedCompletedStats = useBookingsStore((state) => state.deletedCompletedStats);
   const setDeletedCompletedStats = useBookingsStore((state) => state.setDeletedCompletedStats);
   const firebaseUser = useAuthStore((state) => state.firebaseUser);
@@ -257,15 +255,6 @@ export function useBookingActions() {
     [bookings]
   );
 
-  const handleAddReview = useCallback(
-    async (newReviewInput: Omit<Review, 'id' | 'userId' | 'userName' | 'userAvatar' | 'date'>) => {
-      if (!userProfile) return;
-      const booking = bookings.find((item) => item.id === newReviewInput.bookingId);
-      await addReviewService(newReviewInput, userProfile, reviews, booking);
-    },
-    [bookings, reviews, userProfile]
-  );
-
   const handleAddInstructor = useCallback(async (instructor: Instructor) => {
     await addInstructorService(instructor);
   }, []);
@@ -296,7 +285,6 @@ export function useBookingActions() {
     handleCompleteBooking,
     handleLinkGuestBooking,
     handleToggleRecommendation,
-    handleAddReview,
     handleAddInstructor,
     handleUpdateInstructor,
     handleDeleteInstructor,

@@ -136,10 +136,16 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                                 <span className="text-[9px] font-mono text-sky-500 bg-sky-500/10 dark:bg-sky-500/20 px-1.5 py-0.5 font-bold">
                                   {ins.experienceYears} {t('courseYearsExperienceShort')}
                                 </span>
-                                <span className="flex items-center gap-0.5 text-[9px] font-mono text-amber-500 font-bold">
-                                  <Star className="w-2.5 h-2.5 fill-amber-500 text-transparent" />
-                                  {ins.rating.toFixed(1)}
-                                </span>
+                                {ins.rating !== null && ins.reviewsCount > 0 ? (
+                                  <span className="flex items-center gap-0.5 text-[9px] font-mono text-amber-500 font-bold">
+                                    <Star className="w-2.5 h-2.5 fill-amber-500 text-transparent" />
+                                    {ins.rating.toFixed(1)}
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] font-mono text-[var(--ink-dim)]">
+                                    {t('instructorNoReviews')}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </div>

@@ -13,6 +13,7 @@ import {
   ParticipantIdSchema,
   ParticipantManagementIdSchema,
   PaymentIdSchema,
+  ReviewIdSchema,
   type AccountId,
   type ActivityLogId,
   type AdministrativeAvailabilityBlockId,
@@ -31,6 +32,7 @@ import {
   type ParticipantId,
   type ParticipantManagementId,
   type PaymentId,
+  type ReviewId,
 } from './identifiers';
 
 const DETERMINISTIC_ID_PART_SEPARATOR = '\u001f';
@@ -116,6 +118,19 @@ export function bookingIdFromAcceptedProposal(proposalId: BookingProposalId): Bo
 export function paymentIdFromBookingId(bookingId: BookingId): PaymentId {
   return PaymentIdSchema.parse(
     canonicalDeterministicHash(['payment:v1', 'booking', bookingId])
+  );
+}
+
+export function instructorReviewIdFromBookingAccount(input: {
+  readonly bookingId: BookingId;
+  readonly managingAccountId: AccountId;
+}): ReviewId {
+  return ReviewIdSchema.parse(
+    canonicalDeterministicHash([
+      'instructor_review:v1',
+      input.bookingId,
+      input.managingAccountId,
+    ])
   );
 }
 

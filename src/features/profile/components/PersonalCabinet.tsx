@@ -7,6 +7,7 @@ import {
   ActivityLog,
   WalletLedgerEntry,
 } from '../../../types';
+import type { AccountReviewBookingState } from '@ski-academy/shared-domain';
 import type { LessonBookingCabinetItem } from '../../../features/lesson-bookings/lessonBookingContracts';
 import { cabinetItemToLegacyPresentation } from '../../../features/lesson-bookings/mergeCabinetBookings';
 import type {
@@ -35,6 +36,7 @@ export interface PersonalCabinetProps {
   courseEnrollments?: readonly CourseEnrollmentCabinetItem[];
   sessionItems?: readonly CabinetSessionItem[];
   reviews: Review[];
+  reviewBookingStates?: readonly AccountReviewBookingState[];
   dismissedReviewIds?: string[];
   onDismissReview?: (bookingId: string) => void;
   onCancel: (id: string, reason?: string) => Promise<void>;
@@ -76,6 +78,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   courseEnrollments = [],
   sessionItems = [],
   reviews,
+  reviewBookingStates = [],
   dismissedReviewIds = [],
   onDismissReview,
   onCancel,
@@ -168,17 +171,32 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   }, [selectedChatBookingId, markBookingChatRead, bookings]);
 
   const unreviewedCompletedBookings = useMemo(() => {
+    const statesByBookingId = new Map<string, (typeof reviewBookingStates)[number]>(
+      reviewBookingStates.map((state) => [state.bookingId as string, state])
+    );
     return userBookings.filter((b) => {
-      if (b.status !== 'completed') return false;
+      if (statesByBookingId.get(b.id)?.eligible !== true) return false;
       if (dismissedReviewIds.includes(b.id)) return false;
-      const alreadyReviewed = reviews.some(
-        (r) =>
-          r.bookingId === b.id ||
-          (r.userId === userProfile.uid && r.instructorId === b.instructorId && r.date === b.date)
-      );
-      return !alreadyReviewed;
+      return statesByBookingId.get(b.id)?.reviewed !== true;
     });
-  }, [userBookings, reviews, userProfile.uid, dismissedReviewIds]);
+  }, [userBookings, reviewBookingStates, dismissedReviewIds]);
+
+  const effectiveDismissedReviewIds = useMemo(
+    () => [
+      ...new Set([
+        ...dismissedReviewIds,
+        ...rawBookings
+          .filter((booking) => {
+            const state = reviewBookingStates.find(
+              (candidate) => candidate.bookingId === booking.id
+            );
+            return state?.eligible !== true && state?.reviewed !== true;
+          })
+          .map((booking) => booking.id),
+      ]),
+    ],
+    [dismissedReviewIds, rawBookings, reviewBookingStates]
+  );
 
   const handleCancelClick = (booking: LessonBookingCabinetItem) => {
     const confirmationText = `${t('cancelConfirmMessage')} ${booking.instructorName}? ${t('cancelConfirmSuffix')}`;
@@ -230,7 +248,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
             reviews={reviews}
             activityLogs={activityLogs}
             walletLedgerEntries={walletLedgerEntries}
-            dismissedReviewIds={dismissedReviewIds}
+            dismissedReviewIds={effectiveDismissedReviewIds}
             skillConfig={skillConfig}
             achievementsConfig={achievementsConfig}
             unreviewedCompletedBookings={unreviewedCompletedBookings}

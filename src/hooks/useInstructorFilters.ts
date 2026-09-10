@@ -41,7 +41,7 @@ export const useInstructorFilters = (language: Language) => {
         return matchSearch && matchSpec && matchLang;
       })
       .sort((a, b) => {
-        if (sortBy === 'rating') return b.rating - a.rating;
+        if (sortBy === 'rating') return (b.rating ?? -1) - (a.rating ?? -1);
         if (sortBy === 'experience') return b.experienceYears - a.experienceYears;
         if (sortBy === 'priceAsc') return a.pricePerHour - b.pricePerHour;
         if (sortBy === 'priceDesc') return b.pricePerHour - a.pricePerHour;

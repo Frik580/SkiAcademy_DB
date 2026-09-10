@@ -7,6 +7,7 @@ import { Booking, Review, UserProfile } from '../../types';
 import { ActionButton } from '../../ui/ActionButton';
 import { BodyScrollLock } from '../../ui/BodyScrollLock';
 import { StateCard } from '../../ui/StateCard';
+import type { AccountReviewBookingState } from '@ski-academy/shared-domain';
 
 export interface Notification {
   id: string;
@@ -123,6 +124,7 @@ export interface NotificationHubModalProps {
   onClose: () => void;
   bookings?: Booking[];
   reviews?: Review[];
+  reviewBookingStates?: readonly AccountReviewBookingState[];
   userProfile?: UserProfile | null;
   dismissedReviewIds?: string[];
   onDismissReview?: (bookingId: string) => void;
@@ -136,6 +138,7 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
   onClose,
   bookings = [],
   reviews = [],
+  reviewBookingStates = [],
   userProfile = null,
   dismissedReviewIds = [],
   onDismissReview,
@@ -155,16 +158,16 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
   if (!isOpen) return null;
 
   const uid = userProfile?.uid;
+  void reviews;
+  const reviewStatesByBookingId = new Map<string, (typeof reviewBookingStates)[number]>(
+    reviewBookingStates.map((state) => [state.bookingId as string, state])
+  );
   const userBookings = uid ? bookings.filter((b) => b.userId === uid && !b.isDeleted) : [];
   const unreviewedCompletedBookings = userBookings.filter((b) => {
-    if (b.status !== 'completed') return false;
+    const reviewState = reviewStatesByBookingId.get(b.id);
+    if (reviewState?.eligible !== true || reviewState.reviewed) return false;
     if (dismissedReviewIds.includes(b.id)) return false;
-    const alreadyReviewed = reviews.some(
-      (r) =>
-        r.bookingId === b.id ||
-        (uid && r.userId === uid && r.instructorId === b.instructorId && r.date === b.date)
-    );
-    return !alreadyReviewed;
+    return true;
   });
 
   const notificationsToShow =

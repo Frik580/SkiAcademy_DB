@@ -96,13 +96,7 @@ export const PersonalCabinetModals: React.FC<PersonalCabinetModalsProps> = ({
         onToggleRecommendation={onToggleRecommendation}
         hasReview={
           lessonDetailsBooking
-            ? reviews.some(
-                (r) =>
-                  r.bookingId === lessonDetailsBooking.id ||
-                  (r.userId === userProfile.uid &&
-                    r.instructorId === lessonDetailsBooking.instructorId &&
-                    r.date === lessonDetailsBooking.date)
-              )
+            ? reviews.some((r) => r.bookingId === lessonDetailsBooking.id)
             : false
         }
       />

@@ -316,7 +316,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
         id,
         name,
         specialty: 'ski',
-        rating: 0,
+        rating: null,
         reviewsCount: 0,
         languages: [],
         experienceYears: 0,

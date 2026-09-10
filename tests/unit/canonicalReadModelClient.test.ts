@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  INSTRUCTOR_REVIEW_ACCOUNT_BOOKING_IDS_MAX,
   QueryAdminIssueReadModelsInputSchema,
   QueryAdminFinanceReadModelsInputSchema,
+  QueryInstructorReviewReadModelsInputSchema,
   QueryLessonBookingReadModelsInputSchema,
 } from '@ski-academy/shared-domain';
 import {
@@ -13,6 +15,9 @@ import {
   queryInstructorCourseAssignmentReadModels,
   queryLessonBookingReadModels,
   queryParticipantInstructorAccessReadModels,
+  queryInstructorReviewReadModels,
+  __resetCanonicalReadInFlightRegistryForTests,
+  queryAccountInstructorReviewReadModels,
 } from '../../src/lib/canonical/canonicalReadModelClient';
 import {
   QUERY_BOOKING_CHANGE_REQUEST_READ_MODELS_CALLABLE,
@@ -23,6 +28,7 @@ import {
   QUERY_INSTRUCTOR_COURSE_ASSIGNMENT_READ_MODELS_CALLABLE,
   QUERY_LESSON_BOOKING_READ_MODELS_CALLABLE,
   QUERY_PARTICIPANT_INSTRUCTOR_ACCESS_READ_MODELS_CALLABLE,
+  QUERY_INSTRUCTOR_REVIEW_READ_MODELS_CALLABLE,
 } from '../../src/lib/canonical/canonicalReadModelClient';
 
 const callFunctionMock = vi.fn();
@@ -34,6 +40,156 @@ vi.mock('../../src/lib/functions/functionsClient', () => ({
 describe('canonicalReadModelClient', () => {
   beforeEach(() => {
     callFunctionMock.mockReset();
+    __resetCanonicalReadInFlightRegistryForTests();
+  });
+  it('does not deduplicate distinct exact-ID review reads', async () => {
+    callFunctionMock.mockResolvedValue({
+      scope: 'account_reviews',
+      reviews: [],
+      bookingStates: [],
+    });
+
+    await Promise.all([
+      queryInstructorReviewReadModels({
+        scope: 'account_reviews',
+        bookingIds: ['booking-review-read-a' as never],
+      }),
+      queryInstructorReviewReadModels({
+        scope: 'account_reviews',
+        bookingIds: ['booking-review-read-b' as never],
+      }),
+    ]);
+
+    expect(callFunctionMock).toHaveBeenCalledTimes(2);
+    expect(callFunctionMock.mock.calls.map((call) => call[0])).toEqual([
+      QUERY_INSTRUCTOR_REVIEW_READ_MODELS_CALLABLE,
+      QUERY_INSTRUCTOR_REVIEW_READ_MODELS_CALLABLE,
+    ]);
+    expect(callFunctionMock.mock.calls[0]?.[2].idempotencyKey).not.toBe(
+      callFunctionMock.mock.calls[1]?.[2].idempotencyKey
+    );
+  });
+  it('skips account review callable when bookingIds are empty', async () => {
+    await queryAccountInstructorReviewReadModels([]);
+    expect(callFunctionMock).not.toHaveBeenCalled();
+  });
+
+  it('dedupes bookingIds before chunking account review reads', async () => {
+    callFunctionMock.mockResolvedValue({
+      scope: 'account_reviews',
+      reviews: [],
+      bookingStates: [],
+    });
+    await queryAccountInstructorReviewReadModels([
+      'booking-review-dup' as never,
+      'booking-review-dup' as never,
+    ]);
+    expect(callFunctionMock).toHaveBeenCalledTimes(1);
+    expect((callFunctionMock.mock.calls[0]?.[1] as { bookingIds: string[] }).bookingIds).toEqual([
+      'booking-review-dup',
+    ]);
+  });
+
+  it('chunks account review reads at the schema max', async () => {
+    callFunctionMock.mockResolvedValue({
+      scope: 'account_reviews',
+      reviews: [],
+      bookingStates: [],
+    });
+    const ids = Array.from({ length: 27 }, (_, index) => `booking-review-${index}` as never);
+    await queryAccountInstructorReviewReadModels(ids);
+    expect(callFunctionMock).toHaveBeenCalledTimes(2);
+    expect(
+      callFunctionMock.mock.calls.map(
+        (call) => (call[1] as { bookingIds: unknown[] }).bookingIds.length
+      )
+    ).toEqual([INSTRUCTOR_REVIEW_ACCOUNT_BOOKING_IDS_MAX, 2]);
+    for (const call of callFunctionMock.mock.calls) {
+      expect(
+        QueryInstructorReviewReadModelsInputSchema.safeParse(call[1]).success
+      ).toBe(true);
+    }
+  });
+
+  it('uses distinct idempotency keys per account review chunk', async () => {
+    callFunctionMock.mockResolvedValue({
+      scope: 'account_reviews',
+      reviews: [],
+      bookingStates: [],
+    });
+    await queryAccountInstructorReviewReadModels(
+      Array.from({ length: INSTRUCTOR_REVIEW_ACCOUNT_BOOKING_IDS_MAX + 1 }, (_, index) =>
+        `booking-review-chunk-${index}` as never
+      )
+    );
+    const keys = callFunctionMock.mock.calls.map((call) => call[2]?.idempotencyKey);
+    expect(new Set(keys).size).toBe(2);
+  });
+
+  it('merges account review chunks and preserves reviewed state from later chunks', async () => {
+    callFunctionMock
+      .mockResolvedValueOnce({
+        scope: 'account_reviews',
+        reviews: [],
+        bookingStates: Array.from(
+          { length: INSTRUCTOR_REVIEW_ACCOUNT_BOOKING_IDS_MAX },
+          (_, index) => ({
+            bookingId: `booking-review-merge-${index}`,
+            instructorId: 'instructor-review-merge',
+            eligible: true,
+            reviewed: false,
+          })
+        ),
+      })
+      .mockResolvedValueOnce({
+        scope: 'account_reviews',
+        reviews: [],
+        bookingStates: [
+          {
+            bookingId: 'booking-review-merge-25',
+            instructorId: 'instructor-review-merge',
+            eligible: true,
+            reviewed: true,
+            reviewId: 'review-merge-25',
+            reviewedAt: { seconds: 1, nanoseconds: 0 },
+          },
+        ],
+      });
+
+    const result = await queryAccountInstructorReviewReadModels(
+      Array.from({ length: 26 }, (_, index) => `booking-review-merge-${index}` as never)
+    );
+    const reviewed = result.bookingStates.find(
+      (state) => state.bookingId === 'booking-review-merge-25'
+    );
+    expect(reviewed?.reviewed).toBe(true);
+  });
+
+  it('returns partial account review data when one chunk fails', async () => {
+    callFunctionMock
+      .mockResolvedValueOnce({
+        scope: 'account_reviews',
+        reviews: [],
+        bookingStates: [
+          {
+            bookingId: 'booking-review-partial-0',
+            instructorId: 'instructor-review-partial',
+            eligible: true,
+            reviewed: true,
+            reviewId: 'review-partial-0',
+            reviewedAt: { seconds: 1, nanoseconds: 0 },
+          },
+        ],
+      })
+      .mockRejectedValueOnce(new Error('chunk failed'));
+
+    const result = await queryAccountInstructorReviewReadModels(
+      Array.from({ length: INSTRUCTOR_REVIEW_ACCOUNT_BOOKING_IDS_MAX + 1 }, (_, index) =>
+        `booking-review-partial-${index}` as never
+      )
+    );
+    expect(result.bookingStates).toHaveLength(1);
+    expect(result.bookingStates[0]?.bookingId).toBe('booking-review-partial-0');
   });
   it('calls queryLessonBookingReadModels callable for instructor_hot with transport idempotency key', async () => {
     callFunctionMock.mockResolvedValueOnce({

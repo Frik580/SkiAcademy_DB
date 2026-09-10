@@ -29,3 +29,5 @@ export * from './queryAdminPlannerReadModelsCallable';
 export * from './instructorOccupancyReadSupport';
 export * from './instructorOccupancyReadModels';
 export * from './queryInstructorOccupancyReadModelsCallable';
+export * from './instructorReviewReadModels';
+export * from './queryInstructorReviewReadModelsCallable';

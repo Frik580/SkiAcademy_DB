@@ -47,17 +47,13 @@ export function useReviewFlow({ onAddReview }: UseReviewFlowParams) {
       e.preventDefault();
       if (!reviewBooking) return;
 
-      if (!reviewComment.trim()) {
-        addNotification('warning', t('reviewEmpty'), t('reviewEmptyDesc'));
-        return;
-      }
-
       setIsSubmittingReview(true);
       try {
+        const normalizedComment = reviewComment.trim();
         await onAddReview({
           instructorId: reviewBooking.instructorId,
           rating: reviewRating,
-          comment: reviewComment.trim(),
+          ...(normalizedComment ? { comment: normalizedComment } : {}),
           bookingId: reviewBooking.id,
         });
         addNotification('success', t('reviewShared'), t('reviewSharedDesc'));

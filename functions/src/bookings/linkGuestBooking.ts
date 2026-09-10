@@ -133,14 +133,6 @@ export function linkGuestBookingHandler(db: Firestore) {
           }
         }
 
-        const rSnap = await db.collection('reviews').where('userId', '==', oldUserId).get();
-        if (!rSnap.empty) {
-          const batch = db.batch();
-          for (const rDoc of rSnap.docs) {
-            batch.update(rDoc.ref, { userId: targetUserId });
-          }
-          await batch.commit();
-        }
       } catch (err) {
         console.error('Error linking guest data post-transaction:', err);
       }

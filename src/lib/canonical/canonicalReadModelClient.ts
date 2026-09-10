@@ -34,6 +34,11 @@ import {
   type QueryManagedParticipantPickerReadModelsResult,
   type QueryParticipantInstructorAccessReadModelsInput,
   type QueryParticipantInstructorAccessReadModelsResult,
+  type QueryInstructorReviewReadModelsInput,
+  type QueryInstructorReviewReadModelsResult,
+  type BookingId,
+  type InstructorId,
+  INSTRUCTOR_REVIEW_ACCOUNT_BOOKING_IDS_MAX,
 } from '@ski-academy/shared-domain';
 import { callFunction, type FunctionsCallOptions } from '../functions/functionsClient';
 import { auth } from '../../infrastructure/firebase';
@@ -61,6 +66,8 @@ export const QUERY_ADMIN_PLANNER_READ_MODELS_CALLABLE = 'queryAdminPlannerReadMo
 export const QUERY_INSTRUCTOR_OCCUPANCY_READ_MODELS_CALLABLE = 'queryInstructorOccupancyReadModels';
 export const QUERY_LESSON_PRICING_SETTINGS_READ_MODEL_CALLABLE =
   'queryLessonPricingSettingsReadModel';
+export const QUERY_INSTRUCTOR_REVIEW_READ_MODELS_CALLABLE =
+  'queryInstructorReviewReadModels';
 
 export async function queryLessonPricingSettingsReadModel(
   input: QueryLessonPricingSettingsReadModelInput
@@ -70,6 +77,29 @@ export async function queryLessonPricingSettingsReadModel(
     QueryLessonPricingSettingsReadModelResult
   >(QUERY_LESSON_PRICING_SETTINGS_READ_MODEL_CALLABLE, input, {
     idempotencyKey: input.idempotencyKey ?? 'read:lesson_pricing_settings:current',
+    maxAttempts: 1,
+  });
+}
+
+export async function queryInstructorReviewReadModels(
+  input: QueryInstructorReviewReadModelsInput
+): Promise<QueryInstructorReviewReadModelsResult> {
+  const target =
+    input.scope === 'instructor_reviews'
+      ? `${input.instructorId}:${input.cursor ?? 'start'}`
+      : input.scope === 'public_summaries'
+        ? [...input.instructorIds].sort().join(',')
+        : [...(input.bookingIds ?? [])].sort().join(',');
+  const identityHash = canonicalDeterministicHash([
+    'read:instructor_review:v1',
+    input.scope,
+    target,
+  ]);
+  return invokeCanonicalReadCallable<
+    QueryInstructorReviewReadModelsInput,
+    QueryInstructorReviewReadModelsResult
+  >(QUERY_INSTRUCTOR_REVIEW_READ_MODELS_CALLABLE, input, {
+    idempotencyKey: `read:instructor_review:${identityHash}`,
     maxAttempts: 1,
   });
 }
@@ -135,6 +165,65 @@ function invokeCanonicalReadCallable<Input, Output>(
   (pending as { promise: Promise<unknown> }).promise = promise;
   inFlightCanonicalReads.set(key, pending);
   return promise;
+}
+
+export async function queryPublicInstructorRatingSummaries(
+  instructorIds: readonly InstructorId[]
+): Promise<
+  Extract<QueryInstructorReviewReadModelsResult, { scope: 'public_summaries' }>
+> {
+  const uniqueIds = [...new Set(instructorIds)];
+  const chunks: InstructorId[][] = [];
+  for (let index = 0; index < uniqueIds.length; index += 100) {
+    chunks.push(uniqueIds.slice(index, index + 100));
+  }
+  const results = await Promise.all(
+    chunks.map((chunk) =>
+      queryInstructorReviewReadModels({ scope: 'public_summaries', instructorIds: chunk })
+    )
+  );
+  return {
+    scope: 'public_summaries',
+    summaries: results.flatMap((result) =>
+      result.scope === 'public_summaries' ? result.summaries : []
+    ),
+  };
+}
+
+export async function queryAccountInstructorReviewReadModels(
+  bookingIds: readonly BookingId[]
+): Promise<Extract<QueryInstructorReviewReadModelsResult, { scope: 'account_reviews' }>> {
+  const uniqueIds = [...new Set(bookingIds)];
+  if (uniqueIds.length === 0) {
+    return { scope: 'account_reviews', reviews: [], bookingStates: [] };
+  }
+  const chunks: BookingId[][] = [];
+  for (let index = 0; index < uniqueIds.length; index += INSTRUCTOR_REVIEW_ACCOUNT_BOOKING_IDS_MAX) {
+    chunks.push(uniqueIds.slice(index, index + INSTRUCTOR_REVIEW_ACCOUNT_BOOKING_IDS_MAX));
+  }
+  const results = await Promise.allSettled(
+    chunks.map((chunk) =>
+      queryInstructorReviewReadModels({ scope: 'account_reviews', bookingIds: chunk })
+    )
+  );
+  const fulfilled = results.flatMap((result) =>
+    result.status === 'fulfilled' && result.value.scope === 'account_reviews' ? [result.value] : []
+  );
+  if (fulfilled.length === 0) {
+    const firstFailure = results.find((result) => result.status === 'rejected');
+    throw firstFailure?.status === 'rejected'
+      ? firstFailure.reason
+      : new Error('Account review read failed.');
+  }
+  const reviews = fulfilled.flatMap((result) => result.reviews);
+  const bookingStates = fulfilled.flatMap((result) => result.bookingStates);
+  return {
+    scope: 'account_reviews',
+    reviews: [...new Map(reviews.map((review) => [review.reviewId, review])).values()],
+    bookingStates: [
+      ...new Map(bookingStates.map((state) => [state.bookingId, state])).values(),
+    ],
+  };
 }
 
 export async function queryAdminCourseEnrollmentReadModels(

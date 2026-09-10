@@ -54,7 +54,7 @@ export function mapPlannerInstructors(model: AdminPlannerReadModel): Instructor[
     id: instructor.instructorId,
     name: instructor.name,
     specialty: instructor.specialty ?? 'ski',
-    rating: 0,
+    rating: null,
     reviewsCount: 0,
     languages: [],
     experienceYears: 0,

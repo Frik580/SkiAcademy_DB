@@ -315,21 +315,6 @@ export async function migratePreExistingProfile(
     // during profile migration; participant linking is owned by canonical commands.
 
     try {
-      logger.debug(`Checking reviews for oldUid: ${oldUid}...`);
-      const rQuery = query(collection(db, 'reviews'), where('userId', '==', oldUid));
-      const rSnap = await getDocs(rQuery);
-      logger.debug(`Found ${rSnap.size} reviews to update.`);
-      for (const rDoc of rSnap.docs) {
-        logger.debug(`Updating review ${rDoc.id}...`);
-        await updateDoc(doc(db, 'reviews', rDoc.id), { userId: newUid });
-      }
-      logger.debug('Reviews update complete.');
-    } catch (err: any) {
-      logger.error('Migration error at step 4: Update reviews failed', err);
-      throw new Error(`Update reviews failed: ${err.message}`);
-    }
-
-    try {
       logger.debug(`Deleting old user profile users/${oldUid}...`);
       await deleteDoc(doc(db, 'users', oldUid));
       logger.debug(`Successfully deleted old user profile users/${oldUid}`);

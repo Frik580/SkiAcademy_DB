@@ -1322,8 +1322,6 @@ function createInstructorCatalogHandler(
               : { phoneNumber: envelope.intent.phoneNumber }),
             ...(linkAccountId ? { linkedAccountId: linkAccountId } : {}),
             isAvailable: true,
-            rating: 0,
-            reviewsCount: 0,
             revision: 1,
             createdAt: decidedAt,
             updatedAt: decidedAt,

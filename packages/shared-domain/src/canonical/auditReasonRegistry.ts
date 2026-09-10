@@ -17,6 +17,7 @@ export const AUDIT_REASON_CODES = [
   'audit_correction',
   'participant_management',
   'participant_access_control',
+  'customer_review',
   'other',
 ] as const;
 
@@ -48,6 +49,7 @@ const COMMAND_KIND_REASON_CODES: Partial<Record<CommandKind, readonly AuditReaso
     'manual_override',
     'other',
   ],
+  create_instructor_review: ['customer_review'],
   record_course_day_attendance: [
     'scheduled_system_action',
     'attendance_correction',

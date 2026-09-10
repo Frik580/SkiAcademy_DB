@@ -17,6 +17,7 @@ export const CANONICAL_ID_KINDS = [
   'attendance',
   'booking_proposal',
   'booking_change_request',
+  'review',
   'admin_issue',
   'administrative_availability_block',
   'resource_claim',
@@ -70,6 +71,7 @@ export const PaymentIdSchema = canonicalIdSchema('payment');
 export const AttendanceIdSchema = canonicalIdSchema('attendance');
 export const BookingProposalIdSchema = canonicalIdSchema('booking_proposal');
 export const BookingChangeRequestIdSchema = canonicalIdSchema('booking_change_request');
+export const ReviewIdSchema = canonicalIdSchema('review');
 export const AdminIssueIdSchema = canonicalIdSchema('admin_issue');
 export const AdministrativeAvailabilityBlockIdSchema = canonicalIdSchema(
   'administrative_availability_block'
@@ -105,6 +107,7 @@ export type PaymentId = z.output<typeof PaymentIdSchema>;
 export type AttendanceId = z.output<typeof AttendanceIdSchema>;
 export type BookingProposalId = z.output<typeof BookingProposalIdSchema>;
 export type BookingChangeRequestId = z.output<typeof BookingChangeRequestIdSchema>;
+export type ReviewId = z.output<typeof ReviewIdSchema>;
 export type AdminIssueId = z.output<typeof AdminIssueIdSchema>;
 export type AdministrativeAvailabilityBlockId = z.output<
   typeof AdministrativeAvailabilityBlockIdSchema
@@ -142,6 +145,7 @@ const referenceSchemas = {
   attendance: AttendanceIdSchema,
   booking_proposal: BookingProposalIdSchema,
   booking_change_request: BookingChangeRequestIdSchema,
+  review: ReviewIdSchema,
   admin_issue: AdminIssueIdSchema,
   administrative_availability_block: AdministrativeAvailabilityBlockIdSchema,
   resource_claim: ResourceClaimIdSchema,

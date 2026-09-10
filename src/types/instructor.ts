@@ -2,8 +2,9 @@ export interface Instructor {
   id: string;
   name: string;
   specialty: 'ski' | 'snowboard' | 'both';
-  rating: number;
+  rating: number | null;
   reviewsCount: number;
+  ratingCounts?: number[];
   languages: string[];
   experienceYears: number;
   bio: string;
@@ -22,7 +23,7 @@ export interface Review {
   userName: string;
   userAvatar: string;
   rating: number;
-  comment: string;
+  comment?: string;
   date: string;
   bookingId?: string;
 }

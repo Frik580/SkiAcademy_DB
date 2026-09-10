@@ -60,9 +60,17 @@ export const InstructorDashboardHeader: React.FC<InstructorDashboardHeaderProps>
           </span>
           <div className="flex items-baseline gap-1.5">
             <span className="text-3xl font-serif font-light text-[var(--ink)]">
-              {linkedInstructor?.rating || '0.0'}
+              {linkedInstructor?.rating !== null &&
+              linkedInstructor?.rating !== undefined &&
+              linkedInstructor.reviewsCount > 0
+                ? linkedInstructor.rating.toFixed(1)
+                : t('instructorNoReviews')}
             </span>
-            <Star className="w-4 h-4 text-amber-400 fill-amber-400 self-center" />
+            {linkedInstructor?.rating !== null &&
+              linkedInstructor?.rating !== undefined &&
+              linkedInstructor.reviewsCount > 0 && (
+                <Star className="w-4 h-4 text-amber-400 fill-amber-400 self-center" />
+              )}
           </div>
           <span className="text-[8px] font-mono text-[var(--ink-dim)] uppercase tracking-wider block">
             {linkedInstructor?.reviewsCount || 0} {t('instructorReviewsCount')}

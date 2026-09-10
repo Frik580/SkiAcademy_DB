@@ -140,9 +140,7 @@ export const getRecentLessons = (
     )
     .slice(0, 4)
     .map((b) => {
-      const review = reviews.find(
-        (r) => r.bookingId === b.id || (r.userId === b.userId && r.date === b.date)
-      );
+      const review = reviews.find((r) => r.bookingId === b.id);
       const needsReview =
         isReviewEligibleLessonStatus(b.status) &&
         !isBookingReviewed(b, reviews, dismissedReviewIds);
@@ -151,7 +149,7 @@ export const getRecentLessons = (
         id: b.id,
         title: getRecentLessonTitle(b, courses, language),
         dateLabel: formatRecentLessonDateLabel(b, courses, language),
-        rating: review?.rating ?? 5,
+        rating: review?.rating,
         reviewSnippet: review?.comment,
         instructorName: getRecentLessonInstructorLabel(b, language),
         booking: b,

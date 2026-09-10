@@ -7,7 +7,6 @@ import { LazyLoad } from '../../ui/LazyLoad';
 import { CardSkeleton, Skeleton } from '../../ui/Skeleton';
 import { loadPersonalCabinet } from '../../features/profile';
 import { useProfileStore } from '../../features/profile/profileStore';
-import { addReviewService } from '../../features/bookings/bookingService';
 import { useBookingsStore } from '../../features/bookings/bookingsStore';
 import { useCoursesStore } from '../../features/courses/coursesStore';
 import { useSettingsStore } from '../../features/settings/settingsStore';
@@ -32,6 +31,7 @@ import {
 } from '../../features/course-enrollments';
 import { useNotifications } from '../../features/notifications';
 import type { Review } from '../../types';
+import { createCanonicalInstructorReview } from '../../features/reviews';
 import {
   presentCabinetCancellationNotifications,
   type CabinetCancellationCommandResult,
@@ -65,6 +65,7 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
   const lessonBookings = useLessonBookingStore(selectLessonBookingItems);
   const courseEnrollments = useCourseEnrollmentStore(selectCourseEnrollmentItems);
   const reviews = useBookingsStore((state) => state.reviews);
+  const reviewBookingStates = useBookingsStore((state) => state.reviewBookingStates);
   const instructors = useBookingsStore((state) => state.instructors);
   const courses = useCoursesStore((state) => state.courses);
   const walletLedgerEntries = useWalletStore((state) => state.walletLedgerEntries);
@@ -81,10 +82,23 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
   const handleUpdateProfile = useProfileStore((state) => state.handleUpdateProfile);
   const handleAddReview = useCallback(
     async (review: Omit<Review, 'id' | 'userId' | 'userName' | 'userAvatar' | 'date'>) => {
-      if (!userProfile) return;
-      await addReviewService(review, userProfile, reviews);
+      if (!userProfile || !review.bookingId) return;
+      const booking = lessonBookings.find((item) => item.bookingId === review.bookingId);
+      const exercisedCapability = booking
+        ? resolveLessonBookingClientExercisedCapability(booking)
+        : undefined;
+      if (!exercisedCapability) {
+        throw new Error('Review is not authorized for this booking.');
+      }
+      await createCanonicalInstructorReview({
+        accountId: userProfile.uid,
+        bookingId: review.bookingId,
+        rating: review.rating,
+        comment: review.comment,
+        exercisedCapability,
+      });
     },
-    [reviews, userProfile]
+    [lessonBookings, userProfile]
   );
   const { requestCancellation, refetchAccountHotBookings } = useLessonBookingCommands(
     userProfile?.uid
@@ -233,6 +247,7 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
               courseEnrollments={courseEnrollments}
               sessionItems={sessionItems}
               reviews={reviews}
+              reviewBookingStates={reviewBookingStates}
               dismissedReviewIds={dismissedReviewIds}
               onDismissReview={handleDismissReview}
               onCancel={handleCanonicalCancel}

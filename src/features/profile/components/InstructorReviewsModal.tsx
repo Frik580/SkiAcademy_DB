@@ -33,19 +33,9 @@ export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
   // Filter reviews for this instructor
   const instructorReviews = reviews.filter((r) => r.instructorId === targetInstructor.id);
 
-  // Calculate stats
-  const totalReviews = instructorReviews.length;
-  const avgRating =
-    totalReviews > 0
-      ? (instructorReviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews).toFixed(1)
-      : targetInstructor.rating.toFixed(1);
-
-  // Distribution of stars
-  const ratingDistribution = [0, 0, 0, 0, 0]; // 1 to 5 stars
-  instructorReviews.forEach((r) => {
-    const idx = Math.max(1, Math.min(5, Math.round(r.rating))) - 1;
-    ratingDistribution[idx]++;
-  });
+  const totalReviews = targetInstructor.reviewsCount;
+  const avgRating = targetInstructor.rating?.toFixed(1);
+  const ratingDistribution = targetInstructor.ratingCounts ?? [0, 0, 0, 0, 0];
 
   return (
     <AnimatePresence>
@@ -101,12 +91,12 @@ export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
                 {/* Big Rating */}
                 <div className="sm:col-span-5 flex flex-col items-center justify-center text-center sm:border-r border-[var(--border)] pr-2 font-mono">
                   <span className="text-4xl font-light text-[var(--ink)] leading-none">
-                    {avgRating}
+                    {avgRating ?? t('instructorNoReviews')}
                   </span>
                   <div className="flex items-center gap-0.5 mt-2 text-amber-500">
                     {[1, 2, 3, 4, 5].map((star) => {
-                      const val = Number(avgRating);
-                      const isFilled = star <= Math.round(val);
+                      const isFilled =
+                        avgRating !== undefined && star <= Math.round(Number(avgRating));
                       return (
                         <Star
                           key={star}
@@ -203,9 +193,11 @@ export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
                         </div>
 
                         {/* Review text comment */}
-                        <p className="text-xs text-[var(--ink)] leading-relaxed pl-10">
-                          {rev.comment}
-                        </p>
+                        {rev.comment && (
+                          <p className="text-xs text-[var(--ink)] leading-relaxed pl-10">
+                            {rev.comment}
+                          </p>
+                        )}
                       </div>
                     ))}
                   </div>

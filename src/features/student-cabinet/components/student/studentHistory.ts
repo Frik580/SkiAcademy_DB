@@ -286,7 +286,8 @@ export const getHistoryEvents = (
   courses: Course[],
   language: 'en' | 'ru',
   t: (key: TranslationKey) => string,
-  activityLogs: ActivityLog[] = []
+  activityLogs: ActivityLog[] = [],
+  reviews: Review[] = []
 ): HistoryEvent[] => {
   const fromLogs = activityLogs.map((log) =>
     mapActivityLogToHistoryEvent(log, language, t, bookings)
@@ -298,6 +299,28 @@ export const getHistoryEvents = (
       .map((log) => log.metadata?.bookingId)
       .filter(Boolean) as string[]
   );
+  const loggedReviewBookingIds = new Set(
+    activityLogs
+      .filter((log) => log.type === 'review_created')
+      .map((log) => log.metadata?.bookingId)
+      .filter(Boolean) as string[]
+  );
+  const canonicalReviewEvents: HistoryEvent[] = reviews
+    .filter(
+      (review) =>
+        review.userId === userProfile.uid &&
+        review.bookingId &&
+        !loggedReviewBookingIds.has(review.bookingId)
+    )
+    .map((review) => ({
+      id: `review-${review.id}`,
+      date: review.date,
+      dateLabel: formatActivityTimestamp(review.date, language),
+      title: t('scHistoryReviewLeft'),
+      subtitle: t('scHistoryReviewRating').replace('{n}', String(review.rating)),
+      kind: 'review',
+      bookingId: review.bookingId,
+    }));
 
   const backfilledAttended = bookings
     .filter((b) => isAttendedLessonStatus(b.status) && !b.isDeleted && !loggedBookingIds.has(b.id))
@@ -342,20 +365,20 @@ export const getHistoryEvents = (
         )
       : [];
 
-  return [...fromLogs, ...backfilledAttended, ...backfilledNoShows, ...legacyLevel].sort((a, b) =>
+  return [
+    ...fromLogs,
+    ...canonicalReviewEvents,
+    ...backfilledAttended,
+    ...backfilledNoShows,
+    ...legacyLevel,
+  ].sort((a, b) =>
     b.date.localeCompare(a.date)
   );
 };
 
 const isBookingReviewed = (booking: Booking, reviews: Review[], dismissedReviewIds: string[]) => {
   if (dismissedReviewIds.includes(booking.id)) return true;
-  return reviews.some(
-    (review) =>
-      review.bookingId === booking.id ||
-      (review.userId === booking.userId &&
-        review.instructorId === booking.instructorId &&
-        review.date === booking.date)
-  );
+  return reviews.some((review) => review.bookingId === booking.id);
 };
 
 export { isBookingReviewed };
@@ -515,7 +538,7 @@ export const buildStudentHistory = (
   dismissedReviewIds: string[] = []
 ): HistoryEvent[] =>
   enrichHistoryEventsWithActions(
-    getHistoryEvents(userProfile, bookings, courses, language, t, activityLogs),
+    getHistoryEvents(userProfile, bookings, courses, language, t, activityLogs, reviews),
     bookings,
     reviews,
     dismissedReviewIds,

@@ -159,11 +159,7 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
   const unreviewedCompletedBookings = userBookings.filter((b) => {
     if (b.status !== 'completed') return false;
     if (dismissedReviewIds.includes(b.id)) return false;
-    const alreadyReviewed = reviews.some(
-      (r) =>
-        r.bookingId === b.id ||
-        (uid && r.userId === uid && r.instructorId === b.instructorId && r.date === b.date)
-    );
+    const alreadyReviewed = reviews.some((r) => r.bookingId === b.id);
     return !alreadyReviewed;
   });
 

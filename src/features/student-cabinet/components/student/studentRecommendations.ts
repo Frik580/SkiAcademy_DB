@@ -41,7 +41,10 @@ export const getRecommendedInstructors = (
 
   return instructors
     .filter((i) => i.isAvailable && !myIds.has(i.id))
-    .sort((a, b) => b.rating - a.rating || b.reviewsCount - a.reviewsCount)
+    .sort(
+      (a, b) =>
+        (b.rating ?? -1) - (a.rating ?? -1) || b.reviewsCount - a.reviewsCount
+    )
     .slice(0, limit);
 };
 

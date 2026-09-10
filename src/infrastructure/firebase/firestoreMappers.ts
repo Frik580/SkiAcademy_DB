@@ -38,8 +38,12 @@ export const toBooking = (id: string, fields: unknown): Booking | null => {
   logInvalidDocument('bookings', id, result.reason);
   return null;
 };
-export const toInstructor = (id: string, fields: unknown): Instructor =>
-  toDocumentModel<Instructor>(id, fields);
+export const toInstructor = (id: string, fields: unknown): Instructor => ({
+  ...toDocumentModel<Instructor>(id, fields),
+  // Legacy catalog aggregates are untrusted after the canonical review cutover.
+  rating: null,
+  reviewsCount: 0,
+});
 export const toReview = (id: string, fields: unknown): Review =>
   toDocumentModel<Review>(id, fields);
 export const toCourse = (id: string, fields: unknown): Course | null => {

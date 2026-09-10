@@ -273,6 +273,16 @@
         { "fieldPath": "actualInstructorIds", "arrayConfig": "CONTAINS" },
         { "fieldPath": "interval.startsAt.seconds", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "instructor_reviews",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "instructorId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt.seconds", "order": "DESCENDING" },
+        { "fieldPath": "createdAt.nanoseconds", "order": "DESCENDING" },
+        { "fieldPath": "__name__", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [

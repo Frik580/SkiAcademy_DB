@@ -5,6 +5,7 @@ import { Booking } from '../../../types';
 import { useLanguage } from '../../../app/providers/LanguageContext';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';
 import { ActionButton } from '../../../ui/ActionButton';
+import { INSTRUCTOR_REVIEW_COMMENT_MAX_LENGTH } from '../../reviews';
 
 interface ReviewModalProps {
   booking: Booking | null;
@@ -80,7 +81,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
             </label>
             <textarea
               id="review-comment-textarea"
-              required
+              maxLength={INSTRUCTOR_REVIEW_COMMENT_MAX_LENGTH}
               rows={3}
               value={comment}
               onChange={(e) => setComment(e.target.value)}

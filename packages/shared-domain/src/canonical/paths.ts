@@ -24,6 +24,7 @@ import {
   ParticipantManagementIdSchema,
   PaymentIdSchema,
   ProviderEventReceiptIdSchema,
+  ReviewIdSchema,
   ResourceClaimGuardIdSchema,
   ResourceClaimIdSchema,
   activeCourseEnrollmentGuardKey,
@@ -50,6 +51,7 @@ import {
   type ParticipantManagementId,
   type PaymentId,
   type ProviderEventReceiptId,
+  type ReviewId,
   type ResourceClaimGuardId,
   type ResourceClaimId,
 } from './identifiers';
@@ -74,6 +76,8 @@ export const CANONICAL_COLLECTIONS = {
   instructorRelationships: 'instructor_relationships',
   participantBlocks: 'participant_blocks',
   bookings: 'bookings',
+  instructorReviews: 'instructor_reviews',
+  instructorRatingSummaries: 'instructor_rating_summaries',
   lessonPricingSettings: 'lesson_pricing_settings',
   courses: 'courses',
   courseEnrollments: 'course_enrollments',
@@ -103,6 +107,8 @@ const topLevelDocumentSchemas: Readonly<Record<string, z.ZodType<string>>> = {
   instructor_relationships: InstructorRelationshipIdSchema,
   participant_blocks: ParticipantBlockIdSchema,
   bookings: BookingIdSchema,
+  instructor_reviews: ReviewIdSchema,
+  instructor_rating_summaries: InstructorIdSchema,
   lesson_pricing_settings: LessonPricingSettingsIdSchema,
   courses: CourseIdSchema,
   course_enrollments: CourseEnrollmentIdSchema,
@@ -189,6 +195,9 @@ export const canonicalPaths = {
     documentPath('instructor_relationships', id),
   participantBlock: (id: ParticipantBlockId) => documentPath('participant_blocks', id),
   booking: (id: BookingId) => documentPath('bookings', id),
+  instructorReview: (id: ReviewId) => documentPath('instructor_reviews', id),
+  instructorRatingSummary: (id: InstructorId) =>
+    documentPath('instructor_rating_summaries', id),
   lessonPricingSettings: (id: LessonPricingSettingsId) =>
     documentPath('lesson_pricing_settings', id),
   course: (id: CourseId) => documentPath('courses', id),

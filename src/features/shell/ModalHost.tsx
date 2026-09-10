@@ -128,7 +128,10 @@ export const ModalHost: React.FC = () => {
           <InstructorReviewsModal
             isOpen
             onClose={() => setReviewsInstructor(null)}
-            instructor={reviewsInstructor}
+            instructor={
+              instructors.find((instructor) => instructor.id === reviewsInstructor.id) ??
+              reviewsInstructor
+            }
             reviews={reviews}
           />
         </LazyLoad>

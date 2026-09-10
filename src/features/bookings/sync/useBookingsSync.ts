@@ -9,9 +9,8 @@ import {
   onSnapshot,
   OperationType,
   query,
-  where,
 } from '../../../infrastructure/firebase';
-import { toInstructor, toReview } from '../../../infrastructure/firebase';
+import { toInstructor } from '../../../infrastructure/firebase';
 import { QUERY_LIMITS } from '../../../shared';
 import { logger } from '../../../shared';
 import { useAuthStore } from '../../auth/authStore';
@@ -19,6 +18,41 @@ import { useProfileStore } from '../../profile/profileStore';
 import { useUiStore } from '../../shell/uiStore';
 import { useBookingsStore } from '../bookingsStore';
 import { useDataSyncScope } from '../../../store/useDataSyncScope';
+import {
+  queryAccountInstructorReviewReadModels,
+  queryInstructorReviewReadModels,
+  queryPublicInstructorRatingSummaries,
+} from '../../../lib/canonical/canonicalReadModelClient';
+import { BookingIdSchema, InstructorIdSchema } from '@ski-academy/shared-domain';
+import { useLessonBookingStore } from '../../lesson-bookings';
+import { mergeAccountReviewBookingStates } from '../../reviews/mergeAccountReviewBookingStates';
+
+async function loadAllInstructorReviews(instructorId: string) {
+  let page = await queryInstructorReviewReadModels({
+    scope: 'instructor_reviews',
+    instructorId: InstructorIdSchema.parse(instructorId),
+    pageSize: 50,
+  });
+  if (page.scope !== 'instructor_reviews') {
+    throw new Error('Canonical instructor review scope mismatch.');
+  }
+  const reviews = [...page.reviews];
+  const seenCursors = new Set<string>();
+  while (page.hasMore && page.nextCursor && !seenCursors.has(page.nextCursor)) {
+    seenCursors.add(page.nextCursor);
+    page = await queryInstructorReviewReadModels({
+      scope: 'instructor_reviews',
+      instructorId: InstructorIdSchema.parse(instructorId),
+      pageSize: 50,
+      cursor: page.nextCursor,
+    });
+    if (page.scope !== 'instructor_reviews') {
+      throw new Error('Canonical instructor review scope mismatch.');
+    }
+    reviews.push(...page.reviews);
+  }
+  return { ...page, reviews, hasMore: false };
+}
 
 export const useBookingsSync = () => {
   const { catalogueScope, shouldSyncReviews } = useDataSyncScope();
@@ -28,6 +62,8 @@ export const useBookingsSync = () => {
   const userRole = userProfile?.role;
   const instructorId = userProfile?.instructorId;
   const reviewsInstructorId = useUiStore((s) => s.reviewsInstructor?.id);
+  const reviewSyncRequest = useBookingsStore((s) => s.reviewSyncRequest);
+  const lessonBookingItems = useLessonBookingStore((state) => state.items);
 
   useEffect(() => {
     useBookingsStore.getState().resetBookingsPagination();
@@ -70,57 +106,90 @@ export const useBookingsSync = () => {
     );
   }, [catalogueScope, instructorId]);
 
-  // Keep review listeners scoped to the screen and the entity being viewed. A global reviews
-  // collection listener grows with every review, while the cabinet and instructor workspace only
-  // need reviews written by / for the current person.
+  // Canonical review read models are the only product review/rating authority.
   useEffect(() => {
-    const reviewScopes = [
-      ...(shouldSyncReviews && firebaseUserId && userRole === 'user'
-        ? [{ key: `user:${firebaseUserId}`, field: 'userId', value: firebaseUserId }]
-        : []),
-      ...(shouldSyncReviews && instructorId && !reviewsInstructorId
-        ? [{ key: `instructor:${instructorId}`, field: 'instructorId', value: instructorId }]
-        : []),
-      ...(reviewsInstructorId
-        ? [
-            {
-              key: `instructor:${reviewsInstructorId}`,
-              field: 'instructorId',
-              value: reviewsInstructorId,
-            },
-          ]
-        : []),
-    ];
-
-    if (reviewScopes.length === 0) {
-      useBookingsStore.getState().setReviews([]);
-      return;
-    }
-
-    const snapshots = new Map<string, import('../../../types').Review[]>();
-    const publish = () => {
-      const reviews = [
-        ...new Map([...snapshots.values()].flat().map((review) => [review.id, review])).values(),
-      ];
-      useBookingsStore.getState().setReviews(reviews);
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const catalogueInstructorIds = useBookingsStore
+          .getState()
+          .instructors.map((instructor) => InstructorIdSchema.parse(instructor.id));
+        const accountBookingIds = [...lessonBookingItems.values()].map((booking) =>
+          BookingIdSchema.parse(booking.bookingId)
+        );
+        const requests = [
+          ...(catalogueInstructorIds.length > 0
+            ? [
+                queryPublicInstructorRatingSummaries(catalogueInstructorIds),
+              ]
+            : []),
+          ...(shouldSyncReviews && firebaseUserId && userRole === 'user'
+            ? [
+                queryAccountInstructorReviewReadModels(accountBookingIds),
+              ]
+            : []),
+          ...(shouldSyncReviews && instructorId && !reviewsInstructorId
+            ? [loadAllInstructorReviews(instructorId)]
+            : []),
+          ...(reviewsInstructorId
+            ? [loadAllInstructorReviews(reviewsInstructorId)]
+            : []),
+        ];
+        const results = await Promise.allSettled(requests);
+        if (cancelled) return;
+        const settled = results.flatMap((result) =>
+          result.status === 'fulfilled' ? [result.value] : []
+        );
+        if (settled.length === 0) {
+          return;
+        }
+        const summaries = settled.flatMap((result) =>
+          result.scope === 'public_summaries'
+            ? result.summaries
+            : result.scope === 'instructor_reviews'
+              ? [result.summary]
+              : []
+        );
+        const reviews = settled.flatMap((result) =>
+          result.scope === 'account_reviews' || result.scope === 'instructor_reviews'
+            ? result.reviews
+            : []
+        );
+        const incomingBookingStates = settled.flatMap((result) =>
+          result.scope === 'account_reviews' ? result.bookingStates : []
+        );
+        const previousState = useBookingsStore.getState();
+        const hasAccountReviewPayload = settled.some((result) => result.scope === 'account_reviews');
+        useBookingsStore.getState().setCanonicalReviewData({
+          summaries: [
+            ...new Map(summaries.map((summary) => [summary.instructorId, summary])).values(),
+          ],
+          reviews: [...new Map(reviews.map((review) => [review.reviewId, review])).values()],
+          bookingStates: hasAccountReviewPayload
+            ? mergeAccountReviewBookingStates(
+                previousState.reviewBookingStates,
+                incomingBookingStates,
+                accountBookingIds
+              )
+            : previousState.reviewBookingStates,
+        });
+      } catch (error) {
+        logger.error('Canonical review read sync failed:', error);
+      }
     };
-
-    const unsubscribers = reviewScopes.map(({ key, field, value }) =>
-      onSnapshot(
-        query(collection(db, 'reviews'), where(field, '==', value), limit(QUERY_LIMITS.reviews)),
-        (snapshot) => {
-          snapshots.set(
-            key,
-            snapshot.docs.map((reviewDoc) => toReview(reviewDoc.id, reviewDoc.data()))
-          );
-          publish();
-        },
-        (error) => handleFirestoreError(error, OperationType.LIST, 'reviews')
-      )
-    );
-
-    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
-  }, [firebaseUserId, instructorId, reviewsInstructorId, shouldSyncReviews, userRole]);
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    firebaseUserId,
+    instructorId,
+    lessonBookingItems,
+    reviewSyncRequest,
+    reviewsInstructorId,
+    shouldSyncReviews,
+    userRole,
+  ]);
 
   // Individual lesson rows are canonical-only after T32.9A.9A. This compatibility
   // store remains for instructors/reviews and must never repopulate legacy Booking rows.

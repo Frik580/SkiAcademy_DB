@@ -58,6 +58,51 @@ const userProfile = (
   ...(systemRole ? { systemRole } : {}),
 });
 
+describe('canonical instructor reviews', () => {
+  it('denies every client mutation of legacy and canonical review authority', async () => {
+    const userDb = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
+    await seedData(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, 'reviews', 'legacy-review-1'), {
+        userId: USER_ID,
+        instructorId: 'instructor-1',
+        rating: 5,
+        comment: 'Legacy',
+      });
+      await setDoc(doc(db, 'instructor_reviews', 'canonical-review-1'), {
+        reviewId: 'canonical-review-1',
+      });
+      await setDoc(doc(db, 'instructor_rating_summaries', 'instructor-1'), {
+        instructorId: 'instructor-1',
+        reviewsCount: 1,
+        rating: 5,
+      });
+    });
+
+    await assertFails(
+      setDoc(doc(userDb, 'reviews', 'legacy-review-new'), {
+        userId: USER_ID,
+        instructorId: 'instructor-1',
+        rating: 5,
+        comment: 'No longer authoritative',
+      })
+    );
+    await assertFails(updateDoc(doc(userDb, 'reviews', 'legacy-review-1'), { rating: 4 }));
+    await assertFails(deleteDoc(doc(userDb, 'reviews', 'legacy-review-1')));
+    await assertFails(
+      setDoc(doc(userDb, 'instructor_reviews', 'canonical-review-new'), {
+        reviewId: 'canonical-review-new',
+      })
+    );
+    await assertFails(
+      updateDoc(doc(userDb, 'instructor_rating_summaries', 'instructor-1'), {
+        rating: 1,
+        reviewsCount: 99,
+      })
+    );
+  });
+});
+
 async function seedData(callback: (context: RulesTestContext) => Promise<void>) {
   await testEnv.withSecurityRulesDisabled(callback);
 }
@@ -1101,7 +1146,7 @@ describe('T32.8A identity authority containment', () => {
     await assertSucceeds(
       updateDoc(doc(instructorDb, 'instructors', catalogId), { phoneNumber: '+19998887777' })
     );
-    await assertSucceeds(
+    await assertFails(
       updateDoc(doc(userDb, 'instructors', catalogId), { rating: 4.5, reviewsCount: 2 })
     );
     await assertSucceeds(
@@ -1238,7 +1283,7 @@ describe('T32.8A identity authority containment', () => {
         skillComments: { carving: 'Still evaluable' },
       })
     );
-    await assertSucceeds(
+    await assertFails(
       updateDoc(doc(reviewerDb, 'instructors', catalogId), { rating: 4.2, reviewsCount: 3 })
     );
   });

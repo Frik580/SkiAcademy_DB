@@ -16,6 +16,9 @@ export function resetUserScopedStores(): void {
     deletedCompletedStats: { revenue: 0, count: 0 },
     instructors: [],
     reviews: [],
+    reviewBookingStates: [],
+    ratingSummaries: {},
+    reviewSyncRequest: 0,
   });
   useCoursesStore.setState({ courses: [] });
   useProfileStore.setState({

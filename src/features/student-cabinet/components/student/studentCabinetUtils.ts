@@ -92,7 +92,7 @@ export interface RecentLesson {
   id: string;
   title: string;
   dateLabel: string;
-  rating: number;
+  rating?: number;
   reviewSnippet?: string;
   instructorName: string;
   booking: Booking;

@@ -4,6 +4,7 @@ import {
   CourseEnrollmentIdSchema,
   CourseIdSchema,
   GuestSubjectIdSchema,
+  ReviewIdSchema,
 } from '../identifiers';
 import { CanonicalTimestampSchema } from '../primitives';
 
@@ -85,6 +86,17 @@ export type RequestCancellationLifecycleStatus = Readonly<
   z.output<typeof RequestCancellationLifecycleStatusSchema>
 >;
 
+export const CreateInstructorReviewResultPayloadSchema = z
+  .object({
+    outcome: z.enum(['created', 'already_exists']),
+    reviewId: ReviewIdSchema,
+  })
+  .strict();
+
+export type CreateInstructorReviewResultPayload = Readonly<
+  z.output<typeof CreateInstructorReviewResultPayloadSchema>
+>;
+
 export const RequestCancellationResultPayloadSchema = z
   .object({
     lifecycleStatus: RequestCancellationLifecycleStatusSchema,
@@ -102,6 +114,7 @@ export const CommandResultPayloadSchemaByKind = {
     ApplyCanonicalCourseProvisioningManifestResultPayloadSchema,
   request_booking_cancellation: RequestCancellationResultPayloadSchema,
   request_course_enrollment_cancellation: RequestCancellationResultPayloadSchema,
+  create_instructor_review: CreateInstructorReviewResultPayloadSchema,
 } as const;
 
 export type CommandResultPayloadForKind<Kind extends keyof typeof CommandResultPayloadSchemaByKind> =

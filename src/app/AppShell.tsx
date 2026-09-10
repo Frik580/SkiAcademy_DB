@@ -31,7 +31,7 @@ export const AppShell: React.FC = () => {
   const handleSignOut = useAuthStore((s) => s.handleSignOut);
 
   const bookings = useLessonBookingStore(selectLessonBookingItems);
-  const reviews = useBookingsStore((s) => s.reviews);
+  const reviewBookingStates = useBookingsStore((s) => s.reviewBookingStates);
 
   const unreadNotificationCount = useUnreadNotificationCount();
   const { handleMarkNotificationsAsRead } = useNotificationActions();
@@ -66,21 +66,16 @@ export const AppShell: React.FC = () => {
   const unreviewedCompletedCount = useMemo(() => {
     if (!userProfile?.uid) return 0;
 
+    const statesByBookingId = new Map<string, (typeof reviewBookingStates)[number]>(
+      reviewBookingStates.map((state) => [state.bookingId as string, state])
+    );
     return bookings.filter((booking) => {
-      if (booking.status !== 'completed') return false;
+      const reviewState = statesByBookingId.get(booking.id);
+      if (reviewState?.eligible !== true || reviewState.reviewed) return false;
       if (dismissedReviewIds.includes(booking.id)) return false;
-
-      const alreadyReviewed = reviews.some(
-        (review) =>
-          review.bookingId === booking.id ||
-          (review.userId === userProfile.uid &&
-            review.instructorId === booking.instructorId &&
-            review.date === booking.date)
-      );
-
-      return !alreadyReviewed;
+      return true;
     }).length;
-  }, [bookings, reviews, userProfile?.uid, dismissedReviewIds]);
+  }, [bookings, reviewBookingStates, userProfile?.uid, dismissedReviewIds]);
 
   const notificationBadgeCount = unreadNotificationCount + unreviewedCompletedCount;
 

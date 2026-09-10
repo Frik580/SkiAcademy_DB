@@ -45,6 +45,11 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
     const specialtyMeta = `${specialtyText} • ${instructor.experienceYears}${t('yearShort')}`;
     const languagesText = instructor.languages.map(getLanguageLabel).join(', ');
     const isAvailable = instructor.isAvailable;
+    const hasCanonicalRating =
+      instructor.reviewsCount > 0 && instructor.rating !== null;
+    const ratingLabel = hasCanonicalRating
+      ? `${instructor.rating!.toFixed(1)} (${instructor.reviewsCount})`
+      : t('instructorNoReviews');
 
     const ratingControl = onViewReviews ? (
       <button
@@ -53,17 +58,17 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
         className="inline-flex items-center gap-1 text-sm text-amber-500 hover:text-amber-400 hover:underline transition select-none font-sans bg-transparent border-0 p-0 cursor-pointer"
         title={t('readReviews')}
       >
-        <Star className="w-3 h-3 fill-amber-400 stroke-amber-500 shrink-0" />
-        <span>
-          {instructor.rating.toFixed(1)} ({instructor.reviewsCount})
-        </span>
+        {hasCanonicalRating && (
+          <Star className="w-3 h-3 fill-amber-400 stroke-amber-500 shrink-0" />
+        )}
+        <span>{ratingLabel}</span>
       </button>
     ) : (
       <span className="inline-flex items-center gap-1 text-sm text-amber-500 font-sans">
-        <Star className="w-3 h-3 fill-amber-400 stroke-amber-500 shrink-0" />
-        <span>
-          {instructor.rating.toFixed(1)} ({instructor.reviewsCount})
-        </span>
+        {hasCanonicalRating && (
+          <Star className="w-3 h-3 fill-amber-400 stroke-amber-500 shrink-0" />
+        )}
+        <span>{ratingLabel}</span>
       </span>
     );
 

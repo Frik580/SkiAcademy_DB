@@ -49,11 +49,13 @@ export const InstructorReviews: React.FC<InstructorReviewsProps> = ({ workspace 
                   ))}
                 </div>
               </div>
-              <p className="text-xs text-[var(--ink-dim)] leading-relaxed italic font-mono">
-                {'"'}
-                {rev.comment}
-                {'"'}
-              </p>
+              {rev.comment && (
+                <p className="text-xs text-[var(--ink-dim)] leading-relaxed italic font-mono">
+                  {'"'}
+                  {rev.comment}
+                  {'"'}
+                </p>
+              )}
             </div>
           ))}
         </div>

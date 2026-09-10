@@ -32,7 +32,7 @@ import {
 } from '../../features/bookings/bookingTransactions';
 import { activityLogId, logActivityForUser } from '../../domain/activity';
 import { stripUndefinedFields } from '../../domain/course';
-import { Booking, Instructor, LessonRecommendation, Review, UserProfile } from '../../types';
+import { Booking, Instructor, LessonRecommendation } from '../../types';
 import type { AvailabilitySlot } from '../../types';
 
 export async function getInstructorAvailabilitySlots(
@@ -243,51 +243,11 @@ export async function linkGuestBookingService(
   }
 }
 
-export async function addReviewService(
-  newReviewInput: Omit<Review, 'id' | 'userId' | 'userName' | 'userAvatar' | 'date'>,
-  userProfile: UserProfile,
-  existingReviews: Review[],
-  booking?: Booking
-): Promise<Review> {
-  const newReview: Review = {
-    id: `rev_${Date.now()}`,
-    userId: userProfile.uid,
-    userName: userProfile.displayName,
-    userAvatar: userProfile.avatarUrl,
-    date: new Date().toISOString().split('T')[0],
-    ...newReviewInput,
-  };
-  await setDoc(doc(db, 'reviews', newReview.id), newReview);
-
-  await logActivityForUser(
-    userProfile.uid,
-    userProfile.uid,
-    'review_created',
-    {
-      reviewId: newReview.id,
-      bookingId: newReviewInput.bookingId,
-      instructorId: newReview.instructorId,
-      instructorName: booking?.instructorName,
-      rating: newReview.rating,
-    },
-    activityLogId.reviewCreated(newReview.id)
-  );
-
-  const instructorReviews = [newReview, ...existingReviews].filter(
-    (review) => review.instructorId === newReview.instructorId
-  );
-  const averageRating =
-    instructorReviews.reduce((sum, review) => sum + review.rating, 0) / instructorReviews.length;
-  await updateDoc(doc(db, 'instructors', newReview.instructorId), {
-    rating: Number(averageRating.toFixed(1)),
-    reviewsCount: instructorReviews.length,
-  });
-
-  return newReview;
-}
-
 export async function addInstructorService(instructor: Instructor): Promise<void> {
   const cleanData = stripUndefinedFields(instructor as unknown as Record<string, unknown>);
+  delete cleanData.rating;
+  delete cleanData.reviewsCount;
+  delete cleanData.ratingCounts;
   await setDoc(doc(db, 'instructors', instructor.id), cleanData);
 }
 
@@ -296,6 +256,9 @@ export async function updateInstructorService(
   affectedBookings: Booking[]
 ): Promise<void> {
   const cleanData = stripUndefinedFields(instructor as unknown as Record<string, unknown>);
+  delete cleanData.rating;
+  delete cleanData.reviewsCount;
+  delete cleanData.ratingCounts;
   await setDoc(doc(db, 'instructors', instructor.id), cleanData);
 
   if (affectedBookings.length === 0) return;

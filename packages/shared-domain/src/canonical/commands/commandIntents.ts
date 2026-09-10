@@ -23,6 +23,10 @@ import { CourseCatalogContentInputSchema } from '../courseCatalogContent';
 import { AdministrativeAvailabilityBlockKindSchema } from '../administrativeAvailabilityBlock';
 import { MonetaryPaymentEffectSchema } from '../paymentWallet';
 import { MaxParticipantsPerLessonSchema } from '../lessonPricingSettings';
+import {
+  InstructorReviewCommentSchema,
+  InstructorReviewRatingSchema,
+} from '../instructorReview';
 import { AggregateRevisionSchema, KztMinorUnitsSchema } from '../primitives';
 import {
   BookingLessonNotesSchema,
@@ -473,6 +477,16 @@ export const CommandIntentSchemaByKind = {
     .strict(),
   complete_booking: bookingTargetIntent,
   record_booking_no_show: bookingTargetIntent,
+  create_instructor_review: z
+    .object({
+      bookingId: BookingIdSchema,
+      rating: InstructorReviewRatingSchema,
+      comment: z.preprocess(
+        (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+        InstructorReviewCommentSchema.optional()
+      ),
+    })
+    .strict(),
   create_course_enrollments: z
     .object({
       courseId: CourseIdSchema,

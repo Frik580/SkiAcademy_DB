@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Calendar, Clock } from 'lucide-react';
 import {
   calculateIndividualBookingPriceKzt,
   calculateLessonPartyPriceKzt,
@@ -6,10 +7,26 @@ import {
 } from '@ski-academy/shared-domain';
 import type { InstructorProposalPartyCandidate } from '../bookingCollaborationContracts';
 import { useBookingCollaborationTranslations } from '../useBookingCollaborationTranslations';
+import { useRescheduleBookingAvailability } from '../useRescheduleBookingAvailability';
+import { toLocalDateStr } from '../../../domain/availability';
+import { resolveLessonStartTimeSelection } from '../../bookings/instructorOccupancyForBookingModal';
+import { BookingAppleDatePicker } from '../../bookings/components/booking_modal/BookingAppleDatePicker';
+import { BookingAppleWheelPicker } from '../../bookings/components/booking_modal/BookingAppleWheelPicker';
+import { buildBookingTimePickerOptions } from '../../bookings/components/booking_modal/bookingTimePickerOptions';
+import { formatDurationLabel } from '../../../lib/i18n/duration';
+import { useLanguage } from '../../../app/providers/LanguageContext';
 import { ActionButton } from '../../../ui/ActionButton';
+
+const DURATION_HOURS_OPTIONS = [1, 2, 3, 4, 6] as const;
+
+function durationMinutesToHours(minutes: number): number {
+  const hours = minutes / 60;
+  return (DURATION_HOURS_OPTIONS as readonly number[]).includes(hours) ? hours : 2;
+}
 
 export interface CreateProposalModalProps {
   readonly open: boolean;
+  readonly instructorId: string;
   readonly participants: readonly InstructorProposalPartyCandidate[];
   readonly defaultSelectedParticipantIds?: readonly string[];
   readonly maxParticipants?: number;
@@ -32,6 +49,7 @@ export interface CreateProposalModalProps {
 
 export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
   open,
+  instructorId,
   participants,
   defaultSelectedParticipantIds = [],
   maxParticipants,
@@ -44,9 +62,12 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
   onSubmit,
 }) => {
   const copy = useBookingCollaborationTranslations();
+  const { language } = useLanguage();
   const [localDate, setLocalDate] = useState(defaultDate);
   const [localTime, setLocalTime] = useState(defaultTime);
-  const [durationMinutes, setDurationMinutes] = useState(defaultDurationMinutes);
+  const [durationHours, setDurationHours] = useState(() =>
+    durationMinutesToHours(defaultDurationMinutes)
+  );
   const selectableDefaultIds = () =>
     defaultSelectedParticipantIds.filter((participantId) =>
       participants.some(
@@ -57,11 +78,15 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
     useState<string[]>(selectableDefaultIds);
   const [submitting, setSubmitting] = useState(false);
 
+  const minBookingDateStr = useMemo(() => toLocalDateStr(), []);
+  const locale = language === 'ru' ? 'ru-RU' : 'en-US';
+  const labelStyle = 'mb-1.5 flex items-center gap-1.5 truncate text-xs text-[var(--ink-dim)]';
+
   useEffect(() => {
     if (!open) return;
     setLocalDate(defaultDate);
     setLocalTime(defaultTime);
-    setDurationMinutes(defaultDurationMinutes);
+    setDurationHours(durationMinutesToHours(defaultDurationMinutes));
     setSelectedParticipantIds(selectableDefaultIds());
     setSubmitting(false);
   }, [
@@ -73,6 +98,43 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
     participants,
   ]);
 
+  const { availableSlots, isLoadingBookings, occupancyLoadFailed } = useRescheduleBookingAvailability(
+    {
+      isOpen: open,
+      instructorId,
+      localDate,
+      durationHours,
+      excludeBookingId: '',
+    }
+  );
+
+  const timeOptions = useMemo(
+    () =>
+      buildBookingTimePickerOptions({
+        isLoadingBookings,
+        occupancyLoadFailed,
+        availableSlots,
+        t: copy.t as (key: string) => string,
+      }),
+    [availableSlots, copy.t, isLoadingBookings, occupancyLoadFailed]
+  );
+
+  const durationOptions = useMemo(
+    () =>
+      DURATION_HOURS_OPTIONS.map((hrs) => ({
+        value: String(hrs),
+        label: formatDurationLabel(hrs, language === 'ru' ? 'ru' : 'en'),
+      })),
+    [language]
+  );
+
+  useEffect(() => {
+    const nextTime = resolveLessonStartTimeSelection(localTime, availableSlots);
+    if (nextTime !== localTime) {
+      setLocalTime(nextTime);
+    }
+  }, [availableSlots, localTime]);
+
   const selectedLabels = useMemo(
     () =>
       participants
@@ -80,6 +142,8 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
         .map((participant) => participant.label),
     [participants, selectedParticipantIds]
   );
+
+  const durationMinutes = durationHours * 60;
 
   if (!open) return null;
 
@@ -104,6 +168,15 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
       pricePreviewLabel = pricePreviewLabelProp;
     }
   }
+
+  const canSubmit =
+    !submitting &&
+    !!localDate &&
+    !!localTime &&
+    selectedParticipantIds.length > 0 &&
+    !isLoadingBookings &&
+    !occupancyLoadFailed &&
+    availableSlots.includes(localTime);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -152,37 +225,53 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
             </p>
           )}
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <label className="text-xs text-[var(--ink-dim)] space-y-1">
-            <span>{copy.t('selectDate')}</span>
-            <input
-              type="date"
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label className={labelStyle}>
+              <Calendar className="h-3.5 w-3.5" /> {copy.t('selectDate')}
+            </label>
+            <BookingAppleDatePicker
               value={localDate}
-              onChange={(event) => setLocalDate(event.target.value)}
-              className="w-full rounded-lg border border-[var(--border-subtle)] px-3 py-2 text-sm"
+              onChange={setLocalDate}
+              min={minBookingDateStr}
+              locale={locale}
+              placeholder={copy.t('selectDate')}
+              aria-label={copy.t('selectDate')}
             />
-          </label>
-          <label className="text-xs text-[var(--ink-dim)] space-y-1">
-            <span>{copy.t('collabSelectTime')}</span>
-            <input
-              type="time"
+          </div>
+          <div>
+            <label className={labelStyle}>
+              <Clock className="h-3.5 w-3.5" /> {copy.t('collabSelectTime')}
+            </label>
+            <BookingAppleWheelPicker
               value={localTime}
-              onChange={(event) => setLocalTime(event.target.value)}
-              className="w-full rounded-lg border border-[var(--border-subtle)] px-3 py-2 text-sm"
+              onChange={setLocalTime}
+              options={timeOptions}
+              disabled={isLoadingBookings || occupancyLoadFailed || availableSlots.length === 0}
+              placeholder={
+                isLoadingBookings
+                  ? `${copy.t('loading')}...`
+                  : occupancyLoadFailed
+                    ? copy.t('instructorOccupancyLoadFailed')
+                    : availableSlots.length === 0
+                      ? copy.t('noSlotsAvailable')
+                      : ''
+              }
+              aria-label={copy.t('collabSelectTime')}
             />
-          </label>
+          </div>
+          <div>
+            <label className={labelStyle}>
+              <Clock className="h-3.5 w-3.5" /> {copy.t('durationHours')}
+            </label>
+            <BookingAppleWheelPicker
+              value={String(durationHours)}
+              onChange={(value) => setDurationHours(Number(value))}
+              options={durationOptions}
+              aria-label={copy.t('durationHours')}
+            />
+          </div>
         </div>
-        <label className="text-xs text-[var(--ink-dim)] space-y-1 block">
-          <span>{copy.t('collabDurationMinutes')}</span>
-          <input
-            type="number"
-            min={30}
-            step={30}
-            value={durationMinutes}
-            onChange={(event) => setDurationMinutes(Number(event.target.value))}
-            className="w-full rounded-lg border border-[var(--border-subtle)] px-3 py-2 text-sm"
-          />
-        </label>
         {pricePreviewLabel && <p className="text-xs text-[var(--ink-dim)]">{pricePreviewLabel}</p>}
         <div className="flex justify-end gap-2">
           <ActionButton
@@ -190,7 +279,7 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
             unstyled
             disabled={submitting}
             onClick={onClose}
-            className="px-4 py-2 text-sm rounded-lg border"
+            className="px-4 py-2 text-sm rounded-lg border border-[var(--border-subtle)]"
           >
             {copy.t('cancel')}
           </ActionButton>
@@ -199,7 +288,7 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
             unstyled
             pending={submitting}
             pendingLabel={copy.t('submitting')}
-            disabled={!localDate || !localTime || selectedParticipantIds.length === 0}
+            disabled={!canSubmit}
             onClick={async () => {
               setSubmitting(true);
               try {
@@ -214,7 +303,7 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
                 setSubmitting(false);
               }
             }}
-            className="px-4 py-2 text-sm rounded-lg bg-[var(--accent)] text-white"
+            className="px-4 py-2 text-sm rounded-lg bg-[var(--accent)] text-white disabled:opacity-50"
           >
             {copy.createProposal}
           </ActionButton>

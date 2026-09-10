@@ -91,6 +91,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = (props) =
 
       <CreateProposalModal
         open={collaboration.createProposalParty !== null}
+        instructorId={userProfile.instructorId!}
         participants={collaboration.createProposalParty?.participants ?? []}
         defaultSelectedParticipantIds={
           collaboration.createProposalParty?.selectedParticipantIds ?? []

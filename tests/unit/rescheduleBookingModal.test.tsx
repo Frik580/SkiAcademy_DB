@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import React from 'react';
+import { CreateProposalModal } from '../../src/features/booking-collaboration/components/CreateProposalModal';
 import { RescheduleBookingModal } from '../../src/features/booking-collaboration/components/RescheduleBookingModal';
 import type { LessonBookingCabinetItem } from '../../src/features/lesson-bookings/lessonBookingContracts';
 
@@ -56,6 +57,25 @@ describe('RescheduleBookingModal', () => {
     expect(screen.getByText('collabRescheduleTitle')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'selectDate' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'collabSelectTime' })).toBeInTheDocument();
+  });
+
+  it('create proposal modal renders duration wheel picker', () => {
+    render(
+      <CreateProposalModal
+        open
+        instructorId="instructor_fixture_01"
+        participants={[
+          { participantId: 'student_01', label: 'Student', selectable: true },
+        ]}
+        defaultSelectedParticipantIds={['student_01']}
+        defaultDate="2026-06-15"
+        defaultTime="10:00"
+        onClose={vi.fn()}
+        onSubmit={vi.fn(async () => undefined)}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'durationHours' })).toBeInTheDocument();
   });
 
   it('unmounts when booking is cleared', () => {

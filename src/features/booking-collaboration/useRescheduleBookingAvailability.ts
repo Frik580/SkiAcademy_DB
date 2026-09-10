@@ -43,6 +43,11 @@ export function useRescheduleBookingAvailability(input: {
 
   useEffect(() => {
     if (!input.isOpen || !input.instructorId || !input.localDate) {
+      setIsLoadingBookings(false);
+      setOccupancyLoadFailed(false);
+      setInstructorBookings([]);
+      setOccupancyCourses([]);
+      setOccupancyItems([]);
       return;
     }
 

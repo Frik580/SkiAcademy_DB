@@ -1,6 +1,12 @@
 import type { ActivityLog, Booking, Course, Review, UserProfile } from '../../../../types';
 import { DEFAULT_SKILL_ITEMS, formatAchievementLabel } from '../../../../domain/achievements';
+import {
+  isAttendedLessonStatus,
+  isNoShowLessonStatus,
+  isReviewEligibleLessonStatus,
+} from '../../../../domain/booking';
 import type { TranslationKey } from '../../../../app/providers/LanguageContext';
+import { getBookingStatusLabel } from '../../../../lib/i18n/bookingLabels';
 import { formatDurationLabel } from '../../../../lib/i18n/duration';
 import { hasPendingRecommendations } from '../../lessonRecommendations';
 import {
@@ -16,6 +22,8 @@ const historyEventPrefix = (kind: HistoryEvent['kind']) => {
   switch (kind) {
     case 'training':
       return '✓ ';
+    case 'no_show':
+      return '';
     case 'level':
       return '★ ';
     case 'homework':
@@ -40,6 +48,32 @@ const formatActivityTimestamp = (timestamp: string, language: 'en' | 'ru') => {
   });
 };
 
+const toNoShowHistoryEvent = (
+  booking: Booking,
+  courses: Course[],
+  language: 'en' | 'ru',
+  t: (key: TranslationKey) => string,
+  overrides?: Pick<HistoryEvent, 'id' | 'date' | 'dateLabel'>
+): HistoryEvent => {
+  const timeRange = formatSessionTimeRange(booking);
+  const durationText = formatDurationLabel(booking.durationHours, language);
+  const statusLabel = getBookingStatusLabel('no_show', language);
+  return {
+    id: overrides?.id ?? `noshow-${booking.id}`,
+    date: overrides?.date ?? resolveBookingStartDate(booking, courses),
+    dateLabel: overrides?.dateLabel ?? formatBookingDayMonth(booking, courses, language),
+    title: t('scHistoryLessonWith').replace(
+      '{name}',
+      booking.instructorId.startsWith('course_')
+        ? getRecentLessonTitle(booking, courses, language)
+        : booking.instructorName
+    ),
+    subtitle: `${statusLabel} · ${t('scHistoryTimeLabel')}: ${timeRange} · ${t('scHistoryDurationLabel')}: ${durationText}`,
+    kind: 'no_show',
+    bookingId: booking.id,
+  };
+};
+
 const mapActivityLogToHistoryEvent = (
   log: ActivityLog,
   language: 'en' | 'ru',
@@ -55,6 +89,14 @@ const mapActivityLogToHistoryEvent = (
       const linkedBooking = meta.bookingId
         ? bookings.find((b) => b.id === meta.bookingId)
         : undefined;
+
+      if (linkedBooking && isNoShowLessonStatus(linkedBooking.status)) {
+        return toNoShowHistoryEvent(linkedBooking, [], language, t, {
+          id: log.id,
+          date: log.timestamp,
+          dateLabel,
+        });
+      }
 
       const title = isCourse
         ? t('scHistoryCourseCompleted').replace(
@@ -202,7 +244,7 @@ const getLegacyHistoryEvents = (
 ): HistoryEvent[] => {
   const events: HistoryEvent[] = [];
   const completed = bookings
-    .filter((b) => b.status === 'completed' && !b.isDeleted)
+    .filter((b) => isAttendedLessonStatus(b.status) && !b.isDeleted)
     .sort((a, b) =>
       resolveBookingStartDate(b, courses).localeCompare(resolveBookingStartDate(a, courses))
     );
@@ -257,8 +299,8 @@ export const getHistoryEvents = (
       .filter(Boolean) as string[]
   );
 
-  const backfilledBookings = bookings
-    .filter((b) => b.status === 'completed' && !b.isDeleted && !loggedBookingIds.has(b.id))
+  const backfilledAttended = bookings
+    .filter((b) => isAttendedLessonStatus(b.status) && !b.isDeleted && !loggedBookingIds.has(b.id))
     .sort((a, b) =>
       resolveBookingStartDate(b, courses).localeCompare(resolveBookingStartDate(a, courses))
     )
@@ -284,6 +326,14 @@ export const getHistoryEvents = (
       };
     });
 
+  const backfilledNoShows = bookings
+    .filter((b) => isNoShowLessonStatus(b.status) && !b.isDeleted && !loggedBookingIds.has(b.id))
+    .sort((a, b) =>
+      resolveBookingStartDate(b, courses).localeCompare(resolveBookingStartDate(a, courses))
+    )
+    .slice(0, 10)
+    .map((b) => toNoShowHistoryEvent(b, courses, language, t));
+
   const hasLevelLog = activityLogs.some((log) => log.type === 'level_up');
   const legacyLevel =
     !hasLevelLog && (userProfile.level || 1) > 1
@@ -292,7 +342,7 @@ export const getHistoryEvents = (
         )
       : [];
 
-  return [...fromLogs, ...backfilledBookings, ...legacyLevel].sort((a, b) =>
+  return [...fromLogs, ...backfilledAttended, ...backfilledNoShows, ...legacyLevel].sort((a, b) =>
     b.date.localeCompare(a.date)
   );
 };
@@ -323,9 +373,19 @@ export const enrichHistoryEventsWithActions = (
   t?: (key: TranslationKey) => string
 ): HistoryEvent[] =>
   events.map((event) => {
-    if (event.kind === 'training' && event.bookingId) {
+    if ((event.kind === 'training' || event.kind === 'no_show') && event.bookingId) {
       const booking = bookings.find((item) => item.id === event.bookingId);
       if (!booking) return event;
+
+      if (event.kind === 'no_show' || !isReviewEligibleLessonStatus(booking.status)) {
+        return {
+          ...event,
+          cta: {
+            labelKey: 'scMoreDetails',
+            action: { type: 'open_lesson', bookingId: event.bookingId },
+          },
+        };
+      }
 
       const pending = countPendingRecommendations(booking);
       const pendingSubtitle =
@@ -402,7 +462,9 @@ export const filterHistoryEvents = (
   filter: HistoryFilter
 ): HistoryEvent[] => {
   if (filter === 'all') return events;
-  if (filter === 'training') return events.filter((event) => event.kind === 'training');
+  if (filter === 'training') {
+    return events.filter((event) => event.kind === 'training' || event.kind === 'no_show');
+  }
   if (filter === 'progress') {
     return events.filter(
       (event) => event.kind === 'level' || event.kind === 'points' || event.kind === 'review'

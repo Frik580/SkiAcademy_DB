@@ -19,6 +19,7 @@ import {
   updateStudentSkillsService,
 } from '../../profile/profileService';
 import type { InstructorLessonBookingItem } from '../../booking-collaboration/bookingCollaborationContracts';
+import { isAttendedLessonStatus } from '../../../domain/booking';
 
 export interface InstructorWorkspaceInput {
   userProfile: UserProfile;
@@ -225,7 +226,7 @@ export const useInstructorWorkspace = ({
       (b) => b.status === 'pending' || b.status === 'pending_cancellation'
     ).length;
     const confirmed = instructorBookings.filter((b) => b.status === 'confirmed').length;
-    const completed = instructorBookings.filter((b) => b.status === 'completed').length;
+    const completed = instructorBookings.filter((b) => isAttendedLessonStatus(b.status)).length;
     const cancelled = instructorBookings.filter((b) => b.status === 'cancelled').length;
     const revenue: number | undefined = undefined;
     return { total, pending, confirmed, completed, cancelled, revenue };

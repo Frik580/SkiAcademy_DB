@@ -123,7 +123,7 @@ export interface HistoryEvent {
   dateLabel: string;
   title: string;
   subtitle?: string;
-  kind: 'training' | 'level' | 'homework' | 'points' | 'review';
+  kind: 'training' | 'no_show' | 'level' | 'homework' | 'points' | 'review';
   bookingId?: string;
   cta?: HistoryEventCta;
   skillDeltas?: SkillDeltaItem[];

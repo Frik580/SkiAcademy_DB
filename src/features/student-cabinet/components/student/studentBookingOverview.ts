@@ -1,6 +1,7 @@
 import type { Booking, Course, Instructor, Review, UserProfile } from '../../../../types';
 import type { SkillItem } from '../../../../domain/achievements';
 import { DEFAULT_SKILL_CONFIG } from '../../../../domain/achievements';
+import { isAttendedLessonStatus, isReviewEligibleLessonStatus } from '../../../../domain/booking';
 import { getCourseTrackLabel as getTrackLabelForLevel } from '../../../../domain/course';
 import {
   isBookingCurrentBySchedule,
@@ -48,7 +49,7 @@ export const getStudentStats = (
   bookings: Booking[],
   skillItems: SkillItem[] = DEFAULT_SKILL_CONFIG.items
 ): StudentStats => {
-  const completed = bookings.filter((b) => b.status === 'completed' && !b.isDeleted);
+  const completed = bookings.filter((b) => isAttendedLessonStatus(b.status) && !b.isDeleted);
   const hours = completed.reduce((acc, b) => acc + b.durationHours, 0);
   const scores = userProfile.skillScores || {};
   const points = Object.values(scores).reduce((a, b) => a + b, 0);
@@ -74,7 +75,7 @@ export const getSeasonBookings = (
     (b) =>
       (!userId || b.userId === userId) &&
       !b.isDeleted &&
-      b.status === 'completed' &&
+      isAttendedLessonStatus(b.status) &&
       b.date.startsWith(yearPrefix)
   );
 };
@@ -112,7 +113,10 @@ export const getNeedsAttentionBookings = (
 ): Booking[] =>
   bookings
     .filter(
-      (booking) => booking.userId === userId && booking.status === 'completed' && !booking.isDeleted
+      (booking) =>
+        booking.userId === userId &&
+        isReviewEligibleLessonStatus(booking.status) &&
+        !booking.isDeleted
     )
     .filter(
       (booking) =>
@@ -130,7 +134,7 @@ export const getRecentLessons = (
   dismissedReviewIds: string[] = []
 ): RecentLesson[] => {
   return bookings
-    .filter((b) => b.status === 'completed' && !b.isDeleted)
+    .filter((b) => isAttendedLessonStatus(b.status) && !b.isDeleted)
     .sort((a, b) =>
       resolveBookingStartDate(b, courses).localeCompare(resolveBookingStartDate(a, courses))
     )
@@ -139,7 +143,9 @@ export const getRecentLessons = (
       const review = reviews.find(
         (r) => r.bookingId === b.id || (r.userId === b.userId && r.date === b.date)
       );
-      const needsReview = !isBookingReviewed(b, reviews, dismissedReviewIds);
+      const needsReview =
+        isReviewEligibleLessonStatus(b.status) &&
+        !isBookingReviewed(b, reviews, dismissedReviewIds);
       const pendingRecommendationsCount = countPendingRecommendations(b);
       return {
         id: b.id,

@@ -1,5 +1,6 @@
 import { parseCourseDates } from '../../app/providers/LanguageContext';
 import { findStreakWeeksTimestamp, getTrainingStreakWeeks } from './trainingStreak';
+import { isAttendedLessonStatus } from '../booking';
 import {
   ActivityLog,
   ActivityLogMetadata,
@@ -268,7 +269,7 @@ export const getAchievementLabel = (
 
 const getCompletedBookings = (bookings: Booking[]) =>
   bookings
-    .filter((b) => b.status === 'completed' && !b.isDeleted)
+    .filter((b) => isAttendedLessonStatus(b.status) && !b.isDeleted)
     .sort((a, b) => a.date.localeCompare(b.date));
 
 const toYMD = (d: Date) => {
@@ -320,7 +321,7 @@ const hasGraduatedCourse = (
   bookings.some((booking) => {
     if (
       booking.userId !== userProfile.uid ||
-      booking.status !== 'completed' ||
+      !isAttendedLessonStatus(booking.status) ||
       booking.isDeleted ||
       !booking.instructorId.startsWith('course_')
     ) {
@@ -522,7 +523,12 @@ const inferEarnedAt = (
 ): string | undefined => {
   const completed = getCompletedBookings(ctx.bookings);
   const completedLogs = ctx.activityLogs
-    .filter((log) => log.type === 'booking_completed')
+    .filter((log) => {
+      if (log.type !== 'booking_completed') return false;
+      const bookingId = log.metadata?.bookingId;
+      const linked = bookingId ? ctx.bookings.find((booking) => booking.id === bookingId) : undefined;
+      return !linked || isAttendedLessonStatus(linked.status);
+    })
     .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
   switch (definition.rule.type) {

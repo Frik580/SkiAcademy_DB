@@ -13,7 +13,7 @@ import {
   mergeChangeRequestRecords,
 } from '../../src/features/booking-collaboration/changeRequestViewModel';
 import { mapParticipantInstructorAccessReadModelToCabinetItem } from '../../src/features/booking-collaboration/participantAccessViewModel';
-import { mergeInstructorLessonBookingRecords } from '../../src/features/booking-collaboration/instructorLessonBookingViewModel';
+import { mergeInstructorLessonBookingRecords, mapInstructorLessonBookingReadModel } from '../../src/features/booking-collaboration/instructorLessonBookingViewModel';
 import {
   deriveAcceptProposalIdempotencyKey,
   deriveRescheduleBookingIdempotencyKey,
@@ -315,5 +315,100 @@ describe('instructor lesson booking store refresh', () => {
     ]);
     expect(completed.get(bookingId)?.status).toBe('completed');
     expect(completed.get(bookingId)?.revision).toBe(2);
+  });
+
+  it('preserves canonical no_show instead of mapping it to completed', () => {
+    const bookingId = BookingIdSchema.parse('booking_instructor_no_show_01');
+    const participantId = ParticipantIdSchema.parse('participant_instructor_no_show_01');
+    const instructorId = InstructorIdSchema.parse('instructor_instructor_no_show_01');
+    const item = mapInstructorLessonBookingReadModel({
+      bookingId,
+      revision: 2,
+      partyKind: 'individual',
+      participantIds: [participantId],
+      participants: [{ participantId, displayName: 'Student' }],
+      instructor: { instructorId, displayName: 'Coach' },
+      occurrence: {
+        startsAt: serviceStart,
+        endsAt: serviceEnd,
+        timeZone: 'Asia/Almaty',
+        durationMinutes: 60,
+      },
+      bookingOrigin: 'account',
+      notes: '',
+      authorizedActions: {
+        canRequestCancellation: false,
+        canWithdrawCancellation: false,
+        canReschedule: false,
+        canCreateChangeRequest: false,
+      },
+      lifecycle: { status: 'no_show', noShowAt: serviceEnd },
+      attendance: [
+        {
+          participantId,
+          attendanceStatus: 'absent',
+          revision: 1,
+          authorizedActions: { canRecordPresent: false, canRecordAbsent: false },
+        },
+      ],
+      updatedAt: decidedAt,
+    });
+    expect(item.status).toBe('no_show');
+    expect(item.attendance[0]?.attendanceStatus).toBe('absent');
+  });
+
+  it('keeps mixed group attendance: booking completed does not mark an absent participant attended', () => {
+    const bookingId = BookingIdSchema.parse('booking_instructor_mixed_01');
+    const presentId = ParticipantIdSchema.parse('participant_instructor_mixed_present');
+    const absentId = ParticipantIdSchema.parse('participant_instructor_mixed_absent');
+    const instructorId = InstructorIdSchema.parse('instructor_instructor_mixed_01');
+    const item = mapInstructorLessonBookingReadModel({
+      bookingId,
+      revision: 3,
+      partyKind: 'family_group',
+      participantIds: [presentId, absentId],
+      participants: [
+        { participantId: presentId, displayName: 'Present Child' },
+        { participantId: absentId, displayName: 'Absent Child' },
+      ],
+      instructor: { instructorId, displayName: 'Coach' },
+      occurrence: {
+        startsAt: serviceStart,
+        endsAt: serviceEnd,
+        timeZone: 'Asia/Almaty',
+        durationMinutes: 60,
+      },
+      bookingOrigin: 'account',
+      notes: '',
+      authorizedActions: {
+        canRequestCancellation: false,
+        canWithdrawCancellation: false,
+        canReschedule: false,
+        canCreateChangeRequest: false,
+      },
+      lifecycle: { status: 'completed', completedAt: serviceEnd },
+      attendance: [
+        {
+          participantId: presentId,
+          attendanceStatus: 'present',
+          revision: 1,
+          authorizedActions: { canRecordPresent: false, canRecordAbsent: false },
+        },
+        {
+          participantId: absentId,
+          attendanceStatus: 'absent',
+          revision: 1,
+          authorizedActions: { canRecordPresent: false, canRecordAbsent: false },
+        },
+      ],
+      updatedAt: decidedAt,
+    });
+    expect(item.status).toBe('completed');
+    expect(item.attendance.find((row) => row.participantId === presentId)?.attendanceStatus).toBe(
+      'present'
+    );
+    expect(item.attendance.find((row) => row.participantId === absentId)?.attendanceStatus).toBe(
+      'absent'
+    );
   });
 });

@@ -1,4 +1,5 @@
 import { ActivityLog, Booking } from '../../types';
+import { isAttendedLessonStatus } from '../booking';
 
 export const toIsoWeekKey = (input: string | Date): string | null => {
   const d =
@@ -22,7 +23,7 @@ export const getTrainingStreakWeeks = (
   const weekKeys = new Set<string>();
 
   bookings
-    .filter((b) => b.status === 'completed' && !b.isDeleted)
+    .filter((b) => isAttendedLessonStatus(b.status) && !b.isDeleted)
     .forEach((b) => {
       const key = toIsoWeekKey(b.date);
       if (key) weekKeys.add(key);
@@ -31,6 +32,9 @@ export const getTrainingStreakWeeks = (
   activityLogs
     .filter((log) => log.type === 'booking_completed')
     .forEach((log) => {
+      const bookingId = log.metadata?.bookingId;
+      const linked = bookingId ? bookings.find((booking) => booking.id === bookingId) : undefined;
+      if (linked && !isAttendedLessonStatus(linked.status)) return;
       const key = toIsoWeekKey(log.timestamp);
       if (key) weekKeys.add(key);
     });
@@ -69,7 +73,7 @@ const collectTrainingWeekTimestamps = (
   };
 
   bookings
-    .filter((booking) => booking.status === 'completed' && !booking.isDeleted)
+    .filter((booking) => isAttendedLessonStatus(booking.status) && !booking.isDeleted)
     .forEach((booking) => {
       remember(toIsoWeekKey(booking.date), `${booking.date}T12:00:00.000Z`);
     });
@@ -77,6 +81,9 @@ const collectTrainingWeekTimestamps = (
   activityLogs
     .filter((log) => log.type === 'booking_completed')
     .forEach((log) => {
+      const bookingId = log.metadata?.bookingId;
+      const linked = bookingId ? bookings.find((booking) => booking.id === bookingId) : undefined;
+      if (linked && !isAttendedLessonStatus(linked.status)) return;
       remember(toIsoWeekKey(log.timestamp), log.timestamp);
     });
 

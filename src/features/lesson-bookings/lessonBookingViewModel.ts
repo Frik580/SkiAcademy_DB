@@ -1,13 +1,7 @@
 import type { LessonBookingReadModel } from '@ski-academy/shared-domain';
-import type { BookingStatus } from '@ski-academy/shared-domain';
 import type { LessonBookingCabinetItem } from './lessonBookingContracts';
 import { canonicalTimestampToLocalParts } from './mapCalendarInput';
 import { useLessonBookingStore } from './lessonBookingStore';
-
-function mapLifecycleStatus(status: LessonBookingReadModel['lifecycle']['status']): BookingStatus {
-  if (status === 'no_show') return 'completed';
-  return status;
-}
 
 export function mapLessonBookingReadModelToCabinetItem(
   readModel: LessonBookingReadModel
@@ -34,7 +28,7 @@ export function mapLessonBookingReadModelToCabinetItem(
     id: readModel.bookingId,
     bookingId: readModel.bookingId,
     revision: readModel.revision,
-    status: mapLifecycleStatus(readModel.lifecycle.status),
+    status: readModel.lifecycle.status,
     date,
     time,
     durationHours,

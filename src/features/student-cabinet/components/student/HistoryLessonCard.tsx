@@ -1,6 +1,7 @@
 import React from 'react';
 import { Booking, Course, Review } from '../../../../types';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
+import { isReviewEligibleLessonStatus } from '../../../../domain/booking';
 import {
   formatDurationLabel,
   formatRecentLessonDateLabel,
@@ -45,7 +46,9 @@ export const HistoryLessonCard: React.FC<HistoryLessonCardProps> = ({
   const instructorName = getRecentLessonInstructorLabel(booking, lang);
   const timeRange = formatSessionTimeRange(booking);
   const durationText = formatDurationLabel(booking.durationHours, lang);
-  const needsReview = !isBookingReviewed(booking, reviews, dismissedReviewIds);
+  const needsReview =
+    isReviewEligibleLessonStatus(booking.status) &&
+    !isBookingReviewed(booking, reviews, dismissedReviewIds);
   const review = reviews.find(
     (item) =>
       item.bookingId === booking.id ||

@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Booking, Review } from '../../../../types';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { getNeedsAttentionBookings, isBookingReviewed } from './studentCabinetUtils';
+import { isReviewEligibleLessonStatus } from '../../../../domain/booking';
 import { ScDivider, ScSectionTitle, ScTextButton } from './StudentCabinetUI';
 import { RecommendationIndicator } from '../RecommendationIndicator';
 import { hasPendingRecommendations } from '../../../../features/student-cabinet/lessonRecommendations';
@@ -44,7 +45,9 @@ export const StudentNeedsAttention: React.FC<StudentNeedsAttentionProps> = ({
         </div>
         <ul className="space-y-3">
           {items.map((booking) => {
-            const needsReview = !isBookingReviewed(booking, reviews, dismissedReviewIds);
+            const needsReview =
+              isReviewEligibleLessonStatus(booking.status) &&
+              !isBookingReviewed(booking, reviews, dismissedReviewIds);
             const pendingRecs = hasPendingRecommendations(booking);
 
             return (

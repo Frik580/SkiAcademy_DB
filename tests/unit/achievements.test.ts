@@ -257,4 +257,22 @@ describe('achievement config', () => {
       isTimestampOnLocalDate('2026-05-20T10:00:00.000Z', new Date('2026-08-13T12:00:00'))
     ).toBe(false);
   });
+
+  it('does not award completed-training achievements for no_show bookings', () => {
+    const noShow: Booking = {
+      ...completedBooking('b-noshow', '2026-01-10', 2),
+      status: 'no_show',
+    };
+    const earned = evaluateEarnedAchievements({
+      userProfile,
+      bookings: [noShow],
+      courses: [],
+      reviews: [],
+      skillConfig: DEFAULT_SKILL_CONFIG,
+      activityLogs: [],
+    });
+    expect(earned.some((item) => item.id === 'first_lesson')).toBe(false);
+    expect(earned.some((item) => item.id === 'twenty_hours')).toBe(false);
+    expect(earned.some((item) => item.id === 'streak_3_weeks')).toBe(false);
+  });
 });

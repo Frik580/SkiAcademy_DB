@@ -1,6 +1,7 @@
 import type { BookingStatus } from '@ski-academy/shared-domain';
 import type { Course } from '../../../../types';
 import { parseCourseDates } from '../../../../app/providers/LanguageContext';
+import { isTerminalPastLessonStatus } from '../../../../domain/booking';
 import { toYMD } from './studentCabinetPresentation';
 
 export interface ScheduleBookingSlice {
@@ -116,7 +117,7 @@ export const isBookingPastBySchedule = (
   courses: Course[] = [],
   now = new Date()
 ): boolean => {
-  if (booking.isDeleted || booking.status === 'cancelled' || booking.status === 'completed') {
+  if (booking.isDeleted || isTerminalPastLessonStatus(booking.status)) {
     return true;
   }
   const end = resolveBookingEndDateTime(booking, courses);
@@ -128,7 +129,7 @@ export const isBookingUpcomingBySchedule = (
   courses: Course[] = [],
   now = new Date()
 ): boolean => {
-  if (booking.isDeleted || booking.status === 'cancelled' || booking.status === 'completed') {
+  if (booking.isDeleted || isTerminalPastLessonStatus(booking.status)) {
     return false;
   }
   const start = resolveBookingStartDateTime(booking, courses);
@@ -141,7 +142,7 @@ export const isBookingCurrentBySchedule = (
   courses: Course[] = [],
   now = new Date()
 ): boolean => {
-  if (booking.isDeleted || booking.status === 'cancelled' || booking.status === 'completed') {
+  if (booking.isDeleted || isTerminalPastLessonStatus(booking.status)) {
     return false;
   }
   return (

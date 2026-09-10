@@ -168,6 +168,75 @@ describe('lessonBookingViewModel', () => {
     expect(item.totalPrice).toBeUndefined();
   });
 
+  it('preserves canonical completed, no_show, and cancelled without collapsing outcomes', () => {
+    const completed = mapLessonBookingReadModelToCabinetItem(
+      buildReadModel({
+        bookingId: BookingIdSchema.parse('booking_lifecycle_completed'),
+        revision: 1,
+        lifecycle: { status: 'completed' },
+      })
+    );
+    const noShow = mapLessonBookingReadModelToCabinetItem(
+      buildReadModel({
+        bookingId: BookingIdSchema.parse('booking_lifecycle_no_show'),
+        revision: 1,
+        lifecycle: { status: 'no_show' },
+      })
+    );
+    const cancelled = mapLessonBookingReadModelToCabinetItem(
+      buildReadModel({
+        bookingId: BookingIdSchema.parse('booking_lifecycle_cancelled'),
+        revision: 1,
+        lifecycle: { status: 'cancelled' },
+      })
+    );
+    expect(completed.status).toBe('completed');
+    expect(noShow.status).toBe('no_show');
+    expect(cancelled.status).toBe('cancelled');
+  });
+
+  it('does not infer paid from no_show lifecycle; payment comes from canonical presentation', () => {
+    const unpaidNoShow = mapLessonBookingReadModelToCabinetItem(
+      buildReadModel({
+        bookingId: BookingIdSchema.parse('booking_noshow_unpaid'),
+        revision: 1,
+        lifecycle: { status: 'no_show' },
+        paymentPresentation: {
+          kind: 'visible',
+          paymentStatus: 'unpaid',
+          paymentRevision: 1,
+          price: 50000,
+        },
+      })
+    );
+    expect(unpaidNoShow.status).toBe('no_show');
+    expect(unpaidNoShow.payment).toEqual({
+      kind: 'visible',
+      paymentStatus: 'unpaid',
+      price: 50000,
+    });
+
+    const paidNoShow = mapLessonBookingReadModelToCabinetItem(
+      buildReadModel({
+        bookingId: BookingIdSchema.parse('booking_noshow_paid'),
+        revision: 1,
+        lifecycle: { status: 'no_show' },
+        paymentPresentation: {
+          kind: 'visible',
+          paymentStatus: 'paid',
+          paymentRevision: 2,
+          price: 50000,
+        },
+      })
+    );
+    expect(paidNoShow.status).toBe('no_show');
+    expect(paidNoShow.payment).toEqual({
+      kind: 'visible',
+      paymentStatus: 'paid',
+      price: 50000,
+    });
+  });
+
   it('mergeLessonBookingRecords keeps newer revision and rejects stale overwrite', () => {
     const bookingId = BookingIdSchema.parse('booking_merge_01');
     const newer = buildReadModel({ bookingId, revision: 5 });

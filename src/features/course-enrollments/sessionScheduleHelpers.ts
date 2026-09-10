@@ -4,6 +4,7 @@ import {
   parseBookingStartTime,
 } from '../student-cabinet/components/student/studentBookingSchedule';
 import { toYMD } from '../student-cabinet/components/student/studentCabinetPresentation';
+import { isTerminalPastLessonStatus } from '../../domain/booking';
 import type { CabinetSessionItem, CourseDaySessionItem } from './courseEnrollmentContracts';
 
 export function isSessionOnDate(item: CabinetSessionItem, dateStr: string): boolean {
@@ -107,7 +108,7 @@ export function isSessionUpcomingBySchedule(item: CabinetSessionItem, now = new 
 
 export function isSessionPastBySchedule(item: CabinetSessionItem, now = new Date()): boolean {
   if (item.kind === 'lesson') {
-    if (item.session.status === 'cancelled' || item.session.status === 'completed') {
+    if (isTerminalPastLessonStatus(item.session.status)) {
       return true;
     }
   } else if (item.lifecycleStatus === 'cancelled' || item.lifecycleStatus === 'withdrawn') {

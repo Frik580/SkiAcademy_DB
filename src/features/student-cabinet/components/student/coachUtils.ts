@@ -11,6 +11,7 @@ import {
   DEFAULT_SKILL_CONFIG,
   getSkillItemTitle,
 } from '../../../../domain/achievements';
+import { isAttendedLessonStatus } from '../../../../domain/booking';
 import { formatBookingDayMonth, getRecentLessonTitle } from './studentCabinetUtils';
 import { resolveChatId } from '../../../../domain/chat';
 import { isHomeworkVisibleToStudent } from '../../../../domain/chat';
@@ -232,7 +233,7 @@ export const getInstructorLessonCount = (
   userId?: string
 ) =>
   getStudentBookingsWithInstructor(bookings, instructorId, userId).filter(
-    (b) => b.status === 'completed'
+    (b) => isAttendedLessonStatus(b.status)
   ).length;
 
 /** Firestore thread ids for chat messages with a given instructor (lessons + course enrollments). */
@@ -270,7 +271,7 @@ export const getInstructorLastLessonDate = (
   language: 'en' | 'ru'
 ) => {
   const latest = getStudentBookingsWithInstructor(bookings, instructorId, userId).find(
-    (b) => b.status === 'completed'
+    (b) => isAttendedLessonStatus(b.status)
   );
   if (!latest) return null;
   return formatBookingDayMonth(latest, courses, language);

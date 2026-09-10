@@ -3,6 +3,7 @@ import {
   type AccountId,
 } from '@ski-academy/shared-domain';
 import { Loader2, Search } from 'lucide-react';
+import { ActionButton } from '../../../ui/ActionButton';
 import type { AdminRoleCandidateRow } from './adminRoleContracts';
 import type { useAdminRoleTranslations } from './useAdminRoleTranslations';
 
@@ -135,22 +136,19 @@ export function AdminRoleAccountPicker({
         </button>
       ) : null}
       <div className="flex flex-wrap gap-2">
-        <button
+        <ActionButton
           type="button"
-          disabled={!selected || pending}
+          size="sm"
+          pending={pending}
+          pendingLabel={text.pending}
+          disabled={!selected}
           onClick={onConfirm}
-          className="border border-[var(--border)] px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wider disabled:opacity-50"
         >
-          {pending ? text.pending : text.confirmPromote}
-        </button>
-        <button
-          type="button"
-          disabled={pending}
-          onClick={onCancel}
-          className="border border-[var(--border)] px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wider disabled:opacity-50"
-        >
+          {text.confirmPromote}
+        </ActionButton>
+        <ActionButton type="button" size="sm" disabled={pending} onClick={onCancel}>
           {text.cancelAdd}
-        </button>
+        </ActionButton>
       </div>
     </div>
   );

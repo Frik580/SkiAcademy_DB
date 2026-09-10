@@ -1,7 +1,8 @@
 import React from 'react';
-import { X, Check, Loader2 } from 'lucide-react';
+import { X, Check } from 'lucide-react';
 import { Instructor } from '../../../../../types';
 import { ToggleSwitch } from '../../../../../ui/ToggleSwitch';
+import { ActionButton } from '../../../../../ui/ActionButton';
 import { useCourseForm } from './useCourseForm';
 import { CourseBasicInfoSection } from './CourseBasicInfoSection';
 import { CourseTranslationsSection } from './CourseTranslationsSection';
@@ -75,20 +76,16 @@ export const CourseForm: React.FC<CourseFormProps> = ({ form, instructors }) => 
         </div>
 
         {/* Submit */}
-        <button
+        <ActionButton
           type="submit"
-          disabled={isSubmittingCourse}
-          className="w-full py-2.5 px-4 border border-[var(--border)] hover:bg-[var(--ink)] hover:text-[var(--bg)] bg-transparent text-[var(--ink)] rounded-none text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-50"
+          pending={isSubmittingCourse}
+          pendingLabel={t('saving')}
+          unstyled
+          className="w-full py-2.5 px-4 border border-[var(--border)] hover:bg-[var(--ink)] hover:text-[var(--bg)] bg-transparent text-[var(--ink)] rounded-none text-xs font-bold transition cursor-pointer disabled:opacity-50"
         >
-          {isSubmittingCourse ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <>
-              <Check className="w-4 h-4" />
-              {editingCourse ? t('updateCourse') : t('createCourse')}
-            </>
-          )}
-        </button>
+          <Check className="w-4 h-4" />
+          {editingCourse ? t('updateCourse') : t('createCourse')}
+        </ActionButton>
       </form>
     </div>
   );

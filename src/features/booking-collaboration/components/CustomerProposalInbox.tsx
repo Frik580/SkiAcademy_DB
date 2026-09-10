@@ -1,6 +1,7 @@
 import React from 'react';
 import type { BookingProposalCabinetItem } from '../bookingCollaborationContracts';
 import { useBookingCollaborationTranslations } from '../useBookingCollaborationTranslations';
+import { ActionButton } from '../../../ui/ActionButton';
 
 export interface CustomerProposalInboxProps {
   readonly proposals: readonly BookingProposalCabinetItem[];
@@ -44,24 +45,27 @@ export const CustomerProposalInbox: React.FC<CustomerProposalInboxProps> = ({
             </div>
             <div className="flex flex-wrap gap-2">
               {proposal.authorizedActions.canAccept && (
-                <button
+                <ActionButton
                   type="button"
-                  disabled={submittingProposalId === proposal.proposalId}
+                  unstyled
+                  pending={submittingProposalId === proposal.proposalId}
+                  pendingLabel={copy.t('submitting')}
                   onClick={() => void onAccept(proposal)}
                   className="px-3 py-1.5 text-xs font-medium rounded-lg bg-[var(--accent)] text-white"
                 >
                   {copy.acceptProposal}
-                </button>
+                </ActionButton>
               )}
               {proposal.authorizedActions.canDecline && (
-                <button
+                <ActionButton
                   type="button"
-                  disabled={submittingProposalId === proposal.proposalId}
+                  unstyled
+                  pending={submittingProposalId === proposal.proposalId}
                   onClick={() => void onDecline(proposal)}
                   className="px-3 py-1.5 text-xs font-medium rounded-lg border border-[var(--border-subtle)]"
                 >
                   {copy.declineProposal}
-                </button>
+                </ActionButton>
               )}
             </div>
           </article>

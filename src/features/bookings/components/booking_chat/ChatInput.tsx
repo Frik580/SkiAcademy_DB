@@ -1,5 +1,6 @@
 import React from 'react';
-import { Send, Loader2 } from 'lucide-react';
+import { Send } from 'lucide-react';
+import { ActionButton } from '../../../../ui/ActionButton';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 
 interface ChatInputProps {
@@ -35,18 +36,17 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         maxLength={1000}
         disabled={isSending || isCompressing}
       />
-      <button
+      <ActionButton
         type="submit"
-        disabled={(!inputText.trim() && !hasAttachment) || isSending || isCompressing}
-        className="p-2.5 border border-[var(--border)] bg-transparent hover:border-[var(--ink)] hover:bg-black/5 disabled:opacity-50 disabled:cursor-not-allowed text-[var(--ink)] transition rounded-none cursor-pointer flex items-center justify-center"
+        unstyled
+        pending={isSending}
+        pendingLabel=""
+        disabled={(!inputText.trim() && !hasAttachment) || isCompressing}
+        className="p-2.5 border border-[var(--border)] bg-transparent hover:border-[var(--ink)] hover:bg-black/5 disabled:opacity-50 disabled:cursor-not-allowed text-[var(--ink)] transition rounded-none cursor-pointer"
         title={t('chatSend')}
       >
-        {isSending ? (
-          <Loader2 className="w-4.5 h-4.5 animate-spin" />
-        ) : (
-          <Send className="w-4.5 h-4.5" />
-        )}
-      </button>
+        <Send className="w-4.5 h-4.5" />
+      </ActionButton>
     </form>
   );
 };

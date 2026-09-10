@@ -5,6 +5,7 @@ import type {
 } from '../bookingCollaborationContracts';
 import { selectOpenChangeRequestForBooking } from '../changeRequestViewModel';
 import { useBookingCollaborationTranslations } from '../useBookingCollaborationTranslations';
+import { ActionButton } from '../../../ui/ActionButton';
 
 export interface InstructorCollaborationPanelProps {
   readonly proposals: readonly BookingProposalCabinetItem[];
@@ -85,14 +86,15 @@ export const InstructorCollaborationPanel: React.FC<InstructorCollaborationPanel
                 {proposal.participantDisplayName} · {proposal.date} {proposal.time}
               </p>
               {proposal.authorizedActions.canWithdraw && (
-                <button
+                <ActionButton
                   type="button"
-                  disabled={submittingId === proposal.proposalId}
+                  unstyled
+                  pending={submittingId === proposal.proposalId}
                   onClick={() => void onWithdrawProposal(proposal)}
                   className="px-2 py-1 rounded-xs border border-[var(--border-subtle)]"
                 >
                   {copy.withdrawProposal}
-                </button>
+                </ActionButton>
               )}
             </div>
           ))
@@ -108,14 +110,15 @@ export const InstructorCollaborationPanel: React.FC<InstructorCollaborationPanel
             <div className="rounded-xs border border-slate-200/70 dark:border-slate-800/70 p-3 text-xs space-y-2">
               <p className="text-[var(--ink)]">{openChangeRequest.reason}</p>
               {openChangeRequest.authorizedActions.canWithdraw && (
-                <button
+                <ActionButton
                   type="button"
-                  disabled={submittingId === openChangeRequest.requestId}
+                  unstyled
+                  pending={submittingId === openChangeRequest.requestId}
                   onClick={() => void onWithdrawChangeRequest(openChangeRequest)}
                   className="px-2 py-1 rounded-xs border border-[var(--border-subtle)]"
                 >
                   {copy.withdrawChangeRequest}
-                </button>
+                </ActionButton>
               )}
             </div>
           ) : onCreateChangeRequest ? (
@@ -126,14 +129,17 @@ export const InstructorCollaborationPanel: React.FC<InstructorCollaborationPanel
                 placeholder={copy.changeRequestReasonPlaceholder}
                 className="w-full rounded-xs border border-slate-200/70 dark:border-slate-800/70 px-3 py-2 text-xs min-h-[72px]"
               />
-              <button
+              <ActionButton
                 type="button"
+                unstyled
+                pending={submittingId === bookingId}
+                pendingLabel={copy.t('submitting')}
                 disabled={changeReason.trim().length === 0}
                 onClick={() => void onCreateChangeRequest(changeReason.trim())}
                 className="px-2 py-1 rounded-xs bg-slate-800 text-white text-[10px] font-mono uppercase"
               >
                 {copy.createChangeRequest}
-              </button>
+              </ActionButton>
             </div>
           ) : null}
         </div>

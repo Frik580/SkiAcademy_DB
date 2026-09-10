@@ -9,6 +9,7 @@ import { buildBookingTimePickerOptions } from '../../bookings/components/booking
 import { useLanguage } from '../../../app/providers/LanguageContext';
 import { useBookingCollaborationTranslations } from '../useBookingCollaborationTranslations';
 import { useRescheduleBookingAvailability } from '../useRescheduleBookingAvailability';
+import { ActionButton } from '../../../ui/ActionButton';
 
 export interface RescheduleBookingModalProps {
   readonly booking: LessonBookingCabinetItem | null;
@@ -120,15 +121,20 @@ export const RescheduleBookingModal: React.FC<RescheduleBookingModalProps> = ({
           </div>
         </div>
         <div className="flex justify-end gap-2">
-          <button
+          <ActionButton
             type="button"
+            unstyled
+            disabled={submitting}
             onClick={onClose}
             className="px-4 py-2 text-sm rounded-lg border border-[var(--border-subtle)]"
           >
             {copy.t('cancel')}
-          </button>
-          <button
+          </ActionButton>
+          <ActionButton
             type="button"
+            unstyled
+            pending={submitting}
+            pendingLabel={copy.t('submitting')}
             disabled={!canSubmit}
             onClick={async () => {
               setSubmitting(true);
@@ -146,7 +152,7 @@ export const RescheduleBookingModal: React.FC<RescheduleBookingModalProps> = ({
             className="px-4 py-2 text-sm rounded-lg bg-[var(--accent)] text-white disabled:opacity-50"
           >
             {copy.rescheduleConfirm}
-          </button>
+          </ActionButton>
         </div>
       </div>
     </div>

@@ -2,7 +2,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import confetti from 'canvas-confetti';
-import { X, User, Phone, Mail, Send, Loader2 } from 'lucide-react';
+import { X, User, Phone, Mail, Send } from 'lucide-react';
+import { ActionButton } from '../../../ui/ActionButton';
 import { Course, UserProfile } from '../../../types';
 import { useLanguage, getGroupCourseLabel } from '../../../app/providers/LanguageContext';
 import { useCurrency } from '../../../app/providers/CurrencyContext';
@@ -300,23 +301,19 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                       <div className="text-xs text-[var(--ink-dim)]">📅 {course.dates}</div>
                     </div>
 
-                    <button
+                    <ActionButton
                       type="submit"
+                      pending={isSubmitting}
+                      pendingLabel={t('submitting')}
                       disabled={
-                        isSubmitting ||
                         participantsLoading ||
                         effectiveParticipantIds.length === 0 ||
                         selectedAlreadyEnrolled ||
                         authenticatedProfile?.isClientActive === false
                       }
-                      className="btn-primary w-full py-3 flex items-center justify-center gap-2"
+                      className="btn-primary w-full py-3"
                     >
-                      {isSubmitting ? (
-                        <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          {t('submitting')}
-                        </>
-                      ) : selectedAlreadyEnrolled ? (
+                      {selectedAlreadyEnrolled ? (
                         <>
                           <span className="text-emerald-500 font-bold text-xs">✔</span>
                           {t('courseEnrolled')}
@@ -327,7 +324,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                           {t('enroll')}
                         </>
                       )}
-                    </button>
+                    </ActionButton>
                   </form>
                 ) : unauthTab === 'auth' ? (
                   <div className="space-y-4">
@@ -421,23 +418,15 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                       <div className="text-xs text-[var(--ink-dim)]">📅 {course.dates}</div>
                     </div>
 
-                    <button
+                    <ActionButton
                       type="submit"
-                      disabled={isSubmitting}
-                      className="btn-primary w-full py-3 flex items-center justify-center gap-2"
+                      pending={isSubmitting}
+                      pendingLabel={t('submitting')}
+                      className="btn-primary w-full py-3"
                     >
-                      {isSubmitting ? (
-                        <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          {t('submitting')}
-                        </>
-                      ) : (
-                        <>
-                          <Send className="w-3.5 h-3.5" />
-                          {t('submitGuestCourseApplication')}
-                        </>
-                      )}
-                    </button>
+                      <Send className="w-3.5 h-3.5" />
+                      {t('submitGuestCourseApplication')}
+                    </ActionButton>
                   </form>
                 )}
               </div>

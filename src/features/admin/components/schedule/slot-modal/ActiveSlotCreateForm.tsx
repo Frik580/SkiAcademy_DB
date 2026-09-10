@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Calendar, Check, Loader2 } from 'lucide-react';
+import { Calendar, Check } from 'lucide-react';
+import { ActionButton } from '../../../../../ui/ActionButton';
 import type { Instructor, LessonDifficulty } from '../../../../../types';
 import { useLanguage } from '../../../../../app/providers/LanguageContext';
 import { formatDurationLabel } from '../../../../../lib/i18n/duration';
@@ -249,18 +250,17 @@ export const ActiveSlotCreateForm: React.FC<ActiveSlotCreateFormProps> = ({
           {t('cancel')}
         </button>
 
-        <button
+        <ActionButton
           type="submit"
+          pending={isSlotActionSubmitting}
+          pendingLabel={t('saveSchedule')}
           disabled={submitDisabled}
-          className="flex-1 py-2 px-4 border border-[var(--border)] bg-[var(--ink)] hover:bg-transparent text-[var(--bg)] hover:text-[var(--ink)] disabled:bg-black/5 disabled:text-[var(--ink-dim)] disabled:border-[var(--border)] disabled:cursor-not-allowed rounded-none text-xs font-mono uppercase tracking-widest flex items-center justify-center gap-2 transition cursor-pointer text-center"
+          unstyled
+          className="flex-1 py-2 px-4 border border-[var(--border)] bg-[var(--ink)] hover:bg-transparent text-[var(--bg)] hover:text-[var(--ink)] disabled:bg-black/5 disabled:text-[var(--ink-dim)] disabled:border-[var(--border)] disabled:cursor-not-allowed rounded-none text-xs font-mono uppercase tracking-widest transition cursor-pointer text-center"
         >
-          {isSlotActionSubmitting ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Check className="w-4 h-4" />
-          )}
+          <Check className="w-4 h-4" />
           {t('saveSchedule')}
-        </button>
+        </ActionButton>
       </div>
     </form>
   );

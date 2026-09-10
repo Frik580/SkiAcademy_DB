@@ -7,6 +7,7 @@ import { StudentLevelControls } from './StudentLevelControls';
 import { StudentAssessButton } from './StudentAssessButton';
 import { type TranslationKey, type Language } from '../../../app/providers/LanguageContext';
 import { StatusBadge } from '../../../ui/StatusBadge';
+import { ActionButton } from '../../../ui/ActionButton';
 import { ChatUnreadIndicator } from '../../chat/components/chat/ChatUnreadIndicator';
 import {
   InstructorCollaborationPanel,
@@ -112,36 +113,40 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <button
+          <ActionButton
             type="button"
+            unstyled
+            pending={submitting}
             onClick={() => record('present')}
-            disabled={submitting || !participant.canRecordPresent}
+            disabled={!participant.canRecordPresent}
             aria-label={`${studentName}: ${t('instructorAttendancePresent')}`}
             aria-pressed={participant.attendanceStatus === 'present'}
-            className={`inline-flex h-8 items-center gap-1.5 border px-2.5 text-[10px] font-mono font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+            className={`h-8 px-2.5 text-[10px] font-mono font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
               participant.attendanceStatus === 'present'
-                ? 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200'
-                : 'border-slate-300 text-[var(--ink)] hover:border-slate-400 dark:border-slate-700 dark:hover:border-slate-600'
+                ? 'border border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200'
+                : 'border border-slate-300 text-[var(--ink)] hover:border-slate-400 dark:border-slate-700 dark:hover:border-slate-600'
             }`}
           >
             <Check className="w-3.5 h-3.5" />
             {t('instructorAttendancePresent')}
-          </button>
-          <button
+          </ActionButton>
+          <ActionButton
             type="button"
+            unstyled
+            pending={submitting}
             onClick={() => record('absent')}
-            disabled={submitting || !participant.canRecordAbsent}
+            disabled={!participant.canRecordAbsent}
             aria-label={`${studentName}: ${t('instructorAttendanceAbsent')}`}
             aria-pressed={participant.attendanceStatus === 'absent'}
-            className={`inline-flex h-8 items-center gap-1.5 border px-2.5 text-[10px] font-mono font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+            className={`h-8 px-2.5 text-[10px] font-mono font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
               participant.attendanceStatus === 'absent'
-                ? 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200'
-                : 'border-slate-300 text-[var(--ink)] hover:border-slate-400 dark:border-slate-700 dark:hover:border-slate-600'
+                ? 'border border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200'
+                : 'border border-slate-300 text-[var(--ink)] hover:border-slate-400 dark:border-slate-700 dark:hover:border-slate-600'
             }`}
           >
             <X className="w-3.5 h-3.5" />
             {t('instructorAttendanceAbsent')}
-          </button>
+          </ActionButton>
           {studentAccountId && (
             <>
               <StudentAssessButton

@@ -4,6 +4,7 @@ import { X, Search, UserCheck, Link2, Check, User, AlertCircle } from 'lucide-re
 import { Booking, UserProfile } from '../../../../types';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { StatusBadge } from '../../../../ui/StatusBadge';
+import { ActionButton } from '../../../../ui/ActionButton';
 import { logger } from '../../../../shared';
 import { BodyScrollLock } from '../../../../ui/BodyScrollLock';
 
@@ -271,8 +272,10 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
 
             {/* Modal Actions */}
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border)] font-mono">
-              <button
+              <ActionButton
                 type="button"
+                size="sm"
+                unstyled
                 onClick={() => {
                   setErrorMessage(null);
                   onClose();
@@ -281,17 +284,19 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
                 className="px-3 py-1.5 text-xs border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] transition cursor-pointer"
               >
                 {t('cancel')}
-              </button>
-              <button
+              </ActionButton>
+              <ActionButton
                 type="submit"
-                disabled={!selectedUserId || isSubmitting}
-                className="px-4 py-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer flex items-center gap-1.5"
+                size="sm"
+                unstyled
+                pending={isSubmitting}
+                pendingLabel={t('saving')}
+                disabled={!selectedUserId}
+                className="px-4 py-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
               >
                 <UserCheck className="w-4 h-4" />
-                {isSubmitting
-                  ? t('saving')
-                  : `${t('confirmLinkToClient')} ${selectedUser ? selectedUser.displayName : ''}`}
-              </button>
+                {`${t('confirmLinkToClient')} ${selectedUser ? selectedUser.displayName : ''}`}
+              </ActionButton>
             </div>
           </form>
         )}

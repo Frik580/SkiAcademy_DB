@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Loader2, Save } from 'lucide-react';
+import { Save } from 'lucide-react';
+import { ActionButton } from '../../../../../ui/ActionButton';
 import { useLanguage } from '../../../../../app/providers/LanguageContext';
 import { useNotifications } from '../../../../../features/notifications';
 import { logger } from '../../../../../shared';
@@ -235,18 +236,16 @@ export const ResortDataSection: React.FC = () => {
       </div>
 
       <div className="flex justify-end pt-2 border-t border-[var(--border)]">
-        <button
+        <ActionButton
           type="submit"
-          disabled={isSaving}
-          className="bg-[var(--ink)] text-[var(--bg)] hover:bg-[var(--ink)]/90 px-4 py-2 text-xs font-mono uppercase tracking-wider font-bold transition duration-300 rounded-none disabled:opacity-50 cursor-pointer flex items-center gap-2"
+          pending={isSaving}
+          pendingLabel={t('saving')}
+          unstyled
+          className="bg-[var(--ink)] text-[var(--bg)] hover:bg-[var(--ink)]/90 px-4 py-2 text-xs font-mono uppercase tracking-wider font-bold transition duration-300 rounded-none disabled:opacity-50 cursor-pointer"
         >
-          {isSaving ? (
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          ) : (
-            <Save className="w-3.5 h-3.5" />
-          )}
+          <Save className="w-3.5 h-3.5" />
           {t('saveResortSettings')}
-        </button>
+        </ActionButton>
       </div>
     </form>
   );

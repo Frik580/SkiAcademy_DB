@@ -4,6 +4,7 @@ import {
   type LessonBookingCabinetItem,
 } from '../../lesson-bookings/lessonBookingContracts';
 import { useBookingCollaborationTranslations } from '../useBookingCollaborationTranslations';
+import { ActionButton } from '../../../ui/ActionButton';
 
 export interface BookingCollaborationActionsProps {
   readonly booking: LessonBookingCabinetItem;
@@ -29,34 +30,37 @@ export const BookingCollaborationActions: React.FC<BookingCollaborationActionsPr
   return (
     <div className="flex flex-wrap items-center gap-2">
       {actions.canWithdrawCancellation && (
-        <button
+        <ActionButton
           type="button"
-          disabled={submitting}
+          unstyled
+          pending={submitting}
           onClick={() => void onWithdrawCancellation(booking)}
           className="px-3 py-1.5 text-xs font-medium rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition"
         >
           {copy.withdrawCancellation}
-        </button>
+        </ActionButton>
       )}
       {actions.canReschedule && resolveLessonBookingClientExercisedCapability(booking) && (
-        <button
+        <ActionButton
           type="button"
-          disabled={submitting}
+          unstyled
+          pending={submitting}
           onClick={() => onReschedule(booking)}
           className="px-3 py-1.5 text-xs font-medium rounded-lg border border-[var(--border-subtle)] text-[var(--ink)] hover:border-[var(--accent)] transition"
         >
           {copy.rescheduleBooking}
-        </button>
+        </ActionButton>
       )}
       {actions.canRequestCancellation && onCancel && booking.status === 'confirmed' && (
-        <button
+        <ActionButton
           type="button"
-          disabled={submitting}
+          unstyled
+          pending={submitting}
           onClick={() => onCancel(booking)}
           className="px-3 py-1.5 text-xs font-medium rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition"
         >
           {copy.t('cancelBookingRefund')}
-        </button>
+        </ActionButton>
       )}
     </div>
   );

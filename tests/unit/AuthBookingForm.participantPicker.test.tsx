@@ -199,4 +199,22 @@ describe('AuthBookingForm participant picker', () => {
     expect(screen.queryByText('bookingParticipantsLabel')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /payConfirmLesson/i })).toBeDisabled();
   });
+
+  it('shows the shared pending ActionButton state while a booking command is in flight', () => {
+    render(
+      <AuthBookingForm
+        workspace={createWorkspace({
+          managedParticipants: [selfOnly],
+          selectedParticipantIds: ['participant_self'],
+          isSubmitting: true,
+        })}
+      />
+    );
+
+    const submit = screen.getByRole('button', { name: 'submitting' });
+    expect(submit).toBeDisabled();
+    expect(submit).toHaveAttribute('aria-busy', 'true');
+    expect(screen.queryByText(/payConfirmLesson/i)).not.toBeInTheDocument();
+    expect(submit.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
+  });
 });

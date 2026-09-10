@@ -3,6 +3,7 @@ import { Settings, Award, Trophy, Bell, Trash2, Gift } from 'lucide-react';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { SkillConfig } from '../../../../domain/achievements';
 import { AchievementsConfig } from '../../../../domain/achievements';
+import { ActionButton } from '../../../../ui/ActionButton';
 import {
   DEFAULT_NOTIFICATION_RETENTION_DAYS,
   MAX_NOTIFICATION_RETENTION_DAYS,
@@ -162,14 +163,15 @@ export const AdminSystemSettings: React.FC<AdminSystemSettingsProps> = ({
               </span>
             </div>
           </div>
-          <button
+          <ActionButton
             type="button"
+            pending={isSavingRetention}
+            pendingLabel={t('saving')}
+            className="btn-primary px-4 py-2 text-sm"
             onClick={() => void handleSaveRetention()}
-            disabled={isSavingRetention}
-            className="btn-primary px-4 py-2 text-sm disabled:opacity-50"
           >
-            {isSavingRetention ? t('saving') : t('saveChanges')}
-          </button>
+            {t('saveChanges')}
+          </ActionButton>
         </div>
       </AdminCollapsibleSection>
 
@@ -213,14 +215,16 @@ export const AdminSystemSettings: React.FC<AdminSystemSettingsProps> = ({
               </span>
             </div>
           </div>
-          <button
+          <ActionButton
             type="button"
+            pending={isSavingStarterCredit}
+            pendingLabel={t('saving')}
+            disabled={!onSetStarterCreditUsd}
+            className="btn-primary px-4 py-2 text-sm"
             onClick={() => void handleSaveStarterCredit()}
-            disabled={isSavingStarterCredit || !onSetStarterCreditUsd}
-            className="btn-primary px-4 py-2 text-sm disabled:opacity-50"
           >
-            {isSavingStarterCredit ? t('saving') : t('saveChanges')}
-          </button>
+            {t('saveChanges')}
+          </ActionButton>
         </div>
       </AdminCollapsibleSection>
 

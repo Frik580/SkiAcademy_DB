@@ -1,9 +1,10 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { Loader2, Star, X } from 'lucide-react';
+import { Star, X } from 'lucide-react';
 import { Booking } from '../../../types';
 import { useLanguage } from '../../../app/providers/LanguageContext';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';
+import { ActionButton } from '../../../ui/ActionButton';
 
 interface ReviewModalProps {
   booking: Booking | null;
@@ -88,17 +89,15 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
             />
           </div>
 
-          <button
+          <ActionButton
             type="submit"
-            disabled={isSubmitting}
-            className="w-full py-2.5 border border-[var(--border)] bg-transparent hover:border-[var(--ink)] hover:bg-black/5 disabled:bg-black/5 disabled:text-[var(--ink-dim)] disabled:border-[var(--border)] disabled:cursor-not-allowed text-[var(--ink)] rounded-none text-xs font-mono uppercase tracking-widest flex items-center justify-center gap-2 transition cursor-pointer"
+            pending={isSubmitting}
+            pendingLabel={t('submitting')}
+            unstyled
+            className="w-full py-2.5 border border-[var(--border)] bg-transparent hover:border-[var(--ink)] hover:bg-black/5 disabled:bg-black/5 disabled:text-[var(--ink-dim)] disabled:border-[var(--border)] disabled:cursor-not-allowed text-[var(--ink)] rounded-none text-xs font-mono uppercase tracking-widest transition cursor-pointer"
           >
-            {isSubmitting ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              t('postInstructorReview')
-            )}
-          </button>
+            {t('postInstructorReview')}
+          </ActionButton>
         </form>
       </div>
     </div>,

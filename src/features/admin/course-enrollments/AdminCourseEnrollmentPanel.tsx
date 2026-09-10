@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, ChevronRight, RefreshCw, Users } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
+import { ActionButton } from '../../../ui/ActionButton';
 import {
   CourseEnrollmentIdSchema,
   CourseIdSchema,
@@ -783,25 +784,29 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
             )}
             {mutationError && <p className="text-xs text-red-700">{mutationError}</p>}
             <div className="flex gap-2">
-              <button
+              <ActionButton
                 type="button"
+                size="sm"
                 disabled={mutationPending}
                 onClick={() => {
                   setConfirmation(undefined);
                   setMutationError(undefined);
                 }}
-                className="flex-1 border border-[var(--border)] px-3 py-2 text-xs"
+                className="flex-1"
               >
                 {t.cancel}
-              </button>
-              <button
+              </ActionButton>
+              <ActionButton
                 type="button"
-                disabled={mutationPending}
+                variant="primary"
+                size="sm"
+                pending={mutationPending}
+                pendingLabel={t.submitting}
                 onClick={() => void runConfirmation()}
-                className="flex-1 border border-[var(--ink)] bg-[var(--ink)] px-3 py-2 text-xs text-[var(--bg)]"
+                className="flex-1"
               >
-                {mutationPending ? t.submitting : mutationError ? t.retrySame : t.confirm}
-              </button>
+                {mutationError ? t.retrySame : t.confirm}
+              </ActionButton>
             </div>
           </div>
         </div>

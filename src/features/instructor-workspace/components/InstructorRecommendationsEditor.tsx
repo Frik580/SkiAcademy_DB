@@ -6,6 +6,7 @@ import {
   sanitizeRecommendations,
 } from '../../../features/student-cabinet/lessonRecommendations';
 import { type TranslationKey } from '../../../app/providers/LanguageContext';
+import { ActionButton } from '../../../ui/ActionButton';
 
 interface InstructorRecommendationsEditorProps {
   bookingId: string;
@@ -107,15 +108,17 @@ export const InstructorRecommendationsEditor: React.FC<InstructorRecommendations
                 <Plus className="w-3 h-3" />
                 {t('instructorAddRecommendation')}
               </button>
-              <button
+              <ActionButton
                 type="button"
+                unstyled
+                pending={isSaving}
+                pendingLabel={t('saving')}
                 onClick={handleSave}
-                disabled={isSaving}
                 className="inline-flex items-center gap-1 px-2 py-1 text-[9px] font-mono uppercase tracking-wider bg-[var(--ink)] text-[var(--bg)] rounded-xs font-bold transition disabled:opacity-60"
               >
                 <Save className="w-3 h-3" />
-                {isSaving ? t('saving') : t('saveChanges')}
-              </button>
+                {t('saveChanges')}
+              </ActionButton>
             </div>
           )}
         </div>

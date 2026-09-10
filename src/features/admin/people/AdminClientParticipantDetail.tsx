@@ -10,6 +10,7 @@ import {
   adminClientSkillLevelLabel,
 } from './adminClientLabels';
 import type { useAdminClientTranslations } from './useAdminClientTranslations';
+import { ActionButton } from '../../../ui/ActionButton';
 
 interface AdminClientParticipantDetailProps {
   readonly detail: AdminClientParticipantDetailView;
@@ -152,13 +153,9 @@ export function AdminClientParticipantDetail({
             className="w-full border border-[var(--border)] bg-transparent px-3 py-2 font-mono text-xs"
             rows={3}
           />
-          <button
-            type="submit"
-            disabled={pending}
-            className="border border-[var(--border)] px-3 py-2 text-xs font-mono font-bold uppercase tracking-wider disabled:opacity-50"
-          >
+          <ActionButton type="submit" size="sm" pending={pending} pendingLabel={text.pending}>
             {text.saveParticipant}
-          </button>
+          </ActionButton>
         </form>
       ) : null}
       <div className="flex gap-2">

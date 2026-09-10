@@ -12,6 +12,7 @@ import {
   X,
 } from 'lucide-react';
 import type { TranslationKey } from '../../../app/providers/LanguageContext';
+import { ActionButton } from '../../../ui/ActionButton';
 import {
   formatInstructorCourseAssignedDaysSummary,
   formatInstructorCourseDayDate,
@@ -460,6 +461,7 @@ const AttendanceRow: React.FC<{
           participantName={participant.displayName}
           active={participant.factualState === 'present'}
           disabled={mutationDisabled || !participant.canRecordAttendance}
+          pending={pending}
           onClick={() => record('present')}
           icon={<Check className="w-3.5 h-3.5" />}
         />
@@ -468,12 +470,12 @@ const AttendanceRow: React.FC<{
           participantName={participant.displayName}
           active={participant.factualState === 'absent'}
           disabled={mutationDisabled || !participant.canRecordAttendance}
+          pending={pending}
           onClick={() => record('absent')}
           icon={<X className="w-3.5 h-3.5" />}
         />
         {pending ? (
           <span className="inline-flex items-center gap-1.5 text-[10px] font-mono text-[var(--ink-dim)]">
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
             {t(
               mutationState?.status === 'refreshing'
                 ? 'instructorAttendanceRefreshing'
@@ -532,24 +534,27 @@ const AttendanceActionButton: React.FC<{
   participantName: string;
   active: boolean;
   disabled: boolean;
+  pending?: boolean;
   onClick: () => void;
   icon: React.ReactNode;
-}> = ({ label, participantName, active, disabled, onClick, icon }) => (
-  <button
+}> = ({ label, participantName, active, disabled, pending = false, onClick, icon }) => (
+  <ActionButton
     type="button"
+    unstyled
+    pending={pending}
     onClick={onClick}
     disabled={disabled}
     aria-label={`${participantName}: ${label}`}
     aria-pressed={active}
-    className={`inline-flex h-8 items-center gap-1.5 border px-2.5 text-[10px] font-mono font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+    className={`h-8 px-2.5 text-[10px] font-mono font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
       active
-        ? 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200'
-        : 'border-slate-300 text-[var(--ink)] hover:border-slate-400 dark:border-slate-700 dark:hover:border-slate-600'
+        ? 'border border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200'
+        : 'border border-slate-300 text-[var(--ink)] hover:border-slate-400 dark:border-slate-700 dark:hover:border-slate-600'
     }`}
   >
     {icon}
     {label}
-  </button>
+  </ActionButton>
 );
 
 function attendanceStateLabel(

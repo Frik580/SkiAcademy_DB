@@ -6,6 +6,7 @@ import {
 import { Loader2, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { ActionButton } from '../../../ui/ActionButton';
 import {
   ADMIN_FINANCE_PAYMENT_QUERY_KEY,
   ADMIN_ISSUE_QUERY_KEY,
@@ -498,29 +499,29 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
               </p>
             )}
             <div className="flex gap-2">
-              <button
+              <ActionButton
                 type="button"
+                size="sm"
                 disabled={mutationPending}
                 onClick={() => {
                   setConfirmation(undefined);
                   setMutationError(undefined);
                 }}
-                className="flex-1 border border-[var(--border)] px-3 py-2 text-xs"
+                className="flex-1"
               >
                 {t('adminLessonConfirmCancel')}
-              </button>
-              <button
+              </ActionButton>
+              <ActionButton
                 type="button"
-                disabled={mutationPending}
+                variant="primary"
+                size="sm"
+                pending={mutationPending}
+                pendingLabel={t('adminLessonSubmitting')}
                 onClick={() => void runConfirmation()}
-                className="flex-1 border border-[var(--ink)] bg-[var(--ink)] px-3 py-2 text-xs text-[var(--bg)]"
+                className="flex-1"
               >
-                {mutationPending
-                  ? t('adminLessonSubmitting')
-                  : mutationError
-                    ? t('adminLessonRetrySame')
-                    : t('adminLessonConfirmSubmit')}
-              </button>
+                {mutationError ? t('adminLessonRetrySame') : t('adminLessonConfirmSubmit')}
+              </ActionButton>
             </div>
           </div>
         </div>

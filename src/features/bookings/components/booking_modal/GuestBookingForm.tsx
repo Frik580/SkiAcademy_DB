@@ -1,9 +1,10 @@
 import React from 'react';
-import { User, Phone, Mail, Send, Loader2 } from 'lucide-react';
+import { User, Phone, Mail, Send } from 'lucide-react';
 import { useBookingModal } from './useBookingModal';
 import { BookingSelectors } from './BookingSelectors';
 import { BOOKING_NOTES_FIELD_CLASS } from './bookingAppleFieldStyles';
 import { useCurrency } from '../../../../app/providers/CurrencyContext';
+import { ActionButton } from '../../../../ui/ActionButton';
 
 interface GuestBookingFormProps {
   workspace: ReturnType<typeof useBookingModal>;
@@ -143,23 +144,16 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
           <span className="text-lg font-extrabold text-[var(--accent)]">{totalFormatted}</span>
         </div>
 
-        <button
+        <ActionButton
           type="submit"
-          disabled={isSubmitting || isTimeSlotOccupied || !targetInstructor?.isAvailable}
-          className="btn-primary flex w-full items-center justify-center gap-2 py-3"
+          pending={isSubmitting}
+          pendingLabel={t('submitting')}
+          disabled={isTimeSlotOccupied || !targetInstructor?.isAvailable}
+          className="btn-primary w-full py-3"
         >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              {t('submitting')}
-            </>
-          ) : (
-            <>
-              <Send className="h-3.5 w-3.5" />
-              {t('submitGuestApplication')}
-            </>
-          )}
-        </button>
+          <Send className="h-3.5 w-3.5" />
+          {t('submitGuestApplication')}
+        </ActionButton>
       </div>
     </form>
   );

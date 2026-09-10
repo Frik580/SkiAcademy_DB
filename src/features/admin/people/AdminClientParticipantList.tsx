@@ -11,6 +11,7 @@ import {
   adminClientSkillLevelLabel,
 } from './adminClientLabels';
 import type { useAdminClientTranslations } from './useAdminClientTranslations';
+import { ActionButton } from '../../../ui/ActionButton';
 
 interface AdminClientParticipantListProps {
   readonly participants: readonly AdminClientManagedParticipant[];
@@ -150,13 +151,9 @@ export function AdminClientParticipantList({
             <option value="ski">{text.ski}</option>
             <option value="snowboard">{text.snowboard}</option>
           </select>
-          <button
-            type="submit"
-            disabled={pending}
-            className="border border-[var(--border)] px-3 py-2 text-xs font-mono font-bold uppercase tracking-wider disabled:opacity-50"
-          >
+          <ActionButton type="submit" size="sm" pending={pending} pendingLabel={text.pending}>
             {text.addParticipant}
-          </button>
+          </ActionButton>
         </form>
       ) : null}
     </section>

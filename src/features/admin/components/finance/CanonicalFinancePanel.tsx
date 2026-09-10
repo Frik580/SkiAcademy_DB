@@ -1,5 +1,6 @@
 import { AlertTriangle, CheckCircle2, Loader2, RefreshCw, Search, Wallet } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { ActionButton } from '../../../../ui/ActionButton';
 import { useSearchParams } from 'react-router-dom';
 import { executeAuthenticatedCanonicalCommand } from '../../../../lib/canonical/canonicalCommandClient';
 import {
@@ -481,18 +482,18 @@ export function CanonicalFinancePanel({
                   placeholder={t('adminFinanceReason')}
                   className="border border-[var(--border)] bg-transparent px-3 py-2 text-xs"
                 />
-                <button
+                <ActionButton
                   type="button"
-                  disabled={
-                    funding.pending ||
-                    !parseKztAmountToCanonicalUnits(fundingAmount) ||
-                    !fundingReason.trim()
-                  }
+                  size="sm"
+                  variant="primary"
+                  pending={funding.pending}
+                  pendingLabel={t('adminFinancePending')}
+                  disabled={!parseKztAmountToCanonicalUnits(fundingAmount) || !fundingReason.trim()}
                   onClick={requestFunding}
-                  className="border border-[var(--border)] bg-[var(--ink)] px-3 py-2 text-xs text-[var(--bg)] disabled:opacity-50"
+                  className="w-full"
                 >
-                  {funding.pending ? t('adminFinancePending') : t('adminFinanceFundWallet')}
-                </button>
+                  {t('adminFinanceFundWallet')}
+                </ActionButton>
               </div>
             ) : (
               <p className="border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
@@ -683,14 +684,18 @@ export function CanonicalFinancePanel({
                   placeholder={t('adminFinanceReason')}
                   className="min-h-20 w-full border border-[var(--border)] bg-transparent px-3 py-2 text-xs"
                 />
-                <button
+                <ActionButton
                   type="button"
-                  disabled={correction.pending || !correctionReason.trim()}
+                  size="sm"
+                  variant="primary"
+                  pending={correction.pending}
+                  pendingLabel={t('adminFinancePending')}
+                  disabled={!correctionReason.trim()}
                   onClick={requestCorrection}
-                  className="w-full border border-[var(--border)] bg-[var(--ink)] px-3 py-2 text-xs text-[var(--bg)] disabled:opacity-50"
+                  className="w-full"
                 >
-                  {correction.pending ? t('adminFinancePending') : t('adminFinanceApplyCorrection')}
-                </button>
+                  {t('adminFinanceApplyCorrection')}
+                </ActionButton>
               </div>
             )}
             {correction.error && (

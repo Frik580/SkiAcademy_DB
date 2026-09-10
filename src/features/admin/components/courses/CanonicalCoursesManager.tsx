@@ -13,6 +13,7 @@ import {
 } from '@ski-academy/shared-domain';
 import { executeAuthenticatedCanonicalCommand } from '../../../../lib/canonical/canonicalCommandClient';
 import { toCanonicalCommandClientError } from '../../../../lib/canonical/mapCanonicalCommandError';
+import { ActionButton } from '../../../../ui/ActionButton';
 import { queryAdminCourseReadModels } from '../../../../lib/canonical/canonicalReadModelClient';
 import { useAdminIdentityReadModels } from '../../identity/useAdminIdentityReadModels';
 import type { CanonicalCoursesManagerInput } from './adminCourseContracts';
@@ -1310,9 +1311,15 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
               {text.cloneDraftReady}
             </p>
           ) : null}
-          <button disabled={pending !== null} className="ui-btn ui-btn-primary" type="submit">
+          <ActionButton
+            pending={pending !== null}
+            pendingLabel={text.pending}
+            unstyled
+            className="ui-btn ui-btn-primary"
+            type="submit"
+          >
             {createMode === 'clone' ? text.createClone : text.create}
-          </button>
+          </ActionButton>
         </form>
       )}
 
@@ -1772,9 +1779,15 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                   onChange={(event) => setEditReason(event.target.value)}
                 />
               </label>
-              <button className="ui-btn ui-btn-primary" disabled={pending !== null} type="submit">
+              <ActionButton
+                className="ui-btn ui-btn-primary"
+                unstyled
+                pending={pending !== null}
+                pendingLabel={text.pending}
+                type="submit"
+              >
                 {language === 'ru' ? 'Сохранить изменения' : 'Save changes'}
-              </button>
+              </ActionButton>
             </form>
           ) : null}
 
@@ -1924,14 +1937,21 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                   </select>
                 </label>
                 <div className="flex gap-2">
-                  <button
+                  <ActionButton
                     className="ui-btn ui-btn-primary"
-                    disabled={pending !== null}
+                    unstyled
+                    pending={pending !== null}
+                    pendingLabel={text.pending}
                     type="submit"
                   >
                     {language === 'ru' ? 'Сохранить день' : 'Save day'}
-                  </button>
-                  <button className="ui-btn" type="button" onClick={() => setCourseDayDraft(null)}>
+                  </ActionButton>
+                  <button
+                    className="ui-btn"
+                    type="button"
+                    disabled={pending !== null}
+                    onClick={() => setCourseDayDraft(null)}
+                  >
                     {language === 'ru' ? 'Отмена' : 'Cancel'}
                   </button>
                 </div>

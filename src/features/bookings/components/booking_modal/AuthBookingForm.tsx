@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, ShieldAlert, Loader2 } from 'lucide-react';
+import { Sparkles, ShieldAlert } from 'lucide-react';
 import { useBookingModal } from './useBookingModal';
 import { BookingSelectors } from './BookingSelectors';
 import { BookingOverlapWarnings } from './BookingOverlapWarnings';
@@ -7,6 +7,7 @@ import { BookingPriceAccordion } from './BookingPriceAccordion';
 import { ParticipantPicker } from '../../../participants/components/ParticipantPicker';
 import { BOOKING_NOTES_FIELD_CLASS } from './bookingAppleFieldStyles';
 import { useCurrency } from '../../../../app/providers/CurrencyContext';
+import { ActionButton } from '../../../../ui/ActionButton';
 import {
   isAuthenticatedBookingSubmitDisabled,
   resolveEffectiveParticipantIds,
@@ -189,17 +190,14 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
             </p>
           )}
 
-          <button
+          <ActionButton
             type="submit"
+            pending={isSubmitting}
+            pendingLabel={t('submitting')}
             disabled={isSubmitDisabled}
-            className="btn-primary flex w-full items-center justify-center gap-2 py-3"
+            className="btn-primary w-full py-3"
           >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                {t('submitting')}
-              </>
-            ) : userProfile?.isClientActive === false ? (
+            {userProfile?.isClientActive === false ? (
               <>
                 <ShieldAlert className="h-3.5 w-3.5" />
                 {t('accessSuspended')}
@@ -210,7 +208,7 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
                 {t('payConfirmLesson').replace('{amount}', totalFormatted)}
               </>
             )}
-          </button>
+          </ActionButton>
         </div>
       </div>
     </form>

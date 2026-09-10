@@ -6,6 +6,7 @@ import { optimizeProfileImage } from '../profileImage';
 import { uploadImage } from '../../../../infrastructure/firebase';
 import { logger } from '../../../../shared';
 import { ScSectionTitle } from './StudentCabinetUI';
+import { ActionButton } from '../../../../ui/ActionButton';
 import { useEffectiveBalance } from '../../../../features/wallet';
 
 interface StudentProfilePersonalSectionProps {
@@ -153,14 +154,17 @@ export const StudentProfilePersonalSection: React.FC<StudentProfilePersonalSecti
             />
           </div>
           {onUpdateProfile && (
-            <button
+            <ActionButton
               type="button"
+              unstyled
+              pending={isSaving}
+              pendingLabel={t('saving')}
               onClick={() => void handleSaveProfile()}
-              disabled={!profileDirty || isSaving || !displayName.trim()}
+              disabled={!profileDirty || !displayName.trim()}
               className="text-sm font-medium text-[var(--accent)] hover:underline disabled:opacity-50 disabled:no-underline"
             >
-              {isSaving ? '…' : t('saveChanges')}
-            </button>
+              {t('saveChanges')}
+            </ActionButton>
           )}
         </div>
       </section>

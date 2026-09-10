@@ -10,6 +10,7 @@ import { auth } from '../../../../infrastructure/firebase';
 import { executeAuthenticatedCanonicalCommand } from '../../../../lib/canonical/canonicalCommandClient';
 import { queryLessonPricingSettingsReadModel } from '../../../../lib/canonical/canonicalReadModelClient';
 import { useAdminProductSettingsTranslations } from './useAdminProductSettingsTranslations';
+import { ActionButton } from '../../../../ui/ActionButton';
 
 export const CanonicalLessonPricingSettings: React.FC = () => {
   const { text } = useAdminProductSettingsTranslations();
@@ -138,14 +139,16 @@ export const CanonicalLessonPricingSettings: React.FC = () => {
         />
       </label>
       <div className="flex flex-wrap items-center gap-3">
-        <button
+        <ActionButton
           type="button"
-          className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-          disabled={pending}
+          unstyled
+          pending={pending}
+          pendingLabel={text.saving}
           onClick={() => void save()}
+          className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
         >
-          {pending ? text.saving : text.save}
-        </button>
+          {text.save}
+        </ActionButton>
         {revision !== undefined && (
           <span className="text-xs text-[var(--muted)]">
             {text.revision}: {revision}

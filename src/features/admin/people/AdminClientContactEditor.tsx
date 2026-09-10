@@ -1,5 +1,6 @@
 import type { AdminClientContactDraft } from './adminClientContracts';
 import type { useAdminClientTranslations } from './useAdminClientTranslations';
+import { ActionButton } from '../../../ui/ActionButton';
 
 interface AdminClientContactEditorProps {
   readonly draft: AdminClientContactDraft;
@@ -79,20 +80,18 @@ export function AdminClientContactEditor({
         />
       </div>
       <div className="flex gap-2">
-        <button
+        <ActionButton
           type="submit"
-          disabled={pending || !draft.displayName.trim()}
-          className="border border-[var(--border)] px-3 py-2 text-xs font-mono font-bold uppercase tracking-wider disabled:opacity-50"
+          size="sm"
+          pending={pending}
+          pendingLabel={text.pending}
+          disabled={!draft.displayName.trim()}
         >
-          {pending ? text.pending : text.saveContact}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="border border-[var(--border)] px-3 py-2 text-xs font-mono uppercase tracking-wider"
-        >
+          {text.saveContact}
+        </ActionButton>
+        <ActionButton type="button" size="sm" disabled={pending} onClick={onCancel}>
           {text.cancel}
-        </button>
+        </ActionButton>
       </div>
     </form>
   );

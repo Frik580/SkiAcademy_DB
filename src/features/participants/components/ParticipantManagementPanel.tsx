@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { Loader2, Pencil, Plus, UserRound } from 'lucide-react';
+import { Pencil, Plus, UserRound } from 'lucide-react';
 import { useLanguage } from '../../../app/providers/LanguageContext';
+import { ActionButton } from '../../../ui/ActionButton';
 import type { ManagedParticipantOption } from '../../lesson-bookings/lessonBookingContracts';
 import { useManagedParticipants } from '../../lesson-bookings/useManagedParticipants';
 import { presentCanonicalCommandErrorWithContext } from '../../lesson-bookings/presentCanonicalCommandError';
@@ -352,14 +353,14 @@ export const ParticipantManagementPanel: React.FC<ParticipantManagementPanelProp
           {formError && <p className="text-xs text-rose-600 dark:text-rose-400">{formError}</p>}
 
           <div className="flex flex-wrap gap-2">
-            <button
+            <ActionButton
               type="submit"
-              disabled={isSaving}
-              className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-xs"
+              pending={isSaving}
+              pendingLabel={t('saving')}
+              className="btn-primary px-4 py-2 text-xs"
             >
-              {isSaving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               {t('saveChanges')}
-            </button>
+            </ActionButton>
             <button
               type="button"
               onClick={closeEditor}

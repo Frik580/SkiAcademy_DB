@@ -1,5 +1,6 @@
 import type { AdminInstructorProfileDraft } from './adminInstructorContracts';
 import type { useAdminInstructorTranslations } from './useAdminInstructorTranslations';
+import { ActionButton } from '../../../ui/ActionButton';
 
 interface AdminInstructorProfileEditorProps {
   readonly draft: AdminInstructorProfileDraft;
@@ -183,20 +184,18 @@ export function AdminInstructorProfileEditor({
         ) : null}
       </div>
       <div className="flex gap-2">
-        <button
+        <ActionButton
           type="submit"
-          disabled={pending || uploading || !draft.name.trim() || !draft.pricePerHourKZT.trim()}
-          className="border border-[var(--border)] px-3 py-2 text-xs font-mono font-bold uppercase tracking-wider disabled:opacity-50"
+          size="sm"
+          pending={pending}
+          pendingLabel={text.pending}
+          disabled={uploading || !draft.name.trim() || !draft.pricePerHourKZT.trim()}
         >
-          {pending ? text.pending : submitLabel}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="border border-[var(--border)] px-3 py-2 text-xs font-mono uppercase tracking-wider"
-        >
+          {submitLabel}
+        </ActionButton>
+        <ActionButton type="button" size="sm" disabled={pending} onClick={onCancel}>
           {text.cancel}
-        </button>
+        </ActionButton>
       </div>
     </form>
   );

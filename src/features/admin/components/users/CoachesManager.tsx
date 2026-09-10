@@ -13,6 +13,7 @@ import { Booking, Instructor } from '../../../../types';
 import { bookingsBlockingInstructorDeactivation } from '../../people/adminPeopleOccupancy';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { useNotifications } from '../../../../features/notifications';
+import { ActionButton } from '../../../../ui/ActionButton';
 import { getSpecialtyLabel } from '../schedule/scheduleUtils';
 import { uploadImage } from '../../../../infrastructure/firebase';
 import { logger } from '../../../../shared';
@@ -619,19 +620,15 @@ export const CoachesManager: React.FC<CoachesManagerProps> = ({
               </div>
 
               <div className="flex gap-2 pt-2 font-mono">
-                <button
+                <ActionButton
                   type="submit"
-                  disabled={isSubmitting}
-                  className="flex-1 py-2 border border-[var(--border)] hover:bg-[var(--ink)] hover:text-[var(--bg)] bg-transparent text-[var(--ink)] font-bold text-xs rounded-none flex items-center justify-center gap-1.5 cursor-pointer transition"
+                  pending={isSubmitting}
+                  pendingLabel={t('saving')}
+                  unstyled
+                  className="flex-1 py-2 border border-[var(--border)] hover:bg-[var(--ink)] hover:text-[var(--bg)] bg-transparent text-[var(--ink)] font-bold text-xs rounded-none cursor-pointer transition"
                 >
-                  {isSubmitting ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : editingIns ? (
-                    t('saveUpdates')
-                  ) : (
-                    t('addCoachShort')
-                  )}
-                </button>
+                  {editingIns ? t('saveUpdates') : t('addCoachShort')}
+                </ActionButton>
                 <button
                   type="button"
                   onClick={() => {

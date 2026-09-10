@@ -13,6 +13,7 @@ import {
 import { useLanguage } from '../../../app/providers/LanguageContext';
 import { X, Save, Award, CheckCircle2, AlertCircle } from 'lucide-react';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';
+import { ActionButton } from '../../../ui/ActionButton';
 
 interface StudentSkillEvaluationModalProps {
   isOpen: boolean;
@@ -347,14 +348,15 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
             >
               {t('cancel')}
             </button>
-            <button
+            <ActionButton
               onClick={handleSave}
-              disabled={isSaving}
-              className="px-5 py-2 btn-primary text-xs flex items-center gap-2 shadow-lg disabled:opacity-50"
+              pending={isSaving}
+              pendingLabel={t('saving')}
+              className="btn-primary px-5 py-2 text-xs shadow-lg"
             >
               <Save className="w-4 h-4" />
-              {isSaving ? t('saving') : t('saveRatings')}
-            </button>
+              {t('saveRatings')}
+            </ActionButton>
           </div>
         </div>
       </div>

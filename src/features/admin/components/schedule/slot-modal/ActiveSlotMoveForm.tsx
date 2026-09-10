@@ -1,5 +1,6 @@
 import React from 'react';
-import { Check, Loader2, Trash2 } from 'lucide-react';
+import { Check, Trash2 } from 'lucide-react';
+import { ActionButton } from '../../../../../ui/ActionButton';
 import type { Booking, Instructor } from '../../../../../types';
 import { useLanguage } from '../../../../../app/providers/LanguageContext';
 import { formatDurationLabel } from '../../../../../lib/i18n/duration';
@@ -197,18 +198,16 @@ export const ActiveSlotMoveForm: React.FC<ActiveSlotMoveFormProps> = ({
           {t('deleteCancelBlock')}
         </button>
 
-        <button
+        <ActionButton
           type="submit"
-          disabled={isSlotActionSubmitting}
-          className="flex-1 py-2 px-3 border border-[var(--border)] bg-[var(--ink)] hover:bg-transparent text-[var(--bg)] hover:text-[var(--ink)] disabled:bg-black/5 disabled:text-[var(--ink-dim)] disabled:border-[var(--border)] disabled:cursor-not-allowed rounded-none text-xs font-mono uppercase tracking-widest flex items-center justify-center gap-2 transition cursor-pointer"
+          pending={isSlotActionSubmitting}
+          pendingLabel={t('applyMove')}
+          unstyled
+          className="flex-1 py-2 px-3 border border-[var(--border)] bg-[var(--ink)] hover:bg-transparent text-[var(--bg)] hover:text-[var(--ink)] disabled:bg-black/5 disabled:text-[var(--ink-dim)] disabled:border-[var(--border)] disabled:cursor-not-allowed rounded-none text-xs font-mono uppercase tracking-widest transition cursor-pointer"
         >
-          {isSlotActionSubmitting ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Check className="w-4 h-4" />
-          )}
+          <Check className="w-4 h-4" />
           {t('applyMove')}
-        </button>
+        </ActionButton>
       </div>
     </form>
   );

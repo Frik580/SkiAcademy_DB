@@ -9,8 +9,9 @@ import {
   type InstructorId,
   type ParticipantId,
 } from '@ski-academy/shared-domain';
-import { Loader2, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { useState } from 'react';
+import { ActionButton } from '../../../ui/ActionButton';
 import { toCanonicalCommandClientError } from '../../../lib/canonical/mapCanonicalCommandError';
 import type { AdminIdentityAttempt, AdminIdentityDirectory } from './identityContracts';
 import { executeAdminIdentityAttempt } from './useAdminIdentityCommands';
@@ -303,21 +304,24 @@ export function CanonicalIdentityManager({ adminAccountId }: CanonicalIdentityMa
                 rev {confirmation.attempt.expectedRevision}
               </p>
               <div className="mt-2 flex gap-2">
-                <button
+                <ActionButton
                   type="button"
-                  className="border border-[var(--ink)] px-3 py-2"
+                  size="sm"
+                  variant="primary"
+                  pending={pending}
+                  pendingLabel={text.confirm}
                   onClick={() => void runConfirmation()}
-                  disabled={pending}
                 >
-                  {pending ? <Loader2 className="inline h-3 w-3 animate-spin" /> : text.confirm}
-                </button>
-                <button
+                  {text.confirm}
+                </ActionButton>
+                <ActionButton
                   type="button"
-                  className="border border-[var(--border)] px-3 py-2"
+                  size="sm"
+                  disabled={pending}
                   onClick={() => setConfirmation(undefined)}
                 >
                   {text.cancel}
-                </button>
+                </ActionButton>
               </div>
             </div>
           ) : null}

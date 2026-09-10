@@ -12,6 +12,7 @@ import {
 } from '../../../../domain/achievements';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { Plus, Trash2, Edit2, Save, RotateCcw, Check } from 'lucide-react';
+import { ActionButton } from '../../../../ui/ActionButton';
 
 interface SkillConfigManagerProps {
   config?: SkillConfig;
@@ -119,14 +120,15 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
           <RotateCcw className="w-3.5 h-3.5" />
           {t('reset')}
         </button>
-        <button
+        <ActionButton
           onClick={handleSave}
-          disabled={isSaving}
-          className="px-4 py-1.5 btn-primary flex items-center gap-1.5 shadow-md disabled:opacity-50"
+          pending={isSaving}
+          pendingLabel={t('saving')}
+          className="btn-primary px-4 py-1.5 shadow-md"
         >
           <Save className="w-3.5 h-3.5" />
-          {isSaving ? t('saving') : t('saveChanges')}
-        </button>
+          {t('saveChanges')}
+        </ActionButton>
       </div>
 
       {/* Passing score setting */}

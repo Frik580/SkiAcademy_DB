@@ -6,6 +6,7 @@ import {
 } from '@ski-academy/shared-domain';
 import type { InstructorProposalPartyCandidate } from '../bookingCollaborationContracts';
 import { useBookingCollaborationTranslations } from '../useBookingCollaborationTranslations';
+import { ActionButton } from '../../../ui/ActionButton';
 
 export interface CreateProposalModalProps {
   readonly open: boolean;
@@ -52,7 +53,8 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
         (participant) => participant.participantId === participantId && participant.selectable
       )
     );
-  const [selectedParticipantIds, setSelectedParticipantIds] = useState<string[]>(selectableDefaultIds);
+  const [selectedParticipantIds, setSelectedParticipantIds] =
+    useState<string[]>(selectableDefaultIds);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -62,7 +64,14 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
     setDurationMinutes(defaultDurationMinutes);
     setSelectedParticipantIds(selectableDefaultIds());
     setSubmitting(false);
-  }, [open, defaultDate, defaultTime, defaultDurationMinutes, defaultSelectedParticipantIds, participants]);
+  }, [
+    open,
+    defaultDate,
+    defaultTime,
+    defaultDurationMinutes,
+    defaultSelectedParticipantIds,
+    participants,
+  ]);
 
   const selectedLabels = useMemo(
     () =>
@@ -74,8 +83,7 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
 
   if (!open) return null;
 
-  const atMax =
-    maxParticipants !== undefined && selectedParticipantIds.length >= maxParticipants;
+  const atMax = maxParticipants !== undefined && selectedParticipantIds.length >= maxParticipants;
 
   let pricePreviewLabel = pricePreviewLabelProp;
   if (pricingPreview && selectedParticipantIds.length > 0 && durationMinutes > 0) {
@@ -111,8 +119,7 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
           <div className="flex flex-wrap gap-2">
             {participants.map((participant) => {
               const selected = selectedParticipantIds.includes(participant.participantId);
-              const disabled =
-                !participant.selectable || (!selected && atMax);
+              const disabled = !participant.selectable || (!selected && atMax);
               return (
                 <button
                   key={participant.participantId}
@@ -176,16 +183,23 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
             className="w-full rounded-lg border border-[var(--border-subtle)] px-3 py-2 text-sm"
           />
         </label>
-        {pricePreviewLabel && (
-          <p className="text-xs text-[var(--ink-dim)]">{pricePreviewLabel}</p>
-        )}
+        {pricePreviewLabel && <p className="text-xs text-[var(--ink-dim)]">{pricePreviewLabel}</p>}
         <div className="flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-sm rounded-lg border">
-            {copy.t('cancel')}
-          </button>
-          <button
+          <ActionButton
             type="button"
-            disabled={submitting || !localDate || !localTime || selectedParticipantIds.length === 0}
+            unstyled
+            disabled={submitting}
+            onClick={onClose}
+            className="px-4 py-2 text-sm rounded-lg border"
+          >
+            {copy.t('cancel')}
+          </ActionButton>
+          <ActionButton
+            type="button"
+            unstyled
+            pending={submitting}
+            pendingLabel={copy.t('submitting')}
+            disabled={!localDate || !localTime || selectedParticipantIds.length === 0}
             onClick={async () => {
               setSubmitting(true);
               try {
@@ -203,7 +217,7 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
             className="px-4 py-2 text-sm rounded-lg bg-[var(--accent)] text-white"
           >
             {copy.createProposal}
-          </button>
+          </ActionButton>
         </div>
       </div>
     </div>

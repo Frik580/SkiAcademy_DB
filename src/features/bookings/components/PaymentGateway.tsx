@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { CreditCard, X, Check, ArrowRight, Loader2 } from 'lucide-react';
+import { CreditCard, X, Check, ArrowRight } from 'lucide-react';
 import { useNotifications } from '../../../features/notifications';
 import { useLanguage } from '../../../app/providers/LanguageContext';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';
+import { ActionButton } from '../../../ui/ActionButton';
 import type { WalletCurrency } from '../../../types';
 
 const TOP_UP_AMOUNTS_KZT = [10_000, 25_000, 50_000, 100_000] as const;
@@ -252,23 +253,15 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
               </div>
             </div>
 
-            <button
+            <ActionButton
               type="submit"
-              disabled={isPaying}
-              className="btn-primary w-full py-3 flex items-center justify-center gap-2"
+              pending={isPaying}
+              pendingLabel={t('processing')}
+              className="btn-primary w-full py-3"
             >
-              {isPaying ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  {t('processing')}
-                </>
-              ) : (
-                <>
-                  {t('authorizeTopUp')} {formatWalletAmount(selectedAmount)}
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </>
-              )}
-            </button>
+              {t('authorizeTopUp')} {formatWalletAmount(selectedAmount)}
+              <ArrowRight className="w-3.5 h-3.5" />
+            </ActionButton>
           </form>
         )}
       </div>

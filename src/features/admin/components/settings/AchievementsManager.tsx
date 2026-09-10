@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Plus, Save, Trash2 } from 'lucide-react';
+import { ActionButton } from '../../../../ui/ActionButton';
 import { useLanguage, type TranslationKey } from '../../../../app/providers/LanguageContext';
 import {
   AchievementDefinition,
@@ -121,15 +122,16 @@ export const AchievementsManager: React.FC<AchievementsManagerProps> = ({
             <Plus className="w-3.5 h-3.5" />
             {t('achievementsAdd')}
           </button>
-          <button
+          <ActionButton
             type="button"
+            pending={isSaving}
+            pendingLabel={t('saving')}
+            className="btn-primary px-3 py-2 text-xs"
             onClick={() => void handleSave()}
-            disabled={isSaving}
-            className="btn-primary inline-flex items-center gap-1.5 px-3 py-2 text-xs disabled:opacity-50"
           >
             <Save className="w-3.5 h-3.5" />
-            {isSaving ? t('saving') : t('saveChanges')}
-          </button>
+            {t('saveChanges')}
+          </ActionButton>
         </div>
       </div>
 

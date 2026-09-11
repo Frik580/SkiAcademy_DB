@@ -11,6 +11,8 @@ Amended: 2026-09-09 — T32.9A.9A.F4 (Canonical Multi-Participant Lesson Attenda
 Amended: 2026-09-09 — T32.9A.9A.F1 reconciled to PASS / DEPLOYED; F3 reconciled to PASS / CLOSED after manual acceptance; F4 remains READY_FOR_MANUAL_SMOKE
 Amended: 2026-09-10 — T32.9A.9A final integration / production smoke PASS; F2/F4 reconciled to PASS / CLOSED; T32.9A.9A overall PASS / CLOSED; active cutover stage → T32.9A.9B
 Amended: 2026-09-11 — T32.9A.9B.2 Participant Progress: Product Owner cancelled legacy `/users` progress migration; canonical `/participant_progress` is empty-start authority; Data migration: NO; deploy Functions → Hosting → Rules
+Amended: 2026-09-11 — T32.9A.9B.2 implementation recorded: Participant-scoped authority, Student Cabinet selection policy, Instructor progress (relationship + booking evidence), lesson-context assessment gate aligned with backend booking-based evidence; **READY_FOR_MANUAL_SMOKE** (production deploy + manual acceptance not yet recorded here); next sub-slice **T32.9A.9B.3** Recommendations / Lesson Feedback continuity
+Amended: 2026-09-11 — T32.9A.9B.2 **PASS / CLOSED** after production deploy (Functions → Hosting → Firestore Rules) and manual acceptance smoke **PASS** (2026-09-11); active 9B sub-slice **T32.9A.9B.3** — NEXT
 
 Status: historical Admin-runtime audit from 2026-08-30, with later T32.8A–T32.8C and T32.9A/T32.9B migration status below. Findings in this document that describe unpaid Administrator guest approval, missing guest CourseEnrollment confirmation, or identity linking as confirmation are superseded by ADR-0007. Sections below that still describe the 2026-08-30 Admin runtime as fully legacy are historical audit evidence; later migration status in this preamble supersedes them for T32.9A progress.
 
@@ -48,6 +50,8 @@ T32.9 remains split per [ADR-0008](adr/0008-ux-preservation-during-canonical-mig
 | T32.9A.9A final integration / production smoke | 9A close gate after F4                                                   | PASS                                      |
 | T32.9A.9A                                      | Individual Booking lifecycle cutover (overall)                           | PASS / CLOSED                             |
 | T32.9A.9B                                      | Student Booking Stats / Progress / Recommendations / Reviews Cutover     | IN PROGRESS (active)                      |
+| T32.9A.9B.2                                    | Canonical Participant Progress                                           | PASS / CLOSED                             |
+| T32.9A.9B.3                                    | Recommendations / Lesson Feedback continuity                             | NEXT (active sub-slice within 9B)         |
 | T32.9A.9C                                      | Course Progress / Achievements Cutover                                   | PENDING                                   |
 | T32.9A.9P                                      | Global Product Parity & Legacy Dependency Gate                           | PENDING                                   |
 | T32.9A.9D0                                     | Production-like Incremental Cutover Rehearsal                            | PENDING                                   |
@@ -81,7 +85,8 @@ T32.9A.9A — Individual Booking lifecycle cutover — PASS / CLOSED
   T32.9A.9A final integration / production smoke
 T32.9A.9B — Student Booking Stats / Progress / Recommendations Cutover — IN PROGRESS (active)
          (includes Reviews / Instructor Rating Continuity)
-  T32.9A.9B.2 — Canonical Participant Progress Authority — empty start, Data migration: NO
+  T32.9A.9B.2 — Canonical Participant Progress — PASS / CLOSED (production smoke 2026-09-11)
+  T32.9A.9B.3 — Recommendations / Lesson Feedback continuity — NEXT
 T32.9A.9C — Course Progress / Achievements Cutover
 T32.9A.9P — Global Product Parity & Legacy Dependency Gate
 T32.9A.9D0 — Production-like Incremental Cutover Rehearsal
@@ -721,11 +726,26 @@ In 9B:
 
 This slice is documentation of required migration scope. It does not implement 9B.
 
-##### T32.9A.9B.2 — Canonical Participant Progress Authority
+##### T32.9A.9B.2 — Canonical Participant Progress
+
+**Status: PASS / CLOSED** — production deploy **PASS** (Functions → Hosting → Firestore Rules, no data migration) and manual acceptance smoke **PASS** on **2026-09-11**.
 
 Product Owner decision (2026-09-11): **legacy student progress is NOT migrated.**
 
-Canonical `/participant_progress/{participantId}` starts a new history for every Participant:
+###### Authority
+
+Canonical authority:
+
+```text
+/participant_progress/{participantId}
+```
+
+Progress belongs to **Participant**, not Account/User. Supported Participant kinds:
+
+- self Participant (Account Owner as attendee);
+- dependent / child Participant **without** their own `/users` document.
+
+Empty start for every Participant (missing document = no canonical history yet):
 
 ```text
 level = 1
@@ -734,17 +754,85 @@ skillComments = {}
 revision = 0 / no document until first canonical update
 ```
 
-Do **not** copy `/users.level`, `/users.skillScores`, or `/users.skillComments`. Those fields stay on `/users` as **READ-ONLY LEGACY / CLEANUP CANDIDATE** until a later T32.9B cleanup. They are not authority. Frontend has no legacy progress fallback.
+Legacy fields on `/users/{uid}`:
 
-Data migration: **NO**. Do not run production dry-run/apply. Missing `/participant_progress` is empty start for self, child, and multi-participant Accounts.
+```text
+level
+skillScores
+skillComments
+```
 
-9B.2 production deploy order (no migration step):
+→ **not** authority  
+→ **not** migrated  
+→ canonical progress starts **clean**  
+→ legacy fields remain **cleanup candidates** until later migration phases (e.g. T32.9B physical cleanup)  
+→ **no** frontend fallback to legacy progress
+
+Data migration: **NO**. Do not run production dry-run/apply.
+
+###### Student Cabinet — managed Participant selection (final policy)
+
+- **1** managed Participant → auto-select.
+- **2+** with self → **self** selected on initial load only.
+- After manual selection, selection **persists**; refetch of progress/participants does **not** reset selection.
+- Selected Participant removed from managed set → fallback to **self** when self exists; otherwise empty (no `participants[0]` guess).
+- **2+** without self → **no** `participants[0]` fallback; user must choose explicitly.
+- Switching is fully **SPA** (no full page reload).
+- Navbar / LevelUpModal remain **self-specific** and do **not** drive cabinet progress Participant selection.
+
+###### Instructor progress
+
+- Instructor works against a specific **participantId**, including dependents without their own Account.
+- Progress identity is always **participantId**, never Account `uid` alone.
+- **Active InstructorRelationship** is a separate **global** basis for progress read/write access; it does **not** depend on Attendance on a particular lesson Booking.
+- **Booking-scoped** evidence (below) is an additional path when no qualifying relationship applies.
+
+###### Lesson-context assessment gate (Instructor booking card)
+
+Per **Participant** on that lesson card (not shared across party members):
+
+| Attendance for that Participant | «Оценить» + level controls |
+| ------------------------------- | -------------------------- |
+| missing (no record)             | disabled                   |
+| `present`                       | enabled                    |
+| `absent`                        | disabled                   |
+
+One Participant marked `present` does **not** enable assessment for another Participant on the same Booking.
+
+###### Backend booking-based progress evidence (Instructor)
+
+Without active InstructorRelationship, booking-based evidence must qualify. Rules are **participant-specific** (another Participant’s Attendance never grants authority). UI lesson gate and this backend policy are **aligned**.
+
+| Booking lifecycle | Attendance for target Participant | Time (confirmed) | Instructor progress via booking evidence |
+| ----------------- | --------------------------------- | ---------------- | ---------------------------------------- |
+| `confirmed`       | missing                           | any              | DENY                                     |
+| `confirmed`       | `absent`                          | any              | DENY                                     |
+| `confirmed`       | `present`                         | before `startsAt`  | DENY                                     |
+| `confirmed`       | `present`                         | at/after `startsAt` | ALLOW                                 |
+| `completed`       | `present`                         | —                | ALLOW                                    |
+| `completed`       | missing / `absent`                | —                | DENY                                     |
+| `no_show`         | any                               | —                | DENY                                     |
+| `pending`         | any                               | —                | DENY                                     |
+| `pending_cancellation` | any                          | —                | DENY                                     |
+| `cancelled`       | any                               | —                | DENY                                     |
+
+Shared-domain policy: `bookingProvidesInstructorProgressEvidence` / `participantProgressAccessPolicy` (tests in `participantProgressAccessPolicy.test.ts`).
+
+###### Closure (9B.2) — PASS
+
+Production deploy (no migration step) — **PASS**:
 
 ```text
 1. Functions
 2. Hosting
 3. Firestore Rules
 ```
+
+Manual acceptance smoke — **PASS** (2026-09-11): Student multi-participant selection, dependent progress, Instructor lesson gate, canonical commands/read models.
+
+##### T32.9A.9B.3 — Recommendations / Lesson Feedback continuity — NEXT
+
+Next sub-slice within **T32.9A.9B** after 9B.2 closure. Scope: restore Instructor recommendation / lesson feedback on canonical authority (not fields on canonical Booking), canonical write/read paths, and Student-facing continuity. Does not subsume **Reviews / Instructor Rating Continuity** (separate mandatory 9B scope below).
 
 ##### Reviews / Instructor Rating Continuity — mandatory 9B scope
 
@@ -1811,6 +1899,8 @@ Current structure (authoritative for later status; see preamble):
   - **9A** Individual Booking lifecycle cutover — **PASS / CLOSED** (core PASS at
     authority level; F1 PASS/DEPLOYED; F2/F3/F4 PASS/CLOSED; final integration/production smoke PASS)
   - **9B** Student Booking Stats / Progress / Recommendations Cutover, including Reviews / Instructor Rating Continuity — **IN PROGRESS (active)**
+    - **9B.2** Canonical Participant Progress — **PASS / CLOSED** (production smoke 2026-09-11)
+    - **9B.3** Recommendations / Lesson Feedback continuity — **NEXT**
   - **9C** Course Progress / Achievements Cutover — PENDING
   - **9P** Global Product Parity & Legacy Dependency Gate — PENDING
   - **9D0** Production-like Incremental Cutover Rehearsal — PENDING

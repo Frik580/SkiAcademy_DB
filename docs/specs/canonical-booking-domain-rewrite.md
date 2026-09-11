@@ -342,9 +342,11 @@ There is one production cutover sequence. It supersedes reading Phase 7 / T40 as
 T32.9A.9A — PASS / CLOSED (F1 / F2 / F3 / F4 / final integration smoke)
         ↓
 T32.9A.9B — IN PROGRESS (active): stats/progress/recommendations + Reviews / instructor rating
-  T32.9A.9B.2 Participant Progress: empty-start canonical authority.
-  Legacy /users progress is NOT migrated (PO 2026-09-11). Data migration: NO.
-  Deploy: Functions → Hosting → Firestore Rules.
+  T32.9A.9B.2 Participant Progress — PASS / CLOSED (production smoke 2026-09-11)
+    (authority `/participant_progress/{participantId}`; empty start; legacy /users progress not migrated;
+     Student selection + Instructor lesson gate + booking evidence — see T32_CANONICAL_ADMIN_AUDIT.md §9B.2)
+  T32.9A.9B.3 — NEXT: Recommendations / Lesson Feedback continuity
+  9B.2 deploy PASS: Functions → Hosting → Firestore Rules. Data migration: NO.
         ↓
 T32.9A.9C (Course progress / achievements)
         ↓

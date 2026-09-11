@@ -135,7 +135,7 @@ Minimum dependent Participant data is name, birth date or age, skill level, ski/
 | Current spendable Account balance      | Wallet                                                                       | Payment obligations and Monetary Event queries do not replace current Wallet state              |
 | Actual participation evidence          | Attendance records                                                           | `completed` and `no_show` are lifecycle outcomes derived through authorized transitions         |
 | Current operational inconsistencies    | Unresolved Admin Issues                                                      | Activity Logs explain issue actions but do not replace current issue state                      |
-| Participant progress                   | Participant profile                                                          | Account Owner profile is not the Participant's progress record unless they are the same person  |
+| Participant progress                   | `/participant_progress/{participantId}` (canonical; T32.9A.9B.2)             | Legacy `/users` level/skill fields are not authority and are not migrated; empty start per Participant |
 | Instructor schedule                    | Active Booking and Course Day scheduling intent plus administrative blocks   | Server-owned resource claims and guards enforce conflicts; sanitized read models may be derived |
 | Participant schedule                   | Active lesson intervals and actual Course Day intervals for that Participant | Account Owner schedule is not a substitute                                                      |
 | Scheduling enforcement                 | Server-owned resource claims and guards                                      | Owners retain lifecycle and schedule intent; sanitized availability is a read model             |
@@ -484,9 +484,14 @@ Details, the parity inventory, role coverage, and the T32.9A / T32.9B boundary a
 ```text
 T32.9A.9A — PASS / CLOSED (F1 / F2 / F3 / F4 / final integration smoke)
 → T32.9A.9B — IN PROGRESS (active): stats / progress / recommendations / Reviews and instructor rating
-  T32.9A.9B.2 Participant Progress: canonical `/participant_progress` empty-start authority.
-  Legacy `/users.level|skillScores|skillComments` are NOT migrated (PO 2026-09-11).
-  Data migration: NO. Deploy: Functions → Hosting → Firestore Rules.
+  T32.9A.9B.2 Participant Progress — PASS / CLOSED (production deploy + manual smoke PASS, 2026-09-11):
+    authority `/participant_progress/{participantId}` (Participant, not Account);
+    legacy `/users.level|skillScores|skillComments` NOT migrated, NOT authority, no UI fallback;
+    Student Cabinet Participant selection: 1→auto; 2++self→self initial; persist manual choice; no participants[0] without self;
+    Instructor: participantId identity; InstructorRelationship OR booking evidence; lesson card gate = present-only per Participant;
+    booking evidence table aligned with UI gate (see T32 audit 9B.2).
+  T32.9A.9B.3 — NEXT: Recommendations / Lesson Feedback continuity.
+  9B.2 deployed: Functions → Hosting → Firestore Rules. Data migration: NO.
 → T32.9A.9C (Course progress / achievements)
 → T32.9A.9P (Global Product Parity & legacy Dependency Gate)
 → T32.9A.9D0 (production-like incremental rehearsal)

@@ -6,7 +6,10 @@ import {
   type BookingChangeRequestId,
 } from '@ski-academy/shared-domain';
 import { queryBookingChangeRequestReadModels } from '../../../lib/canonical/canonicalReadModelClient';
-import { classifyAdminIssueReadError, type AdminIssueReadErrorCode } from './useAdminIssueReadModels';
+import {
+  classifyAdminIssueReadError,
+  type AdminIssueReadErrorCode,
+} from './useAdminIssueReadModels';
 
 interface AttentionChangeRequestListState {
   readonly items: readonly AdminBookingChangeRequestInboxItem[];

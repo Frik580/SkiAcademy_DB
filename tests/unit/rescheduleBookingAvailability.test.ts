@@ -5,9 +5,7 @@ import {
   filterOccupancyExcludingBooking,
 } from '../../src/features/booking-collaboration/useRescheduleBookingAvailability';
 
-const occupancyItem = (
-  bookingId: string | undefined
-): AdminPlannerOccupancyItem =>
+const occupancyItem = (bookingId: string | undefined): AdminPlannerOccupancyItem =>
   ({
     occupancyId: bookingId ?? 'occupancy_01',
     bookingId,

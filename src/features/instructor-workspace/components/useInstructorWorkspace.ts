@@ -15,9 +15,12 @@ import { SkillConfig, DEFAULT_SKILL_ITEMS } from '../../../domain/achievements';
 import { useBookingChatUnread } from '../../../features/student-cabinet/useBookingChatUnread';
 import { activityLogId, logActivityForUser } from '../../../domain/activity';
 import {
-  updateStudentLevelService,
-  updateStudentSkillsService,
-} from '../../profile/profileService';
+  emptyParticipantProgressView,
+  resolveSelfParticipantIdFromAccount,
+  updateCanonicalParticipantProgress,
+  useParticipantProgressStore,
+  type ParticipantProgressView,
+} from '../../participant-progress';
 import type { InstructorLessonBookingItem } from '../../booking-collaboration/bookingCollaborationContracts';
 import { isAttendedLessonStatus } from '../../../domain/booking';
 
@@ -146,12 +149,13 @@ export const useInstructorWorkspace = ({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [evalModalState, setEvalModalState] = useState({
     isOpen: false,
-    studentUid: '',
+    participantId: '',
     studentName: '',
     studentLevel: 1,
     existingScores: {} as Record<string, number>,
     existingComments: {} as Record<string, string>,
   });
+  const progressById = useParticipantProgressStore((state) => state.byId);
 
   const linkedInstructor = useMemo(() => {
     return instructors.find((ins) => ins.id === userProfile.instructorId);
@@ -248,43 +252,58 @@ export const useInstructorWorkspace = ({
   const myStudents = useMemo(() => {
     const map = new Map<
       string,
-      { uid: string; name: string; avatar?: string; lessonsCount: number }
+      {
+        participantId: string;
+        uid?: string;
+        name: string;
+        avatar?: string;
+        lessonsCount: number;
+      }
     >();
 
     instructorBookings.forEach((booking) => {
       booking.participants.forEach((participant) => {
-        if (participant.userId) {
-          const existing = map.get(participant.userId) || {
-            uid: participant.userId,
-            name: participant.clientName || 'Student',
-            avatar: participant.clientAvatar,
-            lessonsCount: 0,
-          };
-          existing.lessonsCount += 1;
-          map.set(participant.userId, existing);
-        }
+        const existing = map.get(participant.participantId) || {
+          participantId: participant.participantId,
+          ...(participant.userId ? { uid: participant.userId } : {}),
+          name: participant.clientName || 'Student',
+          avatar: participant.clientAvatar,
+          lessonsCount: 0,
+        };
+        existing.lessonsCount += 1;
+        map.set(participant.participantId, existing);
       });
     });
 
     return Array.from(map.values());
   }, [instructorBookings]);
 
+  const currentProgress = (participantId: string): ParticipantProgressView =>
+    progressById[participantId] ?? emptyParticipantProgressView(participantId);
+
+  const activityLogAccountIdFor = (participantId: string, linkedUserId?: string) => {
+    if (!linkedUserId) return undefined;
+    return resolveSelfParticipantIdFromAccount(linkedUserId) === participantId
+      ? linkedUserId
+      : undefined;
+  };
+
   const handleSaveStudentScores = async (
-    studentUid: string,
+    participantId: string,
     updatedScores: Record<string, number>,
     calculatedLevel: number,
     updatedComments: Record<string, string> = {}
   ) => {
     try {
-      const student = usersList.find((item) => item.uid === studentUid);
-      const oldLevel = student?.level ?? 1;
-      const oldScores = student?.skillScores ?? {};
-      const oldComments = student?.skillComments ?? {};
+      const previous = currentProgress(participantId);
+      const oldLevel = previous.level || 1;
+      const oldScores = previous.skillScores;
+      const oldComments = previous.skillComments;
       const oldTotal = Object.values(oldScores).reduce((sum, value) => sum + value, 0);
       const newTotal = Object.values(updatedScores).reduce((sum, value) => sum + value, 0);
       const pointsDelta = newTotal - oldTotal;
 
-      const mergedComments = { ...(student?.skillComments ?? {}), ...updatedComments };
+      const mergedComments = { ...oldComments, ...updatedComments };
       for (const itemId of Object.keys(mergedComments)) {
         if (!(itemId in updatedScores) || updatedScores[itemId] === 0) {
           delete mergedComments[itemId];
@@ -296,7 +315,14 @@ export const useInstructorWorkspace = ({
         }
       }
 
-      await updateStudentSkillsService(studentUid, updatedScores, mergedComments, calculatedLevel);
+      await updateCanonicalParticipantProgress({
+        accountId: userProfile.uid,
+        participantId,
+        level: calculatedLevel,
+        skillScores: updatedScores,
+        skillComments: mergedComments,
+        expectedRevision: previous.revision,
+      });
 
       const skillItems = skillConfig?.items || DEFAULT_SKILL_ITEMS;
 
@@ -332,29 +358,33 @@ export const useInstructorWorkspace = ({
         (itemId) => (updatedComments[itemId]?.trim() ?? '') !== (oldComments[itemId]?.trim() ?? '')
       );
 
-      if (calculatedLevel > oldLevel) {
-        await logActivityForUser(
-          studentUid,
-          userProfile.uid,
-          'level_up',
-          {
-            oldLevel,
+      const student = myStudents.find((item) => item.participantId === participantId);
+      const logAccountId = activityLogAccountIdFor(participantId, student?.uid);
+      if (logAccountId) {
+        if (calculatedLevel > oldLevel) {
+          await logActivityForUser(
+            logAccountId,
+            userProfile.uid,
+            'level_up',
+            {
+              oldLevel,
+              newLevel: calculatedLevel,
+              skillDeltas,
+              pointsDelta,
+              instructorId: userProfile.instructorId,
+              commentedSkillIds,
+            },
+            activityLogId.levelUp(logAccountId, calculatedLevel)
+          );
+        } else if (skillDeltas.length > 0 || commentsChanged) {
+          await logActivityForUser(logAccountId, userProfile.uid, 'skill_scores_updated', {
+            pointsDelta,
             newLevel: calculatedLevel,
             skillDeltas,
-            pointsDelta,
             instructorId: userProfile.instructorId,
             commentedSkillIds,
-          },
-          activityLogId.levelUp(studentUid, calculatedLevel)
-        );
-      } else if (skillDeltas.length > 0 || commentsChanged) {
-        await logActivityForUser(studentUid, userProfile.uid, 'skill_scores_updated', {
-          pointsDelta,
-          newLevel: calculatedLevel,
-          skillDeltas,
-          instructorId: userProfile.instructorId,
-          commentedSkillIds,
-        });
+          });
+        }
       }
 
       addNotification(
@@ -368,23 +398,32 @@ export const useInstructorWorkspace = ({
   };
 
   const handleUpdateStudentLevel = async (
-    studentUid: string,
+    participantId: string,
     studentName: string,
     newLevel: number
   ) => {
     try {
-      const student = usersList.find((item) => item.uid === studentUid);
-      const oldLevel = student?.level ?? 1;
+      const previous = currentProgress(participantId);
+      const oldLevel = previous.level || 1;
 
-      await updateStudentLevelService(studentUid, newLevel);
+      await updateCanonicalParticipantProgress({
+        accountId: userProfile.uid,
+        participantId,
+        level: newLevel,
+        skillScores: previous.skillScores,
+        skillComments: previous.skillComments,
+        expectedRevision: previous.revision,
+      });
 
-      if (newLevel > oldLevel) {
+      const student = myStudents.find((item) => item.participantId === participantId);
+      const logAccountId = activityLogAccountIdFor(participantId, student?.uid);
+      if (logAccountId && newLevel > oldLevel) {
         await logActivityForUser(
-          studentUid,
+          logAccountId,
           userProfile.uid,
           'level_up',
           { oldLevel, newLevel },
-          activityLogId.levelUp(studentUid, newLevel)
+          activityLogId.levelUp(logAccountId, newLevel)
         );
       }
 
@@ -399,7 +438,7 @@ export const useInstructorWorkspace = ({
   };
 
   const openEvalModal = (
-    studentUid: string,
+    participantId: string,
     studentName: string,
     studentLevel: number,
     existingScores?: Record<string, number>,
@@ -407,7 +446,7 @@ export const useInstructorWorkspace = ({
   ) => {
     setEvalModalState({
       isOpen: true,
-      studentUid,
+      participantId,
       studentName,
       studentLevel,
       existingScores: existingScores || {},
@@ -437,6 +476,7 @@ export const useInstructorWorkspace = ({
     instructorBookings,
     instructorReviews,
     myStudents,
+    progressById,
     selectedChatBooking,
     setSelectedChatBooking,
     closeChatModal,

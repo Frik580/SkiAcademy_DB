@@ -5,10 +5,7 @@ import { useProfileStore } from '../profile/profileStore';
 import { useBookingsStore } from '../bookings/bookingsStore';
 import { useNotificationsStore } from './notificationsStore';
 import { useNotificationActions } from './useNotificationActions';
-import {
-  selectLessonBookingItems,
-  useLessonBookingStore,
-} from '../lesson-bookings';
+import { selectLessonBookingItems, useLessonBookingStore } from '../lesson-bookings';
 import { cabinetItemToLegacyPresentation } from '../lesson-bookings/mergeCabinetBookings';
 
 /** Feature container for notification history and review prompts. */
@@ -26,9 +23,7 @@ export const NotificationsPanel: React.FC = () => {
   const bookings = useMemo(
     () =>
       userProfile
-        ? lessonBookings.map((booking) =>
-            cabinetItemToLegacyPresentation(booking, userProfile.uid)
-          )
+        ? lessonBookings.map((booking) => cabinetItemToLegacyPresentation(booking, userProfile.uid))
         : [],
     [lessonBookings, userProfile]
   );

@@ -90,8 +90,9 @@ export function AdminIssueCenter() {
   const selectedIssueResult = AdminIssueIdSchema.safeParse(selectedIssueParam);
   const selectedIssueId = selectedIssueResult.success ? selectedIssueResult.data : undefined;
   const selectedChangeRequestParam = searchParams.get(ADMIN_CHANGE_REQUEST_QUERY_KEY);
-  const selectedChangeRequestResult =
-    BookingChangeRequestIdSchema.safeParse(selectedChangeRequestParam);
+  const selectedChangeRequestResult = BookingChangeRequestIdSchema.safeParse(
+    selectedChangeRequestParam
+  );
   const selectedChangeRequestId = selectedChangeRequestResult.success
     ? selectedChangeRequestResult.data
     : undefined;
@@ -104,7 +105,9 @@ export function AdminIssueCenter() {
   });
   const changeRequests = useAdminAttentionChangeRequests({
     enabled: view === 'open',
-    ...(selectedChangeRequestId === undefined ? {} : { selectedRequestId: selectedChangeRequestId }),
+    ...(selectedChangeRequestId === undefined
+      ? {}
+      : { selectedRequestId: selectedChangeRequestId }),
   });
 
   const updateQuery = useCallback(
@@ -151,14 +154,14 @@ export function AdminIssueCenter() {
       ? detail.item.subjectRef.enrollmentId
       : undefined;
   const inboxEntries =
-    view === 'open' ? mergeAttentionInbox(list.items, changeRequests.list.items) : list.items.map(
-        (issue) => ({
+    view === 'open'
+      ? mergeAttentionInbox(list.items, changeRequests.list.items)
+      : list.items.map((issue) => ({
           source: 'admin_issue' as const,
           id: issue.issueId,
           sortSeconds: issue.updatedAt.seconds,
           issue,
-        })
-      );
+        }));
   const inboxLoading =
     list.loading || (view === 'open' && changeRequests.list.loading && inboxEntries.length === 0);
   const inboxError = list.error;
@@ -288,9 +291,7 @@ export function AdminIssueCenter() {
           <div className="border border-dashed border-[var(--border)] p-8 text-center">
             <Info className="mx-auto mb-3 h-5 w-5 text-[var(--ink-dim)]" />
             <p className="text-sm text-[var(--ink-dim)]">
-              {t(
-                view === 'open' ? 'adminAttentionEmptyOpen' : 'adminIssueEmptyHistory'
-              )}
+              {t(view === 'open' ? 'adminAttentionEmptyOpen' : 'adminIssueEmptyHistory')}
             </p>
           </div>
         ) : (

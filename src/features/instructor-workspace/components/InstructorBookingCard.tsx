@@ -14,6 +14,11 @@ import {
   type useInstructorBookingCollaboration,
 } from '../../booking-collaboration';
 import { instructorLessonAttendanceSubmissionId } from '../../booking-collaboration/deriveCollaborationIdempotencyKeys';
+import {
+  emptyParticipantProgressView,
+  useParticipantProgressStore,
+} from '../../participant-progress';
+import { isLessonContextProgressAssessmentEnabled } from '../instructorLessonProgressAssessment';
 
 interface InstructorBookingCardProps {
   booking: DisplayBooking;
@@ -25,9 +30,9 @@ interface InstructorBookingCardProps {
   hasUnreadChat?: (
     bookingOrId: string | import('../../../domain/chat').CourseChatBooking
   ) => boolean;
-  onUpdateStudentLevel: (studentUid: string, studentName: string, newLevel: number) => void;
+  onUpdateStudentLevel: (participantId: string, studentName: string, newLevel: number) => void;
   onOpenEval: (
-    studentUid: string,
+    participantId: string,
     studentName: string,
     studentLevel: number,
     existingScores?: Record<string, number>,
@@ -40,7 +45,6 @@ interface InstructorBookingCardProps {
 
 export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
   booking,
-  usersList,
   theme,
   language,
   t,
@@ -53,12 +57,12 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
   onCreateProposal,
 }) => {
   const b = booking;
+  const progressById = useParticipantProgressStore((state) => state.byId);
   const renderParticipant = (participant: DisplayBooking['participants'][number]) => {
-    const studentAccountId = participant.userId;
-    const studentUser = studentAccountId
-      ? usersList.find((u) => u.uid === studentAccountId)
-      : undefined;
-    const studentLevel = studentUser?.level || 1;
+    const progress =
+      progressById[participant.participantId] ??
+      emptyParticipantProgressView(participant.participantId);
+    const studentLevel = progress.level || 1;
     const studentName = participant.clientName || 'Student';
     const submitting =
       collaboration.submittingId ===
@@ -69,6 +73,13 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
         : participant.attendanceStatus === 'absent'
           ? t('instructorAttendanceAbsent')
           : t('instructorAttendanceMissing');
+    const canAssessInLesson = isLessonContextProgressAssessmentEnabled(
+      participant.attendanceStatus
+    );
+    const assessDisabledTitle =
+      participant.attendanceStatus === undefined
+        ? t('instructorAssessMarkAttendanceFirst')
+        : undefined;
     const record = (attendanceStatus: 'present' | 'absent') => {
       collaboration.handleRecordLessonAttendance({
         bookingId: b.id,
@@ -147,34 +158,34 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
             <X className="w-3.5 h-3.5" />
             {t('instructorAttendanceAbsent')}
           </ActionButton>
-          {studentAccountId && (
-            <>
-              <StudentAssessButton
-                t={t}
-                onClick={() =>
-                  onOpenEval(
-                    studentAccountId,
-                    studentName,
-                    studentLevel,
-                    studentUser?.skillScores || {},
-                    studentUser?.skillComments || {}
-                  )
-                }
-              />
-              <StudentLevelControls
-                studentUid={studentAccountId}
-                usersList={usersList}
-                theme={theme}
-                t={t}
-                badgeTitleKey="instructorCurrentLevel"
-                selectLabelKey="instructorLevel"
-                showSetLevelLabel
-                onChange={(newLevel) =>
-                  onUpdateStudentLevel(studentAccountId, studentName, newLevel)
-                }
-              />
-            </>
-          )}
+          <StudentAssessButton
+            t={t}
+            disabled={!canAssessInLesson}
+            title={assessDisabledTitle}
+            ariaLabel={`${studentName}: ${t('instructorAssess')}`}
+            onClick={() =>
+              onOpenEval(
+                participant.participantId,
+                studentName,
+                studentLevel,
+                progress.skillScores,
+                progress.skillComments
+              )
+            }
+          />
+          <StudentLevelControls
+            level={studentLevel}
+            theme={theme}
+            t={t}
+            badgeTitleKey="instructorCurrentLevel"
+            selectLabelKey="instructorLevel"
+            showSetLevelLabel
+            disabled={!canAssessInLesson}
+            selectAriaLabel={`${studentName}: ${t('instructorLevel')}`}
+            onChange={(newLevel) =>
+              onUpdateStudentLevel(participant.participantId, studentName, newLevel)
+            }
+          />
         </div>
       </div>
     );

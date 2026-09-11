@@ -9,6 +9,8 @@ export interface ParticipantPickerProps {
   readonly error?: string;
   readonly onRetry?: () => void;
   readonly maxParticipants?: number;
+  /** `single` replaces the current id (cabinet switcher). Default stays multi-select. */
+  readonly selectionMode?: 'single' | 'multiple';
   readonly t: (key: string) => string;
   readonly onCreateDependent?: () => void;
 }
@@ -28,6 +30,7 @@ export const ParticipantPicker: React.FC<ParticipantPickerProps> = ({
   error,
   onRetry,
   maxParticipants,
+  selectionMode = 'multiple',
   t,
   onCreateDependent,
 }) => {
@@ -60,7 +63,7 @@ export const ParticipantPicker: React.FC<ParticipantPickerProps> = ({
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
         <label className="text-xs text-[var(--ink-dim)]">{t('bookingParticipantsLabel')}</label>
-        {requiresSelectionHint(participants) && (
+        {selectionMode !== 'single' && requiresSelectionHint(participants) && (
           <span className="text-[10px] uppercase tracking-wide text-[var(--ink-dim)]">
             {t('participantsChooseExplicitly')}
           </span>
@@ -70,6 +73,7 @@ export const ParticipantPicker: React.FC<ParticipantPickerProps> = ({
         {participants.map((participant) => {
           const selected = selectedParticipantIds.includes(participant.participantId);
           const atLimit =
+            selectionMode !== 'single' &&
             !selected &&
             (maxParticipants === undefined || selectedParticipantIds.length >= maxParticipants);
           return (
@@ -94,11 +98,13 @@ export const ParticipantPicker: React.FC<ParticipantPickerProps> = ({
           );
         })}
       </div>
-      {maxParticipants !== undefined && selectedParticipantIds.length >= maxParticipants && (
-        <p className="text-[10px] text-[var(--ink-dim)]">
-          {t('participantsMaxSelected').replace('{count}', String(maxParticipants))}
-        </p>
-      )}
+      {selectionMode !== 'single' &&
+        maxParticipants !== undefined &&
+        selectedParticipantIds.length >= maxParticipants && (
+          <p className="text-[10px] text-[var(--ink-dim)]">
+            {t('participantsMaxSelected').replace('{count}', String(maxParticipants))}
+          </p>
+        )}
       {onCreateDependent && (
         <button
           type="button"

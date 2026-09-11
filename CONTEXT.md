@@ -484,6 +484,9 @@ Details, the parity inventory, role coverage, and the T32.9A / T32.9B boundary a
 ```text
 T32.9A.9A — PASS / CLOSED (F1 / F2 / F3 / F4 / final integration smoke)
 → T32.9A.9B — IN PROGRESS (active): stats / progress / recommendations / Reviews and instructor rating
+  T32.9A.9B.2 Participant Progress: canonical `/participant_progress` empty-start authority.
+  Legacy `/users.level|skillScores|skillComments` are NOT migrated (PO 2026-09-11).
+  Data migration: NO. Deploy: Functions → Hosting → Firestore Rules.
 → T32.9A.9C (Course progress / achievements)
 → T32.9A.9P (Global Product Parity & legacy Dependency Gate)
 → T32.9A.9D0 (production-like incremental rehearsal)

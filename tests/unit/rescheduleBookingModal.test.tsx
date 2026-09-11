@@ -64,9 +64,7 @@ describe('RescheduleBookingModal', () => {
       <CreateProposalModal
         open
         instructorId="instructor_fixture_01"
-        participants={[
-          { participantId: 'student_01', label: 'Student', selectable: true },
-        ]}
+        participants={[{ participantId: 'student_01', label: 'Student', selectable: true }]}
         defaultSelectedParticipantIds={['student_01']}
         defaultDate="2026-06-15"
         defaultTime="10:00"

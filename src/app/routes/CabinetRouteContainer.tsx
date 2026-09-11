@@ -119,10 +119,7 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
   );
 
   const notifyCancellationOutcome = useCallback(
-    (
-      entityKind: 'lesson' | 'course',
-      outcome: CabinetCancellationCommandResult
-    ) => {
+    (entityKind: 'lesson' | 'course', outcome: CabinetCancellationCommandResult) => {
       for (const notification of presentCabinetCancellationNotifications(entityKind, outcome)) {
         addNotification(
           notification.type,
@@ -186,7 +183,11 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
           ),
           exercisedCapability: 'account_owner',
         });
-        addNotification('success', t('courseCancellationWithdrawn'), t('courseCancellationWithdrawnDesc'));
+        addNotification(
+          'success',
+          t('courseCancellationWithdrawn'),
+          t('courseCancellationWithdrawnDesc')
+        );
       } catch (error) {
         const presented = presentCanonicalCommandErrorWithContext(error, {
           t: t as (key: string) => string,
@@ -229,7 +230,14 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
         addNotification('error', t('requestFailed'), presented.message);
       }
     },
-    [addNotification, courseEnrollments, notifyCancellationOutcome, refetchAccountHotEnrollments, requestCourseCancellation, t]
+    [
+      addNotification,
+      courseEnrollments,
+      notifyCancellationOutcome,
+      refetchAccountHotEnrollments,
+      requestCourseCancellation,
+      t,
+    ]
   );
 
   if (tab && !CABINET_TABS.includes(tab as (typeof CABINET_TABS)[number])) {

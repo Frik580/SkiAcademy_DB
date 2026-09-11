@@ -1,38 +1,40 @@
 import React from 'react';
-import { UserProfile } from '../../../types';
 import { type TranslationKey } from '../../../app/providers/LanguageContext';
 
 interface StudentLevelControlsProps {
-  studentUid: string;
-  usersList: UserProfile[];
+  level: number;
   theme: string;
   t: (key: TranslationKey) => string;
   badgeTitleKey: TranslationKey;
   selectLabelKey?: TranslationKey;
   badgeLabelKey?: TranslationKey;
   showSetLevelLabel?: boolean;
+  disabled?: boolean;
+  selectAriaLabel?: string;
   onChange: (newLevel: number) => void;
 }
 
 export const StudentLevelControls: React.FC<StudentLevelControlsProps> = ({
-  studentUid,
-  usersList,
+  level,
   theme,
   t,
   badgeTitleKey,
   selectLabelKey = 'instructorLevel',
   badgeLabelKey = 'instructorLevelShort',
   showSetLevelLabel = false,
+  disabled = false,
+  selectAriaLabel,
   onChange,
 }) => {
-  const studentUser = usersList.find((u) => u.uid === studentUid);
-  const studentLevel = studentUser?.level || 1;
+  const studentLevel = level || 1;
 
   const select = (
     <select
       value={studentLevel}
       onChange={(e) => onChange(Number(e.target.value))}
-      className="text-[9px] font-mono bg-white dark:bg-slate-900 text-[var(--ink)] border border-slate-200 dark:border-slate-700 rounded-xs px-1.5 py-0.5 focus:outline-none focus:ring-1 ring-accent cursor-pointer"
+      disabled={disabled}
+      aria-label={selectAriaLabel}
+      className="text-[9px] font-mono bg-white dark:bg-slate-900 text-[var(--ink)] border border-slate-200 dark:border-slate-700 rounded-xs px-1.5 py-0.5 focus:outline-none focus:ring-1 ring-accent cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
     >
       <option value={1}>{t(selectLabelKey)} 1</option>
       <option value={2}>{t(selectLabelKey)} 2</option>

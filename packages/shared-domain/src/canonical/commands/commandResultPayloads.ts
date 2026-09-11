@@ -4,9 +4,10 @@ import {
   CourseEnrollmentIdSchema,
   CourseIdSchema,
   GuestSubjectIdSchema,
+  ParticipantIdSchema,
   ReviewIdSchema,
 } from '../identifiers';
-import { CanonicalTimestampSchema } from '../primitives';
+import { AggregateRevisionSchema, CanonicalTimestampSchema } from '../primitives';
 
 export const GuestCourseEnrollmentLinkCredentialSchema = z
   .object({
@@ -97,6 +98,17 @@ export type CreateInstructorReviewResultPayload = Readonly<
   z.output<typeof CreateInstructorReviewResultPayloadSchema>
 >;
 
+export const UpdateParticipantProgressResultPayloadSchema = z
+  .object({
+    participantId: ParticipantIdSchema,
+    revision: AggregateRevisionSchema,
+  })
+  .strict();
+
+export type UpdateParticipantProgressResultPayload = Readonly<
+  z.output<typeof UpdateParticipantProgressResultPayloadSchema>
+>;
+
 export const RequestCancellationResultPayloadSchema = z
   .object({
     lifecycleStatus: RequestCancellationLifecycleStatusSchema,
@@ -115,6 +127,7 @@ export const CommandResultPayloadSchemaByKind = {
   request_booking_cancellation: RequestCancellationResultPayloadSchema,
   request_course_enrollment_cancellation: RequestCancellationResultPayloadSchema,
   create_instructor_review: CreateInstructorReviewResultPayloadSchema,
+  update_participant_progress: UpdateParticipantProgressResultPayloadSchema,
 } as const;
 
 export type CommandResultPayloadForKind<Kind extends keyof typeof CommandResultPayloadSchemaByKind> =

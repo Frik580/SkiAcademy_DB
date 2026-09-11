@@ -16,9 +16,10 @@ import {
   OperationType,
   setDoc,
   googleProvider,
+  omitLegacyAccountProgressFields,
+  toUserProfile,
 } from '../../infrastructure/firebase';
 import type { UserProfile } from '../../types';
-import { toUserProfile } from '../../infrastructure/firebase';
 
 export async function signOutService(): Promise<void> {
   await fbSignOut(auth);
@@ -56,7 +57,7 @@ export async function getUserProfileService(userId: string): Promise<UserProfile
 
 export async function saveUserProfileService(profile: UserProfile): Promise<void> {
   try {
-    await setDoc(doc(db, 'users', profile.uid), profile);
+    await setDoc(doc(db, 'users', profile.uid), omitLegacyAccountProgressFields(profile));
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `users/${profile.uid}`);
   }

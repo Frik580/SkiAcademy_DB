@@ -203,15 +203,11 @@ export async function executeAdminLessonBookingAttempt(
           ...(attempt.refundAmount === undefined
             ? {}
             : { refundAmount: KztMinorUnitsSchema.parse(attempt.refundAmount) }),
-          ...(attempt.reasonExplanation
-            ? { reasonExplanation: attempt.reasonExplanation }
-            : {}),
+          ...(attempt.reasonExplanation ? { reasonExplanation: attempt.reasonExplanation } : {}),
         },
         idempotencyKey: attempt.idempotencyKey,
         expectedRevision: AggregateRevisionSchema.parse(attempt.requestRevision),
-        ...(attempt.resolution === 'no_change'
-          ? {}
-          : { bookingRevision: expectedRevision }),
+        ...(attempt.resolution === 'no_change' ? {} : { bookingRevision: expectedRevision }),
         ...(attempt.resolution === 'rescheduled'
           ? {
               calendarInput: {

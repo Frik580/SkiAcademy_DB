@@ -98,15 +98,14 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
     participants,
   ]);
 
-  const { availableSlots, isLoadingBookings, occupancyLoadFailed } = useRescheduleBookingAvailability(
-    {
+  const { availableSlots, isLoadingBookings, occupancyLoadFailed } =
+    useRescheduleBookingAvailability({
       isOpen: open,
       instructorId,
       localDate,
       durationHours,
       excludeBookingId: '',
-    }
-  );
+    });
 
   const timeOptions = useMemo(
     () =>

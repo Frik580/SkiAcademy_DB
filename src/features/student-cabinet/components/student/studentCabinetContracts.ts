@@ -127,7 +127,7 @@ export type StudentCabinetPanelInput = {
   onWriteReview: (booking: StudentBooking) => void;
   onSignOut: () => void;
   onUpdateProfile?: (data: Partial<StudentProfile>) => Promise<void>;
-  onLevelBadgeClick: () => void;
+  onLevelBadgeClick: (level?: number) => void;
   skillProgress: ReturnType<
     typeof import('../../../../domain/achievements').calculateSkillProgress
   >;

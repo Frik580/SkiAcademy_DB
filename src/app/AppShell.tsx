@@ -18,6 +18,10 @@ import { useUnreadNotificationCount } from '../features/notifications';
 import { useBookingsStore } from '../features/bookings';
 import { selectLessonBookingItems, useLessonBookingStore } from '../features/lesson-bookings';
 import { useUiStore } from '../features/shell';
+import {
+  overlaySelfParticipantProgress,
+  useParticipantProgressStore,
+} from '../features/participant-progress';
 
 export const AppShell: React.FC = () => {
   const { addNotification } = useNotifications();
@@ -27,6 +31,11 @@ export const AppShell: React.FC = () => {
   const navigate = useNavigate();
 
   const userProfile = useProfileStore((s) => s.userProfile);
+  const progressById = useParticipantProgressStore((s) => s.byId);
+  const navbarProfile = useMemo(
+    () => (userProfile ? overlaySelfParticipantProgress(userProfile, progressById) : null),
+    [userProfile, progressById]
+  );
   const dismissedReviewIds = useProfileStore((s) => s.dismissedReviewIds);
   const handleSignOut = useAuthStore((s) => s.handleSignOut);
 
@@ -97,7 +106,7 @@ export const AppShell: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg)] text-[var(--ink)] transition-colors duration-300">
       <Navbar
-        userProfile={userProfile}
+        userProfile={navbarProfile}
         onOpenNotifications={handleOpenNotifications}
         unreadNotificationCount={notificationBadgeCount}
         onSignOut={onSignOut}

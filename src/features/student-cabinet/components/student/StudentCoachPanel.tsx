@@ -141,10 +141,7 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
       instructors
         .filter((i) => !myInstructorIds.has(i.id) && i.isAvailable)
         .map((i) => translateInstructor(i, lang))
-        .sort(
-          (a, b) =>
-            (b.rating ?? -1) - (a.rating ?? -1) || b.reviewsCount - a.reviewsCount
-        ),
+        .sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1) || b.reviewsCount - a.reviewsCount),
     [instructors, myInstructorIds, lang]
   );
 

@@ -88,9 +88,7 @@ export function AdminActiveBookingMonitor({
       onOpenLesson={handleOpenLesson}
       onOpenEnrollment={handleOpenEnrollment}
       hasMoreBookings={
-        lessonsHot.list.hasMore ||
-        enrollmentsRoster.list.hasMore ||
-        enrollmentsPending.list.hasMore
+        lessonsHot.list.hasMore || enrollmentsRoster.list.hasMore || enrollmentsPending.list.hasMore
       }
       onLoadMoreBookings={loadMore}
     />

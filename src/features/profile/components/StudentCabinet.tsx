@@ -49,7 +49,7 @@ export interface StudentCabinetProps {
   onRemoveTodayTask?: (task: TodayTaskRef) => void;
   onSignOut: () => void;
   onUpdateProfile?: (data: Partial<UserProfile>) => Promise<void>;
-  onLevelBadgeClick: () => void;
+  onLevelBadgeClick: (level?: number) => void;
   onInvalidFile: () => void;
   onUploadSuccess: () => void;
   onUploadError: () => void;

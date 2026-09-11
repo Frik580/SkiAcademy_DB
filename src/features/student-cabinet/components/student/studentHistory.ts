@@ -371,9 +371,7 @@ export const getHistoryEvents = (
     ...backfilledAttended,
     ...backfilledNoShows,
     ...legacyLevel,
-  ].sort((a, b) =>
-    b.date.localeCompare(a.date)
-  );
+  ].sort((a, b) => b.date.localeCompare(a.date));
 };
 
 const isBookingReviewed = (booking: Booking, reviews: Review[], dismissedReviewIds: string[]) => {

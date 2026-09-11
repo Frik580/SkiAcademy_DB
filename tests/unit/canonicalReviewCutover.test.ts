@@ -48,10 +48,12 @@ describe('canonical review frontend cutover', () => {
   });
 
   it('applies only canonical summaries and preserves null zero-review semantics', () => {
-    useBookingsStore.getState().setInstructors([
-      instructor('instructor-rated', null, 0),
-      instructor('instructor-unrated', null, 0),
-    ]);
+    useBookingsStore
+      .getState()
+      .setInstructors([
+        instructor('instructor-rated', null, 0),
+        instructor('instructor-unrated', null, 0),
+      ]);
     useBookingsStore.getState().setCanonicalReviewData({
       reviews: [],
       bookingStates: [],
@@ -100,11 +102,7 @@ describe('canonical review frontend cutover', () => {
     } as Review;
     expect(isBookingReviewed(booking, [legacyCoincidence], [])).toBe(false);
     expect(
-      isBookingReviewed(
-        booking,
-        [{ ...legacyCoincidence, bookingId: booking.id } as Review],
-        []
-      )
+      isBookingReviewed(booking, [{ ...legacyCoincidence, bookingId: booking.id } as Review], [])
     ).toBe(true);
   });
 

@@ -42,10 +42,7 @@ export function scrollAdminElementIntoView(
 
 /** Scroll after collapsible section expand animation (~250ms). */
 export function scrollAdminLessonBookingsSectionIntoView(delayMs = 320): void {
-  window.setTimeout(
-    () => scrollAdminElementIntoView(ADMIN_LESSON_BOOKINGS_SECTION_ID),
-    delayMs
-  );
+  window.setTimeout(() => scrollAdminElementIntoView(ADMIN_LESSON_BOOKINGS_SECTION_ID), delayMs);
 }
 export const ADMIN_PLANNER_DATE_QUERY_KEY = 'plannerDate';
 export const ADMIN_PLANNER_FOCUS_QUERY_KEY = 'plannerBooking';

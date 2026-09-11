@@ -80,7 +80,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = (props) =
       <StudentSkillEvaluationModal
         isOpen={evalModalState.isOpen}
         onClose={closeEvalModal}
-        studentUid={evalModalState.studentUid}
+        participantId={evalModalState.participantId}
         studentName={evalModalState.studentName}
         studentLevel={evalModalState.studentLevel}
         existingScores={evalModalState.existingScores}

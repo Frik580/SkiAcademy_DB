@@ -42,15 +42,14 @@ export const RescheduleBookingModal: React.FC<RescheduleBookingModalProps> = ({
     setLocalTime(booking.time);
   }, [booking?.bookingId, booking?.date, booking?.time]);
 
-  const { availableSlots, isLoadingBookings, occupancyLoadFailed } = useRescheduleBookingAvailability(
-    {
+  const { availableSlots, isLoadingBookings, occupancyLoadFailed } =
+    useRescheduleBookingAvailability({
       isOpen: booking !== null,
       instructorId: booking?.instructorId ?? '',
       localDate,
       durationHours: booking?.durationHours ?? 1,
       excludeBookingId: booking?.bookingId ?? '',
-    }
-  );
+    });
 
   const timeOptions = useMemo(
     () =>

@@ -191,12 +191,7 @@ describe('useInstructorWorkspace canonical lesson isolation', () => {
       endsAtEpochMs: Date.parse('2026-02-02T10:00:00Z'),
     } as InstructorLessonBookingItem;
 
-    const sorted = [
-      laterBooking,
-      pastBooking,
-      nextBooking,
-      currentBooking,
-    ]
+    const sorted = [laterBooking, pastBooking, nextBooking, currentBooking]
       .map((booking) => ({
         id: booking.bookingId,
         startsAtEpochMs: booking.startsAtEpochMs,

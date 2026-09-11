@@ -130,13 +130,10 @@ export const InstructorBookingList: React.FC<InstructorBookingListProps> = ({
       ) : (
         <div className="space-y-4">
           {displayedBookings.map((b) => {
-            const candidates = proposalPartyCandidatesForBooking(
-              workspace,
-              b,
-              participantAccess
-            );
-            const hourlyRateKzt = instructors.find((instructor) => instructor.id === b.instructorId)
-              ?.pricePerHourKZT;
+            const candidates = proposalPartyCandidatesForBooking(workspace, b, participantAccess);
+            const hourlyRateKzt = instructors.find(
+              (instructor) => instructor.id === b.instructorId
+            )?.pricePerHourKZT;
             return (
               <InstructorBookingCard
                 key={b.id}

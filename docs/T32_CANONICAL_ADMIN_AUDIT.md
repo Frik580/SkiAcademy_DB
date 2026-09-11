@@ -10,6 +10,7 @@ Amended: 2026-09-08 — T32.9A.9 cutover gates strengthened for incremental prod
 Amended: 2026-09-09 — T32.9A.9A.F4 (Canonical Multi-Participant Lesson Attendance UX) documented; per-participant Instructor Attendance for individual and `family_group` lesson Booking; F4 READY_FOR_MANUAL_SMOKE; 9A final integration / production smoke gated after F4
 Amended: 2026-09-09 — T32.9A.9A.F1 reconciled to PASS / DEPLOYED; F3 reconciled to PASS / CLOSED after manual acceptance; F4 remains READY_FOR_MANUAL_SMOKE
 Amended: 2026-09-10 — T32.9A.9A final integration / production smoke PASS; F2/F4 reconciled to PASS / CLOSED; T32.9A.9A overall PASS / CLOSED; active cutover stage → T32.9A.9B
+Amended: 2026-09-11 — T32.9A.9B.2 Participant Progress: Product Owner cancelled legacy `/users` progress migration; canonical `/participant_progress` is empty-start authority; Data migration: NO; deploy Functions → Hosting → Rules
 
 Status: historical Admin-runtime audit from 2026-08-30, with later T32.8A–T32.8C and T32.9A/T32.9B migration status below. Findings in this document that describe unpaid Administrator guest approval, missing guest CourseEnrollment confirmation, or identity linking as confirmation are superseded by ADR-0007. Sections below that still describe the 2026-08-30 Admin runtime as fully legacy are historical audit evidence; later migration status in this preamble supersedes them for T32.9A progress.
 
@@ -80,6 +81,7 @@ T32.9A.9A — Individual Booking lifecycle cutover — PASS / CLOSED
   T32.9A.9A final integration / production smoke
 T32.9A.9B — Student Booking Stats / Progress / Recommendations Cutover — IN PROGRESS (active)
          (includes Reviews / Instructor Rating Continuity)
+  T32.9A.9B.2 — Canonical Participant Progress Authority — empty start, Data migration: NO
 T32.9A.9C — Course Progress / Achievements Cutover
 T32.9A.9P — Global Product Parity & Legacy Dependency Gate
 T32.9A.9D0 — Production-like Incremental Cutover Rehearsal
@@ -718,6 +720,31 @@ In 9B:
 - complete Reviews / Instructor Rating Continuity so Student Cabinet no longer depends on legacy Booking implementation for reviews.
 
 This slice is documentation of required migration scope. It does not implement 9B.
+
+##### T32.9A.9B.2 — Canonical Participant Progress Authority
+
+Product Owner decision (2026-09-11): **legacy student progress is NOT migrated.**
+
+Canonical `/participant_progress/{participantId}` starts a new history for every Participant:
+
+```text
+level = 1
+skillScores = {}
+skillComments = {}
+revision = 0 / no document until first canonical update
+```
+
+Do **not** copy `/users.level`, `/users.skillScores`, or `/users.skillComments`. Those fields stay on `/users` as **READ-ONLY LEGACY / CLEANUP CANDIDATE** until a later T32.9B cleanup. They are not authority. Frontend has no legacy progress fallback.
+
+Data migration: **NO**. Do not run production dry-run/apply. Missing `/participant_progress` is empty start for self, child, and multi-participant Accounts.
+
+9B.2 production deploy order (no migration step):
+
+```text
+1. Functions
+2. Hosting
+3. Firestore Rules
+```
 
 ##### Reviews / Instructor Rating Continuity — mandatory 9B scope
 

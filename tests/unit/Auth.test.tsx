@@ -13,19 +13,25 @@ const mockGetDoc = vi.fn();
 const mockMigratePreExistingProfile = vi.fn();
 const mockAddNotification = vi.fn();
 
-vi.mock('../../src/infrastructure/firebase', () => ({
-  auth: {},
-  db: {},
-  googleProvider: {},
-  signInWithPopup: (...args: any[]) => mockSignInWithPopup(...args),
-  doc: () => ({}),
-  setDoc: (...args: any[]) => mockSetDoc(...args),
-  getDoc: () => mockGetDoc(),
-  handleFirestoreError: () => {},
-  OperationType: { GET: 'get', WRITE: 'write' },
-  migratePreExistingProfile: (...args: any[]) => mockMigratePreExistingProfile(...args),
-  toUserProfile: (data: any) => data,
-}));
+vi.mock('../../src/infrastructure/firebase', async () => {
+  const { omitLegacyAccountProgressFields } =
+    await import('../../src/infrastructure/firebase/omitLegacyAccountProgressFields');
+
+  return {
+    auth: {},
+    db: {},
+    googleProvider: {},
+    signInWithPopup: (...args: any[]) => mockSignInWithPopup(...args),
+    doc: () => ({}),
+    setDoc: (...args: any[]) => mockSetDoc(...args),
+    getDoc: () => mockGetDoc(),
+    handleFirestoreError: () => {},
+    OperationType: { GET: 'get', WRITE: 'write' },
+    migratePreExistingProfile: (...args: any[]) => mockMigratePreExistingProfile(...args),
+    toUserProfile: (data: any) => data,
+    omitLegacyAccountProgressFields,
+  };
+});
 
 vi.mock('firebase/auth', () => ({
   signInWithEmailAndPassword: (...args: any[]) => mockSignInWithEmailAndPassword(...args),
@@ -91,6 +97,7 @@ describe('Auth', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /noAccount/i }));
     await userEvent.type(screen.getByPlaceholderText('fullName'), 'Alex Carter');
+    await userEvent.type(screen.getByPlaceholderText('phoneOptional'), '+15550001111');
     await userEvent.type(screen.getByPlaceholderText('emailAddress'), 'user@example.com');
     await userEvent.type(screen.getByPlaceholderText('password'), 'password123');
 
@@ -110,11 +117,16 @@ describe('Auth', () => {
           uid: 'new-user',
           email: 'user@example.com',
           displayName: 'Alex Carter',
+          phoneNumber: '+15550001111',
           role: 'user',
           balanceUSD: 250,
         })
       );
     });
+    const writtenProfile = mockSetDoc.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(writtenProfile).not.toHaveProperty('level');
+    expect(writtenProfile).not.toHaveProperty('skillScores');
+    expect(writtenProfile).not.toHaveProperty('skillComments');
     await waitFor(() => {
       expect(onSuccess).toHaveBeenCalledWith(
         expect.objectContaining({ uid: 'new-user', displayName: 'Alex Carter' })

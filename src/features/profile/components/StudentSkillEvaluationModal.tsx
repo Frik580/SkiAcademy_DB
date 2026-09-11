@@ -18,14 +18,14 @@ import { ActionButton } from '../../../ui/ActionButton';
 interface StudentSkillEvaluationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  studentUid: string;
+  participantId: string;
   studentName: string;
   studentLevel: number;
   existingScores?: Record<string, number>;
   existingComments?: Record<string, string>;
   skillConfig?: SkillConfig;
   onSaveScores: (
-    studentUid: string,
+    participantId: string,
     updatedScores: Record<string, number>,
     calculatedLevel: number,
     updatedComments: Record<string, string>
@@ -35,7 +35,7 @@ interface StudentSkillEvaluationModalProps {
 export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalProps> = ({
   isOpen,
   onClose,
-  studentUid,
+  participantId,
   studentName,
   studentLevel,
   existingScores = {},
@@ -135,7 +135,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await onSaveScores(studentUid, scores, projectedLevel, pruneComments(comments));
+      await onSaveScores(participantId, scores, projectedLevel, pruneComments(comments));
       onClose();
     } finally {
       setIsSaving(false);

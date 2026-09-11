@@ -324,8 +324,6 @@ describe('AdminIssueCenter', () => {
     expect(screen.getByLabelText('location')).toHaveTextContent(
       'booking=booking_component_change_01'
     );
-    expect(screen.getByLabelText('location')).toHaveTextContent(
-      `changeRequest=${requestId}`
-    );
+    expect(screen.getByLabelText('location')).toHaveTextContent(`changeRequest=${requestId}`);
   });
 });

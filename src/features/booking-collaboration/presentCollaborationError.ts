@@ -12,8 +12,7 @@ export function presentCanonicalCommandErrorWithContext(
   context: { readonly t: (key: string, ...args: unknown[]) => string }
 ): PresentedCanonicalCommandError {
   const presented = presentCanonicalCommandError(error);
-  const details =
-    error instanceof CanonicalCommandClientError ? error.details : undefined;
+  const details = error instanceof CanonicalCommandClientError ? error.details : undefined;
 
   if (presented.code === 'participant_conflict') {
     return { ...presented, message: context.t('collabParticipantBusyAtTime') };

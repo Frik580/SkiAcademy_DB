@@ -21,6 +21,8 @@ export * from './bookingPartyFinance';
 export * from './bookingCreation';
 export * from './lessonPricingSettings';
 export * from './instructorReview';
+export * from './participantProgress';
+export * from './participantProgressAccessPolicy';
 export * from './guestBooking';
 export * from './guestIdentityLinkingPolicy';
 export * from './guestCourseEnrollmentTransport';

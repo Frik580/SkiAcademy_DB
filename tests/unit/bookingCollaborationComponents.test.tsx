@@ -32,6 +32,7 @@ const booking = (
   payment: { kind: 'withheld' },
   bookingOrigin: 'account',
   isLessonBooking: true,
+  clientExercisedCapability: 'account_owner',
   authorizedActions: actions,
 });
 
@@ -91,18 +92,12 @@ describe('booking collaboration components', () => {
       sourceScope: 'account_open' as const,
     };
     const { rerender } = render(
-      <CustomerProposalInbox
-        proposals={[openProposal]}
-        onAccept={vi.fn()}
-        onDecline={vi.fn()}
-      />
+      <CustomerProposalInbox proposals={[openProposal]} onAccept={vi.fn()} onDecline={vi.fn()} />
     );
     expect(screen.getByText('collabProposalInbox')).toBeInTheDocument();
     expect(screen.getByText('collabAcceptProposal')).toBeInTheDocument();
 
-    rerender(
-      <CustomerProposalInbox proposals={[]} onAccept={vi.fn()} onDecline={vi.fn()} />
-    );
+    rerender(<CustomerProposalInbox proposals={[]} onAccept={vi.fn()} onDecline={vi.fn()} />);
     expect(screen.queryByText('collabProposalInbox')).not.toBeInTheDocument();
     expect(screen.queryByText('collabAcceptProposal')).not.toBeInTheDocument();
   });

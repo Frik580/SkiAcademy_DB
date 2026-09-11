@@ -50,9 +50,6 @@ export function linkGuestBookingHandler(db: Firestore) {
 
     const { bookingId, targetUserId } = parseLinkGuestBookingInput(request.data);
 
-    let oldUserId = '';
-    let isGuestBooking = false;
-
     const result = await withOptionalIdempotency<LinkGuestBookingResult>(
       db,
       idempotencySpecFromRequest(request.data, `linkGuestBooking_${request.auth.uid}`, {
@@ -76,8 +73,8 @@ export function linkGuestBookingHandler(db: Firestore) {
       }
 
       const booking = bookingSnap.data() as BookingRecord;
-      oldUserId = booking.userId;
-      isGuestBooking = booking.isGuest === true || oldUserId.startsWith('guest_');
+      const oldUserId = booking.userId;
+      const isGuestBooking = booking.isGuest === true || oldUserId.startsWith('guest_');
 
       const targetUserData = targetUserSnap.data() as Record<string, unknown>;
       const currentBalance = typeof targetUserData.balanceUSD === 'number' ? targetUserData.balanceUSD : 0;
@@ -108,35 +105,6 @@ export function linkGuestBookingHandler(db: Firestore) {
       return result;
     }
     );
-
-    // Post-transaction migration of guest scores and reviews (eventual consistency)
-    if (oldUserId && (oldUserId.startsWith('guest_') || isGuestBooking)) {
-      try {
-        const oldUserDoc = await db.collection('users').doc(oldUserId).get();
-        if (oldUserDoc.exists) {
-          const oldUserData = oldUserDoc.data() || {};
-          if (oldUserData.skillScores && Object.keys(oldUserData.skillScores).length > 0) {
-            const targetUserDoc = await db.collection('users').doc(targetUserId).get();
-            const targetUserData = targetUserDoc.exists ? (targetUserDoc.data() || {}) : {};
-            const mergedScores = {
-              ...(targetUserData.skillScores || {}),
-              ...oldUserData.skillScores,
-            };
-            const mergedComments = {
-              ...(targetUserData.skillComments || {}),
-              ...(oldUserData.skillComments || {}),
-            };
-            await db.collection('users').doc(targetUserId).update({
-              skillScores: mergedScores,
-              skillComments: mergedComments,
-            });
-          }
-        }
-
-      } catch (err) {
-        console.error('Error linking guest data post-transaction:', err);
-      }
-    }
 
     return result;
   };

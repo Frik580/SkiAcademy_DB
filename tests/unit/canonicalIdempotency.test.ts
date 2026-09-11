@@ -104,6 +104,51 @@ describe('command actor scope and identity', () => {
     expect(IdempotencyKeySchema.safeParse(outcome).success).toBe(true);
     expect(IdempotencyKeySchema.safeParse(instructorWindow).success).toBe(true);
   });
+
+  it('keeps hashed occurrence + instructor_window identities inside the 200-char bound', () => {
+    const attendanceSweepActorId = SystemActorIdSchema.parse(
+      'system_actor_resolve_lesson_booking_attendance_outcome'
+    );
+    const hashedOccurrenceId = 'a'.repeat(64);
+    const outcome = buildScheduledCommandIdempotencyKey({
+      systemActorId: attendanceSweepActorId,
+      commandKind: 'resolve_attendance_outcome',
+      subjectId: 'booking_attendance_emulator_01',
+      occurrenceId: hashedOccurrenceId,
+      deadlineId: 'outcome',
+    });
+    const instructorWindow = buildScheduledCommandIdempotencyKey({
+      systemActorId: attendanceSweepActorId,
+      commandKind: 'resolve_attendance_outcome',
+      subjectId: 'booking_attendance_emulator_01',
+      occurrenceId: hashedOccurrenceId,
+      deadlineId: 'instructor_window',
+    });
+    expect(outcome.length).toBeLessThanOrEqual(200);
+    expect(instructorWindow.length).toBeLessThanOrEqual(200);
+    expect(outcome).not.toBe(instructorWindow);
+    expect(IdempotencyKeySchema.safeParse(outcome).success).toBe(true);
+    expect(IdempotencyKeySchema.safeParse(instructorWindow).success).toBe(true);
+
+    const hashedBookingId = 'b'.repeat(64);
+    const hashedBookingOutcome = buildScheduledCommandIdempotencyKey({
+      systemActorId: attendanceSweepActorId,
+      commandKind: 'resolve_attendance_outcome',
+      subjectId: hashedBookingId,
+      occurrenceId: hashedOccurrenceId,
+      deadlineId: 'outcome',
+    });
+    const hashedBookingWindow = buildScheduledCommandIdempotencyKey({
+      systemActorId: attendanceSweepActorId,
+      commandKind: 'resolve_attendance_outcome',
+      subjectId: hashedBookingId,
+      occurrenceId: hashedOccurrenceId,
+      deadlineId: 'instructor_window',
+    });
+    expect(hashedBookingOutcome).not.toBe(hashedBookingWindow);
+    expect(IdempotencyKeySchema.safeParse(hashedBookingOutcome).success).toBe(true);
+    expect(IdempotencyKeySchema.safeParse(hashedBookingWindow).success).toBe(true);
+  });
 });
 
 describe('command fingerprinting', () => {

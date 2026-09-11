@@ -43,6 +43,16 @@ import {
 import { StudentCabinetTabBar, studentCabinetFooterHeight } from './StudentCabinetUI';
 import { isProfileTab, resolveStudentBottomNavTab, StudentCabinetTab } from './studentCabinetUtils';
 import { StudentCabinetResortSnapshot } from './StudentHomeBottomSections';
+import { useManagedParticipants } from '../../../lesson-bookings/useManagedParticipants';
+import { ParticipantPicker } from '../../../participants/components/ParticipantPicker';
+import { shouldShowParticipantPicker } from '../../../participants/participantSelectionState';
+import {
+  applyParticipantProgressToProfile,
+  selectCabinetProgressView,
+  useParticipantProgressStore,
+} from '../../../participant-progress';
+import { useCabinetProgressParticipantSelection } from '../../useCabinetProgressParticipantSelection';
+import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 
 const getSwipeNeighborSequence = (
   currentTab: StudentCabinetTab,
@@ -112,7 +122,7 @@ export interface StudentCabinetShellProps {
   ) => void;
   onSignOut: () => void;
   onUpdateProfile?: (data: Partial<UserProfile>) => Promise<void>;
-  onLevelBadgeClick: () => void;
+  onLevelBadgeClick: (level?: number) => void;
   onInvalidFile: () => void;
   onUploadSuccess: () => void;
   onUploadError: () => void;
@@ -166,6 +176,33 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
   );
 
   const activeTab = props.syncTabWithRoute ? routeTab : tab;
+  const { t } = useStudentCabinetTranslations();
+  const {
+    participants,
+    loading: participantsLoading,
+    error: participantsError,
+    reload: reloadParticipants,
+  } = useManagedParticipants(props.userProfile.uid);
+  const { selectedParticipantId: selectedProgressParticipantId, selectParticipant } =
+    useCabinetProgressParticipantSelection({
+      accountId: props.userProfile.uid,
+      participants,
+      loading: participantsLoading,
+    });
+  const progressById = useParticipantProgressStore((state) => state.byId);
+  const requiresProgressSelection =
+    shouldShowParticipantPicker({
+      participants,
+      loading: participantsLoading,
+      error: participantsError,
+    }) && participants.length > 1;
+  const progressReady = !requiresProgressSelection || Boolean(selectedProgressParticipantId);
+  const selectedProgress = selectCabinetProgressView(
+    progressById,
+    progressReady ? selectedProgressParticipantId : undefined
+  );
+  const progressProfile = applyParticipantProgressToProfile(props.userProfile, selectedProgress);
+  const progressViewKey = selectedProgressParticipantId ?? 'cabinet-progress-unselected';
 
   useEffect(() => {
     requestAnimationFrame(() => {
@@ -175,9 +212,9 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
   }, [activeTab]);
 
   const skillProgress = calculateSkillProgress(
-    props.userProfile.skillScores || {},
+    progressProfile.skillScores || {},
     props.skillConfig?.items || DEFAULT_SKILL_CONFIG.items,
-    props.userProfile.level || 1,
+    progressProfile.level || 1,
     props.skillConfig?.passPercentage ?? 80
   );
 
@@ -190,7 +227,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
   );
 
   const ctx = {
-    userProfile: props.userProfile,
+    userProfile: progressProfile,
     bookings: legacyBookings,
     sessionItems: props.sessionItems ?? [],
     courses: props.courses,
@@ -241,7 +278,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
     onCancel: props.onCancel,
     onSignOut: props.onSignOut,
     onUpdateProfile: props.onUpdateProfile,
-    onLevelBadgeClick: props.onLevelBadgeClick,
+    onLevelBadgeClick: () => props.onLevelBadgeClick(progressProfile.level || 1),
     skillProgress,
     onToggleSkillToday: props.onToggleSkillToday,
     onPinSkillsToday: props.onPinSkillsToday,
@@ -372,100 +409,122 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
         paddingBottom: studentCabinetFooterHeight,
       }}
     >
-      {activeTab === 'home' && <StudentCabinetHome {...ctx} />}
-      {activeTab === 'training' && <StudentTrainingPanel onGoToTab={goToTab} />}
-      {activeTab === 'history' && (
-        <StudentHistoryPanel
-          userProfile={props.userProfile}
-          bookings={legacyBookings}
-          courses={props.courses}
-          reviews={props.reviews}
-          activityLogs={props.activityLogs}
-          dismissedReviewIds={props.dismissedReviewIds}
-          onOpenLesson={(booking) => {
-            const cabinetBooking = props.bookings.find((item) => item.id === booking.id);
-            if (cabinetBooking) props.onOpenLesson(cabinetBooking);
-          }}
-          onWriteReview={(booking) => {
-            const cabinetBooking = props.bookings.find((item) => item.id === booking.id);
-            if (cabinetBooking) props.onWriteReview(cabinetBooking);
-          }}
-          onOpenDevelopment={() => goToTab('development')}
-          onBack={() => goToTab('settings')}
-          onToggleRecommendation={props.onToggleRecommendation}
-        />
+      {shouldShowParticipantPicker({
+        participants,
+        loading: participantsLoading,
+        error: participantsError,
+      }) && (
+        <div className="mb-4">
+          <ParticipantPicker
+            participants={participants}
+            selectedParticipantIds={
+              selectedProgressParticipantId ? [selectedProgressParticipantId] : []
+            }
+            onToggleParticipant={selectParticipant}
+            loading={participantsLoading}
+            error={participantsError}
+            onRetry={() => void reloadParticipants()}
+            selectionMode="single"
+            t={t as (key: string) => string}
+          />
+        </div>
       )}
-      {activeTab === 'development' && (
-        <StudentDevelopmentPanel {...panelProps} onToggleSkillToday={props.onToggleSkillToday} />
-      )}
-      {activeTab === 'calendar' && (
-        <StudentCalendarPanel
-          {...panelProps}
-          sessionItems={props.sessionItems ?? []}
-          onViewCourseDetails={props.onViewCourseDetails}
-          onCourseWithdraw={props.onCourseWithdraw}
-          onCourseRequestCancellation={props.onCourseRequestCancellation}
-          unreviewedCompletedBookings={props.unreviewedCompletedBookings}
-          onDismissReview={props.onDismissReview}
-          collaborationProposals={props.collaborationProposals}
-          onAcceptProposal={props.onAcceptProposal}
-          onDeclineProposal={props.onDeclineProposal}
-          proposalSubmittingId={props.proposalSubmittingId}
-          onWithdrawCancellation={props.onWithdrawCancellation}
-          onRescheduleBooking={props.onRescheduleBooking}
-          collaborationSubmittingId={props.collaborationSubmittingId}
-        />
-      )}
-      {activeTab === 'courses' && (
-        <StudentCoursesPanel
-          {...panelProps}
-          courseEnrollments={props.courseEnrollments}
-          onViewCourseDetails={props.onViewCourseDetails}
-          onRequireCourseAuth={props.onRequireCourseAuth}
-        />
-      )}
-      {(activeTab === 'coach' || activeTab === 'instructors') && (
-        <StudentCoachPanel
-          bookings={legacyBookings}
-          courses={props.courses}
-          instructors={props.instructors}
-          userProfile={props.userProfile}
-          usersList={props.usersList}
-          activityLogs={props.activityLogs}
-          skillConfig={props.skillConfig}
-          onGoToTab={goToTab}
-          onChat={(booking) => {
-            const cabinetBooking = props.bookings.find((item) => item.id === booking.id);
-            if (cabinetBooking) props.onChat(cabinetBooking);
-          }}
-          onOpenLesson={(booking) => {
-            const cabinetBooking = props.bookings.find((item) => item.id === booking.id);
-            if (cabinetBooking) props.onOpenLesson(cabinetBooking);
-          }}
-          onToggleRecommendation={props.onToggleRecommendation}
-          onBookInstructor={props.onBookInstructor}
-          onViewInstructorReviews={props.onViewInstructorReviews}
-        />
-      )}
-      {activeTab === 'settings' && <StudentProfileHubPanel onGoToTab={goToTab} />}
-      {activeTab === 'profile_personal' && <StudentProfilePersonalPanel {...legacyPanelProps} />}
-      {activeTab === 'profile_participants' && (
-        <StudentProfileParticipantsPanel {...legacyPanelProps} />
-      )}
-      {activeTab === 'profile_wallet' && <StudentProfileWalletPanel {...legacyPanelProps} />}
-      {activeTab === 'profile_journey' && <StudentProfileJourneyPanel {...legacyPanelProps} />}
-      {activeTab === 'profile_skills' && <StudentProfileSkillsPanel {...legacyPanelProps} />}
-      {activeTab === 'profile_certificates' && (
-        <StudentProfileCertificatesPanel {...legacyPanelProps} />
-      )}
-      {activeTab === 'profile_achievements' && (
-        <StudentProfileAchievementsPanel {...legacyPanelProps} />
-      )}
-      {activeTab === 'profile_season' && <StudentProfileSeasonPanel {...legacyPanelProps} />}
-      {activeTab === 'profile_videos' && <StudentProfileVideosPanel {...legacyPanelProps} />}
-      {activeTab === 'profile_preferences' && (
-        <StudentProfilePreferencesPanel {...legacyPanelProps} />
-      )}
+      <div key={progressViewKey}>
+        {activeTab === 'home' && <StudentCabinetHome {...ctx} />}
+        {activeTab === 'training' && <StudentTrainingPanel onGoToTab={goToTab} />}
+        {activeTab === 'history' && (
+          <StudentHistoryPanel
+            userProfile={progressProfile}
+            bookings={legacyBookings}
+            courses={props.courses}
+            reviews={props.reviews}
+            activityLogs={props.activityLogs}
+            dismissedReviewIds={props.dismissedReviewIds}
+            onOpenLesson={(booking) => {
+              const cabinetBooking = props.bookings.find((item) => item.id === booking.id);
+              if (cabinetBooking) props.onOpenLesson(cabinetBooking);
+            }}
+            onWriteReview={(booking) => {
+              const cabinetBooking = props.bookings.find((item) => item.id === booking.id);
+              if (cabinetBooking) props.onWriteReview(cabinetBooking);
+            }}
+            onOpenDevelopment={() => goToTab('development')}
+            onBack={() => goToTab('settings')}
+            onToggleRecommendation={props.onToggleRecommendation}
+          />
+        )}
+        {activeTab === 'development' && (
+          <StudentDevelopmentPanel {...panelProps} onToggleSkillToday={props.onToggleSkillToday} />
+        )}
+        {activeTab === 'calendar' && (
+          <StudentCalendarPanel
+            {...panelProps}
+            sessionItems={props.sessionItems ?? []}
+            onViewCourseDetails={props.onViewCourseDetails}
+            onCourseWithdraw={props.onCourseWithdraw}
+            onCourseRequestCancellation={props.onCourseRequestCancellation}
+            unreviewedCompletedBookings={props.unreviewedCompletedBookings}
+            onDismissReview={props.onDismissReview}
+            collaborationProposals={props.collaborationProposals}
+            onAcceptProposal={props.onAcceptProposal}
+            onDeclineProposal={props.onDeclineProposal}
+            proposalSubmittingId={props.proposalSubmittingId}
+            onWithdrawCancellation={props.onWithdrawCancellation}
+            onRescheduleBooking={props.onRescheduleBooking}
+            collaborationSubmittingId={props.collaborationSubmittingId}
+          />
+        )}
+        {activeTab === 'courses' && (
+          <StudentCoursesPanel
+            {...panelProps}
+            courseEnrollments={props.courseEnrollments}
+            onViewCourseDetails={props.onViewCourseDetails}
+            onRequireCourseAuth={props.onRequireCourseAuth}
+          />
+        )}
+        {(activeTab === 'coach' || activeTab === 'instructors') && (
+          <StudentCoachPanel
+            bookings={legacyBookings}
+            courses={props.courses}
+            instructors={props.instructors}
+            userProfile={progressProfile}
+            usersList={props.usersList}
+            activityLogs={props.activityLogs}
+            skillConfig={props.skillConfig}
+            onGoToTab={goToTab}
+            onChat={(booking) => {
+              const cabinetBooking = props.bookings.find((item) => item.id === booking.id);
+              if (cabinetBooking) props.onChat(cabinetBooking);
+            }}
+            onOpenLesson={(booking) => {
+              const cabinetBooking = props.bookings.find((item) => item.id === booking.id);
+              if (cabinetBooking) props.onOpenLesson(cabinetBooking);
+            }}
+            onToggleRecommendation={props.onToggleRecommendation}
+            onBookInstructor={props.onBookInstructor}
+            onViewInstructorReviews={props.onViewInstructorReviews}
+          />
+        )}
+        {activeTab === 'settings' && <StudentProfileHubPanel onGoToTab={goToTab} />}
+        {activeTab === 'profile_personal' && <StudentProfilePersonalPanel {...legacyPanelProps} />}
+        {activeTab === 'profile_participants' && (
+          <StudentProfileParticipantsPanel {...legacyPanelProps} />
+        )}
+        {activeTab === 'profile_wallet' && <StudentProfileWalletPanel {...legacyPanelProps} />}
+        {activeTab === 'profile_journey' && <StudentProfileJourneyPanel {...legacyPanelProps} />}
+        {activeTab === 'profile_skills' && <StudentProfileSkillsPanel {...legacyPanelProps} />}
+        {activeTab === 'profile_certificates' && (
+          <StudentProfileCertificatesPanel {...legacyPanelProps} />
+        )}
+        {activeTab === 'profile_achievements' && (
+          <StudentProfileAchievementsPanel {...legacyPanelProps} />
+        )}
+        {activeTab === 'profile_season' && <StudentProfileSeasonPanel {...legacyPanelProps} />}
+        {activeTab === 'profile_videos' && <StudentProfileVideosPanel {...legacyPanelProps} />}
+        {activeTab === 'profile_preferences' && (
+          <StudentProfilePreferencesPanel {...legacyPanelProps} />
+        )}
+      </div>
 
       <StudentCabinetTabBar
         activeTab={activeTab}

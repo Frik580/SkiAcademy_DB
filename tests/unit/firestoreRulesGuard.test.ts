@@ -128,6 +128,15 @@ describe('firestore.rules guardrails', () => {
     expect(rulesSource).toMatch(
       /match \/instructor_relationships\/\{relationshipId\}[\s\S]*allow read, write: if false;/
     );
+    expect(rulesSource).toMatch(
+      /function selfServiceAccountCreateHasNoCanonicalAuthority[\s\S]*!\('level' in request\.resource\.data\)[\s\S]*!\('skillScores' in request\.resource\.data\)[\s\S]*!\('skillComments' in request\.resource\.data\)/
+    );
+    expect(rulesSource).toMatch(
+      /function canonicalAccountAuthorityFieldsUnchanged[\s\S]*'level'[\s\S]*'skillScores'[\s\S]*'skillComments'/
+    );
+    expect(rulesSource).toMatch(
+      /match \/participant_progress\/\{participantId\}[\s\S]*allow read, write: if false;/
+    );
   });
 
   it('protects strict and provisioned canonical courses from legacy Admin writes', () => {

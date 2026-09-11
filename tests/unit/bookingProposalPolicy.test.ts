@@ -244,9 +244,7 @@ describe('instructor proposal booking-scoped evidence', () => {
       instructorMayCreateBookingProposalForParty({
         instructorId,
         participantIds: family.party.participantIds,
-        relationshipStatusByParticipantId: new Map([
-          [family.party.participantIds[0]!, 'active'],
-        ]),
+        relationshipStatusByParticipantId: new Map([[family.party.participantIds[0]!, 'active']]),
         bookings: [
           {
             instructorId,

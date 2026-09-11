@@ -120,8 +120,7 @@ export const useBookingsStore = create<BookingsState>((set) => ({
         instructors: applyCanonicalRatings(state.instructors, ratingSummaries),
       };
     }),
-  requestReviewRefresh: () =>
-    set((state) => ({ reviewSyncRequest: state.reviewSyncRequest + 1 })),
+  requestReviewRefresh: () => set((state) => ({ reviewSyncRequest: state.reviewSyncRequest + 1 })),
 }));
 
 // Backward compatibility alias

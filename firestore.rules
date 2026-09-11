@@ -126,7 +126,10 @@ service cloud.firestore {
         'revision',
         'audit',
         'createdAt',
-        'updatedAt'
+        'updatedAt',
+        'level',
+        'skillScores',
+        'skillComments'
       ]);
     }
 
@@ -151,6 +154,9 @@ service cloud.firestore {
         !('accountId' in request.resource.data) &&
         !('revision' in request.resource.data) &&
         !('audit' in request.resource.data) &&
+        !('level' in request.resource.data) &&
+        !('skillScores' in request.resource.data) &&
+        !('skillComments' in request.resource.data) &&
         (!('isInstructor' in request.resource.data) || request.resource.data.isInstructor == false);
     }
 
@@ -581,10 +587,12 @@ service cloud.firestore {
     // - create: signup / guest-claim migration (Auth.tsx, migratePreExistingProfile)
     // - update self presentation: cabinet profile, today tasks, dismissReview
     //   (owner only, and only while stored Account lifecycle is active/absent)
-    // - update instructor skills: InstructorStudents evaluation of another Account
-    //   (does not require the *target* Account to be active)
     // - update balanceUSD decrease: legacy client payment (denied when disabled)
     // - delete client_* by email claimant: guest-claim migration
+    // Progress fields (level, skillScores, skillComments) are leftover
+    // READ-ONLY LEGACY / CLEANUP CANDIDATE on /users. They are not authority.
+    // Canonical progress lives on /participant_progress and is Admin SDK only.
+    // New Account creates must not write leftover progress fields.
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin() || isInstructor();
       allow list: if isAdmin() || isInstructor() || (resource != null && isOwnEmail(resource.data.email));
@@ -612,14 +620,6 @@ service cloud.firestore {
           isOwner(userId) &&
           accountLifecycleAllowsSelfService() &&
           validBalanceDecreaseOnly()
-        ) || (
-          isInstructor() &&
-          (!isOwner(userId) || accountLifecycleAllowsSelfService()) &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-            'level',
-            'skillScores',
-            'skillComments'
-          ])
         )
       );
 
@@ -679,6 +679,10 @@ service cloud.firestore {
     }
 
     match /instructor_rating_summaries/{instructorId} {
+      allow read, write: if false;
+    }
+
+    match /participant_progress/{participantId} {
       allow read, write: if false;
     }
 

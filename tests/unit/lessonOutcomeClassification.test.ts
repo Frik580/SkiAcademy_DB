@@ -29,12 +29,7 @@ const userProfile: UserProfile = {
   level: 1,
 };
 
-const booking = (
-  id: string,
-  status: Booking['status'],
-  date: string,
-  hours = 2
-): Booking => ({
+const booking = (id: string, status: Booking['status'], date: string, hours = 2): Booking => ({
   id,
   userId: 'user-1',
   instructorId: 'ins-1',
@@ -78,9 +73,9 @@ describe('lesson outcome classification', () => {
   it('takes paid/revenue classification from canonical Payment, not from no_show lifecycle', () => {
     expect(classifyPaidLessonFromPayment(undefined)).toBe('unknown');
     expect(classifyPaidLessonFromPayment({ kind: 'withheld' })).toBe('unknown');
-    expect(
-      classifyPaidLessonFromPayment({ kind: 'visible', paymentStatus: 'unpaid' })
-    ).toBe('not_paid');
+    expect(classifyPaidLessonFromPayment({ kind: 'visible', paymentStatus: 'unpaid' })).toBe(
+      'not_paid'
+    );
     expect(classifyPaidLessonFromPayment({ kind: 'visible', paymentStatus: 'paid' })).toBe('paid');
   });
 });
@@ -136,16 +131,7 @@ describe('student cabinet training metrics exclude no_show', () => {
   });
 
   it('does not unlock review CTA for no_show and keeps no_show visible in history', () => {
-    const history = buildStudentHistory(
-      userProfile,
-      mix,
-      [],
-      [],
-      'ru',
-      t,
-      [],
-      []
-    );
+    const history = buildStudentHistory(userProfile, mix, [], [], 'ru', t, [], []);
     const noShowEvent = history.find((event) => event.bookingId === 'no-show');
     const completedEvent = history.find((event) => event.bookingId === 'completed');
     expect(noShowEvent).toBeDefined();
@@ -153,9 +139,9 @@ describe('student cabinet training metrics exclude no_show', () => {
     expect(noShowEvent?.subtitle).toContain('Неявка');
     expect(noShowEvent?.cta?.action.type).toBe('open_lesson');
     expect(completedEvent?.cta?.action.type).toBe('write_review');
-    expect(
-      getNeedsAttentionBookings(mix, [], [], 'user-1').map((item) => item.id)
-    ).toEqual(['completed']);
+    expect(getNeedsAttentionBookings(mix, [], [], 'user-1').map((item) => item.id)).toEqual([
+      'completed',
+    ]);
   });
 
   it('treats no_show as a past session, not upcoming, without looking like completed', () => {

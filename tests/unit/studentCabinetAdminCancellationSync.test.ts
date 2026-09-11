@@ -122,9 +122,9 @@ describe('Student Cabinet admin cancellation sync (T32.9A.9A)', () => {
       lessonBookings: selectLessonBookingItems(useLessonBookingStore.getState()),
       courseEnrollments: [],
     });
-    expect(sessions.some((session) => session.kind === 'lesson' && isActiveSessionItem(session))).toBe(
-      false
-    );
+    expect(
+      sessions.some((session) => session.kind === 'lesson' && isActiveSessionItem(session))
+    ).toBe(false);
   });
 
   it('2. hard refresh path loads cancelled booking from account_history', async () => {
@@ -150,16 +150,18 @@ describe('Student Cabinet admin cancellation sync (T32.9A.9A)', () => {
 
   it('3. admin reject/no_change keeps pending_cancellation from account_hot', async () => {
     const bookingId = 'booking_admin_reject_01';
-    useLessonBookingStore.getState().mergeItems(
-      new Map([
-        [
-          bookingId,
-          mapLessonBookingReadModelToCabinetItem(
-            buildReadModel({ bookingId, revision: 4, status: 'pending_cancellation' })
-          ),
-        ],
-      ])
-    );
+    useLessonBookingStore
+      .getState()
+      .mergeItems(
+        new Map([
+          [
+            bookingId,
+            mapLessonBookingReadModelToCabinetItem(
+              buildReadModel({ bookingId, revision: 4, status: 'pending_cancellation' })
+            ),
+          ],
+        ])
+      );
 
     queryLessonBookingReadModelsMock
       .mockResolvedValueOnce({
@@ -171,7 +173,9 @@ describe('Student Cabinet admin cancellation sync (T32.9A.9A)', () => {
 
     await syncAccountLessonBookingsFromServer();
 
-    expect(useLessonBookingStore.getState().items.get(bookingId)?.status).toBe('pending_cancellation');
+    expect(useLessonBookingStore.getState().items.get(bookingId)?.status).toBe(
+      'pending_cancellation'
+    );
   });
 
   it('4. multi-participant booking sync updates only the cancelled booking', async () => {
@@ -281,16 +285,18 @@ describe('Student Cabinet admin cancellation sync (T32.9A.9A)', () => {
 
   it('does not prune non-hot history bookings missing from account_history page 1', () => {
     const bookingId = 'booking_history_page_2';
-    useLessonBookingStore.getState().mergeItems(
-      new Map([
-        [
-          bookingId,
-          mapLessonBookingReadModelToCabinetItem(
-            buildReadModel({ bookingId, revision: 1, status: 'cancelled' })
-          ),
-        ],
-      ])
-    );
+    useLessonBookingStore
+      .getState()
+      .mergeItems(
+        new Map([
+          [
+            bookingId,
+            mapLessonBookingReadModelToCabinetItem(
+              buildReadModel({ bookingId, revision: 1, status: 'cancelled' })
+            ),
+          ],
+        ])
+      );
 
     applyAccountLessonBookingReadResults({
       hotItems: [],
@@ -328,16 +334,18 @@ describe('Student Cabinet admin cancellation sync (T32.9A.9A)', () => {
 
   it('does not apply a stale lower-revision hot response after a newer merge', () => {
     const bookingId = 'booking_revision_guard';
-    useLessonBookingStore.getState().mergeItems(
-      new Map([
-        [
-          bookingId,
-          mapLessonBookingReadModelToCabinetItem(
-            buildReadModel({ bookingId, revision: 5, status: 'cancelled' })
-          ),
-        ],
-      ])
-    );
+    useLessonBookingStore
+      .getState()
+      .mergeItems(
+        new Map([
+          [
+            bookingId,
+            mapLessonBookingReadModelToCabinetItem(
+              buildReadModel({ bookingId, revision: 5, status: 'cancelled' })
+            ),
+          ],
+        ])
+      );
 
     applyAccountLessonBookingReadResults({
       hotItems: [buildReadModel({ bookingId, revision: 3, status: 'pending_cancellation' })],
@@ -351,16 +359,18 @@ describe('Student Cabinet admin cancellation sync (T32.9A.9A)', () => {
 
   it('keeps background sync failures from mutating the store or setting error state', async () => {
     const bookingId = 'booking_sync_failure';
-    useLessonBookingStore.getState().mergeItems(
-      new Map([
-        [
-          bookingId,
-          mapLessonBookingReadModelToCabinetItem(
-            buildReadModel({ bookingId, revision: 2, status: 'pending_cancellation' })
-          ),
-        ],
-      ])
-    );
+    useLessonBookingStore
+      .getState()
+      .mergeItems(
+        new Map([
+          [
+            bookingId,
+            mapLessonBookingReadModelToCabinetItem(
+              buildReadModel({ bookingId, revision: 2, status: 'pending_cancellation' })
+            ),
+          ],
+        ])
+      );
     queryLessonBookingReadModelsMock.mockRejectedValueOnce(new Error('network down'));
 
     await expect(syncAccountLessonBookingsFromServer()).rejects.toThrow('network down');
@@ -371,16 +381,18 @@ describe('Student Cabinet admin cancellation sync (T32.9A.9A)', () => {
 
   it('keeps cancelled bookings out of the upcoming session scope after sync', async () => {
     const bookingId = 'booking_upcoming_scope';
-    useLessonBookingStore.getState().mergeItems(
-      new Map([
-        [
-          bookingId,
-          mapLessonBookingReadModelToCabinetItem(
-            buildReadModel({ bookingId, revision: 4, status: 'pending_cancellation' })
-          ),
-        ],
-      ])
-    );
+    useLessonBookingStore
+      .getState()
+      .mergeItems(
+        new Map([
+          [
+            bookingId,
+            mapLessonBookingReadModelToCabinetItem(
+              buildReadModel({ bookingId, revision: 4, status: 'pending_cancellation' })
+            ),
+          ],
+        ])
+      );
 
     queryLessonBookingReadModelsMock
       .mockResolvedValueOnce({ scope: 'account_hot', items: [], hasMore: false })
@@ -423,7 +435,11 @@ describe('Student Cabinet background sync safety', () => {
   });
 
   it('clears polling interval and visibility listener on unmount', async () => {
-    queryLessonBookingReadModelsMock.mockResolvedValue({ scope: 'account_hot', items: [], hasMore: false });
+    queryLessonBookingReadModelsMock.mockResolvedValue({
+      scope: 'account_hot',
+      items: [],
+      hasMore: false,
+    });
     const addSpy = vi.spyOn(document, 'addEventListener');
     const removeSpy = vi.spyOn(document, 'removeEventListener');
     const clearIntervalSpy = vi.spyOn(window, 'clearInterval');

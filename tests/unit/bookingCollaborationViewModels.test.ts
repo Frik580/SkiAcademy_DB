@@ -7,20 +7,29 @@ import {
   ParticipantIdSchema,
   timestampFromDate,
 } from '@ski-academy/shared-domain';
-import { mapBookingProposalReadModelToCabinetItem, mergeProposalRecords } from '../../src/features/booking-collaboration/proposalViewModel';
+import {
+  mapBookingProposalReadModelToCabinetItem,
+  mergeProposalRecords,
+} from '../../src/features/booking-collaboration/proposalViewModel';
 import {
   mapBookingChangeRequestReadModelToCabinetItem,
   mergeChangeRequestRecords,
 } from '../../src/features/booking-collaboration/changeRequestViewModel';
 import { mapParticipantInstructorAccessReadModelToCabinetItem } from '../../src/features/booking-collaboration/participantAccessViewModel';
-import { mergeInstructorLessonBookingRecords, mapInstructorLessonBookingReadModel } from '../../src/features/booking-collaboration/instructorLessonBookingViewModel';
+import {
+  mergeInstructorLessonBookingRecords,
+  mapInstructorLessonBookingReadModel,
+} from '../../src/features/booking-collaboration/instructorLessonBookingViewModel';
 import {
   deriveAcceptProposalIdempotencyKey,
   deriveRescheduleBookingIdempotencyKey,
   deriveRecordInstructorAttendanceIdempotencyKey,
   deriveWithdrawCancellationIdempotencyKey,
 } from '../../src/features/booking-collaboration/deriveCollaborationIdempotencyKeys';
-import { presentCanonicalCommandError, presentCanonicalCommandErrorWithContext } from '../../src/features/booking-collaboration/presentCollaborationError';
+import {
+  presentCanonicalCommandError,
+  presentCanonicalCommandErrorWithContext,
+} from '../../src/features/booking-collaboration/presentCollaborationError';
 import { CanonicalCommandClientError } from '../../src/lib/canonical/mapCanonicalCommandError';
 
 const decidedAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));

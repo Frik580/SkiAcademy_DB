@@ -1136,7 +1136,7 @@ describe('T32.8A identity authority containment', () => {
       })
     );
     await assertSucceeds(updateDoc(doc(userDb, 'users', USER_ID), { balanceUSD: 50 }));
-    await assertSucceeds(
+    await assertFails(
       updateDoc(doc(instructorDb, 'users', OTHER_USER_ID), {
         level: 2,
         skillScores: { carving: 4 },
@@ -1153,10 +1153,93 @@ describe('T32.8A identity authority containment', () => {
       setDoc(doc(newUserDb, 'users', 'new-identity-user'), {
         ...userProfile('new-identity-user', 'new-identity@example.com'),
         isClientActive: true,
-        level: 1,
         balanceUSD: 250,
       })
     );
+    await assertFails(
+      setDoc(
+        doc(
+          testEnv
+            .authenticatedContext('new-progress-user', { email: 'new-progress@example.com' })
+            .firestore(),
+          'users',
+          'new-progress-user'
+        ),
+        {
+          ...userProfile('new-progress-user', 'new-progress@example.com'),
+          isClientActive: true,
+          balanceUSD: 250,
+          level: 1,
+        }
+      )
+    );
+  });
+
+  it('denies client writes of legacy /users progress fields and /participant_progress', async () => {
+    const userDb = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
+    const instructorDb = testEnv
+      .authenticatedContext(INSTRUCTOR_USER_ID, { email: 'instructor@example.com' })
+      .firestore();
+    const adminDb = testEnv
+      .authenticatedContext(ADMIN_ID, { email: 'admin@example.com' })
+      .firestore();
+
+    await assertFails(updateDoc(doc(userDb, 'users', USER_ID), { level: 3 }));
+    await assertFails(updateDoc(doc(userDb, 'users', USER_ID), { skillScores: { carving: 4 } }));
+    await assertFails(
+      updateDoc(doc(userDb, 'users', USER_ID), { skillComments: { carving: 'Nope' } })
+    );
+    await assertFails(
+      setDoc(
+        doc(
+          testEnv
+            .authenticatedContext('signup-progress-user', { email: 'signup-progress@example.com' })
+            .firestore(),
+          'users',
+          'signup-progress-user'
+        ),
+        {
+          ...userProfile('signup-progress-user', 'signup-progress@example.com'),
+          isClientActive: true,
+          balanceUSD: 250,
+          skillScores: { carving: 1 },
+          skillComments: { carving: 'Nope' },
+        }
+      )
+    );
+    await assertFails(
+      updateDoc(doc(userDb, 'users', USER_ID), {
+        displayName: 'Nope',
+        level: 3,
+        skillScores: { carving: 4 },
+        skillComments: { carving: 'Nope' },
+      })
+    );
+    await assertFails(
+      updateDoc(doc(instructorDb, 'users', USER_ID), {
+        level: 2,
+        skillScores: { carving: 4 },
+        skillComments: { carving: 'Instructor client write' },
+      })
+    );
+    await assertFails(
+      setDoc(doc(userDb, 'participant_progress', 'participant-progress-1'), {
+        participantId: 'participant-progress-1',
+        level: 2,
+      })
+    );
+    await assertFails(getDoc(doc(userDb, 'participant_progress', 'participant-progress-1')));
+    await assertFails(
+      setDoc(doc(adminDb, 'participant_progress', 'participant-progress-1'), {
+        participantId: 'participant-progress-1',
+        level: 2,
+      })
+    );
+    await assertSucceeds(
+      updateDoc(doc(userDb, 'users', USER_ID), { displayName: 'Still Writable' })
+    );
+    await assertSucceeds(updateDoc(doc(userDb, 'users', USER_ID), { hideProgressTracking: true }));
+    await assertSucceeds(updateDoc(doc(userDb, 'users', USER_ID), { phoneNumber: '+15550009999' }));
   });
 
   it('allows an active Account to change the approved self presentation subset', async () => {
@@ -1212,7 +1295,7 @@ describe('T32.8A identity authority containment', () => {
         displayName: 'Replaced After Disable',
       })
     );
-    await assertSucceeds(
+    await assertFails(
       updateDoc(doc(instructorDb, 'users', USER_ID), {
         level: 2,
         skillScores: { carving: 4 },
@@ -1276,7 +1359,7 @@ describe('T32.8A identity authority containment', () => {
     await assertSucceeds(updateDoc(doc(userDb, 'users', USER_ID), { phoneNumber: '+15550004444' }));
     await assertSucceeds(updateDoc(doc(userDb, 'users', USER_ID), { balanceUSD: 50 }));
 
-    await assertSucceeds(
+    await assertFails(
       updateDoc(doc(instructorDb, 'users', USER_ID), {
         level: 3,
         skillScores: { carving: 5 },

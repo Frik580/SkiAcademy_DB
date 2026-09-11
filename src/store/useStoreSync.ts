@@ -15,6 +15,7 @@ import { useWalletSync } from '../features/wallet/sync/useWalletSync';
 import { useProfileActivitySync } from '../features/profile/sync/useProfileActivitySync';
 import { useCurrentUserProfileSync } from '../features/profile/sync/useCurrentUserProfileSync';
 import { useUsersSync } from '../features/profile/sync/useUsersSync';
+import { useParticipantProgressSync } from '../features/participant-progress';
 import { shouldSyncAccountCourseEnrollments } from './accountCourseEnrollmentSync';
 import { shouldSyncAccountLessonBookings } from './accountLessonBookingSync';
 import { useAuthStore } from '../features/auth/authStore';
@@ -62,4 +63,5 @@ export const useStoreSync = () => {
   useNotificationsSync();
   useWalletSync();
   useProfileActivitySync();
+  useParticipantProgressSync();
 };

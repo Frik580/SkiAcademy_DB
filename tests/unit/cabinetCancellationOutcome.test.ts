@@ -141,7 +141,10 @@ describe('cabinet cancellation outcome', () => {
       refreshFailed: true,
     });
     expect(notifications).toHaveLength(2);
-    expect(notifications[0]).toMatchObject({ type: 'success', titleKey: 'lessonCancelledImmediate' });
+    expect(notifications[0]).toMatchObject({
+      type: 'success',
+      titleKey: 'lessonCancelledImmediate',
+    });
     expect(notifications[1]).toMatchObject({
       type: 'warning',
       titleKey: 'cabinetCancellationRefreshWarning',
@@ -248,7 +251,10 @@ describe('cabinet cancellation outcome', () => {
           revision: 4,
           courseId: 'course_01',
           participant: { participantId: 'participant_01', displayName: 'Student' },
-          lifecycle: { status: 'pending_cancellation', requestedAt: { seconds: 1, nanoseconds: 0 } },
+          lifecycle: {
+            status: 'pending_cancellation',
+            requestedAt: { seconds: 1, nanoseconds: 0 },
+          },
           courseDisplay: { title: 'Camp' },
           courseSchedule: {
             courseId: 'course_01',
@@ -276,7 +282,11 @@ describe('cabinet cancellation outcome', () => {
       ],
       hasMore: false,
     });
-    queryCatalogReadModelsMock.mockResolvedValueOnce({ scope: 'public', items: [], hasMore: false });
+    queryCatalogReadModelsMock.mockResolvedValueOnce({
+      scope: 'public',
+      items: [],
+      hasMore: false,
+    });
 
     const { result } = renderHook(() => useCourseEnrollmentCommands('account_fixture_01'));
     const outcome = await result.current.requestCancellation({
@@ -299,9 +309,9 @@ describe('cabinet cancellation outcome', () => {
   });
 
   it('patches lesson store when account_hot no longer returns cancelled booking', async () => {
-    useLessonBookingStore.getState().mergeItems(
-      new Map([['booking_cancel_test', lessonItem('confirmed')]])
-    );
+    useLessonBookingStore
+      .getState()
+      .mergeItems(new Map([['booking_cancel_test', lessonItem('confirmed')]]));
     executeAuthenticatedMock.mockResolvedValueOnce({
       status: 'success',
       kind: 'request_booking_cancellation',

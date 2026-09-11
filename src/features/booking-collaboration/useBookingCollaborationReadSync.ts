@@ -51,9 +51,7 @@ async function loadCustomerCollaborationReads(): Promise<void> {
     );
 }
 
-async function loadAllInstructorLessonBookingPages(
-  scope: 'instructor_hot' | 'instructor_history'
-) {
+async function loadAllInstructorLessonBookingPages(scope: 'instructor_hot' | 'instructor_history') {
   const items: LessonBookingReadModel[] = [];
   let cursor: string | undefined;
   const seenCursors = new Set<string>();

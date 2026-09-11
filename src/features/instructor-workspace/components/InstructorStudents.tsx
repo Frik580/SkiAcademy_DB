@@ -7,7 +7,7 @@ interface InstructorStudentsProps {
 }
 
 export const InstructorStudents: React.FC<InstructorStudentsProps> = ({ workspace }) => {
-  const { t, theme, myStudents, usersList, handleUpdateStudentLevel } = workspace;
+  const { t, theme, myStudents, handleUpdateStudentLevel, progressById } = workspace;
 
   return (
     <div className="space-y-4">
@@ -30,11 +30,10 @@ export const InstructorStudents: React.FC<InstructorStudentsProps> = ({ workspac
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {myStudents.map((student) => {
-            const studentUser = usersList.find((u) => u.uid === student.uid);
-            const studentLevel = studentUser?.level || 1;
+            const studentLevel = progressById[student.participantId]?.level || 1;
             return (
               <div
-                key={student.uid}
+                key={student.participantId}
                 className="border border-slate-200/70 dark:border-slate-800/70 p-3 space-y-2 bg-[var(--card-bg)] rounded-xs shadow-xs flex items-center justify-between gap-3 hover:border-slate-300 dark:hover:border-slate-700 transition-colors duration-200"
               >
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -79,7 +78,11 @@ export const InstructorStudents: React.FC<InstructorStudentsProps> = ({ workspac
                   <select
                     value={studentLevel}
                     onChange={(e) =>
-                      handleUpdateStudentLevel(student.uid, student.name, Number(e.target.value))
+                      handleUpdateStudentLevel(
+                        student.participantId,
+                        student.name,
+                        Number(e.target.value)
+                      )
                     }
                     className="text-[9px] font-mono uppercase bg-white dark:bg-slate-900 text-[var(--ink)] border border-slate-200 dark:border-slate-700 rounded-xs px-1.5 py-1 focus:outline-none focus:ring-1 ring-accent cursor-pointer"
                   >

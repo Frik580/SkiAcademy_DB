@@ -103,13 +103,7 @@ export function useRescheduleBookingAvailability(input: {
     };
 
     void fetchOccupancy();
-  }, [
-    input.excludeBookingId,
-    input.instructorId,
-    input.isOpen,
-    input.localDate,
-    timezone,
-  ]);
+  }, [input.excludeBookingId, input.instructorId, input.isOpen, input.localDate, timezone]);
 
   const availableSlots = useMemo((): string[] => {
     return getAvailableLessonStartTimes({

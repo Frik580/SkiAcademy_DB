@@ -29,6 +29,10 @@ import {
   RescheduleBookingModal,
   useCustomerBookingCollaboration,
 } from '../../../features/booking-collaboration';
+import {
+  overlaySelfParticipantProgress,
+  useParticipantProgressStore,
+} from '../../participant-progress';
 
 export interface PersonalCabinetProps {
   userProfile: UserProfile;
@@ -125,14 +129,20 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
 
   const [levelUpModal, setLevelUpModal] = useState<{ show: boolean; level: number } | null>(null);
   const prevLevelRef = useRef<number | undefined>(undefined);
+  const progressById = useParticipantProgressStore((state) => state.byId);
+  const selfProgressProfile = useMemo(
+    () => overlaySelfParticipantProgress(userProfile, progressById),
+    [userProfile, progressById]
+  );
+  const selfLevel = selfProgressProfile.level || 1;
 
   useEffect(() => {
-    const currentLevel = userProfile?.level || 1;
+    const currentLevel = selfLevel;
     if (prevLevelRef.current !== undefined && prevLevelRef.current !== currentLevel) {
       setLevelUpModal({ show: true, level: currentLevel });
     }
     prevLevelRef.current = currentLevel;
-  }, [userProfile?.level]);
+  }, [selfLevel]);
 
   useEffect(() => {
     if (levelUpModal?.show) {
@@ -271,7 +281,9 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
             onRemoveTodayTask={onRemoveTodayTask}
             onSignOut={onSignOut}
             onUpdateProfile={onUpdateProfile}
-            onLevelBadgeClick={() => setLevelUpModal({ show: true, level: userProfile.level || 1 })}
+            onLevelBadgeClick={(level) =>
+              setLevelUpModal({ show: true, level: level ?? selfLevel })
+            }
             onInvalidFile={() => addNotification('error', t('invalidFile'), t('invalidFileDesc'))}
             onUploadSuccess={() =>
               addNotification('success', t('profilePhotoChanged'), t('profilePhotoChangedDesc'))

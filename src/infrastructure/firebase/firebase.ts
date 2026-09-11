@@ -27,6 +27,7 @@ import {
 } from 'firebase/firestore';
 import { OperationType } from '../../types';
 import { logger } from '../../shared';
+import { omitLegacyAccountProgressFields } from './omitLegacyAccountProgressFields';
 
 const requiredEnvVars = [
   'VITE_FIREBASE_API_KEY',
@@ -296,11 +297,13 @@ export async function migratePreExistingProfile(
       return null;
     }
 
-    const migratedProfile = {
+    // Keep displayName/phone/balance/etc. Do not copy leftover /users progress
+    // onto the claimed Account; canonical progress starts empty.
+    const migratedProfile = omitLegacyAccountProgressFields({
       ...oldProfile,
       uid: newUid,
       ...(customDisplayName ? { displayName: customDisplayName } : {}),
-    };
+    });
 
     try {
       logger.debug(`Writing migrated profile to users/${newUid}...`);

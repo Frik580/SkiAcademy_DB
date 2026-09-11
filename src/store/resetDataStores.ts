@@ -1,6 +1,7 @@
 import { useBookingsStore } from '../features/bookings/bookingsStore';
 import { useCoursesStore } from '../features/courses/coursesStore';
 import { useNotificationsStore } from '../features/notifications/notificationsStore';
+import { useParticipantProgressStore } from '../features/participant-progress/participantProgressStore';
 import { useProfileStore } from '../features/profile/profileStore';
 import { useWalletStore } from '../features/wallet/walletStore';
 import { QUERY_LIMITS } from '../shared';
@@ -46,4 +47,5 @@ export function resetUserScopedStores(): void {
     notificationsPageSize: QUERY_LIMITS.notifications,
     notificationsHasMore: false,
   });
+  useParticipantProgressStore.getState().clear();
 }

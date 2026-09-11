@@ -63,11 +63,7 @@ export function classifyLessonOutcome(status: BookingStatus): LessonOutcomeKind 
   if (status === 'completed') return 'attended';
   if (status === 'no_show') return 'no_show';
   if (status === 'cancelled') return 'cancelled';
-  if (
-    status === 'pending' ||
-    status === 'confirmed' ||
-    status === 'pending_cancellation'
-  ) {
+  if (status === 'pending' || status === 'confirmed' || status === 'pending_cancellation') {
     return 'open';
   }
   return 'other';

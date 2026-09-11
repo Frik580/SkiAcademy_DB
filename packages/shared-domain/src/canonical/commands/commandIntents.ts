@@ -27,6 +27,11 @@ import {
   InstructorReviewCommentSchema,
   InstructorReviewRatingSchema,
 } from '../instructorReview';
+import {
+  ParticipantProgressLevelSchema,
+  ParticipantProgressSkillCommentsSchema,
+  ParticipantProgressSkillScoresSchema,
+} from '../participantProgress';
 import { AggregateRevisionSchema, KztMinorUnitsSchema } from '../primitives';
 import {
   BookingLessonNotesSchema,
@@ -485,6 +490,14 @@ export const CommandIntentSchemaByKind = {
         (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
         InstructorReviewCommentSchema.optional()
       ),
+    })
+    .strict(),
+  update_participant_progress: z
+    .object({
+      participantId: ParticipantIdSchema,
+      level: ParticipantProgressLevelSchema,
+      skillScores: ParticipantProgressSkillScoresSchema,
+      skillComments: ParticipantProgressSkillCommentsSchema,
     })
     .strict(),
   create_course_enrollments: z

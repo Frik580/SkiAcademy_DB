@@ -36,9 +36,13 @@ import {
   type QueryParticipantInstructorAccessReadModelsResult,
   type QueryInstructorReviewReadModelsInput,
   type QueryInstructorReviewReadModelsResult,
+  type QueryParticipantProgressReadModelsInput,
+  type QueryParticipantProgressReadModelsResult,
   type BookingId,
   type InstructorId,
+  type ParticipantId,
   INSTRUCTOR_REVIEW_ACCOUNT_BOOKING_IDS_MAX,
+  PARTICIPANT_PROGRESS_READ_MODEL_IDS_MAX,
 } from '@ski-academy/shared-domain';
 import { callFunction, type FunctionsCallOptions } from '../functions/functionsClient';
 import { auth } from '../../infrastructure/firebase';
@@ -66,8 +70,8 @@ export const QUERY_ADMIN_PLANNER_READ_MODELS_CALLABLE = 'queryAdminPlannerReadMo
 export const QUERY_INSTRUCTOR_OCCUPANCY_READ_MODELS_CALLABLE = 'queryInstructorOccupancyReadModels';
 export const QUERY_LESSON_PRICING_SETTINGS_READ_MODEL_CALLABLE =
   'queryLessonPricingSettingsReadModel';
-export const QUERY_INSTRUCTOR_REVIEW_READ_MODELS_CALLABLE =
-  'queryInstructorReviewReadModels';
+export const QUERY_INSTRUCTOR_REVIEW_READ_MODELS_CALLABLE = 'queryInstructorReviewReadModels';
+export const QUERY_PARTICIPANT_PROGRESS_READ_MODELS_CALLABLE = 'queryParticipantProgressReadModels';
 
 export async function queryLessonPricingSettingsReadModel(
   input: QueryLessonPricingSettingsReadModelInput
@@ -102,6 +106,79 @@ export async function queryInstructorReviewReadModels(
     idempotencyKey: `read:instructor_review:${identityHash}`,
     maxAttempts: 1,
   });
+}
+
+export async function queryParticipantProgressReadModels(
+  input: QueryParticipantProgressReadModelsInput
+): Promise<QueryParticipantProgressReadModelsResult> {
+  const target =
+    input.scope === 'managed'
+      ? [...(input.participantIds ?? [])].sort().join(',') || 'all'
+      : [...input.participantIds].sort().join(',');
+  const identityHash = canonicalDeterministicHash([
+    'read:participant_progress:v1',
+    input.scope,
+    target,
+  ]);
+  return invokeCanonicalReadCallable<
+    QueryParticipantProgressReadModelsInput,
+    QueryParticipantProgressReadModelsResult
+  >(QUERY_PARTICIPANT_PROGRESS_READ_MODELS_CALLABLE, input, {
+    idempotencyKey: `read:participant_progress:${identityHash}`,
+    maxAttempts: 1,
+  });
+}
+
+function chunkIds<T>(ids: readonly T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < ids.length; index += size) {
+    chunks.push([...ids.slice(index, index + size)]);
+  }
+  return chunks;
+}
+
+export async function queryManagedParticipantProgressReadModels(
+  participantIds?: readonly ParticipantId[]
+): Promise<QueryParticipantProgressReadModelsResult> {
+  if (!participantIds || participantIds.length === 0) {
+    return queryParticipantProgressReadModels({ scope: 'managed' });
+  }
+  const uniqueIds = [...new Set(participantIds)];
+  const chunks = chunkIds(uniqueIds, PARTICIPANT_PROGRESS_READ_MODEL_IDS_MAX);
+  const results = await Promise.all(
+    chunks.map((chunk) =>
+      queryParticipantProgressReadModels({ scope: 'managed', participantIds: chunk })
+    )
+  );
+  return {
+    scope: 'managed',
+    items: results.flatMap((result) => result.items),
+  };
+}
+
+export async function queryInstructorParticipantProgressReadModels(
+  participantIds: readonly ParticipantId[]
+): Promise<QueryParticipantProgressReadModelsResult> {
+  const uniqueIds = [...new Set(participantIds)];
+  if (uniqueIds.length === 0) {
+    return { scope: 'instructor', items: [] };
+  }
+  const chunks = chunkIds(uniqueIds, PARTICIPANT_PROGRESS_READ_MODEL_IDS_MAX);
+  const settled = await Promise.allSettled(
+    chunks.map((chunk) =>
+      queryParticipantProgressReadModels({ scope: 'instructor', participantIds: chunk })
+    )
+  );
+  const items = settled.flatMap((result) =>
+    result.status === 'fulfilled' ? result.value.items : []
+  );
+  if (items.length === 0 && settled.some((result) => result.status === 'rejected')) {
+    const rejected = settled.find((result) => result.status === 'rejected');
+    throw rejected && rejected.status === 'rejected'
+      ? rejected.reason
+      : new Error('Progress read failed');
+  }
+  return { scope: 'instructor', items };
 }
 
 type CanonicalReadInFlightEntry = {
@@ -169,9 +246,7 @@ function invokeCanonicalReadCallable<Input, Output>(
 
 export async function queryPublicInstructorRatingSummaries(
   instructorIds: readonly InstructorId[]
-): Promise<
-  Extract<QueryInstructorReviewReadModelsResult, { scope: 'public_summaries' }>
-> {
+): Promise<Extract<QueryInstructorReviewReadModelsResult, { scope: 'public_summaries' }>> {
   const uniqueIds = [...new Set(instructorIds)];
   const chunks: InstructorId[][] = [];
   for (let index = 0; index < uniqueIds.length; index += 100) {
@@ -198,7 +273,11 @@ export async function queryAccountInstructorReviewReadModels(
     return { scope: 'account_reviews', reviews: [], bookingStates: [] };
   }
   const chunks: BookingId[][] = [];
-  for (let index = 0; index < uniqueIds.length; index += INSTRUCTOR_REVIEW_ACCOUNT_BOOKING_IDS_MAX) {
+  for (
+    let index = 0;
+    index < uniqueIds.length;
+    index += INSTRUCTOR_REVIEW_ACCOUNT_BOOKING_IDS_MAX
+  ) {
     chunks.push(uniqueIds.slice(index, index + INSTRUCTOR_REVIEW_ACCOUNT_BOOKING_IDS_MAX));
   }
   const results = await Promise.allSettled(
@@ -220,9 +299,7 @@ export async function queryAccountInstructorReviewReadModels(
   return {
     scope: 'account_reviews',
     reviews: [...new Map(reviews.map((review) => [review.reviewId, review])).values()],
-    bookingStates: [
-      ...new Map(bookingStates.map((state) => [state.bookingId, state])).values(),
-    ],
+    bookingStates: [...new Map(bookingStates.map((state) => [state.bookingId, state])).values()],
   };
 }
 
@@ -460,27 +537,21 @@ export async function queryBookingProposalReadModels(
   });
 }
 
-export async function queryBookingChangeRequestReadModels(
-  input: {
-    readonly scope: 'account_open' | 'instructor_open';
-    readonly idempotencyKey?: QueryBookingChangeRequestReadModelsInput['idempotencyKey'];
-  }
-): Promise<
+export async function queryBookingChangeRequestReadModels(input: {
+  readonly scope: 'account_open' | 'instructor_open';
+  readonly idempotencyKey?: QueryBookingChangeRequestReadModelsInput['idempotencyKey'];
+}): Promise<
   Extract<QueryBookingChangeRequestReadModelsResult, { scope: 'account_open' | 'instructor_open' }>
 >;
-export async function queryBookingChangeRequestReadModels(
-  input: {
-    readonly scope: 'admin_open';
-    readonly idempotencyKey?: QueryBookingChangeRequestReadModelsInput['idempotencyKey'];
-  }
-): Promise<Extract<QueryBookingChangeRequestReadModelsResult, { scope: 'admin_open' }>>;
-export async function queryBookingChangeRequestReadModels(
-  input: {
-    readonly scope: 'admin_detail';
-    readonly requestId: NonNullable<QueryBookingChangeRequestReadModelsInput['requestId']>;
-    readonly idempotencyKey?: QueryBookingChangeRequestReadModelsInput['idempotencyKey'];
-  }
-): Promise<Extract<QueryBookingChangeRequestReadModelsResult, { scope: 'admin_detail' }>>;
+export async function queryBookingChangeRequestReadModels(input: {
+  readonly scope: 'admin_open';
+  readonly idempotencyKey?: QueryBookingChangeRequestReadModelsInput['idempotencyKey'];
+}): Promise<Extract<QueryBookingChangeRequestReadModelsResult, { scope: 'admin_open' }>>;
+export async function queryBookingChangeRequestReadModels(input: {
+  readonly scope: 'admin_detail';
+  readonly requestId: NonNullable<QueryBookingChangeRequestReadModelsInput['requestId']>;
+  readonly idempotencyKey?: QueryBookingChangeRequestReadModelsInput['idempotencyKey'];
+}): Promise<Extract<QueryBookingChangeRequestReadModelsResult, { scope: 'admin_detail' }>>;
 export async function queryBookingChangeRequestReadModels(
   input: QueryBookingChangeRequestReadModelsInput
 ): Promise<QueryBookingChangeRequestReadModelsResult>;

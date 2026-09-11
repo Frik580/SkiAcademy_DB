@@ -1,14 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import {
-  ArrowDown,
-  ArrowUp,
-  Eye,
-  EyeOff,
-  Plus,
-  RefreshCw,
-  Save,
-  Trash2,
-} from 'lucide-react';
+import { ArrowDown, ArrowUp, Eye, EyeOff, Plus, RefreshCw, Save, Trash2 } from 'lucide-react';
 import { CustomHeroSlide } from '../../../../../types';
 import { useLanguage } from '../../../../../app/providers/LanguageContext';
 import { useNotifications } from '../../../../../features/notifications';

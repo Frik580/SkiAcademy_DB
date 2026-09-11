@@ -45,8 +45,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
     const specialtyMeta = `${specialtyText} • ${instructor.experienceYears}${t('yearShort')}`;
     const languagesText = instructor.languages.map(getLanguageLabel).join(', ');
     const isAvailable = instructor.isAvailable;
-    const hasCanonicalRating =
-      instructor.reviewsCount > 0 && instructor.rating !== null;
+    const hasCanonicalRating = instructor.reviewsCount > 0 && instructor.rating !== null;
     const ratingLabel = hasCanonicalRating
       ? `${instructor.rating!.toFixed(1)} (${instructor.reviewsCount})`
       : t('instructorNoReviews');

@@ -121,9 +121,7 @@ export const useBookingModal = ({
       .then((result) => {
         if (!active) return;
         setAdditionalParticipantSurchargePerHourKzt(
-          result.item.configured
-            ? result.item.additionalParticipantSurchargePerHourKzt
-            : undefined
+          result.item.configured ? result.item.additionalParticipantSurchargePerHourKzt : undefined
         );
         setMaxParticipantsPerLesson(
           result.item.configured ? result.item.maxParticipantsPerLesson : undefined

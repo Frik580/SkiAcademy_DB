@@ -31,3 +31,5 @@ export * from './instructorOccupancyReadModels';
 export * from './queryInstructorOccupancyReadModelsCallable';
 export * from './instructorReviewReadModels';
 export * from './queryInstructorReviewReadModelsCallable';
+export * from './participantProgressReadModels';
+export * from './queryParticipantProgressReadModelsCallable';

@@ -269,8 +269,9 @@ function baseFixture(extra: Record<string, unknown> = {}) {
 }
 
 function fixtureWithoutRelationship(extra: Record<string, unknown> = {}) {
-  const { [`instructor_relationships/${relationshipId}`]: _removed, ...rest } = baseFixture(extra);
-  return rest;
+  const fixture = { ...baseFixture(extra) };
+  delete fixture[`instructor_relationships/${relationshipId}`];
+  return fixture;
 }
 
 function seedManagedParticipantTwo() {

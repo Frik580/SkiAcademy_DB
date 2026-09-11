@@ -84,7 +84,6 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
             avatarUrl: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(avatarSeed)}`,
             balanceUSD: useSettingsStore.getState().starterCreditUsd,
             isClientActive: true,
-            level: 1,
           };
           if (phoneNumber) {
             finalProfile.phoneNumber = phoneNumber;
@@ -141,7 +140,6 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
                 `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(seed)}`,
               balanceUSD: useSettingsStore.getState().starterCreditUsd,
               isClientActive: true,
-              level: 1,
             };
             await saveUserProfileService(fallbackProfile);
             addNotification('info', t('authProfileSetup'), t('authProfileCreated'));
@@ -234,7 +232,6 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
               `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(seed)}`,
             balanceUSD: useSettingsStore.getState().starterCreditUsd,
             isClientActive: true,
-            level: 1,
           };
 
           await saveUserProfileService(finalProfile);

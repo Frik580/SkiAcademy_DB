@@ -1222,9 +1222,14 @@ describe.skipIf(!runsOnFirestoreEmulator)('bookingAttendanceCommands.emulator', 
     await freezeServiceParty(setupCommands);
     const interval = await lessonInterval();
 
-    await sweepLessonBookingAttendanceOutcomes(firestore, {
+    const beforeWindowResult = await sweepLessonBookingAttendanceOutcomes(firestore, {
       now: new Date(isoAfterEndsAt(interval)),
     });
+    const beforeWindowOutcome = beforeWindowResult.outcomes.find(
+      (entry) => entry.bookingId === bookingId
+    );
+    expect(beforeWindowOutcome?.deadlineId).toBe('outcome');
+    expect(beforeWindowOutcome?.outcome).toBe('applied');
     expect((await firestore.doc(`bookings/${bookingId}`).get()).data()?.lifecycle.status).toBe(
       'confirmed'
     );
@@ -1234,12 +1239,20 @@ describe.skipIf(!runsOnFirestoreEmulator)('bookingAttendanceCommands.emulator', 
       )
     ).toHaveLength(0);
 
-    await sweepLessonBookingAttendanceOutcomes(firestore, {
+    const afterWindowResult = await sweepLessonBookingAttendanceOutcomes(firestore, {
       now: new Date(isoAfterAutomationFallback(interval)),
     });
+    const afterWindowOutcome = afterWindowResult.outcomes.find(
+      (entry) => entry.bookingId === bookingId
+    );
+    expect(afterWindowResult.scannedCandidates).toBeGreaterThan(0);
+    expect(afterWindowResult.truncated).toBe(false);
+    expect(afterWindowOutcome?.deadlineId).toBe('instructor_window');
+    expect(afterWindowOutcome?.outcome).toBe('applied');
     expect((await firestore.doc(`bookings/${bookingId}`).get()).data()?.lifecycle.status).toBe(
       'confirmed'
     );
+    expect((await firestore.collection('attendance').get()).empty).toBe(true);
     expect(
       (await firestore.collection('admin_issues').get()).docs.filter(
         (doc) => doc.data().kind === 'missing_attendance'

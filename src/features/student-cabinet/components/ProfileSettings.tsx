@@ -19,7 +19,7 @@ interface ProfileSettingsProps {
   skillProgress: SkillProgressSummary;
   onSignOut: () => void;
   onUpdateProfile?: (updatedProfile: Partial<UserProfile>) => Promise<void>;
-  onLevelBadgeClick: () => void;
+  onLevelBadgeClick: (level?: number) => void;
   onUploadSuccess?: () => void;
   onUploadError?: () => void;
   onInvalidFile?: () => void;
@@ -144,7 +144,7 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({
         <div className="flex flex-col items-center justify-between gap-4 py-[10px] w-full">
           <div className="flex flex-col items-center gap-3 w-full">
             <div
-              onClick={onLevelBadgeClick}
+              onClick={() => onLevelBadgeClick(userProfile.level || 1)}
               className={`${(userProfile.level || 1) === 4 ? 'w-52 h-52' : 'w-40 h-40'} flex items-center justify-center shrink-0 relative transition-all duration-300 cursor-pointer group`}
               title={t('levelPreviewTitle')}
             >

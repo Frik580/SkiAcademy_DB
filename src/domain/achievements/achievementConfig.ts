@@ -526,7 +526,9 @@ const inferEarnedAt = (
     .filter((log) => {
       if (log.type !== 'booking_completed') return false;
       const bookingId = log.metadata?.bookingId;
-      const linked = bookingId ? ctx.bookings.find((booking) => booking.id === bookingId) : undefined;
+      const linked = bookingId
+        ? ctx.bookings.find((booking) => booking.id === bookingId)
+        : undefined;
       return !linked || isAttendedLessonStatus(linked.status);
     })
     .sort((a, b) => a.timestamp.localeCompare(b.timestamp));

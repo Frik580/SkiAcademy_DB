@@ -232,8 +232,8 @@ export const getInstructorLessonCount = (
   instructorId: string,
   userId?: string
 ) =>
-  getStudentBookingsWithInstructor(bookings, instructorId, userId).filter(
-    (b) => isAttendedLessonStatus(b.status)
+  getStudentBookingsWithInstructor(bookings, instructorId, userId).filter((b) =>
+    isAttendedLessonStatus(b.status)
   ).length;
 
 /** Firestore thread ids for chat messages with a given instructor (lessons + course enrollments). */
@@ -270,8 +270,8 @@ export const getInstructorLastLessonDate = (
   userId: string | undefined,
   language: 'en' | 'ru'
 ) => {
-  const latest = getStudentBookingsWithInstructor(bookings, instructorId, userId).find(
-    (b) => isAttendedLessonStatus(b.status)
+  const latest = getStudentBookingsWithInstructor(bookings, instructorId, userId).find((b) =>
+    isAttendedLessonStatus(b.status)
   );
   if (!latest) return null;
   return formatBookingDayMonth(latest, courses, language);

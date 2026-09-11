@@ -119,21 +119,15 @@ export const useBookingsSync = () => {
         );
         const requests = [
           ...(catalogueInstructorIds.length > 0
-            ? [
-                queryPublicInstructorRatingSummaries(catalogueInstructorIds),
-              ]
+            ? [queryPublicInstructorRatingSummaries(catalogueInstructorIds)]
             : []),
           ...(shouldSyncReviews && firebaseUserId && userRole === 'user'
-            ? [
-                queryAccountInstructorReviewReadModels(accountBookingIds),
-              ]
+            ? [queryAccountInstructorReviewReadModels(accountBookingIds)]
             : []),
           ...(shouldSyncReviews && instructorId && !reviewsInstructorId
             ? [loadAllInstructorReviews(instructorId)]
             : []),
-          ...(reviewsInstructorId
-            ? [loadAllInstructorReviews(reviewsInstructorId)]
-            : []),
+          ...(reviewsInstructorId ? [loadAllInstructorReviews(reviewsInstructorId)] : []),
         ];
         const results = await Promise.allSettled(requests);
         if (cancelled) return;
@@ -159,7 +153,9 @@ export const useBookingsSync = () => {
           result.scope === 'account_reviews' ? result.bookingStates : []
         );
         const previousState = useBookingsStore.getState();
-        const hasAccountReviewPayload = settled.some((result) => result.scope === 'account_reviews');
+        const hasAccountReviewPayload = settled.some(
+          (result) => result.scope === 'account_reviews'
+        );
         useBookingsStore.getState().setCanonicalReviewData({
           summaries: [
             ...new Map(summaries.map((summary) => [summary.instructorId, summary])).values(),

@@ -63,25 +63,25 @@ describe('account_reviews chunk transport failure vs review CTA', () => {
       .mockRejectedValueOnce(new Error('transport failure'));
 
     const accountResult = await queryAccountInstructorReviewReadModels(ids);
-    const mergedAfterSync = mergeAccountReviewBookingStates(
-      [],
-      accountResult.bookingStates,
-      ids
-    );
+    const mergedAfterSync = mergeAccountReviewBookingStates([], accountResult.bookingStates, ids);
 
     expect(mergedAfterSync.some((state) => state.bookingId === freshBookingId)).toBe(false);
 
     const ctaBookingIds = bookingsEligibleForReviewCta([freshBookingId], mergedAfterSync);
     expect(ctaBookingIds).toEqual([]);
 
-    const authoritativeEligible = mergeAccountReviewBookingStates(mergedAfterSync, [
-      {
-        bookingId: freshBookingId as never,
-        instructorId: 'instructor-fresh-chunk-fail' as never,
-        eligible: true,
-        reviewed: false,
-      },
-    ], [freshBookingId as never]);
+    const authoritativeEligible = mergeAccountReviewBookingStates(
+      mergedAfterSync,
+      [
+        {
+          bookingId: freshBookingId as never,
+          instructorId: 'instructor-fresh-chunk-fail' as never,
+          eligible: true,
+          reviewed: false,
+        },
+      ],
+      [freshBookingId as never]
+    );
     expect(bookingsEligibleForReviewCta([freshBookingId], authoritativeEligible)).toEqual([
       freshBookingId,
     ]);

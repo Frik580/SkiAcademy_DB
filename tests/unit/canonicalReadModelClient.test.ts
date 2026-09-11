@@ -18,6 +18,7 @@ import {
   queryInstructorReviewReadModels,
   __resetCanonicalReadInFlightRegistryForTests,
   queryAccountInstructorReviewReadModels,
+  queryManagedParticipantProgressReadModels,
 } from '../../src/lib/canonical/canonicalReadModelClient';
 import {
   QUERY_BOOKING_CHANGE_REQUEST_READ_MODELS_CALLABLE,
@@ -29,6 +30,7 @@ import {
   QUERY_LESSON_BOOKING_READ_MODELS_CALLABLE,
   QUERY_PARTICIPANT_INSTRUCTOR_ACCESS_READ_MODELS_CALLABLE,
   QUERY_INSTRUCTOR_REVIEW_READ_MODELS_CALLABLE,
+  QUERY_PARTICIPANT_PROGRESS_READ_MODELS_CALLABLE,
 } from '../../src/lib/canonical/canonicalReadModelClient';
 
 const callFunctionMock = vi.fn();
@@ -105,9 +107,7 @@ describe('canonicalReadModelClient', () => {
       )
     ).toEqual([INSTRUCTOR_REVIEW_ACCOUNT_BOOKING_IDS_MAX, 2]);
     for (const call of callFunctionMock.mock.calls) {
-      expect(
-        QueryInstructorReviewReadModelsInputSchema.safeParse(call[1]).success
-      ).toBe(true);
+      expect(QueryInstructorReviewReadModelsInputSchema.safeParse(call[1]).success).toBe(true);
     }
   });
 
@@ -118,8 +118,9 @@ describe('canonicalReadModelClient', () => {
       bookingStates: [],
     });
     await queryAccountInstructorReviewReadModels(
-      Array.from({ length: INSTRUCTOR_REVIEW_ACCOUNT_BOOKING_IDS_MAX + 1 }, (_, index) =>
-        `booking-review-chunk-${index}` as never
+      Array.from(
+        { length: INSTRUCTOR_REVIEW_ACCOUNT_BOOKING_IDS_MAX + 1 },
+        (_, index) => `booking-review-chunk-${index}` as never
       )
     );
     const keys = callFunctionMock.mock.calls.map((call) => call[2]?.idempotencyKey);
@@ -184,8 +185,9 @@ describe('canonicalReadModelClient', () => {
       .mockRejectedValueOnce(new Error('chunk failed'));
 
     const result = await queryAccountInstructorReviewReadModels(
-      Array.from({ length: INSTRUCTOR_REVIEW_ACCOUNT_BOOKING_IDS_MAX + 1 }, (_, index) =>
-        `booking-review-partial-${index}` as never
+      Array.from(
+        { length: INSTRUCTOR_REVIEW_ACCOUNT_BOOKING_IDS_MAX + 1 },
+        (_, index) => `booking-review-partial-${index}` as never
       )
     );
     expect(result.bookingStates).toHaveLength(1);
@@ -445,6 +447,18 @@ describe('canonicalReadModelClient', () => {
       expect.objectContaining({
         idempotencyKey:
           'read:participant_instructor_access:account_manager:participant_fixture_01:instructor_fixture_01',
+        maxAttempts: 1,
+      })
+    );
+  });
+
+  it('calls the participant progress read-model callable for managed scope', async () => {
+    callFunctionMock.mockResolvedValue({ scope: 'managed', items: [] });
+    await queryManagedParticipantProgressReadModels();
+    expect(callFunctionMock).toHaveBeenCalledWith(
+      QUERY_PARTICIPANT_PROGRESS_READ_MODELS_CALLABLE,
+      { scope: 'managed' },
+      expect.objectContaining({
         maxAttempts: 1,
       })
     );

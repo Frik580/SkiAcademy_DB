@@ -1,9 +1,11 @@
 import { z } from 'zod';
 import { IdempotencyKeySchema, type IdempotencyKey } from './commands/commandContext';
 import type { CommandKind } from './commands/commandKinds';
+import { canonicalDeterministicHash } from './deterministicIdentity';
 import type { SystemActorId } from './identifiers';
 
 const SCHEDULED_IDEMPOTENCY_KEY_PREFIX = 'sched';
+const SCHEDULED_IDEMPOTENCY_BOUNDED_DIGEST_VERSION = 'bounded:v1';
 
 const PERSONAL_DATA_PATTERNS = [/@/, /\b\+?\d[\d\s().-]{7,}\d\b/] as const;
 
@@ -14,10 +16,18 @@ export const ScheduledIdempotencySubjectIdSchema = z
 function buildScopedIdempotencyKey(parts: readonly string[]): IdempotencyKey {
   const candidate = [SCHEDULED_IDEMPOTENCY_KEY_PREFIX, ...parts].join(':');
   const parsed = IdempotencyKeySchema.safeParse(candidate);
-  if (!parsed.success) {
-    throw new Error('Scheduled idempotency key exceeds canonical bounds');
+  if (parsed.success) {
+    return parsed.data;
   }
-  return parsed.data;
+  // Concatenated identities with hashed occurrence IDs can exceed the 200-char
+  // IdempotencyKey bound. Digest the same opaque parts so distinct deadlines
+  // remain distinct without throwing and silently failing the sweep.
+  const digest = canonicalDeterministicHash([
+    SCHEDULED_IDEMPOTENCY_KEY_PREFIX,
+    SCHEDULED_IDEMPOTENCY_BOUNDED_DIGEST_VERSION,
+    ...parts,
+  ]);
+  return IdempotencyKeySchema.parse(`${SCHEDULED_IDEMPOTENCY_KEY_PREFIX}:${digest}`);
 }
 
 function assertOpaqueIdempotencyMaterial(fieldName: string, value: string): void {

@@ -137,8 +137,7 @@ export const BookInstructorPickerModal: React.FC<BookInstructorPickerModalProps>
                                   {instructor.name}
                                 </span>
                                 <span className="flex items-center gap-2 text-xs text-[var(--ink-dim)] mt-0.5">
-                                  {instructor.rating !== null &&
-                                  instructor.reviewsCount > 0 ? (
+                                  {instructor.rating !== null && instructor.reviewsCount > 0 ? (
                                     <span className="inline-flex items-center gap-0.5">
                                       <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
                                       {instructor.rating.toFixed(1)}

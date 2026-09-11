@@ -4,9 +4,7 @@ import {
   lessonBookingToMonitorRow,
   mergeAdminBookingMonitorRows,
 } from '../../src/features/admin/operations/adminBookingMonitorMapping';
-import {
-  resolveAdminMonitorLessonStatusFromRow,
-} from '../../src/features/admin/lesson-bookings/lessonBookingAdminPresentation';
+import { resolveAdminMonitorLessonStatusFromRow } from '../../src/features/admin/lesson-bookings/lessonBookingAdminPresentation';
 import { readRepoFile } from '../helpers/readRepoFile';
 
 function lessonReadModel(
@@ -68,7 +66,9 @@ describe('adminBookingMonitorMapping', () => {
     expect(panel).toContain('revealLessonBookingCard');
     expect(panel).toContain('data-admin-lesson-booking-id');
     expect(panel).toContain('detailPanelRef');
-    const section = readRepoFile('src/features/admin/components/settings/AdminCollapsibleSection.tsx');
+    const section = readRepoFile(
+      'src/features/admin/components/settings/AdminCollapsibleSection.tsx'
+    );
     expect(section).toContain('id={id}');
     expect(section).toContain('scrollAdminElementIntoView');
     const navigation = readRepoFile('src/features/admin/adminNavigation.ts');

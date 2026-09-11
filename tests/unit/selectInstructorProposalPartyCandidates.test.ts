@@ -27,10 +27,12 @@ describe('selectInstructorProposalPartyCandidates', () => {
       'participant_a',
       'participant_b',
     ]);
-    expect(candidates.find((candidate) => candidate.participantId === 'participant_a')?.selectable).toBe(
-      true
-    );
-    expect(candidates.find((candidate) => candidate.participantId === 'participant_b')).toMatchObject({
+    expect(
+      candidates.find((candidate) => candidate.participantId === 'participant_a')?.selectable
+    ).toBe(true);
+    expect(
+      candidates.find((candidate) => candidate.participantId === 'participant_b')
+    ).toMatchObject({
       selectable: false,
       disabledReason: 'no_authority',
     });

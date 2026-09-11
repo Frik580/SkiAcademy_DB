@@ -97,6 +97,7 @@ const COMMAND_KIND_ALLOWED_EFFECTS: Partial<Record<CommandKind, readonly AuditEf
     'admin_issue_resolved',
   ],
   create_instructor_review: ['instructor_review_created'],
+  update_participant_progress: ['participant_progress_changed'],
   record_course_day_attendance: [
     'attendance_recorded',
     'course_enrollment_lifecycle_changed',

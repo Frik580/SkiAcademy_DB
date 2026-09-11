@@ -1,9 +1,11 @@
 import React from 'react';
-import { Booking, Course, ResortConfig } from '../../../../types';
+import { ResortConfig } from '../../../../types';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
-import { getLatestCoachRecommendation } from '../../../../features/student-cabinet/lessonRecommendations';
 import { getWeatherConditionKey } from '../../../../shared';
-import { formatBookingDayMonth } from './studentCabinetUtils';
+import {
+  formatLessonFeedbackDateLabel,
+  type LessonFeedbackView,
+} from '../../studentLessonFeedbackPresentation';
 import { ScSectionTitle, ScTextButton, ScTintCard } from './StudentCabinetUI';
 import { AnimatedNumber } from '../../../../ui/AnimatedNumber';
 import { RecommendationIndicator } from '../RecommendationIndicator';
@@ -18,39 +20,42 @@ export interface StudentCabinetResortSnapshot {
 }
 
 interface StudentLatestRecommendationSectionProps {
-  bookings: Booking[];
-  courses: Course[];
-  userId: string;
-  onOpenLesson: (booking: Booking) => void;
+  latest: LessonFeedbackView | null;
+  highlightPending: boolean;
+  highlightText: string | null;
+  loading?: boolean;
+  onOpenLesson: (lessonBookingId: string) => void;
 }
 
 export const StudentLatestRecommendationSection: React.FC<
   StudentLatestRecommendationSectionProps
-> = ({ bookings, courses, userId, onOpenLesson }) => {
+> = ({ latest, highlightPending, highlightText, loading = false, onOpenLesson }) => {
   const { language, t } = useLanguage();
   const lang = language === 'ru' ? 'ru' : 'en';
-  const latest = getLatestCoachRecommendation(bookings, userId);
+  const dateLabel = latest
+    ? formatLessonFeedbackDateLabel(latest.lessonDate, lang) || latest.lessonDate
+    : '';
+  const instructorLabel = latest?.instructorName;
 
   return (
     <section className="py-6 space-y-3">
       <ScSectionTitle>{t('scLatestCoachRecommendation')}</ScSectionTitle>
-      {!latest ? (
+      {loading ? (
+        <p className="text-sm text-[var(--ink-dim)]">{t('loading')}</p>
+      ) : !latest || !highlightText ? (
         <p className="text-sm text-[var(--ink-dim)]">{t('scNoLatestRecommendation')}</p>
       ) : (
         <ScTintCard tint="amber" className="px-4 py-3.5 space-y-2">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 space-y-1">
               <p className="text-xs text-[var(--ink-dim)]">
-                {formatBookingDayMonth(latest.booking, courses, lang)} ·{' '}
-                {latest.booking.instructorName}
+                {[dateLabel, instructorLabel].filter(Boolean).join(' · ')}
               </p>
-              <p className="text-sm text-[var(--ink)] leading-relaxed">
-                {latest.recommendation.text}
-              </p>
+              <p className="text-sm text-[var(--ink)] leading-relaxed">{highlightText}</p>
             </div>
-            {latest.isPending && <RecommendationIndicator pending className="shrink-0 mt-0.5" />}
+            {highlightPending && <RecommendationIndicator pending className="shrink-0 mt-0.5" />}
           </div>
-          <ScTextButton onClick={() => onOpenLesson(latest.booking)}>
+          <ScTextButton onClick={() => onOpenLesson(latest.lessonBookingId)}>
             {t('scMoreDetails')}
           </ScTextButton>
         </ScTintCard>

@@ -5,8 +5,10 @@ import {
   CourseIdSchema,
   GuestSubjectIdSchema,
   ParticipantIdSchema,
+  ParticipantLessonFeedbackIdSchema,
   ReviewIdSchema,
 } from '../identifiers';
+import { ParticipantLessonFeedbackItemIdSchema } from '../participantLessonFeedback';
 import { AggregateRevisionSchema, CanonicalTimestampSchema } from '../primitives';
 
 export const GuestCourseEnrollmentLinkCredentialSchema = z
@@ -109,6 +111,34 @@ export type UpdateParticipantProgressResultPayload = Readonly<
   z.output<typeof UpdateParticipantProgressResultPayloadSchema>
 >;
 
+export const SaveParticipantLessonFeedbackResultPayloadSchema = z
+  .object({
+    feedbackId: ParticipantLessonFeedbackIdSchema,
+    participantId: ParticipantIdSchema,
+    lessonBookingId: BookingIdSchema,
+    revision: AggregateRevisionSchema,
+  })
+  .strict();
+
+export type SaveParticipantLessonFeedbackResultPayload = Readonly<
+  z.output<typeof SaveParticipantLessonFeedbackResultPayloadSchema>
+>;
+
+export const SetParticipantLessonFeedbackItemCompletionResultPayloadSchema = z
+  .object({
+    feedbackId: ParticipantLessonFeedbackIdSchema,
+    participantId: ParticipantIdSchema,
+    lessonBookingId: BookingIdSchema,
+    itemId: ParticipantLessonFeedbackItemIdSchema,
+    completed: z.boolean(),
+    revision: AggregateRevisionSchema,
+  })
+  .strict();
+
+export type SetParticipantLessonFeedbackItemCompletionResultPayload = Readonly<
+  z.output<typeof SetParticipantLessonFeedbackItemCompletionResultPayloadSchema>
+>;
+
 export const RequestCancellationResultPayloadSchema = z
   .object({
     lifecycleStatus: RequestCancellationLifecycleStatusSchema,
@@ -128,6 +158,9 @@ export const CommandResultPayloadSchemaByKind = {
   request_course_enrollment_cancellation: RequestCancellationResultPayloadSchema,
   create_instructor_review: CreateInstructorReviewResultPayloadSchema,
   update_participant_progress: UpdateParticipantProgressResultPayloadSchema,
+  save_participant_lesson_feedback: SaveParticipantLessonFeedbackResultPayloadSchema,
+  set_participant_lesson_feedback_item_completion:
+    SetParticipantLessonFeedbackItemCompletionResultPayloadSchema,
 } as const;
 
 export type CommandResultPayloadForKind<Kind extends keyof typeof CommandResultPayloadSchemaByKind> =

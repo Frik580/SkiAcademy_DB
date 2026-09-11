@@ -10,9 +10,8 @@ import {
 import { formatCountdownRemaining, formatSessionDayLabel } from './studentCabinetUtils';
 import { ScDivider, ScTextButton, ScTintCard } from './StudentCabinetUI';
 import { BookingCallCoachButton } from './BookingCallCoachButton';
-import { RecommendationIndicator } from '../RecommendationIndicator';
+import { LessonFeedbackIndicator } from '../LessonFeedbackIndicator';
 import { ChatUnreadIndicator } from '../../../../features/chat';
-import { hasBookingRecommendations, hasPendingRecommendations } from '../../lessonRecommendations';
 import type {
   CurrentSessionsBlockInput,
   NextSessionBlockInput,
@@ -143,16 +142,9 @@ const SessionCard = memo<
       </p>
       <p className="flex items-center gap-2 flex-wrap text-base font-medium text-[var(--ink)]">
         <span>{getCabinetSessionTitle(session, lang)}</span>
-        {session.kind === 'lesson' &&
-          hasBookingRecommendations(
-            cabinetItemToLegacyPresentation(session.session, usersList[0]?.uid ?? '')
-          ) && (
-            <RecommendationIndicator
-              pending={hasPendingRecommendations(
-                cabinetItemToLegacyPresentation(session.session, usersList[0]?.uid ?? '')
-              )}
-            />
-          )}
+        {session.kind === 'lesson' && (
+          <LessonFeedbackIndicator lessonBookingId={session.session.id} />
+        )}
       </p>
       <p className="text-sm text-[var(--ink-dim)]">
         {isCourseDay
@@ -312,19 +304,9 @@ export const NextSessionBlock = memo<NextSessionBlockInput>(function NextSession
                   </p>
                   <p className="flex items-center gap-2 flex-wrap text-base font-medium text-[var(--ink)]">
                     <span>{getCabinetSessionTitle(session, lang)}</span>
-                    {session.kind === 'lesson' &&
-                      hasBookingRecommendations(
-                        cabinetItemToLegacyPresentation(session.session, usersList[0]?.uid ?? '')
-                      ) && (
-                        <RecommendationIndicator
-                          pending={hasPendingRecommendations(
-                            cabinetItemToLegacyPresentation(
-                              session.session,
-                              usersList[0]?.uid ?? ''
-                            )
-                          )}
-                        />
-                      )}
+                    {session.kind === 'lesson' && (
+                      <LessonFeedbackIndicator lessonBookingId={session.session.id} />
+                    )}
                   </p>
                   <p className="text-sm text-[var(--ink-dim)]">
                     {isCourseDay

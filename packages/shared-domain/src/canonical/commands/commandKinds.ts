@@ -19,6 +19,8 @@ export const COMMAND_KINDS = [
   'record_booking_no_show',
   'create_instructor_review',
   'update_participant_progress',
+  'save_participant_lesson_feedback',
+  'set_participant_lesson_feedback_item_completion',
   'create_course_enrollments',
   'transfer_course_enrollment',
   'withdraw_course_enrollment',

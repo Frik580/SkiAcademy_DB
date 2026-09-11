@@ -52,6 +52,10 @@ import {
   useParticipantProgressStore,
 } from '../../../participant-progress';
 import { useCabinetProgressParticipantSelection } from '../../useCabinetProgressParticipantSelection';
+import {
+  useSelectedParticipantLessonFeedback,
+  togglePresentedParticipantLessonFeedbackItem,
+} from '../../useSelectedParticipantLessonFeedback';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 
 const getSwipeNeighborSequence = (
@@ -189,6 +193,22 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
       participants,
       loading: participantsLoading,
     });
+  useSelectedParticipantLessonFeedback({
+    accountId: props.userProfile.uid,
+    selectedParticipantId: selectedProgressParticipantId,
+    participants,
+  });
+  const handleToggleFeedbackItem = useCallback(
+    (lessonBookingId: string, itemId: string, completed: boolean) => {
+      void togglePresentedParticipantLessonFeedbackItem({
+        accountId: props.userProfile.uid,
+        lessonBookingId,
+        itemId,
+        completed,
+      }).catch(() => undefined);
+    },
+    [props.userProfile.uid]
+  );
   const progressById = useParticipantProgressStore((state) => state.byId);
   const requiresProgressSelection =
     shouldShowParticipantPicker({
@@ -253,7 +273,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
     onGoToTab: goToTab,
     onOpenDevelopmentSection: () => goToTab('development'),
     onContinueDevelopment: () => goToTab('development'),
-    onToggleRecommendation: props.onToggleRecommendation,
+    onToggleRecommendation: handleToggleFeedbackItem,
     onToggleSkillToday: props.onToggleSkillToday,
     onPinSkillsToday: props.onPinSkillsToday,
     onToggleTodayTaskComplete: props.onToggleTodayTaskComplete,
@@ -450,7 +470,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
             }}
             onOpenDevelopment={() => goToTab('development')}
             onBack={() => goToTab('settings')}
-            onToggleRecommendation={props.onToggleRecommendation}
+            onToggleRecommendation={handleToggleFeedbackItem}
           />
         )}
         {activeTab === 'development' && (
@@ -500,7 +520,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
               const cabinetBooking = props.bookings.find((item) => item.id === booking.id);
               if (cabinetBooking) props.onOpenLesson(cabinetBooking);
             }}
-            onToggleRecommendation={props.onToggleRecommendation}
+            onToggleRecommendation={handleToggleFeedbackItem}
             onBookInstructor={props.onBookInstructor}
             onViewInstructorReviews={props.onViewInstructorReviews}
           />

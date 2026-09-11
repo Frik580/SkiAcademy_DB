@@ -1,4 +1,6 @@
 import {
+  boundCanonicalReadIdempotencyCursor,
+  buildCanonicalReadIdempotencyKey,
   canonicalDeterministicHash,
   type QueryAdminFinanceReadModelsInput,
   type QueryAdminFinanceReadModelsResult,
@@ -38,6 +40,8 @@ import {
   type QueryInstructorReviewReadModelsResult,
   type QueryParticipantProgressReadModelsInput,
   type QueryParticipantProgressReadModelsResult,
+  type QueryParticipantLessonFeedbackReadModelsInput,
+  type QueryParticipantLessonFeedbackReadModelsResult,
   type BookingId,
   type InstructorId,
   type ParticipantId,
@@ -72,6 +76,8 @@ export const QUERY_LESSON_PRICING_SETTINGS_READ_MODEL_CALLABLE =
   'queryLessonPricingSettingsReadModel';
 export const QUERY_INSTRUCTOR_REVIEW_READ_MODELS_CALLABLE = 'queryInstructorReviewReadModels';
 export const QUERY_PARTICIPANT_PROGRESS_READ_MODELS_CALLABLE = 'queryParticipantProgressReadModels';
+export const QUERY_PARTICIPANT_LESSON_FEEDBACK_READ_MODELS_CALLABLE =
+  'queryParticipantLessonFeedbackReadModels';
 
 export async function queryLessonPricingSettingsReadModel(
   input: QueryLessonPricingSettingsReadModelInput
@@ -154,6 +160,32 @@ export async function queryManagedParticipantProgressReadModels(
     scope: 'managed',
     items: results.flatMap((result) => result.items),
   };
+}
+
+export async function queryParticipantLessonFeedbackReadModels(
+  input: QueryParticipantLessonFeedbackReadModelsInput
+): Promise<QueryParticipantLessonFeedbackReadModelsResult> {
+  const target =
+    input.scope === 'instructor_lesson'
+      ? `${input.participantId}:${input.lessonBookingId}`
+      : input.scope === 'managed_latest'
+        ? input.participantId
+        : [
+            [...input.participantIds].sort().join(','),
+            [...(input.lessonBookingIds ?? [])].sort().join(','),
+          ].join(':');
+  const identityHash = canonicalDeterministicHash([
+    'read:participant_lesson_feedback:v1',
+    input.scope,
+    target,
+  ]);
+  return invokeCanonicalReadCallable<
+    QueryParticipantLessonFeedbackReadModelsInput,
+    QueryParticipantLessonFeedbackReadModelsResult
+  >(QUERY_PARTICIPANT_LESSON_FEEDBACK_READ_MODELS_CALLABLE, input, {
+    idempotencyKey: `read:participant_lesson_feedback:${identityHash}`,
+    maxAttempts: 1,
+  });
 }
 
 export async function queryInstructorParticipantProgressReadModels(
@@ -373,9 +405,15 @@ export async function queryAdminCourseReadModels(
     input.scope === 'admin_course_detail'
       ? input.courseId
       : 'readModelVersion' in input && input.readModelVersion === 2
-        ? `v2:${input.lifecycle ?? 'active'}:${input.pageSize ?? 'default'}:${input.cursor ?? 'start'}`
+        ? `v2:${input.lifecycle ?? 'active'}:${input.pageSize ?? 'default'}:${boundCanonicalReadIdempotencyCursor(
+            'cursor' in input ? input.cursor : undefined
+          )}`
         : `v1:${input.pageSize ?? 'default'}`;
-  const idempotencyKey = `read:admin_course:${input.scope}:${target}`;
+  const idempotencyKey = buildCanonicalReadIdempotencyKey([
+    'read:admin_course',
+    input.scope,
+    target,
+  ]);
   return invokeCanonicalReadCallable<
     QueryAdminCourseReadModelsInput,
     QueryAdminCourseReadModelsResult
@@ -437,13 +475,13 @@ export async function queryAdminIssueReadModels(
   input: QueryAdminIssueReadModelsInput
 ): Promise<QueryAdminIssueReadModelsResult> {
   const transportInput = buildAdminIssueReadModelTransportInput(input);
-  const idempotencyKey = [
+  const idempotencyKey = buildCanonicalReadIdempotencyKey([
     'read:admin_issue',
     transportInput.scope,
     transportInput.issueId ?? 'all',
     transportInput.severity ?? 'all',
-    transportInput.cursor ?? 'start',
-  ].join(':');
+    boundCanonicalReadIdempotencyCursor(transportInput.cursor),
+  ]);
   return invokeCanonicalReadCallable<
     QueryAdminIssueReadModelsInput,
     QueryAdminIssueReadModelsResult
@@ -456,16 +494,23 @@ export async function queryAdminIssueReadModels(
 function createLessonBookingReadModelIdempotencyKey(
   input: QueryLessonBookingReadModelsInput
 ): string {
-  const scopePart = input.scope;
-  const cursorPart = input.cursor ?? 'start';
-  const bookingPart = input.bookingId ?? 'none';
-  return `read:lesson_booking:${scopePart}:${cursorPart}:${bookingPart}`;
+  return buildCanonicalReadIdempotencyKey([
+    'read:lesson_booking',
+    input.scope,
+    boundCanonicalReadIdempotencyCursor(input.cursor),
+    input.bookingId ?? 'none',
+  ]);
 }
 
 function createParticipantInstructorAccessReadModelIdempotencyKey(
   input: QueryParticipantInstructorAccessReadModelsInput
 ): string {
-  return `read:participant_instructor_access:${input.scope}:${input.participantId}:${input.instructorId}`;
+  return buildCanonicalReadIdempotencyKey([
+    'read:participant_instructor_access',
+    input.scope,
+    input.participantId,
+    input.instructorId,
+  ]);
 }
 
 function buildLessonBookingReadModelTransportInput(
@@ -584,11 +629,13 @@ export async function queryParticipantInstructorAccessReadModels(
 function createCourseEnrollmentReadModelIdempotencyKey(
   input: QueryCourseEnrollmentReadModelsInput
 ): string {
-  const scopePart = input.scope;
-  const cursorPart = input.cursor ?? 'start';
-  const enrollmentPart = input.enrollmentId ?? 'none';
-  const coursePart = input.courseId ?? 'none';
-  return `read:course_enrollment:${scopePart}:${cursorPart}:${enrollmentPart}:${coursePart}`;
+  return buildCanonicalReadIdempotencyKey([
+    'read:course_enrollment',
+    input.scope,
+    boundCanonicalReadIdempotencyCursor(input.cursor),
+    input.enrollmentId ?? 'none',
+    input.courseId ?? 'none',
+  ]);
 }
 
 function buildCourseEnrollmentReadModelTransportInput(
@@ -651,7 +698,12 @@ export async function queryCourseCatalogReadModels(
 export async function queryCourseAttendanceReadModels(
   input: QueryCourseAttendanceReadModelsInput
 ): Promise<QueryCourseAttendanceReadModelsResult> {
-  const idempotencyKey = `read:course_attendance:${input.scope}:${input.enrollmentId ?? 'none'}:${input.courseId ?? 'none'}`;
+  const idempotencyKey = buildCanonicalReadIdempotencyKey([
+    'read:course_attendance',
+    input.scope,
+    input.enrollmentId ?? 'none',
+    input.courseId ?? 'none',
+  ]);
   return invokeCanonicalReadCallable<
     QueryCourseAttendanceReadModelsInput,
     QueryCourseAttendanceReadModelsResult

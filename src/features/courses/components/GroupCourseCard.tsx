@@ -9,11 +9,6 @@ import {
 import { Course, UserProfile } from '../../../types';
 import { courseLevelBadgeLabel, getCourseLevelCardBadgeClass } from '../../../domain/course';
 import { useCurrency } from '../../../app/providers/CurrencyContext';
-import {
-  hasBookingRecommendations,
-  hasPendingRecommendations,
-} from '../../../features/student-cabinet/lessonRecommendations';
-import { RecommendationIndicator } from '../../../features/profile';
 import { optimizedImageUrl } from '../../../lib/optimizedImageUrl';
 import type {
   CourseCatalogOperationalState,
@@ -79,8 +74,6 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
   });
   const cardDate = datePart ? formatCourseCatalogCardDate(datePart) : '';
   const cardDuration = formatCourseCardDuration(course.duration);
-  const enrollmentBooking = undefined;
-  const showRecommendations = hasBookingRecommendations(enrollmentBooking);
 
   return (
     <article
@@ -125,9 +118,6 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
           <div className="flex items-start justify-between gap-3">
             <h4 className="font-serif text-[1.375rem] sm:text-2xl font-normal leading-[1.2] tracking-[-0.02em] flex items-start gap-2 min-w-0 flex-1 text-[var(--ink)]">
               <span className="min-w-0">{course.title}</span>
-              {showRecommendations && (
-                <RecommendationIndicator pending={hasPendingRecommendations(enrollmentBooking)} />
-              )}
             </h4>
             {rawCourse.level && (
               <span

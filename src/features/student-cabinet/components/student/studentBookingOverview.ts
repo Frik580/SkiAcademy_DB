@@ -17,7 +17,6 @@ import {
   resolveBookingStartDate,
 } from './studentLessonPresentation';
 import { toYMD } from './studentCabinetPresentation';
-import { hasPendingRecommendations } from '../../lessonRecommendations';
 import { isBookingReviewed } from './studentHistory';
 import type { RecentLesson, StudentStats } from './studentCabinetUtils';
 
@@ -97,13 +96,6 @@ export const hasTrainingToday = (
   );
 };
 
-const countPendingRecommendations = (booking: Booking) => {
-  const completed = new Set(booking.completedRecommendationIds ?? []);
-  return (booking.recommendations ?? []).filter(
-    (recommendation) => !completed.has(recommendation.id)
-  ).length;
-};
-
 export const getNeedsAttentionBookings = (
   bookings: Booking[],
   reviews: Review[],
@@ -118,11 +110,7 @@ export const getNeedsAttentionBookings = (
         isReviewEligibleLessonStatus(booking.status) &&
         !booking.isDeleted
     )
-    .filter(
-      (booking) =>
-        !isBookingReviewed(booking, reviews, dismissedReviewIds) ||
-        hasPendingRecommendations(booking)
-    )
+    .filter((booking) => !isBookingReviewed(booking, reviews, dismissedReviewIds))
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, limit);
 
@@ -144,7 +132,6 @@ export const getRecentLessons = (
       const needsReview =
         isReviewEligibleLessonStatus(b.status) &&
         !isBookingReviewed(b, reviews, dismissedReviewIds);
-      const pendingRecommendationsCount = countPendingRecommendations(b);
       return {
         id: b.id,
         title: getRecentLessonTitle(b, courses, language),
@@ -154,8 +141,6 @@ export const getRecentLessons = (
         instructorName: getRecentLessonInstructorLabel(b, language),
         booking: b,
         needsReview,
-        pendingRecommendationsCount:
-          pendingRecommendationsCount > 0 ? pendingRecommendationsCount : undefined,
       };
     });
 };

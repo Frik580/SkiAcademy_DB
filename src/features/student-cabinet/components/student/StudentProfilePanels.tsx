@@ -37,6 +37,7 @@ import { StudentHistoryList } from './StudentHistoryList';
 import { WalletPanel } from '../../../../features/profile';
 import type { StudentProfileHubInput, StudentProfilePanelProps } from './studentCabinetContracts';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
+import { usePresentedParticipantLessonFeedback } from '../../usePresentedParticipantLessonFeedback';
 import { ParticipantManagementPanel } from '../../../participants/components/ParticipantManagementPanel';
 
 type ProfileHubTab = Extract<
@@ -236,6 +237,16 @@ export const StudentProfileJourneyPanel: React.FC<ProfileSubPanelProps> = ({
 }) => {
   const { language, t } = useStudentCabinetTranslations();
   const lang = language === 'ru' ? 'ru' : 'en';
+  const feedback = usePresentedParticipantLessonFeedback(bookings);
+  const pendingByLessonId = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const [lessonBookingId, flags] of feedback.flagsByLessonId) {
+      if (flags.hasPending) {
+        map.set(lessonBookingId, feedback.pendingCountForLesson(lessonBookingId));
+      }
+    }
+    return map;
+  }, [feedback]);
 
   const history = useMemo(
     () =>
@@ -247,9 +258,20 @@ export const StudentProfileJourneyPanel: React.FC<ProfileSubPanelProps> = ({
         lang,
         t,
         activityLogs,
-        dismissedReviewIds
+        dismissedReviewIds,
+        pendingByLessonId
       ),
-    [userProfile, bookings, courses, reviews, lang, t, activityLogs, dismissedReviewIds]
+    [
+      userProfile,
+      bookings,
+      courses,
+      reviews,
+      lang,
+      t,
+      activityLogs,
+      dismissedReviewIds,
+      pendingByLessonId,
+    ]
   );
 
   return (

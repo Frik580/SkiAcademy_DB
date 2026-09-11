@@ -31,7 +31,7 @@ import { ToggleSwitch } from '../../../ui/ToggleSwitch';
 import { StatusBadge } from '../../../ui/StatusBadge';
 import { StateCard } from '../../../ui/StateCard';
 import { ScTextButton } from './student/StudentCabinetUI';
-import { RecommendationIndicator } from './RecommendationIndicator';
+import { LessonFeedbackIndicator } from './LessonFeedbackIndicator';
 import { ChatUnreadIndicator } from '../../../features/chat';
 import { ApplePagination } from '../../../ui/ApplePagination';
 import {
@@ -41,10 +41,6 @@ import {
   StudentOpenChangeRequestNotice,
   useBookingCollaborationStore,
 } from '../../../features/booking-collaboration';
-import {
-  hasBookingRecommendations,
-  hasPendingRecommendations,
-} from '../../../features/student-cabinet/lessonRecommendations';
 import { formatCourseDayDateLabel } from '../../../features/course-enrollments/sessionScheduleHelpers';
 
 const LIST_SCOPE_FILTERS: SessionListScope[] = ['upcoming', 'current', 'past', 'all'];
@@ -398,11 +394,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                         <div className="space-y-1.5 min-w-0 flex-1">
                           <h4 className="text-sm font-medium text-[var(--ink)] flex items-center gap-2 flex-wrap">
                             {b.instructorName}
-                            {hasBookingRecommendations(b as never) && (
-                              <RecommendationIndicator
-                                pending={hasPendingRecommendations(b as never)}
-                              />
-                            )}
+                            <LessonFeedbackIndicator lessonBookingId={b.id} />
                           </h4>
                           <p className="text-xs text-[var(--ink-dim)]">
                             {b.difficulty ? `${getDifficultyLabel(b.difficulty, language)} · ` : ''}

@@ -21,6 +21,7 @@ import {
   NotificationIdSchema,
   ParticipantBlockIdSchema,
   ParticipantIdSchema,
+  ParticipantLessonFeedbackIdSchema,
   ParticipantManagementIdSchema,
   PaymentIdSchema,
   ProviderEventReceiptIdSchema,
@@ -48,6 +49,7 @@ import {
   type NotificationId,
   type ParticipantBlockId,
   type ParticipantId,
+  type ParticipantLessonFeedbackId,
   type ParticipantManagementId,
   type PaymentId,
   type ProviderEventReceiptId,
@@ -79,6 +81,7 @@ export const CANONICAL_COLLECTIONS = {
   instructorReviews: 'instructor_reviews',
   instructorRatingSummaries: 'instructor_rating_summaries',
   participantProgress: 'participant_progress',
+  participantLessonFeedback: 'participant_lesson_feedback',
   lessonPricingSettings: 'lesson_pricing_settings',
   courses: 'courses',
   courseEnrollments: 'course_enrollments',
@@ -111,6 +114,7 @@ const topLevelDocumentSchemas: Readonly<Record<string, z.ZodType<string>>> = {
   instructor_reviews: ReviewIdSchema,
   instructor_rating_summaries: InstructorIdSchema,
   participant_progress: ParticipantIdSchema,
+  participant_lesson_feedback: ParticipantLessonFeedbackIdSchema,
   lesson_pricing_settings: LessonPricingSettingsIdSchema,
   courses: CourseIdSchema,
   course_enrollments: CourseEnrollmentIdSchema,
@@ -201,6 +205,8 @@ export const canonicalPaths = {
   instructorRatingSummary: (id: InstructorId) =>
     documentPath('instructor_rating_summaries', id),
   participantProgress: (id: ParticipantId) => documentPath('participant_progress', id),
+  participantLessonFeedback: (id: ParticipantLessonFeedbackId) =>
+    documentPath('participant_lesson_feedback', id),
   lessonPricingSettings: (id: LessonPricingSettingsId) =>
     documentPath('lesson_pricing_settings', id),
   course: (id: CourseId) => documentPath('courses', id),

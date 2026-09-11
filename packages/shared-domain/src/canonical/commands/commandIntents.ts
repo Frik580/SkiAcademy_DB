@@ -32,6 +32,10 @@ import {
   ParticipantProgressSkillCommentsSchema,
   ParticipantProgressSkillScoresSchema,
 } from '../participantProgress';
+import {
+  ParticipantLessonFeedbackItemIdSchema,
+  SaveParticipantLessonFeedbackItemsInputSchema,
+} from '../participantLessonFeedback';
 import { AggregateRevisionSchema, KztMinorUnitsSchema } from '../primitives';
 import {
   BookingLessonNotesSchema,
@@ -498,6 +502,21 @@ export const CommandIntentSchemaByKind = {
       level: ParticipantProgressLevelSchema,
       skillScores: ParticipantProgressSkillScoresSchema,
       skillComments: ParticipantProgressSkillCommentsSchema,
+    })
+    .strict(),
+  save_participant_lesson_feedback: z
+    .object({
+      participantId: ParticipantIdSchema,
+      lessonBookingId: BookingIdSchema,
+      items: SaveParticipantLessonFeedbackItemsInputSchema,
+    })
+    .strict(),
+  set_participant_lesson_feedback_item_completion: z
+    .object({
+      participantId: ParticipantIdSchema,
+      lessonBookingId: BookingIdSchema,
+      itemId: ParticipantLessonFeedbackItemIdSchema,
+      completed: z.boolean(),
     })
     .strict(),
   create_course_enrollments: z

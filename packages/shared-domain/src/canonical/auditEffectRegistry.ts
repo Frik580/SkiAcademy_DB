@@ -98,6 +98,8 @@ const COMMAND_KIND_ALLOWED_EFFECTS: Partial<Record<CommandKind, readonly AuditEf
   ],
   create_instructor_review: ['instructor_review_created'],
   update_participant_progress: ['participant_progress_changed'],
+  save_participant_lesson_feedback: ['participant_lesson_feedback_changed'],
+  set_participant_lesson_feedback_item_completion: ['participant_lesson_feedback_changed'],
   record_course_day_attendance: [
     'attendance_recorded',
     'course_enrollment_lifecycle_changed',

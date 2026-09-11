@@ -2,6 +2,7 @@ import { useBookingsStore } from '../features/bookings/bookingsStore';
 import { useCoursesStore } from '../features/courses/coursesStore';
 import { useNotificationsStore } from '../features/notifications/notificationsStore';
 import { useParticipantProgressStore } from '../features/participant-progress/participantProgressStore';
+import { useParticipantLessonFeedbackStore } from '../features/participant-lesson-feedback/participantLessonFeedbackStore';
 import { useProfileStore } from '../features/profile/profileStore';
 import { useWalletStore } from '../features/wallet/walletStore';
 import { QUERY_LIMITS } from '../shared';
@@ -48,4 +49,5 @@ export function resetUserScopedStores(): void {
     notificationsHasMore: false,
   });
   useParticipantProgressStore.getState().clear();
+  useParticipantLessonFeedbackStore.getState().clear();
 }

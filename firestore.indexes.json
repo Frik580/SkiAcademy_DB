@@ -280,8 +280,16 @@
       "fields": [
         { "fieldPath": "instructorId", "order": "ASCENDING" },
         { "fieldPath": "createdAt.seconds", "order": "DESCENDING" },
-        { "fieldPath": "createdAt.nanoseconds", "order": "DESCENDING" },
-        { "fieldPath": "__name__", "order": "DESCENDING" }
+        { "fieldPath": "createdAt.nanoseconds", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "participant_lesson_feedback",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "participantId", "order": "ASCENDING" },
+        { "fieldPath": "lessonStartsAt.seconds", "order": "DESCENDING" },
+        { "fieldPath": "lessonStartsAt.nanoseconds", "order": "DESCENDING" }
       ]
     }
   ],

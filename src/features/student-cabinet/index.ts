@@ -1,4 +1,4 @@
-export { LessonRecommendationsList } from './components/LessonRecommendationsList';
+export { ParticipantLessonFeedbackList } from './components/ParticipantLessonFeedbackList';
 export { RecommendationIndicator } from './components/RecommendationIndicator';
 export { ClientBookingsList } from './components/ClientBookingsList';
 export { PersonalCabinetModals } from './components/PersonalCabinetModals';

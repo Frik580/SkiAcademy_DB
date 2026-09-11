@@ -4,6 +4,8 @@ import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { TodayChecklist } from '../../../../features/profile';
 import type { TodayTask } from './studentCabinetUtils';
 import type { TodayTaskRef } from '../..';
+import { participantLessonFeedbackItemKey } from '../../../participant-lesson-feedback/participantLessonFeedbackStore';
+import { useParticipantLessonFeedbackStore } from '../../../participant-lesson-feedback/participantLessonFeedbackStore';
 
 const SUBSECTION_LABEL = 'text-[10px] font-medium tracking-widest uppercase text-[var(--ink-dim)]';
 
@@ -27,6 +29,10 @@ export const TodayTasksBlock = memo<{
   onContinueDevelopment,
 }) {
   const { t } = useLanguage();
+  const presentationParticipantId = useParticipantLessonFeedbackStore(
+    (state) => state.presentationParticipantId
+  );
+  const pendingKeys = useParticipantLessonFeedbackStore((state) => state.pendingKeys);
 
   return (
     <div className="pt-5 space-y-2">
@@ -35,6 +41,14 @@ export const TodayTasksBlock = memo<{
         tasks={todayTasks}
         bookings={bookings}
         onToggleRecommendation={onToggleRecommendation}
+        isRecommendationPending={(lessonBookingId, itemId) =>
+          Boolean(
+            presentationParticipantId &&
+            pendingKeys[
+              participantLessonFeedbackItemKey(presentationParticipantId, lessonBookingId, itemId)
+            ]
+          )
+        }
         onToggleTaskComplete={onToggleTodayTaskComplete}
         onAddTask={onAddCustomTodayTask}
         onRemoveTask={onRemoveTodayTask}

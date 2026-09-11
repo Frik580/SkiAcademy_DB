@@ -19,4 +19,4 @@ export { useAchievementsSync } from './sync/useAchievementsSync';
 // Backward-compatible lazy entry. New consumers should import from features/instructor-workspace.
 export { loadInstructorWorkspace } from '../instructor-workspace';
 // Backward-compatible exports. New consumers should import from features/student-cabinet.
-export { LessonRecommendationsList, RecommendationIndicator } from '../student-cabinet';
+export { RecommendationIndicator } from '../student-cabinet';

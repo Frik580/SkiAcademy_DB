@@ -24,7 +24,6 @@ import {
   getInstructorLastLessonDate,
   getInstructorLessonCount,
   getInstructorMessageThreadIds,
-  getInstructorRecommendations,
   getInstructorSkillComments,
   getInstructorVideoMessages,
   getPreferredChatBooking,
@@ -34,8 +33,13 @@ import {
   resolveMessageCourseTitle,
 } from './coachUtils';
 import { useInstructorBookingMessages } from './useInstructorBookingMessages';
-import { LessonRecommendationsList } from '../LessonRecommendationsList';
+import { ParticipantLessonFeedbackList } from '../ParticipantLessonFeedbackList';
 import { CoachParticipantAccessPanel } from '../../../../features/booking-collaboration';
+import { usePresentedParticipantLessonFeedback } from '../../usePresentedParticipantLessonFeedback';
+import {
+  participantLessonFeedbackItemKey,
+  useParticipantLessonFeedbackStore,
+} from '../../../participant-lesson-feedback/participantLessonFeedbackStore';
 import {
   ChevronRight,
   ClipboardList,
@@ -123,6 +127,8 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
 }) => {
   const { t, language } = useLanguage();
   const lang = language === 'ru' ? 'ru' : 'en';
+  const feedback = usePresentedParticipantLessonFeedback(bookings);
+  const pendingKeys = useParticipantLessonFeedbackStore((state) => state.pendingKeys);
   const [view, setView] = useState<CoachView>('list');
   const [selectedInstructorId, setSelectedInstructorId] = useState<string | null>(null);
 
@@ -202,7 +208,7 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
       )
     : [];
   const recommendationRows = selectedInstructor
-    ? getInstructorRecommendations(bookings, courses, selectedInstructor.id, userProfile.uid, lang)
+    ? feedback.instructorFeedback(selectedInstructor.id)
     : [];
 
   const renderList = () => (
@@ -497,36 +503,68 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
   const renderRecommendations = () => {
     if (!selectedInstructor) return null;
 
-    const byBooking = new Map<string, typeof recommendationRows>();
-    recommendationRows.forEach((row) => {
-      const list = byBooking.get(row.booking.id) ?? [];
-      list.push(row);
-      byBooking.set(row.booking.id, list);
-    });
-
     return (
       <CoachSectionShell
         title={t('scRecommendations')}
         onBack={goBackToList}
         backLabel={selectedInstructor.name}
       >
-        {recommendationRows.length === 0 ? (
+        {feedback.isLoadingPlaceholder ? (
+          <p className="text-sm text-[var(--ink-dim)]">{t('loading')}</p>
+        ) : recommendationRows.length === 0 ? (
           <p className="text-sm text-[var(--ink-dim)]">{t('scCoachNoRecommendations')}</p>
         ) : (
           <div className="space-y-4">
-            {Array.from(byBooking.entries()).map(([bookingId, rows]) => {
-              const booking = rows[0].booking;
+            {recommendationRows.map((row) => {
+              const pendingItemIds = new Set(
+                feedback.participantId
+                  ? row.items
+                      .filter(
+                        (item) =>
+                          pendingKeys[
+                            participantLessonFeedbackItemKey(
+                              feedback.participantId!,
+                              row.lessonBookingId,
+                              item.itemId
+                            )
+                          ]
+                      )
+                      .map((item) => item.itemId)
+                  : []
+              );
               return (
-                <ScTintCard key={bookingId} tint="amber" className="px-4 py-3.5 space-y-3">
+                <ScTintCard
+                  key={row.lessonBookingId}
+                  tint="amber"
+                  className="px-4 py-3.5 space-y-3"
+                >
                   <div className="flex items-start justify-between gap-3">
-                    <p className="text-xs text-[var(--ink-dim)]">{rows[0].dateLabel}</p>
-                    <ScTextButton onClick={() => onOpenLesson(booking)}>
+                    <p className="text-xs text-[var(--ink-dim)]">
+                      {[
+                        feedback.formatDate(row.lessonDate, lang) || row.lessonDate,
+                        row.instructorName,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </p>
+                    <ScTextButton
+                      onClick={() => {
+                        const booking = bookings.find((item) => item.id === row.lessonBookingId);
+                        if (booking) onOpenLesson(booking);
+                      }}
+                    >
                       {t('scMoreDetails')}
                     </ScTextButton>
                   </div>
-                  <LessonRecommendationsList
-                    booking={booking}
-                    onToggle={onToggleRecommendation}
+                  <ParticipantLessonFeedbackList
+                    items={row.items}
+                    pendingItemIds={pendingItemIds}
+                    onToggle={
+                      onToggleRecommendation
+                        ? (itemId, completed) =>
+                            onToggleRecommendation(row.lessonBookingId, itemId, completed)
+                        : undefined
+                    }
                     compact
                   />
                 </ScTintCard>

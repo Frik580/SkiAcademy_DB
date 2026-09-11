@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { CallableRequest } from 'firebase-functions/v2/https';
 import type { Firestore } from 'firebase-admin/firestore';
-import { AccountIdSchema, InstructorIdSchema } from '@ski-academy/shared-domain';
+import {
+  AccountIdSchema,
+  InstructorIdSchema,
+  boundCanonicalReadIdempotencyCursor,
+  buildCanonicalReadIdempotencyKey,
+} from '@ski-academy/shared-domain';
 import { createQueryLessonBookingReadModelsHandler } from './queryLessonBookingReadModelsCallable';
 
 const instructorAccountId = AccountIdSchema.parse('account_instructor_panel_01');
@@ -206,5 +211,50 @@ describe('queryLessonBookingReadModelsCallable instructor panel contract', () =>
         auth: { uid: instructorAccountId },
       } as CallableRequest<Record<string, unknown>>)
     ).rejects.toMatchObject({ code: 'invalid-argument' });
+  });
+
+  it('rejects instructor_history page 2 when idempotencyKey embeds the raw cursor', async () => {
+    const handler = createQueryLessonBookingReadModelsHandler(createInstructorPanelFirestore());
+    const cursor =
+      'eyJzY29wZSI6Imluc3RydWN0b3JfaGlzdG9yeSIsInVwZGF0ZWRBdFNlY29uZHMiOjE3ODgzNTU5MDQsInVwZGF0ZWRBdE5hbm9zZWNvbmRzIjozMzAwMDAwMCwiYm9va2luZ0lkIjoiYm9va2luZ19hZG1pbl8xMWY1YmM5YTY5Zjc0ZmY5YWFkNjU5MDVmZjI5ZmE2ZSJ9';
+    await expect(
+      handler({
+        data: {
+          scope: 'instructor_history',
+          cursor,
+          idempotencyKey: `read:lesson_booking:instructor_history:${cursor}:none`,
+        },
+        auth: { uid: instructorAccountId },
+      } as CallableRequest<Record<string, unknown>>)
+    ).rejects.toMatchObject({
+      code: 'invalid-argument',
+      message: 'The request is invalid.',
+    });
+  });
+
+  it('accepts instructor_history page 2 when idempotencyKey uses a bounded cursor hash', async () => {
+    const handler = createQueryLessonBookingReadModelsHandler(createInstructorPanelFirestore());
+    const cursor =
+      'eyJzY29wZSI6Imluc3RydWN0b3JfaGlzdG9yeSIsInVwZGF0ZWRBdFNlY29uZHMiOjE3ODgzNTU5MDQsInVwZGF0ZWRBdE5hbm9zZWNvbmRzIjozMzAwMDAwMCwiYm9va2luZ0lkIjoiYm9va2luZ19hZG1pbl8xMWY1YmM5YTY5Zjc0ZmY5YWFkNjU5MDVmZjI5ZmE2ZSJ9';
+    const idempotencyKey = buildCanonicalReadIdempotencyKey([
+      'read:lesson_booking',
+      'instructor_history',
+      boundCanonicalReadIdempotencyCursor(cursor),
+      'none',
+    ]);
+    await expect(
+      handler({
+        data: {
+          scope: 'instructor_history',
+          cursor,
+          idempotencyKey,
+        },
+        auth: { uid: instructorAccountId },
+      } as CallableRequest<Record<string, unknown>>)
+    ).resolves.toEqual({
+      scope: 'instructor_history',
+      items: [],
+      hasMore: false,
+    });
   });
 });

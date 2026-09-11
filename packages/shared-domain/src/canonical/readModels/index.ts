@@ -19,3 +19,4 @@ export * from './instructorOccupancyReadModel';
 export * from './lessonPricingSettingsReadModel';
 export * from './instructorReviewReadModel';
 export * from './participantProgressReadModel';
+export * from './participantLessonFeedbackReadModel';

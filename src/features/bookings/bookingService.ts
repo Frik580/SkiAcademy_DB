@@ -8,7 +8,6 @@ import {
   OperationType,
   query,
   setDoc,
-  updateDoc,
   where,
   writeBatch,
   handleFirestoreError,
@@ -30,9 +29,8 @@ import {
   InsufficientFundsError,
   type BookingPaymentResult,
 } from '../../features/bookings/bookingTransactions';
-import { activityLogId, logActivityForUser } from '../../domain/activity';
 import { stripUndefinedFields } from '../../domain/course';
-import { Booking, Instructor, LessonRecommendation } from '../../types';
+import { Booking, Instructor } from '../../types';
 import type { AvailabilitySlot } from '../../types';
 
 export async function getInstructorAvailabilitySlots(
@@ -46,11 +44,6 @@ export async function getInstructorAvailabilitySlots(
   );
   return snapshot.docs.map((slotDoc) => slotDoc.data() as AvailabilitySlot);
 }
-import { logger } from '../../shared';
-import {
-  sanitizeRecommendations,
-  toggleCompletedRecommendationIds,
-} from '../../features/student-cabinet/lessonRecommendations';
 
 export { BookingIdConflictError, BookingSlotOverlapError, InsufficientFundsError };
 export type { BookingPaymentResult };
@@ -153,15 +146,6 @@ export async function confirmBookingService(id: string): Promise<void> {
   }
 }
 
-export async function saveBookingRecommendationsService(
-  bookingId: string,
-  recommendations: LessonRecommendation[]
-): Promise<void> {
-  await updateDoc(doc(db, 'bookings', bookingId), {
-    recommendations: sanitizeRecommendations(recommendations),
-  });
-}
-
 export async function completeBookingService(
   id: string,
   _actorUid?: string
@@ -170,61 +154,6 @@ export async function completeBookingService(
   const snap = await getDoc(doc(db, 'bookings', id));
   if (!snap.exists()) return null;
   return { id: snap.id, ...snap.data() } as Booking;
-}
-
-export async function toggleRecommendationService(
-  booking: Booking,
-  recommendationId: string,
-  checked: boolean,
-  actorUid?: string
-): Promise<string[]> {
-  const completedRecommendationIds = toggleCompletedRecommendationIds(
-    booking.completedRecommendationIds,
-    recommendationId,
-    checked
-  );
-
-  try {
-    await updateDoc(doc(db, 'bookings', booking.id), { completedRecommendationIds });
-    if (checked && actorUid) {
-      const recommendation = booking.recommendations?.find((item) => item.id === recommendationId);
-      await logActivityForUser(
-        booking.userId,
-        actorUid,
-        'recommendation_completed',
-        {
-          bookingId: booking.id,
-          recommendationId,
-          recommendationText: recommendation?.text,
-          instructorName: booking.instructorName,
-          lessonTitle: booking.instructorName,
-        },
-        activityLogId.recommendationCompleted(booking.id, recommendationId)
-      );
-
-      const recs = booking.recommendations ?? [];
-      const allDone =
-        recs.length > 0 && recs.every((item) => completedRecommendationIds.includes(item.id));
-      if (allDone) {
-        await logActivityForUser(
-          booking.userId,
-          actorUid,
-          'recommendations_completed_all',
-          {
-            bookingId: booking.id,
-            instructorName: booking.instructorName,
-            lessonTitle: booking.instructorName,
-          },
-          activityLogId.recommendationsAllCompleted(booking.id)
-        );
-      }
-    }
-    return completedRecommendationIds;
-  } catch (error) {
-    logger.error('Error toggling recommendation:', error);
-    handleFirestoreError(error, OperationType.UPDATE, `bookings/${booking.id}`);
-    throw error;
-  }
 }
 
 export async function linkGuestBookingService(

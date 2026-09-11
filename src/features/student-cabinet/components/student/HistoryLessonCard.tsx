@@ -12,12 +12,13 @@ import {
   isBookingReviewed,
 } from './studentCabinetUtils';
 import { ScTextButton } from './StudentCabinetUI';
-import { LessonRecommendationsList } from '../LessonRecommendationsList';
+import { ParticipantLessonFeedbackList } from '../ParticipantLessonFeedbackList';
 import { RecommendationIndicator } from '../RecommendationIndicator';
 import {
-  hasBookingRecommendations,
-  hasPendingRecommendations,
-} from '../../../../features/student-cabinet/lessonRecommendations';
+  participantLessonFeedbackItemKey,
+  useParticipantLessonFeedbackStore,
+} from '../../../participant-lesson-feedback/participantLessonFeedbackStore';
+import { usePresentedParticipantLessonFeedback } from '../../usePresentedParticipantLessonFeedback';
 
 interface HistoryLessonCardProps {
   booking: Booking;
@@ -40,6 +41,21 @@ export const HistoryLessonCard: React.FC<HistoryLessonCardProps> = ({
 }) => {
   const { language, t } = useLanguage();
   const lang = language === 'ru' ? 'ru' : 'en';
+  const feedback = usePresentedParticipantLessonFeedback();
+  const pendingKeys = useParticipantLessonFeedbackStore((state) => state.pendingKeys);
+  const lessonFeedback = feedback.feedbackForLesson(booking.id);
+  const pendingItemIds = new Set(
+    lessonFeedback && feedback.participantId
+      ? lessonFeedback.items
+          .filter(
+            (item) =>
+              pendingKeys[
+                participantLessonFeedbackItemKey(feedback.participantId!, booking.id, item.itemId)
+              ]
+          )
+          .map((item) => item.itemId)
+      : []
+  );
 
   const title = getRecentLessonTitle(booking, courses, lang);
   const dateLabel = formatRecentLessonDateLabel(booking, courses, lang);
@@ -62,9 +78,7 @@ export const HistoryLessonCard: React.FC<HistoryLessonCardProps> = ({
       <div className="flex justify-between items-baseline gap-2 flex-wrap">
         <span className="font-medium text-[var(--ink)] flex items-center gap-2 min-w-0 flex-1">
           <span className="break-words min-w-0">{title}</span>
-          {hasBookingRecommendations(booking) && (
-            <RecommendationIndicator pending={hasPendingRecommendations(booking)} />
-          )}
+          {lessonFeedback && <RecommendationIndicator pending={lessonFeedback.hasPending} />}
         </span>
         <span className="text-xs text-[var(--ink-dim)] shrink-0">{dateLabel}</span>
       </div>
@@ -92,7 +106,18 @@ export const HistoryLessonCard: React.FC<HistoryLessonCardProps> = ({
           {'☆'.repeat(5 - review.rating)}
         </p>
       )}
-      <LessonRecommendationsList booking={booking} onToggle={onToggleRecommendation} compact />
+      {lessonFeedback && (
+        <ParticipantLessonFeedbackList
+          items={lessonFeedback.items}
+          pendingItemIds={pendingItemIds}
+          onToggle={
+            onToggleRecommendation
+              ? (itemId, completed) => onToggleRecommendation(booking.id, itemId, completed)
+              : undefined
+          }
+          compact
+        />
+      )}
       {review?.comment && (
         <div className="text-sm space-y-1">
           <p className="text-[var(--ink-dim)]">{t('scCoachReview')}</p>

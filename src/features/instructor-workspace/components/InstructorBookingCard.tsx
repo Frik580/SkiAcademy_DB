@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Calendar, Check, Clock, MessageSquare, Users, X } from 'lucide-react';
 import { formatLessonDifficultyOrUnspecified } from '../../../app/providers/LanguageContext';
 import { UserProfile } from '../../../types';
@@ -19,6 +19,9 @@ import {
   useParticipantProgressStore,
 } from '../../participant-progress';
 import { isLessonContextProgressAssessmentEnabled } from '../instructorLessonProgressAssessment';
+import type { InstructorLessonFeedbackEditorTarget } from '../instructorLessonFeedbackContracts';
+import { InstructorParticipantLessonFeedbackButton } from './InstructorParticipantLessonFeedbackButton';
+import { InstructorParticipantLessonFeedbackEditor } from './InstructorParticipantLessonFeedbackEditor';
 
 interface InstructorBookingCardProps {
   booking: DisplayBooking;
@@ -58,6 +61,9 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
 }) => {
   const b = booking;
   const progressById = useParticipantProgressStore((state) => state.byId);
+  const [feedbackEditor, setFeedbackEditor] = useState<InstructorLessonFeedbackEditorTarget | null>(
+    null
+  );
   const renderParticipant = (participant: DisplayBooking['participants'][number]) => {
     const progress =
       progressById[participant.participantId] ??
@@ -186,6 +192,19 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
               onUpdateStudentLevel(participant.participantId, studentName, newLevel)
             }
           />
+          <InstructorParticipantLessonFeedbackButton
+            t={t}
+            studentName={studentName}
+            disabled={!canAssessInLesson}
+            title={assessDisabledTitle}
+            onClick={() =>
+              setFeedbackEditor({
+                participantId: participant.participantId,
+                lessonBookingId: b.id,
+                studentName,
+              })
+            }
+          />
         </div>
       </div>
     );
@@ -257,6 +276,17 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
           </button>
         </div>
       </div>
+
+      {feedbackEditor ? (
+        <InstructorParticipantLessonFeedbackEditor
+          key={`${feedbackEditor.participantId}:${feedbackEditor.lessonBookingId}`}
+          participantId={feedbackEditor.participantId}
+          lessonBookingId={feedbackEditor.lessonBookingId}
+          studentName={feedbackEditor.studentName}
+          t={t}
+          onClose={() => setFeedbackEditor(null)}
+        />
+      ) : null}
 
       {b.participantIds.length > 0 && (
         <InstructorCollaborationPanel

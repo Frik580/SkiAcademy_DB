@@ -494,16 +494,16 @@ describe('bookings', () => {
     await assertFails(deleteDoc(bookingRef));
   });
 
-  it('still allows recommendation edits without changing booking status', async () => {
+  it('denies leftover recommendation-only booking field writes', async () => {
     const ownerDb = testEnv.authenticatedContext(USER_ID).firestore();
     const instructorDb = testEnv.authenticatedContext(INSTRUCTOR_USER_ID).firestore();
 
-    await assertSucceeds(
+    await assertFails(
       updateDoc(doc(ownerDb, 'bookings', 'booking-1'), {
         completedRecommendationIds: ['rec-1'],
       })
     );
-    await assertSucceeds(
+    await assertFails(
       updateDoc(doc(instructorDb, 'bookings', 'booking-1'), {
         recommendations: [{ id: 'rec-1', text: 'Practice carving' }],
       })
@@ -1233,6 +1233,19 @@ describe('T32.8A identity authority containment', () => {
       setDoc(doc(adminDb, 'participant_progress', 'participant-progress-1'), {
         participantId: 'participant-progress-1',
         level: 2,
+      })
+    );
+    await assertFails(
+      setDoc(doc(userDb, 'participant_lesson_feedback', 'feedback-1'), {
+        feedbackId: 'feedback-1',
+        items: [{ itemId: 'item_1', text: 'Drill' }],
+      })
+    );
+    await assertFails(getDoc(doc(userDb, 'participant_lesson_feedback', 'feedback-1')));
+    await assertFails(
+      setDoc(doc(adminDb, 'participant_lesson_feedback', 'feedback-1'), {
+        feedbackId: 'feedback-1',
+        items: [{ itemId: 'item_1', text: 'Drill' }],
       })
     );
     await assertSucceeds(

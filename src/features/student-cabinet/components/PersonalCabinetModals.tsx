@@ -138,7 +138,6 @@ export const PersonalCabinetModals: React.FC<PersonalCabinetModalsProps> = ({
             instructors={instructors}
             courses={courses}
             usersList={usersList}
-            onToggleRecommendation={onToggleRecommendation}
           />
         </LazyLoad>
       )}

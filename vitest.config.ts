@@ -26,7 +26,6 @@ const COVERAGE_EXCLUDE = [
   'src/lib/createBookingCallable.ts',
   'src/lib/createGuestCourseEnrollmentCallable.ts',
   'src/lib/enrollInCourseCallable.ts',
-  'src/lib/lessonRecommendations.ts',
   'src/lib/todayChecklist.ts',
   'src/lib/useBookingChatUnread.ts',
 ];

@@ -36,6 +36,7 @@ export const StudentTodaySection = memo<StudentTodaySectionInput>(function Stude
   onViewCourseDetails,
   onGoToTab,
   onContinueDevelopment,
+  pendingRecommendation,
   onToggleRecommendation,
   onToggleSkillToday,
   onToggleTodayTaskComplete,
@@ -55,8 +56,8 @@ export const StudentTodaySection = memo<StudentTodaySectionInput>(function Stude
 
   const nextStepAction = useMemo(() => {
     if (!userProfile) return null;
-    return getNextStepAction(userProfile, bookings, skillConfig, lang);
-  }, [userProfile, bookings, skillConfig, lang]);
+    return getNextStepAction(userProfile, pendingRecommendation, skillConfig, lang);
+  }, [userProfile, pendingRecommendation, skillConfig, lang]);
 
   return (
     <section className="py-5 space-y-0">

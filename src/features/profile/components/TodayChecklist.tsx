@@ -8,6 +8,7 @@ export interface TodayChecklistProps {
   tasks: TodayTask[];
   bookings: Booking[];
   onToggleRecommendation?: (bookingId: string, recommendationId: string, checked: boolean) => void;
+  isRecommendationPending?: (bookingId: string, recommendationId: string) => boolean;
   onToggleTaskComplete?: (taskId: string, done: boolean) => void;
   onAddTask?: (text: string) => void;
   onRemoveTask?: (task: TodayTaskRef) => void;
@@ -52,6 +53,7 @@ export const TodayChecklist: React.FC<TodayChecklistProps> = ({
   tasks,
   bookings,
   onToggleRecommendation,
+  isRecommendationPending,
   onToggleTaskComplete,
   onAddTask,
   onRemoveTask,
@@ -97,45 +99,53 @@ export const TodayChecklist: React.FC<TodayChecklistProps> = ({
             </div>
 
             <div className="space-y-2">
-              {groupTasks.map((task) => (
-                <div key={task.id} className="flex items-center justify-between gap-3 text-sm">
-                  <label className="flex items-center gap-3 cursor-pointer select-none flex-1 min-w-0">
-                    <input
-                      type="checkbox"
-                      checked={task.done}
-                      onChange={(e) => {
-                        if (task.recommendationId && onToggleRecommendation) {
-                          onToggleRecommendation(
-                            context.bookingId,
-                            task.recommendationId,
-                            e.target.checked
-                          );
-                        } else {
-                          onToggleTaskComplete?.(task.id, e.target.checked);
-                        }
-                      }}
-                      className="h-4 w-4 rounded border-[var(--border)] text-[var(--accent)] focus:ring-[var(--accent)]/30"
-                    />
-                    <span
-                      className={`truncate ${
-                        task.done ? 'line-through text-[var(--ink-dim)]' : 'text-[var(--ink)]'
-                      }`}
-                    >
-                      {task.label}
-                    </span>
-                  </label>
-                  {onRemoveTask && (
-                    <button
-                      type="button"
-                      onClick={() => onRemoveTask(toTaskRef(task))}
-                      className="text-[var(--ink-dim)] hover:text-rose-500 transition-colors p-1"
-                      aria-label="Remove task"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-              ))}
+              {groupTasks.map((task) => {
+                const pending = Boolean(
+                  task.recommendationId &&
+                  isRecommendationPending?.(context.bookingId, task.recommendationId)
+                );
+                return (
+                  <div key={task.id} className="flex items-center justify-between gap-3 text-sm">
+                    <label className="flex items-center gap-3 cursor-pointer select-none flex-1 min-w-0">
+                      <input
+                        type="checkbox"
+                        checked={task.done}
+                        disabled={pending}
+                        onChange={(e) => {
+                          if (pending) return;
+                          if (task.recommendationId && onToggleRecommendation) {
+                            onToggleRecommendation(
+                              context.bookingId,
+                              task.recommendationId,
+                              e.target.checked
+                            );
+                          } else {
+                            onToggleTaskComplete?.(task.id, e.target.checked);
+                          }
+                        }}
+                        className="h-4 w-4 rounded border-[var(--border)] text-[var(--accent)] focus:ring-[var(--accent)]/30"
+                      />
+                      <span
+                        className={`truncate ${
+                          task.done ? 'line-through text-[var(--ink-dim)]' : 'text-[var(--ink)]'
+                        }`}
+                      >
+                        {task.label}
+                      </span>
+                    </label>
+                    {onRemoveTask && (
+                      <button
+                        type="button"
+                        onClick={() => onRemoveTask(toTaskRef(task))}
+                        className="text-[var(--ink-dim)] hover:text-rose-500 transition-colors p-1"
+                        aria-label="Remove task"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         );

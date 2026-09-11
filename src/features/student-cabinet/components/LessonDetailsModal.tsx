@@ -5,7 +5,7 @@ import { X, Star } from 'lucide-react';
 import { Booking } from '../../../types';
 import { useLanguage, formatShortBookingDate } from '../../../app/providers/LanguageContext';
 import { getDifficultyShort, formatBookingDayMonth } from './student/studentCabinetUtils';
-import { LessonRecommendationsList } from './LessonRecommendationsList';
+import { ParticipantLessonFeedbackList } from './ParticipantLessonFeedbackList';
 import { Course } from '../../../types';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';
 import {
@@ -14,6 +14,11 @@ import {
   StudentOpenChangeRequestNotice,
   useBookingCollaborationStore,
 } from '../../../features/booking-collaboration';
+import {
+  participantLessonFeedbackItemKey,
+  useParticipantLessonFeedbackStore,
+} from '../../participant-lesson-feedback/participantLessonFeedbackStore';
+import { usePresentedParticipantLessonFeedback } from '../usePresentedParticipantLessonFeedback';
 
 interface LessonDetailsModalProps {
   booking: Booking | null;
@@ -38,6 +43,8 @@ export const LessonDetailsModal: React.FC<LessonDetailsModalProps> = ({
   const openChangeRequest = booking
     ? selectOpenChangeRequestForBooking(changeRequests, booking.id)
     : undefined;
+  const feedback = usePresentedParticipantLessonFeedback();
+  const pendingKeys = useParticipantLessonFeedbackStore((state) => state.pendingKeys);
 
   if (!booking) return null;
 
@@ -45,6 +52,19 @@ export const LessonDetailsModal: React.FC<LessonDetailsModalProps> = ({
   const shortDate = formatShortBookingDate(booking, language, courses);
   const modalTitle = t('scLessonDetails');
   const modalSubtitle = getDifficultyShort(booking.difficulty) || t('difficultyUnspecified');
+  const lessonFeedback = feedback.feedbackForLesson(booking.id);
+  const pendingItemIds = new Set(
+    lessonFeedback && feedback.participantId
+      ? lessonFeedback.items
+          .filter(
+            (item) =>
+              pendingKeys[
+                participantLessonFeedbackItemKey(feedback.participantId!, booking.id, item.itemId)
+              ]
+          )
+          .map((item) => item.itemId)
+      : []
+  );
 
   return createPortal(
     <AnimatePresence>
@@ -98,8 +118,18 @@ export const LessonDetailsModal: React.FC<LessonDetailsModalProps> = ({
 
             {openChangeRequest ? <StudentOpenChangeRequestNotice /> : null}
 
-            {(booking.recommendations?.length ?? 0) > 0 ? (
-              <LessonRecommendationsList booking={booking} onToggle={onToggleRecommendation} />
+            {feedback.isLoadingPlaceholder ? (
+              <p className="text-sm text-[var(--ink-dim)]">{t('loading')}</p>
+            ) : lessonFeedback ? (
+              <ParticipantLessonFeedbackList
+                items={lessonFeedback.items}
+                pendingItemIds={pendingItemIds}
+                onToggle={
+                  onToggleRecommendation
+                    ? (itemId, completed) => onToggleRecommendation(booking.id, itemId, completed)
+                    : undefined
+                }
+              />
             ) : (
               <p className="text-sm text-[var(--ink-dim)]">{t('scNoRecommendations')}</p>
             )}

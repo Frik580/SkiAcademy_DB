@@ -8,7 +8,6 @@ import {
 import type { TranslationKey } from '../../../../app/providers/LanguageContext';
 import { getBookingStatusLabel } from '../../../../lib/i18n/bookingLabels';
 import { formatDurationLabel } from '../../../../lib/i18n/duration';
-import { hasPendingRecommendations } from '../../lessonRecommendations';
 import {
   formatBookingDayMonth,
   getRecentLessonTitle,
@@ -381,17 +380,18 @@ const isBookingReviewed = (booking: Booking, reviews: Review[], dismissedReviewI
 
 export { isBookingReviewed };
 
-const countPendingRecommendations = (booking: Booking) => {
-  const completed = new Set(booking.completedRecommendationIds ?? []);
-  return (booking.recommendations ?? []).filter((rec) => !completed.has(rec.id)).length;
-};
+const countPendingRecommendations = (
+  bookingId: string,
+  pendingByLessonId?: ReadonlyMap<string, number>
+) => pendingByLessonId?.get(bookingId) ?? 0;
 
 export const enrichHistoryEventsWithActions = (
   events: HistoryEvent[],
   bookings: Booking[],
   reviews: Review[],
   dismissedReviewIds: string[] = [],
-  t?: (key: TranslationKey) => string
+  t?: (key: TranslationKey) => string,
+  pendingByLessonId?: ReadonlyMap<string, number>
 ): HistoryEvent[] =>
   events.map((event) => {
     if ((event.kind === 'training' || event.kind === 'no_show') && event.bookingId) {
@@ -408,7 +408,7 @@ export const enrichHistoryEventsWithActions = (
         };
       }
 
-      const pending = countPendingRecommendations(booking);
+      const pending = countPendingRecommendations(event.bookingId, pendingByLessonId);
       const pendingSubtitle =
         pending > 0 && t
           ? t('scHistoryPendingRecommendations').replace('{n}', String(pending))
@@ -425,7 +425,7 @@ export const enrichHistoryEventsWithActions = (
         };
       }
 
-      if (hasPendingRecommendations(booking)) {
+      if (pending > 0) {
         return {
           ...event,
           subtitle: pendingSubtitle ?? event.subtitle,
@@ -533,12 +533,14 @@ export const buildStudentHistory = (
   language: 'en' | 'ru',
   t: (key: TranslationKey) => string,
   activityLogs: ActivityLog[] = [],
-  dismissedReviewIds: string[] = []
+  dismissedReviewIds: string[] = [],
+  pendingByLessonId?: ReadonlyMap<string, number>
 ): HistoryEvent[] =>
   enrichHistoryEventsWithActions(
     getHistoryEvents(userProfile, bookings, courses, language, t, activityLogs, reviews),
     bookings,
     reviews,
     dismissedReviewIds,
-    t
+    t,
+    pendingByLessonId
   );

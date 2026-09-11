@@ -8,6 +8,10 @@ import {
   isLessonBookingHot,
   mergeRevisionAwareReadModel,
 } from './lessonBookingReadModel';
+import {
+  boundCanonicalReadIdempotencyCursor,
+  buildCanonicalReadIdempotencyKey,
+} from '../readIdempotency';
 import { timestampFromDate } from '../primitives';
 
 describe('lessonBookingReadModel contracts', () => {
@@ -122,6 +126,38 @@ describe('lessonBookingReadModel contracts', () => {
         bookingId: 'booking_instructor_history_01',
       }).success
     ).toBe(false);
+  });
+
+  it('rejects instructor_history pagination when idempotencyKey embeds the raw cursor', () => {
+    const cursor =
+      'eyJzY29wZSI6Imluc3RydWN0b3JfaGlzdG9yeSIsInVwZGF0ZWRBdFNlY29uZHMiOjE3ODgzNTU5MDQsInVwZGF0ZWRBdE5hbm9zZWNvbmRzIjozMzAwMDAwMCwiYm9va2luZ0lkIjoiYm9va2luZ19hZG1pbl8xMWY1YmM5YTY5Zjc0ZmY5YWFkNjU5MDVmZjI5ZmE2ZSJ9';
+    const rawKey = `read:lesson_booking:instructor_history:${cursor}:none`;
+    expect(rawKey.length).toBeGreaterThan(200);
+    const parsed = QueryLessonBookingReadModelsInputSchema.safeParse({
+      scope: 'instructor_history',
+      cursor,
+      idempotencyKey: rawKey,
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it('accepts instructor_history page 2 when idempotencyKey uses a bounded cursor hash', () => {
+    const cursor =
+      'eyJzY29wZSI6Imluc3RydWN0b3JfaGlzdG9yeSIsInVwZGF0ZWRBdFNlY29uZHMiOjE3ODgzNTU5MDQsInVwZGF0ZWRBdE5hbm9zZWNvbmRzIjozMzAwMDAwMCwiYm9va2luZ0lkIjoiYm9va2luZ19hZG1pbl8xMWY1YmM5YTY5Zjc0ZmY5YWFkNjU5MDVmZjI5ZmE2ZSJ9';
+    const idempotencyKey = buildCanonicalReadIdempotencyKey([
+      'read:lesson_booking',
+      'instructor_history',
+      boundCanonicalReadIdempotencyCursor(cursor),
+      'none',
+    ]);
+    expect(idempotencyKey.length).toBeLessThanOrEqual(200);
+    expect(
+      QueryLessonBookingReadModelsInputSchema.safeParse({
+        scope: 'instructor_history',
+        cursor,
+        idempotencyKey,
+      }).success
+    ).toBe(true);
   });
 
   it('accepts account_history without cursor on first page', () => {

@@ -1,4 +1,4 @@
-import type { Booking, Course, UserProfile } from '../../../../types';
+import type { UserProfile } from '../../../../types';
 import {
   type SkillConfig,
   type SkillItem,
@@ -8,14 +8,12 @@ import {
   getSkillItemTitle,
 } from '../../../../domain/achievements';
 import type { Language } from '../../../../lib/i18n/translations';
-import { getRecommendationTasks } from '../../lessonRecommendations';
 import {
   customTodayTaskId,
   resolveCompletedTodayTaskIds,
   skillTodayTaskId,
 } from '../../todayChecklist';
-import { isBookingInTodayRecommendationWindow } from './studentLessonPresentation';
-import { getTodayTaskBookingContext } from './studentTodayTaskContext';
+import type { CanonicalRecommendationTodayTask } from '../../studentLessonFeedbackPresentation';
 import type { SectionProgress, TodayTask } from './studentCabinetUtils';
 
 export const getLevelProgressPercent = (userProfile: UserProfile, skillConfig?: SkillConfig) => {
@@ -140,18 +138,17 @@ export type NextStepAction =
 
 export const getNextStepAction = (
   userProfile: UserProfile,
-  bookings: Booking[],
+  pendingRecommendation: CanonicalRecommendationTodayTask | undefined,
   skillConfig?: SkillConfig,
   language: Language = 'ru'
 ): NextStepAction | null => {
   if (userProfile.hideProgressTracking) return null;
 
-  const pendingRec = getRecommendationTasks(bookings).find((task) => !task.done);
-  if (pendingRec) {
+  if (pendingRecommendation) {
     return {
       kind: 'recommendation',
-      label: pendingRec.label,
-      bookingId: pendingRec.bookingId,
+      label: pendingRecommendation.label,
+      bookingId: pendingRecommendation.lessonBookingId,
     };
   }
 
@@ -218,36 +215,27 @@ export const getNextStepAction = (
 
 export const getTodayTasks = (
   userProfile: UserProfile,
-  bookings: Booking[],
-  courses: Course[],
   language: 'en' | 'ru',
-  skillConfig: SkillConfig | undefined
+  skillConfig: SkillConfig | undefined,
+  recommendationTasks: readonly CanonicalRecommendationTodayTask[] = []
 ): TodayTask[] => {
   const items = skillConfig?.items ?? DEFAULT_SKILL_CONFIG.items;
   const completed = new Set(resolveCompletedTodayTaskIds(userProfile));
-  const dismissed = new Set(userProfile.dismissedTodayTaskIds ?? []);
 
-  const recTasks: TodayTask[] = getRecommendationTasks(bookings)
-    .filter((task) => !task.done)
-    .filter((task) => !dismissed.has(task.id))
-    .filter((task) => {
-      const booking = bookings.find((b) => b.id === task.bookingId);
-      return booking ? isBookingInTodayRecommendationWindow(booking, courses) : false;
-    })
-    .map((task) => {
-      const booking = bookings.find((b) => b.id === task.bookingId);
-      return {
-        id: task.id,
-        label: task.label,
-        done: task.done,
-        kind: 'recommendation' as const,
-        bookingId: task.bookingId,
-        recommendationId: task.recommendationId,
-        bookingContext: booking
-          ? getTodayTaskBookingContext(booking, courses, language)
-          : undefined,
-      };
-    });
+  const recTasks: TodayTask[] = recommendationTasks.map((task) => ({
+    id: task.id,
+    label: task.label,
+    done: false,
+    kind: 'recommendation' as const,
+    bookingId: task.lessonBookingId,
+    recommendationId: task.itemId,
+    bookingContext: {
+      bookingId: task.lessonBookingId,
+      title: task.title,
+      dateLabel: task.dateLabel,
+      isCourse: false,
+    },
+  }));
 
   const skillTasks: TodayTask[] = (userProfile.todaySkillItemIds ?? []).map((skillId) => {
     const item = items.find((i) => i.id === skillId);

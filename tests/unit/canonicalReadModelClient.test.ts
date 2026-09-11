@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   INSTRUCTOR_REVIEW_ACCOUNT_BOOKING_IDS_MAX,
+  IdempotencyKeySchema,
   QueryAdminIssueReadModelsInputSchema,
   QueryAdminFinanceReadModelsInputSchema,
   QueryInstructorReviewReadModelsInputSchema,
   QueryLessonBookingReadModelsInputSchema,
+  boundCanonicalReadIdempotencyCursor,
+  buildCanonicalReadIdempotencyKey,
 } from '@ski-academy/shared-domain';
 import {
   queryAdminIssueReadModels,
@@ -12,6 +15,7 @@ import {
   queryBookingChangeRequestReadModels,
   queryBookingProposalReadModels,
   queryCourseCatalogReadModels,
+  queryCourseEnrollmentReadModels,
   queryInstructorCourseAssignmentReadModels,
   queryLessonBookingReadModels,
   queryParticipantInstructorAccessReadModels,
@@ -19,6 +23,7 @@ import {
   __resetCanonicalReadInFlightRegistryForTests,
   queryAccountInstructorReviewReadModels,
   queryManagedParticipantProgressReadModels,
+  queryParticipantLessonFeedbackReadModels,
 } from '../../src/lib/canonical/canonicalReadModelClient';
 import {
   QUERY_BOOKING_CHANGE_REQUEST_READ_MODELS_CALLABLE,
@@ -26,12 +31,23 @@ import {
   QUERY_ADMIN_FINANCE_READ_MODELS_CALLABLE,
   QUERY_BOOKING_PROPOSAL_READ_MODELS_CALLABLE,
   QUERY_COURSE_CATALOG_READ_MODELS_CALLABLE,
+  QUERY_COURSE_ENROLLMENT_READ_MODELS_CALLABLE,
   QUERY_INSTRUCTOR_COURSE_ASSIGNMENT_READ_MODELS_CALLABLE,
   QUERY_LESSON_BOOKING_READ_MODELS_CALLABLE,
   QUERY_PARTICIPANT_INSTRUCTOR_ACCESS_READ_MODELS_CALLABLE,
   QUERY_INSTRUCTOR_REVIEW_READ_MODELS_CALLABLE,
   QUERY_PARTICIPANT_PROGRESS_READ_MODELS_CALLABLE,
+  QUERY_PARTICIPANT_LESSON_FEEDBACK_READ_MODELS_CALLABLE,
 } from '../../src/lib/canonical/canonicalReadModelClient';
+
+const INSTRUCTOR_HISTORY_OBSERVED_CURSOR =
+  'eyJzY29wZSI6Imluc3RydWN0b3JfaGlzdG9yeSIsInVwZGF0ZWRBdFNlY29uZHMiOjE3ODgzNTU5MDQsInVwZGF0ZWRBdE5hbm9zZWNvbmRzIjozMzAwMDAwMCwiYm9va2luZ0lkIjoiYm9va2luZ19hZG1pbl8xMWY1YmM5YTY5Zjc0ZmY5YWFkNjU5MDVmZjI5ZmE2ZSJ9';
+
+function transportRequestFromCall(callIndex = 0) {
+  const payload = callFunctionMock.mock.calls[callIndex]?.[1] as Record<string, unknown>;
+  const options = callFunctionMock.mock.calls[callIndex]?.[2] as { idempotencyKey: string };
+  return { ...payload, idempotencyKey: options.idempotencyKey };
+}
 
 const callFunctionMock = vi.fn();
 
@@ -333,17 +349,150 @@ describe('canonicalReadModelClient', () => {
 
     await queryLessonBookingReadModels({ scope: 'account_history', cursor });
 
+    const expectedKey = buildCanonicalReadIdempotencyKey([
+      'read:lesson_booking',
+      'account_history',
+      boundCanonicalReadIdempotencyCursor(cursor),
+      'none',
+    ]);
     expect(callFunctionMock).toHaveBeenCalledWith(
       QUERY_LESSON_BOOKING_READ_MODELS_CALLABLE,
       { scope: 'account_history', cursor },
       expect.objectContaining({
-        idempotencyKey: `read:lesson_booking:account_history:${cursor}:none`,
+        idempotencyKey: expectedKey,
         maxAttempts: 1,
       })
     );
+    expect(expectedKey).not.toContain(cursor);
     expect(
-      QueryLessonBookingReadModelsInputSchema.safeParse(callFunctionMock.mock.calls[0]?.[1]).success
+      QueryLessonBookingReadModelsInputSchema.safeParse(transportRequestFromCall()).success
     ).toBe(true);
+  });
+
+  it('keeps instructor_history first page within IdempotencyKeySchema', async () => {
+    callFunctionMock.mockResolvedValueOnce({
+      scope: 'instructor_history',
+      items: [],
+      hasMore: false,
+    });
+
+    await queryLessonBookingReadModels({ scope: 'instructor_history' });
+
+    const request = transportRequestFromCall();
+    expect(request.idempotencyKey).toBe('read:lesson_booking:instructor_history:start:none');
+    expect(IdempotencyKeySchema.safeParse(request.idempotencyKey).success).toBe(true);
+    expect(QueryLessonBookingReadModelsInputSchema.safeParse(request).success).toBe(true);
+  });
+
+  it('bounds instructor_history pagination keys without embedding the opaque cursor', async () => {
+    callFunctionMock.mockResolvedValueOnce({
+      scope: 'instructor_history',
+      items: [],
+      hasMore: true,
+      nextCursor: 'cursor_page_3_fixture',
+    });
+
+    await queryLessonBookingReadModels({
+      scope: 'instructor_history',
+      cursor: INSTRUCTOR_HISTORY_OBSERVED_CURSOR,
+    });
+
+    const request = transportRequestFromCall();
+    const expectedKey = buildCanonicalReadIdempotencyKey([
+      'read:lesson_booking',
+      'instructor_history',
+      boundCanonicalReadIdempotencyCursor(INSTRUCTOR_HISTORY_OBSERVED_CURSOR),
+      'none',
+    ]);
+    const rawLegacyKey = `read:lesson_booking:instructor_history:${INSTRUCTOR_HISTORY_OBSERVED_CURSOR}:none`;
+
+    expect(request.cursor).toBe(INSTRUCTOR_HISTORY_OBSERVED_CURSOR);
+    expect(request.idempotencyKey).toBe(expectedKey);
+    expect(request.idempotencyKey.length).toBeLessThanOrEqual(200);
+    expect(request.idempotencyKey).not.toContain(INSTRUCTOR_HISTORY_OBSERVED_CURSOR);
+    expect(rawLegacyKey.length).toBeGreaterThan(200);
+    expect(IdempotencyKeySchema.safeParse(rawLegacyKey).success).toBe(false);
+    expect(IdempotencyKeySchema.safeParse(request.idempotencyKey).success).toBe(true);
+    expect(QueryLessonBookingReadModelsInputSchema.safeParse(request).success).toBe(true);
+  });
+
+  it('uses deterministic distinct keys for instructor_history cursors', async () => {
+    callFunctionMock
+      .mockResolvedValueOnce({ scope: 'instructor_history', items: [], hasMore: true })
+      .mockResolvedValueOnce({ scope: 'instructor_history', items: [], hasMore: true })
+      .mockResolvedValueOnce({ scope: 'instructor_history', items: [], hasMore: true });
+
+    await queryLessonBookingReadModels({
+      scope: 'instructor_history',
+      cursor: INSTRUCTOR_HISTORY_OBSERVED_CURSOR,
+    });
+    await queryLessonBookingReadModels({
+      scope: 'instructor_history',
+      cursor: INSTRUCTOR_HISTORY_OBSERVED_CURSOR,
+    });
+    await queryLessonBookingReadModels({
+      scope: 'instructor_history',
+      cursor: `${INSTRUCTOR_HISTORY_OBSERVED_CURSOR}x`,
+    });
+
+    const firstKey = (callFunctionMock.mock.calls[0]?.[2] as { idempotencyKey: string })
+      .idempotencyKey;
+    const secondKey = (callFunctionMock.mock.calls[1]?.[2] as { idempotencyKey: string })
+      .idempotencyKey;
+    const thirdKey = (callFunctionMock.mock.calls[2]?.[2] as { idempotencyKey: string })
+      .idempotencyKey;
+    expect(firstKey).toBe(secondKey);
+    expect(firstKey).not.toBe(thirdKey);
+  });
+
+  it('keeps a long bookingId plus cursor combination within the canonical bound', async () => {
+    callFunctionMock.mockResolvedValueOnce({
+      scope: 'guest_single',
+      items: [],
+      hasMore: false,
+    });
+    const bookingId = `booking_${'a'.repeat(120)}`;
+
+    await queryLessonBookingReadModels({
+      scope: 'guest_single',
+      bookingId: bookingId as never,
+      cursor: INSTRUCTOR_HISTORY_OBSERVED_CURSOR,
+      guestActionNonce: 'guest-nonce-fixture',
+      guestActionSignature: 'guest-signature-fixture',
+    });
+
+    const request = transportRequestFromCall();
+    expect(request.idempotencyKey.length).toBeLessThanOrEqual(200);
+    expect(request.idempotencyKey).not.toContain(INSTRUCTOR_HISTORY_OBSERVED_CURSOR);
+    expect(IdempotencyKeySchema.safeParse(request.idempotencyKey).success).toBe(true);
+    expect(QueryLessonBookingReadModelsInputSchema.safeParse(request).success).toBe(true);
+  });
+
+  it('bounds paginated course enrollment read keys the same way', async () => {
+    callFunctionMock.mockResolvedValueOnce({
+      scope: 'account_history',
+      items: [],
+      hasMore: true,
+    });
+
+    await queryCourseEnrollmentReadModels({
+      scope: 'account_history',
+      cursor: INSTRUCTOR_HISTORY_OBSERVED_CURSOR,
+    });
+
+    const options = callFunctionMock.mock.calls[0]?.[2] as { idempotencyKey: string };
+    expect(callFunctionMock.mock.calls[0]?.[0]).toBe(QUERY_COURSE_ENROLLMENT_READ_MODELS_CALLABLE);
+    expect(options.idempotencyKey).toBe(
+      buildCanonicalReadIdempotencyKey([
+        'read:course_enrollment',
+        'account_history',
+        boundCanonicalReadIdempotencyCursor(INSTRUCTOR_HISTORY_OBSERVED_CURSOR),
+        'none',
+        'none',
+      ])
+    );
+    expect(options.idempotencyKey.length).toBeLessThanOrEqual(200);
+    expect(options.idempotencyKey).not.toContain(INSTRUCTOR_HISTORY_OBSERVED_CURSOR);
   });
 
   it('does not emit cursor: null in lesson booking transport payload', async () => {
@@ -462,5 +611,53 @@ describe('canonicalReadModelClient', () => {
         maxAttempts: 1,
       })
     );
+  });
+
+  it('calls participant lesson feedback reads with instructor_lesson scope', async () => {
+    callFunctionMock.mockResolvedValue({ scope: 'instructor_lesson', item: null });
+    await queryParticipantLessonFeedbackReadModels({
+      scope: 'instructor_lesson',
+      participantId: 'participant_lesson_feedback_a',
+      lessonBookingId: 'booking_lesson_feedback_x',
+    });
+    expect(callFunctionMock).toHaveBeenCalledWith(
+      QUERY_PARTICIPANT_LESSON_FEEDBACK_READ_MODELS_CALLABLE,
+      {
+        scope: 'instructor_lesson',
+        participantId: 'participant_lesson_feedback_a',
+        lessonBookingId: 'booking_lesson_feedback_x',
+      },
+      expect.objectContaining({
+        maxAttempts: 1,
+      })
+    );
+    const readInput = callFunctionMock.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(readInput).not.toHaveProperty('accountId');
+    expect(readInput).not.toHaveProperty('instructorId');
+    expect(readInput).not.toHaveProperty('recommendations');
+  });
+
+  it('calls participant lesson feedback reads with managed_participant scope', async () => {
+    callFunctionMock.mockResolvedValue({ scope: 'managed_participant', items: [] });
+    await queryParticipantLessonFeedbackReadModels({
+      scope: 'managed_participant',
+      participantIds: ['participant_lesson_feedback_a'],
+    });
+    expect(callFunctionMock).toHaveBeenCalledWith(
+      QUERY_PARTICIPANT_LESSON_FEEDBACK_READ_MODELS_CALLABLE,
+      {
+        scope: 'managed_participant',
+        participantIds: ['participant_lesson_feedback_a'],
+      },
+      expect.objectContaining({
+        maxAttempts: 1,
+      })
+    );
+    const readInput = callFunctionMock.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(readInput).not.toHaveProperty('accountId');
+    expect(readInput).not.toHaveProperty('userId');
+    expect(readInput).not.toHaveProperty('instructorId');
+    expect(readInput).not.toHaveProperty('recommendations');
+    expect(readInput).not.toHaveProperty('completedRecommendationIds');
   });
 });

@@ -33,6 +33,7 @@ import {
   overlaySelfParticipantProgress,
   useParticipantProgressStore,
 } from '../../participant-progress';
+import { togglePresentedParticipantLessonFeedbackItem } from '../../student-cabinet/useSelectedParticipantLessonFeedback';
 
 export interface PersonalCabinetProps {
   userProfile: UserProfile;
@@ -89,7 +90,6 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   onCourseWithdraw,
   onCourseRequestCancellation,
   onAddReview,
-  onToggleRecommendation,
   onToggleSkillToday,
   onPinSkillsToday,
   onToggleTodayTaskComplete,
@@ -113,6 +113,19 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
 }) => {
   const { addNotification } = useNotifications();
   const { t } = useLanguage();
+  const handleToggleFeedbackItem = (
+    lessonBookingId: string,
+    itemId: string,
+    completed: boolean
+  ): Promise<void> =>
+    togglePresentedParticipantLessonFeedbackItem({
+      accountId: userProfile.uid,
+      lessonBookingId,
+      itemId,
+      completed,
+    })
+      .then(() => undefined)
+      .catch(() => undefined);
 
   const bookings = rawBookings;
   const legacyModalBookings = useMemo(
@@ -273,7 +286,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
             onWriteReview={(booking) =>
               reviewFlow.openReview(cabinetItemToLegacyPresentation(booking, userProfile.uid))
             }
-            onToggleRecommendation={onToggleRecommendation}
+            onToggleRecommendation={handleToggleFeedbackItem}
             onToggleSkillToday={onToggleSkillToday}
             onPinSkillsToday={onPinSkillsToday}
             onToggleTodayTaskComplete={onToggleTodayTaskComplete}
@@ -327,7 +340,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
               setLessonDetailsId(null);
               reviewFlow.openReview(booking);
             }}
-            onToggleRecommendation={onToggleRecommendation}
+            onToggleRecommendation={handleToggleFeedbackItem}
             reviewBooking={reviewFlow.reviewBooking}
             reviewRating={reviewFlow.reviewRating}
             setReviewRating={reviewFlow.setReviewRating}

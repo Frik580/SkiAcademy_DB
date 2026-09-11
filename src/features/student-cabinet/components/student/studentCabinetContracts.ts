@@ -16,6 +16,7 @@ import type {
   TodayTask,
 } from './studentCabinetUtils';
 import type { CabinetSessionItem } from '../../../../features/course-enrollments';
+import type { CanonicalRecommendationTodayTask } from '../../studentLessonFeedbackPresentation';
 
 export type StudentBooking =
   import('../../../../features/lesson-bookings/lessonBookingContracts').LessonBookingCabinetItem;
@@ -201,6 +202,7 @@ export interface StudentTodaySectionInput {
   onViewCourseDetails?: (courseId: string) => void;
   onGoToTab: (tab: StudentCabinetTab) => void;
   onContinueDevelopment: () => void;
+  pendingRecommendation?: CanonicalRecommendationTodayTask;
   onToggleRecommendation?: (bookingId: string, recommendationId: string, checked: boolean) => void;
   onToggleSkillToday?: (skillItemId: string, pinned: boolean) => void;
   onToggleTodayTaskComplete?: (taskId: string, done: boolean) => void;

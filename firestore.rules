@@ -686,6 +686,10 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /participant_lesson_feedback/{feedbackId} {
+      allow read, write: if false;
+    }
+
     // Server-owned guard read by security rules via get()/exists(); clients cannot read directly.
     match /participant_management_active_owner/{participantId} {
       allow read, write: if false;
@@ -705,26 +709,9 @@ service cloud.firestore {
       allow create: if false;
 
       // Lifecycle status, schedule, and instructor assignment belong to Callables.
-      // Clients may still update recommendations or link client_ bookings.
+      // Canonical lesson feedback lives on /participant_lesson_feedback (callable only).
+      // Legacy bookings.recommendations / completedRecommendationIds client writes are closed.
       allow update: if (
-        isOwner(resource.data.userId) &&
-        request.resource.data.userId == resource.data.userId &&
-        bookingStatusUnchanged() &&
-        bookingScheduleUnchanged() &&
-        request.resource.data.status != 'cancelled' &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'completedRecommendationIds'
-        ])
-      ) || (
-        isAssignedInstructor(resource.data) &&
-        request.resource.data.userId == resource.data.userId &&
-        bookingStatusUnchanged() &&
-        bookingScheduleUnchanged() &&
-        request.resource.data.status != 'cancelled' &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'recommendations'
-        ])
-      ) || (
         resource.data.userId.matches('^client_.*') &&
         request.resource.data.userId == request.auth.uid &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['userId']) &&

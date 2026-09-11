@@ -11,6 +11,8 @@ import {
   getGreeting,
   getTodayTasks,
 } from './studentCabinetUtils';
+import { buildCanonicalRecommendationTodayTasks } from '../../studentLessonFeedbackPresentation';
+import { usePresentedParticipantLessonFeedback } from '../../usePresentedParticipantLessonFeedback';
 import { ScDivider, ScTextButton } from './StudentCabinetUI';
 import { StudentNeedsAttention } from './StudentNeedsAttention';
 import { StudentTodaySection } from './StudentTodaySection';
@@ -55,6 +57,11 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
   } = props;
 
   const hideProgress = Boolean(userProfile.hideProgressTracking);
+  const feedback = usePresentedParticipantLessonFeedback(bookings);
+  const openLessonById = (lessonBookingId: string) => {
+    const booking = bookings.find((item) => item.id === lessonBookingId);
+    if (booking) onOpenLesson(booking);
+  };
 
   const nextSessions = useMemo(
     () => getNextSessionsNext7DaysFromSessions(sessionItems, new Date()),
@@ -65,9 +72,28 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     () => getCurrentSessions(sessionItems, new Date()),
     [sessionItems]
   );
+  const recommendationTodayTasks = useMemo(
+    () =>
+      feedback.participantId
+        ? buildCanonicalRecommendationTodayTasks({
+            items: feedback.items,
+            participantId: feedback.participantId,
+            dismissedTaskIds: new Set(userProfile.dismissedTodayTaskIds ?? []),
+            contextByLessonId: feedback.contextByLessonId,
+            language: lang,
+          })
+        : [],
+    [
+      feedback.contextByLessonId,
+      feedback.items,
+      feedback.participantId,
+      lang,
+      userProfile.dismissedTodayTaskIds,
+    ]
+  );
   const todayTasks = useMemo(
-    () => getTodayTasks(userProfile, bookings, courses, lang, skillConfig),
-    [userProfile, bookings, courses, lang, skillConfig]
+    () => getTodayTasks(userProfile, lang, skillConfig, recommendationTodayTasks),
+    [userProfile, lang, skillConfig, recommendationTodayTasks]
   );
   const miniDays = useMemo(
     () => getMiniCalendarDaysFromSessions(sessionItems, lang),
@@ -127,6 +153,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
             onViewCourseDetails={viewCourseById}
             onGoToTab={onGoToTab}
             onContinueDevelopment={onContinueDevelopment}
+            pendingRecommendation={recommendationTodayTasks[0]}
             onToggleRecommendation={onToggleRecommendation}
             onToggleSkillToday={onToggleSkillToday}
             onToggleTodayTaskComplete={onToggleTodayTaskComplete}
@@ -163,7 +190,11 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
           reviews={reviews}
           userId={userProfile.uid}
           dismissedReviewIds={dismissedReviewIds}
+          pendingFeedback={feedback.incomplete
+            .map((item) => feedback.feedbackForLesson(item.lessonBookingId))
+            .filter((item): item is NonNullable<typeof item> => item != null)}
           onOpenLesson={onOpenLesson}
+          onOpenFeedbackLesson={openLessonById}
           onWriteReview={onWriteReview}
           onDismissReview={onDismissReview}
         />
@@ -171,10 +202,11 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
         <ScDivider />
 
         <StudentLatestRecommendationSection
-          bookings={bookings}
-          courses={courses}
-          userId={userProfile.uid}
-          onOpenLesson={onOpenLesson}
+          latest={feedback.latestView}
+          highlightPending={feedback.latestHighlight?.isPending ?? false}
+          highlightText={feedback.latestHighlight?.item.text ?? null}
+          loading={feedback.isLoadingPlaceholder}
+          onOpenLesson={openLessonById}
         />
 
         {showWeather && resortSnapshot && (

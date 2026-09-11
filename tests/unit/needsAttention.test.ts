@@ -44,7 +44,7 @@ describe('getNeedsAttentionBookings', () => {
     expect(result).toHaveLength(0);
   });
 
-  it('includes lessons with pending recommendations even when reviewed', () => {
+  it('excludes reviewed lessons even if legacy booking recommendations are present', () => {
     const bookings = [
       baseBooking({
         id: 'b1',
@@ -64,7 +64,7 @@ describe('getNeedsAttentionBookings', () => {
       },
     ];
     const result = getNeedsAttentionBookings(bookings, reviews, [], userId);
-    expect(result).toHaveLength(1);
+    expect(result).toHaveLength(0);
   });
 
   it('excludes dismissed review prompts', () => {

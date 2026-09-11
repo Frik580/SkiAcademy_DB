@@ -3,22 +3,14 @@ import { MessageSquare, X } from 'lucide-react';
 import { Booking } from '../../../../types';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { BodyScrollLock } from '../../../../ui/BodyScrollLock';
-import { hasBookingRecommendations } from '../../../../features/student-cabinet/lessonRecommendations';
-import { LessonRecommendationsList } from '../../../../features/profile';
 
 interface ChatWindowProps {
   booking: Booking;
   onClose: () => void;
-  onToggleRecommendation?: (bookingId: string, recommendationId: string, checked: boolean) => void;
   children: React.ReactNode;
 }
 
-export const ChatWindow: React.FC<ChatWindowProps> = ({
-  booking,
-  onClose,
-  onToggleRecommendation,
-  children,
-}) => {
+export const ChatWindow: React.FC<ChatWindowProps> = ({ booking, onClose, children }) => {
   const { t } = useLanguage();
 
   return (
@@ -47,12 +39,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             <X className="w-5 h-5" />
           </button>
         </div>
-
-        {hasBookingRecommendations(booking) && (
-          <div className="shrink-0 border-b border-[var(--border)] bg-[var(--card-bg)] px-4 py-3 max-h-[min(30svh,180px)] overflow-y-auto">
-            <LessonRecommendationsList booking={booking} onToggle={onToggleRecommendation} />
-          </div>
-        )}
 
         {children}
       </div>

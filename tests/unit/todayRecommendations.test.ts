@@ -4,6 +4,7 @@ import {
   isBookingInTodayRecommendationWindow,
   RECOMMENDATION_TODAY_WINDOW_DAYS,
 } from '../../src/features/student-cabinet/components/student/studentCabinetUtils';
+import { isLessonDateInTodayRecommendationWindow } from '../../src/features/student-cabinet/studentLessonFeedbackPresentation';
 import { Booking } from '../../src/types';
 
 const booking = (date: string): Booking => ({
@@ -43,5 +44,12 @@ describe('today recommendation window', () => {
     expect(
       isBookingInTodayRecommendationWindow(lesson, [], RECOMMENDATION_TODAY_WINDOW_DAYS, from)
     ).toBe(false);
+  });
+
+  it('keeps the 14-day window for canonical lessonDate', () => {
+    const from = new Date('2026-07-31T12:00:00');
+    expect(isLessonDateInTodayRecommendationWindow('2026-07-28', 14, from)).toBe(true);
+    expect(isLessonDateInTodayRecommendationWindow('2026-07-16', 14, from)).toBe(false);
+    expect(isLessonDateInTodayRecommendationWindow('2026-08-05', 14, from)).toBe(false);
   });
 });

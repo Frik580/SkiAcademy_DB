@@ -18,7 +18,6 @@ import {
   deleteBookingService,
   confirmBookingService,
   completeBookingService,
-  toggleRecommendationService,
   linkGuestBookingService,
   addInstructorService,
   updateInstructorService,
@@ -225,15 +224,6 @@ export function useBookingActions() {
     [firebaseUser]
   );
 
-  const handleToggleRecommendation = useCallback(
-    async (bookingId: string, recommendationId: string, checked: boolean) => {
-      const booking = bookings.find((item) => item.id === bookingId);
-      if (!booking) return;
-      await toggleRecommendationService(booking, recommendationId, checked, firebaseUser?.uid);
-    },
-    [bookings, firebaseUser?.uid]
-  );
-
   const handleLinkGuestBooking = useCallback(
     async (bookingId: string, targetUserId: string) => {
       const booking = bookings.find((item) => item.id === bookingId);
@@ -284,7 +274,6 @@ export function useBookingActions() {
     handleConfirmBooking,
     handleCompleteBooking,
     handleLinkGuestBooking,
-    handleToggleRecommendation,
     handleAddInstructor,
     handleUpdateInstructor,
     handleDeleteInstructor,

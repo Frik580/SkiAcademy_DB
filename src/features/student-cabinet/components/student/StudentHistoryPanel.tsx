@@ -6,6 +6,7 @@ import { ScPageIntro } from './StudentCabinetUI';
 import { StudentHistoryList } from './StudentHistoryList';
 import { useProfileStore } from '../../../profile/profileStore';
 import { ActionButton } from '../../../../ui/ActionButton';
+import { usePresentedParticipantLessonFeedback } from '../../usePresentedParticipantLessonFeedback';
 
 interface StudentHistoryPanelProps {
   userProfile: UserProfile;
@@ -39,6 +40,16 @@ export const StudentHistoryPanel: React.FC<StudentHistoryPanelProps> = ({
   const [filter, setFilter] = useState<HistoryFilter>('all');
   const activityLogsHasMore = useProfileStore((state) => state.activityLogsHasMore);
   const loadMoreActivityLogs = useProfileStore((state) => state.loadMoreActivityLogs);
+  const feedback = usePresentedParticipantLessonFeedback(bookings);
+  const pendingByLessonId = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const [lessonBookingId, flags] of feedback.flagsByLessonId) {
+      if (flags.hasPending) {
+        map.set(lessonBookingId, feedback.pendingCountForLesson(lessonBookingId));
+      }
+    }
+    return map;
+  }, [feedback]);
 
   const history = useMemo(
     () =>
@@ -50,9 +61,20 @@ export const StudentHistoryPanel: React.FC<StudentHistoryPanelProps> = ({
         lang,
         t,
         activityLogs,
-        dismissedReviewIds
+        dismissedReviewIds,
+        pendingByLessonId
       ),
-    [userProfile, bookings, courses, reviews, lang, t, activityLogs, dismissedReviewIds]
+    [
+      userProfile,
+      bookings,
+      courses,
+      reviews,
+      lang,
+      t,
+      activityLogs,
+      dismissedReviewIds,
+      pendingByLessonId,
+    ]
   );
 
   return (

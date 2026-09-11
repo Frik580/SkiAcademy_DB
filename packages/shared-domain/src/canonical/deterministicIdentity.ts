@@ -14,6 +14,7 @@ import {
   ParticipantManagementIdSchema,
   PaymentIdSchema,
   ReviewIdSchema,
+  ParticipantLessonFeedbackIdSchema,
   type AccountId,
   type ActivityLogId,
   type AdministrativeAvailabilityBlockId,
@@ -33,6 +34,7 @@ import {
   type ParticipantManagementId,
   type PaymentId,
   type ReviewId,
+  type ParticipantLessonFeedbackId,
 } from './identifiers';
 
 const DETERMINISTIC_ID_PART_SEPARATOR = '\u001f';
@@ -130,6 +132,19 @@ export function instructorReviewIdFromBookingAccount(input: {
       'instructor_review:v1',
       input.bookingId,
       input.managingAccountId,
+    ])
+  );
+}
+
+export function participantLessonFeedbackIdFromLessonParticipant(input: {
+  readonly participantId: ParticipantId;
+  readonly lessonBookingId: BookingId;
+}): ParticipantLessonFeedbackId {
+  return ParticipantLessonFeedbackIdSchema.parse(
+    canonicalDeterministicHash([
+      'participant_lesson_feedback:v1',
+      input.participantId,
+      input.lessonBookingId,
     ])
   );
 }

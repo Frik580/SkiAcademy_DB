@@ -309,7 +309,11 @@ Recommendation, feedback, and progress must first receive the correct
 canonical authority (T32.9A.9B / 9C). They must not be auto-added as fields on
 canonical Booking merely because the lifecycle cutover is underway.
 
-Reviews / instructor rating continuity is mandatory 9B scope. Chat and Homework (currently `bookings/{threadId}/messages`, including `isHomework` / `homeworkForUserIds`) are mandatory 9P rows. Do not delete a Booking parent/thread and lose messages. This ADR does not require a new Chat aggregate.
+Reviews / instructor rating continuity is mandatory 9B scope.
+
+9B.3 Canonical Lesson Feedback (READY_FOR_MANUAL_SMOKE in source; production smoke not yet recorded) restores Instructor/Student recommendation UX on `/participant_lesson_feedback/{feedbackId}` with identity `participantId + lessonBookingId`. Attendance=`present` is the instructor write gate. There is no InstructorRelationship bypass, no Booking.recommendations fallback, and no dual-write. Legacy `bookings.recommendations` / `completedRecommendationIds` remain leftover production fields until 9P/9D.
+
+Chat and Homework (currently `bookings/{threadId}/messages`, including `isHomework` / `homeworkForUserIds`) remain a separate live capability and mandatory 9P rows. 9B.3 must not migrate or delete them. Do not delete a Booking parent/thread and lose messages. This ADR does not require a new Chat aggregate.
 
 ### T32.9B — Final Legacy Write / Runtime Cleanup
 

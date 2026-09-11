@@ -40,7 +40,6 @@ interface BookingChatModalProps {
   instructors?: Instructor[];
   courses?: Course[];
   fromInstructorPanel?: boolean;
-  onToggleRecommendation?: (bookingId: string, recommendationId: string, checked: boolean) => void;
 }
 
 export const BookingChatModal: React.FC<BookingChatModalProps> = ({
@@ -51,7 +50,6 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
   instructors = [],
   courses = [],
   fromInstructorPanel = false,
-  onToggleRecommendation,
 }) => {
   const { t } = useLanguage();
   const [messages, setMessages] = useState<ChatMessageRow[]>([]);
@@ -329,7 +327,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
   };
 
   return createPortal(
-    <ChatWindow booking={booking} onClose={onClose} onToggleRecommendation={onToggleRecommendation}>
+    <ChatWindow booking={booking} onClose={onClose}>
       <ChatMessageList
         messages={messages}
         isLoading={isLoading}

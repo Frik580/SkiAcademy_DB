@@ -193,40 +193,6 @@ export const getInstructorSkillComments = (
     .filter((row): row is InstructorSkillComment => row != null);
 };
 
-export type InstructorRecommendationRow = {
-  booking: Booking;
-  recommendationId: string;
-  text: string;
-  done: boolean;
-  dateLabel: string;
-};
-
-export const getInstructorRecommendations = (
-  bookings: Booking[],
-  courses: Course[],
-  instructorId: string,
-  userId: string | undefined,
-  language: 'en' | 'ru'
-): InstructorRecommendationRow[] => {
-  const rows: InstructorRecommendationRow[] = [];
-
-  getStudentBookingsWithInstructor(bookings, instructorId, userId).forEach((booking) => {
-    const completed = new Set(booking.completedRecommendationIds ?? []);
-    const dateLabel = formatBookingDayMonth(booking, courses, language);
-    (booking.recommendations ?? []).forEach((rec) => {
-      rows.push({
-        booking,
-        recommendationId: rec.id,
-        text: rec.text,
-        done: completed.has(rec.id),
-        dateLabel,
-      });
-    });
-  });
-
-  return rows.sort((a, b) => b.booking.date.localeCompare(a.booking.date));
-};
-
 export const getInstructorLessonCount = (
   bookings: Booking[],
   instructorId: string,

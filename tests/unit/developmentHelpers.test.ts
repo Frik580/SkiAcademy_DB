@@ -44,7 +44,7 @@ describe('development helpers', () => {
   });
 
   it('localizes next-step exercise titles for English UI', () => {
-    const action = getNextStepAction(baseProfile, [], DEFAULT_SKILL_CONFIG, 'en');
+    const action = getNextStepAction(baseProfile, undefined, DEFAULT_SKILL_CONFIG, 'en');
     expect(action?.kind).toBe('exercise');
     if (action?.kind === 'exercise') {
       // Pinned today items (l1_3) are skipped; next unpinned incomplete item is l1_1.

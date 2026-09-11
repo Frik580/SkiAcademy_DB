@@ -1,10 +1,11 @@
 import {
   AggregateRevisionSchema,
   BookingIdSchema,
+  deriveSaveParticipantLessonFeedbackIdempotencyKey,
+  deriveSetParticipantLessonFeedbackItemCompletionIdempotencyKey,
   ParticipantIdSchema,
   ParticipantLessonFeedbackItemIdSchema,
   parseCommandResultPayload,
-  type IdempotencyKey,
   type ParticipantLessonFeedbackItem,
   type ParticipantLessonFeedbackReadModel,
 } from '@ski-academy/shared-domain';
@@ -21,13 +22,10 @@ import {
   type ParticipantLessonFeedbackView,
 } from './participantLessonFeedbackView';
 
-export function deriveSaveParticipantLessonFeedbackIdempotencyKey(
-  participantId: string,
-  lessonBookingId: string,
-  expectedRevision: number
-): IdempotencyKey {
-  return `save-participant-lesson-feedback:${participantId}:${lessonBookingId}:${expectedRevision}` as IdempotencyKey;
-}
+export {
+  deriveSaveParticipantLessonFeedbackIdempotencyKey,
+  deriveSetParticipantLessonFeedbackItemCompletionIdempotencyKey,
+} from '@ski-academy/shared-domain';
 
 export async function queryInstructorLessonParticipantFeedback(input: {
   readonly participantId: string;
@@ -88,18 +86,6 @@ export async function saveInstructorParticipantLessonFeedback(input: {
     throw new Error('Participant lesson feedback command returned an invalid payload.');
   }
   return { revision: payload.data.revision };
-}
-
-export function deriveSetParticipantLessonFeedbackItemCompletionIdempotencyKey(
-  participantId: string,
-  lessonBookingId: string,
-  itemId: string,
-  completed: boolean,
-  expectedRevision: number
-): IdempotencyKey {
-  return `set-participant-lesson-feedback-item-completion:${participantId}:${lessonBookingId}:${itemId}:${
-    completed ? '1' : '0'
-  }:${expectedRevision}` as IdempotencyKey;
 }
 
 export async function queryManagedParticipantLessonFeedback(input: {

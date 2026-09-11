@@ -345,10 +345,11 @@ T32.9A.9B — IN PROGRESS (active): stats/progress/recommendations + Reviews / i
   T32.9A.9B.2 Participant Progress — PASS / CLOSED (production smoke 2026-09-11)
     (authority `/participant_progress/{participantId}`; empty start; legacy /users progress not migrated;
      Student selection + Instructor lesson gate + booking evidence — see T32_CANONICAL_ADMIN_AUDIT.md §9B.2)
-  T32.9A.9B.3 — READY_FOR_MANUAL_SMOKE: Recommendations / Lesson Feedback continuity
+  T32.9A.9B.3 — PASS / CLOSED: Recommendations / Lesson Feedback continuity (production smoke 2026-09-12)
     (authority `/participant_lesson_feedback/{feedbackId}`; participantId + lessonBookingId; clean start / no migration;
-     Instructor present-only gate; Chat Homework preserved out of scope; 9B.4 deferred stats/achievements)
-  9B.3 deploy (not yet): Firestore indexes READY → Functions → Rules → Hosting. Data migration: NO.
+     Instructor present-only gate; Chat Homework preserved out of ParticipantLessonFeedback scope; 9P.HW1 recorded)
+  T32.9A.9B.4 — NEXT (active): Stats / Achievements
+    (homework_done / recommendation aggregate stats / historical recommendation_* activity logs)
         ↓
 T32.9A.9C (Course progress / achievements)
         ↓

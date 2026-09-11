@@ -490,15 +490,15 @@ T32.9A.9A — PASS / CLOSED (F1 / F2 / F3 / F4 / final integration smoke)
     Student Cabinet Participant selection: 1→auto; 2++self→self initial; persist manual choice; no participants[0] without self;
     Instructor: participantId identity; InstructorRelationship OR booking evidence; lesson card gate = present-only per Participant;
     booking evidence table aligned with UI gate (see T32 audit 9B.2).
-  T32.9A.9B.3 — READY_FOR_MANUAL_SMOKE: Canonical Lesson Feedback.
+  T32.9A.9B.3 — PASS / CLOSED (production deploy + manual smoke PASS, 2026-09-12):
     authority `/participant_lesson_feedback/{feedbackId}` (participantId + lessonBookingId);
     Instructor write + Student/Guardian completion = canonical commands; reads = canonical read models;
     attendance=present instructor gate; no InstructorRelationship bypass; no migration; no Booking rec fallback/dual-write;
-    Chat Homework (`bookings/{threadId}/messages` isHomework/homeworkForUserIds) preserved, out of 9B.3;
-    9B.4 deferred: homework_done / recommendation aggregate stats / historical recommendation_* activity logs.
-    Deploy (not yet): indexes READY → Functions (executeCanonicalCommand, queryParticipantLessonFeedbackReadModels) → Rules → Hosting.
-    Data migration: NO.
-  T32.9A.9B.4 — NEXT after 9B.3 production smoke: Stats / Achievements.
+    acceptance: Student/Guardian reads, completion, multi-participant isolation, dependent without /users, clean start — PASS;
+    legacy recommendation readers/writers reachable = 0; Booking dual-write = 0; legacy fallback = 0;
+    Chat Homework (`bookings/{threadId}/messages` isHomework/homeworkForUserIds) preserved, **not** ParticipantLessonFeedback;
+    known 9P gap: T32.9A.9P.HW1 participant-scoped homework (homeworkForParticipantIds[], present-only, server enforcement).
+  T32.9A.9B.4 — NEXT (active): Stats / Achievements.
 → T32.9A.9C (Course progress / achievements)
 → T32.9A.9P (Global Product Parity & legacy Dependency Gate)
 → T32.9A.9D0 (production-like incremental rehearsal)

@@ -311,9 +311,9 @@ canonical Booking merely because the lifecycle cutover is underway.
 
 Reviews / instructor rating continuity is mandatory 9B scope.
 
-9B.3 Canonical Lesson Feedback (READY_FOR_MANUAL_SMOKE in source; production smoke not yet recorded) restores Instructor/Student recommendation UX on `/participant_lesson_feedback/{feedbackId}` with identity `participantId + lessonBookingId`. Attendance=`present` is the instructor write gate. There is no InstructorRelationship bypass, no Booking.recommendations fallback, and no dual-write. Legacy `bookings.recommendations` / `completedRecommendationIds` remain leftover production fields until 9P/9D.
+9B.3 Canonical Lesson Feedback — **PASS / CLOSED** (production smoke 2026-09-12) — restores Instructor/Student recommendation UX on `/participant_lesson_feedback/{feedbackId}` with identity `participantId + lessonBookingId`. Attendance=`present` is the instructor write gate. There is no InstructorRelationship bypass, no Booking.recommendations fallback, and no dual-write. Legacy `bookings.recommendations` / `completedRecommendationIds` remain leftover production fields until 9P/9D.
 
-Chat and Homework (currently `bookings/{threadId}/messages`, including `isHomework` / `homeworkForUserIds`) remain a separate live capability and mandatory 9P rows. 9B.3 must not migrate or delete them. Do not delete a Booking parent/thread and lose messages. This ADR does not require a new Chat aggregate.
+Chat and Homework (currently `bookings/{threadId}/messages`, including `isHomework` / `homeworkForUserIds`) remain a separate live capability and mandatory 9P rows. They are **not** part of ParticipantLessonFeedback. 9B.3 must not migrate or delete them. Do not delete a Booking parent/thread and lose messages. This ADR does not require a new Chat aggregate. Known parity gap **T32.9A.9P.HW1** (participant-scoped homework: target `homeworkForParticipantIds[]`, present-only assignment, participant visibility/isolation, server enforcement) is recorded in [T32_CANONICAL_ADMIN_AUDIT.md](../T32_CANONICAL_ADMIN_AUDIT.md); not implemented in 9B.3.
 
 ### T32.9B — Final Legacy Write / Runtime Cleanup
 

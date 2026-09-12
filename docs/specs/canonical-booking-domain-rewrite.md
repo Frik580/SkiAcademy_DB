@@ -3,6 +3,7 @@
 Status: approved implementation strategy; ADR-0001 through ADR-0008 accepted
 Amended: 2026-09-07 — T32.9A.9D selective legacy Booking disposal clarified for the incremental production cutover path (see amendment under Firestore reset contract); T32.9A.9 FINAL CANONICAL CUTOVER status lives in [T32_CANONICAL_ADMIN_AUDIT.md](../T32_CANONICAL_ADMIN_AUDIT.md)
 Amended: 2026-09-08 — production cutover gates: T32.9A.9P, 9D0, 9D selective cleanup (not full Firestore reset), 9E technical+product reachability; T38 empty-database rehearsal is nonproduction only; T40 Execute Rehearsed Selective Production Cutover; T41 expanded verification. F3 multi-participant design is unchanged.
+Amended: 2026-09-13 — T32.9A.9A.F5 guest CourseEnrollment bounded reservation expiry and legacy `createGuestCourseEnrollment` removal gate recorded; does not reopen T32.9A.9A F1–F4 PASS / CLOSED.
 
 ## Problem Statement
 
@@ -163,6 +164,7 @@ Deliver the complete canonical Course vertical slice without representing Enroll
 
 - Implement Course and CourseDay administration using structured timezone-safe intervals.
 - Implement authenticated, guest, and administration CourseEnrollment commands with opaque immutable IDs, including payment-funded `confirm_guest_course_enrollment`. Guest confirmation does not consume another seat.
+- Guest `pending` CourseEnrollment: authoritative `reservationExpiresAt` (`min(createdAt + 24h, course.startAt)`), seat and resource-claim hold while pending, payment-driven confirmation, canonical `expire_guest_reservation` lifecycle cancellation with seat/claim release, concurrency-safe idempotent expiry, and bounded production scheduler discovery (T32.9A.9A.F5). No Course-shaped Booking fallback for enrollment authority.
 - Enforce the active Enrollment guard, pre-start seat claim, Participant CourseDay claims, and actual Instructor CourseDay claims.
 - Keep `availableSeats` as the canonical transactional admission projection with freeze behavior at `course.startAt`.
 - Implement atomic multi-Participant Course enrollment as one Enrollment per Participant.
@@ -183,6 +185,14 @@ Deliver the complete canonical Course vertical slice without representing Enroll
 ### Legacy deletion gate
 
 After this phase is complete, delete or replace old Course enrollment callables, synthetic-course helpers, deterministic Enrollment ID builders, Course-shaped Booking query paths, availability migration code, hour-lock code, and their tests.
+
+**T32.9A.9A.F5 gate (production).** Legacy `functions/src/courses/createGuestCourseEnrollment.ts` and the exported callable `createGuestCourseEnrollment` are not safely removable until:
+
+1. **T32.9A.9A.F5** is **PASS / CLOSED** (bounded guest CourseEnrollment expiry in production, legacy reachability resolved);
+2. production caller audit proves `REMOVED` or `MIGRATED_AND_REMOVED` with exactly one authoritative guest creation path;
+3. no reachable path creates indefinite guest `pending` enrollment without `reservationExpiresAt`.
+
+Until then, classification remains **STILL_REQUIRED** (see [T32_CANONICAL_ADMIN_AUDIT.md](../T32_CANONICAL_ADMIN_AUDIT.md)). This gate is additional to Phase 4 emulator tests and does not restore the empty-production-database cutover model.
 
 ## Phase 5 — Frontend migration to canonical API and model
 
@@ -340,6 +350,7 @@ There is one production cutover sequence. It supersedes reading Phase 7 / T40 as
 
 ```text
 T32.9A.9A — PASS / CLOSED (F1 / F2 / F3 / F4 / final integration smoke)
+T32.9A.9A.F5 — IN PROGRESS (post-close guest CourseEnrollment reservation expiry; gates legacy guest enrollment callable removal)
         ↓
 T32.9A.9B — IN PROGRESS (active): stats/progress/recommendations + Reviews / instructor rating
   T32.9A.9B.2 Participant Progress — PASS / CLOSED (production smoke 2026-09-11)
@@ -530,7 +541,7 @@ The release requires all suites to pass from an empty database seeded only by th
 
 Empty-database E2E above remains the T38 / isolated rehearsal bar. Production T41 must also exercise preserved live product journeys:
 
-- Guest lesson; Guest course enrollment; payment/expiry
+- Guest lesson; Guest course enrollment; payment/expiry (course automatic expiry per T32.9A.9A.F5 when PASS / CLOSED)
 - Student lesson booking; multi-participant lesson; course enrollment; cancellation
 - Student Cabinet current/history; progress/recommendations/achievements
 - Reviews/rating; Chat; Homework; Notifications

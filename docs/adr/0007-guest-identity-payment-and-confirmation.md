@@ -212,6 +212,62 @@ Confirmation does not:
 
 Capacity was already consumed during guest enrollment creation. Before `course.startAt`, `pending` already occupies one seat; confirmation does not occupy a second seat.
 
+## Guest CourseEnrollment reservation expiry (T32.9A.9A.F5)
+
+Guest CourseEnrollment reservation expiry reuses the same **reservation deadline vs confirmation authority** distinction as guest Lesson Booking expiry (F2). This section documents CourseEnrollment-specific policy only; it does not rewrite Lesson Booking semantics.
+
+### Authoritative deadline
+
+For guest CourseEnrollments (`bookingOrigin = guest`), the reservation hold deadline is `CourseEnrollment.lifecycle.reservationExpiresAt`:
+
+```text
+min(createdAt + GUEST_COURSE_RESERVATION_TTL_MS, course.startAt)
+```
+
+where `GUEST_COURSE_RESERVATION_TTL_MS = 24 hours`. Do not apply the 1-hour lesson TTL to courses. The expiry boundary is inclusive: `now >= reservationExpiresAt`.
+
+### Command and scheduler boundary
+
+Canonical command: `expire_guest_reservation` with `courseEnrollmentId` intent (handler: `expireGuestCourseEnrollmentReservation`). The command rechecks guest origin, `pending` status, Payment identity, funding predicate, deadline, course context, seat release rules, and claim release in the authoritative transaction.
+
+Production automatic expiry requires a **bounded CourseEnrollment discovery scheduler** separate from `scheduledExpireGuestLessonReservations`. The lesson scheduler is orchestrator-only for lesson Bookings and does not discover CourseEnrollments. F5 closes the current runtime enforcement gap where canonical expiry semantics exist but production may not yet discover expired guest course candidates automatically.
+
+### Semantic distinction (unchanged from F2, applied to CourseEnrollment)
+
+`reservationExpiresAt` governs:
+
+1. holding a not-fully-funded guest CourseEnrollment reservation (seat + claims);
+2. accepting new guest funding for that enrollment.
+
+`reservationExpiresAt` does **not** govern delayed lifecycle reconciliation of an enrollment whose Payment is already fully funded.
+
+A pending CourseEnrollment with `isPaymentFullyFundedForService(Payment)` and course not yet started remains eligible for canonical confirmation/reconciliation even when `now >= reservationExpiresAt`. That state is lifecycle reconciliation, not unpaid expiry.
+
+### Policy matrix (CourseEnrollment)
+
+| Enrollment            | Payment                   | Deadline        | Course start | Result                                                                                      |
+| --------------------- | ------------------------- | --------------- | ------------ | ------------------------------------------------------------------------------------------- |
+| `pending`             | not fully funded          | before deadline | not started  | remain `pending`                                                                            |
+| `pending`             | not fully funded          | reached/passed  | not started  | `cancelled`; `reservation_expired`; seat/claims released per domain rules                   |
+| `pending`             | fully funded              | before deadline | not started  | `confirmed` via payment-driven confirmation                                                 |
+| `pending`             | fully funded              | reached/passed  | not started  | `confirmed` via confirmation/reconciliation; seat retained                                  |
+| `cancelled` / expired | any later payment attempt | passed          | any          | reject server-side; no Payment mutation; no resurrection                                    |
+
+Partial payment does not protect the reservation. Expiry does not mutate Payment amounts and does not decide refund, retention, write-off, Wallet credit, or provider refund — those remain under accepted Payment/cancellation policy and explicit deferred product decisions.
+
+### Late funding, races, and idempotency
+
+- Late funding of a not-fully-funded guest enrollment after `reservationExpiresAt` is rejected server-side.
+- Payment settlement versus expiry is serialized by canonical transaction and revision semantics.
+- Terminal `cancelled` enrollments must never be resurrected to `confirmed` by delayed settlement or reconciliation.
+- Seat capacity and resource claims must be released at most once when terminalization rules allow; scheduler retries must be idempotent.
+
+### Authenticated, guest, and admin enrollment paths
+
+- **Authenticated self-service:** insufficient Wallet → no enrollment and no seat hold.
+- **Guest:** may hold `pending` + seat + claims + `reservationExpiresAt` until fully funded confirmation or canonical expiry.
+- **Administrator-created underfunded confirmed enrollment:** legitimate admin debt; not guest reservation expiry.
+
 ## Payment → confirmation transaction
 
 The implemented architecture is known. Primary confirmation is not an undecided choice between “same transaction or outbox.”
@@ -406,8 +462,13 @@ and the later migration status in
   remains [ADR-0004](./0004-attendance-outcome-and-admin-issue-model.md); slice
   details live in [T32_CANONICAL_ADMIN_AUDIT.md](../T32_CANONICAL_ADMIN_AUDIT.md).
 - **T32.9A.9A** (Individual Booking lifecycle cutover overall, including final
-  integration / production smoke) is **PASS / CLOSED**. Active FINAL CANONICAL
-  CUTOVER stage: **T32.9A.9B**.
+  integration / production smoke for F1–F4) is **PASS / CLOSED**. Active FINAL
+  CANONICAL CUTOVER stage: **T32.9A.9B**.
+- **T32.9A.9A.F5 — Canonical Guest Course Reservation Expiry** is **IN
+  PROGRESS**. F5 was added after the original 9A close when guest
+  CourseEnrollment automatic production expiry was found not yet equivalent to F2
+  lesson expiry. F1–F4 acceptance remains valid. Details and acceptance criteria:
+  [T32_CANONICAL_ADMIN_AUDIT.md](../T32_CANONICAL_ADMIN_AUDIT.md).
 - **T32.9B — Final Legacy Write / Runtime Cleanup** may remove leftover
   implementation only after T32.9A.9E PASS, canonical replacement, and UX
   parity. Unreachable leftover helpers such as old bundled `confirmBooking`,
@@ -434,7 +495,8 @@ ad-hoc product exceptions here.
 | `scheduledAutoCompleteBookings`                 | Removed (legacy Individual Booking completion)                                          |
 | `scheduledReconcileGuestConfirmationMismatches` | Canonical / active                                                                      |
 | `scheduledPurgeExpiredNotifications`            | Canonical / active                                                                      |
-| Guest unpaid reservation expiry scheduler       | `scheduledExpireGuestLessonReservations` / every 5 minutes UTC / Canonical / active (9A.F2 production-smoked) |
+| Guest unpaid reservation expiry scheduler (lesson Booking) | `scheduledExpireGuestLessonReservations` / every 5 minutes UTC / Canonical / active (9A.F2 production-smoked) |
+| Guest unpaid reservation expiry scheduler (CourseEnrollment) | **F5 / IN PROGRESS** — separate bounded path; not the lesson scheduler |
 
 Completion scheduling must not be confused with payment-confirmation
 reconciliation.

@@ -171,9 +171,29 @@ Confirmation is payment-driven. Identity linking, Administrator discretion, Inst
 
 The intended current guest flow is unpaid → pending, then fully funded → confirmed. Existing `payment_required_at_start` mechanisms remain defensive protection for legacy, inconsistent, or exceptional states, including Administrator-created confirmed underpayment. They are not the normal way to approve an unpaid guest request.
 
-Unconfirmed expiration of a still-unpaid pending reservation produces `cancelled` with `reservation_expired`. The production orchestrator is `scheduledExpireGuestLessonReservations` (`every 5 minutes`, UTC); it only discovers candidates and invokes `expire_guest_reservation`, which rechecks lifecycle, deadline, Payment funding, and claim ownership in the authoritative transaction.
+Guest reservation expiry semantics ([ADR-0007](docs/adr/0007-guest-identity-payment-and-confirmation.md)): `reservationExpiresAt` controls unpaid reservation hold and new funding acceptance, not delayed confirmation of an already fully funded pending subject; a fully funded pending subject may still confirm after the reservation deadline when service/course has not started; late funding after the deadline is rejected server-side; fully funded + pending + past deadline must not remain a permanent limbo — reconciliation must confirm when eligible. Canonical transaction guards apply: fully funded → confirmed; not fully funded + deadline reached → eligible for expiry.
 
-Guest reservation expiry semantics ([ADR-0007](docs/adr/0007-guest-identity-payment-and-confirmation.md)): `reservationExpiresAt` controls unpaid reservation hold and new funding acceptance, not delayed confirmation of an already fully funded pending Booking; a fully funded pending Booking may still confirm after the reservation deadline when service has not started; late funding after the deadline is rejected server-side; fully funded + pending + past deadline must not remain a permanent limbo — reconciliation must confirm when eligible.
+### Guest Lesson Booking reservation hold
+
+- `pending` with temporary instructor/time/participant claims.
+- TTL: `min(createdAt + 1 hour, lesson serviceStartsAt)`.
+- Production automatic expiry: `scheduledExpireGuestLessonReservations` (`every 5 minutes`, UTC) discovers bounded lesson candidates and invokes `expire_guest_reservation` for Bookings only. The command rechecks lifecycle, deadline, Payment funding, and claim ownership in the authoritative transaction.
+- Unpaid pending past deadline → `cancelled` with `reservation_expired`.
+
+### Guest CourseEnrollment reservation hold
+
+- `pending` with temporary seat, day, and uniqueness claims (seat consumed at creation).
+- TTL: `min(createdAt + 24 hours, course.startAt)` on `CourseEnrollment.lifecycle.reservationExpiresAt`.
+- Canonical expiry command: `expire_guest_reservation` with CourseEnrollment intent (same command kind as lessons; separate handler path).
+- **Runtime gap (T32.9A.9A.F5):** production bounded automatic discovery/expiry for guest CourseEnrollments is not yet equivalent to lesson F2. Until F5 is **PASS / CLOSED**, a guest `pending` enrollment that is not fully funded and past `reservationExpiresAt` may continue to hold capacity if not explicitly expired. The lesson scheduler does not process CourseEnrollments.
+
+### CourseEnrollment creation paths (financial)
+
+| Path | Insufficient funds / unpaid hold |
+| ---- | -------------------------------- |
+| Authenticated self-service | Command rejected → no enrollment → no seat reservation. |
+| Guest | May exist as `pending` + not fully funded + seat/claims + `reservationExpiresAt` until fully funded → `confirmed` or deadline → canonical expiry → `cancelled`. |
+| Administrator-created | May remain intentionally underfunded under admin rules; not guest reservation expiry. |
 
 Payment settlement versus expiry or cancellation is serialized by canonical transaction and revision semantics. A terminal cancelled subject must never be resurrected to `confirmed` by delayed settlement or reconciliation.
 
@@ -479,7 +499,7 @@ Existing useful screens, information, filters, interactions, and workflows must 
 
 Before removing a legacy frontend or runtime implementation, canonical replacement and UX feature parity must be proven.
 
-Details, the parity inventory, role coverage, and the T32.9A / T32.9B boundary are in [ADR-0008](docs/adr/0008-ux-preservation-during-canonical-migration.md). Current T32.9A.8 / T32.9A.9 (FINAL CANONICAL CUTOVER) status lives in [T32_CANONICAL_ADMIN_AUDIT.md](docs/T32_CANONICAL_ADMIN_AUDIT.md). **T32.9A.9A is PASS / CLOSED** (F1–F4 + final integration / production smoke). **Active stage: T32.9A.9B.** Authoritative production sequence:
+Details, the parity inventory, role coverage, and the T32.9A / T32.9B boundary are in [ADR-0008](docs/adr/0008-ux-preservation-during-canonical-migration.md). Current T32.9A.8 / T32.9A.9 (FINAL CANONICAL CUTOVER) status lives in [T32_CANONICAL_ADMIN_AUDIT.md](docs/T32_CANONICAL_ADMIN_AUDIT.md). **T32.9A.9A is PASS / CLOSED** for the original F1–F4 + final integration / production smoke. **T32.9A.9A.F5** (guest CourseEnrollment reservation expiry) is an active post-close corrective follow-up — **IN PROGRESS**. **Active stage: T32.9A.9B.** Authoritative production sequence:
 
 ```text
 T32.9A.9A — PASS / CLOSED (F1 / F2 / F3 / F4 / final integration smoke)

@@ -16,6 +16,7 @@ Amended: 2026-09-11 — T32.9A.9B.2 **PASS / CLOSED** after production deploy (F
 Amended: 2026-09-11 — T32.9A.9B.3 Canonical Lesson Feedback implemented through 9B.3E isolation/cleanup/integration gate; **READY_FOR_MANUAL_SMOKE** (production deploy + manual acceptance not yet recorded); Chat Homework preserved and out of 9B.3; next sub-slice **T32.9A.9B.4** Stats / Achievements
 Amended: 2026-09-12 — T32.9A.9B.3 **PASS / CLOSED** after production deploy (indexes → Functions → Rules → Hosting) and manual acceptance smoke **PASS**; active 9B sub-slice **T32.9A.9B.4** Stats / Achievements — NEXT; **T32.9A.9P.HW1** Participant-scoped Chat Homework recorded as known parity item (not in ParticipantLessonFeedback scope)
 Amended: 2026-09-12 — T32.9A.9B.4 Stats / Achievements isolation + integration gate (9B.4E) complete; **READY_FOR_MANUAL_SMOKE** (production deploy + authenticated manual smoke not yet recorded). Course metrics remain **T32.9A.9C**. Chat Homework remains **T32.9A.9P.HW1**. 9B.5 is not an accepted roadmap ticket.
+Amended: 2026-09-13 — T32.9A.9A.F5 Canonical Guest Course Reservation Expiry added as a post-close corrective follow-up after a separate guest CourseEnrollment expiry/runtime gap was identified. Existing F1–F4 acceptance remains valid.
 
 Status: historical Admin-runtime audit from 2026-08-30, with later T32.8A–T32.8C and T32.9A/T32.9B migration status below. Findings in this document that describe unpaid Administrator guest approval, missing guest CourseEnrollment confirmation, or identity linking as confirmation are superseded by ADR-0007. Sections below that still describe the 2026-08-30 Admin runtime as fully legacy are historical audit evidence; later migration status in this preamble supersedes them for T32.9A progress.
 
@@ -51,6 +52,7 @@ T32.9 remains split per [ADR-0008](adr/0008-ux-preservation-during-canonical-mig
 | T32.9A.9A.F3                                   | Canonical Multi-Participant Lesson Booking                               | PASS / CLOSED                             |
 | T32.9A.9A.F4                                   | Canonical Multi-Participant Lesson Attendance UX                         | PASS / CLOSED                             |
 | T32.9A.9A final integration / production smoke | 9A close gate after F4                                                   | PASS                                      |
+| T32.9A.9A.F5                                   | Canonical Guest Course Reservation Expiry                                | IN PROGRESS                               |
 | T32.9A.9A                                      | Individual Booking lifecycle cutover (overall)                           | PASS / CLOSED                             |
 | T32.9A.9B                                      | Student Booking Stats / Progress / Recommendations / Reviews Cutover     | IN PROGRESS (active)                      |
 | T32.9A.9B.2                                    | Canonical Participant Progress                                           | PASS / CLOSED                             |
@@ -65,7 +67,9 @@ T32.9 remains split per [ADR-0008](adr/0008-ux-preservation-during-canonical-mig
 | T40                                            | Execute Rehearsed Selective Production Cutover                           | PENDING; after T32.9B                     |
 | T41                                            | Expanded Post-Cutover Verification                                       | PENDING; after T40                        |
 
-Status labels used here: `PASS`, `PASS / CLOSED`, `PASS / DEPLOYED`, `REQUIRED`, `IN PROGRESS`, `PLANNED`, `READY_FOR_MANUAL_SMOKE`, `PENDING`, `NOT CLOSED`. T32.9A.9A (F1–F4 and final integration / production smoke) is **PASS / CLOSED**. The active FINAL CANONICAL CUTOVER stage is **T32.9A.9B**.
+Status labels used here: `PASS`, `PASS / CLOSED`, `PASS / DEPLOYED`, `REQUIRED`, `IN PROGRESS`, `PLANNED`, `READY_FOR_MANUAL_SMOKE`, `PENDING`, `NOT CLOSED`. T32.9A.9A original F1–F4 integration close (including final integration / production smoke) remains **PASS / CLOSED**. **T32.9A.9A.F5** is an active post-close corrective follow-up on guest CourseEnrollment reservation expiry; it does not reopen or invalidate F1–F4. The active FINAL CANONICAL CUTOVER stage is **T32.9A.9B**.
+
+T32.9A.9A remains historically **PASS / CLOSED** for the original Individual Booking F1–F4 cutover. F5 was added after that close when a separate guest CourseEnrollment lifecycle/runtime gap was identified. F5 does not invalidate completed Individual Booking lifecycle work, but must reach **PASS / CLOSED** before final legacy guest CourseEnrollment removal and downstream destructive cutover gates may treat canonical guest course lifecycle as complete.
 
 ### T32.9A.8 — Canonical Courses UX — PASS / CLOSED
 
@@ -87,6 +91,7 @@ T32.9A.9A — Individual Booking lifecycle cutover — PASS / CLOSED
   T32.9A.9A.F3 — Canonical Multi-Participant Lesson Booking
   T32.9A.9A.F4 — Canonical Multi-Participant Lesson Attendance UX
   T32.9A.9A final integration / production smoke
+  T32.9A.9A.F5 — Canonical Guest Course Reservation Expiry — IN PROGRESS (post-close corrective; gates guest CourseEnrollment legacy removal)
 T32.9A.9B — Student Booking Stats / Progress / Recommendations Cutover — IN PROGRESS (active)
          (includes Reviews / Instructor Rating Continuity)
   T32.9A.9B.2 — Canonical Participant Progress — PASS / CLOSED (production smoke 2026-09-11)
@@ -127,7 +132,7 @@ not progress / presentation / feedback data by default.
 
 #### T32.9A.9A — Individual Booking lifecycle cutover — PASS / CLOSED
 
-**T32.9A.9A is PASS / CLOSED** after production final integration smoke (F1 `PASS / DEPLOYED`; F2/F3/F4 `PASS / CLOSED`). The active cutover stage is **T32.9A.9B**.
+**T32.9A.9A is PASS / CLOSED** after production final integration smoke (F1 `PASS / DEPLOYED`; F2/F3/F4 `PASS / CLOSED`). That close covered the original F1–F4 Individual Booking integration gate only. **T32.9A.9A.F5** is a later corrective follow-up for guest CourseEnrollment automatic reservation expiry and does not change the recorded F1–F4 or final smoke outcomes. The active cutover stage is **T32.9A.9B**.
 
 Core lifecycle cutover (authority level) — recorded as PASS at source/production authority level:
 
@@ -629,7 +634,128 @@ F4 is **PASS / CLOSED** after production manual acceptance and final 9A integrat
 
 Gate after F2 + F4 (with F1 `PASS / DEPLOYED` and F3 `PASS / CLOSED` already recorded). Confirms end-to-end individual Booking lifecycle cutover (including guest payment capture, unpaid reservation expiry, multi-participant lesson booking, and per-participant Instructor Attendance) on production smoke paths before 9A closes and 9B begins.
 
-Recorded **PASS** in production (2026-09-10). T32.9A.9A overall is **PASS / CLOSED**; **T32.9A.9B** is the active stage.
+Recorded **PASS** in production (2026-09-10). T32.9A.9A overall remains **PASS / CLOSED** for the original F1–F4 scope; **T32.9A.9B** is the active stage. Guest course reservation automatic expiry is tracked under **T32.9A.9A.F5** (see below).
+
+##### T32.9A.9A.F5 — Canonical Guest Course Reservation Expiry — IN PROGRESS
+
+T32.9A.9A.F5 was added after the original T32.9A.9A production close when a separate guest CourseEnrollment lifecycle/runtime gap was identified. The prior F1–F4 acceptance remains valid. F5 does not invalidate completed Individual Booking lifecycle work, but must reach **PASS / CLOSED** before final legacy CourseEnrollment removal and downstream destructive cutover gates may close.
+
+**Problem (current runtime enforcement gap, not a schema redesign).** Canonical guest CourseEnrollment already supports guest origin, `pending` lifecycle, canonical Payment, authoritative `reservationExpiresAt`, seat reservation, resource claims, payment-driven confirmation, and canonical `expire_guest_reservation` behavior for CourseEnrollment subjects (`expireGuestCourseEnrollmentReservation`). Production automatic discovery and expiry are not yet equivalent to guest Lesson Booking expiry under F2: a guest CourseEnrollment that is `pending`, not fully funded, and past `reservationExpiresAt` may remain active and continue occupying course capacity until explicitly handled if no bounded production scheduler discovers and expires it.
+
+`scheduledExpireGuestLessonReservations` is lesson-Booking-only. It must not be read as handling CourseEnrollments.
+
+**Canonical target flow.**
+
+```text
+Guest CourseEnrollment created
+        ↓
+pending
+reservationExpiresAt set
+Payment created
+seat reserved
+resource claims active
+        ↓
+ ┌─────────────────────────────┐
+ │                             │
+Payment fully funded       deadline reached
+ │                       while not fully funded
+ ▼                             ▼
+canonical confirmation      bounded scheduler
+ │                             ↓
+confirmed                expire_guest_reservation
+                               ↓
+                          cancelled
+                               ↓
+                         claims released
+                               ↓
+                  seat/capacity restored
+                  exactly once when allowed
+```
+
+Preserved invariants:
+
+- Payment remains confirmation authority; identity linking does not confirm; partial payment does not confirm.
+- Scheduler is orchestration only; canonical command owns lifecycle mutation.
+- Fully funded subjects must not be expired by unpaid-reservation expiry.
+- Terminal `cancelled` subjects must never be resurrected.
+- Capacity and resource claims must not be released twice; retries must be idempotent.
+- `reservation deadline != confirmation authority`: a fully funded pending CourseEnrollment after the reservation deadline follows canonical confirmation/reconciliation rules when still eligible; it must not be blindly cancelled only because the deadline passed.
+
+**Reservation deadline / TTL (existing policy — do not invent).**
+
+```text
+Lesson Booking:
+  min(createdAt + GUEST_LESSON_RESERVATION_TTL_MS, serviceStartsAt)   // TTL = 1 hour
+
+CourseEnrollment:
+  min(createdAt + GUEST_COURSE_RESERVATION_TTL_MS, course.startAt)    // TTL = 24 hours
+```
+
+Authoritative field: `CourseEnrollment.lifecycle.reservationExpiresAt`, set at guest enrollment creation via `resolveGuestCourseReservationExpiresAt` (`packages/shared-domain/src/canonical/courseEnrollmentCreation.ts`). Inclusive boundary: `now >= reservationExpiresAt`.
+
+**Three enrollment financial/lifecycle cases (F5 does not redefine admin debt).**
+
+| Case | Behavior |
+| ---- | -------- |
+| Authenticated self-service CourseEnrollment | Insufficient Wallet → command rejected; no enrollment; no seat reservation. No normal unpaid self-service path. |
+| Guest CourseEnrollment | May exist as `pending` + not fully funded + seat reserved + claims active + `reservationExpiresAt` until fully funded → `confirmed` or deadline → canonical expiry → `cancelled` / `reservation_expired` with seat/claim release when domain rules allow. |
+| Admin-created underfunded CourseEnrollment | May intentionally remain financially underfunded under existing canonical admin rules. F5 guest reservation expiry does not apply. |
+
+**Partially funded expiry.** Partial payment does not protect the guest reservation (same unpaid-hold semantics as F2). F5 does not decide refund percentage, retention, write-off, Wallet credit, or provider refund on expiry — expiry/lifecycle and financial resolution remain within already accepted canonical policy. Payment amounts are not mutated by reservation expiry. Broader partially-paid guest cancellation/refund policy remains explicitly deferred per T32.8C.
+
+**Bounded background reads (required implementation shape).** F5 must not scan every CourseEnrollment, every Payment, all unpaid Payments, or perform unbounded collection walks. Expected candidate query shape:
+
+```text
+guest origin + pending + reservationExpiresAt <= now
+```
+
+with bounded page size, bounded candidate limit per invocation, pagination/safe continuation, idempotent reruns, and observable read cost. Align operational metrics with the lesson sweep vocabulary where applicable: `scannedCandidates`, per-candidate outcomes (`expired`, `fully_funded`, `already_ineligible`, `stale`, `invalid_integrity`, `failed`), `truncated`, continuation cursor, and aggregated `pages` per invocation.
+
+**Scheduled idempotency keys.** Deterministic, compact, stable keys within canonical length limits (`buildScheduledCommandIdempotencyKey` pattern). Do not use oversized concatenated keys; a prior production issue involved oversized scheduled idempotency keys.
+
+**Legacy `createGuestCourseEnrollment` gate (required before removal).**
+
+| Artifact | Current classification |
+| -------- | ---------------------- |
+| `functions/src/courses/createGuestCourseEnrollment.ts` | **STILL_REQUIRED** — exported production callable `createGuestCourseEnrollment` (`functions/src/index.ts`) |
+| `src/features/courses/createGuestCourseEnrollmentCallable.ts` | **STILL_REQUIRED** — client invokes legacy callable |
+
+Required order: audit callers → migrate remaining production caller if any → verify equivalent guest course UX → verify canonical Payment/lifecycle/linking → remove legacy callable.
+
+Final invariants:
+
+- Production has exactly one authoritative guest CourseEnrollment creation path.
+- No reachable production guest CourseEnrollment creation path may create an indefinite `pending` reservation without an authoritative reservation deadline.
+
+**F5 acceptance criteria (PASS / CLOSED only when all hold).**
+
+1. Guest canonical CourseEnrollment has authoritative `reservationExpiresAt`.
+2. Expired pending not-fully-funded guest enrollments are discovered automatically in production.
+3. Discovery is bounded and paginated.
+4. Existing canonical expiry command behavior is reused (`expire_guest_reservation` → CourseEnrollment handler).
+5. Fully funded reservations are not expired.
+6. Payment-vs-expiry race is safe.
+7. Terminal cancellation cannot be resurrected.
+8. Seat capacity is restored exactly once where domain rules allow.
+9. Relevant resource claims are released exactly once.
+10. Repeated scheduler runs are idempotent.
+11. No unbounded background read exists.
+12. Read cost is observable.
+13. Scheduled idempotency keys remain within canonical bounds.
+14. Legacy `createGuestCourseEnrollment` reachability is resolved (`REMOVED` or `MIGRATED_AND_REMOVED`).
+15. No active production path can create indefinite guest `pending` enrollment without TTL.
+16. Focused unit/emulator tests pass.
+17. Production deploy succeeds.
+18. Production runtime smoke verifies expected behavior.
+
+**Downstream cutover gate.** Unresolved F5 blocks treating canonical guest course lifecycle as complete for:
+
+- **T32.9A.9P** — guest course payment/expiry/reachability inventory rows and legacy `createGuestCourseEnrollment` classification must not be marked safe-to-remove while F5 is open.
+- **T32.9A.9D0 / T32.9A.9D** — must not delete or assume removal of guest CourseEnrollment legacy fallback/callables until F5 is **PASS / CLOSED**.
+- **T32.9A.9E** — global reachability must not claim complete guest course reservation expiry while F5 is open.
+- Final legacy CourseEnrollment cleanup and **T32.9B** physical removal of `createGuestCourseEnrollment` remain gated on F5 **PASS / CLOSED** (in addition to 9E).
+
+F5 does not block unrelated completed slices (F1–F4, 9B in progress, etc.).
 
 #### Production Booking inventory (ski-school-8f3ca) — PASS
 
@@ -688,9 +814,10 @@ This is **not** a claim that every legacy function in the project was removed �
 | `scheduledAutoCompleteBookings`                 | Removed (source export + production)                                                       |
 | `scheduledReconcileGuestConfirmationMismatches` | Canonical / active                                                                         |
 | `scheduledPurgeExpiredNotifications`            | Canonical / active                                                                         |
-| Guest unpaid reservation expiry scheduler       | `scheduledExpireGuestLessonReservations` — Canonical / active (`every 5 minutes`, UTC; production-smoked under 9A.F2) |
+| Guest unpaid reservation expiry scheduler (lesson Booking) | `scheduledExpireGuestLessonReservations` — Canonical / active (`every 5 minutes`, UTC; production-smoked under 9A.F2) |
+| Guest unpaid reservation expiry scheduler (CourseEnrollment) | **F5 / IN PROGRESS** — bounded production discovery not yet equivalent to F2; separate runtime path from lesson scheduler |
 
-Do not confuse completion scheduling with payment-confirmation reconciliation.
+Do not confuse completion scheduling with payment-confirmation reconciliation. Do not assume the lesson reservation scheduler expires CourseEnrollments.
 
 #### T32.9A.9B — Student Booking Stats / Progress / Recommendations Cutover — IN PROGRESS (active)
 
@@ -1100,7 +1227,7 @@ Separate Course-domain stage after individual-lesson progress cutover (9B). Do n
 
 Purpose: before any destructive legacy data or leftover-implementation cleanup, prove that **every existing useful product capability** has a working canonical or explicitly approved path.
 
-9P is an inventory-and-evidence gate. It does not implement F3, 9B, or 9C. It consumes their PASS evidence plus remaining product surfaces that those slices do not own.
+9P is an inventory-and-evidence gate. It does not implement F3, 9B, 9C, or **T32.9A.9A.F5**. It consumes their PASS evidence plus remaining product surfaces that those slices do not own. While **T32.9A.9A.F5** is not **PASS / CLOSED**, 9P must not mark guest course reservation expiry, legacy `createGuestCourseEnrollment` removal, or global guest-course lifecycle parity as complete.
 
 Mandatory inventory (one row per capability; fill during 9P, do not invent PASS here):
 
@@ -1230,6 +1357,8 @@ ambiguous records   = 0
 
 9D0 PASS is required before production 9D. A successful T38 empty-database rehearsal does **not** substitute for 9D0.
 
+While **T32.9A.9A.F5** is not **PASS / CLOSED**, 9D0 must not rehearse deletion of guest CourseEnrollment legacy callables (`createGuestCourseEnrollment`) or assume canonical guest course automatic expiry is production-complete.
+
 #### T32.9A.9D — Selective Destructive Legacy Data Cleanup — PENDING
 
 9D means **selective destructive leftover-legacy data cleanup**. It does **not** mean:
@@ -1275,9 +1404,11 @@ Those 11 rows may be deleted in 9D **only if** the 9D0 manifest still classifies
 
 If 9D is held for a production maintenance window, that window is T40 and must execute this same rehearsed manifest. Do not run two independent deletion passes.
 
+While **T32.9A.9A.F5** is not **PASS / CLOSED**, 9D must not remove remaining guest CourseEnrollment legacy fallback or declare destructive cleanup safe on the assumption that canonical guest course lifecycle (including automatic bounded expiry) is complete.
+
 #### T32.9A.9E — Canonical Authority / Reachability Gate — PENDING
 
-Final integration gate before T32.9B. 9E uses 9P inventory results: every 9P `PASS` row must still be reachable after 9D. 9E is not a substitute for 9P (9P is pre-deletion); 9E is post-9D proof that authority and product journeys still hold.
+Final integration gate before T32.9B. 9E uses 9P inventory results: every 9P `PASS` row must still be reachable after 9D. 9E is not a substitute for 9P (9P is pre-deletion); 9E is post-9D proof that authority and product journeys still hold. **T32.9A.9A.F5** must be **PASS / CLOSED** before 9E may claim complete guest course reservation expiry reachability or authorize removal of `createGuestCourseEnrollment`.
 
 ##### Technical reachability
 

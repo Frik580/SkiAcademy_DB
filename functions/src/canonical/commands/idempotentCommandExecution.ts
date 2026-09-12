@@ -69,6 +69,7 @@ export interface ExecuteAuthoritativeIdempotentCanonicalCommandInput<Kind extend
   readonly executor: CanonicalTransactionExecutor;
   readonly revisionTarget?: IdempotentCommandRevisionTarget;
   readonly handler: AuthoritativeIdempotentCanonicalCommandHandler<Kind>;
+  readonly onSettled?: (observation: IdempotentCommandExecutionObservation<Kind>) => void;
 }
 
 export interface ExecuteIdempotentCanonicalCommandInput<Kind extends CommandKind> {
@@ -81,6 +82,12 @@ export interface ExecuteIdempotentCanonicalCommandInput<Kind extends CommandKind
    * When true, a successful result requires staged audit/outbox via planAuditOutbox.
    */
   readonly requireAuditOnSuccess?: boolean;
+  readonly onSettled?: (observation: IdempotentCommandExecutionObservation<Kind>) => void;
+}
+
+export interface IdempotentCommandExecutionObservation<Kind extends CommandKind> {
+  readonly result: CommandResult<Kind>;
+  readonly replayed: boolean;
 }
 
 function completionStateForResult(
@@ -131,13 +138,20 @@ export async function executeAuthoritativeIdempotentCanonicalCommand<Kind extend
 export async function executeIdempotentCanonicalCommand<Kind extends CommandKind>(
   input: ExecuteIdempotentCanonicalCommandInput<Kind>
 ): Promise<CommandResult<Kind>> {
-  const { envelope, environment, executor, revisionTarget, handler, requireAuditOnSuccess } =
-    input;
+  const {
+    envelope,
+    environment,
+    executor,
+    revisionTarget,
+    handler,
+    requireAuditOnSuccess,
+    onSettled,
+  } = input;
   const identity = resolveCommandIdempotencyIdentity(envelope);
   const idempotencyPath = toTransactionPath(identity.recordPath);
 
   try {
-    return await executor.runAtomic({
+    const observation = await executor.runAtomic<IdempotentCommandExecutionObservation<Kind>>({
       correlationId: envelope.context.correlationId,
       run: async (session) => {
         const idempotencyRead = await session.tx.get({ path: idempotencyPath });
@@ -160,7 +174,10 @@ export async function executeIdempotentCanonicalCommand<Kind extends CommandKind
             throw idempotencyConflictError(envelope);
           }
 
-          return fromStoredCommandResult(record.result, envelope.kind);
+          return {
+            result: fromStoredCommandResult(record.result, envelope.kind),
+            replayed: true,
+          };
         }
 
         if (revisionTarget !== undefined) {
@@ -223,11 +240,7 @@ export async function executeIdempotentCanonicalCommand<Kind extends CommandKind
           });
         }
 
-        if (
-          result.status === 'success' &&
-          requireAuditOnSuccess &&
-          auditPlan === undefined
-        ) {
+        if (result.status === 'success' && requireAuditOnSuccess && auditPlan === undefined) {
           throw new CanonicalCommandError('internal', {
             correlationId: envelope.context.correlationId,
           });
@@ -254,12 +267,20 @@ export async function executeIdempotentCanonicalCommand<Kind extends CommandKind
           session.tx.create({ path: idempotencyPath }, record);
         }
 
-        return result;
+        return { result, replayed: false };
       },
     });
+    onSettled?.(observation);
+    return observation.result;
   } catch (error) {
     if (error instanceof CanonicalCommandError) {
-      return commandErrorResult(envelope.kind, envelope.context.correlationId, error.toTransport());
+      const result = commandErrorResult(
+        envelope.kind,
+        envelope.context.correlationId,
+        error.toTransport()
+      );
+      onSettled?.({ result, replayed: false });
+      return result;
     }
     throw error;
   }

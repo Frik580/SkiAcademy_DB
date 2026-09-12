@@ -8,8 +8,8 @@ import {
 } from '@ski-academy/shared-domain';
 import {
   BOOKING_ATTENDANCE_OUTCOME_SWEEP_DEADLINE,
-  BOOKING_ATTENDANCE_OUTCOME_SWEEP_LOOKBACK_MS,
   BOOKING_ATTENDANCE_OUTCOME_SWEEP_MAX_CANDIDATES,
+  BOOKING_ATTENDANCE_OUTCOME_SWEEP_MAX_DOCS,
   BOOKING_ATTENDANCE_OUTCOME_SWEEP_PAGE_SIZE,
   classifyResolveAttendanceOutcomeCommandResult,
   resolveLessonBookingAttendanceSweepDeadline,
@@ -27,7 +27,7 @@ describe('lesson booking attendance outcome sweep mapping', () => {
   it('keeps discovery bounded and shorter than an unbounded history drain', () => {
     expect(BOOKING_ATTENDANCE_OUTCOME_SWEEP_PAGE_SIZE).toBe(25);
     expect(BOOKING_ATTENDANCE_OUTCOME_SWEEP_MAX_CANDIDATES).toBe(100);
-    expect(BOOKING_ATTENDANCE_OUTCOME_SWEEP_LOOKBACK_MS).toBe(7 * 24 * 60 * 60 * 1_000);
+    expect(BOOKING_ATTENDANCE_OUTCOME_SWEEP_MAX_DOCS).toBe(400);
     expect(BOOKING_ATTENDANCE_OUTCOME_SWEEP_MAX_CANDIDATES).toBeGreaterThanOrEqual(
       BOOKING_ATTENDANCE_OUTCOME_SWEEP_PAGE_SIZE
     );
@@ -43,7 +43,19 @@ describe('lesson booking attendance outcome sweep mapping', () => {
     ).toBe(BOOKING_ATTENDANCE_OUTCOME_SWEEP_DEADLINE.outcome);
     expect(
       resolveLessonBookingAttendanceSweepDeadline({
+        now: timestampFromDate(new Date('2026-01-16T09:59:59.999Z')),
+        endsAt,
+      })
+    ).toBe(BOOKING_ATTENDANCE_OUTCOME_SWEEP_DEADLINE.outcome);
+    expect(
+      resolveLessonBookingAttendanceSweepDeadline({
         now: timestampFromDate(new Date('2026-01-16T10:00:00.000Z')),
+        endsAt,
+      })
+    ).toBe(BOOKING_ATTENDANCE_OUTCOME_SWEEP_DEADLINE.instructorWindow);
+    expect(
+      resolveLessonBookingAttendanceSweepDeadline({
+        now: timestampFromDate(new Date('2026-01-16T10:00:00.001Z')),
         endsAt,
       })
     ).toBe(BOOKING_ATTENDANCE_OUTCOME_SWEEP_DEADLINE.instructorWindow);

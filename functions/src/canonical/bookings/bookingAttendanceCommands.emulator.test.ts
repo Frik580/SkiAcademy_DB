@@ -32,6 +32,15 @@ import { createProductionCanonicalCommands } from '../commands/canonicalCommands
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
 import { seedLessonPricingSettingsFixture } from '../../../testSupport/lessonPricingSettingsFixture';
 import { sweepLessonBookingAttendanceOutcomes } from './bookingAttendanceOutcomeSweep';
+import {
+  backfillLessonBookingAttendanceOutcomeWork,
+  reconcileLessonBookingAttendanceOutcomeWork,
+} from './bookingAttendanceOutcomeWorkSync';
+import {
+  BookingAttendanceOutcomeWorkSchema,
+  parseBookingAttendanceOutcomeWork,
+  resolveLessonBookingAttendanceEnvelope,
+} from './bookingAttendanceOutcomeWork';
 
 const PROJECT_ID = 'ski-academy-attendance-emulator-test';
 const correlationId = CorrelationIdSchema.parse('correlation_attendance_emulator_01');
@@ -70,6 +79,7 @@ const COLLECTIONS_TO_CLEAR = [
   'command_idempotency',
   'admin_issues',
   'attendance',
+  'booking_attendance_outcome_work',
 ] as const;
 
 let app: App;
@@ -120,7 +130,7 @@ function accountContext(
   };
 }
 
-    function recordEnvelope(
+function recordEnvelope(
   idempotencyKey: string,
   attendanceStatus: 'present' | 'absent',
   input: {
@@ -384,6 +394,14 @@ function isoAfterAutomationFallback(interval: {
     BOOKING_INSTRUCTOR_ATTENDANCE_WINDOW_MS
   );
   return isoFromTimestamp(addMillisecondsToCanonicalTimestamp(fallbackEnd, 1));
+}
+
+function isoAtAutomationFallback(interval: {
+  endsAt: { seconds: number; nanoseconds: number };
+}): string {
+  return isoFromTimestamp(
+    addMillisecondsToCanonicalTimestamp(interval.endsAt, BOOKING_INSTRUCTOR_ATTENDANCE_WINDOW_MS)
+  );
 }
 
 async function createConfirmedBooking(
@@ -1132,8 +1150,11 @@ describe.skipIf(!runsOnFirestoreEmulator)('bookingAttendanceCommands.emulator', 
     expect(bookingAfter?.lifecycle.status).toBe('completed');
     const occurrenceId = bookingAfter?.occurrence.occurrenceId;
     expect(
-      (await firestore.doc(`attendance/${await attendanceIdFor(occurrenceId, participantTwoId)}`).get())
-        .data()?.attendanceStatus
+      (
+        await firestore
+          .doc(`attendance/${await attendanceIdFor(occurrenceId, participantTwoId)}`)
+          .get()
+      ).data()?.attendanceStatus
     ).toBe('absent');
     expect(
       (
@@ -1207,8 +1228,14 @@ describe.skipIf(!runsOnFirestoreEmulator)('bookingAttendanceCommands.emulator', 
       'confirmed'
     );
 
+    await reconcileLessonBookingAttendanceOutcomeWork(
+      firestore,
+      bookingId,
+      new Date(isoFromTimestamp(interval.endsAt))
+    );
     const result = await sweepLessonBookingAttendanceOutcomes(firestore, {
-      now: new Date(isoAfterEndsAt(interval)),
+      projectionReady: true,
+      now: new Date(isoFromTimestamp(interval.endsAt)),
     });
     expect(result.scannedCandidates).toBeGreaterThan(0);
     expect((await firestore.doc(`bookings/${bookingId}`).get()).data()?.lifecycle.status).toBe(
@@ -1222,7 +1249,14 @@ describe.skipIf(!runsOnFirestoreEmulator)('bookingAttendanceCommands.emulator', 
     await freezeServiceParty(setupCommands);
     const interval = await lessonInterval();
 
+    await reconcileLessonBookingAttendanceOutcomeWork(
+      firestore,
+      bookingId,
+      new Date(isoAfterEndsAt(interval))
+    );
+
     const beforeWindowResult = await sweepLessonBookingAttendanceOutcomes(firestore, {
+      projectionReady: true,
       now: new Date(isoAfterEndsAt(interval)),
     });
     const beforeWindowOutcome = beforeWindowResult.outcomes.find(
@@ -1239,8 +1273,29 @@ describe.skipIf(!runsOnFirestoreEmulator)('bookingAttendanceCommands.emulator', 
       )
     ).toHaveLength(0);
 
+    const quietWindowResult = await sweepLessonBookingAttendanceOutcomes(firestore, {
+      projectionReady: true,
+      now: new Date(isoAfterEndsAt(interval)),
+    });
+    expect(quietWindowResult.candidateDocsRead).toBe(0);
+    expect(quietWindowResult.idempotencyHits).toBe(0);
+
+    const beforeExactWindowResult = await sweepLessonBookingAttendanceOutcomes(firestore, {
+      projectionReady: true,
+      now: new Date(
+        canonicalTimestampToEpochMs(
+          addMillisecondsToCanonicalTimestamp(
+            interval.endsAt,
+            BOOKING_INSTRUCTOR_ATTENDANCE_WINDOW_MS
+          )
+        ) - 1
+      ),
+    });
+    expect(beforeExactWindowResult.workCandidatesSelected).toBe(0);
+
     const afterWindowResult = await sweepLessonBookingAttendanceOutcomes(firestore, {
-      now: new Date(isoAfterAutomationFallback(interval)),
+      projectionReady: true,
+      now: new Date(isoAtAutomationFallback(interval)),
     });
     const afterWindowOutcome = afterWindowResult.outcomes.find(
       (entry) => entry.bookingId === bookingId
@@ -1258,5 +1313,185 @@ describe.skipIf(!runsOnFirestoreEmulator)('bookingAttendanceCommands.emulator', 
         (doc) => doc.data().kind === 'missing_attendance'
       )
     ).toHaveLength(1);
+
+    const quietAfterIssueResult = await sweepLessonBookingAttendanceOutcomes(firestore, {
+      projectionReady: true,
+      now: new Date(isoAtAutomationFallback(interval)),
+    });
+    expect(quietAfterIssueResult.candidateDocsRead).toBe(0);
+    expect(quietAfterIssueResult.idempotencyHits).toBe(0);
   }, 30_000);
+
+  it('empty attendance work set performs one bounded empty query', async () => {
+    const result = await sweepLessonBookingAttendanceOutcomes(firestore, {
+      projectionReady: true,
+      now: new Date('2026-01-15T10:00:00.000Z'),
+    });
+
+    expect(result.candidateDocsRead).toBe(0);
+    expect(result.workCandidatesSelected).toBe(0);
+    expect(result.idempotencyHits).toBe(0);
+    expect(result.idempotencyMisses).toBe(0);
+    expect(result.pages).toBe(1);
+    expect(result.truncated).toBe(false);
+  }, 30_000);
+
+  it('keeps the legacy seven-day candidate query active until projection cutover', async () => {
+    const setupCommands = createCommands('2026-01-01T00:00:00.000Z');
+    await createConfirmedBooking(setupCommands);
+    await freezeServiceParty(setupCommands);
+    const interval = await lessonInterval();
+
+    const result = await sweepLessonBookingAttendanceOutcomes(firestore, {
+      projectionReady: false,
+      now: new Date(isoAfterEndsAt(interval)),
+    });
+
+    expect(result.candidateSource).toBe('legacy_cutover');
+    expect(result.candidateDocsRead).toBe(1);
+    expect(result.outcomes).toEqual([
+      expect.objectContaining({ bookingId, deadlineId: 'outcome', outcome: 'applied' }),
+    ]);
+  }, 30_000);
+
+  it('legacy cutover fallback promotes partially backfilled outcome work after +24h', async () => {
+    const setupCommands = createCommands('2026-01-01T00:00:00.000Z');
+    await createConfirmedBooking(setupCommands);
+    await freezeServiceParty(setupCommands);
+    const interval = await lessonInterval();
+    await reconcileLessonBookingAttendanceOutcomeWork(
+      firestore,
+      bookingId,
+      new Date(isoAfterEndsAt(interval))
+    );
+
+    const result = await sweepLessonBookingAttendanceOutcomes(firestore, {
+      projectionReady: false,
+      now: new Date(isoAtAutomationFallback(interval)),
+    });
+
+    expect(result.candidateSource).toBe('legacy_cutover');
+    expect(result.outcomes).toEqual([
+      expect.objectContaining({
+        bookingId,
+        deadlineId: 'instructor_window',
+        outcome: 'applied',
+      }),
+    ]);
+    const rawWork = (
+      await firestore.doc(`booking_attendance_outcome_work/${bookingId}`).get()
+    ).data();
+    expect(rawWork).toMatchObject({ status: 'complete' });
+    const work = parseBookingAttendanceOutcomeWork(rawWork);
+    expect(work?.status).toBe('complete');
+    expect(
+      (await firestore.collection('admin_issues').get()).docs.filter(
+        (document) => document.data().kind === 'missing_attendance'
+      )
+    ).toHaveLength(1);
+  }, 30_000);
+
+  it('backfill reconciliation resumes at instructor_window after an outcome idempotency hit', async () => {
+    const setupCommands = createCommands('2026-01-01T00:00:00.000Z');
+    await createConfirmedBooking(setupCommands);
+    await freezeServiceParty(setupCommands);
+    const interval = await lessonInterval();
+    const afterEndsAt = isoAfterEndsAt(interval);
+    const commands = createCommands(afterEndsAt);
+
+    expect(
+      (
+        await commands.execute(
+          resolveLessonBookingAttendanceEnvelope({
+            bookingId,
+            occurrenceId: initialOccurrenceId,
+            deadlineId: 'outcome',
+          })
+        )
+      ).status
+    ).toBe('success');
+    await reconcileLessonBookingAttendanceOutcomeWork(firestore, bookingId, new Date(afterEndsAt));
+
+    const work = parseBookingAttendanceOutcomeWork(
+      (await firestore.doc(`booking_attendance_outcome_work/${bookingId}`).get()).data()
+    );
+    expect(work?.status).toBe('pending');
+    if (work?.status === 'pending') {
+      expect(work.deadlineId).toBe('instructor_window');
+      expect(work.dueAt).toEqual(
+        addMillisecondsToCanonicalTimestamp(
+          interval.endsAt,
+          BOOKING_INSTRUCTOR_ATTENDANCE_WINDOW_MS
+        )
+      );
+    }
+  }, 30_000);
+
+  it('backfill retires confirmed bookings outside the legacy seven-day window', async () => {
+    const setupCommands = createCommands('2026-01-01T00:00:00.000Z');
+    await createConfirmedBooking(setupCommands);
+    await freezeServiceParty(setupCommands);
+
+    await backfillLessonBookingAttendanceOutcomeWork(firestore, {
+      maxBookings: 100,
+      now: new Date('2026-02-15T00:00:00.000Z'),
+    });
+
+    const work = parseBookingAttendanceOutcomeWork(
+      (await firestore.doc(`booking_attendance_outcome_work/${bookingId}`).get()).data()
+    );
+    expect(work?.status).toBe('complete');
+    if (work?.status === 'complete') {
+      expect(work.completedReason).toBe('legacy_lookback_expired');
+    }
+  }, 30_000);
+
+  it('drains more than 100 due rows across runs without permanent starvation', async () => {
+    const dueAt = timestampFromDate(new Date('2026-01-15T10:00:00.000Z'));
+    const batch = firestore.batch();
+    for (let index = 0; index < 101; index += 1) {
+      const suffix = index.toString().padStart(3, '0');
+      const dueBookingId = BookingIdSchema.parse(`booking_attendance_due_${suffix}`);
+      batch.set(
+        firestore.doc(`booking_attendance_outcome_work/${dueBookingId}`),
+        BookingAttendanceOutcomeWorkSchema.parse({
+          bookingId: dueBookingId,
+          occurrenceId: `occurrence_attendance_due_${suffix}`,
+          sourceScheduleRevision: 1,
+          sourceBookingRevision: 1,
+          sourceLifecycleStatus: 'confirmed',
+          sourceEndsAt: dueAt,
+          workRevision: 1,
+          updatedAt: dueAt,
+          status: 'pending',
+          deadlineId: 'outcome',
+          dueAt,
+          attemptCount: 0,
+        })
+      );
+    }
+    await batch.commit();
+
+    const first = await sweepLessonBookingAttendanceOutcomes(firestore, {
+      projectionReady: true,
+      now: new Date('2026-01-15T10:00:00.001Z'),
+    });
+    const second = await sweepLessonBookingAttendanceOutcomes(firestore, {
+      projectionReady: true,
+      now: new Date('2026-01-15T10:00:00.001Z'),
+    });
+
+    expect(first.workCandidatesSelected).toBe(100);
+    expect(first.truncated).toBe(true);
+    expect(second.workCandidatesSelected).toBe(1);
+    expect(second.truncated).toBe(false);
+    expect(
+      (
+        await firestore
+          .collection('booking_attendance_outcome_work')
+          .where('status', '==', 'pending')
+          .get()
+      ).empty
+    ).toBe(true);
+  }, 120_000);
 });

@@ -1,6 +1,7 @@
 import { defineSecret } from 'firebase-functions/params';
 import { onCall } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
+import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { getAdminFirestore } from './adminFirestore';
 import { createGuestCourseEnrollmentHandler } from './courses/createGuestCourseEnrollment';
 import { enrollInCourseHandler } from './courses/enrollInCourse';
@@ -31,6 +32,7 @@ import { createQueryParticipantLessonFeedbackReadModelsHandler } from './canonic
 import { sweepGuestConfirmationLifecycleMismatches } from './canonical/guestConfirmation/guestConfirmationReconciliationSweep';
 import { sweepExpiredGuestLessonReservations } from './canonical/bookings/guestLessonReservationExpirySweep';
 import { sweepLessonBookingAttendanceOutcomes } from './canonical/bookings/bookingAttendanceOutcomeSweep';
+import { syncLessonBookingAttendanceOutcomeWorkForBookingWrite } from './canonical/bookings/bookingAttendanceOutcomeWorkSync';
 
 export { optimizeImage } from './images/optimizeImageHttp';
 
@@ -140,9 +142,8 @@ export const queryLessonPricingSettingsReadModel = onCall(
   async (request) => createQueryLessonPricingSettingsReadModelHandler(getAdminFirestore())(request)
 );
 
-export const queryInstructorReviewReadModels = onCall(
-  CANONICAL_CALLABLE_OPTIONS,
-  async (request) => createQueryInstructorReviewReadModelsHandler(getAdminFirestore())(request)
+export const queryInstructorReviewReadModels = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>
+  createQueryInstructorReviewReadModelsHandler(getAdminFirestore())(request)
 );
 
 export const queryParticipantProgressReadModels = onCall(
@@ -228,8 +229,47 @@ export const scheduledResolveLessonBookingAttendanceOutcomes = onSchedule(
   },
   async () => {
     const result = await sweepLessonBookingAttendanceOutcomes(getAdminFirestore());
-    console.log(
-      `Resolved lesson booking attendance outcomes scanned ${result.scannedCandidates} candidate(s).`
+    console.log('Lesson booking attendance outcome sweep completed.', {
+      candidateSource: result.candidateSource,
+      candidateDocsRead: result.candidateDocsRead,
+      workCandidatesSelected: result.workCandidatesSelected,
+      idempotencyHits: result.idempotencyHits,
+      idempotencyMisses: result.idempotencyMisses,
+      outcomeDeadlineCandidates: result.outcomeDeadlineCandidates,
+      instructorWindowCandidates: result.instructorWindowCandidates,
+      resolved: result.resolved,
+      issuesOpened: result.issuesOpened,
+      futureCandidatesSkipped: result.futureCandidatesSkipped,
+      pages: result.pages,
+      truncated: result.truncated,
+    });
+  }
+);
+
+export const syncLessonBookingAttendanceOutcomeWork = onDocumentWritten(
+  {
+    document: 'bookings/{bookingId}',
+    region: 'us-central1',
+    cpu: 1,
+    memory: '256MiB',
+    maxInstances: 10,
+    retry: true,
+  },
+  async (event) => {
+    const beforeData = event.data?.before.exists
+      ? (event.data.before.data() as Record<string, unknown>)
+      : undefined;
+    const afterData = event.data?.after.exists
+      ? (event.data.after.data() as Record<string, unknown>)
+      : undefined;
+    const outcome = await syncLessonBookingAttendanceOutcomeWorkForBookingWrite(
+      getAdminFirestore(),
+      {
+        rawBookingId: event.params.bookingId,
+        beforeData,
+        afterData,
+      }
     );
+    console.log('Lesson booking attendance outcome work synchronized.', { outcome });
   }
 );

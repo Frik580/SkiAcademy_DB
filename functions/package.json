@@ -7,6 +7,7 @@
   },
   "scripts": {
     "build": "npm --prefix ../packages/shared-domain run build && node scripts/syncSharedDomain.cjs && tsc",
+    "backfill:attendance-outcome-work": "npm run build && node scripts/backfillBookingAttendanceOutcomeWork.cjs",
     "deploy": "firebase deploy --only functions"
   },
   "dependencies": {

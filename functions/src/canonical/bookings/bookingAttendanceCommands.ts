@@ -8,6 +8,7 @@ import {
   ATTENDANCE_IDENTITY_STRATEGY_VERSION,
   attendancePaymentConflictIdentity,
   commandSuccessResult,
+  compareCanonicalTimestamps,
   deriveIndividualBookingAttendanceOutcome,
   evaluateBookingOutcomeCalculator,
   missingBookingAttendanceIssueIdentity,
@@ -61,8 +62,30 @@ import {
   parseBooking,
   toFirestoreWritePayload,
 } from './bookingStore';
-import type { CanonicalAtomicTransactionSession } from '../transactions';
+import { CANONICAL_FIELD_DELETE, type CanonicalAtomicTransactionSession } from '../transactions';
 import { resolveCourseEnrollmentAttendanceOutcomeHandler } from '../courses/courseEnrollmentAttendanceCommands';
+import {
+  BOOKING_ATTENDANCE_OUTCOME_SWEEP_DEADLINE,
+  bookingAttendanceOutcomeWorkPath,
+  completeBookingAttendanceOutcomeWork,
+  parseBookingAttendanceOutcomeWork,
+  pendingBookingAttendanceOutcomeWork,
+  resolveLessonBookingAttendanceEnvelope,
+  type BookingAttendanceOutcomeWork,
+  type PendingBookingAttendanceOutcomeWork,
+} from './bookingAttendanceOutcomeWork';
+
+export interface ResolveBookingAttendanceOutcomeObservation {
+  readonly replayed: boolean;
+  readonly resolved: boolean;
+  readonly issuesOpened: number;
+}
+
+export interface BookingAttendanceCommandObservers {
+  readonly onResolveAttendanceOutcome?: (
+    observation: ResolveBookingAttendanceOutcomeObservation
+  ) => void;
+}
 
 interface CommandMetadata {
   readonly commandId: ReturnType<typeof resolveCommandIdempotencyIdentity>['commandKey'];
@@ -528,7 +551,8 @@ function recordBookingAttendanceHandler(
 function resolveAttendanceOutcomeHandler(
   envelope: CommandEnvelope<'resolve_attendance_outcome'>,
   environment: CommandExecutionEnvironment,
-  executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
+  executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor'],
+  observers: BookingAttendanceCommandObservers = {}
 ): Promise<CommandResult<'resolve_attendance_outcome'>> {
   if (envelope.intent.subjectKind === 'course_enrollment') {
     return resolveCourseEnrollmentAttendanceOutcomeHandler(envelope, environment, executor);
@@ -553,6 +577,8 @@ function resolveAttendanceOutcomeHandler(
     mutationKind: 'create' | 'update';
     documentPath: string;
   }> = [];
+  let pendingWork: PendingBookingAttendanceOutcomeWork | undefined;
+  let plannedWork: BookingAttendanceOutcomeWork | undefined;
   let auditSummary: string | undefined;
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'resolve_attendance_outcome'> = {
@@ -560,6 +586,8 @@ function resolveAttendanceOutcomeHandler(
       plannedBooking = undefined;
       plannedBookingRevision = undefined;
       plannedIssues = [];
+      pendingWork = undefined;
+      plannedWork = undefined;
       auditSummary = undefined;
 
       const bookingRead = await session.tx.get({ path: bookingDocumentPath });
@@ -573,6 +601,45 @@ function resolveAttendanceOutcomeHandler(
       }
       booking = parsedBooking;
 
+      const now = timestampFromDate(environment.clock.decidedAt());
+      if (actorMode === 'system') {
+        const workDocumentPath = bookingAttendanceOutcomeWorkPath(booking.bookingId);
+        const workRead = await session.tx.get({ path: workDocumentPath });
+        session.plan.planRead({ path: workDocumentPath, category: 'other' });
+        const work = parseBookingAttendanceOutcomeWork(workRead.exists ? workRead.data : undefined);
+        if (workRead.exists && (!work || work.status !== 'pending')) {
+          throw new CanonicalCommandError('invalid_transition', {
+            correlationId: envelope.context.correlationId,
+            details: { resourceKind: 'booking', reason: 'unsupported' },
+          });
+        }
+        if (work?.status === 'pending') {
+          if (
+            work.bookingId !== booking.bookingId ||
+            work.occurrenceId !== booking.occurrence.occurrenceId ||
+            work.sourceScheduleRevision !== booking.occurrence.scheduleRevision ||
+            compareCanonicalTimestamps(now, work.dueAt) < 0
+          ) {
+            throw new CanonicalCommandError('invalid_transition', {
+              correlationId: envelope.context.correlationId,
+              details: { resourceKind: 'booking', reason: 'unsupported' },
+            });
+          }
+          const expectedEnvelope = resolveLessonBookingAttendanceEnvelope({
+            bookingId: booking.bookingId,
+            occurrenceId: booking.occurrence.occurrenceId,
+            deadlineId: work.deadlineId,
+          });
+          if (expectedEnvelope.context.idempotencyKey !== envelope.context.idempotencyKey) {
+            throw new CanonicalCommandError('validation', {
+              correlationId: envelope.context.correlationId,
+              details: { field: 'idempotencyKey', reason: 'conflict' },
+            });
+          }
+          pendingWork = work;
+        }
+      }
+
       if (actorMode === 'administrator') {
         assertExpectedRevision({
           correlationId: envelope.context.correlationId,
@@ -582,7 +649,6 @@ function resolveAttendanceOutcomeHandler(
         });
       }
 
-      const now = timestampFromDate(environment.clock.decidedAt());
       const attendancesByParticipantId = new Map<ParticipantId, Attendance>();
       for (const participantId of booking.occurrence.serviceParty.participantIds) {
         const attendance = await readAttendanceForParticipant(session, booking, participantId);
@@ -677,6 +743,33 @@ function resolveAttendanceOutcomeHandler(
           });
         }
       }
+
+      if (pendingWork) {
+        if (
+          booking.lifecycle.status === 'confirmed' &&
+          pendingWork.deadlineId === BOOKING_ATTENDANCE_OUTCOME_SWEEP_DEADLINE.outcome &&
+          !plannedBooking
+        ) {
+          plannedWork = pendingBookingAttendanceOutcomeWork(booking, {
+            deadlineId: BOOKING_ATTENDANCE_OUTCOME_SWEEP_DEADLINE.instructorWindow,
+            workRevision: pendingWork.workRevision + 1,
+            updatedAt: now,
+          });
+        } else {
+          const workBooking = plannedBooking ?? booking;
+          plannedWork = completeBookingAttendanceOutcomeWork(workBooking, {
+            completedReason: plannedBooking ? 'lifecycle_ineligible' : 'deadline_processed',
+            workRevision: pendingWork.workRevision + 1,
+            updatedAt: now,
+          });
+        }
+        session.plan.planMutation({
+          path: bookingAttendanceOutcomeWorkPath(booking.bookingId),
+          kind: 'update',
+          category: 'other',
+          estimatedPayloadBytes: 512,
+        });
+      }
     },
     planAuditOutbox: async () =>
       buildResolveAttendanceOutcomeAuditPlan({
@@ -711,6 +804,21 @@ function resolveAttendanceOutcomeHandler(
           );
         }
       }
+      if (plannedWork) {
+        const workUpdate: Record<string, unknown> =
+          plannedWork.status === 'complete'
+            ? {
+                ...plannedWork,
+                deadlineId: CANONICAL_FIELD_DELETE,
+                dueAt: CANONICAL_FIELD_DELETE,
+                attemptCount: CANONICAL_FIELD_DELETE,
+              }
+            : plannedWork;
+        session.tx.update(
+          { path: bookingAttendanceOutcomeWorkPath(booking.bookingId) },
+          workUpdate
+        );
+      }
       return commandSuccessResult(envelope.kind, envelope.context.correlationId);
     },
   };
@@ -720,16 +828,27 @@ function resolveAttendanceOutcomeHandler(
     environment,
     executor,
     handler,
+    onSettled: ({ replayed, result }) => {
+      const applied = !replayed && result.status === 'success';
+      observers.onResolveAttendanceOutcome?.({
+        replayed,
+        resolved: applied && plannedBooking !== undefined,
+        issuesOpened: !applied
+          ? 0
+          : plannedIssues.filter((entry) => entry.mutationKind === 'create').length,
+      });
+    },
   });
 }
 
 export function createBookingAttendanceCommandHandlers(
-  executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
+  executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor'],
+  observers: BookingAttendanceCommandObservers = {}
 ): Pick<CommandHandlerMap, 'record_booking_attendance' | 'resolve_attendance_outcome'> {
   return {
     record_booking_attendance: (envelope, environment) =>
       recordBookingAttendanceHandler(envelope, environment, executor),
     resolve_attendance_outcome: (envelope, environment) =>
-      resolveAttendanceOutcomeHandler(envelope, environment, executor),
+      resolveAttendanceOutcomeHandler(envelope, environment, executor, observers),
   };
 }

@@ -103,6 +103,15 @@
       ]
     },
     {
+      "collectionGroup": "booking_attendance_outcome_work",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "dueAt.seconds", "order": "ASCENDING" },
+        { "fieldPath": "bookingId", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "bookings",
       "queryScope": "COLLECTION",
       "fields": [

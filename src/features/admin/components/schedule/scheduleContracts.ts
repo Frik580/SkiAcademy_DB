@@ -20,6 +20,8 @@ export type ScheduleBooking = Pick<
   | 'isGuest'
   | 'instructorId'
   | 'isDeleted'
+  | 'attendanceOverdue'
+  | 'missingAttendanceCount'
 >;
 
 export type ScheduleClient = Pick<UserProfile, 'uid' | 'displayName' | 'avatarUrl' | 'email'>;

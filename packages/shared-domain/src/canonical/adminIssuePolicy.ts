@@ -592,6 +592,46 @@ export function resolveAdminIssueForCoupledReconciliation(
   return applyTerminalIssueLifecycle(existing, input, 'resolved', resolvedByAccountId);
 }
 
+function resolveAttendanceIssueActorAccountId(
+  correlationId: CorrelationId,
+  actor: AdminIssueLifecycleActor
+): AccountId {
+  if (actor.actor.kind === 'system' && actor.exercisedCapability === 'system') {
+    return SYSTEM_RECONCILIATION_ACCOUNT_ID;
+  }
+  if (
+    actor.actor.kind === 'account' &&
+    (actor.exercisedCapability === 'administrator' || actor.exercisedCapability === 'instructor')
+  ) {
+    return actor.actor.accountId;
+  }
+  throw new CanonicalCommandError('forbidden', { correlationId });
+}
+
+export function resolveAdminIssueForCoupledAttendanceRecord(
+  existing: AdminIssue,
+  input: ResolveOrDismissAdminIssueInput
+): AdminIssue {
+  const policy = adminIssueKindPolicy(existing.kind);
+  if (existing.kind !== 'missing_attendance') {
+    throw new CanonicalCommandError('invalid_transition', {
+      correlationId: input.correlationId,
+      details: { reason: 'unsupported' },
+    });
+  }
+  if (policy.requireCoupledDomainCommandToResolve && !input.coupledDomainCommand) {
+    throw new CanonicalCommandError('invalid_transition', {
+      correlationId: input.correlationId,
+      details: { reason: 'unsupported' },
+    });
+  }
+  const resolvedByAccountId = resolveAttendanceIssueActorAccountId(
+    input.correlationId,
+    input.actor
+  );
+  return applyTerminalIssueLifecycle(existing, input, 'resolved', resolvedByAccountId);
+}
+
 export function resolveUnresolvedPendingCancellationForOwnerWithdrawal(
   existing: AdminIssue,
   input: OwnerWithdrawalUnresolvedPendingCancellationResolutionInput

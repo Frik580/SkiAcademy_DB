@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import type { Course, UserProfile } from '../../src/types';
 import type { InstructorLessonBookingItem } from '../../src/features/booking-collaboration/bookingCollaborationContracts';
@@ -84,6 +84,10 @@ const courses = [
 ] as Course[];
 
 describe('useInstructorWorkspace canonical lesson isolation', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('maps canonical instructor lessons and self-managed participant accounts', () => {
     const { result } = renderHook(() =>
       useInstructorWorkspace({
@@ -246,5 +250,60 @@ describe('useInstructorWorkspace canonical lesson isolation', () => {
     expect(getInstructorLessonScheduleRank(currentBooking, nowMs)).toBe(0);
     expect(getInstructorLessonScheduleRank(nextBooking, nowMs)).toBe(1);
     expect(getInstructorLessonScheduleRank(pastBooking, nowMs)).toBe(2);
+  });
+
+  it('counts overdue attendance as action-required lessons, not missing participants', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-12T18:00:00.000Z'));
+    const overdueBooking = {
+      ...individualBooking,
+      bookingId: 'booking_overdue_01',
+      status: 'confirmed',
+      endsAtEpochMs: Date.parse('2026-09-10T12:00:00Z'),
+      attendance: [
+        {
+          participantId: 'participant_workspace_01',
+          authorizedActions: { canRecordPresent: false, canRecordAbsent: false },
+        },
+        {
+          participantId: 'participant_workspace_02',
+          authorizedActions: { canRecordPresent: false, canRecordAbsent: false },
+        },
+      ],
+    } as InstructorLessonBookingItem;
+    const recentMissing = {
+      ...individualBooking,
+      bookingId: 'booking_recent_missing',
+      status: 'confirmed',
+      endsAtEpochMs: Date.parse('2026-09-12T20:00:00Z'),
+      attendance: [
+        {
+          participantId: 'participant_workspace_01',
+          authorizedActions: { canRecordPresent: true, canRecordAbsent: true },
+        },
+      ],
+    } as InstructorLessonBookingItem;
+
+    const { result } = renderHook(() =>
+      useInstructorWorkspace({
+        userProfile,
+        instructors: [],
+        lessonBookings: [overdueBooking, recentMissing],
+        reviews: [],
+        courses,
+        usersList: [],
+      })
+    );
+
+    expect(result.current.overdueBookings).toHaveLength(1);
+    expect(result.current.overdueBookings[0]?.id).toBe('booking_overdue_01');
+    expect(result.current.overdueBookings[0]?.attendanceFollowUp).toBe('overdue_admin_required');
+    expect(result.current.overdueBookings[0]?.missingAttendanceCount).toBe(2);
+    expect(result.current.missingInWindowBookings).toHaveLength(1);
+    expect(result.current.missingInWindowBookings[0]?.id).toBe('booking_recent_missing');
+    expect(result.current.displayedBookings.find((booking) => booking.id === 'booking_overdue_01')
+      ?.attendanceOverdue).toBe(true);
+    expect(result.current.displayedBookings.find((booking) => booking.id === 'booking_recent_missing')
+      ?.attendanceOverdue).toBe(false);
   });
 });

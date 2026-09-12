@@ -74,6 +74,8 @@ export const AdminPlannerOccupancyItemSchema = z
     blockKind: AdministrativeAvailabilityBlockKindSchema.optional(),
     difficulty: LessonDifficultySchema.optional(),
     notes: z.string().trim().max(1_000).optional(),
+    attendanceOverdue: z.boolean().optional(),
+    missingAttendanceCount: z.number().int().nonnegative().max(64).optional(),
   })
   .strict();
 

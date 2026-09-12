@@ -43,6 +43,9 @@ export interface Booking {
   /** Outstanding payment for awaiting-payment presentation (admin monitor). */
   paymentOutstanding?: number;
   paymentStatus?: string;
+  /** Planner-only: missing Attendance after endsAt+24h. */
+  attendanceOverdue?: boolean;
+  missingAttendanceCount?: number;
 }
 
 export interface AvailabilitySlot {

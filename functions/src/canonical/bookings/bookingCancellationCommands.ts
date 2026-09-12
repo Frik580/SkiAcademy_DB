@@ -605,11 +605,9 @@ function resolveBookingCancellationHandler(
       });
 
       if (lateOutcome.outcome === 'missing_attendance') {
-        const participantId = lateOutcome.missingParticipantIds[0]!;
         const issueIdentity = missingBookingAttendanceIdentity({
           bookingId: booking.bookingId,
           occurrenceId: booking.occurrence.occurrenceId,
-          participantId,
         });
         issueDocumentPath = plannedAdminIssuePath(issueIdentity);
         const issueRead = await session.tx.get({ path: issueDocumentPath });

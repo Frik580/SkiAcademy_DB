@@ -137,6 +137,11 @@ export const ScheduleBookingCell: React.FC<ScheduleBookingCellProps> = ({
               ({t('noShowShort')})
             </span>
           )}
+          {booking.attendanceOverdue && (
+            <span className="ml-1 text-[9px] font-bold text-amber-700 dark:text-amber-400">
+              ({t('plannerAttendanceNotRecorded')})
+            </span>
+          )}
         </div>
         {!isTerminalHistorical && (
           <button

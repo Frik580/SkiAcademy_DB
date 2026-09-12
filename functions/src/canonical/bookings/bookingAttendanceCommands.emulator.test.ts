@@ -660,7 +660,7 @@ describe.skipIf(!runsOnFirestoreEmulator)('bookingAttendanceCommands.emulator', 
     expect(missingIssues).toHaveLength(0);
   }, 30_000);
 
-  it('I. family/group absent plus missing evidence stays unresolved with per-participant missing issues', async () => {
+  it('I. family/group absent plus missing evidence stays unresolved with one booking missing_attendance issue', async () => {
     await clearCollections(COLLECTIONS_TO_CLEAR);
     await seedSharedFixture(100_000);
     const setupCommands = createCommands('2026-01-01T00:00:00.000Z');
@@ -684,7 +684,7 @@ describe.skipIf(!runsOnFirestoreEmulator)('bookingAttendanceCommands.emulator', 
       (doc) => doc.data().kind === 'missing_attendance'
     );
     expect(missingIssues).toHaveLength(1);
-    expect(missingIssues[0]?.data().participantId).toBe(participantThreeId);
+    expect(missingIssues[0]?.data().participantId).toBeUndefined();
 
     await clearCollections(COLLECTIONS_TO_CLEAR);
     await seedSharedFixture(100_000);
@@ -696,7 +696,8 @@ describe.skipIf(!runsOnFirestoreEmulator)('bookingAttendanceCommands.emulator', 
     const allMissingIssues = (await firestore.collection('admin_issues').get()).docs.filter(
       (doc) => doc.data().kind === 'missing_attendance'
     );
-    expect(allMissingIssues).toHaveLength(3);
+    expect(allMissingIssues).toHaveLength(1);
+    expect(allMissingIssues[0]?.data().participantId).toBeUndefined();
   }, 30_000);
 
   it('J. rolled-back unpaid participant is ignored for frozen service party outcome', async () => {
@@ -925,7 +926,7 @@ describe.skipIf(!runsOnFirestoreEmulator)('bookingAttendanceCommands.emulator', 
       (doc) => doc.data().kind === 'missing_attendance'
     );
     expect(missingIssues).toHaveLength(1);
-    expect(missingIssues[0]?.data().participantId).toBe(participantThreeId);
+    expect(missingIssues[0]?.data().participantId).toBeUndefined();
 
     const attendanceDocs = await firestore.collection('attendance').get();
     expect(attendanceDocs.size).toBe(2);

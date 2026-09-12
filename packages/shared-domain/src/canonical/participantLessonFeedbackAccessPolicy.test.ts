@@ -42,4 +42,28 @@ describe('instructor lesson feedback booking-scoped evidence', () => {
       })
     ).toBe(false);
   });
+
+  it('K. overdue/missing Attendance does not grant review or feedback eligibility', () => {
+    const completedFamily = {
+      ...family,
+      lifecycle: { status: 'completed' as const, completedAt: family.createdAt },
+    };
+    expect(
+      bookingProvidesInstructorLessonFeedbackEvidence({
+        booking: completedFamily,
+        instructorId,
+        participantId: participantPresent,
+        at: duringLesson,
+      })
+    ).toBe(false);
+    expect(
+      bookingProvidesInstructorLessonFeedbackEvidence({
+        booking: completedFamily,
+        instructorId,
+        participantId: participantPresent,
+        at: duringLesson,
+        attendanceStatus: 'absent',
+      })
+    ).toBe(false);
+  });
 });

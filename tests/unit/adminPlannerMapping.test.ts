@@ -116,6 +116,101 @@ describe('Admin Planner compatibility mapping', () => {
     expect(mapped[0]?.notes).toBe('Steeps today');
   });
 
+  it('H. keeps a booking visible in Planner when Attendance is missing', () => {
+    const bookingId = BookingIdSchema.parse('booking_planner_missing_attendance');
+    const item: AdminPlannerOccupancyItem = {
+      occupancyKind: 'lesson_booking',
+      occupancyId: bookingId,
+      bookingId,
+      instructorId,
+      participantId: ParticipantIdSchema.parse('participant_planner_mapping_missing'),
+      participantIds: [ParticipantIdSchema.parse('participant_planner_mapping_missing')],
+      interval: interval('2026-09-02T04:00:00.000Z', '2026-09-02T05:00:00.000Z'),
+      timeZone: 'Asia/Almaty',
+      localDate: '2026-09-02',
+      localTime: '09:00',
+      durationMinutes: 60,
+      displayTitle: 'Canonical Participant',
+      lifecycleStatus: 'confirmed',
+      revision: 1,
+    };
+    const mapped = mapPlannerOccupancyToBookings([item]);
+    expect(mapped).toHaveLength(1);
+    expect(mapped[0]?.id).toBe(bookingId);
+    expect(mapped[0]?.attendanceOverdue).toBeUndefined();
+  });
+
+  it('I. keeps one overdue multi-participant booking visible with an overdue indicator', () => {
+    const bookingId = BookingIdSchema.parse('booking_planner_overdue_attendance');
+    const item: AdminPlannerOccupancyItem = {
+      occupancyKind: 'lesson_booking',
+      occupancyId: bookingId,
+      bookingId,
+      instructorId,
+      participantIds: [
+        ParticipantIdSchema.parse('participant_planner_overdue_a'),
+        ParticipantIdSchema.parse('participant_planner_overdue_b'),
+      ],
+      interval: interval('2026-09-01T04:00:00.000Z', '2026-09-01T05:00:00.000Z'),
+      timeZone: 'Asia/Almaty',
+      localDate: '2026-09-01',
+      localTime: '09:00',
+      durationMinutes: 60,
+      displayTitle: 'Family Group',
+      lifecycleStatus: 'completed',
+      revision: 3,
+      attendanceOverdue: true,
+      missingAttendanceCount: 1,
+    };
+    const mapped = mapPlannerOccupancyToBookings([item]);
+    expect(mapped).toHaveLength(1);
+    expect(mapped[0]).toMatchObject({
+      id: bookingId,
+      attendanceOverdue: true,
+      missingAttendanceCount: 1,
+    });
+  });
+
+  it('same booking semantics, present vs missing attendance → both visible as planner events', () => {
+    const recordedId = BookingIdSchema.parse('booking_planner_recorded_attendance');
+    const missingId = BookingIdSchema.parse('booking_planner_missing_attendance_twin');
+    const occupancy: AdminPlannerOccupancyItem[] = [
+      {
+        occupancyKind: 'lesson_booking',
+        occupancyId: recordedId,
+        bookingId: recordedId,
+        instructorId,
+        participantId: ParticipantIdSchema.parse('participant_planner_recorded'),
+        interval: interval('2026-09-10T04:00:00.000Z', '2026-09-10T05:00:00.000Z'),
+        timeZone: 'Asia/Almaty',
+        localDate: '2026-09-10',
+        localTime: '09:00',
+        durationMinutes: 60,
+        displayTitle: 'Recorded',
+        lifecycleStatus: 'confirmed',
+        revision: 2,
+      },
+      {
+        occupancyKind: 'lesson_booking',
+        occupancyId: missingId,
+        bookingId: missingId,
+        instructorId,
+        participantId: ParticipantIdSchema.parse('participant_planner_missing_twin'),
+        interval: interval('2026-09-10T04:00:00.000Z', '2026-09-10T05:00:00.000Z'),
+        timeZone: 'Asia/Almaty',
+        localDate: '2026-09-10',
+        localTime: '09:00',
+        durationMinutes: 60,
+        displayTitle: 'Missing',
+        lifecycleStatus: 'confirmed',
+        revision: 1,
+      },
+    ];
+    const mapped = mapPlannerOccupancyToBookings(occupancy);
+    expect(mapped.map((booking) => booking.id).sort()).toEqual([missingId, recordedId].sort());
+    expect(scheduleBookingsForDay(mapped, instructorId, '2026-09-10')).toHaveLength(2);
+  });
+
   it.each([
     { blockKind: 'break' as const, expectedUserId: 'system_block_break' },
     { blockKind: 'day_off' as const, expectedUserId: 'system_block_day_off' },

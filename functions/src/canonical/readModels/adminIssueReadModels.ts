@@ -6,9 +6,11 @@ import {
   adminIssueKindPolicy,
   attendanceIdFromBookingIdentity,
   attendanceIdFromCourseDayIdentity,
+  bookingInstructorAttendanceWindowEnd,
   decodeAdminIssueReadModelCursor,
   encodeAdminIssueReadModelCursor,
   evaluateAdminIssueAuthorizedActions,
+  missingAttendanceParticipantIds,
   paymentIdMatchesSubject,
   paymentIdFromBookingId,
   paymentIdFromCourseEnrollmentId,
@@ -145,24 +147,53 @@ function resolutionGuidanceForIssue(issue: AdminIssue): AdminIssueResolutionGuid
   }
 }
 
-async function loadIssueAttendance(firestore: Firestore, issue: AdminIssue): Promise<Attendance[]> {
-  if (issue.subjectRef.subjectKind === 'booking' && issue.occurrenceId && issue.participantId) {
-    const attendanceId = attendanceIdFromBookingIdentity({
-      strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
-      subjectKind: 'booking',
-      occurrenceId: issue.occurrenceId,
-      participantId: issue.participantId,
-    });
-    const snapshot = await firestore.collection('attendance').doc(attendanceId).get();
-    return snapshot.exists
-      ? [
-          parseIssueAttendanceDocument(
-            issue,
-            snapshot.id,
-            snapshot.data() as Record<string, unknown>
-          ),
-        ]
-      : [];
+async function loadIssueAttendance(
+  firestore: Firestore,
+  issue: AdminIssue,
+  booking?: ReturnType<typeof parseBooking>
+): Promise<Attendance[]> {
+  if (issue.subjectRef.subjectKind === 'booking' && issue.occurrenceId) {
+    if (issue.participantId) {
+      const attendanceId = attendanceIdFromBookingIdentity({
+        strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+        subjectKind: 'booking',
+        occurrenceId: issue.occurrenceId,
+        participantId: issue.participantId,
+      });
+      const snapshot = await firestore.collection('attendance').doc(attendanceId).get();
+      return snapshot.exists
+        ? [
+            parseIssueAttendanceDocument(
+              issue,
+              snapshot.id,
+              snapshot.data() as Record<string, unknown>
+            ),
+          ]
+        : [];
+    }
+    const participantIds = booking?.occurrence.serviceParty.participantIds ?? [];
+    const snapshots = await Promise.all(
+      participantIds.map((participantId) => {
+        const attendanceId = attendanceIdFromBookingIdentity({
+          strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+          subjectKind: 'booking',
+          occurrenceId: issue.occurrenceId!,
+          participantId,
+        });
+        return firestore.collection('attendance').doc(attendanceId).get();
+      })
+    );
+    return snapshots.flatMap((snapshot) =>
+      snapshot.exists
+        ? [
+            parseIssueAttendanceDocument(
+              issue,
+              snapshot.id,
+              snapshot.data() as Record<string, unknown>
+            ),
+          ]
+        : []
+    );
   }
 
   if (issue.subjectRef.subjectKind !== 'course_enrollment') {
@@ -274,7 +305,7 @@ export async function buildAdminIssueDetail(
     throw adminIssueReadIntegrityError('payments', paymentId);
   }
 
-  const attendance = await loadIssueAttendance(firestore, issue);
+  const attendance = await loadIssueAttendance(firestore, issue, booking);
   for (const record of attendance) {
     if (
       enrollment &&
@@ -336,6 +367,23 @@ export async function buildAdminIssueDetail(
     lastChangedBy: record.lastChangedBy,
     updatedAt: record.updatedAt,
   }));
+  const bookingAttendanceFacts = new Map(
+    attendance
+      .filter((record) => record.subject.subjectKind === 'booking')
+      .map((record) => [record.subject.participantId, { attendanceStatus: record.attendanceStatus }])
+  );
+  const bookingFollowUp =
+    issue.kind === 'missing_attendance' && booking
+      ? {
+          instructorId: booking.occurrence.instructorId,
+          lessonEndsAt: booking.occurrence.interval.endsAt,
+          missingAttendanceCount: missingAttendanceParticipantIds(booking, bookingAttendanceFacts)
+            .length,
+          attendanceDeadlineAt: bookingInstructorAttendanceWindowEnd(
+            booking.occurrence.interval.endsAt
+          ),
+        }
+      : undefined;
 
   return {
     ...buildAdminIssueInboxItem(issue),
@@ -389,6 +437,7 @@ export async function buildAdminIssueDetail(
         })),
       },
     }),
+    ...(bookingFollowUp ?? {}),
   };
 }
 

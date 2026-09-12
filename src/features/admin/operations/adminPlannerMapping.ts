@@ -122,6 +122,10 @@ export function mapPlannerOccupancyToBookings(
         ...(item.notes ? { notes: item.notes } : {}),
         isGuest: item.isGuest,
         guestName: item.isGuest ? item.displayTitle : undefined,
+        ...(item.attendanceOverdue ? { attendanceOverdue: true } : {}),
+        ...(item.missingAttendanceCount !== undefined
+          ? { missingAttendanceCount: item.missingAttendanceCount }
+          : {}),
       },
     ];
   });

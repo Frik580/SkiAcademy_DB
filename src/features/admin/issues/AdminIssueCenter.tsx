@@ -614,6 +614,34 @@ export function AdminIssueCenter() {
               </dd>
               <dt className="text-[var(--ink-dim)]">{t('adminIssueRevision')}</dt>
               <dd>{detail.item.revision}</dd>
+              <dt className="text-[var(--ink-dim)]">{t('adminIssueOpenedAt')}</dt>
+              <dd>{formatDate(detail.item.lifecycle.openedAt)}</dd>
+              <dt className="text-[var(--ink-dim)]">{t('adminIssueLastDetected')}</dt>
+              <dd>{formatDate(detail.item.lifecycle.lastDetectedAt)}</dd>
+              {detail.item.instructorId && (
+                <>
+                  <dt className="text-[var(--ink-dim)]">{t('adminIssueInstructor')}</dt>
+                  <dd className="break-all">{detail.item.instructorId}</dd>
+                </>
+              )}
+              {detail.item.lessonEndsAt && (
+                <>
+                  <dt className="text-[var(--ink-dim)]">{t('adminIssueLessonEnded')}</dt>
+                  <dd>{formatDate(detail.item.lessonEndsAt)}</dd>
+                </>
+              )}
+              {detail.item.attendanceDeadlineAt && (
+                <>
+                  <dt className="text-[var(--ink-dim)]">{t('adminIssueAttendanceDeadline')}</dt>
+                  <dd>{formatDate(detail.item.attendanceDeadlineAt)}</dd>
+                </>
+              )}
+              {detail.item.missingAttendanceCount !== undefined && (
+                <>
+                  <dt className="text-[var(--ink-dim)]">{t('adminIssueMissingAttendanceCount')}</dt>
+                  <dd>{detail.item.missingAttendanceCount}</dd>
+                </>
+              )}
               {detail.item.participant && (
                 <>
                   <dt className="text-[var(--ink-dim)]">{t('adminIssueParticipant')}</dt>

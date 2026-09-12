@@ -110,7 +110,7 @@ export function buildResolveAttendanceOutcomeAuditPlan(input: {
   readonly issues: readonly {
     readonly issueId: AdminIssueId;
     readonly revision: number;
-    readonly effect: 'opened' | 'reused';
+    readonly effect: 'opened' | 'reused' | 'resolved';
     readonly kind: 'missing_attendance';
   }[];
   readonly lifecycleSummary?: string;
@@ -127,10 +127,17 @@ export function buildResolveAttendanceOutcomeAuditPlan(input: {
         ]
       : []),
     ...input.issues.map((issue) => ({
-      kind: 'admin_issue_opened' as const,
+      kind:
+        issue.effect === 'resolved'
+          ? ('admin_issue_resolved' as const)
+          : ('admin_issue_opened' as const),
       subjectRef: canonicalReference('admin_issue', issue.issueId),
       summary:
-        issue.effect === 'opened' ? `${issue.kind} issue opened` : `${issue.kind} issue reused`,
+        issue.effect === 'resolved'
+          ? `${issue.kind} issue resolved`
+          : issue.effect === 'opened'
+            ? `${issue.kind} issue opened`
+            : `${issue.kind} issue reused`,
     })),
   ];
 

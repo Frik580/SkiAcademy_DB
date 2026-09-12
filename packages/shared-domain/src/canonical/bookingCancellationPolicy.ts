@@ -123,7 +123,6 @@ export function unresolvedPendingCancellationIdentity(input: {
 export function missingBookingAttendanceIdentity(input: {
   readonly bookingId: BookingId;
   readonly occurrenceId: OccurrenceId;
-  readonly participantId: ParticipantId;
 }): AdminIssueDedupeIdentityInput {
   return {
     strategyVersion: ADMIN_ISSUE_DEDUPE_STRATEGY_VERSION,
@@ -131,7 +130,6 @@ export function missingBookingAttendanceIdentity(input: {
     subjectKind: 'booking',
     subjectId: input.bookingId,
     occurrenceId: input.occurrenceId,
-    participantId: input.participantId,
   };
 }
 

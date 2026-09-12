@@ -101,6 +101,13 @@ describe('participantLessonStatsSemantics — participant learning', () => {
     expect(participantAttendedLesson(participantInput(participantA, base))).toBe(false);
   });
 
+  it('J. overdue/missing Attendance does not grant lessons or hours', () => {
+    const base = familyPartyInput([]);
+    expect(participantAttendedLesson(participantInput(participantA, base))).toBe(false);
+    expect(participantLearningDurationHours(participantInput(participantA, base))).toBe(0);
+    expect(participantWasAbsentFromLesson(participantInput(participantA, base))).toBe(false);
+  });
+
   it('4–5. mixed attendance: only A attended; A present does not credit B', () => {
     const base = familyPartyInput([
       attendanceFor(participantA, 'present'),

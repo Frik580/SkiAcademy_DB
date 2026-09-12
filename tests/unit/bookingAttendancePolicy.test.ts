@@ -8,6 +8,7 @@ import {
   timestampFromDate,
 } from '@ski-academy/shared-domain';
 import {
+  attendanceIsOverdue,
   bookingInstructorAttendanceWindowEnd,
   deriveGroupBookingAttendanceOutcome,
   deriveIndividualBookingAttendanceOutcome,
@@ -17,6 +18,8 @@ import {
   evaluateInstructorAttendanceWindow,
   evaluateInstructorBookingAttendanceActions,
   instructorMayFillMissingFamilyGroupAttendanceOnTerminal,
+  missingAttendanceParticipantIds,
+  missingBookingAttendanceIssueIdentity,
   shouldCreateAttendancePaymentConflict,
 } from '@ski-academy/shared-domain';
 import {
@@ -37,7 +40,7 @@ function bookingFixture(
     partyKind: 'individual' | 'family_group';
     participantIds: readonly string[];
     frozenAt: boolean;
-    status: 'confirmed' | 'pending_cancellation' | 'completed';
+    status: 'confirmed' | 'pending_cancellation' | 'completed' | 'cancelled' | 'no_show';
   }> = {}
 ) {
   const participantIds = (overrides.participantIds ?? [
@@ -62,8 +65,20 @@ function bookingFixture(
         ? { status: 'pending_cancellation', requestedAt: individualBooking.updatedAt }
         : overrides.status === 'completed'
           ? { status: 'completed', completedAt: endsAt }
-          : { status: 'confirmed' },
-    ...(overrides.status === 'completed' ? { updatedAt: endsAt } : {}),
+          : overrides.status === 'cancelled'
+            ? {
+                status: 'cancelled',
+                cancelledAt: endsAt,
+                reasonCode: 'administrator_cancelled' as const,
+              }
+            : overrides.status === 'no_show'
+              ? { status: 'no_show', noShowAt: endsAt }
+              : { status: 'confirmed' },
+    ...(overrides.status === 'completed' ||
+    overrides.status === 'cancelled' ||
+    overrides.status === 'no_show'
+      ? { updatedAt: endsAt }
+      : {}),
   });
 }
 
@@ -418,5 +433,120 @@ describe('bookingAttendancePolicy', () => {
       outcome: 'completed',
       missingParticipantIds: [participantTwo, participantThree],
     });
+  });
+});
+
+describe('lesson attendance overdue follow-up', () => {
+  const deadline = bookingInstructorAttendanceWindowEnd(endsAt);
+  const beforeDeadline = timestampFromDate(new Date('2026-01-16T09:59:59.000Z'));
+
+  it('A. just after endsAt, missing Attendance is not overdue', () => {
+    const booking = bookingFixture();
+    expect(
+      attendanceIsOverdue({
+        booking,
+        attendanceRows: new Map(),
+        now: endsAt,
+      })
+    ).toBe(false);
+    expect(
+      attendanceIsOverdue({
+        booking,
+        attendanceRows: new Map(),
+        now: beforeDeadline,
+      })
+    ).toBe(false);
+  });
+
+  it('B. single missing participant is overdue at endsAt+24h', () => {
+    const booking = bookingFixture();
+    expect(
+      attendanceIsOverdue({
+        booking,
+        attendanceRows: new Map(),
+        now: deadline,
+      })
+    ).toBe(true);
+    expect(missingAttendanceParticipantIds(booking, new Map())).toEqual([participantOne]);
+  });
+
+  it('D/E. present or absent after overdue clears overdue', () => {
+    const booking = bookingFixture();
+    expect(
+      attendanceIsOverdue({
+        booking,
+        attendanceRows: new Map([[participantOne, attendanceFor(participantOne, 'present')]]),
+        now: deadline,
+      })
+    ).toBe(false);
+    expect(
+      attendanceIsOverdue({
+        booking,
+        attendanceRows: new Map([[participantOne, attendanceFor(participantOne, 'absent')]]),
+        now: deadline,
+      })
+    ).toBe(false);
+  });
+
+  it('F. multi-participant overdue is one booking with only the missing ids', () => {
+    const booking = bookingFixture({
+      partyKind: 'family_group',
+      participantIds: [participantOne, participantTwo, participantThree],
+      status: 'completed',
+    });
+    const rows = new Map([
+      [participantOne, attendanceFor(participantOne, 'present')],
+      [participantTwo, attendanceFor(participantTwo, 'absent')],
+    ]);
+    expect(missingAttendanceParticipantIds(booking, rows)).toEqual([participantThree]);
+    expect(attendanceIsOverdue({ booking, attendanceRows: rows, now: deadline })).toBe(true);
+    expect(
+      missingBookingAttendanceIssueIdentity({
+        bookingId: booking.bookingId,
+        occurrenceId: booking.occurrence.occurrenceId,
+      }).participantId
+    ).toBeUndefined();
+  });
+
+  it('G. recording the last missing participant clears overdue', () => {
+    const booking = bookingFixture({
+      partyKind: 'family_group',
+      participantIds: [participantOne, participantTwo, participantThree],
+      status: 'completed',
+    });
+    const rows = new Map([
+      [participantOne, attendanceFor(participantOne, 'present')],
+      [participantTwo, attendanceFor(participantTwo, 'absent')],
+      [participantThree, attendanceFor(participantThree, 'present')],
+    ]);
+    expect(attendanceIsOverdue({ booking, attendanceRows: rows, now: deadline })).toBe(false);
+  });
+
+  it('L. cancelled bookings are not attendance-overdue', () => {
+    const booking = bookingFixture({ status: 'cancelled' });
+    expect(
+      attendanceIsOverdue({
+        booking,
+        attendanceRows: new Map(),
+        now: deadline,
+      })
+    ).toBe(false);
+  });
+
+  it('does not treat mutable party extras as missing service-party attendance', () => {
+    const booking = BookingSchema.parse({
+      ...bookingFixture({
+        partyKind: 'family_group',
+        participantIds: [participantOne, participantTwo],
+      }),
+      party: {
+        kind: 'family_group',
+        participantIds: [participantOne, participantTwo, participantThree],
+      },
+    });
+    expect(missingAttendanceParticipantIds(booking, new Map())).toEqual([
+      participantOne,
+      participantTwo,
+    ]);
   });
 });

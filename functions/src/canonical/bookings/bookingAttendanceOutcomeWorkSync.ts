@@ -1,13 +1,19 @@
 import type { Firestore, Query } from 'firebase-admin/firestore';
 import {
+  ATTENDANCE_IDENTITY_STRATEGY_VERSION,
   BookingIdSchema,
   addMillisecondsToCanonicalTimestamp,
+  attendanceIdFromBookingIdentity,
   compareCanonicalTimestamps,
+  frozenServiceParticipantIds,
+  missingAttendanceParticipantIds,
   resolveCommandIdempotencyIdentity,
   timestampFromDate,
   type Booking,
   type BookingId,
+  type ParticipantId,
 } from '@ski-academy/shared-domain';
+import { attendancePath, parseAttendance } from './attendanceStore';
 import { parseBooking } from './bookingStore';
 import {
   BOOKING_ATTENDANCE_OUTCOME_SWEEP_DEADLINE,
@@ -128,6 +134,32 @@ function sameOccurrenceSchedule(work: BookingAttendanceOutcomeWork, booking: Boo
 
 function nextWorkRevision(existing: BookingAttendanceOutcomeWork | undefined): number {
   return (existing?.workRevision ?? 0) + 1;
+}
+
+async function missingFrozenAttendanceParticipantIdsForWork(
+  firestore: Firestore,
+  transaction: FirebaseFirestore.Transaction,
+  booking: Booking
+): Promise<readonly ParticipantId[]> {
+  const targetIds = frozenServiceParticipantIds(booking);
+  if (!targetIds) return [];
+  const facts = new Map<ParticipantId, { attendanceStatus: 'present' | 'absent' }>();
+  for (const participantId of targetIds) {
+    const attendanceId = attendanceIdFromBookingIdentity({
+      strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+      subjectKind: 'booking',
+      occurrenceId: booking.occurrence.occurrenceId,
+      participantId,
+    });
+    const snapshot = await transaction.get(firestore.doc(attendancePath(attendanceId)));
+    const attendance = parseAttendance(
+      snapshot.exists ? (snapshot.data() as Record<string, unknown>) : undefined
+    );
+    if (attendance) {
+      facts.set(participantId, { attendanceStatus: attendance.attendanceStatus });
+    }
+  }
+  return missingAttendanceParticipantIds(booking, facts);
 }
 
 function idempotencyPath(input: {
@@ -273,7 +305,29 @@ export async function reconcileLessonBookingAttendanceOutcomeWork(
 
     const now = timestampFromDate(nowDate);
     let next: BookingAttendanceOutcomeWork;
-    if (booking.lifecycle.status !== 'confirmed') {
+    const terminalWithPendingWork =
+      (booking.lifecycle.status === 'completed' || booking.lifecycle.status === 'no_show') &&
+      existing?.status === 'pending';
+    if (terminalWithPendingWork) {
+      const missingParticipantIds = await missingFrozenAttendanceParticipantIdsForWork(
+        firestore,
+        transaction,
+        booking
+      );
+      next =
+        missingParticipantIds.length > 0
+          ? pendingBookingAttendanceOutcomeWork(booking, {
+              deadlineId: BOOKING_ATTENDANCE_OUTCOME_SWEEP_DEADLINE.instructorWindow,
+              workRevision: nextWorkRevision(existing),
+              updatedAt: now,
+              attemptCount: existing.attemptCount,
+            })
+          : completeBookingAttendanceOutcomeWork(booking, {
+              completedReason: 'lifecycle_ineligible',
+              workRevision: nextWorkRevision(existing),
+              updatedAt: now,
+            });
+    } else if (booking.lifecycle.status !== 'confirmed') {
       next = completeBookingAttendanceOutcomeWork(booking, {
         completedReason: 'lifecycle_ineligible',
         workRevision: nextWorkRevision(existing),

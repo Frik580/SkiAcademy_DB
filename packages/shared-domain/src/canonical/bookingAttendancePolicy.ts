@@ -45,6 +45,77 @@ export function bookingInstructorAttendanceWindowEnd(
   return addMillisecondsToCanonicalTimestamp(endsAt, BOOKING_INSTRUCTOR_ATTENDANCE_WINDOW_MS);
 }
 
+export function frozenServiceParticipantIds(
+  booking: Pick<Booking, 'occurrence'>
+): readonly ParticipantId[] | undefined {
+  const { serviceParty } = booking.occurrence;
+  if (!serviceParty.frozenAt) return undefined;
+  return serviceParty.participantIds;
+}
+
+type AttendanceFact = Pick<Attendance, 'attendanceStatus'>;
+type AttendanceFactRow = AttendanceFact & {
+  readonly participantId?: ParticipantId;
+  readonly subject?: { readonly participantId: ParticipantId };
+};
+type AttendanceFactSource =
+  | ReadonlyMap<ParticipantId, AttendanceFact>
+  | readonly AttendanceFactRow[];
+
+function isAttendanceFactMap(
+  attendanceRows: AttendanceFactSource
+): attendanceRows is ReadonlyMap<ParticipantId, AttendanceFact> {
+  return attendanceRows instanceof Map;
+}
+
+export function attendanceFactsByParticipantId(
+  attendanceRows: AttendanceFactSource
+): ReadonlyMap<ParticipantId, AttendanceFact> {
+  if (isAttendanceFactMap(attendanceRows)) {
+    return attendanceRows;
+  }
+  const facts = new Map<ParticipantId, AttendanceFact>();
+  for (const row of attendanceRows) {
+    const participantId = row.participantId ?? row.subject?.participantId;
+    if (!participantId) continue;
+    facts.set(participantId, { attendanceStatus: row.attendanceStatus });
+  }
+  return facts;
+}
+
+export function missingAttendanceParticipantIds(
+  booking: Pick<Booking, 'occurrence'>,
+  attendanceRows: AttendanceFactSource
+): readonly ParticipantId[] {
+  const targetParticipantIds = frozenServiceParticipantIds(booking);
+  if (!targetParticipantIds) return [];
+  const facts = attendanceFactsByParticipantId(attendanceRows);
+  return targetParticipantIds.filter((participantId) => {
+    const status = facts.get(participantId)?.attendanceStatus;
+    return status !== 'present' && status !== 'absent';
+  });
+}
+
+export function bookingMayCarryAttendanceOverdue(
+  booking: Pick<Booking, 'lifecycle'>
+): boolean {
+  const status = booking.lifecycle.status;
+  return status === 'confirmed' || status === 'completed' || status === 'no_show';
+}
+
+export function attendanceIsOverdue(input: {
+  readonly booking: Pick<Booking, 'occurrence' | 'lifecycle'>;
+  readonly attendanceRows: AttendanceFactSource;
+  readonly now: CanonicalTimestamp;
+}): boolean {
+  if (!bookingMayCarryAttendanceOverdue(input.booking)) return false;
+  const deadline = bookingInstructorAttendanceWindowEnd(
+    input.booking.occurrence.interval.endsAt
+  );
+  if (compareCanonicalTimestamps(input.now, deadline) < 0) return false;
+  return missingAttendanceParticipantIds(input.booking, input.attendanceRows).length > 0;
+}
+
 export function evaluateInstructorAttendanceWindow(input: {
   readonly now: CanonicalTimestamp;
   readonly startsAt: CanonicalTimestamp;
@@ -157,6 +228,20 @@ export function deriveGroupBookingAttendanceOutcome(input: {
 }
 
 export function missingBookingAttendanceIssueIdentity(input: {
+  readonly bookingId: BookingId;
+  readonly occurrenceId: OccurrenceId;
+}): AdminIssueDedupeIdentityInput {
+  return {
+    strategyVersion: ADMIN_ISSUE_DEDUPE_STRATEGY_VERSION,
+    kind: 'missing_attendance',
+    subjectKind: 'booking',
+    subjectId: input.bookingId,
+    occurrenceId: input.occurrenceId,
+  };
+}
+
+/** Pre-follow-up per-participant identity. Used only to collapse leftover open issues. */
+export function legacyParticipantMissingBookingAttendanceIssueIdentity(input: {
   readonly bookingId: BookingId;
   readonly occurrenceId: OccurrenceId;
   readonly participantId: ParticipantId;

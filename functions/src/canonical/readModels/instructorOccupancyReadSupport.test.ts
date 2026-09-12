@@ -1,21 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import type { Firestore } from 'firebase-admin/firestore';
 import {
+  ATTENDANCE_IDENTITY_STRATEGY_VERSION,
   AdministrativeAvailabilityBlockIdSchema,
   AdministrativeAvailabilityBlockSchema,
+  AttendanceSchema,
   BookingIdSchema,
   BookingSchema,
   CorrelationIdSchema,
   InstructorIdSchema,
   OccurrenceIdSchema,
   ParticipantIdSchema,
+  attendanceIdFromBookingIdentity,
   paymentIdFromBookingId,
   timestampFromDate,
 } from '@ski-academy/shared-domain';
 import { readRepoFile } from '../../../../tests/helpers/readRepoFile';
+import { queryAdminPlannerReadModels } from './adminPlannerReadModels';
 import { queryInstructorOccupancyReadModels } from './instructorOccupancyReadModels';
 import {
   instructorOccupancyWindow,
+  isBookingVisibleForOccupancyScope,
   loadInstructorOccupancyItems,
 } from './instructorOccupancyReadSupport';
 
@@ -207,6 +212,43 @@ function bookingForInstructor(
   }) as unknown as Record<string, unknown>;
 }
 
+function freezeBooking(record: Record<string, unknown>): Record<string, unknown> {
+  const booking = record as {
+    occurrence: { serviceParty: Record<string, unknown> };
+  };
+  booking.occurrence.serviceParty.frozenAt = lessonEnd;
+  return record;
+}
+
+function attendancePresentFor(bookingId: typeof bookingA | typeof bookingB) {
+  const occurrenceId = OccurrenceIdSchema.parse(`occurrence_${bookingId}`);
+  const attendanceId = attendanceIdFromBookingIdentity({
+    strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+    subjectKind: 'booking',
+    occurrenceId,
+    participantId,
+  });
+  return {
+    path: `attendance/${attendanceId}`,
+    data: AttendanceSchema.parse({
+      attendanceId,
+      subject: {
+        subjectKind: 'booking',
+        bookingId,
+        occurrenceId,
+        participantId,
+      },
+      attendanceStatus: 'present',
+      recordedBy: { kind: 'instructor', instructorId: instructorA },
+      recordedAt: lessonEnd,
+      lastChangedBy: { kind: 'instructor', instructorId: instructorA },
+      updatedAt: lessonEnd,
+      revision: 1,
+      correlationId,
+    }) as unknown as Record<string, unknown>,
+  };
+}
+
 describe('instructorOccupancyReadSupport', () => {
   it('pushes instructorId into Firestore occupancy queries', () => {
     const source = readRepoFile(
@@ -268,6 +310,44 @@ describe('instructorOccupancyReadSupport', () => {
       displayTitle: 'Anna, Boris',
       participantIds: [participantId, participantTwoId],
       participantNames: ['Anna', 'Boris'],
+    });
+  });
+
+  it('H/I. frozen missing Attendance stays one visible occupancy item and marks overdue after 24h', async () => {
+    const frozen = bookingForInstructor(bookingA, instructorA) as {
+      occurrence: { serviceParty: Record<string, unknown> };
+    };
+    frozen.occurrence.serviceParty.frozenAt = lessonEnd;
+    const firestore = fakeFirestore({
+      [`bookings/${bookingA}`]: frozen as unknown as Record<string, unknown>,
+      [`participants/${participantId}`]: { participantId, displayName: 'Anna' },
+    });
+    const window = instructorOccupancyWindow(localDate, timeZone, 1);
+
+    const beforeDeadline = await loadInstructorOccupancyItems(firestore, {
+      window,
+      instructorId: instructorA,
+      now: new Date('2026-09-10T12:00:00.000Z'),
+    });
+    expect(beforeDeadline.occupancy).toHaveLength(1);
+    const beforeItem = beforeDeadline.occupancy[0];
+    expect(
+      beforeItem && beforeItem.occupancyKind === 'lesson_booking'
+        ? beforeItem.attendanceOverdue
+        : undefined
+    ).toBeUndefined();
+
+    const afterDeadline = await loadInstructorOccupancyItems(firestore, {
+      window,
+      instructorId: instructorA,
+      now: new Date('2026-09-12T06:00:00.000Z'),
+    });
+    expect(afterDeadline.occupancy).toHaveLength(1);
+    expect(afterDeadline.occupancy[0]).toMatchObject({
+      occupancyKind: 'lesson_booking',
+      bookingId: bookingA,
+      attendanceOverdue: true,
+      missingAttendanceCount: 1,
     });
   });
 
@@ -401,5 +481,125 @@ describe('instructorOccupancyReadSupport', () => {
       timeZone,
     });
     expect(result.item.occupancy.length).toBe(1);
+  });
+
+  it('excludes completed/no_show from active_capacity regardless of Attendance', () => {
+    expect(isBookingVisibleForOccupancyScope('confirmed', 'active_capacity')).toBe(true);
+    expect(isBookingVisibleForOccupancyScope('completed', 'active_capacity')).toBe(false);
+    expect(isBookingVisibleForOccupancyScope('no_show', 'active_capacity')).toBe(false);
+    expect(isBookingVisibleForOccupancyScope('completed', 'admin_planner_visualization')).toBe(
+      true
+    );
+    expect(isBookingVisibleForOccupancyScope('no_show', 'admin_planner_visualization')).toBe(true);
+    expect(isBookingVisibleForOccupancyScope('cancelled', 'admin_planner_visualization')).toBe(
+      false
+    );
+  });
+
+  it('same booking semantics, present vs missing attendance → both visible in planner occupancy', async () => {
+    const recorded = freezeBooking(bookingForInstructor(bookingA, instructorA, 'confirmed'));
+    const missing = freezeBooking(bookingForInstructor(bookingB, instructorA, 'confirmed'));
+    const present = attendancePresentFor(bookingA);
+    const firestore = fakeFirestore({
+      [`instructors/${instructorA}`]: {
+        id: instructorA,
+        name: 'Coach A',
+        pricePerHourKZT: 12_000,
+        isAvailable: true,
+      },
+      [`bookings/${bookingA}`]: recorded,
+      [`bookings/${bookingB}`]: missing,
+      [present.path]: present.data,
+      [`participants/${participantId}`]: { participantId, displayName: 'Anna' },
+    });
+    const window = instructorOccupancyWindow(localDate, timeZone, 1);
+    const occupancy = await loadInstructorOccupancyItems(firestore, {
+      window,
+      instructorId: instructorA,
+      bookingScope: 'admin_planner_visualization',
+    });
+    expect(occupancy.occupancy.map((item) => item.bookingId).sort()).toEqual(
+      [bookingA, bookingB].sort()
+    );
+
+    const planner = await queryAdminPlannerReadModels(
+      firestore,
+      { kind: 'administrator', accountId: 'account_occupancy_support' },
+      {
+        scope: 'admin_planner',
+        localDate,
+        timeZone,
+        view: 'day',
+      }
+    );
+    const plannerBookingIds = planner.item.occupancy
+      .filter((item) => item.occupancyKind === 'lesson_booking')
+      .map((item) => item.bookingId)
+      .sort();
+    expect(plannerBookingIds).toEqual([bookingA, bookingB].sort());
+  });
+
+  it('keeps completed + missing Attendance on planner visualization and hides it from capacity', async () => {
+    const completedMissing = freezeBooking(
+      bookingForInstructor(bookingA, instructorA, 'completed')
+    );
+    const completedPresent = freezeBooking(
+      bookingForInstructor(bookingB, instructorA, 'completed')
+    );
+    const present = attendancePresentFor(bookingB);
+    const firestore = fakeFirestore({
+      [`bookings/${bookingA}`]: completedMissing,
+      [`bookings/${bookingB}`]: completedPresent,
+      [present.path]: present.data,
+      [`participants/${participantId}`]: { participantId, displayName: 'Anna' },
+    });
+    const window = instructorOccupancyWindow(localDate, timeZone, 1);
+
+    const capacity = await loadInstructorOccupancyItems(firestore, {
+      window,
+      instructorId: instructorA,
+    });
+    expect(capacity.occupancy).toHaveLength(0);
+
+    const plannerView = await loadInstructorOccupancyItems(firestore, {
+      window,
+      instructorId: instructorA,
+      bookingScope: 'admin_planner_visualization',
+      now: new Date('2026-09-12T06:00:00.000Z'),
+    });
+    expect(plannerView.occupancy.map((item) => item.bookingId).sort()).toEqual(
+      [bookingA, bookingB].sort()
+    );
+    const missingItem = plannerView.occupancy.find((item) => item.bookingId === bookingA);
+    expect(missingItem).toMatchObject({
+      occupancyKind: 'lesson_booking',
+      lifecycleStatus: 'completed',
+      attendanceOverdue: true,
+    });
+    const recordedItem = plannerView.occupancy.find((item) => item.bookingId === bookingB);
+    expect(recordedItem?.attendanceOverdue).toBeUndefined();
+  });
+
+  it('same no_show semantics, present vs missing attendance → both visible in planner visualization', async () => {
+    const missing = freezeBooking(bookingForInstructor(bookingA, instructorA, 'no_show'));
+    const recorded = freezeBooking(bookingForInstructor(bookingB, instructorA, 'no_show'));
+    const present = attendancePresentFor(bookingB);
+    const firestore = fakeFirestore({
+      [`bookings/${bookingA}`]: missing,
+      [`bookings/${bookingB}`]: recorded,
+      [present.path]: present.data,
+      [`participants/${participantId}`]: { participantId, displayName: 'Anna' },
+    });
+    const window = instructorOccupancyWindow(localDate, timeZone, 1);
+    const occupancy = await loadInstructorOccupancyItems(firestore, {
+      window,
+      instructorId: instructorA,
+      bookingScope: 'admin_planner_visualization',
+      now: new Date('2026-09-12T06:00:00.000Z'),
+    });
+    expect(occupancy.occupancy.map((item) => item.bookingId).sort()).toEqual(
+      [bookingA, bookingB].sort()
+    );
+    expect(occupancy.occupancy.map((item) => item.lifecycleStatus)).toEqual(['no_show', 'no_show']);
   });
 });

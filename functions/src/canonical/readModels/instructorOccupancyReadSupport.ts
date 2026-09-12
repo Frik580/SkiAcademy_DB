@@ -3,15 +3,28 @@ import {
   AdministrativeAvailabilityBlockSchema,
   AdminPlannerOccupancyItemSchema,
   ADMIN_PLANNER_READ_MODEL_PAGE_SIZE_MAX,
+  ATTENDANCE_IDENTITY_STRATEGY_VERSION,
   IanaTimeZoneSchema,
   TimeIntervalSchema,
+  attendanceIdFromBookingIdentity,
+  attendanceIsOverdue,
+  bookingInstructorAttendanceWindowEnd,
+  bookingMayCarryAttendanceOverdue,
+  compareCanonicalTimestamps,
+  frozenServiceParticipantIds,
   intervalsOverlap,
   localCalendarInputToUtcDate,
+  missingAttendanceParticipantIds,
   timestampFromDate,
   type AdminPlannerOccupancyItem,
+  type Attendance,
+  type Booking,
+  type CanonicalTimestamp,
   type InstructorId,
+  type ParticipantId,
   type TimeInterval,
 } from '@ski-academy/shared-domain';
+import { parseAttendance } from '../bookings/attendanceStore';
 import { parseBooking } from '../bookings/bookingStore';
 import { parseCourse, parseCourseDay } from '../courses/courseStore';
 import { parseAdministrativeAvailabilityBlock } from '../availability/administrativeAvailabilityBlockStore';
@@ -21,7 +34,7 @@ const PLANNER_TERMINAL_BOOKING_STATUSES = new Set(['completed', 'no_show']);
 
 export type InstructorOccupancyBookingScope = 'active_capacity' | 'admin_planner_visualization';
 
-function isBookingVisibleForOccupancyScope(
+export function isBookingVisibleForOccupancyScope(
   lifecycleStatus: string,
   bookingScope: InstructorOccupancyBookingScope
 ): boolean {
@@ -85,6 +98,47 @@ function durationMinutes(interval: TimeInterval): number {
   return Math.max(1, Math.round((interval.endsAt.seconds - interval.startsAt.seconds) / 60));
 }
 
+async function loadOverdueAttendanceFacts(
+  firestore: Firestore,
+  bookings: readonly Booking[],
+  now: CanonicalTimestamp
+): Promise<ReadonlyMap<string, { overdue: boolean; missingCount: number }>> {
+  const candidates = bookings.filter((booking) => {
+    if (!bookingMayCarryAttendanceOverdue(booking)) return false;
+    if (!frozenServiceParticipantIds(booking)) return false;
+    const deadline = bookingInstructorAttendanceWindowEnd(booking.occurrence.interval.endsAt);
+    return compareCanonicalTimestamps(now, deadline) >= 0;
+  });
+  const overdue = new Map<string, { overdue: boolean; missingCount: number }>();
+  await Promise.all(
+    candidates.map(async (booking) => {
+      const rows = new Map<ParticipantId, Pick<Attendance, 'attendanceStatus'>>();
+      const participantIds = frozenServiceParticipantIds(booking) ?? [];
+      await Promise.all(
+        participantIds.map(async (participantId) => {
+          const attendanceId = attendanceIdFromBookingIdentity({
+            strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+            subjectKind: 'booking',
+            occurrenceId: booking.occurrence.occurrenceId,
+            participantId,
+          });
+          const snapshot = await firestore.collection('attendance').doc(attendanceId).get();
+          const attendance = snapshot.exists
+            ? parseAttendance(snapshot.data() as Record<string, unknown>)
+            : undefined;
+          if (!attendance) return;
+          rows.set(participantId, { attendanceStatus: attendance.attendanceStatus });
+        })
+      );
+      overdue.set(booking.bookingId, {
+        overdue: attendanceIsOverdue({ booking, attendanceRows: rows, now }),
+        missingCount: missingAttendanceParticipantIds(booking, rows).length,
+      });
+    })
+  );
+  return overdue;
+}
+
 async function paginateWindowQuery(
   baseQuery: Query,
   scanCap = PLANNER_QUERY_SCAN_CAP
@@ -113,6 +167,7 @@ export interface LoadInstructorOccupancyInput {
   readonly instructorId?: InstructorId;
   /** Default `active_capacity` — only lifecycle statuses that reserve instructor capacity. */
   readonly bookingScope?: InstructorOccupancyBookingScope;
+  readonly now?: Date;
 }
 
 export interface LoadInstructorOccupancyResult {
@@ -190,12 +245,16 @@ export async function loadInstructorOccupancyItems(
     )
   );
 
+  const now = timestampFromDate(input.now ?? new Date());
+  const overdueFactsByBookingId = await loadOverdueAttendanceFacts(firestore, bookings, now);
+
   for (const booking of bookings) {
     const local = localParts(booking.occurrence.interval.startsAt, booking.occurrence.timeZone);
     const primaryParticipantId = booking.party.participantIds[0];
     const resolvedParticipantNames = booking.party.participantIds.map(
       (participantId) => participantNames.get(participantId) ?? participantId
     );
+    const overdueFacts = overdueFactsByBookingId.get(booking.bookingId);
     occupancy.push({
       occupancyKind: 'lesson_booking',
       occupancyId: booking.bookingId,
@@ -216,6 +275,12 @@ export async function loadInstructorOccupancyItems(
       ...(booking.difficulty !== undefined ? { difficulty: booking.difficulty } : {}),
       ...(booking.notes ? { notes: booking.notes } : {}),
       isGuest: booking.attribution.bookingOrigin === 'guest',
+      ...(overdueFacts?.overdue
+        ? {
+            attendanceOverdue: true,
+            missingAttendanceCount: overdueFacts.missingCount,
+          }
+        : {}),
     });
   }
 
@@ -329,6 +394,8 @@ export function sanitizePublicInstructorOccupancy(
         isGuest: undefined,
         difficulty: undefined,
         notes: undefined,
+        attendanceOverdue: undefined,
+        missingAttendanceCount: undefined,
       });
     }
     if (item.occupancyKind === 'availability_block') {

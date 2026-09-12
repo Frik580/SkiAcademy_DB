@@ -25,6 +25,8 @@ describe('sanitizePublicInstructorOccupancy', () => {
       isGuest: true,
       difficulty: 'intermediate',
       notes: 'private note',
+      attendanceOverdue: true,
+      missingAttendanceCount: 2,
     });
 
     const [sanitized] = sanitizePublicInstructorOccupancy([lesson]);
@@ -35,6 +37,10 @@ describe('sanitizePublicInstructorOccupancy', () => {
     expect(sanitized.difficulty).toBeUndefined();
     expect(sanitized.notes).toBeUndefined();
     expect(sanitized.bookingId).toBe('booking_lesson_01');
+    expect(sanitized.occupancyKind === 'lesson_booking' && sanitized.attendanceOverdue).toBeFalsy();
+    expect(
+      sanitized.occupancyKind === 'lesson_booking' && sanitized.missingAttendanceCount
+    ).toBeFalsy();
   });
 
   it('keeps block and course titles for scheduling', () => {

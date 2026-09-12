@@ -13,6 +13,7 @@ import {
   AttendanceIdSchema,
   CourseDayIdSchema,
   CourseIdSchema,
+  InstructorIdSchema,
   OccurrenceIdSchema,
   ParticipantIdSchema,
   PaymentIdSchema,
@@ -146,6 +147,10 @@ export const AdminIssueDetailReadModelSchema = AdminIssueInboxItemSchema.extend(
   references: AdminIssueReferenceProjectionSchema,
   resolutionGuidance: AdminIssueResolutionGuidanceSchema,
   authorizedActions: AdminIssueReadModelAuthorizedActionsSchema,
+  instructorId: InstructorIdSchema.optional(),
+  lessonEndsAt: CanonicalTimestampSchema.optional(),
+  missingAttendanceCount: z.number().int().nonnegative().max(64).optional(),
+  attendanceDeadlineAt: CanonicalTimestampSchema.optional(),
 }).strict();
 
 export type AdminIssueDetailReadModel = z.output<typeof AdminIssueDetailReadModelSchema>;

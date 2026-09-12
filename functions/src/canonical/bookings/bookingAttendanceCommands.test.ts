@@ -177,7 +177,7 @@ function adminEnvelope(
   attendanceStatus: 'present' | 'absent',
   input: {
     reasonExplanation?: string;
-    targetParticipantId?: typeof participantId;
+    targetParticipantId?: typeof participantId | typeof participantTwoId | typeof participantThreeId;
     expectedBookingRevision?: number;
     expectedAttendanceRevision?: number;
   } = {}
@@ -807,7 +807,6 @@ describe('bookingAttendanceCommands', () => {
       identity: missingBookingAttendanceIssueIdentity({
         bookingId,
         occurrenceId,
-        participantId,
       }),
       now: endsAt,
       correlationId,
@@ -891,7 +890,6 @@ describe('bookingAttendanceCommands', () => {
       identity: missingBookingAttendanceIssueIdentity({
         bookingId,
         occurrenceId,
-        participantId,
       }),
       now: endsAt,
       correlationId,
@@ -979,8 +977,8 @@ describe('bookingAttendanceCommands', () => {
     const issues = [...executor.snapshot().docs.entries()].filter(([path]) =>
       path.startsWith('admin_issues/')
     );
-    expect(issues).toHaveLength(3);
-    expect(new Set(issues.map(([path]) => path)).size).toBe(3);
+    expect(issues).toHaveLength(1);
+    expect(new Set(issues.map(([path]) => path)).size).toBe(1);
   });
 
   it('system resolver completes a booking after endsAt when present was recorded earlier', async () => {
@@ -1101,5 +1099,124 @@ describe('bookingAttendanceCommands', () => {
     expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle).toEqual({
       status: 'confirmed',
     });
+  });
+
+  it('C. repeating the overdue resolver reuses the same missing_attendance issue', async () => {
+    const seededBooking = booking();
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`bookings/${bookingId}`]: seededBooking as unknown as Record<string, unknown>,
+    });
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-16T10:00:00.000Z'),
+      executor
+    );
+    expect((await commands.execute(systemResolveEnvelope('overdue-once'))).status).toBe('success');
+    expect((await commands.execute(systemResolveEnvelope('overdue-once'))).status).toBe('success');
+    const issues = [...executor.snapshot().docs.entries()].filter(([path]) =>
+      path.startsWith('admin_issues/')
+    );
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.[1].data.kind).toBe('missing_attendance');
+    expect(issues[0]?.[1].data.participantId).toBeUndefined();
+  });
+
+  it('F. opens one booking issue when C is still missing after 24h', async () => {
+    const seededBooking = groupBooking();
+    const first = attendanceSeed(participantId, 'present');
+    const second = attendanceSeed(participantTwoId, 'absent');
+    const completed = BookingSchema.parse({
+      ...seededBooking,
+      lifecycle: { status: 'completed', completedAt: endsAt },
+      revision: 2,
+      updatedAt: endsAt,
+    });
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`bookings/${bookingId}`]: completed as unknown as Record<string, unknown>,
+      [first.path]: first.data,
+      [second.path]: second.data,
+    });
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-16T10:00:00.000Z'),
+      executor
+    );
+    const result = await commands.execute(systemResolveEnvelope('overdue-group-missing-c'));
+    expect(result.status).toBe('success');
+    const issues = [...executor.snapshot().docs.entries()].filter(
+      ([path, doc]) => path.startsWith('admin_issues/') && doc.data.kind === 'missing_attendance'
+    );
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.[1].data.participantId).toBeUndefined();
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe(
+      'completed'
+    );
+  });
+
+  it('G. recording the last missing participant resolves the booking issue', async () => {
+    const seededBooking = groupBooking();
+    const first = attendanceSeed(participantId, 'present');
+    const second = attendanceSeed(participantTwoId, 'absent');
+    const completed = BookingSchema.parse({
+      ...seededBooking,
+      lifecycle: { status: 'completed', completedAt: endsAt },
+      revision: 2,
+      updatedAt: endsAt,
+    });
+    const identity = missingBookingAttendanceIssueIdentity({
+      bookingId,
+      occurrenceId,
+    });
+    const issue = createOpenAdminIssue({
+      identity,
+      now: timestampFromDate(new Date('2026-01-16T10:00:00.000Z')),
+      correlationId,
+      commandId: 'command_seed_group_missing',
+    });
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`bookings/${bookingId}`]: completed as unknown as Record<string, unknown>,
+      [first.path]: first.data,
+      [second.path]: second.data,
+      [`admin_issues/${issue.issueId}`]: issue as unknown as Record<string, unknown>,
+    });
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-16T10:00:00.000Z'),
+      executor
+    );
+    const result = await commands.execute(
+      adminEnvelope('admin-record-c', 'present', {
+        targetParticipantId: participantThreeId,
+        reasonExplanation: 'Late attendance for remaining participant',
+        expectedBookingRevision: 2,
+      })
+    );
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.get(`admin_issues/${issue.issueId}`)?.data.lifecycle.status).toBe(
+      'resolved'
+    );
+  });
+
+  it('L. cancelled bookings do not open attendance-overdue issues', async () => {
+    const cancelled = BookingSchema.parse({
+      ...booking(),
+      lifecycle: {
+        status: 'cancelled',
+        cancelledAt: endsAt,
+        reasonCode: 'administrator_cancelled',
+      },
+      revision: 2,
+      updatedAt: endsAt,
+    });
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`bookings/${bookingId}`]: cancelled as unknown as Record<string, unknown>,
+    });
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-16T10:00:00.000Z'),
+      executor
+    );
+    const result = await commands.execute(systemResolveEnvelope('cancelled-no-overdue-issue'));
+    expect(result.status).toBe('success');
+    const issues = [...executor.snapshot().docs.entries()].filter(([path]) =>
+      path.startsWith('admin_issues/')
+    );
+    expect(issues).toHaveLength(0);
   });
 });

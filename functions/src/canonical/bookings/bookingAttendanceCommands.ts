@@ -11,7 +11,6 @@ import {
   compareCanonicalTimestamps,
   deriveIndividualBookingAttendanceOutcome,
   evaluateBookingOutcomeCalculator,
-  missingBookingAttendanceIssueIdentity,
   nextAggregateRevision,
   paymentRequiredAtStartIdentity,
   resolveAdminIssue,
@@ -65,15 +64,19 @@ import {
 import { CANONICAL_FIELD_DELETE, type CanonicalAtomicTransactionSession } from '../transactions';
 import { resolveCourseEnrollmentAttendanceOutcomeHandler } from '../courses/courseEnrollmentAttendanceCommands';
 import {
-  BOOKING_ATTENDANCE_OUTCOME_SWEEP_DEADLINE,
   bookingAttendanceOutcomeWorkPath,
-  completeBookingAttendanceOutcomeWork,
   parseBookingAttendanceOutcomeWork,
-  pendingBookingAttendanceOutcomeWork,
   resolveLessonBookingAttendanceEnvelope,
   type BookingAttendanceOutcomeWork,
   type PendingBookingAttendanceOutcomeWork,
 } from './bookingAttendanceOutcomeWork';
+import {
+  bookingAttendanceFollowUpDecision,
+  planAttendanceOutcomeWorkAfterResolve,
+  planCollapseLegacyParticipantMissingAttendanceIssues,
+  planOpenBookingMissingAttendanceIssue,
+  planResolveBookingMissingAttendanceIssues,
+} from './bookingAttendanceFollowUp';
 
 export interface ResolveBookingAttendanceOutcomeObservation {
   readonly replayed: boolean;
@@ -362,21 +365,35 @@ function recordBookingAttendanceHandler(
       const attendancesByParticipantId = new Map(currentAttendancesByParticipantId);
       attendancesByParticipantId.set(envelope.intent.participantId, plannedAttendance);
 
-      if (actorMode === 'administrator' || actorMode === 'admin_terminal_correction') {
-        const reason = envelope.intent.reasonExplanation!.trim();
-        const resolvedMissing = await planResolveBookingAttendanceIssue(session, {
-          identity: missingBookingAttendanceIssueIdentity({
-            bookingId: booking.bookingId,
-            occurrenceId: booking.occurrence.occurrenceId,
-            participantId: envelope.intent.participantId,
-          }),
+      const followUp = bookingAttendanceFollowUpDecision({
+        booking,
+        plannedBooking: undefined,
+        attendancesByParticipantId,
+        now,
+      });
+      if (followUp.allRecorded) {
+        const resolvedMissing = await planResolveBookingMissingAttendanceIssues(session, {
+          booking,
           envelope,
           metadata,
           now,
-          reason,
+          reason:
+            actorMode === 'instructor'
+              ? 'Instructor recorded remaining Attendance'
+              : envelope.intent.reasonExplanation?.trim() ||
+                'Attendance recorded; missing attendance follow-up resolved',
         });
-        if (resolvedMissing) resolvedIssues.push(resolvedMissing);
+        resolvedIssues.push(
+          ...resolvedMissing.map((entry) => ({
+            issue: entry.issue,
+            documentPath: entry.documentPath,
+            kind: 'missing_attendance' as const,
+          }))
+        );
+      }
 
+      if (actorMode === 'administrator' || actorMode === 'admin_terminal_correction') {
+        const reason = envelope.intent.reasonExplanation!.trim();
         if (envelope.intent.attendanceStatus !== 'present') {
           const resolvedConflict = await planResolveBookingAttendanceIssue(session, {
             identity: attendancePaymentConflictIdentity({
@@ -714,55 +731,52 @@ function resolveAttendanceOutcomeHandler(
         });
       }
 
-      if (outcomeDecision.outcome === 'unresolved') {
-        for (const participantId of outcomeDecision.missingParticipantIds) {
-          const identity = missingBookingAttendanceIssueIdentity({
-            bookingId: booking.bookingId,
-            occurrenceId: booking.occurrence.occurrenceId,
-            participantId,
-          });
-          const documentPath = plannedAdminIssuePath(identity);
-          const existing = await readOpenAdminIssue(session, metadata.correlationId, identity);
-          const opened = openOrReuseAdminIssue({
-            existing,
-            identity,
-            now,
-            correlationId: metadata.correlationId,
-            commandId: metadata.commandId,
-          });
-          plannedIssues.push({
-            issue: opened.issue,
-            mutationKind: opened.mutationKind,
-            documentPath,
-          });
-          session.plan.planMutation({
-            path: documentPath,
-            kind: opened.mutationKind,
-            category: 'aggregate',
-            estimatedPayloadBytes: ADMIN_ISSUE_PLANNING_ESTIMATES.issueBytes,
-          });
+      const followUp = bookingAttendanceFollowUpDecision({
+        booking,
+        plannedBooking,
+        attendancesByParticipantId,
+        now,
+      });
+      const shouldOpenMissingIssue =
+        followUp.overdue ||
+        (actorMode === 'administrator' && outcomeDecision.outcome === 'unresolved');
+      if (shouldOpenMissingIssue) {
+        const opened = await planOpenBookingMissingAttendanceIssue(session, {
+          booking,
+          now,
+          metadata,
+        });
+        if (opened.issue.lifecycle.status === 'open') {
+          plannedIssues.push(opened);
         }
+        plannedIssues.push(
+          ...(await planCollapseLegacyParticipantMissingAttendanceIssues(session, {
+            booking,
+            envelope,
+            metadata,
+            now,
+          }))
+        );
+      } else if (followUp.allRecorded) {
+        plannedIssues.push(
+          ...(await planResolveBookingMissingAttendanceIssues(session, {
+            booking,
+            envelope,
+            metadata,
+            now,
+            reason: 'All frozen service-party Attendance recorded',
+          }))
+        );
       }
 
       if (pendingWork) {
-        if (
-          booking.lifecycle.status === 'confirmed' &&
-          pendingWork.deadlineId === BOOKING_ATTENDANCE_OUTCOME_SWEEP_DEADLINE.outcome &&
-          !plannedBooking
-        ) {
-          plannedWork = pendingBookingAttendanceOutcomeWork(booking, {
-            deadlineId: BOOKING_ATTENDANCE_OUTCOME_SWEEP_DEADLINE.instructorWindow,
-            workRevision: pendingWork.workRevision + 1,
-            updatedAt: now,
-          });
-        } else {
-          const workBooking = plannedBooking ?? booking;
-          plannedWork = completeBookingAttendanceOutcomeWork(workBooking, {
-            completedReason: plannedBooking ? 'lifecycle_ineligible' : 'deadline_processed',
-            workRevision: pendingWork.workRevision + 1,
-            updatedAt: now,
-          });
-        }
+        plannedWork = planAttendanceOutcomeWorkAfterResolve({
+          booking,
+          plannedBooking,
+          pendingWork,
+          missingParticipantIds: followUp.missingParticipantIds,
+          now,
+        });
         session.plan.planMutation({
           path: bookingAttendanceOutcomeWorkPath(booking.bookingId),
           kind: 'update',
@@ -779,7 +793,12 @@ function resolveAttendanceOutcomeHandler(
         issues: plannedIssues.map((entry) => ({
           issueId: entry.issue.issueId,
           revision: entry.issue.revision,
-          effect: entry.mutationKind === 'create' ? ('opened' as const) : ('reused' as const),
+          effect:
+            entry.issue.lifecycle.status === 'resolved'
+              ? ('resolved' as const)
+              : entry.mutationKind === 'create'
+                ? ('opened' as const)
+                : ('reused' as const),
           kind: 'missing_attendance' as const,
         })),
         ...(auditSummary ? { lifecycleSummary: auditSummary } : {}),

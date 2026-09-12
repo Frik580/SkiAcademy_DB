@@ -26,6 +26,10 @@ import {
   computeInstructorLessonMetrics,
   countInstructorRosterLessons,
 } from '../instructorLessonMetrics';
+import {
+  instructorLessonAttendanceFollowUp,
+  type InstructorLessonAttendanceFollowUp,
+} from '../instructorAttendanceOverdue';
 
 export interface InstructorWorkspaceInput {
   userProfile: UserProfile;
@@ -67,6 +71,9 @@ export interface EnrichedBooking {
   clientAvatar?: string;
   isGuest: boolean;
   authorizedActions: InstructorLessonBookingItem['authorizedActions'];
+  attendanceFollowUp: InstructorLessonAttendanceFollowUp;
+  attendanceOverdue: boolean;
+  missingAttendanceCount: number;
 }
 
 export type DisplayBooking = EnrichedBooking;
@@ -215,6 +222,21 @@ export const useInstructorWorkspace = ({
           clientAvatar: primaryParticipant.clientAvatar,
           isGuest: booking.bookingOrigin === 'guest',
           authorizedActions: booking.authorizedActions,
+          ...(() => {
+            const attendanceFollowUp = instructorLessonAttendanceFollowUp({
+              status: booking.status,
+              startsAtEpochMs: booking.startsAtEpochMs,
+              endsAtEpochMs: booking.endsAtEpochMs,
+              attendance: booking.attendance,
+            });
+            return {
+              attendanceFollowUp,
+              attendanceOverdue: attendanceFollowUp === 'overdue_admin_required',
+              missingAttendanceCount: (booking.attendance ?? []).filter(
+                (row) => row.attendanceStatus !== 'present' && row.attendanceStatus !== 'absent'
+              ).length,
+            };
+          })(),
         };
       });
   }, [lessonBookings, userProfile.instructorId, usersList]);
@@ -246,6 +268,22 @@ export const useInstructorWorkspace = ({
       .filter((b) => isInstructorBookingVisibleForStatusFilter(b, statusFilter))
       .sort(compareInstructorLessonDisplayOrder);
   }, [instructorBookings, statusFilter]);
+
+  const missingInWindowBookings = useMemo(
+    () =>
+      instructorBookings
+        .filter((booking) => booking.attendanceFollowUp === 'missing_in_window')
+        .sort(compareInstructorLessonDisplayOrder),
+    [instructorBookings]
+  );
+
+  const overdueBookings = useMemo(
+    () =>
+      instructorBookings
+        .filter((booking) => booking.attendanceFollowUp === 'overdue_admin_required')
+        .sort(compareInstructorLessonDisplayOrder),
+    [instructorBookings]
+  );
 
   const instructorReviews = useMemo(() => {
     if (!userProfile.instructorId) return [];
@@ -479,6 +517,8 @@ export const useInstructorWorkspace = ({
     linkedInstructor,
     stats,
     displayedBookings,
+    missingInWindowBookings,
+    overdueBookings,
     instructorBookings,
     instructorReviews,
     myStudents,

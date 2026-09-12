@@ -130,40 +130,48 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <ActionButton
-            type="button"
-            unstyled
-            pending={submitting}
-            onClick={() => record('present')}
-            disabled={!participant.canRecordPresent}
-            aria-label={`${studentName}: ${t('instructorAttendancePresent')}`}
-            aria-pressed={participant.attendanceStatus === 'present'}
-            className={`h-8 px-2.5 text-[10px] font-mono font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-              participant.attendanceStatus === 'present'
-                ? 'border border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200'
-                : 'border border-slate-300 text-[var(--ink)] hover:border-slate-400 dark:border-slate-700 dark:hover:border-slate-600'
-            }`}
-          >
-            <Check className="w-3.5 h-3.5" />
-            {t('instructorAttendancePresent')}
-          </ActionButton>
-          <ActionButton
-            type="button"
-            unstyled
-            pending={submitting}
-            onClick={() => record('absent')}
-            disabled={!participant.canRecordAbsent}
-            aria-label={`${studentName}: ${t('instructorAttendanceAbsent')}`}
-            aria-pressed={participant.attendanceStatus === 'absent'}
-            className={`h-8 px-2.5 text-[10px] font-mono font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-              participant.attendanceStatus === 'absent'
-                ? 'border border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200'
-                : 'border border-slate-300 text-[var(--ink)] hover:border-slate-400 dark:border-slate-700 dark:hover:border-slate-600'
-            }`}
-          >
-            <X className="w-3.5 h-3.5" />
-            {t('instructorAttendanceAbsent')}
-          </ActionButton>
+          {b.attendanceFollowUp === 'overdue_admin_required' ? (
+            <span className="text-[9px] font-mono uppercase tracking-wider text-amber-800 dark:text-amber-300">
+              {t('instructorAttendanceAdminRequired')}
+            </span>
+          ) : (
+            <>
+              <ActionButton
+                type="button"
+                unstyled
+                pending={submitting}
+                onClick={() => record('present')}
+                disabled={!participant.canRecordPresent}
+                aria-label={`${studentName}: ${t('instructorAttendancePresent')}`}
+                aria-pressed={participant.attendanceStatus === 'present'}
+                className={`h-8 px-2.5 text-[10px] font-mono font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                  participant.attendanceStatus === 'present'
+                    ? 'border border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200'
+                    : 'border border-slate-300 text-[var(--ink)] hover:border-slate-400 dark:border-slate-700 dark:hover:border-slate-600'
+                }`}
+              >
+                <Check className="w-3.5 h-3.5" />
+                {t('instructorAttendancePresent')}
+              </ActionButton>
+              <ActionButton
+                type="button"
+                unstyled
+                pending={submitting}
+                onClick={() => record('absent')}
+                disabled={!participant.canRecordAbsent}
+                aria-label={`${studentName}: ${t('instructorAttendanceAbsent')}`}
+                aria-pressed={participant.attendanceStatus === 'absent'}
+                className={`h-8 px-2.5 text-[10px] font-mono font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                  participant.attendanceStatus === 'absent'
+                    ? 'border border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200'
+                    : 'border border-slate-300 text-[var(--ink)] hover:border-slate-400 dark:border-slate-700 dark:hover:border-slate-600'
+                }`}
+              >
+                <X className="w-3.5 h-3.5" />
+                {t('instructorAttendanceAbsent')}
+              </ActionButton>
+            </>
+          )}
           <StudentAssessButton
             t={t}
             disabled={!canAssessInLesson}
@@ -211,7 +219,10 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
   };
 
   return (
-    <div className="border p-5 space-y-4 bg-[var(--card-bg)] rounded-xs shadow-xs transition-colors duration-300 border-slate-200/70 dark:border-slate-800/70 hover:border-slate-300 dark:hover:border-slate-700">
+    <div
+      id={`instructor-lesson-${b.id}`}
+      className="border p-5 space-y-4 bg-[var(--card-bg)] rounded-xs shadow-xs transition-colors duration-300 border-slate-200/70 dark:border-slate-800/70 hover:border-slate-300 dark:hover:border-slate-700"
+    >
       <div className="flex flex-col md:flex-row justify-between items-start gap-4">
         <div className="space-y-3 flex-1">
           <div className="flex items-center gap-3">
@@ -224,6 +235,22 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
               {b.time} ({b.durationHours}h)
             </div>
             <StatusBadge status={b.status} size="xs" />
+            {b.attendanceFollowUp === 'overdue_admin_required' ? (
+              <span className="px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 rounded-xs">
+                {t('instructorAttendanceOverdueBadge')}
+                {b.missingAttendanceCount > 1
+                  ? ` · ${b.missingAttendanceCount} ${t('instructorAttendanceMissingParticipants')}`
+                  : ''}
+                {` · ${t('instructorAttendanceAdminRequired')}`}
+              </span>
+            ) : b.attendanceFollowUp === 'missing_in_window' ? (
+              <span className="px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider bg-slate-500/10 text-[var(--ink-dim)] border border-slate-400/30 rounded-xs">
+                {t('instructorAttendanceNotRecordedBadge')}
+                {b.missingAttendanceCount > 1
+                  ? ` · ${b.missingAttendanceCount} ${t('instructorAttendanceMissingParticipants')}`
+                  : ''}
+              </span>
+            ) : null}
           </div>
 
           <div className="p-3.5 border border-slate-200/60 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/30 rounded-xs w-full space-y-2.5">

@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { Firestore } from 'firebase-admin/firestore';
 import {
+  ATTENDANCE_IDENTITY_STRATEGY_VERSION,
   addMillisecondsToCanonicalTimestamp,
+  attendanceIdFromBookingIdentity,
+  AttendanceSchema,
   timestampFromDate,
   type Booking,
 } from '@ski-academy/shared-domain';
@@ -406,20 +409,6 @@ describe('Booking attendance outcome trigger scheduling guard', () => {
 
   it.each([
     {
-      name: 'completed',
-      lifecycle: {
-        status: 'completed',
-        completedAt: timestampFromDate(new Date('2026-01-01T00:00:31.000Z')),
-      },
-    },
-    {
-      name: 'no_show',
-      lifecycle: {
-        status: 'no_show',
-        noShowAt: timestampFromDate(new Date('2026-01-01T00:00:31.000Z')),
-      },
-    },
-    {
       name: 'cancelled',
       lifecycle: {
         status: 'cancelled',
@@ -465,6 +454,113 @@ describe('Booking attendance outcome trigger scheduling guard', () => {
     });
   });
 
+  it.each([
+    {
+      name: 'completed',
+      lifecycle: {
+        status: 'completed',
+        completedAt: timestampFromDate(new Date('2026-01-01T00:00:31.000Z')),
+      },
+    },
+    {
+      name: 'no_show',
+      lifecycle: {
+        status: 'no_show',
+        noShowAt: timestampFromDate(new Date('2026-01-01T00:00:31.000Z')),
+      },
+    },
+  ])(
+    'keeps instructor_window follow-up pending on confirmed -> $name with missing Attendance still possible',
+    async ({ lifecycle }) => {
+      const confirmed = withRevision(booking, 30);
+      const terminal = { ...withRevision(booking, 31), lifecycle } as Booking;
+      const pending = pendingBookingAttendanceOutcomeWork(confirmed, {
+        deadlineId: 'outcome',
+        workRevision: 1,
+        updatedAt: confirmed.updatedAt,
+      });
+      const bookingPath = `bookings/${booking.bookingId}`;
+      const workPath = `booking_attendance_outcome_work/${booking.bookingId}`;
+      const harness = createFirestoreHarness({
+        [bookingPath]: raw(terminal),
+        [workPath]: pending as unknown as Record<string, unknown>,
+      });
+
+      await expect(
+        syncLessonBookingAttendanceOutcomeWorkForBookingWrite(harness.firestore, {
+          rawBookingId: booking.bookingId,
+          beforeData: raw(confirmed),
+          afterData: raw(terminal),
+          now: new Date('2026-01-01T00:00:31.000Z'),
+        })
+      ).resolves.toBe('updated');
+      expect(parseBookingAttendanceOutcomeWork(harness.documents.get(workPath))).toMatchObject({
+        status: 'pending',
+        deadlineId: 'instructor_window',
+        sourceBookingRevision: 31,
+      });
+    }
+  );
+
+  it('completes terminal work when frozen Attendance is already fully recorded', async () => {
+    const confirmed = withRevision(booking, 30);
+    const terminal = {
+      ...withRevision(booking, 31),
+      lifecycle: {
+        status: 'completed',
+        completedAt: timestampFromDate(new Date('2026-01-01T00:00:31.000Z')),
+      },
+    } as Booking;
+    const participantId = booking.occurrence.serviceParty.participantIds[0]!;
+    const attendanceId = attendanceIdFromBookingIdentity({
+      strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+      subjectKind: 'booking',
+      occurrenceId: booking.occurrence.occurrenceId,
+      participantId,
+    });
+    const attendance = AttendanceSchema.parse({
+      attendanceId,
+      subject: {
+        subjectKind: 'booking',
+        bookingId: booking.bookingId,
+        occurrenceId: booking.occurrence.occurrenceId,
+        participantId,
+      },
+      attendanceStatus: 'present',
+      recordedBy: { kind: 'instructor', instructorId: booking.occurrence.instructorId },
+      recordedAt: booking.occurrence.interval.endsAt,
+      lastChangedBy: { kind: 'instructor', instructorId: booking.occurrence.instructorId },
+      updatedAt: booking.occurrence.interval.endsAt,
+      revision: 1,
+      correlationId: booking.audit.correlationId,
+    });
+    const pending = pendingBookingAttendanceOutcomeWork(confirmed, {
+      deadlineId: 'outcome',
+      workRevision: 1,
+      updatedAt: confirmed.updatedAt,
+    });
+    const bookingPath = `bookings/${booking.bookingId}`;
+    const workPath = `booking_attendance_outcome_work/${booking.bookingId}`;
+    const harness = createFirestoreHarness({
+      [bookingPath]: raw(terminal),
+      [workPath]: pending as unknown as Record<string, unknown>,
+      [`attendance/${attendanceId}`]: attendance as unknown as Record<string, unknown>,
+    });
+
+    await expect(
+      syncLessonBookingAttendanceOutcomeWorkForBookingWrite(harness.firestore, {
+        rawBookingId: booking.bookingId,
+        beforeData: raw(confirmed),
+        afterData: raw(terminal),
+        now: new Date('2026-01-01T00:00:31.000Z'),
+      })
+    ).resolves.toBe('updated');
+    expect(parseBookingAttendanceOutcomeWork(harness.documents.get(workPath))).toMatchObject({
+      status: 'complete',
+      completedReason: 'lifecycle_ineligible',
+    });
+  });
+
   it('clears terminal work, recreates it on confirmed re-entry, and deduplicates command follow-up', async () => {
     const confirmed = withRevision(booking, 20);
     const terminal = {
@@ -494,10 +590,10 @@ describe('Booking attendance outcome trigger scheduling guard', () => {
         now: new Date('2026-01-01T00:00:21.000Z'),
       })
     ).resolves.toBe('updated');
-    expect(harness.operations).toEqual({ reads: 2, writes: 1 });
+    expect(harness.operations).toEqual({ reads: 3, writes: 1 });
     expect(parseBookingAttendanceOutcomeWork(harness.documents.get(workPath))).toMatchObject({
-      status: 'complete',
-      completedReason: 'lifecycle_ineligible',
+      status: 'pending',
+      deadlineId: 'instructor_window',
       sourceBookingRevision: 21,
     });
 

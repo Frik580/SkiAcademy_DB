@@ -26,6 +26,7 @@ import { createQueryInstructorOccupancyReadModelsHandler } from './canonical/rea
 import { createQueryLessonPricingSettingsReadModelHandler } from './canonical/readModels/queryLessonPricingSettingsReadModelCallable';
 import { createQueryInstructorReviewReadModelsHandler } from './canonical/readModels/queryInstructorReviewReadModelsCallable';
 import { createQueryParticipantProgressReadModelsHandler } from './canonical/readModels/queryParticipantProgressReadModelsCallable';
+import { createQueryParticipantAchievementsReadModelsHandler } from './canonical/readModels/queryParticipantAchievementsReadModelsCallable';
 import { createQueryParticipantLessonFeedbackReadModelsHandler } from './canonical/readModels/queryParticipantLessonFeedbackReadModelsCallable';
 import { sweepGuestConfirmationLifecycleMismatches } from './canonical/guestConfirmation/guestConfirmationReconciliationSweep';
 import { sweepExpiredGuestLessonReservations } from './canonical/bookings/guestLessonReservationExpirySweep';
@@ -149,6 +150,12 @@ export const queryParticipantProgressReadModels = onCall(
   async (request) => createQueryParticipantProgressReadModelsHandler(getAdminFirestore())(request)
 );
 
+export const queryParticipantAchievementsReadModels = onCall(
+  CANONICAL_CALLABLE_OPTIONS,
+  async (request) =>
+    createQueryParticipantAchievementsReadModelsHandler(getAdminFirestore())(request)
+);
+
 export const queryParticipantLessonFeedbackReadModels = onCall(
   CANONICAL_CALLABLE_OPTIONS,
   async (request) =>
@@ -176,7 +183,22 @@ export const scheduledReconcileGuestConfirmationMismatches = onSchedule(
   },
   async () => {
     const result = await sweepGuestConfirmationLifecycleMismatches(getAdminFirestore());
-    console.log(`Reconciled ${result.scannedPayments} fully-paid Payment(s).`);
+    console.log(
+      JSON.stringify({
+        job: 'scheduledReconcileGuestConfirmationMismatches',
+        scannedCandidates: result.scannedCandidates,
+        fullyFundedCandidates: result.fullyFundedCandidates,
+        alreadyOpenSkipped: result.alreadyOpenSkipped,
+        workCandidatesSelected: result.workCandidatesSelected,
+        reconciled: result.reconciled,
+        skipped: result.skipped,
+        pages: result.pages,
+        truncated: result.truncated,
+        subjectDocsRead: result.subjectDocsRead,
+        paymentLookupReads: result.paymentLookupReads,
+        issueLookupReads: result.issueLookupReads,
+      })
+    );
   }
 );
 

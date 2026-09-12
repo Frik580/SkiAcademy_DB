@@ -570,7 +570,9 @@ describe.skipIf(!runsOnFirestoreEmulator)('guest booking commands (firestore emu
       new Date('2026-01-01T11:03:00.000Z')
     );
     expect(firstSweep.scannedPayments).toBe(1);
-    expect(replaySweep.scannedPayments).toBe(1);
+    expect(replaySweep.workCandidatesSelected).toBe(0);
+    expect(replaySweep.alreadyOpenSkipped).toBe(1);
+    expect(replaySweep.outcomes).toEqual([]);
 
     const issues = await firestore.collection('admin_issues').get();
     expect(issues.size).toBe(1);

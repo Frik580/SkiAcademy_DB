@@ -123,6 +123,17 @@
       ]
     },
     {
+      "collectionGroup": "bookings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "attribution.bookingOrigin", "order": "ASCENDING" },
+        { "fieldPath": "lifecycle.status", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt.seconds", "order": "DESCENDING" },
+        { "fieldPath": "updatedAt.nanoseconds", "order": "DESCENDING" },
+        { "fieldPath": "bookingId", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "course_enrollments",
       "queryScope": "COLLECTION",
       "fields": [

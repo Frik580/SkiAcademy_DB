@@ -970,13 +970,18 @@ export function recordAuditCorrectionHandler(
   });
 }
 
+export type GuestConfirmationLifecycleMismatchReconciliationOutcome =
+  | 'aligned'
+  | 'already_open'
+  | 'reconciled';
+
 export async function reconcileGuestConfirmationLifecycleMismatchAfterCommand(input: {
   readonly correlationId: CommandEnvelope['context']['correlationId'];
   readonly paymentId: Payment['paymentId'];
   readonly environment: CommandExecutionEnvironment;
   readonly executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor'];
   readonly eventLoader?: MonetaryEventLoader;
-}): Promise<void> {
+}): Promise<GuestConfirmationLifecycleMismatchReconciliationOutcome> {
   const mismatch = await input.executor.runAtomic({
     correlationId: input.correlationId,
     run: async (session) => {
@@ -998,7 +1003,7 @@ export async function reconcileGuestConfirmationLifecycleMismatchAfterCommand(in
       });
       if (!detected) {
         await session.transitionToWrites();
-        return undefined;
+        return { outcome: 'aligned' as const };
       }
       const identity = financialReconciliationMismatchIdentity({
         subjectKind: payment.subjectType,
@@ -1013,15 +1018,16 @@ export async function reconcileGuestConfirmationLifecycleMismatchAfterCommand(in
         issueRead.exists ? issueRead.data : undefined
       );
       await session.transitionToWrites();
-      if (issue?.lifecycle.status === 'open') return undefined;
+      if (issue?.lifecycle.status === 'open') return { outcome: 'already_open' as const };
       return {
+        outcome: 'needs_command' as const,
         paymentRevision: payment.revision,
         subjectRevision: detected.subjectRevision,
         issueRevision: issue?.revision ?? 0,
       };
     },
   });
-  if (!mismatch) return;
+  if (mismatch.outcome !== 'needs_command') return mismatch.outcome;
 
   const reconciliationEnvelope: CommandEnvelope<'record_audit_correction'> = {
     kind: 'record_audit_correction',
@@ -1070,6 +1076,7 @@ export async function reconcileGuestConfirmationLifecycleMismatchAfterCommand(in
       correlationId: input.correlationId,
     });
   }
+  return 'reconciled';
 }
 
 export function createFinanceCorrectionCommandHandlers(

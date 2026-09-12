@@ -16,7 +16,7 @@ The current implementation uses `Booking.userId` as Account owner, attendee, pay
 - `src/types/user.ts`
 - `src/types/course.ts`
 - `functions/src/courses/enrollInCourse.ts`
-- `functions/src/courses/createGuestCourseEnrollment.ts`
+- the retired legacy guest Course Enrollment callable (removed after canonical cutover)
 - `functions/src/bookings/bookingLogic.ts`
 - `functions/src/bookings/linkGuestBooking.ts`
 - `firestore.rules`

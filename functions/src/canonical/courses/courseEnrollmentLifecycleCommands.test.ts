@@ -5,6 +5,7 @@ import {
   AggregateRevisionSchema,
   CorrelationIdSchema,
   CourseDayIdSchema,
+  CourseEnrollmentIdSchema,
   CourseIdSchema,
   InstructorIdSchema,
   ParticipantIdSchema,
@@ -156,6 +157,32 @@ function baseFixture() {
 }
 
 describe('course enrollment lifecycle commands', () => {
+  it('rejects non-system attempts to expire guest course reservations before any read or write', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-02T00:00:00.000Z'),
+      executor
+    );
+    const result = await commands.execute({
+      kind: 'expire_guest_reservation',
+      context: {
+        ...accountContext('unauthorized-course-expiry'),
+        expectedRevision: AggregateRevisionSchema.parse(1),
+      },
+      intent: {
+        courseEnrollmentId: CourseEnrollmentIdSchema.parse('enrollment_unauthorized_course_expiry'),
+      },
+    });
+
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('forbidden');
+    }
+    expect(
+      executor.snapshot().docs.has('course_enrollments/enrollment_unauthorized_course_expiry')
+    ).toBe(false);
+  });
+
   it('does not duplicate cancellation writes when the transaction callback retries', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(baseFixture(), {
       simulateRetry: true,

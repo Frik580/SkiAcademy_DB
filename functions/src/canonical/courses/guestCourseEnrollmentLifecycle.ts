@@ -25,6 +25,7 @@ import {
   type GuestSubjectId,
 } from '@ski-academy/shared-domain';
 import { verifyGuestCourseEnrollmentActionCredentialPartsAuthoritative } from '../bookings/guestCredentialVerification';
+import { assertExpireGuestReservationAuthorization } from '../bookings/guestBookingAuthorization';
 import {
   buildExpireGuestCourseEnrollmentReservationAuditPlan,
   buildGuestCourseEnrollmentCancellationAuditPlan,
@@ -440,6 +441,7 @@ export async function expireGuestCourseEnrollmentReservation(
   environment: CommandExecutionEnvironment,
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
 ): Promise<CommandResult<'expire_guest_reservation'>> {
+  assertExpireGuestReservationAuthorization(envelope);
   const metadata = metadataFromEnvelope(envelope);
   const courseEnrollmentId = envelope.intent.courseEnrollmentId!;
   const enrollmentDocumentPath = courseEnrollmentPath(courseEnrollmentId);

@@ -230,7 +230,7 @@ where `GUEST_COURSE_RESERVATION_TTL_MS = 24 hours`. Do not apply the 1-hour less
 
 Canonical command: `expire_guest_reservation` with `courseEnrollmentId` intent (handler: `expireGuestCourseEnrollmentReservation`). The command rechecks guest origin, `pending` status, Payment identity, funding predicate, deadline, course context, seat release rules, and claim release in the authoritative transaction.
 
-Production automatic expiry requires a **bounded CourseEnrollment discovery scheduler** separate from `scheduledExpireGuestLessonReservations`. The lesson scheduler is orchestrator-only for lesson Bookings and does not discover CourseEnrollments. F5 closes the current runtime enforcement gap where canonical expiry semantics exist but production may not yet discover expired guest course candidates automatically.
+Production automatic expiry uses the bounded `scheduledExpireGuestCourseReservations` discovery scheduler, separate from `scheduledExpireGuestLessonReservations`. The lesson scheduler is orchestrator-only for lesson Bookings and does not discover CourseEnrollments. F5's release candidate closes the source/runtime gap where canonical expiry semantics existed but no production scheduler export discovered expired guest course candidates; deploy and production smoke remain pending.
 
 ### Semantic distinction (unchanged from F2, applied to CourseEnrollment)
 
@@ -496,7 +496,7 @@ ad-hoc product exceptions here.
 | `scheduledReconcileGuestConfirmationMismatches` | Canonical / active                                                                      |
 | `scheduledPurgeExpiredNotifications`            | Canonical / active                                                                      |
 | Guest unpaid reservation expiry scheduler (lesson Booking) | `scheduledExpireGuestLessonReservations` / every 5 minutes UTC / Canonical / active (9A.F2 production-smoked) |
-| Guest unpaid reservation expiry scheduler (CourseEnrollment) | **F5 / IN PROGRESS** — separate bounded path; not the lesson scheduler |
+| Guest unpaid reservation expiry scheduler (CourseEnrollment) | `scheduledExpireGuestCourseReservations` / every 5 minutes UTC / **F5 READY_FOR_DEPLOY** (bounded 25/page, 100/run; production smoke pending) |
 
 Completion scheduling must not be confused with payment-confirmation
 reconciliation.

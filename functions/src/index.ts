@@ -3,7 +3,6 @@ import { onCall } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { getAdminFirestore } from './adminFirestore';
-import { createGuestCourseEnrollmentHandler } from './courses/createGuestCourseEnrollment';
 import { enrollInCourseHandler } from './courses/enrollInCourse';
 import { purgeExpiredNotifications } from './purgeExpiredNotifications';
 import { createExecuteCanonicalCommandHandler } from './canonical/commands/executeCanonicalCommandCallable';
@@ -31,6 +30,7 @@ import { createQueryParticipantAchievementsReadModelsHandler } from './canonical
 import { createQueryParticipantLessonFeedbackReadModelsHandler } from './canonical/readModels/queryParticipantLessonFeedbackReadModelsCallable';
 import { sweepGuestConfirmationLifecycleMismatches } from './canonical/guestConfirmation/guestConfirmationReconciliationSweep';
 import { sweepExpiredGuestLessonReservations } from './canonical/bookings/guestLessonReservationExpirySweep';
+import { sweepExpiredGuestCourseReservations } from './canonical/courses/guestCourseReservationExpirySweep';
 import { sweepLessonBookingAttendanceOutcomes } from './canonical/bookings/bookingAttendanceOutcomeSweep';
 import { syncLessonBookingAttendanceOutcomeWorkForBookingWrite } from './canonical/bookings/bookingAttendanceOutcomeWorkSync';
 
@@ -46,10 +46,6 @@ const GUEST_SECRET_CALLABLE_OPTIONS = {
   ...CANONICAL_CALLABLE_OPTIONS,
   secrets: [guestActionTokenSecret],
 };
-
-export const createGuestCourseEnrollment = onCall({ region: 'us-central1' }, async (request) =>
-  createGuestCourseEnrollmentHandler(getAdminFirestore())(request)
-);
 
 export const enrollInCourse = onCall({ region: 'us-central1' }, async (request) =>
   enrollInCourseHandler(getAdminFirestore())(request)
@@ -215,6 +211,34 @@ export const scheduledExpireGuestLessonReservations = onSchedule(
     const result = await sweepExpiredGuestLessonReservations(getAdminFirestore());
     console.log(
       `Expired guest lesson reservations scanned ${result.scannedCandidates} candidate(s).`
+    );
+  }
+);
+
+export const scheduledExpireGuestCourseReservations = onSchedule(
+  {
+    schedule: 'every 5 minutes',
+    timeZone: 'UTC',
+    cpu: 'gcf_gen1',
+    memory: '256MiB',
+    maxInstances: 1,
+  },
+  async () => {
+    const result = await sweepExpiredGuestCourseReservations(getAdminFirestore());
+    console.log(
+      JSON.stringify({
+        job: 'scheduledExpireGuestCourseReservations',
+        scannedCandidates: result.scannedCandidates,
+        expired: result.expired,
+        fullyFunded: result.fullyFunded,
+        alreadyTerminal: result.alreadyTerminal,
+        alreadyIneligible: result.alreadyIneligible,
+        stale: result.stale,
+        invalidIntegrity: result.invalidIntegrity,
+        failed: result.failed,
+        pages: result.pages,
+        truncated: result.truncated,
+      })
     );
   }
 );

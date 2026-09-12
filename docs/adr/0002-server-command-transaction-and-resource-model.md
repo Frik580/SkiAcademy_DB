@@ -367,7 +367,7 @@ Current modules that are eventually deleted, replaced, or reduced to thin adapte
 - `src/domain/availability/availabilitySlots.ts`, `availabilityMigration.ts`, and legacy availability exports;
 - fixed-hour-lock helpers in `packages/shared-domain/src/booking.ts`;
 - legacy server mutation paths in `functions/src/bookings/bookingLogic.ts`, `autoComplete.ts`, and `completeBooking.ts`;
-- legacy Course Enrollment callables including `functions/src/courses/enrollInCourse.ts` and `createGuestCourseEnrollment.ts`;
+- legacy Course Enrollment callables including `functions/src/courses/enrollInCourse.ts`; the guest variant was removed after canonical cutover;
 - the existing isolated idempotency implementation in `functions/src/idempotency.ts` where it is not already compatible with transactional command replay;
 - overlapping Wallet/ledger mutation helpers in `src/domain/wallet/`, `functions/src/walletLedger.ts`, and `functions/src/schoolGuestWallet.ts` once the Payment command implementation replaces them.
 

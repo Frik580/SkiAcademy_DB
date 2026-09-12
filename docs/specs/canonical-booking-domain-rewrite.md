@@ -186,13 +186,13 @@ Deliver the complete canonical Course vertical slice without representing Enroll
 
 After this phase is complete, delete or replace old Course enrollment callables, synthetic-course helpers, deterministic Enrollment ID builders, Course-shaped Booking query paths, availability migration code, hour-lock code, and their tests.
 
-**T32.9A.9A.F5 gate (production).** Legacy `functions/src/courses/createGuestCourseEnrollment.ts` and the exported callable `createGuestCourseEnrollment` are not safely removable until:
+**T32.9A.9A.F5 gate (production).** The release candidate removed legacy `functions/src/courses/createGuestCourseEnrollment.ts` and the exported callable `createGuestCourseEnrollment` after proving that the active frontend already uses canonical `create_course_enrollments`. Production cutover is not complete until:
 
 1. **T32.9A.9A.F5** is **PASS / CLOSED** (bounded guest CourseEnrollment expiry in production, legacy reachability resolved);
 2. production caller audit proves `REMOVED` or `MIGRATED_AND_REMOVED` with exactly one authoritative guest creation path;
 3. no reachable path creates indefinite guest `pending` enrollment without `reservationExpiresAt`.
 
-Until then, classification remains **STILL_REQUIRED** (see [T32_CANONICAL_ADMIN_AUDIT.md](../T32_CANONICAL_ADMIN_AUDIT.md)). This gate is additional to Phase 4 emulator tests and does not restore the empty-production-database cutover model.
+Repository classification is **REMOVED — READY_FOR_DEPLOY**; the currently deployed legacy function, if present, remains live until the authorized functions deployment deletes it. See [T32_CANONICAL_ADMIN_AUDIT.md](../T32_CANONICAL_ADMIN_AUDIT.md). This gate is additional to Phase 4 emulator tests and does not restore the empty-production-database cutover model.
 
 ## Phase 5 — Frontend migration to canonical API and model
 

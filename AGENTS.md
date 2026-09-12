@@ -35,6 +35,26 @@ A slice is not complete without UX capability parity.
 - When adding a new component, check whether it adds a direct edge to `useLanguage()`, `Booking`, `UserProfile`, or `Course`; use an existing feature boundary unless the direct dependency is justified by the component's responsibility.
 - Refactor existing code to these boundaries only when the file is being changed or its coupling creates a concrete maintenance problem.
 
+## Server resource efficiency
+
+Server-resource efficiency is a project-wide non-functional requirement.
+
+When implementing or reviewing code, actively avoid unbounded reads, N+1
+queries, duplicate subscriptions, unnecessary eager hydration, full-history
+polling, and background jobs whose no-op cost grows with historical data.
+
+Prefer bounded server-side queries, cursor pagination, lazy loading, shared
+read ownership, and small no-op scheduler cost where semantically safe.
+
+Never trade away correctness, security, canonical contracts, lifecycle,
+payments, attendance, authorization, idempotency, or user-facing UX merely to
+reduce resource usage.
+
+Do not broaden a ticket into a major optimization refactor without explicit
+approval. Flag the issue instead.
+
+Full always-on rule: [`.cursor/rules/server-resource-efficiency.mdc`](.cursor/rules/server-resource-efficiency.mdc).
+
 ## Agent skills
 
 ### Issue tracker

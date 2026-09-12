@@ -59,7 +59,12 @@ ehthumbs.db
 Thumbs.db
 
 
-.cursor/
+# Ignore local Cursor state, but keep project-wide agent rules cloneable.
+.cursor/*
+!.cursor/rules/
+.cursor/rules/*
+!.cursor/rules/*.mdc
+
 
 .codex/
 

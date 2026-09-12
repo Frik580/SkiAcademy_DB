@@ -314,6 +314,22 @@ export type LessonBookingInstructorAttendancePresentation = z.output<
   typeof LessonBookingInstructorAttendancePresentationSchema
 >;
 
+/**
+ * Student-visible Attendance projection for Participants the calling Account manages.
+ * Unrelated group-party members are omitted (no status, identity extras, or revision).
+ * Missing Attendance is represented by omitting `attendanceStatus`.
+ */
+export const LessonBookingManagedParticipantAttendanceSchema = z
+  .object({
+    participantId: ParticipantIdSchema,
+    attendanceStatus: AttendanceStatusSchema.optional(),
+  })
+  .strict();
+
+export type LessonBookingManagedParticipantAttendance = z.output<
+  typeof LessonBookingManagedParticipantAttendanceSchema
+>;
+
 export const LessonBookingReadModelSchema = z
   .object({
     bookingId: BookingIdSchema,
@@ -331,6 +347,18 @@ export const LessonBookingReadModelSchema = z
     difficulty: LessonDifficultySchema.optional(),
     notes: BookingLessonNotesSchema,
     attendance: z.array(LessonBookingInstructorAttendancePresentationSchema).min(1).optional(),
+    /**
+     * Frozen occurrence service party. Account scopes populate this for participant stats.
+     * Instructor/Admin/guest may omit it; callers then use `participantIds`.
+     */
+    serviceParticipantIds: z.array(ParticipantIdSchema).min(1).optional(),
+    /**
+     * Account-scope only. Attendance rows for managed Participants in the service party.
+     * Never includes unmanaged group members.
+     */
+    managedParticipantAttendance: z
+      .array(LessonBookingManagedParticipantAttendanceSchema)
+      .optional(),
     admin: LessonBookingAdminProjectionSchema.optional(),
     updatedAt: CanonicalTimestampSchema,
   })

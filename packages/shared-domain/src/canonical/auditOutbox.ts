@@ -89,6 +89,7 @@ export const AUDIT_EFFECT_KINDS = [
   'pricing_settings_changed',
   'instructor_review_created',
   'participant_progress_changed',
+  'participant_achievements_changed',
   'participant_lesson_feedback_changed',
 ] as const;
 export type AuditEffectKind = (typeof AUDIT_EFFECT_KINDS)[number];

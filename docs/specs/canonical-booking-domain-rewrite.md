@@ -348,8 +348,11 @@ T32.9A.9B — IN PROGRESS (active): stats/progress/recommendations + Reviews / i
   T32.9A.9B.3 — PASS / CLOSED: Recommendations / Lesson Feedback continuity (production smoke 2026-09-12)
     (authority `/participant_lesson_feedback/{feedbackId}`; participantId + lessonBookingId; clean start / no migration;
      Instructor present-only gate; Chat Homework preserved out of ParticipantLessonFeedback scope; 9P.HW1 recorded)
-  T32.9A.9B.4 — NEXT (active): Stats / Achievements
-    (homework_done / recommendation aggregate stats / historical recommendation_* activity logs)
+  T32.9A.9B.4 — READY_FOR_MANUAL_SMOKE: Stats / Achievements
+    (participant Attendance.present + full account drain; `/participant_achievements/{participantId}`;
+     homework_done = ParticipantLessonFeedback; feedback_given = canonical reviews;
+     course_graduate deferred to 9C; activity logs presentation-only;
+     Instructor/Admin KPIs = booking lifecycle + complete history; revenue unchanged)
         ↓
 T32.9A.9C (Course progress / achievements)
         ↓

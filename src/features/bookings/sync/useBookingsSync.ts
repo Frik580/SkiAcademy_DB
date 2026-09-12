@@ -3,7 +3,6 @@ import {
   collection,
   db,
   doc,
-  getDoc,
   handleFirestoreError,
   limit,
   onSnapshot,
@@ -195,29 +194,4 @@ export const useBookingsSync = () => {
     useBookingsStore.getState().setBookingsHasMore(false);
     useBookingsStore.getState().setBookingHistoryLoading(false);
   }, [firebaseUser]);
-
-  // Deleted completed stats (admin)
-  useEffect(() => {
-    if (userProfile?.role !== 'admin' || !firebaseUser) {
-      useBookingsStore.getState().setDeletedCompletedStats({ revenue: 0, count: 0 });
-      return;
-    }
-
-    const loadDeletedCompletedStats = async () => {
-      try {
-        const statsDoc = await getDoc(doc(db, 'users', 'school_global_stats'));
-        if (statsDoc.exists()) {
-          const data = statsDoc.data();
-          useBookingsStore.getState().setDeletedCompletedStats({
-            revenue: data.deletedCompletedRevenue || 0,
-            count: data.deletedCompletedCount || 0,
-          });
-        }
-      } catch (error) {
-        logger.error('Error fetching stats:', error);
-      }
-    };
-
-    loadDeletedCompletedStats();
-  }, [firebaseUser, userProfile?.role]);
 };

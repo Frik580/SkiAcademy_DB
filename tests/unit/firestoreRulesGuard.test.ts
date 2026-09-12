@@ -137,6 +137,9 @@ describe('firestore.rules guardrails', () => {
     expect(rulesSource).toMatch(
       /match \/participant_progress\/\{participantId\}[\s\S]*allow read, write: if false;/
     );
+    expect(rulesSource).toMatch(
+      /match \/participant_achievements\/\{participantId\}[\s\S]*allow read, write: if false;/
+    );
   });
 
   it('protects strict and provisioned canonical courses from legacy Admin writes', () => {

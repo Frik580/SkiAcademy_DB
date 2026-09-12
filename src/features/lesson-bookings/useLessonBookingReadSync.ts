@@ -8,13 +8,18 @@ import {
   ACCOUNT_LESSON_BOOKING_REFRESH_MS,
   applyAccountLessonBookingReadResults,
   isAccountLessonBookingBackgroundSyncAllowed,
-  syncAccountLessonBookingsFromServer,
+  syncAccountHotLessonBookingsFromServer,
 } from './syncAccountLessonBookings';
 
 const DEFAULT_TIMEZONE = 'Asia/Almaty';
 
-export function useLessonBookingReadSync(enabled: boolean, accountId: string | undefined) {
+export function useLessonBookingReadSync(
+  enabled: boolean,
+  accountId: string | undefined,
+  historyEnabled = false
+) {
   const historyRequestNonce = useLessonBookingStore((state) => state.historyRequestNonce);
+  const historyLoading = useLessonBookingStore((state) => state.historyLoading);
 
   const loadHot = useCallback(async () => {
     if (!enabled || !accountId) return;
@@ -37,6 +42,7 @@ export function useLessonBookingReadSync(enabled: boolean, accountId: string | u
     if (!enabled || !accountId) return;
     const state = useLessonBookingStore.getState();
     if (state.historyLoading || !state.historyHasMore) return;
+    const isFirstPage = state.historyCursor === undefined;
     useLessonBookingStore.getState().setHistoryLoading(true);
     try {
       const result = await queryLessonBookingReadModels({
@@ -47,6 +53,10 @@ export function useLessonBookingReadSync(enabled: boolean, accountId: string | u
       useLessonBookingStore.getState().mergeItems(merged);
       useLessonBookingStore.getState().setHistoryCursor(result.nextCursor);
       useLessonBookingStore.getState().setHistoryHasMore(result.hasMore);
+      useLessonBookingStore.getState().setHistoryInitialized(true);
+      if (isFirstPage) {
+        useLessonBookingStore.getState().setHistoryLoadedAtMs(Date.now());
+      }
     } catch (error) {
       useLessonBookingStore
         .getState()
@@ -62,14 +72,28 @@ export function useLessonBookingReadSync(enabled: boolean, accountId: string | u
       return;
     }
     useLessonBookingStore.getState().reset();
-    void loadHot().then(() => loadHistoryPage());
-  }, [accountId, enabled, loadHot, loadHistoryPage]);
+    void loadHot();
+  }, [accountId, enabled, loadHot]);
 
   useEffect(() => {
-    // Initial history page is chained after hot load; nonce 0 would duplicate that request.
-    if (!enabled || !accountId || historyRequestNonce === 0) return;
+    if (!enabled || !accountId || !historyEnabled) return;
+    const state = useLessonBookingStore.getState();
+    if (state.historyLoading) return;
+    const historyIsFresh =
+      state.historyInitialized &&
+      state.historyLoadedAtMs !== undefined &&
+      Date.now() - state.historyLoadedAtMs < ACCOUNT_LESSON_BOOKING_REFRESH_MS;
+    if (historyIsFresh) return;
+    if (state.historyInitialized) {
+      state.resetHistoryPagination();
+    }
     void loadHistoryPage();
-  }, [historyRequestNonce, enabled, accountId, loadHistoryPage]);
+  }, [accountId, enabled, historyEnabled, historyLoading, loadHistoryPage]);
+
+  useEffect(() => {
+    if (!enabled || !accountId || !historyEnabled || historyRequestNonce === 0) return;
+    void loadHistoryPage();
+  }, [historyRequestNonce, enabled, accountId, historyEnabled, loadHistoryPage]);
 
   useEffect(() => {
     if (!enabled || !accountId) return;
@@ -78,7 +102,7 @@ export function useLessonBookingReadSync(enabled: boolean, accountId: string | u
       if (!isAccountLessonBookingBackgroundSyncAllowed()) {
         return;
       }
-      void syncAccountLessonBookingsFromServer().catch(() => undefined);
+      void syncAccountHotLessonBookingsFromServer().catch(() => undefined);
     };
 
     const onVisibilityChange = () => {

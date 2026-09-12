@@ -33,8 +33,6 @@ import { useBookingsStore } from './bookingsStore';
  */
 export function useBookingActions() {
   const bookings = useBookingsStore((state) => state.bookings);
-  const deletedCompletedStats = useBookingsStore((state) => state.deletedCompletedStats);
-  const setDeletedCompletedStats = useBookingsStore((state) => state.setDeletedCompletedStats);
   const firebaseUser = useAuthStore((state) => state.firebaseUser);
   const userProfile = useProfileStore((state) => state.userProfile);
 
@@ -183,10 +181,9 @@ export function useBookingActions() {
     async (id: string) => {
       const booking = bookings.find((item) => item.id === id);
       if (!booking) return;
-      const result = await deleteBookingService(booking);
-      if (result.newStats) setDeletedCompletedStats(result.newStats);
+      await deleteBookingService(booking);
     },
-    [bookings, deletedCompletedStats, setDeletedCompletedStats]
+    [bookings]
   );
 
   const handleConfirmBooking = useCallback(

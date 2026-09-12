@@ -2,6 +2,7 @@ export { AdminLessonBookingPanel } from './AdminLessonBookingPanel';
 export { useAdminLessonBookingTranslations } from './useAdminLessonBookingTranslations';
 export {
   classifyAdminLessonBookingReadError,
+  drainAdminLessonBookingScope,
   useAdminLessonBookingReadModels,
 } from './useAdminLessonBookingReadModels';
 export {

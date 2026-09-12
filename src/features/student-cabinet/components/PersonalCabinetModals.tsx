@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Booking, Course, Instructor, Review, UserProfile } from '../../../types';
+import type { LessonBookingCabinetItem } from '../../../features/lesson-bookings/lessonBookingContracts';
 import { useLanguage } from '../../../app/providers/LanguageContext';
 import { useTheme } from '../../../hooks/useTheme';
 import { LazyLoad } from '../../../ui/LazyLoad';
 import { ReviewFlow } from '../../../features/profile';
 import { LessonDetailsModal } from './LessonDetailsModal';
+import { resolveLessonDetailsBookingForModal } from '../resolveLessonDetailsBooking';
 import { ConfirmActionModal } from './ConfirmActionModal';
 import { LevelUpModal } from './LevelUpModal';
 
@@ -16,7 +18,7 @@ const BookingChatModal = React.lazy(() =>
 
 interface PersonalCabinetModalsProps {
   userProfile: UserProfile;
-  rawBookings: Booking[];
+  rawBookings: readonly LessonBookingCabinetItem[];
   courses: Course[];
   instructors: Instructor[];
   usersList: UserProfile[];
@@ -84,7 +86,18 @@ export const PersonalCabinetModals: React.FC<PersonalCabinetModalsProps> = ({
   const { t } = useLanguage();
   const { theme } = useTheme();
 
-  const lessonDetailsBooking = rawBookings.find((b) => b.id === lessonDetailsId) ?? null;
+  const lessonDetailsBooking = useMemo(
+    () =>
+      lessonDetailsId
+        ? resolveLessonDetailsBookingForModal({
+            lessonBookingId: lessonDetailsId,
+            accountUserId: userProfile.uid,
+            cabinetBookings: rawBookings,
+            instructors,
+          })
+        : null,
+    [instructors, lessonDetailsId, rawBookings, userProfile.uid]
+  );
 
   return (
     <>

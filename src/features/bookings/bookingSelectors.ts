@@ -8,5 +8,3 @@ export const selectBookingsLoaded = (state: BookingsState): boolean => state.boo
 export const selectInstructors = (state: BookingsState): Instructor[] => state.instructors;
 
 export const selectReviews = (state: BookingsState): Review[] => state.reviews;
-
-export const selectDeletedCompletedStats = (state: BookingsState) => state.deletedCompletedStats;

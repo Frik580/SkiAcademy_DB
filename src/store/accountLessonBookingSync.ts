@@ -20,3 +20,33 @@ export function shouldSyncAccountLessonBookings(input: {
   }
   return input.pathname === '/' || input.pathname.startsWith('/cabinet');
 }
+
+/** History is visible only on the cabinet's dedicated history route. */
+export function shouldSyncAccountLessonHistory(input: {
+  readonly pathname: string;
+  readonly accountId: string | undefined;
+}): boolean {
+  const pathname = input.pathname.length > 1 ? input.pathname.replace(/\/+$/, '') : input.pathname;
+  return Boolean(input.accountId) && pathname === '/cabinet/history';
+}
+
+const PARTICIPANT_LESSON_STATS_PATHS = new Set([
+  '/cabinet',
+  '/cabinet/home',
+  '/cabinet/coach',
+  '/cabinet/instructors',
+  '/cabinet/profile_achievements',
+  '/cabinet/profile_season',
+]);
+
+/**
+ * Routes with visible consumers of complete participant lesson statistics.
+ * Keep this list narrow: each activation drains the account's logical history.
+ */
+export function shouldSyncAccountParticipantLessonStats(input: {
+  readonly pathname: string;
+  readonly accountId: string | undefined;
+}): boolean {
+  const pathname = input.pathname.length > 1 ? input.pathname.replace(/\/+$/, '') : input.pathname;
+  return Boolean(input.accountId) && PARTICIPANT_LESSON_STATS_PATHS.has(pathname);
+}

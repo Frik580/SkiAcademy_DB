@@ -244,6 +244,78 @@ function resolveParticipantManagement(
   return { participant, management };
 }
 
+function accountManagesParticipant(
+  context: LessonBookingReadAuthorizationContext,
+  accountId: AccountId,
+  participantId: Participant['participantId']
+): boolean {
+  if (!context.account) {
+    return false;
+  }
+  const resolved = resolveParticipantManagement(context, participantId);
+  if (!resolved) {
+    return false;
+  }
+  const scopedTopology = buildParticipantAccessTopology({
+    account: context.account,
+    participant: resolved.participant,
+    management: resolved.management,
+  });
+  return evaluateParticipantManagementAccess(scopedTopology, {
+    accountId,
+    participantId,
+  }).allowed;
+}
+
+async function loadManagedParticipantAttendanceProjection(
+  booking: Booking,
+  accountId: AccountId,
+  authContext: LessonBookingReadAuthorizationContext,
+  readContext: ReadModelRequestContext
+): Promise<LessonBookingReadModel['managedParticipantAttendance']> {
+  const servicePartyIds = booking.occurrence.serviceParty.participantIds;
+  const managedIds = servicePartyIds.filter((participantId) =>
+    accountManagesParticipant(authContext, accountId, participantId)
+  );
+  if (managedIds.length === 0) {
+    return [];
+  }
+
+  const attendanceSnaps = await Promise.all(
+    managedIds.map((participantId) => {
+      const attendanceId = attendanceIdFromBookingIdentity({
+        strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+        subjectKind: 'booking',
+        occurrenceId: booking.occurrence.occurrenceId,
+        participantId,
+      });
+      return readContext.attendance(attendanceId);
+    })
+  );
+
+  return managedIds.map((participantId, index) => {
+    const snapshot = attendanceSnaps[index]!;
+    const record = snapshot.exists
+      ? parseAttendance(snapshot.data() as Record<string, unknown>)
+      : undefined;
+    if (
+      snapshot.exists &&
+      (!record ||
+        record.attendanceId !== snapshot.id ||
+        record.subject.subjectKind !== 'booking' ||
+        record.subject.bookingId !== booking.bookingId ||
+        record.subject.occurrenceId !== booking.occurrence.occurrenceId ||
+        record.subject.participantId !== participantId)
+    ) {
+      throw new Error(`Canonical lesson Booking read integrity failure: attendance/${snapshot.id}`);
+    }
+    return {
+      participantId,
+      ...(record ? { attendanceStatus: record.attendanceStatus } : {}),
+    };
+  });
+}
+
 function resolveAccountPartyManagementAccess(
   context: LessonBookingReadAuthorizationContext,
   accountId: AccountId,
@@ -801,6 +873,13 @@ export async function buildLessonBookingReadModel(
     ),
   };
 
+  const managedParticipantAttendance = await loadManagedParticipantAttendanceProjection(
+    booking,
+    accountId,
+    authContext,
+    readContext
+  );
+
   return {
     bookingId: booking.bookingId,
     revision: booking.revision,
@@ -814,6 +893,8 @@ export async function buildLessonBookingReadModel(
     authorizedActions,
     ...(clientExercisedCapability ? { clientExercisedCapability } : {}),
     paymentPresentation: buildPaymentPresentation(accountId, booking, payment),
+    serviceParticipantIds: [...booking.occurrence.serviceParty.participantIds],
+    managedParticipantAttendance,
     ...lessonContentFromBooking(booking),
     updatedAt: booking.updatedAt,
   };
@@ -1054,12 +1135,13 @@ export async function loadAuthorizedAccountBookings(
 
   const bookingsById = new Map<string, Booking>();
   const batchSize = 10;
+  // Account history must be complete for participant lesson stats. Do not
+  // silently cap the authorized universe — client drain paginates this set.
   for (let index = 0; index < participantIds.length; index += batchSize) {
     const batch = participantIds.slice(index, index + batchSize);
     const snapshot = await firestore
       .collection('bookings')
       .where('party.participantIds', 'array-contains-any', batch)
-      .limit(LESSON_BOOKING_READ_MODEL_PAGE_SIZE_MAX * 4)
       .get();
 
     for (const doc of snapshot.docs) {

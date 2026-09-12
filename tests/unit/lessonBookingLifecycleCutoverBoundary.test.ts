@@ -201,7 +201,9 @@ describe('T32.9A.9A individual Booking lifecycle cutover boundary', () => {
     const bookingSync = readRepoFile('src/features/bookings/sync/useBookingsSync.ts');
     const accountLessonGate = readRepoFile('src/store/accountLessonBookingSync.ts');
 
-    expect(storeSync).toContain('useLessonBookingReadSync(isCustomerCanonicalLessonPath');
+    expect(storeSync).toContain('useLessonBookingReadSync(');
+    expect(storeSync).toContain('isCustomerCanonicalLessonPath');
+    expect(storeSync).toContain('isCustomerCanonicalLessonHistoryPath');
     expect(storeSync).toContain('shouldSyncAccountLessonBookings');
     expect(storeSync).not.toContain("userProfile?.role === 'user'");
     expect(accountLessonGate).toContain("input.pathname.startsWith('/cabinet')");

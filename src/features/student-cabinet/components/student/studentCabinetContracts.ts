@@ -9,13 +9,12 @@ import type {
 import type { AchievementsConfig, SkillConfig } from '../../../../domain/achievements';
 import type { TodayTaskRef } from '../..';
 import type {
-  MiniCalendarDay,
   NextSessionItem,
   StudentCabinetTab,
   TodaySessionCountdown,
   TodayTask,
 } from './studentCabinetUtils';
-import type { CabinetSessionItem } from '../../../../features/course-enrollments';
+import type { CabinetSessionItem, MiniCalendarDay } from '../../../../features/course-enrollments';
 import type { CanonicalRecommendationTodayTask } from '../../studentLessonFeedbackPresentation';
 
 export type StudentBooking =
@@ -60,6 +59,7 @@ export interface NextSessionBlockInput {
 
 export interface TodayProgressBlockInput {
   userProfile?: StudentProfile;
+  selectedParticipantId?: string;
   bookings: Booking[];
   courses: StudentCourse[];
   reviews: StudentReview[];
@@ -109,6 +109,7 @@ export type StudentProfilePanelInput = Pick<
   | 'onPinSkillsToday'
 > & {
   onUpdateProfile?: (data: Partial<StudentProfile>) => Promise<void>;
+  selectedParticipantId?: string;
 };
 
 export type StudentCabinetPanelInput = {
@@ -148,6 +149,7 @@ export type StudentProfilePanelProps = StudentProfilePanelInput & {
 /** The complete data boundary for the student-cabinet home container. */
 export interface StudentCabinetHomeContext {
   userProfile: UserProfile;
+  selectedParticipantId?: string;
   bookings: Booking[];
   sessionItems: readonly CabinetSessionItem[];
   courses: Course[];
@@ -160,6 +162,7 @@ export interface StudentCabinetHomeContext {
   achievementsConfig?: AchievementsConfig;
   onOpenSession: (booking: Booking) => void;
   onOpenLesson: (booking: Booking) => void;
+  onOpenLessonByBookingId?: (lessonBookingId: string) => void;
   onWriteReview: (booking: Booking) => void;
   onDismissReview?: (bookingId: string) => void;
   onGoToTab: (tab: StudentCabinetTab) => void;
@@ -194,6 +197,7 @@ export interface StudentTodaySectionInput {
   bookings: Booking[];
   reviews?: Review[];
   userProfile?: UserProfile;
+  selectedParticipantId?: string;
   activityLogs?: ActivityLog[];
   achievementsConfig?: AchievementsConfig;
   skillConfig?: SkillConfig;

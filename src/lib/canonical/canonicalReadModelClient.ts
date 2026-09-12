@@ -40,6 +40,8 @@ import {
   type QueryInstructorReviewReadModelsResult,
   type QueryParticipantProgressReadModelsInput,
   type QueryParticipantProgressReadModelsResult,
+  type QueryParticipantAchievementsReadModelsInput,
+  type QueryParticipantAchievementsReadModelsResult,
   type QueryParticipantLessonFeedbackReadModelsInput,
   type QueryParticipantLessonFeedbackReadModelsResult,
   type BookingId,
@@ -47,6 +49,7 @@ import {
   type ParticipantId,
   INSTRUCTOR_REVIEW_ACCOUNT_BOOKING_IDS_MAX,
   PARTICIPANT_PROGRESS_READ_MODEL_IDS_MAX,
+  PARTICIPANT_ACHIEVEMENTS_READ_MODEL_IDS_MAX,
 } from '@ski-academy/shared-domain';
 import { callFunction, type FunctionsCallOptions } from '../functions/functionsClient';
 import { auth } from '../../infrastructure/firebase';
@@ -76,6 +79,8 @@ export const QUERY_LESSON_PRICING_SETTINGS_READ_MODEL_CALLABLE =
   'queryLessonPricingSettingsReadModel';
 export const QUERY_INSTRUCTOR_REVIEW_READ_MODELS_CALLABLE = 'queryInstructorReviewReadModels';
 export const QUERY_PARTICIPANT_PROGRESS_READ_MODELS_CALLABLE = 'queryParticipantProgressReadModels';
+export const QUERY_PARTICIPANT_ACHIEVEMENTS_READ_MODELS_CALLABLE =
+  'queryParticipantAchievementsReadModels';
 export const QUERY_PARTICIPANT_LESSON_FEEDBACK_READ_MODELS_CALLABLE =
   'queryParticipantLessonFeedbackReadModels';
 
@@ -154,6 +159,43 @@ export async function queryManagedParticipantProgressReadModels(
   const results = await Promise.all(
     chunks.map((chunk) =>
       queryParticipantProgressReadModels({ scope: 'managed', participantIds: chunk })
+    )
+  );
+  return {
+    scope: 'managed',
+    items: results.flatMap((result) => result.items),
+  };
+}
+
+export async function queryParticipantAchievementsReadModels(
+  input: QueryParticipantAchievementsReadModelsInput
+): Promise<QueryParticipantAchievementsReadModelsResult> {
+  const target = [...(input.participantIds ?? [])].sort().join(',') || 'all';
+  const identityHash = canonicalDeterministicHash([
+    'read:participant_achievements:v1',
+    input.scope,
+    target,
+  ]);
+  return invokeCanonicalReadCallable<
+    QueryParticipantAchievementsReadModelsInput,
+    QueryParticipantAchievementsReadModelsResult
+  >(QUERY_PARTICIPANT_ACHIEVEMENTS_READ_MODELS_CALLABLE, input, {
+    idempotencyKey: `read:participant_achievements:${identityHash}`,
+    maxAttempts: 1,
+  });
+}
+
+export async function queryManagedParticipantAchievementsReadModels(
+  participantIds?: readonly ParticipantId[]
+): Promise<QueryParticipantAchievementsReadModelsResult> {
+  if (!participantIds || participantIds.length === 0) {
+    return queryParticipantAchievementsReadModels({ scope: 'managed' });
+  }
+  const uniqueIds = [...new Set(participantIds)];
+  const chunks = chunkIds(uniqueIds, PARTICIPANT_ACHIEVEMENTS_READ_MODEL_IDS_MAX);
+  const results = await Promise.all(
+    chunks.map((chunk) =>
+      queryParticipantAchievementsReadModels({ scope: 'managed', participantIds: chunk })
     )
   );
   return {

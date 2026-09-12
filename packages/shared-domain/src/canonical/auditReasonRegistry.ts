@@ -52,6 +52,7 @@ const COMMAND_KIND_REASON_CODES: Partial<Record<CommandKind, readonly AuditReaso
   ],
   create_instructor_review: ['customer_review'],
   update_participant_progress: ['instructor_evaluation'],
+  record_participant_achievements: ['participant_management', 'self_service_completion'],
   save_participant_lesson_feedback: ['instructor_evaluation'],
   set_participant_lesson_feedback_item_completion: [
     'participant_management',

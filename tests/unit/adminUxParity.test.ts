@@ -7,7 +7,7 @@ import {
   mergeAdminBookingMonitorRows,
   lessonBookingToMonitorRow,
 } from '../../src/features/admin/operations/adminBookingMonitorMapping';
-import { computeAdminOperationalOverview } from '../../src/features/admin/operations/adminFinancialOverview';
+import { computeAdminOperationalOverview } from '../../src/features/admin/operations/adminOperationalOverview';
 import { bookingsBlockingInstructorDeactivation } from '../../src/features/admin/people/adminPeopleOccupancy';
 import {
   adminFinancialOverviewWindow,
@@ -220,9 +220,16 @@ describe('T32.9A Admin UX parity behavior', () => {
 
   it('counts operational Financial Overview metrics without treating booking price as revenue', () => {
     const metrics = computeAdminOperationalOverview({
-      bookings: [
+      hotMonitorRows: [
         lesson({ totalPrice: 25000 }),
-        lesson({ id: '2', status: 'completed', totalPrice: 10000, instructorId: 'course_x' }),
+        lesson({ id: '2', status: 'pending', totalPrice: 10000, instructorId: 'course_x' }),
+      ],
+      lessonReadModels: [
+        {
+          bookingId: 'booking_completed_history',
+          revision: 1,
+          lifecycle: { status: 'completed' },
+        },
       ],
       instructorsCount: 3,
     });
@@ -235,6 +242,9 @@ describe('T32.9A Admin UX parity behavior', () => {
       readRepoFile('src/features/admin/components/finance/useAdminFinanceReadModels.ts')
     ).toContain("scope: 'admin_financial_overview'");
     expect(readRepoFile('src/features/admin/operations/adminFinancialOverview.ts')).not.toContain(
+      'totalPrice'
+    );
+    expect(readRepoFile('src/features/admin/operations/adminOperationalOverview.ts')).not.toContain(
       'totalPrice'
     );
   });

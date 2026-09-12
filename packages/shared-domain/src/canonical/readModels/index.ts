@@ -1,4 +1,5 @@
 export * from './lessonBookingReadModel';
+export * from './drainPagedReadModels';
 export * from './managedParticipantPickerReadModel';
 export * from './readModelAuthorizedActions';
 export * from './bookingProposalReadModel';
@@ -19,4 +20,5 @@ export * from './instructorOccupancyReadModel';
 export * from './lessonPricingSettingsReadModel';
 export * from './instructorReviewReadModel';
 export * from './participantProgressReadModel';
+export * from './participantAchievementsReadModel';
 export * from './participantLessonFeedbackReadModel';

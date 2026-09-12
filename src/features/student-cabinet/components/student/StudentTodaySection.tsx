@@ -28,6 +28,7 @@ export const StudentTodaySection = memo<StudentTodaySectionInput>(function Stude
   bookings,
   reviews = [],
   userProfile,
+  selectedParticipantId,
   activityLogs = [],
   achievementsConfig,
   skillConfig,
@@ -138,6 +139,7 @@ export const StudentTodaySection = memo<StudentTodaySectionInput>(function Stude
 
       <TodayProgressBlock
         userProfile={userProfile}
+        selectedParticipantId={selectedParticipantId}
         bookings={bookings}
         courses={courses}
         reviews={reviews}

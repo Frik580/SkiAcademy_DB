@@ -3,6 +3,8 @@ import {
   LESSON_BOOKING_READ_SCOPES,
   LessonBookingAdminProjectionSchema,
   LessonBookingInstructorAttendancePresentationSchema,
+  LessonBookingManagedParticipantAttendanceSchema,
+  LessonBookingReadModelSchema,
   QueryLessonBookingReadModelsInputSchema,
   isInstructorLessonBookingHot,
   isLessonBookingHot,
@@ -293,5 +295,58 @@ describe('lessonBookingReadModel contracts', () => {
         authorizedActions: { canRecordPresent: true, canRecordAbsent: false },
       }).success
     ).toBe(false);
+  });
+
+  it('accepts account-managed attendance projection without instructor authorizedActions', () => {
+    expect(
+      LessonBookingManagedParticipantAttendanceSchema.safeParse({
+        participantId: 'participant_managed_attendance_01',
+        attendanceStatus: 'present',
+      }).success
+    ).toBe(true);
+    expect(
+      LessonBookingManagedParticipantAttendanceSchema.safeParse({
+        participantId: 'participant_managed_attendance_01',
+      }).success
+    ).toBe(true);
+    expect(
+      LessonBookingManagedParticipantAttendanceSchema.safeParse({
+        participantId: 'participant_managed_attendance_01',
+        attendanceStatus: 'present',
+        authorizedActions: { canRecordPresent: true, canRecordAbsent: false },
+      }).success
+    ).toBe(false);
+    const startsAt = timestampFromDate(new Date('2026-06-15T04:00:00.000Z'));
+    const parsed = LessonBookingReadModelSchema.safeParse({
+      bookingId: 'booking_managed_attendance_01',
+      revision: 1,
+      partyKind: 'family_group',
+      participantIds: ['participant_managed_attendance_01', 'participant_unrelated_01'],
+      participants: [
+        { participantId: 'participant_managed_attendance_01', displayName: 'A' },
+        { participantId: 'participant_unrelated_01', displayName: 'B' },
+      ],
+      instructor: { instructorId: 'instructor_managed_attendance_01', displayName: 'Coach' },
+      occurrence: {
+        startsAt,
+        endsAt: timestampFromDate(new Date('2026-06-15T05:00:00.000Z')),
+        timeZone: 'Asia/Almaty',
+        durationMinutes: 60,
+      },
+      lifecycle: { status: 'completed', completedAt: startsAt },
+      bookingOrigin: 'account',
+      authorizedActions: {
+        canRequestCancellation: false,
+        canWithdrawCancellation: false,
+        canReschedule: false,
+        canCreateChangeRequest: false,
+      },
+      serviceParticipantIds: ['participant_managed_attendance_01', 'participant_unrelated_01'],
+      managedParticipantAttendance: [
+        { participantId: 'participant_managed_attendance_01', attendanceStatus: 'present' },
+      ],
+      updatedAt: startsAt,
+    });
+    expect(parsed.success).toBe(true);
   });
 });

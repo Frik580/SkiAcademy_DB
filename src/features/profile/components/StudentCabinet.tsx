@@ -40,6 +40,7 @@ export interface StudentCabinetProps {
   onChat: (booking: LessonBookingCabinetItem) => void;
   hasUnreadChat?: (bookingId: string) => boolean;
   onOpenLesson: (booking: LessonBookingCabinetItem) => void;
+  onOpenLessonByBookingId?: (lessonBookingId: string) => void;
   onWriteReview: (booking: LessonBookingCabinetItem) => void;
   onToggleRecommendation?: (bookingId: string, recommendationId: string, checked: boolean) => void;
   onToggleSkillToday?: (skillItemId: string, pinned: boolean) => void;
@@ -91,6 +92,7 @@ export const StudentCabinet: React.FC<StudentCabinetProps> = ({
   onChat,
   hasUnreadChat,
   onOpenLesson,
+  onOpenLessonByBookingId,
   onWriteReview,
   onToggleRecommendation,
   onToggleSkillToday,
@@ -142,6 +144,7 @@ export const StudentCabinet: React.FC<StudentCabinetProps> = ({
       onChat={onChat}
       hasUnreadChat={hasUnreadChat}
       onOpenLesson={onOpenLesson}
+      onOpenLessonByBookingId={onOpenLessonByBookingId}
       onWriteReview={onWriteReview}
       onToggleRecommendation={onToggleRecommendation}
       onToggleSkillToday={onToggleSkillToday}

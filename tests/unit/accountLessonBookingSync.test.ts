@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { shouldSyncAccountLessonBookings } from '../../src/store/accountLessonBookingSync';
+import {
+  shouldSyncAccountLessonBookings,
+  shouldSyncAccountLessonHistory,
+  shouldSyncAccountParticipantLessonStats,
+} from '../../src/store/accountLessonBookingSync';
 
 describe('shouldSyncAccountLessonBookings', () => {
   it('does not sync when signed out', () => {
@@ -26,5 +30,41 @@ describe('shouldSyncAccountLessonBookings', () => {
     expect(shouldSyncAccountLessonBookings({ pathname: '/admin', accountId: 'account_01' })).toBe(
       false
     );
+  });
+});
+
+describe('account lesson expensive-surface gates', () => {
+  it('owns lesson history only on the real History route', () => {
+    expect(shouldSyncAccountLessonHistory({ pathname: '/', accountId: 'account_01' })).toBe(false);
+    expect(shouldSyncAccountLessonHistory({ pathname: '/cabinet', accountId: 'account_01' })).toBe(
+      false
+    );
+    expect(
+      shouldSyncAccountLessonHistory({ pathname: '/cabinet/history', accountId: 'account_01' })
+    ).toBe(true);
+    expect(
+      shouldSyncAccountLessonHistory({ pathname: '/cabinet/history/', accountId: 'account_01' })
+    ).toBe(true);
+  });
+
+  it('enables participant stats only for routes with visible consumers', () => {
+    for (const pathname of [
+      '/cabinet',
+      '/cabinet/home',
+      '/cabinet/coach',
+      '/cabinet/instructors',
+      '/cabinet/profile_achievements',
+      '/cabinet/profile_season',
+      '/cabinet/',
+    ]) {
+      expect(shouldSyncAccountParticipantLessonStats({ pathname, accountId: 'account_01' })).toBe(
+        true
+      );
+    }
+    for (const pathname of ['/', '/cabinet/training', '/cabinet/history', '/admin']) {
+      expect(shouldSyncAccountParticipantLessonStats({ pathname, accountId: 'account_01' })).toBe(
+        false
+      );
+    }
   });
 });

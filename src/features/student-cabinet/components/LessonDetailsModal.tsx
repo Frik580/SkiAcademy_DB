@@ -51,7 +51,7 @@ export const LessonDetailsModal: React.FC<LessonDetailsModalProps> = ({
   const dateLabel = formatBookingDayMonth(booking, courses, lang);
   const shortDate = formatShortBookingDate(booking, language, courses);
   const modalTitle = t('scLessonDetails');
-  const modalSubtitle = getDifficultyShort(booking.difficulty) || t('difficultyUnspecified');
+  const difficultyLabel = getDifficultyShort(booking.difficulty);
   const lessonFeedback = feedback.feedbackForLesson(booking.id);
   const pendingItemIds = new Set(
     lessonFeedback && feedback.participantId
@@ -95,7 +95,6 @@ export const LessonDetailsModal: React.FC<LessonDetailsModalProps> = ({
               <h3 className="text-lg font-serif font-light text-[var(--ink)] truncate">
                 {modalTitle}
               </h3>
-              <p className="text-xs text-[var(--ink-dim)] mt-0.5">{t('scLessonDetails')}</p>
             </div>
             <button
               type="button"
@@ -109,9 +108,11 @@ export const LessonDetailsModal: React.FC<LessonDetailsModalProps> = ({
 
           <div className="px-5 py-5 space-y-5">
             <div className="space-y-1">
-              <p className="text-xs tracking-widest uppercase text-[var(--ink-dim)]">
-                {modalSubtitle}
-              </p>
+              {difficultyLabel ? (
+                <p className="text-xs tracking-widest uppercase text-[var(--ink-dim)]">
+                  {difficultyLabel}
+                </p>
+              ) : null}
               <p className="text-base text-[var(--ink)]">{dateLabel || shortDate}</p>
               <p className="text-sm text-[var(--ink-dim)]">{booking.instructorName}</p>
             </div>

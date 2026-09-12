@@ -81,6 +81,7 @@ export const CANONICAL_COLLECTIONS = {
   instructorReviews: 'instructor_reviews',
   instructorRatingSummaries: 'instructor_rating_summaries',
   participantProgress: 'participant_progress',
+  participantAchievements: 'participant_achievements',
   participantLessonFeedback: 'participant_lesson_feedback',
   lessonPricingSettings: 'lesson_pricing_settings',
   courses: 'courses',
@@ -114,6 +115,7 @@ const topLevelDocumentSchemas: Readonly<Record<string, z.ZodType<string>>> = {
   instructor_reviews: ReviewIdSchema,
   instructor_rating_summaries: InstructorIdSchema,
   participant_progress: ParticipantIdSchema,
+  participant_achievements: ParticipantIdSchema,
   participant_lesson_feedback: ParticipantLessonFeedbackIdSchema,
   lesson_pricing_settings: LessonPricingSettingsIdSchema,
   courses: CourseIdSchema,
@@ -205,6 +207,7 @@ export const canonicalPaths = {
   instructorRatingSummary: (id: InstructorId) =>
     documentPath('instructor_rating_summaries', id),
   participantProgress: (id: ParticipantId) => documentPath('participant_progress', id),
+  participantAchievements: (id: ParticipantId) => documentPath('participant_achievements', id),
   participantLessonFeedback: (id: ParticipantLessonFeedbackId) =>
     documentPath('participant_lesson_feedback', id),
   lessonPricingSettings: (id: LessonPricingSettingsId) =>

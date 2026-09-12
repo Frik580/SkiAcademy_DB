@@ -117,6 +117,44 @@ describe('useInstructorWorkspace canonical lesson isolation', () => {
     ]);
   });
 
+  it('counts dashboard metrics by booking lifecycle, not participant rows', () => {
+    const completedGroup = {
+      ...individualBooking,
+      bookingId: 'booking_completed_group',
+      status: 'completed',
+    } as InstructorLessonBookingItem;
+    const noShow = {
+      ...individualBooking,
+      bookingId: 'booking_no_show_01',
+      status: 'no_show',
+      participants: [individualBooking.participants[0]!],
+      participantIds: [individualBooking.participantIds[0]!],
+    } as InstructorLessonBookingItem;
+    const pending = {
+      ...individualBooking,
+      bookingId: 'booking_pending_metric',
+      status: 'pending',
+    } as InstructorLessonBookingItem;
+
+    const { result } = renderHook(() =>
+      useInstructorWorkspace({
+        userProfile,
+        instructors: [],
+        lessonBookings: [completedGroup, noShow, pending],
+        reviews: [],
+        courses,
+        usersList: [],
+      })
+    );
+
+    expect(result.current.stats.completed).toBe(1);
+    expect(result.current.stats.noShow).toBe(1);
+    expect(result.current.stats.occupied).toBe(2);
+    expect(result.current.stats.pending).toBe(1);
+    expect(result.current.stats.total).toBe(3);
+    expect(result.current.myStudents.find((student) => student.participantId === 'participant_workspace_01')?.lessonsCount).toBe(3);
+  });
+
   it('preserves canonical authorizedActions on displayed bookings', () => {
     const pendingBooking = {
       ...individualBooking,

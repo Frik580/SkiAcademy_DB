@@ -111,6 +111,18 @@ export type UpdateParticipantProgressResultPayload = Readonly<
   z.output<typeof UpdateParticipantProgressResultPayloadSchema>
 >;
 
+export const RecordParticipantAchievementsResultPayloadSchema = z
+  .object({
+    participantId: ParticipantIdSchema,
+    revision: AggregateRevisionSchema,
+    newlyEarnedAchievementIds: z.array(z.string().trim().min(1).max(64)),
+  })
+  .strict();
+
+export type RecordParticipantAchievementsResultPayload = Readonly<
+  z.output<typeof RecordParticipantAchievementsResultPayloadSchema>
+>;
+
 export const SaveParticipantLessonFeedbackResultPayloadSchema = z
   .object({
     feedbackId: ParticipantLessonFeedbackIdSchema,
@@ -158,6 +170,7 @@ export const CommandResultPayloadSchemaByKind = {
   request_course_enrollment_cancellation: RequestCancellationResultPayloadSchema,
   create_instructor_review: CreateInstructorReviewResultPayloadSchema,
   update_participant_progress: UpdateParticipantProgressResultPayloadSchema,
+  record_participant_achievements: RecordParticipantAchievementsResultPayloadSchema,
   save_participant_lesson_feedback: SaveParticipantLessonFeedbackResultPayloadSchema,
   set_participant_lesson_feedback_item_completion:
     SetParticipantLessonFeedbackItemCompletionResultPayloadSchema,

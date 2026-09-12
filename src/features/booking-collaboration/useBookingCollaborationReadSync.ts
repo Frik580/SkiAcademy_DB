@@ -6,6 +6,7 @@ import {
   queryParticipantInstructorAccessReadModels,
 } from '../../lib/canonical/canonicalReadModelClient';
 import {
+  drainPagedReadModelItems,
   InstructorIdSchema,
   ParticipantIdSchema,
   type LessonBookingReadModel,
@@ -52,23 +53,19 @@ async function loadCustomerCollaborationReads(): Promise<void> {
 }
 
 async function loadAllInstructorLessonBookingPages(scope: 'instructor_hot' | 'instructor_history') {
-  const items: LessonBookingReadModel[] = [];
-  let cursor: string | undefined;
-  const seenCursors = new Set<string>();
-  do {
-    const page = await queryLessonBookingReadModels({
-      scope,
-      ...(cursor ? { cursor } : {}),
-    });
-    items.push(...page.items);
-    if (!page.hasMore) break;
-    if (!page.nextCursor || seenCursors.has(page.nextCursor)) {
-      throw new Error(`Invalid ${scope} pagination cursor.`);
-    }
-    seenCursors.add(page.nextCursor);
-    cursor = page.nextCursor;
-  } while (cursor);
-  return items;
+  return drainPagedReadModelItems<LessonBookingReadModel>({
+    fetchPage: async (cursor) => {
+      const page = await queryLessonBookingReadModels({
+        scope,
+        ...(cursor ? { cursor } : {}),
+      });
+      return {
+        items: page.items,
+        hasMore: page.hasMore,
+        ...(page.nextCursor ? { nextCursor: page.nextCursor } : {}),
+      };
+    },
+  });
 }
 
 async function loadInstructorCollaborationReads(): Promise<void> {

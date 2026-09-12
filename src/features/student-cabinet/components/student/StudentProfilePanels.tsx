@@ -28,9 +28,6 @@ import {
 } from './StudentCabinetUI';
 import {
   buildStudentHistory,
-  getAchievements,
-  getSeasonBookings,
-  getStudentStats,
   StudentCabinetTab,
 } from './studentCabinetUtils';
 import { StudentHistoryList } from './StudentHistoryList';
@@ -38,6 +35,11 @@ import { WalletPanel } from '../../../../features/profile';
 import type { StudentProfileHubInput, StudentProfilePanelProps } from './studentCabinetContracts';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 import { usePresentedParticipantLessonFeedback } from '../../usePresentedParticipantLessonFeedback';
+import { useSelectedParticipantLessonStats } from '../../useSelectedParticipantLessonStats';
+import {
+  accountReviewsFromLegacy,
+  usePresentedParticipantAchievements,
+} from '../../../participant-achievements';
 import { ParticipantManagementPanel } from '../../../participants/components/ParticipantManagementPanel';
 
 type ProfileHubTab = Extract<
@@ -333,31 +335,24 @@ export const StudentProfileCertificatesPanel: React.FC<ProfileSubPanelProps> = (
 
 export const StudentProfileAchievementsPanel: React.FC<ProfileSubPanelProps> = ({
   onGoToTab,
-  userProfile,
-  bookings,
-  courses,
   reviews,
-  activityLogs = [],
+  selectedParticipantId,
   skillConfig,
   achievementsConfig,
 }) => {
   const { language, t } = useStudentCabinetTranslations();
   const lang = language === 'ru' ? 'ru' : 'en';
-
-  const achievements = useMemo(
-    () =>
-      getAchievements(
-        userProfile,
-        bookings,
-        skillConfig,
-        lang,
-        activityLogs,
-        reviews.filter((review) => review.userId === userProfile.uid),
-        courses,
-        achievementsConfig
-      ),
-    [userProfile, bookings, skillConfig, lang, activityLogs, reviews, courses, achievementsConfig]
+  const accountReviews = useMemo(
+    () => accountReviewsFromLegacy(reviews.filter((review) => Boolean(review.userId))),
+    [reviews]
   );
+  const { achievements } = usePresentedParticipantAchievements({
+    selectedParticipantId,
+    language: lang,
+    accountReviews,
+    achievementsConfig,
+    skillConfig,
+  });
 
   return (
     <ProfilePanelShell titleKey="scProfileAchievements" onGoToTab={onGoToTab}>
@@ -388,20 +383,19 @@ export const StudentProfileAchievementsPanel: React.FC<ProfileSubPanelProps> = (
 export const StudentProfileSeasonPanel: React.FC<ProfileSubPanelProps> = ({
   onGoToTab,
   userProfile,
-  bookings,
   skillConfig,
+  selectedParticipantId,
 }) => {
   const { t } = useStudentCabinetTranslations();
-  const seasonYear = new Date().getFullYear();
   const skillItems = skillConfig?.items ?? DEFAULT_SKILL_CONFIG.items;
-  const seasonBookings = useMemo(
-    () => getSeasonBookings(bookings, userProfile.uid),
-    [bookings, userProfile.uid]
-  );
-  const stats = useMemo(
-    () => getStudentStats(userProfile, seasonBookings, skillItems),
-    [userProfile, seasonBookings, skillItems]
-  );
+  const { season, seasonYear, loaded } = useSelectedParticipantLessonStats(selectedParticipantId);
+  const scores = userProfile.skillScores || {};
+  const points = Object.values(scores).reduce((a, b) => a + b, 0);
+  const exercisesMastered = skillItems.filter(
+    (item) => item.maxPoints > 0 && (scores[item.id] ?? 0) >= item.maxPoints
+  ).length;
+  const lessonsValue = loaded ? season.completedCount : '—';
+  const hoursValue = loaded ? Math.round(season.trainingHours) : '—';
 
   return (
     <ProfilePanelShell titleKey="scProfileSeason" onGoToTab={onGoToTab}>
@@ -410,10 +404,10 @@ export const StudentProfileSeasonPanel: React.FC<ProfileSubPanelProps> = ({
       </p>
       <ScStatGrid
         items={[
-          { label: t('scLessonsCount'), value: stats.lessons, tint: 'sky' },
-          { label: t('scHoursCount'), value: stats.hours, tint: 'green' },
-          { label: t('scExercisesMastered'), value: stats.exercisesMastered, tint: 'purple' },
-          { label: t('scPointsEarned'), value: stats.points, tint: 'orange' },
+          { label: t('scLessonsCount'), value: lessonsValue, tint: 'sky' },
+          { label: t('scHoursCount'), value: hoursValue, tint: 'green' },
+          { label: t('scExercisesMastered'), value: exercisesMastered, tint: 'purple' },
+          { label: t('scPointsEarned'), value: points, tint: 'orange' },
         ]}
       />
     </ProfilePanelShell>

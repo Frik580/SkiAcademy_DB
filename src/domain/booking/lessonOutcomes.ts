@@ -33,6 +33,12 @@ export interface LessonPaymentSlice {
 
 const isDeleted = (booking: { readonly isDeleted?: boolean }) => Boolean(booking.isDeleted);
 
+/**
+ * Booking lifecycle `completed` (legacy Student Cabinet / achievements).
+ *
+ * This is **not** participant learning authority — use `participantAttendedLesson`
+ * from `@ski-academy/shared-domain` when Attendance is available (9B.4B+).
+ */
 export function isAttendedLessonStatus(status: BookingStatus): boolean {
   return status === 'completed';
 }
@@ -50,7 +56,10 @@ export function isTerminalPastLessonStatus(status: BookingStatus): boolean {
   return status === 'completed' || status === 'no_show' || status === 'cancelled';
 }
 
-/** Instructor slot was consumed: lesson delivered or student did not attend. */
+/**
+ * Instructor slot was consumed: lesson delivered or booking-level no_show.
+ * Same semantics as canonical `bookingOccupiesInstructorSlot`.
+ */
 export function isConsumedInstructorSlotStatus(status: BookingStatus): boolean {
   return status === 'completed' || status === 'no_show';
 }

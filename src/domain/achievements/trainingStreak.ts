@@ -1,5 +1,8 @@
-import { ActivityLog, Booking } from '../../types';
-import { isAttendedLessonStatus } from '../booking';
+import {
+  lessonStartsAtLocalCalendarDate,
+  participantAttendedLessonFromEvidence,
+  type ParticipantLessonStatsEvidence,
+} from '@ski-academy/shared-domain';
 
 export const toIsoWeekKey = (input: string | Date): string | null => {
   const d =
@@ -16,33 +19,10 @@ export const toIsoWeekKey = (input: string | Date): string | null => {
   return `${d.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
 };
 
-export const getTrainingStreakWeeks = (
-  bookings: Booking[],
-  activityLogs: ActivityLog[] = []
-): number => {
-  const weekKeys = new Set<string>();
-
-  bookings
-    .filter((b) => isAttendedLessonStatus(b.status) && !b.isDeleted)
-    .forEach((b) => {
-      const key = toIsoWeekKey(b.date);
-      if (key) weekKeys.add(key);
-    });
-
-  activityLogs
-    .filter((log) => log.type === 'booking_completed')
-    .forEach((log) => {
-      const bookingId = log.metadata?.bookingId;
-      const linked = bookingId ? bookings.find((booking) => booking.id === bookingId) : undefined;
-      if (linked && !isAttendedLessonStatus(linked.status)) return;
-      const key = toIsoWeekKey(log.timestamp);
-      if (key) weekKeys.add(key);
-    });
-
+const countStreakFromWeekKeys = (weekKeys: ReadonlySet<string>, anchor = new Date()): number => {
   if (weekKeys.size === 0) return 0;
 
   let streak = 0;
-  const anchor = new Date();
   for (let offset = 0; offset < 104; offset++) {
     const check = new Date(anchor);
     check.setDate(anchor.getDate() - offset * 7);
@@ -58,45 +38,11 @@ export const getTrainingStreakWeeks = (
   return streak;
 };
 
-const collectTrainingWeekTimestamps = (
-  bookings: Booking[],
-  activityLogs: ActivityLog[] = []
-): Map<string, string> => {
-  const weekTimestamps = new Map<string, string>();
-
-  const remember = (weekKey: string | null, timestamp: string) => {
-    if (!weekKey) return;
-    const existing = weekTimestamps.get(weekKey);
-    if (!existing || timestamp < existing) {
-      weekTimestamps.set(weekKey, timestamp);
-    }
-  };
-
-  bookings
-    .filter((booking) => isAttendedLessonStatus(booking.status) && !booking.isDeleted)
-    .forEach((booking) => {
-      remember(toIsoWeekKey(booking.date), `${booking.date}T12:00:00.000Z`);
-    });
-
-  activityLogs
-    .filter((log) => log.type === 'booking_completed')
-    .forEach((log) => {
-      const bookingId = log.metadata?.bookingId;
-      const linked = bookingId ? bookings.find((booking) => booking.id === bookingId) : undefined;
-      if (linked && !isAttendedLessonStatus(linked.status)) return;
-      remember(toIsoWeekKey(log.timestamp), log.timestamp);
-    });
-
-  return weekTimestamps;
-};
-
-export const findStreakWeeksTimestamp = (
-  bookings: Booking[],
-  activityLogs: ActivityLog[] = [],
+const findStreakWeeksTimestampFromWeekMap = (
+  weekTimestamps: ReadonlyMap<string, string>,
   requiredWeeks = 1,
   anchor = new Date()
 ): string | undefined => {
-  const weekTimestamps = collectTrainingWeekTimestamps(bookings, activityLogs);
   if (weekTimestamps.size === 0) return undefined;
 
   let streak = 0;
@@ -119,3 +65,43 @@ export const findStreakWeeksTimestamp = (
   }
   return undefined;
 };
+
+function isoStringFromLessonStartsAt(row: ParticipantLessonStatsEvidence): string {
+  return new Date(row.startsAt.seconds * 1000 + row.startsAt.nanoseconds / 1_000_000).toISOString();
+}
+
+function presentEvidenceWeekTimestamps(
+  evidence: readonly ParticipantLessonStatsEvidence[]
+): Map<string, string> {
+  const weekTimestamps = new Map<string, string>();
+  for (const row of evidence) {
+    if (!participantAttendedLessonFromEvidence(row)) continue;
+    const localDate = lessonStartsAtLocalCalendarDate(row.startsAt, row.timeZone);
+    const key = toIsoWeekKey(localDate);
+    if (!key) continue;
+    const timestamp = isoStringFromLessonStartsAt(row);
+    const existing = weekTimestamps.get(key);
+    if (!existing || timestamp < existing) {
+      weekTimestamps.set(key, timestamp);
+    }
+  }
+  return weekTimestamps;
+}
+
+/** Canonical streak: Attendance.present of this participantId only. */
+export const getTrainingStreakWeeksFromPresentEvidence = (
+  evidence: readonly ParticipantLessonStatsEvidence[],
+  anchor = new Date()
+): number =>
+  countStreakFromWeekKeys(new Set(presentEvidenceWeekTimestamps(evidence).keys()), anchor);
+
+export const findStreakWeeksTimestampFromPresentEvidence = (
+  evidence: readonly ParticipantLessonStatsEvidence[],
+  requiredWeeks = 1,
+  anchor = new Date()
+): string | undefined =>
+  findStreakWeeksTimestampFromWeekMap(
+    presentEvidenceWeekTimestamps(evidence),
+    requiredWeeks,
+    anchor
+  );

@@ -4,8 +4,16 @@ import { useAdminCourseEnrollmentReadModels } from '../course-enrollments/useAdm
 import { mergeAdminBookingMonitorRows } from './adminBookingMonitorMapping';
 
 export function useAdminMonitorReadModels() {
-  const lessonsHot = useAdminLessonBookingReadModels({ enabled: true, view: 'hot' });
-  const lessonsHistory = useAdminLessonBookingReadModels({ enabled: true, view: 'history' });
+  const lessonsHot = useAdminLessonBookingReadModels({
+    enabled: true,
+    view: 'hot',
+    drainAll: true,
+  });
+  const lessonsHistory = useAdminLessonBookingReadModels({
+    enabled: true,
+    view: 'history',
+    drainAll: true,
+  });
   const enrollmentsRoster = useAdminCourseEnrollmentReadModels({ view: 'roster' });
   const enrollmentsPending = useAdminCourseEnrollmentReadModels({ view: 'pending_guest' });
   const enrollmentsHistory = useAdminCourseEnrollmentReadModels({ view: 'history' });

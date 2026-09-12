@@ -22,7 +22,10 @@ import {
   type ParticipantProgressView,
 } from '../../participant-progress';
 import type { InstructorLessonBookingItem } from '../../booking-collaboration/bookingCollaborationContracts';
-import { isAttendedLessonStatus } from '../../../domain/booking';
+import {
+  computeInstructorLessonMetrics,
+  countInstructorRosterLessons,
+} from '../instructorLessonMetrics';
 
 export interface InstructorWorkspaceInput {
   userProfile: UserProfile;
@@ -161,14 +164,11 @@ export const useInstructorWorkspace = ({
     return instructors.find((ins) => ins.id === userProfile.instructorId);
   }, [instructors, userProfile.instructorId]);
 
-  const instructorBookings = useMemo<DisplayBooking[]>(() => {
+  const mappedInstructorBookings = useMemo<DisplayBooking[]>(() => {
     if (!userProfile.instructorId) return [];
 
     return lessonBookings
-      .filter(
-        (booking) =>
-          booking.instructorId === userProfile.instructorId && booking.status !== 'cancelled'
-      )
+      .filter((booking) => booking.instructorId === userProfile.instructorId)
       .map((booking): EnrichedBooking => {
         const attendanceByParticipantId = new Map(
           (booking.attendance ?? []).map((row) => [row.participantId, row])
@@ -219,22 +219,27 @@ export const useInstructorWorkspace = ({
       });
   }, [lessonBookings, userProfile.instructorId, usersList]);
 
+  const instructorBookings = useMemo(
+    () => mappedInstructorBookings.filter((booking) => booking.status !== 'cancelled'),
+    [mappedInstructorBookings]
+  );
+
   const { hasUnreadChat, markBookingChatRead } = useBookingChatUnread(
     userProfile.uid,
     instructorBookings
   );
 
-  const stats = useMemo(() => {
-    const total = instructorBookings.length;
-    const pending = instructorBookings.filter(
-      (b) => b.status === 'pending' || b.status === 'pending_cancellation'
-    ).length;
-    const confirmed = instructorBookings.filter((b) => b.status === 'confirmed').length;
-    const completed = instructorBookings.filter((b) => isAttendedLessonStatus(b.status)).length;
-    const cancelled = instructorBookings.filter((b) => b.status === 'cancelled').length;
-    const revenue: number | undefined = undefined;
-    return { total, pending, confirmed, completed, cancelled, revenue };
-  }, [instructorBookings]);
+  const stats = useMemo(
+    () =>
+      computeInstructorLessonMetrics(
+        mappedInstructorBookings.map((booking) => ({
+          id: booking.id,
+          revision: booking.revision,
+          status: booking.status,
+        }))
+      ),
+    [mappedInstructorBookings]
+  );
 
   const displayedBookings = useMemo(() => {
     return instructorBookings
@@ -261,6 +266,7 @@ export const useInstructorWorkspace = ({
       }
     >();
 
+    const rosterCounts = countInstructorRosterLessons(instructorBookings);
     instructorBookings.forEach((booking) => {
       booking.participants.forEach((participant) => {
         const existing = map.get(participant.participantId) || {
@@ -270,7 +276,7 @@ export const useInstructorWorkspace = ({
           avatar: participant.clientAvatar,
           lessonsCount: 0,
         };
-        existing.lessonsCount += 1;
+        existing.lessonsCount = rosterCounts.get(participant.participantId) ?? 0;
         map.set(participant.participantId, existing);
       });
     });

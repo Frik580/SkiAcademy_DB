@@ -4,6 +4,7 @@ import { useCanonicalAccountProvisioningSync } from '../features/auth/sync/useCa
 import { useSettingsSync } from '../features/settings/sync/useSettingsSync';
 import { useBookingsSync } from '../features/bookings/sync/useBookingsSync';
 import { useLessonBookingReadSync } from '../features/lesson-bookings/useLessonBookingReadSync';
+import { useAccountParticipantLessonStatsSync } from '../features/lesson-bookings/useAccountParticipantLessonStatsSync';
 import {
   useCourseCatalogReadSync,
   useCourseEnrollmentReadSync,
@@ -17,7 +18,11 @@ import { useCurrentUserProfileSync } from '../features/profile/sync/useCurrentUs
 import { useUsersSync } from '../features/profile/sync/useUsersSync';
 import { useParticipantProgressSync } from '../features/participant-progress';
 import { shouldSyncAccountCourseEnrollments } from './accountCourseEnrollmentSync';
-import { shouldSyncAccountLessonBookings } from './accountLessonBookingSync';
+import {
+  shouldSyncAccountLessonBookings,
+  shouldSyncAccountLessonHistory,
+  shouldSyncAccountParticipantLessonStats,
+} from './accountLessonBookingSync';
 import { useAuthStore } from '../features/auth/authStore';
 import { useProfileStore } from '../features/profile/profileStore';
 
@@ -30,6 +35,14 @@ export const useStoreSync = () => {
   // dual-role accounts with an empty lesson store and no
   // queryLessonBookingReadModels request after legacy bookings sync was cut off.
   const isCustomerCanonicalLessonPath = shouldSyncAccountLessonBookings({
+    pathname: location.pathname,
+    accountId: firebaseUser?.uid,
+  });
+  const isCustomerCanonicalLessonHistoryPath = shouldSyncAccountLessonHistory({
+    pathname: location.pathname,
+    accountId: firebaseUser?.uid,
+  });
+  const isParticipantLessonStatsPath = shouldSyncAccountParticipantLessonStats({
     pathname: location.pathname,
     accountId: firebaseUser?.uid,
   });
@@ -50,7 +63,12 @@ export const useStoreSync = () => {
   useUsersSync();
   useSettingsSync();
   useBookingsSync();
-  useLessonBookingReadSync(isCustomerCanonicalLessonPath, firebaseUser?.uid);
+  useLessonBookingReadSync(
+    isCustomerCanonicalLessonPath,
+    firebaseUser?.uid,
+    isCustomerCanonicalLessonHistoryPath
+  );
+  useAccountParticipantLessonStatsSync(isParticipantLessonStatsPath, firebaseUser?.uid);
   useCourseEnrollmentReadSync(isCustomerCanonicalCoursePath, firebaseUser?.uid);
   useCourseCatalogReadSync(isPublicCatalogPath);
   useBookingCollaborationReadSync({

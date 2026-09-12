@@ -21,8 +21,6 @@ import { getMyInstructors, StudentCabinetTab } from './studentCabinetUtils';
 import {
   formatMessageTimestamp,
   getInstructorHomeworkMessages,
-  getInstructorLastLessonDate,
-  getInstructorLessonCount,
   getInstructorMessageThreadIds,
   getInstructorSkillComments,
   getInstructorVideoMessages,
@@ -36,6 +34,13 @@ import { useInstructorBookingMessages } from './useInstructorBookingMessages';
 import { ParticipantLessonFeedbackList } from '../ParticipantLessonFeedbackList';
 import { CoachParticipantAccessPanel } from '../../../../features/booking-collaboration';
 import { usePresentedParticipantLessonFeedback } from '../../usePresentedParticipantLessonFeedback';
+import {
+  instructorLessonCountFromEvidence,
+  latestAttendedLessonForInstructor,
+  useSelectedParticipantLessonStats,
+} from '../../useSelectedParticipantLessonStats';
+import { canonicalTimestampToLocalParts } from '../../../lesson-bookings/mapCalendarInput';
+import type { ParticipantLessonStatsEvidence } from '@ski-academy/shared-domain';
 import {
   participantLessonFeedbackItemKey,
   useParticipantLessonFeedbackStore,
@@ -102,9 +107,11 @@ interface StudentCoachPanelProps {
   usersList?: UserProfile[];
   activityLogs?: ActivityLog[];
   skillConfig?: SkillConfig;
+  selectedParticipantId?: string;
   onGoToTab: (tab: StudentCabinetTab) => void;
   onChat: (booking: Booking) => void;
   onOpenLesson: (booking: Booking) => void;
+  onOpenLessonByBookingId?: (lessonBookingId: string) => void;
   onToggleRecommendation?: (bookingId: string, recommendationId: string, checked: boolean) => void;
   onBookInstructor: (instructor: Instructor) => void;
   onViewInstructorReviews?: (instructor: Instructor) => void;
@@ -118,15 +125,18 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
   usersList = [],
   activityLogs = [],
   skillConfig,
+  selectedParticipantId,
   onGoToTab,
   onChat,
   onOpenLesson,
+  onOpenLessonByBookingId,
   onToggleRecommendation,
   onBookInstructor,
   onViewInstructorReviews,
 }) => {
   const { t, language } = useLanguage();
   const lang = language === 'ru' ? 'ru' : 'en';
+  const { evidence } = useSelectedParticipantLessonStats(selectedParticipantId);
   const feedback = usePresentedParticipantLessonFeedback(bookings);
   const pendingKeys = useParticipantLessonFeedbackStore((state) => state.pendingKeys);
   const [view, setView] = useState<CoachView>('list');
@@ -227,14 +237,11 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
             <section className="space-y-8">
               <ScSectionTitle>{t('scMyInstructors')}</ScSectionTitle>
               {myInstructors.map((ins) => {
-                const lessonCount = getInstructorLessonCount(bookings, ins.id, userProfile.uid);
-                const lastLesson = getInstructorLastLessonDate(
-                  bookings,
-                  courses,
-                  ins.id,
-                  userProfile.uid,
-                  lang
-                );
+                const lessonCount = instructorLessonCountFromEvidence(evidence, ins.id);
+                const lastAttended = latestAttendedLessonForInstructor(evidence, ins.id);
+                const lastLesson = lastAttended
+                  ? formatEvidenceDayMonth(lastAttended, lang)
+                  : null;
                 return (
                   <div key={ins.id} className="space-y-4">
                     <InstructorCard
@@ -549,6 +556,10 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
                     </p>
                     <ScTextButton
                       onClick={() => {
+                        if (onOpenLessonByBookingId) {
+                          onOpenLessonByBookingId(row.lessonBookingId);
+                          return;
+                        }
                         const booking = bookings.find((item) => item.id === row.lessonBookingId);
                         if (booking) onOpenLesson(booking);
                       }}
@@ -627,6 +638,23 @@ const CoachExtendedActions: React.FC<{
     </div>
   );
 };
+
+function formatEvidenceDayMonth(
+  evidence: ParticipantLessonStatsEvidence,
+  language: 'en' | 'ru'
+): string {
+  const { date } = canonicalTimestampToLocalParts(
+    evidence.startsAt.seconds,
+    evidence.startsAt.nanoseconds,
+    evidence.timeZone
+  );
+  const parsed = new Date(`${date}T12:00:00`);
+  if (Number.isNaN(parsed.getTime())) return date;
+  return parsed.toLocaleDateString(language === 'ru' ? 'ru-RU' : 'en-US', {
+    day: 'numeric',
+    month: 'long',
+  });
+}
 
 const CoachSectionShell: React.FC<{
   title: string;

@@ -283,6 +283,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
             }}
             hasUnreadChat={hasUnreadChat}
             onOpenLesson={(booking) => setLessonDetailsId(booking.id)}
+            onOpenLessonByBookingId={(lessonBookingId) => setLessonDetailsId(lessonBookingId)}
             onWriteReview={(booking) =>
               reviewFlow.openReview(cabinetItemToLegacyPresentation(booking, userProfile.uid))
             }
@@ -329,7 +330,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
 
           <PersonalCabinetModals
             userProfile={userProfile}
-            rawBookings={legacyModalBookings}
+            rawBookings={bookings}
             courses={courses}
             instructors={instructors}
             usersList={usersList}

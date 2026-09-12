@@ -7,6 +7,8 @@ interface LessonBookingStoreState {
   readonly hotLoading: boolean;
   readonly historyLoading: boolean;
   readonly historyHasMore: boolean;
+  readonly historyInitialized: boolean;
+  readonly historyLoadedAtMs?: number;
   readonly historyCursor?: string;
   readonly loaded: boolean;
   readonly error?: string;
@@ -17,6 +19,9 @@ interface LessonBookingStoreState {
   setHotLoading: (loading: boolean) => void;
   setHistoryLoading: (loading: boolean) => void;
   setHistoryHasMore: (hasMore: boolean) => void;
+  setHistoryInitialized: (initialized: boolean) => void;
+  setHistoryLoadedAtMs: (loadedAtMs: number) => void;
+  resetHistoryPagination: () => void;
   setHistoryCursor: (cursor?: string) => void;
   setLoaded: (loaded: boolean) => void;
   setError: (error?: string) => void;
@@ -38,6 +43,8 @@ const initialState = {
   hotLoading: false,
   historyLoading: false,
   historyHasMore: true,
+  historyInitialized: false,
+  historyLoadedAtMs: undefined,
   historyCursor: undefined,
   loaded: false,
   error: undefined,
@@ -92,6 +99,15 @@ export const useLessonBookingStore = create<LessonBookingStoreState>((set) => ({
   setHotLoading: (hotLoading) => set({ hotLoading }),
   setHistoryLoading: (historyLoading) => set({ historyLoading }),
   setHistoryHasMore: (historyHasMore) => set({ historyHasMore }),
+  setHistoryInitialized: (historyInitialized) => set({ historyInitialized }),
+  setHistoryLoadedAtMs: (historyLoadedAtMs) => set({ historyLoadedAtMs }),
+  resetHistoryPagination: () =>
+    set({
+      historyHasMore: true,
+      historyInitialized: false,
+      historyLoadedAtMs: undefined,
+      historyCursor: undefined,
+    }),
   setHistoryCursor: (historyCursor) => set({ historyCursor }),
   setLoaded: (loaded) => set({ loaded }),
   setError: (error) => set({ error }),

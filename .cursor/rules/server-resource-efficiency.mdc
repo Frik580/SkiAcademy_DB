@@ -1,0 +1,188 @@
+---
+description: Server resource efficiency and read-cost discipline
+alwaysApply: true
+---
+
+# Server Resource Efficiency Rule
+
+When designing, reviewing, or modifying application/backend code, actively
+consider server-resource usage and avoid unnecessary database, compute,
+network, and background-job cost.
+
+Resource efficiency is a non-functional requirement of this project.
+
+## Priority order
+
+Always preserve this order:
+
+1. correctness and data integrity
+2. security and authorization
+3. canonical domain semantics
+4. user-facing functionality
+5. UX / responsiveness
+6. reliability and idempotency
+7. server-resource efficiency
+
+Never reduce resource usage by weakening any higher-priority requirement.
+
+## Firestore / database reads
+
+Prefer designs where read cost is bounded by the data actually needed for the
+current operation.
+
+Avoid:
+
+- unbounded collection/history scans;
+- fetching full history and filtering/slicing in memory;
+- N+1 queries where batching is safely possible;
+- duplicate listeners for the same query;
+- duplicate read-model calls for the same data;
+- loading data before its UI surface needs it;
+- polling complete history or large datasets;
+- limit-expansion pagination that repeatedly rereads previous pages;
+- reading documents only to calculate a count when a cheaper safe projection
+  or aggregation already exists;
+- repeatedly reading immutable/terminal historical records.
+
+Prefer where semantically safe:
+
+- server-side filtering;
+- deterministic query bounds;
+- orderBy + startAfter + limit;
+- cursor pagination;
+- lazy/surface-scoped loading;
+- shared query/subscription ownership;
+- batching/getAll where appropriate;
+- lightweight read models;
+- maintained projections/aggregates only when their added consistency
+  complexity is justified.
+
+## Realtime listeners
+
+Before adding a new realtime listener:
+
+- check whether the same data is already subscribed elsewhere;
+- prefer one physical listener with shared application state when practical;
+- ensure cleanup/unsubscribe is correct;
+- do not replace a useful realtime listener with polling merely to reduce
+  listener count.
+
+## Scheduled/background jobs
+
+Background work runs even with zero active users, so treat its read cost as
+especially important.
+
+A no-op scheduled invocation should normally have a small, bounded cost.
+
+Avoid scheduler designs whose no-op cost grows with:
+
+- total historical bookings;
+- total historical payments;
+- total users;
+- total enrollments;
+- other ever-growing collections.
+
+Prefer querying only records that can currently require work.
+
+Do not solve an expensive scheduler merely by running it less often if the
+underlying query remains unnecessarily broad.
+
+Preserve:
+
+- retry safety;
+- idempotency;
+- lifecycle correctness;
+- monetary correctness;
+- historical recovery guarantees.
+
+## Backend read models
+
+When implementing or modifying a read model, consider:
+
+- Firestore queries per invocation;
+- documents returned/scanned;
+- per-row joins;
+- repeated authorization/topology reads;
+- whether another active read model already fetches overlapping data;
+- whether pagination is physical Firestore pagination or only in-memory
+  pagination.
+
+Do not change public/canonical response semantics merely to reduce reads.
+
+## Frontend hydration
+
+Do not load data globally only because the user might need it later.
+
+Prefer:
+
+- shell/current data on initial load;
+- feature-specific data when the relevant surface opens;
+- history only when History opens;
+- heavy statistics only when their consumer requires them.
+
+Do not harm perceived responsiveness. Prefetch is acceptable when there is a
+clear UX benefit and its resource cost is bounded.
+
+## Mutations
+
+Do not optimize away transactional reads required for:
+
+- double-booking prevention;
+- payment correctness;
+- wallet authority;
+- refunds;
+- attendance correctness;
+- authorization;
+- idempotency;
+- concurrency protection.
+
+Necessary invariant-protecting reads are not considered waste.
+
+## Existing architecture
+
+Before introducing:
+
+- caches;
+- aggregate documents;
+- projections;
+- new indexes;
+- new persistent fields;
+- background projectors;
+
+first determine whether the problem can be solved safely with better query
+bounds, ownership, pagination, or lazy loading.
+
+Do not introduce architectural complexity for insignificant savings.
+
+## When touching existing code
+
+If the requested implementation would introduce an obviously expensive
+read/write pattern, do not reproduce it blindly.
+
+Either:
+
+1. implement the functionally equivalent bounded design if low-risk; or
+2. call out the resource issue and propose a separate optimization if changing
+   it would expand ticket scope or risk semantics.
+
+Do not silently broaden the task into an unrelated optimization refactor.
+
+## Verification
+
+For resource-sensitive changes, report where practical:
+
+- before query/request shape;
+- after query/request shape;
+- bounded vs unbounded behavior;
+- expected complexity such as O(1), O(pageSize), O(N);
+- whether cost grows with historical data;
+- tests proving functional equivalence.
+
+Do not invent exact billing/read numbers unless measured.
+
+## Final principle
+
+A successful implementation should not only work correctly today; its routine
+server cost should remain reasonable as historical data and user count grow.
+
+Optimize for scalable query shape, not micro-optimization.

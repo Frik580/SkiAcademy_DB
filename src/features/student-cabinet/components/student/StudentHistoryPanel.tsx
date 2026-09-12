@@ -7,6 +7,7 @@ import { StudentHistoryList } from './StudentHistoryList';
 import { useProfileStore } from '../../../profile/profileStore';
 import { ActionButton } from '../../../../ui/ActionButton';
 import { usePresentedParticipantLessonFeedback } from '../../usePresentedParticipantLessonFeedback';
+import { useLessonBookingStore } from '../../../lesson-bookings/lessonBookingStore';
 
 interface StudentHistoryPanelProps {
   userProfile: UserProfile;
@@ -40,6 +41,10 @@ export const StudentHistoryPanel: React.FC<StudentHistoryPanelProps> = ({
   const [filter, setFilter] = useState<HistoryFilter>('all');
   const activityLogsHasMore = useProfileStore((state) => state.activityLogsHasMore);
   const loadMoreActivityLogs = useProfileStore((state) => state.loadMoreActivityLogs);
+  const lessonHistoryHasMore = useLessonBookingStore((state) => state.historyHasMore);
+  const lessonHistoryInitialized = useLessonBookingStore((state) => state.historyInitialized);
+  const lessonHistoryLoading = useLessonBookingStore((state) => state.historyLoading);
+  const requestLessonHistoryPage = useLessonBookingStore((state) => state.requestHistoryPage);
   const feedback = usePresentedParticipantLessonFeedback(bookings);
   const pendingByLessonId = useMemo(() => {
     const map = new Map<string, number>();
@@ -103,9 +108,18 @@ export const StudentHistoryPanel: React.FC<StudentHistoryPanelProps> = ({
           onOpenDevelopment={onOpenDevelopment}
           onToggleRecommendation={onToggleRecommendation}
         />
-        {activityLogsHasMore && (
+        {(activityLogsHasMore || (lessonHistoryInitialized && lessonHistoryHasMore)) && (
           <div className="flex justify-center pt-3">
-            <ActionButton onClick={loadMoreActivityLogs} size="sm">
+            <ActionButton
+              onClick={() => {
+                if (lessonHistoryInitialized && lessonHistoryHasMore) {
+                  requestLessonHistoryPage();
+                }
+                if (activityLogsHasMore) loadMoreActivityLogs();
+              }}
+              pending={lessonHistoryInitialized && lessonHistoryLoading}
+              size="sm"
+            >
               Load more history
             </ActionButton>
           </div>

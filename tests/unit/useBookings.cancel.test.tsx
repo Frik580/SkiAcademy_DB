@@ -112,7 +112,6 @@ describe('useBookings.handleCancel', () => {
     useBookingsStore.setState({
       bookings: [confirmedBooking],
       bookingsLoaded: true,
-      deletedCompletedStats: { revenue: 0, count: 0 },
     });
     useAuthStore.setState({
       firebaseUser,

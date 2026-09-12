@@ -1236,6 +1236,19 @@ describe('T32.8A identity authority containment', () => {
       })
     );
     await assertFails(
+      setDoc(doc(userDb, 'participant_achievements', 'participant-achievements-1'), {
+        participantId: 'participant-achievements-1',
+        earned: { first_lesson: { earnedAt: { seconds: 1, nanoseconds: 0 } } },
+      })
+    );
+    await assertFails(getDoc(doc(userDb, 'participant_achievements', 'participant-achievements-1')));
+    await assertFails(
+      setDoc(doc(adminDb, 'participant_achievements', 'participant-achievements-1'), {
+        participantId: 'participant-achievements-1',
+        earned: { first_lesson: { earnedAt: { seconds: 1, nanoseconds: 0 } } },
+      })
+    );
+    await assertFails(
       setDoc(doc(userDb, 'participant_lesson_feedback', 'feedback-1'), {
         feedbackId: 'feedback-1',
         items: [{ itemId: 'item_1', text: 'Drill' }],

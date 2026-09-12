@@ -1,15 +1,13 @@
-import type { ActivityLog, Booking, Course, Review, UserProfile } from '../../../../types';
 import {
   evaluateEarnedAchievements,
   formatAchievementLabel,
-  getTrainingStreakWeeks,
   normalizeAchievementsConfig,
-  pickAchievementTimestamp,
+  type AchievementEvaluationContext,
   type AchievementsConfig,
-  type SkillConfig,
 } from '../../../../domain/achievements';
 import { isTimestampOnLocalDate } from './studentCabinetPresentation';
 import type { Achievement } from './studentCabinetUtils';
+import { mergeEvaluatedAndPersistedAchievements } from '../../../participant-achievements/mergeParticipantAchievements';
 
 const formatActivityTimestamp = (timestamp: string, language: 'en' | 'ru') => {
   const date = new Date(timestamp);
@@ -20,85 +18,47 @@ const formatActivityTimestamp = (timestamp: string, language: 'en' | 'ru') => {
   });
 };
 
-export { getTrainingStreakWeeks };
-
 export const getAchievements = (
-  userProfile: UserProfile,
-  bookings: Booking[],
-  skillConfig: SkillConfig | undefined,
+  ctx: AchievementEvaluationContext,
   language: 'en' | 'ru',
-  activityLogs: ActivityLog[] = [],
-  reviews: Review[] = [],
-  courses: Course[] = [],
-  achievementsConfig?: AchievementsConfig
+  achievementsConfig?: AchievementsConfig,
+  persistedEarned: Readonly<
+    Record<string, { earnedAt: { seconds: number; nanoseconds: number } }>
+  > = {}
 ): Achievement[] => {
   const config = normalizeAchievementsConfig(achievementsConfig);
-  const earned = evaluateEarnedAchievements(
-    {
-      userProfile,
-      bookings,
-      courses,
-      reviews,
-      skillConfig,
-      activityLogs,
-    },
-    config
-  );
+  const evaluated = evaluateEarnedAchievements(ctx, config);
+  const merged = mergeEvaluatedAndPersistedAchievements({
+    evaluated,
+    persistedEarned,
+    config,
+  });
 
-  const logTimestamps = new Map<string, string>(
-    activityLogs
-      .filter((log) => log.type === 'achievement_earned' && log.metadata?.achievementId)
-      .map((log) => [log.metadata!.achievementId as string, log.timestamp])
-  );
-
-  const logLabels = new Map<string, { ru?: string; en?: string }>(
-    activityLogs
-      .filter((log) => log.type === 'achievement_earned' && log.metadata?.achievementId)
-      .map((log) => [
-        log.metadata!.achievementId as string,
-        {
-          ru: log.metadata?.achievementLabelRu,
-          en: log.metadata?.achievementLabelEn,
-        },
-      ])
-  );
-
-  return earned
-    .map((item) => {
-      const timestamp = pickAchievementTimestamp(logTimestamps.get(item.id), item.earnedAt);
-      const storedLabels = logLabels.get(item.id);
-      return {
-        id: item.id,
-        icon: item.icon,
-        label: formatAchievementLabel(item.id, language, config, {
-          achievementLabelRu: storedLabels?.ru ?? item.labelRu,
-          achievementLabelEn: storedLabels?.en ?? item.labelEn,
-        }),
-        earnedAtLabel: timestamp ? formatActivityTimestamp(timestamp, language) : undefined,
-        earnedAt: timestamp,
-      };
-    })
+  return merged
+    .map((item) => ({
+      id: item.id,
+      icon: item.icon,
+      label: formatAchievementLabel(item.id, language, config, {
+        achievementLabelRu: item.labelRu,
+        achievementLabelEn: item.labelEn,
+      }),
+      earnedAtLabel: item.earnedAt
+        ? formatActivityTimestamp(item.earnedAt, language)
+        : undefined,
+      earnedAt: item.earnedAt,
+    }))
     .sort((a, b) => (b.earnedAt ?? '').localeCompare(a.earnedAt ?? ''));
 };
 
 export const getTodayAchievements = (
-  userProfile: UserProfile,
-  bookings: Booking[],
-  skillConfig: SkillConfig | undefined,
+  ctx: AchievementEvaluationContext,
   language: 'en' | 'ru',
-  activityLogs: ActivityLog[] = [],
-  reviews: Review[] = [],
-  courses: Course[] = [],
   achievementsConfig?: AchievementsConfig,
+  persistedEarned: Readonly<
+    Record<string, { earnedAt: { seconds: number; nanoseconds: number } }>
+  > = {},
   onDate: Date = new Date()
 ): Achievement[] =>
-  getAchievements(
-    userProfile,
-    bookings,
-    skillConfig,
-    language,
-    activityLogs,
-    reviews,
-    courses,
-    achievementsConfig
-  ).filter((item) => item.earnedAt && isTimestampOnLocalDate(item.earnedAt, onDate));
+  getAchievements(ctx, language, achievementsConfig, persistedEarned).filter(
+    (item) => item.earnedAt && isTimestampOnLocalDate(item.earnedAt, onDate)
+  );

@@ -1,0 +1,26 @@
+---
+description: Run long-lived processes in the background, not the foreground shell
+alwaysApply: true
+---
+
+# Long-running processes
+
+Never run long-lived commands in the foreground Agent shell. Examples:
+
+- `npm run dev`
+- `vite` (dev server)
+- `firebase emulators:start`
+- Watch-mode tests (`vitest`, `jest --watch`, etc.)
+
+## When a long-lived process is required
+
+1. Start it **detached or backgrounded** (e.g. `block_until_ms: 0` or an equivalent background invocation).
+2. **Verify it started successfully** (check process output, listen port, or health endpoint).
+3. **Continue working** — do not block the session waiting on the process.
+
+## Unexpected long-running commands
+
+If a shell command turns out to be long-running when you expected it to finish:
+
+- **Interrupt it** instead of waiting indefinitely.
+- Retry with a bounded timeout, a non-watch flag, or a background invocation as appropriate.

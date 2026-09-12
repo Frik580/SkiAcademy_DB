@@ -1,4 +1,3 @@
-import type { Booking } from '../../../../types';
 import type { TranslationKey } from '../../../../app/providers/LanguageContext';
 import type { TodayTaskBookingContext } from './studentTodayTaskContext';
 
@@ -88,18 +87,6 @@ export interface Achievement {
   earnedAt?: string;
 }
 
-export interface RecentLesson {
-  id: string;
-  title: string;
-  dateLabel: string;
-  rating?: number;
-  reviewSnippet?: string;
-  instructorName: string;
-  booking: Booking;
-  needsReview?: boolean;
-  pendingRecommendationsCount?: number;
-}
-
 export type HistoryFilter = 'all' | 'training' | 'progress' | 'homework';
 export type HistoryEventAction =
   | { type: 'open_lesson'; bookingId: string }
@@ -132,12 +119,6 @@ export interface HistoryMonthGroup {
   monthKey: string;
   monthLabel: string;
   events: HistoryEvent[];
-}
-export interface StudentStats {
-  lessons: number;
-  hours: number;
-  exercisesMastered: number;
-  points: number;
 }
 
 export * from './studentSkillProgress';

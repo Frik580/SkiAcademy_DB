@@ -4,6 +4,7 @@ import { useLanguage } from '../../../app/providers/LanguageContext';
 interface AdminOperationalMetricsProps {
   readonly activeBookings: number;
   readonly completedBookings: number;
+  readonly noShowBookings: number;
   readonly instructorsCount: number;
 }
 
@@ -11,6 +12,7 @@ interface AdminOperationalMetricsProps {
 export function AdminOperationalMetrics({
   activeBookings,
   completedBookings,
+  noShowBookings,
   instructorsCount,
 }: AdminOperationalMetricsProps) {
   const { t } = useLanguage();
@@ -42,6 +44,9 @@ export function AdminOperationalMetrics({
             </span>
             <span className="text-2xl font-serif font-light text-[var(--ink)]">
               {completedBookings}
+            </span>
+            <span className="text-[8px] font-mono text-[var(--ink-dim)] uppercase tracking-widest block">
+              {noShowBookings} {t('noShowShort')}
             </span>
           </div>
           <div className="w-10 h-10 border border-[var(--border)] rounded-none flex items-center justify-center text-[var(--ink)] bg-black/5 dark:bg-white/5">

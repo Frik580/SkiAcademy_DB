@@ -32,6 +32,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
   const { t, lang } = useStudentCabinetTranslations();
   const {
     userProfile,
+    selectedParticipantId,
     bookings,
     sessionItems,
     courses,
@@ -42,6 +43,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     skillConfig,
     onOpenSession,
     onOpenLesson,
+    onOpenLessonByBookingId,
     onViewCourseDetails,
     onWriteReview,
     onDismissReview,
@@ -59,6 +61,10 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
   const hideProgress = Boolean(userProfile.hideProgressTracking);
   const feedback = usePresentedParticipantLessonFeedback(bookings);
   const openLessonById = (lessonBookingId: string) => {
+    if (onOpenLessonByBookingId) {
+      onOpenLessonByBookingId(lessonBookingId);
+      return;
+    }
     const booking = bookings.find((item) => item.id === lessonBookingId);
     if (booking) onOpenLesson(booking);
   };
@@ -145,6 +151,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
             bookings={bookings}
             reviews={reviews}
             userProfile={userProfile}
+            selectedParticipantId={selectedParticipantId}
             activityLogs={props.activityLogs}
             achievementsConfig={props.achievementsConfig}
             skillConfig={props.skillConfig}

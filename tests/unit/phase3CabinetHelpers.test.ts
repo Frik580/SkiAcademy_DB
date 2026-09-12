@@ -3,9 +3,8 @@ import {
   filterBookingsByScope,
   getRecommendedCourses,
   getRecommendedInstructors,
-  getTrainingStreakWeeks,
 } from '../../src/features/student-cabinet/components/student/studentCabinetUtils';
-import { ActivityLog, Booking, Course, Instructor, UserProfile } from '../../src/types';
+import { Booking, Course, Instructor, UserProfile } from '../../src/types';
 
 const userProfile: UserProfile = {
   uid: 'user-1',
@@ -18,19 +17,6 @@ const userProfile: UserProfile = {
 };
 
 describe('phase 3 cabinet helpers', () => {
-  it('counts consecutive training weeks', () => {
-    const logs: ActivityLog[] = [
-      {
-        id: 'a1',
-        userId: 'user-1',
-        actorId: 'ins',
-        type: 'booking_completed',
-        timestamp: new Date().toISOString(),
-      },
-    ];
-    expect(getTrainingStreakWeeks([], logs)).toBeGreaterThanOrEqual(1);
-  });
-
   it('recommends courses for user level excluding enrolled', () => {
     const courses: Course[] = [
       {

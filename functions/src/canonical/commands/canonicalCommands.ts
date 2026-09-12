@@ -49,6 +49,7 @@ import type { GuestCourseEnrollmentCommandEnvironment } from '../courses/guestCo
 import { createLessonPricingSettingsCommandHandlers } from '../pricing/lessonPricingSettingsCommands';
 import { createInstructorReviewCommandHandlers } from '../reviews/instructorReviewCommands';
 import { createParticipantProgressCommandHandlers } from '../progress/participantProgressCommands';
+import { createParticipantAchievementsCommandHandlers } from '../achievements/participantAchievementsCommands';
 import { createParticipantLessonFeedbackCommandHandlers } from '../lessonFeedback/participantLessonFeedbackCommands';
 
 export type CommandHandler<Kind extends CommandKind> = (
@@ -203,6 +204,7 @@ export function createProductionCanonicalCommands(
     ...createBookingAttendanceCommandHandlers(executor),
     ...createInstructorReviewCommandHandlers(executor),
     ...createParticipantProgressCommandHandlers(executor),
+    ...createParticipantAchievementsCommandHandlers(executor),
     ...createParticipantLessonFeedbackCommandHandlers(executor),
     ...createCourseDayCommandHandlers(executor),
     ...createCourseProvisioningCommandHandlers(executor),

@@ -137,7 +137,7 @@ describe('Student Cabinet admin cancellation sync (T32.9A.9A)', () => {
         hasMore: false,
       });
 
-    renderHook(() => useLessonBookingReadSync(true, 'account_fixture_01'));
+    renderHook(() => useLessonBookingReadSync(true, 'account_fixture_01', true));
 
     await waitFor(() => {
       expect(queryLessonBookingReadModelsMock).toHaveBeenCalledTimes(2);

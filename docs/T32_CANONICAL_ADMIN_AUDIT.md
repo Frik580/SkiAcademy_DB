@@ -15,6 +15,7 @@ Amended: 2026-09-11 — T32.9A.9B.2 implementation recorded: Participant-scoped 
 Amended: 2026-09-11 — T32.9A.9B.2 **PASS / CLOSED** after production deploy (Functions → Hosting → Firestore Rules) and manual acceptance smoke **PASS** (2026-09-11); active 9B sub-slice **T32.9A.9B.3** — NEXT
 Amended: 2026-09-11 — T32.9A.9B.3 Canonical Lesson Feedback implemented through 9B.3E isolation/cleanup/integration gate; **READY_FOR_MANUAL_SMOKE** (production deploy + manual acceptance not yet recorded); Chat Homework preserved and out of 9B.3; next sub-slice **T32.9A.9B.4** Stats / Achievements
 Amended: 2026-09-12 — T32.9A.9B.3 **PASS / CLOSED** after production deploy (indexes → Functions → Rules → Hosting) and manual acceptance smoke **PASS**; active 9B sub-slice **T32.9A.9B.4** Stats / Achievements — NEXT; **T32.9A.9P.HW1** Participant-scoped Chat Homework recorded as known parity item (not in ParticipantLessonFeedback scope)
+Amended: 2026-09-12 — T32.9A.9B.4 Stats / Achievements isolation + integration gate (9B.4E) complete; **READY_FOR_MANUAL_SMOKE** (production deploy + authenticated manual smoke not yet recorded). Course metrics remain **T32.9A.9C**. Chat Homework remains **T32.9A.9P.HW1**. 9B.5 is not an accepted roadmap ticket.
 
 Status: historical Admin-runtime audit from 2026-08-30, with later T32.8A–T32.8C and T32.9A/T32.9B migration status below. Findings in this document that describe unpaid Administrator guest approval, missing guest CourseEnrollment confirmation, or identity linking as confirmation are superseded by ADR-0007. Sections below that still describe the 2026-08-30 Admin runtime as fully legacy are historical audit evidence; later migration status in this preamble supersedes them for T32.9A progress.
 
@@ -54,7 +55,7 @@ T32.9 remains split per [ADR-0008](adr/0008-ux-preservation-during-canonical-mig
 | T32.9A.9B                                      | Student Booking Stats / Progress / Recommendations / Reviews Cutover     | IN PROGRESS (active)                      |
 | T32.9A.9B.2                                    | Canonical Participant Progress                                           | PASS / CLOSED                             |
 | T32.9A.9B.3                                    | Recommendations / Lesson Feedback continuity                             | PASS / CLOSED                             |
-| T32.9A.9B.4                                    | Stats / Achievements                                                     | NEXT (active)                             |
+| T32.9A.9B.4                                    | Stats / Achievements                                                     | READY_FOR_MANUAL_SMOKE                    |
 | T32.9A.9C                                      | Course Progress / Achievements Cutover                                   | PENDING                                   |
 | T32.9A.9P                                      | Global Product Parity & Legacy Dependency Gate                           | PENDING                                   |
 | T32.9A.9D0                                     | Production-like Incremental Cutover Rehearsal                            | PENDING                                   |
@@ -90,7 +91,7 @@ T32.9A.9B — Student Booking Stats / Progress / Recommendations Cutover — IN 
          (includes Reviews / Instructor Rating Continuity)
   T32.9A.9B.2 — Canonical Participant Progress — PASS / CLOSED (production smoke 2026-09-11)
   T32.9A.9B.3 — Recommendations / Lesson Feedback continuity — PASS / CLOSED (production smoke 2026-09-12)
-  T32.9A.9B.4 — Stats / Achievements — NEXT (active)
+  T32.9A.9B.4 — Stats / Achievements — READY_FOR_MANUAL_SMOKE
 T32.9A.9C — Course Progress / Achievements Cutover
 T32.9A.9P — Global Product Parity & Legacy Dependency Gate
 T32.9A.9D0 — Production-like Incremental Cutover Rehearsal
@@ -911,23 +912,10 @@ homeworkForUserIds
 
 9B.3 does **not** migrate Chat Homework and must not delete chat/homework with Booking parents. Participant-scoped homework targeting is a **known 9P parity gap** tracked as **T32.9A.9P.HW1** (not part of ParticipantLessonFeedback). The former ChatWindow recommendation strip was a ghost leftover after canonical cutover (cabinet chat bookings do not carry `Booking.recommendations`) and was removed without touching messages/homework.
 
-###### 9B.4 deferred — Stats / Achievements
+###### 9B.4 — implemented after 9B.3
 
-Do not fix in 9B.3:
+9B.3 left stats/achievements as the next sub-slice. That work is recorded in **T32.9A.9B.4** below. History still **displays** historical `recommendation_completed` / `recommendations_completed_all` / `booking_completed` / `achievement_earned` activity-log rows when they exist; those types remain presentation-only.
 
-- achievement `homework_done` still evaluates `booking.recommendations` / `completedRecommendationIds` and historical `recommendations_completed_all` logs (`achievementConfig.ts`);
-- `useBookingsStore.bookings` is already forced empty on the customer path, so the live booking-field branch is inert for new sessions;
-- Student history still **displays** historical `recommendation_completed` / `recommendations_completed_all` activity-log rows if they exist;
-- those activity types are **not** canonical authority and 9B.3 does not create new ones.
-
-Exact leftover paths for **T32.9A.9B.4**:
-
-| Path | File | Notes |
-| --- | --- | --- |
-| `homework_done` evaluation | `src/domain/achievements/achievementConfig.ts` (`hasHomeworkDone`, `findHomeworkDoneTimestamp`) | Uses Booking rec fields + `recommendations_completed_all` logs |
-| Achievement sync bookings source | `useAchievementsSync` / `useBookingsStore.bookings` | Store currently `[]` on cabinet path |
-| History rendering of legacy events | `studentHistory.ts` cases `recommendation_completed` / `recommendations_completed_all` | Read-only display of old logs |
-| Activity type union | `src/types/activity.ts` | Keep until 9B.4 rewires signals |
 
 ###### Legacy isolation (9B.3E)
 
@@ -977,8 +965,100 @@ Manual acceptance smoke — **PASS** (2026-09-12):
 
 ```text
 T32.9A.9B.3 → PASS / CLOSED
-next: T32.9A.9B.4 — Stats / Achievements
+T32.9A.9B.4 → READY_FOR_MANUAL_SMOKE
 ```
+
+##### T32.9A.9B.4 — Stats / Achievements — READY_FOR_MANUAL_SMOKE
+
+**Status: READY_FOR_MANUAL_SMOKE** — implementation through 9B.4E isolation/cleanup/integration gate is complete. Production deploy and authenticated manual smoke are **not** recorded. Do **not** mark PASS / CLOSED until both succeed.
+
+9B.4 does **not** canonicalize Course metrics. Course progress / hours / `course_graduate` remain **T32.9A.9C**. Chat Homework remains **T32.9A.9P.HW1**. Activity logs remain presentation/history only.
+
+###### Authority
+
+Student lesson stats (Season lessons/hours, Coach lesson count / last attended lesson):
+
+```text
+selectedParticipantId
++ canonical managed Participant Attendance (Attendance.present)
++ complete account lesson history drain (account_hot ∪ account_history)
+```
+
+Absence is Attendance.absent for that participantId. Missing attendance is not learning credit. Booking lifecycle `completed`, `booking.userId`, `participants[0]`, first-participant fallback, first history page only, and `useBookingsStore.bookings` are **not** reachable Student stats authority.
+
+Participant achievements:
+
+```text
+/participant_achievements/{participantId}
+```
+
+Evaluation sources:
+
+| Signal | Authority |
+| --- | --- |
+| lessons / hours / streak | Participant Attendance.present |
+| skill / level | `/participant_progress/{participantId}` |
+| homework_done | ParticipantLessonFeedback (all checklist items completed) |
+| persisted badges | `/participant_achievements/{participantId}` |
+| feedback_given | canonical reviews (account-level; not participant persistence) |
+| course_graduate | DEFERRED_TO_9C — evaluation returns false; no synthetic `course_*` Booking workaround |
+
+Instructor metrics (one Booking = one lesson/slot; not per Participant):
+
+```text
+completed = lifecycle completed
+no_show = lifecycle no_show
+occupied = completed OR no_show
+source = instructor_hot ∪ instructor_history (revision-merged)
+```
+
+Admin operational KPIs:
+
+```text
+active = current admin_hot operational snapshot (confirmed | pending_cancellation)
+completed / no_show / occupied = lifetime admin_hot ∪ admin_history
+revenue = canonical finance (unchanged)
+```
+
+Admin/Instructor KPIs do **not** use `isAttendedLessonStatus`, `deletedCompletedStats`, `school_global_stats`, `Booking.price`, or Participant Attendance as a business-lifecycle proxy.
+
+###### History / activity logs
+
+`studentHistory.ts` still uses `isAttendedLessonStatus` and legacy activity-log types (`booking_completed`, `recommendation_completed`, `recommendations_completed_all`, `achievement_earned`) to **label** timeline events. That is presentation-only. It is not Student stats or achievement truth.
+
+No new Stats/Achievement logic uses activity logs as authority. No new generic `activity_logs` writes were added.
+
+###### Full history strategy
+
+Cursors terminate (`drainPagedReadModelItems` rejects missing/repeating cursors). Hot ∪ history rows are revision-deduped. Student stats drain is module-coordinated (in-flight reuse per account). Do **not** treat first-page history as complete.
+
+Read-cost (factual, not redesigned in 4E):
+
+- Student cabinet on `/` and `/cabinet*` runs both first-page `account_hot`/`account_history` (cabinet list) **and** a full drain of the same scopes (stats/achievements).
+- Instructor workspace drains `instructor_hot` ∪ `instructor_history`.
+- Admin Operations drains `admin_hot` ∪ `admin_history` in addition to monitor surfaces that already page those scopes.
+
+Optimization is a later concern unless a correctness/runtime loop appears.
+
+###### Legacy isolation (reachable authority = 0)
+
+- Student stats leftover authority (`Booking.status === completed` as attendance, `booking.userId`, `participants[0]`, first-page-only, `useBookingsStore.bookings`) = 0
+- Achievements leftover authority (`useBookingsStore.bookings`, `/users` progress fallback, `Booking.recommendations`, `completedRecommendationIds`, `booking_completed` / `recommendation_completed` log authority) = 0
+- Instructor KPI leftover authority (`isAttendedLessonStatus`, Attendance-as-lifecycle) = 0
+- Admin KPI leftover authority (`deletedCompletedStats`, `school_global_stats` fetch, `Booking.price`, Attendance-as-lifecycle) = 0
+
+Frontend no longer fetches or stores `deletedCompletedStats` / `users/school_global_stats` for Admin KPI. Production Firestore data for `school_global_stats` is **not** deleted here (selective cleanup later). Identity hygiene still excludes that doc from user directories (`starterCredit`, `useUsersSync`). Admin reset/clear tools and legacy Functions `bookingLogic` may still write that doc as a live leftover capability — reported, not guessed-deleted.
+
+###### Closure (9B.4) — READY_FOR_MANUAL_SMOKE
+
+```text
+T32.9A.9B.4 → READY_FOR_MANUAL_SMOKE
+Do not mark PASS / CLOSED before production deploy + authenticated manual smoke.
+```
+
+Safe production deploy (do not execute until smoke is scheduled): Functions → Rules → Hosting. Indexes: **NO** (no `firestore.indexes.json` change in the cumulative 4B–4E diff). Migration: **NO**. Settings: **NO**. Schedulers: **NO**.
+
+After successful smoke: remaining **9B** mandatory scope is **Reviews / Instructor Rating Continuity** (unnumbered; 9B is not PASS while Student Cabinet still requires `addReviewService`). There is **no** accepted ticket `T32.9A.9B.5`. Numbered next slice after 9B overall is **T32.9A.9C**.
 
 ##### Reviews / Instructor Rating Continuity — mandatory 9B scope
 
@@ -2064,7 +2144,7 @@ Current structure (authoritative for later status; see preamble):
   - **9B** Student Booking Stats / Progress / Recommendations Cutover, including Reviews / Instructor Rating Continuity — **IN PROGRESS (active)**
     - **9B.2** Canonical Participant Progress — **PASS / CLOSED** (production smoke 2026-09-11)
     - **9B.3** Recommendations / Lesson Feedback continuity — **PASS / CLOSED** (production smoke 2026-09-12)
-    - **9B.4** Stats / Achievements — **NEXT (active)**
+    - **9B.4** Stats / Achievements — **READY_FOR_MANUAL_SMOKE**
   - **9C** Course Progress / Achievements Cutover — PENDING
   - **9P** Global Product Parity & Legacy Dependency Gate — PENDING
   - **9D0** Production-like Incremental Cutover Rehearsal — PENDING

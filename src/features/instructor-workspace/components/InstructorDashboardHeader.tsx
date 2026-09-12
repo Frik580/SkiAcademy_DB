@@ -87,6 +87,9 @@ export const InstructorDashboardHeader: React.FC<InstructorDashboardHeaderProps>
           <span className="text-[8px] font-mono text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">
             {stats.completed} {t('completed')}
           </span>
+          <span className="text-[8px] font-mono text-[var(--ink-dim)] uppercase tracking-wider block">
+            {stats.noShow} {t('noShowShort')}
+          </span>
         </div>
 
         <div className="border border-slate-200/70 dark:border-slate-800/70 p-4 bg-[var(--card-bg)] rounded-xs shadow-xs space-y-1">

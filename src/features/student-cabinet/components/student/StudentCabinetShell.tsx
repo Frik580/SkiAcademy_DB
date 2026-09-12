@@ -56,6 +56,11 @@ import {
   useSelectedParticipantLessonFeedback,
   togglePresentedParticipantLessonFeedbackItem,
 } from '../../useSelectedParticipantLessonFeedback';
+import {
+  accountReviewsFromLegacy,
+  usePresentedParticipantAchievements,
+  useSelectedParticipantAchievementsRecorder,
+} from '../../../participant-achievements';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 
 const getSwipeNeighborSequence = (
@@ -115,6 +120,7 @@ export interface StudentCabinetShellProps {
   onChat: (booking: import('./studentCabinetContracts').StudentBooking) => void;
   hasUnreadChat?: (bookingId: string) => boolean;
   onOpenLesson: (booking: import('./studentCabinetContracts').StudentBooking) => void;
+  onOpenLessonByBookingId?: (lessonBookingId: string) => void;
   onWriteReview: (booking: import('./studentCabinetContracts').StudentBooking) => void;
   onToggleRecommendation?: (bookingId: string, recommendationId: string, checked: boolean) => void;
   onToggleSkillToday?: (skillItemId: string, pinned: boolean) => void;
@@ -198,6 +204,24 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
     selectedParticipantId: selectedProgressParticipantId,
     participants,
   });
+  const achievementAccountReviews = useMemo(
+    () => accountReviewsFromLegacy(props.reviews),
+    [props.reviews]
+  );
+  const { evaluation: selectedAchievementEvaluation } = usePresentedParticipantAchievements({
+    selectedParticipantId: selectedProgressParticipantId,
+    language: 'ru',
+    accountReviews: achievementAccountReviews,
+    achievementsConfig: props.achievementsConfig,
+    skillConfig: props.skillConfig,
+  });
+  useSelectedParticipantAchievementsRecorder({
+    accountId: props.userProfile.uid,
+    selectedParticipantId: selectedProgressParticipantId,
+    participants,
+    evaluation: selectedAchievementEvaluation,
+    achievementsConfig: props.achievementsConfig,
+  });
   const handleToggleFeedbackItem = useCallback(
     (lessonBookingId: string, itemId: string, completed: boolean) => {
       void togglePresentedParticipantLessonFeedbackItem({
@@ -208,6 +232,21 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
       }).catch(() => undefined);
     },
     [props.userProfile.uid]
+  );
+  const openLessonByBookingId = useCallback(
+    (lessonBookingId: string) => {
+      if (props.onOpenLessonByBookingId) {
+        props.onOpenLessonByBookingId(lessonBookingId);
+        return;
+      }
+      const cabinetBooking = props.bookings.find(
+        (item) => item.id === lessonBookingId || item.bookingId === lessonBookingId
+      );
+      if (cabinetBooking) {
+        props.onOpenLesson(cabinetBooking);
+      }
+    },
+    [props]
   );
   const progressById = useParticipantProgressStore((state) => state.byId);
   const requiresProgressSelection =
@@ -248,6 +287,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
 
   const ctx = {
     userProfile: progressProfile,
+    selectedParticipantId: selectedProgressParticipantId,
     bookings: legacyBookings,
     sessionItems: props.sessionItems ?? [],
     courses: props.courses,
@@ -265,6 +305,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
       const cabinetBooking = props.bookings.find((item) => item.id === booking.id);
       if (cabinetBooking) props.onOpenLesson(cabinetBooking);
     },
+    onOpenLessonByBookingId: openLessonByBookingId,
     onWriteReview: (booking: Booking) => {
       const cabinetBooking = props.bookings.find((item) => item.id === booking.id);
       if (cabinetBooking) props.onWriteReview(cabinetBooking);
@@ -412,6 +453,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
   const legacyPanelProps = {
     ...panelProps,
     bookings: legacyBookings,
+    selectedParticipantId: selectedProgressParticipantId,
     onOpenLesson: (booking: Booking) => {
       const cabinetBooking = props.bookings.find((item) => item.id === booking.id);
       if (cabinetBooking) props.onOpenLesson(cabinetBooking);
@@ -511,6 +553,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
             usersList={props.usersList}
             activityLogs={props.activityLogs}
             skillConfig={props.skillConfig}
+            selectedParticipantId={selectedProgressParticipantId}
             onGoToTab={goToTab}
             onChat={(booking) => {
               const cabinetBooking = props.bookings.find((item) => item.id === booking.id);
@@ -520,6 +563,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
               const cabinetBooking = props.bookings.find((item) => item.id === booking.id);
               if (cabinetBooking) props.onOpenLesson(cabinetBooking);
             }}
+            onOpenLessonByBookingId={openLessonByBookingId}
             onToggleRecommendation={handleToggleFeedbackItem}
             onBookInstructor={props.onBookInstructor}
             onViewInstructorReviews={props.onViewInstructorReviews}

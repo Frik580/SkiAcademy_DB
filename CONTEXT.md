@@ -498,7 +498,16 @@ T32.9A.9A — PASS / CLOSED (F1 / F2 / F3 / F4 / final integration smoke)
     legacy recommendation readers/writers reachable = 0; Booking dual-write = 0; legacy fallback = 0;
     Chat Homework (`bookings/{threadId}/messages` isHomework/homeworkForUserIds) preserved, **not** ParticipantLessonFeedback;
     known 9P gap: T32.9A.9P.HW1 participant-scoped homework (homeworkForParticipantIds[], present-only, server enforcement).
-  T32.9A.9B.4 — NEXT (active): Stats / Achievements.
+  T32.9A.9B.4 — READY_FOR_MANUAL_SMOKE: Stats / Achievements.
+    Student lesson stats = selectedParticipantId + Attendance.present + full account history drain;
+    participant achievements authority `/participant_achievements/{participantId}`;
+    lessons/hours/streak = Attendance.present; skill/level = `/participant_progress`;
+    homework_done = ParticipantLessonFeedback; persisted badges = participant_achievements;
+    feedback_given = canonical reviews (account-level, not participant persistence);
+    course_graduate DEFERRED_TO_9C (not awarded now); activity logs presentation-only;
+    Instructor: completed / no_show / occupied from booking lifecycle, one Booking = one slot;
+    Admin: active = hot operational; completed/no_show = complete history; revenue = canonical finance;
+    Course metrics not claimed canonicalized.
 → T32.9A.9C (Course progress / achievements)
 → T32.9A.9P (Global Product Parity & legacy Dependency Gate)
 → T32.9A.9D0 (production-like incremental rehearsal)

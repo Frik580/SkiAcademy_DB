@@ -13,10 +13,12 @@ import { mergeLessonBookingRecords } from './lessonBookingViewModel';
 export const ACCOUNT_LESSON_BOOKING_REFRESH_MS = 30_000;
 
 let syncInFlight: Promise<void> | undefined;
+let hotSyncInFlight: Promise<void> | undefined;
 
 /** Test-only reset for module-level sync coordination state. */
 export function resetAccountLessonBookingSyncStateForTests(): void {
   syncInFlight = undefined;
+  hotSyncInFlight = undefined;
 }
 
 export function isAccountLessonBookingBackgroundSyncAllowed(): boolean {
@@ -101,4 +103,26 @@ export async function syncAccountLessonBookingsFromServer(): Promise<void> {
   })();
 
   return syncInFlight;
+}
+
+/** Cheap background refresh that deliberately avoids the account history scan. */
+export async function syncAccountHotLessonBookingsFromServer(): Promise<void> {
+  if (hotSyncInFlight) {
+    return hotSyncInFlight;
+  }
+
+  hotSyncInFlight = (async () => {
+    try {
+      const hot = await queryLessonBookingReadModels({ scope: 'account_hot' });
+      applyAccountLessonBookingReadResults({
+        hotItems: hot.items,
+        historyItems: [],
+        reconcileHot: true,
+      });
+    } finally {
+      hotSyncInFlight = undefined;
+    }
+  })();
+
+  return hotSyncInFlight;
 }

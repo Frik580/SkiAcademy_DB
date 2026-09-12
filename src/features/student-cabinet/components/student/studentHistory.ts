@@ -17,6 +17,12 @@ import { formatSessionTimeRange, getDifficultyShort } from './studentSessionPres
 import { toYMD } from './studentCabinetPresentation';
 import type { HistoryEvent, HistoryFilter, HistoryMonthGroup } from './studentCabinetUtils';
 
+/**
+ * History timeline presentation. `isAttendedLessonStatus` / activity-log types
+ * here are labels for past events, not Student stats or achievement authority.
+ * Canonical learning credit is Participant Attendance.present (9B.4).
+ */
+
 const historyEventPrefix = (kind: HistoryEvent['kind']) => {
   switch (kind) {
     case 'training':

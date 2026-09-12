@@ -27,6 +27,8 @@ export * from './lessonPricingSettings';
 export * from './instructorReview';
 export * from './participantProgress';
 export * from './participantProgressAccessPolicy';
+export * from './participantAchievements';
+export * from './participantAchievementCommandIdempotency';
 export * from './participantLessonFeedback';
 export * from './participantLessonFeedbackAccessPolicy';
 export * from './guestBooking';

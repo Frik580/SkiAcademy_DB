@@ -5,14 +5,11 @@ import {
   isReviewEligibleLessonStatus,
   summarizeLessonOutcomes,
 } from '../../src/domain/booking';
-import { getTrainingStreakWeeks } from '../../src/domain/achievements';
 import { translations } from '../../src/lib/i18n/translations';
-import type { ActivityLog, Booking, UserProfile } from '../../src/types';
+import type { Booking, UserProfile } from '../../src/types';
 import {
   buildStudentHistory,
   getNeedsAttentionBookings,
-  getSeasonBookings,
-  getStudentStats,
   isBookingPastBySchedule,
   isBookingUpcomingBySchedule,
 } from '../../src/features/student-cabinet/components/student/studentCabinetUtils';
@@ -86,49 +83,6 @@ describe('student cabinet training metrics exclude no_show', () => {
     booking('no-show', 'no_show', '2026-09-02', 3),
     booking('cancelled', 'cancelled', '2026-09-03', 1),
   ];
-
-  it('excludes no_show from completed training count, attended count, and learning hours', () => {
-    const stats = getStudentStats(userProfile, mix);
-    expect(stats.lessons).toBe(1);
-    expect(stats.hours).toBe(2);
-    expect(getSeasonBookings(mix, 'user-1', new Date('2026-09-10')).map((item) => item.id)).toEqual(
-      ['completed']
-    );
-  });
-
-  it('excludes no_show from attendance streak, including stale booking_completed logs', () => {
-    const thisWeek = new Date();
-    const lastWeek = new Date();
-    lastWeek.setDate(thisWeek.getDate() - 7);
-    const toYmd = (value: Date) => {
-      const year = value.getFullYear();
-      const month = String(value.getMonth() + 1).padStart(2, '0');
-      const day = String(value.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    };
-    const thisWeekDate = toYmd(thisWeek);
-    const lastWeekDate = toYmd(lastWeek);
-    const logs: ActivityLog[] = [
-      {
-        id: 'log-noshow',
-        userId: 'user-1',
-        actorId: 'user-1',
-        type: 'booking_completed',
-        timestamp: `${lastWeekDate}T12:00:00.000Z`,
-        metadata: { bookingId: 'no-show' },
-      },
-    ];
-    expect(getTrainingStreakWeeks([booking('no-show', 'no_show', thisWeekDate, 2)], logs)).toBe(0);
-    expect(
-      getTrainingStreakWeeks(
-        [
-          booking('completed', 'completed', thisWeekDate, 2),
-          booking('no-show', 'no_show', lastWeekDate, 2),
-        ],
-        logs
-      )
-    ).toBe(1);
-  });
 
   it('does not unlock review CTA for no_show and keeps no_show visible in history', () => {
     const history = buildStudentHistory(userProfile, mix, [], [], 'ru', t, [], []);

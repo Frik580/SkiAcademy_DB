@@ -6,11 +6,6 @@ import type {
   InstructorReviewReadModel,
 } from '@ski-academy/shared-domain';
 
-export interface DeletedCompletedStats {
-  revenue: number;
-  count: number;
-}
-
 /** Cached booking-domain data. Feature use-cases live in useBookingActions. */
 export interface BookingsState {
   bookings: Booking[];
@@ -18,7 +13,6 @@ export interface BookingsState {
   bookingsHasMore: boolean;
   bookingHistoryRequest: number;
   bookingHistoryLoading: boolean;
-  deletedCompletedStats: DeletedCompletedStats;
   instructors: Instructor[];
   reviews: Review[];
   reviewBookingStates: AccountReviewBookingState[];
@@ -31,7 +25,6 @@ export interface BookingsState {
   setBookingHistoryLoading: (loading: boolean) => void;
   loadMoreBookings: () => void;
   resetBookingsPagination: () => void;
-  setDeletedCompletedStats: (stats: DeletedCompletedStats) => void;
   setInstructors: (instructors: Instructor[]) => void;
   setReviews: (reviews: Review[]) => void;
   setCanonicalReviewData: (data: {
@@ -77,7 +70,6 @@ export const useBookingsStore = create<BookingsState>((set) => ({
   bookingsHasMore: false,
   bookingHistoryRequest: 0,
   bookingHistoryLoading: false,
-  deletedCompletedStats: { revenue: 0, count: 0 },
   instructors: [],
   reviews: [],
   reviewBookingStates: [],
@@ -101,7 +93,6 @@ export const useBookingsStore = create<BookingsState>((set) => ({
       bookingHistoryRequest: 0,
       bookingHistoryLoading: false,
     }),
-  setDeletedCompletedStats: (deletedCompletedStats) => set({ deletedCompletedStats }),
   setInstructors: (instructors) =>
     set((state) => ({
       instructors: applyCanonicalRatings(instructors, state.ratingSummaries),

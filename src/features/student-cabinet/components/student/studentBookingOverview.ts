@@ -1,29 +1,16 @@
-import type { Booking, Course, Instructor, Review, UserProfile } from '../../../../types';
+import type { Booking, Course, Instructor, Review } from '../../../../types';
 import type { SkillItem } from '../../../../domain/achievements';
-import { DEFAULT_SKILL_CONFIG } from '../../../../domain/achievements';
-import { isAttendedLessonStatus, isReviewEligibleLessonStatus } from '../../../../domain/booking';
+import { isReviewEligibleLessonStatus } from '../../../../domain/booking';
 import { getCourseTrackLabel as getTrackLabelForLevel } from '../../../../domain/course';
 import {
   isBookingCurrentBySchedule,
   isBookingOnDate,
   isBookingPastBySchedule,
   isBookingUpcomingBySchedule,
-  resolveBookingStartDateTime,
+  type ScheduleBookingSlice,
 } from './studentBookingSchedule';
-import {
-  formatRecentLessonDateLabel,
-  getRecentLessonInstructorLabel,
-  getRecentLessonTitle,
-  resolveBookingStartDate,
-} from './studentLessonPresentation';
 import { toYMD } from './studentCabinetPresentation';
 import { isBookingReviewed } from './studentHistory';
-import type { RecentLesson, StudentStats } from './studentCabinetUtils';
-
-const isActiveBooking = (booking: Booking) =>
-  !booking.isDeleted && (booking.status === 'confirmed' || booking.status === 'pending');
-
-import type { ScheduleBookingSlice } from './studentBookingSchedule';
 
 export type BookingListScope = 'upcoming' | 'current' | 'past' | 'all';
 
@@ -43,59 +30,6 @@ export const filterBookingsByScope = <T extends ScheduleBookingSlice>(
   return bookings.filter((b) => isBookingPastBySchedule(b, courses, now));
 };
 
-export const getStudentStats = (
-  userProfile: UserProfile,
-  bookings: Booking[],
-  skillItems: SkillItem[] = DEFAULT_SKILL_CONFIG.items
-): StudentStats => {
-  const completed = bookings.filter((b) => isAttendedLessonStatus(b.status) && !b.isDeleted);
-  const hours = completed.reduce((acc, b) => acc + b.durationHours, 0);
-  const scores = userProfile.skillScores || {};
-  const points = Object.values(scores).reduce((a, b) => a + b, 0);
-  const exercisesMastered = skillItems.filter(
-    (item) => item.maxPoints > 0 && (scores[item.id] ?? 0) >= item.maxPoints
-  ).length;
-  return {
-    lessons: completed.length,
-    hours: Math.round(hours),
-    exercisesMastered,
-    points,
-  };
-};
-
-/** Completed lessons in the current calendar year. */
-export const getSeasonBookings = (
-  bookings: Booking[],
-  userId?: string,
-  fromDate = new Date()
-): Booking[] => {
-  const yearPrefix = String(fromDate.getFullYear());
-  return bookings.filter(
-    (b) =>
-      (!userId || b.userId === userId) &&
-      !b.isDeleted &&
-      isAttendedLessonStatus(b.status) &&
-      b.date.startsWith(yearPrefix)
-  );
-};
-
-/** @deprecated Use hasTrainingTodayFromSessions for mixed lesson/course calendars. */
-export const hasTrainingToday = (
-  bookings: Booking[],
-  courses: Course[] = [],
-  userId?: string,
-  fromDate = new Date()
-): boolean => {
-  const todayStr = toYMD(fromDate);
-  return bookings.some(
-    (b) =>
-      (!userId || b.userId === userId) &&
-      !b.isDeleted &&
-      b.status !== 'cancelled' &&
-      isBookingOnDate(b, todayStr, courses)
-  );
-};
-
 export const getNeedsAttentionBookings = (
   bookings: Booking[],
   reviews: Review[],
@@ -113,122 +47,6 @@ export const getNeedsAttentionBookings = (
     .filter((booking) => !isBookingReviewed(booking, reviews, dismissedReviewIds))
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, limit);
-
-export const getRecentLessons = (
-  bookings: Booking[],
-  reviews: Review[],
-  courses: Course[],
-  language: 'en' | 'ru',
-  dismissedReviewIds: string[] = []
-): RecentLesson[] => {
-  return bookings
-    .filter((b) => isAttendedLessonStatus(b.status) && !b.isDeleted)
-    .sort((a, b) =>
-      resolveBookingStartDate(b, courses).localeCompare(resolveBookingStartDate(a, courses))
-    )
-    .slice(0, 4)
-    .map((b) => {
-      const review = reviews.find((r) => r.bookingId === b.id);
-      const needsReview =
-        isReviewEligibleLessonStatus(b.status) &&
-        !isBookingReviewed(b, reviews, dismissedReviewIds);
-      return {
-        id: b.id,
-        title: getRecentLessonTitle(b, courses, language),
-        dateLabel: formatRecentLessonDateLabel(b, courses, language),
-        rating: review?.rating,
-        reviewSnippet: review?.comment,
-        instructorName: getRecentLessonInstructorLabel(b, language),
-        booking: b,
-        needsReview,
-      };
-    });
-};
-
-export type MiniCalendarDay = {
-  day: number;
-  dateStr: string;
-  hasSession: boolean;
-  isToday: boolean;
-  weekdayLabel: string;
-};
-
-/** Next 7 days starting from today with booked sessions marked. */
-export const getMiniCalendarDays = (
-  bookings: Booking[],
-  _courses: Course[] = [],
-  language: 'en' | 'ru' = 'ru',
-  fromDate = new Date()
-): MiniCalendarDay[] => {
-  const todayStr = toYMD(fromDate);
-  const locale = language === 'ru' ? 'ru-RU' : 'en-US';
-  const booked = bookings.filter(isActiveBooking);
-
-  const days: MiniCalendarDay[] = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(fromDate);
-    d.setHours(12, 0, 0, 0);
-    d.setDate(d.getDate() + i);
-    const dateStr = toYMD(d);
-    const hasSession = booked.some((b) => isBookingOnDate(b, dateStr, _courses));
-    days.push({
-      day: d.getDate(),
-      dateStr,
-      hasSession,
-      isToday: dateStr === todayStr,
-      weekdayLabel: d.toLocaleDateString(locale, { weekday: 'short' }),
-    });
-  }
-  return days;
-};
-
-/** Booked sessions within the next 7 days from today, sorted by date/time. */
-export const getWeekBookedSessions = (bookings: Booking[], courses: Course[]) => {
-  const days = getMiniCalendarDays(bookings, courses);
-  const weekDateSet = new Set(days.map((d) => d.dateStr));
-  const booked = bookings.filter(isActiveBooking);
-
-  const rows: { booking: Booking; dateStr: string }[] = [];
-  for (const b of booked) {
-    for (const dateStr of weekDateSet) {
-      if (isBookingOnDate(b, dateStr, courses)) {
-        rows.push({ booking: b, dateStr });
-      }
-    }
-  }
-
-  return rows.sort((a, b) => {
-    if (a.dateStr !== b.dateStr) return a.dateStr.localeCompare(b.dateStr);
-    return a.booking.time.localeCompare(b.booking.time);
-  });
-};
-
-export const getNextCalendarSession = (
-  bookings: Booking[],
-  _courses: Course[],
-  language: 'en' | 'ru'
-) => {
-  const next = bookings
-    .filter(isActiveBooking)
-    .filter((booking) => isBookingUpcomingBySchedule(booking, _courses))
-    .sort((left, right) => {
-      const leftStart = resolveBookingStartDateTime(left, _courses)?.getTime() ?? 0;
-      const rightStart = resolveBookingStartDateTime(right, _courses)?.getTime() ?? 0;
-      return leftStart - rightStart;
-    })[0];
-  if (!next) return null;
-  const d = new Date(`${next.date}T12:00:00`);
-  return {
-    booking: next,
-    label: d.toLocaleDateString(language === 'ru' ? 'ru-RU' : 'en-US', {
-      day: 'numeric',
-      month: 'long',
-    }),
-  };
-};
-
-export const getInstructorsForStudent = (bookings: Booking[], instructors: Instructor[]) =>
-  getMyInstructors(bookings, instructors);
 
 export const getMyInstructors = (
   bookings: Booking[],
@@ -296,7 +114,7 @@ export interface ActiveCourseEnrollment {
   booking: Booking;
 }
 
-/** Enrolled group course that includes today in its date range. */
+/** Enrolled group course that includes today in its date range. Preserved for 9C. */
 export const getActiveCourseEnrollment = (
   bookings: Booking[],
   courses: Course[],

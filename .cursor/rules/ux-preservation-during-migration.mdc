@@ -1,0 +1,20 @@
+---
+description: Preserve existing useful UX during canonical migration
+alwaysApply: true
+---
+
+# UX preservation during canonical migration
+
+During canonical migration, preserve existing useful UX and product
+capabilities. Never delete or materially simplify an existing UX
+merely because its implementation is legacy. Inspect Git history when
+parity is uncertain. Ask the product owner in Russian before making an
+unapproved UX/product change.
+
+Legacy implementation is not a legacy feature. Replace the backend with
+canonical read models and commands; add new canonical UX where needed;
+prove feature parity; only then remove the legacy implementation.
+
+Authoritative policy: [ADR-0008](docs/adr/0008-ux-preservation-during-canonical-migration.md).
+T32.9A is Admin UX restoration and canonical integration, not broad UI
+cleanup. T32.9B is leftover write/runtime cleanup after UX parity.

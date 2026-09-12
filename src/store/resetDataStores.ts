@@ -3,6 +3,8 @@ import { useCoursesStore } from '../features/courses/coursesStore';
 import { useNotificationsStore } from '../features/notifications/notificationsStore';
 import { useParticipantProgressStore } from '../features/participant-progress/participantProgressStore';
 import { useParticipantLessonFeedbackStore } from '../features/participant-lesson-feedback/participantLessonFeedbackStore';
+import { useParticipantAchievementsStore } from '../features/participant-achievements/participantAchievementsStore';
+import { useAccountParticipantLessonStatsStore } from '../features/lesson-bookings/accountParticipantLessonStatsStore';
 import { useProfileStore } from '../features/profile/profileStore';
 import { useWalletStore } from '../features/wallet/walletStore';
 import { QUERY_LIMITS } from '../shared';
@@ -15,7 +17,6 @@ export function resetUserScopedStores(): void {
     bookingsHasMore: false,
     bookingHistoryRequest: 0,
     bookingHistoryLoading: false,
-    deletedCompletedStats: { revenue: 0, count: 0 },
     instructors: [],
     reviews: [],
     reviewBookingStates: [],
@@ -50,4 +51,6 @@ export function resetUserScopedStores(): void {
   });
   useParticipantProgressStore.getState().clear();
   useParticipantLessonFeedbackStore.getState().clear();
+  useParticipantAchievementsStore.getState().clear();
+  useAccountParticipantLessonStatsStore.getState().reset();
 }

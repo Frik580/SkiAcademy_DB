@@ -1,0 +1,29 @@
+---
+description: Google Stitch MCP workflow for UI design exploration and variant generation
+globs: src/**/*.tsx,src/**/*.css,docs/design/**
+alwaysApply: false
+---
+
+# Stitch UI design
+
+Use Google Stitch via the project MCP server `stitch` (`.cursor/stitch-mcp-proxy.mjs`), not the OAuth-only `user-stitch` integration.
+
+## Before generating or editing Stitch screens
+
+1. Read `docs/agents/stitch.md` and `docs/design/alpine-air.DESIGN.md`.
+2. Read `.stitch/metadata.json` for project ID, design system, and existing screens.
+3. Always pass these defaults unless the user specifies otherwise:
+   - `projectId`: `12447626312814512672`
+   - `designSystem`: `assets/11762622741281556178`
+   - `deviceType`: `DESKTOP`
+
+## Porting Stitch → React
+
+- Map to Alpine Air CSS variables in `src/index.css`; do not add parallel theme tokens.
+- Preserve existing UX and information architecture ([ADR-0008](docs/adr/0008-ux-preservation-during-canonical-migration.md)).
+- Follow feature-boundary rules in `AGENTS.md`.
+- Run focused tests, typecheck, build, and browser smoke test after frontend changes.
+
+## Generation patience
+
+`generate_screen_from_text` and `generate_variants` are slow. Do not retry on timeout — poll with `get_screen` every ~30 seconds.

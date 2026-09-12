@@ -1,0 +1,64 @@
+---
+description: Verify application runtime after code changes
+alwaysApply: true
+---
+
+# Runtime verification after changes
+
+After making code changes that can affect runtime behavior, do not stop after
+typecheck/build/unit tests.
+
+Before declaring the task complete:
+
+1. Run the relevant focused tests.
+
+2. Run:
+   - `npx tsc --noEmit`
+   - `npm run build`
+
+3. For changes affecting frontend/runtime behavior:
+   - ensure the development server is running with `npm run dev`;
+   - open the application in the Browser tool;
+   - navigate to the route(s) affected by the changes;
+   - verify the page actually renders;
+   - interact with the changed workflow where practical;
+   - inspect browser console output;
+   - treat React runtime errors, unhandled exceptions, infinite render/update
+     loops, failed module imports, and unexpected network failures as test
+     failures.
+
+4. Specifically fail verification for:
+   - `Maximum update depth exceeded`
+   - `getSnapshot should be cached`
+   - uncaught React errors
+   - failed dynamic imports
+   - blank/error pages caused by changed code
+   - canonical callable failures caused by changed frontend wiring
+
+5. Do not claim the task is complete merely because:
+   - TypeScript passes;
+   - Vite build passes;
+   - unit tests pass.
+
+   Runtime smoke verification is required for frontend changes.
+
+6. For changes affecting authentication, booking, cabinet, payments, or other
+critical customer flows, exercise the affected user flow in the browser when
+possible.
+
+7. If runtime verification cannot be performed because of an environmental
+blocker:
+   - report the exact blocker;
+   - do not claim runtime verification passed.
+
+8. Do not start unrelated work until runtime regressions introduced by the
+current change are fixed.
+
+At completion report separately:
+
+- focused tests
+- typecheck
+- build
+- runtime smoke test
+- browser console result
+- affected workflow tested

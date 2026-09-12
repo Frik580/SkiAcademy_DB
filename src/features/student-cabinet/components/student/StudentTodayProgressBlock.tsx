@@ -1,23 +1,34 @@
 import { memo, useMemo } from 'react';
 import { Award, Sparkles, Trophy, Zap } from 'lucide-react';
 import { DEFAULT_SKILL_CONFIG, getSkillItemTitle } from '../../../../domain/achievements';
-import { getTodayAchievements, isTimestampOnLocalDate } from './studentCabinetUtils';
+import { isTimestampOnLocalDate } from './studentCabinetUtils';
 import { ScTintCard } from './StudentCabinetUI';
 import type { TodayProgressBlockInput } from './studentCabinetContracts';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
+import {
+  accountReviewsFromLegacy,
+  usePresentedParticipantAchievements,
+} from '../../../participant-achievements';
 
 const SUBSECTION_LABEL = 'text-[10px] font-medium tracking-widest uppercase text-[var(--ink-dim)]';
 
 export const TodayProgressBlock = memo<TodayProgressBlockInput>(function TodayProgressBlock({
   userProfile,
-  bookings,
-  courses,
+  selectedParticipantId,
   reviews,
   activityLogs = [],
   achievementsConfig,
   skillConfig,
 }) {
   const { lang } = useStudentCabinetTranslations();
+  const accountReviews = useMemo(() => accountReviewsFromLegacy(reviews), [reviews]);
+  const { todayAchievements } = usePresentedParticipantAchievements({
+    selectedParticipantId,
+    language: lang,
+    accountReviews,
+    achievementsConfig,
+    skillConfig,
+  });
 
   const todayLogs = useMemo(() => {
     const logs = activityLogs.filter(
@@ -113,29 +124,6 @@ export const TodayProgressBlock = memo<TodayProgressBlockInput>(function TodayPr
     }
     return null;
   }, [todayLogs]);
-
-  const todayAchievements = useMemo(() => {
-    if (!userProfile) return [];
-    return getTodayAchievements(
-      userProfile,
-      bookings,
-      skillConfig,
-      lang,
-      activityLogs,
-      reviews,
-      courses,
-      achievementsConfig
-    ).map((item) => ({ id: item.id, label: item.label }));
-  }, [
-    userProfile,
-    bookings,
-    skillConfig,
-    lang,
-    activityLogs,
-    reviews,
-    courses,
-    achievementsConfig,
-  ]);
 
   const motivationalPhrase = useMemo(() => {
     if (lang === 'en') {

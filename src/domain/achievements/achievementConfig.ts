@@ -1,15 +1,12 @@
-import { parseCourseDates } from '../../app/providers/LanguageContext';
-import { findStreakWeeksTimestamp, getTrainingStreakWeeks } from './trainingStreak';
-import { isAttendedLessonStatus } from '../booking';
+import type {
+  ParticipantLessonFeedbackReadModel,
+  ParticipantLessonStatsEvidence,
+} from '@ski-academy/shared-domain';
+import { ActivityLogMetadata } from '../../types';
 import {
-  ActivityLog,
-  ActivityLogMetadata,
-  Booking,
-  Course,
-  Review,
-  SkillDeltaMeta,
-  UserProfile,
-} from '../../types';
+  evaluateEarnedAchievements as evaluateCanonicalEarnedAchievements,
+  isAchievementRuleMet as isCanonicalAchievementRuleMet,
+} from './canonicalAchievementEvaluation';
 import { DEFAULT_SKILL_CONFIG, SkillConfig, SkillItem } from './skillData';
 
 export type AchievementRuleType =
@@ -42,13 +39,24 @@ export interface AchievementsConfig {
   items: AchievementDefinition[];
 }
 
+export interface CanonicalAchievementProgress {
+  readonly participantId: string;
+  readonly level: number;
+  readonly skillScores: Readonly<Record<string, number>>;
+}
+
+export interface CanonicalAccountReviewEvidence {
+  readonly createdAtIso: string;
+}
+
 export interface AchievementEvaluationContext {
-  userProfile: UserProfile;
-  bookings: Booking[];
-  courses: Course[];
-  reviews: Review[];
-  skillConfig?: SkillConfig;
-  activityLogs: ActivityLog[];
+  readonly participantId: string;
+  readonly lessonEvidence: readonly ParticipantLessonStatsEvidence[];
+  readonly progress: CanonicalAchievementProgress;
+  readonly lessonFeedback: readonly ParticipantLessonFeedbackReadModel[];
+  readonly accountReviews: readonly CanonicalAccountReviewEvidence[];
+  readonly skillConfig?: SkillConfig;
+  readonly now?: Date;
 }
 
 export interface EvaluatedAchievement {
@@ -267,317 +275,18 @@ export const getAchievementLabel = (
   return id;
 };
 
-const getCompletedBookings = (bookings: Booking[]) =>
-  bookings
-    .filter((b) => isAttendedLessonStatus(b.status) && !b.isDeleted)
-    .sort((a, b) => a.date.localeCompare(b.date));
+export {
+  achievementProductScope,
+  participantAchievementSourceForRule,
+  participantLessonFeedbackHomeworkDone,
+} from './canonicalAchievementEvaluation';
 
-const toYMD = (d: Date) => {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-};
-
-const resolveBookingStartDate = (booking: Booking, courses: Course[]) => {
-  if (booking.instructorId.startsWith('course_')) {
-    const courseId = booking.instructorId.substring('course_'.length);
-    const course = courses.find((c) => c.id === courseId);
-    const parsed = parseCourseDates(course ? course.dates : booking.date);
-    return toYMD(parsed.start);
-  }
-  return booking.date;
-};
-
-const bookingTimestamp = (booking: Booking, courses: Course[]) =>
-  `${resolveBookingStartDate(booking, courses)}T12:00:00.000Z`;
-
-const countExercisesMastered = (scores: Record<string, number>, skillItems: SkillItem[]) =>
-  skillItems.filter((item) => item.maxPoints > 0 && (scores[item.id] ?? 0) >= item.maxPoints)
-    .length;
-
-const isExerciseMastered = (scores: Record<string, number>, item: SkillItem) =>
-  item.maxPoints > 0 && (scores[item.id] ?? 0) >= item.maxPoints;
-
-const resolveSkillItems = (ids: string[], items: SkillItem[]) =>
-  ids
-    .map((id) => items.find((item) => item.id === id))
-    .filter((item): item is SkillItem => Boolean(item));
-
-const hasHomeworkDone = (bookings: Booking[]) =>
-  bookings.some((booking) => {
-    const recommendations = booking.recommendations ?? [];
-    if (recommendations.length === 0) return false;
-    const completed = new Set(booking.completedRecommendationIds ?? []);
-    return recommendations.every((rec) => completed.has(rec.id));
-  });
-
-const hasGraduatedCourse = (
-  userProfile: UserProfile,
-  bookings: Booking[],
-  courses: Course[],
-  now = new Date()
-) =>
-  bookings.some((booking) => {
-    if (
-      booking.userId !== userProfile.uid ||
-      !isAttendedLessonStatus(booking.status) ||
-      booking.isDeleted ||
-      !booking.instructorId.startsWith('course_')
-    ) {
-      return false;
-    }
-    const courseId = booking.instructorId.replace('course_', '');
-    const course = courses.find((item) => item.id === courseId);
-    if (!course) return false;
-    const { end } = parseCourseDates(course.dates);
-    if (!end || Number.isNaN(end.getTime())) return false;
-    end.setHours(23, 59, 59, 999);
-    return end.getTime() <= now.getTime();
-  });
-
-const findTwentyHoursTimestamp = (completed: Booking[], courses: Course[]) => {
-  let total = 0;
-  for (const booking of completed) {
-    total += booking.durationHours;
-    if (total >= 20) return bookingTimestamp(booking, courses);
-  }
-  return undefined;
-};
-
-const findLevelUpTimestamp = (ctx: AchievementEvaluationContext) => {
-  const levelUpLog = ctx.activityLogs
-    .filter((log) => log.type === 'level_up')
-    .sort((a, b) => a.timestamp.localeCompare(b.timestamp))[0];
-  if (levelUpLog) return levelUpLog.timestamp;
-  if ((ctx.userProfile.level || 1) >= 2) {
-    const firstCompleted = getCompletedBookings(ctx.bookings)[0];
-    return firstCompleted ? bookingTimestamp(firstCompleted, ctx.courses) : undefined;
-  }
-  return undefined;
-};
-
-const findHomeworkDoneTimestamp = (ctx: AchievementEvaluationContext) => {
-  const homeworkLog = ctx.activityLogs
-    .filter((log) => log.type === 'recommendations_completed_all')
-    .sort((a, b) => a.timestamp.localeCompare(b.timestamp))[0];
-  if (homeworkLog) return homeworkLog.timestamp;
-
-  const booking = ctx.bookings.find((item) => {
-    const recommendations = item.recommendations ?? [];
-    if (recommendations.length === 0) return false;
-    const completed = new Set(item.completedRecommendationIds ?? []);
-    return recommendations.every((rec) => completed.has(rec.id));
-  });
-  return booking ? bookingTimestamp(booking, ctx.courses) : undefined;
-};
-
-const findFeedbackTimestamp = (ctx: AchievementEvaluationContext) => {
-  const reviewLog = ctx.activityLogs
-    .filter((log) => log.type === 'review_created')
-    .sort((a, b) => a.timestamp.localeCompare(b.timestamp))[0];
-  if (reviewLog) return reviewLog.timestamp;
-
-  const review = ctx.reviews
-    .filter((item) => item.userId === ctx.userProfile.uid)
-    .sort((a, b) => a.date.localeCompare(b.date))[0];
-  return review ? `${review.date}T12:00:00.000Z` : undefined;
-};
-
-const findCourseGraduateTimestamp = (ctx: AchievementEvaluationContext, now = new Date()) => {
-  const completedCourseBookings = getCompletedBookings(ctx.bookings).filter((booking) =>
-    booking.instructorId.startsWith('course_')
-  );
-
-  for (const booking of completedCourseBookings) {
-    const courseId = booking.instructorId.replace('course_', '');
-    const course = ctx.courses.find((item) => item.id === courseId);
-    if (!course) continue;
-    const { end } = parseCourseDates(course.dates);
-    if (!end || Number.isNaN(end.getTime())) continue;
-    end.setHours(23, 59, 59, 999);
-    if (end.getTime() <= now.getTime()) {
-      return `${end.toISOString().slice(0, 10)}T12:00:00.000Z`;
-    }
-  }
-  return undefined;
-};
-
-const latestSkillScoresTimestamp = (activityLogs: ActivityLog[]) =>
-  activityLogs
-    .filter((log) => log.type === 'skill_scores_updated' || log.type === 'level_up')
-    .sort((a, b) => b.timestamp.localeCompare(a.timestamp))[0]?.timestamp;
-
-const getSkillScoreLogs = (activityLogs: ActivityLog[]) =>
-  activityLogs
-    .filter(
-      (log) =>
-        (log.type === 'skill_scores_updated' || log.type === 'level_up') &&
-        Array.isArray(log.metadata?.skillDeltas)
-    )
-    .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-
-const applySkillDeltas = (scores: Record<string, number>, deltas: SkillDeltaMeta[]) => {
-  for (const item of deltas) {
-    if (!item.itemId) continue;
-    scores[item.itemId] =
-      typeof item.newScore === 'number'
-        ? item.newScore
-        : (scores[item.itemId] ?? 0) + (item.delta ?? 0);
-  }
-};
-
-const findExercisesMasteredTimestamp = (
-  ctx: AchievementEvaluationContext,
-  requiredCount: number
-): string | undefined => {
-  const skillItems = ctx.skillConfig?.items ?? DEFAULT_SKILL_CONFIG.items;
-  const scores: Record<string, number> = {};
-
-  for (const log of getSkillScoreLogs(ctx.activityLogs)) {
-    applySkillDeltas(scores, log.metadata!.skillDeltas!);
-    if (countExercisesMastered(scores, skillItems) >= requiredCount) {
-      return log.timestamp;
-    }
-  }
-
-  if (countExercisesMastered(ctx.userProfile.skillScores || {}, skillItems) >= requiredCount) {
-    return latestSkillScoresTimestamp(ctx.activityLogs);
-  }
-
-  return undefined;
-};
-
-const findSkillItemsMaxTimestamp = (
-  ctx: AchievementEvaluationContext,
-  requiredIds: string[]
-): string | undefined => {
-  const skillItems = ctx.skillConfig?.items ?? DEFAULT_SKILL_CONFIG.items;
-  const requiredItems = resolveSkillItems(requiredIds, skillItems);
-  if (requiredItems.length === 0) return undefined;
-
-  const scores: Record<string, number> = {};
-  for (const log of getSkillScoreLogs(ctx.activityLogs)) {
-    applySkillDeltas(scores, log.metadata!.skillDeltas!);
-    if (requiredItems.every((item) => isExerciseMastered(scores, item))) {
-      return log.timestamp;
-    }
-  }
-
-  const currentScores = ctx.userProfile.skillScores || {};
-  if (requiredItems.every((item) => isExerciseMastered(currentScores, item))) {
-    return latestSkillScoresTimestamp(ctx.activityLogs);
-  }
-
-  return undefined;
-};
-
-export const isAchievementRuleMet = (
-  definition: AchievementDefinition,
-  ctx: AchievementEvaluationContext
-): boolean => {
-  const completed = getCompletedBookings(ctx.bookings);
-  const skillItems = ctx.skillConfig?.items ?? DEFAULT_SKILL_CONFIG.items;
-  const scores = ctx.userProfile.skillScores || {};
-  const userReviews = ctx.reviews.filter((review) => review.userId === ctx.userProfile.uid);
-  const rule = definition.rule;
-
-  switch (rule.type) {
-    case 'lessons_completed':
-      return completed.length >= (rule.count ?? 1);
-    case 'hours_completed':
-      return (
-        completed.reduce((sum, booking) => sum + booking.durationHours, 0) >= (rule.count ?? 1)
-      );
-    case 'streak_weeks':
-      return getTrainingStreakWeeks(ctx.bookings, ctx.activityLogs) >= (rule.count ?? 1);
-    case 'exercises_mastered':
-      return countExercisesMastered(scores, skillItems) >= (rule.count ?? 1);
-    case 'level_up':
-      return (
-        (ctx.userProfile.level || 1) >= 2 || ctx.activityLogs.some((log) => log.type === 'level_up')
-      );
-    case 'feedback_given':
-      return (
-        userReviews.length > 0 || ctx.activityLogs.some((log) => log.type === 'review_created')
-      );
-    case 'homework_done':
-      return hasHomeworkDone(ctx.bookings);
-    case 'course_graduate':
-      return hasGraduatedCourse(ctx.userProfile, ctx.bookings, ctx.courses);
-    case 'skill_items_max': {
-      const requiredIds = rule.skillItemIds ?? [];
-      if (requiredIds.length === 0) return false;
-      const requiredItems = resolveSkillItems(requiredIds, skillItems);
-      if (requiredItems.length !== requiredIds.length) return false;
-      return requiredItems.every((item) => isExerciseMastered(scores, item));
-    }
-    default:
-      return false;
-  }
-};
-
-const inferEarnedAt = (
-  definition: AchievementDefinition,
-  ctx: AchievementEvaluationContext
-): string | undefined => {
-  const completed = getCompletedBookings(ctx.bookings);
-  const completedLogs = ctx.activityLogs
-    .filter((log) => {
-      if (log.type !== 'booking_completed') return false;
-      const bookingId = log.metadata?.bookingId;
-      const linked = bookingId
-        ? ctx.bookings.find((booking) => booking.id === bookingId)
-        : undefined;
-      return !linked || isAttendedLessonStatus(linked.status);
-    })
-    .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-
-  switch (definition.rule.type) {
-    case 'lessons_completed': {
-      const index = Math.max(0, (definition.rule.count ?? 1) - 1);
-      return (
-        completedLogs[index]?.timestamp ??
-        (completed[index] ? bookingTimestamp(completed[index], ctx.courses) : undefined)
-      );
-    }
-    case 'hours_completed':
-      return findTwentyHoursTimestamp(completed, ctx.courses);
-    case 'streak_weeks':
-      return findStreakWeeksTimestamp(ctx.bookings, ctx.activityLogs, definition.rule.count ?? 1);
-    case 'exercises_mastered':
-      return findExercisesMasteredTimestamp(ctx, definition.rule.count ?? 1);
-    case 'skill_items_max':
-      return findSkillItemsMaxTimestamp(ctx, definition.rule.skillItemIds ?? []);
-    case 'level_up':
-      return findLevelUpTimestamp(ctx);
-    case 'feedback_given':
-      return findFeedbackTimestamp(ctx);
-    case 'homework_done':
-      return findHomeworkDoneTimestamp(ctx);
-    case 'course_graduate':
-      return findCourseGraduateTimestamp(ctx);
-    default:
-      return undefined;
-  }
-};
+export const isAchievementRuleMet = isCanonicalAchievementRuleMet;
 
 export const evaluateEarnedAchievements = (
   ctx: AchievementEvaluationContext,
   config: AchievementsConfig = DEFAULT_ACHIEVEMENTS_CONFIG
-): EvaluatedAchievement[] => {
-  return config.items
-    .filter((definition) => isAchievementRuleMet(definition, ctx))
-    .map((definition) => ({
-      id: definition.id,
-      icon: definition.icon,
-      labelRu: definition.labelRu,
-      labelEn: definition.labelEn,
-      earnedAt: inferEarnedAt(definition, ctx),
-      order: definition.order,
-    }))
-    .sort((a, b) => a.order - b.order);
-};
+) => evaluateCanonicalEarnedAchievements(ctx, config);
 
 export const describeAchievementRule = (
   definition: AchievementDefinition,

@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { BookingId, LessonBookingReadModel } from '@ski-academy/shared-domain';
+import {
+  drainPagedReadModelItems,
+  type BookingId,
+  type LessonBookingReadModel,
+} from '@ski-academy/shared-domain';
 import { queryLessonBookingReadModels } from '../../../lib/canonical/canonicalReadModelClient';
 import { toFunctionsClientError } from '../../../lib/functions/functionsClient';
 import type {
@@ -36,12 +40,32 @@ function replaceWithRevisionGuard(
   );
 }
 
+export async function drainAdminLessonBookingScope(
+  scope: 'admin_hot' | 'admin_history'
+): Promise<readonly LessonBookingReadModel[]> {
+  return drainPagedReadModelItems({
+    fetchPage: async (cursor) => {
+      const page = await queryLessonBookingReadModels({
+        scope,
+        ...(cursor ? { cursor } : {}),
+      });
+      return {
+        items: page.items,
+        hasMore: page.hasMore,
+        ...(page.nextCursor ? { nextCursor: page.nextCursor } : {}),
+      };
+    },
+  });
+}
+
 export function useAdminLessonBookingReadModels(input: {
   readonly enabled: boolean;
   readonly view: AdminLessonBookingView;
   readonly selectedBookingId?: BookingId;
+  /** Follow every page so lifetime KPIs cannot undercount the first page. */
+  readonly drainAll?: boolean;
 }) {
-  const { enabled, view, selectedBookingId } = input;
+  const { enabled, view, selectedBookingId, drainAll = false } = input;
   const listGeneration = useRef(0);
   const detailGeneration = useRef(0);
   const selectedBookingRef = useRef(selectedBookingId);
@@ -61,6 +85,19 @@ export function useAdminLessonBookingReadModels(input: {
       }));
       try {
         const expectedScope = view === 'history' ? 'admin_history' : 'admin_hot';
+        if (drainAll) {
+          const items = await drainAdminLessonBookingScope(expectedScope);
+          if (listGeneration.current !== generation) {
+            return { status: 'success' };
+          }
+          setList({
+            items: replaceWithRevisionGuard([], items),
+            loading: false,
+            loadingMore: false,
+            hasMore: false,
+          });
+          return { status: 'success' };
+        }
         const result = await queryLessonBookingReadModels({
           scope: expectedScope,
           ...(cursor ? { cursor } : {}),
@@ -89,7 +126,7 @@ export function useAdminLessonBookingReadModels(input: {
         return { status: 'failure' };
       }
     },
-    [enabled, view]
+    [drainAll, enabled, view]
   );
 
   const loadDetail = useCallback(

@@ -126,4 +126,43 @@ describe('useAdminLessonBookingReadModels', () => {
     expect(refreshResult).toEqual({ status: 'failure' });
     expect(result.current.list.error).toBe('read-failed');
   });
+
+  it('drainAll follows every history page so lifetime KPIs cannot stop at the first page', async () => {
+    queryMock.mockImplementation(async (...args: unknown[]) => {
+      const input = args[0] as { scope?: string; cursor?: string } | undefined;
+      if (input?.scope !== 'admin_history') {
+        return { scope: input?.scope ?? 'admin_hot', items: [], hasMore: false };
+      }
+      if (!input.cursor) {
+        return {
+          scope: 'admin_history',
+          items: [booking('booking_history_01', 1)],
+          hasMore: true,
+          nextCursor: 'history:2',
+        };
+      }
+      return {
+        scope: 'admin_history',
+        items: [booking('booking_history_02', 1)],
+        hasMore: false,
+      };
+    });
+    const { result } = renderHook(() =>
+      useAdminLessonBookingReadModels({ enabled: true, view: 'history', drainAll: true })
+    );
+    await waitFor(() => expect(result.current.list.loading).toBe(false));
+    expect(result.current.list.items.map((item) => item.bookingId).sort()).toEqual([
+      'booking_history_01',
+      'booking_history_02',
+    ]);
+    expect(result.current.list.hasMore).toBe(false);
+    expect(queryMock.mock.calls.some((call) => call[0]?.scope === 'admin_history' && !call[0]?.cursor)).toBe(
+      true
+    );
+    expect(
+      queryMock.mock.calls.some(
+        (call) => call[0]?.scope === 'admin_history' && call[0]?.cursor === 'history:2'
+      )
+    ).toBe(true);
+  });
 });

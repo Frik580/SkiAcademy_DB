@@ -32,6 +32,7 @@ import {
   ParticipantProgressSkillCommentsSchema,
   ParticipantProgressSkillScoresSchema,
 } from '../participantProgress';
+import { RecordParticipantAchievementsIntentSchema } from '../participantAchievements';
 import {
   ParticipantLessonFeedbackItemIdSchema,
   SaveParticipantLessonFeedbackItemsInputSchema,
@@ -504,6 +505,7 @@ export const CommandIntentSchemaByKind = {
       skillComments: ParticipantProgressSkillCommentsSchema,
     })
     .strict(),
+  record_participant_achievements: RecordParticipantAchievementsIntentSchema,
   save_participant_lesson_feedback: z
     .object({
       participantId: ParticipantIdSchema,

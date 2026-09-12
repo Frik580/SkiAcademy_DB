@@ -686,6 +686,10 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /participant_achievements/{participantId} {
+      allow read, write: if false;
+    }
+
     match /participant_lesson_feedback/{feedbackId} {
       allow read, write: if false;
     }

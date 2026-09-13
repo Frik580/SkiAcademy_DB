@@ -1,7 +1,6 @@
 import {
   evaluateParticipantManagementAccess,
   ManagedParticipantPickerItemSchema,
-  ParticipantManagementSchema,
   type AccountId,
   type ManagedParticipantPickerItem,
   type Participant,
@@ -10,7 +9,12 @@ import {
 } from '@ski-academy/shared-domain';
 import type { Firestore } from 'firebase-admin/firestore';
 import { buildParticipantAccessTopology } from '../participantAccess/participantAccessAuthorization';
-import { parseAccount, parseParticipant } from '../participantAccess/participantAccessStore';
+import {
+  parseAccount,
+  parseParticipant,
+  parseParticipantManagement,
+} from '../participantAccess/participantAccessStore';
+import { createReadModelRequestContext } from './readModelRequestContext';
 
 function toManagedParticipantPickerItem(input: {
   readonly participant: Participant;
@@ -42,38 +46,50 @@ function toManagedParticipantPickerItem(input: {
   return parsed.success ? parsed.data : undefined;
 }
 
+/**
+ * Managed-participant picker for the current Account.
+ *
+ * Active management is loaded with the shared request-context helper:
+ * accountId + status == active, ordered by participantManagementId, paged to
+ * completeness. PAGE_SIZE is a physical transport bound, not a domain maximum.
+ * Visible picker order remains displayName localeCompare after retrieval.
+ *
+ * One malformed/stale management or Participant row is skipped; it does not
+ * fail the request or hide unrelated valid rows.
+ */
 export async function queryManagedParticipantPickerReadModels(
   firestore: Firestore,
   accountId: AccountId
 ): Promise<QueryManagedParticipantPickerReadModelsResult> {
-  const accountSnap = await firestore.collection('users').doc(accountId).get();
+  const readContext = createReadModelRequestContext(firestore);
+  const accountSnap = await readContext.account(accountId);
   const account = parseAccount(accountSnap.data() as Record<string, unknown> | undefined);
   if (!account || account.lifecycle.status !== 'active') {
     return { items: [] };
   }
 
-  const managementSnap = await firestore
-    .collection('participant_management')
-    .where('accountId', '==', accountId)
-    .limit(50)
-    .get();
+  const managementDocs = await readContext.allActiveManagementForAccount(accountId);
+  const managements: ParticipantManagement[] = [];
+  for (const doc of managementDocs) {
+    const parsed = parseParticipantManagement(doc.data() as Record<string, unknown> | undefined);
+    if (parsed && parsed.status === 'active' && parsed.accountId === accountId) {
+      managements.push(parsed);
+    }
+  }
 
-  const managements = managementSnap.docs
-    .map((doc) => ParticipantManagementSchema.safeParse(doc.data()))
-    .flatMap((parsed) => (parsed.success && parsed.data.status === 'active' ? [parsed.data] : []));
-  const participantSnapshots =
-    managements.length === 0
-      ? []
-      : await firestore.getAll(
-          ...managements.map((management) =>
-            firestore.collection('participants').doc(management.participantId)
-          )
-        );
+  const participantSnaps = await readContext.loadParticipants(
+    managements.map((management) => management.participantId)
+  );
+  const participantSnapById = new Map(
+    participantSnaps.map((snapshot) => [snapshot.id, snapshot] as const)
+  );
 
   const items: ManagedParticipantPickerItem[] = [];
-  for (let index = 0; index < managements.length; index += 1) {
-    const management = managements[index]!;
-    const participantSnap = participantSnapshots[index]!;
+  for (const management of managements) {
+    const participantSnap = participantSnapById.get(management.participantId);
+    if (!participantSnap) {
+      continue;
+    }
     const participant = parseParticipant(
       participantSnap.data() as Record<string, unknown> | undefined
     );

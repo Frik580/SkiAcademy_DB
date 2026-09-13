@@ -120,31 +120,58 @@ function createFixtureFirestore(): Firestore {
     ],
   ]);
 
+  type FixtureDocument = { id: string; data: Record<string, unknown> };
+  const query = (documents: readonly FixtureDocument[], maximum?: number) => ({
+    where: (field: string, _op: string, value: unknown) =>
+      query(
+        documents.filter((doc) => doc.data[field] === value),
+        maximum
+      ),
+    orderBy: (field?: string) =>
+      field === 'participantManagementId'
+        ? query(
+            [...documents].sort((left, right) =>
+              String(left.data.participantManagementId ?? left.id).localeCompare(
+                String(right.data.participantManagementId ?? right.id)
+              )
+            ),
+            maximum
+          )
+        : query(documents, maximum),
+    startAfter: (cursor?: string) => {
+      const index = documents.findIndex(
+        (doc) => doc.id === cursor || doc.data.participantManagementId === cursor
+      );
+      return query(index >= 0 ? documents.slice(index + 1) : [], maximum);
+    },
+    limit: (value: number) => query(documents, value),
+    get: async () => ({
+      docs: documents.slice(0, maximum).map((doc) => ({
+        id: doc.id,
+        data: () => doc.data,
+        get: (field: string) => doc.data[field],
+      })),
+    }),
+  });
+
   return {
     getAll: async (...documentRefs: Array<{ get: () => Promise<unknown> }>) =>
       Promise.all(documentRefs.map((documentRef) => documentRef.get())),
     collection: (name: string) => ({
+      ...query(
+        [...docs.entries()]
+          .filter(([path]) => path.startsWith(`${name}/`))
+          .map(([path, data]) => ({ id: path.slice(name.length + 1), data }))
+      ),
       doc: (id: string) => ({
         get: async () => {
           const data = docs.get(`${name}/${id}`);
           return {
+            id,
             exists: data !== undefined,
             data: () => data,
           };
         },
-      }),
-      where: (field: string, _op: string, value: unknown) => ({
-        limit: () => ({
-          get: async () => ({
-            docs: [...docs.entries()]
-              .filter(([path]) => path.startsWith(`${name}/`))
-              .map(([, data]) => data)
-              .filter((data) => data[field] === value)
-              .map((data) => ({
-                data: () => data,
-              })),
-          }),
-        }),
       }),
     }),
   } as unknown as Firestore;

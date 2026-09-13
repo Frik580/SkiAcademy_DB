@@ -17,7 +17,7 @@ Amended: 2026-09-11 — T32.9A.9B.3 Canonical Lesson Feedback implemented throug
 Amended: 2026-09-12 — T32.9A.9B.3 **PASS / CLOSED** after production deploy (indexes → Functions → Rules → Hosting) and manual acceptance smoke **PASS**; active 9B sub-slice **T32.9A.9B.4** Stats / Achievements — NEXT; **T32.9A.9P.HW1** Participant-scoped Chat Homework recorded as known parity item (not in ParticipantLessonFeedback scope)
 Amended: 2026-09-12 — T32.9A.9B.4 Stats / Achievements isolation + integration gate (9B.4E) complete; **READY_FOR_MANUAL_SMOKE** (production deploy + authenticated manual smoke not yet recorded). Course metrics remain **T32.9A.9C**. Chat Homework remains **T32.9A.9P.HW1**. 9B.5 is not an accepted roadmap ticket.
 Amended: 2026-09-13 — T32.9A.9A.F5 Canonical Guest Course Reservation Expiry added as a post-close corrective follow-up after a separate guest CourseEnrollment expiry/runtime gap was identified. Existing F1–F4 acceptance remains valid.
-Amended: 2026-09-13 — Reviews / Instructor Rating Continuity source, reachability, Rules, bounded read-model, idempotency/concurrency, multi-participant, and UX continuity gates complete; **READY_FOR_MANUAL_SMOKE**. Production deploy and authenticated smoke are not recorded; 9B overall is not closed here.
+Amended: 2026-09-13 — Reviews / Instructor Rating Continuity production deploy and authenticated manual smoke **PASS**; legacy review write/read, rating fallback, and dual-write reachability are each zero. T32.9A.9B.4 Stats / Achievements production smoke is also **PASS**. With no other accepted mandatory 9B capability (9B.5 is not an accepted ticket), **T32.9A.9B is PASS / CLOSED**; next accepted slice is **T32.9A.9C**.
 
 Status: historical Admin-runtime audit from 2026-08-30, with later T32.8A–T32.8C and T32.9A/T32.9B migration status below. Findings in this document that describe unpaid Administrator guest approval, missing guest CourseEnrollment confirmation, or identity linking as confirmation are superseded by ADR-0007. Sections below that still describe the 2026-08-30 Admin runtime as fully legacy are historical audit evidence; later migration status in this preamble supersedes them for T32.9A progress.
 
@@ -55,11 +55,11 @@ T32.9 remains split per [ADR-0008](adr/0008-ux-preservation-during-canonical-mig
 | T32.9A.9A final integration / production smoke | 9A close gate after F4                                                   | PASS                                      |
 | T32.9A.9A.F5                                   | Canonical Guest Course Reservation Expiry                                | IN PROGRESS                               |
 | T32.9A.9A                                      | Individual Booking lifecycle cutover (overall)                           | PASS / CLOSED                             |
-| T32.9A.9B                                      | Student Booking Stats / Progress / Recommendations / Reviews Cutover     | IN PROGRESS (active)                      |
+| T32.9A.9B                                      | Student Booking Stats / Progress / Recommendations / Reviews Cutover     | PASS / CLOSED                             |
 | T32.9A.9B.2                                    | Canonical Participant Progress                                           | PASS / CLOSED                             |
 | T32.9A.9B.3                                    | Recommendations / Lesson Feedback continuity                             | PASS / CLOSED                             |
-| T32.9A.9B.4                                    | Stats / Achievements                                                     | READY_FOR_MANUAL_SMOKE                    |
-| Reviews / Instructor Rating Continuity         | Canonical review command, read models, rating summaries, legacy gate     | READY_FOR_MANUAL_SMOKE                    |
+| T32.9A.9B.4                                    | Stats / Achievements                                                     | PASS / CLOSED                             |
+| Reviews / Instructor Rating Continuity         | Canonical review command, read models, rating summaries, legacy gate     | PASS / CLOSED                             |
 | T32.9A.9C                                      | Course Progress / Achievements Cutover                                   | PENDING                                   |
 | T32.9A.9P                                      | Global Product Parity & Legacy Dependency Gate                           | PENDING                                   |
 | T32.9A.9D0                                     | Production-like Incremental Cutover Rehearsal                            | PENDING                                   |
@@ -69,7 +69,7 @@ T32.9 remains split per [ADR-0008](adr/0008-ux-preservation-during-canonical-mig
 | T40                                            | Execute Rehearsed Selective Production Cutover                           | PENDING; after T32.9B                     |
 | T41                                            | Expanded Post-Cutover Verification                                       | PENDING; after T40                        |
 
-Status labels used here: `PASS`, `PASS / CLOSED`, `PASS / DEPLOYED`, `REQUIRED`, `IN PROGRESS`, `PLANNED`, `READY_FOR_MANUAL_SMOKE`, `PENDING`, `NOT CLOSED`. T32.9A.9A original F1–F4 integration close (including final integration / production smoke) remains **PASS / CLOSED**. **T32.9A.9A.F5** is an active post-close corrective follow-up on guest CourseEnrollment reservation expiry; it does not reopen or invalidate F1–F4. The active FINAL CANONICAL CUTOVER stage is **T32.9A.9B**.
+Status labels used here: `PASS`, `PASS / CLOSED`, `PASS / DEPLOYED`, `REQUIRED`, `IN PROGRESS`, `PLANNED`, `READY_FOR_MANUAL_SMOKE`, `PENDING`, `NOT CLOSED`. T32.9A.9A original F1–F4 integration close (including final integration / production smoke) remains **PASS / CLOSED**. **T32.9A.9A.F5** is an active post-close corrective follow-up on guest CourseEnrollment reservation expiry; it does not reopen or invalidate F1–F4. **T32.9A.9B is PASS / CLOSED**; the next accepted slice is **T32.9A.9C**.
 
 T32.9A.9A remains historically **PASS / CLOSED** for the original Individual Booking F1–F4 cutover. F5 was added after that close when a separate guest CourseEnrollment lifecycle/runtime gap was identified. F5 does not invalidate completed Individual Booking lifecycle work, but must reach **PASS / CLOSED** before final legacy guest CourseEnrollment removal and downstream destructive cutover gates may treat canonical guest course lifecycle as complete.
 
@@ -94,12 +94,12 @@ T32.9A.9A — Individual Booking lifecycle cutover — PASS / CLOSED
   T32.9A.9A.F4 — Canonical Multi-Participant Lesson Attendance UX
   T32.9A.9A final integration / production smoke
   T32.9A.9A.F5 — Canonical Guest Course Reservation Expiry — IN PROGRESS (post-close corrective; gates guest CourseEnrollment legacy removal)
-T32.9A.9B — Student Booking Stats / Progress / Recommendations Cutover — IN PROGRESS (active)
+T32.9A.9B — Student Booking Stats / Progress / Recommendations Cutover — PASS / CLOSED
          (includes Reviews / Instructor Rating Continuity)
   T32.9A.9B.2 — Canonical Participant Progress — PASS / CLOSED (production smoke 2026-09-11)
   T32.9A.9B.3 — Recommendations / Lesson Feedback continuity — PASS / CLOSED (production smoke 2026-09-12)
-  T32.9A.9B.4 — Stats / Achievements — READY_FOR_MANUAL_SMOKE
-  Reviews / Instructor Rating Continuity — READY_FOR_MANUAL_SMOKE
+  T32.9A.9B.4 — Stats / Achievements — PASS / CLOSED
+  Reviews / Instructor Rating Continuity — PASS / CLOSED
 T32.9A.9C — Course Progress / Achievements Cutover
 T32.9A.9P — Global Product Parity & Legacy Dependency Gate
 T32.9A.9D0 — Production-like Incremental Cutover Rehearsal
@@ -822,7 +822,7 @@ This is **not** a claim that every legacy function in the project was removed �
 
 Do not confuse completion scheduling with payment-confirmation reconciliation. Do not assume the lesson reservation scheduler expires CourseEnrollments.
 
-#### T32.9A.9B — Student Booking Stats / Progress / Recommendations Cutover — IN PROGRESS (active)
+#### T32.9A.9B — Student Booking Stats / Progress / Recommendations Cutover — PASS / CLOSED
 
 Mandatory scope:
 
@@ -1094,12 +1094,12 @@ Manual acceptance smoke — **PASS** (2026-09-12):
 
 ```text
 T32.9A.9B.3 → PASS / CLOSED
-T32.9A.9B.4 → READY_FOR_MANUAL_SMOKE
+T32.9A.9B.4 → PASS / CLOSED
 ```
 
-##### T32.9A.9B.4 — Stats / Achievements — READY_FOR_MANUAL_SMOKE
+##### T32.9A.9B.4 — Stats / Achievements — PASS / CLOSED
 
-**Status: READY_FOR_MANUAL_SMOKE** — implementation through 9B.4E isolation/cleanup/integration gate is complete. Production deploy and authenticated manual smoke are **not** recorded. Do **not** mark PASS / CLOSED until both succeed.
+**Status: PASS / CLOSED** — production deploy and authenticated manual smoke passed. Implementation through 9B.4E isolation/cleanup/integration gate remains the accepted source closure.
 
 9B.4 does **not** canonicalize Course metrics. Course progress / hours / `course_graduate` remain **T32.9A.9C**. Chat Homework remains **T32.9A.9P.HW1**. Activity logs remain presentation/history only.
 
@@ -1178,20 +1178,20 @@ Optimization is a later concern unless a correctness/runtime loop appears.
 
 Frontend no longer fetches or stores `deletedCompletedStats` / `users/school_global_stats` for Admin KPI. Production Firestore data for `school_global_stats` is **not** deleted here (selective cleanup later). Identity hygiene still excludes that doc from user directories (`starterCredit`, `useUsersSync`). Admin reset/clear tools and legacy Functions `bookingLogic` may still write that doc as a live leftover capability — reported, not guessed-deleted.
 
-###### Closure (9B.4) — READY_FOR_MANUAL_SMOKE
+###### Closure (9B.4) — PASS / CLOSED
 
 ```text
-T32.9A.9B.4 → READY_FOR_MANUAL_SMOKE
-Do not mark PASS / CLOSED before production deploy + authenticated manual smoke.
+T32.9A.9B.4 → PASS / CLOSED
+Production deploy + authenticated manual smoke → PASS
 ```
 
-Safe production deploy (do not execute until smoke is scheduled): Functions → Rules → Hosting. Indexes: **NO** (no `firestore.indexes.json` change in the cumulative 4B–4E diff). Migration: **NO**. Settings: **NO**. Schedulers: **NO**.
+Production deploy and authenticated manual smoke are complete. Indexes: **NO** (no `firestore.indexes.json` change in the cumulative 4B–4E diff). Migration: **NO**. Settings: **NO**. Schedulers: **NO**.
 
-Alongside the still-pending 9B.4 production smoke, the remaining mandatory 9B source gate was **Reviews / Instructor Rating Continuity** (unnumbered; there is no accepted ticket `T32.9A.9B.5`). Its source implementation is now ready for production deploy and authenticated smoke. Numbered next slice after 9B overall remains **T32.9A.9C**.
+The remaining mandatory 9B source gate was **Reviews / Instructor Rating Continuity** (unnumbered; there is no accepted ticket `T32.9A.9B.5`). Its production deploy and authenticated manual smoke are complete. With 9B.2, 9B.3, and 9B.4 also closed, the numbered next slice after 9B overall is **T32.9A.9C**.
 
-##### Reviews / Instructor Rating Continuity — READY_FOR_MANUAL_SMOKE
+##### Reviews / Instructor Rating Continuity — PASS / CLOSED
 
-**Status: READY_FOR_MANUAL_SMOKE** — production deploy and authenticated manual smoke are not recorded. Do not mark this continuity gate or 9B overall `PASS / CLOSED` from source checks alone.
+**Status: PASS / CLOSED** — production deploy and authenticated manual smoke passed. Reachability proof is: legacy review write = 0; legacy review read = 0; legacy rating fallback = 0; dual-write = 0.
 
 ###### Canonical authority and write path
 
@@ -1242,7 +1242,23 @@ dual-write paths = 0
 
 Dead zero-caller legacy helpers removed: `addReviewService`, the legacy Firestore review subscription/write helpers, `useBookingActions.handleAddReview`, `toReview`, `BookingsState.setReviews`, and `selectReviews`. The compatibility UI `Review` shape remains presentation-only and is populated exclusively from canonical read models; it is not a legacy data source.
 
-Safe production deploy (do not execute until smoke is scheduled): Indexes → Functions (`executeCanonicalCommand`, `queryInstructorReviewReadModels`) → Rules → Hosting. Migration: **NO**. Settings: **NO**. Schedulers: **NO**.
+Production deploy and authenticated manual smoke are complete. Migration: **NO**. Settings: **NO**. Schedulers: **NO**.
+
+###### Closure (9B) — PASS / CLOSED
+
+All accepted mandatory 9B capabilities are closed:
+
+- 9B.2 Canonical Participant Progress;
+- 9B.3 Recommendations / Lesson Feedback continuity;
+- 9B.4 Stats / Achievements;
+- Reviews / Instructor Rating Continuity.
+
+`T32.9A.9B.5` is not an accepted roadmap ticket. Course metrics and `course_graduate` are explicitly deferred to 9C; participant-scoped Chat Homework remains the separate 9P.HW1 parity item. Neither is an open 9B blocker.
+
+```text
+T32.9A.9B → PASS / CLOSED
+NEXT → T32.9A.9C — Course Progress / Achievements
+```
 
 #### T32.9A.9C — Course Progress / Achievements Cutover — PENDING
 
@@ -2299,10 +2315,11 @@ Current structure (authoritative for later status; see preamble):
 - **T32.9A.9** FINAL CANONICAL CUTOVER
   - **9A** Individual Booking lifecycle cutover — **PASS / CLOSED** (core PASS at
     authority level; F1 PASS/DEPLOYED; F2/F3/F4 PASS/CLOSED; final integration/production smoke PASS)
-  - **9B** Student Booking Stats / Progress / Recommendations Cutover, including Reviews / Instructor Rating Continuity — **IN PROGRESS (active)**
+  - **9B** Student Booking Stats / Progress / Recommendations Cutover, including Reviews / Instructor Rating Continuity — **PASS / CLOSED**
     - **9B.2** Canonical Participant Progress — **PASS / CLOSED** (production smoke 2026-09-11)
     - **9B.3** Recommendations / Lesson Feedback continuity — **PASS / CLOSED** (production smoke 2026-09-12)
-    - **9B.4** Stats / Achievements — **READY_FOR_MANUAL_SMOKE**
+    - **9B.4** Stats / Achievements — **PASS / CLOSED**
+    - **Reviews / Instructor Rating Continuity** — **PASS / CLOSED**
   - **9C** Course Progress / Achievements Cutover — PENDING
   - **9P** Global Product Parity & Legacy Dependency Gate — PENDING
   - **9D0** Production-like Incremental Cutover Rehearsal — PENDING

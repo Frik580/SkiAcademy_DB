@@ -351,19 +351,19 @@ There is one production cutover sequence. It supersedes reading Phase 7 / T40 as
 T32.9A.9A — PASS / CLOSED (F1 / F2 / F3 / F4 / final integration smoke)
 T32.9A.9A.F5 — IN PROGRESS (post-close guest CourseEnrollment reservation expiry; gates legacy guest enrollment callable removal)
         ↓
-T32.9A.9B — IN PROGRESS (active): stats/progress/recommendations + Reviews / instructor rating
+T32.9A.9B — PASS / CLOSED: stats/progress/recommendations + Reviews / instructor rating
   T32.9A.9B.2 Participant Progress — PASS / CLOSED (production smoke 2026-09-11)
     (authority `/participant_progress/{participantId}`; empty start; legacy /users progress not migrated;
      Student selection + Instructor lesson gate + booking evidence — see T32_CANONICAL_ADMIN_AUDIT.md §9B.2)
   T32.9A.9B.3 — PASS / CLOSED: Recommendations / Lesson Feedback continuity (production smoke 2026-09-12)
     (authority `/participant_lesson_feedback/{feedbackId}`; participantId + lessonBookingId; clean start / no migration;
      Instructor present-only gate; Chat Homework preserved out of ParticipantLessonFeedback scope; 9P.HW1 recorded)
-  T32.9A.9B.4 — READY_FOR_MANUAL_SMOKE: Stats / Achievements
+  T32.9A.9B.4 — PASS / CLOSED: Stats / Achievements
     (participant Attendance.present + full account drain; `/participant_achievements/{participantId}`;
      homework_done = ParticipantLessonFeedback; feedback_given = canonical reviews;
      course_graduate deferred to 9C; activity logs presentation-only;
      Instructor/Admin KPIs = booking lifecycle + complete history; revenue unchanged)
-  Reviews / Instructor Rating Continuity — READY_FOR_MANUAL_SMOKE
+  Reviews / Instructor Rating Continuity — PASS / CLOSED
     (write `create_instructor_review`; read `queryInstructorReviewReadModels`;
      authorities `/instructor_reviews/{reviewId}` and `/instructor_rating_summaries/{instructorId}`;
      completed + entire party managed + at least one identity-matching managed Attendance.present;
@@ -371,7 +371,10 @@ T32.9A.9B — IN PROGRESS (active): stats/progress/recommendations + Reviews / i
      instructor_reviews is explicit page-at-a-time (25) with Load more; account_reviews is bounded
      to explicit bookingIds, rejects incomplete chunk sets, and accepts optional transport idempotencyKey;
      legacy `/reviews` and instructor rating/count fields are not migrated and are never fallback;
-     production deploy and authenticated smoke not yet recorded)
+     legacy review write/read, rating fallback, and dual-write reachability = 0;
+     production deploy and authenticated smoke PASS)
+  No other accepted mandatory 9B capability remains: 9B.5 is not an accepted ticket;
+  Course metrics are 9C and participant-scoped Chat Homework is 9P.HW1.
         ↓
 T32.9A.9C (Course progress / achievements)
         ↓

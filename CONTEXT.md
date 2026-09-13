@@ -499,11 +499,11 @@ Existing useful screens, information, filters, interactions, and workflows must 
 
 Before removing a legacy frontend or runtime implementation, canonical replacement and UX feature parity must be proven.
 
-Details, the parity inventory, role coverage, and the T32.9A / T32.9B boundary are in [ADR-0008](docs/adr/0008-ux-preservation-during-canonical-migration.md). Current T32.9A.8 / T32.9A.9 (FINAL CANONICAL CUTOVER) status lives in [T32_CANONICAL_ADMIN_AUDIT.md](docs/T32_CANONICAL_ADMIN_AUDIT.md). **T32.9A.9A is PASS / CLOSED** for the original F1–F4 + final integration / production smoke. **T32.9A.9A.F5** (guest CourseEnrollment reservation expiry) is an active post-close corrective follow-up — **IN PROGRESS**. **Active stage: T32.9A.9B.** Authoritative production sequence:
+Details, the parity inventory, role coverage, and the T32.9A / T32.9B boundary are in [ADR-0008](docs/adr/0008-ux-preservation-during-canonical-migration.md). Current T32.9A.8 / T32.9A.9 (FINAL CANONICAL CUTOVER) status lives in [T32_CANONICAL_ADMIN_AUDIT.md](docs/T32_CANONICAL_ADMIN_AUDIT.md). **T32.9A.9A is PASS / CLOSED** for the original F1–F4 + final integration / production smoke. **T32.9A.9A.F5** (guest CourseEnrollment reservation expiry) is an active post-close corrective follow-up — **IN PROGRESS**. **T32.9A.9B is PASS / CLOSED; next accepted slice: T32.9A.9C.** Authoritative production sequence:
 
 ```text
 T32.9A.9A — PASS / CLOSED (F1 / F2 / F3 / F4 / final integration smoke)
-→ T32.9A.9B — IN PROGRESS (active): stats / progress / recommendations / Reviews and instructor rating
+→ T32.9A.9B — PASS / CLOSED: stats / progress / recommendations / Reviews and instructor rating
   T32.9A.9B.2 Participant Progress — PASS / CLOSED (production deploy + manual smoke PASS, 2026-09-11):
     authority `/participant_progress/{participantId}` (Participant, not Account);
     legacy `/users.level|skillScores|skillComments` NOT migrated, NOT authority, no UI fallback;
@@ -518,7 +518,7 @@ T32.9A.9A — PASS / CLOSED (F1 / F2 / F3 / F4 / final integration smoke)
     legacy recommendation readers/writers reachable = 0; Booking dual-write = 0; legacy fallback = 0;
     Chat Homework (`bookings/{threadId}/messages` isHomework/homeworkForUserIds) preserved, **not** ParticipantLessonFeedback;
     known 9P gap: T32.9A.9P.HW1 participant-scoped homework (homeworkForParticipantIds[], present-only, server enforcement).
-  T32.9A.9B.4 — READY_FOR_MANUAL_SMOKE: Stats / Achievements.
+  T32.9A.9B.4 — PASS / CLOSED: Stats / Achievements.
     Student lesson stats = selectedParticipantId + Attendance.present + full account history drain;
     participant achievements authority `/participant_achievements/{participantId}`;
     lessons/hours/streak = Attendance.present; skill/level = `/participant_progress`;
@@ -528,7 +528,7 @@ T32.9A.9A — PASS / CLOSED (F1 / F2 / F3 / F4 / final integration smoke)
     Instructor: completed / no_show / occupied from booking lifecycle, one Booking = one slot;
     Admin: active = hot operational; completed/no_show = complete history; revenue = canonical finance;
     Course metrics not claimed canonicalized.
-  Reviews / Instructor Rating Continuity — READY_FOR_MANUAL_SMOKE:
+  Reviews / Instructor Rating Continuity — PASS / CLOSED:
     write authority `create_instructor_review` → `/instructor_reviews/{reviewId}` +
     `/instructor_rating_summaries/{instructorId}` in one transaction;
     read authority `queryInstructorReviewReadModels` (`public_summaries`, explicit 25-row
@@ -538,7 +538,10 @@ T32.9A.9A — PASS / CLOSED (F1 / F2 / F3 / F4 / final integration smoke)
     identity-matching managed Attendance.present; Instructor is derived server-side;
     one Review per Booking/managing Account, including multi-participant Bookings;
     legacy `/reviews` and instructor rating fields are not migrated, read, written, or used as fallback;
-    production legacy data is preserved for later 9P/9D; production deploy/smoke not yet recorded.
+    legacy review write/read, rating fallback, and dual-write reachability = 0;
+    production legacy data is preserved for later 9P/9D; production deploy + authenticated manual smoke PASS.
+  No other accepted mandatory 9B capability remains: 9B.2–9B.4 and Reviews are PASS / CLOSED;
+  9B.5 is not an accepted ticket; Course metrics belong to 9C and Chat Homework to 9P.HW1.
 → T32.9A.9C (Course progress / achievements)
 → T32.9A.9P (Global Product Parity & legacy Dependency Gate)
 → T32.9A.9D0 (production-like incremental rehearsal)

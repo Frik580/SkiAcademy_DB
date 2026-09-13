@@ -261,6 +261,32 @@ function createCalendarMonthFirestore(): {
         documents.filter(({ data }) => matches(data, field, op, value)),
         maximum
       ),
+    orderBy: (field?: string) => {
+      if (field !== 'participantManagementId') {
+        return query(collectionName, documents, maximum);
+      }
+      return query(
+        collectionName,
+        [...documents].sort((left, right) =>
+          String(left.data.participantManagementId ?? left.id).localeCompare(
+            String(right.data.participantManagementId ?? right.id)
+          )
+        ),
+        maximum
+      );
+    },
+    startAfter: (cursor?: { id?: string } | string) => {
+      const cursorId = typeof cursor === 'string' ? cursor : cursor?.id;
+      if (!cursorId) return query(collectionName, documents, maximum);
+      const index = documents.findIndex(
+        (doc) => doc.id === cursorId || doc.data.participantManagementId === cursorId
+      );
+      return query(
+        collectionName,
+        index >= 0 ? documents.slice(index + 1) : [],
+        maximum
+      );
+    },
     limit: (value: number) => query(collectionName, documents, value),
     get: async () => {
       const sliced = documents.slice(0, maximum);
@@ -270,7 +296,11 @@ function createCalendarMonthFirestore(): {
         }
       }
       return {
-        docs: sliced.map(({ id, data }) => ({ id, data: () => data })),
+        docs: sliced.map(({ id, data }) => ({
+          id,
+          data: () => data,
+          get: (field: string) => data[field],
+        })),
       };
     },
   });
@@ -299,6 +329,8 @@ function createCalendarMonthFirestore(): {
     doc: (path: string) => ({
       get: async () => getDoc(path.startsWith('/') ? path.slice(1) : path),
     }),
+    getAll: async (...refs: Array<{ get: () => Promise<unknown> }>) =>
+      Promise.all(refs.map((ref) => ref.get())),
   } as unknown as Firestore;
 
   return { firestore, scannedBookingIds };

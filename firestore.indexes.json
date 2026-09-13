@@ -338,6 +338,15 @@
         { "fieldPath": "participantId", "order": "ASCENDING" },
         { "fieldPath": "status", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "participant_management",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "accountId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "participantManagementId", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [

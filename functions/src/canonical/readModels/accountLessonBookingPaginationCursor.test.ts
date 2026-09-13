@@ -149,11 +149,43 @@ function createFixtureFirestore(bookings: readonly BookingSeed[]): Firestore {
         }),
         maximum
       ),
+    orderBy: (field?: string) => {
+      if (field !== 'participantManagementId') return query(documents, maximum);
+      return query(
+        [...documents].sort((left, right) =>
+          String(left.data.participantManagementId ?? left.id).localeCompare(
+            String(right.data.participantManagementId ?? right.id)
+          )
+        ),
+        maximum
+      );
+    },
+    startAfter: (cursor?: { id?: string } | string) => {
+      const cursorId = typeof cursor === 'string' ? cursor : cursor?.id;
+      if (!cursorId) return query(documents, maximum);
+      const index = documents.findIndex(
+        (doc) => doc.id === cursorId || doc.data.participantManagementId === cursorId
+      );
+      return query(index >= 0 ? documents.slice(index + 1) : [], maximum);
+    },
     limit: (value: number) => query(documents, value),
     get: async () => ({
-      docs: documents.slice(0, maximum).map(({ id, data }) => ({ id, data: () => data })),
+      docs: documents.slice(0, maximum).map(({ id, data }) => ({
+        id,
+        data: () => data,
+        get: (field: string) => data[field],
+      })),
     }),
   });
+
+  const getDoc = async (path: string) => {
+    const data = docs.get(path);
+    return {
+      id: path.split('/').at(-1) ?? path,
+      exists: data !== undefined,
+      data: () => data,
+    };
+  };
 
   return {
     collection: (name: string) => ({
@@ -163,23 +195,14 @@ function createFixtureFirestore(bookings: readonly BookingSeed[]): Firestore {
           .map(([path, data]) => ({ id: path.slice(name.length + 1), data }))
       ),
       doc: (id: string) => ({
-        get: async () => {
-          const data = docs.get(`${name}/${id}`);
-          return { id, exists: data !== undefined, data: () => data };
-        },
+        get: async () => getDoc(`${name}/${id}`),
       }),
     }),
     doc: (path: string) => ({
-      get: async () => {
-        const normalized = path.startsWith('/') ? path.slice(1) : path;
-        const data = docs.get(normalized);
-        return {
-          id: normalized.split('/').at(-1) ?? normalized,
-          exists: data !== undefined,
-          data: () => data,
-        };
-      },
+      get: async () => getDoc(path.startsWith('/') ? path.slice(1) : path),
     }),
+    getAll: async (...refs: Array<{ get: () => Promise<unknown> }>) =>
+      Promise.all(refs.map((ref) => ref.get())),
   } as unknown as Firestore;
 }
 

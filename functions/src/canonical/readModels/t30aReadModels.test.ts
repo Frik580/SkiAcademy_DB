@@ -368,7 +368,11 @@ function createT30aFirestore(): Firestore {
           .sort((left, right) => compare(values(left), values(right)))
           .filter((document) => !cursor || compare(values(document), cursor) > 0)
           .slice(0, maximum)
-          .map(({ id, data }) => ({ id, data: () => data })),
+          .map(({ id, data }) => ({
+            id,
+            data: () => data,
+            get: (field: string) => data[field],
+          })),
       }),
     };
   };
@@ -387,6 +391,8 @@ function createT30aFirestore(): Firestore {
     doc: (path: string) => ({
       get: async () => getDoc(path.startsWith('/') ? path.slice(1) : path),
     }),
+    getAll: async (...refs: Array<{ get: () => Promise<unknown> }>) =>
+      Promise.all(refs.map((ref) => ref.get())),
   } as unknown as Firestore;
 }
 

@@ -5,6 +5,7 @@ import {
   CourseEnrollmentIdSchema,
   CourseIdSchema,
   InstructorIdSchema,
+  ParticipantIdSchema,
   PaymentIdSchema,
 } from '@ski-academy/shared-domain';
 import { createReadModelRequestContext } from './readModelRequestContext';
@@ -23,6 +24,8 @@ function countingFirestore() {
   const collection = (path: string) => {
     const query = {
       where: () => query,
+      orderBy: () => query,
+      startAfter: () => query,
       limit: () => query,
       get: async () => {
         count(`query:${path}`);
@@ -51,6 +54,8 @@ function countingFirestore() {
         return { id: path.split('/').at(-1), exists: true, data: () => ({}) };
       },
     }),
+    getAll: async (...refs: Array<{ get: () => Promise<unknown> }>) =>
+      Promise.all(refs.map((ref) => ref.get())),
   } as unknown as Firestore;
 
   return { firestore, reads };
@@ -146,5 +151,30 @@ describe('ReadModelRequestContext', () => {
     await requestTwo.attendancesForEnrollments([c, a, b]);
 
     expect(reads.get('query:attendance')).toBe(2);
+  });
+
+  it('loadParticipants batches missing ids with getAll and reuses the participant memo', async () => {
+    const { firestore, reads } = countingFirestore();
+    const context = createReadModelRequestContext(firestore);
+    const first = ParticipantIdSchema.parse('participant_request_memo_a');
+    const second = ParticipantIdSchema.parse('participant_request_memo_b');
+
+    await context.loadParticipants([first, second, first]);
+    await context.participant(first);
+    await context.loadParticipants([second]);
+
+    expect(reads.get(`doc:participants/${first}`)).toBe(1);
+    expect(reads.get(`doc:participants/${second}`)).toBe(1);
+  });
+
+  it('allActiveManagementForAccount memoizes the drained active-management query', async () => {
+    const { firestore, reads } = countingFirestore();
+    const context = createReadModelRequestContext(firestore);
+    const accountId = AccountIdSchema.parse('account_request_memo_mgmt');
+
+    await context.allActiveManagementForAccount(accountId);
+    await context.allActiveManagementForAccount(accountId);
+
+    expect(reads.get('query:participant_management')).toBe(1);
   });
 });

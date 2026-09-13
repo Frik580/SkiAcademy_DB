@@ -62,7 +62,11 @@ import { parseBooking, parseInstructorCatalog } from '../bookings/bookingStore';
 import { loadOpenChangeRequestsForBooking } from '../bookings/bookingChangeRequestStore';
 import { parseAttendance } from '../bookings/attendanceStore';
 import { parsePayment } from '../finance/financeStore';
-import { parseAccount, parseParticipant } from '../participantAccess/participantAccessStore';
+import {
+  parseAccount,
+  parseParticipant,
+  parseParticipantManagement,
+} from '../participantAccess/participantAccessStore';
 import { buildParticipantAccessTopology } from '../participantAccess/participantAccessAuthorization';
 import { loadActiveParticipantBlocksForPair } from './participantBlockReadSupport';
 import {
@@ -83,6 +87,24 @@ export class InvalidLessonBookingReadCursorError extends Error {
   }
 }
 
+/**
+ * Account lesson authorization topology (T32.9R.M1):
+ *
+ * For each managed Participant that may authorize a Booking:
+ * - Account must exist and be lifecycle-active (evaluator: account_inactive / unauthorized)
+ * - management.kind === 'managed' and management.status === 'active'
+ * - management belongs to current Account and points at that Participant
+ * - Participant must exist, be lifecycle-active, and its management pointer must
+ *   match the active management document
+ * - ended/history management rows never authorize
+ *
+ * Active management is loaded with accountId + status == active and paged to
+ * completeness. There is no domain maximum of active managed Participants per
+ * Account; limit(50) is only a physical page size.
+ *
+ * Participant documents remain required for evaluator pointer/lifecycle checks.
+ * They are request-memoized so booking enrichment does not re-read them.
+ */
 export async function loadLessonBookingReadAuthorizationContext(
   firestore: Firestore,
   accountId: AccountId,
@@ -91,19 +113,21 @@ export async function loadLessonBookingReadAuthorizationContext(
   const accountSnap = await readContext.account(accountId);
   const accountData = parseAccount(accountSnap.data() as Record<string, unknown> | undefined);
 
-  const managementSnap = await readContext.lessonManagementForAccount(accountId);
+  const managementDocs = await readContext.allActiveManagementForAccount(accountId);
 
   const participantManagement: ParticipantManagement[] = [];
-  for (const doc of managementSnap.docs) {
-    const parsed = ParticipantManagementSchema.safeParse(doc.data());
-    if (parsed.success && parsed.data.status === 'active') {
-      participantManagement.push(parsed.data);
+  for (const doc of managementDocs) {
+    const parsed = parseParticipantManagement(doc.data() as Record<string, unknown> | undefined);
+    if (parsed && parsed.status === 'active' && parsed.accountId === accountId) {
+      participantManagement.push(parsed);
     }
   }
 
+  const participantSnaps = await readContext.loadParticipants(
+    participantManagement.map((management) => management.participantId)
+  );
   const participants: Participant[] = [];
-  for (const management of participantManagement) {
-    const participantSnap = await readContext.participant(management.participantId);
+  for (const participantSnap of participantSnaps) {
     const participant = parseParticipant(
       participantSnap.data() as Record<string, unknown> | undefined
     );
@@ -842,10 +866,14 @@ export async function buildLessonBookingReadModel(
   }
 
   for (const participantId of booking.party.participantIds) {
-    const participantSnap = await readContext.participant(participantId);
-    const participant = parseParticipant(
-      participantSnap.data() as Record<string, unknown> | undefined
+    const fromAuth = authContext.participants.find(
+      (record) => record.participantId === participantId
     );
+    const participant =
+      fromAuth ??
+      parseParticipant(
+        (await readContext.participant(participantId)).data() as Record<string, unknown> | undefined
+      );
     if (!participant) {
       return undefined;
     }

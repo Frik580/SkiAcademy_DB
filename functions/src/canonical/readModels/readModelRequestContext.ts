@@ -1,4 +1,10 @@
-import type { DocumentSnapshot, Firestore, QuerySnapshot } from 'firebase-admin/firestore';
+import type {
+  DocumentSnapshot,
+  Firestore,
+  Query,
+  QueryDocumentSnapshot,
+  QuerySnapshot,
+} from 'firebase-admin/firestore';
 import type {
   AccountId,
   AttendanceId,
@@ -16,6 +22,15 @@ import { participantBlockPath } from '../participantAccess/participantAccessStor
 
 /** Firestore `in` operator maximum; enforced here so callers cannot exceed it. */
 const ATTENDANCES_FOR_ENROLLMENTS_MAX_IDS = 30;
+
+/**
+ * Physical page size for draining active ParticipantManagement rows of one Account.
+ * This is not a domain maximum; callers must keep paging until a short page.
+ */
+export const ACTIVE_ACCOUNT_MANAGEMENT_QUERY_PAGE_SIZE = 50;
+
+/** Admin `getAll` batch size; billed read count is unchanged vs per-doc gets. */
+const PARTICIPANT_GET_ALL_MAX_IDS = 100;
 
 const ATTENDANCES_FOR_ENROLLMENTS_CONTRACT_VIOLATION =
   'ReadModelRequestContext.attendancesForEnrollments internal contract violation: enrollmentIds must be non-empty and at most 30';
@@ -47,7 +62,10 @@ export class ReadModelRequestContext {
   private readonly courseAttendancesByCourseId = new Map<string, Promise<QuerySnapshot>>();
   private readonly attendancesByEnrollmentIds = new Map<string, Promise<QuerySnapshot>>();
   private readonly enrollmentAttendancesByEnrollmentId = new Map<string, Promise<QuerySnapshot>>();
-  private readonly lessonManagementByAccountId = new Map<string, Promise<QuerySnapshot>>();
+  private readonly allActiveManagementByAccountId = new Map<
+    string,
+    Promise<QueryDocumentSnapshot[]>
+  >();
   private readonly activeManagementByAccountId = new Map<string, Promise<QuerySnapshot>>();
   private readonly activeManagementByParticipantId = new Map<string, Promise<QuerySnapshot>>();
   private readonly linkedAccountByInstructorId = new Map<string, Promise<QuerySnapshot>>();
@@ -76,6 +94,43 @@ export class ReadModelRequestContext {
     return this.memoize(this.participantById, participantId, () =>
       this.firestore.collection('participants').doc(participantId).get()
     );
+  }
+
+  /**
+   * Request-scoped participant batch. Missing ids are fetched with getAll
+   * (latency; billed read count equals one get per missing document) and stored
+   * in the same memo as `participant()`, so later enrichment reuses snapshots.
+   */
+  async loadParticipants(
+    participantIds: readonly Participant['participantId'][]
+  ): Promise<readonly DocumentSnapshot[]> {
+    const uniqueIds = [...new Set(participantIds)];
+    const missingIds = uniqueIds.filter((id) => !this.participantById.has(id));
+    for (let offset = 0; offset < missingIds.length; offset += PARTICIPANT_GET_ALL_MAX_IDS) {
+      const chunk = missingIds.slice(offset, offset + PARTICIPANT_GET_ALL_MAX_IDS);
+      const pending = chunk.map((id) => {
+        let resolve!: (value: DocumentSnapshot) => void;
+        let reject!: (reason: unknown) => void;
+        const promise = new Promise<DocumentSnapshot>((res, rej) => {
+          resolve = res;
+          reject = rej;
+        });
+        this.participantById.set(id, promise);
+        return { id, resolve, reject };
+      });
+      try {
+        const snapshots = await this.firestore.getAll(
+          ...chunk.map((id) => this.firestore.collection('participants').doc(id))
+        );
+        pending.forEach((item, index) => {
+          item.resolve(snapshots[index]!);
+        });
+      } catch (error) {
+        pending.forEach((item) => item.reject(error));
+        throw error;
+      }
+    }
+    return Promise.all(uniqueIds.map((id) => this.participant(id)));
   }
 
   participantManagement(
@@ -164,14 +219,44 @@ export class ReadModelRequestContext {
     );
   }
 
-  lessonManagementForAccount(accountId: AccountId): Promise<QuerySnapshot> {
-    return this.memoize(this.lessonManagementByAccountId, accountId, () =>
-      this.firestore
-        .collection('participant_management')
-        .where('accountId', '==', accountId)
-        .limit(50)
-        .get()
-    );
+  /**
+   * Complete active management topology for one Account.
+   *
+   * Filters `status == active` in the query so ended/history rows cannot occupy
+   * a result page. Pages by `participantManagementId` until exhausted because
+   * active managed-participant cardinality is not domain-bounded.
+   */
+  allActiveManagementForAccount(accountId: AccountId): Promise<QueryDocumentSnapshot[]> {
+    return this.memoize(this.allActiveManagementByAccountId, accountId, async () => {
+      const collected: QueryDocumentSnapshot[] = [];
+      let cursorId: string | undefined;
+      for (;;) {
+        let query: Query = this.firestore
+          .collection('participant_management')
+          .where('accountId', '==', accountId)
+          .where('status', '==', 'active')
+          .orderBy('participantManagementId', 'asc')
+          .limit(ACTIVE_ACCOUNT_MANAGEMENT_QUERY_PAGE_SIZE);
+        if (cursorId) {
+          query = query.startAfter(cursorId);
+        }
+        const snapshot = await query.get();
+        collected.push(...snapshot.docs);
+        if (snapshot.docs.length < ACTIVE_ACCOUNT_MANAGEMENT_QUERY_PAGE_SIZE) {
+          break;
+        }
+        const last = snapshot.docs.at(-1);
+        const nextCursorId =
+          typeof last?.get('participantManagementId') === 'string'
+            ? String(last.get('participantManagementId'))
+            : last?.id;
+        if (!nextCursorId || nextCursorId === cursorId) {
+          break;
+        }
+        cursorId = nextCursorId;
+      }
+      return collected;
+    });
   }
 
   activeManagementForAccount(accountId: AccountId): Promise<QuerySnapshot> {

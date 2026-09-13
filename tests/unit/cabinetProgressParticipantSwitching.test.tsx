@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ManagedParticipantOption } from '../../src/features/lesson-bookings/lessonBookingContracts';
 import { ParticipantPicker } from '../../src/features/participants/components/ParticipantPicker';
 import {
@@ -18,6 +18,13 @@ import {
   reconcileCabinetProgressParticipantId,
   resolveInitialCabinetProgressParticipantId,
 } from '../../src/features/student-cabinet/cabinetProgressParticipantSelection';
+import { useCabinetProgressParticipantSelectionStore } from '../../src/features/student-cabinet/cabinetProgressParticipantSelectionStore';
+import {
+  firstNameOf,
+  formatSwitchToParticipantLabel,
+  toCabinetParticipantAvatarItems,
+} from '../../src/features/student-cabinet/cabinetParticipantAvatarSwitcherContract';
+import { CabinetParticipantAvatarSwitcher } from '../../src/features/student-cabinet/components/CabinetParticipantAvatarSwitcher';
 import { useCabinetProgressParticipantSelection } from '../../src/features/student-cabinet/useCabinetProgressParticipantSelection';
 import type { UserProfile } from '../../src/types';
 
@@ -93,19 +100,22 @@ function CabinetSwitcher(props: {
   return (
     <div>
       <div data-testid="selected">{selectedParticipantId ?? ''}</div>
-      <ParticipantPicker
-        participants={props.participants}
-        selectedParticipantIds={selectedParticipantId ? [selectedParticipantId] : []}
-        onToggleParticipant={selectParticipant}
-        loading={props.loading ?? false}
-        selectionMode="single"
-        t={(key) => key}
+      <CabinetParticipantAvatarSwitcher
+        items={toCabinetParticipantAvatarItems(props.participants)}
+        selectedParticipantId={selectedParticipantId}
+        onSelect={selectParticipant}
+        fallbackDisplayName="Self"
+        groupLabel="Participants"
+        switchToParticipantLabel="Переключиться на участника {name}"
       />
     </div>
   );
 }
 
 describe('cabinet progress participant switching', () => {
+  beforeEach(() => {
+    useCabinetProgressParticipantSelectionStore.getState().reset();
+  });
   it('1. auto-selects the sole managed participant', () => {
     expect(resolveInitialCabinetProgressParticipantId([selfParticipant])).toBe('participant_self');
     expect(resolveInitialCabinetProgressParticipantId([childA])).toBe('participant_child_a');
@@ -247,8 +257,9 @@ describe('cabinet progress participant switching', () => {
     vi.unstubAllGlobals();
   });
 
-  it('14. cabinet shell does not reload or route-refresh to switch participants', () => {
+  it('14. header avatars switch participants without reload or route-refresh', () => {
     const here = dirname(fileURLToPath(import.meta.url));
+    const navbar = readFileSync(join(here, '../../src/app/components/Navbar.tsx'), 'utf8');
     const shell = readFileSync(
       join(here, '../../src/features/student-cabinet/components/student/StudentCabinetShell.tsx'),
       'utf8'
@@ -257,8 +268,11 @@ describe('cabinet progress participant switching', () => {
       join(here, '../../src/features/student-cabinet/useCabinetProgressParticipantSelection.ts'),
       'utf8'
     );
-    expect(shell).toContain('selectionMode="single"');
+    expect(navbar).toContain('CabinetParticipantAvatarSwitcher');
+    expect(navbar).not.toContain('LEVEL {');
+    expect(navbar).not.toContain('getUserLevelBadgeClass');
     expect(shell).toContain('selectParticipant');
+    expect(shell).toContain('Boolean(participantsError)');
     expect(shell).not.toMatch(/location\.reload|router\.refresh|window\.location\.href\s*=/);
     expect(hook).not.toMatch(/location\.reload|router\.refresh|navigate\(/);
   });
@@ -394,5 +408,65 @@ describe('cabinet progress participant switching', () => {
     expect(result.current.selectedParticipantId).toBeUndefined();
     rerender({ participants: family, loading: false });
     expect(result.current.selectedParticipantId).toBe('participant_self');
+  });
+
+  it('maps managed participants to header avatar items and first names', () => {
+    const items = toCabinetParticipantAvatarItems(
+      [childA, { ...selfParticipant, avatarUrl: 'https://example.com/self.png' }],
+      'https://example.com/legacy.png'
+    );
+    expect(items).toEqual([
+      {
+        participantId: 'participant_self',
+        displayName: 'Self',
+        authority: 'self',
+        avatarUrl: 'https://example.com/self.png',
+      },
+      {
+        participantId: 'participant_child_a',
+        displayName: 'Child A',
+        authority: 'parent_guardian',
+      },
+    ]);
+    expect(firstNameOf('Anna Marie')).toBe('Anna');
+    expect(formatSwitchToParticipantLabel('Переключиться на участника {name}', 'Child A')).toBe(
+      'Переключиться на участника Child A'
+    );
+  });
+
+  it('renders active avatar in color with ring and inactive avatars grayscale', async () => {
+    const user = userEvent.setup();
+    render(<CabinetSwitcher participants={family} />);
+
+    const selfButton = screen.getByRole('button', {
+      name: 'Переключиться на участника Self',
+    });
+    const childAButton = screen.getByRole('button', {
+      name: 'Переключиться на участника Child A',
+    });
+
+    expect(selfButton).toHaveAttribute('aria-current', 'true');
+    expect(selfButton).toHaveAttribute('aria-pressed', 'true');
+    expect(selfButton).toHaveAttribute('title', 'Self');
+    expect(selfButton.querySelector('[data-participant-avatar="active"]')).not.toBeNull();
+    expect(selfButton.querySelector('[data-participant-avatar-face="active"]')?.className).toContain(
+      'grayscale-0'
+    );
+    expect(selfButton.querySelector('[data-participant-avatar="active"]')?.className).toContain(
+      'shadow-[0_0_0_2px_var(--accent)]'
+    );
+
+    expect(childAButton).not.toHaveAttribute('aria-current');
+    expect(childAButton).toHaveAttribute('aria-pressed', 'false');
+    expect(childAButton.querySelector('[data-participant-avatar="inactive"]')).not.toBeNull();
+    expect(
+      childAButton.querySelector('[data-participant-avatar-face="inactive"]')?.className
+    ).toContain('grayscale');
+
+    await user.click(childAButton);
+    expect(screen.getByTestId('selected').textContent).toBe('participant_child_a');
+    expect(childAButton).toHaveAttribute('aria-current', 'true');
+    expect(childAButton.querySelector('[data-participant-avatar="active"]')).not.toBeNull();
+    expect(selfButton.querySelector('[data-participant-avatar="inactive"]')).not.toBeNull();
   });
 });

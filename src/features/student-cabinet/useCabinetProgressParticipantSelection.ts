@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import type { ManagedParticipantOption } from '../lesson-bookings/lessonBookingContracts';
-import { nextCabinetProgressParticipantId } from './cabinetProgressParticipantSelection';
+import { useCabinetProgressParticipantSelectionStore } from './cabinetProgressParticipantSelectionStore';
 
 function participantSetSignature(
   participants: readonly Pick<ManagedParticipantOption, 'participantId'>[]
@@ -11,7 +11,8 @@ function participantSetSignature(
 /**
  * Cabinet progress Participant selection.
  * Initialization runs once on the first non-empty managed set.
- * User selection stays authoritative across refetch/rerender.
+ * User selection stays authoritative across refetch/rerender and is shared
+ * with the header avatar switcher.
  */
 export function useCabinetProgressParticipantSelection(input: {
   readonly accountId: string | undefined;
@@ -19,43 +20,26 @@ export function useCabinetProgressParticipantSelection(input: {
   readonly loading: boolean;
 }) {
   const { accountId, participants, loading } = input;
-  const [selectedParticipantId, setSelectedParticipantId] = useState<string | undefined>();
-  const initializedRef = useRef(false);
-  const accountIdRef = useRef(accountId);
+  const selectedParticipantId = useCabinetProgressParticipantSelectionStore(
+    (state) => state.selectedParticipantId
+  );
+  const syncManagedSet = useCabinetProgressParticipantSelectionStore(
+    (state) => state.syncManagedSet
+  );
+  const selectParticipantInStore = useCabinetProgressParticipantSelectionStore(
+    (state) => state.selectParticipant
+  );
   const signature = useMemo(() => participantSetSignature(participants), [participants]);
 
   useEffect(() => {
-    if (accountIdRef.current !== accountId) {
-      accountIdRef.current = accountId;
-      initializedRef.current = false;
-      if (!accountId) {
-        setSelectedParticipantId(undefined);
-        return;
-      }
-    }
-    if (!accountId || loading || participants.length === 0) {
-      return;
-    }
-    setSelectedParticipantId((current) => {
-      const next = nextCabinetProgressParticipantId({
-        participants,
-        selectedParticipantId: current,
-        initialized: initializedRef.current,
-      });
-      initializedRef.current = next.initialized;
-      return next.selectedParticipantId;
-    });
-  }, [accountId, loading, participants, signature]);
+    syncManagedSet({ accountId, participants, loading });
+  }, [accountId, loading, participants, signature, syncManagedSet]);
 
   const selectParticipant = useCallback(
     (participantId: string) => {
-      if (!participants.some((participant) => participant.participantId === participantId)) {
-        return;
-      }
-      initializedRef.current = true;
-      setSelectedParticipantId(participantId);
+      selectParticipantInStore(participantId, participants);
     },
-    [participants]
+    [participants, selectParticipantInStore]
   );
 
   return {

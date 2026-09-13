@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
   InstructorIdSchema,
   ParticipantIdSchema,
@@ -14,6 +14,7 @@ import { useParticipantAchievementsStore } from '../../src/features/participant-
 import { usePresentedParticipantAchievements } from '../../src/features/participant-achievements/usePresentedParticipantAchievements';
 import { DEFAULT_ACHIEVEMENTS_CONFIG, DEFAULT_SKILL_CONFIG } from '../../src/domain/achievements';
 import { useCabinetProgressParticipantSelection } from '../../src/features/student-cabinet/useCabinetProgressParticipantSelection';
+import { useCabinetProgressParticipantSelectionStore } from '../../src/features/student-cabinet/cabinetProgressParticipantSelectionStore';
 import type { ManagedParticipantOption } from '../../src/features/lesson-bookings/lessonBookingContracts';
 
 const selfId = ParticipantIdSchema.parse('participant_ach_switch_self');
@@ -106,6 +107,10 @@ function persisted(
 }
 
 describe('selectedParticipantId achievement switching', () => {
+  beforeEach(() => {
+    useCabinetProgressParticipantSelectionStore.getState().reset();
+  });
+
   it('switches participant-level badges immediately and does not show A under B', () => {
     useAccountParticipantLessonStatsStore.getState().reset();
     useParticipantProgressStore.getState().clear();

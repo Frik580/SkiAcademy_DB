@@ -5,10 +5,11 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../app/providers/LanguageContext';
 import { useCurrency } from '../../app/providers/CurrencyContext';
-import { getUserLevelBadgeClass } from '../../domain/course';
 import { isInstructorWorkspaceUser, getDefaultWorkspacePath } from '../../lib/workspaceRoutes';
 import { Logo } from './Logo';
 import { useEffectiveBalance } from '../../features/wallet';
+import { CabinetParticipantAvatarSwitcher } from '../../features/student-cabinet/components/CabinetParticipantAvatarSwitcher';
+import { useNavbarParticipantSwitcher } from '../../features/student-cabinet/useNavbarParticipantSwitcher';
 
 interface NavbarProps {
   userProfile: UserProfile | null;
@@ -32,6 +33,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   const { t, language, setLanguage } = useLanguage();
   const { formatPrice } = useCurrency();
   const effectiveBalance = useEffectiveBalance();
+  const participantSwitcher = useNavbarParticipantSwitcher({
+    accountId: userProfile?.uid,
+    legacySelfAvatarUrl: userProfile?.avatarUrl,
+  });
   const location = useLocation();
   const navigate = useNavigate();
   const isAdminView = location.pathname === '/admin';
@@ -209,25 +214,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2 xl:gap-3 pl-1 shrink-0">
-                  <div className="ui-avatar w-8 h-8 shrink-0">
-                    <img
-                      src={userProfile.avatarUrl}
-                      alt={userProfile.displayName}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="hidden sm:flex items-center gap-2 text-left leading-none">
-                    <span className="hidden 2xl:inline text-[10px] font-bold text-[var(--ink)] text-sm font-normal">
-                      {userProfile.displayName.split(' ')[0]}
-                    </span>
-                    {!userProfile.hideProgressTracking && (
-                      <span
-                        className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide leading-none ${getUserLevelBadgeClass(userProfile.level || 1)}`}
-                      >
-                        LEVEL {userProfile.level || 1}
-                      </span>
-                    )}
-                  </div>
+                  <CabinetParticipantAvatarSwitcher
+                    items={participantSwitcher.items}
+                    selectedParticipantId={participantSwitcher.selectedParticipantId}
+                    onSelect={participantSwitcher.selectParticipant}
+                    fallbackDisplayName={userProfile.displayName}
+                    fallbackAvatarUrl={userProfile.avatarUrl}
+                    groupLabel={t('bookingParticipantsLabel')}
+                    switchToParticipantLabel={t('switchToParticipant')}
+                    showName
+                  />
 
                   <button
                     onClick={onOpenNotifications}
@@ -298,22 +294,15 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           <div className="lg:hidden flex items-center gap-2 sm:gap-3 min-w-0">
             {userProfile && (
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="ui-avatar w-8 h-8 shrink-0">
-                  <img
-                    src={userProfile.avatarUrl}
-                    alt={userProfile.displayName}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                {!userProfile.hideProgressTracking && (
-                  <span
-                    className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide leading-none shrink-0 ${getUserLevelBadgeClass(userProfile.level || 1)}`}
-                  >
-                    LEVEL {userProfile.level || 1}
-                  </span>
-                )}
-              </div>
+              <CabinetParticipantAvatarSwitcher
+                items={participantSwitcher.items}
+                selectedParticipantId={participantSwitcher.selectedParticipantId}
+                onSelect={participantSwitcher.selectParticipant}
+                fallbackDisplayName={userProfile.displayName}
+                fallbackAvatarUrl={userProfile.avatarUrl}
+                groupLabel={t('bookingParticipantsLabel')}
+                switchToParticipantLabel={t('switchToParticipant')}
+              />
             )}
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}

@@ -471,11 +471,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
         paddingBottom: studentCabinetFooterHeight,
       }}
     >
-      {shouldShowParticipantPicker({
-        participants,
-        loading: participantsLoading,
-        error: participantsError,
-      }) && (
+      {Boolean(participantsError) && (
         <div className="mb-4">
           <ParticipantPicker
             participants={participants}

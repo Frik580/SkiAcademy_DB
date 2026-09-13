@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
   InstructorIdSchema,
   ParticipantIdSchema,
@@ -9,6 +9,7 @@ import {
 import { useAccountParticipantLessonStatsStore } from '../../src/features/lesson-bookings/accountParticipantLessonStatsStore';
 import { useSelectedParticipantLessonStats } from '../../src/features/student-cabinet/useSelectedParticipantLessonStats';
 import { useCabinetProgressParticipantSelection } from '../../src/features/student-cabinet/useCabinetProgressParticipantSelection';
+import { useCabinetProgressParticipantSelectionStore } from '../../src/features/student-cabinet/cabinetProgressParticipantSelectionStore';
 import type { ManagedParticipantOption } from '../../src/features/lesson-bookings/lessonBookingContracts';
 
 const selfId = ParticipantIdSchema.parse('participant_switch_self');
@@ -86,6 +87,9 @@ function lesson(
 }
 
 describe('selectedParticipantId lesson stats switching', () => {
+  beforeEach(() => {
+    useCabinetProgressParticipantSelectionStore.getState().reset();
+  });
   it('22–25. self → child A → child B changes stats without stale counts', () => {
     useAccountParticipantLessonStatsStore.getState().reset();
     useAccountParticipantLessonStatsStore.getState().setLoading({

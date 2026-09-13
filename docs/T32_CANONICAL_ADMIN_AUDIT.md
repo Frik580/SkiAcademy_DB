@@ -18,6 +18,7 @@ Amended: 2026-09-12 — T32.9A.9B.3 **PASS / CLOSED** after production deploy (i
 Amended: 2026-09-12 — T32.9A.9B.4 Stats / Achievements isolation + integration gate (9B.4E) complete; **READY_FOR_MANUAL_SMOKE** (production deploy + authenticated manual smoke not yet recorded). Course metrics remain **T32.9A.9C**. Chat Homework remains **T32.9A.9P.HW1**. 9B.5 is not an accepted roadmap ticket.
 Amended: 2026-09-13 — T32.9A.9A.F5 Canonical Guest Course Reservation Expiry added as a post-close corrective follow-up after a separate guest CourseEnrollment expiry/runtime gap was identified. Existing F1–F4 acceptance remains valid.
 Amended: 2026-09-13 — Reviews / Instructor Rating Continuity production deploy and authenticated manual smoke **PASS**; legacy review write/read, rating fallback, and dual-write reachability are each zero. T32.9A.9B.4 Stats / Achievements production smoke is also **PASS**. With no other accepted mandatory 9B capability (9B.5 is not an accepted ticket), **T32.9A.9B is PASS / CLOSED**; next accepted slice is **T32.9A.9C**.
+Amended: 2026-09-13 — **T32.9R** Firestore / server-resource optimization status reconciled. Completed small read bounds (BG1, UI1/UI1B, P0A/P0B, A2, R1A, M1/M2; BG2 implemented+migrated). **R1** physical `account_history` pagination and **R2** maintained participant stats projection are **DEFERRED** (not next coding tickets). Next optimization step is deploy/runtime verification of remaining READY items, then production re-measurement — not speculative projection work. See **T32.9R** below. Historical scratch audits under `.scratch/` remain evidence, not roadmap authority.
 
 Status: historical Admin-runtime audit from 2026-08-30, with later T32.8A–T32.8C and T32.9A/T32.9B migration status below. Findings in this document that describe unpaid Administrator guest approval, missing guest CourseEnrollment confirmation, or identity linking as confirmation are superseded by ADR-0007. Sections below that still describe the 2026-08-30 Admin runtime as fully legacy are historical audit evidence; later migration status in this preamble supersedes them for T32.9A progress.
 
@@ -60,6 +61,7 @@ T32.9 remains split per [ADR-0008](adr/0008-ux-preservation-during-canonical-mig
 | T32.9A.9B.3                                    | Recommendations / Lesson Feedback continuity                             | PASS / CLOSED                             |
 | T32.9A.9B.4                                    | Stats / Achievements                                                     | PASS / CLOSED                             |
 | Reviews / Instructor Rating Continuity         | Canonical review command, read models, rating summaries, legacy gate     | PASS / CLOSED                             |
+| T32.9R                                         | Firestore / server-resource optimization (parallel to cutover)           | ACTIVE — see T32.9R status table          |
 | T32.9A.9C                                      | Course Progress / Achievements Cutover                                   | PENDING                                   |
 | T32.9A.9P                                      | Global Product Parity & Legacy Dependency Gate                           | PENDING                                   |
 | T32.9A.9D0                                     | Production-like Incremental Cutover Rehearsal                            | PENDING                                   |
@@ -69,7 +71,7 @@ T32.9 remains split per [ADR-0008](adr/0008-ux-preservation-during-canonical-mig
 | T40                                            | Execute Rehearsed Selective Production Cutover                           | PENDING; after T32.9B                     |
 | T41                                            | Expanded Post-Cutover Verification                                       | PENDING; after T40                        |
 
-Status labels used here: `PASS`, `PASS / CLOSED`, `PASS / DEPLOYED`, `REQUIRED`, `IN PROGRESS`, `PLANNED`, `READY_FOR_MANUAL_SMOKE`, `PENDING`, `NOT CLOSED`. T32.9A.9A original F1–F4 integration close (including final integration / production smoke) remains **PASS / CLOSED**. **T32.9A.9A.F5** is an active post-close corrective follow-up on guest CourseEnrollment reservation expiry; it does not reopen or invalidate F1–F4. **T32.9A.9B is PASS / CLOSED**; the next accepted slice is **T32.9A.9C**.
+Status labels used here: `PASS`, `PASS / CLOSED`, `PASS / DEPLOYED`, `REQUIRED`, `IN PROGRESS`, `PLANNED`, `READY_FOR_MANUAL_SMOKE`, `READY_FOR_DEPLOY`, `DEPLOY-RUNTIME-VERIFICATION-PENDING`, `DEFERRED`, `PENDING`, `NOT CLOSED`. T32.9A.9A original F1–F4 integration close (including final integration / production smoke) remains **PASS / CLOSED**. **T32.9A.9A.F5** is an active post-close corrective follow-up on guest CourseEnrollment reservation expiry; it does not reopen or invalidate F1–F4. **T32.9A.9B is PASS / CLOSED**; the next accepted **cutover** slice is **T32.9A.9C**. **T32.9R** is a parallel read-cost track; it does not replace 9C, and **R1/R2 are not mandatory next implementation tickets**.
 
 T32.9A.9A remains historically **PASS / CLOSED** for the original Individual Booking F1–F4 cutover. F5 was added after that close when a separate guest CourseEnrollment lifecycle/runtime gap was identified. F5 does not invalidate completed Individual Booking lifecycle work, but must reach **PASS / CLOSED** before final legacy guest CourseEnrollment removal and downstream destructive cutover gates may treat canonical guest course lifecycle as complete.
 
@@ -1161,13 +1163,15 @@ No new Stats/Achievement logic uses activity logs as authority. No new generic `
 
 Cursors terminate (`drainPagedReadModelItems` rejects missing/repeating cursors). Hot ∪ history rows are revision-deduped. Student stats drain is module-coordinated (in-flight reuse per account). Do **not** treat first-page history as complete.
 
-Read-cost (factual, not redesigned in 4E):
+**Authority (unchanged by T32.9R):** Student lesson stats / achievement evaluation still require complete Attendance-present evidence from account lesson history (`account_hot` ∪ `account_history` drain). That is intentional capability authority for 9B.4, not a temporary optimization target to delete.
 
-- Student cabinet on `/` and `/cabinet*` runs both first-page `account_hot`/`account_history` (cabinet list) **and** a full drain of the same scopes (stats/achievements).
+Read-cost notes:
+
+- At 9B.4 close, Student cabinet on `/` and `/cabinet*` ran first-page list scopes **and** a full history drain for stats/achievements. **T32.9R.P0A/P0B** later removed eager global `/cabinet*` `account_hot` polling and moved hot ownership to consuming surfaces; see **T32.9R**.
+- **T32.9R.P0C** audited Home: history-derived Attendance evidence remains required for “New achievements today” / achievement recorder → verdict `HOME_STATS_REQUIRED_R2`. Do not remove Home stats ownership as a temporary optimization.
+- **T32.9R.R2** (maintained participant lesson stats projection) is **DEFERRED** — not required before cutover unless production history-read cost becomes material.
 - Instructor workspace drains `instructor_hot` ∪ `instructor_history`.
 - Admin Operations drains `admin_hot` ∪ `admin_history` in addition to monitor surfaces that already page those scopes.
-
-Optimization is a later concern unless a correctness/runtime loop appears.
 
 ###### Legacy isolation (reachable authority = 0)
 
@@ -1259,6 +1263,52 @@ All accepted mandatory 9B capabilities are closed:
 T32.9A.9B → PASS / CLOSED
 NEXT → T32.9A.9C — Course Progress / Achievements
 ```
+
+#### T32.9R — Firestore / server-resource optimization (parallel track)
+
+**Authoritative optimization status.** Parallel to T32.9A.9 cutover; does not gate or replace **T32.9A.9C**. Prefer measured concrete waste over speculative secondary projections. Historical discovery audits: [`.scratch/firestore-read-audit-2026-09-12.md`](../.scratch/firestore-read-audit-2026-09-12.md), [`.scratch/t32.9a.r.1-firestore-read-cost-audit.md`](../.scratch/t32.9a.r.1-firestore-read-cost-audit.md) (superseded as roadmap; retained as audit evidence).
+
+Status columns are separate on purpose: **Implementation PASS** does not imply **DEPLOYED** or **RUNTIME VERIFIED**.
+
+##### Strategic decision
+
+1. Optimize measured, concrete read waste first.
+2. Do not build major secondary projections merely for theoretical future scale.
+3. After remaining READY items are deployed and runtime-verified, re-measure production Firestore / Functions usage before selecting the next optimization.
+4. **R1** and **R2** are intentionally deferred architecture — not the next mandatory coding tickets.
+
+##### Status table
+
+| Ticket | Problem | Accepted state | Implementation | Deploy / runtime | Notes |
+| ------ | ------- | -------------- | -------------- | ---------------- | ----- |
+| BG1 / BG1A | Guest confirmation reconciliation scheduler unbounded fully-paid Payment scan; starvation of already-open issues | Bounded candidate scanning; unbounded fully-paid Payment scan removed; open-issue starvation fixed | PASS | DEPLOYED / RUNTIME VERIFIED | Scheduler read bounding |
+| BG2 / BG2A | Attendance outcome scheduler reread of confirmed-ended bookings | Projection `booking_attendance_outcome_work`; deadlines `endsAt` and `endsAt+24h`; semantic-diff guard; backfill `scannedBookings=47`, `created=47`, `blocked=0`, `migrationReady=true` | PASS / MIGRATED | DEPLOY-RUNTIME-VERIFICATION-PENDING | Do not claim runtime verified for `syncLessonBookingAttendanceOutcomeWork` without post-Eventarc deploy evidence in-repo |
+| UI1 | Trainer participant-instructor access request loop | Stable per-query loaded/loading/error; query key `scope+participantId+instructorId`; revoked/null are valid loaded; no render-loop refetch | PASS | READY_FOR_DEPLOY (no separate deploy record here) | Root cause: unstable `useBookingCollaborationCommands()` effect dependency |
+| UI1B | Trainer remount cleared `participantAccessQueries` via full `store.reset()` | Collaboration list may reset independently; access loaded state survives Trainer↔Training/Home; clears on logout/account switch; mutation invalidation explicit | PASS | READY_FOR_DEPLOY | Target: first Trainer mount = 2 calls for two keys; remounts = 0; mutation on A = +1 for A only |
+| P0A | Catastrophic lesson read amplification containment | No eager `account_history` from root/cabinet; timer/visibility stats drain removed; history/stats ownership moved toward consuming surfaces; `account_hot` remained temporary hot refresh | PASS (containment) | Historical containment accepted | Do not rewrite historical P0A intent |
+| P0B | Global `/cabinet*` 30s `account_hot` polling | `account_hot` owned only by hot-data surfaces; no periodic 30s timer; visibility refresh surface-aware + freshness-gated; mutations refresh/invalidate; Training/unrelated surfaces do not own hot | PASS | READY_FOR_DEPLOY (frontend/hosting; no deploy record here) | Public `/` must not re-add `account_hot` for review-badge discovery (separate deferred issue) |
+| P0C | Home `account_history` ownership audit | Home needs lesson-derived Attendance evidence for New achievements today / achievement recorder; not general Home progress/XP UI | AUDITED | N/A | Verdict: `HOME_STATS_REQUIRED_R2` — do not strip Home stats ownership |
+| A1 | `queryParticipantInstructorAccessReadModels` post-UI1 waste | One legitimate `account_manager` path still did full management topology + duplicate entity reads | AUDITED | N/A | Verdict: `ACCESS_OPTIMIZATION_RECOMMENDED` → addressed by A2 |
+| A2 | Bound pair authorization for access read | Targeted `accountId+participantId+active` management query; no full topology / sibling fan-out; reuse preloaded docs; ~11+ → bounded 7 reads; cost independent of family size | PASS | READY_FOR_DEPLOY | Index: `participant_management` `accountId ASC, participantId ASC, status ASC` |
+| R1 | True physical Firestore pagination for `account_history` | Blocked: no queryable history-visibility projection; membership uses lifecycle/`endsAt` vs public `updatedAt` ordering incompatibility | DEFERRED / BLOCKED | N/A | Do not build visibility projection now; revisit only if production metrics justify |
+| R1A | Logical pagination cursor tie-break bug | For equal `updatedAt`, `bookingId ASC` → rows after cursor use `bookingId > cursor.bookingId` | PASS | READY_FOR_DEPLOY | Public cursor schema / logical ordering unchanged |
+| R2 / R2A | Maintained participant lesson stats projection | Exact achievement `earnedAt` needs chronological order statistics; counters-only insufficient; unbounded lifetime evidence array unacceptable | DEFERRED | N/A | Leave Home history stats path; revisit only if production history-read cost is material. Not a launch/cutover gate unless an older authoritative roadmap already required it (none does) |
+| M1 | Lesson-booking management topology `limit(50)` + in-memory active filter | Active-only query + physical pages by `participantManagementId` (page size 50 ≠ domain max); inactive history cannot starve; `getAll`/request memo for participants | PASS | READY_FOR_DEPLOY | Verdict was `ACTIVE_MANAGEMENT_UNBOUNDED`. Index: `accountId ASC, status ASC, participantManagementId ASC`. Consumers: lesson/course enrollment/attendance, proposals, change requests, instructor reviews |
+| M2 | Managed participant picker `limit(50)` starvation | Reuses `ReadModelRequestContext.allActiveManagementForAccount`; same M1 index/paging; public picker still sorts by displayName | PASS | READY_FOR_DEPLOY | >50 active participants supported; inactive history does not consume query rows |
+
+##### Deferred issues (out of current optimization scope)
+
+These are not regressions introduced by T32.9R tickets:
+
+1. **Public-home review badge discovery** — `account_hot` cannot discover completed lessons. Predates/independent of P0B. Needs a completed/review-eligible discovery source; do not re-enable `/` on hot paths for the badge.
+2. **R1 physical pagination** — deferred (schema/order incompatibility; would need maintained account-history visibility projection + writers/backfill + clock-driven transitions).
+3. **R2 ordered evidence / stats projection** — deferred (correction-aware achievement `earnedAt` needs chronological evidence infrastructure without an unbounded lifetime array).
+
+##### Current next step (optimization track)
+
+1. Deploy / runtime-verify remaining **READY_FOR_DEPLOY** and **DEPLOY-RUNTIME-VERIFICATION-PENDING** items (especially BG2 `syncLessonBookingAttendanceOutcomeWork` after any Eventarc failure, plus A2/M1/M2 indexes and callables, UI1/UI1B/P0B hosting as needed).
+2. Re-measure production Firestore / Functions usage.
+3. Choose the next optimization from measured cost — do not manufacture a coding ticket merely to keep the roadmap busy.
 
 #### T32.9A.9C — Course Progress / Achievements Cutover — PENDING
 
@@ -2320,6 +2370,7 @@ Current structure (authoritative for later status; see preamble):
     - **9B.3** Recommendations / Lesson Feedback continuity — **PASS / CLOSED** (production smoke 2026-09-12)
     - **9B.4** Stats / Achievements — **PASS / CLOSED**
     - **Reviews / Instructor Rating Continuity** — **PASS / CLOSED**
+  - **T32.9R** Firestore / server-resource optimization — parallel track; see preamble **T32.9R** (R1/R2 **DEFERRED**; next = deploy/verify READY items + re-measure)
   - **9C** Course Progress / Achievements Cutover — PENDING
   - **9P** Global Product Parity & Legacy Dependency Gate — PENDING
   - **9D0** Production-like Incremental Cutover Rehearsal — PENDING

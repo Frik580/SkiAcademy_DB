@@ -1056,7 +1056,9 @@ function isAfterCursor(booking: Booking, cursor: LessonBookingReadModelCursor): 
   if (updatedCompare > 0) {
     return false;
   }
-  return booking.bookingId < cursor.bookingId;
+  // Tie-break must match compareBookingReadOrder / Firestore orderBy(bookingId, 'asc'):
+  // after cursor ⇒ strictly greater bookingId when updatedAt is equal.
+  return booking.bookingId > cursor.bookingId;
 }
 
 function adminListQuery(

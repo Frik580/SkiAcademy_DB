@@ -16,7 +16,10 @@ import { mergeProposalRecords } from './proposalViewModel';
 import { mergeChangeRequestRecords } from './changeRequestViewModel';
 import { mergeInstructorLessonBookingRecords } from './instructorLessonBookingViewModel';
 import { storeParticipantAccessItem } from './participantAccessViewModel';
-import { participantInstructorAccessKey } from './deriveCollaborationIdempotencyKeys';
+import {
+  participantInstructorAccessKey,
+  participantInstructorAccessQueryKey,
+} from './deriveCollaborationIdempotencyKeys';
 import { mergeLessonBookingRecords } from '../lesson-bookings/lessonBookingViewModel';
 import { useLessonBookingStore } from '../lesson-bookings/lessonBookingStore';
 
@@ -114,27 +117,88 @@ export async function refetchInstructorCollaborationReads(): Promise<void> {
   await loadInstructorCollaborationReads();
 }
 
+async function loadParticipantAccessRead(
+  scope: 'account_manager' | 'instructor',
+  participantId: string,
+  instructorId: string
+): Promise<void> {
+  const queryKey = participantInstructorAccessQueryKey(scope, participantId, instructorId);
+  const store = useBookingCollaborationStore.getState();
+  store.setParticipantAccessQuery(queryKey, { status: 'loading' });
+  try {
+    const result = await queryParticipantInstructorAccessReadModels({
+      scope,
+      participantId: ParticipantIdSchema.parse(participantId),
+      instructorId: InstructorIdSchema.parse(instructorId),
+    });
+    const pairKey = participantInstructorAccessKey(participantId, instructorId);
+    const next = storeParticipantAccessItem(
+      useBookingCollaborationStore.getState().participantAccess,
+      result.item,
+      participantId,
+      instructorId
+    );
+    // result.item may omit relationship (null/absent) or include revoked/active —
+    // both are valid loaded outcomes. Missing item deletes the pair entry and still
+    // records loaded so the Trainer tab does not treat it as uninitialized.
+    useBookingCollaborationStore.getState().setParticipantAccess(next);
+    useBookingCollaborationStore.getState().setParticipantAccessQuery(queryKey, {
+      status: 'loaded',
+    });
+    if (!result.item && !next.has(pairKey)) {
+      return;
+    }
+  } catch (error) {
+    useBookingCollaborationStore.getState().setParticipantAccessQuery(queryKey, {
+      status: 'error',
+      message: error instanceof Error ? error.message : 'Failed to load participant access.',
+    });
+    throw error;
+  }
+}
+
+/**
+ * Force-refresh access for a stable key (mutation follow-up / explicit refresh).
+ * One deliberate request; does not poll.
+ */
 export async function refetchParticipantAccessRead(
   scope: 'account_manager' | 'instructor',
   participantId: string,
   instructorId: string
 ): Promise<void> {
-  const result = await queryParticipantInstructorAccessReadModels({
-    scope,
-    participantId: ParticipantIdSchema.parse(participantId),
-    instructorId: InstructorIdSchema.parse(instructorId),
-  });
-  const key = participantInstructorAccessKey(participantId, instructorId);
-  const next = storeParticipantAccessItem(
-    useBookingCollaborationStore.getState().participantAccess,
-    result.item,
-    participantId,
-    instructorId
-  );
-  useBookingCollaborationStore.getState().setParticipantAccess(next);
-  if (!result.item && !next.has(key)) {
+  await loadParticipantAccessRead(scope, participantId, instructorId);
+}
+
+/**
+ * Load access once for a stable key unless already loading or loaded.
+ * Stale / idle / missing status may fetch; error does not auto-retry.
+ */
+export async function ensureParticipantAccessRead(
+  scope: 'account_manager' | 'instructor',
+  participantId: string,
+  instructorId: string
+): Promise<void> {
+  const queryKey = participantInstructorAccessQueryKey(scope, participantId, instructorId);
+  const status = useBookingCollaborationStore.getState().participantAccessQueries.get(queryKey);
+  if (status?.status === 'loading' || status?.status === 'loaded') {
     return;
   }
+  try {
+    await loadParticipantAccessRead(scope, participantId, instructorId);
+  } catch {
+    // Error status is already recorded; do not retry automatically.
+  }
+}
+
+export function invalidateParticipantAccessRead(
+  scope: 'account_manager' | 'instructor',
+  participantId: string,
+  instructorId: string
+): void {
+  const queryKey = participantInstructorAccessQueryKey(scope, participantId, instructorId);
+  useBookingCollaborationStore.getState().setParticipantAccessQuery(queryKey, {
+    status: 'stale',
+  });
 }
 
 export function useBookingCollaborationReadSync(input: BookingCollaborationReadSyncInput) {

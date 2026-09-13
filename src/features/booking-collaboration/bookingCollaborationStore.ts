@@ -4,6 +4,7 @@ import type {
   BookingProposalCabinetItem,
   InstructorLessonBookingItem,
   ParticipantAccessCabinetItem,
+  ParticipantAccessQueryStatus,
 } from './bookingCollaborationContracts';
 import { buildInstructorLessonBookingsList } from './instructorLessonBookingViewModel';
 
@@ -15,6 +16,7 @@ interface BookingCollaborationStoreState {
   readonly instructorLessonBookings: ReadonlyMap<string, InstructorLessonBookingItem>;
   readonly instructorLessonBookingsList: readonly InstructorLessonBookingItem[];
   readonly participantAccess: ReadonlyMap<string, ParticipantAccessCabinetItem>;
+  readonly participantAccessQueries: ReadonlyMap<string, ParticipantAccessQueryStatus>;
   readonly loading: boolean;
   readonly loaded: boolean;
   readonly error?: string;
@@ -26,6 +28,8 @@ interface BookingCollaborationStoreState {
   mergeInstructorLessonBookings: (items: ReadonlyMap<string, InstructorLessonBookingItem>) => void;
   setParticipantAccess: (items: ReadonlyMap<string, ParticipantAccessCabinetItem>) => void;
   mergeParticipantAccess: (items: ReadonlyMap<string, ParticipantAccessCabinetItem>) => void;
+  setParticipantAccessQuery: (key: string, status: ParticipantAccessQueryStatus) => void;
+  clearParticipantAccessQuery: (key: string) => void;
   setLoading: (loading: boolean) => void;
   setLoaded: (loaded: boolean) => void;
   setError: (error?: string) => void;
@@ -70,6 +74,7 @@ const initialState = {
   instructorLessonBookings: new Map<string, InstructorLessonBookingItem>(),
   instructorLessonBookingsList: EMPTY_INSTRUCTOR_LESSONS,
   participantAccess: new Map<string, ParticipantAccessCabinetItem>(),
+  participantAccessQueries: new Map<string, ParticipantAccessQueryStatus>(),
   loading: false,
   loaded: false,
   error: undefined,
@@ -134,6 +139,29 @@ export const useBookingCollaborationStore = create<BookingCollaborationStoreStat
       if (!changed) return state;
       return { participantAccess: merged };
     }),
+  setParticipantAccessQuery: (key, status) =>
+    set((state) => {
+      const current = state.participantAccessQueries.get(key);
+      if (
+        current &&
+        current.status === status.status &&
+        (current.status !== 'error' ||
+          status.status !== 'error' ||
+          current.message === status.message)
+      ) {
+        return state;
+      }
+      const next = new Map(state.participantAccessQueries);
+      next.set(key, status);
+      return { participantAccessQueries: next };
+    }),
+  clearParticipantAccessQuery: (key) =>
+    set((state) => {
+      if (!state.participantAccessQueries.has(key)) return state;
+      const next = new Map(state.participantAccessQueries);
+      next.delete(key);
+      return { participantAccessQueries: next };
+    }),
   setLoading: (loading) => set({ loading }),
   setLoaded: (loaded) => set({ loaded }),
   setError: (error) => set({ error }),
@@ -147,6 +175,7 @@ export const useBookingCollaborationStore = create<BookingCollaborationStoreStat
       instructorLessonBookings: new Map(),
       instructorLessonBookingsList: EMPTY_INSTRUCTOR_LESSONS,
       participantAccess: new Map(),
+      participantAccessQueries: new Map(),
     }),
 }));
 
@@ -173,4 +202,11 @@ export function selectParticipantAccessByPair(
   key: string
 ): ParticipantAccessCabinetItem | undefined {
   return state.participantAccess.get(key);
+}
+
+export function selectParticipantAccessQuery(
+  state: BookingCollaborationStoreState,
+  key: string
+): ParticipantAccessQueryStatus | undefined {
+  return state.participantAccessQueries.get(key);
 }

@@ -2,10 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { ParticipantAccessControls } from './ParticipantAccessControls';
 import {
   selectParticipantAccessByPair,
+  selectParticipantAccessQuery,
   useBookingCollaborationStore,
 } from '../bookingCollaborationStore';
-import { participantInstructorAccessKey } from '../deriveCollaborationIdempotencyKeys';
+import {
+  participantInstructorAccessKey,
+  participantInstructorAccessQueryKey,
+} from '../deriveCollaborationIdempotencyKeys';
 import { useBookingCollaborationCommands } from '../useBookingCollaborationCommands';
+import { ensureParticipantAccessRead } from '../useBookingCollaborationReadSync';
 import { useManagedParticipants } from '../../lesson-bookings/useManagedParticipants';
 
 export interface CoachParticipantAccessPanelProps {
@@ -13,6 +18,8 @@ export interface CoachParticipantAccessPanelProps {
   readonly instructorId: string;
   readonly participantId?: string;
 }
+
+const ACCESS_SCOPE = 'account_manager' as const;
 
 export const CoachParticipantAccessPanel: React.FC<CoachParticipantAccessPanelProps> = ({
   accountId,
@@ -25,32 +32,43 @@ export const CoachParticipantAccessPanel: React.FC<CoachParticipantAccessPanelPr
     resolvedParticipantId !== undefined
       ? participantInstructorAccessKey(resolvedParticipantId, instructorId)
       : '';
+  const queryKey =
+    resolvedParticipantId !== undefined
+      ? participantInstructorAccessQueryKey(ACCESS_SCOPE, resolvedParticipantId, instructorId)
+      : '';
   const access = useBookingCollaborationStore((state) =>
     accessKey ? selectParticipantAccessByPair(state, accessKey) : undefined
   );
+  const queryStatus = useBookingCollaborationStore((state) =>
+    queryKey ? selectParticipantAccessQuery(state, queryKey) : undefined
+  );
   const commands = useBookingCollaborationCommands({ accountId });
-  const [loading, setLoading] = useState(false);
+  const [mutationLoading, setMutationLoading] = useState(false);
+
+  // Stable primitive identity only. Do not depend on `commands` (new object each render)
+  // or on relationship / authorizedActions object identity — that caused a refetch loop.
+  const shouldEnsure =
+    Boolean(resolvedParticipantId) &&
+    (queryStatus === undefined || queryStatus.status === 'stale');
 
   useEffect(() => {
-    if (!resolvedParticipantId) return;
-    void commands.refetchParticipantAccessRead(
-      'account_manager',
-      resolvedParticipantId,
-      instructorId
-    );
-  }, [commands, instructorId, resolvedParticipantId]);
+    if (!resolvedParticipantId || !shouldEnsure) return;
+    void ensureParticipantAccessRead(ACCESS_SCOPE, resolvedParticipantId, instructorId);
+  }, [instructorId, resolvedParticipantId, shouldEnsure]);
 
   if (!resolvedParticipantId) return null;
+
+  const loading = mutationLoading || queryStatus?.status === 'loading';
 
   return (
     <ParticipantAccessControls
       access={access}
-      scope="account_manager"
+      scope={ACCESS_SCOPE}
       loading={loading}
       onCreateRelationship={
         access?.authorizedActions.canCreateRelationship
           ? async () => {
-              setLoading(true);
+              setMutationLoading(true);
               try {
                 await commands.createRelationship({
                   participantId: resolvedParticipantId,
@@ -62,7 +80,7 @@ export const CoachParticipantAccessPanel: React.FC<CoachParticipantAccessPanelPr
                       : 'account_owner',
                 });
               } finally {
-                setLoading(false);
+                setMutationLoading(false);
               }
             }
           : undefined
@@ -72,7 +90,7 @@ export const CoachParticipantAccessPanel: React.FC<CoachParticipantAccessPanelPr
         access.instructorRelationshipId &&
         access.relationshipRevision !== undefined
           ? async () => {
-              setLoading(true);
+              setMutationLoading(true);
               try {
                 await commands.revokeRelationship({
                   instructorRelationshipId: access.instructorRelationshipId!,
@@ -86,7 +104,7 @@ export const CoachParticipantAccessPanel: React.FC<CoachParticipantAccessPanelPr
                       : 'account_owner',
                 });
               } finally {
-                setLoading(false);
+                setMutationLoading(false);
               }
             }
           : undefined
@@ -94,13 +112,13 @@ export const CoachParticipantAccessPanel: React.FC<CoachParticipantAccessPanelPr
       onBlock={
         access?.authorizedActions.canBlock
           ? async (reason) => {
-              setLoading(true);
+              setMutationLoading(true);
               try {
                 await commands.blockParticipant({
                   participantId: resolvedParticipantId,
                   targetInstructorId: instructorId,
                   reason,
-                  scope: 'account_manager',
+                  scope: ACCESS_SCOPE,
                   exercisedCapability:
                     participants.find((item) => item.participantId === resolvedParticipantId)
                       ?.authority === 'parent_guardian'
@@ -108,7 +126,7 @@ export const CoachParticipantAccessPanel: React.FC<CoachParticipantAccessPanelPr
                       : 'account_owner',
                 });
               } finally {
-                setLoading(false);
+                setMutationLoading(false);
               }
             }
           : undefined
@@ -118,14 +136,14 @@ export const CoachParticipantAccessPanel: React.FC<CoachParticipantAccessPanelPr
         access.managerBlockId &&
         access.managerBlockRevision !== undefined
           ? async () => {
-              setLoading(true);
+              setMutationLoading(true);
               try {
                 await commands.unblockParticipant({
                   participantBlockId: access.managerBlockId!,
                   blockRevision: access.managerBlockRevision!,
                   participantId: resolvedParticipantId,
                   targetInstructorId: instructorId,
-                  scope: 'account_manager',
+                  scope: ACCESS_SCOPE,
                   exercisedCapability:
                     participants.find((item) => item.participantId === resolvedParticipantId)
                       ?.authority === 'parent_guardian'
@@ -133,7 +151,7 @@ export const CoachParticipantAccessPanel: React.FC<CoachParticipantAccessPanelPr
                       : 'account_owner',
                 });
               } finally {
-                setLoading(false);
+                setMutationLoading(false);
               }
             }
           : undefined

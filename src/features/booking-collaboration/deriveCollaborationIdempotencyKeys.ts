@@ -130,6 +130,14 @@ export function participantInstructorAccessKey(
   return `${participantId}:${instructorId}`;
 }
 
+export function participantInstructorAccessQueryKey(
+  scope: 'account_manager' | 'instructor',
+  participantId: string,
+  instructorId: string
+): string {
+  return `${scope}:${participantId}:${instructorId}`;
+}
+
 export function parseBookingId(bookingId: string) {
   return BookingIdSchema.parse(bookingId);
 }

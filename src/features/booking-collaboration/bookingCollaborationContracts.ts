@@ -98,6 +98,17 @@ export interface ParticipantAccessCabinetItem {
   readonly authorizedActions: ParticipantInstructorAccessReadModelAuthorizedActions;
 }
 
+/**
+ * Explicit request lifecycle for one stable
+ * (scope, participantId, instructorId) access read.
+ * Relationship truthiness must not stand in for load status.
+ */
+export type ParticipantAccessQueryStatus =
+  | { readonly status: 'loading' }
+  | { readonly status: 'loaded' }
+  | { readonly status: 'error'; readonly message: string }
+  | { readonly status: 'stale' };
+
 export type CollaborationActorScope = 'account' | 'instructor';
 
 export interface CollaborationReadSyncState {

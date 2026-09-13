@@ -64,6 +64,11 @@ export const ParticipantAccessControls: React.FC<ParticipantAccessControlsProps>
               {copy.t('collabRelationshipActive')}
             </span>
           )}
+          {access.relationshipStatus === 'revoked' && (
+            <span className="text-xs text-[var(--ink-dim)]">
+              {copy.t('collabRelationshipRevoked')}
+            </span>
+          )}
         </div>
       </div>
 

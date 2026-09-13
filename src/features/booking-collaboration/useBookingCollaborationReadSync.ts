@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import {
   queryBookingChangeRequestReadModels,
   queryBookingProposalReadModels,
@@ -203,6 +203,7 @@ export function invalidateParticipantAccessRead(
 
 export function useBookingCollaborationReadSync(input: BookingCollaborationReadSyncInput) {
   const { customerEnabled, instructorEnabled, accountId, instructorId } = input;
+  const previousAccountIdRef = useRef<string | undefined>(undefined);
 
   const reload = useCallback(async () => {
     if (!customerEnabled && !instructorEnabled) return;
@@ -226,11 +227,34 @@ export function useBookingCollaborationReadSync(input: BookingCollaborationReadS
   }, [accountId, customerEnabled, instructorEnabled, instructorId]);
 
   useEffect(() => {
-    if (!customerEnabled && !instructorEnabled) {
+    const previousAccountId = previousAccountIdRef.current;
+    const accountChanged =
+      previousAccountId !== undefined && previousAccountId !== accountId;
+    previousAccountIdRef.current = accountId;
+
+    // No authenticated customer account and no instructor workspace: full wipe
+    // (logout / signed-out). Instructor-only fixtures may omit accountId.
+    if (!accountId && !instructorEnabled) {
       useBookingCollaborationStore.getState().reset();
       return;
     }
-    useBookingCollaborationStore.getState().reset();
+
+    // Account switch without an intermediate null: drop prior account's access.
+    if (accountChanged) {
+      useBookingCollaborationStore.getState().reset();
+    }
+
+    // Leaving hot collaboration surfaces (e.g. Trainer → Training) must NOT
+    // clear participantAccessQueries — remounting Trainer should reuse loaded keys.
+    if (!customerEnabled && !instructorEnabled) {
+      return;
+    }
+
+    // Refresh list-scoped reads only; preserve loaded access query status
+    // unless the account just changed (full reset above).
+    if (!accountChanged) {
+      useBookingCollaborationStore.getState().resetCollaborationLists();
+    }
     void reload();
   }, [customerEnabled, instructorEnabled, accountId, instructorId, reload]);
 

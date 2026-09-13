@@ -329,6 +329,15 @@
         { "fieldPath": "lessonStartsAt.seconds", "order": "DESCENDING" },
         { "fieldPath": "lessonStartsAt.nanoseconds", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "participant_management",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "accountId", "order": "ASCENDING" },
+        { "fieldPath": "participantId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [

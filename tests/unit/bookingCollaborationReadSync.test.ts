@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { useBookingCollaborationStore } from '../../src/features/booking-collaboration/bookingCollaborationStore';
 import { useBookingCollaborationReadSync } from '../../src/features/booking-collaboration/useBookingCollaborationReadSync';
 
@@ -119,5 +119,50 @@ describe('useBookingCollaborationReadSync instructor panel', () => {
       scope: 'instructor_history',
       cursor: 'instructor_history:2',
     });
+  });
+
+  it('disabling customer collaboration sync preserves participant access query cache', async () => {
+    queryBookingProposalReadModelsMock.mockResolvedValue({
+      scope: 'account_open',
+      items: [],
+    });
+    queryBookingChangeRequestReadModelsMock.mockResolvedValue({
+      scope: 'account_open',
+      items: [],
+    });
+    useBookingCollaborationStore.getState().setParticipantAccessQuery('access:coach', {
+      status: 'loaded',
+    });
+
+    const { rerender } = renderHook(
+      ({ customerEnabled }: { customerEnabled: boolean }) =>
+        useBookingCollaborationReadSync({
+          customerEnabled,
+          instructorEnabled: false,
+          accountId: 'account_fixture_01',
+        }),
+      { initialProps: { customerEnabled: true } }
+    );
+
+    await waitFor(() => {
+      expect(useBookingCollaborationStore.getState().loaded).toBe(true);
+    });
+
+    rerender({ customerEnabled: false });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(
+      useBookingCollaborationStore.getState().participantAccessQueries.get('access:coach')
+    ).toEqual({ status: 'loaded' });
+
+    rerender({ customerEnabled: true });
+    await waitFor(() => {
+      expect(useBookingCollaborationStore.getState().loaded).toBe(true);
+    });
+    expect(
+      useBookingCollaborationStore.getState().participantAccessQueries.get('access:coach')
+    ).toEqual({ status: 'loaded' });
   });
 });

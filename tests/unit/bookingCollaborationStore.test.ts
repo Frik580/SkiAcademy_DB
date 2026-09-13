@@ -79,17 +79,57 @@ describe('bookingCollaborationStore', () => {
       revision: 1,
       date: '2026-01-01',
     } as InstructorLessonBookingItem;
-    useBookingCollaborationStore.getState().setInstructorLessonBookings(
-      new Map([
-        [first.bookingId, first],
-        [reassigned.bookingId, reassigned],
-      ])
-    );
 
     useBookingCollaborationStore
       .getState()
-      .setInstructorLessonBookings(new Map([[first.bookingId, first]]));
+      .setInstructorLessonBookings(
+        new Map([
+          ['booking_first', first],
+          ['booking_reassigned', reassigned],
+        ])
+      );
+    useBookingCollaborationStore
+      .getState()
+      .setInstructorLessonBookings(new Map([['booking_first', first]]));
 
-    expect(useBookingCollaborationStore.getState().instructorLessonBookingsList).toEqual([first]);
+    expect([...useBookingCollaborationStore.getState().instructorLessonBookings.keys()]).toEqual([
+      'booking_first',
+    ]);
+  });
+
+  it('resetCollaborationLists preserves loaded participant access queries', () => {
+    useBookingCollaborationStore.getState().setParticipantAccessQuery('access:a', {
+      status: 'loaded',
+    });
+    useBookingCollaborationStore.getState().setParticipantAccess(
+      new Map([
+        [
+          'pair:a',
+          {
+            participantId: 'participant_a',
+            instructorId: 'instructor_a',
+            participantDisplayName: 'A',
+            instructorDisplayName: 'Coach',
+            authorizedActions: {
+              canCreateRelationship: true,
+              canRevokeRelationship: false,
+              canBlock: true,
+              canUnblock: false,
+            },
+          },
+        ],
+      ])
+    );
+    useBookingCollaborationStore
+      .getState()
+      .mergeProposals(new Map([['proposal_a', proposal('proposal_a', 1)]]));
+
+    useBookingCollaborationStore.getState().resetCollaborationLists();
+
+    expect(useBookingCollaborationStore.getState().proposals.size).toBe(0);
+    expect(useBookingCollaborationStore.getState().participantAccessQueries.get('access:a')).toEqual(
+      { status: 'loaded' }
+    );
+    expect(useBookingCollaborationStore.getState().participantAccess.has('pair:a')).toBe(true);
   });
 });

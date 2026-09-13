@@ -4,10 +4,13 @@ import {
   instructorRelationshipIdFromPair,
   participantBlockIdFromDirection,
   sanitizeParticipantBlockReasonForReadModel,
+  type Account,
   type AccountId,
   type InstructorId,
+  type Participant,
   type ParticipantBlock,
   type ParticipantInstructorAccessReadModel,
+  type ParticipantManagement,
   type QueryParticipantInstructorAccessReadModelsInput,
   type QueryParticipantInstructorAccessReadModelsResult,
   timestampFromDate,
@@ -27,7 +30,22 @@ import {
   parseParticipantManagement,
   participantBlockPath,
 } from '../participantAccess/participantAccessStore';
-import { loadLessonBookingReadAuthorizationContext } from './lessonBookingReadModels';
+
+/**
+ * Preserved account_manager authorization semantics (T32.9R.A2):
+ *
+ * Previously via loadLessonBookingReadAuthorizationContext + evaluateParticipantManagementAccess:
+ * - account must exist and be lifecycle-active (evaluator: account_inactive / unauthorized)
+ * - target management must be status === 'active' for this accountId + participantId
+ * - participant must exist, be lifecycle-active, management.kind === 'managed',
+ *   and participant.management.participantManagementId must match the active management
+ * - ended/history management rows never authorize (loader filtered status === 'active';
+ *   evaluator also requires status === 'active')
+ * - authority/role come from the matched active management document
+ * - unauthorized / missing target returns { scope } with no item (optional item)
+ *
+ * Management has no expiresAt field; relationship expiry is handled in the builder projection.
+ */
 
 function buildBlockProjection(
   block: ParticipantBlock | undefined,
@@ -45,15 +63,88 @@ function buildBlockProjection(
   };
 }
 
+type PreloadedAccessEntities = Readonly<{
+  account?: Account;
+  participant?: Participant;
+  management?: ParticipantManagement;
+}>;
+
+async function loadTargetedAccountManagerAuthorization(
+  firestore: Firestore,
+  accountId: AccountId,
+  participantId: QueryParticipantInstructorAccessReadModelsInput['participantId']
+): Promise<
+  | Readonly<{
+      allowed: true;
+      account: Account;
+      participant: Participant;
+      management: ParticipantManagement;
+    }>
+  | Readonly<{ allowed: false }>
+> {
+  const accountSnap = await firestore.collection('users').doc(accountId).get();
+  const account = parseAccount(accountSnap.data() as Record<string, unknown> | undefined);
+  if (!account) {
+    return { allowed: false };
+  }
+
+  // Narrowest safe lookup matching evaluator: only active rows authorize.
+  // Filtering status in the query avoids the prior limit(50) starvation risk where
+  // ended/history rows could crowd out the active target management.
+  const managementSnap = await firestore
+    .collection('participant_management')
+    .where('accountId', '==', accountId)
+    .where('participantId', '==', participantId)
+    .where('status', '==', 'active')
+    .limit(1)
+    .get();
+
+  const management = parseParticipantManagement(
+    managementSnap.docs[0]?.data() as Record<string, unknown> | undefined
+  );
+  if (!management || management.status !== 'active') {
+    return { allowed: false };
+  }
+
+  const participantSnap = await firestore.collection('participants').doc(participantId).get();
+  const participant = parseParticipant(
+    participantSnap.data() as Record<string, unknown> | undefined
+  );
+  if (!participant) {
+    return { allowed: false };
+  }
+
+  const topology = buildParticipantAccessTopology({
+    account,
+    participant,
+    management,
+  });
+  const access = evaluateParticipantManagementAccess(topology, {
+    accountId,
+    participantId,
+  });
+  if (!access.allowed) {
+    return { allowed: false };
+  }
+
+  return { allowed: true, account, participant, management };
+}
+
 async function buildParticipantInstructorAccessReadModel(input: Readonly<{
   firestore: Firestore;
   actor: ReadModelAccountManagerActor | ReadModelInstructorActor;
   participantId: QueryParticipantInstructorAccessReadModelsInput['participantId'];
   instructorId: InstructorId;
   now: CanonicalTimestamp;
+  preloaded?: PreloadedAccessEntities;
 }>): Promise<ParticipantInstructorAccessReadModel | undefined> {
-  const participantSnap = await input.firestore.collection('participants').doc(input.participantId).get();
-  const participant = parseParticipant(participantSnap.data() as Record<string, unknown> | undefined);
+  const participant =
+    input.preloaded?.participant ??
+    parseParticipant(
+      (
+        await input.firestore.collection('participants').doc(input.participantId).get()
+      ).data() as Record<string, unknown> | undefined
+    );
   if (!participant) {
     return undefined;
   }
@@ -71,11 +162,6 @@ async function buildParticipantInstructorAccessReadModel(input: Readonly<{
     participantId: input.participantId,
     instructorId: input.instructorId,
   });
-  const relationshipSnap = await input.firestore.doc(instructorRelationshipPath(relationshipId)).get();
-  const relationship = parseInstructorRelationship(
-    relationshipSnap.data() as Record<string, unknown> | undefined
-  );
-
   const managerBlockId = participantBlockIdFromDirection({
     participantId: input.participantId,
     instructorId: input.instructorId,
@@ -87,8 +173,17 @@ async function buildParticipantInstructorAccessReadModel(input: Readonly<{
     createdByKind: 'instructor',
   });
 
-  const managerBlockSnap = await input.firestore.doc(participantBlockPath(managerBlockId)).get();
-  const instructorBlockSnap = await input.firestore.doc(participantBlockPath(instructorBlockId)).get();
+  // Relationship + both block docs remain required for authorizedActions / projection.
+  // Parallelize only after instructor existence is confirmed so missing-instructor
+  // still early-exits without extra pair reads.
+  const [relationshipSnap, managerBlockSnap, instructorBlockSnap] = await Promise.all([
+    input.firestore.doc(instructorRelationshipPath(relationshipId)).get(),
+    input.firestore.doc(participantBlockPath(managerBlockId)).get(),
+    input.firestore.doc(participantBlockPath(instructorBlockId)).get(),
+  ]);
+  const relationship = parseInstructorRelationship(
+    relationshipSnap.data() as Record<string, unknown> | undefined
+  );
   const managerBlock = parseParticipantBlock(
     managerBlockSnap.data() as Record<string, unknown> | undefined
   );
@@ -96,18 +191,22 @@ async function buildParticipantInstructorAccessReadModel(input: Readonly<{
     instructorBlockSnap.data() as Record<string, unknown> | undefined
   );
 
-  let account;
-  let management;
+  let account = input.preloaded?.account;
+  let management = input.preloaded?.management;
   if (input.actor.kind === 'account_manager') {
-    const accountSnap = await input.firestore.collection('users').doc(input.actor.accountId).get();
-    account = parseAccount(accountSnap.data() as Record<string, unknown> | undefined);
-    const managementSnap = await input.firestore
-      .collection('participant_management')
-      .doc(input.actor.participantManagementId)
-      .get();
-    management = parseParticipantManagement(
-      managementSnap.data() as Record<string, unknown> | undefined
-    );
+    if (!account) {
+      const accountSnap = await input.firestore.collection('users').doc(input.actor.accountId).get();
+      account = parseAccount(accountSnap.data() as Record<string, unknown> | undefined);
+    }
+    if (!management) {
+      const managementSnap = await input.firestore
+        .collection('participant_management')
+        .doc(input.actor.participantManagementId)
+        .get();
+      management = parseParticipantManagement(
+        managementSnap.data() as Record<string, unknown> | undefined
+      );
+    }
   }
 
   const authorizedActions = evaluateParticipantInstructorAccessAuthorizedActions({
@@ -155,27 +254,12 @@ export async function queryParticipantInstructorAccessReadModels(
   const now = timestampFromDate(options.now ?? new Date());
 
   if (input.scope === 'account_manager') {
-    const authContext = await loadLessonBookingReadAuthorizationContext(firestore, options.accountId);
-    const management = authContext.participantManagement.find(
-      (record) => record.participantId === input.participantId
+    const auth = await loadTargetedAccountManagerAuthorization(
+      firestore,
+      options.accountId,
+      input.participantId
     );
-    const participant = authContext.participants.find(
-      (record) => record.participantId === input.participantId
-    );
-    if (!management || !participant || !authContext.account) {
-      return { scope: input.scope };
-    }
-
-    const topology = buildParticipantAccessTopology({
-      account: authContext.account,
-      participant,
-      management,
-    });
-    const access = evaluateParticipantManagementAccess(topology, {
-      accountId: options.accountId,
-      participantId: input.participantId,
-    });
-    if (!access.allowed) {
+    if (!auth.allowed) {
       return { scope: input.scope };
     }
 
@@ -184,12 +268,17 @@ export async function queryParticipantInstructorAccessReadModels(
       actor: {
         kind: 'account_manager',
         accountId: options.accountId,
-        participantManagementId: management.participantManagementId,
-        authority: management.authority,
+        participantManagementId: auth.management.participantManagementId,
+        authority: auth.management.authority,
       },
       participantId: input.participantId,
       instructorId: input.instructorId,
       now,
+      preloaded: {
+        account: auth.account,
+        participant: auth.participant,
+        management: auth.management,
+      },
     });
     return { scope: input.scope, ...(item ? { item } : {}) };
   }

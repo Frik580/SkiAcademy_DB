@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, render, screen, waitFor } from '@testing-library/react';
+import { renderHook } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 import { CoachParticipantAccessPanel } from '../../src/features/booking-collaboration/components/CoachParticipantAccessPanel';
@@ -7,11 +8,16 @@ import {
   participantInstructorAccessQueryKey,
   useBookingCollaborationStore,
 } from '../../src/features/booking-collaboration';
-import { refetchParticipantAccessRead } from '../../src/features/booking-collaboration/useBookingCollaborationReadSync';
+import {
+  refetchParticipantAccessRead,
+  useBookingCollaborationReadSync,
+} from '../../src/features/booking-collaboration/useBookingCollaborationReadSync';
 import type { ParticipantInstructorAccessReadModel } from '@ski-academy/shared-domain';
 
 const queryParticipantInstructorAccessReadModelsMock = vi.fn();
 const createRelationshipMock = vi.fn();
+const queryBookingProposalReadModelsMock = vi.fn();
+const queryBookingChangeRequestReadModelsMock = vi.fn();
 
 vi.mock('../../src/app/providers/LanguageContext', () => ({
   useLanguage: () => ({
@@ -23,6 +29,10 @@ vi.mock('../../src/app/providers/LanguageContext', () => ({
 vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
   queryParticipantInstructorAccessReadModels: (...args: unknown[]) =>
     queryParticipantInstructorAccessReadModelsMock(...args),
+  queryBookingProposalReadModels: (...args: unknown[]) =>
+    queryBookingProposalReadModelsMock(...args),
+  queryBookingChangeRequestReadModels: (...args: unknown[]) =>
+    queryBookingChangeRequestReadModelsMock(...args),
 }));
 
 vi.mock('../../src/features/lesson-bookings/useManagedParticipants', () => ({
@@ -81,6 +91,13 @@ describe('CoachParticipantAccessPanel access read ownership', () => {
     useBookingCollaborationStore.getState().reset();
     queryParticipantInstructorAccessReadModelsMock.mockReset();
     createRelationshipMock.mockReset();
+    queryBookingProposalReadModelsMock.mockReset();
+    queryBookingChangeRequestReadModelsMock.mockReset();
+    queryBookingProposalReadModelsMock.mockResolvedValue({ scope: 'account_open', items: [] });
+    queryBookingChangeRequestReadModelsMock.mockResolvedValue({
+      scope: 'account_open',
+      items: [],
+    });
     createRelationshipMock.mockImplementation(async () => {
       await refetchParticipantAccessRead('account_manager', PARTICIPANT_ID, INSTRUCTOR_ID);
     });
@@ -436,5 +453,217 @@ describe('CoachParticipantAccessPanel access read ownership', () => {
     });
 
     expect(queryParticipantInstructorAccessReadModelsMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+const INSTRUCTOR_A = 'ins_X9vUp3gIrbNFWUpWsEzvLCAEh7q2';
+const INSTRUCTOR_B = 'ins_elena';
+
+function TwoInstructorTrainerPanels() {
+  return (
+    <>
+      <CoachParticipantAccessPanel accountId="account_fixture_01" instructorId={INSTRUCTOR_A} />
+      <CoachParticipantAccessPanel accountId="account_fixture_01" instructorId={INSTRUCTOR_B} />
+    </>
+  );
+}
+
+describe('T32.9R.UI1B preserve access across Trainer remounts', () => {
+  beforeEach(() => {
+    useBookingCollaborationStore.getState().reset();
+    queryParticipantInstructorAccessReadModelsMock.mockReset();
+    createRelationshipMock.mockReset();
+    queryBookingProposalReadModelsMock.mockReset();
+    queryBookingChangeRequestReadModelsMock.mockReset();
+    queryBookingProposalReadModelsMock.mockResolvedValue({ scope: 'account_open', items: [] });
+    queryBookingChangeRequestReadModelsMock.mockResolvedValue({
+      scope: 'account_open',
+      items: [],
+    });
+    queryParticipantInstructorAccessReadModelsMock.mockImplementation(
+      async (input: { instructorId: string }) => ({
+        scope: 'account_manager',
+        item: item({
+          instructorId: input.instructorId,
+          instructorDisplayName: input.instructorId,
+        }),
+      })
+    );
+  });
+
+  it('A. two instructor keys on first mount issue exactly 2 calls', async () => {
+    render(<TwoInstructorTrainerPanels />);
+
+    await waitFor(() => {
+      expect(queryParticipantInstructorAccessReadModelsMock).toHaveBeenCalledTimes(2);
+    });
+    expect(queryParticipantInstructorAccessReadModelsMock).toHaveBeenCalledWith({
+      scope: 'account_manager',
+      participantId: PARTICIPANT_ID,
+      instructorId: INSTRUCTOR_A,
+    });
+    expect(queryParticipantInstructorAccessReadModelsMock).toHaveBeenCalledWith({
+      scope: 'account_manager',
+      participantId: PARTICIPANT_ID,
+      instructorId: INSTRUCTOR_B,
+    });
+  });
+
+  it('B. Trainer → Training → Trainer keeps total calls at 2', async () => {
+    const sync = renderHook(
+      ({ customerEnabled }: { customerEnabled: boolean }) =>
+        useBookingCollaborationReadSync({
+          customerEnabled,
+          instructorEnabled: false,
+          accountId: 'account_fixture_01',
+        }),
+      { initialProps: { customerEnabled: true } }
+    );
+
+    const { unmount } = render(<TwoInstructorTrainerPanels />);
+    await waitFor(() => {
+      expect(queryParticipantInstructorAccessReadModelsMock).toHaveBeenCalledTimes(2);
+    });
+
+    // Leave coach hot path for Training: collaboration list sync disables.
+    act(() => {
+      sync.rerender({ customerEnabled: false });
+    });
+    unmount();
+
+    // Return to Trainer: list sync re-enables, panels remount, access must stay loaded.
+    act(() => {
+      sync.rerender({ customerEnabled: true });
+    });
+    render(<TwoInstructorTrainerPanels />);
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(queryParticipantInstructorAccessReadModelsMock).toHaveBeenCalledTimes(2);
+    sync.unmount();
+  });
+
+  it('C. Trainer → Home → Trainer keeps total calls at 2', async () => {
+    const sync = renderHook(() =>
+      useBookingCollaborationReadSync({
+        customerEnabled: true,
+        instructorEnabled: false,
+        accountId: 'account_fixture_01',
+      })
+    );
+
+    const { unmount } = render(<TwoInstructorTrainerPanels />);
+    await waitFor(() => {
+      expect(queryParticipantInstructorAccessReadModelsMock).toHaveBeenCalledTimes(2);
+    });
+
+    unmount();
+    render(<TwoInstructorTrainerPanels />);
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(queryParticipantInstructorAccessReadModelsMock).toHaveBeenCalledTimes(2);
+    sync.unmount();
+  });
+
+  it('D. unrelated store update does not refetch either key', async () => {
+    render(<TwoInstructorTrainerPanels />);
+    await waitFor(() => {
+      expect(queryParticipantInstructorAccessReadModelsMock).toHaveBeenCalledTimes(2);
+    });
+
+    act(() => {
+      useBookingCollaborationStore.getState().setLoaded(true);
+      useBookingCollaborationStore.getState().resetCollaborationLists();
+    });
+
+    expect(queryParticipantInstructorAccessReadModelsMock).toHaveBeenCalledTimes(2);
+    expect(
+      useBookingCollaborationStore
+        .getState()
+        .participantAccessQueries.get(
+          participantInstructorAccessQueryKey('account_manager', PARTICIPANT_ID, INSTRUCTOR_A)
+        )
+    ).toEqual({ status: 'loaded' });
+    expect(
+      useBookingCollaborationStore
+        .getState()
+        .participantAccessQueries.get(
+          participantInstructorAccessQueryKey('account_manager', PARTICIPANT_ID, INSTRUCTOR_B)
+        )
+    ).toEqual({ status: 'loaded' });
+  });
+
+  it('E. mutation for instructor A refreshes A only', async () => {
+    render(<TwoInstructorTrainerPanels />);
+    await waitFor(() => {
+      expect(queryParticipantInstructorAccessReadModelsMock).toHaveBeenCalledTimes(2);
+    });
+
+    await act(async () => {
+      await refetchParticipantAccessRead('account_manager', PARTICIPANT_ID, INSTRUCTOR_A);
+    });
+
+    expect(queryParticipantInstructorAccessReadModelsMock).toHaveBeenCalledTimes(3);
+    const callsForA = queryParticipantInstructorAccessReadModelsMock.mock.calls.filter(
+      (call) => (call[0] as { instructorId: string }).instructorId === INSTRUCTOR_A
+    );
+    const callsForB = queryParticipantInstructorAccessReadModelsMock.mock.calls.filter(
+      (call) => (call[0] as { instructorId: string }).instructorId === INSTRUCTOR_B
+    );
+    expect(callsForA).toHaveLength(2);
+    expect(callsForB).toHaveLength(1);
+  });
+
+  it('F. logout clears access query state safely', async () => {
+    const { unmount } = render(<TwoInstructorTrainerPanels />);
+    await waitFor(() => {
+      expect(queryParticipantInstructorAccessReadModelsMock).toHaveBeenCalledTimes(2);
+    });
+    unmount();
+
+    const { resetUserScopedStores } = await import('../../src/store/resetDataStores');
+    act(() => {
+      resetUserScopedStores();
+    });
+
+    expect(useBookingCollaborationStore.getState().participantAccessQueries.size).toBe(0);
+    expect(useBookingCollaborationStore.getState().participantAccess.size).toBe(0);
+  });
+
+  it('G. participant change loads the new key once', async () => {
+    const { rerender } = render(
+      <CoachParticipantAccessPanel
+        accountId="account_fixture_01"
+        instructorId={INSTRUCTOR_A}
+        participantId={PARTICIPANT_ID}
+      />
+    );
+    await waitFor(() => {
+      expect(queryParticipantInstructorAccessReadModelsMock).toHaveBeenCalledTimes(1);
+    });
+
+    const nextParticipant =
+      'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+    rerender(
+      <CoachParticipantAccessPanel
+        accountId="account_fixture_01"
+        instructorId={INSTRUCTOR_A}
+        participantId={nextParticipant}
+      />
+    );
+
+    await waitFor(() => {
+      expect(queryParticipantInstructorAccessReadModelsMock).toHaveBeenCalledTimes(2);
+    });
+    expect(queryParticipantInstructorAccessReadModelsMock).toHaveBeenLastCalledWith({
+      scope: 'account_manager',
+      participantId: nextParticipant,
+      instructorId: INSTRUCTOR_A,
+    });
   });
 });

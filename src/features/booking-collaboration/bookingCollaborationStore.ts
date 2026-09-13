@@ -33,6 +33,14 @@ interface BookingCollaborationStoreState {
   setLoading: (loading: boolean) => void;
   setLoaded: (loaded: boolean) => void;
   setError: (error?: string) => void;
+  /**
+   * Clears list-scoped collaboration reads (proposals / change requests /
+   * instructor lessons) without touching participant-access query cache.
+   * Used when route gates re-enable list sync so Trainer remounts keep
+   * loaded access keys.
+   */
+  resetCollaborationLists: () => void;
+  /** Full store wipe including participant-access cache (logout / account change). */
   reset: () => void;
 }
 
@@ -165,6 +173,21 @@ export const useBookingCollaborationStore = create<BookingCollaborationStoreStat
   setLoading: (loading) => set({ loading }),
   setLoaded: (loaded) => set({ loaded }),
   setError: (error) => set({ error }),
+  resetCollaborationLists: () =>
+    set((state) => ({
+      proposals: new Map(),
+      proposalsList: EMPTY_PROPOSALS,
+      changeRequests: new Map(),
+      changeRequestsList: EMPTY_CHANGE_REQUESTS,
+      instructorLessonBookings: new Map(),
+      instructorLessonBookingsList: EMPTY_INSTRUCTOR_LESSONS,
+      loading: false,
+      loaded: false,
+      error: undefined,
+      // Preserve loaded participant-access maps across route unmounts.
+      participantAccess: state.participantAccess,
+      participantAccessQueries: state.participantAccessQueries,
+    })),
   reset: () =>
     set({
       ...initialState,

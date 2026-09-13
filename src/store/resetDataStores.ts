@@ -1,4 +1,5 @@
 import { useBookingsStore } from '../features/bookings/bookingsStore';
+import { useBookingCollaborationStore } from '../features/booking-collaboration/bookingCollaborationStore';
 import { useCoursesStore } from '../features/courses/coursesStore';
 import { useNotificationsStore } from '../features/notifications/notificationsStore';
 import { useParticipantProgressStore } from '../features/participant-progress/participantProgressStore';
@@ -54,4 +55,6 @@ export function resetUserScopedStores(): void {
   useParticipantLessonFeedbackStore.getState().clear();
   useParticipantAchievementsStore.getState().clear();
   useAccountParticipantLessonStatsStore.getState().reset();
+  // Participant-access query cache is session-scoped; wipe on logout/account end.
+  useBookingCollaborationStore.getState().reset();
 }

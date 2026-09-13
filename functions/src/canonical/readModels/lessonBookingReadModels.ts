@@ -48,6 +48,7 @@ import {
   encodeLessonBookingReadModelCursor,
   LESSON_BOOKING_READ_MODEL_PAGE_SIZE_DEFAULT,
   LESSON_BOOKING_READ_MODEL_PAGE_SIZE_MAX,
+  lessonBookingIntersectsCalendarRange,
   timestampFromDate,
   guestSubjectIdFromBookingId,
   type Attendance,
@@ -1159,6 +1160,82 @@ export async function loadAuthorizedAccountBookings(
   return [...bookingsById.values()].sort(compareBookingReadOrder);
 }
 
+/** Max lesson duration is 24h; look back so month-boundary overlaps are visible. */
+export const ACCOUNT_CALENDAR_MONTH_STARTS_AT_LOOKBACK_SECONDS = 24 * 60 * 60;
+
+function compareBookingOccurrenceStart(left: Booking, right: Booking): number {
+  const startCompare = compareCanonicalTimestamps(
+    left.occurrence.interval.startsAt,
+    right.occurrence.interval.startsAt
+  );
+  if (startCompare !== 0) {
+    return startCompare;
+  }
+  return left.bookingId.localeCompare(right.bookingId);
+}
+
+export async function loadAuthorizedAccountBookingsForCalendarRange(
+  firestore: Firestore,
+  accountId: AccountId,
+  range: {
+    readonly rangeStart: CanonicalTimestamp;
+    readonly rangeEnd: CanonicalTimestamp;
+  },
+  options: {
+    readonly authContext?: LessonBookingReadAuthorizationContext;
+    readonly readContext?: ReadModelRequestContext;
+  } = {}
+): Promise<Booking[]> {
+  const readContext = options.readContext ?? createReadModelRequestContext(firestore);
+  const authContext =
+    options.authContext ??
+    (await loadLessonBookingReadAuthorizationContext(firestore, accountId, readContext));
+  const participantIds = authContext.participantManagement.map(
+    (management) => management.participantId
+  );
+  if (participantIds.length === 0) {
+    return [];
+  }
+
+  const lookbackStartSeconds = Math.max(
+    0,
+    range.rangeStart.seconds - ACCOUNT_CALENDAR_MONTH_STARTS_AT_LOOKBACK_SECONDS
+  );
+  const bookingsById = new Map<string, Booking>();
+
+  for (const participantId of participantIds) {
+    const snapshot = await firestore
+      .collection('bookings')
+      .where('party.participantIds', 'array-contains', participantId)
+      .where('occurrence.interval.startsAt.seconds', '>=', lookbackStartSeconds)
+      .where('occurrence.interval.startsAt.seconds', '<', range.rangeEnd.seconds)
+      .get();
+
+    for (const doc of snapshot.docs) {
+      const parsed = parseBooking(doc.data() as Record<string, unknown>);
+      if (!parsed || parsed.archival?.isDeleted) {
+        continue;
+      }
+      if (!canAccountViewLessonBookingService(authContext, accountId, parsed)) {
+        continue;
+      }
+      if (
+        !lessonBookingIntersectsCalendarRange({
+          startsAt: parsed.occurrence.interval.startsAt,
+          endsAt: parsed.occurrence.interval.endsAt,
+          rangeStart: range.rangeStart,
+          rangeEnd: range.rangeEnd,
+        })
+      ) {
+        continue;
+      }
+      bookingsById.set(parsed.bookingId, parsed);
+    }
+  }
+
+  return [...bookingsById.values()].sort(compareBookingOccurrenceStart);
+}
+
 export async function loadInstructorHotBookings(
   firestore: Firestore,
   instructorId: InstructorId
@@ -1402,6 +1479,32 @@ export async function queryLessonBookingReadModels(
     accountId,
     readContext
   );
+
+  if (input.scope === 'account_calendar_month') {
+    const authorizedBookings = await loadAuthorizedAccountBookingsForCalendarRange(
+      firestore,
+      accountId,
+      { rangeStart: input.rangeStart!, rangeEnd: input.rangeEnd! },
+      { authContext, readContext }
+    );
+    const items: LessonBookingReadModel[] = [];
+    for (const booking of authorizedBookings) {
+      const readModel = await buildLessonBookingReadModel(firestore, accountId, booking, {
+        authContext,
+        now,
+        readContext,
+      });
+      if (readModel) {
+        items.push(readModel);
+      }
+    }
+    return {
+      scope: input.scope,
+      items,
+      hasMore: false,
+    };
+  }
+
   const authorizedBookings = await loadAuthorizedAccountBookings(firestore, accountId, {
     authContext,
     readContext,

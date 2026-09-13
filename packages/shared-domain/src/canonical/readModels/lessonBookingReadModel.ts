@@ -41,6 +41,7 @@ import {
 export const LESSON_BOOKING_READ_SCOPES = [
   'account_hot',
   'account_history',
+  'account_calendar_month',
   'instructor_hot',
   'instructor_history',
   'guest_single',
@@ -54,6 +55,8 @@ export const LessonBookingReadScopeSchema = z.enum(LESSON_BOOKING_READ_SCOPES);
 
 export const LESSON_BOOKING_READ_MODEL_PAGE_SIZE_DEFAULT = 25;
 export const LESSON_BOOKING_READ_MODEL_PAGE_SIZE_MAX = 25;
+/** Half-open calendar month windows are at most ~31 days; 40d covers DST. */
+export const LESSON_BOOKING_CALENDAR_MONTH_RANGE_MAX_SECONDS = 40 * 24 * 60 * 60;
 
 export const LessonBookingReadModelParticipantProjectionSchema = z
   .object({
@@ -383,12 +386,79 @@ export const QueryLessonBookingReadModelsInputSchema = z
     pageSize: z.number().int().positive().max(LESSON_BOOKING_READ_MODEL_PAGE_SIZE_MAX).optional(),
     cursor: z.string().trim().min(1).max(512).optional(),
     bookingId: BookingIdSchema.optional(),
+    rangeStart: CanonicalTimestampSchema.optional(),
+    rangeEnd: CanonicalTimestampSchema.optional(),
     guestActionNonce: z.string().trim().min(1).max(256).optional(),
     guestActionSignature: z.string().trim().min(1).max(256).optional(),
     idempotencyKey: IdempotencyKeySchema.optional(),
   })
   .strict()
   .superRefine((input, context) => {
+    if (input.scope !== 'account_calendar_month') {
+      if (input.rangeStart !== undefined || input.rangeEnd !== undefined) {
+        context.addIssue({
+          code: 'custom',
+          path: ['rangeStart'],
+          message: 'rangeStart/rangeEnd are only allowed for account_calendar_month scope',
+        });
+      }
+    }
+    if (input.scope === 'account_calendar_month') {
+      if (!input.rangeStart) {
+        context.addIssue({
+          code: 'custom',
+          path: ['rangeStart'],
+          message: 'rangeStart is required for account_calendar_month scope',
+        });
+      }
+      if (!input.rangeEnd) {
+        context.addIssue({
+          code: 'custom',
+          path: ['rangeEnd'],
+          message: 'rangeEnd is required for account_calendar_month scope',
+        });
+      }
+      if (input.rangeStart && input.rangeEnd) {
+        if (compareCanonicalTimestamps(input.rangeStart, input.rangeEnd) >= 0) {
+          context.addIssue({
+            code: 'custom',
+            path: ['rangeEnd'],
+            message: 'rangeStart must be earlier than rangeEnd',
+          });
+        }
+        if (
+          input.rangeEnd.seconds - input.rangeStart.seconds >
+          LESSON_BOOKING_CALENDAR_MONTH_RANGE_MAX_SECONDS
+        ) {
+          context.addIssue({
+            code: 'custom',
+            path: ['rangeEnd'],
+            message: 'Calendar month range exceeds the maximum allowed duration',
+          });
+        }
+      }
+      if (input.bookingId !== undefined) {
+        context.addIssue({
+          code: 'custom',
+          path: ['bookingId'],
+          message: 'bookingId is not allowed for account_calendar_month scope',
+        });
+      }
+      if (input.pageSize !== undefined || input.cursor !== undefined) {
+        context.addIssue({
+          code: 'custom',
+          path: ['scope'],
+          message: 'Pagination is not allowed for account_calendar_month scope',
+        });
+      }
+      if (input.guestActionNonce !== undefined || input.guestActionSignature !== undefined) {
+        context.addIssue({
+          code: 'custom',
+          path: ['guestActionNonce'],
+          message: 'Guest credential is not allowed for account_calendar_month scope',
+        });
+      }
+    }
     if (input.scope === 'guest_single') {
       if (!input.bookingId) {
         context.addIssue({
@@ -508,6 +578,22 @@ export function mergeRevisionAwareReadModel<T extends { readonly revision: numbe
 ): T {
   if (!cached) return incoming;
   return incoming.revision >= cached.revision ? incoming : cached;
+}
+
+/**
+ * Half-open calendar window intersection:
+ * `startsAt < rangeEnd && endsAt >= rangeStart`.
+ */
+export function lessonBookingIntersectsCalendarRange(input: {
+  readonly startsAt: CanonicalTimestamp;
+  readonly endsAt: CanonicalTimestamp;
+  readonly rangeStart: CanonicalTimestamp;
+  readonly rangeEnd: CanonicalTimestamp;
+}): boolean {
+  return (
+    compareCanonicalTimestamps(input.startsAt, input.rangeEnd) < 0 &&
+    compareCanonicalTimestamps(input.endsAt, input.rangeStart) >= 0
+  );
 }
 
 export function isLessonBookingHot(input: {

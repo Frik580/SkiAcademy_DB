@@ -49,6 +49,7 @@ export function createQueryLessonBookingReadModelsHandler(firestore: Firestore) 
     if (
       input.scope === 'account_hot' ||
       input.scope === 'account_history' ||
+      input.scope === 'account_calendar_month' ||
       input.scope === 'instructor_hot' ||
       input.scope === 'instructor_history'
     ) {

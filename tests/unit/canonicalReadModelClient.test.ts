@@ -8,6 +8,7 @@ import {
   QueryLessonBookingReadModelsInputSchema,
   boundCanonicalReadIdempotencyCursor,
   buildCanonicalReadIdempotencyKey,
+  timestampFromDate,
 } from '@ski-academy/shared-domain';
 import {
   queryAdminIssueReadModels,
@@ -511,6 +512,41 @@ describe('canonicalReadModelClient', () => {
     expect(transportPayload).toEqual({ scope: 'account_history' });
     expect(transportPayload).not.toHaveProperty('cursor');
     expect(QueryLessonBookingReadModelsInputSchema.safeParse(transportPayload).success).toBe(true);
+  });
+
+  it('sends compact account_calendar_month range transport and bounded idempotency', async () => {
+    const rangeStart = timestampFromDate(new Date('2026-09-01T00:00:00.000Z'));
+    const rangeEnd = timestampFromDate(new Date('2026-10-01T00:00:00.000Z'));
+    callFunctionMock.mockResolvedValueOnce({
+      scope: 'account_calendar_month',
+      items: [],
+      hasMore: false,
+    });
+
+    await queryLessonBookingReadModels({
+      scope: 'account_calendar_month',
+      rangeStart,
+      rangeEnd,
+    });
+
+    const expectedKey = buildCanonicalReadIdempotencyKey([
+      'read:lesson_booking',
+      'account_calendar_month',
+      String(rangeStart.seconds),
+      String(rangeEnd.seconds),
+    ]);
+    expect(expectedKey.length).toBeLessThanOrEqual(200);
+    expect(callFunctionMock).toHaveBeenCalledWith(
+      QUERY_LESSON_BOOKING_READ_MODELS_CALLABLE,
+      { scope: 'account_calendar_month', rangeStart, rangeEnd },
+      expect.objectContaining({
+        idempotencyKey: expectedKey,
+        maxAttempts: 1,
+      })
+    );
+    expect(
+      QueryLessonBookingReadModelsInputSchema.safeParse(transportRequestFromCall()).success
+    ).toBe(true);
   });
 
   it('calls queryCourseCatalogReadModels callable with public scope', async () => {

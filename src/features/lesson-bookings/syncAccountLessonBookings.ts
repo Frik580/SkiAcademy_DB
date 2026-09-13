@@ -14,11 +14,13 @@ export const ACCOUNT_LESSON_BOOKING_REFRESH_MS = 30_000;
 
 let syncInFlight: Promise<void> | undefined;
 let hotSyncInFlight: Promise<void> | undefined;
+const calendarMonthInFlight = new Map<string, Promise<void>>();
 
 /** Test-only reset for module-level sync coordination state. */
 export function resetAccountLessonBookingSyncStateForTests(): void {
   syncInFlight = undefined;
   hotSyncInFlight = undefined;
+  calendarMonthInFlight.clear();
 }
 
 export function isAccountLessonBookingBackgroundSyncAllowed(): boolean {
@@ -63,11 +65,15 @@ export function findStaleHotLessonBookingIds(
 export function applyAccountLessonBookingReadResults(input: {
   readonly hotItems: readonly LessonBookingReadModel[];
   readonly historyItems: readonly LessonBookingReadModel[];
+  readonly calendarItems?: readonly LessonBookingReadModel[];
   readonly reconcileHot?: boolean;
 }): void {
   const state = useLessonBookingStore.getState();
   let merged = mergeLessonBookingRecords(state.items, input.hotItems);
   merged = mergeLessonBookingRecords(merged, input.historyItems);
+  if (input.calendarItems && input.calendarItems.length > 0) {
+    merged = mergeLessonBookingRecords(merged, input.calendarItems);
+  }
   useLessonBookingStore.getState().mergeItems(merged);
   if (!input.reconcileHot) {
     return;
@@ -125,4 +131,64 @@ export async function syncAccountHotLessonBookingsFromServer(): Promise<void> {
   })();
 
   return hotSyncInFlight;
+}
+
+function calendarMonthInFlightKey(accountId: string, monthKey: string): string {
+  return `${accountId}:${monthKey}`;
+}
+
+export async function ensureAccountCalendarMonthLoaded(input: {
+  readonly accountId: string;
+  readonly monthKey: string;
+  readonly rangeStart: CanonicalTimestamp;
+  readonly rangeEnd: CanonicalTimestamp;
+  readonly getCurrentAccountId?: () => string | undefined;
+}): Promise<void> {
+  const store = useLessonBookingStore.getState();
+  if (store.calendarMonths.get(input.monthKey) === 'loaded') {
+    return;
+  }
+
+  const inFlightKey = calendarMonthInFlightKey(input.accountId, input.monthKey);
+  const existing = calendarMonthInFlight.get(inFlightKey);
+  if (existing) {
+    return existing;
+  }
+
+  store.setCalendarMonthStatus(input.monthKey, 'loading');
+  store.setCalendarMonthError(undefined);
+
+  const request = (async () => {
+    try {
+      const result = await queryLessonBookingReadModels({
+        scope: 'account_calendar_month',
+        rangeStart: input.rangeStart,
+        rangeEnd: input.rangeEnd,
+      });
+      if (input.getCurrentAccountId && input.getCurrentAccountId() !== input.accountId) {
+        return;
+      }
+      applyAccountLessonBookingReadResults({
+        hotItems: [],
+        historyItems: [],
+        calendarItems: result.items,
+      });
+      useLessonBookingStore.getState().setCalendarMonthStatus(input.monthKey, 'loaded');
+    } catch (error) {
+      if (input.getCurrentAccountId && input.getCurrentAccountId() !== input.accountId) {
+        return;
+      }
+      useLessonBookingStore.getState().clearCalendarMonthStatus(input.monthKey);
+      useLessonBookingStore.getState().setCalendarMonthError({
+        monthKey: input.monthKey,
+        message: error instanceof Error ? error.message : 'Failed to load calendar month.',
+      });
+      throw error;
+    } finally {
+      calendarMonthInFlight.delete(inFlightKey);
+    }
+  })();
+
+  calendarMonthInFlight.set(inFlightKey, request);
+  return request;
 }

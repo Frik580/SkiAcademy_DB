@@ -531,6 +531,14 @@ export async function queryAdminIssueReadModels(
 function createLessonBookingReadModelIdempotencyKey(
   input: QueryLessonBookingReadModelsInput
 ): string {
+  if (input.scope === 'account_calendar_month') {
+    return buildCanonicalReadIdempotencyKey([
+      'read:lesson_booking',
+      input.scope,
+      String(input.rangeStart?.seconds ?? 'none'),
+      String(input.rangeEnd?.seconds ?? 'none'),
+    ]);
+  }
   return buildCanonicalReadIdempotencyKey([
     'read:lesson_booking',
     input.scope,
@@ -562,6 +570,12 @@ function buildLessonBookingReadModelTransportInput(
   }
   if (input.bookingId !== undefined) {
     transportInput.bookingId = input.bookingId;
+  }
+  if (input.rangeStart !== undefined) {
+    transportInput.rangeStart = input.rangeStart;
+  }
+  if (input.rangeEnd !== undefined) {
+    transportInput.rangeEnd = input.rangeEnd;
   }
   if (input.guestActionNonce) {
     transportInput.guestActionNonce = input.guestActionNonce;

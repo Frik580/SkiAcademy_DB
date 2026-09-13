@@ -42,6 +42,7 @@ import {
   useBookingCollaborationStore,
 } from '../../../features/booking-collaboration';
 import { formatCourseDayDateLabel } from '../../../features/course-enrollments/sessionScheduleHelpers';
+import { useAccountLessonBookingCalendarMonth } from '../../../features/lesson-bookings/useAccountLessonBookingCalendarMonth';
 
 const LIST_SCOPE_FILTERS: SessionListScope[] = ['upcoming', 'current', 'past', 'all'];
 
@@ -116,6 +117,13 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
   const [listScope, setListScope] = useState<SessionListScope>('upcoming');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const ITEMS_PER_PAGE = 5;
+  const year = currentMonth.getFullYear();
+  const month = currentMonth.getMonth();
+  const calendarMonth = useAccountLessonBookingCalendarMonth({
+    enabled: showWorkoutCalendar,
+    year,
+    monthIndex: month,
+  });
 
   const handleToggleHideCancelled = (val: boolean) => {
     setHideCancelled(val);
@@ -141,8 +149,6 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
   const getSessionsOnDate = (dateStr: string) =>
     filteredSessions.filter((item) => isSessionOnDate(item, dateStr));
 
-  const year = currentMonth.getFullYear();
-  const month = currentMonth.getMonth();
   const firstDayIndex = (() => {
     const day = new Date(year, month, 1).getDay();
     return day === 0 ? 6 : day - 1;
@@ -254,6 +260,15 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                   </button>
                 </div>
               </div>
+              {calendarMonth.status === 'loading' && (
+                <p className="text-sm text-[var(--ink-dim)]">{t('loading')}</p>
+              )}
+              {calendarMonth.error && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm text-[var(--ink-dim)]">{calendarMonth.error}</p>
+                  <ScTextButton onClick={calendarMonth.retry}>{t('retry')}</ScTextButton>
+                </div>
+              )}
 
               <div className="grid grid-cols-7 gap-1 text-center text-[10px] uppercase text-[var(--ink-dim)] pb-1">
                 {(language === 'ru' ? WEEKDAYS_RU : WEEKDAYS_EN).map((day) => (

@@ -10,6 +10,8 @@ export * from './mapCalendarInput';
 export * from './mergeCabinetBookings';
 export * from './deriveBookingIds';
 export * from './syncAccountLessonBookings';
+export * from './calendarMonthRange';
+export * from './useAccountLessonBookingCalendarMonth';
 export * from './accountParticipantLessonStatsStore';
 export * from './syncAccountParticipantLessonStats';
 export * from './useAccountParticipantLessonStatsSync';

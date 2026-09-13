@@ -87,6 +87,14 @@
       "collectionGroup": "bookings",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "party.participantIds", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "occurrence.interval.startsAt.seconds", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "bookings",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "occurrence.instructorId", "order": "ASCENDING" },
         { "fieldPath": "updatedAt.seconds", "order": "DESCENDING" },
         { "fieldPath": "updatedAt.nanoseconds", "order": "DESCENDING" },

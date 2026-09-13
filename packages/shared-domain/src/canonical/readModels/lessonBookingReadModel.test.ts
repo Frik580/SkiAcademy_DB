@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  LESSON_BOOKING_CALENDAR_MONTH_RANGE_MAX_SECONDS,
   LESSON_BOOKING_READ_SCOPES,
   LessonBookingAdminProjectionSchema,
   LessonBookingInstructorAttendancePresentationSchema,
@@ -8,6 +9,7 @@ import {
   QueryLessonBookingReadModelsInputSchema,
   isInstructorLessonBookingHot,
   isLessonBookingHot,
+  lessonBookingIntersectsCalendarRange,
   mergeRevisionAwareReadModel,
 } from './lessonBookingReadModel';
 import {
@@ -168,6 +170,109 @@ describe('lessonBookingReadModel contracts', () => {
       idempotencyKey: 'read:lesson_booking:account_history:start:none',
     });
     expect(parsed.success).toBe(true);
+  });
+
+  it('accepts account_calendar_month with a half-open month range', () => {
+    const rangeStart = timestampFromDate(new Date('2026-09-01T00:00:00.000Z'));
+    const rangeEnd = timestampFromDate(new Date('2026-10-01T00:00:00.000Z'));
+    const idempotencyKey = buildCanonicalReadIdempotencyKey([
+      'read:lesson_booking',
+      'account_calendar_month',
+      String(rangeStart.seconds),
+      String(rangeEnd.seconds),
+    ]);
+    expect(idempotencyKey.length).toBeLessThanOrEqual(200);
+    const parsed = QueryLessonBookingReadModelsInputSchema.safeParse({
+      scope: 'account_calendar_month',
+      rangeStart,
+      rangeEnd,
+      idempotencyKey,
+    });
+    expect(parsed.success).toBe(true);
+    expect(LESSON_BOOKING_READ_SCOPES).toEqual(expect.arrayContaining(['account_calendar_month']));
+  });
+
+  it('requires rangeStart/rangeEnd for account_calendar_month and rejects invalid ranges', () => {
+    expect(
+      QueryLessonBookingReadModelsInputSchema.safeParse({
+        scope: 'account_calendar_month',
+      }).success
+    ).toBe(false);
+    const rangeStart = timestampFromDate(new Date('2026-09-01T00:00:00.000Z'));
+    const rangeEnd = timestampFromDate(new Date('2026-10-01T00:00:00.000Z'));
+    expect(
+      QueryLessonBookingReadModelsInputSchema.safeParse({
+        scope: 'account_calendar_month',
+        rangeStart: rangeEnd,
+        rangeEnd: rangeStart,
+      }).success
+    ).toBe(false);
+    expect(
+      QueryLessonBookingReadModelsInputSchema.safeParse({
+        scope: 'account_calendar_month',
+        rangeStart,
+        rangeEnd: rangeStart,
+      }).success
+    ).toBe(false);
+    expect(
+      QueryLessonBookingReadModelsInputSchema.safeParse({
+        scope: 'account_calendar_month',
+        rangeStart,
+        rangeEnd: timestampFromDate(new Date('2026-12-01T00:00:00.000Z')),
+      }).success
+    ).toBe(false);
+    expect(
+      QueryLessonBookingReadModelsInputSchema.safeParse({
+        scope: 'account_hot',
+        rangeStart,
+        rangeEnd,
+      }).success
+    ).toBe(false);
+    expect(
+      QueryLessonBookingReadModelsInputSchema.safeParse({
+        scope: 'account_calendar_month',
+        rangeStart,
+        rangeEnd,
+        cursor: 'cursor_not_allowed',
+      }).success
+    ).toBe(false);
+    expect(
+      QueryLessonBookingReadModelsInputSchema.safeParse({
+        scope: 'account_calendar_month',
+        rangeStart: { seconds: Number.NaN, nanoseconds: 0 },
+        rangeEnd,
+      }).success
+    ).toBe(false);
+    expect(LESSON_BOOKING_CALENDAR_MONTH_RANGE_MAX_SECONDS).toBe(40 * 24 * 60 * 60);
+  });
+
+  it('intersects calendar months with half-open [rangeStart, rangeEnd)', () => {
+    const rangeStart = timestampFromDate(new Date('2026-09-01T00:00:00.000Z'));
+    const rangeEnd = timestampFromDate(new Date('2026-10-01T00:00:00.000Z'));
+    expect(
+      lessonBookingIntersectsCalendarRange({
+        startsAt: timestampFromDate(new Date('2026-08-31T22:00:00.000Z')),
+        endsAt: timestampFromDate(new Date('2026-08-31T23:00:00.000Z')),
+        rangeStart,
+        rangeEnd,
+      })
+    ).toBe(false);
+    expect(
+      lessonBookingIntersectsCalendarRange({
+        startsAt: timestampFromDate(new Date('2026-08-31T23:30:00.000Z')),
+        endsAt: timestampFromDate(new Date('2026-09-01T00:30:00.000Z')),
+        rangeStart,
+        rangeEnd,
+      })
+    ).toBe(true);
+    expect(
+      lessonBookingIntersectsCalendarRange({
+        startsAt: timestampFromDate(new Date('2026-10-01T00:00:00.000Z')),
+        endsAt: timestampFromDate(new Date('2026-10-01T01:00:00.000Z')),
+        rangeStart,
+        rangeEnd,
+      })
+    ).toBe(false);
   });
 
   it('rejects account_history with cursor: null', () => {

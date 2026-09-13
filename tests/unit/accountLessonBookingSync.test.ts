@@ -40,6 +40,9 @@ describe('account lesson expensive-surface gates', () => {
       false
     );
     expect(
+      shouldSyncAccountLessonHistory({ pathname: '/cabinet/calendar', accountId: 'account_01' })
+    ).toBe(false);
+    expect(
       shouldSyncAccountLessonHistory({ pathname: '/cabinet/history', accountId: 'account_01' })
     ).toBe(true);
     expect(

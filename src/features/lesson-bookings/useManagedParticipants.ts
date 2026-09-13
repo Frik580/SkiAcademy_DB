@@ -29,6 +29,7 @@ export function useManagedParticipants(accountId: string | undefined) {
           authority: item.authority,
           revision: item.revision,
           ...(item.instructorComment ? { instructorComment: item.instructorComment } : {}),
+          ...(item.avatarUrl ? { avatarUrl: item.avatarUrl } : {}),
         }))
       );
     } catch (loadError) {

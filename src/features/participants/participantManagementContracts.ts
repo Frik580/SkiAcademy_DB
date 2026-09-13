@@ -20,6 +20,7 @@ export interface UpdateManagedParticipantProfileInput {
   readonly skillLevel?: string;
   readonly discipline?: 'ski' | 'snowboard';
   readonly instructorComment?: string;
+  readonly avatarUrl?: string;
 }
 
 export interface ManagedParticipantProfileEditState {
@@ -28,6 +29,7 @@ export interface ManagedParticipantProfileEditState {
   readonly skillLevel: string;
   readonly discipline: 'ski' | 'snowboard';
   readonly instructorComment?: string;
+  readonly avatarUrl?: string;
 }
 
 export function mapAgeYearsToParticipantAge(years: number): ManagedParticipantAgeInput {
@@ -75,7 +77,7 @@ export function participantAgesEqual(
 export function readParticipantProfileEditState(
   participant: Pick<
     ManagedParticipantOption,
-    'displayName' | 'age' | 'skillLevel' | 'discipline' | 'instructorComment'
+    'displayName' | 'age' | 'skillLevel' | 'discipline' | 'instructorComment' | 'avatarUrl'
   >
 ): ManagedParticipantProfileEditState {
   return {
@@ -84,6 +86,7 @@ export function readParticipantProfileEditState(
     skillLevel: participant.skillLevel,
     discipline: participant.discipline,
     instructorComment: participant.instructorComment,
+    avatarUrl: participant.avatarUrl,
   };
 }
 
@@ -97,6 +100,7 @@ export function buildManagedParticipantProfileUpdateInput(
     skillLevel?: string;
     discipline?: 'ski' | 'snowboard';
     instructorComment?: string;
+    avatarUrl?: string;
   } = {};
 
   if (edited.displayName.trim() !== participant.displayName) {
@@ -115,6 +119,11 @@ export function buildManagedParticipantProfileUpdateInput(
   const originalComment = participant.instructorComment?.trim() ?? '';
   if (normalizedComment !== originalComment) {
     optionalFields.instructorComment = normalizedComment;
+  }
+  const editedAvatar = edited.avatarUrl?.trim() ?? '';
+  const originalAvatar = participant.avatarUrl?.trim() ?? '';
+  if (editedAvatar !== originalAvatar && editedAvatar.length > 0) {
+    optionalFields.avatarUrl = editedAvatar;
   }
 
   return {
@@ -135,6 +144,32 @@ export function hasManagedParticipantProfileChanges(
     patch.age !== undefined ||
     patch.skillLevel !== undefined ||
     patch.discipline !== undefined ||
-    patch.instructorComment !== undefined
+    patch.instructorComment !== undefined ||
+    patch.avatarUrl !== undefined
   );
+}
+
+/** Storage object path for a participant-scoped avatar upload. */
+export function participantAvatarStoragePath(participantId: string): string {
+  return `participant-avatars/${participantId}/avatar.jpg`;
+}
+
+/**
+ * Resolve the image URL shown for a managed participant.
+ * Self participants may temporarily fall back to legacy UserProfile.avatarUrl.
+ */
+export function resolveParticipantAvatarUrl(input: {
+  readonly avatarUrl?: string;
+  readonly authority: 'self' | 'parent_guardian';
+  readonly legacySelfAvatarUrl?: string;
+}): string | undefined {
+  const canonical = input.avatarUrl?.trim();
+  if (canonical) {
+    return canonical;
+  }
+  if (input.authority === 'self') {
+    const legacy = input.legacySelfAvatarUrl?.trim();
+    return legacy || undefined;
+  }
+  return undefined;
 }

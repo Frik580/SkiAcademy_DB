@@ -3,7 +3,9 @@ import { executeAuthenticatedCanonicalCommand } from './canonicalCommandClient';
 import { mapCanonicalCommandResultError } from './mapCanonicalCommandError';
 
 const SELF_PARTICIPANT_PROVISIONING_IDEMPOTENCY_KEY = IdempotencyKeySchema.parse(
-  'provision-self-participant-v1'
+  // v2: forces one post-deploy reconcile so historical UserProfile↔self Participant
+  // identity drift is repaired; subsequent calls with this key remain cheap replays.
+  'provision-self-participant-v2'
 );
 
 export async function ensureCanonicalSelfParticipant(accountId: string): Promise<void> {

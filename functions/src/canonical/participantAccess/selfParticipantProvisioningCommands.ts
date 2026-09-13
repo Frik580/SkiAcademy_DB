@@ -4,6 +4,7 @@ import {
   CanonicalCommandError,
   canonicalReference,
   commandSuccessResult,
+  nextAggregateRevision,
   participantManagementIdFromSelfProvisioning,
   resolveCommandIdempotencyIdentity,
   selfParticipantIdFromAccountId,
@@ -45,6 +46,11 @@ const DEFAULT_SELF_PARTICIPANT_DISCIPLINE = 'ski' as const;
 
 type SelfProvisioningKind = 'provision_self_participant' | 'provision_self_participant_for_account';
 
+type SelfIdentityProjectionRepair = {
+  readonly displayName?: string;
+  readonly avatarUrl?: string;
+};
+
 function provisioningConflict(envelope: CommandEnvelope<SelfProvisioningKind>): never {
   throw new CanonicalCommandError('blocked_relationship', {
     correlationId: envelope.context.correlationId,
@@ -70,6 +76,36 @@ function readDisplayName(
     });
   }
   return displayName;
+}
+
+function readProfileDisplayName(profile: Record<string, unknown>): string {
+  return typeof profile.displayName === 'string' ? profile.displayName.trim() : '';
+}
+
+function readProfileAvatarUrl(profile: Record<string, unknown>): string {
+  return typeof profile.avatarUrl === 'string' ? profile.avatarUrl.trim() : '';
+}
+
+/**
+ * Canonical self Participant wins. Never copies UserProfile fields back onto Participant.
+ * Avatar is repaired only when Participant already has avatarUrl.
+ */
+export function buildSelfIdentityProjectionRepair(
+  profile: Record<string, unknown>,
+  selfParticipant: Pick<Participant, 'displayName' | 'avatarUrl'>
+): SelfIdentityProjectionRepair | undefined {
+  const patch: { displayName?: string; avatarUrl?: string } = {};
+
+  if (readProfileDisplayName(profile) !== selfParticipant.displayName) {
+    patch.displayName = selfParticipant.displayName;
+  }
+
+  const canonicalAvatar = selfParticipant.avatarUrl?.trim();
+  if (canonicalAvatar && readProfileAvatarUrl(profile) !== canonicalAvatar) {
+    patch.avatarUrl = canonicalAvatar;
+  }
+
+  return patch.displayName !== undefined || patch.avatarUrl !== undefined ? patch : undefined;
 }
 
 function assertProfileCanProvision(
@@ -109,13 +145,16 @@ function provisionSelfForTargetAccount<Kind extends SelfProvisioningKind>(
   let participantRecord!: Participant;
   let managementRecord!: ParticipantManagement;
   let shouldCreateSelfParticipant = false;
+  let projectionRepair: SelfIdentityProjectionRepair | undefined;
   let plannedOwnerGuard:
-    Awaited<ReturnType<typeof readAndPlanAcquireParticipantManagementActiveOwnerGuard>> | undefined;
+    | Awaited<ReturnType<typeof readAndPlanAcquireParticipantManagementActiveOwnerGuard>>
+    | undefined;
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<Kind> = {
     read: async (session) => {
       accountNeedsInitialization = false;
       shouldCreateSelfParticipant = false;
+      projectionRepair = undefined;
       plannedOwnerGuard = undefined;
       const userPath = accountPath(targetAccountId);
       const accountRead = await session.tx.get({ path: userPath });
@@ -211,6 +250,15 @@ function provisionSelfForTargetAccount<Kind extends SelfProvisioningKind>(
 
         participantRecord = existingParticipant;
         managementRecord = existingManagement;
+        projectionRepair = buildSelfIdentityProjectionRepair(profileData, existingParticipant);
+        if (projectionRepair && !accountNeedsInitialization) {
+          session.plan.planMutation({
+            path: userPath,
+            kind: 'update',
+            category: 'aggregate',
+            estimatedPayloadBytes: PARTICIPANT_ACCESS_PLANNING_ESTIMATES.accountBytes,
+          });
+        }
         return;
       }
 
@@ -257,6 +305,8 @@ function provisionSelfForTargetAccount<Kind extends SelfProvisioningKind>(
       });
 
       const decidedAt = timestampFromDate(environment.clock.decidedAt());
+      // Seed self Participant.displayName from the account profile so create-time
+      // invariant Participant.displayName === UserProfile.displayName holds.
       participantRecord = {
         participantId: deterministicParticipantId,
         displayName: readDisplayName(envelope, profileData),
@@ -326,28 +376,58 @@ function provisionSelfForTargetAccount<Kind extends SelfProvisioningKind>(
                   revision: AggregateRevisionSchema.parse(1),
                 },
               ]
-            : []),
+            : projectionRepair && accountRecord
+              ? [
+                  {
+                    subject: canonicalReference('account', targetAccountId),
+                    revision: nextAggregateRevision(accountRecord.revision),
+                  },
+                ]
+              : []),
         ],
       }),
     execute: async (session, context) => {
       const decidedAt = timestampFromDate(context.decidedAt);
-      if (accountNeedsInitialization) {
-        const canonicalAccount = AccountSchema.parse({
-          accountId: targetAccountId,
-          lifecycle: { status: 'active' },
-          revision: 1,
-          createdAt: decidedAt,
-          updatedAt: decidedAt,
-          audit: {
-            createdByCommandId: identity.commandKey,
-            lastChangedByCommandId: identity.commandKey,
-            correlationId: envelope.context.correlationId,
-          },
-        });
-        session.tx.update(
-          { path: accountPath(targetAccountId) },
-          canonicalAccount as Record<string, unknown>
-        );
+      const userPath = accountPath(targetAccountId);
+
+      if (accountNeedsInitialization || projectionRepair) {
+        const accountPatch: Record<string, unknown> = {};
+
+        if (accountNeedsInitialization) {
+          const canonicalAccount = AccountSchema.parse({
+            accountId: targetAccountId,
+            lifecycle: { status: 'active' },
+            revision: 1,
+            createdAt: decidedAt,
+            updatedAt: decidedAt,
+            audit: {
+              createdByCommandId: identity.commandKey,
+              lastChangedByCommandId: identity.commandKey,
+              correlationId: envelope.context.correlationId,
+            },
+          });
+          Object.assign(accountPatch, canonicalAccount);
+        }
+
+        if (projectionRepair) {
+          if (projectionRepair.displayName !== undefined) {
+            accountPatch.displayName = projectionRepair.displayName;
+          }
+          if (projectionRepair.avatarUrl !== undefined) {
+            accountPatch.avatarUrl = projectionRepair.avatarUrl;
+          }
+          if (!accountNeedsInitialization && accountRecord) {
+            accountPatch.revision = nextAggregateRevision(accountRecord.revision);
+            accountPatch.updatedAt = decidedAt;
+            accountPatch.audit = {
+              ...accountRecord.audit,
+              lastChangedByCommandId: identity.commandKey,
+              correlationId: envelope.context.correlationId,
+            };
+          }
+        }
+
+        session.tx.update({ path: userPath }, accountPatch);
       }
 
       if (shouldCreateSelfParticipant) {

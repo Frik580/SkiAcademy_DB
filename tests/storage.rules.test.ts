@@ -208,3 +208,77 @@ describe('storage booking chat media', () => {
     await assertFails(uploadImage(studentStorage, 'chat/course-group-1/group-photo.jpg'));
   });
 });
+
+describe('storage participant avatars', () => {
+  const selfParticipantId = 'participant_self_avatar';
+  const dependentParticipantId = 'participant_dependent_avatar';
+  const foreignParticipantId = 'participant_foreign_avatar';
+
+  beforeEach(async () => {
+    await seedStorageFirestore(testEnv, async (db) => {
+      await setDoc(
+        doc(db, 'users', STORAGE_USER_ID),
+        userProfile(STORAGE_USER_ID, 'user@example.com')
+      );
+      await setDoc(
+        doc(db, 'users', STORAGE_OTHER_USER_ID),
+        userProfile(STORAGE_OTHER_USER_ID, 'other@example.com')
+      );
+      await setDoc(doc(db, 'participant_management_active_owner', selfParticipantId), {
+        participantId: selfParticipantId,
+        accountId: STORAGE_USER_ID,
+        participantManagementId: 'management_self_avatar',
+        managementRevision: 1,
+      });
+      await setDoc(doc(db, 'participant_management_active_owner', dependentParticipantId), {
+        participantId: dependentParticipantId,
+        accountId: STORAGE_USER_ID,
+        participantManagementId: 'management_dependent_avatar',
+        managementRevision: 1,
+      });
+      await setDoc(doc(db, 'participant_management_active_owner', foreignParticipantId), {
+        participantId: foreignParticipantId,
+        accountId: STORAGE_OTHER_USER_ID,
+        participantManagementId: 'management_foreign_avatar',
+        managementRevision: 1,
+      });
+    });
+  });
+
+  it('allows owner upload for self and dependent participant avatars', async () => {
+    const ownerStorage = testEnv.authenticatedContext(STORAGE_USER_ID).storage();
+    const anonymousStorage = testEnv.unauthenticatedContext().storage();
+
+    await expect(
+      uploadImage(ownerStorage, `participant-avatars/${selfParticipantId}/avatar.jpg`)
+    ).resolves.toBeDefined();
+    await expect(
+      uploadImage(ownerStorage, `participant-avatars/${dependentParticipantId}/avatar.jpg`)
+    ).resolves.toBeDefined();
+    await assertSucceeds(
+      getBytes(ref(anonymousStorage, `participant-avatars/${selfParticipantId}/avatar.jpg`))
+    );
+  });
+
+  it('denies unauthenticated, foreign, and arbitrary participant avatar uploads', async () => {
+    const ownerStorage = testEnv.authenticatedContext(STORAGE_USER_ID).storage();
+    const otherStorage = testEnv.authenticatedContext(STORAGE_OTHER_USER_ID).storage();
+    const anonymousStorage = testEnv.unauthenticatedContext().storage();
+
+    await assertFails(
+      uploadImage(anonymousStorage, `participant-avatars/${selfParticipantId}/avatar.jpg`)
+    );
+    await assertFails(
+      uploadImage(otherStorage, `participant-avatars/${selfParticipantId}/avatar.jpg`)
+    );
+    await assertFails(
+      uploadImage(ownerStorage, `participant-avatars/${foreignParticipantId}/avatar.jpg`)
+    );
+    await assertFails(
+      uploadImage(ownerStorage, 'participant-avatars/participant_unknown/avatar.jpg')
+    );
+    await assertFails(
+      uploadImage(otherStorage, `participant-avatars/${dependentParticipantId}/avatar.jpg`)
+    );
+  });
+});

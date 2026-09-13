@@ -834,7 +834,7 @@ export const translations = {
     courseEnrollmentParticipantPrompt:
       'Choose the participant who will attend this course. Enrollment uses canonical participant identity.',
     scProfileParticipants: 'Participants',
-    scProfileParticipantsSub: 'Manage self and dependent participants for booking.',
+    scProfileParticipantsSub: 'Edit personal info, avatars, and dependent participants.',
     retry: 'Retry',
     bookingBalanceTooLow: 'Your account balance is too low. Contact the resort admin to top up.',
     instructorUnavailable: 'Instructor Unavailable',
@@ -2973,7 +2973,7 @@ export const translations = {
     courseEnrollmentParticipantPrompt:
       'Выберите участника, который будет записан на курс. Запись использует canonical participantId.',
     scProfileParticipants: 'Участники',
-    scProfileParticipantsSub: 'Управление self и зависимыми участниками для бронирования.',
+    scProfileParticipantsSub: 'Редактирование личных данных, аватаров и участников.',
     retry: 'Повторить',
     bookingBalanceTooLow:
       'Недостаточно средств. Обратитесь к администратору курорта для пополнения баланса.',

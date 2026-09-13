@@ -479,6 +479,11 @@ function updateParticipantProfileHandler(
   let participantRecord!: Participant;
   let managementRecord: ReturnType<typeof parseParticipantManagement>;
   let accountRecord: ReturnType<typeof parseAccount>;
+  let mirrorAccountId: AccountId | undefined;
+  let mirrorAccountRecord: ReturnType<typeof parseAccount>;
+
+  const needsClientIdentityMirror =
+    envelope.intent.displayName !== undefined || envelope.intent.avatarUrl !== undefined;
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'update_participant_profile'> = {
     read: async (session) => {
@@ -498,6 +503,22 @@ function updateParticipantProfileHandler(
         });
         accountRecord = parseAccount(accountRead.exists ? accountRead.data : undefined);
         assertAccountActive(envelope, accountRecord);
+
+        if (
+          needsClientIdentityMirror &&
+          participantRecord.management.kind === 'managed'
+        ) {
+          const managementRead = await session.tx.get({
+            path: participantManagementPath(participantRecord.management.participantManagementId),
+          });
+          session.plan.planRead({
+            path: participantManagementPath(participantRecord.management.participantManagementId),
+            category: 'aggregate',
+          });
+          managementRecord = parseParticipantManagement(
+            managementRead.exists ? managementRead.data : undefined
+          );
+        }
       } else {
         if (participantRecord.management.kind !== 'managed') {
           throw new CanonicalCommandError('forbidden', {
@@ -540,6 +561,34 @@ function updateParticipantProfileHandler(
         );
       }
 
+      if (
+        needsClientIdentityMirror &&
+        managementRecord &&
+        managementRecord.status === 'active' &&
+        managementRecord.authority === 'self'
+      ) {
+        mirrorAccountId = managementRecord.accountId;
+        if (accountRecord && accountRecord.accountId === mirrorAccountId) {
+          mirrorAccountRecord = accountRecord;
+        } else {
+          const mirrorAccountRead = await session.tx.get({ path: accountPath(mirrorAccountId) });
+          session.plan.planRead({
+            path: accountPath(mirrorAccountId),
+            category: 'authorization_check',
+          });
+          mirrorAccountRecord = parseAccount(
+            mirrorAccountRead.exists ? mirrorAccountRead.data : undefined
+          );
+          assertAccountActive(envelope, mirrorAccountRecord);
+        }
+        session.plan.planMutation({
+          path: accountPath(mirrorAccountId),
+          kind: 'update',
+          category: 'aggregate',
+          estimatedPayloadBytes: PARTICIPANT_ACCESS_PLANNING_ESTIMATES.accountBytes,
+        });
+      }
+
       session.plan.planMutation({
         path: participantDocumentPath,
         kind: 'update',
@@ -555,12 +604,25 @@ function updateParticipantProfileHandler(
           id: envelope.intent.participantId,
           subjectKey: `participant:${envelope.intent.participantId}`,
         },
-        affectedSubjects: [canonicalReference('participant', envelope.intent.participantId)],
+        affectedSubjects: [
+          canonicalReference('participant', envelope.intent.participantId),
+          ...(mirrorAccountId
+            ? [canonicalReference('account', mirrorAccountId)]
+            : []),
+        ],
         resultingRevisions: [
           {
             subject: canonicalReference('participant', envelope.intent.participantId),
             revision: nextAggregateRevision(participantRecord!.revision),
           },
+          ...(mirrorAccountId && mirrorAccountRecord
+            ? [
+                {
+                  subject: canonicalReference('account', mirrorAccountId),
+                  revision: nextAggregateRevision(mirrorAccountRecord.revision),
+                },
+              ]
+            : []),
         ],
       }),
     execute: async (session, context) => {
@@ -580,6 +642,9 @@ function updateParticipantProfileHandler(
         ...(envelope.intent.instructorComment === undefined
           ? {}
           : { instructorComment: envelope.intent.instructorComment }),
+        ...(envelope.intent.avatarUrl === undefined
+          ? {}
+          : { avatarUrl: envelope.intent.avatarUrl }),
         revision: nextAggregateRevision(participantRecord!.revision),
         updatedAt: decidedAt,
         audit: {
@@ -593,6 +658,26 @@ function updateParticipantProfileHandler(
         { path: participantDocumentPath },
         updatedParticipant as Record<string, unknown>
       );
+
+      if (mirrorAccountId && mirrorAccountRecord) {
+        const mirrorPatch: Record<string, unknown> = {
+          revision: nextAggregateRevision(mirrorAccountRecord.revision),
+          updatedAt: decidedAt,
+          audit: {
+            ...mirrorAccountRecord.audit,
+            lastChangedByCommandId: metadata.commandId,
+            correlationId: metadata.correlationId,
+          },
+        };
+        if (envelope.intent.displayName !== undefined) {
+          mirrorPatch.displayName = envelope.intent.displayName;
+        }
+        if (envelope.intent.avatarUrl !== undefined) {
+          mirrorPatch.avatarUrl = envelope.intent.avatarUrl;
+        }
+        session.tx.update({ path: accountPath(mirrorAccountId) }, mirrorPatch);
+      }
+
       return commandSuccessResult(envelope.kind, envelope.context.correlationId);
     },
   };

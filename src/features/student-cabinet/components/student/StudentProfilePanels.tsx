@@ -6,7 +6,6 @@ import {
   Settings,
   TrendingUp,
   Trophy,
-  User,
   Users,
   Video,
   CalendarRange,
@@ -14,7 +13,6 @@ import {
 } from 'lucide-react';
 import { type TranslationKey } from '../../../../app/providers/LanguageContext';
 import { DEFAULT_SKILL_CONFIG } from '../../../../domain/achievements';
-import { StudentProfilePersonalSection } from './StudentProfilePersonalSection';
 import { StudentProfilePreferencesSection } from './StudentProfilePreferencesSection';
 import { LazySkillRadarChart } from './LazySkillRadarChart';
 import {
@@ -41,7 +39,6 @@ import { ParticipantManagementPanel } from '../../../participants/components/Par
 
 type ProfileHubTab = Extract<
   StudentCabinetTab,
-  | 'profile_personal'
   | 'profile_wallet'
   | 'profile_journey'
   | 'profile_skills'
@@ -59,12 +56,6 @@ const PROFILE_HUB_ITEMS: {
   descKey: TranslationKey;
   icon: LucideIcon;
 }[] = [
-  {
-    tab: 'profile_personal',
-    labelKey: 'scProfilePersonal',
-    descKey: 'scProfilePersonalSub',
-    icon: User,
-  },
   {
     tab: 'profile_participants',
     labelKey: 'scProfileParticipants',
@@ -176,7 +167,12 @@ export const StudentProfileHubPanel: React.FC<StudentProfileHubInput> = ({ onGoT
 
 type ProfileSubPanelProps = StudentProfilePanelProps;
 
-export const StudentProfilePersonalPanel: React.FC<ProfileSubPanelProps> = ({
+/** Deep-link compatibility: old profile_personal opens Participants (sole personal editor). */
+export const StudentProfilePersonalPanel: React.FC<ProfileSubPanelProps> = (props) => (
+  <StudentProfileParticipantsPanel {...props} />
+);
+
+export const StudentProfileParticipantsPanel: React.FC<ProfileSubPanelProps> = ({
   onGoToTab,
   userProfile,
   onUpdateProfile,
@@ -184,23 +180,21 @@ export const StudentProfilePersonalPanel: React.FC<ProfileSubPanelProps> = ({
   onUploadSuccess,
   onUploadError,
 }) => (
-  <ProfilePanelShell titleKey="scProfilePersonal" onGoToTab={onGoToTab}>
-    <StudentProfilePersonalSection
-      userProfile={userProfile}
-      onUpdateProfile={onUpdateProfile}
-      onInvalidFile={onInvalidFile}
-      onUploadSuccess={onUploadSuccess}
-      onUploadError={onUploadError}
-    />
-  </ProfilePanelShell>
-);
-
-export const StudentProfileParticipantsPanel: React.FC<ProfileSubPanelProps> = ({
-  onGoToTab,
-  userProfile,
-}) => (
   <ProfilePanelShell titleKey="scProfileParticipants" onGoToTab={onGoToTab}>
-    <ParticipantManagementPanel accountId={userProfile.uid} />
+    <ParticipantManagementPanel
+      accountId={userProfile.uid}
+      userProfile={userProfile}
+      onUpdateAccountContact={
+        onUpdateProfile
+          ? async (patch) => {
+              await onUpdateProfile(patch);
+            }
+          : undefined
+      }
+      onInvalidAvatarFile={onInvalidFile}
+      onAvatarUploadSuccess={onUploadSuccess}
+      onAvatarUploadError={onUploadError}
+    />
   </ProfilePanelShell>
 );
 

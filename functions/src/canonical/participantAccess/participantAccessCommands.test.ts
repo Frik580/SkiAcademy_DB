@@ -715,6 +715,202 @@ describe('participant access commands', () => {
     ).toBe(false);
   });
 
+  it('mirrors self displayName and avatarUrl onto the account profile document atomically', async () => {
+    const selfParticipantId = ParticipantIdSchema.parse('participant_self_profile_01');
+    const selfManagementId = ParticipantManagementIdSchema.parse('management_self_profile_01');
+    const dependentId = ParticipantIdSchema.parse('participant_dependent_profile_01');
+    const dependentManagementId = ParticipantManagementIdSchema.parse(
+      'management_dependent_profile_01'
+    );
+    const avatarUrl = 'https://cdn.example.com/participant-avatars/self/avatar.jpg';
+
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${accountId}`]: {
+        ...seedAccount(),
+        displayName: 'Original Client',
+        avatarUrl: 'https://cdn.example.com/legacy-client.jpg',
+      },
+      [`participants/${selfParticipantId}`]: {
+        participantId: selfParticipantId,
+        displayName: 'Original Client',
+        age: { kind: 'age_years', years: 30 },
+        skillLevel: 'intermediate',
+        discipline: 'ski',
+        management: { kind: 'managed', participantManagementId: selfManagementId },
+        lifecycle: { status: 'active' },
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'command_seed_self',
+          lastChangedByCommandId: 'command_seed_self',
+          correlationId,
+        },
+      },
+      [`participant_management/${selfManagementId}`]: {
+        participantManagementId: selfManagementId,
+        accountId,
+        participantId: selfParticipantId,
+        role: 'owner',
+        authority: 'self',
+        status: 'active',
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'command_seed_self_mgmt',
+          lastChangedByCommandId: 'command_seed_self_mgmt',
+          correlationId,
+        },
+      },
+      [`participants/${dependentId}`]: {
+        participantId: dependentId,
+        displayName: 'Dependent Child',
+        age: { kind: 'age_years', years: 10 },
+        skillLevel: 'beginner',
+        discipline: 'snowboard',
+        management: { kind: 'managed', participantManagementId: dependentManagementId },
+        lifecycle: { status: 'active' },
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'command_seed_dep',
+          lastChangedByCommandId: 'command_seed_dep',
+          correlationId,
+        },
+      },
+      [`participant_management/${dependentManagementId}`]: {
+        participantManagementId: dependentManagementId,
+        accountId,
+        participantId: dependentId,
+        role: 'owner',
+        authority: 'parent_guardian',
+        status: 'active',
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'command_seed_dep_mgmt',
+          lastChangedByCommandId: 'command_seed_dep_mgmt',
+          correlationId,
+        },
+      },
+    });
+
+    const selfUpdate: CommandEnvelope<'update_participant_profile'> = {
+      kind: 'update_participant_profile',
+      context: {
+        ...accountContext('account_owner'),
+        idempotencyKey: 'self-profile-sync-01',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+      },
+      intent: {
+        participantId: selfParticipantId,
+        displayName: 'Updated Client',
+        avatarUrl,
+      },
+    };
+    expect((await runCommand(executor, selfUpdate)).status).toBe('success');
+
+    const selfParticipant = executor.snapshot().docs.get(`participants/${selfParticipantId}`)?.data;
+    const accountDoc = executor.snapshot().docs.get(`users/${accountId}`)?.data;
+    expect(selfParticipant).toMatchObject({
+      displayName: 'Updated Client',
+      avatarUrl,
+      revision: 2,
+    });
+    expect(accountDoc).toMatchObject({
+      displayName: 'Updated Client',
+      avatarUrl,
+      revision: 2,
+    });
+
+    const dependentUpdate: CommandEnvelope<'update_participant_profile'> = {
+      kind: 'update_participant_profile',
+      context: {
+        ...accountContext('parent_guardian'),
+        idempotencyKey: 'dependent-profile-no-sync-01',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+      },
+      intent: {
+        participantId: dependentId,
+        displayName: 'Renamed Dependent',
+        avatarUrl: 'https://cdn.example.com/participant-avatars/dependent/avatar.jpg',
+      },
+    };
+    expect((await runCommand(executor, dependentUpdate)).status).toBe('success');
+
+    const dependent = executor.snapshot().docs.get(`participants/${dependentId}`)?.data;
+    const accountAfterDependent = executor.snapshot().docs.get(`users/${accountId}`)?.data;
+    expect(dependent).toMatchObject({
+      displayName: 'Renamed Dependent',
+      avatarUrl: 'https://cdn.example.com/participant-avatars/dependent/avatar.jpg',
+    });
+    expect(accountAfterDependent).toMatchObject({
+      displayName: 'Updated Client',
+      avatarUrl,
+    });
+  });
+
+  it('rejects unauthorized participant profile updates including avatar', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${accountId}`]: seedAccount(),
+      [`users/${otherAccountId}`]: seedAccount(otherAccountId),
+      [`participants/${participantId}`]: {
+        participantId,
+        displayName: 'Managed Participant',
+        age: { kind: 'age_years', years: 12 },
+        skillLevel: 'beginner',
+        discipline: 'ski',
+        management: { kind: 'managed', participantManagementId: managementId },
+        lifecycle: { status: 'active' },
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'command_seed_participant',
+          lastChangedByCommandId: 'command_seed_participant',
+          correlationId,
+        },
+      },
+      [`participant_management/${managementId}`]: {
+        participantManagementId: managementId,
+        accountId,
+        participantId,
+        role: 'owner',
+        authority: 'parent_guardian',
+        status: 'active',
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'command_seed_management',
+          lastChangedByCommandId: 'command_seed_management',
+          correlationId,
+        },
+      },
+    });
+
+    const unauthorized: CommandEnvelope<'update_participant_profile'> = {
+      kind: 'update_participant_profile',
+      context: {
+        ...accountContext('parent_guardian', otherAccountId),
+        idempotencyKey: 'unauthorized-avatar-01',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+      },
+      intent: {
+        participantId,
+        avatarUrl: 'https://cdn.example.com/stolen.jpg',
+      },
+    };
+    const result = await runCommand(executor, unauthorized);
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('forbidden');
+    }
+  });
+
   it('replays successful commands without a second activity log', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor({
       [`users/${accountId}`]: seedAccount(),

@@ -7,6 +7,7 @@ import {
   readAgeYearsFromParticipantAge,
   readBirthDateFromParticipantAge,
   readParticipantProfileEditState,
+  resolveParticipantAvatarUrl,
 } from '../../src/features/participants/participantManagementContracts';
 
 const birthDateParticipant: ManagedParticipantOption = {
@@ -74,5 +75,41 @@ describe('participantManagementContracts', () => {
     const patch = buildManagedParticipantProfileUpdateInput(ageYearsParticipant, editState);
 
     expect(patch.age).toEqual({ kind: 'age_years', years: 13 });
+  });
+
+  it('includes avatarUrl in patch and change detection', () => {
+    const withAvatar: ManagedParticipantOption = {
+      ...ageYearsParticipant,
+      avatarUrl: 'https://cdn.example.com/a.jpg',
+    };
+    const editState = {
+      ...readParticipantProfileEditState(withAvatar),
+      avatarUrl: 'https://cdn.example.com/b.jpg',
+    };
+    const patch = buildManagedParticipantProfileUpdateInput(withAvatar, editState);
+    expect(patch.avatarUrl).toBe('https://cdn.example.com/b.jpg');
+    expect(hasManagedParticipantProfileChanges(withAvatar, editState)).toBe(true);
+  });
+
+  it('resolves participant avatar with legacy self fallback only', () => {
+    expect(
+      resolveParticipantAvatarUrl({
+        authority: 'self',
+        legacySelfAvatarUrl: 'https://cdn.example.com/legacy.jpg',
+      })
+    ).toBe('https://cdn.example.com/legacy.jpg');
+    expect(
+      resolveParticipantAvatarUrl({
+        authority: 'parent_guardian',
+        legacySelfAvatarUrl: 'https://cdn.example.com/legacy.jpg',
+      })
+    ).toBeUndefined();
+    expect(
+      resolveParticipantAvatarUrl({
+        avatarUrl: 'https://cdn.example.com/canonical.jpg',
+        authority: 'self',
+        legacySelfAvatarUrl: 'https://cdn.example.com/legacy.jpg',
+      })
+    ).toBe('https://cdn.example.com/canonical.jpg');
   });
 });

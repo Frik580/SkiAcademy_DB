@@ -211,6 +211,18 @@ const ParticipantLifecycleSchema = z.discriminatedUnion('status', [
     .strict(),
 ]);
 
+/** Optional participant-scoped presentation image URL (not account contact data). */
+export const PARTICIPANT_AVATAR_URL_MAX = 2_000;
+
+export const ParticipantAvatarUrlSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(PARTICIPANT_AVATAR_URL_MAX)
+  .refine((value) => !/^data:/i.test(value), {
+    message: 'avatarUrl must not be a data URL',
+  });
+
 export const ParticipantSchema = z
   .object({
     participantId: ParticipantIdSchema,
@@ -219,6 +231,7 @@ export const ParticipantSchema = z
     skillLevel: z.string().trim().min(1).max(64),
     discipline: z.enum(['ski', 'snowboard']),
     instructorComment: z.string().trim().min(1).max(2_000).optional(),
+    avatarUrl: ParticipantAvatarUrlSchema.optional(),
     management: ParticipantManagementStateSchema,
     initialManagementEligibleAccountId: AccountIdSchema.optional(),
     lifecycle: ParticipantLifecycleSchema,

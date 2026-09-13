@@ -92,6 +92,7 @@ export interface ManagedParticipantOption {
   readonly authority: 'self' | 'parent_guardian';
   readonly revision: number;
   readonly instructorComment?: string;
+  readonly avatarUrl?: string;
 }
 
 export type LessonBookingReadSyncState = {

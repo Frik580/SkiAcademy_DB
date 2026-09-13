@@ -38,6 +38,7 @@ import {
   SaveParticipantLessonFeedbackItemsInputSchema,
 } from '../participantLessonFeedback';
 import { AggregateRevisionSchema, KztMinorUnitsSchema } from '../primitives';
+import { ParticipantAvatarUrlSchema } from '../accountParticipantAccess';
 import {
   BookingLessonNotesSchema,
   coerceBookingProposalPartyInput,
@@ -78,6 +79,7 @@ const participantProfilePatchIntent = z
     skillLevel: z.string().trim().min(1).max(64).optional(),
     discipline: z.enum(['ski', 'snowboard']).optional(),
     instructorComment: z.string().trim().min(1).max(2_000).optional(),
+    avatarUrl: ParticipantAvatarUrlSchema.optional(),
   })
   .strict()
   .superRefine((intent, context) => {
@@ -86,7 +88,8 @@ const participantProfilePatchIntent = z
       intent.age !== undefined ||
       intent.skillLevel !== undefined ||
       intent.discipline !== undefined ||
-      intent.instructorComment !== undefined;
+      intent.instructorComment !== undefined ||
+      intent.avatarUrl !== undefined;
     if (!hasPatch) {
       context.addIssue({
         code: 'custom',

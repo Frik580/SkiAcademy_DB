@@ -1,16 +1,22 @@
-import React, { useMemo, useState } from 'react';
-import { Pencil, Plus, UserRound } from 'lucide-react';
+import React, { useMemo, useRef, useState } from 'react';
+import { Camera, Loader2, Pencil, Plus, UserRound } from 'lucide-react';
 import { useLanguage } from '../../../app/providers/LanguageContext';
 import { ActionButton } from '../../../ui/ActionButton';
+import type { UserProfile } from '../../../types';
+import { uploadImage } from '../../../infrastructure/firebase';
+import { logger } from '../../../shared';
+import { optimizeProfileImage } from '../../student-cabinet/components/profileImage';
 import type { ManagedParticipantOption } from '../../lesson-bookings/lessonBookingContracts';
 import { useManagedParticipants } from '../../lesson-bookings/useManagedParticipants';
 import { presentCanonicalCommandErrorWithContext } from '../../lesson-bookings/presentCanonicalCommandError';
 import {
   buildManagedParticipantProfileUpdateInput,
   hasManagedParticipantProfileChanges,
+  participantAvatarStoragePath,
   readParticipantProfileEditState,
   readAgeYearsFromParticipantAge,
   readBirthDateFromParticipantAge,
+  resolveParticipantAvatarUrl,
   type CreateDependentParticipantInput,
   type ManagedParticipantProfileEditState,
 } from '../participantManagementContracts';
@@ -18,6 +24,11 @@ import { useParticipantManagementCommands } from '../useParticipantManagementCom
 
 interface ParticipantManagementPanelProps {
   readonly accountId: string;
+  readonly userProfile?: UserProfile;
+  readonly onUpdateAccountContact?: (patch: Pick<UserProfile, 'phoneNumber'>) => Promise<void>;
+  readonly onInvalidAvatarFile?: () => void;
+  readonly onAvatarUploadSuccess?: () => void;
+  readonly onAvatarUploadError?: () => void;
 }
 
 type EditorMode =
@@ -34,17 +45,25 @@ const DEFAULT_CREATE_FORM: CreateDependentParticipantInput = {
 
 export const ParticipantManagementPanel: React.FC<ParticipantManagementPanelProps> = ({
   accountId,
+  userProfile,
+  onUpdateAccountContact,
+  onInvalidAvatarFile,
+  onAvatarUploadSuccess,
+  onAvatarUploadError,
 }) => {
   const { t } = useLanguage();
   const { participants, loading, error, reload } = useManagedParticipants(accountId);
   const { createDependentParticipant, updateManagedParticipantProfile } =
     useParticipantManagementCommands(accountId);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [editorMode, setEditorMode] = useState<EditorMode>({ kind: 'closed' });
   const [formError, setFormError] = useState<string | undefined>();
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [createForm, setCreateForm] =
     useState<CreateDependentParticipantInput>(DEFAULT_CREATE_FORM);
   const [editForm, setEditForm] = useState<ManagedParticipantProfileEditState | null>(null);
+  const [phoneNumber, setPhoneNumber] = useState(userProfile?.phoneNumber ?? '');
 
   const selfParticipant = useMemo(
     () => participants.find((participant) => participant.authority === 'self'),
@@ -64,6 +83,9 @@ export const ParticipantManagementPanel: React.FC<ParticipantManagementPanelProp
   const openEdit = (participant: ManagedParticipantOption) => {
     setFormError(undefined);
     setEditForm(readParticipantProfileEditState(participant));
+    if (participant.authority === 'self') {
+      setPhoneNumber(userProfile?.phoneNumber ?? '');
+    }
     setEditorMode({ kind: 'edit', participant });
   };
 
@@ -104,13 +126,29 @@ export const ParticipantManagementPanel: React.FC<ParticipantManagementPanelProp
     setIsSaving(true);
     setFormError(undefined);
     try {
-      if (!hasManagedParticipantProfileChanges(editorMode.participant, editForm)) {
+      const isSelf = editorMode.participant.authority === 'self';
+      const phoneDirty =
+        isSelf &&
+        (phoneNumber.trim() || '') !== (userProfile?.phoneNumber ?? '');
+      const profileDirty = hasManagedParticipantProfileChanges(editorMode.participant, editForm);
+
+      if (!profileDirty && !phoneDirty) {
         closeEditor();
         return;
       }
-      await updateManagedParticipantProfile(
-        buildManagedParticipantProfileUpdateInput(editorMode.participant, editForm)
-      );
+
+      if (profileDirty) {
+        await updateManagedParticipantProfile(
+          buildManagedParticipantProfileUpdateInput(editorMode.participant, editForm)
+        );
+      }
+
+      if (phoneDirty && onUpdateAccountContact) {
+        await onUpdateAccountContact({
+          phoneNumber: phoneNumber.trim() || undefined,
+        });
+      }
+
       await reload();
       closeEditor();
     } catch (err) {
@@ -123,8 +161,63 @@ export const ParticipantManagementPanel: React.FC<ParticipantManagementPanelProp
     }
   };
 
+  const handleAvatarFile = async (file: File) => {
+    if (editorMode.kind !== 'edit' || !editForm) {
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      onInvalidAvatarFile?.();
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+    setFormError(undefined);
+    try {
+      const blob = await optimizeProfileImage(file);
+      const avatarUrl = await uploadImage(
+        blob,
+        participantAvatarStoragePath(editorMode.participant.participantId)
+      );
+      const nextEditForm = { ...editForm, avatarUrl };
+      setEditForm(nextEditForm);
+      await updateManagedParticipantProfile(
+        buildManagedParticipantProfileUpdateInput(editorMode.participant, nextEditForm)
+      );
+      await reload();
+      setEditorMode({
+        kind: 'edit',
+        participant: {
+          ...editorMode.participant,
+          avatarUrl,
+          revision: editorMode.participant.revision + 1,
+        },
+      });
+      setEditForm({ ...nextEditForm });
+      onAvatarUploadSuccess?.();
+    } catch (err) {
+      logger.error(err);
+      const presented = presentCanonicalCommandErrorWithContext(err, {
+        t: t as (key: string) => string,
+      });
+      setFormError(presented.message);
+      onAvatarUploadError?.();
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
   const fieldClassName =
     'w-full min-h-[2.75rem] rounded-lg border border-[var(--border-subtle)] bg-[var(--profile-bg)] px-3 py-2.5 text-sm text-[var(--ink)] focus:outline-none focus:border-[var(--accent)] transition box-border';
+
+  const editingSelf = editorMode.kind === 'edit' && editorMode.participant.authority === 'self';
+  const editorAvatarUrl =
+    editorMode.kind === 'edit' && editForm
+      ? resolveParticipantAvatarUrl({
+          avatarUrl: editForm.avatarUrl,
+          authority: editorMode.participant.authority,
+          legacySelfAvatarUrl: userProfile?.avatarUrl,
+        })
+      : undefined;
 
   return (
     <section className="space-y-4 rounded-xl border border-[var(--border-subtle)] p-4">
@@ -167,39 +260,56 @@ export const ParticipantManagementPanel: React.FC<ParticipantManagementPanelProp
           )}
 
           {[...(selfParticipant ? [selfParticipant] : []), ...dependentParticipants].map(
-            (participant) => (
-              <div
-                key={participant.participantId}
-                className="flex items-center justify-between gap-3 rounded-lg border border-[var(--border-subtle)] px-3 py-2.5"
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <UserRound className="h-4 w-4 shrink-0 text-[var(--ink-dim)]" />
-                    <p className="truncate text-sm font-medium text-[var(--ink)]">
-                      {participant.displayName}
-                    </p>
-                  </div>
-                  <p className="mt-1 text-[10px] uppercase tracking-wide text-[var(--ink-dim)]">
-                    {participant.authority === 'self'
-                      ? t('participantAuthoritySelf')
-                      : t('participantAuthorityDependent')}
-                    {' · '}
-                    {participant.discipline} · {participant.skillLevel}
-                  </p>
-                  <p className="mt-1 text-[10px] text-[var(--ink-dim)]">
-                    {t('participantsManagedByYou')}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => openEdit(participant)}
-                  className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-subtle)] px-2.5 py-1.5 text-xs"
+            (participant) => {
+              const avatarUrl = resolveParticipantAvatarUrl({
+                avatarUrl: participant.avatarUrl,
+                authority: participant.authority,
+                legacySelfAvatarUrl: userProfile?.avatarUrl,
+              });
+              return (
+                <div
+                  key={participant.participantId}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-[var(--border-subtle)] px-3 py-2.5"
                 >
-                  <Pencil className="h-3.5 w-3.5" />
-                  {t('participantsEditProfile')}
-                </button>
-              </div>
-            )
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--profile-bg)] text-[var(--ink-dim)]">
+                      {avatarUrl ? (
+                        <img
+                          src={avatarUrl}
+                          alt={participant.displayName}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <UserRound className="h-4 w-4" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-[var(--ink)]">
+                        {participant.displayName}
+                      </p>
+                      <p className="mt-1 text-[10px] uppercase tracking-wide text-[var(--ink-dim)]">
+                        {participant.authority === 'self'
+                          ? t('participantAuthoritySelf')
+                          : t('participantAuthorityDependent')}
+                        {' · '}
+                        {participant.discipline} · {participant.skillLevel}
+                      </p>
+                      <p className="mt-1 text-[10px] text-[var(--ink-dim)]">
+                        {t('participantsManagedByYou')}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => openEdit(participant)}
+                    className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-subtle)] px-2.5 py-1.5 text-xs"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    {t('participantsEditProfile')}
+                  </button>
+                </div>
+              );
+            }
           )}
 
           {dependentParticipants.length === 0 && selfParticipant && (
@@ -218,6 +328,52 @@ export const ParticipantManagementPanel: React.FC<ParticipantManagementPanelProp
               ? t('participantsCreateDependent')
               : t('participantsEditProfile')}
           </h4>
+
+          {editorMode.kind === 'edit' && (
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploadingAvatar || isSaving}
+                className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full bg-[var(--profile-bg)]"
+                title={t('changeProfilePhoto')}
+              >
+                {isUploadingAvatar && (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40">
+                    <Loader2 className="h-5 w-5 animate-spin text-white" />
+                  </div>
+                )}
+                {editorAvatarUrl ? (
+                  <img
+                    src={editorAvatarUrl}
+                    alt={editForm?.displayName ?? ''}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-[var(--ink-dim)]">
+                    <UserRound className="h-6 w-6" />
+                  </div>
+                )}
+                <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition hover:bg-black/25">
+                  <Camera className="h-4 w-4 text-white opacity-70" />
+                </div>
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) {
+                    void handleAvatarFile(file);
+                  }
+                  event.target.value = '';
+                }}
+              />
+              <p className="text-xs text-[var(--ink-dim)]">{t('changeProfilePhoto')}</p>
+            </div>
+          )}
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-1 text-xs text-[var(--ink-dim)]">
@@ -240,6 +396,20 @@ export const ParticipantManagementPanel: React.FC<ParticipantManagementPanelProp
                 className={fieldClassName}
               />
             </label>
+
+            {editingSelf && (
+              <label className="space-y-1 text-xs text-[var(--ink-dim)]">
+                {t('phone')}
+                <input
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(event) => setPhoneNumber(event.target.value)}
+                  placeholder={t('phoneOptional')}
+                  className={fieldClassName}
+                  disabled={!onUpdateAccountContact}
+                />
+              </label>
+            )}
 
             <label className="space-y-1 text-xs text-[var(--ink-dim)]">
               {editorMode.kind === 'create' || editForm?.age.kind === 'age_years'

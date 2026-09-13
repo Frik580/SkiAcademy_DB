@@ -131,6 +131,67 @@ describe('ParticipantManagementPanel', () => {
     });
   });
 
+  it('shows phone field only for self participant editing', async () => {
+    const onUpdateAccountContact = vi.fn().mockResolvedValue(undefined);
+    render(
+      <ParticipantManagementPanel
+        accountId="account_self"
+        userProfile={
+          {
+            uid: 'account_self',
+            email: 'self@example.com',
+            displayName: 'Self Client',
+            role: 'user',
+            avatarUrl: '',
+            balanceUSD: 0,
+            phoneNumber: '+77001234567',
+          } as never
+        }
+        onUpdateAccountContact={onUpdateAccountContact}
+      />
+    );
+
+    await userEvent.click(screen.getAllByRole('button', { name: 'participantsEditProfile' })[0]!);
+    expect(screen.getByDisplayValue('+77001234567')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'cancel' }));
+    await userEvent.click(screen.getAllByRole('button', { name: 'participantsEditProfile' })[1]!);
+    expect(screen.queryByDisplayValue('+77001234567')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('phoneOptional')).not.toBeInTheDocument();
+  });
+
+  it('saves self phone through account contact path without participant phone field', async () => {
+    const onUpdateAccountContact = vi.fn().mockResolvedValue(undefined);
+    render(
+      <ParticipantManagementPanel
+        accountId="account_self"
+        userProfile={
+          {
+            uid: 'account_self',
+            email: 'self@example.com',
+            displayName: 'Self Client',
+            role: 'user',
+            avatarUrl: '',
+            balanceUSD: 0,
+            phoneNumber: '+77001234567',
+          } as never
+        }
+        onUpdateAccountContact={onUpdateAccountContact}
+      />
+    );
+
+    await userEvent.click(screen.getAllByRole('button', { name: 'participantsEditProfile' })[0]!);
+    const phoneInput = screen.getByDisplayValue('+77001234567');
+    await userEvent.clear(phoneInput);
+    await userEvent.type(phoneInput, '+77007654321');
+    await userEvent.click(screen.getByRole('button', { name: 'saveChanges' }));
+
+    await waitFor(() => {
+      expect(onUpdateAccountContact).toHaveBeenCalledWith({ phoneNumber: '+77007654321' });
+      expect(mocks.updateManagedParticipantProfile).not.toHaveBeenCalled();
+    });
+  });
+
   it('does not corrupt birth_date participants when saving without age changes', async () => {
     render(<ParticipantManagementPanel accountId="account_self" />);
 

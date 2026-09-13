@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ParticipantAvatarUrlSchema } from '../accountParticipantAccess';
 import { IdempotencyKeySchema } from '../commands/commandContext';
 import { AccountIdSchema, ParticipantIdSchema } from '../identifiers';
 
@@ -32,6 +33,7 @@ export const ManagedParticipantPickerItemSchema = z
     authority: z.enum(['self', 'parent_guardian']),
     revision: z.number().int().positive(),
     instructorComment: z.string().trim().min(1).max(2_000).optional(),
+    avatarUrl: ParticipantAvatarUrlSchema.optional(),
   })
   .strict();
 

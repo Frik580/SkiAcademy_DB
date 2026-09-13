@@ -42,6 +42,7 @@ function toManagedParticipantPickerItem(input: {
     ...(input.participant.instructorComment === undefined
       ? {}
       : { instructorComment: input.participant.instructorComment }),
+    ...(input.participant.avatarUrl === undefined ? {} : { avatarUrl: input.participant.avatarUrl }),
   });
   return parsed.success ? parsed.data : undefined;
 }

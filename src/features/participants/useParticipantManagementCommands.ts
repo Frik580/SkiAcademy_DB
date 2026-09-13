@@ -94,6 +94,7 @@ export function useParticipantManagementCommands(accountId: string | undefined) 
         ...(input.instructorComment !== undefined
           ? { instructorComment: input.instructorComment.trim() }
           : {}),
+        ...(input.avatarUrl !== undefined ? { avatarUrl: input.avatarUrl.trim() } : {}),
       };
 
       const result = await executeAuthenticatedCanonicalCommand(accountId, {

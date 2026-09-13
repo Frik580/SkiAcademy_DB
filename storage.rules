@@ -120,6 +120,23 @@ service firebase.storage {
       allow write: if isOwner(uid) && isValidImageUpload();
     }
 
+    // Participant-scoped avatars. Write authorization uses the active owner
+    // guard so only the managing account can upload for that participantId.
+    function canManageParticipantAvatar(participantId) {
+      return isAuthenticated() &&
+        firestore.exists(
+          /databases/(default)/documents/participant_management_active_owner/$(participantId)
+        ) &&
+        firestore.get(
+          /databases/(default)/documents/participant_management_active_owner/$(participantId)
+        ).data.accountId == request.auth.uid;
+    }
+
+    match /participant-avatars/{participantId}/avatar.jpg {
+      allow read: if true;
+      allow write: if canManageParticipantAvatar(participantId) && isValidImageUpload();
+    }
+
     match /courses/{courseId} {
       allow read: if true;
       allow write: if isAdmin() && isValidImageUpload();

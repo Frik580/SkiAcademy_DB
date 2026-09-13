@@ -5,7 +5,7 @@ import {
   shouldSyncAccountParticipantLessonStats,
 } from '../../src/store/accountLessonBookingSync';
 
-describe('shouldSyncAccountLessonBookings', () => {
+describe('shouldSyncAccountLessonBookings (account_hot surfaces)', () => {
   it('does not sync when signed out', () => {
     expect(shouldSyncAccountLessonBookings({ pathname: '/cabinet', accountId: undefined })).toBe(
       false
@@ -13,23 +13,36 @@ describe('shouldSyncAccountLessonBookings', () => {
     expect(shouldSyncAccountLessonBookings({ pathname: '/', accountId: undefined })).toBe(false);
   });
 
-  it('syncs authenticated cabinet and home lesson surfaces', () => {
-    expect(shouldSyncAccountLessonBookings({ pathname: '/cabinet', accountId: 'account_01' })).toBe(
-      true
-    );
-    expect(
-      shouldSyncAccountLessonBookings({ pathname: '/cabinet/history', accountId: 'account_01' })
-    ).toBe(true);
-    expect(shouldSyncAccountLessonBookings({ pathname: '/', accountId: 'account_01' })).toBe(true);
+  it('enables only surfaces that render current/upcoming lessons', () => {
+    for (const pathname of [
+      '/cabinet',
+      '/cabinet/',
+      '/cabinet/home',
+      '/cabinet/calendar',
+      '/cabinet/coach',
+      '/cabinet/instructors',
+    ]) {
+      expect(shouldSyncAccountLessonBookings({ pathname, accountId: 'account_01' })).toBe(true);
+    }
   });
 
-  it('does not sync instructor or admin workspaces', () => {
-    expect(
-      shouldSyncAccountLessonBookings({ pathname: '/instructor', accountId: 'account_01' })
-    ).toBe(false);
-    expect(shouldSyncAccountLessonBookings({ pathname: '/admin', accountId: 'account_01' })).toBe(
-      false
-    );
+  it('does not enable Training, History, Profile, public home, or workspaces', () => {
+    for (const pathname of [
+      '/',
+      '/cabinet/training',
+      '/cabinet/history',
+      '/cabinet/development',
+      '/cabinet/courses',
+      '/cabinet/settings',
+      '/cabinet/profile_personal',
+      '/cabinet/profile_wallet',
+      '/cabinet/profile_achievements',
+      '/cabinet/profile_season',
+      '/instructor',
+      '/admin',
+    ]) {
+      expect(shouldSyncAccountLessonBookings({ pathname, accountId: 'account_01' })).toBe(false);
+    }
   });
 });
 

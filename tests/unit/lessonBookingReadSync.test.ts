@@ -13,6 +13,7 @@ import {
   useLessonBookingReadSync,
 } from '../../src/features/lesson-bookings/useLessonBookingReadSync';
 import { persistGuestBookingCredential } from '../../src/features/lesson-bookings/guestCredentialStorage';
+import { resetAccountLessonBookingSyncStateForTests } from '../../src/features/lesson-bookings/syncAccountLessonBookings';
 
 const queryLessonBookingReadModelsMock = vi.fn();
 
@@ -56,6 +57,7 @@ function buildGuestReadItem(bookingId: string, revision: number) {
 describe('lessonBooking read sync integration', () => {
   beforeEach(() => {
     useLessonBookingStore.getState().reset();
+    resetAccountLessonBookingSyncStateForTests();
     queryLessonBookingReadModelsMock.mockReset();
     localStorage.clear();
   });
@@ -289,15 +291,8 @@ describe('lessonBooking read sync integration', () => {
     nowSpy.mockRestore();
   });
 
-  it('keeps timer and visibility refreshes hot-only while History is closed', async () => {
-    let intervalRefresh: (() => void) | undefined;
-    const setIntervalSpy = vi
-      .spyOn(window, 'setInterval')
-      .mockImplementation((handler: TimerHandler, delay?: number) => {
-        if (delay === 30_000) intervalRefresh = handler as () => void;
-        return 1;
-      });
-    const clearIntervalSpy = vi.spyOn(window, 'clearInterval').mockImplementation(() => undefined);
+  it('does not register a 30s account_hot polling interval', async () => {
+    const setIntervalSpy = vi.spyOn(window, 'setInterval');
     queryLessonBookingReadModelsMock.mockResolvedValue({
       scope: 'account_hot',
       items: [],
@@ -305,24 +300,36 @@ describe('lessonBooking read sync integration', () => {
     });
 
     const { unmount } = renderHook(() =>
-      useLessonBookingReadSync(true, 'account_fixture_01', false)
+      useLessonBookingReadSync(true, 'account_fixture_01', false, true)
     );
     await waitFor(() => expect(queryLessonBookingReadModelsMock).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(useLessonBookingStore.getState().hotLoading).toBe(false));
-    expect(intervalRefresh).toBeDefined();
+    await waitFor(() => expect(useLessonBookingStore.getState().loaded).toBe(true));
 
-    act(() => intervalRefresh?.());
-    await waitFor(() => expect(queryLessonBookingReadModelsMock).toHaveBeenCalledTimes(2));
-    act(() => document.dispatchEvent(new Event('visibilitychange')));
-    await waitFor(() => expect(queryLessonBookingReadModelsMock).toHaveBeenCalledTimes(3));
+    expect(setIntervalSpy.mock.calls.some((call) => call[1] === 30_000)).toBe(false);
+    expect(queryLessonBookingReadModelsMock).toHaveBeenCalledTimes(1);
 
-    expect(queryLessonBookingReadModelsMock.mock.calls.map((call) => call[0].scope)).toEqual([
-      'account_hot',
-      'account_hot',
-      'account_hot',
-    ]);
     unmount();
     setIntervalSpy.mockRestore();
-    clearIntervalSpy.mockRestore();
+  });
+
+  it('treats empty account_hot as loaded and skips fresh visibility refetch', async () => {
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      get: () => 'visible',
+    });
+    queryLessonBookingReadModelsMock.mockResolvedValue({
+      scope: 'account_hot',
+      items: [],
+      hasMore: false,
+    });
+
+    renderHook(() => useLessonBookingReadSync(true, 'account_fixture_01', false, true));
+    await waitFor(() => expect(queryLessonBookingReadModelsMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(useLessonBookingStore.getState().loaded).toBe(true));
+    expect(useLessonBookingStore.getState().hotLoadedAtMs).toBeTypeOf('number');
+
+    act(() => document.dispatchEvent(new Event('visibilitychange')));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    expect(queryLessonBookingReadModelsMock).toHaveBeenCalledTimes(1);
   });
 });

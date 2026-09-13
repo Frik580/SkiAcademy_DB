@@ -30,11 +30,9 @@ export const useStoreSync = () => {
   const location = useLocation();
   const firebaseUser = useAuthStore((state) => state.firebaseUser);
   const userProfile = useProfileStore((state) => state.userProfile);
-  // Hydrate account lesson bookings on `/` and `/cabinet*` for any signed-in
-  // account. Do not gate on role/instructorId — that left Arsenii-style admin /
-  // dual-role accounts with an empty lesson store and no
-  // queryLessonBookingReadModels request after legacy bookings sync was cut off.
-  const isCustomerCanonicalLessonPath = shouldSyncAccountLessonBookings({
+  // Hydrate account_hot only on surfaces that render current/upcoming lessons.
+  // History keeps a separate gate; Training/Profile/etc. must not poll account_hot.
+  const isCustomerCanonicalLessonHotPath = shouldSyncAccountLessonBookings({
     pathname: location.pathname,
     accountId: firebaseUser?.uid,
   });
@@ -42,6 +40,8 @@ export const useStoreSync = () => {
     pathname: location.pathname,
     accountId: firebaseUser?.uid,
   });
+  const isCustomerCanonicalLessonPath =
+    isCustomerCanonicalLessonHotPath || isCustomerCanonicalLessonHistoryPath;
   const isParticipantLessonStatsPath = shouldSyncAccountParticipantLessonStats({
     pathname: location.pathname,
     accountId: firebaseUser?.uid,
@@ -66,13 +66,14 @@ export const useStoreSync = () => {
   useLessonBookingReadSync(
     isCustomerCanonicalLessonPath,
     firebaseUser?.uid,
-    isCustomerCanonicalLessonHistoryPath
+    isCustomerCanonicalLessonHistoryPath,
+    isCustomerCanonicalLessonHotPath
   );
   useAccountParticipantLessonStatsSync(isParticipantLessonStatsPath, firebaseUser?.uid);
   useCourseEnrollmentReadSync(isCustomerCanonicalCoursePath, firebaseUser?.uid);
   useCourseCatalogReadSync(isPublicCatalogPath);
   useBookingCollaborationReadSync({
-    customerEnabled: isCustomerCanonicalLessonPath,
+    customerEnabled: isCustomerCanonicalLessonHotPath,
     instructorEnabled: isInstructorCollaborationPath,
     accountId: firebaseUser?.uid,
     instructorId: userProfile?.instructorId,

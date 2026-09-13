@@ -204,11 +204,16 @@ describe('T32.9A.9A individual Booking lifecycle cutover boundary', () => {
     expect(storeSync).toContain('useLessonBookingReadSync(');
     expect(storeSync).toContain('isCustomerCanonicalLessonPath');
     expect(storeSync).toContain('isCustomerCanonicalLessonHistoryPath');
+    expect(storeSync).toContain('isCustomerCanonicalLessonHotPath');
     expect(storeSync).toContain('shouldSyncAccountLessonBookings');
     expect(storeSync).not.toContain("userProfile?.role === 'user'");
-    expect(accountLessonGate).toContain("input.pathname.startsWith('/cabinet')");
-    expect(lessonSync).toContain("scope: 'account_hot'");
-    expect(lessonSync).toContain('queryLessonBookingReadModels');
+    // P0B: account_hot is surface-scoped to Home/Calendar/Coach — not all /cabinet*.
+    expect(accountLessonGate).toContain('ACCOUNT_LESSON_HOT_PATHS');
+    expect(accountLessonGate).toContain("'/cabinet/calendar'");
+    expect(accountLessonGate).not.toContain("pathname.startsWith('/cabinet')");
+    expect(lessonSync).toContain('syncAccountHotLessonBookingsFromServer');
+    expect(lessonSync).toContain('isAccountLessonHotFresh');
+    expect(lessonSync).not.toContain('setInterval');
     expect(cabinetRoute).toContain('useLessonBookingStore(selectLessonBookingItems)');
     expect(cabinetRoute).not.toContain('state.bookings');
     expect(bookingSync).toContain('setBookings([])');

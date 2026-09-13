@@ -13,6 +13,8 @@ interface LessonBookingStoreState {
   readonly historyLoadedAtMs?: number;
   readonly historyCursor?: string;
   readonly loaded: boolean;
+  /** Wall-clock ms when account_hot last successfully applied (empty result counts). */
+  readonly hotLoadedAtMs?: number;
   readonly error?: string;
   readonly historyRequestNonce: number;
   readonly calendarMonths: ReadonlyMap<string, CalendarMonthLoadStatus>;
@@ -28,6 +30,8 @@ interface LessonBookingStoreState {
   resetHistoryPagination: () => void;
   setHistoryCursor: (cursor?: string) => void;
   setLoaded: (loaded: boolean) => void;
+  setHotLoadedAtMs: (loadedAtMs: number) => void;
+  markHotStale: () => void;
   setError: (error?: string) => void;
   requestHistoryPage: () => void;
   setCalendarMonthStatus: (monthKey: string, status: CalendarMonthLoadStatus) => void;
@@ -56,6 +60,7 @@ const initialState = {
   historyLoadedAtMs: undefined,
   historyCursor: undefined,
   loaded: false,
+  hotLoadedAtMs: undefined,
   error: undefined,
   historyRequestNonce: 0,
   calendarMonths: EMPTY_CALENDAR_MONTHS,
@@ -121,6 +126,8 @@ export const useLessonBookingStore = create<LessonBookingStoreState>((set) => ({
     }),
   setHistoryCursor: (historyCursor) => set({ historyCursor }),
   setLoaded: (loaded) => set({ loaded }),
+  setHotLoadedAtMs: (hotLoadedAtMs) => set({ hotLoadedAtMs }),
+  markHotStale: () => set({ hotLoadedAtMs: undefined }),
   setError: (error) => set({ error }),
   requestHistoryPage: () =>
     set((state) => ({ historyRequestNonce: state.historyRequestNonce + 1 })),

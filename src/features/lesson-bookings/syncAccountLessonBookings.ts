@@ -12,6 +12,9 @@ import { mergeLessonBookingRecords } from './lessonBookingViewModel';
 
 export const ACCOUNT_LESSON_BOOKING_REFRESH_MS = 30_000;
 
+/** Freshness TTL for account_hot — used for ensure/visibility gating, not polling. */
+export const ACCOUNT_LESSON_BOOKING_FRESH_MS = ACCOUNT_LESSON_BOOKING_REFRESH_MS;
+
 let syncInFlight: Promise<void> | undefined;
 let hotSyncInFlight: Promise<void> | undefined;
 const calendarMonthInFlight = new Map<string, Promise<void>>();
@@ -25,6 +28,20 @@ export function resetAccountLessonBookingSyncStateForTests(): void {
 
 export function isAccountLessonBookingBackgroundSyncAllowed(): boolean {
   return typeof document === 'undefined' || document.visibilityState !== 'hidden';
+}
+
+export function isAccountLessonHotFresh(
+  state: { readonly loaded: boolean; readonly hotLoadedAtMs?: number },
+  nowMs = Date.now(),
+  freshMs = ACCOUNT_LESSON_BOOKING_FRESH_MS
+): boolean {
+  return state.loaded && state.hotLoadedAtMs !== undefined && nowMs - state.hotLoadedAtMs < freshMs;
+}
+
+function markAccountHotApplied(): void {
+  const store = useLessonBookingStore.getState();
+  store.setLoaded(true);
+  store.setHotLoadedAtMs(Date.now());
 }
 
 function cabinetItemEndsAtTimestamp(item: LessonBookingCabinetItem): CanonicalTimestamp {
@@ -103,6 +120,7 @@ export async function syncAccountLessonBookingsFromServer(): Promise<void> {
         historyItems: history.items,
         reconcileHot: true,
       });
+      markAccountHotApplied();
     } finally {
       syncInFlight = undefined;
     }
@@ -125,6 +143,7 @@ export async function syncAccountHotLessonBookingsFromServer(): Promise<void> {
         historyItems: [],
         reconcileHot: true,
       });
+      markAccountHotApplied();
     } finally {
       hotSyncInFlight = undefined;
     }

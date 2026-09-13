@@ -434,7 +434,7 @@ describe('Student Cabinet background sync safety', () => {
     expect(isAccountLessonBookingBackgroundSyncAllowed()).toBe(true);
   });
 
-  it('clears polling interval and visibility listener on unmount', async () => {
+  it('clears visibility listener on unmount and never registers a 30s poll', async () => {
     queryLessonBookingReadModelsMock.mockResolvedValue({
       scope: 'account_hot',
       items: [],
@@ -442,7 +442,7 @@ describe('Student Cabinet background sync safety', () => {
     });
     const addSpy = vi.spyOn(document, 'addEventListener');
     const removeSpy = vi.spyOn(document, 'removeEventListener');
-    const clearIntervalSpy = vi.spyOn(window, 'clearInterval');
+    const setIntervalSpy = vi.spyOn(window, 'setInterval');
 
     const { unmount } = renderHook(() => useLessonBookingReadSync(true, 'account_fixture_01'));
 
@@ -453,10 +453,10 @@ describe('Student Cabinet background sync safety', () => {
     unmount();
 
     expect(removeSpy).toHaveBeenCalledWith('visibilitychange', expect.any(Function));
-    expect(clearIntervalSpy).toHaveBeenCalled();
+    expect(setIntervalSpy.mock.calls.some((call) => call[1] === 30_000)).toBe(false);
 
     addSpy.mockRestore();
     removeSpy.mockRestore();
-    clearIntervalSpy.mockRestore();
+    setIntervalSpy.mockRestore();
   });
 });

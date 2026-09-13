@@ -5,30 +5,36 @@ import { useLessonBookingStore } from './lessonBookingStore';
 import { mergeLessonBookingRecords } from './lessonBookingViewModel';
 import { readGuestBookingCredential } from './guestCredentialStorage';
 import {
-  ACCOUNT_LESSON_BOOKING_REFRESH_MS,
-  applyAccountLessonBookingReadResults,
+  ACCOUNT_LESSON_BOOKING_FRESH_MS,
   isAccountLessonBookingBackgroundSyncAllowed,
+  isAccountLessonHotFresh,
   syncAccountHotLessonBookingsFromServer,
 } from './syncAccountLessonBookings';
 
 const DEFAULT_TIMEZONE = 'Asia/Almaty';
 
+/**
+ * Account lesson read sync.
+ *
+ * - `hotEnabled`: surface that renders current/upcoming lessons — ensure + visibility refresh.
+ * - `historyEnabled`: History route — account_history pagination only.
+ * - No 30s polling. Mutations invalidate via deliberate refetch.
+ */
 export function useLessonBookingReadSync(
   enabled: boolean,
   accountId: string | undefined,
-  historyEnabled = false
+  historyEnabled = false,
+  hotEnabled = enabled
 ) {
   const historyRequestNonce = useLessonBookingStore((state) => state.historyRequestNonce);
   const historyLoading = useLessonBookingStore((state) => state.historyLoading);
 
   const loadHot = useCallback(async () => {
-    if (!enabled || !accountId) return;
+    if (!accountId) return;
     useLessonBookingStore.getState().setHotLoading(true);
     useLessonBookingStore.getState().setError(undefined);
     try {
-      const result = await queryLessonBookingReadModels({ scope: 'account_hot' });
-      applyAccountLessonBookingReadResults({ hotItems: result.items, historyItems: [] });
-      useLessonBookingStore.getState().setLoaded(true);
+      await syncAccountHotLessonBookingsFromServer();
     } catch (error) {
       useLessonBookingStore
         .getState()
@@ -36,7 +42,15 @@ export function useLessonBookingReadSync(
     } finally {
       useLessonBookingStore.getState().setHotLoading(false);
     }
-  }, [accountId, enabled]);
+  }, [accountId]);
+
+  const ensureHot = useCallback(async () => {
+    if (!hotEnabled || !accountId) return;
+    const state = useLessonBookingStore.getState();
+    if (state.hotLoading) return;
+    if (isAccountLessonHotFresh(state)) return;
+    await loadHot();
+  }, [accountId, hotEnabled, loadHot]);
 
   const loadHistoryPage = useCallback(async () => {
     if (!enabled || !accountId) return;
@@ -66,14 +80,16 @@ export function useLessonBookingReadSync(
     }
   }, [accountId, enabled]);
 
+  // Reset only on account change / sign-out — never when leaving a hot surface.
   useEffect(() => {
-    if (!enabled || !accountId) {
+    if (!accountId) {
       useLessonBookingStore.getState().reset();
-      return;
     }
-    useLessonBookingStore.getState().reset();
-    void loadHot();
-  }, [accountId, enabled, loadHot]);
+  }, [accountId]);
+
+  useEffect(() => {
+    void ensureHot();
+  }, [ensureHot]);
 
   useEffect(() => {
     if (!enabled || !accountId || !historyEnabled) return;
@@ -82,7 +98,7 @@ export function useLessonBookingReadSync(
     const historyIsFresh =
       state.historyInitialized &&
       state.historyLoadedAtMs !== undefined &&
-      Date.now() - state.historyLoadedAtMs < ACCOUNT_LESSON_BOOKING_REFRESH_MS;
+      Date.now() - state.historyLoadedAtMs < ACCOUNT_LESSON_BOOKING_FRESH_MS;
     if (historyIsFresh) return;
     if (state.historyInitialized) {
       state.resetHistoryPagination();
@@ -96,10 +112,13 @@ export function useLessonBookingReadSync(
   }, [historyRequestNonce, enabled, accountId, historyEnabled, loadHistoryPage]);
 
   useEffect(() => {
-    if (!enabled || !accountId) return;
+    if (!hotEnabled || !accountId) return;
 
-    const refresh = () => {
+    const refreshIfStale = () => {
       if (!isAccountLessonBookingBackgroundSyncAllowed()) {
+        return;
+      }
+      if (isAccountLessonHotFresh(useLessonBookingStore.getState())) {
         return;
       }
       void syncAccountHotLessonBookingsFromServer().catch(() => undefined);
@@ -107,18 +126,15 @@ export function useLessonBookingReadSync(
 
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        refresh();
+        refreshIfStale();
       }
     };
 
     document.addEventListener('visibilitychange', onVisibilityChange);
-    const intervalId = window.setInterval(refresh, ACCOUNT_LESSON_BOOKING_REFRESH_MS);
-
     return () => {
       document.removeEventListener('visibilitychange', onVisibilityChange);
-      window.clearInterval(intervalId);
     };
-  }, [accountId, enabled]);
+  }, [accountId, hotEnabled]);
 
   return { reloadHot: loadHot };
 }

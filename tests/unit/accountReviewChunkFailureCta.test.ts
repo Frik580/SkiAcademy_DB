@@ -36,7 +36,7 @@ describe('account_reviews chunk transport failure vs review CTA', () => {
     __resetCanonicalReadInFlightRegistryForTests();
   });
 
-  it('keeps a fresh booking unknown after its read chunk fails (no false review CTA)', async () => {
+  it('rejects an incomplete authority projection so callers keep prior CTA state and retry', async () => {
     const freshBookingId = 'booking-fresh-chunk-fail-26';
     const ids = Array.from(
       { length: INSTRUCTOR_REVIEW_ACCOUNT_BOOKING_IDS_MAX + 1 },
@@ -62,10 +62,9 @@ describe('account_reviews chunk transport failure vs review CTA', () => {
       })
       .mockRejectedValueOnce(new Error('transport failure'));
 
-    const accountResult = await queryAccountInstructorReviewReadModels(ids);
-    const mergedAfterSync = mergeAccountReviewBookingStates([], accountResult.bookingStates, ids);
+    await expect(queryAccountInstructorReviewReadModels(ids)).rejects.toThrow('transport failure');
 
-    expect(mergedAfterSync.some((state) => state.bookingId === freshBookingId)).toBe(false);
+    const mergedAfterSync = mergeAccountReviewBookingStates([], [], ids);
 
     const ctaBookingIds = bookingsEligibleForReviewCta([freshBookingId], mergedAfterSync);
     expect(ctaBookingIds).toEqual([]);

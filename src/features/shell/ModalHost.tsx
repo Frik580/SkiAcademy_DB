@@ -18,6 +18,8 @@ import { AuthModal } from '../../features/auth';
 import { LazyLoad } from '../../ui/LazyLoad';
 import { ModalSkeleton } from '../../ui/Skeleton';
 import { BodyScrollLock } from '../../ui/BodyScrollLock';
+import { loadMoreCanonicalInstructorReviews } from '../reviews';
+import { logger } from '../../shared';
 
 const BookingModal = React.lazy(() =>
   import('../../features/bookings').then(({ BookingModal }) => ({ default: BookingModal }))
@@ -68,6 +70,9 @@ export const ModalHost: React.FC = () => {
   const setSelectedCourseForDetails = useUiStore((s) => s.setSelectedCourseForDetails);
   const reviewsInstructor = useUiStore((s) => s.reviewsInstructor);
   const setReviewsInstructor = useUiStore((s) => s.setReviewsInstructor);
+  const reviewPagination = useBookingsStore((state) =>
+    reviewsInstructor ? state.reviewPaginationByInstructor[reviewsInstructor.id] : undefined
+  );
 
   const selectedCatalogOperational = useCourseEnrollmentStore((state) =>
     selectedCourseForDetails
@@ -133,6 +138,13 @@ export const ModalHost: React.FC = () => {
               reviewsInstructor
             }
             reviews={reviews}
+            hasMore={reviewPagination?.hasMore}
+            loadingMore={reviewPagination?.loadingMore}
+            onLoadMore={() => {
+              void loadMoreCanonicalInstructorReviews(reviewsInstructor.id).catch((error) =>
+                logger.error('Canonical instructor review page load failed:', error)
+              );
+            }}
           />
         </LazyLoad>
       )}

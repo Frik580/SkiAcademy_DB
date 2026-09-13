@@ -10,6 +10,9 @@ interface InstructorReviewsModalProps {
   onClose: () => void;
   instructor: Instructor | null;
   reviews: Review[];
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  onLoadMore?: () => void;
 }
 
 export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
@@ -17,6 +20,9 @@ export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
   onClose,
   instructor,
   reviews,
+  hasMore = false,
+  loadingMore = false,
+  onLoadMore,
 }) => {
   const { t } = useLanguage();
   const [activeInstructor, setActiveInstructor] = React.useState<Instructor | null>(instructor);
@@ -206,7 +212,19 @@ export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
             </div>
 
             {/* Footer */}
-            <div className="p-4 border-t border-[var(--border)] bg-black/10 flex justify-end shrink-0">
+            <div className="p-4 border-t border-[var(--border)] bg-black/10 flex justify-between gap-3 shrink-0">
+              {hasMore && onLoadMore ? (
+                <button
+                  type="button"
+                  onClick={onLoadMore}
+                  disabled={loadingMore}
+                  className="px-4 py-2 border border-[var(--border)] bg-transparent hover:bg-black/5 disabled:opacity-50 text-[var(--ink)] rounded-none text-xs font-mono uppercase tracking-widest transition cursor-pointer"
+                >
+                  {loadingMore ? t('loading') : t('loadMoreReviews')}
+                </button>
+              ) : (
+                <span />
+              )}
               <button
                 onClick={onClose}
                 className="px-4 py-2 border border-[var(--border)] bg-[var(--ink)] hover:bg-transparent text-[var(--bg)] hover:text-[var(--ink)] rounded-none text-xs font-mono uppercase tracking-widest transition cursor-pointer"

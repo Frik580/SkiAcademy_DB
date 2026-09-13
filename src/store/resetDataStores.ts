@@ -21,6 +21,7 @@ export function resetUserScopedStores(): void {
     reviews: [],
     reviewBookingStates: [],
     ratingSummaries: {},
+    reviewPaginationByInstructor: {},
     reviewSyncRequest: 0,
   });
   useCoursesStore.setState({ courses: [] });

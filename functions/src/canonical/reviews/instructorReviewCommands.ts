@@ -36,7 +36,10 @@ import {
   participantManagementActiveOwnerPath,
   participantManagementPath,
 } from '../participantAccess/participantAccessStore';
-import { assertAccountActive, requireAccountActor } from '../participantAccess/participantAccessAuthorization';
+import {
+  assertAccountActive,
+  requireAccountActor,
+} from '../participantAccess/participantAccessAuthorization';
 import { attendancePath, parseAttendance } from '../bookings/attendanceStore';
 import {
   bookingPath,
@@ -128,7 +131,10 @@ function createInstructorReviewHandler(
       existingSummary = undefined;
 
       const accountRead = await session.tx.get({ path: accountPath(actor.accountId) });
-      session.plan.planRead({ path: accountPath(actor.accountId), category: 'authorization_check' });
+      session.plan.planRead({
+        path: accountPath(actor.accountId),
+        category: 'authorization_check',
+      });
       const account = assertAccountActive(
         envelope,
         parseAccount(accountRead.exists ? accountRead.data : undefined)
@@ -249,13 +255,13 @@ function createInstructorReviewHandler(
         const documentPath = attendancePath(attendanceId);
         const attendanceRead = await session.tx.get({ path: documentPath });
         session.plan.planRead({ path: documentPath, category: 'authorization_check' });
-        const attendance = parseAttendance(
-          attendanceRead.exists ? attendanceRead.data : undefined
-        );
+        const attendance = parseAttendance(attendanceRead.exists ? attendanceRead.data : undefined);
         if (
           attendance &&
+          attendance.attendanceId === attendanceId &&
           attendance.subject.subjectKind === 'booking' &&
           attendance.subject.bookingId === booking.bookingId &&
+          attendance.subject.occurrenceId === booking.occurrence.occurrenceId &&
           attendance.subject.participantId === participantId &&
           attendance.attendanceStatus === 'present'
         ) {

@@ -6,7 +6,7 @@ import { ScTintCard } from './StudentCabinetUI';
 import type { TodayProgressBlockInput } from './studentCabinetContracts';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 import {
-  accountReviewsFromLegacy,
+  accountReviewEvidenceFromCanonicalPresentation,
   usePresentedParticipantAchievements,
 } from '../../../participant-achievements';
 
@@ -21,7 +21,10 @@ export const TodayProgressBlock = memo<TodayProgressBlockInput>(function TodayPr
   skillConfig,
 }) {
   const { lang } = useStudentCabinetTranslations();
-  const accountReviews = useMemo(() => accountReviewsFromLegacy(reviews), [reviews]);
+  const accountReviews = useMemo(
+    () => accountReviewEvidenceFromCanonicalPresentation(reviews),
+    [reviews]
+  );
   const { todayAchievements } = usePresentedParticipantAchievements({
     selectedParticipantId,
     language: lang,

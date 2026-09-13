@@ -17,6 +17,7 @@ Amended: 2026-09-11 — T32.9A.9B.3 Canonical Lesson Feedback implemented throug
 Amended: 2026-09-12 — T32.9A.9B.3 **PASS / CLOSED** after production deploy (indexes → Functions → Rules → Hosting) and manual acceptance smoke **PASS**; active 9B sub-slice **T32.9A.9B.4** Stats / Achievements — NEXT; **T32.9A.9P.HW1** Participant-scoped Chat Homework recorded as known parity item (not in ParticipantLessonFeedback scope)
 Amended: 2026-09-12 — T32.9A.9B.4 Stats / Achievements isolation + integration gate (9B.4E) complete; **READY_FOR_MANUAL_SMOKE** (production deploy + authenticated manual smoke not yet recorded). Course metrics remain **T32.9A.9C**. Chat Homework remains **T32.9A.9P.HW1**. 9B.5 is not an accepted roadmap ticket.
 Amended: 2026-09-13 — T32.9A.9A.F5 Canonical Guest Course Reservation Expiry added as a post-close corrective follow-up after a separate guest CourseEnrollment expiry/runtime gap was identified. Existing F1–F4 acceptance remains valid.
+Amended: 2026-09-13 — Reviews / Instructor Rating Continuity source, reachability, Rules, bounded read-model, idempotency/concurrency, multi-participant, and UX continuity gates complete; **READY_FOR_MANUAL_SMOKE**. Production deploy and authenticated smoke are not recorded; 9B overall is not closed here.
 
 Status: historical Admin-runtime audit from 2026-08-30, with later T32.8A–T32.8C and T32.9A/T32.9B migration status below. Findings in this document that describe unpaid Administrator guest approval, missing guest CourseEnrollment confirmation, or identity linking as confirmation are superseded by ADR-0007. Sections below that still describe the 2026-08-30 Admin runtime as fully legacy are historical audit evidence; later migration status in this preamble supersedes them for T32.9A progress.
 
@@ -58,6 +59,7 @@ T32.9 remains split per [ADR-0008](adr/0008-ux-preservation-during-canonical-mig
 | T32.9A.9B.2                                    | Canonical Participant Progress                                           | PASS / CLOSED                             |
 | T32.9A.9B.3                                    | Recommendations / Lesson Feedback continuity                             | PASS / CLOSED                             |
 | T32.9A.9B.4                                    | Stats / Achievements                                                     | READY_FOR_MANUAL_SMOKE                    |
+| Reviews / Instructor Rating Continuity         | Canonical review command, read models, rating summaries, legacy gate     | READY_FOR_MANUAL_SMOKE                    |
 | T32.9A.9C                                      | Course Progress / Achievements Cutover                                   | PENDING                                   |
 | T32.9A.9P                                      | Global Product Parity & Legacy Dependency Gate                           | PENDING                                   |
 | T32.9A.9D0                                     | Production-like Incremental Cutover Rehearsal                            | PENDING                                   |
@@ -97,6 +99,7 @@ T32.9A.9B — Student Booking Stats / Progress / Recommendations Cutover — IN 
   T32.9A.9B.2 — Canonical Participant Progress — PASS / CLOSED (production smoke 2026-09-11)
   T32.9A.9B.3 — Recommendations / Lesson Feedback continuity — PASS / CLOSED (production smoke 2026-09-12)
   T32.9A.9B.4 — Stats / Achievements — READY_FOR_MANUAL_SMOKE
+  Reviews / Instructor Rating Continuity — READY_FOR_MANUAL_SMOKE
 T32.9A.9C — Course Progress / Achievements Cutover
 T32.9A.9P — Global Product Parity & Legacy Dependency Gate
 T32.9A.9D0 — Production-like Incremental Cutover Rehearsal
@@ -451,10 +454,10 @@ The Booking-level action “Mark completed” / “Complete lesson” was remove
 
 For every rendered participant:
 
-| Attendance state | Label        | Actions                         |
-| ---------------- | ------------ | ------------------------------- |
-| Not recorded     | Not recorded | Present / Absent when authorized |
-| Present          | Present      | Absent only when correction authorized |
+| Attendance state | Label        | Actions                                 |
+| ---------------- | ------------ | --------------------------------------- |
+| Not recorded     | Not recorded | Present / Absent when authorized        |
+| Present          | Present      | Absent only when correction authorized  |
 | Absent           | Absent       | Present only when correction authorized |
 
 Submitting state is participant-specific (`instructorLessonAttendanceSubmissionId`). After success the canonical read model is refetched; the UI renders server-confirmed Attendance with no authoritative optimistic Attendance state.
@@ -578,18 +581,18 @@ Historical legacy lesson/training records do not need Attendance backfill. No ne
 
 **Verified automated evidence (2026-09-09 worktree).**
 
-| Suite | Result |
-| ----- | ------ |
-| Frontend F4 unit (`instructorLessonAttendanceCard`, `instructorWorkspaceCanonical`, `bookingCollaborationIntegration`, `bookingCollaborationViewModels`, `bookingAttendancePolicy`) | 32 passed |
-| Shared-domain `lessonBookingReadModel.test.ts` | 11 passed |
-| Functions `bookingAttendanceCommands.test.ts` + `lessonBookingReadModels.test.ts` | 33 passed (23 + 10) |
-| Functions `bookingAttendanceCommands.emulator.test.ts` | 20 tests present; skipped without Firestore emulator in the documentation verification run — execute via `npm run test:functions:emulator` |
-| `tests/firestore.rules.test.ts` | 67 tests present; not re-executed in this documentation session |
-| i18n parity (`translationsParity.test.ts`) | 2 passed |
-| `npx tsc --noEmit` (app) | pass |
-| `functions` `tsc --noEmit` + build | pass |
-| `npm run build` (app) | pass |
-| `npm run i18n:check` | pass |
+| Suite                                                                                                                                                                               | Result                                                                                                                                     |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Frontend F4 unit (`instructorLessonAttendanceCard`, `instructorWorkspaceCanonical`, `bookingCollaborationIntegration`, `bookingCollaborationViewModels`, `bookingAttendancePolicy`) | 32 passed                                                                                                                                  |
+| Shared-domain `lessonBookingReadModel.test.ts`                                                                                                                                      | 11 passed                                                                                                                                  |
+| Functions `bookingAttendanceCommands.test.ts` + `lessonBookingReadModels.test.ts`                                                                                                   | 33 passed (23 + 10)                                                                                                                        |
+| Functions `bookingAttendanceCommands.emulator.test.ts`                                                                                                                              | 20 tests present; skipped without Firestore emulator in the documentation verification run — execute via `npm run test:functions:emulator` |
+| `tests/firestore.rules.test.ts`                                                                                                                                                     | 67 tests present; not re-executed in this documentation session                                                                            |
+| i18n parity (`translationsParity.test.ts`)                                                                                                                                          | 2 passed                                                                                                                                   |
+| `npx tsc --noEmit` (app)                                                                                                                                                            | pass                                                                                                                                       |
+| `functions` `tsc --noEmit` + build                                                                                                                                                  | pass                                                                                                                                       |
+| `npm run build` (app)                                                                                                                                                               | pass                                                                                                                                       |
+| `npm run i18n:check`                                                                                                                                                                | pass                                                                                                                                       |
 
 Do not mark F4 `PASS / CLOSED` from automated tests alone; production manual smoke for F4 is recorded **PASS** as part of T32.9A.9A final integration / production smoke (2026-09-10).
 
@@ -695,11 +698,11 @@ Authoritative field: `CourseEnrollment.lifecycle.reservationExpiresAt`, set at g
 
 **Three enrollment financial/lifecycle cases (F5 does not redefine admin debt).**
 
-| Case | Behavior |
-| ---- | -------- |
-| Authenticated self-service CourseEnrollment | Insufficient Wallet → command rejected; no enrollment; no seat reservation. No normal unpaid self-service path. |
-| Guest CourseEnrollment | May exist as `pending` + not fully funded + seat reserved + claims active + `reservationExpiresAt` until fully funded → `confirmed` or deadline → canonical expiry → `cancelled` / `reservation_expired` with seat/claim release when domain rules allow. |
-| Admin-created underfunded CourseEnrollment | May intentionally remain financially underfunded under existing canonical admin rules. F5 guest reservation expiry does not apply. |
+| Case                                        | Behavior                                                                                                                                                                                                                                                  |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Authenticated self-service CourseEnrollment | Insufficient Wallet → command rejected; no enrollment; no seat reservation. No normal unpaid self-service path.                                                                                                                                           |
+| Guest CourseEnrollment                      | May exist as `pending` + not fully funded + seat reserved + claims active + `reservationExpiresAt` until fully funded → `confirmed` or deadline → canonical expiry → `cancelled` / `reservation_expired` with seat/claim release when domain rules allow. |
+| Admin-created underfunded CourseEnrollment  | May intentionally remain financially underfunded under existing canonical admin rules. F5 guest reservation expiry does not apply.                                                                                                                        |
 
 **Partially funded expiry.** Partial payment does not protect the guest reservation (same unpaid-hold semantics as F2). F5 does not decide refund percentage, retention, write-off, Wallet credit, or provider refund on expiry — expiry/lifecycle and financial resolution remain within already accepted canonical policy. Payment amounts are not mutated by reservation expiry. Broader partially-paid guest cancellation/refund policy remains explicitly deferred per T32.8C.
 
@@ -715,9 +718,9 @@ The query uses page size 25, maximum 100 candidates per invocation, and an `(res
 
 **Legacy `createGuestCourseEnrollment` audit — REMOVED from the release candidate.**
 
-| Artifact | Current classification |
-| -------- | ---------------------- |
-| `functions/src/courses/createGuestCourseEnrollment.ts` | **REMOVED** — no production caller; export removed from `functions/src/index.ts` |
+| Artifact                                                      | Current classification                                                                                           |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `functions/src/courses/createGuestCourseEnrollment.ts`        | **REMOVED** — no production caller; export removed from `functions/src/index.ts`                                 |
 | `src/features/courses/createGuestCourseEnrollmentCallable.ts` | **REMOVED** — no imports/callers; active UI uses `executeGuestCanonicalCommand` with `create_course_enrollments` |
 
 The caller audit found no frontend/server production invocation of the legacy callable. The active `CourseEnrollmentModal` path already used `useCourseEnrollmentCommands.createGuestEnrollment`, canonical `create_course_enrollments`, and persisted canonical guest linking/cancellation credentials, so no UX migration was needed before removal. Deployment must explicitly remove the previously deployed callable and create the scheduler; runtime smoke remains outstanding.
@@ -809,12 +812,12 @@ This is **not** a claim that every legacy function in the project was removed �
 
 #### Background jobs (Booking-related)
 
-| Job                                             | Status                                                                                     |
-| ----------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `scheduledAutoCompleteBookings`                 | Removed (source export + production)                                                       |
-| `scheduledReconcileGuestConfirmationMismatches` | Canonical / active                                                                         |
-| `scheduledPurgeExpiredNotifications`            | Canonical / active                                                                         |
-| Guest unpaid reservation expiry scheduler (lesson Booking) | `scheduledExpireGuestLessonReservations` — Canonical / active (`every 5 minutes`, UTC; production-smoked under 9A.F2) |
+| Job                                                          | Status                                                                                                                                                  |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scheduledAutoCompleteBookings`                              | Removed (source export + production)                                                                                                                    |
+| `scheduledReconcileGuestConfirmationMismatches`              | Canonical / active                                                                                                                                      |
+| `scheduledPurgeExpiredNotifications`                         | Canonical / active                                                                                                                                      |
+| Guest unpaid reservation expiry scheduler (lesson Booking)   | `scheduledExpireGuestLessonReservations` — Canonical / active (`every 5 minutes`, UTC; production-smoked under 9A.F2)                                   |
 | Guest unpaid reservation expiry scheduler (CourseEnrollment) | `scheduledExpireGuestCourseReservations` — **F5 / READY_FOR_DEPLOY** (`every 5 minutes`, UTC; bounded to 25/page and 100/run; production smoke pending) |
 
 Do not confuse completion scheduling with payment-confirmation reconciliation. Do not assume the lesson reservation scheduler expires CourseEnrollments.
@@ -935,18 +938,18 @@ One Participant marked `present` does **not** enable assessment for another Part
 
 Without active InstructorRelationship, booking-based evidence must qualify. Rules are **participant-specific** (another Participant’s Attendance never grants authority). UI lesson gate and this backend policy are **aligned**.
 
-| Booking lifecycle | Attendance for target Participant | Time (confirmed) | Instructor progress via booking evidence |
-| ----------------- | --------------------------------- | ---------------- | ---------------------------------------- |
-| `confirmed`       | missing                           | any              | DENY                                     |
-| `confirmed`       | `absent`                          | any              | DENY                                     |
-| `confirmed`       | `present`                         | before `startsAt`  | DENY                                     |
-| `confirmed`       | `present`                         | at/after `startsAt` | ALLOW                                 |
-| `completed`       | `present`                         | —                | ALLOW                                    |
-| `completed`       | missing / `absent`                | —                | DENY                                     |
-| `no_show`         | any                               | —                | DENY                                     |
-| `pending`         | any                               | —                | DENY                                     |
-| `pending_cancellation` | any                          | —                | DENY                                     |
-| `cancelled`       | any                               | —                | DENY                                     |
+| Booking lifecycle      | Attendance for target Participant | Time (confirmed)    | Instructor progress via booking evidence |
+| ---------------------- | --------------------------------- | ------------------- | ---------------------------------------- |
+| `confirmed`            | missing                           | any                 | DENY                                     |
+| `confirmed`            | `absent`                          | any                 | DENY                                     |
+| `confirmed`            | `present`                         | before `startsAt`   | DENY                                     |
+| `confirmed`            | `present`                         | at/after `startsAt` | ALLOW                                    |
+| `completed`            | `present`                         | —                   | ALLOW                                    |
+| `completed`            | missing / `absent`                | —                   | DENY                                     |
+| `no_show`              | any                               | —                   | DENY                                     |
+| `pending`              | any                               | —                   | DENY                                     |
+| `pending_cancellation` | any                               | —                   | DENY                                     |
+| `cancelled`            | any                               | —                   | DENY                                     |
 
 Shared-domain policy: `bookingProvidesInstructorProgressEvidence` / `participantProgressAccessPolicy` (tests in `participantProgressAccessPolicy.test.ts`).
 
@@ -1043,7 +1046,6 @@ homeworkForUserIds
 
 9B.3 left stats/achievements as the next sub-slice. That work is recorded in **T32.9A.9B.4** below. History still **displays** historical `recommendation_completed` / `recommendations_completed_all` / `booking_completed` / `achievement_earned` activity-log rows when they exist; those types remain presentation-only.
 
-
 ###### Legacy isolation (9B.3E)
 
 After 9B.3E cleanup:
@@ -1075,20 +1077,20 @@ Migration: **NO**. Schedulers: **NO**. Settings: **NO**. Legacy Booking recommen
 
 Manual acceptance smoke — **PASS** (2026-09-12):
 
-| Check | Result |
-| --- | --- |
-| Canonical authority `/participant_lesson_feedback/{feedbackId}` | PASS |
-| Identity `participantId + lessonBookingId` | PASS |
-| Instructor feedback: Attendance=`present` per Participant only; InstructorRelationship bypass = NO | PASS |
-| Student/Guardian canonical reads | PASS |
-| Canonical completion (Student/Guardian toggle) | PASS |
-| Multi-participant isolation | PASS |
-| Dependent without `/users` | PASS |
-| Clean start (no legacy migration) | PASS |
-| Legacy Booking recommendations migration | NO (by design) |
-| Legacy recommendation readers/writers reachable | 0 |
-| Booking dual-write | 0 |
-| Legacy fallback to Booking recommendation fields | 0 |
+| Check                                                                                              | Result         |
+| -------------------------------------------------------------------------------------------------- | -------------- |
+| Canonical authority `/participant_lesson_feedback/{feedbackId}`                                    | PASS           |
+| Identity `participantId + lessonBookingId`                                                         | PASS           |
+| Instructor feedback: Attendance=`present` per Participant only; InstructorRelationship bypass = NO | PASS           |
+| Student/Guardian canonical reads                                                                   | PASS           |
+| Canonical completion (Student/Guardian toggle)                                                     | PASS           |
+| Multi-participant isolation                                                                        | PASS           |
+| Dependent without `/users`                                                                         | PASS           |
+| Clean start (no legacy migration)                                                                  | PASS           |
+| Legacy Booking recommendations migration                                                           | NO (by design) |
+| Legacy recommendation readers/writers reachable                                                    | 0              |
+| Booking dual-write                                                                                 | 0              |
+| Legacy fallback to Booking recommendation fields                                                   | 0              |
 
 ```text
 T32.9A.9B.3 → PASS / CLOSED
@@ -1121,14 +1123,14 @@ Participant achievements:
 
 Evaluation sources:
 
-| Signal | Authority |
-| --- | --- |
-| lessons / hours / streak | Participant Attendance.present |
-| skill / level | `/participant_progress/{participantId}` |
-| homework_done | ParticipantLessonFeedback (all checklist items completed) |
-| persisted badges | `/participant_achievements/{participantId}` |
-| feedback_given | canonical reviews (account-level; not participant persistence) |
-| course_graduate | DEFERRED_TO_9C — evaluation returns false; no synthetic `course_*` Booking workaround |
+| Signal                   | Authority                                                                             |
+| ------------------------ | ------------------------------------------------------------------------------------- |
+| lessons / hours / streak | Participant Attendance.present                                                        |
+| skill / level            | `/participant_progress/{participantId}`                                               |
+| homework_done            | ParticipantLessonFeedback (all checklist items completed)                             |
+| persisted badges         | `/participant_achievements/{participantId}`                                           |
+| feedback_given           | canonical reviews (account-level; not participant persistence)                        |
+| course_graduate          | DEFERRED_TO_9C — evaluation returns false; no synthetic `course_*` Booking workaround |
 
 Instructor metrics (one Booking = one lesson/slot; not per Participant):
 
@@ -1185,37 +1187,62 @@ Do not mark PASS / CLOSED before production deploy + authenticated manual smoke.
 
 Safe production deploy (do not execute until smoke is scheduled): Functions → Rules → Hosting. Indexes: **NO** (no `firestore.indexes.json` change in the cumulative 4B–4E diff). Migration: **NO**. Settings: **NO**. Schedulers: **NO**.
 
-After successful smoke: remaining **9B** mandatory scope is **Reviews / Instructor Rating Continuity** (unnumbered; 9B is not PASS while Student Cabinet still requires `addReviewService`). There is **no** accepted ticket `T32.9A.9B.5`. Numbered next slice after 9B overall is **T32.9A.9C**.
+Alongside the still-pending 9B.4 production smoke, the remaining mandatory 9B source gate was **Reviews / Instructor Rating Continuity** (unnumbered; there is no accepted ticket `T32.9A.9B.5`). Its source implementation is now ready for production deploy and authenticated smoke. Numbered next slice after 9B overall remains **T32.9A.9C**.
 
-##### Reviews / Instructor Rating Continuity — mandatory 9B scope
+##### Reviews / Instructor Rating Continuity — READY_FOR_MANUAL_SMOKE
 
-Verified current runtime (2026-09-08 worktree / `main`), not assumed:
+**Status: READY_FOR_MANUAL_SMOKE** — production deploy and authenticated manual smoke are not recorded. Do not mark this continuity gate or 9B overall `PASS / CLOSED` from source checks alone.
 
-- Student Cabinet create-review path: `CabinetRouteContainer` → `addReviewService` in `src/features/bookings/bookingService.ts`.
-- Parallel path: `useBookingActions.handleAddReview` → the same `addReviewService`.
-- `addReviewService` is a **client-direct** mutation: `setDoc` on `/reviews/{id}`, then `updateDoc` on `/instructors/{id}` for `rating` and `reviewsCount`. It is not a canonical command. Firestore Rules allow authenticated create on `/reviews` when `userId == auth.uid`.
-- Review reminder / dismissed semantics: `users.dismissedReviewIds` via `profileService` `arrayUnion`; consumers include Student Cabinet history, `StudentNeedsAttention`, `AppShell`, `PersonalCabinet`, and notification hubs.
-- Display surfaces: instructor cards (`rating`, `reviewsCount`), Student Coach panel sort, reviews modal (`setReviewsInstructor`).
+###### Canonical authority and write path
 
-9B must migrate this capability **before T32.9B may delete `bookingService` / `useBookingActions`**. Do not park reviews on canonical Booking merely because the current helper lives in `bookingService`. First determine the correct reviews/rating authority (existing `/reviews` + instructor projection, or a later accepted aggregate). Do not invent a new Reviews aggregate in this document.
+```text
+Student Cabinet eligible Review CTA / modal
+→ createCanonicalInstructorReview
+→ executeCanonicalCommand
+→ create_instructor_review
+→ one transaction creates /instructor_reviews/{reviewId}
+  and creates/updates /instructor_rating_summaries/{instructorId}
+```
 
-Mandatory acceptance (create, relate, display, mutate, then drop legacy Booking dependency):
+The client intent contains only `bookingId`, integer `rating` 1..5, and optional trimmed `comment` (maximum 1000). It cannot supply `instructorId` or `participantId`; the server derives the Instructor and participant party from canonical Booking. Command failure propagates to the form and does not show success. A post-commit read refresh failure is reported and retried separately without misreporting the already-committed mutation as failed.
 
-| Concern | Required outcome |
-| --- | --- |
-| Create review | Authenticated student can submit a review through a canonical/approved command path, not leftover Booking callable/service authority |
-| Review → lesson/service | Review remains related to the lesson/service it is about; multi-participant lessons must not collapse to “first participant only” as the review subject |
-| Review → instructor | Review remains related to the instructor who delivered the lesson |
-| Instructor rating | `instructors.rating` (or its canonical replacement) stays consistent with accepted reviews |
-| `reviewsCount` | Count stays consistent with accepted reviews |
-| Review display | Instructor/Student surfaces that currently show rating and count keep equivalent information |
-| Reviews modal | Existing reviews modal/list remains reachable |
-| Review reminder | Post-lesson review reminder remains |
-| Dismissed review semantics | `dismissedReviewIds` (or canonical equivalent) still suppresses reminder without deleting the review |
-| Mutation authority | No client-direct `/reviews` or instructor rating write remains as the production authority; server authorization, OCC/idempotency as required by sibling commands |
-| Legacy Booking decoupling | After 9B PASS, deleting leftover `bookingService` / `useBookingActions` must not remove reviews/rating |
+Server eligibility is exactly:
 
-9B is not PASS while Student Cabinet still requires `addReviewService` on the legacy Booking service for a working review.
+```text
+Booking.lifecycle.status = completed
+AND caller is the active managing Account for the entire Booking party
+AND client exercisedCapability matches the party authorities
+AND at least one Participant in the frozen service party has a canonical,
+    identity-matching Attendance with attendanceStatus = present
+AND Instructor is derived from Booking.occurrence.instructorId
+```
+
+`pending`, `confirmed`, `pending_cancellation`, `cancelled`, `no_show`, absent Attendance, missing Attendance, wrong Account, mismatched Attendance identity, and spoofed Instructor input fail closed. For a multi-participant Booking, two present plus one absent still permits exactly one Account-level Review; all absent/missing denies it. An unrelated Participant cannot contribute Attendance evidence.
+
+###### One Review and rating-summary invariants
+
+`reviewId = hash(bookingId + managingAccountId)` is deterministic. The Review document and Instructor summary are written in the same Firestore transaction. Same-key replay returns the stored outcome; a different-key concurrent duplicate races on the same deterministic Review document, then retries to `already_exists`. Exactly one Review is created and the summary count/rating sum/distribution increments once.
+
+`/instructor_rating_summaries/{instructorId}` is the only runtime rating/count authority. `/instructors.rating`, `/instructors.reviewsCount`, `/instructors.ratingCounts`, and legacy `/reviews` are ignored. Missing summary maps to `rating = null`, `reviewsCount = 0`, and no-review UI. Instructor cards, picker, course instructor presentation, Student Coach ordering, public reviews modal, and Instructor dashboard consume the canonicalized presentation.
+
+###### Read models, account scope, and resource bound
+
+`queryInstructorReviewReadModels` exposes `public_summaries`, cursor-paginated `instructor_reviews`, and authenticated exact-ID `account_reviews`. Public and Instructor review feeds load one page of 25 at a time and expose an explicit Load more action; they never auto-drain full Instructor history. A malformed canonical review fails the page instead of being silently skipped across a cursor boundary. `account_reviews.bookingIds` is required, non-empty, deduplicated/chunked by the client, and bounded by `INSTRUCTOR_REVIEW_ACCOUNT_BOOKING_IDS_MAX`; it cannot trigger an account-history scan. Optional transport `idempotencyKey` is accepted for every scope. Every authenticated Account role, including Admin in the client cabinet, hydrates the projection; callable authorization remains Account/management based rather than profile-role based. Account review identity is deterministic per Booking/Account, remains reviewed after reload, and is cleared with user-scoped stores on auth session changes. A failure in any account chunk rejects the whole projection, so callers preserve prior/unknown state and post-write refresh schedules retry instead of merging incomplete authority.
+
+###### Rules and legacy reachability
+
+Direct client reads/writes for `/instructor_reviews` and `/instructor_rating_summaries` are denied; public and account reads go through the callable. Direct legacy `/reviews` reads/writes are also denied. Production `/reviews` data is not deleted, migrated, or backfilled here.
+
+```text
+reachable legacy review WRITE paths = 0
+reachable legacy review READ paths = 0
+reachable legacy rating fallback paths = 0
+dual-write paths = 0
+```
+
+Dead zero-caller legacy helpers removed: `addReviewService`, the legacy Firestore review subscription/write helpers, `useBookingActions.handleAddReview`, `toReview`, `BookingsState.setReviews`, and `selectReviews`. The compatibility UI `Review` shape remains presentation-only and is populated exclusively from canonical read models; it is not a legacy data source.
+
+Safe production deploy (do not execute until smoke is scheduled): Indexes → Functions (`executeCanonicalCommand`, `queryInstructorReviewReadModels`) → Rules → Hosting. Migration: **NO**. Settings: **NO**. Schedulers: **NO**.
 
 #### T32.9A.9C — Course Progress / Achievements Cutover — PENDING
 

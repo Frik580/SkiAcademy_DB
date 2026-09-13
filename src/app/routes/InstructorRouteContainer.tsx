@@ -12,6 +12,8 @@ import {
 import { useCoursesStore } from '../../features/courses/coursesStore';
 import { useSettingsStore } from '../../features/settings/settingsStore';
 import { loadInstructorWorkspace } from '../../features/instructor-workspace';
+import { loadMoreCanonicalInstructorReviews } from '../../features/reviews';
+import { logger } from '../../shared';
 
 const InstructorWorkspace = React.lazy(loadInstructorWorkspace);
 
@@ -33,6 +35,11 @@ export const InstructorRouteContainer: React.FC = () => {
   const instructors = useBookingsStore((state) => state.instructors);
   const lessonBookings = useBookingCollaborationStore(selectInstructorLessonBookings);
   const reviews = useBookingsStore((state) => state.reviews);
+  const reviewPagination = useBookingsStore((state) =>
+    userProfile?.instructorId
+      ? state.reviewPaginationByInstructor[userProfile.instructorId]
+      : undefined
+  );
   const courses = useCoursesStore((state) => state.courses);
   const skillConfig = useSettingsStore((state) => state.skillConfig);
 
@@ -49,6 +56,14 @@ export const InstructorRouteContainer: React.FC = () => {
               courses={courses}
               usersList={usersList}
               skillConfig={skillConfig}
+              reviewHasMore={reviewPagination?.hasMore}
+              reviewLoadingMore={reviewPagination?.loadingMore}
+              onLoadMoreReviews={() => {
+                if (!userProfile.instructorId) return;
+                void loadMoreCanonicalInstructorReviews(userProfile.instructorId).catch((error) =>
+                  logger.error('Canonical instructor review page load failed:', error)
+                );
+              }}
             />
           </LazyLoad>
         )}

@@ -102,7 +102,7 @@ export const QueryInstructorReviewReadModelsInputSchema = z.discriminatedUnion('
   z
     .object({
       scope: z.literal('account_reviews'),
-      bookingIds: z.array(BookingIdSchema).max(INSTRUCTOR_REVIEW_ACCOUNT_BOOKING_IDS_MAX).optional(),
+      bookingIds: z.array(BookingIdSchema).min(1).max(INSTRUCTOR_REVIEW_ACCOUNT_BOOKING_IDS_MAX),
       idempotencyKey: IdempotencyKeySchema.optional(),
     })
     .strict(),

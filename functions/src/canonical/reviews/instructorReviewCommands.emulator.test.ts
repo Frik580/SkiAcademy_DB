@@ -273,9 +273,7 @@ describeEmulator('canonical instructor reviews emulator', () => {
         ? 4
         : 1;
     const ratingSum = 5 + 3 + winnerRating;
-    const finalSummary = await firestore
-      .doc(`instructor_rating_summaries/${instructorId}`)
-      .get();
+    const finalSummary = await firestore.doc(`instructor_rating_summaries/${instructorId}`).get();
     expect(finalSummary.data()).toMatchObject({
       reviewsCount: 3,
       ratingSum,
@@ -290,7 +288,124 @@ describeEmulator('canonical instructor reviews emulator', () => {
       ).size
     ).toBe(1);
 
+    const missingAttendanceBooking = booking(4);
+    const absentAttendanceBooking = booking(5);
+    const noShowBooking = BookingSchema.parse({
+      ...booking(6),
+      lifecycle: { status: 'no_show', noShowAt: completedAt },
+    });
+    const mismatchedAttendanceBooking = booking(7);
+    const absentAttendanceId = attendanceIdFromBookingIdentity({
+      strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+      subjectKind: 'booking',
+      occurrenceId: absentAttendanceBooking.occurrence.occurrenceId,
+      participantId,
+    });
+    const noShowAttendanceId = attendanceIdFromBookingIdentity({
+      strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+      subjectKind: 'booking',
+      occurrenceId: noShowBooking.occurrence.occurrenceId,
+      participantId,
+    });
+    const mismatchedAttendanceId = attendanceIdFromBookingIdentity({
+      strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+      subjectKind: 'booking',
+      occurrenceId: mismatchedAttendanceBooking.occurrence.occurrenceId,
+      participantId,
+    });
+    await Promise.all([
+      firestore.doc(`bookings/${missingAttendanceBooking.bookingId}`).set(missingAttendanceBooking),
+      firestore.doc(`bookings/${absentAttendanceBooking.bookingId}`).set(absentAttendanceBooking),
+      firestore.doc(`bookings/${noShowBooking.bookingId}`).set(noShowBooking),
+      firestore
+        .doc(`bookings/${mismatchedAttendanceBooking.bookingId}`)
+        .set(mismatchedAttendanceBooking),
+      firestore.doc(`attendance/${absentAttendanceId}`).set({
+        attendanceId: absentAttendanceId,
+        subject: {
+          subjectKind: 'booking',
+          bookingId: absentAttendanceBooking.bookingId,
+          occurrenceId: absentAttendanceBooking.occurrence.occurrenceId,
+          participantId,
+        },
+        attendanceStatus: 'absent',
+        recordedBy: { kind: 'instructor', instructorId },
+        recordedAt: completedAt,
+        lastChangedBy: { kind: 'instructor', instructorId },
+        updatedAt: completedAt,
+        revision: 1,
+        correlationId,
+      }),
+      firestore.doc(`attendance/${noShowAttendanceId}`).set({
+        attendanceId: noShowAttendanceId,
+        subject: {
+          subjectKind: 'booking',
+          bookingId: noShowBooking.bookingId,
+          occurrenceId: noShowBooking.occurrence.occurrenceId,
+          participantId,
+        },
+        attendanceStatus: 'present',
+        recordedBy: { kind: 'instructor', instructorId },
+        recordedAt: completedAt,
+        lastChangedBy: { kind: 'instructor', instructorId },
+        updatedAt: completedAt,
+        revision: 1,
+        correlationId,
+      }),
+      firestore.doc(`attendance/${mismatchedAttendanceId}`).set({
+        attendanceId: mismatchedAttendanceId,
+        subject: {
+          subjectKind: 'booking',
+          bookingId: mismatchedAttendanceBooking.bookingId,
+          occurrenceId: 'occurrence_review_emulator_wrong',
+          participantId,
+        },
+        attendanceStatus: 'present',
+        recordedBy: { kind: 'instructor', instructorId },
+        recordedAt: completedAt,
+        lastChangedBy: { kind: 'instructor', instructorId },
+        updatedAt: completedAt,
+        revision: 1,
+        correlationId,
+      }),
+    ]);
+    const ineligible = await queryInstructorReviewReadModels(
+      firestore,
+      {
+        scope: 'account_reviews',
+        bookingIds: [
+          missingAttendanceBooking.bookingId,
+          absentAttendanceBooking.bookingId,
+          noShowBooking.bookingId,
+          mismatchedAttendanceBooking.bookingId,
+        ],
+      },
+      { accountId: accountId as never }
+    );
+    expect(ineligible.scope).toBe('account_reviews');
+    if (ineligible.scope === 'account_reviews') {
+      expect(ineligible.bookingStates).toHaveLength(4);
+      expect(ineligible.bookingStates.every((state) => !state.eligible && !state.reviewed)).toBe(
+        true
+      );
+    }
+
     const legacyCatalog = await firestore.doc(`instructors/${instructorId}`).get();
     expect(legacyCatalog.data()).toMatchObject({ rating: 1, reviewsCount: 700 });
+
+    const malformedInstructorId = InstructorIdSchema.parse('instructor_review_emulator_malformed');
+    await firestore.doc('instructor_reviews/review_emulator_malformed').set({
+      reviewId: 'review_emulator_malformed',
+      instructorId: malformedInstructorId,
+      rating: 99,
+      createdAt: completedAt,
+    });
+    await expect(
+      queryInstructorReviewReadModels(firestore, {
+        scope: 'instructor_reviews',
+        instructorId: malformedInstructorId,
+        pageSize: 1,
+      })
+    ).rejects.toThrow('Canonical instructor review review_emulator_malformed is invalid.');
   });
 });

@@ -1,4 +1,4 @@
-import type { ActivityLog, Booking, Course, Instructor, Review, UserProfile } from '../../types';
+import type { ActivityLog, Booking, Course, Instructor, UserProfile } from '../../types';
 import type { DbNotification } from '../../domain/notifications';
 import type { WalletLedgerEntry } from '../../features/wallet/types';
 import { logErrorToFirestore } from './firebase';
@@ -44,8 +44,6 @@ export const toInstructor = (id: string, fields: unknown): Instructor => ({
   rating: null,
   reviewsCount: 0,
 });
-export const toReview = (id: string, fields: unknown): Review =>
-  toDocumentModel<Review>(id, fields);
 export const toCourse = (id: string, fields: unknown): Course | null => {
   const result = parseCourse(fields, id);
   if (result.success) return result.data;

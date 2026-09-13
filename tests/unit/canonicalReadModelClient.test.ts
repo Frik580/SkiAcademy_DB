@@ -182,7 +182,7 @@ describe('canonicalReadModelClient', () => {
     expect(reviewed?.reviewed).toBe(true);
   });
 
-  it('returns partial account review data when one chunk fails', async () => {
+  it('rejects the whole account review read when one chunk fails', async () => {
     callFunctionMock
       .mockResolvedValueOnce({
         scope: 'account_reviews',
@@ -200,14 +200,14 @@ describe('canonicalReadModelClient', () => {
       })
       .mockRejectedValueOnce(new Error('chunk failed'));
 
-    const result = await queryAccountInstructorReviewReadModels(
-      Array.from(
-        { length: INSTRUCTOR_REVIEW_ACCOUNT_BOOKING_IDS_MAX + 1 },
-        (_, index) => `booking-review-partial-${index}` as never
+    await expect(
+      queryAccountInstructorReviewReadModels(
+        Array.from(
+          { length: INSTRUCTOR_REVIEW_ACCOUNT_BOOKING_IDS_MAX + 1 },
+          (_, index) => `booking-review-partial-${index}` as never
+        )
       )
-    );
-    expect(result.bookingStates).toHaveLength(1);
-    expect(result.bookingStates[0]?.bookingId).toBe('booking-review-partial-0');
+    ).rejects.toThrow('chunk failed');
   });
   it('calls queryLessonBookingReadModels callable for instructor_hot with transport idempotency key', async () => {
     callFunctionMock.mockResolvedValueOnce({

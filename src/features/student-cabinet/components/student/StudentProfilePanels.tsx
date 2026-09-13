@@ -26,10 +26,7 @@ import {
   ScTextButton,
   StudentPanelBackLink,
 } from './StudentCabinetUI';
-import {
-  buildStudentHistory,
-  StudentCabinetTab,
-} from './studentCabinetUtils';
+import { buildStudentHistory, StudentCabinetTab } from './studentCabinetUtils';
 import { StudentHistoryList } from './StudentHistoryList';
 import { WalletPanel } from '../../../../features/profile';
 import type { StudentProfileHubInput, StudentProfilePanelProps } from './studentCabinetContracts';
@@ -37,7 +34,7 @@ import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 import { usePresentedParticipantLessonFeedback } from '../../usePresentedParticipantLessonFeedback';
 import { useSelectedParticipantLessonStats } from '../../useSelectedParticipantLessonStats';
 import {
-  accountReviewsFromLegacy,
+  accountReviewEvidenceFromCanonicalPresentation,
   usePresentedParticipantAchievements,
 } from '../../../participant-achievements';
 import { ParticipantManagementPanel } from '../../../participants/components/ParticipantManagementPanel';
@@ -343,7 +340,10 @@ export const StudentProfileAchievementsPanel: React.FC<ProfileSubPanelProps> = (
   const { language, t } = useStudentCabinetTranslations();
   const lang = language === 'ru' ? 'ru' : 'en';
   const accountReviews = useMemo(
-    () => accountReviewsFromLegacy(reviews.filter((review) => Boolean(review.userId))),
+    () =>
+      accountReviewEvidenceFromCanonicalPresentation(
+        reviews.filter((review) => Boolean(review.userId))
+      ),
     [reviews]
   );
   const { achievements } = usePresentedParticipantAchievements({

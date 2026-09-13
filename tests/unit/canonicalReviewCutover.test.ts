@@ -33,6 +33,7 @@ beforeEach(() => {
     reviews: [],
     reviewBookingStates: [],
     ratingSummaries: {},
+    reviewPaginationByInstructor: {},
   });
 });
 
@@ -168,12 +169,90 @@ describe('canonical review frontend cutover', () => {
         },
       },
       reviewSyncRequest: 9,
+      reviewPaginationByInstructor: {
+        'instructor-session-a': {
+          hasMore: true,
+          nextCursor: 'cursor-session-a',
+          loadingMore: false,
+        },
+      },
     });
     resetUserScopedStores();
     expect(useBookingsStore.getState()).toMatchObject({
       reviewBookingStates: [],
       ratingSummaries: {},
       reviewSyncRequest: 0,
+      reviewPaginationByInstructor: {},
     });
+  });
+
+  it('loads instructor review history one page at a time and exposes explicit continuation UX', () => {
+    const sync = readRepoFile('src/features/bookings/sync/useBookingsSync.ts');
+    expect(sync).toContain('loadInstructorReviewPage');
+    expect(sync).not.toContain('loadAllInstructorReviews');
+    expect(sync).not.toMatch(/while\s*\(page\.hasMore/);
+    expect(sync).toContain('pageSize: 25');
+
+    const modal = readRepoFile('src/features/profile/components/InstructorReviewsModal.tsx');
+    expect(modal).toContain("t('loadMoreReviews')");
+    const workspace = readRepoFile(
+      'src/features/instructor-workspace/components/InstructorReviews.tsx'
+    );
+    expect(workspace).toContain("t('loadMoreReviews')");
+    expect(workspace).toContain('linkedInstructor?.reviewsCount ?? 0');
+    expect(workspace).not.toContain("t('instructorFeedback')} ({instructorReviews.length})");
+  });
+
+  it('appends one review page without duplicating an overlapping boundary row', () => {
+    const summary = {
+      instructorId: 'instructor-page' as never,
+      rating: 4.5,
+      reviewsCount: 2,
+      ratingCounts: [0, 0, 0, 1, 1] as [number, number, number, number, number],
+      revision: 2 as never,
+      updatedAt: timestampFromDate(new Date('2026-01-03T00:00:00.000Z')),
+    };
+    const review = (reviewId: string, day: number) => ({
+      reviewId: reviewId as never,
+      instructorId: summary.instructorId,
+      rating: 5,
+      authorDisplayName: 'Reviewer',
+      createdAt: timestampFromDate(new Date(`2026-01-0${day}T00:00:00.000Z`)),
+      revision: 1 as never,
+    });
+
+    useBookingsStore.getState().setCanonicalReviewData({
+      reviews: [review('review-page-1', 2)],
+      summaries: [summary],
+      bookingStates: [],
+      reviewPages: [
+        {
+          instructorId: summary.instructorId,
+          hasMore: true,
+          nextCursor: 'cursor-page-2',
+        },
+      ],
+    });
+    useBookingsStore.getState().appendCanonicalInstructorReviewPage({
+      instructorId: summary.instructorId,
+      reviews: [review('review-page-1', 2), review('review-page-2', 1)],
+      summary,
+      hasMore: false,
+    });
+
+    expect(useBookingsStore.getState().reviews.map((item) => item.id)).toEqual([
+      'review-page-1',
+      'review-page-2',
+    ]);
+    expect(useBookingsStore.getState().reviewPaginationByInstructor[summary.instructorId]).toEqual({
+      hasMore: false,
+      loadingMore: false,
+    });
+  });
+
+  it('hydrates account review authority for any authenticated Account role', () => {
+    const sync = readRepoFile('src/features/bookings/sync/useBookingsSync.ts');
+    expect(sync).toContain('shouldSyncReviews && firebaseUserId');
+    expect(sync).not.toContain("userRole === 'user'");
   });
 });

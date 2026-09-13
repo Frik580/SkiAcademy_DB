@@ -26,31 +26,16 @@ import { BookingIdSchema, InstructorIdSchema } from '@ski-academy/shared-domain'
 import { useLessonBookingStore } from '../../lesson-bookings';
 import { mergeAccountReviewBookingStates } from '../../reviews/mergeAccountReviewBookingStates';
 
-async function loadAllInstructorReviews(instructorId: string) {
-  let page = await queryInstructorReviewReadModels({
+async function loadInstructorReviewPage(instructorId: string) {
+  const page = await queryInstructorReviewReadModels({
     scope: 'instructor_reviews',
     instructorId: InstructorIdSchema.parse(instructorId),
-    pageSize: 50,
+    pageSize: 25,
   });
   if (page.scope !== 'instructor_reviews') {
     throw new Error('Canonical instructor review scope mismatch.');
   }
-  const reviews = [...page.reviews];
-  const seenCursors = new Set<string>();
-  while (page.hasMore && page.nextCursor && !seenCursors.has(page.nextCursor)) {
-    seenCursors.add(page.nextCursor);
-    page = await queryInstructorReviewReadModels({
-      scope: 'instructor_reviews',
-      instructorId: InstructorIdSchema.parse(instructorId),
-      pageSize: 50,
-      cursor: page.nextCursor,
-    });
-    if (page.scope !== 'instructor_reviews') {
-      throw new Error('Canonical instructor review scope mismatch.');
-    }
-    reviews.push(...page.reviews);
-  }
-  return { ...page, reviews, hasMore: false };
+  return page;
 }
 
 export const useBookingsSync = () => {
@@ -120,13 +105,13 @@ export const useBookingsSync = () => {
           ...(catalogueInstructorIds.length > 0
             ? [queryPublicInstructorRatingSummaries(catalogueInstructorIds)]
             : []),
-          ...(shouldSyncReviews && firebaseUserId && userRole === 'user'
+          ...(shouldSyncReviews && firebaseUserId
             ? [queryAccountInstructorReviewReadModels(accountBookingIds)]
             : []),
           ...(shouldSyncReviews && instructorId && !reviewsInstructorId
-            ? [loadAllInstructorReviews(instructorId)]
+            ? [loadInstructorReviewPage(instructorId)]
             : []),
-          ...(reviewsInstructorId ? [loadAllInstructorReviews(reviewsInstructorId)] : []),
+          ...(reviewsInstructorId ? [loadInstructorReviewPage(reviewsInstructorId)] : []),
         ];
         const results = await Promise.allSettled(requests);
         if (cancelled) return;
@@ -151,6 +136,17 @@ export const useBookingsSync = () => {
         const incomingBookingStates = settled.flatMap((result) =>
           result.scope === 'account_reviews' ? result.bookingStates : []
         );
+        const reviewPages = settled.flatMap((result) =>
+          result.scope === 'instructor_reviews'
+            ? [
+                {
+                  instructorId: result.summary.instructorId as string,
+                  hasMore: result.hasMore,
+                  ...(result.nextCursor ? { nextCursor: result.nextCursor } : {}),
+                },
+              ]
+            : []
+        );
         const previousState = useBookingsStore.getState();
         const hasAccountReviewPayload = settled.some(
           (result) => result.scope === 'account_reviews'
@@ -167,6 +163,7 @@ export const useBookingsSync = () => {
                 accountBookingIds
               )
             : previousState.reviewBookingStates,
+          reviewPages,
         });
       } catch (error) {
         logger.error('Canonical review read sync failed:', error);

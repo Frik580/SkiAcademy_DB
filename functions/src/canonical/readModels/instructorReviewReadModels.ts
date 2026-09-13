@@ -28,7 +28,6 @@ import {
   instructorReviewPath,
 } from '../reviews/instructorReviewStore';
 import {
-  loadAuthorizedAccountBookings,
   loadLessonBookingReadAuthorizationContext,
   canAccountViewLessonBookingService,
 } from './lessonBookingReadModels';
@@ -38,6 +37,13 @@ export class InvalidInstructorReviewReadCursorError extends Error {
   constructor() {
     super('The instructor review cursor is invalid.');
     this.name = 'InvalidInstructorReviewReadCursorError';
+  }
+}
+
+export class InvalidInstructorReviewDocumentError extends Error {
+  constructor(reviewId: string) {
+    super(`Canonical instructor review ${reviewId} is invalid.`);
+    this.name = 'InvalidInstructorReviewDocumentError';
   }
 }
 
@@ -75,9 +81,7 @@ function toReviewReadModel(
   return {
     reviewId: review.reviewId,
     ...(includeManagingAccountId ? { bookingId: review.bookingId } : {}),
-    ...(includeManagingAccountId
-      ? { managingAccountId: review.managingAccountId }
-      : {}),
+    ...(includeManagingAccountId ? { managingAccountId: review.managingAccountId } : {}),
     instructorId: review.instructorId,
     rating: review.rating,
     ...(review.comment ? { comment: review.comment } : {}),
@@ -113,9 +117,7 @@ async function instructorReviews(
   input: Extract<QueryInstructorReviewReadModelsInput, { scope: 'instructor_reviews' }>
 ): Promise<QueryInstructorReviewReadModelsResult> {
   const pageSize = input.pageSize ?? 25;
-  const cursor = input.cursor
-    ? decodeInstructorReviewReadModelCursor(input.cursor)
-    : undefined;
+  const cursor = input.cursor ? decodeInstructorReviewReadModelCursor(input.cursor) : undefined;
   if (input.cursor && !cursor) throw new InvalidInstructorReviewReadCursorError();
 
   let query: Query = firestore
@@ -125,21 +127,17 @@ async function instructorReviews(
     .orderBy('createdAt.nanoseconds', 'desc')
     .orderBy(FieldPath.documentId(), 'desc');
   if (cursor) {
-    query = query.startAfter(
-      cursor.createdAtSeconds,
-      cursor.createdAtNanoseconds,
-      cursor.reviewId
-    );
+    query = query.startAfter(cursor.createdAtSeconds, cursor.createdAtNanoseconds, cursor.reviewId);
   }
   const snapshot = await query.limit(pageSize + 1).get();
   const pageDocuments = snapshot.docs.slice(0, pageSize);
-  const reviews = pageDocuments
-    .map((document) => parseInstructorReview(document.data() as Record<string, unknown>))
-    .filter(
-      (review): review is InstructorReview =>
-        review !== undefined && review.instructorId === input.instructorId
-    )
-    .map((review) => toReviewReadModel(review));
+  const reviews = pageDocuments.map((document) => {
+    const review = parseInstructorReview(document.data() as Record<string, unknown>);
+    if (!review || review.reviewId !== document.id || review.instructorId !== input.instructorId) {
+      throw new InvalidInstructorReviewDocumentError(document.id);
+    }
+    return toReviewReadModel(review);
+  });
   const hasMore = snapshot.docs.length > pageSize;
   const last = reviews.at(-1);
 
@@ -173,49 +171,28 @@ async function instructorReviews(
 async function accountReviews(
   firestore: Firestore,
   accountId: AccountId,
-  bookingIds?: readonly BookingId[]
+  bookingIds: readonly BookingId[]
 ): Promise<QueryInstructorReviewReadModelsResult> {
-  const [reviewSnapshot, authContext] = await Promise.all([
-    firestore
-      .collection('instructor_reviews')
-      .where('managingAccountId', '==', accountId)
-      .limit(200)
-      .get(),
-    loadLessonBookingReadAuthorizationContext(
-      firestore,
-      accountId,
-      createReadModelRequestContext(firestore)
-    ),
-  ]);
-  const reviews = reviewSnapshot.docs
-    .map((document) => parseInstructorReview(document.data() as Record<string, unknown>))
-    .filter(
-      (review): review is InstructorReview =>
-        review !== undefined && review.managingAccountId === accountId
-    );
-  const reviewsById = new Map(reviews.map((review) => [review.reviewId, review]));
-  const bookings =
-    bookingIds === undefined
-      ? await loadAuthorizedAccountBookings(firestore, accountId, { authContext })
-      : (
-          await Promise.all(
-            bookingIds.map(async (bookingId) => {
-              const snapshot = await firestore.collection('bookings').doc(bookingId).get();
-              const candidate = parseBooking(
-                snapshot.data() as Record<string, unknown> | undefined
-              );
-              return candidate &&
-                canAccountViewLessonBookingService(authContext, accountId, candidate)
-                ? candidate
-                : undefined;
-            })
-          )
-        ).filter((booking): booking is Booking => booking !== undefined);
+  const authContext = await loadLessonBookingReadAuthorizationContext(
+    firestore,
+    accountId,
+    createReadModelRequestContext(firestore)
+  );
+  const reviewsById = new Map<string, InstructorReview>();
+  const bookings = (
+    await Promise.all(
+      bookingIds.map(async (bookingId) => {
+        const snapshot = await firestore.collection('bookings').doc(bookingId).get();
+        const candidate = parseBooking(snapshot.data() as Record<string, unknown> | undefined);
+        return candidate && canAccountViewLessonBookingService(authContext, accountId, candidate)
+          ? candidate
+          : undefined;
+      })
+    )
+  ).filter((booking): booking is Booking => booking !== undefined);
   const activeManagedParticipantIds = new Set(
     authContext.participantManagement
-      .filter(
-        (management) => management.status === 'active' && management.accountId === accountId
-      )
+      .filter((management) => management.status === 'active' && management.accountId === accountId)
       .map((management) => management.participantId)
   );
 
@@ -253,16 +230,24 @@ async function accountReviews(
               })
             )
           : [];
-      const present = attendanceSnapshots.some((snapshot) => {
-        const attendance = parseAttendance(
-          snapshot.data() as Record<string, unknown> | undefined
+      const present = attendanceSnapshots.some((snapshot, index) => {
+        const participantId = booking.occurrence.serviceParty.participantIds[index];
+        const attendance = parseAttendance(snapshot.data() as Record<string, unknown> | undefined);
+        return (
+          participantId !== undefined &&
+          attendance?.attendanceId === snapshot.id &&
+          attendance?.subject.subjectKind === 'booking' &&
+          attendance.subject.bookingId === booking.bookingId &&
+          attendance.subject.occurrenceId === booking.occurrence.occurrenceId &&
+          attendance.subject.participantId === participantId &&
+          attendance.attendanceStatus === 'present'
         );
-        return attendance?.attendanceStatus === 'present';
       });
       return {
         bookingId: booking.bookingId,
         instructorId: booking.occurrence.instructorId,
-        eligible: !review && booking.lifecycle.status === 'completed' && entirePartyManaged && present,
+        eligible:
+          !review && booking.lifecycle.status === 'completed' && entirePartyManaged && present,
         reviewed: Boolean(review),
         ...(review ? { reviewId: review.reviewId, reviewedAt: review.createdAt } : {}),
       };
@@ -285,9 +270,7 @@ export async function queryInstructorReviewReadModels(
     return publicSummaries(firestore, input.instructorIds);
   }
   if (input.scope === 'instructor_reviews') return instructorReviews(firestore, input);
-  const accountId = options.accountId
-    ? AccountIdSchema.parse(options.accountId)
-    : undefined;
+  const accountId = options.accountId ? AccountIdSchema.parse(options.accountId) : undefined;
   if (!accountId) {
     throw new Error('accountId is required for account review read models');
   }

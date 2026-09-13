@@ -28,6 +28,7 @@ describe('instructor review read-model transport', () => {
     expect(
       QueryInstructorReviewReadModelsInputSchema.safeParse({
         scope: 'account_reviews',
+        bookingIds: [bookingId(1)],
       }).success
     ).toBe(true);
   });
@@ -43,8 +44,9 @@ describe('instructor review read-model transport', () => {
 
     const overMax = QueryInstructorReviewReadModelsInputSchema.safeParse({
       scope: 'account_reviews',
-      bookingIds: Array.from({ length: INSTRUCTOR_REVIEW_ACCOUNT_BOOKING_IDS_MAX + 1 }, (_, index) =>
-        bookingId(index)
+      bookingIds: Array.from(
+        { length: INSTRUCTOR_REVIEW_ACCOUNT_BOOKING_IDS_MAX + 1 },
+        (_, index) => bookingId(index)
       ),
     });
     expect(overMax.success).toBe(false);
@@ -60,7 +62,7 @@ describe('instructor review read-model transport', () => {
     expect(twentySeven.success).toBe(false);
   });
 
-  it('accepts a single account_reviews bookingId and omits bookingIds', () => {
+  it('requires a bounded non-empty account_reviews bookingIds list', () => {
     expect(
       QueryInstructorReviewReadModelsInputSchema.safeParse({
         scope: 'account_reviews',
@@ -72,7 +74,12 @@ describe('instructor review read-model transport', () => {
         scope: 'account_reviews',
         bookingIds: [],
       }).success
-    ).toBe(true);
+    ).toBe(false);
+    expect(
+      QueryInstructorReviewReadModelsInputSchema.safeParse({
+        scope: 'account_reviews',
+      }).success
+    ).toBe(false);
   });
 
   it('accepts the production account_reviews callable payload with transport idempotencyKey', () => {

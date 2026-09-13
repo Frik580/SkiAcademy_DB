@@ -14,7 +14,7 @@ function isoFromCanonical(seconds: number, nanoseconds: number): string {
   return new Date(seconds * 1000 + nanoseconds / 1_000_000).toISOString();
 }
 
-export function accountReviewsFromLegacy(reviews: readonly Review[]): {
+export function accountReviewEvidenceFromCanonicalPresentation(reviews: readonly Review[]): {
   createdAtIso: string;
 }[] {
   return reviews.map((review) => ({

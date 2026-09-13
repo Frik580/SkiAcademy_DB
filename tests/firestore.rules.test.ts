@@ -100,6 +100,9 @@ describe('canonical instructor reviews', () => {
         reviewsCount: 99,
       })
     );
+    await assertFails(getDoc(doc(userDb, 'reviews', 'legacy-review-1')));
+    await assertFails(getDoc(doc(userDb, 'instructor_reviews', 'canonical-review-1')));
+    await assertFails(getDoc(doc(userDb, 'instructor_rating_summaries', 'instructor-1')));
   });
 });
 
@@ -1241,7 +1244,9 @@ describe('T32.8A identity authority containment', () => {
         earned: { first_lesson: { earnedAt: { seconds: 1, nanoseconds: 0 } } },
       })
     );
-    await assertFails(getDoc(doc(userDb, 'participant_achievements', 'participant-achievements-1')));
+    await assertFails(
+      getDoc(doc(userDb, 'participant_achievements', 'participant-achievements-1'))
+    );
     await assertFails(
       setDoc(doc(adminDb, 'participant_achievements', 'participant-achievements-1'), {
         participantId: 'participant-achievements-1',

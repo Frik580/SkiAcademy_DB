@@ -39,6 +39,9 @@ export interface InstructorWorkspaceInput {
   courses: Course[];
   usersList: UserProfile[];
   skillConfig?: SkillConfig;
+  reviewHasMore?: boolean;
+  reviewLoadingMore?: boolean;
+  onLoadMoreReviews?: () => void;
 }
 
 export interface EnrichedBooking {
@@ -151,6 +154,9 @@ export const useInstructorWorkspace = ({
   courses,
   usersList,
   skillConfig,
+  reviewHasMore = false,
+  reviewLoadingMore = false,
+  onLoadMoreReviews,
 }: InstructorWorkspaceInput) => {
   const { t, language } = useLanguage();
   const { theme } = useTheme();
@@ -521,6 +527,9 @@ export const useInstructorWorkspace = ({
     overdueBookings,
     instructorBookings,
     instructorReviews,
+    reviewHasMore,
+    reviewLoadingMore,
+    onLoadMoreReviews,
     myStudents,
     progressById,
     selectedChatBooking,

@@ -23,6 +23,9 @@ export interface InstructorWorkspaceProps {
   courses: Course[];
   usersList: UserProfile[];
   skillConfig?: SkillConfig;
+  reviewHasMore?: boolean;
+  reviewLoadingMore?: boolean;
+  onLoadMoreReviews?: () => void;
 }
 
 export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = (props) => {

@@ -29,6 +29,7 @@ const otherAccountId = AccountIdSchema.parse('account_review_unit_02');
 const instructorId = 'instructor_review_unit_01';
 const participantOne = ParticipantIdSchema.parse('participant_review_unit_01');
 const participantTwo = ParticipantIdSchema.parse('participant_review_unit_02');
+const participantThree = ParticipantIdSchema.parse('participant_review_unit_03');
 const bookingOneId = BookingIdSchema.parse('booking_review_unit_01');
 const bookingTwoId = BookingIdSchema.parse('booking_review_unit_02');
 const correlationId = CorrelationIdSchema.parse('correlation_review_unit_01');
@@ -204,8 +205,10 @@ function seedFor(input: {
     const { management, guard } = managementSeed(participantId, manager);
     records[`participant_management/${management.participantManagementId}`] =
       management as unknown as Record<string, unknown>;
-    records[`participant_management_active_owner/${participantId}`] =
-      guard as unknown as Record<string, unknown>;
+    records[`participant_management_active_owner/${participantId}`] = guard as unknown as Record<
+      string,
+      unknown
+    >;
   }
   for (const participantId of targetBooking.occurrence.serviceParty.participantIds) {
     const attendance = attendanceSeed(
@@ -315,11 +318,55 @@ describe('instructorReviewCommands', () => {
     if (result.status === 'error') expect(result.error.code).toBe('invalid_transition');
   });
 
+  it('rejects completed booking when attendance is missing', async () => {
+    const targetBooking = booking();
+    const records = seedFor({ targetBooking });
+    const attendanceId = attendanceIdFromBookingIdentity({
+      strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+      subjectKind: 'booking',
+      occurrenceId: targetBooking.occurrence.occurrenceId,
+      participantId: participantOne,
+    });
+    delete records[`attendance/${attendanceId}`];
+    const executor = createInMemoryCanonicalTransactionExecutor(records);
+    const result = await createProductionCanonicalCommands(environment(), executor).execute(
+      envelope()
+    );
+    expect(result.status).toBe('error');
+    if (result.status === 'error') expect(result.error.code).toBe('invalid_transition');
+  });
+
+  it('rejects attendance whose canonical subject does not match the Booking occurrence', async () => {
+    const targetBooking = booking();
+    const records = seedFor({ targetBooking });
+    const attendanceId = attendanceIdFromBookingIdentity({
+      strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+      subjectKind: 'booking',
+      occurrenceId: targetBooking.occurrence.occurrenceId,
+      participantId: participantOne,
+    });
+    const attendance = records[`attendance/${attendanceId}`]!;
+    records[`attendance/${attendanceId}`] = {
+      ...attendance,
+      subject: {
+        ...(attendance.subject as Record<string, unknown>),
+        occurrenceId: 'occurrence_review_unit_wrong',
+      },
+    };
+    const executor = createInMemoryCanonicalTransactionExecutor(records);
+    const result = await createProductionCanonicalCommands(environment(), executor).execute(
+      envelope()
+    );
+    expect(result.status).toBe('error');
+    if (result.status === 'error') expect(result.error.code).toBe('invalid_transition');
+  });
+
   it('allows a managed family party when at least one participant is present', async () => {
-    const targetBooking = booking(bookingOneId, [participantOne, participantTwo]);
+    const targetBooking = booking(bookingOneId, [participantOne, participantTwo, participantThree]);
     const attendance = new Map<ParticipantId, 'present' | 'absent'>([
-      [participantOne, 'absent'],
+      [participantOne, 'present'],
       [participantTwo, 'present'],
+      [participantThree, 'absent'],
     ]);
     const executor = createInMemoryCanonicalTransactionExecutor(
       seedFor({ targetBooking, attendance })
@@ -328,6 +375,19 @@ describe('instructorReviewCommands', () => {
       envelope()
     );
     expect(result.status).toBe('success');
+    const reviewId = instructorReviewIdFromBookingAccount({
+      bookingId: bookingOneId,
+      managingAccountId: accountId,
+    });
+    expect(executor.snapshot().docs.get(`instructor_reviews/${reviewId}`)?.data).toMatchObject({
+      attendanceEvidenceParticipantIds: [participantOne, participantTwo],
+    });
+    expect(
+      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('instructor_reviews/'))
+    ).toHaveLength(1);
+    expect(
+      executor.snapshot().docs.get(`instructor_rating_summaries/${instructorId}`)?.data
+    ).toMatchObject({ reviewsCount: 1 });
   });
 
   it('enforces the same managing Account for the entire family party', async () => {
@@ -359,9 +419,7 @@ describe('instructorReviewCommands', () => {
       expect(duplicate.payload).toMatchObject({ outcome: 'already_exists' });
     }
     expect(
-      [...executor.snapshot().docs.keys()].filter((path) =>
-        path.startsWith('instructor_reviews/')
-      )
+      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('instructor_reviews/'))
     ).toHaveLength(1);
     expect(
       executor.snapshot().docs.get(`instructor_rating_summaries/${instructorId}`)?.data

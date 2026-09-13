@@ -343,7 +343,6 @@ Current production cutover status (see [T32_CANONICAL_ADMIN_AUDIT.md](../T32_CAN
 - `bookings/{id}/messages` must not be deleted without a separate inventory/decision;
 - 9D runs only after 9A / 9B / 9C / **9P** / **9D0** PASS. 9D means Selective Destructive legacy Data Cleanup, not a full Firestore reset, not delete-bookings-collection, and not a production clean-start. T38 empty-database rehearsal does not satisfy 9D0.
 
-
 ### Amendment — Authoritative incremental production sequence (2026-09-08)
 
 There is one production cutover sequence. It supersedes reading Phase 7 / T40 as a full Firestore/Storage reset plus empty seed on a live project.
@@ -364,6 +363,15 @@ T32.9A.9B — IN PROGRESS (active): stats/progress/recommendations + Reviews / i
      homework_done = ParticipantLessonFeedback; feedback_given = canonical reviews;
      course_graduate deferred to 9C; activity logs presentation-only;
      Instructor/Admin KPIs = booking lifecycle + complete history; revenue unchanged)
+  Reviews / Instructor Rating Continuity — READY_FOR_MANUAL_SMOKE
+    (write `create_instructor_review`; read `queryInstructorReviewReadModels`;
+     authorities `/instructor_reviews/{reviewId}` and `/instructor_rating_summaries/{instructorId}`;
+     completed + entire party managed + at least one identity-matching managed Attendance.present;
+     one Review per Booking/managing Account, including multi-participant lessons;
+     instructor_reviews is explicit page-at-a-time (25) with Load more; account_reviews is bounded
+     to explicit bookingIds, rejects incomplete chunk sets, and accepts optional transport idempotencyKey;
+     legacy `/reviews` and instructor rating/count fields are not migrated and are never fallback;
+     production deploy and authenticated smoke not yet recorded)
         ↓
 T32.9A.9C (Course progress / achievements)
         ↓
@@ -384,13 +392,13 @@ T41 (Expanded Post-Cutover Verification)
 
 Mapping of original Phase 6/7 tickets:
 
-| Ticket | Production role after this amendment |
-| --- | --- |
-| T37 | Guarded export/reset **tooling**. Full collection reset remains valid for isolated nonproduction drills. Production also needs selective preserve/delete manifest tooling for 9D/9D0. |
-| T38 | Empty-database architectural rehearsal **only**. Not a production procedure. Does not substitute for 9D0. |
-| T39 | Aligns with T32.9B physical legacy-runtime removal after 9E PASS. STOP if a useful capability has no replacement. |
-| T40 | **Execute Rehearsed Selective Production Cutover.** Deploys the T32.9B-cleaned release and applies only the 9D0-rehearsed selective manifest if 9D has not already been applied in that environment. Forbidden: full Firestore/Storage reset; empty-database seed as production migration; second independent deletion pass. |
-| T41 | Expanded post-cutover verification (product journeys + legacy-negative checks). |
+| Ticket | Production role after this amendment                                                                                                                                                                                                                                                                                         |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| T37    | Guarded export/reset **tooling**. Full collection reset remains valid for isolated nonproduction drills. Production also needs selective preserve/delete manifest tooling for 9D/9D0.                                                                                                                                        |
+| T38    | Empty-database architectural rehearsal **only**. Not a production procedure. Does not substitute for 9D0.                                                                                                                                                                                                                    |
+| T39    | Aligns with T32.9B physical legacy-runtime removal after 9E PASS. STOP if a useful capability has no replacement.                                                                                                                                                                                                            |
+| T40    | **Execute Rehearsed Selective Production Cutover.** Deploys the T32.9B-cleaned release and applies only the 9D0-rehearsed selective manifest if 9D has not already been applied in that environment. Forbidden: full Firestore/Storage reset; empty-database seed as production migration; second independent deletion pass. |
+| T41    | Expanded post-cutover verification (product journeys + legacy-negative checks).                                                                                                                                                                                                                                              |
 
 Phase 7 collection-wide reset, seed, and empty-database E2E remain historical/reference contracts for isolated development/test projects.
 
@@ -556,8 +564,6 @@ Negative verification:
 - old direct writes rejected
 - old scheduler absent
 - no frontend still calling a deleted leftover path
-
-
 
 ### UX capability parity
 

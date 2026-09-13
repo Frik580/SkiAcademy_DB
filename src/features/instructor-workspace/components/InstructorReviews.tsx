@@ -7,12 +7,19 @@ interface InstructorReviewsProps {
 }
 
 export const InstructorReviews: React.FC<InstructorReviewsProps> = ({ workspace }) => {
-  const { t, instructorReviews } = workspace;
+  const {
+    t,
+    linkedInstructor,
+    instructorReviews,
+    reviewHasMore,
+    reviewLoadingMore,
+    onLoadMoreReviews,
+  } = workspace;
 
   return (
     <div className="space-y-4">
       <h4 className="text-lg font-serif font-light text-[var(--ink)] tracking-tight border-b border-slate-200/80 dark:border-slate-800/80 pb-3">
-        {t('instructorFeedback')} ({instructorReviews.length})
+        {t('instructorFeedback')} ({linkedInstructor?.reviewsCount ?? 0})
       </h4>
 
       {instructorReviews.length === 0 ? (
@@ -59,6 +66,16 @@ export const InstructorReviews: React.FC<InstructorReviewsProps> = ({ workspace 
             </div>
           ))}
         </div>
+      )}
+      {reviewHasMore && onLoadMoreReviews && (
+        <button
+          type="button"
+          onClick={onLoadMoreReviews}
+          disabled={reviewLoadingMore}
+          className="px-4 py-2 border border-[var(--border)] disabled:opacity-50 text-xs font-mono uppercase tracking-widest"
+        >
+          {reviewLoadingMore ? t('loading') : t('loadMoreReviews')}
+        </button>
       )}
     </div>
   );

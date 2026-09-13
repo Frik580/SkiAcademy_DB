@@ -106,9 +106,7 @@ describe('firestore.rules guardrails', () => {
     expect(instructorsBlock).not.toContain('allow create: if isAdmin()');
     expect(instructorsBlock).not.toContain('allow delete: if isAdmin()');
     expect(instructorsBlock).not.toContain("'rating', 'reviewsCount'");
-    expect(rulesSource).toMatch(
-      /match \/reviews\/\{reviewId\}[\s\S]*allow create, update, delete: if false;/
-    );
+    expect(rulesSource).toMatch(/match \/reviews\/\{reviewId\}[\s\S]*allow read, write: if false;/);
     expect(rulesSource).toMatch(
       /match \/instructor_reviews\/\{reviewId\}[\s\S]*allow read, write: if false;/
     );

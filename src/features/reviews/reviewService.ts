@@ -1,5 +1,6 @@
 import {
   BookingIdSchema,
+  InstructorIdSchema,
   INSTRUCTOR_REVIEW_COMMENT_MAX_LENGTH,
   normalizeInstructorReviewComment,
   parseCommandResultPayload,
@@ -12,6 +13,7 @@ import {
 import { mapCanonicalCommandResultError } from '../../lib/canonical/mapCanonicalCommandError';
 import {
   queryAccountInstructorReviewReadModels,
+  queryInstructorReviewReadModels,
   queryPublicInstructorRatingSummaries,
 } from '../../lib/canonical/canonicalReadModelClient';
 import { useBookingsStore } from '../bookings/bookingsStore';
@@ -23,6 +25,34 @@ export { INSTRUCTOR_REVIEW_COMMENT_MAX_LENGTH };
 
 export function deriveCreateReviewIdempotencyKey(bookingId: string): IdempotencyKey {
   return `create-instructor-review:${bookingId}` as IdempotencyKey;
+}
+
+export async function loadMoreCanonicalInstructorReviews(instructorId: string): Promise<void> {
+  const parsedInstructorId = InstructorIdSchema.parse(instructorId);
+  const pagination = useBookingsStore.getState().reviewPaginationByInstructor[instructorId];
+  if (!pagination?.hasMore || !pagination.nextCursor || pagination.loadingMore) return;
+
+  useBookingsStore.getState().setInstructorReviewPageLoading(instructorId, true);
+  try {
+    const result = await queryInstructorReviewReadModels({
+      scope: 'instructor_reviews',
+      instructorId: parsedInstructorId,
+      pageSize: 25,
+      cursor: pagination.nextCursor,
+    });
+    if (result.scope !== 'instructor_reviews') {
+      throw new Error('Canonical instructor review scope mismatch.');
+    }
+    useBookingsStore.getState().appendCanonicalInstructorReviewPage({
+      instructorId,
+      reviews: result.reviews,
+      summary: result.summary,
+      hasMore: result.hasMore,
+      ...(result.nextCursor ? { nextCursor: result.nextCursor } : {}),
+    });
+  } finally {
+    useBookingsStore.getState().setInstructorReviewPageLoading(instructorId, false);
+  }
 }
 
 export async function refreshCanonicalReviewData(bookingIds?: readonly string[]): Promise<void> {

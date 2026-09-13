@@ -104,7 +104,7 @@ export async function queryInstructorReviewReadModels(
       ? `${input.instructorId}:${input.cursor ?? 'start'}`
       : input.scope === 'public_summaries'
         ? [...input.instructorIds].sort().join(',')
-        : [...(input.bookingIds ?? [])].sort().join(',');
+        : [...input.bookingIds].sort().join(',');
   const identityHash = canonicalDeterministicHash([
     'read:instructor_review:v1',
     input.scope,
@@ -354,22 +354,17 @@ export async function queryAccountInstructorReviewReadModels(
   ) {
     chunks.push(uniqueIds.slice(index, index + INSTRUCTOR_REVIEW_ACCOUNT_BOOKING_IDS_MAX));
   }
-  const results = await Promise.allSettled(
+  const results = await Promise.all(
     chunks.map((chunk) =>
       queryInstructorReviewReadModels({ scope: 'account_reviews', bookingIds: chunk })
     )
   );
-  const fulfilled = results.flatMap((result) =>
-    result.status === 'fulfilled' && result.value.scope === 'account_reviews' ? [result.value] : []
-  );
-  if (fulfilled.length === 0) {
-    const firstFailure = results.find((result) => result.status === 'rejected');
-    throw firstFailure?.status === 'rejected'
-      ? firstFailure.reason
-      : new Error('Account review read failed.');
+  const accountResults = results.filter((result) => result.scope === 'account_reviews');
+  if (accountResults.length !== results.length) {
+    throw new Error('Account review read scope mismatch.');
   }
-  const reviews = fulfilled.flatMap((result) => result.reviews);
-  const bookingStates = fulfilled.flatMap((result) => result.bookingStates);
+  const reviews = accountResults.flatMap((result) => result.reviews);
+  const bookingStates = accountResults.flatMap((result) => result.bookingStates);
   return {
     scope: 'account_reviews',
     reviews: [...new Map(reviews.map((review) => [review.reviewId, review])).values()],

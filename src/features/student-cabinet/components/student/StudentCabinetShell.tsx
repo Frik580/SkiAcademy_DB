@@ -57,7 +57,7 @@ import {
   togglePresentedParticipantLessonFeedbackItem,
 } from '../../useSelectedParticipantLessonFeedback';
 import {
-  accountReviewsFromLegacy,
+  accountReviewEvidenceFromCanonicalPresentation,
   usePresentedParticipantAchievements,
   useSelectedParticipantAchievementsRecorder,
 } from '../../../participant-achievements';
@@ -205,7 +205,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
     participants,
   });
   const achievementAccountReviews = useMemo(
-    () => accountReviewsFromLegacy(props.reviews),
+    () => accountReviewEvidenceFromCanonicalPresentation(props.reviews),
     [props.reviews]
   );
   const { evaluation: selectedAchievementEvaluation } = usePresentedParticipantAchievements({

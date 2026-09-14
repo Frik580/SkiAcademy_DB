@@ -36,7 +36,7 @@ describe('functionsClient', () => {
     });
 
     await expect(
-      callFunction('enrollInCourse', { courseId: 'course-1' }, { idempotencyKey: 'course-1' })
+      callFunction('executeCanonicalCommand', { courseId: 'course-1' }, { idempotencyKey: 'course-1' })
     ).rejects.toMatchObject({
       name: 'FunctionsClientError',
       code: 'functions/internal',
@@ -44,7 +44,7 @@ describe('functionsClient', () => {
 
     expect(logFailure).toHaveBeenCalledTimes(1);
     expect(logFailure).toHaveBeenCalledWith(
-      'enrollInCourse',
+      'executeCanonicalCommand',
       expect.objectContaining({ code: 'functions/internal' })
     );
   });
@@ -59,7 +59,7 @@ describe('functionsClient', () => {
     });
 
     await expect(
-      callFunction('enrollInCourse', { courseId: 'course-1' }, { idempotencyKey: 'course-1' })
+      callFunction('executeCanonicalCommand', { courseId: 'course-1' }, { idempotencyKey: 'course-1' })
     ).rejects.toMatchObject({ code: 'functions/failed-precondition' });
 
     expect(logFailure).not.toHaveBeenCalled();

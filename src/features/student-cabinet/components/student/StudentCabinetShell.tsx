@@ -53,6 +53,10 @@ import {
 } from '../../../participant-progress';
 import { useCabinetProgressParticipantSelection } from '../../useCabinetProgressParticipantSelection';
 import {
+  filterCabinetCourseDaysForParticipant,
+  filterEnrollmentsForParticipant,
+} from '../../../course-enrollments';
+import {
   useSelectedParticipantLessonFeedback,
   togglePresentedParticipantLessonFeedbackItem,
 } from '../../useSelectedParticipantLessonFeedback';
@@ -136,7 +140,7 @@ export interface StudentCabinetShellProps {
   onInvalidFile: () => void;
   onUploadSuccess: () => void;
   onUploadError: () => void;
-  onViewCourseDetails: (course: Course) => void;
+  onViewCourseDetails: (course: Course, enrollmentId?: string) => void;
   onRequireCourseAuth: (course: Course) => void;
   onBookInstructor: (instructor: Instructor) => void;
   onViewInstructorReviews: (instructor: Instructor) => void;
@@ -262,6 +266,22 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
   );
   const progressProfile = applyParticipantProgressToProfile(props.userProfile, selectedProgress);
   const progressViewKey = selectedProgressParticipantId ?? 'cabinet-progress-unselected';
+  const isolatedEnrollments = useMemo(
+    () =>
+      filterEnrollmentsForParticipant(
+        props.courseEnrollments ?? [],
+        selectedProgressParticipantId
+      ),
+    [props.courseEnrollments, selectedProgressParticipantId]
+  );
+  const isolatedSessionItems = useMemo(
+    () =>
+      filterCabinetCourseDaysForParticipant(
+        props.sessionItems ?? [],
+        selectedProgressParticipantId
+      ),
+    [props.sessionItems, selectedProgressParticipantId]
+  );
 
   useEffect(() => {
     requestAnimationFrame(() => {
@@ -289,7 +309,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
     userProfile: progressProfile,
     selectedParticipantId: selectedProgressParticipantId,
     bookings: legacyBookings,
-    sessionItems: props.sessionItems ?? [],
+    sessionItems: isolatedSessionItems,
     courses: props.courses,
     instructors: props.instructors,
     reviews: props.reviews,
@@ -517,7 +537,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
         {activeTab === 'calendar' && (
           <StudentCalendarPanel
             {...panelProps}
-            sessionItems={props.sessionItems ?? []}
+            sessionItems={isolatedSessionItems}
             onViewCourseDetails={props.onViewCourseDetails}
             onCourseWithdraw={props.onCourseWithdraw}
             onCourseRequestCancellation={props.onCourseRequestCancellation}
@@ -535,7 +555,8 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
         {activeTab === 'courses' && (
           <StudentCoursesPanel
             {...panelProps}
-            courseEnrollments={props.courseEnrollments}
+            courseEnrollments={isolatedEnrollments}
+            selectedParticipantId={selectedProgressParticipantId}
             onViewCourseDetails={props.onViewCourseDetails}
             onRequireCourseAuth={props.onRequireCourseAuth}
           />

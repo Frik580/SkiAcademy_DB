@@ -32,7 +32,7 @@ export interface BookingsPanelProps {
   onWithdrawCancellation?: (booking: LessonBookingCabinetItem) => void | Promise<void>;
   onRescheduleBooking?: (booking: LessonBookingCabinetItem) => void;
   collaborationSubmittingId?: string;
-  onViewCourseDetails?: (courseId: string) => void;
+  onViewCourseDetails?: (courseId: string, enrollmentId?: string) => void;
   onCourseWithdraw?: (enrollmentId: string) => void | Promise<void>;
   onCourseRequestCancellation?: (enrollmentId: string) => void | Promise<void>;
 }

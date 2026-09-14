@@ -3,10 +3,14 @@ import { parseCommandIntent } from './commands/commandIntents';
 import {
   FORBIDDEN_PARTICIPANT_ACHIEVEMENT_IDS,
   COURSE_GRADUATE_ACHIEVEMENT_ID,
+  CommandIdSchema,
+  CorrelationIdSchema,
   ParticipantAchievementsSchema,
   RecordParticipantAchievementsIntentSchema,
+  courseGraduateAchievementIssuanceState,
   courseGraduateAchievementTargetFromEnrollment,
   emptyParticipantAchievementsProjection,
+  mergeOnceEarnedParticipantAchievements,
   timestampFromDate,
 } from './index';
 import { deriveRecordParticipantAchievementsIdempotencyKey } from './participantAchievementCommandIdempotency';
@@ -186,6 +190,81 @@ describe('canonical participant achievements contract', () => {
       participantId: base.participantId,
       courseId: base.courseId,
       earnedAt,
+      source: 'course_completion',
+    });
+  });
+
+  it('issues course_graduate once from completedAt and no-ops when already earned', () => {
+    const commandId = CommandIdSchema.parse('command_course_graduate_issue_01');
+    const correlationId = CorrelationIdSchema.parse('correlation_course_graduate_issue_01');
+    const laterNow = timestampFromDate(new Date('2026-03-01T00:00:00.000Z'));
+    const enrollment = {
+      enrollmentId: 'enrollment_course_graduate_contract_01' as never,
+      participantId: participantId as never,
+      courseId: 'course_graduate_contract_01' as never,
+      lifecycle: { status: 'completed' as const, completedAt: earnedAt },
+    };
+    expect(
+      courseGraduateAchievementIssuanceState({
+        enrollment: { ...enrollment, lifecycle: { status: 'confirmed' } },
+        current: undefined,
+        commandId,
+        correlationId,
+        now: laterNow,
+      })
+    ).toBeUndefined();
+    expect(
+      courseGraduateAchievementIssuanceState({
+        enrollment: { ...enrollment, lifecycle: { status: 'no_show', noShowAt: earnedAt } },
+        current: undefined,
+        commandId,
+        correlationId,
+        now: laterNow,
+      })
+    ).toBeUndefined();
+
+    const first = courseGraduateAchievementIssuanceState({
+      enrollment,
+      current: undefined,
+      commandId,
+      correlationId,
+      now: laterNow,
+    });
+    expect(first?.shouldWrite).toBe(true);
+    expect(first?.planned.earned.course_graduate).toEqual({
+      earnedAt,
+      source: 'course_completion',
+    });
+    expect(first?.planned.revision).toBe(1);
+
+    const replay = courseGraduateAchievementIssuanceState({
+      enrollment,
+      current: first?.planned,
+      commandId: CommandIdSchema.parse('command_course_graduate_issue_02'),
+      correlationId,
+      now: laterNow,
+    });
+    expect(replay).toEqual({ planned: first?.planned, shouldWrite: false });
+    expect(replay?.planned.earned.course_graduate?.earnedAt).toEqual(earnedAt);
+    expect(replay?.planned.revision).toBe(1);
+  });
+
+  it('append-once merge keeps the first earned record', () => {
+    const first = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
+    const second = timestampFromDate(new Date('2026-02-01T00:00:00.000Z'));
+    const merged = mergeOnceEarnedParticipantAchievements(
+      { [COURSE_GRADUATE_ACHIEVEMENT_ID]: { earnedAt: first, source: 'course_completion' } },
+      [
+        {
+          achievementId: COURSE_GRADUATE_ACHIEVEMENT_ID,
+          earnedAt: second,
+          source: 'course_completion',
+        },
+      ]
+    );
+    expect(merged.newlyEarnedAchievementIds).toEqual([]);
+    expect(merged.earned.course_graduate).toEqual({
+      earnedAt: first,
       source: 'course_completion',
     });
   });

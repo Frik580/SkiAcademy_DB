@@ -6,13 +6,14 @@ import { useBookingsStore } from '../bookings/bookingsStore';
 import { useCoursesStore } from '../courses/coursesStore';
 import { useCourseActions } from '../courses/useCourseActions';
 import {
-  resolveParticipantScopedCourseEnrollment,
   lookupCourseCatalogOperational,
   selectCourseEnrollmentItems,
+  selectEnrollmentForCourseParticipant,
+  presentStudentCourseProgress,
+  studentCourseProgressCopyFromLanguage,
   useCourseEnrollmentStore,
 } from '../course-enrollments';
-import { useManagedParticipants } from '../lesson-bookings';
-import { resolveDefaultParticipantSelection } from '../participants/participantSelectionState';
+import { useCabinetProgressParticipantSelectionStore } from '../student-cabinet/cabinetProgressParticipantSelectionStore';
 import { NotificationsPanel } from '../notifications/NotificationsPanel';
 import { AuthModal } from '../../features/auth';
 import { LazyLoad } from '../../ui/LazyLoad';
@@ -54,8 +55,12 @@ export const ModalHost: React.FC = () => {
   const reviews = useBookingsStore((s) => s.reviews);
   const instructors = useBookingsStore((s) => s.instructors);
   const courseEnrollments = useCourseEnrollmentStore(selectCourseEnrollmentItems);
-  const { participants } = useManagedParticipants(userProfile?.uid);
-  const selectedParticipantId = resolveDefaultParticipantSelection(participants)[0];
+  const selectedParticipantId = useCabinetProgressParticipantSelectionStore(
+    (state) => state.selectedParticipantId
+  );
+  const selectedCourseDetailsEnrollmentId = useUiStore(
+    (state) => state.selectedCourseDetailsEnrollmentId
+  );
 
   const courses = useCoursesStore((s) => s.courses);
   const { handleBookCourse } = useCourseActions();
@@ -79,6 +84,21 @@ export const ModalHost: React.FC = () => {
       ? lookupCourseCatalogOperational(state.catalogByCourseId, selectedCourseForDetails.id)
       : undefined
   );
+
+  const selectedEnrollment = selectedCourseForDetails
+    ? selectEnrollmentForCourseParticipant({
+        enrollments: courseEnrollments,
+        courseId: selectedCourseForDetails.id,
+        selectedParticipantId,
+        enrollmentId: selectedCourseDetailsEnrollmentId,
+      })
+    : undefined;
+  const selectedCourseProgress = selectedEnrollment
+    ? presentStudentCourseProgress(
+        selectedEnrollment,
+        studentCourseProgressCopyFromLanguage(language === 'ru' ? 'ru' : 'en', t)
+      )
+    : undefined;
 
   return (
     <>
@@ -116,11 +136,8 @@ export const ModalHost: React.FC = () => {
             instructors={instructors}
             userProfile={userProfile}
             catalogOperational={selectedCatalogOperational}
-            isEnrolled={resolveParticipantScopedCourseEnrollment({
-              enrollments: courseEnrollments,
-              courseId: selectedCourseForDetails.id,
-              selectedParticipantId,
-            })}
+            isEnrolled={Boolean(selectedEnrollment)}
+            courseProgress={selectedCourseProgress}
             onEnroll={() => {
               setSelectedCourseForAuth(selectedCourseForDetails);
             }}

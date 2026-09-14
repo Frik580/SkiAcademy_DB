@@ -18,10 +18,24 @@ const ACTIVE_ENROLLMENT_STATUSES: ReadonlySet<CourseEnrollmentLifecycleStatus> =
   'pending_cancellation',
 ]);
 
+const COURSE_MEMBERSHIP_STATUSES: ReadonlySet<CourseEnrollmentLifecycleStatus> = new Set([
+  'pending',
+  'confirmed',
+  'pending_cancellation',
+  'completed',
+  'no_show',
+]);
+
 export function isActiveCourseEnrollmentLifecycle(
   status: CourseEnrollmentLifecycleStatus
 ): boolean {
   return ACTIVE_ENROLLMENT_STATUSES.has(status);
+}
+
+export function isCourseEnrollmentMembershipStatus(
+  status: CourseEnrollmentLifecycleStatus
+): boolean {
+  return COURSE_MEMBERSHIP_STATUSES.has(status);
 }
 
 /**
@@ -38,7 +52,7 @@ export function isEnrolledInCourse(
     (enrollment) =>
       enrollment.courseId === courseId &&
       enrollment.participantId === participantId &&
-      isActiveCourseEnrollmentLifecycle(enrollment.lifecycleStatus)
+      isCourseEnrollmentMembershipStatus(enrollment.lifecycleStatus)
   );
 }
 
@@ -117,6 +131,7 @@ export function mapCourseEnrollmentReadModelToCabinetItem(
     bookingOrigin: readModel.bookingOrigin,
     authorizedActions: readModel.authorizedActions,
     payment: readModel.paymentPresentation,
+    courseProgress: readModel.courseProgress,
     updatedAtSeconds: readModel.updatedAt.seconds,
   };
 }
@@ -212,6 +227,7 @@ export function expandEnrollmentToCourseDaySessions(
       enrollmentId: enrollment.enrollmentId,
       courseDayId: courseDay.courseDayId,
       courseId: enrollment.courseId,
+      participantId: enrollment.participantId,
       courseTitle: enrollment.courseTitle,
       date: start.date,
       time: start.time,

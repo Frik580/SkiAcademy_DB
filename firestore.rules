@@ -707,8 +707,7 @@ service cloud.firestore {
         isMigratableClientBooking(resource.data) ||
         (isAuthenticated() && !availabilityMigrationComplete());
 
-      // Booking documents are created by Callables (createBooking, addBooking,
-      // createGuestBooking, enrollInCourse). Clients cannot insert bookings.
+      // Booking documents are created by server Callables. Clients cannot insert bookings.
       allow create: if false;
 
       // Lifecycle status, schedule, and instructor assignment belong to Callables.

@@ -25,6 +25,7 @@ import {
 } from './accountLessonBookingSync';
 import { useAuthStore } from '../features/auth/authStore';
 import { useProfileStore } from '../features/profile/profileStore';
+import { useCabinetProgressParticipantSelectionStore } from '../features/student-cabinet/cabinetProgressParticipantSelectionStore';
 
 export const useStoreSync = () => {
   const location = useLocation();
@@ -54,6 +55,9 @@ export const useStoreSync = () => {
     accountId: firebaseUser?.uid,
   });
   const isPublicCatalogPath = location.pathname === '/' || location.pathname.startsWith('/cabinet');
+  const selectedCourseParticipantId = useCabinetProgressParticipantSelectionStore(
+    (state) => state.selectedParticipantId
+  );
   const isInstructorCollaborationPath =
     location.pathname === '/instructor' && Boolean(userProfile?.instructorId);
 
@@ -70,7 +74,11 @@ export const useStoreSync = () => {
     isCustomerCanonicalLessonHotPath
   );
   useAccountParticipantLessonStatsSync(isParticipantLessonStatsPath, firebaseUser?.uid);
-  useCourseEnrollmentReadSync(isCustomerCanonicalCoursePath, firebaseUser?.uid);
+  useCourseEnrollmentReadSync(
+    isCustomerCanonicalCoursePath,
+    firebaseUser?.uid,
+    selectedCourseParticipantId
+  );
   useCourseCatalogReadSync(isPublicCatalogPath);
   useBookingCollaborationReadSync({
     customerEnabled: isCustomerCanonicalLessonHotPath,

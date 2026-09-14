@@ -40,7 +40,7 @@ export interface CurrentSessionsBlockInput {
   usersList: StudentProfile[];
   onOpenLesson: (booking: Booking) => void;
   onOpenSession: (booking: Booking) => void;
-  onViewCourseDetails?: (courseId: string) => void;
+  onViewCourseDetails?: (courseId: string, enrollmentId?: string) => void;
   hasUnreadChat?: (bookingId: string) => boolean;
 }
 
@@ -53,7 +53,7 @@ export interface NextSessionBlockInput {
   onGoToTab: (tab: StudentCabinetTab) => void;
   onOpenLesson: (booking: Booking) => void;
   onOpenSession: (booking: Booking) => void;
-  onViewCourseDetails?: (courseId: string) => void;
+  onViewCourseDetails?: (courseId: string, enrollmentId?: string) => void;
   hasUnreadChat?: (bookingId: string) => boolean;
 }
 
@@ -174,7 +174,7 @@ export interface StudentCabinetHomeContext {
   onToggleTodayTaskComplete?: (taskId: string, done: boolean) => void;
   onAddCustomTodayTask?: (text: string) => void;
   onRemoveTodayTask?: (task: TodayTaskRef) => void;
-  onViewCourseDetails: (course: Course) => void;
+  onViewCourseDetails: (course: Course, enrollmentId?: string) => void;
   onRequireCourseAuth: (course: Course) => void;
   onBookInstructor: (instructor: Instructor) => void;
   onViewInstructorReviews: (instructor: Instructor) => void;
@@ -203,7 +203,7 @@ export interface StudentTodaySectionInput {
   skillConfig?: SkillConfig;
   onOpenSession: (booking: Booking) => void;
   onOpenLesson: (booking: Booking) => void;
-  onViewCourseDetails?: (courseId: string) => void;
+  onViewCourseDetails?: (courseId: string, enrollmentId?: string) => void;
   onGoToTab: (tab: StudentCabinetTab) => void;
   onContinueDevelopment: () => void;
   pendingRecommendation?: CanonicalRecommendationTodayTask;

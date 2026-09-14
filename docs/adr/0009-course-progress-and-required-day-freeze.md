@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted — 2026-09-14 (T32.9A.9C.A); 9C.B READY_FOR_9C.C recorded 2026-09-14
+Accepted — 2026-09-14 (T32.9A.9C.A); 9C.B recorded 2026-09-14; 9C.C READY_FOR_9C.D recorded 2026-09-14; 9C.D READY_FOR_9C.E recorded 2026-09-14; 9C.E / T32.9A.9C PASS / CLOSED recorded 2026-09-14
 
 ## Decision
 
@@ -35,8 +35,8 @@ opened/reused. `progressPercent = 100` is not completion evidence.
 `course_graduate` is participant-scoped and server-issued exactly once from the
 `CourseEnrollment.lifecycle -> completed` transition. Its `earnedAt` is `lifecycle.completedAt`
 and its source is `course_completion`. Synthetic Booking, Activity Log, progress percentage, and
-legacy data are never evidence. T32.9A.9C.A defines the contract only; issuance belongs to 9C.D
-and has no legacy backfill.
+legacy data are never evidence. T32.9A.9C.D issues the badge in the same transaction as that
+canonical completed transition; there is no historical backfill.
 
 Every current CourseDay is required. On creation of the first canonical CourseEnrollment, the
 Course's required CourseDay set is frozen. `create_course_day` rejects later additions. Before the
@@ -51,8 +51,11 @@ item invokes the existing `resolve_attendance_outcome` command, which rechecks l
 current-occurrence Attendance, payment/Admin Issue gates, and idempotency transactionally. The
 sweep must query due work in bounded, ordered pages; it must never scan all CourseEnrollments.
 9C.B implements work storage, Enrollment-write synchronization, the bounded five-minute sweep,
-the cursor/index, and the request-time read-model projection. 9C.B is READY_FOR_9C.C.
-Deployment remains a separate manual integration action.
+the cursor/index, and the request-time read-model projection. 9C.B is complete. 9C.C consumes
+that projection on Student Home / My Courses / Calendar / enrolled Course detail with selected
+Participant isolation. 9C.D issues `course_graduate` on the canonical completed transition.
+9C.E contains leftover Course legacy reachability (`enrollInCourse` unexported/removed) and
+closes T32.9A.9C. Deployment remains a separate manual integration action.
 
 ## Consequences
 

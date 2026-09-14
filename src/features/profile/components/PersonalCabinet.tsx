@@ -69,7 +69,7 @@ export interface PersonalCabinetProps {
   achievementsConfig?: AchievementsConfig;
   activityLogs?: ActivityLog[];
   walletLedgerEntries?: WalletLedgerEntry[];
-  onViewCourseDetails?: (course: Course) => void;
+  onViewCourseDetails?: (course: Course, enrollmentId?: string) => void;
   onRequireCourseAuth?: (course: Course) => void;
   onBookInstructor?: (instructor: Instructor) => void;
   onViewInstructorReviews?: (instructor: Instructor) => void;

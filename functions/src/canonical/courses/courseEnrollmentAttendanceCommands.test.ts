@@ -42,6 +42,11 @@ const courseDayOneId = CourseDayIdSchema.parse('course_day_attendance_unit_01');
 const courseDayTwoId = CourseDayIdSchema.parse('course_day_attendance_unit_02');
 const courseDayThreeId = CourseDayIdSchema.parse('course_day_attendance_unit_03');
 const enrollmentId = CourseEnrollmentIdSchema.parse('enrollment_course_attendance_unit_01');
+const siblingParticipantId = ParticipantIdSchema.parse('participant_course_attendance_unit_02');
+const siblingManagementId = ParticipantManagementIdSchema.parse(
+  'management_course_attendance_unit_02'
+);
+const siblingEnrollmentId = CourseEnrollmentIdSchema.parse('enrollment_course_attendance_unit_02');
 const COURSE_PRICE_KZT = 50_000;
 const decidedAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
 const dayOneStart = timestampFromDate(new Date('2026-02-01T03:00:00.000Z'));
@@ -374,6 +379,166 @@ function resolveEnvelope(idempotencyKey: string): CommandEnvelope<'resolve_atten
   };
 }
 
+function recordEnvelopeFor(
+  targetEnrollmentId: typeof enrollmentId | typeof siblingEnrollmentId,
+  courseDayId: typeof courseDayOneId,
+  attendanceStatus: 'present' | 'absent',
+  idempotencyKey: string
+): CommandEnvelope<'record_course_day_attendance'> {
+  return {
+    kind: 'record_course_day_attendance',
+    context: instructorContext(idempotencyKey),
+    intent: {
+      courseEnrollmentId: targetEnrollmentId,
+      courseDayId,
+      attendanceStatus,
+    },
+  };
+}
+
+function siblingEnrollmentDocs(): Record<string, unknown> {
+  const docs: Record<string, unknown> = {
+    [`participants/${siblingParticipantId}`]: {
+      participantId: siblingParticipantId,
+      displayName: 'Attendance Sibling',
+      age: { kind: 'age_years', years: 12 },
+      skillLevel: 'beginner',
+      discipline: 'ski',
+      management: { kind: 'managed', participantManagementId: siblingManagementId },
+      lifecycle: { status: 'active' },
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: {
+        createdByCommandId: 'seed',
+        lastChangedByCommandId: 'seed',
+        correlationId,
+      },
+    },
+    [`participant_management/${siblingManagementId}`]: {
+      participantManagementId: siblingManagementId,
+      participantId: siblingParticipantId,
+      accountId,
+      role: 'owner',
+      authority: 'parent_guardian',
+      status: 'active',
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: {
+        createdByCommandId: 'seed',
+        lastChangedByCommandId: 'seed',
+        correlationId,
+      },
+    },
+    [`course_enrollments/${siblingEnrollmentId}`]: {
+      enrollmentId: siblingEnrollmentId,
+      participantId: siblingParticipantId,
+      courseId,
+      originalCourseId: courseId,
+      paymentId: paymentIdFromCourseEnrollmentId(siblingEnrollmentId),
+      attribution: {
+        bookingOrigin: 'admin',
+        bookedBy: { kind: 'account', accountId },
+      },
+      lifecycle: { status: 'confirmed' },
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: {
+        createdByCommandId: 'seed',
+        lastChangedByCommandId: 'seed',
+        correlationId,
+      },
+    },
+    [`payments/${paymentIdFromCourseEnrollmentId(siblingEnrollmentId)}`]: PaymentSchema.parse({
+      paymentId: paymentIdFromCourseEnrollmentId(siblingEnrollmentId),
+      subjectType: 'course_enrollment',
+      subjectId: siblingEnrollmentId,
+      currency: 'KZT',
+      originalPrice: COURSE_PRICE_KZT,
+      price: COURSE_PRICE_KZT,
+      paidAmount: COURSE_PRICE_KZT,
+      refundedAmount: 0,
+      retainedAmount: COURSE_PRICE_KZT,
+      settledAmount: COURSE_PRICE_KZT,
+      writtenOffAmount: 0,
+      outstandingAmount: 0,
+      paymentStatus: 'paid',
+      incrementalRequirements: [],
+      revision: 1,
+      eventRevision: 1,
+      payerAccountId: accountId,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+    }),
+  };
+
+  const seatIdentity = buildCourseSeatClaimIdentity({
+    courseId,
+    enrollmentId: siblingEnrollmentId,
+    occurrenceId: courseEnrollmentSeatOccurrenceId(siblingEnrollmentId),
+  });
+  docs[`resource_claims/${seatIdentity.claimId}`] = ResourceClaimSchema.parse({
+    claimId: seatIdentity.claimId,
+    strategyVersion: 'claim:v1',
+    claimKind: 'course_seat_pre_start',
+    resourceKind: 'course',
+    resourceId: courseId,
+    ownerKind: 'course_enrollment',
+    ownerId: siblingEnrollmentId,
+    occurrenceId: seatIdentity.identity.occurrenceId,
+    interval: { startsAt: dayOneStart, endsAt: dayThreeEnd },
+    lifecycle: { status: 'active' },
+    revision: 1,
+    correlationId,
+    lastChangedByCommandId: 'seed',
+    createdAt: decidedAt,
+    updatedAt: decidedAt,
+  });
+  for (const [courseDayId, dayOrder] of [
+    [courseDayOneId, 1],
+    [courseDayTwoId, 2],
+    [courseDayThreeId, 3],
+  ] as const) {
+    const courseDay = seedCourseDay(courseDayId, dayOrder);
+    const dayIdentity = buildParticipantCourseDayEnrollmentClaimIdentity({
+      participantId: siblingParticipantId,
+      enrollmentId: siblingEnrollmentId,
+      courseDay,
+    });
+    docs[`resource_claims/${dayIdentity.claimId}`] = ResourceClaimSchema.parse({
+      claimId: dayIdentity.claimId,
+      strategyVersion: 'claim:v1',
+      claimKind: 'participant_course_day_enrollment',
+      resourceKind: 'participant',
+      resourceId: siblingParticipantId,
+      ownerKind: 'course_enrollment',
+      ownerId: siblingEnrollmentId,
+      occurrenceId: dayIdentity.occurrenceId,
+      interval: courseDay.interval,
+      lifecycle: { status: 'active' },
+      revision: 1,
+      correlationId,
+      lastChangedByCommandId: 'seed',
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+    });
+  }
+  const guard = buildActiveCourseEnrollmentGuard({
+    participantId: siblingParticipantId,
+    courseId,
+    courseEnrollmentId: siblingEnrollmentId,
+    revision: 1,
+    createdAt: decidedAt,
+    updatedAt: decidedAt,
+    lastChangedByCommandId: 'seed',
+    correlationId,
+  });
+  docs[canonicalPaths.activeCourseEnrollmentGuard(siblingParticipantId, courseId).slice(1)] = guard;
+  return docs;
+}
+
 describe('courseEnrollmentAttendanceCommands', () => {
   it('records deterministic attendance and keeps enrollment confirmed before final day', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
@@ -441,6 +606,15 @@ describe('courseEnrollmentAttendanceCommands', () => {
       'completed'
     );
     expect(executor.snapshot().docs.get(`courses/${courseId}`)?.data.capacity.availableSeats).toBe(7);
+    const completedEnrollment = executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)
+      ?.data;
+    expect(
+      executor.snapshot().docs.get(`participant_achievements/${participantId}`)?.data.earned
+        .course_graduate
+    ).toMatchObject({
+      source: 'course_completion',
+      earnedAt: completedEnrollment?.lifecycle.completedAt,
+    });
   });
 
   it('resolves no_show when all days are absent after final day', async () => {
@@ -475,6 +649,9 @@ describe('courseEnrollmentAttendanceCommands', () => {
     expect(executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle.status).toBe(
       'no_show'
     );
+    expect(
+      executor.snapshot().docs.get(`participant_achievements/${participantId}`)
+    ).toBeUndefined();
     const releasedClaims = [...executor.snapshot().docs.entries()].filter(
       ([path, doc]) =>
         path.startsWith('resource_claims/') &&
@@ -534,6 +711,9 @@ describe('courseEnrollmentAttendanceCommands', () => {
     expect(executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle.status).toBe(
       'confirmed'
     );
+    expect(
+      executor.snapshot().docs.get(`participant_achievements/${participantId}`)
+    ).toBeUndefined();
     const issueCount = [...executor.snapshot().docs.keys()].filter((path) =>
       path.startsWith('admin_issues/')
     ).length;
@@ -635,5 +815,208 @@ describe('courseEnrollmentAttendanceCommands', () => {
       },
     });
     expect(result.status).toBe('error');
+  });
+
+  it('G. scheduler resolve after recorded present issues the same course_graduate', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    await createProductionCanonicalCommands(
+      environment('2026-02-01T04:00:00.000Z'),
+      executor
+    ).execute(recordEnvelope(courseDayOneId, 'present', 'idem-graduate-sched-a'));
+    await createProductionCanonicalCommands(
+      environment('2026-02-02T04:00:00.000Z'),
+      executor
+    ).execute(recordEnvelope(courseDayTwoId, 'absent', 'idem-graduate-sched-b'));
+    await createProductionCanonicalCommands(
+      environment('2026-02-03T04:00:00.000Z'),
+      executor
+    ).execute(recordEnvelope(courseDayThreeId, 'absent', 'idem-graduate-sched-c'));
+    expect(
+      executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle.status
+    ).toBe('confirmed');
+    expect(
+      executor.snapshot().docs.get(`participant_achievements/${participantId}`)
+    ).toBeUndefined();
+
+    const resolved = await createProductionCanonicalCommands(
+      environment('2026-02-04T05:00:00.000Z'),
+      executor
+    ).execute(resolveEnvelope('idem-graduate-sched-resolve'));
+    expect(resolved.status).toBe('success');
+    const enrollment = executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data;
+    expect(enrollment?.lifecycle.status).toBe('completed');
+    expect(
+      executor.snapshot().docs.get(`participant_achievements/${participantId}`)?.data.earned
+        .course_graduate
+    ).toMatchObject({
+      source: 'course_completion',
+      earnedAt: enrollment?.lifecycle.completedAt,
+    });
+  });
+
+  it('D. elapsed schedule at 100% while confirmed does not issue course_graduate', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    await createProductionCanonicalCommands(
+      environment('2026-02-01T04:00:00.000Z'),
+      executor
+    ).execute(recordEnvelope(courseDayOneId, 'present', 'idem-graduate-progress-a'));
+    await createProductionCanonicalCommands(
+      environment('2026-02-02T04:00:00.000Z'),
+      executor
+    ).execute(recordEnvelope(courseDayTwoId, 'absent', 'idem-graduate-progress-b'));
+    const afterFinal = createProductionCanonicalCommands(
+      environment('2026-02-03T06:00:00.000Z'),
+      executor
+    );
+    expect(
+      (await afterFinal.execute(resolveEnvelope('idem-graduate-progress-early-resolve'))).status
+    ).toBe('success');
+    expect(
+      executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle.status
+    ).toBe('confirmed');
+    expect(
+      executor.snapshot().docs.get(`participant_achievements/${participantId}`)
+    ).toBeUndefined();
+  });
+
+  it('E. replay after completed keeps a single course_graduate', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture(), {
+      simulateRetry: true,
+    });
+    await createProductionCanonicalCommands(
+      environment('2026-02-01T04:00:00.000Z'),
+      executor
+    ).execute(recordEnvelope(courseDayOneId, 'absent', 'idem-graduate-replay-a'));
+    await createProductionCanonicalCommands(
+      environment('2026-02-02T04:00:00.000Z'),
+      executor
+    ).execute(recordEnvelope(courseDayTwoId, 'present', 'idem-graduate-replay-b'));
+    const completing = await createProductionCanonicalCommands(
+      environment('2026-02-03T06:00:00.000Z'),
+      executor
+    ).execute(recordEnvelope(courseDayThreeId, 'absent', 'idem-graduate-replay-c'));
+    expect(completing.status).toBe('success');
+    const first = executor.snapshot().docs.get(`participant_achievements/${participantId}`)?.data;
+    expect(first?.revision).toBe(1);
+    const replay = await createProductionCanonicalCommands(
+      environment('2026-02-04T05:00:00.000Z'),
+      executor
+    ).execute(resolveEnvelope('idem-graduate-replay-resolve'));
+    expect(replay.status).toBe('success');
+    const second = executor.snapshot().docs.get(`participant_achievements/${participantId}`)?.data;
+    expect(second?.revision).toBe(1);
+    expect(second?.earned.course_graduate).toEqual(first?.earned.course_graduate);
+    expect(
+      [...executor.snapshot().docs.keys()].filter((path) =>
+        path.startsWith('participant_achievements/')
+      )
+    ).toHaveLength(1);
+  });
+
+  it('K. already-earned course_graduate is a true no-op', async () => {
+    const priorEarnedAt = timestampFromDate(new Date('2025-12-01T00:00:00.000Z'));
+    const executor = createInMemoryCanonicalTransactionExecutor(
+      baseFixture({
+        [`participant_achievements/${participantId}`]: {
+          participantId,
+          earned: {
+            course_graduate: { earnedAt: priorEarnedAt, source: 'course_completion' },
+          },
+          revision: 1,
+          createdAt: priorEarnedAt,
+          updatedAt: priorEarnedAt,
+          audit: {
+            createdByCommandId: 'command_seed_course_graduate',
+            lastChangedByCommandId: 'command_seed_course_graduate',
+            correlationId,
+          },
+        },
+      })
+    );
+    await createProductionCanonicalCommands(
+      environment('2026-02-01T04:00:00.000Z'),
+      executor
+    ).execute(recordEnvelope(courseDayOneId, 'present', 'idem-graduate-existing-a'));
+    await createProductionCanonicalCommands(
+      environment('2026-02-02T04:00:00.000Z'),
+      executor
+    ).execute(recordEnvelope(courseDayTwoId, 'absent', 'idem-graduate-existing-b'));
+    await createProductionCanonicalCommands(
+      environment('2026-02-03T06:00:00.000Z'),
+      executor
+    ).execute(recordEnvelope(courseDayThreeId, 'absent', 'idem-graduate-existing-c'));
+    expect(
+      executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle.status
+    ).toBe('completed');
+    const stored = executor.snapshot().docs.get(`participant_achievements/${participantId}`)?.data;
+    expect(stored?.revision).toBe(1);
+    expect(stored?.earned.course_graduate).toMatchObject({
+      source: 'course_completion',
+      earnedAt: priorEarnedAt,
+    });
+    expect(stored?.audit.lastChangedByCommandId).toBe('command_seed_course_graduate');
+  });
+
+  it('I/J. sibling Participants keep isolated course_graduate records', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(
+      baseFixture(siblingEnrollmentDocs())
+    );
+    await createProductionCanonicalCommands(
+      environment('2026-02-01T04:00:00.000Z'),
+      executor
+    ).execute(recordEnvelope(courseDayOneId, 'present', 'idem-graduate-sib-a1'));
+    await createProductionCanonicalCommands(
+      environment('2026-02-02T04:00:00.000Z'),
+      executor
+    ).execute(recordEnvelope(courseDayTwoId, 'absent', 'idem-graduate-sib-a2'));
+    await createProductionCanonicalCommands(
+      environment('2026-02-03T06:00:00.000Z'),
+      executor
+    ).execute(recordEnvelope(courseDayThreeId, 'absent', 'idem-graduate-sib-a3'));
+    expect(
+      executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle.status
+    ).toBe('completed');
+    expect(
+      executor.snapshot().docs.get(`participant_achievements/${participantId}`)?.data.earned
+        .course_graduate.source
+    ).toBe('course_completion');
+    expect(
+      executor.snapshot().docs.get(`course_enrollments/${siblingEnrollmentId}`)?.data.lifecycle
+        .status
+    ).toBe('confirmed');
+    expect(
+      executor.snapshot().docs.get(`participant_achievements/${siblingParticipantId}`)
+    ).toBeUndefined();
+
+    await createProductionCanonicalCommands(
+      environment('2026-02-01T04:00:00.000Z'),
+      executor
+    ).execute(
+      recordEnvelopeFor(siblingEnrollmentId, courseDayOneId, 'present', 'idem-graduate-sib-b1')
+    );
+    await createProductionCanonicalCommands(
+      environment('2026-02-02T04:00:00.000Z'),
+      executor
+    ).execute(
+      recordEnvelopeFor(siblingEnrollmentId, courseDayTwoId, 'absent', 'idem-graduate-sib-b2')
+    );
+    await createProductionCanonicalCommands(
+      environment('2026-02-03T06:00:00.000Z'),
+      executor
+    ).execute(
+      recordEnvelopeFor(siblingEnrollmentId, courseDayThreeId, 'absent', 'idem-graduate-sib-b3')
+    );
+    expect(
+      executor.snapshot().docs.get(`course_enrollments/${siblingEnrollmentId}`)?.data.lifecycle
+        .status
+    ).toBe('completed');
+    const firstBadge = executor.snapshot().docs.get(`participant_achievements/${participantId}`)
+      ?.data.earned.course_graduate;
+    const siblingBadge = executor.snapshot().docs.get(
+      `participant_achievements/${siblingParticipantId}`
+    )?.data.earned.course_graduate;
+    expect(firstBadge?.source).toBe('course_completion');
+    expect(siblingBadge?.source).toBe('course_completion');
+    expect(firstBadge).not.toBe(siblingBadge);
   });
 });

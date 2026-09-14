@@ -69,6 +69,11 @@ import {
   type CourseEnrollmentAttendanceActorMode,
 } from './courseEnrollmentAttendanceAuthorization';
 import {
+  commitPlannedCourseGraduateAchievementIssuance,
+  planCourseGraduateAchievementIssuance,
+  type PlannedCourseGraduateAchievementIssuance,
+} from '../achievements/courseGraduateAchievementIssuance';
+import {
   buildRecordCourseDayAttendanceAuditPlan,
   buildResolveCourseEnrollmentAttendanceOutcomeAuditPlan,
 } from './courseEnrollmentAttendanceAudit';
@@ -236,6 +241,7 @@ function recordCourseDayAttendanceHandler(
   let payment!: Payment;
   let plannedIssueMutations: PlannedAdminIssueMutation[] = [];
   let skipAttendanceMutation = false;
+  let plannedCourseGraduate: PlannedCourseGraduateAchievementIssuance | undefined;
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'record_course_day_attendance'> = {
     read: async (session) => {
@@ -246,6 +252,7 @@ function recordCourseDayAttendanceHandler(
       effectiveExistingAttendance = undefined;
       plannedIssueMutations = [];
       skipAttendanceMutation = false;
+      plannedCourseGraduate = undefined;
 
       const enrollmentRead = await session.tx.get({ path: enrollmentDocumentPath });
       session.plan.planRead({ path: enrollmentDocumentPath, category: 'aggregate' });
@@ -670,6 +677,13 @@ function recordCourseDayAttendanceHandler(
         if (resolvedOutcomeIssue) {
           plannedIssueMutations.push(resolvedOutcomeIssue);
         }
+        plannedCourseGraduate = await planCourseGraduateAchievementIssuance(session, {
+          previousEnrollment: enrollment,
+          plannedEnrollment,
+          commandId: metadata.commandId,
+          correlationId: metadata.correlationId,
+          now,
+        });
         return;
       }
 
@@ -746,6 +760,14 @@ function recordCourseDayAttendanceHandler(
           estimatedPayloadBytes: COURSE_ENROLLMENT_PLANNING_ESTIMATES.enrollmentBytes,
         });
       }
+
+      plannedCourseGraduate = await planCourseGraduateAchievementIssuance(session, {
+        previousEnrollment: enrollment,
+        plannedEnrollment,
+        commandId: metadata.commandId,
+        correlationId: metadata.correlationId,
+        now,
+      });
     },
     planAuditOutbox: async () =>
       buildRecordCourseDayAttendanceAuditPlan({
@@ -763,6 +785,14 @@ function recordCourseDayAttendanceHandler(
           kind: issue.kind,
         })),
         ...(auditSummary ? { lifecycleSummary: auditSummary } : {}),
+        ...(plannedCourseGraduate?.shouldWrite
+          ? {
+              courseGraduateIssuance: {
+                participantId: plannedCourseGraduate.planned.participantId,
+                revision: plannedCourseGraduate.planned.revision,
+              },
+            }
+          : {}),
       }),
     execute: async (session) => {
       if (
@@ -808,6 +838,7 @@ function recordCourseDayAttendanceHandler(
           planned: plannedClaimRelease,
         });
       }
+      commitPlannedCourseGraduateAchievementIssuance(session, plannedCourseGraduate);
       return commandSuccessResult(envelope.kind, envelope.context.correlationId);
     },
   };
@@ -842,6 +873,7 @@ export function resolveCourseEnrollmentAttendanceOutcomeHandler(
     documentPath: string;
   }> = [];
   let auditSummary: string | undefined;
+  let plannedCourseGraduate: PlannedCourseGraduateAchievementIssuance | undefined;
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'resolve_attendance_outcome'> = {
     read: async (session) => {
@@ -850,6 +882,7 @@ export function resolveCourseEnrollmentAttendanceOutcomeHandler(
       plannedClaimRelease = undefined;
       plannedIssues = [];
       auditSummary = undefined;
+      plannedCourseGraduate = undefined;
 
       const enrollmentRead = await session.tx.get({ path: enrollmentDocumentPath });
       session.plan.planRead({ path: enrollmentDocumentPath, category: 'aggregate' });
@@ -998,6 +1031,14 @@ export function resolveCourseEnrollmentAttendanceOutcomeHandler(
           }
         }
       }
+
+      plannedCourseGraduate = await planCourseGraduateAchievementIssuance(session, {
+        previousEnrollment: enrollment,
+        plannedEnrollment,
+        commandId: metadata.commandId,
+        correlationId: metadata.correlationId,
+        now,
+      });
     },
     planAuditOutbox: async () =>
       buildResolveCourseEnrollmentAttendanceOutcomeAuditPlan({
@@ -1011,6 +1052,14 @@ export function resolveCourseEnrollmentAttendanceOutcomeHandler(
           kind: 'missing_attendance' as const,
         })),
         ...(auditSummary ? { lifecycleSummary: auditSummary } : {}),
+        ...(plannedCourseGraduate?.shouldWrite
+          ? {
+              courseGraduateIssuance: {
+                participantId: plannedCourseGraduate.planned.participantId,
+                revision: plannedCourseGraduate.planned.revision,
+              },
+            }
+          : {}),
       }),
     execute: async (session) => {
       if (plannedEnrollment) {
@@ -1039,6 +1088,7 @@ export function resolveCourseEnrollmentAttendanceOutcomeHandler(
           planned: plannedClaimRelease,
         });
       }
+      commitPlannedCourseGraduateAchievementIssuance(session, plannedCourseGraduate);
       return commandSuccessResult(envelope.kind, envelope.context.correlationId);
     },
   };

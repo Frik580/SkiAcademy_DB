@@ -19,7 +19,7 @@ interface GroupCoursesSectionProps {
     selectedParticipantId?: string;
   };
   actions: {
-    onViewDetails: (course: Course) => void;
+    onViewDetails: (course: Course, enrollmentId?: string) => void;
     onRequireAuth: (course: Course) => void;
   };
 }

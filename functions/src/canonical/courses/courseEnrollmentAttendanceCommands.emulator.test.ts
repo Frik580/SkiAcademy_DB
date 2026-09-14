@@ -92,6 +92,7 @@ const COLLECTIONS_TO_CLEAR = [
   'command_idempotency',
   'admin_issues',
   'attendance',
+  'participant_achievements',
 ] as const;
 
 const DAY_INTERVALS = {
@@ -1298,5 +1299,32 @@ describeEmulator('courseEnrollmentAttendanceCommands emulator', () => {
       kind: 'administrator',
       accountId: adminAccountId,
     });
+  }, 30_000);
+
+  it('F. concurrent completion attempts persist one course_graduate', async () => {
+    await seedStaleAttendance(courseDayOneId, 1, 'present');
+    await seedStaleAttendance(courseDayTwoId, 1, 'present');
+    await seedStaleAttendance(courseDayThreeId, 1, 'present');
+    const commands = createCommands(isoAtAutomationEligible());
+    const [first, second] = await Promise.allSettled([
+      commands.execute(resolveEnvelope('graduate-concurrent-a')),
+      commands.execute(resolveEnvelope('graduate-concurrent-b')),
+    ]);
+    expect([first, second].every((result) => result.status === 'fulfilled')).toBe(true);
+    const statuses = [first, second].map((result) =>
+      result.status === 'fulfilled' ? result.value.status : 'rejected'
+    );
+    expect(statuses.every((status) => status === 'success')).toBe(true);
+
+    const enrollment = (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data();
+    expect(enrollment?.lifecycle.status).toBe('completed');
+    const achievements = (
+      await firestore.doc(`participant_achievements/${participantId}`).get()
+    ).data();
+    expect(achievements?.earned?.course_graduate?.source).toBe('course_completion');
+    expect(achievements?.earned?.course_graduate?.earnedAt).toEqual(enrollment?.lifecycle.completedAt);
+    expect(achievements?.revision).toBe(1);
+    const achievementDocs = await firestore.collection('participant_achievements').get();
+    expect(achievementDocs.size).toBe(1);
   }, 30_000);
 });

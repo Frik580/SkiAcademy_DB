@@ -183,7 +183,7 @@ const SessionCard = memo<
           </>
         ) : (
           onViewCourseDetails && (
-            <ScTextButton onClick={() => onViewCourseDetails(session.courseId)}>
+            <ScTextButton onClick={() => onViewCourseDetails(session.courseId, session.enrollmentId)}>
               {t('scMoreDetails')}
             </ScTextButton>
           )
@@ -358,7 +358,7 @@ export const NextSessionBlock = memo<NextSessionBlockInput>(function NextSession
                       </>
                     ) : (
                       onViewCourseDetails && (
-                        <ScTextButton onClick={() => onViewCourseDetails(session.courseId)}>
+                        <ScTextButton onClick={() => onViewCourseDetails(session.courseId, session.enrollmentId)}>
                           {t('scMoreDetails')}
                         </ScTextButton>
                       )

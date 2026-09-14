@@ -1,17 +1,17 @@
 ---
-description: Token-efficient development workflow. Minimize unnecessary repository reads, repeated context, broad testing, logs, and verbose reports without reducing correctness.
+description: Token-efficient development workflow. Minimize repository reads, repeated context, broad testing, logs, tool calls, and verbose reports without reducing correctness.
 alwaysApply: true
 ---
 
 # Token-Efficient Development Workflow
 
-Work narrowly by default. Preserve correctness, architecture, domain invariants, and regression safety while minimizing unnecessary context and tool output.
+Work narrowly by default. Preserve correctness, architecture, domain invariants, security, and regression safety while minimizing unnecessary context and tool output.
 
 ## 1. Scope first
 
 For every task:
 
-- Start from the files, symbols, errors, screenshots, or feature area explicitly mentioned by the user.
+- Start from the files, symbols, errors, screenshots, diff, or feature area explicitly mentioned by the user.
 - Find the smallest relevant execution path before reading surrounding architecture.
 - Read only files required to understand or modify that path.
 - Do NOT perform a broad repository audit unless the task genuinely requires it.
@@ -32,11 +32,26 @@ During the same task:
 
 - Reuse information already obtained.
 - Do not re-read unchanged files unless necessary to resolve a new dependency or failure.
-- Do not repeat searches that have already established the answer.
+- Do not repeat searches that already established the answer.
 - Do not regenerate architectural explanations already established in the session.
 - Prefer targeted symbol/search operations over reading large files end-to-end.
+- If another agent already implemented part of the task, inspect the current diff first and continue from it instead of redoing the work.
 
-## 3. Documentation context
+## 3. Permanent rules vs task prompt
+
+Project MDC rules are persistent context.
+
+Therefore:
+
+- Do not restate permanent MDC rules in every task unless a task-specific exception or reminder is necessary.
+- Treat the user/task prompt as delta-context: goal, acceptance criteria, task-specific boundaries, known current state, and required output.
+- Do not repeat canonical/domain invariants already covered by an applicable architecture MDC.
+- Do not repeat testing, Git, deploy, browser, or reporting rules already defined here unless the task changes them.
+- If a task prompt conflicts with an MDC rule, surface the conflict instead of silently choosing one.
+
+Goal: keep task prompts short without losing correctness.
+
+## 4. Documentation context
 
 Do not automatically read large project documentation.
 
@@ -45,15 +60,25 @@ Read ADRs, migration documents, audit documents, or project-context documents on
 - the task touches the contract documented there;
 - a canonical/domain invariant is unclear;
 - implementation conflicts with documentation;
-- the user explicitly asks for documentation validation.
+- the user explicitly asks for documentation validation;
+- status/roadmap closure depends on the documented accepted state.
 
-When documentation is needed, read the relevant section rather than the whole document when possible.
+When documentation is needed:
 
-## 4. Preserve architecture
+- read the relevant section rather than the whole document when possible;
+- update only documents whose accepted contract/status actually changed;
+- do not rewrite historical sections merely for consistency wording.
+
+## 5. Preserve architecture
 
 Token efficiency must never be achieved by skipping required correctness checks.
 
-Before changing domain/server/canonical behavior, identify the relevant invariant and existing execution path.
+Before changing domain/server/canonical behavior, identify:
+
+- current source of truth;
+- current mutation/read path;
+- affected invariant;
+- authorization boundary.
 
 Do not:
 
@@ -65,7 +90,7 @@ Do not:
 
 If a change can be completed locally without changing contracts, keep it local.
 
-## 5. Minimal implementation
+## 6. Minimal implementation
 
 Make the smallest coherent change that fixes the task.
 
@@ -81,7 +106,17 @@ Avoid unless required:
 
 If you discover an unrelated issue, mention it briefly at the end instead of fixing it automatically.
 
-## 6. Testing pyramid
+For takeover/WIP tasks:
+
+1. inspect `git status --short`;
+2. inspect `git diff --stat`;
+3. inspect the relevant diff;
+4. classify existing work as DONE / PARTIAL / MISSING / BROKEN;
+5. modify only PARTIAL / MISSING / BROKEN pieces.
+
+Do not rewrite DONE work merely because you would have implemented it differently.
+
+## 7. Testing pyramid
 
 After a change, start with the narrowest relevant validation.
 
@@ -89,8 +124,9 @@ Default order:
 
 1. directly affected unit test(s);
 2. feature/domain tests;
-3. emulator/integration tests only when the changed behavior requires them;
-4. full suite only when justified.
+3. emulator/integration tests only when changed behavior requires them;
+4. typecheck/build when relevant;
+5. full suite only when justified.
 
 Do NOT run the entire test suite after every change.
 
@@ -104,38 +140,63 @@ Run broad/full validation when:
 
 A UI-only change normally does not require unrelated backend/emulator/E2E suites.
 
-## 7. Terminal output
+When an emulator wrapper reports a shutdown error after tests already passed, distinguish:
+- assertion/test result;
+- wrapper/process shutdown result.
+
+Do not misreport one as the other.
+
+## 8. Browser/runtime verification
+
+Do not open protected/authenticated application routes unless an authenticated session is available.
+
+If authenticated browser verification is unavailable:
+
+- use targeted unit/integration/emulator tests;
+- typecheck/build when relevant;
+- state `AUTHENTICATED WORKFLOW: NOT VERIFIED` only when runtime verification matters to the task.
+
+Do not treat redirect-to-login as workflow verification.
+
+Pure backend/domain changes normally do not require browser verification.
+
+## 9. Terminal output
 
 Keep command output compact.
 
 For successful commands:
+
 - retain/report only the useful summary.
 
 For failures:
+
 - inspect the failing test/error and necessary surrounding context;
 - do not feed large unrelated logs back into context.
 
 Prefer filtered/targeted commands when available.
 
 Do not dump:
+
 - thousands of passing test lines;
 - complete Firebase logs when only one error matters;
 - entire repository diffs when only several files changed;
 - unrelated build output.
 
-## 8. Diff inspection
+## 10. Diff inspection
 
 Review the changed files and relevant diff, not the whole repository.
 
 Before finishing:
+
 - verify intended files changed;
 - check for accidental unrelated edits;
 - inspect the relevant diff;
-- verify required targeted tests.
+- verify required targeted tests;
+- run `git diff --check` when code/docs changed.
 
 Do not repeatedly inspect the same unchanged diff.
 
-## 9. Investigation stopping rule
+## 11. Investigation stopping rule
 
 Stop exploring when all of the following are known:
 
@@ -147,25 +208,114 @@ Stop exploring when all of the following are known:
 
 Do not continue repository exploration merely to gain additional confidence without a concrete unresolved question.
 
-## 10. Final response
+If a genuine business-policy, authorization, lifecycle, money, ownership, migration, or UX semantic decision is required:
+
+- stop implementation at that decision boundary;
+- ask one concise question;
+- do not guess policy.
+
+## 12. Firestore/read-cost discipline
+
+When changing Firestore/read models:
+
+- prefer bounded queries;
+- avoid unbounded scans and unnecessary full-history drains;
+- avoid N+1 reads when a bounded batch/query already fits platform limits;
+- preserve server-side pagination when data volume can exceed a page;
+- use deterministic cursors and stable ordering;
+- do not add polling to surfaces that do not need live data;
+- keep projection/read optimization separate from canonical mutation authority.
+
+If read cost materially changes, report the query shape and bound, not a speculative cost estimate.
+
+## 13. Generated artifacts / knowledge graph
+
+Generated repository metadata (for example Graphify outputs) is secondary to product correctness.
+
+- Do not run an expensive full regeneration repeatedly during implementation.
+- Prefer incremental/update-once behavior when supported.
+- Run it near the end only if project workflow requires it.
+- Do not block a correct implementation solely because generated metadata refresh is slow.
+- Do not change product code merely to satisfy graph shape.
+
+## 14. Git safety
+
+Do not commit unless the user asks.
+
+Before staging/committing:
+
+- inspect `git status --short`;
+- keep unrelated WIP untouched;
+- never use `git add .` by default;
+- stage exact task files;
+- inspect `git diff --cached`;
+- keep logically separate slices in separate commits when practical.
+
+Do not reset, clean, checkout, or overwrite unrelated user work.
+
+## 15. Deployment discipline
+
+Do not deploy unless the user explicitly asks.
+
+When a task may affect deployed infrastructure, derive deployment scope from the actual final diff and dependency graph.
+
+Do not guess.
+
+Report exact impact for:
+
+- Functions — exact names, or `NO`;
+- Hosting — YES/NO;
+- Firestore Rules — YES/NO;
+- Firestore Indexes — YES/NO;
+- Migration/Data migration — YES/NO;
+- Settings/manual setup — YES/NO;
+- Schedulers/triggers — exact names or `NO`.
+
+If indexes are required:
+
+1. deploy indexes;
+2. wait until required indexes are READY/Enabled;
+3. deploy Functions that depend on them;
+4. deploy Rules/Hosting in dependency-safe order.
+
+If a Functions codebase shares source/dependencies such that partial deploy is unsafe, say so explicitly instead of mechanically listing a subset.
+
+When deploy commands are requested, provide exact commands for the current project and shell.
+
+## 16. Final response
 
 Keep the final response concise.
 
 Use this structure unless the user requests otherwise:
 
 ### Verdict
-DONE | PARTIAL | BLOCKED
+DONE | PARTIAL | BLOCKED | READY_FOR_NEXT_SLICE
 
 ### Changed
-- file — short description
+- file/area — short description
 
 ### Validation
-- test/command — PASS/FAIL
+- test/command — PASS/FAIL/NOT RUN
+
+### Server impact
+Only when the task can affect deployed infrastructure:
+
+- Functions:
+- Hosting:
+- Rules:
+- Indexes:
+- Migration:
+- Settings:
+- Schedulers:
 
 ### Remaining risk
-Only include this section when a real unresolved risk exists.
+Only when a real unresolved risk exists.
+
+### Next
+Only when there is a concrete accepted next step.
 
 Do not repeat:
+
 - the full task description;
 - architecture that did not change;
 - long implementation narratives;

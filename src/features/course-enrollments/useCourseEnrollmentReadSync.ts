@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react';
-import { CourseEnrollmentIdSchema } from '@ski-academy/shared-domain';
+import { CourseEnrollmentIdSchema, ParticipantIdSchema } from '@ski-academy/shared-domain';
 import {
   queryCourseCatalogReadModels,
   queryCourseEnrollmentReadModels,
@@ -26,73 +26,132 @@ async function loadPublicCourseCatalog(): Promise<void> {
   }
 }
 
+function finishScopedHotLoad(participantId: string, generation: number): boolean {
+  const state = useCourseEnrollmentStore.getState();
+  if (state.loadGeneration !== generation || state.scopedParticipantId !== participantId) {
+    return false;
+  }
+  useCourseEnrollmentStore.getState().setHotLoading(false);
+  return true;
+}
+
+function finishScopedHistoryLoad(participantId: string, generation: number): boolean {
+  const state = useCourseEnrollmentStore.getState();
+  if (state.loadGeneration !== generation || state.scopedParticipantId !== participantId) {
+    return false;
+  }
+  useCourseEnrollmentStore.getState().setHistoryLoading(false);
+  return true;
+}
+
 /**
  * Account course enrollment sync. Public catalog ownership lives in
  * `useCourseCatalogReadSync` so cabinet mount issues one catalog callable.
+ * Student surfaces pass authorized `selectedParticipantId` so the store never
+ * hydrates sibling enrollments.
  */
-export function useCourseEnrollmentReadSync(enabled: boolean, accountId: string | undefined) {
+export function useCourseEnrollmentReadSync(
+  enabled: boolean,
+  accountId: string | undefined,
+  selectedParticipantId?: string
+) {
   const historyRequestNonce = useCourseEnrollmentStore((state) => state.historyRequestNonce);
 
-  const loadHot = useCallback(async () => {
-    if (!enabled || !accountId) return;
-    useCourseEnrollmentStore.getState().setHotLoading(true);
+  const loadHot = useCallback(async (participantId: string, generation: number) => {
     useCourseEnrollmentStore.getState().setError(undefined);
     try {
-      const result = await queryCourseEnrollmentReadModels({ scope: 'account_hot' });
-      const merged = mergeCourseEnrollmentRecords(
-        useCourseEnrollmentStore.getState().items,
-        result
-      );
-      useCourseEnrollmentStore.getState().mergeItems(merged);
-      useCourseEnrollmentStore.getState().setLoaded(true);
+      const result = await queryCourseEnrollmentReadModels({
+        scope: 'account_hot',
+        selectedParticipantId: ParticipantIdSchema.parse(participantId),
+      });
+      const merged = mergeCourseEnrollmentRecords(new Map(), result);
+      const applied = useCourseEnrollmentStore.getState().applyScopedItems({
+        participantId,
+        generation,
+        incoming: merged,
+        mode: 'replace',
+      });
+      if (applied) {
+        useCourseEnrollmentStore.getState().setLoaded(true);
+      }
+      return applied;
     } catch (error) {
-      useCourseEnrollmentStore
-        .getState()
-        .setError(error instanceof Error ? error.message : 'Failed to load course enrollments.');
+      const state = useCourseEnrollmentStore.getState();
+      if (state.loadGeneration === generation && state.scopedParticipantId === participantId) {
+        useCourseEnrollmentStore
+          .getState()
+          .setError(error instanceof Error ? error.message : 'Failed to load course enrollments.');
+      }
+      return false;
     } finally {
-      useCourseEnrollmentStore.getState().setHotLoading(false);
+      finishScopedHotLoad(participantId, generation);
     }
-  }, [accountId, enabled]);
+  }, []);
 
-  const loadHistoryPage = useCallback(async () => {
-    if (!enabled || !accountId) return;
+  const loadHistoryPage = useCallback(async (participantId: string, generation: number) => {
     const state = useCourseEnrollmentStore.getState();
-    if (state.historyLoading || !state.historyHasMore) return;
+    if (
+      state.scopedParticipantId !== participantId ||
+      state.loadGeneration !== generation ||
+      state.historyLoading ||
+      !state.historyHasMore
+    ) {
+      return;
+    }
     useCourseEnrollmentStore.getState().setHistoryLoading(true);
     try {
       const result = await queryCourseEnrollmentReadModels({
         scope: 'account_history',
+        selectedParticipantId: ParticipantIdSchema.parse(participantId),
         ...(state.historyCursor ? { cursor: state.historyCursor } : {}),
       });
       const merged = mergeCourseEnrollmentRecords(state.items, result);
-      useCourseEnrollmentStore.getState().mergeItems(merged);
-      useCourseEnrollmentStore.getState().setHistoryCursor(result.nextCursor);
-      useCourseEnrollmentStore.getState().setHistoryHasMore(result.hasMore);
+      const applied = useCourseEnrollmentStore.getState().applyScopedItems({
+        participantId,
+        generation,
+        incoming: merged,
+        mode: 'merge',
+      });
+      if (applied) {
+        useCourseEnrollmentStore.getState().setHistoryCursor(result.nextCursor);
+        useCourseEnrollmentStore.getState().setHistoryHasMore(result.hasMore);
+      }
     } catch (error) {
-      useCourseEnrollmentStore
-        .getState()
-        .setError(
+      const current = useCourseEnrollmentStore.getState();
+      if (current.loadGeneration === generation && current.scopedParticipantId === participantId) {
+        useCourseEnrollmentStore.getState().setError(
           error instanceof Error ? error.message : 'Failed to load course enrollment history.'
         );
+      }
     } finally {
-      useCourseEnrollmentStore.getState().setHistoryLoading(false);
+      finishScopedHistoryLoad(participantId, generation);
     }
-  }, [accountId, enabled]);
+  }, []);
 
   useEffect(() => {
     if (!enabled || !accountId) {
       useCourseEnrollmentStore.getState().reset();
       return;
     }
-    useCourseEnrollmentStore.getState().reset();
-    void loadHot().then(() => loadHistoryPage());
-  }, [accountId, enabled, loadHot, loadHistoryPage]);
+    if (!selectedParticipantId) {
+      useCourseEnrollmentStore.getState().clearScopedEnrollments();
+      return;
+    }
+    const generation = useCourseEnrollmentStore.getState().beginScopedLoad(selectedParticipantId);
+    void loadHot(selectedParticipantId, generation).then((applied) => {
+      if (applied) {
+        void loadHistoryPage(selectedParticipantId, generation);
+      }
+    });
+  }, [accountId, enabled, loadHistoryPage, loadHot, selectedParticipantId]);
 
   useEffect(() => {
     // Initial history page is chained after hot load; nonce 0 would duplicate that request.
-    if (!enabled || !accountId || historyRequestNonce === 0) return;
-    void loadHistoryPage();
-  }, [historyRequestNonce, enabled, accountId, loadHistoryPage]);
+    if (!enabled || !accountId || !selectedParticipantId || historyRequestNonce === 0) return;
+    const state = useCourseEnrollmentStore.getState();
+    if (state.scopedParticipantId !== selectedParticipantId) return;
+    void loadHistoryPage(selectedParticipantId, state.loadGeneration);
+  }, [historyRequestNonce, enabled, accountId, selectedParticipantId, loadHistoryPage]);
 
   return { reloadHot: loadHot, reloadCatalog: loadPublicCourseCatalog };
 }

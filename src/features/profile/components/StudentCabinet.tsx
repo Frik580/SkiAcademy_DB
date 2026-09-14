@@ -54,7 +54,7 @@ export interface StudentCabinetProps {
   onInvalidFile: () => void;
   onUploadSuccess: () => void;
   onUploadError: () => void;
-  onViewCourseDetails?: (course: Course) => void;
+  onViewCourseDetails?: (course: Course, enrollmentId?: string) => void;
   onRequireCourseAuth?: (course: Course) => void;
   onBookInstructor?: (instructor: Instructor) => void;
   onViewInstructorReviews?: (instructor: Instructor) => void;

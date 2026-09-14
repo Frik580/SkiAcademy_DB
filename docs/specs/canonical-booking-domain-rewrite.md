@@ -4,6 +4,7 @@ Status: approved implementation strategy; ADR-0001 through ADR-0008 accepted
 Amended: 2026-09-07 — T32.9A.9D selective legacy Booking disposal clarified for the incremental production cutover path (see amendment under Firestore reset contract); T32.9A.9 FINAL CANONICAL CUTOVER status lives in [T32_CANONICAL_ADMIN_AUDIT.md](../T32_CANONICAL_ADMIN_AUDIT.md)
 Amended: 2026-09-08 — production cutover gates: T32.9A.9P, 9D0, 9D selective cleanup (not full Firestore reset), 9E technical+product reachability; T38 empty-database rehearsal is nonproduction only; T40 Execute Rehearsed Selective Production Cutover; T41 expanded verification. F3 multi-participant design is unchanged.
 Amended: 2026-09-13 — T32.9A.9A.F5 guest CourseEnrollment bounded reservation expiry and legacy `createGuestCourseEnrollment` removal gate recorded; does not reopen T32.9A.9A F1–F4 PASS / CLOSED.
+Amended: 2026-09-14 — T32.9A.9C Course Progress / Achievements Cutover PASS / CLOSED (code integration/containment; no production deploy recorded).
 
 ## Problem Statement
 
@@ -376,15 +377,23 @@ T32.9A.9B — PASS / CLOSED: stats/progress/recommendations + Reviews / instruct
   No other accepted mandatory 9B capability remains: 9B.5 is not an accepted ticket;
   Course metrics are 9C and participant-scoped Chat Homework is 9P.HW1.
         ↓
-T32.9A.9C (Course progress / achievements)
+T32.9A.9C (Course progress / achievements) — PASS / CLOSED
   9C.B READY_FOR_9C.C: participant-scoped CourseProgressPresentation derives
   elapsed required CourseDays / scheduled required CourseDays; Attendance coverage and rate are
   separate; CourseEnrollment lifecycle remains completion authority; course_graduate is reserved
   for server issuance from lifecycle completed with course_completion source. Required CourseDays
   freeze at the first canonical CourseEnrollment (ADR-0009). 9C.B implements physical
   cursor-based Account Enrollment pagination, authorized selected-Participant reads, request-time
-  CourseProgress projection, and bounded dueAt Course outcome work/scheduler. No deploy or
-  migration is recorded; 9C.C UI, 9C.D issuance, and 9C.E containment remain.
+  CourseProgress projection, and bounded dueAt Course outcome work/scheduler. 9C.C Student UI
+  isolates the selected Participant on Home / My Courses / Calendar / enrolled Course detail and
+  presents canonical courseProgress. 9C.D issues participant-scoped `course_graduate` in the same
+  transaction as the canonical CourseEnrollment completed transition (`record_course_day_attendance`,
+  `resolve_attendance_outcome` / scheduler, and `reconcile_course_enrollment` share one helper;
+  once-earned; no backfill).
+  9C.E contains leftover Course legacy reachability: `enrollInCourse` unexported/removed;
+  synthetic Course Booking and `activity_logs.booking_completed` are not authority/fallback;
+  certificates remain out of scope. Legacy WRITE / authority READ / fallback / dual-write = 0.
+  No production deploy is recorded.
         ↓
 T32.9A.9P (Global Product Parity & legacy Dependency Gate)
         ↓

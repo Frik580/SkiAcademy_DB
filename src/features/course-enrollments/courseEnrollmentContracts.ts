@@ -1,5 +1,6 @@
 import type {
   CourseEnrollmentLifecycleStatus,
+  CourseEnrollmentProgressProjection,
   CourseEnrollmentReadModelAuthorizedActions,
   CourseEnrollmentReadModelPaymentPresentation,
   CourseProgressPresentation as SharedCourseProgressPresentation,
@@ -32,6 +33,7 @@ export interface CourseEnrollmentCabinetItem {
   readonly bookingOrigin: 'account' | 'guest' | 'instructor' | 'admin';
   readonly authorizedActions: CourseEnrollmentReadModelAuthorizedActions;
   readonly payment?: CourseEnrollmentReadModelPaymentPresentation;
+  readonly courseProgress?: CourseEnrollmentProgressProjection;
   readonly updatedAtSeconds: number;
 }
 
@@ -63,6 +65,7 @@ export interface CourseDaySessionItem {
   readonly enrollmentId: string;
   readonly courseDayId: string;
   readonly courseId: string;
+  readonly participantId: string;
   readonly courseTitle: string;
   readonly date: string;
   readonly time: string;

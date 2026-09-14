@@ -17,10 +17,6 @@ vi.mock('../../src/infrastructure/firebase', () => ({
   deleteDoc: mockDeleteDoc,
 }));
 
-vi.mock('../../src/features/courses/enrollInCourseCallable', () => ({
-  enrollInCourseViaCallable: vi.fn(),
-}));
-
 vi.mock('../../src/domain/notifications', () => ({
   createNotificationForUser: vi.fn(),
   buildNotification: vi.fn(),

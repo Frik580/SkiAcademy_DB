@@ -8,8 +8,13 @@ import {
   type AuditOutboxStagingPlan,
   type CommandEnvelope,
   type CourseEnrollmentId,
+  type ParticipantId,
 } from '@ski-academy/shared-domain';
 import type { CourseEnrollmentAttendanceActorMode } from './courseEnrollmentAttendanceAuthorization';
+import {
+  courseGraduateAchievementAuditEffects,
+  courseGraduateAchievementResultingRevisions,
+} from './courseGraduateAchievementAudit';
 
 export function buildRecordCourseDayAttendanceAuditPlan(input: {
   readonly envelope: CommandEnvelope<'record_course_day_attendance'>;
@@ -26,6 +31,10 @@ export function buildRecordCourseDayAttendanceAuditPlan(input: {
   readonly lifecycleSummary?: string;
   readonly actorMode: CourseEnrollmentAttendanceActorMode;
   readonly skipAttendanceRecording?: boolean;
+  readonly courseGraduateIssuance?: {
+    readonly participantId: ParticipantId;
+    readonly revision: number;
+  };
 }): AuditOutboxStagingPlan {
   const enrollmentRef = canonicalReference('course_enrollment', input.enrollmentId);
   const attendanceRef = canonicalReference('attendance', input.attendanceId);
@@ -70,7 +79,11 @@ export function buildRecordCourseDayAttendanceAuditPlan(input: {
             ? `${issue.kind} issue opened`
             : `${issue.kind} issue reused`,
     })),
+    ...courseGraduateAchievementAuditEffects(input.courseGraduateIssuance),
   ];
+  const courseGraduateParticipantRef = input.courseGraduateIssuance
+    ? canonicalReference('participant', input.courseGraduateIssuance.participantId)
+    : undefined;
 
   return {
     activityLog: {
@@ -84,7 +97,11 @@ export function buildRecordCourseDayAttendanceAuditPlan(input: {
         id: input.enrollmentId,
         subjectKey: `course_enrollment:${input.enrollmentId}`,
       },
-      affectedSubjects: [enrollmentRef, attendanceRef],
+      affectedSubjects: [
+        enrollmentRef,
+        attendanceRef,
+        ...(courseGraduateParticipantRef ? [courseGraduateParticipantRef] : []),
+      ],
       effects,
       monetaryEventIds: [],
       adminIssueIds: (input.issues ?? []).map((issue) => issue.issueId),
@@ -105,6 +122,7 @@ export function buildRecordCourseDayAttendanceAuditPlan(input: {
           subject: canonicalReference('admin_issue', issue.issueId),
           revision: AggregateRevisionSchema.parse(issue.revision),
         })),
+        ...courseGraduateAchievementResultingRevisions(input.courseGraduateIssuance),
       ],
     },
     outboxObligations: [],
@@ -122,6 +140,10 @@ export function buildResolveCourseEnrollmentAttendanceOutcomeAuditPlan(input: {
     readonly kind: 'missing_attendance';
   }[];
   readonly lifecycleSummary?: string;
+  readonly courseGraduateIssuance?: {
+    readonly participantId: ParticipantId;
+    readonly revision: number;
+  };
 }): AuditOutboxStagingPlan {
   const enrollmentRef = canonicalReference('course_enrollment', input.enrollmentId);
 
@@ -143,7 +165,11 @@ export function buildResolveCourseEnrollmentAttendanceOutcomeAuditPlan(input: {
           ? `${issue.kind} issue opened`
           : `${issue.kind} issue reused`,
     })),
+    ...courseGraduateAchievementAuditEffects(input.courseGraduateIssuance),
   ];
+  const courseGraduateParticipantRef = input.courseGraduateIssuance
+    ? canonicalReference('participant', input.courseGraduateIssuance.participantId)
+    : undefined;
 
   return {
     activityLog: {
@@ -156,7 +182,10 @@ export function buildResolveCourseEnrollmentAttendanceOutcomeAuditPlan(input: {
         id: input.enrollmentId,
         subjectKey: `course_enrollment:${input.enrollmentId}`,
       },
-      affectedSubjects: [enrollmentRef],
+      affectedSubjects: [
+        enrollmentRef,
+        ...(courseGraduateParticipantRef ? [courseGraduateParticipantRef] : []),
+      ],
       effects,
       monetaryEventIds: [],
       adminIssueIds: input.issues.map((issue) => issue.issueId),
@@ -173,8 +202,10 @@ export function buildResolveCourseEnrollmentAttendanceOutcomeAuditPlan(input: {
           subject: canonicalReference('admin_issue', issue.issueId),
           revision: AggregateRevisionSchema.parse(issue.revision),
         })),
+        ...courseGraduateAchievementResultingRevisions(input.courseGraduateIssuance),
       ],
     },
     outboxObligations: [],
   };
 }
+

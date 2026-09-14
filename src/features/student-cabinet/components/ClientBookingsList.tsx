@@ -68,7 +68,7 @@ interface ClientBookingsListProps {
   onDismissReview?: (bookingId: string) => void;
   onWriteReview?: (booking: LessonBookingCabinetItem) => void;
   onOpenLesson?: (booking: LessonBookingCabinetItem) => void;
-  onViewCourseDetails?: (courseId: string) => void;
+  onViewCourseDetails?: (courseId: string, enrollmentId?: string) => void;
   onCancel: (booking: LessonBookingCabinetItem) => void;
   onChat: (booking: LessonBookingCabinetItem) => void;
   hasUnreadChat?: (bookingId: string) => boolean;
@@ -565,7 +565,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                         {onViewCourseDetails && (
                           <button
                             type="button"
-                            onClick={() => onViewCourseDetails(item.courseId)}
+                            onClick={() => onViewCourseDetails(item.courseId, item.enrollmentId)}
                             className="px-3 py-1.5 text-xs font-medium border border-violet-200 dark:border-violet-800 rounded-lg text-[var(--ink)] hover:border-violet-400 transition"
                           >
                             {t('scMoreDetails')}

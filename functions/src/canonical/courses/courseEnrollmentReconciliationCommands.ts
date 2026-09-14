@@ -46,6 +46,11 @@ import {
   plannedAdminIssuePath,
   toFirestoreWritePayload as toAdminIssueWritePayload,
 } from '../adminIssues';
+import {
+  commitPlannedCourseGraduateAchievementIssuance,
+  planCourseGraduateAchievementIssuance,
+  type PlannedCourseGraduateAchievementIssuance,
+} from '../achievements/courseGraduateAchievementIssuance';
 import { parsePayment, paymentPath } from '../finance/financeStore';
 import type { CanonicalAtomicTransactionSession } from '../transactions';
 import {
@@ -156,6 +161,7 @@ export function reconcileCourseEnrollmentHandler(
   }> = [];
   let auditLifecycleSummary: string | undefined;
   let hasMutations = false;
+  let plannedCourseGraduate: PlannedCourseGraduateAchievementIssuance | undefined;
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'reconcile_course_enrollment'> = {
     read: async (session) => {
@@ -165,6 +171,7 @@ export function reconcileCourseEnrollmentHandler(
       plannedIssueMutations = [];
       auditLifecycleSummary = undefined;
       hasMutations = false;
+      plannedCourseGraduate = undefined;
 
       const enrollmentRead = await session.tx.get({ path: enrollmentDocumentPath });
       session.plan.planRead({ path: enrollmentDocumentPath, category: 'aggregate' });
@@ -427,6 +434,14 @@ export function reconcileCourseEnrollmentHandler(
           releaseFutureDayClaimsOnly: false,
         });
       }
+
+      plannedCourseGraduate = await planCourseGraduateAchievementIssuance(session, {
+        previousEnrollment: enrollment,
+        plannedEnrollment,
+        commandId: metadata.commandId,
+        correlationId: metadata.correlationId,
+        now,
+      });
     },
     planAuditOutbox: async () =>
       buildReconcileCourseEnrollmentAuditPlan({
@@ -440,6 +455,14 @@ export function reconcileCourseEnrollmentHandler(
           kind: mutation.kind,
         })),
         ...(auditLifecycleSummary ? { lifecycleSummary: auditLifecycleSummary } : {}),
+        ...(plannedCourseGraduate?.shouldWrite
+          ? {
+              courseGraduateIssuance: {
+                participantId: plannedCourseGraduate.planned.participantId,
+                revision: plannedCourseGraduate.planned.revision,
+              },
+            }
+          : {}),
       }),
     execute: async (session) => {
       if (plannedEnrollment) {
@@ -468,6 +491,7 @@ export function reconcileCourseEnrollmentHandler(
           planned: plannedClaimRelease,
         });
       }
+      commitPlannedCourseGraduateAchievementIssuance(session, plannedCourseGraduate);
       return commandSuccessResult(envelope.kind, envelope.context.correlationId);
     },
   };

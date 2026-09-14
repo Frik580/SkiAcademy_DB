@@ -23,7 +23,7 @@ import {
   useCourseEnrollmentStore,
 } from '../../features/course-enrollments';
 import { useManagedParticipants } from '../../features/lesson-bookings';
-import { resolveDefaultParticipantSelection } from '../../features/participants/participantSelectionState';
+import { useCabinetProgressParticipantSelectionStore } from '../../features/student-cabinet/cabinetProgressParticipantSelectionStore';
 import { traceCourseEnrollmentCtaIdentity } from '../../features/courses/courseEnrollmentCtaTrace';
 import { shouldSyncAccountCourseEnrollments } from '../../store/accountCourseEnrollmentSync';
 import { AppInitSkeleton } from '../../ui/Skeleton';
@@ -41,7 +41,9 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
   const courseEnrollments = useCourseEnrollmentStore(selectCourseEnrollmentItems);
   const catalogByCourseId = useCourseEnrollmentStore(selectAllCourseCatalogOperationalStates);
   const { participants } = useManagedParticipants(userProfile?.uid);
-  const selectedParticipantId = resolveDefaultParticipantSelection(participants)[0];
+  const selectedParticipantId = useCabinetProgressParticipantSelectionStore(
+    (state) => state.selectedParticipantId
+  );
   useEffect(() => {
     if (!import.meta.env.DEV || !userProfile) return;
     for (const course of courses) {

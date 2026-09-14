@@ -3,7 +3,6 @@ import { onCall } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { getAdminFirestore } from './adminFirestore';
-import { enrollInCourseHandler } from './courses/enrollInCourse';
 import { purgeExpiredNotifications } from './purgeExpiredNotifications';
 import { createExecuteCanonicalCommandHandler } from './canonical/commands/executeCanonicalCommandCallable';
 import { createExecuteGuestCanonicalCommandHandler } from './canonical/commands/executeGuestCanonicalCommandCallable';
@@ -48,10 +47,6 @@ const GUEST_SECRET_CALLABLE_OPTIONS = {
   ...CANONICAL_CALLABLE_OPTIONS,
   secrets: [guestActionTokenSecret],
 };
-
-export const enrollInCourse = onCall({ region: 'us-central1' }, async (request) =>
-  enrollInCourseHandler(getAdminFirestore())(request)
-);
 
 export const executeCanonicalCommand = onCall(GUEST_SECRET_CALLABLE_OPTIONS, async (request) =>
   createExecuteCanonicalCommandHandler(getAdminFirestore())(request)

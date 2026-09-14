@@ -56,4 +56,35 @@ describe('cabinet public course catalog single owner', () => {
     expect(queryCourseCatalogReadModelsMock).toHaveBeenCalledTimes(1);
     expect(queryCourseCatalogReadModelsMock).toHaveBeenCalledWith({ scope: 'public' });
   });
+
+  it('loads account enrollments with selectedParticipantId and skips account-wide reads', async () => {
+    renderHook(() => {
+      useCourseEnrollmentReadSync(true, 'account_cabinet_fixture', 'participant_child_a');
+    });
+
+    await waitFor(() => {
+      expect(queryCourseEnrollmentReadModelsMock).toHaveBeenCalled();
+    });
+
+    expect(queryCourseEnrollmentReadModelsMock).toHaveBeenCalledWith({
+      scope: 'account_hot',
+      selectedParticipantId: 'participant_child_a',
+    });
+    expect(
+      queryCourseEnrollmentReadModelsMock.mock.calls.every(
+        (call) => call[0]?.selectedParticipantId === 'participant_child_a'
+      )
+    ).toBe(true);
+  });
+
+  it('does not issue account-wide enrollment reads without a selected participant', async () => {
+    renderHook(() => {
+      useCourseEnrollmentReadSync(true, 'account_cabinet_fixture');
+    });
+
+    await waitFor(() => {
+      expect(useCourseEnrollmentStore.getState().scopedParticipantId).toBeUndefined();
+    });
+    expect(queryCourseEnrollmentReadModelsMock).not.toHaveBeenCalled();
+  });
 });

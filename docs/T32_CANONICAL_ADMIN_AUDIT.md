@@ -19,6 +19,7 @@ Amended: 2026-09-12 — T32.9A.9B.4 Stats / Achievements isolation + integration
 Amended: 2026-09-13 — T32.9A.9A.F5 Canonical Guest Course Reservation Expiry added as a post-close corrective follow-up after a separate guest CourseEnrollment expiry/runtime gap was identified. Existing F1–F4 acceptance remains valid.
 Amended: 2026-09-13 — Reviews / Instructor Rating Continuity production deploy and authenticated manual smoke **PASS**; legacy review write/read, rating fallback, and dual-write reachability are each zero. T32.9A.9B.4 Stats / Achievements production smoke is also **PASS**. With no other accepted mandatory 9B capability (9B.5 is not an accepted ticket), **T32.9A.9B is PASS / CLOSED**; next accepted slice is **T32.9A.9C**.
 Amended: 2026-09-13 — **T32.9R** Firestore / server-resource optimization status reconciled. Completed small read bounds (BG1, UI1/UI1B, P0A/P0B, A2, R1A, M1/M2; BG2 implemented+migrated). **R1** physical `account_history` pagination and **R2** maintained participant stats projection are **DEFERRED** (not next coding tickets). Next optimization step is deploy/runtime verification of remaining READY items, then production re-measurement — not speculative projection work. See **T32.9R** below. Historical scratch audits under `.scratch/` remain evidence, not roadmap authority.
+Amended: 2026-09-14 — **T32.9A.9C PASS / CLOSED** (code integration/containment gate). Course Progress, participant isolation, bounded outcome automation, and server-side `course_graduate` are canonical; legacy Course WRITE/authority-READ/fallback/dual-write reachability is zero. Certificates remain out of 9C. No historical backfill. Production deploy + authenticated smoke are not recorded.
 
 Status: historical Admin-runtime audit from 2026-08-30, with later T32.8A–T32.8C and T32.9A/T32.9B migration status below. Findings in this document that describe unpaid Administrator guest approval, missing guest CourseEnrollment confirmation, or identity linking as confirmation are superseded by ADR-0007. Sections below that still describe the 2026-08-30 Admin runtime as fully legacy are historical audit evidence; later migration status in this preamble supersedes them for T32.9A progress.
 
@@ -62,7 +63,7 @@ T32.9 remains split per [ADR-0008](adr/0008-ux-preservation-during-canonical-mig
 | T32.9A.9B.4                                    | Stats / Achievements                                                     | PASS / CLOSED                             |
 | Reviews / Instructor Rating Continuity         | Canonical review command, read models, rating summaries, legacy gate     | PASS / CLOSED                             |
 | T32.9R                                         | Firestore / server-resource optimization (parallel to cutover)           | ACTIVE — see T32.9R status table          |
-| T32.9A.9C                                      | Course Progress / Achievements Cutover                                   | 9C.A completed; 9C.B READY_FOR_9C.C       |
+| T32.9A.9C                                      | Course Progress / Achievements Cutover                                   | PASS / CLOSED                             |
 | T32.9A.9P                                      | Global Product Parity & Legacy Dependency Gate                           | PENDING                                   |
 | T32.9A.9D0                                     | Production-like Incremental Cutover Rehearsal                            | PENDING                                   |
 | T32.9A.9D                                      | Selective Destructive Legacy Data Cleanup                                | PENDING                                   |
@@ -71,7 +72,7 @@ T32.9 remains split per [ADR-0008](adr/0008-ux-preservation-during-canonical-mig
 | T40                                            | Execute Rehearsed Selective Production Cutover                           | PENDING; after T32.9B                     |
 | T41                                            | Expanded Post-Cutover Verification                                       | PENDING; after T40                        |
 
-Status labels used here: `PASS`, `PASS / CLOSED`, `PASS / DEPLOYED`, `REQUIRED`, `IN PROGRESS`, `PLANNED`, `READY_FOR_MANUAL_SMOKE`, `READY_FOR_DEPLOY`, `DEPLOY-RUNTIME-VERIFICATION-PENDING`, `DEFERRED`, `PENDING`, `NOT CLOSED`. T32.9A.9A original F1–F4 integration close (including final integration / production smoke) remains **PASS / CLOSED**. **T32.9A.9A.F5** is an active post-close corrective follow-up on guest CourseEnrollment reservation expiry; it does not reopen or invalidate F1–F4. **T32.9A.9B is PASS / CLOSED**; the next accepted **cutover** slice is **T32.9A.9C**. **T32.9R** is a parallel read-cost track; it does not replace 9C, and **R1/R2 are not mandatory next implementation tickets**.
+Status labels used here: `PASS`, `PASS / CLOSED`, `PASS / DEPLOYED`, `REQUIRED`, `IN PROGRESS`, `PLANNED`, `READY_FOR_MANUAL_SMOKE`, `READY_FOR_DEPLOY`, `DEPLOY-RUNTIME-VERIFICATION-PENDING`, `DEFERRED`, `PENDING`, `NOT CLOSED`. T32.9A.9A original F1–F4 integration close (including final integration / production smoke) remains **PASS / CLOSED**. **T32.9A.9A.F5** is an active post-close corrective follow-up on guest CourseEnrollment reservation expiry; it does not reopen or invalidate F1–F4. **T32.9A.9B is PASS / CLOSED**. **T32.9A.9C is PASS / CLOSED**; the next accepted **cutover** slice is **T32.9A.9P**. **T32.9R** is a parallel read-cost track. **R1/R2 are not mandatory next implementation tickets**.
 
 T32.9A.9A remains historically **PASS / CLOSED** for the original Individual Booking F1–F4 cutover. F5 was added after that close when a separate guest CourseEnrollment lifecycle/runtime gap was identified. F5 does not invalidate completed Individual Booking lifecycle work, but must reach **PASS / CLOSED** before final legacy guest CourseEnrollment removal and downstream destructive cutover gates may treat canonical guest course lifecycle as complete.
 
@@ -102,7 +103,7 @@ T32.9A.9B — Student Booking Stats / Progress / Recommendations Cutover — PAS
   T32.9A.9B.3 — Recommendations / Lesson Feedback continuity — PASS / CLOSED (production smoke 2026-09-12)
   T32.9A.9B.4 — Stats / Achievements — PASS / CLOSED
   Reviews / Instructor Rating Continuity — PASS / CLOSED
-T32.9A.9C — Course Progress / Achievements Cutover — 9C.A completed; 9C.B READY_FOR_9C.C
+T32.9A.9C — Course Progress / Achievements Cutover — PASS / CLOSED
 T32.9A.9P — Global Product Parity & Legacy Dependency Gate
 T32.9A.9D0 — Production-like Incremental Cutover Rehearsal
 T32.9A.9D — Selective Destructive Legacy Data Cleanup
@@ -1132,7 +1133,7 @@ Evaluation sources:
 | homework_done            | ParticipantLessonFeedback (all checklist items completed)                             |
 | persisted badges         | `/participant_achievements/{participantId}`                                           |
 | feedback_given           | canonical reviews (account-level; not participant persistence)                        |
-| course_graduate          | 9C.A CONTRACT READY — participant-scoped, server-only from CourseEnrollment completed; issuance deferred to 9C.D; no synthetic `course_*` Booking workaround |
+| course_graduate          | 9C PASS / CLOSED — participant-scoped, server-only from CourseEnrollment completed in the same transaction; once-earned; no backfill; no synthetic `course_*` Booking workaround |
 
 Instructor metrics (one Booking = one lesson/slot; not per Participant):
 
@@ -1257,11 +1258,12 @@ All accepted mandatory 9B capabilities are closed:
 - 9B.4 Stats / Achievements;
 - Reviews / Instructor Rating Continuity.
 
-`T32.9A.9B.5` is not an accepted roadmap ticket. Course metrics and `course_graduate` belong to 9C (9C.A semantic contract ready; later implementation slices remain); participant-scoped Chat Homework remains the separate 9P.HW1 parity item. Neither is an open 9B blocker.
+`T32.9A.9B.5` is not an accepted roadmap ticket. Course metrics and `course_graduate` are **T32.9A.9C PASS / CLOSED**; participant-scoped Chat Homework remains the separate 9P.HW1 parity item. Neither is an open 9B blocker.
 
 ```text
 T32.9A.9B → PASS / CLOSED
-NEXT → T32.9A.9C — Course Progress / Achievements
+T32.9A.9C → PASS / CLOSED
+NEXT → T32.9A.9P — Global Product Parity & Legacy Dependency Gate
 ```
 
 #### T32.9R — Firestore / server-resource optimization (parallel track)
@@ -1310,7 +1312,7 @@ These are not regressions introduced by T32.9R tickets:
 2. Re-measure production Firestore / Functions usage.
 3. Choose the next optimization from measured cost — do not manufacture a coding ticket merely to keep the roadmap busy.
 
-#### T32.9A.9C — Course Progress / Achievements Cutover — 9C.B READY_FOR_9C.C
+#### T32.9A.9C — Course Progress / Achievements Cutover — PASS / CLOSED
 
 **9C.A semantic foundation accepted 2026-09-14.** Course Progress means curriculum
 progress (`elapsedDays / scheduledDays`), where a CourseDay becomes elapsed only at its canonical
@@ -1326,7 +1328,7 @@ Schedule progress at 100% never completes an Enrollment.
 `course_graduate` is participant-scoped, server-only, earned once from the canonical Enrollment
 transition to `completed`, with `earnedAt = lifecycle.completedAt` and source
 `course_completion`. Synthetic Course Booking, Activity Log, progress percentage, and legacy data
-are not evidence. 9C.A defines the shared contract; issuance is not implemented yet.
+are not evidence. 9C.A defined the shared contract; 9C.D implements issuance.
 
 The required CourseDay set freezes at the first canonical CourseEnrollment. Before the first
 Enrollment existing CourseDay mutation rules apply; afterward `create_course_day` rejects the
@@ -1368,10 +1370,44 @@ Enrollment rows without duplicates/missing IDs, advances the physical cursor pas
 rows, terminates `account_hot`, isolates a selected sibling, and rejects unmanaged/ended
 Participant selection.
 
-**Deferred:** 9C.C Student UI, 9C.D server-only `course_graduate` issuance, and 9C.E
-containment/smoke. Overall 9C is not PASS.
+**Deferred at 9C.B/9C.C/9C.D:** 9C.E containment/smoke. Overall 9C was not PASS until 9C.E.
 
-9C PASS is required before 9P. 9P then proves Course progress/achievements together with the rest of the product, not as a substitute for 9C.
+**9C.C READY_FOR_9C.D (2026-09-14; no deploy).** Student Home, «Мои курсы», Calendar CourseDay
+presentation, and enrolled Course detail now follow the selected Participant. Account Enrollment
+sync passes authorized `selectedParticipantId` instead of hydrating all managed siblings and
+filtering in the client. Store generation rejects a late response for A after switching to B.
+Course cards and enrolled detail render canonical `courseProgress` as «Прогресс курса»
+(`elapsedDays` of `scheduledDays`); «Посещено» and «Посещаемость» stay separate, with null rate
+shown as «Нет данных». `attendanceCoveragePercent` is not labeled as course progress.
+`completed` is «Курс завершён»; `no_show` is a distinct terminal outcome; 100% progress while
+`confirmed` is not completion. Enrolled detail identity is the exact `enrollmentId` for the
+selected Participant.
+
+**9C.D READY_FOR_9C.E (2026-09-14; no deploy, no backfill).** `course_graduate` is issued
+server-side in the same Firestore transaction as the canonical CourseEnrollment
+`confirmed → completed` transition. `record_course_day_attendance`, `resolve_attendance_outcome` (including the 9C.B scheduler),
+and `reconcile_course_enrollment` share `planCourseGraduateAchievementIssuance` against
+`/participant_achievements/{participantId}`.
+`earnedAt = lifecycle.completedAt`, source `course_completion`, once-earned / idempotent, and
+participant-isolated. Historical completed Enrollments are not scanned. Frontend presentation
+is unchanged from 9C.A.
+
+**9C.E PASS / CLOSED (2026-09-14; no deploy, no backfill).** Course product-path legacy
+reachability is contained. Authenticated `enrollInCourse` is unexported and removed (same
+guest-callable pattern): no frontend caller, no guest caller, no server/internal product
+caller. Active enrollment is `create_course_enrollments`. Synthetic `booking_course_*`
+records are not Course Progress / Enrollment / Completion / Achievement authority or fallback.
+`activity_logs.booking_completed` remains presentation/history only. Certificates stay a
+static Student placeholder, not completion authority. Counters for this feature family:
+legacy WRITE = 0, authority READ = 0, fallback = 0, dual-write = 0. Leftover dead helpers
+(`courseTransactions.enrollInCourse`, unused `getStudentCourseBookingsQuery`) are not
+production-reachable and belong to later 9P/T32.9B physical cleanup, not 9C.
+
+**T32.9A.9C PASS / CLOSED.** Canonical Course path is Course → CourseDay →
+CourseEnrollment(participant) → Attendance → outcome → request-time `courseProgress` →
+Student UI → transactional `course_graduate`. Production deploy and authenticated browser
+smoke are not recorded. 9P then proves Course progress/achievements together with the rest
+of the product, not as a substitute for 9C.
 
 #### T32.9A.9P — Global Product Parity & Legacy Dependency Gate — PENDING
 
@@ -2428,7 +2464,7 @@ Current structure (authoritative for later status; see preamble):
     - **9B.4** Stats / Achievements — **PASS / CLOSED**
     - **Reviews / Instructor Rating Continuity** — **PASS / CLOSED**
   - **T32.9R** Firestore / server-resource optimization — parallel track; see preamble **T32.9R** (R1/R2 **DEFERRED**; next = deploy/verify READY items + re-measure)
-  - **9C** Course Progress / Achievements Cutover — 9C.A completed; 9C.B READY_FOR_9C.C; overall NOT CLOSED
+  - **9C** Course Progress / Achievements Cutover — **PASS / CLOSED**
   - **9P** Global Product Parity & Legacy Dependency Gate — PENDING
   - **9D0** Production-like Incremental Cutover Rehearsal — PENDING
   - **9D** Selective Destructive Legacy Data Cleanup — PENDING (proven legacy rows only;

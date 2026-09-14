@@ -11,6 +11,8 @@ import { CourseGallery } from './course_details/CourseGallery';
 import { CourseFAQ } from './course_details/CourseFAQ';
 import { CourseEnrollAction } from './course_details/CourseEnrollAction';
 import type { CourseCatalogOperationalState } from '../../course-enrollments';
+import type { StudentCourseProgressSummaryInput } from '../../course-enrollments/courseProgressViewModel';
+import { StudentCourseProgressSummary } from '../../course-enrollments/StudentCourseProgressSummary';
 import {
   formatCourseCatalogCardDate,
   resolveCourseCatalogDisplaySchedule,
@@ -25,6 +27,7 @@ interface CourseDetailsModalProps {
   userProfile: UserProfile | null;
   catalogOperational?: CourseCatalogOperationalState;
   isEnrolled: boolean;
+  courseProgress?: StudentCourseProgressSummaryInput;
   onEnroll: (courseId: string) => void;
 }
 
@@ -37,6 +40,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
   userProfile,
   catalogOperational,
   isEnrolled,
+  courseProgress,
   onEnroll,
 }) => {
   const { language, t } = useLanguage();
@@ -202,17 +206,20 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                 <CourseFAQ faq={faq} />
               </div>
 
-              <CourseEnrollAction
-                course={course}
-                datePart={datePart}
-                timePart={timePart}
-                seatsPercentage={seatsPercentage}
-                catalogOperational={catalogOperational}
-                userProfile={userProfile}
-                isEnrolled={isEnrolled}
-                onEnroll={onEnroll}
-                onClose={onClose}
-              />
+              <div className="space-y-6">
+                {courseProgress && <StudentCourseProgressSummary {...courseProgress} />}
+                <CourseEnrollAction
+                  course={course}
+                  datePart={datePart}
+                  timePart={timePart}
+                  seatsPercentage={seatsPercentage}
+                  catalogOperational={catalogOperational}
+                  userProfile={userProfile}
+                  isEnrolled={isEnrolled}
+                  onEnroll={onEnroll}
+                  onClose={onClose}
+                />
+              </div>
             </div>
           </div>
         </motion.div>

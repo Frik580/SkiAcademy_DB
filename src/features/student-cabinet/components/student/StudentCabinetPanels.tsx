@@ -5,14 +5,14 @@ import { translateInstructor } from '../../../../app/providers/LanguageContext';
 import { BookingsPanel } from '../../../../features/profile';
 import { GroupCourseCard, sortVisibleCourses } from '../../../../features/courses';
 import {
-  getEnrolledCourseIdsFromEnrollments,
+  getEnrolledCourseIdsForParticipant,
   lookupCourseCatalogOperational,
   selectAllCourseCatalogOperationalStates,
+  selectEnrollmentForCourseParticipant,
   useCourseEnrollmentStore,
   type CourseEnrollmentCabinetItem,
 } from '../../../../features/course-enrollments';
 import { useManagedParticipants } from '../../../../features/lesson-bookings';
-import { resolveDefaultParticipantSelection } from '../../../../features/participants/participantSelectionState';
 import { traceCourseEnrollmentCtaIdentity } from '../../../../features/courses/courseEnrollmentCtaTrace';
 import { InstructorCard } from '../../../../features/profile';
 import { StudentDevelopmentPanel } from './StudentDevelopmentPanel';
@@ -77,7 +77,7 @@ export const StudentCalendarPanel: React.FC<
     sessionItems: readonly import('../../../../features/course-enrollments').CabinetSessionItem[];
     unreviewedCompletedBookings: import('./studentCabinetContracts').StudentBooking[];
     onDismissReview?: (id: string) => void;
-    onViewCourseDetails?: (course: Course) => void;
+    onViewCourseDetails?: (course: Course, enrollmentId?: string) => void;
     onCourseWithdraw?: (enrollmentId: string) => void | Promise<void>;
     onCourseRequestCancellation?: (enrollmentId: string) => void | Promise<void>;
     collaborationProposals?: readonly import('../../../../features/booking-collaboration').BookingProposalCabinetItem[];
@@ -147,9 +147,9 @@ export const StudentCalendarPanel: React.FC<
       collaborationSubmittingId={collaborationSubmittingId}
       onViewCourseDetails={
         onViewCourseDetails
-          ? (courseId) => {
+          ? (courseId, enrollmentId) => {
               const course = courses.find((item) => item.id === courseId);
-              if (course) onViewCourseDetails(course);
+              if (course) onViewCourseDetails(course, enrollmentId);
             }
           : undefined
       }
@@ -161,14 +161,16 @@ export const StudentCalendarPanel: React.FC<
 
 export const StudentCoursesPanel: React.FC<
   PanelProps & {
-    onViewCourseDetails: (course: Course) => void;
+    onViewCourseDetails: (course: Course, enrollmentId?: string) => void;
     onRequireCourseAuth: (course: Course) => void;
     courseEnrollments?: readonly CourseEnrollmentCabinetItem[];
+    selectedParticipantId?: string;
   }
 > = ({
   courses,
   userProfile,
   courseEnrollments = [],
+  selectedParticipantId,
   onViewCourseDetails,
   onRequireCourseAuth,
   onGoToTab,
@@ -176,9 +178,6 @@ export const StudentCoursesPanel: React.FC<
   const { t, language } = useStudentCabinetTranslations();
   const catalogByCourseId = useCourseEnrollmentStore(selectAllCourseCatalogOperationalStates);
   const { participants } = useManagedParticipants(userProfile?.uid);
-  // Sole managed participant is auto-selected for CTA; multi-participant leaves
-  // selection empty so account-level enrollment does not disable enroll for others.
-  const selectedParticipantId = resolveDefaultParticipantSelection(participants)[0];
   useEffect(() => {
     if (!import.meta.env.DEV || !userProfile) return;
     for (const course of courses) {
@@ -194,7 +193,10 @@ export const StudentCoursesPanel: React.FC<
       });
     }
   }, [courseEnrollments, courses, participants, selectedParticipantId, userProfile]);
-  const enrolledCourseIds = getEnrolledCourseIdsFromEnrollments(courseEnrollments);
+  const enrolledCourseIds = getEnrolledCourseIdsForParticipant(
+    courseEnrollments,
+    selectedParticipantId
+  );
   const myCourses = sortVisibleCourses(
     courses.filter((course) => enrolledCourseIds.has(course.id))
   );
@@ -216,7 +218,14 @@ export const StudentCoursesPanel: React.FC<
           catalogOperational={lookupCourseCatalogOperational(catalogByCourseId, rawCourse.id)}
           userProfile={userProfile}
           language={language}
-          onViewDetails={onViewCourseDetails}
+          onViewDetails={(course) => {
+            const enrollment = selectEnrollmentForCourseParticipant({
+              enrollments: courseEnrollments,
+              courseId: course.id,
+              selectedParticipantId,
+            });
+            onViewCourseDetails(course, enrollment?.enrollmentId);
+          }}
           onRequireAuth={onRequireCourseAuth}
           className="h-full"
         />

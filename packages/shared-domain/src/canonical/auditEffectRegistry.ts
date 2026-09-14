@@ -107,6 +107,7 @@ const COMMAND_KIND_ALLOWED_EFFECTS: Partial<Record<CommandKind, readonly AuditEf
     'admin_issue_opened',
     'admin_issue_resolved',
     'resource_claim_changed',
+    'participant_achievements_changed',
   ],
   resolve_attendance_outcome: [
     'booking_lifecycle_changed',
@@ -114,6 +115,7 @@ const COMMAND_KIND_ALLOWED_EFFECTS: Partial<Record<CommandKind, readonly AuditEf
     'admin_issue_opened',
     'admin_issue_resolved',
     'resource_claim_changed',
+    'participant_achievements_changed',
   ],
   expire_guest_reservation: [
     'booking_lifecycle_changed',
@@ -273,6 +275,7 @@ const COMMAND_KIND_ALLOWED_EFFECTS: Partial<Record<CommandKind, readonly AuditEf
     'admin_issue_opened',
     'admin_issue_resolved',
     'resource_claim_changed',
+    'participant_achievements_changed',
   ],
   link_guest_course_enrollment_to_account: [
     'guest_course_enrollment_linked',

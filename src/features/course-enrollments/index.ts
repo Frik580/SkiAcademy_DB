@@ -5,6 +5,8 @@ export * from './useCourseEnrollmentReadSync';
 export * from './useCourseEnrollmentCommands';
 export * from './guestCourseEnrollmentCredentialStorage';
 export * from './deriveEnrollmentIds';
+export * from './courseProgressViewModel';
 export * from './cabinetSessionItems';
 export * from './resolveEnrollmentParticipants';
 export * from './sessionScheduleHelpers';
+export { StudentCourseProgressSummary } from './StudentCourseProgressSummary';

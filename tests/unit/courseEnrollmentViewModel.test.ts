@@ -54,6 +54,17 @@ const readModelFixture: CourseEnrollmentReadModel = {
   },
   bookingOrigin: 'account',
   authorizedActions: { canWithdraw: true, canRequestCancellation: true },
+  courseProgress: {
+    scheduledDays: 2,
+    elapsedDays: 0,
+    recordedDays: 0,
+    presentDays: 0,
+    absentDays: 0,
+    missingDays: 2,
+    progressPercent: 0,
+    attendanceCoveragePercent: 0,
+    attendanceRatePercent: null,
+  },
   updatedAt: { seconds: 1_800_000_000, nanoseconds: 0 },
 };
 

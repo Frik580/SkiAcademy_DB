@@ -40,15 +40,36 @@ import {
 import { resolveCabinetCancellationOutcome } from '../student-cabinet/resolveCabinetCancellationOutcome';
 
 async function refetchAccountHotEnrollments(): Promise<void> {
+  const state = useCourseEnrollmentStore.getState();
+  const participantId = state.scopedParticipantId;
+  const generation = state.loadGeneration;
   const [enrollmentResult, catalogResult] = await Promise.all([
-    queryCourseEnrollmentReadModels({ scope: 'account_hot' }),
+    queryCourseEnrollmentReadModels({
+      scope: 'account_hot',
+      ...(participantId
+        ? { selectedParticipantId: ParticipantIdSchema.parse(participantId) }
+        : {}),
+    }),
     queryCourseCatalogReadModels({ scope: 'public' }),
   ]);
-  const state = useCourseEnrollmentStore.getState();
-  const mergedEnrollments = mergeCourseEnrollmentRecords(state.items, enrollmentResult);
-  const mergedCatalog = mergeCatalogRecords(state.catalogByCourseId, catalogResult.items);
-  useCourseEnrollmentStore.getState().mergeItems(mergedEnrollments);
+  const mergedCatalog = mergeCatalogRecords(
+    useCourseEnrollmentStore.getState().catalogByCourseId,
+    catalogResult.items
+  );
   useCourseEnrollmentStore.getState().mergeCatalog(mergedCatalog);
+  if (!participantId) {
+    return;
+  }
+  const mergedEnrollments = mergeCourseEnrollmentRecords(
+    useCourseEnrollmentStore.getState().items,
+    enrollmentResult
+  );
+  useCourseEnrollmentStore.getState().applyScopedItems({
+    participantId,
+    generation,
+    incoming: mergedEnrollments,
+    mode: 'merge',
+  });
 }
 
 function resolveCreateEnrollmentOutcome(

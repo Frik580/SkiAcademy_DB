@@ -3,10 +3,10 @@ import {
   AggregateRevisionSchema,
   CanonicalCommandError,
   PARTICIPANT_ACHIEVEMENTS_MAX,
-  ParticipantAchievementsSchema,
+  buildParticipantAchievementsAggregate,
   canonicalReference,
   commandSuccessResult,
-  nextAggregateRevision,
+  mergeOnceEarnedParticipantAchievements,
   resolveCommandIdempotencyIdentity,
   timestampFromDate,
   type AuditOutboxStagingPlan,
@@ -192,18 +192,13 @@ function recordParticipantAchievementsHandler(
           });
         }
 
-        const earned = { ...(current?.earned ?? {}) };
-        newlyEarnedAchievementIds = [];
-        for (const item of envelope.intent.earned) {
-          if (earned[item.achievementId]) continue;
-          earned[item.achievementId] = {
-            earnedAt: item.earnedAt,
-            source: item.source,
-          };
-          newlyEarnedAchievementIds.push(item.achievementId);
-        }
+        const merged = mergeOnceEarnedParticipantAchievements(
+          current?.earned ?? {},
+          envelope.intent.earned
+        );
+        newlyEarnedAchievementIds = merged.newlyEarnedAchievementIds;
 
-        if (Object.keys(earned).length > PARTICIPANT_ACHIEVEMENTS_MAX) {
+        if (Object.keys(merged.earned).length > PARTICIPANT_ACHIEVEMENTS_MAX) {
           throw new CanonicalCommandError('validation', {
             correlationId: envelope.context.correlationId,
             details: { field: 'earned', reason: 'conflict' },
@@ -212,28 +207,17 @@ function recordParticipantAchievementsHandler(
 
         const decidedAt = timestampFromDate(environment.clock.now());
         shouldWrite = newlyEarnedAchievementIds.length > 0;
-        const nextRevision = shouldWrite
-          ? current
-            ? nextAggregateRevision(current.revision)
-            : AggregateRevisionSchema.parse(1)
-          : (current?.revision ?? AggregateRevisionSchema.parse(1));
-
-        planned = ParticipantAchievementsSchema.parse({
+        planned = buildParticipantAchievementsAggregate({
           participantId,
-          earned,
+          current,
+          earned: merged.earned,
+          shouldWrite,
+          commandId: identity.commandKey,
+          correlationId: envelope.context.correlationId,
+          now: decidedAt,
           updatedBy: {
             kind: 'account',
             accountId: actor.accountId,
-          },
-          revision: shouldWrite || current ? nextRevision : AggregateRevisionSchema.parse(1),
-          createdAt: current?.createdAt ?? decidedAt,
-          updatedAt: shouldWrite ? decidedAt : (current?.updatedAt ?? decidedAt),
-          audit: {
-            createdByCommandId: current?.audit.createdByCommandId ?? identity.commandKey,
-            lastChangedByCommandId: shouldWrite
-              ? identity.commandKey
-              : (current?.audit.lastChangedByCommandId ?? identity.commandKey),
-            correlationId: envelope.context.correlationId,
           },
         });
 

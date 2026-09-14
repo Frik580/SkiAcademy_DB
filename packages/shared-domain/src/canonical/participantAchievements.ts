@@ -6,10 +6,13 @@ import {
   CourseEnrollmentIdSchema,
   CourseIdSchema,
   ParticipantIdSchema,
+  type CommandId,
+  type CorrelationId,
   type ParticipantId,
 } from './identifiers';
-import { AggregateRevisionSchema, CanonicalTimestampSchema } from './primitives';
+import { AggregateRevisionSchema, CanonicalTimestampSchema, type CanonicalTimestamp } from './primitives';
 import type { CourseEnrollment } from './courseEnrollmentAttendanceAdminIssue';
+import { nextAggregateRevision } from './revisionConcurrency';
 
 export const PARTICIPANT_ACHIEVEMENT_ID_MAX_LENGTH = 64;
 export const PARTICIPANT_ACHIEVEMENTS_MAX = 64;
@@ -191,6 +194,102 @@ export function courseGraduateAchievementTargetFromEnrollment(
     earnedAt: enrollment.lifecycle.completedAt,
     source: 'course_completion',
   });
+}
+
+export function mergeOnceEarnedParticipantAchievements(
+  currentEarned: Readonly<Record<string, ParticipantAchievementEarnedRecord>>,
+  items: readonly {
+    readonly achievementId: string;
+    readonly earnedAt: CanonicalTimestamp;
+    readonly source: ParticipantAchievementSource;
+  }[]
+): {
+  readonly earned: Record<string, ParticipantAchievementEarnedRecord>;
+  readonly newlyEarnedAchievementIds: string[];
+} {
+  const earned = { ...currentEarned };
+  const newlyEarnedAchievementIds: string[] = [];
+  for (const item of items) {
+    if (earned[item.achievementId]) continue;
+    earned[item.achievementId] = {
+      earnedAt: item.earnedAt,
+      source: item.source,
+    };
+    newlyEarnedAchievementIds.push(item.achievementId);
+  }
+  return { earned, newlyEarnedAchievementIds };
+}
+
+export function buildParticipantAchievementsAggregate(input: {
+  readonly participantId: ParticipantId;
+  readonly current: ParticipantAchievements | undefined;
+  readonly earned: Record<string, ParticipantAchievementEarnedRecord>;
+  readonly shouldWrite: boolean;
+  readonly commandId: CommandId;
+  readonly correlationId: CorrelationId;
+  readonly now: CanonicalTimestamp;
+  readonly updatedBy?: ParticipantAchievementsUpdatedBy;
+}): ParticipantAchievements {
+  const nextRevision = input.shouldWrite
+    ? input.current
+      ? nextAggregateRevision(input.current.revision)
+      : AggregateRevisionSchema.parse(1)
+    : (input.current?.revision ?? AggregateRevisionSchema.parse(1));
+  return ParticipantAchievementsSchema.parse({
+    participantId: input.participantId,
+    earned: input.earned,
+    ...(input.updatedBy
+      ? { updatedBy: input.updatedBy }
+      : input.current?.updatedBy
+        ? { updatedBy: input.current.updatedBy }
+        : {}),
+    revision: input.shouldWrite || input.current ? nextRevision : AggregateRevisionSchema.parse(1),
+    createdAt: input.current?.createdAt ?? input.now,
+    updatedAt: input.shouldWrite ? input.now : (input.current?.updatedAt ?? input.now),
+    audit: {
+      createdByCommandId: input.current?.audit.createdByCommandId ?? input.commandId,
+      lastChangedByCommandId: input.shouldWrite
+        ? input.commandId
+        : (input.current?.audit.lastChangedByCommandId ?? input.commandId),
+      correlationId: input.correlationId,
+    },
+  });
+}
+
+export function courseGraduateAchievementIssuanceState(input: {
+  readonly enrollment: Pick<
+    CourseEnrollment,
+    'enrollmentId' | 'participantId' | 'courseId' | 'lifecycle'
+  >;
+  readonly current: ParticipantAchievements | undefined;
+  readonly commandId: CommandId;
+  readonly correlationId: CorrelationId;
+  readonly now: CanonicalTimestamp;
+}): { readonly planned: ParticipantAchievements; readonly shouldWrite: boolean } | undefined {
+  const target = courseGraduateAchievementTargetFromEnrollment(input.enrollment);
+  if (!target) return undefined;
+  const merged = mergeOnceEarnedParticipantAchievements(input.current?.earned ?? {}, [
+    {
+      achievementId: target.achievementId,
+      earnedAt: target.earnedAt,
+      source: target.source,
+    },
+  ]);
+  if (merged.newlyEarnedAchievementIds.length === 0) {
+    return input.current ? { planned: input.current, shouldWrite: false } : undefined;
+  }
+  return {
+    shouldWrite: true,
+    planned: buildParticipantAchievementsAggregate({
+      participantId: target.participantId,
+      current: input.current,
+      earned: merged.earned,
+      shouldWrite: true,
+      commandId: input.commandId,
+      correlationId: input.correlationId,
+      now: input.now,
+    }),
+  };
 }
 
 export const RecordParticipantAchievementsIntentSchema = z

@@ -112,9 +112,9 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
   const viewCourseById = useMemo(
     () =>
       onViewCourseDetails
-        ? (courseId: string) => {
+        ? (courseId: string, enrollmentId?: string) => {
             const course = courses.find((item) => item.id === courseId);
-            if (course) onViewCourseDetails(course);
+            if (course) onViewCourseDetails(course, enrollmentId);
           }
         : undefined,
     [courses, onViewCourseDetails]

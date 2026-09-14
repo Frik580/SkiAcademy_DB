@@ -87,6 +87,7 @@ const COLLECTIONS_TO_CLEAR = [
   'resource_claims',
   'resource_claim_guards',
   'active_course_enrollment_guards',
+  'participant_achievements',
 ] as const;
 
 let app: App;
@@ -836,6 +837,10 @@ describeEmulator('courseEnrollmentReconciliation emulator', () => {
     expect(conflict?.lifecycle.status).toBe('resolved');
     const enrollment = (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data();
     expect(enrollment?.lifecycle.status).toBe('completed');
+    expect(
+      (await firestore.doc(`participant_achievements/${participantId}`).get()).data()?.earned
+        ?.course_graduate?.source
+    ).toBe('course_completion');
     expect(
       paymentFinancialSnapshot((await firestore.doc(`payments/${paymentId}`).get()).data())
     ).toEqual(paymentBefore);

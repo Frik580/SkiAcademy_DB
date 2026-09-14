@@ -386,6 +386,10 @@ describe('bookingAttendanceCommands', () => {
     expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe(
       'completed'
     );
+    expect(executor.snapshot().docs.get(`participant_achievements/${participantId}`)).toBeUndefined();
+    expect(
+      executor.snapshot().docs.get(`participant_achievements/${participantTwoId}`)
+    ).toBeUndefined();
   });
 
   it('lets instructor fill remaining family_group attendance after one present completed the booking', async () => {

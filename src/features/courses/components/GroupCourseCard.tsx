@@ -15,6 +15,12 @@ import type {
   CourseEnrollmentCabinetItem,
 } from '../../course-enrollments';
 import { resolveParticipantScopedCourseEnrollment } from '../../course-enrollments';
+import {
+  presentStudentCourseProgress,
+  selectEnrollmentForCourseParticipant,
+  studentCourseProgressCopyFromLanguage,
+} from '../../course-enrollments/courseProgressViewModel';
+import { StudentCourseProgressSummary } from '../../course-enrollments/StudentCourseProgressSummary';
 import { deriveGroupCourseEnrollmentCtaState } from '../groupCourseEnrollmentCta';
 import {
   formatCourseCatalogCardDate,
@@ -36,7 +42,7 @@ export interface GroupCourseCardProps {
   catalogOperational?: CourseCatalogOperationalState;
   userProfile: UserProfile | null;
   language: Language;
-  onViewDetails: (course: Course) => void;
+  onViewDetails: (course: Course, enrollmentId?: string) => void;
   onRequireAuth: (course: Course) => void;
   className?: string;
 }
@@ -55,11 +61,22 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
   const { t } = useLanguage();
   const { formatPrice } = useCurrency();
   const course = translateCourse(rawCourse, language);
+  const enrollment = selectEnrollmentForCourseParticipant({
+    enrollments: courseEnrollments,
+    courseId: course.id,
+    selectedParticipantId,
+  });
   const isEnrolled = resolveParticipantScopedCourseEnrollment({
     enrollments: courseEnrollments,
     courseId: course.id,
     selectedParticipantId,
   });
+  const progress = enrollment
+    ? presentStudentCourseProgress(
+        enrollment,
+        studentCourseProgressCopyFromLanguage(language === 'ru' ? 'ru' : 'en', t)
+      )
+    : undefined;
   const cta = deriveGroupCourseEnrollmentCtaState({
     rawCourse,
     catalogOperational,
@@ -190,12 +207,17 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => onViewDetails(rawCourse)}
+              onClick={() => onViewDetails(rawCourse, enrollment?.enrollmentId)}
               className="btn-secondary w-full min-w-0 px-3 py-2 bg-transparent hover:!bg-transparent"
             >
               {t('courseDetails')}
             </button>
           </div>
+          {progress && (
+            <div className="pt-2">
+              <StudentCourseProgressSummary {...progress} />
+            </div>
+          )}
         </div>
       </div>
     </article>

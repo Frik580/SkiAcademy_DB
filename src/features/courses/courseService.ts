@@ -1,5 +1,4 @@
 import { db, deleteDoc, doc, getDoc, setDoc, updateDoc } from '../../infrastructure/firebase';
-import { enrollInCourseViaCallable } from '../../features/courses/enrollInCourseCallable';
 import { stripUndefinedFields } from '../../domain/course';
 import { Course, Booking } from '../../types';
 import { createNotificationForUser } from '../../domain/notifications';
@@ -48,13 +47,6 @@ export async function updateCourseService(course: Course): Promise<void> {
 export async function deleteCourseService(courseId: string): Promise<void> {
   await assertLegacyAdminCourseWriteAllowed(courseId, 'delete');
   await deleteDoc(doc(db, 'courses', courseId));
-}
-
-export async function enrollInCourseService(
-  courseId: string,
-  language: 'en' | 'ru'
-): Promise<{ courseTitle: string }> {
-  return enrollInCourseViaCallable(courseId, language);
 }
 
 export async function notifyCourseModifiedService(

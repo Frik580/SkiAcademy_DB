@@ -6,7 +6,12 @@ import {
   type AuditOutboxStagingPlan,
   type CommandEnvelope,
   type CourseEnrollmentId,
+  type ParticipantId,
 } from '@ski-academy/shared-domain';
+import {
+  courseGraduateAchievementAuditEffects,
+  courseGraduateAchievementResultingRevisions,
+} from './courseGraduateAchievementAudit';
 
 export function buildReconcileCourseEnrollmentAuditPlan(input: {
   readonly envelope: CommandEnvelope<'reconcile_course_enrollment'>;
@@ -20,6 +25,10 @@ export function buildReconcileCourseEnrollmentAuditPlan(input: {
   }[];
   readonly lifecycleSummary?: string;
   readonly reconciliationSummary?: string;
+  readonly courseGraduateIssuance?: {
+    readonly participantId: ParticipantId;
+    readonly revision: number;
+  };
 }): AuditOutboxStagingPlan {
   const enrollmentRef = canonicalReference('course_enrollment', input.enrollmentId);
 
@@ -55,7 +64,11 @@ export function buildReconcileCourseEnrollmentAuditPlan(input: {
           },
         ]
       : []),
+    ...courseGraduateAchievementAuditEffects(input.courseGraduateIssuance),
   ];
+  const courseGraduateParticipantRef = input.courseGraduateIssuance
+    ? canonicalReference('participant', input.courseGraduateIssuance.participantId)
+    : undefined;
 
   return {
     activityLog: {
@@ -68,7 +81,10 @@ export function buildReconcileCourseEnrollmentAuditPlan(input: {
         id: input.enrollmentId,
         subjectKey: `course_enrollment:${input.enrollmentId}`,
       },
-      affectedSubjects: [enrollmentRef],
+      affectedSubjects: [
+        enrollmentRef,
+        ...(courseGraduateParticipantRef ? [courseGraduateParticipantRef] : []),
+      ],
       effects,
       monetaryEventIds: [],
       adminIssueIds: input.issues.map((issue) => issue.issueId),
@@ -85,6 +101,7 @@ export function buildReconcileCourseEnrollmentAuditPlan(input: {
           subject: canonicalReference('admin_issue', issue.issueId),
           revision: AggregateRevisionSchema.parse(issue.revision),
         })),
+        ...courseGraduateAchievementResultingRevisions(input.courseGraduateIssuance),
       ],
     },
     outboxObligations: [],

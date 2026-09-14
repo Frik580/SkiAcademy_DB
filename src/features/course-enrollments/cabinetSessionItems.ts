@@ -26,6 +26,20 @@ export function buildMixedCabinetSessionItems(input: {
   );
 }
 
+export function filterCabinetCourseDaysForParticipant(
+  sessionItems: readonly CabinetSessionItem[],
+  selectedParticipantId: string | undefined
+): CabinetSessionItem[] {
+  if (!selectedParticipantId) {
+    return sessionItems.filter((item) => item.kind === 'lesson');
+  }
+  return sessionItems.filter(
+    (item) =>
+      item.kind === 'lesson' ||
+      (item.kind === 'course_day' && item.participantId === selectedParticipantId)
+  );
+}
+
 export function isCourseDaySession(item: CabinetSessionItem): item is CourseDaySessionItem {
   return item.kind === 'course_day';
 }

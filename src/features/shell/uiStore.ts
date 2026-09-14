@@ -15,6 +15,7 @@ export interface UiState {
   selectedInstructor: Instructor | null;
   selectedCourseForAuth: Course | null;
   selectedCourseForDetails: Course | null;
+  selectedCourseDetailsEnrollmentId?: string;
   reviewsInstructor: Instructor | null;
 
   setDbStatusWarning: (warning: string | null) => void;
@@ -29,7 +30,7 @@ export interface UiState {
   setIsAuthModalOpen: (open: boolean) => void;
   setSelectedInstructor: (ins: Instructor | null) => void;
   setSelectedCourseForAuth: (course: Course | null) => void;
-  setSelectedCourseForDetails: (course: Course | null) => void;
+  setSelectedCourseForDetails: (course: Course | null, enrollmentId?: string) => void;
   setReviewsInstructor: (ins: Instructor | null) => void;
 
   closeAllModals: () => void;
@@ -48,6 +49,7 @@ export const useUiStore = create<UiState>((set) => ({
   selectedInstructor: null,
   selectedCourseForAuth: null,
   selectedCourseForDetails: null,
+  selectedCourseDetailsEnrollmentId: undefined,
   reviewsInstructor: null,
 
   setDbStatusWarning: (warning) => set({ dbStatusWarning: warning }),
@@ -62,7 +64,11 @@ export const useUiStore = create<UiState>((set) => ({
   setIsAuthModalOpen: (open) => set({ isAuthModalOpen: open }),
   setSelectedInstructor: (ins) => set({ selectedInstructor: ins }),
   setSelectedCourseForAuth: (course) => set({ selectedCourseForAuth: course }),
-  setSelectedCourseForDetails: (course) => set({ selectedCourseForDetails: course }),
+  setSelectedCourseForDetails: (course, enrollmentId) =>
+    set({
+      selectedCourseForDetails: course,
+      selectedCourseDetailsEnrollmentId: course ? enrollmentId : undefined,
+    }),
   setReviewsInstructor: (ins) => set({ reviewsInstructor: ins }),
 
   closeAllModals: () =>
@@ -72,6 +78,7 @@ export const useUiStore = create<UiState>((set) => ({
       selectedInstructor: null,
       selectedCourseForAuth: null,
       selectedCourseForDetails: null,
+      selectedCourseDetailsEnrollmentId: undefined,
       reviewsInstructor: null,
     }),
 }));

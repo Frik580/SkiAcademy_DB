@@ -6,7 +6,10 @@ import {
 } from '../../lib/canonical/canonicalReadModelClient';
 import { useCourseEnrollmentStore } from './courseEnrollmentStore';
 import { mergeCatalogRecords, mergeCourseEnrollmentRecords } from './courseEnrollmentViewModel';
-import { readGuestCourseEnrollmentCredential } from './guestCourseEnrollmentCredentialStorage';
+import {
+  listStoredGuestCourseEnrollmentCredentials,
+  readGuestCourseEnrollmentCredential,
+} from './guestCourseEnrollmentCredentialStorage';
 
 async function loadPublicCourseCatalog(): Promise<void> {
   useCourseEnrollmentStore.getState().setCatalogLoading(true);
@@ -130,7 +133,9 @@ export function useCourseEnrollmentReadSync(
 
   useEffect(() => {
     if (!enabled || !accountId) {
-      useCourseEnrollmentStore.getState().reset();
+      if (useCourseEnrollmentStore.getState().scopedParticipantId) {
+        useCourseEnrollmentStore.getState().clearScopedEnrollments();
+      }
       return;
     }
     if (!selectedParticipantId) {
@@ -170,9 +175,35 @@ export async function loadGuestSingleCourseEnrollment(enrollmentId: string) {
   if (result.items.length === 0) {
     throw new Error('Guest course enrollment read model was not found.');
   }
-  const merged = mergeCourseEnrollmentRecords(new Map(), result);
+  const merged = mergeCourseEnrollmentRecords(
+    useCourseEnrollmentStore.getState().items,
+    result
+  );
   useCourseEnrollmentStore.getState().mergeItems(merged);
   return result.items[0];
+}
+
+export async function hydrateGuestCourseEnrollmentsFromStorage(): Promise<void> {
+  const credentials = listStoredGuestCourseEnrollmentCredentials();
+  if (credentials.length === 0) {
+    return;
+  }
+  await Promise.all(
+    credentials.map(async (credential) => {
+      try {
+        await loadGuestSingleCourseEnrollment(credential.enrollmentId);
+      } catch {
+        // Skip expired/unauthorized credentials; catalog remains the seat authority.
+      }
+    })
+  );
+}
+
+export function useGuestCourseEnrollmentReadSync(enabled: boolean) {
+  useEffect(() => {
+    if (!enabled) return;
+    void hydrateGuestCourseEnrollmentsFromStorage();
+  }, [enabled]);
 }
 
 /** Sole mount-time owner of the public course catalog read for `/` and `/cabinet*`. */

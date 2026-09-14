@@ -9,6 +9,7 @@ import {
   lookupCourseCatalogOperational,
   selectCourseEnrollmentItems,
   selectEnrollmentForCourseParticipant,
+  selectActiveGuestCourseEnrollment,
   presentStudentCourseProgress,
   studentCourseProgressCopyFromLanguage,
   useCourseEnrollmentStore,
@@ -91,14 +92,18 @@ export const ModalHost: React.FC = () => {
         courseId: selectedCourseForDetails.id,
         selectedParticipantId,
         enrollmentId: selectedCourseDetailsEnrollmentId,
-      })
+      }) ??
+      (!userProfile
+        ? selectActiveGuestCourseEnrollment(courseEnrollments, selectedCourseForDetails.id)
+        : undefined)
     : undefined;
-  const selectedCourseProgress = selectedEnrollment
-    ? presentStudentCourseProgress(
-        selectedEnrollment,
-        studentCourseProgressCopyFromLanguage(language === 'ru' ? 'ru' : 'en', t)
-      )
-    : undefined;
+  const selectedCourseProgress =
+    selectedEnrollment && userProfile
+      ? presentStudentCourseProgress(
+          selectedEnrollment,
+          studentCourseProgressCopyFromLanguage(language === 'ru' ? 'ru' : 'en', t)
+        )
+      : undefined;
 
   return (
     <>
@@ -137,6 +142,7 @@ export const ModalHost: React.FC = () => {
             userProfile={userProfile}
             catalogOperational={selectedCatalogOperational}
             isEnrolled={Boolean(selectedEnrollment)}
+            enrollmentLifecycleStatus={selectedEnrollment?.lifecycleStatus}
             courseProgress={selectedCourseProgress}
             onEnroll={() => {
               setSelectedCourseForAuth(selectedCourseForDetails);

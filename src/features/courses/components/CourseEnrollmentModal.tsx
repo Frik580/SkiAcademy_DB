@@ -14,8 +14,9 @@ import { BodyScrollLock } from '../../../ui/BodyScrollLock';
 import {
   createLogicalEnrollmentAttemptId,
   deriveGuestCreateEnrollmentIdempotencyKey,
-  deriveGuestParticipantIdForEnrollment,
+  resolveGuestCourseSessionParticipantId,
   isAnySelectedParticipantEnrolledInCourse,
+  selectActiveGuestCourseEnrollment,
   selectCourseEnrollmentItems,
   useCourseEnrollmentCommands,
   useCourseEnrollmentStore,
@@ -90,6 +91,10 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   const selectedAlreadyEnrolled =
     course != null &&
     isAnySelectedParticipantEnrolledInCourse(courseEnrollments, course.id, effectiveParticipantIds);
+  const guestActiveEnrollment =
+    course != null && !authenticatedProfile
+      ? selectActiveGuestCourseEnrollment(courseEnrollments, course.id)
+      : undefined;
 
   useEffect(() => {
     setAuthenticatedProfile(userProfile ?? null);
@@ -113,6 +118,11 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   const handleSubmitGuest = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmittingRef.current || isSubmitting) return;
+    if (guestActiveEnrollment) {
+      addNotification('warning', t('alreadyEnrolled'), t('alreadyEnrolledDesc'));
+      onClose();
+      return;
+    }
     if (!guestName.trim()) {
       addNotification('warning', t('missingDetails'), t('guestNameLabel'));
       return;
@@ -129,7 +139,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
     if (!guestEnrollmentAttemptKeyRef.current) {
       guestEnrollmentAttemptKeyRef.current = stableEnrollmentId;
     }
-    const participantId = deriveGuestParticipantIdForEnrollment(stableEnrollmentId);
+    const participantId = resolveGuestCourseSessionParticipantId();
     const idempotencyKey = deriveGuestCreateEnrollmentIdempotencyKey(stableEnrollmentId);
 
     try {
@@ -150,6 +160,11 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
       const presented = presentCanonicalCommandErrorWithContext(err, {
         t: t as (key: string) => string,
       });
+      if (presented.code === 'duplicate_active_enrollment') {
+        addNotification('warning', t('alreadyEnrolled'), t('alreadyEnrolledDesc'));
+        onClose();
+        return;
+      }
       addNotification('error', t('bookingError'), presented.message || t('bookingRecordFailed'));
     } finally {
       isSubmittingRef.current = false;
@@ -422,10 +437,25 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                       type="submit"
                       pending={isSubmitting}
                       pendingLabel={t('submitting')}
+                      disabled={Boolean(guestActiveEnrollment)}
                       className="btn-primary w-full py-3"
                     >
-                      <Send className="w-3.5 h-3.5" />
-                      {t('submitGuestCourseApplication')}
+                      {guestActiveEnrollment?.lifecycleStatus === 'pending' ? (
+                        <>
+                          <span className="text-amber-500 font-bold text-xs">✔</span>
+                          {t('courseAwaitingPayment')}
+                        </>
+                      ) : guestActiveEnrollment ? (
+                        <>
+                          <span className="text-emerald-500 font-bold text-xs">✔</span>
+                          {t('courseEnrolled')}
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-3.5 h-3.5" />
+                          {t('submitGuestCourseApplication')}
+                        </>
+                      )}
                     </ActionButton>
                   </form>
                 )}

@@ -34,29 +34,39 @@ import { persistGuestCourseEnrollmentCredential } from './guestCourseEnrollmentC
 import { useCourseEnrollmentStore } from './courseEnrollmentStore';
 import { mergeCatalogRecords, mergeCourseEnrollmentRecords } from './courseEnrollmentViewModel';
 import {
+  loadGuestSingleCourseEnrollment,
+  hydrateGuestCourseEnrollmentsFromStorage,
+} from './useCourseEnrollmentReadSync';
+import {
   resolveCourseCancellationLifecycleFromStore,
   type CabinetCancellationCommandResult,
 } from '../student-cabinet/cabinetCancellationOutcome';
 import { resolveCabinetCancellationOutcome } from '../student-cabinet/resolveCabinetCancellationOutcome';
 
+async function refetchPublicCourseCatalog(courseId?: string): Promise<void> {
+  const catalogResult = await queryCourseCatalogReadModels(
+    courseId ? { scope: 'public', courseId: CourseIdSchema.parse(courseId) } : { scope: 'public' }
+  );
+  const mergedCatalog = mergeCatalogRecords(
+    useCourseEnrollmentStore.getState().catalogByCourseId,
+    catalogResult.items
+  );
+  useCourseEnrollmentStore.getState().mergeCatalog(mergedCatalog);
+}
+
 async function refetchAccountHotEnrollments(): Promise<void> {
   const state = useCourseEnrollmentStore.getState();
   const participantId = state.scopedParticipantId;
   const generation = state.loadGeneration;
-  const [enrollmentResult, catalogResult] = await Promise.all([
+  const [enrollmentResult] = await Promise.all([
     queryCourseEnrollmentReadModels({
       scope: 'account_hot',
       ...(participantId
         ? { selectedParticipantId: ParticipantIdSchema.parse(participantId) }
         : {}),
     }),
-    queryCourseCatalogReadModels({ scope: 'public' }),
+    refetchPublicCourseCatalog(),
   ]);
-  const mergedCatalog = mergeCatalogRecords(
-    useCourseEnrollmentStore.getState().catalogByCourseId,
-    catalogResult.items
-  );
-  useCourseEnrollmentStore.getState().mergeCatalog(mergedCatalog);
   if (!participantId) {
     return;
   }
@@ -70,6 +80,22 @@ async function refetchAccountHotEnrollments(): Promise<void> {
     incoming: mergedEnrollments,
     mode: 'merge',
   });
+}
+
+async function refreshGuestEnrollmentSurfaces(input: {
+  readonly courseId: string;
+  readonly enrollmentId?: string;
+}): Promise<void> {
+  await refetchPublicCourseCatalog(input.courseId);
+  if (input.enrollmentId) {
+    try {
+      await loadGuestSingleCourseEnrollment(input.enrollmentId);
+      return;
+    } catch {
+      // Credential may belong to a concurrent tab; fall through to storage hydrate.
+    }
+  }
+  await hydrateGuestCourseEnrollmentsFromStorage();
 }
 
 function resolveCreateEnrollmentOutcome(
@@ -133,37 +159,49 @@ export function useCourseEnrollmentCommands(accountId: string | undefined) {
 
   const createGuestEnrollment = useCallback(
     async (input: GuestCourseEnrollmentInput): Promise<GuestCourseEnrollmentLinkCredential> => {
-      const result = await executeGuestCanonicalCommand({
-        kind: 'create_course_enrollments',
-        intent: {
-          courseId: CourseIdSchema.parse(input.courseId),
-          participantIds: [ParticipantIdSchema.parse(input.participantId)],
-          enrollmentIds: [CourseEnrollmentIdSchema.parse(input.enrollmentId)],
-        },
-        idempotencyKey: input.identity.idempotencyKey,
-        guestParticipantDisplayName: input.guestDisplayName,
-        guestParticipantSkillLevel: input.guestSkillLevel,
-        guestParticipantDiscipline: input.guestDiscipline,
-        guestParticipantAgeYears: input.guestAgeYears,
-      });
-      const error = mapCanonicalCommandResultError(result);
-      if (error) throw error;
-      if (result.status !== 'success') {
-        throw new Error('Guest course enrollment did not succeed.');
+      try {
+        const result = await executeGuestCanonicalCommand({
+          kind: 'create_course_enrollments',
+          intent: {
+            courseId: CourseIdSchema.parse(input.courseId),
+            participantIds: [ParticipantIdSchema.parse(input.participantId)],
+            enrollmentIds: [CourseEnrollmentIdSchema.parse(input.enrollmentId)],
+          },
+          idempotencyKey: input.identity.idempotencyKey,
+          guestParticipantDisplayName: input.guestDisplayName,
+          guestParticipantSkillLevel: input.guestSkillLevel,
+          guestParticipantDiscipline: input.guestDiscipline,
+          guestParticipantAgeYears: input.guestAgeYears,
+        });
+        const error = mapCanonicalCommandResultError(result);
+        if (error) throw error;
+        if (result.status !== 'success') {
+          throw new Error('Guest course enrollment did not succeed.');
+        }
+        const payload = parseCommandResultPayload(
+          'create_course_enrollments',
+          result.payload ?? { outcome: 'created' }
+        );
+        if (!payload.success) {
+          throw new Error('Guest course enrollment payload was invalid.');
+        }
+        const credential = payload.data.guestLinkCredentials?.[0];
+        if (!credential) {
+          throw new Error('Guest course enrollment credential was not returned.');
+        }
+        persistGuestCourseEnrollmentCredential(credential);
+        await refreshGuestEnrollmentSurfaces({
+          courseId: input.courseId,
+          enrollmentId: credential.enrollmentId,
+        }).catch(() => undefined);
+        return credential;
+      } catch (error) {
+        await refreshGuestEnrollmentSurfaces({
+          courseId: input.courseId,
+          enrollmentId: input.enrollmentId,
+        }).catch(() => undefined);
+        throw error;
       }
-      const payload = parseCommandResultPayload(
-        'create_course_enrollments',
-        result.payload ?? { outcome: 'created' }
-      );
-      if (!payload.success) {
-        throw new Error('Guest course enrollment payload was invalid.');
-      }
-      const credential = payload.data.guestLinkCredentials?.[0];
-      if (!credential) {
-        throw new Error('Guest course enrollment credential was not returned.');
-      }
-      persistGuestCourseEnrollmentCredential(credential);
-      return credential;
     },
     []
   );

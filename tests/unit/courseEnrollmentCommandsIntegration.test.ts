@@ -94,7 +94,7 @@ describe('courseEnrollment commands integration', () => {
     expect(queryEnrollmentMock).toHaveBeenCalledWith({ scope: 'account_hot' });
   });
 
-  it('creates guest enrollment and persists credential', async () => {
+  it('creates guest enrollment, persists credential, and refreshes catalog seats', async () => {
     const enrollmentId = 'enrollment_guest_fixture_01';
     const credential = {
       enrollmentId,
@@ -107,6 +107,95 @@ describe('courseEnrollment commands integration', () => {
       status: 'success',
       payload: { outcome: 'created', guestLinkCredentials: [credential] },
     });
+    queryCatalogMock.mockResolvedValueOnce({
+      scope: 'public',
+      items: [
+        {
+          courseId: 'course_fixture_01',
+          revision: 2,
+          title: 'Guest Course',
+          price: 50_000,
+          capacity: {
+            totalSeats: 5,
+            availableSeats: 4,
+            isCapacityFrozen: false,
+            isEnrollmentEligible: true,
+            isFull: false,
+          },
+          scheduleSummary: {
+            startAt: { seconds: 1_800_000_000, nanoseconds: 0 },
+            finalCourseDayEndsAt: { seconds: 1_800_010_000, nanoseconds: 0 },
+            courseDayCount: 1,
+          },
+          courseSchedule: {
+            courseId: 'course_fixture_01',
+            courseScheduleRevision: 1,
+            courseDayCount: 1,
+            startAt: { seconds: 1_800_000_000, nanoseconds: 0 },
+            finalCourseDayEndsAt: { seconds: 1_800_010_000, nanoseconds: 0 },
+            courseDays: [
+              {
+                courseDayId: 'course_day_fixture_01',
+                dayOrder: 1,
+                interval: {
+                  startsAt: { seconds: 1_800_000_000, nanoseconds: 0 },
+                  endsAt: { seconds: 1_800_010_000, nanoseconds: 0 },
+                },
+                timeZone: 'Asia/Almaty',
+                revision: 1,
+              },
+            ],
+          },
+          updatedAt: { seconds: 1_800_000_000, nanoseconds: 0 },
+        },
+      ],
+    });
+    queryEnrollmentMock.mockResolvedValueOnce({
+      scope: 'guest_single',
+      items: [],
+      hasMore: false,
+    });
+
+    useCourseEnrollmentStore.getState().mergeCatalog(
+      new Map([
+        [
+          'course_fixture_01',
+          {
+            courseId: 'course_fixture_01',
+            revision: 1,
+            title: 'Guest Course',
+            priceMinorUnits: 50_000,
+            totalSeats: 5,
+            availableSeats: 5,
+            isCapacityFrozen: false,
+            isEnrollmentEligible: true,
+            isFull: false,
+            scheduleSummaryStartDate: '2027-01-15',
+            scheduleSummaryEndDate: '2027-01-15',
+            courseDayCount: 1,
+            courseSchedule: {
+              courseId: 'course_fixture_01',
+              courseScheduleRevision: 1,
+              courseDayCount: 1,
+              startAt: { seconds: 1_800_000_000, nanoseconds: 0 },
+              finalCourseDayEndsAt: { seconds: 1_800_010_000, nanoseconds: 0 },
+              courseDays: [
+                {
+                  courseDayId: 'course_day_fixture_01',
+                  dayOrder: 1,
+                  interval: {
+                    startsAt: { seconds: 1_800_000_000, nanoseconds: 0 },
+                    endsAt: { seconds: 1_800_010_000, nanoseconds: 0 },
+                  },
+                  timeZone: 'Asia/Almaty',
+                  revision: 1,
+                },
+              ],
+            },
+          },
+        ],
+      ])
+    );
 
     const { result } = renderHook(() => useCourseEnrollmentCommands(undefined));
     const returned = await result.current.createGuestEnrollment({
@@ -127,5 +216,12 @@ describe('courseEnrollment commands integration', () => {
     expect(
       localStorage.getItem(`ski_academy_guest_course_enrollment_credential:${enrollmentId}`)
     ).toBeTruthy();
+    expect(queryCatalogMock).toHaveBeenCalledWith({
+      scope: 'public',
+      courseId: 'course_fixture_01',
+    });
+    expect(
+      useCourseEnrollmentStore.getState().catalogByCourseId.get('course_fixture_01')?.availableSeats
+    ).toBe(4);
   });
 });

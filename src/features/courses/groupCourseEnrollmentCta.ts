@@ -1,8 +1,14 @@
+import type { CourseEnrollmentLifecycleStatus } from '@ski-academy/shared-domain';
 import type { Course } from '../../types';
 import type { CourseCatalogOperationalState } from '../course-enrollments';
 
 export type GroupCourseEnrollmentCtaLabel =
-  'enrolled' | 'accessSuspended' | 'soldOut' | 'unavailable' | 'enroll';
+  | 'enrolled'
+  | 'awaitingPayment'
+  | 'accessSuspended'
+  | 'soldOut'
+  | 'unavailable'
+  | 'enroll';
 
 export interface GroupCourseEnrollmentCtaState {
   readonly availableSeats: number;
@@ -19,9 +25,11 @@ export function deriveGroupCourseEnrollmentCtaState(input: {
   readonly rawCourse: Pick<Course, 'availableSeats' | 'totalSeats'>;
   readonly catalogOperational?: CourseCatalogOperationalState;
   readonly isEnrolled: boolean;
+  readonly enrollmentLifecycleStatus?: CourseEnrollmentLifecycleStatus;
   readonly isClientActive?: boolean;
 }): GroupCourseEnrollmentCtaState {
-  const { rawCourse, catalogOperational, isEnrolled, isClientActive } = input;
+  const { rawCourse, catalogOperational, isEnrolled, enrollmentLifecycleStatus, isClientActive } =
+    input;
   const hasOperationalCatalog = catalogOperational !== undefined;
   const availableSeats = catalogOperational?.availableSeats ?? rawCourse.availableSeats;
   const totalSeats = catalogOperational?.totalSeats ?? rawCourse.totalSeats;
@@ -35,7 +43,7 @@ export function deriveGroupCourseEnrollmentCtaState(input: {
 
   let label: GroupCourseEnrollmentCtaLabel;
   if (isEnrolled) {
-    label = 'enrolled';
+    label = enrollmentLifecycleStatus === 'pending' ? 'awaitingPayment' : 'enrolled';
   } else if (isClientActive === false) {
     label = 'accessSuspended';
   } else if (isCapacityFrozen || isFull) {

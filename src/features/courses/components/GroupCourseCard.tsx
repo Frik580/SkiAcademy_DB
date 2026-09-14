@@ -14,7 +14,10 @@ import type {
   CourseCatalogOperationalState,
   CourseEnrollmentCabinetItem,
 } from '../../course-enrollments';
-import { resolveParticipantScopedCourseEnrollment } from '../../course-enrollments';
+import {
+  resolveParticipantScopedCourseEnrollment,
+  selectActiveGuestCourseEnrollment,
+} from '../../course-enrollments';
 import {
   presentStudentCourseProgress,
   selectEnrollmentForCourseParticipant,
@@ -61,26 +64,32 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
   const { t } = useLanguage();
   const { formatPrice } = useCurrency();
   const course = translateCourse(rawCourse, language);
-  const enrollment = selectEnrollmentForCourseParticipant({
-    enrollments: courseEnrollments,
-    courseId: course.id,
-    selectedParticipantId,
-  });
-  const isEnrolled = resolveParticipantScopedCourseEnrollment({
-    enrollments: courseEnrollments,
-    courseId: course.id,
-    selectedParticipantId,
-  });
-  const progress = enrollment
-    ? presentStudentCourseProgress(
-        enrollment,
-        studentCourseProgressCopyFromLanguage(language === 'ru' ? 'ru' : 'en', t)
-      )
-    : undefined;
+  const enrollment =
+    selectEnrollmentForCourseParticipant({
+      enrollments: courseEnrollments,
+      courseId: course.id,
+      selectedParticipantId,
+    }) ??
+    (!userProfile ? selectActiveGuestCourseEnrollment(courseEnrollments, course.id) : undefined);
+  const isEnrolled = selectedParticipantId
+    ? resolveParticipantScopedCourseEnrollment({
+        enrollments: courseEnrollments,
+        courseId: course.id,
+        selectedParticipantId,
+      })
+    : Boolean(enrollment);
+  const progress =
+    enrollment && selectedParticipantId
+      ? presentStudentCourseProgress(
+          enrollment,
+          studentCourseProgressCopyFromLanguage(language === 'ru' ? 'ru' : 'en', t)
+        )
+      : undefined;
   const cta = deriveGroupCourseEnrollmentCtaState({
     rawCourse,
     catalogOperational,
     isEnrolled,
+    enrollmentLifecycleStatus: enrollment?.lifecycleStatus,
     isClientActive: userProfile?.isClientActive,
   });
   const displayPriceMinorUnits = catalogOperational?.priceMinorUnits ?? rawCourse.priceKZT;
@@ -181,7 +190,7 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
               onClick={() => onRequireAuth(rawCourse)}
               disabled={cta.enrollDisabled}
               className={`w-full min-w-0 px-3 py-2 ${
-                cta.label === 'enrolled'
+                cta.label === 'enrolled' || cta.label === 'awaitingPayment'
                   ? 'btn-secondary cursor-default'
                   : cta.label === 'accessSuspended'
                     ? 'border border-rose-900/40 text-rose-500 cursor-not-allowed bg-rose-950/10 font-bold'
@@ -194,6 +203,11 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
                 <span className="flex items-center justify-center gap-1">
                   <span className="text-emerald-500 font-bold text-xs">✔</span>{' '}
                   {t('courseEnrolled')}
+                </span>
+              ) : cta.label === 'awaitingPayment' ? (
+                <span className="flex items-center justify-center gap-1">
+                  <span className="text-amber-500 font-bold text-xs">✔</span>{' '}
+                  {t('courseAwaitingPayment')}
                 </span>
               ) : cta.label === 'accessSuspended' ? (
                 t('accessSuspended')

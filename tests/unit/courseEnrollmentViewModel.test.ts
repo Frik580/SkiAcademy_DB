@@ -6,6 +6,7 @@ import {
   isAnySelectedParticipantEnrolledInCourse,
   mapCourseEnrollmentReadModelToCabinetItem,
   resolveParticipantScopedCourseEnrollment,
+  selectActiveGuestCourseEnrollment,
 } from '../../src/features/course-enrollments/courseEnrollmentViewModel';
 import { buildMixedCabinetSessionItems } from '../../src/features/course-enrollments/cabinetSessionItems';
 import type { LessonBookingCabinetItem } from '../../src/features/lesson-bookings/lessonBookingContracts';
@@ -171,5 +172,27 @@ describe('courseEnrollmentViewModel', () => {
     const participantId = deriveGuestParticipantIdForEnrollment(enrollmentId);
     expect(participantId).toMatch(/^[0-9a-f]{64}$/);
     expect(guestSubjectIdFromCourseEnrollmentId(enrollmentId)).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('matches active guest enrollments and ignores terminal ones', () => {
+    const pending = mapCourseEnrollmentReadModelToCabinetItem({
+      ...readModelFixture,
+      enrollmentId: 'enrollment_guest_pending_01',
+      bookingOrigin: 'guest',
+      lifecycle: { status: 'pending' },
+      participant: { participantId: 'participant_guest_01', displayName: 'Guest' },
+    });
+    const cancelled = mapCourseEnrollmentReadModelToCabinetItem({
+      ...readModelFixture,
+      enrollmentId: 'enrollment_guest_cancelled_01',
+      bookingOrigin: 'guest',
+      lifecycle: { status: 'cancelled' },
+      participant: { participantId: 'participant_guest_01', displayName: 'Guest' },
+    });
+    expect(selectActiveGuestCourseEnrollment([pending], 'course_vm_fixture_01')?.enrollmentId).toBe(
+      'enrollment_guest_pending_01'
+    );
+    expect(selectActiveGuestCourseEnrollment([cancelled], 'course_vm_fixture_01')).toBeUndefined();
+    expect(selectActiveGuestCourseEnrollment([pending], 'course_other')).toBeUndefined();
   });
 });

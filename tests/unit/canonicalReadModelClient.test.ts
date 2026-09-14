@@ -568,6 +568,24 @@ describe('canonicalReadModelClient', () => {
     );
   });
 
+  it('calls queryCourseCatalogReadModels callable with a targeted public courseId', async () => {
+    callFunctionMock.mockResolvedValueOnce({
+      scope: 'public',
+      items: [],
+    });
+
+    await queryCourseCatalogReadModels({ scope: 'public', courseId: 'course_targeted_01' });
+
+    expect(callFunctionMock).toHaveBeenCalledWith(
+      QUERY_COURSE_CATALOG_READ_MODELS_CALLABLE,
+      { scope: 'public', courseId: 'course_targeted_01' },
+      expect.objectContaining({
+        idempotencyKey: 'read:course_catalog:public:course_targeted_01',
+        maxAttempts: 1,
+      })
+    );
+  });
+
   it('calls queryInstructorCourseAssignmentReadModels callable with instructor_assigned scope', async () => {
     callFunctionMock.mockResolvedValueOnce({
       scope: 'instructor_assigned',

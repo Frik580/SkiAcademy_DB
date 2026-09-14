@@ -62,6 +62,8 @@ export function mapCanonicalErrorMessage(code: CommandErrorCode): string {
       return 'The request has expired.';
     case 'unavailable':
       return 'The requested option is unavailable.';
+    case 'duplicate_active_enrollment':
+      return 'An active Enrollment already exists.';
     case 'internal':
       return 'The operation could not be completed.';
     default:

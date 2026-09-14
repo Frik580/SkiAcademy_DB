@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   isAnySelectedParticipantEnrolledInCourse: vi.fn(
     (_enrollments: unknown, _courseId: string, _ids: readonly string[]) => false
   ),
+  selectActiveGuestCourseEnrollment: vi.fn(() => undefined),
 }));
 
 vi.mock('motion/react', () => ({
@@ -44,7 +45,7 @@ vi.mock('../../src/features/notifications', () => ({
 vi.mock('../../src/features/course-enrollments', () => ({
   createLogicalEnrollmentAttemptId: () => 'attempt_01',
   deriveGuestCreateEnrollmentIdempotencyKey: () => 'guest-idempotency',
-  deriveGuestParticipantIdForEnrollment: () => 'guest_participant_01',
+  resolveGuestCourseSessionParticipantId: () => 'guest_session_participant_01',
   useCourseEnrollmentCommands: () => ({
     createGuestEnrollment: mocks.createGuestEnrollment,
   }),
@@ -56,6 +57,7 @@ vi.mock('../../src/features/course-enrollments', () => ({
     courseId: string,
     ids: readonly string[]
   ) => mocks.isAnySelectedParticipantEnrolledInCourse(enrollments, courseId, ids),
+  selectActiveGuestCourseEnrollment: () => mocks.selectActiveGuestCourseEnrollment(),
 }));
 
 vi.mock('../../src/features/participants/useParticipantSelection', () => ({
@@ -116,6 +118,7 @@ describe('CourseEnrollmentModal authenticated enrollment', () => {
     mocks.loading = false;
     mocks.error = undefined;
     mocks.isAnySelectedParticipantEnrolledInCourse.mockReturnValue(false);
+    mocks.selectActiveGuestCourseEnrollment.mockReturnValue(undefined);
     onEnroll.mockResolvedValue(undefined);
   });
 
@@ -351,5 +354,63 @@ describe('CourseEnrollmentModal authenticated enrollment', () => {
     expect(screen.getByRole('button', { name: /Dependent 8/i })).toBeDisabled();
     await userEvent.click(screen.getByRole('button', { name: /Dependent 8/i }));
     expect(mocks.toggleParticipant).not.toHaveBeenCalled();
+  });
+});
+
+describe('CourseEnrollmentModal guest enrollment', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.createGuestEnrollment.mockResolvedValue({ enrollmentId: 'attempt_01' });
+    mocks.selectActiveGuestCourseEnrollment.mockReturnValue(undefined);
+  });
+
+  it('submits guest enrollment with the stable session participantId', async () => {
+    const onClose = vi.fn();
+    render(
+      <CourseEnrollmentModal isOpen onClose={onClose} course={course} onEnroll={vi.fn()} />
+    );
+
+    fireEvent.change(screen.getByPlaceholderText('guestNamePlaceholder'), {
+      target: { value: 'Guest One' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
+      target: { value: '+77001234567' },
+    });
+    await userEvent.click(screen.getByRole('button', { name: /submitGuestCourseApplication/i }));
+
+    await waitFor(() => {
+      expect(mocks.createGuestEnrollment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          courseId: 'course_01',
+          participantId: 'guest_session_participant_01',
+          enrollmentId: 'attempt_01',
+        })
+      );
+    });
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('hides the enroll CTA when the same guest already has a pending enrollment', () => {
+    mocks.selectActiveGuestCourseEnrollment.mockReturnValue({
+      enrollmentId: 'enrollment_pending_01',
+      lifecycleStatus: 'pending',
+    });
+
+    render(<CourseEnrollmentModal isOpen onClose={vi.fn()} course={course} onEnroll={vi.fn()} />);
+
+    expect(screen.getByRole('button', { name: /courseAwaitingPayment/i })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /submitGuestCourseApplication/i })).not.toBeInTheDocument();
+  });
+
+  it('hides the enroll CTA when the same guest is already confirmed', () => {
+    mocks.selectActiveGuestCourseEnrollment.mockReturnValue({
+      enrollmentId: 'enrollment_confirmed_01',
+      lifecycleStatus: 'confirmed',
+    });
+
+    render(<CourseEnrollmentModal isOpen onClose={vi.fn()} course={course} onEnroll={vi.fn()} />);
+
+    expect(screen.getByRole('button', { name: /courseEnrolled/i })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /submitGuestCourseApplication/i })).not.toBeInTheDocument();
   });
 });

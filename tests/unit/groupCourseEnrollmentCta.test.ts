@@ -121,12 +121,26 @@ describe('deriveGroupCourseEnrollmentCtaState', () => {
     expect(cta.label).toBe('unavailable');
   });
 
-  it('disables enroll CTA when participant is already enrolled', () => {
+  it('shows awaiting payment for a pending enrollment', () => {
     const operational = mapCourseCatalogReadModelToOperationalState(catalogReadModel);
     const cta = deriveGroupCourseEnrollmentCtaState({
       rawCourse: marketingCourse,
       catalogOperational: operational,
       isEnrolled: true,
+      enrollmentLifecycleStatus: 'pending',
+    });
+
+    expect(cta.label).toBe('awaitingPayment');
+    expect(cta.enrollDisabled).toBe(true);
+  });
+
+  it('shows enrolled for a confirmed enrollment', () => {
+    const operational = mapCourseCatalogReadModelToOperationalState(catalogReadModel);
+    const cta = deriveGroupCourseEnrollmentCtaState({
+      rawCourse: marketingCourse,
+      catalogOperational: operational,
+      isEnrolled: true,
+      enrollmentLifecycleStatus: 'confirmed',
     });
 
     expect(cta.label).toBe('enrolled');

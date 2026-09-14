@@ -11,6 +11,7 @@ import { CourseGallery } from './course_details/CourseGallery';
 import { CourseFAQ } from './course_details/CourseFAQ';
 import { CourseEnrollAction } from './course_details/CourseEnrollAction';
 import type { CourseCatalogOperationalState } from '../../course-enrollments';
+import type { CourseEnrollmentLifecycleStatus } from '@ski-academy/shared-domain';
 import type { StudentCourseProgressSummaryInput } from '../../course-enrollments/courseProgressViewModel';
 import { StudentCourseProgressSummary } from '../../course-enrollments/StudentCourseProgressSummary';
 import {
@@ -27,6 +28,7 @@ interface CourseDetailsModalProps {
   userProfile: UserProfile | null;
   catalogOperational?: CourseCatalogOperationalState;
   isEnrolled: boolean;
+  enrollmentLifecycleStatus?: CourseEnrollmentLifecycleStatus;
   courseProgress?: StudentCourseProgressSummaryInput;
   onEnroll: (courseId: string) => void;
 }
@@ -40,6 +42,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
   userProfile,
   catalogOperational,
   isEnrolled,
+  enrollmentLifecycleStatus,
   courseProgress,
   onEnroll,
 }) => {
@@ -216,6 +219,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                   catalogOperational={catalogOperational}
                   userProfile={userProfile}
                   isEnrolled={isEnrolled}
+                  enrollmentLifecycleStatus={enrollmentLifecycleStatus}
                   onEnroll={onEnroll}
                   onClose={onClose}
                 />

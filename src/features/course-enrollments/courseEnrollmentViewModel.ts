@@ -95,6 +95,22 @@ export function isAnySelectedParticipantEnrolledInCourse(
   );
 }
 
+/**
+ * Public-catalog guest match. The store only contains this browser's guest
+ * enrollments (credential-scoped), so courseId + active lifecycle is enough.
+ */
+export function selectActiveGuestCourseEnrollment(
+  enrollments: readonly CourseEnrollmentCabinetItem[],
+  courseId: string
+): CourseEnrollmentCabinetItem | undefined {
+  return enrollments.find(
+    (enrollment) =>
+      enrollment.courseId === courseId &&
+      enrollment.bookingOrigin === 'guest' &&
+      isActiveCourseEnrollmentLifecycle(enrollment.lifecycleStatus)
+  );
+}
+
 function timestampToDateString(seconds: number, nanoseconds: number, timeZone: string): string {
   return canonicalTimestampToLocalParts(seconds, nanoseconds, timeZone).date;
 }

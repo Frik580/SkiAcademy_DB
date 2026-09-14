@@ -61,7 +61,7 @@ export async function queryCourseCatalogReadModels(
 ): Promise<QueryCourseCatalogReadModelsResult> {
   const now = timestampFromDate(options.now ?? new Date());
 
-  if (input.scope === 'authenticated') {
+  if (input.scope === 'authenticated' || input.courseId) {
     const courseSnap = await firestore.collection('courses').doc(input.courseId!).get();
     const course = parseCourse(courseSnap.data() as Record<string, unknown> | undefined);
     if (!course) {

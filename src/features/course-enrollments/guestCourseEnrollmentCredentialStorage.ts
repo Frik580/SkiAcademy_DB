@@ -47,3 +47,19 @@ export function readGuestCourseEnrollmentCredential(enrollmentId: string): {
 export function removeGuestCourseEnrollmentCredential(enrollmentId: string): void {
   localStorage.removeItem(guestCourseEnrollmentCredentialStorageKey(enrollmentId));
 }
+
+export function listStoredGuestCourseEnrollmentCredentials(): readonly GuestCourseEnrollmentLinkCredential[] {
+  const credentials: GuestCourseEnrollmentLinkCredential[] = [];
+  for (let index = 0; index < localStorage.length; index += 1) {
+    const key = localStorage.key(index);
+    if (!key?.startsWith(STORAGE_KEY_PREFIX)) {
+      continue;
+    }
+    const enrollmentId = key.slice(STORAGE_KEY_PREFIX.length);
+    const stored = readGuestCourseEnrollmentCredential(enrollmentId);
+    if (stored.credential) {
+      credentials.push(stored.credential);
+    }
+  }
+  return credentials;
+}

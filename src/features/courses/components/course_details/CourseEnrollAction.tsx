@@ -4,6 +4,7 @@ import { Course, UserProfile } from '../../../../types';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { useCurrency } from '../../../../app/providers/CurrencyContext';
 import type { CourseCatalogOperationalState } from '../../../course-enrollments';
+import type { CourseEnrollmentLifecycleStatus } from '@ski-academy/shared-domain';
 import { deriveGroupCourseEnrollmentCtaState } from '../../groupCourseEnrollmentCta';
 
 interface CourseEnrollActionProps {
@@ -14,6 +15,7 @@ interface CourseEnrollActionProps {
   catalogOperational?: CourseCatalogOperationalState;
   userProfile: UserProfile | null;
   isEnrolled: boolean;
+  enrollmentLifecycleStatus?: CourseEnrollmentLifecycleStatus;
   onEnroll: (courseId: string) => void;
   onClose: () => void;
 }
@@ -26,6 +28,7 @@ export const CourseEnrollAction: React.FC<CourseEnrollActionProps> = ({
   catalogOperational,
   userProfile,
   isEnrolled,
+  enrollmentLifecycleStatus,
   onEnroll,
   onClose,
 }) => {
@@ -37,6 +40,7 @@ export const CourseEnrollAction: React.FC<CourseEnrollActionProps> = ({
     rawCourse: course,
     catalogOperational,
     isEnrolled,
+    enrollmentLifecycleStatus,
     isClientActive: userProfile?.isClientActive,
   });
   const displayPriceMinorUnits = catalogOperational?.priceMinorUnits ?? course.priceKZT;
@@ -119,7 +123,7 @@ export const CourseEnrollAction: React.FC<CourseEnrollActionProps> = ({
             }}
             disabled={cta.enrollDisabled}
             className={`w-full py-3.5 font-mono text-[10px] uppercase tracking-widest transition rounded-none font-bold ${
-              cta.label === 'enrolled'
+              cta.label === 'enrolled' || cta.label === 'awaitingPayment'
                 ? 'bg-black/5 dark:bg-black/60 border border-[var(--border)]/60 text-[var(--ink-dim)] cursor-default'
                 : cta.label === 'accessSuspended'
                   ? 'border border-rose-900/40 text-rose-500 cursor-not-allowed bg-rose-950/10'
@@ -131,6 +135,11 @@ export const CourseEnrollAction: React.FC<CourseEnrollActionProps> = ({
             {cta.label === 'enrolled' ? (
               <span className="flex items-center justify-center gap-1.5 normal-case font-sans text-xs">
                 <span className="text-emerald-500 font-bold text-sm">✔</span> {t('courseEnrolled')}
+              </span>
+            ) : cta.label === 'awaitingPayment' ? (
+              <span className="flex items-center justify-center gap-1.5 normal-case font-sans text-xs">
+                <span className="text-amber-500 font-bold text-sm">✔</span>{' '}
+                {t('courseAwaitingPayment')}
               </span>
             ) : cta.label === 'accessSuspended' ? (
               t('accessSuspended')

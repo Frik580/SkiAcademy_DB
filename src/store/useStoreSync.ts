@@ -8,6 +8,7 @@ import { useAccountParticipantLessonStatsSync } from '../features/lesson-booking
 import {
   useCourseCatalogReadSync,
   useCourseEnrollmentReadSync,
+  useGuestCourseEnrollmentReadSync,
 } from '../features/course-enrollments/useCourseEnrollmentReadSync';
 import { useBookingCollaborationReadSync } from '../features/booking-collaboration/useBookingCollaborationReadSync';
 import { useCoursesSync } from '../features/courses/sync/useCoursesSync';
@@ -79,6 +80,7 @@ export const useStoreSync = () => {
     firebaseUser?.uid,
     selectedCourseParticipantId
   );
+  useGuestCourseEnrollmentReadSync(!firebaseUser && isPublicCatalogPath);
   useCourseCatalogReadSync(isPublicCatalogPath);
   useBookingCollaborationReadSync({
     customerEnabled: isCustomerCanonicalLessonHotPath,

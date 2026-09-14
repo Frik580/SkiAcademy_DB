@@ -1,0 +1,140 @@
+---
+description: Canonical domain invariants for Carve Academy. Apply when changing Participant/account identity, avatars, lesson booking, course enrollment, wallet/payments, attendance, canonical commands, or related Firestore/Functions behavior.
+alwaysApply: false
+---
+
+# Carve Academy — Canonical Domain Invariants
+
+Use this rule only when the task touches canonical/domain behavior.
+
+Do not load unrelated architecture or migration documentation unless a concrete question requires it.
+
+## 1. General canonical rule
+
+Preserve the existing canonical execution path.
+
+Before changing domain behavior:
+
+- identify the current source of truth;
+- identify the mutation path;
+- identify the affected invariant;
+- inspect only the files needed to verify them.
+
+Do not create:
+- parallel sources of truth;
+- duplicate persistence paths;
+- client-side bypasses around established canonical commands;
+- new legacy writes.
+
+Do not guess exact collection names, field names, callable names, or storage paths from this rule.
+Verify those details in the current code before editing.
+
+## 2. Participant / account identity
+
+`Participant` is the canonical person identity used by the product.
+
+For the self participant:
+
+- self participant identity and account/client identity must stay aligned;
+- editable personal identity belongs in the Participants flow;
+- mirrored account/UserProfile fields are projections/compatibility data, not an independent editable source of truth.
+
+For dependent participants:
+
+- identity is independent from the account owner;
+- changes to a dependent must not mutate another participant.
+
+Do not reintroduce duplicate personal-data editing flows.
+
+## 3. Avatars
+
+Each Participant may have its own avatar.
+
+- self Participant avatar also represents the client/account identity where required by UI;
+- dependent avatars are independent;
+- updating one participant avatar must not change other participants.
+
+Respect the current ownership/authorization model.
+Inspect current Storage rules and implementation before changing paths or permissions.
+
+## 4. Lesson booking
+
+Canonical lesson booking supports multiple participants through the current participant collection/IDs contract.
+
+For a multi-participant lesson:
+
+- one canonical booking represents the lesson;
+- one slot reservation/lock;
+- one payment operation;
+- cancellation follows the booking as a whole unless the current canonical contract explicitly says otherwise.
+
+Additional-participant pricing is configuration/domain data, not a hard-coded UI constant.
+
+Do not create separate lesson bookings per participant as a workaround.
+
+## 5. Course enrollment
+
+Course enrollment remains participant-scoped.
+
+Do not infer lesson-booking multi-participant semantics onto course enrollment.
+
+Enrollment checks and UI state must be evaluated for the relevant participant, not merely for the account.
+
+## 6. Wallet and money
+
+The canonical product currency is KZT.
+
+Use the current canonical wallet and monetary-event path.
+
+For money-affecting operations:
+
+- preserve transactionality;
+- preserve idempotency;
+- prevent duplicate debit/credit;
+- distinguish a newly-created monetary operation from an already-existing idempotent result where the current contract does so.
+
+Do not introduce new USD-based product behavior or new legacy balance writes.
+
+Never make monetary behavior client-authoritative.
+
+## 7. Attendance
+
+Attendance is participant-scoped factual data.
+
+Do not automatically invent present/absent attendance merely because time passed.
+
+If attendance is missing after the applicable deadline, preserve the current issue/escalation behavior rather than fabricating attendance.
+
+Verify the exact current deadline and command behavior from code/tests before modifying it.
+
+## 8. Read models
+
+Read models are projections/query surfaces, not alternate domain authorities.
+
+A UI/query optimization must not silently change canonical mutation semantics.
+
+If changing a read model:
+- preserve authorization scope;
+- preserve participant/account scoping;
+- avoid introducing unnecessary polling or broad reads.
+
+## 9. Legacy and migration
+
+Do not add new dependencies on legacy fields, collections, callables, or flows.
+
+If legacy compatibility is still present:
+- preserve it only when the current task requires it;
+- do not expand it;
+- do not delete it unless the task explicitly includes migration/removal and required gates are satisfied.
+
+## 10. Change discipline
+
+Prefer the smallest change that preserves these invariants.
+
+If the requested task appears to require changing an invariant:
+1. stop treating it as a local refactor;
+2. identify the affected contract;
+3. inspect its current implementation/tests;
+4. make the contract change explicit in the final report.
+
+For domain changes, run targeted canonical/unit/emulator tests appropriate to the affected path before considering broader validation.

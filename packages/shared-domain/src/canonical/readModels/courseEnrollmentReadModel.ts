@@ -1,10 +1,6 @@
 import { z } from 'zod';
 import { IdempotencyKeySchema } from '../commands/commandContext';
-import {
-  CourseEnrollmentIdSchema,
-  CourseIdSchema,
-  ParticipantIdSchema,
-} from '../identifiers';
+import { CourseEnrollmentIdSchema, CourseIdSchema, ParticipantIdSchema } from '../identifiers';
 import {
   COURSE_SEAT_MAX,
   CourseEnrollmentCancellationReasonCodeSchema,
@@ -75,9 +71,7 @@ export interface InstructorRosterCompleteSetPage<T> {
  * At most ceil(COURSE_SEAT_MAX / pageSize) pages; fails visibly if hasMore beyond the bound.
  */
 export async function drainInstructorRosterCompleteSet<T>(input: {
-  readonly fetchPage: (
-    cursor: string | undefined
-  ) => Promise<InstructorRosterCompleteSetPage<T>>;
+  readonly fetchPage: (cursor: string | undefined) => Promise<InstructorRosterCompleteSetPage<T>>;
   readonly pageSize?: number;
 }): Promise<readonly T[]> {
   const pageSize = input.pageSize ?? COURSE_ENROLLMENT_READ_MODEL_PAGE_SIZE_MAX;
@@ -188,6 +182,24 @@ export type CourseEnrollmentAttendanceSummaryPresentation = z.output<
   typeof CourseEnrollmentAttendanceSummaryPresentationSchema
 >;
 
+export const CourseEnrollmentProgressProjectionSchema = z
+  .object({
+    scheduledDays: z.number().finite().int().nonnegative(),
+    elapsedDays: z.number().finite().int().nonnegative(),
+    recordedDays: z.number().finite().int().nonnegative(),
+    presentDays: z.number().finite().int().nonnegative(),
+    absentDays: z.number().finite().int().nonnegative(),
+    missingDays: z.number().finite().int().nonnegative(),
+    progressPercent: z.number().finite().min(0).max(100),
+    attendanceCoveragePercent: z.number().finite().min(0).max(100),
+    attendanceRatePercent: z.number().finite().min(0).max(100).nullable(),
+  })
+  .strict();
+
+export type CourseEnrollmentProgressProjection = z.output<
+  typeof CourseEnrollmentProgressProjectionSchema
+>;
+
 export const CourseEnrollmentReadModelSchema = z
   .object({
     enrollmentId: CourseEnrollmentIdSchema,
@@ -202,6 +214,7 @@ export const CourseEnrollmentReadModelSchema = z
     authorizedActions: CourseEnrollmentReadModelAuthorizedActionsSchema,
     paymentPresentation: CourseEnrollmentReadModelPaymentPresentationSchema.optional(),
     attendanceSummary: CourseEnrollmentAttendanceSummaryPresentationSchema.optional(),
+    courseProgress: CourseEnrollmentProgressProjectionSchema,
     updatedAt: CanonicalTimestampSchema,
   })
   .strict();
@@ -231,10 +244,14 @@ export const CourseEnrollmentReadModelCursorSchema = z
     updatedAtSeconds: z.number().int().nonnegative(),
     updatedAtNanoseconds: z.number().int().nonnegative().max(999_999_999),
     enrollmentId: CourseEnrollmentIdSchema,
+    scope: z.enum(['account_hot', 'account_history']).optional(),
+    participantId: ParticipantIdSchema.optional(),
   })
   .strict();
 
-export type CourseEnrollmentReadModelCursor = z.output<typeof CourseEnrollmentReadModelCursorSchema>;
+export type CourseEnrollmentReadModelCursor = z.output<
+  typeof CourseEnrollmentReadModelCursorSchema
+>;
 
 export const QueryCourseEnrollmentReadModelsInputSchema = z
   .object({
@@ -248,6 +265,7 @@ export const QueryCourseEnrollmentReadModelsInputSchema = z
     cursor: z.string().trim().min(1).max(512).optional(),
     enrollmentId: CourseEnrollmentIdSchema.optional(),
     courseId: CourseIdSchema.optional(),
+    selectedParticipantId: ParticipantIdSchema.optional(),
     guestActionNonce: z.string().trim().min(1).max(256).optional(),
     guestActionSignature: z.string().trim().min(1).max(256).optional(),
     idempotencyKey: IdempotencyKeySchema.optional(),
@@ -278,6 +296,12 @@ export const QueryCourseEnrollmentReadModelsInputSchema = z
           message: 'enrollmentId is not allowed for account scopes',
         });
       }
+    } else if (input.selectedParticipantId !== undefined) {
+      context.addIssue({
+        code: 'custom',
+        path: ['selectedParticipantId'],
+        message: 'selectedParticipantId is allowed only for account scopes',
+      });
     }
     if (input.scope === 'instructor_roster') {
       if (input.enrollmentId !== undefined) {

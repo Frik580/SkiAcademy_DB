@@ -5,7 +5,10 @@ import {
   QueryCourseEnrollmentReadModelsInputSchema,
   type QueryCourseEnrollmentReadModelsResult,
 } from '@ski-academy/shared-domain';
-import { queryCourseEnrollmentReadModels } from './courseEnrollmentReadModels';
+import {
+  InvalidCourseEnrollmentReadCursorError,
+  queryCourseEnrollmentReadModels,
+} from './courseEnrollmentReadModels';
 import { readGuestActionTokenSecret } from '../commands/canonicalCommandRuntime';
 import {
   readCallableAccountProfile,
@@ -61,6 +64,9 @@ export function createQueryCourseEnrollmentReadModelsHandler(firestore: Firestor
         readContext,
       });
     } catch (error) {
+      if (error instanceof InvalidCourseEnrollmentReadCursorError) {
+        throw new HttpsError('invalid-argument', 'The cursor is invalid for this query.');
+      }
       if (error instanceof ReadModelAccessDeniedError) {
         throw new HttpsError('permission-denied', 'This action is not permitted.');
       }

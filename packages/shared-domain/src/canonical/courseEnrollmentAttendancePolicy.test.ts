@@ -12,6 +12,8 @@ import {
   buildCourseEnrollmentAttendanceSummaryFromCurrentEvidence,
   courseDayAttendanceMatchesCurrentOccurrence,
   courseDayOccurrenceId,
+  courseEnrollmentOutcomeDueAt,
+  courseEnrollmentRequiresOutcomeWork,
   deriveCourseEnrollmentAttendanceSufficiency,
   evaluateCourseEnrollmentAutomationEligibility,
   evaluateCourseEnrollmentOutcomeCalculator,
@@ -189,6 +191,13 @@ describe('courseEnrollmentAttendancePolicy', () => {
 
   it('uses system automation eligibility at finalCourseDayEndsAt + 24h', () => {
     const automationAt = timestampFromDate(new Date('2026-02-04T05:00:00.000Z'));
+    expect(courseEnrollmentOutcomeDueAt(finalEndsAt)).toEqual(automationAt);
+    expect(courseEnrollmentRequiresOutcomeWork(enrollment())).toBe(true);
+    expect(
+      courseEnrollmentRequiresOutcomeWork({
+        lifecycle: { status: 'completed', completedAt: automationAt },
+      })
+    ).toBe(false);
     expect(
       evaluateCourseEnrollmentAutomationEligibility({
         now: timestampFromDate(new Date('2026-02-04T04:59:59.999Z')),

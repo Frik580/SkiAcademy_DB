@@ -28,7 +28,7 @@ export function achievementProductScope(
     case 'feedback_given':
       return 'account';
     case 'course_graduate':
-      return 'course';
+      return 'participant';
     default:
       return 'participant';
   }

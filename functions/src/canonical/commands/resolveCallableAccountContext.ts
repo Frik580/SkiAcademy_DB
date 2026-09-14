@@ -1,9 +1,11 @@
 import {
   AccountIdSchema,
+  InstructorIdSchema,
   type AccountId,
   type CommandKind,
   type CommandSource,
   type ExercisedCapability,
+  type InstructorId,
 } from '@ski-academy/shared-domain';
 
 export const CLIENT_CALLABLE_CAPABILITIES = [
@@ -96,6 +98,7 @@ export interface ResolvedCallableAccountContext {
   readonly accountId: AccountId;
   readonly capability: ExercisedCapability;
   readonly source: CommandSource;
+  readonly instructorId?: InstructorId;
 }
 
 function isClientCallableCapability(value: unknown): value is ClientCallableCapability {
@@ -154,10 +157,14 @@ export function resolveCallableAccountContext(
   const capability = isClientCallableCapability(input.exercisedCapability)
     ? input.exercisedCapability
     : 'account_owner';
+  const instructorId = InstructorIdSchema.safeParse(profile?.instructorId);
 
   return {
     accountId,
     capability,
     source: 'client_callable',
+    ...(capability === 'instructor' && instructorId.success
+      ? { instructorId: instructorId.data }
+      : {}),
   };
 }

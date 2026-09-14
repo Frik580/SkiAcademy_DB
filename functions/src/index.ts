@@ -33,6 +33,8 @@ import { sweepExpiredGuestLessonReservations } from './canonical/bookings/guestL
 import { sweepExpiredGuestCourseReservations } from './canonical/courses/guestCourseReservationExpirySweep';
 import { sweepLessonBookingAttendanceOutcomes } from './canonical/bookings/bookingAttendanceOutcomeSweep';
 import { syncLessonBookingAttendanceOutcomeWorkForBookingWrite } from './canonical/bookings/bookingAttendanceOutcomeWorkSync';
+import { sweepCourseEnrollmentOutcomes } from './canonical/courses/courseEnrollmentOutcomeSweep';
+import { syncCourseEnrollmentOutcomeWorkForEnrollmentWrite } from './canonical/courses/courseEnrollmentOutcomeWorkSync';
 
 export { optimizeImage } from './images/optimizeImageHttp';
 
@@ -270,6 +272,20 @@ export const scheduledResolveLessonBookingAttendanceOutcomes = onSchedule(
   }
 );
 
+export const scheduledResolveCourseEnrollmentOutcomes = onSchedule(
+  {
+    schedule: 'every 5 minutes',
+    timeZone: 'UTC',
+    cpu: 'gcf_gen1',
+    memory: '256MiB',
+    maxInstances: 1,
+  },
+  async () => {
+    const result = await sweepCourseEnrollmentOutcomes(getAdminFirestore());
+    console.log('CourseEnrollment outcome sweep completed.', result);
+  }
+);
+
 export const syncLessonBookingAttendanceOutcomeWork = onDocumentWritten(
   {
     document: 'bookings/{bookingId}',
@@ -295,5 +311,26 @@ export const syncLessonBookingAttendanceOutcomeWork = onDocumentWritten(
       }
     );
     console.log('Lesson booking attendance outcome work synchronized.', { outcome });
+  }
+);
+
+export const syncCourseEnrollmentOutcomeWork = onDocumentWritten(
+  {
+    document: 'course_enrollments/{enrollmentId}',
+    region: 'us-central1',
+    cpu: 1,
+    memory: '256MiB',
+    maxInstances: 10,
+    retry: true,
+  },
+  async (event) => {
+    const afterData = event.data?.after.exists
+      ? (event.data.after.data() as Record<string, unknown>)
+      : undefined;
+    const outcome = await syncCourseEnrollmentOutcomeWorkForEnrollmentWrite(getAdminFirestore(), {
+      rawEnrollmentId: event.params.enrollmentId,
+      afterData,
+    });
+    console.log('CourseEnrollment outcome work synchronized.', { outcome });
   }
 );

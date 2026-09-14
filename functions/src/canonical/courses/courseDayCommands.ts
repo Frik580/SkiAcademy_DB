@@ -7,6 +7,7 @@ import {
   assertInstructorOnCourseRoster,
   assertStrictlyIncreasingCourseDayStarts,
   courseDayIntervalHasStarted,
+  courseRequiredDaySetIsFrozen,
   deriveCourseScheduleProjectionAfterDayAdded,
   deriveCourseStartAtAfterFirstDay,
   isSyntheticCourseInstructorId,
@@ -150,6 +151,22 @@ function createCourseDayHandler(
       existingDays = parseCourseDays(
         existingDayDocuments.map((document) => ({ data: document.data ?? {} }))
       );
+
+      const existingEnrollments = await session.tx.query({
+        collection: 'course_enrollments',
+        where: { field: 'courseId', op: '==', value: course.courseId },
+        limit: 1,
+      });
+      session.plan.planRead({
+        path: 'course_enrollments/query_by_courseId_for_required_day_freeze',
+        category: 'aggregate',
+      });
+      if (courseRequiredDaySetIsFrozen(existingEnrollments.length > 0)) {
+        throw new CanonicalCommandError('validation', {
+          correlationId: envelope.context.correlationId,
+          details: { field: 'courseDayId', reason: 'conflict' },
+        });
+      }
 
       try {
         assertCourseDayCountWithinLimit(existingDays.length);

@@ -686,6 +686,7 @@ function createCourseEnrollmentReadModelIdempotencyKey(
     boundCanonicalReadIdempotencyCursor(input.cursor),
     input.enrollmentId ?? 'none',
     input.courseId ?? 'none',
+    input.selectedParticipantId ?? 'all-managed',
   ]);
 }
 
@@ -704,6 +705,9 @@ function buildCourseEnrollmentReadModelTransportInput(
   }
   if (input.courseId !== undefined) {
     transportInput.courseId = input.courseId;
+  }
+  if (input.selectedParticipantId !== undefined) {
+    transportInput.selectedParticipantId = input.selectedParticipantId;
   }
   if (input.guestActionNonce) {
     transportInput.guestActionNonce = input.guestActionNonce;

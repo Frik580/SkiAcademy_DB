@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { parseCommandIntent } from './commands/commandIntents';
 import {
   FORBIDDEN_PARTICIPANT_ACHIEVEMENT_IDS,
+  COURSE_GRADUATE_ACHIEVEMENT_ID,
   ParticipantAchievementsSchema,
   RecordParticipantAchievementsIntentSchema,
+  courseGraduateAchievementTargetFromEnrollment,
   emptyParticipantAchievementsProjection,
   timestampFromDate,
 } from './index';
@@ -43,7 +45,7 @@ describe('canonical participant achievements contract', () => {
     ).toBe(false);
   });
 
-  it('rejects account-level and course achievement ids', () => {
+  it('rejects account-level achievement ids from Participant persistence', () => {
     for (const achievementId of FORBIDDEN_PARTICIPANT_ACHIEVEMENT_IDS) {
       expect(
         RecordParticipantAchievementsIntentSchema.safeParse({
@@ -52,6 +54,21 @@ describe('canonical participant achievements contract', () => {
         }).success
       ).toBe(false);
     }
+  });
+
+  it('rejects client recording of server-issued course_graduate', () => {
+    expect(
+      RecordParticipantAchievementsIntentSchema.safeParse({
+        participantId,
+        earned: [
+          {
+            achievementId: COURSE_GRADUATE_ACHIEVEMENT_ID,
+            earnedAt,
+            source: 'course_completion',
+          },
+        ],
+      }).success
+    ).toBe(false);
   });
 
   it('rejects duplicate achievement ids in one command', () => {
@@ -97,7 +114,7 @@ describe('canonical participant achievements contract', () => {
     expect(emptyParticipantAchievementsProjection(participantId as never).revision).toBe(0);
   });
 
-  it('rejects storing feedback_given or course_graduate on the aggregate', () => {
+  it('rejects storing account-level feedback_given on the aggregate', () => {
     expect(
       ParticipantAchievementsSchema.safeParse({
         participantId,
@@ -114,5 +131,62 @@ describe('canonical participant achievements contract', () => {
         },
       }).success
     ).toBe(false);
+  });
+
+  it('accepts only canonical course_completion source for persisted course_graduate', () => {
+    const base = {
+      participantId,
+      revision: 1,
+      createdAt: earnedAt,
+      updatedAt: earnedAt,
+      audit: {
+        createdByCommandId: 'command_ach_course_1',
+        lastChangedByCommandId: 'command_ach_course_1',
+        correlationId: 'correlation_ach_course_1',
+      },
+    };
+    expect(
+      ParticipantAchievementsSchema.safeParse({
+        ...base,
+        earned: {
+          course_graduate: { earnedAt, source: 'course_completion' },
+        },
+      }).success
+    ).toBe(true);
+    expect(
+      ParticipantAchievementsSchema.safeParse({
+        ...base,
+        earned: {
+          course_graduate: { earnedAt, source: 'participant_attendance' },
+        },
+      }).success
+    ).toBe(false);
+  });
+
+  it('derives course_graduate only from completed CourseEnrollment lifecycle', () => {
+    const base = {
+      enrollmentId: 'enrollment_course_graduate_contract_01' as never,
+      participantId: participantId as never,
+      courseId: 'course_graduate_contract_01' as never,
+    };
+    expect(
+      courseGraduateAchievementTargetFromEnrollment({
+        ...base,
+        lifecycle: { status: 'confirmed' },
+      })
+    ).toBeUndefined();
+    expect(
+      courseGraduateAchievementTargetFromEnrollment({
+        ...base,
+        lifecycle: { status: 'completed', completedAt: earnedAt },
+      })
+    ).toEqual({
+      achievementId: 'course_graduate',
+      enrollmentId: base.enrollmentId,
+      participantId: base.participantId,
+      courseId: base.courseId,
+      earnedAt,
+      source: 'course_completion',
+    });
   });
 });

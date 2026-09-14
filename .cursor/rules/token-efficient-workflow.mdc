@@ -1,0 +1,175 @@
+---
+description: Token-efficient development workflow. Minimize unnecessary repository reads, repeated context, broad testing, logs, and verbose reports without reducing correctness.
+alwaysApply: true
+---
+
+# Token-Efficient Development Workflow
+
+Work narrowly by default. Preserve correctness, architecture, domain invariants, and regression safety while minimizing unnecessary context and tool output.
+
+## 1. Scope first
+
+For every task:
+
+- Start from the files, symbols, errors, screenshots, or feature area explicitly mentioned by the user.
+- Find the smallest relevant execution path before reading surrounding architecture.
+- Read only files required to understand or modify that path.
+- Do NOT perform a broad repository audit unless the task genuinely requires it.
+- Do NOT inspect unrelated domains "just in case".
+- Expand scope only when a concrete dependency, invariant, failing test, or ambiguity requires it.
+
+Prefer:
+
+task → relevant symbol/search → execution path → minimal files → change
+
+Avoid:
+
+task → scan repository → read architecture/docs → inspect unrelated code → change
+
+## 2. Reuse existing context
+
+During the same task:
+
+- Reuse information already obtained.
+- Do not re-read unchanged files unless necessary to resolve a new dependency or failure.
+- Do not repeat searches that have already established the answer.
+- Do not regenerate architectural explanations already established in the session.
+- Prefer targeted symbol/search operations over reading large files end-to-end.
+
+## 3. Documentation context
+
+Do not automatically read large project documentation.
+
+Read ADRs, migration documents, audit documents, or project-context documents only when:
+
+- the task touches the contract documented there;
+- a canonical/domain invariant is unclear;
+- implementation conflicts with documentation;
+- the user explicitly asks for documentation validation.
+
+When documentation is needed, read the relevant section rather than the whole document when possible.
+
+## 4. Preserve architecture
+
+Token efficiency must never be achieved by skipping required correctness checks.
+
+Before changing domain/server/canonical behavior, identify the relevant invariant and existing execution path.
+
+Do not:
+
+- introduce a second source of truth;
+- bypass canonical mutation paths;
+- add direct persistence writes where an established canonical path exists;
+- redesign unrelated code;
+- perform opportunistic refactors outside task scope.
+
+If a change can be completed locally without changing contracts, keep it local.
+
+## 5. Minimal implementation
+
+Make the smallest coherent change that fixes the task.
+
+Avoid unless required:
+
+- unrelated cleanup;
+- renaming unrelated symbols;
+- formatting unrelated files;
+- speculative abstraction;
+- new helper layers;
+- rewriting working code;
+- updating unrelated documentation.
+
+If you discover an unrelated issue, mention it briefly at the end instead of fixing it automatically.
+
+## 6. Testing pyramid
+
+After a change, start with the narrowest relevant validation.
+
+Default order:
+
+1. directly affected unit test(s);
+2. feature/domain tests;
+3. emulator/integration tests only when the changed behavior requires them;
+4. full suite only when justified.
+
+Do NOT run the entire test suite after every change.
+
+Run broad/full validation when:
+
+- the user explicitly requests it;
+- shared/canonical infrastructure changed;
+- the change has meaningful cross-domain impact;
+- targeted failures indicate a wider regression;
+- this is a final integration/release/merge gate.
+
+A UI-only change normally does not require unrelated backend/emulator/E2E suites.
+
+## 7. Terminal output
+
+Keep command output compact.
+
+For successful commands:
+- retain/report only the useful summary.
+
+For failures:
+- inspect the failing test/error and necessary surrounding context;
+- do not feed large unrelated logs back into context.
+
+Prefer filtered/targeted commands when available.
+
+Do not dump:
+- thousands of passing test lines;
+- complete Firebase logs when only one error matters;
+- entire repository diffs when only several files changed;
+- unrelated build output.
+
+## 8. Diff inspection
+
+Review the changed files and relevant diff, not the whole repository.
+
+Before finishing:
+- verify intended files changed;
+- check for accidental unrelated edits;
+- inspect the relevant diff;
+- verify required targeted tests.
+
+Do not repeatedly inspect the same unchanged diff.
+
+## 9. Investigation stopping rule
+
+Stop exploring when all of the following are known:
+
+- root cause or required change is understood;
+- relevant execution path is identified;
+- required invariant is known;
+- files to change are known;
+- appropriate validation is known.
+
+Do not continue repository exploration merely to gain additional confidence without a concrete unresolved question.
+
+## 10. Final response
+
+Keep the final response concise.
+
+Use this structure unless the user requests otherwise:
+
+### Verdict
+DONE | PARTIAL | BLOCKED
+
+### Changed
+- file — short description
+
+### Validation
+- test/command — PASS/FAIL
+
+### Remaining risk
+Only include this section when a real unresolved risk exists.
+
+Do not repeat:
+- the full task description;
+- architecture that did not change;
+- long implementation narratives;
+- successful test logs;
+- unchanged invariants.
+
+For a straightforward task, aim for a short final report.

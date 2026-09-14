@@ -120,6 +120,15 @@
       ]
     },
     {
+      "collectionGroup": "course_enrollment_outcome_work",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "dueAt.seconds", "order": "ASCENDING" },
+        { "fieldPath": "enrollmentId", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "bookings",
       "queryScope": "COLLECTION",
       "fields": [
@@ -148,6 +157,16 @@
         { "fieldPath": "updatedAt.seconds", "order": "DESCENDING" },
         { "fieldPath": "updatedAt.nanoseconds", "order": "DESCENDING" },
         { "fieldPath": "bookingId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "course_enrollments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "participantId", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt.seconds", "order": "DESCENDING" },
+        { "fieldPath": "updatedAt.nanoseconds", "order": "DESCENDING" },
+        { "fieldPath": "enrollmentId", "order": "ASCENDING" }
       ]
     },
     {

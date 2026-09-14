@@ -546,6 +546,19 @@ describe('canonical achievement persistence merge', () => {
     expect(merged.some((item) => item.id === 'course_graduate')).toBe(false);
   });
 
+  it('presents server-persisted participant-scoped course_graduate', () => {
+    const merged = mergeEvaluatedAndPersistedAchievements({
+      evaluated: [],
+      persistedEarned: {
+        course_graduate: { earnedAt },
+      },
+      config: DEFAULT_ACHIEVEMENTS_CONFIG,
+    });
+    expect(merged.find((item) => item.id === 'course_graduate')?.earnedAt).toBe(
+      '2026-01-10T12:00:00.000Z'
+    );
+  });
+
   it('shows only achievements earned on the local day in today section', () => {
     const today = getTodayAchievements(
       ctx({ skillScores: scoresForIds(['l1_1', 'l1_2', 'l1_3', 'l1_4', 'l1_5']) }),

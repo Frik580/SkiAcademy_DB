@@ -181,6 +181,18 @@ const rosterPayload = {
 };
 
 describe('instructor roster read model callables', () => {
+  it('rejects malformed account cursors instead of silently restarting page one', async () => {
+    const handler = createQueryCourseEnrollmentReadModelsHandler(
+      createFirestore({ accountId: rosterInstructorAccountId, instructorId: rosterInstructorId })
+    );
+    await expect(
+      handler({
+        data: { scope: 'account_history', cursor: 'not-a-cursor' },
+        auth: { uid: rosterInstructorAccountId },
+      } as CallableRequest<Record<string, unknown>>)
+    ).rejects.toMatchObject({ code: 'invalid-argument' });
+  });
+
   it('allows roster instructor to query enrollment roster', async () => {
     const handler = createQueryCourseEnrollmentReadModelsHandler(
       createFirestore({ accountId: rosterInstructorAccountId, instructorId: rosterInstructorId })

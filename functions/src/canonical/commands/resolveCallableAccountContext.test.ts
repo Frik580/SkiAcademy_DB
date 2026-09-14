@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { AccountIdSchema } from '@ski-academy/shared-domain';
+import {
+  AccountIdSchema,
+  CorrelationIdSchema,
+  IdempotencyKeySchema,
+  InstructorIdSchema,
+} from '@ski-academy/shared-domain';
+import { buildCommandContextFromCallableAccount } from './callableTransportAdapter';
 import {
   resolveCallableAccountContext,
   isAdministratorProfile,
@@ -7,6 +13,26 @@ import {
 
 describe('resolveCallableAccountContext', () => {
   const accountId = AccountIdSchema.parse('account_resolve_callable_01');
+
+  it('propagates the server-side instructor profile identity into callable metadata', () => {
+    const instructorId = InstructorIdSchema.parse('instructor_resolve_callable_01');
+    const resolved = resolveCallableAccountContext(
+      { role: 'user', instructorId, isInstructor: true },
+      {
+        authUid: accountId,
+        commandKind: 'record_course_day_attendance',
+        exercisedCapability: 'instructor',
+      }
+    );
+
+    const context = buildCommandContextFromCallableAccount(resolved, {
+      idempotencyKey: IdempotencyKeySchema.parse('idem-resolve-callable-instructor-01'),
+      correlationId: CorrelationIdSchema.parse('correlation_resolve_callable_instructor_01'),
+    });
+
+    expect(resolved.instructorId).toBe(instructorId);
+    expect(context.transportMetadata?.instructor_id).toBe(instructorId);
+  });
 
   it('derives account identity from auth uid', () => {
     const resolved = resolveCallableAccountContext(

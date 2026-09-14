@@ -7,6 +7,7 @@ import {
   type CommandSource,
   type ExercisedCapability,
   type IdempotencyKey,
+  type InstructorId,
 } from '@ski-academy/shared-domain';
 import type { CallableRequest } from 'firebase-functions/v2/https';
 import { BOOKING_REVISION_TRANSPORT_KEY } from '../bookings/bookingChangeRequestAuthorization';
@@ -27,6 +28,7 @@ export interface CallableAuthenticatedAccountContext {
   readonly accountId: AccountId;
   readonly capability: ExercisedCapability;
   readonly source: CommandSource;
+  readonly instructorId?: InstructorId;
 }
 
 export function buildCommandContextFromCallableAccount(
@@ -54,6 +56,9 @@ export function buildCommandContextFromCallableAccount(
     ...(input.timezone === undefined ? {} : { timezone: input.timezone }),
     transportMetadata: {
       transport: 'firebase_callable',
+      ...(transport.instructorId === undefined
+        ? {}
+        : { instructor_id: transport.instructorId }),
       ...(input.bookingRevision === undefined
         ? {}
         : { [BOOKING_REVISION_TRANSPORT_KEY]: String(input.bookingRevision) }),

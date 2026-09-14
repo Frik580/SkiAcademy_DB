@@ -136,6 +136,7 @@ Minimum dependent Participant data is name, birth date or age, skill level, ski/
 | Actual participation evidence          | Attendance records                                                           | `completed` and `no_show` are lifecycle outcomes derived through authorized transitions                |
 | Current operational inconsistencies    | Unresolved Admin Issues                                                      | Activity Logs explain issue actions but do not replace current issue state                             |
 | Participant progress                   | `/participant_progress/{participantId}` (canonical; T32.9A.9B.2)             | Legacy `/users` level/skill fields are not authority and are not migrated; empty start per Participant |
+| Course curriculum progress             | Derived `CourseProgressPresentation` per `CourseEnrollment.participantId`     | `elapsedDays / scheduledDays`; Attendance coverage/rate and lifecycle completion remain separate       |
 | Instructor schedule                    | Active Booking and Course Day scheduling intent plus administrative blocks   | Server-owned resource claims and guards enforce conflicts; sanitized read models may be derived        |
 | Participant schedule                   | Active lesson intervals and actual Course Day intervals for that Participant | Account Owner schedule is not a substitute                                                             |
 | Scheduling enforcement                 | Server-owned resource claims and guards                                      | Owners retain lifecycle and schedule intent; sanitized availability is a read model                    |
@@ -285,6 +286,12 @@ Each addition has its own per-hour surcharge payment obligation scaled by lesson
 
 Each Participant has a separate Course Enrollment. Enrolling several Participants in one operation is atomic: all seats, schedules, blocks, and funds pass or no enrollment is created. A `participantId + courseId` pair has at most one active enrollment; re-enrollment after `cancelled` or `withdrawn` creates a new record at current price before Course start.
 
+The required CourseDay set freezes when the first canonical CourseEnrollment is created. Before
+that point CourseDays may change under the normal administration rules; afterward
+`create_course_day` cannot add another required day. All current CourseDays are required because
+there is no optional/supplemental CourseDay capability. This freeze defines the stable denominator
+for progress and completion without introducing an Enrollment schedule snapshot.
+
 ### State-transition matrix
 
 | From                   | To                       | Actor                        | Required conditions and effects                                                                          |
@@ -314,6 +321,12 @@ Each Participant has a separate Course Enrollment. Enrolling several Participant
 | `no_show`              | `completed`              | Administrator                | Audited Attendance/error correction only                                                                 |
 
 `withdrawn` exists only for Courses, always means zero refund, and never returns to `confirmed`. `pending_cancellation` never auto-resolves. If there is no explicit `present` and any Course Day lacks Attendance, the enrollment remains `confirmed` with an Admin Issue; one explicit `present` is sufficient for `completed` even if other day records are missing.
+
+Course Progress is not completion. It is the derived percentage of required CourseDays whose
+canonical `endsAt` is at or before `now`. Attendance coverage (`recorded / scheduled`) and
+Attendance rate (`present / recorded`, or `null` without records) are separate metrics. Reaching
+100% Course Progress does not transition lifecycle. Only the authorized Attendance outcome
+resolver does that.
 
 ### Capacity
 
@@ -434,6 +447,7 @@ Future `$implement` and `$code-review` work must verify:
 - A terminal cancelled or expired guest subject is never resurrected to confirmed by delayed settlement or reconciliation.
 - An unresolved Attendance or payment Admin Issue blocks automatic completion.
 - Automation waits 24 hours, never guesses Attendance, and never auto-completes `pending_cancellation`.
+- Course outcome automation must consume bounded Enrollment work due at final CourseDay `endsAt + 24h`; it must not scan all CourseEnrollments.
 - Attendance sufficient for the service determines `completed` versus `no_show`.
 - Refunds never exceed `paidAmount`; seat/resource release and refund amount are independent decisions.
 - One Course Enrollment represents one Participant and one seat; multi-Participant enrollment creation is all-or-nothing.
@@ -543,6 +557,12 @@ T32.9A.9A — PASS / CLOSED (F1 / F2 / F3 / F4 / final integration smoke)
   No other accepted mandatory 9B capability remains: 9B.2–9B.4 and Reviews are PASS / CLOSED;
   9B.5 is not an accepted ticket; Course metrics belong to 9C and Chat Homework to 9P.HW1.
 → T32.9A.9C (Course progress / achievements)
+  9C.A semantics accepted; 9C.B READY_FOR_9C.C (2026-09-14, not deployed):
+  physical Account Enrollment cursor pagination reaches >100 rows; exact managed-Participant
+  selection is server-authorized; CourseEnrollmentReadModel includes request-time Course Progress
+  from verified CourseDays + one bounded page Attendance query; server-only
+  course_enrollment_outcome_work is synchronized from Enrollment writes and swept every 5 minutes
+  through existing resolve_attendance_outcome. Overall 9C is not PASS; 9C.C/9C.D/9C.E remain.
 → T32.9A.9P (Global Product Parity & legacy Dependency Gate)
 → T32.9A.9D0 (production-like incremental rehearsal)
 → T32.9A.9D (Selective Destructive legacy Data Cleanup — not a full Firestore reset)

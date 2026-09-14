@@ -1,5 +1,6 @@
 import {
   CanonicalCommandError,
+  InstructorIdSchema,
   assertCourseDayInstructorAttendanceWindow,
   attendanceCorrectionWouldContradictTerminalOutcome,
   assertExpectedRevision,
@@ -10,6 +11,7 @@ import {
   type CommandEnvelope,
   type CourseDay,
   type CourseEnrollment,
+  type InstructorId,
 } from '@ski-academy/shared-domain';
 import {
   assertAdministrator,
@@ -22,6 +24,29 @@ export type CourseEnrollmentAttendanceActorMode =
   | 'administrator'
   | 'admin_terminal_correction'
   | 'instructor_outcome_correction_required';
+
+export function resolveCourseDayAttendanceInstructorId(
+  envelope: CommandEnvelope<'record_course_day_attendance'>,
+  courseDay: CourseDay
+): InstructorId {
+  const parsedInstructorId = InstructorIdSchema.safeParse(
+    envelope.context.transportMetadata?.instructor_id
+  );
+  if (!parsedInstructorId.success) {
+    throw new CanonicalCommandError('forbidden', {
+      correlationId: envelope.context.correlationId,
+      details: { field: 'instructorId', reason: 'required' },
+    });
+  }
+  const instructorId = parsedInstructorId.data;
+  assertInstructorCapability(envelope, instructorId);
+  if (!instructorAssignedToCourseDay(courseDay, instructorId)) {
+    throw new CanonicalCommandError('forbidden', {
+      correlationId: envelope.context.correlationId,
+    });
+  }
+  return instructorId;
+}
 
 export function resolveCourseEnrollmentAttendanceActorMode(
   envelope: CommandEnvelope<'record_course_day_attendance'>
@@ -65,13 +90,7 @@ export function assertRecordCourseDayAttendanceAuthorization(
 
   if (isTerminalCourseEnrollmentLifecycle(enrollment)) {
     if (baseMode === 'instructor') {
-      const instructorId = courseDay.actualInstructorIds[0]!;
-      assertInstructorCapability(envelope, instructorId);
-      if (!instructorAssignedToCourseDay(courseDay, instructorId)) {
-        throw new CanonicalCommandError('forbidden', {
-          correlationId: envelope.context.correlationId,
-        });
-      }
+      resolveCourseDayAttendanceInstructorId(envelope, courseDay);
       const window = assertCourseDayInstructorAttendanceWindow({
         now: input.now,
         courseDay,
@@ -122,13 +141,7 @@ export function assertRecordCourseDayAttendanceAuthorization(
   }
 
   if (baseMode === 'instructor') {
-    const instructorId = courseDay.actualInstructorIds[0]!;
-    assertInstructorCapability(envelope, instructorId);
-    if (!instructorAssignedToCourseDay(courseDay, instructorId)) {
-      throw new CanonicalCommandError('forbidden', {
-        correlationId: envelope.context.correlationId,
-      });
-    }
+    const instructorId = resolveCourseDayAttendanceInstructorId(envelope, courseDay);
     const window = assertCourseDayInstructorAttendanceWindow({
       now: input.now,
       courseDay,

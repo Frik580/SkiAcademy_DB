@@ -32,6 +32,7 @@ export function mergeEvaluatedAndPersistedAchievements(input: {
   const byId = new Map<string, EvaluatedAchievement>();
   for (const item of input.evaluated) {
     const definition = input.config.items.find((entry) => entry.id === item.id);
+    if (definition?.rule.type === 'course_graduate') continue;
     if (definition && achievementProductScope(definition) === 'course') continue;
     byId.set(item.id, item);
   }

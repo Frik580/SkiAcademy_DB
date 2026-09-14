@@ -2,10 +2,19 @@ import type {
   CourseEnrollmentLifecycleStatus,
   CourseEnrollmentReadModelAuthorizedActions,
   CourseEnrollmentReadModelPaymentPresentation,
+  CourseProgressPresentation as SharedCourseProgressPresentation,
   CourseScheduleProjectionReadModel,
 } from '@ski-academy/shared-domain';
 import type { ClientCallableCapability } from '../../lib/canonical/canonicalCommandClient';
 import type { LessonBookingCabinetItem } from '../lesson-bookings/lessonBookingContracts';
+
+/** Participant/enrollment-scoped value; the 9C.B read model will transport it. */
+export type CourseProgressPresentation = SharedCourseProgressPresentation;
+
+export interface CourseProgressSelectionInput {
+  readonly selectedParticipantId: string | undefined;
+  readonly presentations: readonly CourseProgressPresentation[];
+}
 
 /** Customer cabinet projection — never carries synthetic booking/instructor fields. */
 export interface CourseEnrollmentCabinetItem {

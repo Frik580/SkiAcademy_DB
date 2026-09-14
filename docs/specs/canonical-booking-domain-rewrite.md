@@ -377,6 +377,14 @@ T32.9A.9B — PASS / CLOSED: stats/progress/recommendations + Reviews / instruct
   Course metrics are 9C and participant-scoped Chat Homework is 9P.HW1.
         ↓
 T32.9A.9C (Course progress / achievements)
+  9C.B READY_FOR_9C.C: participant-scoped CourseProgressPresentation derives
+  elapsed required CourseDays / scheduled required CourseDays; Attendance coverage and rate are
+  separate; CourseEnrollment lifecycle remains completion authority; course_graduate is reserved
+  for server issuance from lifecycle completed with course_completion source. Required CourseDays
+  freeze at the first canonical CourseEnrollment (ADR-0009). 9C.B implements physical
+  cursor-based Account Enrollment pagination, authorized selected-Participant reads, request-time
+  CourseProgress projection, and bounded dueAt Course outcome work/scheduler. No deploy or
+  migration is recorded; 9C.C UI, 9C.D issuance, and 9C.E containment remain.
         ↓
 T32.9A.9P (Global Product Parity & legacy Dependency Gate)
         ↓

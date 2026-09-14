@@ -40,6 +40,11 @@ export function assertCourseDayCountWithinLimit(existingDayCount: number): void 
   }
 }
 
+/** Every current CourseDay becomes a required progress/completion day at first enrollment. */
+export function courseRequiredDaySetIsFrozen(hasCanonicalEnrollment: boolean): boolean {
+  return hasCanonicalEnrollment;
+}
+
 export function deriveCourseScheduleProjectionAfterDayAdded(
   course: Course,
   newInterval: TimeInterval

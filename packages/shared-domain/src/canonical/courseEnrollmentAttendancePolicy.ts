@@ -70,10 +70,24 @@ export function evaluateCourseEnrollmentAutomationEligibility(input: {
   readonly now: CanonicalTimestamp;
   readonly finalCourseDayEndsAt: CanonicalTimestamp;
 }): CourseEnrollmentOutcomeEligibilityDecision {
-  const automationEligibleAt = courseDayInstructorAttendanceWindowEnd(input.finalCourseDayEndsAt);
+  const automationEligibleAt = courseEnrollmentOutcomeDueAt(input.finalCourseDayEndsAt);
   return compareCanonicalTimestamps(input.now, automationEligibleAt) >= 0
     ? 'eligible'
     : 'not_yet_eligible';
+}
+
+/** Exact dueAt for the bounded Course outcome work item implemented in 9C.B. */
+export function courseEnrollmentOutcomeDueAt(
+  finalCourseDayEndsAt: CanonicalTimestamp
+): CanonicalTimestamp {
+  return courseDayInstructorAttendanceWindowEnd(finalCourseDayEndsAt);
+}
+
+/** Only confirmed Enrollment lifecycle is eligible for automatic Course outcome work. */
+export function courseEnrollmentRequiresOutcomeWork(
+  enrollment: Pick<CourseEnrollment, 'lifecycle'>
+): boolean {
+  return enrollment.lifecycle.status === 'confirmed';
 }
 
 export function deriveCourseEnrollmentAttendanceSufficiency(input: {

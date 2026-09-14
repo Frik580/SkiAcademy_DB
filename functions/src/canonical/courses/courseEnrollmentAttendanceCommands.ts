@@ -65,6 +65,7 @@ import {
 import type { CanonicalAtomicTransactionSession } from '../transactions';
 import {
   assertRecordCourseDayAttendanceAuthorization,
+  resolveCourseDayAttendanceInstructorId,
   type CourseEnrollmentAttendanceActorMode,
 } from './courseEnrollmentAttendanceAuthorization';
 import {
@@ -227,6 +228,7 @@ function recordCourseDayAttendanceHandler(
   let attendanceDocumentPath = '';
   let attendanceMutation: 'create' | 'update' = 'create';
   let actorMode!: CourseEnrollmentAttendanceActorMode;
+  let attendanceInstructorId: import('@ski-academy/shared-domain').InstructorId | undefined;
   let plannedEnrollment: CourseEnrollment | undefined;
   let plannedEnrollmentRevision: number | undefined;
   let plannedClaimRelease: PlannedCourseEnrollmentClaimRelease | undefined;
@@ -307,6 +309,10 @@ function recordCourseDayAttendanceHandler(
         existingAttendance: effectiveExistingAttendance,
         now,
       });
+      attendanceInstructorId =
+        actorMode === 'instructor' || actorMode === 'instructor_outcome_correction_required'
+          ? resolveCourseDayAttendanceInstructorId(envelope, courseDay)
+          : undefined;
 
       if (actorMode === 'instructor_outcome_correction_required') {
         skipAttendanceMutation = true;
@@ -357,9 +363,9 @@ function recordCourseDayAttendanceHandler(
               participantId: enrollment.participantId,
             },
             attendanceStatus: envelope.intent.attendanceStatus,
-            recordedBy: { kind: 'instructor', instructorId: courseDay.actualInstructorIds[0]! },
+            recordedBy: { kind: 'instructor', instructorId: attendanceInstructorId! },
             recordedAt: now,
-            lastChangedBy: { kind: 'instructor', instructorId: courseDay.actualInstructorIds[0]! },
+            lastChangedBy: { kind: 'instructor', instructorId: attendanceInstructorId! },
             updatedAt: now,
             revision: AggregateRevisionSchema.parse(1),
             correlationId: metadata.correlationId,
@@ -404,7 +410,7 @@ function recordCourseDayAttendanceHandler(
         }
       }
 
-      const instructorId = courseDay.actualInstructorIds[0]!;
+      const instructorId = attendanceInstructorId ?? courseDay.actualInstructorIds[0]!;
       const recorder = buildAttendanceRecorder(actorMode, envelope, instructorId);
       const revisionBase = effectiveExistingAttendance ?? existingAttendance;
       const nextAttendanceRevision = revisionBase

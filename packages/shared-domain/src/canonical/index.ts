@@ -43,6 +43,7 @@ export * from './courseCatalogContent';
 export * from './courseProvisioningManifest';
 export * from './courseEnrollmentCancellationPolicy';
 export * from './courseEnrollmentAttendancePolicy';
+export * from './courseProgressPresentation';
 export * from './courseEnrollmentReconciliationPolicy';
 export * from './courseDayScheduling';
 export * from './adminIssuePolicy';

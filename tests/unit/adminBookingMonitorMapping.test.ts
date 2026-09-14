@@ -1,11 +1,64 @@
 import { describe, expect, it } from 'vitest';
-import type { LessonBookingReadModel } from '@ski-academy/shared-domain';
+import type {
+  AdminCourseEnrollmentRosterItem,
+  LessonBookingReadModel,
+} from '@ski-academy/shared-domain';
 import {
   lessonBookingToMonitorRow,
   mergeAdminBookingMonitorRows,
+  unionAdminMonitorCourseEnrollments,
 } from '../../src/features/admin/operations/adminBookingMonitorMapping';
 import { resolveAdminMonitorLessonStatusFromRow } from '../../src/features/admin/lesson-bookings/lessonBookingAdminPresentation';
 import { readRepoFile } from '../helpers/readRepoFile';
+
+function enrollment(input: {
+  enrollmentId: string;
+  displayName: string;
+  courseId?: string;
+  participantId?: string;
+  lifecycleStatus?: AdminCourseEnrollmentRosterItem['lifecycleStatus'];
+}): AdminCourseEnrollmentRosterItem {
+  return {
+    enrollmentId: input.enrollmentId,
+    revision: 1,
+    course: {
+      courseId: input.courseId ?? 'course_carve_clean',
+      title: 'CARVE — Clean Carving',
+      lifecycle: 'published',
+      revision: 1,
+    },
+    participant: {
+      participantId: input.participantId ?? `participant_${input.enrollmentId}`,
+      displayName: input.displayName,
+    },
+    lifecycleStatus: input.lifecycleStatus ?? 'pending',
+    guestState: 'pending_unlinked',
+    payment: {
+      paymentId: `payment_${input.enrollmentId}`,
+      status: 'unpaid',
+      revision: 1,
+      price: 100_000,
+      paid: 0,
+      refunded: 0,
+      retained: 0,
+      settled: 0,
+      writtenOff: 0,
+      outstanding: 100_000,
+    },
+    relatedIssues: [],
+    authorizedActions: {
+      canResolveCancellation: false,
+      canTransfer: false,
+      canReconcile: false,
+      canResolveAttendanceOutcome: false,
+      canCancelUnpaidGuest: true,
+      canApproveGuest: false,
+      canLinkGuest: true,
+      canWithdraw: false,
+    },
+    updatedAt: { seconds: 1_700_000_000, nanoseconds: 0 },
+  } as AdminCourseEnrollmentRosterItem;
+}
 
 function lessonReadModel(
   lifecycleStatus: LessonBookingReadModel['lifecycle']['status']
@@ -37,6 +90,91 @@ describe('adminBookingMonitorMapping', () => {
     const row = lessonBookingToMonitorRow(lessonReadModel('completed'));
     expect(row.status).toBe('completed');
     expect(row.canonicalLifecycleStatus).toBe('completed');
+  });
+
+  it('unions roster over pending_guest by canonical enrollmentId only', () => {
+    const A = enrollment({ enrollmentId: 'enrollment_A', displayName: 'Tyra' });
+    const B = enrollment({ enrollmentId: 'enrollment_B', displayName: 'Petrosin' });
+    const C = enrollment({ enrollmentId: 'enrollment_C', displayName: 'Guest C' });
+
+    expect(unionAdminMonitorCourseEnrollments([A], [A]).map((item) => item.enrollmentId)).toEqual([
+      'enrollment_A',
+    ]);
+    expect(
+      unionAdminMonitorCourseEnrollments([A, B], [B, C]).map((item) => item.enrollmentId)
+    ).toEqual(['enrollment_A', 'enrollment_B', 'enrollment_C']);
+  });
+
+  it('keeps the roster item when pending_guest repeats the same enrollmentId', () => {
+    const rosterA = enrollment({
+      enrollmentId: 'enrollment_A',
+      displayName: 'Roster Tyra',
+      lifecycleStatus: 'confirmed',
+    });
+    const pendingA = enrollment({
+      enrollmentId: 'enrollment_A',
+      displayName: 'Pending Tyra',
+      lifecycleStatus: 'pending',
+    });
+    const unioned = unionAdminMonitorCourseEnrollments([rosterA], [pendingA]);
+    expect(unioned).toHaveLength(1);
+    expect(unioned[0]).toBe(rosterA);
+    expect(unioned[0]?.participant.displayName).toBe('Roster Tyra');
+    expect(unioned[0]?.lifecycleStatus).toBe('confirmed');
+  });
+
+  it('keeps different enrollmentIds even when guest and course match', () => {
+    const first = enrollment({
+      enrollmentId: 'enrollment_tyra_1',
+      displayName: 'Tyra',
+      courseId: 'course_carve_clean',
+      participantId: 'participant_shared',
+    });
+    const second = enrollment({
+      enrollmentId: 'enrollment_tyra_2',
+      displayName: 'Tyra',
+      courseId: 'course_carve_clean',
+      participantId: 'participant_shared',
+    });
+    expect(
+      unionAdminMonitorCourseEnrollments([first], [second]).map((item) => item.enrollmentId)
+    ).toEqual(['enrollment_tyra_1', 'enrollment_tyra_2']);
+  });
+
+  it('does not change lesson rows when unioning course enrollments', () => {
+    const A = enrollment({ enrollmentId: 'enrollment_A', displayName: 'Tyra' });
+    const pendingA = enrollment({
+      enrollmentId: 'enrollment_A',
+      displayName: 'Pending Tyra',
+    });
+    const C = enrollment({ enrollmentId: 'enrollment_C', displayName: 'Guest C' });
+    const confirmed = lessonReadModel('confirmed');
+    const completed = lessonReadModel('completed');
+    const merged = mergeAdminBookingMonitorRows(
+      [confirmed, completed],
+      unionAdminMonitorCourseEnrollments([A], [pendingA, C])
+    );
+    expect(merged.map((row) => row.id)).toEqual([
+      'booking_monitor_1',
+      'booking_monitor_1',
+      'enrollment_A',
+      'enrollment_C',
+    ]);
+    expect(merged[0]?.canonicalLifecycleStatus).toBe('confirmed');
+    expect(merged[1]?.canonicalLifecycleStatus).toBe('completed');
+  });
+
+  it('emits unique Active Bookings course enrollmentIds after roster/pending union', () => {
+    const A = enrollment({ enrollmentId: 'enrollment_A', displayName: 'Tyra' });
+    const B = enrollment({ enrollmentId: 'enrollment_B', displayName: 'Petrosin' });
+    const C = enrollment({ enrollmentId: 'enrollment_C', displayName: 'Guest C' });
+    const merged = mergeAdminBookingMonitorRows(
+      [lessonReadModel('confirmed')],
+      unionAdminMonitorCourseEnrollments([A, B], [A, B, C])
+    );
+    const courseEnrollmentIds = merged.filter((row) => row.courseId).map((row) => row.id);
+    expect(courseEnrollmentIds).toEqual(['enrollment_A', 'enrollment_B', 'enrollment_C']);
+    expect(new Set(courseEnrollmentIds).size).toBe(courseEnrollmentIds.length);
   });
 
   it('builds active monitor rows from hot lessons only', () => {
@@ -84,5 +222,7 @@ describe('adminBookingMonitorMapping', () => {
     expect(context).toContain('refreshAllProjections');
     const monitor = readRepoFile('src/features/admin/operations/useAdminMonitorReadModels.ts');
     expect(monitor).not.toContain('lessonsHistory.list.items');
+    expect(monitor).toContain('unionAdminMonitorCourseEnrollments');
+    expect(monitor).toContain('mergeAdminBookingMonitorRows');
   });
 });

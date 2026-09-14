@@ -76,7 +76,7 @@ describe('Admin monitor single owner', () => {
       <MemoryRouter>
         <AdminMonitorReadModelsProvider>
           <AdminOperationalMetricsHost instructorsCount={3} />
-          <AdminActiveBookingMonitor usersList={[]} instructors={[]} />
+          <AdminActiveBookingMonitor usersList={[]} />
         </AdminMonitorReadModelsProvider>
       </MemoryRouter>
     );
@@ -113,7 +113,7 @@ describe('Admin monitor single owner', () => {
       <MemoryRouter>
         <AdminMonitorReadModelsProvider>
           <AdminOperationalMetricsHost instructorsCount={1} />
-          <AdminActiveBookingMonitor usersList={[]} instructors={[]} />
+          <AdminActiveBookingMonitor usersList={[]} />
           <RefreshProbe
             onReady={(fn) => {
               refreshAll = fn;

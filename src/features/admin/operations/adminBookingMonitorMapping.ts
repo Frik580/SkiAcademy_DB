@@ -86,6 +86,22 @@ export function courseEnrollmentToMonitorRow(enrollment: AdminCourseEnrollmentRo
   };
 }
 
+export function unionAdminMonitorCourseEnrollments(
+  roster: readonly AdminCourseEnrollmentRosterItem[],
+  pendingGuest: readonly AdminCourseEnrollmentRosterItem[]
+): AdminCourseEnrollmentRosterItem[] {
+  const byEnrollmentId = new Map<string, AdminCourseEnrollmentRosterItem>();
+  for (const item of roster) {
+    byEnrollmentId.set(item.enrollmentId, item);
+  }
+  for (const item of pendingGuest) {
+    if (!byEnrollmentId.has(item.enrollmentId)) {
+      byEnrollmentId.set(item.enrollmentId, item);
+    }
+  }
+  return [...byEnrollmentId.values()];
+}
+
 export function mergeAdminBookingMonitorRows(
   lessons: readonly LessonBookingReadModel[],
   enrollments: readonly AdminCourseEnrollmentRosterItem[]

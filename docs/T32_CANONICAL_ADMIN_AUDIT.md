@@ -19,7 +19,10 @@ Amended: 2026-09-12 — T32.9A.9B.4 Stats / Achievements isolation + integration
 Amended: 2026-09-13 — T32.9A.9A.F5 Canonical Guest Course Reservation Expiry added as a post-close corrective follow-up after a separate guest CourseEnrollment expiry/runtime gap was identified. Existing F1–F4 acceptance remains valid.
 Amended: 2026-09-13 — Reviews / Instructor Rating Continuity production deploy and authenticated manual smoke **PASS**; legacy review write/read, rating fallback, and dual-write reachability are each zero. T32.9A.9B.4 Stats / Achievements production smoke is also **PASS**. With no other accepted mandatory 9B capability (9B.5 is not an accepted ticket), **T32.9A.9B is PASS / CLOSED**; next accepted slice is **T32.9A.9C**.
 Amended: 2026-09-13 — **T32.9R** Firestore / server-resource optimization status reconciled. Completed small read bounds (BG1, UI1/UI1B, P0A/P0B, A2, R1A, M1/M2; BG2 implemented+migrated). **R1** physical `account_history` pagination and **R2** maintained participant stats projection are **DEFERRED** (not next coding tickets). Next optimization step is deploy/runtime verification of remaining READY items, then production re-measurement — not speculative projection work. See **T32.9R** below. Historical scratch audits under `.scratch/` remain evidence, not roadmap authority.
-Amended: 2026-09-14 — **T32.9A.9C PASS / CLOSED** (code integration/containment gate). Course Progress, participant isolation, bounded outcome automation, and server-side `course_graduate` are canonical; legacy Course WRITE/authority-READ/fallback/dual-write reachability is zero. Certificates remain out of 9C. No historical backfill. Production deploy + authenticated smoke are not recorded.
+Amended: 2026-09-14 — **T32.9A.9P BLOCKED** after independent review. 9P.HW1 participant-scoped Chat Homework is implemented. Guest course expiry / deployed `createGuestCourseEnrollment` remain **T32.9A.9A.F5** (READY_FOR_DEPLOY, production inventory unknown). Leftover `users.balanceUSD` signup write and `amountUsd` gift fallback remain documented compatibility, not 9P PASS. Next destructive slice **T32.9A.9D0 is forbidden** until 9P PASS.
+Amended: 2026-09-14 — **T32.9A.9P PASS / CLOSED** for source / current production client (leftover counters WRITE / authority READ / fallback / dual-write = 0). Gift field names remain **KEEP_COMPATIBILITY**, not leftover authority. **T32.9A.9D0 PASS / CLOSED**: exact source delete manifest rehearsed; destructive data list = NONE; production Function deletions **BLOCKED_BY_F5** + **BLOCKED_BY_PRODUCTION_INVENTORY**. **T32.9A.9D NOT STARTED**. **T32.9A.9A.F5** remains READY_FOR_DEPLOY / production inventory UNKNOWN.
+Amended: 2026-09-14 — **T32.9A.9A.F5** production inventory independently re-listed on `ski-school-8f3ca`: `createGuestCourseEnrollment` = **ABSENT** (no longer a blocker); `executeGuestCanonicalCommand` = ACTIVE; `scheduledExpireGuestCourseReservations` = ACTIVE; Cloud Scheduler every 5 minutes UTC with healthy no-op executions (`scannedCandidates: 0`, `failed: 0`). F5 is **BLOCKED_ONLY_BY_PRODUCTION_EXPIRY_SMOKE** (24h TTL; no safe test/admin clock or force-expire path; no natural expired candidate in the observed window). **9D0 remains PASS / CLOSED**. **9D NOT STARTED**.
+Amended: 2026-09-15 — Admin Active Bookings guest CourseEnrollment duplicate rows closed **PASS / DEPLOYED / RUNTIME VERIFIED**. One canonical `CourseEnrollment` produces one Active Bookings row: `admin_course_roster ∪ admin_pending_guest` keyed by `enrollmentId`, roster precedence. Hosting + `queryAdminCourseEnrollmentReadModels` (`queryadmincourseenrollmentreadmodels-00010-bit`) deployed; authenticated production smoke PASS.
 
 Status: historical Admin-runtime audit from 2026-08-30, with later T32.8A–T32.8C and T32.9A/T32.9B migration status below. Findings in this document that describe unpaid Administrator guest approval, missing guest CourseEnrollment confirmation, or identity linking as confirmation are superseded by ADR-0007. Sections below that still describe the 2026-08-30 Admin runtime as fully legacy are historical audit evidence; later migration status in this preamble supersedes them for T32.9A progress.
 
@@ -55,7 +58,8 @@ T32.9 remains split per [ADR-0008](adr/0008-ux-preservation-during-canonical-mig
 | T32.9A.9A.F3                                   | Canonical Multi-Participant Lesson Booking                               | PASS / CLOSED                             |
 | T32.9A.9A.F4                                   | Canonical Multi-Participant Lesson Attendance UX                         | PASS / CLOSED                             |
 | T32.9A.9A final integration / production smoke | 9A close gate after F4                                                   | PASS                                      |
-| T32.9A.9A.F5                                   | Canonical Guest Course Reservation Expiry                                | IN PROGRESS                               |
+| T32.9A.9A.F5                                   | Canonical Guest Course Reservation Expiry                                | BLOCKED_ONLY_BY_PRODUCTION_EXPIRY_SMOKE   |
+| Admin Active Bookings CourseEnrollment uniqueness | Roster ∪ pending_guest by `enrollmentId` (roster precedence)          | PASS / DEPLOYED / RUNTIME VERIFIED        |
 | T32.9A.9A                                      | Individual Booking lifecycle cutover (overall)                           | PASS / CLOSED                             |
 | T32.9A.9B                                      | Student Booking Stats / Progress / Recommendations / Reviews Cutover     | PASS / CLOSED                             |
 | T32.9A.9B.2                                    | Canonical Participant Progress                                           | PASS / CLOSED                             |
@@ -64,15 +68,27 @@ T32.9 remains split per [ADR-0008](adr/0008-ux-preservation-during-canonical-mig
 | Reviews / Instructor Rating Continuity         | Canonical review command, read models, rating summaries, legacy gate     | PASS / CLOSED                             |
 | T32.9R                                         | Firestore / server-resource optimization (parallel to cutover)           | ACTIVE — see T32.9R status table          |
 | T32.9A.9C                                      | Course Progress / Achievements Cutover                                   | PASS / CLOSED                             |
-| T32.9A.9P                                      | Global Product Parity & Legacy Dependency Gate                           | PENDING                                   |
-| T32.9A.9D0                                     | Production-like Incremental Cutover Rehearsal                            | PENDING                                   |
-| T32.9A.9D                                      | Selective Destructive Legacy Data Cleanup                                | PENDING                                   |
+| T32.9A.9P                                      | Global Product Parity & Legacy Dependency Gate                           | PASS / CLOSED                             |
+| T32.9A.9D0                                     | Production-like Incremental Cutover Rehearsal                            | PASS / CLOSED                             |
+| T32.9A.9D                                      | Selective Destructive Legacy Data Cleanup                                | NOT STARTED                               |
 | T32.9A.9E                                      | Canonical Authority / Reachability Gate                                  | PENDING                                   |
 | T32.9B                                         | Final Legacy Write / Runtime Cleanup                                     | PENDING; blocked until T32.9A.9E PASS     |
 | T40                                            | Execute Rehearsed Selective Production Cutover                           | PENDING; after T32.9B                     |
 | T41                                            | Expanded Post-Cutover Verification                                       | PENDING; after T40                        |
 
-Status labels used here: `PASS`, `PASS / CLOSED`, `PASS / DEPLOYED`, `REQUIRED`, `IN PROGRESS`, `PLANNED`, `READY_FOR_MANUAL_SMOKE`, `READY_FOR_DEPLOY`, `DEPLOY-RUNTIME-VERIFICATION-PENDING`, `DEFERRED`, `PENDING`, `NOT CLOSED`. T32.9A.9A original F1–F4 integration close (including final integration / production smoke) remains **PASS / CLOSED**. **T32.9A.9A.F5** is an active post-close corrective follow-up on guest CourseEnrollment reservation expiry; it does not reopen or invalidate F1–F4. **T32.9A.9B is PASS / CLOSED**. **T32.9A.9C is PASS / CLOSED**; the next accepted **cutover** slice is **T32.9A.9P**. **T32.9R** is a parallel read-cost track. **R1/R2 are not mandatory next implementation tickets**.
+Status labels used here: `PASS`, `PASS / CLOSED`, `PASS / DEPLOYED`, `PASS / DEPLOYED / RUNTIME VERIFIED`, `REQUIRED`, `IN PROGRESS`, `PLANNED`, `READY_FOR_MANUAL_SMOKE`, `READY_FOR_DEPLOY`, `DEPLOY-RUNTIME-VERIFICATION-PENDING`, `DEFERRED`, `PENDING`, `NOT CLOSED`. T32.9A.9A original F1–F4 integration close (including final integration / production smoke) remains **PASS / CLOSED**. **T32.9A.9A.F5** is an active post-close corrective follow-up on guest CourseEnrollment reservation expiry; it does not reopen or invalidate F1–F4. **Admin Active Bookings CourseEnrollment uniqueness is PASS / DEPLOYED / RUNTIME VERIFIED** (2026-09-15). **T32.9A.9B is PASS / CLOSED**. **T32.9A.9C is PASS / CLOSED**. **T32.9A.9P is PASS / CLOSED** for source / current production client (leftover counters = 0; gift fields KEEP_COMPATIBILITY). **T32.9A.9D0 is PASS / CLOSED** (exact source delete manifest; data delete = NONE; production Function delete gated). **T32.9A.9D is NOT STARTED**. **T32.9A.9A.F5** is **BLOCKED_ONLY_BY_PRODUCTION_EXPIRY_SMOKE** (production inventory confirmed 2026-09-14: `createGuestCourseEnrollment` ABSENT; scheduler ACTIVE). **T32.9R** is a parallel read-cost track. **R1/R2 are not mandatory next implementation tickets**.
+
+#### Admin Active Bookings CourseEnrollment uniqueness — PASS / DEPLOYED / RUNTIME VERIFIED
+
+Post-close Admin Operations corrective follow-up (2026-09-15). Guest CourseEnrollments that matched both `admin_course_roster` and `admin_pending_guest` were concatenated into duplicate Active Bookings rows. Guest creation, payments, and enrollment idempotency were not the defect.
+
+**Invariant:** one canonical `CourseEnrollment` ⇒ one Active Bookings row.
+
+**Implementation:** `unionAdminMonitorCourseEnrollments` in `useAdminMonitorReadModels` — `admin_course_roster ∪ admin_pending_guest` keyed only by canonical `enrollmentId`; roster has precedence and order; pending contributes only enrollmentIds absent from roster. Distinct `enrollmentId`s remain separate rows even when guest name and course match.
+
+**Production:** Hosting deployed; `queryAdminCourseEnrollmentReadModels` revision `queryadmincourseenrollmentreadmodels-00010-bit` replaced the diagnostic callable. Authenticated production smoke PASS (Tyra = 1 row, Petrosin = 1 row; no TEMP diagnostics; filters and client pagination remain removed; lesson and course row actions work).
+
+This does not reopen T32.9A.9A F1–F4 or change F5 expiry work.
 
 T32.9A.9A remains historically **PASS / CLOSED** for the original Individual Booking F1–F4 cutover. F5 was added after that close when a separate guest CourseEnrollment lifecycle/runtime gap was identified. F5 does not invalidate completed Individual Booking lifecycle work, but must reach **PASS / CLOSED** before final legacy guest CourseEnrollment removal and downstream destructive cutover gates may treat canonical guest course lifecycle as complete.
 
@@ -96,7 +112,8 @@ T32.9A.9A — Individual Booking lifecycle cutover — PASS / CLOSED
   T32.9A.9A.F3 — Canonical Multi-Participant Lesson Booking
   T32.9A.9A.F4 — Canonical Multi-Participant Lesson Attendance UX
   T32.9A.9A final integration / production smoke
-  T32.9A.9A.F5 — Canonical Guest Course Reservation Expiry — IN PROGRESS (post-close corrective; gates guest CourseEnrollment legacy removal)
+  T32.9A.9A.F5 — Canonical Guest Course Reservation Expiry — BLOCKED_ONLY_BY_PRODUCTION_EXPIRY_SMOKE (inventory PASS; expiry semantics smoke pending)
+  Admin Active Bookings CourseEnrollment uniqueness — PASS / DEPLOYED / RUNTIME VERIFIED
 T32.9A.9B — Student Booking Stats / Progress / Recommendations Cutover — PASS / CLOSED
          (includes Reviews / Instructor Rating Continuity)
   T32.9A.9B.2 — Canonical Participant Progress — PASS / CLOSED (production smoke 2026-09-11)
@@ -104,8 +121,8 @@ T32.9A.9B — Student Booking Stats / Progress / Recommendations Cutover — PAS
   T32.9A.9B.4 — Stats / Achievements — PASS / CLOSED
   Reviews / Instructor Rating Continuity — PASS / CLOSED
 T32.9A.9C — Course Progress / Achievements Cutover — PASS / CLOSED
-T32.9A.9P — Global Product Parity & Legacy Dependency Gate
-T32.9A.9D0 — Production-like Incremental Cutover Rehearsal
+T32.9A.9P — Global Product Parity & Legacy Dependency Gate — PASS / CLOSED
+T32.9A.9D0 — Production-like Incremental Cutover Rehearsal — PASS / CLOSED
 T32.9A.9D — Selective Destructive Legacy Data Cleanup
 T32.9A.9E — Canonical Authority / Reachability Gate
 THEN
@@ -642,9 +659,9 @@ Gate after F2 + F4 (with F1 `PASS / DEPLOYED` and F3 `PASS / CLOSED` already rec
 
 Recorded **PASS** in production (2026-09-10). T32.9A.9A overall remains **PASS / CLOSED** for the original F1–F4 scope; **T32.9A.9B** is the active stage. Guest course reservation automatic expiry is tracked under **T32.9A.9A.F5** (see below).
 
-##### T32.9A.9A.F5 — Canonical Guest Course Reservation Expiry — READY_FOR_DEPLOY
+##### T32.9A.9A.F5 — Canonical Guest Course Reservation Expiry — BLOCKED_ONLY_BY_PRODUCTION_EXPIRY_SMOKE
 
-T32.9A.9A.F5 was added after the original T32.9A.9A production close when a separate guest CourseEnrollment lifecycle/runtime gap was identified. The prior F1–F4 acceptance remains valid. F5 does not invalidate completed Individual Booking lifecycle work. Its bounded scheduler and unreachable legacy source removal are implemented and emulator-verified; deploy and production smoke remain before **PASS / CLOSED** and downstream destructive cutover gates may close.
+T32.9A.9A.F5 was added after the original T32.9A.9A production close when a separate guest CourseEnrollment lifecycle/runtime gap was identified. The prior F1–F4 acceptance remains valid. F5 does not invalidate completed Individual Booking lifecycle work. Bounded scheduler, unreachable legacy source removal, and production deploy/inventory are done. The remaining gate is production expiry-semantics smoke.
 
 **Previous gap (not a schema redesign).** Canonical guest CourseEnrollment already supported guest origin, `pending` lifecycle, canonical Payment, authoritative `reservationExpiresAt`, seat reservation, resource claims, payment-driven confirmation, and canonical `expire_guest_reservation` behavior for CourseEnrollment subjects (`expireGuestCourseEnrollmentReservation`). It lacked a bounded production scheduler export, so a guest CourseEnrollment that was `pending`, not fully funded, and past `reservationExpiresAt` could remain active and continue occupying course capacity until explicitly handled.
 
@@ -709,7 +726,7 @@ Authoritative field: `CourseEnrollment.lifecycle.reservationExpiresAt`, set at g
 
 **Partially funded expiry.** Partial payment does not protect the guest reservation (same unpaid-hold semantics as F2). F5 does not decide refund percentage, retention, write-off, Wallet credit, or provider refund on expiry — expiry/lifecycle and financial resolution remain within already accepted canonical policy. Payment amounts are not mutated by reservation expiry. Broader partially-paid guest cancellation/refund policy remains explicitly deferred per T32.8C.
 
-**Bounded background reads (implemented; READY_FOR_DEPLOY).** F5 does not scan every CourseEnrollment, every Payment, all unpaid Payments, or perform unbounded collection walks. `scheduledExpireGuestCourseReservations` runs every 5 minutes in UTC with `maxInstances: 1`, 256 MiB, and Gen 1 CPU. Its candidate query shape is:
+**Bounded background reads (deployed; expiry smoke pending).** F5 does not scan every CourseEnrollment, every Payment, all unpaid Payments, or perform unbounded collection walks. `scheduledExpireGuestCourseReservations` runs every 5 minutes in UTC with `maxInstances: 1`, 256 MiB, and Gen 1 CPU. Its candidate query shape is:
 
 ```text
 guest origin + pending + reservationExpiresAt <= now
@@ -726,7 +743,7 @@ The query uses page size 25, maximum 100 candidates per invocation, and an `(res
 | `functions/src/courses/createGuestCourseEnrollment.ts`        | **REMOVED** — no production caller; export removed from `functions/src/index.ts`                                 |
 | `src/features/courses/createGuestCourseEnrollmentCallable.ts` | **REMOVED** — no imports/callers; active UI uses `executeGuestCanonicalCommand` with `create_course_enrollments` |
 
-The caller audit found no frontend/server production invocation of the legacy callable. The active `CourseEnrollmentModal` path already used `useCourseEnrollmentCommands.createGuestEnrollment`, canonical `create_course_enrollments`, and persisted canonical guest linking/cancellation credentials, so no UX migration was needed before removal. Deployment must explicitly remove the previously deployed callable and create the scheduler; runtime smoke remains outstanding.
+The caller audit found no frontend/server production invocation of the legacy callable. The active `CourseEnrollmentModal` path already used `useCourseEnrollmentCommands.createGuestEnrollment`, canonical `create_course_enrollments`, and persisted canonical guest linking/cancellation credentials, so no UX migration was needed before removal. Production inventory (2026-09-14 independent `functions:list` on `ski-school-8f3ca`) confirms the previously deployed callable is **ABSENT**; it is no longer an F5 blocker.
 
 Final invariants:
 
@@ -751,8 +768,31 @@ Final invariants:
 14. Legacy `createGuestCourseEnrollment` reachability is resolved (`REMOVED` or `MIGRATED_AND_REMOVED`).
 15. No active production path can create indefinite guest `pending` enrollment without TTL.
 16. Focused unit/emulator tests pass. **PASS in release candidate.**
-17. Production deploy succeeds. **PENDING — this ticket did not authorize deploy.**
-18. Production runtime smoke verifies expected behavior. **PENDING — requires deploy.**
+17. Production deploy succeeds. **PASS (2026-09-14 inventory).** `scheduledExpireGuestCourseReservations` ACTIVE; `createGuestCourseEnrollment` ABSENT; Cloud Scheduler every 5 minutes UTC; observed executions healthy (`scannedCandidates: 0`, `expired: 0`, `failed: 0`).
+18. Production runtime smoke verifies expected behavior. **BLOCKED_ONLY_BY_PRODUCTION_EXPIRY_SMOKE.** Observed scheduler window has no expired candidate. Source TTL is 24 hours (`GUEST_COURSE_RESERVATION_TTL_MS`). `expire_guest_reservation` is system/scheduler-only (`assertExpireGuestReservationAuthorization`). Guest callable allowlist does not include it. Emulator sweep injects `now`; production scheduler does not. No admin/test path may backdate `reservationExpiresAt`. Using a course that starts within 24h is not a valid seat-release smoke (`shouldReleasePreStartSeatOnTerminalization` is false after `course.startAt`).
+
+**Production inventory (ski-school-8f3ca, independent re-list 2026-09-14).**
+
+| Function | Production |
+| -------- | ---------- |
+| `createGuestCourseEnrollment` | **ABSENT** — not a blocker |
+| `executeGuestCanonicalCommand` | **ACTIVE** (callable) |
+| `scheduledExpireGuestCourseReservations` | **ACTIVE** (scheduled, us-central1, 256MiB, nodejs20) |
+| Cloud Scheduler job | **ENABLED**, every 5 minutes UTC (executions 17:21–18:31Z observed) |
+
+**Exact remaining manual smoke (ordinary guest flow; read-only observation after create).**
+
+Do not write Firestore by console. Do not invoke `expire_guest_reservation` from a callable. Do not deploy or delete.
+
+1. Choose a production Course whose `startAt` is **strictly more than 24 hours** from now, so `reservationExpiresAt = createdAt + 24h` and expiry happens while pre-start seat release is still allowed. Record `courseId` and `capacity.availableSeats`. Record one existing **confirmed** enrollment id on that course or another course as the funded/confirmed control (must remain confirmed).
+2. Logged-out public home → group course card → guest enroll tab in `CourseEnrollmentModal` (name + phone required). Do **not** pay. Creation path must be `executeGuestCanonicalCommand` / `create_course_enrollments`.
+3. Record before-expiry: `enrollmentId`, `paymentId`, `lifecycle.status = pending`, `lifecycle.reservationExpiresAt`, `courses/{courseId}.capacity.availableSeats` (expect −1 vs step 1), `resource_claims` with `ownerId = enrollmentId` and active `course_seat_pre_start` + `participant_course_day_enrollment`.
+4. Wait until `now >= reservationExpiresAt`, then the next scheduler run (`scheduledExpireGuestCourseReservations`, every 5 minutes UTC).
+5. After: enrollment `lifecycle.status = cancelled`, `reasonCode = reservation_expired`; availableSeats restored exactly +1; those claims `lifecycle.status = released`; Payment amounts unchanged.
+6. Replay: the following scheduler run must not expire/release again (`scannedCandidates` excludes this id or classifies already-terminal; availableSeats unchanged; claims remain released).
+7. Control: the confirmed enrollment from step 1 remains `confirmed`.
+
+Until those IDs/timestamps/results are recorded, F5 cannot be **PASS / CLOSED**.
 
 **Downstream cutover gate.** Unresolved F5 blocks treating canonical guest course lifecycle as complete for:
 
@@ -821,7 +861,7 @@ This is **not** a claim that every legacy function in the project was removed �
 | `scheduledReconcileGuestConfirmationMismatches`              | Canonical / active                                                                                                                                      |
 | `scheduledPurgeExpiredNotifications`                         | Canonical / active                                                                                                                                      |
 | Guest unpaid reservation expiry scheduler (lesson Booking)   | `scheduledExpireGuestLessonReservations` — Canonical / active (`every 5 minutes`, UTC; production-smoked under 9A.F2)                                   |
-| Guest unpaid reservation expiry scheduler (CourseEnrollment) | `scheduledExpireGuestCourseReservations` — **F5 / READY_FOR_DEPLOY** (`every 5 minutes`, UTC; bounded to 25/page and 100/run; production smoke pending) |
+| Guest unpaid reservation expiry scheduler (CourseEnrollment) | `scheduledExpireGuestCourseReservations` — **F5 / BLOCKED_ONLY_BY_PRODUCTION_EXPIRY_SMOKE** (`every 5 minutes`, UTC; deployed and running; production expiry-semantics smoke pending) |
 
 Do not confuse completion scheduling with payment-confirmation reconciliation. Do not assume the lesson reservation scheduler expires CourseEnrollments.
 
@@ -1263,7 +1303,7 @@ All accepted mandatory 9B capabilities are closed:
 ```text
 T32.9A.9B → PASS / CLOSED
 T32.9A.9C → PASS / CLOSED
-NEXT → T32.9A.9P — Global Product Parity & Legacy Dependency Gate
+NEXT → complete T32.9A.9A.F5 production expiry smoke, then T32.9A.9D physical source cleanup
 ```
 
 #### T32.9R — Firestore / server-resource optimization (parallel track)
@@ -1409,16 +1449,37 @@ Student UI → transactional `course_graduate`. Production deploy and authentica
 smoke are not recorded. 9P then proves Course progress/achievements together with the rest
 of the product, not as a substitute for 9C.
 
-#### T32.9A.9P — Global Product Parity & Legacy Dependency Gate — PENDING
+#### T32.9A.9P — Global Product Parity & Legacy Dependency Gate — PASS / CLOSED
 
 Purpose: before any destructive legacy data or leftover-implementation cleanup, prove that **every existing useful product capability** has a working canonical or explicitly approved path.
 
-9P is an inventory-and-evidence gate. It does not implement F3, 9B, 9C, or **T32.9A.9A.F5**. It consumes their PASS evidence plus remaining product surfaces that those slices do not own. While **T32.9A.9A.F5** is not **PASS / CLOSED**, 9P must not mark guest course reservation expiry, legacy `createGuestCourseEnrollment` removal, or global guest-course lifecycle parity as complete.
+9P is an inventory-and-evidence gate. It does not implement F3, 9B, 9C, or **T32.9A.9A.F5**. **PASS / CLOSED** (2026-09-14) for source / current production client. Leftover counters: ACTIVE_WRITE = 0, AUTHORITY_READ = 0, FALLBACK = 0, DUAL_WRITE = 0. `users.balanceUSD` signup write and `settings/starter_credit.amountUsd` historical read are **KEEP_COMPATIBILITY**, not leftover authority. Guest course expiry production deploy / deployed `createGuestCourseEnrollment` remain **T32.9A.9A.F5** and do **not** reopen 9P client parity.
 
-Mandatory inventory (one row per capability; fill during 9P, do not invent PASS here):
+Mandatory inventory (filled 2026-09-14; reconciled 2026-09-14 for 9P close). Production Function inventory remains UNKNOWN; F5 stays a separate gate:
 
 | Feature / capability | Role(s) | Current UX | Current dependency | Canonical/approved replacement | Information parity | Action parity | Interaction parity | Status | Safe to remove legacy? |
 | -------------------- | ------- | ---------- | ------------------ | ------------------------------ | ------------------ | ------------- | ------------------ | ------ | ---------------------- |
+| Guest lesson | Guest, Admin | Home + planner | executeGuestCanonicalCommand + F2 | Canonical Booking/Payment | PASS | PASS | PASS | PASS | yes |
+| Guest course enroll | Guest, Admin | Course modal | create_course_enrollments | Canonical CourseEnrollment | PASS | PASS | PASS | PASS | source leftover unpublished; production delete BLOCKED_BY_F5 / inventory |
+| Guest course expiry | Guest | scheduler | scheduledExpireGuestCourseReservations | F5 | n/a | n/a | n/a | PASS | source export present; production deploy/smoke = F5, not 9P client |
+| Student cabinet | Student, Guardian | Cabinet | canonical reads + selectedParticipantId | same | PASS | PASS | PASS | PASS | no synthetic course authority |
+| Instructor workspace | Instructor | workspace | canonical bookings + attendance + feedback | same | PASS | PASS | PASS | PASS | yes |
+| Admin planner/courses/people | Admin | Admin Panel | canonical commands | same | PASS | PASS | PASS | PASS | unused wrappers only |
+| Admin finance | Admin | Canonical finance panels | queryAdminFinanceReadModels | Wallet/Payment/MonetaryEvent | PASS | PASS | PASS | PASS | unmounted CashFlow/GuestWallet |
+| Lesson booking F3/F4 | Student, Instructor, Admin | modal / card / planner | canonical party + Attendance | same | PASS | PASS | PASS | PASS | guest create single-participant |
+| Course progress / graduate | Student, Instructor, Admin | cabinet + roster | 9C | same | PASS | PASS | PASS | PASS | yes |
+| Wallet / starter credit | Student, Admin, Auth | Header + settings | /wallet/state + amountKzt | KZT Wallet | PASS | PASS | PASS | PASS | KEEP_COMPATIBILITY users.balanceUSD / amountUsd field names |
+| Attendance | Instructor, Admin, Student | lesson + course | canonical Attendance | same | PASS | PASS | PASS | PASS | yes |
+| Participants / avatars | Student, Guardian, Admin | cabinet + people | Participant | same | PASS | PASS | PASS | PASS | /users mirror |
+| Reviews / rating | Student, Instructor | reviews UI | 9B continuity | same | PASS | PASS | PASS | PASS | KEEP_HISTORICAL /reviews |
+| Lesson feedback | Instructor, Student | instructor + coach | ParticipantLessonFeedback | same | PASS | PASS | PASS | PASS | yes |
+| Progress / achievements | Student, Instructor, Admin | cabinet | 9B.2/9B.4 + 9C | same | PASS | PASS | PASS | PASS | KEEP_HISTORICAL users progress |
+| Chat | Student, Instructor, Admin | BookingChatModal | bookings/{id}/messages | same storage | PASS | PASS | PASS | PASS | KEEP_HISTORICAL |
+| Homework | Instructor, Student, Guardian | chat + coach tab | assign_chat_homework | 9P.HW1 | PASS | PASS | PASS | PASS | KEEP_HISTORICAL |
+| Notifications | all | bell | notifications | same | PASS | PASS | PASS | PASS | KEEP_HISTORICAL |
+| Auth / login | Guest, Student | Auth | Auth + profile create | same | PASS | PASS | PASS | PASS | KEEP_COMPATIBILITY |
+| Settings | Admin | system settings | settings/amountKzt | same | PASS | PASS | PASS | PASS | KEEP_COMPATIBILITY |
+| Assets / avatars | all | media | Storage | same | PASS | PASS | PASS | PASS | KEEP_HISTORICAL |
 
 Status values:
 
@@ -1429,7 +1490,7 @@ MISSING
 NEEDS_PRODUCT_DECISION
 ```
 
-**9D is forbidden** while any in-scope row is `PARTIAL`, `MISSING`, or `NEEDS_PRODUCT_DECISION`, except an explicit Product Owner decision recorded for that row. 9D0 may run as a dry rehearsal only against a proposed manifest; it cannot authorize production 9D while 9P is not PASS.
+**9D physical cleanup** may start only from the 9D0-rehearsed exact manifest. 9P in-scope rows are **PASS**. Production Function deletions stay **BLOCKED_BY_F5** / **BLOCKED_BY_PRODUCTION_INVENTORY** and are not in the 9D executable delete set.
 
 Minimum capabilities that must appear in the inventory (add rows; do not treat this list as optional):
 
@@ -1462,7 +1523,7 @@ Verified current runtime (2026-09-08), not assumed:
 - Message storage is `bookings/{threadId}/messages/{messageId}` (`src/features/chat/chatService.ts`).
 - Lesson threads use the lesson Booking id. Course/shared chat uses `chatId` / `courseId` / synthetic `course_*` instructor id as `threadId` (`src/domain/chat/resolveChatId.ts`).
 - Course unread/history still subscribes to **shared + per-enrollment legacy** thread ids (`getCourseChatThreadIds`).
-- Homework flags are message fields: `isHomework`, `homeworkForUserIds`. Clients update those fields; Rules allow that narrow update (`firestore.rules` `bookings/{bookingId}/messages`).
+- Homework flags: `isHomework`, `homeworkForParticipantIds` (canonical). Clients cannot create or update homework fields; `assign_chat_homework` is the writer. Rules deny those fields on message create and `affectedKeys()` on admin update.
 - Unread behavior is client subscription over those thread ids (`useBookingChatUnread`).
 - Message deletes are denied by Rules (`allow delete: if false`).
 
@@ -1478,13 +1539,13 @@ legacy Booking cleanup
 
 Chat/Homework rows in 9P cannot be `Safe to remove legacy? = yes` while messages still physically depend on uninventoried legacy Booking documents.
 
-##### T32.9A.9P.HW1 — Participant-scoped Chat Homework — KNOWN PARITY ITEM (not implemented)
+##### T32.9A.9P.HW1 — Participant-scoped Chat Homework — PASS
 
 **Not** part of **T32.9A.9B.3** / ParticipantLessonFeedback. Ordinary chat messages remain a separate preserved capability.
 
-**Current problem:** homework uses account/user-scoped `homeworkForUserIds[]` on `bookings/{threadId}/messages` and can show the same homework to multiple Participants of one Account.
+**Current problem (closed):** homework used account/user-scoped `homeworkForUserIds[]` on `bookings/{threadId}/messages` and could show the same homework to multiple Participants of one Account.
 
-**Target (9P implementation, future):**
+**Implemented:**
 
 - `homeworkForParticipantIds[]` (participant-scoped targeting)
 - assignment only when Attendance=`present` for that Participant
@@ -1493,33 +1554,79 @@ Chat/Homework rows in 9P cannot be `Safe to remove legacy? = yes` while messages
 - server-authoritative enforcement in Rules/callables
 - ordinary (non-homework) chat messages unchanged
 
-Status: **RECORDED** for 9P inventory; **not** implemented in 9B.3 closure.
+Status: **PASS**. Canonical target is `homeworkForParticipantIds[]`. Assignment is server-authoritative via `assign_chat_homework` (`create` / `set`). Only Participants with Attendance=`present` on that lesson booking may be targeted. Instructor may choose one, several, or all present Participants. Present sibling does not grant homework to an absent or untargeted sibling. Dependent Participant without `/users/{uid}` is supported. Student/Guardian `selectedParticipantId` sees only homework addressed to that Participant. Client cannot spoof Participant ids. Historical `homeworkForUserIds` is not auto-mapped; empty/unset legacy targets do not fan out. Ordinary chat remains client Firestore create without homework fields.
 
-#### T32.9A.9D0 — Production-like Incremental Cutover Rehearsal — PENDING
+##### 9D cleanup manifest — 9D0 validated (2026-09-14)
+
+Source reachability rehearsal only. Physical 9D not executed. Production Function / data deletion not authorized.
+
+```text
+DELETE_IN_9D
+- unused frontend booking *Callable wrappers, useBookingActions, useAdminActions, bookingService.ts
+- src/features/bookings/completeBooking.ts
+- unmounted CashFlowPanel / GuestWalletPanel
+- resetSchoolFinances.ts
+- leftover functions/src/bookings/* (not exported from functions/src/index.ts)
+- functions/src/schoolGuestWallet.ts + functions/src/schoolGuestWallet.test.ts
+- functions/src/walletLedger.ts (only leftover bookings/enroll callers)
+- barrel exports of the deleted symbols
+- getStudentCourseBookingsQuery export
+- adminService subscribeGuestWalletBalance / adjustGuestWalletBalance
+
+KEEP
+- FinancialOverview / AdminFinancialOverviewHost
+- AdminInstructorDirectory canonical instructor commands
+- bookingTransactions.ts InsufficientFundsError (production type import)
+- courseTransactions.ts helpers used by leftover bookingTransactions (file KEEP)
+- domain schoolGuestWallet.ts / schoolCashFlow.ts
+- scheduledExpireGuestCourseReservations source export
+- createGuestCourseEnrollment source already absent; do not treat production as deleted
+
+DEFER_TO_T32.9B
+- courseTransactions.enrollInCourse (production UI unused; integration tests still call it)
+- getEnrolledCourses / getActiveCourseEnrollment / getAvailableCourses / getRecommendedCourses / resolveNextLessonBookingTarget
+- bookingRealtimeService.ts file (getRealtimeBookingsQuery tests-only)
+- bookingTransactions leftover mutation functions after callable deletion
+- unused Rules helpers validBalanceDecreaseOnly / validPaymentLedgerCreate / validRefundBalanceCreditApply / validRefundLedgerCreate
+- CoachesManager.tsx (unmounted; canonical People already mounted)
+- i18n keys for resetSchoolFinances / guestWallet panels
+
+BLOCKED_BY_F5
+- production smoke of expired guest CourseEnrollment reservation (**BLOCKED_ONLY_BY_PRODUCTION_EXPIRY_SMOKE**)
+- treating canonical guest course lifecycle as production-complete
+
+Resolved on 2026-09-14 (no longer F5 blockers):
+- `createGuestCourseEnrollment` production presence — **ABSENT**
+- `scheduledExpireGuestCourseReservations` deploy/running — **ACTIVE**, healthy no-op executions
+
+BLOCKED_BY_PRODUCTION_INVENTORY
+- every production Function delete (createBooking, addBooking, createGuestBooking,
+  updateBookingSchedule, linkGuestBooking, completeBooking, cancelBooking, confirmBooking,
+  deleteBooking, requestBookingCancellation, enrollInCourse, createGuestCourseEnrollment,
+  scheduledAutoCompleteBookings, and any other leftover deployed name)
+```
+
+Exact executable identifiers live in **T32.9A.9D0** below.
+
+#### T32.9A.9D0 — Production-like Incremental Cutover Rehearsal — PASS / CLOSED
 
 Reason: original T37 / T38 / T40 tickets and Phase 7 describe a **clean/empty database** reset then seed. That is valid only as isolated nonproduction architectural rehearsal. Current production already holds canonical Booking, Payment, Attendance, claims, enrollments, and live product data. Production strategy is **selective/incremental**.
 
-9D0 must rehearse the **exact** planned 9D cleanup against a production-like mixed state. It is not T38.
+**9D0 PASS / CLOSED (2026-09-14)** is a source-dependency rehearsal of the exact 9D delete set. It is not T38 and it did not execute destructive `rm`, Function delete, or data delete.
 
 ```text
-production-like snapshot/export
+9P SAFE_TO_DELETE_* manifest
         ↓
-isolated nonproduction environment
+actual source import / export reachability
         ↓
-representative canonical + leftover-legacy mixed state
+canonical replacement + UX parity check
         ↓
-EXACT planned 9D cleanup (same discriminator and manifest)
+dry-run compile/import fallout
         ↓
-preserve/delete manifest verification
-        ↓
-role-based E2E
-        ↓
-legacy-negative verification
-        ↓
-recovery drill
+exact DELETE_* / KEEP / DEFER / BLOCKED lists
 ```
 
-Must preserve (expected-preserved set):
+Must preserve (expected-preserved set — 9D data delete = NONE):
 
 - canonical Booking
 - Payment
@@ -1530,22 +1637,212 @@ Must preserve (expected-preserved set):
 - canonical audit / history
 - approved reviews / chat / homework / notifications / profile / assets / other 9P-approved product data
 
-Manifest acceptance — any difference is FAIL:
+Manifest acceptance for this rehearsal:
 
 ```text
-expected preserved == actual preserved
-expected deleted   == actual deleted
-
-unexpected deletion = 0
-unexpected mutation = 0
-ambiguous records   = 0
+expected deleted data   == 0
+unexpected deletion     == 0
+source leftover WRITE / authority READ / fallback / dual-write == 0
+production Function deletions explicitly gated
 ```
 
-9D0 PASS is required before production 9D. A successful T38 empty-database rehearsal does **not** substitute for 9D0.
+A successful T38 empty-database rehearsal does **not** substitute for this 9D0. While **T32.9A.9A.F5** is not **PASS / CLOSED**, 9D0 must not treat source removal as proof that the deployed `createGuestCourseEnrollment` function is already decommissioned or that canonical guest course automatic expiry is production-complete.
 
-While **T32.9A.9A.F5** is not **PASS / CLOSED**, 9D0 must not treat the source removal as proof that the deployed `createGuestCourseEnrollment` function is already decommissioned or that canonical guest course automatic expiry is production-complete.
+##### 9D0 exact delete manifest (executable)
 
-#### T32.9A.9D — Selective Destructive Legacy Data Cleanup — PENDING
+###### DELETE_FILES
+
+Prerequisite for all rows: strip barrel re-exports; rewrite or delete tests that import the removed file. Canonical replacement is listed. Delete now in 9D: YES.
+
+| Path | Why safe | Inbound production imports | Tests-only imports | Replacement |
+| ---- | -------- | -------------------------- | ------------------ | ----------- |
+| `src/features/bookings/createBookingCallable.ts` | unpublished callable wrapper | `bookingService.ts` only | `tests/unit/bookingCallables.test.ts` | `executeCanonicalCommand` / `create_lesson_booking` |
+| `src/features/bookings/addBookingCallable.ts` | same | `bookingService.ts` only | `bookingCallables.test.ts` | `executeCanonicalCommand` / admin lesson create |
+| `src/features/bookings/createGuestBookingCallable.ts` | same | `bookingService.ts` only | `bookingCallables.test.ts` | `executeGuestCanonicalCommand` / `create_guest_lesson_booking` |
+| `src/features/bookings/updateBookingScheduleCallable.ts` | same | `bookingService.ts` only | `bookingCallables.test.ts` | `reschedule` canonical command |
+| `src/features/bookings/linkGuestBookingCallable.ts` | same | `bookingService.ts` only | `bookingCallables.test.ts` | `link_guest_booking` canonical command |
+| `src/features/bookings/completeBookingCallable.ts` | same | `bookingService.ts` only | `bookingCallables.test.ts` | attendance / complete canonical path |
+| `src/features/bookings/cancelBookingCallable.ts` | same | `bookingService.ts` only | `bookingCallables.test.ts` | `cancel_lesson_booking` |
+| `src/features/bookings/confirmBookingCallable.ts` | same | `bookingService.ts` only | `bookingCallables.test.ts` | guest payment confirmation / `confirm_guest_booking` |
+| `src/features/bookings/deleteBookingCallable.ts` | same | `bookingService.ts` only | `bookingCallables.test.ts` | canonical cancel / admin command |
+| `src/features/bookings/requestBookingCancellationCallable.ts` | same | `bookingService.ts` only | `bookingCallables.test.ts` | canonical cancellation request |
+| `src/features/bookings/useBookingActions.ts` | no production hook caller | barrel export only | `useBookings.cancel.test.tsx`, wiring tests | `useLessonBookingCommands` |
+| `src/features/bookings/bookingService.ts` | after hook deletion, no production importer | `useBookingActions`, `useAdminActions`, barrel `getInstructorAvailabilitySlots` (zero callers) | file-content wiring tests | canonical commands + occupancy read models |
+| `src/features/bookings/completeBooking.ts` | `finalizeBookingCompletion` unused in `src/` | none | none | canonical attendance outcome |
+| `src/features/admin/useAdminActions.ts` | no production hook caller; People uses canonical instructor commands | barrel export only | file-content wiring tests | `create_instructor_catalog_entry` / `update_instructor_catalog_profile` / `deactivate_instructor_catalog` |
+| `src/features/admin/resetSchoolFinances.ts` | no production caller | none | negative wiring assertions | none required; destructive reset is not a product path |
+| `src/features/admin/components/finance/CashFlowPanel.tsx` | unmounted | barrel export only | `adminFinanceContracts` negative | `AdminFinancialOverviewHost` / `queryAdminFinanceReadModels` |
+| `src/features/admin/components/finance/GuestWalletPanel.tsx` | unmounted | barrel export only | `adminSafetyReadOnlyPanels.test.tsx` | `CanonicalGuestFinancePanel` |
+| `functions/src/bookings/addBooking.ts` | not exported from `functions/src/index.ts` | leftover bookings cluster only | `bookingCallables.test.ts` | canonical command handlers |
+| `functions/src/bookings/createBooking.ts` | same | cluster only | `bookingCallables.test.ts` | `create_lesson_booking` |
+| `functions/src/bookings/createGuestBooking.ts` | same | cluster only | `bookingCallables.test.ts` | guest lesson command |
+| `functions/src/bookings/updateBookingSchedule.ts` | same | cluster only | `bookingCallables.test.ts` | reschedule command |
+| `functions/src/bookings/linkGuestBooking.ts` | same | cluster only | `linkGuestBooking.test.ts` | link command |
+| `functions/src/bookings/completeBooking.ts` | same | cluster only | `bookingCallables.test.ts` | attendance outcome |
+| `functions/src/bookings/cancelBooking.ts` | same | cluster only | `bookingCallables.test.ts` | cancel command |
+| `functions/src/bookings/confirmBooking.ts` | same | cluster only | `bookingCallables.test.ts` | confirm command |
+| `functions/src/bookings/deleteBooking.ts` | same | cluster only | `bookingCallables.test.ts` | cancel / admin command |
+| `functions/src/bookings/requestBookingCancellation.ts` | same | cluster only | `bookingCallables.test.ts` | cancellation request command |
+| `functions/src/bookings/autoComplete.ts` | index already forbids this import | none from index | cutover negative assertion | `scheduledResolveLessonBookingAttendanceOutcomes` |
+| `functions/src/bookings/bookingLogic.ts` | only leftover callables | leftover bookings + `mapBookingHttpsError` | cluster tests | canonical booking commands |
+| `functions/src/bookings/mapBookingHttpsError.ts` | only leftover callables | cluster only | `mapBookingHttpsError.test.ts` | canonical error mapping |
+| `functions/src/bookings/bookingCallables.test.ts` | tests-only companion | n/a | self | cutover no-export assertions |
+| `functions/src/bookings/linkGuestBooking.test.ts` | tests-only companion | n/a | self | canonical link tests |
+| `functions/src/bookings/mapBookingHttpsError.test.ts` | tests-only companion | n/a | self | canonical error tests |
+| `functions/src/schoolGuestWallet.ts` | only leftover bookings | `bookingLogic.ts`, `cancelBooking.ts` | `functions/src/schoolGuestWallet.test.ts` | canonical Payment / Wallet |
+| `functions/src/schoolGuestWallet.test.ts` | companion | n/a | self | canonical finance tests |
+| `functions/src/walletLedger.ts` | only leftover bookings + already-removed enroll callable | `schoolGuestWallet.ts`, leftover bookings, historically `enrollInCourse.ts` | none remaining | canonical MonetaryEvent / Wallet |
+
+Already absent (do not re-delete; not a 9D file action):
+
+- `functions/src/courses/enrollInCourse.ts` — source file absent; export absent from `functions/src/index.ts`
+- `src/features/courses/enrollInCourseCallable.ts` — source file absent
+- `functions/src/courses/createGuestCourseEnrollment.ts` — source file absent
+- `src/features/courses/createGuestCourseEnrollmentCallable.ts` — source file absent
+
+###### DELETE_EXPORTS
+
+| Identifier | File | Prerequisite | Replacement |
+| ---------- | ---- | ------------ | ----------- |
+| `useBookingActions` | `src/features/bookings/index.ts` | delete `useBookingActions.ts` | `useLessonBookingCommands` |
+| `getInstructorAvailabilitySlots` | `src/features/bookings/index.ts` | delete `bookingService.ts` | occupancy / proposal read models |
+| `useAdminActions` | `src/features/admin/index.ts` | delete `useAdminActions.ts` | Admin People canonical commands |
+| `CashFlowPanel` | `src/features/admin/index.ts` and `src/features/admin/components/finance/index.ts` | delete panel file | `FinancialOverview` |
+| `GuestWalletPanel` | `src/features/admin/components/finance/index.ts` | delete panel file | `CanonicalGuestFinancePanel` |
+| `getStudentCourseBookingsQuery` | `src/features/bookings/bookingRealtimeService.ts` | none; production sync already off this query | `queryCourseEnrollmentReadModels` |
+| `subscribeGuestWalletBalance` | `src/features/admin/adminService.ts` | delete CashFlow / GuestWallet panels | canonical guest finance read model |
+| `adjustGuestWalletBalance` | `src/features/admin/adminService.ts` | no production caller | none; leftover mutation |
+
+###### DELETE_FUNCTIONS_PRODUCTION
+
+NONE.
+
+Classification of leftover names (do not delete in 9D):
+
+| Name | Source export | Production |
+| ---- | ------------- | ---------- |
+| `createBooking` | A. absent | B. unknown |
+| `addBooking` | A. absent | B. unknown |
+| `createGuestBooking` | A. absent | B. unknown |
+| `updateBookingSchedule` | A. absent | B. unknown |
+| `linkGuestBooking` | A. absent | B. unknown |
+| `completeBooking` | A. absent | B. unknown |
+| `cancelBooking` | A. absent | B. unknown |
+| `confirmBooking` | A. absent | B. unknown |
+| `deleteBooking` | A. absent | B. unknown |
+| `requestBookingCancellation` | A. absent | B. unknown |
+| `enrollInCourse` | A. absent | B. unknown |
+| `createGuestCourseEnrollment` | A. absent | A. **ABSENT** (independent `functions:list` 2026-09-14; not an F5 blocker) |
+| `scheduledAutoCompleteBookings` | A. absent | B. unknown |
+| `scheduledExpireGuestCourseReservations` | C. source export present | C. **ACTIVE** (deployed + scheduler every 5 minutes UTC; F5 remaining = expiry smoke) |
+
+###### DELETE_RULES
+
+NONE. Unused leftover helpers `validBalanceDecreaseOnly`, `validPaymentLedgerCreate`, `validRefundBalanceCreditApply`, `validRefundLedgerCreate` are **DEFER_TO_T32.9B**. `settings/guest_wallet` read-only path and `/wallet_ledger` read-only path stay. Storage chat write `chat/{bookingId}` stays because chat is KEEP_HISTORICAL.
+
+###### DELETE_INDEXES
+
+NONE. CourseEnrollment F5 index and other live indexes remain required. `getStudentCourseBookingsQuery` is unused, but no exclusive obsolete required index was proven.
+
+###### DELETE_FIELDS
+
+NONE.
+
+| Field | Class |
+| ----- | ----- |
+| `users.balanceUSD` | KEEP_COMPATIBILITY |
+| `walletBalances.USD` | KEEP_COMPATIBILITY |
+| `settings/starter_credit.amountUsd` | KEEP_COMPATIBILITY |
+| `homeworkForUserIds` | KEEP_HISTORICAL |
+| old `/users` progress fields | KEEP_HISTORICAL |
+| old Booking recommendation fields | KEEP_HISTORICAL |
+| starter-credit legacy aliases | KEEP_COMPATIBILITY |
+
+###### DELETE_COLLECTION_DATA
+
+NONE.
+
+| Data | Class |
+| ---- | ----- |
+| synthetic `booking_course_*` | KEEP_HISTORICAL (may parent `messages`) |
+| `/reviews` | KEEP_HISTORICAL |
+| `wallet_ledger` | KEEP_HISTORICAL |
+| `settings/guest_wallet` | KEEP_HISTORICAL |
+| activity logs | KEEP_HISTORICAL |
+| `bookings/{id}/messages` | KEEP_HISTORICAL |
+| 11 historical disposable legacy lesson rows | DO_NOT_TOUCH until messages-child inventory |
+
+##### Capability parity (DELETE_IN_9D only)
+
+| Legacy capability | Legacy implementation | Canonical replacement | Parity | Deletion safe |
+| ----------------- | --------------------- | --------------------- | ------ | ------------- |
+| Authenticated lesson booking | `createBooking` callable / `createBookingViaCallable` | `executeCanonicalCommand` / `create_lesson_booking` | PASS | YES |
+| Guest lesson booking | `createGuestBooking` callable | `executeGuestCanonicalCommand` / guest lesson create | PASS | YES |
+| Lesson cancel / reschedule / link / complete | leftover `*Booking` callables + `useBookingActions` | canonical lesson commands + attendance outcome | PASS | YES |
+| Authenticated course enrollment (client) | `enrollInCourse` callable files already absent | `create_course_enrollments` | PASS | source already gone |
+| Guest course enrollment (client) | `createGuestCourseEnrollment` source already absent | `create_course_enrollments` via `executeGuestCanonicalCommand` | PASS | source already gone; production name NO |
+| Admin finance overview | `CashFlowPanel` | `queryAdminFinanceReadModels` / `FinancialOverview` | PASS | YES |
+| Admin guest funds | `GuestWalletPanel` | `CanonicalGuestFinancePanel` | PASS | YES |
+| Admin instructor catalog | `useAdminActions` / `*InstructorService` | `create_instructor_catalog_entry` / `update_instructor_catalog_profile` / `deactivate_instructor_catalog` | PASS | YES |
+| School finance reset | `resetSchoolFinances` | none; not a preserved product path | PASS | YES |
+| Student course authority | `getStudentCourseBookingsQuery` / `getEnrolledCourses` | `queryCourseEnrollmentReadModels` / `getEnrolledCourseIdsForParticipant` | PASS | query export YES; `getEnrolledCourses` DEFER |
+
+##### Dependency rehearsal (dry-run; no `rm`)
+
+If the DELETE_FILES / DELETE_EXPORTS set is physically removed:
+
+1. Frontend compile fails until barrels drop `useBookingActions`, `getInstructorAvailabilitySlots`, `useAdminActions`, `CashFlowPanel`, `GuestWalletPanel`.
+2. `bookingService.ts` cannot remain if `*Callable.ts` files are deleted; delete it in the same slice.
+3. `functions` compile stays green: `functions/src/index.ts` already has no leftover bookings imports.
+4. Tests that import or `readRepoFile` the deleted paths fail and must be rewritten in 9D: `useBookings.cancel.test.tsx`, `bookingCallables.test.ts`, `adminSafetyReadOnlyPanels.test.tsx`, `adminSafetyContainmentWiring.test.ts`, `adminPlannerBookingWiring.test.ts`, `adminCancelWiring.test.ts`, `adminReassignWiring.test.ts`, `adminLessonBookingCanonicalBoundary.test.ts`, leftover assertions in `lessonBookingLifecycleCutoverBoundary.test.ts` that read `useBookingActions.ts` / `bookingService.ts`, plus `functions/src/bookings/*.test.ts` and `functions/src/schoolGuestWallet.test.ts`.
+5. Production client runtime does not import these files today, so deleting them does not remove a mounted UX path.
+6. `ScheduleSlotActionModal` keeps compiling because it imports `InsufficientFundsError` from `bookingTransactions.ts`, which is KEEP.
+7. Production Cloud Functions are unchanged by source-file deletion until an authorized Functions deploy; leftover deployed names are **not** proven absent.
+
+##### 9D validation plan (run after physical 9D, not in 9D0)
+
+- `npx tsc --noEmit`
+- `npm run build`
+- `npm --prefix functions run build`
+- focused canonical lesson booking tests
+- guest booking tests
+- course enrollment tests (`tests/unit/authenticatedCourseEnrollmentCanonicalCutover.test.ts` plus canonical command/emulator suite)
+- guest course enrollment tests (`tests/unit/guestCourseEnrollmentCanonicalCutover.test.ts` plus canonical guest course suite)
+- wallet / payment / starter-credit tests
+- homework tests (`assign_chat_homework`)
+- participant identity tests
+- Rules tests (`tests/firestore.rules.test.ts`, `tests/unit/firestoreRulesGuard.test.ts`)
+- reachability regression (`tests/unit/lessonBookingLifecycleCutoverBoundary.test.ts` rewritten off deleted files)
+- no-import / no-export leftover assertions for deleted paths and unpublished Function names
+- do not run the full suite unless those focused checks show cross-domain fallout
+
+##### Production inventory plan (read-only; required before any production Function delete)
+
+Project: `ski-school-8f3ca`. Do not deploy or delete.
+
+```text
+firebase functions:list --project ski-school-8f3ca
+gcloud functions list --project=ski-school-8f3ca --regions=us-central1
+gcloud scheduler jobs list --project=ski-school-8f3ca
+firebase functions:log --only scheduledExpireGuestCourseReservations --project ski-school-8f3ca
+firebase functions:log --only createGuestCourseEnrollment --project ski-school-8f3ca
+```
+
+Confirm each leftover name: confirmed deployed / confirmed absent. Until that list exists, every production Function delete stays **BLOCKED_BY_PRODUCTION_INVENTORY**. `createGuestCourseEnrollment` additionally stays **BLOCKED_BY_F5**.
+
+##### F5 remaining work (9D0 does not close F5)
+
+1. Deploy canonical guest course path if the current production Functions bundle is behind this source.
+2. Deploy / verify `scheduledExpireGuestCourseReservations`.
+3. Verify the production scheduler actually runs.
+4. Verify expired pending not-fully-funded guest CourseEnrollment becomes `cancelled` with claims/seats released.
+5. Verify canonical guest enrollment still works after deploy.
+6. Inventory leftover `createGuestCourseEnrollment`; delete production Function only after no client/API caller depends on it.
+7. Then, and only then, F5 may move to PASS / CLOSED.
+
+9D0 inventory check in this task: production inventory **UNKNOWN** (CLI/auth not used).
+
+#### T32.9A.9D — Selective Destructive Legacy Data Cleanup — NOT STARTED
 
 9D means **selective destructive leftover-legacy data cleanup**. It does **not** mean:
 
@@ -1576,7 +1873,7 @@ Production inventory already proved (Individual Booking cutover):
 - ambiguous = 0
 - legacy past disposable = 11
 
-Those 11 rows may be deleted in 9D **only if** the 9D0 manifest still classifies them disposable and they have no protected `messages` / other 9P-preserved children. Canonical transactional/runtime records must not be deleted.
+Those 11 rows may be deleted in 9D **only if** the 9D0 manifest still classifies them disposable and they have no protected `messages` / other 9P-preserved children. The 9D0 rehearsal classified them **DO_NOT_TOUCH** (messages-child inventory missing). Canonical transactional/runtime records must not be deleted. **9D first slice is source-file cleanup from the 9D0 DELETE_FILES / DELETE_EXPORTS lists. DELETE_COLLECTION_DATA = NONE. DELETE_FUNCTIONS_PRODUCTION = NONE.**
 
 9D rules:
 
@@ -2465,10 +2762,10 @@ Current structure (authoritative for later status; see preamble):
     - **Reviews / Instructor Rating Continuity** — **PASS / CLOSED**
   - **T32.9R** Firestore / server-resource optimization — parallel track; see preamble **T32.9R** (R1/R2 **DEFERRED**; next = deploy/verify READY items + re-measure)
   - **9C** Course Progress / Achievements Cutover — **PASS / CLOSED**
-  - **9P** Global Product Parity & Legacy Dependency Gate — PENDING
-  - **9D0** Production-like Incremental Cutover Rehearsal — PENDING
-  - **9D** Selective Destructive Legacy Data Cleanup — PENDING (proven legacy rows only;
-    never delete the bookings collection; never full Firestore reset)
+  - **9P** Global Product Parity & Legacy Dependency Gate — **PASS / CLOSED** (source / current production client)
+  - **9D0** Production-like Incremental Cutover Rehearsal — **PASS / CLOSED** (exact source manifest; data delete NONE; production Function delete gated)
+  - **9D** Selective Destructive Legacy Data Cleanup — NOT STARTED (proven leftover source files only from the 9D0 manifest;
+    never delete the bookings collection; never full Firestore reset; no production Function delete until F5 + inventory)
   - **9E** Canonical Authority / Reachability Gate — PENDING (technical + product)
 
 Scope:

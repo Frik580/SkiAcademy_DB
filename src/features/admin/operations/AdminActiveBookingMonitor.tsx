@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import type { Instructor, UserProfile } from '../../../types';
+import type { UserProfile } from '../../../types';
 import { BookingsLog } from '../components/bookings/BookingsLog';
 import { useSharedAdminMonitorReadModels } from './AdminMonitorReadModelsContext';
 import {
@@ -13,22 +13,11 @@ import {
 
 interface AdminActiveBookingMonitorProps {
   readonly usersList: UserProfile[];
-  readonly instructors: Instructor[];
 }
 
-export function AdminActiveBookingMonitor({
-  usersList,
-  instructors,
-}: AdminActiveBookingMonitorProps) {
+export function AdminActiveBookingMonitor({ usersList }: AdminActiveBookingMonitorProps) {
   const [, setSearchParams] = useSearchParams();
-  const { bookings, lessonsHot, enrollmentsRoster, enrollmentsPending } =
-    useSharedAdminMonitorReadModels();
-
-  const loadMore = useCallback(() => {
-    if (lessonsHot.list.hasMore) void lessonsHot.loadMore();
-    enrollmentsRoster.loadMore?.();
-    enrollmentsPending.loadMore?.();
-  }, [enrollmentsPending, enrollmentsRoster, lessonsHot]);
+  const { bookings } = useSharedAdminMonitorReadModels();
 
   const handleOpenLesson = useCallback(
     (bookingId: string) => {
@@ -84,13 +73,8 @@ export function AdminActiveBookingMonitor({
     <BookingsLog
       bookings={bookings}
       usersList={usersList}
-      instructors={instructors}
       onOpenLesson={handleOpenLesson}
       onOpenEnrollment={handleOpenEnrollment}
-      hasMoreBookings={
-        lessonsHot.list.hasMore || enrollmentsRoster.list.hasMore || enrollmentsPending.list.hasMore
-      }
-      onLoadMoreBookings={loadMore}
     />
   );
 }

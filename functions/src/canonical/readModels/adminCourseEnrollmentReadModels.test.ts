@@ -471,6 +471,47 @@ describe('Admin CourseEnrollment read-model callable', () => {
     });
   });
 
+  it('keeps duplicate parsed enrollmentIds across distinct snapshot document.ids and does not dedupe items', async () => {
+    const logical = enrollment({
+      id: 'course_enrollment_logical_dup',
+      participantId: ParticipantIdSchema.parse('participant_admin_enrollment_pending'),
+      status: 'pending',
+      guest: true,
+      updatedOffset: 5,
+    });
+    const handler = createQueryAdminCourseEnrollmentReadModelsHandler(
+      fakeFirestore({
+        ...seed(),
+        [`course_enrollments/${logical.enrollmentId}`]: logical as unknown as Record<
+          string,
+          unknown
+        >,
+        [`course_enrollments/course_enrollment_orphan_a`]: logical as unknown as Record<
+          string,
+          unknown
+        >,
+        [`course_enrollments/course_enrollment_orphan_b`]: logical as unknown as Record<
+          string,
+          unknown
+        >,
+        [`payments/${logical.paymentId}`]: paymentFor(logical) as unknown as Record<
+          string,
+          unknown
+        >,
+      })
+    );
+    const roster = await handler({
+      auth: { uid: adminId },
+      data: { scope: 'admin_course_roster' },
+    } as never);
+    expect(roster.scope).toBe('admin_course_roster');
+    if (roster.scope !== 'admin_course_roster') return;
+    const matchingItems = roster.items.filter(
+      (item) => item.enrollmentId === logical.enrollmentId
+    );
+    expect(matchingItems).toHaveLength(3);
+  });
+
   it('denies non-admin roster and detail reads', async () => {
     const handler = createQueryAdminCourseEnrollmentReadModelsHandler(fakeFirestore(seed()));
     await expect(

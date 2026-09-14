@@ -1,7 +1,10 @@
 import { useMemo } from 'react';
 import { useAdminLessonBookingReadModels } from '../lesson-bookings/useAdminLessonBookingReadModels';
 import { useAdminCourseEnrollmentReadModels } from '../course-enrollments/useAdminCourseEnrollmentReadModels';
-import { mergeAdminBookingMonitorRows } from './adminBookingMonitorMapping';
+import {
+  mergeAdminBookingMonitorRows,
+  unionAdminMonitorCourseEnrollments,
+} from './adminBookingMonitorMapping';
 
 export function useAdminMonitorReadModels() {
   const lessonsHot = useAdminLessonBookingReadModels({
@@ -18,14 +21,13 @@ export function useAdminMonitorReadModels() {
   const enrollmentsPending = useAdminCourseEnrollmentReadModels({ view: 'pending_guest' });
   const enrollmentsHistory = useAdminCourseEnrollmentReadModels({ view: 'history' });
 
-  const activeBookings = useMemo(
-    () =>
-      mergeAdminBookingMonitorRows(lessonsHot.list.items, [
-        ...enrollmentsRoster.list.items,
-        ...enrollmentsPending.list.items,
-      ]),
-    [enrollmentsPending.list.items, enrollmentsRoster.list.items, lessonsHot.list.items]
-  );
+  const activeBookings = useMemo(() => {
+    const monitorEnrollments = unionAdminMonitorCourseEnrollments(
+      enrollmentsRoster.list.items,
+      enrollmentsPending.list.items
+    );
+    return mergeAdminBookingMonitorRows(lessonsHot.list.items, monitorEnrollments);
+  }, [enrollmentsPending.list.items, enrollmentsRoster.list.items, lessonsHot.list.items]);
 
   return {
     bookings: activeBookings,

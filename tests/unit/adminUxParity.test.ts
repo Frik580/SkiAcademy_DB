@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  filterAdminBookingMonitorRows,
-  monitorHasCourseAndLessonRows,
-} from '../../src/features/admin/operations/adminBookingMonitorFilters';
-import {
   mergeAdminBookingMonitorRows,
   lessonBookingToMonitorRow,
 } from '../../src/features/admin/operations/adminBookingMonitorMapping';
@@ -83,44 +79,6 @@ describe('T32.9A Admin UX parity behavior', () => {
     expect(source.match(/<CanonicalFinancePanel/g)?.length).toBe(1);
   });
 
-  it('filters Active Booking Monitor by status, instructor, guest, type, and search', () => {
-    const rows = [
-      lesson(),
-      lesson({
-        id: 'enrollment_1',
-        instructorId: 'course_alpine',
-        instructorName: 'Alpine Group',
-        status: 'pending',
-        isGuest: true,
-        guestName: 'Guest Ski',
-        userId: 'guest_1',
-      }),
-    ];
-    expect(monitorHasCourseAndLessonRows(rows)).toEqual({ lessons: 1, courses: 1 });
-    const guests = filterAdminBookingMonitorRows(rows, [user], {
-      search: '',
-      status: 'all',
-      instructorId: 'all',
-      clientId: 'guests',
-      type: 'all',
-      sortBy: 'date_desc',
-      language: 'en',
-    });
-    expect(guests).toHaveLength(1);
-    expect(guests[0]?.id).toBe('enrollment_1');
-    const lessonsOnly = filterAdminBookingMonitorRows(rows, [user], {
-      search: 'Anna',
-      status: 'confirmed',
-      instructorId: 'ins_1',
-      clientId: 'all',
-      type: 'lessons',
-      sortBy: 'date_asc',
-      language: 'en',
-    });
-    expect(lessonsOnly).toHaveLength(1);
-    expect(lessonsOnly[0]?.id).toBe('booking_1');
-  });
-
   it('maps canonical lesson and enrollment read models into one monitor list', () => {
     const lessonRm = {
       bookingId: 'booking_admin_1',
@@ -174,6 +132,18 @@ describe('T32.9A Admin UX parity behavior', () => {
     ).not.toContain('link_guest_booking_to_account_as_administrator');
     expect(readRepoFile('src/features/admin/components/bookings/BookingsLog.tsx')).toContain(
       'openLessonDetail'
+    );
+    expect(readRepoFile('src/features/admin/components/bookings/BookingsLog.tsx')).not.toContain(
+      'filterAdminBookingMonitorRows'
+    );
+    expect(readRepoFile('src/features/admin/components/bookings/BookingsLog.tsx')).not.toContain(
+      'searchBookingsPlaceholder'
+    );
+    expect(readRepoFile('src/features/admin/components/bookings/BookingsLog.tsx')).not.toContain(
+      'ApplePagination'
+    );
+    expect(readRepoFile('src/features/admin/components/bookings/BookingsLog.tsx')).not.toContain(
+      'hasMoreBookings'
     );
     expect(readRepoFile('src/features/admin/components/bookings/BookingsLog.tsx')).not.toContain(
       'onCancelBooking'

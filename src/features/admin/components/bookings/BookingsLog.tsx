@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Link2 } from 'lucide-react';
-import { Booking, UserProfile, Instructor } from '../../../../types';
+import React, { useMemo } from 'react';
+import { Link2 } from 'lucide-react';
+import { Booking, UserProfile } from '../../../../types';
 import {
   useLanguage,
   formatLessonDifficultyOrUnspecified,
@@ -10,13 +10,6 @@ import { formatBookingCreatedAt } from '../../../../domain/booking';
 import { StatusBadge } from '../../../../ui/StatusBadge';
 import { AdminMonitorLessonStatusBadge } from '../../operations/AdminMonitorLessonStatusBadge';
 import { isCourseBooking } from '../../../../domain/availability';
-import { ApplePagination } from '../../../../ui/ApplePagination';
-import {
-  filterAdminBookingMonitorRows,
-  type AdminBookingMonitorSort,
-  type AdminBookingMonitorStatusFilter,
-  type AdminBookingMonitorTypeFilter,
-} from '../../operations/adminBookingMonitorFilters';
 
 const shortenBookingId = (id: string): string => (id.length > 12 ? `${id.slice(0, 10)}…` : id);
 
@@ -30,245 +23,26 @@ function formatMonitorDuration(durationHours: number, language: string): string 
 interface BookingsLogProps {
   bookings: Booking[];
   usersList: UserProfile[];
-  instructors: Instructor[];
   onOpenLesson?: (bookingId: string) => void;
   onOpenEnrollment?: (enrollmentId: string) => void;
-  hasMoreBookings?: boolean;
-  onLoadMoreBookings?: () => void;
 }
 
 export const BookingsLog: React.FC<BookingsLogProps> = ({
   bookings,
   usersList,
-  instructors,
   onOpenLesson,
   onOpenEnrollment,
-  hasMoreBookings = false,
-  onLoadMoreBookings,
 }) => {
   const { t, language } = useLanguage();
   const { formatPrice } = useCurrency();
 
-  const [monitorSearch, setMonitorSearch] = useState('');
-  const [monitorStatusFilter, setMonitorStatusFilter] =
-    useState<AdminBookingMonitorStatusFilter>('all');
-  const [monitorInstructorFilter, setMonitorInstructorFilter] = useState('all');
-  const [monitorClientFilter, setMonitorClientFilter] = useState('all');
-  const [monitorTypeFilter, setMonitorTypeFilter] = useState<AdminBookingMonitorTypeFilter>('all');
-  const [monitorSortBy, setMonitorSortBy] = useState<AdminBookingMonitorSort>('date_desc');
-  const [monitorPage, setMonitorPage] = useState(1);
-
-  useEffect(() => {
-    setMonitorPage(1);
-  }, [
-    monitorSearch,
-    monitorStatusFilter,
-    monitorInstructorFilter,
-    monitorClientFilter,
-    monitorTypeFilter,
-    monitorSortBy,
-  ]);
-
-  const filteredBookings = useMemo(
-    () =>
-      filterAdminBookingMonitorRows(bookings, usersList, {
-        search: monitorSearch,
-        status: monitorStatusFilter,
-        instructorId: monitorInstructorFilter,
-        clientId: monitorClientFilter,
-        type: monitorTypeFilter,
-        sortBy: monitorSortBy,
-        language,
-      }),
-    [
-      bookings,
-      usersList,
-      monitorSearch,
-      monitorStatusFilter,
-      monitorInstructorFilter,
-      monitorClientFilter,
-      monitorTypeFilter,
-      monitorSortBy,
-      language,
-    ]
+  const visibleBookings = useMemo(
+    () => bookings.filter((booking) => !booking.userId?.startsWith('system_block_')),
+    [bookings]
   );
 
-  const paginatedBookings = useMemo(() => {
-    const startIndex = (monitorPage - 1) * 10;
-    return filteredBookings.slice(startIndex, startIndex + 10);
-  }, [filteredBookings, monitorPage]);
-
-  const monitorTotalPages = useMemo(() => {
-    return Math.max(1, Math.ceil(filteredBookings.length / 10));
-  }, [filteredBookings]);
   return (
     <div className="space-y-4 transition-colors duration-300 w-full min-w-0 overflow-hidden">
-      {/* Filters and Search Bar */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 pb-1 font-mono">
-        {/* Search Input */}
-        <div className="relative">
-          <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-[var(--ink-dim)]">
-            <Search className="w-4 h-4" />
-          </span>
-          <input
-            type="text"
-            placeholder={t('searchBookingsPlaceholder')}
-            value={monitorSearch}
-            onChange={(e) => setMonitorSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 border border-[var(--border)] bg-transparent text-xs text-[var(--ink)] rounded-none focus:outline-none focus:border-[var(--ink)] placeholder-[var(--ink-dim)] transition font-mono"
-          />
-        </div>
-
-        {/* Status Filter Dropdown */}
-        <div>
-          <select
-            value={monitorStatusFilter}
-            onChange={(e) => setMonitorStatusFilter(e.target.value as any)}
-            className="w-full px-3 py-2 border border-[var(--border)] bg-slate-50 dark:bg-slate-900 text-xs text-[var(--ink)] rounded-none focus:outline-none focus:border-[var(--ink)] transition cursor-pointer font-mono"
-          >
-            <option value="all" className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]">
-              {t('allStatuses')}
-            </option>
-            <option value="pending" className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]">
-              {t('pendingStatus')}
-            </option>
-            <option
-              value="pending_cancellation"
-              className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]"
-            >
-              {t('pendingCancellationStatus')}
-            </option>
-            <option value="confirmed" className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]">
-              {t('confirmedStatus')}
-            </option>
-            <option value="completed" className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]">
-              {t('completedStatus')}
-            </option>
-            <option value="cancelled" className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]">
-              {t('cancelledStatus')}
-            </option>
-            <option value="no_show" className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]">
-              {t('adminLessonStatusNoShow')}
-            </option>
-          </select>
-        </div>
-
-        {/* Instructor Filter Dropdown */}
-        <div>
-          <select
-            value={monitorInstructorFilter}
-            onChange={(e) => setMonitorInstructorFilter(e.target.value)}
-            className="w-full px-3 py-2 border border-[var(--border)] bg-slate-50 dark:bg-slate-900 text-xs text-[var(--ink)] rounded-none focus:outline-none focus:border-[var(--ink)] transition cursor-pointer font-mono"
-          >
-            <option value="all" className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]">
-              {t('allInstructorsFilter')}
-            </option>
-            {instructors.map((ins) => (
-              <option
-                key={ins.id}
-                value={ins.id}
-                className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]"
-              >
-                {ins.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Client Filter Dropdown */}
-        <div>
-          <select
-            value={monitorClientFilter}
-            onChange={(e) => setMonitorClientFilter(e.target.value)}
-            className="w-full px-3 py-2 border border-[var(--border)] bg-slate-50 dark:bg-slate-900 text-xs text-[var(--ink)] rounded-none focus:outline-none focus:border-[var(--ink)] transition cursor-pointer font-mono"
-          >
-            <option value="all" className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]">
-              {t('allClientsFilter')}
-            </option>
-            <option value="guests" className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]">
-              📝 {t('filterGuestRequests')}
-            </option>
-            {usersList.map((user) => (
-              <option
-                key={user.uid}
-                value={user.uid}
-                className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]"
-              >
-                {user.displayName || user.email || user.uid}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Booking type filter */}
-        <div>
-          <select
-            value={monitorTypeFilter}
-            onChange={(e) => setMonitorTypeFilter(e.target.value as 'all' | 'courses' | 'lessons')}
-            className="w-full px-3 py-2 border border-[var(--border)] bg-slate-50 dark:bg-slate-900 text-xs text-[var(--ink)] rounded-none focus:outline-none focus:border-[var(--ink)] transition cursor-pointer font-mono"
-          >
-            <option value="all" className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]">
-              {t('allBookingTypesFilter')}
-            </option>
-            <option value="courses" className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]">
-              {t('coursesBookingTypeFilter')}
-            </option>
-            <option value="lessons" className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]">
-              {t('lessonsBookingTypeFilter')}
-            </option>
-          </select>
-        </div>
-
-        {/* Sort Dropdown */}
-        <div>
-          <select
-            value={monitorSortBy}
-            onChange={(e) => setMonitorSortBy(e.target.value as any)}
-            className="w-full px-3 py-2 border border-[var(--border)] bg-slate-50 dark:bg-slate-900 text-xs text-[var(--ink)] rounded-none focus:outline-none focus:border-[var(--ink)] transition cursor-pointer font-mono"
-          >
-            <option value="date_desc" className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]">
-              {t('sortDateNewest')}
-            </option>
-            <option value="date_asc" className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]">
-              {t('sortDateOldest')}
-            </option>
-            <option value="client_asc" className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]">
-              {t('sortClientAZ')}
-            </option>
-            <option value="client_desc" className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]">
-              {t('sortClientZA')}
-            </option>
-          </select>
-        </div>
-      </div>
-
-      {/* Clear filters trigger */}
-      {(monitorSearch ||
-        monitorStatusFilter !== 'all' ||
-        monitorInstructorFilter !== 'all' ||
-        monitorClientFilter !== 'all' ||
-        monitorTypeFilter !== 'all' ||
-        monitorSortBy !== 'date_desc') && (
-        <div className="flex items-center justify-between bg-black/5 dark:bg-white/5 px-3 py-1.5 rounded-none border border-[var(--border)] font-mono">
-          <span className="text-[10px] text-[var(--ink-dim)]">
-            {`${t('foundMatchingPrefix')} ${filteredBookings.length} ${t('foundMatchingSuffix')}`}
-          </span>
-          <button
-            onClick={() => {
-              setMonitorSearch('');
-              setMonitorStatusFilter('all');
-              setMonitorInstructorFilter('all');
-              setMonitorClientFilter('all');
-              setMonitorTypeFilter('all');
-              setMonitorSortBy('date_desc');
-            }}
-            className="text-[10px] text-[var(--ink)] hover:underline font-bold transition cursor-pointer"
-          >
-            {t('resetFilters')}
-          </button>
-        </div>
-      )}
-
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
@@ -285,7 +59,7 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
             </tr>
           </thead>
           <tbody>
-            {bookings.filter((b) => !b.userId?.startsWith('system_block_')).length === 0 ? (
+            {visibleBookings.length === 0 ? (
               <tr>
                 <td
                   colSpan={9}
@@ -294,17 +68,8 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                   {t('noScheduledSessions')}
                 </td>
               </tr>
-            ) : filteredBookings.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={9}
-                  className="text-center py-6 text-xs text-[var(--ink-dim)] font-mono"
-                >
-                  {t('noBookingsMatchFilter')}
-                </td>
-              </tr>
             ) : (
-              paginatedBookings.map((b) => {
+              visibleBookings.map((b) => {
                 const client = usersList.find((u) => u.uid === b.userId);
                 const instructorName = b.instructorName;
                 return (
@@ -313,7 +78,7 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                     className="border-b border-[var(--border)]/40 text-xs hover:bg-black/5 dark:hover:bg-white/5 transition"
                   >
                     <td
-                      className="py-3 px-1 w-[4.5rem] max-w-[4.5rem] font-mono text-[9px] text-[var(--ink-dim)] truncate"
+                      className="py-3 px-1 w-[4.5rem] max-w-[4.5rem] font-mono text-[9px] text-[var(--ink-dim)] truncate align-top"
                       title={b.id}
                     >
                       {shortenBookingId(b.id)}
@@ -540,27 +305,6 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
           </tbody>
         </table>
       </div>
-
-      {/* Pagination Controls */}
-      <ApplePagination
-        currentPage={monitorPage}
-        totalPages={monitorTotalPages}
-        totalItems={filteredBookings.length}
-        itemsPerPage={10}
-        onPageChange={setMonitorPage}
-        itemLabel={t('totalSuffix') || 'items'}
-      />
-      {hasMoreBookings && onLoadMoreBookings && (
-        <div className="flex justify-center pt-3">
-          <button
-            type="button"
-            onClick={onLoadMoreBookings}
-            className="border border-[var(--border)] px-4 py-2 text-xs font-mono font-bold uppercase tracking-wider text-[var(--ink)] transition hover:border-[var(--ink)]"
-          >
-            Load more bookings
-          </button>
-        </div>
-      )}
     </div>
   );
 };

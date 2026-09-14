@@ -186,7 +186,7 @@ Guest reservation expiry semantics ([ADR-0007](docs/adr/0007-guest-identity-paym
 - `pending` with temporary seat, day, and uniqueness claims (seat consumed at creation).
 - TTL: `min(createdAt + 24 hours, course.startAt)` on `CourseEnrollment.lifecycle.reservationExpiresAt`.
 - Canonical expiry command: `expire_guest_reservation` with CourseEnrollment intent (same command kind as lessons; separate handler path).
-- **Runtime gap (T32.9A.9A.F5):** production bounded automatic discovery/expiry for guest CourseEnrollments is not yet equivalent to lesson F2. Until F5 is **PASS / CLOSED**, a guest `pending` enrollment that is not fully funded and past `reservationExpiresAt` may continue to hold capacity if not explicitly expired. The lesson scheduler does not process CourseEnrollments.
+- Production automatic expiry: `scheduledExpireGuestCourseReservations` (`every 5 minutes`, UTC) is **ACTIVE**. **T32.9A.9A.F5** remains **BLOCKED_ONLY_BY_PRODUCTION_EXPIRY_SMOKE** until a real unpaid pending guest enrollment past `reservationExpiresAt` is observed cancelled with seat/claim release and replay no-op. The lesson scheduler does not process CourseEnrollments.
 
 ### CourseEnrollment creation paths (financial)
 
@@ -284,7 +284,7 @@ Each addition has its own per-hour surcharge payment obligation scaled by lesson
 
 ## Course Enrollment lifecycle
 
-Each Participant has a separate Course Enrollment. Enrolling several Participants in one operation is atomic: all seats, schedules, blocks, and funds pass or no enrollment is created. A `participantId + courseId` pair has at most one active enrollment; re-enrollment after `cancelled` or `withdrawn` creates a new record at current price before Course start.
+Each Participant has a separate Course Enrollment. Enrolling several Participants in one operation is atomic: all seats, schedules, blocks, and funds pass or no enrollment is created. A `participantId + courseId` pair has at most one active enrollment; re-enrollment after `cancelled` or `withdrawn` creates a new record at current price before Course start. Admin Active Bookings presents at most one row per canonical CourseEnrollment (`enrollmentId`). The `admin_course_roster` and `admin_pending_guest` read-model scopes are unioned with roster precedence; they must not be concatenated.
 
 The required CourseDay set freezes when the first canonical CourseEnrollment is created. Before
 that point CourseDays may change under the normal administration rules; afterward
@@ -513,7 +513,7 @@ Existing useful screens, information, filters, interactions, and workflows must 
 
 Before removing a legacy frontend or runtime implementation, canonical replacement and UX feature parity must be proven.
 
-Details, the parity inventory, role coverage, and the T32.9A / T32.9B boundary are in [ADR-0008](docs/adr/0008-ux-preservation-during-canonical-migration.md). Current T32.9A.8 / T32.9A.9 (FINAL CANONICAL CUTOVER) status lives in [T32_CANONICAL_ADMIN_AUDIT.md](docs/T32_CANONICAL_ADMIN_AUDIT.md). **T32.9A.9A is PASS / CLOSED** for the original F1–F4 + final integration / production smoke. **T32.9A.9A.F5** (guest CourseEnrollment reservation expiry) is an active post-close corrective follow-up — **IN PROGRESS**. **T32.9A.9B is PASS / CLOSED.** **T32.9A.9C is PASS / CLOSED; next accepted slice: T32.9A.9P.** Authoritative production sequence:
+Details, the parity inventory, role coverage, and the T32.9A / T32.9B boundary are in [ADR-0008](docs/adr/0008-ux-preservation-during-canonical-migration.md). Current T32.9A.8 / T32.9A.9 (FINAL CANONICAL CUTOVER) status lives in [T32_CANONICAL_ADMIN_AUDIT.md](docs/T32_CANONICAL_ADMIN_AUDIT.md). **T32.9A.9A is PASS / CLOSED** for the original F1–F4 + final integration / production smoke. **T32.9A.9A.F5** (guest CourseEnrollment reservation expiry) is **BLOCKED_ONLY_BY_PRODUCTION_EXPIRY_SMOKE** (inventory PASS 2026-09-14: `createGuestCourseEnrollment` ABSENT; scheduler ACTIVE). **T32.9A.9B is PASS / CLOSED.** **T32.9A.9C is PASS / CLOSED; T32.9A.9P is PASS / CLOSED for source / current production client; T32.9A.9D0 is PASS / CLOSED; T32.9A.9D is NOT STARTED.** Authoritative production sequence:
 
 ```text
 T32.9A.9A — PASS / CLOSED (F1 / F2 / F3 / F4 / final integration smoke)
@@ -530,8 +530,8 @@ T32.9A.9A — PASS / CLOSED (F1 / F2 / F3 / F4 / final integration smoke)
     attendance=present instructor gate; no InstructorRelationship bypass; no migration; no Booking rec fallback/dual-write;
     acceptance: Student/Guardian reads, completion, multi-participant isolation, dependent without /users, clean start — PASS;
     legacy recommendation readers/writers reachable = 0; Booking dual-write = 0; legacy fallback = 0;
-    Chat Homework (`bookings/{threadId}/messages` isHomework/homeworkForUserIds) preserved, **not** ParticipantLessonFeedback;
-    known 9P gap: T32.9A.9P.HW1 participant-scoped homework (homeworkForParticipantIds[], present-only, server enforcement).
+    Chat Homework (`bookings/{threadId}/messages`) preserved, **not** ParticipantLessonFeedback;
+    9P.HW1 participant-scoped homework (`homeworkForParticipantIds[]`, present-only, server enforcement) is implemented.
   T32.9A.9B.4 — PASS / CLOSED: Stats / Achievements.
     Student lesson stats = selectedParticipantId + Attendance.present + full account history drain;
     participant achievements authority `/participant_achievements/{participantId}`;
@@ -555,7 +555,7 @@ T32.9A.9A — PASS / CLOSED (F1 / F2 / F3 / F4 / final integration smoke)
     legacy review write/read, rating fallback, and dual-write reachability = 0;
     production legacy data is preserved for later 9P/9D; production deploy + authenticated manual smoke PASS.
   No other accepted mandatory 9B capability remains: 9B.2–9B.4 and Reviews are PASS / CLOSED;
-  9B.5 is not an accepted ticket; Course metrics belong to 9C and Chat Homework to 9P.HW1.
+  9B.5 is not an accepted ticket; Course metrics belong to 9C and Chat Homework to 9P.HW1 (now implemented).
 → T32.9A.9C (Course progress / achievements) — PASS / CLOSED (2026-09-14, not deployed):
   physical Account Enrollment cursor pagination reaches >100 rows; exact managed-Participant
   selection is server-authorized; CourseEnrollmentReadModel includes request-time Course Progress
@@ -566,9 +566,9 @@ T32.9A.9A — PASS / CLOSED (F1 / F2 / F3 / F4 / final integration smoke)
   bound to the canonical CourseEnrollment completed transition, once-earned and participant-scoped,
   with no historical backfill. Legacy Course WRITE / authority READ / fallback / dual-write = 0.
   Certificates remain out of 9C. Production deploy + authenticated smoke not recorded.
-→ T32.9A.9P (Global Product Parity & legacy Dependency Gate)
-→ T32.9A.9D0 (production-like incremental rehearsal)
-→ T32.9A.9D (Selective Destructive legacy Data Cleanup — not a full Firestore reset)
+→ T32.9A.9P (Global Product Parity & legacy Dependency Gate) — PASS / CLOSED (2026-09-14, source / current production client)
+→ T32.9A.9D0 (production-like incremental rehearsal) — PASS / CLOSED (2026-09-14; source delete manifest; data delete NONE; F5 Function inventory now known; 9D still waits on F5 expiry smoke)
+→ T32.9A.9D (Selective Destructive legacy Data Cleanup — not a full Firestore reset) — NOT STARTED
 → T32.9A.9E (technical + product reachability)
 → T32.9B (physical legacy runtime cleanup)
 → T40 (Execute Rehearsed Selective Production Cutover)

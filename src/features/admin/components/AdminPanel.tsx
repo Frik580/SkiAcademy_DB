@@ -226,7 +226,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 icon={BookOpen}
                 defaultOpen
               >
-                <AdminActiveBookingMonitor usersList={usersList} instructors={instructors} />
+                <AdminActiveBookingMonitor usersList={usersList} />
               </AdminCollapsibleSection>
             </Suspense>
 

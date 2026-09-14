@@ -21,7 +21,13 @@ import {
   resetAccountLessonBookingSyncStateForTests,
 } from '../../src/features/lesson-bookings/syncAccountLessonBookings';
 import { mapLessonBookingReadModelToCabinetItem } from '../../src/features/lesson-bookings/lessonBookingViewModel';
-import { buildAccountCalendarMonthRange } from '../../src/features/lesson-bookings/calendarMonthRange';
+import {
+  accountCalendarMonthKey,
+  buildAccountCalendarMonthRange,
+  resolveInitialVisibleAccountCalendarMonth,
+  shiftVisibleAccountCalendarMonth,
+} from '../../src/features/lesson-bookings/calendarMonthRange';
+import { useState } from 'react';
 import { buildMixedCabinetSessionItems } from '../../src/features/course-enrollments/cabinetSessionItems';
 import { isSessionOnDate } from '../../src/features/course-enrollments/sessionScheduleHelpers';
 
@@ -422,5 +428,132 @@ describe('account calendar month account safety and UI path', () => {
     );
     expect(source).toContain('useAccountLessonBookingCalendarMonth');
     expect(source).toContain('setCurrentMonth');
+    expect(source).toContain('resolveInitialVisibleAccountCalendarMonth');
+    expect(source).toContain('shiftVisibleAccountCalendarMonth');
+    expect(source).not.toMatch(
+      /useState<Date>\(\(\)\s*=>\s*\{[\s\S]*sessionItems\.find/
+    );
+  });
+});
+
+describe('student cabinet calendar initial visible month', () => {
+  it('uses the current calendar month when today is in September 2026', () => {
+    const now = new Date(2026, 8, 14, 15, 30, 0);
+    const initial = resolveInitialVisibleAccountCalendarMonth(now);
+    expect(initial.getFullYear()).toBe(2026);
+    expect(initial.getMonth()).toBe(8);
+    expect(initial.getDate()).toBe(1);
+
+    const range = buildAccountCalendarMonthRange(initial.getFullYear(), initial.getMonth());
+    expect(range.monthKey).toBe('2026-09');
+    expect(range.rangeStart).toEqual(timestampFromDate(new Date(2026, 8, 1)));
+    expect(range.rangeEnd).toEqual(timestampFromDate(new Date(2026, 9, 1)));
+  });
+
+  it('keeps a manually selected month across re-renders', () => {
+    const { result, rerender } = renderHook(
+      (_props: { participantId: string }) => {
+        const [currentMonth, setCurrentMonth] = useState(() =>
+          resolveInitialVisibleAccountCalendarMonth(new Date(2026, 8, 14))
+        );
+        return {
+          year: currentMonth.getFullYear(),
+          monthIndex: currentMonth.getMonth(),
+          monthKey: accountCalendarMonthKey(
+            currentMonth.getFullYear(),
+            currentMonth.getMonth()
+          ),
+          goPrev: () =>
+            setCurrentMonth((prev) => shiftVisibleAccountCalendarMonth(prev, -1)),
+          goNext: () =>
+            setCurrentMonth((prev) => shiftVisibleAccountCalendarMonth(prev, 1)),
+        };
+      },
+      { initialProps: { participantId: 'participant_a' } }
+    );
+
+    expect(result.current.monthKey).toBe('2026-09');
+
+    act(() => {
+      result.current.goPrev();
+    });
+    expect(result.current.monthKey).toBe('2026-08');
+
+    rerender({ participantId: 'participant_a' });
+    expect(result.current.monthKey).toBe('2026-08');
+
+    act(() => {
+      result.current.goNext();
+    });
+    expect(result.current.monthKey).toBe('2026-09');
+
+    rerender({ participantId: 'participant_a' });
+    expect(result.current.monthKey).toBe('2026-09');
+  });
+
+  it('keeps the manually selected month when the participant changes', () => {
+    const { result, rerender } = renderHook(
+      (_props: { participantId: string }) => {
+        const [currentMonth, setCurrentMonth] = useState(() =>
+          resolveInitialVisibleAccountCalendarMonth(new Date(2026, 8, 14))
+        );
+        return {
+          monthKey: accountCalendarMonthKey(
+            currentMonth.getFullYear(),
+            currentMonth.getMonth()
+          ),
+          goPrev: () =>
+            setCurrentMonth((prev) => shiftVisibleAccountCalendarMonth(prev, -1)),
+        };
+      },
+      { initialProps: { participantId: 'participant_a' } }
+    );
+
+    act(() => {
+      result.current.goPrev();
+    });
+    expect(result.current.monthKey).toBe('2026-08');
+
+    rerender({ participantId: 'participant_b' });
+    expect(result.current.monthKey).toBe('2026-08');
+  });
+
+  it('loads the current YYYY-MM month key/range on first open', async () => {
+    useLessonBookingStore.getState().reset();
+    resetAccountLessonBookingSyncStateForTests();
+    queryLessonBookingReadModelsMock.mockReset();
+    useAuthStore.setState({ firebaseUser: { uid: 'account_cal_a' } as never });
+    queryLessonBookingReadModelsMock.mockResolvedValue({
+      scope: 'account_calendar_month',
+      items: [],
+      hasMore: false,
+    });
+
+    const now = new Date(2026, 8, 14);
+    const initial = resolveInitialVisibleAccountCalendarMonth(now);
+    const expected = buildAccountCalendarMonthRange(
+      initial.getFullYear(),
+      initial.getMonth()
+    );
+
+    renderHook(() =>
+      useAccountLessonBookingCalendarMonth({
+        enabled: true,
+        year: initial.getFullYear(),
+        monthIndex: initial.getMonth(),
+      })
+    );
+
+    await waitFor(() => {
+      expect(useLessonBookingStore.getState().calendarMonths.get('2026-09')).toBe('loaded');
+    });
+    expect(queryLessonBookingReadModelsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scope: 'account_calendar_month',
+        rangeStart: expected.rangeStart,
+        rangeEnd: expected.rangeEnd,
+      })
+    );
+    expect(expected.monthKey).toBe('2026-09');
   });
 });

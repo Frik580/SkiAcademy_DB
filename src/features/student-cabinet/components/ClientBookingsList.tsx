@@ -42,6 +42,10 @@ import {
   useBookingCollaborationStore,
 } from '../../../features/booking-collaboration';
 import { formatCourseDayDateLabel } from '../../../features/course-enrollments/sessionScheduleHelpers';
+import {
+  resolveInitialVisibleAccountCalendarMonth,
+  shiftVisibleAccountCalendarMonth,
+} from '../../../features/lesson-bookings/calendarMonthRange';
 import { useAccountLessonBookingCalendarMonth } from '../../../features/lesson-bookings/useAccountLessonBookingCalendarMonth';
 
 const LIST_SCOPE_FILTERS: SessionListScope[] = ['upcoming', 'current', 'past', 'all'];
@@ -102,16 +106,9 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
     return saved === 'true';
   });
 
-  const [currentMonth, setCurrentMonth] = useState<Date>(() => {
-    const upcoming = sessionItems.find(
-      (item) => item.kind === 'lesson' && item.session.status === 'confirmed'
-    );
-    if (upcoming?.kind === 'lesson') {
-      const d = new Date(upcoming.session.date);
-      if (!isNaN(d.getTime())) return d;
-    }
-    return new Date();
-  });
+  const [currentMonth, setCurrentMonth] = useState<Date>(() =>
+    resolveInitialVisibleAccountCalendarMonth()
+  );
 
   const [selectedDateFilter, setSelectedDateFilter] = useState<string | null>(null);
   const [listScope, setListScope] = useState<SessionListScope>('upcoming');
@@ -232,11 +229,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                   <button
                     type="button"
                     onClick={() =>
-                      setCurrentMonth((prev) => {
-                        const next = new Date(prev);
-                        next.setMonth(next.getMonth() - 1);
-                        return next;
-                      })
+                      setCurrentMonth((prev) => shiftVisibleAccountCalendarMonth(prev, -1))
                     }
                     className="p-1.5 rounded-lg border border-[var(--border-subtle)] text-[var(--ink-dim)] hover:text-[var(--ink)] transition"
                   >
@@ -248,11 +241,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                   <button
                     type="button"
                     onClick={() =>
-                      setCurrentMonth((prev) => {
-                        const next = new Date(prev);
-                        next.setMonth(next.getMonth() + 1);
-                        return next;
-                      })
+                      setCurrentMonth((prev) => shiftVisibleAccountCalendarMonth(prev, 1))
                     }
                     className="p-1.5 rounded-lg border border-[var(--border-subtle)] text-[var(--ink-dim)] hover:text-[var(--ink)] transition"
                   >

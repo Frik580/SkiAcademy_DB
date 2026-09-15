@@ -20,11 +20,13 @@ import { BodyScrollLock } from '../../../ui/BodyScrollLock';
 import {
   adminCourseEnrollmentSearchParams,
   ADMIN_CLIENT_ACCOUNT_QUERY_KEY,
+  ADMIN_CHANGE_REQUEST_QUERY_KEY,
   ADMIN_COURSE_ENROLLMENT_QUERY_KEY,
   ADMIN_COURSE_ENROLLMENT_COURSE_QUERY_KEY,
   ADMIN_FINANCE_ACCOUNT_QUERY_KEY,
   ADMIN_FINANCE_MOVEMENT_FOCUS_QUERY_KEY,
   ADMIN_FINANCE_PAYMENT_QUERY_KEY,
+  ADMIN_ISSUE_QUERY_KEY,
   ADMIN_LESSON_BOOKING_QUERY_KEY,
   ADMIN_PLANNER_DATE_QUERY_KEY,
   ADMIN_PLANNER_FOCUS_QUERY_KEY,
@@ -234,6 +236,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 subtitle={t('adminIssueInboxSub')}
                 icon={ShieldAlert}
                 defaultOpen={false}
+                forceOpen={Boolean(
+                  searchParams.get(ADMIN_ISSUE_QUERY_KEY) ||
+                    searchParams.get(ADMIN_CHANGE_REQUEST_QUERY_KEY)
+                )}
+                forceOpenToken={
+                  searchParams.get(ADMIN_ISSUE_QUERY_KEY) ??
+                  searchParams.get(ADMIN_CHANGE_REQUEST_QUERY_KEY) ??
+                  undefined
+                }
               >
                 <AdminIssueCenter />
               </AdminCollapsibleSection>

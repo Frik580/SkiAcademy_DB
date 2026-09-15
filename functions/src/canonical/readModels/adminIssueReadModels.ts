@@ -14,6 +14,7 @@ import {
   paymentIdMatchesSubject,
   paymentIdFromBookingId,
   paymentIdFromCourseEnrollmentId,
+  projectAdminIssueInboxPresentation,
   type AdminIssue,
   type AdminIssueBlockingCondition,
   type AdminIssueInboxItem,
@@ -29,6 +30,7 @@ import { parseBooking } from '../bookings/bookingStore';
 import { parseCourseEnrollment } from '../courses/courseEnrollmentStore';
 import { parsePayment } from '../finance/financeStore';
 import { parseParticipant } from '../participantAccess/participantAccessStore';
+import { loadAdminIssueInboxPresentations } from './adminIssueInboxEnrichment';
 
 export class InvalidAdminIssueReadCursorError extends Error {
   constructor() {
@@ -105,7 +107,10 @@ function lifecycleProjection(issue: AdminIssue): AdminIssueInboxItem['lifecycle'
   };
 }
 
-export function buildAdminIssueInboxItem(issue: AdminIssue): AdminIssueInboxItem {
+export function buildAdminIssueInboxItem(
+  issue: AdminIssue,
+  presentation?: ReturnType<typeof projectAdminIssueInboxPresentation>
+): AdminIssueInboxItem {
   const policy = adminIssueKindPolicy(issue.kind);
   return {
     issueId: issue.issueId,
@@ -123,6 +128,7 @@ export function buildAdminIssueInboxItem(issue: AdminIssue): AdminIssueInboxItem
     ...(issue.occurrenceId === undefined ? {} : { occurrenceId: issue.occurrenceId }),
     ...(issue.participantId === undefined ? {} : { participantId: issue.participantId }),
     ...(issue.courseDayId === undefined ? {} : { courseDayId: issue.courseDayId }),
+    ...(presentation ?? {}),
     createdAt: issue.createdAt,
     updatedAt: issue.updatedAt,
   };
@@ -386,7 +392,17 @@ export async function buildAdminIssueDetail(
       : undefined;
 
   return {
-    ...buildAdminIssueInboxItem(issue),
+    ...buildAdminIssueInboxItem(
+      issue,
+      projectAdminIssueInboxPresentation({
+        issue,
+        ...(booking === undefined ? {} : { booking }),
+        ...(enrollment === undefined ? {} : { enrollment }),
+        participants: participant
+          ? new Map([[participant.participantId, participant]])
+          : new Map(),
+      })
+    ),
     subject:
       subjectRevision === undefined || subjectLifecycleStatus === undefined
         ? { availability: 'missing' as const }
@@ -498,10 +514,11 @@ export async function queryAdminIssueReadModels(
   const page = issues.slice(0, pageSize);
   const hasMore = issues.length > pageSize;
   const last = page[page.length - 1];
+  const presentations = await loadAdminIssueInboxPresentations(firestore, page);
 
   return {
     scope: input.scope,
-    items: page.map(buildAdminIssueInboxItem),
+    items: page.map((issue) => buildAdminIssueInboxItem(issue, presentations.get(issue.issueId))),
     hasMore,
     ...(hasMore && last
       ? {

@@ -124,4 +124,23 @@ describe('useAdminIssueReadModels', () => {
     });
     expect(result.current.list.items.map((entry) => entry.issueId)).toEqual(['admin_issue_ui_new']);
   });
+
+  it('loads a whole inbox page with one list query instead of per-row client fetches', async () => {
+    queryMock.mockResolvedValue({
+      scope: 'admin_open',
+      items: [item('one'), item('two'), item('three')],
+      hasMore: false,
+    });
+    const { result } = renderHook(() =>
+      useAdminIssueReadModels({
+        enabled: true,
+        scope: 'admin_open',
+      })
+    );
+    await waitFor(() => {
+      expect(result.current.list.items).toHaveLength(3);
+    });
+    expect(queryMock).toHaveBeenCalledTimes(1);
+    expect(queryMock.mock.calls[0]?.[0]).toMatchObject({ scope: 'admin_open' });
+  });
 });

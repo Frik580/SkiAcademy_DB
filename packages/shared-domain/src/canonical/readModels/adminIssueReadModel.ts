@@ -22,6 +22,7 @@ import { PaymentStatusSchema } from '../paymentWallet';
 import {
   AggregateRevisionSchema,
   CanonicalTimestampSchema,
+  IanaTimeZoneSchema,
   KztMinorUnitsSchema,
 } from '../primitives';
 import { AdminIssueReadModelAuthorizedActionsSchema } from './readModelAuthorizedActions';
@@ -66,6 +67,12 @@ export const AdminIssueInboxItemSchema = z
     occurrenceId: OccurrenceIdSchema.optional(),
     participantId: ParticipantIdSchema.optional(),
     courseDayId: CourseDayIdSchema.optional(),
+    subjectDisplayName: z.string().trim().min(1).max(400).optional(),
+    lessonStartsAt: CanonicalTimestampSchema.optional(),
+    lessonEndsAt: CanonicalTimestampSchema.optional(),
+    lessonTimeZone: IanaTimeZoneSchema.optional(),
+    courseTitle: z.string().trim().min(1).max(200).optional(),
+    presentationOrigin: z.literal('guest').optional(),
     createdAt: CanonicalTimestampSchema,
     updatedAt: CanonicalTimestampSchema,
   })

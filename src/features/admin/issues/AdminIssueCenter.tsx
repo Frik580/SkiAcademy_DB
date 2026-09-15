@@ -3,12 +3,14 @@ import {
   ADMIN_ISSUE_SEVERITIES,
   BookingChangeRequestIdSchema,
   type AdminBookingChangeRequestInboxItem,
+  type AdminIssueDetailReadModel,
   type AdminIssueInboxItem,
 } from '@ski-academy/shared-domain';
-import { ChevronRight, Info, Loader2, RefreshCw, ShieldAlert, X } from 'lucide-react';
-import { useCallback } from 'react';
+import { ChevronRight, Info, Loader2, RefreshCw, Search, ShieldAlert, X } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
+  ADMIN_ISSUE_CATEGORY_QUERY_KEY,
   ADMIN_ISSUE_QUERY_KEY,
   ADMIN_ISSUE_SEVERITY_QUERY_KEY,
   ADMIN_ISSUE_VIEW_QUERY_KEY,
@@ -17,13 +19,22 @@ import {
   ADMIN_LESSON_BOOKING_QUERY_KEY,
   ADMIN_COURSE_ENROLLMENT_QUERY_KEY,
   ADMIN_TAB_QUERY_KEY,
+  parseAdminIssueCategory,
   parseAdminIssueSeverity,
   parseAdminIssueView,
 } from '../adminNavigation';
 import {
   ADMIN_ISSUE_BLOCKING_KEYS,
+  ADMIN_ISSUE_CATEGORY_LABEL_KEYS,
   ADMIN_ISSUE_GUIDANCE_KEYS,
+  ADMIN_ISSUE_INBOX_CATEGORIES,
   ADMIN_ISSUE_KIND_LABEL_KEYS,
+  ADMIN_ISSUE_PRIMARY_DESTINATION_KEYS,
+  adminIssueHasGuestPresentation,
+  adminIssueMatchesCategory,
+  adminIssuePrimaryDestination,
+  adminIssueSearchHaystack,
+  type AdminIssueInboxCategory,
 } from './adminIssuePresentation';
 import { useAdminAttentionChangeRequests } from './useAdminAttentionChangeRequests';
 import { useAdminIssueReadModels } from './useAdminIssueReadModels';
@@ -81,11 +92,25 @@ function mergeAttentionInbox(
   });
 }
 
+function formatInterval(
+  locale: string,
+  startsAt: { seconds: number },
+  timeZone?: string
+): string {
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    ...(timeZone ? { timeZone } : {}),
+  }).format(timestampDate(startsAt));
+}
+
 export function AdminIssueCenter() {
   const { t, language } = useAdminIssueTranslations();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [search, setSearch] = useState('');
   const view = parseAdminIssueView(searchParams.get(ADMIN_ISSUE_VIEW_QUERY_KEY));
   const severity = parseAdminIssueSeverity(searchParams.get(ADMIN_ISSUE_SEVERITY_QUERY_KEY));
+  const category = parseAdminIssueCategory(searchParams.get(ADMIN_ISSUE_CATEGORY_QUERY_KEY));
   const selectedIssueParam = searchParams.get(ADMIN_ISSUE_QUERY_KEY);
   const selectedIssueResult = AdminIssueIdSchema.safeParse(selectedIssueParam);
   const selectedIssueId = selectedIssueResult.success ? selectedIssueResult.data : undefined;
@@ -134,25 +159,18 @@ export function AdminIssueCenter() {
       timeStyle: 'short',
     }).format(timestampDate(value));
   const formatOccurrence = (item: AdminBookingChangeRequestInboxItem) =>
-    new Intl.DateTimeFormat(locale, {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-      timeZone: item.occurrence.timeZone,
-    }).format(timestampDate(item.occurrence.startsAt));
+    formatInterval(locale, item.occurrence.startsAt, item.occurrence.timeZone);
   const formatMoney = (canonicalKzt: number) =>
     new Intl.NumberFormat(locale, {
       style: 'currency',
       currency: 'KZT',
       maximumFractionDigits: 0,
     }).format(canonicalKzt);
-  const detailBookingId =
-    detail.item?.subjectRef.subjectKind === 'booking'
-      ? detail.item.subjectRef.bookingId
+  const formatIssueTime = (item: AdminIssueInboxItem) =>
+    item.lessonStartsAt
+      ? formatInterval(locale, item.lessonStartsAt, item.lessonTimeZone)
       : undefined;
-  const detailEnrollmentId =
-    detail.item?.subjectRef.subjectKind === 'course_enrollment'
-      ? detail.item.subjectRef.enrollmentId
-      : undefined;
+
   const inboxEntries =
     view === 'open'
       ? mergeAttentionInbox(list.items, changeRequests.list.items)
@@ -162,16 +180,78 @@ export function AdminIssueCenter() {
           sortSeconds: issue.updatedAt.seconds,
           issue,
         }));
+  const hasGuestCategory = adminIssueHasGuestPresentation(list.items);
+  const visibleCategories = ADMIN_ISSUE_INBOX_CATEGORIES.filter(
+    (value) => value !== 'guest' || hasGuestCategory
+  );
+  const normalizedSearch = search.trim().toLowerCase();
+  const visibleEntries = useMemo(() => {
+    return inboxEntries.filter((entry) => {
+      if (category) {
+        if (entry.source === 'booking_change_request') {
+          if (category !== 'change_request') return false;
+        } else if (!adminIssueMatchesCategory(entry.issue, category as AdminIssueInboxCategory)) {
+          return false;
+        }
+      }
+      if (!normalizedSearch) return true;
+      if (entry.source === 'booking_change_request') {
+        const haystack = [
+          entry.changeRequest.instructor.displayName,
+          ...entry.changeRequest.participants.map((participant) => participant.displayName),
+          entry.changeRequest.reason,
+        ]
+          .join(' ')
+          .toLowerCase();
+        return haystack.includes(normalizedSearch);
+      }
+      return (
+        adminIssueSearchHaystack(entry.issue).includes(normalizedSearch) ||
+        t(ADMIN_ISSUE_KIND_LABEL_KEYS[entry.issue.kind]).toLowerCase().includes(normalizedSearch)
+      );
+    });
+  }, [category, inboxEntries, normalizedSearch, t]);
+
   const inboxLoading =
     list.loading || (view === 'open' && changeRequests.list.loading && inboxEntries.length === 0);
   const inboxError = list.error;
   const selectedChangeRequest =
     changeRequests.detail.item ??
     changeRequests.list.items.find((item) => item.requestId === selectedChangeRequestId);
+  const selectedListIssue = list.items.find((item) => item.issueId === selectedIssueId);
   const retryInbox = () => {
     void retryList();
     if (view === 'open') void changeRequests.retryList();
   };
+  const selectedOpen = Boolean(selectedIssueParam || selectedChangeRequestParam);
+
+  const openIssueDestination = (
+    item: AdminIssueInboxItem | AdminIssueDetailReadModel,
+    destination = adminIssuePrimaryDestination(item)
+  ) => {
+    if (destination === 'payment' && 'payment' in item && item.payment) {
+      updateQuery({
+        [ADMIN_TAB_QUERY_KEY]: 'finance',
+        [ADMIN_FINANCE_PAYMENT_QUERY_KEY]: item.payment.paymentId,
+      });
+      return;
+    }
+    if (item.subjectRef.subjectKind === 'booking') {
+      updateQuery({
+        [ADMIN_TAB_QUERY_KEY]: 'operations',
+        [ADMIN_LESSON_BOOKING_QUERY_KEY]: item.subjectRef.bookingId,
+      });
+      return;
+    }
+    updateQuery({
+      [ADMIN_TAB_QUERY_KEY]: 'operations',
+      [ADMIN_COURSE_ENROLLMENT_QUERY_KEY]: item.subjectRef.enrollmentId,
+    });
+  };
+
+  const issueEntityLabel = (item: AdminIssueInboxItem) =>
+    item.courseTitle ??
+    t(item.subjectRef.subjectKind === 'booking' ? 'adminIssueLessonContext' : 'adminIssueCourseContext');
 
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.8fr)]">
@@ -192,7 +272,7 @@ export function AdminIssueCenter() {
                 view === 'open' ? 'bg-[var(--ink)] text-[var(--bg)]' : 'text-[var(--ink-dim)]'
               }`}
             >
-              {t('adminIssueOpen')}
+              {t('adminIssueActionable')}
             </button>
             <button
               type="button"
@@ -208,7 +288,7 @@ export function AdminIssueCenter() {
                 view === 'history' ? 'bg-[var(--ink)] text-[var(--bg)]' : 'text-[var(--ink-dim)]'
               }`}
             >
-              {t('adminIssueHistory')}
+              {t('adminIssueResolved')}
             </button>
           </div>
 
@@ -239,6 +319,50 @@ export function AdminIssueCenter() {
               ))}
             </select>
           </label>
+
+          <label className="flex items-center gap-2 text-xs text-[var(--ink-dim)]">
+            <span>{t('adminIssueCategory')}</span>
+            <select
+              aria-label={t('adminIssueCategory')}
+              value={category ?? ''}
+              onChange={(event) =>
+                updateQuery({
+                  [ADMIN_ISSUE_CATEGORY_QUERY_KEY]: event.target.value || undefined,
+                  [ADMIN_ISSUE_QUERY_KEY]: undefined,
+                  [ADMIN_CHANGE_REQUEST_QUERY_KEY]: undefined,
+                })
+              }
+              className="border border-[var(--border)] bg-[var(--bg)] px-2 py-2 text-xs text-[var(--ink)]"
+            >
+              <option value="">{t('adminIssueCategoryAll')}</option>
+              {visibleCategories.map((value) => (
+                <option key={value} value={value}>
+                  {t(ADMIN_ISSUE_CATEGORY_LABEL_KEYS[value])}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="relative min-w-40 flex-1 text-xs text-[var(--ink-dim)]">
+            <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2" />
+            <input
+              type="search"
+              aria-label={t('adminIssueSearch')}
+              placeholder={t('adminIssueSearchPlaceholder')}
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              className="w-full border border-[var(--border)] bg-[var(--bg)] py-2 pl-7 pr-2 text-xs text-[var(--ink)]"
+            />
+          </label>
+
+          <button
+            type="button"
+            onClick={() => void retryInbox()}
+            className="inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 text-xs font-mono uppercase tracking-wider"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            {t('adminIssueRefresh')}
+          </button>
         </div>
 
         {view === 'open' && changeRequests.list.error && !list.error ? (
@@ -294,9 +418,13 @@ export function AdminIssueCenter() {
               {t(view === 'open' ? 'adminAttentionEmptyOpen' : 'adminIssueEmptyHistory')}
             </p>
           </div>
+        ) : visibleEntries.length === 0 ? (
+          <div className="border border-dashed border-[var(--border)] p-8 text-center">
+            <p className="text-sm text-[var(--ink-dim)]">{t('adminIssueEmptySearch')}</p>
+          </div>
         ) : (
           <div className="space-y-2">
-            {inboxEntries.map((entry) =>
+            {visibleEntries.map((entry) =>
               entry.source === 'booking_change_request' ? (
                 <button
                   type="button"
@@ -319,18 +447,17 @@ export function AdminIssueCenter() {
                         <span className="border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-amber-700 dark:text-amber-300">
                           {t('adminIssueActionRequired')}
                         </span>
-                        <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
-                          {entry.changeRequest.lifecycle.status}
-                        </span>
                       </div>
                       <h4 className="text-sm text-[var(--ink)]">
                         {t('adminAttentionChangeRequestKind')}
                       </h4>
                       <p className="truncate text-xs text-[var(--ink-dim)]">
-                        {entry.changeRequest.instructor.displayName} ·{' '}
                         {entry.changeRequest.participants
                           .map((participant) => participant.displayName)
                           .join(', ')}
+                      </p>
+                      <p className="truncate text-xs text-[var(--ink-dim)]">
+                        {entry.changeRequest.instructor.displayName}
                       </p>
                       <p className="text-[11px] text-[var(--ink-dim)]">
                         {formatOccurrence(entry.changeRequest)}
@@ -371,27 +498,26 @@ export function AdminIssueCenter() {
                                 : 'adminIssueSeverityNormal'
                           )}
                         </span>
-                        <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
-                          {entry.issue.lifecycle.status}
-                        </span>
-                        <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
-                          {entry.issue.actionRequirement === 'action_required'
-                            ? t('adminIssueActionRequired')
-                            : t('adminIssueInformational')}
-                        </span>
+                        {entry.issue.presentationOrigin === 'guest' ? (
+                          <span className="border border-[var(--border)] px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+                            {t('adminIssueGuestOrigin')}
+                          </span>
+                        ) : null}
                       </div>
                       <h4 className="text-sm text-[var(--ink)]">
                         {t(ADMIN_ISSUE_KIND_LABEL_KEYS[entry.issue.kind])}
                       </h4>
+                      <p className="truncate text-xs text-[var(--ink)]">
+                        {entry.issue.subjectDisplayName ?? t('adminIssueUnknownSubject')}
+                      </p>
                       <p className="truncate text-xs text-[var(--ink-dim)]">
-                        {entry.issue.subjectRef.subjectKind} ·{' '}
-                        {entry.issue.subjectRef.subjectKind === 'booking'
-                          ? entry.issue.subjectRef.bookingId
-                          : entry.issue.subjectRef.enrollmentId}
+                        {issueEntityLabel(entry.issue)}
                       </p>
-                      <p className="text-[11px] text-[var(--ink-dim)]">
-                        {formatDate(entry.issue.updatedAt)}
-                      </p>
+                      {formatIssueTime(entry.issue) ? (
+                        <p className="text-[11px] text-[var(--ink-dim)]">
+                          {formatIssueTime(entry.issue)}
+                        </p>
+                      ) : null}
                     </div>
                     <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-[var(--ink-dim)]" />
                   </div>
@@ -414,7 +540,11 @@ export function AdminIssueCenter() {
 
       <aside
         aria-label={t('adminIssueDetailTitle')}
-        className="min-h-56 border border-[var(--border)] p-4"
+        className={`border border-[var(--border)] bg-[var(--bg)] p-4 ${
+          selectedOpen
+            ? 'fixed inset-0 z-30 overflow-auto lg:static lg:z-auto'
+            : 'hidden min-h-56 lg:flex lg:items-center lg:justify-center'
+        }`}
       >
         {selectedChangeRequestParam ? (
           !selectedChangeRequestResult.success ? (
@@ -455,14 +585,9 @@ export function AdminIssueCenter() {
           ) : (
             <div className="space-y-5">
               <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
-                    {selectedChangeRequest.sourceRef.bookingChangeRequestId}
-                  </p>
-                  <h3 className="mt-2 text-base text-[var(--ink)]">
-                    {t('adminAttentionChangeRequestKind')}
-                  </h3>
-                </div>
+                <h3 className="text-base text-[var(--ink)]">
+                  {t('adminAttentionChangeRequestKind')}
+                </h3>
                 <button
                   type="button"
                   aria-label={t('adminIssueClose')}
@@ -510,13 +635,13 @@ export function AdminIssueCenter() {
                 }
                 className="inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 text-xs font-mono uppercase tracking-wider"
               >
-                {t('adminAttentionOpenItem')}
+                {t('adminIssueReviewRequest')}
                 <ChevronRight className="h-3.5 w-3.5" />
               </button>
             </div>
           )
         ) : !selectedIssueParam ? (
-          <div className="flex min-h-48 items-center justify-center text-center text-sm text-[var(--ink-dim)]">
+          <div className="hidden text-center text-sm text-[var(--ink-dim)] lg:block">
             {t('adminIssueSelectPrompt')}
           </div>
         ) : !selectedIssueResult.success ? (
@@ -558,12 +683,13 @@ export function AdminIssueCenter() {
           <div className="space-y-5">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
-                  {detail.item.issueId}
-                </p>
-                <h3 className="mt-2 text-base text-[var(--ink)]">
+                <h3 className="text-base text-[var(--ink)]">
                   {t(ADMIN_ISSUE_KIND_LABEL_KEYS[detail.item.kind])}
                 </h3>
+                {detail.item.presentationOrigin === 'guest' ||
+                selectedListIssue?.presentationOrigin === 'guest' ? (
+                  <p className="mt-1 text-xs text-[var(--ink-dim)]">{t('adminIssueGuestOrigin')}</p>
+                ) : null}
               </div>
               <button
                 type="button"
@@ -599,31 +725,56 @@ export function AdminIssueCenter() {
             </div>
 
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-xs">
-              <dt className="text-[var(--ink-dim)]">{t('adminIssueStatus')}</dt>
-              <dd>{detail.item.lifecycle.status}</dd>
               <dt className="text-[var(--ink-dim)]">{t('adminIssueSeverity')}</dt>
-              <dd>{detail.item.severity}</dd>
+              <dd>
+                {t(
+                  detail.item.severity === 'critical'
+                    ? 'adminIssueSeverityCritical'
+                    : detail.item.severity === 'urgent'
+                      ? 'adminIssueSeverityUrgent'
+                      : 'adminIssueSeverityNormal'
+                )}
+              </dd>
               <dt className="text-[var(--ink-dim)]">{t('adminIssueBlocking')}</dt>
               <dd>{t(ADMIN_ISSUE_BLOCKING_KEYS[detail.item.blockingCondition])}</dd>
               <dt className="text-[var(--ink-dim)]">{t('adminIssueSubject')}</dt>
-              <dd className="break-all">
-                {detail.item.subjectRef.subjectKind} ·{' '}
-                {detail.item.subjectRef.subjectKind === 'booking'
-                  ? detail.item.subjectRef.bookingId
-                  : detail.item.subjectRef.enrollmentId}
+              <dd>
+                {detail.item.courseTitle ??
+                  selectedListIssue?.courseTitle ??
+                  t(
+                    detail.item.subjectRef.subjectKind === 'booking'
+                      ? 'adminIssueLessonContext'
+                      : 'adminIssueCourseContext'
+                  )}
               </dd>
-              <dt className="text-[var(--ink-dim)]">{t('adminIssueRevision')}</dt>
-              <dd>{detail.item.revision}</dd>
-              <dt className="text-[var(--ink-dim)]">{t('adminIssueOpenedAt')}</dt>
-              <dd>{formatDate(detail.item.lifecycle.openedAt)}</dd>
-              <dt className="text-[var(--ink-dim)]">{t('adminIssueLastDetected')}</dt>
-              <dd>{formatDate(detail.item.lifecycle.lastDetectedAt)}</dd>
-              {detail.item.instructorId && (
+              {(detail.item.subjectDisplayName ||
+                detail.item.participant ||
+                selectedListIssue?.subjectDisplayName) && (
                 <>
-                  <dt className="text-[var(--ink-dim)]">{t('adminIssueInstructor')}</dt>
-                  <dd className="break-all">{detail.item.instructorId}</dd>
+                  <dt className="text-[var(--ink-dim)]">{t('adminIssueParticipant')}</dt>
+                  <dd>
+                    {detail.item.participant?.displayName ??
+                      detail.item.subjectDisplayName ??
+                      selectedListIssue?.subjectDisplayName}
+                  </dd>
                 </>
               )}
+              {(detail.item.lessonStartsAt || selectedListIssue?.lessonStartsAt) && (
+                <>
+                  <dt className="text-[var(--ink-dim)]">{t('adminAttentionLessonTime')}</dt>
+                  <dd>
+                    {formatIssueTime({
+                      ...detail.item,
+                      lessonStartsAt:
+                        detail.item.lessonStartsAt ?? selectedListIssue?.lessonStartsAt,
+                      lessonTimeZone:
+                        detail.item.lessonTimeZone ?? selectedListIssue?.lessonTimeZone,
+                    })}
+                  </dd>
+                </>
+              )}
+              <dt className="text-[var(--ink-dim)]">{t('adminIssueOpenedAt')}</dt>
+              <dd>{formatDate(detail.item.lifecycle.openedAt)}</dd>
               {detail.item.lessonEndsAt && (
                 <>
                   <dt className="text-[var(--ink-dim)]">{t('adminIssueLessonEnded')}</dt>
@@ -642,55 +793,25 @@ export function AdminIssueCenter() {
                   <dd>{detail.item.missingAttendanceCount}</dd>
                 </>
               )}
-              {detail.item.participant && (
-                <>
-                  <dt className="text-[var(--ink-dim)]">{t('adminIssueParticipant')}</dt>
-                  <dd>{detail.item.participant.displayName}</dd>
-                </>
-              )}
             </dl>
 
-            {detailBookingId && (
-              <button
-                type="button"
-                onClick={() =>
-                  updateQuery({
-                    [ADMIN_TAB_QUERY_KEY]: 'operations',
-                    [ADMIN_LESSON_BOOKING_QUERY_KEY]: detailBookingId,
-                  })
-                }
-                className="inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 text-xs font-mono uppercase tracking-wider"
-              >
-                Open canonical booking
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => openIssueDestination(detail.item!)}
+              className="inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 text-xs font-mono uppercase tracking-wider"
+            >
+              {t(ADMIN_ISSUE_PRIMARY_DESTINATION_KEYS[adminIssuePrimaryDestination(detail.item)])}
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
 
-            {detailEnrollmentId && (
-              <button
-                type="button"
-                onClick={() =>
-                  updateQuery({
-                    [ADMIN_TAB_QUERY_KEY]: 'operations',
-                    [ADMIN_COURSE_ENROLLMENT_QUERY_KEY]: detailEnrollmentId,
-                  })
-                }
-                className="inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 text-xs font-mono uppercase tracking-wider"
-              >
-                Open canonical course enrollment
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-            )}
-
-            {detail.item.payment && (
+            {detail.item.payment && adminIssuePrimaryDestination(detail.item) !== 'payment' && (
               <div className="border-t border-[var(--border)] pt-4">
                 <h4 className="text-xs font-mono uppercase tracking-wider">
                   {t('adminIssuePaymentSummary')}
                 </h4>
                 <p className="mt-2 text-xs text-[var(--ink-dim)]">
                   {detail.item.payment.paymentStatus} · {t('adminIssueOutstanding')}:{' '}
-                  {formatMoney(detail.item.payment.outstandingAmount)} · rev{' '}
-                  {detail.item.payment.revision}
+                  {formatMoney(detail.item.payment.outstandingAmount)}
                 </p>
                 <button
                   type="button"
@@ -702,9 +823,21 @@ export function AdminIssueCenter() {
                   }
                   className="mt-3 inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 text-xs font-mono uppercase tracking-wider"
                 >
-                  {t('adminIssueOpenPayment')}
+                  {t('adminIssueCheckPayment')}
                   <ChevronRight className="h-3.5 w-3.5" />
                 </button>
+              </div>
+            )}
+
+            {detail.item.payment && adminIssuePrimaryDestination(detail.item) === 'payment' && (
+              <div className="border-t border-[var(--border)] pt-4">
+                <h4 className="text-xs font-mono uppercase tracking-wider">
+                  {t('adminIssuePaymentSummary')}
+                </h4>
+                <p className="mt-2 text-xs text-[var(--ink-dim)]">
+                  {detail.item.payment.paymentStatus} · {t('adminIssueOutstanding')}:{' '}
+                  {formatMoney(detail.item.payment.outstandingAmount)}
+                </p>
               </div>
             )}
 
@@ -719,20 +852,7 @@ export function AdminIssueCenter() {
               ) : (
                 <ul className="mt-2 space-y-1 text-xs text-[var(--ink-dim)]">
                   {detail.item.attendance.map((record) => (
-                    <li key={record.attendanceId}>
-                      {record.attendanceStatus} · {record.attendanceId} · rev {record.revision} ·{' '}
-                      {record.recordedBy?.kind === 'instructor'
-                        ? `instructor:${record.recordedBy.instructorId}`
-                        : record.recordedBy
-                          ? `administrator:${record.recordedBy.accountId}`
-                          : 'legacy provenance unavailable'}{' '}
-                      →{' '}
-                      {record.lastChangedBy?.kind === 'instructor'
-                        ? `instructor:${record.lastChangedBy.instructorId}`
-                        : record.lastChangedBy
-                          ? `administrator:${record.lastChangedBy.accountId}`
-                          : 'legacy provenance unavailable'}
-                    </li>
+                    <li key={record.attendanceId}>{record.attendanceStatus}</li>
                   ))}
                 </ul>
               )}
@@ -751,45 +871,6 @@ export function AdminIssueCenter() {
                       : 'adminIssueActionsDeferred'
                 )}
               </p>
-              <ul className="mt-2 space-y-2 text-xs">
-                {detail.item.authorizedActions.actions.map((action) => (
-                  <li key={action.kind}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (action.kind === 'fund_payment' || action.kind === 'correct_finance') {
-                          if (!detail.item?.payment) return;
-                          updateQuery({
-                            [ADMIN_TAB_QUERY_KEY]: 'finance',
-                            [ADMIN_FINANCE_PAYMENT_QUERY_KEY]: detail.item.payment.paymentId,
-                          });
-                          return;
-                        }
-                        if (detail.item?.subjectRef.subjectKind === 'booking') {
-                          updateQuery({
-                            [ADMIN_TAB_QUERY_KEY]: 'operations',
-                            [ADMIN_LESSON_BOOKING_QUERY_KEY]: detail.item.subjectRef.bookingId,
-                          });
-                          return;
-                        }
-                        if (detail.item?.subjectRef.subjectKind === 'course_enrollment') {
-                          updateQuery({
-                            [ADMIN_TAB_QUERY_KEY]: 'operations',
-                            [ADMIN_COURSE_ENROLLMENT_QUERY_KEY]:
-                              detail.item.subjectRef.enrollmentId,
-                          });
-                        }
-                      }}
-                      className="flex w-full items-center justify-between gap-2 border border-[var(--border)] px-3 py-2 text-left"
-                    >
-                      <span>
-                        {t(ADMIN_ISSUE_GUIDANCE_KEYS[action.kind])} · {action.availability}
-                      </span>
-                      <ChevronRight className="h-3.5 w-3.5 shrink-0" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
             </div>
           </div>
         )}

@@ -11,6 +11,7 @@ export * from './courseCatalogReadModel';
 export * from './courseAttendanceReadModel';
 export * from './instructorCourseAssignmentReadModel';
 export * from './adminIssueReadModel';
+export * from './adminIssueInboxProjection';
 export * from './adminFinanceReadModel';
 export * from './adminCourseReadModel';
 export * from './adminCourseEnrollmentReadModel';

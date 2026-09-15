@@ -42,6 +42,11 @@ const commonItem = {
   actionRequirement: 'action_required' as const,
   blockingCondition: 'outcome_and_delivery' as const,
   participantId: 'participant_component_01',
+  subjectDisplayName: 'Safe Participant',
+  lessonStartsAt: { seconds: 1_788_250_000, nanoseconds: 0 },
+  lessonEndsAt: { seconds: 1_788_253_600, nanoseconds: 0 },
+  lessonTimeZone: 'Asia/Almaty',
+  courseTitle: 'Alpine Foundations',
   createdAt: { seconds: 1, nanoseconds: 0 },
   updatedAt: { seconds: 2, nanoseconds: 0 },
 };
@@ -83,6 +88,12 @@ describe('AdminIssueCenter', () => {
       </MemoryRouter>
     );
     expect(screen.getByText('adminAttentionEmptyOpen')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'adminIssueActionable' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'adminIssueResolved' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Все' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'All' })).not.toBeInTheDocument();
+    expect(screen.queryByText('adminIssueViewAll')).not.toBeInTheDocument();
+    expect(screen.queryByText('adminIssueCategoryGuest')).not.toBeInTheDocument();
   });
 
   it('renders attendance_payment_conflict context and deferred server actions', () => {
@@ -169,12 +180,24 @@ describe('AdminIssueCenter', () => {
     expect(screen.getAllByText('adminIssueKindAttendancePaymentConflict').length).toBeGreaterThan(
       0
     );
-    expect(screen.getByText('Safe Participant')).toBeInTheDocument();
+    expect(screen.getAllByText('Safe Participant').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Alpine Foundations').length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(
+        new Intl.DateTimeFormat('en-US', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+          timeZone: 'Asia/Almaty',
+        }).format(new Date(1_788_250_000 * 1_000))
+      ).length
+    ).toBeGreaterThan(0);
+    expect(screen.queryByText('course_enrollment_component_01')).not.toBeInTheDocument();
+    expect(screen.queryByText('attendance_payment_conflict')).not.toBeInTheDocument();
     expect(screen.getByText(/partially_paid/)).toBeInTheDocument();
-    expect(screen.getByText(/attendance_component_01/)).toBeInTheDocument();
+    expect(screen.queryByText(/attendance_component_01/)).not.toBeInTheDocument();
     expect(screen.getByText('adminIssueActionsDeferred')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /resolve/i })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'adminIssueOpenPayment' }));
+    expect(screen.queryByRole('button', { name: /^resolve$/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'adminIssueCheckPayment' }));
     expect(screen.getByLabelText('location')).toHaveTextContent('tab=finance');
     expect(screen.getByLabelText('location')).toHaveTextContent('payment=payment_component_01');
   });
@@ -186,6 +209,7 @@ describe('AdminIssueCenter', () => {
         subjectKind: 'booking' as const,
         bookingId: 'booking_issue_component_01',
       },
+      courseTitle: undefined,
     };
     useReadModelsMock.mockReturnValue({
       list: {
@@ -226,7 +250,7 @@ describe('AdminIssueCenter', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open canonical booking' }));
+    fireEvent.click(screen.getByRole('button', { name: 'adminIssueOpenLesson' }));
     expect(screen.getByLabelText('location')).toHaveTextContent('tab=operations');
     expect(screen.getByLabelText('location')).toHaveTextContent(
       'booking=booking_issue_component_01'
@@ -316,14 +340,68 @@ describe('AdminIssueCenter', () => {
     );
 
     expect(screen.getAllByText('adminAttentionChangeRequestKind').length).toBeGreaterThan(0);
-    expect(screen.getByText('Coach Anna')).toBeInTheDocument();
+    expect(screen.getAllByText('Coach Anna').length).toBeGreaterThan(0);
     expect(screen.getByText('Instructor is unavailable that morning')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /resolve/i })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'adminAttentionOpenItem' }));
+    expect(screen.queryByRole('button', { name: /^resolve$/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'adminIssueReviewRequest' }));
     expect(screen.getByLabelText('location')).toHaveTextContent('tab=operations');
     expect(screen.getByLabelText('location')).toHaveTextContent(
       'booking=booking_component_change_01'
     );
     expect(screen.getByLabelText('location')).toHaveTextContent(`changeRequest=${requestId}`);
+  });
+
+  it('falls back when inbox enrichment is absent and does not render raw ids', () => {
+    const fallbackItem = {
+      ...commonItem,
+      subjectDisplayName: undefined,
+      lessonStartsAt: undefined,
+      lessonEndsAt: undefined,
+      lessonTimeZone: undefined,
+      courseTitle: undefined,
+    };
+    useReadModelsMock.mockReturnValue({
+      list: {
+        items: [fallbackItem],
+        loading: false,
+        loadingMore: false,
+        hasMore: false,
+      },
+      detail: { loading: false },
+      retryList: retryListMock,
+      retryDetail: vi.fn(),
+      loadMore: vi.fn(),
+    });
+    render(
+      <MemoryRouter>
+        <AdminIssueCenter />
+      </MemoryRouter>
+    );
+    expect(screen.getByText('adminIssueUnknownSubject')).toBeInTheDocument();
+    expect(screen.getByText('adminIssueCourseContext')).toBeInTheDocument();
+    expect(screen.queryByText(fallbackItem.subjectRef.enrollmentId)).not.toBeInTheDocument();
+    expect(screen.queryByText(fallbackItem.issueId)).not.toBeInTheDocument();
+  });
+
+  it('shows guest category only when presentation origin exists in source data', () => {
+    useReadModelsMock.mockReturnValue({
+      list: {
+        items: [{ ...commonItem, presentationOrigin: 'guest' as const }],
+        loading: false,
+        loadingMore: false,
+        hasMore: false,
+      },
+      detail: { loading: false },
+      retryList: retryListMock,
+      retryDetail: vi.fn(),
+      loadMore: vi.fn(),
+    });
+    render(
+      <MemoryRouter>
+        <AdminIssueCenter />
+      </MemoryRouter>
+    );
+    expect(screen.getByRole('option', { name: 'adminIssueCategoryGuest' })).toBeInTheDocument();
+    expect(screen.getByText('adminIssueGuestOrigin')).toBeInTheDocument();
   });
 });

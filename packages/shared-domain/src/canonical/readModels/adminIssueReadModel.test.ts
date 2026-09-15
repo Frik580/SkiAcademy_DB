@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  AdminIssueInboxItemSchema,
   QueryAdminIssueReadModelsInputSchema,
   decodeAdminIssueReadModelCursor,
   encodeAdminIssueReadModelCursor,
@@ -38,5 +39,32 @@ describe('AdminIssue read-model transport', () => {
       cursor
     );
     expect(decodeAdminIssueReadModelCursor('not-a-cursor')).toBeUndefined();
+  });
+
+  it('accepts optional inbox presentation fields without requiring a second source of truth', () => {
+    expect(
+      AdminIssueInboxItemSchema.safeParse({
+        issueId: 'admin_issue_presentation_01',
+        revision: 1,
+        kind: 'missing_attendance',
+        severity: 'normal',
+        lifecycle: {
+          status: 'open',
+          openedAt: { seconds: 1, nanoseconds: 0 },
+          lastDetectedAt: { seconds: 1, nanoseconds: 0 },
+        },
+        subjectRef: { subjectKind: 'booking', bookingId: 'booking_presentation_01' },
+        summaryCode: 'missing_attendance',
+        actionRequirement: 'action_required',
+        blockingCondition: 'outcome',
+        subjectDisplayName: 'Maya Snow',
+        lessonStartsAt: { seconds: 2, nanoseconds: 0 },
+        lessonEndsAt: { seconds: 3, nanoseconds: 0 },
+        lessonTimeZone: 'Asia/Almaty',
+        presentationOrigin: 'guest',
+        createdAt: { seconds: 1, nanoseconds: 0 },
+        updatedAt: { seconds: 1, nanoseconds: 0 },
+      }).success
+    ).toBe(true);
   });
 });

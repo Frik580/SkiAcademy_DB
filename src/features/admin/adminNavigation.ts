@@ -16,6 +16,7 @@ export const ADMIN_TAB_QUERY_KEY = 'tab';
 export const ADMIN_ISSUE_QUERY_KEY = 'issue';
 export const ADMIN_ISSUE_VIEW_QUERY_KEY = 'issueView';
 export const ADMIN_ISSUE_SEVERITY_QUERY_KEY = 'issueSeverity';
+export const ADMIN_ISSUE_CATEGORY_QUERY_KEY = 'issueCategory';
 export const ADMIN_CHANGE_REQUEST_QUERY_KEY = 'changeRequest';
 export const ADMIN_FINANCE_ACCOUNT_QUERY_KEY = 'account';
 export const ADMIN_FINANCE_PAYMENT_QUERY_KEY = 'payment';
@@ -139,7 +140,30 @@ export function parseAdminTabId(value: string | null | undefined): AdminTabId {
 }
 
 export function parseAdminIssueView(value: string | null | undefined): 'open' | 'history' {
-  return value === 'history' ? 'history' : 'open';
+  return value === 'history' || value === 'resolved' ? 'history' : 'open';
+}
+
+export function parseAdminIssueCategory(
+  value: string | null | undefined
+):
+  | 'attendance'
+  | 'payment'
+  | 'cancellation'
+  | 'reconciliation'
+  | 'change_request'
+  | 'guest'
+  | undefined {
+  if (
+    value === 'attendance' ||
+    value === 'payment' ||
+    value === 'cancellation' ||
+    value === 'reconciliation' ||
+    value === 'change_request' ||
+    value === 'guest'
+  ) {
+    return value;
+  }
+  return undefined;
 }
 
 export function parseAdminIssueSeverity(

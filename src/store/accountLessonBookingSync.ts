@@ -41,12 +41,24 @@ export function shouldSyncAccountLessonBookings(input: {
   return ACCOUNT_LESSON_HOT_PATHS.has(normalizePathname(input.pathname));
 }
 
-/** History is visible only on the cabinet's dedicated history route. */
+/**
+ * Routes that visibly render non-hot lesson history.
+ *
+ * `/cabinet/history` is the full history surface. `/cabinet/profile_journey`
+ * renders the same completed-lesson events directly (a limited preview plus a
+ * "Show all" link), and `completed` lessons are never members of account_hot —
+ * so Journey is a history owner too, not merely a consumer of warm hot data.
+ */
+const ACCOUNT_LESSON_HISTORY_PATHS = new Set(['/cabinet/history', '/cabinet/profile_journey']);
+
+/** Whether the active route visibly renders non-hot account lesson history. */
 export function shouldSyncAccountLessonHistory(input: {
   readonly pathname: string;
   readonly accountId: string | undefined;
 }): boolean {
-  return Boolean(input.accountId) && normalizePathname(input.pathname) === '/cabinet/history';
+  return (
+    Boolean(input.accountId) && ACCOUNT_LESSON_HISTORY_PATHS.has(normalizePathname(input.pathname))
+  );
 }
 
 const PARTICIPANT_LESSON_STATS_PATHS = new Set([

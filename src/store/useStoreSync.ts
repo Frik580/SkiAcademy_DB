@@ -33,7 +33,8 @@ export const useStoreSync = () => {
   const firebaseUser = useAuthStore((state) => state.firebaseUser);
   const userProfile = useProfileStore((state) => state.userProfile);
   // Hydrate account_hot only on surfaces that render current/upcoming lessons.
-  // History keeps a separate gate; Training/Profile/etc. must not poll account_hot.
+  // History ownership is separate (History + Journey) so Training/Profile/etc.
+  // never poll account_hot.
   const isCustomerCanonicalLessonHotPath = shouldSyncAccountLessonBookings({
     pathname: location.pathname,
     accountId: firebaseUser?.uid,

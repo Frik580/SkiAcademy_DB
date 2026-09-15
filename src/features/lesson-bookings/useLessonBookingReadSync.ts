@@ -17,7 +17,8 @@ const DEFAULT_TIMEZONE = 'Asia/Almaty';
  * Account lesson read sync.
  *
  * - `hotEnabled`: surface that renders current/upcoming lessons — ensure + visibility refresh.
- * - `historyEnabled`: History route — account_history pagination only.
+ * - `historyEnabled`: history-owning surface (`/cabinet/history`, `/cabinet/profile_journey`)
+ *   — account_history pagination only.
  * - No 30s polling. Mutations invalidate via deliberate refetch.
  */
 export function useLessonBookingReadSync(

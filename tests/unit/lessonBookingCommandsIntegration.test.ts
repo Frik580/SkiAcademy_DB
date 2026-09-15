@@ -265,16 +265,19 @@ describe('lessonBooking command refresh is surface-aware', () => {
     }
   );
 
-  it('resolves the hot + account_history refresh for /cabinet/history', () => {
-    expect(
-      resolveLessonBookingCommandRefreshStrategy({
-        pathname: '/cabinet/history',
-        accountId: 'account_fixture_01',
-      })
-    ).toBe(refreshAccountLessonBookingsWithHistory);
-  });
+  it.each(['/cabinet/history', '/cabinet/profile_journey'])(
+    'resolves the hot + account_history refresh for %s',
+    (pathname) => {
+      expect(
+        resolveLessonBookingCommandRefreshStrategy({
+          pathname,
+          accountId: 'account_fixture_01',
+        })
+      ).toBe(refreshAccountLessonBookingsWithHistory);
+    }
+  );
 
-  it('route-aware container wiring: /cabinet/history reads hot + history, /cabinet and /cabinet/calendar read hot only', async () => {
+  it('route-aware container wiring: history surfaces read hot + history, other surfaces read hot only', async () => {
     queryReadModelsMock.mockImplementation(async (input: { scope: string }) => ({
       scope: input.scope,
       items: [],
@@ -325,6 +328,10 @@ describe('lessonBooking command refresh is surface-aware', () => {
     }
 
     expect(await runCancellationRefresh('/cabinet/history')).toEqual({ hot: 1, history: 1 });
+    expect(await runCancellationRefresh('/cabinet/profile_journey')).toEqual({
+      hot: 1,
+      history: 1,
+    });
     expect(await runCancellationRefresh('/cabinet')).toEqual({ hot: 1, history: 0 });
     expect(await runCancellationRefresh('/cabinet/calendar')).toEqual({ hot: 1, history: 0 });
   });

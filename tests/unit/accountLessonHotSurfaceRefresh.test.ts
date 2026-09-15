@@ -226,22 +226,25 @@ describe('T32.9R.P0B surface-scoped account_hot refresh', () => {
     removeSpy.mockRestore();
   });
 
-  it('History route loads account_history without account_hot ensure', async () => {
-    queryLessonBookingReadModelsMock.mockImplementation(async (input: { scope: string }) => {
-      if (input.scope === 'account_history') {
-        return { scope: 'account_history', items: [], hasMore: false };
-      }
-      return { scope: 'account_hot', items: [], hasMore: false };
-    });
+  it.each(['/cabinet/history', '/cabinet/profile_journey'])(
+    'history-owning surface %s loads account_history without account_hot ensure',
+    async (pathname) => {
+      queryLessonBookingReadModelsMock.mockImplementation(async (input: { scope: string }) => {
+        if (input.scope === 'account_history') {
+          return { scope: 'account_history', items: [], hasMore: false };
+        }
+        return { scope: 'account_hot', items: [], hasMore: false };
+      });
 
-    renderSurfaceSync('/cabinet/history');
-    await waitFor(() =>
-      expect(
-        queryLessonBookingReadModelsMock.mock.calls.some(
-          (call) => call[0]?.scope === 'account_history'
-        )
-      ).toBe(true)
-    );
-    expect(accountHotCallCount()).toBe(0);
-  });
+      renderSurfaceSync(pathname);
+      await waitFor(() =>
+        expect(
+          queryLessonBookingReadModelsMock.mock.calls.some(
+            (call) => call[0]?.scope === 'account_history'
+          )
+        ).toBe(true)
+      );
+      expect(accountHotCallCount()).toBe(0);
+    }
+  );
 });

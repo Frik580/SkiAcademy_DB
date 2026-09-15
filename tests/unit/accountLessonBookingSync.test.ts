@@ -36,6 +36,7 @@ describe('shouldSyncAccountLessonBookings (account_hot surfaces)', () => {
       '/cabinet/settings',
       '/cabinet/profile_personal',
       '/cabinet/profile_wallet',
+      '/cabinet/profile_journey',
       '/cabinet/profile_achievements',
       '/cabinet/profile_season',
       '/instructor',
@@ -47,7 +48,19 @@ describe('shouldSyncAccountLessonBookings (account_hot surfaces)', () => {
 });
 
 describe('account lesson expensive-surface gates', () => {
-  it('owns lesson history only on the real History route', () => {
+  it('owns lesson history on both non-hot history surfaces', () => {
+    // Journey renders completed lessons directly; completed is never account_hot.
+    for (const pathname of [
+      '/cabinet/history',
+      '/cabinet/history/',
+      '/cabinet/profile_journey',
+      '/cabinet/profile_journey/',
+    ]) {
+      expect(shouldSyncAccountLessonHistory({ pathname, accountId: 'account_01' })).toBe(true);
+    }
+  });
+
+  it('does not own lesson history elsewhere', () => {
     expect(shouldSyncAccountLessonHistory({ pathname: '/', accountId: 'account_01' })).toBe(false);
     expect(shouldSyncAccountLessonHistory({ pathname: '/cabinet', accountId: 'account_01' })).toBe(
       false
@@ -56,11 +69,14 @@ describe('account lesson expensive-surface gates', () => {
       shouldSyncAccountLessonHistory({ pathname: '/cabinet/calendar', accountId: 'account_01' })
     ).toBe(false);
     expect(
-      shouldSyncAccountLessonHistory({ pathname: '/cabinet/history', accountId: 'account_01' })
-    ).toBe(true);
-    expect(
-      shouldSyncAccountLessonHistory({ pathname: '/cabinet/history/', accountId: 'account_01' })
-    ).toBe(true);
+      shouldSyncAccountLessonHistory({
+        pathname: '/cabinet/profile_wallet',
+        accountId: 'account_01',
+      })
+    ).toBe(false);
+    for (const pathname of ['/cabinet/history', '/cabinet/profile_journey']) {
+      expect(shouldSyncAccountLessonHistory({ pathname, accountId: undefined })).toBe(false);
+    }
   });
 
   it('enables participant stats only for routes with visible consumers', () => {

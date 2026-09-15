@@ -44,8 +44,8 @@ export type LessonBookingCommandRefresh = () => Promise<void>;
 export type UseLessonBookingCommandsOptions = {
   readonly accountId: string | undefined;
   /**
-   * Override for history-owning surfaces (for example `/cabinet/history`),
-   * which need the full hot + account_history sync.
+   * Override for history-owning surfaces (for example `/cabinet/history` and
+   * `/cabinet/profile_journey`), which need the full hot + account_history sync.
    */
   readonly refresh?: LessonBookingCommandRefresh;
 };
@@ -68,10 +68,11 @@ export async function refreshAccountLessonBookingsWithHistory(): Promise<void> {
 /**
  * Resolves the post-command refresh for a surface.
  *
- * Only `/cabinet/history` renders rows outside account_hot, so only it needs
- * the full hot + account_history sync (which also keeps
- * admin-approved `pending_cancellation` → `cancelled` visible without a reload).
- * Every other surface stays on the account_hot-only refresh.
+ * Surfaces that render rows outside account_hot — `/cabinet/history` and the
+ * `/cabinet/profile_journey` completed-lesson preview — need the full hot +
+ * account_history sync (which also keeps admin-approved `pending_cancellation`
+ * → `cancelled` visible without a reload). Every other surface stays on the
+ * account_hot-only refresh.
  */
 export function resolveLessonBookingCommandRefreshStrategy(input: {
   readonly pathname: string;

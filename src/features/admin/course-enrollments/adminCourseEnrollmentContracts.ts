@@ -112,6 +112,7 @@ export interface AdminCourseEnrollmentCourseOption {
   readonly revision: number;
   readonly availableSeats: number;
   readonly lifecycle: string;
+  readonly instructorNames: readonly string[];
 }
 
 export interface AdminCourseEnrollmentParticipantOption {

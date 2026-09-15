@@ -242,6 +242,7 @@ describe('AdminTrainingRecordsPanel', () => {
           revision: 1,
           lifecycle: 'active',
           capacity: { availableSeats: 3 },
+          instructors: [{ instructorId: 'instructor_01', name: 'Course Coach' }],
         },
       ],
     });
@@ -287,7 +288,7 @@ describe('AdminTrainingRecordsPanel', () => {
 
   it('shows course Accept payment when authorized', async () => {
     renderPanel('/admin?tab=operations&enrollment=course_enrollment_training_01');
-    fireEvent.click(await screen.findByRole('tab', { name: /Finances/ }));
+    fireEvent.click(await screen.findByRole('tab', { name: /^Payment/ }));
     expect(screen.getByRole('button', { name: 'Accept payment' })).toBeVisible();
   });
 
@@ -312,7 +313,7 @@ describe('AdminTrainingRecordsPanel', () => {
     });
     stubReads({ course: paid, courseDetail: courseDetail(paid) });
     renderPanel('/admin?tab=operations&enrollment=course_enrollment_training_01');
-    fireEvent.click(await screen.findByRole('tab', { name: /Finances/ }));
+    fireEvent.click(await screen.findByRole('tab', { name: /^Payment/ }));
     expect(screen.queryByRole('button', { name: 'Accept payment' })).not.toBeInTheDocument();
   });
 
@@ -335,7 +336,71 @@ describe('AdminTrainingRecordsPanel', () => {
     renderPanel('/admin?tab=operations&booking=booking_training_01');
     expect(await screen.findByText('adminLessonOverviewTitle')).toBeVisible();
     fireEvent.click(screen.getByText('Course Skier'));
-    expect(await screen.findByRole('tab', { name: /Finances/ })).toBeVisible();
+    expect(await screen.findByRole('tab', { name: /^Payment/ })).toBeVisible();
     expect(screen.queryByText('adminLessonOverviewTitle')).not.toBeInTheDocument();
+  });
+
+  it('uses course row chips instead of raw lifecycle text', async () => {
+    stubReads({
+      course: courseItem({
+        lifecycleStatus: 'pending',
+        guestState: 'pending_unlinked',
+        payment: {
+          paymentId: 'payment_course_01',
+          status: 'unpaid',
+          revision: 2,
+          price: 40_000,
+          paid: 0,
+          refunded: 0,
+          retained: 0,
+          settled: 0,
+          writtenOff: 0,
+          outstanding: 40_000,
+        },
+      }),
+    });
+    renderPanel();
+    const row = (await screen.findByText('Course Skier')).closest(
+      '[data-admin-training-kind="course"]'
+    );
+    expect(row).toBeTruthy();
+    expect(row).toHaveTextContent('Avalanche Group');
+    expect(row).toHaveTextContent('adminTrainingKindCourse');
+    expect(row).toHaveTextContent('adminLessonStatusAwaitingPayment');
+    expect(row).not.toHaveTextContent('pending_unlinked');
+    expect(row?.textContent).not.toMatch(/(^|[^\w])pending([^\w]|$)/);
+  });
+
+  it('presents course detail as a product surface, not a read-model dump', async () => {
+    renderPanel('/admin?tab=operations&enrollment=course_enrollment_training_01');
+    expect(await screen.findByRole('heading', { name: 'Course Skier' })).toBeVisible();
+    expect(screen.queryByText('Enrollment detail')).not.toBeInTheDocument();
+    expect(screen.queryByText('Детали записи')).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /^Overview/ })).toBeVisible();
+    expect(screen.getByRole('tab', { name: /^Payment/ })).toBeVisible();
+    expect(screen.getByRole('tab', { name: /^Attendance/ })).toBeVisible();
+    expect(screen.getByRole('tab', { name: /^Guest/ })).toBeVisible();
+    expect(screen.getByRole('tab', { name: /^Technical details/ })).toBeVisible();
+    expect(screen.queryByRole('tab', { name: /^Operations/ })).not.toBeInTheDocument();
+    expect(screen.queryByText('Canonical attendance')).not.toBeInTheDocument();
+    expect(screen.queryByText('Каноническая посещаемость')).not.toBeInTheDocument();
+
+    expect(screen.queryByText('course_enrollment_training_01')).not.toBeInTheDocument();
+    expect(screen.queryByText('confirmed')).not.toBeInTheDocument();
+    expect(screen.queryByText('not_guest')).not.toBeInTheDocument();
+    expect(screen.queryByText('Status')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: /^Technical details/ }));
+    expect(screen.getByText('course_enrollment_training_01')).toBeVisible();
+    expect(screen.getByText('confirmed')).toBeVisible();
+    expect(screen.getByText('not_guest')).toBeVisible();
+  });
+
+  it('shows course instructors on the list card and in Overview', async () => {
+    renderPanel('/admin?tab=operations&enrollment=course_enrollment_training_01');
+    const names = await screen.findAllByText('Course Coach');
+    expect(names.length).toBeGreaterThan(1);
+    expect(screen.getByRole('button', { current: true })).toHaveTextContent('Course Coach');
+    expect(screen.getByText('Instructor')).toBeVisible();
   });
 });

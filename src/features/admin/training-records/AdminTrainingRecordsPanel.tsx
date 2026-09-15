@@ -3,7 +3,6 @@ import {
   BookingIdSchema,
   CourseEnrollmentIdSchema,
   CourseIdSchema,
-  type AdminCourseListItem,
   type LessonBookingReadModel,
 } from '@ski-academy/shared-domain';
 import { Loader2, RefreshCw } from 'lucide-react';
@@ -27,6 +26,7 @@ import {
   ADMIN_TRAINING_SCOPE_QUERY_KEY,
 } from '../adminNavigation';
 import { AdminCourseEnrollmentDetail } from '../course-enrollments/AdminCourseEnrollmentDetail';
+import { courseEnrollmentPrimaryStatus } from '../course-enrollments/adminCourseEnrollmentPresentation';
 import type {
   AdminCourseEnrollmentAttempt,
   AdminCourseEnrollmentCourseOption,
@@ -38,6 +38,8 @@ import {
   captureAdminCourseEnrollmentTarget,
   createAdminCourseEnrollmentAttemptId,
   parseAdminCourseEnrollmentView,
+  resolveCourseEnrollmentInstructorLabel,
+  toAdminCourseEnrollmentCourseOptions,
 } from '../course-enrollments/adminCourseEnrollmentUtils';
 import { AdminManagedParticipantPicker } from '../identity';
 import type { AdminManagedParticipantSelection } from '../identity';
@@ -65,8 +67,7 @@ import {
 import { useSharedAdminMonitorReadModels } from '../operations/AdminMonitorReadModelsContext';
 import type { AdminTrainingKindFilter } from './adminTrainingRecordContracts';
 import {
-  courseLifecycleToPrimaryStatus,
-  courseOriginFromRecord,
+  courseEnrollmentListCardInput,
   trainingPaymentStatus,
 } from './adminTrainingRecordPresentation';
 import { AdminTrainingRecordListRow } from './AdminTrainingRecordListRow';
@@ -122,18 +123,6 @@ function listOccurrenceParts(
   };
 }
 
-function courseOptions(items: readonly AdminCourseListItem[]): AdminCourseEnrollmentCourseOption[] {
-  return items
-    .map((course) => ({
-      courseId: course.courseId,
-      title: course.title,
-      revision: course.revision,
-      availableSeats: course.capacity.availableSeats,
-      lifecycle: course.lifecycle,
-    }))
-    .sort((left, right) => left.title.localeCompare(right.title));
-}
-
 function readableError(error: { code: string; message: string } | undefined): string | undefined {
   if (!error) return undefined;
   return `${error.message} (${error.code})`;
@@ -141,6 +130,7 @@ function readableError(error: { code: string; message: string } | undefined): st
 
 export function AdminTrainingRecordsPanel({
   adminAccountId,
+  instructors,
 }: AdminTrainingRecordsPanelProps) {
   const { language, t } = useAdminLessonBookingTranslations();
   const courseCopy = useAdminCourseEnrollmentTranslations();
@@ -215,7 +205,7 @@ export function AdminTrainingRecordsPanel({
     try {
       const result = await queryAdminCourseReadModels({ scope: 'admin_course_list', pageSize: 50 });
       if (generation !== courseGeneration.current || result.scope !== 'admin_course_list') return;
-      setCourses(courseOptions(result.items));
+      setCourses(toAdminCourseEnrollmentCourseOptions(result.items));
     } catch {
       // Course catalog is only needed for enroll-on-behalf; list records still render.
     }
@@ -612,12 +602,19 @@ export function AdminTrainingRecordsPanel({
                       />
                     );
                   }
-                  const primaryStatus = courseLifecycleToPrimaryStatus(
-                    record.data.lifecycleStatus,
-                    record.data.payment?.outstanding
-                  );
                   const paymentStatus = trainingPaymentStatus(record);
-                  const origin = courseOriginFromRecord(record);
+                  const recordedDaysLabel = record.data.attendanceSummary
+                    ? courseCopy.recordedDays.replace(
+                        '{n}',
+                        String(record.data.attendanceSummary.recordedDayCount)
+                      )
+                    : undefined;
+                  const primaryStatus = courseEnrollmentPrimaryStatus(record.data);
+                  const instructor = resolveCourseEnrollmentInstructorLabel({
+                    courseId: record.data.course.courseId,
+                    courses,
+                    instructorDirectory: instructors,
+                  });
                   return (
                     <AdminTrainingRecordListRow
                       key={`course:${record.id}`}
@@ -628,27 +625,21 @@ export function AdminTrainingRecordsPanel({
                           [ADMIN_LESSON_BOOKING_QUERY_KEY]: undefined,
                         })
                       }
-                      item={{
-                        bookingId: record.data.enrollmentId,
-                        trainingRecordId: `course:${record.id}`,
-                        recordKind: 'course',
+                      item={courseEnrollmentListCardInput({
+                        item: record.data,
                         kindLabel: t('adminTrainingKindCourse'),
-                        participantNames: record.data.participant.displayName,
-                        date: record.data.course.title,
-                        time: record.data.lifecycleStatus,
-                        instructor: '—',
-                        duration: '',
-                        primaryStatus,
                         primaryStatusLabel: t(LESSON_ADMIN_PRIMARY_STATUS_KEYS[primaryStatus]),
+                        originLabel: t(
+                          LESSON_ADMIN_ORIGIN_LABEL_KEYS[
+                            record.data.guestState === 'not_guest' ? 'account' : 'guest'
+                          ]
+                        ),
                         ...(paymentStatus
-                          ? {
-                              paymentStatus,
-                              paymentStatusLabel: t(PAYMENT_STATUS_LABEL_KEYS[paymentStatus]),
-                            }
+                          ? { paymentStatusLabel: t(PAYMENT_STATUS_LABEL_KEYS[paymentStatus]) }
                           : {}),
-                        origin,
-                        originLabel: t(LESSON_ADMIN_ORIGIN_LABEL_KEYS[origin]),
-                      }}
+                        ...(recordedDaysLabel ? { recordedDaysLabel } : {}),
+                        ...(instructor ? { instructor } : {}),
+                      })}
                     />
                   );
                 })}
@@ -757,12 +748,19 @@ export function AdminTrainingRecordsPanel({
           ) : !courseDetail ? (
             <p className="p-4 text-xs text-[var(--ink-dim)]">{courseCopy.empty}</p>
           ) : (
-            <div className="p-4">
               <AdminCourseEnrollmentDetail
                 key={courseDetail.enrollmentId}
                 detail={courseDetail}
                 t={courseCopy}
                 layout="tabs"
+                instructorLabel={resolveCourseEnrollmentInstructorLabel({
+                  courseId: courseDetail.course.courseId,
+                  courses,
+                  instructorDirectory: instructors,
+                  attendanceInstructorIds: courseDetail.attendanceDays.flatMap(
+                    (day) => day.instructorIds
+                  ),
+                })}
                 actionReason={actionReason}
                 onActionReasonChange={setActionReason}
                 refundAmount={refundAmount}
@@ -808,7 +806,6 @@ export function AdminTrainingRecordsPanel({
                 }
                 onClose={() => updateQuery({ [ADMIN_COURSE_ENROLLMENT_QUERY_KEY]: undefined })}
               />
-            </div>
           )}
         </aside>
       </div>

@@ -89,13 +89,23 @@ export function AdminLessonOriginBadge({
   );
 }
 
+export function AdminLessonKindChip({ label }: { readonly label: string }) {
+  return (
+    <span className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--profile-bg)] px-2 py-1 text-[10px] font-medium leading-none text-[var(--ink)]">
+      {label}
+    </span>
+  );
+}
+
 export interface AdminLessonBookingListRowInput {
   readonly bookingId: string;
   readonly participantNames: string;
-  readonly date: string;
-  readonly time: string;
-  readonly instructor: string;
-  readonly duration: string;
+  readonly subtitle?: string;
+  readonly date?: string;
+  readonly time?: string;
+  readonly instructor?: string;
+  readonly duration?: string;
+  readonly meta?: string;
   readonly primaryStatus: LessonAdminPrimaryStatusKind;
   readonly primaryStatusLabel: string;
   readonly paymentStatus?: PaymentStatus;
@@ -140,21 +150,33 @@ export function AdminLessonBookingListRow({
           <p className="truncate text-sm font-semibold text-[var(--ink)]">
             {item.participantNames}
           </p>
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[var(--ink-dim)]">
-            <span>{item.date}</span>
-            <span aria-hidden="true">·</span>
-            <span className="font-medium text-[var(--ink)]">{item.time}</span>
-            {item.duration ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--profile-bg)] px-2 py-0.5 font-mono text-[10px] text-[var(--ink)]">
-                <Clock3 className="h-3 w-3" aria-hidden="true" />
-                {item.duration}
-              </span>
-            ) : null}
-          </div>
-          <p className="mt-2 flex min-w-0 items-center gap-1.5 text-[11px] text-[var(--ink-dim)]">
-            <UserRound className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            <span className="truncate">{item.instructor}</span>
-          </p>
+          {item.subtitle ? (
+            <p className="mt-1 truncate text-xs text-[var(--ink)]">{item.subtitle}</p>
+          ) : null}
+          {item.date || item.time || item.duration ? (
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[var(--ink-dim)]">
+              {item.date ? <span>{item.date}</span> : null}
+              {item.date && item.time ? <span aria-hidden="true">·</span> : null}
+              {item.time ? (
+                <span className="font-medium text-[var(--ink)]">{item.time}</span>
+              ) : null}
+              {item.duration ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-[var(--profile-bg)] px-2 py-0.5 font-mono text-[10px] text-[var(--ink)]">
+                  <Clock3 className="h-3 w-3" aria-hidden="true" />
+                  {item.duration}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+          {item.instructor ? (
+            <p className="mt-2 flex min-w-0 items-center gap-1.5 text-[11px] text-[var(--ink-dim)]">
+              <UserRound className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span className="truncate">{item.instructor}</span>
+            </p>
+          ) : null}
+          {item.meta ? (
+            <p className="mt-2 text-[11px] text-[var(--ink-dim)]">{item.meta}</p>
+          ) : null}
         </div>
         <ChevronRight
           className="mt-0.5 h-4 w-4 shrink-0 text-[var(--ink-dim)] transition-transform group-hover:translate-x-0.5"
@@ -170,11 +192,7 @@ export function AdminLessonBookingListRow({
           />
         )}
         <AdminLessonOriginBadge origin={item.origin} label={item.originLabel} />
-        {item.kindLabel ? (
-          <span className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--profile-bg)] px-2 py-1 text-[10px] font-medium leading-none text-[var(--ink)]">
-            {item.kindLabel}
-          </span>
-        ) : null}
+        {item.kindLabel ? <AdminLessonKindChip label={item.kindLabel} /> : null}
       </div>
     </button>
   );
@@ -193,12 +211,14 @@ export function AdminLessonDetailTabs({
   onChange,
   ariaLabel,
   attentionLabel,
+  idPrefix = 'admin-lesson',
 }: {
   readonly sections: readonly AdminLessonDetailSection[];
   readonly activeSection: AdminLessonDetailSection['id'];
   readonly onChange: (section: AdminLessonDetailSection['id']) => void;
   readonly ariaLabel: string;
   readonly attentionLabel: string;
+  readonly idPrefix?: string;
 }) {
   const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>, currentIndex: number) => {
     let nextIndex: number | undefined;
@@ -231,9 +251,9 @@ export function AdminLessonDetailTabs({
           key={section.id}
           type="button"
           role="tab"
-          id={`admin-lesson-tab-${section.id}`}
+          id={`${idPrefix}-tab-${section.id}`}
           aria-selected={activeSection === section.id}
-          aria-controls={`admin-lesson-panel-${section.id}`}
+          aria-controls={`${idPrefix}-panel-${section.id}`}
           tabIndex={activeSection === section.id ? 0 : -1}
           onClick={() => onChange(section.id)}
           onKeyDown={(event) => handleKeyDown(event, sections.indexOf(section))}

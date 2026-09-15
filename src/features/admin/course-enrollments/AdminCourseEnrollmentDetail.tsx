@@ -1,5 +1,5 @@
 import { AlertTriangle, ChevronRight, RefreshCw, Users, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import {
   CourseIdSchema,
   type AdminCourseEnrollmentDetailReadModel,
@@ -9,20 +9,41 @@ import type { AdminManagedParticipantSelection } from '../identity';
 import { AdminPaymentCaptureSection } from '../components/finance/AdminPaymentCaptureSection';
 import type { AdminCourseEnrollmentMutationDraft } from './adminCourseEnrollmentContracts';
 import { useAdminCourseEnrollmentTranslations } from './useAdminCourseEnrollmentTranslations';
+import {
+  AdminLessonDetailTabs,
+  AdminLessonKindChip,
+  AdminLessonOriginBadge,
+  AdminLessonPaymentIndicator,
+  AdminLessonStatusChip,
+  type AdminLessonDetailSection,
+} from '../lesson-bookings/AdminLessonBookingUi';
+import {
+  courseEnrollmentAttendanceStatusLabel,
+  courseEnrollmentGuestStateLabel,
+  courseEnrollmentHeaderSubtitle,
+  courseEnrollmentOrigin,
+  courseEnrollmentPaymentAncillaryRows,
+  courseEnrollmentPaymentPrimaryRows,
+  courseEnrollmentPaymentStatusLabel,
+  courseEnrollmentPrimaryStatus,
+  courseEnrollmentScheduleRange,
+  courseEnrollmentStatusLabel,
+  formatCourseEnrollmentDate,
+  formatCourseEnrollmentInstant,
+  isCourseEnrollmentAwaitingPayment,
+  shouldShowCourseCancellationSection,
+  trueCourseAuthorizedActionKeys,
+} from './adminCourseEnrollmentPresentation';
 
 export type AdminCourseEnrollmentDetailLayout = 'stacked' | 'tabs';
-type CourseDetailSection = 'overview' | 'payment' | 'attendance' | 'operations';
+type CourseDetailSection = AdminLessonDetailSection['id'];
 
-function formatKzt(value: number): string {
-  return `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(value)} KZT`;
-}
-
-function attendanceActorLabel(
-  actor: { kind: 'instructor'; instructorId: string } | { kind: 'administrator'; accountId: string }
-): string {
-  return actor.kind === 'instructor'
-    ? `instructor:${actor.instructorId}`
-    : `administrator:${actor.accountId}`;
+function formatKzt(value: number, locale: string): string {
+  return new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: 'KZT',
+    maximumFractionDigits: 0,
+  }).format(value);
 }
 
 function guestEnrollmentLinkUnavailableLabel(
@@ -47,6 +68,32 @@ function guestEnrollmentLinkUnavailableLabel(
   }
 }
 
+function ReasonField({
+  value,
+  onChange,
+  label,
+  ariaLabel,
+}: {
+  readonly value: string;
+  readonly onChange: (value: string) => void;
+  readonly label: string;
+  readonly ariaLabel: string;
+}) {
+  const inputId = useId();
+  return (
+    <label htmlFor={inputId} className="block text-xs">
+      {label}
+      <input
+        id={inputId}
+        aria-label={ariaLabel}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-1 w-full border border-[var(--border)] bg-transparent p-2"
+      />
+    </label>
+  );
+}
+
 export interface AdminCourseEnrollmentDetailProps {
   readonly detail: AdminCourseEnrollmentDetailReadModel;
   readonly t: ReturnType<typeof useAdminCourseEnrollmentTranslations>;
@@ -68,6 +115,7 @@ export interface AdminCourseEnrollmentDetailProps {
   readonly onOpenIssue: (issueId: string) => void;
   readonly onClose: () => void;
   readonly showClose?: boolean;
+  readonly instructorLabel?: string;
 }
 
 export function AdminCourseEnrollmentDetail({
@@ -91,82 +139,245 @@ export function AdminCourseEnrollmentDetail({
   onOpenIssue,
   onClose,
   showClose = true,
+  instructorLabel,
 }: AdminCourseEnrollmentDetailProps) {
   const [activeSection, setActiveSection] = useState<CourseDetailSection>('overview');
   const availableTargetCourses = detail.transfer.targetOptions;
   const hasAnyAction = Object.values(detail.authorizedActions).some(Boolean);
   const parsedPaymentAmount = Number(paymentAmount);
   const show = (section: CourseDetailSection) => layout === 'stacked' || activeSection === section;
-  const sections = useMemo(
-    () =>
-      [
-        { id: 'overview' as const, label: t.overviewTab },
-        {
-          id: 'payment' as const,
-          label: t.paymentTab,
-          attention: Boolean(detail.authorizedActions.canRecordPayment),
-        },
-        { id: 'attendance' as const, label: t.attendance },
-        { id: 'operations' as const, label: t.operationsTab },
-      ] as const,
-    [detail.authorizedActions.canRecordPayment, t.attendance, t.operationsTab, t.overviewTab, t.paymentTab]
+  const locale = t.locale;
+  const money = (value: number) => formatKzt(value, locale);
+  const primaryStatus = courseEnrollmentPrimaryStatus(detail);
+  const statusLabel = courseEnrollmentStatusLabel(primaryStatus, t);
+  const origin = courseEnrollmentOrigin(detail.guestState);
+  const originLabel = origin === 'guest' ? t.identityGuest : t.identityAccount;
+  const payment = detail.payment;
+  const awaitingPayment = isCourseEnrollmentAwaitingPayment(detail);
+  const showCancellation = shouldShowCourseCancellationSection(detail);
+  const scheduleRange = courseEnrollmentScheduleRange(detail, locale);
+  const headerSubtitle = [courseEnrollmentHeaderSubtitle(detail, locale), instructorLabel]
+    .filter(Boolean)
+    .join(' · ');
+  const attendanceDays = detail.attendanceDays ?? [];
+  const attendanceHasMutations = attendanceDays.some(
+    (day) => day.authorizedActions.canRecordPresent || day.authorizedActions.canRecordAbsent
   );
+  const openCriticalIssues = detail.relatedIssues.filter(
+    (issue) => issue.severity === 'critical' && issue.lifecycleStatus === 'open'
+  );
+  const refundValid =
+    Number.isInteger(Number(refundAmount)) &&
+    Number(refundAmount) >= 0 &&
+    Number(refundAmount) <= (detail.cancellation?.maximumRefund ?? 0);
+  const needsSharedReason =
+    attendanceHasMutations ||
+    showCancellation ||
+    detail.authorizedActions.canTransfer;
+
+  const sections = useMemo<readonly AdminLessonDetailSection[]>(
+    () => [
+      { id: 'overview', label: t.overviewTab },
+      {
+        id: 'payment',
+        label: t.paymentTab,
+        attention: Boolean(detail.authorizedActions.canRecordPayment || awaitingPayment),
+      },
+      { id: 'attendance', label: t.attendance },
+      ...(showCancellation
+        ? [
+            {
+              id: 'cancellation' as const,
+              label: t.cancellationTab,
+              attention: detail.lifecycleStatus === 'pending_cancellation',
+            },
+          ]
+        : []),
+      { id: 'guest', label: t.guestTab },
+      ...(detail.relatedIssues.length > 0
+        ? [
+            {
+              id: 'issues' as const,
+              label: t.issuesTab,
+              attention: detail.relatedIssues.some((issue) => issue.lifecycleStatus === 'open'),
+            },
+          ]
+        : []),
+      { id: 'technical', label: t.technicalTab },
+    ],
+    [
+      awaitingPayment,
+      detail.authorizedActions.canRecordPayment,
+      detail.lifecycleStatus,
+      detail.relatedIssues,
+      showCancellation,
+      t.attendance,
+      t.cancellationTab,
+      t.guestTab,
+      t.issuesTab,
+      t.overviewTab,
+      t.paymentTab,
+      t.technicalTab,
+    ]
+  );
+
+  useEffect(() => {
+    if (!sections.some((section) => section.id === activeSection)) {
+      setActiveSection('overview');
+    }
+  }, [activeSection, sections]);
 
   const overview = (
-    <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-xs">
-      <dt className="text-[var(--ink-dim)]">ID</dt>
-      <dd className="break-all">{detail.enrollmentId}</dd>
-      <dt className="text-[var(--ink-dim)]">Participant</dt>
-      <dd>{detail.participant.displayName}</dd>
-      <dt className="text-[var(--ink-dim)]">Course</dt>
-      <dd>{detail.course.title}</dd>
-      <dt className="text-[var(--ink-dim)]">Lifecycle</dt>
-      <dd>{detail.lifecycleStatus}</dd>
-      <dt className="text-[var(--ink-dim)]">Guest identity</dt>
-      <dd>{detail.guestState}</dd>
-      <dt className="text-[var(--ink-dim)]">Capacity</dt>
-      <dd>
-        {detail.capacity.availableSeats}/{detail.capacity.totalSeats} available · seat{' '}
-        {detail.capacity.seatHeldByEnrollment ? 'held' : 'released'}
-      </dd>
-      <dt className="text-[var(--ink-dim)]">Attendance</dt>
-      <dd>{detail.attendanceSummary?.recordedDayCount ?? 0} recorded days</dd>
-    </dl>
+    <section aria-label={t.overviewTab} className="space-y-5">
+      <dl className="grid grid-cols-[minmax(8rem,auto)_1fr] gap-x-6 gap-y-3 text-sm">
+        <dt className="text-[var(--ink-dim)]">{t.participant}</dt>
+        <dd>{detail.participant.displayName}</dd>
+        <dt className="text-[var(--ink-dim)]">{t.course}</dt>
+        <dd>{detail.course.title}</dd>
+        {instructorLabel ? (
+          <>
+            <dt className="text-[var(--ink-dim)]">{t.instructor}</dt>
+            <dd>{instructorLabel}</dd>
+          </>
+        ) : null}
+        {scheduleRange ? (
+          <>
+            <dt className="text-[var(--ink-dim)]">{t.schedule}</dt>
+            <dd>{scheduleRange}</dd>
+          </>
+        ) : null}
+        {attendanceDays.length > 0 ? (
+          <>
+            <dt className="text-[var(--ink-dim)]">{t.courseDays}</dt>
+            <dd>{attendanceDays.length}</dd>
+          </>
+        ) : null}
+        {detail.attendanceSummary ? (
+          <>
+            <dt className="text-[var(--ink-dim)]">{t.recordedAttendance}</dt>
+            <dd>
+              {detail.attendanceSummary.presentDayCount} {t.attendancePresent.toLowerCase()} ·{' '}
+              {detail.attendanceSummary.absentDayCount} {t.attendanceAbsent.toLowerCase()}
+            </dd>
+          </>
+        ) : null}
+        {detail.payer && detail.payer.displayName !== detail.participant.displayName ? (
+          <>
+            <dt className="text-[var(--ink-dim)]">{t.payer}</dt>
+            <dd>{detail.payer.displayName}</dd>
+          </>
+        ) : null}
+        <dt className="text-[var(--ink-dim)]">{t.seats}</dt>
+        <dd>
+          {detail.capacity.availableSeats}/{detail.capacity.totalSeats}
+        </dd>
+      </dl>
+      {detail.authorizedActions.canTransfer && (
+        <div className="space-y-2">
+          {layout === 'tabs' ? (
+            <ReasonField
+              value={actionReason}
+              onChange={onActionReasonChange}
+              label={t.reason}
+              ariaLabel="Action reason"
+            />
+          ) : null}
+          <div className="grid grid-cols-[1fr_auto] gap-2">
+            <select
+              value={targetCourseId}
+              onChange={(event) => onTargetCourseIdChange(event.target.value)}
+              className="border border-[var(--border)] bg-[var(--bg)] p-2 text-xs"
+            >
+              <option value="">{t.selectCourse}</option>
+              {availableTargetCourses.map((course) => (
+                <option key={course.courseId} value={course.courseId}>
+                  {course.title} · {course.availableSeats} seats
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              disabled={!targetCourseId || !actionReason.trim()}
+              onClick={() => {
+                const parsed = CourseIdSchema.safeParse(targetCourseId);
+                if (!parsed.success) return;
+                onRequestAttempt(
+                  {
+                    kind: 'transfer_course_enrollment',
+                    targetCourseId: parsed.data,
+                    reasonExplanation: actionReason.trim(),
+                  },
+                  `${t.transfer}: ${detail.enrollmentId} → ${parsed.data} @ rev ${detail.revision}`
+                );
+              }}
+              className="border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
+            >
+              {t.transfer}
+            </button>
+          </div>
+        </div>
+      )}
+      {!hasAnyAction && (
+        <div className="rounded-[var(--radius-md)] bg-[var(--profile-bg)] p-3">
+          <p className="flex gap-2 text-xs text-[var(--ink-dim)]">
+            <Users className="h-4 w-4" /> {t.noActions}
+          </p>
+        </div>
+      )}
+    </section>
   );
 
-  const payment = detail.payment ? (
-    <div className="space-y-2 text-xs">
-      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
-        <dt className="text-[var(--ink-dim)]">{t.paymentPrice}</dt>
-        <dd className="text-right tabular-nums">{formatKzt(detail.payment.price)}</dd>
-        <dt className="text-[var(--ink-dim)]">{t.paymentPaid}</dt>
-        <dd className="text-right tabular-nums">{formatKzt(detail.payment.paid)}</dd>
-        <dt className="text-[var(--ink-dim)]">{t.paymentOutstanding}</dt>
-        <dd className="text-right tabular-nums">{formatKzt(detail.payment.outstanding)}</dd>
-        <dt className="text-[var(--ink-dim)]">Status</dt>
-        <dd>{detail.payment.status}</dd>
+  const paymentSection = payment ? (
+    <section aria-label={t.paymentTab} className="space-y-4">
+      {layout === 'stacked' ? (
+        <h4 className="text-xs font-medium uppercase tracking-wide">{t.paymentTab}</h4>
+      ) : null}
+      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
+        {courseEnrollmentPaymentPrimaryRows(payment).map((row) => (
+          <div key={row.id} className="contents">
+            <dt className="text-[var(--ink-dim)]">
+              {row.id === 'price'
+                ? t.paymentPrice
+                : row.id === 'paid'
+                  ? t.paymentPaid
+                  : t.paymentOutstanding}
+            </dt>
+            <dd className="text-right tabular-nums">{money(row.amount)}</dd>
+          </div>
+        ))}
+        {courseEnrollmentPaymentAncillaryRows(payment).map((row) => (
+          <div key={row.id} className="contents">
+            <dt className="text-[var(--ink-dim)]">
+              {row.id === 'refunded'
+                ? t.paymentRefunded
+                : row.id === 'retained'
+                  ? t.paymentRetained
+                  : row.id === 'settled'
+                    ? t.paymentSettled
+                    : t.paymentWrittenOff}
+            </dt>
+            <dd className="text-right tabular-nums">{money(row.amount)}</dd>
+          </div>
+        ))}
+        <dt className="text-[var(--ink-dim)]">{t.paymentStatus}</dt>
+        <dd>{courseEnrollmentPaymentStatusLabel(payment.status, t)}</dd>
       </dl>
-      <p>
-        {detail.payment.status} · required {formatKzt(detail.payment.price)} · paid{' '}
-        {formatKzt(detail.payment.paid)} · settled {formatKzt(detail.payment.settled)} · outstanding{' '}
-        {formatKzt(detail.payment.outstanding)} · rev {detail.payment.revision}
-      </p>
-      {detail.lifecycleStatus === 'pending' && detail.guestState !== 'not_guest' && (
-        <p className="text-amber-700">{t.guestDeferred}</p>
+      {awaitingPayment && detail.guestState !== 'not_guest' && (
+        <p className="text-xs text-amber-700">{t.guestDeferred}</p>
       )}
       <AdminPaymentCaptureSection
         canRecordPayment={detail.authorizedActions.canRecordPayment}
         amount={paymentAmount}
-        outstanding={detail.payment.outstanding}
+        outstanding={payment.outstanding}
         onAmountChange={onPaymentAmountChange}
         onRecord={() =>
           onRequestAttempt(
             {
               kind: 'record_provider_payment_event',
-              paymentRevision: detail.payment!.revision,
+              paymentRevision: payment.revision,
               amount: parsedPaymentAmount,
             },
-            t.confirmPayment.replace('{amount}', formatKzt(parsedPaymentAmount))
+            t.confirmPayment.replace('{amount}', money(parsedPaymentAmount))
           )
         }
         amountLabel={t.paymentAmount}
@@ -175,67 +386,76 @@ export function AdminCourseEnrollmentDetail({
       />
       <button
         type="button"
-        onClick={() => onOpenPayment(detail.payment!.paymentId)}
-        className="inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2"
+        onClick={() => onOpenPayment(payment.paymentId)}
+        className="inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 text-xs"
       >
         {t.payment} <ChevronRight className="h-3.5 w-3.5" />
       </button>
-    </div>
+    </section>
   ) : null;
 
   const attendance = (
-    <div className="space-y-2">
-      <h4 className="text-xs font-mono uppercase">{t.attendance}</h4>
-      {(detail.attendanceDays ?? []).map((day) => (
-        <div key={day.courseDayId} className="space-y-2 border border-[var(--border)] p-3 text-xs">
-          <p className="font-medium">
-            {new Date(day.startsAt.seconds * 1_000).toLocaleString()} ·{' '}
-            {day.attendanceStatus ?? t.attendanceMissing}
-            {day.attendanceRevision === undefined ? '' : ` · rev ${day.attendanceRevision}`}
-          </p>
-          {day.recordedBy && day.lastChangedBy && (
-            <p className="break-all text-[var(--ink-dim)]">
-              {t.recordedBy}: {attendanceActorLabel(day.recordedBy)} · {t.lastChangedBy}:{' '}
-              {attendanceActorLabel(day.lastChangedBy)}
+    <section aria-label={t.attendance} className="space-y-4">
+      {layout === 'stacked' ? (
+        <h4 className="text-xs font-medium uppercase tracking-wide">{t.attendance}</h4>
+      ) : null}
+      {attendanceDays.length === 0 ? (
+        <p className="text-xs text-[var(--ink-dim)]">{t.noCourseDays}</p>
+      ) : (
+        attendanceDays.map((day) => (
+          <div key={day.courseDayId} className="space-y-2 text-xs">
+            <p className="font-medium">
+              {formatCourseEnrollmentDate(day.startsAt.seconds, locale)}
             </p>
-          )}
-          {(day.authorizedActions.canRecordPresent || day.authorizedActions.canRecordAbsent) && (
-            <div className="flex gap-2">
-              {(['present', 'absent'] as const).map((attendanceStatus) => {
-                const allowed =
-                  attendanceStatus === 'present'
-                    ? day.authorizedActions.canRecordPresent
-                    : day.authorizedActions.canRecordAbsent;
-                if (!allowed) return null;
-                return (
-                  <button
-                    key={attendanceStatus}
-                    type="button"
-                    disabled={!actionReason.trim()}
-                    onClick={() =>
-                      onRequestAttempt(
-                        {
-                          kind: 'record_course_day_attendance',
-                          courseDayId: day.courseDayId,
-                          attendanceStatus,
-                          ...(day.attendanceRevision === undefined
-                            ? {}
-                            : { expectedAttendanceRevision: day.attendanceRevision }),
-                          reasonExplanation: actionReason.trim(),
-                        },
-                        `${detail.participant.displayName}: ${day.attendanceStatus ?? 'missing'} → ${attendanceStatus} @ enrollment rev ${detail.revision}${day.attendanceRevision === undefined ? '' : `, attendance rev ${day.attendanceRevision}`}`
-                      )
-                    }
-                    className="border border-[var(--border)] px-3 py-2 disabled:opacity-50"
-                  >
-                    {attendanceStatus === 'present' ? t.recordPresent : t.recordAbsent}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      ))}
+            <p className="text-[var(--ink-dim)]">
+              {courseEnrollmentAttendanceStatusLabel(day.attendanceStatus, t)}
+            </p>
+            {day.recordedBy && (
+              <p className="text-[var(--ink-dim)]">
+                {t.recordedBy}:{' '}
+                {day.recordedBy.kind === 'instructor'
+                  ? t.recordedByInstructor
+                  : t.recordedByAdministrator}
+              </p>
+            )}
+            {(day.authorizedActions.canRecordPresent || day.authorizedActions.canRecordAbsent) && (
+              <div className="flex gap-2">
+                {(['present', 'absent'] as const).map((attendanceStatus) => {
+                  const allowed =
+                    attendanceStatus === 'present'
+                      ? day.authorizedActions.canRecordPresent
+                      : day.authorizedActions.canRecordAbsent;
+                  if (!allowed) return null;
+                  return (
+                    <button
+                      key={attendanceStatus}
+                      type="button"
+                      disabled={!actionReason.trim()}
+                      onClick={() =>
+                        onRequestAttempt(
+                          {
+                            kind: 'record_course_day_attendance',
+                            courseDayId: day.courseDayId,
+                            attendanceStatus,
+                            ...(day.attendanceRevision === undefined
+                              ? {}
+                              : { expectedAttendanceRevision: day.attendanceRevision }),
+                            reasonExplanation: actionReason.trim(),
+                          },
+                          `${detail.participant.displayName}: ${day.attendanceStatus ?? 'missing'} → ${attendanceStatus} @ enrollment rev ${detail.revision}${day.attendanceRevision === undefined ? '' : `, attendance rev ${day.attendanceRevision}`}`
+                        )
+                      }
+                      className="border border-[var(--border)] px-3 py-2 disabled:opacity-50"
+                    >
+                      {attendanceStatus === 'present' ? t.recordPresent : t.recordAbsent}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ))
+      )}
       {detail.authorizedActions.canResolveAttendanceOutcome && (
         <button
           type="button"
@@ -250,33 +470,33 @@ export function AdminCourseEnrollmentDetail({
           {t.resolveOutcome}
         </button>
       )}
-    </div>
+      {layout === 'tabs' && attendanceHasMutations && (
+        <ReasonField
+          value={actionReason}
+          onChange={onActionReasonChange}
+          label={t.reason}
+          ariaLabel="Action reason"
+        />
+      )}
+    </section>
   );
 
-  const operations = (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        {detail.relatedIssues.map((issue) => (
-          <button
-            key={issue.issueId}
-            type="button"
-            onClick={() => onOpenIssue(issue.issueId)}
-            className="block w-full border border-[var(--border)] p-2 text-left text-xs"
-          >
-            {t.issue}: {issue.kind} · {issue.lifecycleStatus}
-          </button>
-        ))}
-      </div>
-      <label htmlFor="admin-course-enrollment-action-reason" className="block text-xs">
-        {t.reason}
-        <input
-          id="admin-course-enrollment-action-reason"
-          aria-label="Action reason"
+  const cancellation = showCancellation ? (
+    <section aria-label={t.cancellationTab} className="space-y-4">
+      {layout === 'stacked' ? (
+        <h4 className="text-xs font-medium uppercase tracking-wide">{t.cancellationTab}</h4>
+      ) : null}
+      {detail.lifecycleStatus === 'pending_cancellation' && (
+        <p className="text-xs">{t.cancellationRequested}</p>
+      )}
+      {layout === 'tabs' ? (
+        <ReasonField
           value={actionReason}
-          onChange={(event) => onActionReasonChange(event.target.value)}
-          className="mt-1 w-full border border-[var(--border)] bg-transparent p-2"
+          onChange={onActionReasonChange}
+          label={t.reason}
+          ariaLabel="Action reason"
         />
-      </label>
+      ) : null}
       {detail.authorizedActions.canCancelUnpaidGuest && (
         <button
           type="button"
@@ -292,15 +512,15 @@ export function AdminCourseEnrollmentDetail({
               `${t.cancelUnpaidGuest}: ${detail.enrollmentId} @ rev ${detail.revision}`
             )
           }
-          className="border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
+          className="border border-rose-500 px-3 py-2 text-xs text-rose-600 disabled:opacity-50"
         >
           {t.cancelUnpaidGuest}
         </button>
       )}
       {detail.authorizedActions.canResolveCancellation && detail.cancellation && (
-        <div className="space-y-2 border border-[var(--border)] p-3 text-xs">
+        <div className="space-y-2 text-xs">
           <label htmlFor="admin-course-enrollment-refund" className="block">
-            {t.refund} · max {formatKzt(detail.cancellation.maximumRefund)}
+            {t.refund} · max {money(detail.cancellation.maximumRefund)}
             <input
               id="admin-course-enrollment-refund"
               type="number"
@@ -315,12 +535,7 @@ export function AdminCourseEnrollmentDetail({
           <div className="flex gap-2">
             <button
               type="button"
-              disabled={
-                !actionReason.trim() ||
-                !Number.isInteger(Number(refundAmount)) ||
-                Number(refundAmount) < 0 ||
-                Number(refundAmount) > detail.cancellation.maximumRefund
-              }
+              disabled={!actionReason.trim() || !refundValid}
               onClick={() =>
                 onRequestAttempt(
                   {
@@ -356,57 +571,20 @@ export function AdminCourseEnrollmentDetail({
           </div>
         </div>
       )}
-      {detail.authorizedActions.canTransfer && (
-        <div className="grid grid-cols-[1fr_auto] gap-2">
-          <select
-            value={targetCourseId}
-            onChange={(event) => onTargetCourseIdChange(event.target.value)}
-            className="border border-[var(--border)] bg-[var(--bg)] p-2 text-xs"
-          >
-            <option value="">{t.selectCourse}</option>
-            {availableTargetCourses.map((course) => (
-              <option key={course.courseId} value={course.courseId}>
-                {course.title} · {course.availableSeats} seats
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            disabled={!targetCourseId || !actionReason.trim()}
-            onClick={() => {
-              const parsed = CourseIdSchema.safeParse(targetCourseId);
-              if (!parsed.success) return;
-              onRequestAttempt(
-                {
-                  kind: 'transfer_course_enrollment',
-                  targetCourseId: parsed.data,
-                  reasonExplanation: actionReason.trim(),
-                },
-                `${t.transfer}: ${detail.enrollmentId} → ${parsed.data} @ rev ${detail.revision}`
-              );
-            }}
-            className="border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
-          >
-            {t.transfer}
-          </button>
-        </div>
-      )}
-      {detail.authorizedActions.canReconcile && (
-        <button
-          type="button"
-          onClick={() =>
-            onRequestAttempt(
-              { kind: 'reconcile_course_enrollment' },
-              `${t.reconcile}: ${detail.reconciliation.evidenceIssueIds.join(', ')} @ rev ${detail.revision}`
-            )
-          }
-          className="inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 text-xs"
-        >
-          <RefreshCw className="h-3.5 w-3.5" /> {t.reconcile}
-        </button>
-      )}
+    </section>
+  ) : null;
+
+  const guest = (
+    <section aria-label={t.guestTab} className="space-y-4">
+      {layout === 'stacked' ? (
+        <h4 className="text-xs font-medium uppercase tracking-wide">{t.guestTab}</h4>
+      ) : null}
+      <p className="text-xs">{courseEnrollmentGuestStateLabel(detail.guestState, t)}</p>
+      <p className="text-xs">
+        {t.participant}: {detail.participant.displayName}
+      </p>
       {detail.authorizedActions.canLinkGuest ? (
-        <div className="space-y-2 border border-[var(--border)] p-3">
+        <div className="space-y-2">
           <p className="text-xs font-medium">{t.linkGuestTitle}</p>
           <p className="text-xs text-[var(--ink-dim)]">{t.linkGuestHint}</p>
           <AdminManagedParticipantPicker
@@ -458,64 +636,280 @@ export function AdminCourseEnrollmentDetail({
         </div>
       ) : (
         detail.guestState !== 'not_guest' && (
-          <p className="flex gap-2 border border-amber-400 p-3 text-xs text-amber-700">
-            <AlertTriangle className="h-4 w-4 shrink-0" />
-            {t.linkUnavailable}: {guestEnrollmentLinkUnavailableLabel(detail.guestIdentityLinkUnavailableReason, t)}
-          </p>
+          <div className="space-y-1 text-xs text-[var(--ink-dim)]">
+            <p>{t.linkUnavailable}</p>
+            <p>{guestEnrollmentLinkUnavailableLabel(detail.guestIdentityLinkUnavailableReason, t)}</p>
+          </div>
         )
       )}
-      {!hasAnyAction && (
-        <p className="flex gap-2 text-xs text-[var(--ink-dim)]">
-          <Users className="h-4 w-4" /> {t.noActions}
-        </p>
-      )}
-    </div>
+    </section>
   );
 
-  return (
-    <div className="space-y-5">
-      <div className="mb-1 flex items-center justify-between px-1">
-        <h3 className="font-mono text-xs uppercase tracking-wider">{t.details}</h3>
+  const issues =
+    detail.relatedIssues.length > 0 ? (
+      <section aria-label={t.issuesTab} className="space-y-3">
+        {layout === 'stacked' ? (
+          <h4 className="text-xs font-medium uppercase tracking-wide">{t.issuesTab}</h4>
+        ) : null}
+        {detail.relatedIssues.map((issue) => (
+          <button
+            key={issue.issueId}
+            type="button"
+            onClick={() => onOpenIssue(issue.issueId)}
+            className="block w-full rounded-[var(--radius-md)] border border-[var(--border)] p-3 text-left text-xs"
+          >
+            {t.issue}: {issue.kind} · {issue.lifecycleStatus}
+          </button>
+        ))}
+      </section>
+    ) : null;
+
+  const technical = (
+    <section aria-label={t.technicalTab} className="space-y-3">
+      {layout === 'stacked' ? (
+        <h4 className="text-xs font-medium uppercase tracking-wide">{t.technicalTab}</h4>
+      ) : null}
+      <dl className="rounded-[var(--radius-md)] bg-[var(--profile-bg)] p-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 break-all font-mono text-[10px] text-[var(--ink-dim)]">
+          <dt>{t.enrollmentId}</dt>
+          <dd>{detail.enrollmentId}</dd>
+          <dt>{t.courseId}</dt>
+          <dd>{detail.course.courseId}</dd>
+          <dt>{t.originalCourseId}</dt>
+          <dd>{detail.originalCourseId}</dd>
+          <dt>{t.participantId}</dt>
+          <dd>{detail.participant.participantId}</dd>
+          {detail.payerAccountId ? (
+            <>
+              <dt>{t.payerAccountId}</dt>
+              <dd>{detail.payerAccountId}</dd>
+            </>
+          ) : null}
+          <dt>{t.paymentId}</dt>
+          <dd>{detail.paymentId}</dd>
+          <dt>{t.revision}</dt>
+          <dd>{detail.revision}</dd>
+          <dt>{t.rawLifecycle}</dt>
+          <dd>{detail.lifecycleStatus}</dd>
+          <dt>{t.rawGuestState}</dt>
+          <dd>{detail.guestState}</dd>
+          {detail.guestIdentityLinkUnavailableReason ? (
+            <>
+              <dt>{t.guestLinkUnavailableReason}</dt>
+              <dd>{detail.guestIdentityLinkUnavailableReason}</dd>
+            </>
+          ) : null}
+          <dt>{t.capacityRaw}</dt>
+          <dd>
+            {detail.capacity.availableSeats}/{detail.capacity.totalSeats} ·{' '}
+            {detail.capacity.seatHeldByEnrollment ? t.seatHeld : t.seatReleased}
+          </dd>
+          {payment ? (
+            <>
+              <dt>{t.paymentRevision}</dt>
+              <dd>
+                {payment.paymentId} · {payment.status} · rev {payment.revision}
+              </dd>
+            </>
+          ) : null}
+          <dt>{t.bookingOrigin}</dt>
+          <dd>{detail.auditContext.bookingOrigin}</dd>
+          <dt>{t.createdAt}</dt>
+          <dd>{formatCourseEnrollmentInstant(detail.auditContext.createdAt, locale)}</dd>
+          <dt>{t.updatedAt}</dt>
+          <dd>{formatCourseEnrollmentInstant(detail.auditContext.updatedAt, locale)}</dd>
+          {detail.transfer.blockedReason ? (
+            <>
+              <dt>{t.transferBlocked}</dt>
+              <dd>{detail.transfer.blockedReason}</dd>
+            </>
+          ) : null}
+          {detail.reconciliation.evidenceIssueIds.length > 0 ? (
+            <>
+              <dt>{t.reconciliationEvidence}</dt>
+              <dd>{detail.reconciliation.evidenceIssueIds.join(', ')}</dd>
+            </>
+          ) : null}
+          <dt>{t.authorizedActions}</dt>
+          <dd>{trueCourseAuthorizedActionKeys(detail).join(', ') || '—'}</dd>
+          {attendanceDays.length > 0 ? (
+            <>
+              <dt>{t.attendanceTechnical}</dt>
+              <dd>
+                {attendanceDays
+                  .map(
+                    (day) =>
+                      `${day.courseDayId}:${day.attendanceStatus ?? 'missing'}${
+                        day.attendanceRevision === undefined ? '' : `@${day.attendanceRevision}`
+                      }`
+                  )
+                  .join(', ')}
+              </dd>
+            </>
+          ) : null}
+        </dl>
+        {detail.authorizedActions.canReconcile && (
+          <button
+            type="button"
+            onClick={() =>
+              onRequestAttempt(
+                { kind: 'reconcile_course_enrollment' },
+                `${t.reconcile}: ${detail.reconciliation.evidenceIssueIds.join(', ')} @ rev ${detail.revision}`
+              )
+            }
+            className="inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 text-xs"
+          >
+            <RefreshCw className="h-3.5 w-3.5" /> {t.reconcile}
+          </button>
+        )}
+    </section>
+  );
+
+  const header = (
+    <header className="space-y-3 p-4 pb-3">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h3 className="truncate text-xl font-medium">{detail.participant.displayName}</h3>
+          <p className="mt-1 text-xs text-[var(--ink-dim)]">{headerSubtitle}</p>
+          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+            <AdminLessonStatusChip status={primaryStatus} label={statusLabel} />
+            {payment ? (
+              <AdminLessonPaymentIndicator
+                status={payment.status}
+                label={courseEnrollmentPaymentStatusLabel(payment.status, t)}
+              />
+            ) : null}
+            <AdminLessonOriginBadge origin={origin} label={originLabel} />
+            <AdminLessonKindChip label={t.typeCourse} />
+          </div>
+        </div>
         {showClose ? (
           <button
             type="button"
-            onClick={onClose}
-            className="border border-[var(--border)] px-3 py-2 text-xs"
             aria-label={t.close}
+            onClick={onClose}
+            className="flex h-8 w-8 shrink-0 items-center justify-center border border-[var(--border)] text-[var(--ink-dim)] hover:text-[var(--ink)]"
           >
-            <span className="inline-flex items-center gap-1">
-              <X className="h-3.5 w-3.5" /> {t.close}
-            </span>
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         ) : null}
       </div>
-      {layout === 'tabs' && (
-        <div role="tablist" aria-label={t.details} className="flex gap-1 overflow-x-auto border-b border-[var(--border)] px-1">
-          {sections.map((section) => (
-            <button
-              key={section.id}
-              type="button"
-              role="tab"
-              aria-selected={activeSection === section.id}
-              onClick={() => setActiveSection(section.id)}
-              className={`relative shrink-0 appearance-none rounded-[0px] border-0 border-b-2 border-solid px-2.5 py-3 text-xs font-medium ${
-                activeSection === section.id
-                  ? 'border-[var(--ink)] text-[var(--ink)]'
-                  : 'border-transparent text-[var(--ink-dim)]'
-              }`}
-            >
-              {section.label}
-              {'attention' in section && section.attention ? (
-                <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-amber-500" />
+      {(awaitingPayment ||
+        detail.lifecycleStatus === 'pending_cancellation' ||
+        openCriticalIssues.length > 0) && (
+        <div className="grid gap-2 xl:grid-cols-2">
+          {awaitingPayment && (
+            <div className="rounded-[var(--radius-md)] border border-amber-500/30 bg-amber-500/[0.07] p-3 text-xs">
+              <p className="flex items-center gap-1.5 font-semibold text-amber-900 dark:text-amber-200">
+                <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+                {t.awaitingPaymentTitle}
+              </p>
+              <p className="mt-1 text-[var(--ink-dim)]">
+                {t.awaitingPaymentDetail.replace('{amount}', money(payment?.outstanding ?? 0))}
+              </p>
+              {detail.guestState !== 'not_guest' && (
+                <p className="mt-1 text-[var(--ink-dim)]">{t.guestDeferred}</p>
+              )}
+            </div>
+          )}
+          {detail.lifecycleStatus === 'pending_cancellation' && (
+            <div className="rounded-[var(--radius-md)] border border-rose-500/30 bg-rose-500/[0.07] p-3 text-xs">
+              <p className="flex items-center gap-1.5 font-semibold text-rose-900 dark:text-rose-200">
+                <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+                {t.cancellationRequested}
+              </p>
+              {layout === 'tabs' ? (
+                <button
+                  type="button"
+                  onClick={() => setActiveSection('cancellation')}
+                  className="mt-2 text-xs font-semibold text-rose-700 underline-offset-2 hover:underline dark:text-rose-300"
+                >
+                  {t.openCancellation}
+                </button>
               ) : null}
-            </button>
-          ))}
+            </div>
+          )}
+          {openCriticalIssues.length > 0 && (
+            <div className="rounded-[var(--radius-md)] border border-red-500/30 bg-red-500/[0.07] p-3 text-xs">
+              <p className="flex items-center gap-1.5 font-semibold text-red-900 dark:text-red-200">
+                <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+                {t.criticalIssues.replace('{n}', String(openCriticalIssues.length))}
+              </p>
+              {layout === 'tabs' ? (
+                <button
+                  type="button"
+                  onClick={() => setActiveSection('issues')}
+                  className="mt-2 text-xs font-semibold text-red-700 underline-offset-2 hover:underline dark:text-red-300"
+                >
+                  {t.issuesTab}
+                </button>
+              ) : null}
+            </div>
+          )}
         </div>
       )}
-      {show('overview') && overview}
-      {show('payment') && payment}
-      {show('attendance') && attendance}
-      {show('operations') && operations}
+    </header>
+  );
+
+  return (
+    <div>
+      <div
+        className={
+          layout === 'tabs'
+            ? 'sticky top-3 z-20 rounded-t-[var(--radius)] bg-[var(--card-bg)] shadow-[0_8px_20px_-18px_rgba(17,17,17,0.45)] lg:top-0'
+            : undefined
+        }
+      >
+        {header}
+        {layout === 'tabs' && (
+          <AdminLessonDetailTabs
+            sections={sections}
+            activeSection={activeSection}
+            onChange={setActiveSection}
+            ariaLabel={t.detailSections}
+            attentionLabel={t.requiresAttention}
+            idPrefix="admin-course"
+          />
+        )}
+      </div>
+      <div
+        {...(layout === 'tabs'
+          ? {
+              id: `admin-course-panel-${activeSection}`,
+              role: 'tabpanel' as const,
+              'aria-labelledby': `admin-course-tab-${activeSection}`,
+            }
+          : {})}
+        className="space-y-5 p-4 lg:p-5"
+      >
+        {layout === 'stacked' && needsSharedReason ? (
+          <ReasonField
+            value={actionReason}
+            onChange={onActionReasonChange}
+            label={t.reason}
+            ariaLabel="Action reason"
+          />
+        ) : null}
+        {show('overview') && overview}
+        {show('payment') && paymentSection}
+        {show('attendance') && attendance}
+        {show('cancellation') && cancellation}
+        {show('guest') && guest}
+        {show('issues') && issues}
+        {show('technical') && technical}
+      </div>
+      {layout === 'tabs'
+        ? sections
+            .filter((section) => section.id !== activeSection)
+            .map((section) => (
+              <div
+                key={section.id}
+                id={`admin-course-panel-${section.id}`}
+                role="tabpanel"
+                aria-labelledby={`admin-course-tab-${section.id}`}
+                hidden
+              />
+            ))
+        : null}
     </div>
   );
 }

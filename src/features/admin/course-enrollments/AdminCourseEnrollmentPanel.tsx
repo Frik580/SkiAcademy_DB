@@ -5,7 +5,6 @@ import { ActionButton } from '../../../ui/ActionButton';
 import {
   CourseEnrollmentIdSchema,
   CourseIdSchema,
-  type AdminCourseListItem,
 } from '@ski-academy/shared-domain';
 import {
   ADMIN_COURSE_ENROLLMENT_COURSE_QUERY_KEY,
@@ -26,6 +25,8 @@ import {
   captureAdminCourseEnrollmentTarget,
   createAdminCourseEnrollmentAttemptId,
   parseAdminCourseEnrollmentView,
+  resolveCourseEnrollmentInstructorLabel,
+  toAdminCourseEnrollmentCourseOptions,
 } from './adminCourseEnrollmentUtils';
 import { AdminManagedParticipantPicker } from '../identity';
 import type { AdminManagedParticipantSelection } from '../identity';
@@ -33,18 +34,6 @@ import { useAdminCourseEnrollmentReadModels } from './useAdminCourseEnrollmentRe
 import { useAdminCourseEnrollmentCommands } from './useAdminCourseEnrollmentCommands';
 import { useAdminCourseEnrollmentTranslations } from './useAdminCourseEnrollmentTranslations';
 import { AdminCourseEnrollmentDetail } from './AdminCourseEnrollmentDetail';
-
-function courseOptions(items: readonly AdminCourseListItem[]): AdminCourseEnrollmentCourseOption[] {
-  return items
-    .map((course) => ({
-      courseId: course.courseId,
-      title: course.title,
-      revision: course.revision,
-      availableSeats: course.capacity.availableSeats,
-      lifecycle: course.lifecycle,
-    }))
-    .sort((left, right) => left.title.localeCompare(right.title));
-}
 
 export interface AdminCourseEnrollmentPanelProps {
   readonly adminAccountId: string;
@@ -96,7 +85,7 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
     try {
       const result = await queryAdminCourseReadModels({ scope: 'admin_course_list', pageSize: 50 });
       if (generation !== courseGeneration.current || result.scope !== 'admin_course_list') return;
-      setCourses(courseOptions(result.items));
+      setCourses(toAdminCourseEnrollmentCourseOptions(result.items));
     } catch {
       if (generation === courseGeneration.current) setCourseError(true);
     }
@@ -372,6 +361,13 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
               detail={detail}
               t={t}
               layout="stacked"
+              instructorLabel={resolveCourseEnrollmentInstructorLabel({
+                courseId: detail.course.courseId,
+                courses,
+                attendanceInstructorIds: (detail.attendanceDays ?? []).flatMap(
+                  (day) => day.instructorIds
+                ),
+              })}
               actionReason={reason}
               onActionReasonChange={setReason}
               refundAmount={refundAmount}

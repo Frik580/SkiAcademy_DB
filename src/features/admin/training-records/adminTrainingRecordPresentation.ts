@@ -1,24 +1,21 @@
-import type { PaymentStatus } from '@ski-academy/shared-domain';
-import type { LessonAdminPrimaryStatusKind } from '../lesson-bookings/lessonBookingAdminPresentation';
+import type {
+  AdminCourseEnrollmentRosterItem,
+  PaymentStatus,
+} from '@ski-academy/shared-domain';
+import type { AdminLessonBookingListRowInput } from '../lesson-bookings/AdminLessonBookingUi';
+import {
+  courseEnrollmentOrigin,
+  courseEnrollmentPrimaryStatus,
+  courseLifecycleToPrimaryStatus,
+} from '../course-enrollments/adminCourseEnrollmentPresentation';
 import type { AdminTrainingRecord } from './adminTrainingRecordContracts';
 
-export function courseLifecycleToPrimaryStatus(
-  lifecycle: string,
-  outstanding?: number
-): LessonAdminPrimaryStatusKind {
-  if (lifecycle === 'pending' && (outstanding ?? 0) > 0) return 'awaiting_payment';
-  if (lifecycle === 'pending') return 'pending';
-  if (lifecycle === 'confirmed') return 'confirmed';
-  if (lifecycle === 'pending_cancellation') return 'pending_cancellation';
-  if (lifecycle === 'completed') return 'completed';
-  if (lifecycle === 'no_show') return 'no_show';
-  return 'cancelled';
-}
+export { courseLifecycleToPrimaryStatus };
 
 export function courseOriginFromRecord(
   record: Extract<AdminTrainingRecord, { kind: 'course' }>
 ): 'guest' | 'account' | 'admin' | 'instructor' {
-  return record.data.guestState === 'not_guest' ? 'account' : 'guest';
+  return courseEnrollmentOrigin(record.data.guestState);
 }
 
 export function trainingRecordHasAlert(record: AdminTrainingRecord): boolean {
@@ -44,4 +41,39 @@ export function trainingPaymentStatus(
 ): PaymentStatus | undefined {
   if (record.kind === 'lesson') return record.data.admin?.payment.status;
   return record.data.payment?.status;
+}
+
+export function courseEnrollmentListCardInput(input: {
+  readonly item: AdminCourseEnrollmentRosterItem;
+  readonly kindLabel: string;
+  readonly primaryStatusLabel: string;
+  readonly originLabel: string;
+  readonly paymentStatusLabel?: string;
+  readonly recordedDaysLabel?: string;
+  readonly instructor?: string;
+}): AdminLessonBookingListRowInput & {
+  readonly kindLabel: string;
+  readonly trainingRecordId: string;
+  readonly recordKind: 'course';
+} {
+  const primaryStatus = courseEnrollmentPrimaryStatus(input.item);
+  const origin = courseEnrollmentOrigin(input.item.guestState);
+  const paymentStatus = input.item.payment?.status;
+  return {
+    bookingId: input.item.enrollmentId,
+    trainingRecordId: `course:${input.item.enrollmentId}`,
+    recordKind: 'course',
+    kindLabel: input.kindLabel,
+    participantNames: input.item.participant.displayName,
+    subtitle: input.item.course.title,
+    ...(input.instructor ? { instructor: input.instructor } : {}),
+    ...(input.recordedDaysLabel ? { meta: input.recordedDaysLabel } : {}),
+    primaryStatus,
+    primaryStatusLabel: input.primaryStatusLabel,
+    ...(paymentStatus && input.paymentStatusLabel
+      ? { paymentStatus, paymentStatusLabel: input.paymentStatusLabel }
+      : {}),
+    origin,
+    originLabel: input.originLabel,
+  };
 }

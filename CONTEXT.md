@@ -186,7 +186,7 @@ Guest reservation expiry semantics ([ADR-0007](docs/adr/0007-guest-identity-paym
 - `pending` with temporary seat, day, and uniqueness claims (seat consumed at creation).
 - TTL: `min(createdAt + 24 hours, course.startAt)` on `CourseEnrollment.lifecycle.reservationExpiresAt`.
 - Canonical expiry command: `expire_guest_reservation` with CourseEnrollment intent (same command kind as lessons; separate handler path).
-- Production automatic expiry: `scheduledExpireGuestCourseReservations` (`every 5 minutes`, UTC) is **ACTIVE**. **T32.9A.9A.F5** remains **BLOCKED_ONLY_BY_PRODUCTION_EXPIRY_SMOKE** until a real unpaid pending guest enrollment past `reservationExpiresAt` is observed cancelled with seat/claim release and replay no-op. The lesson scheduler does not process CourseEnrollments.
+- Production automatic expiry: `scheduledExpireGuestCourseReservations` (`every 5 minutes`, UTC) is **ACTIVE**. **T32.9A.9A.F5** is **PASS / CLOSED** (production expiry smoke PASS 2026-09-16): a real unpaid pending guest enrollment past `reservationExpiresAt` was observed cancelled with `reservation_expired`, seat/claim release, and a no-op replay. The lesson scheduler does not process CourseEnrollments.
 
 ### CourseEnrollment creation paths (financial)
 
@@ -386,6 +386,19 @@ There is no grace period. Late payment does not make the missed occurrence deliv
 
 When administration cancels for incomplete payment at `startAt`, it selects a refund from zero through `paidAmount`, writes off the unpaid remainder, records a mandatory reason, and audits the decision.
 
+## Lesson read ownership and freshness
+
+Account lesson data is read in two account-scoped projections: `account_hot` (current/upcoming lessons the cabinet renders directly) and `account_history` (non-hot lesson history, including `completed` lessons). Read cost is owned per surface; no surface may read a projection it does not render.
+
+- **A surface owns only the projections it renders.** `account_hot` is owned by the surfaces that show current/upcoming lessons: `/cabinet` and `/cabinet/home`, `/cabinet/calendar`, `/cabinet/coach`, `/cabinet/instructors`. Training, History, the Profile hubs, and public `/` do not own `account_hot`.
+- **Post-command lesson reads are surface-aware.** After an authenticated lesson-booking command, normal cabinet surfaces refresh `account_hot` only. Only history-owning surfaces pay for the `account_history` read. The commands hook never inspects router state; the owning surface resolves the refresh strategy and passes it in.
+- **`/cabinet/history` and `/cabinet/profile_journey` own `account_history`.** `/cabinet/history` is the full history surface. `/cabinet/profile_journey` renders the same completed-lesson events directly (a limited preview plus “Show all”), and `completed` lessons are never members of `account_hot` — so **Journey is a history-owning surface, not a hot consumer**. A cold Journey entry loads its own history rather than waiting for warm hot data.
+- **There is no periodic polling of `account_hot`** and no timer/visibility drain of the account lesson history. Refresh is ensure-on-entry, freshness-gated, plus explicit post-command and mutation-driven refresh.
+- **Participant lesson stats freshness is independent from account-hot freshness.** The complete-history drain that feeds Student lesson stats and achievements has its own freshness TTL, deliberately separate from the cheaper `account_hot` window; the two reads have unrelated owners and may drift to different windows. The stats drain authority itself is unchanged: it still requires complete Attendance-present evidence from `account_hot` ∪ `account_history`.
+- **Reads remain bounded and surface-scoped.** Removing a projection from a surface must not change read-model scopes, payloads, page size, cursors, or authorization, and must never trade correctness for read savings.
+
+**Known open follow-up:** `account_hot` page-1 reconciliation can prune valid hot bookings for accounts with more than 25 concurrent hot bookings, because the reconciliation window is the first page only. This is recorded for separate work and is not resolved by the surface-aware refresh.
+
 ## Instructor relationships, privacy, and blocking
 
 - An Instructor sees only Participants covered by an active Instructor Relationship or minimum booking-scoped access.
@@ -513,10 +526,13 @@ Existing useful screens, information, filters, interactions, and workflows must 
 
 Before removing a legacy frontend or runtime implementation, canonical replacement and UX feature parity must be proven.
 
-Details, the parity inventory, role coverage, and the T32.9A / T32.9B boundary are in [ADR-0008](docs/adr/0008-ux-preservation-during-canonical-migration.md). Current T32.9A.8 / T32.9A.9 (FINAL CANONICAL CUTOVER) status lives in [T32_CANONICAL_ADMIN_AUDIT.md](docs/T32_CANONICAL_ADMIN_AUDIT.md). **T32.9A.9A is PASS / CLOSED** for the original F1–F4 + final integration / production smoke. **T32.9A.9A.F5** (guest CourseEnrollment reservation expiry) is **BLOCKED_ONLY_BY_PRODUCTION_EXPIRY_SMOKE** (inventory PASS 2026-09-14: `createGuestCourseEnrollment` ABSENT; scheduler ACTIVE). **T32.9A.9B is PASS / CLOSED.** **T32.9A.9C is PASS / CLOSED; T32.9A.9P is PASS / CLOSED for source / current production client; T32.9A.9D0 is PASS / CLOSED; T32.9A.9D is NOT STARTED.** Admin Lessons + Courses consolidation is **DEPLOYED / AUTHENTICATED SMOKE BLOCKED** (2026-09-15): Hosting + `executeCanonicalCommand` (`executecanonicalcommand-00054-yof`) + `queryAdminCourseEnrollmentReadModels` (`queryadmincourseenrollmentreadmodels-00011-cug`); `/admin` smoke waits on a real admin session. Authoritative production sequence:
+Details, the parity inventory, role coverage, and the T32.9A / T32.9B boundary are in [ADR-0008](docs/adr/0008-ux-preservation-during-canonical-migration.md). Current T32.9A.8 / T32.9A.9 (FINAL CANONICAL CUTOVER) status lives in [T32_CANONICAL_ADMIN_AUDIT.md](docs/T32_CANONICAL_ADMIN_AUDIT.md). **T32.9A.9A is PASS / CLOSED** for the original F1–F4 + final integration / production smoke. **T32.9A.9A.F5** (guest CourseEnrollment reservation expiry) is **PASS / CLOSED** (inventory PASS 2026-09-14: `createGuestCourseEnrollment` ABSENT; scheduler ACTIVE; production expiry smoke PASS 2026-09-16). **T32.9A.9B is PASS / CLOSED.** **T32.9A.9C is PASS / CLOSED; T32.9A.9P is PASS / CLOSED for source / current production client; T32.9A.9D0 is PASS / CLOSED; T32.9A.9D is NOT STARTED.** Admin Lessons + Courses consolidation is **PASS / DEPLOYED / RUNTIME VERIFIED** (authenticated production smoke PASS 2026-09-16; Hosting + `executeCanonicalCommand` (`executecanonicalcommand-00054-yof`) + `queryAdminCourseEnrollmentReadModels` (`queryadmincourseenrollmentreadmodels-00011-cug`)). The next working item is the recorded correctness follow-up **#42 — `account_hot` page-1 reconciliation >25**. Authoritative production sequence:
 
 ```text
 T32.9A.9A — PASS / CLOSED (F1 / F2 / F3 / F4 / final integration smoke)
+  T32.9A.9A.F5 — PASS / CLOSED: canonical guest CourseEnrollment reservation expiry
+    (bounded `scheduledExpireGuestCourseReservations`; inventory PASS 2026-09-14; production expiry smoke PASS 2026-09-16)
+  Admin Lessons + Courses consolidation — PASS / DEPLOYED / RUNTIME VERIFIED (authenticated production smoke PASS 2026-09-16)
 → T32.9A.9B — PASS / CLOSED: stats / progress / recommendations / Reviews and instructor rating
   T32.9A.9B.2 Participant Progress — PASS / CLOSED (production deploy + manual smoke PASS, 2026-09-11):
     authority `/participant_progress/{participantId}` (Participant, not Account);
@@ -556,7 +572,7 @@ T32.9A.9A — PASS / CLOSED (F1 / F2 / F3 / F4 / final integration smoke)
     production legacy data is preserved for later 9P/9D; production deploy + authenticated manual smoke PASS.
   No other accepted mandatory 9B capability remains: 9B.2–9B.4 and Reviews are PASS / CLOSED;
   9B.5 is not an accepted ticket; Course metrics belong to 9C and Chat Homework to 9P.HW1 (now implemented).
-→ T32.9A.9C (Course progress / achievements) — PASS / CLOSED (2026-09-14, not deployed):
+→ T32.9A.9C (Course progress / achievements) — PASS / CLOSED (2026-09-14):
   physical Account Enrollment cursor pagination reaches >100 rows; exact managed-Participant
   selection is server-authorized; CourseEnrollmentReadModel includes request-time Course Progress
   from verified CourseDays + one bounded page Attendance query; server-only
@@ -565,15 +581,21 @@ T32.9A.9A — PASS / CLOSED (F1 / F2 / F3 / F4 / final integration smoke)
   Participant and present canonical courseProgress. Server-side `course_graduate` issuance is
   bound to the canonical CourseEnrollment completed transition, once-earned and participant-scoped,
   with no historical backfill. Legacy Course WRITE / authority READ / fallback / dual-write = 0.
-  Certificates remain out of 9C. Production deploy + authenticated smoke not recorded.
+  Certificates remain out of 9C. The 2026-09-14 closure recorded no deploy of its own; the production
+  deployment of this read surface is subsequently evidenced by the Admin Lessons + Courses
+  consolidation cutover + authenticated production smoke, which exercised
+  `queryAdminCourseEnrollmentReadModels`. 9C remains PASS / CLOSED.
 → T32.9A.9P (Global Product Parity & legacy Dependency Gate) — PASS / CLOSED (2026-09-14, source / current production client)
-→ T32.9A.9D0 (production-like incremental rehearsal) — PASS / CLOSED (2026-09-14; source delete manifest; data delete NONE; F5 Function inventory now known; 9D still waits on F5 expiry smoke)
+→ T32.9A.9D0 (production-like incremental rehearsal) — PASS / CLOSED (2026-09-14; source delete manifest; data delete NONE; F5 Function inventory now known; the former F5 expiry-smoke gate is closed, so 9D now waits only on the #42 correctness follow-up and the production Function-delete inventory)
+→ NEXT #42 (account_hot page-1 reconciliation >25 correctness — recorded follow-up from T32.9R.P0B, not an R-ticket)
 → T32.9A.9D (Selective Destructive legacy Data Cleanup — not a full Firestore reset) — NOT STARTED
 → T32.9A.9E (technical + product reachability)
 → T32.9B (physical legacy runtime cleanup)
 → T40 (Execute Rehearsed Selective Production Cutover)
 → T41 (Expanded Post-Cutover Verification)
 ```
+
+**T32.9R optimization track (parallel; strategic decision unchanged).** **R1 is DEFERRED / BLOCKED** and **R2 is DEFERRED**; neither is promoted to NEXT and no new R-ticket is created. Remaining implemented optimization items are deploy/runtime verified first, then production Firestore / Functions usage is re-measured, and only then is the next optimization chosen from measured cost. Details: [T32_CANONICAL_ADMIN_AUDIT.md](docs/T32_CANONICAL_ADMIN_AUDIT.md).
 
 Canonical Booking owns lifecycle, not progress/presentation/feedback/reviews data by default. Chat/Homework currently stored at `bookings/{threadId}/messages` must not be deleted with legacy Booking parents without an approved 9P policy. This does not reopen accepted domain or security decisions. A full empty-database reset remains nonproduction architectural rehearsal only.
 

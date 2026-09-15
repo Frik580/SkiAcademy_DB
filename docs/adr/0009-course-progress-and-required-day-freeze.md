@@ -55,7 +55,10 @@ the cursor/index, and the request-time read-model projection. 9C.B is complete. 
 that projection on Student Home / My Courses / Calendar / enrolled Course detail with selected
 Participant isolation. 9C.D issues `course_graduate` on the canonical completed transition.
 9C.E contains leftover Course legacy reachability (`enrollInCourse` unexported/removed) and
-closes T32.9A.9C. Deployment remains a separate manual integration action.
+closes T32.9A.9C. **T32.9A.9C is PASS / CLOSED**; that closure was a source/containment closure that
+deployed nothing on its own, and the production deployment of the CourseEnrollment read surface is
+subsequently evidenced by the Admin Lessons + Courses consolidation cutover and its authenticated
+production smoke on `queryAdminCourseEnrollmentReadModels` (see [T32_CANONICAL_ADMIN_AUDIT.md](../T32_CANONICAL_ADMIN_AUDIT.md)).
 
 ## Consequences
 

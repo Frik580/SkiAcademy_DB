@@ -4,7 +4,7 @@ Status: approved implementation strategy; ADR-0001 through ADR-0008 accepted
 Amended: 2026-09-07 — T32.9A.9D selective legacy Booking disposal clarified for the incremental production cutover path (see amendment under Firestore reset contract); T32.9A.9 FINAL CANONICAL CUTOVER status lives in [T32_CANONICAL_ADMIN_AUDIT.md](../T32_CANONICAL_ADMIN_AUDIT.md)
 Amended: 2026-09-08 — production cutover gates: T32.9A.9P, 9D0, 9D selective cleanup (not full Firestore reset), 9E technical+product reachability; T38 empty-database rehearsal is nonproduction only; T40 Execute Rehearsed Selective Production Cutover; T41 expanded verification. F3 multi-participant design is unchanged.
 Amended: 2026-09-13 — T32.9A.9A.F5 guest CourseEnrollment bounded reservation expiry and legacy `createGuestCourseEnrollment` removal gate recorded; does not reopen T32.9A.9A F1–F4 PASS / CLOSED.
-Amended: 2026-09-14 — T32.9A.9C Course Progress / Achievements Cutover PASS / CLOSED (code integration/containment; no production deploy recorded).
+Amended: 2026-09-14 — T32.9A.9C Course Progress / Achievements Cutover PASS / CLOSED (source integration/containment closure; that amendment recorded no production deploy at its own date). 9C remains PASS / CLOSED; the production deployment of the 9C read surface is subsequently evidenced by the Admin Lessons + Courses consolidation cutover and its authenticated production smoke on `queryAdminCourseEnrollmentReadModels`.
 
 ## Problem Statement
 
@@ -187,13 +187,13 @@ Deliver the complete canonical Course vertical slice without representing Enroll
 
 After this phase is complete, delete or replace old Course enrollment callables, synthetic-course helpers, deterministic Enrollment ID builders, Course-shaped Booking query paths, availability migration code, hour-lock code, and their tests.
 
-**T32.9A.9A.F5 gate (production).** The release candidate removed legacy `functions/src/courses/createGuestCourseEnrollment.ts` and the exported callable `createGuestCourseEnrollment` after proving that the active frontend already uses canonical `create_course_enrollments`. Production cutover is not complete until:
+**T32.9A.9A.F5 gate (production) — SATISFIED / CLOSED 2026-09-16.** The release candidate removed legacy `functions/src/courses/createGuestCourseEnrollment.ts` and the exported callable `createGuestCourseEnrollment` after proving that the active frontend already uses canonical `create_course_enrollments`. This production cutover gate is now met:
 
-1. **T32.9A.9A.F5** is **PASS / CLOSED** (bounded guest CourseEnrollment expiry in production, legacy reachability resolved);
-2. production caller audit proves `REMOVED` or `MIGRATED_AND_REMOVED` with exactly one authoritative guest creation path;
+1. **T32.9A.9A.F5** is **PASS / CLOSED** (bounded guest CourseEnrollment expiry verified in production with seat/claim release and no-op replay; legacy reachability resolved);
+2. the production caller audit proves `REMOVED` or `MIGRATED_AND_REMOVED` with exactly one authoritative guest creation path (`executeGuestCanonicalCommand` / `create_course_enrollments`; the deployed legacy name is **ABSENT**);
 3. no reachable path creates indefinite guest `pending` enrollment without `reservationExpiresAt`.
 
-Repository classification is **REMOVED — READY_FOR_DEPLOY**; the currently deployed legacy function, if present, remains live until the authorized functions deployment deletes it. See [T32_CANONICAL_ADMIN_AUDIT.md](../T32_CANONICAL_ADMIN_AUDIT.md). This gate is additional to Phase 4 emulator tests and does not restore the empty-production-database cutover model.
+Repository classification is **REMOVED — CLOSED**; the formerly deployed legacy function was independently confirmed **ABSENT** on production (2026-09-14 inventory). Remaining production Function deletions are gated only by the separate production inventory gate. See [T32_CANONICAL_ADMIN_AUDIT.md](../T32_CANONICAL_ADMIN_AUDIT.md). This gate is additional to Phase 4 emulator tests and does not restore the empty-production-database cutover model.
 
 ## Phase 5 — Frontend migration to canonical API and model
 
@@ -350,7 +350,7 @@ There is one production cutover sequence. It supersedes reading Phase 7 / T40 as
 
 ```text
 T32.9A.9A — PASS / CLOSED (F1 / F2 / F3 / F4 / final integration smoke)
-T32.9A.9A.F5 — IN PROGRESS (post-close guest CourseEnrollment reservation expiry; gates legacy guest enrollment callable removal)
+T32.9A.9A.F5 — PASS / CLOSED (post-close guest CourseEnrollment reservation expiry; production expiry smoke PASS 2026-09-16; legacy guest enrollment callable already ABSENT in production)
         ↓
 T32.9A.9B — PASS / CLOSED: stats/progress/recommendations + Reviews / instructor rating
   T32.9A.9B.2 Participant Progress — PASS / CLOSED (production smoke 2026-09-11)
@@ -397,7 +397,9 @@ T32.9A.9C (Course progress / achievements) — PASS / CLOSED
         ↓
 T32.9A.9P (Global Product Parity & legacy Dependency Gate)
         ↓
-T32.9A.9D0 (production-like mixed-state rehearsal of EXACT 9D)
+T32.9A.9D0 (production-like mixed-state rehearsal of EXACT 9D) — PASS / CLOSED (2026-09-14)
+        ↓
+NEXT #42 (account_hot page-1 reconciliation >25 correctness — recorded follow-up from T32.9R.P0B)
         ↓
 T32.9A.9D (Selective Destructive legacy Data Cleanup)
         ↓
@@ -569,7 +571,7 @@ The release requires all suites to pass from an empty database seeded only by th
 
 Empty-database E2E above remains the T38 / isolated rehearsal bar. Production T41 must also exercise preserved live product journeys:
 
-- Guest lesson; Guest course enrollment; payment/expiry (course automatic expiry per T32.9A.9A.F5 when PASS / CLOSED)
+- Guest lesson; Guest course enrollment; payment/expiry (course automatic expiry per T32.9A.9A.F5, **PASS / CLOSED** 2026-09-16)
 - Student lesson booking; multi-participant lesson; course enrollment; cancellation
 - Student Cabinet current/history; progress/recommendations/achievements
 - Reviews/rating; Chat; Homework; Notifications

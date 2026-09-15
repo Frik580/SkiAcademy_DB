@@ -230,7 +230,7 @@ where `GUEST_COURSE_RESERVATION_TTL_MS = 24 hours`. Do not apply the 1-hour less
 
 Canonical command: `expire_guest_reservation` with `courseEnrollmentId` intent (handler: `expireGuestCourseEnrollmentReservation`). The command rechecks guest origin, `pending` status, Payment identity, funding predicate, deadline, course context, seat release rules, and claim release in the authoritative transaction.
 
-Production automatic expiry uses the bounded `scheduledExpireGuestCourseReservations` discovery scheduler, separate from `scheduledExpireGuestLessonReservations`. The lesson scheduler is orchestrator-only for lesson Bookings and does not discover CourseEnrollments. F5's release candidate closes the source/runtime gap where canonical expiry semantics existed but no production scheduler export discovered expired guest course candidates; deploy and production smoke remain pending.
+Production automatic expiry uses the bounded `scheduledExpireGuestCourseReservations` discovery scheduler, separate from `scheduledExpireGuestLessonReservations`. The lesson scheduler is orchestrator-only for lesson Bookings and does not discover CourseEnrollments. F5's release candidate closed the source/runtime gap where canonical expiry semantics existed but no production scheduler export discovered expired guest course candidates. Deploy, scheduler execution, and the production expiry smoke are now complete: **T32.9A.9A.F5 is PASS / CLOSED (2026-09-16)**.
 
 ### Semantic distinction (unchanged from F2, applied to CourseEnrollment)
 
@@ -462,12 +462,13 @@ and the later migration status in
   remains [ADR-0004](./0004-attendance-outcome-and-admin-issue-model.md); slice
   details live in [T32_CANONICAL_ADMIN_AUDIT.md](../T32_CANONICAL_ADMIN_AUDIT.md).
 - **T32.9A.9A** (Individual Booking lifecycle cutover overall, including final
-  integration / production smoke for F1–F4) is **PASS / CLOSED**. Active FINAL
-  CANONICAL CUTOVER stage: **T32.9A.9B**.
-- **T32.9A.9A.F5 — Canonical Guest Course Reservation Expiry** is **IN
-  PROGRESS**. F5 was added after the original 9A close when guest
-  CourseEnrollment automatic production expiry was found not yet equivalent to F2
-  lesson expiry. F1–F4 acceptance remains valid. Details and acceptance criteria:
+  integration / production smoke for F1–F4) is **PASS / CLOSED**. Later FINAL
+  CANONICAL CUTOVER slices 9B / 9C / 9P / 9D0 are also **PASS / CLOSED**.
+- **T32.9A.9A.F5 — Canonical Guest Course Reservation Expiry** is **PASS /
+  CLOSED** (production expiry smoke PASS 2026-09-16). F5 was added after the
+  original 9A close when guest CourseEnrollment automatic production expiry was
+  found not yet equivalent to F2 lesson expiry; F1–F4 acceptance remained valid
+  throughout. Details and acceptance criteria:
   [T32_CANONICAL_ADMIN_AUDIT.md](../T32_CANONICAL_ADMIN_AUDIT.md).
 - **T32.9B — Final Legacy Write / Runtime Cleanup** may remove leftover
   implementation only after T32.9A.9E PASS, canonical replacement, and UX
@@ -496,7 +497,7 @@ ad-hoc product exceptions here.
 | `scheduledReconcileGuestConfirmationMismatches` | Canonical / active                                                                      |
 | `scheduledPurgeExpiredNotifications`            | Canonical / active                                                                      |
 | Guest unpaid reservation expiry scheduler (lesson Booking) | `scheduledExpireGuestLessonReservations` / every 5 minutes UTC / Canonical / active (9A.F2 production-smoked) |
-| Guest unpaid reservation expiry scheduler (CourseEnrollment) | `scheduledExpireGuestCourseReservations` / every 5 minutes UTC / **F5 READY_FOR_DEPLOY** (bounded 25/page, 100/run; production smoke pending) |
+| Guest unpaid reservation expiry scheduler (CourseEnrollment) | `scheduledExpireGuestCourseReservations` / every 5 minutes UTC / **F5 PASS / CLOSED** (bounded 25/page, 100/run; production deploy + expiry smoke PASS 2026-09-16) |
 
 Completion scheduling must not be confused with payment-confirmation
 reconciliation.

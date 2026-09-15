@@ -47,6 +47,7 @@ function enrollment(input: {
     },
     relatedIssues: [],
     authorizedActions: {
+      canRecordPayment: false,
       canResolveCancellation: false,
       canTransfer: false,
       canReconcile: false,

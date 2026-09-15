@@ -31,11 +31,12 @@ function scopeForView(view: AdminCourseEnrollmentView) {
 }
 
 export function useAdminCourseEnrollmentReadModels(input: {
+  readonly enabled?: boolean;
   readonly view: AdminCourseEnrollmentView;
   readonly courseId?: CourseId;
   readonly selectedEnrollmentId?: CourseEnrollmentId;
 }) {
-  const { view, courseId, selectedEnrollmentId } = input;
+  const { enabled = true, view, courseId, selectedEnrollmentId } = input;
   const [list, setList] = useState<AdminCourseEnrollmentListState>(EMPTY_LIST);
   const [detail, setDetail] = useState<AdminCourseEnrollmentDetailState>({ loading: false });
   const listGeneration = useRef(0);
@@ -43,6 +44,10 @@ export function useAdminCourseEnrollmentReadModels(input: {
 
   const loadList = useCallback(
     async (cursor?: string, append = false) => {
+      if (!enabled) {
+        setList({ items: [], loading: false, loadingMore: false, hasMore: false });
+        return;
+      }
       const generation = ++listGeneration.current;
       setList((current) => ({
         ...(append ? current : { ...EMPTY_LIST, items: [] }),
@@ -77,7 +82,7 @@ export function useAdminCourseEnrollmentReadModels(input: {
         }));
       }
     },
-    [courseId, view]
+    [courseId, enabled, view]
   );
 
   const loadDetail = useCallback(async (enrollmentId: CourseEnrollmentId) => {
@@ -105,6 +110,11 @@ export function useAdminCourseEnrollmentReadModels(input: {
   }, [loadList]);
 
   useEffect(() => {
+    if (!enabled) {
+      detailGeneration.current += 1;
+      setDetail({ loading: false });
+      return;
+    }
     if (!selectedEnrollmentId) {
       detailGeneration.current += 1;
       setDetail({ loading: false });
@@ -114,7 +124,7 @@ export function useAdminCourseEnrollmentReadModels(input: {
     return () => {
       detailGeneration.current += 1;
     };
-  }, [loadDetail, selectedEnrollmentId]);
+  }, [enabled, loadDetail, selectedEnrollmentId]);
 
   const refreshEnrollment = useCallback(
     async (enrollmentId: CourseEnrollmentId) => {

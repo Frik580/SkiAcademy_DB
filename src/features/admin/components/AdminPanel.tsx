@@ -21,6 +21,7 @@ import {
   adminCourseEnrollmentSearchParams,
   ADMIN_CLIENT_ACCOUNT_QUERY_KEY,
   ADMIN_COURSE_ENROLLMENT_QUERY_KEY,
+  ADMIN_COURSE_ENROLLMENT_COURSE_QUERY_KEY,
   ADMIN_FINANCE_ACCOUNT_QUERY_KEY,
   ADMIN_FINANCE_MOVEMENT_FOCUS_QUERY_KEY,
   ADMIN_FINANCE_PAYMENT_QUERY_KEY,
@@ -28,6 +29,7 @@ import {
   ADMIN_PLANNER_DATE_QUERY_KEY,
   ADMIN_PLANNER_FOCUS_QUERY_KEY,
   ADMIN_TAB_QUERY_KEY,
+  ADMIN_TRAINING_RECORDS_SECTION_ID,
   parseAdminTabId,
   type AdminTabId,
 } from '../adminNavigation';
@@ -85,14 +87,9 @@ const AdminProductSettings = lazy(() =>
     default: m.AdminProductSettings,
   }))
 );
-const AdminLessonBookingPanel = lazy(() =>
-  import('../lesson-bookings').then((m) => ({
-    default: m.AdminLessonBookingPanel,
-  }))
-);
-const AdminCourseEnrollmentPanel = lazy(() =>
-  import('../course-enrollments').then((m) => ({
-    default: m.AdminCourseEnrollmentPanel,
+const AdminTrainingRecordsPanel = lazy(() =>
+  import('../training-records').then((m) => ({
+    default: m.AdminTrainingRecordsPanel,
   }))
 );
 const CoursesManager = lazy(() =>
@@ -242,38 +239,34 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </AdminCollapsibleSection>
             </Suspense>
 
-            <Suspense fallback={<SectionLoadingFallback label={t('adminLessonBookingsTitle')} />}>
+            <Suspense fallback={<SectionLoadingFallback label={t('adminTrainingRecordsTitle')} />}>
               <AdminCollapsibleSection
-                id="canonical_lesson_bookings"
-                title={t('adminLessonBookingsTitle')}
-                subtitle={t('adminLessonBookingsSub')}
+                id={ADMIN_TRAINING_RECORDS_SECTION_ID}
+                title={t('adminTrainingRecordsTitle')}
+                subtitle={t('adminTrainingRecordsSub')}
                 icon={BookOpen}
                 defaultOpen={false}
-                forceOpen={Boolean(searchParams.get(ADMIN_LESSON_BOOKING_QUERY_KEY))}
-                forceOpenToken={searchParams.get(ADMIN_LESSON_BOOKING_QUERY_KEY) ?? undefined}
+                forceOpen={Boolean(
+                  searchParams.get(ADMIN_LESSON_BOOKING_QUERY_KEY) ||
+                    searchParams.get(ADMIN_COURSE_ENROLLMENT_QUERY_KEY) ||
+                    searchParams.get(ADMIN_COURSE_ENROLLMENT_COURSE_QUERY_KEY)
+                )}
+                forceOpenToken={
+                  searchParams.get(ADMIN_LESSON_BOOKING_QUERY_KEY) ??
+                  searchParams.get(ADMIN_COURSE_ENROLLMENT_QUERY_KEY) ??
+                  searchParams.get(ADMIN_COURSE_ENROLLMENT_COURSE_QUERY_KEY) ??
+                  undefined
+                }
               >
-                <AdminLessonBookingPanel
+                <span id="canonical_lesson_bookings" className="sr-only" />
+                <span id="canonical_course_enrollments" className="sr-only" />
+                <AdminTrainingRecordsPanel
                   adminAccountId={currentUserProfile.uid}
                   instructors={instructors.map((instructor) => ({
                     instructorId: instructor.id,
                     displayName: instructor.name,
                   }))}
                 />
-              </AdminCollapsibleSection>
-            </Suspense>
-
-            <Suspense
-              fallback={<SectionLoadingFallback label={t('adminCourseEnrollmentsTitle')} />}
-            >
-              <AdminCollapsibleSection
-                id="canonical_course_enrollments"
-                title={t('adminCourseEnrollmentsTitle')}
-                subtitle={t('adminCourseEnrollmentsSub')}
-                icon={BookOpen}
-                defaultOpen={false}
-                forceOpen={Boolean(searchParams.get(ADMIN_COURSE_ENROLLMENT_QUERY_KEY))}
-              >
-                <AdminCourseEnrollmentPanel adminAccountId={currentUserProfile.uid} />
               </AdminCollapsibleSection>
             </Suspense>
           </div>

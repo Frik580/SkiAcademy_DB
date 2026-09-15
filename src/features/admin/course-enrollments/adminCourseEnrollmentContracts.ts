@@ -85,6 +85,13 @@ export type AdminCourseEnrollmentAttempt =
       readonly targetAccountDisplayName?: string;
       readonly targetParticipantDisplayName: string;
       readonly reasonExplanation: string;
+    }
+  | {
+      readonly kind: 'record_provider_payment_event';
+      readonly idempotencyKey: IdempotencyKey;
+      readonly target: AdminCourseEnrollmentTarget;
+      readonly paymentRevision: number;
+      readonly amount: number;
     };
 
 type AdminCourseEnrollmentMutationAttempt = Extract<

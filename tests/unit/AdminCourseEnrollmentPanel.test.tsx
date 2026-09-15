@@ -106,6 +106,7 @@ const rosterItem = {
     canApproveGuest: false,
     canLinkGuest: false,
     canWithdraw: false,
+    canRecordPayment: false,
   },
   updatedAt: timestamp,
 };
@@ -458,5 +459,84 @@ describe('AdminCourseEnrollmentPanel', () => {
 
     expect(result.current.list.items).toEqual([]);
     expect(result.current.detail.item?.lifecycleStatus).toBe('cancelled');
+  });
+
+  it('offers Accept payment for an unpaid enrollment and uses the Payment revision', async () => {
+    const user = userEvent.setup();
+    queryAdminCourseEnrollmentReadModels.mockImplementation(async (input) => {
+      const unpaid = {
+        ...rosterItem,
+        authorizedActions: {
+          ...rosterItem.authorizedActions,
+          canResolveCancellation: false,
+          canRecordPayment: true,
+        },
+      };
+      return input.scope === 'admin_enrollment_detail'
+        ? {
+            scope: 'admin_enrollment_detail',
+            item: {
+              ...detail,
+              ...unpaid,
+              cancellation: undefined,
+              authorizedActions: unpaid.authorizedActions,
+            },
+          }
+        : { scope: input.scope, items: [unpaid], hasMore: false };
+    });
+    render(
+      <MemoryRouter initialEntries={['/?enrollment=course_enrollment_admin_component_01']}>
+        <AdminCourseEnrollmentPanel adminAccountId="account_admin_component_01" />
+      </MemoryRouter>
+    );
+    expect(await screen.findByRole('button', { name: 'Accept payment' })).toBeVisible();
+    const amount = screen.getByLabelText('Amount, KZT');
+    expect(amount).toHaveValue(15_000);
+    await user.clear(amount);
+    await user.type(amount, '5000');
+    await user.click(screen.getByRole('button', { name: 'Accept payment' }));
+    await user.click(screen.getByRole('button', { name: 'Confirm' }));
+    await waitFor(() => expect(executeAuthenticatedCanonicalCommand).toHaveBeenCalledTimes(1));
+    expect(executeAuthenticatedCanonicalCommand.mock.calls[0]?.[1]).toMatchObject({
+      kind: 'record_provider_payment_event',
+      expectedRevision: 3,
+      intent: expect.objectContaining({
+        paymentId: rosterItem.payment.paymentId,
+        amount: 5_000,
+        sourceKind: 'cash',
+      }),
+    });
+  });
+
+  it('hides Accept payment when the server does not authorize capture', async () => {
+    queryAdminCourseEnrollmentReadModels.mockImplementation(async (input) => {
+      const paid = {
+        ...rosterItem,
+        payment: { ...rosterItem.payment, status: 'paid', outstanding: 0, paid: 25_000 },
+        authorizedActions: {
+          ...rosterItem.authorizedActions,
+          canResolveCancellation: false,
+          canRecordPayment: false,
+        },
+      };
+      return input.scope === 'admin_enrollment_detail'
+        ? {
+            scope: 'admin_enrollment_detail',
+            item: {
+              ...detail,
+              ...paid,
+              cancellation: undefined,
+              authorizedActions: paid.authorizedActions,
+            },
+          }
+        : { scope: input.scope, items: [paid], hasMore: false };
+    });
+    render(
+      <MemoryRouter initialEntries={['/?enrollment=course_enrollment_admin_component_01']}>
+        <AdminCourseEnrollmentPanel adminAccountId="account_admin_component_01" />
+      </MemoryRouter>
+    );
+    expect(await screen.findByText('Enrollment detail')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Accept payment' })).not.toBeInTheDocument();
   });
 });

@@ -8,6 +8,7 @@ import {
   KztMinorUnitsSchema,
   ParticipantIdSchema,
   PaymentIdSchema,
+  canonicalDeterministicHash,
   type CourseEnrollmentId,
   type CommandKind,
   type CommandResult,
@@ -45,6 +46,27 @@ export async function executeAdminCourseEnrollmentAttempt(
         idempotencyKey: attempt.idempotencyKey,
         expectedRevision: AggregateRevisionSchema.parse(attempt.courseRevision),
         administratorContext: true,
+      })
+    );
+    return;
+  }
+
+  if (attempt.kind === 'record_provider_payment_event') {
+    await assertCommandSucceeded(
+      executeAuthenticatedCanonicalCommand(adminAccountId, {
+        kind: attempt.kind,
+        intent: {
+          paymentId: PaymentIdSchema.parse(attempt.target.paymentId),
+          amount: KztMinorUnitsSchema.parse(attempt.amount),
+          sourceKind: 'cash',
+          manualReference: `admin-cash:${canonicalDeterministicHash([
+            'admin_guest_cash:v1',
+            attempt.target.enrollmentId,
+            attempt.idempotencyKey,
+          ])}`,
+        },
+        idempotencyKey: attempt.idempotencyKey,
+        expectedRevision: AggregateRevisionSchema.parse(attempt.paymentRevision),
       })
     );
     return;
@@ -149,7 +171,7 @@ export async function executeAdminCourseEnrollmentAttempt(
 }
 
 export type AdminCourseEnrollmentAttemptResult =
-  | { readonly status: 'success' }
+  | { readonly status: 'success'; readonly refreshFailed?: boolean }
   | { readonly status: 'error'; readonly error: CanonicalCommandClientError };
 
 export function useAdminCourseEnrollmentCommands(input: {
@@ -174,8 +196,21 @@ export function useAdminCourseEnrollmentCommands(input: {
       };
       try {
         await executeAdminCourseEnrollmentAttempt(adminAccountId, attempt);
-        await refresh();
-        return { status: 'success' };
+        try {
+          await refresh();
+          return { status: 'success' };
+        } catch {
+          if (attempt.kind === 'record_provider_payment_event') {
+            return { status: 'success', refreshFailed: true };
+          }
+          return {
+            status: 'error',
+            error: toCanonicalCommandClientError(
+              new Error('canonical projections refresh failed'),
+              'correlation_admin_course_enrollment_refresh_unknown'
+            ),
+          };
+        }
       } catch (error) {
         const normalized =
           error instanceof CanonicalCommandClientError

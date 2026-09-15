@@ -102,6 +102,8 @@ export interface AdminLessonBookingListRowInput {
   readonly paymentStatusLabel?: string;
   readonly origin: 'guest' | 'account' | 'admin' | 'instructor';
   readonly originLabel: string;
+  readonly kindLabel?: string;
+  readonly trainingRecordId?: string;
 }
 
 export function AdminLessonBookingListRow({
@@ -124,6 +126,9 @@ export function AdminLessonBookingListRow({
     <button
       type="button"
       data-admin-lesson-booking-id={item.bookingId}
+      {...(item.trainingRecordId
+        ? { 'data-admin-training-record-id': item.trainingRecordId }
+        : {})}
       aria-current={selected ? 'true' : undefined}
       onClick={onSelect}
       className={`group w-full rounded-[var(--radius-md)] border border-[var(--border)] border-l-[3px] p-3.5 text-left transition-colors hover:border-[color-mix(in_srgb,var(--accent)_28%,transparent)] hover:bg-[var(--accent-muted)] ${attentionClass} ${
@@ -139,10 +144,12 @@ export function AdminLessonBookingListRow({
             <span>{item.date}</span>
             <span aria-hidden="true">·</span>
             <span className="font-medium text-[var(--ink)]">{item.time}</span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-[var(--profile-bg)] px-2 py-0.5 font-mono text-[10px] text-[var(--ink)]">
-              <Clock3 className="h-3 w-3" aria-hidden="true" />
-              {item.duration}
-            </span>
+            {item.duration ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--profile-bg)] px-2 py-0.5 font-mono text-[10px] text-[var(--ink)]">
+                <Clock3 className="h-3 w-3" aria-hidden="true" />
+                {item.duration}
+              </span>
+            ) : null}
           </div>
           <p className="mt-2 flex min-w-0 items-center gap-1.5 text-[11px] text-[var(--ink-dim)]">
             <UserRound className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -163,6 +170,11 @@ export function AdminLessonBookingListRow({
           />
         )}
         <AdminLessonOriginBadge origin={item.origin} label={item.originLabel} />
+        {item.kindLabel ? (
+          <span className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--profile-bg)] px-2 py-1 text-[10px] font-medium leading-none text-[var(--ink)]">
+            {item.kindLabel}
+          </span>
+        ) : null}
       </div>
     </button>
   );

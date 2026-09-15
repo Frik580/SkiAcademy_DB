@@ -4,6 +4,7 @@ export { SkillConfigManager } from './components/settings/SkillConfigManager';
 export { useAdminActions } from './useAdminActions';
 export { AdminLessonBookingPanel } from './lesson-bookings';
 export { AdminCourseEnrollmentPanel } from './course-enrollments';
+export { AdminTrainingRecordsPanel } from './training-records';
 export { CoursesManager } from './components/courses';
 export {
   getAvailableMoveTimeSlots,
@@ -37,6 +38,9 @@ export {
   ADMIN_COURSE_ENROLLMENT_QUERY_KEY,
   ADMIN_COURSE_ENROLLMENT_VIEW_QUERY_KEY,
   ADMIN_COURSE_ENROLLMENT_COURSE_QUERY_KEY,
+  ADMIN_TRAINING_KIND_QUERY_KEY,
+  ADMIN_TRAINING_SCOPE_QUERY_KEY,
+  ADMIN_TRAINING_RECORDS_SECTION_ID,
   DEFAULT_ADMIN_TAB,
   isAdminTabId,
   parseAdminTabId,

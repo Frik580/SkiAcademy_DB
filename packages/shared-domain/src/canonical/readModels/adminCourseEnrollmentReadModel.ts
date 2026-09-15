@@ -115,6 +115,7 @@ export const AdminCourseEnrollmentAttendanceDaySchema = z
 
 export const AdminCourseEnrollmentAuthorizedActionsSchema = z
   .object({
+    canRecordPayment: z.boolean(),
     canResolveCancellation: z.boolean(),
     canTransfer: z.boolean(),
     canReconcile: z.boolean(),

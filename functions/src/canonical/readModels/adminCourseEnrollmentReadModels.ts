@@ -17,6 +17,7 @@ import {
   isPaymentEntirelyUnpaid,
   isTerminalCourseEnrollmentLifecycle,
   evaluateAdminGuestCourseEnrollmentIdentityLinkAvailability,
+  evaluateGuestManualPaymentAcceptance,
   refundableRetainedAmount,
   resolveCourseEnrollmentRefundDestination,
   sortedCourseDays,
@@ -144,6 +145,13 @@ function authorizedActions(
   });
   return {
     actions: {
+      canRecordPayment: canRecordAdminCourseEnrollmentPayment({
+        enrollment,
+        course,
+        payment,
+        administratorAccountActive,
+        now,
+      }),
       canResolveCancellation: enrollment.lifecycle.status === 'pending_cancellation',
       canTransfer: transfer.eligible,
       canReconcile,
@@ -165,6 +173,34 @@ function authorizedActions(
     },
     guestIdentityLinkUnavailableReason: linkAvailability.reason,
   };
+}
+
+function canRecordAdminCourseEnrollmentPayment(input: {
+  readonly enrollment: CourseEnrollment;
+  readonly course: Course;
+  readonly payment: Payment | undefined;
+  readonly administratorAccountActive: boolean;
+  readonly now: ReturnType<typeof timestampFromDate>;
+}): boolean {
+  if (!input.administratorAccountActive || !input.payment || input.payment.outstandingAmount <= 0) {
+    return false;
+  }
+  const lifecycleStatus = input.enrollment.lifecycle.status;
+  if (lifecycleStatus !== 'pending' && lifecycleStatus !== 'confirmed') {
+    return false;
+  }
+  if (input.enrollment.attribution.bookingOrigin === 'guest' && lifecycleStatus === 'pending') {
+    return (
+      evaluateGuestManualPaymentAcceptance({
+        bookingOrigin: input.enrollment.attribution.bookingOrigin,
+        lifecycleStatus,
+        reservationExpiresAt: input.enrollment.lifecycle.reservationExpiresAt,
+        serviceStartsAt: input.course.startAt,
+        now: input.now,
+      }).outcome === 'accepted'
+    );
+  }
+  return true;
 }
 
 function attendanceDayProjection(input: {
@@ -615,7 +651,7 @@ export async function queryAdminCourseEnrollmentReadModels(
   const items = built.flatMap((value) => (value ? [value.item] : []));
   const hasMore = enrollments.length > pageSize;
   const last = page[page.length - 1];
-  return {
+  const result: QueryAdminCourseEnrollmentReadModelsResult = {
     scope: input.scope,
     items,
     hasMore,
@@ -631,4 +667,5 @@ export async function queryAdminCourseEnrollmentReadModels(
         }
       : {}),
   };
+  return result;
 }

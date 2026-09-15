@@ -440,6 +440,7 @@ describe('Admin CourseEnrollment read-model callable', () => {
             canApproveGuest: false,
             canCancelUnpaidGuest: false,
             canLinkGuest: true,
+            canRecordPayment: true,
           },
         },
       ],

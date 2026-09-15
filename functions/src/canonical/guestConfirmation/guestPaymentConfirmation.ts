@@ -356,13 +356,14 @@ export async function detectGuestPaymentConfirmationLifecycleMismatch(input: {
 }
 
 /**
- * Server-side authority for accepting money against a Booking-subject Payment.
- * Missing Booking is a subject invariant failure, not a guest-policy skip.
- * Guest funding eligibility runs only after the Booking exists and identity is valid.
+ * Server-side authority for accepting money against a Booking or CourseEnrollment Payment.
+ * Missing subject is an invariant failure, not a guest-policy skip.
+ * Guest funding eligibility runs only after the subject exists and identity is valid.
  * Must run before any Payment / MonetaryEvent / Booking / ActivityLog mutation.
  * Independent of {@link planGuestPaymentConfirmation}, which decides whether an
- * already fully funded Payment should confirm the Booking. `reservationExpiresAt`
- * blocks new funding, not confirmation of money already accepted.
+ * already fully funded Payment should confirm the subject. `reservationExpiresAt`
+ * blocks new guest-pending funding, not confirmation of money already accepted.
+ * Non-guest CourseEnrollment outstanding remains fundable when the Payment identity matches.
  */
 export async function assertGuestManualPaymentAcceptance(input: {
   readonly session: CanonicalAtomicTransactionSession;
@@ -370,6 +371,44 @@ export async function assertGuestManualPaymentAcceptance(input: {
   readonly correlationId: CorrelationId;
   readonly now: CanonicalTimestamp;
 }): Promise<void> {
+  if (input.payment.subjectType === 'course_enrollment') {
+    const enrollmentId = CourseEnrollmentIdSchema.parse(input.payment.subjectId);
+    const enrollmentDocumentPath = courseEnrollmentPath(enrollmentId);
+    const enrollmentRead = await input.session.tx.get({ path: enrollmentDocumentPath });
+    input.session.plan.planRead({ path: enrollmentDocumentPath, category: 'aggregate' });
+    const enrollment = parseCourseEnrollment(
+      enrollmentRead.exists ? enrollmentRead.data : undefined
+    );
+    if (!enrollment || enrollment.paymentId !== input.payment.paymentId) {
+      throw paymentSubjectMismatch(input.correlationId);
+    }
+    assertCourseEnrollmentPaymentIdentity(input.correlationId, enrollment, input.payment);
+    if (
+      enrollment.attribution.bookingOrigin !== 'guest' ||
+      enrollment.lifecycle.status !== 'pending'
+    ) {
+      return;
+    }
+    const courseDocumentPath = coursePath(enrollment.courseId);
+    const courseRead = await input.session.tx.get({ path: courseDocumentPath });
+    input.session.plan.planRead({ path: courseDocumentPath, category: 'aggregate' });
+    const course = parseCourse(courseRead.exists ? courseRead.data : undefined);
+    if (!course) {
+      throw paymentSubjectMismatch(input.correlationId);
+    }
+    const acceptance = evaluateGuestManualPaymentAcceptance({
+      bookingOrigin: enrollment.attribution.bookingOrigin,
+      lifecycleStatus: enrollment.lifecycle.status,
+      reservationExpiresAt: enrollment.lifecycle.reservationExpiresAt,
+      serviceStartsAt: course.startAt,
+      now: input.now,
+    });
+    if (acceptance.outcome !== 'rejected') return;
+    throw new CanonicalCommandError('invalid_transition', {
+      correlationId: input.correlationId,
+      details: { field: 'lifecycle', reason: 'conflict' },
+    });
+  }
   if (input.payment.subjectType !== 'booking') return;
   const bookingId = BookingIdSchema.parse(input.payment.subjectId);
   const documentPath = bookingPath(bookingId);

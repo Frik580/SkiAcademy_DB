@@ -9,6 +9,7 @@ import type { Language, TranslationKey } from '../../../lib/i18n/translations';
 import { AdminManagedParticipantPicker } from '../identity';
 import type { AdminManagedParticipantSelection } from '../identity';
 import type { AdminLessonBookingMutationDraft } from './lessonBookingAdminContracts';
+import { AdminPaymentCaptureSection } from '../components/finance/AdminPaymentCaptureSection';
 import {
   attendanceStatusLabelKey,
   attendanceUnavailableReason,
@@ -193,10 +194,6 @@ export function AdminLessonBookingDetail({
     (issue) => issue.severity === 'critical' && issue.lifecycleStatus === 'open'
   );
   const parsedPaymentAmount = Number(paymentAmount);
-  const paymentAmountValid =
-    Number.isInteger(parsedPaymentAmount) &&
-    parsedPaymentAmount > 0 &&
-    parsedPaymentAmount <= payment.outstanding;
   const openChangeRequests = useMemo(
     () => admin.relatedOpenChangeRequests ?? [],
     [admin.relatedOpenChangeRequests]
@@ -567,44 +564,29 @@ export function AdminLessonBookingDetail({
               <dd>{t(PAYMENT_STATUS_LABEL_KEYS[payment.status])}</dd>
             </dl>
             {admin.authorizedActions.canRecordGuestPayment && (
-              <div className="space-y-2 border-t border-[var(--border)] pt-3">
-                <label htmlFor="admin-guest-payment-amount" className="block text-xs">
-                  {t('adminLessonPaymentAmount')}
-                  <input
-                    id="admin-guest-payment-amount"
-                    aria-label={t('adminLessonPaymentAmount')}
-                    type="number"
-                    inputMode="numeric"
-                    min="1"
-                    max={payment.outstanding}
-                    step="1"
-                    value={paymentAmount}
-                    onChange={(event) => onPaymentAmountChange(event.target.value)}
-                    className="mt-1 w-full border border-[var(--border)] bg-transparent p-2 tabular-nums"
-                  />
-                </label>
-                <button
-                  type="button"
-                  disabled={!paymentAmountValid}
-                  onClick={() =>
-                    onRequestAttempt(
-                      {
-                        kind: 'record_provider_payment_event',
-                        paymentId: payment.paymentId,
-                        paymentRevision: payment.revision,
-                        amount: parsedPaymentAmount,
-                      },
-                      t('adminLessonConfirmPayment').replace(
-                        '{amount}',
-                        formatKzt(parsedPaymentAmount)
-                      )
+              <AdminPaymentCaptureSection
+                canRecordPayment
+                amount={paymentAmount}
+                outstanding={payment.outstanding}
+                onAmountChange={onPaymentAmountChange}
+                onRecord={() =>
+                  onRequestAttempt(
+                    {
+                      kind: 'record_provider_payment_event',
+                      paymentId: payment.paymentId,
+                      paymentRevision: payment.revision,
+                      amount: parsedPaymentAmount,
+                    },
+                    t('adminLessonConfirmPayment').replace(
+                      '{amount}',
+                      formatKzt(parsedPaymentAmount)
                     )
-                  }
-                  className="w-full border border-[var(--ink)] bg-[var(--ink)] px-3 py-2 text-xs text-[var(--bg)] disabled:opacity-50"
-                >
-                  {t('adminLessonRecordPayment')}
-                </button>
-              </div>
+                  )
+                }
+                amountLabel={t('adminLessonPaymentAmount')}
+                recordLabel={t('adminLessonRecordPayment')}
+                inputId="admin-guest-payment-amount"
+              />
             )}
             <button
               type="button"

@@ -43,6 +43,7 @@ describe('adminNavigation', () => {
     expect(next.get('tab')).toBe('operations');
     expect(next.get(ADMIN_COURSE_ENROLLMENT_VIEW_QUERY_KEY)).toBe('roster');
     expect(next.get(ADMIN_COURSE_ENROLLMENT_COURSE_QUERY_KEY)).toBe('course_open_enrollments_01');
+    expect(next.get('trainingKind')).toBe('course');
     expect(next.has(ADMIN_COURSE_ENROLLMENT_QUERY_KEY)).toBe(false);
   });
 });

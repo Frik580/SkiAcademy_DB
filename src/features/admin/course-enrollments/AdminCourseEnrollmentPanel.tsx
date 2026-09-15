@@ -1,11 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertTriangle, ChevronRight, RefreshCw, Users } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { ActionButton } from '../../../ui/ActionButton';
 import {
   CourseEnrollmentIdSchema,
   CourseIdSchema,
-  type AdminCourseEnrollmentDetailReadModel,
   type AdminCourseListItem,
 } from '@ski-academy/shared-domain';
 import {
@@ -33,40 +32,7 @@ import type { AdminManagedParticipantSelection } from '../identity';
 import { useAdminCourseEnrollmentReadModels } from './useAdminCourseEnrollmentReadModels';
 import { useAdminCourseEnrollmentCommands } from './useAdminCourseEnrollmentCommands';
 import { useAdminCourseEnrollmentTranslations } from './useAdminCourseEnrollmentTranslations';
-
-function guestEnrollmentLinkUnavailableLabel(
-  reason: AdminCourseEnrollmentDetailReadModel['guestIdentityLinkUnavailableReason'],
-  t: ReturnType<typeof useAdminCourseEnrollmentTranslations>
-): string {
-  switch (reason) {
-    case 'already_linked':
-      return t.linkReasonAlreadyLinked;
-    case 'not_guest':
-      return t.linkReasonNotGuest;
-    case 'expired_reservation':
-      return t.linkReasonExpired;
-    case 'attendance_recorded':
-      return t.linkReasonAttendance;
-    case 'course_started':
-      return t.linkReasonCourseStarted;
-    case 'admin_account_inactive':
-      return t.linkReasonAdminInactive;
-    default:
-      return t.linkReasonIneligible;
-  }
-}
-
-function formatKzt(value: number): string {
-  return `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(value)} KZT`;
-}
-
-function attendanceActorLabel(
-  actor: { kind: 'instructor'; instructorId: string } | { kind: 'administrator'; accountId: string }
-): string {
-  return actor.kind === 'instructor'
-    ? `instructor:${actor.instructorId}`
-    : `administrator:${actor.accountId}`;
-}
+import { AdminCourseEnrollmentDetail } from './AdminCourseEnrollmentDetail';
 
 function courseOptions(items: readonly AdminCourseListItem[]): AdminCourseEnrollmentCourseOption[] {
   return items
@@ -115,12 +81,14 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
   const [linkReason, setLinkReason] = useState('');
   const [targetCourseId, setTargetCourseId] = useState('');
   const [refundAmount, setRefundAmount] = useState('0');
+  const [paymentAmount, setPaymentAmount] = useState('0');
   const [confirmation, setConfirmation] = useState<{
     readonly attempt: AdminCourseEnrollmentAttempt;
     readonly message: string;
   }>();
   const [mutationPending, setMutationPending] = useState(false);
   const [mutationError, setMutationError] = useState<string>();
+  const [mutationNotice, setMutationNotice] = useState<string>();
 
   const loadCourses = useCallback(async () => {
     const generation = ++courseGeneration.current;
@@ -152,6 +120,7 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
     const detail = readModels.detail.item;
     if (!detail) return;
     setRefundAmount(String(detail.cancellation?.maximumRefund ?? 0));
+    setPaymentAmount(String(detail.payment?.outstanding ?? 0));
     setTargetCourseId('');
   }, [readModels.detail.item]);
 
@@ -189,6 +158,7 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
     const course = courses.find((item) => item.courseId === createCourseId);
     if (!course || !createSelection || !reason.trim()) return;
     setMutationError(undefined);
+    setMutationNotice(undefined);
     setConfirmation({
       attempt: {
         kind: 'create_course_enrollments',
@@ -206,6 +176,7 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
     const detail = readModels.detail.item;
     if (!detail) return;
     setMutationError(undefined);
+    setMutationNotice(undefined);
     setConfirmation({
       attempt: {
         ...attempt,
@@ -222,6 +193,9 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
     const result = await commands.runAttempt(confirmation.attempt);
     setMutationPending(false);
     if (result.status === 'success') {
+      if (result.refreshFailed && confirmation.attempt.kind === 'record_provider_payment_event') {
+        setMutationNotice(t.paymentRecordedRefreshPending);
+      }
       setConfirmation(undefined);
       setMutationError(undefined);
       setReason('');
@@ -234,11 +208,14 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
   };
 
   const detail = readModels.detail.item;
-  const availableTargetCourses = detail?.transfer.targetOptions ?? [];
-  const hasAnyAction = detail ? Object.values(detail.authorizedActions).some(Boolean) : false;
 
   return (
     <div className="space-y-5">
+      {mutationNotice && (
+        <div role="status" className="border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
+          {mutationNotice}
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         {(
           [
@@ -380,16 +357,6 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
 
       {selectedEnrollmentId && (
         <aside className="fixed inset-y-0 right-0 z-50 w-full max-w-lg overflow-y-auto border-l border-[var(--border)] bg-[var(--bg)] p-5 shadow-2xl">
-          <div className="mb-5 flex items-center justify-between">
-            <h3 className="font-mono text-xs uppercase tracking-wider">{t.details}</h3>
-            <button
-              type="button"
-              onClick={() => updateQuery({ [ADMIN_COURSE_ENROLLMENT_QUERY_KEY]: undefined })}
-              className="border border-[var(--border)] px-3 py-2 text-xs"
-            >
-              {t.close}
-            </button>
-          </div>
           {readModels.detail.loading ? (
             <p className="text-xs text-[var(--ink-dim)]">{t.loading}</p>
           ) : readModels.detail.error ? (
@@ -401,365 +368,46 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
               {t.failed} · {t.retry}
             </button>
           ) : detail ? (
-            <div className="space-y-5">
-              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-xs">
-                <dt className="text-[var(--ink-dim)]">ID</dt>
-                <dd className="break-all">{detail.enrollmentId}</dd>
-                <dt className="text-[var(--ink-dim)]">Participant</dt>
-                <dd>{detail.participant.displayName}</dd>
-                <dt className="text-[var(--ink-dim)]">Course</dt>
-                <dd>{detail.course.title}</dd>
-                <dt className="text-[var(--ink-dim)]">Lifecycle</dt>
-                <dd>{detail.lifecycleStatus}</dd>
-                <dt className="text-[var(--ink-dim)]">Guest identity</dt>
-                <dd>{detail.guestState}</dd>
-                <dt className="text-[var(--ink-dim)]">Capacity</dt>
-                <dd>
-                  {detail.capacity.availableSeats}/{detail.capacity.totalSeats} available · seat{' '}
-                  {detail.capacity.seatHeldByEnrollment ? 'held' : 'released'}
-                </dd>
-                <dt className="text-[var(--ink-dim)]">Attendance</dt>
-                <dd>{detail.attendanceSummary?.recordedDayCount ?? 0} recorded days</dd>
-              </dl>
-
-              {detail.payment && (
-                <div className="space-y-2 border-t border-[var(--border)] pt-4 text-xs">
-                  <p>
-                    {detail.payment.status} · required {formatKzt(detail.payment.price)} · paid{' '}
-                    {formatKzt(detail.payment.paid)} · settled {formatKzt(detail.payment.settled)} ·
-                    outstanding {formatKzt(detail.payment.outstanding)} · rev{' '}
-                    {detail.payment.revision}
-                  </p>
-                  {detail.lifecycleStatus === 'pending' && detail.guestState !== 'not_guest' && (
-                    <p className="text-amber-700">{t.guestDeferred}</p>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() =>
-                      updateQuery({
-                        [ADMIN_TAB_QUERY_KEY]: 'finance',
-                        [ADMIN_FINANCE_PAYMENT_QUERY_KEY]: detail.payment!.paymentId,
-                      })
-                    }
-                    className="inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2"
-                  >
-                    {t.payment} <ChevronRight className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              )}
-
-              <div className="space-y-2 border-t border-[var(--border)] pt-4">
-                {detail.relatedIssues.map((issue) => (
-                  <button
-                    key={issue.issueId}
-                    type="button"
-                    onClick={() =>
-                      updateQuery({
-                        [ADMIN_TAB_QUERY_KEY]: 'operations',
-                        [ADMIN_ISSUE_QUERY_KEY]: issue.issueId,
-                      })
-                    }
-                    className="block w-full border border-[var(--border)] p-2 text-left text-xs"
-                  >
-                    {t.issue}: {issue.kind} · {issue.lifecycleStatus}
-                  </button>
-                ))}
-              </div>
-
-              <div className="space-y-2 border-t border-[var(--border)] pt-4">
-                <h4 className="text-xs font-mono uppercase">{t.attendance}</h4>
-                {(detail.attendanceDays ?? []).map((day) => (
-                  <div
-                    key={day.courseDayId}
-                    className="space-y-2 border border-[var(--border)] p-3 text-xs"
-                  >
-                    <p className="font-medium">
-                      {new Date(day.startsAt.seconds * 1_000).toLocaleString()} ·{' '}
-                      {day.attendanceStatus ?? t.attendanceMissing}
-                      {day.attendanceRevision === undefined
-                        ? ''
-                        : ` · rev ${day.attendanceRevision}`}
-                    </p>
-                    {day.recordedBy && day.lastChangedBy && (
-                      <p className="break-all text-[var(--ink-dim)]">
-                        {t.recordedBy}: {attendanceActorLabel(day.recordedBy)} · {t.lastChangedBy}:{' '}
-                        {attendanceActorLabel(day.lastChangedBy)}
-                      </p>
-                    )}
-                    {(day.authorizedActions.canRecordPresent ||
-                      day.authorizedActions.canRecordAbsent) && (
-                      <div className="flex gap-2">
-                        {(['present', 'absent'] as const).map((attendanceStatus) => {
-                          const allowed =
-                            attendanceStatus === 'present'
-                              ? day.authorizedActions.canRecordPresent
-                              : day.authorizedActions.canRecordAbsent;
-                          if (!allowed) return null;
-                          return (
-                            <button
-                              key={attendanceStatus}
-                              type="button"
-                              disabled={!reason.trim()}
-                              onClick={() =>
-                                requestDetailAttempt(
-                                  {
-                                    kind: 'record_course_day_attendance',
-                                    courseDayId: day.courseDayId,
-                                    attendanceStatus,
-                                    ...(day.attendanceRevision === undefined
-                                      ? {}
-                                      : { expectedAttendanceRevision: day.attendanceRevision }),
-                                    reasonExplanation: reason.trim(),
-                                  },
-                                  `${detail.participant.displayName}: ${day.attendanceStatus ?? 'missing'} → ${attendanceStatus} @ enrollment rev ${detail.revision}${day.attendanceRevision === undefined ? '' : `, attendance rev ${day.attendanceRevision}`}`
-                                )
-                              }
-                              className="border border-[var(--border)] px-3 py-2 disabled:opacity-50"
-                            >
-                              {attendanceStatus === 'present' ? t.recordPresent : t.recordAbsent}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              <label htmlFor="admin-course-enrollment-action-reason" className="block text-xs">
-                {t.reason}
-                <input
-                  id="admin-course-enrollment-action-reason"
-                  aria-label="Action reason"
-                  value={reason}
-                  onChange={(event) => setReason(event.target.value)}
-                  className="mt-1 w-full border border-[var(--border)] bg-transparent p-2"
-                />
-              </label>
-
-              {detail.authorizedActions.canCancelUnpaidGuest && (
-                <button
-                  type="button"
-                  disabled={!reason.trim()}
-                  onClick={() =>
-                    requestDetailAttempt(
-                      {
-                        kind: 'resolve_course_enrollment_cancellation',
-                        decision: 'direct_cancel',
-                        refundAmount: 0,
-                        reasonExplanation: reason.trim(),
-                      },
-                      `${t.cancelUnpaidGuest}: ${detail.enrollmentId} @ rev ${detail.revision}`
-                    )
-                  }
-                  className="border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
-                >
-                  {t.cancelUnpaidGuest}
-                </button>
-              )}
-
-              {detail.authorizedActions.canResolveCancellation && detail.cancellation && (
-                <div className="space-y-2 border border-[var(--border)] p-3 text-xs">
-                  <label htmlFor="admin-course-enrollment-refund" className="block">
-                    {t.refund} · max {formatKzt(detail.cancellation.maximumRefund)}
-                    <input
-                      id="admin-course-enrollment-refund"
-                      type="number"
-                      min="0"
-                      max={detail.cancellation.maximumRefund}
-                      step="1"
-                      value={refundAmount}
-                      onChange={(event) => setRefundAmount(event.target.value)}
-                      className="mt-1 w-full border border-[var(--border)] bg-transparent p-2"
-                    />
-                  </label>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      disabled={
-                        !reason.trim() ||
-                        !Number.isInteger(Number(refundAmount)) ||
-                        Number(refundAmount) < 0 ||
-                        Number(refundAmount) > detail.cancellation.maximumRefund
-                      }
-                      onClick={() =>
-                        requestDetailAttempt(
-                          {
-                            kind: 'resolve_course_enrollment_cancellation',
-                            decision: 'approve',
-                            refundAmount: Number(refundAmount),
-                            reasonExplanation: reason.trim(),
-                          },
-                          `${t.approveCancel}: ${detail.enrollmentId} @ rev ${detail.revision}`
-                        )
-                      }
-                      className="border border-[var(--border)] px-3 py-2 disabled:opacity-50"
-                    >
-                      {t.approveCancel}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={!reason.trim()}
-                      onClick={() =>
-                        requestDetailAttempt(
-                          {
-                            kind: 'resolve_course_enrollment_cancellation',
-                            decision: 'reject',
-                            reasonExplanation: reason.trim(),
-                          },
-                          `${t.rejectCancel}: ${detail.enrollmentId} @ rev ${detail.revision}`
-                        )
-                      }
-                      className="border border-[var(--border)] px-3 py-2 disabled:opacity-50"
-                    >
-                      {t.rejectCancel}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {detail.authorizedActions.canTransfer && (
-                <div className="grid grid-cols-[1fr_auto] gap-2">
-                  <select
-                    value={targetCourseId}
-                    onChange={(event) => setTargetCourseId(event.target.value)}
-                    className="border border-[var(--border)] bg-[var(--bg)] p-2 text-xs"
-                  >
-                    <option value="">{t.selectCourse}</option>
-                    {availableTargetCourses.map((course) => (
-                      <option key={course.courseId} value={course.courseId}>
-                        {course.title} · {course.availableSeats} seats
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    disabled={!targetCourseId || !reason.trim()}
-                    onClick={() => {
-                      const parsed = CourseIdSchema.safeParse(targetCourseId);
-                      if (!parsed.success) return;
-                      requestDetailAttempt(
-                        {
-                          kind: 'transfer_course_enrollment',
-                          targetCourseId: parsed.data,
-                          reasonExplanation: reason.trim(),
-                        },
-                        `${t.transfer}: ${detail.enrollmentId} → ${parsed.data} @ rev ${detail.revision}`
-                      );
-                    }}
-                    className="border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
-                  >
-                    {t.transfer}
-                  </button>
-                </div>
-              )}
-
-              {detail.authorizedActions.canReconcile && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    requestDetailAttempt(
-                      { kind: 'reconcile_course_enrollment' },
-                      `${t.reconcile}: ${detail.reconciliation.evidenceIssueIds.join(', ')} @ rev ${detail.revision}`
-                    )
-                  }
-                  className="inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 text-xs"
-                >
-                  <RefreshCw className="h-3.5 w-3.5" /> {t.reconcile}
-                </button>
-              )}
-
-              {detail.authorizedActions.canResolveAttendanceOutcome && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    requestDetailAttempt(
-                      { kind: 'resolve_attendance_outcome' },
-                      `${t.resolveOutcome}: ${detail.enrollmentId} @ rev ${detail.revision}`
-                    )
-                  }
-                  className="border border-[var(--border)] px-3 py-2 text-xs"
-                >
-                  {t.resolveOutcome}
-                </button>
-              )}
-
-              {detail.authorizedActions.canLinkGuest ? (
-                <div className="space-y-2 border border-[var(--border)] p-3">
-                  <p className="text-xs font-medium">{t.linkGuestTitle}</p>
-                  <p className="text-xs text-[var(--ink-dim)]">{t.linkGuestHint}</p>
-                  <AdminManagedParticipantPicker
-                    selected={linkSelection}
-                    onChange={(selection) => {
-                      setLinkSelection(selection);
-                      setConfirmation(undefined);
-                    }}
-                  />
-                  <label className="block text-xs">
-                    {t.reason}
-                    <input
-                      aria-label="Link reason"
-                      value={linkReason}
-                      onChange={(event) => {
-                        setLinkReason(event.target.value);
-                        setConfirmation(undefined);
-                      }}
-                      className="mt-1 w-full border border-[var(--border)] bg-[var(--bg)] p-2"
-                    />
-                  </label>
-                  {linkSelection && (
-                    <p className="text-xs text-[var(--ink-dim)]">
-                      {t.linkReview
-                        .replace('{guest}', detail.participant.displayName)
-                        .replace(
-                          '{account}',
-                          linkSelection.accountDisplayName ?? linkSelection.accountId
-                        )
-                        .replace('{participant}', linkSelection.displayName)}
-                    </p>
-                  )}
-                  <button
-                    type="button"
-                    disabled={!linkSelection || !linkReason.trim()}
-                    onClick={() => {
-                      if (!linkSelection) return;
-                      requestDetailAttempt(
-                        {
-                          kind: 'link_guest_course_enrollment_to_account_as_administrator',
-                          targetAccountId: linkSelection.accountId,
-                          targetParticipantId: linkSelection.participantId,
-                          ...(linkSelection.accountDisplayName
-                            ? { targetAccountDisplayName: linkSelection.accountDisplayName }
-                            : {}),
-                          targetParticipantDisplayName: linkSelection.displayName,
-                          reasonExplanation: linkReason.trim(),
-                        },
-                        t.confirmLinkGuest
-                      );
-                    }}
-                    className="w-full border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
-                  >
-                    {t.linkGuest}
-                  </button>
-                </div>
-              ) : (
-                detail.guestState !== 'not_guest' && (
-                  <p className="flex gap-2 border border-amber-400 p-3 text-xs text-amber-700">
-                    <AlertTriangle className="h-4 w-4 shrink-0" />
-                    {t.linkUnavailable}:{' '}
-                    {guestEnrollmentLinkUnavailableLabel(
-                      detail.guestIdentityLinkUnavailableReason,
-                      t
-                    )}
-                  </p>
-                )
-              )}
-              {!hasAnyAction && (
-                <p className="flex gap-2 text-xs text-[var(--ink-dim)]">
-                  <Users className="h-4 w-4" /> {t.noActions}
-                </p>
-              )}
-            </div>
+            <AdminCourseEnrollmentDetail
+              detail={detail}
+              t={t}
+              layout="stacked"
+              actionReason={reason}
+              onActionReasonChange={setReason}
+              refundAmount={refundAmount}
+              onRefundAmountChange={setRefundAmount}
+              paymentAmount={paymentAmount}
+              onPaymentAmountChange={(value) => {
+                setPaymentAmount(value);
+                setConfirmation(undefined);
+              }}
+              targetCourseId={targetCourseId}
+              onTargetCourseIdChange={setTargetCourseId}
+              linkSelection={linkSelection}
+              onLinkSelectionChange={(selection) => {
+                setLinkSelection(selection);
+                setConfirmation(undefined);
+              }}
+              linkReason={linkReason}
+              onLinkReasonChange={(value) => {
+                setLinkReason(value);
+                setConfirmation(undefined);
+              }}
+              onRequestAttempt={requestDetailAttempt}
+              onOpenPayment={(paymentId) =>
+                updateQuery({
+                  [ADMIN_TAB_QUERY_KEY]: 'finance',
+                  [ADMIN_FINANCE_PAYMENT_QUERY_KEY]: paymentId,
+                })
+              }
+              onOpenIssue={(issueId) =>
+                updateQuery({
+                  [ADMIN_TAB_QUERY_KEY]: 'operations',
+                  [ADMIN_ISSUE_QUERY_KEY]: issueId,
+                })
+              }
+              onClose={() => updateQuery({ [ADMIN_COURSE_ENROLLMENT_QUERY_KEY]: undefined })}
+            />
           ) : null}
         </aside>
       )}

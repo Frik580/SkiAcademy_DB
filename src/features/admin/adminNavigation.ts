@@ -24,8 +24,13 @@ export const ADMIN_FINANCE_MOVEMENT_PERIOD_QUERY_KEY = 'movementPeriod';
 export const ADMIN_CLIENT_ACCOUNT_QUERY_KEY = 'clientAccount';
 export const ADMIN_LESSON_BOOKING_QUERY_KEY = 'booking';
 export const ADMIN_LESSON_BOOKING_VIEW_QUERY_KEY = 'bookingView';
-/** DOM id for the canonical lesson bookings collapsible section in AdminPanel. */
-export const ADMIN_LESSON_BOOKINGS_SECTION_ID = 'canonical_lesson_bookings';
+/** DOM id for the unified lessons+courses collapsible section in AdminPanel. */
+export const ADMIN_TRAINING_RECORDS_SECTION_ID = 'canonical_training_records';
+/** Compatibility alias: deep links still scroll the unified section. */
+export const ADMIN_LESSON_BOOKINGS_SECTION_ID = ADMIN_TRAINING_RECORDS_SECTION_ID;
+export const ADMIN_COURSE_ENROLLMENTS_SECTION_ID = ADMIN_TRAINING_RECORDS_SECTION_ID;
+export const ADMIN_TRAINING_KIND_QUERY_KEY = 'trainingKind';
+export const ADMIN_TRAINING_SCOPE_QUERY_KEY = 'trainingScope';
 
 export function scrollAdminElementIntoView(
   elementId: string,
@@ -42,7 +47,11 @@ export function scrollAdminElementIntoView(
 
 /** Scroll after collapsible section expand animation (~250ms). */
 export function scrollAdminLessonBookingsSectionIntoView(delayMs = 320): void {
-  window.setTimeout(() => scrollAdminElementIntoView(ADMIN_LESSON_BOOKINGS_SECTION_ID), delayMs);
+  window.setTimeout(() => scrollAdminElementIntoView(ADMIN_TRAINING_RECORDS_SECTION_ID), delayMs);
+}
+
+export function scrollAdminTrainingRecordsSectionIntoView(delayMs = 320): void {
+  scrollAdminLessonBookingsSectionIntoView(delayMs);
 }
 export const ADMIN_PLANNER_DATE_QUERY_KEY = 'plannerDate';
 export const ADMIN_PLANNER_FOCUS_QUERY_KEY = 'plannerBooking';
@@ -105,6 +114,8 @@ export function adminCourseEnrollmentSearchParams(
 ): URLSearchParams {
   const next = new URLSearchParams(previous);
   next.set(ADMIN_TAB_QUERY_KEY, 'operations');
+  next.set(ADMIN_TRAINING_KIND_QUERY_KEY, 'course');
+  next.set(ADMIN_TRAINING_SCOPE_QUERY_KEY, 'current');
   next.set(ADMIN_COURSE_ENROLLMENT_VIEW_QUERY_KEY, 'roster');
   next.set(ADMIN_COURSE_ENROLLMENT_COURSE_QUERY_KEY, courseId);
   next.delete(ADMIN_COURSE_ENROLLMENT_QUERY_KEY);

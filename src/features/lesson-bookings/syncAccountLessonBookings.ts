@@ -10,10 +10,15 @@ import type { LessonBookingCabinetItem } from './lessonBookingContracts';
 import { useLessonBookingStore } from './lessonBookingStore';
 import { mergeLessonBookingRecords } from './lessonBookingViewModel';
 
-export const ACCOUNT_LESSON_BOOKING_REFRESH_MS = 30_000;
-
-/** Freshness TTL for account_hot — used for ensure/visibility gating, not polling. */
-export const ACCOUNT_LESSON_BOOKING_FRESH_MS = ACCOUNT_LESSON_BOOKING_REFRESH_MS;
+/**
+ * Freshness TTL for account_hot — used for ensure/visibility gating after
+ * lesson-booking commands, not polling.
+ *
+ * Deliberately independent from participant lesson-stats freshness
+ * (`ACCOUNT_PARTICIPANT_LESSON_STATS_FRESH_MS`): the two reads have unrelated
+ * owners and may drift to different windows.
+ */
+export const ACCOUNT_LESSON_BOOKING_FRESH_MS = 30_000;
 
 let syncInFlight: Promise<void> | undefined;
 let hotSyncInFlight: Promise<void> | undefined;

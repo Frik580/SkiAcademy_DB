@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
-import { Navigate, useParams } from 'react-router-dom';
+import { Navigate, useLocation, useParams } from 'react-router-dom';
 import { AuthRoute } from '../../features/shell';
 import { useLanguage } from '../../app/providers/LanguageContext';
 import { CABINET_TABS } from '../../lib/workspaceRoutes';
@@ -17,6 +17,7 @@ import {
   deriveCancellationIdempotencyKey,
   presentCanonicalCommandErrorWithContext,
   resolveLessonBookingClientExercisedCapability,
+  resolveLessonBookingCommandRefreshStrategy,
   selectLessonBookingItems,
   useLessonBookingCommands,
   useLessonBookingStore,
@@ -100,9 +101,17 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
     },
     [lessonBookings, userProfile]
   );
-  const { requestCancellation, refetchAccountHotBookings } = useLessonBookingCommands(
-    userProfile?.uid
+  // Post-command refresh is surface-aware: only the History route renders rows
+  // beyond account_hot, so only it pays for the account_history read.
+  const { pathname } = useLocation();
+  const refreshLessonBookingsAfterCommand = useMemo(
+    () => resolveLessonBookingCommandRefreshStrategy({ pathname, accountId: userProfile?.uid }),
+    [pathname, userProfile?.uid]
   );
+  const { requestCancellation, refetchAccountHotBookings } = useLessonBookingCommands({
+    accountId: userProfile?.uid,
+    refresh: refreshLessonBookingsAfterCommand,
+  });
   const {
     requestCancellation: requestCourseCancellation,
     withdrawEnrollment,

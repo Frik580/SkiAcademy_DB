@@ -34,6 +34,11 @@ vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
 import { useLessonBookingCommands } from '../../src/features/lesson-bookings/useLessonBookingCommands';
 import { useCourseEnrollmentCommands } from '../../src/features/course-enrollments/useCourseEnrollmentCommands';
 
+/** Lesson read scopes actually requested, in call order. */
+function lessonReadScopes(): string[] {
+  return queryLessonReadModelsMock.mock.calls.map((call) => call[0]?.scope);
+}
+
 function lessonItem(status: LessonBookingCabinetItem['status']): LessonBookingCabinetItem {
   return {
     id: 'booking_cancel_test',
@@ -177,44 +182,42 @@ describe('cabinet cancellation outcome', () => {
     ).toBe('pending_cancellation');
   });
 
-  it('updates lesson store after successful refresh and exposes cancelled card state', async () => {
+  it('updates lesson store after successful hot-only refresh and exposes cancelled card state', async () => {
     executeAuthenticatedMock.mockResolvedValueOnce({
       status: 'success',
       kind: 'request_booking_cancellation',
       correlationId: 'correlation_cancel_02',
       payload: { lifecycleStatus: 'cancelled' },
     });
-    queryLessonReadModelsMock
-      .mockResolvedValueOnce({ scope: 'account_hot', items: [], hasMore: false })
-      .mockResolvedValueOnce({
-        scope: 'account_history',
-        items: [
-          {
-            bookingId: 'booking_cancel_test',
-            revision: 5,
-            lifecycle: { status: 'cancelled', cancelledAt: { seconds: 1, nanoseconds: 0 } },
-            occurrence: {
-              startsAt: { seconds: 1_718_438_400, nanoseconds: 0 },
-              endsAt: { seconds: 1_718_439_200, nanoseconds: 0 },
-              durationMinutes: 120,
-              timeZone: 'Asia/Almaty',
-            },
-            instructor: {
-              instructorId: 'instructor_01',
-              displayName: 'Coach',
-            },
-            participants: [{ displayName: 'Student' }],
-            partyKind: 'individual',
-            paymentPresentation: { kind: 'visible', paymentStatus: 'captured', price: 100 },
-            bookingOrigin: 'account',
-            authorizedActions: {
-              canRequestCancellation: false,
-              canWithdrawCancellation: false,
-            },
+    queryLessonReadModelsMock.mockResolvedValueOnce({
+      scope: 'account_hot',
+      items: [
+        {
+          bookingId: 'booking_cancel_test',
+          revision: 5,
+          lifecycle: { status: 'cancelled', cancelledAt: { seconds: 1, nanoseconds: 0 } },
+          occurrence: {
+            startsAt: { seconds: 1_718_438_400, nanoseconds: 0 },
+            endsAt: { seconds: 1_718_439_200, nanoseconds: 0 },
+            durationMinutes: 120,
+            timeZone: 'Asia/Almaty',
           },
-        ],
-        hasMore: false,
-      });
+          instructor: {
+            instructorId: 'instructor_01',
+            displayName: 'Coach',
+          },
+          participants: [{ displayName: 'Student' }],
+          partyKind: 'individual',
+          paymentPresentation: { kind: 'visible', paymentStatus: 'captured', price: 100 },
+          bookingOrigin: 'account',
+          authorizedActions: {
+            canRequestCancellation: false,
+            canWithdrawCancellation: false,
+          },
+        },
+      ],
+      hasMore: false,
+    });
 
     const { result } = renderHook(() => useLessonBookingCommands('account_fixture_01'));
     const outcome = await result.current.requestCancellation({
@@ -225,6 +228,8 @@ describe('cabinet cancellation outcome', () => {
     });
 
     expect(outcome).toEqual({ lifecycleStatus: 'cancelled', refreshFailed: false });
+    // Default (non-history) surface: the cancellation refresh is account_hot only.
+    expect(lessonReadScopes()).toEqual(['account_hot']);
     expect(useLessonBookingStore.getState().items.get('booking_cancel_test')?.status).toBe(
       'cancelled'
     );
@@ -234,6 +239,45 @@ describe('cabinet cancellation outcome', () => {
         useLessonBookingStore.getState().items
       )
     ).toBe('cancelled');
+  });
+
+  it('keeps pending_cancellation visible after a hot-only command refresh', async () => {
+    // The cabinet container can only cancel a booking it currently renders, so
+    // the pre-command item is always present in the store.
+    useLessonBookingStore
+      .getState()
+      .mergeItems(new Map([['booking_cancel_test', lessonItem('confirmed')]]));
+    executeAuthenticatedMock.mockResolvedValueOnce({
+      status: 'success',
+      kind: 'request_booking_cancellation',
+      correlationId: 'correlation_cancel_pending',
+      payload: { lifecycleStatus: 'pending_cancellation' },
+    });
+    queryLessonReadModelsMock.mockResolvedValueOnce({
+      scope: 'account_hot',
+      items: [],
+      hasMore: false,
+    });
+
+    const { result } = renderHook(() => useLessonBookingCommands('account_fixture_01'));
+    const outcome = await result.current.requestCancellation({
+      bookingId: 'booking_cancel_test',
+      expectedRevision: 4,
+      idempotencyKey: 'cancel:booking_cancel_test:4',
+      exercisedCapability: 'account_owner',
+    });
+
+    expect(outcome).toEqual({ lifecycleStatus: 'pending_cancellation', refreshFailed: false });
+    expect(lessonReadScopes()).toEqual(['account_hot']);
+    expect(useLessonBookingStore.getState().items.get('booking_cancel_test')?.status).toBe(
+      'pending_cancellation'
+    );
+    expect(
+      resolveLessonCancellationLifecycleFromStore(
+        'booking_cancel_test',
+        useLessonBookingStore.getState().items
+      )
+    ).toBe('pending_cancellation');
   });
 
   it('updates course store after pending cancellation refresh', async () => {
@@ -308,7 +352,7 @@ describe('cabinet cancellation outcome', () => {
     ).toBe('pending_cancellation');
   });
 
-  it('patches lesson store when account_hot no longer returns cancelled booking', async () => {
+  it('patches lesson store when a hot-only refresh no longer returns the cancelled booking', async () => {
     useLessonBookingStore
       .getState()
       .mergeItems(new Map([['booking_cancel_test', lessonItem('confirmed')]]));
@@ -318,17 +362,11 @@ describe('cabinet cancellation outcome', () => {
       correlationId: 'correlation_cancel_patch',
       payload: { lifecycleStatus: 'cancelled' },
     });
-    queryLessonReadModelsMock
-      .mockResolvedValueOnce({
-        scope: 'account_hot',
-        items: [],
-        hasMore: false,
-      })
-      .mockResolvedValueOnce({
-        scope: 'account_history',
-        items: [],
-        hasMore: false,
-      });
+    queryLessonReadModelsMock.mockResolvedValueOnce({
+      scope: 'account_hot',
+      items: [],
+      hasMore: false,
+    });
 
     const { result } = renderHook(() => useLessonBookingCommands('account_fixture_01'));
     const outcome = await result.current.requestCancellation({
@@ -339,6 +377,9 @@ describe('cabinet cancellation outcome', () => {
     });
 
     expect(outcome).toEqual({ lifecycleStatus: 'cancelled', refreshFailed: false });
+    // The local lifecycle patch survives the empty hot response — a cancelled
+    // booking dropping out of account_hot must not resurrect the old state.
+    expect(lessonReadScopes()).toEqual(['account_hot']);
     expect(useLessonBookingStore.getState().items.get('booking_cancel_test')?.status).toBe(
       'cancelled'
     );

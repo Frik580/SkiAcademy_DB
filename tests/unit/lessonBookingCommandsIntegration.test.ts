@@ -1,6 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createElement } from 'react';
 import { renderHook } from '@testing-library/react';
-import { BookingIdSchema, timestampFromDate } from '@ski-academy/shared-domain';
+import { MemoryRouter, useLocation } from 'react-router-dom';
+import {
+  BookingIdSchema,
+  InstructorIdSchema,
+  ParticipantIdSchema,
+  timestampFromDate,
+  type LessonBookingReadModel,
+} from '@ski-academy/shared-domain';
 import { useLessonBookingStore } from '../../src/features/lesson-bookings/lessonBookingStore';
 
 const executeAuthenticatedMock = vi.fn();
@@ -17,6 +25,54 @@ vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
 }));
 
 import { useLessonBookingCommands } from '../../src/features/lesson-bookings/useLessonBookingCommands';
+import {
+  refreshAccountLessonBookingsHotOnly,
+  refreshAccountLessonBookingsWithHistory,
+  resolveLessonBookingCommandRefreshStrategy,
+} from '../../src/features/lesson-bookings';
+import { resetAccountLessonBookingSyncStateForTests } from '../../src/features/lesson-bookings/syncAccountLessonBookings';
+
+function scopedReadCount(scope: 'account_hot' | 'account_history'): number {
+  return queryReadModelsMock.mock.calls.filter((call) => call[0]?.scope === scope).length;
+}
+
+function futureStartSeconds(): number {
+  return Math.floor(Date.now() / 1000) + 86_400;
+}
+
+function createdHotReadModel(
+  bookingId: string,
+  options: { readonly startsAtSeconds: number }
+): LessonBookingReadModel {
+  const participantId = ParticipantIdSchema.parse('participant_fixture_01');
+  return {
+    bookingId: BookingIdSchema.parse(bookingId),
+    revision: 1,
+    partyKind: 'individual',
+    participantIds: [participantId],
+    participants: [{ participantId, displayName: 'Student' }],
+    instructor: {
+      instructorId: InstructorIdSchema.parse('instructor_fixture_01'),
+      displayName: 'Coach',
+    },
+    occurrence: {
+      startsAt: timestampFromDate(new Date(options.startsAtSeconds * 1000)),
+      endsAt: timestampFromDate(new Date((options.startsAtSeconds + 7200) * 1000)),
+      timeZone: 'Asia/Almaty',
+      durationMinutes: 120,
+    },
+    lifecycle: { status: 'confirmed' },
+    bookingOrigin: 'account',
+    authorizedActions: {
+      canRequestCancellation: true,
+      canWithdrawCancellation: false,
+      canReschedule: true,
+      canCreateChangeRequest: false,
+    },
+    paymentPresentation: { kind: 'visible', paymentStatus: 'paid', price: 100 },
+    updatedAt: timestampFromDate(new Date(options.startsAtSeconds * 1000)),
+  };
+}
 
 describe('lessonBooking commands integration', () => {
   beforeEach(() => {
@@ -24,24 +80,22 @@ describe('lessonBooking commands integration', () => {
     executeAuthenticatedMock.mockReset();
     executeGuestMock.mockReset();
     queryReadModelsMock.mockReset();
+    resetAccountLessonBookingSyncStateForTests();
     localStorage.clear();
   });
 
-  it('creates authenticated booking via canonical command and refetches hot read models', async () => {
+  it('create on a non-history surface refreshes account_hot only and stores the new booking', async () => {
     const bookingId = 'booking_auth_create_01';
     const accountId = 'account_fixture_01';
+    const created = createdHotReadModel(bookingId, {
+      startsAtSeconds: futureStartSeconds(),
+    });
     executeAuthenticatedMock.mockResolvedValueOnce({ status: 'success', payload: {} });
-    queryReadModelsMock
-      .mockResolvedValueOnce({
-        scope: 'account_hot',
-        items: [],
-        hasMore: false,
-      })
-      .mockResolvedValueOnce({
-        scope: 'account_history',
-        items: [],
-        hasMore: false,
-      });
+    queryReadModelsMock.mockResolvedValueOnce({
+      scope: 'account_hot',
+      items: [created],
+      hasMore: false,
+    });
 
     const { result } = renderHook(() => useLessonBookingCommands(accountId));
     await result.current.createAuthenticatedBooking({
@@ -72,8 +126,12 @@ describe('lessonBooking commands integration', () => {
         }),
       })
     );
+    // Non-history surface: account_hot carries the newly created booking; the
+    // account_history read is not paid for.
+    expect(scopedReadCount('account_hot')).toBe(1);
+    expect(scopedReadCount('account_history')).toBe(0);
     expect(queryReadModelsMock).toHaveBeenCalledWith({ scope: 'account_hot' });
-    expect(queryReadModelsMock).toHaveBeenCalledWith({ scope: 'account_history' });
+    expect(useLessonBookingStore.getState().items.get(bookingId)?.status).toBe('confirmed');
   });
 
   it('creates guest booking, persists credential, and does not call legacy callables', async () => {
@@ -125,7 +183,7 @@ describe('lessonBooking commands integration', () => {
     );
   });
 
-  it('requests authenticated cancellation with expected revision', async () => {
+  it('cancellation on a non-history surface refreshes account_hot only', async () => {
     const accountId = 'account_fixture_01';
     const bookingId = 'booking_cancel_01';
     executeAuthenticatedMock.mockResolvedValueOnce({
@@ -134,9 +192,7 @@ describe('lessonBooking commands integration', () => {
       correlationId: 'correlation_cancel_01',
       payload: { lifecycleStatus: 'cancelled' },
     });
-    queryReadModelsMock
-      .mockResolvedValueOnce({ scope: 'account_hot', items: [], hasMore: false })
-      .mockResolvedValueOnce({ scope: 'account_history', items: [], hasMore: false });
+    queryReadModelsMock.mockResolvedValueOnce({ scope: 'account_hot', items: [], hasMore: false });
 
     const { result } = renderHook(() => useLessonBookingCommands(accountId));
     const outcome = await result.current.requestCancellation({
@@ -156,6 +212,9 @@ describe('lessonBooking commands integration', () => {
         intent: { bookingId: BookingIdSchema.parse(bookingId) },
       })
     );
+    // Cancel on a non-history surface: hot-only refresh, no history scan.
+    expect(scopedReadCount('account_hot')).toBe(1);
+    expect(scopedReadCount('account_history')).toBe(0);
   });
 
   it('surfaces canonical errors without legacy fallback', async () => {
@@ -186,5 +245,87 @@ describe('lessonBooking commands integration', () => {
       })
     ).rejects.toMatchObject({ code: 'insufficient_funds' });
     expect(queryReadModelsMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('lessonBooking command refresh is surface-aware', () => {
+  beforeEach(() => {
+    useLessonBookingStore.getState().reset();
+    executeAuthenticatedMock.mockReset();
+    queryReadModelsMock.mockReset();
+    resetAccountLessonBookingSyncStateForTests();
+  });
+
+  it.each(['/cabinet', '/cabinet/calendar'])(
+    'resolves the account_hot-only refresh for %s (no history ownership)',
+    (pathname) => {
+      expect(
+        resolveLessonBookingCommandRefreshStrategy({ pathname, accountId: 'account_fixture_01' })
+      ).toBe(refreshAccountLessonBookingsHotOnly);
+    }
+  );
+
+  it('resolves the hot + account_history refresh for /cabinet/history', () => {
+    expect(
+      resolveLessonBookingCommandRefreshStrategy({
+        pathname: '/cabinet/history',
+        accountId: 'account_fixture_01',
+      })
+    ).toBe(refreshAccountLessonBookingsWithHistory);
+  });
+
+  it('route-aware container wiring: /cabinet/history reads hot + history, /cabinet and /cabinet/calendar read hot only', async () => {
+    queryReadModelsMock.mockImplementation(async (input: { scope: string }) => ({
+      scope: input.scope,
+      items: [],
+      hasMore: false,
+    }));
+
+    // Mirrors CabinetRouteContainer: the surface derives the strategy from the
+    // active pathname and hands it to the hook, which never reads router state.
+    async function runCancellationRefresh(pathname: string) {
+      queryReadModelsMock.mockClear();
+      resetAccountLessonBookingSyncStateForTests();
+      executeAuthenticatedMock.mockReset();
+      executeAuthenticatedMock.mockResolvedValueOnce({
+        status: 'success',
+        kind: 'request_booking_cancellation',
+        correlationId: 'correlation_route_refresh',
+        payload: { lifecycleStatus: 'cancelled' },
+      });
+
+      const { result } = renderHook(
+        () => {
+          const { pathname: activePathname } = useLocation();
+          return useLessonBookingCommands({
+            accountId: 'account_fixture_01',
+            refresh: resolveLessonBookingCommandRefreshStrategy({
+              pathname: activePathname,
+              accountId: 'account_fixture_01',
+            }),
+          });
+        },
+        {
+          wrapper: ({ children }: { children: React.ReactNode }) =>
+            createElement(MemoryRouter, { initialEntries: [pathname] }, children),
+        }
+      );
+
+      await result.current.requestCancellation({
+        bookingId: 'booking_route_refresh_01',
+        expectedRevision: 2,
+        idempotencyKey: 'cancel:booking_route_refresh_01:2',
+        exercisedCapability: 'account_owner',
+      });
+
+      return {
+        hot: scopedReadCount('account_hot'),
+        history: scopedReadCount('account_history'),
+      };
+    }
+
+    expect(await runCancellationRefresh('/cabinet/history')).toEqual({ hot: 1, history: 1 });
+    expect(await runCancellationRefresh('/cabinet')).toEqual({ hot: 1, history: 0 });
+    expect(await runCancellationRefresh('/cabinet/calendar')).toEqual({ hot: 1, history: 0 });
   });
 });

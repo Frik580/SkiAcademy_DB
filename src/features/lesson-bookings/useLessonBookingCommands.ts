@@ -21,18 +21,81 @@ import type {
 import { mapLessonBookingCalendarInput } from './mapCalendarInput';
 import { persistGuestBookingCredential } from './guestCredentialStorage';
 import { useLessonBookingStore } from './lessonBookingStore';
-import { syncAccountLessonBookingsFromServer } from './syncAccountLessonBookings';
+import {
+  syncAccountHotLessonBookingsFromServer,
+  syncAccountLessonBookingsFromServer,
+} from './syncAccountLessonBookings';
 import {
   resolveLessonCancellationLifecycleFromStore,
   type CabinetCancellationCommandResult,
 } from '../student-cabinet/cabinetCancellationOutcome';
 import { resolveCabinetCancellationOutcome } from '../student-cabinet/resolveCabinetCancellationOutcome';
+import { shouldSyncAccountLessonHistory } from '../../store/accountLessonBookingSync';
 
-async function refetchAccountHotBookings(_accountId: string): Promise<void> {
+/**
+ * Post-command account lesson read refresh.
+ *
+ * The owning surface decides how much history it needs; the hook must not read
+ * router state itself. Default is the cheap account_hot refresh, which is
+ * enough for every surface that renders current/upcoming lessons.
+ */
+export type LessonBookingCommandRefresh = () => Promise<void>;
+
+export type UseLessonBookingCommandsOptions = {
+  readonly accountId: string | undefined;
+  /**
+   * Override for history-owning surfaces (for example `/cabinet/history`),
+   * which need the full hot + account_history sync.
+   */
+  readonly refresh?: LessonBookingCommandRefresh;
+};
+
+/**
+ * Default post-command refresh for non-history surfaces.
+ *
+ * Reads only account_hot and still returns the newly created / cancelled
+ * booking, which is what the cabinet renders.
+ */
+export async function refreshAccountLessonBookingsHotOnly(): Promise<void> {
+  await syncAccountHotLessonBookingsFromServer();
+}
+
+/** Post-command refresh for history-owning surfaces: hot + account_history. */
+export async function refreshAccountLessonBookingsWithHistory(): Promise<void> {
   await syncAccountLessonBookingsFromServer();
 }
 
-export function useLessonBookingCommands(accountId: string | undefined) {
+/**
+ * Resolves the post-command refresh for a surface.
+ *
+ * Only `/cabinet/history` renders rows outside account_hot, so only it needs
+ * the full hot + account_history sync (which also keeps
+ * admin-approved `pending_cancellation` → `cancelled` visible without a reload).
+ * Every other surface stays on the account_hot-only refresh.
+ */
+export function resolveLessonBookingCommandRefreshStrategy(input: {
+  readonly pathname: string;
+  readonly accountId: string | undefined;
+}): LessonBookingCommandRefresh {
+  return shouldSyncAccountLessonHistory(input)
+    ? refreshAccountLessonBookingsWithHistory
+    : refreshAccountLessonBookingsHotOnly;
+}
+
+export function useLessonBookingCommands(
+  accountIdOrOptions: string | undefined | UseLessonBookingCommandsOptions
+) {
+  const options: UseLessonBookingCommandsOptions =
+    typeof accountIdOrOptions === 'object' && accountIdOrOptions !== null
+      ? accountIdOrOptions
+      : { accountId: accountIdOrOptions };
+  const { accountId, refresh } = options;
+
+  const refreshAfterCommand = useCallback<LessonBookingCommandRefresh>(
+    () => (refresh ? refresh() : refreshAccountLessonBookingsHotOnly()),
+    [refresh]
+  );
+
   const createAuthenticatedBooking = useCallback(
     async (input: AuthenticatedLessonBookingInput): Promise<void> => {
       if (!accountId) {
@@ -61,9 +124,9 @@ export function useLessonBookingCommands(accountId: string | undefined) {
       });
       const error = mapCanonicalCommandResultError(result);
       if (error) throw error;
-      await refetchAccountHotBookings(accountId);
+      await refreshAfterCommand();
     },
-    [accountId]
+    [accountId, refreshAfterCommand]
   );
 
   const createGuestBooking = useCallback(
@@ -158,7 +221,10 @@ export function useLessonBookingCommands(accountId: string | undefined) {
         nextRevision: input.expectedRevision + 1,
         commandResult:
           result.status === 'success' ? result : { status: 'success', payload: undefined },
-        refresh: () => refetchAccountHotBookings(accountId),
+        // Local lifecycle patch is applied by resolveCabinetCancellationOutcome
+        // before this refresh runs, so an empty hot response cannot resurrect
+        // the pre-cancellation state.
+        refresh: refreshAfterCommand,
         readLifecycleFromStore: () =>
           resolveLessonCancellationLifecycleFromStore(
             input.bookingId,
@@ -166,14 +232,16 @@ export function useLessonBookingCommands(accountId: string | undefined) {
           ),
       });
     },
-    [accountId]
+    [accountId, refreshAfterCommand]
   );
 
   return {
     createAuthenticatedBooking,
     createGuestBooking,
     requestCancellation,
-    refetchAccountHotBookings: accountId ? () => refetchAccountHotBookings(accountId) : undefined,
+    // Post-command recovery refetch: deliberately account_hot only. No caller
+    // depended on the account_history side effect this used to carry.
+    refetchAccountHotBookings: accountId ? refreshAccountLessonBookingsHotOnly : undefined,
   };
 }
 

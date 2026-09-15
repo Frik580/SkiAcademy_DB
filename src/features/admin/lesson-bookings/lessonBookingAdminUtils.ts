@@ -21,7 +21,9 @@ function entropy(): string {
 export function parseAdminLessonBookingView(
   value: string | null | undefined
 ): AdminLessonBookingView {
-  return value === 'history' ? 'history' : 'hot';
+  if (value === 'history') return 'history';
+  if (value === 'pending_guest') return 'pending_guest';
+  return 'hot';
 }
 
 export function createAdminLessonBookingAttemptId(action: string) {

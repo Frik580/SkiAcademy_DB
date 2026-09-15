@@ -193,22 +193,20 @@ function createAdminReadFirestore(input: {
       );
 
   const bookingsQuery = (
+    filters: ReadonlyArray<{ field: string; value: unknown }> = [],
     cursor?: readonly [number, number, string],
-    maximum?: number,
-    instructorFilter?: string
+    maximum?: number
   ): Record<string, unknown> => ({
-    orderBy: () => bookingsQuery(cursor, maximum, instructorFilter),
-    where: (_field: string, _operator: string, instructorIdValue: string) =>
-      bookingsQuery(cursor, maximum, instructorIdValue),
+    orderBy: () => bookingsQuery(filters, cursor, maximum),
+    where: (field: string, _operator: string, value: unknown) =>
+      bookingsQuery([...filters, { field, value }], cursor, maximum),
     startAfter: (seconds: number, nanoseconds: number, id: string) =>
-      bookingsQuery([seconds, nanoseconds, id], maximum, instructorFilter),
-    limit: (value: number) => bookingsQuery(cursor, value, instructorFilter),
+      bookingsQuery(filters, [seconds, nanoseconds, id], maximum),
+    limit: (value: number) => bookingsQuery(filters, cursor, value),
     get: async () => {
-      const filteredBookings = instructorFilter
-        ? input.bookings.filter(
-            (document) => readNested(document.data, 'occurrence.instructorId') === instructorFilter
-          )
-        : input.bookings;
+      const filteredBookings = input.bookings.filter((document) =>
+        filters.every(({ field, value }) => readNested(document.data, field) === value)
+      );
       const ordered = [...filteredBookings].sort((left, right) => {
         const leftUpdated = readNested(left.data, 'updatedAt') as {
           seconds: number;
@@ -666,6 +664,63 @@ describe('Admin lesson booking read models', () => {
       canLinkGuestToAccount: true,
     });
     expect(model?.admin?.guestIdentityLinkUnavailableReason).toBeUndefined();
+  });
+
+  it('lists only pending guest-origin bookings in admin_pending_guest (not paid confirmed guest-origin)', async () => {
+    const pendingGuest = BookingSchema.parse({
+      ...canonicalBooking('booking_admin_pending_guest_01', '2026-08-01T14:00:00.000Z', {
+        status: 'confirmed',
+      }),
+      attribution: {
+        bookingOrigin: 'guest',
+        bookedBy: { kind: 'guest', guestSubjectId: 'guest_subject_pending_guest_01' },
+      },
+      lifecycle: {
+        status: 'pending',
+        reservationExpiresAt: timestampFromDate(new Date('2026-08-01T15:00:00.000Z')),
+      },
+    });
+    const confirmedPaidGuest = BookingSchema.parse({
+      ...canonicalBooking('booking_admin_confirmed_guest_01', '2026-08-01T13:30:00.000Z', {
+        status: 'confirmed',
+      }),
+      attribution: {
+        bookingOrigin: 'guest',
+        bookedBy: { kind: 'guest', guestSubjectId: 'guest_subject_confirmed_guest_01' },
+      },
+      lifecycle: { status: 'confirmed' },
+    });
+    const accountConfirmed = canonicalBooking(
+      'booking_admin_account_confirmed_01',
+      '2026-08-01T13:00:00.000Z',
+      { status: 'confirmed' }
+    );
+    const { firestore } = adminFixture([pendingGuest, confirmedPaidGuest, accountConfirmed]);
+
+    const pending = await queryLessonBookingReadModels(
+      firestore,
+      { scope: 'admin_pending_guest', pageSize: 20 },
+      { administratorActor: adminActor, now: new Date('2026-08-01T10:00:00.000Z') }
+    );
+    expect(pending.scope).toBe('admin_pending_guest');
+    expect(pending.items.map((item) => item.bookingId)).toEqual([pendingGuest.bookingId]);
+    expect(pending.items[0]).toMatchObject({
+      bookingOrigin: 'guest',
+      lifecycle: { status: 'pending' },
+    });
+
+    const hot = await queryLessonBookingReadModels(
+      firestore,
+      { scope: 'admin_hot', pageSize: 20 },
+      { administratorActor: adminActor, now: new Date('2026-08-01T10:00:00.000Z') }
+    );
+    expect(hot.items.map((item) => item.bookingId)).toEqual(
+      expect.arrayContaining([
+        pendingGuest.bookingId,
+        confirmedPaidGuest.bookingId,
+        accountConfirmed.bookingId,
+      ])
+    );
   });
 
   it('returns Admin hot/detail/history with stable bounded cursors and canonical-only rows', async () => {

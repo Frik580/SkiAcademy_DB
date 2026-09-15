@@ -36,6 +36,7 @@ export function createQueryLessonBookingReadModelsHandler(firestore: Firestore) 
 
     if (
       input.scope === 'admin_hot' ||
+      input.scope === 'admin_pending_guest' ||
       input.scope === 'admin_history' ||
       input.scope === 'admin_detail'
     ) {

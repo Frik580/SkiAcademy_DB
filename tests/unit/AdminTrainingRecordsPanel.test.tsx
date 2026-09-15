@@ -403,4 +403,92 @@ describe('AdminTrainingRecordsPanel', () => {
     expect(screen.getByRole('button', { current: true })).toHaveTextContent('Course Coach');
     expect(screen.getByText('Instructor')).toBeVisible();
   });
+
+  it('keeps paid confirmed guest-origin lessons out of pending guests when switching scopes', async () => {
+    const confirmedGuest = {
+      ...lessonItem(),
+      bookingId: 'booking_guest_confirmed',
+      bookingOrigin: 'guest' as const,
+      participants: [
+        { participantId: 'participant_guest_confirmed', displayName: 'Paid Confirmed Guest' },
+      ],
+      lifecycle: { status: 'confirmed' as const },
+    };
+    const pendingGuest = {
+      ...lessonItem(),
+      bookingId: 'booking_guest_pending',
+      bookingOrigin: 'guest' as const,
+      participants: [
+        { participantId: 'participant_guest_pending', displayName: 'Pending Unpaid Guest' },
+      ],
+      lifecycle: { status: 'pending' as const },
+      admin: {
+        ...lessonItem().admin!,
+        payment: {
+          ...lessonItem().admin!.payment,
+          status: 'unpaid' as const,
+          paid: 0,
+          outstanding: 20_000,
+        },
+      },
+    };
+    const pendingCourse = courseItem({
+      enrollmentId: 'course_enrollment_pending_guest',
+      lifecycleStatus: 'pending',
+      guestState: 'pending_unlinked',
+      participant: {
+        participantId: 'participant_course_pending',
+        displayName: 'Pending Course Guest',
+      },
+    });
+
+    lessonReadMock.mockImplementation((input: { view?: string }) => ({
+      list: {
+        items: input.view === 'pending_guest' ? [pendingGuest] : [confirmedGuest],
+        loading: false,
+        loadingMore: false,
+        hasMore: false,
+      },
+      detail: { loading: false },
+      retryList: vi.fn(),
+      retryDetail: vi.fn(),
+      loadMore: vi.fn(),
+      refreshBooking: vi.fn().mockResolvedValue({ status: 'success' }),
+    }));
+    courseReadMock.mockImplementation((input: { view?: string }) => ({
+      list: {
+        items: input.view === 'pending_guest' ? [pendingCourse] : [courseItem()],
+        loading: false,
+        loadingMore: false,
+        hasMore: false,
+      },
+      detail: { item: courseDetail(), loading: false },
+      retryList: vi.fn(),
+      retryDetail: vi.fn(),
+      loadMore: vi.fn(),
+      refreshList: vi.fn(),
+      refreshEnrollment: vi.fn(),
+    }));
+
+    renderPanel();
+    expect(await screen.findByText('Paid Confirmed Guest')).toBeVisible();
+    expect(screen.getByText('Course Skier')).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: 'adminTrainingScopePendingGuests' }));
+    expect(await screen.findByText('Pending Unpaid Guest')).toBeVisible();
+    expect(screen.getByText('Pending Course Guest')).toBeVisible();
+    expect(screen.queryByText('Paid Confirmed Guest')).not.toBeInTheDocument();
+    expect(screen.queryByText('Course Skier')).not.toBeInTheDocument();
+    expect(lessonReadMock).toHaveBeenCalledWith(
+      expect.objectContaining({ view: 'pending_guest' })
+    );
+    expect(courseReadMock).toHaveBeenCalledWith(
+      expect.objectContaining({ view: 'pending_guest' })
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'adminTrainingScopeCurrent' }));
+    expect(await screen.findByText('Paid Confirmed Guest')).toBeVisible();
+    expect(screen.queryByText('Pending Unpaid Guest')).not.toBeInTheDocument();
+    expect(screen.queryByText('Pending Course Guest')).not.toBeInTheDocument();
+  });
 });

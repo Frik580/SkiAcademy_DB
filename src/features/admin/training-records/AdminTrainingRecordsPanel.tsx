@@ -426,9 +426,7 @@ export function AdminTrainingRecordsPanel({
               ))}
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              {(['current', 'history', 'pending_guest'] as const)
-                .filter((candidate) => candidate !== 'pending_guest' || kind !== 'lesson')
-                .map((candidate) => (
+              {(['current', 'history', 'pending_guest'] as const).map((candidate) => (
                   <button
                     key={candidate}
                     type="button"

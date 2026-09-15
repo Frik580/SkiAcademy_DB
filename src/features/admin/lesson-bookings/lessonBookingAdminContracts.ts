@@ -6,7 +6,7 @@ import type {
   ParticipantId,
 } from '@ski-academy/shared-domain';
 
-export type AdminLessonBookingView = 'hot' | 'history';
+export type AdminLessonBookingView = 'hot' | 'history' | 'pending_guest';
 export type AdminLessonBookingReadError = 'permission-denied' | 'read-failed';
 export type AdminLessonBookingRefreshResult =
   { readonly status: 'success' } | { readonly status: 'failure' };

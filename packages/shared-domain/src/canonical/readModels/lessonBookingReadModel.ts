@@ -46,6 +46,7 @@ export const LESSON_BOOKING_READ_SCOPES = [
   'instructor_history',
   'guest_single',
   'admin_hot',
+  'admin_pending_guest',
   'admin_history',
   'admin_detail',
 ] as const;
@@ -521,7 +522,11 @@ export const QueryLessonBookingReadModelsInputSchema = z
         });
       }
     }
-    if (input.scope === 'admin_hot' || input.scope === 'admin_history') {
+    if (
+      input.scope === 'admin_hot' ||
+      input.scope === 'admin_pending_guest' ||
+      input.scope === 'admin_history'
+    ) {
       if (input.bookingId !== undefined) {
         context.addIssue({
           code: 'custom',

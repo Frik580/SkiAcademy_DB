@@ -43,7 +43,9 @@ export function resolveAdminTrainingScope(input: {
 }): AdminTrainingScope {
   const parsed = parseAdminTrainingScope(input.explicit);
   if (parsed) return parsed;
-  if (input.enrollmentView === 'pending_guest') return 'pending_guest';
+  if (input.enrollmentView === 'pending_guest' || input.bookingView === 'pending_guest') {
+    return 'pending_guest';
+  }
   if (input.kind === 'lesson') return input.bookingView === 'history' ? 'history' : 'current';
   if (input.kind === 'course') return input.enrollmentView === 'history' ? 'history' : 'current';
   if (input.bookingView === 'history' && input.enrollmentView === 'history') return 'history';
@@ -51,7 +53,9 @@ export function resolveAdminTrainingScope(input: {
 }
 
 export function lessonViewForTrainingScope(scope: AdminTrainingScope): AdminLessonBookingView {
-  return scope === 'history' ? 'history' : 'hot';
+  if (scope === 'history') return 'history';
+  if (scope === 'pending_guest') return 'pending_guest';
+  return 'hot';
 }
 
 export function courseViewForTrainingScope(scope: AdminTrainingScope): AdminCourseEnrollmentView {

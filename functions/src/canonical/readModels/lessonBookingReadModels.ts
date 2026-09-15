@@ -1108,6 +1108,28 @@ function adminListQuery(
   return query;
 }
 
+/** Same membership as course `admin_pending_guest`: guest origin + pending lifecycle. */
+function adminPendingGuestListQuery(
+  firestore: Firestore,
+  cursor: LessonBookingReadModelCursor | undefined
+): Query {
+  let query: Query = firestore
+    .collection('bookings')
+    .where('attribution.bookingOrigin', '==', 'guest')
+    .where('lifecycle.status', '==', 'pending')
+    .orderBy('updatedAt.seconds', 'desc')
+    .orderBy('updatedAt.nanoseconds', 'desc')
+    .orderBy('bookingId', 'asc');
+  if (cursor) {
+    query = query.startAfter(
+      cursor.updatedAtSeconds,
+      cursor.updatedAtNanoseconds,
+      cursor.bookingId
+    );
+  }
+  return query;
+}
+
 function instructorListQuery(
   firestore: Firestore,
   instructorId: InstructorId,
@@ -1311,6 +1333,7 @@ export async function queryLessonBookingReadModels(
     (!cursor ||
       (cursor.scope !== undefined && cursor.scope !== input.scope) ||
       ((input.scope === 'admin_hot' ||
+        input.scope === 'admin_pending_guest' ||
         input.scope === 'admin_history' ||
         input.scope === 'instructor_hot' ||
         input.scope === 'instructor_history') &&
@@ -1366,6 +1389,52 @@ export async function queryLessonBookingReadModels(
     const items = (
       await Promise.all(
         filtered.map((booking) =>
+          buildAdminLessonBookingReadModel(firestore, actor, booking, { now, readContext })
+        )
+      )
+    ).filter((item): item is LessonBookingReadModel => item !== undefined);
+    const hasMore = snapshot.docs.length > pageSize;
+    const lastDocument = scannedDocuments.at(-1);
+    const next = lastDocument ? cursorFromBookingDocument(lastDocument) : undefined;
+    if (hasMore && !next) {
+      throw new InvalidLessonBookingReadCursorError();
+    }
+    return {
+      scope: input.scope,
+      items,
+      hasMore,
+      ...(hasMore && next
+        ? {
+            nextCursor: encodeLessonBookingReadModelCursor({
+              ...next,
+              scope: input.scope,
+            }),
+          }
+        : {}),
+    };
+  }
+
+  if (input.scope === 'admin_pending_guest') {
+    const actor = options.administratorActor;
+    if (!actor) {
+      return { scope: input.scope, items: [], hasMore: false };
+    }
+    const snapshot = await adminPendingGuestListQuery(firestore, cursor)
+      .limit(pageSize + 1)
+      .get();
+    const scannedDocuments = snapshot.docs.slice(0, pageSize);
+    const bookings = scannedDocuments
+      .map((document) => parseBooking(document.data() as Record<string, unknown>))
+      .filter(
+        (booking): booking is Booking =>
+          booking !== undefined &&
+          booking.archival?.isDeleted !== true &&
+          booking.attribution.bookingOrigin === 'guest' &&
+          booking.lifecycle.status === 'pending'
+      );
+    const items = (
+      await Promise.all(
+        bookings.map((booking) =>
           buildAdminLessonBookingReadModel(firestore, actor, booking, { now, readContext })
         )
       )

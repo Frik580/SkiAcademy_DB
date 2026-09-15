@@ -286,7 +286,12 @@ describe('lessonBookingReadModel contracts', () => {
 
   it('publishes strict Admin list and detail scopes', () => {
     expect(LESSON_BOOKING_READ_SCOPES).toEqual(
-      expect.arrayContaining(['admin_hot', 'admin_history', 'admin_detail'])
+      expect.arrayContaining([
+        'admin_hot',
+        'admin_pending_guest',
+        'admin_history',
+        'admin_detail',
+      ])
     );
     expect(
       QueryLessonBookingReadModelsInputSchema.safeParse({
@@ -309,6 +314,17 @@ describe('lessonBookingReadModel contracts', () => {
     expect(
       QueryLessonBookingReadModelsInputSchema.safeParse({
         scope: 'admin_hot',
+        bookingId: 'booking_admin_detail_01',
+      }).success
+    ).toBe(false);
+    expect(
+      QueryLessonBookingReadModelsInputSchema.safeParse({
+        scope: 'admin_pending_guest',
+      }).success
+    ).toBe(true);
+    expect(
+      QueryLessonBookingReadModelsInputSchema.safeParse({
+        scope: 'admin_pending_guest',
         bookingId: 'booking_admin_detail_01',
       }).success
     ).toBe(false);

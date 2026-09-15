@@ -41,7 +41,7 @@ function replaceWithRevisionGuard(
 }
 
 export async function drainAdminLessonBookingScope(
-  scope: 'admin_hot' | 'admin_history'
+  scope: 'admin_hot' | 'admin_pending_guest' | 'admin_history'
 ): Promise<readonly LessonBookingReadModel[]> {
   return drainPagedReadModelItems({
     fetchPage: async (cursor) => {
@@ -84,7 +84,12 @@ export function useAdminLessonBookingReadModels(input: {
         error: undefined,
       }));
       try {
-        const expectedScope = view === 'history' ? 'admin_history' : 'admin_hot';
+        const expectedScope =
+          view === 'history'
+            ? ('admin_history' as const)
+            : view === 'pending_guest'
+              ? ('admin_pending_guest' as const)
+              : ('admin_hot' as const);
         if (drainAll) {
           const items = await drainAdminLessonBookingScope(expectedScope);
           if (listGeneration.current !== generation) {

@@ -71,6 +71,7 @@ function createAdminFirestore(
   lifecycleStatus: 'active' | 'disabled' = 'active'
 ): Firestore {
   const bookingsQuery = {
+    where: () => bookingsQuery,
     orderBy: () => bookingsQuery,
     startAfter: () => bookingsQuery,
     limit: () => bookingsQuery,
@@ -176,11 +177,27 @@ describe('queryLessonBookingReadModelsCallable instructor panel contract', () =>
       items: [],
       hasMore: false,
     });
+    await expect(
+      adminHandler({
+        data: { scope: 'admin_pending_guest' },
+        auth: { uid: instructorAccountId },
+      } as CallableRequest<Record<string, unknown>>)
+    ).resolves.toEqual({
+      scope: 'admin_pending_guest',
+      items: [],
+      hasMore: false,
+    });
 
     const userHandler = createQueryLessonBookingReadModelsHandler(createAdminFirestore('user'));
     await expect(
       userHandler({
         data: { scope: 'admin_history' },
+        auth: { uid: instructorAccountId },
+      } as CallableRequest<Record<string, unknown>>)
+    ).rejects.toMatchObject({ code: 'permission-denied' });
+    await expect(
+      userHandler({
+        data: { scope: 'admin_pending_guest' },
         auth: { uid: instructorAccountId },
       } as CallableRequest<Record<string, unknown>>)
     ).rejects.toMatchObject({ code: 'permission-denied' });

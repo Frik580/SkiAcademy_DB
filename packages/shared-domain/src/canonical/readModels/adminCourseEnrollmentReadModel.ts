@@ -77,6 +77,7 @@ export const AdminCourseEnrollmentPaymentPresentationSchema = z
     settled: KztMinorUnitsSchema,
     writtenOff: KztMinorUnitsSchema,
     outstanding: KztMinorUnitsSchema,
+    payerWalletBalance: KztMinorUnitsSchema.optional(),
   })
   .strict();
 
@@ -116,6 +117,7 @@ export const AdminCourseEnrollmentAttendanceDaySchema = z
 export const AdminCourseEnrollmentAuthorizedActionsSchema = z
   .object({
     canRecordPayment: z.boolean(),
+    canPayFromWallet: z.boolean().default(false),
     canResolveCancellation: z.boolean(),
     canTransfer: z.boolean(),
     canReconcile: z.boolean(),

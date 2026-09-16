@@ -13,7 +13,10 @@ import {
   creditWalletBalance,
   debitWalletBalance,
   CourseEnrollmentIdSchema,
+  monetaryEventIdFromAdminWalletPayment,
   monetaryEventIdFromCommandEffect,
+  paymentIdFromBookingId,
+  paymentIdFromCourseEnrollmentId,
   nextAggregateRevision,
   paymentEffectFromProjectionChange,
   providerEventReceiptIdFromProviderEvent,
@@ -21,6 +24,7 @@ import {
   resolveCommandIdempotencyIdentity,
   isPaymentFullyFundedForService,
   timestampFromDate,
+  type AccountId,
   type CommandEnvelope,
   type CommandExecutionEnvironment,
   type CommandResult,
@@ -48,6 +52,7 @@ import {
 import { assertFinanceAuthorization, mapFinanceDomainError } from './financeAuthorization';
 import {
   buildAdjustServicePriceAuditPlan,
+  buildAdminWalletPaymentAuditPlan,
   buildManualWalletFundingAuditPlan,
   buildProviderPaymentEventAuditPlan,
 } from './financeAudit';
@@ -59,6 +64,7 @@ import {
   mergeWalletBalance,
   monetaryEventPath,
   parseAccount,
+  parseMonetaryEvent,
   parsePayment,
   parseProviderEventReceipt,
   parseWallet,
@@ -75,6 +81,7 @@ import {
   type PlannedGuestPaymentConfirmation,
 } from '../guestConfirmation/guestPaymentConfirmation';
 import { mergeGuestPaymentConfirmationAuditPlan } from '../guestConfirmation/guestPaymentConfirmationAudit';
+import { bookingPath, parseBooking } from '../bookings/bookingStore';
 
 interface CommandMetadata {
   readonly commandId: ReturnType<typeof resolveCommandIdempotencyIdentity>['commandKey'];
@@ -806,6 +813,395 @@ function adjustServicePriceHandler(
   });
 }
 
+function payableServiceLifecycle(status: string): boolean {
+  return status === 'pending' || status === 'confirmed';
+}
+
+function resolveLinkedPayerAccountId(input: {
+  readonly resourcePayerAccountId?: AccountId;
+  readonly paymentPayerAccountId?: AccountId;
+  readonly guestLinkedAccountId?: AccountId;
+}): AccountId | undefined {
+  return (
+    input.resourcePayerAccountId ?? input.paymentPayerAccountId ?? input.guestLinkedAccountId
+  );
+}
+
+function payServiceFromWalletAsAdministratorHandler(
+  envelope: CommandEnvelope<'pay_service_from_wallet_as_administrator'>,
+  environment: CommandExecutionEnvironment,
+  executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
+): Promise<CommandResult<'pay_service_from_wallet_as_administrator'>> {
+  assertFinanceAuthorization(envelope);
+  const metadata = metadataFromEnvelope(envelope);
+  const resourceKind = envelope.intent.subjectKind === 'booking' ? 'booking' : 'course_enrollment';
+  const resourceDocumentPath =
+    envelope.intent.subjectKind === 'booking'
+      ? bookingPath(envelope.intent.bookingId)
+      : courseEnrollmentPath(envelope.intent.enrollmentId);
+
+  let payment!: Payment;
+  let paymentDocumentPath!: string;
+  let payerAccountId!: AccountId;
+  let walletDocumentPath!: string;
+  let walletRecord: Wallet | undefined;
+  let walletExists = false;
+  let alreadyApplied = false;
+  let outstandingAmount = KztMinorUnitsSchema.parse(0);
+  let projectedPayment!: Payment;
+  let plannedPaymentRevision!: Payment['revision'];
+  let plannedPaymentEventRevision!: Payment['eventRevision'];
+  let plannedWalletRevision!: Wallet['revision'];
+  let plannedWalletEventRevision!: Wallet['eventRevision'];
+  let stagedEventId!: ReturnType<typeof monetaryEventIdFromAdminWalletPayment>;
+  let plannedPaymentStartIssueResolution:
+    { readonly issue: AdminIssue; readonly documentPath: string } | undefined;
+  let plannedGuestConfirmation: PlannedGuestPaymentConfirmation | undefined;
+
+  const handler: AuthoritativeIdempotentCanonicalCommandHandler<'pay_service_from_wallet_as_administrator'> =
+    {
+      read: async (session) => {
+        plannedGuestConfirmation = undefined;
+        plannedPaymentStartIssueResolution = undefined;
+        alreadyApplied = false;
+
+        const resourceRead = await session.tx.get({ path: resourceDocumentPath });
+        session.plan.planRead({ path: resourceDocumentPath, category: 'aggregate' });
+
+        let resourcePayerAccountId: AccountId | undefined;
+        let guestLinkedAccountId: AccountId | undefined;
+        let lifecycleStatus: string | undefined;
+        let paymentId: Payment['paymentId'] | undefined;
+        let enrollmentForIssue: ReturnType<typeof parseCourseEnrollment> | undefined;
+
+        if (envelope.intent.subjectKind === 'booking') {
+          const booking = parseBooking(resourceRead.exists ? resourceRead.data : undefined);
+          if (!booking || booking.bookingId !== envelope.intent.bookingId) {
+            throw new CanonicalCommandError('validation', {
+              correlationId: envelope.context.correlationId,
+              details: { resourceKind: 'booking', reason: 'conflict' },
+            });
+          }
+          lifecycleStatus = booking.lifecycle.status;
+          resourcePayerAccountId = booking.payerAccountId;
+          paymentId = booking.paymentId;
+        } else {
+          const enrollment = parseCourseEnrollment(
+            resourceRead.exists ? resourceRead.data : undefined
+          );
+          if (!enrollment || enrollment.enrollmentId !== envelope.intent.enrollmentId) {
+            throw new CanonicalCommandError('validation', {
+              correlationId: envelope.context.correlationId,
+              details: { resourceKind: 'course_enrollment', reason: 'conflict' },
+            });
+          }
+          lifecycleStatus = enrollment.lifecycle.status;
+          resourcePayerAccountId = enrollment.payerAccountId;
+          guestLinkedAccountId = enrollment.guestAccountLink?.linkedAccountId;
+          paymentId = enrollment.paymentId;
+          enrollmentForIssue = enrollment;
+        }
+
+        if (!lifecycleStatus || !payableServiceLifecycle(lifecycleStatus)) {
+          throw new CanonicalCommandError('invalid_transition', {
+            correlationId: envelope.context.correlationId,
+            details: { resourceKind, reason: 'conflict' },
+          });
+        }
+        if (!paymentId) {
+          throw new CanonicalCommandError('validation', {
+            correlationId: envelope.context.correlationId,
+            details: { field: 'paymentId', reason: 'conflict' },
+          });
+        }
+
+        paymentDocumentPath = paymentPath(paymentId);
+        const paymentRead = await session.tx.get({ path: paymentDocumentPath });
+        session.plan.planRead({ path: paymentDocumentPath, category: 'payment_wallet' });
+        const parsedPayment = parsePayment(paymentRead.exists ? paymentRead.data : undefined);
+        if (
+          !parsedPayment ||
+          parsedPayment.paymentId !== paymentId ||
+          parsedPayment.subjectType !== resourceKind ||
+          parsedPayment.subjectId !==
+            (envelope.intent.subjectKind === 'booking'
+              ? envelope.intent.bookingId
+              : envelope.intent.enrollmentId)
+        ) {
+          throw new CanonicalCommandError('validation', {
+            correlationId: envelope.context.correlationId,
+            details: { field: 'paymentId', reason: 'conflict' },
+          });
+        }
+        payment = parsedPayment;
+
+        const linkedAccountId = resolveLinkedPayerAccountId({
+          resourcePayerAccountId,
+          paymentPayerAccountId: payment.payerAccountId,
+          guestLinkedAccountId,
+        });
+        if (!linkedAccountId) {
+          throw new CanonicalCommandError('validation', {
+            correlationId: envelope.context.correlationId,
+            details: { resourceKind, reason: 'unsupported' },
+          });
+        }
+        payerAccountId = linkedAccountId;
+
+        const accountDocumentPath = accountPath(payerAccountId);
+        const accountRead = await session.tx.get({ path: accountDocumentPath });
+        session.plan.planRead({ path: accountDocumentPath, category: 'authorization_check' });
+        const account = parseAccount(accountRead.exists ? accountRead.data : undefined);
+        if (!account || account.lifecycle.status !== 'active') {
+          throw new CanonicalCommandError('validation', {
+            correlationId: envelope.context.correlationId,
+            details: { resourceKind: 'participant', reason: 'conflict' },
+          });
+        }
+
+        stagedEventId = monetaryEventIdFromAdminWalletPayment(payment.paymentId);
+        const eventDocumentPath = monetaryEventPath(stagedEventId);
+        const eventRead = await session.tx.get({ path: eventDocumentPath });
+        session.plan.planRead({ path: eventDocumentPath, category: 'payment_wallet' });
+        const existingEvent = parseMonetaryEvent(eventRead.exists ? eventRead.data : undefined);
+        if (existingEvent && existingEvent.paymentId !== payment.paymentId) {
+          throw new CanonicalCommandError('idempotency_conflict', {
+            correlationId: envelope.context.correlationId,
+          });
+        }
+
+        if (isPaymentFullyFundedForService(payment) || existingEvent) {
+          if (existingEvent && !isPaymentFullyFundedForService(payment)) {
+            throw new CanonicalCommandError('validation', {
+              correlationId: envelope.context.correlationId,
+              details: { field: 'payment', reason: 'conflict' },
+            });
+          }
+          alreadyApplied = true;
+          plannedPaymentRevision = payment.revision;
+          plannedPaymentEventRevision = payment.eventRevision;
+          return;
+        }
+
+        outstandingAmount = payment.outstandingAmount;
+        if (outstandingAmount <= 0) {
+          alreadyApplied = true;
+          plannedPaymentRevision = payment.revision;
+          plannedPaymentEventRevision = payment.eventRevision;
+          return;
+        }
+
+        walletDocumentPath = walletPath(payerAccountId);
+        const walletRead = await session.tx.get({ path: walletDocumentPath });
+        session.plan.planRead({ path: walletDocumentPath, category: 'payment_wallet' });
+        walletRecord = parseWallet(walletRead.exists ? walletRead.data : undefined);
+        walletExists = walletRead.exists && walletRecord !== undefined;
+        const walletBalance = walletRecord?.balance ?? KztMinorUnitsSchema.parse(0);
+        if (walletBalance < outstandingAmount) {
+          throw new CanonicalCommandError('insufficient_funds', {
+            correlationId: envelope.context.correlationId,
+          });
+        }
+
+        plannedPaymentRevision = nextAggregateRevision(payment.revision);
+        plannedPaymentEventRevision = nextAggregateRevision(payment.eventRevision);
+        plannedWalletRevision = walletExists
+          ? nextAggregateRevision(walletRecord!.revision)
+          : AggregateRevisionSchema.parse(1);
+        plannedWalletEventRevision = walletExists
+          ? nextAggregateRevision(walletRecord!.eventRevision)
+          : AggregateRevisionSchema.parse(1);
+
+        const before = paymentAccountingFields(payment);
+        let projection: ReturnType<typeof applyExternalPaymentFunding>;
+        try {
+          projection = applyExternalPaymentFunding(before, outstandingAmount);
+        } catch (error) {
+          mapFinanceDomainError(envelope, error);
+        }
+        projectedPayment = mergePaymentProjection(payment, projection, {
+          revision: plannedPaymentRevision,
+          eventRevision: plannedPaymentEventRevision,
+          updatedAt: timestampFromDate(environment.clock.decidedAt()),
+          payerAccountId,
+        });
+        if (!isPaymentFullyFundedForService(projectedPayment)) {
+          throw new CanonicalCommandError('insufficient_funds', {
+            correlationId: envelope.context.correlationId,
+          });
+        }
+
+        const confirmationDecision = await planGuestPaymentConfirmation({
+          session,
+          payment: projectedPayment,
+          correlationId: envelope.context.correlationId,
+          commandId: metadata.commandId,
+          now: timestampFromDate(environment.clock.now()),
+        });
+        plannedGuestConfirmation = resolveFinanceGuestPaymentConfirmationEffect(
+          confirmationDecision,
+          envelope.context.correlationId
+        );
+
+        if (payment.subjectType === 'course_enrollment' && enrollmentForIssue) {
+          const courseDocumentPath = coursePath(enrollmentForIssue.courseId);
+          const courseRead = await session.tx.get({ path: courseDocumentPath });
+          session.plan.planRead({ path: courseDocumentPath, category: 'aggregate' });
+          const course = parseCourse(courseRead.exists ? courseRead.data : undefined);
+          if (course) {
+            plannedPaymentStartIssueResolution =
+              await planCourseEnrollmentPaymentStartIssueResolutionIfFullyFunded({
+                session,
+                correlationId: envelope.context.correlationId,
+                commandId: metadata.commandId,
+                actor: {
+                  actor: envelope.context.actor,
+                  exercisedCapability: envelope.context.exercisedCapability,
+                },
+                decidedAt: environment.clock.decidedAt(),
+                enrollment: enrollmentForIssue,
+                course,
+                payment: projectedPayment,
+              });
+          }
+        }
+
+        session.plan.planMutation({
+          path: paymentDocumentPath,
+          kind: 'update',
+          category: 'payment_wallet',
+          estimatedPayloadBytes: FINANCE_PLANNING_ESTIMATES.paymentBytes,
+        });
+        session.plan.planMutation({
+          path: walletDocumentPath,
+          kind: walletExists ? 'update' : 'create',
+          category: 'payment_wallet',
+          estimatedPayloadBytes: FINANCE_PLANNING_ESTIMATES.walletBytes,
+        });
+        session.plan.planMutation({
+          path: eventDocumentPath,
+          kind: 'create',
+          category: 'payment_wallet',
+          estimatedPayloadBytes: FINANCE_PLANNING_ESTIMATES.monetaryEventBytes,
+        });
+      },
+      planAuditOutbox: async () =>
+        mergeGuestPaymentConfirmationAuditPlan(
+          buildAdminWalletPaymentAuditPlan({
+            envelope,
+            monetaryEventIds: alreadyApplied ? [] : [stagedEventId],
+            paymentId: payment.paymentId,
+            paymentRevision: plannedPaymentRevision,
+            walletAccountId: payerAccountId,
+            ...(alreadyApplied
+              ? {}
+              : {
+                  walletRevision: plannedWalletRevision,
+                  includeWalletEffect: true,
+                }),
+            ...(plannedPaymentStartIssueResolution === undefined
+              ? {}
+              : {
+                  resolvedAdminIssueId: plannedPaymentStartIssueResolution.issue.issueId,
+                  resolvedAdminIssueRevision: plannedPaymentStartIssueResolution.issue.revision,
+                }),
+          }),
+          plannedGuestConfirmation
+        ),
+      execute: async (session, context) => {
+        try {
+          if (alreadyApplied) {
+            return commandSuccessResult(envelope.kind, envelope.context.correlationId);
+          }
+
+          const decidedAt = timestampFromDate(context.decidedAt);
+          const before = paymentAccountingFields(payment);
+          const projection = applyExternalPaymentFunding(before, outstandingAmount);
+          projectedPayment = mergePaymentProjection(payment, projection, {
+            revision: plannedPaymentRevision,
+            eventRevision: plannedPaymentEventRevision,
+            updatedAt: decidedAt,
+            payerAccountId,
+          });
+
+          const wallet = walletRecord ?? {
+            accountId: payerAccountId,
+            currency: 'KZT' as const,
+            balance: KztMinorUnitsSchema.parse(0),
+            revision: AggregateRevisionSchema.parse(1),
+            eventRevision: AggregateRevisionSchema.parse(0),
+            createdAt: decidedAt,
+            updatedAt: decidedAt,
+          };
+          const newBalance = debitWalletBalance(wallet.balance, outstandingAmount);
+          const updatedWallet = mergeWalletBalance(wallet, newBalance, {
+            revision: plannedWalletRevision,
+            eventRevision: plannedWalletEventRevision,
+            updatedAt: decidedAt,
+          });
+
+          const monetaryEvent: MonetaryEvent = {
+            eventId: stagedEventId,
+            eventKind: payment.subjectType === 'booking' ? 'booking_charge' : 'course_charge',
+            currency: 'KZT',
+            paymentId: payment.paymentId,
+            subjectType: payment.subjectType,
+            subjectId: payment.subjectId,
+            walletAccountId: payerAccountId,
+            walletBalanceDelta: -outstandingAmount,
+            paymentEffect: paymentEffectFromProjectionChange(before, projection),
+            sourceKind: 'wallet',
+            payerAccountIdAtEvent: payerAccountId,
+            actor: monetaryActorFromEnvelope(envelope),
+            commandId: metadata.commandId,
+            correlationId: metadata.correlationId,
+            paymentEventRevision: plannedPaymentEventRevision,
+            walletEventRevision: plannedWalletEventRevision,
+            occurredAt: decidedAt,
+            recordedAt: decidedAt,
+          };
+
+          session.tx.update(
+            { path: paymentDocumentPath },
+            toFirestoreWritePayload(projectedPayment as Record<string, unknown>)
+          );
+          if (walletExists) {
+            session.tx.update(
+              { path: walletDocumentPath },
+              toFirestoreWritePayload(updatedWallet as Record<string, unknown>)
+            );
+          } else {
+            session.tx.create(
+              { path: walletDocumentPath },
+              toFirestoreWritePayload(updatedWallet as Record<string, unknown>)
+            );
+          }
+          stageMonetaryEventCreate(session, monetaryEvent);
+          plannedGuestConfirmation?.commit(session, context.decidedAt);
+
+          if (plannedPaymentStartIssueResolution !== undefined) {
+            commitAdminIssueDocument(session, {
+              mutationKind: 'update',
+              documentPath: plannedPaymentStartIssueResolution.documentPath,
+              issue: plannedPaymentStartIssueResolution.issue,
+            });
+          }
+
+          return commandSuccessResult(envelope.kind, envelope.context.correlationId);
+        } catch (error) {
+          mapFinanceDomainError(envelope, error);
+        }
+      },
+    };
+
+  return executeAuthoritativeIdempotentCanonicalCommand({
+    envelope,
+    environment,
+    executor,
+    handler,
+  });
+}
+
 export function createFinanceCommandHandlers(
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor'],
   eventLoader?: MonetaryEventLoader
@@ -819,6 +1215,27 @@ export function createFinanceCommandHandlers(
         await reconcileGuestConfirmationLifecycleMismatchAfterCommand({
           correlationId: envelope.context.correlationId,
           paymentId: envelope.intent.paymentId,
+          environment,
+          executor,
+          eventLoader,
+        });
+      }
+      return result;
+    },
+    pay_service_from_wallet_as_administrator: async (envelope, environment) => {
+      const result = await payServiceFromWalletAsAdministratorHandler(
+        envelope,
+        environment,
+        executor
+      );
+      if (result.status === 'success') {
+        const paymentId =
+          envelope.intent.subjectKind === 'booking'
+            ? paymentIdFromBookingId(envelope.intent.bookingId)
+            : paymentIdFromCourseEnrollmentId(envelope.intent.enrollmentId);
+        await reconcileGuestConfirmationLifecycleMismatchAfterCommand({
+          correlationId: envelope.context.correlationId,
+          paymentId,
           environment,
           executor,
           eventLoader,

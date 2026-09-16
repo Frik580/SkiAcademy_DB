@@ -16,6 +16,7 @@ import {
 type FinanceCommandKind =
   | 'record_manual_wallet_funding'
   | 'record_provider_payment_event'
+  | 'pay_service_from_wallet_as_administrator'
   | 'adjust_service_price'
   | 'record_financial_correction'
   | 'record_audit_correction';
@@ -26,6 +27,8 @@ function summaryForKind(kind: FinanceCommandKind): string {
       return 'Wallet balance credited';
     case 'record_provider_payment_event':
       return 'External payment recorded';
+    case 'pay_service_from_wallet_as_administrator':
+      return 'Outstanding payment settled from linked client wallet';
     case 'adjust_service_price':
       return 'Service price adjusted';
     case 'record_financial_correction':
@@ -49,6 +52,14 @@ function effectsForKind(
         },
       ];
     case 'record_provider_payment_event':
+      return [
+        {
+          kind: 'payment_state_changed',
+          subjectRef,
+          summary: summaryForKind(kind),
+        },
+      ];
+    case 'pay_service_from_wallet_as_administrator':
       return [
         {
           kind: 'payment_state_changed',
@@ -230,6 +241,79 @@ export function buildAdjustServicePriceAuditPlan(input: {
       effects,
       monetaryEventIds: [...input.monetaryEventIds],
       adminIssueIds: [],
+      resultingRevisions,
+    },
+    outboxObligations: [],
+  };
+}
+
+export function buildAdminWalletPaymentAuditPlan(input: {
+  envelope: CommandEnvelope<'pay_service_from_wallet_as_administrator'>;
+  monetaryEventIds: readonly MonetaryEventId[];
+  paymentId: PaymentId;
+  paymentRevision: number;
+  walletAccountId?: AccountId;
+  walletRevision?: number;
+  includeWalletEffect?: boolean;
+  resolvedAdminIssueId?: AdminIssueId;
+  resolvedAdminIssueRevision?: number;
+}): AuditOutboxStagingPlan {
+  const paymentSubject = paymentAffectedSubject(input.paymentId);
+  const affectedSubjects: CanonicalReference[] = [paymentSubject];
+  const resultingRevisions: ActivityLogResultingRevisionInput[] = [
+    {
+      subject: paymentSubject,
+      revision: AggregateRevisionSchema.parse(input.paymentRevision),
+    },
+  ];
+  const effects: ActivityLogEffectInput[] = [
+    ...effectsForKind('pay_service_from_wallet_as_administrator', paymentSubject),
+  ];
+
+  if (input.walletAccountId !== undefined) {
+    const walletSubject = walletAffectedSubject(input.walletAccountId);
+    affectedSubjects.push(walletSubject);
+    if (input.walletRevision !== undefined) {
+      resultingRevisions.push({
+        subject: walletSubject,
+        revision: AggregateRevisionSchema.parse(input.walletRevision),
+      });
+    }
+    if (input.includeWalletEffect) {
+      effects.push({
+        kind: 'wallet_balance_changed',
+        subjectRef: walletSubject,
+        summary: 'Linked client wallet debited for outstanding payment',
+      });
+    }
+  }
+
+  const adminIssueIds = input.resolvedAdminIssueId ? [input.resolvedAdminIssueId] : [];
+  if (input.resolvedAdminIssueId !== undefined && input.resolvedAdminIssueRevision !== undefined) {
+    const issueSubject = canonicalReference('admin_issue', input.resolvedAdminIssueId);
+    resultingRevisions.push({
+      subject: issueSubject,
+      revision: AggregateRevisionSchema.parse(input.resolvedAdminIssueRevision),
+    });
+    effects.push({
+      kind: 'admin_issue_resolved',
+      subjectRef: issueSubject,
+      summary: 'Payment-start restriction cleared after wallet funding',
+    });
+  }
+
+  return {
+    activityLog: {
+      reason: {
+        registryVersion: AUDIT_REASON_REGISTRY_VERSION,
+        reasonCode: 'manual_override',
+        explanation: 'Administrator settled outstanding payment from the linked client wallet',
+      },
+      primarySubject: paymentPrimarySubject(input.paymentId),
+      affectedSubjects,
+      effects,
+      monetaryEventIds: [...input.monetaryEventIds],
+      adminIssueIds,
       resultingRevisions,
     },
     outboxObligations: [],

@@ -215,6 +215,34 @@ describe('canonical Admin lesson booking commands', () => {
     );
   });
 
+  it('pays a linked unpaid lesson from the canonical wallet without a client amount', async () => {
+    const idempotencyKey = createAdminLessonBookingAttemptId(
+      'pay_service_from_wallet_as_administrator'
+    );
+    await executeAdminLessonBookingAttempt('admin_account_01', {
+      kind: 'pay_service_from_wallet_as_administrator',
+      target,
+      idempotencyKey,
+      paymentId: 'payment_admin_command_01',
+      paymentRevision: 4,
+    });
+
+    expect(executeMock).toHaveBeenCalledWith(
+      'admin_account_01',
+      expect.objectContaining({
+        kind: 'pay_service_from_wallet_as_administrator',
+        idempotencyKey,
+        intent: {
+          subjectKind: 'booking',
+          bookingId: target.bookingId,
+        },
+      })
+    );
+    expect(executeMock.mock.calls[0]?.[1]).not.toHaveProperty('expectedRevision');
+    expect(executeMock.mock.calls[0]?.[1].intent).not.toHaveProperty('amount');
+    expect(executeMock.mock.calls[0]?.[1].intent).not.toHaveProperty('accountId');
+  });
+
   it('uses participant-specific attendance commands and never complete_booking', async () => {
     const attempt: AdminLessonBookingMutationAttempt = {
       kind: 'record_booking_attendance',

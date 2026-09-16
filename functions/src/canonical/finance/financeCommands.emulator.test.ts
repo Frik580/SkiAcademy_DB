@@ -4,12 +4,17 @@ import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import {
   AccountSchema,
   AggregateRevisionSchema,
+  BookingIdSchema,
+  BookingSchema,
   CorrelationIdSchema,
   PaymentSchema,
   PaymentIdSchema,
   WalletSchema,
   accountCommandActor,
+  initialBookingOccurrenceIdFromBookingId,
+  monetaryEventIdFromAdminWalletPayment,
   monetaryEventIdFromCommandEffect,
+  paymentIdFromBookingId,
   resolveCommandIdempotencyIdentity,
   timestampFromDate,
   type CommandEnvelope,
@@ -24,6 +29,8 @@ const correlationIdB = CorrelationIdSchema.parse('correlation_finance_emulator_0
 const accountId = 'account_finance_emulator_01';
 const paymentIdA = PaymentIdSchema.parse('payment_finance_emulator_01');
 const paymentIdB = PaymentIdSchema.parse('payment_finance_emulator_02');
+const walletPayBookingId = BookingIdSchema.parse('booking_finance_emulator_wallet_01');
+const walletPayPaymentId = paymentIdFromBookingId(walletPayBookingId);
 const decidedAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
 
 let app: App;
@@ -80,6 +87,66 @@ function seedPayment(paymentId: typeof paymentIdA, subjectId: string) {
     eventRevision: 1,
     createdAt: decidedAt,
     updatedAt: decidedAt,
+  });
+}
+
+function seedUnpaidWalletPayment() {
+  return PaymentSchema.parse({
+    paymentId: walletPayPaymentId,
+    subjectType: 'booking',
+    subjectId: walletPayBookingId,
+    currency: 'KZT',
+    originalPrice: 70_000,
+    price: 70_000,
+    paidAmount: 0,
+    refundedAmount: 0,
+    retainedAmount: 0,
+    settledAmount: 0,
+    writtenOffAmount: 0,
+    outstandingAmount: 70_000,
+    paymentStatus: 'unpaid',
+    incrementalRequirements: [],
+    payerAccountId: accountId,
+    revision: 1,
+    eventRevision: 1,
+    createdAt: decidedAt,
+    updatedAt: decidedAt,
+  });
+}
+
+function seedWalletPayBooking() {
+  return BookingSchema.parse({
+    bookingId: walletPayBookingId,
+    attribution: {
+      bookingOrigin: 'admin',
+      bookedBy: { kind: 'account', accountId },
+    },
+    party: {
+      kind: 'individual',
+      participantIds: ['participant_finance_emulator_01'],
+    },
+    occurrence: {
+      occurrenceId: initialBookingOccurrenceIdFromBookingId(walletPayBookingId),
+      instructorId: 'instructor_finance_emulator_01',
+      interval: {
+        startsAt: timestampFromDate(new Date('2026-01-15T04:00:00.000Z')),
+        endsAt: timestampFromDate(new Date('2026-01-15T05:00:00.000Z')),
+      },
+      timeZone: 'Asia/Almaty',
+      scheduleRevision: 1,
+      serviceParty: { participantIds: ['participant_finance_emulator_01'] },
+    },
+    lifecycle: { status: 'confirmed' },
+    paymentId: walletPayPaymentId,
+    payerAccountId: accountId,
+    revision: 1,
+    createdAt: decidedAt,
+    updatedAt: decidedAt,
+    audit: {
+      createdByCommandId: 'command_seed_booking',
+      lastChangedByCommandId: 'command_seed_booking',
+      correlationId,
+    },
   });
 }
 
@@ -292,6 +359,81 @@ describe.skipIf(!runsOnFirestoreEmulator)('finance commands emulator concurrency
       const identity = resolveCommandIdempotencyIdentity(envelope);
       const eventId = monetaryEventIdFromCommandEffect(identity.commandKey, 0);
       const events = await firestore.collection('monetary_events').where('eventId', '==', eventId).get();
+      expect(events.size).toBe(1);
+    },
+    30_000
+  );
+
+  it(
+    'debits a linked unpaid lesson once under concurrent admin wallet payment attempts',
+    async () => {
+      await clearCollections([
+        'users',
+        'bookings',
+        'payments',
+        'monetary_events',
+        'activity_logs',
+        'command_idempotency',
+        'provider_event_receipts',
+      ]);
+      await firestore.collection('users').doc(accountId).set(seedAccount());
+      await firestore
+        .collection('users')
+        .doc(accountId)
+        .collection('wallet')
+        .doc('state')
+        .set(seedWallet(80_000));
+      await firestore.collection('bookings').doc(walletPayBookingId).set(seedWalletPayBooking());
+      await firestore.collection('payments').doc(walletPayPaymentId).set(seedUnpaidWalletPayment());
+
+      const executor = createFirestoreCanonicalTransactionExecutor(firestore);
+      const commands = createProductionCanonicalCommands(
+        { clock: createAuthoritativeCommandClock(new Date('2026-01-01T00:00:00.000Z')) },
+        executor
+      );
+
+      const first: CommandEnvelope<'pay_service_from_wallet_as_administrator'> = {
+        kind: 'pay_service_from_wallet_as_administrator',
+        context: {
+          actor: accountCommandActor(accountId),
+          exercisedCapability: 'administrator',
+          idempotencyKey: 'admin-wallet-concurrent-a',
+          correlationId,
+          source: 'admin_callable',
+        },
+        intent: { subjectKind: 'booking', bookingId: walletPayBookingId },
+      };
+      const second: CommandEnvelope<'pay_service_from_wallet_as_administrator'> = {
+        ...first,
+        context: {
+          ...first.context,
+          idempotencyKey: 'admin-wallet-concurrent-b',
+          correlationId: correlationIdB,
+        },
+      };
+
+      const [left, right] = await Promise.all([commands.execute(first), commands.execute(second)]);
+      expect([left.status, right.status].sort()).toEqual(['success', 'success']);
+
+      const walletSnapshot = await firestore
+        .collection('users')
+        .doc(accountId)
+        .collection('wallet')
+        .doc('state')
+        .get();
+      expect(walletSnapshot.data()?.balance).toBe(10_000);
+
+      const paymentSnapshot = await firestore.collection('payments').doc(walletPayPaymentId).get();
+      expect(paymentSnapshot.data()).toMatchObject({
+        outstandingAmount: 0,
+        paymentStatus: 'paid',
+      });
+
+      const eventId = monetaryEventIdFromAdminWalletPayment(walletPayPaymentId);
+      const events = await firestore
+        .collection('monetary_events')
+        .where('eventId', '==', eventId)
+        .get();
       expect(events.size).toBe(1);
     },
     30_000

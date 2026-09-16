@@ -28,6 +28,7 @@ export const ADMINISTRATOR_COMMAND_KINDS: ReadonlySet<CommandKind> = new Set([
   'record_financial_correction',
   'record_manual_wallet_funding',
   'record_provider_payment_event',
+  'pay_service_from_wallet_as_administrator',
   'record_audit_correction',
   'enforce_payment_start_gate',
   'create_course_day',

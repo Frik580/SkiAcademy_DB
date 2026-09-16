@@ -182,7 +182,11 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
     const result = await commands.runAttempt(confirmation.attempt);
     setMutationPending(false);
     if (result.status === 'success') {
-      if (result.refreshFailed && confirmation.attempt.kind === 'record_provider_payment_event') {
+      if (
+        result.refreshFailed &&
+        (confirmation.attempt.kind === 'record_provider_payment_event' ||
+          confirmation.attempt.kind === 'pay_service_from_wallet_as_administrator')
+      ) {
         setMutationNotice(t.paymentRecordedRefreshPending);
       }
       setConfirmation(undefined);
@@ -390,6 +394,14 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
                 setConfirmation(undefined);
               }}
               onRequestAttempt={requestDetailAttempt}
+              paymentActionPending={
+                mutationPending && confirmation?.attempt.kind === 'record_provider_payment_event'
+                  ? 'cash'
+                  : mutationPending &&
+                      confirmation?.attempt.kind === 'pay_service_from_wallet_as_administrator'
+                    ? 'wallet'
+                    : undefined
+              }
               onOpenPayment={(paymentId) =>
                 updateQuery({
                   [ADMIN_TAB_QUERY_KEY]: 'finance',

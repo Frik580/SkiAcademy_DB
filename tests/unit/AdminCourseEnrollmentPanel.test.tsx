@@ -511,6 +511,133 @@ describe('AdminCourseEnrollmentPanel', () => {
     });
   });
 
+  it('shows client balance and Debit from balance for a linked unpaid enrollment', async () => {
+    queryAdminCourseEnrollmentReadModels.mockImplementation(async (input) => {
+      const unpaid = {
+        ...rosterItem,
+        payment: {
+          ...rosterItem.payment,
+          payerWalletBalance: 40_000,
+        },
+        authorizedActions: {
+          ...rosterItem.authorizedActions,
+          canResolveCancellation: false,
+          canRecordPayment: true,
+          canPayFromWallet: true,
+        },
+      };
+      return input.scope === 'admin_enrollment_detail'
+        ? {
+            scope: 'admin_enrollment_detail',
+            item: {
+              ...detail,
+              ...unpaid,
+              cancellation: undefined,
+              authorizedActions: unpaid.authorizedActions,
+            },
+          }
+        : { scope: input.scope, items: [unpaid], hasMore: false };
+    });
+    render(
+      <MemoryRouter initialEntries={['/?enrollment=course_enrollment_admin_component_01']}>
+        <AdminCourseEnrollmentPanel adminAccountId="account_admin_component_01" />
+      </MemoryRouter>
+    );
+    expect(await screen.findByRole('button', { name: 'Accept payment' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Debit from balance' })).toBeEnabled();
+    expect(screen.getByText(/Client balance/)).toBeVisible();
+  });
+
+  it('disables Debit from balance when the linked client balance is insufficient', async () => {
+    queryAdminCourseEnrollmentReadModels.mockImplementation(async (input) => {
+      const unpaid = {
+        ...rosterItem,
+        payment: {
+          ...rosterItem.payment,
+          payerWalletBalance: 1_000,
+        },
+        authorizedActions: {
+          ...rosterItem.authorizedActions,
+          canResolveCancellation: false,
+          canRecordPayment: true,
+          canPayFromWallet: true,
+        },
+      };
+      return input.scope === 'admin_enrollment_detail'
+        ? {
+            scope: 'admin_enrollment_detail',
+            item: {
+              ...detail,
+              ...unpaid,
+              cancellation: undefined,
+              authorizedActions: unpaid.authorizedActions,
+            },
+          }
+        : { scope: input.scope, items: [unpaid], hasMore: false };
+    });
+    render(
+      <MemoryRouter initialEntries={['/?enrollment=course_enrollment_admin_component_01']}>
+        <AdminCourseEnrollmentPanel adminAccountId="account_admin_component_01" />
+      </MemoryRouter>
+    );
+    expect(await screen.findByRole('button', { name: 'Accept payment' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Debit from balance' })).toBeDisabled();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Insufficient client balance for this payment.'
+    );
+  });
+
+  it('submits pay_service_from_wallet_as_administrator for a linked unpaid enrollment', async () => {
+    const user = userEvent.setup();
+    queryAdminCourseEnrollmentReadModels.mockImplementation(async (input) => {
+      const unpaid = {
+        ...rosterItem,
+        payment: {
+          ...rosterItem.payment,
+          payerWalletBalance: 40_000,
+        },
+        authorizedActions: {
+          ...rosterItem.authorizedActions,
+          canResolveCancellation: false,
+          canRecordPayment: true,
+          canPayFromWallet: true,
+        },
+      };
+      return input.scope === 'admin_enrollment_detail'
+        ? {
+            scope: 'admin_enrollment_detail',
+            item: {
+              ...detail,
+              ...unpaid,
+              cancellation: undefined,
+              authorizedActions: unpaid.authorizedActions,
+            },
+          }
+        : { scope: input.scope, items: [unpaid], hasMore: false };
+    });
+    render(
+      <MemoryRouter initialEntries={['/?enrollment=course_enrollment_admin_component_01']}>
+        <AdminCourseEnrollmentPanel adminAccountId="account_admin_component_01" />
+      </MemoryRouter>
+    );
+    await user.click(await screen.findByRole('button', { name: 'Debit from balance' }));
+    await user.click(screen.getByRole('button', { name: 'Confirm' }));
+    await waitFor(() => expect(executeAuthenticatedCanonicalCommand).toHaveBeenCalledTimes(1));
+    expect(executeAuthenticatedCanonicalCommand.mock.calls[0]?.[1]).toMatchObject({
+      kind: 'pay_service_from_wallet_as_administrator',
+      intent: {
+        subjectKind: 'course_enrollment',
+        enrollmentId: rosterItem.enrollmentId,
+      },
+    });
+    expect(executeAuthenticatedCanonicalCommand.mock.calls[0]?.[1].intent).not.toHaveProperty(
+      'amount'
+    );
+    expect(executeAuthenticatedCanonicalCommand.mock.calls[0]?.[1]).not.toHaveProperty(
+      'expectedRevision'
+    );
+  });
+
   it('hides Accept payment when the server does not authorize capture', async () => {
     queryAdminCourseEnrollmentReadModels.mockImplementation(async (input) => {
       const paid = {

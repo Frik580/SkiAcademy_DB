@@ -137,6 +137,14 @@ const COMMAND_KIND_ALLOWED_EFFECTS: Partial<Record<CommandKind, readonly AuditEf
     'course_enrollment_lifecycle_changed',
     'outbox_obligation_created',
   ],
+  pay_service_from_wallet_as_administrator: [
+    'payment_state_changed',
+    'wallet_balance_changed',
+    'admin_issue_resolved',
+    'booking_lifecycle_changed',
+    'course_enrollment_lifecycle_changed',
+    'outbox_obligation_created',
+  ],
   adjust_service_price: [
     'payment_state_changed',
     'wallet_balance_changed',

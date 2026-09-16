@@ -83,6 +83,17 @@ export function monetaryEventIdFromCourseEnrollmentInitialCharge(
   );
 }
 
+/**
+ * Deterministic admin wallet-settlement identity for one Payment.
+ * Concurrent/retry admin balance-pay commands with different idempotency keys
+ * must collide on this document so the linked wallet cannot be debited twice.
+ */
+export function monetaryEventIdFromAdminWalletPayment(paymentId: PaymentId): MonetaryEventId {
+  return MonetaryEventIdSchema.parse(
+    canonicalDeterministicHash(['monetary:v1', 'admin_wallet_payment', paymentId])
+  );
+}
+
 export function participantBlockIdFromDirection(input: {
   readonly participantId: ParticipantId;
   readonly instructorId: InstructorId;

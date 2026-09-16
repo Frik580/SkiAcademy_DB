@@ -54,6 +54,7 @@ export class ReadModelRequestContext {
   private readonly instructorById = new Map<string, Promise<DocumentSnapshot>>();
   private readonly courseById = new Map<string, Promise<DocumentSnapshot>>();
   private readonly paymentById = new Map<string, Promise<DocumentSnapshot>>();
+  private readonly walletByAccountId = new Map<string, Promise<DocumentSnapshot>>();
   private readonly bookingById = new Map<string, Promise<DocumentSnapshot>>();
   private readonly enrollmentById = new Map<string, Promise<DocumentSnapshot>>();
   private readonly attendanceById = new Map<string, Promise<DocumentSnapshot>>();
@@ -156,6 +157,12 @@ export class ReadModelRequestContext {
   payment(paymentId: PaymentId): Promise<DocumentSnapshot> {
     return this.memoize(this.paymentById, paymentId, () =>
       this.firestore.collection('payments').doc(paymentId).get()
+    );
+  }
+
+  wallet(accountId: AccountId): Promise<DocumentSnapshot> {
+    return this.memoize(this.walletByAccountId, accountId, () =>
+      this.firestore.doc(`users/${accountId}/wallet/state`).get()
     );
   }
 

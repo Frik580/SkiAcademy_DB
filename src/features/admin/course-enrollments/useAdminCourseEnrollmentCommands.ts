@@ -74,6 +74,20 @@ export async function executeAdminCourseEnrollmentAttempt(
     return;
   }
 
+  if (attempt.kind === 'pay_service_from_wallet_as_administrator') {
+    await assertCommandSucceeded(
+      executeAuthenticatedCanonicalCommand(adminAccountId, {
+        kind: attempt.kind,
+        intent: {
+          subjectKind: 'course_enrollment',
+          enrollmentId: CourseEnrollmentIdSchema.parse(attempt.target.enrollmentId),
+        },
+        idempotencyKey: attempt.idempotencyKey,
+      })
+    );
+    return;
+  }
+
   const courseEnrollmentId = CourseEnrollmentIdSchema.parse(attempt.target.enrollmentId);
   const expectedRevision = AggregateRevisionSchema.parse(attempt.target.revision);
   if (attempt.kind === 'resolve_course_enrollment_cancellation') {
@@ -202,7 +216,10 @@ export function useAdminCourseEnrollmentCommands(input: {
           await refresh();
           return { status: 'success' };
         } catch {
-          if (attempt.kind === 'record_provider_payment_event') {
+          if (
+            attempt.kind === 'record_provider_payment_event' ||
+            attempt.kind === 'pay_service_from_wallet_as_administrator'
+          ) {
             return { status: 'success', refreshFailed: true };
           }
           return {

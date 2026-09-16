@@ -18,6 +18,7 @@ import {
   isTerminalCourseEnrollmentLifecycle,
   evaluateAdminGuestCourseEnrollmentIdentityLinkAvailability,
   evaluateGuestManualPaymentAcceptance,
+  KztMinorUnitsSchema,
   refundableRetainedAmount,
   resolveCourseEnrollmentRefundDestination,
   sortedCourseDays,
@@ -36,7 +37,7 @@ import {
   type ReadModelAdministratorActor,
 } from '@ski-academy/shared-domain';
 import { parseAdminIssue } from '../adminIssues/adminIssueStore';
-import { parsePayment } from '../finance/financeStore';
+import { parsePayment, parseWallet } from '../finance/financeStore';
 import { parseAccount, parseParticipant } from '../participantAccess/participantAccessStore';
 import { parseCourse } from '../courses/courseStore';
 import { parseCourseDays } from '../courses/courseStore';
@@ -152,6 +153,11 @@ function authorizedActions(
         administratorAccountActive,
         now,
       }),
+      canPayFromWallet: canPayAdminCourseEnrollmentFromWallet({
+        enrollment,
+        payment,
+        administratorAccountActive,
+      }),
       canResolveCancellation: enrollment.lifecycle.status === 'pending_cancellation',
       canTransfer: transfer.eligible,
       canReconcile,
@@ -201,6 +207,25 @@ function canRecordAdminCourseEnrollmentPayment(input: {
     );
   }
   return true;
+}
+
+function canPayAdminCourseEnrollmentFromWallet(input: {
+  readonly enrollment: CourseEnrollment;
+  readonly payment: Payment | undefined;
+  readonly administratorAccountActive: boolean;
+}): boolean {
+  if (!input.administratorAccountActive || !input.payment || input.payment.outstandingAmount <= 0) {
+    return false;
+  }
+  const lifecycleStatus = input.enrollment.lifecycle.status;
+  if (lifecycleStatus !== 'pending' && lifecycleStatus !== 'confirmed') {
+    return false;
+  }
+  const payerAccountId =
+    input.enrollment.payerAccountId ??
+    input.payment.payerAccountId ??
+    input.enrollment.guestAccountLink?.linkedAccountId;
+  return payerAccountId !== undefined;
 }
 
 function attendanceDayProjection(input: {
@@ -436,11 +461,27 @@ async function buildAdminCourseEnrollmentItem(
   const payment = parsePayment(paymentSnapshot.data() as Record<string, unknown> | undefined);
   if (!course || !participant) return undefined;
 
-  const payerAccountId = enrollment.payerAccountId ?? payment?.payerAccountId;
+  const payerAccountId =
+    enrollment.payerAccountId ??
+    payment?.payerAccountId ??
+    enrollment.guestAccountLink?.linkedAccountId;
   const payerSnapshot = payerAccountId
     ? await readContext.account(payerAccountId)
     : undefined;
   const payerData = payerSnapshot?.data() as Record<string, unknown> | undefined;
+  const payerWalletBalance =
+    includeOperationalDetail && payerAccountId && payment && payment.outstandingAmount > 0
+      ? await (async () => {
+          const walletSnap = await readContext.wallet(payerAccountId);
+          const wallet = parseWallet(walletSnap.data() as Record<string, unknown> | undefined);
+          if (walletSnap.exists && (!wallet || wallet.accountId !== payerAccountId)) {
+            throw new Error(
+              `Canonical Admin course enrollment read integrity failure: users/${payerAccountId}/wallet/state`
+            );
+          }
+          return wallet?.balance ?? KztMinorUnitsSchema.parse(0);
+        })()
+      : undefined;
   const transfer = transferDecision(enrollment, course);
   const [reconciliation, targetOptions, attendanceDays] = includeOperationalDetail
     ? await Promise.all([
@@ -512,6 +553,7 @@ async function buildAdminCourseEnrollmentItem(
             settled: payment.settledAmount,
             writtenOff: payment.writtenOffAmount,
             outstanding: payment.outstandingAmount,
+            ...(payerWalletBalance === undefined ? {} : { payerWalletBalance }),
           },
         }
       : {}),

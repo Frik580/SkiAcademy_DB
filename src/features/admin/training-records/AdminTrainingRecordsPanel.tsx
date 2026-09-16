@@ -342,7 +342,8 @@ export function AdminTrainingRecordsPanel({
       if (result.status === 'success') {
         if (
           result.refreshFailed &&
-          lessonConfirmation.attempt.kind === 'record_provider_payment_event'
+          (lessonConfirmation.attempt.kind === 'record_provider_payment_event' ||
+            lessonConfirmation.attempt.kind === 'pay_service_from_wallet_as_administrator')
         ) {
           setMutationNotice(t('adminLessonPaymentRecordedRefreshPending'));
         }
@@ -360,7 +361,8 @@ export function AdminTrainingRecordsPanel({
     if (result.status === 'success') {
       if (
         result.refreshFailed &&
-        courseConfirmation.attempt.kind === 'record_provider_payment_event'
+        (courseConfirmation.attempt.kind === 'record_provider_payment_event' ||
+          courseConfirmation.attempt.kind === 'pay_service_from_wallet_as_administrator')
       ) {
         setMutationNotice(courseCopy.paymentRecordedRefreshPending);
       }
@@ -741,6 +743,16 @@ export function AdminTrainingRecordsPanel({
                     [ADMIN_ISSUE_QUERY_KEY]: issueId,
                   })
                 }
+                paymentActionPending={
+                  mutationPending &&
+                  lessonConfirmation?.attempt.kind === 'record_provider_payment_event'
+                    ? 'cash'
+                    : mutationPending &&
+                        lessonConfirmation?.attempt.kind ===
+                          'pay_service_from_wallet_as_administrator'
+                      ? 'wallet'
+                      : undefined
+                }
               />
             )
           ) : courseReads.detail.loading ? (
@@ -805,6 +817,16 @@ export function AdminTrainingRecordsPanel({
                     [ADMIN_TAB_QUERY_KEY]: 'operations',
                     [ADMIN_ISSUE_QUERY_KEY]: issueId,
                   })
+                }
+                paymentActionPending={
+                  mutationPending &&
+                  courseConfirmation?.attempt.kind === 'record_provider_payment_event'
+                    ? 'cash'
+                    : mutationPending &&
+                        courseConfirmation?.attempt.kind ===
+                          'pay_service_from_wallet_as_administrator'
+                      ? 'wallet'
+                      : undefined
                 }
                 onClose={() => updateQuery({ [ADMIN_COURSE_ENROLLMENT_QUERY_KEY]: undefined })}
               />

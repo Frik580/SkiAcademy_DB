@@ -9,6 +9,7 @@ export function assertAdministratorFinanceAccess(
   envelope: CommandEnvelope<
     | 'record_manual_wallet_funding'
     | 'record_provider_payment_event'
+    | 'pay_service_from_wallet_as_administrator'
     | 'adjust_service_price'
     | 'record_financial_correction'
     | 'record_audit_correction'
@@ -39,6 +40,7 @@ export function assertFinanceAuthorization(
   envelope: CommandEnvelope<
     | 'record_manual_wallet_funding'
     | 'record_provider_payment_event'
+    | 'pay_service_from_wallet_as_administrator'
     | 'adjust_service_price'
     | 'record_financial_correction'
     | 'record_audit_correction'

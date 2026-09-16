@@ -48,9 +48,10 @@ describe('T32.4 canonical Admin lesson booking boundary', () => {
     expect(commands).toContain("attempt.kind === 'resolve_booking_change_request'");
     expect(commands).toContain('bookingRevision');
     expect(commands).toContain("attempt.kind === 'record_provider_payment_event'");
+    expect(commands).toContain("attempt.kind === 'pay_service_from_wallet_as_administrator'");
     expect(commands).toContain("sourceKind: 'cash'");
     expect(detail).toContain('canRecordGuestPayment');
-    expect(commands).toContain("kind: 'finalize_booking_attendance'");
+    expect(commands).toContain("attempt.kind === 'finalize_booking_attendance'");
     expect(activePaymentBoundary).not.toContain('completeBooking');
     expect(activePaymentBoundary).not.toContain('linkGuestBookingService');
     expect(activePaymentBoundary).not.toContain('schoolGuestWallet');

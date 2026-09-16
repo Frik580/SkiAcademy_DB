@@ -116,6 +116,7 @@ export interface AdminCourseEnrollmentDetailProps {
   readonly onClose: () => void;
   readonly showClose?: boolean;
   readonly instructorLabel?: string;
+  readonly paymentActionPending?: 'cash' | 'wallet';
 }
 
 export function AdminCourseEnrollmentDetail({
@@ -140,6 +141,7 @@ export function AdminCourseEnrollmentDetail({
   onClose,
   showClose = true,
   instructorLabel,
+  paymentActionPending,
 }: AdminCourseEnrollmentDetailProps) {
   const [activeSection, setActiveSection] = useState<CourseDetailSection>('overview');
   const availableTargetCourses = detail.transfer.targetOptions;
@@ -367,8 +369,10 @@ export function AdminCourseEnrollmentDetail({
       )}
       <AdminPaymentCaptureSection
         canRecordPayment={detail.authorizedActions.canRecordPayment}
+        canPayFromWallet={detail.authorizedActions.canPayFromWallet}
         amount={paymentAmount}
         outstanding={payment.outstanding}
+        walletBalance={payment.payerWalletBalance}
         onAmountChange={onPaymentAmountChange}
         onRecord={() =>
           onRequestAttempt(
@@ -380,9 +384,24 @@ export function AdminCourseEnrollmentDetail({
             t.confirmPayment.replace('{amount}', money(parsedPaymentAmount))
           )
         }
+        onPayFromWallet={() =>
+          onRequestAttempt(
+            {
+              kind: 'pay_service_from_wallet_as_administrator',
+              paymentRevision: payment.revision,
+            },
+            t.confirmWalletPayment.replace('{amount}', money(payment.outstanding))
+          )
+        }
         amountLabel={t.paymentAmount}
         recordLabel={t.recordPayment}
+        payFromWalletLabel={t.payFromWallet}
+        clientBalanceLabel={t.clientBalance}
+        insufficientFundsLabel={t.insufficientWallet}
+        submittingLabel={t.submitting}
+        formatAmount={money}
         inputId="admin-course-enrollment-payment-amount"
+        pendingAction={paymentActionPending}
       />
       <button
         type="button"

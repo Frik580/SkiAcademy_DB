@@ -191,7 +191,11 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
     const result = await commands.runAttempt(confirmation.attempt);
     setMutationPending(false);
     if (result.status === 'success') {
-      if (result.refreshFailed && confirmation.attempt.kind === 'record_provider_payment_event') {
+      if (
+        result.refreshFailed &&
+        (confirmation.attempt.kind === 'record_provider_payment_event' ||
+          confirmation.attempt.kind === 'pay_service_from_wallet_as_administrator')
+      ) {
         setMutationNotice(t('adminLessonPaymentRecordedRefreshPending'));
       }
       setConfirmation(undefined);
@@ -387,6 +391,14 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
               onOpenPayment={handleOpenPayment}
               onOpenIssue={handleOpenIssue}
               focusedChangeRequestId={focusedChangeRequestId}
+              paymentActionPending={
+                mutationPending && confirmation?.attempt.kind === 'record_provider_payment_event'
+                  ? 'cash'
+                  : mutationPending &&
+                      confirmation?.attempt.kind === 'pay_service_from_wallet_as_administrator'
+                    ? 'wallet'
+                    : undefined
+              }
             />
           )}
         </aside>

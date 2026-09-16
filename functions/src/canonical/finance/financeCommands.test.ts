@@ -5,13 +5,17 @@ import {
   BookingIdSchema,
   BookingSchema,
   CorrelationIdSchema,
+  CourseEnrollmentIdSchema,
+  CourseEnrollmentSchema,
   PaymentSchema,
   WalletSchema,
   accountCommandActor,
   activityLogIdFromCommandId,
   initialBookingOccurrenceIdFromBookingId,
+  monetaryEventIdFromAdminWalletPayment,
   monetaryEventIdFromCommandEffect,
   paymentIdFromBookingId,
+  paymentIdFromCourseEnrollmentId,
   providerEventReceiptIdFromProviderEvent,
   resolveCommandIdempotencyIdentity,
   timestampFromDate,
@@ -19,6 +23,7 @@ import {
   type Payment,
   type Wallet,
 } from '@ski-academy/shared-domain';
+import { canonicalCourseDeliveryFixtures } from '@ski-academy/shared-domain/testing';
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
 import { createInMemoryCanonicalTransactionExecutor } from '../transactions';
@@ -27,6 +32,8 @@ const correlationId = CorrelationIdSchema.parse('correlation_finance_cmd_01');
 const accountId = 'account_finance_cmd_01';
 const bookingId = BookingIdSchema.parse('booking_finance_cmd_01');
 const paymentId = paymentIdFromBookingId(bookingId);
+const enrollmentId = CourseEnrollmentIdSchema.parse('course_enrollment_finance_cmd_01');
+const enrollmentPaymentId = paymentIdFromCourseEnrollmentId(enrollmentId);
 const decidedAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
 
 function environment(at = '2026-01-01T00:00:00.000Z') {
@@ -144,6 +151,69 @@ async function runCommand<Kind extends CommandEnvelope['kind']>(
   envelope: CommandEnvelope<Kind>
 ) {
   return createProductionCanonicalCommands(environment(), executor).execute(envelope);
+}
+
+function seedGuestBooking() {
+  const { payerAccountId: _omitted, ...booking } = seedBooking();
+  return BookingSchema.parse({
+    ...booking,
+    attribution: {
+      bookingOrigin: 'guest',
+      bookedBy: { kind: 'guest', guestSubjectId: 'guest_subject_finance_cmd_01' },
+    },
+    lifecycle: {
+      status: 'pending',
+      reservationExpiresAt: timestampFromDate(new Date('2026-01-02T00:00:00.000Z')),
+    },
+  });
+}
+
+function seedEnrollment(overrides: Record<string, unknown> = {}) {
+  return CourseEnrollmentSchema.parse({
+    ...canonicalCourseDeliveryFixtures.confirmedEnrollment,
+    enrollmentId,
+    paymentId: enrollmentPaymentId,
+    payerAccountId: accountId,
+    attendanceSummary: undefined,
+    lifecycle: { status: 'confirmed' },
+    ...overrides,
+  });
+}
+
+function walletPayFixture(extra: Record<string, unknown> = {}) {
+  return {
+    [`users/${accountId}`]: seedAccount(),
+    [`bookings/${bookingId}`]: seedBooking(),
+    [`payments/${paymentId}`]: seedPayment(),
+    [`users/${accountId}/wallet/state`]: seedWallet(80_000),
+    ...extra,
+  };
+}
+
+function walletPayBookingEnvelope(
+  idempotencyKey: string
+): CommandEnvelope<'pay_service_from_wallet_as_administrator'> {
+  return {
+    kind: 'pay_service_from_wallet_as_administrator',
+    context: adminContext(idempotencyKey),
+    intent: { subjectKind: 'booking', bookingId },
+  };
+}
+
+function walletPayEnrollmentEnvelope(
+  idempotencyKey: string
+): CommandEnvelope<'pay_service_from_wallet_as_administrator'> {
+  return {
+    kind: 'pay_service_from_wallet_as_administrator',
+    context: adminContext(idempotencyKey),
+    intent: { subjectKind: 'course_enrollment', enrollmentId },
+  };
+}
+
+function monetaryEventCount(
+  snapshot: ReturnType<ReturnType<typeof createInMemoryCanonicalTransactionExecutor>['snapshot']>
+) {
+  return [...snapshot.docs.keys()].filter((path) => path.startsWith('monetary_events/')).length;
 }
 
 describe('finance commands', () => {
@@ -474,4 +544,210 @@ describe('finance commands', () => {
     expect(result.status).toBe('error');
     expect(result.status === 'error' ? result.error.code : '').toBe('insufficient_funds');
   });
+
+  it('debits a linked unpaid lesson once and marks Payment paid', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(walletPayFixture());
+    const result = await runCommand(executor, walletPayBookingEnvelope('admin-wallet-lesson-1'));
+    expect(result.status).toBe('success');
+
+    const snapshot = executor.snapshot();
+    expect(snapshot.docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(10_000);
+    expect(snapshot.docs.get(`payments/${paymentId}`)?.data).toMatchObject({
+      paidAmount: 100_000,
+      outstandingAmount: 0,
+      paymentStatus: 'paid',
+      payerAccountId: accountId,
+    });
+    const eventId = monetaryEventIdFromAdminWalletPayment(paymentId);
+    expect(snapshot.docs.get(`monetary_events/${eventId}`)?.data).toMatchObject({
+      eventKind: 'booking_charge',
+      sourceKind: 'wallet',
+      walletBalanceDelta: -70_000,
+      walletAccountId: accountId,
+      paymentId,
+    });
+    expect(monetaryEventCount(snapshot)).toBe(1);
+  });
+
+  it('debits a linked unpaid course enrollment once and marks Payment paid', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${accountId}`]: seedAccount(),
+      [`course_enrollments/${enrollmentId}`]: seedEnrollment(),
+      [`payments/${enrollmentPaymentId}`]: seedPayment({
+        paymentId: enrollmentPaymentId,
+        subjectType: 'course_enrollment',
+        subjectId: enrollmentId,
+        payerAccountId: accountId,
+      }),
+      [`users/${accountId}/wallet/state`]: seedWallet(80_000),
+    });
+
+    const result = await runCommand(
+      executor,
+      walletPayEnrollmentEnvelope('admin-wallet-course-1')
+    );
+    expect(result.status).toBe('success');
+
+    const snapshot = executor.snapshot();
+    expect(snapshot.docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(10_000);
+    expect(snapshot.docs.get(`payments/${enrollmentPaymentId}`)?.data).toMatchObject({
+      paidAmount: 100_000,
+      outstandingAmount: 0,
+      paymentStatus: 'paid',
+    });
+    const eventId = monetaryEventIdFromAdminWalletPayment(enrollmentPaymentId);
+    expect(snapshot.docs.get(`monetary_events/${eventId}`)?.data).toMatchObject({
+      eventKind: 'course_charge',
+      sourceKind: 'wallet',
+      walletBalanceDelta: -70_000,
+    });
+    expect(monetaryEventCount(snapshot)).toBe(1);
+  });
+
+  it('rejects insufficient wallet funds without debiting or marking paid', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(
+      walletPayFixture({
+        [`users/${accountId}/wallet/state`]: seedWallet(1_000),
+      })
+    );
+
+    const result = await runCommand(
+      executor,
+      walletPayBookingEnvelope('admin-wallet-insufficient')
+    );
+    expect(result.status).toBe('error');
+    expect(result.status === 'error' ? result.error.code : '').toBe('insufficient_funds');
+    expect(executor.snapshot().docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(
+      1_000
+    );
+    expect(executor.snapshot().docs.get(`payments/${paymentId}`)?.data).toMatchObject({
+      paidAmount: 30_000,
+      outstandingAmount: 70_000,
+      paymentStatus: 'partially_paid',
+      revision: 1,
+    });
+    expect(monetaryEventCount(executor.snapshot())).toBe(0);
+  });
+
+  it('rejects wallet payment for an unlinked guest resource', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${accountId}`]: seedAccount(),
+      [`bookings/${bookingId}`]: seedGuestBooking(),
+      [`payments/${paymentId}`]: seedPayment({
+        paidAmount: 0,
+        retainedAmount: 0,
+        settledAmount: 0,
+        outstandingAmount: 100_000,
+        paymentStatus: 'unpaid',
+      }),
+      [`users/${accountId}/wallet/state`]: seedWallet(80_000),
+    });
+
+    const result = await runCommand(executor, walletPayBookingEnvelope('admin-wallet-unlinked'));
+    expect(result.status).toBe('error');
+    expect(result.status === 'error' ? result.error.code : '').toBe('validation');
+    expect(executor.snapshot().docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(
+      80_000
+    );
+    expect(executor.snapshot().docs.get(`payments/${paymentId}`)?.data).toMatchObject({
+      paidAmount: 0,
+      outstandingAmount: 100_000,
+      paymentStatus: 'unpaid',
+    });
+    expect(monetaryEventCount(executor.snapshot())).toBe(0);
+  });
+
+  it('does not debit the wallet when the Payment is already paid', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(
+      walletPayFixture({
+        [`payments/${paymentId}`]: seedPayment({
+          paidAmount: 100_000,
+          retainedAmount: 100_000,
+          settledAmount: 100_000,
+          outstandingAmount: 0,
+          paymentStatus: 'paid',
+        }),
+      })
+    );
+
+    const result = await runCommand(executor, walletPayBookingEnvelope('admin-wallet-already-paid'));
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(
+      80_000
+    );
+    expect(monetaryEventCount(executor.snapshot())).toBe(0);
+  });
+
+  it('replays the same admin wallet payment without a second debit', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(walletPayFixture());
+    const envelope = walletPayBookingEnvelope('admin-wallet-replay');
+
+    expect((await runCommand(executor, envelope)).status).toBe('success');
+    expect((await runCommand(executor, envelope)).status).toBe('success');
+
+    const snapshot = executor.snapshot();
+    expect(snapshot.docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(10_000);
+    expect(monetaryEventCount(snapshot)).toBe(1);
+  });
+
+  it('treats a later distinct retry as already paid without a second debit', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(walletPayFixture());
+    expect(
+      (await runCommand(executor, walletPayBookingEnvelope('admin-wallet-first'))).status
+    ).toBe('success');
+    expect(
+      (await runCommand(executor, walletPayBookingEnvelope('admin-wallet-second'))).status
+    ).toBe('success');
+
+    const snapshot = executor.snapshot();
+    expect(snapshot.docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(10_000);
+    expect(monetaryEventCount(snapshot)).toBe(1);
+  });
+
+  it('still records manual cash capture without debiting the canonical wallet', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(walletPayFixture());
+
+    const result = await runCommand(executor, {
+      kind: 'record_provider_payment_event',
+      context: {
+        ...adminContext('admin-cash-unchanged'),
+        expectedRevision: AggregateRevisionSchema.parse(1),
+      },
+      intent: {
+        paymentId,
+        amount: 20_000,
+        sourceKind: 'cash',
+        manualReference: 'admin-cash-unchanged-ref',
+      },
+    });
+
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(
+      80_000
+    );
+    expect(executor.snapshot().docs.get(`payments/${paymentId}`)?.data).toMatchObject({
+      paidAmount: 50_000,
+      outstandingAmount: 50_000,
+    });
+  });
+
+  it.each(['account_owner', 'instructor'] as const)(
+    'denies %s capability from paying a service from wallet',
+    async (exercisedCapability) => {
+      const executor = createInMemoryCanonicalTransactionExecutor(walletPayFixture());
+      const result = await runCommand(executor, {
+        ...walletPayBookingEnvelope('admin-wallet-forbidden'),
+        context: {
+          ...adminContext('admin-wallet-forbidden'),
+          exercisedCapability,
+          source: 'client_callable' as const,
+        },
+      });
+      expect(result.status).toBe('error');
+      expect(result.status === 'error' ? result.error.code : '').toBe('forbidden');
+      expect(executor.snapshot().docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(
+        80_000
+      );
+    }
+  );
 });

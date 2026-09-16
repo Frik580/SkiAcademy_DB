@@ -102,6 +102,25 @@ describe('resolveCallableAccountContext', () => {
     ).toThrow('forbidden');
   });
 
+  it('routes admin wallet payment only through trusted Admin authority', () => {
+    expect(
+      resolveCallableAccountContext(
+        { role: 'admin' },
+        { authUid: accountId, commandKind: 'pay_service_from_wallet_as_administrator' }
+      )
+    ).toMatchObject({
+      accountId,
+      capability: 'administrator',
+      source: 'admin_callable',
+    });
+    expect(() =>
+      resolveCallableAccountContext(
+        { role: 'user' },
+        { authUid: accountId, commandKind: 'pay_service_from_wallet_as_administrator' }
+      )
+    ).toThrow('forbidden');
+  });
+
   it('routes transfer_course_enrollment through trusted Admin authority', () => {
     expect(
       resolveCallableAccountContext(

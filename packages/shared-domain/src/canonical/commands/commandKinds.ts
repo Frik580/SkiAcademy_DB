@@ -65,6 +65,7 @@ export const COMMAND_KINDS = [
   'unlink_account_instructor_catalog',
   'repair_participant_management_owner_guard',
   'record_provider_payment_event',
+  'pay_service_from_wallet_as_administrator',
   'record_manual_wallet_funding',
   'adjust_service_price',
   'record_financial_correction',

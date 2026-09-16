@@ -92,6 +92,12 @@ export type AdminCourseEnrollmentAttempt =
       readonly target: AdminCourseEnrollmentTarget;
       readonly paymentRevision: number;
       readonly amount: number;
+    }
+  | {
+      readonly kind: 'pay_service_from_wallet_as_administrator';
+      readonly idempotencyKey: IdempotencyKey;
+      readonly target: AdminCourseEnrollmentTarget;
+      readonly paymentRevision: number;
     };
 
 type AdminCourseEnrollmentMutationAttempt = Extract<

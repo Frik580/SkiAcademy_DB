@@ -87,6 +87,20 @@ export async function executeAdminLessonBookingAttempt(
     return;
   }
 
+  if (attempt.kind === 'pay_service_from_wallet_as_administrator') {
+    await assertCommandSucceeded(
+      executeAuthenticatedCanonicalCommand(adminAccountId, {
+        kind: attempt.kind,
+        intent: {
+          subjectKind: 'booking',
+          bookingId: BookingIdSchema.parse(attempt.target.bookingId),
+        },
+        idempotencyKey: attempt.idempotencyKey,
+      })
+    );
+    return;
+  }
+
   const expectedRevision = AggregateRevisionSchema.parse(attempt.target.revision);
   const bookingId = BookingIdSchema.parse(attempt.target.bookingId);
 
@@ -293,7 +307,8 @@ export function useAdminLessonBookingCommands(input: {
           if (bookingRefresh.status !== 'success') return { status: 'failure' };
           if (
             attempt.kind === 'resolve_booking_cancellation' ||
-            attempt.kind === 'record_provider_payment_event'
+            attempt.kind === 'record_provider_payment_event' ||
+            attempt.kind === 'pay_service_from_wallet_as_administrator'
           ) {
             await queryAdminFinanceReadModels({
               scope: 'admin_payment_detail',
@@ -321,7 +336,10 @@ export function useAdminLessonBookingCommands(input: {
       if (refreshResult.status === 'success') {
         return { status: 'success' };
       }
-      if (attempt.kind === 'record_provider_payment_event') {
+      if (
+        attempt.kind === 'record_provider_payment_event' ||
+        attempt.kind === 'pay_service_from_wallet_as_administrator'
+      ) {
         return { status: 'success', refreshFailed: true };
       }
       return {

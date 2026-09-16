@@ -177,6 +177,7 @@ export const LessonBookingAdminPaymentAccountingSchema = z
     settled: KztMinorUnitsSchema,
     writtenOff: KztMinorUnitsSchema,
     outstanding: KztMinorUnitsSchema,
+    payerWalletBalance: KztMinorUnitsSchema.optional(),
   })
   .strict();
 
@@ -254,6 +255,7 @@ export const LessonBookingAdminAuthorizedActionsSchema = z
   .object({
     canConfirmGuest: z.literal(false),
     canRecordGuestPayment: z.boolean(),
+    canPayFromWallet: z.boolean().default(false),
     canDirectCancel: z.boolean(),
     canReschedule: z.boolean(),
     canChangeInstructor: z.boolean(),

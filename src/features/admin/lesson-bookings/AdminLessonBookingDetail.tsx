@@ -68,6 +68,7 @@ export interface AdminLessonBookingDetailProps {
   readonly onOpenPayment: (paymentId: string) => void;
   readonly onOpenIssue: (issueId: string) => void;
   readonly focusedChangeRequestId?: string;
+  readonly paymentActionPending?: 'cash' | 'wallet';
 }
 
 function formatOccurrenceParts(
@@ -148,6 +149,7 @@ export function AdminLessonBookingDetail({
   onOpenPayment,
   onOpenIssue,
   focusedChangeRequestId,
+  paymentActionPending,
 }: AdminLessonBookingDetailProps) {
   const occurrence = formatOccurrenceParts(detail, locale);
   const [activeSection, setActiveSection] = useState<AdminLessonDetailSection['id']>('overview');
@@ -628,11 +630,14 @@ export function AdminLessonBookingDetail({
               <dt className="text-[var(--ink-dim)]">{t('adminLessonPaymentStatus')}</dt>
               <dd>{t(PAYMENT_STATUS_LABEL_KEYS[payment.status])}</dd>
             </dl>
-            {admin.authorizedActions.canRecordGuestPayment && (
+            {(admin.authorizedActions.canRecordGuestPayment ||
+              admin.authorizedActions.canPayFromWallet) && (
               <AdminPaymentCaptureSection
-                canRecordPayment
+                canRecordPayment={admin.authorizedActions.canRecordGuestPayment}
+                canPayFromWallet={admin.authorizedActions.canPayFromWallet}
                 amount={paymentAmount}
                 outstanding={payment.outstanding}
+                walletBalance={payment.payerWalletBalance}
                 onAmountChange={editPaymentAmount}
                 onRecord={() =>
                   onRequestAttempt(
@@ -648,9 +653,28 @@ export function AdminLessonBookingDetail({
                     )
                   )
                 }
+                onPayFromWallet={() =>
+                  onRequestAttempt(
+                    {
+                      kind: 'pay_service_from_wallet_as_administrator',
+                      paymentId: payment.paymentId,
+                      paymentRevision: payment.revision,
+                    },
+                    t('adminLessonConfirmWalletPayment').replace(
+                      '{amount}',
+                      formatKzt(payment.outstanding)
+                    )
+                  )
+                }
                 amountLabel={t('adminLessonPaymentAmount')}
                 recordLabel={t('adminLessonRecordPayment')}
+                payFromWalletLabel={t('adminLessonPayFromWallet')}
+                clientBalanceLabel={t('adminLessonClientBalance')}
+                insufficientFundsLabel={t('adminLessonInsufficientWallet')}
+                submittingLabel={t('adminLessonSubmitting')}
+                formatAmount={formatKzt}
                 inputId="admin-guest-payment-amount"
+                pendingAction={paymentActionPending}
               />
             )}
             <button

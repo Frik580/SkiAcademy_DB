@@ -62,7 +62,7 @@ import { verifyGuestActionCredentialPartsAuthoritative } from '../bookings/guest
 import { parseBooking, parseInstructorCatalog } from '../bookings/bookingStore';
 import { loadOpenChangeRequestsForBooking } from '../bookings/bookingChangeRequestStore';
 import { parseAttendance } from '../bookings/attendanceStore';
-import { parsePayment } from '../finance/financeStore';
+import { parsePayment, parseWallet } from '../finance/financeStore';
 import {
   parseAccount,
   parseParticipant,
@@ -497,6 +497,16 @@ function buildAdminAuthorizedActions(input: {
       now: input.now,
     }).outcome === 'accepted'
   );
+  const linkedPayerAccountId =
+    input.booking.payerAccountId ?? input.payment?.payerAccountId;
+  const canPayFromWallet = Boolean(
+    accountActive &&
+    input.payment !== undefined &&
+    input.payment.outstandingAmount > 0 &&
+    linkedPayerAccountId !== undefined &&
+    (input.booking.lifecycle.status === 'pending' ||
+      input.booking.lifecycle.status === 'confirmed')
+  );
   const linkAvailability = evaluateAdminGuestBookingIdentityLinkAvailability({
     bookingOrigin: input.booking.attribution.bookingOrigin,
     lifecycleStatus: input.booking.lifecycle.status,
@@ -515,6 +525,7 @@ function buildAdminAuthorizedActions(input: {
     authorizedActions: {
       canConfirmGuest: false,
       canRecordGuestPayment,
+      canPayFromWallet,
       canDirectCancel:
         accountActive && input.payment !== undefined && isConfirmedBooking(input.booking),
       canReschedule: rescheduleEligible,
@@ -537,6 +548,7 @@ export async function buildAdminLessonBookingReadModel(
   options: {
     readonly now?: CanonicalTimestamp;
     readonly readContext?: ReadModelRequestContext;
+    readonly includePayerWallet?: boolean;
   } = {}
 ): Promise<LessonBookingReadModel | undefined> {
   const now = options.now ?? timestampFromDate(new Date());
@@ -618,6 +630,19 @@ export async function buildAdminLessonBookingReadModel(
 
   const payerAccountId = booking.payerAccountId ?? payment?.payerAccountId;
   const payerSnap = payerAccountId ? await readContext.account(payerAccountId) : undefined;
+  const payerWalletBalance =
+    options.includePayerWallet && payerAccountId && payment.outstandingAmount > 0
+      ? await (async () => {
+          const walletSnap = await readContext.wallet(payerAccountId);
+          const wallet = parseWallet(walletSnap.data() as Record<string, unknown> | undefined);
+          if (walletSnap.exists && (!wallet || wallet.accountId !== payerAccountId)) {
+            throw new Error(
+              `Canonical lesson Booking read integrity failure: users/${payerAccountId}/wallet/state`
+            );
+          }
+          return wallet?.balance ?? KztMinorUnitsSchema.parse(0);
+        })()
+      : undefined;
   const administratorAccount = parseAccount(
     administratorSnap.data() as Record<string, unknown> | undefined
   );
@@ -748,6 +773,7 @@ export async function buildAdminLessonBookingReadModel(
         settled: payment.settledAmount,
         writtenOff: payment.writtenOffAmount,
         outstanding: payment.outstandingAmount,
+        ...(payerWalletBalance === undefined ? {} : { payerWalletBalance }),
       },
       cancellationFinancial: {
         timing: cancellationTiming,
@@ -1362,6 +1388,7 @@ export async function queryLessonBookingReadModels(
     const item = await buildAdminLessonBookingReadModel(firestore, actor, booking, {
       now,
       readContext,
+      includePayerWallet: true,
     });
     return {
       scope: input.scope,

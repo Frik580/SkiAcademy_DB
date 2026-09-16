@@ -76,6 +76,7 @@ const COMMAND_KIND_REASON_CODES: Partial<Record<CommandKind, readonly AuditReaso
   enforce_payment_start_gate: ['scheduled_system_action', 'manual_override'],
   record_manual_wallet_funding: ['manual_financial_correction', 'manual_override', 'other'],
   record_provider_payment_event: ['provider_callback_processed', 'manual_override', 'other'],
+  pay_service_from_wallet_as_administrator: ['manual_override', 'other'],
   adjust_service_price: ['manual_override', 'other'],
   record_financial_correction: ['manual_financial_correction', 'manual_override', 'other'],
   record_audit_correction: [

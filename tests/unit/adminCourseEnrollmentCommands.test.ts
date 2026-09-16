@@ -71,6 +71,32 @@ describe('canonical Admin course enrollment payment commands', () => {
     expect(executeMock.mock.calls[1]?.[1].idempotencyKey).toBe(attempt.idempotencyKey);
   });
 
+  it('pays a linked unpaid enrollment from the canonical wallet without a client amount', async () => {
+    const idempotencyKey = createAdminCourseEnrollmentAttemptId(
+      'pay_service_from_wallet_as_administrator'
+    );
+    await executeAdminCourseEnrollmentAttempt('admin_account_01', {
+      kind: 'pay_service_from_wallet_as_administrator',
+      target,
+      idempotencyKey,
+      paymentRevision: 6,
+    });
+
+    expect(executeMock).toHaveBeenCalledWith(
+      'admin_account_01',
+      expect.objectContaining({
+        kind: 'pay_service_from_wallet_as_administrator',
+        idempotencyKey,
+        intent: {
+          subjectKind: 'course_enrollment',
+          enrollmentId: target.enrollmentId,
+        },
+      })
+    );
+    expect(executeMock.mock.calls[0]?.[1]).not.toHaveProperty('expectedRevision');
+    expect(executeMock.mock.calls[0]?.[1].intent).not.toHaveProperty('amount');
+  });
+
   it('captures enrollment identity independently of a selected roster row', () => {
     const captured = captureAdminCourseEnrollmentTarget({
       enrollmentId: target.enrollmentId,

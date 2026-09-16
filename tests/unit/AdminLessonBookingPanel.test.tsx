@@ -302,6 +302,27 @@ function isolationDetail(bookingId: string, participantName: string): LessonBook
   } as LessonBookingReadModel;
 }
 
+function linkedUnpaidWalletAdminDetail(
+  walletBalance: number
+): LessonBookingReadModel {
+  const item = pendingUnpaidAdminDetail();
+  return {
+    ...item,
+    admin: {
+      ...item.admin!,
+      payer: { accountId: 'account_admin_panel_01', displayName: 'Canonical Payer' },
+      payment: {
+        ...item.admin!.payment,
+        payerWalletBalance: walletBalance,
+      },
+      authorizedActions: {
+        ...item.admin!.authorizedActions,
+        canPayFromWallet: true,
+      },
+    },
+  } as LessonBookingReadModel;
+}
+
 function renderPanel(
   item?: LessonBookingReadModel,
   path = '/admin?tab=operations&booking=booking_admin_panel_01'
@@ -570,6 +591,49 @@ describe('AdminLessonBookingPanel', () => {
       paymentRevision: 1,
       amount: 60_000,
     });
+  });
+
+  it('does not offer wallet payment for an unlinked unpaid guest lesson', () => {
+    renderPanel(pendingUnpaidAdminDetail());
+    openDetailSection('adminLessonPaymentTitle');
+    expect(screen.getByRole('button', { name: 'adminLessonRecordPayment' })).toBeVisible();
+    expect(
+      screen.queryByRole('button', { name: 'adminLessonPayFromWallet' })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/adminLessonClientBalance/)).not.toBeInTheDocument();
+  });
+
+  it('shows client balance and both payment methods for a linked unpaid lesson', () => {
+    renderPanel(linkedUnpaidWalletAdminDetail(80_000));
+    openDetailSection('adminLessonPaymentTitle');
+    expect(screen.getByText(/adminLessonClientBalance/)).toBeVisible();
+    expect(screen.getByText(/80/)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'adminLessonRecordPayment' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'adminLessonPayFromWallet' })).toBeEnabled();
+  });
+
+  it('disables wallet payment when the linked client balance is insufficient', () => {
+    renderPanel(linkedUnpaidWalletAdminDetail(10_000));
+    openDetailSection('adminLessonPaymentTitle');
+    expect(screen.getByText('adminLessonInsufficientWallet')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'adminLessonPayFromWallet' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'adminLessonRecordPayment' })).toBeEnabled();
+  });
+
+  it('submits admin wallet payment without a client-chosen amount', async () => {
+    runAttemptMock.mockResolvedValue({ status: 'success' });
+    renderPanel(linkedUnpaidWalletAdminDetail(80_000));
+    openDetailSection('adminLessonPaymentTitle');
+    fireEvent.click(screen.getByRole('button', { name: 'adminLessonPayFromWallet' }));
+    fireEvent.click(screen.getByRole('button', { name: 'adminLessonConfirmSubmit' }));
+
+    await waitFor(() => expect(runAttemptMock).toHaveBeenCalledTimes(1));
+    expect(runAttemptMock.mock.calls[0]?.[0]).toMatchObject({
+      kind: 'pay_service_from_wallet_as_administrator',
+      paymentId: 'payment_admin_panel_01',
+      paymentRevision: 1,
+    });
+    expect(runAttemptMock.mock.calls[0]?.[0]).not.toHaveProperty('amount');
   });
 
   it('keeps committed Payment success visible when the authoritative refresh fails', async () => {

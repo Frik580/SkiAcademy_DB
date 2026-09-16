@@ -44,6 +44,11 @@ export type AdminLessonBookingMutationAttempt =
       readonly amount: number;
     })
   | (AttemptBase & {
+      readonly kind: 'pay_service_from_wallet_as_administrator';
+      readonly paymentId: string;
+      readonly paymentRevision: number;
+    })
+  | (AttemptBase & {
       readonly kind: 'resolve_booking_cancellation';
       readonly paymentId: string;
       readonly paymentRevision?: number;

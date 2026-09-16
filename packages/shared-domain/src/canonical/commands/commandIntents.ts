@@ -760,6 +760,20 @@ export const CommandIntentSchemaByKind = {
     })
     .strict(),
   record_provider_payment_event: recordProviderPaymentEventIntent,
+  pay_service_from_wallet_as_administrator: z.discriminatedUnion('subjectKind', [
+    z
+      .object({
+        subjectKind: z.literal('booking'),
+        bookingId: BookingIdSchema,
+      })
+      .strict(),
+    z
+      .object({
+        subjectKind: z.literal('course_enrollment'),
+        enrollmentId: CourseEnrollmentIdSchema,
+      })
+      .strict(),
+  ]),
   record_manual_wallet_funding: recordManualWalletFundingIntent,
   adjust_service_price: adjustServicePriceIntent,
   record_financial_correction: recordFinancialCorrectionIntent,

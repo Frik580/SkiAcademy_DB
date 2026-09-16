@@ -13,9 +13,9 @@ import {
   type ParticipantId,
 } from '@ski-academy/shared-domain';
 import {
-  ADMIN_ISSUE_PLANNING_ESTIMATES,
   openOrReuseAdminIssue,
   parseExistingAdminIssueOrCollision,
+  planAdminIssueLifecycleMutation,
   plannedAdminIssuePath,
 } from '../adminIssues';
 import type { CanonicalAtomicTransactionSession } from '../transactions';
@@ -78,11 +78,11 @@ export async function planOpenBookingMissingAttendanceIssue(
           commandId: input.metadata.commandId,
         });
   if (opened.issue.lifecycle.status === 'open') {
-    session.plan.planMutation({
-      path: documentPath,
-      kind: opened.mutationKind,
-      category: 'aggregate',
-      estimatedPayloadBytes: ADMIN_ISSUE_PLANNING_ESTIMATES.issueBytes,
+    await planAdminIssueLifecycleMutation(session, {
+      previous: existing,
+      issue: opened.issue,
+      mutationKind: opened.mutationKind,
+      documentPath,
     });
   }
   return {
@@ -131,11 +131,11 @@ export async function planResolveBookingMissingAttendanceIssues(
       },
       coupledDomainCommand: true,
     });
-    session.plan.planMutation({
-      path: documentPath,
-      kind: 'update',
-      category: 'aggregate',
-      estimatedPayloadBytes: ADMIN_ISSUE_PLANNING_ESTIMATES.issueBytes,
+    await planAdminIssueLifecycleMutation(session, {
+      previous: existing,
+      issue: resolved,
+      mutationKind: 'update',
+      documentPath,
     });
     planned.push({
       issue: resolved,
@@ -179,11 +179,11 @@ export async function planCollapseLegacyParticipantMissingAttendanceIssues(
       },
       coupledDomainCommand: true,
     });
-    session.plan.planMutation({
-      path: documentPath,
-      kind: 'update',
-      category: 'aggregate',
-      estimatedPayloadBytes: ADMIN_ISSUE_PLANNING_ESTIMATES.issueBytes,
+    await planAdminIssueLifecycleMutation(session, {
+      previous: existing,
+      issue: resolved,
+      mutationKind: 'update',
+      documentPath,
     });
     planned.push({
       issue: resolved,

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AttendanceAdminIssueResultPayloadSchema } from '../adminIssueInboxRevision';
 import {
   BookingIdSchema,
   CourseEnrollmentIdSchema,
@@ -162,6 +163,8 @@ export type RequestCancellationResultPayload = Readonly<
 >;
 
 export const CommandResultPayloadSchemaByKind = {
+  record_booking_attendance: AttendanceAdminIssueResultPayloadSchema,
+  record_course_day_attendance: AttendanceAdminIssueResultPayloadSchema,
   create_course_enrollments: CreateCourseEnrollmentsResultPayloadSchema,
   create_guest_booking_request: CreateGuestBookingRequestResultPayloadSchema,
   apply_canonical_course_provisioning_manifest:

@@ -32,7 +32,7 @@ import {
   KztMinorUnitsSchema,
 } from '@ski-academy/shared-domain';
 import type { CommandHandlerMap } from '../commands/canonicalCommands';
-import { toFirestoreWritePayload as toAdminIssueWritePayload } from '../adminIssues';
+import { commitAdminIssueDocument } from '../adminIssues';
 import { planCourseEnrollmentPaymentStartIssueResolutionIfFullyFunded } from '../courses/courseEnrollmentPaymentStartIssueResolution';
 import { courseEnrollmentPath, parseCourseEnrollment } from '../courses/courseEnrollmentStore';
 import { coursePath, parseCourse } from '../courses/courseStore';
@@ -462,12 +462,11 @@ function recordProviderPaymentEventHandler(
         plannedGuestConfirmation?.commit(session, context.decidedAt);
 
         if (plannedPaymentStartIssueResolution !== undefined) {
-          session.tx.update(
-            { path: plannedPaymentStartIssueResolution.documentPath },
-            toAdminIssueWritePayload(
-              plannedPaymentStartIssueResolution.issue as Record<string, unknown>
-            )
-          );
+          commitAdminIssueDocument(session, {
+            mutationKind: 'update',
+            documentPath: plannedPaymentStartIssueResolution.documentPath,
+            issue: plannedPaymentStartIssueResolution.issue,
+          });
         }
 
         if (

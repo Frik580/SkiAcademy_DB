@@ -40,11 +40,11 @@ import {
   type AuthoritativeIdempotentCanonicalCommandHandler,
 } from '../commands/idempotentCommandExecution';
 import {
-  ADMIN_ISSUE_PLANNING_ESTIMATES,
+  commitAdminIssueDocument,
   openOrReuseAdminIssue,
   parseExistingAdminIssueOrCollision,
+  planAdminIssueLifecycleMutation,
   plannedAdminIssuePath,
-  toFirestoreWritePayload as toAdminIssueWritePayload,
 } from '../adminIssues';
 import { parseAccount, accountPath, parsePayment, paymentPath } from '../finance/financeStore';
 import {
@@ -282,11 +282,11 @@ function requestAuthenticatedBookingCancellationHandler(
       });
       plannedIssue = opened.issue;
       issueMutationKind = opened.mutationKind;
-      session.plan.planMutation({
-        path: issueDocumentPath,
-        kind: opened.mutationKind,
-        category: 'aggregate',
-        estimatedPayloadBytes: ADMIN_ISSUE_PLANNING_ESTIMATES.issueBytes,
+      await planAdminIssueLifecycleMutation(session, {
+        previous: existingIssue,
+        issue: opened.issue,
+        mutationKind: opened.mutationKind,
+        documentPath: issueDocumentPath,
       });
     },
     planAuditOutbox: async () => {
@@ -366,12 +366,11 @@ function requestAuthenticatedBookingCancellationHandler(
           toFirestoreWritePayload(updatedBooking as Record<string, unknown>)
         );
         if (plannedIssue !== undefined && issueMutationKind !== undefined) {
-          const payload = toAdminIssueWritePayload(plannedIssue as Record<string, unknown>);
-          if (issueMutationKind === 'create') {
-            session.tx.create({ path: issueDocumentPath }, payload);
-          } else {
-            session.tx.update({ path: issueDocumentPath }, payload);
-          }
+          commitAdminIssueDocument(session, {
+            mutationKind: issueMutationKind,
+            documentPath: issueDocumentPath,
+            issue: plannedIssue,
+          });
         }
       }
       return commandSuccessResult(envelope.kind, envelope.context.correlationId, {
@@ -470,7 +469,7 @@ function withdrawBookingCancellationRequestHandler(
           toFirestoreWritePayload(updatedBooking as Record<string, unknown>)
         );
         if (plannedResolvedIssue !== undefined) {
-          commitPlannedAdminIssueUpdate(session, plannedResolvedIssue, toAdminIssueWritePayload);
+          commitPlannedAdminIssueUpdate(session, plannedResolvedIssue);
         }
         return commandSuccessResult(envelope.kind, envelope.context.correlationId);
       },
@@ -625,11 +624,11 @@ function resolveBookingCancellationHandler(
         });
         plannedIssue = opened.issue;
         issueMutationKind = opened.mutationKind;
-        session.plan.planMutation({
-          path: issueDocumentPath,
-          kind: opened.mutationKind,
-          category: 'aggregate',
-          estimatedPayloadBytes: ADMIN_ISSUE_PLANNING_ESTIMATES.issueBytes,
+        await planAdminIssueLifecycleMutation(session, {
+          previous: existingIssue,
+          issue: opened.issue,
+          mutationKind: opened.mutationKind,
+          documentPath: issueDocumentPath,
         });
         auditSummary = 'Administrator rejected cancellation; attendance missing';
         return;
@@ -721,20 +720,15 @@ function resolveBookingCancellationHandler(
       }
 
       if (plannedIssue !== undefined && issueMutationKind !== undefined) {
-        const payload = toAdminIssueWritePayload(plannedIssue as Record<string, unknown>);
-        if (issueMutationKind === 'create') {
-          session.tx.create({ path: issueDocumentPath }, payload);
-        } else {
-          session.tx.update({ path: issueDocumentPath }, payload);
-        }
+        commitAdminIssueDocument(session, {
+          mutationKind: issueMutationKind,
+          documentPath: issueDocumentPath,
+          issue: plannedIssue,
+        });
       }
 
       if (plannedResolvedPendingIssue !== undefined) {
-        commitPlannedAdminIssueUpdate(
-          session,
-          plannedResolvedPendingIssue,
-          toAdminIssueWritePayload
-        );
+        commitPlannedAdminIssueUpdate(session, plannedResolvedPendingIssue);
       }
 
       if (decision === 'approve' || decision === 'direct_cancel') {

@@ -69,6 +69,13 @@ describe('firestore.rules guardrails', () => {
     );
   });
 
+  it('locks admin issue inbox revision writes to the Admin SDK', () => {
+    expect(rulesSource).toMatch(/match \/admin_runtime\/\{documentId\}/);
+    expect(rulesSource).toMatch(
+      /match \/admin_runtime\/\{documentId\}[\s\S]*allow write: if false;/
+    );
+  });
+
   it('contains direct Admin monetary and destructive writes', () => {
     expect(rulesSource).toContain('function validWalletLedgerEntryFields');
     expect(rulesSource).toContain('function authoritativeMoneyFieldsUnchanged');

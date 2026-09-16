@@ -11,8 +11,9 @@ import {
 } from '@ski-academy/shared-domain';
 import type { CanonicalAtomicTransactionSession } from '../transactions';
 import {
-  ADMIN_ISSUE_PLANNING_ESTIMATES,
+  commitAdminIssueDocument,
   parseExistingAdminIssueOrCollision,
+  planAdminIssueLifecycleMutation,
   plannedAdminIssuePath,
 } from '../adminIssues';
 
@@ -72,11 +73,11 @@ export async function planResolveOpenUnresolvedPendingCancellationIssue(
         bookingId: input.booking.bookingId,
       });
 
-  session.plan.planMutation({
-    path: documentPath,
-    kind: 'update',
-    category: 'aggregate',
-    estimatedPayloadBytes: ADMIN_ISSUE_PLANNING_ESTIMATES.issueBytes,
+  await planAdminIssueLifecycleMutation(session, {
+    previous: existing,
+    issue: resolved,
+    mutationKind: 'update',
+    documentPath,
   });
 
   return { issue: resolved, documentPath };
@@ -84,8 +85,11 @@ export async function planResolveOpenUnresolvedPendingCancellationIssue(
 
 export function commitPlannedAdminIssueUpdate(
   session: CanonicalAtomicTransactionSession,
-  planned: PlannedUnresolvedPendingCancellationResolution,
-  payloadWriter: (issue: AdminIssue) => Record<string, unknown>
-): void {
-  session.tx.update({ path: planned.documentPath }, payloadWriter(planned.issue));
+  planned: PlannedUnresolvedPendingCancellationResolution
+): number | undefined {
+  return commitAdminIssueDocument(session, {
+    mutationKind: 'update',
+    documentPath: planned.documentPath,
+    issue: planned.issue,
+  })?.inboxRevision;
 }

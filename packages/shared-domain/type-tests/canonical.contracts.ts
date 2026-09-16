@@ -357,6 +357,7 @@ canonicalPaths.courseEnrollment(courseEnrollmentId);
 canonicalPaths.courseDay(courseId, courseDayId);
 canonicalPaths.attendance(attendanceId);
 canonicalPaths.adminIssue(adminIssueId);
+canonicalPaths.adminIssueInboxRevision();
 
 // @ts-expect-error A CourseEnrollment ID cannot address a Booking document.
 canonicalPaths.booking(courseEnrollmentId);

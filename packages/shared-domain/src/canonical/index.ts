@@ -47,6 +47,7 @@ export * from './courseProgressPresentation';
 export * from './courseEnrollmentReconciliationPolicy';
 export * from './courseDayScheduling';
 export * from './adminIssuePolicy';
+export * from './adminIssueInboxRevision';
 export * from './deterministicIdentity';
 export * from './errors';
 export * from './identifiers';

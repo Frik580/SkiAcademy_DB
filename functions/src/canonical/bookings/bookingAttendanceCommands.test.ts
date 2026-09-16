@@ -321,6 +321,7 @@ describe('bookingAttendanceCommands', () => {
     );
     expect(issues).toHaveLength(1);
     expect(issues[0]?.[1].data.kind).toBe('missing_attendance');
+    expect(executor.snapshot().docs.get('admin_runtime/admin_issue_inbox')?.data.revision).toBe(1);
     expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle).toEqual({
       status: 'confirmed',
     });
@@ -916,6 +917,12 @@ describe('bookingAttendanceCommands', () => {
     );
 
     expect(result.status).toBe('success');
+    if (result.status === 'success') {
+      expect(result.payload).toMatchObject({
+        resolvedAdminIssueIds: [issue.issueId],
+        adminIssueInboxRevision: 1,
+      });
+    }
     expect(
       executor.snapshot().docs.get(`admin_issues/${issue.issueId}`)?.data.lifecycle
     ).toMatchObject({
@@ -928,6 +935,7 @@ describe('bookingAttendanceCommands', () => {
     expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe(
       'completed'
     );
+    expect(executor.snapshot().docs.get('admin_runtime/admin_issue_inbox')?.data.revision).toBe(1);
   });
 
   it('requires a reason and exact Booking revision when Admin adds missing attendance', async () => {
@@ -1122,6 +1130,7 @@ describe('bookingAttendanceCommands', () => {
     expect(issues).toHaveLength(1);
     expect(issues[0]?.[1].data.kind).toBe('missing_attendance');
     expect(issues[0]?.[1].data.participantId).toBeUndefined();
+    expect(executor.snapshot().docs.get('admin_runtime/admin_issue_inbox')?.data.revision).toBe(1);
   });
 
   it('F. opens one booking issue when C is still missing after 24h', async () => {

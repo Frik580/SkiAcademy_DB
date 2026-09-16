@@ -28,11 +28,11 @@ import {
 } from '../commands/idempotentCommandExecution';
 import { parsePayment, paymentPath } from '../finance/financeStore';
 import {
-  ADMIN_ISSUE_PLANNING_ESTIMATES,
+  commitAdminIssueDocument,
   openOrReuseAdminIssue,
   parseExistingAdminIssueOrCollision,
+  planAdminIssueLifecycleMutation,
   plannedAdminIssuePath,
-  toFirestoreWritePayload as toAdminIssueWritePayload,
 } from '../adminIssues';
 import { courseEnrollmentPath, parseCourseEnrollment } from '../courses/courseEnrollmentStore';
 import { coursePath, parseCourse } from '../courses/courseStore';
@@ -167,11 +167,11 @@ function enforcePaymentStartGateHandler(
       });
       plannedIssue = opened.issue;
       issueMutationKind = opened.mutationKind;
-      session.plan.planMutation({
-        path: issueDocumentPath,
-        kind: opened.mutationKind,
-        category: 'aggregate',
-        estimatedPayloadBytes: ADMIN_ISSUE_PLANNING_ESTIMATES.issueBytes,
+      await planAdminIssueLifecycleMutation(session, {
+        previous: existingIssue,
+        issue: opened.issue,
+        mutationKind: opened.mutationKind,
+        documentPath: issueDocumentPath,
       });
     },
     planAuditOutbox: async () =>
@@ -190,12 +190,11 @@ function enforcePaymentStartGateHandler(
       }),
     execute: async (session) => {
       if (plannedIssue !== undefined && issueMutationKind !== undefined) {
-        const payload = toAdminIssueWritePayload(plannedIssue as Record<string, unknown>);
-        if (issueMutationKind === 'create') {
-          session.tx.create({ path: issueDocumentPath }, payload);
-        } else {
-          session.tx.update({ path: issueDocumentPath }, payload);
-        }
+        commitAdminIssueDocument(session, {
+          mutationKind: issueMutationKind,
+          documentPath: issueDocumentPath,
+          issue: plannedIssue,
+        });
       }
       return commandSuccessResult(envelope.kind, envelope.context.correlationId);
     },
@@ -328,11 +327,11 @@ function enforceCourseEnrollmentPaymentStartGateHandler(
           });
           plannedIssue = resolved;
           issueMutationKind = 'update';
-          session.plan.planMutation({
-            path: issueDocumentPath,
-            kind: 'update',
-            category: 'aggregate',
-            estimatedPayloadBytes: ADMIN_ISSUE_PLANNING_ESTIMATES.issueBytes,
+          await planAdminIssueLifecycleMutation(session, {
+            previous: existingIssue,
+            issue: resolved,
+            mutationKind: 'update',
+            documentPath: issueDocumentPath,
           });
         }
         return;
@@ -354,11 +353,11 @@ function enforceCourseEnrollmentPaymentStartGateHandler(
       });
       plannedIssue = opened.issue;
       issueMutationKind = opened.mutationKind;
-      session.plan.planMutation({
-        path: issueDocumentPath,
-        kind: opened.mutationKind,
-        category: 'aggregate',
-        estimatedPayloadBytes: ADMIN_ISSUE_PLANNING_ESTIMATES.issueBytes,
+      await planAdminIssueLifecycleMutation(session, {
+        previous: existingIssue,
+        issue: opened.issue,
+        mutationKind: opened.mutationKind,
+        documentPath: issueDocumentPath,
       });
     },
     planAuditOutbox: async () =>
@@ -382,12 +381,11 @@ function enforceCourseEnrollmentPaymentStartGateHandler(
       }),
     execute: async (session) => {
       if (plannedIssue !== undefined && issueMutationKind !== undefined) {
-        const payload = toAdminIssueWritePayload(plannedIssue as Record<string, unknown>);
-        if (issueMutationKind === 'create') {
-          session.tx.create({ path: issueDocumentPath }, payload);
-        } else {
-          session.tx.update({ path: issueDocumentPath }, payload);
-        }
+        commitAdminIssueDocument(session, {
+          mutationKind: issueMutationKind,
+          documentPath: issueDocumentPath,
+          issue: plannedIssue,
+        });
       }
       return commandSuccessResult(envelope.kind, envelope.context.correlationId);
     },

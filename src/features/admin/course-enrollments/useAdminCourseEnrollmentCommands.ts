@@ -20,6 +20,7 @@ import {
   mapCanonicalCommandResultError,
   toCanonicalCommandClientError,
 } from '../../../lib/canonical/mapCanonicalCommandError';
+import { applyAdminIssueInboxCommandResult } from '../issues/adminIssueInboxLocalSync';
 import type { AdminCourseEnrollmentAttempt } from './adminCourseEnrollmentContracts';
 
 async function assertCommandSucceeded<Kind extends CommandKind>(
@@ -28,6 +29,7 @@ async function assertCommandSucceeded<Kind extends CommandKind>(
   const result = await command;
   const error = mapCanonicalCommandResultError(result);
   if (error) throw error;
+  applyAdminIssueInboxCommandResult(result);
 }
 
 export async function executeAdminCourseEnrollmentAttempt(

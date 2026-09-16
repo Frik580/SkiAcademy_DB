@@ -40,11 +40,11 @@ import {
   type AuthoritativeIdempotentCanonicalCommandHandler,
 } from '../commands/idempotentCommandExecution';
 import {
-  ADMIN_ISSUE_PLANNING_ESTIMATES,
+  commitAdminIssueDocument,
   openOrReuseAdminIssue,
   parseExistingAdminIssueOrCollision,
+  planAdminIssueLifecycleMutation,
   plannedAdminIssuePath,
-  toFirestoreWritePayload as toAdminIssueWritePayload,
 } from '../adminIssues';
 import {
   commitPlannedCourseGraduateAchievementIssuance,
@@ -343,11 +343,11 @@ export function reconcileCourseEnrollmentHandler(
             auditEffect: opened.mutationKind === 'create' ? 'opened' : 'reused',
             kind: 'resource_reconciliation_mismatch',
           });
-          session.plan.planMutation({
-            path: documentPath,
-            kind: opened.mutationKind,
-            category: 'aggregate',
-            estimatedPayloadBytes: ADMIN_ISSUE_PLANNING_ESTIMATES.issueBytes,
+          await planAdminIssueLifecycleMutation(session, {
+            previous: existing,
+            issue: opened.issue,
+            mutationKind: opened.mutationKind,
+            documentPath,
           });
         }
         return;
@@ -392,11 +392,11 @@ export function reconcileCourseEnrollmentHandler(
           auditEffect: 'resolved',
           kind: existing.kind,
         });
-        session.plan.planMutation({
-          path: documentPath,
-          kind: 'update',
-          category: 'aggregate',
-          estimatedPayloadBytes: ADMIN_ISSUE_PLANNING_ESTIMATES.issueBytes,
+        await planAdminIssueLifecycleMutation(session, {
+          previous: existing,
+          issue: resolved,
+          mutationKind: 'update',
+          documentPath,
         });
       }
 
@@ -472,17 +472,11 @@ export function reconcileCourseEnrollmentHandler(
         );
       }
       for (const plannedIssue of plannedIssueMutations) {
-        if (plannedIssue.mutationKind === 'update') {
-          session.tx.update(
-            { path: plannedIssue.documentPath },
-            toAdminIssueWritePayload(plannedIssue.issue as Record<string, unknown>)
-          );
-        } else {
-          session.tx.create(
-            { path: plannedIssue.documentPath },
-            toAdminIssueWritePayload(plannedIssue.issue as Record<string, unknown>)
-          );
-        }
+        commitAdminIssueDocument(session, {
+          mutationKind: plannedIssue.mutationKind,
+          documentPath: plannedIssue.documentPath,
+          issue: plannedIssue.issue,
+        });
       }
       if (plannedClaimRelease) {
         commitPlannedCourseEnrollmentClaimRelease(session, {

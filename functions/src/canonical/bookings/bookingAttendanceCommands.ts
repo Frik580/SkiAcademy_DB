@@ -34,11 +34,12 @@ import {
   type AuthoritativeIdempotentCanonicalCommandHandler,
 } from '../commands/idempotentCommandExecution';
 import {
-  ADMIN_ISSUE_PLANNING_ESTIMATES,
+  attendanceAdminIssueResultPayload,
+  commitAdminIssueDocument,
   openOrReuseAdminIssue,
   parseExistingAdminIssueOrCollision,
+  planAdminIssueLifecycleMutation,
   plannedAdminIssuePath,
-  toFirestoreWritePayload as toAdminIssueWritePayload,
 } from '../adminIssues';
 import {
   assertRecordBookingAttendanceAuthorization,
@@ -165,11 +166,11 @@ async function planResolveBookingAttendanceIssue(
     },
     coupledDomainCommand: true,
   });
-  session.plan.planMutation({
-    path: documentPath,
-    kind: 'update',
-    category: 'aggregate',
-    estimatedPayloadBytes: ADMIN_ISSUE_PLANNING_ESTIMATES.issueBytes,
+  await planAdminIssueLifecycleMutation(session, {
+    previous: existing,
+    issue: resolved,
+    mutationKind: 'update',
+    documentPath,
   });
   return { issue: resolved, documentPath, kind: existing.kind };
 }
@@ -354,11 +355,11 @@ function recordBookingAttendanceHandler(
         });
         plannedPaymentConflictIssue = opened.issue;
         paymentConflictMutation = opened.mutationKind;
-        session.plan.planMutation({
-          path: paymentConflictDocumentPath,
-          kind: opened.mutationKind,
-          category: 'aggregate',
-          estimatedPayloadBytes: ADMIN_ISSUE_PLANNING_ESTIMATES.issueBytes,
+        await planAdminIssueLifecycleMutation(session, {
+          previous: existing,
+          issue: opened.issue,
+          mutationKind: opened.mutationKind,
+          documentPath: paymentConflictDocumentPath,
         });
       }
 
@@ -528,24 +529,21 @@ function recordBookingAttendanceHandler(
           );
         }
       }
-      if (plannedPaymentConflictIssue && paymentConflictDocumentPath) {
-        if (paymentConflictMutation === 'update') {
-          session.tx.update(
-            { path: paymentConflictDocumentPath },
-            toAdminIssueWritePayload(plannedPaymentConflictIssue as Record<string, unknown>)
-          );
-        } else {
-          session.tx.create(
-            { path: paymentConflictDocumentPath },
-            toAdminIssueWritePayload(plannedPaymentConflictIssue as Record<string, unknown>)
-          );
-        }
+      let inboxCommit: ReturnType<typeof commitAdminIssueDocument> = undefined;
+      if (plannedPaymentConflictIssue && paymentConflictDocumentPath && paymentConflictMutation) {
+        inboxCommit = commitAdminIssueDocument(session, {
+          mutationKind: paymentConflictMutation,
+          documentPath: paymentConflictDocumentPath,
+          issue: plannedPaymentConflictIssue,
+        });
       }
       for (const entry of resolvedIssues) {
-        session.tx.update(
-          { path: entry.documentPath },
-          toAdminIssueWritePayload(entry.issue as Record<string, unknown>)
-        );
+        inboxCommit =
+          commitAdminIssueDocument(session, {
+            mutationKind: 'update',
+            documentPath: entry.documentPath,
+            issue: entry.issue,
+          }) ?? inboxCommit;
       }
       if (plannedBooking) {
         session.tx.update(
@@ -553,7 +551,11 @@ function recordBookingAttendanceHandler(
           toFirestoreWritePayload(plannedBooking as Record<string, unknown>)
         );
       }
-      return commandSuccessResult(envelope.kind, envelope.context.correlationId);
+      return commandSuccessResult(
+        envelope.kind,
+        envelope.context.correlationId,
+        attendanceAdminIssueResultPayload(inboxCommit)
+      );
     },
   };
 
@@ -811,17 +813,11 @@ function resolveAttendanceOutcomeHandler(
         );
       }
       for (const plannedIssue of plannedIssues) {
-        if (plannedIssue.mutationKind === 'update') {
-          session.tx.update(
-            { path: plannedIssue.documentPath },
-            toAdminIssueWritePayload(plannedIssue.issue as Record<string, unknown>)
-          );
-        } else {
-          session.tx.create(
-            { path: plannedIssue.documentPath },
-            toAdminIssueWritePayload(plannedIssue.issue as Record<string, unknown>)
-          );
-        }
+        commitAdminIssueDocument(session, {
+          mutationKind: plannedIssue.mutationKind,
+          documentPath: plannedIssue.documentPath,
+          issue: plannedIssue.issue,
+        });
       }
       if (plannedWork) {
         const workUpdate: Record<string, unknown> =

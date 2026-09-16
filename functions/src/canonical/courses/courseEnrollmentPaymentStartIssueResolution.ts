@@ -13,8 +13,8 @@ import {
 } from '@ski-academy/shared-domain';
 import type { CanonicalAtomicTransactionSession } from '../transactions';
 import {
-  ADMIN_ISSUE_PLANNING_ESTIMATES,
   parseExistingAdminIssueOrCollision,
+  planAdminIssueLifecycleMutation,
   plannedAdminIssuePath,
 } from '../adminIssues';
 
@@ -60,11 +60,11 @@ export async function planCourseEnrollmentPaymentStartIssueResolutionIfFullyFund
     actor: input.actor,
     coupledDomainCommand: true,
   });
-  input.session.plan.planMutation({
-    path: documentPath,
-    kind: 'update',
-    category: 'aggregate',
-    estimatedPayloadBytes: ADMIN_ISSUE_PLANNING_ESTIMATES.issueBytes,
+  await planAdminIssueLifecycleMutation(input.session, {
+    previous: existingIssue,
+    issue: resolved,
+    mutationKind: 'update',
+    documentPath,
   });
   return { issue: resolved, documentPath };
 }

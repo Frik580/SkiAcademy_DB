@@ -1,5 +1,9 @@
 import { z } from 'zod';
 import {
+  ADMIN_ISSUE_INBOX_REVISION_COLLECTION,
+  ADMIN_ISSUE_INBOX_REVISION_DOCUMENT_ID,
+} from './adminIssueInboxRevision';
+import {
   AccountIdSchema,
   ActiveCourseEnrollmentGuardKeySchema,
   ActivityLogIdSchema,
@@ -91,6 +95,7 @@ export const CANONICAL_COLLECTIONS = {
   bookingProposals: 'booking_proposals',
   bookingChangeRequests: 'booking_change_requests',
   adminIssues: 'admin_issues',
+  adminRuntime: 'admin_runtime',
   administrativeAvailabilityBlocks: 'administrative_availability_blocks',
   resourceClaims: 'resource_claims',
   resourceClaimGuards: 'resource_claim_guards',
@@ -155,6 +160,13 @@ function isCanonicalCollectionPath(path: string): boolean {
 function isCanonicalDocumentPath(path: string): boolean {
   const segments = path.split('/');
   if (segments[0] !== '') return false;
+  if (
+    segments.length === 3 &&
+    segments[1] === ADMIN_ISSUE_INBOX_REVISION_COLLECTION &&
+    segments[2] === ADMIN_ISSUE_INBOX_REVISION_DOCUMENT_ID
+  ) {
+    return true;
+  }
   if (segments.length === 3) {
     const idSchema = topLevelDocumentSchemas[segments[1]];
     return Boolean(idSchema?.safeParse(segments[2]).success);
@@ -222,6 +234,8 @@ export const canonicalPaths = {
   bookingProposal: (id: BookingProposalId) => documentPath('booking_proposals', id),
   bookingChangeRequest: (id: BookingChangeRequestId) => documentPath('booking_change_requests', id),
   adminIssue: (id: AdminIssueId) => documentPath('admin_issues', id),
+  adminIssueInboxRevision: () =>
+    documentPath(ADMIN_ISSUE_INBOX_REVISION_COLLECTION, ADMIN_ISSUE_INBOX_REVISION_DOCUMENT_ID),
   administrativeAvailabilityBlock: (id: AdministrativeAvailabilityBlockId) =>
     documentPath('administrative_availability_blocks', id),
   resourceClaim: (id: ResourceClaimId) => documentPath('resource_claims', id),

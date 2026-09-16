@@ -860,6 +860,12 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // AdminIssue inbox invalidation signal. Canonical backend writes only.
+    match /admin_runtime/{documentId} {
+      allow read: if isAdmin() && documentId == 'admin_issue_inbox';
+      allow write: if false;
+    }
+
     // Resort Data
     match /resort_data/{resortId} {
       allow read: if true;

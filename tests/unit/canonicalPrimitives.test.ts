@@ -119,6 +119,7 @@ describe('canonical collections and paths', () => {
       activityLogs: 'activity_logs',
       commandIdempotency: 'command_idempotency',
       domainOutbox: 'domain_outbox',
+      adminRuntime: 'admin_runtime',
     });
     expect(Object.values(CANONICAL_COLLECTIONS)).not.toContain('availability_slots');
     expect(Object.values(CANONICAL_COLLECTIONS)).not.toContain('availability_hour_locks');
@@ -131,6 +132,10 @@ describe('canonical collections and paths', () => {
     expect(CanonicalCollectionPathSchema.parse('/bookings')).toBe('/bookings');
     expect(CanonicalDocumentPathSchema.parse('/bookings/bkg_01JABCDEFGHJKMNPQRSTVWXYZ')).toBe(
       '/bookings/bkg_01JABCDEFGHJKMNPQRSTVWXYZ'
+    );
+    expect(canonicalPaths.adminIssueInboxRevision()).toBe('/admin_runtime/admin_issue_inbox');
+    expect(CanonicalDocumentPathSchema.parse('/admin_runtime/admin_issue_inbox')).toBe(
+      '/admin_runtime/admin_issue_inbox'
     );
   });
 

@@ -47,11 +47,12 @@ import {
   type AuthoritativeIdempotentCanonicalCommandHandler,
 } from '../commands/idempotentCommandExecution';
 import {
-  ADMIN_ISSUE_PLANNING_ESTIMATES,
+  commitAdminIssueDocument,
   openOrReuseAdminIssue,
   parseExistingAdminIssueOrCollision,
+  planAdminIssueInboxRevisionBump,
+  planAdminIssueLifecycleMutation,
   plannedAdminIssuePath,
-  toFirestoreWritePayload as toAdminIssueWritePayload,
   parseAdminIssue,
   adminIssuePath,
 } from '../adminIssues';
@@ -247,7 +248,7 @@ function reconciliationSubjectFromRawPayment(
   return undefined;
 }
 
-function stageFinancialReconciliationIssue(input: {
+async function stageFinancialReconciliationIssue(input: {
   readonly envelope: CommandEnvelope<'record_audit_correction'>;
   readonly environment: CommandExecutionEnvironment;
   readonly session: CanonicalAtomicTransactionSession;
@@ -255,11 +256,11 @@ function stageFinancialReconciliationIssue(input: {
   readonly identity: ReturnType<typeof financialReconciliationMismatchIdentity>;
   readonly existingIssue: AdminIssue | undefined;
   readonly issueReadData: Record<string, unknown> | undefined;
-}): {
+}): Promise<{
   readonly plannedIssue: AdminIssue;
   readonly issueMutationKind: 'create' | 'update';
   readonly issueDocumentPath: string;
-} {
+}> {
   const issueDocumentPath = plannedAdminIssuePath(input.identity);
   input.session.plan.planRead({ path: issueDocumentPath, category: 'aggregate' });
   const existingIssue =
@@ -273,11 +274,11 @@ function stageFinancialReconciliationIssue(input: {
     correlationId: input.envelope.context.correlationId,
     commandId: input.metadata.commandId,
   });
-  input.session.plan.planMutation({
-    path: issueDocumentPath,
-    kind: opened.mutationKind,
-    category: 'aggregate',
-    estimatedPayloadBytes: ADMIN_ISSUE_PLANNING_ESTIMATES.issueBytes,
+  await planAdminIssueLifecycleMutation(input.session, {
+    previous: existingIssue,
+    issue: opened.issue,
+    mutationKind: opened.mutationKind,
+    documentPath: issueDocumentPath,
   });
   return {
     plannedIssue: opened.issue,
@@ -355,12 +356,15 @@ function recordFinancialCorrectionHandler(
             details: { field: 'adminIssueId', reason: 'conflict' },
           });
         }
-        session.plan.planMutation({
-          path: issueDocumentPath,
-          kind: 'update',
-          category: 'aggregate',
-          estimatedPayloadBytes: ADMIN_ISSUE_PLANNING_ESTIMATES.issueBytes,
+        await planAdminIssueLifecycleMutation(session, {
+          previous: existingIssue,
+          issue: existingIssue,
+          mutationKind: 'update',
+          documentPath: issueDocumentPath,
         });
+        if (existingIssue.lifecycle.status === 'open') {
+          await planAdminIssueInboxRevisionBump(session, 'resolved');
+        }
       }
 
       const walletAccountId =
@@ -618,10 +622,11 @@ function recordFinancialCorrectionHandler(
             paymentId: payment.paymentId,
             adminIssueId: envelope.intent.adminIssueId,
           });
-          session.tx.update(
-            { path: issueDocumentPath },
-            toAdminIssueWritePayload(resolved as Record<string, unknown>)
-          );
+          commitAdminIssueDocument(session, {
+            mutationKind: 'update',
+            documentPath: issueDocumentPath,
+            issue: resolved,
+          });
         }
 
         return commandSuccessResult(envelope.kind, envelope.context.correlationId);
@@ -717,7 +722,7 @@ export function recordAuditCorrectionHandler(
             });
             issueDocumentPath = plannedAdminIssuePath(identity);
             const issueRead = await session.tx.get({ path: issueDocumentPath });
-            const staged = stageFinancialReconciliationIssue({
+            const staged = await stageFinancialReconciliationIssue({
               envelope,
               environment,
               session,
@@ -832,11 +837,11 @@ export function recordAuditCorrectionHandler(
               });
               plannedIssue = opened.issue;
               issueMutationKind = opened.mutationKind;
-              session.plan.planMutation({
-                path: issueDocumentPath,
-                kind: issueMutationKind,
-                category: 'aggregate',
-                estimatedPayloadBytes: ADMIN_ISSUE_PLANNING_ESTIMATES.issueBytes,
+              await planAdminIssueLifecycleMutation(session, {
+                previous: existingIssue,
+                issue: opened.issue,
+                mutationKind: opened.mutationKind,
+                documentPath: issueDocumentPath,
               });
             }
           }
@@ -944,12 +949,11 @@ export function recordAuditCorrectionHandler(
       plannedGuestConfirmation?.commit(session, context.decidedAt);
 
       if (plannedIssue !== undefined && issueDocumentPath && issueMutationKind) {
-        const payload = toAdminIssueWritePayload(plannedIssue as Record<string, unknown>);
-        if (issueMutationKind === 'create') {
-          session.tx.create({ path: issueDocumentPath }, payload);
-        } else {
-          session.tx.update({ path: issueDocumentPath }, payload);
-        }
+        commitAdminIssueDocument(session, {
+          mutationKind: issueMutationKind,
+          documentPath: issueDocumentPath,
+          issue: plannedIssue,
+        });
       }
 
       return commandSuccessResult(envelope.kind, envelope.context.correlationId);

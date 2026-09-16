@@ -49,11 +49,12 @@ import {
   type AuthoritativeIdempotentCanonicalCommandHandler,
 } from '../commands/idempotentCommandExecution';
 import {
-  ADMIN_ISSUE_PLANNING_ESTIMATES,
+  attendanceAdminIssueResultPayload,
+  commitAdminIssueDocument,
   openOrReuseAdminIssue,
   parseExistingAdminIssueOrCollision,
+  planAdminIssueLifecycleMutation,
   plannedAdminIssuePath,
-  toFirestoreWritePayload as toAdminIssueWritePayload,
 } from '../adminIssues';
 import { assertResolveAttendanceOutcomeAuthorization } from '../bookings/bookingAttendanceAuthorization';
 import {
@@ -200,11 +201,11 @@ async function planResolveOpenAdminIssue(
     },
     coupledDomainCommand: true,
   });
-  session.plan.planMutation({
-    path: documentPath,
-    kind: 'update',
-    category: 'aggregate',
-    estimatedPayloadBytes: ADMIN_ISSUE_PLANNING_ESTIMATES.issueBytes,
+  await planAdminIssueLifecycleMutation(session, {
+    previous: existing,
+    issue: resolved,
+    mutationKind: 'update',
+    documentPath,
   });
   return {
     issue: resolved,
@@ -345,11 +346,11 @@ function recordCourseDayAttendanceHandler(
           auditEffect: opened.mutationKind === 'create' ? 'opened' : 'reused',
           kind: 'outcome_correction_required',
         });
-        session.plan.planMutation({
-          path: documentPath,
-          kind: opened.mutationKind,
-          category: 'aggregate',
-          estimatedPayloadBytes: ADMIN_ISSUE_PLANNING_ESTIMATES.issueBytes,
+        await planAdminIssueLifecycleMutation(session, {
+          previous: existing,
+          issue: opened.issue,
+          mutationKind: opened.mutationKind,
+          documentPath,
         });
         plannedAttendance =
           effectiveExistingAttendance ??
@@ -522,11 +523,11 @@ function recordCourseDayAttendanceHandler(
           auditEffect: opened.mutationKind === 'create' ? 'opened' : 'reused',
           kind: 'payment_required_at_start',
         });
-        session.plan.planMutation({
-          path: paymentStartDocumentPath,
-          kind: opened.mutationKind,
-          category: 'aggregate',
-          estimatedPayloadBytes: ADMIN_ISSUE_PLANNING_ESTIMATES.issueBytes,
+        await planAdminIssueLifecycleMutation(session, {
+          previous: paymentIssue,
+          issue: opened.issue,
+          mutationKind: opened.mutationKind,
+          documentPath: paymentStartDocumentPath,
         });
       }
       const paymentStartRestrictionActive = isCourseEnrollmentPaymentStartRestrictionActive({
@@ -568,11 +569,11 @@ function recordCourseDayAttendanceHandler(
           auditEffect: opened.mutationKind === 'create' ? 'opened' : 'reused',
           kind: 'attendance_payment_conflict',
         });
-        session.plan.planMutation({
-          path: paymentConflictDocumentPath,
-          kind: opened.mutationKind,
-          category: 'aggregate',
-          estimatedPayloadBytes: ADMIN_ISSUE_PLANNING_ESTIMATES.issueBytes,
+        await planAdminIssueLifecycleMutation(session, {
+          previous: existing,
+          issue: opened.issue,
+          mutationKind: opened.mutationKind,
+          documentPath: paymentConflictDocumentPath,
         });
       }
 
@@ -812,18 +813,14 @@ function recordCourseDayAttendanceHandler(
           );
         }
       }
+      let inboxCommit: ReturnType<typeof commitAdminIssueDocument> = undefined;
       for (const plannedIssue of plannedIssueMutations) {
-        if (plannedIssue.mutationKind === 'update') {
-          session.tx.update(
-            { path: plannedIssue.documentPath },
-            toAdminIssueWritePayload(plannedIssue.issue as Record<string, unknown>)
-          );
-        } else {
-          session.tx.create(
-            { path: plannedIssue.documentPath },
-            toAdminIssueWritePayload(plannedIssue.issue as Record<string, unknown>)
-          );
-        }
+        inboxCommit =
+          commitAdminIssueDocument(session, {
+            mutationKind: plannedIssue.mutationKind,
+            documentPath: plannedIssue.documentPath,
+            issue: plannedIssue.issue,
+          }) ?? inboxCommit;
       }
       if (plannedEnrollment) {
         session.tx.update(
@@ -839,7 +836,11 @@ function recordCourseDayAttendanceHandler(
         });
       }
       commitPlannedCourseGraduateAchievementIssuance(session, plannedCourseGraduate);
-      return commandSuccessResult(envelope.kind, envelope.context.correlationId);
+      return commandSuccessResult(
+        envelope.kind,
+        envelope.context.correlationId,
+        attendanceAdminIssueResultPayload(inboxCommit)
+      );
     },
   };
 
@@ -1022,11 +1023,11 @@ export function resolveCourseEnrollmentAttendanceOutcomeHandler(
               mutationKind: opened.mutationKind,
               documentPath,
             });
-            session.plan.planMutation({
-              path: documentPath,
-              kind: opened.mutationKind,
-              category: 'aggregate',
-              estimatedPayloadBytes: ADMIN_ISSUE_PLANNING_ESTIMATES.issueBytes,
+            await planAdminIssueLifecycleMutation(session, {
+              previous: existing,
+              issue: opened.issue,
+              mutationKind: opened.mutationKind,
+              documentPath,
             });
           }
         }
@@ -1069,17 +1070,11 @@ export function resolveCourseEnrollmentAttendanceOutcomeHandler(
         );
       }
       for (const plannedIssue of plannedIssues) {
-        if (plannedIssue.mutationKind === 'update') {
-          session.tx.update(
-            { path: plannedIssue.documentPath },
-            toAdminIssueWritePayload(plannedIssue.issue as Record<string, unknown>)
-          );
-        } else {
-          session.tx.create(
-            { path: plannedIssue.documentPath },
-            toAdminIssueWritePayload(plannedIssue.issue as Record<string, unknown>)
-          );
-        }
+        commitAdminIssueDocument(session, {
+          mutationKind: plannedIssue.mutationKind,
+          documentPath: plannedIssue.documentPath,
+          issue: plannedIssue.issue,
+        });
       }
       if (plannedClaimRelease) {
         commitPlannedCourseEnrollmentClaimRelease(session, {

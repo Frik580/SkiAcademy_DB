@@ -39,11 +39,11 @@ import {
   type AuthoritativeIdempotentCanonicalCommandHandler,
 } from '../commands/idempotentCommandExecution';
 import {
-  ADMIN_ISSUE_PLANNING_ESTIMATES,
+  commitAdminIssueDocument,
   openOrReuseAdminIssue,
   parseExistingAdminIssueOrCollision,
+  planAdminIssueLifecycleMutation,
   plannedAdminIssuePath,
-  toFirestoreWritePayload as toAdminIssueWritePayload,
 } from '../adminIssues';
 import {
   parseAccount,
@@ -368,11 +368,11 @@ function requestAuthenticatedCourseEnrollmentCancellationHandler(
         });
         plannedIssue = opened.issue;
         issueMutationKind = opened.mutationKind;
-        session.plan.planMutation({
-          path: issueDocumentPath,
-          kind: opened.mutationKind,
-          category: 'aggregate',
-          estimatedPayloadBytes: ADMIN_ISSUE_PLANNING_ESTIMATES.issueBytes,
+        await planAdminIssueLifecycleMutation(session, {
+          previous: existingIssue,
+          issue: opened.issue,
+          mutationKind: opened.mutationKind,
+          documentPath: issueDocumentPath,
         });
       },
       planAuditOutbox: async () => {
@@ -471,12 +471,11 @@ function requestAuthenticatedCourseEnrollmentCancellationHandler(
             enrollmentToFirestoreWritePayload(updatedEnrollment as Record<string, unknown>)
           );
           if (plannedIssue !== undefined && issueMutationKind !== undefined) {
-            const payload = toAdminIssueWritePayload(plannedIssue as Record<string, unknown>);
-            if (issueMutationKind === 'create') {
-              session.tx.create({ path: issueDocumentPath }, payload);
-            } else {
-              session.tx.update({ path: issueDocumentPath }, payload);
-            }
+            commitAdminIssueDocument(session, {
+              mutationKind: issueMutationKind,
+              documentPath: issueDocumentPath,
+              issue: plannedIssue,
+            });
           }
         }
         return commandSuccessResult(envelope.kind, envelope.context.correlationId, {
@@ -618,11 +617,7 @@ function withdrawCourseEnrollmentCancellationRequestHandler(
         enrollmentToFirestoreWritePayload(updatedEnrollment as Record<string, unknown>)
       );
       if (plannedResolvedIssue !== undefined) {
-        commitPlannedCourseEnrollmentAdminIssueUpdate(
-          session,
-          plannedResolvedIssue,
-          toAdminIssueWritePayload
-        );
+        commitPlannedCourseEnrollmentAdminIssueUpdate(session, plannedResolvedIssue);
       }
       return commandSuccessResult(envelope.kind, envelope.context.correlationId);
     },
@@ -875,11 +870,7 @@ function resolveCourseEnrollmentCancellationHandler(
         }
 
         if (plannedResolvedPendingIssue !== undefined) {
-          commitPlannedCourseEnrollmentAdminIssueUpdate(
-            session,
-            plannedResolvedPendingIssue,
-            toAdminIssueWritePayload
-          );
+          commitPlannedCourseEnrollmentAdminIssueUpdate(session, plannedResolvedPendingIssue);
         }
 
         return commandSuccessResult(envelope.kind, envelope.context.correlationId);

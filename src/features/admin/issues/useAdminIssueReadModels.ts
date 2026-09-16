@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   compareCanonicalTimestamps,
+  reduceAdminIssueInboxRevisionSignal,
   type AdminIssueDetailReadModel,
   type AdminIssueId,
   type AdminIssueInboxItem,
@@ -9,6 +10,12 @@ import {
 } from '@ski-academy/shared-domain';
 import { queryAdminIssueReadModels } from '../../../lib/canonical/canonicalReadModelClient';
 import { toFunctionsClientError } from '../../../lib/functions/functionsClient';
+import { logger } from '../../../shared';
+import {
+  removeResolvedAdminIssueInboxItems,
+  subscribeAdminIssueInboxLocalPatches,
+} from './adminIssueInboxLocalSync';
+import { subscribeAdminIssueInboxRevision } from './subscribeAdminIssueInboxRevision';
 
 export type AdminIssueReadErrorCode = 'permission-denied' | 'read-failed';
 
@@ -72,16 +79,19 @@ export function useAdminIssueReadModels(
   const { enabled, scope, severity, selectedIssueId } = input;
   const listRequestGeneration = useRef(0);
   const detailRequestGeneration = useRef(0);
+  const inboxRevisionState = useRef<{ initialized: boolean; lastRevision?: number }>({
+    initialized: false,
+  });
   const [list, setList] = useState<AdminIssueListState>(INITIAL_LIST_STATE);
   const [detail, setDetail] = useState<AdminIssueDetailState>(INITIAL_DETAIL_STATE);
 
   const loadList = useCallback(
-    async (cursor?: string, append = false) => {
+    async (cursor?: string, append = false, quiet = false) => {
       const generation = ++listRequestGeneration.current;
       if (!enabled) return;
       setList((current) => ({
-        ...(append ? current : INITIAL_LIST_STATE),
-        loading: !append,
+        ...(append || quiet ? current : INITIAL_LIST_STATE),
+        loading: !append && !quiet,
         loadingMore: append,
         error: undefined,
       }));
@@ -139,6 +149,9 @@ export function useAdminIssueReadModels(
     }
   }, [enabled, selectedIssueId]);
 
+  const loadListRef = useRef(loadList);
+  loadListRef.current = loadList;
+
   useEffect(() => {
     if (!enabled) {
       listRequestGeneration.current += 1;
@@ -157,6 +170,55 @@ export function useAdminIssueReadModels(
       detailRequestGeneration.current += 1;
     };
   }, [loadDetail]);
+
+  useEffect(() => {
+    if (!enabled || scope !== 'admin_open') return;
+    return subscribeAdminIssueInboxLocalPatches((patch) => {
+      setList((current) => ({
+        ...current,
+        items: removeResolvedAdminIssueInboxItems(current.items, patch.resolvedAdminIssueIds),
+      }));
+      setDetail((current) =>
+        current.item && patch.resolvedAdminIssueIds.includes(current.item.issueId)
+          ? INITIAL_DETAIL_STATE
+          : current
+      );
+      if (
+        patch.adminIssueInboxRevision !== undefined &&
+        patch.openedAdminIssueIds.length === 0
+      ) {
+        inboxRevisionState.current = {
+          initialized: inboxRevisionState.current.initialized,
+          lastRevision: patch.adminIssueInboxRevision,
+        };
+      }
+    });
+  }, [enabled, scope]);
+
+  useEffect(() => {
+    if (!enabled || scope !== 'admin_open') {
+      inboxRevisionState.current = { initialized: false };
+      return;
+    }
+    return subscribeAdminIssueInboxRevision((nextRevision) => {
+      const previous = inboxRevisionState.current.lastRevision;
+      const reduced = reduceAdminIssueInboxRevisionSignal(
+        inboxRevisionState.current,
+        nextRevision
+      );
+      inboxRevisionState.current = {
+        initialized: reduced.initialized,
+        lastRevision: reduced.lastRevision,
+      };
+      if (!reduced.shouldRefresh) return;
+      logger.info('admin_issue_inbox_realtime_invalidated', {
+        previousRevision: previous,
+        nextRevision,
+        reason: 'revision_changed',
+      });
+      void loadListRef.current(undefined, false, true);
+    });
+  }, [enabled, scope]);
 
   return {
     list,

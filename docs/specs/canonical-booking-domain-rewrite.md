@@ -399,11 +399,10 @@ T32.9A.9P (Global Product Parity & legacy Dependency Gate)
         ↓
 T32.9A.9D0 (production-like mixed-state rehearsal of EXACT 9D) — PASS / CLOSED (2026-09-14)
         ↓
-NEXT #42 (account_hot page-1 reconciliation >25 correctness — recorded follow-up from T32.9R.P0B)
+T32.9A.9D (physical source cleanup from the 9D0 DELETE_FILES / DELETE_EXPORTS lists) — PASS / CLOSED (2026-09-16)
         ↓
-T32.9A.9D (Selective Destructive legacy Data Cleanup)
-        ↓
-T32.9A.9E (technical + product reachability)
+T32.9A.9E (technical + product reachability) — NEXT
+#42 (account_hot page-1 reconciliation >25) remains a recorded T32.9R follow-up and is not a 9E blocker
         ↓
 T32.9B (physical legacy runtime cleanup)
         ↓

@@ -332,15 +332,10 @@ describe('T32.9A.9B.3 canonical lesson feedback isolation', () => {
     );
     expect(commands).not.toContain('completedRecommendationIds');
     expect(commands).not.toContain('recommendations:');
-    const bookingService = readRepoFile('src/features/bookings/bookingService.ts');
-    expect(bookingService).not.toContain('saveBookingRecommendationsService');
-    expect(bookingService).not.toContain('toggleRecommendationService');
-    expect(bookingService).not.toContain('completedRecommendationIds');
-    expect(bookingService).not.toContain('sanitizeRecommendations');
-    const bookingActions = readRepoFile('src/features/bookings/useBookingActions.ts');
-    expect(bookingActions).not.toContain('toggleRecommendationService');
-    expect(bookingActions).not.toContain('handleToggleRecommendation');
-    expect(bookingActions).not.toContain('completedRecommendationIds');
+    expect(existsSync(join(process.cwd(), 'src/features/bookings/bookingService.ts'))).toBe(false);
+    expect(existsSync(join(process.cwd(), 'src/features/bookings/useBookingActions.ts'))).toBe(
+      false
+    );
   });
 
   it('keeps legacy recommendation client writes denied and chat homework intact', () => {

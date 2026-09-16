@@ -4,6 +4,7 @@ import type {
 } from '@ski-academy/shared-domain';
 import { AlertTriangle, CalendarDays, MessageSquareText, X } from 'lucide-react';
 import { useEffect, useId, useMemo, useState } from 'react';
+import { ActionButton } from '../../../ui/ActionButton';
 import { formatLessonDifficultyOrUnspecified } from '../../../lib/i18n/bookingLabels';
 import type { Language, TranslationKey } from '../../../lib/i18n/translations';
 import { AdminManagedParticipantPicker } from '../identity';
@@ -33,7 +34,6 @@ import {
   resolveLessonAdminPrimaryStatus,
   shouldShowCancellationSection,
   shouldShowGuestSection,
-  shouldShowOutcomeAction,
   shouldShowPayerRow,
   trueAuthorizedActionKeys,
 } from './lessonBookingAdminPresentation';
@@ -44,6 +44,7 @@ import {
   AdminLessonStatusChip,
   type AdminLessonDetailSection,
 } from './AdminLessonBookingUi';
+import { useAdminLessonAttendanceDraft } from './useAdminLessonAttendanceDraft';
 
 export interface AdminLessonBookingDetailProps {
   readonly detail: LessonBookingReadModel;
@@ -52,6 +53,11 @@ export interface AdminLessonBookingDetailProps {
   readonly locale: string;
   readonly t: (key: TranslationKey) => string;
   readonly onRequestAttempt: (attempt: AdminLessonBookingMutationDraft, message: string) => void;
+  readonly onCommitAttendanceFinalize: (
+    attempt: AdminLessonBookingMutationDraft
+  ) => Promise<boolean>;
+  readonly attendanceFinalizePending: boolean;
+  readonly attendanceFinalizeSuccessNonce: number;
   /**
    * Editing a draft after a mutation confirmation was requested would capture a stale attempt,
    * so the boundary asks the container to drop that pending confirmation.
@@ -133,6 +139,9 @@ export function AdminLessonBookingDetail({
   locale,
   t,
   onRequestAttempt,
+  onCommitAttendanceFinalize,
+  attendanceFinalizePending,
+  attendanceFinalizeSuccessNonce,
   onClearConfirmation,
   onOpenPlanner,
   onClose,
@@ -151,6 +160,16 @@ export function AdminLessonBookingDetail({
   const [paymentAmount, setPaymentAmount] = useState(() => String(outstanding));
   const [linkSelection, setLinkSelection] = useState<AdminManagedParticipantSelection>();
   const [linkReason, setLinkReason] = useState('');
+  const [attendanceConfirmOpen, setAttendanceConfirmOpen] = useState(false);
+  const {
+    targetParticipantIds,
+    draft: attendanceDraft,
+    setParticipantStatus,
+    allTargetParticipantsDrafted,
+    clearDraftAfterSuccess,
+    presentCount,
+    absentCount,
+  } = useAdminLessonAttendanceDraft({ detail, admin });
   const editPaymentAmount = (value: string) => {
     setPaymentAmount(value);
     onClearConfirmation();
@@ -179,6 +198,12 @@ export function AdminLessonBookingDetail({
     setLinkSelection(undefined);
     setLinkReason('');
   }, [detail.bookingId]);
+  useEffect(() => {
+    setAttendanceConfirmOpen(false);
+  }, [detail.bookingId]);
+  useEffect(() => {
+    clearDraftAfterSuccess();
+  }, [attendanceFinalizeSuccessNonce, clearDraftAfterSuccess]);
 
   const formatKzt = (value: number) =>
     new Intl.NumberFormat(locale, {
@@ -195,7 +220,6 @@ export function AdminLessonBookingDetail({
   const showCancellation = shouldShowCancellationSection(detail);
   const showGuest = shouldShowGuestSection(detail);
   const showPayer = shouldShowPayerRow(admin);
-  const showOutcome = shouldShowOutcomeAction(admin);
   const showPlannerHint = hasSchedulingPlannerHint(admin);
   const attendancePending = attendanceUnavailableReason(detail) === 'pending';
   const attendanceHasMutations = (admin.attendance ?? []).some(
@@ -213,7 +237,8 @@ export function AdminLessonBookingDetail({
     Number(refundAmount) <= (admin.cancellationFinancial?.maximumRefund ?? 0);
   const payment = admin.payment;
   const awaitingPayment = isPendingUnpaidOutstanding(detail);
-  const showAttendance = (admin.attendance ?? []).length > 0 || attendancePending || showOutcome;
+  const showAttendance =
+    (admin.attendance ?? []).length > 0 || attendancePending || attendanceHasMutations;
   const openCriticalIssues = admin.relatedIssues.filter(
     (issue) => issue.severity === 'critical' && issue.lifecycleStatus === 'open'
   );
@@ -273,6 +298,22 @@ export function AdminLessonBookingDetail({
       setActiveSection('overview');
     }
   }, [activeSection, sections]);
+
+  const buildFinalizeAttendanceAttempt = (): AdminLessonBookingMutationDraft => ({
+    kind: 'finalize_booking_attendance',
+    reasonExplanation: actionReason.trim(),
+    attendance: targetParticipantIds.map((participantId) => {
+      const record = (admin.attendance ?? []).find(
+        (candidate) => candidate.participantId === participantId
+      );
+      const status = attendanceDraft[participantId];
+      return {
+        participantId,
+        attendanceStatus: status === 'absent' ? 'absent' : 'present',
+        ...(record?.revision === undefined ? {} : { expectedAttendanceRevision: record.revision }),
+      };
+    }),
+  });
 
   return (
     <div>
@@ -627,39 +668,40 @@ export function AdminLessonBookingDetail({
             <h4 className="text-xs font-medium uppercase tracking-wide">
               {t('adminLessonAttendanceTitle')}
             </h4>
-            {(admin.attendance ?? []).map((record) => {
-              const participant = admin.participants.find(
-                (candidate) => candidate.participantId === record.participantId
+            {targetParticipantIds.map((participantId) => {
+              const record = (admin.attendance ?? []).find(
+                (candidate) => candidate.participantId === participantId
               );
-              const canPresent = record.authorizedActions.canRecordPresent;
-              const canAbsent = record.authorizedActions.canRecordAbsent;
+              const participant = admin.participants.find(
+                (candidate) => candidate.participantId === participantId
+              );
+              const canPresent = record?.authorizedActions.canRecordPresent ?? false;
+              const canAbsent = record?.authorizedActions.canRecordAbsent ?? false;
+              const draftStatus = attendanceDraft[participantId];
+              const canEdit = canPresent || canAbsent;
               return (
-                <div key={record.participantId} className="space-y-2 text-xs">
-                  <p className="font-medium">{participant?.displayName ?? record.participantId}</p>
+                <div key={participantId} className="space-y-2 text-xs">
+                  <p className="font-medium">{participant?.displayName ?? participantId}</p>
                   <p className="text-[var(--ink-dim)]">
-                    {t(attendanceStatusLabelKey(record.attendanceStatus))}
+                    {draftStatus
+                      ? t(
+                          draftStatus === 'present'
+                            ? 'adminLessonAttendancePresent'
+                            : 'adminLessonAttendanceAbsent'
+                        )
+                      : t(attendanceStatusLabelKey(record?.attendanceStatus))}
                   </p>
-                  {(canPresent || canAbsent) && (
+                  {canEdit && (
                     <div className="flex flex-wrap gap-2">
                       {canPresent && (
                         <button
                           type="button"
-                          disabled={!actionReason.trim()}
-                          onClick={() =>
-                            onRequestAttempt(
-                              {
-                                kind: 'record_booking_attendance',
-                                participantId: record.participantId,
-                                attendanceStatus: 'present',
-                                ...(record.revision === undefined
-                                  ? {}
-                                  : { expectedAttendanceRevision: record.revision }),
-                                reasonExplanation: actionReason.trim(),
-                              },
-                              `${t('adminLessonConfirmAttendance')} ${participant?.displayName ?? record.participantId}: ${record.attendanceStatus ?? 'missing'} → present @ booking rev ${detail.revision}${record.revision === undefined ? '' : `, attendance rev ${record.revision}`}`
-                            )
-                          }
-                          className="border border-[var(--border)] px-3 py-2 disabled:opacity-50"
+                          onClick={() => setParticipantStatus(participantId, 'present')}
+                          className={`border px-3 py-2 ${
+                            draftStatus === 'present'
+                              ? 'border-[var(--ink)]'
+                              : 'border-[var(--border)]'
+                          }`}
                         >
                           {t('adminLessonRecordPresent')}
                         </button>
@@ -667,22 +709,12 @@ export function AdminLessonBookingDetail({
                       {canAbsent && (
                         <button
                           type="button"
-                          disabled={!actionReason.trim()}
-                          onClick={() =>
-                            onRequestAttempt(
-                              {
-                                kind: 'record_booking_attendance',
-                                participantId: record.participantId,
-                                attendanceStatus: 'absent',
-                                ...(record.revision === undefined
-                                  ? {}
-                                  : { expectedAttendanceRevision: record.revision }),
-                                reasonExplanation: actionReason.trim(),
-                              },
-                              `${t('adminLessonConfirmAttendance')} ${participant?.displayName ?? record.participantId}: ${record.attendanceStatus ?? 'missing'} → absent @ booking rev ${detail.revision}${record.revision === undefined ? '' : `, attendance rev ${record.revision}`}`
-                            )
-                          }
-                          className="border border-[var(--border)] px-3 py-2 disabled:opacity-50"
+                          onClick={() => setParticipantStatus(participantId, 'absent')}
+                          className={`border px-3 py-2 ${
+                            draftStatus === 'absent'
+                              ? 'border-[var(--ink)]'
+                              : 'border-[var(--border)]'
+                          }`}
                         >
                           {t('adminLessonRecordAbsent')}
                         </button>
@@ -697,18 +729,16 @@ export function AdminLessonBookingDetail({
                 {t('adminLessonAttendanceAfterConfirm')}
               </p>
             )}
-            {showOutcome && (
+            {attendanceHasMutations && (
               <button
                 type="button"
-                onClick={() =>
-                  onRequestAttempt(
-                    { kind: 'resolve_attendance_outcome' },
-                    t('adminLessonConfirmOutcome')
-                  )
+                disabled={
+                  !allTargetParticipantsDrafted || !actionReason.trim() || attendanceFinalizePending
                 }
-                className="w-full border border-[var(--border)] px-3 py-2 text-xs"
+                onClick={() => setAttendanceConfirmOpen(true)}
+                className="w-full border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
               >
-                {t('adminLessonResolveOutcome')}
+                {t('adminLessonFinalizeAttendance')}
               </button>
             )}
             {reasonInAttendance && (
@@ -999,6 +1029,67 @@ export function AdminLessonBookingDetail({
             hidden
           />
         ))}
+      {attendanceConfirmOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={t('adminLessonConfirmAttendanceTitle')}
+          className="fixed inset-0 z-60 flex items-center justify-center bg-black/55 p-4"
+        >
+          <div className="w-full max-w-md space-y-4 border border-[var(--border)] bg-[var(--bg)] p-5">
+            <h3 className="text-sm font-medium">{t('adminLessonConfirmAttendanceTitle')}</h3>
+            <ul className="space-y-2 text-xs">
+              {targetParticipantIds.map((participantId) => {
+                const participant = admin.participants.find(
+                  (candidate) => candidate.participantId === participantId
+                );
+                const status = attendanceDraft[participantId];
+                return (
+                  <li key={participantId} className="flex justify-between gap-4">
+                    <span>{participant?.displayName ?? participantId}</span>
+                    <span className="text-[var(--ink-dim)]">
+                      {status === 'present'
+                        ? t('adminLessonAttendancePresent')
+                        : t('adminLessonAttendanceAbsent')}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="text-xs text-[var(--ink-dim)]">
+              {t('adminLessonAttendancePresentCount').replace('{n}', String(presentCount))}
+            </p>
+            <p className="text-xs text-[var(--ink-dim)]">
+              {t('adminLessonAttendanceAbsentCount').replace('{n}', String(absentCount))}
+            </p>
+            <p className="text-xs">{t('adminLessonConfirmAttendanceWarning')}</p>
+            <div className="flex gap-2">
+              <ActionButton
+                type="button"
+                size="sm"
+                variant="secondary"
+                disabled={attendanceFinalizePending}
+                onClick={() => setAttendanceConfirmOpen(false)}
+              >
+                {t('adminLessonConfirmAttendanceBack')}
+              </ActionButton>
+              <ActionButton
+                type="button"
+                size="sm"
+                disabled={attendanceFinalizePending}
+                pending={attendanceFinalizePending}
+                onClick={() => {
+                  void onCommitAttendanceFinalize(buildFinalizeAttendanceAttempt()).then((ok) => {
+                    if (ok) setAttendanceConfirmOpen(false);
+                  });
+                }}
+              >
+                {t('adminLessonConfirmAttendanceSubmit')}
+              </ActionButton>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

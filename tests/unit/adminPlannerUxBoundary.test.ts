@@ -43,9 +43,8 @@ describe('T32.9A.2.2 Planner / Lesson Admin UX boundary', () => {
     expect(detail).toContain('onClick={onOpenPlanner}');
     expect(detail).toContain("t('openInPlanner')");
     expect(panel).toContain('ADMIN_PLANNER_DATE_QUERY_KEY');
-    expect(detail).toContain('record_booking_attendance');
+    expect(detail).toContain('finalize_booking_attendance');
     expect(detail).toContain('resolve_booking_cancellation');
-    expect(detail).toContain('resolve_attendance_outcome');
   });
 
   it('gives Planner managed Participant create, duration change, and lesson-detail navigation', () => {

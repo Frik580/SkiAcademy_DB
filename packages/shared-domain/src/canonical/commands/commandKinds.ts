@@ -35,6 +35,7 @@ export const COMMAND_KINDS = [
   'withdraw_booking_change_request',
   'resolve_booking_change_request',
   'expire_guest_reservation',
+  'finalize_booking_attendance',
   'enforce_payment_start_gate',
   'resolve_attendance_outcome',
   'provision_self_participant',

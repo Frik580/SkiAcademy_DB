@@ -478,6 +478,36 @@ export const CommandIntentSchemaByKind = {
       reasonExplanation: z.string().trim().min(1).max(2_000).optional(),
     })
     .strict(),
+  finalize_booking_attendance: z
+    .object({
+      bookingId: BookingIdSchema,
+      attendance: z
+        .array(
+          z
+            .object({
+              participantId: ParticipantIdSchema,
+              attendanceStatus: z.enum(['present', 'absent']),
+              expectedAttendanceRevision: AggregateRevisionSchema.optional(),
+            })
+            .strict()
+        )
+        .min(1),
+      reasonExplanation: z.string().trim().min(1).max(2_000),
+    })
+    .strict()
+    .superRefine((intent, context) => {
+      const seen = new Set<string>();
+      intent.attendance.forEach((entry, index) => {
+        if (seen.has(entry.participantId)) {
+          context.addIssue({
+            code: 'custom',
+            path: ['attendance', index, 'participantId'],
+            message: 'duplicate participantId',
+          });
+        }
+        seen.add(entry.participantId);
+      });
+    }),
   record_course_day_attendance: z
     .object({
       courseEnrollmentId: CourseEnrollmentIdSchema,

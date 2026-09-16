@@ -1207,6 +1207,131 @@ describe('bookingAttendanceCommands', () => {
     );
   });
 
+  function adminFinalizeEnvelope(
+    idempotencyKey: string,
+    attendance: Array<{
+      targetParticipantId: typeof participantId | typeof participantTwoId | typeof participantThreeId;
+      attendanceStatus: 'present' | 'absent';
+      expectedAttendanceRevision?: number;
+    }>,
+    input: { reasonExplanation?: string; expectedBookingRevision?: number } = {}
+  ): CommandEnvelope<'finalize_booking_attendance'> {
+    return {
+      kind: 'finalize_booking_attendance',
+      context: {
+        actor: accountCommandActor(adminAccountId),
+        exercisedCapability: 'administrator',
+        idempotencyKey,
+        correlationId,
+        source: 'admin_callable',
+        ...(input.expectedBookingRevision === undefined
+          ? {}
+          : { expectedRevision: input.expectedBookingRevision }),
+      },
+      intent: {
+        bookingId,
+        attendance: attendance.map((entry) => ({
+          participantId: entry.targetParticipantId,
+          attendanceStatus: entry.attendanceStatus,
+          ...(entry.expectedAttendanceRevision === undefined
+            ? {}
+            : { expectedAttendanceRevision: entry.expectedAttendanceRevision }),
+        })),
+        reasonExplanation: input.reasonExplanation ?? 'Admin batch finalize',
+      },
+    };
+  }
+
+  it('finalize_booking_attendance writes all attendance and completes group booking atomically', async () => {
+    const seededBooking = groupBooking();
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`bookings/${bookingId}`]: seededBooking as unknown as Record<string, unknown>,
+    });
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-15T10:00:00.000Z'),
+      executor
+    );
+    const result = await commands.execute(
+      adminFinalizeEnvelope(
+        'finalize-group-mixed',
+        [
+          { targetParticipantId: participantId, attendanceStatus: 'present' },
+          { targetParticipantId: participantTwoId, attendanceStatus: 'absent' },
+          { targetParticipantId: participantThreeId, attendanceStatus: 'present' },
+        ],
+        { expectedBookingRevision: 1 }
+      )
+    );
+    expect(result.status).toBe('success');
+    const snapshot = executor.snapshot();
+    expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe('completed');
+    for (const targetParticipantId of [participantId, participantTwoId, participantThreeId]) {
+      const attendanceId = attendanceIdFromBookingIdentity({
+        strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+        subjectKind: 'booking',
+        occurrenceId,
+        participantId: targetParticipantId,
+      });
+      expect(snapshot.docs.get(`attendance/${attendanceId}`)?.data.attendanceStatus).toBeDefined();
+    }
+  });
+
+  it('finalize_booking_attendance rejects missing participant without partial writes', async () => {
+    const seededBooking = groupBooking();
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`bookings/${bookingId}`]: seededBooking as unknown as Record<string, unknown>,
+    });
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-15T10:00:00.000Z'),
+      executor
+    );
+    const result = await commands.execute(
+      adminFinalizeEnvelope(
+        'finalize-group-missing',
+        [
+          { targetParticipantId: participantId, attendanceStatus: 'present' },
+          { targetParticipantId: participantTwoId, attendanceStatus: 'absent' },
+        ],
+        { expectedBookingRevision: 1 }
+      )
+    );
+    expect(result.status).toBe('error');
+    const snapshot = executor.snapshot();
+    expect(
+      snapshot.docs.get(
+        `attendance/${attendanceIdFromBookingIdentity({
+          strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+          subjectKind: 'booking',
+          occurrenceId,
+          participantId,
+        })}`
+      )
+    ).toBeUndefined();
+    expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe('confirmed');
+  });
+
+  it('admin record_booking_attendance does not complete group booking with partial attendance', async () => {
+    const seededBooking = groupBooking();
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`bookings/${bookingId}`]: seededBooking as unknown as Record<string, unknown>,
+    });
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-15T10:00:00.000Z'),
+      executor
+    );
+    const result = await commands.execute(
+      adminEnvelope('admin-partial-present', 'present', {
+        targetParticipantId: participantId,
+        reasonExplanation: 'Partial admin attendance',
+        expectedBookingRevision: 1,
+      })
+    );
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe(
+      'confirmed'
+    );
+  });
+
   it('L. cancelled bookings do not open attendance-overdue issues', async () => {
     const cancelled = BookingSchema.parse({
       ...booking(),

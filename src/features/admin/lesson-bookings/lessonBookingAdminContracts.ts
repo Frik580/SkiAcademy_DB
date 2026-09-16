@@ -77,7 +77,13 @@ export type AdminLessonBookingMutationAttempt =
       readonly reasonExplanation: string;
     })
   | (AttemptBase & {
-      readonly kind: 'resolve_attendance_outcome';
+      readonly kind: 'finalize_booking_attendance';
+      readonly attendance: readonly {
+        readonly participantId: ParticipantId;
+        readonly attendanceStatus: 'present' | 'absent';
+        readonly expectedAttendanceRevision?: number;
+      }[];
+      readonly reasonExplanation: string;
     })
   | (AttemptBase & {
       readonly kind: 'resolve_booking_change_request';

@@ -1,15 +1,21 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { readRepoFile } from '../helpers/readRepoFile';
 
 describe('T32.4 canonical Admin lesson booking boundary', () => {
-  it('removes legacy lesson writers from the active Admin route', () => {
+  it('removes leftover lesson writers from the active Admin route', () => {
     const route = readRepoFile('src/app/routes/AdminRouteContainer.tsx');
     const panel = readRepoFile('src/features/admin/components/AdminPanel.tsx');
-    const actions = readRepoFile('src/features/admin/useAdminActions.ts');
-    const activeBoundary = route + panel + actions;
+    const directory = readRepoFile('src/features/admin/people/AdminInstructorDirectory.tsx');
+    const activeBoundary = route + panel;
 
-    expect(panel).toContain('AdminLessonBookingPanel');
-    for (const legacy of [
+    expect(existsSync(join(process.cwd(), 'src/features/admin/useAdminActions.ts'))).toBe(false);
+    expect(panel).toContain('AdminTrainingRecordsPanel');
+    expect(directory).toContain('create_instructor_catalog_entry');
+    expect(directory).toContain('update_instructor_catalog_profile');
+    expect(directory).toContain('deactivate_instructor_catalog');
+    for (const leftover of [
       'BookingsLog',
       'ScheduleCalendar',
       'ScheduleSlotActionModal',
@@ -20,10 +26,10 @@ describe('T32.4 canonical Admin lesson booking boundary', () => {
       'handleLinkGuestBooking',
       'handleRescheduleBooking',
       'handleReassignInstructor',
+      'updateInstructorService',
     ]) {
-      expect(activeBoundary).not.toContain(legacy);
+      expect(activeBoundary).not.toContain(leftover);
     }
-    expect(actions).toContain('updateInstructorService(instructor, [])');
   });
 
   it('uses only canonical read and command clients in the new feature', () => {
@@ -44,7 +50,7 @@ describe('T32.4 canonical Admin lesson booking boundary', () => {
     expect(commands).toContain("attempt.kind === 'record_provider_payment_event'");
     expect(commands).toContain("sourceKind: 'cash'");
     expect(detail).toContain('canRecordGuestPayment');
-    expect(commands).toContain("kind: 'resolve_attendance_outcome'");
+    expect(commands).toContain("kind: 'finalize_booking_attendance'");
     expect(activePaymentBoundary).not.toContain('completeBooking');
     expect(activePaymentBoundary).not.toContain('linkGuestBookingService');
     expect(activePaymentBoundary).not.toContain('schoolGuestWallet');

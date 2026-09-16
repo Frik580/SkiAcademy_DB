@@ -104,6 +104,7 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
   });
   const [confirmation, setConfirmation] = useState<Confirmation>();
   const [mutationPending, setMutationPending] = useState(false);
+  const [attendanceFinalizeSuccessNonce, setAttendanceFinalizeSuccessNonce] = useState(0);
   const [mutationError, setMutationError] = useState<{ code: string; message: string }>();
   const [mutationNotice, setMutationNotice] = useState<string>();
   const detailPanelRef = useRef<HTMLElement>(null);
@@ -224,6 +225,29 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
   );
 
   const handleClearConfirmation = useCallback(() => setConfirmation(undefined), []);
+
+  const handleCommitAttendanceFinalize = useCallback(
+    async (attempt: AdminLessonBookingMutationDraft): Promise<boolean> => {
+      const item = detailRef.current;
+      if (!item || mutationPending) return false;
+      setMutationPending(true);
+      setMutationError(undefined);
+      const fullAttempt = {
+        ...attempt,
+        target: captureAdminLessonBookingTarget(item),
+        idempotencyKey: createAdminLessonBookingAttemptId(attempt.kind),
+      } as AdminLessonBookingMutationAttempt;
+      const result = await commands.runAttempt(fullAttempt);
+      setMutationPending(false);
+      if (result.status === 'success') {
+        setAttendanceFinalizeSuccessNonce((value) => value + 1);
+        return true;
+      }
+      setMutationError(result.error);
+      return false;
+    },
+    [commands, mutationPending]
+  );
 
   const handleSelectBooking = useCallback(
     (bookingId: string) => {
@@ -354,6 +378,9 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
               locale={locale}
               t={t}
               onRequestAttempt={handleRequestAttempt}
+              onCommitAttendanceFinalize={handleCommitAttendanceFinalize}
+              attendanceFinalizePending={mutationPending}
+              attendanceFinalizeSuccessNonce={attendanceFinalizeSuccessNonce}
               onClearConfirmation={handleClearConfirmation}
               onOpenPlanner={handleOpenPlanner}
               onClose={handleClose}

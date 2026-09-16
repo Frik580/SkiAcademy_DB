@@ -50,6 +50,11 @@ const COMMAND_KIND_REASON_CODES: Partial<Record<CommandKind, readonly AuditReaso
     'manual_override',
     'other',
   ],
+  finalize_booking_attendance: [
+    'attendance_correction',
+    'manual_override',
+    'other',
+  ],
   create_instructor_review: ['customer_review'],
   update_participant_progress: ['instructor_evaluation'],
   record_participant_achievements: ['participant_management', 'self_service_completion'],

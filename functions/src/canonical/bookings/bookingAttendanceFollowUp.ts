@@ -96,7 +96,9 @@ export async function planResolveBookingMissingAttendanceIssues(
   session: CanonicalAtomicTransactionSession,
   input: {
     readonly booking: Booking;
-    readonly envelope: CommandEnvelope<'record_booking_attendance' | 'resolve_attendance_outcome'>;
+    readonly envelope: CommandEnvelope<
+      'record_booking_attendance' | 'finalize_booking_attendance' | 'resolve_attendance_outcome'
+    >;
     readonly metadata: CommandMetadata;
     readonly now: CanonicalTimestamp;
     readonly reason: string;
@@ -150,7 +152,9 @@ export async function planCollapseLegacyParticipantMissingAttendanceIssues(
   session: CanonicalAtomicTransactionSession,
   input: {
     readonly booking: Booking;
-    readonly envelope: CommandEnvelope<'record_booking_attendance' | 'resolve_attendance_outcome'>;
+    readonly envelope: CommandEnvelope<
+      'record_booking_attendance' | 'finalize_booking_attendance' | 'resolve_attendance_outcome'
+    >;
     readonly metadata: CommandMetadata;
     readonly now: CanonicalTimestamp;
   }

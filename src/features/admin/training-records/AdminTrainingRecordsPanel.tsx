@@ -47,6 +47,7 @@ import { AdminLessonBookingDetail } from '../lesson-bookings/AdminLessonBookingD
 import type {
   AdminLessonBookingAttempt,
   AdminLessonBookingMutationAttempt,
+  AdminLessonBookingMutationDraft,
   AdminLessonInstructorOption,
 } from '../lesson-bookings/lessonBookingAdminContracts';
 import {
@@ -234,6 +235,7 @@ export function AdminTrainingRecordsPanel({
     readonly message: string;
   }>();
   const [mutationPending, setMutationPending] = useState(false);
+  const [attendanceFinalizeSuccessNonce, setAttendanceFinalizeSuccessNonce] = useState(0);
   const [mutationError, setMutationError] = useState<{ code: string; message: string } | string>();
   const [mutationNotice, setMutationNotice] = useState<string>();
   const [actionReason, setActionReason] = useState('');
@@ -323,6 +325,7 @@ export function AdminTrainingRecordsPanel({
     setCourseConfirmation(undefined);
     setLessonConfirmation({ attempt, message });
   };
+
   const requestCourseAttempt = (attempt: AdminCourseEnrollmentAttempt, message: string) => {
     setMutationError(undefined);
     setMutationNotice(undefined);
@@ -373,6 +376,28 @@ export function AdminTrainingRecordsPanel({
   const lessonAdmin = lessonDetail?.admin;
   const courseDetail = courseReads.detail.item;
   const confirmation = lessonConfirmation ?? courseConfirmation;
+
+  const handleCommitAttendanceFinalize = useCallback(
+    async (attempt: AdminLessonBookingMutationDraft): Promise<boolean> => {
+      if (!lessonDetail || mutationPending) return false;
+      setMutationPending(true);
+      setMutationError(undefined);
+      const fullAttempt = {
+        ...attempt,
+        target: captureAdminLessonBookingTarget(lessonDetail),
+        idempotencyKey: createAdminLessonBookingAttemptId(attempt.kind),
+      } as AdminLessonBookingMutationAttempt;
+      const result = await lessonCommands.runAttempt(fullAttempt);
+      setMutationPending(false);
+      if (result.status === 'success') {
+        setAttendanceFinalizeSuccessNonce((value) => value + 1);
+        return true;
+      }
+      setMutationError(result.error);
+      return false;
+    },
+    [lessonCommands, lessonDetail, mutationPending]
+  );
 
   return (
     <div className="space-y-6">
@@ -690,6 +715,9 @@ export function AdminTrainingRecordsPanel({
                     message
                   )
                 }
+                onCommitAttendanceFinalize={handleCommitAttendanceFinalize}
+                attendanceFinalizePending={mutationPending}
+                attendanceFinalizeSuccessNonce={attendanceFinalizeSuccessNonce}
                 onClearConfirmation={() => setLessonConfirmation(undefined)}
                 focusedChangeRequestId={focusedChangeRequestId}
                 onOpenPlanner={() => {

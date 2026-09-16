@@ -214,32 +214,20 @@ describe('Admin Planner sequential revision flow', () => {
     );
   });
 
-  it('refetches a fresh booking revision between attendance and completion outcome', async () => {
-    queryLessonDetail
-      .mockResolvedValueOnce({
-        scope: 'admin_detail',
-        items: [
-          {
-            bookingId,
-            revision: 4,
-            admin: {
-              attendance: [{ participantId, attendanceStatus: 'unknown', revision: 1 }],
-            },
+  it('finalizes planner lesson attendance in one batch command', async () => {
+    queryLessonDetail.mockResolvedValueOnce({
+      scope: 'admin_detail',
+      items: [
+        {
+          bookingId,
+          revision: 4,
+          serviceParticipantIds: [participantId],
+          admin: {
+            attendance: [{ participantId, attendanceStatus: 'unknown', revision: 1 }],
           },
-        ],
-      })
-      .mockResolvedValueOnce({
-        scope: 'admin_detail',
-        items: [
-          {
-            bookingId,
-            revision: 5,
-            admin: {
-              attendance: [{ participantId, attendanceStatus: 'present', revision: 2 }],
-            },
-          },
-        ],
-      });
+        },
+      ],
+    });
 
     await completePlannerLesson({
       adminAccountId,
@@ -247,24 +235,21 @@ describe('Admin Planner sequential revision flow', () => {
       occupancyId: bookingId,
     });
 
-    expect(executeAttempt).toHaveBeenNthCalledWith(
-      1,
+    expect(executeAttempt).toHaveBeenCalledTimes(1);
+    expect(executeAttempt).toHaveBeenCalledWith(
       adminAccountId,
       expect.objectContaining({
-        kind: 'record_booking_attendance',
+        kind: 'finalize_booking_attendance',
         target: { bookingId, revision: 4 },
-        participantId,
+        attendance: [
+          {
+            participantId,
+            attendanceStatus: 'present',
+            expectedAttendanceRevision: 1,
+          },
+        ],
       })
     );
-    expect(executeAttempt).toHaveBeenNthCalledWith(
-      2,
-      adminAccountId,
-      expect.objectContaining({
-        kind: 'resolve_attendance_outcome',
-        target: { bookingId, revision: 5 },
-      })
-    );
-    expect(executeAttempt.mock.calls[1]?.[1]?.target?.revision).not.toBe(4);
   });
 
   it('loads a fresh revision before changing duration', async () => {

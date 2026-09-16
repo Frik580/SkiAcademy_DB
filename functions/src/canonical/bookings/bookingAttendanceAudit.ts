@@ -103,6 +103,98 @@ export function buildRecordBookingAttendanceAuditPlan(input: {
   };
 }
 
+export function buildFinalizeBookingAttendanceAuditPlan(input: {
+  readonly envelope: CommandEnvelope<'finalize_booking_attendance'>;
+  readonly bookingId: BookingId;
+  readonly attendances: readonly {
+    readonly attendanceId: AttendanceId;
+    readonly revision: number;
+    readonly attendanceStatus: 'present' | 'absent';
+  }[];
+  readonly bookingRevision?: number;
+  readonly issues?: readonly {
+    readonly issueId: AdminIssueId;
+    readonly revision: number;
+    readonly effect: 'opened' | 'reused' | 'resolved';
+    readonly kind: 'attendance_payment_conflict' | 'missing_attendance';
+  }[];
+  readonly lifecycleSummary?: string;
+}): AuditOutboxStagingPlan {
+  const bookingRef = canonicalReference('booking', input.bookingId);
+  const attendanceRefs = input.attendances.map((entry) =>
+    canonicalReference('attendance', entry.attendanceId)
+  );
+  const explanation = input.envelope.intent.reasonExplanation;
+
+  const effects: AuditOutboxStagingPlan['activityLog']['effects'] = [
+    ...input.attendances.map((entry) => ({
+      kind: 'attendance_recorded' as const,
+      subjectRef: canonicalReference('attendance', entry.attendanceId),
+      summary: `Attendance marked ${entry.attendanceStatus}`,
+    })),
+    ...(input.lifecycleSummary
+      ? [
+          {
+            kind: 'booking_lifecycle_changed' as const,
+            subjectRef: bookingRef,
+            summary: input.lifecycleSummary,
+          },
+        ]
+      : []),
+    ...(input.issues ?? []).map((issue) => ({
+      kind:
+        issue.effect === 'resolved'
+          ? ('admin_issue_resolved' as const)
+          : ('admin_issue_opened' as const),
+      subjectRef: canonicalReference('admin_issue', issue.issueId),
+      summary:
+        issue.effect === 'resolved'
+          ? `${issue.kind} issue resolved`
+          : issue.effect === 'opened'
+            ? `${issue.kind} issue opened`
+            : `${issue.kind} issue reused`,
+    })),
+  ];
+
+  return {
+    activityLog: {
+      reason: {
+        registryVersion: AUDIT_REASON_REGISTRY_VERSION,
+        reasonCode: 'attendance_correction' as const,
+        explanation,
+      },
+      primarySubject: {
+        kind: 'booking' as const,
+        id: input.bookingId,
+        subjectKey: `booking:${input.bookingId}`,
+      },
+      affectedSubjects: [bookingRef, ...attendanceRefs],
+      effects,
+      monetaryEventIds: [],
+      adminIssueIds: (input.issues ?? []).map((issue) => issue.issueId),
+      resultingRevisions: [
+        ...input.attendances.map((entry) => ({
+          subject: canonicalReference('attendance', entry.attendanceId),
+          revision: AggregateRevisionSchema.parse(entry.revision),
+        })),
+        ...(input.bookingRevision === undefined
+          ? []
+          : [
+              {
+                subject: bookingRef,
+                revision: AggregateRevisionSchema.parse(input.bookingRevision),
+              },
+            ]),
+        ...(input.issues ?? []).map((issue) => ({
+          subject: canonicalReference('admin_issue', issue.issueId),
+          revision: AggregateRevisionSchema.parse(issue.revision),
+        })),
+      ],
+    },
+    outboxObligations: [],
+  };
+}
+
 export function buildResolveAttendanceOutcomeAuditPlan(input: {
   readonly envelope: CommandEnvelope<'resolve_attendance_outcome'>;
   readonly bookingId: BookingId;

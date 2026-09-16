@@ -279,9 +279,11 @@ describe('canonical Admin lesson booking commands', () => {
     );
     const refresh = vi.fn().mockResolvedValue(undefined);
     const attempt: AdminLessonBookingMutationAttempt = {
-      kind: 'resolve_attendance_outcome',
+      kind: 'change_booking_duration',
       target,
-      idempotencyKey: createAdminLessonBookingAttemptId('outcome'),
+      idempotencyKey: createAdminLessonBookingAttemptId('duration'),
+      durationMinutes: 90,
+      reasonExplanation: 'Operational duration change',
     };
     const { result } = renderHook(() =>
       useAdminLessonBookingCommands({

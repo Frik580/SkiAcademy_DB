@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
 
 describe('admin interactive planner wiring', () => {
   const boardSource = readFileSync(
@@ -15,19 +15,16 @@ describe('admin interactive planner wiring', () => {
     join(process.cwd(), 'src/app/routes/AdminRouteContainer.tsx'),
     'utf8'
   );
-  const adminActionsSource = readFileSync(
-    join(process.cwd(), 'src/features/admin/useAdminActions.ts'),
-    'utf8'
-  );
   const adminPanelSource = readFileSync(
     join(process.cwd(), 'src/features/admin/components/AdminPanel.tsx'),
     'utf8'
   );
 
   it('removes legacy planner creation from the active admin route', () => {
+    expect(existsSync(join(process.cwd(), 'src/features/admin/useAdminActions.ts'))).toBe(false);
     expect(adminRouteSource).not.toContain('onAddBooking');
-    expect(adminActionsSource).not.toContain('addBookingDirect');
-    expect(adminActionsSource).not.toContain('handleAddBooking');
+    expect(adminRouteSource).not.toContain('addBookingDirect');
+    expect(adminRouteSource).not.toContain('handleAddBooking');
   });
 
   it('remounts the planner and routes slot actions to canonical commands', () => {

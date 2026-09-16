@@ -380,7 +380,8 @@ describe('AdminLessonBookingPanel', () => {
     openDetailSection('adminLessonAttendanceTitle');
     const reason = screen.getByLabelText('adminLessonReason');
     const recordPresent = screen.getByRole('button', { name: 'adminLessonRecordPresent' });
-    expect(recordPresent).toBeDisabled();
+    const finalizeButton = screen.getByRole('button', { name: 'adminLessonFinalizeAttendance' });
+    expect(finalizeButton).toBeDisabled();
 
     const rowsBefore = renderCounters.rows;
     const masterListRendersBefore = renderCounters.masterLists;
@@ -394,6 +395,7 @@ describe('AdminLessonBookingPanel', () => {
     // Typed draft is visible and still drives the server-authorized action buttons.
     expect(reason).toHaveValue(draft);
     expect(recordPresent).toBeEnabled();
+    expect(finalizeButton).toBeDisabled();
     // Neither the container nor one single master-list row was rendered by those keystrokes.
     expect(renderCounters.masterLists).toBe(masterListRendersBefore);
     expect(renderCounters.rows).toBe(rowsBefore);
@@ -414,29 +416,35 @@ describe('AdminLessonBookingPanel', () => {
     expect(renderCounters.rows).toBe(rowsBefore);
 
     openDetailSection('adminLessonAttendanceTitle');
-    // Re-query: switching tabs remounts the section, so the earlier node is detached.
     fireEvent.click(screen.getByRole('button', { name: 'adminLessonRecordPresent' }));
-    // The probe is live: opening the confirmation dialog does re-render the page container,
-    // yet the memoized master list still refuses to re-invoke a single row.
-    expect(renderCounters.masterLists).toBeGreaterThan(masterListRendersBefore);
-    expect(renderCounters.rows).toBe(rowsBefore);
-    fireEvent.click(screen.getByRole('button', { name: 'adminLessonConfirmSubmit' }));
+    expect(runAttemptMock).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'adminLessonFinalizeAttendance' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'adminLessonFinalizeAttendance' }));
+    expect(runAttemptMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'adminLessonConfirmAttendanceSubmit' }));
     await waitFor(() => expect(runAttemptMock).toHaveBeenCalledTimes(1));
     expect(runAttemptMock.mock.calls[0]?.[0]).toMatchObject({
-      kind: 'record_booking_attendance',
+      kind: 'finalize_booking_attendance',
       target: { bookingId: 'booking_isolation_a', revision: 5 },
-      participantId: 'participant_admin_panel_01',
-      attendanceStatus: 'present',
-      expectedAttendanceRevision: 1,
       reasonExplanation: 'Operational reason drafted',
+      attendance: [
+        {
+          participantId: 'participant_admin_panel_01',
+          attendanceStatus: 'present',
+          expectedAttendanceRevision: 1,
+        },
+      ],
     });
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'adminLessonConfirmAttendanceTitle' })).not
+        .toBeInTheDocument()
+    );
 
     // Switching the selected booking remounts the detail boundary and clears the draft.
     fireEvent.click(screen.getByRole('button', { name: /Second Student/ }));
     openDetailSection('adminLessonAttendanceTitle');
     expect(screen.getByLabelText('adminLessonReason')).toHaveValue('');
-    expect(screen.getByRole('button', { name: 'adminLessonRecordPresent' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'adminLessonFinalizeAttendance' })).toBeDisabled();
     expect(renderCounters.rows).toBeGreaterThan(rowsBefore);
   });
 
@@ -717,7 +725,12 @@ describe('AdminLessonBookingPanel', () => {
     openDetailSection('adminLessonAttendanceTitle');
     expect(screen.getByRole('button', { name: 'adminLessonRecordPresent' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'adminLessonRecordAbsent' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'adminLessonResolveOutcome' })).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'adminLessonFinalizeAttendance' })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'adminLessonResolveOutcome' })
+    ).not.toBeInTheDocument();
     openDetailSection('adminLessonCancellationTitle');
     const cancellationReason = screen.getByLabelText('adminLessonReason');
     const approveCancellation = screen.getByRole('button', {

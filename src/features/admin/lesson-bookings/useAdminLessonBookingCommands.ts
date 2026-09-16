@@ -168,6 +168,33 @@ export async function executeAdminLessonBookingAttempt(
     return;
   }
 
+  if (attempt.kind === 'finalize_booking_attendance') {
+    await assertCommandSucceeded(
+      executeAuthenticatedCanonicalCommand(adminAccountId, {
+        kind: attempt.kind,
+        intent: {
+          bookingId,
+          attendance: attempt.attendance.map((entry) => ({
+            participantId: ParticipantIdSchema.parse(entry.participantId),
+            attendanceStatus: entry.attendanceStatus,
+            ...(entry.expectedAttendanceRevision === undefined
+              ? {}
+              : {
+                  expectedAttendanceRevision: AggregateRevisionSchema.parse(
+                    entry.expectedAttendanceRevision
+                  ),
+                }),
+          })),
+          reasonExplanation: attempt.reasonExplanation,
+        },
+        idempotencyKey: attempt.idempotencyKey,
+        expectedRevision,
+        administratorContext: true,
+      })
+    );
+    return;
+  }
+
   if (attempt.kind === 'record_booking_attendance') {
     await assertCommandSucceeded(
       executeAuthenticatedCanonicalCommand(adminAccountId, {
@@ -243,15 +270,7 @@ export async function executeAdminLessonBookingAttempt(
     return;
   }
 
-  await assertCommandSucceeded(
-    executeAuthenticatedCanonicalCommand(adminAccountId, {
-      kind: 'resolve_attendance_outcome',
-      intent: { subjectKind: 'booking', subjectId: bookingId },
-      idempotencyKey: attempt.idempotencyKey,
-      expectedRevision,
-      administratorContext: true,
-    })
-  );
+  throw new Error(`Unsupported admin lesson booking attempt: ${(attempt as { kind: string }).kind}`);
 }
 
 export type AdminLessonBookingAttemptResult =

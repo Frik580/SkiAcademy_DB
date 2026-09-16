@@ -6,7 +6,7 @@ import type {
   InstructorReviewReadModel,
 } from '@ski-academy/shared-domain';
 
-/** Cached booking-domain data. Feature use-cases live in useBookingActions. */
+/** Cached booking-domain data. Feature use-cases live in canonical lesson booking commands. */
 export interface BookingsState {
   bookings: Booking[];
   bookingsLoaded: boolean;

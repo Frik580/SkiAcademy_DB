@@ -402,35 +402,31 @@ export async function completePlannerLesson(input: {
   if (!item?.bookingId || item.revision === undefined) {
     throw new Error('Only lesson bookings can be completed from the planner');
   }
-  let booking = await loadPlannerLessonDetail(item.bookingId);
+  const booking = await loadPlannerLessonDetail(item.bookingId);
   if (!booking?.admin) {
     throw new Error('Lesson detail is required for attendance-driven completion');
   }
-  const pendingAttendance = booking.admin.attendance.filter(
-    (attendance) => attendance.attendanceStatus !== 'present'
-  );
-  for (const attendance of pendingAttendance) {
-    await executeAdminLessonBookingAttempt(input.adminAccountId, {
-      kind: 'record_booking_attendance',
-      idempotencyKey: plannerIdempotency(`attendance_${attendance.participantId}`),
-      target: { bookingId: booking.bookingId, revision: booking.revision },
-      participantId: ParticipantIdSchema.parse(attendance.participantId),
-      attendanceStatus: 'present',
-      ...(attendance.revision === undefined
-        ? {}
-        : { expectedAttendanceRevision: attendance.revision }),
-      reasonExplanation: 'Admin planner attendance completion',
-    });
-    const refreshed = await loadPlannerLessonDetail(item.bookingId);
-    if (!refreshed?.admin) {
-      throw new Error('Lesson detail is unavailable after recording attendance');
-    }
-    booking = refreshed;
+  const serviceParticipantIds =
+    booking.serviceParticipantIds ??
+    booking.admin.attendance.map((attendance) => attendance.participantId);
+  if (serviceParticipantIds.length === 0) {
+    throw new Error('Lesson service party is required for attendance-driven completion');
   }
   await executeAdminLessonBookingAttempt(input.adminAccountId, {
-    kind: 'resolve_attendance_outcome',
-    idempotencyKey: plannerIdempotency('complete_lesson'),
+    kind: 'finalize_booking_attendance',
+    idempotencyKey: plannerIdempotency('finalize_lesson_attendance'),
     target: { bookingId: booking.bookingId, revision: booking.revision },
+    attendance: serviceParticipantIds.map((participantId) => {
+      const row = booking.admin!.attendance.find(
+        (attendance) => attendance.participantId === participantId
+      );
+      return {
+        participantId: ParticipantIdSchema.parse(participantId),
+        attendanceStatus: 'present' as const,
+        ...(row?.revision === undefined ? {} : { expectedAttendanceRevision: row.revision }),
+      };
+    }),
+    reasonExplanation: 'Admin planner attendance completion',
   });
 }
 

@@ -1,7 +1,6 @@
 export const loadAdminPanel = () =>
   import('./components/AdminPanel').then(({ AdminPanel }) => ({ default: AdminPanel }));
 export { SkillConfigManager } from './components/settings/SkillConfigManager';
-export { useAdminActions } from './useAdminActions';
 export { AdminLessonBookingPanel } from './lesson-bookings';
 export { AdminCourseEnrollmentPanel } from './course-enrollments';
 export { AdminTrainingRecordsPanel } from './training-records';
@@ -18,7 +17,7 @@ export {
 export { FALLBACK_SLIDES, ResortConfigForm } from './components/resort';
 export { AdminRoleManager, ClientsManager, CoachesManager } from './components/users';
 export { BookingsLog, LinkGuestBookingModal } from './components/bookings';
-export { FinancialOverview, CashFlowPanel } from './components/finance';
+export { FinancialOverview } from './components/finance';
 export {
   AchievementsManager,
   AdminCollapsibleSection,

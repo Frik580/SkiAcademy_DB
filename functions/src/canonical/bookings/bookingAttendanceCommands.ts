@@ -78,6 +78,7 @@ import {
   planOpenBookingMissingAttendanceIssue,
   planResolveBookingMissingAttendanceIssues,
 } from './bookingAttendanceFollowUp';
+import { finalizeBookingAttendanceHandler } from './finalizeBookingAttendanceCommand';
 
 export interface ResolveBookingAttendanceOutcomeObservation {
   readonly replayed: boolean;
@@ -444,7 +445,15 @@ function recordBookingAttendanceHandler(
         return;
       }
 
-      const outcomeDecision = evaluateBookingOutcomeCalculator({
+      const allServicePartyAttendanceRecorded =
+        booking.occurrence.serviceParty.participantIds.every((participantId) => {
+          const attendance = attendancesByParticipantId.get(participantId);
+          return (
+            attendance?.attendanceStatus === 'present' || attendance?.attendanceStatus === 'absent'
+          );
+        });
+
+      let outcomeDecision = evaluateBookingOutcomeCalculator({
         now,
         booking,
         attendancesByParticipantId,
@@ -455,6 +464,9 @@ function recordBookingAttendanceHandler(
         automationOnly: false,
         ...(plannedPaymentConflictIssue ? { justRecordedPresentWithPaymentConflict: true } : {}),
       });
+      if (actorMode === 'administrator' && !allServicePartyAttendanceRecorded) {
+        outcomeDecision = { outcome: 'not_yet_eligible' };
+      }
 
       if (outcomeDecision.outcome === 'resolve') {
         plannedBookingRevision = nextAggregateRevision(booking.revision);
@@ -859,10 +871,15 @@ function resolveAttendanceOutcomeHandler(
 export function createBookingAttendanceCommandHandlers(
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor'],
   observers: BookingAttendanceCommandObservers = {}
-): Pick<CommandHandlerMap, 'record_booking_attendance' | 'resolve_attendance_outcome'> {
+): Pick<
+  CommandHandlerMap,
+  'record_booking_attendance' | 'finalize_booking_attendance' | 'resolve_attendance_outcome'
+> {
   return {
     record_booking_attendance: (envelope, environment) =>
       recordBookingAttendanceHandler(envelope, environment, executor),
+    finalize_booking_attendance: (envelope, environment) =>
+      finalizeBookingAttendanceHandler(envelope, environment, executor),
     resolve_attendance_outcome: (envelope, environment) =>
       resolveAttendanceOutcomeHandler(envelope, environment, executor, observers),
   };

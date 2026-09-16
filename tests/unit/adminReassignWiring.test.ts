@@ -1,17 +1,14 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 describe('admin reassign instructor wiring', () => {
-  it('keeps legacy reassignment outside the active Admin route', () => {
-    const bookingActionsSource = readFileSync(
-      join(process.cwd(), 'src/features/bookings/useBookingActions.ts'),
-      'utf8'
+  it('keeps leftover reassignment outside the active Admin route', () => {
+    expect(existsSync(join(process.cwd(), 'src/features/bookings/useBookingActions.ts'))).toBe(
+      false
     );
-    const bookingServiceSource = readFileSync(
-      join(process.cwd(), 'src/features/bookings/bookingService.ts'),
-      'utf8'
-    );
+    expect(existsSync(join(process.cwd(), 'src/features/bookings/bookingService.ts'))).toBe(false);
+
     const adminRouteSource = readFileSync(
       join(process.cwd(), 'src/app/routes/AdminRouteContainer.tsx'),
       'utf8'
@@ -20,7 +17,6 @@ describe('admin reassign instructor wiring', () => {
       join(process.cwd(), 'src/features/admin/components/schedule/ScheduleSlotActionModal.tsx'),
       'utf8'
     );
-
     const moveFormSource = readFileSync(
       join(
         process.cwd(),
@@ -29,8 +25,6 @@ describe('admin reassign instructor wiring', () => {
       'utf8'
     );
 
-    expect(bookingActionsSource).toContain('handleReassignInstructor');
-    expect(bookingServiceSource + bookingActionsSource).toContain('instructorId: newInstructor.id');
     expect(adminRouteSource).not.toContain('onReassignInstructor');
     expect(adminRouteSource).not.toContain('handleReassignInstructor');
     expect(modalSource).toContain('onReassignInstructor');

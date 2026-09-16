@@ -10,13 +10,7 @@ import {
   query,
   toWalletLedgerEntry,
 } from '../../infrastructure/firebase';
-import {
-  adjustSchoolGuestWallet,
-  GUEST_WALLET_SETTINGS_COLLECTION,
-  GUEST_WALLET_SETTINGS_DOC_ID,
-  type GuestWalletAdjustDirection,
-  WALLET_LEDGER_COLLECTION,
-} from '../../domain/wallet';
+import { WALLET_LEDGER_COLLECTION } from '../../domain/wallet';
 import { OperationType, type ErrorLog, type WalletLedgerEntry } from '../../types';
 import { QUERY_LIMITS } from '../../shared';
 
@@ -77,42 +71,4 @@ export function subscribeWalletLedger(
       onError(error);
     }
   );
-}
-
-export function subscribeGuestWalletBalance(
-  onBalance: (balanceUsd: number) => void,
-  onError: (error: Error) => void
-): () => void {
-  return onSnapshot(
-    doc(db, GUEST_WALLET_SETTINGS_COLLECTION, GUEST_WALLET_SETTINGS_DOC_ID),
-    (snapshot) => {
-      const balance = snapshot.exists() ? snapshot.data()?.balanceUSD : 0;
-      onBalance(typeof balance === 'number' && Number.isFinite(balance) ? Math.max(0, balance) : 0);
-    },
-    (error) => {
-      handleFirestoreError(
-        error,
-        OperationType.LIST,
-        `${GUEST_WALLET_SETTINGS_COLLECTION}/${GUEST_WALLET_SETTINGS_DOC_ID}`
-      );
-      onError(error);
-    }
-  );
-}
-
-export async function adjustGuestWalletBalance(
-  amount: number,
-  direction: GuestWalletAdjustDirection,
-  note?: string
-): Promise<{ balanceAfter: number; delta: number }> {
-  try {
-    return await adjustSchoolGuestWallet(db, amount, direction, { note });
-  } catch (error) {
-    handleFirestoreError(
-      error,
-      OperationType.UPDATE,
-      `${GUEST_WALLET_SETTINGS_COLLECTION}/${GUEST_WALLET_SETTINGS_DOC_ID}`
-    );
-    throw error;
-  }
 }

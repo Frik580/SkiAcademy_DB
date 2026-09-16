@@ -249,10 +249,6 @@ export function shouldShowCancellationSection(item: LessonBookingReadModel): boo
   );
 }
 
-export function shouldShowOutcomeAction(admin: LessonBookingAdminProjection): boolean {
-  return admin.authorizedActions.canResolveAttendanceOutcome;
-}
-
 export function shouldShowGuestSection(item: LessonBookingReadModel): boolean {
   return (
     item.bookingOrigin === 'guest' || Boolean(item.admin?.authorizedActions.canLinkGuestToAccount)

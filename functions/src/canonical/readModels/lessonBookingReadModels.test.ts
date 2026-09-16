@@ -634,6 +634,86 @@ describe('Admin lesson booking read models', () => {
     });
   });
 
+  it('projects admin canReschedule from administrator reschedule eligibility', async () => {
+    const confirmed = canonicalBooking('booking_admin_reschedule_confirmed', '2026-08-01T12:00:00.000Z', {
+      status: 'confirmed',
+    });
+    const { firestore: confirmedFirestore } = adminFixture([confirmed]);
+    const confirmedModel = await buildAdminLessonBookingReadModel(
+      confirmedFirestore,
+      adminActor,
+      confirmed,
+      { now: readNow }
+    );
+    expect(confirmedModel?.admin?.authorizedActions.canReschedule).toBe(true);
+
+    const activePendingBase = canonicalBooking(
+      'booking_admin_reschedule_pending_active',
+      '2026-08-01T12:00:00.000Z',
+      { status: 'confirmed' }
+    );
+    const activePending = BookingSchema.parse({
+      ...activePendingBase,
+      attribution: {
+        bookingOrigin: 'guest',
+        bookedBy: { kind: 'guest', guestSubjectId: 'guest_subject_admin_reschedule_active' },
+      },
+      lifecycle: {
+        status: 'pending',
+        reservationExpiresAt: timestampFromDate(new Date('2026-08-01T13:00:00.000Z')),
+      },
+    });
+    const { firestore: activePendingFirestore } = adminFixture([activePending], {
+      unpaidPayment: true,
+    });
+    const activePendingModel = await buildAdminLessonBookingReadModel(
+      activePendingFirestore,
+      adminActor,
+      activePending,
+      { now: readNow }
+    );
+    expect(activePendingModel?.admin?.authorizedActions.canReschedule).toBe(true);
+    expect(activePendingModel?.admin?.authorizedActions.canChangeInstructor).toBe(false);
+
+    const expiredBookingId = BookingIdSchema.parse('booking_admin_reschedule_pending_expired');
+    const expiredPending = BookingSchema.parse({
+      ...activePending,
+      bookingId: expiredBookingId,
+      paymentId: paymentIdFromBookingId(expiredBookingId),
+      lifecycle: {
+        status: 'pending',
+        reservationExpiresAt: timestampFromDate(new Date('2026-08-01T09:00:00.000Z')),
+      },
+    });
+    const { firestore: expiredFirestore } = adminFixture([expiredPending], { unpaidPayment: true });
+    const expiredModel = await buildAdminLessonBookingReadModel(
+      expiredFirestore,
+      adminActor,
+      expiredPending,
+      { now: readNow }
+    );
+    expect(expiredModel?.admin?.authorizedActions.canReschedule).toBe(false);
+
+    const cancelled = BookingSchema.parse({
+      ...canonicalBooking('booking_admin_reschedule_cancelled', '2026-08-01T12:00:00.000Z', {
+        status: 'confirmed',
+      }),
+      lifecycle: {
+        status: 'cancelled',
+        cancelledAt: readNow,
+        reasonCode: 'administrator_cancelled',
+      },
+    });
+    const { firestore: cancelledFirestore } = adminFixture([cancelled]);
+    const cancelledModel = await buildAdminLessonBookingReadModel(
+      cancelledFirestore,
+      adminActor,
+      cancelled,
+      { now: readNow }
+    );
+    expect(cancelledModel?.admin?.authorizedActions.canReschedule).toBe(false);
+  });
+
   it('authorizes Admin guest identity linking for a unique unmanaged guest Participant', async () => {
     const base = canonicalBooking('booking_admin_guest_link_01', '2026-08-01T12:00:00.000Z', {
       status: 'confirmed',

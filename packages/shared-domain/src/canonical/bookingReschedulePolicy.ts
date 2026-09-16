@@ -5,6 +5,7 @@ import {
   isPendingCancellationBooking,
   isTerminalBookingLifecycle,
 } from './bookingCancellationPolicy';
+import { isGuestReservationExpired } from './guestBooking';
 import type { CanonicalTimestamp } from './primitives';
 import { compareCanonicalTimestamps } from './primitives';
 
@@ -21,6 +22,36 @@ export function isRescheduleEligibleBooking(booking: Booking): boolean {
     return false;
   }
   return booking.lifecycle.status === 'confirmed';
+}
+
+/** Active pending reservation that still holds a slot (not past reservationExpiresAt). */
+export function isActivePendingBookingReservation(input: {
+  readonly booking: Booking;
+  readonly now: CanonicalTimestamp;
+}): boolean {
+  if (input.booking.lifecycle.status !== 'pending') {
+    return false;
+  }
+  return !isGuestReservationExpired({
+    now: input.now,
+    reservationExpiresAt: input.booking.lifecycle.reservationExpiresAt,
+  });
+}
+
+export function isAdministratorRescheduleEligibleBooking(
+  booking: Booking,
+  now: CanonicalTimestamp
+): boolean {
+  if (isTerminalBookingLifecycle(booking)) {
+    return false;
+  }
+  if (isPendingCancellationBooking(booking)) {
+    return false;
+  }
+  if (booking.lifecycle.status === 'confirmed') {
+    return true;
+  }
+  return isActivePendingBookingReservation({ booking, now });
 }
 
 export function evaluateClientSelfServiceRescheduleTiming(input: {

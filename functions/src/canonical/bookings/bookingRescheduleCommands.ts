@@ -59,7 +59,8 @@ import {
   assertNoActiveServiceBlockForReschedule,
   assertParticipantRecordForReschedule,
   assertRescheduleDurationMatches,
-  assertRescheduleEligibleBookingState,
+  assertConfirmedBookingServiceChangeEligibleState,
+  assertRescheduleEligibleBookingStateForMode,
   resolveBookingRescheduleAuthorization,
   resolveRescheduleScheduleContext,
   type BookingRescheduleMode,
@@ -189,7 +190,6 @@ function rescheduleBookingHandler(
         });
       }
       booking = parsedBooking;
-      assertRescheduleEligibleBookingState(envelope.context.correlationId, booking);
 
       const paymentDocumentPath = paymentPath(booking.paymentId);
       const paymentRead = await session.tx.get({ path: paymentDocumentPath });
@@ -266,6 +266,13 @@ function rescheduleBookingHandler(
         participantIds: booking.party.participantIds,
         booking,
       });
+
+      assertRescheduleEligibleBookingStateForMode(
+        envelope.context.correlationId,
+        booking,
+        mode,
+        timestampFromDate(environment.clock.decidedAt())
+      );
 
       const schedule = resolveBookingScheduleFromCalendarInput(
         envelope.context.calendarInput!,
@@ -461,7 +468,7 @@ function changeBookingInstructorHandler(
         });
       }
       booking = parsedBooking;
-      assertRescheduleEligibleBookingState(envelope.context.correlationId, booking);
+      assertConfirmedBookingServiceChangeEligibleState(envelope.context.correlationId, booking);
 
       targetInstructorId = envelope.intent.instructorId;
       if (isSyntheticCourseInstructorId(targetInstructorId)) {
@@ -746,7 +753,7 @@ function changeBookingDurationHandler(
         });
       }
       booking = parsedBooking;
-      assertRescheduleEligibleBookingState(envelope.context.correlationId, booking);
+      assertConfirmedBookingServiceChangeEligibleState(envelope.context.correlationId, booking);
 
       const currentDurationMinutes = Math.round(
         (canonicalTimestampToEpochMs(booking.occurrence.interval.endsAt) -

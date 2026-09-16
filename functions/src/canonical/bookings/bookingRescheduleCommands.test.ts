@@ -908,6 +908,49 @@ function guestCommands(
   });
 }
 
+async function createExecutorWithActivePendingGuestBooking() {
+  const setupExecutor = createInMemoryCanonicalTransactionExecutor(guestFixture());
+  await seedPendingGuestBooking(setupExecutor);
+  const docs: Record<string, Record<string, unknown>> = {};
+  for (const [path, doc] of setupExecutor.snapshot().docs.entries()) {
+    docs[path] = { ...doc.data };
+  }
+  const activeReservationExpiresAt = timestampFromDate(new Date('2026-01-15T08:00:00.000Z'));
+  docs[`bookings/${guestBookingId}`] = {
+    ...docs[`bookings/${guestBookingId}`],
+    lifecycle: { status: 'pending', reservationExpiresAt: activeReservationExpiresAt },
+  };
+  return createInMemoryCanonicalTransactionExecutor(docs);
+}
+
+async function seedPendingGuestBooking(
+  executor: ReturnType<typeof createInMemoryCanonicalTransactionExecutor>
+) {
+  const commands = guestCommands(executor);
+  const createResult = await commands.execute({
+    kind: 'create_guest_booking_request',
+    context: {
+      actor: guestCommandActor(guestSubjectId),
+      exercisedCapability: 'guest',
+      idempotencyKey: 'guest-create-pending-reschedule',
+      correlationId,
+      source: 'guest_callable',
+      calendarInput: {
+        localDate: '2026-01-15',
+        localTime: '09:00',
+        durationMinutes: 60,
+      },
+      timezone: 'Asia/Almaty',
+    },
+    intent: {
+      bookingId: guestBookingId,
+      instructorId,
+      participantIds: [guestParticipantId],
+    },
+  });
+  expect(createResult.status).toBe('success');
+}
+
 async function seedConfirmedGuestBooking(
   executor: ReturnType<typeof createInMemoryCanonicalTransactionExecutor>
 ) {
@@ -1185,5 +1228,151 @@ describe('linked guest-origin reschedule authorization', () => {
       executor.snapshot().docs.get(`bookings/${guestBookingId}`)?.data
         .clientSelfServiceRescheduleConsumedAt
     ).toBeUndefined();
+  });
+});
+
+describe('admin reschedule pending unpaid booking', () => {
+  it('allows admin to reschedule active pending unpaid guest booking without payment side effects', async () => {
+    const executor = await createExecutorWithActivePendingGuestBooking();
+    const beforeBooking = executor.snapshot().docs.get(`bookings/${guestBookingId}`)?.data;
+    const beforePayment = executor.snapshot().docs.get(`payments/${guestPaymentId}`)?.data;
+    const reservationExpiresAt = beforeBooking?.lifecycle?.reservationExpiresAt;
+    expect(beforeBooking?.lifecycle?.status).toBe('pending');
+    expect(beforePayment?.paymentStatus).toBe('unpaid');
+
+    const commands = guestCommands(executor, '2026-01-14T09:00:01.000Z');
+    const envelope = {
+      kind: 'reschedule_booking' as const,
+      context: accountContext('administrator', adminAccountId, 'pending-unpaid-admin-reschedule', 1, {
+        localDate: '2026-01-16',
+        localTime: '11:00',
+        durationMinutes: 60,
+      }),
+      intent: {
+        bookingId: guestBookingId,
+        reasonExplanation: 'Admin planner reschedule lesson',
+      },
+    };
+    const result = await commands.execute(envelope);
+    expect(result.status).toBe('success');
+
+    const afterBooking = executor.snapshot().docs.get(`bookings/${guestBookingId}`)?.data;
+    const afterPayment = executor.snapshot().docs.get(`payments/${guestPaymentId}`)?.data;
+    expect(afterBooking?.bookingId).toBe(guestBookingId);
+    expect(afterBooking?.lifecycle?.status).toBe('pending');
+    expect(afterBooking?.lifecycle?.reservationExpiresAt).toEqual(reservationExpiresAt);
+    expect(afterBooking?.revision).toBe(2);
+    expect(afterPayment?.paymentStatus).toBe('unpaid');
+    expect(afterPayment?.paidAmount).toBe(beforePayment?.paidAmount);
+    expect(afterPayment?.outstandingAmount).toBe(beforePayment?.outstandingAmount);
+    expect(
+      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('monetary_events/'))
+    ).toHaveLength(0);
+    expect(afterBooking?.occurrence.occurrenceId).not.toBe(beforeBooking?.occurrence.occurrenceId);
+  });
+
+  it('replays the same admin pending reschedule idempotently', async () => {
+    const executor = await createExecutorWithActivePendingGuestBooking();
+    const commands = guestCommands(executor, '2026-01-14T09:00:01.000Z');
+    const envelope = {
+      kind: 'reschedule_booking' as const,
+      context: accountContext('administrator', adminAccountId, 'pending-unpaid-idempotent', 1, {
+        localDate: '2026-01-16',
+        localTime: '11:00',
+        durationMinutes: 60,
+      }),
+      intent: {
+        bookingId: guestBookingId,
+        reasonExplanation: 'Admin planner reschedule lesson',
+      },
+    };
+    const first = await commands.execute(envelope);
+    const second = await commands.execute(envelope);
+    expect(first.status).toBe('success');
+    expect(second.status).toBe('success');
+    expect(executor.snapshot().docs.get(`bookings/${guestBookingId}`)?.data.revision).toBe(2);
+  });
+
+  it('returns stale_version instead of unsupported for stale expectedRevision on eligible pending booking', async () => {
+    const executor = await createExecutorWithActivePendingGuestBooking();
+    const commands = guestCommands(executor, '2026-01-14T09:00:01.000Z');
+    const result = await commands.execute(
+      rescheduleEnvelope('pending-stale-revision', 'administrator', 99, {
+        localDate: '2026-01-16',
+        localTime: '11:00',
+        durationMinutes: 60,
+      }, guestBookingId)
+    );
+    expect(resultErrorCode(result)).toBe('stale_version');
+  });
+
+  it('rejects admin reschedule for expired pending unpaid booking', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(guestFixture());
+    await seedPendingGuestBooking(executor);
+    const commands = guestCommands(executor, '2026-01-02T00:00:00.000Z');
+    const result = await commands.execute(
+      rescheduleEnvelope('pending-expired', 'administrator', 1, {
+        localDate: '2026-01-16',
+        localTime: '11:00',
+        durationMinutes: 60,
+      }, guestBookingId)
+    );
+    expect(resultErrorCode(result)).toBe('invalid_transition');
+  });
+
+  it('rejects client self-service reschedule for pending unpaid booking', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(guestFixture());
+    await seedPendingGuestBooking(executor);
+    await linkGuestBookingToAccount(executor);
+    const bookingRevision = executor.snapshot().docs.get(`bookings/${guestBookingId}`)?.data.revision;
+    const commands = guestCommands(executor, '2026-01-14T09:00:01.000Z');
+    const result = await commands.execute(
+      guestRescheduleEnvelope(linkAccountId, 'pending-client-denied', bookingRevision ?? 2)
+    );
+    expect(resultErrorCode(result)).toBe('invalid_transition');
+  });
+
+  it('rejects admin instructor change for pending unpaid booking', async () => {
+    const executor = await createExecutorWithActivePendingGuestBooking();
+    const commands = guestCommands(executor, '2026-01-14T09:00:01.000Z');
+    const result = await commands.execute({
+      kind: 'change_booking_instructor',
+      context: accountContext('administrator', adminAccountId, 'pending-instructor-denied', 1),
+      intent: {
+        bookingId: guestBookingId,
+        instructorId: instructorTwoId,
+        reasonExplanation: 'Should not apply to pending',
+      },
+    });
+    expect(resultErrorCode(result)).toBe('invalid_transition');
+  });
+
+  it('rejects client_callable actor that targets admin_callable transport without elevation', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(guestFixture());
+    await seedConfirmedGuestBooking(executor);
+    const bookingRevision = executor.snapshot().docs.get(`bookings/${guestBookingId}`)?.data.revision;
+    const commands = guestCommands(executor, '2026-01-14T09:00:01.000Z');
+    const result = await commands.execute({
+      kind: 'reschedule_booking',
+      context: {
+        actor: accountCommandActor(accountId),
+        exercisedCapability: 'account_owner',
+        idempotencyKey: 'spoof-admin-transport',
+        correlationId,
+        source: 'admin_callable',
+        expectedRevision: AggregateRevisionSchema.parse(bookingRevision ?? 2),
+        calendarInput: {
+          localDate: '2026-01-16',
+          localTime: '11:00',
+          durationMinutes: 60,
+        },
+        timezone: 'Asia/Almaty',
+      },
+      intent: {
+        bookingId: guestBookingId,
+        reasonExplanation: 'Should not elevate',
+      },
+    });
+    expect(resultErrorCode(result)).toBe('forbidden');
   });
 });

@@ -3,11 +3,14 @@ import {
   administratorCapabilityExercisedByAccount,
   canonicalTimestampToEpochMs,
   evaluateClientSelfServiceRescheduleTiming,
+  isAdministratorRescheduleEligibleBooking,
   isClientSelfServiceRescheduleAllowanceAvailable,
   isRescheduleEligibleBooking,
   resolveClientCallableCapabilityFromPartyAuthorities,
+  timestampFromDate,
   type Account,
   type Booking,
+  type CanonicalTimestamp,
   type CommandEnvelope,
   type CorrelationId,
   type Participant,
@@ -135,14 +138,44 @@ export function resolveBookingRescheduleAuthorization(
 
 export function assertRescheduleEligibleBookingState(
   correlationId: CorrelationId,
-  booking: Booking
+  booking: Booking,
+  input: Readonly<{ administrator?: boolean; now?: CanonicalTimestamp }> = {}
 ): void {
-  if (!isRescheduleEligibleBooking(booking)) {
+  const eligible = input.administrator
+    ? isAdministratorRescheduleEligibleBooking(
+        booking,
+        input.now ??
+          (() => {
+            throw new Error('assertRescheduleEligibleBookingState requires now for administrator');
+          })()
+      )
+    : isRescheduleEligibleBooking(booking);
+  if (!eligible) {
     throw new CanonicalCommandError('invalid_transition', {
       correlationId,
       details: { resourceKind: 'booking', reason: 'unsupported' },
     });
   }
+}
+
+/** Client/confirmed-only eligibility for admin service mutations (instructor/duration), not schedule reschedule. */
+export function assertConfirmedBookingServiceChangeEligibleState(
+  correlationId: CorrelationId,
+  booking: Booking
+): void {
+  assertRescheduleEligibleBookingState(correlationId, booking);
+}
+
+export function assertRescheduleEligibleBookingStateForMode(
+  correlationId: CorrelationId,
+  booking: Booking,
+  mode: BookingRescheduleMode,
+  now: CanonicalTimestamp
+): void {
+  assertRescheduleEligibleBookingState(correlationId, booking, {
+    administrator: mode === 'administrator',
+    now,
+  });
 }
 
 export function assertClientSelfServiceReschedulePolicy(

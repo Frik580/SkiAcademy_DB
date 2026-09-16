@@ -13,6 +13,7 @@ import {
   isInstructorLessonBookingHot,
   isLessonBookingHot,
   isPendingCancellationBooking,
+  isAdministratorRescheduleEligibleBooking,
   isRescheduleEligibleBooking,
   normalizeFirestoreDocument,
   ParticipantManagementSchema,
@@ -458,10 +459,16 @@ function buildAdminAuthorizedActions(input: {
     (participant) => participant.lifecycle.status === 'active'
   );
   const rescheduleEligible =
-    accountActive && participantsActive && isRescheduleEligibleBooking(input.booking);
+    accountActive &&
+    participantsActive &&
+    isAdministratorRescheduleEligibleBooking(input.booking, input.now);
+  const confirmedServiceChangeEligible =
+    accountActive &&
+    participantsActive &&
+    isRescheduleEligibleBooking(input.booking);
   const primaryParticipant = input.participants[0];
   const managedServiceChange =
-    rescheduleEligible &&
+    confirmedServiceChangeEligible &&
     primaryParticipant?.management.kind === 'managed' &&
     input.payment !== undefined;
   const attendanceLifecycle =

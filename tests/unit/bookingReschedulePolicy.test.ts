@@ -3,7 +3,9 @@ import {
   INDIVIDUAL_BOOKING_CLIENT_RESCHEDULE_WINDOW_MS,
   addMillisecondsToCanonicalTimestamp,
   evaluateClientSelfServiceRescheduleTiming,
+  isAdministratorRescheduleEligibleBooking,
   isClientSelfServiceRescheduleAllowanceAvailable,
+  isRescheduleEligibleBooking,
   timestampFromDate,
 } from '@ski-academy/shared-domain';
 import { BookingSchema } from '@ski-academy/shared-domain';
@@ -34,6 +36,28 @@ describe('booking reschedule policy', () => {
     expect(evaluateClientSelfServiceRescheduleTiming({ requestAt: startAt, startAt })).toBe(
       'after_start_rejected'
     );
+  });
+
+  it('allows client reschedule only for confirmed non-terminal bookings', () => {
+    const confirmed = canonicalBookingCollaborationFixtures.individualBooking;
+    expect(isRescheduleEligibleBooking(confirmed)).toBe(true);
+    expect(isRescheduleEligibleBooking(canonicalBookingCollaborationFixtures.guestPendingBooking)).toBe(
+      false
+    );
+  });
+
+  it('allows administrator reschedule for active pending unpaid reservations', () => {
+    const now = timestampFromDate(new Date('2026-01-01T00:30:00.000Z'));
+    const pending = canonicalBookingCollaborationFixtures.guestPendingBooking;
+    expect(isAdministratorRescheduleEligibleBooking(pending, now)).toBe(true);
+    const expiredNow = timestampFromDate(new Date('2026-01-01T02:00:00.000Z'));
+    expect(isAdministratorRescheduleEligibleBooking(pending, expiredNow)).toBe(false);
+    expect(
+      isAdministratorRescheduleEligibleBooking(
+        canonicalBookingCollaborationFixtures.individualBooking,
+        now
+      )
+    ).toBe(true);
   });
 
   it('tracks one lifetime self-service allowance via consumed timestamp', () => {

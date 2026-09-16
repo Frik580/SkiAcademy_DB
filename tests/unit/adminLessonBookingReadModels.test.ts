@@ -8,6 +8,12 @@ vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
   queryLessonBookingReadModels: (...args: unknown[]) => queryMock(...args),
 }));
 
+vi.mock('../../src/features/admin/lesson-bookings/adminLessonBookingsRevisionCoordinator', () => ({
+  registerAdminLessonBookingsRevisionListener: () => () => {},
+  registerAdminLessonBookingsRevisionFromCommand: vi.fn(),
+  resetAdminLessonBookingsRevisionCoordinatorForTests: vi.fn(),
+}));
+
 import { useAdminLessonBookingReadModels } from '../../src/features/admin/lesson-bookings';
 
 function booking(id: string, revision: number): LessonBookingReadModel {

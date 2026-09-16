@@ -12,6 +12,12 @@ vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
     queryAdminCourseEnrollmentReadModelsMock(...args),
 }));
 
+vi.mock('../../src/features/admin/lesson-bookings/adminLessonBookingsRevisionCoordinator', () => ({
+  registerAdminLessonBookingsRevisionListener: () => () => {},
+  registerAdminLessonBookingsRevisionFromCommand: vi.fn(),
+  resetAdminLessonBookingsRevisionCoordinatorForTests: vi.fn(),
+}));
+
 vi.mock('../../src/features/admin/components/finance/useAdminFinanceReadModels', () => ({
   useAdminFinancialOverviewReadModel: () => ({
     item: undefined,

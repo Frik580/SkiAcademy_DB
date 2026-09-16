@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { AttendanceAdminIssueResultPayloadSchema } from '../adminIssueInboxRevision';
+import { AdminLessonBookingsRevisionPayloadSchema } from '../adminLessonBookingsRevision';
 import {
   BookingIdSchema,
   CourseEnrollmentIdSchema,
@@ -60,6 +61,8 @@ export type CreateCourseEnrollmentsResultPayload = Readonly<
 export const CreateGuestBookingRequestResultPayloadSchema = z
   .object({
     guestActionCredential: GuestBookingActionCredentialSchema,
+    adminLessonBookingsRevision: AdminLessonBookingsRevisionPayloadSchema.shape
+      .adminLessonBookingsRevision,
   })
   .strict();
 
@@ -155,6 +158,8 @@ export type SetParticipantLessonFeedbackItemCompletionResultPayload = Readonly<
 export const RequestCancellationResultPayloadSchema = z
   .object({
     lifecycleStatus: RequestCancellationLifecycleStatusSchema,
+    adminLessonBookingsRevision: AdminLessonBookingsRevisionPayloadSchema.shape
+      .adminLessonBookingsRevision,
   })
   .strict();
 

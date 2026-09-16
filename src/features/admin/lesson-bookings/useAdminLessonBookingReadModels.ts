@@ -14,6 +14,7 @@ import type {
   AdminLessonBookingView,
 } from './lessonBookingAdminContracts';
 import { mergeAdminLessonBookingItems } from './lessonBookingAdminUtils';
+import { registerAdminLessonBookingsRevisionListener } from './adminLessonBookingsRevisionCoordinator';
 
 const INITIAL_LIST: AdminLessonBookingListState = {
   items: [],
@@ -74,12 +75,16 @@ export function useAdminLessonBookingReadModels(input: {
   const [detail, setDetail] = useState<AdminLessonBookingDetailState>(INITIAL_DETAIL);
 
   const loadList = useCallback(
-    async (cursor?: string, append = false): Promise<AdminLessonBookingRefreshResult> => {
+    async (
+      cursor?: string,
+      append = false,
+      quiet = false
+    ): Promise<AdminLessonBookingRefreshResult> => {
       const generation = ++listGeneration.current;
       if (!enabled) return { status: 'success' };
       setList((current) => ({
-        ...(append ? current : INITIAL_LIST),
-        loading: !append,
+        ...(append || quiet ? current : INITIAL_LIST),
+        loading: !append && !quiet,
         loadingMore: append,
         error: undefined,
       }));
@@ -135,13 +140,18 @@ export function useAdminLessonBookingReadModels(input: {
   );
 
   const loadDetail = useCallback(
-    async (bookingId = selectedBookingRef.current): Promise<AdminLessonBookingRefreshResult> => {
+    async (
+      bookingId = selectedBookingRef.current,
+      quiet = false
+    ): Promise<AdminLessonBookingRefreshResult> => {
       const generation = ++detailGeneration.current;
       if (!enabled || !bookingId) {
         setDetail(INITIAL_DETAIL);
         return { status: 'success' };
       }
-      setDetail({ loading: true });
+      if (!quiet) {
+        setDetail({ loading: true });
+      }
       try {
         const result = await queryLessonBookingReadModels({
           scope: 'admin_detail',
@@ -177,6 +187,11 @@ export function useAdminLessonBookingReadModels(input: {
     [enabled]
   );
 
+  const loadListRef = useRef(loadList);
+  loadListRef.current = loadList;
+  const loadDetailRef = useRef(loadDetail);
+  loadDetailRef.current = loadDetail;
+
   useEffect(() => {
     if (!enabled) {
       listGeneration.current += 1;
@@ -195,6 +210,17 @@ export function useAdminLessonBookingReadModels(input: {
       detailGeneration.current += 1;
     };
   }, [loadDetail, selectedBookingId]);
+
+  useEffect(() => {
+    if (!enabled || view === 'history') return;
+    return registerAdminLessonBookingsRevisionListener(() => {
+      void loadListRef.current(undefined, false, true);
+      const bookingId = selectedBookingRef.current;
+      if (bookingId) {
+        void loadDetailRef.current(bookingId, true);
+      }
+    });
+  }, [enabled, view]);
 
   const refreshBooking = useCallback(
     async (bookingId: BookingId): Promise<AdminLessonBookingRefreshResult> => {

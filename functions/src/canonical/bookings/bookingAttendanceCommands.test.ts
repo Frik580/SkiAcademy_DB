@@ -266,6 +266,7 @@ describe('bookingAttendanceCommands', () => {
       status: 'completed',
       completedAt: endsAt,
     });
+    expect(snapshot.docs.get('admin_runtime/admin_lesson_bookings')?.data.revision).toBe(1);
   });
 
   it('does not complete booking before endsAt even with present attendance', async () => {
@@ -284,6 +285,7 @@ describe('bookingAttendanceCommands', () => {
     expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle).toEqual({
       status: 'confirmed',
     });
+    expect(executor.snapshot().docs.has('admin_runtime/admin_lesson_bookings')).toBe(false);
   });
 
   it('records absent and resolves no_show after endsAt', async () => {
@@ -921,6 +923,7 @@ describe('bookingAttendanceCommands', () => {
       expect(result.payload).toMatchObject({
         resolvedAdminIssueIds: [issue.issueId],
         adminIssueInboxRevision: 1,
+        adminLessonBookingsRevision: 1,
       });
     }
     expect(

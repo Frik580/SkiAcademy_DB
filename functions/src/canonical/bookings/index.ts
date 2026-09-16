@@ -5,3 +5,4 @@ export * from './bookingAuthorization';
 export * from './bookingAudit';
 export * from './paymentStartGate';
 export * from './bookingAttendanceCommands';
+export * from './adminLessonBookingsRevision';

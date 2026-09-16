@@ -4,6 +4,10 @@ import {
   ADMIN_ISSUE_INBOX_REVISION_DOCUMENT_ID,
 } from './adminIssueInboxRevision';
 import {
+  ADMIN_LESSON_BOOKINGS_REVISION_COLLECTION,
+  ADMIN_LESSON_BOOKINGS_REVISION_DOCUMENT_ID,
+} from './adminLessonBookingsRevision';
+import {
   AccountIdSchema,
   ActiveCourseEnrollmentGuardKeySchema,
   ActivityLogIdSchema,
@@ -162,8 +166,10 @@ function isCanonicalDocumentPath(path: string): boolean {
   if (segments[0] !== '') return false;
   if (
     segments.length === 3 &&
-    segments[1] === ADMIN_ISSUE_INBOX_REVISION_COLLECTION &&
-    segments[2] === ADMIN_ISSUE_INBOX_REVISION_DOCUMENT_ID
+    ((segments[1] === ADMIN_ISSUE_INBOX_REVISION_COLLECTION &&
+      segments[2] === ADMIN_ISSUE_INBOX_REVISION_DOCUMENT_ID) ||
+      (segments[1] === ADMIN_LESSON_BOOKINGS_REVISION_COLLECTION &&
+        segments[2] === ADMIN_LESSON_BOOKINGS_REVISION_DOCUMENT_ID))
   ) {
     return true;
   }
@@ -236,6 +242,11 @@ export const canonicalPaths = {
   adminIssue: (id: AdminIssueId) => documentPath('admin_issues', id),
   adminIssueInboxRevision: () =>
     documentPath(ADMIN_ISSUE_INBOX_REVISION_COLLECTION, ADMIN_ISSUE_INBOX_REVISION_DOCUMENT_ID),
+  adminLessonBookingsRevision: () =>
+    documentPath(
+      ADMIN_LESSON_BOOKINGS_REVISION_COLLECTION,
+      ADMIN_LESSON_BOOKINGS_REVISION_DOCUMENT_ID
+    ),
   administrativeAvailabilityBlock: (id: AdministrativeAvailabilityBlockId) =>
     documentPath('administrative_availability_blocks', id),
   resourceClaim: (id: ResourceClaimId) => documentPath('resource_claims', id),

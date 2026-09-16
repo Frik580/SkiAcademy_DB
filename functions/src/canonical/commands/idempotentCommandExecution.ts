@@ -29,6 +29,12 @@ import {
   stageAuditOutboxInTransaction,
   committedAtFromEnvironment,
 } from '../auditOutbox';
+import {
+  commitAdminLessonBookingsRevisionBump,
+  mergeAdminLessonBookingsRevisionIntoResult,
+  planAdminLessonBookingsRevisionBump,
+  plannedMutationsAffectAdminLessonBookings,
+} from '../bookings/adminLessonBookingsRevision';
 
 export interface IdempotentCommandRevisionTarget {
   readonly ref: CanonicalTransactionDocumentRef;
@@ -221,10 +227,17 @@ export async function executeIdempotentCanonicalCommand<Kind extends CommandKind
           estimatedPayloadBytes: 2048,
         });
 
+        const shouldBumpAdminLessonBookingsRevision = plannedMutationsAffectAdminLessonBookings(
+          session.plan.build().mutations
+        );
+        if (shouldBumpAdminLessonBookingsRevision) {
+          await planAdminLessonBookingsRevisionBump(session);
+        }
+
         await session.transitionToWrites();
 
         const decidedAt = environment.clock.decidedAt();
-        const result = await handler.execute(session, {
+        let result = await handler.execute(session, {
           decidedAt,
           isReplay: false,
           nextRevision: nextAggregateRevision,
@@ -260,6 +273,13 @@ export async function executeIdempotentCanonicalCommand<Kind extends CommandKind
             plan: auditPlan,
             preparedReads: preparedAuditReads,
           });
+        }
+
+        if (result.status === 'success' && shouldBumpAdminLessonBookingsRevision) {
+          result = mergeAdminLessonBookingsRevisionIntoResult(
+            result,
+            commitAdminLessonBookingsRevisionBump(session, timestampFromDate(decidedAt))
+          );
         }
 
         if (shouldPersistIdempotencyOutcome(result)) {

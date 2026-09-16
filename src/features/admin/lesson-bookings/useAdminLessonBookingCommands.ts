@@ -22,6 +22,7 @@ import {
   toCanonicalCommandClientError,
 } from '../../../lib/canonical/mapCanonicalCommandError';
 import { applyAdminIssueInboxCommandResult } from '../issues/adminIssueInboxLocalSync';
+import { applyAdminLessonBookingsCommandResult } from './adminLessonBookingsLocalSync';
 import type {
   AdminLessonBookingAttempt,
   AdminLessonBookingRefreshResult,
@@ -34,6 +35,7 @@ async function assertCommandSucceeded<Kind extends CommandKind>(
   const error = mapCanonicalCommandResultError(result);
   if (error) throw error;
   applyAdminIssueInboxCommandResult(result);
+  applyAdminLessonBookingsCommandResult(result);
 }
 
 export async function executeAdminLessonBookingAttempt(

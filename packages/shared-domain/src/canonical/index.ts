@@ -48,6 +48,8 @@ export * from './courseEnrollmentReconciliationPolicy';
 export * from './courseDayScheduling';
 export * from './adminIssuePolicy';
 export * from './adminIssueInboxRevision';
+export * from './adminLessonBookingsRevision';
+export * from './adminRealtimeRevisionSignal';
 export * from './deterministicIdentity';
 export * from './errors';
 export * from './identifiers';

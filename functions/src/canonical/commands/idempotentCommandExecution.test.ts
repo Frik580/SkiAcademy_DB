@@ -287,4 +287,118 @@ describe('executeIdempotentCanonicalCommand', () => {
     expect(attempt).toBe(2);
     expect(executor.snapshot().docs.get(bookingPath)?.data.revision).toBe(2);
   });
+
+  it('bumps admin lesson bookings revision once for planned booking aggregate writes', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [bookingPath]: { revision: 1, status: 'confirmed' },
+    });
+
+    const result = await executeIdempotentCanonicalCommand({
+      envelope: envelope('idem-admin-lesson-rev-01', 1),
+      environment: environment('2026-01-01T00:00:00.000Z'),
+      executor,
+      revisionTarget: { ref: { path: bookingPath }, requireExpectedRevision: true },
+      handler: {
+        read: async (session) => {
+          session.plan.planMutation({
+            path: bookingPath,
+            kind: 'update',
+            category: 'aggregate',
+            estimatedPayloadBytes: 256,
+          });
+          session.plan.planMutation({
+            path: 'bookings/booking_idem_fn_sibling',
+            kind: 'update',
+            category: 'aggregate',
+            estimatedPayloadBytes: 256,
+          });
+        },
+        execute: async (session) => {
+          session.tx.update({ path: bookingPath }, { revision: 2, status: 'completed' });
+          return commandSuccessResult('complete_booking', correlationId);
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'success',
+      payload: { adminLessonBookingsRevision: 1 },
+    });
+    expect(executor.snapshot().docs.get('admin_runtime/admin_lesson_bookings')?.data.revision).toBe(
+      1
+    );
+  });
+
+  it('does not bump admin lesson bookings revision for attendance-only or issue writes', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [bookingPath]: { revision: 1, status: 'confirmed' },
+    });
+
+    const result = await executeIdempotentCanonicalCommand({
+      envelope: envelope('idem-admin-lesson-rev-att-01', 1),
+      environment: environment('2026-01-01T00:00:00.000Z'),
+      executor,
+      revisionTarget: { ref: { path: bookingPath }, requireExpectedRevision: true },
+      handler: {
+        read: async (session) => {
+          session.plan.planMutation({
+            path: 'attendance/att_idem_fn_01',
+            kind: 'create',
+            category: 'aggregate',
+            estimatedPayloadBytes: 256,
+          });
+          session.plan.planMutation({
+            path: 'admin_issues/issue_idem_fn_01',
+            kind: 'update',
+            category: 'aggregate',
+            estimatedPayloadBytes: 256,
+          });
+        },
+        execute: async (session) => {
+          session.tx.create({ path: 'attendance/att_idem_fn_01' }, { status: 'present' });
+          return commandSuccessResult('complete_booking', correlationId);
+        },
+      },
+    });
+
+    expect(result.status).toBe('success');
+    if (result.status === 'success') {
+      expect(result.payload).toBeUndefined();
+    }
+    expect(executor.snapshot().docs.has('admin_runtime/admin_lesson_bookings')).toBe(false);
+  });
+
+  it('does not bump or return a revision when the command fails', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [bookingPath]: { revision: 1, status: 'confirmed' },
+    });
+
+    const result = await executeIdempotentCanonicalCommand({
+      envelope: envelope('idem-admin-lesson-rev-fail-01', 1),
+      environment: environment('2026-01-01T00:00:00.000Z'),
+      executor,
+      revisionTarget: { ref: { path: bookingPath }, requireExpectedRevision: true },
+      handler: {
+        read: async (session) => {
+          session.plan.planMutation({
+            path: bookingPath,
+            kind: 'update',
+            category: 'aggregate',
+            estimatedPayloadBytes: 256,
+          });
+        },
+        execute: async () =>
+          commandErrorResult('complete_booking', correlationId, {
+            code: 'validation',
+            message: 'The request is invalid.',
+            retryable: false,
+            correlationId,
+          }),
+      },
+    });
+
+    expect(result.status).toBe('error');
+    expect(executor.snapshot().docs.has('admin_runtime/admin_lesson_bookings')).toBe(false);
+    expect(executor.snapshot().docs.get(bookingPath)?.data.revision).toBe(1);
+  });
 });

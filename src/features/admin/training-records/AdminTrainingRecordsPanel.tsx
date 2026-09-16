@@ -247,14 +247,8 @@ export function AdminTrainingRecordsPanel({
   const [targetCourseId, setTargetCourseId] = useState('');
   const detailPanelRef = useRef<HTMLElement>(null);
 
-  useEffect(() => {
-    const item = lessonReads.detail.item;
-    if (!item || selectedEnrollmentId) return;
-    setRefundAmount(String(item.admin?.cancellationFinancial?.suggestedRefund ?? 0));
-    setPaymentAmount(String(item.admin?.payment.outstanding ?? 0));
-    setActionReason('');
-  }, [lessonReads.detail.item, selectedEnrollmentId]);
-
+  // Lesson-booking drafts (reason / refund / payment / guest link) are owned by
+  // `AdminLessonBookingDetail` now, so only the course-enrollment drafts are seeded here.
   useEffect(() => {
     const item = courseReads.detail.item;
     if (!item || selectedBookingId) return;
@@ -686,25 +680,6 @@ export function AdminTrainingRecordsPanel({
                 language={language}
                 locale={locale}
                 t={t}
-                actionReason={actionReason}
-                onActionReasonChange={setActionReason}
-                refundAmount={refundAmount}
-                onRefundAmountChange={setRefundAmount}
-                paymentAmount={paymentAmount}
-                onPaymentAmountChange={(value) => {
-                  setPaymentAmount(value);
-                  setLessonConfirmation(undefined);
-                }}
-                linkSelection={linkSelection}
-                onLinkSelectionChange={(selection) => {
-                  setLinkSelection(selection);
-                  setLessonConfirmation(undefined);
-                }}
-                linkReason={linkReason}
-                onLinkReasonChange={(value) => {
-                  setLinkReason(value);
-                  setLessonConfirmation(undefined);
-                }}
                 onRequestAttempt={(attempt, message) =>
                   requestLessonAttempt(
                     {
@@ -715,6 +690,7 @@ export function AdminTrainingRecordsPanel({
                     message
                   )
                 }
+                onClearConfirmation={() => setLessonConfirmation(undefined)}
                 focusedChangeRequestId={focusedChangeRequestId}
                 onOpenPlanner={() => {
                   const parts = localParts(lessonDetail);

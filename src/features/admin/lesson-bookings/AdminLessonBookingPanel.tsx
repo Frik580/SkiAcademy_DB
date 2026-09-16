@@ -20,21 +20,15 @@ import {
   ADMIN_TAB_QUERY_KEY,
 } from '../adminNavigation';
 import { AdminLessonBookingDetail } from './AdminLessonBookingDetail';
+import { AdminLessonBookingMasterList } from './AdminLessonBookingMasterList';
 import { useAdminLessonBookingTranslations } from './useAdminLessonBookingTranslations';
 import type {
   AdminLessonBookingAttempt,
   AdminLessonBookingMutationDraft,
   AdminLessonBookingMutationAttempt,
+  AdminLessonBookingView,
   AdminLessonInstructorOption,
 } from './lessonBookingAdminContracts';
-import {
-  formatLessonAdminDuration,
-  LESSON_ADMIN_ORIGIN_LABEL_KEYS,
-  LESSON_ADMIN_PRIMARY_STATUS_KEYS,
-  PAYMENT_STATUS_LABEL_KEYS,
-  resolveLessonAdminPrimaryStatus,
-} from './lessonBookingAdminPresentation';
-import { AdminLessonBookingListRow } from './AdminLessonBookingUi';
 import { useAdminLessonBookingCommands } from './useAdminLessonBookingCommands';
 import { useAdminLessonBookingReadModels } from './useAdminLessonBookingReadModels';
 import { useSharedAdminMonitorReadModels } from '../operations/AdminMonitorReadModelsContext';
@@ -43,7 +37,6 @@ import {
   createAdminLessonBookingAttemptId,
   parseAdminLessonBookingView,
 } from './lessonBookingAdminUtils';
-import type { AdminManagedParticipantSelection } from '../identity';
 
 interface AdminLessonBookingPanelProps {
   readonly adminAccountId: string;
@@ -69,28 +62,6 @@ function localParts(item: LessonBookingReadModel): { date: string; time: string 
   return {
     date: `${values.year}-${values.month}-${values.day}`,
     time: `${values.hour === '24' ? '00' : values.hour}:${values.minute}`,
-  };
-}
-
-function listOccurrenceParts(
-  item: LessonBookingReadModel,
-  locale: string
-): { date: string; time: string } {
-  const start = new Date(item.occurrence.startsAt.seconds * 1_000);
-  return {
-    date: new Intl.DateTimeFormat(locale, {
-      day: 'numeric',
-      month: 'short',
-      timeZone: item.occurrence.timeZone,
-    }).format(start),
-    time: new Intl.DateTimeFormat(locale, {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-      timeZone: item.occurrence.timeZone,
-    })
-      .format(start)
-      .replace(/^24:/, '00:'),
   };
 }
 
@@ -135,13 +106,36 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
   const [mutationPending, setMutationPending] = useState(false);
   const [mutationError, setMutationError] = useState<{ code: string; message: string }>();
   const [mutationNotice, setMutationNotice] = useState<string>();
-  const [actionReason, setActionReason] = useState('');
-  const [refundAmount, setRefundAmount] = useState('');
-  const [paymentAmount, setPaymentAmount] = useState('');
-  const [linkSelection, setLinkSelection] = useState<AdminManagedParticipantSelection>();
-  const [linkReason, setLinkReason] = useState('');
   const detailPanelRef = useRef<HTMLElement>(null);
   const lastFocusedBookingRef = useRef<string>();
+
+  const detail = reads.detail.item;
+  const admin = detail?.admin;
+
+  // List-facing callbacks and command drafts are read through refs so that they stay
+  // referentially stable: the master-list memo boundary must not be defeated by a new
+  // callback identity produced by an unrelated page-level render.
+  const readsRef = useRef(reads);
+  readsRef.current = reads;
+  const detailRef = useRef(detail);
+  detailRef.current = detail;
+
+  const updateQuery = useCallback(
+    (updates: Readonly<Record<string, string | undefined>>) => {
+      setSearchParams(
+        (previous) => {
+          const next = new URLSearchParams(previous);
+          for (const [key, value] of Object.entries(updates)) {
+            if (value === undefined) next.delete(key);
+            else next.set(key, value);
+          }
+          return next;
+        },
+        { replace: true }
+      );
+    },
+    [setSearchParams]
+  );
 
   const revealLessonBookingCard = useCallback((bookingId: string) => {
     window.setTimeout(() => {
@@ -174,16 +168,6 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
   }, [reads.detail.item, reads.detail.loading, selectedBookingId]);
 
   useEffect(() => {
-    const item = reads.detail.item;
-    if (!item) return;
-    setRefundAmount(String(item.admin?.cancellationFinancial?.suggestedRefund ?? 0));
-    setPaymentAmount(String(item.admin?.payment.outstanding ?? 0));
-    setActionReason('');
-  }, [reads.detail.item]);
-
-  useEffect(() => {
-    setLinkSelection(undefined);
-    setLinkReason('');
     setMutationNotice(undefined);
     setConfirmation((current) =>
       current?.attempt.kind === 'link_guest_booking_to_account_as_administrator'
@@ -192,25 +176,11 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
     );
   }, [selectedBookingId]);
 
-  const updateQuery = (updates: Readonly<Record<string, string | undefined>>) => {
-    setSearchParams(
-      (previous) => {
-        const next = new URLSearchParams(previous);
-        for (const [key, value] of Object.entries(updates)) {
-          if (value === undefined) next.delete(key);
-          else next.set(key, value);
-        }
-        return next;
-      },
-      { replace: true }
-    );
-  };
-
-  const requestAttempt = (attempt: AdminLessonBookingAttempt, message: string) => {
+  const requestAttempt = useCallback((attempt: AdminLessonBookingAttempt, message: string) => {
     setMutationError(undefined);
     setMutationNotice(undefined);
     setConfirmation({ attempt, message });
-  };
+  }, []);
 
   const runConfirmation = async () => {
     if (!confirmation || mutationPending) return;
@@ -230,23 +200,84 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
     if (result.error.code === 'stale_version') setConfirmation(undefined);
   };
 
-  const requestDetailAttempt = (
-    item: LessonBookingReadModel,
-    attempt: AdminLessonBookingMutationDraft,
-    message: string
-  ) => {
-    requestAttempt(
-      {
-        ...attempt,
-        target: captureAdminLessonBookingTarget(item),
-        idempotencyKey: createAdminLessonBookingAttemptId(attempt.kind),
-      } as AdminLessonBookingMutationAttempt,
-      message
-    );
-  };
+  const requestDetailAttempt = useCallback(
+    (item: LessonBookingReadModel, attempt: AdminLessonBookingMutationDraft, message: string) => {
+      requestAttempt(
+        {
+          ...attempt,
+          target: captureAdminLessonBookingTarget(item),
+          idempotencyKey: createAdminLessonBookingAttemptId(attempt.kind),
+        } as AdminLessonBookingMutationAttempt,
+        message
+      );
+    },
+    [requestAttempt]
+  );
 
-  const detail = reads.detail.item;
-  const admin = detail?.admin;
+  const handleRequestAttempt = useCallback(
+    (attempt: AdminLessonBookingMutationDraft, message: string) => {
+      const item = detailRef.current;
+      if (!item) return;
+      requestDetailAttempt(item, attempt, message);
+    },
+    [requestDetailAttempt]
+  );
+
+  const handleClearConfirmation = useCallback(() => setConfirmation(undefined), []);
+
+  const handleSelectBooking = useCallback(
+    (bookingId: string) => {
+      updateQuery({ [ADMIN_LESSON_BOOKING_QUERY_KEY]: bookingId });
+    },
+    [updateQuery]
+  );
+
+  const handleViewChange = useCallback(
+    (nextView: AdminLessonBookingView) => {
+      updateQuery({
+        [ADMIN_LESSON_BOOKING_VIEW_QUERY_KEY]: nextView,
+        [ADMIN_LESSON_BOOKING_QUERY_KEY]: undefined,
+      });
+    },
+    [updateQuery]
+  );
+
+  const handleLoadMore = useCallback(() => void readsRef.current.loadMore(), []);
+  const handleRetryList = useCallback(() => void readsRef.current.retryList(), []);
+
+  const handleOpenPlanner = useCallback(() => {
+    const item = detailRef.current;
+    if (!item) return;
+    const parts = localParts(item);
+    updateQuery({
+      [ADMIN_TAB_QUERY_KEY]: 'operations',
+      [ADMIN_PLANNER_DATE_QUERY_KEY]: parts.date,
+      [ADMIN_PLANNER_FOCUS_QUERY_KEY]: item.bookingId,
+    });
+  }, [updateQuery]);
+
+  const handleClose = useCallback(
+    () => updateQuery({ [ADMIN_LESSON_BOOKING_QUERY_KEY]: undefined }),
+    [updateQuery]
+  );
+
+  const handleOpenPayment = useCallback(
+    (paymentId: string) =>
+      updateQuery({
+        [ADMIN_TAB_QUERY_KEY]: 'finance',
+        [ADMIN_FINANCE_PAYMENT_QUERY_KEY]: paymentId,
+      }),
+    [updateQuery]
+  );
+
+  const handleOpenIssue = useCallback(
+    (issueId: string) =>
+      updateQuery({
+        [ADMIN_TAB_QUERY_KEY]: 'operations',
+        [ADMIN_ISSUE_QUERY_KEY]: issueId,
+      }),
+    [updateQuery]
+  );
 
   return (
     <div className="space-y-6">
@@ -262,124 +293,20 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
       )}
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(320px,38fr)_minmax(0,62fr)]">
-        <section
-          aria-label="Canonical lesson bookings"
-          className="overflow-hidden rounded-[var(--radius)] bg-[var(--card-bg)] shadow-[var(--shadow-soft)]"
-        >
-          <div className="border-b border-[var(--border)] p-3">
-            <div className="inline-flex rounded-full bg-[var(--profile-bg)] p-1">
-              {(['hot', 'history'] as const).map((candidate) => (
-                <button
-                  key={candidate}
-                  type="button"
-                  aria-pressed={view === candidate}
-                  onClick={() =>
-                    updateQuery({
-                      [ADMIN_LESSON_BOOKING_VIEW_QUERY_KEY]: candidate,
-                      [ADMIN_LESSON_BOOKING_QUERY_KEY]: undefined,
-                    })
-                  }
-                  className={`px-4 py-2 text-xs font-semibold transition-colors ${
-                    view === candidate
-                      ? 'bg-[var(--ink)] text-[var(--bg)] shadow-sm'
-                      : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'
-                  }`}
-                >
-                  {candidate === 'hot' ? t('adminLessonHot') : t('adminLessonHistory')}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="p-3">
-            {reads.list.loading ? (
-              <div
-                role="status"
-                className="flex min-h-36 items-center justify-center gap-2 text-xs"
-              >
-                <Loader2 className="h-4 w-4 animate-spin" /> {t('adminLessonLoading')}
-              </div>
-            ) : reads.list.error ? (
-              <div role="alert" className="border border-red-500/30 p-4 text-xs">
-                {reads.list.error === 'permission-denied'
-                  ? t('adminLessonPermissionDenied')
-                  : t('adminLessonReadFailed')}
-                <button
-                  type="button"
-                  onClick={() => void reads.retryList()}
-                  className="mt-3 flex items-center gap-2 border border-[var(--border)] px-3 py-2"
-                >
-                  <RefreshCw className="h-3.5 w-3.5" /> {t('adminLessonRetry')}
-                </button>
-              </div>
-            ) : reads.list.items.length === 0 ? (
-              <div className="space-y-3 border border-dashed border-[var(--border)] p-8 text-center text-xs text-[var(--ink-dim)]">
-                <p>{t('adminLessonEmpty')}</p>
-                {reads.list.hasMore && (
-                  <button
-                    type="button"
-                    disabled={reads.list.loadingMore}
-                    onClick={() => void reads.loadMore()}
-                    className="border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
-                  >
-                    {reads.list.loadingMore
-                      ? t('adminLessonLoadingMore')
-                      : t('adminLessonLoadNextPage')}
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {reads.list.items.map((item) => {
-                  const occurrence = listOccurrenceParts(item, locale);
-                  const primaryStatus = resolveLessonAdminPrimaryStatus(item);
-                  const paymentStatus = item.admin?.payment.status;
-                  return (
-                    <AdminLessonBookingListRow
-                      key={item.bookingId}
-                      selected={selectedBookingId === item.bookingId}
-                      onSelect={() =>
-                        updateQuery({ [ADMIN_LESSON_BOOKING_QUERY_KEY]: item.bookingId })
-                      }
-                      item={{
-                        bookingId: item.bookingId,
-                        participantNames: item.participants
-                          .map((participant) => participant.displayName)
-                          .join(', '),
-                        date: occurrence.date,
-                        time: occurrence.time,
-                        instructor: item.instructor.displayName,
-                        duration: formatLessonAdminDuration(item.occurrence.durationMinutes, t),
-                        primaryStatus,
-                        primaryStatusLabel: t(LESSON_ADMIN_PRIMARY_STATUS_KEYS[primaryStatus]),
-                        ...(paymentStatus
-                          ? {
-                              paymentStatus,
-                              paymentStatusLabel: t(PAYMENT_STATUS_LABEL_KEYS[paymentStatus]),
-                            }
-                          : {}),
-                        origin: item.bookingOrigin,
-                        originLabel: t(LESSON_ADMIN_ORIGIN_LABEL_KEYS[item.bookingOrigin]),
-                      }}
-                    />
-                  );
-                })}
-                {reads.list.hasMore && (
-                  <button
-                    type="button"
-                    disabled={reads.list.loadingMore}
-                    onClick={() => void reads.loadMore()}
-                    className="w-full border border-[var(--border)] px-3 py-2 text-xs font-medium disabled:opacity-50"
-                  >
-                    {reads.list.loadingMore
-                      ? t('adminLessonLoadingMore')
-                      : t('adminLessonLoadMore')}
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        </section>
+        <AdminLessonBookingMasterList
+          view={view}
+          onViewChange={handleViewChange}
+          items={reads.list.items}
+          loading={reads.list.loading}
+          error={reads.list.error}
+          loadingMore={reads.list.loadingMore}
+          hasMore={reads.list.hasMore}
+          selectedBookingId={selectedBookingId}
+          locale={locale}
+          onSelectBooking={handleSelectBooking}
+          onLoadMore={handleLoadMore}
+          onRetryList={handleRetryList}
+        />
 
         <aside
           ref={detailPanelRef}
@@ -426,50 +353,13 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
               language={language}
               locale={locale}
               t={t}
-              actionReason={actionReason}
-              onActionReasonChange={setActionReason}
-              refundAmount={refundAmount}
-              onRefundAmountChange={setRefundAmount}
-              paymentAmount={paymentAmount}
-              onPaymentAmountChange={(value) => {
-                setPaymentAmount(value);
-                setConfirmation(undefined);
-              }}
-              linkSelection={linkSelection}
-              onLinkSelectionChange={(selection) => {
-                setLinkSelection(selection);
-                setConfirmation(undefined);
-              }}
-              linkReason={linkReason}
-              onLinkReasonChange={(value) => {
-                setLinkReason(value);
-                setConfirmation(undefined);
-              }}
-              onRequestAttempt={(attempt, message) =>
-                requestDetailAttempt(detail, attempt, message)
-              }
+              onRequestAttempt={handleRequestAttempt}
+              onClearConfirmation={handleClearConfirmation}
+              onOpenPlanner={handleOpenPlanner}
+              onClose={handleClose}
+              onOpenPayment={handleOpenPayment}
+              onOpenIssue={handleOpenIssue}
               focusedChangeRequestId={focusedChangeRequestId}
-              onOpenPlanner={() => {
-                const parts = localParts(detail);
-                updateQuery({
-                  [ADMIN_TAB_QUERY_KEY]: 'operations',
-                  [ADMIN_PLANNER_DATE_QUERY_KEY]: parts.date,
-                  [ADMIN_PLANNER_FOCUS_QUERY_KEY]: detail.bookingId,
-                });
-              }}
-              onClose={() => updateQuery({ [ADMIN_LESSON_BOOKING_QUERY_KEY]: undefined })}
-              onOpenPayment={(paymentId) =>
-                updateQuery({
-                  [ADMIN_TAB_QUERY_KEY]: 'finance',
-                  [ADMIN_FINANCE_PAYMENT_QUERY_KEY]: paymentId,
-                })
-              }
-              onOpenIssue={(issueId) =>
-                updateQuery({
-                  [ADMIN_TAB_QUERY_KEY]: 'operations',
-                  [ADMIN_ISSUE_QUERY_KEY]: issueId,
-                })
-              }
             />
           )}
         </aside>

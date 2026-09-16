@@ -6,6 +6,49 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const readMock = vi.fn();
 const runAttemptMock = vi.fn();
 
+/**
+ * Render-boundary probes.
+ *
+ * `masterLists` counts how often the container re-creates the master-list element (i.e. how
+ * often the page-level container renders); `rows` counts real `AdminLessonBookingListRow`
+ * component invocations inside the memoized master list. DOM equality cannot prove render
+ * isolation because a re-render can commit identical markup, so both are counted directly.
+ */
+const renderCounters = vi.hoisted(() => ({ masterLists: 0, rows: 0 }));
+
+vi.mock(
+  '../../src/features/admin/lesson-bookings/AdminLessonBookingMasterList',
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import('../../src/features/admin/lesson-bookings/AdminLessonBookingMasterList')
+      >();
+    return {
+      ...actual,
+      AdminLessonBookingMasterList: (
+        props: Parameters<typeof actual.AdminLessonBookingMasterList>[0]
+      ) => {
+        renderCounters.masterLists += 1;
+        return <actual.AdminLessonBookingMasterList {...props} />;
+      },
+    };
+  }
+);
+
+vi.mock('../../src/features/admin/lesson-bookings/AdminLessonBookingUi', async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import('../../src/features/admin/lesson-bookings/AdminLessonBookingUi')
+    >();
+  return {
+    ...actual,
+    AdminLessonBookingListRow: (props: Parameters<typeof actual.AdminLessonBookingListRow>[0]) => {
+      renderCounters.rows += 1;
+      return <actual.AdminLessonBookingListRow {...props} />;
+    },
+  };
+});
+
 vi.mock('../../src/features/admin/lesson-bookings/useAdminLessonBookingReadModels', () => ({
   useAdminLessonBookingReadModels: (...args: unknown[]) => readMock(...args),
 }));
@@ -227,6 +270,38 @@ function pendingUnpaidAdminDetail(): LessonBookingReadModel {
   } as LessonBookingReadModel;
 }
 
+function isolationDetail(bookingId: string, participantName: string): LessonBookingReadModel {
+  const base = detail();
+  const participant = base.admin!.participants[0];
+  return {
+    ...base,
+    bookingId,
+    participants: [{ participantId: participant.participantId, displayName: participantName }],
+    lifecycle: { status: 'confirmed' },
+    admin: {
+      ...base.admin!,
+      participants: [{ ...participant, displayName: participantName }],
+      relatedIssues: [],
+      attendance: [
+        {
+          participantId: participant.participantId,
+          attendanceStatus: 'unknown',
+          revision: 1,
+          authorizedActions: { canRecordPresent: true, canRecordAbsent: true },
+        },
+      ],
+      authorizedActions: {
+        ...base.admin!.authorizedActions,
+        canDirectCancel: false,
+        canRecordGuestPayment: true,
+        canResolveCancellation: true,
+        canRecordAttendance: true,
+        canResolveAttendanceOutcome: false,
+      },
+    },
+  } as LessonBookingReadModel;
+}
+
 function renderPanel(
   item?: LessonBookingReadModel,
   path = '/admin?tab=operations&booking=booking_admin_panel_01'
@@ -268,6 +343,101 @@ describe('AdminLessonBookingPanel', () => {
   beforeEach(() => {
     readMock.mockReset();
     runAttemptMock.mockReset();
+    renderCounters.masterLists = 0;
+    renderCounters.rows = 0;
+  });
+
+  it('does not rerender the master list while the operational reason draft is typed', async () => {
+    const first = isolationDetail('booking_isolation_a', 'First Student');
+    const second = isolationDetail('booking_isolation_b', 'Second Student');
+    const staticReads = {
+      list: {
+        items: [first, second],
+        loading: false,
+        loadingMore: false,
+        hasMore: false,
+      },
+      retryList: () => Promise.resolve(),
+      retryDetail: () => Promise.resolve(),
+      loadMore: () => Promise.resolve(),
+      refreshBooking: () => Promise.resolve({ status: 'success' as const }),
+    };
+    readMock.mockImplementation((input: { selectedBookingId?: string }) => ({
+      ...staticReads,
+      detail: {
+        item: input?.selectedBookingId === 'booking_isolation_b' ? second : first,
+        loading: false,
+      },
+    }));
+    runAttemptMock.mockResolvedValue({ status: 'success' });
+
+    render(
+      <MemoryRouter initialEntries={['/admin?tab=operations&booking=booking_isolation_a']}>
+        <AdminLessonBookingPanel adminAccountId="admin_account_01" instructors={[]} />
+      </MemoryRouter>
+    );
+
+    openDetailSection('adminLessonAttendanceTitle');
+    const reason = screen.getByLabelText('adminLessonReason');
+    const recordPresent = screen.getByRole('button', { name: 'adminLessonRecordPresent' });
+    expect(recordPresent).toBeDisabled();
+
+    const rowsBefore = renderCounters.rows;
+    const masterListRendersBefore = renderCounters.masterLists;
+    expect(rowsBefore).toBeGreaterThan(0);
+
+    const draft = '  Operational reason drafted  ';
+    for (let length = 1; length <= draft.length; length += 1) {
+      fireEvent.change(reason, { target: { value: draft.slice(0, length) } });
+    }
+
+    // Typed draft is visible and still drives the server-authorized action buttons.
+    expect(reason).toHaveValue(draft);
+    expect(recordPresent).toBeEnabled();
+    // Neither the container nor one single master-list row was rendered by those keystrokes.
+    expect(renderCounters.masterLists).toBe(masterListRendersBefore);
+    expect(renderCounters.rows).toBe(rowsBefore);
+
+    // The other detail-local drafts must be isolated the same way.
+    openDetailSection('adminLessonPaymentTitle');
+    const paymentAmountInput = screen.getByLabelText('adminLessonPaymentAmount');
+    for (const value of ['1', '10', '100']) {
+      fireEvent.change(paymentAmountInput, { target: { value } });
+    }
+    expect(paymentAmountInput).toHaveValue(100);
+    openDetailSection('adminLessonCancellationTitle');
+    const refundInput = screen.getByLabelText('adminLessonRefund');
+    for (const value of ['1000', '1500', '2000']) {
+      fireEvent.change(refundInput, { target: { value } });
+    }
+    expect(refundInput).toHaveValue(2000);
+    expect(renderCounters.rows).toBe(rowsBefore);
+
+    openDetailSection('adminLessonAttendanceTitle');
+    // Re-query: switching tabs remounts the section, so the earlier node is detached.
+    fireEvent.click(screen.getByRole('button', { name: 'adminLessonRecordPresent' }));
+    // The probe is live: opening the confirmation dialog does re-render the page container,
+    // yet the memoized master list still refuses to re-invoke a single row.
+    expect(renderCounters.masterLists).toBeGreaterThan(masterListRendersBefore);
+    expect(renderCounters.rows).toBe(rowsBefore);
+    fireEvent.click(screen.getByRole('button', { name: 'adminLessonConfirmSubmit' }));
+    await waitFor(() => expect(runAttemptMock).toHaveBeenCalledTimes(1));
+    expect(runAttemptMock.mock.calls[0]?.[0]).toMatchObject({
+      kind: 'record_booking_attendance',
+      target: { bookingId: 'booking_isolation_a', revision: 5 },
+      participantId: 'participant_admin_panel_01',
+      attendanceStatus: 'present',
+      expectedAttendanceRevision: 1,
+      reasonExplanation: 'Operational reason drafted',
+    });
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+    // Switching the selected booking remounts the detail boundary and clears the draft.
+    fireEvent.click(screen.getByRole('button', { name: /Second Student/ }));
+    openDetailSection('adminLessonAttendanceTitle');
+    expect(screen.getByLabelText('adminLessonReason')).toHaveValue('');
+    expect(screen.getByRole('button', { name: 'adminLessonRecordPresent' })).toBeDisabled();
+    expect(renderCounters.rows).toBeGreaterThan(rowsBefore);
   });
 
   it('renders canonical accounting links, issue links, and unavailable guest linking', () => {

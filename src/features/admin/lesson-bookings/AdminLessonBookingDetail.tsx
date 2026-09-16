@@ -51,17 +51,12 @@ export interface AdminLessonBookingDetailProps {
   readonly language: Language;
   readonly locale: string;
   readonly t: (key: TranslationKey) => string;
-  readonly actionReason: string;
-  readonly onActionReasonChange: (value: string) => void;
-  readonly refundAmount: string;
-  readonly onRefundAmountChange: (value: string) => void;
-  readonly paymentAmount: string;
-  readonly onPaymentAmountChange: (value: string) => void;
-  readonly linkSelection: AdminManagedParticipantSelection | undefined;
-  readonly onLinkSelectionChange: (selection: AdminManagedParticipantSelection | undefined) => void;
-  readonly linkReason: string;
-  readonly onLinkReasonChange: (value: string) => void;
   readonly onRequestAttempt: (attempt: AdminLessonBookingMutationDraft, message: string) => void;
+  /**
+   * Editing a draft after a mutation confirmation was requested would capture a stale attempt,
+   * so the boundary asks the container to drop that pending confirmation.
+   */
+  readonly onClearConfirmation: () => void;
   readonly onOpenPlanner: () => void;
   readonly onClose: () => void;
   readonly onOpenPayment: (paymentId: string) => void;
@@ -137,17 +132,8 @@ export function AdminLessonBookingDetail({
   language,
   locale,
   t,
-  actionReason,
-  onActionReasonChange,
-  refundAmount,
-  onRefundAmountChange,
-  paymentAmount,
-  onPaymentAmountChange,
-  linkSelection,
-  onLinkSelectionChange,
-  linkReason,
-  onLinkReasonChange,
   onRequestAttempt,
+  onClearConfirmation,
   onOpenPlanner,
   onClose,
   onOpenPayment,
@@ -156,6 +142,44 @@ export function AdminLessonBookingDetail({
 }: AdminLessonBookingDetailProps) {
   const occurrence = formatOccurrenceParts(detail, locale);
   const [activeSection, setActiveSection] = useState<AdminLessonDetailSection['id']>('overview');
+  const suggestedRefund = admin.cancellationFinancial?.suggestedRefund ?? 0;
+  const outstanding = admin.payment.outstanding;
+  const paymentId = admin.payment.paymentId;
+  const paymentRevision = admin.payment.revision;
+  const [actionReason, setActionReason] = useState('');
+  const [refundAmount, setRefundAmount] = useState(() => String(suggestedRefund));
+  const [paymentAmount, setPaymentAmount] = useState(() => String(outstanding));
+  const [linkSelection, setLinkSelection] = useState<AdminManagedParticipantSelection>();
+  const [linkReason, setLinkReason] = useState('');
+  const editPaymentAmount = (value: string) => {
+    setPaymentAmount(value);
+    onClearConfirmation();
+  };
+  const editLinkSelection = (selection: AdminManagedParticipantSelection | undefined) => {
+    setLinkSelection(selection);
+    onClearConfirmation();
+  };
+  const editLinkReason = (value: string) => {
+    setLinkReason(value);
+    onClearConfirmation();
+  };
+
+  // Drafts are re-seeded from the canonical detail only when a semantic canonical value
+  // changes — never from object identity, which churns on every read-model refresh.
+  useEffect(() => {
+    setActionReason('');
+  }, [detail.bookingId, detail.revision]);
+  useEffect(() => {
+    setRefundAmount(String(suggestedRefund));
+  }, [detail.bookingId, suggestedRefund]);
+  useEffect(() => {
+    setPaymentAmount(String(outstanding));
+  }, [detail.bookingId, outstanding, paymentId, paymentRevision]);
+  useEffect(() => {
+    setLinkSelection(undefined);
+    setLinkReason('');
+  }, [detail.bookingId]);
+
   const formatKzt = (value: number) =>
     new Intl.NumberFormat(locale, {
       style: 'currency',
@@ -456,7 +480,7 @@ export function AdminLessonBookingDetail({
                 <p className="text-xs text-[var(--ink-dim)]">{t('adminLessonScheduleInPlanner')}</p>
                 <ReasonField
                   value={actionReason}
-                  onChange={onActionReasonChange}
+                  onChange={setActionReason}
                   t={t}
                   ariaLabel={t('adminLessonReason')}
                 />
@@ -469,7 +493,7 @@ export function AdminLessonBookingDetail({
                     min="0"
                     max={admin.cancellationFinancial?.maximumRefund}
                     value={refundAmount}
-                    onChange={(event) => onRefundAmountChange(event.target.value)}
+                    onChange={(event) => setRefundAmount(event.target.value)}
                     className="mt-1 w-full border border-[var(--border)] bg-transparent p-2"
                   />
                 </label>
@@ -568,7 +592,7 @@ export function AdminLessonBookingDetail({
                 canRecordPayment
                 amount={paymentAmount}
                 outstanding={payment.outstanding}
-                onAmountChange={onPaymentAmountChange}
+                onAmountChange={editPaymentAmount}
                 onRecord={() =>
                   onRequestAttempt(
                     {
@@ -690,7 +714,7 @@ export function AdminLessonBookingDetail({
             {reasonInAttendance && (
               <ReasonField
                 value={actionReason}
-                onChange={onActionReasonChange}
+                onChange={setActionReason}
                 t={t}
                 ariaLabel={t('adminLessonReason')}
               />
@@ -718,14 +742,14 @@ export function AdminLessonBookingDetail({
                     min="0"
                     max={admin.cancellationFinancial?.maximumRefund}
                     value={refundAmount}
-                    onChange={(event) => onRefundAmountChange(event.target.value)}
+                    onChange={(event) => setRefundAmount(event.target.value)}
                     className="mt-1 w-full border border-[var(--border)] bg-transparent p-2"
                   />
                 </label>
                 {reasonInCancellation && (
                   <ReasonField
                     value={actionReason}
-                    onChange={onActionReasonChange}
+                    onChange={setActionReason}
                     t={t}
                     ariaLabel={t('adminLessonReason')}
                   />
@@ -814,7 +838,7 @@ export function AdminLessonBookingDetail({
                 <p className="text-xs text-[var(--ink-dim)]">{t('adminLessonLinkGuestHint')}</p>
                 <AdminManagedParticipantPicker
                   selected={linkSelection}
-                  onChange={(selection) => onLinkSelectionChange(selection)}
+                  onChange={editLinkSelection}
                 />
                 <label htmlFor="admin-guest-link-reason" className="block text-xs">
                   {t('adminLessonReason')}
@@ -822,7 +846,7 @@ export function AdminLessonBookingDetail({
                     id="admin-guest-link-reason"
                     aria-label="Link reason"
                     value={linkReason}
-                    onChange={(event) => onLinkReasonChange(event.target.value)}
+                    onChange={(event) => editLinkReason(event.target.value)}
                     className="mt-1 w-full border border-[var(--border)] bg-[var(--bg)] p-2"
                   />
                 </label>

@@ -42,9 +42,7 @@ export const getAchievements = (
         achievementLabelRu: item.labelRu,
         achievementLabelEn: item.labelEn,
       }),
-      earnedAtLabel: item.earnedAt
-        ? formatActivityTimestamp(item.earnedAt, language)
-        : undefined,
+      earnedAtLabel: item.earnedAt ? formatActivityTimestamp(item.earnedAt, language) : undefined,
       earnedAt: item.earnedAt,
     }))
     .sort((a, b) => (b.earnedAt ?? '').localeCompare(a.earnedAt ?? ''));

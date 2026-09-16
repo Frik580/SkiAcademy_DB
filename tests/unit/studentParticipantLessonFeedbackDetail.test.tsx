@@ -48,17 +48,19 @@ vi.mock('../../src/features/student-cabinet/useSelectedParticipantLessonStats', 
   latestAttendedLessonForInstructor: () => null,
 }));
 
-vi.mock('../../src/features/student-cabinet/components/student/useInstructorBookingMessages', () => ({
-  useInstructorBookingMessages: () => ({ messages: [], loading: false }),
-}));
+vi.mock(
+  '../../src/features/student-cabinet/components/student/useInstructorBookingMessages',
+  () => ({
+    useInstructorBookingMessages: () => ({ messages: [], loading: false }),
+  })
+);
 
 vi.mock('../../src/features/profile', () => ({
   InstructorCard: () => null,
 }));
 
 vi.mock('../../src/features/booking-collaboration', async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import('../../src/features/booking-collaboration')>();
+  const actual = await importOriginal<typeof import('../../src/features/booking-collaboration')>();
   return {
     ...actual,
     CoachParticipantAccessPanel: () => null,
@@ -87,7 +89,9 @@ describe('canonical participant lesson feedback detail wiring', () => {
       lessonBookingId: LESSON_A,
       accountUserId: ACCOUNT,
       cabinetBookings: [],
-      instructors: [{ id: 'instructor_01', name: 'Coach One', avatar: '', isAvailable: true } as never],
+      instructors: [
+        { id: 'instructor_01', name: 'Coach One', avatar: '', isAvailable: true } as never,
+      ],
     });
     expect(booking).not.toBeNull();
 
@@ -129,7 +133,9 @@ describe('canonical participant lesson feedback detail wiring', () => {
       lessonBookingId: LESSON_A,
       accountUserId: ACCOUNT,
       cabinetBookings: [],
-      instructors: [{ id: 'instructor_01', name: 'Coach One', avatar: '', isAvailable: true } as never],
+      instructors: [
+        { id: 'instructor_01', name: 'Coach One', avatar: '', isAvailable: true } as never,
+      ],
     });
 
     expect(resolved?.id).toBe(LESSON_A);

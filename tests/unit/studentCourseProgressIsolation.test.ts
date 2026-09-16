@@ -50,7 +50,8 @@ function progress(input: {
     presentDays,
     absentDays: recordedDays - presentDays,
     missingDays: input.scheduledDays - recordedDays,
-    progressPercent: input.scheduledDays === 0 ? 0 : (input.elapsedDays / input.scheduledDays) * 100,
+    progressPercent:
+      input.scheduledDays === 0 ? 0 : (input.elapsedDays / input.scheduledDays) * 100,
     attendanceCoveragePercent:
       input.scheduledDays === 0 ? 0 : (recordedDays / input.scheduledDays) * 100,
     attendanceRatePercent:
@@ -163,7 +164,9 @@ describe('T32.9A.9C.C student course progress / participant isolation', () => {
       courseEnrollments: family,
     });
     expect(
-      filterCabinetCourseDaysForParticipant(mixed, SELF).filter((item) => item.kind === 'course_day')
+      filterCabinetCourseDaysForParticipant(mixed, SELF).filter(
+        (item) => item.kind === 'course_day'
+      )
     ).toHaveLength(1);
     expect(
       filterCabinetCourseDaysForParticipant(mixed, CHILD_A)
@@ -317,14 +320,24 @@ describe('T32.9A.9C.C course progress presentation', () => {
       participantId: CHILD_A,
       courseId: COURSE_X,
       lifecycleStatus: 'completed',
-      courseProgress: progress({ scheduledDays: 5, elapsedDays: 5, recordedDays: 5, presentDays: 5 }),
+      courseProgress: progress({
+        scheduledDays: 5,
+        elapsedDays: 5,
+        recordedDays: 5,
+        presentDays: 5,
+      }),
     });
     const noShow = enrollment({
       enrollmentId: 'e_ns',
       participantId: CHILD_B,
       courseId: COURSE_X,
       lifecycleStatus: 'no_show',
-      courseProgress: progress({ scheduledDays: 5, elapsedDays: 5, recordedDays: 5, presentDays: 0 }),
+      courseProgress: progress({
+        scheduledDays: 5,
+        elapsedDays: 5,
+        recordedDays: 5,
+        presentDays: 0,
+      }),
     });
     expect(presentStudentCourseProgress(completed, COPY)?.lifecycleLabel).toBe('Курс завершён');
     expect(presentStudentCourseProgress(noShow, COPY)?.lifecycleLabel).toBe('Неявка');
@@ -348,11 +361,16 @@ describe('T32.9A.9C.C enrollment store late-response isolation', () => {
     store.applyScopedItems({
       participantId: CHILD_A,
       generation: generationA,
-      incoming: new Map([['enrollment_a_x', enrollment({
-        enrollmentId: 'enrollment_a_x',
-        participantId: CHILD_A,
-        courseId: COURSE_X,
-      })]]),
+      incoming: new Map([
+        [
+          'enrollment_a_x',
+          enrollment({
+            enrollmentId: 'enrollment_a_x',
+            participantId: CHILD_A,
+            courseId: COURSE_X,
+          }),
+        ],
+      ]),
       mode: 'replace',
     });
     expect(useCourseEnrollmentStore.getState().itemsList).toHaveLength(1);
@@ -364,11 +382,16 @@ describe('T32.9A.9C.C enrollment store late-response isolation', () => {
     const acceptedLateA = useCourseEnrollmentStore.getState().applyScopedItems({
       participantId: CHILD_A,
       generation: generationA,
-      incoming: new Map([['enrollment_a_x', enrollment({
-        enrollmentId: 'enrollment_a_x',
-        participantId: CHILD_A,
-        courseId: COURSE_X,
-      })]]),
+      incoming: new Map([
+        [
+          'enrollment_a_x',
+          enrollment({
+            enrollmentId: 'enrollment_a_x',
+            participantId: CHILD_A,
+            courseId: COURSE_X,
+          }),
+        ],
+      ]),
       mode: 'replace',
     });
     expect(acceptedLateA).toBe(false);
@@ -377,11 +400,16 @@ describe('T32.9A.9C.C enrollment store late-response isolation', () => {
     const acceptedB = useCourseEnrollmentStore.getState().applyScopedItems({
       participantId: CHILD_B,
       generation: generationB,
-      incoming: new Map([['enrollment_b_x', enrollment({
-        enrollmentId: 'enrollment_b_x',
-        participantId: CHILD_B,
-        courseId: COURSE_X,
-      })]]),
+      incoming: new Map([
+        [
+          'enrollment_b_x',
+          enrollment({
+            enrollmentId: 'enrollment_b_x',
+            participantId: CHILD_B,
+            courseId: COURSE_X,
+          }),
+        ],
+      ]),
       mode: 'replace',
     });
     expect(acceptedB).toBe(true);

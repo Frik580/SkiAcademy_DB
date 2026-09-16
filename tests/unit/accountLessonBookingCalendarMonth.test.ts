@@ -430,9 +430,7 @@ describe('account calendar month account safety and UI path', () => {
     expect(source).toContain('setCurrentMonth');
     expect(source).toContain('resolveInitialVisibleAccountCalendarMonth');
     expect(source).toContain('shiftVisibleAccountCalendarMonth');
-    expect(source).not.toMatch(
-      /useState<Date>\(\(\)\s*=>\s*\{[\s\S]*sessionItems\.find/
-    );
+    expect(source).not.toMatch(/useState<Date>\(\(\)\s*=>\s*\{[\s\S]*sessionItems\.find/);
   });
 });
 
@@ -459,14 +457,9 @@ describe('student cabinet calendar initial visible month', () => {
         return {
           year: currentMonth.getFullYear(),
           monthIndex: currentMonth.getMonth(),
-          monthKey: accountCalendarMonthKey(
-            currentMonth.getFullYear(),
-            currentMonth.getMonth()
-          ),
-          goPrev: () =>
-            setCurrentMonth((prev) => shiftVisibleAccountCalendarMonth(prev, -1)),
-          goNext: () =>
-            setCurrentMonth((prev) => shiftVisibleAccountCalendarMonth(prev, 1)),
+          monthKey: accountCalendarMonthKey(currentMonth.getFullYear(), currentMonth.getMonth()),
+          goPrev: () => setCurrentMonth((prev) => shiftVisibleAccountCalendarMonth(prev, -1)),
+          goNext: () => setCurrentMonth((prev) => shiftVisibleAccountCalendarMonth(prev, 1)),
         };
       },
       { initialProps: { participantId: 'participant_a' } }
@@ -498,12 +491,8 @@ describe('student cabinet calendar initial visible month', () => {
           resolveInitialVisibleAccountCalendarMonth(new Date(2026, 8, 14))
         );
         return {
-          monthKey: accountCalendarMonthKey(
-            currentMonth.getFullYear(),
-            currentMonth.getMonth()
-          ),
-          goPrev: () =>
-            setCurrentMonth((prev) => shiftVisibleAccountCalendarMonth(prev, -1)),
+          monthKey: accountCalendarMonthKey(currentMonth.getFullYear(), currentMonth.getMonth()),
+          goPrev: () => setCurrentMonth((prev) => shiftVisibleAccountCalendarMonth(prev, -1)),
         };
       },
       { initialProps: { participantId: 'participant_a' } }
@@ -531,10 +520,7 @@ describe('student cabinet calendar initial visible month', () => {
 
     const now = new Date(2026, 8, 14);
     const initial = resolveInitialVisibleAccountCalendarMonth(now);
-    const expected = buildAccountCalendarMonthRange(
-      initial.getFullYear(),
-      initial.getMonth()
-    );
+    const expected = buildAccountCalendarMonthRange(initial.getFullYear(), initial.getMonth());
 
     renderHook(() =>
       useAccountLessonBookingCalendarMonth({

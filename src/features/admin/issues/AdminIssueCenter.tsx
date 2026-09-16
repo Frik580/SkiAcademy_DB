@@ -92,11 +92,7 @@ function mergeAttentionInbox(
   });
 }
 
-function formatInterval(
-  locale: string,
-  startsAt: { seconds: number },
-  timeZone?: string
-): string {
+function formatInterval(locale: string, startsAt: { seconds: number }, timeZone?: string): string {
   return new Intl.DateTimeFormat(locale, {
     dateStyle: 'medium',
     timeStyle: 'short',
@@ -251,7 +247,11 @@ export function AdminIssueCenter() {
 
   const issueEntityLabel = (item: AdminIssueInboxItem) =>
     item.courseTitle ??
-    t(item.subjectRef.subjectKind === 'booking' ? 'adminIssueLessonContext' : 'adminIssueCourseContext');
+    t(
+      item.subjectRef.subjectKind === 'booking'
+        ? 'adminIssueLessonContext'
+        : 'adminIssueCourseContext'
+    );
 
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.8fr)]">

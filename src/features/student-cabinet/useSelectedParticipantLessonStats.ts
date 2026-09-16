@@ -27,10 +27,7 @@ export function useSelectedParticipantLessonStats(selectedParticipantId: string 
 
   const evidence = useMemo(() => {
     if (!selectedParticipantId) return [];
-    return evidenceListFromAccountReadModels(
-      items,
-      selectedParticipantId as ParticipantId
-    );
+    return evidenceListFromAccountReadModels(items, selectedParticipantId as ParticipantId);
   }, [items, selectedParticipantId]);
 
   const lifetime = useMemo(() => aggregateParticipantLessonStats(evidence), [evidence]);

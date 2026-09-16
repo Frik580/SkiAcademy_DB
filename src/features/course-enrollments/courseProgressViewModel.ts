@@ -49,9 +49,7 @@ export function selectCourseProgressesForParticipant(
   );
 }
 
-export function toCourseProgressPresentation(
-  enrollment: CourseEnrollmentCabinetItem
-):
+export function toCourseProgressPresentation(enrollment: CourseEnrollmentCabinetItem):
   | (NonNullable<CourseEnrollmentCabinetItem['courseProgress']> & {
       readonly enrollmentId: string;
       readonly participantId: string;

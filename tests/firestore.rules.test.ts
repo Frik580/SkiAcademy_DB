@@ -2746,14 +2746,18 @@ describe('admin issue inbox revision signal', () => {
   });
 
   it('allows admin read and denies non-admin read and all client writes', async () => {
-    const adminDb = testEnv.authenticatedContext(OWNER_ID, { email: 'owner@example.com' }).firestore();
+    const adminDb = testEnv
+      .authenticatedContext(OWNER_ID, { email: 'owner@example.com' })
+      .firestore();
     const userDb = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
     const adminRef = doc(adminDb, 'admin_runtime', 'admin_issue_inbox');
     const userRef = doc(userDb, 'admin_runtime', 'admin_issue_inbox');
 
     await assertSucceeds(getDoc(adminRef));
     await assertFails(getDoc(userRef));
-    await assertFails(setDoc(adminRef, { revision: 11, updatedAt: { seconds: 2, nanoseconds: 0 } }));
+    await assertFails(
+      setDoc(adminRef, { revision: 11, updatedAt: { seconds: 2, nanoseconds: 0 } })
+    );
     await assertFails(updateDoc(adminRef, { revision: 11 }));
     await assertFails(setDoc(userRef, { revision: 11, updatedAt: { seconds: 2, nanoseconds: 0 } }));
     await assertFails(updateDoc(userRef, { revision: 11 }));

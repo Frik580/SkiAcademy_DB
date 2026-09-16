@@ -123,12 +123,12 @@ describe('admin operational lesson metrics — canonical lifecycle', () => {
     expect(
       readRepoFile('src/features/admin/components/finance/useAdminFinanceReadModels.ts')
     ).toContain("scope: 'admin_financial_overview'");
-    expect(
-      readRepoFile('src/features/admin/operations/adminOperationalOverview.ts')
-    ).not.toContain('monetary_events');
-    expect(
-      readRepoFile('src/features/admin/operations/adminOperationalOverview.ts')
-    ).not.toContain('totalPrice');
+    expect(readRepoFile('src/features/admin/operations/adminOperationalOverview.ts')).not.toContain(
+      'monetary_events'
+    );
+    expect(readRepoFile('src/features/admin/operations/adminOperationalOverview.ts')).not.toContain(
+      'totalPrice'
+    );
     expect(
       readRepoFile('src/features/admin/operations/AdminOperationalMetricsHost.tsx')
     ).not.toContain('deletedCompletedStats');

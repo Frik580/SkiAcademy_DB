@@ -310,8 +310,7 @@ describe('CoachParticipantAccessPanel access read ownership', () => {
       expect(queryParticipantInstructorAccessReadModelsMock).toHaveBeenCalledTimes(1);
     });
 
-    const nextParticipant =
-      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    const nextParticipant = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
     queryParticipantInstructorAccessReadModelsMock.mockResolvedValue({
       scope: 'account_manager',
       item: {
@@ -647,8 +646,7 @@ describe('T32.9R.UI1B preserve access across Trainer remounts', () => {
       expect(queryParticipantInstructorAccessReadModelsMock).toHaveBeenCalledTimes(1);
     });
 
-    const nextParticipant =
-      'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+    const nextParticipant = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
     rerender(
       <CoachParticipantAccessPanel
         accountId="account_fixture_01"

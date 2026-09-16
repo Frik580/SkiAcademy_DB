@@ -173,9 +173,7 @@ export function AdminCourseEnrollmentDetail({
     Number(refundAmount) >= 0 &&
     Number(refundAmount) <= (detail.cancellation?.maximumRefund ?? 0);
   const needsSharedReason =
-    attendanceHasMutations ||
-    showCancellation ||
-    detail.authorizedActions.canTransfer;
+    attendanceHasMutations || showCancellation || detail.authorizedActions.canTransfer;
 
   const sections = useMemo<readonly AdminLessonDetailSection[]>(
     () => [
@@ -657,7 +655,9 @@ export function AdminCourseEnrollmentDetail({
         detail.guestState !== 'not_guest' && (
           <div className="space-y-1 text-xs text-[var(--ink-dim)]">
             <p>{t.linkUnavailable}</p>
-            <p>{guestEnrollmentLinkUnavailableLabel(detail.guestIdentityLinkUnavailableReason, t)}</p>
+            <p>
+              {guestEnrollmentLinkUnavailableLabel(detail.guestIdentityLinkUnavailableReason, t)}
+            </p>
           </div>
         )
       )}
@@ -689,97 +689,97 @@ export function AdminCourseEnrollmentDetail({
         <h4 className="text-xs font-medium uppercase tracking-wide">{t.technicalTab}</h4>
       ) : null}
       <dl className="rounded-[var(--radius-md)] bg-[var(--profile-bg)] p-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 break-all font-mono text-[10px] text-[var(--ink-dim)]">
-          <dt>{t.enrollmentId}</dt>
-          <dd>{detail.enrollmentId}</dd>
-          <dt>{t.courseId}</dt>
-          <dd>{detail.course.courseId}</dd>
-          <dt>{t.originalCourseId}</dt>
-          <dd>{detail.originalCourseId}</dd>
-          <dt>{t.participantId}</dt>
-          <dd>{detail.participant.participantId}</dd>
-          {detail.payerAccountId ? (
-            <>
-              <dt>{t.payerAccountId}</dt>
-              <dd>{detail.payerAccountId}</dd>
-            </>
-          ) : null}
-          <dt>{t.paymentId}</dt>
-          <dd>{detail.paymentId}</dd>
-          <dt>{t.revision}</dt>
-          <dd>{detail.revision}</dd>
-          <dt>{t.rawLifecycle}</dt>
-          <dd>{detail.lifecycleStatus}</dd>
-          <dt>{t.rawGuestState}</dt>
-          <dd>{detail.guestState}</dd>
-          {detail.guestIdentityLinkUnavailableReason ? (
-            <>
-              <dt>{t.guestLinkUnavailableReason}</dt>
-              <dd>{detail.guestIdentityLinkUnavailableReason}</dd>
-            </>
-          ) : null}
-          <dt>{t.capacityRaw}</dt>
-          <dd>
-            {detail.capacity.availableSeats}/{detail.capacity.totalSeats} ·{' '}
-            {detail.capacity.seatHeldByEnrollment ? t.seatHeld : t.seatReleased}
-          </dd>
-          {payment ? (
-            <>
-              <dt>{t.paymentRevision}</dt>
-              <dd>
-                {payment.paymentId} · {payment.status} · rev {payment.revision}
-              </dd>
-            </>
-          ) : null}
-          <dt>{t.bookingOrigin}</dt>
-          <dd>{detail.auditContext.bookingOrigin}</dd>
-          <dt>{t.createdAt}</dt>
-          <dd>{formatCourseEnrollmentInstant(detail.auditContext.createdAt, locale)}</dd>
-          <dt>{t.updatedAt}</dt>
-          <dd>{formatCourseEnrollmentInstant(detail.auditContext.updatedAt, locale)}</dd>
-          {detail.transfer.blockedReason ? (
-            <>
-              <dt>{t.transferBlocked}</dt>
-              <dd>{detail.transfer.blockedReason}</dd>
-            </>
-          ) : null}
-          {detail.reconciliation.evidenceIssueIds.length > 0 ? (
-            <>
-              <dt>{t.reconciliationEvidence}</dt>
-              <dd>{detail.reconciliation.evidenceIssueIds.join(', ')}</dd>
-            </>
-          ) : null}
-          <dt>{t.authorizedActions}</dt>
-          <dd>{trueCourseAuthorizedActionKeys(detail).join(', ') || '—'}</dd>
-          {attendanceDays.length > 0 ? (
-            <>
-              <dt>{t.attendanceTechnical}</dt>
-              <dd>
-                {attendanceDays
-                  .map(
-                    (day) =>
-                      `${day.courseDayId}:${day.attendanceStatus ?? 'missing'}${
-                        day.attendanceRevision === undefined ? '' : `@${day.attendanceRevision}`
-                      }`
-                  )
-                  .join(', ')}
-              </dd>
-            </>
-          ) : null}
-        </dl>
-        {detail.authorizedActions.canReconcile && (
-          <button
-            type="button"
-            onClick={() =>
-              onRequestAttempt(
-                { kind: 'reconcile_course_enrollment' },
-                `${t.reconcile}: ${detail.reconciliation.evidenceIssueIds.join(', ')} @ rev ${detail.revision}`
-              )
-            }
-            className="inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 text-xs"
-          >
-            <RefreshCw className="h-3.5 w-3.5" /> {t.reconcile}
-          </button>
-        )}
+        <dt>{t.enrollmentId}</dt>
+        <dd>{detail.enrollmentId}</dd>
+        <dt>{t.courseId}</dt>
+        <dd>{detail.course.courseId}</dd>
+        <dt>{t.originalCourseId}</dt>
+        <dd>{detail.originalCourseId}</dd>
+        <dt>{t.participantId}</dt>
+        <dd>{detail.participant.participantId}</dd>
+        {detail.payerAccountId ? (
+          <>
+            <dt>{t.payerAccountId}</dt>
+            <dd>{detail.payerAccountId}</dd>
+          </>
+        ) : null}
+        <dt>{t.paymentId}</dt>
+        <dd>{detail.paymentId}</dd>
+        <dt>{t.revision}</dt>
+        <dd>{detail.revision}</dd>
+        <dt>{t.rawLifecycle}</dt>
+        <dd>{detail.lifecycleStatus}</dd>
+        <dt>{t.rawGuestState}</dt>
+        <dd>{detail.guestState}</dd>
+        {detail.guestIdentityLinkUnavailableReason ? (
+          <>
+            <dt>{t.guestLinkUnavailableReason}</dt>
+            <dd>{detail.guestIdentityLinkUnavailableReason}</dd>
+          </>
+        ) : null}
+        <dt>{t.capacityRaw}</dt>
+        <dd>
+          {detail.capacity.availableSeats}/{detail.capacity.totalSeats} ·{' '}
+          {detail.capacity.seatHeldByEnrollment ? t.seatHeld : t.seatReleased}
+        </dd>
+        {payment ? (
+          <>
+            <dt>{t.paymentRevision}</dt>
+            <dd>
+              {payment.paymentId} · {payment.status} · rev {payment.revision}
+            </dd>
+          </>
+        ) : null}
+        <dt>{t.bookingOrigin}</dt>
+        <dd>{detail.auditContext.bookingOrigin}</dd>
+        <dt>{t.createdAt}</dt>
+        <dd>{formatCourseEnrollmentInstant(detail.auditContext.createdAt, locale)}</dd>
+        <dt>{t.updatedAt}</dt>
+        <dd>{formatCourseEnrollmentInstant(detail.auditContext.updatedAt, locale)}</dd>
+        {detail.transfer.blockedReason ? (
+          <>
+            <dt>{t.transferBlocked}</dt>
+            <dd>{detail.transfer.blockedReason}</dd>
+          </>
+        ) : null}
+        {detail.reconciliation.evidenceIssueIds.length > 0 ? (
+          <>
+            <dt>{t.reconciliationEvidence}</dt>
+            <dd>{detail.reconciliation.evidenceIssueIds.join(', ')}</dd>
+          </>
+        ) : null}
+        <dt>{t.authorizedActions}</dt>
+        <dd>{trueCourseAuthorizedActionKeys(detail).join(', ') || '—'}</dd>
+        {attendanceDays.length > 0 ? (
+          <>
+            <dt>{t.attendanceTechnical}</dt>
+            <dd>
+              {attendanceDays
+                .map(
+                  (day) =>
+                    `${day.courseDayId}:${day.attendanceStatus ?? 'missing'}${
+                      day.attendanceRevision === undefined ? '' : `@${day.attendanceRevision}`
+                    }`
+                )
+                .join(', ')}
+            </dd>
+          </>
+        ) : null}
+      </dl>
+      {detail.authorizedActions.canReconcile && (
+        <button
+          type="button"
+          onClick={() =>
+            onRequestAttempt(
+              { kind: 'reconcile_course_enrollment' },
+              `${t.reconcile}: ${detail.reconciliation.evidenceIssueIds.join(', ')} @ rev ${detail.revision}`
+            )
+          }
+          className="inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 text-xs"
+        >
+          <RefreshCw className="h-3.5 w-3.5" /> {t.reconcile}
+        </button>
+      )}
     </section>
   );
 

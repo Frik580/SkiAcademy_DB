@@ -61,7 +61,10 @@ function familyPartyInput(
 ) {
   const servicePartyParticipantIds = [participantA, participantB, participantC] as const;
   const attendancesByParticipantId = new Map(
-    attendances.map((row) => [row.subject.participantId, { attendanceStatus: row.attendanceStatus }])
+    attendances.map((row) => [
+      row.subject.participantId,
+      { attendanceStatus: row.attendanceStatus },
+    ])
   );
   return {
     servicePartyParticipantIds,

@@ -366,9 +366,7 @@ describe('CourseEnrollmentModal guest enrollment', () => {
 
   it('submits guest enrollment with the stable session participantId', async () => {
     const onClose = vi.fn();
-    render(
-      <CourseEnrollmentModal isOpen onClose={onClose} course={course} onEnroll={vi.fn()} />
-    );
+    render(<CourseEnrollmentModal isOpen onClose={onClose} course={course} onEnroll={vi.fn()} />);
 
     fireEvent.change(screen.getByPlaceholderText('guestNamePlaceholder'), {
       target: { value: 'Guest One' },
@@ -399,7 +397,9 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     render(<CourseEnrollmentModal isOpen onClose={vi.fn()} course={course} onEnroll={vi.fn()} />);
 
     expect(screen.getByRole('button', { name: /courseAwaitingPayment/i })).toBeDisabled();
-    expect(screen.queryByRole('button', { name: /submitGuestCourseApplication/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /submitGuestCourseApplication/i })
+    ).not.toBeInTheDocument();
   });
 
   it('hides the enroll CTA when the same guest is already confirmed', () => {
@@ -411,6 +411,8 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     render(<CourseEnrollmentModal isOpen onClose={vi.fn()} course={course} onEnroll={vi.fn()} />);
 
     expect(screen.getByRole('button', { name: /courseEnrolled/i })).toBeDisabled();
-    expect(screen.queryByRole('button', { name: /submitGuestCourseApplication/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /submitGuestCourseApplication/i })
+    ).not.toBeInTheDocument();
   });
 });

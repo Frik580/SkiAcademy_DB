@@ -239,9 +239,7 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
               {myInstructors.map((ins) => {
                 const lessonCount = instructorLessonCountFromEvidence(evidence, ins.id);
                 const lastAttended = latestAttendedLessonForInstructor(evidence, ins.id);
-                const lastLesson = lastAttended
-                  ? formatEvidenceDayMonth(lastAttended, lang)
-                  : null;
+                const lastLesson = lastAttended ? formatEvidenceDayMonth(lastAttended, lang) : null;
                 return (
                   <div key={ins.id} className="space-y-4">
                     <InstructorCard

@@ -54,9 +54,7 @@ vi.mock('../../src/features/admin/identity', () => ({
   }: {
     selected?: { accountId: string; participantId: string; displayName: string };
     onChange: (
-      selection:
-        | { accountId: string; participantId: string; displayName: string }
-        | undefined
+      selection: { accountId: string; participantId: string; displayName: string } | undefined
     ) => void;
   }) => (
     <button
@@ -173,9 +171,7 @@ function courseItem(
   };
 }
 
-function courseDetail(
-  item = courseItem()
-): AdminCourseEnrollmentDetailReadModel {
+function courseDetail(item = courseItem()): AdminCourseEnrollmentDetailReadModel {
   return {
     ...item,
     originalCourseId: item.course.courseId,
@@ -479,12 +475,8 @@ describe('AdminTrainingRecordsPanel', () => {
     expect(screen.getByText('Pending Course Guest')).toBeVisible();
     expect(screen.queryByText('Paid Confirmed Guest')).not.toBeInTheDocument();
     expect(screen.queryByText('Course Skier')).not.toBeInTheDocument();
-    expect(lessonReadMock).toHaveBeenCalledWith(
-      expect.objectContaining({ view: 'pending_guest' })
-    );
-    expect(courseReadMock).toHaveBeenCalledWith(
-      expect.objectContaining({ view: 'pending_guest' })
-    );
+    expect(lessonReadMock).toHaveBeenCalledWith(expect.objectContaining({ view: 'pending_guest' }));
+    expect(courseReadMock).toHaveBeenCalledWith(expect.objectContaining({ view: 'pending_guest' }));
 
     fireEvent.click(screen.getByRole('button', { name: 'adminTrainingScopeCurrent' }));
     expect(await screen.findByText('Paid Confirmed Guest')).toBeVisible();

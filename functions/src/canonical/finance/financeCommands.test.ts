@@ -154,7 +154,8 @@ async function runCommand<Kind extends CommandEnvelope['kind']>(
 }
 
 function seedGuestBooking() {
-  const { payerAccountId: _omitted, ...booking } = seedBooking();
+  const booking = { ...seedBooking() };
+  delete booking.payerAccountId;
   return BookingSchema.parse({
     ...booking,
     attribution: {

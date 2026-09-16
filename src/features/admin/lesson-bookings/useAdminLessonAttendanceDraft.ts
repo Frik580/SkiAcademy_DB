@@ -1,4 +1,8 @@
-import type { LessonBookingAdminProjection, LessonBookingReadModel, ParticipantId } from '@ski-academy/shared-domain';
+import type {
+  LessonBookingAdminProjection,
+  LessonBookingReadModel,
+  ParticipantId,
+} from '@ski-academy/shared-domain';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 export type AdminLessonAttendanceDraftStatus = 'present' | 'absent';
@@ -20,10 +24,7 @@ function draftFromServerAttendance(
     const record = (admin.attendance ?? []).find(
       (candidate) => candidate.participantId === participantId
     );
-    if (
-      record?.attendanceStatus === 'present' ||
-      record?.attendanceStatus === 'absent'
-    ) {
+    if (record?.attendanceStatus === 'present' || record?.attendanceStatus === 'absent') {
       draft[participantId] = record.attendanceStatus;
     }
   }
@@ -39,11 +40,7 @@ function serverAttendanceSeedKey(
       const record = (admin.attendance ?? []).find(
         (candidate) => candidate.participantId === participantId
       );
-      return [
-        participantId,
-        record?.attendanceStatus ?? '',
-        record?.revision ?? '',
-      ].join(':');
+      return [participantId, record?.attendanceStatus ?? '', record?.revision ?? ''].join(':');
     })
     .join('|');
 }
@@ -102,13 +99,11 @@ export function useAdminLessonAttendanceDraft(input: {
   }, [admin, targetParticipantIds]);
 
   const presentCount = useMemo(
-    () =>
-      targetParticipantIds.filter((participantId) => draft[participantId] === 'present').length,
+    () => targetParticipantIds.filter((participantId) => draft[participantId] === 'present').length,
     [draft, targetParticipantIds]
   );
   const absentCount = useMemo(
-    () =>
-      targetParticipantIds.filter((participantId) => draft[participantId] === 'absent').length,
+    () => targetParticipantIds.filter((participantId) => draft[participantId] === 'absent').length,
     [draft, targetParticipantIds]
   );
 

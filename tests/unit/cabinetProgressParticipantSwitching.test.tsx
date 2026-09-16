@@ -449,9 +449,9 @@ describe('cabinet progress participant switching', () => {
     expect(selfButton).toHaveAttribute('aria-pressed', 'true');
     expect(selfButton).toHaveAttribute('title', 'Self');
     expect(selfButton.querySelector('[data-participant-avatar="active"]')).not.toBeNull();
-    expect(selfButton.querySelector('[data-participant-avatar-face="active"]')?.className).toContain(
-      'grayscale-0'
-    );
+    expect(
+      selfButton.querySelector('[data-participant-avatar-face="active"]')?.className
+    ).toContain('grayscale-0');
     expect(selfButton.querySelector('[data-participant-avatar="active"]')?.className).toContain(
       'shadow-[0_0_0_2px_var(--accent)]'
     );

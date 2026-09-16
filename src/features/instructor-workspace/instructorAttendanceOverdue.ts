@@ -7,9 +7,7 @@ export type InstructorLessonAttendanceRow = {
 };
 
 export type InstructorLessonAttendanceFollowUp =
-  | 'none'
-  | 'missing_in_window'
-  | 'overdue_admin_required';
+  'none' | 'missing_in_window' | 'overdue_admin_required';
 
 export function instructorLessonMissingAttendanceParticipantIds(
   attendance: readonly InstructorLessonAttendanceRow[] | undefined

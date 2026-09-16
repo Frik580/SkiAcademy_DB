@@ -1,7 +1,4 @@
-import {
-  drainPagedReadModelItems,
-  type LessonBookingReadModel,
-} from '@ski-academy/shared-domain';
+import { drainPagedReadModelItems, type LessonBookingReadModel } from '@ski-academy/shared-domain';
 import { queryLessonBookingReadModels } from '../../lib/canonical/canonicalReadModelClient';
 import { useAccountParticipantLessonStatsStore } from './accountParticipantLessonStatsStore';
 

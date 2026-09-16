@@ -1,7 +1,4 @@
-import type {
-  AdminCourseEnrollmentRosterItem,
-  PaymentStatus,
-} from '@ski-academy/shared-domain';
+import type { AdminCourseEnrollmentRosterItem, PaymentStatus } from '@ski-academy/shared-domain';
 import type { AdminLessonBookingListRowInput } from '../lesson-bookings/AdminLessonBookingUi';
 import {
   courseEnrollmentOrigin,
@@ -20,13 +17,11 @@ export function courseOriginFromRecord(
 
 export function trainingRecordHasAlert(record: AdminTrainingRecord): boolean {
   if (record.kind === 'lesson') {
-    const status = record.data.admin
-      ? record.data.lifecycle.status
-      : record.data.lifecycle.status;
+    const status = record.data.admin ? record.data.lifecycle.status : record.data.lifecycle.status;
     return (
       status === 'pending_cancellation' ||
-      (record.data.admin?.payment.outstanding ?? 0) > 0 &&
-        record.data.lifecycle.status === 'pending'
+      ((record.data.admin?.payment.outstanding ?? 0) > 0 &&
+        record.data.lifecycle.status === 'pending')
     );
   }
   return (
@@ -36,9 +31,7 @@ export function trainingRecordHasAlert(record: AdminTrainingRecord): boolean {
   );
 }
 
-export function trainingPaymentStatus(
-  record: AdminTrainingRecord
-): PaymentStatus | undefined {
+export function trainingPaymentStatus(record: AdminTrainingRecord): PaymentStatus | undefined {
   if (record.kind === 'lesson') return record.data.admin?.payment.status;
   return record.data.payment?.status;
 }

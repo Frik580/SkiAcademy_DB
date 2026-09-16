@@ -183,10 +183,7 @@ export function useAdminIssueReadModels(
           ? INITIAL_DETAIL_STATE
           : current
       );
-      if (
-        patch.adminIssueInboxRevision !== undefined &&
-        patch.openedAdminIssueIds.length === 0
-      ) {
+      if (patch.adminIssueInboxRevision !== undefined && patch.openedAdminIssueIds.length === 0) {
         inboxRevisionState.current = {
           initialized: inboxRevisionState.current.initialized,
           lastRevision: patch.adminIssueInboxRevision,
@@ -202,10 +199,7 @@ export function useAdminIssueReadModels(
     }
     return subscribeAdminIssueInboxRevision((nextRevision) => {
       const previous = inboxRevisionState.current.lastRevision;
-      const reduced = reduceAdminIssueInboxRevisionSignal(
-        inboxRevisionState.current,
-        nextRevision
-      );
+      const reduced = reduceAdminIssueInboxRevisionSignal(inboxRevisionState.current, nextRevision);
       inboxRevisionState.current = {
         initialized: reduced.initialized,
         lastRevision: reduced.lastRevision,

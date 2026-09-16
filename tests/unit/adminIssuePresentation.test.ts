@@ -22,9 +22,7 @@ describe('adminIssuePresentation', () => {
   it('keeps guest category off unless source presentation origin exists', () => {
     expect(adminIssueHasGuestPresentation([issue])).toBe(false);
     expect(adminIssueMatchesCategory(issue, 'guest')).toBe(false);
-    expect(
-      adminIssueHasGuestPresentation([{ ...issue, presentationOrigin: 'guest' }])
-    ).toBe(true);
+    expect(adminIssueHasGuestPresentation([{ ...issue, presentationOrigin: 'guest' }])).toBe(true);
     expect(adminIssueMatchesCategory({ ...issue, presentationOrigin: 'guest' }, 'guest')).toBe(
       true
     );

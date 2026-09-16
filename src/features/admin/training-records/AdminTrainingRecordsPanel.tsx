@@ -448,24 +448,24 @@ export function AdminTrainingRecordsPanel({
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {(['current', 'history', 'pending_guest'] as const).map((candidate) => (
-                  <button
-                    key={candidate}
-                    type="button"
-                    aria-pressed={scope === candidate}
-                    onClick={() => setScope(candidate)}
-                    className={`border px-3 py-1.5 text-xs ${
-                      scope === candidate
-                        ? 'border-[var(--ink)] bg-[var(--ink)] text-[var(--bg)]'
-                        : 'border-[var(--border)]'
-                    }`}
-                  >
-                    {candidate === 'current'
-                      ? t('adminTrainingScopeCurrent')
-                      : candidate === 'history'
-                        ? t('adminTrainingScopeHistory')
-                        : t('adminTrainingScopePendingGuests')}
-                  </button>
-                ))}
+                <button
+                  key={candidate}
+                  type="button"
+                  aria-pressed={scope === candidate}
+                  onClick={() => setScope(candidate)}
+                  className={`border px-3 py-1.5 text-xs ${
+                    scope === candidate
+                      ? 'border-[var(--ink)] bg-[var(--ink)] text-[var(--bg)]'
+                      : 'border-[var(--border)]'
+                  }`}
+                >
+                  {candidate === 'current'
+                    ? t('adminTrainingScopeCurrent')
+                    : candidate === 'history'
+                      ? t('adminTrainingScopeHistory')
+                      : t('adminTrainingScopePendingGuests')}
+                </button>
+              ))}
               {kind !== 'lesson' && (
                 <select
                   aria-label={courseCopy.selectCourse}
@@ -521,7 +521,9 @@ export function AdminTrainingRecordsPanel({
                 />
                 <button
                   type="button"
-                  disabled={!(createCourseId || courseId) || !createSelection || !createReason.trim()}
+                  disabled={
+                    !(createCourseId || courseId) || !createSelection || !createReason.trim()
+                  }
                   onClick={() => {
                     const selectedCreate = createCourseId || courseId || '';
                     const course = courses.find((item) => item.courseId === selectedCreate);
@@ -548,7 +550,10 @@ export function AdminTrainingRecordsPanel({
 
           <div className="p-3">
             {listLoading ? (
-              <div role="status" className="flex min-h-36 items-center justify-center gap-2 text-xs">
+              <div
+                role="status"
+                className="flex min-h-36 items-center justify-center gap-2 text-xs"
+              >
                 <Loader2 className="h-4 w-4 animate-spin" /> {t('adminLessonLoading')}
               </div>
             ) : listError ? (
@@ -762,74 +767,74 @@ export function AdminTrainingRecordsPanel({
           ) : !courseDetail ? (
             <p className="p-4 text-xs text-[var(--ink-dim)]">{courseCopy.empty}</p>
           ) : (
-              <AdminCourseEnrollmentDetail
-                key={courseDetail.enrollmentId}
-                detail={courseDetail}
-                t={courseCopy}
-                layout="tabs"
-                instructorLabel={resolveCourseEnrollmentInstructorLabel({
-                  courseId: courseDetail.course.courseId,
-                  courses,
-                  instructorDirectory: instructors,
-                  attendanceInstructorIds: courseDetail.attendanceDays.flatMap(
-                    (day) => day.instructorIds
-                  ),
-                })}
-                actionReason={actionReason}
-                onActionReasonChange={setActionReason}
-                refundAmount={refundAmount}
-                onRefundAmountChange={setRefundAmount}
-                paymentAmount={paymentAmount}
-                onPaymentAmountChange={(value) => {
-                  setPaymentAmount(value);
-                  setCourseConfirmation(undefined);
-                }}
-                targetCourseId={targetCourseId}
-                onTargetCourseIdChange={setTargetCourseId}
-                linkSelection={linkSelection}
-                onLinkSelectionChange={(selection) => {
-                  setLinkSelection(selection);
-                  setCourseConfirmation(undefined);
-                }}
-                linkReason={linkReason}
-                onLinkReasonChange={(value) => {
-                  setLinkReason(value);
-                  setCourseConfirmation(undefined);
-                }}
-                onRequestAttempt={(attempt, message) =>
-                  requestCourseAttempt(
-                    {
-                      ...attempt,
-                      target: captureAdminCourseEnrollmentTarget(courseDetail),
-                      idempotencyKey: createAdminCourseEnrollmentAttemptId(attempt.kind),
-                    } as AdminCourseEnrollmentAttempt,
-                    message
-                  )
-                }
-                onOpenPayment={(paymentId) =>
-                  updateQuery({
-                    [ADMIN_TAB_QUERY_KEY]: 'finance',
-                    [ADMIN_FINANCE_PAYMENT_QUERY_KEY]: paymentId,
-                  })
-                }
-                onOpenIssue={(issueId) =>
-                  updateQuery({
-                    [ADMIN_TAB_QUERY_KEY]: 'operations',
-                    [ADMIN_ISSUE_QUERY_KEY]: issueId,
-                  })
-                }
-                paymentActionPending={
-                  mutationPending &&
-                  courseConfirmation?.attempt.kind === 'record_provider_payment_event'
-                    ? 'cash'
-                    : mutationPending &&
-                        courseConfirmation?.attempt.kind ===
-                          'pay_service_from_wallet_as_administrator'
-                      ? 'wallet'
-                      : undefined
-                }
-                onClose={() => updateQuery({ [ADMIN_COURSE_ENROLLMENT_QUERY_KEY]: undefined })}
-              />
+            <AdminCourseEnrollmentDetail
+              key={courseDetail.enrollmentId}
+              detail={courseDetail}
+              t={courseCopy}
+              layout="tabs"
+              instructorLabel={resolveCourseEnrollmentInstructorLabel({
+                courseId: courseDetail.course.courseId,
+                courses,
+                instructorDirectory: instructors,
+                attendanceInstructorIds: courseDetail.attendanceDays.flatMap(
+                  (day) => day.instructorIds
+                ),
+              })}
+              actionReason={actionReason}
+              onActionReasonChange={setActionReason}
+              refundAmount={refundAmount}
+              onRefundAmountChange={setRefundAmount}
+              paymentAmount={paymentAmount}
+              onPaymentAmountChange={(value) => {
+                setPaymentAmount(value);
+                setCourseConfirmation(undefined);
+              }}
+              targetCourseId={targetCourseId}
+              onTargetCourseIdChange={setTargetCourseId}
+              linkSelection={linkSelection}
+              onLinkSelectionChange={(selection) => {
+                setLinkSelection(selection);
+                setCourseConfirmation(undefined);
+              }}
+              linkReason={linkReason}
+              onLinkReasonChange={(value) => {
+                setLinkReason(value);
+                setCourseConfirmation(undefined);
+              }}
+              onRequestAttempt={(attempt, message) =>
+                requestCourseAttempt(
+                  {
+                    ...attempt,
+                    target: captureAdminCourseEnrollmentTarget(courseDetail),
+                    idempotencyKey: createAdminCourseEnrollmentAttemptId(attempt.kind),
+                  } as AdminCourseEnrollmentAttempt,
+                  message
+                )
+              }
+              onOpenPayment={(paymentId) =>
+                updateQuery({
+                  [ADMIN_TAB_QUERY_KEY]: 'finance',
+                  [ADMIN_FINANCE_PAYMENT_QUERY_KEY]: paymentId,
+                })
+              }
+              onOpenIssue={(issueId) =>
+                updateQuery({
+                  [ADMIN_TAB_QUERY_KEY]: 'operations',
+                  [ADMIN_ISSUE_QUERY_KEY]: issueId,
+                })
+              }
+              paymentActionPending={
+                mutationPending &&
+                courseConfirmation?.attempt.kind === 'record_provider_payment_event'
+                  ? 'cash'
+                  : mutationPending &&
+                      courseConfirmation?.attempt.kind ===
+                        'pay_service_from_wallet_as_administrator'
+                    ? 'wallet'
+                    : undefined
+              }
+              onClose={() => updateQuery({ [ADMIN_COURSE_ENROLLMENT_QUERY_KEY]: undefined })}
+            />
           )}
         </aside>
       </div>
@@ -838,9 +843,7 @@ export function AdminTrainingRecordsPanel({
         <div
           role="dialog"
           aria-modal="true"
-          aria-label={
-            lessonConfirmation ? t('adminLessonConfirmTitle') : courseCopy.confirmTitle
-          }
+          aria-label={lessonConfirmation ? t('adminLessonConfirmTitle') : courseCopy.confirmTitle}
           className="fixed inset-0 z-60 flex items-center justify-center bg-black/55 p-4"
         >
           <div className="w-full max-w-md space-y-4 border border-[var(--border)] bg-[var(--bg)] p-5">

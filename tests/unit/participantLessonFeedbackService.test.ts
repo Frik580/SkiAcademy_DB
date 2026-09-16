@@ -256,10 +256,8 @@ describe('instructor participant lesson feedback service', () => {
   });
 
   it('bounds completion idempotency keys for production-length opaque ids', () => {
-    const participantId =
-      '2df3b3f88bad9e47232a77a29813a5eb220bc2917f6495db87d3edc0d0323bd7';
-    const lessonBookingId =
-      '09a49722799639b26f230cf7858c4271b918f648fe3e8f9b71d6ea6062de8b30';
+    const participantId = '2df3b3f88bad9e47232a77a29813a5eb220bc2917f6495db87d3edc0d0323bd7';
+    const lessonBookingId = '09a49722799639b26f230cf7858c4271b918f648fe3e8f9b71d6ea6062de8b30';
     const itemId = 'fb_3040394dda67409cb0f4853182f217dd';
     const key = deriveSetParticipantLessonFeedbackItemCompletionIdempotencyKey(
       participantId,

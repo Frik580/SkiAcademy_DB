@@ -41,9 +41,9 @@ describe('booking reschedule policy', () => {
   it('allows client reschedule only for confirmed non-terminal bookings', () => {
     const confirmed = canonicalBookingCollaborationFixtures.individualBooking;
     expect(isRescheduleEligibleBooking(confirmed)).toBe(true);
-    expect(isRescheduleEligibleBooking(canonicalBookingCollaborationFixtures.guestPendingBooking)).toBe(
-      false
-    );
+    expect(
+      isRescheduleEligibleBooking(canonicalBookingCollaborationFixtures.guestPendingBooking)
+    ).toBe(false);
   });
 
   it('allows administrator reschedule for active pending unpaid reservations', () => {

@@ -2,9 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { AdminPaymentCaptureSection } from '../../src/features/admin/components/finance/AdminPaymentCaptureSection';
 
-function renderSection(
-  overrides: Partial<Parameters<typeof AdminPaymentCaptureSection>[0]> = {}
-) {
+function renderSection(overrides: Partial<Parameters<typeof AdminPaymentCaptureSection>[0]> = {}) {
   const onRecord = vi.fn();
   const onPayFromWallet = vi.fn();
   const onAmountChange = vi.fn();

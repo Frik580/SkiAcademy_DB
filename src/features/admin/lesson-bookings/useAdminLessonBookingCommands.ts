@@ -284,7 +284,9 @@ export async function executeAdminLessonBookingAttempt(
     return;
   }
 
-  throw new Error(`Unsupported admin lesson booking attempt: ${(attempt as { kind: string }).kind}`);
+  throw new Error(
+    `Unsupported admin lesson booking attempt: ${(attempt as { kind: string }).kind}`
+  );
 }
 
 export type AdminLessonBookingAttemptResult =

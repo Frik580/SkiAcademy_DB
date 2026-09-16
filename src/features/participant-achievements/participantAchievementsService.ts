@@ -16,9 +16,7 @@ import type { ClientCallableCapability } from '../../lib/canonical/canonicalComm
 import { logger } from '../../shared';
 import { useParticipantAchievementsStore } from './participantAchievementsStore';
 
-export async function refreshManagedParticipantAchievements(
-  participantIds?: readonly string[]
-) {
+export async function refreshManagedParticipantAchievements(participantIds?: readonly string[]) {
   const parsedIds = participantIds?.map((participantId) =>
     ParticipantIdSchema.parse(participantId)
   );

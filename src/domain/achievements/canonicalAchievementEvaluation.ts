@@ -62,16 +62,12 @@ function presentEvidenceForParticipant(
 ): ParticipantLessonStatsEvidence[] {
   return ctx.lessonEvidence
     .filter(
-      (row) =>
-        row.participantId === ctx.participantId && participantAttendedLessonFromEvidence(row)
+      (row) => row.participantId === ctx.participantId && participantAttendedLessonFromEvidence(row)
     )
     .sort((left, right) => compareCanonicalTimestamps(left.startsAt, right.startsAt));
 }
 
-function countExercisesMastered(
-  scores: Readonly<Record<string, number>>,
-  skillItems: SkillItem[]
-) {
+function countExercisesMastered(scores: Readonly<Record<string, number>>, skillItems: SkillItem[]) {
   return skillItems.filter((item) => item.maxPoints > 0 && (scores[item.id] ?? 0) >= item.maxPoints)
     .length;
 }
@@ -115,8 +111,7 @@ function homeworkDoneTimestamp(ctx: AchievementEvaluationContext): string | unde
       }
       if (feedback.lessonStartsAt) {
         return new Date(
-          feedback.lessonStartsAt.seconds * 1000 +
-            feedback.lessonStartsAt.nanoseconds / 1_000_000
+          feedback.lessonStartsAt.seconds * 1000 + feedback.lessonStartsAt.nanoseconds / 1_000_000
         ).toISOString();
       }
       return undefined;

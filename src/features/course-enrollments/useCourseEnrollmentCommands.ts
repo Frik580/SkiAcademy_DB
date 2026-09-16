@@ -61,9 +61,7 @@ async function refetchAccountHotEnrollments(): Promise<void> {
   const [enrollmentResult] = await Promise.all([
     queryCourseEnrollmentReadModels({
       scope: 'account_hot',
-      ...(participantId
-        ? { selectedParticipantId: ParticipantIdSchema.parse(participantId) }
-        : {}),
+      ...(participantId ? { selectedParticipantId: ParticipantIdSchema.parse(participantId) } : {}),
     }),
     refetchPublicCourseCatalog(),
   ]);

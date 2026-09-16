@@ -131,15 +131,16 @@ describe('selectedParticipantId achievement switching', () => {
         ]),
       ],
     });
-    useParticipantProgressStore.getState().setItems([
-      { ...emptyParticipantProgressView(selfId), level: 2 },
-      emptyParticipantProgressView(childA),
-      emptyParticipantProgressView(childB),
-    ]);
-    useParticipantAchievementsStore.getState().setItems([
-      persisted(selfId, 'first_lesson'),
-      persisted(childA, 'ten_lessons'),
-    ]);
+    useParticipantProgressStore
+      .getState()
+      .setItems([
+        { ...emptyParticipantProgressView(selfId), level: 2 },
+        emptyParticipantProgressView(childA),
+        emptyParticipantProgressView(childB),
+      ]);
+    useParticipantAchievementsStore
+      .getState()
+      .setItems([persisted(selfId, 'first_lesson'), persisted(childA, 'ten_lessons')]);
 
     const { result, rerender } = renderHook(
       ({ participantId }: { participantId: string }) =>

@@ -25,7 +25,8 @@ const instructorId = InstructorIdSchema.parse('instructor_stats_drain_01');
 const startsAt = timestampFromDate(new Date('2026-01-15T04:00:00.000Z'));
 
 function historyItem(index: number, revision = 1): LessonBookingReadModel {
-  const bookingId = `booking_stats_drain_${String(index).padStart(2, '0')}` as LessonBookingReadModel['bookingId'];
+  const bookingId =
+    `booking_stats_drain_${String(index).padStart(2, '0')}` as LessonBookingReadModel['bookingId'];
   return {
     bookingId,
     revision,

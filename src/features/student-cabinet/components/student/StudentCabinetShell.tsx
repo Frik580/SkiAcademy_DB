@@ -268,10 +268,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
   const progressViewKey = selectedProgressParticipantId ?? 'cabinet-progress-unselected';
   const isolatedEnrollments = useMemo(
     () =>
-      filterEnrollmentsForParticipant(
-        props.courseEnrollments ?? [],
-        selectedProgressParticipantId
-      ),
+      filterEnrollmentsForParticipant(props.courseEnrollments ?? [], selectedProgressParticipantId),
     [props.courseEnrollments, selectedProgressParticipantId]
   );
   const isolatedSessionItems = useMemo(

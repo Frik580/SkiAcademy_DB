@@ -382,9 +382,9 @@ describe('canonical achievement evaluation — homework_done', () => {
   });
 
   it('21. feedback items >0, all completed → earned', () => {
-    expect(
-      earnedIds(ctx({ participantId: childA, lessonFeedback: [completed] }))
-    ).toContain('homework_done');
+    expect(earnedIds(ctx({ participantId: childA, lessonFeedback: [completed] }))).toContain(
+      'homework_done'
+    );
   });
 
   it('22. one incomplete → not earned', () => {
@@ -423,9 +423,9 @@ describe('canonical achievement evaluation — homework_done', () => {
   });
 
   it('24. feedback A completed → no achievement B', () => {
-    expect(
-      earnedIds(ctx({ participantId: childB, lessonFeedback: [completed] }))
-    ).not.toContain('homework_done');
+    expect(earnedIds(ctx({ participantId: childB, lessonFeedback: [completed] }))).not.toContain(
+      'homework_done'
+    );
   });
 
   it('25–27. legacy Booking.recommendations, completedRecommendationIds, and Chat Homework ignored', () => {
@@ -457,9 +457,9 @@ describe('canonical achievement evaluation — account and course', () => {
     };
     expect(earnedIds(withReview)).toContain('feedback_given');
     expect(earnedIds(withLogOnly)).not.toContain('feedback_given');
-    expect(earnedIds(ctx({ participantId: childB, accountReviews: withReview.accountReviews }))).toContain(
-      'feedback_given'
-    );
+    expect(
+      earnedIds(ctx({ participantId: childB, accountReviews: withReview.accountReviews }))
+    ).toContain('feedback_given');
   });
 
   it('course_graduate is DEFERRED_TO_9C and never earned from lesson bookings', () => {
@@ -575,16 +575,12 @@ describe('canonical achievement persistence merge', () => {
 
 describe('canonical stats/achievements reachable isolation', () => {
   it('reachable evaluation and sync do not use leftover booking/log authority', () => {
-    const evaluation = readRepoFile(
-      'src/domain/achievements/canonicalAchievementEvaluation.ts'
-    );
+    const evaluation = readRepoFile('src/domain/achievements/canonicalAchievementEvaluation.ts');
     const presented = readRepoFile(
       'src/features/participant-achievements/usePresentedParticipantAchievements.ts'
     );
     const sync = readRepoFile('src/features/profile/sync/useAchievementsSync.ts');
-    const stats = readRepoFile(
-      'src/features/student-cabinet/useSelectedParticipantLessonStats.ts'
-    );
+    const stats = readRepoFile('src/features/student-cabinet/useSelectedParticipantLessonStats.ts');
     const streak = readRepoFile('src/domain/achievements/trainingStreak.ts');
     const season = readRepoFile(
       'src/features/student-cabinet/components/student/StudentProfilePanels.tsx'

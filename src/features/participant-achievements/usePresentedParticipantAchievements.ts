@@ -8,10 +8,7 @@ import {
   type SkillConfig,
 } from '../../domain/achievements';
 import { useAccountParticipantLessonStatsStore } from '../lesson-bookings/accountParticipantLessonStatsStore';
-import {
-  emptyParticipantProgressView,
-  useParticipantProgressStore,
-} from '../participant-progress';
+import { emptyParticipantProgressView, useParticipantProgressStore } from '../participant-progress';
 import { useParticipantLessonFeedbackStore } from '../participant-lesson-feedback/participantLessonFeedbackStore';
 import { isTimestampOnLocalDate } from '../student-cabinet/components/student/studentCabinetPresentation';
 import { useSettingsStore } from '../settings/settingsStore';

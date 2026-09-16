@@ -1,4 +1,8 @@
-import type { AdminIssueId, AttendanceAdminIssueResultPayload, CommandResult } from '@ski-academy/shared-domain';
+import type {
+  AdminIssueId,
+  AttendanceAdminIssueResultPayload,
+  CommandResult,
+} from '@ski-academy/shared-domain';
 import { AttendanceAdminIssueResultPayloadSchema } from '@ski-academy/shared-domain';
 
 export interface AdminIssueInboxServerConfirmedPatch {

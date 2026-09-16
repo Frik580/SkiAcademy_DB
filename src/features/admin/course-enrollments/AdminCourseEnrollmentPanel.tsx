@@ -2,10 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { ActionButton } from '../../../ui/ActionButton';
-import {
-  CourseEnrollmentIdSchema,
-  CourseIdSchema,
-} from '@ski-academy/shared-domain';
+import { CourseEnrollmentIdSchema, CourseIdSchema } from '@ski-academy/shared-domain';
 import {
   ADMIN_COURSE_ENROLLMENT_COURSE_QUERY_KEY,
   ADMIN_COURSE_ENROLLMENT_QUERY_KEY,

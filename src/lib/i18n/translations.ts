@@ -3103,7 +3103,8 @@ export const translations = {
     adminTabProduct: 'Продукт',
     adminTabSystem: 'Система',
     adminIssueInboxTitle: 'Центр внимания',
-    adminIssueInboxSub: 'Открытые операционные проблемы и запросы на изменение занятий, требующие следующего шага.',
+    adminIssueInboxSub:
+      'Открытые операционные проблемы и запросы на изменение занятий, требующие следующего шага.',
     adminIssueOpen: 'Требуют действия',
     adminIssueHistory: 'Решённые',
     adminIssueActionable: 'Требуют действия',

@@ -111,7 +111,9 @@ export const InstructorBookingList: React.FC<InstructorBookingListProps> = ({
                         {booking.date} {booking.time}
                       </p>
                       <p className="text-[10px] font-mono text-[var(--ink-dim)] truncate">
-                        {booking.participants.map((participant) => participant.clientName).join(', ')}
+                        {booking.participants
+                          .map((participant) => participant.clientName)
+                          .join(', ')}
                       </p>
                       {booking.missingAttendanceCount > 1 ? (
                         <p className="text-[10px] font-mono text-[var(--ink-dim)]">
@@ -162,7 +164,9 @@ export const InstructorBookingList: React.FC<InstructorBookingListProps> = ({
                         {booking.date} {booking.time}
                       </p>
                       <p className="text-[10px] font-mono text-[var(--ink-dim)] truncate">
-                        {booking.participants.map((participant) => participant.clientName).join(', ')}
+                        {booking.participants
+                          .map((participant) => participant.clientName)
+                          .join(', ')}
                       </p>
                       <p className="text-[10px] font-mono text-amber-800 dark:text-amber-300">
                         {t('instructorAttendanceOverdueBadge')}

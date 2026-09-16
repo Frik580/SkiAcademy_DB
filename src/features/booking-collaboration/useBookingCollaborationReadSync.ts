@@ -228,8 +228,7 @@ export function useBookingCollaborationReadSync(input: BookingCollaborationReadS
 
   useEffect(() => {
     const previousAccountId = previousAccountIdRef.current;
-    const accountChanged =
-      previousAccountId !== undefined && previousAccountId !== accountId;
+    const accountChanged = previousAccountId !== undefined && previousAccountId !== accountId;
     previousAccountIdRef.current = accountId;
 
     // No authenticated customer account and no instructor workspace: full wipe

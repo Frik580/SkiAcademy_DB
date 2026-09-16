@@ -137,7 +137,7 @@ export function completePendingCourseEnrollmentOutcomeWork(
     readonly completedReason: 'lifecycle_ineligible' | 'deadline_processed';
   }
 ): CourseEnrollmentOutcomeWork {
-  const { status: _status, dueAt: _dueAt, attemptCount: _attemptCount, ...base } = work;
+  const base = CourseEnrollmentOutcomeWorkBaseSchema.parse(work);
   return CourseEnrollmentOutcomeWorkSchema.parse({
     ...base,
     status: 'complete',
@@ -154,7 +154,7 @@ export function blockPendingCourseEnrollmentOutcomeWork(
     readonly blockedReason: 'invalid_enrollment' | 'invalid_work' | 'invalid_schedule';
   }
 ): CourseEnrollmentOutcomeWork {
-  const { status: _status, dueAt: _dueAt, attemptCount: _attemptCount, ...base } = work;
+  const base = CourseEnrollmentOutcomeWorkBaseSchema.parse(work);
   return CourseEnrollmentOutcomeWorkSchema.parse({
     ...base,
     status: 'blocked',

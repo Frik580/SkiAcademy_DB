@@ -49,12 +49,14 @@ describe('instructor lesson attendance follow-up', () => {
       nowMs: afterDeadlineMs,
     });
     expect(followUp).toBe('overdue_admin_required');
-    expect(instructorLessonAttendanceIsOverdue({
-      status: 'confirmed',
-      endsAtEpochMs,
-      attendance: [{ participantId: 'participant_b' }],
-      nowMs: afterDeadlineMs,
-    })).toBe(true);
+    expect(
+      instructorLessonAttendanceIsOverdue({
+        status: 'confirmed',
+        endsAtEpochMs,
+        attendance: [{ participantId: 'participant_b' }],
+        nowMs: afterDeadlineMs,
+      })
+    ).toBe(true);
     expect(instructorAttendanceAttentionAction(followUp)).toBe('admin_required');
     expect(instructorAttendanceAttentionAction('none')).toBe('none');
   });

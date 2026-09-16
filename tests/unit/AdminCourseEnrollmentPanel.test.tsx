@@ -160,9 +160,7 @@ const course = {
   revision: 7,
   scheduleRevision: 2,
   instructorRosterIds: ['instructor_admin_component_01'],
-  instructors: [
-    { instructorId: 'instructor_admin_component_01', name: 'Canonical Instructor' },
-  ],
+  instructors: [{ instructorId: 'instructor_admin_component_01', name: 'Canonical Instructor' }],
   courseDays: [],
   activeEnrollmentCount: 5,
   totalEnrollmentCount: 6,
@@ -218,7 +216,9 @@ describe('AdminCourseEnrollmentPanel', () => {
         <AdminCourseEnrollmentPanel adminAccountId="account_admin_component_01" />
       </MemoryRouter>
     );
-    expect(await screen.findByRole('heading', { name: 'Canonical Participant' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Canonical Participant' })
+    ).toBeInTheDocument();
     expect((await screen.findAllByText('Canonical Instructor')).length).toBeGreaterThan(0);
     await user.type(screen.getByLabelText('Action reason'), 'Approve canonical cancellation');
     const refund = screen.getByRole('spinbutton', { name: /Refund/ });
@@ -666,7 +666,9 @@ describe('AdminCourseEnrollmentPanel', () => {
         <AdminCourseEnrollmentPanel adminAccountId="account_admin_component_01" />
       </MemoryRouter>
     );
-    expect(await screen.findByRole('heading', { name: 'Canonical Participant' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Canonical Participant' })
+    ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Accept payment' })).not.toBeInTheDocument();
   });
 });

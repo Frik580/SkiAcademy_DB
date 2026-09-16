@@ -65,10 +65,7 @@ export function courseEnrollmentStatusLabel(
   }
 }
 
-export function courseEnrollmentPaymentStatusLabel(
-  status: PaymentStatus,
-  t: CourseCopy
-): string {
+export function courseEnrollmentPaymentStatusLabel(status: PaymentStatus, t: CourseCopy): string {
   switch (status) {
     case 'unpaid':
       return t.paymentUnpaid;
@@ -119,10 +116,7 @@ export function shouldShowCourseGuestSection(
   return detail.guestState !== 'not_guest' || detail.authorizedActions.canLinkGuest;
 }
 
-export function formatCourseEnrollmentDate(
-  seconds: number,
-  locale: string
-): string {
+export function formatCourseEnrollmentDate(seconds: number, locale: string): string {
   return new Intl.DateTimeFormat(locale, {
     day: 'numeric',
     month: 'short',

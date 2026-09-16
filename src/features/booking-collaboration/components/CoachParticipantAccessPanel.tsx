@@ -48,8 +48,7 @@ export const CoachParticipantAccessPanel: React.FC<CoachParticipantAccessPanelPr
   // Stable primitive identity only. Do not depend on `commands` (new object each render)
   // or on relationship / authorizedActions object identity — that caused a refetch loop.
   const shouldEnsure =
-    Boolean(resolvedParticipantId) &&
-    (queryStatus === undefined || queryStatus.status === 'stale');
+    Boolean(resolvedParticipantId) && (queryStatus === undefined || queryStatus.status === 'stale');
 
   useEffect(() => {
     if (!resolvedParticipantId || !shouldEnsure) return;

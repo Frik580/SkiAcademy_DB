@@ -75,9 +75,15 @@ describe('account participant lesson stats evidence', () => {
       { participantId: participantB, attendanceStatus: 'absent' },
       { participantId: participantC },
     ]);
-    const a = aggregateParticipantLessonStats(evidenceListFromAccountReadModels([mixed], participantA));
-    const b = aggregateParticipantLessonStats(evidenceListFromAccountReadModels([mixed], participantB));
-    const c = aggregateParticipantLessonStats(evidenceListFromAccountReadModels([mixed], participantC));
+    const a = aggregateParticipantLessonStats(
+      evidenceListFromAccountReadModels([mixed], participantA)
+    );
+    const b = aggregateParticipantLessonStats(
+      evidenceListFromAccountReadModels([mixed], participantB)
+    );
+    const c = aggregateParticipantLessonStats(
+      evidenceListFromAccountReadModels([mixed], participantC)
+    );
     expect(a.completedCount).toBe(1);
     expect(b.completedCount).toBe(0);
     expect(c.completedCount).toBe(0);
@@ -104,9 +110,7 @@ describe('account participant lesson stats evidence', () => {
   });
 
   it('16–18. absence: absent +1; missing 0; booking no_show without absent does not manufacture', () => {
-    const absent = groupBooking([
-      { participantId: participantA, attendanceStatus: 'absent' },
-    ]);
+    const absent = groupBooking([{ participantId: participantA, attendanceStatus: 'absent' }]);
     const missing = groupBooking([{ participantId: participantA }]);
     const bookingNoShow = accountReadModel({
       bookingId: 'booking_stats_noshow_01',
@@ -188,18 +192,12 @@ describe('account participant lesson stats evidence', () => {
   });
 
   it('1–8. privacy: exact managed participantId only; no userId or participants[0] fallback', () => {
-    const mixed = groupBooking([
-      { participantId: participantA, attendanceStatus: 'present' },
-    ]);
+    const mixed = groupBooking([{ participantId: participantA, attendanceStatus: 'present' }]);
     expect(mixed.managedParticipantAttendance?.map((row) => row.participantId)).toEqual([
       participantA,
     ]);
-    expect(
-      participantLessonStatsEvidenceFromAccountReadModel(mixed, participantB)
-    ).toBeUndefined();
-    expect(
-      participantLessonStatsEvidenceFromAccountReadModel(mixed, participantC)
-    ).toBeUndefined();
+    expect(participantLessonStatsEvidenceFromAccountReadModel(mixed, participantB)).toBeUndefined();
+    expect(participantLessonStatsEvidenceFromAccountReadModel(mixed, participantC)).toBeUndefined();
     expect(mixed).not.toHaveProperty('userId');
     expect(mixed.participants[0]?.participantId).toBe(participantA);
     expect(

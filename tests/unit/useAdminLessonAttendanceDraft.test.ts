@@ -5,7 +5,11 @@ import { useAdminLessonAttendanceDraft } from '../../src/features/admin/lesson-b
 
 function fixture(input?: {
   bookingId?: string;
-  attendance?: Array<{ participantId: string; attendanceStatus?: 'present' | 'absent'; revision?: number }>;
+  attendance?: Array<{
+    participantId: string;
+    attendanceStatus?: 'present' | 'absent';
+    revision?: number;
+  }>;
 }): { detail: LessonBookingReadModel; admin: NonNullable<LessonBookingReadModel['admin']> } {
   const bookingId = input?.bookingId ?? 'booking_draft_01';
   const admin = {

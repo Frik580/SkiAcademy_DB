@@ -12,8 +12,7 @@ export function guestCredentialStorageKey(bookingId: string): string {
 }
 
 export type GuestCredentialPersistResult =
-  | { readonly ok: true }
-  | { readonly ok: false; readonly error: 'storage_unavailable' };
+  { readonly ok: true } | { readonly ok: false; readonly error: 'storage_unavailable' };
 
 export function persistGuestBookingCredential(
   credential: GuestBookingActionCredential

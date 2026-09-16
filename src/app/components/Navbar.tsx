@@ -8,8 +8,10 @@ import { useCurrency } from '../../app/providers/CurrencyContext';
 import { isInstructorWorkspaceUser, getDefaultWorkspacePath } from '../../lib/workspaceRoutes';
 import { Logo } from './Logo';
 import { useEffectiveBalance } from '../../features/wallet';
-import { CabinetParticipantAvatarSwitcher } from '../../features/student-cabinet/components/CabinetParticipantAvatarSwitcher';
-import { useNavbarParticipantSwitcher } from '../../features/student-cabinet/useNavbarParticipantSwitcher';
+import {
+  CabinetParticipantAvatarSwitcher,
+  useNavbarParticipantSwitcher,
+} from '../../features/student-cabinet';
 
 interface NavbarProps {
   userProfile: UserProfile | null;

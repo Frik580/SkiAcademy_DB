@@ -58,9 +58,7 @@ export const findAchievementDefinition = (
 ): AchievementDefinition | undefined => config.items.find((item) => item.id === id);
 
 /** Activity-log writes are no longer achievement authority. Kept for history timestamps only. */
-export const evaluateParticipantAchievements = (
-  ctx: AchievementContext
-) => {
+export const evaluateParticipantAchievements = (ctx: AchievementContext) => {
   const config = normalizeAchievementsConfig(ctx.achievementsConfig);
   return evaluateEarnedAchievements(ctx, config);
 };

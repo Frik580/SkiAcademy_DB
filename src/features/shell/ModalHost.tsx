@@ -87,7 +87,7 @@ export const ModalHost: React.FC = () => {
   );
 
   const selectedEnrollment = selectedCourseForDetails
-    ? selectEnrollmentForCourseParticipant({
+    ? (selectEnrollmentForCourseParticipant({
         enrollments: courseEnrollments,
         courseId: selectedCourseForDetails.id,
         selectedParticipantId,
@@ -95,7 +95,7 @@ export const ModalHost: React.FC = () => {
       }) ??
       (!userProfile
         ? selectActiveGuestCourseEnrollment(courseEnrollments, selectedCourseForDetails.id)
-        : undefined)
+        : undefined))
     : undefined;
   const selectedCourseProgress =
     selectedEnrollment && userProfile

@@ -302,9 +302,7 @@ function isolationDetail(bookingId: string, participantName: string): LessonBook
   } as LessonBookingReadModel;
 }
 
-function linkedUnpaidWalletAdminDetail(
-  walletBalance: number
-): LessonBookingReadModel {
+function linkedUnpaidWalletAdminDetail(walletBalance: number): LessonBookingReadModel {
   const item = pendingUnpaidAdminDetail();
   return {
     ...item,
@@ -457,8 +455,9 @@ describe('AdminLessonBookingPanel', () => {
       ],
     });
     await waitFor(() =>
-      expect(screen.queryByRole('dialog', { name: 'adminLessonConfirmAttendanceTitle' })).not
-        .toBeInTheDocument()
+      expect(
+        screen.queryByRole('dialog', { name: 'adminLessonConfirmAttendanceTitle' })
+      ).not.toBeInTheDocument()
     );
 
     // Switching the selected booking remounts the detail boundary and clears the draft.

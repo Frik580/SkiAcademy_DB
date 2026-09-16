@@ -122,9 +122,11 @@ export function useCourseEnrollmentReadSync(
     } catch (error) {
       const current = useCourseEnrollmentStore.getState();
       if (current.loadGeneration === generation && current.scopedParticipantId === participantId) {
-        useCourseEnrollmentStore.getState().setError(
-          error instanceof Error ? error.message : 'Failed to load course enrollment history.'
-        );
+        useCourseEnrollmentStore
+          .getState()
+          .setError(
+            error instanceof Error ? error.message : 'Failed to load course enrollment history.'
+          );
       }
     } finally {
       finishScopedHistoryLoad(participantId, generation);
@@ -175,10 +177,7 @@ export async function loadGuestSingleCourseEnrollment(enrollmentId: string) {
   if (result.items.length === 0) {
     throw new Error('Guest course enrollment read model was not found.');
   }
-  const merged = mergeCourseEnrollmentRecords(
-    useCourseEnrollmentStore.getState().items,
-    result
-  );
+  const merged = mergeCourseEnrollmentRecords(useCourseEnrollmentStore.getState().items, result);
   useCourseEnrollmentStore.getState().mergeItems(merged);
   return result.items[0];
 }

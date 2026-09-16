@@ -68,10 +68,12 @@ describe('instructor lesson metrics — canonical booking lifecycle', () => {
       item('booking_dup', 'confirmed', 1),
       item('booking_dup', 'completed', 2),
     ]);
-    expect(mergeInstructorLessonMetricItems([
-      item('booking_dup', 'confirmed', 1),
-      item('booking_dup', 'completed', 2),
-    ])).toHaveLength(1);
+    expect(
+      mergeInstructorLessonMetricItems([
+        item('booking_dup', 'confirmed', 1),
+        item('booking_dup', 'completed', 2),
+      ])
+    ).toHaveLength(1);
     expect(metrics.completed).toBe(1);
     expect(metrics.confirmed).toBe(0);
     expect(metrics.total).toBe(1);
@@ -110,7 +112,9 @@ describe('instructor lesson metrics — canonical booking lifecycle', () => {
   });
 
   it('does not treat revenue as a booking-lifecycle number', () => {
-    expect(computeInstructorLessonMetrics([item('booking_completed', 'completed')]).revenue).toBeUndefined();
+    expect(
+      computeInstructorLessonMetrics([item('booking_completed', 'completed')]).revenue
+    ).toBeUndefined();
   });
 
   it('reachable instructor/admin metric paths do not use isAttendedLessonStatus', () => {
@@ -120,9 +124,9 @@ describe('instructor lesson metrics — canonical booking lifecycle', () => {
     expect(
       readRepoFile('src/features/instructor-workspace/components/useInstructorWorkspace.ts')
     ).not.toContain('isAttendedLessonStatus');
-    expect(
-      readRepoFile('src/features/admin/operations/adminOperationalOverview.ts')
-    ).not.toContain('isAttendedLessonStatus');
+    expect(readRepoFile('src/features/admin/operations/adminOperationalOverview.ts')).not.toContain(
+      'isAttendedLessonStatus'
+    );
     expect(
       readRepoFile('src/features/admin/operations/AdminOperationalMetricsHost.tsx')
     ).not.toContain('isAttendedLessonStatus');

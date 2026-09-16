@@ -127,9 +127,7 @@ export const ParticipantManagementPanel: React.FC<ParticipantManagementPanelProp
     setFormError(undefined);
     try {
       const isSelf = editorMode.participant.authority === 'self';
-      const phoneDirty =
-        isSelf &&
-        (phoneNumber.trim() || '') !== (userProfile?.phoneNumber ?? '');
+      const phoneDirty = isSelf && (phoneNumber.trim() || '') !== (userProfile?.phoneNumber ?? '');
       const profileDirty = hasManagedParticipantProfileChanges(editorMode.participant, editForm);
 
       if (!profileDirty && !phoneDirty) {

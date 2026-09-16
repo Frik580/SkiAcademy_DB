@@ -95,8 +95,9 @@ export function resolveCourseEnrollmentInstructorLabel(input: {
   }[];
   readonly attendanceInstructorIds?: readonly string[];
 }): string | undefined {
-  const fromCourse = input.courses.find((course) => course.courseId === input.courseId)
-    ?.instructorNames;
+  const fromCourse = input.courses.find(
+    (course) => course.courseId === input.courseId
+  )?.instructorNames;
   if (fromCourse && fromCourse.length > 0) {
     return [...new Set(fromCourse)].join(', ');
   }

@@ -3,12 +3,7 @@ import type { Course } from '../../types';
 import type { CourseCatalogOperationalState } from '../course-enrollments';
 
 export type GroupCourseEnrollmentCtaLabel =
-  | 'enrolled'
-  | 'awaitingPayment'
-  | 'accessSuspended'
-  | 'soldOut'
-  | 'unavailable'
-  | 'enroll';
+  'enrolled' | 'awaitingPayment' | 'accessSuspended' | 'soldOut' | 'unavailable' | 'enroll';
 
 export interface GroupCourseEnrollmentCtaState {
   readonly availableSeats: number;

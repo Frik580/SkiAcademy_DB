@@ -50,9 +50,7 @@ describe('participant lesson stats freshness ownership', () => {
       { initialProps: { enabled: true } }
     );
     await waitFor(() => expect(queryLessonBookingReadModelsMock).toHaveBeenCalledTimes(2));
-    await waitFor(() =>
-      expect(useAccountParticipantLessonStatsStore.getState().loaded).toBe(true)
-    );
+    await waitFor(() => expect(useAccountParticipantLessonStatsStore.getState().loaded).toBe(true));
 
     // Just inside the stats window: still fresh, no re-drain.
     rerender({ enabled: false });

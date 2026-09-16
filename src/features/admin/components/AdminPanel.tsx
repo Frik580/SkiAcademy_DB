@@ -238,7 +238,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 defaultOpen={false}
                 forceOpen={Boolean(
                   searchParams.get(ADMIN_ISSUE_QUERY_KEY) ||
-                    searchParams.get(ADMIN_CHANGE_REQUEST_QUERY_KEY)
+                  searchParams.get(ADMIN_CHANGE_REQUEST_QUERY_KEY)
                 )}
                 forceOpenToken={
                   searchParams.get(ADMIN_ISSUE_QUERY_KEY) ??
@@ -259,8 +259,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 defaultOpen={false}
                 forceOpen={Boolean(
                   searchParams.get(ADMIN_LESSON_BOOKING_QUERY_KEY) ||
-                    searchParams.get(ADMIN_COURSE_ENROLLMENT_QUERY_KEY) ||
-                    searchParams.get(ADMIN_COURSE_ENROLLMENT_COURSE_QUERY_KEY)
+                  searchParams.get(ADMIN_COURSE_ENROLLMENT_QUERY_KEY) ||
+                  searchParams.get(ADMIN_COURSE_ENROLLMENT_COURSE_QUERY_KEY)
                 )}
                 forceOpenToken={
                   searchParams.get(ADMIN_LESSON_BOOKING_QUERY_KEY) ??

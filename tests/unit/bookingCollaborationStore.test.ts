@@ -80,14 +80,12 @@ describe('bookingCollaborationStore', () => {
       date: '2026-01-01',
     } as InstructorLessonBookingItem;
 
-    useBookingCollaborationStore
-      .getState()
-      .setInstructorLessonBookings(
-        new Map([
-          ['booking_first', first],
-          ['booking_reassigned', reassigned],
-        ])
-      );
+    useBookingCollaborationStore.getState().setInstructorLessonBookings(
+      new Map([
+        ['booking_first', first],
+        ['booking_reassigned', reassigned],
+      ])
+    );
     useBookingCollaborationStore
       .getState()
       .setInstructorLessonBookings(new Map([['booking_first', first]]));
@@ -127,9 +125,9 @@ describe('bookingCollaborationStore', () => {
     useBookingCollaborationStore.getState().resetCollaborationLists();
 
     expect(useBookingCollaborationStore.getState().proposals.size).toBe(0);
-    expect(useBookingCollaborationStore.getState().participantAccessQueries.get('access:a')).toEqual(
-      { status: 'loaded' }
-    );
+    expect(
+      useBookingCollaborationStore.getState().participantAccessQueries.get('access:a')
+    ).toEqual({ status: 'loaded' });
     expect(useBookingCollaborationStore.getState().participantAccess.has('pair:a')).toBe(true);
   });
 });

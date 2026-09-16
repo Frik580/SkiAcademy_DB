@@ -136,9 +136,7 @@ export function AdminLessonBookingListRow({
     <button
       type="button"
       data-admin-lesson-booking-id={item.bookingId}
-      {...(item.trainingRecordId
-        ? { 'data-admin-training-record-id': item.trainingRecordId }
-        : {})}
+      {...(item.trainingRecordId ? { 'data-admin-training-record-id': item.trainingRecordId } : {})}
       aria-current={selected ? 'true' : undefined}
       onClick={onSelect}
       className={`group w-full rounded-[var(--radius-md)] border border-[var(--border)] border-l-[3px] p-3.5 text-left transition-colors hover:border-[color-mix(in_srgb,var(--accent)_28%,transparent)] hover:bg-[var(--accent-muted)] ${attentionClass} ${
@@ -174,9 +172,7 @@ export function AdminLessonBookingListRow({
               <span className="truncate">{item.instructor}</span>
             </p>
           ) : null}
-          {item.meta ? (
-            <p className="mt-2 text-[11px] text-[var(--ink-dim)]">{item.meta}</p>
-          ) : null}
+          {item.meta ? <p className="mt-2 text-[11px] text-[var(--ink-dim)]">{item.meta}</p> : null}
         </div>
         <ChevronRight
           className="mt-0.5 h-4 w-4 shrink-0 text-[var(--ink-dim)] transition-transform group-hover:translate-x-0.5"

@@ -2,8 +2,9 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../src/features/booking-collaboration/bookingCollaborationStore', () => ({
-  useBookingCollaborationStore: (select: (state: { participantAccess: Map<string, never> }) => unknown) =>
-    select({ participantAccess: new Map() }),
+  useBookingCollaborationStore: (
+    select: (state: { participantAccess: Map<string, never> }) => unknown
+  ) => select({ participantAccess: new Map() }),
 }));
 
 import { InstructorBookingList } from '../../src/features/instructor-workspace/components/InstructorBookingList';
@@ -25,8 +26,8 @@ const inWindowBooking = {
 };
 
 function workspaceFor(input: {
-  overdueBookings?: typeof overdueBooking[];
-  missingInWindowBookings?: typeof inWindowBooking[];
+  overdueBookings?: (typeof overdueBooking)[];
+  missingInWindowBookings?: (typeof inWindowBooking)[];
 }) {
   return {
     t: (key: string) => key,

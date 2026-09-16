@@ -156,7 +156,11 @@ describe('useInstructorWorkspace canonical lesson isolation', () => {
     expect(result.current.stats.occupied).toBe(2);
     expect(result.current.stats.pending).toBe(1);
     expect(result.current.stats.total).toBe(3);
-    expect(result.current.myStudents.find((student) => student.participantId === 'participant_workspace_01')?.lessonsCount).toBe(3);
+    expect(
+      result.current.myStudents.find(
+        (student) => student.participantId === 'participant_workspace_01'
+      )?.lessonsCount
+    ).toBe(3);
   });
 
   it('preserves canonical authorizedActions on displayed bookings', () => {
@@ -301,9 +305,13 @@ describe('useInstructorWorkspace canonical lesson isolation', () => {
     expect(result.current.overdueBookings[0]?.missingAttendanceCount).toBe(2);
     expect(result.current.missingInWindowBookings).toHaveLength(1);
     expect(result.current.missingInWindowBookings[0]?.id).toBe('booking_recent_missing');
-    expect(result.current.displayedBookings.find((booking) => booking.id === 'booking_overdue_01')
-      ?.attendanceOverdue).toBe(true);
-    expect(result.current.displayedBookings.find((booking) => booking.id === 'booking_recent_missing')
-      ?.attendanceOverdue).toBe(false);
+    expect(
+      result.current.displayedBookings.find((booking) => booking.id === 'booking_overdue_01')
+        ?.attendanceOverdue
+    ).toBe(true);
+    expect(
+      result.current.displayedBookings.find((booking) => booking.id === 'booking_recent_missing')
+        ?.attendanceOverdue
+    ).toBe(false);
   });
 });

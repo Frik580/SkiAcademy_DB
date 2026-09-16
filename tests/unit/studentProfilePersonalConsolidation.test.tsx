@@ -5,12 +5,15 @@ import {
   StudentProfilePersonalPanel,
 } from '../../src/features/student-cabinet/components/student/StudentProfilePanels';
 
-vi.mock('../../src/features/student-cabinet/components/student/useStudentCabinetTranslations', () => ({
-  useStudentCabinetTranslations: () => ({
-    t: (key: string) => key,
-    language: 'en',
-  }),
-}));
+vi.mock(
+  '../../src/features/student-cabinet/components/student/useStudentCabinetTranslations',
+  () => ({
+    useStudentCabinetTranslations: () => ({
+      t: (key: string) => key,
+      language: 'en',
+    }),
+  })
+);
 
 vi.mock('../../src/app/providers/LanguageContext', () => ({
   useLanguage: () => ({ t: (key: string) => key, language: 'en' }),

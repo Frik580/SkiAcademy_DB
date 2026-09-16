@@ -13,34 +13,34 @@ import confetti from 'canvas-confetti';
  */
 async function runGuestBookingSubmitSuccessUx(input: {
   readonly createGuestBooking: () => Promise<unknown>;
-  readonly addNotification: (
-    kind: 'success' | 'error',
-    title: string,
-    description: string
-  ) => void;
+  readonly addNotification: (kind: 'success' | 'error', title: string, description: string) => void;
   readonly onClose: () => void;
   readonly t: (key: string) => string;
 }): Promise<void> {
   await input.createGuestBooking();
-  input.addNotification('success', input.t('guestApplicationSuccess'), input.t('guestApplicationSuccessDesc'));
+  input.addNotification(
+    'success',
+    input.t('guestApplicationSuccess'),
+    input.t('guestApplicationSuccessDesc')
+  );
   confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
   input.onClose();
 }
 
 async function runGuestBookingSubmitFailureUx(input: {
   readonly createGuestBooking: () => Promise<unknown>;
-  readonly addNotification: (
-    kind: 'success' | 'error',
-    title: string,
-    description: string
-  ) => void;
+  readonly addNotification: (kind: 'success' | 'error', title: string, description: string) => void;
   readonly onClose: () => void;
   readonly t: (key: string) => string;
   readonly presentError: (error: unknown) => { message: string };
 }): Promise<void> {
   try {
     await input.createGuestBooking();
-    input.addNotification('success', input.t('guestApplicationSuccess'), input.t('guestApplicationSuccessDesc'));
+    input.addNotification(
+      'success',
+      input.t('guestApplicationSuccess'),
+      input.t('guestApplicationSuccessDesc')
+    );
     confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
     input.onClose();
   } catch (error) {
@@ -77,7 +77,9 @@ describe('booking guest submit success UX contract', () => {
     confettiMock.mockReset();
 
     await runGuestBookingSubmitFailureUx({
-      createGuestBooking: vi.fn().mockRejectedValue(new Error('Guest credential was not returned.')),
+      createGuestBooking: vi
+        .fn()
+        .mockRejectedValue(new Error('Guest credential was not returned.')),
       addNotification,
       onClose,
       t: (key) => key,

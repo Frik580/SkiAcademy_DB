@@ -156,9 +156,9 @@ describe('useAdminLessonBookingReadModels', () => {
       'booking_history_02',
     ]);
     expect(result.current.list.hasMore).toBe(false);
-    expect(queryMock.mock.calls.some((call) => call[0]?.scope === 'admin_history' && !call[0]?.cursor)).toBe(
-      true
-    );
+    expect(
+      queryMock.mock.calls.some((call) => call[0]?.scope === 'admin_history' && !call[0]?.cursor)
+    ).toBe(true);
     expect(
       queryMock.mock.calls.some(
         (call) => call[0]?.scope === 'admin_history' && call[0]?.cursor === 'history:2'

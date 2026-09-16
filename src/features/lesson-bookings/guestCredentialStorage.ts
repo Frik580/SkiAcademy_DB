@@ -11,9 +11,20 @@ export function guestCredentialStorageKey(bookingId: string): string {
   return `${STORAGE_KEY_PREFIX}${bookingId}`;
 }
 
-export function persistGuestBookingCredential(credential: GuestBookingActionCredential): void {
-  const key = guestCredentialStorageKey(credential.bookingId);
-  localStorage.setItem(key, JSON.stringify(credential));
+export type GuestCredentialPersistResult =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly error: 'storage_unavailable' };
+
+export function persistGuestBookingCredential(
+  credential: GuestBookingActionCredential
+): GuestCredentialPersistResult {
+  try {
+    const key = guestCredentialStorageKey(credential.bookingId);
+    localStorage.setItem(key, JSON.stringify(credential));
+    return { ok: true };
+  } catch {
+    return { ok: false, error: 'storage_unavailable' };
+  }
 }
 
 export function readGuestBookingCredential(bookingId: string): {

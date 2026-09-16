@@ -165,8 +165,9 @@ export function useLessonBookingCommands(
       if (!payload.success || !payload.data.guestActionCredential) {
         throw new Error('Guest credential was not returned.');
       }
-      persistGuestBookingCredential(payload.data.guestActionCredential);
-      return payload.data.guestActionCredential;
+      const guestActionCredential = payload.data.guestActionCredential;
+      persistGuestBookingCredential(guestActionCredential);
+      return guestActionCredential;
     },
     []
   );

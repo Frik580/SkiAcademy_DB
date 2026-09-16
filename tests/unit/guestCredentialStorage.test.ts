@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   BookingIdSchema,
   GuestSubjectIdSchema,
@@ -28,9 +28,22 @@ describe('guestCredentialStorage', () => {
 
   it('persists and reads a valid guest credential', () => {
     const credential = buildCredential(new Date('2099-01-01T00:00:00.000Z'));
-    persistGuestBookingCredential(credential);
+    expect(persistGuestBookingCredential(credential)).toEqual({ ok: true });
     const stored = readGuestBookingCredential(credential.bookingId);
     expect(stored.credential).toEqual(credential);
+  });
+
+  it('returns storage_unavailable when localStorage.setItem throws', () => {
+    const credential = buildCredential(new Date('2099-01-01T00:00:00.000Z'));
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('Quota exceeded', 'QuotaExceededError');
+    });
+    expect(persistGuestBookingCredential(credential)).toEqual({
+      ok: false,
+      error: 'storage_unavailable',
+    });
+    expect(readGuestBookingCredential(credential.bookingId)).toEqual({ error: 'missing' });
+    setItemSpy.mockRestore();
   });
 
   it('reports missing credential without legacy fallback', () => {

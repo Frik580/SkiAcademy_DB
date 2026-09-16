@@ -183,6 +183,77 @@ describe('lessonBooking commands integration', () => {
     );
   });
 
+  it('treats guest booking as successful when local credential persistence fails after remote success', async () => {
+    const bookingId = 'booking_guest_create_02';
+    const credential = {
+      bookingId: BookingIdSchema.parse(bookingId),
+      guestSubjectId: '9441275176b1dfa9078cd642e85c68c97ff485459218c90a1936a68255e37ef5',
+      nonce: 'nonce_fixture_16chars',
+      signature: 'c'.repeat(64),
+      expiresAt: timestampFromDate(new Date('2099-01-01T00:00:00.000Z')),
+    };
+    executeGuestMock.mockResolvedValueOnce({
+      status: 'success',
+      payload: { guestActionCredential: credential },
+    });
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('Quota exceeded', 'QuotaExceededError');
+    });
+
+    const { result } = renderHook(() => useLessonBookingCommands(undefined));
+    const returned = await result.current.createGuestBooking({
+      instructorId: 'instructor_fixture_01',
+      participantId: 'participant_fixture_01',
+      localDate: '2026-06-15',
+      localTime: '08:00',
+      durationMinutes: 120,
+      timezone: 'Asia/Almaty',
+      identity: {
+        bookingId,
+        idempotencyKey: `create-guest-request:${bookingId}`,
+      },
+      guestDisplayName: 'Guest User',
+      guestSkillLevel: 'beginner',
+      guestDiscipline: 'ski',
+      guestAgeYears: 12,
+      difficulty: 'beginner',
+    });
+
+    expect(returned.nonce).toBe('nonce_fixture_16chars');
+    expect(localStorage.getItem(`ski_academy_guest_booking_credential:${bookingId}`)).toBeNull();
+    setItemSpy.mockRestore();
+  });
+
+  it('rejects when remote success payload omits guestActionCredential', async () => {
+    executeGuestMock.mockResolvedValueOnce({
+      status: 'success',
+      kind: 'create_guest_booking_request',
+      correlationId: 'correlation_missing_payload',
+      payload: {},
+    });
+
+    const { result } = renderHook(() => useLessonBookingCommands(undefined));
+    await expect(
+      result.current.createGuestBooking({
+        instructorId: 'instructor_fixture_01',
+        participantId: 'participant_fixture_01',
+        localDate: '2026-06-15',
+        localTime: '08:00',
+        durationMinutes: 120,
+        timezone: 'Asia/Almaty',
+        identity: {
+          bookingId: 'booking_guest_create_03',
+          idempotencyKey: 'create-guest-request:booking_guest_create_03',
+        },
+        guestDisplayName: 'Guest User',
+        guestSkillLevel: 'beginner',
+        guestDiscipline: 'ski',
+        guestAgeYears: 12,
+        difficulty: 'beginner',
+      })
+    ).rejects.toThrow('Guest credential was not returned.');
+  });
+
   it('cancellation on a non-history surface refreshes account_hot only', async () => {
     const accountId = 'account_fixture_01';
     const bookingId = 'booking_cancel_01';

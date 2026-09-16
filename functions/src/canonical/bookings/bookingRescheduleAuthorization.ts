@@ -7,7 +7,6 @@ import {
   isClientSelfServiceRescheduleAllowanceAvailable,
   isRescheduleEligibleBooking,
   resolveClientCallableCapabilityFromPartyAuthorities,
-  timestampFromDate,
   type Account,
   type Booking,
   type CanonicalTimestamp,

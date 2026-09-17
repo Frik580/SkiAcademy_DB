@@ -2,6 +2,7 @@ import {
   applyPriceDecrease,
   applyPriceIncrease,
   applyPriceIncreaseWithFunding,
+  CanonicalCommandError,
   creditWalletBalance,
   debitWalletBalance,
   monetaryEventIdFromCommandEffect,
@@ -58,6 +59,15 @@ function monetaryActorFromEnvelope(envelope: CommandEnvelope) {
   return { kind: 'guest' as const, guestSubjectId: actor.guestSubjectId };
 }
 
+function linkedServicePayerAccountId(
+  booking: Booking,
+  payment: Payment
+): Payment['payerAccountId'] | undefined {
+  return booking.payerAccountId ?? payment.payerAccountId;
+}
+
+const ACCOUNTLESS_SERVICE_PRICE_CHANGE_MANUAL_REFERENCE = 'service_price_change';
+
 export async function planServicePriceChangeFinance(
   session: CanonicalAtomicTransactionSession,
   input: {
@@ -81,8 +91,19 @@ export async function planServicePriceChangeFinance(
     booking: input.booking,
     payment: input.payment,
   });
-  const walletAccountId =
-    input.walletAccountId ?? input.booking.payerAccountId ?? input.payment.payerAccountId;
+  const linkedPayerAccountId = linkedServicePayerAccountId(input.booking, input.payment);
+  const accountLinked = linkedPayerAccountId !== undefined;
+
+  if (!accountLinked && input.fundingAmount !== undefined) {
+    throw new CanonicalCommandError('validation', {
+      correlationId: input.correlationId,
+      details: { field: 'fundingAmount', reason: 'unsupported' },
+    });
+  }
+
+  const walletAccountId = accountLinked
+    ? input.walletAccountId ?? linkedPayerAccountId
+    : undefined;
 
   if (input.newPrice < input.payment.price) {
     const decreasePreview = applyPriceDecrease(before, input.newPrice);
@@ -199,33 +220,55 @@ export function commitPlannedServicePriceChangeFinance(
     });
 
     const stagedEventId = monetaryEventIdFromCommandEffect(input.commandId, 0);
-    const monetaryEvent: MonetaryEvent = {
-      eventId: stagedEventId,
-      eventKind:
-        input.newPrice < input.payment.price && projection.refundedAmount > before.refundedAmount
-          ? 'refund_to_wallet'
-          : 'admin_price_adjustment',
-      currency: 'KZT',
-      paymentId: input.payment.paymentId,
-      subjectType: input.payment.subjectType,
-      subjectId: input.payment.subjectId,
-      paymentEffect: paymentEffectFromProjectionChange(before, projection),
-      sourceKind:
-        walletBalanceDelta !== undefined && walletBalanceDelta > 0 ? 'wallet' : 'manual_external',
-      ...(walletAccountId === undefined ? {} : { payerAccountIdAtEvent: walletAccountId }),
-      ...(walletBalanceDelta === undefined
-        ? {}
-        : { walletAccountId, walletBalanceDelta }),
-      actor: monetaryActorFromEnvelope(input.envelope),
-      commandId: input.commandId,
-      correlationId: input.correlationId,
-      paymentEventRevision,
-      ...(walletBalanceDelta !== undefined && input.planned.wallet !== undefined
-        ? { walletEventRevision: nextAggregateRevision(input.planned.wallet.eventRevision) }
-        : {}),
-      occurredAt: input.decidedAt,
-      recordedAt: input.decidedAt,
-    };
+    const accountLinked = linkedServicePayerAccountId(input.booking, input.payment) !== undefined;
+    const refundedAmountIncreased =
+      input.newPrice < input.payment.price && projection.refundedAmount > before.refundedAmount;
+
+    const monetaryEvent: MonetaryEvent = accountLinked
+      ? {
+          eventId: stagedEventId,
+          eventKind: refundedAmountIncreased ? 'refund_to_wallet' : 'admin_price_adjustment',
+          currency: 'KZT',
+          paymentId: input.payment.paymentId,
+          subjectType: input.payment.subjectType,
+          subjectId: input.payment.subjectId,
+          paymentEffect: paymentEffectFromProjectionChange(before, projection),
+          sourceKind:
+            walletBalanceDelta !== undefined && walletBalanceDelta > 0 ? 'wallet' : 'manual_external',
+          ...(walletAccountId === undefined ? {} : { payerAccountIdAtEvent: walletAccountId }),
+          ...(walletBalanceDelta === undefined ? {} : { walletAccountId, walletBalanceDelta }),
+          actor: monetaryActorFromEnvelope(input.envelope),
+          commandId: input.commandId,
+          correlationId: input.correlationId,
+          paymentEventRevision,
+          ...(walletBalanceDelta !== undefined && input.planned.wallet !== undefined
+            ? { walletEventRevision: nextAggregateRevision(input.planned.wallet.eventRevision) }
+            : {}),
+          occurredAt: input.decidedAt,
+          recordedAt: input.decidedAt,
+        }
+      : {
+          eventId: stagedEventId,
+          eventKind: refundedAmountIncreased ? 'manual_external_refund' : 'admin_price_adjustment',
+          currency: 'KZT',
+          paymentId: input.payment.paymentId,
+          subjectType: input.payment.subjectType,
+          subjectId: input.payment.subjectId,
+          paymentEffect: paymentEffectFromProjectionChange(before, projection),
+          sourceKind: refundedAmountIncreased ? 'manual_external' : 'admin_adjustment',
+          ...(refundedAmountIncreased
+            ? {
+                refundDestinationKind: 'manual_external' as const,
+                manualReference: ACCOUNTLESS_SERVICE_PRICE_CHANGE_MANUAL_REFERENCE,
+              }
+            : {}),
+          actor: monetaryActorFromEnvelope(input.envelope),
+          commandId: input.commandId,
+          correlationId: input.correlationId,
+          paymentEventRevision,
+          occurredAt: input.decidedAt,
+          recordedAt: input.decidedAt,
+        };
 
     session.tx.update(
       { path: `payments/${input.payment.paymentId}` },

@@ -24,6 +24,15 @@ export function isRescheduleEligibleBooking(booking: Booking): boolean {
   return booking.lifecycle.status === 'confirmed';
 }
 
+/**
+ * Admin instructor/duration mutations require a confirmed, non-terminal booking.
+ * Eligibility is lifecycle-based: both registered and guest confirmed bookings qualify.
+ * Pending reservations remain administrator-reschedule-only.
+ */
+export function isAdminServiceChangeEligibleBooking(booking: Booking): boolean {
+  return isRescheduleEligibleBooking(booking);
+}
+
 /** Active pending reservation that still holds a slot (not past reservationExpiresAt). */
 export function isActivePendingBookingReservation(input: {
   readonly booking: Booking;

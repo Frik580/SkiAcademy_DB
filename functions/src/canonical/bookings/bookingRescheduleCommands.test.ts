@@ -45,6 +45,10 @@ const guestParticipantId = ParticipantIdSchema.parse('participant_guest_reschedu
 const guestSubjectId = guestSubjectIdFromBookingId(guestBookingId);
 const guestPaymentId = paymentIdFromBookingId(guestBookingId);
 const guestInitialOccurrenceId = initialBookingOccurrenceIdFromBookingId(guestBookingId);
+const guestBlockerBookingId = BookingIdSchema.parse('booking_guest_instructor_blocker_01');
+const guestBlockerParticipantId = ParticipantIdSchema.parse(
+  'participant_guest_instructor_blocker_01'
+);
 const linkAccountId = AccountIdSchema.parse('account_guest_link_reschedule_01');
 const unrelatedAccountId = AccountIdSchema.parse('account_unrelated_reschedule_01');
 const guestTokenSecret = 'guest-reschedule-test-secret-01';
@@ -564,11 +568,13 @@ describe('booking reschedule commands', () => {
   it('admin instructor change reprices from authoritative tariff', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
     await createConfirmedBooking(executor);
+    const walletBefore = executor.snapshot().docs.get(`users/${accountId}/wallet/state`)?.data
+      .balance;
     const commands = createProductionCanonicalCommands(
       environment('2026-01-01T00:00:00.000Z'),
       executor
     );
-    const result = await commands.execute({
+    const envelope: CommandEnvelope<'change_booking_instructor'> = {
       kind: 'change_booking_instructor',
       context: accountContext('administrator', adminAccountId, 'change-instructor-01', 1),
       intent: {
@@ -576,16 +582,84 @@ describe('booking reschedule commands', () => {
         instructorId: instructorTwoId,
         reasonExplanation: 'Instructor unavailable',
       },
-    });
+    };
+    const result = await commands.execute(envelope);
     expect(result.status).toBe('success');
     const snapshot = executor.snapshot();
-    expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.occurrence.instructorId).toBe(
-      instructorTwoId
+    const booking = snapshot.docs.get(`bookings/${bookingId}`)?.data;
+    expect(booking?.occurrence.instructorId).toBe(instructorTwoId);
+    expect(booking?.revision).toBe(2);
+    expect(booking?.occurrence.scheduleRevision).toBe(2);
+    expect(booking?.occurrence.occurrenceId).toBe(
+      bookingOccurrenceIdFromScheduleRevision(bookingId, 2)
     );
     expect(snapshot.docs.get(`payments/${paymentId}`)?.data.price).toBe(18_000);
+    expect(snapshot.docs.get(`participants/${participantId}`)?.data.management).toEqual({
+      kind: 'managed',
+      participantManagementId: managementId,
+    });
+    expect(snapshot.docs.get(`participant_management/${managementId}`)?.data.accountId).toBe(
+      accountId
+    );
+    expect(snapshot.docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(walletBefore);
+
+    const identity = resolveCommandIdempotencyIdentity(envelope);
+    const outbox = [...snapshot.docs.entries()]
+      .filter(([path]) => path.startsWith('domain_outbox/'))
+      .map(([, doc]) => doc.data)
+      .filter((data) => data.commandId === identity.commandKey);
+    expect(
+      outbox.some(
+        (entry) => entry.recipient?.kind === 'account' && entry.recipient?.id === accountId
+      )
+    ).toBe(true);
+
+    const claims = [...snapshot.docs.values()]
+      .map((entry) => entry.data)
+      .filter((data) => data.ownerId === bookingId);
+    expect(
+      claims.some(
+        (claim) =>
+          claim.claimKind === 'instructor_booking_occurrence' &&
+          claim.resourceId === instructorId &&
+          claim.occurrenceId === initialOccurrenceId &&
+          claim.lifecycle?.status === 'released'
+      )
+    ).toBe(true);
+    expect(
+      claims.some(
+        (claim) =>
+          claim.claimKind === 'instructor_booking_occurrence' &&
+          claim.resourceId === instructorTwoId &&
+          claim.occurrenceId === booking?.occurrence.occurrenceId &&
+          claim.lifecycle?.status === 'active'
+      )
+    ).toBe(true);
     expect(
       [...snapshot.docs.keys()].filter((path) => path.startsWith('monetary_events/')).length
     ).toBe(2);
+  });
+
+  it('rejects non-admin instructor change on a managed booking', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
+    await createConfirmedBooking(executor);
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-01T00:00:00.000Z'),
+      executor
+    );
+    const result = await commands.execute({
+      kind: 'change_booking_instructor',
+      context: accountContext('account_owner', accountId, 'change-instructor-client-denied', 1),
+      intent: {
+        bookingId,
+        instructorId: instructorTwoId,
+        reasonExplanation: 'Should not elevate',
+      },
+    });
+    expect(resultErrorCode(result)).toBe('forbidden');
+    expect(
+      executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.occurrence.instructorId
+    ).toBe(instructorId);
   });
 
   it('rejects stale expectedRevision', async () => {
@@ -831,6 +905,12 @@ function guestFixture() {
       pricePerHourKZT: 12_000,
       isAvailable: true,
     },
+    [`instructors/${instructorTwoId}`]: {
+      id: instructorTwoId,
+      name: 'Coach Two',
+      pricePerHourKZT: 18_000,
+      isAvailable: true,
+    },
     [`participants/${guestParticipantId}`]: {
       participantId: guestParticipantId,
       displayName: 'Guest Reschedule Participant',
@@ -845,6 +925,23 @@ function guestFixture() {
       audit: {
         createdByCommandId: 'command_seed_guest_participant',
         lastChangedByCommandId: 'command_seed_guest_participant',
+        correlationId,
+      },
+    },
+    [`participants/${guestBlockerParticipantId}`]: {
+      participantId: guestBlockerParticipantId,
+      displayName: 'Guest Instructor Blocker',
+      age: { kind: 'age_years', years: 24 },
+      skillLevel: 'beginner',
+      discipline: 'ski',
+      management: { kind: 'unmanaged_guest' },
+      lifecycle: { status: 'active' },
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: {
+        createdByCommandId: 'command_seed_guest_blocker_participant',
+        lastChangedByCommandId: 'command_seed_guest_blocker_participant',
         correlationId,
       },
     },
@@ -1033,6 +1130,27 @@ function guestRescheduleEnvelope(
       durationMinutes: 60,
     }),
     intent: { bookingId: guestBookingId },
+  };
+}
+
+function guestInstructorChangeEnvelope(
+  idempotencyKey: string,
+  expectedRevision = 2,
+  capability: 'administrator' | 'account_owner' = 'administrator'
+): CommandEnvelope<'change_booking_instructor'> {
+  return {
+    kind: 'change_booking_instructor',
+    context: accountContext(
+      capability,
+      capability === 'administrator' ? adminAccountId : accountId,
+      idempotencyKey,
+      expectedRevision
+    ),
+    intent: {
+      bookingId: guestBookingId,
+      instructorId: instructorTwoId,
+      reasonExplanation: 'Reassign guest lesson instructor',
+    },
   };
 }
 
@@ -1374,5 +1492,187 @@ describe('admin reschedule pending unpaid booking', () => {
       },
     });
     expect(resultErrorCode(result)).toBe('forbidden');
+  });
+});
+
+describe('admin change_booking_instructor unmanaged_guest', () => {
+  function claimDocs(
+    snapshot: ReturnType<ReturnType<typeof createInMemoryCanonicalTransactionExecutor>['snapshot']>
+  ) {
+    return [...snapshot.docs.values()]
+      .map((entry) => entry.data)
+      .filter((data) => data.ownerId === guestBookingId);
+  }
+
+  it('allows admin to reassign instructor on confirmed unmanaged_guest booking', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(guestFixture());
+    await seedConfirmedGuestBooking(executor);
+    const commands = guestCommands(executor);
+    const envelope = guestInstructorChangeEnvelope('guest-change-instructor-01');
+    const result = await commands.execute(envelope);
+    expect(result.status, JSON.stringify(result)).toBe('success');
+
+    const snapshot = executor.snapshot();
+    const booking = snapshot.docs.get(`bookings/${guestBookingId}`)?.data;
+    const payment = snapshot.docs.get(`payments/${guestPaymentId}`)?.data;
+    const participant = snapshot.docs.get(`participants/${guestParticipantId}`)?.data;
+    expect(booking?.occurrence.instructorId).toBe(instructorTwoId);
+    expect(booking?.revision).toBe(3);
+    expect(booking?.occurrence.scheduleRevision).toBe(2);
+    expect(booking?.occurrence.occurrenceId).toBe(
+      bookingOccurrenceIdFromScheduleRevision(guestBookingId, 2)
+    );
+    expect(booking?.attribution.bookingOrigin).toBe('guest');
+    expect(participant?.management).toEqual({ kind: 'unmanaged_guest' });
+    expect(payment?.price).toBe(18_000);
+    expect(payment?.payerAccountId).toBeUndefined();
+    expect(booking?.payerAccountId).toBeUndefined();
+    expect(
+      [...snapshot.docs.keys()].filter((path) => path.includes('/wallet/'))
+    ).toHaveLength(0);
+
+    const identity = resolveCommandIdempotencyIdentity(envelope);
+    const commandOutbox = [...snapshot.docs.entries()]
+      .filter(([path]) => path.startsWith('domain_outbox/'))
+      .map(([, doc]) => doc.data)
+      .filter((data) => data.commandId === identity.commandKey);
+    expect(commandOutbox).toHaveLength(0);
+
+    const claims = claimDocs(snapshot);
+    expect(
+      claims.some(
+        (claim) =>
+          claim.claimKind === 'instructor_booking_occurrence' &&
+          claim.resourceId === instructorId &&
+          claim.occurrenceId === guestInitialOccurrenceId &&
+          claim.lifecycle?.status === 'released'
+      )
+    ).toBe(true);
+    expect(
+      claims.some(
+        (claim) =>
+          claim.claimKind === 'instructor_booking_occurrence' &&
+          claim.resourceId === instructorTwoId &&
+          claim.occurrenceId === booking?.occurrence.occurrenceId &&
+          claim.lifecycle?.status === 'active'
+      )
+    ).toBe(true);
+    expect(
+      claims.some(
+        (claim) =>
+          claim.claimKind === 'participant_booking_occurrence' &&
+          claim.resourceId === guestParticipantId &&
+          claim.occurrenceId === booking?.occurrence.occurrenceId &&
+          claim.lifecycle?.status === 'active'
+      )
+    ).toBe(true);
+
+    const priceEvents = [...snapshot.docs.values()]
+      .map((entry) => entry.data)
+      .filter(
+        (data) =>
+          data.eventKind === 'admin_price_adjustment' && data.commandId === identity.commandKey
+      );
+    expect(priceEvents).toHaveLength(1);
+    expect(priceEvents[0]?.sourceKind).toBe('admin_adjustment');
+    expect(priceEvents[0]?.walletAccountId).toBeUndefined();
+    expect(priceEvents[0]?.payerAccountIdAtEvent).toBeUndefined();
+
+    const replay = await commands.execute(envelope);
+    expect(replay.status).toBe('success');
+    expect(executor.snapshot().docs.get(`bookings/${guestBookingId}`)?.data.revision).toBe(3);
+    expect(
+      [...executor.snapshot().docs.values()].filter(
+        (entry) =>
+          entry.data.eventKind === 'admin_price_adjustment' &&
+          entry.data.commandId === identity.commandKey
+      )
+    ).toHaveLength(1);
+  });
+
+  it('rejects guest instructor change when the target instructor slot is claimed', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(guestFixture());
+    await seedConfirmedGuestBooking(executor);
+    const setup = guestCommands(executor);
+    const blocker = await setup.execute({
+      kind: 'create_guest_booking_request',
+      context: {
+        actor: guestCommandActor(guestSubjectIdFromBookingId(guestBlockerBookingId)),
+        exercisedCapability: 'guest',
+        idempotencyKey: 'guest-instructor-blocker',
+        correlationId,
+        source: 'guest_callable',
+        calendarInput: {
+          localDate: '2026-01-15',
+          localTime: '09:00',
+          durationMinutes: 60,
+        },
+        timezone: 'Asia/Almaty',
+      },
+      intent: {
+        bookingId: guestBlockerBookingId,
+        instructorId: instructorTwoId,
+        participantIds: [guestBlockerParticipantId],
+      },
+    });
+    expect(blocker.status).toBe('success');
+
+    const result = await setup.execute(guestInstructorChangeEnvelope('guest-instructor-conflict'));
+    expect(resultErrorCode(result)).toBe('instructor_conflict');
+    expect(
+      executor.snapshot().docs.get(`bookings/${guestBookingId}`)?.data.occurrence.instructorId
+    ).toBe(instructorId);
+  });
+
+  it('rejects guest instructor change when the target instructor is unavailable', async () => {
+    const setupExecutor = createInMemoryCanonicalTransactionExecutor(guestFixture());
+    await seedConfirmedGuestBooking(setupExecutor);
+    const docs: Record<string, Record<string, unknown>> = {};
+    for (const [path, doc] of setupExecutor.snapshot().docs.entries()) {
+      docs[path] = { ...doc.data };
+    }
+    docs[`instructors/${instructorTwoId}`] = {
+      ...docs[`instructors/${instructorTwoId}`],
+      isAvailable: false,
+    };
+    const executor = createInMemoryCanonicalTransactionExecutor(docs);
+    const result = await guestCommands(executor).execute(
+      guestInstructorChangeEnvelope('guest-instructor-unavailable')
+    );
+    expect(resultErrorCode(result)).toBe('validation');
+    expect(
+      executor.snapshot().docs.get(`bookings/${guestBookingId}`)?.data.occurrence.instructorId
+    ).toBe(instructorId);
+  });
+
+  it('does not grant change_booking_instructor to non-admin actors for unmanaged_guest bookings', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(guestFixture());
+    await seedConfirmedGuestBooking(executor);
+    const commands = guestCommands(executor);
+    const clientResult = await commands.execute(
+      guestInstructorChangeEnvelope('guest-instructor-client-denied', 2, 'account_owner')
+    );
+    expect(resultErrorCode(clientResult)).toBe('forbidden');
+
+    const guestResult = await commands.execute({
+      kind: 'change_booking_instructor',
+      context: {
+        actor: guestCommandActor(guestSubjectId),
+        exercisedCapability: 'guest',
+        idempotencyKey: 'guest-instructor-guest-denied',
+        correlationId,
+        source: 'guest_callable',
+        expectedRevision: AggregateRevisionSchema.parse(2),
+      },
+      intent: {
+        bookingId: guestBookingId,
+        instructorId: instructorTwoId,
+        reasonExplanation: 'Should not elevate',
+      },
+    });
+    expect(resultErrorCode(guestResult)).toBe('forbidden');
+    expect(
+      executor.snapshot().docs.get(`bookings/${guestBookingId}`)?.data.occurrence.instructorId
+    ).toBe(instructorId);
   });
 });

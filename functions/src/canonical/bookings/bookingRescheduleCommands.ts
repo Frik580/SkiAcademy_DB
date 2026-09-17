@@ -31,6 +31,7 @@ import {
   type TimeInterval,
 } from '@ski-academy/shared-domain';
 import type { CommandHandlerMap } from '../commands/canonicalCommands';
+import type { CanonicalAtomicTransactionSession } from '../transactions';
 import {
   executeAuthoritativeIdempotentCanonicalCommand,
   type AuthoritativeIdempotentCanonicalCommandHandler,
@@ -59,10 +60,12 @@ import {
   assertNoActiveServiceBlockForReschedule,
   assertParticipantRecordForReschedule,
   assertRescheduleDurationMatches,
-  assertConfirmedBookingServiceChangeEligibleState,
+  assertAdminServiceChangeEligibleBookingState,
   assertRescheduleEligibleBookingStateForMode,
+  resolveAdminServiceChangeCustomerContext,
   resolveBookingRescheduleAuthorization,
   resolveRescheduleScheduleContext,
+  type AdminServiceChangeCustomerContext,
   type BookingRescheduleMode,
 } from './bookingRescheduleAuthorization';
 import {
@@ -123,6 +126,50 @@ function metadataFromEnvelope(envelope: CommandEnvelope): CommandMetadata {
     commandId: identity.commandKey,
     correlationId: envelope.context.correlationId,
   };
+}
+
+async function loadAdminServiceChangeCustomerContext(
+  session: CanonicalAtomicTransactionSession,
+  envelope: CommandEnvelope,
+  participantId: Participant['participantId']
+): Promise<AdminServiceChangeCustomerContext> {
+  const participantDocumentPath = participantPath(participantId);
+  const participantRead = await session.tx.get({ path: participantDocumentPath });
+  session.plan.planRead({ path: participantDocumentPath, category: 'aggregate' });
+  const participant = parseParticipant(
+    participantRead.exists ? participantRead.data : undefined
+  );
+
+  if (participant?.management.kind === 'unmanaged_guest') {
+    return resolveAdminServiceChangeCustomerContext(envelope.context.correlationId, {
+      participant,
+    });
+  }
+
+  let management: ParticipantManagement | undefined;
+  let customerAccount: ReturnType<typeof parseAccount> = undefined;
+  if (participant?.management.kind === 'managed') {
+    const managementDocumentPath = participantManagementPath(
+      participant.management.participantManagementId
+    );
+    const managementRead = await session.tx.get({ path: managementDocumentPath });
+    session.plan.planRead({ path: managementDocumentPath, category: 'aggregate' });
+    management = parseParticipantManagement(
+      managementRead.exists ? managementRead.data : undefined
+    );
+    if (management) {
+      const accountDocumentPath = accountPath(management.accountId);
+      const accountRead = await session.tx.get({ path: accountDocumentPath });
+      session.plan.planRead({ path: accountDocumentPath, category: 'authorization_check' });
+      customerAccount = parseAccount(accountRead.exists ? accountRead.data : undefined);
+    }
+  }
+
+  return resolveAdminServiceChangeCustomerContext(envelope.context.correlationId, {
+    participant,
+    ...(management === undefined ? {} : { management }),
+    ...(customerAccount === undefined ? {} : { customerAccount }),
+  });
 }
 
 function intervalWithDuration(
@@ -468,7 +515,7 @@ function changeBookingInstructorHandler(
         });
       }
       booking = parsedBooking;
-      assertConfirmedBookingServiceChangeEligibleState(envelope.context.correlationId, booking);
+      assertAdminServiceChangeEligibleBookingState(envelope.context.correlationId, booking);
 
       targetInstructorId = envelope.intent.instructorId;
       if (isSyntheticCourseInstructorId(targetInstructorId)) {
@@ -523,41 +570,13 @@ function changeBookingInstructorHandler(
       payment = parsedPayment;
 
       const resolvedParticipantId = booking.party.participantIds[0]!;
-      const participantDocumentPath = participantPath(resolvedParticipantId);
-      const participantRead = await session.tx.get({ path: participantDocumentPath });
-      session.plan.planRead({ path: participantDocumentPath, category: 'aggregate' });
-      const participant = parseParticipant(
-        participantRead.exists ? participantRead.data : undefined
+      const customer = await loadAdminServiceChangeCustomerContext(
+        session,
+        envelope,
+        resolvedParticipantId
       );
-      if (!participant || participant.management.kind !== 'managed') {
-        throw new CanonicalCommandError('forbidden', {
-          correlationId: envelope.context.correlationId,
-        });
-      }
-      const managementDocumentPath = participantManagementPath(
-        participant.management.participantManagementId
-      );
-      const managementRead = await session.tx.get({ path: managementDocumentPath });
-      session.plan.planRead({ path: managementDocumentPath, category: 'aggregate' });
-      const management = parseParticipantManagement(
-        managementRead.exists ? managementRead.data : undefined
-      );
-      if (!management) {
-        throw new CanonicalCommandError('forbidden', {
-          correlationId: envelope.context.correlationId,
-        });
-      }
-      notificationAccountId = management.accountId;
-
-      const accountDocumentPath = accountPath(management.accountId);
-      const accountRead = await session.tx.get({ path: accountDocumentPath });
-      session.plan.planRead({ path: accountDocumentPath, category: 'authorization_check' });
-      const account = parseAccount(accountRead.exists ? accountRead.data : undefined);
-      if (!account) {
-        throw new CanonicalCommandError('forbidden', {
-          correlationId: envelope.context.correlationId,
-        });
-      }
+      notificationAccountId =
+        customer.customerKind === 'managed' ? customer.notificationAccountId : undefined;
 
       const managerBlockPath = participantBlockPath(
         participantBlockIdFromDirection({
@@ -585,9 +604,10 @@ function changeBookingInstructorHandler(
       assertNoActiveServiceBlockForReschedule(
         envelope.context.correlationId,
         {
-          account,
-          participant,
-          management,
+          ...(customer.customerKind === 'managed'
+            ? { account: customer.customerAccount, management: customer.management }
+            : {}),
+          participant: customer.participant,
           participantBlocks,
         },
         targetInstructorId
@@ -604,8 +624,12 @@ function changeBookingInstructorHandler(
           commandId: metadata.commandId,
           correlationId: metadata.correlationId,
           decidedAt: timestampFromDate(environment.clock.decidedAt()),
-          fundingAmount: envelope.intent.fundingAmount,
-          walletAccountId: envelope.intent.walletAccountId,
+          ...(customer.customerKind === 'managed'
+            ? {
+                fundingAmount: envelope.intent.fundingAmount,
+                walletAccountId: envelope.intent.walletAccountId,
+              }
+            : {}),
         });
         monetaryEventIds = [stagedMonetaryEventId];
       }
@@ -753,7 +777,7 @@ function changeBookingDurationHandler(
         });
       }
       booking = parsedBooking;
-      assertConfirmedBookingServiceChangeEligibleState(envelope.context.correlationId, booking);
+      assertAdminServiceChangeEligibleBookingState(envelope.context.correlationId, booking);
 
       const currentDurationMinutes = Math.round(
         (canonicalTimestampToEpochMs(booking.occurrence.interval.endsAt) -

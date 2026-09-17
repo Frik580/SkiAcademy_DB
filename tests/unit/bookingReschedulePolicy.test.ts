@@ -3,6 +3,7 @@ import {
   INDIVIDUAL_BOOKING_CLIENT_RESCHEDULE_WINDOW_MS,
   addMillisecondsToCanonicalTimestamp,
   evaluateClientSelfServiceRescheduleTiming,
+  isAdminServiceChangeEligibleBooking,
   isAdministratorRescheduleEligibleBooking,
   isClientSelfServiceRescheduleAllowanceAvailable,
   isRescheduleEligibleBooking,
@@ -44,6 +45,20 @@ describe('booking reschedule policy', () => {
     expect(
       isRescheduleEligibleBooking(canonicalBookingCollaborationFixtures.guestPendingBooking)
     ).toBe(false);
+  });
+
+  it('allows administrator service change for confirmed registered and guest bookings only', () => {
+    const confirmed = canonicalBookingCollaborationFixtures.individualBooking;
+    const confirmedGuest = BookingSchema.parse({
+      ...canonicalBookingCollaborationFixtures.guestPendingBooking,
+      lifecycle: { status: 'confirmed' },
+    });
+    const pendingGuest = canonicalBookingCollaborationFixtures.guestPendingBooking;
+
+    expect(isAdminServiceChangeEligibleBooking(confirmed)).toBe(true);
+    expect(isAdminServiceChangeEligibleBooking(confirmedGuest)).toBe(true);
+    expect(confirmedGuest.attribution.bookingOrigin).toBe('guest');
+    expect(isAdminServiceChangeEligibleBooking(pendingGuest)).toBe(false);
   });
 
   it('allows administrator reschedule for active pending unpaid reservations', () => {

@@ -3,6 +3,7 @@ import {
   administratorCapabilityExercisedByAccount,
   canonicalTimestampToEpochMs,
   evaluateClientSelfServiceRescheduleTiming,
+  isAdminServiceChangeEligibleBooking,
   isAdministratorRescheduleEligibleBooking,
   isClientSelfServiceRescheduleAllowanceAvailable,
   isRescheduleEligibleBooking,
@@ -26,6 +27,19 @@ import {
 } from '../participantAccess/participantAccessAuthorization';
 
 export type BookingRescheduleMode = 'client_self_service' | 'administrator';
+
+export type AdminServiceChangeCustomerContext =
+  | {
+      readonly customerKind: 'managed';
+      readonly participant: Participant;
+      readonly management: ParticipantManagement;
+      readonly customerAccount: Account;
+      readonly notificationAccountId: Account['accountId'];
+    }
+  | {
+      readonly customerKind: 'unmanaged_guest';
+      readonly participant: Participant;
+    };
 
 export function resolveRescheduleScheduleContext(
   envelope: CommandEnvelope<'reschedule_booking'>
@@ -157,12 +171,59 @@ export function assertRescheduleEligibleBookingState(
   }
 }
 
-/** Client/confirmed-only eligibility for admin service mutations (instructor/duration), not schedule reschedule. */
-export function assertConfirmedBookingServiceChangeEligibleState(
+/** Confirmed-only eligibility for admin instructor/duration mutations, origin-agnostic. */
+export function assertAdminServiceChangeEligibleBookingState(
   correlationId: CorrelationId,
   booking: Booking
 ): void {
-  assertRescheduleEligibleBookingState(correlationId, booking);
+  if (!isAdminServiceChangeEligibleBooking(booking)) {
+    throw new CanonicalCommandError('invalid_transition', {
+      correlationId,
+      details: { resourceKind: 'booking', reason: 'unsupported' },
+    });
+  }
+}
+
+export function resolveAdminServiceChangeCustomerContext(
+  correlationId: CorrelationId,
+  input: Readonly<{
+    participant: Participant | undefined;
+    management?: ParticipantManagement;
+    customerAccount?: Account;
+  }>
+): AdminServiceChangeCustomerContext {
+  if (!input.participant) {
+    throw new CanonicalCommandError('forbidden', {
+      correlationId,
+    });
+  }
+
+  if (input.participant.management.kind === 'unmanaged_guest') {
+    return {
+      customerKind: 'unmanaged_guest',
+      participant: input.participant,
+    };
+  }
+
+  if (input.participant.management.kind !== 'managed') {
+    throw new CanonicalCommandError('forbidden', {
+      correlationId,
+    });
+  }
+
+  if (!input.management || !input.customerAccount) {
+    throw new CanonicalCommandError('forbidden', {
+      correlationId,
+    });
+  }
+
+  return {
+    customerKind: 'managed',
+    participant: input.participant,
+    management: input.management,
+    customerAccount: input.customerAccount,
+    notificationAccountId: input.management.accountId,
+  };
 }
 
 export function assertRescheduleEligibleBookingStateForMode(
@@ -221,7 +282,7 @@ export function assertRescheduleDurationMatches(
 export function assertNoActiveServiceBlockForReschedule(
   correlationId: CorrelationId,
   input: Readonly<{
-    account: Account;
+    account?: Account;
     participant: Participant;
     management?: ParticipantManagement;
     participantBlocks: readonly import('@ski-academy/shared-domain').ParticipantBlock[];
@@ -229,7 +290,7 @@ export function assertNoActiveServiceBlockForReschedule(
   instructorId: import('@ski-academy/shared-domain').InstructorId
 ): void {
   const topology = buildParticipantAccessTopology({
-    account: input.account,
+    ...(input.account === undefined ? {} : { account: input.account }),
     participant: input.participant,
     ...(input.management === undefined ? {} : { management: input.management }),
     additionalBlocks: input.participantBlocks,

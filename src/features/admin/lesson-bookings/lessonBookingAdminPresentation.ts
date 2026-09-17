@@ -30,6 +30,12 @@ export const LESSON_ADMIN_PRIMARY_STATUS_KEYS: Record<
 
 const UNPAID_PAYMENT_STATUSES = new Set<PaymentStatus>(['unpaid', 'partially_paid']);
 
+export function lessonAdminPaymentTabNeedsAttention(
+  payment: Pick<LessonBookingAdminProjection['payment'], 'outstanding'>
+): boolean {
+  return payment.outstanding > 0;
+}
+
 export function isPendingUnpaidOutstanding(
   item: Pick<LessonBookingReadModel, 'lifecycle'> & {
     readonly admin?: Pick<LessonBookingAdminProjection, 'payment'>;

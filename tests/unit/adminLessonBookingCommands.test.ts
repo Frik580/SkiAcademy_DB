@@ -342,6 +342,32 @@ describe('canonical Admin lesson booking commands', () => {
     expect(refresh).toHaveBeenCalledWith(target.bookingId);
   });
 
+  it('refreshes canonical projections after a successful cash Payment capture', async () => {
+    const refresh = vi.fn().mockResolvedValue({ status: 'success' });
+    const attempt: AdminLessonBookingMutationAttempt = {
+      kind: 'record_provider_payment_event',
+      target,
+      idempotencyKey: createAdminLessonBookingAttemptId('record_guest_payment'),
+      paymentId: 'payment_admin_command_01',
+      paymentRevision: 4,
+      amount: 10_000,
+    };
+    const { result } = renderHook(() =>
+      useAdminLessonBookingCommands({
+        adminAccountId: 'admin_account_01',
+        refreshBooking: refresh,
+      })
+    );
+
+    let outcome: Awaited<ReturnType<typeof result.current.runAttempt>> | undefined;
+    await act(async () => {
+      outcome = await result.current.runAttempt(attempt);
+    });
+
+    expect(outcome).toEqual({ status: 'success' });
+    expect(refresh).toHaveBeenCalledWith(target.bookingId);
+  });
+
   it('reports a committed cash Payment separately from a failed projection refresh', async () => {
     const refresh = vi.fn().mockResolvedValue({ status: 'failure' });
     const attempt: AdminLessonBookingMutationAttempt = {

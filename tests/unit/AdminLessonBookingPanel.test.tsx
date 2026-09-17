@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { LessonBookingReadModel } from '@ski-academy/shared-domain';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -302,6 +302,58 @@ function isolationDetail(bookingId: string, participantName: string): LessonBook
   } as LessonBookingReadModel;
 }
 
+function confirmedPartialGuestAdminDetail(): LessonBookingReadModel {
+  const item = pendingUnpaidAdminDetail();
+  return {
+    ...item,
+    lifecycle: { status: 'confirmed' },
+    admin: {
+      ...item.admin!,
+      payer: undefined,
+      payment: {
+        ...item.admin!.payment,
+        status: 'partially_paid',
+        revision: 4,
+        originalPrice: 60_000,
+        price: 60_000,
+        paid: 50_000,
+        retained: 50_000,
+        settled: 50_000,
+        outstanding: 10_000,
+      },
+      authorizedActions: {
+        ...item.admin!.authorizedActions,
+        canRecordGuestPayment: true,
+        canPayFromWallet: false,
+      },
+    },
+  } as LessonBookingReadModel;
+}
+
+function confirmedPaidGuestAdminDetail(): LessonBookingReadModel {
+  const item = confirmedPartialGuestAdminDetail();
+  return {
+    ...item,
+    admin: {
+      ...item.admin!,
+      payment: {
+        ...item.admin!.payment,
+        status: 'paid',
+        revision: 5,
+        paid: 60_000,
+        retained: 60_000,
+        settled: 60_000,
+        outstanding: 0,
+      },
+      authorizedActions: {
+        ...item.admin!.authorizedActions,
+        canRecordGuestPayment: false,
+        canPayFromWallet: false,
+      },
+    },
+  } as LessonBookingReadModel;
+}
+
 function linkedUnpaidWalletAdminDetail(walletBalance: number): LessonBookingReadModel {
   const item = pendingUnpaidAdminDetail();
   return {
@@ -356,6 +408,12 @@ function renderPanel(
 
 function openDetailSection(name: string) {
   fireEvent.click(screen.getByRole('tab', { name: new RegExp(`^${name}`) }));
+}
+
+function paymentTabAttentionIndicator() {
+  const paymentTab = document.getElementById('admin-lesson-tab-payment');
+  expect(paymentTab).toBeTruthy();
+  return within(paymentTab as HTMLElement).queryByLabelText('adminLessonRequiresAttention');
 }
 
 describe('AdminLessonBookingPanel', () => {
@@ -633,6 +691,106 @@ describe('AdminLessonBookingPanel', () => {
       paymentRevision: 1,
     });
     expect(runAttemptMock.mock.calls[0]?.[0]).not.toHaveProperty('amount');
+  });
+
+  it.each([
+    ['pending unpaid', () => pendingUnpaidAdminDetail(), true],
+    ['confirmed partially paid', () => confirmedPartialGuestAdminDetail(), true],
+    ['confirmed fully paid', () => confirmedPaidGuestAdminDetail(), false],
+  ] as const)(
+    'shows the Payment tab attention indicator for %s when outstanding requires it',
+    (_label, detailFactory, visible) => {
+      renderPanel(detailFactory());
+      if (visible) {
+        expect(paymentTabAttentionIndicator()).toBeInTheDocument();
+      } else {
+        expect(paymentTabAttentionIndicator()).not.toBeInTheDocument();
+      }
+      cleanup();
+    }
+  );
+
+  it('clears the Payment tab attention indicator after read-model refresh shows zero outstanding', () => {
+    const partial = confirmedPartialGuestAdminDetail();
+    const paid = confirmedPaidGuestAdminDetail();
+    readMock.mockReturnValue({
+      list: { items: [partial], loading: false, loadingMore: false, hasMore: false },
+      detail: { item: partial, loading: false },
+      retryList: vi.fn(),
+      retryDetail: vi.fn(),
+      loadMore: vi.fn(),
+      refreshBooking: vi.fn(),
+    });
+    const view = render(
+      <MemoryRouter initialEntries={['/admin?tab=operations&booking=booking_admin_panel_01']}>
+        <AdminLessonBookingPanel
+          adminAccountId="admin_account_01"
+          instructors={[
+            { instructorId: 'instructor_admin_panel_01', displayName: 'Canonical Coach' },
+          ]}
+        />
+        <LocationProbe />
+      </MemoryRouter>
+    );
+    expect(paymentTabAttentionIndicator()).toBeInTheDocument();
+
+    readMock.mockReturnValue({
+      list: { items: [paid], loading: false, loadingMore: false, hasMore: false },
+      detail: { item: paid, loading: false },
+      retryList: vi.fn(),
+      retryDetail: vi.fn(),
+      loadMore: vi.fn(),
+      refreshBooking: vi.fn(),
+    });
+    view.rerender(
+      <MemoryRouter initialEntries={['/admin?tab=operations&booking=booking_admin_panel_01']}>
+        <AdminLessonBookingPanel
+          adminAccountId="admin_account_01"
+          instructors={[
+            { instructorId: 'instructor_admin_panel_01', displayName: 'Canonical Coach' },
+          ]}
+        />
+        <LocationProbe />
+      </MemoryRouter>
+    );
+    expect(paymentTabAttentionIndicator()).not.toBeInTheDocument();
+  });
+
+  it('shows manual capture for a confirmed guest lesson with repriced outstanding remainder', () => {
+    renderPanel(confirmedPartialGuestAdminDetail());
+    openDetailSection('adminLessonPaymentTitle');
+
+    const amount = screen.getByLabelText('adminLessonPaymentAmount');
+    expect(amount).toHaveValue(10_000);
+    expect(screen.getByRole('button', { name: 'adminLessonRecordPayment' })).toBeVisible();
+    expect(
+      screen.queryByRole('button', { name: 'adminLessonPayFromWallet' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('hides manual capture when a confirmed guest lesson is fully paid', () => {
+    renderPanel(confirmedPaidGuestAdminDetail());
+    openDetailSection('adminLessonPaymentTitle');
+
+    expect(
+      screen.queryByRole('button', { name: 'adminLessonRecordPayment' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('submits the final outstanding amount for a confirmed partially paid guest lesson', async () => {
+    runAttemptMock.mockResolvedValue({ status: 'success' });
+    renderPanel(confirmedPartialGuestAdminDetail());
+    openDetailSection('adminLessonPaymentTitle');
+
+    fireEvent.click(screen.getByRole('button', { name: 'adminLessonRecordPayment' }));
+    fireEvent.click(screen.getByRole('button', { name: 'adminLessonConfirmSubmit' }));
+
+    await waitFor(() => expect(runAttemptMock).toHaveBeenCalledTimes(1));
+    expect(runAttemptMock.mock.calls[0]?.[0]).toMatchObject({
+      kind: 'record_provider_payment_event',
+      paymentRevision: 4,
+      amount: 10_000,
+    });
   });
 
   it('keeps committed Payment success visible when the authoritative refresh fails', async () => {

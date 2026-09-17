@@ -316,6 +316,53 @@ describe('finance commands', () => {
     });
   });
 
+  it('records incremental external payment for a confirmed repriced guest Booking without lifecycle mutation', async () => {
+    const guestBooking = BookingSchema.parse({
+      ...seedGuestBooking(),
+      lifecycle: { status: 'confirmed' },
+    });
+    const repricedPayment = seedPayment({
+      originalPrice: 60_000,
+      price: 60_000,
+      paidAmount: 50_000,
+      retainedAmount: 50_000,
+      settledAmount: 50_000,
+      outstandingAmount: 10_000,
+      paymentStatus: 'partially_paid',
+    });
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${accountId}`]: seedAccount(),
+      [`bookings/${bookingId}`]: guestBooking,
+      [`payments/${paymentId}`]: repricedPayment,
+    });
+
+    const result = await runCommand(executor, {
+      kind: 'record_provider_payment_event',
+      context: {
+        ...adminContext('confirmed-guest-incremental-1'),
+        expectedRevision: AggregateRevisionSchema.parse(1),
+      },
+      intent: {
+        paymentId,
+        amount: 10_000,
+        sourceKind: 'manual_external',
+        manualReference: 'confirmed-guest-incremental-ref',
+      },
+    });
+
+    expect(result.status).toBe('success');
+    const snapshot = executor.snapshot();
+    expect(snapshot.docs.get(`payments/${paymentId}`)?.data).toMatchObject({
+      paidAmount: 60_000,
+      outstandingAmount: 0,
+      paymentStatus: 'paid',
+      revision: 2,
+    });
+    expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.lifecycle).toMatchObject({
+      status: 'confirmed',
+    });
+  });
+
   it('records external payment funding on payment projection', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(providerPaymentFixture());
 

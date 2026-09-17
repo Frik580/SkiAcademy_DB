@@ -203,6 +203,7 @@ function canRecordAdminCourseEnrollmentPayment(input: {
         reservationExpiresAt: input.enrollment.lifecycle.reservationExpiresAt,
         serviceStartsAt: input.course.startAt,
         now: input.now,
+        outstandingAmount: input.payment.outstandingAmount,
       }).outcome === 'accepted'
     );
   }

@@ -18,6 +18,7 @@ import {
   guestLinkUnavailableLabelKey,
   hasSchedulingPlannerHint,
   isPendingUnpaidOutstanding,
+  lessonAdminPaymentTabNeedsAttention,
   issueKindLabelKey,
   issueSeverityLabelKey,
   issueStatusLabelKey,
@@ -258,7 +259,7 @@ export function AdminLessonBookingDetail({
       {
         id: 'payment',
         label: t('adminLessonPaymentTitle'),
-        attention: awaitingPayment,
+        attention: lessonAdminPaymentTabNeedsAttention(payment),
       },
       ...(showAttendance
         ? [{ id: 'attendance' as const, label: t('adminLessonAttendanceTitle') }]
@@ -286,8 +287,8 @@ export function AdminLessonBookingDetail({
     ],
     [
       admin.relatedIssues,
-      awaitingPayment,
       detail.lifecycle.status,
+      payment.outstanding,
       showAttendance,
       showCancellation,
       showGuest,

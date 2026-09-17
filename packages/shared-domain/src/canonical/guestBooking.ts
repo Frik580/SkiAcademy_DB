@@ -131,11 +131,15 @@ export function evaluateGuestManualPaymentAcceptance(input: {
   readonly reservationExpiresAt?: CanonicalTimestamp;
   readonly serviceStartsAt: CanonicalTimestamp;
   readonly now: CanonicalTimestamp;
+  readonly outstandingAmount?: number;
 }): GuestManualPaymentAcceptanceDecision {
   if (input.bookingOrigin !== 'guest') {
     return { outcome: 'not_applicable' };
   }
   if (input.lifecycleStatus === 'confirmed') {
+    if ((input.outstandingAmount ?? 0) > 0) {
+      return { outcome: 'accepted' };
+    }
     return { outcome: 'rejected', reason: 'already_confirmed' };
   }
   if (input.lifecycleStatus !== 'pending' || input.reservationExpiresAt === undefined) {

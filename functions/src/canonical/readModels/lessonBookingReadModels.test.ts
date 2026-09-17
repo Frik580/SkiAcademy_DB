@@ -364,7 +364,12 @@ describe('Admin lesson booking read models', () => {
 
   function adminFixture(
     bookings: readonly ReturnType<typeof canonicalBooking>[],
-    options: { readonly unmanagedGuest?: boolean; readonly unpaidPayment?: boolean } = {}
+    options: {
+      readonly unmanagedGuest?: boolean;
+      readonly unpaidPayment?: boolean;
+      readonly partialOutstandingPayment?: { readonly price: number; readonly paid: number };
+      readonly omitPaymentPayerAccountId?: boolean;
+    } = {}
   ) {
     const participantDocuments: Record<string, Record<string, unknown>> = {};
     const paymentDocuments: Record<string, Record<string, unknown>> = {};
@@ -396,21 +401,38 @@ describe('Admin lesson booking read models', () => {
           },
         }) as unknown as Record<string, unknown>;
       }
+      const partial = options.partialOutstandingPayment;
+      const paymentPrice = partial?.price ?? 50_000;
+      const paymentPaid = partial
+        ? partial.paid
+        : options.unpaidPayment
+          ? 0
+          : 50_000;
+      const paymentOutstanding = partial
+        ? partial.price - partial.paid
+        : options.unpaidPayment
+          ? 50_000
+          : 0;
       paymentDocuments[booking.paymentId] = PaymentSchema.parse({
         paymentId: booking.paymentId,
         subjectType: 'booking',
         subjectId: booking.bookingId,
         currency: 'KZT',
-        originalPrice: 50_000,
-        price: 50_000,
-        paidAmount: options.unpaidPayment ? 0 : 50_000,
+        originalPrice: paymentPrice,
+        price: paymentPrice,
+        paidAmount: paymentPaid,
         refundedAmount: 0,
-        retainedAmount: options.unpaidPayment ? 0 : 50_000,
-        settledAmount: options.unpaidPayment ? 0 : 50_000,
+        retainedAmount: paymentPaid,
+        settledAmount: paymentPaid,
         writtenOffAmount: 0,
-        outstandingAmount: options.unpaidPayment ? 50_000 : 0,
-        paymentStatus: options.unpaidPayment ? 'unpaid' : 'paid',
-        payerAccountId: adminId,
+        outstandingAmount: paymentOutstanding,
+        paymentStatus:
+          paymentOutstanding > 0
+            ? paymentPaid > 0
+              ? 'partially_paid'
+              : 'unpaid'
+            : 'paid',
+        ...(options.omitPaymentPayerAccountId ? {} : { payerAccountId: adminId }),
         incrementalRequirements: [],
         eventRevision: 1,
         revision: 2,
@@ -631,6 +653,69 @@ describe('Admin lesson booking read models', () => {
       price: 50_000,
       paid: 0,
       outstanding: 50_000,
+    });
+  });
+
+  it('authorizes cash capture for a confirmed guest Booking with repriced outstanding remainder', async () => {
+    const base = canonicalBooking(
+      'booking_admin_guest_payment_confirmed_01',
+      '2026-08-01T12:00:00.000Z',
+      { status: 'confirmed' }
+    );
+    const booking = BookingSchema.parse({
+      ...base,
+      attribution: {
+        bookingOrigin: 'guest',
+        bookedBy: { kind: 'guest', guestSubjectId: 'guest_subject_admin_payment_confirmed' },
+      },
+      lifecycle: { status: 'confirmed' },
+      payerAccountId: undefined,
+    });
+    const { firestore } = adminFixture([booking], {
+      partialOutstandingPayment: { price: 60_000, paid: 50_000 },
+      omitPaymentPayerAccountId: true,
+    });
+
+    const model = await buildAdminLessonBookingReadModel(firestore, adminActor, booking, {
+      now: readNow,
+    });
+
+    expect(model?.admin?.authorizedActions).toMatchObject({
+      canRecordGuestPayment: true,
+      canPayFromWallet: false,
+    });
+    expect(model?.admin?.payment).toMatchObject({
+      status: 'partially_paid',
+      price: 60_000,
+      paid: 50_000,
+      outstanding: 10_000,
+    });
+  });
+
+  it('does not authorize cash capture when a confirmed guest Booking is fully paid', async () => {
+    const base = canonicalBooking(
+      'booking_admin_guest_payment_confirmed_paid_01',
+      '2026-08-01T12:00:00.000Z',
+      { status: 'confirmed' }
+    );
+    const booking = BookingSchema.parse({
+      ...base,
+      attribution: {
+        bookingOrigin: 'guest',
+        bookedBy: { kind: 'guest', guestSubjectId: 'guest_subject_admin_payment_confirmed_paid' },
+      },
+      lifecycle: { status: 'confirmed' },
+    });
+    const { firestore } = adminFixture([booking]);
+
+    const model = await buildAdminLessonBookingReadModel(firestore, adminActor, booking, {
+      now: readNow,
+    });
+
+    expect(model?.admin?.authorizedActions.canRecordGuestPayment).toBe(false);
+    expect(model?.admin?.payment).toMatchObject({
+      status: 'paid',
+      outstanding: 0,
     });
   });
 

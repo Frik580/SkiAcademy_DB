@@ -6,6 +6,7 @@ import {
   guestLinkUnavailableLabelKey,
   hasVisibleLessonAdminMutation,
   isPendingUnpaidOutstanding,
+  lessonAdminPaymentTabNeedsAttention,
   lessonAdminPaymentAncillaryRows,
   resolveLessonAdminEmptyActionsReason,
   resolveLessonAdminPrimaryStatus,
@@ -109,6 +110,12 @@ function item(overrides: Partial<LessonBookingReadModel> = {}): LessonBookingRea
 }
 
 describe('lessonBookingAdminPresentation', () => {
+  it('drives the Payment tab attention indicator from canonical outstanding only', () => {
+    expect(lessonAdminPaymentTabNeedsAttention({ outstanding: 50_000 })).toBe(true);
+    expect(lessonAdminPaymentTabNeedsAttention({ outstanding: 10_000 })).toBe(true);
+    expect(lessonAdminPaymentTabNeedsAttention({ outstanding: 0 })).toBe(false);
+  });
+
   it('maps pending + unpaid outstanding to awaiting_payment without inventing other labels', () => {
     const pendingUnpaid = item();
     expect(isPendingUnpaidOutstanding(pendingUnpaid)).toBe(true);

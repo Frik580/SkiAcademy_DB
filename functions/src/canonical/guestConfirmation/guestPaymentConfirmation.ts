@@ -402,6 +402,7 @@ export async function assertGuestManualPaymentAcceptance(input: {
       reservationExpiresAt: enrollment.lifecycle.reservationExpiresAt,
       serviceStartsAt: course.startAt,
       now: input.now,
+      outstandingAmount: input.payment.outstandingAmount,
     });
     if (acceptance.outcome !== 'rejected') return;
     throw new CanonicalCommandError('invalid_transition', {
@@ -426,6 +427,7 @@ export async function assertGuestManualPaymentAcceptance(input: {
       booking.lifecycle.status === 'pending' ? booking.lifecycle.reservationExpiresAt : undefined,
     serviceStartsAt: booking.occurrence.interval.startsAt,
     now: input.now,
+    outstandingAmount: input.payment.outstandingAmount,
   });
   if (acceptance.outcome !== 'rejected') return;
   throw new CanonicalCommandError('invalid_transition', {

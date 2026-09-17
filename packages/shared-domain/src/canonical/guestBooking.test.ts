@@ -66,6 +66,15 @@ describe('evaluateGuestManualPaymentAcceptance', () => {
     expect(
       evaluateGuestManualPaymentAcceptance({
         bookingOrigin: 'guest',
+        lifecycleStatus: 'confirmed',
+        serviceStartsAt: past,
+        now,
+        outstandingAmount: 10_000,
+      })
+    ).toEqual({ outcome: 'accepted' });
+    expect(
+      evaluateGuestManualPaymentAcceptance({
+        bookingOrigin: 'guest',
         lifecycleStatus: 'cancelled',
         serviceStartsAt: future,
         now,

@@ -485,18 +485,31 @@ function buildAdminAuthorizedActions(input: {
     compareCanonicalTimestamps(input.now, input.booking.occurrence.interval.endsAt) >= 0;
   const guestPendingLifecycle =
     input.booking.lifecycle.status === 'pending' ? input.booking.lifecycle : undefined;
-  const canRecordGuestPayment = Boolean(
-    accountActive &&
-    input.payment !== undefined &&
-    input.payment.outstandingAmount > 0 &&
-    evaluateGuestManualPaymentAcceptance({
-      bookingOrigin: input.booking.attribution.bookingOrigin,
-      lifecycleStatus: input.booking.lifecycle.status,
-      reservationExpiresAt: guestPendingLifecycle?.reservationExpiresAt,
-      serviceStartsAt: input.booking.occurrence.interval.startsAt,
-      now: input.now,
-    }).outcome === 'accepted'
-  );
+  const canRecordGuestPayment = (() => {
+    if (!accountActive || input.payment === undefined || input.payment.outstandingAmount <= 0) {
+      return false;
+    }
+    if (input.booking.attribution.bookingOrigin !== 'guest') {
+      return false;
+    }
+    const lifecycleStatus = input.booking.lifecycle.status;
+    if (lifecycleStatus !== 'pending' && lifecycleStatus !== 'confirmed') {
+      return false;
+    }
+    if (lifecycleStatus === 'confirmed') {
+      return true;
+    }
+    return (
+      evaluateGuestManualPaymentAcceptance({
+        bookingOrigin: input.booking.attribution.bookingOrigin,
+        lifecycleStatus,
+        reservationExpiresAt: guestPendingLifecycle?.reservationExpiresAt,
+        serviceStartsAt: input.booking.occurrence.interval.startsAt,
+        now: input.now,
+        outstandingAmount: input.payment.outstandingAmount,
+      }).outcome === 'accepted'
+    );
+  })();
   const linkedPayerAccountId =
     input.booking.payerAccountId ?? input.payment?.payerAccountId;
   const canPayFromWallet = Boolean(

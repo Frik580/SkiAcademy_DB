@@ -289,6 +289,7 @@ describe('booking cancellation commands', () => {
     expect(result.status === 'success' ? result.payload : undefined).toMatchObject({
       lifecycleStatus: 'cancelled',
       adminLessonBookingsRevision: 2,
+      adminPlannerRevision: 2,
     });
 
     const snapshot = executor.snapshot();
@@ -334,6 +335,7 @@ describe('booking cancellation commands', () => {
     expect(result.status === 'success' ? result.payload : undefined).toMatchObject({
       lifecycleStatus: 'pending_cancellation',
       adminLessonBookingsRevision: 2,
+      adminPlannerRevision: 2,
     });
 
     const snapshot = executor.snapshot();

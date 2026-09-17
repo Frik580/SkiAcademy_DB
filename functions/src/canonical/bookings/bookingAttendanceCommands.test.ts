@@ -267,6 +267,7 @@ describe('bookingAttendanceCommands', () => {
       completedAt: endsAt,
     });
     expect(snapshot.docs.get('admin_runtime/admin_lesson_bookings')?.data.revision).toBe(1);
+    expect(snapshot.docs.has('admin_runtime/admin_planner')).toBe(false);
   });
 
   it('does not complete booking before endsAt even with present attendance', async () => {
@@ -925,6 +926,7 @@ describe('bookingAttendanceCommands', () => {
         adminIssueInboxRevision: 1,
         adminLessonBookingsRevision: 1,
       });
+      expect(result.payload).not.toHaveProperty('adminPlannerRevision');
     }
     expect(
       executor.snapshot().docs.get(`admin_issues/${issue.issueId}`)?.data.lifecycle

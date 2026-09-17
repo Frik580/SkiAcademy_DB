@@ -33,6 +33,7 @@ export const AttendanceAdminIssueResultPayloadSchema = z
     openedAdminIssueIds: z.array(AdminIssueIdSchema).max(32).optional(),
     adminIssueInboxRevision: AggregateRevisionSchema.optional(),
     adminLessonBookingsRevision: AggregateRevisionSchema.optional(),
+    adminPlannerRevision: AggregateRevisionSchema.optional(),
   })
   .strict();
 

@@ -35,6 +35,12 @@ import {
   planAdminLessonBookingsRevisionBump,
   plannedMutationsAffectAdminLessonBookings,
 } from '../bookings/adminLessonBookingsRevision';
+import {
+  commitAdminPlannerRevisionBump,
+  mergeAdminPlannerRevisionIntoResult,
+  planAdminPlannerRevisionBump,
+  plannedMutationsAffectAdminPlanner,
+} from '../planner/adminPlannerRevision';
 
 export interface IdempotentCommandRevisionTarget {
   readonly ref: CanonicalTransactionDocumentRef;
@@ -227,11 +233,18 @@ export async function executeIdempotentCanonicalCommand<Kind extends CommandKind
           estimatedPayloadBytes: 2048,
         });
 
-        const shouldBumpAdminLessonBookingsRevision = plannedMutationsAffectAdminLessonBookings(
-          session.plan.build().mutations
+        const plannedMutations = session.plan.build().mutations;
+        const shouldBumpAdminLessonBookingsRevision =
+          plannedMutationsAffectAdminLessonBookings(plannedMutations);
+        const shouldBumpAdminPlannerRevision = plannedMutationsAffectAdminPlanner(
+          plannedMutations,
+          envelope.kind
         );
         if (shouldBumpAdminLessonBookingsRevision) {
           await planAdminLessonBookingsRevisionBump(session);
+        }
+        if (shouldBumpAdminPlannerRevision) {
+          await planAdminPlannerRevisionBump(session);
         }
 
         await session.transitionToWrites();
@@ -279,6 +292,12 @@ export async function executeIdempotentCanonicalCommand<Kind extends CommandKind
           result = mergeAdminLessonBookingsRevisionIntoResult(
             result,
             commitAdminLessonBookingsRevisionBump(session, timestampFromDate(decidedAt))
+          );
+        }
+        if (result.status === 'success' && shouldBumpAdminPlannerRevision) {
+          result = mergeAdminPlannerRevisionIntoResult(
+            result,
+            commitAdminPlannerRevisionBump(session, timestampFromDate(decidedAt))
           );
         }
 

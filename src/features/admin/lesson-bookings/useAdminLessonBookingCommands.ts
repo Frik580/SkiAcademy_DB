@@ -30,20 +30,21 @@ import type {
 
 async function assertCommandSucceeded<Kind extends CommandKind>(
   command: Promise<CommandResult<Kind>>
-): Promise<void> {
+): Promise<CommandResult<Kind>> {
   const result = await command;
   const error = mapCanonicalCommandResultError(result);
   if (error) throw error;
   applyAdminIssueInboxCommandResult(result);
   applyAdminLessonBookingsCommandResult(result);
+  return result;
 }
 
 export async function executeAdminLessonBookingAttempt(
   adminAccountId: string,
   attempt: AdminLessonBookingAttempt
-): Promise<void> {
+): Promise<CommandResult> {
   if (attempt.kind === 'create_confirmed_booking') {
-    await assertCommandSucceeded(
+    return assertCommandSucceeded(
       executeAuthenticatedCanonicalCommand(adminAccountId, {
         kind: attempt.kind,
         intent: {
@@ -65,11 +66,10 @@ export async function executeAdminLessonBookingAttempt(
         administratorContext: true,
       })
     );
-    return;
   }
 
   if (attempt.kind === 'record_provider_payment_event') {
-    await assertCommandSucceeded(
+    return assertCommandSucceeded(
       executeAuthenticatedCanonicalCommand(adminAccountId, {
         kind: attempt.kind,
         intent: {
@@ -86,11 +86,10 @@ export async function executeAdminLessonBookingAttempt(
         expectedRevision: AggregateRevisionSchema.parse(attempt.paymentRevision),
       })
     );
-    return;
   }
 
   if (attempt.kind === 'pay_service_from_wallet_as_administrator') {
-    await assertCommandSucceeded(
+    return assertCommandSucceeded(
       executeAuthenticatedCanonicalCommand(adminAccountId, {
         kind: attempt.kind,
         intent: {
@@ -100,14 +99,13 @@ export async function executeAdminLessonBookingAttempt(
         idempotencyKey: attempt.idempotencyKey,
       })
     );
-    return;
   }
 
   const expectedRevision = AggregateRevisionSchema.parse(attempt.target.revision);
   const bookingId = BookingIdSchema.parse(attempt.target.bookingId);
 
   if (attempt.kind === 'resolve_booking_cancellation') {
-    await assertCommandSucceeded(
+    return assertCommandSucceeded(
       executeAuthenticatedCanonicalCommand(adminAccountId, {
         kind: attempt.kind,
         intent: {
@@ -125,11 +123,10 @@ export async function executeAdminLessonBookingAttempt(
         expectedRevision,
       })
     );
-    return;
   }
 
   if (attempt.kind === 'reschedule_booking') {
-    await assertCommandSucceeded(
+    return assertCommandSucceeded(
       executeAuthenticatedCanonicalCommand(adminAccountId, {
         kind: attempt.kind,
         intent: {
@@ -147,11 +144,10 @@ export async function executeAdminLessonBookingAttempt(
         administratorContext: true,
       })
     );
-    return;
   }
 
   if (attempt.kind === 'change_booking_instructor') {
-    await assertCommandSucceeded(
+    return assertCommandSucceeded(
       executeAuthenticatedCanonicalCommand(adminAccountId, {
         kind: attempt.kind,
         intent: {
@@ -164,11 +160,10 @@ export async function executeAdminLessonBookingAttempt(
         administratorContext: true,
       })
     );
-    return;
   }
 
   if (attempt.kind === 'change_booking_duration') {
-    await assertCommandSucceeded(
+    return assertCommandSucceeded(
       executeAuthenticatedCanonicalCommand(adminAccountId, {
         kind: attempt.kind,
         intent: {
@@ -181,11 +176,10 @@ export async function executeAdminLessonBookingAttempt(
         administratorContext: true,
       })
     );
-    return;
   }
 
   if (attempt.kind === 'finalize_booking_attendance') {
-    await assertCommandSucceeded(
+    return assertCommandSucceeded(
       executeAuthenticatedCanonicalCommand(adminAccountId, {
         kind: attempt.kind,
         intent: {
@@ -208,11 +202,10 @@ export async function executeAdminLessonBookingAttempt(
         administratorContext: true,
       })
     );
-    return;
   }
 
   if (attempt.kind === 'record_booking_attendance') {
-    await assertCommandSucceeded(
+    return assertCommandSucceeded(
       executeAuthenticatedCanonicalCommand(adminAccountId, {
         kind: attempt.kind,
         intent: {
@@ -233,11 +226,10 @@ export async function executeAdminLessonBookingAttempt(
         administratorContext: true,
       })
     );
-    return;
   }
 
   if (attempt.kind === 'resolve_booking_change_request') {
-    await assertCommandSucceeded(
+    return assertCommandSucceeded(
       executeAuthenticatedCanonicalCommand(adminAccountId, {
         kind: attempt.kind,
         intent: {
@@ -266,11 +258,10 @@ export async function executeAdminLessonBookingAttempt(
         administratorContext: true,
       })
     );
-    return;
   }
 
   if (attempt.kind === 'link_guest_booking_to_account_as_administrator') {
-    await assertCommandSucceeded(
+    return assertCommandSucceeded(
       executeAuthenticatedCanonicalCommand(adminAccountId, {
         kind: attempt.kind,
         intent: {
@@ -283,7 +274,6 @@ export async function executeAdminLessonBookingAttempt(
         expectedRevision,
       })
     );
-    return;
   }
 
   throw new Error(

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AdminPlannerReadModel } from '@ski-academy/shared-domain';
 import { queryAdminPlannerReadModels } from '../../../lib/canonical/canonicalReadModelClient';
 import { toFunctionsClientError } from '../../../lib/functions/functionsClient';
+import { registerAdminPlannerRevisionListener } from './adminPlannerRevisionCoordinator';
 import { resolveAdminTimeZone } from './adminTimeZone';
 import type { ScheduleViewMode } from '../components/schedule/ScheduleToolbar';
 
@@ -48,9 +49,19 @@ export function useAdminPlannerReadModels(input: {
     }
   }, [input.enabled, input.localDate, input.view, input.windowDays]);
 
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    if (!input.enabled) return;
+    return registerAdminPlannerRevisionListener(() => {
+      void refreshRef.current();
+    });
+  }, [input.enabled]);
 
   return { item, loading, error, refresh };
 }

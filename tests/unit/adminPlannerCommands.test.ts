@@ -15,6 +15,7 @@ const executeAttempt = vi.fn();
 const queryLessonDetail = vi.fn();
 const queryIdentity = vi.fn();
 const executeCanonical = vi.fn();
+const applyPlannerRevision = vi.fn();
 
 vi.mock('../../src/features/admin/lesson-bookings/useAdminLessonBookingCommands', () => ({
   executeAdminLessonBookingAttempt: (...args: unknown[]) => executeAttempt(...args),
@@ -27,6 +28,10 @@ vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
 
 vi.mock('../../src/lib/canonical/canonicalCommandClient', () => ({
   executeAuthenticatedCanonicalCommand: (...args: unknown[]) => executeCanonical(...args),
+}));
+
+vi.mock('../../src/features/admin/operations/adminPlannerLocalSync', () => ({
+  applyAdminPlannerCommandResult: (...args: unknown[]) => applyPlannerRevision(...args),
 }));
 
 import {
@@ -138,8 +143,19 @@ describe('Admin Planner sequential revision flow', () => {
     queryLessonDetail.mockReset();
     queryIdentity.mockReset();
     executeCanonical.mockReset();
-    executeAttempt.mockResolvedValue(undefined);
-    executeCanonical.mockResolvedValue({ status: 'success' });
+    applyPlannerRevision.mockReset();
+    executeAttempt.mockResolvedValue({
+      status: 'success',
+      kind: 'reschedule_booking',
+      correlationId: 'correlation_planner_attempt_01',
+      payload: { adminPlannerRevision: 44 },
+    });
+    executeCanonical.mockResolvedValue({
+      status: 'success',
+      kind: 'reschedule_administrative_availability_block',
+      correlationId: 'correlation_planner_canonical_01',
+      payload: { adminPlannerRevision: 44 },
+    });
   });
 
   it('refetches a fresh booking revision between combined reschedule and instructor change', async () => {
@@ -211,6 +227,12 @@ describe('Admin Planner sequential revision flow', () => {
     );
     expect(executeAttempt.mock.calls[0]?.[1]?.durationMinutes).not.toBe(
       occupancyItem.durationMinutes
+    );
+    expect(applyPlannerRevision).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'success',
+        payload: { adminPlannerRevision: 44 },
+      })
     );
   });
 
@@ -364,8 +386,19 @@ describe('Admin Planner create participant selection', () => {
     executeAttempt.mockReset();
     queryIdentity.mockReset();
     executeCanonical.mockReset();
-    executeAttempt.mockResolvedValue(undefined);
-    executeCanonical.mockResolvedValue({ status: 'success' });
+    applyPlannerRevision.mockReset();
+    executeAttempt.mockResolvedValue({
+      status: 'success',
+      kind: 'create_confirmed_booking',
+      correlationId: 'correlation_planner_create_01',
+      payload: { adminPlannerRevision: 45 },
+    });
+    executeCanonical.mockResolvedValue({
+      status: 'success',
+      kind: 'create_administrative_availability_block',
+      correlationId: 'correlation_planner_block_01',
+      payload: { adminPlannerRevision: 45 },
+    });
   });
 
   it('creates with the Account self Participant when that is the selected identity', async () => {

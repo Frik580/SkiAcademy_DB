@@ -2,15 +2,16 @@ import { describe, expect, it } from 'vitest';
 import {
   accountCommandActor,
   AggregateRevisionSchema,
+  AdministrativeAvailabilityBlockIdSchema,
   BookingIdSchema,
   CanonicalCommandError,
   commandErrorResult,
   commandSuccessResult,
   CorrelationIdSchema,
   AccountIdSchema,
+  InstructorIdSchema,
   resolveCommandIdempotencyIdentity,
   type CommandEnvelope,
-  type CommandResult,
 } from '@ski-academy/shared-domain';
 import { createAuthoritativeCommandClock } from './commandClock';
 import { executeIdempotentCanonicalCommand } from './idempotentCommandExecution';
@@ -26,6 +27,26 @@ function envelope(
 ): CommandEnvelope<'complete_booking'> {
   return {
     kind: 'complete_booking',
+    context: {
+      actor: accountCommandActor(accountId),
+      exercisedCapability: 'account_owner',
+      idempotencyKey,
+      correlationId,
+      source: 'client_callable',
+      ...(expectedRevision === undefined
+        ? {}
+        : { expectedRevision: AggregateRevisionSchema.parse(expectedRevision) }),
+    },
+    intent: { bookingId: BookingIdSchema.parse('booking_idem_fn_01') },
+  };
+}
+
+function rescheduleEnvelope(
+  idempotencyKey = 'idem-fn-reschedule-01',
+  expectedRevision?: number
+): CommandEnvelope<'reschedule_booking'> {
+  return {
+    kind: 'reschedule_booking',
     context: {
       actor: accountCommandActor(accountId),
       exercisedCapability: 'account_owner',
@@ -327,6 +348,105 @@ describe('executeIdempotentCanonicalCommand', () => {
     expect(executor.snapshot().docs.get('admin_runtime/admin_lesson_bookings')?.data.revision).toBe(
       1
     );
+    expect(executor.snapshot().docs.has('admin_runtime/admin_planner')).toBe(false);
+  });
+
+  it('bumps admin planner revision once for planned schedule writes', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [bookingPath]: { revision: 1, status: 'confirmed' },
+    });
+
+    const result = await executeIdempotentCanonicalCommand({
+      envelope: rescheduleEnvelope('idem-admin-planner-rev-01', 1),
+      environment: environment('2026-01-01T00:00:00.000Z'),
+      executor,
+      revisionTarget: { ref: { path: bookingPath }, requireExpectedRevision: true },
+      handler: {
+        read: async (session) => {
+          session.plan.planMutation({
+            path: bookingPath,
+            kind: 'update',
+            category: 'aggregate',
+            estimatedPayloadBytes: 256,
+          });
+          session.plan.planMutation({
+            path: 'resource_claims/claim_idem_fn_01',
+            kind: 'update',
+            category: 'other',
+            estimatedPayloadBytes: 256,
+          });
+          session.plan.planMutation({
+            path: 'booking_change_requests/cr_idem_fn_01',
+            kind: 'update',
+            category: 'other',
+            estimatedPayloadBytes: 256,
+          });
+        },
+        execute: async (session) => {
+          session.tx.update({ path: bookingPath }, { revision: 2, status: 'confirmed' });
+          return commandSuccessResult('reschedule_booking', correlationId);
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'success',
+      payload: { adminLessonBookingsRevision: 1, adminPlannerRevision: 1 },
+    });
+    expect(executor.snapshot().docs.get('admin_runtime/admin_lesson_bookings')?.data.revision).toBe(
+      1
+    );
+    expect(executor.snapshot().docs.get('admin_runtime/admin_planner')?.data.revision).toBe(1);
+  });
+
+  it('bumps admin planner revision for availability-block schedule writes', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor();
+    const blockPath = 'administrative_availability_blocks/block_idem_fn_01';
+
+    const result = await executeIdempotentCanonicalCommand({
+      envelope: {
+        kind: 'create_administrative_availability_block',
+        context: {
+          actor: accountCommandActor(accountId),
+          exercisedCapability: 'account_owner',
+          idempotencyKey: 'idem-admin-planner-block-01',
+          correlationId,
+          source: 'client_callable',
+        },
+        intent: {
+          blockId: AdministrativeAvailabilityBlockIdSchema.parse('block_idem_fn_01'),
+          instructorId: InstructorIdSchema.parse('instructor_idem_fn_01'),
+          kind: 'break',
+          reasonExplanation: 'planner test',
+        },
+      },
+      environment: environment('2026-01-01T00:00:00.000Z'),
+      executor,
+      handler: {
+        read: async (session) => {
+          session.plan.planMutation({
+            path: blockPath,
+            kind: 'create',
+            category: 'aggregate',
+            estimatedPayloadBytes: 256,
+          });
+        },
+        execute: async (session) => {
+          session.tx.create({ path: blockPath }, { revision: 1 });
+          return commandSuccessResult(
+            'create_administrative_availability_block',
+            correlationId
+          );
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'success',
+      payload: { adminPlannerRevision: 1 },
+    });
+    expect(executor.snapshot().docs.get('admin_runtime/admin_planner')?.data.revision).toBe(1);
+    expect(executor.snapshot().docs.has('admin_runtime/admin_lesson_bookings')).toBe(false);
   });
 
   it('does not bump admin lesson bookings revision for attendance-only or issue writes', async () => {
@@ -366,6 +486,7 @@ describe('executeIdempotentCanonicalCommand', () => {
       expect(result.payload).toBeUndefined();
     }
     expect(executor.snapshot().docs.has('admin_runtime/admin_lesson_bookings')).toBe(false);
+    expect(executor.snapshot().docs.has('admin_runtime/admin_planner')).toBe(false);
   });
 
   it('does not bump or return a revision when the command fails', async () => {
@@ -399,6 +520,7 @@ describe('executeIdempotentCanonicalCommand', () => {
 
     expect(result.status).toBe('error');
     expect(executor.snapshot().docs.has('admin_runtime/admin_lesson_bookings')).toBe(false);
+    expect(executor.snapshot().docs.has('admin_runtime/admin_planner')).toBe(false);
     expect(executor.snapshot().docs.get(bookingPath)?.data.revision).toBe(1);
   });
 });

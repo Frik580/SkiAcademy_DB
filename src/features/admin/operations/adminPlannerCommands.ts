@@ -20,6 +20,7 @@ import {
   createAdminLogicalBookingId,
 } from '../lesson-bookings/lessonBookingAdminUtils';
 import { occupancyForId } from './adminPlannerMapping';
+import { applyAdminPlannerCommandResult } from './adminPlannerLocalSync';
 import { resolveAdminTimeZone } from './adminTimeZone';
 import { executeAdminLessonBookingAttempt } from '../lesson-bookings/useAdminLessonBookingCommands';
 import type { Booking, Instructor } from '../../../types';
@@ -30,6 +31,14 @@ async function assertSucceeded<Kind extends CommandKind>(
   const result = await command;
   const error = mapCanonicalCommandResultError(result);
   if (error) throw error;
+  applyAdminPlannerCommandResult(result);
+}
+
+async function executePlannerLessonAttempt(
+  adminAccountId: string,
+  attempt: Parameters<typeof executeAdminLessonBookingAttempt>[1]
+): Promise<void> {
+  applyAdminPlannerCommandResult(await executeAdminLessonBookingAttempt(adminAccountId, attempt));
 }
 
 function plannerIdempotency(action: string) {
@@ -177,7 +186,7 @@ export async function createPlannerOccupancyFromLegacyBookingShape(input: {
     accountId: input.booking.userId,
     ...(input.booking.participantId ? { selectedParticipantId: input.booking.participantId } : {}),
   });
-  await executeAdminLessonBookingAttempt(input.adminAccountId, {
+  await executePlannerLessonAttempt(input.adminAccountId, {
     kind: 'create_confirmed_booking',
     idempotencyKey: plannerIdempotency('create_lesson'),
     bookingId: createAdminLogicalBookingId(),
@@ -253,7 +262,7 @@ export async function reschedulePlannerOccupancy(input: {
   if (!item.bookingId) throw new Error('Lesson occupancy is missing a booking id');
   const booking = await loadPlannerLessonDetail(item.bookingId);
   if (!booking) throw new Error('Lesson detail is required to reschedule');
-  await executeAdminLessonBookingAttempt(input.adminAccountId, {
+  await executePlannerLessonAttempt(input.adminAccountId, {
     kind: 'reschedule_booking',
     idempotencyKey: plannerIdempotency('reschedule_lesson'),
     target: { bookingId: item.bookingId, revision: booking.revision },
@@ -318,7 +327,7 @@ export async function reassignPlannerOccupancy(input: {
     }
     bookingRevision = refreshedBooking.revision;
   }
-  await executeAdminLessonBookingAttempt(input.adminAccountId, {
+  await executePlannerLessonAttempt(input.adminAccountId, {
     kind: 'change_booking_instructor',
     idempotencyKey: plannerIdempotency('reassign_lesson'),
     target: { bookingId: item.bookingId, revision: bookingRevision },
@@ -342,7 +351,7 @@ export async function changePlannerOccupancyDuration(input: {
     throw new Error('Lesson detail is required to change duration');
   }
   if (booking.occurrence.durationMinutes === input.durationMinutes) return;
-  await executeAdminLessonBookingAttempt(input.adminAccountId, {
+  await executePlannerLessonAttempt(input.adminAccountId, {
     kind: 'change_booking_duration',
     idempotencyKey: plannerIdempotency('duration_lesson'),
     target: { bookingId: item.bookingId, revision: booking.revision },
@@ -381,7 +390,7 @@ export async function releasePlannerOccupancy(input: {
   if (!item.bookingId) throw new Error('Lesson occupancy is missing a booking id');
   const booking = await loadPlannerLessonDetail(item.bookingId);
   const payment = booking?.admin?.payment;
-  await executeAdminLessonBookingAttempt(input.adminAccountId, {
+  await executePlannerLessonAttempt(input.adminAccountId, {
     kind: 'resolve_booking_cancellation',
     idempotencyKey: plannerIdempotency('cancel_lesson'),
     target: { bookingId: item.bookingId, revision: booking?.revision ?? item.revision },
@@ -412,7 +421,7 @@ export async function completePlannerLesson(input: {
   if (serviceParticipantIds.length === 0) {
     throw new Error('Lesson service party is required for attendance-driven completion');
   }
-  await executeAdminLessonBookingAttempt(input.adminAccountId, {
+  await executePlannerLessonAttempt(input.adminAccountId, {
     kind: 'finalize_booking_attendance',
     idempotencyKey: plannerIdempotency('finalize_lesson_attendance'),
     target: { bookingId: booking.bookingId, revision: booking.revision },
@@ -441,7 +450,7 @@ export async function linkPlannerGuestBooking(input: {
     throw new Error('Guest linking is only available for lesson bookings');
   }
   const participantId = await resolvePayerParticipant(input.adminAccountId, input.targetAccountId);
-  await executeAdminLessonBookingAttempt(input.adminAccountId, {
+  await executePlannerLessonAttempt(input.adminAccountId, {
     kind: 'link_guest_booking_to_account_as_administrator',
     idempotencyKey: plannerIdempotency('link_guest'),
     target: { bookingId: item.bookingId, revision: item.revision },

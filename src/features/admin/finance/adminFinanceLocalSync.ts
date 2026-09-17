@@ -1,7 +1,4 @@
-import {
-  AdminFinanceRevisionPayloadSchema,
-  type CommandResult,
-} from '@ski-academy/shared-domain';
+import { AdminFinanceRevisionPayloadSchema, type CommandResult } from '@ski-academy/shared-domain';
 import { registerAdminFinanceRevisionFromCommand } from './adminFinanceRevisionCoordinator';
 
 export function applyAdminFinanceCommandResult(result: CommandResult): void {

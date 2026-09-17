@@ -86,27 +86,24 @@ export function useAdminCourseEnrollmentReadModels(input: {
     [courseId, enabled, view]
   );
 
-  const loadDetail = useCallback(
-    async (enrollmentId: CourseEnrollmentId, quiet = false) => {
-      const generation = ++detailGeneration.current;
-      if (!quiet) {
-        setDetail({ loading: true });
-      }
-      try {
-        const result = await queryAdminCourseEnrollmentReadModels({
-          scope: 'admin_enrollment_detail',
-          enrollmentId,
-        });
-        if (generation !== detailGeneration.current) return;
-        if (result.scope !== 'admin_enrollment_detail') throw new Error('Unexpected list result');
-        setDetail({ loading: false, ...(result.item ? { item: result.item } : {}) });
-      } catch (error) {
-        if (generation !== detailGeneration.current) return;
-        setDetail({ loading: false, error: readError(error) });
-      }
-    },
-    []
-  );
+  const loadDetail = useCallback(async (enrollmentId: CourseEnrollmentId, quiet = false) => {
+    const generation = ++detailGeneration.current;
+    if (!quiet) {
+      setDetail({ loading: true });
+    }
+    try {
+      const result = await queryAdminCourseEnrollmentReadModels({
+        scope: 'admin_enrollment_detail',
+        enrollmentId,
+      });
+      if (generation !== detailGeneration.current) return;
+      if (result.scope !== 'admin_enrollment_detail') throw new Error('Unexpected list result');
+      setDetail({ loading: false, ...(result.item ? { item: result.item } : {}) });
+    } catch (error) {
+      if (generation !== detailGeneration.current) return;
+      setDetail({ loading: false, error: readError(error) });
+    }
+  }, []);
 
   useEffect(() => {
     void loadList();
@@ -132,12 +129,15 @@ export function useAdminCourseEnrollmentReadModels(input: {
     };
   }, [enabled, loadDetail, selectedEnrollmentId]);
 
-  useAdminCoursesRevisionRefresh(() => {
-    void loadList(undefined, false, true);
-    if (selectedEnrollmentId) {
-      void loadDetail(selectedEnrollmentId, true);
-    }
-  }, enabled && view !== 'history');
+  useAdminCoursesRevisionRefresh(
+    () => {
+      void loadList(undefined, false, true);
+      if (selectedEnrollmentId) {
+        void loadDetail(selectedEnrollmentId, true);
+      }
+    },
+    enabled && view !== 'history'
+  );
 
   const refreshEnrollment = useCallback(
     async (enrollmentId: CourseEnrollmentId) => {

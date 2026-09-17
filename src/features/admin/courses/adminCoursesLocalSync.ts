@@ -1,7 +1,4 @@
-import {
-  AdminCoursesRevisionPayloadSchema,
-  type CommandResult,
-} from '@ski-academy/shared-domain';
+import { AdminCoursesRevisionPayloadSchema, type CommandResult } from '@ski-academy/shared-domain';
 import { registerAdminCoursesRevisionFromCommand } from './adminCoursesRevisionCoordinator';
 
 export function applyAdminCoursesCommandResult(result: CommandResult): void {

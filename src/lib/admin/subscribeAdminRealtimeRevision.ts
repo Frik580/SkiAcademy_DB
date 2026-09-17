@@ -11,9 +11,7 @@ export function subscribeAdminRealtimeRevision(input: {
   return onSnapshot(
     ref,
     (snapshot) => {
-      const parsed = snapshot.exists()
-        ? input.schema.safeParse(snapshot.data())
-        : undefined;
+      const parsed = snapshot.exists() ? input.schema.safeParse(snapshot.data()) : undefined;
       input.onRevision(parsed?.success ? parsed.data.revision : 0);
     },
     () => {

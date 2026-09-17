@@ -1,7 +1,4 @@
-import {
-  AdminPlannerRevisionPayloadSchema,
-  type CommandResult,
-} from '@ski-academy/shared-domain';
+import { AdminPlannerRevisionPayloadSchema, type CommandResult } from '@ski-academy/shared-domain';
 import { registerAdminPlannerRevisionFromCommand } from './adminPlannerRevisionCoordinator';
 
 export function applyAdminPlannerCommandResult(result: CommandResult): void {

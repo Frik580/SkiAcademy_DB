@@ -12,6 +12,7 @@ import {
   ADMIN_TAB_QUERY_KEY,
 } from '../adminNavigation';
 import { queryAdminCourseReadModels } from '../../../lib/canonical/canonicalReadModelClient';
+import { useAdminCoursesRevisionRefresh } from '../courses/useAdminCoursesRevisionRefresh';
 import type {
   AdminCourseEnrollmentAttempt,
   AdminCourseEnrollmentCourseOption,
@@ -87,6 +88,10 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
       if (generation === courseGeneration.current) setCourseError(true);
     }
   }, []);
+
+  useAdminCoursesRevisionRefresh(() => {
+    void loadCourses();
+  }, true);
 
   const commands = useAdminCourseEnrollmentCommands({
     adminAccountId,

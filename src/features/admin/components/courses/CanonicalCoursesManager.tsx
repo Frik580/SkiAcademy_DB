@@ -15,6 +15,8 @@ import { executeAuthenticatedCanonicalCommand } from '../../../../lib/canonical/
 import { toCanonicalCommandClientError } from '../../../../lib/canonical/mapCanonicalCommandError';
 import { ActionButton } from '../../../../ui/ActionButton';
 import { queryAdminCourseReadModels } from '../../../../lib/canonical/canonicalReadModelClient';
+import { applyAdminCoursesCommandResult } from '../../courses/adminCoursesLocalSync';
+import { useAdminCoursesRevisionRefresh } from '../../courses/useAdminCoursesRevisionRefresh';
 import { useAdminIdentityReadModels } from '../../identity/useAdminIdentityReadModels';
 import type { CanonicalCoursesManagerInput } from './adminCourseContracts';
 import { useAdminCourseTranslations } from './useAdminCourseTranslations';
@@ -213,13 +215,13 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
   });
 
   const loadCoursePage = useCallback(
-    async (scope: CourseLifecycleScope, cursor?: string, append = false) => {
+    async (scope: CourseLifecycleScope, cursor?: string, append = false, quiet = false) => {
       const requestId = ++listRequestRef.current[scope];
       setCourseLists((previous) => ({
         ...previous,
         [scope]: {
           ...previous[scope],
-          loadingInitial: !append,
+          loadingInitial: !append && !quiet,
           loadingMore: append,
           error: undefined,
         },
@@ -301,6 +303,13 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
     }
   }, [currentList.initialized, currentList.loadingInitial, lifecycleScope, loadCoursePage]);
 
+  useAdminCoursesRevisionRefresh(() => {
+    void loadCoursePage(lifecycleScope, undefined, false, true);
+    if (selectedCourseId) {
+      void loadCourseDetail(selectedCourseId);
+    }
+  }, true);
+
   const instructorOptions = useMemo(
     () =>
       new Map(
@@ -373,6 +382,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
           setMutationError(commandError(result.error.code));
           return false;
         }
+        applyAdminCoursesCommandResult(result);
         if (input.kind === 'archive_course' || input.kind === 'reactivate_course') {
           const courseId = (input.intent as { readonly courseId: string }).courseId;
           const source: CourseLifecycleScope =

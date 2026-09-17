@@ -18,6 +18,12 @@ vi.mock('../../src/features/admin/lesson-bookings/adminLessonBookingsRevisionCoo
   resetAdminLessonBookingsRevisionCoordinatorForTests: vi.fn(),
 }));
 
+vi.mock('../../src/features/admin/courses/adminCoursesRevisionCoordinator', () => ({
+  registerAdminCoursesRevisionListener: () => () => {},
+  registerAdminCoursesRevisionFromCommand: vi.fn(),
+  resetAdminCoursesRevisionCoordinatorForTests: vi.fn(),
+}));
+
 vi.mock('../../src/features/admin/components/finance/useAdminFinanceReadModels', () => ({
   useAdminFinancialOverviewReadModel: () => ({
     item: undefined,

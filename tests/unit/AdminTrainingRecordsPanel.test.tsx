@@ -41,6 +41,12 @@ vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
   queryAdminCourseReadModels: (...args: unknown[]) => courseListMock(...args),
 }));
 
+vi.mock('../../src/features/admin/courses/adminCoursesRevisionCoordinator', () => ({
+  registerAdminCoursesRevisionListener: () => () => {},
+  registerAdminCoursesRevisionFromCommand: vi.fn(),
+  resetAdminCoursesRevisionCoordinatorForTests: vi.fn(),
+}));
+
 vi.mock('../../src/features/admin/operations/AdminMonitorReadModelsContext', () => ({
   useSharedAdminMonitorReadModels: () => ({
     refreshAllProjections: vi.fn().mockResolvedValue(undefined),

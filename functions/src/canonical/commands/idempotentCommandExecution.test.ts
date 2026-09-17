@@ -9,7 +9,9 @@ import {
   commandSuccessResult,
   CorrelationIdSchema,
   AccountIdSchema,
+  CourseIdSchema,
   InstructorIdSchema,
+  ParticipantIdSchema,
   resolveCommandIdempotencyIdentity,
   type CommandEnvelope,
 } from '@ski-academy/shared-domain';
@@ -58,6 +60,25 @@ function rescheduleEnvelope(
         : { expectedRevision: AggregateRevisionSchema.parse(expectedRevision) }),
     },
     intent: { bookingId: BookingIdSchema.parse('booking_idem_fn_01') },
+  };
+}
+
+function createCourseEnrollmentsEnvelope(
+  idempotencyKey = 'idem-fn-course-enroll-01'
+): CommandEnvelope<'create_course_enrollments'> {
+  return {
+    kind: 'create_course_enrollments',
+    context: {
+      actor: accountCommandActor(accountId),
+      exercisedCapability: 'account_owner',
+      idempotencyKey,
+      correlationId,
+      source: 'client_callable',
+    },
+    intent: {
+      courseId: CourseIdSchema.parse('course_idem_fn_01'),
+      participantIds: [ParticipantIdSchema.parse('participant_idem_fn_01')],
+    },
   };
 }
 
@@ -447,6 +468,149 @@ describe('executeIdempotentCanonicalCommand', () => {
     });
     expect(executor.snapshot().docs.get('admin_runtime/admin_planner')?.data.revision).toBe(1);
     expect(executor.snapshot().docs.has('admin_runtime/admin_lesson_bookings')).toBe(false);
+  });
+
+  it('bumps admin courses revision once for planned enrollment and course writes', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor();
+    const enrollmentPath = 'course_enrollments/enrollment_idem_fn_01';
+    const coursePath = 'courses/course_idem_fn_01';
+
+    const result = await executeIdempotentCanonicalCommand({
+      envelope: createCourseEnrollmentsEnvelope(),
+      environment: environment('2026-01-01T00:00:00.000Z'),
+      executor,
+      handler: {
+        read: async (session) => {
+          session.plan.planMutation({
+            path: enrollmentPath,
+            kind: 'create',
+            category: 'aggregate',
+            estimatedPayloadBytes: 256,
+          });
+          session.plan.planMutation({
+            path: coursePath,
+            kind: 'update',
+            category: 'aggregate',
+            estimatedPayloadBytes: 256,
+          });
+          session.plan.planMutation({
+            path: 'payments/pay_idem_fn_course_01',
+            kind: 'create',
+            category: 'payment_wallet',
+            estimatedPayloadBytes: 256,
+          });
+        },
+        execute: async (session) => {
+          session.tx.create({ path: enrollmentPath }, { revision: 1 });
+          session.tx.create({ path: coursePath }, { revision: 1 });
+          return commandSuccessResult('create_course_enrollments', correlationId, {
+            outcome: 'created',
+          });
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'success',
+      payload: { outcome: 'created', adminCoursesRevision: 1 },
+    });
+    expect(executor.snapshot().docs.get('admin_runtime/admin_courses')?.data.revision).toBe(1);
+    expect(executor.snapshot().docs.has('admin_runtime/admin_lesson_bookings')).toBe(false);
+  });
+
+  it('does not bump admin courses revision for attendance-only or payment-only writes', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [bookingPath]: { revision: 1, status: 'confirmed' },
+    });
+
+    const attendanceResult = await executeIdempotentCanonicalCommand({
+      envelope: {
+        kind: 'record_course_day_attendance',
+        context: {
+          actor: accountCommandActor(accountId),
+          exercisedCapability: 'account_owner',
+          idempotencyKey: 'idem-admin-courses-rev-att-01',
+          correlationId,
+          source: 'client_callable',
+        },
+        intent: {
+          courseEnrollmentId: 'enrollment_idem_fn_01',
+          courseDayId: 'day_idem_fn_01',
+          attendanceStatus: 'present',
+        },
+      } as CommandEnvelope<'record_course_day_attendance'>,
+      environment: environment('2026-01-01T00:00:00.000Z'),
+      executor,
+      handler: {
+        read: async (session) => {
+          session.plan.planMutation({
+            path: 'attendance/att_idem_fn_course_01',
+            kind: 'create',
+            category: 'aggregate',
+            estimatedPayloadBytes: 256,
+          });
+          session.plan.planMutation({
+            path: 'course_enrollments/enrollment_idem_fn_01',
+            kind: 'update',
+            category: 'aggregate',
+            estimatedPayloadBytes: 256,
+          });
+        },
+        execute: async (session) => {
+          session.tx.create({ path: 'attendance/att_idem_fn_course_01' }, { status: 'present' });
+          return commandSuccessResult('record_course_day_attendance', correlationId, {
+            resolvedAdminIssueIds: [],
+          });
+        },
+      },
+    });
+
+    expect(attendanceResult.status).toBe('success');
+    if (attendanceResult.status === 'success') {
+      expect(attendanceResult.payload).not.toHaveProperty('adminCoursesRevision');
+    }
+    expect(executor.snapshot().docs.has('admin_runtime/admin_courses')).toBe(false);
+
+    const paymentResult = await executeIdempotentCanonicalCommand({
+      envelope: {
+        kind: 'record_provider_payment_event',
+        context: {
+          actor: accountCommandActor(accountId),
+          exercisedCapability: 'account_owner',
+          idempotencyKey: 'idem-admin-courses-rev-pay-01',
+          correlationId,
+          source: 'client_callable',
+        },
+        intent: {
+          paymentId: 'payment_idem_fn_01',
+          amount: 1,
+          sourceKind: 'cash',
+          manualReference: 'admin-cash:test',
+        },
+      } as CommandEnvelope<'record_provider_payment_event'>,
+      environment: environment('2026-01-01T00:00:00.000Z'),
+      executor,
+      handler: {
+        read: async (session) => {
+          session.plan.planMutation({
+            path: 'payments/pay_idem_fn_01',
+            kind: 'create',
+            category: 'payment_wallet',
+            estimatedPayloadBytes: 256,
+          });
+        },
+        execute: async (session) => {
+          session.tx.create({ path: 'payments/pay_idem_fn_01' }, { status: 'paid' });
+          return commandSuccessResult('record_provider_payment_event', correlationId);
+        },
+      },
+    });
+
+    expect(paymentResult.status).toBe('success');
+    if (paymentResult.status === 'success') {
+      expect(paymentResult.payload).toBeUndefined();
+    }
+    expect(executor.snapshot().docs.has('admin_runtime/admin_courses')).toBe(false);
   });
 
   it('does not bump admin lesson bookings revision for attendance-only or issue writes', async () => {

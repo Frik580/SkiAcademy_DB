@@ -75,6 +75,7 @@ describe('firestore.rules guardrails', () => {
       /match \/admin_runtime\/\{documentId\}[\s\S]*allow write: if false;/
     );
     expect(rulesSource).toContain("documentId == 'admin_planner'");
+    expect(rulesSource).toContain("documentId == 'admin_courses'");
   });
 
   it('contains direct Admin monetary and destructive writes', () => {

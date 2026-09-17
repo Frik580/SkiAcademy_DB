@@ -7,6 +7,7 @@ export { createCourseEnrollmentAttendanceCommandHandlers } from './courseEnrollm
 export { createCourseEnrollmentReconciliationCommandHandlers } from './courseEnrollmentReconciliationCommands';
 export { createGuestCourseEnrollmentLinkCommandHandlers } from './guestCourseEnrollmentLinkCommands';
 export { createAdminGuestCourseEnrollmentLinkCommandHandlers } from './adminGuestCourseEnrollmentLinkCommands';
+export * from './adminCoursesRevision';
 export * from './courseEnrollmentOutcomeWork';
 export * from './courseEnrollmentOutcomeWorkSync';
 export * from './courseEnrollmentOutcomeSweep';

@@ -50,6 +50,12 @@ vi.mock('../../src/lib/canonical/canonicalCommandClient', () => ({
     executeAuthenticatedCanonicalCommand(...args),
 }));
 
+vi.mock('../../src/features/admin/courses/adminCoursesRevisionCoordinator', () => ({
+  registerAdminCoursesRevisionListener: () => () => {},
+  registerAdminCoursesRevisionFromCommand: vi.fn(),
+  resetAdminCoursesRevisionCoordinatorForTests: vi.fn(),
+}));
+
 const timestamp = { seconds: 1_800_000_000, nanoseconds: 0 };
 const listCourse = {
   courseId: 'course_admin_component_01',

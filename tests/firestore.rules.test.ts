@@ -2871,3 +2871,57 @@ describe('admin planner revision signal', () => {
     await assertFails(deleteDoc(anonymousRef));
   });
 });
+
+describe('admin courses revision signal', () => {
+  beforeEach(async () => {
+    await seedData(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, 'users', USER_ID), userProfile(USER_ID, 'user@example.com'));
+      await setDoc(
+        doc(db, 'users', INSTRUCTOR_USER_ID),
+        userProfile(INSTRUCTOR_USER_ID, 'instructor@example.com')
+      );
+      await setDoc(doc(db, 'admin_runtime', 'admin_courses'), {
+        revision: 10,
+        updatedAt: { seconds: 1, nanoseconds: 0 },
+      });
+    });
+  });
+
+  it('allows admin read and denies student, instructor, unauth read and all client writes', async () => {
+    const adminDb = testEnv
+      .authenticatedContext(OWNER_ID, { email: 'owner@example.com' })
+      .firestore();
+    const userDb = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
+    const instructorDb = testEnv
+      .authenticatedContext(INSTRUCTOR_USER_ID, { email: 'instructor@example.com' })
+      .firestore();
+    const anonymousDb = testEnv.unauthenticatedContext().firestore();
+    const adminRef = doc(adminDb, 'admin_runtime', 'admin_courses');
+    const userRef = doc(userDb, 'admin_runtime', 'admin_courses');
+    const instructorRef = doc(instructorDb, 'admin_runtime', 'admin_courses');
+    const anonymousRef = doc(anonymousDb, 'admin_runtime', 'admin_courses');
+
+    await assertSucceeds(getDoc(adminRef));
+    await assertFails(getDoc(userRef));
+    await assertFails(getDoc(instructorRef));
+    await assertFails(getDoc(anonymousRef));
+    await assertFails(
+      setDoc(adminRef, { revision: 11, updatedAt: { seconds: 2, nanoseconds: 0 } })
+    );
+    await assertFails(updateDoc(adminRef, { revision: 11 }));
+    await assertFails(deleteDoc(adminRef));
+    await assertFails(setDoc(userRef, { revision: 11, updatedAt: { seconds: 2, nanoseconds: 0 } }));
+    await assertFails(updateDoc(userRef, { revision: 11 }));
+    await assertFails(deleteDoc(userRef));
+    await assertFails(
+      setDoc(instructorRef, { revision: 11, updatedAt: { seconds: 2, nanoseconds: 0 } })
+    );
+    await assertFails(updateDoc(instructorRef, { revision: 11 }));
+    await assertFails(deleteDoc(instructorRef));
+    await assertFails(
+      setDoc(anonymousRef, { revision: 11, updatedAt: { seconds: 2, nanoseconds: 0 } })
+    );
+    await assertFails(deleteDoc(anonymousRef));
+  });
+});

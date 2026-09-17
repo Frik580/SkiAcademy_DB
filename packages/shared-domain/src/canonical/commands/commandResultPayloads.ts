@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { AttendanceAdminIssueResultPayloadSchema } from '../adminIssueInboxRevision';
+import { AdminCoursesRevisionPayloadSchema } from '../adminCoursesRevision';
 import { AdminLessonBookingsRevisionPayloadSchema } from '../adminLessonBookingsRevision';
 import { AdminPlannerRevisionPayloadSchema } from '../adminPlannerRevision';
 import {
@@ -52,6 +53,7 @@ export const CreateCourseEnrollmentsResultPayloadSchema = z
   .object({
     outcome: CreateCourseEnrollmentOutcomeSchema,
     guestLinkCredentials: z.array(GuestCourseEnrollmentLinkCredentialSchema).optional(),
+    adminCoursesRevision: AdminCoursesRevisionPayloadSchema.shape.adminCoursesRevision,
   })
   .strict();
 
@@ -80,6 +82,7 @@ export const ApplyCanonicalCourseProvisioningManifestResultPayloadSchema = z
     availableSeats: z.number().finite().int().min(0).max(64),
     scheduleComplete: z.boolean().optional(),
     adminPlannerRevision: AdminPlannerRevisionPayloadSchema.shape.adminPlannerRevision,
+    adminCoursesRevision: AdminCoursesRevisionPayloadSchema.shape.adminCoursesRevision,
   })
   .strict();
 
@@ -164,6 +167,7 @@ export const RequestCancellationResultPayloadSchema = z
     adminLessonBookingsRevision: AdminLessonBookingsRevisionPayloadSchema.shape
       .adminLessonBookingsRevision,
     adminPlannerRevision: AdminPlannerRevisionPayloadSchema.shape.adminPlannerRevision,
+    adminCoursesRevision: AdminCoursesRevisionPayloadSchema.shape.adminCoursesRevision,
   })
   .strict();
 

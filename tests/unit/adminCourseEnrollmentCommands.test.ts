@@ -10,6 +10,12 @@ vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
   queryAdminFinanceReadModels: vi.fn().mockResolvedValue({ scope: 'admin_payment_detail' }),
 }));
 
+vi.mock('../../src/features/admin/courses/adminCoursesRevisionCoordinator', () => ({
+  registerAdminCoursesRevisionListener: () => () => {},
+  registerAdminCoursesRevisionFromCommand: vi.fn(),
+  resetAdminCoursesRevisionCoordinatorForTests: vi.fn(),
+}));
+
 import {
   captureAdminCourseEnrollmentTarget,
   createAdminCourseEnrollmentAttemptId,

@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ActionButton } from '../../../ui/ActionButton';
 import { queryAdminCourseReadModels } from '../../../lib/canonical/canonicalReadModelClient';
+import { useAdminCoursesRevisionRefresh } from '../courses/useAdminCoursesRevisionRefresh';
 import {
   ADMIN_CHANGE_REQUEST_QUERY_KEY,
   ADMIN_COURSE_ENROLLMENT_COURSE_QUERY_KEY,
@@ -211,6 +212,9 @@ export function AdminTrainingRecordsPanel({
       // Course catalog is only needed for enroll-on-behalf; list records still render.
     }
   }, []);
+  useAdminCoursesRevisionRefresh(() => {
+    void loadCourses();
+  }, kind !== 'lesson');
   const courseCommands = useAdminCourseEnrollmentCommands({
     adminAccountId,
     refreshList: courseReads.refreshList,

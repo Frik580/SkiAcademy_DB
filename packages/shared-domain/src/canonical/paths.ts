@@ -12,6 +12,10 @@ import {
   ADMIN_PLANNER_REVISION_DOCUMENT_ID,
 } from './adminPlannerRevision';
 import {
+  ADMIN_COURSES_REVISION_COLLECTION,
+  ADMIN_COURSES_REVISION_DOCUMENT_ID,
+} from './adminCoursesRevision';
+import {
   AccountIdSchema,
   ActiveCourseEnrollmentGuardKeySchema,
   ActivityLogIdSchema,
@@ -175,7 +179,9 @@ function isCanonicalDocumentPath(path: string): boolean {
       (segments[1] === ADMIN_LESSON_BOOKINGS_REVISION_COLLECTION &&
         segments[2] === ADMIN_LESSON_BOOKINGS_REVISION_DOCUMENT_ID) ||
       (segments[1] === ADMIN_PLANNER_REVISION_COLLECTION &&
-        segments[2] === ADMIN_PLANNER_REVISION_DOCUMENT_ID))
+        segments[2] === ADMIN_PLANNER_REVISION_DOCUMENT_ID) ||
+      (segments[1] === ADMIN_COURSES_REVISION_COLLECTION &&
+        segments[2] === ADMIN_COURSES_REVISION_DOCUMENT_ID))
   ) {
     return true;
   }
@@ -255,6 +261,8 @@ export const canonicalPaths = {
     ),
   adminPlannerRevision: () =>
     documentPath(ADMIN_PLANNER_REVISION_COLLECTION, ADMIN_PLANNER_REVISION_DOCUMENT_ID),
+  adminCoursesRevision: () =>
+    documentPath(ADMIN_COURSES_REVISION_COLLECTION, ADMIN_COURSES_REVISION_DOCUMENT_ID),
   administrativeAvailabilityBlock: (id: AdministrativeAvailabilityBlockId) =>
     documentPath('administrative_availability_blocks', id),
   resourceClaim: (id: ResourceClaimId) => documentPath('resource_claims', id),

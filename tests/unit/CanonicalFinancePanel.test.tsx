@@ -27,6 +27,12 @@ vi.mock('../../src/lib/canonical/canonicalCommandClient', () => ({
   executeAuthenticatedCanonicalCommand: mockExecuteCommand,
 }));
 
+vi.mock('../../src/features/admin/finance/adminFinanceRevisionCoordinator', () => ({
+  registerAdminFinanceRevisionListener: () => () => {},
+  registerAdminFinanceRevisionFromCommand: vi.fn(),
+  resetAdminFinanceRevisionCoordinatorForTests: vi.fn(),
+}));
+
 import { CanonicalFinancePanel } from '../../src/features/admin/components/finance/CanonicalFinancePanel';
 
 const accountId = AccountIdSchema.parse('account_admin_finance_component_01');

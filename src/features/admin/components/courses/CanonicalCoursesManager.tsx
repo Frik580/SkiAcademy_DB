@@ -16,6 +16,7 @@ import { toCanonicalCommandClientError } from '../../../../lib/canonical/mapCano
 import { ActionButton } from '../../../../ui/ActionButton';
 import { queryAdminCourseReadModels } from '../../../../lib/canonical/canonicalReadModelClient';
 import { applyAdminCoursesCommandResult } from '../../courses/adminCoursesLocalSync';
+import { applyAdminFinanceCommandResult } from '../../finance/adminFinanceLocalSync';
 import { useAdminCoursesRevisionRefresh } from '../../courses/useAdminCoursesRevisionRefresh';
 import { useAdminIdentityReadModels } from '../../identity/useAdminIdentityReadModels';
 import type { CanonicalCoursesManagerInput } from './adminCourseContracts';
@@ -383,6 +384,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
           return false;
         }
         applyAdminCoursesCommandResult(result);
+        applyAdminFinanceCommandResult(result);
         if (input.kind === 'archive_course' || input.kind === 'reactivate_course') {
           const courseId = (input.intent as { readonly courseId: string }).courseId;
           const source: CourseLifecycleScope =

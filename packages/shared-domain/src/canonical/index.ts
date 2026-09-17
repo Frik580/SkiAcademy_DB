@@ -51,6 +51,7 @@ export * from './adminIssueInboxRevision';
 export * from './adminLessonBookingsRevision';
 export * from './adminPlannerRevision';
 export * from './adminCoursesRevision';
+export * from './adminFinanceRevision';
 export * from './adminRealtimeRevisionSignal';
 export * from './deterministicIdentity';
 export * from './errors';

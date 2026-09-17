@@ -8,6 +8,7 @@ import {
   classifyAdminFinanceReadError,
   type AdminFinanceReadErrorCode,
 } from '../components/finance/useAdminFinanceReadModels';
+import { useAdminFinanceRevisionRefresh } from './useAdminFinanceRevisionRefresh';
 
 interface GuestFundsState {
   readonly item?: AdminGuestFundsReadModel;
@@ -78,6 +79,10 @@ export function useAdminGuestFundsReadModel(filter: AdminGuestFundsDiscoveryFilt
       generationRef.current += 1;
     };
   }, [load]);
+
+  useAdminFinanceRevisionRefresh(() => {
+    void load();
+  }, true);
 
   return {
     ...state,

@@ -867,7 +867,8 @@ service cloud.firestore {
         documentId == 'admin_issue_inbox' ||
         documentId == 'admin_lesson_bookings' ||
         documentId == 'admin_planner' ||
-        documentId == 'admin_courses'
+        documentId == 'admin_courses' ||
+        documentId == 'admin_finance'
       );
       allow write: if false;
     }

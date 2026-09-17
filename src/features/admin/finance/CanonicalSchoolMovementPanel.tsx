@@ -11,6 +11,7 @@ import {
 } from '../adminNavigation';
 import { formatDateLocalYMD } from '../components/schedule/scheduleUtils';
 import { resolveAdminTimeZone } from '../operations/adminTimeZone';
+import { useAdminFinanceRevisionRefresh } from './useAdminFinanceRevisionRefresh';
 
 function formatKzt(amount: number, locale: string): string {
   const sign = amount < 0 ? '-' : '';
@@ -85,6 +86,11 @@ export function CanonicalSchoolMovementPanel() {
     setPage(1);
     void load();
   }, [load]);
+
+  useAdminFinanceRevisionRefresh(() => {
+    setPage(1);
+    void load();
+  }, true);
 
   const filtered = useMemo(
     () =>

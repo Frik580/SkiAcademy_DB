@@ -20,6 +20,7 @@ import {
   createAdminLogicalBookingId,
 } from '../lesson-bookings/lessonBookingAdminUtils';
 import { occupancyForId } from './adminPlannerMapping';
+import { applyAdminFinanceCommandResult } from '../finance/adminFinanceLocalSync';
 import { applyAdminPlannerCommandResult } from './adminPlannerLocalSync';
 import { resolveAdminTimeZone } from './adminTimeZone';
 import { executeAdminLessonBookingAttempt } from '../lesson-bookings/useAdminLessonBookingCommands';
@@ -32,6 +33,7 @@ async function assertSucceeded<Kind extends CommandKind>(
   const error = mapCanonicalCommandResultError(result);
   if (error) throw error;
   applyAdminPlannerCommandResult(result);
+  applyAdminFinanceCommandResult(result);
 }
 
 async function executePlannerLessonAttempt(

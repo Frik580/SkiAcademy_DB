@@ -56,6 +56,12 @@ vi.mock('../../src/features/admin/courses/adminCoursesRevisionCoordinator', () =
   resetAdminCoursesRevisionCoordinatorForTests: vi.fn(),
 }));
 
+vi.mock('../../src/features/admin/finance/adminFinanceRevisionCoordinator', () => ({
+  registerAdminFinanceRevisionListener: () => () => {},
+  registerAdminFinanceRevisionFromCommand: vi.fn(),
+  resetAdminFinanceRevisionCoordinatorForTests: vi.fn(),
+}));
+
 const timestamp = { seconds: 1_800_000_000, nanoseconds: 0 };
 const listCourse = {
   courseId: 'course_admin_component_01',

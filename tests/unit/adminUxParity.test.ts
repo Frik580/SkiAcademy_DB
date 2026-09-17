@@ -1,4 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('../../src/features/admin/finance/adminFinanceRevisionCoordinator', () => ({
+  registerAdminFinanceRevisionListener: () => () => {},
+  registerAdminFinanceRevisionFromCommand: vi.fn(),
+  resetAdminFinanceRevisionCoordinatorForTests: vi.fn(),
+}));
 import {
   mergeAdminBookingMonitorRows,
   lessonBookingToMonitorRow,

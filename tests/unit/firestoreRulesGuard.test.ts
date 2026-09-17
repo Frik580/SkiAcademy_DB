@@ -76,6 +76,7 @@ describe('firestore.rules guardrails', () => {
     );
     expect(rulesSource).toContain("documentId == 'admin_planner'");
     expect(rulesSource).toContain("documentId == 'admin_courses'");
+    expect(rulesSource).toContain("documentId == 'admin_finance'");
   });
 
   it('contains direct Admin monetary and destructive writes', () => {

@@ -34,6 +34,12 @@ vi.mock('../../src/features/admin/operations/adminPlannerLocalSync', () => ({
   applyAdminPlannerCommandResult: (...args: unknown[]) => applyPlannerRevision(...args),
 }));
 
+vi.mock('../../src/features/admin/finance/adminFinanceRevisionCoordinator', () => ({
+  registerAdminFinanceRevisionListener: () => () => {},
+  registerAdminFinanceRevisionFromCommand: vi.fn(),
+  resetAdminFinanceRevisionCoordinatorForTests: vi.fn(),
+}));
+
 import {
   changePlannerOccupancyDuration,
   completePlannerLesson,

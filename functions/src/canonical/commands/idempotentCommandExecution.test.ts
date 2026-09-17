@@ -418,6 +418,7 @@ describe('executeIdempotentCanonicalCommand', () => {
       1
     );
     expect(executor.snapshot().docs.get('admin_runtime/admin_planner')?.data.revision).toBe(1);
+    expect(executor.snapshot().docs.has('admin_runtime/admin_finance')).toBe(false);
   });
 
   it('bumps admin planner revision for availability-block schedule writes', async () => {
@@ -512,9 +513,10 @@ describe('executeIdempotentCanonicalCommand', () => {
 
     expect(result).toMatchObject({
       status: 'success',
-      payload: { outcome: 'created', adminCoursesRevision: 1 },
+      payload: { outcome: 'created', adminCoursesRevision: 1, adminFinanceRevision: 1 },
     });
     expect(executor.snapshot().docs.get('admin_runtime/admin_courses')?.data.revision).toBe(1);
+    expect(executor.snapshot().docs.get('admin_runtime/admin_finance')?.data.revision).toBe(1);
     expect(executor.snapshot().docs.has('admin_runtime/admin_lesson_bookings')).toBe(false);
   });
 
@@ -568,6 +570,7 @@ describe('executeIdempotentCanonicalCommand', () => {
     expect(attendanceResult.status).toBe('success');
     if (attendanceResult.status === 'success') {
       expect(attendanceResult.payload).not.toHaveProperty('adminCoursesRevision');
+      expect(attendanceResult.payload).not.toHaveProperty('adminFinanceRevision');
     }
     expect(executor.snapshot().docs.has('admin_runtime/admin_courses')).toBe(false);
 
@@ -608,9 +611,10 @@ describe('executeIdempotentCanonicalCommand', () => {
 
     expect(paymentResult.status).toBe('success');
     if (paymentResult.status === 'success') {
-      expect(paymentResult.payload).toBeUndefined();
+      expect(paymentResult.payload).toEqual({ adminFinanceRevision: 1 });
     }
     expect(executor.snapshot().docs.has('admin_runtime/admin_courses')).toBe(false);
+    expect(executor.snapshot().docs.get('admin_runtime/admin_finance')?.data.revision).toBe(1);
   });
 
   it('does not bump admin lesson bookings revision for attendance-only or issue writes', async () => {
@@ -653,6 +657,118 @@ describe('executeIdempotentCanonicalCommand', () => {
     expect(executor.snapshot().docs.has('admin_runtime/admin_planner')).toBe(false);
   });
 
+  it('bumps admin finance revision once for multiple payment and wallet writes', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor();
+
+    const result = await executeIdempotentCanonicalCommand({
+      envelope: {
+        kind: 'pay_service_from_wallet_as_administrator',
+        context: {
+          actor: accountCommandActor(accountId),
+          exercisedCapability: 'account_owner',
+          idempotencyKey: 'idem-admin-finance-rev-pay-wallet-01',
+          correlationId,
+          source: 'client_callable',
+        },
+        intent: {
+          subjectKind: 'booking',
+          bookingId: BookingIdSchema.parse('booking_idem_fn_01'),
+        },
+      } as CommandEnvelope<'pay_service_from_wallet_as_administrator'>,
+      environment: environment('2026-01-01T00:00:00.000Z'),
+      executor,
+      handler: {
+        read: async (session) => {
+          session.plan.planMutation({
+            path: 'payments/pay_idem_fn_wallet_01',
+            kind: 'create',
+            category: 'payment_wallet',
+            estimatedPayloadBytes: 256,
+          });
+          session.plan.planMutation({
+            path: `users/${accountId}/wallet/state`,
+            kind: 'create',
+            category: 'payment_wallet',
+            estimatedPayloadBytes: 256,
+          });
+          session.plan.planMutation({
+            path: 'monetary_events/event_idem_fn_01',
+            kind: 'create',
+            category: 'payment_wallet',
+            estimatedPayloadBytes: 256,
+          });
+        },
+        execute: async (session) => {
+          session.tx.create({ path: 'payments/pay_idem_fn_wallet_01' }, { status: 'paid' });
+          session.tx.create({ path: `users/${accountId}/wallet/state` }, { balance: 1 });
+          session.tx.create({ path: 'monetary_events/event_idem_fn_01' }, { amount: 1 });
+          return commandSuccessResult(
+            'pay_service_from_wallet_as_administrator',
+            correlationId
+          );
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'success',
+      payload: { adminFinanceRevision: 1 },
+    });
+    expect(executor.snapshot().docs.get('admin_runtime/admin_finance')?.data.revision).toBe(1);
+    expect(executor.snapshot().docs.has('admin_runtime/admin_lesson_bookings')).toBe(false);
+    expect(executor.snapshot().docs.has('admin_runtime/admin_courses')).toBe(false);
+    expect(executor.snapshot().docs.has('admin_runtime/admin_planner')).toBe(false);
+  });
+
+  it('does not bump admin finance revision when a finance command fails', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor();
+
+    const result = await executeIdempotentCanonicalCommand({
+      envelope: {
+        kind: 'pay_service_from_wallet_as_administrator',
+        context: {
+          actor: accountCommandActor(accountId),
+          exercisedCapability: 'account_owner',
+          idempotencyKey: 'idem-admin-finance-rev-fail-01',
+          correlationId,
+          source: 'client_callable',
+        },
+        intent: {
+          subjectKind: 'booking',
+          bookingId: BookingIdSchema.parse('booking_idem_fn_01'),
+        },
+      } as CommandEnvelope<'pay_service_from_wallet_as_administrator'>,
+      environment: environment('2026-01-01T00:00:00.000Z'),
+      executor,
+      handler: {
+        read: async (session) => {
+          session.plan.planMutation({
+            path: `users/${accountId}/wallet/state`,
+            kind: 'update',
+            category: 'payment_wallet',
+            estimatedPayloadBytes: 256,
+          });
+          session.plan.planMutation({
+            path: 'payments/pay_idem_fn_fail_01',
+            kind: 'update',
+            category: 'payment_wallet',
+            estimatedPayloadBytes: 256,
+          });
+        },
+        execute: async () =>
+          commandErrorResult('pay_service_from_wallet_as_administrator', correlationId, {
+            code: 'insufficient_funds',
+            message: 'There are insufficient funds.',
+            retryable: false,
+            correlationId,
+          }),
+      },
+    });
+
+    expect(result.status).toBe('error');
+    expect(executor.snapshot().docs.has('admin_runtime/admin_finance')).toBe(false);
+  });
+
   it('does not bump or return a revision when the command fails', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor({
       [bookingPath]: { revision: 1, status: 'confirmed' },
@@ -685,6 +801,7 @@ describe('executeIdempotentCanonicalCommand', () => {
     expect(result.status).toBe('error');
     expect(executor.snapshot().docs.has('admin_runtime/admin_lesson_bookings')).toBe(false);
     expect(executor.snapshot().docs.has('admin_runtime/admin_planner')).toBe(false);
+    expect(executor.snapshot().docs.has('admin_runtime/admin_finance')).toBe(false);
     expect(executor.snapshot().docs.get(bookingPath)?.data.revision).toBe(1);
   });
 });

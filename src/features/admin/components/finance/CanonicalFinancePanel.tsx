@@ -3,6 +3,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { ActionButton } from '../../../../ui/ActionButton';
 import { useSearchParams } from 'react-router-dom';
 import { executeAuthenticatedCanonicalCommand } from '../../../../lib/canonical/canonicalCommandClient';
+import { applyAdminFinanceCommandResult } from '../../finance/adminFinanceLocalSync';
 import {
   CanonicalCommandClientError,
   toCanonicalCommandClientError,
@@ -231,7 +232,7 @@ export function CanonicalFinancePanel({
   const runFunding = async (attempt: FundingAttempt) => {
     setFunding({ pending: true, success: false, attempt });
     try {
-      await executeAuthenticatedCanonicalCommand(adminAccountId, {
+      const result = await executeAuthenticatedCanonicalCommand(adminAccountId, {
         kind: 'record_manual_wallet_funding',
         intent: {
           accountId: attempt.accountId,
@@ -243,6 +244,7 @@ export function CanonicalFinancePanel({
           ? {}
           : { expectedRevision: attempt.expectedRevision }),
       });
+      applyAdminFinanceCommandResult(result);
       await walletRead.refetch();
       setFunding({ pending: false, success: true });
       setFundingAmount('');
@@ -286,7 +288,7 @@ export function CanonicalFinancePanel({
     setCorrection({ pending: true, success: false, attempt });
     try {
       if (attempt.action.kind === 'rebuild_payment_projection') {
-        await executeAuthenticatedCanonicalCommand(adminAccountId, {
+        const result = await executeAuthenticatedCanonicalCommand(adminAccountId, {
           kind: 'record_audit_correction',
           intent: {
             operation: 'rebuild_payment_projection',
@@ -297,6 +299,7 @@ export function CanonicalFinancePanel({
           idempotencyKey: attempt.idempotencyKey,
           expectedRevision: attempt.action.expectedPaymentRevision,
         });
+        applyAdminFinanceCommandResult(result);
       } else {
         const amount = attempt.amount!;
         let intent: FinancialCorrectionIntent;
@@ -330,12 +333,13 @@ export function CanonicalFinancePanel({
             reasonExplanation: attempt.reasonExplanation,
           };
         }
-        await executeAuthenticatedCanonicalCommand(adminAccountId, {
+        const result = await executeAuthenticatedCanonicalCommand(adminAccountId, {
           kind: 'record_financial_correction',
           intent,
           idempotencyKey: attempt.idempotencyKey,
           expectedRevision: attempt.action.expectedPaymentRevision,
         });
+        applyAdminFinanceCommandResult(result);
       }
       await Promise.all([paymentRead.refetch(), walletRead.refetch()]);
       setCorrection({ pending: false, success: true });

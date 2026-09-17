@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { AttendanceAdminIssueResultPayloadSchema } from '../adminIssueInboxRevision';
 import { AdminCoursesRevisionPayloadSchema } from '../adminCoursesRevision';
+import { AdminFinanceRevisionPayloadSchema } from '../adminFinanceRevision';
 import { AdminLessonBookingsRevisionPayloadSchema } from '../adminLessonBookingsRevision';
 import { AdminPlannerRevisionPayloadSchema } from '../adminPlannerRevision';
 import {
@@ -54,6 +55,7 @@ export const CreateCourseEnrollmentsResultPayloadSchema = z
     outcome: CreateCourseEnrollmentOutcomeSchema,
     guestLinkCredentials: z.array(GuestCourseEnrollmentLinkCredentialSchema).optional(),
     adminCoursesRevision: AdminCoursesRevisionPayloadSchema.shape.adminCoursesRevision,
+    adminFinanceRevision: AdminFinanceRevisionPayloadSchema.shape.adminFinanceRevision,
   })
   .strict();
 
@@ -67,6 +69,7 @@ export const CreateGuestBookingRequestResultPayloadSchema = z
     adminLessonBookingsRevision: AdminLessonBookingsRevisionPayloadSchema.shape
       .adminLessonBookingsRevision,
     adminPlannerRevision: AdminPlannerRevisionPayloadSchema.shape.adminPlannerRevision,
+    adminFinanceRevision: AdminFinanceRevisionPayloadSchema.shape.adminFinanceRevision,
   })
   .strict();
 
@@ -168,6 +171,7 @@ export const RequestCancellationResultPayloadSchema = z
       .adminLessonBookingsRevision,
     adminPlannerRevision: AdminPlannerRevisionPayloadSchema.shape.adminPlannerRevision,
     adminCoursesRevision: AdminCoursesRevisionPayloadSchema.shape.adminCoursesRevision,
+    adminFinanceRevision: AdminFinanceRevisionPayloadSchema.shape.adminFinanceRevision,
   })
   .strict();
 

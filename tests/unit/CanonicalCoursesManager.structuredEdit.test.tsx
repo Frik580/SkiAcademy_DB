@@ -39,6 +39,12 @@ vi.mock('../../src/features/admin/courses/adminCoursesRevisionCoordinator', () =
   resetAdminCoursesRevisionCoordinatorForTests: vi.fn(),
 }));
 
+vi.mock('../../src/features/admin/finance/adminFinanceRevisionCoordinator', () => ({
+  registerAdminFinanceRevisionListener: () => () => {},
+  registerAdminFinanceRevisionFromCommand: vi.fn(),
+  resetAdminFinanceRevisionCoordinatorForTests: vi.fn(),
+}));
+
 vi.mock('../../src/features/admin/components/courses/CourseBackgroundImageField', () => ({
   CourseBackgroundImageField: ({ onChange }: { onChange: (value: string) => void }) => (
     <div>

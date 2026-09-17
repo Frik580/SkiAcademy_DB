@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { queryAdminFinanceReadModels } from '../../../../lib/canonical/canonicalReadModelClient';
 import { toFunctionsClientError } from '../../../../lib/functions/functionsClient';
+import { useAdminFinanceRevisionRefresh } from '../../finance/useAdminFinanceRevisionRefresh';
 import type {
   AdminFinanceAccountId,
   AdminFinancePaymentId,
@@ -97,6 +98,10 @@ export function useAdminWalletReadModel(accountId: AdminFinanceAccountId | undef
     };
   }, [load]);
 
+  useAdminFinanceRevisionRefresh(() => {
+    void load();
+  }, Boolean(accountId));
+
   return {
     ...state,
     refetch: () => load(),
@@ -161,6 +166,10 @@ export function useAdminPaymentReadModel(paymentId: AdminFinancePaymentId | unde
     };
   }, [load]);
 
+  useAdminFinanceRevisionRefresh(() => {
+    void load();
+  }, Boolean(paymentId));
+
   return {
     ...state,
     refetch: () => load(),
@@ -212,6 +221,10 @@ export function useAdminFinancialOverviewReadModel(input: {
       generationRef.current += 1;
     };
   }, [load]);
+
+  useAdminFinanceRevisionRefresh(() => {
+    void load();
+  }, true);
 
   return { ...state, refetch: () => load() };
 }

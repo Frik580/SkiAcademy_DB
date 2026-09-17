@@ -65,8 +65,9 @@ describe('T32.9A.2.2 Planner / Lesson Admin UX boundary', () => {
   it('force-opens Lesson Admin when a booking deep-link is present', () => {
     expect(adminPanel).toContain('forceOpenToken');
     expect(adminPanel).toContain('ADMIN_LESSON_BOOKING_QUERY_KEY');
+    expect(adminPanel).toContain('ADMIN_TRAINING_RECORDS_SECTION_ID');
     expect(adminPanel).toMatch(
-      /forceOpen=\{Boolean\(searchParams\.get\(ADMIN_LESSON_BOOKING_QUERY_KEY\)\)\}/
+      /forceOpen=\{Boolean\(\s*searchParams\.get\(ADMIN_LESSON_BOOKING_QUERY_KEY\)/
     );
   });
 });

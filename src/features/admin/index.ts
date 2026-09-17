@@ -15,7 +15,7 @@ export {
   SCHEDULE_TIME_SLOTS,
 } from './components/schedule';
 export { FALLBACK_SLIDES, ResortConfigForm } from './components/resort';
-export { AdminRoleManager, ClientsManager, CoachesManager } from './components/users';
+export { AdminRoleManager, ClientsManager } from './components/users';
 export { BookingsLog, LinkGuestBookingModal } from './components/bookings';
 export { FinancialOverview } from './components/finance';
 export {

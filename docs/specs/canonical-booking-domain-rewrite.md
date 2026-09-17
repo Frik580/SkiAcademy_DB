@@ -5,6 +5,10 @@ Amended: 2026-09-07 — T32.9A.9D selective legacy Booking disposal clarified fo
 Amended: 2026-09-08 — production cutover gates: T32.9A.9P, 9D0, 9D selective cleanup (not full Firestore reset), 9E technical+product reachability; T38 empty-database rehearsal is nonproduction only; T40 Execute Rehearsed Selective Production Cutover; T41 expanded verification. F3 multi-participant design is unchanged.
 Amended: 2026-09-13 — T32.9A.9A.F5 guest CourseEnrollment bounded reservation expiry and legacy `createGuestCourseEnrollment` removal gate recorded; does not reopen T32.9A.9A F1–F4 PASS / CLOSED.
 Amended: 2026-09-14 — T32.9A.9C Course Progress / Achievements Cutover PASS / CLOSED (source integration/containment closure; that amendment recorded no production deploy at its own date). 9C remains PASS / CLOSED; the production deployment of the 9C read surface is subsequently evidenced by the Admin Lessons + Courses consolidation cutover and its authenticated production smoke on `queryAdminCourseEnrollmentReadModels`.
+Amended: 2026-09-18 — T39 PASS / CLOSED. Exact production delete of four approved documents after local JSON backup; financial/history/canonical collections unchanged.
+Amended: 2026-09-18 — T39 READY_FOR_EXACT_DESTRUCTIVE_APPROVAL (production counts verified; exact 4-document delete list; no production data delete).
+Amended: 2026-09-18 — T32.9B PASS / CLOSED. T39 READY_FOR_DESTRUCTIVE_APPROVAL (manifest only; no production data delete).
+Amended: 2026-09-17 — T32.9A.9E and T32.9A PASS / CLOSED. Next accepted slice is T32.9B / T39.
 
 ## Problem Statement
 
@@ -401,10 +405,15 @@ T32.9A.9D0 (production-like mixed-state rehearsal of EXACT 9D) — PASS / CLOSED
         ↓
 T32.9A.9D (physical source cleanup from the 9D0 DELETE_FILES / DELETE_EXPORTS lists) — PASS / CLOSED (2026-09-16)
         ↓
-T32.9A.9E (technical + product reachability) — NEXT
-#42 (account_hot page-1 reconciliation >25) remains a recorded T32.9R follow-up and is not a 9E blocker
+T32.9A.9E (technical + product reachability) — PASS / CLOSED (2026-09-17)
+T32.9A — PASS / CLOSED (2026-09-17)
+#42 (account_hot page-1 reconciliation >25) remains a recorded T32.9R follow-up and is not a T32.9A blocker
         ↓
-T32.9B (physical legacy runtime cleanup)
+T32.9B (physical compatibility source cleanup) — PASS / CLOSED (2026-09-18)
+        ↓
+T39 (historical data cleanup) — PASS / CLOSED (2026-09-18; exact 4 documents)
+        ↓
+T40 — Execute Rehearsed Selective Production Cutover
         ↓
 T40 (Execute Rehearsed Selective Production Cutover)
         ↓

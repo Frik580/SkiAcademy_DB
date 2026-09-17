@@ -28,6 +28,9 @@ describe('authenticated course enrollment canonical cutover', () => {
     expect(
       existsSync(resolve(process.cwd(), 'src/features/courses/enrollInCourseCallable.ts'))
     ).toBe(false);
+    expect(
+      existsSync(resolve(process.cwd(), 'src/features/courses/courseTransactions.ts'))
+    ).toBe(false);
   });
 
   it('does not load synthetic course bookings as Student Course authority', () => {

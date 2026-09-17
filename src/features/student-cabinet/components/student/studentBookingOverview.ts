@@ -4,12 +4,10 @@ import { isReviewEligibleLessonStatus } from '../../../../domain/booking';
 import { getCourseTrackLabel as getTrackLabelForLevel } from '../../../../domain/course';
 import {
   isBookingCurrentBySchedule,
-  isBookingOnDate,
   isBookingPastBySchedule,
   isBookingUpcomingBySchedule,
   type ScheduleBookingSlice,
 } from './studentBookingSchedule';
-import { toYMD } from './studentCabinetPresentation';
 import { isBookingReviewed } from './studentHistory';
 
 export type BookingListScope = 'upcoming' | 'current' | 'past' | 'all';
@@ -92,60 +90,6 @@ export const getMyInstructors = (
     .sort((a, b) =>
       (lastDateByInstructor.get(b.id) ?? '').localeCompare(lastDateByInstructor.get(a.id) ?? '')
     );
-};
-
-export const getEnrolledCourses = (bookings: Booking[], courses: Course[], userId?: string) => {
-  const enrolledIds = new Set(
-    bookings
-      .filter(
-        (b) =>
-          (!userId || b.userId === userId) &&
-          !b.isDeleted &&
-          b.instructorId.startsWith('course_') &&
-          b.status !== 'cancelled'
-      )
-      .map((b) => b.instructorId.replace('course_', ''))
-  );
-  return courses.filter((c) => !c.isHidden && enrolledIds.has(c.id));
-};
-
-export interface ActiveCourseEnrollment {
-  course: Course;
-  booking: Booking;
-}
-
-/** Enrolled group course that includes today in its date range. Preserved for 9C. */
-export const getActiveCourseEnrollment = (
-  bookings: Booking[],
-  courses: Course[],
-  userId?: string,
-  fromDate = new Date()
-): ActiveCourseEnrollment | null => {
-  const todayStr = toYMD(fromDate);
-  const enrolled = getEnrolledCourses(bookings, courses, userId);
-
-  for (const course of enrolled) {
-    const booking = bookings.find(
-      (b) =>
-        (!userId || b.userId === userId) &&
-        !b.isDeleted &&
-        b.instructorId === `course_${course.id}` &&
-        b.status !== 'cancelled' &&
-        isBookingOnDate(b, todayStr, courses)
-    );
-    if (booking) return { course, booking };
-  }
-
-  return null;
-};
-
-export const getAvailableCourses = (
-  bookings: Booking[],
-  courses: Course[],
-  userId?: string
-): Course[] => {
-  const enrolledIds = new Set(getEnrolledCourses(bookings, courses, userId).map((c) => c.id));
-  return courses.filter((c) => !c.isHidden && !enrolledIds.has(c.id));
 };
 
 export const getCourseTrackLabel = (course: Course) =>

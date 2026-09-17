@@ -526,7 +526,7 @@ Existing useful screens, information, filters, interactions, and workflows must 
 
 Before removing a legacy frontend or runtime implementation, canonical replacement and UX feature parity must be proven.
 
-Details, the parity inventory, role coverage, and the T32.9A / T32.9B boundary are in [ADR-0008](docs/adr/0008-ux-preservation-during-canonical-migration.md). Current T32.9A.8 / T32.9A.9 (FINAL CANONICAL CUTOVER) status lives in [T32_CANONICAL_ADMIN_AUDIT.md](docs/T32_CANONICAL_ADMIN_AUDIT.md). **T32.9A.9A is PASS / CLOSED** for the original F1–F4 + final integration / production smoke. **T32.9A.9A.F5** (guest CourseEnrollment reservation expiry) is **PASS / CLOSED** (inventory PASS 2026-09-14: `createGuestCourseEnrollment` ABSENT; scheduler ACTIVE; production expiry smoke PASS 2026-09-16). **T32.9A.9B is PASS / CLOSED.** **T32.9A.9C is PASS / CLOSED; T32.9A.9P is PASS / CLOSED for source / current production client; T32.9A.9D0 is PASS / CLOSED; T32.9A.9D is PASS / CLOSED** (physical source cleanup 2026-09-16; leftover source counters = 0; historical data untouched). Admin Lessons + Courses consolidation is **PASS / DEPLOYED / RUNTIME VERIFIED** (authenticated production smoke PASS 2026-09-16; Hosting + `executeCanonicalCommand` (`executecanonicalcommand-00054-yof`) + `queryAdminCourseEnrollmentReadModels` (`queryadmincourseenrollmentreadmodels-00011-cug`)). The next accepted cutover gate is **T32.9A.9E**. Recorded T32.9R follow-up **#42 — `account_hot` page-1 reconciliation >25** remains open and does not reopen 9D. Authoritative production sequence:
+Details, the parity inventory, role coverage, and the T32.9A / T32.9B boundary are in [ADR-0008](docs/adr/0008-ux-preservation-during-canonical-migration.md). Current T32.9A.8 / T32.9A.9 (FINAL CANONICAL CUTOVER) status lives in [T32_CANONICAL_ADMIN_AUDIT.md](docs/T32_CANONICAL_ADMIN_AUDIT.md). **T32.9A.9A is PASS / CLOSED** for the original F1–F4 + final integration / production smoke. **T32.9A.9A.F5** (guest CourseEnrollment reservation expiry) is **PASS / CLOSED** (inventory PASS 2026-09-14: `createGuestCourseEnrollment` ABSENT; scheduler ACTIVE; production expiry smoke PASS 2026-09-16). **T32.9A.9B is PASS / CLOSED.** **T32.9A.9C is PASS / CLOSED; T32.9A.9P is PASS / CLOSED for source / current production client; T32.9A.9D0 is PASS / CLOSED; T32.9A.9D is PASS / CLOSED** (physical source cleanup 2026-09-16; leftover source counters = 0; historical data untouched). Admin Lessons + Courses consolidation is **PASS / DEPLOYED / RUNTIME VERIFIED** (authenticated production smoke PASS 2026-09-16; Hosting + `executeCanonicalCommand` (`executecanonicalcommand-00054-yof`) + `queryAdminCourseEnrollmentReadModels` (`queryadmincourseenrollmentreadmodels-00011-cug`)). The next accepted slice is **T32.9B / T39**. **T32.9A.9E is PASS / CLOSED** (2026-09-17). **T32.9A is PASS / CLOSED**. **T32.9B is PASS / CLOSED** (2026-09-18; leftover source compatibility cleanup). **T39 is PASS / CLOSED** (2026-09-18; exact 4-document production delete after local JSON backup). Recorded T32.9R follow-up **#42 — `account_hot` page-1 reconciliation >25** remains open and does not reopen T32.9A. Authoritative production sequence:
 
 ```text
 T32.9A.9A — PASS / CLOSED (F1 / F2 / F3 / F4 / final integration smoke)
@@ -588,9 +588,12 @@ T32.9A.9A — PASS / CLOSED (F1 / F2 / F3 / F4 / final integration smoke)
 → T32.9A.9P (Global Product Parity & legacy Dependency Gate) — PASS / CLOSED (2026-09-14, source / current production client)
 → T32.9A.9D0 (production-like incremental rehearsal) — PASS / CLOSED (2026-09-14; source delete manifest; data delete NONE)
 → T32.9A.9D (physical source cleanup from the 9D0 DELETE_FILES / DELETE_EXPORTS lists) — PASS / CLOSED (2026-09-16; leftover source counters = 0; historical data untouched; production Function delete not executed)
-→ NEXT T32.9A.9E (technical + product reachability)
-#42 (account_hot page-1 reconciliation >25) remains a recorded T32.9R follow-up and is not a 9E blocker
-→ T32.9B (physical legacy runtime cleanup)
+→ T32.9A.9E (technical + product reachability) — PASS / CLOSED (2026-09-17)
+→ T32.9A — PASS / CLOSED (2026-09-17)
+#42 (account_hot page-1 reconciliation >25) remains a recorded T32.9R follow-up and is not a T32.9A blocker
+→ T32.9B (physical compatibility source cleanup) — PASS / CLOSED (2026-09-18)
+→ T39 (historical data cleanup) — PASS / CLOSED (2026-09-18; exact 4 documents)
+→ NEXT T40 (Execute Rehearsed Selective Production Cutover)
 → T40 (Execute Rehearsed Selective Production Cutover)
 → T41 (Expanded Post-Cutover Verification)
 ```

@@ -28,7 +28,11 @@ Amended: 2026-09-16 — **T32.9A.9A.F5 PASS / CLOSED.** The production expiry sm
 Amended: 2026-09-16 — Admin Lessons + Courses consolidation **PASS / DEPLOYED / RUNTIME VERIFIED.** The authenticated production smoke deferred on 2026-09-15 completed successfully on the deployed revisions (Hosting, `executeCanonicalCommand` `executecanonicalcommand-00054-yof`, `queryAdminCourseEnrollmentReadModels` `queryadmincourseenrollmentreadmodels-00011-cug`). The dated 2026-09-15 entry above remains the correct historical record of the state on that date; `DEPLOYED / AUTHENTICATED SMOKE BLOCKED` is no longer the current status.
 Amended: 2026-09-16 — **T32.9R.P0B lesson-booking post-command read optimization completed and reconciled.** The original hypothesis (global `/cabinet*` 30-second `account_hot` polling) was **NOT CONFIRMED**: surface scoping was already present, and no periodic 30s timer polled `account_hot`. The implemented optimization removes the unnecessary post-command `account_history` read on every non-history surface, and fixes `/cabinet/profile_journey` as a history-owning surface. Follow-up recorded, unchanged by this ticket: **>25 `account_hot` page-1 reconciliation prune**. See **T32.9R.P0B** below and [issue 42](../.scratch/canonical-booking-domain-rewrite/issues/42-account-hot-page1-reconciliation-prune.md).
 Amended: 2026-09-16 — **T32.9A.9D PASS / CLOSED.** Physical source cleanup from the 9D0 DELETE_FILES / DELETE_EXPORTS lists completed. Leftover source reachability counters ACTIVE_WRITE / AUTHORITY_READ / FALLBACK / DUAL_WRITE = 0. Historical Firestore data, Rules, indexes, Storage, and production Function deletes were not part of 9D. Next accepted cutover gate is **T32.9A.9E**. Recorded T32.9R follow-up **#42** remains open on the optimization track and does not reopen 9D.
-Amended: 2026-09-16 — **Current remaining cutover sequence after the F5 and Admin Lessons + Courses closures, subsequently updated by 9D PASS the same day.** 9B / 9C / 9P / 9D0 / **9D** remain **PASS / CLOSED** and are not reopened. The next accepted cutover gate is **T32.9A.9E**. Recorded T32.9R follow-up **#42 — `account_hot` page-1 reconciliation >25** (`P0B-PRUNE`) remains open on the optimization track and is not an R-ticket:
+Amended: 2026-09-18 — **T39 PASS / CLOSED.** Exact production delete of four approved documents completed after JSON backup: `reviews/rev_dlc2wig`, `reviews/rev_kcysdj3`, `reviews/rev_zux6z99`, `settings/guest_wallet`. Post-delete: `/reviews` = 0; those four GET = 404; `/instructor_reviews` = 2; `wallet_ledger` = 17; messages = 25; `payments` = 69; `monetary_events` = 77. Backup is local `t39-backup/`, not committed. Next accepted slice is **T40**.
+Amended: 2026-09-18 — **T39 READY_FOR_EXACT_DESTRUCTIVE_APPROVAL.** Read-only production inventory on `ski-school-8f3ca` verified exact counts. No Firestore data was deleted. Exact delete list is four documents after export/backup. Independent destructive review **APPROVE_WITH_FINDINGS** (non-blocking). Recorded T32.9R follow-up **#42** remains open and does not reopen T32.9B / T39 inventory.
+Amended: 2026-09-18 — **T32.9B PASS / CLOSED. T39 READY_FOR_DESTRUCTIVE_APPROVAL.** Approved leftover source compatibility cleanup from the 9E deferred list completed. Leftover source counters remain ACTIVE_WRITE / AUTHORITY_READ / FALLBACK / DUAL_WRITE = 0. Independent review **APPROVE_WITH_FINDINGS** (non-blocking). Production Firestore data was not deleted. T39 exact destructive manifest is prepared; execution waits for explicit approval. Production counts **NOT VERIFIED** (Firebase credentials expired). Recorded T32.9R follow-up **#42** remains open and does not reopen T32.9B.
+Amended: 2026-09-17 — **T32.9A.9E PASS / CLOSED. T32.9A PASS / CLOSED.** Final reachability / integration gate confirmed leftover source counters = 0, canonical capability parity, participant isolation, canonical KZT money authority, and production Function inventory with no deployed leftover lesson/course lifecycle names. Next accepted slice is **T32.9B / T39**. Recorded T32.9R follow-up **#42** remains open on the optimization track and does not reopen T32.9A.
+Amended: 2026-09-16 — **Current remaining cutover sequence after the F5 and Admin Lessons + Courses closures, subsequently updated by 9D PASS the same day and closed by 9E on 2026-09-17.** 9B / 9C / 9P / 9D0 / **9D** / **9E** / **T32.9A** remain **PASS / CLOSED** and are not reopened. The next accepted slice is **T32.9B / T39**. Recorded T32.9R follow-up **#42 — `account_hot` page-1 reconciliation >25** (`P0B-PRUNE`) remains open on the optimization track and is not an R-ticket:
 
 ```text
 DONE  T32.9A.9A.F5
@@ -36,9 +40,13 @@ DONE  Admin Lessons + Courses authenticated production smoke
 
 DONE  T32.9A.9D — physical source cleanup PASS / CLOSED (2026-09-16)
 
-NEXT  T32.9A.9E — Canonical Authority / Reachability Gate
+DONE  T32.9A.9E — Canonical Authority / Reachability Gate PASS / CLOSED (2026-09-17)
+DONE  T32.9A — PASS / CLOSED (2026-09-17)
+DONE  T32.9B — source compatibility cleanup PASS / CLOSED (2026-09-18)
   ↓
-T32.9B — Final Legacy Write / Runtime Cleanup
+DONE  T39 — historical data cleanup PASS / CLOSED (2026-09-18; exact 4 documents)
+  ↓
+NEXT  T40 — Execute Rehearsed Selective Production Cutover
   ↓
 T40 — Execute Rehearsed Selective Production Cutover
   ↓
@@ -95,12 +103,14 @@ T32.9 remains split per [ADR-0008](adr/0008-ux-preservation-during-canonical-mig
 | T32.9A.9P                                      | Global Product Parity & Legacy Dependency Gate                           | PASS / CLOSED                             |
 | T32.9A.9D0                                     | Production-like Incremental Cutover Rehearsal                            | PASS / CLOSED                             |
 | T32.9A.9D                                      | Selective Destructive Legacy Data Cleanup                                | PASS / CLOSED                             |
-| T32.9A.9E                                      | Canonical Authority / Reachability Gate                                  | PENDING                                   |
-| T32.9B                                         | Final Legacy Write / Runtime Cleanup                                     | PENDING; blocked until T32.9A.9E PASS     |
-| T40                                            | Execute Rehearsed Selective Production Cutover                           | PENDING; after T32.9B                     |
+| T32.9A.9E                                      | Canonical Authority / Reachability Gate                                  | PASS / CLOSED                             |
+| T32.9A                                         | Canonical Admin UX restoration and integration                           | PASS / CLOSED                             |
+| T32.9B                                         | Final Legacy Write / Runtime Cleanup                                     | PASS / CLOSED                             |
+| T39                                            | Historical compatibility data cleanup                                    | PASS / CLOSED                             |
+| T40                                            | Execute Rehearsed Selective Production Cutover                           | PENDING                                   |
 | T41                                            | Expanded Post-Cutover Verification                                       | PENDING; after T40                        |
 
-Status labels used here: `PASS`, `PASS / CLOSED`, `PASS / DEPLOYED`, `PASS / DEPLOYED / RUNTIME VERIFIED`, `REQUIRED`, `IN PROGRESS`, `PLANNED`, `READY_FOR_MANUAL_SMOKE`, `READY_FOR_DEPLOY`, `DEPLOY-RUNTIME-VERIFICATION-PENDING`, `DEFERRED`, `PENDING`, `NOT CLOSED`. T32.9A.9A original F1–F4 integration close (including final integration / production smoke) remains **PASS / CLOSED**. **T32.9A.9A.F5** is a post-close corrective follow-up on guest CourseEnrollment reservation expiry; it is now **PASS / CLOSED** (production expiry smoke PASS, 2026-09-16) and it never reopened or invalidated F1–F4. **Admin Active Bookings CourseEnrollment uniqueness is PASS / DEPLOYED / RUNTIME VERIFIED** (2026-09-15). **Admin Lessons + Courses consolidation is PASS / DEPLOYED / RUNTIME VERIFIED** (authenticated production smoke PASS, 2026-09-16). **T32.9A.9B is PASS / CLOSED**. **T32.9A.9C is PASS / CLOSED**. **T32.9A.9P is PASS / CLOSED** for source / current production client (leftover counters = 0; gift fields KEEP_COMPATIBILITY). **T32.9A.9D0 is PASS / CLOSED** (exact source delete manifest; data delete = NONE; production Function delete gated). **T32.9A.9D is PASS / CLOSED** (physical source cleanup 2026-09-16; leftover source counters = 0; historical data untouched; production Function delete still inventory-gated and not executed). **T32.9A.9E is PENDING** (F5 is no longer a precondition; the production Function-delete inventory still is). Production inventory for F5 was confirmed 2026-09-14: `createGuestCourseEnrollment` ABSENT; scheduler ACTIVE. **T32.9R** is a parallel read-cost track: **R1 DEFERRED / BLOCKED** and **R2 DEFERRED**; neither is a mandatory next implementation ticket and no new R-ticket is created.
+Status labels used here: `PASS`, `PASS / CLOSED`, `PASS / DEPLOYED`, `PASS / DEPLOYED / RUNTIME VERIFIED`, `REQUIRED`, `IN PROGRESS`, `PLANNED`, `READY_FOR_MANUAL_SMOKE`, `READY_FOR_DEPLOY`, `DEPLOY-RUNTIME-VERIFICATION-PENDING`, `DEFERRED`, `PENDING`, `NOT CLOSED`. T32.9A.9A original F1–F4 integration close (including final integration / production smoke) remains **PASS / CLOSED**. **T32.9A.9A.F5** is a post-close corrective follow-up on guest CourseEnrollment reservation expiry; it is now **PASS / CLOSED** (production expiry smoke PASS, 2026-09-16) and it never reopened or invalidated F1–F4. **Admin Active Bookings CourseEnrollment uniqueness is PASS / DEPLOYED / RUNTIME VERIFIED** (2026-09-15). **Admin Lessons + Courses consolidation is PASS / DEPLOYED / RUNTIME VERIFIED** (authenticated production smoke PASS, 2026-09-16). **T32.9A.9B is PASS / CLOSED**. **T32.9A.9C is PASS / CLOSED**. **T32.9A.9P is PASS / CLOSED** for source / current production client (leftover counters = 0; gift fields KEEP_COMPATIBILITY). **T32.9A.9D0 is PASS / CLOSED** (exact source delete manifest; data delete = NONE; production Function delete gated). **T32.9A.9D is PASS / CLOSED** (physical source cleanup 2026-09-16; leftover source counters = 0; historical data untouched; production Function delete still inventory-gated and not executed). **T32.9A.9E is PASS / CLOSED** (2026-09-17; leftover counters = 0; production inventory lists no leftover lesson/course lifecycle Functions; canonical schedulers healthy). **T32.9A is PASS / CLOSED**. Production inventory for F5 was confirmed 2026-09-14 and re-confirmed 2026-09-17: `createGuestCourseEnrollment` ABSENT; scheduler ACTIVE. **T32.9R** is a parallel read-cost track: **R1 DEFERRED / BLOCKED** and **R2 DEFERRED**; neither is a mandatory next implementation ticket and no new R-ticket is created.
 
 #### Admin Lessons + Courses consolidation — PASS / DEPLOYED / RUNTIME VERIFIED
 
@@ -163,10 +173,12 @@ T32.9A.9C — Course Progress / Achievements Cutover — PASS / CLOSED
 T32.9A.9P — Global Product Parity & Legacy Dependency Gate — PASS / CLOSED
 T32.9A.9D0 — Production-like Incremental Cutover Rehearsal — PASS / CLOSED
 T32.9A.9D — Selective Destructive Legacy Data Cleanup — PASS / CLOSED (physical source cleanup 2026-09-16)
-T32.9A.9E — Canonical Authority / Reachability Gate — NEXT
-#42 — account_hot page-1 reconciliation >25 correctness — recorded T32.9R follow-up, not a 9E blocker
+T32.9A.9E — Canonical Authority / Reachability Gate — PASS / CLOSED (2026-09-17)
+T32.9A — PASS / CLOSED (2026-09-17)
+#42 — account_hot page-1 reconciliation >25 correctness — recorded T32.9R follow-up, not a T32.9A blocker
 THEN
-T32.9B — Final Legacy Runtime Cleanup
+T32.9B — PASS / CLOSED (2026-09-18)
+T39 — PASS / CLOSED (2026-09-18; exact 4 documents)
 THEN
 T40 — Execute Rehearsed Selective Production Cutover
 T41 — Expanded Post-Cutover Verification
@@ -195,7 +207,7 @@ not progress / presentation / feedback data by default.
 
 #### T32.9A.9A — Individual Booking lifecycle cutover — PASS / CLOSED
 
-**T32.9A.9A is PASS / CLOSED** after production final integration smoke (F1 `PASS / DEPLOYED`; F2/F3/F4 `PASS / CLOSED`). That close covered the original F1–F4 Individual Booking integration gate only. **T32.9A.9A.F5** was a later corrective follow-up for guest CourseEnrollment automatic reservation expiry; it never changed the recorded F1–F4 or final smoke outcomes and is now **PASS / CLOSED** (2026-09-16). The current cutover position is: 9B / 9C / 9P / 9D0 / **9D PASS / CLOSED**, next accepted cutover gate **T32.9A.9E**. Recorded T32.9R follow-up **#42** remains open and does not reopen 9D.
+**T32.9A.9A is PASS / CLOSED** after production final integration smoke (F1 `PASS / DEPLOYED`; F2/F3/F4 `PASS / CLOSED`). That close covered the original F1–F4 Individual Booking integration gate only. **T32.9A.9A.F5** was a later corrective follow-up for guest CourseEnrollment automatic reservation expiry; it never changed the recorded F1–F4 or final smoke outcomes and is now **PASS / CLOSED** (2026-09-16). The current cutover position is: 9B / 9C / 9P / 9D0 / **9D / 9E / T32.9A PASS / CLOSED**, next accepted slice **T32.9B / T39**. Recorded T32.9R follow-up **#42** remains open and does not reopen 9D.
 
 Core lifecycle cutover (authority level) — recorded as PASS at source/production authority level:
 
@@ -697,7 +709,7 @@ F4 is **PASS / CLOSED** after production manual acceptance and final 9A integrat
 
 Gate after F2 + F4 (with F1 `PASS / DEPLOYED` and F3 `PASS / CLOSED` already recorded). Confirms end-to-end individual Booking lifecycle cutover (including guest payment capture, unpaid reservation expiry, multi-participant lesson booking, and per-participant Instructor Attendance) on production smoke paths before 9A closes and 9B begins.
 
-Recorded **PASS** in production (2026-09-10). T32.9A.9A overall remains **PASS / CLOSED** for the original F1–F4 scope. Guest course reservation automatic expiry is tracked under **T32.9A.9A.F5** (see below), now **PASS / CLOSED**. 9B and the later slices through 9D are also **PASS / CLOSED**; the next accepted cutover gate is **T32.9A.9E**.
+Recorded **PASS** in production (2026-09-10). T32.9A.9A overall remains **PASS / CLOSED** for the original F1–F4 scope. Guest course reservation automatic expiry is tracked under **T32.9A.9A.F5** (see below), now **PASS / CLOSED**. 9B and the later slices through 9E / T32.9A are also **PASS / CLOSED**; the next accepted slice is **T32.9B / T39**.
 
 ##### T32.9A.9A.F5 — Canonical Guest Course Reservation Expiry — PASS / CLOSED
 
@@ -1345,7 +1357,11 @@ T32.9A.9B → PASS / CLOSED
 T32.9A.9C → PASS / CLOSED
 T32.9A.9A.F5 → PASS / CLOSED (production expiry smoke PASS 2026-09-16)
 T32.9A.9D → PASS / CLOSED (physical source cleanup 2026-09-16)
-NEXT → T32.9A.9E canonical authority / reachability gate
+T32.9A.9E → PASS / CLOSED (2026-09-17)
+T32.9A → PASS / CLOSED (2026-09-17)
+T32.9B → PASS / CLOSED (2026-09-18)
+T39 → PASS / CLOSED (2026-09-18; exact 4 documents)
+NEXT → T40 Execute Rehearsed Selective Production Cutover
 #42 account_hot page-1 reconciliation >25 remains a recorded T32.9R follow-up
 ```
 
@@ -1809,6 +1825,8 @@ Classification of leftover names (do not delete in 9D):
 | `scheduledAutoCompleteBookings` | A. absent | B. unknown |
 | `scheduledExpireGuestCourseReservations` | C. source export present | C. **ACTIVE** (deployed + scheduler every 5 minutes UTC; F5 PASS / CLOSED — production expiry smoke PASS 2026-09-16) |
 
+9E later independently re-listed production (2026-09-17): every leftover name in the table above is **ABSENT**; canonical exports including `scheduledExpireGuestCourseReservations` remain **ACTIVE**. See **T32.9A.9E**.
+
 ###### DELETE_RULES
 
 NONE. Unused leftover helpers `validBalanceDecreaseOnly`, `validPaymentLedgerCreate`, `validRefundBalanceCreditApply`, `validRefundLedgerCreate` are **DEFER_TO_T32.9B**. `settings/guest_wallet` read-only path and `/wallet_ledger` read-only path stay. Storage chat write `chat/{bookingId}` stays because chat is KEEP_HISTORICAL.
@@ -1970,9 +1988,23 @@ If 9D is held for a production maintenance window, that window is T40 and must e
 
 **T32.9A.9A.F5** is **PASS / CLOSED** (production expiry smoke PASS 2026-09-16), so 9D may now treat the release-candidate scheduler and the absent deployed legacy function as production-verified; the remaining production Function-delete gate is the inventory.
 
-#### T32.9A.9E — Canonical Authority / Reachability Gate — PENDING
+#### T32.9A.9E — Canonical Authority / Reachability Gate — PASS / CLOSED
 
-Final integration gate before T32.9B. 9E uses 9P inventory results: every 9P `PASS` row must still be reachable after 9D. 9E is not a substitute for 9P (9P is pre-deletion); 9E is post-9D proof that authority and product journeys still hold. **T32.9A.9A.F5** is **PASS / CLOSED** (2026-09-16), so 9E may now claim complete production guest course reservation expiry reachability and `createGuestCourseEnrollment` decommissioning (the deployed name is already ABSENT).
+**9E PASS / CLOSED (2026-09-17).** Final integration gate after 9D. Product source was not changed. Independent review **APPROVE**.
+
+Leftover source counters (reconfirmed by `tests/unit/t32_9a_9d_legacySourceReachability.test.ts`): ACTIVE_WRITE = 0, AUTHORITY_READ = 0, FALLBACK = 0, DUAL_WRITE = 0.
+
+Canonical capability matrix: Lesson / Course / Participant / Student / Instructor / Admin / Money = **CANONICAL_OK**. Intentional compatibility field names remain KEEP_COMPATIBILITY, not leftover authority. Participant isolation = **PASS**. Canonical spendable authority = KZT `/users/{accountId}/wallet/state`; financial truth = Payment + MonetaryEvent + canonical Wallet.
+
+Production Functions inventory (`firebase functions:list --project ski-school-8f3ca`, 2026-09-17): deployed names match current `functions/src/index.ts`. Leftover lesson/course lifecycle names are **ABSENT** (`createBooking`, `addBooking`, `createGuestBooking`, `updateBookingSchedule`, `linkGuestBooking`, `completeBooking`, `cancelBooking`, `confirmBooking`, `deleteBooking`, `requestBookingCancellation`, `enrollInCourse`, `createGuestCourseEnrollment`, `scheduledAutoCompleteBookings`). Canonical schedulers/triggers are **ACTIVE**; healthy no-op executions observed 2026-09-17.
+
+Graphify: no production-reachable nodes for deleted leftover families (`useBookingActions`, `CashFlowPanel`, `GuestWalletPanel`, `scheduledAutoCompleteBookings`). Production UI booking create goes `useBookingModal → useLessonBookingCommands`. Remaining `courseTransactions.enrollInCourse` / `bookingTransactions` mutations stay **DEFER_TO_T32.9B** (tests-only / unwired).
+
+Previously failing `cabinetCancellationOutcome` case `updates course store after pending cancellation refresh` = **RESOLVED / STALE_TEST_CONTRACT**: production already requires a rendered participant-scoped enrollment; the test now seeds that contract.
+
+AUTHENTICATED WORKFLOW: **NOT VERIFIED** in 9E (no authenticated session). Guest/public expiry evidence reused from F5 (2026-09-16); guest Functions/schedulers unchanged after that smoke.
+
+9E is post-9D proof that authority and product journeys still hold. **T32.9A.9A.F5** remains **PASS / CLOSED**; `createGuestCourseEnrollment` is source-absent and production-ABSENT.
 
 ##### Technical reachability
 
@@ -1997,41 +2029,89 @@ After 9D, representative journeys still work for:
 
 Those journeys must cover the 9P rows that those roles own (lesson, course, planner, finance, wallet, attendance, profile/people, reviews, chat/homework, notifications, auth, assets) rather than a reduced “happy path only” subset. T41 later expands the production-safe checklist; 9E must not be weaker than the 9P capabilities already marked PASS.
 
-#### T32.9B — Final Legacy Write / Runtime Cleanup — PENDING
+#### T32.9B — Final Legacy Write / Runtime Cleanup — PASS / CLOSED
 
 ```text
-T32.9B starts only after T32.9A.9E PASS.
+T32.9B PASS / CLOSED (2026-09-18).
 ```
 
-T32.9B is physical legacy-runtime cleanup after authority cutover, not authority migration itself and not a product-feature deletion phase.
+T32.9B is physical leftover-source cleanup after authority cutover. It is not authority migration and not a product-feature deletion phase. Independent review **APPROVE_WITH_FINDINGS** (non-blocking). Leftover source counters remain ACTIVE_WRITE / AUTHORITY_READ / FALLBACK / DUAL_WRITE = 0.
 
-Physical cleanup candidates (only after 9P/9E prove a replacement):
+Deleted (approved 9E leftover source):
 
-- leftover `bookingTransactions.ts` mutation functions after 9D callable deletion
-- `courseTransactions.enrollInCourse` and unused Course discovery helpers
-- availability compatibility (`availability_slots` / `availability_hour_locks` runtime)
-- `guest_wallet` compatibility
-- USD / `balanceUSD` compatibility
-- obsolete Rules / indexes
-- temporary adapters
-- V1 Course read-model compatibility
-- dead tests / fixtures that keep forbidden writers alive
-- unreachable leftover helpers (superseded unpaid-approval UI, unused legacy Guest linking UI, unmounted `CoachesManager.tsx`)
+- `courseTransactions.ts` including `enrollInCourse` (TEST_ONLY leftover client mutation; canonical replacement `create_course_enrollments`)
+- leftover `bookingTransactions` mutations (`createBookingWithPayment`, `addBookingWithPayment`, `createGuestBooking`, `rescheduleBooking`, `cancelBookingWithRefund`); **kept** `InsufficientFundsError` for Planner `ScheduleSlotActionModal`
+- unused `adminService.subscribeWalletLedger` (cabinet history still reads `wallet_ledger` via `useWalletSync`)
+- unmounted `CoachesManager.tsx` (canonical `AdminInstructorDirectory` remains mounted: create / update / deactivate / photo)
+- unreferenced Rules helpers `validRefundBalanceCreditApply` / `validRefundLedgerCreate` only; `validBalanceDecreaseOnly` and `validPaymentLedgerCreate` **kept** because they are still referenced by allow paths
+- unused i18n keys `resetSchoolFinances*` and `guestWalletPanel*`
+- unused cabinet helpers `getEnrolledCourses` / `getAvailableCourses` / `getActiveCourseEnrollment` / `getRecommendedCourses` / `resolveNextLessonBookingTarget`; **kept** `getMyInstructors` / `getRecommendedInstructors` / `getInstructorPickerGroups`
+- leftover tests that only exercised the deleted mutations
 
-9D already removed unpublished leftover booking callable wrappers, `useBookingActions`, `bookingService.ts`, `completeBooking.ts`, `useAdminActions`, `resetSchoolFinances`, unmounted `CashFlowPanel` / `GuestWalletPanel`, unpublished `functions/src/bookings/*` leftover families, and `functions/src/schoolGuestWallet.ts` / `functions/src/walletLedger.ts`.
+Deferred (not source authority; later optional cleanup):
 
-If deletion discovers a useful capability without a canonical/approved replacement:
+- `bookingRealtimeService.ts` (TEST_ONLY query helper)
+- domain `walletCredit.ts` / `schoolGuestWallet.ts` / `recordWalletLedgerEntryInTransaction` (no remaining feature caller)
+- `clearStudentBookings.ts` and leftover `clearStudentBookings*` i18n
+- leftover `profileService` progress writers (`updateStudentSkillsService` / `updateStudentLevelService`)
+- Rules tightening of still-referenced `validBalanceDecreaseOnly` / `validPaymentLedgerCreate` allow paths
+- availability_slots / availability_hour_locks runtime helpers still used by remaining booking presentation
+- USD-named compatibility fields (KEEP_COMPATIBILITY; see T39)
+- `bookingsBlockingInstructorDeactivation` helper after CoachesManager deletion
+
+T39 historical data is **not** part of this 9B close.
+
+#### T39 — Historical Data Cleanup — PASS / CLOSED
+
+Read-only production inventory 2026-09-18 on `ski-school-8f3ca` (ACTIVE, `782358732601`). Data was **not** deleted. Independent destructive review **APPROVE_WITH_FINDINGS** (non-blocking). Auth used gcloud user refresh via curl (Firebase CLI login remains expired; ADC Python SSL is broken; REST counts succeeded).
 
 ```text
-STOP
-→ parity inventory incomplete
-→ return the problem to canonical migration (reopen 9P / the owning slice)
-→ do not continue T32.9B against that capability
+DELETE_COLLECTIONS = NONE
+DELETE_DOCUMENT_QUERIES = NONE
+DELETE_FIELDS = NONE
+DELETE_DOCUMENT_IDS =
+  reviews/rev_dlc2wig
+  reviews/rev_kcysdj3
+  reviews/rev_zux6z99
+  settings/guest_wallet
+EXPORT_FIRST = the four exact documents as JSON (do not export all of settings)
+BACKUP_FIRST = same
+KEEP_HISTORICAL = bookings/{id}/messages (25; parents booking_1af0284510fe4dd38d288ae01ed3c602, booking_6f814ea3d0d54c26a5d8e3b2ce80f462, course_1784218471756, course_carving_pro), activity_logs (443)
+KEEP_FINANCIAL_AUDIT = wallet_ledger (17), payments (69), monetary_events (77), users/{id}/wallet/state
+KEEP_COMPATIBILITY = users.balanceUSD, walletBalances.USD, settings/starter_credit.amountUsd, UserProfile level/skillScores/skillComments, homeworkForUserIds
 ```
 
-T32.9A recovers missing historical Admin UX, preserves useful information and interactions, integrates new canonical functionality, proves feature parity, and identifies leftover implementations safe for later removal. It is not broad leftover UI cleanup.
+Production counts (aggregation / exact GET):
 
-See [ADR-0008](adr/0008-ux-preservation-during-canonical-migration.md).
+| Resource | Count | Classification |
+| --- | --- | --- |
+| `/reviews` | 3; subcollections 0 | SAFE_AFTER_EXPORT |
+| `/instructor_reviews` | 2 (hashed IDs, no `rev_*` overlap) | KEEP (canonical) |
+| `settings/guest_wallet` | exists; `balanceUSD=100`; update 2026-08-20; children 0 | SAFE_AFTER_BACKUP |
+| `booking_course_*` parents | 0 | no delete target |
+| `instructorId` `course_*` bookings | 0 | no delete target |
+| collection-group `messages` under `booking_course_*` | 0 | no delete target |
+| `wallet_ledger` | 17 | KEEP_FINANCIAL_AUDIT |
+| `activity_logs` | 443 | KEEP_HISTORICAL |
+| `bookings/{id}/messages` | 25 | KEEP_HISTORICAL |
+| `bookings` | 72 | KEEP |
+| `course_enrollments` | 8 | KEEP |
+| `payments` | 69 | KEEP_FINANCIAL_AUDIT |
+| `monetary_events` | 77 | KEEP_FINANCIAL_AUDIT |
+| `settings/starter_credit` | exists; **only** `amountUsd=50` | KEEP_COMPATIBILITY |
+
+Classification (one primary each):
+
+- `/reviews` — SAFE_AFTER_EXPORT. Writer/reader/fallback = 0. Rules deny all. Canonical UI is `/instructor_reviews`. Historical `rev_*` docs are not copied into canonical hashed IDs.
+- `settings/guest_wallet` — SAFE_AFTER_BACKUP. No production feature reader/writer. Rules deny mutation (`settingId != 'guest_wallet'`). Not a financial journal.
+- `booking_course_*` — SAFE_TO_DELETE vacuously (count 0 parents and 0 child messages). **Not listed in DELETE_DOCUMENT_IDS.**
+- `wallet_ledger` — KEEP_FINANCIAL_AUDIT. Cabinet history still listens (`useWalletSync`).
+- `bookings/{id}/messages` — KEEP_HISTORICAL. Live chat/homework, including `bookings/{courseId}/messages`.
+- `activity_logs` — KEEP_HISTORICAL. Cabinet history still listens (`useProfileActivitySync`); canonical commands write.
+
+Compatibility fields: `amountUsd` remains dual-write / Rules fallback and is the **only** field on production `starter_credit`. Not a T39 deletion candidate.
+
+**Executed 2026-09-18 after explicit user approval of this exact 4-document list.** Local JSON backup in `t39-backup/` (not committed; review payloads contain PII). Deleted: `reviews/rev_dlc2wig`, `reviews/rev_kcysdj3`, `reviews/rev_zux6z99`, `settings/guest_wallet`. Post-delete: `/reviews` = 0; those four GET = 404; `/instructor_reviews` = 2; `wallet_ledger` = 17; messages = 25; `payments` = 69; `monetary_events` = 77. Restore material is the four REST documents. T39 is **PASS / CLOSED**. Next accepted slice is **T40**.
 
 ## Executive conclusion
 
@@ -2874,13 +2954,10 @@ Reason:
 
 ### T32.9B — Final Legacy Write / Runtime Cleanup
 
-T32.9B starts only after **T32.9A.9E PASS**. It may remove a leftover
-implementation only after its useful product capability has a canonical
-replacement **and** UX parity is proven. If deletion discovers a useful
-capability without a replacement: STOP, treat 9P as incomplete, and return
-the problem to canonical migration. It must not become a product-feature
-deletion phase. T32.9B is physical legacy-runtime cleanup after authority
-cutover, not authority migration itself.
+**T32.9B is PASS / CLOSED (2026-09-18)** after T32.9A.9E. It removed leftover
+implementations only after useful product capability had a canonical
+replacement. Remaining deferred items are classified in the T32.9B close
+section above and are not leftover authority.
 
 Scope:
 

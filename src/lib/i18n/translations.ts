@@ -267,18 +267,8 @@ export const translations = {
     clearCancelledBookingsConfirm:
       'This will permanently delete ALL cancelled bookings from the database. This action cannot be undone. Continue?',
     clearCancelledBookingsDone: 'Cleared {bookings} cancelled bookings.',
-    resetSchoolFinancesTitle: 'Reset school finances',
-    resetSchoolFinancesSub: 'Zero wallet history and keep only the registration gift balance',
     destructiveAdminToolsDisabled:
       'Destructive finance and booking reset tools are unavailable in the canonical production runtime.',
-    resetSchoolFinancesDesc:
-      'Deletes the entire wallet ledger (including guest payments), zeros the school guest cash wallet, clears KZT balances and pending credits, and sets every non-admin client wallet to the ${amount} starter gift credit. Guest bookings stay on the schedule. Registered-client lesson revenue KPIs from remaining bookings are unchanged until bookings are cleared separately. Admin account balances are not modified.',
-    resetSchoolFinancesRun: 'Reset finances to starter credit',
-    resetSchoolFinancesRunning: 'Resetting… {n} processed',
-    resetSchoolFinancesConfirm:
-      'This will permanently delete all wallet ledger history, zero the guest cash wallet, and reset every client balance to the ${amount} starter gift credit only. Guest bookings are kept. This cannot be undone. Continue?',
-    resetSchoolFinancesDone:
-      'Reset {users} client wallets. Deleted {ledger} ledger entries. Guest cash wallet set to 0 ₸. Wrote {credits} starter credits.',
     scViewAllCourses: 'View all courses',
     scViewAllInstructors: 'View all instructors',
     scTodayEmpty: 'Nothing planned for today',
@@ -1302,27 +1292,6 @@ export const translations = {
     cashFlowGuestWallet: 'Guest cash wallet',
     cashFlowGuestWalletHint:
       'After confirm: cash in then lesson charge (balance net 0). Cancel refunds the charge back here.',
-    guestWalletPanelTitle: 'Guest cash wallet',
-    guestWalletPanelSub:
-      'Hold guest cash, top up, or withdraw — operations post to school cash flow',
-    guestWalletPanelHint:
-      'Balance stays near zero after guest confirms (cash in + lesson charge). Cancel refunds land here until withdrawn.',
-    guestWalletMutationDisabled:
-      'Direct guest-wallet mutation has been disabled until a canonical replacement is available.',
-    guestWalletBalance: 'Current balance',
-    guestWalletAmountLabel: 'Amount (KZT)',
-    guestWalletNoteLabel: 'Note (optional)',
-    guestWalletNotePlaceholder: 'e.g. cash from guest Ivan',
-    guestWalletTopUp: 'Top up',
-    guestWalletWithdraw: 'Withdraw',
-    guestWalletTopUpSuccess: 'Guest wallet topped up',
-    guestWalletWithdrawSuccess: 'Guest wallet withdrawn',
-    guestWalletInvalidAmount: 'Invalid amount',
-    guestWalletInvalidAmountDesc: 'Enter a positive amount within the allowed limit.',
-    guestWalletInsufficient: 'Insufficient balance',
-    guestWalletInsufficientDesc: 'Cannot withdraw more than the current guest wallet balance.',
-    guestWalletAdjustFailed: 'Guest wallet update failed',
-    guestWalletAdjustFailedDesc: 'Could not update the guest cash wallet. Try again.',
     cashFlowCashIn: 'Received',
     cashFlowCashOut: 'Paid out',
     cashFlowRevenueIn: 'Service payments',
@@ -2459,18 +2428,8 @@ export const translations = {
     clearCancelledBookingsConfirm:
       'Будут безвозвратно удалены ВСЕ отменённые бронирования из базы данных. Это действие нельзя отменить. Продолжить?',
     clearCancelledBookingsDone: 'Удалено отменённых бронирований: {bookings}.',
-    resetSchoolFinancesTitle: 'Сброс финансов школы',
-    resetSchoolFinancesSub: 'Обнулить историю кошелька, оставив только призовой баланс',
     destructiveAdminToolsDisabled:
       'Опасные инструменты сброса финансов и бронирований недоступны в canonical production runtime.',
-    resetSchoolFinancesDesc:
-      'Удаляет всю историю wallet ledger (включая оплаты гостей), обнуляет школьный гостевой кошелёк, обнуляет балансы KZT и ожидающие кредиты, и выставляет каждому клиенту (не админу) призовой стартовый баланс ${amount}. Гостевые бронирования в расписании сохраняются. KPI выручки по обычным бронированиям зарегистрированных клиентов не меняются — их сбрасывает отдельная очистка бронирований. Балансы аккаунтов администраторов не трогаются.',
-    resetSchoolFinancesRun: 'Сбросить финансы до призового баланса',
-    resetSchoolFinancesRunning: 'Сброс… обработано {n}',
-    resetSchoolFinancesConfirm:
-      'Будет безвозвратно удалена вся история кошелька, гостевой кошелёк обнулится, а баланс каждого клиента станет только призовым ${amount}. Гостевые бронирования сохранятся. Это действие нельзя отменить. Продолжить?',
-    resetSchoolFinancesDone:
-      'Сброшено кошельков: {users}. Удалено записей ledger: {ledger}. Гостевой кошелёк: 0 ₸. Записано стартовых кредитов: {credits}.',
     scViewAllCourses: 'Все курсы',
     scViewAllInstructors: 'Все инструкторы',
     scTodayEmpty: 'На сегодня задач нет',
@@ -3493,27 +3452,6 @@ export const translations = {
     cashFlowGuestWallet: 'Гостевой кошелёк',
     cashFlowGuestWalletHint:
       'При подтверждении: пополнение и сразу списание (баланс нетто 0). При отмене сумма возвращается сюда.',
-    guestWalletPanelTitle: 'Гостевой кошелёк',
-    guestWalletPanelSub:
-      'Хранение гостевой наличности: пополнение и снятие — операции попадают в кассу',
-    guestWalletPanelHint:
-      'После подтверждения гостя баланс обычно 0 (приход в кассу + оплата урока). При отмене возврат остаётся здесь, пока не снимете.',
-    guestWalletMutationDisabled:
-      'Прямое изменение гостевого кошелька отключено до появления canonical-замены.',
-    guestWalletBalance: 'Текущий баланс',
-    guestWalletAmountLabel: 'Сумма (KZT)',
-    guestWalletNoteLabel: 'Комментарий (необязательно)',
-    guestWalletNotePlaceholder: 'например, наличные от гостя Ивана',
-    guestWalletTopUp: 'Пополнить',
-    guestWalletWithdraw: 'Снять',
-    guestWalletTopUpSuccess: 'Гостевой кошелёк пополнен',
-    guestWalletWithdrawSuccess: 'Сумма снята с гостевого кошелька',
-    guestWalletInvalidAmount: 'Некорректная сумма',
-    guestWalletInvalidAmountDesc: 'Введите положительную сумму в допустимых пределах.',
-    guestWalletInsufficient: 'Недостаточно средств',
-    guestWalletInsufficientDesc: 'Нельзя снять больше, чем сейчас на гостевом кошельке.',
-    guestWalletAdjustFailed: 'Не удалось обновить кошелёк',
-    guestWalletAdjustFailedDesc: 'Гостевой кошелёк не обновлён. Попробуйте ещё раз.',
     cashFlowCashIn: 'Приход',
     cashFlowCashOut: 'Отток',
     cashFlowRevenueIn: 'Оплаты услуг',

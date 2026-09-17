@@ -490,6 +490,7 @@ describe('canonicalReadModelClient', () => {
         boundCanonicalReadIdempotencyCursor(INSTRUCTOR_HISTORY_OBSERVED_CURSOR),
         'none',
         'none',
+        'all-managed',
       ])
     );
     expect(options.idempotencyKey.length).toBeLessThanOrEqual(200);

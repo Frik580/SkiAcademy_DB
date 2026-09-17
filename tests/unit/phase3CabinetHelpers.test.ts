@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   filterBookingsByScope,
-  getRecommendedCourses,
   getRecommendedInstructors,
 } from '../../src/features/student-cabinet/components/student/studentCabinetUtils';
-import { Booking, Course, Instructor, UserProfile } from '../../src/types';
+import { Booking, Instructor, UserProfile } from '../../src/types';
 
 const userProfile: UserProfile = {
   uid: 'user-1',
@@ -17,38 +16,6 @@ const userProfile: UserProfile = {
 };
 
 describe('phase 3 cabinet helpers', () => {
-  it('recommends courses for user level excluding enrolled', () => {
-    const courses: Course[] = [
-      {
-        id: 'c1',
-        title: 'Beginner',
-        level: 'beginner',
-        dates: '2026-08-01',
-        duration: '3 days',
-        description: '',
-        totalSeats: 10,
-        availableSeats: 5,
-        price: 100,
-        bgImageUrl: '',
-      },
-      {
-        id: 'c2',
-        title: 'Intermediate',
-        level: 'intermediate',
-        dates: '2026-09-01',
-        duration: '3 days',
-        description: '',
-        totalSeats: 10,
-        availableSeats: 3,
-        price: 120,
-        bgImageUrl: '',
-      },
-    ];
-    const bookings: Booking[] = [];
-    const recommended = getRecommendedCourses(userProfile, courses, bookings, 1);
-    expect(recommended[0]?.level).toBe('intermediate');
-  });
-
   it('recommends instructors not yet trained with', () => {
     const instructors: Instructor[] = [
       {

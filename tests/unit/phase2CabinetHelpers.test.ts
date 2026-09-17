@@ -1,33 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import {
-  getAvailableCourses,
-  getEnrolledCourses,
-  getMyInstructors,
-} from '../../src/features/student-cabinet/components/student/studentCabinetUtils';
-import { Booking, Course, Instructor } from '../../src/types';
+import { getMyInstructors } from '../../src/features/student-cabinet/components/student/studentCabinetUtils';
+import { Booking, Instructor } from '../../src/types';
 
 const userId = 'user-1';
-
-const courses: Course[] = [
-  {
-    id: 'course-a',
-    title: 'Course A',
-    level: 'beginner',
-    dates: '2026-08-01',
-    price: 100,
-    maxStudents: 10,
-    isHidden: false,
-  },
-  {
-    id: 'course-b',
-    title: 'Course B',
-    level: 'intermediate',
-    dates: '2026-09-01',
-    price: 120,
-    maxStudents: 8,
-    isHidden: false,
-  },
-];
 
 const instructors: Instructor[] = [
   {
@@ -97,16 +72,6 @@ const bookings: Booking[] = [
 ];
 
 describe('phase 2 cabinet helpers', () => {
-  it('returns enrolled courses for the current user only', () => {
-    const enrolled = getEnrolledCourses(bookings, courses, userId);
-    expect(enrolled.map((c) => c.id)).toEqual(['course-a']);
-  });
-
-  it('returns available courses excluding enrolled ones', () => {
-    const available = getAvailableCourses(bookings, courses, userId);
-    expect(available.map((c) => c.id)).toEqual(['course-b']);
-  });
-
   it('returns instructors the student trained with, most recent first', () => {
     const mine = getMyInstructors(bookings, instructors, userId);
     expect(mine.map((i) => i.id)).toEqual(['ins-1']);

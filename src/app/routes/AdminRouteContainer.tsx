@@ -27,7 +27,7 @@ export const AdminRouteContainer: React.FC = () => {
   const usersList = useProfileStore((state) => state.usersList);
   const filtersEnabled = useSettingsStore((state) => state.filtersEnabled);
   const notificationRetentionDays = useSettingsStore((state) => state.notificationRetentionDays);
-  const starterCreditUsd = useSettingsStore((state) => state.starterCreditUsd);
+  const starterCreditKzt = useSettingsStore((state) => state.starterCreditKzt);
   const skillConfig = useSettingsStore((state) => state.skillConfig);
   const achievementsConfig = useSettingsStore((state) => state.achievementsConfig);
   const { translatedInstructors } = useInstructorFilters(language);
@@ -35,7 +35,7 @@ export const AdminRouteContainer: React.FC = () => {
   const handleSetNotificationRetentionDays = useSettingsStore(
     (state) => state.handleSetNotificationRetentionDays
   );
-  const handleSetStarterCreditUsd = useSettingsStore((state) => state.handleSetStarterCreditUsd);
+  const handleSetStarterCreditKzt = useSettingsStore((state) => state.handleSetStarterCreditKzt);
   const handleUpdateSkillConfig = useSettingsStore((state) => state.handleUpdateSkillConfig);
   const handleUpdateAchievementsConfig = useSettingsStore(
     (state) => state.handleUpdateAchievementsConfig
@@ -52,8 +52,8 @@ export const AdminRouteContainer: React.FC = () => {
           onToggleFilters={handleToggleFilters}
           notificationRetentionDays={notificationRetentionDays}
           onSetNotificationRetentionDays={handleSetNotificationRetentionDays}
-          starterCreditUsd={starterCreditUsd}
-          onSetStarterCreditUsd={handleSetStarterCreditUsd}
+          starterCreditKzt={starterCreditKzt}
+          onSetStarterCreditKzt={handleSetStarterCreditKzt}
           skillConfig={skillConfig}
           onUpdateSkillConfig={handleUpdateSkillConfig}
           achievementsConfig={achievementsConfig}

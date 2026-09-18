@@ -1,4 +1,3 @@
-import { doc, type Firestore, type Transaction } from 'firebase/firestore';
 import { isCourseBooking } from '../../domain/availability';
 import { resolveBookingCreatedAt } from '../booking/bookingCreatedAt';
 import { translateCourse } from '../../lib/i18n/contentTranslation';
@@ -27,46 +26,6 @@ export function walletLedgerBookingEntryId(
   const eventAt = resolveBookingCreatedAt(booking)?.toISOString();
   if (!eventAt) return walletLedgerEntryId(type, booking.id);
   return walletLedgerEntryId(type, `${booking.id}__${eventAt}`);
-}
-
-export interface RecordWalletLedgerInput {
-  userId: string;
-  amount: number;
-  balanceAfter: number;
-  currency?: WalletCurrency;
-  type: WalletLedgerType;
-  subjectName?: string;
-  bookingId?: string;
-  courseId?: string;
-  createdAt?: string;
-  entryId?: string;
-}
-
-export function recordWalletLedgerEntryInTransaction(
-  transaction: Transaction,
-  firestore: Firestore,
-  input: RecordWalletLedgerInput
-): void {
-  const entryId =
-    input.entryId ?? walletLedgerEntryId(input.type, input.bookingId ?? `${Date.now()}`);
-  const entry: WalletLedgerEntry = {
-    id: entryId,
-    userId: input.userId,
-    amount: input.amount,
-    balanceAfter: input.balanceAfter,
-    ...(input.currency ? { currency: input.currency } : {}),
-    type: input.type,
-    createdAt: input.createdAt ?? new Date().toISOString(),
-    ...(input.subjectName ? { subjectName: input.subjectName } : {}),
-    ...(input.bookingId ? { bookingId: input.bookingId } : {}),
-    ...(input.courseId ? { courseId: input.courseId } : {}),
-  };
-
-  transaction.set(doc(firestore, WALLET_LEDGER_COLLECTION, entryId), entry);
-}
-
-export function walletLedgerRef(firestore: Firestore, entryId: string) {
-  return doc(firestore, WALLET_LEDGER_COLLECTION, entryId);
 }
 
 export interface WalletOperationView {

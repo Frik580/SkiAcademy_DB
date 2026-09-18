@@ -36,6 +36,19 @@ export function assertProviderCallbackFinanceAccess(
   }
 }
 
+export function assertStarterCreditGrantAuthorization(
+  envelope: CommandEnvelope<'grant_starter_credit'>
+): void {
+  if (
+    envelope.context.actor.kind !== 'account' ||
+    envelope.context.exercisedCapability !== 'account_owner'
+  ) {
+    throw new CanonicalCommandError('forbidden', {
+      correlationId: envelope.context.correlationId,
+    });
+  }
+}
+
 export function assertFinanceAuthorization(
   envelope: CommandEnvelope<
     | 'record_manual_wallet_funding'

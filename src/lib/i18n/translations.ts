@@ -1351,7 +1351,7 @@ export const translations = {
     starterCreditSettingSub: 'Registration prize balance granted to new clients',
     starterCreditSettingLabel: 'Gift amount',
     starterCreditSettingDesc:
-      'Every newly registered client receives this KZT amount. Finance reset also restores wallets to this value. Range: 0–10,000 ₸ (writes amountKzt; amountUsd kept as legacy dual-write).',
+      'Every newly registered client receives this KZT amount on canonical Wallet as a one-time Starter Credit. Range: 0–10,000 ₸.',
     starterCreditUpdated: 'Starter gift credit updated',
     starterCreditUpdatedDesc: 'The registration prize balance has been saved.',
     resortDetailsTitle: 'Resort Details & Weather Location',
@@ -3511,7 +3511,7 @@ export const translations = {
     starterCreditSettingSub: 'Стартовый подарочный баланс для новых клиентов',
     starterCreditSettingLabel: 'Сумма подарка',
     starterCreditSettingDesc:
-      'Каждый новый зарегистрированный клиент получает эту сумму в KZT. Сброс финансов также восстанавливает кошельки до этого значения. Диапазон: 0–10 000 ₸ (пишется amountKzt; amountUsd сохраняется как legacy dual-write).',
+      'Каждый новый зарегистрированный клиент получает эту сумму в KZT на канонический кошелёк один раз. Диапазон: 0–10 000 ₸.',
     starterCreditUpdated: 'Призовой баланс обновлён',
     starterCreditUpdatedDesc: 'Размер стартового подарочного баланса сохранён.',
     resortDetailsTitle: 'Данные курорта и геолокация погоды',

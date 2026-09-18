@@ -24,11 +24,11 @@ describe('omitLegacyAccountProgressFields', () => {
       phoneNumber: '+15551212',
       role: 'user',
       avatarUrl: 'https://example.com/a.svg',
-      balanceUSD: 250,
       isClientActive: true,
     });
     expect(written).not.toHaveProperty('level');
     expect(written).not.toHaveProperty('skillScores');
     expect(written).not.toHaveProperty('skillComments');
+    expect(written).not.toHaveProperty('balanceUSD');
   });
 });

@@ -205,7 +205,13 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
     ? getInstructorVideoMessages(messages, selectedInstructor, instructorUserId)
     : [];
   const homeworkMessages = selectedInstructor
-    ? getInstructorHomeworkMessages(messages, selectedInstructor, instructorUserId, userProfile.uid)
+    ? getInstructorHomeworkMessages(
+        messages,
+        selectedInstructor,
+        instructorUserId,
+        userProfile.uid,
+        selectedParticipantId
+      )
     : [];
   const skillComments = selectedInstructor
     ? getInstructorSkillComments(

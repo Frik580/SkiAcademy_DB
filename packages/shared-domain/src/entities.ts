@@ -95,7 +95,7 @@ export const UserProfileDocumentSchema = z
     role: z.enum(['user', 'admin']),
     systemRole: z.literal('owner').optional(),
     avatarUrl: z.string(),
-    balanceUSD: z.number().finite(),
+    balanceUSD: z.number().finite().optional(),
     walletBalances: z.record(WalletCurrencySchema, z.number().finite()).optional(),
     pendingWalletCredit: z.number().finite().optional(),
     lastRefundBookingId: z.string().optional(),
@@ -164,6 +164,5 @@ export function createUserProfileDefaults(
     ...input,
     role: 'user',
     avatarUrl: '',
-    balanceUSD: 0,
   };
 }

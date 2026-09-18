@@ -1,20 +1,20 @@
 import React from 'react';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 
-type CourseChatClient = { uid: string; name: string; bookingId: string };
+type CourseChatClient = { participantId: string; name: string; bookingId: string };
 
 interface HomeworkPanelProps {
   fromInstructorPanel: boolean;
   sendAsHomework: boolean;
   showHomeworkTargetPicker: boolean;
   homeworkAllStudents: boolean;
-  homeworkTargetUids: string[];
+  homeworkTargetParticipantIds: string[];
   courseParticipants: CourseChatClient[];
   isSending: boolean;
   isCompressing: boolean;
   onSendAsHomeworkChange: (checked: boolean) => void;
   onHomeworkAllChange: (checked: boolean) => void;
-  onToggleHomeworkTargetUid: (uid: string, checked: boolean) => void;
+  onToggleHomeworkTargetParticipantId: (participantId: string, checked: boolean) => void;
 }
 
 export const HomeworkPanel: React.FC<HomeworkPanelProps> = ({
@@ -22,13 +22,13 @@ export const HomeworkPanel: React.FC<HomeworkPanelProps> = ({
   sendAsHomework,
   showHomeworkTargetPicker,
   homeworkAllStudents,
-  homeworkTargetUids,
+  homeworkTargetParticipantIds,
   courseParticipants,
   isSending,
   isCompressing,
   onSendAsHomeworkChange,
   onHomeworkAllChange,
-  onToggleHomeworkTargetUid,
+  onToggleHomeworkTargetParticipantId,
 }) => {
   const { t } = useLanguage();
 
@@ -64,14 +64,18 @@ export const HomeworkPanel: React.FC<HomeworkPanelProps> = ({
           <div className="flex flex-wrap gap-x-4 gap-y-1">
             {courseParticipants.map((p) => (
               <label
-                key={p.uid}
+                key={p.participantId}
                 className="flex items-center gap-2 text-[10px] font-mono text-[var(--ink)] cursor-pointer"
               >
                 <input
                   type="checkbox"
-                  checked={!homeworkAllStudents && homeworkTargetUids.includes(p.uid)}
+                  checked={
+                    !homeworkAllStudents && homeworkTargetParticipantIds.includes(p.participantId)
+                  }
                   disabled={isSending || isCompressing || homeworkAllStudents}
-                  onChange={(e) => onToggleHomeworkTargetUid(p.uid, e.target.checked)}
+                  onChange={(e) =>
+                    onToggleHomeworkTargetParticipantId(p.participantId, e.target.checked)
+                  }
                   className="accent-[var(--accent)]"
                 />
                 <span className="truncate max-w-[140px]">{p.name}</span>

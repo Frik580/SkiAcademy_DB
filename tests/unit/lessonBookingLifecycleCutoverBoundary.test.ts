@@ -344,19 +344,21 @@ describe('T32.9A.9B.3 canonical lesson feedback isolation', () => {
     expect(rules).toContain(
       'Legacy bookings.recommendations / completedRecommendationIds client writes are closed.'
     );
-    expect(rules).toContain("changedKeys().hasOnly(['isHomework', 'homeworkForUserIds'])");
+    expect(rules).toContain("changedKeys().hasOnly(['isHomework', 'homeworkForParticipantIds'])");
     const chatService = readRepoFile('src/features/chat/chatService.ts');
     expect(chatService).toContain('setChatMessageHomework');
     expect(chatService).toContain('isHomework');
-    expect(chatService).toContain('homeworkForUserIds');
+    expect(chatService).toContain('homeworkForParticipantIds');
+    expect(chatService).not.toContain('homeworkForUserIds');
     const chatModal = readRepoFile('src/features/bookings/components/BookingChatModal.tsx');
     expect(chatModal).toContain('setChatMessageHomework');
     expect(chatModal).toContain('isHomework');
     expect(chatModal).toContain('HomeworkPanel');
-    expect(chatModal).toContain('buildHomeworkForUserIds');
+    expect(chatModal).toContain('buildHomeworkForParticipantIds');
     const homework = readRepoFile('src/domain/chat/chatHomework.ts');
     expect(homework).toContain('isHomeworkVisibleToStudent');
-    expect(homework).toContain('buildHomeworkForUserIds');
+    expect(homework).toContain('buildHomeworkForParticipantIds');
+    expect(homework).not.toContain('homeworkForUserIds');
   });
 
   it('keeps the canonical lesson-feedback aggregate separate from Booking and dead GroupCourse leftover off', () => {

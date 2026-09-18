@@ -8,13 +8,24 @@ const SELF_PARTICIPANT_PROVISIONING_IDEMPOTENCY_KEY = IdempotencyKeySchema.parse
   'provision-self-participant-v2'
 );
 
+const STARTER_CREDIT_GRANT_IDEMPOTENCY_KEY = IdempotencyKeySchema.parse('grant-starter-credit-v1');
+
 export async function ensureCanonicalSelfParticipant(accountId: string): Promise<void> {
-  const result = await executeAuthenticatedCanonicalCommand(accountId, {
+  const provisionResult = await executeAuthenticatedCanonicalCommand(accountId, {
     kind: 'provision_self_participant',
     intent: {},
     idempotencyKey: SELF_PARTICIPANT_PROVISIONING_IDEMPOTENCY_KEY,
     exercisedCapability: 'account_owner',
   });
-  const error = mapCanonicalCommandResultError(result);
-  if (error) throw error;
+  const provisionError = mapCanonicalCommandResultError(provisionResult);
+  if (provisionError) throw provisionError;
+
+  const grantResult = await executeAuthenticatedCanonicalCommand(accountId, {
+    kind: 'grant_starter_credit',
+    intent: {},
+    idempotencyKey: STARTER_CREDIT_GRANT_IDEMPOTENCY_KEY,
+    exercisedCapability: 'account_owner',
+  });
+  const grantError = mapCanonicalCommandResultError(grantResult);
+  if (grantError) throw grantError;
 }

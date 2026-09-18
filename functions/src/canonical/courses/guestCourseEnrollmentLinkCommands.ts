@@ -466,6 +466,7 @@ function linkGuestCourseEnrollmentToAccountHandler(
             participantId: targetParticipantId,
             courseId: enrollment.courseId,
             courseEnrollmentId: enrollment.enrollmentId,
+            accountId: actor.accountId,
           });
           const guestGuardRelease = await readAndPlanReleaseActiveCourseEnrollmentGuard(session, {
             correlationId: metadata.correlationId,
@@ -656,6 +657,7 @@ function linkGuestCourseEnrollmentToAccountHandler(
               participantId: targetParticipantId,
               courseId: enrollment.courseId,
               courseEnrollmentId: enrollment.enrollmentId,
+              accountId: actor.accountId,
             },
             plannedTargetGuard.guard,
             plannedTargetGuard.hadExisting

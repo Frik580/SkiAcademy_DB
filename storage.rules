@@ -32,24 +32,7 @@ service firebase.storage {
     function isEnrolledInCourse(courseId) {
       return isAuthenticated() &&
         firestore.exists(
-          /databases/(default)/documents/bookings/$(('booking_course_' + request.auth.uid + '_' + courseId))
-        ) &&
-        firestore.get(
-          /databases/(default)/documents/bookings/$(('booking_course_' + request.auth.uid + '_' + courseId))
-        ).data.userId == request.auth.uid &&
-        firestore.get(
-          /databases/(default)/documents/bookings/$(('booking_course_' + request.auth.uid + '_' + courseId))
-        ).data.instructorId == 'course_' + courseId &&
-        firestore.get(
-          /databases/(default)/documents/bookings/$(('booking_course_' + request.auth.uid + '_' + courseId))
-        ).data.status != 'cancelled' &&
-        (
-          !('isDeleted' in firestore.get(
-            /databases/(default)/documents/bookings/$(('booking_course_' + request.auth.uid + '_' + courseId))
-          ).data) ||
-          firestore.get(
-            /databases/(default)/documents/bookings/$(('booking_course_' + request.auth.uid + '_' + courseId))
-          ).data.isDeleted != true
+          /databases/(default)/documents/course_chat_access/$(request.auth.uid)/courses/$(courseId)
         );
     }
 

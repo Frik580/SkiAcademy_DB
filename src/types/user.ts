@@ -37,12 +37,11 @@ export interface UserProfile {
   role: 'user' | 'admin';
   systemRole?: 'owner';
   avatarUrl: string;
-  balanceUSD: number;
   /**
-   * Legacy dual wallet map. `balanceUSD` remains the persisted field name for Rules/compat.
-   * New credits should use KZT; do not treat profile balanceUSD as canonical spendable balance
-   * (see `/users/{accountId}/wallet/state`).
+   * Leftover `/users` money fields. Not spendable authority.
+   * Canonical balance is `/users/{accountId}/wallet/state`.
    */
+  balanceUSD?: number;
   walletBalances?: Partial<Record<WalletCurrency, number>>;
   /** Staging field for secure wallet credits (top-ups / refunds) before apply. */
   pendingWalletCredit?: number;

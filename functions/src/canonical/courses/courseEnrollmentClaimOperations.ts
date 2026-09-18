@@ -48,6 +48,7 @@ export async function planReleaseCourseEnrollmentClaims(
     readonly releaseSeat: boolean;
     readonly releaseFutureDayClaimsOnly: boolean;
     readonly skipMissingClaims?: boolean;
+    readonly skipCourseChatAccess?: boolean;
   }
 ): Promise<PlannedCourseEnrollmentClaimRelease> {
   const claimMetadata = {
@@ -99,6 +100,7 @@ export async function planReleaseCourseEnrollmentClaims(
     participantId: input.enrollment.participantId,
     courseId: input.enrollment.courseId,
     courseEnrollmentId: input.enrollment.enrollmentId,
+    accountId: input.skipCourseChatAccess ? undefined : input.enrollment.payerAccountId,
   });
 
   return {
@@ -135,6 +137,7 @@ export function commitPlannedCourseEnrollmentClaimRelease(
       participantId: input.enrollment.participantId,
       courseId: input.enrollment.courseId,
       courseEnrollmentId: input.enrollment.enrollmentId,
+      accountId: input.enrollment.payerAccountId,
     });
   }
 }

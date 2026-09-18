@@ -1,5 +1,5 @@
 import { RulesTestEnvironment } from '@firebase/rules-unit-testing';
-import { doc, setDoc } from 'firebase/firestore';
+import { deleteDoc, doc, setDoc } from 'firebase/firestore';
 import { getBytes, ref, uploadBytes, uploadString } from 'firebase/storage';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
@@ -191,17 +191,7 @@ describe('storage booking chat media', () => {
   it('rejects cancelled course enrollment chat access', async () => {
     await seedCourseGroupChatFixtures(testEnv);
     await seedStorageFirestore(testEnv, async (db) => {
-      await setDoc(doc(db, 'bookings', `booking_course_${STORAGE_USER_ID}_course-group-1`), {
-        id: `booking_course_${STORAGE_USER_ID}_course-group-1`,
-        userId: STORAGE_USER_ID,
-        courseId: 'course-group-1',
-        instructorId: 'course_course-group-1',
-        date: '2026-12-01',
-        time: '09:00',
-        durationHours: 4,
-        totalPrice: 100,
-        status: 'cancelled',
-      });
+      await deleteDoc(doc(db, 'course_chat_access', STORAGE_USER_ID, 'courses', 'course-group-1'));
     });
 
     const studentStorage = testEnv.authenticatedContext(STORAGE_USER_ID).storage();

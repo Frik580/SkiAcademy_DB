@@ -799,3 +799,106 @@ describe('finance commands', () => {
     }
   );
 });
+
+describe('grant_starter_credit', () => {
+  function ownerContext(idempotencyKey: string) {
+    return {
+      actor: accountCommandActor(accountId),
+      exercisedCapability: 'account_owner' as const,
+      idempotencyKey,
+      correlationId,
+      source: 'client_callable' as const,
+    };
+  }
+
+  function grantEnvelope(
+    idempotencyKey: string
+  ): CommandEnvelope<'grant_starter_credit'> {
+    return {
+      kind: 'grant_starter_credit',
+      context: ownerContext(idempotencyKey),
+      intent: {},
+    };
+  }
+
+  it('credits canonical wallet from amountKzt and is idempotent', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${accountId}`]: seedAccount(),
+      'settings/starter_credit': { amountKzt: 250 },
+    });
+
+    const first = grantEnvelope('starter-credit-1');
+    const firstResult = await runCommand(executor, first);
+    expect(firstResult.status).toBe('success');
+    expect(executor.snapshot().docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(250);
+
+    const identity = resolveCommandIdempotencyIdentity(first);
+    const eventId = monetaryEventIdFromCommandEffect(identity.commandKey, 0);
+    expect(executor.snapshot().docs.get(`monetary_events/${eventId}`)?.data).toMatchObject({
+      eventKind: 'wallet_credit',
+      walletBalanceDelta: 250,
+      sourceKind: 'system',
+    });
+    expect(
+      executor.snapshot().docs.get(`users/${accountId}/wallet/starter_credit_grant`)?.data.granted
+    ).toBe(true);
+
+    const replay = await runCommand(executor, first);
+    expect(replay.status).toBe('success');
+    expect(executor.snapshot().docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(250);
+    expect(monetaryEventCount(executor.snapshot())).toBe(1);
+
+    const secondKey = await runCommand(executor, grantEnvelope('starter-credit-2'));
+    expect(secondKey.status).toBe('success');
+    expect(executor.snapshot().docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(250);
+    expect(monetaryEventCount(executor.snapshot())).toBe(1);
+  });
+
+  it('treats amountKzt 0 as a valid no-credit grant', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${accountId}`]: seedAccount(),
+      'settings/starter_credit': { amountKzt: 0 },
+    });
+
+    const result = await runCommand(executor, grantEnvelope('starter-credit-zero'));
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.get(`users/${accountId}/wallet/state`)).toBeUndefined();
+    expect(monetaryEventCount(executor.snapshot())).toBe(0);
+    expect(
+      executor.snapshot().docs.get(`users/${accountId}/wallet/starter_credit_grant`)?.data.amountKzt
+    ).toBe(0);
+
+    const retry = await runCommand(executor, grantEnvelope('starter-credit-zero-retry'));
+    expect(retry.status).toBe('success');
+    expect(executor.snapshot().docs.get(`users/${accountId}/wallet/state`)).toBeUndefined();
+    expect(monetaryEventCount(executor.snapshot())).toBe(0);
+  });
+
+  it('does not require amountUsd and ignores a missing balanceUSD profile field', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${accountId}`]: seedAccount(),
+      'settings/starter_credit': { amountKzt: 175 },
+    });
+    const result = await runCommand(executor, grantEnvelope('starter-credit-no-usd'));
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(175);
+  });
+
+  it('rejects administrator capability', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${accountId}`]: seedAccount(),
+      'settings/starter_credit': { amountKzt: 250 },
+    });
+    const result = await runCommand(executor, {
+      kind: 'grant_starter_credit',
+      context: {
+        ...ownerContext('starter-credit-admin'),
+        exercisedCapability: 'administrator',
+        source: 'admin_callable',
+      },
+      intent: {},
+    });
+    expect(result.status).toBe('error');
+    expect(result.status === 'error' ? result.error.code : '').toBe('forbidden');
+  });
+});

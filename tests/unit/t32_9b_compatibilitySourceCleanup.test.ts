@@ -50,8 +50,10 @@ describe('T32.9B compatibility source cleanup', () => {
 
     expect(rules).not.toContain('function validRefundBalanceCreditApply');
     expect(rules).not.toContain('function validRefundLedgerCreate');
-    expect(rules).toContain('function validBalanceDecreaseOnly');
-    expect(rules).toContain('function validPaymentLedgerCreate');
+    expect(rules).not.toContain('function validBalanceDecreaseOnly');
+    expect(rules).not.toContain('function validPaymentLedgerCreate');
+    expect(rules).toContain('function authoritativeMoneyFieldsUnchanged');
+    expect(rules).toContain('function validStarterCreditSetting');
 
     expect(translations).not.toContain('resetSchoolFinancesTitle');
     expect(translations).not.toContain('guestWalletPanelTitle');

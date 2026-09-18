@@ -23,6 +23,7 @@ const PLANNER_IRRELEVANT_COMMAND_KINDS = new Set<CommandKind>([
   'record_provider_payment_event',
   'pay_service_from_wallet_as_administrator',
   'record_manual_wallet_funding',
+  'grant_starter_credit',
   'adjust_service_price',
   'record_financial_correction',
   'record_audit_correction',

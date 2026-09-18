@@ -58,13 +58,14 @@ export async function setChatMessageHomework(
   threadId: string,
   messageId: string,
   isHomework: boolean,
-  homeworkForUserIds?: string[]
+  homeworkForParticipantIds?: string[]
 ): Promise<void> {
   const path = `${messagesPath(threadId)}/${messageId}`;
   try {
     await updateDoc(doc(db, 'bookings', threadId, 'messages', messageId), {
       isHomework,
-      homeworkForUserIds: isHomework && homeworkForUserIds ? homeworkForUserIds : deleteField(),
+      homeworkForParticipantIds:
+        isHomework && homeworkForParticipantIds ? homeworkForParticipantIds : deleteField(),
     });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);

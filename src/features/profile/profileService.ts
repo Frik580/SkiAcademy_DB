@@ -33,23 +33,6 @@ export async function updateUserRoleService(
   await updateDoc(doc(db, 'users', targetUid), { role: newRole });
 }
 
-export async function updateStudentSkillsService(
-  studentUid: string,
-  skillScores: Record<string, number>,
-  skillComments: Record<string, string>,
-  level: number
-): Promise<void> {
-  // Leftover unused client writer. Canonical progress is update_participant_progress.
-  // /users.level|skillScores|skillComments are READ-ONLY LEGACY after Rules cutover.
-  await updateDoc(doc(db, 'users', studentUid), { skillScores, skillComments, level });
-}
-
-export async function updateStudentLevelService(studentUid: string, level: number): Promise<void> {
-  // Leftover unused client writer. Canonical progress is update_participant_progress.
-  // /users.level is READ-ONLY LEGACY after Rules cutover.
-  await updateDoc(doc(db, 'users', studentUid), { level });
-}
-
 export async function addUserService(newUser: UserProfile): Promise<void> {
   await setDoc(doc(db, 'users', newUser.uid), newUser);
 }

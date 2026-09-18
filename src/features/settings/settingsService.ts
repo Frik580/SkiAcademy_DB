@@ -6,9 +6,9 @@ import {
 } from '../../domain/notifications';
 import { SkillConfig } from '../../domain/achievements';
 import {
-  MAX_STARTER_CREDIT_USD,
-  MIN_STARTER_CREDIT_USD,
-  normalizeStarterCreditUsd,
+  MAX_STARTER_CREDIT_KZT,
+  MIN_STARTER_CREDIT_KZT,
+  normalizeStarterCreditKzt,
 } from '../../domain/wallet';
 
 export const saveFiltersEnabled = (enabled: boolean): Promise<void> =>
@@ -23,14 +23,12 @@ export async function saveNotificationRetentionDays(days: number): Promise<numbe
   return normalizedDays;
 }
 
-export async function saveStarterCreditUsd(amount: number): Promise<number> {
-  const normalizedAmount = normalizeStarterCreditUsd(
-    Math.min(MAX_STARTER_CREDIT_USD, Math.max(MIN_STARTER_CREDIT_USD, amount))
+export async function saveStarterCreditKzt(amount: number): Promise<number> {
+  const normalizedAmount = normalizeStarterCreditKzt(
+    Math.min(MAX_STARTER_CREDIT_KZT, Math.max(MIN_STARTER_CREDIT_KZT, amount))
   );
-  // Dual-write: amountKzt is the preferred field; amountUsd remains for Rules/compat readers.
   await setDoc(doc(db, 'settings', 'starter_credit'), {
     amountKzt: normalizedAmount,
-    amountUsd: normalizedAmount,
   });
   return normalizedAmount;
 }

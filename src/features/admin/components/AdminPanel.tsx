@@ -129,8 +129,8 @@ interface AdminPanelProps {
   onToggleFilters?: (enabled: boolean) => Promise<void>;
   notificationRetentionDays?: number;
   onSetNotificationRetentionDays?: (days: number) => Promise<void>;
-  starterCreditUsd?: number;
-  onSetStarterCreditUsd?: (amount: number) => Promise<void>;
+  starterCreditKzt?: number;
+  onSetStarterCreditKzt?: (amount: number) => Promise<void>;
   skillConfig?: SkillConfig;
   achievementsConfig?: AchievementsConfig;
   onUpdateSkillConfig?: (config: SkillConfig) => Promise<void>;
@@ -145,8 +145,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onToggleFilters,
   notificationRetentionDays,
   onSetNotificationRetentionDays,
-  starterCreditUsd,
-  onSetStarterCreditUsd,
+  starterCreditKzt,
+  onSetStarterCreditKzt,
   skillConfig,
   onUpdateSkillConfig,
   achievementsConfig,
@@ -433,8 +433,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               onToggleFilters={onToggleFilters}
               notificationRetentionDays={notificationRetentionDays}
               onSetNotificationRetentionDays={onSetNotificationRetentionDays}
-              starterCreditUsd={starterCreditUsd}
-              onSetStarterCreditUsd={onSetStarterCreditUsd}
+              starterCreditKzt={starterCreditKzt}
+              onSetStarterCreditKzt={onSetStarterCreditKzt}
               skillConfig={skillConfig}
               onUpdateSkillConfig={onUpdateSkillConfig}
               achievementsConfig={achievementsConfig}

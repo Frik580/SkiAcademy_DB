@@ -119,7 +119,6 @@ describe('Auth', () => {
           displayName: 'Alex Carter',
           phoneNumber: '+15550001111',
           role: 'user',
-          balanceUSD: 250,
         })
       );
     });
@@ -127,6 +126,8 @@ describe('Auth', () => {
     expect(writtenProfile).not.toHaveProperty('level');
     expect(writtenProfile).not.toHaveProperty('skillScores');
     expect(writtenProfile).not.toHaveProperty('skillComments');
+    expect(writtenProfile).not.toHaveProperty('balanceUSD');
+    expect(writtenProfile).not.toHaveProperty('walletBalances');
     await waitFor(() => {
       expect(onSuccess).toHaveBeenCalledWith(
         expect.objectContaining({ uid: 'new-user', displayName: 'Alex Carter' })

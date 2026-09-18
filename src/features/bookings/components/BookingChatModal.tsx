@@ -6,7 +6,7 @@ import { useLanguage } from '../../../app/providers/LanguageContext';
 import { logger } from '../../../shared';
 import { resolveChatId, getCourseChatThreadIds } from '../../../domain/chat';
 import { resolveProfileSenderRole } from '../../../domain/chat';
-import { buildHomeworkForUserIds } from '../../../domain/chat';
+import { buildHomeworkForParticipantIds } from '../../../domain/chat';
 import {
   createChatMessage,
   setChatMessageHomework,
@@ -24,7 +24,7 @@ import {
   type PendingAttachment,
 } from './booking_chat/chatCompression';
 
-type CourseChatClient = { uid: string; name: string; bookingId: string };
+type CourseChatClient = { participantId: string; name: string; bookingId: string };
 
 interface BookingChatModalProps {
   booking: Booking & {
@@ -33,6 +33,11 @@ interface BookingChatModalProps {
     isCourse?: boolean;
     courseId?: string;
     clients?: CourseChatClient[];
+    participantIds?: readonly string[];
+    participants?: readonly {
+      participantId: string;
+      clientName: string;
+    }[];
   };
   currentUserProfile: UserProfile;
   onClose: () => void;
@@ -58,7 +63,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [sendAsHomework, setSendAsHomework] = useState(false);
   const [homeworkAllStudents, setHomeworkAllStudents] = useState(true);
-  const [homeworkTargetUids, setHomeworkTargetUids] = useState<string[]>([]);
+  const [homeworkTargetParticipantIds, setHomeworkTargetParticipantIds] = useState<string[]>([]);
   const [homeworkTogglingId, setHomeworkTogglingId] = useState<string | null>(null);
 
   const [attachment, setAttachment] = useState<PendingAttachment | null>(null);
@@ -73,17 +78,21 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
 
   const courseParticipants = useMemo(() => {
     if (!fromInstructorPanel) return [] as CourseChatClient[];
-    if (booking.clients?.length) {
-      return booking.clients.filter((c) => Boolean(c.uid));
-    }
-    if (booking.userId && !booking.instructorId.startsWith('course_')) {
-      return [
-        {
-          uid: booking.userId,
-          name: booking.guestName || booking.instructorName,
+    if (booking.participants?.length) {
+      return booking.participants
+        .filter((participant) => Boolean(participant.participantId))
+        .map((participant) => ({
+          participantId: participant.participantId,
+          name: participant.clientName,
           bookingId: booking.id,
-        },
-      ];
+        }));
+    }
+    if (booking.participantIds?.length) {
+      return booking.participantIds.filter(Boolean).map((participantId) => ({
+        participantId,
+        name: participantId,
+        bookingId: booking.id,
+      }));
     }
     return [];
   }, [booking, fromInstructorPanel]);
@@ -91,26 +100,26 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
   const showHomeworkTargetPicker =
     fromInstructorPanel && sendAsHomework && courseParticipants.length > 1;
 
-  const courseParticipantUids = useMemo(
-    () => courseParticipants.map((p) => p.uid),
+  const courseParticipantIds = useMemo(
+    () => courseParticipants.map((p) => p.participantId),
     [courseParticipants]
   );
 
   const resetHomeworkTargets = () => {
     setHomeworkAllStudents(true);
-    setHomeworkTargetUids([]);
+    setHomeworkTargetParticipantIds([]);
   };
 
   const setHomeworkAll = (checked: boolean) => {
     setHomeworkAllStudents(checked);
-    if (checked) setHomeworkTargetUids([]);
+    if (checked) setHomeworkTargetParticipantIds([]);
   };
 
-  const toggleHomeworkTargetUid = (uid: string, checked: boolean) => {
+  const toggleHomeworkTargetParticipantId = (participantId: string, checked: boolean) => {
     setHomeworkAllStudents(false);
-    setHomeworkTargetUids((prev) => {
-      if (checked) return prev.includes(uid) ? prev : [...prev, uid];
-      return prev.filter((id) => id !== uid);
+    setHomeworkTargetParticipantIds((prev) => {
+      if (checked) return prev.includes(participantId) ? prev : [...prev, participantId];
+      return prev.filter((id) => id !== participantId);
     });
   };
 
@@ -291,13 +300,13 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
 
       if (sendAsHomework && fromInstructorPanel) {
         newMessage.isHomework = true;
-        const targets = buildHomeworkForUserIds(
-          homeworkAllStudents ? null : homeworkTargetUids,
+        const targets = buildHomeworkForParticipantIds(
+          homeworkAllStudents ? null : homeworkTargetParticipantIds,
           courseParticipants.length,
-          courseParticipantUids
+          courseParticipantIds
         );
         if (targets) {
-          newMessage.homeworkForUserIds = targets;
+          newMessage.homeworkForParticipantIds = targets;
         }
       }
 
@@ -316,7 +325,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
     setHomeworkTogglingId(msg.id);
     try {
       if (checked) {
-        const targets = buildHomeworkForUserIds(null, courseParticipants.length);
+        const targets = buildHomeworkForParticipantIds(null, courseParticipants.length);
         await setChatMessageHomework(threadId, msg.id, true, targets);
       } else {
         await setChatMessageHomework(threadId, msg.id, false);
@@ -364,7 +373,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
         sendAsHomework={sendAsHomework}
         showHomeworkTargetPicker={showHomeworkTargetPicker}
         homeworkAllStudents={homeworkAllStudents}
-        homeworkTargetUids={homeworkTargetUids}
+        homeworkTargetParticipantIds={homeworkTargetParticipantIds}
         courseParticipants={courseParticipants}
         isSending={isSending}
         isCompressing={isCompressing}
@@ -373,7 +382,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
           if (!checked) resetHomeworkTargets();
         }}
         onHomeworkAllChange={setHomeworkAll}
-        onToggleHomeworkTargetUid={toggleHomeworkTargetUid}
+        onToggleHomeworkTargetParticipantId={toggleHomeworkTargetParticipantId}
       />
 
       <ChatInput

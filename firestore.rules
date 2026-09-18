@@ -95,23 +95,11 @@ service cloud.firestore {
       ]);
     }
 
-    function starterCreditGiftAmount() {
-      let starterCreditPath = /databases/$(database)/documents/settings/starter_credit;
-      return !exists(starterCreditPath)
-        ? 250
-        : (
-            get(starterCreditPath).data.keys().hasAny(['amountKzt'])
-              ? get(starterCreditPath).data.amountKzt
-              : get(starterCreditPath).data.amountUsd
-          );
-    }
-
-    function validInitialWalletAuthority() {
-      return request.resource.data.balanceUSD is number &&
+    function selfServiceAccountCreateHasNoMoneyFields() {
+      return !('balanceUSD' in request.resource.data) &&
         !('walletBalances' in request.resource.data) &&
         !('pendingWalletCredit' in request.resource.data) &&
-        !('lastRefundBookingId' in request.resource.data) &&
-        request.resource.data.balanceUSD == starterCreditGiftAmount();
+        !('lastRefundBookingId' in request.resource.data);
     }
 
     // T32.8A: Account/Instructor identity authority is command-only.
@@ -165,26 +153,15 @@ service cloud.firestore {
         isOwnEmail(request.resource.data.email) &&
         request.resource.data.role == 'user' &&
         selfServiceAccountCreateHasNoCanonicalAuthority() &&
-        validInitialWalletAuthority();
+        selfServiceAccountCreateHasNoMoneyFields();
     }
 
     function validStarterCreditSetting() {
       let keys = request.resource.data.keys();
-      let hasUsd = keys.hasAny(['amountUsd']);
-      let hasKzt = keys.hasAny(['amountKzt']);
-      return keys.hasOnly(['amountUsd', 'amountKzt']) &&
-        (hasUsd || hasKzt) &&
-        (!hasUsd || (
-          request.resource.data.amountUsd is number &&
-          request.resource.data.amountUsd >= 0 &&
-          request.resource.data.amountUsd <= 10000
-        )) &&
-        (!hasKzt || (
-          request.resource.data.amountKzt is number &&
-          request.resource.data.amountKzt >= 0 &&
-          request.resource.data.amountKzt <= 10000
-        )) &&
-        (!hasUsd || !hasKzt || request.resource.data.amountUsd == request.resource.data.amountKzt);
+      return keys.hasOnly(['amountKzt']) &&
+        request.resource.data.amountKzt is number &&
+        request.resource.data.amountKzt >= 0 &&
+        request.resource.data.amountKzt <= 10000;
     }
 
     function isInstructor() {
@@ -205,24 +182,7 @@ service cloud.firestore {
     function isEnrolledInCourse(courseId) {
       return isAuthenticated() &&
         exists(
-          /databases/$(database)/documents/bookings/$('booking_course_' + request.auth.uid + '_' + courseId)
-        ) &&
-        get(
-          /databases/$(database)/documents/bookings/$('booking_course_' + request.auth.uid + '_' + courseId)
-        ).data.userId == request.auth.uid &&
-        get(
-          /databases/$(database)/documents/bookings/$('booking_course_' + request.auth.uid + '_' + courseId)
-        ).data.instructorId == 'course_' + courseId &&
-        get(
-          /databases/$(database)/documents/bookings/$('booking_course_' + request.auth.uid + '_' + courseId)
-        ).data.status != 'cancelled' &&
-        (
-          !('isDeleted' in get(
-            /databases/$(database)/documents/bookings/$('booking_course_' + request.auth.uid + '_' + courseId)
-          ).data) ||
-          get(
-            /databases/$(database)/documents/bookings/$('booking_course_' + request.auth.uid + '_' + courseId)
-          ).data.isDeleted != true
+          /databases/$(database)/documents/course_chat_access/$(request.auth.uid)/courses/$(courseId)
         );
     }
 
@@ -471,84 +431,39 @@ service cloud.firestore {
         );
     }
 
-    function validBalanceDecreaseOnly() {
-      let previousBalance =
-        ('balanceUSD' in resource.data) && resource.data.balanceUSD is number
-          ? resource.data.balanceUSD
-          : 0;
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['balanceUSD']) &&
-        request.resource.data.balanceUSD is number &&
-        request.resource.data.balanceUSD >= 0 &&
-        request.resource.data.balanceUSD < previousBalance;
-    }
-
-    function validPaymentLedgerCreate(entryId) {
-      return (
-        request.resource.data.type == 'lesson_payment' ||
-        request.resource.data.type == 'course_payment'
-      ) &&
-        ('bookingId' in request.resource.data) &&
-        request.resource.data.bookingId is string &&
-        request.resource.data.amount < 0 &&
-        request.resource.data.amount >= -10000 &&
-        request.resource.data.userId == request.auth.uid &&
-        !exists(/databases/$(database)/documents/wallet_ledger/$(entryId)) &&
-        existsAfter(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)) &&
-        getAfter(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.userId == request.auth.uid &&
-        getAfter(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.totalPrice == -(request.resource.data.amount);
-    }
-
-    function validWalletLedgerEntryFields(entryId) {
-      return request.resource.data.id == entryId &&
-        request.resource.data.userId is string &&
-        request.resource.data.amount is number &&
-        request.resource.data.amount != 0 &&
-        request.resource.data.balanceAfter is number &&
-        request.resource.data.balanceAfter >= 0 &&
-        request.resource.data.type is string &&
-        request.resource.data.createdAt is string;
-    }
-
     // User Profiles
     // Preserved client writes (non-authoritative only):
     // - create: signup / guest-claim migration (Auth.tsx, migratePreExistingProfile)
     // - update self presentation: cabinet profile, today tasks, dismissReview
     //   (owner only, and only while stored Account lifecycle is active/absent)
-    // - update balanceUSD decrease: legacy client payment (denied when disabled)
-    // - delete client_* by email claimant: guest-claim migration
+    // Canonical Wallet / Payment / MonetaryEvent are command-only.
     // Progress fields (level, skillScores, skillComments) are leftover
     // READ-ONLY LEGACY / CLEANUP CANDIDATE on /users. They are not authority.
     // Canonical progress lives on /participant_progress and is Admin SDK only.
-    // New Account creates must not write leftover progress fields.
+    // New Account creates must not write leftover progress or money fields.
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin() || isInstructor();
       allow list: if isAdmin() || isInstructor() || (resource != null && isOwnEmail(resource.data.email));
 
       allow create: if isOwner(userId) && validSelfServiceAccountCreate(userId);
 
-      allow update: if canonicalAccountAuthorityFieldsUnchanged() && (
-        (
-          isOwner(userId) &&
-          accountLifecycleAllowsSelfService() &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-            'displayName',
-            'phoneNumber',
-            'avatarUrl',
-            'hideProgressTracking',
-            'hasCompletedOnboarding',
-            'todaySkillItemIds',
-            'completedTodayTaskIds',
-            'completedTodayDate',
-            'customTodayTasks',
-            'dismissedTodayTaskIds',
-            'dismissedReviewIds'
-          ])
-        ) || (
-          isOwner(userId) &&
-          accountLifecycleAllowsSelfService() &&
-          validBalanceDecreaseOnly()
-        )
-      );
+      allow update: if canonicalAccountAuthorityFieldsUnchanged() &&
+        authoritativeMoneyFieldsUnchanged() &&
+        isOwner(userId) &&
+        accountLifecycleAllowsSelfService() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'displayName',
+          'phoneNumber',
+          'avatarUrl',
+          'hideProgressTracking',
+          'hasCompletedOnboarding',
+          'todaySkillItemIds',
+          'completedTodayTaskIds',
+          'completedTodayDate',
+          'customTodayTasks',
+          'dismissedTodayTaskIds',
+          'dismissedReviewIds'
+        ]);
 
       allow delete: if userId.matches('^client_.*') &&
         (!('systemRole' in resource.data) || resource.data.systemRole != 'owner') &&
@@ -664,19 +579,21 @@ service cloud.firestore {
         allow read: if isAuthenticated() && canAccessChatMessages(bookingId);
         allow create: if isAuthenticated() &&
           request.resource.data.senderId == request.auth.uid &&
-          canAccessChatMessages(bookingId);
+          canAccessChatMessages(bookingId) &&
+          !('homeworkForUserIds' in request.resource.data);
         allow update: if isAdmin() || (
           isAuthenticated() &&
           resource.data.senderId == request.auth.uid &&
           canAccessChatMessages(bookingId) &&
-          request.resource.data.diff(resource.data).changedKeys().hasOnly(['isHomework', 'homeworkForUserIds']) &&
+          request.resource.data.diff(resource.data).changedKeys().hasOnly(['isHomework', 'homeworkForParticipantIds']) &&
+          !('homeworkForUserIds' in request.resource.data) &&
           (
             !('isHomework' in request.resource.data) ||
             request.resource.data.isHomework is bool
           ) &&
           (
-            !('homeworkForUserIds' in request.resource.data) ||
-            request.resource.data.homeworkForUserIds is list
+            !('homeworkForParticipantIds' in request.resource.data) ||
+            request.resource.data.homeworkForParticipantIds is list
           )
         );
         allow delete: if false;
@@ -752,20 +669,22 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Wallet ledger (append-only operation history)
+    // Wallet ledger is a historical read surface only. Clients cannot fabricate finance history.
     match /wallet_ledger/{entryId} {
       allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isAuthenticated() &&
-        validWalletLedgerEntryFields(entryId) &&
-        request.resource.data.userId == request.auth.uid &&
-        (
-          (
-            request.resource.data.type == 'lesson_payment' ||
-            request.resource.data.type == 'course_payment'
-          ) && validPaymentLedgerCreate(entryId)
+      allow create, update, delete: if false;
+    }
+
+    // Canonical course-chat access projection. Written by enrollment commands (Admin SDK).
+    match /course_chat_access/{accountId} {
+      match /courses/{courseId} {
+        allow read: if isAuthenticated() && (
+          isAdmin() ||
+          isInstructor() ||
+          accountId == request.auth.uid
         );
-      allow update: if false;
-      allow delete: if false;
+        allow create, update, delete: if false;
+      }
     }
 
     // Error Logs

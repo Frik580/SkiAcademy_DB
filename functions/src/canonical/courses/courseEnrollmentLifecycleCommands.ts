@@ -112,7 +112,10 @@ import {
   confirmGuestCourseEnrollmentHandler,
   requestPendingGuestCourseEnrollmentCancellationHandler,
 } from './guestCourseEnrollmentLifecycle';
-import { moveActiveCourseEnrollmentGuard } from '../resourceClaims/uniquenessGuards';
+import {
+  commitQueuedCourseChatAccessWrites,
+  moveActiveCourseEnrollmentGuard,
+} from '../resourceClaims/uniquenessGuards';
 import {
   registerResourceClaimPlanInGuardOverlay,
   type InTransactionGuardOverlay,
@@ -1087,6 +1090,7 @@ function transferCourseEnrollmentHandler(
         now,
         releaseSeat: true,
         releaseFutureDayClaimsOnly: false,
+        skipCourseChatAccess: true,
       });
 
       const guardOverlay: InTransactionGuardOverlay = new Map();
@@ -1114,6 +1118,7 @@ function transferCourseEnrollmentHandler(
         correlationId: metadata.correlationId,
         commandId: metadata.commandId,
         decidedAt: environment.clock.decidedAt(),
+        accountId: enrollment.payerAccountId ?? payment.payerAccountId,
       });
 
       const newPrice = targetCourse.price;
@@ -1201,6 +1206,7 @@ function transferCourseEnrollmentHandler(
         seatClaimPlan: plannedAcquireClaims.seatClaimPlan,
         dayClaimPlans: plannedAcquireClaims.dayClaimPlans,
       });
+      commitQueuedCourseChatAccessWrites(session);
 
       if (plannedTransferFinance) {
         commitPlannedCourseEnrollmentTransferFinance(session, plannedTransferFinance);

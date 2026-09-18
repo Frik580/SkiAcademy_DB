@@ -13,7 +13,6 @@ import {
   signInWithGoogleService,
   signUpWithEmailService,
 } from '../../../features/auth/authService';
-import { useSettingsStore } from '../../../features/settings/settingsStore';
 
 interface AuthProps {
   onSuccess: (profile: UserProfile) => void;
@@ -82,7 +81,6 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
             displayName,
             role: 'user',
             avatarUrl: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(avatarSeed)}`,
-            balanceUSD: useSettingsStore.getState().starterCreditUsd,
             isClientActive: true,
           };
           if (phoneNumber) {
@@ -95,7 +93,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
           addNotification(
             'success',
             t('authWelcomeBack'),
-            `${t('authLinkedProfileName')} "${displayName}" ${t('authWithBalance')} ${finalProfile.balanceUSD.toLocaleString('ru-RU')} ₸.`
+            `${t('authLinkedProfileName')} "${displayName}".`
           );
         }
 
@@ -116,7 +114,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
           addNotification(
             'success',
             t('authWelcomeBack'),
-            `${t('authLinkedProfileBalance')} ${finalProfile.balanceUSD.toLocaleString('ru-RU')} ₸ ${t('authMergedSuffix')}`
+            `${t('authWelcomeBackName')} ${finalProfile.displayName}!`
           );
           onSuccess(finalProfile);
         } else {
@@ -138,7 +136,6 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
               avatarUrl:
                 user.photoURL ||
                 `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(seed)}`,
-              balanceUSD: useSettingsStore.getState().starterCreditUsd,
               isClientActive: true,
             };
             await saveUserProfileService(fallbackProfile);
@@ -230,7 +227,6 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
             avatarUrl:
               user.photoURL ||
               `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(seed)}`,
-            balanceUSD: useSettingsStore.getState().starterCreditUsd,
             isClientActive: true,
           };
 
@@ -241,7 +237,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
           addNotification(
             'success',
             t('authWelcomeBack'),
-            `${t('authGoogleProfileFound')} ${finalProfile.balanceUSD.toLocaleString('ru-RU')} ₸, ${t('authLinkedToName')} "${actualName}".`
+            `${t('authGoogleProfileFound')} ${t('authLinkedToName')} "${actualName}".`
           );
         }
         onSuccess(finalProfile);

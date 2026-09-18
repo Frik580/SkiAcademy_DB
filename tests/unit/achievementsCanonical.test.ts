@@ -439,7 +439,7 @@ describe('canonical achievement evaluation — homework_done', () => {
         },
       ],
       activityLogs: [{ type: 'recommendations_completed_all' }],
-      chatHomework: { isHomework: true, homeworkForUserIds: [childA] },
+      chatHomework: { isHomework: true, homeworkForParticipantIds: [childA] },
     };
     expect(earnedIds(evaluation)).not.toContain('homework_done');
   });

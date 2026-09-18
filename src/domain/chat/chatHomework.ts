@@ -1,36 +1,36 @@
 import { ChatMessage } from '../../types';
 
-/** Homework with no `homeworkForUserIds` (or empty) is visible to all course participants. */
+/** Homework with no `homeworkForParticipantIds` (or empty) is visible to all lesson/course participants. */
 export function isHomeworkVisibleToStudent(
   message: ChatMessage,
-  studentUid: string | undefined
+  participantId: string | undefined
 ): boolean {
   if (!message.isHomework) return false;
-  if (!studentUid) return true;
-  const targets = message.homeworkForUserIds;
+  const targets = message.homeworkForParticipantIds;
   if (!targets?.length) return true;
-  return targets.includes(studentUid);
+  if (!participantId) return false;
+  return targets.includes(participantId);
 }
 
 /**
- * Build homework audience for a group course.
- * `null` / empty selection = all participants. Partial selection = listed uids only.
+ * Build homework audience for a group lesson or course.
+ * `null` / empty selection = all participants. Partial selection = listed Participant IDs only.
  */
-export function buildHomeworkForUserIds(
-  targetStudentUids: string[] | null | undefined,
+export function buildHomeworkForParticipantIds(
+  targetParticipantIds: string[] | null | undefined,
   participantCount: number,
-  allParticipantUids?: string[]
+  allParticipantIds?: string[]
 ): string[] | undefined {
   if (participantCount <= 1) return undefined;
-  if (!targetStudentUids?.length) return undefined;
+  if (!targetParticipantIds?.length) return undefined;
 
-  const unique = [...new Set(targetStudentUids.filter(Boolean))];
+  const unique = [...new Set(targetParticipantIds.filter(Boolean))];
   if (!unique.length) return undefined;
 
-  if (allParticipantUids?.length) {
-    const participantSet = new Set(allParticipantUids);
+  if (allParticipantIds?.length) {
+    const participantSet = new Set(allParticipantIds);
     const allSelected =
-      unique.length >= participantSet.size && unique.every((uid) => participantSet.has(uid));
+      unique.length >= participantSet.size && unique.every((id) => participantSet.has(id));
     if (allSelected) return undefined;
   }
 

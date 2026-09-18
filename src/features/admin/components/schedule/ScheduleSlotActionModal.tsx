@@ -521,7 +521,6 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
           );
         } catch (error) {
           if (error instanceof InsufficientFundsError) {
-            const client = usersList.find((user) => user.uid === activeSlot.booking!.userId);
             const fallbackRequired =
               Math.max(
                 0,
@@ -529,10 +528,7 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
                   (activeSlot.booking.totalPrice ?? 0)
               ) || 0;
             setInsufficientFundsPrompt({
-              currentBalance:
-                typeof error.currentBalance === 'number'
-                  ? error.currentBalance
-                  : (client?.balanceUSD ?? 0),
+              currentBalance: typeof error.currentBalance === 'number' ? error.currentBalance : 0,
               required: typeof error.required === 'number' ? error.required : fallbackRequired,
               targetInstructor,
               date: newMoveDate,

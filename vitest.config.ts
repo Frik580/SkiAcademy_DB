@@ -11,8 +11,6 @@ const COVERAGE_EXCLUDE = [
   'src/lib/i18n/bookingLabels.ts',
   'src/features/bookings/bookingTransactions.ts',
   'src/lib/courseTransactions.ts',
-  'src/domain/wallet/walletCredit.ts',
-  'src/domain/notifications/notifications.ts',
   'src/lib/availabilityMigration.ts',
   'src/lib/useTranslatedBookings.ts',
   'src/infrastructure/firebase/storage.ts',

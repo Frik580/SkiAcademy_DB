@@ -9,7 +9,6 @@ export function accountListItemToUserProfile(item: AdminAccountListItem): UserPr
     role: item.role.role === 'admin' ? 'admin' : 'user',
     systemRole: item.role.systemRole,
     avatarUrl: '',
-    balanceUSD: 0,
     isClientActive: item.lifecycle === 'active',
     instructorId: item.instructorLink.instructorId,
     isInstructor: item.instructorLink.isInstructor,
@@ -31,7 +30,6 @@ export function mergeAdminClientDirectory(
             ...existing,
             ...mapped,
             avatarUrl: existing.avatarUrl,
-            balanceUSD: existing.balanceUSD,
           }
         : mapped
     );

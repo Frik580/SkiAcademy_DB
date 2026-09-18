@@ -10,9 +10,9 @@ import {
   MIN_NOTIFICATION_RETENTION_DAYS,
 } from '../../../../domain/notifications';
 import {
-  DEFAULT_STARTER_CREDIT_USD,
-  MAX_STARTER_CREDIT_USD,
-  MIN_STARTER_CREDIT_USD,
+  DEFAULT_STARTER_CREDIT_KZT,
+  MAX_STARTER_CREDIT_KZT,
+  MIN_STARTER_CREDIT_KZT,
 } from '../../../../domain/wallet';
 import { SkillConfigManager } from './SkillConfigManager';
 import { AchievementsManager } from './AchievementsManager';
@@ -24,8 +24,8 @@ export interface AdminSystemSettingsProps {
   onToggleFilters?: (enabled: boolean) => Promise<void>;
   notificationRetentionDays?: number;
   onSetNotificationRetentionDays?: (days: number) => Promise<void>;
-  starterCreditUsd?: number;
-  onSetStarterCreditUsd?: (amount: number) => Promise<void>;
+  starterCreditKzt?: number;
+  onSetStarterCreditKzt?: (amount: number) => Promise<void>;
   skillConfig?: SkillConfig;
   achievementsConfig?: AchievementsConfig;
   onUpdateSkillConfig?: (config: SkillConfig) => Promise<void>;
@@ -38,8 +38,8 @@ export const AdminSystemSettings: React.FC<AdminSystemSettingsProps> = ({
   onToggleFilters,
   notificationRetentionDays = DEFAULT_NOTIFICATION_RETENTION_DAYS,
   onSetNotificationRetentionDays,
-  starterCreditUsd = DEFAULT_STARTER_CREDIT_USD,
-  onSetStarterCreditUsd,
+  starterCreditKzt = DEFAULT_STARTER_CREDIT_KZT,
+  onSetStarterCreditKzt,
   skillConfig,
   achievementsConfig,
   onUpdateSkillConfig,
@@ -48,7 +48,7 @@ export const AdminSystemSettings: React.FC<AdminSystemSettingsProps> = ({
   const { t } = useLanguage();
   const [retentionInput, setRetentionInput] = useState(String(notificationRetentionDays));
   const [isSavingRetention, setIsSavingRetention] = useState(false);
-  const [starterCreditInput, setStarterCreditInput] = useState(String(starterCreditUsd));
+  const [starterCreditInput, setStarterCreditInput] = useState(String(starterCreditKzt));
   const [isSavingStarterCredit, setIsSavingStarterCredit] = useState(false);
 
   React.useEffect(() => {
@@ -56,8 +56,8 @@ export const AdminSystemSettings: React.FC<AdminSystemSettingsProps> = ({
   }, [notificationRetentionDays]);
 
   React.useEffect(() => {
-    setStarterCreditInput(String(starterCreditUsd));
-  }, [starterCreditUsd]);
+    setStarterCreditInput(String(starterCreditKzt));
+  }, [starterCreditKzt]);
 
   const handleSaveRetention = async () => {
     if (!onSetNotificationRetentionDays || isSavingRetention) return;
@@ -81,21 +81,21 @@ export const AdminSystemSettings: React.FC<AdminSystemSettingsProps> = ({
   };
 
   const handleSaveStarterCredit = async () => {
-    if (!onSetStarterCreditUsd || isSavingStarterCredit) return;
+    if (!onSetStarterCreditKzt || isSavingStarterCredit) return;
 
     const parsed = Number(starterCreditInput);
     if (
       !Number.isFinite(parsed) ||
-      parsed < MIN_STARTER_CREDIT_USD ||
-      parsed > MAX_STARTER_CREDIT_USD
+      parsed < MIN_STARTER_CREDIT_KZT ||
+      parsed > MAX_STARTER_CREDIT_KZT
     ) {
-      setStarterCreditInput(String(starterCreditUsd));
+      setStarterCreditInput(String(starterCreditKzt));
       return;
     }
 
     setIsSavingStarterCredit(true);
     try {
-      await onSetStarterCreditUsd(parsed);
+      await onSetStarterCreditKzt(parsed);
     } finally {
       setIsSavingStarterCredit(false);
     }
@@ -197,8 +197,8 @@ export const AdminSystemSettings: React.FC<AdminSystemSettingsProps> = ({
               <input
                 id="starter-credit-kzt"
                 type="number"
-                min={MIN_STARTER_CREDIT_USD}
-                max={MAX_STARTER_CREDIT_USD}
+                min={MIN_STARTER_CREDIT_KZT}
+                max={MAX_STARTER_CREDIT_KZT}
                 step={1}
                 value={starterCreditInput}
                 onChange={(e) => setStarterCreditInput(e.target.value)}
@@ -219,7 +219,7 @@ export const AdminSystemSettings: React.FC<AdminSystemSettingsProps> = ({
             type="button"
             pending={isSavingStarterCredit}
             pendingLabel={t('saving')}
-            disabled={!onSetStarterCreditUsd}
+            disabled={!onSetStarterCreditKzt}
             className="btn-primary px-4 py-2 text-sm"
             onClick={() => void handleSaveStarterCredit()}
           >

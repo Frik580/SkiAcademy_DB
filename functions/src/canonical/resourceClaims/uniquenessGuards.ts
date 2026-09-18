@@ -31,6 +31,7 @@ export interface AcquireActiveCourseEnrollmentGuardInput extends UniquenessGuard
   readonly participantId: ParticipantId;
   readonly courseId: CourseId;
   readonly courseEnrollmentId: CourseEnrollmentId;
+  readonly accountId?: AccountId;
 }
 
 export interface MoveActiveCourseEnrollmentGuardInput extends UniquenessGuardCommandMetadata {
@@ -38,12 +39,14 @@ export interface MoveActiveCourseEnrollmentGuardInput extends UniquenessGuardCom
   readonly oldCourseId: CourseId;
   readonly newCourseId: CourseId;
   readonly courseEnrollmentId: CourseEnrollmentId;
+  readonly accountId?: AccountId;
 }
 
 export interface ReleaseActiveCourseEnrollmentGuardInput extends UniquenessGuardCommandMetadata {
   readonly participantId: ParticipantId;
   readonly courseId: CourseId;
   readonly courseEnrollmentId: CourseEnrollmentId;
+  readonly accountId?: AccountId;
 }
 
 export interface AcquireParticipantManagementActiveOwnerGuardInput extends UniquenessGuardCommandMetadata {
@@ -100,6 +103,106 @@ function applyEnrollmentGuardWrite(
   session.tx[write.mutationKind]({ path: write.path }, write.guard as Record<string, unknown>);
 }
 
+function courseChatAccessPath(accountId: AccountId, courseId: CourseId): string {
+  return `course_chat_access/${accountId}/courses/${courseId}`;
+}
+
+function parseAccessCount(data: Record<string, unknown> | undefined): number {
+  const count = data?.activeCount;
+  return typeof count === 'number' && Number.isFinite(count) ? count : 0;
+}
+
+type CourseChatAccessWrite =
+  | { readonly path: string; readonly kind: 'create' | 'update'; readonly payload: Record<string, unknown> }
+  | { readonly path: string; readonly kind: 'delete' };
+
+const pendingCourseChatAccessWrites = new WeakMap<
+  CanonicalAtomicTransactionSession,
+  CourseChatAccessWrite[]
+>();
+const pendingCourseChatAccessCounts = new WeakMap<
+  CanonicalAtomicTransactionSession,
+  Map<string, number>
+>();
+
+function queueCourseChatAccessWrite(
+  session: CanonicalAtomicTransactionSession,
+  write: CourseChatAccessWrite
+): void {
+  const queued = (pendingCourseChatAccessWrites.get(session) ?? []).filter(
+    (item) => item.path !== write.path
+  );
+  queued.push(write);
+  pendingCourseChatAccessWrites.set(session, queued);
+}
+
+function clearQueuedCourseChatAccessWrite(
+  session: CanonicalAtomicTransactionSession,
+  path: string
+): void {
+  const queued = (pendingCourseChatAccessWrites.get(session) ?? []).filter(
+    (item) => item.path !== path
+  );
+  pendingCourseChatAccessWrites.set(session, queued);
+}
+
+export function commitQueuedCourseChatAccessWrites(session: CanonicalAtomicTransactionSession): void {
+  const queued = pendingCourseChatAccessWrites.get(session) ?? [];
+  pendingCourseChatAccessWrites.delete(session);
+  pendingCourseChatAccessCounts.delete(session);
+  for (const write of queued) {
+    if (write.kind === 'delete') {
+      session.tx.delete({ path: write.path });
+      continue;
+    }
+    session.tx[write.kind]({ path: write.path }, write.payload);
+  }
+}
+
+async function planCourseChatAccessDelta(
+  session: CanonicalAtomicTransactionSession,
+  accountId: AccountId | undefined,
+  courseId: CourseId,
+  delta: 1 | -1
+): Promise<void> {
+  if (!accountId) return;
+  const path = courseChatAccessPath(accountId, courseId);
+  session.plan.planRead({ path, category: 'enrollment_guard' });
+  const snapshot = await session.tx.get({ path });
+  const overlay = pendingCourseChatAccessCounts.get(session) ?? new Map<string, number>();
+  const storedCount = parseAccessCount(snapshot.exists ? snapshot.data : undefined);
+  const currentCount = overlay.has(path) ? overlay.get(path)! : storedCount;
+  const nextCount = currentCount + delta;
+  overlay.set(path, Math.max(0, nextCount));
+  pendingCourseChatAccessCounts.set(session, overlay);
+
+  if (nextCount > 0) {
+    session.plan.planMutation({
+      path,
+      kind: snapshot.exists ? 'update' : 'create',
+      category: 'enrollment_guard',
+      estimatedPayloadBytes: 192,
+    });
+    queueCourseChatAccessWrite(session, {
+      path,
+      kind: snapshot.exists ? 'update' : 'create',
+      payload: { accountId, courseId, activeCount: nextCount },
+    });
+    return;
+  }
+  if (snapshot.exists) {
+    session.plan.planMutation({
+      path,
+      kind: 'delete',
+      category: 'enrollment_guard',
+      estimatedPayloadBytes: 192,
+    });
+    queueCourseChatAccessWrite(session, { path, kind: 'delete' });
+    return;
+  }
+  clearQueuedCourseChatAccessWrite(session, path);
+}
+
 function applyActiveOwnerGuardWrite(
   session: CanonicalAtomicTransactionSession,
   write: PlannedActiveOwnerGuardWrite
@@ -129,6 +232,14 @@ export async function readAndPlanAcquireActiveCourseEnrollmentGuard(
   );
 
   if (existing && existing.courseEnrollmentId === input.courseEnrollmentId) {
+    if (input.accountId) {
+      const accessPath = courseChatAccessPath(input.accountId, input.courseId);
+      session.plan.planRead({ path: accessPath, category: 'enrollment_guard' });
+      const accessSnapshot = await session.tx.get({ path: accessPath });
+      if (!accessSnapshot.exists) {
+        await planCourseChatAccessDelta(session, input.accountId, input.courseId, 1);
+      }
+    }
     return { guard: existing, hadExisting: true };
   }
 
@@ -151,6 +262,7 @@ export async function readAndPlanAcquireActiveCourseEnrollmentGuard(
     category: 'enrollment_guard',
     estimatedPayloadBytes: RESOURCE_CLAIM_PLANNING_ESTIMATES.activeEnrollmentGuardBytes,
   });
+  await planCourseChatAccessDelta(session, input.accountId, input.courseId, 1);
 
   return { guard, hadExisting: existing !== undefined };
 }
@@ -170,6 +282,7 @@ export function commitAcquireActiveCourseEnrollmentGuard(
     mutationKind,
     guard,
   });
+  commitQueuedCourseChatAccessWrites(session);
 }
 
 export async function acquireActiveCourseEnrollmentGuard(
@@ -255,6 +368,15 @@ export async function moveActiveCourseEnrollmentGuard(
     estimatedPayloadBytes: RESOURCE_CLAIM_PLANNING_ESTIMATES.activeEnrollmentGuardBytes,
   });
 
+  if (input.accountId) {
+    if (existingOld) {
+      await planCourseChatAccessDelta(session, input.accountId, input.oldCourseId, -1);
+    }
+    if (!existingNew) {
+      await planCourseChatAccessDelta(session, input.accountId, input.newCourseId, 1);
+    }
+  }
+
   if (session.tx.phase === 'writes') {
     if (existingOld) {
       session.tx.delete({ path: oldPath });
@@ -264,6 +386,7 @@ export async function moveActiveCourseEnrollmentGuard(
     } else {
       session.tx.update({ path: newPath }, guard as Record<string, unknown>);
     }
+    commitQueuedCourseChatAccessWrites(session);
   }
 
   return guard;
@@ -290,6 +413,9 @@ export async function readAndPlanReleaseActiveCourseEnrollmentGuard(
     category: 'enrollment_guard',
     estimatedPayloadBytes: RESOURCE_CLAIM_PLANNING_ESTIMATES.activeEnrollmentGuardBytes,
   });
+  if (input.accountId) {
+    await planCourseChatAccessDelta(session, input.accountId, input.courseId, -1);
+  }
   return true;
 }
 
@@ -301,6 +427,7 @@ export function commitReleaseActiveCourseEnrollmentGuard(
     .activeCourseEnrollmentGuard(input.participantId, input.courseId)
     .slice(1);
   session.tx.delete({ path });
+  commitQueuedCourseChatAccessWrites(session);
 }
 
 export async function releaseActiveCourseEnrollmentGuard(

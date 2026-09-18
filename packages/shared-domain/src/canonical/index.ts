@@ -59,6 +59,7 @@ export * from './identifiers';
 export * from './paths';
 export * from './paymentWallet';
 export * from './paymentWalletOperations';
+export * from './starterCredit';
 export * from './financialReconciliationPolicy';
 export * from './financialCorrectionPolicy';
 export * from './financialOverviewPolicy';

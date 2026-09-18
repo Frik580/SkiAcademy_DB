@@ -1,17 +1,24 @@
-const LEGACY_ACCOUNT_PROGRESS_KEYS = ['level', 'skillScores', 'skillComments'] as const;
+const LEGACY_ACCOUNT_CREATE_STRIP_KEYS = [
+  'level',
+  'skillScores',
+  'skillComments',
+  'balanceUSD',
+  'walletBalances',
+  'pendingWalletCredit',
+  'lastRefundBookingId',
+] as const;
 
-type LegacyAccountProgressKey = (typeof LEGACY_ACCOUNT_PROGRESS_KEYS)[number];
+type LegacyAccountCreateStripKey = (typeof LEGACY_ACCOUNT_CREATE_STRIP_KEYS)[number];
 
 /**
- * Strip leftover /users progress fields from Account create/claim payloads.
- * Existing production leftover data is not deleted; it is simply not copied
- * onto a new Account document.
+ * Strip leftover /users progress and money fields from Account create/claim payloads.
+ * Canonical spendable balance lives on `/users/{accountId}/wallet/state`.
  */
 export function omitLegacyAccountProgressFields<T extends object>(
   profile: T
-): Omit<T, LegacyAccountProgressKey> {
-  const next = { ...profile } as T & Partial<Record<LegacyAccountProgressKey, unknown>>;
-  for (const key of LEGACY_ACCOUNT_PROGRESS_KEYS) {
+): Omit<T, LegacyAccountCreateStripKey> {
+  const next = { ...profile } as T & Partial<Record<LegacyAccountCreateStripKey, unknown>>;
+  for (const key of LEGACY_ACCOUNT_CREATE_STRIP_KEYS) {
     delete next[key];
   }
   return next;

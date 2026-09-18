@@ -323,6 +323,7 @@ function linkGuestCourseEnrollmentToAccountAsAdministratorHandler(
           participantId: envelope.intent.targetParticipantId,
           courseId: enrollment.courseId,
           courseEnrollmentId: enrollment.enrollmentId,
+          accountId: envelope.intent.targetAccountId,
         });
         plannedGuestGuardRelease = await readAndPlanReleaseActiveCourseEnrollmentGuard(session, {
           correlationId: metadata.correlationId,
@@ -383,6 +384,7 @@ function linkGuestCourseEnrollmentToAccountAsAdministratorHandler(
               participantId: envelope.intent.targetParticipantId,
               courseId: enrollment.courseId,
               courseEnrollmentId: enrollment.enrollmentId,
+              accountId: envelope.intent.targetAccountId,
             },
             plannedTargetGuard.guard,
             plannedTargetGuard.hadExisting

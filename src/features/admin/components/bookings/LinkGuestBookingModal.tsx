@@ -213,7 +213,6 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
                 ) : (
                   clientUsers.map((user) => {
                     const isSelected = selectedUserId === user.uid;
-                    const userBalance = user.balanceUSD ?? 0;
 
                     return (
                       <div
@@ -251,12 +250,6 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
                         </div>
 
                         <div className="flex items-center gap-3 shrink-0 font-mono text-right">
-                          <div>
-                            <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                              {userBalance.toLocaleString('ru-RU')} ₸
-                            </div>
-                          </div>
-
                           {isSelected && (
                             <div className="p-1 bg-amber-500 text-white rounded-full shrink-0">
                               <Check className="w-3.5 h-3.5" />

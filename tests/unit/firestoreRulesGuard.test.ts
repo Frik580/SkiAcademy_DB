@@ -28,9 +28,11 @@ describe('firestore.rules guardrails', () => {
     );
   });
 
-  it('allows wallet balance decreases without requiring a pre-existing balanceUSD field', () => {
-    expect(rulesSource).toMatch(/function validBalanceDecreaseOnly/);
-    expect(rulesSource).toMatch(/let previousBalance/);
+  it('denies leftover profile money fields and client-fabricated ledger history', () => {
+    expect(rulesSource).toContain('function authoritativeMoneyFieldsUnchanged');
+    expect(rulesSource).toContain('function validStarterCreditSetting');
+    expect(rulesSource).toContain('amountKzt');
+    expect(rulesSource).not.toContain('function validBalanceDecreaseOnly');
     expect(rulesSource).not.toMatch(
       /request\.resource\.data\.balanceUSD < resource\.data\.balanceUSD;/
     );
@@ -80,9 +82,7 @@ describe('firestore.rules guardrails', () => {
   });
 
   it('contains direct Admin monetary and destructive writes', () => {
-    expect(rulesSource).toContain('function validWalletLedgerEntryFields');
     expect(rulesSource).toContain('function authoritativeMoneyFieldsUnchanged');
-    expect(rulesSource).toContain('function validInitialWalletAuthority');
     expect(rulesSource).toContain('function validStarterCreditSetting');
     expect(rulesSource).toMatch(
       /allow delete: if userId\.matches\('\^client_\.\*'\)[\s\S]*isOwnEmail\(resource\.data\.email\)/
@@ -90,8 +90,8 @@ describe('firestore.rules guardrails', () => {
     expect(rulesSource).toMatch(
       /match \/settings\/\{settingId\}[\s\S]*settingId != 'guest_wallet'/
     );
-    expect(rulesSource).toMatch(/match \/wallet_ledger\/\{entryId\}[\s\S]*allow delete: if false;/);
-    expect(rulesSource).not.toMatch(/match \/wallet_ledger\/\{entryId\}[\s\S]*isAdmin\(\) \|\|/);
+    expect(rulesSource).toMatch(/match \/wallet_ledger\/\{entryId\}[\s\S]*allow create, update, delete: if false;/);
+    expect(rulesSource).toMatch(/match \/course_chat_access\/\{accountId\}[\s\S]*allow create, update, delete: if false;/);
   });
 
   it('locks T32.8A Account/Instructor identity authority to canonical commands', () => {
@@ -102,7 +102,7 @@ describe('firestore.rules guardrails', () => {
       /allow create: if isOwner\(userId\) && validSelfServiceAccountCreate\(userId\)/
     );
     expect(rulesSource).toMatch(
-      /allow update: if canonicalAccountAuthorityFieldsUnchanged\(\) && \([\s\S]*accountLifecycleAllowsSelfService\(\)/
+      /allow update: if canonicalAccountAuthorityFieldsUnchanged\(\) &&[\s\S]*accountLifecycleAllowsSelfService\(\)/
     );
     expect(rulesSource).not.toMatch(
       /isSystemOwner\(\) &&[\s\S]*affectedKeys\(\)\.hasAny\(\[\s*'systemRole'/

@@ -44,8 +44,8 @@ describe('authenticated course enrollment canonical cutover', () => {
     expect(dataSync).toContain('shouldLoadLegacyCourseBookings: false');
     expect(storeSync).toContain('useCourseEnrollmentReadSync');
     expect(storeSync).not.toContain('getStudentCourseBookingsQuery');
-    expect(readRepoFile('src/features/bookings/bookingRealtimeService.ts')).not.toContain(
-      'getStudentCourseBookingsQuery'
+    expect(existsSync(resolve(process.cwd(), 'src/features/bookings/bookingRealtimeService.ts'))).toBe(
+      false
     );
     expect(home).toContain('useCourseEnrollmentStore');
     expect(home).not.toContain('getEnrolledCourses');

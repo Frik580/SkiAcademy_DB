@@ -21,6 +21,12 @@ const DELETED_FRONTEND_FILES = [
   'src/features/admin/resetSchoolFinances.ts',
   'src/features/admin/components/finance/CashFlowPanel.tsx',
   'src/features/admin/components/finance/GuestWalletPanel.tsx',
+  'src/features/bookings/bookingRealtimeService.ts',
+  'src/features/admin/clearStudentBookings.ts',
+  'src/domain/wallet/walletCredit.ts',
+  'src/domain/wallet/schoolGuestWallet.ts',
+  'src/domain/wallet/schoolCashFlow.ts',
+  'src/features/admin/sync/useAvailabilityMigrationSync.ts',
 ] as const;
 
 const DELETED_FUNCTIONS_FILES = [
@@ -48,10 +54,6 @@ const DELETED_EXPORTS: ReadonlyArray<{ file: string; symbol: string }> = [
   { file: 'src/features/admin/index.ts', symbol: 'CashFlowPanel' },
   { file: 'src/features/admin/components/finance/index.ts', symbol: 'CashFlowPanel' },
   { file: 'src/features/admin/components/finance/index.ts', symbol: 'GuestWalletPanel' },
-  {
-    file: 'src/features/bookings/bookingRealtimeService.ts',
-    symbol: 'getStudentCourseBookingsQuery',
-  },
   { file: 'src/features/admin/adminService.ts', symbol: 'subscribeGuestWalletBalance' },
   { file: 'src/features/admin/adminService.ts', symbol: 'adjustGuestWalletBalance' },
 ];

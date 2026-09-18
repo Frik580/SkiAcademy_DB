@@ -101,12 +101,13 @@ export const getInstructorHomeworkMessages = (
   messages: InstructorMessage[],
   instructor: Instructor,
   instructorUserId?: string,
-  studentUid?: string
+  studentUid?: string,
+  participantId?: string
 ) =>
   messages.filter((msg) => {
     if (!msg.isHomework) return false;
     if (!isMessageFromInstructor(msg, instructor, instructorUserId)) return false;
-    return isHomeworkVisibleToStudent(msg, studentUid);
+    return isHomeworkVisibleToStudent(msg, participantId ?? studentUid);
   });
 
 export type InstructorSkillComment = {

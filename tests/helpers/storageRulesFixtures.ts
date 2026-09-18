@@ -97,16 +97,10 @@ export async function seedCourseGroupChatFixtures(testEnv: RulesTestEnvironment)
       price: 100,
       instructorIds: ['instructor-1'],
     });
-    await setDoc(doc(db, 'bookings', `booking_course_${STORAGE_USER_ID}_course-group-1`), {
-      id: `booking_course_${STORAGE_USER_ID}_course-group-1`,
-      userId: STORAGE_USER_ID,
+    await setDoc(doc(db, 'course_chat_access', STORAGE_USER_ID, 'courses', 'course-group-1'), {
+      accountId: STORAGE_USER_ID,
       courseId: 'course-group-1',
-      instructorId: 'course_course-group-1',
-      date: '2026-12-01',
-      time: '09:00',
-      durationHours: 4,
-      totalPrice: 100,
-      status: 'confirmed',
+      activeCount: 1,
     });
   });
 }

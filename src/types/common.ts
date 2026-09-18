@@ -15,8 +15,8 @@ export interface ChatMessage {
   attachmentSize?: number;
   /** Instructor marked this message as homework for the student cabinet. */
   isHomework?: boolean;
-  /** Course group chat: specific student uids. Empty / unset = all enrolled students. */
-  homeworkForUserIds?: string[];
+  /** Course/group chat: specific Participant IDs. Empty / unset = all enrolled participants. */
+  homeworkForParticipantIds?: string[];
 }
 
 export enum OperationType {

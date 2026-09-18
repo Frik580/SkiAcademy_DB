@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { buildHomeworkForUserIds, isHomeworkVisibleToStudent } from '../../src/domain/chat';
+import {
+  buildHomeworkForParticipantIds,
+  isHomeworkVisibleToStudent,
+} from '../../src/domain/chat';
 import { ChatMessage } from '../../src/types';
 
 const homeworkMsg = (overrides: Partial<ChatMessage> = {}): ChatMessage => ({
@@ -14,49 +17,53 @@ const homeworkMsg = (overrides: Partial<ChatMessage> = {}): ChatMessage => ({
   ...overrides,
 });
 
-const GROUP_UIDS = ['student-1', 'student-2', 'student-3'];
+const GROUP_PARTICIPANT_IDS = ['participant-1', 'participant-2', 'participant-3'];
 
 describe('isHomeworkVisibleToStudent', () => {
   it('returns false when message is not homework', () => {
-    expect(isHomeworkVisibleToStudent({ ...homeworkMsg(), isHomework: false }, 'student-1')).toBe(
+    expect(isHomeworkVisibleToStudent({ ...homeworkMsg(), isHomework: false }, 'participant-1')).toBe(
       false
     );
   });
 
-  it('shows homework to all students when no targets set', () => {
-    expect(isHomeworkVisibleToStudent(homeworkMsg(), 'student-1')).toBe(true);
-    expect(isHomeworkVisibleToStudent(homeworkMsg({ homeworkForUserIds: [] }), 'student-2')).toBe(
-      true
-    );
+  it('shows homework to all participants when no targets set', () => {
+    expect(isHomeworkVisibleToStudent(homeworkMsg(), 'participant-1')).toBe(true);
+    expect(
+      isHomeworkVisibleToStudent(homeworkMsg({ homeworkForParticipantIds: [] }), 'participant-2')
+    ).toBe(true);
   });
 
-  it('shows homework only to targeted students', () => {
-    const msg = homeworkMsg({ homeworkForUserIds: ['student-2', 'student-3'] });
-    expect(isHomeworkVisibleToStudent(msg, 'student-1')).toBe(false);
-    expect(isHomeworkVisibleToStudent(msg, 'student-2')).toBe(true);
-    expect(isHomeworkVisibleToStudent(msg, 'student-3')).toBe(true);
+  it('hides targeted homework until a matching Participant is selected', () => {
+    const msg = homeworkMsg({ homeworkForParticipantIds: ['participant-2', 'participant-3'] });
+    expect(isHomeworkVisibleToStudent(msg, undefined)).toBe(false);
+    expect(isHomeworkVisibleToStudent(msg, 'participant-1')).toBe(false);
+    expect(isHomeworkVisibleToStudent(msg, 'participant-2')).toBe(true);
+    expect(isHomeworkVisibleToStudent(msg, 'participant-3')).toBe(true);
   });
 });
 
-describe('buildHomeworkForUserIds', () => {
+describe('buildHomeworkForParticipantIds', () => {
   it('returns undefined for single participant courses', () => {
-    expect(buildHomeworkForUserIds(['student-1'], 1)).toBeUndefined();
+    expect(buildHomeworkForParticipantIds(['participant-1'], 1)).toBeUndefined();
   });
 
-  it('returns undefined when all students are targeted', () => {
-    expect(buildHomeworkForUserIds(null, 3, GROUP_UIDS)).toBeUndefined();
-    expect(buildHomeworkForUserIds([], 3, GROUP_UIDS)).toBeUndefined();
-    expect(buildHomeworkForUserIds(GROUP_UIDS, 3, GROUP_UIDS)).toBeUndefined();
+  it('returns undefined when all participants are targeted', () => {
+    expect(buildHomeworkForParticipantIds(null, 3, GROUP_PARTICIPANT_IDS)).toBeUndefined();
+    expect(buildHomeworkForParticipantIds([], 3, GROUP_PARTICIPANT_IDS)).toBeUndefined();
+    expect(
+      buildHomeworkForParticipantIds(GROUP_PARTICIPANT_IDS, 3, GROUP_PARTICIPANT_IDS)
+    ).toBeUndefined();
   });
 
-  it('returns uid list for one student in group course', () => {
-    expect(buildHomeworkForUserIds(['student-2'], 3, GROUP_UIDS)).toEqual(['student-2']);
-  });
-
-  it('returns uid list for multiple students in group course', () => {
-    expect(buildHomeworkForUserIds(['student-1', 'student-3'], 3, GROUP_UIDS)).toEqual([
-      'student-1',
-      'student-3',
+  it('returns participant ids for one student in a group course', () => {
+    expect(buildHomeworkForParticipantIds(['participant-2'], 3, GROUP_PARTICIPANT_IDS)).toEqual([
+      'participant-2',
     ]);
+  });
+
+  it('returns participant ids for multiple students in a group course', () => {
+    expect(
+      buildHomeworkForParticipantIds(['participant-1', 'participant-3'], 3, GROUP_PARTICIPANT_IDS)
+    ).toEqual(['participant-1', 'participant-3']);
   });
 });

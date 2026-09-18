@@ -49,6 +49,7 @@ import {
   reconcileGuestConfirmationLifecycleMismatchAfterCommand,
   type MonetaryEventLoader,
 } from './financeCorrectionCommands';
+import { createStarterCreditCommandHandlers } from './starterCreditCommands';
 import { assertFinanceAuthorization, mapFinanceDomainError } from './financeAuthorization';
 import {
   buildAdjustServicePriceAuditPlan,
@@ -1209,6 +1210,7 @@ export function createFinanceCommandHandlers(
   return {
     record_manual_wallet_funding: (envelope, environment) =>
       recordManualWalletFundingHandler(envelope, environment, executor),
+    ...createStarterCreditCommandHandlers(executor),
     record_provider_payment_event: async (envelope, environment) => {
       const result = await recordProviderPaymentEventHandler(envelope, environment, executor);
       if (result.status === 'success') {

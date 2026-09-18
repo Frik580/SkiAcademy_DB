@@ -94,6 +94,53 @@ function effectsForKind(
   }
 }
 
+export function buildStarterCreditGrantAuditPlan(input: {
+  envelope: CommandEnvelope<'grant_starter_credit'>;
+  accountId: AccountId;
+  alreadyGranted: boolean;
+  amountKzt: number;
+  monetaryEventIds: readonly MonetaryEventId[];
+  walletRevision: number;
+}): AuditOutboxStagingPlan {
+  const subjectRef = walletAffectedSubject(input.accountId);
+  const credited = !input.alreadyGranted && input.amountKzt > 0;
+  return {
+    activityLog: {
+      reason: {
+        registryVersion: AUDIT_REASON_REGISTRY_VERSION,
+        reasonCode: 'other',
+        explanation: input.alreadyGranted
+          ? 'Starter credit already granted'
+          : input.amountKzt <= 0
+            ? 'Starter credit amount is zero'
+            : 'Starter credit granted',
+      },
+      primarySubject: walletPrimarySubject(input.accountId),
+      affectedSubjects: [subjectRef],
+      effects: credited
+        ? [
+            {
+              kind: 'wallet_balance_changed',
+              subjectRef,
+              summary: 'Starter credit granted',
+            },
+          ]
+        : [],
+      monetaryEventIds: [...input.monetaryEventIds],
+      adminIssueIds: [],
+      resultingRevisions: credited
+        ? [
+            {
+              subject: subjectRef,
+              revision: AggregateRevisionSchema.parse(input.walletRevision),
+            },
+          ]
+        : [],
+    },
+    outboxObligations: [],
+  };
+}
+
 export function buildManualWalletFundingAuditPlan(input: {
   envelope: CommandEnvelope<'record_manual_wallet_funding'>;
   monetaryEventIds: readonly MonetaryEventId[];

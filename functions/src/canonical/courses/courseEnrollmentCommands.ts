@@ -623,6 +623,7 @@ function createCourseEnrollmentsHandler(
           participantId,
           courseId: envelope.intent.courseId,
           courseEnrollmentId: enrollmentId,
+          accountId: authorization.payerAccountId,
         });
 
         const seatIdentity = buildCourseSeatClaimIdentity({
@@ -1067,6 +1068,7 @@ function createCourseEnrollmentsHandler(
               participantId: planned.participantId,
               courseId: envelope.intent.courseId,
               courseEnrollmentId: planned.enrollmentId,
+              accountId: planned.authorization.payerAccountId,
             },
             planned.guardPlan!.guard,
             planned.guardPlan!.hadExisting

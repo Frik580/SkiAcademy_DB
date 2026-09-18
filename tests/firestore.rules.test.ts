@@ -554,7 +554,7 @@ describe('user profiles and roles', () => {
         userProfile(OTHER_USER_ID, 'other@example.com')
       );
       await setDoc(doc(db, 'users', ADMIN_ID), userProfile(ADMIN_ID, 'admin@example.com', 'admin'));
-      await setDoc(doc(db, 'settings', 'starter_credit'), { amountUsd: 250 });
+      await setDoc(doc(db, 'settings', 'starter_credit'), { amountKzt: 250 });
     });
   });
 
@@ -575,11 +575,13 @@ describe('user profiles and roles', () => {
     await assertFails(updateDoc(profileRef, { balanceUSD: 200 }));
   });
 
-  it('allows balance decreases for client payments', async () => {
+  it('blocks leftover profile money field writes including decreases', async () => {
     const db = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
     const profileRef = doc(db, 'users', USER_ID);
 
-    await assertSucceeds(updateDoc(profileRef, { balanceUSD: 50 }));
+    await assertFails(updateDoc(profileRef, { balanceUSD: 999999 }));
+    await assertFails(updateDoc(profileRef, { balanceUSD: 200 }));
+    await assertFails(updateDoc(profileRef, { balanceUSD: 50 }));
   });
 
   it('blocks client wallet self-credits through pendingWalletCredit staging', async () => {
@@ -643,7 +645,7 @@ describe('user profiles and roles', () => {
     };
 
     await assertFails(setDoc(doc(ownerDb, 'settings', 'starter_credit'), { amountUsd: 999_999 }));
-    await assertSucceeds(
+    await assertFails(
       setDoc(doc(ownerDb, 'settings', 'starter_credit'), {
         amountKzt: 500,
         amountUsd: 500,
@@ -656,13 +658,8 @@ describe('user profiles and roles', () => {
         amountUsd: 500,
       })
     );
-    // Restore default gift so the rest of this test still validates balanceUSD == 250.
-    await assertSucceeds(
-      setDoc(doc(ownerDb, 'settings', 'starter_credit'), {
-        amountKzt: 250,
-        amountUsd: 250,
-      })
-    );
+    await assertSucceeds(setDoc(doc(ownerDb, 'settings', 'starter_credit'), { amountKzt: 250 }));
+    await assertSucceeds(setDoc(doc(ownerDb, 'settings', 'starter_credit'), { amountKzt: 0 }));
     await assertFails(
       setDoc(doc(ownerDb, 'users', 'client_inflated_wallet'), {
         ...userProfile('client_inflated_wallet', 'inflated@example.com'),
@@ -684,8 +681,11 @@ describe('user profiles and roles', () => {
     );
     await assertSucceeds(
       setDoc(doc(newUserDb, 'users', 'new-user'), {
-        ...userProfile('new-user', 'new-user@example.com'),
-        balanceUSD: 250,
+        uid: 'new-user',
+        email: 'new-user@example.com',
+        displayName: 'new-user',
+        role: 'user',
+        avatarUrl: '',
       })
     );
   });
@@ -978,7 +978,7 @@ describe('T32.8A identity authority containment', () => {
         status: 'active',
         revision: 1,
       });
-      await setDoc(doc(db, 'settings', 'starter_credit'), { amountUsd: 250 });
+      await setDoc(doc(db, 'settings', 'starter_credit'), { amountKzt: 250 });
     });
   });
 
@@ -1138,7 +1138,7 @@ describe('T32.8A identity authority containment', () => {
         dismissedReviewIds: ['booking-review-1'],
       })
     );
-    await assertSucceeds(updateDoc(doc(userDb, 'users', USER_ID), { balanceUSD: 50 }));
+    await assertFails(updateDoc(doc(userDb, 'users', USER_ID), { balanceUSD: 50 }));
     await assertFails(
       updateDoc(doc(instructorDb, 'users', OTHER_USER_ID), {
         level: 2,
@@ -1154,9 +1154,12 @@ describe('T32.8A identity authority containment', () => {
     );
     await assertSucceeds(
       setDoc(doc(newUserDb, 'users', 'new-identity-user'), {
-        ...userProfile('new-identity-user', 'new-identity@example.com'),
+        uid: 'new-identity-user',
+        email: 'new-identity@example.com',
+        displayName: 'new-identity-user',
+        role: 'user',
+        avatarUrl: '',
         isClientActive: true,
-        balanceUSD: 250,
       })
     );
     await assertFails(
@@ -1401,7 +1404,7 @@ describe('T32.8A identity authority containment', () => {
       updateDoc(doc(userDb, 'users', USER_ID), { displayName: 'Reenabled Name' })
     );
     await assertSucceeds(updateDoc(doc(userDb, 'users', USER_ID), { phoneNumber: '+15550004444' }));
-    await assertSucceeds(updateDoc(doc(userDb, 'users', USER_ID), { balanceUSD: 50 }));
+    await assertFails(updateDoc(doc(userDb, 'users', USER_ID), { balanceUSD: 50 }));
 
     await assertFails(
       updateDoc(doc(instructorDb, 'users', USER_ID), {
@@ -1640,6 +1643,66 @@ describe('booking chat messages', () => {
     );
   });
 
+  it('allows homework targeting by participant ids and rejects leftover user-id targeting', async () => {
+    const instructorDb = testEnv
+      .authenticatedContext(INSTRUCTOR_USER_ID, { email: 'instructor@example.com' })
+      .firestore();
+    const studentDb = testEnv
+      .authenticatedContext(USER_ID, { email: 'user@example.com' })
+      .firestore();
+    const homework = {
+      id: 'homework-1',
+      bookingId: 'booking-chat-1',
+      senderId: INSTRUCTOR_USER_ID,
+      senderName: 'Coach',
+      senderAvatar: '',
+      text: 'Edge drills',
+      timestamp: '2026-12-01T09:00:00.000Z',
+      isHomework: true,
+      homeworkForParticipantIds: ['participant_child_1'],
+    };
+
+    await assertSucceeds(
+      setDoc(doc(instructorDb, 'bookings', 'booking-chat-1', 'messages', 'homework-1'), homework)
+    );
+    await assertFails(
+      setDoc(doc(instructorDb, 'bookings', 'booking-chat-1', 'messages', 'homework-legacy'), {
+        ...homework,
+        id: 'homework-legacy',
+        homeworkForUserIds: [USER_ID],
+      })
+    );
+    await assertFails(
+      updateDoc(doc(instructorDb, 'bookings', 'booking-chat-1', 'messages', 'homework-1'), {
+        homeworkForUserIds: [USER_ID],
+      })
+    );
+    await assertSucceeds(getDoc(doc(studentDb, 'bookings', 'booking-chat-1', 'messages', 'homework-1')));
+  });
+
+  it('denies client fabrication of course chat access and wallet ledger history', async () => {
+    const studentDb = testEnv
+      .authenticatedContext(USER_ID, { email: 'user@example.com' })
+      .firestore();
+    await assertFails(
+      setDoc(doc(studentDb, 'course_chat_access', USER_ID, 'courses', 'course-group-1'), {
+        accountId: USER_ID,
+        courseId: 'course-group-1',
+        activeCount: 1,
+      })
+    );
+    await assertFails(
+      setDoc(doc(studentDb, 'wallet_ledger', 'wl_forged_student'), {
+        id: 'wl_forged_student',
+        userId: USER_ID,
+        amount: 5000,
+        balanceAfter: 5000,
+        type: 'starter_credit',
+        createdAt: '2026-12-01T10:00:00.000Z',
+      })
+    );
+  });
+
   it('allows course group chat participants to read and create messages', async () => {
     await seedData(async (context) => {
       const db = context.firestore();
@@ -1650,16 +1713,10 @@ describe('booking chat messages', () => {
         price: 100,
         instructorIds: ['instructor-1'],
       });
-      await setDoc(doc(db, 'bookings', `booking_course_${USER_ID}_course-group-1`), {
-        id: `booking_course_${USER_ID}_course-group-1`,
-        userId: USER_ID,
+      await setDoc(doc(db, 'course_chat_access', USER_ID, 'courses', 'course-group-1'), {
+        accountId: USER_ID,
         courseId: 'course-group-1',
-        instructorId: 'course_course-group-1',
-        date: '2026-12-01',
-        time: '09:00',
-        durationHours: 4,
-        totalPrice: 100,
-        status: 'confirmed',
+        activeCount: 1,
       });
     });
 
@@ -1748,6 +1805,16 @@ describe('booking chat messages', () => {
         durationHours: 4,
         totalPrice: 100,
         status: 'confirmed',
+      });
+      await setDoc(doc(db, 'course_chat_access', USER_ID, 'courses', courseId), {
+        accountId: USER_ID,
+        courseId,
+        activeCount: 1,
+      });
+      await setDoc(doc(db, 'course_chat_access', OTHER_USER_ID, 'courses', courseId), {
+        accountId: OTHER_USER_ID,
+        courseId,
+        activeCount: 1,
       });
     });
 
@@ -2455,7 +2522,7 @@ describe('course enrollment transactions', () => {
     );
   });
 
-  it('allows balance decrease during course payment', async () => {
+  it('denies leftover profile money field writes during course payment', async () => {
     const db = testEnv
       .authenticatedContext(PROD_USER_ID, { email: 'user@example.com' })
       .firestore();
@@ -2468,7 +2535,7 @@ describe('course enrollment transactions', () => {
       });
     });
 
-    await assertSucceeds(updateDoc(userRef, { balanceUSD: 3661 }));
+    await assertFails(updateDoc(userRef, { balanceUSD: 3661 }));
   });
 
   it('blocks balance writes when balanceUSD was never set on the profile', async () => {

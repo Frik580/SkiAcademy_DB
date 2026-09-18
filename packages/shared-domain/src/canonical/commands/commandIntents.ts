@@ -775,6 +775,7 @@ export const CommandIntentSchemaByKind = {
       .strict(),
   ]),
   record_manual_wallet_funding: recordManualWalletFundingIntent,
+  grant_starter_credit: z.object({}).strict(),
   adjust_service_price: adjustServicePriceIntent,
   record_financial_correction: recordFinancialCorrectionIntent,
   record_audit_correction: recordAuditCorrectionIntent,

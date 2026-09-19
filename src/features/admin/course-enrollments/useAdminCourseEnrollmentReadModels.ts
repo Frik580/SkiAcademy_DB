@@ -9,6 +9,7 @@ import type {
 } from './adminCourseEnrollmentContracts';
 import { mergeAdminCourseEnrollmentItems } from './adminCourseEnrollmentUtils';
 import { useAdminCoursesRevisionRefresh } from '../courses/useAdminCoursesRevisionRefresh';
+import { useAdminFinanceRevisionRefresh } from '../finance/useAdminFinanceRevisionRefresh';
 
 const EMPTY_LIST: AdminCourseEnrollmentListState = {
   items: [],
@@ -137,6 +138,15 @@ export function useAdminCourseEnrollmentReadModels(input: {
       }
     },
     enabled && view !== 'history'
+  );
+
+  useAdminFinanceRevisionRefresh(
+    () => {
+      if (selectedEnrollmentId) {
+        void loadDetail(selectedEnrollmentId, true);
+      }
+    },
+    enabled && view !== 'history' && Boolean(selectedEnrollmentId)
   );
 
   const refreshEnrollment = useCallback(

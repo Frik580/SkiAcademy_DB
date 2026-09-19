@@ -1,17 +1,34 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AdminIssueInboxItem } from '@ski-academy/shared-domain';
+import type { AdminIssueId, AdminIssueInboxItem } from '@ski-academy/shared-domain';
 
 const queryMock = vi.fn();
-const subscribeRevisionMock = vi.fn();
-const unsubscribeMock = vi.fn();
+const registerListenerMock = vi.fn();
+const unregisterMock = vi.fn();
+const registerFromCommandMock = vi.fn();
+const registerFinanceListenerMock = vi.fn();
+const unregisterFinanceMock = vi.fn();
 
 vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
   queryAdminIssueReadModels: (...args: unknown[]) => queryMock(...args),
 }));
 
 vi.mock('../../src/features/admin/issues/subscribeAdminIssueInboxRevision', () => ({
-  subscribeAdminIssueInboxRevision: (...args: unknown[]) => subscribeRevisionMock(...args),
+  subscribeAdminIssueInboxRevision: vi.fn(),
+}));
+
+vi.mock('../../src/features/admin/issues/adminIssueInboxRevisionCoordinator', () => ({
+  registerAdminIssueInboxRevisionListener: (...args: unknown[]) => registerListenerMock(...args),
+  registerAdminIssueInboxRevisionFromCommand: (...args: unknown[]) =>
+    registerFromCommandMock(...args),
+  resetAdminIssueInboxRevisionCoordinatorForTests: vi.fn(),
+}));
+
+vi.mock('../../src/features/admin/finance/adminFinanceRevisionCoordinator', () => ({
+  registerAdminFinanceRevisionListener: (...args: unknown[]) =>
+    registerFinanceListenerMock(...args),
+  registerAdminFinanceRevisionFromCommand: vi.fn(),
+  resetAdminFinanceRevisionCoordinatorForTests: vi.fn(),
 }));
 
 import { notifyAdminIssueInboxServerConfirmedPatch } from '../../src/features/admin/issues/adminIssueInboxLocalSync';
@@ -49,9 +66,13 @@ function item(
 describe('useAdminIssueReadModels realtime invalidation', () => {
   beforeEach(() => {
     queryMock.mockReset();
-    subscribeRevisionMock.mockReset();
-    unsubscribeMock.mockReset();
-    subscribeRevisionMock.mockImplementation(() => unsubscribeMock);
+    registerListenerMock.mockReset();
+    unregisterMock.mockReset();
+    registerFromCommandMock.mockReset();
+    registerFinanceListenerMock.mockReset();
+    unregisterFinanceMock.mockReset();
+    registerListenerMock.mockImplementation(() => unregisterMock);
+    registerFinanceListenerMock.mockImplementation(() => unregisterFinanceMock);
   });
 
   it('removes a locally resolved issue after server-confirmed attendance success', async () => {
@@ -61,11 +82,6 @@ describe('useAdminIssueReadModels realtime invalidation', () => {
       items: [visible],
       hasMore: false,
     });
-    let emitRevision: ((revision: number) => void) | undefined;
-    subscribeRevisionMock.mockImplementation((onRevision: (revision: number) => void) => {
-      emitRevision = onRevision;
-      return unsubscribeMock;
-    });
     const { result } = renderHook(() =>
       useAdminIssueReadModels({
         enabled: true,
@@ -74,9 +90,6 @@ describe('useAdminIssueReadModels realtime invalidation', () => {
     );
     await waitFor(() => {
       expect(result.current.list.items).toHaveLength(1);
-    });
-    act(() => {
-      emitRevision?.(10);
     });
 
     act(() => {
@@ -93,11 +106,21 @@ describe('useAdminIssueReadModels realtime invalidation', () => {
 
     expect(result.current.list.items).toEqual([]);
     expect(queryMock).toHaveBeenCalledTimes(1);
+    expect(registerFromCommandMock).toHaveBeenCalledWith(11);
+  });
 
-    act(() => {
-      emitRevision?.(11);
+  it('does not suppress inbox refresh when the command opened a new issue', () => {
+    applyAdminIssueInboxCommandResult({
+      status: 'success',
+      kind: 'record_booking_attendance',
+      correlationId: 'correlation_admin_issue_opened_01',
+      payload: {
+        resolvedAdminIssueIds: [],
+        openedAdminIssueIds: ['admin_issue_ui_opened' as AdminIssueId],
+        adminIssueInboxRevision: 12,
+      },
     });
-    expect(queryMock).toHaveBeenCalledTimes(1);
+    expect(registerFromCommandMock).not.toHaveBeenCalled();
   });
 
   it('keeps the issue visible when the attendance command fails', async () => {
@@ -136,16 +159,16 @@ describe('useAdminIssueReadModels realtime invalidation', () => {
     expect(queryMock).toHaveBeenCalledTimes(1);
   });
 
-  it('does not refresh on the initial revision snapshot, then refreshes once', async () => {
+  it('refreshes the mounted inbox after a later invalidation', async () => {
     queryMock.mockResolvedValue({
       scope: 'admin_open',
       items: [item('open')],
       hasMore: false,
     });
-    let emitRevision: ((revision: number) => void) | undefined;
-    subscribeRevisionMock.mockImplementation((onRevision: (revision: number) => void) => {
-      emitRevision = onRevision;
-      return unsubscribeMock;
+    let emitInvalidation: (() => void) | undefined;
+    registerListenerMock.mockImplementation((listener: () => void) => {
+      emitInvalidation = listener;
+      return unregisterMock;
     });
 
     renderHook(() =>
@@ -157,20 +180,60 @@ describe('useAdminIssueReadModels realtime invalidation', () => {
     await waitFor(() => expect(queryMock).toHaveBeenCalledTimes(1));
 
     act(() => {
-      emitRevision?.(10);
-    });
-    expect(queryMock).toHaveBeenCalledTimes(1);
-
-    act(() => {
-      emitRevision?.(10);
-    });
-    expect(queryMock).toHaveBeenCalledTimes(1);
-
-    act(() => {
-      emitRevision?.(11);
+      emitInvalidation?.();
     });
     await waitFor(() => expect(queryMock).toHaveBeenCalledTimes(2));
     expect(queryMock.mock.calls[1]?.[0]).toMatchObject({ scope: 'admin_open' });
+  });
+
+  it('refreshes only the mounted issue detail after a finance revision', async () => {
+    const selected = item('detail');
+    queryMock.mockImplementation(async (input: { scope: string }) => {
+      if (input.scope === 'admin_detail') {
+        return { scope: 'admin_detail', item: selected };
+      }
+      return { scope: 'admin_open', items: [selected], hasMore: false };
+    });
+    let emitFinance: (() => void) | undefined;
+    registerFinanceListenerMock.mockImplementation((listener: () => void) => {
+      emitFinance = listener;
+      return unregisterFinanceMock;
+    });
+
+    renderHook(() =>
+      useAdminIssueReadModels({
+        enabled: true,
+        scope: 'admin_open',
+        selectedIssueId: selected.issueId,
+      })
+    );
+    await waitFor(() => expect(queryMock).toHaveBeenCalledTimes(2));
+    expect(registerFinanceListenerMock).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      emitFinance?.();
+    });
+    await waitFor(() => expect(queryMock).toHaveBeenCalledTimes(3));
+    expect(queryMock.mock.calls[2]?.[0]).toMatchObject({
+      scope: 'admin_detail',
+      issueId: selected.issueId,
+    });
+  });
+
+  it('does not subscribe to finance revision without a mounted issue detail', async () => {
+    queryMock.mockResolvedValue({
+      scope: 'admin_open',
+      items: [],
+      hasMore: false,
+    });
+    renderHook(() =>
+      useAdminIssueReadModels({
+        enabled: true,
+        scope: 'admin_open',
+      })
+    );
+    await waitFor(() => expect(queryMock).toHaveBeenCalledTimes(1));
+    expect(registerFinanceListenerMock).not.toHaveBeenCalled();
   });
 
   it('unsubscribes the revision listener when AdminIssueCenter unmounts', async () => {
@@ -185,9 +248,9 @@ describe('useAdminIssueReadModels realtime invalidation', () => {
         scope: 'admin_open',
       })
     );
-    await waitFor(() => expect(subscribeRevisionMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(registerListenerMock).toHaveBeenCalledTimes(1));
     unmount();
-    expect(unsubscribeMock).toHaveBeenCalledTimes(1);
+    expect(unregisterMock).toHaveBeenCalledTimes(1);
   });
 
   it('does not subscribe while history is open', async () => {
@@ -203,7 +266,8 @@ describe('useAdminIssueReadModels realtime invalidation', () => {
       })
     );
     await waitFor(() => expect(queryMock).toHaveBeenCalledTimes(1));
-    expect(subscribeRevisionMock).not.toHaveBeenCalled();
+    expect(registerListenerMock).not.toHaveBeenCalled();
+    expect(registerFinanceListenerMock).not.toHaveBeenCalled();
   });
 });
 

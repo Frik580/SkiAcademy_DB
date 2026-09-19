@@ -2804,6 +2804,10 @@ describe('admin issue inbox revision signal', () => {
     await seedData(async (context) => {
       const db = context.firestore();
       await setDoc(doc(db, 'users', USER_ID), userProfile(USER_ID, 'user@example.com'));
+      await setDoc(
+        doc(db, 'users', INSTRUCTOR_USER_ID),
+        userProfile(INSTRUCTOR_USER_ID, 'instructor@example.com')
+      );
       await setDoc(doc(db, 'admin_runtime', 'admin_issue_inbox'), {
         revision: 10,
         updatedAt: { seconds: 1, nanoseconds: 0 },
@@ -2811,22 +2815,41 @@ describe('admin issue inbox revision signal', () => {
     });
   });
 
-  it('allows admin read and denies non-admin read and all client writes', async () => {
+  it('allows admin read and denies student, instructor, unauth read and all client writes', async () => {
     const adminDb = testEnv
       .authenticatedContext(OWNER_ID, { email: 'owner@example.com' })
       .firestore();
     const userDb = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
+    const instructorDb = testEnv
+      .authenticatedContext(INSTRUCTOR_USER_ID, { email: 'instructor@example.com' })
+      .firestore();
+    const anonymousDb = testEnv.unauthenticatedContext().firestore();
     const adminRef = doc(adminDb, 'admin_runtime', 'admin_issue_inbox');
     const userRef = doc(userDb, 'admin_runtime', 'admin_issue_inbox');
+    const instructorRef = doc(instructorDb, 'admin_runtime', 'admin_issue_inbox');
+    const anonymousRef = doc(anonymousDb, 'admin_runtime', 'admin_issue_inbox');
 
     await assertSucceeds(getDoc(adminRef));
     await assertFails(getDoc(userRef));
+    await assertFails(getDoc(instructorRef));
+    await assertFails(getDoc(anonymousRef));
     await assertFails(
       setDoc(adminRef, { revision: 11, updatedAt: { seconds: 2, nanoseconds: 0 } })
     );
     await assertFails(updateDoc(adminRef, { revision: 11 }));
+    await assertFails(deleteDoc(adminRef));
     await assertFails(setDoc(userRef, { revision: 11, updatedAt: { seconds: 2, nanoseconds: 0 } }));
     await assertFails(updateDoc(userRef, { revision: 11 }));
+    await assertFails(deleteDoc(userRef));
+    await assertFails(
+      setDoc(instructorRef, { revision: 11, updatedAt: { seconds: 2, nanoseconds: 0 } })
+    );
+    await assertFails(updateDoc(instructorRef, { revision: 11 }));
+    await assertFails(deleteDoc(instructorRef));
+    await assertFails(
+      setDoc(anonymousRef, { revision: 11, updatedAt: { seconds: 2, nanoseconds: 0 } })
+    );
+    await assertFails(deleteDoc(anonymousRef));
   });
 });
 
@@ -3096,6 +3119,40 @@ describe('admin people revision signal', () => {
     await assertFails(
       setDoc(anonymousRef, { revision: 11, updatedAt: { seconds: 2, nanoseconds: 0 } })
     );
+    await assertFails(deleteDoc(anonymousRef));
+  });
+});
+
+describe('admin runtime unknown revision document', () => {
+  beforeEach(async () => {
+    await seedData(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, 'users', USER_ID), userProfile(USER_ID, 'user@example.com'));
+      await setDoc(doc(db, 'admin_runtime', 'admin_unknown_signal'), {
+        revision: 10,
+        updatedAt: { seconds: 1, nanoseconds: 0 },
+      });
+    });
+  });
+
+  it('denies admin and non-admin read and all client writes for an unknown documentId', async () => {
+    const adminDb = testEnv
+      .authenticatedContext(OWNER_ID, { email: 'owner@example.com' })
+      .firestore();
+    const userDb = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
+    const anonymousDb = testEnv.unauthenticatedContext().firestore();
+    const adminRef = doc(adminDb, 'admin_runtime', 'admin_unknown_signal');
+    const userRef = doc(userDb, 'admin_runtime', 'admin_unknown_signal');
+    const anonymousRef = doc(anonymousDb, 'admin_runtime', 'admin_unknown_signal');
+
+    await assertFails(getDoc(adminRef));
+    await assertFails(getDoc(userRef));
+    await assertFails(getDoc(anonymousRef));
+    await assertFails(
+      setDoc(adminRef, { revision: 11, updatedAt: { seconds: 2, nanoseconds: 0 } })
+    );
+    await assertFails(deleteDoc(adminRef));
+    await assertFails(setDoc(userRef, { revision: 11, updatedAt: { seconds: 2, nanoseconds: 0 } }));
     await assertFails(deleteDoc(anonymousRef));
   });
 });

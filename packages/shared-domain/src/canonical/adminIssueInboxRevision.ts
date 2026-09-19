@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { reduceAdminRealtimeRevisionSignal } from './adminRealtimeRevisionSignal';
 import type { AdminIssueLifecycleStatus } from './courseEnrollmentAttendanceAdminIssue';
 import { AdminIssueIdSchema } from './identifiers';
 import { AggregateRevisionSchema, CanonicalTimestampSchema } from './primitives';
@@ -65,18 +66,5 @@ export function reduceAdminIssueInboxRevisionSignal(
   state: Readonly<{ initialized: boolean; lastRevision?: number }>,
   nextRevision: number
 ): Readonly<{ initialized: true; lastRevision: number; shouldRefresh: boolean }> {
-  if (!state.initialized) {
-    if (state.lastRevision !== undefined && nextRevision > state.lastRevision) {
-      return { initialized: true, lastRevision: nextRevision, shouldRefresh: true };
-    }
-    return {
-      initialized: true,
-      lastRevision: state.lastRevision ?? nextRevision,
-      shouldRefresh: false,
-    };
-  }
-  if (state.lastRevision === nextRevision) {
-    return { initialized: true, lastRevision: nextRevision, shouldRefresh: false };
-  }
-  return { initialized: true, lastRevision: nextRevision, shouldRefresh: true };
+  return reduceAdminRealtimeRevisionSignal(state, nextRevision);
 }

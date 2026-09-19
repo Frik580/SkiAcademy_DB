@@ -6,6 +6,8 @@ const queryMock = vi.fn();
 const registerListenerMock = vi.fn();
 const unregisterMock = vi.fn();
 const registerFromCommandMock = vi.fn();
+const registerFinanceListenerMock = vi.fn();
+const unregisterFinanceMock = vi.fn();
 
 vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
   queryAdminCourseEnrollmentReadModels: (...args: unknown[]) => queryMock(...args),
@@ -19,6 +21,13 @@ vi.mock('../../src/features/admin/courses/adminCoursesRevisionCoordinator', () =
   registerAdminCoursesRevisionListener: (...args: unknown[]) => registerListenerMock(...args),
   registerAdminCoursesRevisionFromCommand: (...args: unknown[]) => registerFromCommandMock(...args),
   resetAdminCoursesRevisionCoordinatorForTests: vi.fn(),
+}));
+
+vi.mock('../../src/features/admin/finance/adminFinanceRevisionCoordinator', () => ({
+  registerAdminFinanceRevisionListener: (...args: unknown[]) =>
+    registerFinanceListenerMock(...args),
+  registerAdminFinanceRevisionFromCommand: vi.fn(),
+  resetAdminFinanceRevisionCoordinatorForTests: vi.fn(),
 }));
 
 import { applyAdminCoursesCommandResult } from '../../src/features/admin/courses/adminCoursesLocalSync';
@@ -38,7 +47,10 @@ describe('useAdminCourseEnrollmentReadModels realtime invalidation', () => {
     registerListenerMock.mockReset();
     unregisterMock.mockReset();
     registerFromCommandMock.mockReset();
+    registerFinanceListenerMock.mockReset();
+    unregisterFinanceMock.mockReset();
     registerListenerMock.mockImplementation(() => unregisterMock);
+    registerFinanceListenerMock.mockImplementation(() => unregisterFinanceMock);
   });
 
   it('does not refresh on the initial revision snapshot, then refreshes the active scope once', async () => {
@@ -112,5 +124,49 @@ describe('useAdminCourseEnrollmentReadModels realtime invalidation', () => {
       },
     });
     expect(registerFromCommandMock).not.toHaveBeenCalled();
+  });
+
+  it('refreshes only the mounted enrollment detail after a finance revision', async () => {
+    const selectedId = 'course_enrollment_admin_realtime_01';
+    queryMock.mockImplementation(async (input: { scope: string; enrollmentId?: string }) => {
+      if (input.scope === 'admin_enrollment_detail') {
+        return { scope: 'admin_enrollment_detail', item: enrollment(selectedId) };
+      }
+      return { scope: 'admin_course_roster', items: [enrollment(selectedId)], hasMore: false };
+    });
+    let emitFinance: (() => void) | undefined;
+    registerFinanceListenerMock.mockImplementation((listener: () => void) => {
+      emitFinance = listener;
+      return unregisterFinanceMock;
+    });
+
+    renderHook(() =>
+      useAdminCourseEnrollmentReadModels({
+        view: 'roster',
+        selectedEnrollmentId: selectedId as AdminCourseEnrollmentRosterItem['enrollmentId'],
+      })
+    );
+    await waitFor(() => expect(queryMock).toHaveBeenCalledTimes(2));
+    expect(registerFinanceListenerMock).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      emitFinance?.();
+    });
+    await waitFor(() => expect(queryMock).toHaveBeenCalledTimes(3));
+    expect(queryMock.mock.calls[2]?.[0]).toMatchObject({
+      scope: 'admin_enrollment_detail',
+      enrollmentId: selectedId,
+    });
+  });
+
+  it('does not subscribe to finance revision without a mounted enrollment detail', async () => {
+    queryMock.mockResolvedValue({
+      scope: 'admin_course_roster',
+      items: [],
+      hasMore: false,
+    });
+    renderHook(() => useAdminCourseEnrollmentReadModels({ view: 'roster' }));
+    await waitFor(() => expect(queryMock).toHaveBeenCalledTimes(1));
+    expect(registerFinanceListenerMock).not.toHaveBeenCalled();
   });
 });

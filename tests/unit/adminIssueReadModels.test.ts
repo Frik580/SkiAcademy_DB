@@ -8,6 +8,12 @@ vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
   queryAdminIssueReadModels: (...args: unknown[]) => queryMock(...args),
 }));
 
+vi.mock('../../src/features/admin/issues/adminIssueInboxRevisionCoordinator', () => ({
+  registerAdminIssueInboxRevisionListener: () => () => {},
+  registerAdminIssueInboxRevisionFromCommand: vi.fn(),
+  resetAdminIssueInboxRevisionCoordinatorForTests: vi.fn(),
+}));
+
 import { useAdminIssueReadModels } from '../../src/features/admin/issues/useAdminIssueReadModels';
 
 function item(

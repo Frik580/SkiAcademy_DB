@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   compareCanonicalTimestamps,
-  reduceAdminIssueInboxRevisionSignal,
   type AdminIssueDetailReadModel,
   type AdminIssueId,
   type AdminIssueInboxItem,
@@ -11,11 +10,12 @@ import {
 import { queryAdminIssueReadModels } from '../../../lib/canonical/canonicalReadModelClient';
 import { toFunctionsClientError } from '../../../lib/functions/functionsClient';
 import { logger } from '../../../shared';
+import { useAdminFinanceRevisionRefresh } from '../finance/useAdminFinanceRevisionRefresh';
 import {
   removeResolvedAdminIssueInboxItems,
   subscribeAdminIssueInboxLocalPatches,
 } from './adminIssueInboxLocalSync';
-import { subscribeAdminIssueInboxRevision } from './subscribeAdminIssueInboxRevision';
+import { registerAdminIssueInboxRevisionListener } from './adminIssueInboxRevisionCoordinator';
 
 export type AdminIssueReadErrorCode = 'permission-denied' | 'read-failed';
 
@@ -79,9 +79,8 @@ export function useAdminIssueReadModels(
   const { enabled, scope, severity, selectedIssueId } = input;
   const listRequestGeneration = useRef(0);
   const detailRequestGeneration = useRef(0);
-  const inboxRevisionState = useRef<{ initialized: boolean; lastRevision?: number }>({
-    initialized: false,
-  });
+  const selectedIssueIdRef = useRef(selectedIssueId);
+  selectedIssueIdRef.current = selectedIssueId;
   const [list, setList] = useState<AdminIssueListState>(INITIAL_LIST_STATE);
   const [detail, setDetail] = useState<AdminIssueDetailState>(INITIAL_DETAIL_STATE);
 
@@ -124,13 +123,15 @@ export function useAdminIssueReadModels(
     [enabled, scope, severity]
   );
 
-  const loadDetail = useCallback(async () => {
+  const loadDetail = useCallback(async (quiet = false) => {
     const generation = ++detailRequestGeneration.current;
     if (!enabled || !selectedIssueId) {
       setDetail(INITIAL_DETAIL_STATE);
       return;
     }
-    setDetail({ loading: true });
+    if (!quiet) {
+      setDetail({ loading: true });
+    }
     try {
       const result = await queryAdminIssueReadModels({
         scope: 'admin_detail',
@@ -151,6 +152,8 @@ export function useAdminIssueReadModels(
 
   const loadListRef = useRef(loadList);
   loadListRef.current = loadList;
+  const loadDetailRef = useRef(loadDetail);
+  loadDetailRef.current = loadDetail;
 
   useEffect(() => {
     if (!enabled) {
@@ -183,36 +186,30 @@ export function useAdminIssueReadModels(
           ? INITIAL_DETAIL_STATE
           : current
       );
-      if (patch.adminIssueInboxRevision !== undefined && patch.openedAdminIssueIds.length === 0) {
-        inboxRevisionState.current = {
-          initialized: inboxRevisionState.current.initialized,
-          lastRevision: patch.adminIssueInboxRevision,
-        };
-      }
     });
   }, [enabled, scope]);
 
   useEffect(() => {
-    if (!enabled || scope !== 'admin_open') {
-      inboxRevisionState.current = { initialized: false };
-      return;
-    }
-    return subscribeAdminIssueInboxRevision((nextRevision) => {
-      const previous = inboxRevisionState.current.lastRevision;
-      const reduced = reduceAdminIssueInboxRevisionSignal(inboxRevisionState.current, nextRevision);
-      inboxRevisionState.current = {
-        initialized: reduced.initialized,
-        lastRevision: reduced.lastRevision,
-      };
-      if (!reduced.shouldRefresh) return;
+    if (!enabled || scope !== 'admin_open') return;
+    return registerAdminIssueInboxRevisionListener(() => {
       logger.info('admin_issue_inbox_realtime_invalidated', {
-        previousRevision: previous,
-        nextRevision,
         reason: 'revision_changed',
       });
       void loadListRef.current(undefined, false, true);
+      if (selectedIssueIdRef.current) {
+        void loadDetailRef.current(true);
+      }
     });
   }, [enabled, scope]);
+
+  useAdminFinanceRevisionRefresh(
+    () => {
+      if (selectedIssueIdRef.current) {
+        void loadDetailRef.current(true);
+      }
+    },
+    enabled && scope === 'admin_open' && Boolean(selectedIssueId)
+  );
 
   return {
     list,

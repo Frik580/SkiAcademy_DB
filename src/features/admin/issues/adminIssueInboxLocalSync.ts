@@ -4,6 +4,7 @@ import type {
   CommandResult,
 } from '@ski-academy/shared-domain';
 import { AttendanceAdminIssueResultPayloadSchema } from '@ski-academy/shared-domain';
+import { registerAdminIssueInboxRevisionFromCommand } from './adminIssueInboxRevisionCoordinator';
 
 export interface AdminIssueInboxServerConfirmedPatch {
   readonly resolvedAdminIssueIds: readonly AdminIssueId[];
@@ -40,13 +41,17 @@ export function applyAdminIssueInboxCommandResult(result: CommandResult): void {
   const parsed = AttendanceAdminIssueResultPayloadSchema.safeParse(result.payload);
   if (!parsed.success) return;
   const payload: AttendanceAdminIssueResultPayload = parsed.data;
+  const openedAdminIssueIds = payload.openedAdminIssueIds ?? [];
   notifyAdminIssueInboxServerConfirmedPatch({
     resolvedAdminIssueIds: payload.resolvedAdminIssueIds,
-    openedAdminIssueIds: payload.openedAdminIssueIds ?? [],
+    openedAdminIssueIds,
     ...(payload.adminIssueInboxRevision === undefined
       ? {}
       : { adminIssueInboxRevision: payload.adminIssueInboxRevision }),
   });
+  if (payload.adminIssueInboxRevision !== undefined && openedAdminIssueIds.length === 0) {
+    registerAdminIssueInboxRevisionFromCommand(payload.adminIssueInboxRevision);
+  }
 }
 
 export function removeResolvedAdminIssueInboxItems<T extends { readonly issueId: string }>(

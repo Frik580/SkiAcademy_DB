@@ -195,6 +195,7 @@ const COMMAND_KIND_ALLOWED_EFFECTS: Partial<Record<CommandKind, readonly AuditEf
   ],
   change_account_role: ['outbox_obligation_created'],
   update_account_contact_as_administrator: ['outbox_obligation_created'],
+  update_own_account_contact: ['outbox_obligation_created'],
   create_instructor_catalog_entry: ['outbox_obligation_created'],
   update_instructor_catalog_profile: ['outbox_obligation_created'],
   deactivate_instructor_catalog: ['outbox_obligation_created'],

@@ -434,8 +434,9 @@ service cloud.firestore {
     // User Profiles
     // Preserved client writes (non-authoritative only):
     // - create: signup / guest-claim migration (Auth.tsx, migratePreExistingProfile)
-    // - update self presentation: cabinet profile, today tasks, dismissReview
+    // - update self presentation: today tasks, dismissReview, preferences
     //   (owner only, and only while stored Account lifecycle is active/absent)
+    // Identity contact (phoneNumber) is canonical-command-only.
     // Canonical Wallet / Payment / MonetaryEvent are command-only.
     // Progress fields (level, skillScores, skillComments) are leftover
     // READ-ONLY LEGACY / CLEANUP CANDIDATE on /users. They are not authority.
@@ -453,7 +454,6 @@ service cloud.firestore {
         accountLifecycleAllowsSelfService() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'displayName',
-          'phoneNumber',
           'avatarUrl',
           'hideProgressTracking',
           'hasCompletedOnboarding',
@@ -479,16 +479,12 @@ service cloud.firestore {
       }
     }
 
-    // Instructor catalog. Review aggregates and admin catalog fields are server-owned.
-    // Instructor self-service may still update only the public phone number.
+    // Instructor catalog. Review aggregates, admin catalog fields, and phone
+    // are server-owned. Self instructor phone is canonical-command-only.
     match /instructors/{instructorId} {
       allow read: if true;
       allow create: if false;
-      allow update: if (
-        isInstructor() &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.instructorId == instructorId &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['phoneNumber'])
-      );
+      allow update: if false;
       allow delete: if false;
     }
 

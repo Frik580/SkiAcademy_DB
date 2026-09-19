@@ -19,6 +19,7 @@ import {
   resolveCommandIdempotencyIdentity,
   timestampFromDate,
   AccountIdSchema,
+  InstructorIdSchema,
   type Account,
   type AccountId,
   type AuditOutboxStagingPlan,
@@ -74,6 +75,7 @@ type IdentityAdminKind = Extract<
   | 'create_managed_dependent_participant'
   | 'change_account_role'
   | 'update_account_contact_as_administrator'
+  | 'update_own_account_contact'
   | 'create_instructor_catalog_entry'
   | 'update_instructor_catalog_profile'
   | 'deactivate_instructor_catalog'
@@ -362,6 +364,8 @@ export function createIdentityAdministrationCommandHandlers(
       changeAccountRoleHandler(envelope, environment, executor),
     update_account_contact_as_administrator: (envelope, environment) =>
       updateAccountContactHandler(envelope, environment, executor),
+    update_own_account_contact: (envelope, environment) =>
+      updateOwnAccountContactHandler(envelope, environment, executor),
     create_instructor_catalog_entry: (envelope, environment) =>
       createInstructorCatalogHandler(envelope, environment, executor),
     update_instructor_catalog_profile: (envelope, environment) =>
@@ -1198,6 +1202,136 @@ function updateAccountContactHandler(
     environment,
     executor,
     revisionTarget: { ref: { path: targetPath }, requireExpectedRevision: true },
+    handler,
+  });
+}
+
+function updateOwnAccountContactHandler(
+  envelope: CommandEnvelope<'update_own_account_contact'>,
+  environment: CommandExecutionEnvironment,
+  executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
+): Promise<CommandResult<'update_own_account_contact'>> {
+  const metadata = metadataFromEnvelope(envelope);
+  const actor = requireAccountActor(envelope);
+  if (
+    envelope.context.source !== 'client_callable' ||
+    envelope.context.exercisedCapability !== 'account_owner'
+  ) {
+    forbidden(envelope);
+  }
+
+  const targetPath = accountPath(actor.accountId);
+  const nextPhoneNumber = envelope.intent.phoneNumber.trim();
+  let targetAccount!: Account;
+  let targetProfile: Record<string, unknown> | undefined;
+  let linkedInstructorId: InstructorId | undefined;
+  let linkedCatalogPath: string | undefined;
+  let linkedCatalogPhone = '';
+  let accountPhoneChanged = false;
+  let instructorPhoneChanged = false;
+
+  const handler: AuthoritativeIdempotentCanonicalCommandHandler<'update_own_account_contact'> = {
+    read: async (session) => {
+      const targetRead = await session.tx.get({ path: targetPath });
+      session.plan.planRead({ path: targetPath, category: 'aggregate' });
+      const parsed = parseAccount(targetRead.exists ? targetRead.data : undefined);
+      if (!parsed) {
+        conflict(envelope, { resourceKind: 'account', reason: 'conflict' });
+      }
+      assertAccountActive(envelope, parsed);
+      targetAccount = parsed;
+      targetProfile = targetRead.data;
+      accountPhoneChanged = readContactPhoneNumber(targetProfile) !== nextPhoneNumber;
+
+      const rawInstructorId =
+        typeof targetProfile?.instructorId === 'string' ? targetProfile.instructorId : undefined;
+      const parsedInstructorId = InstructorIdSchema.safeParse(rawInstructorId);
+      if (parsedInstructorId.success) {
+        linkedInstructorId = parsedInstructorId.data;
+        linkedCatalogPath = instructorCatalogPath(linkedInstructorId);
+        const catalogRead = await session.tx.get({ path: linkedCatalogPath });
+        session.plan.planRead({ path: linkedCatalogPath, category: 'aggregate' });
+        if (!catalogRead.exists) {
+          conflict(envelope, { resourceKind: 'instructor', reason: 'conflict' });
+        }
+        linkedCatalogPhone = readContactPhoneNumber(catalogRead.data);
+        instructorPhoneChanged = linkedCatalogPhone !== nextPhoneNumber;
+      }
+
+      if (!accountPhoneChanged && !instructorPhoneChanged) {
+        return;
+      }
+      if (accountPhoneChanged) {
+        session.plan.planMutation({
+          path: targetPath,
+          kind: 'update',
+          category: 'aggregate',
+          estimatedPayloadBytes: PARTICIPANT_ACCESS_PLANNING_ESTIMATES.accountBytes,
+        });
+      }
+      if (instructorPhoneChanged && linkedCatalogPath) {
+        session.plan.planMutation({
+          path: linkedCatalogPath,
+          kind: 'update',
+          category: 'aggregate',
+          estimatedPayloadBytes: 256,
+        });
+      }
+    },
+    planAuditOutbox: async () =>
+      buildIdentityAdminAuditPlan({
+        envelope,
+        summary: 'Own account contact projection updated',
+        reasonCode: 'participant_management',
+        explanation: 'Self account contact update',
+        primary: { kind: 'account', id: actor.accountId },
+        affectedSubjects: [
+          canonicalReference('account', actor.accountId),
+          ...(linkedInstructorId
+            ? [canonicalReference('instructor', linkedInstructorId)]
+            : []),
+        ],
+        resultingRevisions: [
+          {
+            subject: canonicalReference('account', actor.accountId),
+            revision: accountPhoneChanged
+              ? nextAggregateRevision(targetAccount.revision)
+              : targetAccount.revision,
+          },
+        ],
+        effectKind: 'outbox_obligation_created',
+      }),
+    execute: async (session, context) => {
+      if (!accountPhoneChanged && !instructorPhoneChanged) {
+        return commandSuccessResult(envelope.kind, envelope.context.correlationId);
+      }
+      const decidedAt = timestampFromDate(context.decidedAt);
+      if (accountPhoneChanged) {
+        session.tx.update(
+          { path: targetPath },
+          {
+            phoneNumber: nextPhoneNumber,
+            revision: nextAggregateRevision(targetAccount.revision),
+            updatedAt: decidedAt,
+            audit: {
+              ...targetAccount.audit,
+              lastChangedByCommandId: metadata.commandId,
+              correlationId: metadata.correlationId,
+            },
+          }
+        );
+      }
+      if (instructorPhoneChanged && linkedCatalogPath) {
+        session.tx.update({ path: linkedCatalogPath }, { phoneNumber: nextPhoneNumber });
+      }
+      return commandSuccessResult(envelope.kind, envelope.context.correlationId);
+    },
+  };
+
+  return executeAuthoritativeIdempotentCanonicalCommand({
+    envelope,
+    environment,
+    executor,
     handler,
   });
 }

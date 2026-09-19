@@ -725,6 +725,164 @@ describe('canonical identity administration commands', () => {
     });
   });
 
+  it('lets an account owner update own contact phone and bumps admin people once', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${targetAccountId}`]: seedAccount(targetAccountId, {
+        role: 'user',
+        displayName: 'Self Client',
+        phoneNumber: '+77010000000',
+      }),
+      [`users/${targetAccountId}/wallet/state`]: {
+        accountId: targetAccountId,
+        balance: 12_000,
+        currency: 'KZT',
+        revision: 4,
+      },
+    });
+    const result = await run(executor, {
+      kind: 'update_own_account_contact',
+      context: {
+        actor: accountCommandActor(targetAccountId),
+        exercisedCapability: 'account_owner',
+        idempotencyKey: 'own-contact-update-01',
+        correlationId,
+        source: 'client_callable',
+      },
+      intent: { phoneNumber: '+77018888888' },
+    });
+    expect(result).toMatchObject({
+      status: 'success',
+      payload: { adminPeopleRevision: 1 },
+    });
+    const snapshot = executor.snapshot();
+    expect(snapshot.docs.get(`users/${targetAccountId}`)?.data).toMatchObject({
+      displayName: 'Self Client',
+      phoneNumber: '+77018888888',
+      revision: 2,
+    });
+    expect(snapshot.docs.get(`users/${targetAccountId}/wallet/state`)?.data).toMatchObject({
+      balance: 12_000,
+      revision: 4,
+    });
+    expect(snapshot.docs.get('admin_runtime/admin_people')?.data.revision).toBe(1);
+    expect(snapshot.docs.has('admin_runtime/admin_finance')).toBe(false);
+  });
+
+  it('mirrors own instructor phone in the same transaction and still bumps admin people once', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${targetAccountId}`]: seedAccount(targetAccountId, {
+        role: 'user',
+        displayName: 'Coach Client',
+        phoneNumber: '+77010000000',
+        instructorId,
+      }),
+      [`instructors/${instructorId}`]: {
+        instructorId,
+        name: 'Catalog Coach',
+        pricePerHourKZT: 15_000,
+        isAvailable: true,
+        phoneNumber: '+77010000000',
+        revision: 3,
+      },
+    });
+    const result = await run(executor, {
+      kind: 'update_own_account_contact',
+      context: {
+        actor: accountCommandActor(targetAccountId),
+        exercisedCapability: 'account_owner',
+        idempotencyKey: 'own-contact-instructor-01',
+        correlationId,
+        source: 'client_callable',
+      },
+      intent: { phoneNumber: '+77017777777' },
+    });
+    expect(result).toMatchObject({
+      status: 'success',
+      payload: { adminPeopleRevision: 1 },
+    });
+    const snapshot = executor.snapshot();
+    expect(snapshot.docs.get(`users/${targetAccountId}`)?.data.phoneNumber).toBe('+77017777777');
+    expect(snapshot.docs.get(`instructors/${instructorId}`)?.data).toMatchObject({
+      phoneNumber: '+77017777777',
+      revision: 3,
+    });
+    expect(snapshot.docs.get('admin_runtime/admin_people')?.data.revision).toBe(1);
+  });
+
+  it('does not bump admin people when own contact already matches', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${targetAccountId}`]: seedAccount(targetAccountId, {
+        role: 'user',
+        phoneNumber: '+77012222222',
+      }),
+    });
+    const result = await run(executor, {
+      kind: 'update_own_account_contact',
+      context: {
+        actor: accountCommandActor(targetAccountId),
+        exercisedCapability: 'account_owner',
+        idempotencyKey: 'own-contact-noop-01',
+        correlationId,
+        source: 'client_callable',
+      },
+      intent: { phoneNumber: '+77012222222' },
+    });
+    expect(result.status).toBe('success');
+    expect(result).not.toMatchObject({ payload: { adminPeopleRevision: 1 } });
+    expect(executor.snapshot().docs.get(`users/${targetAccountId}`)?.data.revision).toBe(1);
+    expect(executor.snapshot().docs.has('admin_runtime/admin_people')).toBe(false);
+  });
+
+  it('rejects own contact updates from a non-owner capability and does not bump people', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${targetAccountId}`]: seedAccount(targetAccountId, {
+        role: 'user',
+        phoneNumber: '+77010000000',
+      }),
+    });
+    const result = await run(executor, {
+      kind: 'update_own_account_contact',
+      context: {
+        actor: accountCommandActor(targetAccountId),
+        exercisedCapability: 'parent_guardian',
+        idempotencyKey: 'own-contact-guardian-01',
+        correlationId,
+        source: 'client_callable',
+      },
+      intent: { phoneNumber: '+77019999999' },
+    });
+    expect(result.status).toBe('error');
+    expect(executor.snapshot().docs.get(`users/${targetAccountId}`)?.data.phoneNumber).toBe(
+      '+77010000000'
+    );
+    expect(executor.snapshot().docs.has('admin_runtime/admin_people')).toBe(false);
+  });
+
+  it('rejects own contact updates that exceed phone length without bumping people', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${targetAccountId}`]: seedAccount(targetAccountId, {
+        role: 'user',
+        phoneNumber: '+77010000000',
+      }),
+    });
+    const result = await run(executor, {
+      kind: 'update_own_account_contact',
+      context: {
+        actor: accountCommandActor(targetAccountId),
+        exercisedCapability: 'account_owner',
+        idempotencyKey: 'own-contact-long-01',
+        correlationId,
+        source: 'client_callable',
+      },
+      intent: { phoneNumber: '1'.repeat(33) },
+    });
+    expect(result.status).toBe('error');
+    expect(executor.snapshot().docs.get(`users/${targetAccountId}`)?.data.phoneNumber).toBe(
+      '+77010000000'
+    );
+    expect(executor.snapshot().docs.has('admin_runtime/admin_people')).toBe(false);
+  });
+
   it('atomically creates and links an instructor catalog for an Account', async () => {
     const catalogId = InstructorIdSchema.parse('instructor_identity_admin_create_link_01');
     const selfParticipantId = ParticipantIdSchema.parse('participant_identity_admin_self_01');

@@ -89,6 +89,12 @@ describe('adminPeopleRevision', () => {
     ).toBe(true);
     expect(
       plannedMutationsAffectAdminPeople(
+        [{ path: 'users/account_01' }, { path: 'instructors/instructor_01' }],
+        'update_own_account_contact'
+      )
+    ).toBe(true);
+    expect(
+      plannedMutationsAffectAdminPeople(
         [{ path: 'instructors/instructor_01' }],
         'update_instructor_catalog_profile'
       )

@@ -1120,7 +1120,7 @@ describe('T32.8A identity authority containment', () => {
     await assertFails(getDoc(doc(adminDb, 'participant_management', managementId)));
   });
 
-  it('still allows required self-service /users and /instructors writes', async () => {
+  it('still allows required self-service /users writes and denies identity contact client writes', async () => {
     const userDb = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
     const instructorDb = testEnv
       .authenticatedContext(INSTRUCTOR_USER_ID, { email: 'instructor@example.com' })
@@ -1132,12 +1132,12 @@ describe('T32.8A identity authority containment', () => {
     await assertSucceeds(
       updateDoc(doc(userDb, 'users', USER_ID), {
         displayName: 'Self Service Name',
-        phoneNumber: '+15551212',
         avatarUrl: 'https://example.com/self.jpg',
         hideProgressTracking: true,
         dismissedReviewIds: ['booking-review-1'],
       })
     );
+    await assertFails(updateDoc(doc(userDb, 'users', USER_ID), { phoneNumber: '+15551212' }));
     await assertFails(updateDoc(doc(userDb, 'users', USER_ID), { balanceUSD: 50 }));
     await assertFails(
       updateDoc(doc(instructorDb, 'users', OTHER_USER_ID), {
@@ -1146,7 +1146,7 @@ describe('T32.8A identity authority containment', () => {
         skillComments: { carving: 'Solid' },
       })
     );
-    await assertSucceeds(
+    await assertFails(
       updateDoc(doc(instructorDb, 'instructors', catalogId), { phoneNumber: '+19998887777' })
     );
     await assertFails(
@@ -1286,7 +1286,7 @@ describe('T32.8A identity authority containment', () => {
       updateDoc(doc(userDb, 'users', USER_ID), { displayName: 'Still Writable' })
     );
     await assertSucceeds(updateDoc(doc(userDb, 'users', USER_ID), { hideProgressTracking: true }));
-    await assertSucceeds(updateDoc(doc(userDb, 'users', USER_ID), { phoneNumber: '+15550009999' }));
+    await assertFails(updateDoc(doc(userDb, 'users', USER_ID), { phoneNumber: '+15550009999' }));
   });
 
   it('allows an active Account to change the approved self presentation subset', async () => {
@@ -1295,7 +1295,6 @@ describe('T32.8A identity authority containment', () => {
     await assertSucceeds(
       updateDoc(doc(userDb, 'users', USER_ID), {
         displayName: 'Active Self Name',
-        phoneNumber: '+15550001111',
         avatarUrl: 'https://example.com/active.jpg',
         hideProgressTracking: true,
         hasCompletedOnboarding: true,
@@ -1403,7 +1402,7 @@ describe('T32.8A identity authority containment', () => {
     await assertSucceeds(
       updateDoc(doc(userDb, 'users', USER_ID), { displayName: 'Reenabled Name' })
     );
-    await assertSucceeds(updateDoc(doc(userDb, 'users', USER_ID), { phoneNumber: '+15550004444' }));
+    await assertFails(updateDoc(doc(userDb, 'users', USER_ID), { phoneNumber: '+15550004444' }));
     await assertFails(updateDoc(doc(userDb, 'users', USER_ID), { balanceUSD: 50 }));
 
     await assertFails(

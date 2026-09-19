@@ -57,6 +57,7 @@ export const COMMAND_KINDS = [
   'change_account_role',
   'update_lesson_pricing_settings',
   'update_account_contact_as_administrator',
+  'update_own_account_contact',
   'create_instructor_catalog_entry',
   'update_instructor_catalog_profile',
   'deactivate_instructor_catalog',

@@ -811,7 +811,12 @@ describe('participant access commands', () => {
         avatarUrl,
       },
     };
-    expect((await runCommand(executor, selfUpdate)).status).toBe('success');
+    const selfResult = await runCommand(executor, selfUpdate);
+    expect(selfResult).toMatchObject({
+      status: 'success',
+      payload: { adminPeopleRevision: 1 },
+    });
+    expect(executor.snapshot().docs.get('admin_runtime/admin_people')?.data.revision).toBe(1);
 
     const selfParticipant = executor.snapshot().docs.get(`participants/${selfParticipantId}`)?.data;
     const accountDoc = executor.snapshot().docs.get(`users/${accountId}`)?.data;

@@ -104,6 +104,7 @@ const COMMAND_KIND_REASON_CODES: Partial<Record<CommandKind, readonly AuditReaso
   provision_self_participant_for_account: ['participant_management', 'manual_override'],
   change_account_role: ['manual_override', 'other'],
   update_account_contact_as_administrator: ['manual_override', 'other'],
+  update_own_account_contact: ['participant_management', 'other'],
   create_instructor_catalog_entry: ['manual_override', 'other'],
   update_instructor_catalog_profile: ['manual_override', 'other'],
   deactivate_instructor_catalog: ['manual_override', 'other'],

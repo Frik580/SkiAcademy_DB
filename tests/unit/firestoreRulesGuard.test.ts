@@ -113,6 +113,7 @@ describe('firestore.rules guardrails', () => {
       /match \/instructors\/\{instructorId\} \{[\s\S]*?\n {4}\}/
     )?.[0];
     expect(instructorsBlock).toContain('allow create: if false;');
+    expect(instructorsBlock).toContain('allow update: if false;');
     expect(instructorsBlock).toContain('allow delete: if false;');
     expect(instructorsBlock).not.toContain('allow create: if isAdmin()');
     expect(instructorsBlock).not.toContain('allow delete: if isAdmin()');

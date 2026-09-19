@@ -34,6 +34,7 @@ const PLANNER_IRRELEVANT_COMMAND_KINDS = new Set<CommandKind>([
   'record_participant_achievements',
   'update_participant_profile',
   'update_account_contact_as_administrator',
+  'update_own_account_contact',
 ]);
 
 const PLANNER_CATALOG_COMMAND_KINDS = new Set<CommandKind>([

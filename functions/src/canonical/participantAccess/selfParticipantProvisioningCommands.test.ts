@@ -221,11 +221,15 @@ describe('canonical self Participant provisioning', () => {
     });
 
     const result = await commands(executor).execute(envelope('provision-self-unit-01'));
-    expect(result.status).toBe('success');
+    expect(result).toMatchObject({
+      status: 'success',
+      payload: { adminPeopleRevision: 1 },
+    });
 
     const participantId = selfParticipantIdFromAccountId(accountId);
     const managementId = participantManagementIdFromSelfProvisioning(accountId);
     const snapshot = executor.snapshot();
+    expect(snapshot.docs.get('admin_runtime/admin_people')?.data.revision).toBe(1);
     expect(snapshot.docs.get(`users/${accountId}`)?.data).toMatchObject({
       accountId,
       lifecycle: { status: 'active' },

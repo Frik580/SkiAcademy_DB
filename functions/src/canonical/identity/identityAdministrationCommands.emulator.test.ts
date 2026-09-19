@@ -122,6 +122,7 @@ describe.skipIf(!runsOnFirestoreEmulator)('identity administration Firestore emu
       'activity_logs',
       'domain_outbox',
       'command_idempotency',
+      'admin_runtime',
     ]);
     await firestore
       .collection('users')
@@ -372,6 +373,70 @@ describe.skipIf(!runsOnFirestoreEmulator)('identity administration Firestore emu
     expect((await firestore.collection('participants').doc(participantId).get()).data()).toMatchObject({
       displayName: 'Dependent',
     });
+  }, 30_000);
+
+  it('updates own account contact through the owner callable path and bumps People once without touching wallet', async () => {
+    const executor = createFirestoreCanonicalTransactionExecutor(firestore);
+    const commands = createProductionCanonicalCommands(
+      { clock: createAuthoritativeCommandClock(new Date('2026-02-01T00:00:00.000Z')) },
+      executor
+    );
+    await firestore.collection('users').doc(targetAccountId).set(
+      seedAccount(targetAccountId, {
+        role: 'user',
+        displayName: 'Emulator Self',
+        phoneNumber: '+77010000000',
+        instructorId,
+      })
+    );
+    await firestore.collection('instructors').doc(instructorId).set({
+      instructorId,
+      name: 'Emulator Self Coach',
+      pricePerHourKZT: 16_000,
+      isAvailable: true,
+      phoneNumber: '+77010000000',
+      revision: 2,
+    });
+    await firestore.collection('users').doc(targetAccountId).collection('wallet').doc('state').set({
+      accountId: targetAccountId,
+      balance: 9_000,
+      currency: 'KZT',
+      revision: 6,
+    });
+
+    const result = await commands.execute({
+      kind: 'update_own_account_contact',
+      context: {
+        actor: accountCommandActor(targetAccountId),
+        exercisedCapability: 'account_owner',
+        idempotencyKey: 'identity-emulator-own-contact',
+        correlationId,
+        source: 'client_callable',
+      },
+      intent: { phoneNumber: '+77016666666' },
+    });
+
+    expect(result).toMatchObject({
+      status: 'success',
+      payload: { adminPeopleRevision: 1 },
+    });
+    expect((await firestore.collection('users').doc(targetAccountId).get()).data()).toMatchObject({
+      displayName: 'Emulator Self',
+      phoneNumber: '+77016666666',
+    });
+    expect((await firestore.collection('instructors').doc(instructorId).get()).data()).toMatchObject({
+      phoneNumber: '+77016666666',
+      revision: 2,
+    });
+    expect(
+      (await firestore.collection('users').doc(targetAccountId).collection('wallet').doc('state').get()).data()
+    ).toMatchObject({
+      balance: 9_000,
+      revision: 6,
+    });
+    expect((await firestore.collection('admin_runtime').doc('admin_people').get()).data()?.revision).toBe(
+      1
+    );
   }, 30_000);
 
   it('enforces one Account ↔ one Instructor link and refuses reverse double-link', async () => {

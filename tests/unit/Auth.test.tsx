@@ -3,6 +3,12 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Auth } from '../../src/features/auth';
+import { readUserProfile as realReadUserProfile } from '../../src/infrastructure/firebase/firestoreSchemas';
+import {
+  ksushaProductionShapedUserDocument,
+  PROD_SHAPED_KSUSHA_ACCOUNT_ID,
+  PROD_SHAPED_KSUSHA_EMAIL,
+} from '../helpers/userProfileFixtures';
 
 const mockCreateUserWithEmailAndPassword = vi.fn();
 const mockSignInWithEmailAndPassword = vi.fn();
@@ -13,6 +19,7 @@ const mockGetDoc = vi.fn();
 const mockMigratePreExistingProfile = vi.fn();
 const mockAddNotification = vi.fn();
 const mockToUserProfile = vi.fn((data: any) => data);
+const mockReadUserProfile = vi.fn();
 
 vi.mock('../../src/infrastructure/firebase', async () => {
   const { omitLegacyAccountProgressFields } =
@@ -30,6 +37,7 @@ vi.mock('../../src/infrastructure/firebase', async () => {
     OperationType: { GET: 'get', WRITE: 'write' },
     migratePreExistingProfile: (...args: any[]) => mockMigratePreExistingProfile(...args),
     toUserProfile: (...args: any[]) => mockToUserProfile(...args),
+    readUserProfile: (...args: any[]) => mockReadUserProfile(...args),
     omitLegacyAccountProgressFields,
   };
 });
@@ -55,7 +63,13 @@ describe('Auth', () => {
     vi.clearAllMocks();
     mockMigratePreExistingProfile.mockResolvedValue(null);
     mockGetDoc.mockResolvedValue({ exists: () => false });
-    mockToUserProfile.mockImplementation((data: any) => data);
+    mockToUserProfile.mockImplementation((data: any, id?: string) => {
+      const result = realReadUserProfile(data, id);
+      return result.success ? result.data : null;
+    });
+    mockReadUserProfile.mockImplementation((data: any, id?: string) =>
+      realReadUserProfile(data, id)
+    );
   });
 
   it('renders the sign-in form by default', () => {
@@ -143,6 +157,7 @@ describe('Auth', () => {
     });
     mockGetDoc.mockResolvedValue({
       exists: () => true,
+      id: 'existing-user',
       data: () => ({
         uid: 'existing-user',
         email: 'user@example.com',
@@ -213,7 +228,6 @@ describe('Auth', () => {
       id: 'invalid-user',
       data: () => ({ role: 'unexpected' }),
     });
-    mockToUserProfile.mockReturnValue(null);
 
     render(<Auth onSuccess={onSuccess} />);
     await userEvent.type(screen.getByPlaceholderText('emailAddress'), 'invalid@example.com');
@@ -221,7 +235,9 @@ describe('Auth', () => {
     await userEvent.click(screen.getByRole('button', { name: /signInBtn/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/Existing user profile is invalid/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Existing user profile is invalid: users\/invalid-user: .*role:/)
+      ).toBeInTheDocument();
     });
     expect(mockMigratePreExistingProfile).not.toHaveBeenCalled();
     expect(mockSetDoc).not.toHaveBeenCalled();
@@ -248,5 +264,35 @@ describe('Auth', () => {
     });
     expect(mockSetDoc).toHaveBeenCalledOnce();
     expect(onSuccess).not.toHaveBeenCalled();
+  });
+
+  it('signs in a production-shaped ksusha profile without writing users/{uid}', async () => {
+    mockSignInWithEmailAndPassword.mockResolvedValue({
+      user: { uid: PROD_SHAPED_KSUSHA_ACCOUNT_ID, email: PROD_SHAPED_KSUSHA_EMAIL },
+    });
+    mockGetDoc.mockResolvedValue({
+      exists: () => true,
+      id: PROD_SHAPED_KSUSHA_ACCOUNT_ID,
+      data: () => ({ ...ksushaProductionShapedUserDocument }),
+    });
+
+    render(<Auth onSuccess={onSuccess} />);
+    await userEvent.type(screen.getByPlaceholderText('emailAddress'), PROD_SHAPED_KSUSHA_EMAIL);
+    await userEvent.type(screen.getByPlaceholderText('password'), 'password123');
+    await userEvent.click(screen.getByRole('button', { name: /signInBtn/i }));
+
+    await waitFor(() => {
+      expect(onSuccess).toHaveBeenCalledWith(
+        expect.objectContaining({
+          uid: PROD_SHAPED_KSUSHA_ACCOUNT_ID,
+          email: PROD_SHAPED_KSUSHA_EMAIL,
+          displayName: 'Ксюша Иванова',
+          role: 'user',
+          avatarUrl: '',
+        })
+      );
+    });
+    expect(mockMigratePreExistingProfile).not.toHaveBeenCalled();
+    expect(mockSetDoc).not.toHaveBeenCalled();
   });
 });

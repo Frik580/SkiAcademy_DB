@@ -1,5 +1,14 @@
 import type { User } from 'firebase/auth';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({
+  signOutService: vi.fn(),
+}));
+
+vi.mock('../../src/features/auth/authService', () => ({
+  signOutService: mocks.signOutService,
+}));
+
 import { useAuthStore } from '../../src/features/auth/authStore';
 import { useBookingCollaborationStore } from '../../src/features/booking-collaboration/bookingCollaborationStore';
 import { useCourseEnrollmentStore } from '../../src/features/course-enrollments/courseEnrollmentStore';
@@ -14,7 +23,9 @@ function firebaseUser(uid: string): User {
 
 describe('authenticated principal switching', () => {
   beforeEach(() => {
-    useAuthStore.setState({ firebaseUser: null, authLoading: false });
+    mocks.signOutService.mockReset();
+    mocks.signOutService.mockResolvedValue(undefined);
+    useAuthStore.setState({ firebaseUser: null, authLoading: false, authGeneration: 0 });
     resetUserScopedStores();
   });
 
@@ -57,6 +68,7 @@ describe('authenticated principal switching', () => {
     });
     expect(useLessonBookingStore.getState()).toMatchObject({ loaded: false });
     expect(useBookingCollaborationStore.getState()).toMatchObject({ loaded: false });
+    expect(useAuthStore.getState().authGeneration).toBe(2);
   });
 
   it('supports A -> B -> A without retaining either account selection', () => {
@@ -95,6 +107,7 @@ describe('authenticated principal switching', () => {
     expect(useCabinetProgressParticipantSelectionStore.getState().selectedParticipantId).toBe(
       'participant-a'
     );
+    expect(useAuthStore.getState().authGeneration).toBe(1);
   });
 
   it('rejects an enrollment result started before the principal reset', () => {
@@ -110,5 +123,31 @@ describe('authenticated principal switching', () => {
 
     expect(applied).toBe(false);
     expect(useCourseEnrollmentStore.getState().scopedParticipantId).toBeUndefined();
+  });
+
+  it('invalidates the local principal before Firebase sign-out drops the ID token', async () => {
+    useAuthStore.getState().setFirebaseUser(firebaseUser('account-a'));
+    useProfileStore.setState({
+      userProfile: {
+        uid: 'account-a',
+        email: 'a@example.com',
+        displayName: 'Account A',
+        role: 'user',
+        avatarUrl: '',
+      },
+      profileLoading: false,
+    });
+
+    let uidWhileSigningOut: string | null | undefined = 'unset';
+    mocks.signOutService.mockImplementation(async () => {
+      uidWhileSigningOut = useAuthStore.getState().firebaseUser?.uid ?? null;
+    });
+
+    await useAuthStore.getState().handleSignOut();
+
+    expect(uidWhileSigningOut).toBeNull();
+    expect(useAuthStore.getState().firebaseUser).toBeNull();
+    expect(useProfileStore.getState().userProfile).toBeNull();
+    expect(mocks.signOutService).toHaveBeenCalledOnce();
   });
 });

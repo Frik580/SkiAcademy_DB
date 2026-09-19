@@ -14,21 +14,27 @@ vi.mock('../../src/shared', () => ({
   logger: { error: mocks.loggerError },
 }));
 
+const identity = vi.hoisted(() => ({
+  accountId: 'account_sync',
+}));
+
 vi.mock('../../src/features/auth/authStore', () => ({
   useAuthStore: (selector: (state: { firebaseUser: { uid: string } }) => unknown) =>
-    selector({ firebaseUser: { uid: 'account_sync' } }),
+    selector({ firebaseUser: { uid: identity.accountId } }),
 }));
 
 vi.mock('../../src/features/profile/profileStore', () => ({
   useProfileStore: (selector: (state: { userProfile: { uid: string } }) => unknown) =>
-    selector({ userProfile: { uid: 'account_sync' } }),
+    selector({ userProfile: { uid: identity.accountId } }),
 }));
 
 import { useCanonicalAccountProvisioningSync } from '../../src/features/auth/sync/useCanonicalAccountProvisioningSync';
+import { PROD_SHAPED_KSUSHA_ACCOUNT_ID } from '../helpers/userProfileFixtures';
 
 describe('useCanonicalAccountProvisioningSync', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    identity.accountId = 'account_sync';
     mocks.ensureCanonicalSelfParticipant.mockResolvedValue(undefined);
   });
 
@@ -36,6 +42,17 @@ describe('useCanonicalAccountProvisioningSync', () => {
     renderHook(() => useCanonicalAccountProvisioningSync());
     await waitFor(() =>
       expect(mocks.ensureCanonicalSelfParticipant).toHaveBeenCalledWith('account_sync')
+    );
+    expect(mocks.loggerError).not.toHaveBeenCalled();
+  });
+
+  it('H. requests participant resolution after a ksusha-shaped profile loads', async () => {
+    identity.accountId = PROD_SHAPED_KSUSHA_ACCOUNT_ID;
+    renderHook(() => useCanonicalAccountProvisioningSync());
+    await waitFor(() =>
+      expect(mocks.ensureCanonicalSelfParticipant).toHaveBeenCalledWith(
+        PROD_SHAPED_KSUSHA_ACCOUNT_ID
+      )
     );
     expect(mocks.loggerError).not.toHaveBeenCalled();
   });

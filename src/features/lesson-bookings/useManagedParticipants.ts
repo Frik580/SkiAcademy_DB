@@ -2,22 +2,55 @@ import { useCallback, useEffect, useState } from 'react';
 import { queryManagedParticipantPickerReadModels } from '../../lib/canonical/canonicalReadModelClient';
 import type { ManagedParticipantOption } from './lessonBookingContracts';
 import { ensureCanonicalSelfParticipant } from '../../lib/canonical/canonicalAccountProvisioningClient';
+import { useAuthStore } from '../auth/authStore';
+import { useProfileStore } from '../profile/profileStore';
+
+function isCurrentManagedParticipantRequest(generation: number, accountId: string): boolean {
+  const auth = useAuthStore.getState();
+  const profile = useProfileStore.getState();
+  return (
+    auth.authGeneration === generation &&
+    auth.firebaseUser?.uid === accountId &&
+    profile.userProfile?.uid === accountId
+  );
+}
 
 export function useManagedParticipants(accountId: string | undefined) {
+  const firebaseUid = useAuthStore((state) => state.firebaseUser?.uid);
+  const authGeneration = useAuthStore((state) => state.authGeneration);
+  const profileUid = useProfileStore((state) => state.userProfile?.uid);
   const [participants, setParticipants] = useState<ManagedParticipantOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | undefined>();
+  const authenticatedAccountId = firebaseUid;
+  const bootstrapReady =
+    Boolean(accountId) &&
+    Boolean(authenticatedAccountId) &&
+    profileUid === authenticatedAccountId;
 
   const reload = useCallback(async () => {
-    if (!accountId) {
+    if (!accountId || !authenticatedAccountId || !bootstrapReady) {
       setParticipants([]);
+      setLoading(false);
+      setError(undefined);
       return;
     }
+    const requestGeneration = authGeneration;
+    const requestAccountId = authenticatedAccountId;
     setLoading(true);
     setError(undefined);
     try {
-      await ensureCanonicalSelfParticipant(accountId);
+      if (!isCurrentManagedParticipantRequest(requestGeneration, requestAccountId)) {
+        return;
+      }
+      await ensureCanonicalSelfParticipant(requestAccountId);
+      if (!isCurrentManagedParticipantRequest(requestGeneration, requestAccountId)) {
+        return;
+      }
       const result = await queryManagedParticipantPickerReadModels({});
+      if (!isCurrentManagedParticipantRequest(requestGeneration, requestAccountId)) {
+        return;
+      }
       setParticipants(
         result.items.map((item) => ({
           participantId: item.participantId,
@@ -33,12 +66,17 @@ export function useManagedParticipants(accountId: string | undefined) {
         }))
       );
     } catch (loadError) {
+      if (!isCurrentManagedParticipantRequest(requestGeneration, requestAccountId)) {
+        return;
+      }
       setError(loadError instanceof Error ? loadError.message : 'Failed to load participants.');
       setParticipants([]);
     } finally {
-      setLoading(false);
+      if (isCurrentManagedParticipantRequest(requestGeneration, requestAccountId)) {
+        setLoading(false);
+      }
     }
-  }, [accountId]);
+  }, [accountId, authenticatedAccountId, authGeneration, bootstrapReady]);
 
   useEffect(() => {
     void reload();

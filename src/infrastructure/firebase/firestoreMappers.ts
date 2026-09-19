@@ -1,8 +1,14 @@
 import type { ActivityLog, Booking, Course, Instructor, UserProfile } from '../../types';
 import type { DbNotification } from '../../domain/notifications';
 import type { WalletLedgerEntry } from '../../features/wallet/types';
+import {
+  parseBooking,
+  parseCourse,
+  readUserProfile,
+} from './firestoreSchemas';
 import { logErrorToFirestore } from './firebase';
-import { parseBooking, parseCourse, parseUserProfile } from './firestoreSchemas';
+
+export { readUserProfile };
 
 /** Raw Firestore shape: document fields without the Firestore document id. */
 export type FirestoreModel<T extends { id: string }> = Omit<T, 'id'>;
@@ -57,24 +63,8 @@ export const toWalletLedgerEntry = (id: string, fields: unknown): WalletLedgerEn
 export const toActivityLog = (id: string, fields: unknown): ActivityLog =>
   toDocumentModel<ActivityLog>(id, fields);
 
-/**
- * The document id is the Account identity. Historical profiles may predate the
- * duplicated `uid` or avatar projection, so normalize those presentation fields
- * without writing the document from the client.
- */
 export const toUserProfile = (fields: unknown, id = 'unknown'): UserProfile | null => {
-  const normalizedFields =
-    fields !== null && typeof fields === 'object' && !Array.isArray(fields)
-      ? {
-          ...fields,
-          uid: id,
-          avatarUrl:
-            typeof (fields as Record<string, unknown>).avatarUrl === 'string'
-              ? (fields as Record<string, unknown>).avatarUrl
-              : '',
-        }
-      : fields;
-  const result = parseUserProfile(normalizedFields);
+  const result = readUserProfile(fields, id);
   if (result.success) return result.data;
   logInvalidDocument('users', id, result.reason);
   return null;

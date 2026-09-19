@@ -17,7 +17,7 @@ import {
   setDoc,
   googleProvider,
   omitLegacyAccountProgressFields,
-  toUserProfile,
+  readUserProfile,
 } from '../../infrastructure/firebase';
 import type { UserProfile } from '../../types';
 
@@ -49,11 +49,11 @@ export async function getUserProfileService(userId: string): Promise<UserProfile
   try {
     const userSnap = await getDoc(doc(db, 'users', userId));
     if (!userSnap.exists()) return null;
-    const profile = toUserProfile(userSnap.data(), userSnap.id);
-    if (!profile) {
-      throw new Error(`Existing user profile is invalid: users/${userId}`);
+    const parsed = readUserProfile(userSnap.data(), userSnap.id);
+    if (!parsed.success) {
+      throw new Error(`Existing user profile is invalid: users/${userId}: ${parsed.reason}`);
     }
-    return profile;
+    return parsed.data;
   } catch (error) {
     handleFirestoreError(error, OperationType.GET, `users/${userId}`);
     throw error;

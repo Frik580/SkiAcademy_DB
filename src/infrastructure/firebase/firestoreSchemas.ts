@@ -4,18 +4,29 @@ import {
   UserProfileDocumentSchema,
 } from '@ski-academy/shared-domain/entities';
 import type { Booking, Course, UserProfile } from '../../types';
+import { normalizeUserProfileRead } from './normalizeUserProfileRead';
 
 export type ValidationResult<T> = { success: true; data: T } | { success: false; reason: string };
+
+type SchemaIssue = {
+  path: PropertyKey[];
+  message: string;
+};
+
+function formatSchemaIssues(issues: SchemaIssue[] | undefined): string {
+  if (!issues?.length) return 'document: invalid value';
+  return issues
+    .map((issue) => `${issue.path.map(String).join('.') || 'document'}: ${issue.message}`)
+    .join('; ');
+}
 
 function toValidationResult<T>(result: {
   success: boolean;
   data?: unknown;
-  error?: { issues: Array<{ path: PropertyKey[]; message: string }> };
+  error?: { issues: SchemaIssue[] };
 }): ValidationResult<T> {
   if (result.success) return { success: true, data: result.data as T };
-  const issue = result.error?.issues[0];
-  const field = issue?.path.join('.') || 'document';
-  return { success: false, reason: `${field}: ${issue?.message ?? 'invalid value'}` };
+  return { success: false, reason: formatSchemaIssues(result.error?.issues) };
 }
 
 export const parseBooking = (fields: unknown, id: string): ValidationResult<Booking> => {
@@ -30,3 +41,12 @@ export const parseCourse = (fields: unknown, id: string): ValidationResult<Cours
 
 export const parseUserProfile = (fields: unknown): ValidationResult<UserProfile> =>
   toValidationResult<UserProfile>(UserProfileDocumentSchema.safeParse(fields));
+
+export const readUserProfile = (
+  fields: unknown,
+  id = 'unknown'
+): ValidationResult<UserProfile> => {
+  const normalized = normalizeUserProfileRead(fields, id);
+  if (!normalized.success) return normalized;
+  return parseUserProfile(normalized.data);
+};

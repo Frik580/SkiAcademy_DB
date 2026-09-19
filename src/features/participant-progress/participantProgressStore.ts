@@ -4,6 +4,7 @@ import type { ParticipantProgressView } from './applyParticipantProgressToProfil
 interface ParticipantProgressState {
   readonly byId: Readonly<Record<string, ParticipantProgressView>>;
   readonly loaded: boolean;
+  readonly syncGeneration: number;
   setItems: (items: readonly ParticipantProgressView[]) => void;
   upsertItem: (item: ParticipantProgressView) => void;
   clear: () => void;
@@ -12,6 +13,7 @@ interface ParticipantProgressState {
 export const useParticipantProgressStore = create<ParticipantProgressState>((set) => ({
   byId: {},
   loaded: false,
+  syncGeneration: 0,
   setItems: (items) =>
     set((state) => {
       const next = { ...state.byId };
@@ -25,7 +27,12 @@ export const useParticipantProgressStore = create<ParticipantProgressState>((set
       byId: { ...state.byId, [item.participantId]: item },
       loaded: true,
     })),
-  clear: () => set({ byId: {}, loaded: false }),
+  clear: () =>
+    set((state) => ({
+      byId: {},
+      loaded: false,
+      syncGeneration: state.syncGeneration + 1,
+    })),
 }));
 
 export function selectParticipantProgress(

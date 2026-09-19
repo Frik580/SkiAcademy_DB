@@ -226,6 +226,25 @@ describe('T32.9R.P0B surface-scoped account_hot refresh', () => {
     removeSpy.mockRestore();
   });
 
+  it('L: an account A response cannot mark the store loaded after a principal reset', async () => {
+    let resolveRequest!: (value: { scope: string; items: never[]; hasMore: boolean }) => void;
+    queryLessonBookingReadModelsMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveRequest = resolve;
+      })
+    );
+
+    const request = syncAccountHotLessonBookingsFromServer();
+    useLessonBookingStore.getState().reset();
+    resolveRequest({ scope: 'account_hot', items: [], hasMore: false });
+    await request;
+
+    expect(useLessonBookingStore.getState()).toMatchObject({
+      loaded: false,
+      hotLoadedAtMs: undefined,
+    });
+  });
+
   it.each(['/cabinet/history', '/cabinet/profile_journey'])(
     'history-owning surface %s loads account_history without account_hot ensure',
     async (pathname) => {

@@ -20,8 +20,13 @@ import { mergeLessonBookingRecords } from './lessonBookingViewModel';
  */
 export const ACCOUNT_LESSON_BOOKING_FRESH_MS = 30_000;
 
-let syncInFlight: Promise<void> | undefined;
-let hotSyncInFlight: Promise<void> | undefined;
+type GenerationBoundRequest = {
+  readonly generation: number;
+  readonly promise: Promise<void>;
+};
+
+let syncInFlight: GenerationBoundRequest | undefined;
+let hotSyncInFlight: GenerationBoundRequest | undefined;
 const calendarMonthInFlight = new Map<string, Promise<void>>();
 
 /** Test-only reset for module-level sync coordination state. */
@@ -43,7 +48,12 @@ export function isAccountLessonHotFresh(
   return state.loaded && state.hotLoadedAtMs !== undefined && nowMs - state.hotLoadedAtMs < freshMs;
 }
 
-function markAccountHotApplied(): void {
+function isCurrentSyncGeneration(generation: number): boolean {
+  return useLessonBookingStore.getState().syncGeneration === generation;
+}
+
+function markAccountHotApplied(generation: number): void {
+  if (!isCurrentSyncGeneration(generation)) return;
   const store = useLessonBookingStore.getState();
   store.setLoaded(true);
   store.setHotLoadedAtMs(Date.now());
@@ -89,7 +99,11 @@ export function applyAccountLessonBookingReadResults(input: {
   readonly historyItems: readonly LessonBookingReadModel[];
   readonly calendarItems?: readonly LessonBookingReadModel[];
   readonly reconcileHot?: boolean;
+  readonly syncGeneration?: number;
 }): void {
+  if (input.syncGeneration !== undefined && !isCurrentSyncGeneration(input.syncGeneration)) {
+    return;
+  }
   const state = useLessonBookingStore.getState();
   let merged = mergeLessonBookingRecords(state.items, input.hotItems);
   merged = mergeLessonBookingRecords(merged, input.historyItems);
@@ -110,11 +124,12 @@ export function applyAccountLessonBookingReadResults(input: {
 }
 
 export async function syncAccountLessonBookingsFromServer(): Promise<void> {
-  if (syncInFlight) {
-    return syncInFlight;
+  const generation = useLessonBookingStore.getState().syncGeneration;
+  if (syncInFlight?.generation === generation) {
+    return syncInFlight.promise;
   }
 
-  syncInFlight = (async () => {
+  const promise = (async () => {
     try {
       const [hot, history] = await Promise.all([
         queryLessonBookingReadModels({ scope: 'account_hot' }),
@@ -124,37 +139,46 @@ export async function syncAccountLessonBookingsFromServer(): Promise<void> {
         hotItems: hot.items,
         historyItems: history.items,
         reconcileHot: true,
+        syncGeneration: generation,
       });
-      markAccountHotApplied();
+      markAccountHotApplied(generation);
     } finally {
-      syncInFlight = undefined;
+      if (syncInFlight?.generation === generation) {
+        syncInFlight = undefined;
+      }
     }
   })();
+  syncInFlight = { generation, promise };
 
-  return syncInFlight;
+  return promise;
 }
 
 /** Cheap background refresh that deliberately avoids the account history scan. */
 export async function syncAccountHotLessonBookingsFromServer(): Promise<void> {
-  if (hotSyncInFlight) {
-    return hotSyncInFlight;
+  const generation = useLessonBookingStore.getState().syncGeneration;
+  if (hotSyncInFlight?.generation === generation) {
+    return hotSyncInFlight.promise;
   }
 
-  hotSyncInFlight = (async () => {
+  const promise = (async () => {
     try {
       const hot = await queryLessonBookingReadModels({ scope: 'account_hot' });
       applyAccountLessonBookingReadResults({
         hotItems: hot.items,
         historyItems: [],
         reconcileHot: true,
+        syncGeneration: generation,
       });
-      markAccountHotApplied();
+      markAccountHotApplied(generation);
     } finally {
-      hotSyncInFlight = undefined;
+      if (hotSyncInFlight?.generation === generation) {
+        hotSyncInFlight = undefined;
+      }
     }
   })();
+  hotSyncInFlight = { generation, promise };
 
-  return hotSyncInFlight;
+  return promise;
 }
 
 function calendarMonthInFlightKey(accountId: string, monthKey: string): string {

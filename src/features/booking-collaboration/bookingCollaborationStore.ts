@@ -20,6 +20,8 @@ interface BookingCollaborationStoreState {
   readonly loading: boolean;
   readonly loaded: boolean;
   readonly error?: string;
+  /** Invalidates async reads that began before a principal change. */
+  readonly syncGeneration: number;
   setProposals: (items: ReadonlyMap<string, BookingProposalCabinetItem>) => void;
   mergeProposals: (items: ReadonlyMap<string, BookingProposalCabinetItem>) => void;
   setChangeRequests: (items: ReadonlyMap<string, BookingChangeRequestCabinetItem>) => void;
@@ -86,6 +88,7 @@ const initialState = {
   loading: false,
   loaded: false,
   error: undefined,
+  syncGeneration: 0,
 };
 
 export const useBookingCollaborationStore = create<BookingCollaborationStoreState>((set) => ({
@@ -189,7 +192,7 @@ export const useBookingCollaborationStore = create<BookingCollaborationStoreStat
       participantAccessQueries: state.participantAccessQueries,
     })),
   reset: () =>
-    set({
+    set((state) => ({
       ...initialState,
       proposals: new Map(),
       proposalsList: EMPTY_PROPOSALS,
@@ -199,7 +202,8 @@ export const useBookingCollaborationStore = create<BookingCollaborationStoreStat
       instructorLessonBookingsList: EMPTY_INSTRUCTOR_LESSONS,
       participantAccess: new Map(),
       participantAccessQueries: new Map(),
-    }),
+      syncGeneration: state.syncGeneration + 1,
+    })),
 }));
 
 export function selectCollaborationProposals(

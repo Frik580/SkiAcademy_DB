@@ -317,16 +317,11 @@ export async function migratePreExistingProfile(
     // Booking identity is canonical-only. Do not rewrite legacy Booking.userId
     // during profile migration; participant linking is owned by canonical commands.
 
-    try {
-      logger.debug(`Deleting old user profile users/${oldUid}...`);
-      await deleteDoc(doc(db, 'users', oldUid));
-      logger.debug(`Successfully deleted old user profile users/${oldUid}`);
-    } catch (err: any) {
-      logger.error(`Migration error at step 5: Deleting users/${oldUid} failed`, err);
-      throw new Error(`Delete old profile failed: ${err.message}`);
-    }
+    // The browser is intentionally not authorized to delete `/users` documents.
+    // Keep the legacy source as compatibility data; destructive cleanup belongs
+    // to an explicit Admin SDK migration, not to authentication bootstrap.
 
-    logger.debug(`Successfully migrated profile and data from ${oldUid} to ${newUid}`);
+    logger.debug(`Successfully claimed profile data from ${oldUid} to ${newUid}`);
     return migratedProfile;
   } catch (err: any) {
     logger.error('Error migrating pre-existing profile:', err);

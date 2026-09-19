@@ -14,13 +14,20 @@ export interface AuthState {
   handleSignOut: () => Promise<void>;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   firebaseUser: null,
   authLoading: true,
 
   setFirebaseUser: (user) => {
-    if (!user) {
+    const previousUid = get().firebaseUser?.uid;
+    const nextUid = user?.uid;
+    if (previousUid !== nextUid) {
+      // Invalidate the old principal synchronously. Store subscribers must never
+      // observe account B together with account A's participant or read-model state.
       resetUserScopedStores();
+    }
+    if (!user) {
+      useProfileStore.getState().setProfileLoading(false);
     } else {
       // Mark profile pending synchronously so RouteGate does not bounce to `/`
       // between auth resolve and the first Firestore profile snapshot.

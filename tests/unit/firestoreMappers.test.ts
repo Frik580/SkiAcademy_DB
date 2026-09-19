@@ -81,4 +81,22 @@ describe('Firestore mappers', () => {
       )
     ).toMatchObject({ uid: 'user-1', balanceUSD: 100 });
   });
+
+  it('normalizes historical profiles that predate duplicated uid and avatar fields', () => {
+    expect(
+      toUserProfile(
+        {
+          email: 'legacy@example.com',
+          displayName: 'Legacy User',
+          role: 'user',
+        },
+        'legacy-user'
+      )
+    ).toMatchObject({
+      uid: 'legacy-user',
+      email: 'legacy@example.com',
+      displayName: 'Legacy User',
+      avatarUrl: '',
+    });
+  });
 });

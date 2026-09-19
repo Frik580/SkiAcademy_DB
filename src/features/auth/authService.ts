@@ -48,10 +48,15 @@ export async function requestPasswordResetService(email: string): Promise<void> 
 export async function getUserProfileService(userId: string): Promise<UserProfile | null> {
   try {
     const userSnap = await getDoc(doc(db, 'users', userId));
-    return userSnap.exists() ? toUserProfile(userSnap.data(), userSnap.id) : null;
+    if (!userSnap.exists()) return null;
+    const profile = toUserProfile(userSnap.data(), userSnap.id);
+    if (!profile) {
+      throw new Error(`Existing user profile is invalid: users/${userId}`);
+    }
+    return profile;
   } catch (error) {
     handleFirestoreError(error, OperationType.GET, `users/${userId}`);
-    return null;
+    throw error;
   }
 }
 
@@ -60,6 +65,7 @@ export async function saveUserProfileService(profile: UserProfile): Promise<void
     await setDoc(doc(db, 'users', profile.uid), omitLegacyAccountProgressFields(profile));
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `users/${profile.uid}`);
+    throw error;
   }
 }
 

@@ -102,30 +102,34 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
         // Sign in existing user
         const user = await signInWithEmailService(email, password);
 
-        // Check for and migrate pre-existing profile first to support self-healing
-        let finalProfile: UserProfile | null = null;
-        try {
-          finalProfile = await migrateExistingProfileService(user.uid, user.email || email);
-        } catch (mErr) {
-          logger.warn('Could not check/migrate pre-existing profile during sign-in', mErr);
-        }
-
-        if (finalProfile) {
+        // The authenticated UID is authoritative. Load it before considering the
+        // legacy email-claim path so an unrelated `client_*` profile with the same
+        // email cannot overwrite an already-provisioned canonical Account.
+        const existingProfile = await getUserProfileService(user.uid);
+        if (existingProfile) {
           addNotification(
             'success',
-            t('authWelcomeBack'),
-            `${t('authWelcomeBackName')} ${finalProfile.displayName}!`
+            t('authLoggedIn'),
+            `${t('authWelcomeBackName')} ${existingProfile.displayName}!`
           );
-          onSuccess(finalProfile);
+          onSuccess(existingProfile);
         } else {
-          const profile = await getUserProfileService(user.uid);
-          if (profile) {
+          // Legacy admin-created profiles are optional compatibility data. A
+          // failed claim must not be mistaken for a successful profile create.
+          let migratedProfile: UserProfile | null = null;
+          try {
+            migratedProfile = await migrateExistingProfileService(user.uid, user.email || email);
+          } catch (mErr) {
+            logger.warn('Could not check/migrate pre-existing profile during sign-in', mErr);
+          }
+
+          if (migratedProfile) {
             addNotification(
               'success',
-              t('authLoggedIn'),
-              `${t('authWelcomeBackName')} ${profile.displayName}!`
+              t('authWelcomeBack'),
+              `${t('authWelcomeBackName')} ${migratedProfile.displayName}!`
             );
-            onSuccess(profile);
+            onSuccess(migratedProfile);
           } else {
             const seed = (user.displayName || user.uid).replace(/\s+/g, '_').toLowerCase();
             const fallbackProfile: UserProfile = {

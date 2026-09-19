@@ -28,11 +28,13 @@ export function deriveUpdateParticipantProgressIdempotencyKey(
 export async function refreshManagedParticipantProgress(
   participantIds?: readonly string[]
 ): Promise<readonly ParticipantProgressView[]> {
+  const syncGeneration = useParticipantProgressStore.getState().syncGeneration;
   const parsedIds = participantIds?.map((participantId) =>
     ParticipantIdSchema.parse(participantId)
   );
   const result = await queryManagedParticipantProgressReadModels(parsedIds);
   const views = result.items.map(toParticipantProgressView);
+  if (useParticipantProgressStore.getState().syncGeneration !== syncGeneration) return views;
   useParticipantProgressStore.getState().setItems(views);
   return views;
 }
@@ -41,9 +43,11 @@ export async function refreshInstructorParticipantProgress(
   participantIds: readonly string[]
 ): Promise<readonly ParticipantProgressView[]> {
   if (participantIds.length === 0) return [];
+  const syncGeneration = useParticipantProgressStore.getState().syncGeneration;
   const parsedIds = participantIds.map((participantId) => ParticipantIdSchema.parse(participantId));
   const result = await queryInstructorParticipantProgressReadModels(parsedIds);
   const views = result.items.map(toParticipantProgressView);
+  if (useParticipantProgressStore.getState().syncGeneration !== syncGeneration) return views;
   useParticipantProgressStore.getState().setItems(views);
   return views;
 }

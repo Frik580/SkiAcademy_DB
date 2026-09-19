@@ -12,6 +12,7 @@ const mockSetDoc = vi.fn();
 const mockGetDoc = vi.fn();
 const mockMigratePreExistingProfile = vi.fn();
 const mockAddNotification = vi.fn();
+const mockToUserProfile = vi.fn((data: any) => data);
 
 vi.mock('../../src/infrastructure/firebase', async () => {
   const { omitLegacyAccountProgressFields } =
@@ -28,7 +29,7 @@ vi.mock('../../src/infrastructure/firebase', async () => {
     handleFirestoreError: () => {},
     OperationType: { GET: 'get', WRITE: 'write' },
     migratePreExistingProfile: (...args: any[]) => mockMigratePreExistingProfile(...args),
-    toUserProfile: (data: any) => data,
+    toUserProfile: (...args: any[]) => mockToUserProfile(...args),
     omitLegacyAccountProgressFields,
   };
 });
@@ -54,6 +55,7 @@ describe('Auth', () => {
     vi.clearAllMocks();
     mockMigratePreExistingProfile.mockResolvedValue(null);
     mockGetDoc.mockResolvedValue({ exists: () => false });
+    mockToUserProfile.mockImplementation((data: any) => data);
   });
 
   it('renders the sign-in form by default', () => {
@@ -168,5 +170,83 @@ describe('Auth', () => {
         expect.objectContaining({ uid: 'existing-user', displayName: 'Existing User' })
       );
     });
+    expect(mockMigratePreExistingProfile).not.toHaveBeenCalled();
+    expect(mockSetDoc).not.toHaveBeenCalled();
+  });
+
+  it('uses legacy migration only when the authenticated UID has no profile', async () => {
+    mockSignInWithEmailAndPassword.mockResolvedValue({
+      user: { uid: 'claimed-user', email: 'claimed@example.com' },
+    });
+    mockMigratePreExistingProfile.mockResolvedValue({
+      uid: 'claimed-user',
+      email: 'claimed@example.com',
+      displayName: 'Claimed User',
+      role: 'user',
+      avatarUrl: '',
+    });
+
+    render(<Auth onSuccess={onSuccess} />);
+    await userEvent.type(screen.getByPlaceholderText('emailAddress'), 'claimed@example.com');
+    await userEvent.type(screen.getByPlaceholderText('password'), 'password123');
+    await userEvent.click(screen.getByRole('button', { name: /signInBtn/i }));
+
+    await waitFor(() => {
+      expect(mockMigratePreExistingProfile).toHaveBeenCalledWith(
+        'claimed-user',
+        'claimed@example.com',
+        undefined
+      );
+      expect(onSuccess).toHaveBeenCalledWith(
+        expect.objectContaining({ uid: 'claimed-user', displayName: 'Claimed User' })
+      );
+    });
+    expect(mockSetDoc).not.toHaveBeenCalled();
+  });
+
+  it('does not treat an invalid existing profile as missing or overwrite it', async () => {
+    mockSignInWithEmailAndPassword.mockResolvedValue({
+      user: { uid: 'invalid-user', email: 'invalid@example.com' },
+    });
+    mockGetDoc.mockResolvedValue({
+      exists: () => true,
+      id: 'invalid-user',
+      data: () => ({ role: 'unexpected' }),
+    });
+    mockToUserProfile.mockReturnValue(null);
+
+    render(<Auth onSuccess={onSuccess} />);
+    await userEvent.type(screen.getByPlaceholderText('emailAddress'), 'invalid@example.com');
+    await userEvent.type(screen.getByPlaceholderText('password'), 'password123');
+    await userEvent.click(screen.getByRole('button', { name: /signInBtn/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Existing user profile is invalid/)).toBeInTheDocument();
+    });
+    expect(mockMigratePreExistingProfile).not.toHaveBeenCalled();
+    expect(mockSetDoc).not.toHaveBeenCalled();
+    expect(onSuccess).not.toHaveBeenCalled();
+  });
+
+  it('does not report authentication success when required profile creation is denied', async () => {
+    mockSignInWithEmailAndPassword.mockResolvedValue({
+      user: { uid: 'missing-user', email: 'missing@example.com' },
+    });
+    mockSetDoc.mockRejectedValue(
+      Object.assign(new Error('Missing or insufficient permissions.'), {
+        code: 'permission-denied',
+      })
+    );
+
+    render(<Auth onSuccess={onSuccess} />);
+    await userEvent.type(screen.getByPlaceholderText('emailAddress'), 'missing@example.com');
+    await userEvent.type(screen.getByPlaceholderText('password'), 'password123');
+    await userEvent.click(screen.getByRole('button', { name: /signInBtn/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Missing or insufficient permissions/)).toBeInTheDocument();
+    });
+    expect(mockSetDoc).toHaveBeenCalledOnce();
+    expect(onSuccess).not.toHaveBeenCalled();
   });
 });

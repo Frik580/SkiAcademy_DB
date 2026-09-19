@@ -57,6 +57,7 @@ export function useLessonBookingReadSync(
     if (!enabled || !accountId) return;
     const state = useLessonBookingStore.getState();
     if (state.historyLoading || !state.historyHasMore) return;
+    const syncGeneration = state.syncGeneration;
     const isFirstPage = state.historyCursor === undefined;
     useLessonBookingStore.getState().setHistoryLoading(true);
     try {
@@ -64,6 +65,7 @@ export function useLessonBookingReadSync(
         scope: 'account_history',
         ...(state.historyCursor ? { cursor: state.historyCursor } : {}),
       });
+      if (useLessonBookingStore.getState().syncGeneration !== syncGeneration) return;
       const merged = mergeLessonBookingRecords(state.items, result.items);
       useLessonBookingStore.getState().mergeItems(merged);
       useLessonBookingStore.getState().setHistoryCursor(result.nextCursor);
@@ -73,11 +75,14 @@ export function useLessonBookingReadSync(
         useLessonBookingStore.getState().setHistoryLoadedAtMs(Date.now());
       }
     } catch (error) {
+      if (useLessonBookingStore.getState().syncGeneration !== syncGeneration) return;
       useLessonBookingStore
         .getState()
         .setError(error instanceof Error ? error.message : 'Failed to load booking history.');
     } finally {
-      useLessonBookingStore.getState().setHistoryLoading(false);
+      if (useLessonBookingStore.getState().syncGeneration === syncGeneration) {
+        useLessonBookingStore.getState().setHistoryLoading(false);
+      }
     }
   }, [accountId, enabled]);
 

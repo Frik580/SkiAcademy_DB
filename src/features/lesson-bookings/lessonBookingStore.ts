@@ -17,6 +17,8 @@ interface LessonBookingStoreState {
   readonly hotLoadedAtMs?: number;
   readonly error?: string;
   readonly historyRequestNonce: number;
+  /** Invalidates async reads that began under a previous authenticated principal. */
+  readonly syncGeneration: number;
   readonly calendarMonths: ReadonlyMap<string, CalendarMonthLoadStatus>;
   readonly calendarMonthError?: { readonly monthKey: string; readonly message: string };
   setItems: (items: ReadonlyMap<string, LessonBookingCabinetItem>) => void;
@@ -63,6 +65,7 @@ const initialState = {
   hotLoadedAtMs: undefined,
   error: undefined,
   historyRequestNonce: 0,
+  syncGeneration: 0,
   calendarMonths: EMPTY_CALENDAR_MONTHS,
   calendarMonthError: undefined,
 };
@@ -156,12 +159,13 @@ export const useLessonBookingStore = create<LessonBookingStoreState>((set) => ({
     }),
   setCalendarMonthError: (calendarMonthError) => set({ calendarMonthError }),
   reset: () =>
-    set({
+    set((state) => ({
       ...initialState,
       items: new Map(),
       itemsList: EMPTY_ITEMS_LIST,
       calendarMonths: new Map(),
-    }),
+      syncGeneration: state.syncGeneration + 1,
+    })),
 }));
 
 /** Stable snapshot for Zustand selectors — do not sort/allocate in selector callbacks. */

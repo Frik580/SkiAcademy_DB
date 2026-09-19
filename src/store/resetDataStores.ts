@@ -6,7 +6,10 @@ import { useParticipantProgressStore } from '../features/participant-progress/pa
 import { useParticipantLessonFeedbackStore } from '../features/participant-lesson-feedback/participantLessonFeedbackStore';
 import { useParticipantAchievementsStore } from '../features/participant-achievements/participantAchievementsStore';
 import { useAccountParticipantLessonStatsStore } from '../features/lesson-bookings/accountParticipantLessonStatsStore';
+import { useLessonBookingStore } from '../features/lesson-bookings/lessonBookingStore';
+import { useCourseEnrollmentStore } from '../features/course-enrollments/courseEnrollmentStore';
 import { useProfileStore } from '../features/profile/profileStore';
+import { useCabinetProgressParticipantSelectionStore } from '../features/student-cabinet/cabinetProgressParticipantSelectionStore';
 import { useWalletStore } from '../features/wallet/walletStore';
 import { QUERY_LIMITS } from '../shared';
 
@@ -55,6 +58,9 @@ export function resetUserScopedStores(): void {
   useParticipantLessonFeedbackStore.getState().clear();
   useParticipantAchievementsStore.getState().clear();
   useAccountParticipantLessonStatsStore.getState().reset();
+  useLessonBookingStore.getState().reset();
+  useCourseEnrollmentStore.getState().clearScopedEnrollments();
+  useCabinetProgressParticipantSelectionStore.getState().reset();
   // Participant-access query cache is session-scoped; wipe on logout/account end.
   useBookingCollaborationStore.getState().reset();
 }

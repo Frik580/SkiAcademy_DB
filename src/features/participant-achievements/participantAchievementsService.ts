@@ -17,10 +17,14 @@ import { logger } from '../../shared';
 import { useParticipantAchievementsStore } from './participantAchievementsStore';
 
 export async function refreshManagedParticipantAchievements(participantIds?: readonly string[]) {
+  const syncGeneration = useParticipantAchievementsStore.getState().syncGeneration;
   const parsedIds = participantIds?.map((participantId) =>
     ParticipantIdSchema.parse(participantId)
   );
   const result = await queryManagedParticipantAchievementsReadModels(parsedIds);
+  if (useParticipantAchievementsStore.getState().syncGeneration !== syncGeneration) {
+    return result.items;
+  }
   useParticipantAchievementsStore.getState().setItems(result.items);
   return result.items;
 }

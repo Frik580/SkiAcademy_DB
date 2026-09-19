@@ -5,6 +5,7 @@ interface ParticipantAchievementsState {
   readonly byId: Readonly<Record<string, ParticipantAchievementsReadModel>>;
   readonly loaded: boolean;
   readonly recordingKeys: Readonly<Record<string, true>>;
+  readonly syncGeneration: number;
   setItems: (items: readonly ParticipantAchievementsReadModel[]) => void;
   upsertItem: (item: ParticipantAchievementsReadModel) => void;
   setRecording: (participantId: string, recording: boolean) => void;
@@ -15,6 +16,7 @@ export const useParticipantAchievementsStore = create<ParticipantAchievementsSta
   byId: {},
   loaded: false,
   recordingKeys: {},
+  syncGeneration: 0,
   setItems: (items) =>
     set((state) => {
       const next = { ...state.byId };
@@ -39,7 +41,13 @@ export const useParticipantAchievementsStore = create<ParticipantAchievementsSta
       return { recordingKeys: next };
     });
   },
-  clear: () => set({ byId: {}, loaded: false, recordingKeys: {} }),
+  clear: () =>
+    set((state) => ({
+      byId: {},
+      loaded: false,
+      recordingKeys: {},
+      syncGeneration: state.syncGeneration + 1,
+    })),
 }));
 
 export function selectParticipantAchievements(

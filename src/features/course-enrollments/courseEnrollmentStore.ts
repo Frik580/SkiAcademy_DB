@@ -192,11 +192,12 @@ export const useCourseEnrollmentStore = create<CourseEnrollmentStoreState>((set,
   requestHistoryPage: () =>
     set((state) => ({ historyRequestNonce: state.historyRequestNonce + 1 })),
   clearScopedEnrollments: () =>
-    set({
+    set((state) => ({
       items: new Map(),
       itemsList: EMPTY_ENROLLMENT_LIST,
       scopedParticipantId: undefined,
-      loadGeneration: 0,
+      // Invalidate any request that started before logout/account switching.
+      loadGeneration: state.loadGeneration + 1,
       hotLoading: false,
       historyLoading: false,
       historyHasMore: true,
@@ -204,14 +205,15 @@ export const useCourseEnrollmentStore = create<CourseEnrollmentStoreState>((set,
       loaded: false,
       error: undefined,
       historyRequestNonce: 0,
-    }),
+    })),
   reset: () =>
-    set({
+    set((state) => ({
       ...initialState,
       items: new Map(),
       itemsList: EMPTY_ENROLLMENT_LIST,
       catalogByCourseId: new Map(),
-    }),
+      loadGeneration: state.loadGeneration + 1,
+    })),
 }));
 
 export function selectCourseEnrollmentItems(

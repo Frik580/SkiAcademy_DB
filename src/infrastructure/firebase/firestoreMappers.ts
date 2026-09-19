@@ -57,9 +57,24 @@ export const toWalletLedgerEntry = (id: string, fields: unknown): WalletLedgerEn
 export const toActivityLog = (id: string, fields: unknown): ActivityLog =>
   toDocumentModel<ActivityLog>(id, fields);
 
-/** User documents already persist uid as a field, unlike collection models. */
+/**
+ * The document id is the Account identity. Historical profiles may predate the
+ * duplicated `uid` or avatar projection, so normalize those presentation fields
+ * without writing the document from the client.
+ */
 export const toUserProfile = (fields: unknown, id = 'unknown'): UserProfile | null => {
-  const result = parseUserProfile(fields);
+  const normalizedFields =
+    fields !== null && typeof fields === 'object' && !Array.isArray(fields)
+      ? {
+          ...fields,
+          uid: id,
+          avatarUrl:
+            typeof (fields as Record<string, unknown>).avatarUrl === 'string'
+              ? (fields as Record<string, unknown>).avatarUrl
+              : '',
+        }
+      : fields;
+  const result = parseUserProfile(normalizedFields);
   if (result.success) return result.data;
   logInvalidDocument('users', id, result.reason);
   return null;

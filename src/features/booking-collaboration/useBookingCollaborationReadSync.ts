@@ -31,10 +31,12 @@ export interface BookingCollaborationReadSyncInput {
 }
 
 async function loadCustomerCollaborationReads(): Promise<void> {
+  const syncGeneration = useBookingCollaborationStore.getState().syncGeneration;
   const [proposals, changeRequests] = await Promise.all([
     queryBookingProposalReadModels({ scope: 'account_open' }),
     queryBookingChangeRequestReadModels({ scope: 'account_open' }),
   ]);
+  if (useBookingCollaborationStore.getState().syncGeneration !== syncGeneration) return;
   useBookingCollaborationStore
     .getState()
     .setProposals(
@@ -72,12 +74,14 @@ async function loadAllInstructorLessonBookingPages(scope: 'instructor_hot' | 'in
 }
 
 async function loadInstructorCollaborationReads(): Promise<void> {
+  const syncGeneration = useBookingCollaborationStore.getState().syncGeneration;
   const [hotLessonBookings, historyLessonBookings, proposals, changeRequests] = await Promise.all([
     loadAllInstructorLessonBookingPages('instructor_hot'),
     loadAllInstructorLessonBookingPages('instructor_history'),
     queryBookingProposalReadModels({ scope: 'instructor_open' }),
     queryBookingChangeRequestReadModels({ scope: 'instructor_open' }),
   ]);
+  if (useBookingCollaborationStore.getState().syncGeneration !== syncGeneration) return;
   useBookingCollaborationStore
     .getState()
     .setInstructorLessonBookings(
@@ -107,8 +111,11 @@ async function loadInstructorCollaborationReads(): Promise<void> {
 }
 
 export async function refetchCustomerCollaborationReads(): Promise<void> {
+  const syncGeneration = useBookingCollaborationStore.getState().syncGeneration;
   await loadCustomerCollaborationReads();
+  if (useBookingCollaborationStore.getState().syncGeneration !== syncGeneration) return;
   const hot = await queryLessonBookingReadModels({ scope: 'account_hot' });
+  if (useBookingCollaborationStore.getState().syncGeneration !== syncGeneration) return;
   const merged = mergeLessonBookingRecords(useLessonBookingStore.getState().items, hot.items);
   useLessonBookingStore.getState().mergeItems(merged);
 }
@@ -122,6 +129,7 @@ async function loadParticipantAccessRead(
   participantId: string,
   instructorId: string
 ): Promise<void> {
+  const syncGeneration = useBookingCollaborationStore.getState().syncGeneration;
   const queryKey = participantInstructorAccessQueryKey(scope, participantId, instructorId);
   const store = useBookingCollaborationStore.getState();
   store.setParticipantAccessQuery(queryKey, { status: 'loading' });
@@ -131,6 +139,7 @@ async function loadParticipantAccessRead(
       participantId: ParticipantIdSchema.parse(participantId),
       instructorId: InstructorIdSchema.parse(instructorId),
     });
+    if (useBookingCollaborationStore.getState().syncGeneration !== syncGeneration) return;
     const pairKey = participantInstructorAccessKey(participantId, instructorId);
     const next = storeParticipantAccessItem(
       useBookingCollaborationStore.getState().participantAccess,
@@ -149,6 +158,7 @@ async function loadParticipantAccessRead(
       return;
     }
   } catch (error) {
+    if (useBookingCollaborationStore.getState().syncGeneration !== syncGeneration) return;
     useBookingCollaborationStore.getState().setParticipantAccessQuery(queryKey, {
       status: 'error',
       message: error instanceof Error ? error.message : 'Failed to load participant access.',
@@ -207,6 +217,7 @@ export function useBookingCollaborationReadSync(input: BookingCollaborationReadS
 
   const reload = useCallback(async () => {
     if (!customerEnabled && !instructorEnabled) return;
+    const syncGeneration = useBookingCollaborationStore.getState().syncGeneration;
     useBookingCollaborationStore.getState().setLoading(true);
     useBookingCollaborationStore.getState().setError(undefined);
     try {
@@ -216,13 +227,17 @@ export function useBookingCollaborationReadSync(input: BookingCollaborationReadS
       if (instructorEnabled && instructorId) {
         await loadInstructorCollaborationReads();
       }
+      if (useBookingCollaborationStore.getState().syncGeneration !== syncGeneration) return;
       useBookingCollaborationStore.getState().setLoaded(true);
     } catch (error) {
+      if (useBookingCollaborationStore.getState().syncGeneration !== syncGeneration) return;
       useBookingCollaborationStore
         .getState()
         .setError(error instanceof Error ? error.message : 'Failed to load collaboration data.');
     } finally {
-      useBookingCollaborationStore.getState().setLoading(false);
+      if (useBookingCollaborationStore.getState().syncGeneration === syncGeneration) {
+        useBookingCollaborationStore.getState().setLoading(false);
+      }
     }
   }, [accountId, customerEnabled, instructorEnabled, instructorId]);
 

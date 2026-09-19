@@ -13,6 +13,7 @@ import {
   useBookingCollaborationReadSync,
 } from '../../src/features/booking-collaboration/useBookingCollaborationReadSync';
 import type { ParticipantInstructorAccessReadModel } from '@ski-academy/shared-domain';
+import { resetUserScopedStores } from '../../src/store/resetDataStores';
 
 const queryParticipantInstructorAccessReadModelsMock = vi.fn();
 const createRelationshipMock = vi.fn();
@@ -625,7 +626,6 @@ describe('T32.9R.UI1B preserve access across Trainer remounts', () => {
     });
     unmount();
 
-    const { resetUserScopedStores } = await import('../../src/store/resetDataStores');
     act(() => {
       resetUserScopedStores();
     });

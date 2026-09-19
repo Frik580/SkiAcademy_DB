@@ -70,6 +70,7 @@ export function AdminRoleDirectory({ adminAccountId, onRequestConfirm }: AdminRo
 
   const adminReads = useAdminIdentityReadModels({
     enabled: true,
+    realtime: true,
     directory: 'accounts',
     search: '',
     pageSize: ADMIN_ROLE_DIRECTORY_PAGE_SIZE,
@@ -79,6 +80,7 @@ export function AdminRoleDirectory({ adminAccountId, onRequestConfirm }: AdminRo
 
   const candidateReads = useAdminIdentityReadModels({
     enabled: showAdd,
+    realtime: true,
     directory: 'accounts',
     search: appliedCandidateSearch,
     pageSize: ADMIN_ROLE_DIRECTORY_PAGE_SIZE,

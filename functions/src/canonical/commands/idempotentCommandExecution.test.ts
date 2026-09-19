@@ -718,6 +718,7 @@ describe('executeIdempotentCanonicalCommand', () => {
     expect(executor.snapshot().docs.has('admin_runtime/admin_lesson_bookings')).toBe(false);
     expect(executor.snapshot().docs.has('admin_runtime/admin_courses')).toBe(false);
     expect(executor.snapshot().docs.has('admin_runtime/admin_planner')).toBe(false);
+    expect(executor.snapshot().docs.has('admin_runtime/admin_people')).toBe(false);
   });
 
   it('does not bump admin finance revision when a finance command fails', async () => {
@@ -767,6 +768,7 @@ describe('executeIdempotentCanonicalCommand', () => {
 
     expect(result.status).toBe('error');
     expect(executor.snapshot().docs.has('admin_runtime/admin_finance')).toBe(false);
+    expect(executor.snapshot().docs.has('admin_runtime/admin_people')).toBe(false);
   });
 
   it('does not bump or return a revision when the command fails', async () => {
@@ -802,6 +804,270 @@ describe('executeIdempotentCanonicalCommand', () => {
     expect(executor.snapshot().docs.has('admin_runtime/admin_lesson_bookings')).toBe(false);
     expect(executor.snapshot().docs.has('admin_runtime/admin_planner')).toBe(false);
     expect(executor.snapshot().docs.has('admin_runtime/admin_finance')).toBe(false);
+    expect(executor.snapshot().docs.has('admin_runtime/admin_people')).toBe(false);
     expect(executor.snapshot().docs.get(bookingPath)?.data.revision).toBe(1);
+  });
+
+  it('bumps admin people revision once for multiple identity writes', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor();
+    const participantId = ParticipantIdSchema.parse('participant_idem_people_01');
+    const participantPath = `participants/${participantId}`;
+    const accountPath = `users/${accountId}`;
+
+    const result = await executeIdempotentCanonicalCommand({
+      envelope: {
+        kind: 'update_participant_profile',
+        context: {
+          actor: accountCommandActor(accountId),
+          exercisedCapability: 'account_owner',
+          idempotencyKey: 'idem-admin-people-rev-profile-01',
+          correlationId,
+          source: 'client_callable',
+        },
+        intent: {
+          participantId,
+          displayName: 'Updated Client',
+        },
+      } as CommandEnvelope<'update_participant_profile'>,
+      environment: environment('2026-01-01T00:00:00.000Z'),
+      executor,
+      handler: {
+        read: async (session) => {
+          session.plan.planMutation({
+            path: participantPath,
+            kind: 'create',
+            category: 'aggregate',
+            estimatedPayloadBytes: 256,
+          });
+          session.plan.planMutation({
+            path: accountPath,
+            kind: 'create',
+            category: 'aggregate',
+            estimatedPayloadBytes: 256,
+          });
+          session.plan.planMutation({
+            path: 'participant_management/management_idem_people_01',
+            kind: 'create',
+            category: 'aggregate',
+            estimatedPayloadBytes: 256,
+          });
+        },
+        execute: async (session) => {
+          session.tx.create({ path: participantPath }, { displayName: 'Updated Client' });
+          session.tx.create({ path: accountPath }, { displayName: 'Updated Client' });
+          return commandSuccessResult('update_participant_profile', correlationId);
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'success',
+      payload: { adminPeopleRevision: 1 },
+    });
+    expect(executor.snapshot().docs.get('admin_runtime/admin_people')?.data.revision).toBe(1);
+    expect(executor.snapshot().docs.has('admin_runtime/admin_finance')).toBe(false);
+    expect(executor.snapshot().docs.has('admin_runtime/admin_lesson_bookings')).toBe(false);
+  });
+
+  it('bumps admin people revision for role and instructor catalog writes', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor();
+    const instructorId = InstructorIdSchema.parse('instructor_idem_people_01');
+
+    const roleResult = await executeIdempotentCanonicalCommand({
+      envelope: {
+        kind: 'change_account_role',
+        context: {
+          actor: accountCommandActor(accountId),
+          exercisedCapability: 'account_owner',
+          idempotencyKey: 'idem-admin-people-rev-role-01',
+          correlationId,
+          source: 'client_callable',
+        },
+        intent: {
+          accountId,
+          role: 'admin',
+          reasonExplanation: 'promote',
+        },
+      } as CommandEnvelope<'change_account_role'>,
+      environment: environment('2026-01-01T00:00:00.000Z'),
+      executor,
+      handler: {
+        read: async (session) => {
+          session.plan.planMutation({
+            path: `users/${accountId}`,
+            kind: 'create',
+            category: 'aggregate',
+            estimatedPayloadBytes: 256,
+          });
+        },
+        execute: async (session) => {
+          session.tx.create({ path: `users/${accountId}` }, { role: 'admin' });
+          return commandSuccessResult('change_account_role', correlationId);
+        },
+      },
+    });
+
+    expect(roleResult).toMatchObject({
+      status: 'success',
+      payload: { adminPeopleRevision: 1 },
+    });
+
+    const instructorResult = await executeIdempotentCanonicalCommand({
+      envelope: {
+        kind: 'deactivate_instructor_catalog',
+        context: {
+          actor: accountCommandActor(accountId),
+          exercisedCapability: 'account_owner',
+          idempotencyKey: 'idem-admin-people-rev-instructor-01',
+          correlationId,
+          source: 'client_callable',
+        },
+        intent: {
+          instructorId,
+          reasonExplanation: 'deactivate',
+        },
+      } as CommandEnvelope<'deactivate_instructor_catalog'>,
+      environment: environment('2026-01-01T00:00:00.000Z'),
+      executor,
+      handler: {
+        read: async (session) => {
+          session.plan.planMutation({
+            path: `instructors/${instructorId}`,
+            kind: 'create',
+            category: 'aggregate',
+            estimatedPayloadBytes: 256,
+          });
+        },
+        execute: async (session) => {
+          session.tx.create({ path: `instructors/${instructorId}` }, { isAvailable: false });
+          return commandSuccessResult('deactivate_instructor_catalog', correlationId);
+        },
+      },
+    });
+
+    expect(instructorResult).toMatchObject({
+      status: 'success',
+      payload: { adminPeopleRevision: 2 },
+    });
+    expect(executor.snapshot().docs.get('admin_runtime/admin_people')?.data.revision).toBe(2);
+  });
+
+  it('does not bump admin people revision for wallet or enrollment writes', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor();
+
+    const walletResult = await executeIdempotentCanonicalCommand({
+      envelope: {
+        kind: 'record_manual_wallet_funding',
+        context: {
+          actor: accountCommandActor(accountId),
+          exercisedCapability: 'account_owner',
+          idempotencyKey: 'idem-admin-people-rev-wallet-01',
+          correlationId,
+          source: 'client_callable',
+        },
+        intent: {
+          accountId,
+          amount: 1,
+          reasonExplanation: 'wallet',
+        },
+      } as CommandEnvelope<'record_manual_wallet_funding'>,
+      environment: environment('2026-01-01T00:00:00.000Z'),
+      executor,
+      handler: {
+        read: async (session) => {
+          session.plan.planMutation({
+            path: `users/${accountId}/wallet/state`,
+            kind: 'create',
+            category: 'payment_wallet',
+            estimatedPayloadBytes: 256,
+          });
+        },
+        execute: async (session) => {
+          session.tx.create({ path: `users/${accountId}/wallet/state` }, { balance: 1 });
+          return commandSuccessResult('record_manual_wallet_funding', correlationId);
+        },
+      },
+    });
+
+    expect(walletResult.status).toBe('success');
+    if (walletResult.status === 'success') {
+      expect(walletResult.payload).toEqual({ adminFinanceRevision: 1 });
+    }
+    expect(executor.snapshot().docs.has('admin_runtime/admin_people')).toBe(false);
+
+    const enrollmentResult = await executeIdempotentCanonicalCommand({
+      envelope: createCourseEnrollmentsEnvelope('idem-admin-people-rev-enroll-01'),
+      environment: environment('2026-01-01T00:00:00.000Z'),
+      executor,
+      handler: {
+        read: async (session) => {
+          session.plan.planMutation({
+            path: 'course_enrollments/enrollment_idem_people_01',
+            kind: 'create',
+            category: 'aggregate',
+            estimatedPayloadBytes: 256,
+          });
+        },
+        execute: async (session) => {
+          session.tx.create(
+            { path: 'course_enrollments/enrollment_idem_people_01' },
+            { revision: 1 }
+          );
+          return commandSuccessResult('create_course_enrollments', correlationId, {
+            outcome: 'created',
+          });
+        },
+      },
+    });
+
+    expect(enrollmentResult.status).toBe('success');
+    if (enrollmentResult.status === 'success') {
+      expect(enrollmentResult.payload).not.toHaveProperty('adminPeopleRevision');
+    }
+    expect(executor.snapshot().docs.has('admin_runtime/admin_people')).toBe(false);
+  });
+
+  it('does not bump admin people revision when an identity command fails', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor();
+    const participantId = ParticipantIdSchema.parse('participant_idem_people_fail_01');
+
+    const result = await executeIdempotentCanonicalCommand({
+      envelope: {
+        kind: 'update_participant_profile',
+        context: {
+          actor: accountCommandActor(accountId),
+          exercisedCapability: 'account_owner',
+          idempotencyKey: 'idem-admin-people-rev-fail-01',
+          correlationId,
+          source: 'client_callable',
+        },
+        intent: {
+          participantId,
+          displayName: 'Should Fail',
+        },
+      } as CommandEnvelope<'update_participant_profile'>,
+      environment: environment('2026-01-01T00:00:00.000Z'),
+      executor,
+      handler: {
+        read: async (session) => {
+          session.plan.planMutation({
+            path: `participants/${participantId}`,
+            kind: 'update',
+            category: 'aggregate',
+            estimatedPayloadBytes: 256,
+          });
+        },
+        execute: async () =>
+          commandErrorResult('update_participant_profile', correlationId, {
+            code: 'validation',
+            message: 'The request is invalid.',
+            retryable: false,
+            correlationId,
+          }),
+      },
+    });
+
+    expect(result.status).toBe('error');
+    expect(executor.snapshot().docs.has('admin_runtime/admin_people')).toBe(false);
   });
 });

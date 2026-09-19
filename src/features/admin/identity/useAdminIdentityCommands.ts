@@ -13,6 +13,7 @@ import {
   toCanonicalCommandClientError,
 } from '../../../lib/canonical/mapCanonicalCommandError';
 import type { AdminIdentityAttempt } from './identityContracts';
+import { applyAdminPeopleCommandResult } from './adminPeopleLocalSync';
 
 async function assertSucceeded<Kind extends CommandKind>(
   command: Promise<CommandResult<Kind>>
@@ -20,6 +21,7 @@ async function assertSucceeded<Kind extends CommandKind>(
   const result = await command;
   const error = mapCanonicalCommandResultError(result);
   if (error) throw error;
+  applyAdminPeopleCommandResult(result);
 }
 
 export async function executeAdminIdentityAttempt(

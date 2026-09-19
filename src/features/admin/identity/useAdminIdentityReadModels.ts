@@ -14,6 +14,7 @@ import type {
 import { queryAdminIdentityReadModels } from '../../../lib/canonical/canonicalReadModelClient';
 import { toFunctionsClientError } from '../../../lib/functions/functionsClient';
 import type { AdminIdentityDirectory } from './identityContracts';
+import { useAdminPeopleRevisionRefresh } from './useAdminPeopleRevisionRefresh';
 
 export type AdminIdentityReadError = 'permission-denied' | 'read-failed';
 
@@ -41,6 +42,7 @@ const EMPTY_LIST = {
 
 export function useAdminIdentityReadModels(input: {
   readonly enabled: boolean;
+  readonly realtime?: boolean;
   readonly directory: AdminIdentityDirectory;
   readonly search: string;
   readonly pageSize?: number;
@@ -215,6 +217,10 @@ export function useAdminIdentityReadModels(input: {
     void loadDetail();
   }, [loadDetail]);
 
+  useAdminPeopleRevisionRefresh(() => {
+    void Promise.all([loadList(), loadDetail()]);
+  }, Boolean(input.enabled && input.realtime));
+
   const loadMore = useCallback(() => {
     const current =
       input.directory === 'accounts'
@@ -241,7 +247,10 @@ export function useAdminIdentityReadModels(input: {
   };
 }
 
-export function useAdminParticipantDetail(participantId: ParticipantId | undefined) {
+export function useAdminParticipantDetail(
+  participantId: ParticipantId | undefined,
+  options?: { readonly realtime?: boolean }
+) {
   const generation = useRef(0);
   const [item, setItem] = useState<AdminParticipantDetailReadModel | undefined>();
   const [loading, setLoading] = useState(false);
@@ -276,6 +285,10 @@ export function useAdminParticipantDetail(participantId: ParticipantId | undefin
   useEffect(() => {
     void load();
   }, [load]);
+
+  useAdminPeopleRevisionRefresh(() => {
+    void load();
+  }, Boolean(participantId) && options?.realtime === true);
 
   return { item, loading, error, refresh: load };
 }

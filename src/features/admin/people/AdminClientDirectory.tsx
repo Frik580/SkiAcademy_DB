@@ -134,12 +134,13 @@ export function AdminClientDirectory({ adminAccountId }: AdminClientDirectoryPro
   const appliedSearch = search.trim() === '' ? '' : debouncedSearch;
   const reads = useAdminIdentityReadModels({
     enabled: true,
+    realtime: true,
     directory: 'accounts',
     search: appliedSearch,
     pageSize: ADMIN_CLIENT_DIRECTORY_PAGE_SIZE,
     selectedAccountId,
   });
-  const participantRead = useAdminParticipantDetail(selectedParticipantId);
+  const participantRead = useAdminParticipantDetail(selectedParticipantId, { realtime: true });
   const walletAccountId = selectedAccountId
     ? parseAdminFinanceAccountId(selectedAccountId)
     : undefined;

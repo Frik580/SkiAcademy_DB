@@ -155,6 +155,10 @@ describe('canonical collections and paths', () => {
     expect(CanonicalDocumentPathSchema.parse('/admin_runtime/admin_finance')).toBe(
       '/admin_runtime/admin_finance'
     );
+    expect(canonicalPaths.adminPeopleRevision()).toBe('/admin_runtime/admin_people');
+    expect(CanonicalDocumentPathSchema.parse('/admin_runtime/admin_people')).toBe(
+      '/admin_runtime/admin_people'
+    );
   });
 
   it('derives the active Enrollment guard key from its Participant and Course pair', () => {

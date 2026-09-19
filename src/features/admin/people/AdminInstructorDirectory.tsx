@@ -148,6 +148,7 @@ export function AdminInstructorDirectory({ adminAccountId }: AdminInstructorDire
 
   const reads = useAdminIdentityReadModels({
     enabled: true,
+    realtime: true,
     directory: 'instructors',
     search: appliedSearch,
     pageSize: ADMIN_INSTRUCTOR_DIRECTORY_PAGE_SIZE,
@@ -156,6 +157,7 @@ export function AdminInstructorDirectory({ adminAccountId }: AdminInstructorDire
 
   const accountReads = useAdminIdentityReadModels({
     enabled: accountPickerOpen,
+    realtime: true,
     directory: 'accounts',
     search: appliedAccountSearch,
     pageSize: ADMIN_INSTRUCTOR_DIRECTORY_PAGE_SIZE,

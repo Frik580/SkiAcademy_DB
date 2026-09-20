@@ -103,13 +103,15 @@ npm run dev
 
 ## Безопасность кошелька
 
-Баланс (`balanceUSD`) **нельзя** произвольно изменить с клиента:
+Каноническая валюта продукта — **KZT**. Текущий spendable баланс — канонический Wallet; `balanceUSD` / `walletBalances.USD` больше не monetary authority.
 
-- **Списание** — только уменьшение баланса (оплата бронирования / курса)
-- **Пополнение и возврат** — через поле `pendingWalletCredit` и `src/lib/walletCredit.ts`
-- **Админ** — может корректировать профили клиентов через правила Firestore
+Клиент не может произвольно менять баланс:
 
-Подробнее: `firestore.rules` (секция `users`).
+- **Списание** — только через server-authoritative canonical commands (оплата урока / курса)
+- **Пополнение, возврат и Starter Credit** — server-authoritative; каноническая настройка `settings/starter_credit.amountKzt`
+- **Админ** — финансовые операции только через канонические команды, не прямым клиентским write баланса
+
+Подробнее: `CONTEXT.md`, [ADR-0003](docs/adr/0003-payment-accounting-source.md), `firestore.rules`.
 
 ---
 
@@ -127,10 +129,12 @@ GitHub Actions (`.github/workflows/ci.yml`) на каждый push/PR в `main`:
 
 ## Демо-аккаунты
 
-- **Клиент**: зарегистрируйтесь через UI — стартовый баланс $250
-- **Админ**: в Firebase Console создайте пользователя, затем документ `users/{uid}` с `role: 'admin'`; для управления ролями — `systemRole: 'owner'`
+- **Клиент**: зарегистрируйтесь через UI — стартовый кредит задаётся канонической настройкой `settings/starter_credit.amountKzt`
+- **Админ**: в Firebase Console создайте пользователя, затем канонический Account с admin/owner capability
 
 > Не храните реальные пароли в репозитории.
+
+Тестовые сессии на live Firebase project (`ski-school-8f3ca`) — **одобренная архитектура T42**, ещё не реализованы. Не смешивайте тестовую историю с live data и не планируйте отдельный staging project. См. [ADR-0010](docs/adr/0010-canonical-test-sessions-and-live-test-data-isolation.md).
 
 ---
 

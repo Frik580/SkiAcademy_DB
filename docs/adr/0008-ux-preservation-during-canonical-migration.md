@@ -290,13 +290,19 @@ T32.9A.9 — FINAL CANONICAL CUTOVER
   9D — Selective Destructive legacy Data Cleanup
   9E — Canonical Authority / Reachability Gate
 THEN
-T32.9B — Final legacy Runtime Cleanup
-T40 — Execute Rehearsed Selective Production Cutover
-T41 — Expanded Post-Cutover Verification
+T32.9B — Final legacy Runtime Cleanup — PASS / CLOSED
+T39 — Historical compatibility data cleanup — PASS / CLOSED
+T40 — Execute Rehearsed Selective Production Cutover — PASS / CLOSED
+T41 — Expanded Post-Cutover Verification — PASS / CLOSED
+Canonical migration — COMPLETE
+THEN
+T42A — Canonical Test Sessions architecture / preflight — COMPLETE / APPROVED FOR T42B
+T42B — Canonical Test Sessions implementation — PLANNED (not implemented)
+T43 — Test Session Guest Support — FUTURE
 ```
 
 T32.9A.9 is the final canonical cutover sequence. It is not limited to Admin
-Integration Smoke. Production cutover is selective/incremental: 9P then 9D0 then 9D. A full empty-database Firestore reset is nonproduction architectural rehearsal only and is not the production procedure.
+Integration Smoke. Production cutover was selective/incremental: 9P then 9D0 then 9D, then T32.9B / T39 / T40 / T41. That sequence is **CLOSED**. A full empty-database Firestore reset remains nonproduction architectural rehearsal only and is not a production instruction. Future Admin test work is Test Sessions ([ADR-0010](./0010-canonical-test-sessions-and-live-test-data-isolation.md)), not a global production wipe and not a separate staging project.
 
 Booking-specific authority rule for cutover:
 
@@ -313,7 +319,7 @@ Reviews / instructor rating continuity is mandatory 9B scope.
 
 9B.3 Canonical Lesson Feedback — **PASS / CLOSED** (production smoke 2026-09-12) — restores Instructor/Student recommendation UX on `/participant_lesson_feedback/{feedbackId}` with identity `participantId + lessonBookingId`. Attendance=`present` is the instructor write gate. There is no InstructorRelationship bypass, no Booking.recommendations fallback, and no dual-write. Legacy `bookings.recommendations` / `completedRecommendationIds` remain leftover production fields until 9P/9D.
 
-Chat and Homework (currently `bookings/{threadId}/messages`, including `isHomework` / `homeworkForUserIds`) remain a separate live capability and mandatory 9P rows. They are **not** part of ParticipantLessonFeedback. 9B.3 must not migrate or delete them. Do not delete a Booking parent/thread and lose messages. This ADR does not require a new Chat aggregate. Known parity gap **T32.9A.9P.HW1** (participant-scoped homework: target `homeworkForParticipantIds[]`, present-only assignment, participant visibility/isolation, server enforcement) is recorded in [T32_CANONICAL_ADMIN_AUDIT.md](../T32_CANONICAL_ADMIN_AUDIT.md); not implemented in 9B.3.
+Chat and Homework (currently `bookings/{threadId}/messages`, including `isHomework`) remain a separate live capability and were mandatory 9P rows. They are **not** part of ParticipantLessonFeedback. 9B.3 did not migrate or delete them. Do not delete a Booking parent/thread and lose messages. This ADR does not require a new Chat aggregate. **T32.9A.9P.HW1** (participant-scoped homework: target `homeworkForParticipantIds[]`, present-only assignment, participant visibility/isolation, server enforcement) was implemented after 9B.3. After T41, canonical homework ownership is Participant-scoped `homeworkForParticipantIds`; `homeworkForUserIds` is no longer runtime authority.
 
 ### T32.9B — Final Legacy Write / Runtime Cleanup
 
@@ -329,6 +335,13 @@ superseded that capability.
 
 T32.9B is physical cleanup after authority cutover, not authority migration
 itself.
+
+**Amendment — 2026-09-20.** T32.9B, T39, T40, and T41 are **PASS / CLOSED**.
+Canonical migration is **COMPLETE**. Homework runtime authority is
+`homeworkForParticipantIds`; `homeworkForUserIds` is not current runtime
+authority. Current architecture work is T42 Canonical Test Sessions
+([ADR-0010](./0010-canonical-test-sessions-and-live-test-data-isolation.md)),
+which is approved and not yet implemented.
 
 ## Consequences
 

@@ -1,7 +1,30 @@
 # T41: Expanded Post-Cutover Verification
 
 **Phase:** 7 — Incremental production cutover  
-**Status:** ready-for-agent
+**Status:** PASS / CLOSED
+
+Canonical migration is **COMPLETE**. T41 release commit:
+`908bb9676f0202605163edd70630b2d49bfc4176`.
+
+T41 executed the final legacy/compatibility cutover: Starter Credit is
+canonical KZT (`settings/starter_credit.amountKzt`; legacy `amountUsd` fallback
+removed); `balanceUSD` / `walletBalances.USD` are no longer monetary authority;
+homework ownership is Participant-scoped (`homeworkForParticipantIds`;
+`homeworkForUserIds` is no longer runtime authority); Firestore and Storage
+Rules were hardened; leftover `booking_course_` authorization and old `/reviews`
+authority were closed; approved legacy Firebase Auth users were removed while
+canonical Auth users were preserved. Final leftover counters:
+
+```text
+ACTIVE_WRITE = 0
+AUTHORITY_READ = 0
+FALLBACK = 0
+DUAL_WRITE = 0
+```
+
+Next architectural phase is T42 Canonical Test Sessions (T42A approved; T42B
+not implemented). The original ticket body below remains the historical T41
+contract.
 
 ## Supersession (2026-09-08)
 

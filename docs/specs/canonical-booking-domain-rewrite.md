@@ -1,6 +1,6 @@
 # Canonical Booking Domain Rewrite and Clean Cutover
 
-Status: approved implementation strategy; ADR-0001 through ADR-0008 accepted
+Status: approved implementation strategy; ADR-0001 through ADR-0010 accepted. Canonical migration COMPLETE (T32.9A–T41). T42 Test Sessions = approved architecture, not implemented.
 Amended: 2026-09-07 — T32.9A.9D selective legacy Booking disposal clarified for the incremental production cutover path (see amendment under Firestore reset contract); T32.9A.9 FINAL CANONICAL CUTOVER status lives in [T32_CANONICAL_ADMIN_AUDIT.md](../T32_CANONICAL_ADMIN_AUDIT.md)
 Amended: 2026-09-08 — production cutover gates: T32.9A.9P, 9D0, 9D selective cleanup (not full Firestore reset), 9E technical+product reachability; T38 empty-database rehearsal is nonproduction only; T40 Execute Rehearsed Selective Production Cutover; T41 expanded verification. F3 multi-participant design is unchanged.
 Amended: 2026-09-13 — T32.9A.9A.F5 guest CourseEnrollment bounded reservation expiry and legacy `createGuestCourseEnrollment` removal gate recorded; does not reopen T32.9A.9A F1–F4 PASS / CLOSED.
@@ -9,6 +9,7 @@ Amended: 2026-09-18 — T39 PASS / CLOSED. Exact production delete of four appro
 Amended: 2026-09-18 — T39 READY_FOR_EXACT_DESTRUCTIVE_APPROVAL (production counts verified; exact 4-document delete list; no production data delete).
 Amended: 2026-09-18 — T32.9B PASS / CLOSED. T39 READY_FOR_DESTRUCTIVE_APPROVAL (manifest only; no production data delete).
 Amended: 2026-09-17 — T32.9A.9E and T32.9A PASS / CLOSED. Next accepted slice is T32.9B / T39.
+Amended: 2026-09-20 — Canonical migration COMPLETE. T40 PASS / CLOSED; T41 PASS / CLOSED (release commit `908bb9676f0202605163edd70630b2d49bfc4176`). T42A architecture/preflight COMPLETE / APPROVED FOR T42B. Next accepted work is T42B Canonical Test Sessions ([ADR-0010](../adr/0010-canonical-test-sessions-and-live-test-data-isolation.md), [T42_CANONICAL_TEST_SESSIONS.md](../T42_CANONICAL_TEST_SESSIONS.md)). T42A pre-T40 production counts are stale and must not be reused.
 
 ## Problem Statement
 
@@ -413,11 +414,20 @@ T32.9B (physical compatibility source cleanup) — PASS / CLOSED (2026-09-18)
         ↓
 T39 (historical data cleanup) — PASS / CLOSED (2026-09-18; exact 4 documents)
         ↓
-T40 — Execute Rehearsed Selective Production Cutover
+T40 — Execute Rehearsed Selective Production Cutover — PASS / CLOSED
         ↓
-T40 (Execute Rehearsed Selective Production Cutover)
+T41 — Expanded Post-Cutover Verification — PASS / CLOSED
+        (release commit 908bb9676f0202605163edd70630b2d49bfc4176)
         ↓
-T41 (Expanded Post-Cutover Verification)
+Canonical migration — COMPLETE
+        ↓
+T42A — Canonical Test Sessions architecture / preflight — COMPLETE / APPROVED FOR T42B
+        (code/deploy/migration/production writes = NO)
+        ↓
+T42B — Canonical Test Sessions implementation — PLANNED (not implemented)
+        NEXT: T42B-0 fresh read-only production inventory
+        ↓
+T43 — Test Session Guest Support — FUTURE
 ```
 
 Mapping of original Phase 6/7 tickets:
@@ -426,11 +436,13 @@ Mapping of original Phase 6/7 tickets:
 | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | T37    | Guarded export/reset **tooling**. Full collection reset remains valid for isolated nonproduction drills. Production also needs selective preserve/delete manifest tooling for 9D/9D0.                                                                                                                                        |
 | T38    | Empty-database architectural rehearsal **only**. Not a production procedure. Does not substitute for 9D0.                                                                                                                                                                                                                    |
-| T39    | Aligns with T32.9B physical legacy-runtime removal after 9E PASS. STOP if a useful capability has no replacement.                                                                                                                                                                                                            |
-| T40    | **Execute Rehearsed Selective Production Cutover.** Deploys the T32.9B-cleaned release and applies only the 9D0-rehearsed selective manifest if 9D has not already been applied in that environment. Forbidden: full Firestore/Storage reset; empty-database seed as production migration; second independent deletion pass. |
-| T41    | Expanded post-cutover verification (product journeys + legacy-negative checks).                                                                                                                                                                                                                                              |
+| T39    | **PASS / CLOSED.** Historical compatibility data cleanup (exact 4-document production delete after backup). Aligns with T32.9B physical leftover cleanup after 9E PASS. 2026-09-18 production counts in T39 evidence are historical and are not current after T40.                                                          |
+| T40    | **PASS / CLOSED.** Execute Rehearsed Selective Production Cutover: test transactional production data cleaned; canonical Accounts/Participants preserved; Wallet clean state = canonical 0 KZT / lazy; Course capacity restored; authenticated Student/Admin/Instructor smoke PASS. Forbidden remain: full Firestore/Storage reset; empty-database seed as production migration. |
+| T41    | **PASS / CLOSED.** Final legacy/compatibility cutover and expanded verification. Starter Credit = `settings/starter_credit.amountKzt`; leftover counters ACTIVE_WRITE / AUTHORITY_READ / FALLBACK / DUAL_WRITE = 0. Release commit `908bb9676f0202605163edd70630b2d49bfc4176`.                                             |
 
 Phase 7 collection-wide reset, seed, and empty-database E2E remain historical/reference contracts for isolated development/test projects.
+
+Future product testing on the live Firebase project uses Canonical Test Sessions ([ADR-0010](../adr/0010-canonical-test-sessions-and-live-test-data-isolation.md)). That is **APPROVED ARCHITECTURE** and **PLANNED T42B IMPLEMENTATION**. It is not implemented. T42A pre-T40 production counts are stale; T42B-0 must inventory production again.
 
 ## Reference/configuration seed contract
 
@@ -575,9 +587,9 @@ The final deletion set includes old direct Booking/Course mutations, course-shap
 
 The release requires all suites to pass from an empty database seeded only by the canonical reference artifact.
 
-### Amendment — production-safe T41 verification (incremental path)
+### Amendment — production-safe T41 verification (incremental path) — PASS / CLOSED
 
-Empty-database E2E above remains the T38 / isolated rehearsal bar. Production T41 must also exercise preserved live product journeys:
+Empty-database E2E above remains the T38 / isolated rehearsal bar. Production T41 exercised preserved live product journeys. T41 is **PASS / CLOSED**. The checklist below is the historical verification contract, not pending work.
 
 - Guest lesson; Guest course enrollment; payment/expiry (course automatic expiry per T32.9A.9A.F5, **PASS / CLOSED** 2026-09-16)
 - Student lesson booking; multi-participant lesson; course enrollment; cancellation

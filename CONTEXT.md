@@ -93,7 +93,7 @@ The result of replacing a guest Participant reference with an eligible Participa
 The canonical guest `pending → confirmed` transition. It occurs only after the required Payment is fully funded for service. Administrator discretion, Instructor acceptance, identity linking, partial payment, and frontend state are not confirmation authority.
 
 **Wallet**:
-The Account Owner's simulated stored-value balance used for lessons and Courses. It must never become negative.
+The Account Owner's simulated stored-value balance used for lessons and Courses. Canonical product currency is KZT. Current spendable balance is the canonical Wallet; `balanceUSD` / `walletBalances.USD` are not monetary authority after T41. The Wallet must never become negative.
 
 **Monetary Event**:
 An immutable entry in the append-only `monetary_events` history that records canonical financial effects and provenance. Monetary Events explain Payment and Wallet projections but do not replace their current-state authority.
@@ -129,10 +129,12 @@ Minimum dependent Participant data is name, birth date or age, skill level, ski/
 | Course Enrollment lifecycle            | `CourseEnrollment.status`                                                    | UI labels, timestamps, notifications, Activity Logs                                                    |
 | Booking origin                         | Immutable `bookingOrigin`                                                    | Guest identifiers and linking state must not be used to infer it                                       |
 | Ownership and participation            | `bookedBy`, Participant references, optional `payerAccountId`                | Display names and contact snapshots                                                                    |
-| Course participation                   | Explicit Course Enrollment with `courseId` and `participantId`               | Synthetic `instructorId: course_{courseId}` is legacy technical debt                                   |
+| Course participation                   | Explicit Course Enrollment with `courseId` and `participantId`               | Synthetic `instructorId: course_{courseId}` is retired leftover; T41 closed leftover `booking_course_` authorization |
 | Current financial state and price      | Payment State and Payment numeric fields                                     | Booking/Enrollment pricing basis and read models do not replace Payment authority                      |
 | Canonical financial history            | Append-only `monetary_events`                                                | Activity Logs may reference events but are not a financial ledger                                      |
-| Current spendable Account balance      | Wallet                                                                       | Payment obligations and Monetary Event queries do not replace current Wallet state                     |
+| Current spendable Account balance      | Wallet (canonical KZT)                                           | Payment obligations and Monetary Event queries do not replace current Wallet state; `balanceUSD` / `walletBalances.USD` are not authority |
+| Starter Credit                         | `settings/starter_credit.amountKzt`                              | Legacy `amountUsd` is not runtime fallback after T41                                                                                      |
+| Chat homework assignment               | `homeworkForParticipantIds[]` on the message                     | `homeworkForUserIds` is not runtime authority after T41                                                                                   |
 | Actual participation evidence          | Attendance records                                                           | `completed` and `no_show` are lifecycle outcomes derived through authorized transitions                |
 | Current operational inconsistencies    | Unresolved Admin Issues                                                      | Activity Logs explain issue actions but do not replace current issue state                             |
 | Participant progress                   | `/participant_progress/{participantId}` (canonical; T32.9A.9B.2)             | Legacy `/users` level/skill fields are not authority and are not migrated; empty start per Participant |
@@ -148,7 +150,7 @@ Minimum dependent Participant data is name, birth date or age, skill level, ski/
 
 The UI must not infer canonical state from indirect signals. In particular, `endsAt < now` does not mean a Booking is completed; an authorized server transition must update lifecycle state.
 
-Canonical scheduling enforcement uses the server-owned resource claims and guards defined by ADR-0001. The existing `/availability_slots` and `/availability_hour_locks` collections are legacy implementation details scheduled for removal; neither is canonical, a required future projection, nor a source of truth. Future derived scheduling read models may exist under a distinct canonical contract, but they must not be confused with those retired collections or used as enforcement authority.
+Canonical scheduling enforcement uses the server-owned resource claims and guards defined by ADR-0001. The former `/availability_slots` and `/availability_hour_locks` collections are retired legacy implementation details; leftover runtime authority for those shapes is closed as of T41. Neither is canonical, a required future projection, nor a source of truth. Future derived scheduling read models may exist under a distinct canonical contract, but they must not be confused with those retired collections or used as enforcement authority.
 
 ## Booking origins and creation
 
@@ -465,7 +467,7 @@ Future `$implement` and `$code-review` work must verify:
 - Refunds never exceed `paidAmount`; seat/resource release and refund amount are independent decisions.
 - One Course Enrollment represents one Participant and one seat; multi-Participant enrollment creation is all-or-nothing.
 - Before Course start, capacity mutations are transactional and idempotent; at `startAt`, admission capacity freezes.
-- Course Enrollment uses explicit `courseId`; synthetic instructor identifiers are legacy implementation details scheduled for removal and are rejected after canonical cutover.
+- Course Enrollment uses explicit `courseId`; synthetic instructor identifiers and leftover `booking_course_` authorization are retired as of T41.
 - Rescheduling releases old resources and acquires new resources atomically.
 - Existing price is a snapshot; only an explicit audited modification changes it.
 - Terminal transitions never reactivate a record except the explicitly allowed terminal corrections.
@@ -476,7 +478,12 @@ Future `$implement` and `$code-review` work must verify:
 
 ## Current implementation gaps
 
-The following gaps were verified against the pre-canonical repository and must not be mistaken for canonical behavior. They are not current guest-confirmation, identity-linking, or Payment-authority policy; see ADR-0007 and the accepted ADRs above.
+The following gaps were verified against the **pre-canonical** repository. They are
+historical evidence of the starting state, **not** current production gaps.
+Canonical migration is **COMPLETE** (T32.9A, T32.9B, T39, T40, T41 PASS / CLOSED).
+They must not be mistaken for current canonical behavior. They are also not current
+guest-confirmation, identity-linking, or Payment-authority policy; see ADR-0007 and
+the accepted ADRs above.
 
 - Booking supports only `pending`, `confirmed`, `pending_cancellation`, `cancelled`, and `completed`; `no_show`, `withdrawn`, Attendance, Admin Issues, and terminal correction rules are absent.
 - `Booking.userId` conflates owner, Participant, and payer. `bookingOrigin`, `bookedBy`, Participant references, and `payerAccountId` are absent; guest linking overwrites identity markers and loses origin.
@@ -507,8 +514,10 @@ The canonical rewrite's architecture ADRs are accepted:
 6. [ADR-0006: Lazy Canonical Self-Participant Provisioning](docs/adr/0006-lazy-canonical-self-participant-provisioning.md)
 7. [ADR-0007: Guest Identity, Payment, and Confirmation Architecture](docs/adr/0007-guest-identity-payment-and-confirmation.md)
 8. [ADR-0008: UX Preservation During Canonical Migration](docs/adr/0008-ux-preservation-during-canonical-migration.md)
+9. [ADR-0009: Course Progress and Required CourseDay Freeze](docs/adr/0009-course-progress-and-required-day-freeze.md)
+10. [ADR-0010: Canonical Test Sessions and Live/Test Data Isolation](docs/adr/0010-canonical-test-sessions-and-live-test-data-isolation.md)
 
-ADR-0007 supersedes the earlier guest rule that an Administrator confirms pending guest requests independently of payment. Compatibility/Cutover and legacy Participant migration are not separate ADRs under the clean canonical rewrite strategy.
+ADR-0007 supersedes the earlier guest rule that an Administrator confirms pending guest requests independently of payment. Compatibility/Cutover and legacy Participant migration are not separate ADRs under the completed canonical rewrite. ADR-0010 is **accepted architecture** for Test Sessions; it is **not implemented**. Do not treat `dataScope`, TestSession, or test actors as present in production.
 
 Explicitly deferred by ADR-0007 and not current supported policy:
 
@@ -526,7 +535,7 @@ Existing useful screens, information, filters, interactions, and workflows must 
 
 Before removing a legacy frontend or runtime implementation, canonical replacement and UX feature parity must be proven.
 
-Details, the parity inventory, role coverage, and the T32.9A / T32.9B boundary are in [ADR-0008](docs/adr/0008-ux-preservation-during-canonical-migration.md). Current T32.9A.8 / T32.9A.9 (FINAL CANONICAL CUTOVER) status lives in [T32_CANONICAL_ADMIN_AUDIT.md](docs/T32_CANONICAL_ADMIN_AUDIT.md). **T32.9A.9A is PASS / CLOSED** for the original F1–F4 + final integration / production smoke. **T32.9A.9A.F5** (guest CourseEnrollment reservation expiry) is **PASS / CLOSED** (inventory PASS 2026-09-14: `createGuestCourseEnrollment` ABSENT; scheduler ACTIVE; production expiry smoke PASS 2026-09-16). **T32.9A.9B is PASS / CLOSED.** **T32.9A.9C is PASS / CLOSED; T32.9A.9P is PASS / CLOSED for source / current production client; T32.9A.9D0 is PASS / CLOSED; T32.9A.9D is PASS / CLOSED** (physical source cleanup 2026-09-16; leftover source counters = 0; historical data untouched). Admin Lessons + Courses consolidation is **PASS / DEPLOYED / RUNTIME VERIFIED** (authenticated production smoke PASS 2026-09-16; Hosting + `executeCanonicalCommand` (`executecanonicalcommand-00054-yof`) + `queryAdminCourseEnrollmentReadModels` (`queryadmincourseenrollmentreadmodels-00011-cug`)). The next accepted slice is **T32.9B / T39**. **T32.9A.9E is PASS / CLOSED** (2026-09-17). **T32.9A is PASS / CLOSED**. **T32.9B is PASS / CLOSED** (2026-09-18; leftover source compatibility cleanup). **T39 is PASS / CLOSED** (2026-09-18; exact 4-document production delete after local JSON backup). Recorded T32.9R follow-up **#42 — `account_hot` page-1 reconciliation >25** remains open and does not reopen T32.9A. Authoritative production sequence:
+Details, the parity inventory, role coverage, and the T32.9A / T32.9B boundary are in [ADR-0008](docs/adr/0008-ux-preservation-during-canonical-migration.md). Current T32.9A.8 / T32.9A.9 (FINAL CANONICAL CUTOVER) status lives in [T32_CANONICAL_ADMIN_AUDIT.md](docs/T32_CANONICAL_ADMIN_AUDIT.md). **T32.9A.9A is PASS / CLOSED** for the original F1–F4 + final integration / production smoke. **T32.9A.9A.F5** (guest CourseEnrollment reservation expiry) is **PASS / CLOSED** (inventory PASS 2026-09-14: `createGuestCourseEnrollment` ABSENT; scheduler ACTIVE; production expiry smoke PASS 2026-09-16). **T32.9A.9B is PASS / CLOSED.** **T32.9A.9C is PASS / CLOSED; T32.9A.9P is PASS / CLOSED for source / current production client; T32.9A.9D0 is PASS / CLOSED; T32.9A.9D is PASS / CLOSED** (physical source cleanup 2026-09-16; leftover source counters = 0; historical data untouched). Admin Lessons + Courses consolidation is **PASS / DEPLOYED / RUNTIME VERIFIED** (authenticated production smoke PASS 2026-09-16; Hosting + `executeCanonicalCommand` (`executecanonicalcommand-00054-yof`) + `queryAdminCourseEnrollmentReadModels` (`queryadmincourseenrollmentreadmodels-00011-cug`)). **T32.9A.9E is PASS / CLOSED** (2026-09-17). **T32.9A is PASS / CLOSED**. **T32.9B is PASS / CLOSED** (2026-09-18). **T39 is PASS / CLOSED** (2026-09-18; exact 4-document production delete after local JSON backup). **T40 is PASS / CLOSED.** **T41 is PASS / CLOSED** (release commit `908bb9676f0202605163edd70630b2d49bfc4176`). **Canonical migration is COMPLETE.** Recorded T32.9R follow-up **#42 — `account_hot` page-1 reconciliation >25** remains open and does not reopen T32.9A or T42. Current accepted work is **T42 Canonical Test Sessions** ([T42_CANONICAL_TEST_SESSIONS.md](docs/T42_CANONICAL_TEST_SESSIONS.md), [ADR-0010](docs/adr/0010-canonical-test-sessions-and-live-test-data-isolation.md)): T42A COMPLETE / APPROVED FOR T42B; T42B not implemented. Authoritative production sequence:
 
 ```text
 T32.9A.9A — PASS / CLOSED (F1 / F2 / F3 / F4 / final integration smoke)
@@ -593,14 +602,31 @@ T32.9A.9A — PASS / CLOSED (F1 / F2 / F3 / F4 / final integration smoke)
 #42 (account_hot page-1 reconciliation >25) remains a recorded T32.9R follow-up and is not a T32.9A blocker
 → T32.9B (physical compatibility source cleanup) — PASS / CLOSED (2026-09-18)
 → T39 (historical data cleanup) — PASS / CLOSED (2026-09-18; exact 4 documents)
-→ NEXT T40 (Execute Rehearsed Selective Production Cutover)
-→ T40 (Execute Rehearsed Selective Production Cutover)
-→ T41 (Expanded Post-Cutover Verification)
+→ T40 (Execute Rehearsed Selective Production Cutover) — PASS / CLOSED
+→ T41 (Expanded Post-Cutover Verification) — PASS / CLOSED
+  release commit 908bb9676f0202605163edd70630b2d49bfc4176
+  Starter Credit = settings/starter_credit.amountKzt; amountUsd fallback removed
+  homeworkForParticipantIds is canonical; homeworkForUserIds is not runtime authority
+  leftover counters ACTIVE_WRITE / AUTHORITY_READ / FALLBACK / DUAL_WRITE = 0
+→ Canonical migration — COMPLETE
+→ T42A (Canonical Test Sessions architecture / preflight) — COMPLETE / APPROVED FOR T42B
+  code/deploy/migration/production writes = NO
+→ CURRENT T42 / NEXT T42B-0 (fresh read-only production inventory; T42A counts are stale)
+→ T42B-1 … T42B-9 — PLANNED IMPLEMENTATION (not implemented)
+→ T43 — Test Session Guest Support — FUTURE
 ```
 
 **T32.9R optimization track (parallel; strategic decision unchanged).** **R1 is DEFERRED / BLOCKED** and **R2 is DEFERRED**; neither is promoted to NEXT and no new R-ticket is created. Remaining implemented optimization items are deploy/runtime verified first, then production Firestore / Functions usage is re-measured, and only then is the next optimization chosen from measured cost. Details: [T32_CANONICAL_ADMIN_AUDIT.md](docs/T32_CANONICAL_ADMIN_AUDIT.md).
 
-Canonical Booking owns lifecycle, not progress/presentation/feedback/reviews data by default. Chat/Homework currently stored at `bookings/{threadId}/messages` must not be deleted with legacy Booking parents without an approved 9P policy. This does not reopen accepted domain or security decisions. A full empty-database reset remains nonproduction architectural rehearsal only.
+Canonical Booking owns lifecycle, not progress/presentation/feedback/reviews data by default. Chat/Homework currently stored at `bookings/{threadId}/messages` must not be deleted with legacy Booking parents without an approved 9P policy. This does not reopen accepted domain or security decisions. A full empty-database reset remains nonproduction architectural rehearsal only. Future live-project testing uses Test Sessions ([ADR-0010](docs/adr/0010-canonical-test-sessions-and-live-test-data-isolation.md)), which are approved and not yet implemented.
+
+## Canonical Test Sessions (approved architecture, not implemented)
+
+T42 keeps one Firebase project (`ski-school-8f3ca`) and isolates test work with a server-authoritative `dataScope` of `live` or `test`. TEST transactional records also require `testSessionId`. There is no global `TEST_MODE`. Live users continue to create LIVE data while a Test Session is active. Test identity uses persistent dedicated Auth accounts and canonical test Accounts/Participants, not disposable Auth users and not real customers.
+
+T42 v1 covers authenticated Owner/Admin, Test Student, Test Parent, and Test Instructor. TEST guest flows are **T43**. Same canonical collections; no parallel `test_*` domain mirrors. LIVE Course capacity and LIVE Instructor occupancy must not change because of test work. Scope belongs in uniqueness/idempotency keys. LIVE Wallets, live Starter Credit, live progress, live reviews, and live homework must not be affected by TEST operations.
+
+This section is **APPROVED DESIGN**. Test Sessions cannot be created yet. Full invariants: [ADR-0010](docs/adr/0010-canonical-test-sessions-and-live-test-data-isolation.md). Status: [T42_CANONICAL_TEST_SESSIONS.md](docs/T42_CANONICAL_TEST_SESSIONS.md).
 
 ## Clean-rewrite and cutover risks
 
@@ -614,7 +640,7 @@ Canonical Booking owns lifecycle, not progress/presentation/feedback/reviews dat
 - A scheduled legacy job or undeleted legacy endpoint could recreate retired documents after reset or mutate canonical data with old assumptions.
 - Incomplete frontend migration could retain old queries, payloads, status maps, persisted stores, or course-shaped Booking behavior despite a canonical backend.
 
-- A full collection-wide Firestore reset on a project that already holds canonical Booking, Payment, Attendance, claims, enrollments, reviews, chat, or notifications would destroy live product data. That procedure is superseded for production by T32.9A.9D0 / 9D / T40 selective incremental cutover.
+- A full collection-wide Firestore reset on a project that already holds canonical Booking, Payment, Attendance, claims, enrollments, reviews, chat, or notifications would destroy live product data. That procedure was superseded for production by T32.9A.9D0 / 9D / T40 selective incremental cutover, which is now **COMPLETE**. Future test isolation on the same Firebase project is Canonical Test Sessions (ADR-0010), not another production wipe and not a separate staging project.
 
 ## Evidence map
 

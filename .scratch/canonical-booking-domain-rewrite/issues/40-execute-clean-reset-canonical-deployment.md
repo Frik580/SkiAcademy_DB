@@ -1,7 +1,15 @@
 # T40: Execute Rehearsed Selective Production Cutover
 
 **Phase:** 7 — Incremental production cutover  
-**Status:** ready-for-agent
+**Status:** PASS / CLOSED
+
+Canonical migration after T40/T41 is **COMPLETE**. Current work is T42 Canonical
+Test Sessions; see [T42_CANONICAL_TEST_SESSIONS.md](../../../docs/T42_CANONICAL_TEST_SESSIONS.md).
+
+T40 cleared test transactional production data, preserved canonical
+Accounts/Participants, left Wallet at canonical 0 KZT / lazy, restored Course
+capacity, and recorded authenticated smoke PASS for Student, Admin, and
+Instructor. The original ticket body below remains the historical T40 contract.
 
 ## Supersession (2026-09-08)
 

@@ -1,7 +1,18 @@
 # T39: Remove all legacy runtime paths and prove the repository scan clean
 
 **Phase:** 7 — Clean cutover  
-**Status:** ready-for-agent
+**Status:** PASS / CLOSED
+
+Recorded close: exact production delete of four approved documents after local
+JSON backup (`reviews/rev_dlc2wig`, `reviews/rev_kcysdj3`,
+`reviews/rev_zux6z99`, `settings/guest_wallet`). T32.9B closed leftover source
+compatibility cleanup. Subsequent T40/T41 closed the remaining production
+cutover. Canonical migration is COMPLETE. The original ticket body below remains
+the historical T39 contract.
+
+T39 production counts recorded on 2026-09-18 (payments=69, monetary_events=77,
+wallet_ledger=17, messages=25, and similar) are **historical**. They are not
+current production state after T40.
 
 ## Production policy (2026-09-08 alignment)
 

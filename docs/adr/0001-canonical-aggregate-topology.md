@@ -49,6 +49,8 @@ The implementation will build and verify the canonical system separately, reset 
 
 **Amendment — incremental production cutover (2026-09-08).** The development/test collection-wide reset constraint above remains valid as the original isolated-rehearsal contract. It is **superseded as a production procedure**. Live production already holds canonical Booking, Payment, Attendance, claims, enrollments, and other product data. Production follows T32.9A.9P then 9D0 then 9D selective legacy cleanup, then 9E / T32.9B / T40 / T41. Historical legacy lesson rows may still be discarded when the rehearsed discriminator/manifest proves them disposable. Canonical transactional records, approved reviews/chat/homework/notifications/profile/assets, and bookings/{id}/messages without an approved policy must not be reset away. Topology decisions in this ADR are unchanged.
 
+**Amendment — canonical migration complete; Test Sessions (2026-09-20).** T32.9A, T32.9B, T39, T40, and T41 are **PASS / CLOSED**. Canonical migration is **COMPLETE**. The incremental production sequence above is historical procedure that was executed; it is not a pending cutover. Future live/test isolation does not fork this topology: Test Sessions reuse the same canonical collections with server-authoritative `dataScope` / `testSessionId` per [ADR-0010](./0010-canonical-test-sessions-and-live-test-data-isolation.md). That architecture is approved and not yet implemented.
+
 This ADR deliberately does not decide the mechanics now resolved by these accepted follow-up ADRs:
 
 - Payment accounting, event, correction, and reconciliation mechanics: [ADR-0003](./0003-payment-accounting-source.md).

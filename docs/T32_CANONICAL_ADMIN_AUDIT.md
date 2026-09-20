@@ -28,11 +28,12 @@ Amended: 2026-09-16 — **T32.9A.9A.F5 PASS / CLOSED.** The production expiry sm
 Amended: 2026-09-16 — Admin Lessons + Courses consolidation **PASS / DEPLOYED / RUNTIME VERIFIED.** The authenticated production smoke deferred on 2026-09-15 completed successfully on the deployed revisions (Hosting, `executeCanonicalCommand` `executecanonicalcommand-00054-yof`, `queryAdminCourseEnrollmentReadModels` `queryadmincourseenrollmentreadmodels-00011-cug`). The dated 2026-09-15 entry above remains the correct historical record of the state on that date; `DEPLOYED / AUTHENTICATED SMOKE BLOCKED` is no longer the current status.
 Amended: 2026-09-16 — **T32.9R.P0B lesson-booking post-command read optimization completed and reconciled.** The original hypothesis (global `/cabinet*` 30-second `account_hot` polling) was **NOT CONFIRMED**: surface scoping was already present, and no periodic 30s timer polled `account_hot`. The implemented optimization removes the unnecessary post-command `account_history` read on every non-history surface, and fixes `/cabinet/profile_journey` as a history-owning surface. Follow-up recorded, unchanged by this ticket: **>25 `account_hot` page-1 reconciliation prune**. See **T32.9R.P0B** below and [issue 42](../.scratch/canonical-booking-domain-rewrite/issues/42-account-hot-page1-reconciliation-prune.md).
 Amended: 2026-09-16 — **T32.9A.9D PASS / CLOSED.** Physical source cleanup from the 9D0 DELETE_FILES / DELETE_EXPORTS lists completed. Leftover source reachability counters ACTIVE_WRITE / AUTHORITY_READ / FALLBACK / DUAL_WRITE = 0. Historical Firestore data, Rules, indexes, Storage, and production Function deletes were not part of 9D. Next accepted cutover gate is **T32.9A.9E**. Recorded T32.9R follow-up **#42** remains open on the optimization track and does not reopen 9D.
-Amended: 2026-09-18 — **T39 PASS / CLOSED.** Exact production delete of four approved documents completed after JSON backup: `reviews/rev_dlc2wig`, `reviews/rev_kcysdj3`, `reviews/rev_zux6z99`, `settings/guest_wallet`. Post-delete: `/reviews` = 0; those four GET = 404; `/instructor_reviews` = 2; `wallet_ledger` = 17; messages = 25; `payments` = 69; `monetary_events` = 77. Backup is local `t39-backup/`, not committed. Next accepted slice is **T40**.
+Amended: 2026-09-20 — **Canonical migration COMPLETE.** T40 PASS / CLOSED (test transactional production data cleaned; canonical Accounts/Participants preserved; Wallet = canonical 0 KZT / lazy; Course capacity restored; authenticated Student/Admin/Instructor smoke PASS). T41 PASS / CLOSED (final legacy/compatibility cutover; Starter Credit = `settings/starter_credit.amountKzt`; leftover counters ACTIVE_WRITE / AUTHORITY_READ / FALLBACK / DUAL_WRITE = 0; release commit `908bb9676f0202605163edd70630b2d49bfc4176`). T42A architecture/preflight COMPLETE / APPROVED FOR T42B (no code, deploy, migration, or production writes). Next accepted work is **T42B-0**. T42A pre-T40 production counts (payments=69, monetary_events=77, wallet_ledger=17, messages=25, live bookings) are **HISTORICAL / STALE** and must not be reused. See [T42_CANONICAL_TEST_SESSIONS.md](T42_CANONICAL_TEST_SESSIONS.md) and [ADR-0010](adr/0010-canonical-test-sessions-and-live-test-data-isolation.md).
+Amended: 2026-09-18 — **T39 PASS / CLOSED.** Exact production delete of four approved documents completed after JSON backup: `reviews/rev_dlc2wig`, `reviews/rev_kcysdj3`, `reviews/rev_zux6z99`, `settings/guest_wallet`. Post-delete: `/reviews` = 0; those four GET = 404; `/instructor_reviews` = 2; `wallet_ledger` = 17; messages = 25; `payments` = 69; `monetary_events` = 77. Backup is local `t39-backup/`, not committed. Those T39 counts are a **2026-09-18 historical snapshot**; they are not current production state after T40. Next accepted slice at that date was **T40**; T40 and T41 subsequently closed.
 Amended: 2026-09-18 — **T39 READY_FOR_EXACT_DESTRUCTIVE_APPROVAL.** Read-only production inventory on `ski-school-8f3ca` verified exact counts. No Firestore data was deleted. Exact delete list is four documents after export/backup. Independent destructive review **APPROVE_WITH_FINDINGS** (non-blocking). Recorded T32.9R follow-up **#42** remains open and does not reopen T32.9B / T39 inventory.
 Amended: 2026-09-18 — **T32.9B PASS / CLOSED. T39 READY_FOR_DESTRUCTIVE_APPROVAL.** Approved leftover source compatibility cleanup from the 9E deferred list completed. Leftover source counters remain ACTIVE_WRITE / AUTHORITY_READ / FALLBACK / DUAL_WRITE = 0. Independent review **APPROVE_WITH_FINDINGS** (non-blocking). Production Firestore data was not deleted. T39 exact destructive manifest is prepared; execution waits for explicit approval. Production counts **NOT VERIFIED** (Firebase credentials expired). Recorded T32.9R follow-up **#42** remains open and does not reopen T32.9B.
-Amended: 2026-09-17 — **T32.9A.9E PASS / CLOSED. T32.9A PASS / CLOSED.** Final reachability / integration gate confirmed leftover source counters = 0, canonical capability parity, participant isolation, canonical KZT money authority, and production Function inventory with no deployed leftover lesson/course lifecycle names. Next accepted slice is **T32.9B / T39**. Recorded T32.9R follow-up **#42** remains open on the optimization track and does not reopen T32.9A.
-Amended: 2026-09-16 — **Current remaining cutover sequence after the F5 and Admin Lessons + Courses closures, subsequently updated by 9D PASS the same day and closed by 9E on 2026-09-17.** 9B / 9C / 9P / 9D0 / **9D** / **9E** / **T32.9A** remain **PASS / CLOSED** and are not reopened. The next accepted slice is **T32.9B / T39**. Recorded T32.9R follow-up **#42 — `account_hot` page-1 reconciliation >25** (`P0B-PRUNE`) remains open on the optimization track and is not an R-ticket:
+Amended: 2026-09-17 — **T32.9A.9E PASS / CLOSED. T32.9A PASS / CLOSED.** Final reachability / integration gate confirmed leftover source counters = 0, canonical capability parity, participant isolation, canonical KZT money authority, and production Function inventory with no deployed leftover lesson/course lifecycle names. Next accepted slice **at that date** was **T32.9B / T39**; T32.9B / T39 / T40 / T41 subsequently closed. Recorded T32.9R follow-up **#42** remains open on the optimization track and does not reopen T32.9A.
+Amended: 2026-09-16 — **Current remaining cutover sequence after the F5 and Admin Lessons + Courses closures, subsequently updated by 9D PASS the same day and closed by 9E on 2026-09-17.** 9B / 9C / 9P / 9D0 / **9D** / **9E** / **T32.9A** remain **PASS / CLOSED** and are not reopened. The next accepted slice **at that date** was **T32.9B / T39**; those slices and T40 / T41 subsequently closed. Recorded T32.9R follow-up **#42 — `account_hot` page-1 reconciliation >25** (`P0B-PRUNE`) remains open on the optimization track and is not an R-ticket:
 
 ```text
 DONE  T32.9A.9A.F5
@@ -46,11 +47,21 @@ DONE  T32.9B — source compatibility cleanup PASS / CLOSED (2026-09-18)
   ↓
 DONE  T39 — historical data cleanup PASS / CLOSED (2026-09-18; exact 4 documents)
   ↓
-NEXT  T40 — Execute Rehearsed Selective Production Cutover
+DONE  T40 — Execute Rehearsed Selective Production Cutover PASS / CLOSED
   ↓
-T40 — Execute Rehearsed Selective Production Cutover
+DONE  T41 — Expanded Post-Cutover Verification PASS / CLOSED
+      release commit 908bb9676f0202605163edd70630b2d49bfc4176
   ↓
-T41 — Expanded Post-Cutover Verification
+DONE  Canonical migration — COMPLETE
+  ↓
+DONE  T42A — architecture / preflight COMPLETE / APPROVED FOR T42B
+      code/deploy/migration/production writes = NO
+  ↓
+CURRENT / NEXT  T42 — Canonical Test Sessions — READY FOR T42B
+      T42B-0 fresh read-only production inventory (T42A counts are stale)
+      then T42B-1 … T42B-9
+  ↓
+THEN  T43 — Test Session Guest Support
 ```
 
 **T32.9R optimization track (unchanged strategic decision).** **R1 = DEFERRED / BLOCKED** and **R2 = DEFERRED**; neither is promoted to NEXT and no new R-ticket is created. Remaining implemented optimization items are deploy/runtime verified first, then production Firestore / Functions usage is re-measured, and only then is the next optimization chosen from measured cost.
@@ -73,7 +84,7 @@ Explicitly deferred after T32.8C:
 - partially-paid pending guest rejection or refund policy;
 - unused unmanaged guest Participant cleanup.
 
-T32.9 remains split per [ADR-0008](adr/0008-ux-preservation-during-canonical-migration.md). T32.9A is Admin UX restoration and canonical integration plus final authority cutover (9A–9E, including 9P and 9D0); T32.9B is physical legacy-runtime cleanup after the 9E gate. Production cutover is selective/incremental. Full empty-database Firestore reset is a nonproduction architectural rehearsal only (T38 / original Phase 7 contract) and is not a production instruction.
+T32.9 remains split per [ADR-0008](adr/0008-ux-preservation-during-canonical-migration.md). T32.9A is Admin UX restoration and canonical integration plus final authority cutover (9A–9E, including 9P and 9D0); T32.9B is physical legacy-runtime cleanup after the 9E gate. Production cutover was selective/incremental and is now **COMPLETE** (T40 / T41 PASS / CLOSED). Full empty-database Firestore reset is a nonproduction architectural rehearsal only (T38 / original Phase 7 contract) and is not a production instruction. Future testing on the live Firebase project uses Canonical Test Sessions ([ADR-0010](adr/0010-canonical-test-sessions-and-live-test-data-isolation.md)), approved and not yet implemented.
 
 ### Status table (current)
 
@@ -107,10 +118,14 @@ T32.9 remains split per [ADR-0008](adr/0008-ux-preservation-during-canonical-mig
 | T32.9A                                         | Canonical Admin UX restoration and integration                           | PASS / CLOSED                             |
 | T32.9B                                         | Final Legacy Write / Runtime Cleanup                                     | PASS / CLOSED                             |
 | T39                                            | Historical compatibility data cleanup                                    | PASS / CLOSED                             |
-| T40                                            | Execute Rehearsed Selective Production Cutover                           | PENDING                                   |
-| T41                                            | Expanded Post-Cutover Verification                                       | PENDING; after T40                        |
+| T40                                            | Execute Rehearsed Selective Production Cutover                           | PASS / CLOSED                             |
+| T41                                            | Expanded Post-Cutover Verification                                       | PASS / CLOSED                             |
+| Canonical migration                            | T32.9A through T41                                                       | COMPLETE                                  |
+| T42A                                           | Canonical Test Sessions architecture / preflight                         | COMPLETE / APPROVED FOR T42B              |
+| T42B                                           | Canonical Test Sessions implementation                                   | PLANNED; NEXT = T42B-0                    |
+| T43                                            | Test Session Guest Support                                               | FUTURE                                    |
 
-Status labels used here: `PASS`, `PASS / CLOSED`, `PASS / DEPLOYED`, `PASS / DEPLOYED / RUNTIME VERIFIED`, `REQUIRED`, `IN PROGRESS`, `PLANNED`, `READY_FOR_MANUAL_SMOKE`, `READY_FOR_DEPLOY`, `DEPLOY-RUNTIME-VERIFICATION-PENDING`, `DEFERRED`, `PENDING`, `NOT CLOSED`. T32.9A.9A original F1–F4 integration close (including final integration / production smoke) remains **PASS / CLOSED**. **T32.9A.9A.F5** is a post-close corrective follow-up on guest CourseEnrollment reservation expiry; it is now **PASS / CLOSED** (production expiry smoke PASS, 2026-09-16) and it never reopened or invalidated F1–F4. **Admin Active Bookings CourseEnrollment uniqueness is PASS / DEPLOYED / RUNTIME VERIFIED** (2026-09-15). **Admin Lessons + Courses consolidation is PASS / DEPLOYED / RUNTIME VERIFIED** (authenticated production smoke PASS, 2026-09-16). **T32.9A.9B is PASS / CLOSED**. **T32.9A.9C is PASS / CLOSED**. **T32.9A.9P is PASS / CLOSED** for source / current production client (leftover counters = 0; gift fields KEEP_COMPATIBILITY). **T32.9A.9D0 is PASS / CLOSED** (exact source delete manifest; data delete = NONE; production Function delete gated). **T32.9A.9D is PASS / CLOSED** (physical source cleanup 2026-09-16; leftover source counters = 0; historical data untouched; production Function delete still inventory-gated and not executed). **T32.9A.9E is PASS / CLOSED** (2026-09-17; leftover counters = 0; production inventory lists no leftover lesson/course lifecycle Functions; canonical schedulers healthy). **T32.9A is PASS / CLOSED**. Production inventory for F5 was confirmed 2026-09-14 and re-confirmed 2026-09-17: `createGuestCourseEnrollment` ABSENT; scheduler ACTIVE. **T32.9R** is a parallel read-cost track: **R1 DEFERRED / BLOCKED** and **R2 DEFERRED**; neither is a mandatory next implementation ticket and no new R-ticket is created.
+Status labels used here: `PASS`, `PASS / CLOSED`, `PASS / DEPLOYED`, `PASS / DEPLOYED / RUNTIME VERIFIED`, `REQUIRED`, `IN PROGRESS`, `PLANNED`, `READY_FOR_MANUAL_SMOKE`, `READY_FOR_DEPLOY`, `DEPLOY-RUNTIME-VERIFICATION-PENDING`, `DEFERRED`, `PENDING`, `NOT CLOSED`. T32.9A.9A original F1–F4 integration close (including final integration / production smoke) remains **PASS / CLOSED**. **T32.9A.9A.F5** is a post-close corrective follow-up on guest CourseEnrollment reservation expiry; it is now **PASS / CLOSED** (production expiry smoke PASS, 2026-09-16) and it never reopened or invalidated F1–F4. **Admin Active Bookings CourseEnrollment uniqueness is PASS / DEPLOYED / RUNTIME VERIFIED** (2026-09-15). **Admin Lessons + Courses consolidation is PASS / DEPLOYED / RUNTIME VERIFIED** (authenticated production smoke PASS, 2026-09-16). **T32.9A.9B is PASS / CLOSED**. **T32.9A.9C is PASS / CLOSED**. **T32.9A.9P is PASS / CLOSED** for source / current production client (leftover counters = 0). **T41 subsequently closed leftover gift-field monetary authority:** `settings/starter_credit.amountKzt` is canonical; `amountUsd`, `users.balanceUSD`, and `walletBalances.USD` are not current monetary authority. 9P-era KEEP_COMPATIBILITY notes below remain historical 9P evidence. **T32.9A.9D0 is PASS / CLOSED** (exact source delete manifest; data delete = NONE; production Function delete gated). **T32.9A.9D is PASS / CLOSED** (physical source cleanup 2026-09-16; leftover source counters = 0; historical data untouched; production Function delete still inventory-gated and not executed). **T32.9A.9E is PASS / CLOSED** (2026-09-17; leftover counters = 0; production inventory lists no leftover lesson/course lifecycle Functions; canonical schedulers healthy). **T32.9A is PASS / CLOSED**. **T32.9B / T39 / T40 / T41 are PASS / CLOSED. Canonical migration is COMPLETE.** Production inventory for F5 was confirmed 2026-09-14 and re-confirmed 2026-09-17: `createGuestCourseEnrollment` ABSENT; scheduler ACTIVE. **T32.9R** is a parallel read-cost track: **R1 DEFERRED / BLOCKED** and **R2 DEFERRED**; neither is a mandatory next implementation ticket and no new R-ticket is created. Current accepted work is **T42B** ([T42_CANONICAL_TEST_SESSIONS.md](T42_CANONICAL_TEST_SESSIONS.md)).
 
 #### Admin Lessons + Courses consolidation — PASS / DEPLOYED / RUNTIME VERIFIED
 
@@ -179,9 +194,12 @@ T32.9A — PASS / CLOSED (2026-09-17)
 THEN
 T32.9B — PASS / CLOSED (2026-09-18)
 T39 — PASS / CLOSED (2026-09-18; exact 4 documents)
-THEN
-T40 — Execute Rehearsed Selective Production Cutover
-T41 — Expanded Post-Cutover Verification
+T40 — PASS / CLOSED
+T41 — PASS / CLOSED (release commit 908bb9676f0202605163edd70630b2d49bfc4176)
+Canonical migration — COMPLETE
+T42A — COMPLETE / APPROVED FOR T42B
+T42B — PLANNED IMPLEMENTATION (NEXT T42B-0)
+T43 — Test Session Guest Support — FUTURE
 ```
 
 Do not change the F3 multi-participant design in this sequence. F3 remains a 9A slice; later gates consume it, they do not reopen it.
@@ -207,7 +225,7 @@ not progress / presentation / feedback data by default.
 
 #### T32.9A.9A — Individual Booking lifecycle cutover — PASS / CLOSED
 
-**T32.9A.9A is PASS / CLOSED** after production final integration smoke (F1 `PASS / DEPLOYED`; F2/F3/F4 `PASS / CLOSED`). That close covered the original F1–F4 Individual Booking integration gate only. **T32.9A.9A.F5** was a later corrective follow-up for guest CourseEnrollment automatic reservation expiry; it never changed the recorded F1–F4 or final smoke outcomes and is now **PASS / CLOSED** (2026-09-16). The current cutover position is: 9B / 9C / 9P / 9D0 / **9D / 9E / T32.9A PASS / CLOSED**, next accepted slice **T32.9B / T39**. Recorded T32.9R follow-up **#42** remains open and does not reopen 9D.
+**T32.9A.9A is PASS / CLOSED** after production final integration smoke (F1 `PASS / DEPLOYED`; F2/F3/F4 `PASS / CLOSED`). That close covered the original F1–F4 Individual Booking integration gate only. **T32.9A.9A.F5** was a later corrective follow-up for guest CourseEnrollment automatic reservation expiry; it never changed the recorded F1–F4 or final smoke outcomes and is now **PASS / CLOSED** (2026-09-16). Subsequent cutover position: 9B / 9C / 9P / 9D0 / **9D / 9E / T32.9A / T32.9B / T39 / T40 / T41 PASS / CLOSED**. Canonical migration is **COMPLETE**. Recorded T32.9R follow-up **#42** remains open and does not reopen 9D or T42.
 
 Core lifecycle cutover (authority level) — recorded as PASS at source/production authority level:
 
@@ -709,7 +727,7 @@ F4 is **PASS / CLOSED** after production manual acceptance and final 9A integrat
 
 Gate after F2 + F4 (with F1 `PASS / DEPLOYED` and F3 `PASS / CLOSED` already recorded). Confirms end-to-end individual Booking lifecycle cutover (including guest payment capture, unpaid reservation expiry, multi-participant lesson booking, and per-participant Instructor Attendance) on production smoke paths before 9A closes and 9B begins.
 
-Recorded **PASS** in production (2026-09-10). T32.9A.9A overall remains **PASS / CLOSED** for the original F1–F4 scope. Guest course reservation automatic expiry is tracked under **T32.9A.9A.F5** (see below), now **PASS / CLOSED**. 9B and the later slices through 9E / T32.9A are also **PASS / CLOSED**; the next accepted slice is **T32.9B / T39**.
+Recorded **PASS** in production (2026-09-10). T32.9A.9A overall remains **PASS / CLOSED** for the original F1–F4 scope. Guest course reservation automatic expiry is tracked under **T32.9A.9A.F5** (see below), now **PASS / CLOSED**. 9B and the later slices through 9E / T32.9A / T32.9B / T39 / T40 / T41 are also **PASS / CLOSED**. Canonical migration is **COMPLETE**.
 
 ##### T32.9A.9A.F5 — Canonical Guest Course Reservation Expiry — PASS / CLOSED
 
@@ -1361,7 +1379,10 @@ T32.9A.9E → PASS / CLOSED (2026-09-17)
 T32.9A → PASS / CLOSED (2026-09-17)
 T32.9B → PASS / CLOSED (2026-09-18)
 T39 → PASS / CLOSED (2026-09-18; exact 4 documents)
-NEXT → T40 Execute Rehearsed Selective Production Cutover
+T40 → PASS / CLOSED
+T41 → PASS / CLOSED
+Canonical migration → COMPLETE
+NEXT → T42B-0 Post-T41 Rebase and fresh production inventory
 #42 account_hot page-1 reconciliation >25 remains a recorded T32.9R follow-up
 ```
 
@@ -1542,7 +1563,7 @@ Course progress/achievements together with the rest of the product, not as a sub
 
 Purpose: before any destructive legacy data or leftover-implementation cleanup, prove that **every existing useful product capability** has a working canonical or explicitly approved path.
 
-9P is an inventory-and-evidence gate. It does not implement F3, 9B, 9C, or **T32.9A.9A.F5**. **PASS / CLOSED** (2026-09-14) for source / current production client. Leftover counters: ACTIVE_WRITE = 0, AUTHORITY_READ = 0, FALLBACK = 0, DUAL_WRITE = 0. `users.balanceUSD` signup write and `settings/starter_credit.amountUsd` historical read are **KEEP_COMPATIBILITY**, not leftover authority. Guest course expiry production deploy / deployed `createGuestCourseEnrollment` were tracked as **T32.9A.9A.F5** and did **not** reopen 9P client parity; F5 is now **PASS / CLOSED** (production expiry smoke PASS 2026-09-16), while the production Function-delete inventory gate remains separate.
+9P is an inventory-and-evidence gate. It does not implement F3, 9B, 9C, or **T32.9A.9A.F5**. **PASS / CLOSED** (2026-09-14) for source / current production client. Leftover counters: ACTIVE_WRITE = 0, AUTHORITY_READ = 0, FALLBACK = 0, DUAL_WRITE = 0. At 9P close, `users.balanceUSD` signup write and `settings/starter_credit.amountUsd` historical read were **KEEP_COMPATIBILITY**, not leftover 9P authority. **T41 subsequently removed `amountUsd` as runtime fallback and closed `balanceUSD` / `walletBalances.USD` as monetary authority.** Guest course expiry production deploy / deployed `createGuestCourseEnrollment` were tracked as **T32.9A.9A.F5** and did **not** reopen 9P client parity; F5 is now **PASS / CLOSED** (production expiry smoke PASS 2026-09-16), while the production Function-delete inventory gate remains separate.
 
 Mandatory inventory (filled 2026-09-14; reconciled 2026-09-14 for 9P close; F5 gate closed 2026-09-16). Production Function inventory remains UNKNOWN as a separate delete gate:
 
@@ -1557,14 +1578,14 @@ Mandatory inventory (filled 2026-09-14; reconciled 2026-09-14 for 9P close; F5 g
 | Admin finance | Admin | Canonical finance panels | queryAdminFinanceReadModels | Wallet/Payment/MonetaryEvent | PASS | PASS | PASS | PASS | unmounted CashFlow/GuestWallet |
 | Lesson booking F3/F4 | Student, Instructor, Admin | modal / card / planner | canonical party + Attendance | same | PASS | PASS | PASS | PASS | guest create single-participant |
 | Course progress / graduate | Student, Instructor, Admin | cabinet + roster | 9C | same | PASS | PASS | PASS | PASS | yes |
-| Wallet / starter credit | Student, Admin, Auth | Header + settings | /wallet/state + amountKzt | KZT Wallet | PASS | PASS | PASS | PASS | KEEP_COMPATIBILITY users.balanceUSD / amountUsd field names |
+| Wallet / starter credit | Student, Admin, Auth | Header + settings | /wallet/state + amountKzt | KZT Wallet | PASS | PASS | PASS | PASS | 9P KEEP_COMPATIBILITY field names; T41 closed amountUsd / balanceUSD monetary authority |
 | Attendance | Instructor, Admin, Student | lesson + course | canonical Attendance | same | PASS | PASS | PASS | PASS | yes |
 | Participants / avatars | Student, Guardian, Admin | cabinet + people | Participant | same | PASS | PASS | PASS | PASS | /users mirror |
 | Reviews / rating | Student, Instructor | reviews UI | 9B continuity | same | PASS | PASS | PASS | PASS | KEEP_HISTORICAL /reviews |
 | Lesson feedback | Instructor, Student | instructor + coach | ParticipantLessonFeedback | same | PASS | PASS | PASS | PASS | yes |
 | Progress / achievements | Student, Instructor, Admin | cabinet | 9B.2/9B.4 + 9C | same | PASS | PASS | PASS | PASS | KEEP_HISTORICAL users progress |
 | Chat | Student, Instructor, Admin | BookingChatModal | bookings/{id}/messages | same storage | PASS | PASS | PASS | PASS | KEEP_HISTORICAL |
-| Homework | Instructor, Student, Guardian | chat + coach tab | assign_chat_homework | 9P.HW1 | PASS | PASS | PASS | PASS | KEEP_HISTORICAL |
+| Homework | Instructor, Student, Guardian | chat + coach tab | assign_chat_homework | 9P.HW1 | PASS | PASS | PASS | PASS | canonical homeworkForParticipantIds; homeworkForUserIds not runtime authority after T41 |
 | Notifications | all | bell | notifications | same | PASS | PASS | PASS | PASS | KEEP_HISTORICAL |
 | Auth / login | Guest, Student | Auth | Auth + profile create | same | PASS | PASS | PASS | PASS | KEEP_COMPATIBILITY |
 | Settings | Admin | system settings | settings/amountKzt | same | PASS | PASS | PASS | PASS | KEEP_COMPATIBILITY |
@@ -2109,11 +2130,76 @@ Classification (one primary each):
 - `bookings/{id}/messages` — KEEP_HISTORICAL. Live chat/homework, including `bookings/{courseId}/messages`.
 - `activity_logs` — KEEP_HISTORICAL. Cabinet history still listens (`useProfileActivitySync`); canonical commands write.
 
-Compatibility fields: `amountUsd` remains dual-write / Rules fallback and is the **only** field on production `starter_credit`. Not a T39 deletion candidate.
+Compatibility fields at T39 time: `amountUsd` remained dual-write / Rules fallback and was the **only** field on production `starter_credit`. Not a T39 deletion candidate. **T41 subsequently made `amountKzt` the canonical starter-credit field and removed the `amountUsd` runtime fallback.** That T41 close supersedes this T39 compatibility note as current authority.
 
-**Executed 2026-09-18 after explicit user approval of this exact 4-document list.** Local JSON backup in `t39-backup/` (not committed; review payloads contain PII). Deleted: `reviews/rev_dlc2wig`, `reviews/rev_kcysdj3`, `reviews/rev_zux6z99`, `settings/guest_wallet`. Post-delete: `/reviews` = 0; those four GET = 404; `/instructor_reviews` = 2; `wallet_ledger` = 17; messages = 25; `payments` = 69; `monetary_events` = 77. Restore material is the four REST documents. T39 is **PASS / CLOSED**. Next accepted slice is **T40**.
+**Executed 2026-09-18 after explicit user approval of this exact 4-document list.** Local JSON backup in `t39-backup/` (not committed; review payloads contain PII). Deleted: `reviews/rev_dlc2wig`, `reviews/rev_kcysdj3`, `reviews/rev_zux6z99`, `settings/guest_wallet`. Post-delete snapshot on that date: `/reviews` = 0; those four GET = 404; `/instructor_reviews` = 2; `wallet_ledger` = 17; messages = 25; `payments` = 69; `monetary_events` = 77. Restore material is the four REST documents. T39 is **PASS / CLOSED**. Those counts are a **2026-09-18 historical snapshot**. They are **not** current production state after T40 and must not be reused as T42A/T42B inventory.
+
+#### T40 — Execute Rehearsed Selective Production Cutover — PASS / CLOSED
+
+T40 cleaned test transactional production data while preserving canonical Accounts/Participants.
+
+Recorded T40 outcomes:
+
+- test transactional production data cleaned;
+- canonical Accounts / Participants preserved;
+- Wallet clean state = canonical 0 KZT / lazy;
+- Course capacity restored;
+- authenticated smoke: Student = PASS, Admin = PASS, Instructor = PASS.
+
+Forbidden remain: full Firestore/Storage reset; empty-database seed as production migration.
+
+#### T41 — Expanded Post-Cutover Verification — PASS / CLOSED
+
+T41 executed the final legacy/compatibility cutover. Release commit:
+
+```text
+908bb9676f0202605163edd70630b2d49bfc4176
+```
+
+Recorded T41 outcomes:
+
+- Starter Credit moved to canonical KZT: `settings/starter_credit.amountKzt`;
+- legacy `amountUsd` fallback removed;
+- `balanceUSD` / `walletBalances.USD` are no longer monetary authority;
+- homework ownership = Participant-scoped `homeworkForParticipantIds`;
+- `homeworkForUserIds` is no longer runtime authority;
+- Firestore Rules hardened;
+- Storage Rules hardened;
+- leftover `booking_course_` authorization removed;
+- old `/reviews` authority closed;
+- approved legacy Firebase Auth users removed;
+- canonical Auth users preserved;
+- final leftover counters:
+
+```text
+ACTIVE_WRITE = 0
+AUTHORITY_READ = 0
+FALLBACK = 0
+DUAL_WRITE = 0
+```
+
+Canonical migration is **COMPLETE**.
+
+#### T42 — Canonical Test Sessions — IN PROGRESS / READY FOR T42B
+
+T42A was architecture/preflight only and is **COMPLETE / APPROVED FOR T42B** (`code/deploy/migration/production writes = NO`).
+
+T42 Test Sessions are **APPROVED ARCHITECTURE** and **PLANNED T42B IMPLEMENTATION**. They are not implemented. `dataScope`, TestSession documents, test-actor Auth users, and isolation Rules do not exist in production yet.
+
+Owner decision: one Firebase project `ski-school-8f3ca`; no separate staging project; no global `TEST_MODE`.
+
+T42A pre-T40 production counts are **HISTORICAL / STALE**. T42B-0 must perform a fresh read-only production inventory.
+
+Authoritative architecture: [ADR-0010](adr/0010-canonical-test-sessions-and-live-test-data-isolation.md).
+Living plan: [T42_CANONICAL_TEST_SESSIONS.md](T42_CANONICAL_TEST_SESSIONS.md).
 
 ## Executive conclusion
+
+**Historical 2026-08-30 Admin-runtime audit.** The findings below describe the
+pre-canonical Admin surface. They are **not** current production status.
+Later preamble status, T32.9A–T41 CLOSE, and [ADR-0010](adr/0010-canonical-test-sessions-and-live-test-data-isolation.md)
+supersede this section for roadmap and architecture. Do not treat “next slice
+T32.1” or “legacy `/admin` over raw bookings” as the current accepted next step.
 
 The production `/admin` runtime is not connected to canonical read models and
 does not invoke canonical commands. It remains a legacy administration surface

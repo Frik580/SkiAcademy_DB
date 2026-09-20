@@ -217,9 +217,12 @@ export function useAdminIdentityReadModels(input: {
     void loadDetail();
   }, [loadDetail]);
 
-  useAdminPeopleRevisionRefresh(() => {
-    void Promise.all([loadList(), loadDetail()]);
-  }, Boolean(input.enabled && input.realtime));
+  useAdminPeopleRevisionRefresh(
+    () => {
+      void Promise.all([loadList(), loadDetail()]);
+    },
+    Boolean(input.enabled && input.realtime)
+  );
 
   const loadMore = useCallback(() => {
     const current =
@@ -286,9 +289,12 @@ export function useAdminParticipantDetail(
     void load();
   }, [load]);
 
-  useAdminPeopleRevisionRefresh(() => {
-    void load();
-  }, Boolean(participantId) && options?.realtime === true);
+  useAdminPeopleRevisionRefresh(
+    () => {
+      void load();
+    },
+    Boolean(participantId) && options?.realtime === true
+  );
 
   return { item, loading, error, refresh: load };
 }

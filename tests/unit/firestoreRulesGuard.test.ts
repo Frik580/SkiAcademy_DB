@@ -92,8 +92,12 @@ describe('firestore.rules guardrails', () => {
     expect(rulesSource).toMatch(
       /match \/settings\/\{settingId\}[\s\S]*settingId != 'guest_wallet'/
     );
-    expect(rulesSource).toMatch(/match \/wallet_ledger\/\{entryId\}[\s\S]*allow create, update, delete: if false;/);
-    expect(rulesSource).toMatch(/match \/course_chat_access\/\{accountId\}[\s\S]*allow create, update, delete: if false;/);
+    expect(rulesSource).toMatch(
+      /match \/wallet_ledger\/\{entryId\}[\s\S]*allow create, update, delete: if false;/
+    );
+    expect(rulesSource).toMatch(
+      /match \/course_chat_access\/\{accountId\}[\s\S]*allow create, update, delete: if false;/
+    );
   });
 
   it('locks T32.8A Account/Instructor identity authority to canonical commands', () => {

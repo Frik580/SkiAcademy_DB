@@ -1,6 +1,4 @@
-type ReadNormalizationResult<T> =
-  | { success: true; data: T }
-  | { success: false; reason: string };
+type ReadNormalizationResult<T> = { success: true; data: T } | { success: false; reason: string };
 
 const OPTIONAL_NULLABLE_KEYS = [
   'phoneNumber',

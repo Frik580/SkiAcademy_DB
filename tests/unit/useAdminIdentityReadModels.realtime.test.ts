@@ -142,10 +142,12 @@ describe('useAdminIdentityReadModels realtime invalidation', () => {
       emitInvalidation?.();
     });
     await waitFor(() => expect(queryMock).toHaveBeenCalledTimes(4));
-    expect(queryMock.mock.calls.slice(2).map((call) => call[0]?.scope).sort()).toEqual([
-      'admin_account_detail',
-      'admin_account_list',
-    ]);
+    expect(
+      queryMock.mock.calls
+        .slice(2)
+        .map((call) => call[0]?.scope)
+        .sort()
+    ).toEqual(['admin_account_detail', 'admin_account_list']);
   });
 
   it('refreshes a distinct mounted participant detail once without repeating the same scope', async () => {

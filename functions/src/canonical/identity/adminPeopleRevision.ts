@@ -96,8 +96,7 @@ export function adminPeopleRevisionPayload(
 }
 
 export function plannedMutationsAffectAdminPeople(
-  mutations: readonly { readonly path: string }[],
-  _commandKind: CommandKind
+  mutations: readonly { readonly path: string }[]
 ): boolean {
   return mutations.some((mutation) => {
     const path = normalizeMutationPath(mutation.path);

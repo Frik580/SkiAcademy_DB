@@ -123,32 +123,35 @@ export function useAdminIssueReadModels(
     [enabled, scope, severity]
   );
 
-  const loadDetail = useCallback(async (quiet = false) => {
-    const generation = ++detailRequestGeneration.current;
-    if (!enabled || !selectedIssueId) {
-      setDetail(INITIAL_DETAIL_STATE);
-      return;
-    }
-    if (!quiet) {
-      setDetail({ loading: true });
-    }
-    try {
-      const result = await queryAdminIssueReadModels({
-        scope: 'admin_detail',
-        issueId: selectedIssueId,
-      });
-      if (detailRequestGeneration.current !== generation || result.scope !== 'admin_detail') {
+  const loadDetail = useCallback(
+    async (quiet = false) => {
+      const generation = ++detailRequestGeneration.current;
+      if (!enabled || !selectedIssueId) {
+        setDetail(INITIAL_DETAIL_STATE);
         return;
       }
-      setDetail({ item: result.item, loading: false });
-    } catch (error) {
-      if (detailRequestGeneration.current !== generation) return;
-      setDetail({
-        loading: false,
-        error: classifyAdminIssueReadError(error),
-      });
-    }
-  }, [enabled, selectedIssueId]);
+      if (!quiet) {
+        setDetail({ loading: true });
+      }
+      try {
+        const result = await queryAdminIssueReadModels({
+          scope: 'admin_detail',
+          issueId: selectedIssueId,
+        });
+        if (detailRequestGeneration.current !== generation || result.scope !== 'admin_detail') {
+          return;
+        }
+        setDetail({ item: result.item, loading: false });
+      } catch (error) {
+        if (detailRequestGeneration.current !== generation) return;
+        setDetail({
+          loading: false,
+          error: classifyAdminIssueReadError(error),
+        });
+      }
+    },
+    [enabled, selectedIssueId]
+  );
 
   const loadListRef = useRef(loadList);
   loadListRef.current = loadList;

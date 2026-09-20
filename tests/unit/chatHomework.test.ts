@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  buildHomeworkForParticipantIds,
-  isHomeworkVisibleToStudent,
-} from '../../src/domain/chat';
+import { buildHomeworkForParticipantIds, isHomeworkVisibleToStudent } from '../../src/domain/chat';
 import { ChatMessage } from '../../src/types';
 
 const homeworkMsg = (overrides: Partial<ChatMessage> = {}): ChatMessage => ({
@@ -21,9 +18,9 @@ const GROUP_PARTICIPANT_IDS = ['participant-1', 'participant-2', 'participant-3'
 
 describe('isHomeworkVisibleToStudent', () => {
   it('returns false when message is not homework', () => {
-    expect(isHomeworkVisibleToStudent({ ...homeworkMsg(), isHomework: false }, 'participant-1')).toBe(
-      false
-    );
+    expect(
+      isHomeworkVisibleToStudent({ ...homeworkMsg(), isHomework: false }, 'participant-1')
+    ).toBe(false);
   });
 
   it('shows homework to all participants when no targets set', () => {

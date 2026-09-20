@@ -1,11 +1,7 @@
 import type { ActivityLog, Booking, Course, Instructor, UserProfile } from '../../types';
 import type { DbNotification } from '../../domain/notifications';
 import type { WalletLedgerEntry } from '../../features/wallet/types';
-import {
-  parseBooking,
-  parseCourse,
-  readUserProfile,
-} from './firestoreSchemas';
+import { parseBooking, parseCourse, readUserProfile } from './firestoreSchemas';
 import { logErrorToFirestore } from './firebase';
 
 export { readUserProfile };

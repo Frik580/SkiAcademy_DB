@@ -38,7 +38,11 @@ describe('profileService identity writes', () => {
       payload: { adminPeopleRevision: 4 },
     });
 
-    await updateUserProfileService('account_profile_01', { phoneNumber: '+7701555' }, 'instructor_01');
+    await updateUserProfileService(
+      'account_profile_01',
+      { phoneNumber: '+7701555' },
+      'instructor_01'
+    );
 
     expect(executeAuthenticatedCanonicalCommand).toHaveBeenCalledTimes(1);
     expect(executeAuthenticatedCanonicalCommand).toHaveBeenCalledWith(

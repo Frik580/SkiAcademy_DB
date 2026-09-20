@@ -124,7 +124,7 @@ describe('useManagedParticipants', () => {
   });
 
   it('J. drops a stale picker request after profile parse failure', async () => {
-    const picker = deferred<{ items: typeof selfItem[] }>();
+    const picker = deferred<{ items: (typeof selfItem)[] }>();
     mocks.queryManagedParticipantPickerReadModels.mockReturnValue(picker.promise);
     seedAuthenticatedProfile('account_self');
     const { result } = renderHook(() => useManagedParticipants('account_self'));
@@ -140,7 +140,7 @@ describe('useManagedParticipants', () => {
   });
 
   it('K. never executes B picker under A or null auth after a direct A → B switch', async () => {
-    const pickerA = deferred<{ items: typeof selfItem[] }>();
+    const pickerA = deferred<{ items: (typeof selfItem)[] }>();
     mocks.queryManagedParticipantPickerReadModels.mockReturnValueOnce(pickerA.promise);
     mocks.queryManagedParticipantPickerReadModels.mockResolvedValue({ items: [otherItem] });
 
@@ -150,7 +150,9 @@ describe('useManagedParticipants', () => {
       { initialProps: { accountId: 'account_a' } }
     );
 
-    await waitFor(() => expect(mocks.ensureCanonicalSelfParticipant).toHaveBeenCalledWith('account_a'));
+    await waitFor(() =>
+      expect(mocks.ensureCanonicalSelfParticipant).toHaveBeenCalledWith('account_a')
+    );
 
     act(() => {
       useAuthStore.getState().setFirebaseUser(null);
@@ -173,7 +175,7 @@ describe('useManagedParticipants', () => {
   });
 
   it('L. delayed A picker response cannot populate B participant state', async () => {
-    const pickerA = deferred<{ items: typeof selfItem[] }>();
+    const pickerA = deferred<{ items: (typeof selfItem)[] }>();
     mocks.queryManagedParticipantPickerReadModels.mockReturnValueOnce(pickerA.promise);
     mocks.queryManagedParticipantPickerReadModels.mockResolvedValue({ items: [otherItem] });
 
@@ -183,7 +185,9 @@ describe('useManagedParticipants', () => {
       { initialProps: { accountId: 'account_a' } }
     );
 
-    await waitFor(() => expect(mocks.ensureCanonicalSelfParticipant).toHaveBeenCalledWith('account_a'));
+    await waitFor(() =>
+      expect(mocks.ensureCanonicalSelfParticipant).toHaveBeenCalledWith('account_a')
+    );
 
     act(() => {
       useAuthStore.getState().setFirebaseUser(firebaseUser('account_b'));

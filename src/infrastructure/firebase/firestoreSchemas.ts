@@ -42,10 +42,7 @@ export const parseCourse = (fields: unknown, id: string): ValidationResult<Cours
 export const parseUserProfile = (fields: unknown): ValidationResult<UserProfile> =>
   toValidationResult<UserProfile>(UserProfileDocumentSchema.safeParse(fields));
 
-export const readUserProfile = (
-  fields: unknown,
-  id = 'unknown'
-): ValidationResult<UserProfile> => {
+export const readUserProfile = (fields: unknown, id = 'unknown'): ValidationResult<UserProfile> => {
   const normalized = normalizeUserProfileRead(fields, id);
   if (!normalized.success) return normalized;
   return parseUserProfile(normalized.data);

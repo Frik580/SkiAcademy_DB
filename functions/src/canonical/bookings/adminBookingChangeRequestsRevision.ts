@@ -90,8 +90,7 @@ export function adminBookingChangeRequestsRevisionPayload(
 }
 
 export function plannedMutationsAffectAdminBookingChangeRequests(
-  mutations: readonly { readonly path: string }[],
-  _commandKind: CommandKind
+  mutations: readonly { readonly path: string }[]
 ): boolean {
   return mutations.some((mutation) =>
     BOOKING_CHANGE_REQUEST_PATH.test(normalizeMutationPath(mutation.path))

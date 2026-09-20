@@ -28,9 +28,9 @@ describe('authenticated course enrollment canonical cutover', () => {
     expect(
       existsSync(resolve(process.cwd(), 'src/features/courses/enrollInCourseCallable.ts'))
     ).toBe(false);
-    expect(
-      existsSync(resolve(process.cwd(), 'src/features/courses/courseTransactions.ts'))
-    ).toBe(false);
+    expect(existsSync(resolve(process.cwd(), 'src/features/courses/courseTransactions.ts'))).toBe(
+      false
+    );
   });
 
   it('does not load synthetic course bookings as Student Course authority', () => {
@@ -44,9 +44,9 @@ describe('authenticated course enrollment canonical cutover', () => {
     expect(dataSync).toContain('shouldLoadLegacyCourseBookings: false');
     expect(storeSync).toContain('useCourseEnrollmentReadSync');
     expect(storeSync).not.toContain('getStudentCourseBookingsQuery');
-    expect(existsSync(resolve(process.cwd(), 'src/features/bookings/bookingRealtimeService.ts'))).toBe(
-      false
-    );
+    expect(
+      existsSync(resolve(process.cwd(), 'src/features/bookings/bookingRealtimeService.ts'))
+    ).toBe(false);
     expect(home).toContain('useCourseEnrollmentStore');
     expect(home).not.toContain('getEnrolledCourses');
     expect(panels).toContain('getEnrolledCourseIdsForParticipant');

@@ -1676,7 +1676,9 @@ describe('booking chat messages', () => {
         homeworkForUserIds: [USER_ID],
       })
     );
-    await assertSucceeds(getDoc(doc(studentDb, 'bookings', 'booking-chat-1', 'messages', 'homework-1')));
+    await assertSucceeds(
+      getDoc(doc(studentDb, 'bookings', 'booking-chat-1', 'messages', 'homework-1'))
+    );
   });
 
   it('denies client fabrication of course chat access and wallet ledger history', async () => {

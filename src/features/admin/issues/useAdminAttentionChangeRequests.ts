@@ -158,16 +158,13 @@ export function useAdminAttentionChangeRequests(
     };
   }, [loadDetail, selectedRequestId]);
 
-  useAdminBookingChangeRequestsRevisionRefresh(
-    () => {
-      void loadListRef.current(true);
-      const requestId = selectedRequestIdRef.current;
-      if (requestId) {
-        void loadDetailRef.current(requestId, true);
-      }
-    },
-    enabled
-  );
+  useAdminBookingChangeRequestsRevisionRefresh(() => {
+    void loadListRef.current(true);
+    const requestId = selectedRequestIdRef.current;
+    if (requestId) {
+      void loadDetailRef.current(requestId, true);
+    }
+  }, enabled);
 
   return {
     list,

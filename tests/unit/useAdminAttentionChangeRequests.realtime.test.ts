@@ -54,9 +54,7 @@ describe('useAdminAttentionChangeRequests realtime invalidation', () => {
       return unregisterMock;
     });
 
-    const { result } = renderHook(() =>
-      useAdminAttentionChangeRequests({ enabled: true })
-    );
+    const { result } = renderHook(() => useAdminAttentionChangeRequests({ enabled: true }));
     await waitFor(() => expect(queryMock).toHaveBeenCalledTimes(1));
     expect(result.current.list.items).toHaveLength(1);
 
@@ -76,7 +74,8 @@ describe('useAdminAttentionChangeRequests realtime invalidation', () => {
   });
 
   it('refreshes selected request detail after an external revision', async () => {
-    const selectedId = 'booking_change_request_realtime_01' as AdminBookingChangeRequestInboxItem['requestId'];
+    const selectedId =
+      'booking_change_request_realtime_01' as AdminBookingChangeRequestInboxItem['requestId'];
     queryMock.mockImplementation(async (input: { scope: string; requestId?: string }) => {
       if (input.scope === 'admin_detail') {
         return { scope: 'admin_detail', item: inboxItem(selectedId, 2) };
@@ -113,9 +112,7 @@ describe('useAdminAttentionChangeRequests realtime invalidation', () => {
       scope: 'admin_open',
       items: [],
     });
-    const { unmount } = renderHook(() =>
-      useAdminAttentionChangeRequests({ enabled: true })
-    );
+    const { unmount } = renderHook(() => useAdminAttentionChangeRequests({ enabled: true }));
     await waitFor(() => expect(registerListenerMock).toHaveBeenCalledTimes(1));
     unmount();
     expect(unregisterMock).toHaveBeenCalledTimes(1);

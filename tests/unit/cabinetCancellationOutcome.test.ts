@@ -284,9 +284,9 @@ describe('cabinet cancellation outcome', () => {
     // The cabinet container can only cancel an enrollment it currently renders, so
     // the pre-command item is always present. Course hot refresh is participant-scoped.
     useCourseEnrollmentStore.getState().beginScopedLoad('participant_01');
-    useCourseEnrollmentStore.getState().mergeItems(
-      new Map([['enrollment_cancel_test', courseItem('confirmed')]])
-    );
+    useCourseEnrollmentStore
+      .getState()
+      .mergeItems(new Map([['enrollment_cancel_test', courseItem('confirmed')]]));
     executeAuthenticatedMock.mockResolvedValueOnce({
       status: 'success',
       kind: 'request_course_enrollment_cancellation',

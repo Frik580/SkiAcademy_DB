@@ -173,7 +173,10 @@ describe('UserProfile read normalization', () => {
   });
 
   it('D. keeps extra historical and canonical Account fields from causing rejection', () => {
-    const profile = toUserProfile(ksushaProductionShapedUserDocument, PROD_SHAPED_KSUSHA_ACCOUNT_ID);
+    const profile = toUserProfile(
+      ksushaProductionShapedUserDocument,
+      PROD_SHAPED_KSUSHA_ACCOUNT_ID
+    );
     expect(profile).toMatchObject({
       accountId: PROD_SHAPED_KSUSHA_ACCOUNT_ID,
       comments: 'historical extra field',

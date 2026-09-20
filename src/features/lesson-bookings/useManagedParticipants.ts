@@ -24,9 +24,7 @@ export function useManagedParticipants(accountId: string | undefined) {
   const [error, setError] = useState<string | undefined>();
   const authenticatedAccountId = firebaseUid;
   const bootstrapReady =
-    Boolean(accountId) &&
-    Boolean(authenticatedAccountId) &&
-    profileUid === authenticatedAccountId;
+    Boolean(accountId) && Boolean(authenticatedAccountId) && profileUid === authenticatedAccountId;
 
   const reload = useCallback(async () => {
     if (!accountId || !authenticatedAccountId || !bootstrapReady) {

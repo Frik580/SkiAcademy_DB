@@ -70,55 +70,34 @@ describe('adminBookingChangeRequestsRevision', () => {
 
   it('detects booking change-request aggregate writes', () => {
     expect(
-      plannedMutationsAffectAdminBookingChangeRequests(
-        [{ path: 'booking_change_requests/cr_01' }],
-        'create_booking_change_request'
-      )
+      plannedMutationsAffectAdminBookingChangeRequests([{ path: 'booking_change_requests/cr_01' }])
     ).toBe(true);
     expect(
-      plannedMutationsAffectAdminBookingChangeRequests(
-        [{ path: '/booking_change_requests/cr_01' }],
-        'withdraw_booking_change_request'
-      )
+      plannedMutationsAffectAdminBookingChangeRequests([{ path: '/booking_change_requests/cr_01' }])
     ).toBe(true);
     expect(
-      plannedMutationsAffectAdminBookingChangeRequests(
-        [{ path: 'booking_change_requests/cr_01' }, { path: 'bookings/booking_01' }],
-        'resolve_booking_change_request'
-      )
+      plannedMutationsAffectAdminBookingChangeRequests([
+        { path: 'booking_change_requests/cr_01' },
+        { path: 'bookings/booking_01' },
+      ])
     ).toBe(true);
   });
 
   it('ignores booking, payment, attendance, and issue writes', () => {
     expect(
-      plannedMutationsAffectAdminBookingChangeRequests(
-        [{ path: 'bookings/booking_01' }],
-        'reschedule_booking'
-      )
+      plannedMutationsAffectAdminBookingChangeRequests([{ path: 'bookings/booking_01' }])
     ).toBe(false);
     expect(
-      plannedMutationsAffectAdminBookingChangeRequests(
-        [{ path: 'payments/pay_01' }],
-        'record_provider_payment_event'
-      )
+      plannedMutationsAffectAdminBookingChangeRequests([{ path: 'payments/pay_01' }])
     ).toBe(false);
     expect(
-      plannedMutationsAffectAdminBookingChangeRequests(
-        [{ path: 'attendance/att_01' }],
-        'record_booking_attendance'
-      )
+      plannedMutationsAffectAdminBookingChangeRequests([{ path: 'attendance/att_01' }])
     ).toBe(false);
     expect(
-      plannedMutationsAffectAdminBookingChangeRequests(
-        [{ path: 'admin_issues/issue_01' }],
-        'record_booking_attendance'
-      )
+      plannedMutationsAffectAdminBookingChangeRequests([{ path: 'admin_issues/issue_01' }])
     ).toBe(false);
     expect(
-      plannedMutationsAffectAdminBookingChangeRequests(
-        [{ path: 'users/account_01/wallet/state' }],
-        'record_manual_wallet_funding'
-      )
+      plannedMutationsAffectAdminBookingChangeRequests([{ path: 'users/account_01/wallet/state' }])
     ).toBe(false);
   });
 

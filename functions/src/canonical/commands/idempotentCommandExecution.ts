@@ -272,12 +272,10 @@ export async function executeIdempotentCanonicalCommand<Kind extends CommandKind
           plannedMutations,
           envelope.kind
         );
-        const shouldBumpAdminPeopleRevision = plannedMutationsAffectAdminPeople(
-          plannedMutations,
-          envelope.kind
-        );
+        const shouldBumpAdminPeopleRevision =
+          plannedMutationsAffectAdminPeople(plannedMutations);
         const shouldBumpAdminBookingChangeRequestsRevision =
-          plannedMutationsAffectAdminBookingChangeRequests(plannedMutations, envelope.kind);
+          plannedMutationsAffectAdminBookingChangeRequests(plannedMutations);
         if (shouldBumpAdminLessonBookingsRevision) {
           await planAdminLessonBookingsRevisionBump(session);
         }

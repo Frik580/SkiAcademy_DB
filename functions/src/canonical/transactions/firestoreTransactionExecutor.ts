@@ -98,6 +98,12 @@ class FirestoreCanonicalTransactionOperations implements CanonicalTransactionOpe
     }
   }
 
+  async drainPendingReads(): Promise<void> {
+    while (this.pendingReads.size > 0) {
+      await Promise.allSettled([...this.pendingReads]);
+    }
+  }
+
   enterWritePhase(): void {
     assertReadPhase(this, 'transition');
     this.phase = 'writes';
@@ -154,6 +160,26 @@ function preflightStaticPlan(
   assertTransactionWithinBudget(correlationId, plan);
 }
 
+/**
+ * The Admin SDK retries INVALID_ARGUMENT only when the message matches
+ * `/transaction has expired/`. The Firestore emulator instead returns
+ * `Transaction is invalid or closed` for the same expired/aborted ID, and
+ * that error is not retried — concurrent commands then reject instead of
+ * serializing. Retry the whole `runTransaction` with a fresh Transaction.
+ */
+export const CLOSED_FIRESTORE_TRANSACTION_RETRY_ATTEMPTS = 5;
+
+export function isRetryableClosedFirestoreTransactionError(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) {
+    return false;
+  }
+  const code = 'code' in error ? (error as { code?: unknown }).code : undefined;
+  const message = error instanceof Error ? error.message : String(error);
+  const isInvalidArgument =
+    code === 3 || code === 'invalid-argument' || code === 'INVALID_ARGUMENT';
+  return isInvalidArgument && /transaction is invalid or closed/i.test(message);
+}
+
 export function createFirestoreCanonicalTransactionExecutor(
   firestore: Firestore
 ): CanonicalTransactionExecutor {
@@ -161,25 +187,42 @@ export function createFirestoreCanonicalTransactionExecutor(
     async runAtomic<TResult>(input: CanonicalAtomicTransactionInput<TResult>): Promise<TResult> {
       preflightStaticPlan(input.correlationId, input.staticPlan);
 
-      return firestore.runTransaction(async (transaction) => {
-        enterCanonicalTransactionCallback();
+      let lastError: unknown;
+      for (let attempt = 0; attempt < CLOSED_FIRESTORE_TRANSACTION_RETRY_ATTEMPTS; attempt += 1) {
         try {
-          const operations = new FirestoreCanonicalTransactionOperations(firestore, transaction);
-          const session = new FirestoreCanonicalTransactionSession(
-            input.correlationId,
-            operations,
-            operations
-          );
-          return await input.run(session);
+          return await firestore.runTransaction(async (transaction) => {
+            enterCanonicalTransactionCallback();
+            const operations = new FirestoreCanonicalTransactionOperations(firestore, transaction);
+            const session = new FirestoreCanonicalTransactionSession(
+              input.correlationId,
+              operations,
+              operations
+            );
+            try {
+              return await input.run(session);
+            } finally {
+              try {
+                await operations.drainPendingReads();
+              } catch {
+                // Keep the original callback outcome. In-flight reads must
+                // finish before this callback settles so Firestore does not
+                // commit/rollback while RPCs still use the transaction.
+              }
+              exitCanonicalTransactionCallback();
+            }
+          });
         } catch (error) {
-          if (error instanceof CanonicalCommandError) {
+          lastError = error;
+          if (
+            error instanceof CanonicalCommandError ||
+            !isRetryableClosedFirestoreTransactionError(error) ||
+            attempt === CLOSED_FIRESTORE_TRANSACTION_RETRY_ATTEMPTS - 1
+          ) {
             throw error;
           }
-          throw error;
-        } finally {
-          exitCanonicalTransactionCallback();
         }
-      });
+      }
+      throw lastError;
     },
   };
 }

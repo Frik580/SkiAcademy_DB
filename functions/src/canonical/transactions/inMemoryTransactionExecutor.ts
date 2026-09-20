@@ -141,6 +141,12 @@ class InMemoryCanonicalTransactionOperations implements CanonicalTransactionOper
     }
   }
 
+  async drainPendingReads(): Promise<void> {
+    while (this.pendingReads.size > 0) {
+      await Promise.allSettled([...this.pendingReads]);
+    }
+  }
+
   enterWritePhase(): void {
     assertReadPhase(this, 'transition');
     this.phase = 'writes';
@@ -256,6 +262,7 @@ export function createInMemoryCanonicalTransactionExecutor(
           }
           throw error;
         } finally {
+          await operations.drainPendingReads();
           exitCanonicalTransactionCallback();
         }
       };

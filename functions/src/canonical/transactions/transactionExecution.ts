@@ -42,6 +42,7 @@ export interface CanonicalTransactionOperations {
 
 export interface CanonicalTransactionPhaseControl {
   awaitPendingReads(): Promise<void>;
+  drainPendingReads(): Promise<void>;
   enterWritePhase(): void;
 }
 

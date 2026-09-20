@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CanonicalCommandError,
   CorrelationIdSchema,
   TRANSACTION_PLANNING_FIXTURES,
   TRANSACTION_SAFETY_BUDGET,
@@ -7,11 +8,15 @@ import {
   operationTooLargeFromPreflight,
   syntheticBudgetBoundaryPlan,
 } from '@ski-academy/shared-domain';
+import type { Firestore, Transaction } from 'firebase-admin/firestore';
 import {
   CanonicalTransactionPhaseError,
+  CLOSED_FIRESTORE_TRANSACTION_RETRY_ATTEMPTS,
+  createFirestoreCanonicalTransactionExecutor,
   createInMemoryCanonicalTransactionExecutor,
   guardCanonicalTransactionSideEffect,
   isInsideCanonicalTransactionCallback,
+  isRetryableClosedFirestoreTransactionError,
 } from './index';
 
 const correlationId = CorrelationIdSchema.parse('correlation_tx_test_01');
@@ -176,6 +181,118 @@ describe('operation_too_large transport', () => {
       expect(transport).not.toHaveProperty('estimate');
       expect(transport.details).toEqual({ reason: 'out_of_range' });
     }
+  });
+});
+
+function closedFirestoreTransactionError(): Error {
+  const error = new Error('3 INVALID_ARGUMENT: Transaction is invalid or closed.');
+  (error as { code: number }).code = 3;
+  return error;
+}
+
+function createClosedTransactionMockFirestore(failClosedTimes: number): {
+  readonly firestore: Firestore;
+  readonly runTransactionCalls: { count: number };
+} {
+  const runTransactionCalls = { count: 0 };
+  let remainingFailures = failClosedTimes;
+  const firestore = {
+    doc(path: string) {
+      return { path };
+    },
+    async runTransaction<T>(updateFunction: (transaction: Transaction) => Promise<T>): Promise<T> {
+      runTransactionCalls.count += 1;
+      const transaction = {
+        get: async () => ({
+          exists: false,
+          data: () => undefined,
+        }),
+        create() {
+          return transaction;
+        },
+        update() {
+          return transaction;
+        },
+        delete() {
+          return transaction;
+        },
+      };
+      const result = await updateFunction(transaction as unknown as Transaction);
+      if (remainingFailures > 0) {
+        remainingFailures -= 1;
+        throw closedFirestoreTransactionError();
+      }
+      return result;
+    },
+  };
+  return { firestore: firestore as unknown as Firestore, runTransactionCalls };
+}
+
+describe('closed Firestore transaction retry', () => {
+  it('recognizes emulator INVALID_ARGUMENT closed-transaction errors as retryable', () => {
+    expect(isRetryableClosedFirestoreTransactionError(closedFirestoreTransactionError())).toBe(
+      true
+    );
+    const expired = new Error('The referenced transaction has expired or is no longer valid.');
+    (expired as { code: number }).code = 3;
+    expect(isRetryableClosedFirestoreTransactionError(expired)).toBe(false);
+    expect(
+      isRetryableClosedFirestoreTransactionError(
+        new CanonicalCommandError('instructor_conflict', { correlationId })
+      )
+    ).toBe(false);
+  });
+
+  it('retries runTransaction with a fresh transaction after a closed-transaction commit', async () => {
+    const { firestore, runTransactionCalls } = createClosedTransactionMockFirestore(1);
+    const executor = createFirestoreCanonicalTransactionExecutor(firestore);
+
+    await expect(
+      executor.runAtomic({
+        correlationId,
+        run: async (session) => {
+          await session.tx.get({ path: 'bookings/closed_retry' });
+          return 'ok';
+        },
+      })
+    ).resolves.toBe('ok');
+
+    expect(runTransactionCalls.count).toBe(2);
+  });
+
+  it('does not retry CanonicalCommandError', async () => {
+    const { firestore, runTransactionCalls } = createClosedTransactionMockFirestore(0);
+    const executor = createFirestoreCanonicalTransactionExecutor(firestore);
+
+    await expect(
+      executor.runAtomic({
+        correlationId,
+        run: async () => {
+          throw new CanonicalCommandError('instructor_conflict', { correlationId });
+        },
+      })
+    ).rejects.toMatchObject({ code: 'instructor_conflict' });
+
+    expect(runTransactionCalls.count).toBe(1);
+  });
+
+  it('gives up after the closed-transaction retry budget', async () => {
+    const { firestore, runTransactionCalls } = createClosedTransactionMockFirestore(
+      CLOSED_FIRESTORE_TRANSACTION_RETRY_ATTEMPTS
+    );
+    const executor = createFirestoreCanonicalTransactionExecutor(firestore);
+
+    await expect(
+      executor.runAtomic({
+        correlationId,
+        run: async (session) => {
+          await session.tx.get({ path: 'bookings/closed_exhausted' });
+          return 'ok';
+        },
+      })
+    ).rejects.toThrow(/Transaction is invalid or closed/);
+
+    expect(runTransactionCalls.count).toBe(CLOSED_FIRESTORE_TRANSACTION_RETRY_ATTEMPTS);
   });
 });
 

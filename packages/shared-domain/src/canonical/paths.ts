@@ -24,6 +24,10 @@ import {
   ADMIN_PEOPLE_REVISION_DOCUMENT_ID,
 } from './adminPeopleRevision';
 import {
+  ADMIN_BOOKING_CHANGE_REQUESTS_REVISION_COLLECTION,
+  ADMIN_BOOKING_CHANGE_REQUESTS_REVISION_DOCUMENT_ID,
+} from './adminBookingChangeRequestsRevision';
+import {
   AccountIdSchema,
   ActiveCourseEnrollmentGuardKeySchema,
   ActivityLogIdSchema,
@@ -193,7 +197,9 @@ function isCanonicalDocumentPath(path: string): boolean {
       (segments[1] === ADMIN_FINANCE_REVISION_COLLECTION &&
         segments[2] === ADMIN_FINANCE_REVISION_DOCUMENT_ID) ||
       (segments[1] === ADMIN_PEOPLE_REVISION_COLLECTION &&
-        segments[2] === ADMIN_PEOPLE_REVISION_DOCUMENT_ID))
+        segments[2] === ADMIN_PEOPLE_REVISION_DOCUMENT_ID) ||
+      (segments[1] === ADMIN_BOOKING_CHANGE_REQUESTS_REVISION_COLLECTION &&
+        segments[2] === ADMIN_BOOKING_CHANGE_REQUESTS_REVISION_DOCUMENT_ID))
   ) {
     return true;
   }
@@ -279,6 +285,11 @@ export const canonicalPaths = {
     documentPath(ADMIN_FINANCE_REVISION_COLLECTION, ADMIN_FINANCE_REVISION_DOCUMENT_ID),
   adminPeopleRevision: () =>
     documentPath(ADMIN_PEOPLE_REVISION_COLLECTION, ADMIN_PEOPLE_REVISION_DOCUMENT_ID),
+  adminBookingChangeRequestsRevision: () =>
+    documentPath(
+      ADMIN_BOOKING_CHANGE_REQUESTS_REVISION_COLLECTION,
+      ADMIN_BOOKING_CHANGE_REQUESTS_REVISION_DOCUMENT_ID
+    ),
   administrativeAvailabilityBlock: (id: AdministrativeAvailabilityBlockId) =>
     documentPath('administrative_availability_blocks', id),
   resourceClaim: (id: ResourceClaimId) => documentPath('resource_claims', id),

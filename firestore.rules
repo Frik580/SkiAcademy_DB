@@ -703,7 +703,8 @@ service cloud.firestore {
     }
 
     // AdminIssue inbox, Active/Pending lesson-booking, Planner, Courses,
-    // Finance, and People invalidation signals. Canonical backend writes only.
+    // Finance, People, and booking change-request invalidation signals.
+    // Canonical backend writes only.
     match /admin_runtime/{documentId} {
       allow read: if isAdmin() && (
         documentId == 'admin_issue_inbox' ||
@@ -711,7 +712,8 @@ service cloud.firestore {
         documentId == 'admin_planner' ||
         documentId == 'admin_courses' ||
         documentId == 'admin_finance' ||
-        documentId == 'admin_people'
+        documentId == 'admin_people' ||
+        documentId == 'admin_booking_change_requests'
       );
       allow write: if false;
     }

@@ -294,10 +294,16 @@ describe('booking change request commands', () => {
       environment('2026-01-02T00:00:00.000Z')
     );
     expect(result.status).toBe('success');
+    expect(result).toMatchObject({
+      status: 'success',
+      payload: { adminBookingChangeRequestsRevision: 1 },
+    });
 
     const snapshot = executor.snapshot();
     expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe('confirmed');
     expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.revision).toBe(1);
+    expect(snapshot.docs.get('admin_runtime/admin_booking_change_requests')?.data.revision).toBe(1);
+    expect(snapshot.docs.get('admin_runtime/admin_lesson_bookings')?.data.revision).toBe(1);
     const request = snapshot.docs.get(`booking_change_requests/${changeRequestId}`)?.data;
     expect(request?.requestType).toBe('instructor_unavailable');
     expect(request?.lifecycle.status).toBe('open');
@@ -335,6 +341,7 @@ describe('booking change request commands', () => {
     if (result.status === 'error') {
       expect(result.error.code).toBe('forbidden');
     }
+    expect(executor.snapshot().docs.has('admin_runtime/admin_booking_change_requests')).toBe(false);
   });
 
   it('rejects create for non-confirmed bookings with invalid_transition unsupported', async () => {
@@ -435,6 +442,7 @@ describe('booking change request commands', () => {
     });
     expect(rescheduleResult.status).toBe('success');
     expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.revision).toBe(2);
+    expect(executor.snapshot().docs.has('admin_runtime/admin_booking_change_requests')).toBe(false);
 
     const handlers = createBookingChangeRequestCommandHandlers(executor);
     const result = await handlers.create_booking_change_request(
@@ -499,6 +507,10 @@ describe('booking change request commands', () => {
       environment('2026-01-03T00:00:00.000Z')
     );
     expect(result.status).toBe('success');
+    expect(result).toMatchObject({
+      status: 'success',
+      payload: { adminBookingChangeRequestsRevision: 2 },
+    });
 
     const snapshot = executor.snapshot();
     expect(
@@ -506,6 +518,8 @@ describe('booking change request commands', () => {
     ).toBe('cancelled');
     expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe('confirmed');
     expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.revision).toBe(1);
+    expect(snapshot.docs.get('admin_runtime/admin_booking_change_requests')?.data.revision).toBe(2);
+    expect(snapshot.docs.get('admin_runtime/admin_lesson_bookings')?.data.revision).toBe(1);
   });
 
   it('resolves with rescheduled without consuming client self-service allowance', async () => {
@@ -529,6 +543,14 @@ describe('booking change request commands', () => {
       environment('2026-01-04T00:00:00.000Z')
     );
     expect(result.status).toBe('success');
+    expect(result).toMatchObject({
+      status: 'success',
+      payload: {
+        adminBookingChangeRequestsRevision: 2,
+        adminLessonBookingsRevision: 2,
+        adminPlannerRevision: 2,
+      },
+    });
 
     const snapshot = executor.snapshot();
     const booking = snapshot.docs.get(`bookings/${bookingId}`)?.data;
@@ -579,6 +601,15 @@ describe('booking change request commands', () => {
       environment('2026-01-04T00:00:00.000Z')
     );
     expect(result.status).toBe('success');
+    expect(result).toMatchObject({
+      status: 'success',
+      payload: {
+        adminBookingChangeRequestsRevision: 2,
+        adminLessonBookingsRevision: 2,
+        adminPlannerRevision: 2,
+        adminFinanceRevision: 2,
+      },
+    });
 
     const snapshot = executor.snapshot();
     expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.lifecycle).toEqual({
@@ -620,6 +651,10 @@ describe('booking change request commands', () => {
     const snapshot = executor.snapshot();
     expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.revision).toBe(1);
     expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe('confirmed');
+    expect(snapshot.docs.get('admin_runtime/admin_booking_change_requests')?.data.revision).toBe(2);
+    expect(snapshot.docs.get('admin_runtime/admin_lesson_bookings')?.data.revision).toBe(1);
+    expect(snapshot.docs.get('admin_runtime/admin_planner')?.data.revision).toBe(1);
+    expect(snapshot.docs.get('admin_runtime/admin_finance')?.data.revision).toBe(1);
     expect(snapshot.docs.get(`booking_change_requests/${changeRequestId}`)?.data.lifecycle).toEqual(
       {
         status: 'resolved',
@@ -718,11 +753,22 @@ describe('booking change request commands', () => {
     );
     expect(first.status).toBe('success');
     expect(second.status).toBe('success');
+    expect(first).toMatchObject({
+      status: 'success',
+      payload: { adminBookingChangeRequestsRevision: 1 },
+    });
+    expect(second).toMatchObject({
+      status: 'success',
+      payload: { adminBookingChangeRequestsRevision: 1 },
+    });
     expect(
       [...executor.snapshot().docs.keys()].filter((path) =>
         path.startsWith('booking_change_requests/')
       ).length
     ).toBe(1);
+    expect(executor.snapshot().docs.get('admin_runtime/admin_booking_change_requests')?.data.revision).toBe(
+      1
+    );
   });
 
   it('rejects resolve when the change-request expectedRevision is stale', async () => {

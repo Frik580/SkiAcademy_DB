@@ -53,6 +53,7 @@ export * from './adminPlannerRevision';
 export * from './adminCoursesRevision';
 export * from './adminFinanceRevision';
 export * from './adminPeopleRevision';
+export * from './adminBookingChangeRequestsRevision';
 export * from './adminRealtimeRevisionSignal';
 export * from './deterministicIdentity';
 export * from './errors';

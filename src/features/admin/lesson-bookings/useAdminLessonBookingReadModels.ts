@@ -16,6 +16,7 @@ import type {
 import { mergeAdminLessonBookingItems } from './lessonBookingAdminUtils';
 import { registerAdminLessonBookingsRevisionListener } from './adminLessonBookingsRevisionCoordinator';
 import { useAdminFinanceRevisionRefresh } from '../finance/useAdminFinanceRevisionRefresh';
+import { useAdminBookingChangeRequestsRevisionRefresh } from '../issues/useAdminBookingChangeRequestsRevisionRefresh';
 
 const INITIAL_LIST: AdminLessonBookingListState = {
   items: [],
@@ -224,6 +225,16 @@ export function useAdminLessonBookingReadModels(input: {
   }, [enabled, view]);
 
   useAdminFinanceRevisionRefresh(
+    () => {
+      const bookingId = selectedBookingRef.current;
+      if (bookingId) {
+        void loadDetailRef.current(bookingId, true);
+      }
+    },
+    enabled && view !== 'history' && Boolean(selectedBookingId)
+  );
+
+  useAdminBookingChangeRequestsRevisionRefresh(
     () => {
       const bookingId = selectedBookingRef.current;
       if (bookingId) {

@@ -6,6 +6,7 @@ import {
   type BookingChangeRequestId,
 } from '@ski-academy/shared-domain';
 import { queryBookingChangeRequestReadModels } from '../../../lib/canonical/canonicalReadModelClient';
+import { useAdminBookingChangeRequestsRevisionRefresh } from './useAdminBookingChangeRequestsRevisionRefresh';
 import {
   classifyAdminIssueReadError,
   type AdminIssueReadErrorCode,
@@ -58,61 +59,85 @@ export function useAdminAttentionChangeRequests(
   const { enabled, selectedRequestId } = input;
   const listRequestGeneration = useRef(0);
   const detailRequestGeneration = useRef(0);
+  const selectedRequestIdRef = useRef(selectedRequestId);
+  selectedRequestIdRef.current = selectedRequestId;
   const [list, setList] = useState<AttentionChangeRequestListState>(INITIAL_LIST_STATE);
   const [detail, setDetail] = useState<AttentionChangeRequestDetailState>(INITIAL_DETAIL_STATE);
 
-  const loadList = useCallback(async () => {
-    const generation = ++listRequestGeneration.current;
-    if (!enabled) return;
-    setList((current) => ({
-      ...INITIAL_LIST_STATE,
-      items: current.items,
-      loading: true,
-      error: undefined,
-    }));
-    try {
-      const result = await queryBookingChangeRequestReadModels({ scope: 'admin_open' });
-      if (listRequestGeneration.current !== generation || result.scope !== 'admin_open') {
-        return;
-      }
-      setList({
-        items: result.items,
-        loading: false,
-      });
-    } catch (error) {
-      if (listRequestGeneration.current !== generation) return;
+  const loadList = useCallback(
+    async (quiet = false) => {
+      const generation = ++listRequestGeneration.current;
+      if (!enabled) return;
       setList((current) => ({
-        ...current,
-        loading: false,
-        error: classifyAdminIssueReadError(error),
+        ...INITIAL_LIST_STATE,
+        items: current.items,
+        loading: !quiet,
+        error: undefined,
       }));
-    }
-  }, [enabled]);
+      try {
+        const result = await queryBookingChangeRequestReadModels({ scope: 'admin_open' });
+        if (listRequestGeneration.current !== generation || result.scope !== 'admin_open') {
+          return;
+        }
+        setList({
+          items: result.items,
+          loading: false,
+        });
+      } catch (error) {
+        if (listRequestGeneration.current !== generation) return;
+        setList((current) => ({
+          ...current,
+          loading: false,
+          error: classifyAdminIssueReadError(error),
+        }));
+      }
+    },
+    [enabled]
+  );
 
-  const loadDetail = useCallback(async () => {
-    const generation = ++detailRequestGeneration.current;
-    if (!enabled || !selectedRequestId) {
-      setDetail(INITIAL_DETAIL_STATE);
-      return;
-    }
-    setDetail({ loading: true });
-    try {
-      const result = await queryBookingChangeRequestReadModels({
-        scope: 'admin_detail',
-        requestId: selectedRequestId,
-      });
-      if (detailRequestGeneration.current !== generation || result.scope !== 'admin_detail') {
+  const loadDetail = useCallback(
+    async (requestId = selectedRequestIdRef.current, quiet = false) => {
+      const generation = ++detailRequestGeneration.current;
+      if (!enabled || !requestId) {
+        setDetail(INITIAL_DETAIL_STATE);
         return;
       }
-      setDetail({ item: result.item, loading: false });
-    } catch (error) {
-      if (detailRequestGeneration.current !== generation) return;
-      setDetail({
-        loading: false,
-        error: classifyAdminIssueReadError(error),
-      });
-    }
-  }, [enabled, selectedRequestId]);
+      if (!quiet) {
+        setDetail({ loading: true });
+      }
+      try {
+        const result = await queryBookingChangeRequestReadModels({
+          scope: 'admin_detail',
+          requestId,
+        });
+        if (
+          detailRequestGeneration.current !== generation ||
+          selectedRequestIdRef.current !== requestId ||
+          result.scope !== 'admin_detail'
+        ) {
+          return;
+        }
+        setDetail({ item: result.item, loading: false });
+      } catch (error) {
+        if (
+          detailRequestGeneration.current !== generation ||
+          selectedRequestIdRef.current !== requestId
+        ) {
+          return;
+        }
+        setDetail({
+          loading: false,
+          error: classifyAdminIssueReadError(error),
+        });
+      }
+    },
+    [enabled]
+  );
+
+  const loadListRef = useRef(loadList);
+  loadListRef.current = loadList;
+  const loadDetailRef = useRef(loadDetail);
+  loadDetailRef.current = loadDetail;
 
   useEffect(() => {
     if (!enabled) {
@@ -127,16 +152,27 @@ export function useAdminAttentionChangeRequests(
   }, [enabled, loadList]);
 
   useEffect(() => {
-    void loadDetail();
+    void loadDetail(selectedRequestId);
     return () => {
       detailRequestGeneration.current += 1;
     };
-  }, [loadDetail]);
+  }, [loadDetail, selectedRequestId]);
+
+  useAdminBookingChangeRequestsRevisionRefresh(
+    () => {
+      void loadListRef.current(true);
+      const requestId = selectedRequestIdRef.current;
+      if (requestId) {
+        void loadDetailRef.current(requestId, true);
+      }
+    },
+    enabled
+  );
 
   return {
     list,
     detail,
-    retryList: loadList,
-    retryDetail: loadDetail,
+    retryList: () => loadList(),
+    retryDetail: () => loadDetail(),
   };
 }

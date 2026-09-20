@@ -370,6 +370,7 @@ describe('executeIdempotentCanonicalCommand', () => {
       1
     );
     expect(executor.snapshot().docs.has('admin_runtime/admin_planner')).toBe(false);
+    expect(executor.snapshot().docs.has('admin_runtime/admin_booking_change_requests')).toBe(false);
   });
 
   it('bumps admin planner revision once for planned schedule writes', async () => {
@@ -412,12 +413,19 @@ describe('executeIdempotentCanonicalCommand', () => {
 
     expect(result).toMatchObject({
       status: 'success',
-      payload: { adminLessonBookingsRevision: 1, adminPlannerRevision: 1 },
+      payload: {
+        adminLessonBookingsRevision: 1,
+        adminPlannerRevision: 1,
+        adminBookingChangeRequestsRevision: 1,
+      },
     });
     expect(executor.snapshot().docs.get('admin_runtime/admin_lesson_bookings')?.data.revision).toBe(
       1
     );
     expect(executor.snapshot().docs.get('admin_runtime/admin_planner')?.data.revision).toBe(1);
+    expect(
+      executor.snapshot().docs.get('admin_runtime/admin_booking_change_requests')?.data.revision
+    ).toBe(1);
     expect(executor.snapshot().docs.has('admin_runtime/admin_finance')).toBe(false);
   });
 
@@ -655,6 +663,7 @@ describe('executeIdempotentCanonicalCommand', () => {
     }
     expect(executor.snapshot().docs.has('admin_runtime/admin_lesson_bookings')).toBe(false);
     expect(executor.snapshot().docs.has('admin_runtime/admin_planner')).toBe(false);
+    expect(executor.snapshot().docs.has('admin_runtime/admin_booking_change_requests')).toBe(false);
   });
 
   it('bumps admin finance revision once for multiple payment and wallet writes', async () => {
@@ -1069,5 +1078,227 @@ describe('executeIdempotentCanonicalCommand', () => {
 
     expect(result.status).toBe('error');
     expect(executor.snapshot().docs.has('admin_runtime/admin_people')).toBe(false);
+  });
+
+  it('bumps admin booking change-request revision once for request writes', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor();
+    const changeRequestPath = 'booking_change_requests/cr_idem_fn_01';
+
+    const result = await executeIdempotentCanonicalCommand({
+      envelope: {
+        kind: 'create_booking_change_request',
+        context: {
+          actor: accountCommandActor(accountId),
+          exercisedCapability: 'account_owner',
+          idempotencyKey: 'idem-admin-change-request-rev-01',
+          correlationId,
+          source: 'client_callable',
+        },
+        intent: {
+          bookingChangeRequestId: 'booking_change_request_idem_fn_01',
+          bookingId: BookingIdSchema.parse('booking_idem_fn_01'),
+          reason: 'Instructor cannot deliver the confirmed occurrence.',
+        },
+      } as CommandEnvelope<'create_booking_change_request'>,
+      environment: environment('2026-01-01T00:00:00.000Z'),
+      executor,
+      handler: {
+        read: async (session) => {
+          session.plan.planMutation({
+            path: changeRequestPath,
+            kind: 'create',
+            category: 'aggregate',
+            estimatedPayloadBytes: 256,
+          });
+          session.plan.planMutation({
+            path: 'booking_change_requests/cr_idem_fn_sibling',
+            kind: 'update',
+            category: 'aggregate',
+            estimatedPayloadBytes: 256,
+          });
+        },
+        execute: async (session) => {
+          session.tx.create({ path: changeRequestPath }, { revision: 1 });
+          return commandSuccessResult('create_booking_change_request', correlationId);
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'success',
+      payload: { adminBookingChangeRequestsRevision: 1 },
+    });
+    expect(
+      executor.snapshot().docs.get('admin_runtime/admin_booking_change_requests')?.data.revision
+    ).toBe(1);
+    expect(executor.snapshot().docs.has('admin_runtime/admin_lesson_bookings')).toBe(false);
+    expect(executor.snapshot().docs.has('admin_runtime/admin_planner')).toBe(false);
+    expect(executor.snapshot().docs.has('admin_runtime/admin_finance')).toBe(false);
+  });
+
+  it('does not bump booking change-request revision for payment-only or attendance-only writes', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor();
+
+    const paymentResult = await executeIdempotentCanonicalCommand({
+      envelope: {
+        kind: 'record_provider_payment_event',
+        context: {
+          actor: accountCommandActor(accountId),
+          exercisedCapability: 'account_owner',
+          idempotencyKey: 'idem-admin-change-request-rev-pay-01',
+          correlationId,
+          source: 'client_callable',
+        },
+        intent: {
+          paymentId: 'payment_idem_fn_01',
+        },
+      } as CommandEnvelope<'record_provider_payment_event'>,
+      environment: environment('2026-01-01T00:00:00.000Z'),
+      executor,
+      handler: {
+        read: async (session) => {
+          session.plan.planMutation({
+            path: 'payments/pay_idem_change_request_01',
+            kind: 'update',
+            category: 'payment_wallet',
+            estimatedPayloadBytes: 256,
+          });
+        },
+        execute: async (session) => {
+          session.tx.create({ path: 'payments/pay_idem_change_request_01' }, { amount: 1 });
+          return commandSuccessResult('record_provider_payment_event', correlationId);
+        },
+      },
+    });
+
+    expect(paymentResult.status).toBe('success');
+    expect(executor.snapshot().docs.has('admin_runtime/admin_booking_change_requests')).toBe(false);
+
+    const attendanceResult = await executeIdempotentCanonicalCommand({
+      envelope: envelope('idem-admin-change-request-rev-att-01', 1),
+      environment: environment('2026-01-01T00:00:00.000Z'),
+      executor,
+      handler: {
+        read: async (session) => {
+          session.plan.planMutation({
+            path: 'attendance/att_idem_change_request_01',
+            kind: 'create',
+            category: 'aggregate',
+            estimatedPayloadBytes: 256,
+          });
+        },
+        execute: async (session) => {
+          session.tx.create({ path: 'attendance/att_idem_change_request_01' }, { status: 'present' });
+          return commandSuccessResult('complete_booking', correlationId);
+        },
+      },
+    });
+
+    expect(attendanceResult.status).toBe('success');
+    expect(executor.snapshot().docs.has('admin_runtime/admin_booking_change_requests')).toBe(false);
+  });
+
+  it('does not bump booking change-request revision when the request command fails', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor();
+
+    const result = await executeIdempotentCanonicalCommand({
+      envelope: {
+        kind: 'withdraw_booking_change_request',
+        context: {
+          actor: accountCommandActor(accountId),
+          exercisedCapability: 'account_owner',
+          idempotencyKey: 'idem-admin-change-request-rev-fail-01',
+          correlationId,
+          source: 'client_callable',
+        },
+        intent: {
+          bookingChangeRequestId: 'booking_change_request_idem_fail_01',
+        },
+      } as CommandEnvelope<'withdraw_booking_change_request'>,
+      environment: environment('2026-01-01T00:00:00.000Z'),
+      executor,
+      handler: {
+        read: async (session) => {
+          session.plan.planMutation({
+            path: 'booking_change_requests/cr_idem_fail_01',
+            kind: 'update',
+            category: 'aggregate',
+            estimatedPayloadBytes: 256,
+          });
+        },
+        execute: async () =>
+          commandErrorResult('withdraw_booking_change_request', correlationId, {
+            code: 'validation',
+            message: 'The request is invalid.',
+            retryable: false,
+            correlationId,
+          }),
+      },
+    });
+
+    expect(result.status).toBe('error');
+    expect(executor.snapshot().docs.has('admin_runtime/admin_booking_change_requests')).toBe(false);
+  });
+
+  it('does not bump booking change-request revision again on idempotent replay', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor();
+    const changeRequestPath = 'booking_change_requests/cr_idem_replay_01';
+    const commandEnvelope = {
+      kind: 'create_booking_change_request',
+      context: {
+        actor: accountCommandActor(accountId),
+        exercisedCapability: 'account_owner',
+        idempotencyKey: 'idem-admin-change-request-rev-replay-01',
+        correlationId,
+        source: 'client_callable',
+      },
+      intent: {
+        bookingChangeRequestId: 'booking_change_request_idem_replay_01',
+        bookingId: BookingIdSchema.parse('booking_idem_fn_01'),
+        reason: 'Instructor cannot deliver the confirmed occurrence.',
+      },
+    } as CommandEnvelope<'create_booking_change_request'>;
+
+    const handler = {
+      read: async (session: {
+        plan: { planMutation: (input: Record<string, unknown>) => void };
+      }) => {
+        session.plan.planMutation({
+          path: changeRequestPath,
+          kind: 'create',
+          category: 'aggregate',
+          estimatedPayloadBytes: 256,
+        });
+      },
+      execute: async (session: { tx: { create: (ref: { path: string }, data: object) => void } }) => {
+        session.tx.create({ path: changeRequestPath }, { revision: 1 });
+        return commandSuccessResult('create_booking_change_request', correlationId);
+      },
+    };
+
+    const first = await executeIdempotentCanonicalCommand({
+      envelope: commandEnvelope,
+      environment: environment('2026-01-01T00:00:00.000Z'),
+      executor,
+      handler,
+    });
+    const second = await executeIdempotentCanonicalCommand({
+      envelope: commandEnvelope,
+      environment: environment('2026-01-02T00:00:00.000Z'),
+      executor,
+      handler,
+    });
+
+    expect(first).toMatchObject({
+      status: 'success',
+      payload: { adminBookingChangeRequestsRevision: 1 },
+    });
+    expect(second).toMatchObject({
+      status: 'success',
+      payload: { adminBookingChangeRequestsRevision: 1 },
+    });
+    expect(
+      executor.snapshot().docs.get('admin_runtime/admin_booking_change_requests')?.data.revision
+    ).toBe(1);
   });
 });

@@ -362,6 +362,7 @@ canonicalPaths.adminLessonBookingsRevision();
 canonicalPaths.adminPlannerRevision();
 canonicalPaths.adminCoursesRevision();
 canonicalPaths.adminFinanceRevision();
+canonicalPaths.adminBookingChangeRequestsRevision();
 
 // @ts-expect-error A CourseEnrollment ID cannot address a Booking document.
 canonicalPaths.booking(courseEnrollmentId);

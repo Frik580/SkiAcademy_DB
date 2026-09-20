@@ -8,6 +8,8 @@ const unregisterMock = vi.fn();
 const registerFromCommandMock = vi.fn();
 const registerFinanceListenerMock = vi.fn();
 const unregisterFinanceMock = vi.fn();
+const registerChangeRequestListenerMock = vi.fn();
+const unregisterChangeRequestMock = vi.fn();
 
 vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
   queryLessonBookingReadModels: (...args: unknown[]) => queryMock(...args),
@@ -32,6 +34,13 @@ vi.mock('../../src/features/admin/finance/adminFinanceRevisionCoordinator', () =
   resetAdminFinanceRevisionCoordinatorForTests: vi.fn(),
 }));
 
+vi.mock('../../src/features/admin/issues/adminBookingChangeRequestsRevisionCoordinator', () => ({
+  registerAdminBookingChangeRequestsRevisionListener: (...args: unknown[]) =>
+    registerChangeRequestListenerMock(...args),
+  registerAdminBookingChangeRequestsRevisionFromCommand: vi.fn(),
+  resetAdminBookingChangeRequestsRevisionCoordinatorForTests: vi.fn(),
+}));
+
 import { applyAdminLessonBookingsCommandResult } from '../../src/features/admin/lesson-bookings/adminLessonBookingsLocalSync';
 import { useAdminLessonBookingReadModels } from '../../src/features/admin/lesson-bookings/useAdminLessonBookingReadModels';
 
@@ -51,8 +60,11 @@ describe('useAdminLessonBookingReadModels realtime invalidation', () => {
     registerFromCommandMock.mockReset();
     registerFinanceListenerMock.mockReset();
     unregisterFinanceMock.mockReset();
+    registerChangeRequestListenerMock.mockReset();
+    unregisterChangeRequestMock.mockReset();
     registerListenerMock.mockImplementation(() => unregisterMock);
     registerFinanceListenerMock.mockImplementation(() => unregisterFinanceMock);
+    registerChangeRequestListenerMock.mockImplementation(() => unregisterChangeRequestMock);
   });
 
   it('does not refresh on the initial revision snapshot, then refreshes once', async () => {
@@ -161,7 +173,7 @@ describe('useAdminLessonBookingReadModels realtime invalidation', () => {
     });
   });
 
-  it('does not subscribe to finance revision without a mounted booking detail', async () => {
+  it('does not subscribe to finance or change-request revision without a mounted booking detail', async () => {
     queryMock.mockResolvedValue({
       scope: 'admin_hot',
       items: [],
@@ -170,5 +182,40 @@ describe('useAdminLessonBookingReadModels realtime invalidation', () => {
     renderHook(() => useAdminLessonBookingReadModels({ enabled: true, view: 'hot' }));
     await waitFor(() => expect(queryMock).toHaveBeenCalledTimes(1));
     expect(registerFinanceListenerMock).not.toHaveBeenCalled();
+    expect(registerChangeRequestListenerMock).not.toHaveBeenCalled();
+  });
+
+  it('refreshes only the mounted booking detail after a change-request revision', async () => {
+    const selectedId = 'booking_admin_realtime_01';
+    queryMock.mockImplementation(async (input: { scope: string }) => {
+      if (input.scope === 'admin_detail') {
+        return { scope: 'admin_detail', items: [booking(selectedId, 2)] };
+      }
+      return { scope: 'admin_hot', items: [booking(selectedId, 1)], hasMore: false };
+    });
+    let emitChangeRequest: (() => void) | undefined;
+    registerChangeRequestListenerMock.mockImplementation((listener: () => void) => {
+      emitChangeRequest = listener;
+      return unregisterChangeRequestMock;
+    });
+
+    renderHook(() =>
+      useAdminLessonBookingReadModels({
+        enabled: true,
+        view: 'hot',
+        selectedBookingId: selectedId as LessonBookingReadModel['bookingId'],
+      })
+    );
+    await waitFor(() => expect(queryMock).toHaveBeenCalledTimes(2));
+    expect(registerChangeRequestListenerMock).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      emitChangeRequest?.();
+    });
+    await waitFor(() => expect(queryMock).toHaveBeenCalledTimes(3));
+    expect(queryMock.mock.calls[2]?.[0]).toMatchObject({
+      scope: 'admin_detail',
+      bookingId: selectedId,
+    });
   });
 });

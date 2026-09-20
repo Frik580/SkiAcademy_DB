@@ -8,3 +8,4 @@ export * from './executeCanonicalCommandCallable';
 export * from './executeGuestCanonicalCommandCallable';
 export * from './idempotentCommandExecution';
 export * from './mapCommandError';
+export * from '../testSessions';

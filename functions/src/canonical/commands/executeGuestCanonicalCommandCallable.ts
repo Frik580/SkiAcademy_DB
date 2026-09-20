@@ -2,6 +2,7 @@ import { HttpsError, type CallableRequest } from 'firebase-functions/v2/https';
 import type { Firestore } from 'firebase-admin/firestore';
 import {
   CorrelationIdSchema,
+  LIVE_CANONICAL_EXECUTION_SCOPE,
   type CommandKind,
   type CommandResult,
 } from '@ski-academy/shared-domain';
@@ -37,7 +38,7 @@ export function createExecuteGuestCanonicalCommandHandler(firestore: Firestore) 
     }
 
     const envelope = buildGuestCommandEnvelopeFromCallable(guestSubjectId, transportInput);
-    const commands = runtime.createCommands();
+    const commands = runtime.createCommands(LIVE_CANONICAL_EXECUTION_SCOPE);
 
     try {
       const result = await commands.execute(envelope);

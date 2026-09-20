@@ -56,6 +56,7 @@ import {
   ReviewIdSchema,
   ResourceClaimGuardIdSchema,
   ResourceClaimIdSchema,
+  TestSessionIdSchema,
   activeCourseEnrollmentGuardKey,
   type AccountId,
   type ActivityLogId,
@@ -84,6 +85,7 @@ import {
   type ReviewId,
   type ResourceClaimGuardId,
   type ResourceClaimId,
+  type TestSessionId,
 } from './identifiers';
 
 declare const canonicalCollectionPathBrand: unique symbol;
@@ -130,6 +132,9 @@ export const CANONICAL_COLLECTIONS = {
   notifications: 'notifications',
   monetaryEvents: 'monetary_events',
   providerEventReceipts: 'provider_event_receipts',
+  testSessions: 'test_sessions',
+  testActors: 'test_actors',
+  testActorAssignments: 'test_actor_assignments',
 } as const;
 
 const topLevelDocumentSchemas: Readonly<Record<string, z.ZodType<string>>> = {
@@ -164,6 +169,9 @@ const topLevelDocumentSchemas: Readonly<Record<string, z.ZodType<string>>> = {
   notifications: NotificationIdSchema,
   monetary_events: MonetaryEventIdSchema,
   provider_event_receipts: ProviderEventReceiptIdSchema,
+  test_sessions: TestSessionIdSchema,
+  test_actors: AccountIdSchema,
+  test_actor_assignments: AccountIdSchema,
 };
 
 const topLevelCollections = new Set<string>(Object.values(CANONICAL_COLLECTIONS));
@@ -177,6 +185,9 @@ function isCanonicalCollectionPath(path: string): boolean {
   }
   if (segments.length === 4 && segments[1] === 'users' && segments[3] === 'wallet') {
     return AccountIdSchema.safeParse(segments[2]).success;
+  }
+  if (segments.length === 4 && segments[1] === 'test_sessions' && segments[3] === 'membership') {
+    return TestSessionIdSchema.safeParse(segments[2]).success;
   }
   return false;
 }
@@ -220,6 +231,12 @@ function isCanonicalDocumentPath(path: string): boolean {
     segments[4] === 'state'
   ) {
     return AccountIdSchema.safeParse(segments[2]).success;
+  }
+  if (segments.length === 5 && segments[1] === 'test_sessions' && segments[3] === 'membership') {
+    return (
+      TestSessionIdSchema.safeParse(segments[2]).success &&
+      AccountIdSchema.safeParse(segments[4]).success
+    );
   }
   return false;
 }
@@ -305,4 +322,14 @@ export const canonicalPaths = {
   notification: (id: NotificationId) => documentPath('notifications', id),
   monetaryEvent: (id: MonetaryEventId) => documentPath('monetary_events', id),
   providerEventReceipt: (id: ProviderEventReceiptId) => documentPath('provider_event_receipts', id),
+  testSessions: () => '/test_sessions' as CanonicalCollectionPath,
+  testSession: (id: TestSessionId) => documentPath('test_sessions', id),
+  testSessionMembership: (id: TestSessionId) =>
+    `/test_sessions/${id}/membership` as CanonicalCollectionPath,
+  testSessionMember: (testSessionId: TestSessionId, accountId: AccountId) =>
+    `/test_sessions/${testSessionId}/membership/${accountId}` as CanonicalDocumentPath,
+  testActors: () => '/test_actors' as CanonicalCollectionPath,
+  testActor: (accountId: AccountId) => documentPath('test_actors', accountId),
+  testActorAssignments: () => '/test_actor_assignments' as CanonicalCollectionPath,
+  testActorAssignment: (accountId: AccountId) => documentPath('test_actor_assignments', accountId),
 } as const;

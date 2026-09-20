@@ -15,9 +15,12 @@ export const FORBIDDEN_AUTHORITATIVE_INTENT_FIELDS = [
   'monetaryEvent',
   'monetaryEvents',
   'auditRecord',
+  'dataScope',
+  'testSessionId',
 ] as const;
 
-export type ForbiddenAuthoritativeIntentField = (typeof FORBIDDEN_AUTHORITATIVE_INTENT_FIELDS)[number];
+export type ForbiddenAuthoritativeIntentField =
+  (typeof FORBIDDEN_AUTHORITATIVE_INTENT_FIELDS)[number];
 
 export interface ForbiddenFieldPath {
   readonly path: string;

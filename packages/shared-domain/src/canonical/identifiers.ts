@@ -36,6 +36,7 @@ export const CANONICAL_ID_KINDS = [
   'guest_subject',
   'system_actor',
   'provider',
+  'test_session',
 ] as const;
 
 export type CanonicalIdKind = (typeof CANONICAL_ID_KINDS)[number];
@@ -93,6 +94,10 @@ export const IncrementalRequirementIdSchema = canonicalIdSchema('incremental_req
 export const GuestSubjectIdSchema = canonicalIdSchema('guest_subject');
 export const SystemActorIdSchema = canonicalIdSchema('system_actor');
 export const ProviderIdSchema = canonicalIdSchema('provider');
+export const TestSessionIdSchema = CanonicalOpaqueIdSchema.refine(
+  (value) => /^test_[A-Za-z0-9][A-Za-z0-9_-]{0,122}$/.test(value),
+  'TestSession ID must use the test_ prefix'
+).transform((value) => value as CanonicalId<'test_session'>);
 export const LessonPricingSettingsIdSchema = z.literal('lesson_booking');
 
 export type AccountId = z.output<typeof AccountIdSchema>;
@@ -128,6 +133,7 @@ export type CausationId = z.output<typeof CausationIdSchema>;
 export type OccurrenceId = z.output<typeof OccurrenceIdSchema>;
 export type IncrementalRequirementId = z.output<typeof IncrementalRequirementIdSchema>;
 export type GuestSubjectId = z.output<typeof GuestSubjectIdSchema>;
+export type TestSessionId = z.output<typeof TestSessionIdSchema>;
 export type SystemActorId = z.output<typeof SystemActorIdSchema>;
 export type ProviderId = z.output<typeof ProviderIdSchema>;
 export type LessonPricingSettingsId = z.output<typeof LessonPricingSettingsIdSchema>;

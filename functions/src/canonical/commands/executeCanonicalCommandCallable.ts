@@ -1,6 +1,11 @@
 import { HttpsError, type CallableRequest } from 'firebase-functions/v2/https';
 import type { Firestore } from 'firebase-admin/firestore';
-import type { CommandKind, CommandResult } from '@ski-academy/shared-domain';
+import type {
+  CanonicalExecutionScope,
+  CommandKind,
+  CommandResult,
+} from '@ski-academy/shared-domain';
+import { TestSessionPolicyError } from '@ski-academy/shared-domain';
 import {
   buildCommandEnvelopeFromCallable,
   type CallableCommandTransportInput,
@@ -20,6 +25,11 @@ import {
   type CallableAccountProfile,
 } from './resolveCallableAccountContext';
 import { parseAccount } from '../participantAccess/participantAccessStore';
+import {
+  CanonicalExecutionScopeError,
+  createFirestoreCanonicalExecutionScopeStore,
+  resolveCanonicalExecutionScope,
+} from '../testSessions';
 
 function readCallableAccountProfile(
   data: Record<string, unknown> | undefined
@@ -45,10 +55,42 @@ function mapCallableContextError(error: unknown): never {
   throw error;
 }
 
+function mapExecutionScopeError(error: unknown): never {
+  if (error instanceof CanonicalExecutionScopeError) {
+    const invalidArgument = error.code === 'TEST_SESSION_ID_INVALID';
+    const permissionDenied =
+      error.code === 'TEST_SESSION_FORBIDDEN' ||
+      error.code === 'TEST_ACTOR_DISABLED' ||
+      error.code === 'TEST_ACTOR_REQUEST_FORBIDDEN' ||
+      error.code === 'TEST_ACTOR_ACCOUNT_INACTIVE';
+    throw new HttpsError(
+      invalidArgument
+        ? 'invalid-argument'
+        : permissionDenied
+          ? 'permission-denied'
+          : 'failed-precondition',
+      invalidArgument
+        ? 'The requested Test Session ID is invalid.'
+        : permissionDenied
+          ? 'This Test Session context is not permitted.'
+          : 'The Test Session context is unavailable.',
+      { code: error.code }
+    );
+  }
+  if (error instanceof TestSessionPolicyError) {
+    throw new HttpsError('failed-precondition', 'The Test Session is not active.', {
+      code: error.code,
+      ...(error.status === undefined ? {} : { status: error.status }),
+    });
+  }
+  throw error;
+}
+
 export function createExecuteCanonicalCommandHandler(firestore: Firestore) {
   const runtime = createCanonicalCommandRuntime(firestore, {
     guestActionTokenSecret: readGuestActionTokenSecret(),
   });
+  const executionScopeStore = createFirestoreCanonicalExecutionScopeStore(firestore);
 
   return async (
     request: CallableRequest<
@@ -66,6 +108,7 @@ export function createExecuteCanonicalCommandHandler(firestore: Firestore) {
     const userSnap = await firestore.collection('users').doc(request.auth.uid).get();
     const userData = userSnap.data() as Record<string, unknown> | undefined;
     const profile = readCallableAccountProfile(userData);
+    const account = parseAccount(userData);
 
     let accountContext;
     try {
@@ -83,19 +126,29 @@ export function createExecuteCanonicalCommandHandler(firestore: Firestore) {
       throw new HttpsError('permission-denied', 'This action is not permitted.');
     }
     if (accountContext.capability === 'administrator') {
-      const account = parseAccount(userData);
       if (!account || account.lifecycle.status !== 'active') {
         throw new HttpsError('permission-denied', 'This action is not permitted.');
       }
     } else if (accountContext.source === 'client_callable') {
-      const account = parseAccount(userData);
       if (account?.lifecycle.status === 'disabled') {
         throw new HttpsError('permission-denied', 'This action is not permitted.');
       }
     }
 
+    let executionScope: CanonicalExecutionScope;
+    try {
+      executionScope = await resolveCanonicalExecutionScope(executionScopeStore, {
+        accountId: accountContext.accountId,
+        accountLifecycleStatus: account?.lifecycle.status,
+        isAdministrator: isAdministratorProfile(profile),
+        requestedTestSessionId: transportInput.requestedTestSessionId,
+      });
+    } catch (error) {
+      mapExecutionScopeError(error);
+    }
+
     const envelope = buildCommandEnvelopeFromCallable(accountContext, transportInput);
-    const commands = runtime.createCommands();
+    const commands = runtime.createCommands(executionScope);
 
     try {
       const result = await commands.execute(envelope);

@@ -176,6 +176,10 @@ export function parseAuthenticatedCallableCommandTransportInput<Kind extends Com
   if (!data || typeof data !== 'object') {
     throw new Error('Callable payload is required.');
   }
+  const record = data as unknown as Record<string, unknown>;
+  if ('dataScope' in record || 'testSessionId' in record) {
+    throw new HttpsError('invalid-argument', 'Authoritative scope fields are not accepted.');
+  }
   return data as CallableCommandTransportInput<Kind> & {
     readonly exercisedCapability?: unknown;
     readonly administratorContext?: unknown;

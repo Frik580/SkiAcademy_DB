@@ -611,8 +611,11 @@ T32.9A.9A — PASS / CLOSED (F1 / F2 / F3 / F4 / final integration smoke)
 → Canonical migration — COMPLETE
 → T42A (Canonical Test Sessions architecture / preflight) — COMPLETE / APPROVED FOR T42B
   code/deploy/migration/production writes = NO
-→ CURRENT T42 / NEXT T42B-0 (fresh read-only production inventory; T42A counts are stale)
-→ T42B-1 … T42B-9 — PLANNED IMPLEMENTATION (not implemented)
+→ T42B-0 (Post-T41 rebase + fresh read-only production inventory) — COMPLETE (2026-09-20)
+  T42A counts remain HISTORICAL / STALE; current production transactional collections are empty
+→ T42B-1 (Core Test Session plumbing) — IMPLEMENTED / VALIDATED (source-only; deploy/migration/production writes = NO)
+→ CURRENT / NEXT T42B-2 (scoped writers, key v2, outbox/work and scheduler inheritance; wait for owner approval)
+→ T42B-3 … T42B-9 — PLANNED IMPLEMENTATION
 → T43 — Test Session Guest Support — FUTURE
 ```
 
@@ -620,13 +623,13 @@ T32.9A.9A — PASS / CLOSED (F1 / F2 / F3 / F4 / final integration smoke)
 
 Canonical Booking owns lifecycle, not progress/presentation/feedback/reviews data by default. Chat/Homework currently stored at `bookings/{threadId}/messages` must not be deleted with legacy Booking parents without an approved 9P policy. This does not reopen accepted domain or security decisions. A full empty-database reset remains nonproduction architectural rehearsal only. Future live-project testing uses Test Sessions ([ADR-0010](docs/adr/0010-canonical-test-sessions-and-live-test-data-isolation.md)), which are approved and not yet implemented.
 
-## Canonical Test Sessions (approved architecture, not implemented)
+## Canonical Test Sessions (core plumbing implemented; not usable in production)
 
 T42 keeps one Firebase project (`ski-school-8f3ca`) and isolates test work with a server-authoritative `dataScope` of `live` or `test`. TEST transactional records also require `testSessionId`. There is no global `TEST_MODE`. Live users continue to create LIVE data while a Test Session is active. Test identity uses persistent dedicated Auth accounts and canonical test Accounts/Participants, not disposable Auth users and not real customers.
 
 T42 v1 covers authenticated Owner/Admin, Test Student, Test Parent, and Test Instructor. TEST guest flows are **T43**. Same canonical collections; no parallel `test_*` domain mirrors. LIVE Course capacity and LIVE Instructor occupancy must not change because of test work. Scope belongs in uniqueness/idempotency keys. LIVE Wallets, live Starter Credit, live progress, live reviews, and live homework must not be affected by TEST operations.
 
-This section is **APPROVED DESIGN**. Test Sessions cannot be created yet. Full invariants: [ADR-0010](docs/adr/0010-canonical-test-sessions-and-live-test-data-isolation.md). Status: [T42_CANONICAL_TEST_SESSIONS.md](docs/T42_CANONICAL_TEST_SESSIONS.md).
+T42B-1 source plumbing is implemented, but Test Sessions cannot be created or used in production yet. No production Test Actor registry, `dataScope` migration, Rules, indexes, or scoped aggregate writes exist. Owner correction: Account `F5mwFT8KvAOkYHxlElpagT1yftr1` (`ksusha@test.ru`) is the approved future persistent Test Parent; email is never classification authority and no migration has run. Full invariants: [ADR-0010](docs/adr/0010-canonical-test-sessions-and-live-test-data-isolation.md). Status: [T42_CANONICAL_TEST_SESSIONS.md](docs/T42_CANONICAL_TEST_SESSIONS.md).
 
 ## Clean-rewrite and cutover risks
 

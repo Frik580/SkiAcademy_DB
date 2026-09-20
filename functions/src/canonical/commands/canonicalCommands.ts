@@ -10,6 +10,7 @@ import {
   type CommandKind,
   type CommandResult,
   commandErrorResult,
+  withCanonicalExecutionScope,
 } from '@ski-academy/shared-domain';
 
 const MALFORMED_ENVELOPE_CORRELATION_ID = CorrelationIdSchema.parse(
@@ -125,8 +126,10 @@ function unavailableErrorResult<Kind extends CommandKind>(
 
 export function createCanonicalCommands(
   handlers: CommandHandlerMap,
-  environment: CommandExecutionEnvironment
+  environment: Pick<CommandExecutionEnvironment, 'clock'> &
+    Partial<Pick<CommandExecutionEnvironment, 'scope'>>
 ): CanonicalCommands {
+  const scopedEnvironment = withCanonicalExecutionScope(environment, environment.scope);
   return {
     async execute<Kind extends CommandKind>(
       envelope: CommandEnvelope<Kind>
@@ -148,7 +151,7 @@ export function createCanonicalCommands(
       }
 
       try {
-        return await handler(normalized, environment);
+        return await handler(normalized, scopedEnvironment);
       } catch (error) {
         if (error instanceof CanonicalCommandError) {
           return commandErrorResult(

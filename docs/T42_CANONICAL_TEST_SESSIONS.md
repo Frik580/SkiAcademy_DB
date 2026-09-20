@@ -2,7 +2,7 @@
 
 Date: 2026-09-20
 
-Status: **IN PROGRESS / READY FOR T42B**
+Status: **IN PROGRESS / T42B-1 IMPLEMENTED + VALIDATED / NEXT T42B-2**
 
 This document is the living T42 status and implementation plan. Architecture
 authority is [ADR-0010](adr/0010-canonical-test-sessions-and-live-test-data-isolation.md).
@@ -40,10 +40,13 @@ DONE  T42A — architecture / preflight COMPLETE
         migration = NO
         production writes = NO
 
-CURRENT  T42 — Canonical Test Sessions — IN PROGRESS / READY FOR T42B
+DONE     T42B-0 — fresh read-only production inventory (2026-09-20)
 
-NEXT     T42B-0 — Post-T41 Rebase and fresh production inventory
-         T42B-1 ... T42B-9
+DONE     T42B-1 — core source plumbing IMPLEMENTED / VALIDATED
+         deploy / migration / production writes = NO
+
+NEXT     T42B-2 after owner approval
+         T42B-3 ... T42B-9
 
 THEN     T43 — Test Session Guest Support
 ```
@@ -90,6 +93,62 @@ are not current production state.
 Before T42B `dataScope` migration, **T42B-0 MUST perform a fresh read-only
 production inventory**. Current production counts must not be inferred from
 T42A.
+
+## T42B-0 production baseline (2026-09-20, read-only)
+
+Project `ski-school-8f3ca` ACTIVE (`782358732601`). `dataScope` /
+`testSessionId` / `test_sessions` / `test_actors` are still absent.
+
+Transactional collections after T40 are **empty**: bookings, messages,
+enrollments, attendance, payments, monetary_events, wallet_ledger, claims,
+guards, reviews, progress, achievements, feedback, admin_issues,
+notifications, work queues = 0.
+
+Preserved identity: users=4, participants=6, participant_management=6,
+instructors=2, courses=6, CourseDays=15. Wallet `/state` docs=0 (lazy);
+`starter_credit_grant` markers=4; `settings/starter_credit.amountKzt`=0.
+Auth users=8 (4 canonical + 4 leftover test-like Auth without `/users`).
+Indexes: source 40 composites, production READY 40.
+
+T42B-8 backfill of empty transactional collections is currently **N=0**.
+Identity/catalog/config docs still need explicit `dataScope=live` later.
+
+## Owner correction: approved persistent Test Parent
+
+Account `F5mwFT8KvAOkYHxlElpagT1yftr1` (`ksusha@test.ru`) is approved as the
+future persistent `test_parent`. This supersedes the earlier product-policy
+classification used during T42B-0 inventory; that inventory remains valid as
+a historical observation of production state at the time.
+
+Classification will be server-authoritative through `/test_actors` and the
+server-owned assignment. Email, domain, display name, UID pattern, and role are
+not classification authority. T42B-1 did not create the registry record,
+change the Account/Participant graph, or perform any production write. The
+Account ID above is recorded only as the bounded future migration target.
+
+## T42B-1 implementation (source-only)
+
+Implemented and validated:
+
+- canonical `DataScope`, `CanonicalExecutionScope`, `TestSessionId`,
+  TestSession/TestActor/assignment/membership schemas, and canonical paths;
+- authenticated callable `requestedTestSessionId` request plumbing and
+  fail-closed `resolveCanonicalExecutionScope`;
+- registry/assignment classification for persistent Test Actors, explicit
+  active-session Admin context, deterministic LIVE default, and LIVE-only
+  guest runtime;
+- `MAX_ACTIVE_TEST_SESSIONS = 1` policy and active-status command gate;
+- rejection of client-authoritative `intent.dataScope` and
+  `intent.testSessionId`.
+
+Only `active` consumes the v1 active-session slot. `provisioning`, `locked`,
+`resetting`, `deleting`, `closed`, and `failed` do not. A future create/activate
+command must enforce the limit transactionally; T42B-1 defines policy only and
+does not implement lifecycle commands.
+
+No Booking, Payment, Attendance, CourseEnrollment, claim/guard, idempotency,
+outbox/work, read-model, Rules, index, Auth, Storage, or production-data change
+was made. Test Sessions are not yet usable in production.
 
 ## Approved architecture (not implemented)
 
@@ -311,9 +370,9 @@ No blind manual cleanup.
 
 | Slice | Name | Status |
 | ----- | ---- | ------ |
-| T42B-0 | Post-T41 Rebase: fresh production inventory, current canonical graph, exact migration/index baseline | **NEXT** |
-| T42B-1 | Core: TestSession, test actors, assignments, CanonicalExecutionScope, resolver, max active sessions = 1 | PLANNED |
-| T42B-2 | Write propagation: writers, claims, guards, idempotency, outbox/work, cross-scope assertions | PLANNED |
+| T42B-0 | Post-T41 Rebase: fresh production inventory, current canonical graph, exact migration/index baseline | **COMPLETE** (2026-09-20; transactional collections empty after T40; `dataScope` still absent) |
+| T42B-1 | Core: TestSession, test actors, assignments, CanonicalExecutionScope, resolver, max active sessions = 1 | **IMPLEMENTED / VALIDATED** (source-only; no deploy/migration/production writes) |
+| T42B-2 | Write propagation: writers, claims, guards, idempotency, outbox/work, cross-scope assertions | **NEXT / WAIT FOR OWNER APPROVAL** |
 | T42B-3 | Domain isolation: finance, progress, achievements, reviews, attendance, homework, CourseEnrollment | PLANNED |
 | T42B-4 | Storage + side effects | PLANNED |
 | T42B-5 | Read-model isolation | PLANNED |

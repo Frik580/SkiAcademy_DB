@@ -22,6 +22,8 @@ export interface CallableCommandTransportInput<Kind extends CommandKind> {
   readonly calendarInput?: CommandContext['calendarInput'];
   readonly timezone?: CommandContext['timezone'];
   readonly bookingRevision?: CommandContext['expectedRevision'];
+  /** Request-level context only; the server resolves authority independently. */
+  readonly requestedTestSessionId?: unknown;
 }
 
 export interface CallableAuthenticatedAccountContext {

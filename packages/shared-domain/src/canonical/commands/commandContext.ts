@@ -4,6 +4,7 @@ import { CausationIdSchema, CorrelationIdSchema } from '../identifiers';
 import { AggregateRevisionSchema, IanaTimeZoneSchema } from '../primitives';
 import { CommandActorSchema } from './actors';
 import { EXERCISED_CAPABILITIES } from './capabilities';
+import { LIVE_CANONICAL_EXECUTION_SCOPE, type CanonicalExecutionScope } from '../testSessions';
 
 export { COMMAND_SOURCES, type CommandSource } from '../auditOutbox';
 
@@ -60,6 +61,14 @@ export interface AuthoritativeCommandClock {
 
 export interface CommandExecutionEnvironment {
   readonly clock: AuthoritativeCommandClock;
+  readonly scope: CanonicalExecutionScope;
+}
+
+export function withCanonicalExecutionScope(
+  environment: Pick<CommandExecutionEnvironment, 'clock'>,
+  scope: CanonicalExecutionScope = LIVE_CANONICAL_EXECUTION_SCOPE
+): CommandExecutionEnvironment {
+  return { ...environment, scope };
 }
 
 export const SOURCE_ACTOR_KIND_CONSTRAINTS: Record<

@@ -8,6 +8,7 @@ import {
   BookingIdSchema,
   InstructorIdSchema,
   ParticipantIdSchema,
+  TestSessionIdSchema,
   systemCommandActor,
   SystemActorIdSchema,
   type CommandEnvelope,
@@ -20,6 +21,7 @@ import {
   createCanonicalCommands,
   createProductionCanonicalCommands,
   mapCommandErrorTransportToHttpsError,
+  parseAuthenticatedCallableCommandTransportInput,
   rethrowCanonicalCommandErrorAsHttps,
 } from './index';
 
@@ -81,6 +83,7 @@ describe('CanonicalCommands.execute', () => {
       {
         complete_booking: async (envelope, env) => {
           expect(env.clock.decidedAt().toISOString()).toBe('2026-06-01T12:00:00.000Z');
+          expect(env.scope).toEqual({ dataScope: 'live' });
           return commandSuccessResult(envelope.kind, envelope.context.correlationId);
         },
       },
@@ -93,6 +96,24 @@ describe('CanonicalCommands.execute', () => {
       kind: 'complete_booking',
       correlationId,
     });
+  });
+
+  it('propagates an authoritative TEST scope through the canonical runtime seam', async () => {
+    const testSessionId = TestSessionIdSchema.parse('test_runtime_scope_01');
+    const commands = createCanonicalCommands(
+      {
+        complete_booking: async (envelope, env) => {
+          expect(env.scope).toEqual({ dataScope: 'test', testSessionId });
+          return commandSuccessResult(envelope.kind, envelope.context.correlationId);
+        },
+      },
+      {
+        ...testEnvironment('2026-06-01T12:00:00.000Z'),
+        scope: { dataScope: 'test', testSessionId },
+      }
+    );
+
+    await expect(commands.execute(accountEnvelope())).resolves.toMatchObject({ status: 'success' });
   });
 
   it('rejects forged system administrator context at the authorization boundary', async () => {
@@ -174,6 +195,7 @@ describe('callable transport adapter', () => {
         kind: 'create_confirmed_booking',
         idempotencyKey: 'callable-idem',
         correlationId,
+        requestedTestSessionId: 'test_transport_only_01',
         intent: {
           bookingId: BookingIdSchema.parse('booking_fn_cmd_04'),
           instructorId: InstructorIdSchema.parse('instructor_fn_cmd_02'),
@@ -189,7 +211,26 @@ describe('callable transport adapter', () => {
     expect(envelope.intent.bookingId).toBe('booking_fn_cmd_04');
     expect(envelope.context.transportMetadata).toEqual({ transport: 'firebase_callable' });
     expect(envelope.intent).not.toHaveProperty('bookingOrigin');
+    expect(envelope.intent).not.toHaveProperty('requestedTestSessionId');
+    expect(envelope.context).not.toHaveProperty('requestedTestSessionId');
   });
+
+  it.each(['dataScope', 'testSessionId'] as const)(
+    'rejects root-level authoritative %s transport fields',
+    (field) => {
+      expect(() =>
+        parseAuthenticatedCallableCommandTransportInput({
+          data: {
+            kind: 'complete_booking',
+            idempotencyKey: 'callable-scope-injection',
+            correlationId,
+            intent: { bookingId: BookingIdSchema.parse('booking_fn_scope_injection_01') },
+            [field]: field === 'dataScope' ? 'test' : 'test_scope_injection_01',
+          },
+        } as never)
+      ).toThrowError(expect.objectContaining({ code: 'invalid-argument' }));
+    }
+  );
 
   it('forwards bookingRevision into transport metadata for change-request OCC', () => {
     const envelope = buildCommandEnvelopeFromCallable(
@@ -233,7 +274,10 @@ describe('callable transport adapter', () => {
     const commands = createCanonicalCommands(
       {
         complete_booking: async () =>
-          commandSuccessResult('complete_booking', correlationId) as CommandResult<'complete_booking'>,
+          commandSuccessResult(
+            'complete_booking',
+            correlationId
+          ) as CommandResult<'complete_booking'>,
       },
       testEnvironment('2026-01-02T00:00:00.000Z')
     );
@@ -258,10 +302,7 @@ describe('Https error mapping', () => {
 
   it('sanitizes audit_integrity_violation through rethrow helper', () => {
     expect(() =>
-      rethrowCanonicalCommandErrorAsHttps(
-        new Error('audit_integrity_violation raw'),
-        correlationId
-      )
+      rethrowCanonicalCommandErrorAsHttps(new Error('audit_integrity_violation raw'), correlationId)
     ).toThrowError(expect.objectContaining({ code: 'internal' }));
   });
 });

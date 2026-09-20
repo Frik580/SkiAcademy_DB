@@ -5,6 +5,7 @@ import {
   canonicalDeterministicHash,
   financialReconciliationMismatchIdentity,
   isPaymentFullyFundedForService,
+  LIVE_CANONICAL_EXECUTION_SCOPE,
   type Payment,
 } from '@ski-academy/shared-domain';
 import { plannedAdminIssuePath } from '../adminIssues/adminIssueOperations';
@@ -383,7 +384,10 @@ export async function sweepGuestConfirmationLifecycleMismatches(
 ): Promise<GuestConfirmationReconciliationSweepResult> {
   const discovered = await discoverFullyFundedGuestConfirmationSweepPaymentIds(firestore, options);
   const executor = createFirestoreCanonicalTransactionExecutor(firestore);
-  const environment = { clock: createAuthoritativeCommandClock(now) };
+  const environment = {
+    clock: createAuthoritativeCommandClock(now),
+    scope: LIVE_CANONICAL_EXECUTION_SCOPE,
+  };
   const outcomes: GuestConfirmationLifecycleMismatchReconciliationOutcome[] = [];
 
   for (let offset = 0; offset < discovered.payments.length; offset += RECONCILIATION_CONCURRENCY) {

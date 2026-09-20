@@ -11,6 +11,7 @@ import {
   type BookingId,
   type CommandEnvelope,
   type CommandResult,
+  LIVE_CANONICAL_EXECUTION_SCOPE,
 } from '@ski-academy/shared-domain';
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
@@ -160,7 +161,10 @@ export async function sweepExpiredGuestLessonReservations(
   );
   const nowSeconds = timestampFromDate(now).seconds;
   const commands = createProductionCanonicalCommands(
-    { clock: createAuthoritativeCommandClock(now) },
+    {
+      clock: createAuthoritativeCommandClock(now),
+      scope: LIVE_CANONICAL_EXECUTION_SCOPE,
+    },
     createFirestoreCanonicalTransactionExecutor(firestore)
   );
 

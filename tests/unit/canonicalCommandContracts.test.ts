@@ -116,6 +116,24 @@ describe('command envelope validation', () => {
     };
     expect(parseCommandEnvelope(envelope).success).toBe(false);
   });
+
+  it.each(['dataScope', 'testSessionId'] as const)(
+    'rejects caller-provided authoritative %s inside intent',
+    (field) => {
+      const intent = {
+        bookingId: BookingIdSchema.parse('booking_cmd_test_scope_01'),
+        [field]: field === 'dataScope' ? 'test' : 'test_scope_injection_01',
+      };
+      expect(findForbiddenAuthoritativeFields(intent)).toEqual([{ path: field, field }]);
+      expect(
+        parseCommandEnvelope({
+          kind: 'complete_booking',
+          context: baseContext(),
+          intent,
+        }).success
+      ).toBe(false);
+    }
+  );
 });
 
 describe('actor identity separate from capability', () => {

@@ -3,6 +3,10 @@ import { createAuthoritativeCommandClock } from './commandClock';
 import { createProductionCanonicalCommands, type CanonicalCommands } from './canonicalCommands';
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
 import type { CanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
+import {
+  withCanonicalExecutionScope,
+  type CanonicalExecutionScope,
+} from '@ski-academy/shared-domain';
 
 export interface CanonicalCommandRuntimeOptions {
   readonly guestActionTokenSecret?: string;
@@ -10,7 +14,7 @@ export interface CanonicalCommandRuntimeOptions {
 
 export interface CanonicalCommandRuntime {
   readonly executor: CanonicalTransactionExecutor;
-  createCommands(): CanonicalCommands;
+  createCommands(scope: CanonicalExecutionScope): CanonicalCommands;
 }
 
 export function createCanonicalCommandRuntime(
@@ -20,9 +24,9 @@ export function createCanonicalCommandRuntime(
   const executor = createFirestoreCanonicalTransactionExecutor(firestore);
   return {
     executor,
-    createCommands() {
+    createCommands(scope: CanonicalExecutionScope) {
       return createProductionCanonicalCommands(
-        { clock: createAuthoritativeCommandClock(new Date()) },
+        withCanonicalExecutionScope({ clock: createAuthoritativeCommandClock(new Date()) }, scope),
         executor,
         {
           guestActionTokenSecret: options.guestActionTokenSecret,

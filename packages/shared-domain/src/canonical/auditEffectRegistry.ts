@@ -202,6 +202,7 @@ const COMMAND_KIND_ALLOWED_EFFECTS: Partial<Record<CommandKind, readonly AuditEf
   reactivate_instructor_catalog: ['outbox_obligation_created'],
   link_account_instructor_catalog: ['outbox_obligation_created'],
   unlink_account_instructor_catalog: ['outbox_obligation_created'],
+  delete_instructor_catalog_entry: ['resource_claim_changed', 'outbox_obligation_created'],
   repair_participant_management_owner_guard: [
     'participant_access_changed',
     'outbox_obligation_created',

@@ -120,6 +120,12 @@ describe('adminPlannerRevision', () => {
     ).toBe(true);
     expect(
       plannedMutationsAffectAdminPlanner(
+        [{ path: 'instructors/instructor_01' }],
+        'delete_instructor_catalog_entry'
+      )
+    ).toBe(true);
+    expect(
+      plannedMutationsAffectAdminPlanner(
         [{ path: 'attendance/att_01' }, { path: 'bookings/booking_01' }],
         'record_booking_attendance'
       )

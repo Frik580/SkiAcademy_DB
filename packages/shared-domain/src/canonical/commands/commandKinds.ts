@@ -64,6 +64,7 @@ export const COMMAND_KINDS = [
   'reactivate_instructor_catalog',
   'link_account_instructor_catalog',
   'unlink_account_instructor_catalog',
+  'delete_instructor_catalog_entry',
   'repair_participant_management_owner_guard',
   'record_provider_payment_event',
   'pay_service_from_wallet_as_administrator',

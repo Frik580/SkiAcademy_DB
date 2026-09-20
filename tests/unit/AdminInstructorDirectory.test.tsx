@@ -112,6 +112,22 @@ function instructorRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function instructorDetail(overrides: Record<string, unknown> = {}) {
+  return {
+    ...instructorRow(),
+    bio: 'Alpine guide',
+    languages: ['English'],
+    experienceYears: 8,
+    futureLessonCommitmentCount: 0,
+    futureCourseDayAssignmentCount: 0,
+    unlinkBlockedByCommitments: false,
+    activeAvailabilityBlockCount: 0,
+    deleteBlockedByCommitments: false,
+    diagnostics: [],
+    ...overrides,
+  };
+}
+
 describe('AdminInstructorDirectory canonical identity UX', () => {
   beforeEach(() => {
     mockReads.instructors = {
@@ -166,17 +182,11 @@ describe('AdminInstructorDirectory canonical identity UX', () => {
     vi.useRealTimers();
   });
 
-  it('opens detail actions from authorizedActions and navigates planner without hard delete', async () => {
-    mockReads.instructorDetail = {
-      ...instructorRow(),
-      bio: 'Alpine guide',
-      languages: ['English'],
-      experienceYears: 8,
+  it('opens detail actions from authorizedActions and hides delete unless advertised', async () => {
+    mockReads.instructorDetail = instructorDetail({
       futureLessonCommitmentCount: 2,
       futureCourseDayAssignmentCount: 1,
-      unlinkBlockedByCommitments: false,
-      diagnostics: [],
-    };
+    });
     render(<AdminInstructorDirectory adminAccountId={adminId} />);
     fireEvent.click(screen.getByRole('button', { name: 'Open' }));
     expect(screen.getByRole('button', { name: 'Pause new bookings' })).toBeInTheDocument();
@@ -335,5 +345,37 @@ describe('AdminInstructorDirectory canonical identity UX', () => {
     expect(screen.getByRole('button', { name: 'Pause new bookings' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Close detail' }));
     expect(screen.queryByRole('button', { name: 'Pause new bookings' })).not.toBeInTheDocument();
+  });
+
+  it('requires typed confirmation before delete_instructor_catalog_entry and closes detail on success', async () => {
+    mockReads.instructorDetail = instructorDetail({
+      authorizedActions: [
+        { kind: 'update_instructor_catalog_profile', expectedRevision: 2 },
+        { kind: 'deactivate_instructor_catalog', expectedRevision: 2 },
+        { kind: 'delete_instructor_catalog_entry', expectedRevision: 2 },
+      ],
+    });
+    render(<AdminInstructorDirectory adminAccountId={adminId} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete instructor' }));
+    expect(screen.getByText(/will be deleted/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Delete permanently' })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText(/Type DELETE or the instructor name/i), {
+      target: { value: 'DELETE' },
+    });
+    expect(screen.getByRole('button', { name: 'Delete permanently' })).toBeEnabled();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Delete permanently' }));
+    });
+    expect(mockExecute).toHaveBeenCalledWith(
+      adminId,
+      expect.objectContaining({
+        kind: 'delete_instructor_catalog_entry',
+        instructorId,
+        expectedRevision: 2,
+      })
+    );
+    expect(screen.queryByRole('button', { name: 'Delete instructor' })).not.toBeInTheDocument();
+    expect(mockReads.refresh).toHaveBeenCalled();
   });
 });

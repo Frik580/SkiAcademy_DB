@@ -22,6 +22,7 @@ import {
   ADMIN_INSTRUCTOR_LINK_REASON,
   ADMIN_INSTRUCTOR_PROFILE_REASON,
   ADMIN_INSTRUCTOR_UNLINK_REASON,
+  ADMIN_INSTRUCTOR_DELETE_REASON,
   EMPTY_ADMIN_INSTRUCTOR_PROFILE_DRAFT,
   adminInstructorAttemptKey,
   adminInstructorProfileDraftFromDetail,
@@ -206,12 +207,17 @@ export function AdminInstructorDirectory({ adminAccountId }: AdminInstructorDire
       return true;
     } catch (caught) {
       const clientError = toCanonicalCommandClientError(caught, 'admin_instructors');
+      const blockedByCommitments =
+        clientError.code === 'invalid_transition' &&
+        (clientError.details as { reason?: string } | undefined)?.reason === 'conflict';
       setError(
         clientError.code === 'stale_version'
           ? text.stale
           : clientError.code === 'forbidden'
             ? text.permissionDenied
-            : clientError.message || text.mutationFailed
+            : blockedByCommitments
+              ? text.deleteBlocked
+              : clientError.message || text.mutationFailed
       );
       if (clientError.code === 'stale_version') {
         await reads.refresh();
@@ -228,7 +234,8 @@ export function AdminInstructorDirectory({ adminAccountId }: AdminInstructorDire
       | 'deactivate_instructor_catalog'
       | 'reactivate_instructor_catalog'
       | 'link_account_instructor_catalog'
-      | 'unlink_account_instructor_catalog',
+      | 'unlink_account_instructor_catalog'
+      | 'delete_instructor_catalog_entry',
     fallback = 1
   ) =>
     reads.instructorDetail?.authorizedActions.find((item) => item.kind === kind)
@@ -646,6 +653,32 @@ export function AdminInstructorDirectory({ adminAccountId }: AdminInstructorDire
                     },
                     text.confirmStopBeingInstructor
                   );
+                }}
+                onDeleteInstructor={() => {
+                  const detail = reads.instructorDetail;
+                  if (!detail) return;
+                  if (detail.deleteBlockedByCommitments) {
+                    setError(text.deleteBlocked);
+                    return;
+                  }
+                  void (async () => {
+                    const ok = await runAttempt({
+                      kind: 'delete_instructor_catalog_entry',
+                      instructorId: detail.instructorId,
+                      expectedRevision: actionRevision(
+                        'delete_instructor_catalog_entry',
+                        detail.revision
+                      ),
+                      idempotencyKey: adminInstructorAttemptKey('delete', detail.instructorId),
+                      reasonExplanation: ADMIN_INSTRUCTOR_DELETE_REASON,
+                    });
+                    if (ok) {
+                      setSelectedInstructorId(undefined);
+                      setProfileEditing(false);
+                      setLinking(false);
+                      await accountReads.refresh();
+                    }
+                  })();
                 }}
                 onOpenClient={(accountId) => {
                   const parsed = AccountIdSchema.safeParse(accountId);

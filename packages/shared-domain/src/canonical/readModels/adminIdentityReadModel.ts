@@ -14,6 +14,7 @@ import {
   AdminIdentityManagedParticipantSummarySchema,
   AdminIdentityManagingAccountSummarySchema,
   IdentityDiagnosticSchema,
+  InstructorCatalogDeleteBlockReasonSchema,
   InstructorCatalogSpecialtySchema,
 } from '../identityAdministration';
 import { AggregateRevisionSchema, CanonicalTimestampSchema } from '../primitives';
@@ -145,6 +146,9 @@ export const AdminInstructorDetailReadModelSchema = AdminInstructorListItemSchem
   futureLessonCommitmentCount: z.number().int().nonnegative(),
   futureCourseDayAssignmentCount: z.number().int().nonnegative(),
   unlinkBlockedByCommitments: z.boolean(),
+  activeAvailabilityBlockCount: z.number().int().nonnegative(),
+  deleteBlockedByCommitments: z.boolean(),
+  deleteBlockedReason: InstructorCatalogDeleteBlockReasonSchema.optional(),
   diagnostics: z.array(IdentityDiagnosticSchema).max(32),
 }).strict();
 

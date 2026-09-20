@@ -21,7 +21,7 @@ import {
 } from '@ski-academy/shared-domain';
 import { FieldPath, type Firestore, type Query } from 'firebase-admin/firestore';
 import { attendancePath, parseAttendance } from '../bookings/attendanceStore';
-import { parseBooking } from '../bookings/bookingStore';
+import { instructorCatalogPath, parseBooking, parseInstructorCatalog } from '../bookings/bookingStore';
 import {
   parseInstructorRatingSummary,
   parseInstructorReview,
@@ -92,12 +92,34 @@ function toReviewReadModel(
   };
 }
 
+async function instructorCatalogIsActive(
+  firestore: Firestore,
+  instructorId: ReturnType<typeof InstructorIdSchema.parse>
+): Promise<boolean> {
+  const snapshot = await firestore.doc(instructorCatalogPath(instructorId)).get();
+  return Boolean(
+    parseInstructorCatalog(
+      instructorId,
+      snapshot.data() as Record<string, unknown> | undefined
+    )
+  );
+}
+
 async function publicSummaries(
   firestore: Firestore,
   instructorIds: readonly ReturnType<typeof InstructorIdSchema.parse>[]
 ): Promise<QueryInstructorReviewReadModelsResult> {
+  const catalogStates = await Promise.all(
+    instructorIds.map(async (instructorId) => ({
+      instructorId,
+      active: await instructorCatalogIsActive(firestore, instructorId),
+    }))
+  );
+  const activeIds = catalogStates
+    .filter((entry) => entry.active)
+    .map((entry) => entry.instructorId);
   const snapshots = await Promise.all(
-    instructorIds.map((instructorId) =>
+    activeIds.map((instructorId) =>
       firestore.collection('instructor_rating_summaries').doc(instructorId).get()
     )
   );
@@ -116,6 +138,15 @@ async function instructorReviews(
   firestore: Firestore,
   input: Extract<QueryInstructorReviewReadModelsInput, { scope: 'instructor_reviews' }>
 ): Promise<QueryInstructorReviewReadModelsResult> {
+  if (!(await instructorCatalogIsActive(firestore, input.instructorId))) {
+    return QueryInstructorReviewReadModelsResultSchema.parse({
+      scope: 'instructor_reviews',
+      summary: zeroSummary(input.instructorId),
+      reviews: [],
+      hasMore: false,
+    });
+  }
+
   const pageSize = input.pageSize ?? 25;
   const cursor = input.cursor ? decodeInstructorReviewReadModelCursor(input.cursor) : undefined;
   if (input.cursor && !cursor) throw new InvalidInstructorReviewReadCursorError();

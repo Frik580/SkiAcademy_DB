@@ -95,6 +95,10 @@ export type AdminIdentityAttempt =
       readonly kind: 'link_account_instructor_catalog' | 'unlink_account_instructor_catalog';
       readonly accountId: AccountId;
       readonly instructorId: InstructorId;
+    })
+  | (AdminIdentityCommandBase & {
+      readonly kind: 'delete_instructor_catalog_entry';
+      readonly instructorId: InstructorId;
     });
 
 export type AdminIdentityActionKind = AdminIdentityAuthorizedActionKind;

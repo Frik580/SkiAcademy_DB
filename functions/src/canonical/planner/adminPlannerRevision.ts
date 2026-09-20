@@ -41,6 +41,7 @@ const PLANNER_CATALOG_COMMAND_KINDS = new Set<CommandKind>([
   'archive_course',
   'reactivate_course',
   'change_course_title',
+  'delete_instructor_catalog_entry',
 ]);
 
 export const ADMIN_PLANNER_REVISION_PLANNING_ESTIMATES = {

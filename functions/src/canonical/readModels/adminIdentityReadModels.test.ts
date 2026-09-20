@@ -293,6 +293,13 @@ describe('Admin Identity instructor avatar presentation', () => {
       name: 'Safe Coach',
       avatarUrl: VALID_STORAGE_URL,
     });
+    expect(result.item?.authorizedActions.some((action) => action.kind === 'delete_instructor_catalog_entry')).toBe(
+      true
+    );
+    expect(result.item).toMatchObject({
+      deleteBlockedByCommitments: false,
+      activeAvailabilityBlockCount: 0,
+    });
   });
 });
 

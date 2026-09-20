@@ -6,6 +6,9 @@ import {
   evaluateDisableAccount,
   evaluateReactivateInstructorCatalog,
   instructorUnlinkBlockedByFutureCommitments,
+  instructorCatalogDeletionBlockedByFutureCommitments,
+  instructorDeleteBlockedByAvailabilityCleanup,
+  INSTRUCTOR_DELETE_AVAILABILITY_MUTATION_LIMIT,
   isCanonicalAccountEligibleForAdminRolePromotion,
   canDemoteCanonicalAccountAdminRole,
   parseInstructorCatalogRevision,
@@ -13,7 +16,7 @@ import {
   diagnoseAccountIdentity,
   diagnoseParticipantIdentity,
 } from './identityAdministration';
-import { AccountIdSchema, CorrelationIdSchema } from './identifiers';
+import { AccountIdSchema, CorrelationIdSchema, InstructorIdSchema } from './identifiers';
 import { AggregateRevisionSchema, timestampFromDate } from './primitives';
 import { assertExpectedRevision, readAggregateRevision } from './revisionConcurrency';
 import { parseCommandIntent } from './commands/commandIntents';
@@ -200,6 +203,20 @@ describe('T32.8A identity administration policy', () => {
     expect(parsed.success).toBe(false);
   });
 
+  it('rejects client-supplied accountId on delete_instructor_catalog_entry', () => {
+    const parsed = parseCommandIntent('delete_instructor_catalog_entry', {
+      instructorId: InstructorIdSchema.parse('instructor_identity_policy_01'),
+      accountId: target,
+      reasonExplanation: 'Must not accept accountId',
+    });
+    expect(parsed.success).toBe(false);
+    const valid = parseCommandIntent('delete_instructor_catalog_entry', {
+      instructorId: InstructorIdSchema.parse('instructor_identity_policy_01'),
+      reasonExplanation: 'Remove catalog',
+    });
+    expect(valid.success).toBe(true);
+  });
+
   it('protects system owner from disable and active linked instructors', () => {
     expect(evaluateDisableAccount({ targetSystemRole: 'owner' })).toBe('system_owner_protected');
     expect(evaluateDisableAccount({ targetSystemRole: undefined })).toBe('allowed');
@@ -266,6 +283,58 @@ describe('T32.8A identity administration policy', () => {
         now,
         bookingScanCapped: false,
         courseDayScanCapped: false,
+      })
+    ).toBe(true);
+    expect(instructorCatalogDeletionBlockedByFutureCommitments).toBe(
+      instructorUnlinkBlockedByFutureCommitments
+    );
+    expect(
+      instructorCatalogDeletionBlockedByFutureCommitments({
+        bookings: [
+          {
+            lifecycle: { status: 'confirmed' },
+            occurrence: { interval: { startsAt: future, endsAt: future } },
+          },
+        ],
+        courseDays: [],
+        now,
+        bookingScanCapped: false,
+        courseDayScanCapped: false,
+      })
+    ).toBe(true);
+    expect(
+      instructorCatalogDeletionBlockedByFutureCommitments({
+        bookings: [
+          {
+            lifecycle: { status: 'completed' },
+            occurrence: { interval: { startsAt: past, endsAt: past } },
+          },
+        ],
+        courseDays: [{ interval: { startsAt: past, endsAt: past } }],
+        now,
+        bookingScanCapped: false,
+        courseDayScanCapped: false,
+      })
+    ).toBe(false);
+  });
+
+  it('rejects instructor deletion when active availability cleanup exceeds the transaction bound', () => {
+    expect(
+      instructorDeleteBlockedByAvailabilityCleanup({
+        activeBlockCount: INSTRUCTOR_DELETE_AVAILABILITY_MUTATION_LIMIT,
+        blockScanCapped: false,
+      })
+    ).toBe(false);
+    expect(
+      instructorDeleteBlockedByAvailabilityCleanup({
+        activeBlockCount: INSTRUCTOR_DELETE_AVAILABILITY_MUTATION_LIMIT + 1,
+        blockScanCapped: false,
+      })
+    ).toBe(true);
+    expect(
+      instructorDeleteBlockedByAvailabilityCleanup({
+        activeBlockCount: 0,
+        blockScanCapped: true,
       })
     ).toBe(true);
   });

@@ -111,6 +111,7 @@ const COMMAND_KIND_REASON_CODES: Partial<Record<CommandKind, readonly AuditReaso
   reactivate_instructor_catalog: ['manual_override', 'other'],
   link_account_instructor_catalog: ['manual_override', 'other'],
   unlink_account_instructor_catalog: ['manual_override', 'other'],
+  delete_instructor_catalog_entry: ['manual_override', 'other'],
   repair_participant_management_owner_guard: ['participant_management', 'manual_override'],
   create_booking_proposal: ['other'],
   accept_booking_proposal: ['self_service_booking', 'other'],

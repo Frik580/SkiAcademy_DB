@@ -99,6 +99,21 @@ export function useAdminInstructorTranslations() {
       pending: ru ? 'Сохранение…' : 'Saving…',
       profile: ru ? 'Профиль' : 'Profile',
       commitments: ru ? 'Обязательства' : 'Commitments',
+      deleteInstructor: ru ? 'Удалить инструктора' : 'Delete instructor',
+      deleteInstructorConfirmTitle: ru ? 'Удаление инструктора' : 'Delete instructor',
+      deleteInstructorConfirm: (name: string) =>
+        ru
+          ? `Инструктор ${name} будет удалён. Аккаунт клиента и история проведённых занятий сохранятся. Это действие нельзя отменить.`
+          : `Instructor ${name} will be deleted. The client account and past lesson history will be kept. This cannot be undone.`,
+      deleteInstructorConfirmHint: ru
+        ? 'Введите УДАЛИТЬ или имя инструктора для подтверждения.'
+        : 'Type DELETE or the instructor name to confirm.',
+      deleteInstructorConfirmToken: ru ? 'УДАЛИТЬ' : 'DELETE',
+      deleteInstructorConfirmAction: ru ? 'Удалить навсегда' : 'Delete permanently',
+      deleteBlocked: ru
+        ? 'Сначала перенесите или отмените будущие уроки и дни курсов.'
+        : 'Transfer or cancel future lessons and course days first.',
+      availabilityBlocks: ru ? 'Административные блоки' : 'Admin availability blocks',
     },
   };
 }

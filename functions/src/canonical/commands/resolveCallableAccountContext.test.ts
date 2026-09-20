@@ -303,10 +303,20 @@ describe('resolveCallableAccountContext', () => {
       capability: 'administrator',
       source: 'admin_callable',
     });
+    expect(
+      resolveCallableAccountContext(
+        { role: 'admin' },
+        { authUid: accountId, commandKind: 'delete_instructor_catalog_entry' }
+      )
+    ).toMatchObject({
+      accountId,
+      capability: 'administrator',
+      source: 'admin_callable',
+    });
     expect(() =>
       resolveCallableAccountContext(
         { role: 'user' },
-        { authUid: accountId, commandKind: 'disable_account' }
+        { authUid: accountId, commandKind: 'delete_instructor_catalog_entry' }
       )
     ).toThrow('forbidden');
   });

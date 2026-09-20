@@ -14,6 +14,7 @@ import {
 } from '../../../lib/canonical/mapCanonicalCommandError';
 import type { AdminIdentityAttempt } from './identityContracts';
 import { applyAdminPeopleCommandResult } from './adminPeopleLocalSync';
+import { applyAdminPlannerCommandResult } from '../operations/adminPlannerLocalSync';
 
 async function assertSucceeded<Kind extends CommandKind>(
   command: Promise<CommandResult<Kind>>
@@ -22,6 +23,7 @@ async function assertSucceeded<Kind extends CommandKind>(
   const error = mapCanonicalCommandResultError(result);
   if (error) throw error;
   applyAdminPeopleCommandResult(result);
+  applyAdminPlannerCommandResult(result);
 }
 
 export async function executeAdminIdentityAttempt(
@@ -266,6 +268,20 @@ export async function executeAdminIdentityAttempt(
           kind: attempt.kind,
           intent: {
             accountId: AccountIdSchema.parse(attempt.accountId),
+            instructorId: InstructorIdSchema.parse(attempt.instructorId),
+            reasonExplanation,
+          },
+          idempotencyKey: attempt.idempotencyKey,
+          expectedRevision,
+        })
+      );
+      return;
+    }
+    if (attempt.kind === 'delete_instructor_catalog_entry') {
+      await assertSucceeded(
+        executeAuthenticatedCanonicalCommand(adminAccountId, {
+          kind: attempt.kind,
+          intent: {
             instructorId: InstructorIdSchema.parse(attempt.instructorId),
             reasonExplanation,
           },

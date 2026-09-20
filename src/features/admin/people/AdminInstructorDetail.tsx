@@ -1,5 +1,5 @@
 import type { AccountId } from '@ski-academy/shared-domain';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import type {
   AdminInstructorDetailView,
@@ -28,6 +28,7 @@ interface AdminInstructorDetailProps {
   readonly onStartLink: () => void;
   readonly onCancelLink: () => void;
   readonly onStopBeingInstructor: () => void;
+  readonly onDeleteInstructor: () => void;
   readonly onOpenClient: (accountId: AccountId) => void;
   readonly onOpenPlanner: () => void;
 }
@@ -72,6 +73,7 @@ export function AdminInstructorDetail({
   onStartLink,
   onCancelLink,
   onStopBeingInstructor,
+  onDeleteInstructor,
   onOpenClient,
   onOpenPlanner,
 }: AdminInstructorDetailProps) {
@@ -90,6 +92,14 @@ export function AdminInstructorDetail({
   const canUnlink = detail.authorizedActions.some(
     (action) => action.kind === 'unlink_account_instructor_catalog'
   );
+  const canDelete = detail.authorizedActions.some(
+    (action) => action.kind === 'delete_instructor_catalog_entry'
+  );
+  const [deleteConfirming, setDeleteConfirming] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const deleteConfirmMatches =
+    deleteConfirmText.trim() === text.deleteInstructorConfirmToken ||
+    deleteConfirmText.trim() === detail.name;
   const hasFutureCommitments =
     detail.futureLessonCommitmentCount > 0 || detail.futureCourseDayAssignmentCount > 0;
 
@@ -148,9 +158,14 @@ export function AdminInstructorDetail({
         <p>
           {text.futureCourseDays}: {detail.futureCourseDayAssignmentCount}
         </p>
-        {detail.unlinkBlockedByCommitments ? (
+        <p>
+          {text.availabilityBlocks}: {detail.activeAvailabilityBlockCount}
+        </p>
+        {detail.unlinkBlockedByCommitments || detail.deleteBlockedByCommitments ? (
           <p role="status" className="text-[var(--ink-dim)]">
-            {text.unlinkBlocked}
+            {detail.deleteBlockedReason === 'availability_cleanup_required'
+              ? text.mutationFailed
+              : text.unlinkBlocked}
           </p>
         ) : null}
       </section>
@@ -224,6 +239,62 @@ export function AdminInstructorDetail({
             {text.openPlanner}
           </button>
         </div>
+      ) : null}
+
+      {canDelete && !profileEditing && !linking ? (
+        <section className="space-y-3 border border-red-700/70 bg-red-50/40 p-4">
+          <h4 className="text-sm font-medium text-red-800">{text.deleteInstructor}</h4>
+          {deleteConfirming ? (
+            <>
+              <p role="alert" className="text-xs leading-relaxed text-red-900">
+                {text.deleteInstructorConfirm(detail.name)}
+              </p>
+              <p className="text-[10px] font-mono text-red-800/80">
+                {text.deleteInstructorConfirmHint}
+              </p>
+              <input
+                type="text"
+                aria-label={text.deleteInstructorConfirmHint}
+                value={deleteConfirmText}
+                onChange={(event) => setDeleteConfirmText(event.target.value)}
+                className="w-full border border-red-700 bg-transparent px-3 py-2 font-mono text-xs text-[var(--ink)] focus:outline-none"
+              />
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={pending || !deleteConfirmMatches}
+                  onClick={onDeleteInstructor}
+                  className="border border-red-700 bg-red-700 px-3 py-2 text-xs font-mono uppercase tracking-wider text-white disabled:opacity-50"
+                >
+                  {text.deleteInstructorConfirmAction}
+                </button>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => {
+                    setDeleteConfirming(false);
+                    setDeleteConfirmText('');
+                  }}
+                  className="border border-[var(--border)] px-3 py-2 text-xs font-mono uppercase tracking-wider disabled:opacity-50"
+                >
+                  {text.cancel}
+                </button>
+              </div>
+            </>
+          ) : (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => {
+                setDeleteConfirming(true);
+                setDeleteConfirmText('');
+              }}
+              className="border border-red-700 px-3 py-2 text-xs font-mono uppercase tracking-wider text-red-800 disabled:opacity-50"
+            >
+              {text.deleteInstructor}
+            </button>
+          )}
+        </section>
       ) : null}
 
       {canPause && hasFutureCommitments && !profileEditing && !linking ? (

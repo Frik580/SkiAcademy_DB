@@ -65,6 +65,7 @@ export const ADMINISTRATOR_COMMAND_KINDS: ReadonlySet<CommandKind> = new Set([
   'reactivate_instructor_catalog',
   'link_account_instructor_catalog',
   'unlink_account_instructor_catalog',
+  'delete_instructor_catalog_entry',
   'repair_participant_management_owner_guard',
 ]);
 

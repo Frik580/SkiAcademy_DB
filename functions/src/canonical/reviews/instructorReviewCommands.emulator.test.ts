@@ -400,6 +400,22 @@ describeEmulator('canonical instructor reviews emulator', () => {
       rating: 99,
       createdAt: completedAt,
     });
+    const missingCatalog = await queryInstructorReviewReadModels(firestore, {
+      scope: 'instructor_reviews',
+      instructorId: malformedInstructorId,
+      pageSize: 1,
+    });
+    expect(missingCatalog).toMatchObject({
+      scope: 'instructor_reviews',
+      reviews: [],
+      hasMore: false,
+    });
+
+    await firestore.doc(`instructors/${malformedInstructorId}`).set({
+      id: malformedInstructorId,
+      name: 'Malformed Review Instructor',
+      pricePerHourKZT: 20_000,
+    });
     await expect(
       queryInstructorReviewReadModels(firestore, {
         scope: 'instructor_reviews',
@@ -407,5 +423,23 @@ describeEmulator('canonical instructor reviews emulator', () => {
         pageSize: 1,
       })
     ).rejects.toThrow('Canonical instructor review review_emulator_malformed is invalid.');
+
+    await firestore.doc(`instructors/${instructorId}`).delete();
+    const hidden = await queryInstructorReviewReadModels(firestore, {
+      scope: 'instructor_reviews',
+      instructorId,
+      pageSize: 10,
+    });
+    expect(hidden).toMatchObject({
+      scope: 'instructor_reviews',
+      reviews: [],
+      hasMore: false,
+    });
+    const hiddenSummaries = await queryInstructorReviewReadModels(firestore, {
+      scope: 'public_summaries',
+      instructorIds: [instructorId],
+    });
+    expect(hiddenSummaries).toMatchObject({ scope: 'public_summaries', summaries: [] });
+    expect((await firestore.collection('instructor_reviews').limit(1).get()).empty).toBe(false);
   });
 });

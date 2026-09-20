@@ -12,6 +12,7 @@ export const ADMIN_INSTRUCTOR_PROFILE_REASON = 'Admin instructor directory profi
 export const ADMIN_INSTRUCTOR_LIFECYCLE_REASON = 'Admin instructor directory lifecycle update';
 export const ADMIN_INSTRUCTOR_LINK_REASON = 'Admin instructor directory account link';
 export const ADMIN_INSTRUCTOR_UNLINK_REASON = 'Admin instructor directory account unlink';
+export const ADMIN_INSTRUCTOR_DELETE_REASON = 'Admin instructor directory hard delete';
 
 export type AdminInstructorDirectoryRow = Pick<
   AdminInstructorListItem,
@@ -46,6 +47,9 @@ export type AdminInstructorDetailView = Pick<
   | 'futureLessonCommitmentCount'
   | 'futureCourseDayAssignmentCount'
   | 'unlinkBlockedByCommitments'
+  | 'activeAvailabilityBlockCount'
+  | 'deleteBlockedByCommitments'
+  | 'deleteBlockedReason'
   | 'diagnostics'
   | 'revision'
   | 'authorizedActions'

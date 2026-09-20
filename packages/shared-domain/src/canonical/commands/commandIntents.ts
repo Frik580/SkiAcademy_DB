@@ -1068,6 +1068,12 @@ export const CommandIntentSchemaByKind = {
       reasonExplanation: z.string().trim().min(1).max(1_000),
     })
     .strict(),
+  delete_instructor_catalog_entry: z
+    .object({
+      instructorId: InstructorIdSchema,
+      reasonExplanation: z.string().trim().min(1).max(1_000),
+    })
+    .strict(),
   repair_participant_management_owner_guard: z
     .object({
       participantId: ParticipantIdSchema,

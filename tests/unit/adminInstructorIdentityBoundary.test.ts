@@ -28,7 +28,7 @@ describe('T32.9A.6.2 Admin Instructors identity boundary', () => {
     expect(panel).not.toContain('CanonicalIdentityManager');
   });
 
-  it('keeps role, participant picker, hard delete, and USD authority out of Instructors UX', () => {
+  it('keeps role, participant picker, client Firestore deletes, and USD authority out of Instructors UX', () => {
     const directory = readRepoFile('src/features/admin/people/AdminInstructorDirectory.tsx');
     const detail = readRepoFile('src/features/admin/people/AdminInstructorDetail.tsx');
     const list = readRepoFile('src/features/admin/people/AdminInstructorList.tsx');
@@ -43,9 +43,6 @@ describe('T32.9A.6.2 Admin Instructors identity boundary', () => {
       expect(source).not.toContain('balanceUSD');
       expect(source).not.toContain("directory: 'participants'");
       expect(source).not.toContain('Create participant');
-      expect(source).not.toContain('Delete instructor');
-      expect(source).not.toContain('Удалить инструктора');
-      expect(source).not.toContain('onDeleteInstructor');
     }
     expect(directory).toContain('create_instructor_catalog_entry');
     expect(directory).toContain('update_instructor_catalog_profile');
@@ -53,6 +50,7 @@ describe('T32.9A.6.2 Admin Instructors identity boundary', () => {
     expect(directory).toContain('reactivate_instructor_catalog');
     expect(directory).toContain('link_account_instructor_catalog');
     expect(directory).toContain('unlink_account_instructor_catalog');
+    expect(directory).toContain('delete_instructor_catalog_entry');
     expect(directory).toContain('canonicalDeterministicHash');
     expect(directory).toContain("['instructor_catalog:v1'");
     expect(directory).toContain('accountId');
@@ -61,7 +59,9 @@ describe('T32.9A.6.2 Admin Instructors identity boundary', () => {
     expect(translations).toContain('Приостановить приём записей');
     expect(translations).toContain('Stop being instructor');
     expect(translations).toContain('Перестать быть инструктором');
+    expect(translations).toContain('Удалить инструктора');
     expect(detail).toContain('unlinkBlockedByCommitments');
+    expect(detail).toContain('delete_instructor_catalog_entry');
   });
 
   it('navigates Open Client to People with clientAccount and Open Planner to Operations', () => {

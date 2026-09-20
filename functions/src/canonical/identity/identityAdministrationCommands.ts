@@ -2,6 +2,7 @@ import {
   AUDIT_REASON_REGISTRY_VERSION,
   AggregateRevisionSchema,
   CanonicalCommandError,
+  INSTRUCTOR_DELETE_AVAILABILITY_SCAN_LIMIT,
   INSTRUCTOR_UNLINK_COMMITMENT_SCAN_LIMIT,
   InstructorCatalogEntrySchema,
   PARTICIPANT_ARCHIVE_COMMITMENT_SCAN_LIMIT,
@@ -12,6 +13,7 @@ import {
   evaluateChangeAccountRole,
   evaluateDisableAccount,
   evaluateReactivateInstructorCatalog,
+  instructorDeleteBlockedByAvailabilityCleanup,
   instructorUnlinkBlockedByFutureCommitments,
   nextAggregateRevision,
   parseInstructorCatalogRevision,
@@ -22,6 +24,7 @@ import {
   InstructorIdSchema,
   type Account,
   type AccountId,
+  type AdministrativeAvailabilityBlock,
   type AuditOutboxStagingPlan,
   type CommandEnvelope,
   type CommandExecutionEnvironment,
@@ -46,6 +49,22 @@ import {
 } from '../resourceClaims/uniquenessGuards';
 import { CANONICAL_FIELD_DELETE } from '../transactions/transactionExecution';
 import type { CanonicalAtomicTransactionSession } from '../transactions';
+import {
+  ADMINISTRATIVE_BLOCK_PLANNING_ESTIMATES,
+  administrativeAvailabilityBlockPath,
+  parseAdministrativeAvailabilityBlock,
+  toFirestoreWritePayload as toAvailabilityBlockWritePayload,
+} from '../availability/administrativeAvailabilityBlockStore';
+import { administrativeAvailabilityBlockClaimIdentity } from '../availability/administrativeAvailabilityBlockClaims';
+import {
+  commitResourceClaimPlan,
+  readAndPlanReleaseResourceClaimIfPresent,
+  type ResourceClaimOperationPlan,
+} from '../resourceClaims/resourceClaimEngine';
+import {
+  bestEffortDeleteInstructorCatalogImage,
+  instructorCatalogImageCleanupOutboxDraft,
+} from './instructorCatalogImageCleanup';
 import {
   assertAccountActive,
   assertAdministrator,
@@ -82,6 +101,7 @@ type IdentityAdminKind = Extract<
   | 'reactivate_instructor_catalog'
   | 'link_account_instructor_catalog'
   | 'unlink_account_instructor_catalog'
+  | 'delete_instructor_catalog_entry'
   | 'repair_participant_management_owner_guard'
 >;
 
@@ -152,6 +172,8 @@ function buildIdentityAdminAuditPlan(input: {
   readonly affectedSubjects: AuditOutboxStagingPlan['activityLog']['affectedSubjects'];
   readonly resultingRevisions: AuditOutboxStagingPlan['activityLog']['resultingRevisions'];
   readonly effectKind: 'participant_access_changed' | 'outbox_obligation_created';
+  readonly extraEffects?: AuditOutboxStagingPlan['activityLog']['effects'];
+  readonly outboxObligations?: AuditOutboxStagingPlan['outboxObligations'];
 }): AuditOutboxStagingPlan {
   const subjectRef = input.affectedSubjects[0];
   if (!subjectRef) {
@@ -178,12 +200,13 @@ function buildIdentityAdminAuditPlan(input: {
           subjectRef,
           summary: input.summary,
         },
+        ...(input.extraEffects ?? []),
       ],
       monetaryEventIds: [],
       adminIssueIds: [],
       resultingRevisions: input.resultingRevisions,
     },
-    outboxObligations: [],
+    outboxObligations: input.outboxObligations ?? [],
   };
 }
 
@@ -344,6 +367,106 @@ async function assertNoOutstandingInstructorCommitments(
   }
 }
 
+async function loadActiveAvailabilityBlocksForInstructorDelete(
+  session: CanonicalAtomicTransactionSession,
+  envelope: CommandEnvelope,
+  instructorId: InstructorId
+): Promise<AdministrativeAvailabilityBlock[]> {
+  const blockDocs = await session.tx.query({
+    collection: 'administrative_availability_blocks',
+    where: { field: 'instructorId', op: '==', value: instructorId },
+    limit: INSTRUCTOR_DELETE_AVAILABILITY_SCAN_LIMIT + 1,
+  });
+  session.plan.planRead({
+    path: 'administrative_availability_blocks/query_by_instructor',
+    category: 'authorization_check',
+  });
+  const parsed = blockDocs
+    .map((doc) => parseAdministrativeAvailabilityBlock(doc.data))
+    .filter((block): block is AdministrativeAvailabilityBlock => block !== undefined);
+  const active = parsed.filter((block) => block.lifecycle === 'active');
+  if (
+    instructorDeleteBlockedByAvailabilityCleanup({
+      activeBlockCount: active.length,
+      blockScanCapped: blockDocs.length > INSTRUCTOR_DELETE_AVAILABILITY_SCAN_LIMIT,
+      unparsedBlockCount: blockDocs.length - parsed.length,
+    })
+  ) {
+    throw new CanonicalCommandError('operation_too_large', {
+      correlationId: envelope.context.correlationId,
+      details: { resourceKind: 'instructor', reason: 'conflict' },
+    });
+  }
+  return active;
+}
+
+async function resolveLinkedAccountForInstructorDeletion(
+  session: CanonicalAtomicTransactionSession,
+  envelope: CommandEnvelope,
+  instructorId: InstructorId,
+  catalogLinkedAccountId: AccountId | undefined
+): Promise<
+  | {
+      readonly account: Account;
+      readonly profile: Record<string, unknown> | undefined;
+      readonly path: string;
+    }
+  | undefined
+> {
+  const linkedAccounts = await session.tx.query({
+    collection: 'users',
+    where: { field: 'instructorId', op: '==', value: instructorId },
+    limit: 2,
+  });
+  session.plan.planRead({
+    path: 'users/query_by_instructorId',
+    category: 'authorization_check',
+  });
+  if (linkedAccounts.length > 1) {
+    throw new CanonicalCommandError('blocked_relationship', {
+      correlationId: envelope.context.correlationId,
+      details: { resourceKind: 'instructor', reason: 'conflict' },
+    });
+  }
+  const reverseAccountId = AccountIdSchema.safeParse(linkedAccounts[0]?.path.split('/')[1]);
+  const reverseId = reverseAccountId.success ? reverseAccountId.data : undefined;
+  if (catalogLinkedAccountId && reverseId && catalogLinkedAccountId !== reverseId) {
+    throw new CanonicalCommandError('blocked_relationship', {
+      correlationId: envelope.context.correlationId,
+      details: { resourceKind: 'instructor', reason: 'conflict' },
+    });
+  }
+  const resolvedAccountId = catalogLinkedAccountId ?? reverseId;
+  if (!resolvedAccountId) {
+    return undefined;
+  }
+  const targetPath = accountPath(resolvedAccountId);
+  const targetRead = await session.tx.get({ path: targetPath });
+  session.plan.planRead({ path: targetPath, category: 'aggregate' });
+  const parsed = parseAccount(targetRead.exists ? targetRead.data : undefined);
+  if (!parsed) {
+    conflict(envelope, { resourceKind: 'account', reason: 'conflict' });
+  }
+  const profileInstructorId = targetRead.data?.instructorId;
+  if (catalogLinkedAccountId && profileInstructorId !== instructorId) {
+    throw new CanonicalCommandError('blocked_relationship', {
+      correlationId: envelope.context.correlationId,
+      details: { resourceKind: 'instructor', reason: 'conflict' },
+    });
+  }
+  if (
+    typeof profileInstructorId === 'string' &&
+    profileInstructorId.length > 0 &&
+    profileInstructorId !== instructorId
+  ) {
+    throw new CanonicalCommandError('blocked_relationship', {
+      correlationId: envelope.context.correlationId,
+      details: { resourceKind: 'instructor', reason: 'conflict' },
+    });
+  }
+  return { account: parsed, profile: targetRead.data, path: targetPath };
+}
+
 export function createIdentityAdministrationCommandHandlers(
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
 ): Partial<CommandHandlerMap> {
@@ -378,6 +501,8 @@ export function createIdentityAdministrationCommandHandlers(
       linkInstructorCatalogHandler(envelope, environment, executor),
     unlink_account_instructor_catalog: (envelope, environment) =>
       unlinkInstructorCatalogHandler(envelope, environment, executor),
+    delete_instructor_catalog_entry: (envelope, environment) =>
+      deleteInstructorCatalogHandler(envelope, environment, executor),
     repair_participant_management_owner_guard: (envelope, environment) =>
       repairOwnerGuardHandler(envelope, environment, executor),
   };
@@ -1968,6 +2093,198 @@ function unlinkInstructorCatalogHandler(
     executor,
     revisionTarget: { ref: { path: targetPath }, requireExpectedRevision: true },
     handler,
+  });
+}
+
+function deleteInstructorCatalogHandler(
+  envelope: CommandEnvelope<'delete_instructor_catalog_entry'>,
+  environment: CommandExecutionEnvironment,
+  executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
+): Promise<CommandResult<'delete_instructor_catalog_entry'>> {
+  const metadata = metadataFromEnvelope(envelope);
+  requireAdmin(envelope);
+  requireReason(envelope, envelope.intent.reasonExplanation);
+  const catalogPath = instructorCatalogPath(envelope.intent.instructorId);
+  let catalog!: InstructorCatalogEntry;
+  let linkedAccount:
+    | {
+        readonly account: Account;
+        readonly profile: Record<string, unknown> | undefined;
+        readonly path: string;
+      }
+    | undefined;
+  let activeBlocks: AdministrativeAvailabilityBlock[] = [];
+  let claimReleasePlans: ResourceClaimOperationPlan[] = [];
+
+  const handler: AuthoritativeIdempotentCanonicalCommandHandler<'delete_instructor_catalog_entry'> =
+    {
+      read: async (session) => {
+        const actor = requireAccountActor(envelope);
+        const actorRead = await session.tx.get({ path: accountPath(actor.accountId) });
+        session.plan.planRead({
+          path: accountPath(actor.accountId),
+          category: 'authorization_check',
+        });
+        assertAccountActive(envelope, parseAccount(actorRead.exists ? actorRead.data : undefined));
+
+        const catalogRead = await session.tx.get({ path: catalogPath });
+        session.plan.planRead({ path: catalogPath, category: 'aggregate' });
+        const parsedCatalog = parseCatalogEntry(
+          envelope.intent.instructorId,
+          catalogRead.exists ? catalogRead.data : undefined
+        );
+        if (!parsedCatalog) {
+          conflict(envelope, { resourceKind: 'instructor', reason: 'conflict' });
+        }
+        catalog = parsedCatalog;
+
+        await assertNoOutstandingInstructorCommitments(
+          session,
+          envelope,
+          envelope.intent.instructorId,
+          environment.clock.decidedAt()
+        );
+
+        linkedAccount = await resolveLinkedAccountForInstructorDeletion(
+          session,
+          envelope,
+          envelope.intent.instructorId,
+          catalog.linkedAccountId
+        );
+
+        activeBlocks = await loadActiveAvailabilityBlocksForInstructorDelete(
+          session,
+          envelope,
+          envelope.intent.instructorId
+        );
+        claimReleasePlans = [];
+        for (const block of activeBlocks) {
+          const identity = administrativeAvailabilityBlockClaimIdentity({
+            blockId: block.blockId,
+            instructorId: block.instructorId,
+            scheduleRevision: block.scheduleRevision,
+          });
+          const releasePlan = await readAndPlanReleaseResourceClaimIfPresent(session, {
+            correlationId: metadata.correlationId,
+            commandId: metadata.commandId,
+            decidedAt: environment.clock.decidedAt(),
+            claimId: identity.claimId,
+          });
+          if (releasePlan) {
+            claimReleasePlans.push(releasePlan);
+          }
+          session.plan.planMutation({
+            path: administrativeAvailabilityBlockPath(block.blockId),
+            kind: 'update',
+            category: 'aggregate',
+            estimatedPayloadBytes: ADMINISTRATIVE_BLOCK_PLANNING_ESTIMATES.blockBytes,
+          });
+        }
+
+        if (linkedAccount) {
+          session.plan.planMutation({
+            path: linkedAccount.path,
+            kind: 'update',
+            category: 'aggregate',
+            estimatedPayloadBytes: PARTICIPANT_ACCESS_PLANNING_ESTIMATES.accountBytes,
+          });
+        }
+        session.plan.planMutation({
+          path: catalogPath,
+          kind: 'delete',
+          category: 'aggregate',
+          estimatedPayloadBytes: 768,
+        });
+      },
+      planAuditOutbox: async () =>
+        buildIdentityAdminAuditPlan({
+          envelope,
+          summary: 'Instructor catalog entry hard-deleted',
+          reasonCode: 'manual_override',
+          explanation: envelope.intent.reasonExplanation,
+          primary: { kind: 'instructor', id: envelope.intent.instructorId },
+          affectedSubjects: [
+            canonicalReference('instructor', envelope.intent.instructorId),
+            ...(linkedAccount
+              ? [canonicalReference('account', linkedAccount.account.accountId)]
+              : []),
+          ],
+          resultingRevisions: linkedAccount
+            ? [
+                {
+                  subject: canonicalReference('account', linkedAccount.account.accountId),
+                  revision: nextAggregateRevision(linkedAccount.account.revision),
+                },
+              ]
+            : [],
+          effectKind: 'outbox_obligation_created',
+          extraEffects:
+            activeBlocks.length > 0
+              ? [
+                  {
+                    kind: 'resource_claim_changed',
+                    subjectRef: canonicalReference('instructor', envelope.intent.instructorId),
+                    summary: 'Released administrative availability claims for deleted instructor',
+                  },
+                ]
+              : undefined,
+          outboxObligations: [
+            instructorCatalogImageCleanupOutboxDraft({
+              instructorId: envelope.intent.instructorId,
+            }),
+          ],
+        }),
+      execute: async (session, context) => {
+        const decidedAt = timestampFromDate(context.decidedAt);
+        for (const plan of claimReleasePlans) {
+          commitResourceClaimPlan(session, plan, {
+            correlationId: metadata.correlationId,
+            commandId: metadata.commandId,
+            decidedAt: context.decidedAt,
+          });
+        }
+        for (const block of activeBlocks) {
+          session.tx.update(
+            { path: administrativeAvailabilityBlockPath(block.blockId) },
+            toAvailabilityBlockWritePayload({
+              ...block,
+              lifecycle: 'released',
+              revision: nextAggregateRevision(block.revision),
+              updatedAt: decidedAt,
+            })
+          );
+        }
+        if (linkedAccount) {
+          session.tx.update(
+            { path: linkedAccount.path },
+            {
+              instructorId: CANONICAL_FIELD_DELETE as unknown as string,
+              isInstructor: false,
+              revision: nextAggregateRevision(linkedAccount.account.revision),
+              updatedAt: decidedAt,
+              audit: {
+                ...linkedAccount.account.audit,
+                lastChangedByCommandId: metadata.commandId,
+                correlationId: metadata.correlationId,
+              },
+            }
+          );
+        }
+        session.tx.delete({ path: catalogPath });
+        return commandSuccessResult(envelope.kind, envelope.context.correlationId);
+      },
+    };
+
+  return executeAuthoritativeIdempotentCanonicalCommand({
+    envelope,
+    environment,
+    executor,
+    revisionTarget: { ref: { path: catalogPath }, requireExpectedRevision: true },
+    handler,
+    onSettled: ({ replayed, result }) => {
+      if (replayed || result.status !== 'success') return;
+      void bestEffortDeleteInstructorCatalogImage(envelope.intent.instructorId);
+    },
   });
 }
 

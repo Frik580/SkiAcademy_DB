@@ -2,13 +2,21 @@ import { describe, expect, it } from 'vitest';
 import {
   AccountIdSchema,
   AccountSchema,
+  AdministrativeAvailabilityBlockIdSchema,
+  BookingIdSchema,
+  BookingSchema,
   CorrelationIdSchema,
+  CourseDayIdSchema,
+  CourseDaySchema,
+  CourseIdSchema,
   InstructorIdSchema,
+  OccurrenceIdSchema,
   ParticipantIdSchema,
   ParticipantManagementIdSchema,
   ParticipantSchema,
   accountCommandActor,
   participantManagementIdFromGuestLink,
+  paymentIdFromBookingId,
   timestampFromDate,
   type CommandEnvelope,
 } from '@ski-academy/shared-domain';
@@ -1561,5 +1569,440 @@ describe('canonical identity administration commands', () => {
     if (result.status === 'error') {
       expect(result.error.code).toBe('blocked_relationship');
     }
+  });
+});
+
+describe('delete_instructor_catalog_entry', () => {
+  const past = timestampFromDate(new Date('2026-01-01T10:00:00.000Z'));
+  const future = timestampFromDate(new Date('2026-03-01T10:00:00.000Z'));
+
+  function seedCatalog(extras: Record<string, unknown> = {}) {
+    return {
+      instructorId,
+      name: 'Delete Coach',
+      pricePerHourKZT: 15_000,
+      isAvailable: true,
+      revision: 1,
+      ...extras,
+    };
+  }
+
+  function seedLesson(input: {
+    readonly bookingId: string;
+    readonly status: 'confirmed' | 'completed';
+    readonly startsAt: ReturnType<typeof timestampFromDate>;
+    readonly endsAt: ReturnType<typeof timestampFromDate>;
+  }) {
+    const bookingId = BookingIdSchema.parse(input.bookingId);
+    const occurrenceId = OccurrenceIdSchema.parse(`occurrence_${input.bookingId}`);
+    return BookingSchema.parse({
+      bookingId,
+      attribution: {
+        bookingOrigin: 'account',
+        bookedBy: { kind: 'account', accountId: targetAccountId },
+      },
+      party: { kind: 'individual', participantIds: [participantId] },
+      occurrence: {
+        occurrenceId,
+        instructorId,
+        interval: { startsAt: input.startsAt, endsAt: input.endsAt },
+        timeZone: 'Asia/Almaty',
+        scheduleRevision: 1,
+        serviceParty: { participantIds: [participantId], frozenAt: input.startsAt },
+      },
+      lifecycle:
+        input.status === 'completed'
+          ? { status: 'completed', completedAt: input.endsAt }
+          : { status: 'confirmed' },
+      paymentId: paymentIdFromBookingId(bookingId),
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: input.endsAt,
+      audit: {
+        createdByCommandId: 'command_seed_booking',
+        lastChangedByCommandId: 'command_seed_booking',
+        correlationId,
+      },
+    });
+  }
+
+  function seedCourseDay(input: {
+    readonly courseId: string;
+    readonly courseDayId: string;
+    readonly startsAt: ReturnType<typeof timestampFromDate>;
+    readonly endsAt: ReturnType<typeof timestampFromDate>;
+  }) {
+    return CourseDaySchema.parse({
+      courseId: CourseIdSchema.parse(input.courseId),
+      courseDayId: CourseDayIdSchema.parse(input.courseDayId),
+      dayOrder: 1,
+      interval: { startsAt: input.startsAt, endsAt: input.endsAt },
+      timeZone: 'Asia/Almaty',
+      actualInstructorIds: [instructorId],
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: input.endsAt,
+      audit: {
+        createdByCommandId: 'command_seed_day',
+        lastChangedByCommandId: 'command_seed_day',
+        correlationId,
+      },
+    });
+  }
+
+  it('A: physically deletes an unlinked catalog with no future commitments', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${adminAccountId}`]: seedAccount(adminAccountId, { systemRole: 'owner' }),
+      [`instructors/${instructorId}`]: seedCatalog(),
+    });
+    const result = await run(executor, {
+      kind: 'delete_instructor_catalog_entry',
+      context: adminContext('delete-unlinked-01'),
+      intent: { instructorId, reasonExplanation: 'Remove unused catalog' },
+    });
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.has(`instructors/${instructorId}`)).toBe(false);
+  });
+
+  it('B: deletes a linked catalog and preserves the Account without instructor fields', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${adminAccountId}`]: seedAccount(adminAccountId, { systemRole: 'owner' }),
+      [`users/${targetAccountId}`]: seedAccount(targetAccountId, {
+        role: 'user',
+        instructorId,
+        isInstructor: true,
+        displayName: 'Linked Client',
+        phoneNumber: '+77011111111',
+      }),
+      [`instructors/${instructorId}`]: seedCatalog({ linkedAccountId: targetAccountId }),
+    });
+    const result = await run(executor, {
+      kind: 'delete_instructor_catalog_entry',
+      context: adminContext('delete-linked-01'),
+      intent: { instructorId, reasonExplanation: 'Hard delete linked instructor' },
+    });
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.has(`instructors/${instructorId}`)).toBe(false);
+    expect(executor.snapshot().docs.get(`users/${targetAccountId}`)?.data).toMatchObject({
+      displayName: 'Linked Client',
+      phoneNumber: '+77011111111',
+      role: 'user',
+      isInstructor: false,
+    });
+    expect(executor.snapshot().docs.get(`users/${targetAccountId}`)?.data).not.toHaveProperty(
+      'instructorId'
+    );
+  });
+
+  it('C: leaves non-instructor Account and Participant state unchanged', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${adminAccountId}`]: seedAccount(adminAccountId, { systemRole: 'owner' }),
+      [`users/${targetAccountId}`]: seedAccount(targetAccountId, {
+        role: 'user',
+        instructorId,
+        isInstructor: true,
+        displayName: 'Family Client',
+        email: 'family@example.com',
+      }),
+      [`participants/${participantId}`]: seedParticipant(),
+      [`instructors/${instructorId}`]: seedCatalog({ linkedAccountId: targetAccountId }),
+    });
+    const beforeParticipant = executor.snapshot().docs.get(`participants/${participantId}`)?.data;
+    const result = await run(executor, {
+      kind: 'delete_instructor_catalog_entry',
+      context: adminContext('delete-preserve-participant-01'),
+      intent: { instructorId, reasonExplanation: 'Keep family data' },
+    });
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.get(`participants/${participantId}`)?.data).toEqual(
+      beforeParticipant
+    );
+    expect(executor.snapshot().docs.get(`users/${targetAccountId}`)?.data).toMatchObject({
+      displayName: 'Family Client',
+      email: 'family@example.com',
+      role: 'user',
+      isInstructor: false,
+    });
+  });
+
+  it('D: rejects future lesson bookings and mutates nothing', async () => {
+    const booking = seedLesson({
+      bookingId: 'booking_identity_admin_future_01',
+      status: 'confirmed',
+      startsAt: future,
+      endsAt: timestampFromDate(new Date('2026-03-01T11:00:00.000Z')),
+    });
+    const docs = {
+      [`users/${adminAccountId}`]: seedAccount(adminAccountId, { systemRole: 'owner' }),
+      [`users/${targetAccountId}`]: seedAccount(targetAccountId, {
+        role: 'user',
+        instructorId,
+        isInstructor: true,
+      }),
+      [`instructors/${instructorId}`]: seedCatalog({ linkedAccountId: targetAccountId, revision: 2 }),
+      [`bookings/${booking.bookingId}`]: booking,
+    };
+    const executor = createInMemoryCanonicalTransactionExecutor(docs);
+    const before = executor.snapshot().docs;
+    const result = await run(executor, {
+      kind: 'delete_instructor_catalog_entry',
+      context: adminContext('delete-future-lesson-01', 2),
+      intent: { instructorId, reasonExplanation: 'Should fail on future lesson' },
+    });
+    expect(result.status).toBe('error');
+    expect(executor.snapshot().docs.get(`instructors/${instructorId}`)?.data).toEqual(
+      before.get(`instructors/${instructorId}`)?.data
+    );
+    expect(executor.snapshot().docs.get(`users/${targetAccountId}`)?.data).toEqual(
+      before.get(`users/${targetAccountId}`)?.data
+    );
+    expect(executor.snapshot().docs.get(`bookings/${booking.bookingId}`)?.data).toEqual(booking);
+
+    const unlinkBlocked = await run(
+      createInMemoryCanonicalTransactionExecutor(docs),
+      {
+        kind: 'unlink_account_instructor_catalog',
+        context: adminContext('unlink-same-future-lesson-01'),
+        intent: {
+          accountId: targetAccountId,
+          instructorId,
+          reasonExplanation: 'Shared future-commitment invariant',
+        },
+      }
+    );
+    expect(unlinkBlocked.status).toBe('error');
+  });
+
+  it('E: rejects future CourseDay assignment and mutates nothing', async () => {
+    const courseId = 'course_identity_admin_unit_01';
+    const courseDayId = 'course_day_identity_admin_unit_01';
+    const day = seedCourseDay({
+      courseId,
+      courseDayId,
+      startsAt: future,
+      endsAt: timestampFromDate(new Date('2026-03-01T12:00:00.000Z')),
+    });
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${adminAccountId}`]: seedAccount(adminAccountId, { systemRole: 'owner' }),
+      [`instructors/${instructorId}`]: seedCatalog(),
+      [`courses/${courseId}/days/${courseDayId}`]: day,
+    });
+    const before = executor.snapshot().docs.get(`instructors/${instructorId}`)?.data;
+    const result = await run(executor, {
+      kind: 'delete_instructor_catalog_entry',
+      context: adminContext('delete-future-day-01'),
+      intent: { instructorId, reasonExplanation: 'Should fail on future CourseDay' },
+    });
+    expect(result.status).toBe('error');
+    expect(executor.snapshot().docs.get(`instructors/${instructorId}`)?.data).toEqual(before);
+    expect(executor.snapshot().docs.get(`courses/${courseId}/days/${courseDayId}`)?.data).toEqual(
+      day
+    );
+
+    const unlinkBlocked = await run(
+      createInMemoryCanonicalTransactionExecutor({
+        [`users/${adminAccountId}`]: seedAccount(adminAccountId, { systemRole: 'owner' }),
+        [`users/${targetAccountId}`]: seedAccount(targetAccountId, {
+          role: 'user',
+          instructorId,
+          isInstructor: true,
+        }),
+        [`instructors/${instructorId}`]: seedCatalog({ linkedAccountId: targetAccountId }),
+        [`courses/${courseId}/days/${courseDayId}`]: day,
+      }),
+      {
+        kind: 'unlink_account_instructor_catalog',
+        context: adminContext('unlink-same-future-day-01'),
+        intent: {
+          accountId: targetAccountId,
+          instructorId,
+          reasonExplanation: 'Shared future-commitment invariant',
+        },
+      }
+    );
+    expect(unlinkBlocked.status).toBe('error');
+  });
+
+  it('F: allows deletion with a past completed lesson left unchanged', async () => {
+    const booking = seedLesson({
+      bookingId: 'booking_identity_admin_past_01',
+      status: 'completed',
+      startsAt: past,
+      endsAt: timestampFromDate(new Date('2026-01-01T11:00:00.000Z')),
+    });
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${adminAccountId}`]: seedAccount(adminAccountId, { systemRole: 'owner' }),
+      [`instructors/${instructorId}`]: seedCatalog(),
+      [`bookings/${booking.bookingId}`]: booking,
+    });
+    const result = await run(executor, {
+      kind: 'delete_instructor_catalog_entry',
+      context: adminContext('delete-past-lesson-01'),
+      intent: { instructorId, reasonExplanation: 'History remains' },
+    });
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.has(`instructors/${instructorId}`)).toBe(false);
+    expect(executor.snapshot().docs.get(`bookings/${booking.bookingId}`)?.data).toEqual(booking);
+  });
+
+  it('G: allows deletion with a past CourseDay left unchanged', async () => {
+    const courseId = 'course_identity_admin_unit_02';
+    const courseDayId = 'course_day_identity_admin_unit_02';
+    const day = seedCourseDay({
+      courseId,
+      courseDayId,
+      startsAt: past,
+      endsAt: timestampFromDate(new Date('2026-01-01T12:00:00.000Z')),
+    });
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${adminAccountId}`]: seedAccount(adminAccountId, { systemRole: 'owner' }),
+      [`instructors/${instructorId}`]: seedCatalog(),
+      [`courses/${courseId}/days/${courseDayId}`]: day,
+    });
+    const result = await run(executor, {
+      kind: 'delete_instructor_catalog_entry',
+      context: adminContext('delete-past-day-01'),
+      intent: { instructorId, reasonExplanation: 'Past course facts remain' },
+    });
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.has(`instructors/${instructorId}`)).toBe(false);
+    expect(executor.snapshot().docs.get(`courses/${courseId}/days/${courseDayId}`)?.data).toEqual(
+      day
+    );
+  });
+
+  it('H/I: releases an active administrative availability block and its resource claim', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${adminAccountId}`]: seedAccount(adminAccountId, { systemRole: 'owner' }),
+      [`instructors/${instructorId}`]: seedCatalog(),
+    });
+    const blockId = AdministrativeAvailabilityBlockIdSchema.parse(
+      'block_identity_admin_delete_01'
+    );
+    const created = await run(executor, {
+      kind: 'create_administrative_availability_block',
+      context: {
+        ...adminContext('create-block-before-delete-01'),
+        calendarInput: { localDate: '2026-02-02', localTime: '12:00', durationMinutes: 60 },
+        timezone: 'Asia/Almaty',
+      },
+      intent: {
+        blockId,
+        instructorId,
+        kind: 'break',
+        reasonExplanation: 'Lunch',
+      },
+    });
+    expect(created.status).toBe('success');
+    const claimsBefore = [...executor.snapshot().docs.entries()].filter(([path]) =>
+      path.startsWith('resource_claims/')
+    );
+    expect(claimsBefore).toHaveLength(1);
+    expect(claimsBefore[0]?.[1].data).toMatchObject({ lifecycle: { status: 'active' } });
+
+    const deleted = await run(executor, {
+      kind: 'delete_instructor_catalog_entry',
+      context: adminContext('delete-with-block-01'),
+      intent: { instructorId, reasonExplanation: 'Cleanup operational blocks' },
+    });
+    expect(deleted.status).toBe('success');
+    expect(executor.snapshot().docs.has(`instructors/${instructorId}`)).toBe(false);
+    expect(
+      executor.snapshot().docs.get(`administrative_availability_blocks/${blockId}`)?.data
+    ).toMatchObject({ lifecycle: 'released' });
+    const claimsAfter = [...executor.snapshot().docs.entries()].filter(([path]) =>
+      path.startsWith('resource_claims/')
+    );
+    expect(claimsAfter).toHaveLength(1);
+    expect(claimsAfter[0]?.[1].data).toMatchObject({ lifecycle: { status: 'released' } });
+  });
+
+  it('J: rejects stale expectedRevision', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${adminAccountId}`]: seedAccount(adminAccountId, { systemRole: 'owner' }),
+      [`instructors/${instructorId}`]: seedCatalog({ revision: 3 }),
+    });
+    const result = await run(executor, {
+      kind: 'delete_instructor_catalog_entry',
+      context: adminContext('delete-stale-01', 1),
+      intent: { instructorId, reasonExplanation: 'Stale write' },
+    });
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('stale_version');
+    }
+    expect(executor.snapshot().docs.has(`instructors/${instructorId}`)).toBe(true);
+  });
+
+  it('K: forbids a non-admin caller', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${targetAccountId}`]: seedAccount(targetAccountId, { role: 'user' }),
+      [`instructors/${instructorId}`]: seedCatalog(),
+    });
+    const result = await run(executor, {
+      kind: 'delete_instructor_catalog_entry',
+      context: {
+        actor: accountCommandActor(targetAccountId),
+        exercisedCapability: 'account_owner',
+        idempotencyKey: 'delete-forbidden-01',
+        correlationId,
+        source: 'client_callable',
+        expectedRevision: 1,
+      },
+      intent: { instructorId, reasonExplanation: 'Should be forbidden' },
+    });
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('forbidden');
+    }
+    expect(executor.snapshot().docs.has(`instructors/${instructorId}`)).toBe(true);
+  });
+
+  it('L: retries with the same idempotency key are deterministic', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${adminAccountId}`]: seedAccount(adminAccountId, { systemRole: 'owner' }),
+      [`instructors/${instructorId}`]: seedCatalog(),
+    });
+    const envelope: CommandEnvelope<'delete_instructor_catalog_entry'> = {
+      kind: 'delete_instructor_catalog_entry',
+      context: adminContext('delete-idempotent-01'),
+      intent: { instructorId, reasonExplanation: 'Retry-safe delete' },
+    };
+    const first = await run(executor, envelope);
+    const second = await run(executor, envelope);
+    expect(first.status).toBe('success');
+    expect(second.status).toBe('success');
+    expect(executor.snapshot().docs.has(`instructors/${instructorId}`)).toBe(false);
+  });
+
+  it('M: fails safely on an inconsistent reverse Account/Instructor link', async () => {
+    const otherAccountId = AccountIdSchema.parse('account_identity_admin_unit_03');
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${adminAccountId}`]: seedAccount(adminAccountId, { systemRole: 'owner' }),
+      [`users/${targetAccountId}`]: seedAccount(targetAccountId, {
+        role: 'user',
+        instructorId,
+        isInstructor: true,
+      }),
+      [`users/${otherAccountId}`]: seedAccount(otherAccountId, { role: 'user' }),
+      [`instructors/${instructorId}`]: seedCatalog({ linkedAccountId: otherAccountId }),
+    });
+    const result = await run(executor, {
+      kind: 'delete_instructor_catalog_entry',
+      context: adminContext('delete-inconsistent-link-01'),
+      intent: { instructorId, reasonExplanation: 'Must not unlink the wrong account' },
+    });
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('blocked_relationship');
+    }
+    expect(executor.snapshot().docs.has(`instructors/${instructorId}`)).toBe(true);
+    expect(executor.snapshot().docs.get(`users/${targetAccountId}`)?.data).toMatchObject({
+      instructorId,
+      isInstructor: true,
+    });
+    expect(executor.snapshot().docs.get(`users/${otherAccountId}`)?.data).not.toHaveProperty(
+      'instructorId'
+    );
   });
 });

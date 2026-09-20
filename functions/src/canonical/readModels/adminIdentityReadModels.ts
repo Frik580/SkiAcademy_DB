@@ -3,6 +3,7 @@ import {
   ADMIN_IDENTITY_READ_MODEL_PAGE_SIZE_DEFAULT,
   AccountIdSchema,
   AggregateRevisionSchema,
+  INSTRUCTOR_DELETE_AVAILABILITY_SCAN_LIMIT,
   INSTRUCTOR_UNLINK_COMMITMENT_SCAN_LIMIT,
   InstructorIdSchema,
   ParticipantIdSchema,
@@ -12,6 +13,7 @@ import {
   diagnoseAccountIdentity,
   diagnoseParticipantIdentity,
   encodeAdminIdentityListCursor,
+  instructorDeleteBlockedByAvailabilityCleanup,
   instructorUnlinkBlockedByFutureCommitments,
   parseInstructorCatalogRevision,
   timestampFromDate,
@@ -25,6 +27,7 @@ import {
   type AdminParticipantDetailReadModel,
   type AdminParticipantListItem,
   type IdentityDiagnostic,
+  type InstructorCatalogDeleteBlockReason,
   type InstructorId,
   type Participant,
   type ParticipantId,
@@ -42,6 +45,7 @@ import {
 } from '../participantAccess/participantAccessStore';
 import { parseBooking, parseInstructorCatalog } from '../bookings/bookingStore';
 import { parseCourseDay } from '../courses/courseStore';
+import { parseAdministrativeAvailabilityBlock } from '../availability/administrativeAvailabilityBlockStore';
 import { sanitizeInstructorPresentationAvatarUrl } from './instructorPresentationAvatar';
 import {
   createReadModelRequestContext,
@@ -261,6 +265,7 @@ function instructorActions(input: {
   readonly linkedAccountRevision?: number;
   readonly linkedAccountLifecycle?: 'active' | 'disabled' | 'uninitialized';
   readonly unlinkBlockedByCommitments?: boolean;
+  readonly deletionAllowed?: boolean;
 }): AdminIdentityAuthorizedAction[] {
   const revision = AggregateRevisionSchema.parse(input.revision);
   const linkedAccountRevision =
@@ -283,6 +288,9 @@ function instructorActions(input: {
       kind: 'unlink_account_instructor_catalog',
       expectedRevision: linkedAccountRevision,
     });
+  }
+  if (input.deletionAllowed === true) {
+    actions.push({ kind: 'delete_instructor_catalog_entry', expectedRevision: revision });
   }
   return actions.slice(0, 8);
 }
@@ -792,6 +800,39 @@ async function loadInstructorCommitmentCounts(
   };
 }
 
+async function loadInstructorAvailabilityCleanupState(
+  firestore: Firestore,
+  instructorId: InstructorId
+): Promise<{
+  readonly activeAvailabilityBlockCount: number;
+  readonly availabilityCleanupBlocked: boolean;
+}> {
+  let blockDocs: FirebaseFirestore.QueryDocumentSnapshot[] = [];
+  try {
+    blockDocs = (
+      await firestore
+        .collection('administrative_availability_blocks')
+        .where('instructorId', '==', instructorId)
+        .limit(INSTRUCTOR_DELETE_AVAILABILITY_SCAN_LIMIT + 1)
+        .get()
+    ).docs;
+  } catch {
+    blockDocs = [];
+  }
+  const parsed = blockDocs
+    .map((doc) => parseAdministrativeAvailabilityBlock(doc.data() as Record<string, unknown>))
+    .filter((block): block is NonNullable<typeof block> => block !== undefined);
+  const activeCount = parsed.filter((block) => block.lifecycle === 'active').length;
+  return {
+    activeAvailabilityBlockCount: activeCount,
+    availabilityCleanupBlocked: instructorDeleteBlockedByAvailabilityCleanup({
+      activeBlockCount: activeCount,
+      blockScanCapped: blockDocs.length > INSTRUCTOR_DELETE_AVAILABILITY_SCAN_LIMIT,
+      unparsedBlockCount: blockDocs.length - parsed.length,
+    }),
+  };
+}
+
 async function buildInstructorListItem(
   firestore: Firestore,
   instructorId: InstructorId,
@@ -849,8 +890,9 @@ async function buildInstructorDetail(
 ): Promise<AdminInstructorDetailReadModel | undefined> {
   const listItem = await buildInstructorListItem(firestore, instructorId, data, readContext);
   if (!listItem) return undefined;
-  const [commitments, courseRosterCount, courseDayAssignmentCount] = await Promise.all([
+  const [commitments, availability, courseRosterCount, courseDayAssignmentCount] = await Promise.all([
     loadInstructorCommitmentCounts(firestore, instructorId),
+    loadInstructorAvailabilityCleanupState(firestore, instructorId),
     countQuery(
       firestore.collection('courses').where('instructorRosterIds', 'array-contains', instructorId)
     ),
@@ -883,12 +925,26 @@ async function buildInstructorDetail(
     linkedLifecycle = account?.lifecycle.status ?? linkedLifecycle;
   }
   const avatarUrl = sanitizeInstructorPresentationAvatarUrl(readString(data, 'avatarUrl'));
+  const hasLinkMismatch = diagnostics.some(
+    (item) => item.diagnosticType === 'account_instructor_link_mismatch'
+  );
+  const deleteBlockedReason: InstructorCatalogDeleteBlockReason | undefined =
+    commitments.unlinkBlockedByCommitments
+      ? 'future_commitments'
+      : availability.availabilityCleanupBlocked
+        ? 'availability_cleanup_required'
+        : undefined;
+  const deletionAllowed =
+    !commitments.unlinkBlockedByCommitments &&
+    !availability.availabilityCleanupBlocked &&
+    !hasLinkMismatch;
   return {
     ...listItem,
     authorizedActions: instructorActions({
       revision: listItem.revision,
       isAvailable: listItem.isAvailable,
       unlinkBlockedByCommitments: commitments.unlinkBlockedByCommitments,
+      deletionAllowed,
       ...(listItem.linkedAccountId
         ? {
             linkedAccountId: listItem.linkedAccountId,
@@ -921,6 +977,9 @@ async function buildInstructorDetail(
     futureLessonCommitmentCount: commitments.futureLessonCommitmentCount,
     futureCourseDayAssignmentCount: commitments.futureCourseDayAssignmentCount,
     unlinkBlockedByCommitments: commitments.unlinkBlockedByCommitments,
+    activeAvailabilityBlockCount: availability.activeAvailabilityBlockCount,
+    deleteBlockedByCommitments: commitments.unlinkBlockedByCommitments,
+    ...(deleteBlockedReason ? { deleteBlockedReason } : {}),
     diagnostics: diagnostics.slice(0, 32),
   };
 }

@@ -755,4 +755,69 @@ describe.skipIf(!runsOnFirestoreEmulator)('identity administration Firestore emu
       linkedAccountId: linkedAccount,
     });
   }, 60_000);
+
+  it('hard-deletes a linked instructor catalog while preserving the Account and dropping it from directory', async () => {
+    const deleteInstructorId = InstructorIdSchema.parse('instructor_identity_admin_emulator_delete_01');
+    await firestore.collection('users').doc(targetAccountId).set(
+      seedAccount(targetAccountId, {
+        role: 'user',
+        displayName: 'Keep Client',
+        instructorId: deleteInstructorId,
+        isInstructor: true,
+      })
+    );
+    await firestore.collection('instructors').doc(deleteInstructorId).set({
+      instructorId: deleteInstructorId,
+      name: 'Emulator Delete Coach',
+      pricePerHourKZT: 18_000,
+      isAvailable: true,
+      linkedAccountId: targetAccountId,
+      revision: 1,
+    });
+
+    const executor = createFirestoreCanonicalTransactionExecutor(firestore);
+    const commands = createProductionCanonicalCommands(
+      { clock: createAuthoritativeCommandClock(new Date('2026-02-01T00:00:00.000Z')) },
+      executor
+    );
+    const result = await commands.execute({
+      kind: 'delete_instructor_catalog_entry',
+      context: adminContext('identity-emulator-delete-01'),
+      intent: {
+        instructorId: deleteInstructorId,
+        reasonExplanation: 'Emulator hard delete',
+      },
+    });
+    expect(result.status).toBe('success');
+    expect((await firestore.collection('instructors').doc(deleteInstructorId).get()).exists).toBe(
+      false
+    );
+    expect((await firestore.collection('users').doc(targetAccountId).get()).data()).toMatchObject({
+      displayName: 'Keep Client',
+      isInstructor: false,
+    });
+    expect((await firestore.collection('users').doc(targetAccountId).get()).data()).not.toHaveProperty(
+      'instructorId'
+    );
+
+    const list = await queryAdminIdentityReadModels(
+      firestore,
+      { kind: 'administrator', accountId: adminAccountId },
+      { scope: 'admin_instructor_list', pageSize: 50 }
+    );
+    expect(list.scope).toBe('admin_instructor_list');
+    if (list.scope === 'admin_instructor_list') {
+      expect(list.items.some((item) => item.instructorId === deleteInstructorId)).toBe(false);
+    }
+    const people = await queryAdminIdentityReadModels(
+      firestore,
+      { kind: 'administrator', accountId: adminAccountId },
+      { scope: 'admin_account_detail', accountId: targetAccountId }
+    );
+    expect(people.scope).toBe('admin_account_detail');
+    if (people.scope === 'admin_account_detail') {
+      expect(people.item?.instructorLink).toMatchObject({ isInstructor: false });
+      expect(people.item?.instructorLink).not.toHaveProperty('instructorId');
+    }
+  }, 60_000);
 });

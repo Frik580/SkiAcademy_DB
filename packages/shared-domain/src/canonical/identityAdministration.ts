@@ -176,6 +176,14 @@ export function evaluateReactivateInstructorCatalog(input: {
 }
 
 export const INSTRUCTOR_UNLINK_COMMITMENT_SCAN_LIMIT = 32;
+/** Shared with unlink: deletion uses the same future-commitment scan bound. */
+export const INSTRUCTOR_CATALOG_COMMITMENT_SCAN_LIMIT = INSTRUCTOR_UNLINK_COMMITMENT_SCAN_LIMIT;
+/**
+ * Active administrative availability blocks released inside one delete transaction.
+ * Scan may include released historical rows; mutation applies only to active ones.
+ */
+export const INSTRUCTOR_DELETE_AVAILABILITY_SCAN_LIMIT = 32;
+export const INSTRUCTOR_DELETE_AVAILABILITY_MUTATION_LIMIT = 8;
 
 const INSTRUCTOR_UNLINK_TERMINAL_BOOKING_STATUSES = new Set([
   'cancelled',
@@ -224,6 +232,13 @@ export function instructorUnlinkBlockedByFutureCommitments(input: {
   );
 }
 
+/**
+ * Hard deletion of an Instructor catalog uses the same outstanding-commitment
+ * invariant as unlink. Do not fork this — both commands must stay aligned.
+ */
+export const instructorCatalogDeletionBlockedByFutureCommitments =
+  instructorUnlinkBlockedByFutureCommitments;
+
 export function countInstructorFutureCommitments(input: {
   readonly bookings: readonly {
     readonly lifecycle: { readonly status: string };
@@ -256,6 +271,27 @@ export function countInstructorFutureCommitments(input: {
       (day) => compareCanonicalTimestamps(input.now, day.interval.endsAt) < 0
     ).length,
   };
+}
+
+export const INSTRUCTOR_CATALOG_DELETE_BLOCK_REASONS = [
+  'future_commitments',
+  'availability_cleanup_required',
+] as const;
+export const InstructorCatalogDeleteBlockReasonSchema = z.enum(
+  INSTRUCTOR_CATALOG_DELETE_BLOCK_REASONS
+);
+export type InstructorCatalogDeleteBlockReason = z.output<
+  typeof InstructorCatalogDeleteBlockReasonSchema
+>;
+
+export function instructorDeleteBlockedByAvailabilityCleanup(input: {
+  readonly activeBlockCount: number;
+  readonly blockScanCapped: boolean;
+  readonly unparsedBlockCount?: number;
+}): boolean {
+  if (input.blockScanCapped) return true;
+  if ((input.unparsedBlockCount ?? 0) > 0) return true;
+  return input.activeBlockCount > INSTRUCTOR_DELETE_AVAILABILITY_MUTATION_LIMIT;
 }
 
 export function evaluateAdminManagementAssignment(input: {
@@ -340,6 +376,7 @@ export const AdminIdentityAuthorizedActionKindSchema = z.enum([
   'reactivate_instructor_catalog',
   'link_account_instructor_catalog',
   'unlink_account_instructor_catalog',
+  'delete_instructor_catalog_entry',
 ]);
 
 export type AdminIdentityAuthorizedActionKind = z.output<

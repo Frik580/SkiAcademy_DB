@@ -3,14 +3,20 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { queryAdminIssueReadModels, queryTestSessionReadModels } = vi.hoisted(() => ({
-  queryAdminIssueReadModels: vi.fn(),
-  queryTestSessionReadModels: vi.fn(),
-}));
+const { queryAdminIssueReadModels, queryTestSessionReadModels, executeTestSessionLifecycle } =
+  vi.hoisted(() => ({
+    queryAdminIssueReadModels: vi.fn(),
+    queryTestSessionReadModels: vi.fn(),
+    executeTestSessionLifecycle: vi.fn(),
+  }));
 
 vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
   queryAdminIssueReadModels,
   queryTestSessionReadModels,
+}));
+vi.mock('../../src/lib/canonical/testSessionLifecycleClient', () => ({
+  executeTestSessionLifecycle,
+  lifecycleErrorCode: () => 'TEST_MAINTENANCE_FAILED',
 }));
 vi.mock('../../src/app/providers/LanguageContext', () => ({
   useLanguage: () => ({ language: 'ru', t: (key: string) => key }),
@@ -42,6 +48,13 @@ describe('AdminTestingPanel', () => {
   beforeEach(() => {
     queryTestSessionReadModels.mockReset();
     queryAdminIssueReadModels.mockReset();
+    executeTestSessionLifecycle.mockReset();
+    executeTestSessionLifecycle.mockResolvedValue({
+      command: 'create_test_session',
+      outcome: 'activated',
+      testSessionId: 'test_session_created',
+      status: 'provisioning',
+    });
     queryAdminIssueReadModels.mockResolvedValue({ scope: 'admin_open', items: [], hasMore: false });
     queryTestSessionReadModels.mockImplementation(({ scope }: { scope: string }) => {
       if (scope === 'test_session_list') return Promise.resolve({ scope, items: [activeSession] });
@@ -56,6 +69,14 @@ describe('AdminTestingPanel', () => {
               participantIds: ['participant_child_01'],
               activeTestSessionId: activeSession.testSessionId,
               displayName: 'Synthetic Test Parent',
+            },
+            {
+              accountId: 'account_test_instructor_01',
+              kind: 'test_instructor',
+              allowed: true,
+              participantIds: [],
+              instructorId: 'instructor_test_01',
+              displayName: 'Synthetic Test Instructor',
             },
           ],
         });
@@ -133,5 +154,33 @@ describe('AdminTestingPanel', () => {
       expect(input).not.toHaveProperty('dataScope');
       expect(input).not.toHaveProperty('requestedTestSessionId');
     }
+  });
+
+  it('sends bounded create intent and keeps session authority on the server', async () => {
+    const user = userEvent.setup();
+    renderPanel();
+    await screen.findAllByText('Alpha');
+
+    await user.click(screen.getAllByText('adminTestingCreate')[0]);
+    await user.type(screen.getByRole('textbox', { name: 'adminTestingTitle' }), 'Winter check');
+    await user.click(screen.getByRole('checkbox', { name: 'LIVE source course' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Synthetic Test Parent' }));
+    await user.click(screen.getByRole('radio', { name: 'Synthetic Test Instructor' }));
+    await user.click(screen.getByRole('button', { name: 'adminTestingCreate' }));
+
+    await waitFor(() => expect(executeTestSessionLifecycle).toHaveBeenCalledTimes(1));
+    const [input] = executeTestSessionLifecycle.mock.calls[0];
+    expect(input).toMatchObject({
+      command: 'create_test_session',
+      label: 'Winter check',
+      startingBalanceKzt: 1_000_000,
+      actorAccountIds: ['account_test_parent_01'],
+      testInstructorAccountId: 'account_test_instructor_01',
+      sourceCourseIds: ['course_live_01'],
+    });
+    expect(input).not.toHaveProperty('dataScope');
+    expect(input).not.toHaveProperty('testSessionId');
+    expect(input).not.toHaveProperty('status');
+    expect(input).not.toHaveProperty('manifestId');
   });
 });

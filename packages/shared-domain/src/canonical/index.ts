@@ -63,6 +63,7 @@ export * from './paymentWallet';
 export * from './paymentWalletOperations';
 export * from './starterCredit';
 export * from './testSessions';
+export * from './testSessionLifecycle';
 export * from './canonicalScope';
 export * from './canonicalReadScope';
 export * from './testSessionDomainIsolation';

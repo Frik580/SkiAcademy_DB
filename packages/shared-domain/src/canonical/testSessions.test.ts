@@ -155,14 +155,13 @@ describe('Canonical Test Session domain', () => {
     );
   });
 
-  it('enforces the v1 active-session limit while ignoring non-active statuses', () => {
+  it('reserves the v1 slot for provisioning and in-flight maintenance, not closed history', () => {
     expect(() => assertTestSessionActivationAllowed([])).not.toThrow();
-    expect(() =>
-      assertTestSessionActivationAllowed(['closed', 'failed', 'deleting'])
-    ).not.toThrow();
-    expect(() => assertTestSessionActivationAllowed(['provisioning'])).not.toThrow();
-    expect(() => assertTestSessionActivationAllowed(['active'])).toThrow(
-      expect.objectContaining({ code: 'TEST_SESSION_ACTIVE_LIMIT' })
-    );
+    expect(() => assertTestSessionActivationAllowed(['closed'])).not.toThrow();
+    for (const status of ['provisioning', 'active', 'locked', 'resetting', 'deleting', 'failed'] as const) {
+      expect(() => assertTestSessionActivationAllowed([status])).toThrow(
+        expect.objectContaining({ code: 'TEST_SESSION_ACTIVE_LIMIT' })
+      );
+    }
   });
 });

@@ -2,7 +2,7 @@
 
 Date: 2026-09-21
 
-Status: **IN PROGRESS / T42B-6 IMPLEMENTED + VALIDATED / NEXT T42B-7**
+Status: **IN PROGRESS / T42B-7 IMPLEMENTED + VALIDATED (source-only) / NEXT T42B-8**
 
 This document is the living T42 status and implementation plan. Architecture
 authority is [ADR-0010](adr/0010-canonical-test-sessions-and-live-test-data-isolation.md).
@@ -62,8 +62,13 @@ DONE     T42B-5 — LIVE-only read isolation + TestSession-scoped read models
 DONE     T42B-6 — Admin System → Testing UI
          IMPLEMENTED / VALIDATED (source-only; no deploy/migration/production writes)
 
-NEXT     T42B-7 — TestSession lifecycle and maintenance engine
-         T42B-8 ... T42B-9
+DONE     T42B-7 — TestSession lifecycle and maintenance engine
+         IMPLEMENTED / VALIDATED (source-only; emulator/local only)
+         deploy / migration / production writes = NO
+         production Test Mode is NOT available
+
+NEXT     T42B-8 — controlled production cutover
+         T42B-9 authenticated isolation smoke
 
 THEN     T43 — Test Session Guest Support
 ```
@@ -757,7 +762,7 @@ Create / Open / Close Test Session; Reset Session History; Delete Test Session.
 While Test context is open, a persistent visible TEST banner is required. Live
 and Test UI must not be visually mixed.
 
-## Reset Session History (approved semantics; not implemented)
+## Reset Session History (implemented source-only in T42B-7)
 
 Reset **preserves**:
 
@@ -836,7 +841,7 @@ Preview
   → execute
 ```
 
-If state changed: `TEST_RESET_MANIFEST_STALE`. Admin must preview again. Client
+If state changed: `TEST_MAINTENANCE_MANIFEST_STALE`. Admin must preview again. Client
 never sends arbitrary document IDs to delete.
 
 ## Failure recovery
@@ -873,10 +878,124 @@ browser tabs therefore remain independent.
 
 The panel displays KZT starting balance from the server read model, inventory
 counts, approved Test Actors, and LIVE course templates as source-only
-provenance. Its create form validates label and whole-KZT non-negative input,
-but execution is disabled until T42B-7. Close, reset, and delete are visibly
-disabled and perform no client mutation; no partial TestSession, production
-actor, or destructive operation is created by this slice.
+provenance. T42B-7 wires create, close, reset, and delete through
+`executeTestSessionLifecycle`. The browser sends bounded intent only. It does
+not write Firestore, does not send delete lists, and does not mark a session
+active locally. Production Test Mode remains unavailable until T42B-8.
+
+## T42B-7 lifecycle and maintenance (source-only)
+
+Production Test Mode is **not** available. No production TestSession, TestActor,
+Auth user, or Ksuscha identity conversion was created. All destructive proof is
+emulator/local.
+
+### Commands
+
+Authenticated owner/admin callable `executeTestSessionLifecycle`. These are not
+product `CommandKind` values. Unknown names fail closed as
+`LIFECYCLE_FORBIDDEN` via `TEST_SESSION_LIFECYCLE_COMMAND_SUPPORT`.
+
+```text
+create_test_session
+close_test_session
+preview_test_session_reset
+execute_test_session_reset
+preview_test_session_delete
+execute_test_session_delete
+retry_test_session_maintenance
+```
+
+Create accepts only label, whole-KZT `startingBalanceKzt`, approved TestActor
+account ids, one dedicated `test_instructor` account id, and LIVE course
+template ids. The server generates `test_` session ids and every membership,
+assignment, clone id, wallet seed, and audit field. Same idempotency key
+resumes the existing session.
+
+### State machine
+
+```text
+create:        none → provisioning → active
+close:         active → closed
+reset active:  active → locked → resetting → active
+reset closed:  closed → locked → resetting → closed
+delete:        active | closed | failed → locked → deleting → physical delete
+failure:       provisioning | maintenance → failed
+```
+
+Invalid transitions fail closed (`TEST_SESSION_TRANSITION_FORBIDDEN`). A new
+session is never created already `active`. `failed` keeps product TEST writes
+disabled. Closed reset returns to `closed` and does not reopen the session.
+
+### Active slot
+
+`MAX_ACTIVE_TEST_SESSIONS = 1` is enforced by transactional document
+`test_session_active_slots/v1`, not by the UI. Statuses that reserve the slot:
+`provisioning`, `active`, `locked`, `resetting`, `deleting`, `failed`.
+`closed` releases it. A provisioning session that intends to activate reserves
+the slot before clone/seed, so two creates cannot both sit in provisioning.
+The loser gets `TEST_SESSION_ACTIVE_LIMIT`.
+
+### Provisioning
+
+Requires existing allowed `/test_actors/{accountId}` fixtures. No email/UID
+conversion. Provisions membership, server-owned assignment, wallet seed via
+`seedTestActorWalletForSession`, and course clones via
+`cloneLiveCourseIntoTestSession` with a persisted template→clone map. Persistent
+TEST identities are session-bound before scoped reads. The session becomes
+`active` only after the provisioning verifier passes.
+
+### Maintenance lock, manifest, preflight
+
+One operation owns the session. Lease is 5 minutes of server time and names
+the operation. An expired lease does not mean the session is safe and does not let a
+different operation take over. `retry_test_session_maintenance` resumes the
+same operation after `failed`, or after `provisioning` / `locked` /
+`resetting` / `deleting` once `leaseExpiresAt` has passed. A still-valid lease
+returns `TEST_MAINTENANCE_LEASE_CONFLICT`.
+
+Preview stores a fingerprint of path, revision, and scope, not counts alone.
+Hash covers operation, session, `inventoryRevision`, and that fingerprint.
+TTL is 10 minutes (`TEST_MAINTENANCE_MANIFEST_EXPIRED`). A later session
+mutation makes execute return `TEST_MAINTENANCE_MANIFEST_STALE` with zero
+deletes. The client sends `testSessionId`, `manifestId`, and confirmation
+`RESET TEST DATA` or `DELETE TEST SESSION`. It never sends resource id lists.
+
+The entire destructive candidate set is preflighted before the first delete.
+`dataScope=live`, missing `dataScope`, or another `testSessionId` aborts with
+`TEST_MAINTENANCE_SCOPE_VIOLATION` and zero deletes. Membership documents are
+deletable only on `test_sessions/{requested}/membership/{account}`.
+
+Reset phases are checkpointed: `PRECHECK`, `LOCKED`,
+`FIRESTORE_TRANSACTIONAL_DELETE`, `IDENTITY_STATE_RESET`, `STORAGE_CLEANUP`,
+`COURSE_REPROVISION`, `WALLET_RESEED`, `VERIFY`, `COMPLETE`. Deletes are
+batched. Storage uses `deleteTestSessionStorage` on
+`test-sessions/{testSessionId}/` only. Incomplete storage leaves the session
+`failed` and retry finishes the same operation without a second seed or clone.
+`inventoryRevision` advances when activate, close, or reset completes. Ordinary
+product writes are detected by the manifest fingerprint.
+
+### Preserve / delete
+
+Reset keeps the TestSession, `test_actors`, Auth, TEST identities, membership,
+active assignment, `test-actors/` avatars, LIVE data, shared config, and
+`admin_maintenance_events/{operationId}`. It removes session transactional
+state, then reclones courses and reseeds wallets to
+`config.startingBalanceKzt`.
+
+Delete removes that residue plus membership, session assignment pointers,
+session storage, and the session document. Audit survives outside the session
+subtree. `test_session_deletions/{testSessionId}` records completion so a
+retry returns `already_completed` and cannot resolve as an active session.
+No new composite index. Firestore Rules and Storage Rules source were not
+changed for this slice.
+
+### UI
+
+System → Testing calls the lifecycle callable, shows server manifest counts
+and phase labels, and requires the confirmation token before execute. During
+`provisioning`, `locked`, `resetting`, and `deleting`, lifecycle product
+actions stay disabled. `failed` exposes retry with the safe error code. Lists
+refresh after the callable. No polling and no browser cleanup.
 
 ## T42B implementation plan
 
@@ -888,9 +1007,9 @@ actor, or destructive operation is created by this slice.
 | T42B-3 | Domain isolation: finance, progress, achievements, reviews, attendance, homework, CourseEnrollment      | **IMPLEMENTED / VALIDATED** (source-only; no deploy/migration/production writes)               |
 | T42B-4 | Storage + side effects                                                                                  | **IMPLEMENTED / VALIDATED** (source-only; Storage Rules source YES, deploy NO)                 |
 | T42B-5 | Read-model isolation                                                                                    | **IMPLEMENTED / VALIDATED** (source-only; indexes unchanged 40; deploy NO)                     |
-| T42B-6 | Admin Testing UI                                                                                        | **IMPLEMENTED / VALIDATED** (source-only; create/close/reset/delete deferred to T42B-7)        |
-| T42B-7 | Reset/Delete engine: preview, manifests, locks, audit, verifier                                         | **NEXT**                                                                                       |
-| T42B-8 | Existing LIVE data backfill; Firestore Rules; Storage Rules; indexes; strict dataScope contract         | PLANNED                                                                                        |
+| T42B-6 | Admin Testing UI                                                                                        | **IMPLEMENTED / VALIDATED** (source-only; lifecycle actions wired in T42B-7)                   |
+| T42B-7 | Lifecycle, provisioning, reset/delete engine, manifests, locks, audit, verifier, Testing UI wiring      | **IMPLEMENTED / VALIDATED** (source-only; emulator gates; deploy/migration/production = NO)    |
+| T42B-8 | Existing LIVE data backfill; Firestore Rules; Storage Rules; indexes; strict dataScope contract         | **NEXT**                                                                                       |
 | T42B-9 | Authenticated isolation smoke                                                                           | PLANNED                                                                                        |
 
 Future after T42B: **T43 — Test Session Guest Support**.

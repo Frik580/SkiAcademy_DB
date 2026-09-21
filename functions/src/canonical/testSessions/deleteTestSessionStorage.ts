@@ -81,33 +81,37 @@ export async function deleteTestSessionStorageWithStore(
   };
 }
 
-export async function deleteTestSessionStorage(
-  testSessionId: string
-): Promise<DeleteTestSessionStorageResult> {
-  const { getStorage } = await import('firebase-admin/storage');
-  const bucket = getStorage().bucket();
+export function createFirebaseTestSessionStorageStore(testSessionId: string): TestSessionStorageObjectStore {
   const parsedId = parseTestSessionStorageCleanupId(testSessionId);
   const prefix = testSessionStoragePrefix(parsedId);
-
-  const store: TestSessionStorageObjectStore = {
+  return {
     async list(listPrefix) {
-      const [files] = await bucket.getFiles({ prefix: listPrefix, autoPaginate: true, maxResults: LIST_PAGE_SIZE * 20 });
+      const { getStorage } = await import('firebase-admin/storage');
+      const [files] = await getStorage().bucket().getFiles({
+        prefix: listPrefix,
+        autoPaginate: true,
+        maxResults: LIST_PAGE_SIZE * 20,
+      });
       return files.map((file) => file.name).filter((name) => name.startsWith(prefix) && name !== prefix);
     },
     async delete(objectPath) {
+      const { getStorage } = await import('firebase-admin/storage');
       try {
-        await bucket.file(objectPath).delete({ ignoreNotFound: true });
+        await getStorage().bucket().file(objectPath).delete({ ignoreNotFound: true });
         return 'deleted';
       } catch (error) {
         const code =
           error && typeof error === 'object' && 'code' in error ? String((error as { code: unknown }).code) : '';
-        if (code === '404' || code === 'ENOENT') {
-          return 'absent';
-        }
+        if (code === '404' || code === 'ENOENT') return 'absent';
         throw error;
       }
     },
   };
+}
 
-  return deleteTestSessionStorageWithStore(parsedId, store);
+export async function deleteTestSessionStorage(
+  testSessionId: string
+): Promise<DeleteTestSessionStorageResult> {
+  const parsedId = parseTestSessionStorageCleanupId(testSessionId);
+  return deleteTestSessionStorageWithStore(parsedId, createFirebaseTestSessionStorageStore(parsedId));
 }

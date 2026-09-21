@@ -8,11 +8,20 @@ import type {
   TestSessionInventoryReadModel,
   TestSessionListItem,
   LiveCourseTemplateItem,
+  TestSessionLifecycleResult,
+} from '@ski-academy/shared-domain';
+import {
+  TEST_SESSION_DELETE_CONFIRMATION,
+  TEST_SESSION_RESET_CONFIRMATION,
 } from '@ski-academy/shared-domain';
 import {
   queryAdminIssueReadModels,
   queryTestSessionReadModels,
 } from '../../../lib/canonical/canonicalReadModelClient';
+import {
+  executeTestSessionLifecycle,
+  lifecycleErrorCode,
+} from '../../../lib/canonical/testSessionLifecycleClient';
 import { ActionButton } from '../../../ui/ActionButton';
 import { useAdminTestingTranslations } from './useAdminTestingTranslations';
 
@@ -30,6 +39,18 @@ const statusTranslationKey: Record<
   closed: 'adminTestingStatusClosed',
   failed: 'adminTestingStatusFailed',
 };
+
+const phaseTranslationKey = {
+  PRECHECK: 'adminTestingPhasePRECHECK',
+  LOCKED: 'adminTestingPhaseLOCKED',
+  FIRESTORE_TRANSACTIONAL_DELETE: 'adminTestingPhaseFIRESTORE_TRANSACTIONAL_DELETE',
+  IDENTITY_STATE_RESET: 'adminTestingPhaseIDENTITY_STATE_RESET',
+  STORAGE_CLEANUP: 'adminTestingPhaseSTORAGE_CLEANUP',
+  COURSE_REPROVISION: 'adminTestingPhaseCOURSE_REPROVISION',
+  WALLET_RESEED: 'adminTestingPhaseWALLET_RESEED',
+  VERIFY: 'adminTestingPhaseVERIFY',
+  COMPLETE: 'adminTestingPhaseCOMPLETE',
+} as const;
 
 function shortId(id: string): string {
   return id.length <= 16 ? id : `${id.slice(0, 8)}…${id.slice(-6)}`;
@@ -79,6 +100,12 @@ export const AdminTestingPanel: React.FC = () => {
   const [createBalance, setCreateBalance] = useState('1000000');
   const [selectedTemplateIds, setSelectedTemplateIds] = useState<readonly string[]>([]);
   const [selectedActorIds, setSelectedActorIds] = useState<readonly string[]>([]);
+  const [selectedInstructorId, setSelectedInstructorId] = useState('');
+  const [lifecyclePending, setLifecyclePending] = useState(false);
+  const [lifecycleError, setLifecycleError] = useState<string>();
+  const [lifecycleResult, setLifecycleResult] = useState<TestSessionLifecycleResult>();
+  const [confirmation, setConfirmation] = useState('');
+  const [previewKind, setPreviewKind] = useState<'reset' | 'delete'>();
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -182,13 +209,43 @@ export const AdminTestingPanel: React.FC = () => {
     };
   }, [isTestContext, selectedSession]);
   const selectableActors = state.actors.filter((actor) => actor.allowed);
+  const parentActors = selectableActors.filter((actor) => actor.kind === 'test_parent');
+  const instructorActors = selectableActors.filter((actor) => actor.kind === 'test_instructor');
+  const balance = Number(createBalance);
   const creationInputValid =
     createLabel.trim().length > 0 &&
-    Number.isFinite(Number(createBalance)) &&
-    Number.isInteger(Number(createBalance)) &&
-    Number(createBalance) >= 0 &&
+    Number.isSafeInteger(balance) &&
+    balance >= 0 &&
     selectedTemplateIds.length > 0 &&
-    selectedActorIds.length > 0;
+    selectedActorIds.length > 0 &&
+    selectedInstructorId.length > 0;
+  const maintenanceLocked =
+    selectedSession?.status === 'provisioning' ||
+    selectedSession?.status === 'locked' ||
+    selectedSession?.status === 'resetting' ||
+    selectedSession?.status === 'deleting';
+
+  const runLifecycle = async (
+    input: Parameters<typeof executeTestSessionLifecycle>[0]
+  ): Promise<void> => {
+    setLifecyclePending(true);
+    setLifecycleError(undefined);
+    try {
+      const result = await executeTestSessionLifecycle(input, `lifecycle_${crypto.randomUUID()}`);
+      setLifecycleResult(result);
+      if (input.command === 'preview_test_session_reset') setPreviewKind('reset');
+      if (input.command === 'preview_test_session_delete') setPreviewKind('delete');
+      if (input.command === 'execute_test_session_reset' || input.command === 'execute_test_session_delete') {
+        setPreviewKind(undefined);
+        setConfirmation('');
+      }
+      await refresh();
+    } catch (error) {
+      setLifecycleError(lifecycleErrorCode(error));
+    } finally {
+      setLifecyclePending(false);
+    }
+  };
 
   const openTestContext = () => {
     if (!selectedSession || selectedSession.status !== 'active') return;
@@ -544,8 +601,8 @@ export const AdminTestingPanel: React.FC = () => {
             ))}
           </fieldset>
           <fieldset>
-            <legend className="text-sm text-[var(--ink-dim)]">{t('adminTestingActors')}</legend>
-            {selectableActors.map((actor) => (
+            <legend className="text-sm text-[var(--ink-dim)]">{t('adminTestingSelectParents')}</legend>
+            {parentActors.map((actor) => (
               <label key={actor.accountId} className="mt-1 flex gap-2 text-xs text-[var(--ink)]">
                 <input
                   type="checkbox"
@@ -558,25 +615,187 @@ export const AdminTestingPanel: React.FC = () => {
               </label>
             ))}
           </fieldset>
+          <fieldset>
+            <legend className="text-sm text-[var(--ink-dim)]">
+              {t('adminTestingSelectInstructor')}
+            </legend>
+            {instructorActors.map((actor) => (
+              <label key={actor.accountId} className="mt-1 flex gap-2 text-xs text-[var(--ink)]">
+                <input
+                  type="radio"
+                  name="test-instructor"
+                  checked={selectedInstructorId === actor.accountId}
+                  onChange={() => setSelectedInstructorId(actor.accountId)}
+                />
+                {actor.displayName}
+              </label>
+            ))}
+          </fieldset>
         </div>
-        <p className="mt-3 text-xs text-[var(--ink-dim)]">
-          {creationInputValid
-            ? t('adminTestingCreateDeferred')
-            : t('adminTestingLifecycleDeferred')}
-        </p>
+        {lifecycleError ? (
+          <p className="mt-3 text-sm text-rose-700" role="alert">
+            {lifecycleError}
+          </p>
+        ) : null}
+        {lifecycleResult?.phase ? (
+          <p className="mt-3 text-sm text-[var(--ink)]">
+            {t(phaseTranslationKey[lifecycleResult.phase])}
+          </p>
+        ) : null}
+        {lifecycleResult?.manifest ? (
+          <div className="mt-3 space-y-2 text-sm">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {Object.entries(lifecycleResult.manifest.counts).map(([key, count]) => (
+                <div key={key} className="border border-[var(--border)] p-2">
+                  <p className="text-lg text-[var(--ink)]">{count}</p>
+                  <p className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">{key}</p>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-[var(--ink-dim)]">
+              {t('adminTestingPreserved')}: {lifecycleResult.manifest.preserve.join(', ')}
+            </p>
+            {previewKind ? (
+              <label className="block text-xs text-[var(--ink-dim)]">
+                {t('adminTestingConfirmation')}{' '}
+                <span className="font-mono text-[var(--ink)]">
+                  {previewKind === 'reset'
+                    ? TEST_SESSION_RESET_CONFIRMATION
+                    : TEST_SESSION_DELETE_CONFIRMATION}
+                </span>
+                <input
+                  value={confirmation}
+                  onChange={(event) => setConfirmation(event.target.value)}
+                  className="mt-1 block w-full border border-[var(--border)] bg-transparent p-2 font-mono text-[var(--ink)]"
+                />
+              </label>
+            ) : null}
+          </div>
+        ) : null}
+        <p className="mt-3 text-xs text-[var(--ink-dim)]">{t('adminTestingCloseHint')}</p>
+        <p className="mt-1 text-xs text-[var(--ink-dim)]">{t('adminTestingResetHint')}</p>
+        <p className="mt-1 text-xs text-[var(--ink-dim)]">{t('adminTestingDeleteHint')}</p>
         <div className="mt-3 flex flex-wrap gap-2">
-          <ActionButton disabled title={t('adminTestingCreateDeferred')}>
+          <ActionButton
+            disabled={!creationInputValid || lifecyclePending || maintenanceLocked}
+            pending={lifecyclePending}
+            onClick={() =>
+              void runLifecycle({
+                command: 'create_test_session',
+                label: createLabel.trim(),
+                startingBalanceKzt: balance,
+                actorAccountIds: selectedActorIds,
+                testInstructorAccountId: selectedInstructorId,
+                sourceCourseIds: selectedTemplateIds,
+              })
+            }
+          >
             {t('adminTestingCreate')}
           </ActionButton>
-          <ActionButton disabled variant="secondary" title={t('adminTestingLifecycleDeferred')}>
+          <ActionButton
+            variant="secondary"
+            disabled={!selectedSession || selectedSession.status !== 'active' || lifecyclePending || maintenanceLocked}
+            onClick={() =>
+              selectedSession &&
+              void runLifecycle({
+                command: 'close_test_session',
+                testSessionId: selectedSession.testSessionId,
+              })
+            }
+          >
             {t('adminTestingClose')}
           </ActionButton>
-          <ActionButton disabled variant="danger" title={t('adminTestingLifecycleDeferred')}>
+          <ActionButton
+            variant="danger"
+            disabled={
+              !selectedSession ||
+              (selectedSession.status !== 'active' && selectedSession.status !== 'closed') ||
+              lifecyclePending ||
+              maintenanceLocked
+            }
+            onClick={() =>
+              selectedSession &&
+              void runLifecycle({
+                command: 'preview_test_session_reset',
+                testSessionId: selectedSession.testSessionId,
+              })
+            }
+          >
             {t('adminTestingReset')}
           </ActionButton>
-          <ActionButton disabled variant="danger" title={t('adminTestingLifecycleDeferred')}>
+          <ActionButton
+            variant="danger"
+            disabled={
+              !selectedSession ||
+              (selectedSession.status !== 'active' &&
+                selectedSession.status !== 'closed' &&
+                selectedSession.status !== 'failed') ||
+              lifecyclePending ||
+              maintenanceLocked
+            }
+            onClick={() =>
+              selectedSession &&
+              void runLifecycle({
+                command: 'preview_test_session_delete',
+                testSessionId: selectedSession.testSessionId,
+              })
+            }
+          >
             {t('adminTestingDelete')}
           </ActionButton>
+          {previewKind === 'reset' && lifecycleResult?.manifest ? (
+            <ActionButton
+              variant="danger"
+              disabled={confirmation !== TEST_SESSION_RESET_CONFIRMATION || lifecyclePending}
+              onClick={() =>
+                selectedSession &&
+                void runLifecycle({
+                  command: 'execute_test_session_reset',
+                  testSessionId: selectedSession.testSessionId,
+                  manifestId: lifecycleResult.manifest?.manifestId,
+                  confirmation,
+                })
+              }
+            >
+              {t('adminTestingExecuteReset')}
+            </ActionButton>
+          ) : null}
+          {previewKind === 'delete' && lifecycleResult?.manifest ? (
+            <ActionButton
+              variant="danger"
+              disabled={confirmation !== TEST_SESSION_DELETE_CONFIRMATION || lifecyclePending}
+              onClick={() =>
+                selectedSession &&
+                void runLifecycle({
+                  command: 'execute_test_session_delete',
+                  testSessionId: selectedSession.testSessionId,
+                  manifestId: lifecycleResult.manifest?.manifestId,
+                  confirmation,
+                })
+              }
+            >
+              {t('adminTestingExecuteDelete')}
+            </ActionButton>
+          ) : null}
+          {selectedSession &&
+          (selectedSession.status === 'failed' ||
+            selectedSession.status === 'provisioning' ||
+            selectedSession.status === 'locked' ||
+            selectedSession.status === 'resetting' ||
+            selectedSession.status === 'deleting') ? (
+            <ActionButton
+              variant="secondary"
+              disabled={lifecyclePending}
+              onClick={() =>
+                void runLifecycle({
+                  command: 'retry_test_session_maintenance',
+                  testSessionId: selectedSession.testSessionId,
+                })
+              }
+            >
+              {t('adminTestingRetryMaintenance')}
+            </ActionButton>
+          ) : null}
         </div>
       </details>
     </section>

@@ -6,3 +6,5 @@ export * from './seedTestActorWallet';
 export * from './cloneLiveCourseIntoTestSession';
 export * from './resetTestSessionBoundRecords';
 export * from './deleteTestSessionStorage';
+export * from './testSessionLifecycleEngine';
+export * from './executeTestSessionLifecycleCallable';

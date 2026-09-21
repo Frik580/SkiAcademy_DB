@@ -37,11 +37,66 @@ const PersistedRevisionSchema = AggregateRevisionSchema.refine(
   'Persisted aggregate revision must be at least one'
 );
 
+export const TEST_SESSION_MAINTENANCE_PHASES = [
+  'PRECHECK',
+  'LOCKED',
+  'FIRESTORE_TRANSACTIONAL_DELETE',
+  'IDENTITY_STATE_RESET',
+  'STORAGE_CLEANUP',
+  'COURSE_REPROVISION',
+  'WALLET_RESEED',
+  'VERIFY',
+  'COMPLETE',
+] as const;
+
+export const TestSessionMaintenancePhaseSchema = z.enum(TEST_SESSION_MAINTENANCE_PHASES);
+export type TestSessionMaintenancePhase = z.output<typeof TestSessionMaintenancePhaseSchema>;
+
+const TestSessionProvisioningSchema = z
+  .object({
+    actorAccountIds: z.array(AccountIdSchema).min(1).max(32),
+    testInstructorAccountId: AccountIdSchema,
+    testInstructorId: InstructorIdSchema,
+    sourceCourseIds: z.array(CourseIdSchema).min(1).max(64),
+    sourceCourseRevisions: z
+      .array(
+        z
+          .object({
+            courseId: CourseIdSchema,
+            revision: PersistedRevisionSchema,
+          })
+          .strict()
+      )
+      .max(64),
+    walletSeededAccountIds: z.array(AccountIdSchema).max(32),
+  })
+  .strict()
+  .superRefine((provisioning, context) => {
+    const unique = (field: string, values: readonly string[]) => {
+      if (new Set(values).size !== values.length) {
+        context.addIssue({
+          code: 'custom',
+          path: [field],
+          message: `${field} must be unique`,
+        });
+      }
+    };
+    unique('actorAccountIds', provisioning.actorAccountIds);
+    unique('sourceCourseIds', provisioning.sourceCourseIds);
+    unique('walletSeededAccountIds', provisioning.walletSeededAccountIds);
+  });
+
 const TestSessionMaintenanceSchema = z
   .object({
     operationId: CanonicalOpaqueIdSchema.optional(),
     operationKind: z.enum(['provision', 'reset', 'delete']).optional(),
     leaseExpiresAt: CanonicalTimestampSchema.optional(),
+    startedAt: CanonicalTimestampSchema.optional(),
+    startedByAccountId: AccountIdSchema.optional(),
+    phase: TestSessionMaintenancePhaseSchema.optional(),
+    resumeStatus: z.enum(['active', 'closed']).optional(),
+    manifestId: CanonicalOpaqueIdSchema.optional(),
+    manifestHash: z.string().trim().min(16).max(128).optional(),
     lastError: z.string().trim().min(1).max(2_000).optional(),
   })
   .strict()
@@ -78,6 +133,7 @@ export const TestSessionSchema = z
         }
       }),
     inventoryRevision: AggregateRevisionSchema,
+    provisioning: TestSessionProvisioningSchema.optional(),
     maintenance: TestSessionMaintenanceSchema.optional(),
     revision: PersistedRevisionSchema,
     createdAt: CanonicalTimestampSchema,
@@ -194,8 +250,22 @@ export class TestSessionPolicyError extends Error {
   }
 }
 
+/**
+ * v1 slot reservation. A session that can still become, or still is, the
+ * usable TEST session holds the single active slot. `closed` is history and
+ * does not. Limit enforcement is not delayed until the final active transition.
+ */
+const ACTIVE_SLOT_STATUSES = [
+  'provisioning',
+  'active',
+  'locked',
+  'resetting',
+  'deleting',
+  'failed',
+] as const satisfies readonly TestSessionStatus[];
+
 export function testSessionStatusConsumesActiveSlot(status: TestSessionStatus): boolean {
-  return status === 'active';
+  return (ACTIVE_SLOT_STATUSES as readonly TestSessionStatus[]).includes(status);
 }
 
 export function assertTestSessionActivationAllowed(
@@ -213,11 +283,18 @@ export function assertTestSessionAcceptsCommands(session: Pick<TestSession, 'sta
   }
 }
 
-/** Clone/seed/reset primitives may run while the session is still provisioning. */
+/**
+ * Clone/seed primitives may run while provisioning, while active, and while
+ * a reset is reprovisioning fixtures. Product commands stay active-only.
+ */
 export function assertTestSessionAcceptsProvisioningMutations(
   session: Pick<TestSession, 'status'>
 ): void {
-  if (session.status !== 'provisioning' && session.status !== 'active') {
+  if (
+    session.status !== 'provisioning' &&
+    session.status !== 'active' &&
+    session.status !== 'resetting'
+  ) {
     throw new TestSessionPolicyError('TEST_SESSION_NOT_ACTIVE', session.status);
   }
 }

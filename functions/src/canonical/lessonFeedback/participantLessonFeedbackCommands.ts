@@ -38,6 +38,7 @@ import {
   participantManagementPath,
   participantPath,
 } from '../participantAccess/participantAccessStore';
+import { assertTestMutableSubjectScope } from '../testSessions/assertTestMutableResourceScope';
 import { instructorCatalogPath } from '../bookings/bookingStore';
 import type { CanonicalAtomicTransactionSession } from '../transactions/firestoreTransactionExecutor';
 import {
@@ -220,10 +221,15 @@ function saveParticipantLessonFeedbackHandler(
           path: participantDocumentPath,
           category: 'authorization_check',
         });
-        assertParticipantActive(
+        const participant = assertParticipantActive(
           envelope,
           parseParticipant(participantRead.exists ? participantRead.data : undefined)
         );
+        assertTestMutableSubjectScope({
+          correlationId: envelope.context.correlationId,
+          scope: session.scope,
+          persisted: participant,
+        });
 
         const decidedAt = timestampFromDate(environment.clock.now());
         const booking = await readAuthorizedInstructorLessonFeedbackBooking(session, {
@@ -369,6 +375,11 @@ function setParticipantLessonFeedbackItemCompletionHandler(
           envelope,
           parseParticipant(participantRead.exists ? participantRead.data : undefined)
         );
+        assertTestMutableSubjectScope({
+          correlationId: envelope.context.correlationId,
+          scope: session.scope,
+          persisted: participant,
+        });
         if (participant.management.kind !== 'managed') {
           throw new CanonicalCommandError('forbidden', {
             correlationId: envelope.context.correlationId,

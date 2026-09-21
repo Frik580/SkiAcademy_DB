@@ -50,6 +50,7 @@ import {
   type MonetaryEventLoader,
 } from './financeCorrectionCommands';
 import { createStarterCreditCommandHandlers } from './starterCreditCommands';
+import { assertTestMutableSubjectScope, crossScopeCommandError } from '../testSessions/assertTestMutableResourceScope';
 import { assertFinanceAuthorization, mapFinanceDomainError } from './financeAuthorization';
 import {
   buildAdjustServicePriceAuditPlan,
@@ -156,6 +157,11 @@ function recordManualWalletFundingHandler(
           details: { resourceKind: 'participant', reason: 'conflict' },
         });
       }
+      assertTestMutableSubjectScope({
+        correlationId: envelope.context.correlationId,
+        scope: session.scope,
+        persisted: account,
+      });
 
       const walletRead = await session.tx.get({ path: walletDocumentPath });
       session.plan.planRead({ path: walletDocumentPath, category: 'payment_wallet' });
@@ -270,6 +276,12 @@ function recordProviderPaymentEventHandler(
       plannedGuestConfirmation = undefined;
       plannedPaymentStartIssueResolution = undefined;
       providerReceiptPath = undefined;
+      if (
+        session.scope?.dataScope === 'test' &&
+        envelope.intent.sourceKind === 'provider'
+      ) {
+        throw crossScopeCommandError(envelope.context.correlationId, 'unsupported');
+      }
       const paymentRead = await session.tx.get({ path: paymentDocumentPath });
       session.plan.planRead({ path: paymentDocumentPath, category: 'payment_wallet' });
       const parsedPayment = parsePayment(paymentRead.exists ? paymentRead.data : undefined);
@@ -959,7 +971,11 @@ function payServiceFromWalletAsAdministratorHandler(
             details: { resourceKind: 'participant', reason: 'conflict' },
           });
         }
-
+        assertTestMutableSubjectScope({
+          correlationId: envelope.context.correlationId,
+          scope: session.scope,
+          persisted: account,
+        });
         stagedEventId = monetaryEventIdFromAdminWalletPayment(payment.paymentId);
         const eventDocumentPath = monetaryEventPath(stagedEventId);
         const eventRead = await session.tx.get({ path: eventDocumentPath });

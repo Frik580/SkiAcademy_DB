@@ -106,6 +106,8 @@ const AccountLifecycleSchema = z.discriminatedUnion('status', [
 export const AccountSchema = z
   .object({
     accountId: AccountIdSchema,
+    dataScope: DataScopeSchema.optional(),
+    testSessionId: TestSessionIdSchema.optional(),
     lifecycle: AccountLifecycleSchema,
     ...revisionedRecordFields,
   })
@@ -129,6 +131,8 @@ export type Account = Readonly<z.output<typeof AccountSchema>>;
 
 const ACCOUNT_DOCUMENT_FIELD_KEYS = [
   'accountId',
+  'dataScope',
+  'testSessionId',
   'lifecycle',
   'revision',
   'createdAt',

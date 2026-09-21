@@ -13,8 +13,10 @@ import {
   PaymentIdSchema,
   ProviderIdSchema,
   SystemActorIdSchema,
+  TestSessionIdSchema,
   type AccountId,
 } from './identifiers';
+import { DataScopeSchema } from './canonicalScope';
 import {
   AggregateRevisionSchema,
   CanonicalTimestampSchema,
@@ -185,6 +187,8 @@ export function validatePaymentAccounting(
 export const PaymentSchema = z
   .object({
     paymentId: PaymentIdSchema,
+    dataScope: DataScopeSchema.optional(),
+    testSessionId: TestSessionIdSchema.optional(),
     subjectType: PaymentSubjectTypeSchema,
     subjectId: z.union([BookingIdSchema, CourseEnrollmentIdSchema]),
     currency: z.literal('KZT'),
@@ -278,6 +282,8 @@ export type Payment = Readonly<z.output<typeof PaymentSchema>>;
 export const WalletSchema = z
   .object({
     accountId: AccountIdSchema,
+    dataScope: DataScopeSchema.optional(),
+    testSessionId: TestSessionIdSchema.optional(),
     currency: z.literal('KZT'),
     balance: KztMinorUnitsSchema,
     revision: PersistedAggregateRevisionSchema,
@@ -353,6 +359,8 @@ export const MonetaryEventActorSchema = z.discriminatedUnion('kind', [
 export const MonetaryEventSchema = z
   .object({
     eventId: MonetaryEventIdSchema,
+    dataScope: DataScopeSchema.optional(),
+    testSessionId: TestSessionIdSchema.optional(),
     eventKind: z.enum(MONETARY_EVENT_KINDS),
     currency: z.literal('KZT'),
     paymentId: PaymentIdSchema.optional(),

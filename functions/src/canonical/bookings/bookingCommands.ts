@@ -74,6 +74,7 @@ import {
   resolveBookingCreationAuthorization,
 } from './bookingAuthorization';
 import { requireAccountActor } from '../participantAccess/participantAccessAuthorization';
+import { assertTestMutableSubjectScope } from '../testSessions/assertTestMutableResourceScope';
 import { buildCreateConfirmedBookingAuditPlan } from './bookingAudit';
 import {
   BOOKING_PLANNING_ESTIMATES,
@@ -252,6 +253,11 @@ function createConfirmedBookingHandler(
         }
         participantRecords.push(participant);
         managementRecords.push(management);
+        assertTestMutableSubjectScope({
+          correlationId: envelope.context.correlationId,
+          scope: session.scope,
+          persisted: participant,
+        });
       }
 
       const actor = requireAccountActor(envelope);
@@ -293,6 +299,11 @@ function createConfirmedBookingHandler(
           details: { resourceKind: 'participant', reason: 'conflict' },
         });
       }
+      assertTestMutableSubjectScope({
+        correlationId: envelope.context.correlationId,
+        scope: session.scope,
+        persisted: payerAccountRecord,
+      });
 
       for (let index = 0; index < participantRecords.length; index += 1) {
         const participant = participantRecords[index]!;

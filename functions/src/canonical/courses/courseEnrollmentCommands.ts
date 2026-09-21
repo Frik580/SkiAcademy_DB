@@ -106,6 +106,7 @@ import {
   resolveManagedEnrollmentAuthorization,
   type CourseEnrollmentCreationAuthorization,
 } from './courseEnrollmentAuthorization';
+import { assertTestMutableSubjectScope } from '../testSessions/assertTestMutableResourceScope';
 import {
   assertGuestActorMatchesEnrollment,
   assertGuestCourseEnrollmentRequestContext,
@@ -550,6 +551,11 @@ function createCourseEnrollmentsHandler(
           });
         } else {
           participantRecord = assertManagedParticipantRecord(envelope, existingParticipant);
+          assertTestMutableSubjectScope({
+            correlationId: envelope.context.correlationId,
+            scope: session.scope,
+            persisted: participantRecord,
+          });
           if (participantRecord.management.kind !== 'managed') {
             throw new CanonicalCommandError('forbidden', {
               correlationId: envelope.context.correlationId,
@@ -608,6 +614,11 @@ function createCourseEnrollmentsHandler(
               details: { resourceKind: 'participant', reason: 'conflict' },
             });
           }
+          assertTestMutableSubjectScope({
+            correlationId: envelope.context.correlationId,
+            scope: session.scope,
+            persisted: payerAccount,
+          });
 
           const participantBlocks = await loadParticipantBlocksForCourseDays(session, {
             participantId,

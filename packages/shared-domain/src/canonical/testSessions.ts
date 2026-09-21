@@ -212,3 +212,12 @@ export function assertTestSessionAcceptsCommands(session: Pick<TestSession, 'sta
     throw new TestSessionPolicyError('TEST_SESSION_NOT_ACTIVE', session.status);
   }
 }
+
+/** Clone/seed/reset primitives may run while the session is still provisioning. */
+export function assertTestSessionAcceptsProvisioningMutations(
+  session: Pick<TestSession, 'status'>
+): void {
+  if (session.status !== 'provisioning' && session.status !== 'active') {
+    throw new TestSessionPolicyError('TEST_SESSION_NOT_ACTIVE', session.status);
+  }
+}

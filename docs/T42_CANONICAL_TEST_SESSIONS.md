@@ -2,7 +2,7 @@
 
 Date: 2026-09-21
 
-Status: **IN PROGRESS / T42B-2 IMPLEMENTED + VALIDATED / NEXT T42B-3**
+Status: **IN PROGRESS / T42B-3 IMPLEMENTED + VALIDATED / NEXT T42B-4**
 
 This document is the living T42 status and implementation plan. Architecture
 authority is [ADR-0010](adr/0010-canonical-test-sessions-and-live-test-data-isolation.md).
@@ -48,8 +48,11 @@ DONE     T42B-1 — core source plumbing IMPLEMENTED / VALIDATED
 DONE     T42B-2 — scoped writers and scoped canonical keys IMPLEMENTED / VALIDATED
          deploy / migration / production writes = NO
 
-NEXT     T42B-3 after owner approval
-         T42B-4 ... T42B-9
+DONE     T42B-3 — Canonical Domain Isolation IMPLEMENTED / VALIDATED
+         deploy / migration / production writes = NO
+
+NEXT     T42B-4 — Storage namespace + TestSideEffectPolicy
+         T42B-5 ... T42B-9
 
 THEN     T43 — Test Session Guest Support
 ```
@@ -177,9 +180,11 @@ Implemented and validated:
   schedulers inherit work scope and process TEST work only while that
   TestSession is active;
 - TEST commands do not bump LIVE `admin_runtime/*` revisions;
-- pre-T42B-3 TEST writes to finance, Course/CourseDay capacity, Participant or
-  Instructor state, progress, achievements, lesson feedback, reviews, and
-  homework fail closed.
+- T42B-2 originally fail-closed TEST writes to finance, Course/CourseDay
+  capacity, Participant/Instructor state, progress, achievements, lesson
+  feedback, reviews, and homework. T42B-3 replaced those temporary gaps with
+  same-scope domain behavior (see below). Identity writes remain deferred to
+  T42B-8.
 
 Historical `command_idempotency` v1 documents remain unchanged. Production
 claims and guards were empty at the T42B-0 baseline, so no v2 data migration
@@ -190,6 +195,157 @@ T42B-2 made no production writes, created no TestSession/TestActor, changed no
 Rules or indexes, and was not deployed. TEST commands remain non-user-accessible
 in production; the feature is not usable until later T42B slices are approved
 and completed.
+
+## T42B-3 implementation (source-only)
+
+Implemented and validated in emulator/unit fixtures. **Not production-usable.**
+No TestSession, TestActor, or production identity (including
+`F5mwFT8KvAOkYHxlElpagT1yftr1` / `ksusha@test.ru`) was created or mutated.
+
+### Same-scope rule
+
+Every mutable aggregate in one operation must have compatible scope via the
+T42B-2 `assertSameCanonicalScope` contract. TEST requires `dataScope=test` and
+the same `testSessionId`. LIVE accepts explicit LIVE or temporary missing-scope
+LIVE compatibility. Missing scope is never accepted by TEST. Cross-session is
+always `cross_scope_forbidden`. Command actor identity may remain LIVE admin
+while operating a Test context; payer/subject identities must still match the
+execution scope.
+
+Resource classification lives in
+`packages/shared-domain/src/canonical/testSessionDomainIsolation.ts`
+(`TEST_SESSION_RESOURCE_CLASSIFICATION`). Mutable aggregates are never shared
+across LIVE/TEST. Shared read-only references (skill definitions, achievement
+definitions, lesson pricing READ, resort config, LIVE course clone templates)
+may be read from LIVE during TEST. `settings/starter_credit` is not a TEST
+funding authority.
+
+### Test Wallet session semantics
+
+Persistent TestActor Account keeps `/users/{accountId}/wallet/state`. Wallet
+transactional state is session-bound:
+
+- LIVE wallet: `dataScope=live`, `testSessionId` absent
+- TEST wallet: `dataScope=test`, `testSessionId` = active TestSession
+- a previous-session TEST wallet is rejected until
+  `seedTestActorWalletForSession` explicitly rebinds it
+- no implicit cross-session balance carryover
+- seed uses `TestSession.config.startingBalanceKzt` and writes a canonical TEST
+  `MonetaryEvent` (`sourceKind=system`, `reasonCode=test_wallet_seed`)
+- production `settings/starter_credit` is not mutated; `grant_starter_credit`
+  is TEST_FORBIDDEN and is also forbidden for an `allowed` TestActor even in
+  LIVE context
+
+### Payment / MonetaryEvent / refund
+
+Payment inherits subject/execution scope. TEST Payment requires a same-session
+TEST Booking or CourseEnrollment and a same-session TEST payer Account/Wallet.
+LIVE wallet → TEST payment, TEST wallet → LIVE payment, and TEST-A → TEST-B are
+forbidden. MonetaryEvent scope equals Payment/Wallet/subject. Admin
+`pay_service_from_wallet_as_administrator` in TEST context debits the TEST
+resource's linked TEST wallet, never the live owner/admin wallet. Refunds and
+price adjustments cannot select a different scope; they follow the original
+Payment. `record_provider_payment_event` with `sourceKind=provider` is
+fail-closed in TEST until T42B-4. Manual/canonical capture (`manual_external`)
+is scoped.
+
+### Test Course clone semantics
+
+`cloneLiveCourseIntoTestSession` reads a LIVE course as an immutable template
+and creates a new TEST Course + CourseDays:
+
+- new `CourseId` / CourseDay IDs (deterministic from live source + session)
+- `sourceCourseId` is provenance only, never mutation/capacity authority
+- cloned product fields: title, lifecycle, price, capacity totals, schedule
+  projection, timezone/intervals, roster rewritten to the dedicated TEST
+  instructor
+- fresh capacity: `availableSeats = totalSeats`
+- live `availableSeats`, enrollment counters, live instructor IDs, live claims,
+  live chat access, and live mutable residue are not copied
+- Course catalog content is cloned under the TEST Course when present; TEST
+  catalog is not exposed on live catalog reads (T42B-5)
+- TEST enrollment mutates only the TEST clone; LIVE `availableSeats` stays
+  unchanged. LIVE Course as a TEST mutation target is forbidden.
+
+### Attendance / Progress / Achievements / Feedback
+
+Lesson Attendance scope = Booking scope. Course Attendance scope =
+CourseEnrollment/Course scope. The recorded Participant must be same-scope
+TEST identity for TEST operations. TEST Attendance cannot target a LIVE
+Participant, and LIVE Attendance cannot target a TEST Participant.
+
+`ParticipantProgress` / `ParticipantAchievements` remain at
+`/participant_progress/{participantId}` and
+`/participant_achievements/{participantId}`. Because persistent Test
+Participants reuse that path, TEST records carry `testSessionId`. Stale
+session A state is fail-closed in session B until reset:
+
+- `resetTestParticipantProgress`
+- `resetTestParticipantAchievements`
+
+deletes TEST-scoped records only (never LIVE). Next session recreates them
+with the new `testSessionId`. Achievement definitions stay shared read-only.
+TEST course graduate issuance writes only the TEST Participant record.
+
+`ParticipantLessonFeedback` requires same-scope Participant + Booking.
+
+### Test rating summary reset semantics
+
+TEST review may target only a dedicated TEST Instructor. TEST Review never
+updates `instructor_rating_summaries/{liveInstructorId}`. The TEST Instructor
+summary is `dataScope=test` + current `testSessionId`. Persistent TEST
+Instructor reuse requires `resetTestInstructorRatingSummary` before a new
+session; stale previous-session summary is fail-closed.
+
+### Homework same-scope semantics
+
+Canonical homework targeting remains `homeworkForParticipantIds`
+(Participant-scoped). TEST homework requires a TEST parent Booking/thread,
+TEST party Participants, and the same `testSessionId`. LIVE/cross-session
+targets are forbidden. `homeworkForUserIds` stays forbidden.
+
+**TEST homework domain support = implemented** via
+`assertHomeworkTargetsSameScope`. **Client TEST chat reachability =
+intentionally deferred** (`TEST_CHAT_CLIENT_REACHABILITY =
+deferred_until_rules_and_storage`). Booking messages remain client-direct
+Firestore writes; Rules belong to T42B-8 and Storage to T42B-4. TEST chat is
+not user-reachable and must not be opened as an insecure client path.
+
+TEST Course clones do not reuse LIVE `course_chat_access`. Enrollment chat
+access writes inherit TEST scope/session. Full Rules/read enforcement is later.
+
+### Shared settings
+
+TEST may read shared config. TEST may not mutate `settings/*` or
+`lesson_pricing_settings`. Admin settings mutation in TEST context is
+`update_lesson_pricing_settings` → TEST_FORBIDDEN /
+`cross_scope_forbidden`.
+
+### TEST command support matrix
+
+Exhaustive source of truth:
+`TEST_SESSION_COMMAND_SUPPORT` in
+`packages/shared-domain/src/canonical/testSessionDomainIsolation.ts`.
+Unknown command kinds cannot default to allowed.
+
+Notable groups:
+
+- **TEST_SUPPORTED** — Booking/Proposal/ChangeRequest, Attendance/outcome,
+  TEST Course clone mutations, TEST Enrollment, TEST finance (wallet pay,
+  manual capture, price adjust, financial correction), reviews, progress,
+  achievements, lesson feedback, availability blocks
+- **TEST_FORBIDDEN** — `grant_starter_credit`, `update_lesson_pricing_settings`,
+  `record_audit_correction`, live `provision_canonical_course` /
+  `apply_canonical_course_provisioning_manifest`
+- **T42B-4_DEFERRED** — provider-sourced `record_provider_payment_event`
+  (`sourceKind=provider` fail-closed inside an otherwise TEST_SUPPORTED
+  command); Storage/notifications/provider sandbox
+- **T42B-5_DEFERRED** — no write commands; read-model isolation remains later
+- **T42B-8_DEFERRED** — Participant/Account/Instructor identity mutations
+- **T43_DEFERRED** — guest booking/enrollment/link/expiry commands
+
+Test Sessions are still not usable in production. No deploy, Rules, indexes,
+Storage, read-model rollout, or live migration in this slice.
 
 ## Approved architecture (partially implemented)
 
@@ -414,8 +570,8 @@ No blind manual cleanup.
 | T42B-0 | Post-T41 Rebase: fresh production inventory, current canonical graph, exact migration/index baseline    | **COMPLETE** (2026-09-20; transactional collections empty after T40; `dataScope` still absent) |
 | T42B-1 | Core: TestSession, test actors, assignments, CanonicalExecutionScope, resolver, max active sessions = 1 | **IMPLEMENTED / VALIDATED** (source-only; no deploy/migration/production writes)               |
 | T42B-2 | Write propagation: writers, claims, guards, idempotency, outbox/work, cross-scope assertions            | **IMPLEMENTED / VALIDATED** (source-only; no deploy/migration/production writes)               |
-| T42B-3 | Domain isolation: finance, progress, achievements, reviews, attendance, homework, CourseEnrollment      | **NEXT / WAIT FOR OWNER APPROVAL**                                                             |
-| T42B-4 | Storage + side effects                                                                                  | PLANNED                                                                                        |
+| T42B-3 | Domain isolation: finance, progress, achievements, reviews, attendance, homework, CourseEnrollment      | **IMPLEMENTED / VALIDATED** (source-only; no deploy/migration/production writes)               |
+| T42B-4 | Storage + side effects                                                                                  | **NEXT**                                                                                       |
 | T42B-5 | Read-model isolation                                                                                    | PLANNED                                                                                        |
 | T42B-6 | Admin Testing UI                                                                                        | PLANNED                                                                                        |
 | T42B-7 | Reset/Delete engine: preview, manifests, locks, audit, verifier                                         | PLANNED                                                                                        |

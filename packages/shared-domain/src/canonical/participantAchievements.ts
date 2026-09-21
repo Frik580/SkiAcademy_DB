@@ -6,10 +6,12 @@ import {
   CourseEnrollmentIdSchema,
   CourseIdSchema,
   ParticipantIdSchema,
+  TestSessionIdSchema,
   type CommandId,
   type CorrelationId,
   type ParticipantId,
 } from './identifiers';
+import { DataScopeSchema } from './canonicalScope';
 import { AggregateRevisionSchema, CanonicalTimestampSchema, type CanonicalTimestamp } from './primitives';
 import type { CourseEnrollment } from './courseEnrollmentAttendanceAdminIssue';
 import { nextAggregateRevision } from './revisionConcurrency';
@@ -89,6 +91,8 @@ const PersistedAggregateRevisionSchema = AggregateRevisionSchema.refine(
 export const ParticipantAchievementsSchema = z
   .object({
     participantId: ParticipantIdSchema,
+    dataScope: DataScopeSchema.optional(),
+    testSessionId: TestSessionIdSchema.optional(),
     earned: z.record(ParticipantAchievementIdSchema, ParticipantAchievementEarnedRecordSchema),
     updatedBy: ParticipantAchievementsUpdatedBySchema.optional(),
     revision: PersistedAggregateRevisionSchema,

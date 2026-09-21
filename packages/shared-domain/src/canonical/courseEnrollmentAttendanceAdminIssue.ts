@@ -168,6 +168,7 @@ export const CourseSchema = z
     courseId: CourseIdSchema,
     dataScope: DataScopeSchema.optional(),
     testSessionId: TestSessionIdSchema.optional(),
+    sourceCourseId: CourseIdSchema.optional(),
     title: z.string().trim().min(1).max(200),
     lifecycle: CourseLifecycleStatusSchema.default('active'),
     price: KztMinorUnitsSchema,
@@ -189,6 +190,13 @@ export const CourseSchema = z
   .strict()
   .superRefine((course, context) => {
     addRecordChronologyIssue(course, context);
+    if (course.sourceCourseId !== undefined && course.sourceCourseId === course.courseId) {
+      context.addIssue({
+        code: 'custom',
+        path: ['sourceCourseId'],
+        message: 'sourceCourseId is provenance only and must not equal courseId',
+      });
+    }
     for (const [index, instructorId] of course.instructorRosterIds.entries()) {
       if (isSyntheticCourseInstructorId(instructorId)) {
         context.addIssue({

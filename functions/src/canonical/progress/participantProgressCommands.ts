@@ -45,6 +45,7 @@ import {
   participantPath,
   accountPath,
 } from '../participantAccess/participantAccessStore';
+import { assertTestMutableSubjectScope } from '../testSessions/assertTestMutableResourceScope';
 import { instructorCatalogPath } from '../bookings/bookingStore';
 import type { CanonicalAtomicTransactionSession } from '../transactions/firestoreTransactionExecutor';
 import { readInstructorProgressBookingScopedEvidence } from './participantProgressAuthorization';
@@ -255,6 +256,11 @@ function updateParticipantProgressHandler(
         envelope,
         parseParticipant(participantRead.exists ? participantRead.data : undefined)
       );
+      assertTestMutableSubjectScope({
+        correlationId: envelope.context.correlationId,
+        scope: session.scope,
+        persisted: participant,
+      });
 
       const decidedAt = timestampFromDate(environment.clock.now());
       await assertInstructorMayUpdateParticipantProgress(session, envelope, {

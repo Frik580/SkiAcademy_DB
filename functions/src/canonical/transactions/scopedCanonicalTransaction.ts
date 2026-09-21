@@ -18,6 +18,9 @@ const SCOPE_STAMPED_COLLECTIONS = new Set([
   'booking_change_requests',
   'attendance',
   'course_enrollments',
+  'courses',
+  'course_catalog_content',
+  'course_chat_access',
   'resource_claims',
   'resource_claim_guards',
   'active_course_enrollment_guards',
@@ -26,29 +29,6 @@ const SCOPE_STAMPED_COLLECTIONS = new Set([
   'activity_logs',
   'admin_issues',
   'administrative_availability_blocks',
-]);
-
-// T42B-3 will make these aggregates fully scope-aware. Until then TEST execution
-// may inspect only same-session clones and therefore fails closed on legacy/LIVE rows.
-const TEST_FAIL_CLOSED_COLLECTIONS = new Set([
-  'courses',
-  'course_days',
-  'participants',
-  'instructors',
-  'wallets',
-  'payments',
-  'monetary_events',
-  'participant_progress',
-  'participant_achievements',
-  'instructor_reviews',
-  'instructor_rating_summaries',
-]);
-
-const TEST_UNSUPPORTED_WRITE_COLLECTIONS = new Set([
-  'courses',
-  'course_days',
-  'participants',
-  'instructors',
   'wallets',
   'payments',
   'monetary_events',
@@ -57,7 +37,19 @@ const TEST_UNSUPPORTED_WRITE_COLLECTIONS = new Set([
   'participant_lesson_feedback',
   'instructor_reviews',
   'instructor_rating_summaries',
+]);
+
+// Identity records are fixture-seeded in T42B-3. TEST may read only same-session
+// TEST identities; writes remain deferred to T42B-8.
+const TEST_FAIL_CLOSED_COLLECTIONS = new Set(['participants', 'instructors']);
+
+const TEST_UNSUPPORTED_WRITE_COLLECTIONS = new Set([
+  'participants',
+  'instructors',
   'homework',
+  'settings',
+  'lesson_pricing_settings',
+  'provider_event_receipts',
 ]);
 
 function transactionCollection(path: string): string {

@@ -15,13 +15,17 @@ import {
   PaymentIdSchema,
   ReviewIdSchema,
   ParticipantLessonFeedbackIdSchema,
+  CourseDayIdSchema,
+  CourseIdSchema,
   type AccountId,
+  type CourseDayId,
+  type CourseId,
+  type TestSessionId,
   type ActivityLogId,
   type AdministrativeAvailabilityBlockId,
   type BookingId,
   type BookingProposalId,
   type CommandId,
-  type CourseDayId,
   type CourseEnrollmentId,
   type DomainOutboxId,
   type GuestSubjectId,
@@ -287,6 +291,46 @@ export function nextBookingScheduleRevision(
     throw new Error('currentScheduleRevision must be a positive integer');
   }
   return currentScheduleRevision + 1;
+}
+
+export function testCourseIdFromLiveSource(input: {
+  readonly testSessionId: TestSessionId;
+  readonly sourceCourseId: CourseId;
+}): CourseId {
+  return CourseIdSchema.parse(
+    canonicalDeterministicHash([
+      'test-course:v1',
+      input.testSessionId,
+      input.sourceCourseId,
+    ])
+  );
+}
+
+export function testCourseDayIdFromLiveSource(input: {
+  readonly testSessionId: TestSessionId;
+  readonly sourceCourseDayId: CourseDayId;
+}): CourseDayId {
+  return CourseDayIdSchema.parse(
+    canonicalDeterministicHash([
+      'test-course-day:v1',
+      input.testSessionId,
+      input.sourceCourseDayId,
+    ])
+  );
+}
+
+export function monetaryEventIdFromTestWalletSeed(input: {
+  readonly accountId: AccountId;
+  readonly testSessionId: TestSessionId;
+}): MonetaryEventId {
+  return MonetaryEventIdSchema.parse(
+    canonicalDeterministicHash([
+      'monetary:v1',
+      'test_wallet_seed',
+      input.accountId,
+      input.testSessionId,
+    ])
+  );
 }
 
 const PERSONAL_DATA_PATTERNS = [

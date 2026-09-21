@@ -35,6 +35,7 @@ import {
   participantManagementPath,
   participantPath,
 } from '../participantAccess/participantAccessStore';
+import { assertTestMutableSubjectScope } from '../testSessions/assertTestMutableResourceScope';
 import {
   PARTICIPANT_ACHIEVEMENTS_PLANNING_ESTIMATES,
   parseParticipantAchievements,
@@ -120,6 +121,11 @@ function recordParticipantAchievementsHandler(
           envelope,
           parseParticipant(participantRead.exists ? participantRead.data : undefined)
         );
+        assertTestMutableSubjectScope({
+          correlationId: envelope.context.correlationId,
+          scope: session.scope,
+          persisted: participant,
+        });
         if (participant.management.kind !== 'managed') {
           throw new CanonicalCommandError('forbidden', {
             correlationId: envelope.context.correlationId,

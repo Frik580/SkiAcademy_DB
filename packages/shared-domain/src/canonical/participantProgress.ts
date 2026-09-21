@@ -5,9 +5,11 @@ import {
   CorrelationIdSchema,
   InstructorIdSchema,
   ParticipantIdSchema,
+  TestSessionIdSchema,
   type ParticipantId,
 } from './identifiers';
 import { AggregateRevisionSchema, CanonicalTimestampSchema } from './primitives';
+import { DataScopeSchema } from './canonicalScope';
 
 export const PARTICIPANT_PROGRESS_SKILL_ID_MAX_LENGTH = 64;
 export const PARTICIPANT_PROGRESS_SKILL_SCORE_MAX = 100;
@@ -118,6 +120,8 @@ const PersistedAggregateRevisionSchema = AggregateRevisionSchema.refine(
 export const ParticipantProgressSchema = z
   .object({
     participantId: ParticipantIdSchema,
+    dataScope: DataScopeSchema.optional(),
+    testSessionId: TestSessionIdSchema.optional(),
     level: ParticipantProgressLevelSchema,
     skillScores: ParticipantProgressSkillScoresSchema,
     skillComments: ParticipantProgressSkillCommentsSchema,

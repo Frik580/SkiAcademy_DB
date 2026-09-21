@@ -238,12 +238,11 @@ describe('executeIdempotentCanonicalCommand', () => {
   });
 
   it.each([
-    ['course capacity', 'courses/course_scope_unsafe_01'],
-    ['wallet', 'users/account_scope_unsafe_01/wallet/state'],
-    ['progress', 'participant_progress/progress_scope_unsafe_01'],
-    ['reviews', 'instructor_reviews/review_scope_unsafe_01'],
-    ['rating summary', 'instructor_rating_summaries/summary_scope_unsafe_01'],
+    ['participants', 'participants/participant_scope_unsafe_01'],
+    ['instructors', 'instructors/instructor_scope_unsafe_01'],
     ['homework', 'homework/homework_scope_unsafe_01'],
+    ['settings', 'settings/starter_credit'],
+    ['provider receipts', 'provider_event_receipts/receipt_scope_unsafe_01'],
   ])('fails closed for TEST writes to unsupported %s storage', async (_name, path) => {
     const executor = createInMemoryCanonicalTransactionExecutor();
     const result = await executeIdempotentCanonicalCommand({
@@ -263,6 +262,34 @@ describe('executeIdempotentCanonicalCommand', () => {
       error: { code: 'cross_scope_forbidden', details: { reason: 'unsupported' } },
     });
     expect(executor.snapshot().docs.has(path)).toBe(false);
+  });
+
+  it('stamps TEST writes to previously fail-closed finance and learning aggregates', async () => {
+    const walletPath = 'users/account_scope_wallet_01/wallet/state';
+    const progressPath = 'participant_progress/progress_scope_supported_01';
+    const executor = createInMemoryCanonicalTransactionExecutor();
+    const result = await executeIdempotentCanonicalCommand({
+      envelope: envelope('idem-supported-wallet-progress'),
+      environment: environment('2026-01-01T00:00:00.000Z', testScopeA),
+      executor,
+      handler: {
+        execute: async (session) => {
+          session.tx.create({ path: walletPath }, { revision: 1, balance: 1_000 });
+          session.tx.create({ path: progressPath }, { revision: 1, level: 1 });
+          return commandSuccessResult('complete_booking', correlationId);
+        },
+      },
+    });
+
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.get(walletPath)?.data).toMatchObject({
+      dataScope: 'test',
+      testSessionId: testSessionA,
+    });
+    expect(executor.snapshot().docs.get(progressPath)?.data).toMatchObject({
+      dataScope: 'test',
+      testSessionId: testSessionA,
+    });
   });
 
   it('inherits TEST scope into Attendance only after a same-scope Booking read', async () => {

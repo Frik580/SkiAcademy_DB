@@ -1,6 +1,7 @@
 import { z } from 'zod';
-import { CourseIdSchema } from './identifiers';
+import { CourseIdSchema, TestSessionIdSchema } from './identifiers';
 import { AggregateRevisionSchema } from './primitives';
+import { DataScopeSchema } from './canonicalScope';
 
 const CourseProgramSchema = z.object({ day: z.string(), title: z.string(), desc: z.string() });
 const CourseFaqSchema = z.object({ q: z.string(), a: z.string() });
@@ -12,6 +13,8 @@ const CourseFaqSchema = z.object({ q: z.string(), a: z.string() });
 export const CourseCatalogContentSchema = z
   .object({
     courseId: CourseIdSchema,
+    dataScope: DataScopeSchema.optional(),
+    testSessionId: TestSessionIdSchema.optional(),
     revision: AggregateRevisionSchema.default(AggregateRevisionSchema.parse(1)),
     duration: z.string().trim().min(1).max(200),
     description: z.string().trim().max(10_000),
@@ -44,6 +47,8 @@ export type CourseCatalogContent = Readonly<z.output<typeof CourseCatalogContent
 export const CourseCatalogContentInputSchema = CourseCatalogContentSchema.omit({
   courseId: true,
   revision: true,
+  dataScope: true,
+  testSessionId: true,
 }).strict();
 
 export type CourseCatalogContentInput = Readonly<z.output<typeof CourseCatalogContentInputSchema>>;

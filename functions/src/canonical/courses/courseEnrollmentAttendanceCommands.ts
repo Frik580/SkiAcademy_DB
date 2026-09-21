@@ -91,6 +91,8 @@ import {
   parseCourseEnrollment,
   toFirestoreWritePayload as enrollmentToFirestoreWritePayload,
 } from './courseEnrollmentStore';
+import { participantPath } from '../participantAccess/participantAccessStore';
+import { assertTestMutableSubjectScope } from '../testSessions/assertTestMutableResourceScope';
 
 interface CommandMetadata {
   readonly commandId: ReturnType<typeof resolveCommandIdempotencyIdentity>['commandKey'];
@@ -270,6 +272,25 @@ function recordCourseDayAttendanceHandler(
         });
       }
       enrollment = parsedEnrollment;
+      const enrollmentParticipantPath = participantPath(enrollment.participantId);
+      const enrollmentParticipantRead = await session.tx.get({
+        path: enrollmentParticipantPath,
+      });
+      session.plan.planRead({
+        path: enrollmentParticipantPath,
+        category: 'authorization_check',
+      });
+      if (!enrollmentParticipantRead.exists || !enrollmentParticipantRead.data) {
+        throw new CanonicalCommandError('validation', {
+          correlationId: envelope.context.correlationId,
+          details: { resourceKind: 'participant', reason: 'conflict' },
+        });
+      }
+      assertTestMutableSubjectScope({
+        correlationId: envelope.context.correlationId,
+        scope: session.scope,
+        persisted: enrollmentParticipantRead.data,
+      });
 
       const courseDocumentPath = coursePath(enrollment.courseId);
       const courseRead = await session.tx.get({ path: courseDocumentPath });

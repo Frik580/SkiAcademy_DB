@@ -7,9 +7,11 @@ import {
   InstructorIdSchema,
   ParticipantIdSchema,
   ParticipantLessonFeedbackIdSchema,
+  TestSessionIdSchema,
   type ParticipantId,
   type ParticipantLessonFeedbackId,
 } from './identifiers';
+import { DataScopeSchema } from './canonicalScope';
 import { participantLessonFeedbackIdFromLessonParticipant } from './deterministicIdentity';
 import { AggregateRevisionSchema, CanonicalTimestampSchema } from './primitives';
 
@@ -117,6 +119,8 @@ export type ParticipantLessonFeedbackIdentity = Readonly<
 export const ParticipantLessonFeedbackSchema = z
   .object({
     feedbackId: ParticipantLessonFeedbackIdSchema,
+    dataScope: DataScopeSchema.optional(),
+    testSessionId: TestSessionIdSchema.optional(),
     participantId: ParticipantIdSchema,
     lessonBookingId: BookingIdSchema,
     instructorId: InstructorIdSchema,

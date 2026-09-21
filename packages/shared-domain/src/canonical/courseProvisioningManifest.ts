@@ -452,6 +452,9 @@ export function legacyCourseDocumentFailsCanonicalParse(
 /** Top-level `/courses/{courseId}` keys allowed by strict CourseSchema. */
 export const CANONICAL_COURSE_DOCUMENT_FIELD_NAMES = [
   'courseId',
+  'dataScope',
+  'testSessionId',
+  'sourceCourseId',
   'title',
   'lifecycle',
   'price',

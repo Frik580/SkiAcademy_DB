@@ -11,6 +11,7 @@ import {
   type CommandResult,
   commandErrorResult,
   withCanonicalExecutionScope,
+  isTestSessionCommandSupported,
 } from '@ski-academy/shared-domain';
 
 const MALFORMED_ENVELOPE_CORRELATION_ID = CorrelationIdSchema.parse(
@@ -148,6 +149,20 @@ export function createCanonicalCommands(
       const handler = handlers[normalized.kind] as CommandHandler<Kind> | undefined;
       if (!handler) {
         return unavailableErrorResult(normalized);
+      }
+
+      if (
+        scopedEnvironment.scope?.dataScope === 'test' &&
+        !isTestSessionCommandSupported(normalized.kind)
+      ) {
+        return commandErrorResult(
+          normalized.kind,
+          normalized.context.correlationId,
+          new CanonicalCommandError('cross_scope_forbidden', {
+            correlationId: normalized.context.correlationId,
+            details: { reason: 'unsupported' },
+          }).toTransport()
+        );
       }
 
       try {

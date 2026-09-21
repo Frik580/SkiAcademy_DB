@@ -25,6 +25,8 @@ import {
 } from '../commands/idempotentCommandExecution';
 import { assertStarterCreditGrantAuthorization } from './financeAuthorization';
 import { buildStarterCreditGrantAuditPlan } from './financeAudit';
+import { parseTestActor, testActorPath } from '../testSessions/testSessionStore';
+import { crossScopeCommandError } from '../testSessions/assertTestMutableResourceScope';
 import {
   FINANCE_PLANNING_ESTIMATES,
   accountPath,
@@ -84,6 +86,13 @@ export function grantStarterCreditHandler(
           correlationId: envelope.context.correlationId,
           details: { resourceKind: 'participant', reason: 'conflict' },
         });
+      }
+
+      const testActorRead = await session.tx.get({ path: testActorPath(accountId) });
+      session.plan.planRead({ path: testActorPath(accountId), category: 'authorization_check' });
+      const testActor = parseTestActor(testActorRead.exists ? testActorRead.data : undefined);
+      if (testActor?.allowed) {
+        throw crossScopeCommandError(envelope.context.correlationId, 'unsupported');
       }
 
       const grantRead = await session.tx.get({ path: grantDocumentPath });

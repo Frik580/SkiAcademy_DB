@@ -674,7 +674,13 @@ function updateCourseCatalogContentHandler(
       if (currentContent || contentDocumentExists) {
         if (currentContent) {
           for (const key of Object.keys(currentContent)) {
-            if (key !== 'courseId' && key !== 'revision' && !(key in payload)) {
+            if (
+              key !== 'courseId' &&
+              key !== 'revision' &&
+              key !== 'dataScope' &&
+              key !== 'testSessionId' &&
+              !(key in payload)
+            ) {
               payload[key] = CANONICAL_FIELD_DELETE;
             }
           }

@@ -7,8 +7,10 @@ import {
   InstructorIdSchema,
   ParticipantIdSchema,
   ReviewIdSchema,
+  TestSessionIdSchema,
 } from './identifiers';
 import { AggregateRevisionSchema, CanonicalTimestampSchema } from './primitives';
+import { DataScopeSchema } from './canonicalScope';
 
 export const INSTRUCTOR_REVIEW_COMMENT_MAX_LENGTH = 1_000;
 
@@ -35,6 +37,8 @@ const ReviewAuditLinkSchema = z
 export const InstructorReviewSchema = z
   .object({
     reviewId: ReviewIdSchema,
+    dataScope: DataScopeSchema.optional(),
+    testSessionId: TestSessionIdSchema.optional(),
     bookingId: BookingIdSchema,
     managingAccountId: AccountIdSchema,
     instructorId: InstructorIdSchema,
@@ -54,6 +58,8 @@ export type InstructorReview = Readonly<z.output<typeof InstructorReviewSchema>>
 export const InstructorRatingSummarySchema = z
   .object({
     instructorId: InstructorIdSchema,
+    dataScope: DataScopeSchema.optional(),
+    testSessionId: TestSessionIdSchema.optional(),
     rating: z.number().finite().min(1).max(5).nullable(),
     ratingSum: z.number().finite().int().nonnegative(),
     ratingCounts: z.array(z.number().finite().int().nonnegative()).length(5),

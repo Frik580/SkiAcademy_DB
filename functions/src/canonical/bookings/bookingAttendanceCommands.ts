@@ -63,6 +63,8 @@ import {
   toFirestoreWritePayload,
 } from './bookingStore';
 import { CANONICAL_FIELD_DELETE, type CanonicalAtomicTransactionSession } from '../transactions';
+import { participantPath } from '../participantAccess/participantAccessStore';
+import { assertTestMutableSubjectScope } from '../testSessions/assertTestMutableResourceScope';
 import { resolveCourseEnrollmentAttendanceOutcomeHandler } from '../courses/courseEnrollmentAttendanceCommands';
 import {
   bookingAttendanceOutcomeWorkPath,
@@ -236,6 +238,33 @@ function recordBookingAttendanceHandler(
         });
       }
       booking = parsedBooking;
+      const attendanceParticipantPath = participantPath(envelope.intent.participantId);
+      const attendanceParticipantRead = await session.tx.get({
+        path: attendanceParticipantPath,
+      });
+      session.plan.planRead({
+        path: attendanceParticipantPath,
+        category: 'authorization_check',
+      });
+      if (session.scope?.dataScope === 'test') {
+        if (!attendanceParticipantRead.exists || !attendanceParticipantRead.data) {
+          throw new CanonicalCommandError('validation', {
+            correlationId: envelope.context.correlationId,
+            details: { resourceKind: 'participant', reason: 'conflict' },
+          });
+        }
+        assertTestMutableSubjectScope({
+          correlationId: envelope.context.correlationId,
+          scope: session.scope,
+          persisted: attendanceParticipantRead.data,
+        });
+      } else if (attendanceParticipantRead.exists && attendanceParticipantRead.data) {
+        assertTestMutableSubjectScope({
+          correlationId: envelope.context.correlationId,
+          scope: session.scope,
+          persisted: attendanceParticipantRead.data,
+        });
+      }
 
       const now = timestampFromDate(environment.clock.decidedAt());
       const currentAttendancesByParticipantId = new Map<ParticipantId, Attendance>();

@@ -12,18 +12,19 @@ import {
 } from './resolveCallableInstructorId';
 import { ReadModelAccessDeniedError } from './readModelAccessDenied';
 import { createReadModelRequestContext } from './readModelRequestContext';
+import { parseReadModelCallableData, rethrowReadScopeHttpsError } from './readModelScope';
+import { resolveCanonicalReadScope } from '../testSessions/canonicalReadScopeResolver';
+import { createFirestoreCanonicalExecutionScopeStore } from '../testSessions/canonicalExecutionScopeResolver';
 
 export function createQueryCourseAttendanceReadModelsHandler(firestore: Firestore) {
   return async (
     request: CallableRequest<Record<string, unknown>>
   ): Promise<QueryCourseAttendanceReadModelsResult> => {
-    const parsed = QueryCourseAttendanceReadModelsInputSchema.safeParse(request.data);
-    if (!parsed.success) {
-      throw new HttpsError('invalid-argument', 'The request is invalid.');
-    }
+    const { input, requestedTestSessionId } = parseReadModelCallableData(
+      QueryCourseAttendanceReadModelsInputSchema,
+      request.data
+    );
 
-    const input = parsed.data;
-    const readContext = createReadModelRequestContext(firestore);
     if (!request.auth?.uid) {
       throw new HttpsError('unauthenticated', 'Authentication is required.');
     }
@@ -32,28 +33,40 @@ export function createQueryCourseAttendanceReadModelsHandler(firestore: Firestor
       throw new HttpsError('unauthenticated', 'Authentication is required.');
     }
 
-    let instructorId: ReturnType<typeof resolveCallableInstructorId> | undefined;
-    if (input.scope === 'instructor_roster') {
-      const userSnap = await readContext.account(parsedAccountId.data);
-      instructorId = resolveCallableInstructorId(
-        readCallableAccountProfile(userSnap.data() as Record<string, unknown> | undefined)
-      );
-      if (!instructorId) {
-        throw new HttpsError('permission-denied', 'This action is not permitted.');
-      }
-    }
-
     try {
+      const readScope = await resolveCanonicalReadScope(
+        createFirestoreCanonicalExecutionScopeStore(firestore),
+        {
+          accountId: parsedAccountId.data,
+          accountLifecycleStatus: 'active',
+          isAdministrator: false,
+          requestedTestSessionId,
+        }
+      );
+      const readContext = createReadModelRequestContext(firestore, { readScope });
+
+      let instructorId: ReturnType<typeof resolveCallableInstructorId> | undefined;
+      if (input.scope === 'instructor_roster') {
+        const userSnap = await readContext.account(parsedAccountId.data);
+        instructorId = resolveCallableInstructorId(
+          readCallableAccountProfile(userSnap.data() as Record<string, unknown> | undefined)
+        );
+        if (!instructorId) {
+          throw new HttpsError('permission-denied', 'This action is not permitted.');
+        }
+      }
+
       return await queryCourseAttendanceReadModels(firestore, input, {
         accountId: parsedAccountId.data,
         instructorId,
         readContext,
+        readScope,
       });
     } catch (error) {
       if (error instanceof ReadModelAccessDeniedError) {
         throw new HttpsError('permission-denied', 'This action is not permitted.');
       }
-      throw error;
+      rethrowReadScopeHttpsError(error);
     }
   };
 }

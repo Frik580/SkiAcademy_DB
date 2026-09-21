@@ -22,6 +22,7 @@ import {
   chunkFirestoreInValues,
   getInstructorStudentProfileIds,
 } from './instructorStudentProfiles';
+import { isLiveCompatibleIdentity } from '../../../lib/canonical/liveCompatibleClientRead';
 
 /** Lazy users directory for admin and instructor workspaces. */
 export const useUsersSync = () => {
@@ -51,7 +52,9 @@ export const useUsersSync = () => {
             .slice(0, usersPageSize)
             .filter((userDoc) => userDoc.id !== 'school_global_stats')
             .flatMap((userDoc) => {
-              const profile = toUserProfile(userDoc.data(), userDoc.id);
+              const data = userDoc.data();
+              if (!isLiveCompatibleIdentity(data)) return [];
+              const profile = toUserProfile(data, userDoc.id);
               return profile ? [profile] : [];
             });
           useProfileStore.getState().setUsersList(users);
@@ -86,7 +89,9 @@ export const useUsersSync = () => {
           snapshots.set(
             String(index),
             snapshot.docs.flatMap((userDoc) => {
-              const profile = toUserProfile(userDoc.data(), userDoc.id);
+              const data = userDoc.data();
+              if (!isLiveCompatibleIdentity(data)) return [];
+              const profile = toUserProfile(data, userDoc.id);
               return profile ? [profile] : [];
             })
           );

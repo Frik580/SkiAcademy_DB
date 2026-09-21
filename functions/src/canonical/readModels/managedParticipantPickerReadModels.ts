@@ -6,6 +6,8 @@ import {
   type Participant,
   type ParticipantManagement,
   type QueryManagedParticipantPickerReadModelsResult,
+  LIVE_CANONICAL_READ_SCOPE,
+  type CanonicalReadScope,
 } from '@ski-academy/shared-domain';
 import type { Firestore } from 'firebase-admin/firestore';
 import { buildParticipantAccessTopology } from '../participantAccess/participantAccessAuthorization';
@@ -14,7 +16,8 @@ import {
   parseParticipant,
   parseParticipantManagement,
 } from '../participantAccess/participantAccessStore';
-import { createReadModelRequestContext } from './readModelRequestContext';
+import { createReadModelRequestContext, type ReadModelRequestContext } from './readModelRequestContext';
+import { parseIfVisibleInReadScope } from './readModelScope';
 
 function toManagedParticipantPickerItem(input: {
   readonly participant: Participant;
@@ -60,9 +63,14 @@ function toManagedParticipantPickerItem(input: {
  */
 export async function queryManagedParticipantPickerReadModels(
   firestore: Firestore,
-  accountId: AccountId
+  accountId: AccountId,
+  options: {
+    readonly readContext?: ReadModelRequestContext;
+    readonly readScope?: CanonicalReadScope;
+  } = {}
 ): Promise<QueryManagedParticipantPickerReadModelsResult> {
-  const readContext = createReadModelRequestContext(firestore);
+  const readScope = options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
+  const readContext = options.readContext ?? createReadModelRequestContext(firestore, { readScope });
   const accountSnap = await readContext.account(accountId);
   const account = parseAccount(accountSnap.data() as Record<string, unknown> | undefined);
   if (!account || account.lifecycle.status !== 'active') {
@@ -72,7 +80,12 @@ export async function queryManagedParticipantPickerReadModels(
   const managementDocs = await readContext.allActiveManagementForAccount(accountId);
   const managements: ParticipantManagement[] = [];
   for (const doc of managementDocs) {
-    const parsed = parseParticipantManagement(doc.data() as Record<string, unknown> | undefined);
+    const parsed = parseIfVisibleInReadScope(
+      doc.data(),
+      parseParticipantManagement,
+      readScope,
+      'identity'
+    );
     if (parsed && parsed.status === 'active' && parsed.accountId === accountId) {
       managements.push(parsed);
     }

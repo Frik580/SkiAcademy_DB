@@ -221,3 +221,22 @@ export function assertTestSessionAcceptsProvisioningMutations(
     throw new TestSessionPolicyError('TEST_SESSION_NOT_ACTIVE', session.status);
   }
 }
+
+/** Interactive TEST product reads require an active session. */
+export function assertTestSessionAcceptsProductReads(session: Pick<TestSession, 'status'>): void {
+  assertTestSessionAcceptsCommands(session);
+}
+
+/**
+ * Admin Testing inventory/preview may inspect non-active sessions so T42B-7
+ * reset/delete preview is not blocked by `resetting` / `deleting` / `closed`.
+ */
+export const TEST_SESSION_MAINTENANCE_READ_STATUSES = TEST_SESSION_STATUSES;
+
+export function assertTestSessionAcceptsMaintenanceReads(
+  session: Pick<TestSession, 'status'>
+): void {
+  if (!TEST_SESSION_MAINTENANCE_READ_STATUSES.includes(session.status)) {
+    throw new TestSessionPolicyError('TEST_SESSION_NOT_ACTIVE', session.status);
+  }
+}

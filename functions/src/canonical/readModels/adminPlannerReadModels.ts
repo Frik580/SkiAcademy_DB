@@ -8,6 +8,8 @@ import {
   type QueryAdminPlannerReadModelsInput,
   type QueryAdminPlannerReadModelsResult,
   type ReadModelAdministratorActor,
+  LIVE_CANONICAL_READ_SCOPE,
+  type CanonicalReadScope,
 } from '@ski-academy/shared-domain';
 import { parseInstructorCatalog } from '../bookings/bookingStore';
 import { sanitizeInstructorPresentationAvatarUrl } from './instructorPresentationAvatar';
@@ -15,24 +17,43 @@ import {
   instructorOccupancyWindow,
   loadInstructorOccupancyItems,
 } from './instructorOccupancyReadSupport';
+import { type ReadModelRequestContext } from './readModelRequestContext';
+import { parseIfVisibleInReadScope } from './readModelScope';
 
-async function paginateInstructors(firestore: Firestore): Promise<QueryDocumentSnapshot[]> {
+async function paginateInstructors(
+  firestore: Firestore,
+  readScope: CanonicalReadScope
+): Promise<QueryDocumentSnapshot[]> {
   const snapshot = await firestore.collection('instructors').limit(64).get();
-  return snapshot.docs;
+  return snapshot.docs.filter((doc) =>
+    Boolean(
+      parseIfVisibleInReadScope(
+        doc.data(),
+        (data) => parseInstructorCatalog(doc.id, data),
+        readScope,
+        'identity'
+      )
+    )
+  );
 }
 
 export async function queryAdminPlannerReadModels(
   firestore: Firestore,
   _actor: ReadModelAdministratorActor,
-  input: QueryAdminPlannerReadModelsInput
+  input: QueryAdminPlannerReadModelsInput,
+  options: {
+    readonly readContext?: ReadModelRequestContext;
+    readonly readScope?: CanonicalReadScope;
+  } = {}
 ): Promise<QueryAdminPlannerReadModelsResult> {
+  const readScope = options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
   const window = instructorOccupancyWindow(
     input.localDate,
     input.timeZone,
     input.windowDays ?? (input.view === 'week' ? 7 : 1)
   );
 
-  const instructorSnap = await paginateInstructors(firestore);
+  const instructorSnap = await paginateInstructors(firestore, readScope);
   const instructors = instructorSnap
     .map((document) => {
       const record = parseInstructorCatalog(
@@ -57,6 +78,7 @@ export async function queryAdminPlannerReadModels(
   const loaded = await loadInstructorOccupancyItems(firestore, {
     window,
     bookingScope: 'admin_planner_visualization',
+    readScope,
   });
   const occupancy: AdminPlannerOccupancyItem[] = loaded.occupancy;
 

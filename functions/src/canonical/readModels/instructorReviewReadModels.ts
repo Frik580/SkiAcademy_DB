@@ -18,6 +18,8 @@ import {
   type InstructorReviewReadModel,
   type QueryInstructorReviewReadModelsInput,
   type QueryInstructorReviewReadModelsResult,
+  LIVE_CANONICAL_READ_SCOPE,
+  type CanonicalReadScope,
 } from '@ski-academy/shared-domain';
 import { FieldPath, type Firestore, type Query } from 'firebase-admin/firestore';
 import { attendancePath, parseAttendance } from '../bookings/attendanceStore';
@@ -32,6 +34,8 @@ import {
   canAccountViewLessonBookingService,
 } from './lessonBookingReadModels';
 import { createReadModelRequestContext } from './readModelRequestContext';
+import { parseIfVisibleInReadScope } from './readModelScope';
+import type { ReadModelRequestContext } from './readModelRequestContext';
 
 export class InvalidInstructorReviewReadCursorError extends Error {
   constructor() {
@@ -94,25 +98,29 @@ function toReviewReadModel(
 
 async function instructorCatalogIsActive(
   firestore: Firestore,
-  instructorId: ReturnType<typeof InstructorIdSchema.parse>
+  instructorId: ReturnType<typeof InstructorIdSchema.parse>,
+  readScope: CanonicalReadScope
 ): Promise<boolean> {
   const snapshot = await firestore.doc(instructorCatalogPath(instructorId)).get();
   return Boolean(
-    parseInstructorCatalog(
-      instructorId,
-      snapshot.data() as Record<string, unknown> | undefined
+    parseIfVisibleInReadScope(
+      snapshot.data(),
+      (data) => parseInstructorCatalog(instructorId, data),
+      readScope,
+      'identity'
     )
   );
 }
 
 async function publicSummaries(
   firestore: Firestore,
-  instructorIds: readonly ReturnType<typeof InstructorIdSchema.parse>[]
+  instructorIds: readonly ReturnType<typeof InstructorIdSchema.parse>[],
+  readScope: CanonicalReadScope
 ): Promise<QueryInstructorReviewReadModelsResult> {
   const catalogStates = await Promise.all(
     instructorIds.map(async (instructorId) => ({
       instructorId,
-      active: await instructorCatalogIsActive(firestore, instructorId),
+      active: await instructorCatalogIsActive(firestore, instructorId, readScope),
     }))
   );
   const activeIds = catalogStates
@@ -125,7 +133,11 @@ async function publicSummaries(
   );
   const summaries = snapshots
     .map((document) =>
-      toSummaryReadModel(document.id, document.data() as Record<string, unknown> | undefined)
+      parseIfVisibleInReadScope(
+        document.data(),
+        (data) => toSummaryReadModel(document.id, data),
+        readScope
+      )
     )
     .filter((summary): summary is InstructorRatingSummaryReadModel => summary !== undefined);
   return QueryInstructorReviewReadModelsResultSchema.parse({
@@ -136,9 +148,10 @@ async function publicSummaries(
 
 async function instructorReviews(
   firestore: Firestore,
-  input: Extract<QueryInstructorReviewReadModelsInput, { scope: 'instructor_reviews' }>
+  input: Extract<QueryInstructorReviewReadModelsInput, { scope: 'instructor_reviews' }>,
+  readScope: CanonicalReadScope
 ): Promise<QueryInstructorReviewReadModelsResult> {
-  if (!(await instructorCatalogIsActive(firestore, input.instructorId))) {
+  if (!(await instructorCatalogIsActive(firestore, input.instructorId, readScope))) {
     return QueryInstructorReviewReadModelsResultSchema.parse({
       scope: 'instructor_reviews',
       summary: zeroSummary(input.instructorId),
@@ -162,12 +175,13 @@ async function instructorReviews(
   }
   const snapshot = await query.limit(pageSize + 1).get();
   const pageDocuments = snapshot.docs.slice(0, pageSize);
-  const reviews = pageDocuments.map((document) => {
-    const review = parseInstructorReview(document.data() as Record<string, unknown>);
-    if (!review || review.reviewId !== document.id || review.instructorId !== input.instructorId) {
+  const reviews = pageDocuments.flatMap((document) => {
+    const review = parseIfVisibleInReadScope(document.data(), parseInstructorReview, readScope);
+    if (!review) return [];
+    if (review.reviewId !== document.id || review.instructorId !== input.instructorId) {
       throw new InvalidInstructorReviewDocumentError(document.id);
     }
-    return toReviewReadModel(review);
+    return [toReviewReadModel(review)];
   });
   const hasMore = snapshot.docs.length > pageSize;
   const last = reviews.at(-1);
@@ -177,9 +191,10 @@ async function instructorReviews(
     .doc(input.instructorId)
     .get();
   const summary =
-    toSummaryReadModel(
-      input.instructorId,
-      summarySnapshot.data() as Record<string, unknown> | undefined
+    parseIfVisibleInReadScope(
+      summarySnapshot.data(),
+      (data) => toSummaryReadModel(input.instructorId, data),
+      readScope
     ) ?? zeroSummary(input.instructorId);
 
   return QueryInstructorReviewReadModelsResultSchema.parse({
@@ -202,18 +217,20 @@ async function instructorReviews(
 async function accountReviews(
   firestore: Firestore,
   accountId: AccountId,
-  bookingIds: readonly BookingId[]
+  bookingIds: readonly BookingId[],
+  readContext: ReadModelRequestContext,
+  readScope: CanonicalReadScope
 ): Promise<QueryInstructorReviewReadModelsResult> {
   const authContext = await loadLessonBookingReadAuthorizationContext(
     firestore,
     accountId,
-    createReadModelRequestContext(firestore)
+    readContext
   );
   const reviewsById = new Map<string, InstructorReview>();
   const bookings = (
     await Promise.all(
       bookingIds.map(async (bookingId) => {
-        const snapshot = await firestore.collection('bookings').doc(bookingId).get();
+        const snapshot = await readContext.booking(bookingId);
         const candidate = parseBooking(snapshot.data() as Record<string, unknown> | undefined);
         return candidate && canAccountViewLessonBookingService(authContext, accountId, candidate)
           ? candidate
@@ -236,8 +253,10 @@ async function accountReviews(
       let review = reviewsById.get(reviewId);
       if (!review) {
         const reviewSnapshot = await firestore.doc(instructorReviewPath(reviewId)).get();
-        const candidate = parseInstructorReview(
-          reviewSnapshot.data() as Record<string, unknown> | undefined
+        const candidate = parseIfVisibleInReadScope(
+          reviewSnapshot.data(),
+          parseInstructorReview,
+          readScope
         );
         if (candidate?.managingAccountId === accountId) {
           review = candidate;
@@ -263,7 +282,11 @@ async function accountReviews(
           : [];
       const present = attendanceSnapshots.some((snapshot, index) => {
         const participantId = booking.occurrence.serviceParty.participantIds[index];
-        const attendance = parseAttendance(snapshot.data() as Record<string, unknown> | undefined);
+        const attendance = parseIfVisibleInReadScope(
+          snapshot.data(),
+          parseAttendance,
+          readScope
+        );
         return (
           participantId !== undefined &&
           attendance?.attendanceId === snapshot.id &&
@@ -295,15 +318,21 @@ async function accountReviews(
 export async function queryInstructorReviewReadModels(
   firestore: Firestore,
   input: QueryInstructorReviewReadModelsInput,
-  options: { readonly accountId?: AccountId } = {}
+  options: {
+    readonly accountId?: AccountId;
+    readonly readContext?: ReadModelRequestContext;
+    readonly readScope?: CanonicalReadScope;
+  } = {}
 ): Promise<QueryInstructorReviewReadModelsResult> {
+  const readScope = options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
+  const readContext = options.readContext ?? createReadModelRequestContext(firestore, { readScope });
   if (input.scope === 'public_summaries') {
-    return publicSummaries(firestore, input.instructorIds);
+    return publicSummaries(firestore, input.instructorIds, readScope);
   }
-  if (input.scope === 'instructor_reviews') return instructorReviews(firestore, input);
+  if (input.scope === 'instructor_reviews') return instructorReviews(firestore, input, readScope);
   const accountId = options.accountId ? AccountIdSchema.parse(options.accountId) : undefined;
   if (!accountId) {
     throw new Error('accountId is required for account review read models');
   }
-  return accountReviews(firestore, accountId, input.bookingIds);
+  return accountReviews(firestore, accountId, input.bookingIds, readContext, readScope);
 }

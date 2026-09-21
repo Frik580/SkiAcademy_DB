@@ -11,6 +11,10 @@ import {
   queryParticipantAchievementsReadModels,
 } from './participantAchievementsReadModels';
 import { parseAccount } from '../participantAccess/participantAccessStore';
+import { createReadModelRequestContext } from './readModelRequestContext';
+import { parseReadModelCallableData, rethrowReadScopeHttpsError } from './readModelScope';
+import { resolveCanonicalReadScope } from '../testSessions/canonicalReadScopeResolver';
+import { createFirestoreCanonicalExecutionScopeStore } from '../testSessions/canonicalExecutionScopeResolver';
 
 export function createQueryParticipantAchievementsReadModelsHandler(firestore: Firestore) {
   return async (
@@ -18,11 +22,10 @@ export function createQueryParticipantAchievementsReadModelsHandler(firestore: F
   ): Promise<QueryParticipantAchievementsReadModelsResult> => {
     const raw = request.data ?? {};
     rejectSpoofedParticipantAchievementsReadInput(raw);
-
-    const parsed = QueryParticipantAchievementsReadModelsInputSchema.safeParse(raw);
-    if (!parsed.success) {
-      throw new HttpsError('invalid-argument', 'The request is invalid.');
-    }
+    const { input, requestedTestSessionId } = parseReadModelCallableData(
+      QueryParticipantAchievementsReadModelsInputSchema,
+      raw
+    );
 
     const accountId = parseAchievementsReadAccountId(request.auth?.uid);
     if (!accountId) {
@@ -36,14 +39,26 @@ export function createQueryParticipantAchievementsReadModelsHandler(firestore: F
     }
 
     try {
-      return await queryParticipantAchievementsReadModels(firestore, parsed.data, {
+      const readScope = await resolveCanonicalReadScope(
+        createFirestoreCanonicalExecutionScopeStore(firestore),
+        {
+          accountId,
+          accountLifecycleStatus: 'active',
+          isAdministrator: false,
+          requestedTestSessionId,
+        }
+      );
+      const readContext = createReadModelRequestContext(firestore, { readScope });
+      return await queryParticipantAchievementsReadModels(firestore, input, {
         accountId,
+        readContext,
+        readScope,
       });
     } catch (error) {
       if (error instanceof ParticipantAchievementsReadDeniedError) {
         throw new HttpsError('permission-denied', 'This action is not permitted.');
       }
-      throw error;
+      rethrowReadScopeHttpsError(error);
     }
   };
 }

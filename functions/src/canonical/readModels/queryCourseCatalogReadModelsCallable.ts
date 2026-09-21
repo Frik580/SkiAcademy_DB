@@ -6,26 +6,45 @@ import {
   type QueryCourseCatalogReadModelsResult,
 } from '@ski-academy/shared-domain';
 import { queryCourseCatalogReadModels } from './courseCatalogReadModels';
+import { createReadModelRequestContext } from './readModelRequestContext';
+import { parseReadModelCallableData, rethrowReadScopeHttpsError } from './readModelScope';
+import { resolveCanonicalReadScope } from '../testSessions/canonicalReadScopeResolver';
+import { createFirestoreCanonicalExecutionScopeStore } from '../testSessions/canonicalExecutionScopeResolver';
 
 export function createQueryCourseCatalogReadModelsHandler(firestore: Firestore) {
   return async (
     request: CallableRequest<Record<string, unknown>>
   ): Promise<QueryCourseCatalogReadModelsResult> => {
-    const parsed = QueryCourseCatalogReadModelsInputSchema.safeParse(request.data);
-    if (!parsed.success) {
-      throw new HttpsError('invalid-argument', 'The request is invalid.');
-    }
+    const { input, requestedTestSessionId } = parseReadModelCallableData(
+      QueryCourseCatalogReadModelsInputSchema,
+      request.data
+    );
 
-    if (parsed.data.scope === 'authenticated') {
-      if (!request.auth?.uid) {
-        throw new HttpsError('unauthenticated', 'Authentication is required.');
+    try {
+      let accountId: ReturnType<typeof AccountIdSchema.parse> | undefined;
+      if (input.scope === 'authenticated') {
+        if (!request.auth?.uid) {
+          throw new HttpsError('unauthenticated', 'Authentication is required.');
+        }
+        const parsedAccountId = AccountIdSchema.safeParse(request.auth.uid);
+        if (!parsedAccountId.success) {
+          throw new HttpsError('unauthenticated', 'Authentication is required.');
+        }
+        accountId = parsedAccountId.data;
       }
-      const accountId = AccountIdSchema.safeParse(request.auth.uid);
-      if (!accountId.success) {
-        throw new HttpsError('unauthenticated', 'Authentication is required.');
-      }
-    }
 
-    return queryCourseCatalogReadModels(firestore, parsed.data);
+      const readScope = await resolveCanonicalReadScope(
+        createFirestoreCanonicalExecutionScopeStore(firestore),
+        {
+          ...(accountId ? { accountId, accountLifecycleStatus: 'active' as const } : {}),
+          isAdministrator: false,
+          requestedTestSessionId,
+        }
+      );
+      const readContext = createReadModelRequestContext(firestore, { readScope });
+      return await queryCourseCatalogReadModels(firestore, input, { readContext, readScope });
+    } catch (error) {
+      rethrowReadScopeHttpsError(error);
+    }
   };
 }

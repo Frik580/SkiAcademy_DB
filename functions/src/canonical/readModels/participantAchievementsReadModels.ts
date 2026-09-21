@@ -9,6 +9,9 @@ import {
   type QueryParticipantAchievementsReadModelsInput,
   type QueryParticipantAchievementsReadModelsResult,
   ParticipantAchievementsReadModelSchema,
+  LIVE_CANONICAL_READ_SCOPE,
+  documentMatchesReadScope,
+  type CanonicalReadScope,
 } from '@ski-academy/shared-domain';
 import type { Firestore } from 'firebase-admin/firestore';
 import { buildParticipantAccessTopology } from '../participantAccess/participantAccessAuthorization';
@@ -18,13 +21,18 @@ import {
   parseParticipantManagement,
 } from '../participantAccess/participantAccessStore';
 import { parseParticipantAchievements } from '../achievements/participantAchievementsStore';
+import { type ReadModelRequestContext } from './readModelRequestContext';
 
 const MANAGED_PARTICIPANTS_LIMIT = 50;
 
 function toReadModel(
   participantId: ParticipantId,
-  data: Record<string, unknown> | undefined
+  data: Record<string, unknown> | undefined,
+  readScope: CanonicalReadScope
 ): ParticipantAchievementsReadModel {
+  if (!documentMatchesReadScope(readScope, data ?? {})) {
+    return emptyParticipantAchievementsReadModel(participantId);
+  }
   const achievements = parseParticipantAchievements(data);
   if (!achievements || achievements.participantId !== participantId) {
     return emptyParticipantAchievementsReadModel(participantId);
@@ -143,8 +151,13 @@ export class ParticipantAchievementsReadDeniedError extends Error {
 export async function queryParticipantAchievementsReadModels(
   firestore: Firestore,
   input: QueryParticipantAchievementsReadModelsInput,
-  options: Readonly<{ accountId: AccountId }>
+  options: Readonly<{
+    accountId: AccountId;
+    readContext?: ReadModelRequestContext;
+    readScope?: CanonicalReadScope;
+  }>
 ): Promise<QueryParticipantAchievementsReadModelsResult> {
+  const readScope = options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
   const managedIds = await loadManagedParticipantIds(firestore, options.accountId);
   const requested = input.participantIds ?? [...managedIds];
   const uniqueRequested = [...new Set(requested)];
@@ -157,7 +170,7 @@ export async function queryParticipantAchievementsReadModels(
   return {
     scope: 'managed',
     items: uniqueRequested.map((participantId) =>
-      toReadModel(participantId, docs.get(participantId))
+      toReadModel(participantId, docs.get(participantId), readScope)
     ),
   };
 }

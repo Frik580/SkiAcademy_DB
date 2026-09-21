@@ -64,6 +64,7 @@ export * from './paymentWalletOperations';
 export * from './starterCredit';
 export * from './testSessions';
 export * from './canonicalScope';
+export * from './canonicalReadScope';
 export * from './testSessionDomainIsolation';
 export * from './testStoragePaths';
 export * from './testSideEffectPolicy';

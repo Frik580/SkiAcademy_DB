@@ -33,6 +33,8 @@ import {
   drainInstructorRosterCompleteSet,
   COURSE_ENROLLMENT_READ_MODEL_PAGE_SIZE_DEFAULT,
   COURSE_ENROLLMENT_READ_MODEL_PAGE_SIZE_MAX,
+  LIVE_CANONICAL_READ_SCOPE,
+  type CanonicalReadScope,
 } from '@ski-academy/shared-domain';
 import type { Firestore } from 'firebase-admin/firestore';
 import { verifyGuestCourseEnrollmentActionCredentialPartsAuthoritative } from '../bookings/guestCredentialVerification';
@@ -52,6 +54,7 @@ import {
   createReadModelRequestContext,
   type ReadModelRequestContext,
 } from './readModelRequestContext';
+import { parseIfVisibleInReadScope } from './readModelScope';
 
 export interface CourseEnrollmentReadAuthorizationContext {
   readonly account?: Account;
@@ -426,6 +429,7 @@ export async function loadInstructorRosterEnrollmentPage(
   options: {
     readonly pageSize: number;
     readonly cursor?: CourseEnrollmentReadModelCursor;
+    readonly readScope?: CanonicalReadScope;
   }
 ): Promise<{ readonly enrollments: CourseEnrollment[]; readonly hasMore: boolean }> {
   let query = firestore
@@ -446,8 +450,9 @@ export async function loadInstructorRosterEnrollmentPage(
 
   const snapshot = await query.limit(options.pageSize + 1).get();
   const enrollments: CourseEnrollment[] = [];
+  const readScope = options.readScope ?? LIVE_CANONICAL_READ_SCOPE;
   for (const doc of snapshot.docs) {
-    const parsed = parseCourseEnrollment(doc.data() as Record<string, unknown>);
+    const parsed = parseIfVisibleInReadScope(doc.data(), parseCourseEnrollment, readScope);
     if (parsed && isInstructorActiveRosterEnrollment(parsed)) {
       enrollments.push(parsed);
     }
@@ -466,7 +471,8 @@ export async function loadInstructorRosterEnrollmentPage(
  */
 export async function loadInstructorRosterEnrollments(
   firestore: Firestore,
-  courseId: Course['courseId']
+  courseId: Course['courseId'],
+  options: { readonly readScope?: CanonicalReadScope } = {}
 ): Promise<CourseEnrollment[]> {
   const pageSize = COURSE_ENROLLMENT_READ_MODEL_PAGE_SIZE_MAX;
   const items = await drainInstructorRosterCompleteSet({
@@ -481,6 +487,7 @@ export async function loadInstructorRosterEnrollments(
       const result = await loadInstructorRosterEnrollmentPage(firestore, courseId, {
         pageSize,
         ...(cursor ? { cursor } : {}),
+        readScope: options.readScope,
       });
       const last = result.enrollments[result.enrollments.length - 1];
       return {
@@ -510,9 +517,11 @@ async function loadAuthorizedAccountEnrollmentPage(
     readonly selectedParticipantId?: Participant['participantId'];
     readonly authContext?: CourseEnrollmentReadAuthorizationContext;
     readonly readContext?: ReadModelRequestContext;
+    readonly readScope?: CanonicalReadScope;
   }
 ): Promise<{ readonly enrollments: CourseEnrollment[]; readonly hasMore: boolean }> {
-  const readContext = options.readContext ?? createReadModelRequestContext(firestore);
+  const readScope = options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
+  const readContext = options.readContext ?? createReadModelRequestContext(firestore, { readScope });
   const authContext =
     options.authContext ??
     (await loadCourseEnrollmentReadAuthorizationContext(firestore, accountId, readContext));
@@ -561,7 +570,7 @@ async function loadAuthorizedAccountEnrollmentPage(
     const snapshot = await query.limit(options.pageSize + 1).get();
 
     for (const doc of snapshot.docs) {
-      const parsed = parseCourseEnrollment(doc.data() as Record<string, unknown>);
+      const parsed = parseIfVisibleInReadScope(doc.data(), parseCourseEnrollment, readScope);
       if (!parsed) {
         continue;
       }
@@ -605,9 +614,11 @@ export async function queryCourseEnrollmentReadModels(
     readonly guestActionSecret?: string;
     readonly now?: Date;
     readonly readContext?: ReadModelRequestContext;
+    readonly readScope?: CanonicalReadScope;
   } = {}
 ): Promise<QueryCourseEnrollmentReadModelsResult> {
-  const readContext = options.readContext ?? createReadModelRequestContext(firestore);
+  const readScope = options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
+  const readContext = options.readContext ?? createReadModelRequestContext(firestore, { readScope });
   const pageSize = Math.min(
     input.pageSize ?? COURSE_ENROLLMENT_READ_MODEL_PAGE_SIZE_DEFAULT,
     COURSE_ENROLLMENT_READ_MODEL_PAGE_SIZE_MAX
@@ -707,6 +718,7 @@ export async function queryCourseEnrollmentReadModels(
     const pageResult = await loadInstructorRosterEnrollmentPage(firestore, courseId, {
       pageSize,
       ...(cursor ? { cursor } : {}),
+      readScope,
     });
     const items: InstructorCourseEnrollmentRosterItem[] = [];
     for (const enrollment of pageResult.enrollments) {
@@ -764,6 +776,7 @@ export async function queryCourseEnrollmentReadModels(
     ...(input.selectedParticipantId ? { selectedParticipantId: input.selectedParticipantId } : {}),
     authContext,
     readContext,
+    readScope,
   });
   const courseCache = new Map<string, { course: Course; courseDays: CourseDay[] }>();
   const visibleEnrollments: CourseEnrollment[] = [];

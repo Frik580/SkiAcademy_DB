@@ -11,6 +11,9 @@ import {
   type QueryBookingChangeRequestReadModelsResult,
   type ReadModelAdministratorActor,
   timestampFromDate,
+  LIVE_CANONICAL_READ_SCOPE,
+  documentMatchesReadScope,
+  type CanonicalReadScope,
 } from '@ski-academy/shared-domain';
 import type { Firestore } from 'firebase-admin/firestore';
 import {
@@ -30,6 +33,7 @@ import {
   createReadModelRequestContext,
   type ReadModelRequestContext,
 } from './readModelRequestContext';
+import { parseIfVisibleInReadScope } from './readModelScope';
 
 const ADMIN_OPEN_CHANGE_REQUEST_LIMIT = 100;
 
@@ -148,6 +152,7 @@ type BookingChangeRequestReadQueryOptions = {
   readonly administratorActor?: ReadModelAdministratorActor;
   readonly now?: Date;
   readonly readContext?: ReadModelRequestContext;
+  readonly readScope?: CanonicalReadScope;
 };
 
 export async function queryBookingChangeRequestReadModels(
@@ -180,7 +185,8 @@ export async function queryBookingChangeRequestReadModels(
   input: QueryBookingChangeRequestReadModelsInput,
   options: BookingChangeRequestReadQueryOptions
 ): Promise<QueryBookingChangeRequestReadModelsResult> {
-  const readContext = options.readContext ?? createReadModelRequestContext(firestore);
+  const readScope = options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
+  const readContext = options.readContext ?? createReadModelRequestContext(firestore, { readScope });
   const now = timestampFromDate(options.now ?? new Date());
   void now;
 
@@ -193,8 +199,10 @@ export async function queryBookingChangeRequestReadModels(
         return { scope: 'admin_detail' };
       }
       const snapshot = await firestore.collection('booking_change_requests').doc(requestId).get();
-      const changeRequest = parseBookingChangeRequest(
-        snapshot.data() as Record<string, unknown> | undefined
+      const changeRequest = parseIfVisibleInReadScope(
+        snapshot.data(),
+        parseBookingChangeRequest,
+        readScope
       );
       if (!changeRequest || changeRequest.requestId !== requestId) {
         return { scope: 'admin_detail' };
@@ -218,7 +226,7 @@ export async function queryBookingChangeRequestReadModels(
 
     const items: AdminBookingChangeRequestInboxItem[] = [];
     for (const doc of snapshot.docs) {
-      const parsed = parseBookingChangeRequest(doc.data() as Record<string, unknown>);
+      const parsed = parseIfVisibleInReadScope(doc.data(), parseBookingChangeRequest, readScope);
       if (!parsed) continue;
       const item = await buildAdminInboxItem(firestore, actor, parsed, readContext);
       if (item) items.push(item);
@@ -246,7 +254,9 @@ export async function queryBookingChangeRequestReadModels(
       if (!canAccountViewLessonBookingService(authContext, options.accountId, booking)) {
         continue;
       }
-      const changeRequests = await loadOpenChangeRequestsForBooking(firestore, booking.bookingId);
+      const changeRequests = (await loadOpenChangeRequestsForBooking(firestore, booking.bookingId)).filter(
+        (changeRequest) => documentMatchesReadScope(readScope, changeRequest)
+      );
       for (const changeRequest of changeRequests) {
         items.push(collaborationItem(changeRequest, { canWithdraw: false }));
       }
@@ -261,11 +271,16 @@ export async function queryBookingChangeRequestReadModels(
     return { scope: 'instructor_open', items: [] };
   }
 
-  const instructorBookings = await loadInstructorHotBookings(firestore, instructorId);
+  const instructorBookings = await loadInstructorHotBookings(firestore, instructorId, {
+    readContext,
+    readScope,
+  });
   const items: BookingChangeRequestReadModel[] = [];
 
   for (const booking of instructorBookings) {
-    const changeRequests = await loadOpenChangeRequestsForBooking(firestore, booking.bookingId);
+    const changeRequests = (await loadOpenChangeRequestsForBooking(firestore, booking.bookingId)).filter(
+      (changeRequest) => documentMatchesReadScope(readScope, changeRequest)
+    );
     for (const changeRequest of changeRequests) {
       const authorizedActions = evaluateBookingChangeRequestAuthorizedActions({
         actor: {

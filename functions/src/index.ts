@@ -27,6 +27,7 @@ import { createQueryInstructorReviewReadModelsHandler } from './canonical/readMo
 import { createQueryParticipantProgressReadModelsHandler } from './canonical/readModels/queryParticipantProgressReadModelsCallable';
 import { createQueryParticipantAchievementsReadModelsHandler } from './canonical/readModels/queryParticipantAchievementsReadModelsCallable';
 import { createQueryParticipantLessonFeedbackReadModelsHandler } from './canonical/readModels/queryParticipantLessonFeedbackReadModelsCallable';
+import { createQueryTestSessionReadModelsHandler } from './canonical/readModels/queryTestSessionReadModelsCallable';
 import { sweepGuestConfirmationLifecycleMismatches } from './canonical/guestConfirmation/guestConfirmationReconciliationSweep';
 import { sweepExpiredGuestLessonReservations } from './canonical/bookings/guestLessonReservationExpirySweep';
 import { sweepExpiredGuestCourseReservations } from './canonical/courses/guestCourseReservationExpirySweep';
@@ -154,6 +155,10 @@ export const queryParticipantLessonFeedbackReadModels = onCall(
   CANONICAL_CALLABLE_OPTIONS,
   async (request) =>
     createQueryParticipantLessonFeedbackReadModelsHandler(getAdminFirestore())(request)
+);
+
+export const queryTestSessionReadModels = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>
+  createQueryTestSessionReadModelsHandler(getAdminFirestore())(request)
 );
 
 export const scheduledPurgeExpiredNotifications = onSchedule(

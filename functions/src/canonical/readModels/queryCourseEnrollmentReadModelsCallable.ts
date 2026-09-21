@@ -16,37 +16,52 @@ import {
 } from './resolveCallableInstructorId';
 import { ReadModelAccessDeniedError } from './readModelAccessDenied';
 import { createReadModelRequestContext } from './readModelRequestContext';
+import { parseReadModelCallableData, rethrowReadScopeHttpsError } from './readModelScope';
+import { resolveCanonicalReadScope } from '../testSessions/canonicalReadScopeResolver';
+import { createFirestoreCanonicalExecutionScopeStore } from '../testSessions/canonicalExecutionScopeResolver';
 
 export function createQueryCourseEnrollmentReadModelsHandler(firestore: Firestore) {
   return async (
     request: CallableRequest<Record<string, unknown>>
   ): Promise<QueryCourseEnrollmentReadModelsResult> => {
-    const parsed = QueryCourseEnrollmentReadModelsInputSchema.safeParse(request.data);
-    if (!parsed.success) {
-      throw new HttpsError('invalid-argument', 'The request is invalid.');
-    }
+    const { input, requestedTestSessionId } = parseReadModelCallableData(
+      QueryCourseEnrollmentReadModelsInputSchema,
+      request.data
+    );
 
-    const input = parsed.data;
-    const readContext = createReadModelRequestContext(firestore);
+    const isGuestScope = input.scope === 'guest_single';
+    const isAuthenticatedScope =
+      input.scope === 'account_hot' ||
+      input.scope === 'account_history' ||
+      input.scope === 'instructor_roster';
+
     let accountId: ReturnType<typeof AccountIdSchema.parse> | undefined;
     let instructorId: ReturnType<typeof resolveCallableInstructorId> | undefined;
 
-    if (
-      input.scope === 'account_hot' ||
-      input.scope === 'account_history' ||
-      input.scope === 'instructor_roster'
-    ) {
-      if (!request.auth?.uid) {
-        throw new HttpsError('unauthenticated', 'Authentication is required.');
+    try {
+      if (isAuthenticatedScope) {
+        if (!request.auth?.uid) {
+          throw new HttpsError('unauthenticated', 'Authentication is required.');
+        }
+        const parsedAccountId = AccountIdSchema.safeParse(request.auth.uid);
+        if (!parsedAccountId.success) {
+          throw new HttpsError('unauthenticated', 'Authentication is required.');
+        }
+        accountId = parsedAccountId.data;
       }
-      const parsedAccountId = AccountIdSchema.safeParse(request.auth.uid);
-      if (!parsedAccountId.success) {
-        throw new HttpsError('unauthenticated', 'Authentication is required.');
-      }
-      accountId = parsedAccountId.data;
 
-      if (input.scope === 'instructor_roster') {
-        const userSnap = await readContext.account(parsedAccountId.data);
+      const readScope = await resolveCanonicalReadScope(
+        createFirestoreCanonicalExecutionScopeStore(firestore),
+        {
+          ...(isGuestScope ? {} : { accountId, accountLifecycleStatus: 'active' as const }),
+          isAdministrator: false,
+          requestedTestSessionId,
+        }
+      );
+      const readContext = createReadModelRequestContext(firestore, { readScope });
+
+      if (input.scope === 'instructor_roster' && accountId) {
+        const userSnap = await readContext.account(accountId);
         instructorId = resolveCallableInstructorId(
           readCallableAccountProfile(userSnap.data() as Record<string, unknown> | undefined)
         );
@@ -54,14 +69,13 @@ export function createQueryCourseEnrollmentReadModelsHandler(firestore: Firestor
           throw new HttpsError('permission-denied', 'This action is not permitted.');
         }
       }
-    }
 
-    try {
       return await queryCourseEnrollmentReadModels(firestore, input, {
         accountId,
         instructorId,
         guestActionSecret: readGuestActionTokenSecret(),
         readContext,
+        readScope,
       });
     } catch (error) {
       if (error instanceof InvalidCourseEnrollmentReadCursorError) {
@@ -70,7 +84,7 @@ export function createQueryCourseEnrollmentReadModelsHandler(firestore: Firestor
       if (error instanceof ReadModelAccessDeniedError) {
         throw new HttpsError('permission-denied', 'This action is not permitted.');
       }
-      throw error;
+      rethrowReadScopeHttpsError(error);
     }
   };
 }

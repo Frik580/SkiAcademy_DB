@@ -23,6 +23,9 @@ import {
   type QueryAdminIssueReadModelsInput,
   type QueryAdminIssueReadModelsResult,
   type ReadModelAdministratorActor,
+  LIVE_CANONICAL_READ_SCOPE,
+  documentMatchesReadScope,
+  type CanonicalReadScope,
 } from '@ski-academy/shared-domain';
 import { parseAdminIssue } from '../adminIssues';
 import { parseAttendance } from '../bookings/attendanceStore';
@@ -31,6 +34,11 @@ import { parseCourseEnrollment } from '../courses/courseEnrollmentStore';
 import { parsePayment } from '../finance/financeStore';
 import { parseParticipant } from '../participantAccess/participantAccessStore';
 import { loadAdminIssueInboxPresentations } from './adminIssueInboxEnrichment';
+import {
+  createReadModelRequestContext,
+  type ReadModelRequestContext,
+} from './readModelRequestContext';
+import { parseIfVisibleInReadScope } from './readModelScope';
 
 export class InvalidAdminIssueReadCursorError extends Error {
   constructor() {
@@ -156,7 +164,8 @@ function resolutionGuidanceForIssue(issue: AdminIssue): AdminIssueResolutionGuid
 async function loadIssueAttendance(
   firestore: Firestore,
   issue: AdminIssue,
-  booking?: ReturnType<typeof parseBooking>
+  booking: ReturnType<typeof parseBooking> | undefined,
+  readScope: CanonicalReadScope
 ): Promise<Attendance[]> {
   if (issue.subjectRef.subjectKind === 'booking' && issue.occurrenceId) {
     if (issue.participantId) {
@@ -167,7 +176,8 @@ async function loadIssueAttendance(
         participantId: issue.participantId,
       });
       const snapshot = await firestore.collection('attendance').doc(attendanceId).get();
-      return snapshot.exists
+      return snapshot.exists &&
+        documentMatchesReadScope(readScope, snapshot.data() ?? {})
         ? [
             parseIssueAttendanceDocument(
               issue,
@@ -190,7 +200,7 @@ async function loadIssueAttendance(
       })
     );
     return snapshots.flatMap((snapshot) =>
-      snapshot.exists
+      snapshot.exists && documentMatchesReadScope(readScope, snapshot.data() ?? {})
         ? [
             parseIssueAttendanceDocument(
               issue,
@@ -214,7 +224,7 @@ async function loadIssueAttendance(
       courseDayId: issue.courseDayId,
     });
     const snapshot = await firestore.collection('attendance').doc(attendanceId).get();
-    return snapshot.exists
+    return snapshot.exists && documentMatchesReadScope(readScope, snapshot.data() ?? {})
       ? [
           parseIssueAttendanceDocument(
             issue,
@@ -230,35 +240,32 @@ async function loadIssueAttendance(
     .where('subject.enrollmentId', '==', issue.subjectRef.enrollmentId)
     .limit(64)
     .get();
-  return snapshot.docs.map((document) =>
-    parseIssueAttendanceDocument(issue, document.id, document.data() as Record<string, unknown>)
-  );
+  return snapshot.docs.flatMap((document) => {
+    if (!documentMatchesReadScope(readScope, document.data() ?? {})) return [];
+    return [
+      parseIssueAttendanceDocument(issue, document.id, document.data() as Record<string, unknown>),
+    ];
+  });
 }
 
 export async function buildAdminIssueDetail(
   firestore: Firestore,
   actor: ReadModelAdministratorActor,
-  issue: AdminIssue
+  issue: AdminIssue,
+  readContext: ReadModelRequestContext = createReadModelRequestContext(firestore)
 ) {
-  const subjectId =
+  const readScope = readContext.readScope;
+  const subjectSnapshot =
     issue.subjectRef.subjectKind === 'booking'
-      ? issue.subjectRef.bookingId
-      : issue.subjectRef.enrollmentId;
-  const subjectSnapshot = await firestore
-    .collection(issue.subjectRef.subjectKind === 'booking' ? 'bookings' : 'course_enrollments')
-    .doc(subjectId)
-    .get();
+      ? await readContext.booking(issue.subjectRef.bookingId)
+      : await readContext.enrollment(issue.subjectRef.enrollmentId);
   const booking =
     issue.subjectRef.subjectKind === 'booking'
-      ? subjectSnapshot.exists
-        ? parseBooking(subjectSnapshot.data() as Record<string, unknown>)
-        : undefined
+      ? parseBooking(subjectSnapshot.data() as Record<string, unknown> | undefined)
       : undefined;
   const enrollment =
     issue.subjectRef.subjectKind === 'course_enrollment'
-      ? subjectSnapshot.exists
-        ? parseCourseEnrollment(subjectSnapshot.data() as Record<string, unknown>)
-        : undefined
+      ? parseCourseEnrollment(subjectSnapshot.data() as Record<string, unknown> | undefined)
       : undefined;
   if (
     (subjectSnapshot.exists && !booking && !enrollment) ||
@@ -280,7 +287,9 @@ export async function buildAdminIssueDetail(
   ) {
     throw adminIssueReadIntegrityError(
       issue.subjectRef.subjectKind === 'booking' ? 'bookings' : 'course_enrollments',
-      subjectId
+      issue.subjectRef.subjectKind === 'booking'
+        ? issue.subjectRef.bookingId
+        : issue.subjectRef.enrollmentId
     );
   }
 
@@ -288,10 +297,8 @@ export async function buildAdminIssueDetail(
     issue.subjectRef.subjectKind === 'booking'
       ? paymentIdFromBookingId(issue.subjectRef.bookingId)
       : paymentIdFromCourseEnrollmentId(issue.subjectRef.enrollmentId);
-  const paymentSnapshot = await firestore.collection('payments').doc(paymentId).get();
-  const payment = paymentSnapshot.exists
-    ? parsePayment(paymentSnapshot.data() as Record<string, unknown>)
-    : undefined;
+  const paymentSnapshot = await readContext.payment(paymentId);
+  const payment = parsePayment(paymentSnapshot.data() as Record<string, unknown> | undefined);
   const expectedPaymentSubject =
     issue.subjectRef.subjectKind === 'booking'
       ? {
@@ -311,7 +318,7 @@ export async function buildAdminIssueDetail(
     throw adminIssueReadIntegrityError('payments', paymentId);
   }
 
-  const attendance = await loadIssueAttendance(firestore, issue, booking);
+  const attendance = await loadIssueAttendance(firestore, issue, booking, readScope);
   for (const record of attendance) {
     if (
       enrollment &&
@@ -487,17 +494,27 @@ function listQuery(firestore: Firestore, input: QueryAdminIssueReadModelsInput):
 export async function queryAdminIssueReadModels(
   firestore: Firestore,
   actor: ReadModelAdministratorActor,
-  input: QueryAdminIssueReadModelsInput
+  input: QueryAdminIssueReadModelsInput,
+  options: {
+    readonly readContext?: ReadModelRequestContext;
+    readonly readScope?: CanonicalReadScope;
+  } = {}
 ): Promise<QueryAdminIssueReadModelsResult> {
+  const readScope = options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
+  const readContext = options.readContext ?? createReadModelRequestContext(firestore, { readScope });
   if (input.scope === 'admin_detail') {
     const snapshot = await firestore.collection('admin_issues').doc(input.issueId!).get();
     if (!snapshot.exists) {
       return { scope: 'admin_detail' };
     }
-    const issue = parseIssueDocument(snapshot.id, snapshot.data() as Record<string, unknown>);
+    const issue = parseIfVisibleInReadScope(
+      snapshot.data(),
+      (data) => parseIssueDocument(snapshot.id, data),
+      readScope
+    );
     return {
       scope: 'admin_detail',
-      ...(issue ? { item: await buildAdminIssueDetail(firestore, actor, issue) } : {}),
+      ...(issue ? { item: await buildAdminIssueDetail(firestore, actor, issue, readContext) } : {}),
     };
   }
 
@@ -508,9 +525,14 @@ export async function queryAdminIssueReadModels(
   const snapshot = await listQuery(firestore, input)
     .limit(pageSize + 1)
     .get();
-  const issues = snapshot.docs.map((document) =>
-    parseIssueDocument(document.id, document.data() as Record<string, unknown>)
-  );
+  const issues = snapshot.docs.flatMap((document) => {
+    const issue = parseIfVisibleInReadScope(
+      document.data(),
+      (data) => parseIssueDocument(document.id, data),
+      readScope
+    );
+    return issue ? [issue] : [];
+  });
   const page = issues.slice(0, pageSize);
   const hasMore = issues.length > pageSize;
   const last = page[page.length - 1];

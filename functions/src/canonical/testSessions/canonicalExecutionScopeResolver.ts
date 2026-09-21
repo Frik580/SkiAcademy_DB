@@ -52,7 +52,12 @@ async function readCanonicalDocument(
   firestore: Firestore,
   path: CanonicalDocumentPath
 ): Promise<Record<string, unknown> | undefined> {
-  const snapshot = await firestore.doc(toFirestorePath(path)).get();
+  const normalized = toFirestorePath(path);
+  const [collectionId, documentId] = normalized.split('/');
+  if (!collectionId || !documentId || normalized.split('/').length !== 2) {
+    throw new Error(`Unexpected canonical document path: ${normalized}`);
+  }
+  const snapshot = await firestore.collection(collectionId).doc(documentId).get();
   if (!snapshot.exists) return undefined;
   return normalizeFirestoreDocument(snapshot.data() as Record<string, unknown> | undefined);
 }

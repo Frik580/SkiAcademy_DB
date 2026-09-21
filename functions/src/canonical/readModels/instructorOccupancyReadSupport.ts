@@ -23,11 +23,14 @@ import {
   type InstructorId,
   type ParticipantId,
   type TimeInterval,
+  LIVE_CANONICAL_READ_SCOPE,
+  type CanonicalReadScope,
 } from '@ski-academy/shared-domain';
 import { parseAttendance } from '../bookings/attendanceStore';
 import { parseBooking } from '../bookings/bookingStore';
 import { parseCourse, parseCourseDay } from '../courses/courseStore';
 import { parseAdministrativeAvailabilityBlock } from '../availability/administrativeAvailabilityBlockStore';
+import { parseIfVisibleInReadScope } from './readModelScope';
 
 const ACTIVE_BOOKING_STATUSES = new Set(['pending', 'confirmed', 'pending_cancellation']);
 const PLANNER_TERMINAL_BOOKING_STATUSES = new Set(['completed', 'no_show']);
@@ -101,7 +104,8 @@ function durationMinutes(interval: TimeInterval): number {
 async function loadOverdueAttendanceFacts(
   firestore: Firestore,
   bookings: readonly Booking[],
-  now: CanonicalTimestamp
+  now: CanonicalTimestamp,
+  readScope: CanonicalReadScope
 ): Promise<ReadonlyMap<string, { overdue: boolean; missingCount: number }>> {
   const candidates = bookings.filter((booking) => {
     if (!bookingMayCarryAttendanceOverdue(booking)) return false;
@@ -123,9 +127,11 @@ async function loadOverdueAttendanceFacts(
             participantId,
           });
           const snapshot = await firestore.collection('attendance').doc(attendanceId).get();
-          const attendance = snapshot.exists
-            ? parseAttendance(snapshot.data() as Record<string, unknown>)
-            : undefined;
+          const attendance = parseIfVisibleInReadScope(
+            snapshot.data(),
+            parseAttendance,
+            readScope
+          );
           if (!attendance) return;
           rows.set(participantId, { attendanceStatus: attendance.attendanceStatus });
         })
@@ -168,6 +174,7 @@ export interface LoadInstructorOccupancyInput {
   /** Default `active_capacity` — only lifecycle statuses that reserve instructor capacity. */
   readonly bookingScope?: InstructorOccupancyBookingScope;
   readonly now?: Date;
+  readonly readScope?: CanonicalReadScope;
 }
 
 export interface LoadInstructorOccupancyResult {
@@ -218,12 +225,13 @@ export async function loadInstructorOccupancyItems(
     paginateWindowQuery(dayQuery),
   ]);
 
+  const readScope = input.readScope ?? LIVE_CANONICAL_READ_SCOPE;
   let truncated = bookingPage.truncated || blockPage.truncated || dayPage.truncated;
   const occupancy: AdminPlannerOccupancyItem[] = [];
   const bookingScope = input.bookingScope ?? 'active_capacity';
 
   const bookings = bookingPage.docs
-    .map((document) => parseBooking(document.data() as Record<string, unknown>))
+    .map((document) => parseIfVisibleInReadScope(document.data(), parseBooking, readScope))
     .filter((booking): booking is NonNullable<typeof booking> => Boolean(booking))
     .filter(
       (booking) =>
@@ -246,7 +254,12 @@ export async function loadInstructorOccupancyItems(
   );
 
   const now = timestampFromDate(input.now ?? new Date());
-  const overdueFactsByBookingId = await loadOverdueAttendanceFacts(firestore, bookings, now);
+  const overdueFactsByBookingId = await loadOverdueAttendanceFacts(
+    firestore,
+    bookings,
+    now,
+    readScope
+  );
 
   for (const booking of bookings) {
     const local = localParts(booking.occurrence.interval.startsAt, booking.occurrence.timeZone);
@@ -285,7 +298,11 @@ export async function loadInstructorOccupancyItems(
   }
 
   for (const document of blockPage.docs) {
-    const block = parseAdministrativeAvailabilityBlock(document.data() as Record<string, unknown>);
+    const block = parseIfVisibleInReadScope(
+      document.data(),
+      parseAdministrativeAvailabilityBlock,
+      readScope
+    );
     if (!block || block.lifecycle !== 'active') continue;
     if (input.instructorId && block.instructorId !== input.instructorId) continue;
     if (!intervalsOverlap(block.interval, input.window)) continue;
@@ -315,7 +332,7 @@ export async function loadInstructorOccupancyItems(
     readonly day: NonNullable<ReturnType<typeof parseCourseDay>>;
   }[] = [];
   for (const document of dayPage.docs) {
-    const day = parseCourseDay(document.data() as Record<string, unknown>);
+    const day = parseIfVisibleInReadScope(document.data(), parseCourseDay, readScope);
     if (!day) continue;
     if (!intervalsOverlap(day.interval, input.window)) continue;
     if (input.instructorId && !day.actualInstructorIds.includes(input.instructorId)) continue;
@@ -334,7 +351,11 @@ export async function loadInstructorOccupancyItems(
   await Promise.all(
     [...courseIds].map(async (courseId) => {
       const courseDocument = await firestore.collection('courses').doc(courseId).get();
-      const course = parseCourse(courseDocument.data() as Record<string, unknown> | undefined);
+      const course = parseIfVisibleInReadScope(
+        courseDocument.data(),
+        parseCourse,
+        readScope
+      );
       if (!course) return;
       courseTitles.set(course.courseId, {
         title: course.title,

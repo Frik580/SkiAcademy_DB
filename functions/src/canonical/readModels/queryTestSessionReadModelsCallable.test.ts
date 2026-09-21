@@ -7,13 +7,13 @@ import {
   CorrelationIdSchema,
   timestampFromDate,
 } from '@ski-academy/shared-domain';
-import { createQueryAdminIssueReadModelsHandler } from './queryAdminIssueReadModelsCallable';
+import { createQueryTestSessionReadModelsHandler } from './queryTestSessionReadModelsCallable';
 import {
   isTestScopeCollection,
   missingTestScopeCollection,
 } from '../testSessions/missingTestScopeCollection';
 
-const accountId = AccountIdSchema.parse('account_admin_issue_callable_01');
+const accountId = AccountIdSchema.parse('account_test_session_read_callable_01');
 const timestamp = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
 const account = AccountSchema.parse({
   accountId,
@@ -24,7 +24,7 @@ const account = AccountSchema.parse({
   audit: {
     createdByCommandId: 'command_seed',
     lastChangedByCommandId: 'command_seed',
-    correlationId: CorrelationIdSchema.parse('correlation_admin_issue_callable_01'),
+    correlationId: CorrelationIdSchema.parse('correlation_test_session_read_callable_01'),
   },
 });
 
@@ -47,59 +47,50 @@ function createFirestore(role: 'admin' | 'user'): Firestore {
           }),
         };
       }
-      if (name === 'admin_issues') return query;
+      if (name === 'test_sessions' || name === 'test_actors' || name === 'courses') {
+        return query;
+      }
       if (isTestScopeCollection(name)) return missingTestScopeCollection();
       throw new Error(`Unexpected collection: ${name}`);
     },
   } as unknown as Firestore;
 }
 
-describe('queryAdminIssueReadModels callable authorization', () => {
-  it('allows an authenticated server-resolved administrator', async () => {
-    const handler = createQueryAdminIssueReadModelsHandler(createFirestore('admin'));
+describe('queryTestSessionReadModels callable authorization', () => {
+  it('allows an authenticated administrator to list sessions', async () => {
+    const handler = createQueryTestSessionReadModelsHandler(createFirestore('admin'));
     await expect(
       handler({
         auth: { uid: accountId },
-        data: { scope: 'admin_open' },
+        data: { scope: 'test_session_list' },
       } as CallableRequest<Record<string, unknown>>)
     ).resolves.toEqual({
-      scope: 'admin_open',
+      scope: 'test_session_list',
       items: [],
-      hasMore: false,
     });
   });
 
   it('fails closed for an authenticated non-admin', async () => {
-    const handler = createQueryAdminIssueReadModelsHandler(createFirestore('user'));
+    const handler = createQueryTestSessionReadModelsHandler(createFirestore('user'));
     await expect(
       handler({
         auth: { uid: accountId },
-        data: { scope: 'admin_open' },
+        data: { scope: 'test_session_list' },
       } as CallableRequest<Record<string, unknown>>)
     ).rejects.toMatchObject({ code: 'permission-denied' });
   });
 
-  it('requires authentication and rejects client-supplied role authority', async () => {
-    const handler = createQueryAdminIssueReadModelsHandler(createFirestore('admin'));
+  it('requires authentication and rejects client-supplied dataScope authority', async () => {
+    const handler = createQueryTestSessionReadModelsHandler(createFirestore('admin'));
     await expect(
       handler({
-        data: { scope: 'admin_open' },
+        data: { scope: 'test_session_list' },
       } as CallableRequest<Record<string, unknown>>)
     ).rejects.toMatchObject({ code: 'unauthenticated' });
     await expect(
       handler({
         auth: { uid: accountId },
-        data: { scope: 'admin_open', role: 'admin' },
-      } as CallableRequest<Record<string, unknown>>)
-    ).rejects.toMatchObject({ code: 'invalid-argument' });
-  });
-
-  it('maps malformed cursors to invalid-argument', async () => {
-    const handler = createQueryAdminIssueReadModelsHandler(createFirestore('admin'));
-    await expect(
-      handler({
-        auth: { uid: accountId },
-        data: { scope: 'admin_open', cursor: 'not-a-cursor' },
+        data: { scope: 'test_session_list', dataScope: 'test' },
       } as CallableRequest<Record<string, unknown>>)
     ).rejects.toMatchObject({ code: 'invalid-argument' });
   });

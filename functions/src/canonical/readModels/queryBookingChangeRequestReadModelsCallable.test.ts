@@ -8,6 +8,10 @@ import {
   timestampFromDate,
 } from '@ski-academy/shared-domain';
 import { createQueryBookingChangeRequestReadModelsHandler } from './queryBookingChangeRequestReadModelsCallable';
+import {
+  isTestScopeCollection,
+  missingTestScopeCollection,
+} from '../testSessions/missingTestScopeCollection';
 
 const accountId = AccountIdSchema.parse('account_bcr_admin_callable_01');
 const timestamp = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
@@ -44,6 +48,7 @@ function createFirestore(role: 'admin' | 'user'): Firestore {
         };
       }
       if (name === 'booking_change_requests') return query;
+      if (isTestScopeCollection(name)) return missingTestScopeCollection();
       throw new Error(`Unexpected collection: ${name}`);
     },
   } as unknown as Firestore;

@@ -13,6 +13,8 @@ import {
   type QueryBookingProposalReadModelsResult,
   timestampFromDate,
   type CanonicalTimestamp,
+  LIVE_CANONICAL_READ_SCOPE,
+  type CanonicalReadScope,
 } from '@ski-academy/shared-domain';
 import type { Firestore } from 'firebase-admin/firestore';
 import { parseBookingProposal } from '../bookings/bookingProposalStore';
@@ -28,6 +30,7 @@ import {
   createReadModelRequestContext,
   type ReadModelRequestContext,
 } from './readModelRequestContext';
+import { parseIfVisibleInReadScope } from './readModelScope';
 
 function durationMinutesFromInterval(start: CanonicalTimestamp, end: CanonicalTimestamp): number {
   const startMs = start.seconds * 1_000 + start.nanoseconds / 1_000_000;
@@ -41,7 +44,8 @@ function isOpenProposal(proposal: BookingProposal): boolean {
 
 async function collectOpenProposalsForParticipant(
   firestore: Firestore,
-  participantId: ParticipantId
+  participantId: ParticipantId,
+  readScope: CanonicalReadScope
 ): Promise<BookingProposal[]> {
   const [legacySnapshot, partySnapshot] = await Promise.all([
     firestore.collection('booking_proposals').where('participantId', '==', participantId).limit(50).get(),
@@ -53,7 +57,7 @@ async function collectOpenProposalsForParticipant(
   ]);
   const byId = new Map<string, BookingProposal>();
   for (const doc of [...legacySnapshot.docs, ...partySnapshot.docs]) {
-    const proposal = parseBookingProposal(doc.data() as Record<string, unknown>);
+    const proposal = parseIfVisibleInReadScope(doc.data(), parseBookingProposal, readScope);
     if (!proposal || !isOpenProposal(proposal)) continue;
     if (!proposalParticipantIds(proposal).includes(participantId)) continue;
     byId.set(proposal.proposalId, proposal);
@@ -233,9 +237,11 @@ export async function queryBookingProposalReadModels(
     readonly instructorId?: InstructorId;
     readonly now?: Date;
     readonly readContext?: ReadModelRequestContext;
+    readonly readScope?: CanonicalReadScope;
   }
 ): Promise<QueryBookingProposalReadModelsResult> {
-  const readContext = options.readContext ?? createReadModelRequestContext(firestore);
+  const readScope = options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
+  const readContext = options.readContext ?? createReadModelRequestContext(firestore, { readScope });
   const now = timestampFromDate(options.now ?? new Date());
 
   if (input.scope === 'account_open') {
@@ -250,7 +256,11 @@ export async function queryBookingProposalReadModels(
     const itemsById = new Map<string, BookingProposalReadModel>();
 
     for (const participantId of participantIds) {
-      const proposals = await collectOpenProposalsForParticipant(firestore, participantId);
+      const proposals = await collectOpenProposalsForParticipant(
+        firestore,
+        participantId,
+        readScope
+      );
       for (const proposal of proposals) {
         if (itemsById.has(proposal.proposalId)) continue;
         const readModel = await buildAccountProposalReadModel(
@@ -285,7 +295,7 @@ export async function queryBookingProposalReadModels(
 
   const items: BookingProposalReadModel[] = [];
   for (const doc of snapshot.docs) {
-    const proposal = parseBookingProposal(doc.data() as Record<string, unknown>);
+    const proposal = parseIfVisibleInReadScope(doc.data(), parseBookingProposal, readScope);
     if (!proposal || !isOpenProposal(proposal)) {
       continue;
     }

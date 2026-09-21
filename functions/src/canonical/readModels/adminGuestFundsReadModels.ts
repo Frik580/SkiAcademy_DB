@@ -14,12 +14,16 @@ import {
   type Participant,
   type Payment,
   type QueryAdminFinanceReadModelsInput,
+  LIVE_CANONICAL_READ_SCOPE,
+  type CanonicalReadScope,
 } from '@ski-academy/shared-domain';
 import { parseBooking } from '../bookings/bookingStore';
 import { parsePayment } from '../finance/financeStore';
 import { parseParticipant } from '../participantAccess/participantAccessStore';
 import { parseCourse } from '../courses/courseStore';
 import { parseCourseEnrollment } from '../courses/courseEnrollmentStore';
+import { type ReadModelRequestContext } from './readModelRequestContext';
+import { parseIfVisibleInReadScope } from './readModelScope';
 
 const GUEST_FUNDS_SCAN_MULTIPLIER = 8;
 
@@ -384,8 +388,13 @@ async function buildRow(
 
 export async function queryAdminGuestFundsReadModel(
   firestore: Firestore,
-  input: Extract<QueryAdminFinanceReadModelsInput, { scope: 'admin_guest_funds' }>
+  input: Extract<QueryAdminFinanceReadModelsInput, { scope: 'admin_guest_funds' }>,
+  options: {
+    readonly readContext?: ReadModelRequestContext;
+    readonly readScope?: CanonicalReadScope;
+  } = {}
 ): Promise<AdminGuestFundsReadModel> {
+  const readScope = options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
   const filter = input.filter ?? 'all';
   const pageSize = Math.min(
     input.pageSize ?? ADMIN_FINANCE_READ_MODEL_PAGE_SIZE_DEFAULT,
@@ -432,7 +441,7 @@ export async function queryAdminGuestFundsReadModel(
     ]);
 
     const bookingCandidates: GuestFundsCandidate[] = bookingSnap.docs.flatMap((document) => {
-      const booking = parseBooking(document.data() as Record<string, unknown>);
+      const booking = parseIfVisibleInReadScope(document.data(), parseBooking, readScope);
       if (!booking || booking.bookingId !== document.id) return [];
       return [
         {
@@ -444,7 +453,11 @@ export async function queryAdminGuestFundsReadModel(
       ];
     });
     const enrollmentCandidates: GuestFundsCandidate[] = enrollmentSnap.docs.flatMap((document) => {
-      const enrollment = parseCourseEnrollment(document.data() as Record<string, unknown>);
+      const enrollment = parseIfVisibleInReadScope(
+        document.data(),
+        parseCourseEnrollment,
+        readScope
+      );
       if (!enrollment || enrollment.enrollmentId !== document.id) return [];
       return [
         {

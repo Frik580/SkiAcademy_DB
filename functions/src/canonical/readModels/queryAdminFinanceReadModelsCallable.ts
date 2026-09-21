@@ -8,25 +8,30 @@ import {
   InvalidAdminFinanceReadCursorError,
   queryAdminFinanceReadModels,
 } from './adminFinanceReadModels';
-import { resolveCallableAdministratorActor } from './resolveCallableAdministrator';
+import { resolveAdministratorCanonicalRead } from './resolveAdministratorCanonicalRead';
+import { parseReadModelCallableData, rethrowReadScopeHttpsError } from './readModelScope';
 
 export function createQueryAdminFinanceReadModelsHandler(firestore: Firestore) {
   return async (
     request: CallableRequest<Record<string, unknown>>
   ): Promise<QueryAdminFinanceReadModelsResult> => {
-    const parsed = QueryAdminFinanceReadModelsInputSchema.safeParse(request.data);
-    if (!parsed.success) {
-      throw new HttpsError('invalid-argument', 'The request is invalid.');
-    }
+    const { input, requestedTestSessionId } = parseReadModelCallableData(
+      QueryAdminFinanceReadModelsInputSchema,
+      request.data
+    );
 
-    const actor = await resolveCallableAdministratorActor(firestore, request.auth?.uid);
     try {
-      return await queryAdminFinanceReadModels(firestore, actor, parsed.data);
+      const { actor, readScope, readContext } = await resolveAdministratorCanonicalRead(
+        firestore,
+        request.auth?.uid,
+        requestedTestSessionId
+      );
+      return await queryAdminFinanceReadModels(firestore, actor, input, { readContext, readScope });
     } catch (error) {
       if (error instanceof InvalidAdminFinanceReadCursorError) {
         throw new HttpsError('invalid-argument', 'The cursor is invalid.');
       }
-      throw error;
+      rethrowReadScopeHttpsError(error);
     }
   };
 }

@@ -35,6 +35,8 @@ import {
   type QueryAdminCourseEnrollmentReadModelsInput,
   type QueryAdminCourseEnrollmentReadModelsResult,
   type ReadModelAdministratorActor,
+  LIVE_CANONICAL_READ_SCOPE,
+  type CanonicalReadScope,
 } from '@ski-academy/shared-domain';
 import { parseAdminIssue } from '../adminIssues/adminIssueStore';
 import { parsePayment, parseWallet } from '../finance/financeStore';
@@ -47,6 +49,7 @@ import {
   createReadModelRequestContext,
   type ReadModelRequestContext,
 } from './readModelRequestContext';
+import { parseIfVisibleInReadScope } from './readModelScope';
 
 type AdminCourseEnrollmentActions = AdminCourseEnrollmentRosterItem['authorizedActions'];
 type AdminCourseEnrollmentIssueSummary = AdminCourseEnrollmentRosterItem['relatedIssues'][number];
@@ -424,14 +427,15 @@ async function transferTargetOptions(input: {
 
 async function loadRelatedIssues(
   firestore: Firestore,
-  enrollment: CourseEnrollment
+  enrollment: CourseEnrollment,
+  readScope: CanonicalReadScope
 ): Promise<AdminIssue[]> {
   const snapshot = await firestore
     .collection('admin_issues')
     .where('subjectRef.enrollmentId', '==', enrollment.enrollmentId)
     .get();
   return snapshot.docs.flatMap((document) => {
-    const issue = parseAdminIssue(document.data() as Record<string, unknown>);
+    const issue = parseIfVisibleInReadScope(document.data(), parseAdminIssue, readScope);
     return issue ? [issue] : [];
   });
 }
@@ -453,7 +457,7 @@ async function buildAdminCourseEnrollmentItem(
     readContext.course(enrollment.courseId),
     readContext.participant(enrollment.participantId),
     readContext.payment(enrollment.paymentId),
-    loadRelatedIssues(firestore, enrollment),
+    loadRelatedIssues(firestore, enrollment, readContext.readScope),
   ]);
   const course = parseCourse(courseSnapshot.data() as Record<string, unknown> | undefined);
   const participant = parseParticipant(
@@ -644,9 +648,10 @@ export async function queryAdminCourseEnrollmentReadModels(
   firestore: Firestore,
   actor: ReadModelAdministratorActor,
   input: QueryAdminCourseEnrollmentReadModelsInput,
-  options: { readonly readContext?: ReadModelRequestContext } = {}
+  options: { readonly readContext?: ReadModelRequestContext; readonly readScope?: CanonicalReadScope } = {}
 ): Promise<QueryAdminCourseEnrollmentReadModelsResult> {
-  const readContext = options.readContext ?? createReadModelRequestContext(firestore);
+  const readScope = options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
+  const readContext = options.readContext ?? createReadModelRequestContext(firestore, { readScope });
   const administratorSnap = await readContext.account(actor.accountId);
   const administratorAccount = parseAccount(
     administratorSnap.data() as Record<string, unknown> | undefined
@@ -676,7 +681,7 @@ export async function queryAdminCourseEnrollmentReadModels(
     .limit(pageSize + 1)
     .get();
   const enrollments = snapshot.docs.flatMap((document) => {
-    const enrollment = parseCourseEnrollment(document.data() as Record<string, unknown>);
+    const enrollment = parseIfVisibleInReadScope(document.data(), parseCourseEnrollment, readScope);
     return enrollment ? [enrollment] : [];
   });
   const page = enrollments.slice(0, pageSize);

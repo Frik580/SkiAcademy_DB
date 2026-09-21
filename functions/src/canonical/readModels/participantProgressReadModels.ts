@@ -17,6 +17,9 @@ import {
   type QueryParticipantProgressReadModelsInput,
   type QueryParticipantProgressReadModelsResult,
   ParticipantProgressReadModelSchema,
+  LIVE_CANONICAL_READ_SCOPE,
+  documentMatchesReadScope,
+  type CanonicalReadScope,
 } from '@ski-academy/shared-domain';
 import type { Firestore } from 'firebase-admin/firestore';
 import { loadInstructorProgressBookingScopedEvidence } from '../progress/participantProgressAuthorization';
@@ -33,13 +36,19 @@ import {
   participantBlockPath,
 } from '../participantAccess/participantAccessStore';
 import { parseParticipantProgress } from '../progress/participantProgressStore';
+import { type ReadModelRequestContext } from './readModelRequestContext';
+import { parseIfVisibleInReadScope } from './readModelScope';
 
 const MANAGED_PARTICIPANTS_LIMIT = 50;
 
 function toReadModel(
   participantId: ParticipantId,
-  data: Record<string, unknown> | undefined
+  data: Record<string, unknown> | undefined,
+  readScope: CanonicalReadScope
 ): ParticipantProgressReadModel {
+  if (!documentMatchesReadScope(readScope, data ?? {})) {
+    return emptyParticipantProgressReadModel(participantId);
+  }
   const progress = parseParticipantProgress(data);
   if (!progress || progress.participantId !== participantId) {
     return emptyParticipantProgressReadModel(participantId);
@@ -236,8 +245,11 @@ export async function queryParticipantProgressReadModels(
   options: Readonly<{
     accountId: AccountId;
     instructorId?: InstructorId;
+    readContext?: ReadModelRequestContext;
+    readScope?: CanonicalReadScope;
   }>
 ): Promise<QueryParticipantProgressReadModelsResult> {
+  const readScope = options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
   if (input.scope === 'managed') {
     const managedIds = await loadManagedParticipantIds(firestore, options.accountId);
     const requested = input.participantIds ?? [...managedIds];
@@ -251,7 +263,7 @@ export async function queryParticipantProgressReadModels(
     return {
       scope: 'managed',
       items: uniqueRequested.map((participantId) =>
-        toReadModel(participantId, docs.get(participantId))
+        toReadModel(participantId, docs.get(participantId), readScope)
       ),
     };
   }
@@ -267,8 +279,11 @@ export async function queryParticipantProgressReadModels(
   const at = timestampFromDate(new Date());
   const authorized: ParticipantId[] = [];
   for (let index = 0; index < uniqueRequested.length; index += 1) {
-    const participant = parseParticipant(
-      participantSnaps[index]?.data() as Record<string, unknown> | undefined
+    const participant = parseIfVisibleInReadScope(
+      participantSnaps[index]?.data(),
+      parseParticipant,
+      readScope,
+      'identity'
     );
     if (!participant || participant.lifecycle.status !== 'active') continue;
     if (await instructorHasProgressAccess(firestore, instructorId, participant, at)) {
@@ -281,7 +296,7 @@ export async function queryParticipantProgressReadModels(
   const docs = await loadProgressDocs(firestore, authorized);
   return {
     scope: 'instructor',
-    items: authorized.map((participantId) => toReadModel(participantId, docs.get(participantId))),
+    items: authorized.map((participantId) => toReadModel(participantId, docs.get(participantId), readScope)),
   };
 }
 

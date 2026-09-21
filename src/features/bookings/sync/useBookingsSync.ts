@@ -25,6 +25,7 @@ import {
 import { BookingIdSchema, InstructorIdSchema } from '@ski-academy/shared-domain';
 import { useLessonBookingStore } from '../../lesson-bookings';
 import { mergeAccountReviewBookingStates } from '../../reviews/mergeAccountReviewBookingStates';
+import { isLiveCompatibleIdentity } from '../../../lib/canonical/liveCompatibleClientRead';
 
 async function loadInstructorReviewPage(instructorId: string) {
   const page = await queryInstructorReviewReadModels({
@@ -65,9 +66,12 @@ export const useBookingsSync = () => {
       return onSnapshot(
         doc(db, 'instructors', instructorId!),
         (snapshot) => {
-          useBookingsStore
-            .getState()
-            .setInstructors(snapshot.exists() ? [toInstructor(snapshot.id, snapshot.data())] : []);
+          const data = snapshot.data();
+          useBookingsStore.getState().setInstructors(
+            snapshot.exists() && isLiveCompatibleIdentity(data)
+              ? [toInstructor(snapshot.id, data)]
+              : []
+          );
         },
         (error) => handleFirestoreError(error, OperationType.GET, 'instructors')
       );
@@ -81,9 +85,12 @@ export const useBookingsSync = () => {
         useBookingsStore
           .getState()
           .setInstructors(
-            snapshot.docs.map((instructorDoc) =>
-              toInstructor(instructorDoc.id, instructorDoc.data())
-            )
+            snapshot.docs.flatMap((instructorDoc) => {
+              const data = instructorDoc.data();
+              return isLiveCompatibleIdentity(data)
+                ? [toInstructor(instructorDoc.id, data)]
+                : [];
+            })
           );
       },
       (error) => handleFirestoreError(error, OperationType.LIST, 'instructors')

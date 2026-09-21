@@ -23,3 +23,4 @@ export * from './instructorReviewReadModel';
 export * from './participantProgressReadModel';
 export * from './participantAchievementsReadModel';
 export * from './participantLessonFeedbackReadModel';
+export * from './testSessionReadModel';

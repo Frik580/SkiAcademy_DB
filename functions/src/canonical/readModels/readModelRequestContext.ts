@@ -5,20 +5,27 @@ import type {
   QueryDocumentSnapshot,
   QuerySnapshot,
 } from 'firebase-admin/firestore';
-import type {
-  AccountId,
-  AttendanceId,
-  BookingId,
-  CourseEnrollmentId,
-  CourseId,
-  InstructorId,
-  Participant,
-  ParticipantManagementId,
-  ParticipantBlock,
-  PaymentId,
+import {
+  LIVE_CANONICAL_READ_SCOPE,
+  type AccountId,
+  type AttendanceId,
+  type BookingId,
+  type CanonicalReadScope,
+  type CourseEnrollmentId,
+  type CourseId,
+  type InstructorId,
+  type Participant,
+  type ParticipantManagementId,
+  type ParticipantBlock,
+  type PaymentId,
 } from '@ski-academy/shared-domain';
 import { courseDaysCollectionPath } from '../courses/courseStore';
 import { participantBlockPath } from '../participantAccess/participantAccessStore';
+import {
+  hideSnapshotIfOutsideReadScope,
+  scopeQuerySnapshot,
+  type ReadScopeMatchKind,
+} from './readModelScope';
 
 /** Firestore `in` operator maximum; enforced here so callers cannot exceed it. */
 const ATTENDANCES_FOR_ENROLLMENTS_MAX_IDS = 30;
@@ -71,7 +78,24 @@ export class ReadModelRequestContext {
   private readonly activeManagementByParticipantId = new Map<string, Promise<QuerySnapshot>>();
   private readonly linkedAccountByInstructorId = new Map<string, Promise<QuerySnapshot>>();
 
-  constructor(private readonly firestore: Firestore) {}
+  constructor(
+    private readonly firestore: Firestore,
+    readonly readScope: CanonicalReadScope = LIVE_CANONICAL_READ_SCOPE
+  ) {}
+
+  private scopedDoc(
+    snapshot: DocumentSnapshot,
+    kind: ReadScopeMatchKind = 'resource'
+  ): DocumentSnapshot {
+    return hideSnapshotIfOutsideReadScope(snapshot, this.readScope, kind);
+  }
+
+  private scopedQuery(
+    snapshot: QuerySnapshot,
+    kind: ReadScopeMatchKind = 'resource'
+  ): QuerySnapshot {
+    return scopeQuerySnapshot(snapshot, this.readScope, kind);
+  }
 
   private memoize<T>(
     memo: Map<string, Promise<T>>,
@@ -86,14 +110,17 @@ export class ReadModelRequestContext {
   }
 
   account(accountId: AccountId): Promise<DocumentSnapshot> {
-    return this.memoize(this.accountById, accountId, () =>
-      this.firestore.collection('users').doc(accountId).get()
+    return this.memoize(this.accountById, accountId, async () =>
+      this.scopedDoc(await this.firestore.collection('users').doc(accountId).get(), 'identity')
     );
   }
 
   participant(participantId: Participant['participantId']): Promise<DocumentSnapshot> {
-    return this.memoize(this.participantById, participantId, () =>
-      this.firestore.collection('participants').doc(participantId).get()
+    return this.memoize(this.participantById, participantId, async () =>
+      this.scopedDoc(
+        await this.firestore.collection('participants').doc(participantId).get(),
+        'identity'
+      )
     );
   }
 
@@ -124,7 +151,7 @@ export class ReadModelRequestContext {
           ...chunk.map((id) => this.firestore.collection('participants').doc(id))
         );
         pending.forEach((item, index) => {
-          item.resolve(snapshots[index]!);
+          item.resolve(this.scopedDoc(snapshots[index]!, 'identity'));
         });
       } catch (error) {
         pending.forEach((item) => item.reject(error));
@@ -137,70 +164,81 @@ export class ReadModelRequestContext {
   participantManagement(
     participantManagementId: ParticipantManagementId
   ): Promise<DocumentSnapshot> {
-    return this.memoize(this.participantManagementById, participantManagementId, () =>
-      this.firestore.collection('participant_management').doc(participantManagementId).get()
+    return this.memoize(this.participantManagementById, participantManagementId, async () =>
+      this.scopedDoc(
+        await this.firestore
+          .collection('participant_management')
+          .doc(participantManagementId)
+          .get(),
+        'identity'
+      )
     );
   }
 
   instructor(instructorId: InstructorId): Promise<DocumentSnapshot> {
-    return this.memoize(this.instructorById, instructorId, () =>
-      this.firestore.collection('instructors').doc(instructorId).get()
+    return this.memoize(this.instructorById, instructorId, async () =>
+      this.scopedDoc(
+        await this.firestore.collection('instructors').doc(instructorId).get(),
+        'identity'
+      )
     );
   }
 
   course(courseId: CourseId): Promise<DocumentSnapshot> {
-    return this.memoize(this.courseById, courseId, () =>
-      this.firestore.collection('courses').doc(courseId).get()
+    return this.memoize(this.courseById, courseId, async () =>
+      this.scopedDoc(await this.firestore.collection('courses').doc(courseId).get())
     );
   }
 
   payment(paymentId: PaymentId): Promise<DocumentSnapshot> {
-    return this.memoize(this.paymentById, paymentId, () =>
-      this.firestore.collection('payments').doc(paymentId).get()
+    return this.memoize(this.paymentById, paymentId, async () =>
+      this.scopedDoc(await this.firestore.collection('payments').doc(paymentId).get())
     );
   }
 
   wallet(accountId: AccountId): Promise<DocumentSnapshot> {
-    return this.memoize(this.walletByAccountId, accountId, () =>
-      this.firestore.doc(`users/${accountId}/wallet/state`).get()
+    return this.memoize(this.walletByAccountId, accountId, async () =>
+      this.scopedDoc(await this.firestore.doc(`users/${accountId}/wallet/state`).get())
     );
   }
 
   booking(bookingId: BookingId): Promise<DocumentSnapshot> {
-    return this.memoize(this.bookingById, bookingId, () =>
-      this.firestore.collection('bookings').doc(bookingId).get()
+    return this.memoize(this.bookingById, bookingId, async () =>
+      this.scopedDoc(await this.firestore.collection('bookings').doc(bookingId).get())
     );
   }
 
   enrollment(enrollmentId: CourseEnrollmentId): Promise<DocumentSnapshot> {
-    return this.memoize(this.enrollmentById, enrollmentId, () =>
-      this.firestore.collection('course_enrollments').doc(enrollmentId).get()
+    return this.memoize(this.enrollmentById, enrollmentId, async () =>
+      this.scopedDoc(await this.firestore.collection('course_enrollments').doc(enrollmentId).get())
     );
   }
 
   attendance(attendanceId: AttendanceId): Promise<DocumentSnapshot> {
-    return this.memoize(this.attendanceById, attendanceId, () =>
-      this.firestore.collection('attendance').doc(attendanceId).get()
+    return this.memoize(this.attendanceById, attendanceId, async () =>
+      this.scopedDoc(await this.firestore.collection('attendance').doc(attendanceId).get())
     );
   }
 
   participantBlock(
     participantBlockId: ParticipantBlock['participantBlockId']
   ): Promise<DocumentSnapshot> {
-    return this.memoize(this.participantBlockById, participantBlockId, () =>
-      this.firestore.doc(participantBlockPath(participantBlockId)).get()
+    return this.memoize(this.participantBlockById, participantBlockId, async () =>
+      this.scopedDoc(await this.firestore.doc(participantBlockPath(participantBlockId)).get())
     );
   }
 
   courseDays(courseId: CourseId): Promise<QuerySnapshot> {
-    return this.memoize(this.courseDaysByCourseId, courseId, () =>
-      this.firestore.collection(courseDaysCollectionPath(courseId)).get()
+    return this.memoize(this.courseDaysByCourseId, courseId, async () =>
+      this.scopedQuery(await this.firestore.collection(courseDaysCollectionPath(courseId)).get())
     );
   }
 
   courseAttendances(courseId: CourseId): Promise<QuerySnapshot> {
-    return this.memoize(this.courseAttendancesByCourseId, courseId, () =>
-      this.firestore.collection('attendance').where('subject.courseId', '==', courseId).get()
+    return this.memoize(this.courseAttendancesByCourseId, courseId, async () =>
+      this.scopedQuery(
+        await this.firestore.collection('attendance').where('subject.courseId', '==', courseId).get()
+      )
     );
   }
 
@@ -209,20 +247,24 @@ export class ReadModelRequestContext {
       throw new Error(ATTENDANCES_FOR_ENROLLMENTS_CONTRACT_VIOLATION);
     }
     const key = attendancesForEnrollmentsMemoKey(enrollmentIds);
-    return this.memoize(this.attendancesByEnrollmentIds, key, () =>
-      this.firestore
-        .collection('attendance')
-        .where('subject.enrollmentId', 'in', [...enrollmentIds])
-        .get()
+    return this.memoize(this.attendancesByEnrollmentIds, key, async () =>
+      this.scopedQuery(
+        await this.firestore
+          .collection('attendance')
+          .where('subject.enrollmentId', 'in', [...enrollmentIds])
+          .get()
+      )
     );
   }
 
   enrollmentAttendances(enrollmentId: CourseEnrollmentId): Promise<QuerySnapshot> {
-    return this.memoize(this.enrollmentAttendancesByEnrollmentId, enrollmentId, () =>
-      this.firestore
-        .collection('attendance')
-        .where('subject.enrollmentId', '==', enrollmentId)
-        .get()
+    return this.memoize(this.enrollmentAttendancesByEnrollmentId, enrollmentId, async () =>
+      this.scopedQuery(
+        await this.firestore
+          .collection('attendance')
+          .where('subject.enrollmentId', '==', enrollmentId)
+          .get()
+      )
     );
   }
 
@@ -248,7 +290,7 @@ export class ReadModelRequestContext {
           query = query.startAfter(cursorId);
         }
         const snapshot = await query.get();
-        collected.push(...snapshot.docs);
+        collected.push(...this.scopedQuery(snapshot, 'identity').docs);
         if (snapshot.docs.length < ACTIVE_ACCOUNT_MANAGEMENT_QUERY_PAGE_SIZE) {
           break;
         }
@@ -267,34 +309,50 @@ export class ReadModelRequestContext {
   }
 
   activeManagementForAccount(accountId: AccountId): Promise<QuerySnapshot> {
-    return this.memoize(this.activeManagementByAccountId, accountId, () =>
-      this.firestore
-        .collection('participant_management')
-        .where('accountId', '==', accountId)
-        .where('status', '==', 'active')
-        .get()
+    return this.memoize(this.activeManagementByAccountId, accountId, async () =>
+      this.scopedQuery(
+        await this.firestore
+          .collection('participant_management')
+          .where('accountId', '==', accountId)
+          .where('status', '==', 'active')
+          .get(),
+        'identity'
+      )
     );
   }
 
   activeManagementForParticipant(
     participantId: Participant['participantId']
   ): Promise<QuerySnapshot> {
-    return this.memoize(this.activeManagementByParticipantId, participantId, () =>
-      this.firestore
-        .collection('participant_management')
-        .where('participantId', '==', participantId)
-        .where('status', '==', 'active')
-        .get()
+    return this.memoize(this.activeManagementByParticipantId, participantId, async () =>
+      this.scopedQuery(
+        await this.firestore
+          .collection('participant_management')
+          .where('participantId', '==', participantId)
+          .where('status', '==', 'active')
+          .get(),
+        'identity'
+      )
     );
   }
 
   linkedAccountForInstructor(instructorId: InstructorId): Promise<QuerySnapshot> {
-    return this.memoize(this.linkedAccountByInstructorId, instructorId, () =>
-      this.firestore.collection('users').where('instructorId', '==', instructorId).limit(2).get()
+    return this.memoize(this.linkedAccountByInstructorId, instructorId, async () =>
+      this.scopedQuery(
+        await this.firestore
+          .collection('users')
+          .where('instructorId', '==', instructorId)
+          .limit(2)
+          .get(),
+        'identity'
+      )
     );
   }
 }
 
-export function createReadModelRequestContext(firestore: Firestore): ReadModelRequestContext {
-  return new ReadModelRequestContext(firestore);
+export function createReadModelRequestContext(
+  firestore: Firestore,
+  options: { readonly readScope?: CanonicalReadScope } = {}
+): ReadModelRequestContext {
+  return new ReadModelRequestContext(firestore, options.readScope ?? LIVE_CANONICAL_READ_SCOPE);
 }

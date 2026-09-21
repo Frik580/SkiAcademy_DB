@@ -8,6 +8,10 @@ import {
   timestampFromDate,
 } from '@ski-academy/shared-domain';
 import { createQueryAdminFinanceReadModelsHandler } from './queryAdminFinanceReadModelsCallable';
+import {
+  isTestScopeCollection,
+  missingTestScopeCollection,
+} from '../testSessions/missingTestScopeCollection';
 
 const accountId = 'account_admin_finance_callable_01';
 const createdAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
@@ -58,6 +62,7 @@ function createFirestore(role: 'admin' | 'user'): Firestore {
         };
       }
       if (name === 'monetary_events') return emptyQuery;
+      if (isTestScopeCollection(name)) return missingTestScopeCollection();
       throw new Error(`Unexpected collection: ${name}`);
     },
   } as unknown as Firestore;

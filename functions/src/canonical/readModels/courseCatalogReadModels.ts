@@ -8,19 +8,31 @@ import {
   type CourseCatalogReadModel,
   type QueryCourseCatalogReadModelsInput,
   type QueryCourseCatalogReadModelsResult,
+  LIVE_CANONICAL_READ_SCOPE,
+  type CanonicalReadScope,
 } from '@ski-academy/shared-domain';
 import type { Firestore } from 'firebase-admin/firestore';
 import { parseCourse, parseCourseDays, courseDaysCollectionPath } from '../courses/courseStore';
 import { buildCourseScheduleProjectionReadModel } from './courseDayScheduleProjectionSupport';
+import {
+  createReadModelRequestContext,
+  type ReadModelRequestContext,
+} from './readModelRequestContext';
+import { parseIfVisibleInReadScope, queryDocsMatchingReadScope } from './readModelScope';
 
 async function buildCourseCatalogReadModel(
   firestore: Firestore,
   course: Course,
-  now: ReturnType<typeof timestampFromDate>
+  now: ReturnType<typeof timestampFromDate>,
+  readScope: CanonicalReadScope
 ): Promise<CourseCatalogReadModel | undefined> {
   const dayDocuments = await firestore.collection(courseDaysCollectionPath(course.courseId)).get();
   const courseDays = sortedCourseDays(
-    parseCourseDays(dayDocuments.docs.map((doc) => ({ data: doc.data() as Record<string, unknown> })))
+    parseCourseDays(
+      queryDocsMatchingReadScope(dayDocuments.docs, readScope).map((doc) => ({
+        data: doc.data() as Record<string, unknown>,
+      }))
+    )
   );
   if (!isCourseOperationalForEnrollment(course, courseDays)) {
     return undefined;
@@ -57,28 +69,34 @@ async function buildCourseCatalogReadModel(
 export async function queryCourseCatalogReadModels(
   firestore: Firestore,
   input: QueryCourseCatalogReadModelsInput,
-  options: { readonly now?: Date } = {}
+  options: {
+    readonly now?: Date;
+    readonly readContext?: ReadModelRequestContext;
+    readonly readScope?: CanonicalReadScope;
+  } = {}
 ): Promise<QueryCourseCatalogReadModelsResult> {
   const now = timestampFromDate(options.now ?? new Date());
+  const readScope = options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
+  const readContext = options.readContext ?? createReadModelRequestContext(firestore, { readScope });
 
   if (input.scope === 'authenticated' || input.courseId) {
-    const courseSnap = await firestore.collection('courses').doc(input.courseId!).get();
+    const courseSnap = await readContext.course(input.courseId!);
     const course = parseCourse(courseSnap.data() as Record<string, unknown> | undefined);
     if (!course) {
       return { scope: input.scope, items: [] };
     }
-    const item = await buildCourseCatalogReadModel(firestore, course, now);
+    const item = await buildCourseCatalogReadModel(firestore, course, now, readScope);
     return { scope: input.scope, items: item ? [item] : [] };
   }
 
   const snapshot = await firestore.collection('courses').limit(50).get();
   const items: CourseCatalogReadModel[] = [];
   for (const doc of snapshot.docs) {
-    const course = parseCourse(doc.data() as Record<string, unknown>);
+    const course = parseIfVisibleInReadScope(doc.data(), parseCourse, readScope);
     if (!course) {
       continue;
     }
-    const item = await buildCourseCatalogReadModel(firestore, course, now);
+    const item = await buildCourseCatalogReadModel(firestore, course, now, readScope);
     if (item) {
       items.push(item);
     }

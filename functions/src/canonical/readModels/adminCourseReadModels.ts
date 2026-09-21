@@ -16,6 +16,8 @@ import {
   type QueryAdminCourseReadModelsInput,
   type QueryAdminCourseReadModelsResult,
   type ReadModelAdministratorActor,
+  LIVE_CANONICAL_READ_SCOPE,
+  type CanonicalReadScope,
 } from '@ski-academy/shared-domain';
 import { parseCourse, parseCourseDays, parseInstructorCatalog } from '../courses/courseStore';
 import { parseCourseEnrollment } from '../courses/courseEnrollmentStore';
@@ -27,6 +29,7 @@ import {
   createReadModelRequestContext,
   type ReadModelRequestContext,
 } from './readModelRequestContext';
+import { parseIfVisibleInReadScope, queryDocsMatchingReadScope } from './readModelScope';
 
 const ACTIVE_ENROLLMENT_STATUSES = new Set(['pending', 'confirmed', 'pending_cancellation']);
 
@@ -59,12 +62,12 @@ async function buildAdminCourseListItem(
       .get(),
   ]);
   const firstDay = parseCourseDays(
-    firstDaySnapshot.docs.map((document) => ({
+    queryDocsMatchingReadScope(firstDaySnapshot.docs, readContext.readScope).map((document) => ({
       data: document.data() as Record<string, unknown>,
     }))
   )[0];
   const lastDay = parseCourseDays(
-    lastDaySnapshot.docs.map((document) => ({
+    queryDocsMatchingReadScope(lastDaySnapshot.docs, readContext.readScope).map((document) => ({
       data: document.data() as Record<string, unknown>,
     }))
   )[0];
@@ -159,7 +162,9 @@ async function buildAdminCourseReadModel(
     daySnapshot.docs.map((document) => ({ data: document.data() as Record<string, unknown> }))
   ).sort((left, right) => left.dayOrder - right.dayOrder);
   const enrollments = enrollmentSnapshot.docs
-    .map((document) => parseCourseEnrollment(document.data() as Record<string, unknown>))
+    .map((document) =>
+      parseIfVisibleInReadScope(document.data(), parseCourseEnrollment, readContext.readScope)
+    )
     .filter((value): value is NonNullable<typeof value> => value !== undefined);
   const activeEnrollmentCount = enrollments.filter((enrollment) =>
     ACTIVE_ENROLLMENT_STATUSES.has(enrollment.lifecycle.status)
@@ -250,9 +255,10 @@ export async function queryAdminCourseReadModels(
   firestore: Firestore,
   _actor: ReadModelAdministratorActor,
   input: QueryAdminCourseReadModelsInput,
-  options: { readonly readContext?: ReadModelRequestContext } = {}
+  options: { readonly readContext?: ReadModelRequestContext; readonly readScope?: CanonicalReadScope } = {}
 ): Promise<QueryAdminCourseReadModelsResult> {
-  const readContext = options.readContext ?? createReadModelRequestContext(firestore);
+  const readScope = options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
+  const readContext = options.readContext ?? createReadModelRequestContext(firestore, { readScope });
   if (input.scope === 'admin_course_detail') {
     const snapshot = await readContext.course(input.courseId);
     const course = parseCourse(snapshot.data() as Record<string, unknown> | undefined);
@@ -286,7 +292,7 @@ export async function queryAdminCourseReadModels(
     const snapshot = await query.limit(pageSize + 1).get();
     const pageDocuments = snapshot.docs.slice(0, pageSize);
     const courses = pageDocuments
-      .map((document) => parseCourse(document.data() as Record<string, unknown>))
+      .map((document) => parseIfVisibleInReadScope(document.data(), parseCourse, readScope))
       .filter(
         (value): value is NonNullable<typeof value> =>
           value !== undefined && value.lifecycle === lifecycle
@@ -316,7 +322,7 @@ export async function queryAdminCourseReadModels(
 
   const snapshot = await courseCollection.limit(pageSize).get();
   const courses = snapshot.docs
-    .map((document) => parseCourse(document.data() as Record<string, unknown>))
+    .map((document) => parseIfVisibleInReadScope(document.data(), parseCourse, readScope))
     .filter(
       (value): value is NonNullable<typeof value> =>
         value !== undefined && value.lifecycle === 'active'

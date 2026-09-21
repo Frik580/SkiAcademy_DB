@@ -21,6 +21,10 @@ import {
   type ReadModelAdministratorActor,
   type TimeInterval,
   type Wallet,
+  LIVE_CANONICAL_READ_SCOPE,
+  documentMatchesReadScope,
+  identityDocumentMatchesReadScope,
+  type CanonicalReadScope,
 } from '@ski-academy/shared-domain';
 import { parseAdminIssue } from '../adminIssues';
 import {
@@ -34,6 +38,10 @@ import {
   InvalidAdminGuestFundsReadCursorError,
   queryAdminGuestFundsReadModel,
 } from './adminGuestFundsReadModels';
+import {
+  createReadModelRequestContext,
+  type ReadModelRequestContext,
+} from './readModelRequestContext';
 
 interface AdminFinanceEventCursor {
   readonly scope: QueryAdminFinanceReadModelsInput['scope'];
@@ -195,7 +203,8 @@ function presentEvent(
 
 async function queryEventPage(
   firestore: Firestore,
-  input: AdminFinanceEventPageInput
+  input: AdminFinanceEventPageInput,
+  readScope: CanonicalReadScope = LIVE_CANONICAL_READ_SCOPE
 ): Promise<{
   readonly rawEvents: readonly MonetaryEvent[];
   readonly events: readonly AdminMonetaryEventPresentation[];
@@ -256,14 +265,15 @@ async function queryEventPage(
   }
 
   const snapshot = await query.limit(pageSize + 1).get();
-  const parsed = snapshot.docs.map((document) => {
+  const parsed = snapshot.docs.flatMap((document) => {
+    if (!documentMatchesReadScope(readScope, document.data() ?? {})) return [];
     const event = parseMonetaryEvent(document.data() as Record<string, unknown>);
     if (!event || event.eventId !== document.id) {
       throw new Error(
         `Canonical Admin finance read integrity failure: monetary_events/${document.id}`
       );
     }
-    return event;
+    return [event];
   });
   const inWindow = movementWindow
     ? parsed.filter((event) => eventOccurredInFinancialOverviewWindow(event.occurredAt, movementWindow))
@@ -291,19 +301,23 @@ async function queryEventPage(
 
 async function queryWalletReadModel(
   firestore: Firestore,
-  input: Extract<QueryAdminFinanceReadModelsInput, { scope: 'admin_wallet' }>
+  input: Extract<QueryAdminFinanceReadModelsInput, { scope: 'admin_wallet' }>,
+  readScope: CanonicalReadScope = LIVE_CANONICAL_READ_SCOPE
 ): Promise<AdminWalletReadModel> {
   const [profileSnapshot, walletSnapshot, eventPage] = await Promise.all([
     firestore.collection('users').doc(input.accountId).get(),
     firestore.collection('users').doc(input.accountId).collection('wallet').doc('state').get(),
-    queryEventPage(firestore, input),
+    queryEventPage(firestore, input, readScope),
   ]);
   const profileData = profileSnapshot.data() as Record<string, unknown> | undefined;
-  const account = parseAccount(profileData);
-  const wallet = walletSnapshot.exists
+  const profileVisible = identityDocumentMatchesReadScope(readScope, profileData ?? {});
+  const account = profileVisible ? parseAccount(profileData) : undefined;
+  const walletVisible =
+    walletSnapshot.exists && documentMatchesReadScope(readScope, walletSnapshot.data() ?? {});
+  const wallet = walletVisible
     ? parseWallet(walletSnapshot.data() as Record<string, unknown>)
     : undefined;
-  if (walletSnapshot.exists && (!wallet || wallet.accountId !== input.accountId)) {
+  if (walletVisible && (!wallet || wallet.accountId !== input.accountId)) {
     throw new Error(
       `Canonical Admin finance read integrity failure: users/${input.accountId}/wallet/state`
     );
@@ -311,7 +325,10 @@ async function queryWalletReadModel(
   const accountActive = account?.lifecycle.status === 'active';
   return {
     accountId: input.accountId,
-    accountIdentity: safeAccountIdentity(input.accountId, profileData),
+    accountIdentity: safeAccountIdentity(
+      input.accountId,
+      profileVisible ? profileData : undefined
+    ),
     accountStatus: accountActive ? 'active' : 'unavailable',
     exists: wallet !== undefined,
     balance: wallet?.balance ?? KztMinorUnitsSchema.parse(0),
@@ -336,7 +353,8 @@ async function queryWalletReadModel(
 async function loadRelatedIssues(
   firestore: Firestore,
   actor: ReadModelAdministratorActor,
-  payment: Payment
+  payment: Payment,
+  readContext: ReadModelRequestContext
 ) {
   const subjectField =
     payment.subjectType === 'booking' ? 'subjectRef.bookingId' : 'subjectRef.enrollmentId';
@@ -345,14 +363,15 @@ async function loadRelatedIssues(
     .where(subjectField, '==', payment.subjectId)
     .limit(50)
     .get();
-  const issues = snapshot.docs.map((document) => {
+  const issues = snapshot.docs.flatMap((document) => {
+    if (!documentMatchesReadScope(readContext.readScope, document.data() ?? {})) return [];
     const issue = parseAdminIssue(document.data() as Record<string, unknown>);
     if (!issue || issue.issueId !== document.id) {
       throw new Error(
         `Canonical Admin finance read integrity failure: admin_issues/${document.id}`
       );
     }
-    return issue;
+    return [issue];
   });
 
   const details = await Promise.all(
@@ -360,7 +379,7 @@ async function loadRelatedIssues(
       issue,
       detail:
         issue.lifecycle.status === 'open'
-          ? await buildAdminIssueDetail(firestore, actor, issue)
+          ? await buildAdminIssueDetail(firestore, actor, issue, readContext)
           : undefined,
     }))
   );
@@ -433,9 +452,10 @@ function buildPaymentActions(input: {
 async function queryPaymentDetailReadModel(
   firestore: Firestore,
   actor: ReadModelAdministratorActor,
-  input: Extract<QueryAdminFinanceReadModelsInput, { scope: 'admin_payment_detail' }>
+  input: Extract<QueryAdminFinanceReadModelsInput, { scope: 'admin_payment_detail' }>,
+  readContext: ReadModelRequestContext
 ): Promise<AdminPaymentDetailReadModel | undefined> {
-  const paymentSnapshot = await firestore.collection('payments').doc(input.paymentId).get();
+  const paymentSnapshot = await readContext.payment(input.paymentId);
   if (!paymentSnapshot.exists) return undefined;
   const payment = parsePayment(paymentSnapshot.data() as Record<string, unknown>);
   if (!payment || payment.paymentId !== input.paymentId) {
@@ -443,7 +463,7 @@ async function queryPaymentDetailReadModel(
   }
 
   const [eventPage, payerSnapshot, walletSnapshot, relatedIssues] = await Promise.all([
-    queryEventPage(firestore, input),
+    queryEventPage(firestore, input, readContext.readScope),
     payment.payerAccountId
       ? firestore.collection('users').doc(payment.payerAccountId).get()
       : Promise.resolve(undefined),
@@ -455,12 +475,15 @@ async function queryPaymentDetailReadModel(
           .doc('state')
           .get()
       : Promise.resolve(undefined),
-    loadRelatedIssues(firestore, actor, payment),
+    loadRelatedIssues(firestore, actor, payment, readContext),
   ]);
-  const wallet = walletSnapshot?.exists
-    ? parseWallet(walletSnapshot.data() as Record<string, unknown>)
+  const walletVisible =
+    Boolean(walletSnapshot?.exists) &&
+    documentMatchesReadScope(readContext.readScope, walletSnapshot?.data() ?? {});
+  const wallet = walletVisible
+    ? parseWallet(walletSnapshot!.data() as Record<string, unknown>)
     : undefined;
-  if (walletSnapshot?.exists && (!wallet || wallet.accountId !== payment.payerAccountId)) {
+  if (walletVisible && (!wallet || wallet.accountId !== payment.payerAccountId)) {
     throw new Error(
       `Canonical Admin finance read integrity failure: users/${payment.payerAccountId}/wallet/state`
     );
@@ -477,7 +500,12 @@ async function queryPaymentDetailReadModel(
       : {
           payer: safeAccountIdentity(
             payment.payerAccountId,
-            payerSnapshot?.data() as Record<string, unknown> | undefined
+            (() => {
+              const payerData = payerSnapshot?.data() as Record<string, unknown> | undefined;
+              return identityDocumentMatchesReadScope(readContext.readScope, payerData ?? {})
+                ? payerData
+                : undefined;
+            })()
           ),
         }),
     currency: payment.currency,
@@ -525,7 +553,8 @@ async function queryPaymentDetailReadModel(
 
 async function queryFinancialOverviewReadModel(
   firestore: Firestore,
-  input: Extract<QueryAdminFinanceReadModelsInput, { scope: 'admin_financial_overview' }>
+  input: Extract<QueryAdminFinanceReadModelsInput, { scope: 'admin_financial_overview' }>,
+  readScope: CanonicalReadScope = LIVE_CANONICAL_READ_SCOPE
 ): Promise<AdminFinancialOverviewReadModel> {
   const window = adminFinancialOverviewWindow(input.localDate, input.period, input.timeZone);
   const pageSize = 200;
@@ -543,6 +572,7 @@ async function queryFinancialOverviewReadModel(
   for (;;) {
     const snapshot = await query.limit(pageSize).get();
     for (const document of snapshot.docs) {
+      if (!documentMatchesReadScope(readScope, document.data() ?? {})) continue;
       const event = parseMonetaryEvent(document.data() as Record<string, unknown>);
       if (!event || event.eventId !== document.id) {
         throw new Error(
@@ -589,13 +619,19 @@ async function queryFinancialOverviewReadModel(
 export async function queryAdminFinanceReadModels(
   firestore: Firestore,
   actor: ReadModelAdministratorActor,
-  input: QueryAdminFinanceReadModelsInput
+  input: QueryAdminFinanceReadModelsInput,
+  options: {
+    readonly readContext?: ReadModelRequestContext;
+    readonly readScope?: CanonicalReadScope;
+  } = {}
 ): Promise<QueryAdminFinanceReadModelsResult> {
+  const readScope = options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
+  const readContext = options.readContext ?? createReadModelRequestContext(firestore, { readScope });
   let result: QueryAdminFinanceReadModelsResult;
   if (input.scope === 'admin_wallet') {
-    result = { scope: input.scope, item: await queryWalletReadModel(firestore, input) };
+    result = { scope: input.scope, item: await queryWalletReadModel(firestore, input, readScope) };
   } else if (input.scope === 'admin_school_movement') {
-    const eventPage = await queryEventPage(firestore, input);
+    const eventPage = await queryEventPage(firestore, input, readScope);
     result = {
       scope: input.scope,
       item: {
@@ -608,13 +644,13 @@ export async function queryAdminFinanceReadModels(
   } else if (input.scope === 'admin_financial_overview') {
     result = {
       scope: input.scope,
-      item: await queryFinancialOverviewReadModel(firestore, input),
+      item: await queryFinancialOverviewReadModel(firestore, input, readScope),
     };
   } else if (input.scope === 'admin_guest_funds') {
     try {
       result = {
         scope: input.scope,
-        item: await queryAdminGuestFundsReadModel(firestore, input),
+        item: await queryAdminGuestFundsReadModel(firestore, input, { readContext, readScope }),
       };
     } catch (error) {
       if (error instanceof InvalidAdminGuestFundsReadCursorError) {
@@ -623,7 +659,7 @@ export async function queryAdminFinanceReadModels(
       throw error;
     }
   } else {
-    const item = await queryPaymentDetailReadModel(firestore, actor, input);
+    const item = await queryPaymentDetailReadModel(firestore, actor, input, readContext);
     result = {
       scope: input.scope,
       ...(item === undefined ? {} : { item }),

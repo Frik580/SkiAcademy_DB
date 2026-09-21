@@ -4,31 +4,30 @@ import {
   QueryAdminCourseReadModelsInputSchema,
   type QueryAdminCourseReadModelsResult,
 } from '@ski-academy/shared-domain';
-import { resolveCallableAdministratorActor } from './resolveCallableAdministrator';
 import { queryAdminCourseReadModels } from './adminCourseReadModels';
-import { createReadModelRequestContext } from './readModelRequestContext';
+import { resolveAdministratorCanonicalRead } from './resolveAdministratorCanonicalRead';
+import { parseReadModelCallableData, rethrowReadScopeHttpsError } from './readModelScope';
 
 export function createQueryAdminCourseReadModelsHandler(firestore: Firestore) {
   return async (
     request: CallableRequest<Record<string, unknown>>
   ): Promise<QueryAdminCourseReadModelsResult> => {
-    const parsed = QueryAdminCourseReadModelsInputSchema.safeParse(request.data);
-    if (!parsed.success) {
-      throw new HttpsError('invalid-argument', 'The request is invalid.');
-    }
-    const readContext = createReadModelRequestContext(firestore);
-    const actor = await resolveCallableAdministratorActor(
-      firestore,
-      request.auth?.uid,
-      readContext
+    const { input, requestedTestSessionId } = parseReadModelCallableData(
+      QueryAdminCourseReadModelsInputSchema,
+      request.data
     );
     try {
-      return await queryAdminCourseReadModels(firestore, actor, parsed.data, { readContext });
+      const { actor, readScope, readContext } = await resolveAdministratorCanonicalRead(
+        firestore,
+        request.auth?.uid,
+        requestedTestSessionId
+      );
+      return await queryAdminCourseReadModels(firestore, actor, input, { readContext, readScope });
     } catch (error) {
       if (error instanceof Error && error.message === 'invalid_cursor') {
         throw new HttpsError('invalid-argument', 'The cursor is invalid.');
       }
-      throw error;
+      rethrowReadScopeHttpsError(error);
     }
   };
 }

@@ -9,6 +9,10 @@ import {
   timestampFromDate,
 } from '@ski-academy/shared-domain';
 import { createQueryInstructorCourseAssignmentReadModelsHandler } from './queryInstructorCourseAssignmentReadModelsCallable';
+import {
+  isTestScopeCollection,
+  missingTestScopeCollection,
+} from '../testSessions/missingTestScopeCollection';
 
 const rosterInstructorAccountId = AccountIdSchema.parse('account_assignment_read_roster_instructor');
 const courseDayInstructorAccountId = AccountIdSchema.parse('account_assignment_read_day_instructor');
@@ -133,6 +137,7 @@ function createFirestore(instructor: InstructorFixture): Firestore {
           }),
         };
       }
+      if (isTestScopeCollection(name)) return missingTestScopeCollection();
       throw new Error(`Unexpected collection: ${name}`);
     },
     collectionGroup: (name: string) => {

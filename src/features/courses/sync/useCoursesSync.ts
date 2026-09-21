@@ -13,6 +13,7 @@ import { useProfileStore } from '../../profile/profileStore';
 import { useDataSyncScope } from '../../../store/useDataSyncScope';
 import { useCoursesStore } from '../coursesStore';
 import { resolveCourseDocument } from '../courseDisplay';
+import { isLiveCompatibleResource } from '../../../lib/canonical/liveCompatibleClientRead';
 
 export const useCoursesSync = () => {
   const { catalogueScope } = useDataSyncScope();
@@ -31,6 +32,9 @@ export const useCoursesSync = () => {
       useCoursesStore.getState().setCourses(
         courseDocs.flatMap((courseDoc) => {
           const data = courseDoc.data;
+          if (!isLiveCompatibleResource(data)) {
+            return [];
+          }
           if (catalogueScope === 'instructor') {
             const roster = (data.instructorRosterIds ?? data.instructorIds) as unknown;
             if (!Array.isArray(roster) || !roster.includes(instructorId)) {
@@ -69,10 +73,10 @@ export const useCoursesSync = () => {
       contentQuery,
       (snapshot) => {
         catalogContentById = new Map(
-          snapshot.docs.map((contentDoc) => [
-            contentDoc.id,
-            contentDoc.data() as Record<string, unknown>,
-          ])
+          snapshot.docs.flatMap((contentDoc) => {
+            const data = contentDoc.data() as Record<string, unknown>;
+            return isLiveCompatibleResource(data) ? [[contentDoc.id, data] as const] : [];
+          })
         );
         publishCourses();
       },

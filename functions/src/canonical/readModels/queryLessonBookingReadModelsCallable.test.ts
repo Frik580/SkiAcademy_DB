@@ -8,6 +8,10 @@ import {
   buildCanonicalReadIdempotencyKey,
 } from '@ski-academy/shared-domain';
 import { createQueryLessonBookingReadModelsHandler } from './queryLessonBookingReadModelsCallable';
+import {
+  isTestScopeCollection,
+  missingTestScopeCollection,
+} from '../testSessions/missingTestScopeCollection';
 
 const instructorAccountId = AccountIdSchema.parse('account_instructor_panel_01');
 const instructorId = InstructorIdSchema.parse('instructor_panel_fixture_01');
@@ -61,6 +65,7 @@ function createInstructorPanelFirestore(
       if (name === 'bookings') {
         return bookingsQuery;
       }
+      if (isTestScopeCollection(name)) return missingTestScopeCollection();
       throw new Error(`Unexpected collection: ${name}`);
     },
   } as unknown as Firestore;
@@ -107,6 +112,7 @@ function createAdminFirestore(
         };
       }
       if (name === 'bookings') return bookingsQuery;
+      if (isTestScopeCollection(name)) return missingTestScopeCollection();
       throw new Error(`Unexpected collection: ${name}`);
     },
   } as unknown as Firestore;

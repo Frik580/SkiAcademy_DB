@@ -2,7 +2,7 @@
 
 Date: 2026-09-21
 
-Status: **IN PROGRESS / T42B-4 IMPLEMENTED + VALIDATED / NEXT T42B-5**
+Status: **IN PROGRESS / T42B-5 IMPLEMENTED + VALIDATED / NEXT T42B-6**
 
 This document is the living T42 status and implementation plan. Architecture
 authority is [ADR-0010](adr/0010-canonical-test-sessions-and-live-test-data-isolation.md).
@@ -55,8 +55,12 @@ DONE     T42B-4 — Storage namespace + TestSideEffectPolicy IMPLEMENTED / VALID
          deploy / migration / production writes = NO
          Storage Rules source changed; Storage Rules deploy = NO
 
-NEXT     T42B-5 — LIVE-only default read models + TestSession-scoped reads
-         T42B-6 ... T42B-9
+DONE     T42B-5 — LIVE-only read isolation + TestSession-scoped read models
+         IMPLEMENTED / VALIDATED (source-only; no deploy/migration/production writes)
+         firestore.indexes.json unchanged (40 composites); index deploy = NO
+
+NEXT     T42B-6 — Admin System → Testing UI
+         T42B-7 ... T42B-9
 
 THEN     T43 — Test Session Guest Support
 ```
@@ -345,9 +349,10 @@ Notable groups:
   `apply_canonical_course_provisioning_manifest`; `sourceKind=provider` on
   `record_provider_payment_event` (command kind stays TEST_SUPPORTED for
   `manual_external`)
-- **T42B-5_DEFERRED** — no write commands; read-model isolation remains later
+- **T42B-5** — read-model isolation is implemented (this slice)
 - **T42B-8_DEFERRED** — Participant/Account/Instructor identity mutations;
-  TEST client chat/notification Firestore reachability; Storage Rules deploy
+  TEST client chat/notification Firestore reachability; Storage Rules deploy;
+  optional `dataScope==live` query-equality after backfill
 - **T43_DEFERRED** — guest booking/enrollment/link/expiry commands
 
 Test Sessions are still not usable in production. No deploy, Rules, indexes,
@@ -470,6 +475,162 @@ NOT_IMPLEMENTED (`universal-analytics` is a lockfile override only).
 | settings / error logs | LIVE operational | not session-reset data | existing | none |
 
 No hidden client-direct TEST mutation path.
+
+Test Sessions are still not usable in production.
+
+## T42B-5 implementation (source-only)
+
+Implemented and validated. **Not production-usable.** No TestSession,
+TestActor, production identity, Functions/Hosting/Rules/index deploy, or
+`dataScope` backfill.
+
+### Read-scope architecture
+
+Server-authoritative `CanonicalReadScope` reuses `CanonicalExecutionScope`
+plus a purpose:
+
+| Purpose | Who | Scope | Session status |
+| --- | --- | --- | --- |
+| `live_product` | guest, ordinary customer, live Admin without Test context | LIVE | n/a |
+| `product_test` | persistent TestActor assignment, or live Admin with validated `requestedTestSessionId` | TEST + exact session | **active** required |
+| `maintenance_test` | live Admin Testing inventory/preview | TEST + exact session | any known status, including `resetting` / `deleting` / `closed` |
+
+Resolver: `resolveCanonicalReadScope`. Clients cannot pass `dataScope` or an
+arbitrary `testSessionId` as authority. Callables peel
+`requestedTestSessionId` **before** the strict input schema, then the server
+revalidates. Ordinary Admin URLs that omit it stay LIVE even if the owner
+used a TestSession elsewhere. There is no global mutable "test mode".
+
+Guest/public = LIVE. TestActor without assignment = fail closed. TestActor
+cannot request another session. Cross-scope known-ID reads use the
+`not_found` abstraction (`CROSS_SCOPE_READ_VISIBILITY`); they do not reveal
+"exists in another session".
+
+### Compatibility window
+
+Central helper: `documentMatchesReadScope` /
+`identityDocumentMatchesReadScope` /
+`LIVE_READ_COMPATIBILITY_MODE.missingDataScope = 'legacy_live'`.
+
+- LIVE: missing `dataScope` is legacy LIVE until T42B-8
+- TEST: missing `dataScope` is never accepted
+- Flip the compatibility constant to `reject` after T42B-8 backfill to hide
+  unstamped docs from LIVE
+
+Identity graph (Account / Participant / Instructor / management): LIVE hides
+explicit TEST identities; TEST product reads may see unstamped identity and
+persistent TestActor identity (`dataScope=test` without a session stamp)
+until the identity backfill. Email is not classification authority.
+
+Query strategy during the window: **existing queries + bounded server-side
+filter** (strategy A). No dual LIVE/missing queries. No `dataScope`
+equality filters added to production LIVE queries (would explode indexes
+and break unstamped docs). After T42B-8 backfill, catalog/list queries may
+add single-field `dataScope==live` (auto-index; no composite) if TEST volume
+would crowd `limit()` pages.
+
+### Normal product isolation
+
+All `query*ReadModels` callables resolve scope once per request and pass it
+into `ReadModelRequestContext` (known-ID loaders hide out-of-scope as
+`exists: false`) plus list mapping via `parseIfVisibleInReadScope`.
+
+| Surface | LIVE | TEST product | Notes |
+| --- | --- | --- | --- |
+| Admin Lessons | LIVE only | explicit Admin Test context | hot / history / pending guest / detail |
+| Planner / occupancy | LIVE Bookings, blocks, CourseDays | selected session only | no LIVE+TEST merge |
+| Finance | LIVE Payments/Events | same-session TEST | LIVE wallet never shown as TEST payer |
+| Issue Center | LIVE issues | same-session TEST | TEST cannot bump LIVE `admin_runtime` (T42B-2) |
+| People | LIVE identities | not this callable | hardcoded LIVE; Test Actors have a separate directory |
+| Student Cabinet | LIVE resources | TestActor assignment | identity graph uses identity matching |
+| Instructor | LIVE Booking/Course/Attendance | assigned session | TEST instructor catalog uses identity matching |
+| Catalog | LIVE courses | session clones only | TEST clones hidden even if `lifecycle=active` |
+| Reviews | LIVE summary/reviews | current-session TEST only | TEST summary cannot contaminate LIVE |
+| Progress / achievements / feedback | LIVE or matching session | stale other-session → empty | fixed-path docs still check `testSessionId` |
+| Notifications | LIVE listener preserved | unreachable until Rules | prepare contract only |
+| Wallet client | own UID listener | deferred | Admin finance read models are scoped |
+| Chat / homework | LIVE thread via Booking ID | unreachable until Rules | known-ID parent scope on server |
+
+### TestSession read models
+
+Callable `queryTestSessionReadModels` (Admin only):
+
+- `test_session_list` — bounded metadata
+- `test_session_inventory` — maintenance scope; counts via `count()` on
+  `testSessionId` (bookings, course clones, enrollments, payments,
+  attendance, issues) plus bounded assigned account IDs
+- `test_actor_directory` — registry + `getAll` account/assignment
+- `live_course_templates` — LIVE-only clone picker (shared read-only
+  provenance; TEST clones excluded)
+
+Inventory uses maintenance reads so T42B-7 preview is not blocked by
+`resetting`.
+
+### Known-ID detail protection
+
+List filtering is not sufficient. Detail loaders (`bookingId`,
+`paymentId`, `issueId`, `courseId`, enrollment, progress path, etc.) hide
+cross-scope resources as missing after load. Admin Test context does not
+bypass session equality.
+
+### Direct client readers
+
+| Path | LIVE | TEST | Can support TEST now? | Deferred |
+| --- | --- | --- | --- | --- |
+| `useCoursesSync` / `course_catalog_content` | LIVE filter via `isLiveCompatibleResource` | unreachable | filter only | T42B-6 callables for TEST catalog |
+| `useBookingsSync` instructors | LIVE identity filter | unreachable | filter only | T42B-6 |
+| `useUsersSync` | LIVE identity filter | unreachable | filter only | T42B-6 directory |
+| `useNotificationsSync` | own `userId` | unreachable | no (needs session) | T42B-8 Rules |
+| `useWalletSync` | own UID `/wallet/state` | unreachable | no (same path) | T42B-6/8 |
+| `chatService` messages | Booking thread | unreachable | no | T42B-8 Rules |
+| `useSettingsSync` / resort / error logs | shared config | n/a | no scope index | none |
+| `subscribeAdminRealtimeRevision` | LIVE `admin_runtime/*` | not reused | n/a | TEST = callable refresh |
+| `bookingHistoryService` | leftover, unused | n/a | dead | none |
+| `useProfileActivitySync` | own `userId` | unreachable | no | T42B-8 |
+| `useCurrentUserProfileSync` | own profile | identity later | no | T42B-8 |
+
+Client may attach `requestedTestSessionId` only at an authorized Testing
+boundary (T42B-6). Server peels and revalidates. Client helpers accept the
+optional field and isolate in-flight/idempotency keys per session so LIVE
+and TEST reads cannot share a transport slot. No client-controlled
+`dataScope=test`.
+
+### Realtime strategy
+
+- LIVE realtime listeners preserved, with LIVE compatibility filters on
+  mixed collections (courses, instructors, users).
+- TEST product reads: callable refresh. Do not duplicate all realtime
+  architecture.
+- TEST realtime required later: chat, notifications (Rules-gated).
+- `admin_runtime` TEST invalidation: **do not reuse** LIVE
+  `admin_runtime/*`. Preferred later:
+  `/test_sessions/{sessionId}/runtime/{surface}`. T42B-6 can start with
+  explicit refresh after test commands. Not built in this slice.
+
+### Index impact
+
+Source composites remain **40**. Field overrides remain **2**. Proposed
+additions = **none**. Proposed removals = **none**. Production deploy = **NO**.
+
+TEST inventory `where('testSessionId','==',id).count()` uses single-field
+auto-indexes. Session UI should keep using `testSessionId` / known IDs
+rather than duplicating every LIVE composite.
+
+T42B-8 deploy order if equality filters are added after backfill:
+
+1. backfill `dataScope=live`
+2. indexes READY (only if new composites are actually required)
+3. Functions/Rules strict readers
+
+No speculative indexes were added.
+
+### Query cost
+
+Scope is resolved once per callable. Related IDs use existing request
+memo/`getAll`. List isolation is O(page) in-memory filter on the existing
+bounded query. Inventory uses aggregation `count()` (one per collection,
+not a drain). No N+1 TestActor lookups; actor directory batches account +
+assignment refs.
 
 Test Sessions are still not usable in production.
 
@@ -698,8 +859,8 @@ No blind manual cleanup.
 | T42B-2 | Write propagation: writers, claims, guards, idempotency, outbox/work, cross-scope assertions            | **IMPLEMENTED / VALIDATED** (source-only; no deploy/migration/production writes)               |
 | T42B-3 | Domain isolation: finance, progress, achievements, reviews, attendance, homework, CourseEnrollment      | **IMPLEMENTED / VALIDATED** (source-only; no deploy/migration/production writes)               |
 | T42B-4 | Storage + side effects                                                                                  | **IMPLEMENTED / VALIDATED** (source-only; Storage Rules source YES, deploy NO)                 |
-| T42B-5 | Read-model isolation                                                                                    | **NEXT**                                                                                       |
-| T42B-6 | Admin Testing UI                                                                                        | PLANNED                                                                                        |
+| T42B-5 | Read-model isolation                                                                                    | **IMPLEMENTED / VALIDATED** (source-only; indexes unchanged 40; deploy NO)                     |
+| T42B-6 | Admin Testing UI                                                                                        | **NEXT**                                                                                       |
 | T42B-7 | Reset/Delete engine: preview, manifests, locks, audit, verifier                                         | PLANNED                                                                                        |
 | T42B-8 | Existing LIVE data backfill; Firestore Rules; Storage Rules; indexes; strict dataScope contract         | PLANNED                                                                                        |
 | T42B-9 | Authenticated isolation smoke                                                                           | PLANNED                                                                                        |

@@ -17,6 +17,8 @@ import {
   type CanonicalTimestamp,
   type ReadModelAccountManagerActor,
   type ReadModelInstructorActor,
+  LIVE_CANONICAL_READ_SCOPE,
+  type CanonicalReadScope,
 } from '@ski-academy/shared-domain';
 import type { Firestore } from 'firebase-admin/firestore';
 import { parseInstructorCatalog } from '../bookings/bookingStore';
@@ -28,8 +30,12 @@ import {
   parseParticipant,
   parseParticipantBlock,
   parseParticipantManagement,
-  participantBlockPath,
 } from '../participantAccess/participantAccessStore';
+import {
+  createReadModelRequestContext,
+  type ReadModelRequestContext,
+} from './readModelRequestContext';
+import { parseIfVisibleInReadScope } from './readModelScope';
 
 /**
  * Preserved account_manager authorization semantics (T32.9R.A2):
@@ -72,7 +78,9 @@ type PreloadedAccessEntities = Readonly<{
 async function loadTargetedAccountManagerAuthorization(
   firestore: Firestore,
   accountId: AccountId,
-  participantId: QueryParticipantInstructorAccessReadModelsInput['participantId']
+  participantId: QueryParticipantInstructorAccessReadModelsInput['participantId'],
+  readContext: ReadModelRequestContext,
+  readScope: CanonicalReadScope
 ): Promise<
   | Readonly<{
       allowed: true;
@@ -82,7 +90,7 @@ async function loadTargetedAccountManagerAuthorization(
     }>
   | Readonly<{ allowed: false }>
 > {
-  const accountSnap = await firestore.collection('users').doc(accountId).get();
+  const accountSnap = await readContext.account(accountId);
   const account = parseAccount(accountSnap.data() as Record<string, unknown> | undefined);
   if (!account) {
     return { allowed: false };
@@ -99,14 +107,17 @@ async function loadTargetedAccountManagerAuthorization(
     .limit(1)
     .get();
 
-  const management = parseParticipantManagement(
-    managementSnap.docs[0]?.data() as Record<string, unknown> | undefined
+  const management = parseIfVisibleInReadScope(
+    managementSnap.docs[0]?.data(),
+    parseParticipantManagement,
+    readScope,
+    'identity'
   );
   if (!management || management.status !== 'active') {
     return { allowed: false };
   }
 
-  const participantSnap = await firestore.collection('participants').doc(participantId).get();
+  const participantSnap = await readContext.participant(participantId);
   const participant = parseParticipant(
     participantSnap.data() as Record<string, unknown> | undefined
   );
@@ -136,20 +147,22 @@ async function buildParticipantInstructorAccessReadModel(input: Readonly<{
   participantId: QueryParticipantInstructorAccessReadModelsInput['participantId'];
   instructorId: InstructorId;
   now: CanonicalTimestamp;
+  readContext: ReadModelRequestContext;
+  readScope: CanonicalReadScope;
   preloaded?: PreloadedAccessEntities;
 }>): Promise<ParticipantInstructorAccessReadModel | undefined> {
   const participant =
     input.preloaded?.participant ??
     parseParticipant(
-      (
-        await input.firestore.collection('participants').doc(input.participantId).get()
-      ).data() as Record<string, unknown> | undefined
+      (await input.readContext.participant(input.participantId)).data() as
+        | Record<string, unknown>
+        | undefined
     );
   if (!participant) {
     return undefined;
   }
 
-  const instructorSnap = await input.firestore.collection('instructors').doc(input.instructorId).get();
+  const instructorSnap = await input.readContext.instructor(input.instructorId);
   const instructorCatalog = parseInstructorCatalog(
     input.instructorId,
     instructorSnap.data() as Record<string, unknown> | undefined
@@ -178,11 +191,14 @@ async function buildParticipantInstructorAccessReadModel(input: Readonly<{
   // still early-exits without extra pair reads.
   const [relationshipSnap, managerBlockSnap, instructorBlockSnap] = await Promise.all([
     input.firestore.doc(instructorRelationshipPath(relationshipId)).get(),
-    input.firestore.doc(participantBlockPath(managerBlockId)).get(),
-    input.firestore.doc(participantBlockPath(instructorBlockId)).get(),
+    input.readContext.participantBlock(managerBlockId),
+    input.readContext.participantBlock(instructorBlockId),
   ]);
-  const relationship = parseInstructorRelationship(
-    relationshipSnap.data() as Record<string, unknown> | undefined
+  const relationship = parseIfVisibleInReadScope(
+    relationshipSnap.data(),
+    parseInstructorRelationship,
+    input.readScope,
+    'identity'
   );
   const managerBlock = parseParticipantBlock(
     managerBlockSnap.data() as Record<string, unknown> | undefined
@@ -195,14 +211,13 @@ async function buildParticipantInstructorAccessReadModel(input: Readonly<{
   let management = input.preloaded?.management;
   if (input.actor.kind === 'account_manager') {
     if (!account) {
-      const accountSnap = await input.firestore.collection('users').doc(input.actor.accountId).get();
+      const accountSnap = await input.readContext.account(input.actor.accountId);
       account = parseAccount(accountSnap.data() as Record<string, unknown> | undefined);
     }
     if (!management) {
-      const managementSnap = await input.firestore
-        .collection('participant_management')
-        .doc(input.actor.participantManagementId)
-        .get();
+      const managementSnap = await input.readContext.participantManagement(
+        input.actor.participantManagementId
+      );
       management = parseParticipantManagement(
         managementSnap.data() as Record<string, unknown> | undefined
       );
@@ -249,15 +264,21 @@ export async function queryParticipantInstructorAccessReadModels(
     readonly accountId: AccountId;
     readonly instructorId?: InstructorId;
     readonly now?: Date;
+    readonly readContext?: ReadModelRequestContext;
+    readonly readScope?: CanonicalReadScope;
   }
 ): Promise<QueryParticipantInstructorAccessReadModelsResult> {
   const now = timestampFromDate(options.now ?? new Date());
+  const readScope = options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
+  const readContext = options.readContext ?? createReadModelRequestContext(firestore, { readScope });
 
   if (input.scope === 'account_manager') {
     const auth = await loadTargetedAccountManagerAuthorization(
       firestore,
       options.accountId,
-      input.participantId
+      input.participantId,
+      readContext,
+      readScope
     );
     if (!auth.allowed) {
       return { scope: input.scope };
@@ -274,6 +295,8 @@ export async function queryParticipantInstructorAccessReadModels(
       participantId: input.participantId,
       instructorId: input.instructorId,
       now,
+      readContext,
+      readScope,
       preloaded: {
         account: auth.account,
         participant: auth.participant,
@@ -298,6 +321,8 @@ export async function queryParticipantInstructorAccessReadModels(
     participantId: input.participantId,
     instructorId: input.instructorId,
     now,
+    readContext,
+    readScope,
   });
   return { scope: input.scope, ...(item ? { item } : {}) };
 }

@@ -13,6 +13,8 @@ import {
   type InstructorId,
   type QueryCourseAttendanceReadModelsInput,
   type QueryCourseAttendanceReadModelsResult,
+  LIVE_CANONICAL_READ_SCOPE,
+  type CanonicalReadScope,
 } from '@ski-academy/shared-domain';
 import type {
   Firestore,
@@ -75,9 +77,11 @@ export async function queryCourseAttendanceReadModels(
     readonly instructorId?: InstructorId;
     readonly now?: Date;
     readonly readContext?: ReadModelRequestContext;
+    readonly readScope?: CanonicalReadScope;
   } = {}
 ): Promise<QueryCourseAttendanceReadModelsResult> {
-  const readContext = options.readContext ?? createReadModelRequestContext(firestore);
+  const readScope = options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
+  const readContext = options.readContext ?? createReadModelRequestContext(firestore, { readScope });
   const now = timestampFromDate(options.now ?? new Date());
 
   if (input.scope === 'account_enrollment') {
@@ -185,7 +189,7 @@ export async function queryCourseAttendanceReadModels(
     }))
   );
   assertInstructorCourseRosterReadAccess({ instructorId, course, courseDays });
-  const enrollments = await loadInstructorRosterEnrollments(firestore, courseId);
+  const enrollments = await loadInstructorRosterEnrollments(firestore, courseId, { readScope });
   const attendanceSnapshots = await Promise.all(
     Array.from(
       { length: Math.ceil(enrollments.length / FIRESTORE_IN_QUERY_MAX_VALUES) },

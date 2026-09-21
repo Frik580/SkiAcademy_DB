@@ -35,6 +35,9 @@ import {
   type QueryAdminIdentityReadModelsInput,
   type QueryAdminIdentityReadModelsResult,
   type ReadModelAdministratorActor,
+  LIVE_CANONICAL_READ_SCOPE,
+  identityDocumentMatchesReadScope,
+  type CanonicalReadScope,
 } from '@ski-academy/shared-domain';
 import {
   parseAccount,
@@ -51,6 +54,7 @@ import {
   createReadModelRequestContext,
   type ReadModelRequestContext,
 } from './readModelRequestContext';
+import { parseIfVisibleInReadScope, queryDocsMatchingReadScope } from './readModelScope';
 
 export class InvalidAdminIdentityReadCursorError extends Error {
   constructor() {
@@ -309,7 +313,8 @@ async function paginateCollection(
     cursor?: string;
     role?: 'admin' | 'user';
   },
-  searchField: 'displayName' | 'name'
+  searchField: 'displayName' | 'name',
+  readScope: CanonicalReadScope
 ): Promise<{ readonly docs: FirebaseFirestore.QueryDocumentSnapshot[]; readonly hasMore: boolean }> {
   const size = pageSizeOf(input.pageSize);
   const cursor = decodeCursor(input.cursor);
@@ -334,7 +339,7 @@ async function paginateCollection(
       }
       const snapshot = await emailQuery.limit(size + 1).get();
       return {
-        docs: snapshot.docs.slice(0, size),
+        docs: queryDocsMatchingReadScope(snapshot.docs.slice(0, size), readScope, 'identity'),
         hasMore: snapshot.docs.length > size,
       };
     }
@@ -345,13 +350,13 @@ async function paginateCollection(
       }
       const snapshot = await phoneQuery.limit(size + 1).get();
       return {
-        docs: snapshot.docs.slice(0, size),
+        docs: queryDocsMatchingReadScope(snapshot.docs.slice(0, size), readScope, 'identity'),
         hasMore: snapshot.docs.length > size,
       };
     }
     if (asId.success) {
       const snapshot = await firestore.collection(collection).doc(asId.data).get();
-      if (!snapshot.exists) {
+      if (!snapshot.exists || !identityDocumentMatchesReadScope(readScope, snapshot.data() ?? {})) {
         return { docs: [], hasMore: false };
       }
       if (roleFilter) {
@@ -384,7 +389,7 @@ async function paginateCollection(
 
   const snapshot = await query.limit(size + 1).get();
   return {
-    docs: snapshot.docs.slice(0, size),
+    docs: queryDocsMatchingReadScope(snapshot.docs, readScope, 'identity').slice(0, size),
     hasMore: snapshot.docs.length > size,
   };
 }
@@ -552,7 +557,8 @@ function classificationOf(
 
 async function countParticipantBlocks(
   firestore: Firestore,
-  participantId: ParticipantId
+  participantId: ParticipantId,
+  readScope: CanonicalReadScope
 ): Promise<number> {
   const snapshot = await firestore
     .collection('participant_blocks')
@@ -560,7 +566,9 @@ async function countParticipantBlocks(
     .where('status', '==', 'active')
     .limit(COUNT_SCAN_LIMIT)
     .get();
-  return snapshot.docs.filter((doc) => parseParticipantBlock(doc.data() as Record<string, unknown>)).length;
+  return snapshot.docs.filter((doc) =>
+    parseIfVisibleInReadScope(doc.data(), parseParticipantBlock, readScope, 'identity')
+  ).length;
 }
 
 async function buildParticipantListItem(
@@ -587,7 +595,11 @@ async function buildParticipantListItem(
     displayName: participant.displayName,
     classification,
     lifecycle: participant.lifecycle.status,
-    blockedInstructorCount: await countParticipantBlocks(firestore, participant.participantId),
+    blockedInstructorCount: await countParticipantBlocks(
+      firestore,
+      participant.participantId,
+      readContext.readScope
+    ),
     managingAccountCount: management.length,
     diagnosticCount: diagnostics.length,
     revision: participant.revision,
@@ -1018,13 +1030,14 @@ export async function queryAdminIdentityReadModels(
   firestore: Firestore,
   actor: ReadModelAdministratorActor,
   input: QueryAdminIdentityReadModelsInput,
-  options: { readonly readContext?: ReadModelRequestContext } = {}
+  options: { readonly readContext?: ReadModelRequestContext; readonly readScope?: CanonicalReadScope } = {}
 ): Promise<QueryAdminIdentityReadModelsResult> {
-  const readContext = options.readContext ?? createReadModelRequestContext(firestore);
+  const readScope = options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
+  const readContext = options.readContext ?? createReadModelRequestContext(firestore, { readScope });
   const authority = await loadActorAuthority(firestore, actor, readContext);
 
   if (input.scope === 'admin_account_list') {
-    const page = await paginateCollection(firestore, 'users', input, 'displayName');
+    const page = await paginateCollection(firestore, 'users', input, 'displayName', readScope);
     const items = (
       await Promise.all(
         page.docs.map(async (doc) => {
@@ -1061,15 +1074,17 @@ export async function queryAdminIdentityReadModels(
 
   if (input.scope === 'admin_account_detail') {
     const snapshot = await readContext.account(input.accountId);
+    const accountData = snapshot.data() as Record<string, unknown> | undefined;
+    const visible = snapshot.exists && identityDocumentMatchesReadScope(readScope, accountData ?? {});
     const result = {
       scope: 'admin_account_detail' as const,
-      ...(snapshot.exists
+      ...(visible
         ? {
             item: await buildAccountDetail(
               firestore,
               authority,
               input.accountId,
-              snapshot.data() as Record<string, unknown>,
+              accountData as Record<string, unknown>,
               readContext
             ),
           }
@@ -1079,7 +1094,7 @@ export async function queryAdminIdentityReadModels(
   }
 
   if (input.scope === 'admin_participant_list') {
-    const page = await paginateCollection(firestore, 'participants', input, 'displayName');
+    const page = await paginateCollection(firestore, 'participants', input, 'displayName', readScope);
     const items = (
       await Promise.all(
         page.docs.map(async (doc) => {
@@ -1121,7 +1136,7 @@ export async function queryAdminIdentityReadModels(
   }
 
   if (input.scope === 'admin_instructor_list') {
-    const page = await paginateCollection(firestore, 'instructors', input, 'name');
+    const page = await paginateCollection(firestore, 'instructors', input, 'name', readScope);
     const items = (
       await Promise.all(
         page.docs.map(async (doc) => {

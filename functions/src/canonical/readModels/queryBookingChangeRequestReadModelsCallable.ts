@@ -16,6 +16,9 @@ import {
   resolveCallableInstructorId,
 } from './resolveCallableInstructorId';
 import { createReadModelRequestContext } from './readModelRequestContext';
+import { parseReadModelCallableData, rethrowReadScopeHttpsError } from './readModelScope';
+import { resolveCanonicalReadScope } from '../testSessions/canonicalReadScopeResolver';
+import { createFirestoreCanonicalExecutionScopeStore } from '../testSessions/canonicalExecutionScopeResolver';
 
 export function createQueryBookingChangeRequestReadModelsHandler(firestore: Firestore) {
   return async (
@@ -23,11 +26,10 @@ export function createQueryBookingChangeRequestReadModelsHandler(firestore: Fire
   ): Promise<QueryBookingChangeRequestReadModelsResult> => {
     const raw = request.data ?? {};
     rejectSpoofedBookingChangeRequestReadInput(raw);
-
-    const parsed = QueryBookingChangeRequestReadModelsInputSchema.safeParse(raw);
-    if (!parsed.success) {
-      throw new HttpsError('invalid-argument', 'The request is invalid.');
-    }
+    const { input, requestedTestSessionId } = parseReadModelCallableData(
+      QueryBookingChangeRequestReadModelsInputSchema,
+      raw
+    );
 
     if (!request.auth?.uid) {
       throw new HttpsError('unauthenticated', 'Authentication is required.');
@@ -37,43 +39,59 @@ export function createQueryBookingChangeRequestReadModelsHandler(firestore: Fire
     if (!parsedAccountId.success) {
       throw new HttpsError('unauthenticated', 'Authentication is required.');
     }
-    const readContext = createReadModelRequestContext(firestore);
 
-    if (parsed.data.scope === 'admin_open' || parsed.data.scope === 'admin_detail') {
-      const administratorActor = await resolveCallableAdministratorActor(
-        firestore,
-        request.auth.uid,
-        readContext
+    const isAdminScope = input.scope === 'admin_open' || input.scope === 'admin_detail';
+
+    const liveContext = createReadModelRequestContext(firestore);
+    try {
+      const administratorActor = isAdminScope
+        ? await resolveCallableAdministratorActor(firestore, request.auth.uid, liveContext)
+        : undefined;
+      const readScope = await resolveCanonicalReadScope(
+        createFirestoreCanonicalExecutionScopeStore(firestore),
+        {
+          accountId: parsedAccountId.data,
+          accountLifecycleStatus: 'active',
+          isAdministrator: isAdminScope,
+          requestedTestSessionId,
+        }
       );
-      try {
-        return await queryBookingChangeRequestReadModels(firestore, parsed.data, {
+      const readContext =
+        readScope.dataScope === 'live'
+          ? liveContext
+          : createReadModelRequestContext(firestore, { readScope });
+
+      if (isAdminScope) {
+        return await queryBookingChangeRequestReadModels(firestore, input, {
           accountId: parsedAccountId.data,
           administratorActor,
           readContext,
+          readScope,
         });
-      } catch (error) {
-        if (error instanceof BookingChangeRequestAdminReadForbiddenError) {
+      }
+
+      let instructorId: ReturnType<typeof resolveCallableInstructorId> | undefined;
+      if (input.scope === 'instructor_open') {
+        const userSnap = await readContext.account(parsedAccountId.data);
+        instructorId = resolveCallableInstructorId(
+          readCallableAccountProfile(userSnap.data() as Record<string, unknown> | undefined)
+        );
+        if (!instructorId) {
           throw new HttpsError('permission-denied', 'This action is not permitted.');
         }
-        throw error;
       }
-    }
 
-    let instructorId: ReturnType<typeof resolveCallableInstructorId> | undefined;
-    if (parsed.data.scope === 'instructor_open') {
-      const userSnap = await readContext.account(parsedAccountId.data);
-      instructorId = resolveCallableInstructorId(
-        readCallableAccountProfile(userSnap.data() as Record<string, unknown> | undefined)
-      );
-      if (!instructorId) {
+      return await queryBookingChangeRequestReadModels(firestore, input, {
+        accountId: parsedAccountId.data,
+        instructorId,
+        readContext,
+        readScope,
+      });
+    } catch (error) {
+      if (error instanceof BookingChangeRequestAdminReadForbiddenError) {
         throw new HttpsError('permission-denied', 'This action is not permitted.');
       }
+      rethrowReadScopeHttpsError(error);
     }
-
-    return queryBookingChangeRequestReadModels(firestore, parsed.data, {
-      accountId: parsedAccountId.data,
-      instructorId,
-      readContext,
-    });
   };
 }

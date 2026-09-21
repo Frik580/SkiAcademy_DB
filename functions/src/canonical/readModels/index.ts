@@ -37,3 +37,5 @@ export * from './participantAchievementsReadModels';
 export * from './queryParticipantAchievementsReadModelsCallable';
 export * from './participantLessonFeedbackReadModels';
 export * from './queryParticipantLessonFeedbackReadModelsCallable';
+export * from './testSessionReadModels';
+export * from './queryTestSessionReadModelsCallable';

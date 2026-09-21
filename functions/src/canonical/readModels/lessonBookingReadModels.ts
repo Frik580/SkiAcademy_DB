@@ -55,6 +55,9 @@ import {
   type Attendance,
   type CanonicalTimestamp,
   type ParticipantId,
+  LIVE_CANONICAL_READ_SCOPE,
+  documentMatchesReadScope,
+  type CanonicalReadScope,
 } from '@ski-academy/shared-domain';
 import type { Firestore, Query, QueryDocumentSnapshot } from 'firebase-admin/firestore';
 import { parseAdminIssue } from '../adminIssues';
@@ -74,6 +77,7 @@ import {
   createReadModelRequestContext,
   type ReadModelRequestContext,
 } from './readModelRequestContext';
+import { parseIfVisibleInReadScope } from './readModelScope';
 
 export interface LessonBookingReadAuthorizationContext {
   readonly account?: Account;
@@ -416,15 +420,21 @@ function safeAdminAccountIdentity(
 
 async function loadRelatedBookingAdminIssues(
   firestore: Firestore,
-  booking: Booking
+  booking: Booking,
+  readScope: CanonicalReadScope
 ): Promise<AdminIssue[]> {
   const snapshot = await firestore
     .collection('admin_issues')
     .where('subjectRef.bookingId', '==', booking.bookingId)
     .limit(50)
     .get();
-  const issues = snapshot.docs.map((document) => {
-    const issue = parseAdminIssue(document.data() as Record<string, unknown>);
+  const issues = snapshot.docs.flatMap((document) => {
+    const issue = parseIfVisibleInReadScope(
+      document.data(),
+      parseAdminIssue,
+      readScope
+    );
+    if (!issue) return [];
     if (
       !issue ||
       issue.issueId !== document.id ||
@@ -435,7 +445,7 @@ async function loadRelatedBookingAdminIssues(
         `Canonical lesson Booking read integrity failure: admin_issues/${document.id}`
       );
     }
-    return issue;
+    return [issue];
   });
   return issues.sort((left, right) => {
     const compared = compareCanonicalTimestamps(right.updatedAt, left.updatedAt);
@@ -578,7 +588,7 @@ export async function buildAdminLessonBookingReadModel(
     readContext.instructor(booking.occurrence.instructorId),
     readContext.payment(booking.paymentId),
     readContext.account(actor.accountId),
-    loadRelatedBookingAdminIssues(firestore, booking),
+    loadRelatedBookingAdminIssues(firestore, booking, readContext.readScope),
     loadOpenChangeRequestsForBooking(firestore, booking.bookingId),
     Promise.all(
       booking.party.participantIds.map((participantId) => readContext.participant(participantId))
@@ -803,7 +813,9 @@ export async function buildAdminLessonBookingReadModel(
         blocksDelivery: issue.blocksDelivery,
         updatedAt: issue.updatedAt,
       })),
-      relatedOpenChangeRequests: relatedOpenChangeRequests.map((changeRequest) => ({
+      relatedOpenChangeRequests: relatedOpenChangeRequests
+        .filter((changeRequest) => documentMatchesReadScope(readContext.readScope, changeRequest))
+        .map((changeRequest) => ({
         requestId: changeRequest.requestId,
         revision: changeRequest.revision,
         requestType: changeRequest.requestType,
@@ -1219,9 +1231,11 @@ export async function loadAuthorizedAccountBookings(
   options: {
     readonly authContext?: LessonBookingReadAuthorizationContext;
     readonly readContext?: ReadModelRequestContext;
+    readonly readScope?: CanonicalReadScope;
   } = {}
 ): Promise<Booking[]> {
-  const readContext = options.readContext ?? createReadModelRequestContext(firestore);
+  const readScope = options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
+  const readContext = options.readContext ?? createReadModelRequestContext(firestore, { readScope });
   const authContext =
     options.authContext ??
     (await loadLessonBookingReadAuthorizationContext(firestore, accountId, readContext));
@@ -1244,7 +1258,7 @@ export async function loadAuthorizedAccountBookings(
       .get();
 
     for (const doc of snapshot.docs) {
-      const parsed = parseBooking(doc.data() as Record<string, unknown>);
+      const parsed = parseIfVisibleInReadScope(doc.data(), parseBooking, readScope);
       if (!parsed || parsed.archival?.isDeleted) {
         continue;
       }
@@ -1282,9 +1296,11 @@ export async function loadAuthorizedAccountBookingsForCalendarRange(
   options: {
     readonly authContext?: LessonBookingReadAuthorizationContext;
     readonly readContext?: ReadModelRequestContext;
+    readonly readScope?: CanonicalReadScope;
   } = {}
 ): Promise<Booking[]> {
-  const readContext = options.readContext ?? createReadModelRequestContext(firestore);
+  const readScope = options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
+  const readContext = options.readContext ?? createReadModelRequestContext(firestore, { readScope });
   const authContext =
     options.authContext ??
     (await loadLessonBookingReadAuthorizationContext(firestore, accountId, readContext));
@@ -1310,7 +1326,7 @@ export async function loadAuthorizedAccountBookingsForCalendarRange(
       .get();
 
     for (const doc of snapshot.docs) {
-      const parsed = parseBooking(doc.data() as Record<string, unknown>);
+      const parsed = parseIfVisibleInReadScope(doc.data(), parseBooking, readScope);
       if (!parsed || parsed.archival?.isDeleted) {
         continue;
       }
@@ -1336,8 +1352,13 @@ export async function loadAuthorizedAccountBookingsForCalendarRange(
 
 export async function loadInstructorHotBookings(
   firestore: Firestore,
-  instructorId: InstructorId
+  instructorId: InstructorId,
+  options: {
+    readonly readContext?: ReadModelRequestContext;
+    readonly readScope?: CanonicalReadScope;
+  } = {}
 ): Promise<Booking[]> {
+  const readScope = options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
   const snapshot = await firestore
     .collection('bookings')
     .where('occurrence.instructorId', '==', instructorId)
@@ -1346,7 +1367,7 @@ export async function loadInstructorHotBookings(
 
   const bookings: Booking[] = [];
   for (const doc of snapshot.docs) {
-    const parsed = parseBooking(doc.data() as Record<string, unknown>);
+    const parsed = parseIfVisibleInReadScope(doc.data(), parseBooking, readScope);
     if (!parsed || parsed.archival?.isDeleted) {
       continue;
     }
@@ -1365,9 +1386,11 @@ export async function queryLessonBookingReadModels(
     readonly guestActionSecret?: string;
     readonly now?: Date;
     readonly readContext?: ReadModelRequestContext;
+    readonly readScope?: CanonicalReadScope;
   } = {}
 ): Promise<QueryLessonBookingReadModelsResult> {
-  const readContext = options.readContext ?? createReadModelRequestContext(firestore);
+  const readScope = options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
+  const readContext = options.readContext ?? createReadModelRequestContext(firestore, { readScope });
   const pageSize = Math.min(
     input.pageSize ?? LESSON_BOOKING_READ_MODEL_PAGE_SIZE_DEFAULT,
     LESSON_BOOKING_READ_MODEL_PAGE_SIZE_MAX
@@ -1420,7 +1443,7 @@ export async function queryLessonBookingReadModels(
       .get();
     const scannedDocuments = snapshot.docs.slice(0, pageSize);
     const bookings = scannedDocuments
-      .map((document) => parseBooking(document.data() as Record<string, unknown>))
+      .map((document) => parseIfVisibleInReadScope(document.data(), parseBooking, readScope))
       .filter(
         (booking): booking is Booking =>
           booking !== undefined && booking.archival?.isDeleted !== true
@@ -1471,7 +1494,7 @@ export async function queryLessonBookingReadModels(
       .get();
     const scannedDocuments = snapshot.docs.slice(0, pageSize);
     const bookings = scannedDocuments
-      .map((document) => parseBooking(document.data() as Record<string, unknown>))
+      .map((document) => parseIfVisibleInReadScope(document.data(), parseBooking, readScope))
       .filter(
         (booking): booking is Booking =>
           booking !== undefined &&
@@ -1560,7 +1583,7 @@ export async function queryLessonBookingReadModels(
         .get();
       exhausted = snapshot.docs.length < pageSize;
       for (const document of snapshot.docs) {
-        const booking = parseBooking(document.data() as Record<string, unknown>);
+        const booking = parseIfVisibleInReadScope(document.data(), parseBooking, readScope);
         if (!booking || booking.archival?.isDeleted) continue;
         const hot = isInstructorLessonBookingHot({
           lifecycleStatus: booking.lifecycle.status,

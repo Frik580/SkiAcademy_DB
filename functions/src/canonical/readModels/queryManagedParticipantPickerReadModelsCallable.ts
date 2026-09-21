@@ -8,6 +8,10 @@ import {
 } from '@ski-academy/shared-domain';
 import { queryManagedParticipantPickerReadModels } from './managedParticipantPickerReadModels';
 import { resolveCallableAdministratorActor } from './resolveCallableAdministrator';
+import { createReadModelRequestContext } from './readModelRequestContext';
+import { parseReadModelCallableData, rethrowReadScopeHttpsError } from './readModelScope';
+import { resolveCanonicalReadScope } from '../testSessions/canonicalReadScopeResolver';
+import { createFirestoreCanonicalExecutionScopeStore } from '../testSessions/canonicalExecutionScopeResolver';
 
 export function createQueryManagedParticipantPickerReadModelsHandler(firestore: Firestore) {
   return async (
@@ -15,26 +19,45 @@ export function createQueryManagedParticipantPickerReadModelsHandler(firestore: 
   ): Promise<QueryManagedParticipantPickerReadModelsResult> => {
     const raw = request.data ?? {};
     rejectSpoofedManagedParticipantPickerInput(raw);
-
-    const parsed = QueryManagedParticipantPickerReadModelsInputSchema.safeParse(raw);
-    if (!parsed.success) {
-      throw new HttpsError('invalid-argument', 'The request is invalid.');
-    }
+    const { input, requestedTestSessionId } = parseReadModelCallableData(
+      QueryManagedParticipantPickerReadModelsInputSchema,
+      raw
+    );
 
     if (!request.auth?.uid) {
       throw new HttpsError('unauthenticated', 'Authentication is required.');
     }
 
-    if (parsed.data.accountId !== undefined) {
-      await resolveCallableAdministratorActor(firestore, request.auth.uid);
-      return queryManagedParticipantPickerReadModels(firestore, parsed.data.accountId);
+    try {
+      const isAdministrator = input.accountId !== undefined;
+      const actor = isAdministrator
+        ? await resolveCallableAdministratorActor(firestore, request.auth.uid)
+        : undefined;
+      const targetAccountId = input.accountId
+        ? input.accountId
+        : parseManagedParticipantPickerAccountId(request.auth.uid).success
+          ? parseManagedParticipantPickerAccountId(request.auth.uid).data
+          : undefined;
+      if (!targetAccountId) {
+        throw new HttpsError('unauthenticated', 'Authentication is required.');
+      }
+      const resolverAccountId = actor?.accountId ?? targetAccountId;
+      const readScope = await resolveCanonicalReadScope(
+        createFirestoreCanonicalExecutionScopeStore(firestore),
+        {
+          accountId: resolverAccountId,
+          accountLifecycleStatus: 'active',
+          isAdministrator,
+          requestedTestSessionId,
+        }
+      );
+      const readContext = createReadModelRequestContext(firestore, { readScope });
+      return await queryManagedParticipantPickerReadModels(firestore, targetAccountId, {
+        readContext,
+        readScope,
+      });
+    } catch (error) {
+      rethrowReadScopeHttpsError(error);
     }
-
-    const parsedAccountId = parseManagedParticipantPickerAccountId(request.auth.uid);
-    if (!parsedAccountId.success) {
-      throw new HttpsError('unauthenticated', 'Authentication is required.');
-    }
-
-    return queryManagedParticipantPickerReadModels(firestore, parsedAccountId.data);
   };
 }

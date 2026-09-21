@@ -16,6 +16,9 @@ import {
   type ParticipantLessonFeedbackReadModel,
   type QueryParticipantLessonFeedbackReadModelsInput,
   type QueryParticipantLessonFeedbackReadModelsResult,
+  LIVE_CANONICAL_READ_SCOPE,
+  documentMatchesReadScope,
+  type CanonicalReadScope,
 } from '@ski-academy/shared-domain';
 import { FieldPath, type Firestore, type Query } from 'firebase-admin/firestore';
 import { loadAuthorizedInstructorLessonFeedbackBooking } from '../lessonFeedback/participantLessonFeedbackAuthorization';
@@ -30,6 +33,7 @@ import {
   parseParticipant,
   parseParticipantManagement,
 } from '../participantAccess/participantAccessStore';
+import { type ReadModelRequestContext } from './readModelRequestContext';
 
 const MANAGED_FEEDBACK_HISTORY_LIMIT = PARTICIPANT_LESSON_FEEDBACK_READ_MODEL_LESSON_IDS_MAX;
 
@@ -146,9 +150,18 @@ async function assertManagedAccess(
   }
 }
 
+function toScopedReadModel(
+  data: Record<string, unknown> | undefined,
+  readScope: CanonicalReadScope
+): ParticipantLessonFeedbackReadModel | undefined {
+  if (!documentMatchesReadScope(readScope, data ?? {})) return undefined;
+  return toReadModel(parseParticipantLessonFeedbackRecord(data));
+}
+
 async function loadFeedbackByIds(
   firestore: Firestore,
-  feedbackIds: readonly string[]
+  feedbackIds: readonly string[],
+  readScope: CanonicalReadScope
 ): Promise<ParticipantLessonFeedbackReadModel[]> {
   if (feedbackIds.length === 0) return [];
   const snapshots = await firestore.getAll(
@@ -158,10 +171,9 @@ async function loadFeedbackByIds(
   );
   return snapshots
     .map((snapshot) =>
-      toReadModel(
-        parseParticipantLessonFeedbackRecord(
-          snapshot.exists ? (snapshot.data() as Record<string, unknown>) : undefined
-        )
+      toScopedReadModel(
+        snapshot.exists ? (snapshot.data() as Record<string, unknown>) : undefined,
+        readScope
       )
     )
     .filter((model): model is ParticipantLessonFeedbackReadModel => model !== undefined);
@@ -182,13 +194,14 @@ function historyQuery(
 async function loadParticipantHistory(
   firestore: Firestore,
   participantId: ParticipantId,
-  lessonBookingIds: readonly BookingId[] | undefined
+  lessonBookingIds: readonly BookingId[] | undefined,
+  readScope: CanonicalReadScope
 ): Promise<ParticipantLessonFeedbackReadModel[]> {
   if (lessonBookingIds && lessonBookingIds.length > 0) {
     const feedbackIds = lessonBookingIds.map((lessonBookingId) =>
       participantLessonFeedbackIdFromLessonParticipant({ participantId, lessonBookingId })
     );
-    const items = await loadFeedbackByIds(firestore, feedbackIds);
+    const items = await loadFeedbackByIds(firestore, feedbackIds, readScope);
     return items.filter(
       (item) =>
         item.participantId === participantId &&
@@ -200,9 +213,7 @@ async function loadParticipantHistory(
     .limit(MANAGED_FEEDBACK_HISTORY_LIMIT)
     .get();
   return snapshot.docs
-    .map((document) =>
-      toReadModel(parseParticipantLessonFeedbackRecord(document.data() as Record<string, unknown>))
-    )
+    .map((document) => toScopedReadModel(document.data() as Record<string, unknown>, readScope))
     .filter(
       (model): model is ParticipantLessonFeedbackReadModel =>
         model !== undefined && model.participantId === participantId
@@ -212,7 +223,8 @@ async function loadParticipantHistory(
 async function queryInstructorLesson(
   firestore: Firestore,
   input: Extract<QueryParticipantLessonFeedbackReadModelsInput, { scope: 'instructor_lesson' }>,
-  instructorId: InstructorId
+  instructorId: InstructorId,
+  readScope: CanonicalReadScope
 ): Promise<QueryParticipantLessonFeedbackReadModelsResult> {
   const at = timestampFromDate(new Date());
   const booking = await loadAuthorizedInstructorLessonFeedbackBooking(firestore, {
@@ -221,7 +233,7 @@ async function queryInstructorLesson(
     lessonBookingId: input.lessonBookingId,
     at,
   });
-  if (!booking) {
+  if (!booking || !documentMatchesReadScope(readScope, booking)) {
     throw new ParticipantLessonFeedbackReadDeniedError();
   }
 
@@ -230,10 +242,9 @@ async function queryInstructorLesson(
     lessonBookingId: input.lessonBookingId,
   });
   const snapshot = await firestore.doc(participantLessonFeedbackPath(feedbackId)).get();
-  const model = toReadModel(
-    parseParticipantLessonFeedbackRecord(
-      snapshot.exists ? (snapshot.data() as Record<string, unknown>) : undefined
-    )
+  const model = toScopedReadModel(
+    snapshot.exists ? (snapshot.data() as Record<string, unknown>) : undefined,
+    readScope
   );
   if (model && model.participantId !== input.participantId) {
     throw new ParticipantLessonFeedbackReadDeniedError();
@@ -257,7 +268,8 @@ async function queryInstructorLesson(
 async function queryManagedParticipant(
   firestore: Firestore,
   input: Extract<QueryParticipantLessonFeedbackReadModelsInput, { scope: 'managed_participant' }>,
-  accountId: AccountId
+  accountId: AccountId,
+  readScope: CanonicalReadScope
 ): Promise<QueryParticipantLessonFeedbackReadModelsResult> {
   const uniqueParticipantIds = [...new Set(input.participantIds)];
   await assertManagedAccess(firestore, accountId, uniqueParticipantIds);
@@ -266,7 +278,8 @@ async function queryManagedParticipant(
     const history = await loadParticipantHistory(
       firestore,
       participantId,
-      input.lessonBookingIds
+      input.lessonBookingIds,
+      readScope
     );
     items.push(...history.filter((item) => item.participantId === participantId));
   }
@@ -276,14 +289,13 @@ async function queryManagedParticipant(
 async function queryManagedLatest(
   firestore: Firestore,
   input: Extract<QueryParticipantLessonFeedbackReadModelsInput, { scope: 'managed_latest' }>,
-  accountId: AccountId
+  accountId: AccountId,
+  readScope: CanonicalReadScope
 ): Promise<QueryParticipantLessonFeedbackReadModelsResult> {
   await assertManagedAccess(firestore, accountId, [input.participantId]);
   const snapshot = await historyQuery(firestore, input.participantId).limit(1).get();
   const model = snapshot.docs[0]
-    ? toReadModel(
-        parseParticipantLessonFeedbackRecord(snapshot.docs[0].data() as Record<string, unknown>)
-      )
+    ? toScopedReadModel(snapshot.docs[0].data() as Record<string, unknown>, readScope)
     : undefined;
   return {
     scope: 'managed_latest',
@@ -300,18 +312,21 @@ export async function queryParticipantLessonFeedbackReadModels(
   options: Readonly<{
     accountId: AccountId;
     instructorId?: InstructorId;
+    readContext?: ReadModelRequestContext;
+    readScope?: CanonicalReadScope;
   }>
 ): Promise<QueryParticipantLessonFeedbackReadModelsResult> {
+  const readScope = options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
   if (input.scope === 'instructor_lesson') {
     if (!options.instructorId) {
       throw new ParticipantLessonFeedbackReadDeniedError();
     }
-    return queryInstructorLesson(firestore, input, options.instructorId);
+    return queryInstructorLesson(firestore, input, options.instructorId, readScope);
   }
   if (input.scope === 'managed_participant') {
-    return queryManagedParticipant(firestore, input, options.accountId);
+    return queryManagedParticipant(firestore, input, options.accountId, readScope);
   }
-  return queryManagedLatest(firestore, input, options.accountId);
+  return queryManagedLatest(firestore, input, options.accountId, readScope);
 }
 
 export function parseFeedbackReadAccountId(authUid: string | undefined): AccountId | undefined {

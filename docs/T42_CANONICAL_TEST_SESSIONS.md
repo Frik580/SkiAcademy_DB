@@ -2,7 +2,7 @@
 
 Date: 2026-09-21
 
-Status: **IN PROGRESS / T42B-5 IMPLEMENTED + VALIDATED / NEXT T42B-6**
+Status: **IN PROGRESS / T42B-6 IMPLEMENTED + VALIDATED / NEXT T42B-7**
 
 This document is the living T42 status and implementation plan. Architecture
 authority is [ADR-0010](adr/0010-canonical-test-sessions-and-live-test-data-isolation.md).
@@ -59,8 +59,11 @@ DONE     T42B-5 — LIVE-only read isolation + TestSession-scoped read models
          IMPLEMENTED / VALIDATED (source-only; no deploy/migration/production writes)
          firestore.indexes.json unchanged (40 composites); index deploy = NO
 
-NEXT     T42B-6 — Admin System → Testing UI
-         T42B-7 ... T42B-9
+DONE     T42B-6 — Admin System → Testing UI
+         IMPLEMENTED / VALIDATED (source-only; no deploy/migration/production writes)
+
+NEXT     T42B-7 — TestSession lifecycle and maintenance engine
+         T42B-8 ... T42B-9
 
 THEN     T43 — Test Session Guest Support
 ```
@@ -431,16 +434,16 @@ unreachable).
 
 `resolveTestSideEffectPolicy(scope, channel)`:
 
-| Channel           | LIVE                         | TEST                                      |
-| ----------------- | ---------------------------- | ----------------------------------------- |
-| in_app            | existing                     | same-session TEST recipient only          |
-| email             | existing/staged              | SUPPRESS                                  |
-| sms               | existing/future              | SUPPRESS                                  |
-| push              | existing/future              | SUPPRESS                                  |
-| payment_provider  | existing                     | FORBIDDEN (no client sandbox flag)        |
-| webhook           | existing/future              | SUPPRESS                                  |
-| image_fetch       | Yandex `/carve/` allowlist   | same public allowlist; no private media   |
-| analytics         | NOT_IMPLEMENTED              | NOT_IMPLEMENTED                           |
+| Channel          | LIVE                       | TEST                                    |
+| ---------------- | -------------------------- | --------------------------------------- |
+| in_app           | existing                   | same-session TEST recipient only        |
+| email            | existing/staged            | SUPPRESS                                |
+| sms              | existing/future            | SUPPRESS                                |
+| push             | existing/future            | SUPPRESS                                |
+| payment_provider | existing                   | FORBIDDEN (no client sandbox flag)      |
+| webhook          | existing/future            | SUPPRESS                                |
+| image_fetch      | Yandex `/carve/` allowlist | same public allowlist; no private media |
+| analytics        | NOT_IMPLEMENTED            | NOT_IMPLEMENTED                         |
 
 Unknown channel/scope fails closed. TEST email/SMS/push are staged as
 `delivery.status=suppressed` with reason `TEST_EXTERNAL_CHANNEL_SUPPRESSED`.
@@ -464,15 +467,15 @@ NOT_IMPLEMENTED (`universal-analytics` is a lockfile override only).
 
 ### Client-direct writers after T42B-4
 
-| Path | LIVE | TEST | Authority | Remaining |
-| --- | --- | --- | --- | --- |
-| `chatService` messages | client Firestore | unreachable | Firestore Rules | T42B-8 |
-| BookingChatModal media | `chat/{id}/...` via path helper | unreachable until Rules deploy | Storage Rules + booking scope | T42B-8 |
-| participant avatars | `participant-avatars/...` | `test-actors/...` contract; client LIVE wrapper | Storage Rules | T42B-8 identity |
-| course cover upload | `courses/{id}.webp` | session namespace contract; client unreachable | Storage Rules + Admin | T42B-6/T42B-8 |
-| instructor catalog photo | `instructors/{id}.jpg` | `test-actors/...` contract | Storage Rules + Admin | T42B-8 |
-| notifications | client `notifications/{id}` | unreachable | Firestore Rules | T42B-8 |
-| settings / error logs | LIVE operational | not session-reset data | existing | none |
+| Path                     | LIVE                            | TEST                                            | Authority                     | Remaining       |
+| ------------------------ | ------------------------------- | ----------------------------------------------- | ----------------------------- | --------------- |
+| `chatService` messages   | client Firestore                | unreachable                                     | Firestore Rules               | T42B-8          |
+| BookingChatModal media   | `chat/{id}/...` via path helper | unreachable until Rules deploy                  | Storage Rules + booking scope | T42B-8          |
+| participant avatars      | `participant-avatars/...`       | `test-actors/...` contract; client LIVE wrapper | Storage Rules                 | T42B-8 identity |
+| course cover upload      | `courses/{id}.webp`             | session namespace contract; client unreachable  | Storage Rules + Admin         | T42B-6/T42B-8   |
+| instructor catalog photo | `instructors/{id}.jpg`          | `test-actors/...` contract                      | Storage Rules + Admin         | T42B-8          |
+| notifications            | client `notifications/{id}`     | unreachable                                     | Firestore Rules               | T42B-8          |
+| settings / error logs    | LIVE operational                | not session-reset data                          | existing                      | none            |
 
 No hidden client-direct TEST mutation path.
 
@@ -489,11 +492,11 @@ TestActor, production identity, Functions/Hosting/Rules/index deploy, or
 Server-authoritative `CanonicalReadScope` reuses `CanonicalExecutionScope`
 plus a purpose:
 
-| Purpose | Who | Scope | Session status |
-| --- | --- | --- | --- |
-| `live_product` | guest, ordinary customer, live Admin without Test context | LIVE | n/a |
-| `product_test` | persistent TestActor assignment, or live Admin with validated `requestedTestSessionId` | TEST + exact session | **active** required |
-| `maintenance_test` | live Admin Testing inventory/preview | TEST + exact session | any known status, including `resetting` / `deleting` / `closed` |
+| Purpose            | Who                                                                                    | Scope                | Session status                                                  |
+| ------------------ | -------------------------------------------------------------------------------------- | -------------------- | --------------------------------------------------------------- |
+| `live_product`     | guest, ordinary customer, live Admin without Test context                              | LIVE                 | n/a                                                             |
+| `product_test`     | persistent TestActor assignment, or live Admin with validated `requestedTestSessionId` | TEST + exact session | **active** required                                             |
+| `maintenance_test` | live Admin Testing inventory/preview                                                   | TEST + exact session | any known status, including `resetting` / `deleting` / `closed` |
 
 Resolver: `resolveCanonicalReadScope`. Clients cannot pass `dataScope` or an
 arbitrary `testSessionId` as authority. Callables peel
@@ -535,21 +538,21 @@ All `query*ReadModels` callables resolve scope once per request and pass it
 into `ReadModelRequestContext` (known-ID loaders hide out-of-scope as
 `exists: false`) plus list mapping via `parseIfVisibleInReadScope`.
 
-| Surface | LIVE | TEST product | Notes |
-| --- | --- | --- | --- |
-| Admin Lessons | LIVE only | explicit Admin Test context | hot / history / pending guest / detail |
-| Planner / occupancy | LIVE Bookings, blocks, CourseDays | selected session only | no LIVE+TEST merge |
-| Finance | LIVE Payments/Events | same-session TEST | LIVE wallet never shown as TEST payer |
-| Issue Center | LIVE issues | same-session TEST | TEST cannot bump LIVE `admin_runtime` (T42B-2) |
-| People | LIVE identities | not this callable | hardcoded LIVE; Test Actors have a separate directory |
-| Student Cabinet | LIVE resources | TestActor assignment | identity graph uses identity matching |
-| Instructor | LIVE Booking/Course/Attendance | assigned session | TEST instructor catalog uses identity matching |
-| Catalog | LIVE courses | session clones only | TEST clones hidden even if `lifecycle=active` |
-| Reviews | LIVE summary/reviews | current-session TEST only | TEST summary cannot contaminate LIVE |
-| Progress / achievements / feedback | LIVE or matching session | stale other-session → empty | fixed-path docs still check `testSessionId` |
-| Notifications | LIVE listener preserved | unreachable until Rules | prepare contract only |
-| Wallet client | own UID listener | deferred | Admin finance read models are scoped |
-| Chat / homework | LIVE thread via Booking ID | unreachable until Rules | known-ID parent scope on server |
+| Surface                            | LIVE                              | TEST product                | Notes                                                 |
+| ---------------------------------- | --------------------------------- | --------------------------- | ----------------------------------------------------- |
+| Admin Lessons                      | LIVE only                         | explicit Admin Test context | hot / history / pending guest / detail                |
+| Planner / occupancy                | LIVE Bookings, blocks, CourseDays | selected session only       | no LIVE+TEST merge                                    |
+| Finance                            | LIVE Payments/Events              | same-session TEST           | LIVE wallet never shown as TEST payer                 |
+| Issue Center                       | LIVE issues                       | same-session TEST           | TEST cannot bump LIVE `admin_runtime` (T42B-2)        |
+| People                             | LIVE identities                   | not this callable           | hardcoded LIVE; Test Actors have a separate directory |
+| Student Cabinet                    | LIVE resources                    | TestActor assignment        | identity graph uses identity matching                 |
+| Instructor                         | LIVE Booking/Course/Attendance    | assigned session            | TEST instructor catalog uses identity matching        |
+| Catalog                            | LIVE courses                      | session clones only         | TEST clones hidden even if `lifecycle=active`         |
+| Reviews                            | LIVE summary/reviews              | current-session TEST only   | TEST summary cannot contaminate LIVE                  |
+| Progress / achievements / feedback | LIVE or matching session          | stale other-session → empty | fixed-path docs still check `testSessionId`           |
+| Notifications                      | LIVE listener preserved           | unreachable until Rules     | prepare contract only                                 |
+| Wallet client                      | own UID listener                  | deferred                    | Admin finance read models are scoped                  |
+| Chat / homework                    | LIVE thread via Booking ID        | unreachable until Rules     | known-ID parent scope on server                       |
 
 ### TestSession read models
 
@@ -575,19 +578,19 @@ bypass session equality.
 
 ### Direct client readers
 
-| Path | LIVE | TEST | Can support TEST now? | Deferred |
-| --- | --- | --- | --- | --- |
-| `useCoursesSync` / `course_catalog_content` | LIVE filter via `isLiveCompatibleResource` | unreachable | filter only | T42B-6 callables for TEST catalog |
-| `useBookingsSync` instructors | LIVE identity filter | unreachable | filter only | T42B-6 |
-| `useUsersSync` | LIVE identity filter | unreachable | filter only | T42B-6 directory |
-| `useNotificationsSync` | own `userId` | unreachable | no (needs session) | T42B-8 Rules |
-| `useWalletSync` | own UID `/wallet/state` | unreachable | no (same path) | T42B-6/8 |
-| `chatService` messages | Booking thread | unreachable | no | T42B-8 Rules |
-| `useSettingsSync` / resort / error logs | shared config | n/a | no scope index | none |
-| `subscribeAdminRealtimeRevision` | LIVE `admin_runtime/*` | not reused | n/a | TEST = callable refresh |
-| `bookingHistoryService` | leftover, unused | n/a | dead | none |
-| `useProfileActivitySync` | own `userId` | unreachable | no | T42B-8 |
-| `useCurrentUserProfileSync` | own profile | identity later | no | T42B-8 |
+| Path                                        | LIVE                                       | TEST           | Can support TEST now? | Deferred                          |
+| ------------------------------------------- | ------------------------------------------ | -------------- | --------------------- | --------------------------------- |
+| `useCoursesSync` / `course_catalog_content` | LIVE filter via `isLiveCompatibleResource` | unreachable    | filter only           | T42B-6 callables for TEST catalog |
+| `useBookingsSync` instructors               | LIVE identity filter                       | unreachable    | filter only           | T42B-6                            |
+| `useUsersSync`                              | LIVE identity filter                       | unreachable    | filter only           | T42B-6 directory                  |
+| `useNotificationsSync`                      | own `userId`                               | unreachable    | no (needs session)    | T42B-8 Rules                      |
+| `useWalletSync`                             | own UID `/wallet/state`                    | unreachable    | no (same path)        | T42B-6/8                          |
+| `chatService` messages                      | Booking thread                             | unreachable    | no                    | T42B-8 Rules                      |
+| `useSettingsSync` / resort / error logs     | shared config                              | n/a            | no scope index        | none                              |
+| `subscribeAdminRealtimeRevision`            | LIVE `admin_runtime/*`                     | not reused     | n/a                   | TEST = callable refresh           |
+| `bookingHistoryService`                     | leftover, unused                           | n/a            | dead                  | none                              |
+| `useProfileActivitySync`                    | own `userId`                               | unreachable    | no                    | T42B-8                            |
+| `useCurrentUserProfileSync`                 | own profile                                | identity later | no                    | T42B-8                            |
 
 Client may attach `requestedTestSessionId` only at an authorized Testing
 boundary (T42B-6). Server peels and revalidates. Client helpers accept the
@@ -850,6 +853,31 @@ On crash:
 
 No blind manual cleanup.
 
+## T42B-6 Admin Testing UI (source-only)
+
+Admin now has a dedicated **System → Testing** surface. It uses only the
+admin-authorized `queryTestSessionReadModels` scopes: bounded session list,
+session inventory, Test Actor directory, and LIVE course templates. Once an
+active session is opened, its Issues summary uses `requestedTestSessionId` at
+the authenticated callable transport boundary. The panel does not scan
+Firestore in the browser and it does not mount normal LIVE realtime
+subscriptions inside the Testing panel.
+
+An active session is opened explicitly with `?tab=system&testSession={id}`.
+The UI shows a persistent textual **TEST SESSION** banner, label, shortened ID,
+status, and a visible return-to-LIVE action. The URL is UI selection only: the
+server remains the scope authority. Selecting another normal Admin tab removes
+the `testSession` parameter, so normal Lessons, Planner, Finance, and People
+requests remain LIVE; no account/global/localStorage test mode exists. Separate
+browser tabs therefore remain independent.
+
+The panel displays KZT starting balance from the server read model, inventory
+counts, approved Test Actors, and LIVE course templates as source-only
+provenance. Its create form validates label and whole-KZT non-negative input,
+but execution is disabled until T42B-7. Close, reset, and delete are visibly
+disabled and perform no client mutation; no partial TestSession, production
+actor, or destructive operation is created by this slice.
+
 ## T42B implementation plan
 
 | Slice  | Name                                                                                                    | Status                                                                                         |
@@ -860,8 +888,8 @@ No blind manual cleanup.
 | T42B-3 | Domain isolation: finance, progress, achievements, reviews, attendance, homework, CourseEnrollment      | **IMPLEMENTED / VALIDATED** (source-only; no deploy/migration/production writes)               |
 | T42B-4 | Storage + side effects                                                                                  | **IMPLEMENTED / VALIDATED** (source-only; Storage Rules source YES, deploy NO)                 |
 | T42B-5 | Read-model isolation                                                                                    | **IMPLEMENTED / VALIDATED** (source-only; indexes unchanged 40; deploy NO)                     |
-| T42B-6 | Admin Testing UI                                                                                        | **NEXT**                                                                                       |
-| T42B-7 | Reset/Delete engine: preview, manifests, locks, audit, verifier                                         | PLANNED                                                                                        |
+| T42B-6 | Admin Testing UI                                                                                        | **IMPLEMENTED / VALIDATED** (source-only; create/close/reset/delete deferred to T42B-7)        |
+| T42B-7 | Reset/Delete engine: preview, manifests, locks, audit, verifier                                         | **NEXT**                                                                                       |
 | T42B-8 | Existing LIVE data backfill; Firestore Rules; Storage Rules; indexes; strict dataScope contract         | PLANNED                                                                                        |
 | T42B-9 | Authenticated isolation smoke                                                                           | PLANNED                                                                                        |
 

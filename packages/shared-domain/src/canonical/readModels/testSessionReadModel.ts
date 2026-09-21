@@ -7,7 +7,11 @@ import {
   ParticipantIdSchema,
   TestSessionIdSchema,
 } from '../identifiers';
-import { AggregateRevisionSchema, CanonicalTimestampSchema } from '../primitives';
+import {
+  AggregateRevisionSchema,
+  CanonicalTimestampSchema,
+  KztMinorUnitsSchema,
+} from '../primitives';
 import { TestActorKindSchema, TestSessionStatusSchema } from '../testSessions';
 
 export const TEST_SESSION_READ_SCOPES = [
@@ -65,6 +69,7 @@ export const TestSessionListItemSchema = z
     status: TestSessionStatusSchema,
     label: z.string().trim().min(1).max(120),
     createdByAccountId: AccountIdSchema,
+    startingBalanceKzt: KztMinorUnitsSchema,
     inventoryRevision: AggregateRevisionSchema,
     revision: AggregateRevisionSchema,
     createdAt: CanonicalTimestampSchema,
@@ -86,7 +91,9 @@ export const TestSessionInventoryCountsSchema = z
   })
   .strict();
 
-export type TestSessionInventoryCounts = Readonly<z.output<typeof TestSessionInventoryCountsSchema>>;
+export type TestSessionInventoryCounts = Readonly<
+  z.output<typeof TestSessionInventoryCountsSchema>
+>;
 
 export const TestSessionInventoryReadModelSchema = z
   .object({
@@ -94,6 +101,7 @@ export const TestSessionInventoryReadModelSchema = z
     status: TestSessionStatusSchema,
     label: z.string().trim().min(1).max(120),
     createdByAccountId: AccountIdSchema,
+    startingBalanceKzt: KztMinorUnitsSchema,
     clonedCourseIds: z.array(CourseIdSchema).max(64),
     assignedAccountIds: z.array(AccountIdSchema).max(TEST_SESSION_INVENTORY_ID_PAGE_SIZE),
     counts: TestSessionInventoryCountsSchema,

@@ -68,6 +68,7 @@ async function querySessionList(
       status: session.status,
       label: session.label,
       createdByAccountId: session.createdByAccountId,
+      startingBalanceKzt: session.config.startingBalanceKzt,
       inventoryRevision: session.inventoryRevision,
       revision: session.revision,
       createdAt: session.createdAt,
@@ -88,10 +89,10 @@ async function queryInventory(
 
   const assignedAccountIds = await listAssignedAccountIds(firestore, testSessionId);
   const countsEntries = await Promise.all(
-    INVENTORY_COLLECTIONS.map(async ([key, collection]) => [
-      key,
-      await countByTestSession(firestore, collection, testSessionId),
-    ] as const)
+    INVENTORY_COLLECTIONS.map(
+      async ([key, collection]) =>
+        [key, await countByTestSession(firestore, collection, testSessionId)] as const
+    )
   );
   const counts = {
     ...Object.fromEntries(countsEntries),
@@ -105,6 +106,7 @@ async function queryInventory(
       status: session.status,
       label: session.label,
       createdByAccountId: session.createdByAccountId,
+      startingBalanceKzt: session.config.startingBalanceKzt,
       clonedCourseIds: session.config.clonedCourseIds,
       assignedAccountIds,
       counts,
@@ -144,7 +146,7 @@ async function queryActorDirectory(
     const rawDisplayName =
       typeof rawAccount?.displayName === 'string' ? rawAccount.displayName.trim() : '';
     const activeTestSessionId = assignmentSnap?.exists
-      ? (assignmentSnap.get('activeTestSessionId') as string | null | undefined) ?? null
+      ? ((assignmentSnap.get('activeTestSessionId') as string | null | undefined) ?? null)
       : null;
     const parsedSessionId = TestSessionIdSchema.safeParse(activeTestSessionId);
     return {
@@ -198,9 +200,10 @@ export async function queryTestSessionReadModels(
   firestore: Firestore,
   input: QueryTestSessionReadModelsInput
 ): Promise<QueryTestSessionReadModelsResult> {
-  const pageSize = input.scope === 'test_session_inventory'
-    ? TEST_SESSION_READ_MODEL_PAGE_SIZE_DEFAULT
-    : input.pageSize ?? TEST_SESSION_READ_MODEL_PAGE_SIZE_DEFAULT;
+  const pageSize =
+    input.scope === 'test_session_inventory'
+      ? TEST_SESSION_READ_MODEL_PAGE_SIZE_DEFAULT
+      : (input.pageSize ?? TEST_SESSION_READ_MODEL_PAGE_SIZE_DEFAULT);
   if (input.scope === 'test_session_list') return querySessionList(firestore, pageSize);
   if (input.scope === 'test_session_inventory') {
     return queryInventory(firestore, input.testSessionId);

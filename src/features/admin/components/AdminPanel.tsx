@@ -84,6 +84,11 @@ const AdminSystemSettings = lazy(() =>
     default: m.AdminSystemSettings,
   }))
 );
+const AdminTestingPanel = lazy(() =>
+  import('../testing').then((m) => ({
+    default: m.AdminTestingPanel,
+  }))
+);
 const AdminProductSettings = lazy(() =>
   import('./settings').then((m) => ({
     default: m.AdminProductSettings,
@@ -162,6 +167,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         (prev) => {
           const next = new URLSearchParams(prev);
           next.set(ADMIN_TAB_QUERY_KEY, tab);
+          // Testing context is route-local to System. Normal Admin tabs always
+          // omit it, so another tab (or browser tab) remains an explicit LIVE read.
+          if (tab !== 'system') next.delete('testSession');
           return next;
         },
         { replace: true }
@@ -440,6 +448,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               achievementsConfig={achievementsConfig}
               onUpdateAchievementsConfig={onUpdateAchievementsConfig}
             />
+          </Suspense>
+
+          <Suspense fallback={<SectionLoadingFallback label={t('adminTestingTitle')} />}>
+            <AdminTestingPanel />
           </Suspense>
 
           <Suspense fallback={<SectionLoadingFallback label={t('errorLogsTitle')} />}>

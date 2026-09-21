@@ -19,7 +19,10 @@ import { queryAdminFinanceReadModels } from './adminFinanceReadModels';
 import { queryAdminIdentityReadModels } from './adminIdentityReadModels';
 import { queryAdminCourseEnrollmentReadModels } from './adminCourseEnrollmentReadModels';
 import { queryLessonBookingReadModels } from './lessonBookingReadModels';
-import { loadInstructorOccupancyItems, instructorOccupancyWindow } from './instructorOccupancyReadSupport';
+import {
+  loadInstructorOccupancyItems,
+  instructorOccupancyWindow,
+} from './instructorOccupancyReadSupport';
 import { queryInstructorReviewReadModels } from './instructorReviewReadModels';
 import { queryParticipantProgressReadModels } from './participantProgressReadModels';
 import { createReadModelRequestContext } from './readModelRequestContext';
@@ -84,25 +87,23 @@ function fakeFirestore(seed: Record<string, Record<string, unknown>>): Firestore
       get: () => Promise<ReturnType<typeof snapshot>>;
     } = {
       where: (field, op, value) =>
-        buildQuery(
-          () =>
-            entries().filter(([, data]) => {
-              const actual = nestedValue(data, field);
-              if (op === 'in' && Array.isArray(value)) return value.includes(actual);
-              if (op === 'array-contains' && Array.isArray(actual)) return actual.includes(value);
-              if (typeof actual === 'number' && typeof value === 'number') {
-                if (op === '>=') return actual >= value;
-                if (op === '<=') return actual <= value;
-                if (op === '>') return actual > value;
-                if (op === '<') return actual < value;
-              }
-              return Object.is(actual, value);
-            })
+        buildQuery(() =>
+          entries().filter(([, data]) => {
+            const actual = nestedValue(data, field);
+            if (op === 'in' && Array.isArray(value)) return value.includes(actual);
+            if (op === 'array-contains' && Array.isArray(actual)) return actual.includes(value);
+            if (typeof actual === 'number' && typeof value === 'number') {
+              if (op === '>=') return actual >= value;
+              if (op === '<=') return actual <= value;
+              if (op === '>') return actual > value;
+              if (op === '<') return actual < value;
+            }
+            return Object.is(actual, value);
+          })
         ),
       orderBy: () => chain,
       startAfter: () => chain,
-      limit: (count) =>
-        buildQuery(() => entries().slice(0, count)),
+      limit: (count) => buildQuery(() => entries().slice(0, count)),
       count: () => ({
         get: async () => ({ data: () => ({ count: entries().length }) }),
       }),
@@ -214,9 +215,13 @@ describe('canonical LIVE/TEST read isolation', () => {
       });
     }
 
-    const live = await queryCourseCatalogReadModels(fakeFirestore(seed), { scope: 'public' }, {
-      readScope: liveScope,
-    });
+    const live = await queryCourseCatalogReadModels(
+      fakeFirestore(seed),
+      { scope: 'public' },
+      {
+        readScope: liveScope,
+      }
+    );
     expect(live.items.map((item) => item.courseId).sort()).toEqual(
       [scopedIds('course', 'legacy01'), scopedIds('course', 'live0001')].sort()
     );
@@ -312,7 +317,10 @@ describe('canonical LIVE/TEST read isolation', () => {
         scopedIds('block', 'testb001'),
         { dataScope: 'test', testSessionId: sessionB }
       ),
-      [`courses/${scopedIds('course', 'legacy01')}`]: stampCourse(scopedIds('course', 'legacy01'), {}),
+      [`courses/${scopedIds('course', 'legacy01')}`]: stampCourse(
+        scopedIds('course', 'legacy01'),
+        {}
+      ),
       [`courses/${scopedIds('course', 'live0001')}`]: stampCourse(scopedIds('course', 'live0001'), {
         dataScope: 'live',
       }),
@@ -378,9 +386,7 @@ describe('canonical LIVE/TEST read isolation', () => {
       bookingScope: 'admin_planner_visualization',
       readScope: testA,
     });
-    expect(
-      session.occupancy.map((item) => [item.occupancyKind, item.occupancyId])
-    ).toEqual([
+    expect(session.occupancy.map((item) => [item.occupancyKind, item.occupancyId])).toEqual([
       ['lesson_booking', scopedIds('booking', 'testa001')],
       ['availability_block', scopedIds('block', 'testa001')],
       ['course_day', `${scopedIds('day', 'testa001')}:${instructorId}`],
@@ -416,23 +422,33 @@ describe('canonical LIVE/TEST read isolation', () => {
       }),
     };
 
-    const live = await queryAdminFinanceReadModels(fakeFirestore(seed), actor, {
-      scope: 'admin_financial_overview',
-      period: 'month',
-      localDate: '2026-01-15',
-      timeZone: 'UTC',
-    }, { readScope: liveScope });
+    const live = await queryAdminFinanceReadModels(
+      fakeFirestore(seed),
+      actor,
+      {
+        scope: 'admin_financial_overview',
+        period: 'month',
+        localDate: '2026-01-15',
+        timeZone: 'UTC',
+      },
+      { readScope: liveScope }
+    );
     expect(live.scope).toBe('admin_financial_overview');
     if (live.scope === 'admin_financial_overview') {
       expect(live.item.settledRevenueKzt).toBe(20_000);
     }
 
-    const session = await queryAdminFinanceReadModels(fakeFirestore(seed), actor, {
-      scope: 'admin_financial_overview',
-      period: 'month',
-      localDate: '2026-01-15',
-      timeZone: 'UTC',
-    }, { readScope: testA });
+    const session = await queryAdminFinanceReadModels(
+      fakeFirestore(seed),
+      actor,
+      {
+        scope: 'admin_financial_overview',
+        period: 'month',
+        localDate: '2026-01-15',
+        timeZone: 'UTC',
+      },
+      { readScope: testA }
+    );
     expect(session.scope).toBe('admin_financial_overview');
     if (session.scope === 'admin_financial_overview') {
       expect(session.item.settledRevenueKzt).toBe(10_000);
@@ -726,6 +742,7 @@ describe('canonical LIVE/TEST read isolation', () => {
     expect(result.scope).toBe('test_session_inventory');
     if (result.scope === 'test_session_inventory') {
       expect(result.item?.status).toBe('resetting');
+      expect(result.item?.startingBalanceKzt).toBe(0);
       expect(result.item?.counts.bookings).toBe(1);
       expect(result.item?.counts.assignedActors).toBe(1);
       expect(result.item?.assignedAccountIds).toEqual([createdBy]);
@@ -823,12 +840,12 @@ describe('canonical LIVE/TEST read isolation', () => {
         .map((document) => document.id)
         .sort()
     ).toEqual([legacyId, liveId].sort());
-    expect(
-      queryDocsMatchingReadScope(snapshot.docs, testA).map((document) => document.id)
-    ).toEqual([testAId]);
-    expect(
-      queryDocsMatchingReadScope(snapshot.docs, testB).map((document) => document.id)
-    ).toEqual([testBId]);
+    expect(queryDocsMatchingReadScope(snapshot.docs, testA).map((document) => document.id)).toEqual(
+      [testAId]
+    );
+    expect(queryDocsMatchingReadScope(snapshot.docs, testB).map((document) => document.id)).toEqual(
+      [testBId]
+    );
   });
 
   it('keeps enrollment lists and details scoped without leaking TEST clones', async () => {

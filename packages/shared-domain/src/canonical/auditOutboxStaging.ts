@@ -42,6 +42,7 @@ import {
   canonicalScopeFields,
   type CanonicalExecutionScope,
 } from './canonicalScope';
+import { testOutboxDeliveryFromPolicy } from './testSideEffectPolicy';
 
 export interface ActivityLogEffectInput {
   readonly kind: AuditEffectKind;
@@ -300,7 +301,11 @@ export function buildOutboxObligationRecords(input: {
       renderInputs: draft.renderInputs,
       deliverySemantics: draft.deliverySemantics,
       createdAt: input.createdAt,
-      delivery: { status: 'pending' },
+      delivery: testOutboxDeliveryFromPolicy(
+        input.scope ?? LIVE_CANONICAL_EXECUTION_SCOPE,
+        draft.channel,
+        input.createdAt
+      ),
     })
   );
 

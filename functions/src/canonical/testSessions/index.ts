@@ -4,3 +4,4 @@ export * from './testSessionStore';
 export * from './seedTestActorWallet';
 export * from './cloneLiveCourseIntoTestSession';
 export * from './resetTestSessionBoundRecords';
+export * from './deleteTestSessionStorage';

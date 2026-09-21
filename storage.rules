@@ -36,24 +36,6 @@ service firebase.storage {
         );
     }
 
-    function isActiveCourseEnrollmentBooking(booking) {
-      return booking.instructorId.matches('^course_.*') &&
-        booking.status != 'cancelled' &&
-        (!('isDeleted' in booking) || booking.isDeleted != true);
-    }
-
-    function canAccessEnrollmentBookingChat(booking) {
-      return isActiveCourseEnrollmentBooking(booking) &&
-        (
-          booking.userId == request.auth.uid ||
-          (
-            ('courseId' in booking) &&
-            booking.courseId is string &&
-            isInstructorForCourse(booking.courseId)
-          )
-        );
-    }
-
     function isInstructorForCourse(courseId) {
       return isAuthenticated() &&
         firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
@@ -71,10 +53,7 @@ service firebase.storage {
           firestore.exists(/databases/(default)/documents/bookings/$(bookingId)) &&
           (
             firestore.get(/databases/(default)/documents/bookings/$(bookingId)).data.userId == request.auth.uid ||
-            isAssignedInstructorForBooking(bookingId) ||
-            canAccessEnrollmentBookingChat(
-              firestore.get(/databases/(default)/documents/bookings/$(bookingId)).data
-            )
+            isAssignedInstructorForBooking(bookingId)
           )
         ) ||
         (
@@ -98,9 +77,70 @@ service firebase.storage {
       return isValidImageUpload() || isValidVideoUpload();
     }
 
+    function isAllowedTestActor() {
+      return isAuthenticated() &&
+        firestore.exists(/databases/(default)/documents/test_actors/$(request.auth.uid)) &&
+        firestore.get(/databases/(default)/documents/test_actors/$(request.auth.uid)).data.allowed == true;
+    }
+
+    function resourceScopeIsLive(data) {
+      return !('dataScope' in data) || data.dataScope == 'live';
+    }
+
+    function isActiveTestSession(testSessionId) {
+      return firestore.exists(/databases/(default)/documents/test_sessions/$(testSessionId)) &&
+        firestore.get(/databases/(default)/documents/test_sessions/$(testSessionId)).data.status == 'active';
+    }
+
+    function isTestSessionMember(testSessionId) {
+      return isAuthenticated() &&
+        firestore.exists(
+          /databases/(default)/documents/test_sessions/$(testSessionId)/membership/$(request.auth.uid)
+        );
+    }
+
+    function canAccessTestSessionStorage(testSessionId) {
+      return isActiveTestSession(testSessionId) &&
+        isTestSessionMember(testSessionId) &&
+        (isAllowedTestActor() || isAdmin());
+    }
+
+    function isTestBookingInSession(bookingId, testSessionId) {
+      return firestore.exists(/databases/(default)/documents/bookings/$(bookingId)) &&
+        firestore.get(/databases/(default)/documents/bookings/$(bookingId)).data.dataScope == 'test' &&
+        firestore.get(/databases/(default)/documents/bookings/$(bookingId)).data.testSessionId == testSessionId;
+    }
+
+    function isTestCourseInSession(courseId, testSessionId) {
+      return firestore.exists(/databases/(default)/documents/courses/$(courseId)) &&
+        firestore.get(/databases/(default)/documents/courses/$(courseId)).data.dataScope == 'test' &&
+        firestore.get(/databases/(default)/documents/courses/$(courseId)).data.testSessionId == testSessionId;
+    }
+
+    function isLiveChatThread(threadId) {
+      return (
+        !firestore.exists(/databases/(default)/documents/bookings/$(threadId)) ||
+        resourceScopeIsLive(firestore.get(/databases/(default)/documents/bookings/$(threadId)).data)
+      ) && (
+        !firestore.exists(/databases/(default)/documents/courses/$(threadId)) ||
+        resourceScopeIsLive(firestore.get(/databases/(default)/documents/courses/$(threadId)).data)
+      );
+    }
+
+    function canAccessTestChatThread(testSessionId, threadId) {
+      return canAccessTestSessionStorage(testSessionId) &&
+        (
+          (isTestBookingInSession(threadId, testSessionId) && isBookingParticipant(threadId)) ||
+          (
+            isTestCourseInSession(threadId, testSessionId) &&
+            (isAdmin() || isEnrolledInCourse(threadId) || isInstructorForCourse(threadId))
+          )
+        );
+    }
+
     match /avatars/{uid} {
       allow read: if true;
-      allow write: if isOwner(uid) && isValidImageUpload();
+      allow write: if !isAllowedTestActor() && isOwner(uid) && isValidImageUpload();
     }
 
     // Participant-scoped avatars. Write authorization uses the active owner
@@ -117,22 +157,53 @@ service firebase.storage {
 
     match /participant-avatars/{participantId}/avatar.jpg {
       allow read: if true;
-      allow write: if canManageParticipantAvatar(participantId) && isValidImageUpload();
+      allow write: if !isAllowedTestActor() && canManageParticipantAvatar(participantId) && isValidImageUpload();
     }
 
     match /courses/{courseId} {
       allow read: if true;
-      allow write: if isAdmin() && isValidImageUpload();
+      allow write: if !isAllowedTestActor() && isAdmin() && isValidImageUpload();
     }
 
     match /instructors/{instructorId} {
       allow read: if true;
-      allow write: if isAdmin() && isValidImageUpload();
+      allow write: if !isAllowedTestActor() && isAdmin() && isValidImageUpload();
     }
 
     match /chat/{bookingId}/{allPaths=**} {
-      allow read: if isBookingParticipant(bookingId);
-      allow write: if isBookingParticipant(bookingId) && isValidChatMediaUpload();
+      allow read: if !isAllowedTestActor() && isLiveChatThread(bookingId) && isBookingParticipant(bookingId);
+      allow write: if !isAllowedTestActor() && isLiveChatThread(bookingId) && isBookingParticipant(bookingId) && isValidChatMediaUpload();
+    }
+
+    match /test-sessions/{testSessionId}/booking-chat/{bookingId}/{allPaths=**} {
+      allow read: if canAccessTestChatThread(testSessionId, bookingId);
+      allow write: if canAccessTestChatThread(testSessionId, bookingId) && isValidChatMediaUpload();
+    }
+
+    match /test-sessions/{testSessionId}/course-assets/{courseId}/{allPaths=**} {
+      allow read: if canAccessTestSessionStorage(testSessionId) && isTestCourseInSession(courseId, testSessionId);
+      allow write: if canAccessTestSessionStorage(testSessionId) &&
+        isAdmin() &&
+        isTestCourseInSession(courseId, testSessionId) &&
+        isValidImageUpload();
+    }
+
+    match /test-sessions/{testSessionId}/misc/{allPaths=**} {
+      allow read: if canAccessTestSessionStorage(testSessionId);
+      allow write: if canAccessTestSessionStorage(testSessionId) && isValidImageUpload();
+    }
+
+    match /test-actors/{actorOrParticipantId}/{allPaths=**} {
+      allow read: if isAuthenticated() && (
+        isAdmin() ||
+        isOwner(actorOrParticipantId) ||
+        canManageParticipantAvatar(actorOrParticipantId) ||
+        isAllowedTestActor()
+      );
+      allow write: if isValidImageUpload() && (
+        (isAllowedTestActor() && (isOwner(actorOrParticipantId) || canManageParticipantAvatar(actorOrParticipantId))) ||
+        isAdmin()
+      );
     }
 
     match /image-cache/{fileName} {

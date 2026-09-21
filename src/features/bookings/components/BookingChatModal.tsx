@@ -11,6 +11,7 @@ import {
   createChatMessage,
   setChatMessageHomework,
   subscribeToChatMessages,
+  resolveBookingChatAttachmentStoragePath,
 } from '../../../features/chat';
 import { ChatWindow } from './booking_chat/ChatWindow';
 import { ChatMessageList, type ChatMessageRow } from './booking_chat/ChatMessageList';
@@ -183,7 +184,10 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
       const result = await compressImage(file);
       const chatId = resolveChatId(booking);
       const sanitizedName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-      const path = `chat/${chatId}/${Date.now()}_${sanitizedName}`;
+      const path = resolveBookingChatAttachmentStoragePath(
+        { ...booking, chatId },
+        `${Date.now()}_${sanitizedName}`
+      );
       const downloadUrl = await uploadImage(result.blob, path);
       setAttachment({
         type: 'image',
@@ -222,7 +226,10 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
 
       const chatId = resolveChatId(booking);
       const sanitizedName = result.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-      const path = `chat/${chatId}/${Date.now()}_${sanitizedName}`;
+      const path = resolveBookingChatAttachmentStoragePath(
+        { ...booking, chatId },
+        `${Date.now()}_${sanitizedName}`
+      );
       const downloadUrl = await uploadImage(result.blob, path);
       setAttachment({
         type: 'video',

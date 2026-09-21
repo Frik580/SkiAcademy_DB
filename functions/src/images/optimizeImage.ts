@@ -3,6 +3,11 @@ import { getStorage } from 'firebase-admin/storage';
 import sharp from 'sharp';
 import { getOrInitApp } from '../adminApp';
 
+/**
+ * Public catalog image proxy. TEST and LIVE share the same Yandex `/carve/`
+ * allowlist. This must not fetch Firebase Storage, private customer media, or
+ * arbitrary URLs (no SSRF broadening).
+ */
 export const IMAGE_CACHE_PREFIX = 'image-cache';
 export const ALLOWED_PROXY_WIDTHS = new Set([480, 960, 1280, 1920]);
 export const DEFAULT_PROXY_QUALITY = 72;

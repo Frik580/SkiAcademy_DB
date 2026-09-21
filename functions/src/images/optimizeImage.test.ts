@@ -14,6 +14,11 @@ describe('optimizeImage allowlist', () => {
     expect(isAllowedImageSource('https://storage.yandexcloud.net/other/wall.webp')).toBe(false);
     expect(isAllowedImageSource('http://storage.yandexcloud.net/carve/wall.webp')).toBe(false);
     expect(isAllowedImageSource('https://evil.example/carve/wall.webp')).toBe(false);
+    expect(
+      isAllowedImageSource(
+        'https://firebasestorage.googleapis.com/v0/b/ski-school-8f3ca.appspot.com/o/chat%2Fbooking.jpg'
+      )
+    ).toBe(false);
   });
 
   it('builds stable cache object paths', () => {

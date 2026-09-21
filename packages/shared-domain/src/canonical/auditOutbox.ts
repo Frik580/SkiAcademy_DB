@@ -271,7 +271,13 @@ export type ActivityLog = Readonly<z.output<typeof ActivityLogSchema>>;
 export const OUTBOX_DELIVERY_CHANNELS = ['email', 'push', 'sms', 'in_app'] as const;
 export type OutboxDeliveryChannel = (typeof OUTBOX_DELIVERY_CHANNELS)[number];
 
-export const OUTBOX_DELIVERY_STATUSES = ['pending', 'leased', 'delivered', 'dead_letter'] as const;
+export const OUTBOX_DELIVERY_STATUSES = [
+  'pending',
+  'leased',
+  'delivered',
+  'dead_letter',
+  'suppressed',
+] as const;
 export type OutboxDeliveryStatus = (typeof OUTBOX_DELIVERY_STATUSES)[number];
 
 export const OutboxRecipientRefSchema = z
@@ -321,6 +327,13 @@ export const DomainOutboxObligationSchema = z
           status: z.literal('dead_letter'),
           deadLetteredAt: CanonicalTimestampSchema,
           lastErrorCode: z.string().min(1).max(64),
+        })
+        .strict(),
+      z
+        .object({
+          status: z.literal('suppressed'),
+          suppressedAt: CanonicalTimestampSchema,
+          suppressionReason: z.string().min(1).max(64),
         })
         .strict(),
     ]),

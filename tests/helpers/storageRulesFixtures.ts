@@ -9,6 +9,10 @@ export const STORAGE_USER_ID = 'user-1';
 export const STORAGE_OTHER_USER_ID = 'user-2';
 export const STORAGE_ADMIN_ID = 'admin-1';
 export const STORAGE_INSTRUCTOR_USER_ID = 'instructor-user-1';
+export const STORAGE_TEST_ACTOR_ID = 'test-actor-1';
+export const STORAGE_TEST_ACTOR_B_ID = 'test-actor-2';
+export const STORAGE_TEST_SESSION_A = 'test_session_a';
+export const STORAGE_TEST_SESSION_B = 'test_session_b';
 
 export const userProfile = (
   uid: string,
@@ -101,6 +105,76 @@ export async function seedCourseGroupChatFixtures(testEnv: RulesTestEnvironment)
       accountId: STORAGE_USER_ID,
       courseId: 'course-group-1',
       activeCount: 1,
+    });
+  });
+}
+
+export async function seedTestStorageIsolationFixtures(testEnv: RulesTestEnvironment) {
+  await seedBookingChatFixtures(testEnv);
+  await seedStorageFirestore(testEnv, async (db) => {
+    await setDoc(doc(db, 'users', STORAGE_TEST_ACTOR_ID), {
+      ...userProfile(STORAGE_TEST_ACTOR_ID, 'test-actor-a@example.com'),
+      instructorId: 'test-instructor-a',
+    });
+    await setDoc(doc(db, 'users', STORAGE_TEST_ACTOR_B_ID), {
+      ...userProfile(STORAGE_TEST_ACTOR_B_ID, 'test-actor-b@example.com'),
+    });
+    await setDoc(doc(db, 'test_actors', STORAGE_TEST_ACTOR_ID), { allowed: true });
+    await setDoc(doc(db, 'test_actors', STORAGE_TEST_ACTOR_B_ID), { allowed: true });
+    await setDoc(doc(db, 'test_sessions', STORAGE_TEST_SESSION_A), { status: 'active' });
+    await setDoc(doc(db, 'test_sessions', STORAGE_TEST_SESSION_B), { status: 'active' });
+    await setDoc(
+      doc(db, 'test_sessions', STORAGE_TEST_SESSION_A, 'membership', STORAGE_TEST_ACTOR_ID),
+      { accountId: STORAGE_TEST_ACTOR_ID }
+    );
+    await setDoc(
+      doc(db, 'test_sessions', STORAGE_TEST_SESSION_A, 'membership', STORAGE_ADMIN_ID),
+      { accountId: STORAGE_ADMIN_ID }
+    );
+    await setDoc(
+      doc(db, 'test_sessions', STORAGE_TEST_SESSION_B, 'membership', STORAGE_TEST_ACTOR_B_ID),
+      { accountId: STORAGE_TEST_ACTOR_B_ID }
+    );
+    await setDoc(doc(db, 'bookings', 'booking_test_a'), {
+      id: 'booking_test_a',
+      userId: STORAGE_TEST_ACTOR_ID,
+      instructorId: 'test-instructor-a',
+      dataScope: 'test',
+      testSessionId: STORAGE_TEST_SESSION_A,
+      date: '2026-12-01',
+      time: '09:00',
+      durationHours: 1,
+      totalPrice: 50,
+      status: 'confirmed',
+    });
+    await setDoc(doc(db, 'bookings', 'booking_test_b'), {
+      id: 'booking_test_b',
+      userId: STORAGE_TEST_ACTOR_B_ID,
+      instructorId: 'test-instructor-b',
+      dataScope: 'test',
+      testSessionId: STORAGE_TEST_SESSION_B,
+      date: '2026-12-01',
+      time: '10:00',
+      durationHours: 1,
+      totalPrice: 50,
+      status: 'confirmed',
+    });
+    await setDoc(doc(db, 'courses', 'course_test_a'), {
+      title: 'TEST Course',
+      dataScope: 'test',
+      testSessionId: STORAGE_TEST_SESSION_A,
+      instructorIds: ['test-instructor-a'],
+    });
+    await setDoc(doc(db, 'bookings', 'booking-course-star'), {
+      id: 'booking-course-star',
+      userId: STORAGE_OTHER_USER_ID,
+      instructorId: 'course_legacy_group',
+      courseId: 'course-group-1',
+      date: '2026-12-01',
+      time: '11:00',
+      durationHours: 1,
+      totalPrice: 50,
+      status: 'confirmed',
     });
   });
 }

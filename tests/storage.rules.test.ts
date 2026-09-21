@@ -19,7 +19,12 @@ import {
   STORAGE_INSTRUCTOR_USER_ID,
   STORAGE_OTHER_USER_ID,
   STORAGE_RULES_PROJECT_ID,
+  STORAGE_TEST_ACTOR_B_ID,
+  STORAGE_TEST_ACTOR_ID,
+  STORAGE_TEST_SESSION_A,
+  STORAGE_TEST_SESSION_B,
   STORAGE_USER_ID,
+  seedTestStorageIsolationFixtures,
   uploadImage,
   uploadVideo,
   userProfile,
@@ -270,5 +275,75 @@ describe('storage participant avatars', () => {
     await assertFails(
       uploadImage(otherStorage, `participant-avatars/${dependentParticipantId}/avatar.jpg`)
     );
+  });
+});
+
+describe('storage TEST namespace isolation', () => {
+  it('allows same-session TEST members and denies cross-session, live customers, and TestActors on LIVE prefixes', async () => {
+    await seedTestStorageIsolationFixtures(testEnv);
+
+    const actorA = testEnv.authenticatedContext(STORAGE_TEST_ACTOR_ID).storage();
+    const actorB = testEnv.authenticatedContext(STORAGE_TEST_ACTOR_B_ID).storage();
+    const liveCustomer = testEnv.authenticatedContext(STORAGE_USER_ID).storage();
+    const adminWithContext = testEnv.authenticatedContext(STORAGE_ADMIN_ID).storage();
+    const testChatA = `test-sessions/${STORAGE_TEST_SESSION_A}/booking-chat/booking_test_a/photo.jpg`;
+    const testChatB = `test-sessions/${STORAGE_TEST_SESSION_B}/booking-chat/booking_test_a/photo.jpg`;
+    const liveChat = 'chat/booking-chat-1/live.jpg';
+    const liveCourse = 'courses/course-live-deny.webp';
+    const liveParticipant = 'participant-avatars/participant_self_avatar/avatar.jpg';
+    const testCover = `test-sessions/${STORAGE_TEST_SESSION_A}/course-assets/course_test_a/cover.webp`;
+    const actorAvatar = `test-actors/${STORAGE_TEST_ACTOR_ID}/avatar`;
+
+    await assertSucceeds(uploadImage(actorA, testChatA));
+    await assertSucceeds(getBytes(ref(actorA, testChatA)));
+    await assertSucceeds(uploadImage(adminWithContext, testChatA));
+    await assertSucceeds(uploadImage(adminWithContext, testCover));
+    await assertSucceeds(uploadImage(actorA, actorAvatar));
+
+    await assertFails(uploadImage(actorB, testChatA));
+    await assertFails(getBytes(ref(actorB, testChatA)));
+    await assertFails(uploadImage(actorA, testChatB));
+    await assertFails(uploadImage(liveCustomer, testChatA));
+    await assertFails(getBytes(ref(liveCustomer, testChatA)));
+    await assertFails(uploadImage(actorA, liveChat));
+    await assertFails(uploadImage(actorA, liveCourse));
+    await assertFails(uploadImage(actorA, liveParticipant));
+  }, 30_000);
+
+  it('denies admin TEST session writes without membership and locked sessions', async () => {
+    await seedTestStorageIsolationFixtures(testEnv);
+
+    await seedStorageFirestore(testEnv, async (db) => {
+      await deleteDoc(doc(db, 'test_sessions', STORAGE_TEST_SESSION_A, 'membership', STORAGE_ADMIN_ID));
+    });
+    const adminWithoutContext = testEnv.authenticatedContext(STORAGE_ADMIN_ID).storage();
+    await assertFails(
+      uploadImage(
+        adminWithoutContext,
+        `test-sessions/${STORAGE_TEST_SESSION_A}/booking-chat/booking_test_a/admin.jpg`
+      )
+    );
+
+    await seedStorageFirestore(testEnv, async (db) => {
+      await setDoc(
+        doc(db, 'test_sessions', STORAGE_TEST_SESSION_A, 'membership', STORAGE_ADMIN_ID),
+        { accountId: STORAGE_ADMIN_ID }
+      );
+      await setDoc(doc(db, 'test_sessions', STORAGE_TEST_SESSION_A), { status: 'locked' });
+    });
+    await assertFails(
+      uploadImage(
+        adminWithoutContext,
+        `test-sessions/${STORAGE_TEST_SESSION_A}/booking-chat/booking_test_a/locked.jpg`
+      )
+    );
+  });
+
+  it('does not grant chat access through leftover course_* instructorId bookings', async () => {
+    await seedCourseGroupChatFixtures(testEnv);
+    await seedTestStorageIsolationFixtures(testEnv);
+
+    const studentStorage = testEnv.authenticatedContext(STORAGE_USER_ID).storage();
+    await assertFails(uploadImage(studentStorage, 'chat/booking-course-star/photo.jpg'));
   });
 });

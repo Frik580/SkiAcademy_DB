@@ -1,7 +1,9 @@
 import {
   AccountIdSchema,
   InstructorIdSchema,
+  LIVE_CANONICAL_EXECUTION_SCOPE,
   canonicalDeterministicHash,
+  instructorAssetStoragePath,
   type AccountId,
   type InstructorId,
 } from '@ski-academy/shared-domain';
@@ -252,7 +254,10 @@ export function AdminInstructorDirectory({ adminAccountId }: AdminInstructorDire
     setError(undefined);
     try {
       const optimized = await optimizeInstructorImage(file);
-      const url = await uploadImage(optimized, `instructors/${instructorIdForPath}.jpg`);
+      const url = await uploadImage(
+        optimized,
+        instructorAssetStoragePath(LIVE_CANONICAL_EXECUTION_SCOPE, instructorIdForPath)
+      );
       setProfileDraft((previous) => ({ ...previous, avatarUrl: url }));
     } catch {
       setError(text.mutationFailed);

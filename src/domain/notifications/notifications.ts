@@ -1,9 +1,16 @@
 import { db, doc, setDoc } from '../../infrastructure/firebase';
 import { logger } from '../../shared';
 import type { BilingualNotificationContent } from './notificationText';
+import { TEST_NOTIFICATION_CLIENT_REACHABILITY } from '@ski-academy/shared-domain';
 
 export type NotificationType = 'info' | 'warning' | 'success';
+export { TEST_NOTIFICATION_CLIENT_REACHABILITY };
 
+/**
+ * Direct client notification writes remain LIVE-only.
+ * TEST in-app notifications are domain/server-only until Firestore Rules (T42B-8).
+ * Reachability: {@link TEST_NOTIFICATION_CLIENT_REACHABILITY}.
+ */
 export const createNotificationForUser = async (
   userId: string,
   content: BilingualNotificationContent,

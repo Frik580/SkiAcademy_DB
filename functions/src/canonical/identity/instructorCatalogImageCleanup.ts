@@ -1,12 +1,16 @@
-import type { OutboxObligationDraft } from '@ski-academy/shared-domain';
-import type { InstructorId } from '@ski-academy/shared-domain';
+import {
+  LIVE_CANONICAL_EXECUTION_SCOPE,
+  instructorAssetStoragePath,
+  type InstructorId,
+  type OutboxObligationDraft,
+} from '@ski-academy/shared-domain';
 
 export const INSTRUCTOR_CATALOG_IMAGE_CLEANUP_TEMPLATE_ID =
   'instructor_catalog_image_cleanup' as const;
 export const INSTRUCTOR_CATALOG_IMAGE_CLEANUP_TEMPLATE_VERSION = 'v1' as const;
 
 export function instructorCatalogImageStoragePath(instructorId: InstructorId): string {
-  return `instructors/${instructorId}.jpg`;
+  return instructorAssetStoragePath(LIVE_CANONICAL_EXECUTION_SCOPE, instructorId);
 }
 
 export function instructorCatalogImageCleanupOutboxDraft(input: {

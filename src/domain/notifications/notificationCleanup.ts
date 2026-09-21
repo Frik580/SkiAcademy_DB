@@ -11,6 +11,7 @@ import {
 } from 'firebase/firestore';
 import { getNotificationRetentionMs } from './notificationConfig';
 import { logger } from '../../shared';
+import { notificationEligibleForUserPurge } from '@ski-academy/shared-domain';
 
 const CLEANUP_BATCH_SIZE = 200;
 
@@ -66,11 +67,13 @@ export async function purgeExpiredNotificationsForUser(
     if (snapshot.empty) break;
 
     await Promise.all(
-      snapshot.docs.map((notificationDoc) =>
-        deleteDoc(doc(db, 'notifications', notificationDoc.id)).catch((err) =>
-          logger.error('Failed to auto-delete expired notification:', err)
+      snapshot.docs
+        .filter((notificationDoc) => notificationEligibleForUserPurge(notificationDoc.data(), userId))
+        .map((notificationDoc) =>
+          deleteDoc(doc(db, 'notifications', notificationDoc.id)).catch((err) =>
+            logger.error('Failed to auto-delete expired notification:', err)
+          )
         )
-      )
     );
 
     deleted += snapshot.docs.length;

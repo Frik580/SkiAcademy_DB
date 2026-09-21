@@ -25,7 +25,10 @@ export async function purgeExpiredNotifications(db: Firestore): Promise<number> 
     if (snapshot.empty) break;
 
     const batch = db.batch();
-    snapshot.docs.forEach((notificationDoc) => batch.delete(notificationDoc.ref));
+    snapshot.docs.forEach((notificationDoc) => {
+      // Delete the expired document itself. Do not infer other users or scopes.
+      batch.delete(notificationDoc.ref);
+    });
     await batch.commit();
 
     deleted += snapshot.size;

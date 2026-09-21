@@ -265,6 +265,7 @@ export async function cloneLiveCourseIntoTestSession(
 
       let clonedCatalog: CourseCatalogContent | undefined;
       if (template.catalog) {
+        // Immutable public image URLs stay shared; do not copy LIVE Storage objects.
         clonedCatalog = {
           ...template.catalog,
           courseId: cloneCourseId,

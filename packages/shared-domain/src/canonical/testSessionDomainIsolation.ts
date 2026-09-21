@@ -52,12 +52,14 @@ export const TEST_SESSION_RESOURCE_CLASSIFICATION = {
   liveInstructorOccupancyOrRating: 'FORBIDDEN',
   liveParticipantProgress: 'FORBIDDEN',
   liveHomeworkTarget: 'FORBIDDEN',
+  liveStorageNamespace: 'FORBIDDEN',
+  liveNotificationRecipient: 'FORBIDDEN',
+  livePaymentProvider: 'FORBIDDEN',
 } as const satisfies Record<string, TestSessionResourceClassification>;
 
 export const TEST_COMMAND_SUPPORT_STATES = [
   'TEST_SUPPORTED',
   'TEST_FORBIDDEN',
-  'T42B-4_DEFERRED',
   'T42B-5_DEFERRED',
   'T42B-8_DEFERRED',
   'T43_DEFERRED',
@@ -68,6 +70,8 @@ export type TestCommandSupportState = (typeof TEST_COMMAND_SUPPORT_STATES)[numbe
 /**
  * Exhaustive TEST support matrix. Unknown command kinds cannot default to allowed.
  * T42B-5 has no write commands; read isolation remains deferred.
+ * `record_provider_payment_event` remains TEST_SUPPORTED for manual_external
+ * capture. `sourceKind=provider` is TEST_FORBIDDEN via TestSideEffectPolicy.
  */
 export const TEST_SESSION_COMMAND_SUPPORT = {
   create_confirmed_booking: 'TEST_SUPPORTED',
@@ -174,8 +178,8 @@ export function isTestSessionCommandSupported(kind: CommandKind): boolean {
   return TEST_SESSION_COMMAND_SUPPORT[kind] === 'TEST_SUPPORTED';
 }
 
-/** Client booking-message homework writes stay unreachable until Rules (T42B-8) / Storage (T42B-4). */
-export const TEST_CHAT_CLIENT_REACHABILITY = 'deferred_until_rules_and_storage' as const;
+/** Client booking-message writes stay unreachable until Firestore Rules (T42B-8). Storage path contract is T42B-4. */
+export const TEST_CHAT_CLIENT_REACHABILITY = 'deferred_until_firestore_rules' as const;
 
 export type HomeworkTargetErrorCode =
   | 'CROSS_SCOPE_FORBIDDEN'

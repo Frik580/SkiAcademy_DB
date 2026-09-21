@@ -1,4 +1,8 @@
-import type { ManagedParticipantPickerAgeProjection } from '@ski-academy/shared-domain';
+import {
+  LIVE_CANONICAL_EXECUTION_SCOPE,
+  participantAvatarStoragePath as scopedParticipantAvatarStoragePath,
+  type ManagedParticipantPickerAgeProjection,
+} from '@ski-academy/shared-domain';
 import type { ManagedParticipantOption } from '../lesson-bookings/lessonBookingContracts';
 
 export type ManagedParticipantAgeInput = ManagedParticipantPickerAgeProjection;
@@ -149,9 +153,9 @@ export function hasManagedParticipantProfileChanges(
   );
 }
 
-/** Storage object path for a participant-scoped avatar upload. */
+/** Storage object path for a LIVE participant-scoped avatar upload. */
 export function participantAvatarStoragePath(participantId: string): string {
-  return `participant-avatars/${participantId}/avatar.jpg`;
+  return scopedParticipantAvatarStoragePath(LIVE_CANONICAL_EXECUTION_SCOPE, participantId);
 }
 
 /**

@@ -4,18 +4,23 @@ import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { useNotifications } from '../../../../features/notifications';
 import { optimizeCourseImage } from './courseImage';
 import { uploadImage } from '../../../../infrastructure/firebase';
+import { liveCourseCoverStoragePath, parseResourceStorageScope, assertTestStorageClientReachable } from '@ski-academy/shared-domain';
 import { logger } from '../../../../shared';
 
 interface CourseBackgroundImageFieldProps {
   value: string;
   onChange: (value: string) => void;
   courseId?: string;
+  dataScope?: unknown;
+  testSessionId?: unknown;
 }
 
 export const CourseBackgroundImageField: React.FC<CourseBackgroundImageFieldProps> = ({
   value,
   onChange,
   courseId,
+  dataScope,
+  testSessionId,
 }) => {
   const { t } = useLanguage();
   const { addNotification } = useNotifications();
@@ -32,7 +37,9 @@ export const CourseBackgroundImageField: React.FC<CourseBackgroundImageFieldProp
     try {
       const optimizedBlob = await optimizeCourseImage(file);
       const targetCourseId = courseId || `course_${Date.now()}`;
-      const imageUrl = await uploadImage(optimizedBlob, `courses/${targetCourseId}.webp`);
+      const scope = parseResourceStorageScope({ dataScope, testSessionId });
+      assertTestStorageClientReachable(scope);
+      const imageUrl = await uploadImage(optimizedBlob, liveCourseCoverStoragePath(targetCourseId));
       onChange(imageUrl);
       addNotification('success', t('courseBgAttached'), t('courseBgAttachedDesc'));
     } catch (err) {

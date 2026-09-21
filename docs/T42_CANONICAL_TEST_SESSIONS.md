@@ -2,7 +2,7 @@
 
 Date: 2026-09-21
 
-Status: **IN PROGRESS / T42B-3 IMPLEMENTED + VALIDATED / NEXT T42B-4**
+Status: **IN PROGRESS / T42B-4 IMPLEMENTED + VALIDATED / NEXT T42B-5**
 
 This document is the living T42 status and implementation plan. Architecture
 authority is [ADR-0010](adr/0010-canonical-test-sessions-and-live-test-data-isolation.md).
@@ -51,8 +51,12 @@ DONE     T42B-2 — scoped writers and scoped canonical keys IMPLEMENTED / VALID
 DONE     T42B-3 — Canonical Domain Isolation IMPLEMENTED / VALIDATED
          deploy / migration / production writes = NO
 
-NEXT     T42B-4 — Storage namespace + TestSideEffectPolicy
-         T42B-5 ... T42B-9
+DONE     T42B-4 — Storage namespace + TestSideEffectPolicy IMPLEMENTED / VALIDATED
+         deploy / migration / production writes = NO
+         Storage Rules source changed; Storage Rules deploy = NO
+
+NEXT     T42B-5 — LIVE-only default read models + TestSession-scoped reads
+         T42B-6 ... T42B-9
 
 THEN     T43 — Test Session Guest Support
 ```
@@ -245,9 +249,8 @@ forbidden. MonetaryEvent scope equals Payment/Wallet/subject. Admin
 `pay_service_from_wallet_as_administrator` in TEST context debits the TEST
 resource's linked TEST wallet, never the live owner/admin wallet. Refunds and
 price adjustments cannot select a different scope; they follow the original
-Payment. `record_provider_payment_event` with `sourceKind=provider` is
-fail-closed in TEST until T42B-4. Manual/canonical capture (`manual_external`)
-is scoped.
+Payment. `record_provider_payment_event` with `sourceKind=provider` is TEST_FORBIDDEN.
+Manual/canonical capture (`manual_external`) remains TEST_SUPPORTED.
 
 ### Test Course clone semantics
 
@@ -307,9 +310,12 @@ targets are forbidden. `homeworkForUserIds` stays forbidden.
 **TEST homework domain support = implemented** via
 `assertHomeworkTargetsSameScope`. **Client TEST chat reachability =
 intentionally deferred** (`TEST_CHAT_CLIENT_REACHABILITY =
-deferred_until_rules_and_storage`). Booking messages remain client-direct
-Firestore writes; Rules belong to T42B-8 and Storage to T42B-4. TEST chat is
-not user-reachable and must not be opened as an insecure client path.
+deferred_until_firestore_rules`). Storage path helpers now derive TEST
+attachment prefixes from authoritative Booking/TestSession scope
+(`test-sessions/{testSessionId}/booking-chat/{bookingId}/...`). Booking
+messages remain client-direct Firestore writes; Firestore Rules belong to
+T42B-8. TEST chat is not user-reachable and must not be opened as an insecure
+client path.
 
 TEST Course clones do not reuse LIVE `course_chat_access`. Enrollment chat
 access writes inherit TEST scope/session. Full Rules/read enforcement is later.
@@ -336,16 +342,136 @@ Notable groups:
   achievements, lesson feedback, availability blocks
 - **TEST_FORBIDDEN** — `grant_starter_credit`, `update_lesson_pricing_settings`,
   `record_audit_correction`, live `provision_canonical_course` /
-  `apply_canonical_course_provisioning_manifest`
-- **T42B-4_DEFERRED** — provider-sourced `record_provider_payment_event`
-  (`sourceKind=provider` fail-closed inside an otherwise TEST_SUPPORTED
-  command); Storage/notifications/provider sandbox
+  `apply_canonical_course_provisioning_manifest`; `sourceKind=provider` on
+  `record_provider_payment_event` (command kind stays TEST_SUPPORTED for
+  `manual_external`)
 - **T42B-5_DEFERRED** — no write commands; read-model isolation remains later
-- **T42B-8_DEFERRED** — Participant/Account/Instructor identity mutations
+- **T42B-8_DEFERRED** — Participant/Account/Instructor identity mutations;
+  TEST client chat/notification Firestore reachability; Storage Rules deploy
 - **T43_DEFERRED** — guest booking/enrollment/link/expiry commands
 
 Test Sessions are still not usable in production. No deploy, Rules, indexes,
 Storage, read-model rollout, or live migration in this slice.
+
+## T42B-4 implementation (source-only)
+
+Implemented and validated. **Not production-usable.** No TestSession,
+TestActor, or production identity (including
+`F5mwFT8KvAOkYHxlElpagT1yftr1` / `ksusha@test.ru`) was created or mutated.
+Storage Rules source changed; Storage Rules deploy = NO. Firestore Rules
+source unchanged.
+
+### Storage namespaces
+
+```text
+LIVE booking chat        chat/{bookingId}/...
+LIVE course cover        courses/{courseId}.webp
+LIVE instructor asset    instructors/{instructorId}.jpg
+LIVE account avatar      avatars/{accountId}
+LIVE participant avatar  participant-avatars/{participantId}/avatar.jpg
+LIVE image cache         image-cache/{fileName}   (server write only)
+
+TEST session disposable  test-sessions/{testSessionId}/...
+  booking chat           test-sessions/{testSessionId}/booking-chat/{bookingId}/...
+  course assets          test-sessions/{testSessionId}/course-assets/{courseId}/...
+  misc                   test-sessions/{testSessionId}/misc/...
+
+persistent TestActor     test-actors/{accountOrParticipantOrInstructorId}/...
+  account avatar         test-actors/{accountId}/avatar
+  participant avatar     test-actors/{participantId}/avatar.jpg
+```
+
+Path builders live in
+`packages/shared-domain/src/canonical/testStoragePaths.ts`. The client cannot
+choose `isTest` / `testSessionId` / an arbitrary prefix. Scope is parsed from
+the trusted Booking/Course/identity record (`allowLegacyLive` for missing
+LIVE fields). TEST client uploads remain unreachable
+(`TEST_STORAGE_CLIENT_REACHABILITY = deferred_until_rules_rollout`) until
+Storage Rules are deployed in T42B-8.
+
+Course clone catalog `bgImageUrl` is a **shared immutable public reference**
+(typically Yandex `/carve/`). Mutable TEST course uploads must use the session
+namespace and must never overwrite `courses/{liveCourseId}/...`.
+
+Persistent TestActor avatars survive Reset Session History. Retire TestActor
+(future) may delete `test-actors/...`. Session cleanup deletes only
+`test-sessions/{testSessionId}/`.
+
+### Storage cleanup primitive
+
+`deleteTestSessionStorage(testSessionId)` (Functions, not invoked in
+production):
+
+- exact prefix `test-sessions/{testSessionId}/` only
+- rejects malformed session IDs
+- idempotent; missing objects are safe
+- never lists/deletes the parent `test-sessions/` prefix or LIVE/actor paths
+- result `{ listed, deleted, absent, failed, errors, complete }`
+- if Storage cleanup is incomplete, `complete=false` so T42B-7 must keep the
+  session maintenance-incomplete / retryable
+
+### Storage Rules source (undeployed)
+
+TEST session read/write requires an **active** TestSession plus membership
+(`test_sessions/{id}/membership/{uid}`) and either an allowed TestActor or
+Admin. Cross-session is denied. Live customers cannot access TEST prefixes.
+TestActors cannot write LIVE protected prefixes. Admin without membership
+cannot write the TEST session prefix. Leftover `course_*` instructorId chat
+authorization was removed from `storage.rules`; canonical
+`course_chat_access` remains. The same leftover still exists in
+`firestore.rules` (deferred to T42B-8 because TEST chat Firestore writes stay
+unreachable).
+
+### TestSideEffectPolicy
+
+`resolveTestSideEffectPolicy(scope, channel)`:
+
+| Channel           | LIVE                         | TEST                                      |
+| ----------------- | ---------------------------- | ----------------------------------------- |
+| in_app            | existing                     | same-session TEST recipient only          |
+| email             | existing/staged              | SUPPRESS                                  |
+| sms               | existing/future              | SUPPRESS                                  |
+| push              | existing/future              | SUPPRESS                                  |
+| payment_provider  | existing                     | FORBIDDEN (no client sandbox flag)        |
+| webhook           | existing/future              | SUPPRESS                                  |
+| image_fetch       | Yandex `/carve/` allowlist   | same public allowlist; no private media   |
+| analytics         | NOT_IMPLEMENTED              | NOT_IMPLEMENTED                           |
+
+Unknown channel/scope fails closed. TEST email/SMS/push are staged as
+`delivery.status=suppressed` with reason `TEST_EXTERNAL_CHANNEL_SUPPRESSED`.
+Future workers must call `assertOutboxDeliveryMayProceed` (also re-exported
+from `functions/src/canonical/auditOutbox/outboxDeliveryGuard.ts`). A leaked
+pending TEST email record is still undeliverable.
+
+Live Admin operating a TestSession is the actor, not the default TEST
+recipient/payer. TEST in-app notifications must not target the live admin
+account.
+
+Client `createNotificationForUser` remains LIVE-only
+(`TEST_NOTIFICATION_CLIENT_REACHABILITY = deferred_until_firestore_rules`).
+Scheduled notification purge deletes expired documents by timestamp and does
+not infer other users; session cleanup uses `testSessionId` when present.
+
+No email/SMS/FCM/webhook worker exists in current source. Policy exists so a
+future worker cannot send TEST work. `optimizeImage` stays on the public
+Yandex `/carve/` allowlist (no SSRF broadening). External analytics is
+NOT_IMPLEMENTED (`universal-analytics` is a lockfile override only).
+
+### Client-direct writers after T42B-4
+
+| Path | LIVE | TEST | Authority | Remaining |
+| --- | --- | --- | --- | --- |
+| `chatService` messages | client Firestore | unreachable | Firestore Rules | T42B-8 |
+| BookingChatModal media | `chat/{id}/...` via path helper | unreachable until Rules deploy | Storage Rules + booking scope | T42B-8 |
+| participant avatars | `participant-avatars/...` | `test-actors/...` contract; client LIVE wrapper | Storage Rules | T42B-8 identity |
+| course cover upload | `courses/{id}.webp` | session namespace contract; client unreachable | Storage Rules + Admin | T42B-6/T42B-8 |
+| instructor catalog photo | `instructors/{id}.jpg` | `test-actors/...` contract | Storage Rules + Admin | T42B-8 |
+| notifications | client `notifications/{id}` | unreachable | Firestore Rules | T42B-8 |
+| settings / error logs | LIVE operational | not session-reset data | existing | none |
+
+No hidden client-direct TEST mutation path.
+
+Test Sessions are still not usable in production.
 
 ## Approved architecture (partially implemented)
 
@@ -571,8 +697,8 @@ No blind manual cleanup.
 | T42B-1 | Core: TestSession, test actors, assignments, CanonicalExecutionScope, resolver, max active sessions = 1 | **IMPLEMENTED / VALIDATED** (source-only; no deploy/migration/production writes)               |
 | T42B-2 | Write propagation: writers, claims, guards, idempotency, outbox/work, cross-scope assertions            | **IMPLEMENTED / VALIDATED** (source-only; no deploy/migration/production writes)               |
 | T42B-3 | Domain isolation: finance, progress, achievements, reviews, attendance, homework, CourseEnrollment      | **IMPLEMENTED / VALIDATED** (source-only; no deploy/migration/production writes)               |
-| T42B-4 | Storage + side effects                                                                                  | **NEXT**                                                                                       |
-| T42B-5 | Read-model isolation                                                                                    | PLANNED                                                                                        |
+| T42B-4 | Storage + side effects                                                                                  | **IMPLEMENTED / VALIDATED** (source-only; Storage Rules source YES, deploy NO)                 |
+| T42B-5 | Read-model isolation                                                                                    | **NEXT**                                                                                       |
 | T42B-6 | Admin Testing UI                                                                                        | PLANNED                                                                                        |
 | T42B-7 | Reset/Delete engine: preview, manifests, locks, audit, verifier                                         | PLANNED                                                                                        |
 | T42B-8 | Existing LIVE data backfill; Firestore Rules; Storage Rules; indexes; strict dataScope contract         | PLANNED                                                                                        |

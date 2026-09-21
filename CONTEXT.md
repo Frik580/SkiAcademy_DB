@@ -616,8 +616,9 @@ T32.9A.9A — PASS / CLOSED (F1 / F2 / F3 / F4 / final integration smoke)
 → T42B-1 (Core Test Session plumbing) — IMPLEMENTED / VALIDATED (source-only; deploy/migration/production writes = NO)
 → T42B-2 (scoped writers, key v2, outbox/work and scheduler inheritance) — IMPLEMENTED / VALIDATED (source-only)
 → T42B-3 (Canonical Domain Isolation: finance, course clone/capacity, progress, achievements, reviews, attendance, homework) — IMPLEMENTED / VALIDATED (source-only; deploy/migration/production writes = NO)
-→ CURRENT / NEXT T42B-4 (Storage namespace + TestSideEffectPolicy; wait for owner approval)
-→ T42B-5 … T42B-9 — PLANNED IMPLEMENTATION
+→ T42B-4 (Storage namespace + TestSideEffectPolicy) — IMPLEMENTED / VALIDATED (source-only; Storage Rules source YES, deploy NO)
+→ CURRENT / NEXT T42B-5 (LIVE-only default read models + TestSession-scoped reads; wait for owner approval)
+→ T42B-6 … T42B-9 — PLANNED IMPLEMENTATION
 → T43 — Test Session Guest Support — FUTURE
 ```
 

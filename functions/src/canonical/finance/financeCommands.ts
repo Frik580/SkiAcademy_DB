@@ -2,6 +2,8 @@ import {
   AggregateRevisionSchema,
   CanonicalCommandError,
   InsufficientWalletFundsError,
+  TestSideEffectPolicyError,
+  assertProviderEventAllowedForScope,
   PaymentAccountingInvariantError,
   applyExternalPaymentFunding,
   applyPriceDecrease,
@@ -276,11 +278,13 @@ function recordProviderPaymentEventHandler(
       plannedGuestConfirmation = undefined;
       plannedPaymentStartIssueResolution = undefined;
       providerReceiptPath = undefined;
-      if (
-        session.scope?.dataScope === 'test' &&
-        envelope.intent.sourceKind === 'provider'
-      ) {
-        throw crossScopeCommandError(envelope.context.correlationId, 'unsupported');
+      try {
+        assertProviderEventAllowedForScope(session.scope, envelope.intent.sourceKind);
+      } catch (error) {
+        if (error instanceof TestSideEffectPolicyError) {
+          throw crossScopeCommandError(envelope.context.correlationId, 'unsupported');
+        }
+        throw error;
       }
       const paymentRead = await session.tx.get({ path: paymentDocumentPath });
       session.plan.planRead({ path: paymentDocumentPath, category: 'payment_wallet' });

@@ -293,7 +293,7 @@ function createGuestBookingRequestHandler(
       instructorClaimPlan = await readAndPlanAcquireResourceClaim(session, {
         ...claimMetadata,
         identity: ResourceClaimIdentityInputSchema.parse({
-          strategyVersion: 'claim:v1',
+          strategyVersion: 'claim:v2',
           claimKind: 'instructor_booking_occurrence',
           resourceKind: 'instructor',
           resourceId: envelope.intent.instructorId,
@@ -306,7 +306,7 @@ function createGuestBookingRequestHandler(
       participantClaimPlan = await readAndPlanAcquireResourceClaim(session, {
         ...claimMetadata,
         identity: ResourceClaimIdentityInputSchema.parse({
-          strategyVersion: 'claim:v1',
+          strategyVersion: 'claim:v2',
           claimKind: 'participant_booking_occurrence',
           resourceKind: 'participant',
           resourceId: participantId,

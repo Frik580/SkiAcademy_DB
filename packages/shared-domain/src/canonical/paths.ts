@@ -269,8 +269,7 @@ export const canonicalPaths = {
   participantBlock: (id: ParticipantBlockId) => documentPath('participant_blocks', id),
   booking: (id: BookingId) => documentPath('bookings', id),
   instructorReview: (id: ReviewId) => documentPath('instructor_reviews', id),
-  instructorRatingSummary: (id: InstructorId) =>
-    documentPath('instructor_rating_summaries', id),
+  instructorRatingSummary: (id: InstructorId) => documentPath('instructor_rating_summaries', id),
   participantProgress: (id: ParticipantId) => documentPath('participant_progress', id),
   participantAchievements: (id: ParticipantId) => documentPath('participant_achievements', id),
   participantLessonFeedback: (id: ParticipantLessonFeedbackId) =>
@@ -311,10 +310,14 @@ export const canonicalPaths = {
     documentPath('administrative_availability_blocks', id),
   resourceClaim: (id: ResourceClaimId) => documentPath('resource_claims', id),
   resourceClaimGuard: (id: ResourceClaimGuardId) => documentPath('resource_claim_guards', id),
-  activeCourseEnrollmentGuard: (participantId: ParticipantId, courseId: CourseId) =>
+  activeCourseEnrollmentGuard: (
+    participantId: ParticipantId,
+    courseId: CourseId,
+    scope?: Parameters<typeof activeCourseEnrollmentGuardKey>[2]
+  ) =>
     documentPath(
       'active_course_enrollment_guards',
-      activeCourseEnrollmentGuardKey(participantId, courseId)
+      activeCourseEnrollmentGuardKey(participantId, courseId, scope)
     ),
   activityLog: (id: ActivityLogId) => documentPath('activity_logs', id),
   commandIdempotency: (id: CommandId) => documentPath('command_idempotency', id),

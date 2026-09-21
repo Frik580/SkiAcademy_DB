@@ -97,8 +97,11 @@ interface CommandMetadata {
   readonly correlationId: CommandEnvelope['context']['correlationId'];
 }
 
-function metadataFromEnvelope(envelope: CommandEnvelope): CommandMetadata {
-  const identity = resolveCommandIdempotencyIdentity(envelope);
+function metadataFromEnvelope(
+  envelope: CommandEnvelope,
+  environment: CommandExecutionEnvironment
+): CommandMetadata {
+  const identity = resolveCommandIdempotencyIdentity(envelope, environment.scope);
   return {
     commandId: identity.commandKey,
     correlationId: envelope.context.correlationId,
@@ -196,7 +199,7 @@ function recordBookingAttendanceHandler(
   environment: CommandExecutionEnvironment,
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
 ): Promise<CommandResult<'record_booking_attendance'>> {
-  const metadata = metadataFromEnvelope(envelope);
+  const metadata = metadataFromEnvelope(envelope, environment);
   const bookingDocumentPath = bookingPath(envelope.intent.bookingId);
 
   let booking!: Booking;
@@ -595,7 +598,7 @@ function resolveAttendanceOutcomeHandler(
     });
   }
 
-  const metadata = metadataFromEnvelope(envelope);
+  const metadata = metadataFromEnvelope(envelope, environment);
   const bookingId = BookingIdSchema.parse(envelope.intent.subjectId);
   const bookingDocumentPath = bookingPath(bookingId);
   const actorMode = assertResolveAttendanceOutcomeAuthorization(envelope);

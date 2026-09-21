@@ -1,9 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  AccountIdSchema,
   CanonicalCommandError,
+  CommandIdSchema,
   CorrelationIdSchema,
   CourseEnrollmentIdSchema,
   CourseEnrollmentSchema,
+  TestSessionIdSchema,
   commandErrorResult,
   commandSuccessResult,
   timestampFromDate,
@@ -16,6 +19,30 @@ import {
   pendingCourseEnrollmentOutcomeWork,
 } from './courseEnrollmentOutcomeWork';
 import { sweepCourseEnrollmentOutcomes } from './courseEnrollmentOutcomeSweep';
+
+const testSessionId = TestSessionIdSchema.parse('test_session_course_sweep_01');
+
+function testSessionData(status: 'active' | 'resetting' | 'deleting') {
+  const at = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
+  const commandId = CommandIdSchema.parse('command_course_sweep_session_01');
+  return {
+    testSessionId,
+    schemaVersion: 1,
+    status,
+    label: 'Course outcome sweep test',
+    createdByAccountId: AccountIdSchema.parse('account_course_sweep_session_01'),
+    config: { startingBalanceKzt: 0, clonedCourseIds: [] },
+    inventoryRevision: 0,
+    revision: 1,
+    createdAt: at,
+    updatedAt: at,
+    audit: {
+      createdByCommandId: commandId,
+      lastChangedByCommandId: commandId,
+      correlationId: 'correlation_course_sweep_session_01',
+    },
+  };
+}
 
 function fakeWorkFirestore(seed: Map<string, Record<string, unknown>>): Firestore {
   const document = (path: string, id: string) => ({
@@ -123,6 +150,57 @@ function workData(index: number, dueAt: Date): Record<string, unknown> {
 }
 
 describe('T32.9A.9C.B bounded CourseEnrollment outcome sweep', () => {
+  it('processes active TEST-session work with the matching authoritative scope', async () => {
+    const data = {
+      ...workData(4, new Date('2026-02-01T00:00:00.000Z')),
+      dataScope: 'test',
+      testSessionId,
+    };
+    const enrollmentId = String(data.enrollmentId);
+    const seed = new Map<string, Record<string, unknown>>([
+      [`${COURSE_ENROLLMENT_OUTCOME_WORK_COLLECTION}/${enrollmentId}`, data],
+      [`test_sessions/${testSessionId}`, testSessionData('active')],
+    ]);
+    const execute = vi.fn(async (envelope): Promise<CommandResult<'resolve_attendance_outcome'>> =>
+      commandSuccessResult('resolve_attendance_outcome', envelope.context.correlationId)
+    );
+
+    const result = await sweepCourseEnrollmentOutcomes(fakeWorkFirestore(seed), {
+      now: new Date('2026-02-02T00:00:00.000Z'),
+      execute,
+    });
+
+    expect(result.processed).toBe(1);
+    expect(execute).toHaveBeenCalledWith(expect.anything(), { dataScope: 'test', testSessionId });
+  });
+
+  it.each(['resetting', 'deleting'] as const)(
+    'skips TEST work while the session is %s',
+    async (status) => {
+      const data = {
+        ...workData(5, new Date('2026-02-01T00:00:00.000Z')),
+        dataScope: 'test',
+        testSessionId,
+      };
+      const enrollmentId = String(data.enrollmentId);
+      const key = `${COURSE_ENROLLMENT_OUTCOME_WORK_COLLECTION}/${enrollmentId}`;
+      const seed = new Map<string, Record<string, unknown>>([
+        [key, data],
+        [`test_sessions/${testSessionId}`, testSessionData(status)],
+      ]);
+      const execute = vi.fn();
+
+      const result = await sweepCourseEnrollmentOutcomes(fakeWorkFirestore(seed), {
+        now: new Date('2026-02-02T00:00:00.000Z'),
+        execute,
+      });
+
+      expect(result.inactiveSessionSkipped).toBe(1);
+      expect(execute).not.toHaveBeenCalled();
+      expect(seed.get(key)).toMatchObject({ status: 'pending', dataScope: 'test', testSessionId });
+    }
+  );
+
   it('does not process work before dueAt', async () => {
     const data = workData(1, new Date('2026-03-01T00:00:00.000Z'));
     const enrollmentId = String(data.enrollmentId);

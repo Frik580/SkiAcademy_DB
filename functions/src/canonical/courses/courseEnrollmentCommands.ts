@@ -196,8 +196,11 @@ function assertEquivalentExistingCourseEnrollment(input: {
   }
 }
 
-function metadataFromEnvelope(envelope: CommandEnvelope): CommandMetadata {
-  const identity = resolveCommandIdempotencyIdentity(envelope);
+function metadataFromEnvelope(
+  envelope: CommandEnvelope,
+  environment: CommandExecutionEnvironment
+): CommandMetadata {
+  const identity = resolveCommandIdempotencyIdentity(envelope, environment.scope);
   return {
     commandId: identity.commandKey,
     correlationId: envelope.context.correlationId,
@@ -319,7 +322,7 @@ function createCourseEnrollmentsHandler(
   environment: GuestCourseEnrollmentCommandEnvironment,
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
 ): Promise<CommandResult<'create_course_enrollments'>> {
-  const metadata = metadataFromEnvelope(envelope);
+  const metadata = metadataFromEnvelope(envelope, environment);
   try {
     assertUniqueEnrollmentParticipantIds(envelope.intent.participantIds);
   } catch {
@@ -502,8 +505,7 @@ function createCourseEnrollmentsHandler(
         let authorization: CourseEnrollmentCreationAuthorization = { mode };
         let shouldCreateGuestParticipant = false;
         let guestParticipantProfile:
-          | import('@ski-academy/shared-domain').GuestParticipantProfileFromTransport
-          | undefined;
+          import('@ski-academy/shared-domain').GuestParticipantProfileFromTransport | undefined;
         let participantRecord!: import('@ski-academy/shared-domain').Participant;
 
         if (mode === 'guest') {
@@ -630,6 +632,7 @@ function createCourseEnrollmentsHandler(
           courseId: envelope.intent.courseId,
           enrollmentId,
           occurrenceId: courseEnrollmentSeatOccurrenceId(enrollmentId),
+          scope: session.scope,
         });
         const seatClaimPlan = await readAndPlanAcquireResourceClaim(session, {
           ...claimMetadata,
@@ -645,6 +648,7 @@ function createCourseEnrollmentsHandler(
             participantId,
             enrollmentId,
             courseDay,
+            scope: session.scope,
           });
           const dayClaimPlan = await readAndPlanAcquireResourceClaim(session, {
             ...claimMetadata,
@@ -817,24 +821,17 @@ function createCourseEnrollmentsHandler(
         let remainingWallet = walletRecord?.balance ?? 0;
         const paymentProjections: PaymentAccountingProjection[] = [];
         for (let index = 0; index < newSeatCount; index += 1) {
-          const seatFunding = KztMinorUnitsSchema.parse(
-            Math.min(remainingWallet, servicePrice)
-          );
+          const seatFunding = KztMinorUnitsSchema.parse(Math.min(remainingWallet, servicePrice));
           paymentProjections.push(
             applyExternalPaymentFunding(initialUnpaidPaymentFields(servicePrice), seatFunding)
           );
           remainingWallet -= seatFunding;
         }
         walletFunding = KztMinorUnitsSchema.parse((walletRecord?.balance ?? 0) - remainingWallet);
-        underfunded = paymentProjections.some(
-          (projection) => projection.outstandingAmount > 0
-        );
+        underfunded = paymentProjections.some((projection) => projection.outstandingAmount > 0);
         assertAdminEnrollmentUnderpaymentReason(
           envelope,
-          Math.max(
-            0,
-            ...paymentProjections.map((projection) => projection.outstandingAmount)
-          )
+          Math.max(0, ...paymentProjections.map((projection) => projection.outstandingAmount))
         );
         let newIndex = 0;
         plannedEnrollments = nextPlanned.map((planned) => {
@@ -1169,9 +1166,7 @@ function createCourseEnrollmentsHandler(
 
         return commandSuccessResult(envelope.kind, envelope.context.correlationId, {
           outcome: equivalentReplayOnly ? 'already_exists' : 'created',
-          ...(mode === 'guest' && guestLinkCredentials.length > 0
-            ? { guestLinkCredentials }
-            : {}),
+          ...(mode === 'guest' && guestLinkCredentials.length > 0 ? { guestLinkCredentials } : {}),
         });
       } catch (error) {
         mapFinanceDomainError(envelope, error);

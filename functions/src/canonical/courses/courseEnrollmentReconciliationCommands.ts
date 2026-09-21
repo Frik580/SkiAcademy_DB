@@ -58,12 +58,7 @@ import {
   planReleaseCourseEnrollmentClaims,
   type PlannedCourseEnrollmentClaimRelease,
 } from './courseEnrollmentClaimOperations';
-import {
-  courseDaysCollectionPath,
-  coursePath,
-  parseCourse,
-  parseCourseDays,
-} from './courseStore';
+import { courseDaysCollectionPath, coursePath, parseCourse, parseCourseDays } from './courseStore';
 import {
   courseEnrollmentPath,
   COURSE_ENROLLMENT_PLANNING_ESTIMATES,
@@ -72,18 +67,18 @@ import {
 } from './courseEnrollmentStore';
 import { assertReconcileCourseEnrollmentAuthorization } from './courseEnrollmentReconciliationAuthorization';
 import { buildReconcileCourseEnrollmentAuditPlan } from './courseEnrollmentReconciliationAudit';
-import {
-  attendancePath,
-  parseAttendance,
-} from '../bookings/attendanceStore';
+import { attendancePath, parseAttendance } from '../bookings/attendanceStore';
 
 interface CommandMetadata {
   readonly commandId: ReturnType<typeof resolveCommandIdempotencyIdentity>['commandKey'];
   readonly correlationId: CommandEnvelope['context']['correlationId'];
 }
 
-function metadataFromEnvelope(envelope: CommandEnvelope): CommandMetadata {
-  const identity = resolveCommandIdempotencyIdentity(envelope);
+function metadataFromEnvelope(
+  envelope: CommandEnvelope,
+  environment: CommandExecutionEnvironment
+): CommandMetadata {
+  const identity = resolveCommandIdempotencyIdentity(envelope, environment.scope);
   return {
     commandId: identity.commandKey,
     correlationId: envelope.context.correlationId,
@@ -140,7 +135,7 @@ export function reconcileCourseEnrollmentHandler(
   environment: CommandExecutionEnvironment,
   executor: Parameters<typeof executeIdempotentCanonicalCommand>[0]['executor']
 ): Promise<CommandResult<'reconcile_course_enrollment'>> {
-  const metadata = metadataFromEnvelope(envelope);
+  const metadata = metadataFromEnvelope(envelope, environment);
   const enrollmentDocumentPath = courseEnrollmentPath(envelope.intent.courseEnrollmentId);
   const actorMode = assertReconcileCourseEnrollmentAuthorization(envelope);
   const automationOnly = actorMode === 'system';
@@ -225,11 +220,7 @@ export function reconcileCourseEnrollmentHandler(
         });
       }
       payment = parsedPayment;
-      assertCourseEnrollmentPaymentIdentity(
-        envelope.context.correlationId,
-        enrollment,
-        payment
-      );
+      assertCourseEnrollmentPaymentIdentity(envelope.context.correlationId, enrollment, payment);
 
       const now = timestampFromDate(environment.clock.decidedAt());
       const attendancesByCourseDayId = new Map<CourseDayId, Attendance>();
@@ -265,11 +256,7 @@ export function reconcileCourseEnrollmentHandler(
 
       const openAdminIssues: AdminIssue[] = [];
       for (const identity of issueIdentities) {
-        const issue = await readAdminIssueByIdentity(
-          session,
-          metadata.correlationId,
-          identity
-        );
+        const issue = await readAdminIssueByIdentity(session, metadata.correlationId, identity);
         if (issue && issue.lifecycle.status === 'open') {
           openAdminIssues.push(issue);
         }
@@ -277,7 +264,7 @@ export function reconcileCourseEnrollmentHandler(
 
       let terminalEnrollmentHasActiveResourceGuard = false;
       const guardPath = canonicalPaths
-        .activeCourseEnrollmentGuard(enrollment.participantId, enrollment.courseId)
+        .activeCourseEnrollmentGuard(enrollment.participantId, enrollment.courseId, session.scope)
         .replace(/^\//, '');
       const guardRead = await session.tx.get({ path: guardPath });
       session.plan.planRead({ path: guardPath, category: 'aggregate' });

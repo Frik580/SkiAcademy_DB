@@ -99,7 +99,7 @@ const monetaryEvent = MonetaryEventSchema.parse({
 });
 
 const claimIdentity = ResourceClaimIdentityInputSchema.parse({
-  strategyVersion: 'claim:v1',
+  strategyVersion: 'claim:v2',
   claimKind: 'instructor_booking_occurrence',
   resourceKind: 'instructor',
   resourceId: 'instructor_fixture_01',
@@ -110,7 +110,7 @@ const claimIdentity = ResourceClaimIdentityInputSchema.parse({
 
 const resourceClaim = ResourceClaimSchema.parse({
   claimId: resourceClaimIdFromIdentity(claimIdentity),
-  strategyVersion: 'claim:v1',
+  strategyVersion: 'claim:v2',
   claimKind: claimIdentity.claimKind,
   resourceKind: claimIdentity.resourceKind,
   resourceId: claimIdentity.resourceId,
@@ -128,9 +128,9 @@ const resourceClaim = ResourceClaimSchema.parse({
 
 const resourceClaimGuard = ResourceClaimGuardSchema.parse({
   guardId: 'guard_fixture_01',
-  strategyVersion: 'guard:v1',
+  strategyVersion: 'guard:v2',
   bucketKey: resourceClaimGuardBucketKeyFromIdentity({
-    strategyVersion: 'guard:v1',
+    strategyVersion: 'guard:v2',
     resourceKind: 'instructor',
     resourceId: 'instructor_fixture_01',
     bucketStartSeconds: intervalStartsAt.seconds,

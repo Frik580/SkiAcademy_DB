@@ -21,14 +21,23 @@ import {
   compareCanonicalTimestamps,
 } from './primitives';
 import { canonicalDeterministicHash } from './deterministicIdentity';
+import {
+  LIVE_CANONICAL_EXECUTION_SCOPE,
+  PersistedCanonicalScopeError,
+  canonicalScopeKeyParts,
+  parsePersistedCanonicalScope,
+  DataScopeSchema,
+  type CanonicalExecutionScope,
+} from './canonicalScope';
+import { TestSessionIdSchema } from './identifiers';
 
 const PersistedAggregateRevisionSchema = AggregateRevisionSchema.refine(
   (revision) => revision >= 1,
   'Persisted aggregate revision must be at least one'
 );
 
-export const RESOURCE_CLAIM_STRATEGY_VERSION = 'claim:v1' as const;
-export const RESOURCE_GUARD_STRATEGY_VERSION = 'guard:v1' as const;
+export const RESOURCE_CLAIM_STRATEGY_VERSION = 'claim:v2' as const;
+export const RESOURCE_GUARD_STRATEGY_VERSION = 'guard:v2' as const;
 export const RESOURCE_GUARD_BUCKET_HOURS = 12 as const;
 
 export const RESOURCE_CLAIM_KINDS = [
@@ -120,11 +129,15 @@ export const ResourceClaimIdentityInputSchema = z
 
 export type ResourceClaimIdentityInput = z.output<typeof ResourceClaimIdentityInputSchema>;
 
-export function resourceClaimIdFromIdentity(input: ResourceClaimIdentityInput): ResourceClaimId {
+export function resourceClaimIdFromIdentity(
+  input: ResourceClaimIdentityInput,
+  scope: CanonicalExecutionScope = LIVE_CANONICAL_EXECUTION_SCOPE
+): ResourceClaimId {
   const parsed = ResourceClaimIdentityInputSchema.parse(input);
   return ResourceClaimIdSchema.parse(
     canonicalDeterministicHash([
       parsed.strategyVersion,
+      ...canonicalScopeKeyParts(scope),
       parsed.claimKind,
       parsed.resourceKind,
       parsed.resourceId,
@@ -164,11 +177,13 @@ export type ResourceClaimGuardBucketIdentityInput = z.output<
 >;
 
 export function resourceClaimGuardBucketKeyFromIdentity(
-  input: ResourceClaimGuardBucketIdentityInput
+  input: ResourceClaimGuardBucketIdentityInput,
+  scope: CanonicalExecutionScope = LIVE_CANONICAL_EXECUTION_SCOPE
 ): string {
   const parsed = ResourceClaimGuardBucketIdentityInputSchema.parse(input);
   return canonicalDeterministicHash([
     parsed.strategyVersion,
+    ...canonicalScopeKeyParts(scope),
     parsed.resourceKind,
     parsed.resourceId,
     String(parsed.bucketStartSeconds),
@@ -214,6 +229,8 @@ export type ResourceClaimResourceRef = z.output<typeof ResourceClaimResourceRefS
 export const ResourceClaimSchema = z
   .object({
     claimId: ResourceClaimIdSchema,
+    dataScope: DataScopeSchema.optional(),
+    testSessionId: TestSessionIdSchema.optional(),
     strategyVersion: z.literal(RESOURCE_CLAIM_STRATEGY_VERSION),
     claimKind: z.enum(RESOURCE_CLAIM_KINDS),
     resourceKind: z.enum(RESOURCE_KINDS),
@@ -253,16 +270,33 @@ export const ResourceClaimSchema = z
       });
     }
 
-    const expectedClaimId = resourceClaimIdFromIdentity({
-      strategyVersion: RESOURCE_CLAIM_STRATEGY_VERSION,
-      claimKind: claim.claimKind,
-      resourceKind: claim.resourceKind,
-      resourceId: claim.resourceId,
-      ownerKind: claim.ownerKind,
-      ownerId: claim.ownerId,
-      occurrenceId: claim.occurrenceId,
-    });
-    if (claim.claimId !== expectedClaimId) {
+    let expectedClaimId: ResourceClaimId | undefined;
+    try {
+      const scope = parsePersistedCanonicalScope(claim, { allowLegacyLive: true });
+      expectedClaimId = resourceClaimIdFromIdentity(
+        {
+          strategyVersion: RESOURCE_CLAIM_STRATEGY_VERSION,
+          claimKind: claim.claimKind,
+          resourceKind: claim.resourceKind,
+          resourceId: claim.resourceId,
+          ownerKind: claim.ownerKind,
+          ownerId: claim.ownerId,
+          occurrenceId: claim.occurrenceId,
+        },
+        scope
+      );
+    } catch (error) {
+      if (error instanceof PersistedCanonicalScopeError) {
+        context.addIssue({
+          code: 'custom',
+          path: ['dataScope'],
+          message: 'Persisted canonical scope is malformed',
+        });
+      } else {
+        throw error;
+      }
+    }
+    if (expectedClaimId !== undefined && claim.claimId !== expectedClaimId) {
       context.addIssue({
         code: 'custom',
         path: ['claimId'],
@@ -315,6 +349,8 @@ export type ResourceClaimGuardEntry = z.output<typeof ResourceClaimGuardEntrySch
 export const ResourceClaimGuardSchema = z
   .object({
     guardId: ResourceClaimGuardIdSchema,
+    dataScope: DataScopeSchema.optional(),
+    testSessionId: TestSessionIdSchema.optional(),
     strategyVersion: z.literal(RESOURCE_GUARD_STRATEGY_VERSION),
     bucketKey: z.string().min(1).max(128),
     resourceKind: z.enum(RESOURCE_KINDS),
@@ -342,13 +378,30 @@ export const ResourceClaimGuardSchema = z
       });
     }
 
-    const expectedBucketKey = resourceClaimGuardBucketKeyFromIdentity({
-      strategyVersion: RESOURCE_GUARD_STRATEGY_VERSION,
-      resourceKind: guard.resourceKind,
-      resourceId: guard.resourceId,
-      bucketStartSeconds: guard.bucketStartAt.seconds,
-    });
-    if (guard.bucketKey !== expectedBucketKey) {
+    let expectedBucketKey: string | undefined;
+    try {
+      const scope = parsePersistedCanonicalScope(guard, { allowLegacyLive: true });
+      expectedBucketKey = resourceClaimGuardBucketKeyFromIdentity(
+        {
+          strategyVersion: RESOURCE_GUARD_STRATEGY_VERSION,
+          resourceKind: guard.resourceKind,
+          resourceId: guard.resourceId,
+          bucketStartSeconds: guard.bucketStartAt.seconds,
+        },
+        scope
+      );
+    } catch (error) {
+      if (error instanceof PersistedCanonicalScopeError) {
+        context.addIssue({
+          code: 'custom',
+          path: ['dataScope'],
+          message: 'Persisted canonical scope is malformed',
+        });
+      } else {
+        throw error;
+      }
+    }
+    if (expectedBucketKey !== undefined && guard.bucketKey !== expectedBucketKey) {
       context.addIssue({
         code: 'custom',
         path: ['bucketKey'],

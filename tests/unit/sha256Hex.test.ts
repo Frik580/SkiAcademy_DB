@@ -54,7 +54,8 @@ describe('sha256Hex', () => {
       'a'.repeat(10_000),
       ['audit:v1', 'command_audit_test_01'].join(DETERMINISTIC_ID_PART_SEPARATOR),
       [
-        'claim:v1',
+        'claim:v2',
+        'live',
         'instructor_booking_occurrence',
         'instructor',
         'instructor_fixture_01',
@@ -109,7 +110,7 @@ describe('canonicalDeterministicHash parity with Node crypto', () => {
 
   it('preserves resource claim identity hashes used by fixtures', () => {
     const claimIdentity = {
-      strategyVersion: 'claim:v1' as const,
+      strategyVersion: 'claim:v2' as const,
       claimKind: 'instructor_booking_occurrence' as const,
       resourceKind: 'instructor' as const,
       resourceId: 'instructor_fixture_01',
@@ -120,6 +121,7 @@ describe('canonicalDeterministicHash parity with Node crypto', () => {
 
     const claimPayload = [
       claimIdentity.strategyVersion,
+      'live',
       claimIdentity.claimKind,
       claimIdentity.resourceKind,
       claimIdentity.resourceId,
@@ -130,13 +132,17 @@ describe('canonicalDeterministicHash parity with Node crypto', () => {
 
     expect(resourceClaimIdFromIdentity(claimIdentity)).toBe(nodeSha256Hex(claimPayload));
 
-    const guardPayload = ['guard:v1', 'instructor', 'instructor_fixture_01', '1736913600'].join(
-      DETERMINISTIC_ID_PART_SEPARATOR
-    );
+    const guardPayload = [
+      'guard:v2',
+      'live',
+      'instructor',
+      'instructor_fixture_01',
+      '1736913600',
+    ].join(DETERMINISTIC_ID_PART_SEPARATOR);
 
     expect(
       resourceClaimGuardBucketKeyFromIdentity({
-        strategyVersion: 'guard:v1',
+        strategyVersion: 'guard:v2',
         resourceKind: 'instructor',
         resourceId: 'instructor_fixture_01',
         bucketStartSeconds: 1_736_913_600,

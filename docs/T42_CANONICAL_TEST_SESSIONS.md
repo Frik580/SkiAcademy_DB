@@ -1,8 +1,8 @@
 # T42 Canonical Test Sessions
 
-Date: 2026-09-20
+Date: 2026-09-21
 
-Status: **IN PROGRESS / T42B-1 IMPLEMENTED + VALIDATED / NEXT T42B-2**
+Status: **IN PROGRESS / T42B-2 IMPLEMENTED + VALIDATED / NEXT T42B-3**
 
 This document is the living T42 status and implementation plan. Architecture
 authority is [ADR-0010](adr/0010-canonical-test-sessions-and-live-test-data-isolation.md).
@@ -11,11 +11,11 @@ Canonical migration closure is recorded in
 
 Distinguish:
 
-| Kind | Meaning |
-| ---- | ------- |
-| **IMPLEMENTED / CLOSED** | Done. T42A is architecture/preflight only. |
-| **APPROVED ARCHITECTURE** | Owner-accepted design. Not present in production. |
-| **PLANNED T42B IMPLEMENTATION** | Future slices. Not started. |
+| Kind                            | Meaning                                           |
+| ------------------------------- | ------------------------------------------------- |
+| **IMPLEMENTED / CLOSED**        | Done. T42A is architecture/preflight only.        |
+| **APPROVED ARCHITECTURE**       | Owner-accepted design. Not present in production. |
+| **PLANNED T42B IMPLEMENTATION** | Future slices. Not started.                       |
 
 Do **not** read this document as meaning that `dataScope` exists in production,
 that Test Sessions can already be created, that Rules already enforce test
@@ -45,8 +45,11 @@ DONE     T42B-0 — fresh read-only production inventory (2026-09-20)
 DONE     T42B-1 — core source plumbing IMPLEMENTED / VALIDATED
          deploy / migration / production writes = NO
 
-NEXT     T42B-2 after owner approval
-         T42B-3 ... T42B-9
+DONE     T42B-2 — scoped writers and scoped canonical keys IMPLEMENTED / VALIDATED
+         deploy / migration / production writes = NO
+
+NEXT     T42B-3 after owner approval
+         T42B-4 ... T42B-9
 
 THEN     T43 — Test Session Guest Support
 ```
@@ -150,7 +153,45 @@ No Booking, Payment, Attendance, CourseEnrollment, claim/guard, idempotency,
 outbox/work, read-model, Rules, index, Auth, Storage, or production-data change
 was made. Test Sessions are not yet usable in production.
 
-## Approved architecture (not implemented)
+## T42B-2 implementation (source-only)
+
+Implemented and validated:
+
+- one persisted-scope contract stamps LIVE as `dataScope=live` with no
+  `testSessionId`, and TEST as `dataScope=test` with the authoritative
+  `testSessionId`;
+- canonical transaction writes for Booking, BookingProposal,
+  BookingChangeRequest, Attendance, CourseEnrollment, claims/guards,
+  idempotency, domain outbox, domain activity logs, AdminIssue, and
+  administrative availability blocks pass through a common scope barrier;
+- LIVE may read legacy missing-scope records during the bounded compatibility
+  window; TEST requires explicit matching TEST scope and rejects LIVE,
+  missing-scope, malformed, and other-session records;
+- resource claim identity is `claim:v2 + scope + resource identity`; resource
+  guard bucket identity is `guard:v2 + scope + bucket identity`; active
+  enrollment guard keys are `aceg_v2_live_...` or
+  `aceg_v2_test_<session-length>_<testSessionId>_...`;
+- command identity is `command-key:v2 + scope + actor scope + idempotency key`,
+  and `command-fingerprint:v2` also includes authoritative scope;
+- booking and course-enrollment outcome work inherits trusted source scope;
+  schedulers inherit work scope and process TEST work only while that
+  TestSession is active;
+- TEST commands do not bump LIVE `admin_runtime/*` revisions;
+- pre-T42B-3 TEST writes to finance, Course/CourseDay capacity, Participant or
+  Instructor state, progress, achievements, lesson feedback, reviews, and
+  homework fail closed.
+
+Historical `command_idempotency` v1 documents remain unchanged. Production
+claims and guards were empty at the T42B-0 baseline, so no v2 data migration
+was needed. Missing persisted scope remains legacy LIVE compatibility only and
+is scheduled for strict removal after the T42B-8 backfill.
+
+T42B-2 made no production writes, created no TestSession/TestActor, changed no
+Rules or indexes, and was not deployed. TEST commands remain non-user-accessible
+in production; the feature is not usable until later T42B slices are approved
+and completed.
+
+## Approved architecture (partially implemented)
 
 Summary only. Full decision text is ADR-0010.
 
@@ -368,17 +409,17 @@ No blind manual cleanup.
 
 ## T42B implementation plan
 
-| Slice | Name | Status |
-| ----- | ---- | ------ |
-| T42B-0 | Post-T41 Rebase: fresh production inventory, current canonical graph, exact migration/index baseline | **COMPLETE** (2026-09-20; transactional collections empty after T40; `dataScope` still absent) |
-| T42B-1 | Core: TestSession, test actors, assignments, CanonicalExecutionScope, resolver, max active sessions = 1 | **IMPLEMENTED / VALIDATED** (source-only; no deploy/migration/production writes) |
-| T42B-2 | Write propagation: writers, claims, guards, idempotency, outbox/work, cross-scope assertions | **NEXT / WAIT FOR OWNER APPROVAL** |
-| T42B-3 | Domain isolation: finance, progress, achievements, reviews, attendance, homework, CourseEnrollment | PLANNED |
-| T42B-4 | Storage + side effects | PLANNED |
-| T42B-5 | Read-model isolation | PLANNED |
-| T42B-6 | Admin Testing UI | PLANNED |
-| T42B-7 | Reset/Delete engine: preview, manifests, locks, audit, verifier | PLANNED |
-| T42B-8 | Existing LIVE data backfill; Firestore Rules; Storage Rules; indexes; strict dataScope contract | PLANNED |
-| T42B-9 | Authenticated isolation smoke | PLANNED |
+| Slice  | Name                                                                                                    | Status                                                                                         |
+| ------ | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| T42B-0 | Post-T41 Rebase: fresh production inventory, current canonical graph, exact migration/index baseline    | **COMPLETE** (2026-09-20; transactional collections empty after T40; `dataScope` still absent) |
+| T42B-1 | Core: TestSession, test actors, assignments, CanonicalExecutionScope, resolver, max active sessions = 1 | **IMPLEMENTED / VALIDATED** (source-only; no deploy/migration/production writes)               |
+| T42B-2 | Write propagation: writers, claims, guards, idempotency, outbox/work, cross-scope assertions            | **IMPLEMENTED / VALIDATED** (source-only; no deploy/migration/production writes)               |
+| T42B-3 | Domain isolation: finance, progress, achievements, reviews, attendance, homework, CourseEnrollment      | **NEXT / WAIT FOR OWNER APPROVAL**                                                             |
+| T42B-4 | Storage + side effects                                                                                  | PLANNED                                                                                        |
+| T42B-5 | Read-model isolation                                                                                    | PLANNED                                                                                        |
+| T42B-6 | Admin Testing UI                                                                                        | PLANNED                                                                                        |
+| T42B-7 | Reset/Delete engine: preview, manifests, locks, audit, verifier                                         | PLANNED                                                                                        |
+| T42B-8 | Existing LIVE data backfill; Firestore Rules; Storage Rules; indexes; strict dataScope contract         | PLANNED                                                                                        |
+| T42B-9 | Authenticated isolation smoke                                                                           | PLANNED                                                                                        |
 
 Future after T42B: **T43 — Test Session Guest Support**.

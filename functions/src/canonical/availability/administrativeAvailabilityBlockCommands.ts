@@ -48,8 +48,8 @@ type AvailabilityBlockKind = Extract<
   | 'release_administrative_availability_block'
 >;
 
-function metadataFromEnvelope(envelope: CommandEnvelope) {
-  const identity = resolveCommandIdempotencyIdentity(envelope);
+function metadataFromEnvelope(envelope: CommandEnvelope, environment: CommandExecutionEnvironment) {
+  const identity = resolveCommandIdempotencyIdentity(envelope, environment.scope);
   return {
     commandId: identity.commandKey,
     correlationId: envelope.context.correlationId,
@@ -92,7 +92,7 @@ function createAdministrativeAvailabilityBlockHandler(
 ): Promise<CommandResult<'create_administrative_availability_block'>> {
   assertAdminAvailabilityAuthorization(envelope);
   assertScheduleContext(envelope);
-  const metadata = metadataFromEnvelope(envelope);
+  const metadata = metadataFromEnvelope(envelope, environment);
   const blockPath = administrativeAvailabilityBlockPath(envelope.intent.blockId);
   const instructorPath = instructorCatalogPath(envelope.intent.instructorId);
   const plannedRevision = AggregateRevisionSchema.parse(1);
@@ -203,7 +203,7 @@ function rescheduleAdministrativeAvailabilityBlockHandler(
 ): Promise<CommandResult<'reschedule_administrative_availability_block'>> {
   assertAdminAvailabilityAuthorization(envelope);
   assertScheduleContext(envelope);
-  const metadata = metadataFromEnvelope(envelope);
+  const metadata = metadataFromEnvelope(envelope, environment);
   const blockPath = administrativeAvailabilityBlockPath(envelope.intent.blockId);
   let existing!: AdministrativeAvailabilityBlock;
   let plannedRevision = AggregateRevisionSchema.parse(1);
@@ -237,6 +237,7 @@ function rescheduleAdministrativeAvailabilityBlockHandler(
           blockId: existing.blockId,
           instructorId: existing.instructorId,
           scheduleRevision: existing.scheduleRevision,
+          scope: session.scope,
         });
         releasePlan = await readAndPlanReleaseResourceClaim(session, {
           correlationId: metadata.correlationId,
@@ -310,7 +311,7 @@ function releaseAdministrativeAvailabilityBlockHandler(
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
 ): Promise<CommandResult<'release_administrative_availability_block'>> {
   assertAdminAvailabilityAuthorization(envelope);
-  const metadata = metadataFromEnvelope(envelope);
+  const metadata = metadataFromEnvelope(envelope, environment);
   const blockPath = administrativeAvailabilityBlockPath(envelope.intent.blockId);
   let existing!: AdministrativeAvailabilityBlock;
   let plannedRevision = AggregateRevisionSchema.parse(1);
@@ -336,6 +337,7 @@ function releaseAdministrativeAvailabilityBlockHandler(
           blockId: existing.blockId,
           instructorId: existing.instructorId,
           scheduleRevision: existing.scheduleRevision,
+          scope: session.scope,
         });
         releasePlan = await readAndPlanReleaseResourceClaim(session, {
           correlationId: metadata.correlationId,

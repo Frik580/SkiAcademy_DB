@@ -20,6 +20,7 @@ export const COMMAND_ERROR_CODES = [
   'expired',
   'unavailable',
   'idempotency_conflict',
+  'cross_scope_forbidden',
   'operation_too_large',
   'audit_integrity_violation',
   'internal',
@@ -61,6 +62,10 @@ export const COMMAND_ERROR_POLICY = {
   expired: { message: 'The request has expired.', retryable: false },
   unavailable: { message: 'The requested option is unavailable.', retryable: false },
   idempotency_conflict: { message: 'The request key was already used.', retryable: false },
+  cross_scope_forbidden: {
+    message: 'The requested resource belongs to a different data scope.',
+    retryable: false,
+  },
   operation_too_large: { message: 'The operation is too large.', retryable: false },
   audit_integrity_violation: {
     message: 'The operation could not be completed.',

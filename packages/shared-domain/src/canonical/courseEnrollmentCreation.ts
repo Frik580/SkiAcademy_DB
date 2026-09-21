@@ -1,8 +1,5 @@
 import type { Course, CourseDay } from './courseEnrollmentAttendanceAdminIssue';
-import {
-  addMillisecondsToCanonicalTimestamp,
-  minCanonicalTimestamp,
-} from './guestBooking';
+import { addMillisecondsToCanonicalTimestamp, minCanonicalTimestamp } from './guestBooking';
 import type { CommandId, CourseEnrollmentId, OccurrenceId, ParticipantId } from './identifiers';
 import {
   courseEnrollmentIdFromCommandParticipant,
@@ -18,6 +15,7 @@ import {
   type CanonicalTimestamp,
   type TimeInterval,
 } from './primitives';
+import { LIVE_CANONICAL_EXECUTION_SCOPE, type CanonicalExecutionScope } from './canonicalScope';
 
 /** Maximum guest Course enrollment reservation hold before course start. */
 export const GUEST_COURSE_RESERVATION_TTL_MS = 24 * 60 * 60 * 1_000;
@@ -99,6 +97,7 @@ export function buildCourseSeatClaimIdentity(input: {
   readonly courseId: Course['courseId'];
   readonly enrollmentId: CourseEnrollmentId;
   readonly occurrenceId: OccurrenceId;
+  readonly scope?: CanonicalExecutionScope;
 }) {
   const identity = ResourceClaimIdentityInputSchema.parse({
     strategyVersion: RESOURCE_CLAIM_STRATEGY_VERSION,
@@ -111,7 +110,7 @@ export function buildCourseSeatClaimIdentity(input: {
   });
   return {
     identity,
-    claimId: resourceClaimIdFromIdentity(identity),
+    claimId: resourceClaimIdFromIdentity(identity, input.scope ?? LIVE_CANONICAL_EXECUTION_SCOPE),
   };
 }
 
@@ -119,6 +118,7 @@ export function buildParticipantCourseDayEnrollmentClaimIdentity(input: {
   readonly participantId: ParticipantId;
   readonly enrollmentId: CourseEnrollmentId;
   readonly courseDay: CourseDay;
+  readonly scope?: CanonicalExecutionScope;
 }) {
   const occurrenceId = initialCourseDayOccurrenceId(input.courseDay.courseDayId);
   const identity = ResourceClaimIdentityInputSchema.parse({
@@ -132,7 +132,7 @@ export function buildParticipantCourseDayEnrollmentClaimIdentity(input: {
   });
   return {
     identity,
-    claimId: resourceClaimIdFromIdentity(identity),
+    claimId: resourceClaimIdFromIdentity(identity, input.scope ?? LIVE_CANONICAL_EXECUTION_SCOPE),
     occurrenceId,
   };
 }

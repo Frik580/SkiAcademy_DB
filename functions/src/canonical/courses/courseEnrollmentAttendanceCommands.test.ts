@@ -164,7 +164,7 @@ function enrollmentClaimDocs(): Record<string, unknown> {
   });
   docs[`resource_claims/${seatIdentity.claimId}`] = ResourceClaimSchema.parse({
     claimId: seatIdentity.claimId,
-    strategyVersion: 'claim:v1',
+    strategyVersion: 'claim:v2',
     claimKind: 'course_seat_pre_start',
     resourceKind: 'course',
     resourceId: courseId,
@@ -193,7 +193,7 @@ function enrollmentClaimDocs(): Record<string, unknown> {
     });
     docs[`resource_claims/${dayIdentity.claimId}`] = ResourceClaimSchema.parse({
       claimId: dayIdentity.claimId,
-      strategyVersion: 'claim:v1',
+      strategyVersion: 'claim:v2',
       claimKind: 'participant_course_day_enrollment',
       resourceKind: 'participant',
       resourceId: participantId,
@@ -357,7 +357,9 @@ function recordEnvelope(
       attendanceStatus,
       ...(expectedAttendanceRevision === undefined
         ? {}
-        : { expectedAttendanceRevision: AggregateRevisionSchema.parse(expectedAttendanceRevision) }),
+        : {
+            expectedAttendanceRevision: AggregateRevisionSchema.parse(expectedAttendanceRevision),
+          }),
     },
   };
 }
@@ -481,7 +483,7 @@ function siblingEnrollmentDocs(): Record<string, unknown> {
   });
   docs[`resource_claims/${seatIdentity.claimId}`] = ResourceClaimSchema.parse({
     claimId: seatIdentity.claimId,
-    strategyVersion: 'claim:v1',
+    strategyVersion: 'claim:v2',
     claimKind: 'course_seat_pre_start',
     resourceKind: 'course',
     resourceId: courseId,
@@ -509,7 +511,7 @@ function siblingEnrollmentDocs(): Record<string, unknown> {
     });
     docs[`resource_claims/${dayIdentity.claimId}`] = ResourceClaimSchema.parse({
       claimId: dayIdentity.claimId,
-      strategyVersion: 'claim:v1',
+      strategyVersion: 'claim:v2',
       claimKind: 'participant_course_day_enrollment',
       resourceKind: 'participant',
       resourceId: siblingParticipantId,
@@ -562,7 +564,8 @@ describe('courseEnrollmentAttendanceCommands', () => {
       'confirmed'
     );
     expect(
-      snapshot.docs.get(`course_enrollments/${enrollmentId}`)?.data.attendanceSummary?.presentDayCount
+      snapshot.docs.get(`course_enrollments/${enrollmentId}`)?.data.attendanceSummary
+        ?.presentDayCount
     ).toBe(1);
   });
 
@@ -572,14 +575,16 @@ describe('courseEnrollmentAttendanceCommands', () => {
       environment('2026-02-02T04:00:00.000Z'),
       executor
     );
-    await commands.execute(recordEnvelope(courseDayOneId, 'present', 'idem-course-attendance-day1'));
+    await commands.execute(
+      recordEnvelope(courseDayOneId, 'present', 'idem-course-attendance-day1')
+    );
     const result = await commands.execute(
       recordEnvelope(courseDayTwoId, 'absent', 'idem-course-attendance-day2')
     );
     expect(result.status).toBe('success');
-    expect(executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle.status).toBe(
-      'confirmed'
-    );
+    expect(
+      executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle.status
+    ).toBe('confirmed');
   });
 
   it('resolves completed after final day when any day is present', async () => {
@@ -596,18 +601,25 @@ describe('courseEnrollmentAttendanceCommands', () => {
       environment('2026-02-03T06:00:00.000Z'),
       executor
     );
-    await dayOneCommands.execute(recordEnvelope(courseDayOneId, 'absent', 'idem-course-attendance-a'));
-    await dayTwoCommands.execute(recordEnvelope(courseDayTwoId, 'present', 'idem-course-attendance-b'));
+    await dayOneCommands.execute(
+      recordEnvelope(courseDayOneId, 'absent', 'idem-course-attendance-a')
+    );
+    await dayTwoCommands.execute(
+      recordEnvelope(courseDayTwoId, 'present', 'idem-course-attendance-b')
+    );
     const result = await dayThreeCommands.execute(
       recordEnvelope(courseDayThreeId, 'absent', 'idem-course-attendance-c')
     );
     expect(result.status).toBe('success');
-    expect(executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle.status).toBe(
-      'completed'
+    expect(
+      executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle.status
+    ).toBe('completed');
+    expect(executor.snapshot().docs.get(`courses/${courseId}`)?.data.capacity.availableSeats).toBe(
+      7
     );
-    expect(executor.snapshot().docs.get(`courses/${courseId}`)?.data.capacity.availableSeats).toBe(7);
-    const completedEnrollment = executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)
-      ?.data;
+    const completedEnrollment = executor
+      .snapshot()
+      .docs.get(`course_enrollments/${enrollmentId}`)?.data;
     expect(
       executor.snapshot().docs.get(`participant_achievements/${participantId}`)?.data.earned
         .course_graduate
@@ -640,15 +652,19 @@ describe('courseEnrollmentAttendanceCommands', () => {
       environment('2026-02-03T06:00:00.000Z'),
       executor
     );
-    await dayOneCommands.execute(recordEnvelope(courseDayOneId, 'absent', 'idem-course-attendance-ns-a'));
-    await dayTwoCommands.execute(recordEnvelope(courseDayTwoId, 'absent', 'idem-course-attendance-ns-b'));
+    await dayOneCommands.execute(
+      recordEnvelope(courseDayOneId, 'absent', 'idem-course-attendance-ns-a')
+    );
+    await dayTwoCommands.execute(
+      recordEnvelope(courseDayTwoId, 'absent', 'idem-course-attendance-ns-b')
+    );
     const result = await dayThreeCommands.execute(
       recordEnvelope(courseDayThreeId, 'absent', 'idem-course-attendance-ns-c')
     );
     expect(result.status).toBe('success');
-    expect(executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle.status).toBe(
-      'no_show'
-    );
+    expect(
+      executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle.status
+    ).toBe('no_show');
     expect(
       executor.snapshot().docs.get(`participant_achievements/${participantId}`)
     ).toBeUndefined();
@@ -679,15 +695,19 @@ describe('courseEnrollmentAttendanceCommands', () => {
       environment('2026-02-03T06:00:00.000Z'),
       executor
     );
-    await dayOneCommands.execute(recordEnvelope(courseDayOneId, 'absent', 'idem-course-attendance-pc-a'));
-    await dayTwoCommands.execute(recordEnvelope(courseDayTwoId, 'absent', 'idem-course-attendance-pc-b'));
+    await dayOneCommands.execute(
+      recordEnvelope(courseDayOneId, 'absent', 'idem-course-attendance-pc-a')
+    );
+    await dayTwoCommands.execute(
+      recordEnvelope(courseDayTwoId, 'absent', 'idem-course-attendance-pc-b')
+    );
     const result = await dayThreeCommands.execute(
       recordEnvelope(courseDayThreeId, 'absent', 'idem-course-attendance-pc-c')
     );
     expect(result.status).toBe('success');
-    expect(executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle.status).toBe(
-      'pending_cancellation'
-    );
+    expect(
+      executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle.status
+    ).toBe('pending_cancellation');
   });
 
   it('system resolver creates missing issues at finalCourseDayEndsAt + 24h', async () => {
@@ -700,17 +720,21 @@ describe('courseEnrollmentAttendanceCommands', () => {
       environment('2026-02-02T04:00:00.000Z'),
       executor
     );
-    await dayOneCommands.execute(recordEnvelope(courseDayOneId, 'absent', 'idem-course-attendance-sys-a'));
-    await dayTwoCommands.execute(recordEnvelope(courseDayTwoId, 'absent', 'idem-course-attendance-sys-b'));
+    await dayOneCommands.execute(
+      recordEnvelope(courseDayOneId, 'absent', 'idem-course-attendance-sys-a')
+    );
+    await dayTwoCommands.execute(
+      recordEnvelope(courseDayTwoId, 'absent', 'idem-course-attendance-sys-b')
+    );
     const lateCommands = createProductionCanonicalCommands(
       environment('2026-02-04T05:00:00.000Z'),
       executor
     );
     const result = await lateCommands.execute(resolveEnvelope('idem-course-attendance-sys-late'));
     expect(result.status).toBe('success');
-    expect(executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle.status).toBe(
-      'confirmed'
-    );
+    expect(
+      executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle.status
+    ).toBe('confirmed');
     expect(
       executor.snapshot().docs.get(`participant_achievements/${participantId}`)
     ).toBeUndefined();
@@ -748,10 +772,12 @@ describe('courseEnrollmentAttendanceCommands', () => {
     );
     await dayOneCommands.execute(recordEnvelope(courseDayOneId, 'absent', 'idem-terminal-ns-a'));
     await dayTwoCommands.execute(recordEnvelope(courseDayTwoId, 'absent', 'idem-terminal-ns-b'));
-    await dayThreeCommands.execute(recordEnvelope(courseDayThreeId, 'absent', 'idem-terminal-ns-c'));
-    expect(executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle.status).toBe(
-      'no_show'
+    await dayThreeCommands.execute(
+      recordEnvelope(courseDayThreeId, 'absent', 'idem-terminal-ns-c')
     );
+    expect(
+      executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle.status
+    ).toBe('no_show');
     const adminCommands = createProductionCanonicalCommands(
       environment('2026-02-04T04:00:00.000Z'),
       executor
@@ -769,7 +795,9 @@ describe('courseEnrollmentAttendanceCommands', () => {
     });
     expect(result.status).toBe('error');
     const snapshot = executor.snapshot();
-    expect(snapshot.docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle.status).toBe('no_show');
+    expect(snapshot.docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle.status).toBe(
+      'no_show'
+    );
     const attendanceId = attendanceIdFromCourseDayIdentity({
       strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
       subjectKind: 'course_enrollment',
@@ -803,7 +831,9 @@ describe('courseEnrollmentAttendanceCommands', () => {
       environment('2026-02-01T04:00:00.000Z'),
       executor
     );
-    await commands.execute(recordEnvelope(courseDayOneId, 'present', 'idem-course-attendance-admin-a'));
+    await commands.execute(
+      recordEnvelope(courseDayOneId, 'present', 'idem-course-attendance-admin-a')
+    );
     const result = await commands.execute({
       kind: 'record_course_day_attendance',
       context: adminContext('idem-course-attendance-admin-b'),
@@ -1012,9 +1042,9 @@ describe('courseEnrollmentAttendanceCommands', () => {
     ).toBe('completed');
     const firstBadge = executor.snapshot().docs.get(`participant_achievements/${participantId}`)
       ?.data.earned.course_graduate;
-    const siblingBadge = executor.snapshot().docs.get(
-      `participant_achievements/${siblingParticipantId}`
-    )?.data.earned.course_graduate;
+    const siblingBadge = executor
+      .snapshot()
+      .docs.get(`participant_achievements/${siblingParticipantId}`)?.data.earned.course_graduate;
     expect(firstBadge?.source).toBe('course_completion');
     expect(siblingBadge?.source).toBe('course_completion');
     expect(firstBadge).not.toBe(siblingBadge);

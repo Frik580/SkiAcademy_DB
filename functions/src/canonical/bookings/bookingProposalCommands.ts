@@ -300,8 +300,11 @@ async function recoverParticipantConflictAfterGuardCreateCollision(
   throw error;
 }
 
-function metadataFromEnvelope(envelope: CommandEnvelope): CommandMetadata {
-  const identity = resolveCommandIdempotencyIdentity(envelope);
+function metadataFromEnvelope(
+  envelope: CommandEnvelope,
+  environment: CommandExecutionEnvironment
+): CommandMetadata {
+  const identity = resolveCommandIdempotencyIdentity(envelope, environment.scope);
   return {
     commandId: identity.commandKey,
     correlationId: envelope.context.correlationId,
@@ -472,15 +475,11 @@ async function assertInstructorAuthorityForProposalParticipant(
     instructorRelationship,
     additionalBlocks: participantBlocks,
   });
-  const bookingScopedEvidence = await resolveInstructorProposalStandingEvidence(
-    session,
-    topology,
-    {
-      instructorId: input.instructorId,
-      participantId: input.participant.participantId,
-      at: input.at,
-    }
-  );
+  const bookingScopedEvidence = await resolveInstructorProposalStandingEvidence(session, topology, {
+    instructorId: input.instructorId,
+    participantId: input.participant.participantId,
+    at: input.at,
+  });
   assertInstructorParticipantRelationship(envelope, topology, {
     instructorId: input.instructorId,
     participantId: input.participant.participantId,
@@ -504,7 +503,7 @@ function createBookingProposalHandler(
   environment: CommandExecutionEnvironment,
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
 ): Promise<CommandResult<'create_booking_proposal'>> {
-  const metadata = metadataFromEnvelope(envelope);
+  const metadata = metadataFromEnvelope(envelope, environment);
   assertCreateProposalAuthorization(envelope);
   const { participantIds } = assertCreateProposalParty(envelope);
 
@@ -563,10 +562,7 @@ function createBookingProposalHandler(
         participantRecords.push(loaded.participant);
         managementRecords.push(loaded.management);
       }
-      notificationAccountId = assertProposalPartySharesManagingAccount(
-        envelope,
-        managementRecords
-      );
+      notificationAccountId = assertProposalPartySharesManagingAccount(envelope, managementRecords);
 
       const accountRead = await session.tx.get({ path: accountPath(notificationAccountId) });
       session.plan.planRead({
@@ -676,7 +672,7 @@ function acceptBookingProposalHandler(
   environment: CommandExecutionEnvironment,
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
 ): Promise<CommandResult<'accept_booking_proposal'>> {
-  const metadata = metadataFromEnvelope(envelope);
+  const metadata = metadataFromEnvelope(envelope, environment);
   assertAcceptProposalAuthorization(envelope);
 
   const proposalDocumentPath = bookingProposalPath(envelope.intent.bookingProposalId);
@@ -882,7 +878,7 @@ function acceptBookingProposalHandler(
         const instructorClaimResult = await tryPlanAcquireResourceClaim(session, {
           ...claimMetadata,
           identity: ResourceClaimIdentityInputSchema.parse({
-            strategyVersion: 'claim:v1',
+            strategyVersion: 'claim:v2',
             claimKind: 'instructor_booking_occurrence',
             resourceKind: 'instructor',
             resourceId: proposal.instructorId,
@@ -907,7 +903,7 @@ function acceptBookingProposalHandler(
             const participantClaimResult = await tryPlanAcquireResourceClaim(session, {
               ...claimMetadata,
               identity: ResourceClaimIdentityInputSchema.parse({
-                strategyVersion: 'claim:v1',
+                strategyVersion: 'claim:v2',
                 claimKind: 'participant_booking_occurrence',
                 resourceKind: 'participant',
                 resourceId: participantId,
@@ -1204,7 +1200,7 @@ function cancelBookingProposalHandler(
   environment: CommandExecutionEnvironment,
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
 ): Promise<CommandResult<'cancel_booking_proposal'>> {
-  const metadata = metadataFromEnvelope(envelope);
+  const metadata = metadataFromEnvelope(envelope, environment);
   const cancelActor = assertCancelProposalAuthorization(envelope);
   const proposalDocumentPath = bookingProposalPath(envelope.intent.bookingProposalId);
 
@@ -1233,10 +1229,7 @@ function cancelBookingProposalHandler(
         participantRecords.push(loaded.participant);
         managementRecords.push(loaded.management);
       }
-      notificationAccountId = assertProposalPartySharesManagingAccount(
-        envelope,
-        managementRecords
-      );
+      notificationAccountId = assertProposalPartySharesManagingAccount(envelope, managementRecords);
 
       if (cancelActor === 'instructor') {
         lifecycleTarget = 'cancelled';
@@ -1334,7 +1327,7 @@ function expireBookingProposalHandler(
   environment: CommandExecutionEnvironment,
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
 ): Promise<CommandResult<'expire_booking_proposal'>> {
-  const metadata = metadataFromEnvelope(envelope);
+  const metadata = metadataFromEnvelope(envelope, environment);
   assertExpireProposalAuthorization(envelope);
   const proposalDocumentPath = bookingProposalPath(envelope.intent.bookingProposalId);
 

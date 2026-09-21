@@ -9,6 +9,7 @@ import {
   OccurrenceIdSchema,
   ParticipantIdSchema,
   PaymentIdSchema,
+  TestSessionIdSchema,
   type AccountId,
   type ActorRef,
   type ParticipantId,
@@ -28,6 +29,7 @@ import {
   compareCanonicalTimestamps,
   type CanonicalTimestamp,
 } from './primitives';
+import { DataScopeSchema } from './canonicalScope';
 
 const PersistedAggregateRevisionSchema = AggregateRevisionSchema.refine(
   (revision) => revision >= 1,
@@ -524,6 +526,8 @@ function normalizePreHourlyLessonPricingSnapshot(input: unknown): unknown {
 const BookingRecordSchema = z
   .object({
     bookingId: BookingIdSchema,
+    dataScope: DataScopeSchema.optional(),
+    testSessionId: TestSessionIdSchema.optional(),
     attribution: ImmutableBookingAttributionSchema,
     party: BookingPartySchema,
     occurrence: BookingOccurrenceSchema,
@@ -745,6 +749,8 @@ export function coerceBookingProposalPartyInput(value: unknown): unknown {
 const BookingProposalRecordSchema = z
   .object({
     proposalId: BookingProposalIdSchema,
+    dataScope: DataScopeSchema.optional(),
+    testSessionId: TestSessionIdSchema.optional(),
     participantIds: z.array(ParticipantIdSchema).min(BOOKING_PARTY_MIN),
     instructorId: InstructorIdSchema,
     proposedService: BookingProposalProposedServiceSchema,
@@ -821,6 +827,8 @@ const BookingChangeRequestLifecycleSchema = z.discriminatedUnion('status', [
 export const BookingChangeRequestSchema = z
   .object({
     requestId: BookingChangeRequestIdSchema,
+    dataScope: DataScopeSchema.optional(),
+    testSessionId: TestSessionIdSchema.optional(),
     bookingId: BookingIdSchema,
     requestType: BookingChangeRequestTypeSchema,
     reason: z.string().trim().min(1).max(2_000),

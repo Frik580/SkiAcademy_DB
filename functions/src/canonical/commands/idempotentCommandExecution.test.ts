@@ -13,15 +13,24 @@ import {
   InstructorIdSchema,
   ParticipantIdSchema,
   resolveCommandIdempotencyIdentity,
+  TestSessionIdSchema,
+  testCanonicalExecutionScope,
   type CommandEnvelope,
 } from '@ski-academy/shared-domain';
 import { createAuthoritativeCommandClock } from './commandClock';
 import { executeIdempotentCanonicalCommand } from './idempotentCommandExecution';
-import { createInMemoryCanonicalTransactionExecutor } from '../transactions';
+import {
+  createInMemoryCanonicalTransactionExecutor,
+  type CanonicalAtomicTransactionSession,
+} from '../transactions';
 
 const correlationId = CorrelationIdSchema.parse('correlation_idem_fn_01');
 const accountId = AccountIdSchema.parse('account_idem_fn_01');
 const bookingPath = 'bookings/booking_idem_fn_01';
+const testSessionA = TestSessionIdSchema.parse('test_session_idem_fn_a');
+const testSessionB = TestSessionIdSchema.parse('test_session_idem_fn_b');
+const testScopeA = testCanonicalExecutionScope(testSessionA);
+const testScopeB = testCanonicalExecutionScope(testSessionB);
 
 function envelope(
   idempotencyKey = 'idem-fn-01',
@@ -82,11 +91,240 @@ function createCourseEnrollmentsEnvelope(
   };
 }
 
-function environment(at: string) {
-  return { clock: createAuthoritativeCommandClock(new Date(at)) };
+function environment(
+  at: string,
+  scope: { dataScope: 'live' } | { dataScope: 'test'; testSessionId: typeof testSessionA } = {
+    dataScope: 'live',
+  }
+) {
+  return { clock: createAuthoritativeCommandClock(new Date(at)), scope };
 }
 
 describe('executeIdempotentCanonicalCommand', () => {
+  it('stamps LIVE and TEST Booking creates from the authoritative execution scope', async () => {
+    const liveExecutor = createInMemoryCanonicalTransactionExecutor();
+    const testExecutor = createInMemoryCanonicalTransactionExecutor();
+    const handler = {
+      execute: async (session: CanonicalAtomicTransactionSession) => {
+        session.tx.create({ path: bookingPath }, { revision: 1, status: 'confirmed' });
+        return commandSuccessResult('complete_booking', correlationId);
+      },
+    };
+
+    const live = await executeIdempotentCanonicalCommand({
+      envelope: envelope('idem-scope-create-live'),
+      environment: environment('2026-01-01T00:00:00.000Z'),
+      executor: liveExecutor,
+      handler,
+    });
+    const test = await executeIdempotentCanonicalCommand({
+      envelope: envelope('idem-scope-create-test'),
+      environment: environment('2026-01-01T00:00:00.000Z', testScopeA),
+      executor: testExecutor,
+      handler,
+    });
+
+    expect(live.status).toBe('success');
+    expect(test.status).toBe('success');
+    expect(liveExecutor.snapshot().docs.get(bookingPath)?.data).toMatchObject({
+      dataScope: 'live',
+    });
+    expect(liveExecutor.snapshot().docs.get(bookingPath)?.data).not.toHaveProperty('testSessionId');
+    expect(testExecutor.snapshot().docs.get(bookingPath)?.data).toMatchObject({
+      dataScope: 'test',
+      testSessionId: testSessionA,
+    });
+  });
+
+  it('allows same-scope and legacy-LIVE mutation but rejects every cross-scope mutation', async () => {
+    async function run(
+      scope: { dataScope: 'live' } | typeof testScopeA,
+      stored: Record<string, unknown>,
+      key: string
+    ) {
+      const executor = createInMemoryCanonicalTransactionExecutor({ [bookingPath]: stored });
+      const result = await executeIdempotentCanonicalCommand({
+        envelope: envelope(key, 1),
+        environment: environment('2026-01-01T00:00:00.000Z', scope),
+        executor,
+        revisionTarget: { ref: { path: bookingPath }, requireExpectedRevision: true },
+        handler: {
+          execute: async (session) => {
+            session.tx.update({ path: bookingPath }, { revision: 2, status: 'completed' });
+            return commandSuccessResult('complete_booking', correlationId);
+          },
+        },
+      });
+      return { executor, result };
+    }
+
+    const sameTest = await run(
+      testScopeA,
+      { revision: 1, status: 'confirmed', dataScope: 'test', testSessionId: testSessionA },
+      'idem-scope-same-test'
+    );
+    const legacyLive = await run(
+      { dataScope: 'live' },
+      { revision: 1, status: 'confirmed' },
+      'idem-scope-legacy-live'
+    );
+    const testAgainstLive = await run(
+      testScopeA,
+      { revision: 1, status: 'confirmed', dataScope: 'live' },
+      'idem-scope-test-live'
+    );
+    const liveAgainstTest = await run(
+      { dataScope: 'live' },
+      { revision: 1, status: 'confirmed', dataScope: 'test', testSessionId: testSessionA },
+      'idem-scope-live-test'
+    );
+    const testAgainstOtherSession = await run(
+      testScopeB,
+      { revision: 1, status: 'confirmed', dataScope: 'test', testSessionId: testSessionA },
+      'idem-scope-test-other'
+    );
+
+    expect(sameTest.result.status).toBe('success');
+    expect(legacyLive.result.status).toBe('success');
+    for (const outcome of [testAgainstLive, liveAgainstTest, testAgainstOtherSession]) {
+      expect(outcome.result).toMatchObject({
+        status: 'error',
+        error: { code: 'cross_scope_forbidden' },
+      });
+      expect(outcome.executor.snapshot().docs.get(bookingPath)?.data.revision).toBe(1);
+    }
+  });
+
+  it('stores separate scoped idempotency records for the same actor and key', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor();
+    const commandEnvelope = envelope('idem-scope-separated-records');
+    const handler = {
+      execute: async () => commandSuccessResult('complete_booking', correlationId),
+    };
+
+    await executeIdempotentCanonicalCommand({
+      envelope: commandEnvelope,
+      environment: environment('2026-01-01T00:00:00.000Z'),
+      executor,
+      handler,
+    });
+    await executeIdempotentCanonicalCommand({
+      envelope: commandEnvelope,
+      environment: environment('2026-01-01T00:00:00.000Z', testScopeA),
+      executor,
+      handler,
+    });
+    await executeIdempotentCanonicalCommand({
+      envelope: commandEnvelope,
+      environment: environment('2026-01-01T00:00:00.000Z', testScopeB),
+      executor,
+      handler,
+    });
+
+    const identities = [
+      resolveCommandIdempotencyIdentity(commandEnvelope, { dataScope: 'live' }),
+      resolveCommandIdempotencyIdentity(commandEnvelope, testScopeA),
+      resolveCommandIdempotencyIdentity(commandEnvelope, testScopeB),
+    ];
+    const records = identities.map(
+      (identity) => executor.snapshot().docs.get(identity.recordPath.slice(1))?.data
+    );
+    expect(records).toHaveLength(3);
+    expect(records).toEqual([
+      expect.objectContaining({ dataScope: 'live' }),
+      expect.objectContaining({ dataScope: 'test', testSessionId: testSessionA }),
+      expect.objectContaining({ dataScope: 'test', testSessionId: testSessionB }),
+    ]);
+  });
+
+  it.each([
+    ['course capacity', 'courses/course_scope_unsafe_01'],
+    ['wallet', 'users/account_scope_unsafe_01/wallet/state'],
+    ['progress', 'participant_progress/progress_scope_unsafe_01'],
+    ['reviews', 'instructor_reviews/review_scope_unsafe_01'],
+    ['rating summary', 'instructor_rating_summaries/summary_scope_unsafe_01'],
+    ['homework', 'homework/homework_scope_unsafe_01'],
+  ])('fails closed for TEST writes to unsupported %s storage', async (_name, path) => {
+    const executor = createInMemoryCanonicalTransactionExecutor();
+    const result = await executeIdempotentCanonicalCommand({
+      envelope: envelope(`idem-unsafe-${path.split('/')[0]}`),
+      environment: environment('2026-01-01T00:00:00.000Z', testScopeA),
+      executor,
+      handler: {
+        execute: async (session) => {
+          session.tx.create({ path }, { revision: 1 });
+          return commandSuccessResult('complete_booking', correlationId);
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'error',
+      error: { code: 'cross_scope_forbidden', details: { reason: 'unsupported' } },
+    });
+    expect(executor.snapshot().docs.has(path)).toBe(false);
+  });
+
+  it('inherits TEST scope into Attendance only after a same-scope Booking read', async () => {
+    const attendancePath = 'attendance/attendance_scope_subject_01';
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [bookingPath]: {
+        revision: 1,
+        status: 'confirmed',
+        dataScope: 'test',
+        testSessionId: testSessionA,
+      },
+    });
+    const result = await executeIdempotentCanonicalCommand({
+      envelope: envelope('idem-attendance-subject-scope'),
+      environment: environment('2026-01-01T00:00:00.000Z', testScopeA),
+      executor,
+      handler: {
+        read: async (session) => {
+          await session.tx.get({ path: bookingPath });
+        },
+        execute: async (session) => {
+          session.tx.create({ path: attendancePath }, { attendanceStatus: 'present' });
+          return commandSuccessResult('complete_booking', correlationId);
+        },
+      },
+    });
+
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.get(attendancePath)?.data).toMatchObject({
+      dataScope: 'test',
+      testSessionId: testSessionA,
+    });
+  });
+
+  it('fails closed when TEST enrollment flow reads a legacy LIVE Course', async () => {
+    const coursePath = 'courses/course_idem_fn_01';
+    const enrollmentPath = 'course_enrollments/course_enrollment_scope_unsupported_01';
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [coursePath]: { revision: 1, lifecycle: { status: 'published' } },
+    });
+    const result = await executeIdempotentCanonicalCommand({
+      envelope: createCourseEnrollmentsEnvelope('idem-test-live-course-read'),
+      environment: environment('2026-01-01T00:00:00.000Z', testScopeA),
+      executor,
+      handler: {
+        read: async (session) => {
+          await session.tx.get({ path: coursePath });
+        },
+        execute: async (session) => {
+          session.tx.create({ path: enrollmentPath }, { revision: 1 });
+          return commandSuccessResult('create_course_enrollments', correlationId);
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'error',
+      error: { code: 'cross_scope_forbidden' },
+    });
+    expect(executor.snapshot().docs.has(enrollmentPath)).toBe(false);
+  });
+
   it('stores canonical results and replays without invoking the handler again', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor({
       [bookingPath]: { revision: 1, status: 'confirmed' },
@@ -463,10 +701,7 @@ describe('executeIdempotentCanonicalCommand', () => {
         },
         execute: async (session) => {
           session.tx.create({ path: blockPath }, { revision: 1 });
-          return commandSuccessResult(
-            'create_administrative_availability_block',
-            correlationId
-          );
+          return commandSuccessResult('create_administrative_availability_block', correlationId);
         },
       },
     });
@@ -711,10 +946,7 @@ describe('executeIdempotentCanonicalCommand', () => {
           session.tx.create({ path: 'payments/pay_idem_fn_wallet_01' }, { status: 'paid' });
           session.tx.create({ path: `users/${accountId}/wallet/state` }, { balance: 1 });
           session.tx.create({ path: 'monetary_events/event_idem_fn_01' }, { amount: 1 });
-          return commandSuccessResult(
-            'pay_service_from_wallet_as_administrator',
-            correlationId
-          );
+          return commandSuccessResult('pay_service_from_wallet_as_administrator', correlationId);
         },
       },
     });
@@ -1188,7 +1420,10 @@ describe('executeIdempotentCanonicalCommand', () => {
           });
         },
         execute: async (session) => {
-          session.tx.create({ path: 'attendance/att_idem_change_request_01' }, { status: 'present' });
+          session.tx.create(
+            { path: 'attendance/att_idem_change_request_01' },
+            { status: 'present' }
+          );
           return commandSuccessResult('complete_booking', correlationId);
         },
       },
@@ -1270,7 +1505,9 @@ describe('executeIdempotentCanonicalCommand', () => {
           estimatedPayloadBytes: 256,
         });
       },
-      execute: async (session: { tx: { create: (ref: { path: string }, data: object) => void } }) => {
+      execute: async (session: {
+        tx: { create: (ref: { path: string }, data: object) => void };
+      }) => {
         session.tx.create({ path: changeRequestPath }, { revision: 1 });
         return commandSuccessResult('create_booking_change_request', correlationId);
       },

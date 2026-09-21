@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
+  activeCourseEnrollmentGuardKey,
+  ActiveCourseEnrollmentGuardSchema,
+  buildActiveCourseEnrollmentGuard,
   CommandIdSchema,
   CorrelationIdSchema,
+  CourseIdSchema,
   CourseEnrollmentIdSchema,
   InstructorIdSchema,
   OccurrenceIdSchema,
   ParticipantIdSchema,
   ResourceClaimIdentityInputSchema,
+  TestSessionIdSchema,
   TimeIntervalSchema,
   expandUtcGuardBuckets,
   estimateGuardMutationBytes,
@@ -18,6 +23,7 @@ import {
   normalizeFirestoreRecord,
   removeGuardEntryByClaimId,
   resourceClaimGuardIdFromBucketIdentity,
+  resourceClaimIdFromIdentity,
   shouldIgnoreGuardEntry,
   shouldSkipGuardEntryForAcquireConflict,
   timestampFromDate,
@@ -28,6 +34,10 @@ import {
 } from '@ski-academy/shared-domain';
 
 const correlationId = CorrelationIdSchema.parse('correlation_guard_test_01');
+const testSessionA = TestSessionIdSchema.parse('test_session_guard_a');
+const testSessionB = TestSessionIdSchema.parse('test_session_guard_b');
+const scopeA = { dataScope: 'test' as const, testSessionId: testSessionA };
+const scopeB = { dataScope: 'test' as const, testSessionId: testSessionB };
 
 function interval(startIso: string, endIso: string) {
   return TimeIntervalSchema.parse({
@@ -101,12 +111,89 @@ describe('guard bucket expansion', () => {
     const guardId = resourceClaimGuardIdFromBucketIdentity(buckets[0]!.bucketIdentity);
     expect(guardId).toBe(resourceClaimGuardIdFromBucketIdentity(buckets[0]!.bucketIdentity));
   });
+
+  it('separates guard buckets and IDs across LIVE and TEST sessions', () => {
+    const instructorId = InstructorIdSchema.parse('instructor_guard_scope_01');
+    const guardedInterval = interval('2026-01-15T04:00:00.000Z', '2026-01-15T05:00:00.000Z');
+    const live = expandUtcGuardBuckets('instructor', instructorId, guardedInterval)[0]!;
+    const testA = expandUtcGuardBuckets('instructor', instructorId, guardedInterval, scopeA)[0]!;
+    const testB = expandUtcGuardBuckets('instructor', instructorId, guardedInterval, scopeB)[0]!;
+
+    expect(new Set([live.bucketKey, testA.bucketKey, testB.bucketKey])).toHaveLength(3);
+    expect(
+      new Set([
+        resourceClaimGuardIdFromBucketIdentity(live.bucketIdentity),
+        resourceClaimGuardIdFromBucketIdentity(testA.bucketIdentity, scopeA),
+        resourceClaimGuardIdFromBucketIdentity(testB.bucketIdentity, scopeB),
+      ])
+    ).toHaveLength(3);
+    expect(testA.scope).toEqual(scopeA);
+  });
+});
+
+describe('scoped canonical claim and enrollment-guard identities', () => {
+  it('separates claim IDs across LIVE and TEST sessions', () => {
+    const identity = ResourceClaimIdentityInputSchema.parse({
+      strategyVersion: 'claim:v2',
+      claimKind: 'participant_booking_occurrence',
+      resourceKind: 'participant',
+      resourceId: ParticipantIdSchema.parse('participant_claim_scope_01'),
+      ownerKind: 'booking',
+      ownerId: 'booking_claim_scope_01',
+      occurrenceId: OccurrenceIdSchema.parse('occurrence_claim_scope_01'),
+    });
+    const live = resourceClaimIdFromIdentity(identity);
+    const scopedA = resourceClaimIdFromIdentity(identity, scopeA);
+    const scopedB = resourceClaimIdFromIdentity(identity, scopeB);
+
+    expect(new Set([live, scopedA, scopedB])).toHaveLength(3);
+  });
+
+  it('separates active CourseEnrollment guards across LIVE and TEST sessions', () => {
+    const participantId = ParticipantIdSchema.parse('participant_aceg_scope_01');
+    const courseId = CourseIdSchema.parse('course_aceg_scope_01');
+    const live = activeCourseEnrollmentGuardKey(participantId, courseId);
+    const scopedA = activeCourseEnrollmentGuardKey(participantId, courseId, scopeA);
+    const scopedB = activeCourseEnrollmentGuardKey(participantId, courseId, scopeB);
+
+    expect(new Set([live, scopedA, scopedB])).toHaveLength(3);
+  });
+
+  it('rejects malformed persisted active-enrollment guard scope', () => {
+    const at = timestampFromDate(new Date('2026-01-15T09:00:00.000Z'));
+    const guard = buildActiveCourseEnrollmentGuard({
+      participantId: ParticipantIdSchema.parse('participant_aceg_scope_02'),
+      courseId: CourseIdSchema.parse('course_aceg_scope_02'),
+      courseEnrollmentId: CourseEnrollmentIdSchema.parse('course_enrollment_aceg_scope_02'),
+      revision: 1,
+      createdAt: at,
+      updatedAt: at,
+      lastChangedByCommandId: CommandIdSchema.parse('command_aceg_scope_02'),
+      correlationId,
+      scope: scopeA,
+    });
+
+    expect(
+      ActiveCourseEnrollmentGuardSchema.safeParse({
+        ...guard,
+        dataScope: 'live',
+        testSessionId: testSessionA,
+      }).success
+    ).toBe(false);
+    expect(
+      ActiveCourseEnrollmentGuardSchema.safeParse({
+        ...guard,
+        dataScope: 'test',
+        testSessionId: undefined,
+      }).success
+    ).toBe(false);
+  });
 });
 
 describe('replacement ignore semantics', () => {
   const candidate = interval('2026-01-15T09:00:00.000Z', '2026-01-15T10:00:00.000Z');
   const identity = ResourceClaimIdentityInputSchema.parse({
-    strategyVersion: 'claim:v1',
+    strategyVersion: 'claim:v2',
     claimKind: 'participant_booking_occurrence',
     resourceKind: 'participant',
     resourceId: ParticipantIdSchema.parse('participant_guard_test_01'),
@@ -423,7 +510,7 @@ describe('pooled course seat conflict skip semantics', () => {
 describe('administrative availability separation', () => {
   it('models administrative availability blocks as schedule claims, not participant blocks', () => {
     const identity = ResourceClaimIdentityInputSchema.parse({
-      strategyVersion: 'claim:v1',
+      strategyVersion: 'claim:v2',
       claimKind: 'administrative_availability_block',
       resourceKind: 'administrative_block',
       resourceId: 'admin_block_guard_test_01',

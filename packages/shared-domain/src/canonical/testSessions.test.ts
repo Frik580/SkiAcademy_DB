@@ -11,9 +11,12 @@ import {
   TestSessionMembershipSchema,
   TestSessionSchema,
   TEST_SESSION_STATUSES,
+  assertSameCanonicalScope,
   assertTestSessionActivationAllowed,
   canonicalPaths,
   isTestSessionMembershipForPath,
+  parsePersistedCanonicalScope,
+  testCanonicalExecutionScope,
   timestampFromDate,
 } from './index';
 
@@ -22,6 +25,7 @@ const accountId = AccountIdSchema.parse('account_test_actor_01');
 const otherAccountId = AccountIdSchema.parse('account_test_actor_02');
 const participantId = ParticipantIdSchema.parse('participant_test_actor_01');
 const testSessionId = TestSessionIdSchema.parse('test_session_01');
+const otherTestSessionId = TestSessionIdSchema.parse('test_session_02');
 const commandId = CommandIdSchema.parse('command_test_session_01');
 const audit = {
   createdByCommandId: commandId,
@@ -61,6 +65,35 @@ describe('Canonical Test Session domain', () => {
     expect(
       CanonicalExecutionScopeSchema.safeParse({ dataScope: 'test', testSessionId }).success
     ).toBe(true);
+  });
+
+  it('treats missing persisted scope as legacy LIVE only during the compatibility window', () => {
+    expect(parsePersistedCanonicalScope({})).toEqual({ dataScope: 'live' });
+    expect(() => assertSameCanonicalScope({ dataScope: 'live' }, {})).not.toThrow();
+    expect(() => assertSameCanonicalScope(testCanonicalExecutionScope(testSessionId), {})).toThrow(
+      expect.objectContaining({ code: 'CROSS_SCOPE_FORBIDDEN' })
+    );
+  });
+
+  it('rejects malformed persisted scope combinations', () => {
+    expect(() => parsePersistedCanonicalScope({ dataScope: 'live', testSessionId })).toThrow(
+      expect.objectContaining({ code: 'MALFORMED_PERSISTED_SCOPE' })
+    );
+    expect(() => parsePersistedCanonicalScope({ dataScope: 'test' })).toThrow(
+      expect.objectContaining({ code: 'MALFORMED_PERSISTED_SCOPE' })
+    );
+  });
+
+  it('rejects LIVE/TEST and TEST-session cross-scope access', () => {
+    expect(() =>
+      assertSameCanonicalScope(testCanonicalExecutionScope(testSessionId), { dataScope: 'live' })
+    ).toThrow(expect.objectContaining({ code: 'CROSS_SCOPE_FORBIDDEN' }));
+    expect(() =>
+      assertSameCanonicalScope(testCanonicalExecutionScope(testSessionId), {
+        dataScope: 'test',
+        testSessionId: otherTestSessionId,
+      })
+    ).toThrow(expect.objectContaining({ code: 'CROSS_SCOPE_FORBIDDEN' }));
   });
 
   it.each(TEST_SESSION_STATUSES)('parses TestSession status %s', (status) => {

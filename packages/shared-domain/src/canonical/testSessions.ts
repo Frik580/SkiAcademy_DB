@@ -17,30 +17,7 @@ import {
   KztMinorUnitsSchema,
   compareCanonicalTimestamps,
 } from './primitives';
-
-export const DATA_SCOPES = ['live', 'test'] as const;
-export const DataScopeSchema = z.enum(DATA_SCOPES);
-export type DataScope = z.output<typeof DataScopeSchema>;
-
-export const CanonicalExecutionScopeSchema = z.discriminatedUnion('dataScope', [
-  z.object({ dataScope: z.literal('live') }).strict(),
-  z
-    .object({
-      dataScope: z.literal('test'),
-      testSessionId: TestSessionIdSchema,
-    })
-    .strict(),
-]);
-
-export type CanonicalExecutionScope = Readonly<z.output<typeof CanonicalExecutionScopeSchema>>;
-
-export const LIVE_CANONICAL_EXECUTION_SCOPE: CanonicalExecutionScope = Object.freeze({
-  dataScope: 'live',
-});
-
-export function testCanonicalExecutionScope(testSessionId: TestSessionId): CanonicalExecutionScope {
-  return Object.freeze({ dataScope: 'test', testSessionId });
-}
+export * from './canonicalScope';
 
 export const TEST_SESSION_STATUSES = [
   'provisioning',

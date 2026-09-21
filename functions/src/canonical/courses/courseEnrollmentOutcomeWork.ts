@@ -19,6 +19,11 @@ import {
   type Course,
   type CourseDay,
   type CourseEnrollment,
+  DataScopeSchema,
+  TestSessionIdSchema,
+  assertSameCanonicalScope,
+  canonicalScopeFields,
+  parsePersistedCanonicalScope,
 } from '@ski-academy/shared-domain';
 
 export const COURSE_ENROLLMENT_OUTCOME_WORK_COLLECTION = 'course_enrollment_outcome_work';
@@ -27,6 +32,8 @@ export const COURSE_ENROLLMENT_OUTCOME_SYSTEM_ACTOR_ID = SystemActorIdSchema.par
 );
 
 const CourseEnrollmentOutcomeWorkBaseSchema = z.object({
+  dataScope: DataScopeSchema.optional(),
+  testSessionId: TestSessionIdSchema.optional(),
   enrollmentId: CourseEnrollmentIdSchema,
   courseId: CourseIdSchema,
   participantId: ParticipantIdSchema,
@@ -85,7 +92,11 @@ function workBase(input: {
   readonly workRevision: number;
   readonly updatedAt: CanonicalTimestamp;
 }) {
+  const scope = parsePersistedCanonicalScope(input.enrollment);
+  assertSameCanonicalScope(scope, input.course);
+  assertSameCanonicalScope(scope, input.finalCourseDay);
   return {
+    ...canonicalScopeFields(scope),
     enrollmentId: input.enrollment.enrollmentId,
     courseId: input.enrollment.courseId,
     participantId: input.enrollment.participantId,
@@ -140,6 +151,7 @@ export function completePendingCourseEnrollmentOutcomeWork(
   const base = CourseEnrollmentOutcomeWorkBaseSchema.parse(work);
   return CourseEnrollmentOutcomeWorkSchema.parse({
     ...base,
+    ...canonicalScopeFields(parsePersistedCanonicalScope(work)),
     status: 'complete',
     completedReason: input.completedReason,
     workRevision: work.workRevision + 1,
@@ -157,6 +169,7 @@ export function blockPendingCourseEnrollmentOutcomeWork(
   const base = CourseEnrollmentOutcomeWorkBaseSchema.parse(work);
   return CourseEnrollmentOutcomeWorkSchema.parse({
     ...base,
+    ...canonicalScopeFields(parsePersistedCanonicalScope(work)),
     status: 'blocked',
     blockedReason: input.blockedReason,
     workRevision: work.workRevision + 1,

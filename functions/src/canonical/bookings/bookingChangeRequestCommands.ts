@@ -72,15 +72,25 @@ import {
   parseBookingChangeRequest,
   toFirestoreWritePayload as toChangeRequestWritePayload,
 } from './bookingChangeRequestStore';
-import { BOOKING_PLANNING_ESTIMATES, bookingPath, instructorCatalogPath, parseBooking, parseInstructorCatalog, toFirestoreWritePayload } from './bookingStore';
+import {
+  BOOKING_PLANNING_ESTIMATES,
+  bookingPath,
+  instructorCatalogPath,
+  parseBooking,
+  parseInstructorCatalog,
+  toFirestoreWritePayload,
+} from './bookingStore';
 
 interface CommandMetadata {
   readonly commandId: ReturnType<typeof resolveCommandIdempotencyIdentity>['commandKey'];
   readonly correlationId: CommandEnvelope['context']['correlationId'];
 }
 
-function metadataFromEnvelope(envelope: CommandEnvelope): CommandMetadata {
-  const identity = resolveCommandIdempotencyIdentity(envelope);
+function metadataFromEnvelope(
+  envelope: CommandEnvelope,
+  environment: CommandExecutionEnvironment
+): CommandMetadata {
+  const identity = resolveCommandIdempotencyIdentity(envelope, environment.scope);
   return {
     commandId: identity.commandKey,
     correlationId: envelope.context.correlationId,
@@ -115,9 +125,11 @@ function createBookingChangeRequestHandler(
   environment: CommandExecutionEnvironment,
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
 ): Promise<CommandResult<'create_booking_change_request'>> {
-  const metadata = metadataFromEnvelope(envelope);
+  const metadata = metadataFromEnvelope(envelope, environment);
   const bookingDocumentPath = bookingPath(envelope.intent.bookingId);
-  const changeRequestDocumentPath = bookingChangeRequestPath(envelope.intent.bookingChangeRequestId);
+  const changeRequestDocumentPath = bookingChangeRequestPath(
+    envelope.intent.bookingChangeRequestId
+  );
 
   let booking!: Booking;
 
@@ -198,8 +210,10 @@ function withdrawBookingChangeRequestHandler(
   environment: CommandExecutionEnvironment,
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
 ): Promise<CommandResult<'withdraw_booking_change_request'>> {
-  const metadata = metadataFromEnvelope(envelope);
-  const changeRequestDocumentPath = bookingChangeRequestPath(envelope.intent.bookingChangeRequestId);
+  const metadata = metadataFromEnvelope(envelope, environment);
+  const changeRequestDocumentPath = bookingChangeRequestPath(
+    envelope.intent.bookingChangeRequestId
+  );
 
   let changeRequest!: BookingChangeRequest;
   let booking!: Booking;
@@ -280,9 +294,11 @@ function resolveBookingChangeRequestHandler(
   environment: CommandExecutionEnvironment,
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
 ): Promise<CommandResult<'resolve_booking_change_request'>> {
-  const metadata = metadataFromEnvelope(envelope);
+  const metadata = metadataFromEnvelope(envelope, environment);
   const resolution = envelope.intent.resolution;
-  const changeRequestDocumentPath = bookingChangeRequestPath(envelope.intent.bookingChangeRequestId);
+  const changeRequestDocumentPath = bookingChangeRequestPath(
+    envelope.intent.bookingChangeRequestId
+  );
 
   let changeRequest!: BookingChangeRequest;
   let booking!: Booking;
@@ -351,7 +367,9 @@ function resolveBookingChangeRequestHandler(
         const participantDocumentPath = participantPath(participantId);
         const participantRead = await session.tx.get({ path: participantDocumentPath });
         session.plan.planRead({ path: participantDocumentPath, category: 'aggregate' });
-        const participant = parseParticipant(participantRead.exists ? participantRead.data : undefined);
+        const participant = parseParticipant(
+          participantRead.exists ? participantRead.data : undefined
+        );
         if (!participant || participant.management.kind !== 'managed') {
           throw new CanonicalCommandError('forbidden', {
             correlationId: envelope.context.correlationId,
@@ -588,7 +606,12 @@ function resolveBookingChangeRequestHandler(
             { path: bookingDocumentPath },
             toFirestoreWritePayload(updatedBooking as Record<string, unknown>)
           );
-          commitPlannedBookingOccurrenceClaimSwap(session, claimSwapPlan, metadata, context.decidedAt);
+          commitPlannedBookingOccurrenceClaimSwap(
+            session,
+            claimSwapPlan,
+            metadata,
+            context.decidedAt
+          );
         }
 
         return commandSuccessResult(envelope.kind, envelope.context.correlationId);

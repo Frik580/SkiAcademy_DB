@@ -18,6 +18,8 @@ import {
   timestampFromDate,
   RESOURCE_CLAIM_PLANNING_ESTIMATES,
   normalizeFirestoreDocument,
+  LIVE_CANONICAL_EXECUTION_SCOPE,
+  canonicalScopeFields,
   type CommandId,
   type CorrelationId,
   type ResourceClaim,
@@ -37,8 +39,7 @@ export interface ResourceClaimCommandMetadata {
   readonly decidedAt: Date;
 }
 
-export type InTransactionGuardOverlay =
-  Map<string, ResourceClaimGuardEntry[]>;
+export type InTransactionGuardOverlay = Map<string, ResourceClaimGuardEntry[]>;
 
 export interface AcquireResourceClaimInput extends ResourceClaimCommandMetadata {
   readonly identity: ResourceClaimIdentityInput;
@@ -155,7 +156,8 @@ function guardOccupancyMatchesClaim(
   const expectedBuckets = expandUtcGuardBuckets(
     claim.resourceKind,
     claim.resourceId,
-    claim.interval
+    claim.interval,
+    buckets[0]?.bucket.scope ?? LIVE_CANONICAL_EXECUTION_SCOPE
   );
   const expectedKeys = new Set(expectedBuckets.map((bucket) => bucket.bucketKey));
 
@@ -207,7 +209,7 @@ function planGuardRead(
   session: CanonicalAtomicTransactionSession,
   bucket: UtcGuardBucket
 ): LoadedGuardBucket {
-  const guardId = resourceClaimGuardIdFromBucketIdentity(bucket.bucketIdentity);
+  const guardId = resourceClaimGuardIdFromBucketIdentity(bucket.bucketIdentity, bucket.scope);
   const path = guardPathFor(guardId);
   session.plan.planRead({ path, category: 'resource_guard' });
   return {
@@ -283,14 +285,16 @@ function assertNoIntervalConflict(
 
 function buildClaimDocument(
   input: AcquireResourceClaimInput,
-  existing: ResourceClaim | undefined
+  existing: ResourceClaim | undefined,
+  scope: NonNullable<CanonicalAtomicTransactionSession['scope']>
 ): ResourceClaim {
   const decidedAt = timestampFromDate(input.decidedAt);
-  const claimId = resourceClaimIdFromIdentity(input.identity);
+  const claimId = resourceClaimIdFromIdentity(input.identity, scope);
   const revision = existing ? nextAggregateRevision(existing.revision) : 1;
 
   return ResourceClaimSchema.parse({
     claimId,
+    ...canonicalScopeFields(scope),
     strategyVersion: RESOURCE_CLAIM_STRATEGY_VERSION,
     claimKind: input.identity.claimKind,
     resourceKind: input.identity.resourceKind,
@@ -353,8 +357,7 @@ function planGuardWritesForAcquire(
 
   return buckets.map((bucket) => {
     const mergedEntries = mergeGuardEntries(bucket.conflictEntries, entry, correlationId);
-    const mutationKind =
-      bucket.documentExists || overlay?.has(bucket.path) ? 'update' : 'create';
+    const mutationKind = bucket.documentExists || overlay?.has(bucket.path) ? 'update' : 'create';
 
     return {
       bucket: bucket.bucket,
@@ -374,7 +377,8 @@ function planGuardDocumentWrite(
   const decidedAt = timestampFromDate(metadata.decidedAt);
   return {
     guardId: write.guardId,
-    strategyVersion: 'guard:v1',
+    ...canonicalScopeFields(write.bucket.scope),
+    strategyVersion: 'guard:v2',
     bucketKey: write.bucket.bucketKey,
     resourceKind: write.bucket.bucketIdentity.resourceKind,
     resourceId: write.bucket.bucketIdentity.resourceId,
@@ -412,7 +416,8 @@ export async function readAndPlanAcquireResourceClaim(
   session: CanonicalAtomicTransactionSession,
   input: AcquireResourceClaimInput
 ): Promise<ResourceClaimOperationPlan> {
-  const claimId = resourceClaimIdFromIdentity(input.identity);
+  const scope = session.scope ?? LIVE_CANONICAL_EXECUTION_SCOPE;
+  const claimId = resourceClaimIdFromIdentity(input.identity, scope);
   const claimPath = claimPathFor(claimId);
 
   session.plan.planRead({ path: claimPath, category: 'resource_claim' });
@@ -423,7 +428,12 @@ export async function readAndPlanAcquireResourceClaim(
     const buckets = applyInTransactionGuardOverlay(
       await loadGuardBuckets(
         session,
-        expandUtcGuardBuckets(input.identity.resourceKind, input.identity.resourceId, input.interval)
+        expandUtcGuardBuckets(
+          input.identity.resourceKind,
+          input.identity.resourceId,
+          input.interval,
+          scope
+        )
       ),
       input.inTransactionGuardOverlay
     );
@@ -463,8 +473,7 @@ export async function readAndPlanAcquireResourceClaim(
       decidedAt: input.decidedAt,
       claimId,
       newInterval: input.interval,
-      replacementIgnore:
-        input.replacementIgnore ?? replacementIgnoreFromClaim(existingClaim),
+      replacementIgnore: input.replacementIgnore ?? replacementIgnoreFromClaim(existingClaim),
     });
   }
 
@@ -475,7 +484,8 @@ export async function readAndPlanAcquireResourceClaim(
   const newBuckets = expandUtcGuardBuckets(
     input.identity.resourceKind,
     input.identity.resourceId,
-    input.interval
+    input.interval,
+    scope
   );
   const oldBuckets =
     existingClaim === undefined
@@ -483,7 +493,8 @@ export async function readAndPlanAcquireResourceClaim(
       : expandUtcGuardBuckets(
           existingClaim.resourceKind,
           existingClaim.resourceId,
-          existingClaim.interval
+          existingClaim.interval,
+          scope
         );
   const bucketMap = new Map<string, UtcGuardBucket>();
   for (const bucket of [...oldBuckets, ...newBuckets]) {
@@ -503,7 +514,7 @@ export async function readAndPlanAcquireResourceClaim(
     input.identity.claimKind
   );
 
-  const claim = buildClaimDocument(input, existingClaim);
+  const claim = buildClaimDocument(input, existingClaim, scope);
   const newBucketKeys = new Set(newBuckets.map((bucket) => bucket.bucketKey));
   const oldBucketKeys = new Set(oldBuckets.map((bucket) => bucket.bucketKey));
   const entry = buildGuardEntry(claim);
@@ -529,9 +540,7 @@ export async function readAndPlanAcquireResourceClaim(
               path: bucket.path,
               mutationKind: 'delete' as const,
               entries,
-              revision: bucket.existing
-                ? nextAggregateRevision(bucket.existing.revision)
-                : 1,
+              revision: bucket.existing ? nextAggregateRevision(bucket.existing.revision) : 1,
             }
           : undefined;
       }
@@ -660,15 +669,18 @@ export async function readAndPlanMoveResourceClaim(
     occurrenceId: existingClaim.occurrenceId,
   };
 
+  const scope = session.scope ?? LIVE_CANONICAL_EXECUTION_SCOPE;
   const oldBuckets = expandUtcGuardBuckets(
     existingClaim.resourceKind,
     existingClaim.resourceId,
-    existingClaim.interval
+    existingClaim.interval,
+    scope
   );
   const newBuckets = expandUtcGuardBuckets(
     existingClaim.resourceKind,
     existingClaim.resourceId,
-    input.newInterval
+    input.newInterval,
+    scope
   );
 
   const bucketMap = new Map<string, UtcGuardBucket>();
@@ -722,9 +734,7 @@ export async function readAndPlanMoveResourceClaim(
               path: bucket.path,
               mutationKind: 'delete' as const,
               entries,
-              revision: bucket.existing
-                ? nextAggregateRevision(bucket.existing.revision)
-                : 1,
+              revision: bucket.existing ? nextAggregateRevision(bucket.existing.revision) : 1,
             }
           : undefined;
       }
@@ -797,7 +807,8 @@ export async function readAndPlanReleaseResourceClaim(
     expandUtcGuardBuckets(
       existingClaim.resourceKind,
       existingClaim.resourceId,
-      existingClaim.interval
+      existingClaim.interval,
+      session.scope ?? LIVE_CANONICAL_EXECUTION_SCOPE
     )
   );
 
@@ -813,10 +824,7 @@ export async function readAndPlanReleaseResourceClaim(
 
   const guardWrites = buckets
     .map((bucket) => {
-      const entries = removeGuardEntryByClaimId(
-        bucket.conflictEntries,
-        existingClaim.claimId
-      );
+      const entries = removeGuardEntryByClaimId(bucket.conflictEntries, existingClaim.claimId);
       if (!bucket.documentExists) {
         return undefined;
       }

@@ -235,7 +235,11 @@ export type ActiveCourseEnrollmentGuardKey = string & {
   readonly [activeCourseEnrollmentGuardKeyBrand]: 'ActiveCourseEnrollmentGuardKey';
 };
 
-const ACTIVE_COURSE_ENROLLMENT_GUARD_PREFIX = 'aceg_v1_';
+const ACTIVE_COURSE_ENROLLMENT_GUARD_PREFIX = 'aceg_v2_';
+
+export type ActiveCourseEnrollmentGuardScope = Readonly<
+  { dataScope: 'live' } | { dataScope: 'test'; testSessionId: TestSessionId }
+>;
 
 function readLengthPrefixedPart(
   input: string,
@@ -258,7 +262,24 @@ function readLengthPrefixedPart(
 function isActiveCourseEnrollmentGuardKey(value: string): boolean {
   if (!value.startsWith(ACTIVE_COURSE_ENROLLMENT_GUARD_PREFIX)) return false;
 
-  const participant = readLengthPrefixedPart(value, ACTIVE_COURSE_ENROLLMENT_GUARD_PREFIX.length);
+  let next = ACTIVE_COURSE_ENROLLMENT_GUARD_PREFIX.length;
+  if (value.startsWith('live_', next)) {
+    next += 'live_'.length;
+  } else if (value.startsWith('test_', next)) {
+    const session = readLengthPrefixedPart(value, next + 'test_'.length);
+    if (
+      !session ||
+      !TestSessionIdSchema.safeParse(session.value).success ||
+      value[session.next] !== '_'
+    ) {
+      return false;
+    }
+    next = session.next + 1;
+  } else {
+    return false;
+  }
+
+  const participant = readLengthPrefixedPart(value, next);
   if (!participant || value[participant.next] !== '_') return false;
 
   const course = readLengthPrefixedPart(value, participant.next + 1);
@@ -278,9 +299,14 @@ export const ActiveCourseEnrollmentGuardKeySchema = z
 
 export function activeCourseEnrollmentGuardKey(
   participantId: ParticipantId,
-  courseId: CourseId
+  courseId: CourseId,
+  scope: ActiveCourseEnrollmentGuardScope = { dataScope: 'live' }
 ): ActiveCourseEnrollmentGuardKey {
+  const scopePart =
+    scope.dataScope === 'live'
+      ? 'live_'
+      : `test_${scope.testSessionId.length}_${scope.testSessionId}_`;
   return ActiveCourseEnrollmentGuardKeySchema.parse(
-    `${ACTIVE_COURSE_ENROLLMENT_GUARD_PREFIX}${participantId.length}_${participantId}_${courseId.length}_${courseId}`
+    `${ACTIVE_COURSE_ENROLLMENT_GUARD_PREFIX}${scopePart}${participantId.length}_${participantId}_${courseId.length}_${courseId}`
   );
 }

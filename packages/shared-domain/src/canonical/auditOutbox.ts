@@ -20,6 +20,8 @@ import {
   compareCanonicalTimestamps,
 } from './primitives';
 import { activityLogIdFromCommandId, domainOutboxIdFromCommand } from './deterministicIdentity';
+import { DataScopeSchema } from './canonicalScope';
+import { TestSessionIdSchema } from './identifiers';
 
 export const AUDIT_SCHEMA_VERSION = 'audit:v1' as const;
 export const OUTBOX_SCHEMA_VERSION = 'outbox:v1' as const;
@@ -193,6 +195,8 @@ export const ActivityLogResultingRevisionSchema = z
 export const ActivityLogSchema = z
   .object({
     schemaVersion: z.literal(AUDIT_SCHEMA_VERSION),
+    dataScope: DataScopeSchema.optional(),
+    testSessionId: TestSessionIdSchema.optional(),
     activityLogId: ActivityLogIdSchema,
     command: z
       .object({
@@ -284,6 +288,8 @@ export const OutboxRenderInputSchema = z
 export const DomainOutboxObligationSchema = z
   .object({
     schemaVersion: z.literal(OUTBOX_SCHEMA_VERSION),
+    dataScope: DataScopeSchema.optional(),
+    testSessionId: TestSessionIdSchema.optional(),
     outboxId: DomainOutboxIdSchema,
     commandId: CommandIdSchema,
     activityLogId: ActivityLogIdSchema,

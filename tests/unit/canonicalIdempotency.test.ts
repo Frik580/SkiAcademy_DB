@@ -19,6 +19,7 @@ import {
   shouldPersistIdempotencyOutcome,
   systemCommandActor,
   SystemActorIdSchema,
+  TestSessionIdSchema,
   assertExpectedRevision,
   nextAggregateRevision,
   readAggregateRevision,
@@ -26,12 +27,15 @@ import {
   commandSuccessResult,
   commandErrorResult,
   type CommandEnvelope,
+  testCanonicalExecutionScope,
 } from '@ski-academy/shared-domain';
 
 const accountId = AccountIdSchema.parse('account_idem_unit_01');
 const guestSubjectId = GuestSubjectIdSchema.parse('guest_idem_unit_01');
 const systemActorId = SystemActorIdSchema.parse('system_idem_unit_01');
 const correlationId = CorrelationIdSchema.parse('correlation_idem_unit_01');
+const testSessionA = TestSessionIdSchema.parse('test_session_idem_a');
+const testSessionB = TestSessionIdSchema.parse('test_session_idem_b');
 
 function baseEnvelope(
   overrides: Partial<CommandEnvelope<'complete_booking'>['context']> = {},
@@ -289,5 +293,28 @@ describe('idempotency outcome persistence policy', () => {
     expect(identity.recordPath).toMatch(/^\/command_idempotency\//);
     expect(identity.commandKey).toBeTruthy();
     expect(identity.fingerprint).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  it('isolates command keys and fingerprints by authoritative execution scope', () => {
+    const envelope = baseEnvelope();
+    const live = resolveCommandIdempotencyIdentity(envelope, { dataScope: 'live' });
+    const testA = resolveCommandIdempotencyIdentity(
+      envelope,
+      testCanonicalExecutionScope(testSessionA)
+    );
+    const testB = resolveCommandIdempotencyIdentity(
+      envelope,
+      testCanonicalExecutionScope(testSessionB)
+    );
+    const testAReplay = resolveCommandIdempotencyIdentity(
+      envelope,
+      testCanonicalExecutionScope(testSessionA)
+    );
+
+    expect(new Set([live.commandKey, testA.commandKey, testB.commandKey])).toHaveLength(3);
+    expect(new Set([live.fingerprint, testA.fingerprint, testB.fingerprint])).toHaveLength(3);
+    expect(testAReplay).toEqual(testA);
+    expect(live.scope).toEqual({ dataScope: 'live' });
+    expect(testA.scope).toEqual({ dataScope: 'test', testSessionId: testSessionA });
   });
 });

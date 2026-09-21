@@ -66,6 +66,7 @@ export async function planReleaseCourseEnrollmentClaims(
       courseId: input.course.courseId,
       enrollmentId: input.enrollment.enrollmentId,
       occurrenceId: courseEnrollmentSeatOccurrenceId(input.enrollment.enrollmentId),
+      scope: session.scope,
     });
     seatClaimPlan = await planRelease(session, {
       ...claimMetadata,
@@ -85,6 +86,7 @@ export async function planReleaseCourseEnrollmentClaims(
       participantId: input.enrollment.participantId,
       enrollmentId: input.enrollment.enrollmentId,
       courseDay,
+      scope: session.scope,
     });
     const dayClaimPlan = await planRelease(session, {
       ...claimMetadata,
@@ -169,6 +171,7 @@ export async function planAcquireCourseEnrollmentClaims(
     courseId: input.course.courseId,
     enrollmentId: input.enrollment.enrollmentId,
     occurrenceId: courseEnrollmentSeatOccurrenceId(input.enrollment.enrollmentId),
+    scope: session.scope,
   });
   const seatClaimPlan = await readAndPlanAcquireResourceClaim(session, {
     ...claimMetadata,
@@ -184,6 +187,7 @@ export async function planAcquireCourseEnrollmentClaims(
       participantId: input.enrollment.participantId,
       enrollmentId: input.enrollment.enrollmentId,
       courseDay,
+      scope: session.scope,
     });
     const dayClaimPlan = await readAndPlanAcquireResourceClaim(session, {
       ...claimMetadata,
@@ -242,6 +246,7 @@ export async function planMigrateEnrollmentParticipantCourseDayClaims(
       participantId: input.targetParticipantId,
       enrollmentId: input.enrollmentId,
       courseDay,
+      scope: session.scope,
     });
     const acquirePlan = await readAndPlanAcquireResourceClaim(session, {
       ...claimMetadata,
@@ -259,6 +264,7 @@ export async function planMigrateEnrollmentParticipantCourseDayClaims(
       participantId: input.guestParticipantId,
       enrollmentId: input.enrollmentId,
       courseDay,
+      scope: session.scope,
     });
     const releasePlan = await readAndPlanReleaseResourceClaim(session, {
       ...claimMetadata,

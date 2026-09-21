@@ -11,6 +11,7 @@ import {
   ParticipantBlockIdSchema,
   ParticipantIdSchema,
   ParticipantManagementIdSchema,
+  TestSessionIdSchema,
   type AccountId,
   type InstructorId,
   type ParticipantId,
@@ -24,6 +25,7 @@ import {
   type CanonicalTimestamp,
 } from './primitives';
 import { normalizeFirestoreDocument } from './firestoreSerialization';
+import { DataScopeSchema } from './canonicalScope';
 
 const PersistedAggregateRevisionSchema = AggregateRevisionSchema.refine(
   (revision) => revision >= 1,
@@ -226,6 +228,8 @@ export const ParticipantAvatarUrlSchema = z
 export const ParticipantSchema = z
   .object({
     participantId: ParticipantIdSchema,
+    dataScope: DataScopeSchema.optional(),
+    testSessionId: TestSessionIdSchema.optional(),
     displayName: z.string().trim().min(1).max(200),
     age: ParticipantAgeSchema,
     skillLevel: z.string().trim().min(1).max(64),
@@ -969,9 +973,7 @@ export function isParticipantInstructorPairBlockedForNewService(
   );
 }
 
-export function sanitizeParticipantProfileForInstructor(
-  participant: Participant
-): Readonly<{
+export function sanitizeParticipantProfileForInstructor(participant: Participant): Readonly<{
   participantId: ParticipantId;
   displayName: string;
   age: Participant['age'];

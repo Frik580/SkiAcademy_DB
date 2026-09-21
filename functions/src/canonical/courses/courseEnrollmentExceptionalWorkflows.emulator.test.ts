@@ -44,7 +44,9 @@ const accountId = 'account_course_exceptional_emulator_01';
 const adminAccountId = 'account_course_exceptional_emulator_admin';
 const instructorAccountId = 'account_course_exceptional_emulator_instructor';
 const participantId = ParticipantIdSchema.parse('participant_course_exceptional_emulator_01');
-const managementId = ParticipantManagementIdSchema.parse('management_course_exceptional_emulator_01');
+const managementId = ParticipantManagementIdSchema.parse(
+  'management_course_exceptional_emulator_01'
+);
 const instructorId = InstructorIdSchema.parse('instructor_course_exceptional_emulator_01');
 const courseId = CourseIdSchema.parse('course_course_exceptional_emulator_01');
 const courseDayOneId = CourseDayIdSchema.parse('course_day_exceptional_emulator_01');
@@ -117,7 +119,10 @@ function adminContext(idempotencyKey: string, correlation = correlationId) {
   };
 }
 
-function gateEnvelope(idempotencyKey: string, correlation = correlationId): CommandEnvelope<'enforce_payment_start_gate'> {
+function gateEnvelope(
+  idempotencyKey: string,
+  correlation = correlationId
+): CommandEnvelope<'enforce_payment_start_gate'> {
   return {
     kind: 'enforce_payment_start_gate',
     context: {
@@ -174,7 +179,9 @@ function recordPresentEnvelope(
               options.expectedEnrollmentRevision
             ),
           }),
-      ...(options.reasonExplanation === undefined ? {} : { reasonExplanation: options.reasonExplanation }),
+      ...(options.reasonExplanation === undefined
+        ? {}
+        : { reasonExplanation: options.reasonExplanation }),
     },
   };
 }
@@ -339,7 +346,7 @@ async function seedEnrollmentResourceClaims(dayCount: 1 | 3 = 1) {
   await firestore.doc(`resource_claims/${seatIdentity.claimId}`).set(
     ResourceClaimSchema.parse({
       claimId: seatIdentity.claimId,
-      strategyVersion: 'claim:v1',
+      strategyVersion: 'claim:v2',
       claimKind: 'course_seat_pre_start',
       resourceKind: 'course',
       resourceId: courseId,
@@ -384,7 +391,7 @@ async function seedEnrollmentResourceClaims(dayCount: 1 | 3 = 1) {
     await firestore.doc(`resource_claims/${identity.claimId}`).set(
       ResourceClaimSchema.parse({
         claimId: identity.claimId,
-        strategyVersion: 'claim:v1',
+        strategyVersion: 'claim:v2',
         claimKind: 'participant_course_day_enrollment',
         resourceKind: 'participant',
         resourceId: participantId,
@@ -418,21 +425,21 @@ async function seedEnrollmentResourceClaims(dayCount: 1 | 3 = 1) {
 
 async function listEnrollmentOwnedClaims() {
   const snap = await firestore.collection('resource_claims').get();
-  return snap.docs
-    .map((doc) => doc.data())
-    .filter((claim) => claim?.ownerId === enrollmentId);
+  return snap.docs.map((doc) => doc.data()).filter((claim) => claim?.ownerId === enrollmentId);
 }
 
 async function readCourseAvailableSeats() {
   return (await firestore.doc(`courses/${courseId}`).get()).data()?.capacity?.availableSeats;
 }
 
-async function seedBase(options: {
-  underfunded?: boolean;
-  dayCount?: 1 | 3;
-  lifecycle?: Record<string, unknown>;
-  enrollmentRevision?: number;
-} = {}) {
+async function seedBase(
+  options: {
+    underfunded?: boolean;
+    dayCount?: 1 | 3;
+    lifecycle?: Record<string, unknown>;
+    enrollmentRevision?: number;
+  } = {}
+) {
   const underfunded = options.underfunded ?? false;
   const dayCount = options.dayCount ?? 1;
   await clearAll();
@@ -740,10 +747,16 @@ describeEmulator('courseEnrollmentExceptionalWorkflows emulator', () => {
       (await firestore.doc(`payments/${paymentId}`).get()).data()
     );
     const commands = createCommands('2026-02-01T04:00:00.000Z');
-    expect((await commands.execute(recordPresentEnvelope('present-no-gate'))).status).toBe('success');
-    const attendance = (await firestore.doc(`attendance/${attendanceIdFor(courseDayOneId)}`).get()).data();
+    expect((await commands.execute(recordPresentEnvelope('present-no-gate'))).status).toBe(
+      'success'
+    );
+    const attendance = (
+      await firestore.doc(`attendance/${attendanceIdFor(courseDayOneId)}`).get()
+    ).data();
     expect(attendance?.attendanceStatus).toBe('present');
-    const paymentStart = (await firestore.doc(`admin_issues/${paymentStartIssueId()}`).get()).data();
+    const paymentStart = (
+      await firestore.doc(`admin_issues/${paymentStartIssueId()}`).get()
+    ).data();
     expect(paymentStart?.kind).toBe('payment_required_at_start');
     expect(paymentStart?.lifecycle.status).toBe('open');
     const conflict = (await firestore.doc(`admin_issues/${paymentConflictIssueId()}`).get()).data();
@@ -751,9 +764,9 @@ describeEmulator('courseEnrollmentExceptionalWorkflows emulator', () => {
     expect(conflict?.lifecycle.status).toBe('open');
     const enrollment = (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data();
     expect(enrollment?.lifecycle.status).toBe('confirmed');
-    expect(paymentFinancialSnapshot((await firestore.doc(`payments/${paymentId}`).get()).data())).toEqual(
-      paymentBefore
-    );
+    expect(
+      paymentFinancialSnapshot((await firestore.doc(`payments/${paymentId}`).get()).data())
+    ).toEqual(paymentBefore);
   }, 30_000);
 
   it('F. present vs concurrent provider payment avoids stale payment-conflict state', async () => {
@@ -764,7 +777,9 @@ describeEmulator('courseEnrollmentExceptionalWorkflows emulator', () => {
       commands.execute(providerPaymentEnvelope(COURSE_PRICE_KZT, 'provider-race-f')),
     ]);
     expect(settled.every((outcome) => outcome.status === 'fulfilled')).toBe(true);
-    const attendance = (await firestore.doc(`attendance/${attendanceIdFor(courseDayOneId)}`).get()).data();
+    const attendance = (
+      await firestore.doc(`attendance/${attendanceIdFor(courseDayOneId)}`).get()
+    ).data();
     expect(attendance?.attendanceStatus).toBe('present');
     const payment = paymentFinancialSnapshot(
       (await firestore.doc(`payments/${paymentId}`).get()).data()
@@ -832,7 +847,9 @@ describeEmulator('courseEnrollmentExceptionalWorkflows emulator', () => {
         )
       ).status
     ).toBe('success');
-    const attendance = (await firestore.doc(`attendance/${attendanceIdFor(courseDayOneId)}`).get()).data();
+    const attendance = (
+      await firestore.doc(`attendance/${attendanceIdFor(courseDayOneId)}`).get()
+    ).data();
     expect(attendance?.attendanceStatus).toBe('present');
     const enrollment = (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data();
     expect(enrollment?.lifecycle.status).toBe('completed');
@@ -882,7 +899,9 @@ describeEmulator('courseEnrollmentExceptionalWorkflows emulator', () => {
         })
       ).status
     ).toBe('success');
-    const attendance = (await firestore.doc(`attendance/${attendanceIdFor(courseDayOneId)}`).get()).data();
+    const attendance = (
+      await firestore.doc(`attendance/${attendanceIdFor(courseDayOneId)}`).get()
+    ).data();
     expect(attendance?.attendanceStatus).toBe('absent');
     const enrollment = (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data();
     expect(enrollment?.lifecycle.status).toBe('no_show');
@@ -926,7 +945,9 @@ describeEmulator('courseEnrollmentExceptionalWorkflows emulator', () => {
     await seedBase();
     await seedAttendance(courseDayOneId, 'absent');
     const commands = createCommands('2026-02-01T04:00:00.000Z');
-    const before = (await firestore.doc(`attendance/${attendanceIdFor(courseDayOneId)}`).get()).data();
+    const before = (
+      await firestore.doc(`attendance/${attendanceIdFor(courseDayOneId)}`).get()
+    ).data();
     expect(
       (
         await commands.execute(
@@ -934,7 +955,9 @@ describeEmulator('courseEnrollmentExceptionalWorkflows emulator', () => {
         )
       ).status
     ).toBe('error');
-    const after = (await firestore.doc(`attendance/${attendanceIdFor(courseDayOneId)}`).get()).data();
+    const after = (
+      await firestore.doc(`attendance/${attendanceIdFor(courseDayOneId)}`).get()
+    ).data();
     expect(after?.attendanceStatus).toBe(before?.attendanceStatus);
     expect(after?.revision).toBe(before?.revision);
   }, 30_000);
@@ -947,7 +970,9 @@ describeEmulator('courseEnrollmentExceptionalWorkflows emulator', () => {
     });
     await seedAttendance(courseDayOneId, 'absent');
     const commands = createCommands('2026-02-01T06:00:00.000Z');
-    const enrollmentBefore = (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data();
+    const enrollmentBefore = (
+      await firestore.doc(`course_enrollments/${enrollmentId}`).get()
+    ).data();
     expect(
       (
         await commands.execute(
@@ -960,7 +985,9 @@ describeEmulator('courseEnrollmentExceptionalWorkflows emulator', () => {
         )
       ).status
     ).toBe('error');
-    const enrollmentAfter = (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data();
+    const enrollmentAfter = (
+      await firestore.doc(`course_enrollments/${enrollmentId}`).get()
+    ).data();
     expect(enrollmentAfter?.lifecycle.status).toBe(enrollmentBefore?.lifecycle.status);
     expect(enrollmentAfter?.revision).toBe(enrollmentBefore?.revision);
   }, 30_000);
@@ -999,7 +1026,9 @@ describeEmulator('courseEnrollmentExceptionalWorkflows emulator', () => {
     ]);
     expect([a.status, b.status].filter((status) => status === 'fulfilled').length).toBe(2);
     const enrollment = (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data();
-    const attendance = (await firestore.doc(`attendance/${attendanceIdFor(courseDayOneId)}`).get()).data();
+    const attendance = (
+      await firestore.doc(`attendance/${attendanceIdFor(courseDayOneId)}`).get()
+    ).data();
     if (attendance?.attendanceStatus === 'present') {
       expect(enrollment?.lifecycle.status).toBe('completed');
     } else {
@@ -1159,13 +1188,21 @@ describeEmulator('courseEnrollmentExceptionalWorkflows emulator', () => {
     const commands = createCommands('2026-02-01T04:00:00.000Z');
     const envelope = recordPresentEnvelope('replay-exact');
     expect((await commands.execute(envelope)).status).toBe('success');
-    const attendanceAfterFirst = (await firestore.doc(`attendance/${attendanceIdFor(courseDayOneId)}`).get()).data();
-    const enrollmentAfterFirst = (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data();
+    const attendanceAfterFirst = (
+      await firestore.doc(`attendance/${attendanceIdFor(courseDayOneId)}`).get()
+    ).data();
+    const enrollmentAfterFirst = (
+      await firestore.doc(`course_enrollments/${enrollmentId}`).get()
+    ).data();
     const issuesAfterFirst = await firestore.collection('admin_issues').get();
     const logsAfterFirst = await firestore.collection('activity_logs').get();
     expect((await commands.execute(envelope)).status).toBe('success');
-    const attendanceAfterSecond = (await firestore.doc(`attendance/${attendanceIdFor(courseDayOneId)}`).get()).data();
-    const enrollmentAfterSecond = (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data();
+    const attendanceAfterSecond = (
+      await firestore.doc(`attendance/${attendanceIdFor(courseDayOneId)}`).get()
+    ).data();
+    const enrollmentAfterSecond = (
+      await firestore.doc(`course_enrollments/${enrollmentId}`).get()
+    ).data();
     const issuesAfterSecond = await firestore.collection('admin_issues').get();
     const logsAfterSecond = await firestore.collection('activity_logs').get();
     expect(attendanceAfterSecond?.revision).toBe(attendanceAfterFirst?.revision);
@@ -1177,7 +1214,9 @@ describeEmulator('courseEnrollmentExceptionalWorkflows emulator', () => {
   it('X. optional fields serialize without undefined in Firestore writes', async () => {
     await seedBase({ underfunded: true });
     const commands = createCommands('2026-02-01T04:00:00.000Z');
-    expect((await commands.execute(recordPresentEnvelope('undefined-serialize'))).status).toBe('success');
+    expect((await commands.execute(recordPresentEnvelope('undefined-serialize'))).status).toBe(
+      'success'
+    );
     const collections = ['attendance', 'admin_issues', 'course_enrollments', 'activity_logs'];
     for (const collection of collections) {
       const snap = await firestore.collection(collection).get();

@@ -5,7 +5,9 @@ import {
   InstructorIdSchema,
   ParticipantIdSchema,
   ParticipantManagementIdSchema,
+  TestSessionIdSchema,
 } from './identifiers';
+import { DataScopeSchema } from './canonicalScope';
 import {
   AggregateRevisionSchema,
   compareCanonicalTimestamps,
@@ -21,6 +23,8 @@ export const InstructorCatalogSpecialtySchema = z.enum(['ski', 'snowboard', 'bot
 export const InstructorCatalogEntrySchema = z
   .object({
     instructorId: InstructorIdSchema,
+    dataScope: DataScopeSchema.optional(),
+    testSessionId: TestSessionIdSchema.optional(),
     name: z.string().trim().min(1).max(200),
     specialty: InstructorCatalogSpecialtySchema.optional(),
     languages: z.array(z.string().trim().min(1).max(32)).max(16).optional(),
@@ -185,11 +189,7 @@ export const INSTRUCTOR_CATALOG_COMMITMENT_SCAN_LIMIT = INSTRUCTOR_UNLINK_COMMIT
 export const INSTRUCTOR_DELETE_AVAILABILITY_SCAN_LIMIT = 32;
 export const INSTRUCTOR_DELETE_AVAILABILITY_MUTATION_LIMIT = 8;
 
-const INSTRUCTOR_UNLINK_TERMINAL_BOOKING_STATUSES = new Set([
-  'cancelled',
-  'completed',
-  'no_show',
-]);
+const INSTRUCTOR_UNLINK_TERMINAL_BOOKING_STATUSES = new Set(['cancelled', 'completed', 'no_show']);
 
 export function instructorUnlinkBlockedByFutureCommitments(input: {
   readonly bookings: readonly {
@@ -299,11 +299,7 @@ export function evaluateAdminManagementAssignment(input: {
   readonly initialManagementEligibleAccountId?: Account['accountId'];
   readonly targetAccountId: Account['accountId'];
   readonly targetAccountActive: boolean;
-}):
-  | 'allowed'
-  | 'already_managed'
-  | 'target_inactive'
-  | 'eligible_account_mismatch' {
+}): 'allowed' | 'already_managed' | 'target_inactive' | 'eligible_account_mismatch' {
   if (!input.targetAccountActive) {
     return 'target_inactive';
   }
@@ -494,10 +490,7 @@ export function diagnoseAccountIdentity(input: {
       safeRepairAvailable: false,
     });
   }
-  if (
-    input.activeSelfManagementCount === 1 &&
-    !input.ownerGuardPresent
-  ) {
+  if (input.activeSelfManagementCount === 1 && !input.ownerGuardPresent) {
     diagnostics.push({
       diagnosticType: 'missing_owner_guard',
       severity: 'warning',

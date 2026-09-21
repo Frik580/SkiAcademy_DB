@@ -15,6 +15,7 @@ import {
   type AuditOutboxStagingPlan,
   type CommandEnvelope,
   type CommandId,
+  type CanonicalExecutionScope,
 } from '@ski-academy/shared-domain';
 import type { CanonicalAtomicTransactionSession } from '../transactions/firestoreTransactionExecutor';
 import type { CanonicalTransactionReadResult } from '../transactions/transactionExecution';
@@ -71,6 +72,7 @@ export function stageAuditOutboxInTransaction(input: {
   committedAt: Date;
   plan: AuditOutboxStagingPlan;
   preparedReads: PreparedAuditOutboxReads;
+  scope: CanonicalExecutionScope;
 }): void {
   const correlationId = input.envelope.context.correlationId;
   validateAuditOutboxStagingPlan(input.envelope, input.plan);
@@ -86,6 +88,7 @@ export function stageAuditOutboxInTransaction(input: {
     committedAt: committedAtTimestamp,
     plan: input.plan.activityLog,
     outboxIds,
+    scope: input.scope,
   });
 
   const outboxObligations = buildOutboxObligationRecords({
@@ -93,6 +96,7 @@ export function stageAuditOutboxInTransaction(input: {
     activityLogId: activityLogIdFromCommandId(input.commandId),
     createdAt: decidedAtTimestamp,
     drafts: input.plan.outboxObligations,
+    scope: input.scope,
   });
 
   const { activityLogPath, outboxPaths, activityLogRead, outboxReads } = input.preparedReads;

@@ -120,8 +120,11 @@ interface CommandMetadata {
   readonly correlationId: CommandEnvelope['context']['correlationId'];
 }
 
-function metadataFromEnvelope(envelope: CommandEnvelope): CommandMetadata {
-  const identity = resolveCommandIdempotencyIdentity(envelope);
+function metadataFromEnvelope(
+  envelope: CommandEnvelope,
+  environment: CommandExecutionEnvironment
+): CommandMetadata {
+  const identity = resolveCommandIdempotencyIdentity(envelope, environment.scope);
   return {
     commandId: identity.commandKey,
     correlationId: envelope.context.correlationId,
@@ -136,9 +139,7 @@ async function loadAdminServiceChangeCustomerContext(
   const participantDocumentPath = participantPath(participantId);
   const participantRead = await session.tx.get({ path: participantDocumentPath });
   session.plan.planRead({ path: participantDocumentPath, category: 'aggregate' });
-  const participant = parseParticipant(
-    participantRead.exists ? participantRead.data : undefined
-  );
+  const participant = parseParticipant(participantRead.exists ? participantRead.data : undefined);
 
   if (participant?.management.kind === 'unmanaged_guest') {
     return resolveAdminServiceChangeCustomerContext(envelope.context.correlationId, {
@@ -213,7 +214,7 @@ function rescheduleBookingHandler(
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
 ): Promise<CommandResult<'reschedule_booking'>> {
   resolveRescheduleScheduleContext(envelope);
-  const metadata = metadataFromEnvelope(envelope);
+  const metadata = metadataFromEnvelope(envelope, environment);
   const bookingDocumentPath = bookingPath(envelope.intent.bookingId);
 
   let booking!: Booking;
@@ -487,7 +488,7 @@ function changeBookingInstructorHandler(
 ): Promise<CommandResult<'change_booking_instructor'>> {
   assertAdminServiceChangeAuthorization(envelope);
   assertAdminServiceChangeReason(envelope);
-  const metadata = metadataFromEnvelope(envelope);
+  const metadata = metadataFromEnvelope(envelope, environment);
   const bookingDocumentPath = bookingPath(envelope.intent.bookingId);
 
   let booking!: Booking;
@@ -750,7 +751,7 @@ function changeBookingDurationHandler(
 ): Promise<CommandResult<'change_booking_duration'>> {
   assertAdminServiceChangeAuthorization(envelope);
   assertAdminServiceChangeReason(envelope);
-  const metadata = metadataFromEnvelope(envelope);
+  const metadata = metadataFromEnvelope(envelope, environment);
   const bookingDocumentPath = bookingPath(envelope.intent.bookingId);
 
   let booking!: Booking;

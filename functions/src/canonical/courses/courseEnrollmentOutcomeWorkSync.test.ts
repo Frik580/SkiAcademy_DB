@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { CourseEnrollmentSchema, timestampFromDate } from '@ski-academy/shared-domain';
+import {
+  CourseEnrollmentSchema,
+  TestSessionIdSchema,
+  timestampFromDate,
+} from '@ski-academy/shared-domain';
 import { canonicalCourseDeliveryFixtures } from '@ski-academy/shared-domain/testing';
 import type { Firestore } from 'firebase-admin/firestore';
 import { COURSE_ENROLLMENT_OUTCOME_WORK_COLLECTION } from './courseEnrollmentOutcomeWork';
 import { syncCourseEnrollmentOutcomeWorkForEnrollmentWrite } from './courseEnrollmentOutcomeWorkSync';
+
+const testSessionId = TestSessionIdSchema.parse('test_session_enrollment_work_01');
 
 function fakeFirestore(seed: Map<string, Record<string, unknown>>): Firestore {
   const collection = (path: string) => ({
@@ -45,6 +51,52 @@ function canonicalSeed() {
 }
 
 describe('T32.9A.9C.B CourseEnrollment outcome work sync', () => {
+  it('inherits the same TEST scope from Enrollment, Course, and final CourseDay', async () => {
+    const seed = canonicalSeed();
+    const { course, courseDays, confirmedEnrollment } = canonicalCourseDeliveryFixtures;
+    const scope = { dataScope: 'test', testSessionId } as const;
+    seed.set(`course_enrollments/${confirmedEnrollment.enrollmentId}`, {
+      ...confirmedEnrollment,
+      ...scope,
+    } as Record<string, unknown>);
+    seed.set(`courses/${course.courseId}`, { ...course, ...scope } as Record<string, unknown>);
+    for (const courseDay of courseDays) {
+      seed.set(`courses/${course.courseId}/days/${courseDay.courseDayId}`, {
+        ...courseDay,
+        ...scope,
+      } as Record<string, unknown>);
+    }
+
+    await expect(
+      syncCourseEnrollmentOutcomeWorkForEnrollmentWrite(fakeFirestore(seed), {
+        rawEnrollmentId: confirmedEnrollment.enrollmentId,
+        now: new Date('2026-01-10T00:00:00.000Z'),
+      })
+    ).resolves.toBe('pending_created');
+    expect(
+      seed.get(`${COURSE_ENROLLMENT_OUTCOME_WORK_COLLECTION}/${confirmedEnrollment.enrollmentId}`)
+    ).toMatchObject(scope);
+  });
+
+  it('rejects mixed Enrollment/Course scope without creating outcome work', async () => {
+    const seed = canonicalSeed();
+    const { confirmedEnrollment } = canonicalCourseDeliveryFixtures;
+    seed.set(`course_enrollments/${confirmedEnrollment.enrollmentId}`, {
+      ...confirmedEnrollment,
+      dataScope: 'test',
+      testSessionId,
+    } as Record<string, unknown>);
+
+    await expect(
+      syncCourseEnrollmentOutcomeWorkForEnrollmentWrite(fakeFirestore(seed), {
+        rawEnrollmentId: confirmedEnrollment.enrollmentId,
+      })
+    ).resolves.toBe('invalid_schedule');
+    expect(
+      seed.has(`${COURSE_ENROLLMENT_OUTCOME_WORK_COLLECTION}/${confirmedEnrollment.enrollmentId}`)
+    ).toBe(false);
+  });
+
   it('creates pending work for a confirmed canonical Enrollment and reuses it on replay', async () => {
     const seed = canonicalSeed();
     const enrollment = canonicalCourseDeliveryFixtures.confirmedEnrollment;

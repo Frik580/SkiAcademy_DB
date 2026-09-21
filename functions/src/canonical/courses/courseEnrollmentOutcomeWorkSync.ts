@@ -4,6 +4,8 @@ import {
   courseScheduleIsComplete,
   sortedCourseDays,
   timestampFromDate,
+  parsePersistedCanonicalScope,
+  assertSameCanonicalScope,
 } from '@ski-academy/shared-domain';
 import type { Firestore } from 'firebase-admin/firestore';
 import { parseCourse, parseCourseDays } from './courseStore';
@@ -51,6 +53,12 @@ export async function syncCourseEnrollmentOutcomeWorkForEnrollmentWrite(
   if (!enrollment || enrollment.enrollmentId !== parsedId.data) {
     return enrollmentSnapshot.exists ? 'invalid_enrollment' : 'not_applicable';
   }
+  let enrollmentScope;
+  try {
+    enrollmentScope = parsePersistedCanonicalScope(enrollment);
+  } catch {
+    return 'invalid_enrollment';
+  }
 
   const workRef = firestore
     .collection(COURSE_ENROLLMENT_OUTCOME_WORK_COLLECTION)
@@ -59,6 +67,13 @@ export async function syncCourseEnrollmentOutcomeWorkForEnrollmentWrite(
   const existing = parseCourseEnrollmentOutcomeWork(
     existingSnapshot.exists ? (existingSnapshot.data() as Record<string, unknown>) : undefined
   );
+  if (existing) {
+    try {
+      assertSameCanonicalScope(enrollmentScope, existing);
+    } catch {
+      return 'invalid_enrollment';
+    }
+  }
   const now = timestampFromDate(input.now ?? new Date());
 
   if (!courseEnrollmentRequiresOutcomeWork(enrollment)) {
@@ -88,13 +103,18 @@ export async function syncCourseEnrollmentOutcomeWorkForEnrollmentWrite(
   const finalCourseDay = courseDays.at(-1);
   if (!finalCourseDay) return 'invalid_schedule';
 
-  const desired = pendingCourseEnrollmentOutcomeWork({
-    enrollment,
-    course,
-    finalCourseDay,
-    workRevision: existing ? existing.workRevision + 1 : 1,
-    updatedAt: now,
-  });
+  let desired: ReturnType<typeof pendingCourseEnrollmentOutcomeWork>;
+  try {
+    desired = pendingCourseEnrollmentOutcomeWork({
+      enrollment,
+      course,
+      finalCourseDay,
+      workRevision: existing ? existing.workRevision + 1 : 1,
+      updatedAt: now,
+    });
+  } catch {
+    return 'invalid_schedule';
+  }
   if (existing) {
     const comparable = {
       ...desired,

@@ -37,6 +37,11 @@ import {
   planAuditOutboxContributions,
   type TransactionPlanBuilder,
 } from './transactions/transactionPlan';
+import {
+  LIVE_CANONICAL_EXECUTION_SCOPE,
+  canonicalScopeFields,
+  type CanonicalExecutionScope,
+} from './canonicalScope';
 
 export interface ActivityLogEffectInput {
   readonly kind: AuditEffectKind;
@@ -232,12 +237,14 @@ export function buildActivityLogRecord(input: {
   committedAt: CanonicalTimestamp;
   plan: ActivityLogEnvelopeInput;
   outboxIds: readonly DomainOutboxId[];
+  scope?: CanonicalExecutionScope;
 }): ActivityLog {
   const activityLogId = activityLogIdFromCommandId(input.commandId);
   const affectedSubjectKeys = deriveAffectedSubjectKeys(input.plan.affectedSubjects);
 
   const record = ActivityLogSchema.parse({
     schemaVersion: AUDIT_SCHEMA_VERSION,
+    ...canonicalScopeFields(input.scope ?? LIVE_CANONICAL_EXECUTION_SCOPE),
     activityLogId,
     command: {
       commandId: input.commandId,
@@ -276,10 +283,12 @@ export function buildOutboxObligationRecords(input: {
   activityLogId: ActivityLogId;
   createdAt: CanonicalTimestamp;
   drafts: readonly OutboxObligationDraft[];
+  scope?: CanonicalExecutionScope;
 }): DomainOutboxObligation[] {
   const obligations = input.drafts.map((draft) =>
     DomainOutboxObligationSchema.parse({
       schemaVersion: OUTBOX_SCHEMA_VERSION,
+      ...canonicalScopeFields(input.scope ?? LIVE_CANONICAL_EXECUTION_SCOPE),
       outboxId: domainOutboxIdFromCommand(input.commandId, draft.deliveryEffectOrdinal),
       commandId: input.commandId,
       activityLogId: input.activityLogId,

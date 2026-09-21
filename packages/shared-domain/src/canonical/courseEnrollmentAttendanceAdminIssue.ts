@@ -13,6 +13,7 @@ import {
   OccurrenceIdSchema,
   ParticipantIdSchema,
   PaymentIdSchema,
+  TestSessionIdSchema,
   canonicalReference,
   type AdminIssueId,
   type AttendanceId,
@@ -31,7 +32,10 @@ import {
   type ImmutableBookingAttribution,
 } from './bookingOccurrenceProposalChange';
 import { CommandFingerprintSchema } from './commandFingerprint';
-import { canonicalDeterministicHash, validateDeterministicIdentityInputs } from './deterministicIdentity';
+import {
+  canonicalDeterministicHash,
+  validateDeterministicIdentityInputs,
+} from './deterministicIdentity';
 import {
   AggregateRevisionSchema,
   CanonicalTimestampSchema,
@@ -41,6 +45,7 @@ import {
   compareCanonicalTimestamps,
   type CanonicalTimestamp,
 } from './primitives';
+import { DataScopeSchema } from './canonicalScope';
 
 const PersistedAggregateRevisionSchema = AggregateRevisionSchema.refine(
   (revision) => revision >= 1,
@@ -161,6 +166,8 @@ export type CourseLifecycleStatus = z.output<typeof CourseLifecycleStatusSchema>
 export const CourseSchema = z
   .object({
     courseId: CourseIdSchema,
+    dataScope: DataScopeSchema.optional(),
+    testSessionId: TestSessionIdSchema.optional(),
     title: z.string().trim().min(1).max(200),
     lifecycle: CourseLifecycleStatusSchema.default('active'),
     price: KztMinorUnitsSchema,
@@ -198,6 +205,8 @@ export type Course = Readonly<z.output<typeof CourseSchema>>;
 export const CourseDaySchema = z
   .object({
     courseId: CourseIdSchema,
+    dataScope: DataScopeSchema.optional(),
+    testSessionId: TestSessionIdSchema.optional(),
     courseDayId: CourseDayIdSchema,
     dayOrder: z.number().finite().int().min(1).max(COURSE_SEAT_MAX),
     interval: TimeIntervalSchema,
@@ -274,8 +283,7 @@ export const COURSE_ENROLLMENT_LIFECYCLE_STATUSES = [
   'completed',
   'no_show',
 ] as const;
-export type CourseEnrollmentLifecycleStatus =
-  (typeof COURSE_ENROLLMENT_LIFECYCLE_STATUSES)[number];
+export type CourseEnrollmentLifecycleStatus = (typeof COURSE_ENROLLMENT_LIFECYCLE_STATUSES)[number];
 
 export const COURSE_ENROLLMENT_CANCELLATION_REASON_CODES = [
   'reservation_expired',
@@ -363,10 +371,7 @@ export function validateCourseEnrollmentAttendanceSummary(
   };
 
   if (summary.recordedDayCount !== summary.presentDayCount + summary.absentDayCount) {
-    add(
-      'recordedDayCount',
-      'recordedDayCount must equal presentDayCount + absentDayCount'
-    );
+    add('recordedDayCount', 'recordedDayCount must equal presentDayCount + absentDayCount');
   }
   if (summary.recordedDayCount > courseDayCount) {
     add('recordedDayCount', 'recordedDayCount must not exceed canonical courseDayCount');
@@ -382,12 +387,16 @@ export function validateCourseEnrollmentAttendanceSummary(
 export function attendanceSummaryIsDerivedProjection(
   summary: CourseEnrollmentAttendanceSummary | undefined
 ): boolean {
-  return summary === undefined || CourseEnrollmentAttendanceSummarySchema.safeParse(summary).success;
+  return (
+    summary === undefined || CourseEnrollmentAttendanceSummarySchema.safeParse(summary).success
+  );
 }
 
 export const CourseEnrollmentSchema = z
   .object({
     enrollmentId: CourseEnrollmentIdSchema,
+    dataScope: DataScopeSchema.optional(),
+    testSessionId: TestSessionIdSchema.optional(),
     participantId: ParticipantIdSchema,
     courseId: CourseIdSchema,
     originalCourseId: CourseIdSchema,
@@ -400,7 +409,10 @@ export const CourseEnrollmentSchema = z
       .object({
         linkedAccountId: AccountIdSchema,
         linkedParticipantId: ParticipantIdSchema,
-        credentialNonce: z.string().regex(/^[A-Za-z0-9_-]{16,64}$/).optional(),
+        credentialNonce: z
+          .string()
+          .regex(/^[A-Za-z0-9_-]{16,64}$/)
+          .optional(),
         linkedAt: CanonicalTimestampSchema,
       })
       .strict()
@@ -580,7 +592,10 @@ export function containsWholeCourseCancellationFields(input: unknown): boolean {
 export function containsCourseEnrollmentBookingShapeFields(input: unknown): boolean {
   if (!input || typeof input !== 'object') return false;
   const record = input as Record<string, unknown>;
-  if (typeof record.instructorId === 'string' && isSyntheticCourseInstructorId(record.instructorId)) {
+  if (
+    typeof record.instructorId === 'string' &&
+    isSyntheticCourseInstructorId(record.instructorId)
+  ) {
     return true;
   }
   return LEGACY_COURSE_ENROLLMENT_BOOKING_FIELD_NAMES.some((field) => record[field] !== undefined);
@@ -647,7 +662,10 @@ export const LegacyCourseEnrollmentBookingShapeSchema = z
   })
   .strict()
   .superRefine((value, context) => {
-    if (typeof value.instructorId === 'string' && isSyntheticCourseInstructorId(value.instructorId)) {
+    if (
+      typeof value.instructorId === 'string' &&
+      isSyntheticCourseInstructorId(value.instructorId)
+    ) {
       context.addIssue({
         code: 'custom',
         path: ['instructorId'],
@@ -764,7 +782,9 @@ export type CourseDayAttendanceIdentityInput = z.output<
   typeof CourseDayAttendanceIdentityInputSchema
 >;
 
-export function attendanceIdFromBookingIdentity(input: BookingAttendanceIdentityInput): AttendanceId {
+export function attendanceIdFromBookingIdentity(
+  input: BookingAttendanceIdentityInput
+): AttendanceId {
   const parsed = BookingAttendanceIdentityInputSchema.parse(input);
   return AttendanceIdSchema.parse(
     canonicalDeterministicHash([
@@ -793,6 +813,8 @@ export function attendanceIdFromCourseDayIdentity(
 export const AttendanceSchema = z
   .object({
     attendanceId: AttendanceIdSchema,
+    dataScope: DataScopeSchema.optional(),
+    testSessionId: TestSessionIdSchema.optional(),
     subject: AttendanceSubjectRefSchema,
     attendanceStatus: AttendanceStatusSchema,
     recordedBy: AttendanceRecorderSchema,
@@ -928,7 +950,8 @@ export const AdminIssueDedupeIdentityInputSchema = z
         occurrenceId: input.occurrenceId ?? '',
         participantId: input.participantId ?? '',
         courseDayId: input.courseDayId ?? '',
-        scheduleRevision: input.scheduleRevision === undefined ? '' : String(input.scheduleRevision),
+        scheduleRevision:
+          input.scheduleRevision === undefined ? '' : String(input.scheduleRevision),
         reconciliationScope: input.reconciliationScope ?? '',
       },
       context
@@ -1047,6 +1070,8 @@ export type AdminIssueLifecycle = Readonly<z.output<typeof AdminIssueLifecycleSc
 export const AdminIssueSchema = z
   .object({
     issueId: AdminIssueIdSchema,
+    dataScope: DataScopeSchema.optional(),
+    testSessionId: TestSessionIdSchema.optional(),
     kind: AdminIssueKindSchema,
     subjectRef: AdminIssueSubjectRefSchema,
     occurrenceId: OccurrenceIdSchema.optional(),
@@ -1128,13 +1153,13 @@ export function adminIssueLifecycleIsOperationalState(
   return AdminIssueLifecycleStatusSchema.safeParse(issue.lifecycle.status).success;
 }
 
-export function attendanceIsFactualEvidence(attendance: Pick<Attendance, 'attendanceStatus'>): boolean {
+export function attendanceIsFactualEvidence(
+  attendance: Pick<Attendance, 'attendanceStatus'>
+): boolean {
   return AttendanceStatusSchema.safeParse(attendance.attendanceStatus).success;
 }
 
-export function adminIssueSubjectReference(
-  subjectRef: AdminIssueSubjectRef
-): CanonicalReference {
+export function adminIssueSubjectReference(subjectRef: AdminIssueSubjectRef): CanonicalReference {
   return subjectRef.subjectKind === 'booking'
     ? canonicalReference('booking', subjectRef.bookingId)
     : canonicalReference('course_enrollment', subjectRef.enrollmentId);

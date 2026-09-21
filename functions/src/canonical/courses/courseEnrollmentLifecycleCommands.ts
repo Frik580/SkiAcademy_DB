@@ -126,8 +126,11 @@ interface CommandMetadata {
   readonly correlationId: CommandEnvelope['context']['correlationId'];
 }
 
-function metadataFromEnvelope(envelope: CommandEnvelope): CommandMetadata {
-  const identity = resolveCommandIdempotencyIdentity(envelope);
+function metadataFromEnvelope(
+  envelope: CommandEnvelope,
+  environment: CommandExecutionEnvironment
+): CommandMetadata {
+  const identity = resolveCommandIdempotencyIdentity(envelope, environment.scope);
   return {
     commandId: identity.commandKey,
     correlationId: envelope.context.correlationId,
@@ -172,7 +175,7 @@ function requestAuthenticatedCourseEnrollmentCancellationHandler(
   environment: CommandExecutionEnvironment,
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
 ): Promise<CommandResult<'request_course_enrollment_cancellation'>> {
-  const metadata = metadataFromEnvelope(envelope);
+  const metadata = metadataFromEnvelope(envelope, environment);
   const enrollmentDocumentPath = courseEnrollmentPath(envelope.intent.courseEnrollmentId);
 
   let enrollment!: CourseEnrollment;
@@ -482,8 +485,7 @@ function requestAuthenticatedCourseEnrollmentCancellationHandler(
           }
         }
         return commandSuccessResult(envelope.kind, envelope.context.correlationId, {
-          lifecycleStatus:
-            timing.kind === 'direct_cancel' ? 'cancelled' : 'pending_cancellation',
+          lifecycleStatus: timing.kind === 'direct_cancel' ? 'cancelled' : 'pending_cancellation',
         });
       },
     };
@@ -502,7 +504,7 @@ function withdrawCourseEnrollmentCancellationRequestHandler(
   environment: CommandExecutionEnvironment,
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
 ): Promise<CommandResult<'withdraw_course_enrollment'>> {
-  const metadata = metadataFromEnvelope(envelope);
+  const metadata = metadataFromEnvelope(envelope, environment);
   const enrollmentDocumentPath = courseEnrollmentPath(envelope.intent.courseEnrollmentId);
 
   let enrollment!: CourseEnrollment;
@@ -641,7 +643,7 @@ function resolveCourseEnrollmentCancellationHandler(
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
 ): Promise<CommandResult<'resolve_course_enrollment_cancellation'>> {
   assertResolveCourseEnrollmentCancellationAuthorization(envelope);
-  const metadata = metadataFromEnvelope(envelope);
+  const metadata = metadataFromEnvelope(envelope, environment);
   const enrollmentDocumentPath = courseEnrollmentPath(envelope.intent.courseEnrollmentId);
   const decision = envelope.intent.decision;
 
@@ -941,7 +943,7 @@ function transferCourseEnrollmentHandler(
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
 ): Promise<CommandResult<'transfer_course_enrollment'>> {
   assertTransferCourseEnrollmentAuthorization(envelope);
-  const metadata = metadataFromEnvelope(envelope);
+  const metadata = metadataFromEnvelope(envelope, environment);
   const enrollmentDocumentPath = courseEnrollmentPath(envelope.intent.courseEnrollmentId);
   const targetCourseId = envelope.intent.targetCourseId;
 

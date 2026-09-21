@@ -7,6 +7,8 @@ import {
   type InstructorId,
   type ResourceClaimReplacementIgnore,
   type TimeInterval,
+  type CanonicalExecutionScope,
+  LIVE_CANONICAL_EXECUTION_SCOPE,
 } from '@ski-academy/shared-domain';
 import {
   commitResourceClaimPlan,
@@ -19,13 +21,15 @@ export function administrativeAvailabilityBlockClaimIdentity(input: {
   readonly blockId: AdministrativeAvailabilityBlockId;
   readonly instructorId: InstructorId;
   readonly scheduleRevision: number;
+  readonly scope?: CanonicalExecutionScope;
 }) {
+  const scope = input.scope ?? LIVE_CANONICAL_EXECUTION_SCOPE;
   const occurrenceId = administrativeAvailabilityBlockOccurrenceIdFromRevision(
     input.blockId,
     input.scheduleRevision
   );
   const identity = ResourceClaimIdentityInputSchema.parse({
-    strategyVersion: 'claim:v1',
+    strategyVersion: 'claim:v2',
     claimKind: 'administrative_availability_block',
     resourceKind: 'instructor',
     resourceId: input.instructorId,
@@ -36,7 +40,7 @@ export function administrativeAvailabilityBlockClaimIdentity(input: {
   return {
     occurrenceId,
     identity,
-    claimId: resourceClaimIdFromIdentity(identity),
+    claimId: resourceClaimIdFromIdentity(identity, scope),
   };
 }
 
@@ -70,6 +74,7 @@ export async function planAcquireAdministrativeAvailabilityBlockClaim(
     blockId: input.blockId,
     instructorId: input.instructorId,
     scheduleRevision: input.scheduleRevision,
+    scope: session.scope,
   });
   return readAndPlanAcquireResourceClaim(session, {
     correlationId: input.correlationId,

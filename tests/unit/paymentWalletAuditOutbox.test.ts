@@ -282,7 +282,7 @@ describe('Wallet and monetary-event boundaries', () => {
 describe('resource claim and guard contracts', () => {
   it('serializes deterministic claim identity from versioned inputs', () => {
     const identity = ResourceClaimIdentityInputSchema.parse({
-      strategyVersion: 'claim:v1',
+      strategyVersion: 'claim:v2',
       claimKind: 'participant_booking_occurrence',
       resourceKind: 'participant',
       resourceId: 'participant_test_01',
@@ -308,7 +308,7 @@ describe('resource claim and guard contracts', () => {
   it('rejects non-canonical identity inputs such as email-shaped resource IDs', () => {
     expect(
       ResourceClaimIdentityInputSchema.safeParse({
-        strategyVersion: 'claim:v1',
+        strategyVersion: 'claim:v2',
         claimKind: 'participant_booking_occurrence',
         resourceKind: 'participant',
         resourceId: 'user@example.com',

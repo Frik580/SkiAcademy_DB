@@ -15,6 +15,10 @@ import {
   type CanonicalTimestamp,
   type CommandEnvelope,
   type OccurrenceId,
+  DataScopeSchema,
+  TestSessionIdSchema,
+  canonicalScopeFields,
+  parsePersistedCanonicalScope,
 } from '@ski-academy/shared-domain';
 
 export const BOOKING_ATTENDANCE_OUTCOME_WORK_COLLECTION = 'booking_attendance_outcome_work';
@@ -46,6 +50,8 @@ const BookingLifecycleStatusSchema = z.enum([
 ]);
 
 const BookingAttendanceOutcomeWorkBaseSchema = z.object({
+  dataScope: DataScopeSchema.optional(),
+  testSessionId: TestSessionIdSchema.optional(),
   bookingId: BookingIdSchema,
   occurrenceId: OccurrenceIdSchema,
   sourceScheduleRevision: z.number().int().min(1),
@@ -113,6 +119,7 @@ function workBase(
   input: { readonly workRevision: number; readonly updatedAt: CanonicalTimestamp }
 ) {
   return {
+    ...canonicalScopeFields(parsePersistedCanonicalScope(booking)),
     bookingId: booking.bookingId,
     occurrenceId: booking.occurrence.occurrenceId,
     sourceScheduleRevision: booking.occurrence.scheduleRevision,
@@ -166,6 +173,7 @@ export function completePendingBookingAttendanceOutcomeWork(
   }
 ): BookingAttendanceOutcomeWork {
   return BookingAttendanceOutcomeWorkSchema.parse({
+    ...canonicalScopeFields(parsePersistedCanonicalScope(work)),
     bookingId: work.bookingId,
     occurrenceId: work.occurrenceId,
     sourceScheduleRevision: work.sourceScheduleRevision,
@@ -184,6 +192,7 @@ export function blockPendingBookingAttendanceOutcomeWork(
   input: { readonly updatedAt: CanonicalTimestamp }
 ): BookingAttendanceOutcomeWork {
   return BookingAttendanceOutcomeWorkSchema.parse({
+    ...canonicalScopeFields(parsePersistedCanonicalScope(work)),
     bookingId: work.bookingId,
     occurrenceId: work.occurrenceId,
     sourceScheduleRevision: work.sourceScheduleRevision,

@@ -8,6 +8,8 @@ import {
   type OccurrenceId,
   type ResourceClaimReplacementIgnore,
   type TimeInterval,
+  type CanonicalExecutionScope,
+  LIVE_CANONICAL_EXECUTION_SCOPE,
 } from '@ski-academy/shared-domain';
 import {
   commitResourceClaimPlan,
@@ -20,13 +22,15 @@ export function courseDayInstructorClaimIdentity(input: {
   readonly courseDayId: CourseDayId;
   readonly instructorId: InstructorId;
   readonly occurrenceRevision: number;
+  readonly scope?: CanonicalExecutionScope;
 }) {
+  const scope = input.scope ?? LIVE_CANONICAL_EXECUTION_SCOPE;
   const occurrenceId = courseDayOccurrenceIdFromRevision(
     input.courseDayId,
     input.occurrenceRevision
   );
   const instructorIdentity = ResourceClaimIdentityInputSchema.parse({
-    strategyVersion: 'claim:v1',
+    strategyVersion: 'claim:v2',
     claimKind: 'instructor_course_day',
     resourceKind: 'instructor',
     resourceId: input.instructorId,
@@ -37,7 +41,7 @@ export function courseDayInstructorClaimIdentity(input: {
   return {
     occurrenceId,
     instructorIdentity,
-    instructorClaimId: resourceClaimIdFromIdentity(instructorIdentity),
+    instructorClaimId: resourceClaimIdFromIdentity(instructorIdentity, scope),
   };
 }
 
@@ -69,6 +73,7 @@ export async function planAcquireCourseDayInstructorClaim(
     courseDayId: input.courseDayId,
     instructorId: input.instructorId,
     occurrenceRevision: input.occurrenceRevision,
+    scope: session.scope,
   });
   return readAndPlanAcquireResourceClaim(session, {
     correlationId: input.correlationId,
@@ -96,6 +101,7 @@ export async function planReleaseCourseDayInstructorClaim(
         courseDayId: input.courseDay.courseDayId,
         instructorId,
         occurrenceRevision: input.courseDay.revision,
+        scope: session.scope,
       });
       return readAndPlanReleaseResourceClaim(session, {
         correlationId: input.correlationId,

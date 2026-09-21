@@ -47,7 +47,7 @@ function interval(startIso: string, endIso: string) {
 
 function instructorIdentity(ownerId: string, occurrenceId: string) {
   return ResourceClaimIdentityInputSchema.parse({
-    strategyVersion: 'claim:v1',
+    strategyVersion: 'claim:v2',
     claimKind: 'instructor_booking_occurrence',
     resourceKind: 'instructor',
     resourceId: instructorId,
@@ -59,7 +59,7 @@ function instructorIdentity(ownerId: string, occurrenceId: string) {
 
 function participantIdentity(ownerId: string, occurrenceId: string) {
   return ResourceClaimIdentityInputSchema.parse({
-    strategyVersion: 'claim:v1',
+    strategyVersion: 'claim:v2',
     claimKind: 'participant_booking_occurrence',
     resourceKind: 'participant',
     resourceId: participantId,
@@ -133,107 +133,119 @@ describe.skipIf(!runsOnFirestoreEmulator)('resource claim engine (firestore emul
     }
   });
 
-  it('serializes overlapping instructor claims so exactly one wins', async () => {
-    const executor = createFirestoreCanonicalTransactionExecutor(firestore);
-    const attempts = Array.from({ length: 8 }, (_, index) =>
-      executor
-        .runAtomic({
-          correlationId,
-          run: async (session) => {
-            const plan = await readAndPlanAcquireResourceClaim(session, {
-              ...metadata,
-              identity: instructorIdentity(
-                `booking_claim_emulator_${index}`,
-                `occurrence_claim_emulator_${index}`
-              ),
-              interval: interval('2026-01-15T09:00:00.000Z', '2026-01-15T10:00:00.000Z'),
-            });
-            await session.transitionToWrites();
-            commitResourceClaimPlan(session, plan, metadata);
-          },
-        })
-        .then(() => 'success' as const)
-        .catch((error) => error.code as string)
-    );
+  it(
+    'serializes overlapping instructor claims so exactly one wins',
+    async () => {
+      const executor = createFirestoreCanonicalTransactionExecutor(firestore);
+      const attempts = Array.from({ length: 8 }, (_, index) =>
+        executor
+          .runAtomic({
+            correlationId,
+            run: async (session) => {
+              const plan = await readAndPlanAcquireResourceClaim(session, {
+                ...metadata,
+                identity: instructorIdentity(
+                  `booking_claim_emulator_${index}`,
+                  `occurrence_claim_emulator_${index}`
+                ),
+                interval: interval('2026-01-15T09:00:00.000Z', '2026-01-15T10:00:00.000Z'),
+              });
+              await session.transitionToWrites();
+              commitResourceClaimPlan(session, plan, metadata);
+            },
+          })
+          .then(() => 'success' as const)
+          .catch((error) => error.code as string)
+      );
 
-    const results = await Promise.all(attempts);
-    expect(results.filter((result) => result === 'success')).toHaveLength(1);
-    expect(results.filter((result) => result === 'instructor_conflict')).toHaveLength(7);
-  }, EMULATOR_CONCURRENCY_TIMEOUT_MS);
+      const results = await Promise.all(attempts);
+      expect(results.filter((result) => result === 'success')).toHaveLength(1);
+      expect(results.filter((result) => result === 'instructor_conflict')).toHaveLength(7);
+    },
+    EMULATOR_CONCURRENCY_TIMEOUT_MS
+  );
 
-  it('allows concurrent non-overlapping claims in the same bucket', async () => {
-    const executor = createFirestoreCanonicalTransactionExecutor(firestore);
-    const sameBucketIntervals = [
-      interval('2026-01-15T04:00:00.000Z', '2026-01-15T05:00:00.000Z'),
-      interval('2026-01-15T06:00:00.000Z', '2026-01-15T07:00:00.000Z'),
-      interval('2026-01-15T08:00:00.000Z', '2026-01-15T09:00:00.000Z'),
-      interval('2026-01-15T10:00:00.000Z', '2026-01-15T11:00:00.000Z'),
-    ];
-    const [bucket] = expandUtcGuardBuckets('instructor', instructorId, sameBucketIntervals[0]!);
-    expect(bucket).toBeDefined();
-    const guardId = resourceClaimGuardIdFromBucketIdentity(bucket!.bucketIdentity);
+  it(
+    'allows concurrent non-overlapping claims in the same bucket',
+    async () => {
+      const executor = createFirestoreCanonicalTransactionExecutor(firestore);
+      const sameBucketIntervals = [
+        interval('2026-01-15T04:00:00.000Z', '2026-01-15T05:00:00.000Z'),
+        interval('2026-01-15T06:00:00.000Z', '2026-01-15T07:00:00.000Z'),
+        interval('2026-01-15T08:00:00.000Z', '2026-01-15T09:00:00.000Z'),
+        interval('2026-01-15T10:00:00.000Z', '2026-01-15T11:00:00.000Z'),
+      ];
+      const [bucket] = expandUtcGuardBuckets('instructor', instructorId, sameBucketIntervals[0]!);
+      expect(bucket).toBeDefined();
+      const guardId = resourceClaimGuardIdFromBucketIdentity(bucket!.bucketIdentity);
 
-    const results = await Promise.all(
-      Array.from({ length: 4 }, (_, index) =>
-        executor.runAtomic({
-          correlationId,
-          run: async (session) => {
-            const plan = await readAndPlanAcquireResourceClaim(session, {
-              ...metadata,
-              identity: instructorIdentity(
-                `booking_claim_emulator_adj_${index}`,
-                `occurrence_claim_emulator_adj_${index}`
-              ),
-              interval: sameBucketIntervals[index]!,
-            });
-            await session.transitionToWrites();
-            commitResourceClaimPlan(session, plan, metadata);
-            return plan.claim.claimId;
-          },
-        })
-      )
-    );
-    expect(results).toHaveLength(4);
-    expect(new Set(results).size).toBe(4);
+      const results = await Promise.all(
+        Array.from({ length: 4 }, (_, index) =>
+          executor.runAtomic({
+            correlationId,
+            run: async (session) => {
+              const plan = await readAndPlanAcquireResourceClaim(session, {
+                ...metadata,
+                identity: instructorIdentity(
+                  `booking_claim_emulator_adj_${index}`,
+                  `occurrence_claim_emulator_adj_${index}`
+                ),
+                interval: sameBucketIntervals[index]!,
+              });
+              await session.transitionToWrites();
+              commitResourceClaimPlan(session, plan, metadata);
+              return plan.claim.claimId;
+            },
+          })
+        )
+      );
+      expect(results).toHaveLength(4);
+      expect(new Set(results).size).toBe(4);
 
-    const guardDoc = await firestore
-      .doc(canonicalPaths.resourceClaimGuard(guardId).slice(1))
-      .get();
-    expect(guardDoc.exists).toBe(true);
-    const entries = guardDoc.data()?.entries ?? [];
-    expect(entries).toHaveLength(4);
-    expect(entries.map((entry: { claimId: string }) => entry.claimId).sort()).toEqual(
-      [...results].sort()
-    );
-  }, EMULATOR_CONCURRENCY_TIMEOUT_MS);
+      const guardDoc = await firestore
+        .doc(canonicalPaths.resourceClaimGuard(guardId).slice(1))
+        .get();
+      expect(guardDoc.exists).toBe(true);
+      const entries = guardDoc.data()?.entries ?? [];
+      expect(entries).toHaveLength(4);
+      expect(entries.map((entry: { claimId: string }) => entry.claimId).sort()).toEqual(
+        [...results].sort()
+      );
+    },
+    EMULATOR_CONCURRENCY_TIMEOUT_MS
+  );
 
-  it('serializes overlapping participant claims so exactly one wins', async () => {
-    const executor = createFirestoreCanonicalTransactionExecutor(firestore);
-    const attempts = Array.from({ length: 6 }, (_, index) =>
-      executor
-        .runAtomic({
-          correlationId,
-          run: async (session) => {
-            const plan = await readAndPlanAcquireResourceClaim(session, {
-              ...metadata,
-              identity: participantIdentity(
-                `booking_claim_emulator_part_${index}`,
-                `occurrence_claim_emulator_part_${index}`
-              ),
-              interval: interval('2026-01-15T09:00:00.000Z', '2026-01-15T10:00:00.000Z'),
-            });
-            await session.transitionToWrites();
-            commitResourceClaimPlan(session, plan, metadata);
-          },
-        })
-        .then(() => 'success' as const)
-        .catch((error) => error.code as string)
-    );
+  it(
+    'serializes overlapping participant claims so exactly one wins',
+    async () => {
+      const executor = createFirestoreCanonicalTransactionExecutor(firestore);
+      const attempts = Array.from({ length: 6 }, (_, index) =>
+        executor
+          .runAtomic({
+            correlationId,
+            run: async (session) => {
+              const plan = await readAndPlanAcquireResourceClaim(session, {
+                ...metadata,
+                identity: participantIdentity(
+                  `booking_claim_emulator_part_${index}`,
+                  `occurrence_claim_emulator_part_${index}`
+                ),
+                interval: interval('2026-01-15T09:00:00.000Z', '2026-01-15T10:00:00.000Z'),
+              });
+              await session.transitionToWrites();
+              commitResourceClaimPlan(session, plan, metadata);
+            },
+          })
+          .then(() => 'success' as const)
+          .catch((error) => error.code as string)
+      );
 
-    const results = await Promise.all(attempts);
-    expect(results.filter((result) => result === 'success')).toHaveLength(1);
-    expect(results.filter((result) => result === 'participant_conflict')).toHaveLength(5);
-  }, EMULATOR_CONCURRENCY_TIMEOUT_MS);
+      const results = await Promise.all(attempts);
+      expect(results.filter((result) => result === 'success')).toHaveLength(1);
+      expect(results.filter((result) => result === 'participant_conflict')).toHaveLength(5);
+    },
+    EMULATOR_CONCURRENCY_TIMEOUT_MS
+  );
 
   it('moves a claim without leaving duplicate guard occupancy', async () => {
     const executor = createFirestoreCanonicalTransactionExecutor(firestore);
@@ -264,39 +276,45 @@ describe.skipIf(!runsOnFirestoreEmulator)('resource claim engine (firestore emul
     );
   });
 
-  it('serializes duplicate active enrollment guard acquisition', async () => {
-    const executor = createFirestoreCanonicalTransactionExecutor(firestore);
-    const courseId = CourseIdSchema.parse('course_claim_emulator_01');
-    const firstEnrollment = CourseEnrollmentIdSchema.parse('course_enrollment_claim_emulator_01');
-    const secondEnrollment = CourseEnrollmentIdSchema.parse('course_enrollment_claim_emulator_02');
+  it(
+    'serializes duplicate active enrollment guard acquisition',
+    async () => {
+      const executor = createFirestoreCanonicalTransactionExecutor(firestore);
+      const courseId = CourseIdSchema.parse('course_claim_emulator_01');
+      const firstEnrollment = CourseEnrollmentIdSchema.parse('course_enrollment_claim_emulator_01');
+      const secondEnrollment = CourseEnrollmentIdSchema.parse(
+        'course_enrollment_claim_emulator_02'
+      );
 
-    const attempts = await Promise.all(
-      [firstEnrollment, secondEnrollment].map((courseEnrollmentId) =>
-        executor
-          .runAtomic({
-            correlationId,
-            run: async (session) => {
-              const { guard } = await readAndPlanAcquireActiveCourseEnrollmentGuard(session, {
-                ...metadata,
-                participantId,
-                courseId,
-                courseEnrollmentId,
-              });
-              await session.transitionToWrites();
-              commitAcquireActiveCourseEnrollmentGuard(
-                session,
-                { ...metadata, participantId, courseId, courseEnrollmentId },
-                guard,
-                false
-              );
-            },
-          })
-          .then(() => 'success' as const)
-          .catch((error) => error.code as string)
-      )
-    );
+      const attempts = await Promise.all(
+        [firstEnrollment, secondEnrollment].map((courseEnrollmentId) =>
+          executor
+            .runAtomic({
+              correlationId,
+              run: async (session) => {
+                const { guard } = await readAndPlanAcquireActiveCourseEnrollmentGuard(session, {
+                  ...metadata,
+                  participantId,
+                  courseId,
+                  courseEnrollmentId,
+                });
+                await session.transitionToWrites();
+                commitAcquireActiveCourseEnrollmentGuard(
+                  session,
+                  { ...metadata, participantId, courseId, courseEnrollmentId },
+                  guard,
+                  false
+                );
+              },
+            })
+            .then(() => 'success' as const)
+            .catch((error) => error.code as string)
+        )
+      );
 
-    expect(attempts.filter((result) => result === 'success')).toHaveLength(1);
-    expect(attempts.filter((result) => result === 'duplicate_active_enrollment')).toHaveLength(1);
-  }, EMULATOR_CONCURRENCY_TIMEOUT_MS);
+      expect(attempts.filter((result) => result === 'success')).toHaveLength(1);
+      expect(attempts.filter((result) => result === 'duplicate_active_enrollment')).toHaveLength(1);
+    },
+    EMULATOR_CONCURRENCY_TIMEOUT_MS
+  );
 });

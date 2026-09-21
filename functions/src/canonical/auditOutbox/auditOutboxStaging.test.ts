@@ -14,6 +14,8 @@ import {
   domainOutboxIdFromCommand,
   resolveCommandIdempotencyIdentity,
   systemCommandActor,
+  TestSessionIdSchema,
+  testCanonicalExecutionScope,
   timestampFromDate,
   TRANSACTION_PLANNING_FIXTURES,
   evaluateTransactionPreflight,
@@ -32,6 +34,8 @@ const correlationId = CorrelationIdSchema.parse('correlation_audit_fn_01');
 const accountId = AccountIdSchema.parse('account_audit_fn_01');
 const bookingId = BookingIdSchema.parse('booking_audit_fn_01');
 const bookingPath = `bookings/${bookingId}`;
+const testSessionId = TestSessionIdSchema.parse('test_session_audit_fn_01');
+const testScope = testCanonicalExecutionScope(testSessionId);
 
 function envelope(idempotencyKey = 'audit-fn-01'): CommandEnvelope<'complete_booking'> {
   return {
@@ -48,9 +52,14 @@ function envelope(idempotencyKey = 'audit-fn-01'): CommandEnvelope<'complete_boo
   };
 }
 
-function environment(at: string, committedAtOffsetMs = 1000) {
+function environment(
+  at: string,
+  committedAtOffsetMs = 1000,
+  scope: { dataScope: 'live' } | typeof testScope = { dataScope: 'live' }
+) {
   return {
     clock: createAuthoritativeCommandClock(new Date(at), { committedAtOffsetMs }),
+    scope,
   };
 }
 
@@ -93,10 +102,14 @@ function auditedHandler(onExecute?: () => void): {
   planAuditOutbox: () => Promise<AuditOutboxStagingPlan>;
   execute: (
     session: Parameters<
-      NonNullable<Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['handler']['execute']>
+      NonNullable<
+        Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['handler']['execute']
+      >
     >[0],
     context: Parameters<
-      NonNullable<Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['handler']['execute']>
+      NonNullable<
+        Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['handler']['execute']
+      >
     >[1]
   ) => Promise<CommandResult<'complete_booking'>>;
 } {
@@ -114,6 +127,41 @@ function auditedHandler(onExecute?: () => void): {
 }
 
 describe('audited idempotent command execution', () => {
+  it('inherits TEST scope into idempotency, Activity Log, and domain outbox records', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [bookingPath]: {
+        revision: 1,
+        status: 'confirmed',
+        dataScope: 'test',
+        testSessionId,
+      },
+    });
+    const commandEnvelope = envelope('audit-test-scope-01');
+
+    const result = await executeAuthoritativeIdempotentCanonicalCommand({
+      envelope: commandEnvelope,
+      environment: environment('2026-01-01T00:00:00.000Z', 1000, testScope),
+      executor,
+      revisionTarget: { ref: { path: bookingPath }, requireExpectedRevision: true },
+      handler: auditedHandler(),
+    });
+
+    expect(result.status).toBe('success');
+    const identity = resolveCommandIdempotencyIdentity(commandEnvelope, testScope);
+    const snapshot = executor.snapshot();
+    expect(snapshot.docs.get(identity.recordPath.slice(1))?.data).toMatchObject({
+      dataScope: 'test',
+      testSessionId,
+    });
+    expect(
+      snapshot.docs.get(`activity_logs/${activityLogIdFromCommandId(identity.commandKey)}`)?.data
+    ).toMatchObject({ dataScope: 'test', testSessionId });
+    expect(
+      snapshot.docs.get(`domain_outbox/${domainOutboxIdFromCommand(identity.commandKey, 0)}`)?.data
+    ).toMatchObject({ dataScope: 'test', testSessionId });
+    expect(snapshot.docs.has('admin_runtime/admin_lesson_bookings')).toBe(false);
+  });
+
   it('stages exactly one Activity Log for a successful state-changing command', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor({
       [bookingPath]: { revision: 1, status: 'confirmed' },

@@ -63,6 +63,7 @@ export * from './paymentWallet';
 export * from './paymentWalletOperations';
 export * from './starterCredit';
 export * from './testSessions';
+export * from './canonicalScope';
 export * from './financialReconciliationPolicy';
 export * from './financialCorrectionPolicy';
 export * from './financialOverviewPolicy';

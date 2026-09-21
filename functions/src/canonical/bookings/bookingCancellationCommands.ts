@@ -99,8 +99,11 @@ interface CommandMetadata {
   readonly correlationId: CommandEnvelope['context']['correlationId'];
 }
 
-function metadataFromEnvelope(envelope: CommandEnvelope): CommandMetadata {
-  const identity = resolveCommandIdempotencyIdentity(envelope);
+function metadataFromEnvelope(
+  envelope: CommandEnvelope,
+  environment: CommandExecutionEnvironment
+): CommandMetadata {
+  const identity = resolveCommandIdempotencyIdentity(envelope, environment.scope);
   return {
     commandId: identity.commandKey,
     correlationId: envelope.context.correlationId,
@@ -131,9 +134,7 @@ async function loadAccountAndAssertBookingPartyCancellationAuthorization(
     const participantDocumentPath = participantPath(participantId);
     const participantRead = await session.tx.get({ path: participantDocumentPath });
     session.plan.planRead({ path: participantDocumentPath, category: 'aggregate' });
-    const participant = parseParticipant(
-      participantRead.exists ? participantRead.data : undefined
-    );
+    const participant = parseParticipant(participantRead.exists ? participantRead.data : undefined);
     if (!participant || participant.management.kind !== 'managed') {
       throw new CanonicalCommandError('forbidden', {
         correlationId: envelope.context.correlationId,
@@ -170,7 +171,7 @@ function requestAuthenticatedBookingCancellationHandler(
   environment: CommandExecutionEnvironment,
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
 ): Promise<CommandResult<'request_booking_cancellation'>> {
-  const metadata = metadataFromEnvelope(envelope);
+  const metadata = metadataFromEnvelope(envelope, environment);
   const bookingDocumentPath = bookingPath(envelope.intent.bookingId);
 
   let booking!: Booking;
@@ -393,7 +394,7 @@ function withdrawBookingCancellationRequestHandler(
   environment: CommandExecutionEnvironment,
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
 ): Promise<CommandResult<'withdraw_booking_cancellation_request'>> {
-  const metadata = metadataFromEnvelope(envelope);
+  const metadata = metadataFromEnvelope(envelope, environment);
   const bookingDocumentPath = bookingPath(envelope.intent.bookingId);
 
   let booking!: Booking;
@@ -490,7 +491,7 @@ function resolveBookingCancellationHandler(
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
 ): Promise<CommandResult<'resolve_booking_cancellation'>> {
   assertResolveBookingCancellationAuthorization(envelope);
-  const metadata = metadataFromEnvelope(envelope);
+  const metadata = metadataFromEnvelope(envelope, environment);
   const bookingDocumentPath = bookingPath(envelope.intent.bookingId);
   const decision = envelope.intent.decision;
 

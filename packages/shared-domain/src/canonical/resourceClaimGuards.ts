@@ -36,6 +36,16 @@ import {
   type ResourceClaimKind,
   type ResourceKind,
 } from './resourceClaims';
+import {
+  LIVE_CANONICAL_EXECUTION_SCOPE,
+  PersistedCanonicalScopeError,
+  canonicalScopeFields,
+  canonicalScopeKeyParts,
+  DataScopeSchema,
+  parsePersistedCanonicalScope,
+  type CanonicalExecutionScope,
+} from './canonicalScope';
+import { TestSessionIdSchema } from './identifiers';
 
 export interface GuardIntervalConflictScope {
   readonly resourceKind: ResourceKind;
@@ -83,6 +93,7 @@ export interface UtcGuardBucket {
   readonly bucketStartAt: CanonicalTimestamp;
   readonly bucketKey: string;
   readonly bucketIdentity: z.output<typeof ResourceClaimGuardBucketIdentityInputSchema>;
+  readonly scope: CanonicalExecutionScope;
 }
 
 export function utcBucketStartSecondsForInstant(seconds: number): number {
@@ -105,14 +116,20 @@ export function canonicalTimestampForUtcBucketStart(
 export function expandUtcGuardBuckets(
   resourceKind: ResourceKind,
   resourceId: string,
-  interval: TimeInterval
+  interval: TimeInterval,
+  scope: CanonicalExecutionScope = LIVE_CANONICAL_EXECUTION_SCOPE
 ): readonly UtcGuardBucket[] {
   TimeIntervalSchema.parse(interval);
 
   const buckets: UtcGuardBucket[] = [];
 
   let bucketStartSeconds = utcBucketStartSecondsForInstant(interval.startsAt.seconds);
-  while (compareCanonicalTimestamps(canonicalTimestampForUtcBucketStart(bucketStartSeconds), interval.endsAt) < 0) {
+  while (
+    compareCanonicalTimestamps(
+      canonicalTimestampForUtcBucketStart(bucketStartSeconds),
+      interval.endsAt
+    ) < 0
+  ) {
     const bucketIdentity = ResourceClaimGuardBucketIdentityInputSchema.parse({
       strategyVersion: RESOURCE_GUARD_STRATEGY_VERSION,
       resourceKind,
@@ -122,8 +139,9 @@ export function expandUtcGuardBuckets(
     buckets.push({
       bucketStartSeconds,
       bucketStartAt: canonicalTimestampForUtcBucketStart(bucketStartSeconds),
-      bucketKey: resourceClaimGuardBucketKeyFromIdentity(bucketIdentity),
+      bucketKey: resourceClaimGuardBucketKeyFromIdentity(bucketIdentity, scope),
       bucketIdentity,
+      scope,
     });
     bucketStartSeconds += RESOURCE_GUARD_BUCKET_SECONDS;
   }
@@ -131,17 +149,25 @@ export function expandUtcGuardBuckets(
   return buckets;
 }
 
-export function resourceClaimGuardIdFromBucketKey(bucketKey: string): ResourceClaimGuardId {
+export function resourceClaimGuardIdFromBucketKey(
+  bucketKey: string,
+  scope: CanonicalExecutionScope = LIVE_CANONICAL_EXECUTION_SCOPE
+): ResourceClaimGuardId {
   return ResourceClaimGuardIdSchema.parse(
-    canonicalDeterministicHash(['resource_claim_guard:v1', bucketKey])
+    canonicalDeterministicHash([
+      'resource_claim_guard:v2',
+      ...canonicalScopeKeyParts(scope),
+      bucketKey,
+    ])
   );
 }
 
 export function resourceClaimGuardIdFromBucketIdentity(
-  input: ResourceClaimGuardBucketIdentityInput
+  input: ResourceClaimGuardBucketIdentityInput,
+  scope: CanonicalExecutionScope = LIVE_CANONICAL_EXECUTION_SCOPE
 ): ResourceClaimGuardId {
-  const bucketKey = resourceClaimGuardBucketKeyFromIdentity(input);
-  return resourceClaimGuardIdFromBucketKey(bucketKey);
+  const bucketKey = resourceClaimGuardBucketKeyFromIdentity(input, scope);
+  return resourceClaimGuardIdFromBucketKey(bucketKey, scope);
 }
 
 export function guardEntryParticipatesInConflict(entry: ResourceClaimGuardEntry): boolean {
@@ -252,6 +278,8 @@ export function removeGuardEntryByClaimId(
 export const ActiveCourseEnrollmentGuardSchema = z
   .object({
     guardKey: z.string(),
+    dataScope: DataScopeSchema.optional(),
+    testSessionId: TestSessionIdSchema.optional(),
     participantId: ParticipantIdSchema,
     courseId: CourseIdSchema,
     courseEnrollmentId: CourseEnrollmentIdSchema,
@@ -263,8 +291,22 @@ export const ActiveCourseEnrollmentGuardSchema = z
   })
   .strict()
   .superRefine((guard, context) => {
-    const expectedKey = activeCourseEnrollmentGuardKey(guard.participantId, guard.courseId);
-    if (guard.guardKey !== expectedKey) {
+    let expectedKey: ActiveCourseEnrollmentGuardKey | undefined;
+    try {
+      const scope = parsePersistedCanonicalScope(guard, { allowLegacyLive: true });
+      expectedKey = activeCourseEnrollmentGuardKey(guard.participantId, guard.courseId, scope);
+    } catch (error) {
+      if (error instanceof PersistedCanonicalScopeError) {
+        context.addIssue({
+          code: 'custom',
+          path: ['dataScope'],
+          message: 'Persisted canonical scope is malformed',
+        });
+      } else {
+        throw error;
+      }
+    }
+    if (expectedKey !== undefined && guard.guardKey !== expectedKey) {
       context.addIssue({
         code: 'custom',
         path: ['guardKey'],
@@ -294,10 +336,13 @@ export function buildActiveCourseEnrollmentGuard(input: {
   readonly updatedAt: CanonicalTimestamp;
   readonly lastChangedByCommandId: z.output<typeof CommandIdSchema>;
   readonly correlationId: z.output<typeof CorrelationIdSchema>;
+  readonly scope?: CanonicalExecutionScope;
 }): ActiveCourseEnrollmentGuard {
-  const guardKey = activeCourseEnrollmentGuardKey(input.participantId, input.courseId);
+  const scope = input.scope ?? LIVE_CANONICAL_EXECUTION_SCOPE;
+  const guardKey = activeCourseEnrollmentGuardKey(input.participantId, input.courseId, scope);
   return ActiveCourseEnrollmentGuardSchema.parse({
     guardKey,
+    ...canonicalScopeFields(scope),
     participantId: input.participantId,
     courseId: input.courseId,
     courseEnrollmentId: input.courseEnrollmentId,
@@ -328,7 +373,8 @@ export function assertDistinctActiveCourseEnrollmentGuard(
 export function activeCourseEnrollmentGuardKeyMatches(
   guardKey: ActiveCourseEnrollmentGuardKey,
   participantId: ParticipantId,
-  courseId: CourseId
+  courseId: CourseId,
+  scope: CanonicalExecutionScope = LIVE_CANONICAL_EXECUTION_SCOPE
 ): boolean {
-  return guardKey === activeCourseEnrollmentGuardKey(participantId, courseId);
+  return guardKey === activeCourseEnrollmentGuardKey(participantId, courseId, scope);
 }

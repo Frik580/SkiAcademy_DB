@@ -44,7 +44,9 @@ const accountId = 'account_course_reconciliation_emulator_01';
 const adminAccountId = 'account_course_reconciliation_emulator_admin';
 const instructorAccountId = 'account_course_reconciliation_emulator_instructor';
 const participantId = ParticipantIdSchema.parse('participant_course_reconciliation_emulator_01');
-const managementId = ParticipantManagementIdSchema.parse('management_course_reconciliation_emulator_01');
+const managementId = ParticipantManagementIdSchema.parse(
+  'management_course_reconciliation_emulator_01'
+);
 const instructorId = InstructorIdSchema.parse('instructor_course_reconciliation_emulator_01');
 const courseId = CourseIdSchema.parse('course_course_reconciliation_emulator_01');
 const courseDayOneId = CourseDayIdSchema.parse('course_day_reconciliation_emulator_01');
@@ -295,7 +297,7 @@ async function seedEnrollmentResourceClaims() {
   await firestore.doc(`resource_claims/${seatIdentity.claimId}`).set(
     ResourceClaimSchema.parse({
       claimId: seatIdentity.claimId,
-      strategyVersion: 'claim:v1',
+      strategyVersion: 'claim:v2',
       claimKind: 'course_seat_pre_start',
       resourceKind: 'course',
       resourceId: courseId,
@@ -335,7 +337,7 @@ async function seedEnrollmentResourceClaims() {
   await firestore.doc(`resource_claims/${dayIdentity.claimId}`).set(
     ResourceClaimSchema.parse({
       claimId: dayIdentity.claimId,
-      strategyVersion: 'claim:v1',
+      strategyVersion: 'claim:v2',
       claimKind: 'participant_course_day_enrollment',
       resourceKind: 'participant',
       resourceId: participantId,
@@ -395,11 +397,13 @@ async function seedOpenPaymentStartIssue() {
   });
 }
 
-async function seedBase(options: {
-  underfunded?: boolean;
-  lifecycle?: Record<string, unknown>;
-  enrollmentRevision?: number;
-} = {}) {
+async function seedBase(
+  options: {
+    underfunded?: boolean;
+    lifecycle?: Record<string, unknown>;
+    enrollmentRevision?: number;
+  } = {}
+) {
   const underfunded = options.underfunded ?? false;
   await clearAll();
   for (const id of [accountId, adminAccountId, instructorAccountId]) {
@@ -722,10 +726,14 @@ describeEmulator('courseEnrollmentReconciliation emulator', () => {
   }, 30_000);
 
   it('A. canonical enrollment reconciles with no-op', async () => {
-    const enrollmentBefore = (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data();
+    const enrollmentBefore = (
+      await firestore.doc(`course_enrollments/${enrollmentId}`).get()
+    ).data();
     const commands = createCommands('2026-02-01T04:00:00.000Z');
     expect((await commands.execute(reconcileEnvelope('reconcile-noop'))).status).toBe('success');
-    const enrollmentAfter = (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data();
+    const enrollmentAfter = (
+      await firestore.doc(`course_enrollments/${enrollmentId}`).get()
+    ).data();
     expect(enrollmentAfter?.revision).toBe(enrollmentBefore?.revision);
     expect((await firestore.collection('activity_logs').get()).size).toBe(0);
     expect((await firestore.collection('admin_issues').get()).size).toBe(0);
@@ -744,16 +752,20 @@ describeEmulator('courseEnrollmentReconciliation emulator', () => {
     );
     const issue = (await firestore.doc(`admin_issues/${paymentStartIssueId()}`).get()).data();
     expect(issue?.lifecycle.status).toBe('open');
-    expect(paymentFinancialSnapshot((await firestore.doc(`payments/${paymentId}`).get()).data())).toEqual(
-      paymentBefore
-    );
+    expect(
+      paymentFinancialSnapshot((await firestore.doc(`payments/${paymentId}`).get()).data())
+    ).toEqual(paymentBefore);
   }, 30_000);
 
   it('C. fully funded payment resolves stale payment_required_at_start', async () => {
     await seedBase({ underfunded: true });
     const gateCommands = createCommands('2026-02-01T03:00:00.000Z');
     expect((await gateCommands.execute(gateEnvelope('gate-stale'))).status).toBe('success');
-    await fundPayment(createCommands('2026-02-01T04:00:00.000Z'), COURSE_PRICE_KZT, 'fund-before-reconcile');
+    await fundPayment(
+      createCommands('2026-02-01T04:00:00.000Z'),
+      COURSE_PRICE_KZT,
+      'fund-before-reconcile'
+    );
     const paymentBefore = paymentFinancialSnapshot(
       (await firestore.doc(`payments/${paymentId}`).get()).data()
     );
@@ -826,13 +838,19 @@ describeEmulator('courseEnrollmentReconciliation emulator', () => {
     await seedBase({ underfunded: true });
     await createCommands('2026-02-01T03:00:00.000Z').execute(gateEnvelope('gate-conflict'));
     await seedPresentAttendance();
-    await fundPayment(createCommands('2026-02-01T04:00:00.000Z'), COURSE_PRICE_KZT, 'fund-conflict');
+    await fundPayment(
+      createCommands('2026-02-01T04:00:00.000Z'),
+      COURSE_PRICE_KZT,
+      'fund-conflict'
+    );
     await seedOpenPaymentConflictIssue();
     const paymentBefore = paymentFinancialSnapshot(
       (await firestore.doc(`payments/${paymentId}`).get()).data()
     );
     const commands = createCommands('2026-02-01T05:00:00.000Z');
-    expect((await commands.execute(reconcileEnvelope('reconcile-conflict'))).status).toBe('success');
+    expect((await commands.execute(reconcileEnvelope('reconcile-conflict'))).status).toBe(
+      'success'
+    );
     const conflict = (await firestore.doc(`admin_issues/${paymentConflictIssueId()}`).get()).data();
     expect(conflict?.lifecycle.status).toBe('resolved');
     const enrollment = (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data();
@@ -893,10 +911,14 @@ describeEmulator('courseEnrollmentReconciliation emulator', () => {
       (await firestore.doc(`payments/${paymentId}`).get()).data()
     );
     const commands = createCommands('2026-02-01T04:00:00.000Z');
-    expect((await commands.execute(reconcileEnvelope('reconcile-conflict-open'))).status).toBe('success');
+    expect((await commands.execute(reconcileEnvelope('reconcile-conflict-open'))).status).toBe(
+      'success'
+    );
     const conflict = (await firestore.doc(`admin_issues/${paymentConflictIssueId()}`).get()).data();
     expect(conflict?.lifecycle.status).toBe('open');
-    const attendance = (await firestore.doc(`attendance/${attendanceIdFor(courseDayOneId)}`).get()).data();
+    const attendance = (
+      await firestore.doc(`attendance/${attendanceIdFor(courseDayOneId)}`).get()
+    ).data();
     expect(attendance?.attendanceStatus).toBe('present');
     expect(
       paymentFinancialSnapshot((await firestore.doc(`payments/${paymentId}`).get()).data())
@@ -906,7 +928,9 @@ describeEmulator('courseEnrollmentReconciliation emulator', () => {
   it('G. fully funded present after final day completes enrollment', async () => {
     await seedPresentAttendance();
     const commands = createCommands('2026-02-01T05:00:00.000Z');
-    expect((await commands.execute(reconcileEnvelope('reconcile-complete'))).status).toBe('success');
+    expect((await commands.execute(reconcileEnvelope('reconcile-complete'))).status).toBe(
+      'success'
+    );
     const enrollment = (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data();
     expect(enrollment?.lifecycle.status).toBe('completed');
   }, 30_000);
@@ -922,7 +946,9 @@ describeEmulator('courseEnrollmentReconciliation emulator', () => {
   it('I. missing attendance keeps missing_attendance open', async () => {
     await seedOpenMissingAttendanceIssue();
     const commands = createCommands('2026-02-01T05:00:00.000Z');
-    expect((await commands.execute(reconcileEnvelope('reconcile-missing-open'))).status).toBe('success');
+    expect((await commands.execute(reconcileEnvelope('reconcile-missing-open'))).status).toBe(
+      'success'
+    );
     const issue = (await firestore.doc(`admin_issues/${missingAttendanceIssueId()}`).get()).data();
     expect(issue?.lifecycle.status).toBe('open');
     const enrollment = (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data();
@@ -933,7 +959,9 @@ describeEmulator('courseEnrollmentReconciliation emulator', () => {
     await seedOpenMissingAttendanceIssue();
     await seedAbsentAttendance();
     const commands = createCommands('2026-02-01T05:00:00.000Z');
-    expect((await commands.execute(reconcileEnvelope('reconcile-missing-resolve'))).status).toBe('success');
+    expect((await commands.execute(reconcileEnvelope('reconcile-missing-resolve'))).status).toBe(
+      'success'
+    );
     const issue = (await firestore.doc(`admin_issues/${missingAttendanceIssueId()}`).get()).data();
     expect(issue?.lifecycle.status).toBe('resolved');
   }, 30_000);
@@ -948,7 +976,9 @@ describeEmulator('courseEnrollmentReconciliation emulator', () => {
     ]);
     expect(settled.every((outcome) => outcome.status === 'fulfilled')).toBe(true);
     const issue = (await firestore.doc(`admin_issues/${missingAttendanceIssueId()}`).get()).data();
-    const attendance = (await firestore.doc(`attendance/${attendanceIdFor(courseDayOneId)}`).get()).data();
+    const attendance = (
+      await firestore.doc(`attendance/${attendanceIdFor(courseDayOneId)}`).get()
+    ).data();
     if (attendance?.attendanceStatus === 'absent') {
       expect(issue?.lifecycle?.status).toBe('resolved');
     } else {
@@ -960,7 +990,9 @@ describeEmulator('courseEnrollmentReconciliation emulator', () => {
     await seedOpenMissingAttendanceIssue();
     await seedStaleOccurrencePresentAttendance();
     const commands = createCommands('2026-02-01T05:00:00.000Z');
-    expect((await commands.execute(reconcileEnvelope('reconcile-stale-occurrence'))).status).toBe('success');
+    expect((await commands.execute(reconcileEnvelope('reconcile-stale-occurrence'))).status).toBe(
+      'success'
+    );
     const issue = (await firestore.doc(`admin_issues/${missingAttendanceIssueId()}`).get()).data();
     expect(issue?.lifecycle.status).toBe('open');
   }, 30_000);
@@ -975,7 +1007,9 @@ describeEmulator('courseEnrollmentReconciliation emulator', () => {
     });
     await seedOpenPaymentStartIssue();
     const commands = createCommands('2026-02-01T05:00:00.000Z');
-    expect((await commands.execute(reconcileEnvelope('reconcile-cancelled'))).status).toBe('success');
+    expect((await commands.execute(reconcileEnvelope('reconcile-cancelled'))).status).toBe(
+      'success'
+    );
     const enrollment = (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data();
     expect(enrollment?.lifecycle.status).toBe('cancelled');
     const issue = (await firestore.doc(`admin_issues/${paymentStartIssueId()}`).get()).data();
@@ -988,7 +1022,9 @@ describeEmulator('courseEnrollmentReconciliation emulator', () => {
     });
     await seedOpenPaymentStartIssue();
     const commands = createCommands('2026-02-01T05:00:00.000Z');
-    expect((await commands.execute(reconcileEnvelope('reconcile-withdrawn'))).status).toBe('success');
+    expect((await commands.execute(reconcileEnvelope('reconcile-withdrawn'))).status).toBe(
+      'success'
+    );
     const enrollment = (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data();
     expect(enrollment?.lifecycle.status).toBe('withdrawn');
   }, 30_000);
@@ -1000,10 +1036,13 @@ describeEmulator('courseEnrollmentReconciliation emulator', () => {
     const courseBefore = (await firestore.doc(`courses/${courseId}`).get()).data();
     const claimsBefore = (await firestore.collection('resource_claims').get()).size;
     const guardBefore = (await firestore.collection('active_course_enrollment_guards').get()).size;
-    const enrollmentRevision = (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data()
-      ?.revision;
+    const enrollmentRevision = (
+      await firestore.doc(`course_enrollments/${enrollmentId}`).get()
+    ).data()?.revision;
     const commands = createCommands('2026-02-01T06:00:00.000Z');
-    expect((await commands.execute(reconcileEnvelope('reconcile-completed-noop'))).status).toBe('success');
+    expect((await commands.execute(reconcileEnvelope('reconcile-completed-noop'))).status).toBe(
+      'success'
+    );
     const enrollment = (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data();
     expect(enrollment?.lifecycle.status).toBe('completed');
     expect(enrollment?.revision).toBe(enrollmentRevision);
@@ -1011,7 +1050,9 @@ describeEmulator('courseEnrollmentReconciliation emulator', () => {
       courseBefore?.capacity
     );
     expect((await firestore.collection('resource_claims').get()).size).toBe(claimsBefore);
-    expect((await firestore.collection('active_course_enrollment_guards').get()).size).toBe(guardBefore);
+    expect((await firestore.collection('active_course_enrollment_guards').get()).size).toBe(
+      guardBefore
+    );
   }, 30_000);
 
   it('Q. no_show canonical enrollment reconciles without resource churn', async () => {
@@ -1019,10 +1060,13 @@ describeEmulator('courseEnrollmentReconciliation emulator', () => {
     const noShowCommands = createCommands('2026-02-01T05:00:00.000Z');
     await noShowCommands.execute(reconcileEnvelope('reconcile-to-no-show'));
     const courseBefore = (await firestore.doc(`courses/${courseId}`).get()).data();
-    const enrollmentRevision = (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data()
-      ?.revision;
+    const enrollmentRevision = (
+      await firestore.doc(`course_enrollments/${enrollmentId}`).get()
+    ).data()?.revision;
     const commands = createCommands('2026-02-01T06:00:00.000Z');
-    expect((await commands.execute(reconcileEnvelope('reconcile-no-show-noop'))).status).toBe('success');
+    expect((await commands.execute(reconcileEnvelope('reconcile-no-show-noop'))).status).toBe(
+      'success'
+    );
     const enrollment = (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data();
     expect(enrollment?.lifecycle.status).toBe('no_show');
     expect(enrollment?.revision).toBe(enrollmentRevision);
@@ -1051,7 +1095,11 @@ describeEmulator('courseEnrollmentReconciliation emulator', () => {
   it('S. concurrent reconciliation dedupes issue resolution', async () => {
     await seedBase({ underfunded: true });
     await createCommands('2026-02-01T03:00:00.000Z').execute(gateEnvelope('gate-concurrent'));
-    await fundPayment(createCommands('2026-02-01T04:00:00.000Z'), COURSE_PRICE_KZT, 'fund-concurrent');
+    await fundPayment(
+      createCommands('2026-02-01T04:00:00.000Z'),
+      COURSE_PRICE_KZT,
+      'fund-concurrent'
+    );
     const commands = createCommands('2026-02-01T05:00:00.000Z');
     const settled = await Promise.allSettled([
       commands.execute(reconcileEnvelope('reconcile-concurrent-a')),
@@ -1061,7 +1109,9 @@ describeEmulator('courseEnrollmentReconciliation emulator', () => {
     const issue = (await firestore.doc(`admin_issues/${paymentStartIssueId()}`).get()).data();
     expect(issue?.lifecycle.status).toBe('resolved');
     const issues = await firestore.collection('admin_issues').get();
-    expect(issues.docs.filter((doc) => doc.data().kind === 'payment_required_at_start').length).toBe(1);
+    expect(
+      issues.docs.filter((doc) => doc.data().kind === 'payment_required_at_start').length
+    ).toBe(1);
   }, 30_000);
 
   it('U. stale payment expectedRevision on funding is rejected', async () => {
@@ -1087,7 +1137,9 @@ describeEmulator('courseEnrollmentReconciliation emulator', () => {
       'success'
     );
     const issues = await firestore.collection('admin_issues').get();
-    const mismatch = issues.docs.find((doc) => doc.data().kind === 'resource_reconciliation_mismatch');
+    const mismatch = issues.docs.find(
+      (doc) => doc.data().kind === 'resource_reconciliation_mismatch'
+    );
     expect(mismatch?.data().lifecycle?.status).toBe('open');
   }, 30_000);
 
@@ -1095,10 +1147,16 @@ describeEmulator('courseEnrollmentReconciliation emulator', () => {
     await seedBase({ underfunded: true });
     const courseBefore = (await firestore.doc(`courses/${courseId}`).get()).data();
     await createCommands('2026-02-01T03:00:00.000Z').execute(gateEnvelope('gate-capacity'));
-    await fundPayment(createCommands('2026-02-01T04:00:00.000Z'), COURSE_PRICE_KZT, 'fund-capacity');
+    await fundPayment(
+      createCommands('2026-02-01T04:00:00.000Z'),
+      COURSE_PRICE_KZT,
+      'fund-capacity'
+    );
     await seedAbsentAttendance();
     const commands = createCommands('2026-02-01T05:00:00.000Z');
-    expect((await commands.execute(reconcileEnvelope('reconcile-capacity'))).status).toBe('success');
+    expect((await commands.execute(reconcileEnvelope('reconcile-capacity'))).status).toBe(
+      'success'
+    );
     const courseAfter = (await firestore.doc(`courses/${courseId}`).get()).data();
     expect(courseAfter?.capacity?.availableSeats).toBe(courseBefore?.capacity?.availableSeats);
   }, 30_000);

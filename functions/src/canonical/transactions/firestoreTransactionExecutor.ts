@@ -4,6 +4,7 @@ import {
   CanonicalCommandError,
   TransactionPlanBuilder,
   type CorrelationId,
+  type CanonicalExecutionScope,
   type TransactionPlan,
 } from '@ski-academy/shared-domain';
 import {
@@ -31,6 +32,7 @@ export interface CanonicalAtomicTransactionInput<TResult> {
 
 export interface CanonicalAtomicTransactionSession {
   readonly correlationId: CorrelationId;
+  readonly scope?: CanonicalExecutionScope;
   readonly plan: TransactionPlanBuilder;
   readonly tx: CanonicalTransactionOperations;
   assertWithinBudget(): void;
@@ -52,12 +54,10 @@ class FirestoreCanonicalTransactionOperations implements CanonicalTransactionOpe
 
   async get(ref: CanonicalTransactionDocumentRef): Promise<CanonicalTransactionReadResult> {
     assertReadPhase(this, 'read');
-    const readPromise = this.transaction
-      .get(this.firestore.doc(ref.path))
-      .then((snapshot) => ({
-        exists: snapshot.exists,
-        ...(snapshot.exists ? { data: snapshot.data() as Record<string, unknown> } : {}),
-      }));
+    const readPromise = this.transaction.get(this.firestore.doc(ref.path)).then((snapshot) => ({
+      exists: snapshot.exists,
+      ...(snapshot.exists ? { data: snapshot.data() as Record<string, unknown> } : {}),
+    }));
     this.pendingReads.add(readPromise);
     try {
       return await readPromise;

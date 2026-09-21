@@ -142,7 +142,7 @@ activityLogIdFromCommandId(commandId);
 domainOutboxIdFromCommand(commandId, 0);
 monetaryEventIdFromCommandEffect(commandId, 0);
 resourceClaimIdFromIdentity({
-  strategyVersion: 'claim:v1',
+  strategyVersion: 'claim:v2',
   claimKind: 'instructor_booking_occurrence',
   resourceKind: 'instructor',
   resourceId: instructorId,

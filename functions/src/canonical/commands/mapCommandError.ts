@@ -27,14 +27,13 @@ const COMMAND_ERROR_TO_HTTPS: Record<
   expired: 'failed-precondition',
   unavailable: 'failed-precondition',
   idempotency_conflict: 'already-exists',
+  cross_scope_forbidden: 'permission-denied',
   operation_too_large: 'failed-precondition',
   audit_integrity_violation: 'internal',
   internal: 'internal',
 };
 
-export function mapCommandErrorTransportToHttpsError(
-  transport: CommandErrorTransport
-): HttpsError {
+export function mapCommandErrorTransportToHttpsError(transport: CommandErrorTransport): HttpsError {
   const httpsCode = COMMAND_ERROR_TO_HTTPS[transport.code];
   return new HttpsError(httpsCode, transport.message, {
     code: transport.code,

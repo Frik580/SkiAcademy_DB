@@ -4,7 +4,7 @@ import { CausationIdSchema, CorrelationIdSchema } from '../identifiers';
 import { AggregateRevisionSchema, IanaTimeZoneSchema } from '../primitives';
 import { CommandActorSchema } from './actors';
 import { EXERCISED_CAPABILITIES } from './capabilities';
-import { LIVE_CANONICAL_EXECUTION_SCOPE, type CanonicalExecutionScope } from '../testSessions';
+import { LIVE_CANONICAL_EXECUTION_SCOPE, type CanonicalExecutionScope } from '../canonicalScope';
 
 export { COMMAND_SOURCES, type CommandSource } from '../auditOutbox';
 

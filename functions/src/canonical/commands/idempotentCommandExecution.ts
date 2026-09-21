@@ -18,12 +18,14 @@ import {
   type CommandIdempotencyRecord,
   type CommandKind,
   type CommandResult,
+  LIVE_CANONICAL_EXECUTION_SCOPE,
 } from '@ski-academy/shared-domain';
 import type {
   CanonicalAtomicTransactionSession,
   CanonicalTransactionDocumentRef,
   CanonicalTransactionExecutor,
 } from '../transactions';
+import { scopeCanonicalTransactionSession } from '../transactions/scopedCanonicalTransaction';
 import {
   prepareAuditOutboxReads,
   stageAuditOutboxInTransaction,
@@ -141,6 +143,7 @@ function buildIdempotencyRecord(
   const decidedAtTimestamp = timestampFromDate(decidedAt);
   return {
     schemaVersion: COMMAND_IDEMPOTENCY_SCHEMA_VERSION,
+    ...identity.scope,
     actorScope: identity.actorScope,
     commandKind: envelope.kind,
     fingerprint: identity.fingerprint,
@@ -183,13 +186,15 @@ export async function executeIdempotentCanonicalCommand<Kind extends CommandKind
     requireAuditOnSuccess,
     onSettled,
   } = input;
-  const identity = resolveCommandIdempotencyIdentity(envelope);
+  const executionScope = environment.scope ?? LIVE_CANONICAL_EXECUTION_SCOPE;
+  const identity = resolveCommandIdempotencyIdentity(envelope, executionScope);
   const idempotencyPath = toTransactionPath(identity.recordPath);
 
   try {
     const observation = await executor.runAtomic<IdempotentCommandExecutionObservation<Kind>>({
       correlationId: envelope.context.correlationId,
-      run: async (session) => {
+      run: async (baseSession) => {
+        const session = scopeCanonicalTransactionSession(baseSession, executionScope);
         const idempotencyRead = await session.tx.get({ path: idempotencyPath });
         session.plan.planRead({ path: idempotencyPath, category: 'idempotency' });
 
@@ -204,6 +209,9 @@ export async function executeIdempotentCanonicalCommand<Kind extends CommandKind
           const record = parsedRecord.data;
           if (
             record.actorScope !== identity.actorScope ||
+            record.dataScope !== identity.scope.dataScope ||
+            record.testSessionId !==
+              (identity.scope.dataScope === 'test' ? identity.scope.testSessionId : undefined) ||
             record.commandKind !== envelope.kind ||
             record.fingerprint !== identity.fingerprint
           ) {
@@ -258,23 +266,22 @@ export async function executeIdempotentCanonicalCommand<Kind extends CommandKind
         });
 
         const plannedMutations = session.plan.build().mutations;
+        const mayBumpLiveAdminRuntime = executionScope.dataScope === 'live';
         const shouldBumpAdminLessonBookingsRevision =
-          plannedMutationsAffectAdminLessonBookings(plannedMutations);
-        const shouldBumpAdminPlannerRevision = plannedMutationsAffectAdminPlanner(
-          plannedMutations,
-          envelope.kind
-        );
-        const shouldBumpAdminCoursesRevision = plannedMutationsAffectAdminCourses(
-          plannedMutations,
-          envelope.kind
-        );
-        const shouldBumpAdminFinanceRevision = plannedMutationsAffectAdminFinance(
-          plannedMutations,
-          envelope.kind
-        );
+          mayBumpLiveAdminRuntime && plannedMutationsAffectAdminLessonBookings(plannedMutations);
+        const shouldBumpAdminPlannerRevision =
+          mayBumpLiveAdminRuntime &&
+          plannedMutationsAffectAdminPlanner(plannedMutations, envelope.kind);
+        const shouldBumpAdminCoursesRevision =
+          mayBumpLiveAdminRuntime &&
+          plannedMutationsAffectAdminCourses(plannedMutations, envelope.kind);
+        const shouldBumpAdminFinanceRevision =
+          mayBumpLiveAdminRuntime &&
+          plannedMutationsAffectAdminFinance(plannedMutations, envelope.kind);
         const shouldBumpAdminPeopleRevision =
-          plannedMutationsAffectAdminPeople(plannedMutations);
+          mayBumpLiveAdminRuntime && plannedMutationsAffectAdminPeople(plannedMutations);
         const shouldBumpAdminBookingChangeRequestsRevision =
+          mayBumpLiveAdminRuntime &&
           plannedMutationsAffectAdminBookingChangeRequests(plannedMutations);
         if (shouldBumpAdminLessonBookingsRevision) {
           await planAdminLessonBookingsRevisionBump(session);
@@ -333,6 +340,7 @@ export async function executeIdempotentCanonicalCommand<Kind extends CommandKind
             committedAt: committedAtFromEnvironment(environment),
             plan: auditPlan,
             preparedReads: preparedAuditReads,
+            scope: executionScope,
           });
         }
 

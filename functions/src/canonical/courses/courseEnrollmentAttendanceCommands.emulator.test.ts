@@ -50,9 +50,13 @@ const correlationId = CorrelationIdSchema.parse('correlation_course_attendance_e
 const accountId = AccountIdSchema.parse('account_course_attendance_emulator_01');
 const adminAccountId = AccountIdSchema.parse('account_course_attendance_emulator_admin');
 const instructorAccountId = AccountIdSchema.parse('account_course_attendance_emulator_instructor');
-const instructorTwoAccountId = AccountIdSchema.parse('account_course_attendance_emulator_instructor_02');
+const instructorTwoAccountId = AccountIdSchema.parse(
+  'account_course_attendance_emulator_instructor_02'
+);
 const participantId = ParticipantIdSchema.parse('participant_course_attendance_emulator_01');
-const managementId = ParticipantManagementIdSchema.parse('management_course_attendance_emulator_01');
+const managementId = ParticipantManagementIdSchema.parse(
+  'management_course_attendance_emulator_01'
+);
 const instructorId = InstructorIdSchema.parse('instructor_course_attendance_emulator_01');
 const instructorTwoId = InstructorIdSchema.parse('instructor_course_attendance_emulator_02');
 const courseId = CourseIdSchema.parse('course_course_attendance_emulator_01');
@@ -342,7 +346,7 @@ async function seedEnrollmentResourceClaims(database: Firestore) {
   await database.doc(`resource_claims/${seatIdentity.claimId}`).set(
     ResourceClaimSchema.parse({
       claimId: seatIdentity.claimId,
-      strategyVersion: 'claim:v1',
+      strategyVersion: 'claim:v2',
       claimKind: 'course_seat_pre_start',
       resourceKind: 'course',
       resourceId: courseId,
@@ -384,7 +388,7 @@ async function seedEnrollmentResourceClaims(database: Firestore) {
     await database.doc(`resource_claims/${dayIdentity.claimId}`).set(
       ResourceClaimSchema.parse({
         claimId: dayIdentity.claimId,
-        strategyVersion: 'claim:v1',
+        strategyVersion: 'claim:v2',
         claimKind: 'participant_course_day_enrollment',
         resourceKind: 'participant',
         resourceId: participantId,
@@ -409,7 +413,7 @@ async function seedEnrollmentResourceClaims(database: Firestore) {
     await database.doc(`resource_claims/${instructorClaim.instructorClaimId}`).set(
       ResourceClaimSchema.parse({
         claimId: instructorClaim.instructorClaimId,
-        strategyVersion: 'claim:v1',
+        strategyVersion: 'claim:v2',
         claimKind: 'instructor_course_day',
         resourceKind: 'instructor',
         resourceId: instructorId,
@@ -659,8 +663,7 @@ async function listEnrollmentOwnedClaims() {
   const claims = await firestore.collection('resource_claims').get();
   return claims.docs
     .filter(
-      (doc) =>
-        doc.data()?.ownerKind === 'course_enrollment' && doc.data()?.ownerId === enrollmentId
+      (doc) => doc.data()?.ownerKind === 'course_enrollment' && doc.data()?.ownerId === enrollmentId
     )
     .map((doc) => doc.data());
 }
@@ -890,7 +893,9 @@ describeEmulator('courseEnrollmentAttendanceCommands emulator', () => {
     const dayOneCommands = createCommands('2026-02-01T04:00:00.000Z');
     await dayOneCommands.execute(recordEnvelope(courseDayOneId, 'present', 'present-missing-day1'));
     const dayThreeCommands = createCommands(isoAfterFinalCourseDayEnd());
-    await dayThreeCommands.execute(recordEnvelope(courseDayThreeId, 'absent', 'present-missing-day3'));
+    await dayThreeCommands.execute(
+      recordEnvelope(courseDayThreeId, 'absent', 'present-missing-day3')
+    );
 
     const enrollment = (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data();
     expect(enrollment?.lifecycle.status).toBe('completed');
@@ -937,9 +942,11 @@ describeEmulator('courseEnrollmentAttendanceCommands emulator', () => {
   it('K. occurrence rotation: stale day-3 evidence ignored; new instructor records at rev2', async () => {
     const reassignCommands = createCommands('2026-02-02T10:00:00.000Z');
     expect(
-      (await reassignCommands.execute(
-        reassignEnvelope(courseDayThreeId, instructorTwoId, 'rotate-day3-instructor')
-      )).status
+      (
+        await reassignCommands.execute(
+          reassignEnvelope(courseDayThreeId, instructorTwoId, 'rotate-day3-instructor')
+        )
+      ).status
     ).toBe('success');
 
     await seedStaleAttendance(courseDayThreeId, 1, 'present');
@@ -954,8 +961,9 @@ describeEmulator('courseEnrollmentAttendanceCommands emulator', () => {
       'success'
     );
 
-    const enrollmentBeforeRecord = (await firestore.doc(`course_enrollments/${enrollmentId}`).get())
-      .data();
+    const enrollmentBeforeRecord = (
+      await firestore.doc(`course_enrollments/${enrollmentId}`).get()
+    ).data();
     expect(enrollmentBeforeRecord?.lifecycle.status).toBe('confirmed');
 
     const staleIssues = await missingAttendanceIssues();
@@ -993,9 +1001,11 @@ describeEmulator('courseEnrollmentAttendanceCommands emulator', () => {
   it('L. reassigned instructor authority: old forbidden, new allowed on day 3', async () => {
     const reassignCommands = createCommands('2026-02-02T10:00:00.000Z');
     expect(
-      (await reassignCommands.execute(
-        reassignEnvelope(courseDayThreeId, instructorTwoId, 'authority-reassign')
-      )).status
+      (
+        await reassignCommands.execute(
+          reassignEnvelope(courseDayThreeId, instructorTwoId, 'authority-reassign')
+        )
+      ).status
     ).toBe('success');
 
     const dayThreeCommands = createCommands('2026-02-03T04:00:00.000Z');
@@ -1019,9 +1029,9 @@ describeEmulator('courseEnrollmentAttendanceCommands emulator', () => {
       commands.execute(recordEnvelope(courseDayThreeId, 'present', 'race-present')),
       commands.execute(resolveEnvelope('race-resolve')),
     ]);
-    expect([recordResult.status, resolveResult.status].every((status) => status === 'fulfilled')).toBe(
-      true
-    );
+    expect(
+      [recordResult.status, resolveResult.status].every((status) => status === 'fulfilled')
+    ).toBe(true);
 
     const enrollment = (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data();
     const attendanceDocs = await firestore.collection('attendance').get();
@@ -1070,7 +1080,8 @@ describeEmulator('courseEnrollmentAttendanceCommands emulator', () => {
     const seatsBefore = await readCourseAvailableSeats();
     const claimsBefore = await listEnrollmentOwnedClaims();
     expect(
-      claimsBefore.filter((claim) => claim?.claimKind === 'participant_course_day_enrollment').length
+      claimsBefore.filter((claim) => claim?.claimKind === 'participant_course_day_enrollment')
+        .length
     ).toBe(3);
 
     const dayOneCommands = createCommands('2026-02-01T04:00:00.000Z');
@@ -1152,8 +1163,9 @@ describeEmulator('courseEnrollmentAttendanceCommands emulator', () => {
     );
     expect(staleAttempt.status).toBe('error');
 
-    const attendance = (await firestore.doc(`attendance/${attendanceIdFor(courseDayOneId)}`).get())
-      .data();
+    const attendance = (
+      await firestore.doc(`attendance/${attendanceIdFor(courseDayOneId)}`).get()
+    ).data();
     expect(attendance?.attendanceStatus).toBe('present');
     expect(attendance?.revision).toBe(1);
   }, 30_000);
@@ -1268,8 +1280,9 @@ describeEmulator('courseEnrollmentAttendanceCommands emulator', () => {
     });
     expect(adminAttempt.status).toBe('success');
 
-    const attendance = (await firestore.doc(`attendance/${attendanceIdFor(courseDayThreeId)}`).get())
-      .data();
+    const attendance = (
+      await firestore.doc(`attendance/${attendanceIdFor(courseDayThreeId)}`).get()
+    ).data();
     expect(attendance?.attendanceStatus).toBe('present');
 
     const enrollment = (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data();
@@ -1322,7 +1335,9 @@ describeEmulator('courseEnrollmentAttendanceCommands emulator', () => {
       await firestore.doc(`participant_achievements/${participantId}`).get()
     ).data();
     expect(achievements?.earned?.course_graduate?.source).toBe('course_completion');
-    expect(achievements?.earned?.course_graduate?.earnedAt).toEqual(enrollment?.lifecycle.completedAt);
+    expect(achievements?.earned?.course_graduate?.earnedAt).toEqual(
+      enrollment?.lifecycle.completedAt
+    );
     expect(achievements?.revision).toBe(1);
     const achievementDocs = await firestore.collection('participant_achievements').get();
     expect(achievementDocs.size).toBe(1);

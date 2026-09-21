@@ -172,10 +172,10 @@ describe('canonical collections and paths', () => {
     const courseId = CourseIdSchema.parse('course_01');
     const key = activeCourseEnrollmentGuardKey(participantId, courseId);
 
-    expect(key).toBe('aceg_v1_14_participant_01_9_course_01');
+    expect(key).toBe('aceg_v2_live_14_participant_01_9_course_01');
     expect(ActiveCourseEnrollmentGuardKeySchema.parse(key)).toBe(key);
     expect(canonicalPaths.activeCourseEnrollmentGuard(participantId, courseId)).toBe(
-      '/active_course_enrollment_guards/aceg_v1_14_participant_01_9_course_01'
+      '/active_course_enrollment_guards/aceg_v2_live_14_participant_01_9_course_01'
     );
     expect(ActiveCourseEnrollmentGuardKeySchema.safeParse('arbitrary_guard').success).toBe(false);
     expect(
@@ -183,7 +183,7 @@ describe('canonical collections and paths', () => {
         .success
     ).toBe(false);
     expect(
-      ActiveCourseEnrollmentGuardKeySchema.safeParse('aceg_v1_13_participant_01_9_course_01')
+      ActiveCourseEnrollmentGuardKeySchema.safeParse('aceg_v2_live_13_participant_01_9_course_01')
         .success
     ).toBe(false);
   });

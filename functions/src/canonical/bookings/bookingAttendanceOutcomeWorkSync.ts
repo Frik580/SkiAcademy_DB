@@ -12,6 +12,9 @@ import {
   type Booking,
   type BookingId,
   type ParticipantId,
+  type CanonicalExecutionScope,
+  parsePersistedCanonicalScope,
+  assertSameCanonicalScope,
 } from '@ski-academy/shared-domain';
 import { attendancePath, parseAttendance } from './attendanceStore';
 import { parseBooking } from './bookingStore';
@@ -118,6 +121,13 @@ export function bookingWriteRequiresAttendanceOutcomeWorkReconciliation(input: {
     return true;
   }
 
+  try {
+    const beforeScope = parsePersistedCanonicalScope(before);
+    assertSameCanonicalScope(beforeScope, after);
+  } catch {
+    return true;
+  }
+
   return !sameAttendanceSchedulerRelevantState(
     attendanceSchedulerRelevantState(before),
     attendanceSchedulerRelevantState(after)
@@ -166,8 +176,12 @@ function idempotencyPath(input: {
   readonly bookingId: BookingId;
   readonly occurrenceId: Booking['occurrence']['occurrenceId'];
   readonly deadlineId: BookingAttendanceOutcomeSweepDeadline;
+  readonly scope: CanonicalExecutionScope;
 }): string {
-  const identity = resolveCommandIdempotencyIdentity(resolveLessonBookingAttendanceEnvelope(input));
+  const identity = resolveCommandIdempotencyIdentity(
+    resolveLessonBookingAttendanceEnvelope(input),
+    input.scope
+  );
   return identity.recordPath.startsWith('/') ? identity.recordPath.slice(1) : identity.recordPath;
 }
 
@@ -179,6 +193,7 @@ async function chooseInitialWork(
   nowDate: Date,
   minimumEndsAt?: Booking['occurrence']['interval']['endsAt']
 ): Promise<BookingAttendanceOutcomeWork> {
+  const scope = parsePersistedCanonicalScope(booking);
   const now = timestampFromDate(nowDate);
   const workRevision = nextWorkRevision(existing);
   const endsAt = booking.occurrence.interval.endsAt;
@@ -210,6 +225,7 @@ async function chooseInitialWork(
           bookingId: booking.bookingId,
           occurrenceId: booking.occurrence.occurrenceId,
           deadlineId: BOOKING_ATTENDANCE_OUTCOME_SWEEP_DEADLINE.instructorWindow,
+          scope,
         })
       )
     );
@@ -232,6 +248,7 @@ async function chooseInitialWork(
         bookingId: booking.bookingId,
         occurrenceId: booking.occurrence.occurrenceId,
         deadlineId: BOOKING_ATTENDANCE_OUTCOME_SWEEP_DEADLINE.outcome,
+        scope,
       })
     )
   );
@@ -278,14 +295,14 @@ export async function reconcileLessonBookingAttendanceOutcomeWork(
 
     const booking = parseBooking(bookingSnapshot.data() as Record<string, unknown> | undefined);
     if (!booking || booking.bookingId !== bookingId) {
-      const now = timestampFromDate(nowDate);
-      transaction.set(workRef, {
-        bookingId,
-        status: 'blocked',
-        blockedReason: 'invalid_booking',
-        workRevision: (existing?.workRevision ?? 0) + 1,
-        updatedAt: now,
-      });
+      if (workSnapshot.exists) transaction.delete(workRef);
+      return 'blocked';
+    }
+    let bookingScope: CanonicalExecutionScope;
+    try {
+      bookingScope = parsePersistedCanonicalScope(booking);
+      if (existing) assertSameCanonicalScope(bookingScope, existing);
+    } catch {
       return 'blocked';
     }
 

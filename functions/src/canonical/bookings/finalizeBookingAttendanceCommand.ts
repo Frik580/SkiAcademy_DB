@@ -36,7 +36,10 @@ import {
   planAdminIssueLifecycleMutation,
   plannedAdminIssuePath,
 } from '../adminIssues';
-import { assertAdministrator, requireAccountActor } from '../participantAccess/participantAccessAuthorization';
+import {
+  assertAdministrator,
+  requireAccountActor,
+} from '../participantAccess/participantAccessAuthorization';
 import type { CanonicalAtomicTransactionSession } from '../transactions';
 import {
   ATTENDANCE_PLANNING_ESTIMATES,
@@ -60,8 +63,11 @@ interface CommandMetadata {
   readonly correlationId: CommandEnvelope['context']['correlationId'];
 }
 
-function metadataFromEnvelope(envelope: CommandEnvelope): CommandMetadata {
-  const identity = resolveCommandIdempotencyIdentity(envelope);
+function metadataFromEnvelope(
+  envelope: CommandEnvelope,
+  environment: CommandExecutionEnvironment
+): CommandMetadata {
+  const identity = resolveCommandIdempotencyIdentity(envelope, environment.scope);
   return {
     commandId: identity.commandKey,
     correlationId: envelope.context.correlationId,
@@ -195,7 +201,7 @@ export function finalizeBookingAttendanceHandler(
   environment: CommandExecutionEnvironment,
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
 ): Promise<CommandResult<'finalize_booking_attendance'>> {
-  const metadata = metadataFromEnvelope(envelope);
+  const metadata = metadataFromEnvelope(envelope, environment);
   const bookingDocumentPath = bookingPath(envelope.intent.bookingId);
 
   let booking!: Booking;
@@ -237,7 +243,9 @@ export function finalizeBookingAttendanceHandler(
 
       const actor = envelope.context.actor;
       if (actor.kind !== 'account') {
-        throw new CanonicalCommandError('forbidden', { correlationId: envelope.context.correlationId });
+        throw new CanonicalCommandError('forbidden', {
+          correlationId: envelope.context.correlationId,
+        });
       }
       const recorder = { kind: 'administrator' as const, accountId: actor.accountId };
 
@@ -502,9 +510,10 @@ export function finalizeBookingAttendanceHandler(
             issueId: entry.issue.issueId,
             revision: entry.issue.revision,
             effect: 'resolved' as const,
-            kind: entry.issue.kind === 'attendance_payment_conflict'
-              ? ('attendance_payment_conflict' as const)
-              : ('missing_attendance' as const),
+            kind:
+              entry.issue.kind === 'attendance_payment_conflict'
+                ? ('attendance_payment_conflict' as const)
+                : ('missing_attendance' as const),
           })),
         ],
         ...(auditSummary ? { lifecycleSummary: auditSummary } : {}),

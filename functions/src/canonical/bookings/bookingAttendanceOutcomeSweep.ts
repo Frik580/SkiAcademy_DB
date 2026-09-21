@@ -11,6 +11,7 @@ import {
   compareCanonicalTimestamps,
   timestampFromDate,
   type CommandResult,
+  type CanonicalExecutionScope,
 } from '@ski-academy/shared-domain';
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createCanonicalCommands } from '../commands/canonicalCommands';
@@ -28,6 +29,7 @@ import {
   type PendingBookingAttendanceOutcomeWork,
 } from './bookingAttendanceOutcomeWork';
 import { isLessonBookingAttendanceOutcomeWorkMigrationReady } from './bookingAttendanceOutcomeWorkSync';
+import { resolveWorkerExecutionScope } from '../testSessions/workerExecutionScope';
 
 export {
   BOOKING_ATTENDANCE_OUTCOME_SWEEP_DEADLINE,
@@ -44,7 +46,13 @@ export const BOOKING_ATTENDANCE_OUTCOME_SWEEP_RETRY_BASE_MS = 5 * 60 * 1_000;
 export const BOOKING_ATTENDANCE_OUTCOME_SWEEP_RETRY_MAX_MS = 60 * 60 * 1_000;
 
 export type BookingAttendanceOutcomeSweepOutcome =
-  'applied' | 'already_ineligible' | 'stale' | 'invalid_integrity' | 'failed' | 'future_skipped';
+  | 'applied'
+  | 'already_ineligible'
+  | 'stale'
+  | 'invalid_integrity'
+  | 'failed'
+  | 'future_skipped'
+  | 'session_inactive_skipped';
 
 export interface BookingAttendanceOutcomeSweepCursor {
   readonly dueAtSeconds: number;
@@ -95,7 +103,8 @@ interface BookingAttendanceOutcomeSweepCounters {
 function createSweepCommands(
   firestore: Firestore,
   nowDate: Date,
-  counters: BookingAttendanceOutcomeSweepCounters
+  counters: BookingAttendanceOutcomeSweepCounters,
+  scope?: CanonicalExecutionScope
 ) {
   const transactionExecutor = createFirestoreCanonicalTransactionExecutor(firestore);
   return createCanonicalCommands(
@@ -107,7 +116,7 @@ function createSweepCommands(
         counters.issuesOpened += observation.issuesOpened;
       },
     }),
-    { clock: createAuthoritativeCommandClock(nowDate) }
+    { clock: createAuthoritativeCommandClock(nowDate), ...(scope ? { scope } : {}) }
   );
 }
 
@@ -242,7 +251,8 @@ async function processCandidate(
   snapshot: DocumentSnapshot,
   nowDate: Date,
   execute: (
-    envelope: ReturnType<typeof resolveLessonBookingAttendanceEnvelope>
+    envelope: ReturnType<typeof resolveLessonBookingAttendanceEnvelope>,
+    scope: CanonicalExecutionScope
   ) => Promise<CommandResult<'resolve_attendance_outcome'>>
 ): Promise<BookingAttendanceOutcomeSweepCandidateResult> {
   const parsedBookingId = BookingIdSchema.safeParse(snapshot.id);
@@ -266,6 +276,29 @@ async function processCandidate(
     };
   }
 
+  let executionScope: CanonicalExecutionScope | undefined;
+  try {
+    executionScope = await resolveWorkerExecutionScope(firestore, parsedWork);
+  } catch {
+    await updatePendingWorkIfCurrent(
+      firestore,
+      parsedWork,
+      blockPendingBookingAttendanceOutcomeWork(parsedWork, { updatedAt: now })
+    );
+    return {
+      bookingId: parsedWork.bookingId,
+      deadlineId: parsedWork.deadlineId,
+      outcome: 'invalid_integrity',
+    };
+  }
+  if (!executionScope) {
+    return {
+      bookingId: parsedWork.bookingId,
+      deadlineId: parsedWork.deadlineId,
+      outcome: 'session_inactive_skipped',
+    };
+  }
+
   const work = await normalizeOverdueDeadline(firestore, parsedWork, now);
   try {
     const result = await execute(
@@ -273,7 +306,8 @@ async function processCandidate(
         bookingId: work.bookingId,
         occurrenceId: work.occurrenceId,
         deadlineId: work.deadlineId,
-      })
+      }),
+      executionScope
     );
     const outcome = classifyResolveAttendanceOutcomeCommandResult(result);
     if (outcome === 'already_ineligible') {
@@ -375,7 +409,8 @@ async function sweepLegacyBookingCandidates(
           firestore,
           projectedWorkSnapshot,
           nowDate,
-          (envelope) => commands.execute(envelope)
+          (envelope, scope) =>
+            createSweepCommands(firestore, nowDate, counters, scope).execute(envelope)
         );
         outcomes.push(candidate);
         if (candidate.outcome === 'future_skipped') {
@@ -474,7 +509,6 @@ export async function sweepLessonBookingAttendanceOutcomes(
     options.maxCandidateDocs ?? BOOKING_ATTENDANCE_OUTCOME_SWEEP_MAX_DOCS
   );
   const counters = { idempotencyHits: 0, idempotencyMisses: 0, resolved: 0, issuesOpened: 0 };
-  const commands = createSweepCommands(firestore, nowDate, counters);
 
   const outcomes: BookingAttendanceOutcomeSweepCandidateResult[] = [];
   let cursor = options.startAfter;
@@ -505,8 +539,8 @@ export async function sweepLessonBookingAttendanceOutcomes(
     for (const document of snapshot.docs) {
       const nextCursor = readCursorFromSnapshot(document);
       if (nextCursor) cursor = nextCursor;
-      const candidate = await processCandidate(firestore, document, nowDate, (envelope) =>
-        commands.execute(envelope)
+      const candidate = await processCandidate(firestore, document, nowDate, (envelope, scope) =>
+        createSweepCommands(firestore, nowDate, counters, scope).execute(envelope)
       );
       outcomes.push(candidate);
       if (candidate.outcome === 'future_skipped') {

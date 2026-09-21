@@ -6,6 +6,7 @@ import {
   attendanceIdFromBookingIdentity,
   AttendanceSchema,
   timestampFromDate,
+  TestSessionIdSchema,
   type Booking,
 } from '@ski-academy/shared-domain';
 import { canonicalBookingCollaborationFixtures } from '@ski-academy/shared-domain/testing';
@@ -20,6 +21,7 @@ import {
 } from './bookingAttendanceOutcomeWorkSync';
 
 const booking = canonicalBookingCollaborationFixtures.individualBooking;
+const testSessionId = TestSessionIdSchema.parse('test_session_booking_work_01');
 
 function raw(value: Booking): Record<string, unknown> {
   return value as unknown as Record<string, unknown>;
@@ -81,6 +83,48 @@ function createFirestoreHarness(initial: Readonly<Record<string, Record<string, 
 }
 
 describe('Booking attendance outcome trigger scheduling guard', () => {
+  it('inherits TEST Booking scope into outcome work and never promotes it to LIVE', async () => {
+    const scopedBooking = {
+      ...withRevision(booking, 1),
+      dataScope: 'test',
+      testSessionId,
+    } as Booking;
+    const bookingPath = `bookings/${booking.bookingId}`;
+    const workPath = `booking_attendance_outcome_work/${booking.bookingId}`;
+    const harness = createFirestoreHarness({ [bookingPath]: raw(scopedBooking) });
+
+    await expect(
+      syncLessonBookingAttendanceOutcomeWorkForBookingWrite(harness.firestore, {
+        rawBookingId: booking.bookingId,
+        afterData: raw(scopedBooking),
+        now: new Date('2026-01-01T00:00:00.000Z'),
+      })
+    ).resolves.toBe('created');
+    expect(parseBookingAttendanceOutcomeWork(harness.documents.get(workPath))).toMatchObject({
+      dataScope: 'test',
+      testSessionId,
+    });
+  });
+
+  it('blocks malformed persisted Booking scope without creating LIVE work', async () => {
+    const malformed = {
+      ...withRevision(booking, 1),
+      dataScope: 'live',
+      testSessionId,
+    } as unknown as Record<string, unknown>;
+    const bookingPath = `bookings/${booking.bookingId}`;
+    const workPath = `booking_attendance_outcome_work/${booking.bookingId}`;
+    const harness = createFirestoreHarness({ [bookingPath]: malformed });
+
+    await expect(
+      syncLessonBookingAttendanceOutcomeWorkForBookingWrite(harness.firestore, {
+        rawBookingId: booking.bookingId,
+        afterData: malformed,
+      })
+    ).resolves.toBe('blocked');
+    expect(harness.documents.has(workPath)).toBe(false);
+  });
+
   it('skips an unrelated Booking update without touching Firestore', async () => {
     const before = withRevision(booking, 1);
     const after = {

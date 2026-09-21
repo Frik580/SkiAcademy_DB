@@ -168,7 +168,10 @@ function buildIdentityAdminAuditPlan(input: {
   readonly summary: string;
   readonly reasonCode: 'manual_override' | 'participant_management';
   readonly explanation: string;
-  readonly primary: { readonly kind: 'account' | 'participant' | 'instructor'; readonly id: string };
+  readonly primary: {
+    readonly kind: 'account' | 'participant' | 'instructor';
+    readonly id: string;
+  };
   readonly affectedSubjects: AuditOutboxStagingPlan['activityLog']['affectedSubjects'];
   readonly resultingRevisions: AuditOutboxStagingPlan['activityLog']['resultingRevisions'];
   readonly effectKind: 'participant_access_changed' | 'outbox_obligation_created';
@@ -525,7 +528,10 @@ function accountLifecycleHandler<Kind extends 'disable_account' | 'enable_accoun
     read: async (session) => {
       const actor = requireAccountActor(envelope);
       const actorRead = await session.tx.get({ path: accountPath(actor.accountId) });
-      session.plan.planRead({ path: accountPath(actor.accountId), category: 'authorization_check' });
+      session.plan.planRead({
+        path: accountPath(actor.accountId),
+        category: 'authorization_check',
+      });
       assertAccountActive(envelope, parseAccount(actorRead.exists ? actorRead.data : undefined));
 
       const targetRead = await session.tx.get({ path: targetPath });
@@ -637,14 +643,15 @@ function participantLifecycleHandler<Kind extends 'archive_participant' | 'react
     read: async (session) => {
       const actor = requireAccountActor(envelope);
       const actorRead = await session.tx.get({ path: accountPath(actor.accountId) });
-      session.plan.planRead({ path: accountPath(actor.accountId), category: 'authorization_check' });
+      session.plan.planRead({
+        path: accountPath(actor.accountId),
+        category: 'authorization_check',
+      });
       assertAccountActive(envelope, parseAccount(actorRead.exists ? actorRead.data : undefined));
 
       const participantRead = await session.tx.get({ path: participantDocumentPath });
       session.plan.planRead({ path: participantDocumentPath, category: 'aggregate' });
-      const parsed = parseParticipant(
-        participantRead.exists ? participantRead.data : undefined
-      );
+      const parsed = parseParticipant(participantRead.exists ? participantRead.data : undefined);
       if (!parsed) {
         conflict(envelope, { resourceKind: 'participant', reason: 'conflict' });
       }
@@ -727,20 +734,17 @@ function participantLifecycleHandler<Kind extends 'archive_participant' | 'react
         nextStatus === 'archived'
           ? { status: 'archived' as const, archivedAt: decidedAt }
           : { status: 'active' as const };
-      session.tx.update(
-        { path: participantDocumentPath },
-        {
-          ...participantRecord,
-          lifecycle,
-          revision: nextAggregateRevision(participantRecord.revision),
-          updatedAt: decidedAt,
-          audit: {
-            ...participantRecord.audit,
-            lastChangedByCommandId: metadata.commandId,
-            correlationId: metadata.correlationId,
-          },
-        } as Record<string, unknown>
-      );
+      session.tx.update({ path: participantDocumentPath }, {
+        ...participantRecord,
+        lifecycle,
+        revision: nextAggregateRevision(participantRecord.revision),
+        updatedAt: decidedAt,
+        audit: {
+          ...participantRecord.audit,
+          lastChangedByCommandId: metadata.commandId,
+          correlationId: metadata.correlationId,
+        },
+      } as Record<string, unknown>);
       return commandSuccessResult(envelope.kind, envelope.context.correlationId);
     },
   };
@@ -916,7 +920,8 @@ function assignAsAdministratorHandler(
             kind: 'managed',
             participantManagementId: envelope.intent.participantManagementId,
           },
-          initialManagementEligibleAccountId: CANONICAL_FIELD_DELETE as unknown as Account['accountId'],
+          initialManagementEligibleAccountId:
+            CANONICAL_FIELD_DELETE as unknown as Account['accountId'],
           revision: nextAggregateRevision(participantRecord.revision),
           updatedAt: decidedAt,
           audit: {
@@ -927,14 +932,15 @@ function assignAsAdministratorHandler(
         };
         const managementWrite = {
           ...(management as Record<string, unknown>),
-          ...(existingManagement?.status === 'ended'
-            ? { endedAt: CANONICAL_FIELD_DELETE }
-            : {}),
+          ...(existingManagement?.status === 'ended' ? { endedAt: CANONICAL_FIELD_DELETE } : {}),
         };
         if (existingManagement) {
           session.tx.update({ path: managementDocumentPath }, managementWrite);
         } else {
-          session.tx.create({ path: managementDocumentPath }, management as Record<string, unknown>);
+          session.tx.create(
+            { path: managementDocumentPath },
+            management as Record<string, unknown>
+          );
         }
         session.tx.update(
           { path: participantDocumentPath },
@@ -1100,7 +1106,10 @@ function createManagedDependentHandler(
           updatedAt: decidedAt,
           audit,
         };
-        session.tx.create({ path: participantDocumentPath }, participant as Record<string, unknown>);
+        session.tx.create(
+          { path: participantDocumentPath },
+          participant as Record<string, unknown>
+        );
         session.tx.create({ path: managementDocumentPath }, management as Record<string, unknown>);
         commitAcquireParticipantManagementActiveOwnerGuard(
           session,
@@ -1412,9 +1421,7 @@ function updateOwnAccountContactHandler(
         primary: { kind: 'account', id: actor.accountId },
         affectedSubjects: [
           canonicalReference('account', actor.accountId),
-          ...(linkedInstructorId
-            ? [canonicalReference('instructor', linkedInstructorId)]
-            : []),
+          ...(linkedInstructorId ? [canonicalReference('instructor', linkedInstructorId)] : []),
         ],
         resultingRevisions: [
           {
@@ -1568,13 +1575,19 @@ function createInstructorCatalogHandler(
             id: envelope.intent.instructorId,
             instructorId: envelope.intent.instructorId,
             name: envelope.intent.name,
-            ...(envelope.intent.specialty === undefined ? {} : { specialty: envelope.intent.specialty }),
-            ...(envelope.intent.languages === undefined ? {} : { languages: envelope.intent.languages }),
+            ...(envelope.intent.specialty === undefined
+              ? {}
+              : { specialty: envelope.intent.specialty }),
+            ...(envelope.intent.languages === undefined
+              ? {}
+              : { languages: envelope.intent.languages }),
             ...(envelope.intent.experienceYears === undefined
               ? {}
               : { experienceYears: envelope.intent.experienceYears }),
             ...(envelope.intent.bio === undefined ? {} : { bio: envelope.intent.bio }),
-            ...(envelope.intent.avatarUrl === undefined ? {} : { avatarUrl: envelope.intent.avatarUrl }),
+            ...(envelope.intent.avatarUrl === undefined
+              ? {}
+              : { avatarUrl: envelope.intent.avatarUrl }),
             pricePerHourKZT: envelope.intent.pricePerHourKZT,
             ...(envelope.intent.phoneNumber === undefined
               ? {}
@@ -1612,7 +1625,12 @@ function createInstructorCatalogHandler(
     environment,
     executor,
     ...(linkAccountId
-      ? { revisionTarget: { ref: { path: accountPath(linkAccountId) }, requireExpectedRevision: true } }
+      ? {
+          revisionTarget: {
+            ref: { path: accountPath(linkAccountId) },
+            requireExpectedRevision: true,
+          },
+        }
       : {}),
     handler,
   });
@@ -1677,13 +1695,19 @@ function updateInstructorCatalogHandler(
           { path: catalogPath },
           {
             ...(envelope.intent.name === undefined ? {} : { name: envelope.intent.name }),
-            ...(envelope.intent.specialty === undefined ? {} : { specialty: envelope.intent.specialty }),
-            ...(envelope.intent.languages === undefined ? {} : { languages: envelope.intent.languages }),
+            ...(envelope.intent.specialty === undefined
+              ? {}
+              : { specialty: envelope.intent.specialty }),
+            ...(envelope.intent.languages === undefined
+              ? {}
+              : { languages: envelope.intent.languages }),
             ...(envelope.intent.experienceYears === undefined
               ? {}
               : { experienceYears: envelope.intent.experienceYears }),
             ...(envelope.intent.bio === undefined ? {} : { bio: envelope.intent.bio }),
-            ...(envelope.intent.avatarUrl === undefined ? {} : { avatarUrl: envelope.intent.avatarUrl }),
+            ...(envelope.intent.avatarUrl === undefined
+              ? {}
+              : { avatarUrl: envelope.intent.avatarUrl }),
             ...(envelope.intent.pricePerHourKZT === undefined
               ? {}
               : { pricePerHourKZT: envelope.intent.pricePerHourKZT }),
@@ -1724,7 +1748,10 @@ function instructorAvailabilityHandler<
     read: async (session) => {
       const actor = requireAccountActor(envelope);
       const actorRead = await session.tx.get({ path: accountPath(actor.accountId) });
-      session.plan.planRead({ path: accountPath(actor.accountId), category: 'authorization_check' });
+      session.plan.planRead({
+        path: accountPath(actor.accountId),
+        category: 'authorization_check',
+      });
       assertAccountActive(envelope, parseAccount(actorRead.exists ? actorRead.data : undefined));
       const existing = await session.tx.get({ path: catalogPath });
       session.plan.planRead({ path: catalogPath, category: 'aggregate' });
@@ -1767,9 +1794,7 @@ function instructorAvailabilityHandler<
           const linkedAccount = parseAccount(linkedRead.exists ? linkedRead.data : undefined);
           linkedAccountLifecycle = linkedAccount?.lifecycle.status;
         }
-        if (
-          evaluateReactivateInstructorCatalog({ linkedAccountLifecycle }) !== 'allowed'
-        ) {
+        if (evaluateReactivateInstructorCatalog({ linkedAccountLifecycle }) !== 'allowed') {
           forbidden(envelope, {
             resourceKind: 'instructor',
             reason: 'conflict',
@@ -2163,6 +2188,7 @@ function deleteInstructorCatalogHandler(
             blockId: block.blockId,
             instructorId: block.instructorId,
             scheduleRevision: block.scheduleRevision,
+            scope: session.scope,
           });
           const releasePlan = await readAndPlanReleaseResourceClaimIfPresent(session, {
             correlationId: metadata.correlationId,
@@ -2347,9 +2373,7 @@ function repairOwnerGuardHandler(
           path: participantManagementActiveOwnerPath(participantRecord.participantId),
           category: 'authorization_check',
         });
-        const existingGuard = parseActiveOwnerGuard(
-          guardRead.exists ? guardRead.data : undefined
-        );
+        const existingGuard = parseActiveOwnerGuard(guardRead.exists ? guardRead.data : undefined);
         if (
           existingGuard &&
           existingGuard.accountId === managementRecord.accountId &&
@@ -2384,10 +2408,7 @@ function repairOwnerGuardHandler(
           primary: { kind: 'participant', id: envelope.intent.participantId },
           affectedSubjects: [
             canonicalReference('participant', envelope.intent.participantId),
-            canonicalReference(
-              'participant_management',
-              managementRecord.participantManagementId
-            ),
+            canonicalReference('participant_management', managementRecord.participantManagementId),
           ],
           resultingRevisions: [
             {

@@ -9,6 +9,8 @@ import {
   type OccurrenceId,
   type ParticipantId,
   type TimeInterval,
+  type CanonicalExecutionScope,
+  LIVE_CANONICAL_EXECUTION_SCOPE,
 } from '@ski-academy/shared-domain';
 import {
   commitResourceClaimPlan,
@@ -21,9 +23,11 @@ export function bookingClaimIdentities(input: {
   readonly occurrenceId: OccurrenceId;
   readonly instructorId: InstructorId;
   readonly participantId: ParticipantId;
+  readonly scope?: CanonicalExecutionScope;
 }) {
+  const scope = input.scope ?? LIVE_CANONICAL_EXECUTION_SCOPE;
   const instructorIdentity = ResourceClaimIdentityInputSchema.parse({
-    strategyVersion: 'claim:v1',
+    strategyVersion: 'claim:v2',
     claimKind: 'instructor_booking_occurrence',
     resourceKind: 'instructor',
     resourceId: input.instructorId,
@@ -32,7 +36,7 @@ export function bookingClaimIdentities(input: {
     occurrenceId: input.occurrenceId,
   });
   const participantIdentity = ResourceClaimIdentityInputSchema.parse({
-    strategyVersion: 'claim:v1',
+    strategyVersion: 'claim:v2',
     claimKind: 'participant_booking_occurrence',
     resourceKind: 'participant',
     resourceId: input.participantId,
@@ -41,20 +45,24 @@ export function bookingClaimIdentities(input: {
     occurrenceId: input.occurrenceId,
   });
   return {
-    instructorClaimId: resourceClaimIdFromIdentity(instructorIdentity),
-    participantClaimId: resourceClaimIdFromIdentity(participantIdentity),
+    instructorClaimId: resourceClaimIdFromIdentity(instructorIdentity, scope),
+    participantClaimId: resourceClaimIdFromIdentity(participantIdentity, scope),
     instructorIdentity,
     participantIdentity,
   };
 }
 
-export function bookingClaimIds(booking: Booking) {
+export function bookingClaimIds(
+  booking: Booking,
+  scope: CanonicalExecutionScope = LIVE_CANONICAL_EXECUTION_SCOPE
+) {
   return booking.party.participantIds.map((participantId) =>
     bookingClaimIdentities({
       bookingId: booking.bookingId,
       occurrenceId: booking.occurrence.occurrenceId,
       instructorId: booking.occurrence.instructorId,
       participantId,
+      scope,
     })
   );
 }
@@ -74,6 +82,7 @@ export async function planReleaseParticipantBookingClaim(
     occurrenceId: booking.occurrence.occurrenceId,
     instructorId: booking.occurrence.instructorId,
     participantId,
+    scope: session.scope,
   });
   return readAndPlanReleaseResourceClaim(session, {
     correlationId: metadata.correlationId,
@@ -98,6 +107,7 @@ export async function planAcquireParticipantBookingClaim(
     occurrenceId: input.booking.occurrence.occurrenceId,
     instructorId: input.booking.occurrence.instructorId,
     participantId: input.participantId,
+    scope: session.scope,
   });
   return readAndPlanAcquireResourceClaim(session, {
     correlationId: input.correlationId,
@@ -128,7 +138,7 @@ export async function planReleaseBookingClaims(
   },
   decidedAt: Date
 ) {
-  const claimIds = bookingClaimIds(booking);
+  const claimIds = bookingClaimIds(booking, session.scope ?? LIVE_CANONICAL_EXECUTION_SCOPE);
   const claimMetadata = {
     correlationId: metadata.correlationId,
     commandId: metadata.commandId,
@@ -139,6 +149,7 @@ export async function planReleaseBookingClaims(
     occurrenceId: booking.occurrence.occurrenceId,
     instructorId: booking.occurrence.instructorId,
     participantId: booking.party.participantIds[0]!,
+    scope: session.scope,
   }).instructorClaimId;
   const plans = [];
   plans.push(
@@ -177,6 +188,7 @@ export async function planAcquireBookingOccurrenceClaims(
     occurrenceId: input.occurrenceId,
     instructorId: input.instructorId,
     participantId: input.participantIds[0]!,
+    scope: session.scope,
   });
   const claimMetadata = {
     correlationId: input.correlationId,
@@ -196,6 +208,7 @@ export async function planAcquireBookingOccurrenceClaims(
       occurrenceId: input.occurrenceId,
       instructorId: input.instructorId,
       participantId,
+      scope: session.scope,
     });
     participantClaimPlans.push(
       await readAndPlanAcquireResourceClaim(session, {

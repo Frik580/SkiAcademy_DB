@@ -3,6 +3,7 @@ import {
   compareCanonicalTimestamps,
   timestampFromDate,
   type CommandResult,
+  type CanonicalExecutionScope,
 } from '@ski-academy/shared-domain';
 import type { DocumentSnapshot, Firestore } from 'firebase-admin/firestore';
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
@@ -18,6 +19,7 @@ import {
   resolveCourseEnrollmentOutcomeEnvelope,
   type PendingCourseEnrollmentOutcomeWork,
 } from './courseEnrollmentOutcomeWork';
+import { resolveWorkerExecutionScope } from '../testSessions/workerExecutionScope';
 
 export const COURSE_ENROLLMENT_OUTCOME_SWEEP_PAGE_SIZE = 25;
 export const COURSE_ENROLLMENT_OUTCOME_SWEEP_MAX_CANDIDATES = 25;
@@ -25,7 +27,12 @@ export const COURSE_ENROLLMENT_OUTCOME_RETRY_BASE_MS = 5 * 60 * 1_000;
 export const COURSE_ENROLLMENT_OUTCOME_RETRY_MAX_MS = 60 * 60 * 1_000;
 
 export type CourseEnrollmentOutcomeSweepCandidateOutcome =
-  'processed' | 'lifecycle_ineligible' | 'future_skipped' | 'invalid_work' | 'retry_scheduled';
+  | 'processed'
+  | 'lifecycle_ineligible'
+  | 'future_skipped'
+  | 'invalid_work'
+  | 'retry_scheduled'
+  | 'session_inactive_skipped';
 
 export interface CourseEnrollmentOutcomeSweepResult {
   readonly candidateDocsRead: number;
@@ -34,6 +41,7 @@ export interface CourseEnrollmentOutcomeSweepResult {
   readonly invalid: number;
   readonly retried: number;
   readonly futureSkipped: number;
+  readonly inactiveSessionSkipped: number;
   readonly truncated: boolean;
   readonly outcomes: readonly {
     readonly enrollmentId: string;
@@ -86,7 +94,8 @@ async function processCandidate(
   snapshot: DocumentSnapshot,
   nowDate: Date,
   execute: (
-    envelope: ReturnType<typeof resolveCourseEnrollmentOutcomeEnvelope>
+    envelope: ReturnType<typeof resolveCourseEnrollmentOutcomeEnvelope>,
+    scope: CanonicalExecutionScope
   ) => Promise<CommandResult<'resolve_attendance_outcome'>>
 ): Promise<{
   readonly enrollmentId: string;
@@ -108,9 +117,27 @@ async function processCandidate(
     return { enrollmentId: work.enrollmentId, outcome: 'future_skipped' };
   }
 
+  let executionScope: CanonicalExecutionScope | undefined;
+  try {
+    executionScope = await resolveWorkerExecutionScope(firestore, work);
+  } catch {
+    await updatePendingWorkIfCurrent(
+      firestore,
+      work,
+      blockPendingCourseEnrollmentOutcomeWork(work, {
+        blockedReason: 'invalid_work',
+        updatedAt: now,
+      }) as Record<string, unknown>
+    );
+    return { enrollmentId: work.enrollmentId, outcome: 'invalid_work' };
+  }
+  if (!executionScope) {
+    return { enrollmentId: work.enrollmentId, outcome: 'session_inactive_skipped' };
+  }
+
   try {
     const classification = commandOutcome(
-      await execute(resolveCourseEnrollmentOutcomeEnvelope(work))
+      await execute(resolveCourseEnrollmentOutcomeEnvelope(work), executionScope)
     );
     if (classification === 'processed' || classification === 'lifecycle_ineligible') {
       await updatePendingWorkIfCurrent(
@@ -156,7 +183,8 @@ export async function sweepCourseEnrollmentOutcomes(
     readonly now?: Date;
     readonly maxCandidates?: number;
     readonly execute?: (
-      envelope: ReturnType<typeof resolveCourseEnrollmentOutcomeEnvelope>
+      envelope: ReturnType<typeof resolveCourseEnrollmentOutcomeEnvelope>,
+      scope: CanonicalExecutionScope
     ) => Promise<CommandResult<'resolve_attendance_outcome'>>;
   } = {}
 ): Promise<CourseEnrollmentOutcomeSweepResult> {
@@ -177,15 +205,17 @@ export async function sweepCourseEnrollmentOutcomes(
 
   const execute =
     options.execute ??
-    (() => {
+    ((
+      envelope: ReturnType<typeof resolveCourseEnrollmentOutcomeEnvelope>,
+      scope: CanonicalExecutionScope
+    ) => {
       const transactionExecutor = createFirestoreCanonicalTransactionExecutor(firestore);
       const commands = createCanonicalCommands(
         createBookingAttendanceCommandHandlers(transactionExecutor),
-        { clock: createAuthoritativeCommandClock(nowDate) }
+        { clock: createAuthoritativeCommandClock(nowDate), scope }
       );
-      return (envelope: ReturnType<typeof resolveCourseEnrollmentOutcomeEnvelope>) =>
-        commands.execute(envelope);
-    })();
+      return commands.execute(envelope);
+    });
   const outcomes = [] as Array<{
     enrollmentId: string;
     outcome: CourseEnrollmentOutcomeSweepCandidateOutcome;
@@ -202,6 +232,8 @@ export async function sweepCourseEnrollmentOutcomes(
     invalid: outcomes.filter((entry) => entry.outcome === 'invalid_work').length,
     retried: outcomes.filter((entry) => entry.outcome === 'retry_scheduled').length,
     futureSkipped: outcomes.filter((entry) => entry.outcome === 'future_skipped').length,
+    inactiveSessionSkipped: outcomes.filter((entry) => entry.outcome === 'session_inactive_skipped')
+      .length,
     truncated: snapshot.size > limit,
     outcomes,
   };

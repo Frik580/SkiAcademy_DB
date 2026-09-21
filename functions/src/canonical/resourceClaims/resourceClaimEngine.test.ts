@@ -16,8 +16,11 @@ import {
   CourseEnrollmentIdSchema,
   CourseIdSchema,
   ParticipantManagementIdSchema,
+  TestSessionIdSchema,
+  testCanonicalExecutionScope,
 } from '@ski-academy/shared-domain';
 import { createInMemoryCanonicalTransactionExecutor } from '../transactions';
+import { scopeCanonicalTransactionSession } from '../transactions/scopedCanonicalTransaction';
 import {
   commitResourceClaimPlan,
   readAndPlanAcquireResourceClaim,
@@ -42,6 +45,8 @@ const instructorId = InstructorIdSchema.parse('instructor_claim_engine_01');
 const participantId = ParticipantIdSchema.parse('participant_claim_engine_01');
 const decidedAt = new Date('2026-01-15T08:00:00.000Z');
 const metadata = { correlationId, commandId, decidedAt };
+const testSessionId = TestSessionIdSchema.parse('test_session_claim_engine_01');
+const testScope = testCanonicalExecutionScope(testSessionId);
 
 let sharedExecutor = createInMemoryCanonicalTransactionExecutor();
 
@@ -58,7 +63,7 @@ function interval(startIso: string, endIso: string) {
 
 function instructorIdentity(ownerId: string, occurrenceId: string) {
   return ResourceClaimIdentityInputSchema.parse({
-    strategyVersion: 'claim:v1',
+    strategyVersion: 'claim:v2',
     claimKind: 'instructor_booking_occurrence',
     resourceKind: 'instructor',
     resourceId: instructorId,
@@ -70,7 +75,7 @@ function instructorIdentity(ownerId: string, occurrenceId: string) {
 
 function participantIdentity(ownerId: string, occurrenceId: string) {
   return ResourceClaimIdentityInputSchema.parse({
-    strategyVersion: 'claim:v1',
+    strategyVersion: 'claim:v2',
     claimKind: 'participant_booking_occurrence',
     resourceKind: 'participant',
     resourceId: participantId,
@@ -159,6 +164,51 @@ describe('resource claim engine', () => {
         commitResourceClaimPlan(session, secondPlan, metadata);
         expect(secondPlan.claim.lifecycle.status).toBe('active');
       },
+    });
+  });
+
+  it('persists scoped v2 claim and guard records without LIVE/TEST collisions', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor();
+    const identity = instructorIdentity(
+      'booking_claim_engine_scoped',
+      'occurrence_claim_engine_scoped'
+    );
+    const claimInterval = interval('2026-01-15T09:00:00.000Z', '2026-01-15T10:00:00.000Z');
+
+    async function acquire(scope: { dataScope: 'live' } | typeof testScope) {
+      return executor.runAtomic({
+        correlationId,
+        run: async (baseSession) => {
+          const session = scopeCanonicalTransactionSession(baseSession, scope);
+          const plan = await readAndPlanAcquireResourceClaim(session, {
+            ...metadata,
+            identity,
+            interval: claimInterval,
+          });
+          await session.transitionToWrites();
+          commitResourceClaimPlan(session, plan, metadata);
+          return plan;
+        },
+      });
+    }
+
+    const livePlan = await acquire({ dataScope: 'live' });
+    const testPlan = await acquire(testScope);
+    expect(livePlan.claim.claimId).not.toBe(testPlan.claim.claimId);
+    expect(executor.snapshot().docs.get(livePlan.claimPath)?.data).toMatchObject({
+      dataScope: 'live',
+      strategyVersion: 'claim:v2',
+    });
+    expect(executor.snapshot().docs.get(testPlan.claimPath)?.data).toMatchObject({
+      dataScope: 'test',
+      testSessionId,
+      strategyVersion: 'claim:v2',
+    });
+    expect(livePlan.guardWrites[0]?.path).not.toBe(testPlan.guardWrites[0]?.path);
+    expect(executor.snapshot().docs.get(testPlan.guardWrites[0]!.path)?.data).toMatchObject({
+      dataScope: 'test',
+      testSessionId,
+      strategyVersion: 'guard:v2',
     });
   });
 
@@ -319,7 +369,7 @@ describe('resource claim engine', () => {
     const executor = createInMemoryCanonicalTransactionExecutor({
       [guardPath]: {
         guardId,
-        strategyVersion: 'guard:v1',
+        strategyVersion: 'guard:v2',
         bucketKey: bucket!.bucketKey,
         resourceKind: 'instructor',
         resourceId: instructorId,
@@ -515,7 +565,7 @@ describe('uniqueness guards', () => {
 
     function seatIdentity(enrollmentId: typeof enrollmentA, occurrenceId: string) {
       return ResourceClaimIdentityInputSchema.parse({
-        strategyVersion: 'claim:v1',
+        strategyVersion: 'claim:v2',
         claimKind: 'course_seat_pre_start',
         resourceKind: 'course',
         resourceId: courseId,
@@ -554,8 +604,8 @@ describe('uniqueness guards', () => {
     });
 
     const snapshot = sharedExecutor.snapshot();
-    expect([...snapshot.docs.keys()].filter((path) => path.startsWith('resource_claims/')).length).toBe(
-      2
-    );
+    expect(
+      [...snapshot.docs.keys()].filter((path) => path.startsWith('resource_claims/')).length
+    ).toBe(2);
   });
 });

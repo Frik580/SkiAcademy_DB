@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { AdministrativeAvailabilityBlockIdSchema, InstructorIdSchema } from './identifiers';
+import {
+  AdministrativeAvailabilityBlockIdSchema,
+  InstructorIdSchema,
+  TestSessionIdSchema,
+} from './identifiers';
+import { DataScopeSchema } from './canonicalScope';
 import {
   AggregateRevisionSchema,
   CanonicalTimestampSchema,
@@ -18,6 +23,8 @@ export const AdministrativeAvailabilityBlockKindSchema = z.enum(
 export const AdministrativeAvailabilityBlockSchema = z
   .object({
     blockId: AdministrativeAvailabilityBlockIdSchema,
+    dataScope: DataScopeSchema.optional(),
+    testSessionId: TestSessionIdSchema.optional(),
     instructorId: InstructorIdSchema,
     kind: AdministrativeAvailabilityBlockKindSchema,
     interval: TimeIntervalSchema,

@@ -18,6 +18,7 @@ import {
   type ParticipantManagementActiveOwnerGuard,
   type AccountId,
   type ParticipantManagementId,
+  LIVE_CANONICAL_EXECUTION_SCOPE,
 } from '@ski-academy/shared-domain';
 import type { CanonicalAtomicTransactionSession } from '../transactions';
 
@@ -113,7 +114,11 @@ function parseAccessCount(data: Record<string, unknown> | undefined): number {
 }
 
 type CourseChatAccessWrite =
-  | { readonly path: string; readonly kind: 'create' | 'update'; readonly payload: Record<string, unknown> }
+  | {
+      readonly path: string;
+      readonly kind: 'create' | 'update';
+      readonly payload: Record<string, unknown>;
+    }
   | { readonly path: string; readonly kind: 'delete' };
 
 const pendingCourseChatAccessWrites = new WeakMap<
@@ -146,7 +151,9 @@ function clearQueuedCourseChatAccessWrite(
   pendingCourseChatAccessWrites.set(session, queued);
 }
 
-export function commitQueuedCourseChatAccessWrites(session: CanonicalAtomicTransactionSession): void {
+export function commitQueuedCourseChatAccessWrites(
+  session: CanonicalAtomicTransactionSession
+): void {
   const queued = pendingCourseChatAccessWrites.get(session) ?? [];
   pendingCourseChatAccessWrites.delete(session);
   pendingCourseChatAccessCounts.delete(session);
@@ -218,8 +225,9 @@ export async function readAndPlanAcquireActiveCourseEnrollmentGuard(
   session: CanonicalAtomicTransactionSession,
   input: AcquireActiveCourseEnrollmentGuardInput
 ): Promise<{ readonly guard: ActiveCourseEnrollmentGuard; readonly hadExisting: boolean }> {
+  const scope = session.scope ?? LIVE_CANONICAL_EXECUTION_SCOPE;
   const path = canonicalPaths
-    .activeCourseEnrollmentGuard(input.participantId, input.courseId)
+    .activeCourseEnrollmentGuard(input.participantId, input.courseId, scope)
     .slice(1);
   session.plan.planRead({ path, category: 'enrollment_guard' });
   const snapshot = await session.tx.get({ path });
@@ -253,6 +261,7 @@ export async function readAndPlanAcquireActiveCourseEnrollmentGuard(
     updatedAt: decidedAt,
     lastChangedByCommandId: input.commandId,
     correlationId: input.correlationId,
+    scope,
   });
 
   const mutationKind = existing ? 'update' : 'create';
@@ -274,7 +283,11 @@ export function commitAcquireActiveCourseEnrollmentGuard(
   existingBeforeWrite: boolean
 ): void {
   const path = canonicalPaths
-    .activeCourseEnrollmentGuard(input.participantId, input.courseId)
+    .activeCourseEnrollmentGuard(
+      input.participantId,
+      input.courseId,
+      session.scope ?? LIVE_CANONICAL_EXECUTION_SCOPE
+    )
     .slice(1);
   const mutationKind = existingBeforeWrite ? 'update' : 'create';
   applyEnrollmentGuardWrite(session, {
@@ -291,12 +304,7 @@ export async function acquireActiveCourseEnrollmentGuard(
 ): Promise<ActiveCourseEnrollmentGuard> {
   const planned = await readAndPlanAcquireActiveCourseEnrollmentGuard(session, input);
   if (session.tx.phase === 'writes') {
-    commitAcquireActiveCourseEnrollmentGuard(
-      session,
-      input,
-      planned.guard,
-      planned.hadExisting
-    );
+    commitAcquireActiveCourseEnrollmentGuard(session, input, planned.guard, planned.hadExisting);
   }
   return planned.guard;
 }
@@ -305,11 +313,12 @@ export async function moveActiveCourseEnrollmentGuard(
   session: CanonicalAtomicTransactionSession,
   input: MoveActiveCourseEnrollmentGuardInput
 ): Promise<ActiveCourseEnrollmentGuard> {
+  const scope = session.scope ?? LIVE_CANONICAL_EXECUTION_SCOPE;
   const oldPath = canonicalPaths
-    .activeCourseEnrollmentGuard(input.participantId, input.oldCourseId)
+    .activeCourseEnrollmentGuard(input.participantId, input.oldCourseId, scope)
     .slice(1);
   const newPath = canonicalPaths
-    .activeCourseEnrollmentGuard(input.participantId, input.newCourseId)
+    .activeCourseEnrollmentGuard(input.participantId, input.newCourseId, scope)
     .slice(1);
 
   session.plan.planRead({ path: oldPath, category: 'enrollment_guard' });
@@ -349,6 +358,7 @@ export async function moveActiveCourseEnrollmentGuard(
     updatedAt: decidedAt,
     lastChangedByCommandId: input.commandId,
     correlationId: input.correlationId,
+    scope,
   });
 
   if (existingOld) {
@@ -397,7 +407,11 @@ export async function readAndPlanReleaseActiveCourseEnrollmentGuard(
   input: ReleaseActiveCourseEnrollmentGuardInput
 ): Promise<boolean> {
   const path = canonicalPaths
-    .activeCourseEnrollmentGuard(input.participantId, input.courseId)
+    .activeCourseEnrollmentGuard(
+      input.participantId,
+      input.courseId,
+      session.scope ?? LIVE_CANONICAL_EXECUTION_SCOPE
+    )
     .slice(1);
   session.plan.planRead({ path, category: 'enrollment_guard' });
   const snapshot = await session.tx.get({ path });
@@ -424,7 +438,11 @@ export function commitReleaseActiveCourseEnrollmentGuard(
   input: ReleaseActiveCourseEnrollmentGuardInput
 ): void {
   const path = canonicalPaths
-    .activeCourseEnrollmentGuard(input.participantId, input.courseId)
+    .activeCourseEnrollmentGuard(
+      input.participantId,
+      input.courseId,
+      session.scope ?? LIVE_CANONICAL_EXECUTION_SCOPE
+    )
     .slice(1);
   session.tx.delete({ path });
   commitQueuedCourseChatAccessWrites(session);

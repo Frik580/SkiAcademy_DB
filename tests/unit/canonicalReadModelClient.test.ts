@@ -44,6 +44,10 @@ import {
 const INSTRUCTOR_HISTORY_OBSERVED_CURSOR =
   'eyJzY29wZSI6Imluc3RydWN0b3JfaGlzdG9yeSIsInVwZGF0ZWRBdFNlY29uZHMiOjE3ODgzNTU5MDQsInVwZGF0ZWRBdE5hbm9zZWNvbmRzIjozMzAwMDAwMCwiYm9va2luZ0lkIjoiYm9va2luZ19hZG1pbl8xMWY1YmM5YTY5Zjc0ZmY5YWFkNjU5MDVmZjI5ZmE2ZSJ9';
 
+function liveReadIdempotencyKey(key: string): string {
+  return `${key}:rs:live`;
+}
+
 function transportRequestFromCall(callIndex = 0) {
   const payload = callFunctionMock.mock.calls[callIndex]?.[1] as Record<string, unknown>;
   const options = callFunctionMock.mock.calls[callIndex]?.[2] as { idempotencyKey: string };
@@ -224,7 +228,7 @@ describe('canonicalReadModelClient', () => {
       QUERY_LESSON_BOOKING_READ_MODELS_CALLABLE,
       { scope: 'instructor_hot' },
       expect.objectContaining({
-        idempotencyKey: 'read:lesson_booking:instructor_hot:start:none',
+        idempotencyKey: liveReadIdempotencyKey('read:lesson_booking:instructor_hot:start:none'),
         maxAttempts: 1,
       })
     );
@@ -247,7 +251,7 @@ describe('canonicalReadModelClient', () => {
       QUERY_ADMIN_ISSUE_READ_MODELS_CALLABLE,
       { scope: 'admin_open', severity: 'critical' },
       {
-        idempotencyKey: 'read:admin_issue:admin_open:all:critical:start',
+        idempotencyKey: liveReadIdempotencyKey('read:admin_issue:admin_open:all:critical:start'),
         maxAttempts: 1,
       }
     );
@@ -275,7 +279,7 @@ describe('canonicalReadModelClient', () => {
         cursor: 'cursor_admin_finance_page_2',
       },
       expect.objectContaining({
-        idempotencyKey: expect.stringMatching(/^read:admin_finance:[a-f0-9]{64}$/),
+        idempotencyKey: expect.stringMatching(/^read:admin_finance:[a-f0-9]{64}:rs:live$/),
         maxAttempts: 1,
       })
     );
@@ -302,7 +306,7 @@ describe('canonicalReadModelClient', () => {
     });
 
     const options = callFunctionMock.mock.calls[0]?.[2];
-    expect(options.idempotencyKey).toMatch(/^read:admin_finance:[a-f0-9]{64}$/);
+    expect(options.idempotencyKey).toMatch(/^read:admin_finance:[a-f0-9]{64}:rs:live$/);
     expect(options.idempotencyKey.length).toBeLessThanOrEqual(200);
     expect(options.idempotencyKey).not.toContain(cursor);
   });
@@ -350,12 +354,14 @@ describe('canonicalReadModelClient', () => {
 
     await queryLessonBookingReadModels({ scope: 'account_history', cursor });
 
-    const expectedKey = buildCanonicalReadIdempotencyKey([
-      'read:lesson_booking',
-      'account_history',
-      boundCanonicalReadIdempotencyCursor(cursor),
-      'none',
-    ]);
+    const expectedKey = liveReadIdempotencyKey(
+      buildCanonicalReadIdempotencyKey([
+        'read:lesson_booking',
+        'account_history',
+        boundCanonicalReadIdempotencyCursor(cursor),
+        'none',
+      ])
+    );
     expect(callFunctionMock).toHaveBeenCalledWith(
       QUERY_LESSON_BOOKING_READ_MODELS_CALLABLE,
       { scope: 'account_history', cursor },
@@ -380,7 +386,9 @@ describe('canonicalReadModelClient', () => {
     await queryLessonBookingReadModels({ scope: 'instructor_history' });
 
     const request = transportRequestFromCall();
-    expect(request.idempotencyKey).toBe('read:lesson_booking:instructor_history:start:none');
+    expect(request.idempotencyKey).toBe(
+      liveReadIdempotencyKey('read:lesson_booking:instructor_history:start:none')
+    );
     expect(IdempotencyKeySchema.safeParse(request.idempotencyKey).success).toBe(true);
     expect(QueryLessonBookingReadModelsInputSchema.safeParse(request).success).toBe(true);
   });
@@ -399,12 +407,14 @@ describe('canonicalReadModelClient', () => {
     });
 
     const request = transportRequestFromCall();
-    const expectedKey = buildCanonicalReadIdempotencyKey([
-      'read:lesson_booking',
-      'instructor_history',
-      boundCanonicalReadIdempotencyCursor(INSTRUCTOR_HISTORY_OBSERVED_CURSOR),
-      'none',
-    ]);
+    const expectedKey = liveReadIdempotencyKey(
+      buildCanonicalReadIdempotencyKey([
+        'read:lesson_booking',
+        'instructor_history',
+        boundCanonicalReadIdempotencyCursor(INSTRUCTOR_HISTORY_OBSERVED_CURSOR),
+        'none',
+      ])
+    );
     const rawLegacyKey = `read:lesson_booking:instructor_history:${INSTRUCTOR_HISTORY_OBSERVED_CURSOR}:none`;
 
     expect(request.cursor).toBe(INSTRUCTOR_HISTORY_OBSERVED_CURSOR);
@@ -484,14 +494,16 @@ describe('canonicalReadModelClient', () => {
     const options = callFunctionMock.mock.calls[0]?.[2] as { idempotencyKey: string };
     expect(callFunctionMock.mock.calls[0]?.[0]).toBe(QUERY_COURSE_ENROLLMENT_READ_MODELS_CALLABLE);
     expect(options.idempotencyKey).toBe(
-      buildCanonicalReadIdempotencyKey([
-        'read:course_enrollment',
-        'account_history',
-        boundCanonicalReadIdempotencyCursor(INSTRUCTOR_HISTORY_OBSERVED_CURSOR),
-        'none',
-        'none',
-        'all-managed',
-      ])
+      liveReadIdempotencyKey(
+        buildCanonicalReadIdempotencyKey([
+          'read:course_enrollment',
+          'account_history',
+          boundCanonicalReadIdempotencyCursor(INSTRUCTOR_HISTORY_OBSERVED_CURSOR),
+          'none',
+          'none',
+          'all-managed',
+        ])
+      )
     );
     expect(options.idempotencyKey.length).toBeLessThanOrEqual(200);
     expect(options.idempotencyKey).not.toContain(INSTRUCTOR_HISTORY_OBSERVED_CURSOR);
@@ -530,12 +542,14 @@ describe('canonicalReadModelClient', () => {
       rangeEnd,
     });
 
-    const expectedKey = buildCanonicalReadIdempotencyKey([
-      'read:lesson_booking',
-      'account_calendar_month',
-      String(rangeStart.seconds),
-      String(rangeEnd.seconds),
-    ]);
+    const expectedKey = liveReadIdempotencyKey(
+      buildCanonicalReadIdempotencyKey([
+        'read:lesson_booking',
+        'account_calendar_month',
+        String(rangeStart.seconds),
+        String(rangeEnd.seconds),
+      ])
+    );
     expect(expectedKey.length).toBeLessThanOrEqual(200);
     expect(callFunctionMock).toHaveBeenCalledWith(
       QUERY_LESSON_BOOKING_READ_MODELS_CALLABLE,
@@ -563,7 +577,7 @@ describe('canonicalReadModelClient', () => {
       QUERY_COURSE_CATALOG_READ_MODELS_CALLABLE,
       { scope: 'public' },
       expect.objectContaining({
-        idempotencyKey: 'read:course_catalog:public:all',
+        idempotencyKey: liveReadIdempotencyKey('read:course_catalog:public:all'),
         maxAttempts: 1,
       })
     );
@@ -581,7 +595,7 @@ describe('canonicalReadModelClient', () => {
       QUERY_COURSE_CATALOG_READ_MODELS_CALLABLE,
       { scope: 'public', courseId: 'course_targeted_01' },
       expect.objectContaining({
-        idempotencyKey: 'read:course_catalog:public:course_targeted_01',
+        idempotencyKey: liveReadIdempotencyKey('read:course_catalog:public:course_targeted_01'),
         maxAttempts: 1,
       })
     );
@@ -602,7 +616,9 @@ describe('canonicalReadModelClient', () => {
       QUERY_INSTRUCTOR_COURSE_ASSIGNMENT_READ_MODELS_CALLABLE,
       { scope: 'instructor_assigned' },
       expect.objectContaining({
-        idempotencyKey: 'read:instructor_course_assignment:instructor_assigned',
+        idempotencyKey: liveReadIdempotencyKey(
+          'read:instructor_course_assignment:instructor_assigned'
+        ),
         maxAttempts: 1,
       })
     );
@@ -627,7 +643,7 @@ describe('canonicalReadModelClient', () => {
       QUERY_BOOKING_PROPOSAL_READ_MODELS_CALLABLE,
       { scope: 'account_open' },
       expect.objectContaining({
-        idempotencyKey: 'read:booking_proposal:account_open',
+        idempotencyKey: liveReadIdempotencyKey('read:booking_proposal:account_open'),
         maxAttempts: 1,
       })
     );
@@ -636,7 +652,7 @@ describe('canonicalReadModelClient', () => {
       QUERY_BOOKING_CHANGE_REQUEST_READ_MODELS_CALLABLE,
       { scope: 'instructor_open' },
       expect.objectContaining({
-        idempotencyKey: 'read:booking_change_request:instructor_open',
+        idempotencyKey: liveReadIdempotencyKey('read:booking_change_request:instructor_open'),
         maxAttempts: 1,
       })
     );
@@ -649,8 +665,9 @@ describe('canonicalReadModelClient', () => {
         instructorId: 'instructor_fixture_01',
       },
       expect.objectContaining({
-        idempotencyKey:
-          'read:participant_instructor_access:account_manager:participant_fixture_01:instructor_fixture_01',
+        idempotencyKey: liveReadIdempotencyKey(
+          'read:participant_instructor_access:account_manager:participant_fixture_01:instructor_fixture_01'
+        ),
         maxAttempts: 1,
       })
     );

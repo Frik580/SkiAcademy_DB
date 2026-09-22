@@ -190,7 +190,7 @@ function adminPayEnvelope(
 }
 
 describe('T42B-3 TEST domain isolation', () => {
-  it('forbids TEST-context settings, starter credit, and guest commands', async () => {
+  it('no-ops TEST starter-credit bootstrap and forbids settings and identity commands', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor();
     const commands = createProductionCanonicalCommands(environment(), executor);
     const starter = await commands.execute({
@@ -237,10 +237,9 @@ describe('T42B-3 TEST domain isolation', () => {
       },
     });
 
-    expect(starter).toMatchObject({
-      status: 'error',
-      error: { code: 'cross_scope_forbidden', details: { reason: 'unsupported' } },
-    });
+    expect(starter).toMatchObject({ status: 'success' });
+    expect(executor.snapshot().docs.size).toBe(0);
+    expect(executor.snapshot().writesAttempted).toBe(0);
     expect(settings).toMatchObject({
       status: 'error',
       error: { code: 'cross_scope_forbidden', details: { reason: 'unsupported' } },

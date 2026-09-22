@@ -9,6 +9,8 @@ import {
   assertHomeworkTargetsSameScope,
   assertNoHomeworkForUserIds,
   isTestSessionCommandSupported,
+  isTestSessionExistingIdentityBootstrap,
+  isTestSessionStarterCreditBootstrapNoOp,
   resolveTestSessionCommandSupport,
 } from './testSessionDomainIsolation';
 
@@ -31,6 +33,16 @@ describe('T42B-3 domain isolation contract', () => {
     expect(isTestSessionCommandSupported('grant_starter_credit')).toBe(false);
     expect(isTestSessionCommandSupported('provision_canonical_course')).toBe(false);
     expect(isTestSessionCommandSupported('record_audit_correction')).toBe(false);
+    expect(isTestSessionCommandSupported('provision_self_participant')).toBe(false);
+    expect(isTestSessionExistingIdentityBootstrap('provision_self_participant')).toBe(true);
+    expect(isTestSessionExistingIdentityBootstrap('provision_self_participant_for_account')).toBe(
+      false
+    );
+    expect(isTestSessionExistingIdentityBootstrap('create_participant')).toBe(false);
+    expect(isTestSessionExistingIdentityBootstrap('grant_starter_credit')).toBe(false);
+    expect(isTestSessionStarterCreditBootstrapNoOp('grant_starter_credit')).toBe(true);
+    expect(isTestSessionStarterCreditBootstrapNoOp('provision_self_participant')).toBe(false);
+    expect(isTestSessionStarterCreditBootstrapNoOp('record_manual_wallet_funding')).toBe(false);
     expect(TEST_SESSION_RESOURCE_CLASSIFICATION.settingsStarterCredit).toBe('FORBIDDEN');
     expect(TEST_SESSION_RESOURCE_CLASSIFICATION.liveCourseCapacity).toBe('FORBIDDEN');
   });

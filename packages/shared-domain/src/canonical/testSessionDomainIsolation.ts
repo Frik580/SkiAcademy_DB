@@ -113,6 +113,8 @@ export const TEST_SESSION_COMMAND_SUPPORT = {
   finalize_booking_attendance: 'TEST_SUPPORTED',
   enforce_payment_start_gate: 'TEST_SUPPORTED',
   resolve_attendance_outcome: 'TEST_SUPPORTED',
+  // Login may resolve an already-provisioned TEST self identity. This is not
+  // TEST_SUPPORTED: the handler must not create a TEST identity graph.
   provision_self_participant: 'T42B-8_DEFERRED',
   create_participant: 'T42B-8_DEFERRED',
   update_participant_profile: 'T42B-8_DEFERRED',
@@ -144,6 +146,8 @@ export const TEST_SESSION_COMMAND_SUPPORT = {
   record_provider_payment_event: 'TEST_SUPPORTED',
   pay_service_from_wallet_as_administrator: 'TEST_SUPPORTED',
   record_manual_wallet_funding: 'TEST_SUPPORTED',
+  // LIVE onboarding finance only. TEST login may no-op this command after
+  // scope resolution; it must not credit a TestSession wallet.
   grant_starter_credit: 'TEST_FORBIDDEN',
   adjust_service_price: 'TEST_SUPPORTED',
   record_financial_correction: 'TEST_SUPPORTED',
@@ -176,6 +180,25 @@ export function resolveTestSessionCommandSupport(kind: CommandKind): TestCommand
 
 export function isTestSessionCommandSupported(kind: CommandKind): boolean {
   return TEST_SESSION_COMMAND_SUPPORT[kind] === 'TEST_SUPPORTED';
+}
+
+/**
+ * Login bootstrap exception only. `provision_self_participant` may reach its
+ * handler under TEST scope to resolve an already-provisioned self identity.
+ * It must not auto-create a persistent TEST identity graph. Every other
+ * identity mutation stays deferred or forbidden.
+ */
+export function isTestSessionExistingIdentityBootstrap(kind: CommandKind): boolean {
+  return kind === 'provision_self_participant';
+}
+
+/**
+ * Login bootstrap only. Starter Credit remains forbidden as TEST finance.
+ * After CanonicalExecutionScope is already TEST, this command returns without
+ * wallet, marker, or monetary writes. It does not make the grant TEST_SUPPORTED.
+ */
+export function isTestSessionStarterCreditBootstrapNoOp(kind: CommandKind): boolean {
+  return kind === 'grant_starter_credit';
 }
 
 /** Client booking-message writes stay unreachable until Firestore Rules (T42B-8). Storage path contract is T42B-4. */

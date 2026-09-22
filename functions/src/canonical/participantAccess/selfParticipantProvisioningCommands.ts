@@ -13,6 +13,7 @@ import {
   type AccountId,
   type CommandEnvelope,
   type CommandExecutionEnvironment,
+  type CanonicalExecutionScope,
   type CommandResult,
   type Participant,
   type ParticipantManagement,
@@ -108,6 +109,15 @@ export function buildSelfIdentityProjectionRepair(
   return patch.displayName !== undefined || patch.avatarUrl !== undefined ? patch : undefined;
 }
 
+function persistentTestAccountMatchesExecution(
+  profile: Record<string, unknown>,
+  scope: CanonicalExecutionScope
+): boolean {
+  if (scope.dataScope !== 'test' || profile.dataScope !== 'test') return false;
+  const testSessionId = profile.testSessionId;
+  return testSessionId === undefined || testSessionId === scope.testSessionId;
+}
+
 function assertProfileCanProvision(
   envelope: CommandEnvelope<SelfProvisioningKind>,
   profile: Record<string, unknown>
@@ -136,6 +146,7 @@ function provisionSelfForTargetAccount<Kind extends SelfProvisioningKind>(
   targetAccountId: AccountId
 ): Promise<CommandResult<Kind>> {
   const identity = resolveCommandIdempotencyIdentity(envelope);
+  const resolveExistingTestIdentity = environment.scope?.dataScope === 'test';
   const deterministicParticipantId = selfParticipantIdFromAccountId(targetAccountId);
   const deterministicManagementId = participantManagementIdFromSelfProvisioning(targetAccountId);
 
@@ -173,14 +184,28 @@ function provisionSelfForTargetAccount<Kind extends SelfProvisioningKind>(
           correlationId: envelope.context.correlationId,
         });
       }
-      accountNeedsInitialization = accountRecord === undefined;
-      if (accountNeedsInitialization) {
-        session.plan.planMutation({
-          path: userPath,
-          kind: 'update',
-          category: 'aggregate',
-          estimatedPayloadBytes: PARTICIPANT_ACCESS_PLANNING_ESTIMATES.accountBytes,
-        });
+      if (resolveExistingTestIdentity) {
+        if (
+          !accountRecord ||
+          !environment.scope ||
+          !persistentTestAccountMatchesExecution(profileData, environment.scope)
+        ) {
+          throw new CanonicalCommandError('cross_scope_forbidden', {
+            correlationId: envelope.context.correlationId,
+            details: { reason: 'conflict' },
+          });
+        }
+        accountNeedsInitialization = false;
+      } else {
+        accountNeedsInitialization = accountRecord === undefined;
+        if (accountNeedsInitialization) {
+          session.plan.planMutation({
+            path: userPath,
+            kind: 'update',
+            category: 'aggregate',
+            estimatedPayloadBytes: PARTICIPANT_ACCESS_PLANNING_ESTIMATES.accountBytes,
+          });
+        }
       }
 
       const managementDocuments = await session.tx.query({
@@ -250,7 +275,11 @@ function provisionSelfForTargetAccount<Kind extends SelfProvisioningKind>(
 
         participantRecord = existingParticipant;
         managementRecord = existingManagement;
-        projectionRepair = buildSelfIdentityProjectionRepair(profileData, existingParticipant);
+        // TEST login resolves the provisioned identity. It does not repair the
+        // account mirror, which would mutate persistent TestActor identity.
+        projectionRepair = resolveExistingTestIdentity
+          ? undefined
+          : buildSelfIdentityProjectionRepair(profileData, existingParticipant);
         if (projectionRepair && !accountNeedsInitialization) {
           session.plan.planMutation({
             path: userPath,
@@ -260,6 +289,10 @@ function provisionSelfForTargetAccount<Kind extends SelfProvisioningKind>(
           });
         }
         return;
+      }
+
+      if (resolveExistingTestIdentity) {
+        provisioningConflict(envelope);
       }
 
       const participantRead = await session.tx.get({

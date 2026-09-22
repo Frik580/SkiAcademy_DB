@@ -17,7 +17,9 @@ import {
   paymentIdFromBookingId,
   paymentIdFromCourseEnrollmentId,
   providerEventReceiptIdFromProviderEvent,
+  TestSessionIdSchema,
   resolveCommandIdempotencyIdentity,
+  testCanonicalExecutionScope,
   timestampFromDate,
   type CommandEnvelope,
   type Payment,
@@ -900,5 +902,65 @@ describe('grant_starter_credit', () => {
     });
     expect(result.status).toBe('error');
     expect(result.status === 'error' ? result.error.code : '').toBe('forbidden');
+  });
+
+  it('leaves a TEST wallet and historical starter marker unchanged', async () => {
+    const sessionId = TestSessionIdSchema.parse('test_finance_starter_01');
+    const wallet = WalletSchema.parse({
+      accountId,
+      dataScope: 'test',
+      testSessionId: sessionId,
+      currency: 'KZT',
+      balance: 100_000,
+      revision: 1,
+      eventRevision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+    });
+    const marker = { granted: true, amountKzt: 0 };
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${accountId}`]: { ...seedAccount(), dataScope: 'test' },
+      [`users/${accountId}/wallet/state`]: wallet,
+      [`users/${accountId}/wallet/starter_credit_grant`]: marker,
+      'settings/starter_credit': { amountKzt: 250 },
+      'monetary_events/monetary_event_finance_seed': { eventKind: 'wallet_credit' },
+    });
+    const writesBefore = executor.snapshot().writesAttempted;
+
+    const result = await createProductionCanonicalCommands(
+      { ...environment(), scope: testCanonicalExecutionScope(sessionId) },
+      executor
+    ).execute(grantEnvelope('grant-starter-credit-v1'));
+
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.get(`users/${accountId}/wallet/state`)?.data).toEqual(wallet);
+    expect(
+      executor.snapshot().docs.get(`users/${accountId}/wallet/starter_credit_grant`)?.data
+    ).toEqual(marker);
+    expect(executor.snapshot().docs.get('settings/starter_credit')?.data).toEqual({
+      amountKzt: 250,
+    });
+    expect(monetaryEventCount(executor.snapshot())).toBe(1);
+    expect(executor.snapshot().writesAttempted).toBe(writesBefore);
+  });
+
+  it('does not create a starter marker or wallet for a TEST account that has none', async () => {
+    const sessionId = TestSessionIdSchema.parse('test_finance_starter_02');
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${accountId}`]: { ...seedAccount(), dataScope: 'test' },
+    });
+
+    const result = await createProductionCanonicalCommands(
+      { ...environment(), scope: testCanonicalExecutionScope(sessionId) },
+      executor
+    ).execute(grantEnvelope('grant-starter-credit-v1'));
+
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.get(`users/${accountId}/wallet/state`)).toBeUndefined();
+    expect(
+      executor.snapshot().docs.get(`users/${accountId}/wallet/starter_credit_grant`)
+    ).toBeUndefined();
+    expect(monetaryEventCount(executor.snapshot())).toBe(0);
+    expect(executor.snapshot().writesAttempted).toBe(0);
   });
 });

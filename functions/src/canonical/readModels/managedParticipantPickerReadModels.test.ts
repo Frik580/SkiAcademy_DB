@@ -4,6 +4,8 @@ import {
   ParticipantIdSchema,
   ParticipantManagementIdSchema,
   QueryManagedParticipantPickerReadModelsInputSchema,
+  TestSessionIdSchema,
+  testCanonicalReadScope,
   timestampFromDate,
 } from '@ski-academy/shared-domain';
 import type { Firestore } from 'firebase-admin/firestore';
@@ -47,6 +49,8 @@ type ParticipantSeed = Readonly<{
   readonly displayName?: string;
   readonly authority?: 'self' | 'parent_guardian';
   readonly missing?: boolean;
+  readonly dataScope?: 'test';
+  readonly testSessionId?: string;
 }>;
 
 function pad(index: number): string {
@@ -71,6 +75,7 @@ function activeParticipantId(index: number) {
 
 function createPickerFirestore(input: {
   readonly accountLifecycle?: 'active' | 'disabled' | 'missing';
+  readonly accountDataScope?: 'test';
   readonly management?: readonly ManagementSeed[];
   readonly participants?: readonly ParticipantSeed[];
 }): {
@@ -88,6 +93,7 @@ function createPickerFirestore(input: {
   if (input.accountLifecycle !== 'missing') {
     seed(`users/${accountId}`, {
       accountId,
+      ...(input.accountDataScope ? { dataScope: input.accountDataScope } : {}),
       lifecycle:
         input.accountLifecycle === 'disabled'
           ? { status: 'disabled', disabledAt: decidedAt }
@@ -125,6 +131,8 @@ function createPickerFirestore(input: {
     if (row.missing) continue;
     seed(`participants/${row.participantId}`, {
       participantId: row.participantId,
+      ...(row.dataScope ? { dataScope: row.dataScope } : {}),
+      ...(row.testSessionId ? { testSessionId: row.testSessionId } : {}),
       displayName: row.displayName ?? 'Managed Student',
       age: { kind: 'age_years', years: 12 },
       skillLevel: 'beginner',
@@ -592,5 +600,43 @@ describe('managed participant picker read models', () => {
     );
     expect(queries).toBe(2);
     expect(docs).toHaveLength(ACTIVE_ACCOUNT_MANAGEMENT_QUERY_PAGE_SIZE * 2);
+  });
+
+  it('returns the assigned TEST self participant and hides a cross-session participant', async () => {
+    const sessionId = TestSessionIdSchema.parse('test_picker_session_01');
+    const otherSessionId = TestSessionIdSchema.parse('test_picker_session_02');
+    const { firestore } = createPickerFirestore({
+      accountDataScope: 'test',
+      management: [
+        { managementId, participantId, status: 'active', authority: 'self' },
+        {
+          managementId: otherManagementId,
+          participantId: otherParticipantId,
+          status: 'active',
+          authority: 'parent_guardian',
+        },
+      ],
+      participants: [
+        {
+          participantId,
+          managementId,
+          displayName: 'Provisioned Self',
+          dataScope: 'test',
+          testSessionId: sessionId,
+        },
+        {
+          participantId: otherParticipantId,
+          managementId: otherManagementId,
+          displayName: 'Other Session',
+          dataScope: 'test',
+          testSessionId: otherSessionId,
+        },
+      ],
+    });
+
+    const result = await queryManagedParticipantPickerReadModels(firestore, accountId, {
+      readScope: testCanonicalReadScope(sessionId),
+    });
+    expect(result.items.map((item) => item.participantId)).toEqual([participantId]);
   });
 });

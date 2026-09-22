@@ -12,6 +12,8 @@ import {
   commandErrorResult,
   withCanonicalExecutionScope,
   isTestSessionCommandSupported,
+  isTestSessionExistingIdentityBootstrap,
+  isTestSessionStarterCreditBootstrapNoOp,
 } from '@ski-academy/shared-domain';
 
 const MALFORMED_ENVELOPE_CORRELATION_ID = CorrelationIdSchema.parse(
@@ -153,7 +155,9 @@ export function createCanonicalCommands(
 
       if (
         scopedEnvironment.scope?.dataScope === 'test' &&
-        !isTestSessionCommandSupported(normalized.kind)
+        !isTestSessionCommandSupported(normalized.kind) &&
+        !isTestSessionExistingIdentityBootstrap(normalized.kind) &&
+        !isTestSessionStarterCreditBootstrapNoOp(normalized.kind)
       ) {
         return commandErrorResult(
           normalized.kind,

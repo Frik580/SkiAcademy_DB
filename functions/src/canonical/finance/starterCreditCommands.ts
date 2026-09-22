@@ -56,6 +56,13 @@ export function grantStarterCreditHandler(
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
 ): Promise<CommandResult<'grant_starter_credit'>> {
   assertStarterCreditGrantAuthorization(envelope);
+  // Assigned TestActor execution scope is already TEST. Starter Credit funds
+  // LIVE onboarding only; TestSession wallets are seeded by session lifecycle.
+  if (environment.scope?.dataScope === 'test') {
+    return Promise.resolve(
+      commandSuccessResult(envelope.kind, envelope.context.correlationId)
+    );
+  }
   const actor = envelope.context.actor;
   if (actor.kind !== 'account') {
     throw new CanonicalCommandError('forbidden', {

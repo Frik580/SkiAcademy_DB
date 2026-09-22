@@ -2,18 +2,28 @@ import { describe, expect, it } from 'vitest';
 import {
   AccountIdSchema,
   AccountSchema,
+  CommandIdSchema,
   CorrelationIdSchema,
   ParticipantIdSchema,
   ParticipantManagementIdSchema,
+  TestSessionIdSchema,
   accountCommandActor,
+  deriveCommandKey,
+  encodeCommandActorScope,
   participantManagementIdFromSelfProvisioning,
   selfParticipantIdFromAccountId,
+  testCanonicalExecutionScope,
   timestampFromDate,
   type CommandEnvelope,
+  type TestSessionStatus,
 } from '@ski-academy/shared-domain';
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
 import { createInMemoryCanonicalTransactionExecutor } from '../transactions';
+import {
+  resolveCanonicalExecutionScope,
+  type CanonicalExecutionScopeStore,
+} from '../testSessions/canonicalExecutionScopeResolver';
 import { buildSelfIdentityProjectionRepair } from './selfParticipantProvisioningCommands';
 
 const accountId = AccountIdSchema.parse('account_self_provisioning_unit');
@@ -34,9 +44,15 @@ function envelope(idempotencyKey: string): CommandEnvelope<'provision_self_parti
   };
 }
 
-function commands(executor: ReturnType<typeof createInMemoryCanonicalTransactionExecutor>) {
+function commands(
+  executor: ReturnType<typeof createInMemoryCanonicalTransactionExecutor>,
+  scope?: ReturnType<typeof testCanonicalExecutionScope>
+) {
   return createProductionCanonicalCommands(
-    { clock: createAuthoritativeCommandClock(new Date('2026-01-01T00:00:00.000Z')) },
+    {
+      clock: createAuthoritativeCommandClock(new Date('2026-01-01T00:00:00.000Z')),
+      ...(scope ? { scope } : {}),
+    },
     executor
   );
 }
@@ -450,5 +466,296 @@ describe('canonical self Participant provisioning', () => {
     expect(afterSecond?.displayName).toBe('Canonical Name');
     expect(afterSecond?.revision).toBe(2);
     expect(afterSecond?.updatedAt).toEqual(afterRepair?.updatedAt);
+  });
+});
+
+const testSessionId = TestSessionIdSchema.parse('test_provision_self_01');
+const otherSessionId = TestSessionIdSchema.parse('test_provision_self_02');
+const testScope = testCanonicalExecutionScope(testSessionId);
+const scopeCommandId = CommandIdSchema.parse('command_provision_test_scope_01');
+const dependentParticipantId = ParticipantIdSchema.parse('participant_test_dependent_unit');
+const dependentManagementId = ParticipantManagementIdSchema.parse('management_test_dependent_unit');
+
+function identityDocuments(
+  snapshot: ReturnType<ReturnType<typeof createInMemoryCanonicalTransactionExecutor>['snapshot']>
+) {
+  return [...snapshot.docs.entries()]
+    .filter(
+      ([path]) =>
+        path.startsWith('users/') ||
+        path.startsWith('participants/') ||
+        path.startsWith('participant_management/') ||
+        path.startsWith('participant_management_active_owner/')
+    )
+    .map(([path, document]) => [path, document.data] as const);
+}
+
+function seedProvisionedTestIdentity(input: {
+  readonly participantSessionId?: string;
+  readonly omitParticipantSession?: boolean;
+  readonly includeDependent?: boolean;
+  readonly profileDisplayName?: string;
+  readonly omitSelf?: boolean;
+} = {}) {
+  const seeded = seedExistingSelf({
+    displayName: 'Provisioned Self',
+    profileDisplayName: input.profileDisplayName ?? 'Provisioned Self',
+    ...(input.includeDependent
+      ? {
+          dependent: {
+            participantId: dependentParticipantId,
+            managementId: dependentManagementId,
+            displayName: 'Provisioned Dependent',
+          },
+        }
+      : {}),
+  });
+  const account = seeded.docs[`users/${accountId}`]!;
+  account.dataScope = 'test';
+  delete account.testSessionId;
+
+  if (input.omitSelf) {
+    delete seeded.docs[`participants/${seeded.existingParticipantId}`];
+    delete seeded.docs[`participant_management/${seeded.existingManagementId}`];
+    delete seeded.docs[`participant_management_active_owner/${seeded.existingParticipantId}`];
+  } else {
+    const participant = seeded.docs[`participants/${seeded.existingParticipantId}`]!;
+    participant.dataScope = 'test';
+    if (input.omitParticipantSession) {
+      delete participant.testSessionId;
+    } else {
+      participant.testSessionId = input.participantSessionId ?? testSessionId;
+    }
+  }
+
+  if (input.includeDependent) {
+    const dependent = seeded.docs[`participants/${dependentParticipantId}`]!;
+    dependent.dataScope = 'test';
+    dependent.testSessionId = testSessionId;
+  }
+
+  return seeded;
+}
+
+function scopeStore(input: {
+  readonly actor?: boolean;
+  readonly assignment?: boolean;
+  readonly status?: TestSessionStatus;
+}): CanonicalExecutionScopeStore {
+  const audit = {
+    createdByCommandId: scopeCommandId,
+    lastChangedByCommandId: scopeCommandId,
+    correlationId,
+  };
+  return {
+    async readTestActor() {
+      if (!input.actor) return undefined;
+      return {
+        accountId,
+        participantIds: [ParticipantIdSchema.parse('participant_existing_self_unit')],
+        kind: 'test_parent',
+        allowed: true,
+        dataScope: 'test',
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit,
+      };
+    },
+    async readTestActorAssignment() {
+      if (!input.assignment) return undefined;
+      return {
+        accountId,
+        activeTestSessionId: testSessionId,
+        revision: 1,
+        updatedAt: decidedAt,
+        audit,
+      };
+    },
+    async readTestSession() {
+      return {
+        testSessionId,
+        schemaVersion: 1,
+        status: input.status ?? 'active',
+        label: 'Provision fixture',
+        createdByAccountId: accountId,
+        config: { startingBalanceKzt: 0, clonedCourseIds: [] },
+        inventoryRevision: 0,
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit,
+      };
+    },
+  };
+}
+
+describe('TestActor provision_self_participant existing identity', () => {
+  it('resolves an assigned TestActor with a provisioned TEST self Participant and does not mutate identity', async () => {
+    const seeded = seedProvisionedTestIdentity({ includeDependent: true, profileDisplayName: 'Drifted Name' });
+    const executor = createInMemoryCanonicalTransactionExecutor(seeded.docs);
+    const before = identityDocuments(executor.snapshot());
+
+    const scope = await resolveCanonicalExecutionScope(
+      scopeStore({ actor: true, assignment: true, status: 'active' }),
+      { accountId, accountLifecycleStatus: 'active', isAdministrator: false }
+    );
+    expect(scope).toEqual(testScope);
+
+    const result = await commands(executor, testScope).execute(
+      envelope('provision-self-participant-v2')
+    );
+    expect(result).toMatchObject({ status: 'success' });
+    expect(result).not.toMatchObject({
+      status: 'error',
+      error: { code: 'cross_scope_forbidden' },
+    });
+    expect(identityDocuments(executor.snapshot())).toEqual(before);
+    expect(
+      executor.snapshot().docs.get(`participants/${seeded.existingParticipantId}`)?.data
+    ).toMatchObject({
+      dataScope: 'test',
+      testSessionId,
+      displayName: 'Provisioned Self',
+    });
+    expect(executor.snapshot().docs.get(`users/${accountId}`)?.data).toMatchObject({
+      dataScope: 'test',
+      displayName: 'Drifted Name',
+    });
+    expect(executor.snapshot().docs.get(`users/${accountId}`)?.data.testSessionId).toBeUndefined();
+    expect(
+      executor.snapshot().docs.get(`participants/${dependentParticipantId}`)?.data.displayName
+    ).toBe('Provisioned Dependent');
+    expect(
+      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('participants/'))
+    ).toHaveLength(2);
+  });
+
+  it('fails closed when the assigned TestActor has no self Participant', async () => {
+    const seeded = seedProvisionedTestIdentity({ omitSelf: true });
+    const executor = createInMemoryCanonicalTransactionExecutor(seeded.docs);
+    const result = await commands(executor, testScope).execute(envelope('provision-test-missing-01'));
+    expect(result).toMatchObject({
+      status: 'error',
+      error: {
+        code: 'blocked_relationship',
+        details: { resourceKind: 'participant', reason: 'conflict' },
+      },
+    });
+    expect(
+      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('participants/'))
+    ).toHaveLength(0);
+  });
+
+  it('fails closed when the self Participant is missing its session or belongs to another session', async () => {
+    const malformed = seedProvisionedTestIdentity({ omitParticipantSession: true });
+    const malformedExecutor = createInMemoryCanonicalTransactionExecutor(malformed.docs);
+    const malformedResult = await commands(malformedExecutor, testScope).execute(
+      envelope('provision-test-malformed-01')
+    );
+    expect(malformedResult).toMatchObject({
+      status: 'error',
+      error: { code: 'cross_scope_forbidden', details: { reason: 'malformed' } },
+    });
+
+    const crossSession = seedProvisionedTestIdentity({ participantSessionId: otherSessionId });
+    const crossExecutor = createInMemoryCanonicalTransactionExecutor(crossSession.docs);
+    const crossResult = await commands(crossExecutor, testScope).execute(
+      envelope('provision-test-cross-session-01')
+    );
+    expect(crossResult).toMatchObject({
+      status: 'error',
+      error: { code: 'cross_scope_forbidden', details: { reason: 'conflict' } },
+    });
+    expect(crossExecutor.snapshot().docs.get(`users/${accountId}`)?.data.dataScope).toBe('test');
+    expect(
+      crossExecutor.snapshot().docs.get(`participants/${crossSession.existingParticipantId}`)?.data
+        .testSessionId
+    ).toBe(otherSessionId);
+  });
+
+  it('does not reach provisioning when the TestActor has no assignment or an inactive session', async () => {
+    await expect(
+      resolveCanonicalExecutionScope(scopeStore({ actor: true, assignment: false }), {
+        accountId,
+        accountLifecycleStatus: 'active',
+        isAdministrator: false,
+      })
+    ).rejects.toEqual(expect.objectContaining({ code: 'TEST_ACTOR_NO_SESSION' }));
+
+    await expect(
+      resolveCanonicalExecutionScope(
+        scopeStore({ actor: true, assignment: true, status: 'locked' }),
+        { accountId, accountLifecycleStatus: 'active', isAdministrator: false }
+      )
+    ).rejects.toEqual(expect.objectContaining({ code: 'TEST_SESSION_NOT_ACTIVE' }));
+  });
+
+  it('keeps the public idempotency key in separate LIVE and TEST namespaces', () => {
+    const actorScope = encodeCommandActorScope(accountCommandActor(accountId));
+    const publicKey = 'provision-self-participant-v2';
+    expect(deriveCommandKey(actorScope, publicKey, { dataScope: 'live' })).not.toBe(
+      deriveCommandKey(actorScope, publicKey, testScope)
+    );
+  });
+
+  it('follows login order: assigned scope, existing identity, then starter-credit no-op', async () => {
+    const seeded = seedProvisionedTestIdentity({ includeDependent: true });
+    const wallet = {
+      accountId,
+      dataScope: 'test',
+      testSessionId,
+      currency: 'KZT',
+      balance: 100_000,
+      revision: 1,
+      eventRevision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+    };
+    const marker = { granted: true, amountKzt: 0 };
+    seeded.docs[`users/${accountId}/wallet/state`] = wallet;
+    seeded.docs[`users/${accountId}/wallet/starter_credit_grant`] = marker;
+    seeded.docs['monetary_events/monetary_event_login_seed'] = { eventKind: 'wallet_credit' };
+    seeded.docs['settings/starter_credit'] = { amountKzt: 250 };
+    const executor = createInMemoryCanonicalTransactionExecutor(seeded.docs);
+    const scope = await resolveCanonicalExecutionScope(
+      scopeStore({ actor: true, assignment: true, status: 'active' }),
+      { accountId, accountLifecycleStatus: 'active', isAdministrator: false }
+    );
+    expect(scope).toEqual({ dataScope: 'test', testSessionId });
+
+    const provision = await commands(executor, testScope).execute(
+      envelope('provision-self-participant-v2')
+    );
+    expect(provision.status).toBe('success');
+    expect(
+      executor.snapshot().docs.get(`participants/${seeded.existingParticipantId}`)?.data
+    ).toMatchObject({ dataScope: 'test', testSessionId, displayName: 'Provisioned Self' });
+
+    const grant = await commands(executor, testScope).execute({
+      kind: 'grant_starter_credit',
+      context: {
+        actor: accountCommandActor(accountId),
+        exercisedCapability: 'account_owner',
+        idempotencyKey: 'grant-starter-credit-v1',
+        correlationId,
+        source: 'client_callable',
+      },
+      intent: {},
+    });
+    expect(grant).toMatchObject({ status: 'success' });
+    expect(executor.snapshot().docs.get(`users/${accountId}/wallet/state`)?.data).toEqual(wallet);
+    expect(
+      executor.snapshot().docs.get(`users/${accountId}/wallet/starter_credit_grant`)?.data
+    ).toEqual(marker);
+    expect(
+      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('monetary_events/'))
+    ).toEqual(['monetary_events/monetary_event_login_seed']);
+    expect(executor.snapshot().docs.get('settings/starter_credit')?.data).toEqual({
+      amountKzt: 250,
+    });
+    expect(
+      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('participants/'))
+    ).toHaveLength(2);
   });
 });

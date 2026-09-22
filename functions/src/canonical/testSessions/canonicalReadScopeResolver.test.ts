@@ -123,6 +123,23 @@ describe('resolveCanonicalReadScope', () => {
     });
   });
 
+  it('rejects a TestActor whose assigned session is not active', async () => {
+    await expect(
+      resolveCanonicalReadScope(
+        store({
+          actor: actor(accountId),
+          assignment: assignment(accountId, testSessionId),
+          session: session(testSessionId, 'closed'),
+        }),
+        {
+          accountId,
+          accountLifecycleStatus: 'active',
+          isAdministrator: false,
+        }
+      )
+    ).rejects.toEqual(expect.objectContaining({ code: 'TEST_SESSION_NOT_ACTIVE' }));
+  });
+
   it('resolves a TestActor assignment to TEST and ignores email', async () => {
     await expect(
       resolveCanonicalReadScope(

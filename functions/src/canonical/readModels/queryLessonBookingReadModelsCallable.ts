@@ -66,20 +66,7 @@ export function createQueryLessonBookingReadModelsHandler(firestore: Firestore) 
         if (!parsedAccountId.success) {
           throw new HttpsError('unauthenticated', 'Authentication is required.');
         }
-        const userSnap = await liveContext.account(parsedAccountId.data);
-        const profileData = userSnap.data() as Record<string, unknown> | undefined;
-        const account = parseAccount(profileData);
-        if (!account || account.lifecycle.status !== 'active') {
-          throw new HttpsError('permission-denied', 'This action is not permitted.');
-        }
         accountId = parsedAccountId.data;
-
-        if (input.scope === 'instructor_hot' || input.scope === 'instructor_history') {
-          instructorId = resolveCallableInstructorId(readCallableAccountProfile(profileData));
-          if (!instructorId) {
-            throw new HttpsError('permission-denied', 'This action is not permitted.');
-          }
-        }
       }
 
       const readScope = await resolveCanonicalReadScope(
@@ -99,6 +86,25 @@ export function createQueryLessonBookingReadModelsHandler(firestore: Firestore) 
         readScope.dataScope === 'live'
           ? liveContext
           : createReadModelRequestContext(firestore, { readScope });
+
+      // Principal identity is loaded only after TestActor assignment resolves.
+      // A LIVE-scoped read hides dataScope=test accounts and would deny the
+      // cabinet before the resolver can select product_test.
+      if (isAuthenticatedScope && accountId) {
+        const userSnap = await readContext.account(accountId);
+        const profileData = userSnap.data() as Record<string, unknown> | undefined;
+        const account = parseAccount(profileData);
+        if (!account || account.lifecycle.status !== 'active') {
+          throw new HttpsError('permission-denied', 'This action is not permitted.');
+        }
+        if (input.scope === 'instructor_hot' || input.scope === 'instructor_history') {
+          instructorId = resolveCallableInstructorId(readCallableAccountProfile(profileData));
+          if (!instructorId) {
+            throw new HttpsError('permission-denied', 'This action is not permitted.');
+          }
+        }
+      }
+
       return await queryLessonBookingReadModels(firestore, input, {
         accountId,
         instructorId,

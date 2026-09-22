@@ -324,7 +324,35 @@ describe('canonicalReadModelClient', () => {
     expect(callFunctionMock).toHaveBeenCalledWith(
       QUERY_LESSON_BOOKING_READ_MODELS_CALLABLE,
       { scope: 'account_hot' },
-      expect.objectContaining({ maxAttempts: 1 })
+      expect.objectContaining({
+        maxAttempts: 1,
+        idempotencyKey: expect.stringMatching(/:rs:live$/),
+      })
+    );
+    expect(callFunctionMock.mock.calls[0]?.[1]).not.toHaveProperty('requestedTestSessionId');
+  });
+
+  it('keeps an explicit TestSession on the lesson booking read key', async () => {
+    callFunctionMock.mockResolvedValueOnce({
+      scope: 'account_hot',
+      items: [],
+      hasMore: false,
+    });
+
+    await queryLessonBookingReadModels({
+      scope: 'account_hot',
+      requestedTestSessionId: 'test_read_scope_01' as never,
+    });
+
+    expect(callFunctionMock).toHaveBeenCalledWith(
+      QUERY_LESSON_BOOKING_READ_MODELS_CALLABLE,
+      {
+        scope: 'account_hot',
+        requestedTestSessionId: 'test_read_scope_01',
+      },
+      expect.objectContaining({
+        idempotencyKey: expect.stringMatching(/:rs:test_read_scope_01$/),
+      })
     );
   });
 

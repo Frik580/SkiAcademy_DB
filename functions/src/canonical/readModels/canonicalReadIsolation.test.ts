@@ -698,6 +698,207 @@ describe('canonical LIVE/TEST read isolation', () => {
     }
   });
 
+  function reviewInstructor(instructorId: string, scope: Record<string, unknown> = {}) {
+    return {
+      id: instructorId,
+      name: 'Review Coach',
+      isAvailable: true,
+      pricePerHourKZT: 12_000,
+      ...scope,
+    };
+  }
+
+  function instructorReviewDocument(
+    reviewId: string,
+    instructorId: string,
+    scope: Record<string, unknown>,
+    rating: number = 5
+  ) {
+    const at = canonicalCourseDeliveryFixtures.course.createdAt;
+    return {
+      reviewId,
+      bookingId: scopedIds('booking', 'review001'),
+      managingAccountId: actor.accountId,
+      instructorId,
+      rating,
+      attendanceEvidenceParticipantIds: [scopedIds('participant', 'review01')],
+      authorDisplayName: 'Visible Reviewer',
+      revision: 1,
+      createdAt: at,
+      audit: {
+        createdByCommandId: 'command_isolation_review',
+        correlationId: 'correlation_isolation_review',
+      },
+      ...scope,
+    };
+  }
+
+  async function readInstructorReviews(
+    seed: Record<string, Record<string, unknown>>,
+    instructorId: string,
+    readScope: typeof liveScope | typeof testA | typeof testB
+  ) {
+    return queryInstructorReviewReadModels(
+      fakeFirestore(seed),
+      { scope: 'instructor_reviews', instructorId: instructorId as never, pageSize: 10 },
+      { readScope }
+    );
+  }
+
+  it('returns a visible valid LIVE instructor review', async () => {
+    const instructorId = scopedIds('instructor', 'revlive1');
+    const reviewId = scopedIds('review', 'revlive01');
+    const result = await readInstructorReviews(
+      {
+        [`instructors/${instructorId}`]: reviewInstructor(instructorId, { dataScope: 'live' }),
+        [`instructor_reviews/${reviewId}`]: instructorReviewDocument(reviewId, instructorId, {
+          dataScope: 'live',
+        }),
+      },
+      instructorId,
+      liveScope
+    );
+    expect(result.scope).toBe('instructor_reviews');
+    if (result.scope === 'instructor_reviews') {
+      expect(result.reviews.map((review) => review.reviewId)).toEqual([reviewId]);
+      expect(result.reviews[0]?.rating).toBe(5);
+    }
+  });
+
+  it('fails strict canonical validation for a visible malformed LIVE review', async () => {
+    const instructorId = scopedIds('instructor', 'revbad01');
+    const reviewId = scopedIds('review', 'revbad001');
+    await expect(
+      readInstructorReviews(
+        {
+          [`instructors/${instructorId}`]: reviewInstructor(instructorId, { dataScope: 'live' }),
+          [`instructor_reviews/${reviewId}`]: instructorReviewDocument(
+            reviewId,
+            instructorId,
+            { dataScope: 'live' },
+            99
+          ),
+        },
+        instructorId,
+        liveScope
+      )
+    ).rejects.toThrow(`Canonical instructor review ${reviewId} is invalid.`);
+  });
+
+  it('returns a legacy missing-scope LIVE review during the compatibility window', async () => {
+    const instructorId = scopedIds('instructor', 'revleg01');
+    const reviewId = scopedIds('review', 'revleg001');
+    const result = await readInstructorReviews(
+      {
+        [`instructors/${instructorId}`]: reviewInstructor(instructorId),
+        [`instructor_reviews/${reviewId}`]: instructorReviewDocument(reviewId, instructorId, {}),
+      },
+      instructorId,
+      liveScope
+    );
+    expect(result.scope).toBe('instructor_reviews');
+    if (result.scope === 'instructor_reviews') {
+      expect(result.reviews.map((review) => review.reviewId)).toEqual([reviewId]);
+    }
+  });
+
+  it('hides a cross-scope TEST review from a LIVE read', async () => {
+    const instructorId = scopedIds('instructor', 'revxsc01');
+    const reviewId = scopedIds('review', 'revxsc001');
+    const result = await readInstructorReviews(
+      {
+        [`instructors/${instructorId}`]: reviewInstructor(instructorId, { dataScope: 'live' }),
+        [`instructor_reviews/${reviewId}`]: instructorReviewDocument(reviewId, instructorId, {
+          dataScope: 'test',
+          testSessionId: sessionA,
+        }),
+      },
+      instructorId,
+      liveScope
+    );
+    expect(result.scope).toBe('instructor_reviews');
+    if (result.scope === 'instructor_reviews') {
+      expect(result.reviews).toEqual([]);
+    }
+  });
+
+  it('hides a valid TestSession B review from TestSession A', async () => {
+    const instructorId = scopedIds('instructor', 'revsesa1');
+    const reviewId = scopedIds('review', 'revsesb01');
+    const result = await readInstructorReviews(
+      {
+        [`instructors/${instructorId}`]: reviewInstructor(instructorId, {
+          dataScope: 'test',
+          testSessionId: sessionA,
+        }),
+        [`instructor_reviews/${reviewId}`]: instructorReviewDocument(reviewId, instructorId, {
+          dataScope: 'test',
+          testSessionId: sessionB,
+        }),
+      },
+      instructorId,
+      testA
+    );
+    expect(result.scope).toBe('instructor_reviews');
+    if (result.scope === 'instructor_reviews') {
+      expect(result.reviews).toEqual([]);
+    }
+  });
+
+  it('does not reveal a malformed TestSession B review to TestSession A', async () => {
+    const instructorId = scopedIds('instructor', 'revleak1');
+    const visibleReviewId = scopedIds('review', 'revleaka1');
+    const foreignReviewId = scopedIds('review', 'revleakb1');
+    const result = await readInstructorReviews(
+      {
+        [`instructors/${instructorId}`]: reviewInstructor(instructorId, {
+          dataScope: 'test',
+          testSessionId: sessionA,
+        }),
+        [`instructor_reviews/${visibleReviewId}`]: instructorReviewDocument(
+          visibleReviewId,
+          instructorId,
+          { dataScope: 'test', testSessionId: sessionA }
+        ),
+        [`instructor_reviews/${foreignReviewId}`]: instructorReviewDocument(
+          foreignReviewId,
+          instructorId,
+          { dataScope: 'test', testSessionId: sessionB },
+          99
+        ),
+      },
+      instructorId,
+      testA
+    );
+    expect(result.scope).toBe('instructor_reviews');
+    if (result.scope === 'instructor_reviews') {
+      expect(result.reviews.map((review) => review.reviewId)).toEqual([visibleReviewId]);
+    }
+  });
+
+  it('fails strict canonical validation for a malformed review in the matching TestSession', async () => {
+    const instructorId = scopedIds('instructor', 'revtbad1');
+    const reviewId = scopedIds('review', 'revtbad01');
+    await expect(
+      readInstructorReviews(
+        {
+          [`instructors/${instructorId}`]: reviewInstructor(instructorId, {
+            dataScope: 'test',
+            testSessionId: sessionA,
+          }),
+          [`instructor_reviews/${reviewId}`]: instructorReviewDocument(
+            reviewId,
+            instructorId,
+            { dataScope: 'test', testSessionId: sessionA },
+            99
+          ),
+        },
+        instructorId,
+        testA
+      )
+    ).rejects.toThrow(`Canonical instructor review ${reviewId} is invalid.`);
+  });
+
   it('returns TEST session inventory counts without embedding unbounded IDs', async () => {
     const createdBy = actor.accountId;
     const at = canonicalCourseDeliveryFixtures.course.createdAt;

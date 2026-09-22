@@ -19,6 +19,7 @@ import {
   type QueryInstructorReviewReadModelsInput,
   type QueryInstructorReviewReadModelsResult,
   LIVE_CANONICAL_READ_SCOPE,
+  documentMatchesReadScope,
   type CanonicalReadScope,
 } from '@ski-academy/shared-domain';
 import { FieldPath, type Firestore, type Query } from 'firebase-admin/firestore';
@@ -49,6 +50,21 @@ export class InvalidInstructorReviewDocumentError extends Error {
     super(`Canonical instructor review ${reviewId} is invalid.`);
     this.name = 'InvalidInstructorReviewDocumentError';
   }
+}
+
+/**
+ * Scope invisibility stays a miss. A document that belongs to the requested
+ * read scope is parsed strictly so a malformed canonical review cannot vanish.
+ */
+function parseVisibleInstructorReview(
+  persisted: unknown,
+  readScope: CanonicalReadScope,
+  reviewId: string
+): InstructorReview | undefined {
+  if (!documentMatchesReadScope(readScope, persisted)) return undefined;
+  const review = parseInstructorReview(persisted as Record<string, unknown> | undefined);
+  if (!review) throw new InvalidInstructorReviewDocumentError(reviewId);
+  return review;
 }
 
 function toSummaryReadModel(
@@ -176,7 +192,7 @@ async function instructorReviews(
   const snapshot = await query.limit(pageSize + 1).get();
   const pageDocuments = snapshot.docs.slice(0, pageSize);
   const reviews = pageDocuments.flatMap((document) => {
-    const review = parseIfVisibleInReadScope(document.data(), parseInstructorReview, readScope);
+    const review = parseVisibleInstructorReview(document.data(), readScope, document.id);
     if (!review) return [];
     if (review.reviewId !== document.id || review.instructorId !== input.instructorId) {
       throw new InvalidInstructorReviewDocumentError(document.id);
@@ -253,10 +269,10 @@ async function accountReviews(
       let review = reviewsById.get(reviewId);
       if (!review) {
         const reviewSnapshot = await firestore.doc(instructorReviewPath(reviewId)).get();
-        const candidate = parseIfVisibleInReadScope(
+        const candidate = parseVisibleInstructorReview(
           reviewSnapshot.data(),
-          parseInstructorReview,
-          readScope
+          readScope,
+          reviewId
         );
         if (candidate?.managingAccountId === accountId) {
           review = candidate;

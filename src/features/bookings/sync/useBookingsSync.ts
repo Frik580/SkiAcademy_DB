@@ -9,7 +9,6 @@ import {
   OperationType,
   query,
 } from '../../../infrastructure/firebase';
-import { toInstructor } from '../../../infrastructure/firebase';
 import { QUERY_LIMITS } from '../../../shared';
 import { logger } from '../../../shared';
 import { useAuthStore } from '../../auth/authStore';
@@ -25,7 +24,7 @@ import {
 import { BookingIdSchema, InstructorIdSchema } from '@ski-academy/shared-domain';
 import { useLessonBookingStore } from '../../lesson-bookings';
 import { mergeAccountReviewBookingStates } from '../../reviews/mergeAccountReviewBookingStates';
-import { isLiveCompatibleIdentity } from '../../../lib/canonical/liveCompatibleClientRead';
+import { liveCatalogueInstructors } from './liveCatalogueInstructors';
 
 async function loadInstructorReviewPage(instructorId: string) {
   const page = await queryInstructorReviewReadModels({
@@ -42,6 +41,7 @@ async function loadInstructorReviewPage(instructorId: string) {
 export const useBookingsSync = () => {
   const { catalogueScope, shouldSyncReviews } = useDataSyncScope();
   const firebaseUser = useAuthStore((s) => s.firebaseUser);
+  const authGeneration = useAuthStore((s) => s.authGeneration);
   const userProfile = useProfileStore((s) => s.userProfile);
   const firebaseUserId = firebaseUser?.uid;
   const userRole = userProfile?.role;
@@ -56,6 +56,7 @@ export const useBookingsSync = () => {
 
   // The booking catalogue needs all instructors outside the instructor workspace. There, only the
   // linked instructor profile is rendered, so subscribe to that one document.
+  // Sign-in clears this public catalogue without a Firestore change, so resubscribe on authGeneration.
   useEffect(() => {
     if (catalogueScope === 'instructor' && !instructorId) {
       useBookingsStore.getState().setInstructors([]);
@@ -66,11 +67,10 @@ export const useBookingsSync = () => {
       return onSnapshot(
         doc(db, 'instructors', instructorId!),
         (snapshot) => {
-          const data = snapshot.data();
           useBookingsStore.getState().setInstructors(
-            snapshot.exists() && isLiveCompatibleIdentity(data)
-              ? [toInstructor(snapshot.id, data)]
-              : []
+            liveCatalogueInstructors(
+              snapshot.exists() ? [{ id: snapshot.id, data: snapshot.data() }] : []
+            )
           );
         },
         (error) => handleFirestoreError(error, OperationType.GET, 'instructors')
@@ -85,17 +85,17 @@ export const useBookingsSync = () => {
         useBookingsStore
           .getState()
           .setInstructors(
-            snapshot.docs.flatMap((instructorDoc) => {
-              const data = instructorDoc.data();
-              return isLiveCompatibleIdentity(data)
-                ? [toInstructor(instructorDoc.id, data)]
-                : [];
-            })
+            liveCatalogueInstructors(
+              snapshot.docs.map((instructorDoc) => ({
+                id: instructorDoc.id,
+                data: instructorDoc.data(),
+              }))
+            )
           );
       },
       (error) => handleFirestoreError(error, OperationType.LIST, 'instructors')
     );
-  }, [catalogueScope, instructorId]);
+  }, [authGeneration, catalogueScope, instructorId]);
 
   // Canonical review read models are the only product review/rating authority.
   useEffect(() => {

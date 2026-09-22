@@ -157,7 +157,7 @@ describe('canonical read in-flight dedupe', () => {
     expect(callFunctionMock).toHaveBeenCalledWith(
       QUERY_COURSE_CATALOG_READ_MODELS_CALLABLE,
       { scope: 'public' },
-      expect.objectContaining({ idempotencyKey: 'read:course_catalog:public:all' })
+      expect.objectContaining({ idempotencyKey: 'read:course_catalog:public:all:rs:live' })
     );
   });
 });

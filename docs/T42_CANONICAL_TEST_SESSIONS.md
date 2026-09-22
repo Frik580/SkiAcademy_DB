@@ -1,8 +1,8 @@
 # T42 Canonical Test Sessions
 
-Date: 2026-09-21
+Date: 2026-09-22
 
-Status: **IN PROGRESS / T42B-7 IMPLEMENTED + VALIDATED (source-only) / NEXT T42B-8**
+Status: **IN PROGRESS / T42B-8B EXECUTED (2026-09-22) / T42B-8C NOT STARTED**
 
 This document is the living T42 status and implementation plan. Architecture
 authority is [ADR-0010](adr/0010-canonical-test-sessions-and-live-test-data-isolation.md).
@@ -17,10 +17,10 @@ Distinguish:
 | **APPROVED ARCHITECTURE**       | Owner-accepted design. Not present in production. |
 | **PLANNED T42B IMPLEMENTATION** | Future slices. Not started.                       |
 
-Do **not** read this document as meaning that `dataScope` exists in production,
-that Test Sessions can already be created, that Rules already enforce test
-isolation, that test-actor Auth users already exist, or that a `dataScope`
-migration already ran.
+Production now has explicit `dataScope` on the backfilled LIVE graph, one active
+TestSession, and two Test Actors. Firestore Rules were not redeployed in
+T42B-8B. `LIVE_READ_COMPATIBILITY_MODE.missingDataScope` is still
+`legacy_live`. Guest TEST, Reset, and Delete were not run.
 
 ## Current sequence
 
@@ -67,7 +67,17 @@ DONE     T42B-7 — TestSession lifecycle and maintenance engine
          deploy / migration / production writes = NO
          production Test Mode is NOT available
 
-NEXT     T42B-8 — controlled production cutover
+DONE     T42B-8A — read-only production cutover preflight (2026-09-22)
+         no deploy, no migration, no production writes
+         exact plan: docs/T42B8_PRODUCTION_CUTOVER_PLAN.md
+
+DONE     T42B-8B — production deploy, LIVE backfill, Test Instructor,
+         Ksuscha TEST identity, first TestSession (2026-09-22)
+         strict mode still legacy_live; Rules/indexes not deployed
+         Reset / Delete / guest TEST = NO
+         T42B-8C — NOT STARTED
+
+NEXT     T42B-8C — end-to-end TEST smoke
          T42B-9 authenticated isolation smoke
 
 THEN     T43 — Test Session Guest Support
@@ -132,8 +142,10 @@ instructors=2, courses=6, CourseDays=15. Wallet `/state` docs=0 (lazy);
 Auth users=8 (4 canonical + 4 leftover test-like Auth without `/users`).
 Indexes: source 40 composites, production READY 40.
 
-T42B-8 backfill of empty transactional collections is currently **N=0**.
-Identity/catalog/config docs still need explicit `dataScope=live` later.
+T42B-8 backfill of empty transactional collections was **N=0** at T42B-0.
+T42B-8A re-counted production on 2026-09-22 and those transactional collections
+were still empty. Identity/catalog/config docs still need explicit scope.
+The executable manifest is [T42B8_PRODUCTION_CUTOVER_PLAN.md](T42B8_PRODUCTION_CUTOVER_PLAN.md).
 
 ## Owner correction: approved persistent Test Parent
 
@@ -1009,7 +1021,7 @@ refresh after the callable. No polling and no browser cleanup.
 | T42B-5 | Read-model isolation                                                                                    | **IMPLEMENTED / VALIDATED** (source-only; indexes unchanged 40; deploy NO)                     |
 | T42B-6 | Admin Testing UI                                                                                        | **IMPLEMENTED / VALIDATED** (source-only; lifecycle actions wired in T42B-7)                   |
 | T42B-7 | Lifecycle, provisioning, reset/delete engine, manifests, locks, audit, verifier, Testing UI wiring      | **IMPLEMENTED / VALIDATED** (source-only; emulator gates; deploy/migration/production = NO)    |
-| T42B-8 | Existing LIVE data backfill; Firestore Rules; Storage Rules; indexes; strict dataScope contract         | **NEXT**                                                                                       |
+| T42B-8 | Existing LIVE data backfill; Storage Rules; strict dataScope contract | **8B EXECUTED** (2026-09-22). Functions + Storage Rules + Hosting deployed. LIVE backfill applied. First TestSession active. Firestore Rules and indexes not deployed. Strict mode still `legacy_live`. **8C NOT STARTED**. See [T42B8_PRODUCTION_CUTOVER_PLAN.md](T42B8_PRODUCTION_CUTOVER_PLAN.md). |
 | T42B-9 | Authenticated isolation smoke                                                                           | PLANNED                                                                                        |
 
 Future after T42B: **T43 — Test Session Guest Support**.

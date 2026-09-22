@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { AlertTriangle, Copy, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, Copy, Shield, ShieldAlert } from 'lucide-react';
 import {
   TEST_SESSION_RESET_CONFIRMATION,
   type TestSessionLifecycleResult,
@@ -12,6 +12,7 @@ import {
   lifecycleErrorCode,
 } from '../../../lib/canonical/testSessionLifecycleClient';
 import { ActionButton } from '../../../ui/ActionButton';
+import { BodyScrollLock } from '../../../ui/BodyScrollLock';
 import { useAdminTestingTranslations } from './useAdminTestingTranslations';
 import {
   canExecuteResetPreview,
@@ -406,20 +407,28 @@ export const TestSessionResetSection: React.FC<TestSessionResetSectionProps> = (
       {confirmOpen && manifest && canExecute
         ? createPortal(
             <div
-              className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4"
+              className="ui-modal-overlay fixed inset-0 z-55 flex items-center justify-center p-4 animate-fade-in"
               role="dialog"
               aria-modal="true"
               aria-labelledby="reset-confirm-title"
               data-testid="reset-confirm-modal"
             >
-              <div className="max-w-lg border border-[var(--border)] bg-[var(--surface)] p-5 shadow-lg">
-                <h5 id="reset-confirm-title" className="font-serif text-lg text-[var(--ink)]">
+              <BodyScrollLock />
+              <div
+                className="ui-modal w-full max-w-lg max-h-[80vh] overflow-y-auto p-6 shadow-2xl relative space-y-4 rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)] animate-scale-up"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h5
+                  id="reset-confirm-title"
+                  className="font-serif text-sm font-light text-[var(--ink)] flex items-center gap-2"
+                >
+                  <Shield className="w-4.5 h-4.5 text-[var(--ink-dim)]" aria-hidden="true" />
                   {t('adminTestingResetConfirmTitle')}
                 </h5>
-                <p className="mt-3 text-sm text-[var(--ink-dim)]">
+                <p className="text-xs text-[var(--ink-dim)] leading-relaxed">
                   {t('adminTestingResetConfirmBody').replace('{count}', String(destructiveTotal))}
                 </p>
-                <dl className="mt-4 space-y-2 text-xs">
+                <dl className="space-y-2 text-xs">
                   <div>
                     <dt className="text-[var(--ink-dim)]">{t('adminTestingResetManifestId')}</dt>
                     <dd className="font-mono">{manifest.manifestId}</dd>
@@ -441,7 +450,7 @@ export const TestSessionResetSection: React.FC<TestSessionResetSectionProps> = (
                     <dd>{reseedCourses}</dd>
                   </div>
                 </dl>
-                <div className="mt-5 flex flex-wrap justify-end gap-2">
+                <div className="flex flex-wrap justify-end gap-2 pt-2">
                   <ActionButton
                     variant="secondary"
                     data-testid="reset-confirm-cancel"

@@ -32,9 +32,12 @@ async function assertLegacyAdminCourseWriteAllowed(
 
 export async function addCourseService(course: Course): Promise<void> {
   await assertLegacyAdminCourseWriteAllowed(course.id, 'create');
+  const { testSessionId: _testSessionId, ...liveCourse } = stripUndefinedFields(
+    course as unknown as Record<string, unknown>
+  );
   await setDoc(
     doc(db, 'courses', course.id),
-    stripUndefinedFields(course as unknown as Record<string, unknown>)
+    { ...liveCourse, dataScope: 'live' }
   );
 }
 

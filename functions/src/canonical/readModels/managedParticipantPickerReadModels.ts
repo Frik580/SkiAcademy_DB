@@ -17,7 +17,6 @@ import {
   parseParticipantManagement,
 } from '../participantAccess/participantAccessStore';
 import { createReadModelRequestContext, type ReadModelRequestContext } from './readModelRequestContext';
-import { parseIfVisibleInReadScope } from './readModelScope';
 
 function toManagedParticipantPickerItem(input: {
   readonly participant: Participant;
@@ -80,12 +79,7 @@ export async function queryManagedParticipantPickerReadModels(
   const managementDocs = await readContext.allActiveManagementForAccount(accountId);
   const managements: ParticipantManagement[] = [];
   for (const doc of managementDocs) {
-    const parsed = parseIfVisibleInReadScope(
-      doc.data(),
-      parseParticipantManagement,
-      readScope,
-      'identity'
-    );
+    const parsed = parseParticipantManagement(doc.data());
     if (parsed && parsed.status === 'active' && parsed.accountId === accountId) {
       managements.push(parsed);
     }

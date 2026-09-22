@@ -31,6 +31,7 @@ export interface WalletLedgerEntry {
 
 export interface UserProfile {
   uid: string;
+  dataScope?: 'live' | 'test';
   email: string;
   displayName: string;
   phoneNumber?: string;

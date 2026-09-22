@@ -19,6 +19,7 @@ export const createNotificationForUser = async (
   if (userId.startsWith('system_block_')) return;
 
   const notification = {
+    dataScope: 'live' as const,
     userId,
     titleEn: content.titleEn,
     titleRu: content.titleRu,

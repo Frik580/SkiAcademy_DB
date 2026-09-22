@@ -1160,6 +1160,7 @@ describe('T32.8A identity authority containment', () => {
         role: 'user',
         avatarUrl: '',
         isClientActive: true,
+        dataScope: 'live',
       })
     );
     await assertFails(
@@ -1503,6 +1504,25 @@ describe('notifications', () => {
     await assertFails(deleteDoc(doc(otherDb, 'notifications', 'notification-1')));
     await assertSucceeds(deleteDoc(doc(ownerDb, 'notifications', 'notification-1')));
   });
+
+  it('requires explicit LIVE scope on new client notifications', async () => {
+    const ownerDb = testEnv.authenticatedContext(USER_ID).firestore();
+    const notification = { userId: USER_ID, title: 'Lesson update', message: 'Changed' };
+    await assertSucceeds(
+      setDoc(doc(ownerDb, 'notifications', 'notification-live'), {
+        ...notification,
+        dataScope: 'live',
+      })
+    );
+    await assertFails(setDoc(doc(ownerDb, 'notifications', 'notification-unscoped'), notification));
+    await assertFails(
+      setDoc(doc(ownerDb, 'notifications', 'notification-session'), {
+        ...notification,
+        dataScope: 'live',
+        testSessionId: 'test_session',
+      })
+    );
+  });
 });
 
 describe('activity_logs', () => {
@@ -1535,11 +1555,20 @@ describe('activity_logs', () => {
     await assertFails(getDoc(doc(otherDb, 'activity_logs', 'activity-1')));
   });
 
-  it('allows instructors to create activity logs for students', async () => {
+  it('rejects stale-client and explicit LIVE activity log creates', async () => {
     const instructorDb = testEnv.authenticatedContext(INSTRUCTOR_USER_ID).firestore();
 
-    await assertSucceeds(
+    await assertFails(
       setDoc(doc(instructorDb, 'activity_logs', 'activity-2'), {
+        userId: USER_ID,
+        actorId: INSTRUCTOR_USER_ID,
+        type: 'level_up',
+        timestamp: '2026-07-28T12:00:00.000Z',
+      })
+    );
+    await assertFails(
+      setDoc(doc(instructorDb, 'activity_logs', 'activity-live'), {
+        dataScope: 'live',
         userId: USER_ID,
         actorId: INSTRUCTOR_USER_ID,
         type: 'level_up',
@@ -1548,11 +1577,11 @@ describe('activity_logs', () => {
     );
   });
 
-  it('allows the same actor to idempotently rewrite a level_up log', async () => {
+  it('rejects client rewrites of server-owned level_up logs', async () => {
     const instructorDb = testEnv.authenticatedContext(INSTRUCTOR_USER_ID).firestore();
     const logRef = doc(instructorDb, 'activity_logs', `act_level_${USER_ID}_2`);
 
-    await assertSucceeds(
+    await assertFails(
       setDoc(logRef, {
         userId: USER_ID,
         actorId: INSTRUCTOR_USER_ID,
@@ -1562,7 +1591,7 @@ describe('activity_logs', () => {
       })
     );
 
-    await assertSucceeds(
+    await assertFails(
       setDoc(logRef, {
         userId: USER_ID,
         actorId: INSTRUCTOR_USER_ID,
@@ -2709,11 +2738,18 @@ describe('courses canonical provisioning marker', () => {
     await assertSucceeds(
       setDoc(doc(adminDb, 'courses', 'course-new-legacy'), {
         id: 'course-new-legacy',
+        dataScope: 'live',
         title: 'New legacy course',
         totalSeats: 4,
         availableSeats: 4,
         price: 100,
         dates: 'December',
+      })
+    );
+    await assertFails(
+      setDoc(doc(adminDb, 'courses', 'course-unscoped-legacy'), {
+        id: 'course-unscoped-legacy',
+        title: 'Old cached client course',
       })
     );
   });

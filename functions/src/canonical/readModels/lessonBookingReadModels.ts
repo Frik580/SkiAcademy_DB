@@ -1065,6 +1065,10 @@ export async function buildInstructorLessonBookingReadModel(
       participantId: sanitized.participantId,
       displayName: sanitized.displayName,
       ...(selfManagement.success &&
+      participant.management.kind === 'managed' &&
+      selfManagement.data.participantManagementId ===
+        participant.management.participantManagementId &&
+      selfManagement.data.participantId === participantId &&
       selfManagement.data.status === 'active' &&
       selfManagement.data.authority === 'self'
         ? { selfAccountId: selfManagement.data.accountId }

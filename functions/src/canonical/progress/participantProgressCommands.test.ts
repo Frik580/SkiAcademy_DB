@@ -10,12 +10,14 @@ import {
   OccurrenceIdSchema,
   ParticipantIdSchema,
   ParticipantManagementIdSchema,
+  TestSessionIdSchema,
   accountCommandActor,
   attendanceIdFromBookingIdentity,
   ATTENDANCE_IDENTITY_STRATEGY_VERSION,
   instructorRelationshipExpiresAt,
   instructorRelationshipIdFromPair,
   paymentIdFromBookingId,
+  testCanonicalExecutionScope,
   timestampFromDate,
   type CommandEnvelope,
   type ParticipantId,
@@ -218,7 +220,12 @@ function envelope(
 
 describe('participantProgressCommands', () => {
   it('lets an instructor with relationship authority create and then OCC-update progress', async () => {
-    const executor = createInMemoryCanonicalTransactionExecutor(seedWorld());
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      ...seedWorld(),
+      'settings/skill_config': {
+        items: [{ id: 'carving', title: 'Configured carving', maxPoints: 25 }],
+      },
+    });
     const commands = createProductionCanonicalCommands(environment(), executor);
     const created = await commands.execute(envelope({ expectedRevision: 0 }));
     expect(created.status).toBe('success');
@@ -242,6 +249,69 @@ describe('participantProgressCommands', () => {
         revision: 2,
       }
     );
+    const levelLog = executor.snapshot().docs.get(`activity_logs/act_level_${studentAccountId}_2`);
+    expect(levelLog?.data).toMatchObject({
+      userId: studentAccountId,
+      actorId: instructorAccountId,
+      type: 'level_up',
+      dataScope: 'live',
+      metadata: {
+        skillDeltas: [{
+          itemId: 'carving',
+          title: 'Configured carving',
+          maxPoints: 25,
+        }],
+      },
+    });
+    expect(levelLog?.data.testSessionId).toBeUndefined();
+  });
+
+  it('writes the student activity log in the resolved TEST scope and replays once', async () => {
+    const testSessionId = TestSessionIdSchema.parse('test_progress_activity_01');
+    const scope = testCanonicalExecutionScope(testSessionId);
+    const world = seedWorld();
+    world[`users/${studentAccountId}`] = {
+      ...seedAccount(studentAccountId),
+      dataScope: 'test',
+    };
+    world[`users/${instructorAccountId}`] = {
+      ...seedAccount(instructorAccountId),
+      instructorId,
+      dataScope: 'test',
+    };
+    world[`instructors/${instructorId}`] = {
+      id: instructorId,
+      name: 'TEST Coach',
+      pricePerHourKZT: 12_000,
+      linkedAccountId: instructorAccountId,
+      dataScope: 'test',
+      testSessionId,
+    };
+    world[`participants/${participantId}`] = {
+      ...seedParticipant(participantId, managementId),
+      dataScope: 'test',
+      testSessionId,
+    };
+    const executor = createInMemoryCanonicalTransactionExecutor(world);
+    const commands = createProductionCanonicalCommands({ ...environment(), scope }, executor);
+    const request = envelope({ expectedRevision: 0, idempotencyKey: 'test-progress-activity-01' });
+
+    expect((await commands.execute(request)).status).toBe('success');
+    expect((await commands.execute(request)).status).toBe('success');
+
+    const logPath = `activity_logs/act_level_${studentAccountId}_2_${testSessionId}`;
+    const log = executor.snapshot().docs.get(logPath);
+    expect(log?.data).toMatchObject({
+      userId: studentAccountId,
+      type: 'level_up',
+      dataScope: 'test',
+      testSessionId,
+    });
+    expect(
+      [...executor.snapshot().docs.keys()].filter(
+        (path) => path === logPath
+      )
+    ).toHaveLength(1);
   });
 
   it('creates revision 1 from a missing document and does not copy leftover /users progress', async () => {

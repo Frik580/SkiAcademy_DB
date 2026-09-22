@@ -13,6 +13,8 @@ import type {
 } from './index';
 
 const SCOPE_STAMPED_COLLECTIONS = new Set([
+  'participants',
+  'instructors',
   'bookings',
   'booking_proposals',
   'booking_change_requests',
@@ -32,6 +34,7 @@ const SCOPE_STAMPED_COLLECTIONS = new Set([
   'wallets',
   'payments',
   'monetary_events',
+  'provider_event_receipts',
   'participant_progress',
   'participant_achievements',
   'participant_lesson_feedback',
@@ -39,8 +42,8 @@ const SCOPE_STAMPED_COLLECTIONS = new Set([
   'instructor_rating_summaries',
 ]);
 
-// Identity records are fixture-seeded in T42B-3. TEST may read only same-session
-// TEST identities; writes remain deferred to T42B-8.
+// TEST identities are fixture-seeded. TEST may read only same-session
+// identities; participant/instructor writes remain unsupported there.
 const TEST_FAIL_CLOSED_COLLECTIONS = new Set(['participants', 'instructors']);
 
 const TEST_UNSUPPORTED_WRITE_COLLECTIONS = new Set([
@@ -105,7 +108,8 @@ export function scopeCanonicalTransactionSession(
     if (data.dataScope !== undefined || data.testSessionId !== undefined) {
       assertCompatible(path, data);
     }
-    return { ...data, ...canonicalScopeFields(scope) };
+    const { testSessionId: _testSessionId, ...withoutSessionId } = data;
+    return { ...withoutSessionId, ...canonicalScopeFields(scope) };
   };
 
   const assertTestWriteAllowed = (path: string): void => {

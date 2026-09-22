@@ -248,12 +248,14 @@ describe('canonical self Participant provisioning', () => {
     expect(snapshot.docs.get('admin_runtime/admin_people')?.data.revision).toBe(1);
     expect(snapshot.docs.get(`users/${accountId}`)?.data).toMatchObject({
       accountId,
+      dataScope: 'live',
       lifecycle: { status: 'active' },
       displayName: 'Existing Client',
       role: 'user',
     });
     expect(snapshot.docs.get(`participants/${participantId}`)?.data).toMatchObject({
       participantId,
+      dataScope: 'live',
       displayName: 'Existing Client',
       management: { kind: 'managed', participantManagementId: managementId },
       lifecycle: { status: 'active' },
@@ -288,6 +290,48 @@ describe('canonical self Participant provisioning', () => {
       'Fresh Client'
     );
     expect(snapshot.docs.get(`users/${accountId}`)?.data.displayName).toBe('Fresh Client');
+    expect(snapshot.docs.get(`users/${accountId}`)?.data.dataScope).toBe('live');
+    expect(snapshot.docs.get(`participants/${participantId}`)?.data.dataScope).toBe('live');
+    expect(snapshot.docs.get(`users/${accountId}`)?.data.testSessionId).toBeUndefined();
+    expect(snapshot.docs.get(`participants/${participantId}`)?.data.testSessionId).toBeUndefined();
+  });
+
+  it('repairs a stale-client Account missing scope when self identity already exists', async () => {
+    const seeded = seedExistingSelf({ displayName: 'Existing Self' });
+    const executor = createInMemoryCanonicalTransactionExecutor(seeded.docs);
+
+    expect((await commands(executor).execute(envelope('provision-stale-account-01'))).status).toBe(
+      'success'
+    );
+    const account = executor.snapshot().docs.get(`users/${accountId}`)?.data;
+    expect(account?.dataScope).toBe('live');
+    expect(account?.testSessionId).toBeUndefined();
+    expect(account?.revision).toBe(2);
+  });
+
+  it('leaves an explicitly LIVE Account unchanged when its mirror is aligned', async () => {
+    const seeded = seedExistingSelf({ displayName: 'Existing Self' });
+    seeded.docs[`users/${accountId}`]!.dataScope = 'live';
+    const executor = createInMemoryCanonicalTransactionExecutor(seeded.docs);
+    const before = executor.snapshot().docs.get(`users/${accountId}`)?.data;
+
+    expect((await commands(executor).execute(envelope('provision-explicit-live-01'))).status).toBe(
+      'success'
+    );
+    expect(executor.snapshot().docs.get(`users/${accountId}`)?.data).toEqual(before);
+  });
+
+  it('never reclassifies an explicitly TEST Account from a LIVE request', async () => {
+    const seeded = seedExistingSelf({ displayName: 'Test Self' });
+    seeded.docs[`users/${accountId}`]!.dataScope = 'test';
+    const executor = createInMemoryCanonicalTransactionExecutor(seeded.docs);
+    const before = executor.snapshot().docs.get(`users/${accountId}`)?.data;
+
+    expect(await commands(executor).execute(envelope('provision-test-as-live-01'))).toMatchObject({
+      status: 'error',
+      error: { code: 'cross_scope_forbidden' },
+    });
+    expect(executor.snapshot().docs.get(`users/${accountId}`)?.data).toEqual(before);
   });
 
   it('is replay-safe and semantically idempotent across different retries', async () => {
@@ -365,6 +409,7 @@ describe('canonical self Participant provisioning', () => {
       profileDisplayName: 'Aligned Name',
       profileAvatarUrl: 'https://cdn.example.com/aligned.jpg',
     });
+    seeded.docs[`users/${accountId}`]!.dataScope = 'live';
     const executor = createInMemoryCanonicalTransactionExecutor(seeded.docs);
     const before = executor.snapshot().docs.get(`users/${accountId}`)?.data;
     const writesBefore = executor.snapshot().writesAttempted;
@@ -406,6 +451,7 @@ describe('canonical self Participant provisioning', () => {
       profileDisplayName: 'Same Name',
       profileAvatarUrl: 'https://cdn.example.com/legacy.jpg',
     });
+    seeded.docs[`users/${accountId}`]!.dataScope = 'live';
     const executor = createInMemoryCanonicalTransactionExecutor(seeded.docs);
 
     expect(

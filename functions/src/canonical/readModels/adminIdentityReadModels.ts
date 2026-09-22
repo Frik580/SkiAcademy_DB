@@ -54,7 +54,7 @@ import {
   createReadModelRequestContext,
   type ReadModelRequestContext,
 } from './readModelRequestContext';
-import { parseIfVisibleInReadScope, queryDocsMatchingReadScope } from './readModelScope';
+import { queryDocsMatchingReadScope } from './readModelScope';
 
 export class InvalidAdminIdentityReadCursorError extends Error {
   constructor() {
@@ -140,7 +140,10 @@ async function queryActiveManagementForAccount(
   const snapshot = await readContext.activeManagementForAccount(accountId);
   return snapshot.docs
     .map((doc) => parseParticipantManagement(doc.data() as Record<string, unknown>))
-    .filter((value): value is ParticipantManagement => value !== undefined);
+    .filter(
+      (value): value is ParticipantManagement =>
+        value?.accountId === accountId && value.status === 'active'
+    );
 }
 
 async function queryActiveManagementForParticipant(
@@ -151,7 +154,10 @@ async function queryActiveManagementForParticipant(
   const snapshot = await readContext.activeManagementForParticipant(participantId);
   return snapshot.docs
     .map((doc) => parseParticipantManagement(doc.data() as Record<string, unknown>))
-    .filter((value): value is ParticipantManagement => value !== undefined);
+    .filter(
+      (value): value is ParticipantManagement =>
+        value?.participantId === participantId && value.status === 'active'
+    );
 }
 
 async function countQuery(query: Query): Promise<number> {
@@ -557,8 +563,7 @@ function classificationOf(
 
 async function countParticipantBlocks(
   firestore: Firestore,
-  participantId: ParticipantId,
-  readScope: CanonicalReadScope
+  participantId: ParticipantId
 ): Promise<number> {
   const snapshot = await firestore
     .collection('participant_blocks')
@@ -566,9 +571,10 @@ async function countParticipantBlocks(
     .where('status', '==', 'active')
     .limit(COUNT_SCAN_LIMIT)
     .get();
-  return snapshot.docs.filter((doc) =>
-    parseIfVisibleInReadScope(doc.data(), parseParticipantBlock, readScope, 'identity')
-  ).length;
+  return snapshot.docs.filter((doc) => {
+    const block = parseParticipantBlock(doc.data());
+    return block?.participantId === participantId && block.status === 'active';
+  }).length;
 }
 
 async function buildParticipantListItem(
@@ -597,8 +603,7 @@ async function buildParticipantListItem(
     lifecycle: participant.lifecycle.status,
     blockedInstructorCount: await countParticipantBlocks(
       firestore,
-      participant.participantId,
-      readContext.readScope
+      participant.participantId
     ),
     managingAccountCount: management.length,
     diagnosticCount: diagnostics.length,

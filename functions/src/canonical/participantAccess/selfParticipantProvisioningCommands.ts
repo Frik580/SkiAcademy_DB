@@ -152,6 +152,7 @@ function provisionSelfForTargetAccount<Kind extends SelfProvisioningKind>(
 
   let accountRecord: Account | undefined;
   let accountNeedsInitialization = false;
+  let accountNeedsScopeRepair = false;
   let profileData: Record<string, unknown> = {};
   let participantRecord!: Participant;
   let managementRecord!: ParticipantManagement;
@@ -164,6 +165,7 @@ function provisionSelfForTargetAccount<Kind extends SelfProvisioningKind>(
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<Kind> = {
     read: async (session) => {
       accountNeedsInitialization = false;
+      accountNeedsScopeRepair = false;
       shouldCreateSelfParticipant = false;
       projectionRepair = undefined;
       plannedOwnerGuard = undefined;
@@ -197,8 +199,18 @@ function provisionSelfForTargetAccount<Kind extends SelfProvisioningKind>(
         }
         accountNeedsInitialization = false;
       } else {
+        if (
+          (profileData.dataScope !== undefined && profileData.dataScope !== 'live') ||
+          profileData.testSessionId !== undefined
+        ) {
+          throw new CanonicalCommandError('cross_scope_forbidden', {
+            correlationId: envelope.context.correlationId,
+            details: { reason: 'conflict' },
+          });
+        }
         accountNeedsInitialization = accountRecord === undefined;
-        if (accountNeedsInitialization) {
+        accountNeedsScopeRepair = profileData.dataScope === undefined;
+        if (accountNeedsInitialization || accountNeedsScopeRepair) {
           session.plan.planMutation({
             path: userPath,
             kind: 'update',
@@ -280,7 +292,7 @@ function provisionSelfForTargetAccount<Kind extends SelfProvisioningKind>(
         projectionRepair = resolveExistingTestIdentity
           ? undefined
           : buildSelfIdentityProjectionRepair(profileData, existingParticipant);
-        if (projectionRepair && !accountNeedsInitialization) {
+        if (projectionRepair && !accountNeedsInitialization && !accountNeedsScopeRepair) {
           session.plan.planMutation({
             path: userPath,
             kind: 'update',
@@ -342,6 +354,7 @@ function provisionSelfForTargetAccount<Kind extends SelfProvisioningKind>(
       // invariant Participant.displayName === UserProfile.displayName holds.
       participantRecord = {
         participantId: deterministicParticipantId,
+        dataScope: 'live',
         displayName: readDisplayName(envelope, profileData),
         age: { kind: 'age_years', years: DEFAULT_SELF_PARTICIPANT_AGE_YEARS },
         skillLevel: DEFAULT_SELF_PARTICIPANT_SKILL_LEVEL,
@@ -409,7 +422,7 @@ function provisionSelfForTargetAccount<Kind extends SelfProvisioningKind>(
                   revision: AggregateRevisionSchema.parse(1),
                 },
               ]
-            : projectionRepair && accountRecord
+            : (projectionRepair || accountNeedsScopeRepair) && accountRecord
               ? [
                   {
                     subject: canonicalReference('account', targetAccountId),
@@ -423,12 +436,13 @@ function provisionSelfForTargetAccount<Kind extends SelfProvisioningKind>(
       const decidedAt = timestampFromDate(context.decidedAt);
       const userPath = accountPath(targetAccountId);
 
-      if (accountNeedsInitialization || projectionRepair) {
+      if (accountNeedsInitialization || accountNeedsScopeRepair || projectionRepair) {
         const accountPatch: Record<string, unknown> = {};
 
         if (accountNeedsInitialization) {
           const canonicalAccount = AccountSchema.parse({
             accountId: targetAccountId,
+            dataScope: 'live',
             lifecycle: { status: 'active' },
             revision: 1,
             createdAt: decidedAt,
@@ -442,6 +456,10 @@ function provisionSelfForTargetAccount<Kind extends SelfProvisioningKind>(
           Object.assign(accountPatch, canonicalAccount);
         }
 
+        if (accountNeedsScopeRepair) {
+          accountPatch.dataScope = 'live';
+        }
+
         if (projectionRepair) {
           if (projectionRepair.displayName !== undefined) {
             accountPatch.displayName = projectionRepair.displayName;
@@ -449,15 +467,16 @@ function provisionSelfForTargetAccount<Kind extends SelfProvisioningKind>(
           if (projectionRepair.avatarUrl !== undefined) {
             accountPatch.avatarUrl = projectionRepair.avatarUrl;
           }
-          if (!accountNeedsInitialization && accountRecord) {
-            accountPatch.revision = nextAggregateRevision(accountRecord.revision);
-            accountPatch.updatedAt = decidedAt;
-            accountPatch.audit = {
-              ...accountRecord.audit,
-              lastChangedByCommandId: identity.commandKey,
-              correlationId: envelope.context.correlationId,
-            };
-          }
+        }
+
+        if (!accountNeedsInitialization && accountRecord) {
+          accountPatch.revision = nextAggregateRevision(accountRecord.revision);
+          accountPatch.updatedAt = decidedAt;
+          accountPatch.audit = {
+            ...accountRecord.audit,
+            lastChangedByCommandId: identity.commandKey,
+            correlationId: envelope.context.correlationId,
+          };
         }
 
         session.tx.update({ path: userPath }, accountPatch);

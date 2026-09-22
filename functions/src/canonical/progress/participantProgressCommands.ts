@@ -3,10 +3,13 @@ import {
   AggregateRevisionSchema,
   CanonicalCommandError,
   InstructorIdSchema,
+  LIVE_CANONICAL_EXECUTION_SCOPE,
   ParticipantProgressSchema,
+  canonicalScopeFields,
   canonicalReference,
   commandSuccessResult,
   evaluateInstructorParticipantAccess,
+  identityDocumentMatchesReadScope,
   instructorRelationshipIdFromPair,
   nextAggregateRevision,
   participantBlockIdFromDirection,
@@ -106,6 +109,89 @@ function buildAuditPlan(input: {
   };
 }
 
+function progressActivityLog(input: {
+  readonly accountId: AccountId;
+  readonly actorId: AccountId;
+  readonly instructorId: InstructorId;
+  readonly commandKey: string;
+  readonly at: Date;
+  readonly previous?: ParticipantProgress;
+  readonly next: ParticipantProgress;
+  readonly scope: NonNullable<CanonicalAtomicTransactionSession['scope']>;
+  readonly skillItems: ReadonlyMap<string, { readonly title: string; readonly maxPoints: number }>;
+}): { readonly path: string; readonly data: Record<string, unknown> } | undefined {
+  const oldLevel = input.previous?.level ?? 1;
+  const oldScores = input.previous?.skillScores ?? {};
+  const oldComments = input.previous?.skillComments ?? {};
+  const skillDeltas = Object.entries(input.next.skillScores).flatMap(([itemId, newScore]) => {
+    const oldScore = oldScores[itemId] ?? 0;
+    const skillItem = input.skillItems.get(itemId);
+    return newScore === oldScore
+      ? []
+      : [{
+          itemId,
+          ...(skillItem ? { title: skillItem.title, maxPoints: skillItem.maxPoints } : {}),
+          oldScore,
+          newScore,
+          delta: newScore - oldScore,
+        }];
+  });
+  const commentsChanged = Object.keys({ ...oldComments, ...input.next.skillComments }).some(
+    (itemId) => (oldComments[itemId]?.trim() ?? '') !== (input.next.skillComments[itemId]?.trim() ?? '')
+  );
+  const levelUp = input.next.level > oldLevel;
+  if (!levelUp && skillDeltas.length === 0 && !commentsChanged) return undefined;
+
+  const oldTotal = Object.values(oldScores).reduce((sum, score) => sum + score, 0);
+  const newTotal = Object.values(input.next.skillScores).reduce((sum, score) => sum + score, 0);
+  const id = levelUp
+    ? `act_level_${input.accountId}_${input.next.level}${
+        input.scope.dataScope === 'test' ? `_${input.scope.testSessionId}` : ''
+      }`
+    : `act_progress_${input.commandKey}`;
+  return {
+    path: `activity_logs/${id}`,
+    data: {
+      ...canonicalScopeFields(input.scope),
+      userId: input.accountId,
+      actorId: input.actorId,
+      type: levelUp ? 'level_up' : 'skill_scores_updated',
+      timestamp: input.at.toISOString(),
+      metadata: {
+        oldLevel,
+        newLevel: input.next.level,
+        pointsDelta: newTotal - oldTotal,
+        instructorId: input.instructorId,
+        skillDeltas,
+        commentedSkillIds: Object.entries(input.next.skillComments)
+          .filter(([itemId, comment]) => Boolean(comment.trim()) && (input.next.skillScores[itemId] ?? 0) > 0)
+          .map(([itemId]) => itemId),
+      },
+    },
+  };
+}
+
+function skillActivityMetadata(data: Record<string, unknown> | undefined): ReadonlyMap<string, {
+  readonly title: string;
+  readonly maxPoints: number;
+}> {
+  const items = Array.isArray(data?.items) ? data.items : [];
+  const result = new Map<string, { readonly title: string; readonly maxPoints: number }>();
+  for (const item of items) {
+    if (!item || typeof item !== 'object') continue;
+    const candidate = item as Record<string, unknown>;
+    if (
+      typeof candidate.id === 'string' &&
+      typeof candidate.title === 'string' &&
+      typeof candidate.maxPoints === 'number' &&
+      Number.isFinite(candidate.maxPoints)
+    ) {
+      result.set(candidate.id, { title: candidate.title, maxPoints: candidate.maxPoints });
+    }
+  }
+  return result;
+}
+
 async function assertInstructorMayUpdateParticipantProgress(
   session: CanonicalAtomicTransactionSession,
   envelope: CommandEnvelope<'update_participant_progress'>,
@@ -114,7 +200,7 @@ async function assertInstructorMayUpdateParticipantProgress(
     participant: Participant;
     at: ReturnType<typeof timestampFromDate>;
   }>
-): Promise<void> {
+): Promise<ReturnType<typeof parseParticipantManagement>> {
   const relationshipDocumentPath = instructorRelationshipPath(
     instructorRelationshipIdFromPair({
       participantId: input.participant.participantId,
@@ -194,6 +280,7 @@ async function assertInstructorMayUpdateParticipantProgress(
       details: { resourceKind: 'participant', reason: 'conflict' },
     });
   }
+  return management;
 }
 
 function updateParticipantProgressHandler(
@@ -210,6 +297,7 @@ function updateParticipantProgressHandler(
   let current: ParticipantProgress | undefined;
   let planned!: ParticipantProgress;
   let instructorId!: InstructorId;
+  let presentationActivityLog: ReturnType<typeof progressActivityLog>;
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'update_participant_progress'> = {
     read: async (session) => {
@@ -263,7 +351,7 @@ function updateParticipantProgressHandler(
       });
 
       const decidedAt = timestampFromDate(environment.clock.now());
-      await assertInstructorMayUpdateParticipantProgress(session, envelope, {
+      const management = await assertInstructorMayUpdateParticipantProgress(session, envelope, {
         instructorId,
         participant,
         at: decidedAt,
@@ -322,6 +410,66 @@ function updateParticipantProgressHandler(
         },
       });
 
+      presentationActivityLog = undefined;
+      if (
+        management?.authority === 'self' &&
+        management.status === 'active' &&
+        management.participantId === participantId
+      ) {
+        const recipientPath = accountPath(management.accountId);
+        const recipientRead = await session.tx.get({ path: recipientPath });
+        session.plan.planRead({ path: recipientPath, category: 'authorization_check' });
+        const recipient = parseAccount(recipientRead.exists ? recipientRead.data : undefined);
+        const scope = session.scope ?? LIVE_CANONICAL_EXECUTION_SCOPE;
+        const recipientData = recipientRead.data;
+        if (
+          recipient?.lifecycle.status === 'active' &&
+          recipientData &&
+          identityDocumentMatchesReadScope(scope, recipientData) &&
+          (scope.dataScope === 'live' || recipientData.dataScope === 'test')
+        ) {
+          let skillItems: ReturnType<typeof skillActivityMetadata> = new Map();
+          if (
+            Object.entries(planned.skillScores).some(
+              ([itemId, score]) => score !== (current?.skillScores[itemId] ?? 0)
+            )
+          ) {
+            const skillConfigPath = 'settings/skill_config';
+            const configRead = await session.tx.get({ path: skillConfigPath });
+            session.plan.planRead({ path: skillConfigPath, category: 'aggregate' });
+            skillItems = skillActivityMetadata(configRead.exists ? configRead.data : undefined);
+          }
+          presentationActivityLog = progressActivityLog({
+            accountId: management.accountId,
+            actorId: actor.accountId,
+            instructorId,
+            commandKey: identity.commandKey,
+            at: environment.clock.decidedAt(),
+            previous: current,
+            next: planned,
+            scope,
+            skillItems,
+          });
+          if (presentationActivityLog) {
+            const existingLog = await session.tx.get({ path: presentationActivityLog.path });
+            session.plan.planRead({
+              path: presentationActivityLog.path,
+              category: 'aggregate',
+            });
+            if (existingLog.exists) {
+              presentationActivityLog = undefined;
+            } else {
+              session.plan.planMutation({
+                path: presentationActivityLog.path,
+                kind: 'create',
+                category: 'aggregate',
+                estimatedPayloadBytes: 8_192,
+              });
+            }
+          }
+        }
+      }
+
       session.plan.planMutation({
         path: progressDocumentPath,
         kind: current ? 'update' : 'create',
@@ -336,6 +484,12 @@ function updateParticipantProgressHandler(
         session.tx.update({ path: progressDocumentPath }, payload);
       } else {
         session.tx.create({ path: progressDocumentPath }, payload);
+      }
+      if (presentationActivityLog) {
+        session.tx.create(
+          { path: presentationActivityLog.path },
+          presentationActivityLog.data
+        );
       }
       return commandSuccessResult(envelope.kind, envelope.context.correlationId, {
         participantId: planned.participantId,

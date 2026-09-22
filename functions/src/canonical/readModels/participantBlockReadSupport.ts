@@ -31,7 +31,12 @@ export async function loadActiveParticipantBlocksForPair(
       ? await readContext.participantBlock(blockId)
       : await firestore.doc(participantBlockPath(blockId)).get();
     const block = parseParticipantBlock(snap.data() as Record<string, unknown> | undefined);
-    if (block && block.status === 'active') {
+    if (
+      block?.participantBlockId === blockId &&
+      block.participantId === participantId &&
+      block.instructorId === instructorId &&
+      block.status === 'active'
+    ) {
       blocks.push(block);
     }
   }

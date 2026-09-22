@@ -101,7 +101,11 @@ async function loadSelectedCourseEnrollmentReadAuthorizationContext(
   );
   return {
     account,
-    participantManagement: management ? [management] : [],
+    participantManagement:
+      management?.participantManagementId === participant.management.participantManagementId &&
+      management.participantId === participantId
+        ? [management]
+        : [],
     participants: [participant],
   };
 }

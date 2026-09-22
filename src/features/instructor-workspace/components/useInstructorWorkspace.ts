@@ -11,12 +11,10 @@ import { useLanguage } from '../../../app/providers/LanguageContext';
 import { useNotifications } from '../../../features/notifications';
 import { useTheme } from '../../../hooks/useTheme';
 import { logger } from '../../../shared';
-import { SkillConfig, DEFAULT_SKILL_ITEMS } from '../../../domain/achievements';
+import { SkillConfig } from '../../../domain/achievements';
 import { useBookingChatUnread } from '../../../features/student-cabinet/useBookingChatUnread';
-import { activityLogId, logActivityForUser } from '../../../domain/activity';
 import {
   emptyParticipantProgressView,
-  resolveSelfParticipantIdFromAccount,
   updateCanonicalParticipantProgress,
   useParticipantProgressStore,
   type ParticipantProgressView,
@@ -331,13 +329,6 @@ export const useInstructorWorkspace = ({
   const currentProgress = (participantId: string): ParticipantProgressView =>
     progressById[participantId] ?? emptyParticipantProgressView(participantId);
 
-  const activityLogAccountIdFor = (participantId: string, linkedUserId?: string) => {
-    if (!linkedUserId) return undefined;
-    return resolveSelfParticipantIdFromAccount(linkedUserId) === participantId
-      ? linkedUserId
-      : undefined;
-  };
-
   const handleSaveStudentScores = async (
     participantId: string,
     updatedScores: Record<string, number>,
@@ -346,12 +337,7 @@ export const useInstructorWorkspace = ({
   ) => {
     try {
       const previous = currentProgress(participantId);
-      const oldLevel = previous.level || 1;
-      const oldScores = previous.skillScores;
       const oldComments = previous.skillComments;
-      const oldTotal = Object.values(oldScores).reduce((sum, value) => sum + value, 0);
-      const newTotal = Object.values(updatedScores).reduce((sum, value) => sum + value, 0);
-      const pointsDelta = newTotal - oldTotal;
 
       const mergedComments = { ...oldComments, ...updatedComments };
       for (const itemId of Object.keys(mergedComments)) {
@@ -374,69 +360,6 @@ export const useInstructorWorkspace = ({
         expectedRevision: previous.revision,
       });
 
-      const skillItems = skillConfig?.items || DEFAULT_SKILL_ITEMS;
-
-      const skillDeltas = Object.entries(updatedScores)
-        .map(([itemId, newScore]) => {
-          const oldScore = oldScores[itemId] ?? 0;
-          const delta = newScore - oldScore;
-          if (delta === 0) return null;
-          const item = skillItems.find((i) => i.id === itemId);
-          return {
-            itemId,
-            title: item?.title ?? itemId,
-            oldScore,
-            newScore,
-            delta,
-            maxPoints: item?.maxPoints ?? 20,
-          };
-        })
-        .filter(Boolean) as Array<{
-        itemId: string;
-        title: string;
-        oldScore: number;
-        newScore: number;
-        delta: number;
-        maxPoints?: number;
-      }>;
-
-      const commentedSkillIds = Object.entries(mergedComments)
-        .filter(([itemId, comment]) => Boolean(comment?.trim()) && (updatedScores[itemId] ?? 0) > 0)
-        .map(([itemId]) => itemId);
-
-      const commentsChanged = Object.keys({ ...oldComments, ...updatedComments }).some(
-        (itemId) => (updatedComments[itemId]?.trim() ?? '') !== (oldComments[itemId]?.trim() ?? '')
-      );
-
-      const student = myStudents.find((item) => item.participantId === participantId);
-      const logAccountId = activityLogAccountIdFor(participantId, student?.uid);
-      if (logAccountId) {
-        if (calculatedLevel > oldLevel) {
-          await logActivityForUser(
-            logAccountId,
-            userProfile.uid,
-            'level_up',
-            {
-              oldLevel,
-              newLevel: calculatedLevel,
-              skillDeltas,
-              pointsDelta,
-              instructorId: userProfile.instructorId,
-              commentedSkillIds,
-            },
-            activityLogId.levelUp(logAccountId, calculatedLevel)
-          );
-        } else if (skillDeltas.length > 0 || commentsChanged) {
-          await logActivityForUser(logAccountId, userProfile.uid, 'skill_scores_updated', {
-            pointsDelta,
-            newLevel: calculatedLevel,
-            skillDeltas,
-            instructorId: userProfile.instructorId,
-            commentedSkillIds,
-          });
-        }
-      }
-
       addNotification(
         'success',
         t('instructorRatingsSaved'),
@@ -454,8 +377,6 @@ export const useInstructorWorkspace = ({
   ) => {
     try {
       const previous = currentProgress(participantId);
-      const oldLevel = previous.level || 1;
-
       await updateCanonicalParticipantProgress({
         accountId: userProfile.uid,
         participantId,
@@ -464,18 +385,6 @@ export const useInstructorWorkspace = ({
         skillComments: previous.skillComments,
         expectedRevision: previous.revision,
       });
-
-      const student = myStudents.find((item) => item.participantId === participantId);
-      const logAccountId = activityLogAccountIdFor(participantId, student?.uid);
-      if (logAccountId && newLevel > oldLevel) {
-        await logActivityForUser(
-          logAccountId,
-          userProfile.uid,
-          'level_up',
-          { oldLevel, newLevel },
-          activityLogId.levelUp(logAccountId, newLevel)
-        );
-      }
 
       addNotification(
         'info',

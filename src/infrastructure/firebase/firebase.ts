@@ -299,9 +299,11 @@ export async function migratePreExistingProfile(
 
     // Keep displayName/phone/balance/etc. Do not copy leftover /users progress
     // onto the claimed Account; canonical progress starts empty.
+    const { testSessionId: _testSessionId, ...claimableProfile } = oldProfile;
     const migratedProfile = omitLegacyAccountProgressFields({
-      ...oldProfile,
+      ...claimableProfile,
       uid: newUid,
+      dataScope: 'live',
       ...(customDisplayName ? { displayName: customDisplayName } : {}),
     });
 

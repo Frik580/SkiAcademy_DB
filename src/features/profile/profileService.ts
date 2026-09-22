@@ -58,7 +58,10 @@ export async function updateUserRoleService(
 }
 
 export async function addUserService(newUser: UserProfile): Promise<void> {
-  await setDoc(doc(db, 'users', newUser.uid), newUser);
+  const { testSessionId: _testSessionId, ...liveProfile } = newUser as UserProfile & {
+    testSessionId?: unknown;
+  };
+  await setDoc(doc(db, 'users', newUser.uid), { ...liveProfile, dataScope: 'live' });
 }
 
 export async function updateUserDataWithoutMoneyService(updatedUser: UserProfile): Promise<void> {

@@ -284,11 +284,20 @@ function assignParticipantManagementHandler(
     },
   };
 
-  return executeAuthoritativeIdempotentCanonicalCommand({
-    envelope,
-    environment,
-    executor,
-    handler,
+  const executeAttempt = () =>
+    executeAuthoritativeIdempotentCanonicalCommand({
+      envelope,
+      environment,
+      executor,
+      handler,
+    });
+
+  // A competing owner can win the guard create after this transaction read it.
+  // Re-read once so the loser returns blocked_relationship from the guard check.
+  return executeAttempt().catch((error: unknown) => {
+    const code = error && typeof error === 'object' ? (error as { code?: unknown }).code : undefined;
+    if (code !== 6 && code !== 'already-exists') throw error;
+    return executeAttempt();
   });
 }
 

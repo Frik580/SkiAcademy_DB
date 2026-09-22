@@ -165,13 +165,7 @@ export class ReadModelRequestContext {
     participantManagementId: ParticipantManagementId
   ): Promise<DocumentSnapshot> {
     return this.memoize(this.participantManagementById, participantManagementId, async () =>
-      this.scopedDoc(
-        await this.firestore
-          .collection('participant_management')
-          .doc(participantManagementId)
-          .get(),
-        'identity'
-      )
+      this.firestore.collection('participant_management').doc(participantManagementId).get()
     );
   }
 
@@ -224,7 +218,7 @@ export class ReadModelRequestContext {
     participantBlockId: ParticipantBlock['participantBlockId']
   ): Promise<DocumentSnapshot> {
     return this.memoize(this.participantBlockById, participantBlockId, async () =>
-      this.scopedDoc(await this.firestore.doc(participantBlockPath(participantBlockId)).get())
+      this.firestore.doc(participantBlockPath(participantBlockId)).get()
     );
   }
 
@@ -290,7 +284,10 @@ export class ReadModelRequestContext {
           query = query.startAfter(cursorId);
         }
         const snapshot = await query.get();
-        collected.push(...this.scopedQuery(snapshot, 'identity').docs);
+        // ParticipantManagement is intentionally unscoped. This loader is
+        // keyed to one Account; callers verify each scoped Participant and its
+        // management pointer before granting access.
+        collected.push(...snapshot.docs);
         if (snapshot.docs.length < ACTIVE_ACCOUNT_MANAGEMENT_QUERY_PAGE_SIZE) {
           break;
         }
@@ -310,14 +307,11 @@ export class ReadModelRequestContext {
 
   activeManagementForAccount(accountId: AccountId): Promise<QuerySnapshot> {
     return this.memoize(this.activeManagementByAccountId, accountId, async () =>
-      this.scopedQuery(
-        await this.firestore
-          .collection('participant_management')
-          .where('accountId', '==', accountId)
-          .where('status', '==', 'active')
-          .get(),
-        'identity'
-      )
+      this.firestore
+        .collection('participant_management')
+        .where('accountId', '==', accountId)
+        .where('status', '==', 'active')
+        .get()
     );
   }
 
@@ -325,14 +319,11 @@ export class ReadModelRequestContext {
     participantId: Participant['participantId']
   ): Promise<QuerySnapshot> {
     return this.memoize(this.activeManagementByParticipantId, participantId, async () =>
-      this.scopedQuery(
-        await this.firestore
-          .collection('participant_management')
-          .where('participantId', '==', participantId)
-          .where('status', '==', 'active')
-          .get(),
-        'identity'
-      )
+      this.firestore
+        .collection('participant_management')
+        .where('participantId', '==', participantId)
+        .where('status', '==', 'active')
+        .get()
     );
   }
 

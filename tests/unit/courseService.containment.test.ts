@@ -78,6 +78,11 @@ describe('legacy Admin Course write containment', () => {
     await deleteCourseService(legacyCourse.id);
 
     expect(mockSetDoc).toHaveBeenCalledOnce();
+    expect(mockSetDoc).toHaveBeenCalledWith(
+      { path: 'courses/course-legacy' },
+      expect.objectContaining({ dataScope: 'live' })
+    );
+    expect(mockSetDoc.mock.calls[0]?.[1]).not.toHaveProperty('testSessionId');
     expect(mockUpdateDoc).toHaveBeenCalledOnce();
     expect(mockDeleteDoc).toHaveBeenCalledOnce();
   });

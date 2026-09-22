@@ -62,7 +62,13 @@ export async function getUserProfileService(userId: string): Promise<UserProfile
 
 export async function saveUserProfileService(profile: UserProfile): Promise<void> {
   try {
-    await setDoc(doc(db, 'users', profile.uid), omitLegacyAccountProgressFields(profile));
+    const { testSessionId: _testSessionId, ...liveProfile } = profile as UserProfile & {
+      testSessionId?: unknown;
+    };
+    await setDoc(doc(db, 'users', profile.uid), {
+      ...omitLegacyAccountProgressFields(liveProfile),
+      dataScope: 'live',
+    });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `users/${profile.uid}`);
     throw error;

@@ -86,6 +86,11 @@ service cloud.firestore {
       return !canonicalCourseProtectedFromLegacyAdminWrites(course);
     }
 
+    function explicitlyScopedLiveClientCreate() {
+      return request.resource.data.dataScope == 'live' &&
+        !('testSessionId' in request.resource.data);
+    }
+
     function authoritativeMoneyFieldsUnchanged() {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
         'balanceUSD',
@@ -626,6 +631,7 @@ service cloud.firestore {
     match /courses/{courseId} {
       allow read: if true;
       allow create: if isAdmin() &&
+        explicitlyScopedLiveClientCreate() &&
         legacyAdminCourseWriteAllowed(request.resource.data);
       allow update, delete: if isAdmin() &&
         legacyAdminCourseWriteAllowed(resource.data);
@@ -641,28 +647,17 @@ service cloud.firestore {
     // Notifications
     match /notifications/{notificationId} {
       allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isAuthenticated() && (request.resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() &&
+        explicitlyScopedLiveClientCreate() &&
+        (request.resource.data.userId == request.auth.uid || isAdmin());
       allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
       allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
     }
 
     match /activity_logs/{logId} {
       allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isAuthenticated() &&
-        request.resource.data.userId is string &&
-        request.resource.data.actorId == request.auth.uid &&
-        request.resource.data.type is string &&
-        request.resource.data.timestamp is string &&
-        (request.resource.data.userId == request.auth.uid || isAdmin() || isInstructor());
-      // Idempotent setDoc for deterministic ids (e.g. act_level_{userId}_{level})
-      allow update: if isAuthenticated() &&
-        resource.data.actorId == request.auth.uid &&
-        request.resource.data.actorId == request.auth.uid &&
-        request.resource.data.userId == resource.data.userId &&
-        request.resource.data.type == resource.data.type &&
-        request.resource.data.timestamp is string &&
-        (request.resource.data.userId == request.auth.uid || isAdmin() || isInstructor());
-      allow delete: if false;
+      // Canonical commands write scoped activity logs through the Admin SDK.
+      allow create, update, delete: if false;
     }
 
     // Wallet ledger is a historical read surface only. Clients cannot fabricate finance history.

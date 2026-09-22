@@ -35,7 +35,6 @@ import {
   createReadModelRequestContext,
   type ReadModelRequestContext,
 } from './readModelRequestContext';
-import { parseIfVisibleInReadScope } from './readModelScope';
 
 /**
  * Preserved account_manager authorization semantics (T32.9R.A2):
@@ -79,8 +78,7 @@ async function loadTargetedAccountManagerAuthorization(
   firestore: Firestore,
   accountId: AccountId,
   participantId: QueryParticipantInstructorAccessReadModelsInput['participantId'],
-  readContext: ReadModelRequestContext,
-  readScope: CanonicalReadScope
+  readContext: ReadModelRequestContext
 ): Promise<
   | Readonly<{
       allowed: true;
@@ -107,13 +105,15 @@ async function loadTargetedAccountManagerAuthorization(
     .limit(1)
     .get();
 
-  const management = parseIfVisibleInReadScope(
-    managementSnap.docs[0]?.data(),
-    parseParticipantManagement,
-    readScope,
-    'identity'
-  );
-  if (!management || management.status !== 'active') {
+  // The query is bound to the authenticated Account and requested Participant;
+  // the topology evaluator below checks the active management pointer.
+  const management = parseParticipantManagement(managementSnap.docs[0]?.data());
+  if (
+    !management ||
+    management.status !== 'active' ||
+    management.accountId !== accountId ||
+    management.participantId !== participantId
+  ) {
     return { allowed: false };
   }
 
@@ -148,7 +148,6 @@ async function buildParticipantInstructorAccessReadModel(input: Readonly<{
   instructorId: InstructorId;
   now: CanonicalTimestamp;
   readContext: ReadModelRequestContext;
-  readScope: CanonicalReadScope;
   preloaded?: PreloadedAccessEntities;
 }>): Promise<ParticipantInstructorAccessReadModel | undefined> {
   const participant =
@@ -194,18 +193,32 @@ async function buildParticipantInstructorAccessReadModel(input: Readonly<{
     input.readContext.participantBlock(managerBlockId),
     input.readContext.participantBlock(instructorBlockId),
   ]);
-  const relationship = parseIfVisibleInReadScope(
-    relationshipSnap.data(),
-    parseInstructorRelationship,
-    input.readScope,
-    'identity'
-  );
-  const managerBlock = parseParticipantBlock(
+  // This relationship is intentionally unscoped. Its deterministic pair and
+  // the scoped Participant/Instructor above establish the read boundary.
+  const parsedRelationship = parseInstructorRelationship(relationshipSnap.data());
+  const relationship =
+    parsedRelationship?.participantId === input.participantId &&
+    parsedRelationship.instructorId === input.instructorId
+      ? parsedRelationship
+      : undefined;
+  const parsedManagerBlock = parseParticipantBlock(
     managerBlockSnap.data() as Record<string, unknown> | undefined
   );
-  const instructorBlock = parseParticipantBlock(
+  const managerBlock =
+    parsedManagerBlock?.participantBlockId === managerBlockId &&
+    parsedManagerBlock.participantId === input.participantId &&
+    parsedManagerBlock.instructorId === input.instructorId
+      ? parsedManagerBlock
+      : undefined;
+  const parsedInstructorBlock = parseParticipantBlock(
     instructorBlockSnap.data() as Record<string, unknown> | undefined
   );
+  const instructorBlock =
+    parsedInstructorBlock?.participantBlockId === instructorBlockId &&
+    parsedInstructorBlock.participantId === input.participantId &&
+    parsedInstructorBlock.instructorId === input.instructorId
+      ? parsedInstructorBlock
+      : undefined;
 
   let account = input.preloaded?.account;
   let management = input.preloaded?.management;
@@ -277,8 +290,7 @@ export async function queryParticipantInstructorAccessReadModels(
       firestore,
       options.accountId,
       input.participantId,
-      readContext,
-      readScope
+      readContext
     );
     if (!auth.allowed) {
       return { scope: input.scope };
@@ -296,7 +308,6 @@ export async function queryParticipantInstructorAccessReadModels(
       instructorId: input.instructorId,
       now,
       readContext,
-      readScope,
       preloaded: {
         account: auth.account,
         participant: auth.participant,
@@ -322,7 +333,6 @@ export async function queryParticipantInstructorAccessReadModels(
     instructorId: input.instructorId,
     now,
     readContext,
-    readScope,
   });
   return { scope: input.scope, ...(item ? { item } : {}) };
 }

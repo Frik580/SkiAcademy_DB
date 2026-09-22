@@ -4,8 +4,10 @@ import {
   InstructorIdSchema,
   ParticipantIdSchema,
   ParticipantManagementIdSchema,
+  TestSessionIdSchema,
   instructorRelationshipIdFromPair,
   participantBlockIdFromDirection,
+  testCanonicalReadScope,
   timestampFromDate,
 } from '@ski-academy/shared-domain';
 import type { Firestore } from 'firebase-admin/firestore';
@@ -416,6 +418,73 @@ function documentReadCount(reads: Map<string, number>): number {
 }
 
 describe('queryParticipantInstructorAccessReadModels account_manager bounded auth', () => {
+  it('does not expose a LIVE instructor relationship to a TEST participant', async () => {
+    const testSessionId = TestSessionIdSchema.parse('test_pia_session_01');
+    const { firestore } = createAccessFirestore({
+      extraDocs: [
+        [`users/${accountId}`, {
+          accountId,
+          dataScope: 'test',
+          lifecycle: { status: 'active' },
+          ...metadata,
+        }],
+        [`participants/${participantId}`, {
+          participantId,
+          dataScope: 'test',
+          testSessionId,
+          displayName: 'Test Student',
+          age: { kind: 'age_years', years: 12 },
+          skillLevel: 'beginner',
+          discipline: 'ski',
+          management: { kind: 'managed', participantManagementId: managementId },
+          lifecycle: { status: 'active' },
+          ...metadata,
+        }],
+        [`instructors/${instructorId}`, {
+          id: instructorId,
+          dataScope: 'live',
+          name: 'Unrelated LIVE Instructor',
+          pricePerHourKZT: 10_000,
+          isAvailable: true,
+        }],
+      ],
+    });
+
+    const result = await queryParticipantInstructorAccessReadModels(
+      firestore,
+      { scope: 'account_manager', participantId, instructorId },
+      { accountId, now, readScope: testCanonicalReadScope(testSessionId) }
+    );
+    expect(result).toEqual({ scope: 'account_manager' });
+  });
+
+  it('ignores an unscoped relationship whose authority pair does not match its path', async () => {
+    const relationshipId = instructorRelationshipIdFromPair({ participantId, instructorId });
+    const { firestore } = createAccessFirestore({
+      extraDocs: [[`instructor_relationships/${relationshipId}`, {
+        instructorRelationshipId: relationshipId,
+        participantId: siblingParticipantId,
+        instructorId,
+        basis: {
+          kind: 'guardian_permission',
+          participantManagementId: siblingManagementId,
+          grantedByAccountId: accountId,
+        },
+        validFrom: decidedAt,
+        expiresAt,
+        status: 'active',
+        ...metadata,
+      }]],
+    });
+
+    const result = await queryParticipantInstructorAccessReadModels(
+      firestore,
+      { scope: 'account_manager', participantId, instructorId },
+      { accountId, now }
+    );
+    expect(result.item?.relationship).toBeUndefined();
+  });
+
   it('A: P=1 authorized account_manager returns unchanged shape with bounded reads', async () => {
     const { firestore, reads } = createAccessFirestore({ includeSiblingParticipants: false });
     const result = await queryParticipantInstructorAccessReadModels(

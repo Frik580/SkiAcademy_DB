@@ -8,9 +8,12 @@ import {
   OperationType,
   query,
 } from '../../../infrastructure/firebase';
-import { QUERY_LIMITS } from '../../../shared';
+import { QUERY_LIMITS, logger } from '../../../shared';
+import { queryCourseCatalogReadModels } from '../../../lib/canonical/canonicalReadModelClient';
+import { useAuthStore } from '../../auth/authStore';
 import { useProfileStore } from '../../profile/profileStore';
 import { useDataSyncScope } from '../../../store/useDataSyncScope';
+import { courseFromProductCatalogItem } from '../courseCatalogProduct';
 import { useCoursesStore } from '../coursesStore';
 import { resolveCourseDocument } from '../courseDisplay';
 import { isLiveCompatibleResource } from '../../../lib/canonical/liveCompatibleClientRead';
@@ -18,11 +21,37 @@ import { isLiveCompatibleResource } from '../../../lib/canonical/liveCompatibleC
 export const useCoursesSync = () => {
   const { catalogueScope } = useDataSyncScope();
   const instructorId = useProfileStore((s) => s.userProfile?.instructorId);
+  const firebaseUserId = useAuthStore((state) => state.firebaseUser?.uid);
+  const authGeneration = useAuthStore((state) => state.authGeneration);
 
   useEffect(() => {
     if (catalogueScope === 'instructor' && !instructorId) {
       useCoursesStore.getState().setCourses([]);
       return;
+    }
+
+    if (catalogueScope !== 'instructor' && firebaseUserId) {
+      let cancelled = false;
+      useCoursesStore.getState().setCourses([]);
+      void queryCourseCatalogReadModels({ scope: 'product' })
+        .then((result) => {
+          if (cancelled || useAuthStore.getState().firebaseUser?.uid !== firebaseUserId) return;
+          useCoursesStore.getState().setCourses(
+            result.items.flatMap((item) => {
+              const course = courseFromProductCatalogItem(item);
+              return course ? [course] : [];
+            })
+          );
+        })
+        .catch((error) => {
+          logger.error('Product course catalogue read failed', error);
+          if (!cancelled && useAuthStore.getState().firebaseUser?.uid === firebaseUserId) {
+            useCoursesStore.getState().setCourses([]);
+          }
+        });
+      return () => {
+        cancelled = true;
+      };
     }
 
     let courseDocs: Array<{ id: string; data: Record<string, unknown> }> = [];
@@ -60,6 +89,7 @@ export const useCoursesSync = () => {
     const unsubscribeCourses = onSnapshot(
       coursesQuery,
       (snapshot) => {
+        if (useAuthStore.getState().firebaseUser?.uid && catalogueScope !== 'instructor') return;
         courseDocs = snapshot.docs.map((courseDoc) => ({
           id: courseDoc.id,
           data: courseDoc.data() as Record<string, unknown>,
@@ -87,5 +117,5 @@ export const useCoursesSync = () => {
       unsubscribeCourses();
       unsubscribeContent();
     };
-  }, [catalogueScope, instructorId]);
+  }, [authGeneration, catalogueScope, firebaseUserId, instructorId]);
 };

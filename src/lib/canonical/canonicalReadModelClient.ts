@@ -28,6 +28,8 @@ import {
   type QueryInstructorCourseAssignmentReadModelsResult,
   type QueryInstructorOccupancyReadModelsInput,
   type QueryInstructorOccupancyReadModelsResult,
+  type QueryBookingInstructorCatalogueReadModelsInput,
+  type QueryBookingInstructorCatalogueReadModelsResult,
   type QueryLessonBookingReadModelsInput,
   type QueryLessonBookingReadModelsResult,
   type QueryLessonPricingSettingsReadModelInput,
@@ -78,6 +80,8 @@ export const QUERY_ADMIN_COURSE_ENROLLMENT_READ_MODELS_CALLABLE =
 export const QUERY_ADMIN_IDENTITY_READ_MODELS_CALLABLE = 'queryAdminIdentityReadModels';
 export const QUERY_ADMIN_PLANNER_READ_MODELS_CALLABLE = 'queryAdminPlannerReadModels';
 export const QUERY_INSTRUCTOR_OCCUPANCY_READ_MODELS_CALLABLE = 'queryInstructorOccupancyReadModels';
+export const QUERY_BOOKING_INSTRUCTOR_CATALOGUE_READ_MODELS_CALLABLE =
+  'queryBookingInstructorCatalogueReadModels';
 export const QUERY_LESSON_PRICING_SETTINGS_READ_MODEL_CALLABLE =
   'queryLessonPricingSettingsReadModel';
 export const QUERY_INSTRUCTOR_REVIEW_READ_MODELS_CALLABLE = 'queryInstructorReviewReadModels';
@@ -827,6 +831,28 @@ export async function queryInstructorCourseAssignmentReadModels(
     idempotencyKey,
     maxAttempts: 1,
   });
+}
+
+/**
+ * Authenticated lesson-booking instructor catalogue.
+ * A persistent TestActor must not send requestedTestSessionId. The server
+ * resolves the active assignment. The `:rs:` suffix on the transport key is
+ * in-flight dedupe only and is not read-scope authority.
+ */
+export async function queryBookingInstructorCatalogueReadModels(
+  input: CanonicalReadQueryInput<QueryBookingInstructorCatalogueReadModelsInput> = {}
+): Promise<QueryBookingInstructorCatalogueReadModelsResult> {
+  return invokeCanonicalReadCallable<
+    CanonicalReadQueryInput<QueryBookingInstructorCatalogueReadModelsInput>,
+    QueryBookingInstructorCatalogueReadModelsResult
+  >(
+    QUERY_BOOKING_INSTRUCTOR_CATALOGUE_READ_MODELS_CALLABLE,
+    attachReadSession({} as QueryBookingInstructorCatalogueReadModelsInput, input),
+    {
+      idempotencyKey: 'read:booking_instructor_catalogue',
+      maxAttempts: 1,
+    }
+  );
 }
 
 export async function queryInstructorOccupancyReadModels(

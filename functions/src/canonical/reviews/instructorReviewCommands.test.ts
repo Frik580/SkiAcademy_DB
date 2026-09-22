@@ -11,10 +11,14 @@ import {
   ParticipantManagementActiveOwnerGuardSchema,
   ParticipantManagementIdSchema,
   ParticipantManagementSchema,
+  TestActorAssignmentSchema,
+  TestActorSchema,
+  TestSessionIdSchema,
   accountCommandActor,
   attendanceIdFromBookingIdentity,
   instructorReviewIdFromBookingAccount,
   paymentIdFromBookingId,
+  testCanonicalExecutionScope,
   timestampFromDate,
   type Booking,
   type CommandEnvelope,
@@ -448,5 +452,250 @@ describe('instructorReviewCommands', () => {
       reviewsCount: 2,
       ratingCounts: [0, 0, 1, 0, 1],
     });
+  });
+
+  it('keeps a LIVE review on the LIVE scope without a TestActor registry', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedFor({}));
+    const result = await createProductionCanonicalCommands(environment(), executor).execute(
+      envelope(bookingOneId, 'create-review-live')
+    );
+    expect(result.status).toBe('success');
+    const reviewId = instructorReviewIdFromBookingAccount({
+      bookingId: bookingOneId,
+      managingAccountId: accountId,
+    });
+    expect(executor.snapshot().docs.get(`instructor_reviews/${reviewId}`)?.data).toMatchObject({
+      dataScope: 'live',
+    });
+    expect(
+      executor.snapshot().docs.get(`instructor_reviews/${reviewId}`)?.data.testSessionId
+    ).toBeUndefined();
+  });
+
+  it('creates a TEST review from a persistent TestActor account', async () => {
+    const sessionId = TestSessionIdSchema.parse('test_review_payer_a01');
+    const scope = { dataScope: 'test' as const, testSessionId: sessionId };
+    const liveInstructorId = 'instructor_review_live_01';
+    const liveSummary = {
+      instructorId: liveInstructorId,
+      rating: 4,
+      ratingSum: 12,
+      ratingCounts: [0, 0, 0, 3, 0],
+      reviewsCount: 3,
+      revision: 2,
+      dataScope: 'live',
+      createdAt,
+      updatedAt: createdAt,
+      audit: {
+        createdByCommandId: 'seed',
+        lastChangedByCommandId: 'seed',
+        correlationId,
+      },
+    };
+    const records = seedFor({});
+    records[`users/${accountId}`] = { ...records[`users/${accountId}`], dataScope: 'test' };
+    records[`bookings/${bookingOneId}`] = { ...records[`bookings/${bookingOneId}`], ...scope };
+    records[`instructors/${instructorId}`] = { ...records[`instructors/${instructorId}`], ...scope };
+    for (const path of Object.keys(records)) {
+      if (path.startsWith('attendance/')) records[path] = { ...records[path], ...scope };
+    }
+    records[`instructor_rating_summaries/${liveInstructorId}`] = liveSummary;
+    records[`test_actors/${accountId}`] = TestActorSchema.parse({
+      accountId,
+      participantIds: [participantOne],
+      kind: 'test_parent',
+      allowed: true,
+      dataScope: 'test',
+      revision: 1,
+      createdAt,
+      updatedAt: createdAt,
+      audit: {
+        createdByCommandId: 'seed',
+        lastChangedByCommandId: 'seed',
+        correlationId,
+      },
+    });
+    records[`test_actor_assignments/${accountId}`] = TestActorAssignmentSchema.parse({
+      accountId,
+      activeTestSessionId: sessionId,
+      revision: 1,
+      updatedAt: createdAt,
+      audit: {
+        createdByCommandId: 'seed',
+        lastChangedByCommandId: 'seed',
+        correlationId,
+      },
+    });
+    const executor = createInMemoryCanonicalTransactionExecutor(records);
+    const result = await createProductionCanonicalCommands(
+      { ...environment(), scope: testCanonicalExecutionScope(sessionId) },
+      executor
+    ).execute(envelope(bookingOneId, 'create-review-test-actor'));
+    expect(result.status).toBe('success');
+    const reviewId = instructorReviewIdFromBookingAccount({
+      bookingId: bookingOneId,
+      managingAccountId: accountId,
+    });
+    expect(executor.snapshot().docs.get(`instructor_reviews/${reviewId}`)?.data).toMatchObject({
+      dataScope: 'test',
+      testSessionId: sessionId,
+      rating: 5,
+    });
+    expect(
+      executor.snapshot().docs.get(`instructor_rating_summaries/${instructorId}`)?.data
+    ).toMatchObject({
+      dataScope: 'test',
+      testSessionId: sessionId,
+      reviewsCount: 1,
+    });
+    expect(
+      executor.snapshot().docs.get(`instructor_rating_summaries/${liveInstructorId}`)?.data
+    ).toEqual(liveSummary);
+    expect(executor.snapshot().docs.get(`users/${accountId}`)?.data.testSessionId).toBeUndefined();
+  });
+
+  it('rejects a persistent reviewer account without a TestActor registry', async () => {
+    const sessionId = TestSessionIdSchema.parse('test_review_payer_a01');
+    const scope = { dataScope: 'test' as const, testSessionId: sessionId };
+    const records = seedFor({});
+    records[`users/${accountId}`] = { ...records[`users/${accountId}`], dataScope: 'test' };
+    records[`bookings/${bookingOneId}`] = { ...records[`bookings/${bookingOneId}`], ...scope };
+    records[`instructors/${instructorId}`] = { ...records[`instructors/${instructorId}`], ...scope };
+    const executor = createInMemoryCanonicalTransactionExecutor(records);
+    const result = await createProductionCanonicalCommands(
+      { ...environment(), scope: testCanonicalExecutionScope(sessionId) },
+      executor
+    ).execute(envelope(bookingOneId, 'create-review-no-registry'));
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('cross_scope_forbidden');
+    }
+    expect(
+      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('instructor_reviews/'))
+    ).toHaveLength(0);
+  });
+
+  it('rejects a reviewer assignment for another session', async () => {
+    const sessionId = TestSessionIdSchema.parse('test_review_payer_a01');
+    const otherSessionId = TestSessionIdSchema.parse('test_review_payer_b01');
+    const scope = { dataScope: 'test' as const, testSessionId: sessionId };
+    const records = seedFor({});
+    records[`users/${accountId}`] = { ...records[`users/${accountId}`], dataScope: 'test' };
+    records[`bookings/${bookingOneId}`] = { ...records[`bookings/${bookingOneId}`], ...scope };
+    records[`instructors/${instructorId}`] = { ...records[`instructors/${instructorId}`], ...scope };
+    records[`test_actors/${accountId}`] = TestActorSchema.parse({
+      accountId,
+      participantIds: [participantOne],
+      kind: 'test_parent',
+      allowed: true,
+      dataScope: 'test',
+      revision: 1,
+      createdAt,
+      updatedAt: createdAt,
+      audit: {
+        createdByCommandId: 'seed',
+        lastChangedByCommandId: 'seed',
+        correlationId,
+      },
+    });
+    records[`test_actor_assignments/${accountId}`] = TestActorAssignmentSchema.parse({
+      accountId,
+      activeTestSessionId: otherSessionId,
+      revision: 1,
+      updatedAt: createdAt,
+      audit: {
+        createdByCommandId: 'seed',
+        lastChangedByCommandId: 'seed',
+        correlationId,
+      },
+    });
+    const executor = createInMemoryCanonicalTransactionExecutor(records);
+    const result = await createProductionCanonicalCommands(
+      { ...environment(), scope: testCanonicalExecutionScope(sessionId) },
+      executor
+    ).execute(envelope(bookingOneId, 'create-review-wrong-assignment'));
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('cross_scope_forbidden');
+    }
+  });
+
+  it('rejects a booking or instructor from another TestSession', async () => {
+    const sessionId = TestSessionIdSchema.parse('test_review_payer_a01');
+    const otherSessionId = TestSessionIdSchema.parse('test_review_payer_b01');
+    const current = { dataScope: 'test' as const, testSessionId: sessionId };
+    const other = { dataScope: 'test' as const, testSessionId: otherSessionId };
+    const actor = {
+      [`test_actors/${accountId}`]: TestActorSchema.parse({
+        accountId,
+        participantIds: [participantOne],
+        kind: 'test_parent',
+        allowed: true,
+        dataScope: 'test',
+        revision: 1,
+        createdAt,
+        updatedAt: createdAt,
+        audit: {
+          createdByCommandId: 'seed',
+          lastChangedByCommandId: 'seed',
+          correlationId,
+        },
+      }),
+      [`test_actor_assignments/${accountId}`]: TestActorAssignmentSchema.parse({
+        accountId,
+        activeTestSessionId: sessionId,
+        revision: 1,
+        updatedAt: createdAt,
+        audit: {
+          createdByCommandId: 'seed',
+          lastChangedByCommandId: 'seed',
+          correlationId,
+        },
+      }),
+    };
+    const otherBooking = seedFor({});
+    otherBooking[`users/${accountId}`] = { ...otherBooking[`users/${accountId}`], dataScope: 'test' };
+    otherBooking[`bookings/${bookingOneId}`] = { ...otherBooking[`bookings/${bookingOneId}`], ...other };
+    otherBooking[`instructors/${instructorId}`] = {
+      ...otherBooking[`instructors/${instructorId}`],
+      ...current,
+    };
+    const otherInstructor = seedFor({});
+    otherInstructor[`users/${accountId}`] = {
+      ...otherInstructor[`users/${accountId}`],
+      dataScope: 'test',
+    };
+    otherInstructor[`bookings/${bookingOneId}`] = {
+      ...otherInstructor[`bookings/${bookingOneId}`],
+      ...current,
+    };
+    otherInstructor[`instructors/${instructorId}`] = {
+      ...otherInstructor[`instructors/${instructorId}`],
+      ...other,
+    };
+    for (const records of [otherBooking, otherInstructor]) {
+      for (const path of Object.keys(records)) {
+        if (path.startsWith('attendance/')) records[path] = { ...records[path], ...current };
+      }
+    }
+    const commandsFor = (records: Record<string, Record<string, unknown>>) =>
+      createProductionCanonicalCommands(
+        { ...environment(), scope: testCanonicalExecutionScope(sessionId) },
+        createInMemoryCanonicalTransactionExecutor({ ...records, ...actor })
+      );
+    const bookingResult = await commandsFor(otherBooking).execute(
+      envelope(bookingOneId, 'create-review-other-booking')
+    );
+    const instructorResult = await commandsFor(otherInstructor).execute(
+      envelope(bookingOneId, 'create-review-other-instructor')
+    );
+    expect(bookingResult.status).toBe('error');
+    expect(instructorResult.status).toBe('error');
+    if (bookingResult.status === 'error') {
+      expect(bookingResult.error.code).toBe('cross_scope_forbidden');
+    }
+    if (instructorResult.status === 'error') {
+      expect(instructorResult.error.code).toBe('cross_scope_forbidden');
+    }
   });
 });

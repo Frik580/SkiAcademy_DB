@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { IdempotencyKeySchema } from '../commands/commandContext';
+import { CourseCatalogContentInputSchema } from '../courseCatalogContent';
 import { CourseIdSchema } from '../identifiers';
 import { CourseScheduleProjectionReadModelSchema } from './courseDayScheduleProjection';
 import {
@@ -8,7 +9,7 @@ import {
   KztMinorUnitsSchema,
 } from '../primitives';
 
-export const COURSE_CATALOG_READ_SCOPES = ['public', 'authenticated'] as const;
+export const COURSE_CATALOG_READ_SCOPES = ['public', 'authenticated', 'product'] as const;
 export type CourseCatalogReadScope = (typeof COURSE_CATALOG_READ_SCOPES)[number];
 
 export const CourseCatalogReadScopeSchema = z.enum(COURSE_CATALOG_READ_SCOPES);
@@ -43,6 +44,7 @@ export const CourseCatalogReadModelSchema = z
       .strict(),
     courseSchedule: CourseScheduleProjectionReadModelSchema,
     updatedAt: CanonicalTimestampSchema,
+    presentation: CourseCatalogContentInputSchema.optional(),
   })
   .strict();
 

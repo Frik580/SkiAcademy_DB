@@ -13,6 +13,7 @@ import {
   ParticipantIdSchema,
   ParticipantSchema,
   PaymentSchema,
+  TestActorAssignmentSchema,
   TestActorSchema,
   TestSessionIdSchema,
   TestSessionSchema,
@@ -22,7 +23,9 @@ import {
   ATTENDANCE_IDENTITY_STRATEGY_VERSION,
   initialBookingOccurrenceIdFromBookingId,
   monetaryEventIdFromAdminWalletPayment,
+  monetaryEventIdFromCommandEffect,
   paymentIdFromBookingId,
+  resolveCommandIdempotencyIdentity,
   testCanonicalExecutionScope,
   testCourseIdFromLiveSource,
   timestampFromDate,
@@ -358,6 +361,82 @@ describe('T42B-3 TEST domain isolation', () => {
       balance: 50_000,
       testSessionId: otherSessionId,
     });
+  });
+
+  it('returns a manually funded TEST wallet to startingBalanceKzt on reseed', async () => {
+    const session = TestSessionSchema.parse({
+      ...seedTestSession(),
+      config: { startingBalanceKzt: 100_000, clonedCourseIds: [] },
+    });
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`test_sessions/${testSessionId}`]: session,
+      [`test_actors/${testParentId}`]: seedTestActor(),
+      [`test_actor_assignments/${testParentId}`]: TestActorAssignmentSchema.parse({
+        accountId: testParentId,
+        activeTestSessionId: testSessionId,
+        revision: 1,
+        updatedAt: decidedAt,
+        audit,
+      }),
+      [`users/${testParentId}`]: { ...seedAccount(testParentId), dataScope: 'test' },
+    });
+    const seeded = await seedTestActorWalletForSession({
+      executor,
+      correlationId,
+      testSession: session,
+      accountId: testParentId,
+      decidedAt: new Date('2026-01-01T00:00:00.000Z'),
+    });
+    expect(seeded.wallet.balance).toBe(100_000);
+
+    const funding = {
+      kind: 'record_manual_wallet_funding' as const,
+      context: {
+        actor: accountCommandActor(liveAdminId),
+        exercisedCapability: 'administrator' as const,
+        idempotencyKey: 'idem-t42b-h7-manual-fund',
+        correlationId,
+        source: 'admin_callable' as const,
+        expectedRevision: 1,
+      },
+      intent: {
+        accountId: testParentId,
+        amount: 150_000,
+        reasonExplanation: 'TEST session course funding',
+      },
+    };
+    const funded = await createProductionCanonicalCommands(environment(), executor).execute(funding);
+    expect(funded.status).toBe('success');
+    expect(executor.snapshot().docs.get(`users/${testParentId}/wallet/state`)?.data.balance).toBe(
+      250_000
+    );
+    const fundingIdentity = resolveCommandIdempotencyIdentity(funding);
+    expect(
+      executor.snapshot().docs.get(
+        `monetary_events/${monetaryEventIdFromCommandEffect(fundingIdentity.commandKey, 0)}`
+      )?.data
+    ).toMatchObject({
+      dataScope: 'test',
+      testSessionId,
+      walletBalanceDelta: 150_000,
+    });
+
+    const rebound = await seedTestActorWalletForSession({
+      executor,
+      correlationId,
+      testSession: session,
+      accountId: testParentId,
+      decidedAt: new Date('2026-01-02T00:00:00.000Z'),
+    });
+    expect(rebound.outcome).toBe('rebound');
+    expect(rebound.wallet).toMatchObject({
+      balance: 100_000,
+      dataScope: 'test',
+      testSessionId,
+    });
+    expect(
+      executor.snapshot().docs.get(`test_sessions/${testSessionId}`)?.data.config
+    ).toMatchObject({ startingBalanceKzt: 100_000 });
   });
 
   it('lets a live admin debit the TEST payer wallet, never the admin LIVE wallet', async () => {

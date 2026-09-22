@@ -7,7 +7,10 @@ import {
   CorrelationIdSchema,
   CourseEnrollmentIdSchema,
   CourseEnrollmentSchema,
+  ParticipantIdSchema,
   PaymentSchema,
+  TestActorAssignmentSchema,
+  TestActorSchema,
   WalletSchema,
   accountCommandActor,
   activityLogIdFromCommandId,
@@ -962,5 +965,69 @@ describe('grant_starter_credit', () => {
     ).toBeUndefined();
     expect(monetaryEventCount(executor.snapshot())).toBe(0);
     expect(executor.snapshot().writesAttempted).toBe(0);
+  });
+
+  it('pays a TEST booking from the wallet of a persistent TestActor account', async () => {
+    const sessionId = TestSessionIdSchema.parse('test_finance_payer_a01');
+    const scope = { dataScope: 'test' as const, testSessionId: sessionId };
+    const parsedAccountId = AccountSchema.parse({
+      ...seedAccount(),
+      dataScope: 'test',
+    }).accountId;
+    const audit = {
+      createdByCommandId: 'command_seed_account',
+      lastChangedByCommandId: 'command_seed_account',
+      correlationId,
+    };
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${accountId}`]: { ...seedAccount(), dataScope: 'test' as const },
+      [`bookings/${bookingId}`]: { ...seedBooking(), ...scope },
+      [`payments/${paymentId}`]: { ...seedPayment(), ...scope },
+      [`users/${accountId}/wallet/state`]: { ...seedWallet(100_000), ...scope },
+      [`test_actors/${accountId}`]: TestActorSchema.parse({
+        accountId: parsedAccountId,
+        participantIds: [ParticipantIdSchema.parse('participant_finance_cmd_01')],
+        kind: 'test_parent',
+        allowed: true,
+        dataScope: 'test',
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit,
+      }),
+      [`test_actor_assignments/${accountId}`]: TestActorAssignmentSchema.parse({
+        accountId: parsedAccountId,
+        activeTestSessionId: sessionId,
+        revision: 1,
+        updatedAt: decidedAt,
+        audit,
+      }),
+    });
+    const envelope = walletPayBookingEnvelope('wallet-pay-persistent-payer');
+    const result = await createProductionCanonicalCommands(
+      { ...environment(), scope: testCanonicalExecutionScope(sessionId) },
+      executor
+    ).execute(envelope);
+    expect(result.status).toBe('success');
+    const snapshot = executor.snapshot();
+    expect(snapshot.docs.get(`users/${accountId}`)?.data.testSessionId).toBeUndefined();
+    expect(snapshot.docs.get(`users/${accountId}/wallet/state`)?.data).toMatchObject({
+      balance: 30_000,
+      dataScope: 'test',
+      testSessionId: sessionId,
+    });
+    const identity = resolveCommandIdempotencyIdentity(
+      envelope,
+      testCanonicalExecutionScope(sessionId)
+    );
+    expect(
+      snapshot.docs.get(
+        `monetary_events/${monetaryEventIdFromAdminWalletPayment(paymentId)}`
+      )?.data
+    ).toMatchObject({
+      dataScope: 'test',
+      testSessionId: sessionId,
+    });
+    expect(identity.commandKey).toBeTruthy();
   });
 });

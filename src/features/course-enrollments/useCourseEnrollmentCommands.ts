@@ -63,7 +63,11 @@ async function refetchAccountHotEnrollments(): Promise<void> {
       scope: 'account_hot',
       ...(participantId ? { selectedParticipantId: ParticipantIdSchema.parse(participantId) } : {}),
     }),
-    refetchPublicCourseCatalog(),
+    queryCourseCatalogReadModels({ scope: 'product' }).then((catalogResult) => {
+      useCourseEnrollmentStore
+        .getState()
+        .replaceCatalog(mergeCatalogRecords(new Map(), catalogResult.items));
+    }),
   ]);
   if (!participantId) {
     return;

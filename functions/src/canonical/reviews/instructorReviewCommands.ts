@@ -41,7 +41,7 @@ import {
   requireAccountActor,
 } from '../participantAccess/participantAccessAuthorization';
 import { attendancePath, parseAttendance } from '../bookings/attendanceStore';
-import { assertTestMutableSubjectScope } from '../testSessions/assertTestMutableResourceScope';
+import { assertPayerAccountAuthority } from '../testSessions/persistentTestAccountAuthority';
 import {
   bookingPath,
   instructorCatalogPath,
@@ -140,10 +140,11 @@ function createInstructorReviewHandler(
         envelope,
         parseAccount(accountRead.exists ? accountRead.data : undefined)
       );
-      assertTestMutableSubjectScope({
+      await assertPayerAccountAuthority({
+        session,
         correlationId: envelope.context.correlationId,
-        scope: session.scope,
-        persisted: account,
+        accountId: actor.accountId,
+        account,
       });
 
       const reviewRead = await session.tx.get({ path: reviewDocumentPath });

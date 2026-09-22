@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   AccountIdSchema,
   AccountSchema,
+  AggregateRevisionSchema,
   CorrelationIdSchema,
   CourseDayIdSchema,
   CourseEnrollmentIdSchema,
@@ -9,10 +10,15 @@ import {
   InstructorIdSchema,
   ParticipantIdSchema,
   ParticipantManagementIdSchema,
+  TestActorAssignmentSchema,
+  TestActorSchema,
+  TestSessionIdSchema,
   WalletSchema,
+  testCanonicalExecutionScope,
   activityLogIdFromCommandId,
   accountCommandActor,
   courseEnrollmentIdFromCommandParticipant,
+  monetaryEventIdFromCommandEffect,
   monetaryEventIdFromCourseEnrollmentInitialCharge,
   paymentIdFromCourseEnrollmentId,
   resolveCommandIdempotencyIdentity,
@@ -460,5 +466,358 @@ describe('create_course_enrollments command', () => {
     ).toBe(2);
     expect([...snapshot.docs.keys()].filter((path) => path.startsWith('payments/')).length).toBe(2);
     expect(snapshot.docs.get(`courses/${courseId}`)?.data.capacity.availableSeats).toBe(6);
+  });
+
+  it('decrements only the TEST course when a TEST enrollment is created', async () => {
+    const sessionId = TestSessionIdSchema.parse('test_enrollment_capacity_a01');
+    const testCourseId = CourseIdSchema.parse('course_enrollment_capacity_test');
+    const liveCourseId = CourseIdSchema.parse('course_enrollment_capacity_live');
+    const testDayId = CourseDayIdSchema.parse('course_day_enrollment_capacity_test');
+    const scope = { dataScope: 'test' as const, testSessionId: sessionId };
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${accountId}`]: { ...seedAccount(), ...scope },
+      [`participants/${participantId}`]: { ...seedParticipant(), ...scope },
+      [`participant_management/${managementId}`]: seedManagement(),
+      [`instructors/${instructorId}`]: { ...seedInstructor(), ...scope },
+      [`users/${accountId}/wallet/state`]: { ...seedWallet(100_000), ...scope },
+      [`courses/${testCourseId}`]: {
+        ...seedCourse(),
+        courseId: testCourseId,
+        ...scope,
+      },
+      [`courses/${testCourseId}/days/${testDayId}`]: {
+        ...seedCourseDay(),
+        courseId: testCourseId,
+        courseDayId: testDayId,
+        ...scope,
+      },
+      [`courses/${liveCourseId}`]: {
+        ...seedCourse(),
+        courseId: liveCourseId,
+        dataScope: 'live',
+      },
+      [`courses/${liveCourseId}/days/${courseDayId}`]: {
+        ...seedCourseDay(),
+        courseId: liveCourseId,
+      },
+    });
+    const commands = createProductionCanonicalCommands(
+      {
+        clock: createAuthoritativeCommandClock(new Date('2026-01-01T00:00:00.000Z')),
+        scope: testCanonicalExecutionScope(sessionId),
+      },
+      executor
+    );
+    const envelope = createEnvelope({
+      context: accountContext('account_owner', accountId, 'enrollment-test-capacity-01'),
+      intent: { courseId: testCourseId, participantIds: [participantId] },
+    });
+    const result = await commands.execute(envelope);
+    expect(result.status).toBe('success');
+
+    const snapshot = executor.snapshot();
+    expect(snapshot.docs.get(`courses/${testCourseId}`)?.data.capacity.availableSeats).toBe(7);
+    expect(snapshot.docs.get(`courses/${liveCourseId}`)?.data.capacity.availableSeats).toBe(8);
+    const enrollments = [...snapshot.docs.entries()].filter(([path]) =>
+      path.startsWith('course_enrollments/')
+    );
+    expect(enrollments).toHaveLength(1);
+    expect(enrollments[0]?.[1].data).toMatchObject({
+      dataScope: 'test',
+      testSessionId: sessionId,
+    });
+  });
+
+  it('accepts a persistent TestActor payer and decrements only the TEST course', async () => {
+    const sessionId = TestSessionIdSchema.parse('test_enrollment_payer_a01');
+    const testCourseId = CourseIdSchema.parse('course_enrollment_payer_test');
+    const liveCourseId = CourseIdSchema.parse('course_enrollment_payer_live');
+    const testDayId = CourseDayIdSchema.parse('course_day_enrollment_payer_test');
+    const scope = { dataScope: 'test' as const, testSessionId: sessionId };
+    const audit = {
+      createdByCommandId: 'command_seed_account',
+      lastChangedByCommandId: 'command_seed_account',
+      correlationId,
+    };
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${accountId}`]: { ...seedAccount(), dataScope: 'test' as const },
+      [`participants/${participantId}`]: { ...seedParticipant(), ...scope },
+      [`participant_management/${managementId}`]: seedManagement(),
+      [`instructors/${instructorId}`]: { ...seedInstructor(), ...scope },
+      [`users/${accountId}/wallet/state`]: { ...seedWallet(100_000), ...scope },
+      [`courses/${testCourseId}`]: {
+        ...seedCourse(),
+        courseId: testCourseId,
+        ...scope,
+      },
+      [`courses/${testCourseId}/days/${testDayId}`]: {
+        ...seedCourseDay(),
+        courseId: testCourseId,
+        courseDayId: testDayId,
+        ...scope,
+      },
+      [`courses/${liveCourseId}`]: {
+        ...seedCourse(),
+        courseId: liveCourseId,
+        dataScope: 'live',
+      },
+      [`test_actors/${accountId}`]: TestActorSchema.parse({
+        accountId,
+        participantIds: [participantId],
+        kind: 'test_parent',
+        allowed: true,
+        dataScope: 'test',
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit,
+      }),
+      [`test_actor_assignments/${accountId}`]: TestActorAssignmentSchema.parse({
+        accountId,
+        activeTestSessionId: sessionId,
+        revision: 1,
+        updatedAt: decidedAt,
+        audit,
+      }),
+    });
+    const result = await createProductionCanonicalCommands(
+      {
+        clock: createAuthoritativeCommandClock(new Date('2026-01-01T00:00:00.000Z')),
+        scope: testCanonicalExecutionScope(sessionId),
+      },
+      executor
+    ).execute(
+      createEnvelope({
+        context: accountContext('account_owner', accountId, 'enrollment-persistent-payer-01'),
+        intent: { courseId: testCourseId, participantIds: [participantId] },
+      })
+    );
+    expect(result.status).toBe('success');
+    const snapshot = executor.snapshot();
+    expect(snapshot.docs.get(`courses/${testCourseId}`)?.data.capacity.availableSeats).toBe(7);
+    expect(snapshot.docs.get(`courses/${liveCourseId}`)?.data.capacity.availableSeats).toBe(8);
+    expect(snapshot.docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(
+      100_000 - COURSE_PRICE_KZT
+    );
+    expect(snapshot.docs.get(`users/${accountId}`)?.data.testSessionId).toBeUndefined();
+    const enrollments = [...snapshot.docs.entries()].filter(([path]) =>
+      path.startsWith('course_enrollments/')
+    );
+    expect(enrollments).toHaveLength(1);
+    expect(enrollments[0]?.[1].data).toMatchObject({
+      dataScope: 'test',
+      testSessionId: sessionId,
+    });
+  });
+
+  it('returns insufficient_funds for a persistent TestActor when the course price exceeds the wallet', async () => {
+    const sessionId = TestSessionIdSchema.parse('test_enrollment_payer_funds_01');
+    const testCourseId = CourseIdSchema.parse('course_enrollment_payer_funds');
+    const liveCourseId = CourseIdSchema.parse('course_enrollment_payer_funds_live');
+    const testDayId = CourseDayIdSchema.parse('course_day_enrollment_payer_funds');
+    const scope = { dataScope: 'test' as const, testSessionId: sessionId };
+    const audit = {
+      createdByCommandId: 'command_seed_account',
+      lastChangedByCommandId: 'command_seed_account',
+      correlationId,
+    };
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${accountId}`]: { ...seedAccount(), dataScope: 'test' as const },
+      [`participants/${participantId}`]: { ...seedParticipant(), ...scope },
+      [`participant_management/${managementId}`]: seedManagement(),
+      [`instructors/${instructorId}`]: { ...seedInstructor(), ...scope },
+      [`users/${accountId}/wallet/state`]: { ...seedWallet(100_000), ...scope },
+      [`courses/${testCourseId}`]: {
+        ...seedCourse(),
+        courseId: testCourseId,
+        price: 250_000,
+        ...scope,
+      },
+      [`courses/${testCourseId}/days/${testDayId}`]: {
+        ...seedCourseDay(),
+        courseId: testCourseId,
+        courseDayId: testDayId,
+        ...scope,
+      },
+      [`courses/${liveCourseId}`]: {
+        ...seedCourse(),
+        courseId: liveCourseId,
+        price: 250_000,
+        dataScope: 'live',
+      },
+      [`test_actors/${accountId}`]: TestActorSchema.parse({
+        accountId,
+        participantIds: [participantId],
+        kind: 'test_parent',
+        allowed: true,
+        dataScope: 'test',
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit,
+      }),
+      [`test_actor_assignments/${accountId}`]: TestActorAssignmentSchema.parse({
+        accountId,
+        activeTestSessionId: sessionId,
+        revision: 1,
+        updatedAt: decidedAt,
+        audit,
+      }),
+    });
+    const result = await createProductionCanonicalCommands(
+      {
+        clock: createAuthoritativeCommandClock(new Date('2026-01-01T00:00:00.000Z')),
+        scope: testCanonicalExecutionScope(sessionId),
+      },
+      executor
+    ).execute(
+      createEnvelope({
+        context: accountContext('account_owner', accountId, 'enrollment-persistent-insufficient'),
+        intent: { courseId: testCourseId, participantIds: [participantId] },
+      })
+    );
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('insufficient_funds');
+    }
+    const snapshot = executor.snapshot();
+    expect([...snapshot.docs.keys()].some((path) => path.startsWith('course_enrollments/'))).toBe(
+      false
+    );
+    expect(snapshot.docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(100_000);
+    expect(snapshot.docs.get(`courses/${testCourseId}`)?.data.capacity.availableSeats).toBe(8);
+    expect(snapshot.docs.get(`courses/${liveCourseId}`)?.data.capacity.availableSeats).toBe(8);
+  });
+
+  it('funds a 100000 TEST wallet by 150000 and enrolls a 250000 TEST course', async () => {
+    const sessionId = TestSessionIdSchema.parse('test_enrollment_funding_a01');
+    const testCourseId = CourseIdSchema.parse('course_enrollment_funding_test');
+    const liveCourseId = CourseIdSchema.parse('course_enrollment_funding_live');
+    const testDayId = CourseDayIdSchema.parse('course_day_enrollment_funding_test');
+    const liveAccountId = AccountIdSchema.parse('account_enrollment_funding_live');
+    const scope = { dataScope: 'test' as const, testSessionId: sessionId };
+    const audit = {
+      createdByCommandId: 'command_seed_account',
+      lastChangedByCommandId: 'command_seed_account',
+      correlationId,
+    };
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${accountId}`]: { ...seedAccount(), dataScope: 'test' as const },
+      [`users/${liveAccountId}/wallet/state`]: seedWallet(888_000, liveAccountId),
+      [`participants/${participantId}`]: { ...seedParticipant(), ...scope },
+      [`participant_management/${managementId}`]: seedManagement(),
+      [`instructors/${instructorId}`]: { ...seedInstructor(), ...scope },
+      [`users/${accountId}/wallet/state`]: { ...seedWallet(100_000), ...scope },
+      [`courses/${testCourseId}`]: {
+        ...seedCourse(),
+        courseId: testCourseId,
+        price: 250_000,
+        ...scope,
+      },
+      [`courses/${testCourseId}/days/${testDayId}`]: {
+        ...seedCourseDay(),
+        courseId: testCourseId,
+        courseDayId: testDayId,
+        ...scope,
+      },
+      [`courses/${liveCourseId}`]: {
+        ...seedCourse(),
+        courseId: liveCourseId,
+        price: 250_000,
+        dataScope: 'live',
+      },
+      [`test_actors/${accountId}`]: TestActorSchema.parse({
+        accountId,
+        participantIds: [participantId],
+        kind: 'test_parent',
+        allowed: true,
+        dataScope: 'test',
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit,
+      }),
+      [`test_actor_assignments/${accountId}`]: TestActorAssignmentSchema.parse({
+        accountId,
+        activeTestSessionId: sessionId,
+        revision: 1,
+        updatedAt: decidedAt,
+        audit,
+      }),
+    });
+    const commands = createProductionCanonicalCommands(
+      {
+        clock: createAuthoritativeCommandClock(new Date('2026-01-01T00:00:00.000Z')),
+        scope: testCanonicalExecutionScope(sessionId),
+      },
+      executor
+    );
+    const funding = {
+      kind: 'record_manual_wallet_funding' as const,
+      context: {
+        actor: accountCommandActor(accountId),
+        exercisedCapability: 'administrator' as const,
+        idempotencyKey: 'fund-test-course-250',
+        correlationId,
+        source: 'admin_callable' as const,
+        expectedRevision: AggregateRevisionSchema.parse(1),
+      },
+      intent: {
+        accountId,
+        amount: 150_000,
+        reasonExplanation: 'TEST session course funding',
+      },
+    };
+    const funded = await commands.execute(funding);
+    expect(funded.status).toBe('success');
+    const fundingIdentity = resolveCommandIdempotencyIdentity(funding);
+    expect(
+      executor.snapshot().docs.get(
+        `monetary_events/${monetaryEventIdFromCommandEffect(fundingIdentity.commandKey, 0)}`
+      )?.data
+    ).toMatchObject({
+      eventKind: 'wallet_credit',
+      dataScope: 'test',
+      testSessionId: sessionId,
+      walletBalanceDelta: 150_000,
+    });
+    expect(executor.snapshot().docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(
+      250_000
+    );
+    expect(executor.snapshot().docs.get(`users/${liveAccountId}/wallet/state`)?.data.balance).toBe(
+      888_000
+    );
+
+    const enrolled = await commands.execute(
+      createEnvelope({
+        context: accountContext('account_owner', accountId, 'enrollment-after-funding'),
+        intent: { courseId: testCourseId, participantIds: [participantId] },
+      })
+    );
+    expect(enrolled.status).toBe('success');
+    const snapshot = executor.snapshot();
+    expect(snapshot.docs.get(`courses/${testCourseId}`)?.data.capacity.availableSeats).toBe(7);
+    expect(snapshot.docs.get(`courses/${liveCourseId}`)?.data.capacity.availableSeats).toBe(8);
+    expect(snapshot.docs.get(`users/${accountId}/wallet/state`)?.data).toMatchObject({
+      balance: 0,
+      dataScope: 'test',
+      testSessionId: sessionId,
+    });
+    expect(snapshot.docs.get(`users/${liveAccountId}/wallet/state`)?.data.balance).toBe(888_000);
+    expect(snapshot.docs.get(`users/${accountId}/wallet/starter_credit_grant`)).toBeUndefined();
+    const enrollments = [...snapshot.docs.entries()].filter(([path]) =>
+      path.startsWith('course_enrollments/')
+    );
+    expect(enrollments).toHaveLength(1);
+    expect(enrollments[0]?.[1].data).toMatchObject({
+      dataScope: 'test',
+      testSessionId: sessionId,
+    });
+    const payments = [...snapshot.docs.entries()].filter(([path]) => path.startsWith('payments/'));
+    expect(payments).toHaveLength(1);
+    expect(payments[0]?.[1].data).toMatchObject({
+      dataScope: 'test',
+      testSessionId: sessionId,
+    });
   });
 });

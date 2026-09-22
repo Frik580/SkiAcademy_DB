@@ -1,10 +1,12 @@
 import {
+  TestActorAssignmentSchema,
   TestActorSchema,
   TestSessionSchema,
   canonicalPaths,
   normalizeFirestoreDocument,
   type AccountId,
   type TestActor,
+  type TestActorAssignment,
   type TestSession,
   type TestSessionId,
 } from '@ski-academy/shared-domain';
@@ -21,6 +23,10 @@ export function testActorPath(accountId: AccountId): string {
   return toTransactionPath(canonicalPaths.testActor(accountId));
 }
 
+export function testActorAssignmentPath(accountId: AccountId): string {
+  return toTransactionPath(canonicalPaths.testActorAssignment(accountId));
+}
+
 export function parseTestSession(data: Record<string, unknown> | undefined): TestSession | undefined {
   const normalized = normalizeFirestoreDocument(data);
   if (!normalized) return undefined;
@@ -32,5 +38,14 @@ export function parseTestActor(data: Record<string, unknown> | undefined): TestA
   const normalized = normalizeFirestoreDocument(data);
   if (!normalized) return undefined;
   const parsed = TestActorSchema.safeParse(normalized);
+  return parsed.success ? parsed.data : undefined;
+}
+
+export function parseTestActorAssignment(
+  data: Record<string, unknown> | undefined
+): TestActorAssignment | undefined {
+  const normalized = normalizeFirestoreDocument(data);
+  if (!normalized) return undefined;
+  const parsed = TestActorAssignmentSchema.safeParse(normalized);
   return parsed.success ? parsed.data : undefined;
 }

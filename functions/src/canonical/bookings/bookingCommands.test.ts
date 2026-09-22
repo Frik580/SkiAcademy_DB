@@ -7,12 +7,16 @@ import {
   InstructorIdSchema,
   ParticipantIdSchema,
   ParticipantManagementIdSchema,
+  TestActorAssignmentSchema,
+  TestActorSchema,
+  TestSessionIdSchema,
   WalletSchema,
   activityLogIdFromCommandId,
   initialBookingOccurrenceIdFromBookingId,
   monetaryEventIdFromCommandEffect,
   paymentIdFromBookingId,
   resolveCommandIdempotencyIdentity,
+  testCanonicalExecutionScope,
   timestampFromDate,
   type CommandEnvelope,
 } from '@ski-academy/shared-domain';
@@ -728,6 +732,147 @@ describe('create_confirmed_booking command', () => {
     ).toEqual(party);
     expect(executor.snapshot().docs.get(`payments/${paymentId}`)?.data.price).toBe(
       existingPaymentPrice
+    );
+  });
+
+  it('accepts a persistent TestActor account and keeps the booking on the TestSession', async () => {
+    const sessionId = TestSessionIdSchema.parse('test_booking_payer_a01');
+    const scope = { dataScope: 'test' as const, testSessionId: sessionId };
+    const liveInstructorId = InstructorIdSchema.parse('instructor_booking_live_01');
+    const audit = {
+      createdByCommandId: 'command_seed_account',
+      lastChangedByCommandId: 'command_seed_account',
+      correlationId,
+    };
+    const liveInstructor = {
+      ...seedInstructor(),
+      id: liveInstructorId,
+      name: 'Live Coach',
+      dataScope: 'live' as const,
+    };
+    const executor = createInMemoryCanonicalTransactionExecutor(
+      baseFixture({
+        [`users/${accountId}`]: { ...seedAccount(), dataScope: 'test' as const },
+        [`participants/${participantId}`]: { ...seedParticipant(), ...scope },
+        [`instructors/${instructorId}`]: {
+          ...seedInstructor(),
+          pricePerHourKZT: 30_000,
+          ...scope,
+        },
+        [`instructors/${liveInstructorId}`]: liveInstructor,
+        [`users/${accountId}/wallet/state`]: { ...seedWallet(100_000), ...scope },
+        [`test_actors/${accountId}`]: TestActorSchema.parse({
+          accountId,
+          participantIds: [participantId],
+          kind: 'test_parent',
+          allowed: true,
+          dataScope: 'test',
+          revision: 1,
+          createdAt: decidedAt,
+          updatedAt: decidedAt,
+          audit,
+        }),
+        [`test_actor_assignments/${accountId}`]: TestActorAssignmentSchema.parse({
+          accountId,
+          activeTestSessionId: sessionId,
+          revision: 1,
+          updatedAt: decidedAt,
+          audit,
+        }),
+      })
+    );
+    const envelope = createEnvelope({
+      context: accountContext('account_owner', accountId, 'booking-persistent-payer-01'),
+    });
+    const result = await createProductionCanonicalCommands(
+      { ...environment(), scope: testCanonicalExecutionScope(sessionId) },
+      executor
+    ).execute(envelope);
+    expect(result.status).toBe('success');
+
+    const snapshot = executor.snapshot();
+    expect(snapshot.docs.get(`bookings/${bookingId}`)?.data).toMatchObject({
+      dataScope: 'test',
+      testSessionId: sessionId,
+    });
+    expect(snapshot.docs.get(`users/${accountId}/wallet/state`)?.data).toMatchObject({
+      balance: 70_000,
+      dataScope: 'test',
+      testSessionId: sessionId,
+    });
+    expect(snapshot.docs.get(`payments/${paymentId}`)?.data).toMatchObject({
+      dataScope: 'test',
+      testSessionId: sessionId,
+    });
+    const identity = resolveCommandIdempotencyIdentity(
+      envelope,
+      testCanonicalExecutionScope(sessionId)
+    );
+    expect(
+      snapshot.docs.get(`monetary_events/${monetaryEventIdFromCommandEffect(identity.commandKey, 0)}`)
+        ?.data
+    ).toMatchObject({
+      dataScope: 'test',
+      testSessionId: sessionId,
+    });
+    expect(snapshot.docs.get(`users/${accountId}`)?.data.testSessionId).toBeUndefined();
+    expect(snapshot.docs.get(`instructors/${liveInstructorId}`)?.data).toEqual(liveInstructor);
+  });
+
+  it('rejects a persistent TestActor booking when the participant belongs to another session', async () => {
+    const sessionId = TestSessionIdSchema.parse('test_booking_payer_a01');
+    const otherSessionId = TestSessionIdSchema.parse('test_booking_payer_b01');
+    const scope = { dataScope: 'test' as const, testSessionId: sessionId };
+    const audit = {
+      createdByCommandId: 'command_seed_account',
+      lastChangedByCommandId: 'command_seed_account',
+      correlationId,
+    };
+    const executor = createInMemoryCanonicalTransactionExecutor(
+      baseFixture({
+        [`users/${accountId}`]: { ...seedAccount(), dataScope: 'test' as const },
+        [`participants/${participantId}`]: {
+          ...seedParticipant(),
+          dataScope: 'test' as const,
+          testSessionId: otherSessionId,
+        },
+        [`instructors/${instructorId}`]: { ...seedInstructor(), ...scope },
+        [`users/${accountId}/wallet/state`]: { ...seedWallet(100_000), ...scope },
+        [`test_actors/${accountId}`]: TestActorSchema.parse({
+          accountId,
+          participantIds: [participantId],
+          kind: 'test_parent',
+          allowed: true,
+          dataScope: 'test',
+          revision: 1,
+          createdAt: decidedAt,
+          updatedAt: decidedAt,
+          audit,
+        }),
+        [`test_actor_assignments/${accountId}`]: TestActorAssignmentSchema.parse({
+          accountId,
+          activeTestSessionId: sessionId,
+          revision: 1,
+          updatedAt: decidedAt,
+          audit,
+        }),
+      })
+    );
+    const result = await createProductionCanonicalCommands(
+      { ...environment(), scope: testCanonicalExecutionScope(sessionId) },
+      executor
+    ).execute(
+      createEnvelope({
+        context: accountContext('account_owner', accountId, 'booking-cross-session-participant'),
+      })
+    );
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('cross_scope_forbidden');
+    }
+    expect(executor.snapshot().docs.has(`bookings/${bookingId}`)).toBe(false);
+    expect(executor.snapshot().docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(
+      100_000
     );
   });
 });

@@ -107,6 +107,7 @@ import {
   type CourseEnrollmentCreationAuthorization,
 } from './courseEnrollmentAuthorization';
 import { assertTestMutableSubjectScope } from '../testSessions/assertTestMutableResourceScope';
+import { assertPayerAccountAuthority } from '../testSessions/persistentTestAccountAuthority';
 import {
   assertGuestActorMatchesEnrollment,
   assertGuestCourseEnrollmentRequestContext,
@@ -614,10 +615,11 @@ function createCourseEnrollmentsHandler(
               details: { resourceKind: 'participant', reason: 'conflict' },
             });
           }
-          assertTestMutableSubjectScope({
+          await assertPayerAccountAuthority({
+            session,
             correlationId: envelope.context.correlationId,
-            scope: session.scope,
-            persisted: payerAccount,
+            accountId: authorization.payerAccountId!,
+            account: payerAccount,
           });
 
           const participantBlocks = await loadParticipantBlocksForCourseDays(session, {

@@ -11,6 +11,8 @@ import {
   InstructorIdSchema,
   OccurrenceIdSchema,
   ParticipantIdSchema,
+  TestSessionIdSchema,
+  testCanonicalReadScope,
   attendanceIdFromBookingIdentity,
   paymentIdFromBookingId,
   timestampFromDate,
@@ -601,5 +603,115 @@ describe('instructorOccupancyReadSupport', () => {
       [bookingA, bookingB].sort()
     );
     expect(occupancy.occupancy.map((item) => item.lifecycleStatus)).toEqual(['no_show', 'no_show']);
+  });
+
+  it('returns only same-session TEST occupancy for a TEST instructor', async () => {
+    const sessionA = TestSessionIdSchema.parse('test_occupancy_session_a01');
+    const testBooking = BookingIdSchema.parse('booking_occupancy_test_scope');
+    const liveBooking = BookingIdSchema.parse('booking_occupancy_live_scope');
+    const firestore = fakeFirestore({
+      [`instructors/${instructorA}`]: {
+        id: instructorA,
+        name: 'Test Coach',
+        pricePerHourKZT: 30_000,
+        isAvailable: true,
+        dataScope: 'test',
+        testSessionId: sessionA,
+      },
+      [`bookings/${testBooking}`]: {
+        ...bookingForInstructor(testBooking, instructorA),
+        dataScope: 'test',
+        testSessionId: sessionA,
+      },
+      [`bookings/${liveBooking}`]: {
+        ...bookingForInstructor(liveBooking, instructorA),
+        dataScope: 'live',
+      },
+    });
+
+    const loaded = await loadInstructorOccupancyItems(firestore, {
+      window: instructorOccupancyWindow(localDate, timeZone, 1),
+      instructorId: instructorA,
+      readScope: testCanonicalReadScope(sessionA),
+    });
+    expect(loaded.occupancy.map((item) => item.bookingId)).toEqual([testBooking]);
+  });
+
+  it('does not address a TEST instructor from a LIVE occupancy read', async () => {
+    const sessionA = TestSessionIdSchema.parse('test_occupancy_session_a01');
+    const firestore = fakeFirestore({
+      [`instructors/${instructorA}`]: {
+        id: instructorA,
+        name: 'Test Coach',
+        pricePerHourKZT: 30_000,
+        isAvailable: true,
+        dataScope: 'test',
+        testSessionId: sessionA,
+      },
+      [`bookings/${bookingA}`]: {
+        ...bookingForInstructor(bookingA, instructorA),
+        dataScope: 'test',
+        testSessionId: sessionA,
+      },
+    });
+
+    const result = await queryInstructorOccupancyReadModels(firestore, {
+      scope: 'public_instructor_day',
+      instructorId: instructorA,
+      localDate,
+      timeZone,
+    });
+    expect(result.item.occupancy).toEqual([]);
+  });
+
+  it('does not return another session or a LIVE instructor to a TEST occupancy read', async () => {
+    const sessionA = TestSessionIdSchema.parse('test_occupancy_session_a01');
+    const sessionB = TestSessionIdSchema.parse('test_occupancy_session_b01');
+    const firestore = fakeFirestore({
+      [`instructors/${instructorA}`]: {
+        id: instructorA,
+        name: 'Session A Coach',
+        pricePerHourKZT: 30_000,
+        isAvailable: true,
+        dataScope: 'test',
+        testSessionId: sessionA,
+      },
+      [`instructors/${instructorB}`]: {
+        id: instructorB,
+        name: 'Live Coach',
+        pricePerHourKZT: 12_000,
+        isAvailable: true,
+        dataScope: 'live',
+      },
+      [`bookings/${bookingA}`]: {
+        ...bookingForInstructor(bookingA, instructorA),
+        dataScope: 'test',
+        testSessionId: sessionA,
+      },
+      [`bookings/${bookingB}`]: bookingForInstructor(bookingB, instructorB),
+    });
+
+    const otherSession = await queryInstructorOccupancyReadModels(
+      firestore,
+      {
+        scope: 'public_instructor_day',
+        instructorId: instructorA,
+        localDate,
+        timeZone,
+      },
+      { readScope: testCanonicalReadScope(sessionB) }
+    );
+    const liveInstructor = await queryInstructorOccupancyReadModels(
+      firestore,
+      {
+        scope: 'public_instructor_day',
+        instructorId: instructorB,
+        localDate,
+        timeZone,
+      },
+      { readScope: testCanonicalReadScope(sessionA) }
+    );
+    expect(otherSession.item.occupancy).toEqual([]);
+    expect(liveInstructor.item.occupancy).toEqual([]);
   });
 });

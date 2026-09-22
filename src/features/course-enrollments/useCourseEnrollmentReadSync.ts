@@ -4,6 +4,7 @@ import {
   queryCourseCatalogReadModels,
   queryCourseEnrollmentReadModels,
 } from '../../lib/canonical/canonicalReadModelClient';
+import { useAuthStore } from '../auth/authStore';
 import { useCourseEnrollmentStore } from './courseEnrollmentStore';
 import { mergeCatalogRecords, mergeCourseEnrollmentRecords } from './courseEnrollmentViewModel';
 import {
@@ -15,11 +16,9 @@ async function loadPublicCourseCatalog(): Promise<void> {
   useCourseEnrollmentStore.getState().setCatalogLoading(true);
   try {
     const result = await queryCourseCatalogReadModels({ scope: 'public' });
-    const merged = mergeCatalogRecords(
-      useCourseEnrollmentStore.getState().catalogByCourseId,
-      result.items
-    );
-    useCourseEnrollmentStore.getState().mergeCatalog(merged);
+    if (useAuthStore.getState().firebaseUser?.uid) return;
+    const merged = mergeCatalogRecords(new Map(), result.items);
+    useCourseEnrollmentStore.getState().replaceCatalog(merged);
   } catch (error) {
     useCourseEnrollmentStore
       .getState()
@@ -205,17 +204,28 @@ export function useGuestCourseEnrollmentReadSync(enabled: boolean) {
   }, [enabled]);
 }
 
-/** Sole mount-time owner of the public course catalog read for `/` and `/cabinet*`. */
+/** Sole mount-time owner of the course catalog read for `/` and `/cabinet*`. */
 export function useCourseCatalogReadSync(enabled: boolean) {
+  const firebaseUserId = useAuthStore((state) => state.firebaseUser?.uid);
+  const authGeneration = useAuthStore((state) => state.authGeneration);
+
   const loadCatalog = useCallback(async () => {
     if (!enabled) return;
-    await loadPublicCourseCatalog();
+    const uid = useAuthStore.getState().firebaseUser?.uid;
+    if (!uid) {
+      await loadPublicCourseCatalog();
+      return;
+    }
+    useCourseEnrollmentStore.getState().replaceCatalog(new Map());
+    const result = await queryCourseCatalogReadModels({ scope: 'product' });
+    if (useAuthStore.getState().firebaseUser?.uid !== uid) return;
+    useCourseEnrollmentStore.getState().replaceCatalog(mergeCatalogRecords(new Map(), result.items));
   }, [enabled]);
 
   useEffect(() => {
     if (!enabled) return;
     void loadCatalog();
-  }, [enabled, loadCatalog]);
+  }, [authGeneration, enabled, firebaseUserId, loadCatalog]);
 
   return { reloadCatalog: loadCatalog };
 }

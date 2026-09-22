@@ -75,6 +75,7 @@ import {
 } from './bookingAuthorization';
 import { requireAccountActor } from '../participantAccess/participantAccessAuthorization';
 import { assertTestMutableSubjectScope } from '../testSessions/assertTestMutableResourceScope';
+import { assertPayerAccountAuthority } from '../testSessions/persistentTestAccountAuthority';
 import { buildCreateConfirmedBookingAuditPlan } from './bookingAudit';
 import {
   BOOKING_PLANNING_ESTIMATES,
@@ -299,10 +300,11 @@ function createConfirmedBookingHandler(
           details: { resourceKind: 'participant', reason: 'conflict' },
         });
       }
-      assertTestMutableSubjectScope({
+      await assertPayerAccountAuthority({
+        session,
         correlationId: envelope.context.correlationId,
-        scope: session.scope,
-        persisted: payerAccountRecord,
+        accountId: authorization.payerAccountId,
+        account: payerAccountRecord,
       });
 
       for (let index = 0; index < participantRecords.length; index += 1) {

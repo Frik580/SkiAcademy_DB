@@ -18,12 +18,14 @@ import { useBookingsStore } from '../bookingsStore';
 import { useDataSyncScope } from '../../../store/useDataSyncScope';
 import {
   queryAccountInstructorReviewReadModels,
+  queryBookingInstructorCatalogueReadModels,
   queryInstructorReviewReadModels,
   queryPublicInstructorRatingSummaries,
 } from '../../../lib/canonical/canonicalReadModelClient';
 import { BookingIdSchema, InstructorIdSchema } from '@ski-academy/shared-domain';
 import { useLessonBookingStore } from '../../lesson-bookings';
 import { mergeAccountReviewBookingStates } from '../../reviews/mergeAccountReviewBookingStates';
+import { toBookingCatalogueInstructor } from './bookingInstructorCatalogue';
 import { liveCatalogueInstructors } from './liveCatalogueInstructors';
 
 async function loadInstructorReviewPage(instructorId: string) {
@@ -54,9 +56,9 @@ export const useBookingsSync = () => {
     useBookingsStore.getState().resetBookingsPagination();
   }, [firebaseUser?.uid, userProfile?.instructorId, userProfile?.role]);
 
-  // The booking catalogue needs all instructors outside the instructor workspace. There, only the
-  // linked instructor profile is rendered, so subscribe to that one document.
-  // Sign-in clears this public catalogue without a Firestore change, so resubscribe on authGeneration.
+  // Guest booking keeps the direct LIVE-compatible listener. Authenticated booking
+  // uses the scoped catalogue callable so a TestActor is not stuck on that filter.
+  // The instructor workspace still reads only its own linked profile.
   useEffect(() => {
     if (catalogueScope === 'instructor' && !instructorId) {
       useBookingsStore.getState().setInstructors([]);
@@ -77,11 +79,33 @@ export const useBookingsSync = () => {
       );
     }
 
+    if (firebaseUserId) {
+      let cancelled = false;
+      useBookingsStore.getState().setInstructors([]);
+      void queryBookingInstructorCatalogueReadModels()
+        .then((result) => {
+          if (cancelled || useAuthStore.getState().firebaseUser?.uid !== firebaseUserId) return;
+          useBookingsStore
+            .getState()
+            .setInstructors(result.items.map((item) => toBookingCatalogueInstructor(item)));
+        })
+        .catch((error) => {
+          logger.error('Booking instructor catalogue read failed', error);
+          if (!cancelled && useAuthStore.getState().firebaseUser?.uid === firebaseUserId) {
+            useBookingsStore.getState().setInstructors([]);
+          }
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
+
     const instructorsQuery = query(collection(db, 'instructors'), limit(QUERY_LIMITS.instructors));
 
     return onSnapshot(
       instructorsQuery,
       (snapshot) => {
+        if (useAuthStore.getState().firebaseUser?.uid) return;
         useBookingsStore
           .getState()
           .setInstructors(
@@ -95,7 +119,7 @@ export const useBookingsSync = () => {
       },
       (error) => handleFirestoreError(error, OperationType.LIST, 'instructors')
     );
-  }, [authGeneration, catalogueScope, instructorId]);
+  }, [authGeneration, catalogueScope, firebaseUserId, instructorId]);
 
   // Canonical review read models are the only product review/rating authority.
   useEffect(() => {

@@ -52,7 +52,8 @@ import {
   type MonetaryEventLoader,
 } from './financeCorrectionCommands';
 import { createStarterCreditCommandHandlers } from './starterCreditCommands';
-import { assertTestMutableSubjectScope, crossScopeCommandError } from '../testSessions/assertTestMutableResourceScope';
+import { crossScopeCommandError } from '../testSessions/assertTestMutableResourceScope';
+import { assertPayerAccountAuthority } from '../testSessions/persistentTestAccountAuthority';
 import { assertFinanceAuthorization, mapFinanceDomainError } from './financeAuthorization';
 import {
   buildAdjustServicePriceAuditPlan,
@@ -159,10 +160,11 @@ function recordManualWalletFundingHandler(
           details: { resourceKind: 'participant', reason: 'conflict' },
         });
       }
-      assertTestMutableSubjectScope({
+      await assertPayerAccountAuthority({
+        session,
         correlationId: envelope.context.correlationId,
-        scope: session.scope,
-        persisted: account,
+        accountId: envelope.intent.accountId,
+        account,
       });
 
       const walletRead = await session.tx.get({ path: walletDocumentPath });
@@ -975,10 +977,11 @@ function payServiceFromWalletAsAdministratorHandler(
             details: { resourceKind: 'participant', reason: 'conflict' },
           });
         }
-        assertTestMutableSubjectScope({
+        await assertPayerAccountAuthority({
+          session,
           correlationId: envelope.context.correlationId,
-          scope: session.scope,
-          persisted: account,
+          accountId: payerAccountId,
+          account,
         });
         stagedEventId = monetaryEventIdFromAdminWalletPayment(payment.paymentId);
         const eventDocumentPath = monetaryEventPath(stagedEventId);

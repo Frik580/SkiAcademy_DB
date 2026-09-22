@@ -36,8 +36,12 @@ export function assertSameScopeOrThrow(
 
 /**
  * Command actor identity may remain LIVE while operating a Test context.
- * Mutable payer/subject identities must still match execution scope
+ * Session-bound subjects must still match execution scope
  * (TEST same-session, or LIVE / legacy missing-scope LIVE compatibility).
+ *
+ * A persistent TestActor Account (`dataScope=test` and no `testSessionId`)
+ * is not a session-bound resource. Payer/account authority uses
+ * `assertPayerAccountAuthority` instead of widening this check.
  */
 export function assertTestMutableSubjectScope(input: {
   readonly correlationId: CorrelationId;

@@ -234,6 +234,74 @@ describe('canonical LIVE/TEST read isolation', () => {
     expect(session.items.map((item) => item.courseId)).toEqual([scopedIds('course', 'testa001')]);
   });
 
+  it('returns a product catalogue for the resolved scope and does not fall back to LIVE', async () => {
+    const course = canonicalCourseDeliveryFixtures.course;
+    const days = canonicalCourseDeliveryFixtures.courseDays;
+    const variants = [
+      { id: scopedIds('course', 'prodleg1'), scope: {} },
+      { id: scopedIds('course', 'prodlive1'), scope: { dataScope: 'live' } },
+      {
+        id: scopedIds('course', 'prodtesta'),
+        scope: { dataScope: 'test', testSessionId: sessionA },
+      },
+      {
+        id: scopedIds('course', 'prodtestb'),
+        scope: { dataScope: 'test', testSessionId: sessionB },
+      },
+    ] as const;
+    const seed: Record<string, Record<string, unknown>> = {};
+    for (const variant of variants) {
+      const courseId = variant.id as typeof course.courseId;
+      seed[`courses/${courseId}`] = withScope(
+        { ...course, courseId, title: variant.id },
+        variant.scope
+      );
+      days.forEach((day, index) => {
+        const dayId = `${variant.id}_d${index + 1}` as typeof day.courseDayId;
+        seed[`courses/${courseId}/days/${dayId}`] = withScope(
+          { ...day, courseId, courseDayId: dayId },
+          variant.scope
+        );
+      });
+      seed[`course_catalog_content/${courseId}`] = withScope(
+        {
+          courseId,
+          revision: 1,
+          duration: '5 days',
+          description: variant.id,
+          dates: 'January',
+          bgImageUrl: 'https://example.com/course.jpg',
+        },
+        variant.scope
+      );
+    }
+
+    const live = await queryCourseCatalogReadModels(
+      fakeFirestore(seed),
+      { scope: 'product' },
+      { readScope: liveScope }
+    );
+    expect(live.items.map((item) => item.courseId).sort()).toEqual(
+      [scopedIds('course', 'prodleg1'), scopedIds('course', 'prodlive1')].sort()
+    );
+    expect(live.items.every((item) => item.presentation?.duration === '5 days')).toBe(true);
+
+    const session = await queryCourseCatalogReadModels(
+      fakeFirestore(seed),
+      { scope: 'product' },
+      { readScope: testA }
+    );
+    expect(session.items.map((item) => item.courseId)).toEqual([scopedIds('course', 'prodtesta')]);
+    expect(session.items[0]?.presentation?.description).toBe(scopedIds('course', 'prodtesta'));
+
+    const emptySession = await queryCourseCatalogReadModels(
+      fakeFirestore(seed),
+      { scope: 'product' },
+      { readScope: testCanonicalReadScope(TestSessionIdSchema.parse('test_isolation_sess_c01')) }
+    );
+    expect(emptySession.items).toEqual([]);
+  });
+
   it('does not merge LIVE and TEST occupancy in the planner window', async () => {
     const booking = canonicalBookingCollaborationFixtures.individualBooking;
     const window = instructorOccupancyWindow('2026-06-15', booking.occurrence.timeZone, 1);

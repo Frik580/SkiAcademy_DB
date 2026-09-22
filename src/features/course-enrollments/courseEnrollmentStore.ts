@@ -21,6 +21,7 @@ interface CourseEnrollmentStoreState {
   setItems: (items: ReadonlyMap<string, CourseEnrollmentCabinetItem>) => void;
   mergeItems: (items: ReadonlyMap<string, CourseEnrollmentCabinetItem>) => void;
   mergeCatalog: (catalog: ReadonlyMap<string, CourseCatalogOperationalState>) => void;
+  replaceCatalog: (catalog: ReadonlyMap<string, CourseCatalogOperationalState>) => void;
   beginScopedLoad: (participantId: string) => number;
   applyScopedItems: (input: {
     readonly participantId: string;
@@ -136,6 +137,7 @@ export const useCourseEnrollmentStore = create<CourseEnrollmentStoreState>((set,
       }
       return { catalogByCourseId: merged };
     }),
+  replaceCatalog: (catalog) => set({ catalogByCourseId: new Map(catalog) }),
   beginScopedLoad: (participantId) => {
     const current = get();
     const switched = current.scopedParticipantId !== participantId;

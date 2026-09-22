@@ -2,9 +2,13 @@ import { createElement } from 'react';
 import { act, renderHook } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { TestSessionIdSchema } from '@ski-academy/shared-domain';
+import {
+  TestSessionIdSchema,
+  type BookingInstructorCatalogueItem,
+} from '@ski-academy/shared-domain';
 import { useAuthStore } from '../../src/features/auth/authStore';
 import { useBookingsStore } from '../../src/features/bookings/bookingsStore';
+import { toBookingCatalogueInstructor } from '../../src/features/bookings/sync/bookingInstructorCatalogue';
 import { liveCatalogueInstructors } from '../../src/features/bookings/sync/liveCatalogueInstructors';
 import { useBookingsSync } from '../../src/features/bookings/sync/useBookingsSync';
 import { useLessonBookingStore } from '../../src/features/lesson-bookings/lessonBookingStore';
@@ -33,12 +37,29 @@ const onSnapshot = vi.hoisted(() =>
               email: 'coach@test.example',
             }),
           },
+          {
+            id: 'ins_hidden_test',
+            data: () => ({
+              name: 'Hidden Test Coach',
+              specialty: 'ski',
+              languages: ['English'],
+              experienceYears: 5,
+              bio: '',
+              avatarUrl: '',
+              pricePerHourKZT: 30000,
+              isAvailable: true,
+              dataScope: 'test',
+              testSessionId: 'test_picker_sess_a01',
+            }),
+          },
         ],
       });
       return () => undefined;
     }
   )
 );
+
+const queryBookingInstructorCatalogueReadModels = vi.hoisted(() => vi.fn());
 
 vi.mock('../../src/infrastructure/firebase', () => ({
   collection: () => ({}),
@@ -57,6 +78,7 @@ vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
     reviews: [],
     bookingStates: [],
   })),
+  queryBookingInstructorCatalogueReadModels,
   queryInstructorReviewReadModels: vi.fn(),
   queryPublicInstructorRatingSummaries: vi.fn(async () => ({
     scope: 'public_summaries',
@@ -174,31 +196,102 @@ describe('LIVE instructor catalogue for the signed-in coach picker', () => {
   });
 });
 
-describe('instructor catalogue reload after sign-in', () => {
+describe('booking picker catalogue source', () => {
   beforeEach(() => {
     onSnapshot.mockClear();
+    queryBookingInstructorCatalogueReadModels.mockReset();
     useAuthStore.setState({ firebaseUser: null, authLoading: false, authGeneration: 0 });
     useLessonBookingStore.getState().reset();
     useBookingsStore.setState({ instructors: [], reviewSyncRequest: 0 });
   });
 
-  it('republishes the LIVE catalogue after auth reset clears it', async () => {
+  it('keeps the guest picker on the LIVE listener and hides TEST instructors', () => {
     renderHook(() => useBookingsSync(), {
       wrapper: ({ children }) =>
         createElement(MemoryRouter, { initialEntries: ['/cabinet'] }, children),
     });
 
-    expect(useBookingsStore.getState().instructors.map((instructor) => instructor.name)).toEqual([
-      'E2E Test Coach',
-    ]);
+    expect(queryBookingInstructorCatalogueReadModels).not.toHaveBeenCalled();
+    expect(pickerNamesFromStore()).toEqual(['E2E Test Coach']);
+  });
 
-    await act(async () => {
-      useAuthStore.getState().setFirebaseUser({ uid: 'account_picker_student' } as never);
+  it('shows only the server catalogue after sign-in and restores LIVE on logout', async () => {
+    queryBookingInstructorCatalogueReadModels.mockResolvedValue({
+      scope: 'booking_catalogue',
+      items: [
+        {
+          instructorId: 'ins_test_coach',
+          name: 'Test Coach',
+          specialty: 'ski',
+          isAvailable: true,
+          pricePerHourKZT: 30000,
+        },
+      ],
     });
 
-    expect(onSnapshot).toHaveBeenCalledTimes(2);
-    expect(useBookingsStore.getState().instructors.map((instructor) => instructor.name)).toEqual([
-      'E2E Test Coach',
-    ]);
+    renderHook(() => useBookingsSync(), {
+      wrapper: ({ children }) =>
+        createElement(MemoryRouter, { initialEntries: ['/cabinet'] }, children),
+    });
+    expect(pickerNamesFromStore()).toEqual(['E2E Test Coach']);
+
+    await act(async () => {
+      useAuthStore.getState().setFirebaseUser({ uid: 'account_test_actor' } as never);
+    });
+
+    expect(queryBookingInstructorCatalogueReadModels).toHaveBeenCalledWith();
+    expect(pickerNamesFromStore()).toEqual(['Test Coach']);
+    expect(useBookingsStore.getState().instructors.map((instructor) => instructor.name)).not.toContain(
+      'E2E Test Coach'
+    );
+
+    const guestCallback = onSnapshot.mock.calls.at(-1)?.[1] as
+      | ((snapshot: { docs: Array<{ id: string; data: () => unknown }> }) => void)
+      | undefined;
+    guestCallback?.({
+      docs: [
+        {
+          id: 'e2e-instructor-1',
+          data: () => ({ name: 'E2E Test Coach', specialty: 'ski', isAvailable: true, pricePerHour: 50 }),
+        },
+      ],
+    });
+    expect(pickerNamesFromStore()).toEqual(['Test Coach']);
+
+    await act(async () => {
+      useAuthStore.getState().setFirebaseUser(null);
+    });
+
+    expect(pickerNamesFromStore()).toEqual(['E2E Test Coach']);
+  });
+
+  it('uses the server list for an authenticated LIVE picker', () => {
+    const instructors = [
+      toBookingCatalogueInstructor({
+        instructorId: 'ins_arsenii',
+        name: 'Arsenii',
+        specialty: 'ski',
+        isAvailable: true,
+        pricePerHourKZT: 25000,
+      } as BookingInstructorCatalogueItem),
+      toBookingCatalogueInstructor({
+        instructorId: 'ins_elena',
+        name: 'Elena',
+        specialty: 'snowboard',
+        isAvailable: true,
+        pricePerHourKZT: 25000,
+      } as BookingInstructorCatalogueItem),
+    ];
+    expect(
+      getInstructorPickerGroups(profile, [], instructors).flatMap((group) =>
+        group.instructors.map((instructor) => instructor.name)
+      )
+    ).toEqual(['Arsenii', 'Elena']);
   });
 });
+
+function pickerNamesFromStore(): string[] {
+  return getInstructorPickerGroups(profile, [], useBookingsStore.getState().instructors).flatMap(
+    (group) => group.instructors.map((instructor) => instructor.name)
+  );
+}

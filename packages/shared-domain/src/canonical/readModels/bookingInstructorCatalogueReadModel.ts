@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { IdempotencyKeySchema } from '../commands/commandContext';
 import { InstructorIdSchema } from '../identifiers';
 
 export const BOOKING_INSTRUCTOR_CATALOGUE_READ_LIMIT = 100;
@@ -26,7 +27,12 @@ export const BookingInstructorCatalogueItemSchema = z
 
 export type BookingInstructorCatalogueItem = z.output<typeof BookingInstructorCatalogueItemSchema>;
 
-export const QueryBookingInstructorCatalogueReadModelsInputSchema = z.object({}).strict();
+export const QueryBookingInstructorCatalogueReadModelsInputSchema = z
+  .object({
+    // Transport dedupe only. The `:rs:` suffix is not CanonicalReadScope.
+    idempotencyKey: IdempotencyKeySchema.optional(),
+  })
+  .strict();
 
 export type QueryBookingInstructorCatalogueReadModelsInput = z.output<
   typeof QueryBookingInstructorCatalogueReadModelsInputSchema

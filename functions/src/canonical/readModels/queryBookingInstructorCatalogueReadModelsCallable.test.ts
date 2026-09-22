@@ -154,6 +154,18 @@ describe('queryBookingInstructorCatalogueReadModels callable', () => {
     });
   });
 
+  it('rejects a guest even when the request key is present', async () => {
+    await expect(
+      handler(
+        request(undefined, {
+          idempotencyKey: 'read:booking_instructor_catalogue:rs:live',
+        })
+      )
+    ).rejects.toMatchObject({
+      code: 'unauthenticated',
+    });
+  });
+
   it('returns LIVE instructors for an ordinary account and hides TEST', async () => {
     const result = await handler(request(liveAccountId));
     expect(result.items.map((item) => item.name)).toEqual(['Arsenii', 'Elena']);
@@ -162,6 +174,26 @@ describe('queryBookingInstructorCatalogueReadModels callable', () => {
   it('returns the assigned TestSession instructor without a client session id', async () => {
     const result = await handler(request(actorAccountId, {}));
     expect(result.items.map((item) => item.name)).toEqual(['Test Coach']);
+  });
+
+  it('accepts the browser payload and ignores the rs:live request key', async () => {
+    const result = await handler(
+      request(actorAccountId, {
+        idempotencyKey: 'read:booking_instructor_catalogue:rs:live',
+      })
+    );
+    expect(result.items.map((item) => item.name)).toEqual(['Test Coach']);
+    expect(result.items.map((item) => item.name)).not.toContain('Arsenii');
+    expect(result.items.map((item) => item.name)).not.toContain('Elena');
+  });
+
+  it('returns LIVE instructors when a LIVE account sends the same request key', async () => {
+    const result = await handler(
+      request(liveAccountId, {
+        idempotencyKey: 'read:booking_instructor_catalogue:rs:live',
+      })
+    );
+    expect(result.items.map((item) => item.name)).toEqual(['Arsenii', 'Elena']);
   });
 
   it('rejects an unassigned TestActor', async () => {

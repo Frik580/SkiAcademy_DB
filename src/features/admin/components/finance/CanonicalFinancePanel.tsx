@@ -11,6 +11,8 @@ import {
 import {
   ADMIN_FINANCE_ACCOUNT_QUERY_KEY,
   ADMIN_FINANCE_PAYMENT_QUERY_KEY,
+  ADMIN_TEST_SESSION_QUERY_KEY,
+  parseAdminRequestedTestSessionId,
 } from '../../adminNavigation';
 import type {
   AdminFinanceAccountOption,
@@ -190,8 +192,16 @@ export function CanonicalFinancePanel({
   const [correctionReason, setCorrectionReason] = useState('');
   const [manualReference, setManualReference] = useState('');
   const [correction, setCorrection] = useState<MutationStatus<CorrectionAttempt>>(EMPTY_MUTATION);
-  const walletRead = useAdminWalletReadModel(selectedAccountId);
-  const paymentRead = useAdminPaymentReadModel(selectedPaymentId);
+  const requestedTestSessionId = parseAdminRequestedTestSessionId(
+    searchParams.get(ADMIN_TEST_SESSION_QUERY_KEY)
+  );
+  const financeReadOptions = {
+    ...(requestedTestSessionId ? { requestedTestSessionId } : {}),
+    viewerAccountId: adminAccountId,
+  };
+  const walletRead = useAdminWalletReadModel(selectedAccountId, financeReadOptions);
+  const paymentRead = useAdminPaymentReadModel(selectedPaymentId, financeReadOptions);
+  const adminTestCommandContext = requestedTestSessionId ? { requestedTestSessionId } : {};
 
   useEffect(() => setAccountInput(accountParam), [accountParam]);
   useEffect(() => setPaymentInput(paymentParam), [paymentParam]);
@@ -243,6 +253,7 @@ export function CanonicalFinancePanel({
         ...(attempt.expectedRevision === undefined
           ? {}
           : { expectedRevision: attempt.expectedRevision }),
+        ...adminTestCommandContext,
       });
       applyAdminFinanceCommandResult(result);
       await walletRead.refetch();
@@ -298,6 +309,7 @@ export function CanonicalFinancePanel({
           },
           idempotencyKey: attempt.idempotencyKey,
           expectedRevision: attempt.action.expectedPaymentRevision,
+          ...adminTestCommandContext,
         });
         applyAdminFinanceCommandResult(result);
       } else {
@@ -338,6 +350,7 @@ export function CanonicalFinancePanel({
           intent,
           idempotencyKey: attempt.idempotencyKey,
           expectedRevision: attempt.action.expectedPaymentRevision,
+          ...adminTestCommandContext,
         });
         applyAdminFinanceCommandResult(result);
       }

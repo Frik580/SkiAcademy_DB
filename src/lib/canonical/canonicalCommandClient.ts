@@ -30,6 +30,8 @@ export interface CanonicalCommandSubmission<Kind extends CommandKind> {
   readonly exercisedCapability?: ClientCallableCapability;
   readonly administratorContext?: boolean;
   readonly bookingRevision?: CommandEnvelope<Kind>['context']['expectedRevision'];
+  /** Explicit Admin Test context. Omitted for LIVE. Not command intent. */
+  readonly requestedTestSessionId?: string;
 }
 
 export interface GuestCanonicalCommandSubmission<Kind extends CommandKind> {
@@ -107,6 +109,9 @@ export async function executeAuthenticatedCanonicalCommand<Kind extends CommandK
       ? { exercisedCapability: submission.exercisedCapability }
       : {}),
     ...(submission.administratorContext ? { administratorContext: true } : {}),
+    ...(submission.requestedTestSessionId
+      ? { requestedTestSessionId: submission.requestedTestSessionId }
+      : {}),
     ...(submission.bookingRevision !== undefined
       ? { bookingRevision: submission.bookingRevision }
       : {}),

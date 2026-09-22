@@ -32,6 +32,7 @@ import {
   ADMIN_PLANNER_FOCUS_QUERY_KEY,
   ADMIN_TAB_QUERY_KEY,
   ADMIN_TRAINING_RECORDS_SECTION_ID,
+  adminTabSearchParams,
   parseAdminTabId,
   type AdminTabId,
 } from '../adminNavigation';
@@ -163,17 +164,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const setActiveTab = useCallback(
     (tab: AdminTabId) => {
-      setSearchParams(
-        (prev) => {
-          const next = new URLSearchParams(prev);
-          next.set(ADMIN_TAB_QUERY_KEY, tab);
-          // Testing context is route-local to System. Normal Admin tabs always
-          // omit it, so another tab (or browser tab) remains an explicit LIVE read.
-          if (tab !== 'system') next.delete('testSession');
-          return next;
-        },
-        { replace: true }
-      );
+      setSearchParams((prev) => adminTabSearchParams(prev, tab), { replace: true });
     },
     [setSearchParams]
   );

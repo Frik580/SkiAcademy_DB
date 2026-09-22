@@ -11,6 +11,7 @@ import type {
 import type {
   AdminFinancialOverviewPeriod,
   AdminFinancialOverviewReadModel,
+  TestSessionId,
 } from '@ski-academy/shared-domain';
 
 export type AdminFinanceReadErrorCode = 'permission-denied' | 'read-failed';
@@ -47,7 +48,15 @@ export function mergeAdminPaymentEventPage(
   };
 }
 
-export function useAdminWalletReadModel(accountId: AdminFinanceAccountId | undefined) {
+export function useAdminWalletReadModel(
+  accountId: AdminFinanceAccountId | undefined,
+  options?: {
+    readonly requestedTestSessionId?: TestSessionId;
+    readonly viewerAccountId?: string;
+  }
+) {
+  const requestedTestSessionId = options?.requestedTestSessionId;
+  const viewerAccountId = options?.viewerAccountId;
   const generationRef = useRef(0);
   const [state, setState] = useState<ReadState<AdminWalletView>>({
     loading: false,
@@ -71,6 +80,7 @@ export function useAdminWalletReadModel(accountId: AdminFinanceAccountId | undef
           scope: 'admin_wallet',
           accountId,
           ...(cursor ? { cursor } : {}),
+          ...(requestedTestSessionId ? { requestedTestSessionId } : {}),
         });
         if (generationRef.current !== generation || result.scope !== 'admin_wallet') return;
         setState((current) => ({
@@ -88,7 +98,7 @@ export function useAdminWalletReadModel(accountId: AdminFinanceAccountId | undef
         }));
       }
     },
-    [accountId]
+    [accountId, requestedTestSessionId, viewerAccountId]
   );
 
   useEffect(() => {
@@ -112,7 +122,15 @@ export function useAdminWalletReadModel(accountId: AdminFinanceAccountId | undef
   };
 }
 
-export function useAdminPaymentReadModel(paymentId: AdminFinancePaymentId | undefined) {
+export function useAdminPaymentReadModel(
+  paymentId: AdminFinancePaymentId | undefined,
+  options?: {
+    readonly requestedTestSessionId?: TestSessionId;
+    readonly viewerAccountId?: string;
+  }
+) {
+  const requestedTestSessionId = options?.requestedTestSessionId;
+  const viewerAccountId = options?.viewerAccountId;
   const generationRef = useRef(0);
   const [state, setState] = useState<ReadState<AdminPaymentView>>({
     loading: false,
@@ -136,6 +154,7 @@ export function useAdminPaymentReadModel(paymentId: AdminFinancePaymentId | unde
           scope: 'admin_payment_detail',
           paymentId,
           ...(cursor ? { cursor } : {}),
+          ...(requestedTestSessionId ? { requestedTestSessionId } : {}),
         });
         if (generationRef.current !== generation || result.scope !== 'admin_payment_detail') return;
         setState((current) => ({
@@ -156,7 +175,7 @@ export function useAdminPaymentReadModel(paymentId: AdminFinancePaymentId | unde
         }));
       }
     },
-    [paymentId]
+    [paymentId, requestedTestSessionId, viewerAccountId]
   );
 
   useEffect(() => {

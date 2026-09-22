@@ -2,8 +2,10 @@ import type { TranslationKey } from '../../lib/i18n/translations';
 import {
   ADMIN_FINANCIAL_OVERVIEW_PERIODS,
   ADMIN_ISSUE_SEVERITIES,
+  TestSessionIdSchema,
   type AdminFinancialOverviewPeriod,
   type AdminIssueSeverity,
+  type TestSessionId,
 } from '@ski-academy/shared-domain';
 
 export const ADMIN_TAB_IDS = ['operations', 'finance', 'people', 'product', 'system'] as const;
@@ -59,6 +61,32 @@ export const ADMIN_PLANNER_FOCUS_QUERY_KEY = 'plannerBooking';
 export const ADMIN_COURSE_ENROLLMENT_QUERY_KEY = 'enrollment';
 export const ADMIN_COURSE_ENROLLMENT_VIEW_QUERY_KEY = 'enrollmentView';
 export const ADMIN_COURSE_ENROLLMENT_COURSE_QUERY_KEY = 'enrollmentCourse';
+/** Explicit Admin Test context. Entered from System → Testing. */
+export const ADMIN_TEST_SESSION_QUERY_KEY = 'testSession';
+
+export function parseAdminRequestedTestSessionId(
+  value: string | null | undefined
+): TestSessionId | undefined {
+  if (!value) return undefined;
+  const parsed = TestSessionIdSchema.safeParse(value);
+  return parsed.success ? parsed.data : undefined;
+}
+
+/**
+ * Tab changes keep an explicit Test context only on System and Finance.
+ * Every other tab drops it, so those surfaces stay LIVE.
+ */
+export function adminTabSearchParams(
+  previous: URLSearchParams,
+  tab: AdminTabId
+): URLSearchParams {
+  const next = new URLSearchParams(previous);
+  next.set(ADMIN_TAB_QUERY_KEY, tab);
+  if (tab !== 'system' && tab !== 'finance') {
+    next.delete(ADMIN_TEST_SESSION_QUERY_KEY);
+  }
+  return next;
+}
 
 export function adminFinanceAccountSearchParams(
   previous: URLSearchParams,

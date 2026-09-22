@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useSearchParams } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   AccountIdSchema,
@@ -152,6 +153,9 @@ describe('CanonicalFinancePanel manual funding', () => {
       },
     });
     expect(submission.idempotencyKey).toMatch(/^admin_finance:manual_wallet_funding:/);
+    expect(submission).not.toHaveProperty('requestedTestSessionId');
+    expect(submission.intent).not.toHaveProperty('requestedTestSessionId');
+    expect(mockQueryFinance.mock.calls[0]?.[0]).not.toHaveProperty('requestedTestSessionId');
     await waitFor(() => expect(mockQueryFinance.mock.calls.length).toBeGreaterThanOrEqual(2));
     expect(await screen.findByText('adminFinanceFundingSuccess')).toBeInTheDocument();
   });
@@ -241,5 +245,241 @@ describe('CanonicalFinancePanel manual funding', () => {
         intent: expect.objectContaining({ paymentId: paymentA, expectedPaymentRevision: 4 }),
       })
     );
+  });
+});
+
+const sessionA = 'test_finance_ctx_a';
+const sessionB = 'test_finance_ctx_b';
+
+function namedWallet(displayName: string, balance: number) {
+  const result = walletResult();
+  return {
+    ...result,
+    item: {
+      ...result.item,
+      balance,
+      accountIdentity: { ...result.item.accountIdentity, displayName },
+    },
+  };
+}
+
+function unavailableWallet() {
+  const result = walletResult();
+  return {
+    ...result,
+    item: {
+      ...result.item,
+      accountStatus: 'unavailable' as const,
+      exists: false,
+      balance: 0,
+      allowedActions: [],
+    },
+  };
+}
+
+function FinanceUrlControls() {
+  const [params, setParams] = useSearchParams();
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          const next = new URLSearchParams(params);
+          next.delete('testSession');
+          setParams(next);
+        }}
+      >
+        drop-test-context
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          const next = new URLSearchParams(params);
+          next.set('testSession', sessionB);
+          setParams(next);
+        }}
+      >
+        switch-session-b
+      </button>
+    </>
+  );
+}
+
+describe('CanonicalFinancePanel admin test context', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('keeps a LIVE admin read free of requestedTestSessionId and hides funding', async () => {
+    mockQueryFinance.mockResolvedValue(unavailableWallet());
+    render(
+      <MemoryRouter initialEntries={[`/admin?tab=finance&account=${accountId}`]}>
+        <CanonicalFinancePanel
+          adminAccountId="account_admin_actor_01"
+          accounts={[]}
+          onRequestConfirm={vi.fn()}
+        />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('adminFinanceAccountUnavailable')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'adminFinanceFundWallet' })).not.toBeInTheDocument();
+    expect(mockQueryFinance.mock.calls[0]?.[0]).toMatchObject({
+      scope: 'admin_wallet',
+      accountId,
+    });
+    expect(mockQueryFinance.mock.calls[0]?.[0]).not.toHaveProperty('requestedTestSessionId');
+    expect(mockExecuteCommand).not.toHaveBeenCalled();
+  });
+
+  it('sends the explicit test session on read, funding, and the success refresh', async () => {
+    mockQueryFinance.mockResolvedValue(namedWallet('Ksuscha', 70_000));
+    mockExecuteCommand.mockResolvedValue({ status: 'success' });
+    const onRequestConfirm = vi.fn((_message: string, action: () => Promise<void>) => action());
+    render(
+      <MemoryRouter
+        initialEntries={[`/admin?tab=finance&account=${accountId}&testSession=${sessionA}`]}
+      >
+        <CanonicalFinancePanel
+          adminAccountId="account_admin_actor_01"
+          accounts={[]}
+          onRequestConfirm={onRequestConfirm}
+        />
+      </MemoryRouter>
+    );
+
+    await screen.findByText('Ksuscha');
+    expect(mockQueryFinance.mock.calls[0]?.[0]).toMatchObject({
+      scope: 'admin_wallet',
+      accountId,
+      requestedTestSessionId: sessionA,
+    });
+    await userEvent.type(screen.getByLabelText('adminFinanceAmountKzt'), '180000');
+    await userEvent.type(screen.getByLabelText('adminFinanceReason'), 'Course smoke top-up');
+    await userEvent.click(screen.getByRole('button', { name: 'adminFinanceFundWallet' }));
+
+    await waitFor(() => expect(mockExecuteCommand).toHaveBeenCalledTimes(1));
+    const submission = mockExecuteCommand.mock.calls[0]?.[1];
+    expect(submission).toMatchObject({
+      kind: 'record_manual_wallet_funding',
+      requestedTestSessionId: sessionA,
+      intent: { accountId, amount: 180_000, reasonExplanation: 'Course smoke top-up' },
+    });
+    expect(submission.intent).not.toHaveProperty('requestedTestSessionId');
+    await waitFor(() => expect(mockQueryFinance.mock.calls.length).toBeGreaterThanOrEqual(2));
+    for (const call of mockQueryFinance.mock.calls) {
+      if (call[0]?.scope === 'admin_wallet') {
+        expect(call[0]).toMatchObject({ requestedTestSessionId: sessionA });
+      }
+    }
+  });
+
+  it('clears the TEST wallet when Admin returns to LIVE', async () => {
+    let releaseLive: (value: ReturnType<typeof unavailableWallet>) => void = () => {};
+    mockQueryFinance.mockImplementation(async (input: { requestedTestSessionId?: string }) => {
+      if (input.requestedTestSessionId === sessionA) return namedWallet('Ksuscha', 70_000);
+      return new Promise((resolve) => {
+        releaseLive = resolve;
+      });
+    });
+    render(
+      <MemoryRouter
+        initialEntries={[`/admin?tab=finance&account=${accountId}&testSession=${sessionA}`]}
+      >
+        <CanonicalFinancePanel
+          adminAccountId="account_admin_actor_01"
+          accounts={[]}
+          onRequestConfirm={vi.fn()}
+        />
+        <FinanceUrlControls />
+      </MemoryRouter>
+    );
+
+    await screen.findByText('Ksuscha');
+    await userEvent.click(screen.getByRole('button', { name: 'drop-test-context' }));
+    await waitFor(() => expect(screen.queryByText('Ksuscha')).not.toBeInTheDocument());
+    const liveCall = mockQueryFinance.mock.calls.find(
+      (call) => call[0]?.scope === 'admin_wallet' && !('requestedTestSessionId' in call[0])
+    );
+    expect(liveCall).toBeDefined();
+    await act(async () => {
+      releaseLive(unavailableWallet());
+    });
+    expect(await screen.findByText('adminFinanceAccountUnavailable')).toBeInTheDocument();
+    expect(screen.queryByText('Ksuscha')).not.toBeInTheDocument();
+  });
+
+  it('drops session A wallet before session B resolves', async () => {
+    let releaseB: (value: ReturnType<typeof namedWallet>) => void = () => {};
+    mockQueryFinance.mockImplementation(async (input: { requestedTestSessionId?: string }) => {
+      if (input.requestedTestSessionId === sessionB) {
+        return new Promise((resolve) => {
+          releaseB = resolve;
+        });
+      }
+      return namedWallet('Session A', 70_000);
+    });
+    render(
+      <MemoryRouter
+        initialEntries={[`/admin?tab=finance&account=${accountId}&testSession=${sessionA}`]}
+      >
+        <CanonicalFinancePanel
+          adminAccountId="account_admin_actor_01"
+          accounts={[]}
+          onRequestConfirm={vi.fn()}
+        />
+        <FinanceUrlControls />
+      </MemoryRouter>
+    );
+
+    await screen.findByText('Session A');
+    await userEvent.click(screen.getByRole('button', { name: 'switch-session-b' }));
+    await waitFor(() => expect(screen.queryByText('Session A')).not.toBeInTheDocument());
+    expect(
+      mockQueryFinance.mock.calls.some(
+        (call) => call[0]?.requestedTestSessionId === sessionB && call[0]?.scope === 'admin_wallet'
+      )
+    ).toBe(true);
+    await act(async () => {
+      releaseB(namedWallet('Session B', 10));
+    });
+    expect(await screen.findByText('Session B')).toBeInTheDocument();
+    expect(screen.queryByText('Session A')).not.toBeInTheDocument();
+  });
+
+  it('clears TEST finance state when the admin actor changes', async () => {
+    let releaseNext: (value: ReturnType<typeof namedWallet>) => void = () => {};
+    mockQueryFinance.mockImplementation(async () => namedWallet('Ksuscha', 70_000));
+    function Host() {
+      const [adminAccountId, setAdminAccountId] = useState('account_admin_actor_01');
+      return (
+        <MemoryRouter
+          initialEntries={[`/admin?tab=finance&account=${accountId}&testSession=${sessionA}`]}
+        >
+          <button type="button" onClick={() => setAdminAccountId('account_admin_actor_02')}>
+            switch-admin
+          </button>
+          <CanonicalFinancePanel
+            adminAccountId={adminAccountId}
+            accounts={[]}
+            onRequestConfirm={vi.fn()}
+          />
+        </MemoryRouter>
+      );
+    }
+    render(<Host />);
+    await screen.findByText('Ksuscha');
+    mockQueryFinance.mockImplementation(
+      async () =>
+        new Promise((resolve) => {
+          releaseNext = resolve;
+        })
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'switch-admin' }));
+    await waitFor(() => expect(screen.queryByText('Ksuscha')).not.toBeInTheDocument());
+    await act(async () => {
+      releaseNext(namedWallet('Next admin view', 70_000));
+    });
+    expect(await screen.findByText('Next admin view')).toBeInTheDocument();
   });
 });

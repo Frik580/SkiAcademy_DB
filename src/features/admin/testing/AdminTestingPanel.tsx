@@ -23,9 +23,10 @@ import {
   lifecycleErrorCode,
 } from '../../../lib/canonical/testSessionLifecycleClient';
 import { ActionButton } from '../../../ui/ActionButton';
+import { ADMIN_TEST_SESSION_QUERY_KEY } from '../adminNavigation';
 import { useAdminTestingTranslations } from './useAdminTestingTranslations';
 
-export const ADMIN_TEST_SESSION_QUERY_KEY = 'testSession';
+export { ADMIN_TEST_SESSION_QUERY_KEY };
 
 const statusTranslationKey: Record<
   TestSessionStatus,

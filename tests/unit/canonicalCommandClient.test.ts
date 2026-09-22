@@ -41,6 +41,37 @@ describe('canonicalCommandClient', () => {
       }),
       expect.objectContaining({ idempotencyKey: 'idem-client-01' })
     );
+    expect(callFunctionMock.mock.calls[0]?.[1]).not.toHaveProperty('requestedTestSessionId');
+  });
+
+  it('forwards explicit Admin Test context beside the command intent', async () => {
+    callFunctionMock.mockResolvedValueOnce({
+      status: 'success',
+      kind: 'record_manual_wallet_funding',
+    });
+
+    await executeAuthenticatedCanonicalCommand('account_admin_01', {
+      kind: 'record_manual_wallet_funding',
+      intent: {
+        accountId: 'account_wallet_01',
+        amount: 180_000,
+        reasonExplanation: 'Course smoke top-up',
+      },
+      idempotencyKey: 'admin_finance:manual_wallet_funding:test',
+      requestedTestSessionId: 'test_finance_ctx_a',
+    });
+
+    const payload = callFunctionMock.mock.calls.find(
+      (call) =>
+        (call[1] as { kind?: string } | undefined)?.kind === 'record_manual_wallet_funding'
+    )?.[1] as {
+      intent: Record<string, unknown>;
+      requestedTestSessionId?: string;
+    };
+    expect(payload.requestedTestSessionId).toBe('test_finance_ctx_a');
+    expect(payload.intent).not.toHaveProperty('requestedTestSessionId');
+    expect(payload.intent).not.toHaveProperty('testSessionId');
+    expect(payload.intent).not.toHaveProperty('dataScope');
   });
 
   it('routes guest commands through executeGuestCanonicalCommand callable', async () => {

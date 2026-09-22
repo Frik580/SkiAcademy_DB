@@ -5,10 +5,13 @@ import {
   ADMIN_COURSE_ENROLLMENT_QUERY_KEY,
   ADMIN_COURSE_ENROLLMENT_VIEW_QUERY_KEY,
   ADMIN_TAB_IDS,
+  ADMIN_TEST_SESSION_QUERY_KEY,
   DEFAULT_ADMIN_TAB,
   adminClientAccountSearchParams,
   adminCourseEnrollmentSearchParams,
+  adminTabSearchParams,
   isAdminTabId,
+  parseAdminRequestedTestSessionId,
   parseAdminTabId,
 } from '../../src/features/admin/adminNavigation';
 
@@ -24,6 +27,28 @@ describe('adminNavigation', () => {
     expect(parseAdminTabId('people')).toBe('people');
     expect(parseAdminTabId(null)).toBe('operations');
     expect(parseAdminTabId('unknown')).toBe('operations');
+  });
+
+  it('keeps explicit Admin Test context on Finance and drops it on other tabs', () => {
+    const current = new URLSearchParams(
+      `tab=system&${ADMIN_TEST_SESSION_QUERY_KEY}=test_finance_ctx_a&account=account_open_01`
+    );
+    const finance = adminTabSearchParams(current, 'finance');
+    expect(finance.get('tab')).toBe('finance');
+    expect(finance.get(ADMIN_TEST_SESSION_QUERY_KEY)).toBe('test_finance_ctx_a');
+    expect(finance.get('account')).toBe('account_open_01');
+
+    const people = adminTabSearchParams(finance, 'people');
+    expect(people.get(ADMIN_TEST_SESSION_QUERY_KEY)).toBeNull();
+
+    const system = adminTabSearchParams(finance, 'system');
+    expect(system.get(ADMIN_TEST_SESSION_QUERY_KEY)).toBe('test_finance_ctx_a');
+  });
+
+  it('ignores a missing or malformed Admin Test context', () => {
+    expect(parseAdminRequestedTestSessionId(null)).toBeUndefined();
+    expect(parseAdminRequestedTestSessionId('live')).toBeUndefined();
+    expect(parseAdminRequestedTestSessionId('test_finance_ctx_a')).toBe('test_finance_ctx_a');
   });
 
   it('deep-links People → Clients with canonical clientAccount', () => {

@@ -156,6 +156,20 @@ describe('AdminTestingPanel', () => {
     }
   });
 
+  it('shows reset preview only inside explicit test context without legacy reset button in create panel', async () => {
+    const user = userEvent.setup();
+    renderPanel();
+
+    await screen.findAllByText('Alpha');
+    expect(screen.queryByTestId('test-session-reset-section')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'adminTestingOpen' }));
+    expect(await screen.findByTestId('test-session-reset-section')).toBeInTheDocument();
+    expect(screen.getByTestId('reset-preview-button')).toBeInTheDocument();
+    await user.click(screen.getAllByText('adminTestingCreate')[0]);
+    expect(screen.queryByRole('button', { name: 'adminTestingReset' })).not.toBeInTheDocument();
+  });
+
   it('sends bounded create intent and keeps session authority on the server', async () => {
     const user = userEvent.setup();
     renderPanel();

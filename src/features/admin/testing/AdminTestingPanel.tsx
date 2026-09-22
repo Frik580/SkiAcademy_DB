@@ -10,10 +10,7 @@ import type {
   LiveCourseTemplateItem,
   TestSessionLifecycleResult,
 } from '@ski-academy/shared-domain';
-import {
-  TEST_SESSION_DELETE_CONFIRMATION,
-  TEST_SESSION_RESET_CONFIRMATION,
-} from '@ski-academy/shared-domain';
+import { TEST_SESSION_DELETE_CONFIRMATION } from '@ski-academy/shared-domain';
 import {
   queryAdminIssueReadModels,
   queryTestSessionReadModels,
@@ -25,6 +22,7 @@ import {
 import { ActionButton } from '../../../ui/ActionButton';
 import { ADMIN_TEST_SESSION_QUERY_KEY } from '../adminNavigation';
 import { useAdminTestingTranslations } from './useAdminTestingTranslations';
+import { TestSessionResetSection } from './TestSessionResetSection';
 
 export { ADMIN_TEST_SESSION_QUERY_KEY };
 
@@ -106,7 +104,23 @@ export const AdminTestingPanel: React.FC = () => {
   const [lifecycleError, setLifecycleError] = useState<string>();
   const [lifecycleResult, setLifecycleResult] = useState<TestSessionLifecycleResult>();
   const [confirmation, setConfirmation] = useState('');
-  const [previewKind, setPreviewKind] = useState<'reset' | 'delete'>();
+  const [previewKind, setPreviewKind] = useState<'delete'>();
+  const [resetBusy, setResetBusy] = useState(false);
+
+  const refreshInventory = useCallback(async (sessionId: string) => {
+    setLoadingInventory(true);
+    try {
+      const result = await queryTestSessionReadModels({
+        scope: 'test_session_inventory',
+        testSessionId: sessionId as TestSessionId,
+      });
+      if (result.scope === 'test_session_inventory') setInventory(result.item);
+    } catch {
+      setInventory(undefined);
+    } finally {
+      setLoadingInventory(false);
+    }
+  }, []);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -234,9 +248,8 @@ export const AdminTestingPanel: React.FC = () => {
     try {
       const result = await executeTestSessionLifecycle(input, `lifecycle_${crypto.randomUUID()}`);
       setLifecycleResult(result);
-      if (input.command === 'preview_test_session_reset') setPreviewKind('reset');
       if (input.command === 'preview_test_session_delete') setPreviewKind('delete');
-      if (input.command === 'execute_test_session_reset' || input.command === 'execute_test_session_delete') {
+      if (input.command === 'execute_test_session_delete') {
         setPreviewKind(undefined);
         setConfirmation('');
       }
@@ -265,6 +278,9 @@ export const AdminTestingPanel: React.FC = () => {
   };
   const selectSession = (sessionId: string) => {
     setSelectedSessionId(sessionId);
+    setPreviewKind(undefined);
+    setLifecycleResult(undefined);
+    setConfirmation('');
     if (requestedSessionId) returnToLive();
   };
   const toggleSelection = (current: readonly string[], value: string) =>
@@ -350,6 +366,7 @@ export const AdminTestingPanel: React.FC = () => {
                 <button
                   key={session.testSessionId}
                   type="button"
+                  disabled={resetBusy}
                   onClick={() => selectSession(session.testSessionId)}
                   className={`w-full border p-3 text-left transition ${
                     selectedSessionId === session.testSessionId
@@ -457,6 +474,19 @@ export const AdminTestingPanel: React.FC = () => {
                   </p>
                 )}
               </div>
+
+              {isTestContext && selectedSession.status === 'active' && (
+                <TestSessionResetSection
+                  testSession={selectedSession}
+                  inventory={inventory}
+                  maintenanceLocked={maintenanceLocked || lifecyclePending}
+                  onBusyChange={setResetBusy}
+                  onAfterReset={async () => {
+                    await refresh();
+                    await refreshInventory(selectedSession.testSessionId);
+                  }}
+                />
+              )}
 
               {isTestContext && (
                 <div className="border border-amber-500/40 bg-amber-500/5 p-4">
@@ -656,13 +686,11 @@ export const AdminTestingPanel: React.FC = () => {
             <p className="text-xs text-[var(--ink-dim)]">
               {t('adminTestingPreserved')}: {lifecycleResult.manifest.preserve.join(', ')}
             </p>
-            {previewKind ? (
+            {previewKind === 'delete' ? (
               <label className="block text-xs text-[var(--ink-dim)]">
                 {t('adminTestingConfirmation')}{' '}
                 <span className="font-mono text-[var(--ink)]">
-                  {previewKind === 'reset'
-                    ? TEST_SESSION_RESET_CONFIRMATION
-                    : TEST_SESSION_DELETE_CONFIRMATION}
+                  {TEST_SESSION_DELETE_CONFIRMATION}
                 </span>
                 <input
                   value={confirmation}
@@ -710,24 +738,6 @@ export const AdminTestingPanel: React.FC = () => {
             variant="danger"
             disabled={
               !selectedSession ||
-              (selectedSession.status !== 'active' && selectedSession.status !== 'closed') ||
-              lifecyclePending ||
-              maintenanceLocked
-            }
-            onClick={() =>
-              selectedSession &&
-              void runLifecycle({
-                command: 'preview_test_session_reset',
-                testSessionId: selectedSession.testSessionId,
-              })
-            }
-          >
-            {t('adminTestingReset')}
-          </ActionButton>
-          <ActionButton
-            variant="danger"
-            disabled={
-              !selectedSession ||
               (selectedSession.status !== 'active' &&
                 selectedSession.status !== 'closed' &&
                 selectedSession.status !== 'failed') ||
@@ -744,23 +754,6 @@ export const AdminTestingPanel: React.FC = () => {
           >
             {t('adminTestingDelete')}
           </ActionButton>
-          {previewKind === 'reset' && lifecycleResult?.manifest ? (
-            <ActionButton
-              variant="danger"
-              disabled={confirmation !== TEST_SESSION_RESET_CONFIRMATION || lifecyclePending}
-              onClick={() =>
-                selectedSession &&
-                void runLifecycle({
-                  command: 'execute_test_session_reset',
-                  testSessionId: selectedSession.testSessionId,
-                  manifestId: lifecycleResult.manifest?.manifestId,
-                  confirmation,
-                })
-              }
-            >
-              {t('adminTestingExecuteReset')}
-            </ActionButton>
-          ) : null}
           {previewKind === 'delete' && lifecycleResult?.manifest ? (
             <ActionButton
               variant="danger"

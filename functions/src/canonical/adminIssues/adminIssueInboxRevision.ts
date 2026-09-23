@@ -1,5 +1,6 @@
 import {
   AggregateRevisionSchema,
+  LIVE_CANONICAL_EXECUTION_SCOPE,
   adminIssueInboxRevisionReason,
   canonicalPaths,
   type AdminIssue,
@@ -47,6 +48,19 @@ export async function planAdminIssueInboxRevisionBump(
   if (existing) {
     existing.reason = reason;
     return existing;
+  }
+  // Shared live admin_runtime signal: TEST-scope lifecycle must not bump it.
+  // Matches mayBumpLiveAdminRuntime in idempotentCommandExecution (Wiring A).
+  const mayBumpLiveAdminRuntime =
+    (session.scope ?? LIVE_CANONICAL_EXECUTION_SCOPE).dataScope === 'live';
+  if (!mayBumpLiveAdminRuntime) {
+    return {
+      reason,
+      currentRevision: 0,
+      exists: false,
+      resolvedAdminIssueIds: [],
+      openedAdminIssueIds: [],
+    };
   }
   const documentPath = adminIssueInboxRevisionPath();
   const read = await session.tx.get({ path: documentPath });

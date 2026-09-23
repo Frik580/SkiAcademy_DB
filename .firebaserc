@@ -1,5 +1,9 @@
 {
   "projects": {
-    "default": "ski-school-8f3ca"
-  }
+    "default": "ski-school-8f3ca",
+    "staging": "ski-school-staging",
+    "prod": "ski-school-8f3ca"
+  },
+  "targets": {},
+  "etags": {}
 }

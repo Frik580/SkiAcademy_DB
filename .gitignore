@@ -81,3 +81,5 @@ functions/shared-domain/dist/
 
 t39-backup/
 t40-reset-backup/
+
+.env.staging

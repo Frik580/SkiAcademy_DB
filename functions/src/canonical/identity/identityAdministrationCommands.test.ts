@@ -6,6 +6,7 @@ import {
   BookingIdSchema,
   BookingSchema,
   CorrelationIdSchema,
+  CommandIdSchema,
   CourseDayIdSchema,
   CourseDaySchema,
   CourseIdSchema,
@@ -14,10 +15,15 @@ import {
   ParticipantIdSchema,
   ParticipantManagementIdSchema,
   ParticipantSchema,
+  TestActorAssignmentSchema,
+  TestActorSchema,
+  TestSessionIdSchema,
   accountCommandActor,
   participantManagementIdFromGuestLink,
   paymentIdFromBookingId,
+  testCanonicalExecutionScope,
   timestampFromDate,
+  type CanonicalExecutionScope,
   type CommandEnvelope,
 } from '@ski-academy/shared-domain';
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
@@ -30,10 +36,14 @@ const targetAccountId = AccountIdSchema.parse('account_identity_admin_unit_02');
 const ownerAccountId = AccountIdSchema.parse('account_identity_admin_unit_owner');
 const participantId = ParticipantIdSchema.parse('participant_identity_admin_unit_01');
 const instructorId = InstructorIdSchema.parse('instructor_identity_admin_unit_01');
+const instructorTestSessionId = TestSessionIdSchema.parse('test_identity_admin_scope_01');
 const decidedAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
 
-function environment() {
-  return { clock: createAuthoritativeCommandClock(new Date('2026-02-01T00:00:00.000Z')) };
+function environment(scope?: CanonicalExecutionScope) {
+  return {
+    clock: createAuthoritativeCommandClock(new Date('2026-02-01T00:00:00.000Z')),
+    ...(scope ? { scope } : {}),
+  };
 }
 
 function adminContext(idempotencyKey: string, expectedRevision = 1, actor = adminAccountId) {
@@ -64,6 +74,38 @@ function seedAccount(accountId: typeof adminAccountId, extras: Record<string, un
     displayName: 'Seed',
     role: 'admin',
     ...extras,
+  };
+}
+
+function persistentTestParentDocs(
+  accountId: typeof targetAccountId,
+  activeTestSessionId: typeof instructorTestSessionId
+) {
+  const actorCommandId = CommandIdSchema.parse('command_identity_admin_test_actor');
+  const actorAudit = {
+    createdByCommandId: actorCommandId,
+    lastChangedByCommandId: actorCommandId,
+    correlationId,
+  };
+  return {
+    [`test_actors/${accountId}`]: TestActorSchema.parse({
+      accountId,
+      participantIds: [participantId],
+      kind: 'test_parent',
+      allowed: true,
+      dataScope: 'test',
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: actorAudit,
+    }),
+    [`test_actor_assignments/${accountId}`]: TestActorAssignmentSchema.parse({
+      accountId,
+      activeTestSessionId,
+      revision: 1,
+      updatedAt: decidedAt,
+      audit: actorAudit,
+    }),
   };
 }
 
@@ -1005,6 +1047,143 @@ describe('canonical identity administration commands', () => {
     expect(snapshot.docs.get(`instructors/${instructorX}`)?.data).toMatchObject({
       linkedAccountId: targetAccountId,
     });
+  });
+
+  it('refuses to link a persistent TestActor Account to a LIVE Instructor', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${adminAccountId}`]: seedAccount(adminAccountId, { systemRole: 'owner' }),
+      [`users/${targetAccountId}`]: seedAccount(targetAccountId, { role: 'user', dataScope: 'test' }),
+      [`instructors/${instructorId}`]: {
+        instructorId,
+        name: 'Scope Coach',
+        pricePerHourKZT: 15_000,
+        isAvailable: true,
+        revision: 1,
+        dataScope: 'live',
+      },
+      ...persistentTestParentDocs(targetAccountId, instructorTestSessionId),
+    });
+    const result = await run(executor, {
+      kind: 'link_account_instructor_catalog',
+      context: adminContext('link-test-account-forbidden'),
+      intent: {
+        accountId: targetAccountId,
+        instructorId,
+        reasonExplanation: 'TEST Account must not become a production Instructor identity',
+      },
+    });
+
+    expect(result.status).toBe('error');
+    if (result.status === 'error') expect(result.error.code).toBe('cross_scope_forbidden');
+    expect(executor.snapshot().docs.get(`users/${targetAccountId}`)?.data?.instructorId).toBeUndefined();
+    expect(executor.snapshot().docs.get(`instructors/${instructorId}`)?.data?.linkedAccountId).toBeUndefined();
+  });
+
+  it('rejects a LIVE Account linked to a TEST Instructor through the scoped transaction guard', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${adminAccountId}`]: seedAccount(adminAccountId, { systemRole: 'owner' }),
+      [`users/${targetAccountId}`]: seedAccount(targetAccountId, { role: 'user' }),
+      [`instructors/${instructorId}`]: {
+        instructorId,
+        name: 'Session Coach',
+        pricePerHourKZT: 15_000,
+        isAvailable: true,
+        revision: 1,
+        dataScope: 'test',
+        testSessionId: instructorTestSessionId,
+      },
+    });
+    const result = await run(executor, {
+      kind: 'link_account_instructor_catalog',
+      context: adminContext('link-live-account-to-test-instructor'),
+      intent: {
+        accountId: targetAccountId,
+        instructorId,
+        reasonExplanation: 'LIVE Account cannot link to TEST Instructor',
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'error',
+      error: { code: 'cross_scope_forbidden', details: { reason: 'conflict' } },
+    });
+    expect(executor.snapshot().docs.get(`users/${targetAccountId}`)?.data?.instructorId).toBeUndefined();
+    expect(executor.snapshot().docs.get(`instructors/${instructorId}`)?.data?.linkedAccountId).toBeUndefined();
+  });
+
+  it('keeps a same-session TEST Account and Instructor link unsupported without writes', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${adminAccountId}`]: seedAccount(adminAccountId, { systemRole: 'owner' }),
+      [`users/${targetAccountId}`]: seedAccount(targetAccountId, {
+        role: 'user',
+        dataScope: 'test',
+        testSessionId: instructorTestSessionId,
+      }),
+      [`instructors/${instructorId}`]: {
+        instructorId,
+        name: 'Session Coach',
+        pricePerHourKZT: 15_000,
+        isAvailable: true,
+        revision: 1,
+        dataScope: 'test',
+        testSessionId: instructorTestSessionId,
+      },
+    });
+    const result = await createProductionCanonicalCommands(
+      environment(testCanonicalExecutionScope(instructorTestSessionId)),
+      executor
+    ).execute({
+      kind: 'link_account_instructor_catalog',
+      context: adminContext('link-test-same-session'),
+      intent: {
+        accountId: targetAccountId,
+        instructorId,
+        reasonExplanation: 'TEST identity linking remains deferred',
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'error',
+      error: { code: 'cross_scope_forbidden', details: { reason: 'unsupported' } },
+    });
+    expect(executor.snapshot().docs.get(`users/${targetAccountId}`)?.data?.instructorId).toBeUndefined();
+    expect(executor.snapshot().docs.get(`instructors/${instructorId}`)?.data?.linkedAccountId).toBeUndefined();
+  });
+
+  it('keeps a persistent TestActor Account unchanged when TEST defers instructor linking', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${adminAccountId}`]: seedAccount(adminAccountId, { systemRole: 'owner' }),
+      [`users/${targetAccountId}`]: seedAccount(targetAccountId, { role: 'user', dataScope: 'test' }),
+      [`instructors/${instructorId}`]: {
+        instructorId,
+        name: 'Session Coach',
+        pricePerHourKZT: 15_000,
+        isAvailable: true,
+        revision: 1,
+        dataScope: 'test',
+        testSessionId: instructorTestSessionId,
+      },
+      ...persistentTestParentDocs(targetAccountId, instructorTestSessionId),
+    });
+    const result = await createProductionCanonicalCommands(
+      environment(testCanonicalExecutionScope(instructorTestSessionId)),
+      executor
+    ).execute({
+      kind: 'link_account_instructor_catalog',
+      context: adminContext('link-persistent-test-actor'),
+      intent: {
+        accountId: targetAccountId,
+        instructorId,
+        reasonExplanation: 'Persistent TestActor identity is not session-bound link state',
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'error',
+      error: { code: 'cross_scope_forbidden', details: { reason: 'unsupported' } },
+    });
+    expect(executor.snapshot().docs.get(`users/${targetAccountId}`)?.data?.instructorId).toBeUndefined();
+    expect(executor.snapshot().docs.get(`instructors/${instructorId}`)?.data?.linkedAccountId).toBeUndefined();
   });
 
   it('refuses disable_account while linked instructor is available, then allows after deactivate without auto-reactivate', async () => {

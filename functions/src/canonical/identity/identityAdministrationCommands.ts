@@ -83,6 +83,7 @@ import {
   participantPath,
 } from '../participantAccess/participantAccessStore';
 import { sanitizeInstructorPresentationAvatarUrl } from '../readModels/instructorPresentationAvatar';
+import { assertTestMutableSubjectScope } from '../testSessions/assertTestMutableResourceScope';
 
 type IdentityAdminKind = Extract<
   CommandKind,
@@ -1896,6 +1897,11 @@ function linkInstructorCatalogHandler(
         assertAccountActive(envelope, parsed);
         targetAccount = parsed!;
         targetProfile = targetRead.data;
+        assertTestMutableSubjectScope({
+          correlationId: envelope.context.correlationId,
+          scope: session.scope,
+          persisted: targetProfile,
+        });
         const existingInstructorId =
           typeof targetProfile?.instructorId === 'string' ? targetProfile.instructorId : undefined;
         if (existingInstructorId && existingInstructorId !== envelope.intent.instructorId) {

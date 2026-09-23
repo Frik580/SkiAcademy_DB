@@ -2,11 +2,15 @@ import { describe, expect, it } from 'vitest';
 import {
   CorrelationIdSchema,
   LIVE_CANONICAL_EXECUTION_SCOPE,
+  TestSessionIdSchema,
+  testCanonicalExecutionScope,
 } from '@ski-academy/shared-domain';
 import { createInMemoryCanonicalTransactionExecutor } from './index';
 import { scopeCanonicalTransactionSession } from './scopedCanonicalTransaction';
 
 const correlationId = CorrelationIdSchema.parse('correlation_live_scope_writer_test');
+const testSessionId = TestSessionIdSchema.parse('test_scope_instructor_a01');
+const otherTestSessionId = TestSessionIdSchema.parse('test_scope_instructor_b01');
 
 describe('new LIVE canonical writes', () => {
   it('stamps scoped identity, course days, money, and outbox while leaving relationships unscoped', async () => {
@@ -53,5 +57,58 @@ describe('new LIVE canonical writes', () => {
       expect(docs.get(path)?.data).not.toHaveProperty('testSessionId');
     }
     expect(docs.get(paths.at(-1)!)?.data).not.toHaveProperty('dataScope');
+  });
+});
+
+describe('scoped Instructor catalog reads', () => {
+  const instructorPath = 'instructors/instructor_scope_reader_01';
+
+  it('allows an Instructor read from the active TestSession', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [instructorPath]: {
+        instructorId: 'instructor_scope_reader_01',
+        dataScope: 'test',
+        testSessionId,
+      },
+    });
+
+    await executor.runAtomic({
+      correlationId,
+      run: async (baseSession) => {
+        const session = scopeCanonicalTransactionSession(
+          baseSession,
+          testCanonicalExecutionScope(testSessionId)
+        );
+        const result = await session.tx.get({ path: instructorPath });
+        session.plan.planRead({ path: instructorPath, category: 'aggregate' });
+        expect(result.exists).toBe(true);
+      },
+    });
+  });
+
+  it('rejects an Instructor read from a different TestSession', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [instructorPath]: {
+        instructorId: 'instructor_scope_reader_01',
+        dataScope: 'test',
+        testSessionId: otherTestSessionId,
+      },
+    });
+
+    await expect(
+      executor.runAtomic({
+        correlationId,
+        run: async (baseSession) => {
+          const session = scopeCanonicalTransactionSession(
+            baseSession,
+            testCanonicalExecutionScope(testSessionId)
+          );
+          await session.tx.get({ path: instructorPath });
+        },
+      })
+    ).rejects.toMatchObject({
+      code: 'cross_scope_forbidden',
+      details: { reason: 'conflict' },
+    });
   });
 });

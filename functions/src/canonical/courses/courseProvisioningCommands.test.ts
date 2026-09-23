@@ -821,4 +821,46 @@ describe('course provisioning commands', () => {
     expect(after?.audit?.createdByCommandId).toBe('command_strict_seed');
     expect(parseCourse(after)?.revision).toBe(strictRevision);
   });
+
+  it('enforces createOnly inside the full canonical schedule provisioning transaction', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${adminAccountId}`]: AccountSchema.parse({
+        accountId: adminAccountId,
+        lifecycle: { status: 'active' },
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: { createdByCommandId: 'command_seed', lastChangedByCommandId: 'command_seed', correlationId },
+      }),
+      [`instructors/${instructorId}`]: {
+        id: instructorId,
+        name: 'Provision Instructor',
+        pricePerHourKZT: 12_000,
+        isAvailable: true,
+      },
+    });
+    const commands = createProductionCanonicalCommands(environment(), executor);
+    const first = await commands.execute({
+      kind: 'apply_canonical_course_provisioning_manifest',
+      context: adminContext('idem-create-only-seed'),
+      intent: { manifest, dryRun: false },
+    });
+    expect(first.status).toBe('success');
+
+    const before = executor.snapshot();
+    const changedManifest = CourseProvisioningManifestSchema.parse({
+      ...manifest,
+      title: 'Concurrent production change',
+      days: [{ ...manifest.days[0]!, localDate: '2026-02-02' }],
+    });
+    const blocked = await commands.execute({
+      kind: 'apply_canonical_course_provisioning_manifest',
+      context: adminContext('idem-create-only-block-existing'),
+      intent: { manifest: changedManifest, dryRun: false, createOnly: true },
+    });
+    expect(blocked.status).toBe('error');
+    expect(executor.snapshot().writesAttempted).toBe(before.writesAttempted);
+    expect(executor.snapshot().docs.get(`courses/${courseId}`)?.data.title).toBe('Provision Command Course');
+    expect(executor.snapshot().docs).toEqual(before.docs);
+  });
 });

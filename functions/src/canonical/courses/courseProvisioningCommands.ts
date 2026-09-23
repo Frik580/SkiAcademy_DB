@@ -411,6 +411,12 @@ export async function applyCanonicalCourseProvisioningManifest(
         const rawCourseData = courseRead.exists
           ? (courseRead.data as Record<string, unknown>)
           : undefined;
+        if (envelope.intent.createOnly === true && courseRead.exists) {
+          throw new CanonicalCommandError('validation', {
+            correlationId: envelope.context.correlationId,
+            details: { field: 'courseId', reason: 'conflict' },
+          });
+        }
         existingCourse = parseCourse(rawCourseData);
         courseDocumentExists = courseRead.exists;
         requiresShapeReplacement =

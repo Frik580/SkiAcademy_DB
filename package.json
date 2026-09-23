@@ -32,6 +32,8 @@
     "test:firestore": "firebase emulators:exec --only firestore \"vitest run --config vitest.config.ts tests/firestore.rules.test.ts tests/integration --no-file-parallelism\"",
     "test:firestore-enrollment": "npm run test:rules",
     "build:functions": "npm --prefix functions run build",
+    "staging:seed": "npm run build:functions && node functions/lib/staging/stagingFixturesCli.js seed --project ski-school-staging",
+    "staging:reset": "npm run build:functions && node functions/lib/staging/stagingFixturesCli.js reset --project ski-school-staging",
     "deploy:rules": "firebase deploy --only firestore:rules",
     "deploy:functions": "firebase deploy --only functions",
     "test:storage-rules": "firebase emulators:exec --only firestore,storage \"vitest run --config vitest.config.ts tests/storage.rules.test.ts --no-file-parallelism\"",

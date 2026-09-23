@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { queryAdminIssueReadModels, queryTestSessionReadModels, executeTestSessionLifecycle } =
@@ -36,28 +36,17 @@ const activeSession = {
   updatedAt: { seconds: 1_700_000_000, nanoseconds: 0 },
 };
 
-function renderPanel(initialEntry = '/?tab=system') {
-  return render(
-    <MemoryRouter initialEntries={[initialEntry]}>
-      <AdminTestingPanel />
-    </MemoryRouter>
-  );
-}
+const activeSessionB = {
+  ...activeSession,
+  testSessionId: 'test_session_beta_02',
+  label: 'Beta',
+  revision: 2,
+};
 
-describe('AdminTestingPanel', () => {
-  beforeEach(() => {
-    queryTestSessionReadModels.mockReset();
-    queryAdminIssueReadModels.mockReset();
-    executeTestSessionLifecycle.mockReset();
-    executeTestSessionLifecycle.mockResolvedValue({
-      command: 'create_test_session',
-      outcome: 'activated',
-      testSessionId: 'test_session_created',
-      status: 'provisioning',
-    });
-    queryAdminIssueReadModels.mockResolvedValue({ scope: 'admin_open', items: [], hasMore: false });
-    queryTestSessionReadModels.mockImplementation(({ scope }: { scope: string }) => {
-      if (scope === 'test_session_list') return Promise.resolve({ scope, items: [activeSession] });
+function mockTestingReads(sessions = [activeSession]) {
+  queryTestSessionReadModels.mockImplementation(
+    ({ scope, testSessionId }: { scope: string; testSessionId?: string }) => {
+      if (scope === 'test_session_list') return Promise.resolve({ scope, items: sessions });
       if (scope === 'test_actor_directory') {
         return Promise.resolve({
           scope,
@@ -97,7 +86,7 @@ describe('AdminTestingPanel', () => {
       return Promise.resolve({
         scope,
         item: {
-          ...activeSession,
+          ...(sessions.find((session) => session.testSessionId === testSessionId) ?? sessions[0]),
           clonedCourseIds: [],
           assignedAccountIds: ['account_test_parent_01'],
           counts: {
@@ -111,7 +100,37 @@ describe('AdminTestingPanel', () => {
           },
         },
       });
+    }
+  );
+}
+
+function renderPanel(initialEntry = '/?tab=system') {
+  return render(
+    <MemoryRouter initialEntries={[initialEntry]}>
+      <AdminTestingPanel />
+      <LocationProbe />
+    </MemoryRouter>
+  );
+}
+
+function LocationProbe() {
+  const location = useLocation();
+  return <output data-testid="location-search">{location.search}</output>;
+}
+
+describe('AdminTestingPanel', () => {
+  beforeEach(() => {
+    queryTestSessionReadModels.mockReset();
+    queryAdminIssueReadModels.mockReset();
+    executeTestSessionLifecycle.mockReset();
+    executeTestSessionLifecycle.mockResolvedValue({
+      command: 'create_test_session',
+      outcome: 'activated',
+      testSessionId: 'test_session_created',
+      status: 'provisioning',
     });
+    queryAdminIssueReadModels.mockResolvedValue({ scope: 'admin_open', items: [], hasMore: false });
+    mockTestingReads();
   });
 
   it('renders isolated session inventory, actor directory, and LIVE source templates', async () => {
@@ -130,6 +149,9 @@ describe('AdminTestingPanel', () => {
 
     await user.click(await screen.findByRole('button', { name: 'adminTestingOpen' }));
     expect(screen.getAllByText('adminTestingBanner').length).toBeGreaterThan(0);
+    expect(screen.getByTestId('location-search')).toHaveTextContent(
+      `testSession=${activeSession.testSessionId}`
+    );
     await waitFor(() =>
       expect(queryAdminIssueReadModels).toHaveBeenCalledWith({
         scope: 'admin_open',
@@ -139,6 +161,35 @@ describe('AdminTestingPanel', () => {
     );
     await user.click(screen.getByRole('button', { name: 'adminTestingReturnLive' }));
     expect(screen.queryAllByText('adminTestingBanner')).toHaveLength(0);
+    expect(screen.getByTestId('location-search')).not.toHaveTextContent('testSession=');
+  });
+
+  it('removes an invalid or deleted session from the URL and recovers to a selectable session', async () => {
+    renderPanel('/?tab=system&testSession=test_session_deleted');
+
+    expect((await screen.findAllByText('Alpha')).length).toBeGreaterThan(0);
+    await waitFor(() =>
+      expect(screen.getByTestId('location-search')).not.toHaveTextContent('testSession=')
+    );
+    expect(screen.queryAllByText('adminTestingBanner')).toHaveLength(0);
+    expect(screen.getByRole('button', { name: 'adminTestingOpen' })).toBeEnabled();
+  });
+
+  it('switches from session A to session B without retaining the old URL context', async () => {
+    const user = userEvent.setup();
+    mockTestingReads([activeSession, activeSessionB]);
+    renderPanel(`/?tab=system&testSession=${activeSession.testSessionId}`);
+
+    expect((await screen.findAllByText('adminTestingBanner')).length).toBeGreaterThan(0);
+    await user.click(screen.getByRole('button', { name: /Beta/ }));
+    expect(screen.getByTestId('location-search')).not.toHaveTextContent('testSession=');
+
+    await user.click(screen.getByRole('button', { name: 'adminTestingOpen' }));
+    expect(screen.getByTestId('location-search')).toHaveTextContent(
+      `testSession=${activeSessionB.testSessionId}`
+    );
+    expect(screen.getAllByText('adminTestingBanner').length).toBeGreaterThan(0);
+    expect(screen.getByTestId('location-search')).not.toHaveTextContent(activeSession.testSessionId);
   });
 
   it('uses only bounded TestSession management reads before a Test context is opened', async () => {

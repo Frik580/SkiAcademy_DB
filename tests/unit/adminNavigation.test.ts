@@ -29,20 +29,52 @@ describe('adminNavigation', () => {
     expect(parseAdminTabId('unknown')).toBe('operations');
   });
 
-  it('keeps explicit Admin Test context on Finance and drops it on other tabs', () => {
+  it('preserves selected Admin TestSession passively across every top-level tab', () => {
     const current = new URLSearchParams(
       `tab=system&${ADMIN_TEST_SESSION_QUERY_KEY}=test_finance_ctx_a&account=account_open_01`
     );
-    const finance = adminTabSearchParams(current, 'finance');
-    expect(finance.get('tab')).toBe('finance');
-    expect(finance.get(ADMIN_TEST_SESSION_QUERY_KEY)).toBe('test_finance_ctx_a');
-    expect(finance.get('account')).toBe('account_open_01');
+    const visited = ADMIN_TAB_IDS.reduce(
+      (params, tab) => adminTabSearchParams(params, tab),
+      current
+    );
 
+    expect(visited.get('tab')).toBe('system');
+    expect(visited.get(ADMIN_TEST_SESSION_QUERY_KEY)).toBe('test_finance_ctx_a');
+    expect(visited.get('account')).toBe('account_open_01');
+  });
+
+  it('preserves session A through People and Operations before returning to Testing', () => {
+    const testing = new URLSearchParams(
+      `tab=system&${ADMIN_TEST_SESSION_QUERY_KEY}=test_session_a&unrelated=keep-me`
+    );
+    const people = adminTabSearchParams(testing, 'people');
+    const lessonsAndPlanner = adminTabSearchParams(people, 'operations');
+    const backToTesting = adminTabSearchParams(lessonsAndPlanner, 'system');
+
+    expect(people.get(ADMIN_TEST_SESSION_QUERY_KEY)).toBe('test_session_a');
+    expect(lessonsAndPlanner.get(ADMIN_TEST_SESSION_QUERY_KEY)).toBe('test_session_a');
+    expect(backToTesting.get(ADMIN_TEST_SESSION_QUERY_KEY)).toBe('test_session_a');
+    expect(backToTesting.get('unrelated')).toBe('keep-me');
+  });
+
+  it('preserves only the latest selected TestSession during route reconstruction', () => {
+    const sessionA = new URLSearchParams('tab=system&testSession=test_session_a');
+    const sessionB = new URLSearchParams(sessionA);
+    sessionB.set(ADMIN_TEST_SESSION_QUERY_KEY, 'test_session_b');
+
+    const finance = adminTabSearchParams(sessionB, 'finance');
     const people = adminTabSearchParams(finance, 'people');
-    expect(people.get(ADMIN_TEST_SESSION_QUERY_KEY)).toBeNull();
 
-    const system = adminTabSearchParams(finance, 'system');
-    expect(system.get(ADMIN_TEST_SESSION_QUERY_KEY)).toBe('test_finance_ctx_a');
+    expect(people.getAll(ADMIN_TEST_SESSION_QUERY_KEY)).toEqual(['test_session_b']);
+  });
+
+  it('does not recreate Test context after explicit exit removed it', () => {
+    const afterExit = new URLSearchParams('tab=system&unrelated=keep-me');
+    const people = adminTabSearchParams(afterExit, 'people');
+    const backToTesting = adminTabSearchParams(people, 'system');
+
+    expect(backToTesting.has(ADMIN_TEST_SESSION_QUERY_KEY)).toBe(false);
+    expect(backToTesting.get('unrelated')).toBe('keep-me');
   });
 
   it('ignores a missing or malformed Admin Test context', () => {

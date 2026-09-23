@@ -35,6 +35,24 @@ describe('staging project mutation guard', () => {
     ).toThrow('STAGING ONLY: refusing conflicting project ids');
   });
 
+  it('rejects a conflicting Firebase config project id', () => {
+    expect(() =>
+      assertStagingMutationEnvironment({
+        explicitProjectId: 'ski-school-staging',
+        env: { FIREBASE_CONFIG: '{"projectId":"ski-school-8f3ca"}' },
+      })
+    ).toThrow('STAGING ONLY: refusing conflicting project ids');
+  });
+
+  it('rejects malformed Firebase config before mutation', () => {
+    expect(() =>
+      assertStagingMutationEnvironment({
+        explicitProjectId: 'ski-school-staging',
+        env: { FIREBASE_CONFIG: '{invalid' },
+      })
+    ).toThrow('STAGING ONLY: refusing to resolve malformed FIREBASE_CONFIG');
+  });
+
   it('rejects emulator routing for mutation commands', () => {
     expect(() =>
       assertStagingMutationEnvironment({

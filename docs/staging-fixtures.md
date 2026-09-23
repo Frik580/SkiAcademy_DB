@@ -2,8 +2,9 @@
 
 The local staging fixture commands target only the physically separate Firebase project
 `ski-school-staging`. They do not read the active Firebase CLI alias. The command exits before any
-Auth or Firestore mutation when the explicit project, Admin SDK project, `GOOGLE_CLOUD_PROJECT`, or
-`GCLOUD_PROJECT` disagree, when the project is missing, or when an emulator host is configured.
+Auth or Firestore access when the explicit project, Admin SDK project, `FIREBASE_CONFIG`,
+`GOOGLE_CLOUD_PROJECT`, or `GCLOUD_PROJECT` disagree, when the project is missing, or when an
+emulator host is configured.
 
 ## Authentication
 
@@ -17,6 +18,21 @@ gcloud auth application-default set-quota-project ski-school-staging
 
 Do not set `GOOGLE_CLOUD_PROJECT` or `GCLOUD_PROJECT` to another project while running these
 commands. No Firebase deployment is required.
+
+## Promote the real staging owner
+
+For a Google account that has already signed into staging and has an active canonical Account, set
+its email and promote the existing staging Auth UID:
+
+```powershell
+$env:STAGING_OWNER_EMAIL = 'owner@example.com'
+npm run staging:grant-owner
+```
+
+The command requires an existing Firebase Auth user linked to `google.com`. It updates that user's
+existing `/users/{uid}` Account/profile document to `role: admin` and `systemRole: owner`, preserving
+the Auth provider linkage and any self Participant or instructor linkage. It never creates an Auth
+user, Account, or Participant. `staging:reset` does not own or delete this real owner account.
 
 ## Seed
 
@@ -47,3 +63,9 @@ entries from shared resource-claim guards, bumps affected admin read-model revis
 then removes the manifest. It does not wipe unrelated staging data or Firebase infrastructure.
 
 The current fixture set creates no Storage objects, so its owned Storage prefix list is empty.
+
+The seeded `staging-admin@carveacademy.local` remains a synthetic fallback owner/admin fixture. The
+seed still uses that account as its deterministic administrator command actor, and the reset
+manifest owns its Auth UID and fixture documents. Keep it until a later seed revision changes those
+actor references and updates the fixture ownership/reset contract; the real staging owner no longer
+depends on it for school administration.

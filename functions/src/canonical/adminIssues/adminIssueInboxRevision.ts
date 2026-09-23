@@ -35,6 +35,26 @@ interface PendingInboxRevisionBump {
 
 const pendingBumps = new WeakMap<CanonicalAtomicTransactionSession, PendingInboxRevisionBump>();
 
+/**
+ * Issue Inbox is a single LIVE admin signal. TestSession transactions must not
+ * read or write it. A missing scope is legacy LIVE, matching command execution.
+ */
+function mayBumpAdminIssueInboxRevision(session: CanonicalAtomicTransactionSession): boolean {
+  return session.scope?.dataScope !== 'test';
+}
+
+function untrackedInboxRevisionBump(
+  reason: AdminIssueInboxRevisionReason
+): PendingInboxRevisionBump {
+  return {
+    reason,
+    currentRevision: 0,
+    exists: false,
+    resolvedAdminIssueIds: [],
+    openedAdminIssueIds: [],
+  };
+}
+
 export function adminIssueInboxRevisionPath(): string {
   return toTransactionPath(canonicalPaths.adminIssueInboxRevision());
 }
@@ -43,6 +63,9 @@ export async function planAdminIssueInboxRevisionBump(
   session: CanonicalAtomicTransactionSession,
   reason: AdminIssueInboxRevisionReason
 ): Promise<PendingInboxRevisionBump> {
+  if (!mayBumpAdminIssueInboxRevision(session)) {
+    return untrackedInboxRevisionBump(reason);
+  }
   const existing = pendingBumps.get(session);
   if (existing) {
     existing.reason = reason;
@@ -76,6 +99,10 @@ export function commitAdminIssueInboxRevisionBump(
   session: CanonicalAtomicTransactionSession,
   now: CanonicalTimestamp
 ): AdminIssueInboxRevisionCommitResult | undefined {
+  if (!mayBumpAdminIssueInboxRevision(session)) {
+    pendingBumps.delete(session);
+    return undefined;
+  }
   const pending = pendingBumps.get(session);
   if (!pending) return undefined;
   pendingBumps.delete(session);

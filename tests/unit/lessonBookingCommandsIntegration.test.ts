@@ -224,7 +224,7 @@ describe('lessonBooking commands integration', () => {
     setItemSpy.mockRestore();
   });
 
-  it('rejects when remote success payload omits guestActionCredential', async () => {
+  it('keeps a remote guest booking success successful when its response omits the credential', async () => {
     executeGuestMock.mockResolvedValueOnce({
       status: 'success',
       kind: 'create_guest_booking_request',
@@ -251,7 +251,8 @@ describe('lessonBooking commands integration', () => {
         guestAgeYears: 12,
         difficulty: 'beginner',
       })
-    ).rejects.toThrow('Guest credential was not returned.');
+    ).resolves.toBeUndefined();
+    expect(executeGuestMock).toHaveBeenCalledTimes(1);
   });
 
   it('cancellation on a non-history surface refreshes account_hot only', async () => {

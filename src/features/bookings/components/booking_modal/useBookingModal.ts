@@ -103,11 +103,20 @@ export const useBookingModal = ({
   const bookingAttemptIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!isOpen) {
+    if (!isOpen && !isSubmitting) {
       bookingAttemptIdRef.current = null;
       setSelectedParticipantIds([]);
+      setUnauthTab('guest');
+      setGuestName('');
+      setGuestPhone('');
+      setGuestEmail('');
+      setDate('');
+      setTime('08:00');
+      setDuration(2);
+      setDifficulty('beginner');
+      setNotes('');
     }
-  }, [isOpen]);
+  }, [isOpen, isSubmitting]);
 
   useEffect(() => {
     if (!isOpen || !userProfile?.uid || userProfile.uid.startsWith('local_')) {

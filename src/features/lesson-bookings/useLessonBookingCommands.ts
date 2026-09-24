@@ -11,7 +11,7 @@ import {
   ParticipantIdSchema,
   AggregateRevisionSchema,
   lessonContentFields,
-  parseCommandResultPayload,
+  GuestBookingActionCredentialSchema,
   type GuestBookingActionCredential,
 } from '@ski-academy/shared-domain';
 import type {
@@ -131,7 +131,7 @@ export function useLessonBookingCommands(
   );
 
   const createGuestBooking = useCallback(
-    async (input: GuestLessonBookingInput): Promise<GuestBookingActionCredential> => {
+    async (input: GuestLessonBookingInput): Promise<GuestBookingActionCredential | undefined> => {
       const calendarInput = mapLessonBookingCalendarInput({
         localDate: input.localDate,
         localTime: input.localTime,
@@ -161,13 +161,15 @@ export function useLessonBookingCommands(
       if (result.status !== 'success') {
         throw new Error('Guest booking did not succeed.');
       }
-      const payload = parseCommandResultPayload('create_guest_booking_request', result.payload);
-      if (!payload.success || !payload.data.guestActionCredential) {
-        throw new Error('Guest credential was not returned.');
-      }
-      const guestActionCredential = payload.data.guestActionCredential;
-      persistGuestBookingCredential(guestActionCredential);
-      return guestActionCredential;
+      const credentialPayload =
+        typeof result.payload === 'object' && result.payload !== null
+          ? (result.payload as { readonly guestActionCredential?: unknown }).guestActionCredential
+          : undefined;
+      const parsedCredential = GuestBookingActionCredentialSchema.safeParse(credentialPayload);
+      if (!parsedCredential.success) return undefined;
+
+      persistGuestBookingCredential(parsedCredential.data);
+      return parsedCredential.data;
     },
     []
   );

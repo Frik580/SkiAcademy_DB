@@ -25,7 +25,6 @@
     "test:integration": "firebase emulators:exec --only firestore \"vitest run --config vitest.config.ts tests/integration --no-file-parallelism\"",
     "test:vitest:integration": "vitest run --config vitest.config.ts tests/firestore.rules.test.ts tests/integration tests/storage.rules.test.ts tests/callable --no-file-parallelism --testTimeout=30000 --hookTimeout=60000",
     "test:under-emulators": "npm run test:unit:app && npm run test:functions && npm run test:functions:emulator && npm run test:vitest:integration && playwright test",
-    "test:callable": "npm run build:functions && firebase emulators:exec --only auth,firestore,functions \"vitest run --config vitest.config.ts tests/callable --no-file-parallelism --testTimeout=30000 --hookTimeout=60000\"",
     "test:e2e": "npm run build:functions && playwright install chromium && npx cross-env GUEST_ACTION_TOKEN_SECRET=e2e-guest-action-token-secret firebase emulators:exec --only auth,firestore,functions,storage \"playwright test\"",
     "test:e2e:integration": "firebase emulators:exec --only firestore \"vitest run --config vitest.config.ts tests/integration --no-file-parallelism\"",
     "test:rules": "firebase emulators:exec --only firestore \"vitest run --config vitest.config.ts tests/firestore.rules.test.ts\"",

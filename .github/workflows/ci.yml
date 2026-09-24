@@ -57,9 +57,6 @@ jobs:
       - name: Firestore rules and course enrollment tests
         run: npm run test:firestore-enrollment
 
-      - name: Callable function tests
-        run: npm run test:callable
-
       - name: Coverage (lib + studentCabinetUtils)
         run: npm run test:coverage
 

@@ -42,7 +42,7 @@ describe('courseEnrollment commands integration', () => {
       items: [],
       hasMore: false,
     });
-    queryCatalogMock.mockResolvedValueOnce({ scope: 'public', items: [] });
+    queryCatalogMock.mockResolvedValueOnce({ scope: 'product', items: [] });
 
     const { result } = renderHook(() => useCourseEnrollmentCommands(accountId));
     const created = await result.current.createAuthenticatedEnrollment({
@@ -63,7 +63,7 @@ describe('courseEnrollment commands integration', () => {
       })
     );
     expect(queryEnrollmentMock).toHaveBeenCalledWith({ scope: 'account_hot' });
-    expect(queryCatalogMock).toHaveBeenCalledWith({ scope: 'public' });
+    expect(queryCatalogMock).toHaveBeenCalledWith({ scope: 'product' });
   });
 
   it('returns already_exists outcome for equivalent success without treating it as a new debit', async () => {
@@ -77,7 +77,7 @@ describe('courseEnrollment commands integration', () => {
       items: [],
       hasMore: false,
     });
-    queryCatalogMock.mockResolvedValueOnce({ scope: 'public', items: [] });
+    queryCatalogMock.mockResolvedValueOnce({ scope: 'product', items: [] });
 
     const { result } = renderHook(() => useCourseEnrollmentCommands(accountId));
     const replayed = await result.current.createAuthenticatedEnrollment({

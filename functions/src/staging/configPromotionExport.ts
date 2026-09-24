@@ -3,6 +3,7 @@ import type { Bucket } from '@google-cloud/storage';
 import type { Firestore } from 'firebase-admin/firestore';
 import {
   LESSON_PRICING_SETTINGS_ID,
+  isSupportedResortSlideLogicalImageKey,
   normalizeFirestoreDocument,
 } from '@ski-academy/shared-domain';
 import { LESSON_PRICING_SETTINGS_DOCUMENT_PATH, parseLessonPricingSettings } from '../canonical/pricing/lessonPricingSettingsStore';
@@ -23,6 +24,7 @@ import {
   PROMOTION_MANIFEST_VERSION,
   PROMOTION_MEDIA_MAX_BYTES,
   STAGING_PROJECT_ID,
+  isAllowedResortSlideYandexUrl,
   mediaPlaceholderUrl,
   parsePromotionManifest,
   stableHash,
@@ -89,7 +91,6 @@ export const PROMOTION_EXCLUDED_DOCUMENT_PATHS = [
   'resort_data/cache',
 ] as const;
 
-const PUBLIC_YANDEX_HOST = 'storage.yandexcloud.net';
 const INVALID_MEDIA_PLACEHOLDER = 'unsupported-media-reference';
 const BANNER_OBJECT_PATH = /^banners\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.(?:png|jpe?g|webp)$/i;
 
@@ -374,7 +375,8 @@ async function sanitizeBannerField(input: {
 }): Promise<void> {
   const value = getPathValue(input.payload, input.fieldPath);
   if (typeof value !== 'string' || !value) return;
-  if (isPublicYandexCarveUrl(value)) return;
+  if (isSupportedResortSlideLogicalImageKey(value)) return;
+  if (isAllowedResortSlideYandexUrl(value)) return;
   const firebase = parseFirebaseDownloadUrl(value);
   if (!firebase) {
     setPathValue(input.payload, input.fieldPath, INVALID_MEDIA_PLACEHOLDER);
@@ -451,16 +453,6 @@ function parseFirebaseDownloadUrl(value: string): { bucket: string; objectPath: 
     return { bucket: decodeURIComponent(match[1]!), objectPath: decodeURIComponent(match[2]!) };
   } catch {
     return undefined;
-  }
-}
-
-function isPublicYandexCarveUrl(value: string): boolean {
-  try {
-    const parsed = new URL(value);
-    return parsed.protocol === 'https:' && parsed.hostname === PUBLIC_YANDEX_HOST &&
-      parsed.pathname.startsWith('/carve/') && !parsed.search && !parsed.hash;
-  } catch {
-    return false;
   }
 }
 

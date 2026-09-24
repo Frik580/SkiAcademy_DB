@@ -254,6 +254,85 @@ describe('configuration promotion export allowlist', () => {
     expect(isAllowedBannerStorageObjectPath('customers/customer_a/avatar.jpg')).toBe(false);
   });
 
+  it('preserves supported logical resort slide keys without creating media entries', async () => {
+    const logicalKeys = ['wall7', 'wall2', 'wall5', 'about'];
+    const documents = globalDocuments({
+      'resort_data/config': {
+        slides: logicalKeys.map((backgroundImage, index) => ({
+          id: `logical-${index + 1}`,
+          line1En: '', line1Ru: '', line2En: '', line2Ru: '', line3En: '', line3Ru: '',
+          backgroundImage,
+        })),
+        slideIntervalSeconds: 12,
+        slidesRandomOrder: false,
+      },
+    });
+    const manifest = await exportStagingConfigManifest({
+      firestore: promotionFirestore(documents) as never,
+      exportedAt,
+    });
+    const resort = manifest.sourceDocuments.find((item) => item.kind === 'resort_slides');
+    const slides = (resort?.payload as { slides: Array<{ backgroundImage: string }> }).slides;
+
+    expect(slides.map((slide) => slide.backgroundImage)).toEqual(logicalKeys);
+    expect(manifest.media).toEqual([]);
+    expect(resort?.issues).toBeUndefined();
+    expect(JSON.stringify(manifest)).not.toContain('unsupported_media_reference');
+  });
+
+  it('marks unknown logical keys and unsupported image URLs as export issues', async () => {
+    const documents = globalDocuments({
+      'resort_data/config': {
+        slides: ['something-random', 'https://images.example.com/hero.jpg'].map((backgroundImage, index) => ({
+          id: `unsupported-${index + 1}`,
+          line1En: '', line1Ru: '', line2En: '', line2Ru: '', line3En: '', line3Ru: '',
+          backgroundImage,
+        })),
+        slideIntervalSeconds: 12,
+        slidesRandomOrder: false,
+      },
+    });
+    const manifest = await exportStagingConfigManifest({
+      firestore: promotionFirestore(documents) as never,
+      exportedAt,
+    });
+    const resort = manifest.sourceDocuments.find((item) => item.kind === 'resort_slides');
+    const slides = (resort?.payload as { slides: Array<{ backgroundImage: string }> }).slides;
+
+    expect(slides.every((slide) => slide.backgroundImage === 'unsupported-media-reference')).toBe(true);
+    expect(resort?.issues).toContain('unsupported_media_reference');
+    expect(manifest.media).toEqual([]);
+  });
+
+  it('rejects public Yandex Course, Instructor, and image-cache paths', async () => {
+    const forbiddenUrls = [
+      'https://storage.yandexcloud.net/carve/courses/course.webp',
+      'https://storage.yandexcloud.net/carve/instructors/instructor.jpg',
+      'https://storage.yandexcloud.net/carve/image-cache/cached.webp',
+    ];
+    const documents = globalDocuments({
+      'resort_data/config': {
+        slides: forbiddenUrls.map((backgroundImage, index) => ({
+          id: `forbidden-${index + 1}`,
+          line1En: '', line1Ru: '', line2En: '', line2Ru: '', line3En: '', line3Ru: '',
+          backgroundImage,
+        })),
+        slideIntervalSeconds: 12,
+        slidesRandomOrder: false,
+      },
+    });
+    const manifest = await exportStagingConfigManifest({
+      firestore: promotionFirestore(documents) as never,
+      exportedAt,
+    });
+    const resort = manifest.sourceDocuments.find((item) => item.kind === 'resort_slides');
+    const slides = (resort?.payload as { slides: Array<{ backgroundImage: string }> }).slides;
+
+    expect(slides.every((slide) => slide.backgroundImage === 'unsupported-media-reference')).toBe(true);
+    expect(resort?.issues).toContain('unsupported_media_reference');
+    expect(manifest.media).toEqual([]);
+  });
+
   it('exports global configuration and ignores instructors, courses, days, catalog content, accounts, and bookings', async () => {
     const counts = { users: 4, bookings: 2 };
     const withBusiness = promotionFirestore(globalDocuments(businessDocuments), counts);

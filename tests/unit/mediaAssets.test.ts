@@ -10,6 +10,7 @@ import {
   resolveHeroBackgroundUrl,
   resolveHeroOriginUrl,
 } from '../../src/lib/mediaAssets';
+import { isSupportedResortSlideLogicalImageKey } from '@ski-academy/shared-domain';
 
 const CARVE_WALL = 'https://storage.yandexcloud.net/carve/wall.webp';
 const CARVE_ABOUT = 'https://storage.yandexcloud.net/carve/images/about.jpg';
@@ -57,10 +58,25 @@ describe('mediaAssets', () => {
 
   it('maps short keys to carve origins', () => {
     expect(resolveHeroOriginUrl('wall')).toBe(CARVE_WALL);
+    expect(resolveHeroOriginUrl('wall2')).toBe('https://storage.yandexcloud.net/carve/wall2.webp');
+    expect(resolveHeroOriginUrl('wall5')).toBe('https://storage.yandexcloud.net/carve/wall5.webp');
+    expect(resolveHeroOriginUrl('wall7')).toBe('https://storage.yandexcloud.net/carve/wall7.webp');
     expect(resolveHeroOriginUrl('about')).toBe(CARVE_ABOUT);
     expect(resolveHeroOriginUrl('wall99')).toBe(
       'https://storage.yandexcloud.net/carve/wall99.webp'
     );
+  });
+
+  it('recognizes the current shared logical keys used by resort slides', () => {
+    for (const key of ['wall7', 'wall2', 'wall5', 'about']) {
+      expect(isSupportedResortSlideLogicalImageKey(key)).toBe(true);
+    }
+    expect(isSupportedResortSlideLogicalImageKey('random')).toBe(true);
+    expect(isSupportedResortSlideLogicalImageKey('something-random')).toBe(false);
+  });
+
+  it('resolves the random preset to the default Carve wall origin', () => {
+    expect(resolveHeroOriginUrl('random')).toBe(CARVE_WALL);
   });
 
   it('leaves custom remote URLs as origin', () => {

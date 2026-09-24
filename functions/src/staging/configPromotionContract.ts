@@ -4,6 +4,7 @@ import {
   LESSON_PRICING_SETTINGS_ID,
   KztMinorUnitsSchema,
   canonicalJsonStringify,
+  isSupportedResortSlideLogicalImageKey,
 } from '@ski-academy/shared-domain';
 
 export const STAGING_PROJECT_ID = 'ski-school-staging' as const;
@@ -333,19 +334,28 @@ export function validateSourcePayload(record: PromotionSourceDocument): void {
   assertAllowedPublicImageReferences(record);
 }
 
+export function isAllowedResortSlideYandexUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== 'https:' || parsed.hostname !== 'storage.yandexcloud.net' ||
+      !parsed.pathname.startsWith('/carve/') || parsed.search || parsed.hash) {
+      return false;
+    }
+    const pathSegments = parsed.pathname.split('/').filter(Boolean).map((segment) => decodeURIComponent(segment).toLowerCase());
+    return pathSegments[0] === 'carve' && !['courses', 'instructors', 'image-cache'].includes(pathSegments[1] ?? '');
+  } catch {
+    return false;
+  }
+}
+
 function assertAllowedPublicImageReferences(record: PromotionSourceDocument): void {
   if (record.kind !== 'resort_slides') return;
   const allowed = (value: unknown): boolean => {
     if (typeof value !== 'string') return false;
     if (value === 'unsupported-media-reference') return Boolean(record.issues?.length);
     if (value.startsWith('promotion-media://')) return true;
-    try {
-      const parsed = new URL(value);
-      return parsed.protocol === 'https:' && parsed.hostname === 'storage.yandexcloud.net' &&
-        parsed.pathname.startsWith('/carve/') && !parsed.search && !parsed.hash;
-    } catch {
-      return false;
-    }
+    if (isSupportedResortSlideLogicalImageKey(value)) return true;
+    return isAllowedResortSlideYandexUrl(value);
   };
   const payload = record.payload as Record<string, unknown>;
   if (Array.isArray(payload.slides) && payload.slides.some((slide) =>

@@ -1,5 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowDown, ArrowUp, Eye, EyeOff, Plus, RefreshCw, Save, Trash2 } from 'lucide-react';
+import {
+  RESORT_SLIDE_RANDOM_IMAGE_KEY,
+  RESORT_SLIDE_WALL_IMAGE_KEYS,
+} from '@ski-academy/shared-domain';
 import { CustomHeroSlide } from '../../../../../types';
 import { useLanguage } from '../../../../../app/providers/LanguageContext';
 import { useNotifications } from '../../../../../features/notifications';
@@ -9,6 +13,16 @@ import { ToggleSwitch } from '../../../../../ui/ToggleSwitch';
 import { FormSkeleton } from '../../../../../ui/Skeleton';
 import { ActionButton } from '../../../../../ui/ActionButton';
 import { saveResortConfig, subscribeResortConfig } from '../../../../../features/settings';
+
+const RESORT_SLIDE_WALL_DESCRIPTIONS = [
+  'Mountain sunset',
+  'Mountain slope',
+  'Snowy peak',
+  'Winter forest',
+  'Sunny slopes',
+  'Evening frost',
+  'Deep ski trace',
+] as const;
 
 export const ResortSliderSection: React.FC = () => {
   const { t } = useLanguage();
@@ -161,17 +175,11 @@ export const ResortSliderSection: React.FC = () => {
         ) : (
           <div className="space-y-4">
             {resortSlides.map((slide, index) => {
-              const presetWalls = [
-                'wall',
-                'wall2',
-                'wall3',
-                'wall4',
-                'wall5',
-                'wall6',
-                'wall7',
-                'random',
-              ];
-              const isPreset = presetWalls.includes(slide.backgroundImage);
+              const isPreset =
+                slide.backgroundImage === RESORT_SLIDE_RANDOM_IMAGE_KEY ||
+                RESORT_SLIDE_WALL_IMAGE_KEYS.includes(
+                  slide.backgroundImage as (typeof RESORT_SLIDE_WALL_IMAGE_KEYS)[number]
+                );
 
               return (
                 <div
@@ -358,30 +366,23 @@ export const ResortSliderSection: React.FC = () => {
                         }}
                         className="w-full bg-transparent border border-[var(--border)] px-2 py-1 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none cursor-pointer"
                       >
-                        <option value="random" className="bg-[var(--bg)] text-[var(--ink)]">
+                        <option
+                          value={RESORT_SLIDE_RANDOM_IMAGE_KEY}
+                          className="bg-[var(--bg)] text-[var(--ink)]"
+                        >
                           {t('randomPresetWall')}
                         </option>
-                        <option value="wall" className="bg-[var(--bg)] text-[var(--ink)]">
-                          Preset Wall 1 (Mountain sunset)
-                        </option>
-                        <option value="wall2" className="bg-[var(--bg)] text-[var(--ink)]">
-                          Preset Wall 2 (Mountain slope)
-                        </option>
-                        <option value="wall3" className="bg-[var(--bg)] text-[var(--ink)]">
-                          Preset Wall 3 (Snowy peak)
-                        </option>
-                        <option value="wall4" className="bg-[var(--bg)] text-[var(--ink)]">
-                          Preset Wall 4 (Winter forest)
-                        </option>
-                        <option value="wall5" className="bg-[var(--bg)] text-[var(--ink)]">
-                          Preset Wall 5 (Sunny slopes)
-                        </option>
-                        <option value="wall6" className="bg-[var(--bg)] text-[var(--ink)]">
-                          Preset Wall 6 (Evening frost)
-                        </option>
-                        <option value="wall7" className="bg-[var(--bg)] text-[var(--ink)]">
-                          Preset Wall 7 (Deep ski trace)
-                        </option>
+                        {RESORT_SLIDE_WALL_IMAGE_KEYS.map((key, index) => {
+                          return (
+                            <option
+                              key={key}
+                              value={key}
+                              className="bg-[var(--bg)] text-[var(--ink)]"
+                            >
+                              Preset Wall {index + 1} ({RESORT_SLIDE_WALL_DESCRIPTIONS[index]})
+                            </option>
+                          );
+                        })}
                         <option value="custom" className="bg-[var(--bg)] text-[var(--ink)]">
                           {t('customImageUrlOption')}
                         </option>

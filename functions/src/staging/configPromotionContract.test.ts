@@ -122,6 +122,21 @@ describe('configuration promotion manifest contract', () => {
     expect(() => manifest([privatePayload])).toThrow(/allowlisted/);
   });
 
+  it('accepts the supported logical slide keys and rejects unknown identifiers and media categories', () => {
+    for (const key of ['wall7', 'wall2', 'wall5', 'about']) {
+      expect(() => manifest([resortRecord(key)])).not.toThrow();
+    }
+    expect(() => manifest([resortRecord('something-random')])).toThrow(/allowlisted/);
+    for (const url of [
+      'https://images.example.com/hero.jpg',
+      'https://storage.yandexcloud.net/carve/courses/course.webp',
+      'https://storage.yandexcloud.net/carve/instructors/instructor.jpg',
+      'https://storage.yandexcloud.net/carve/image-cache/cached.webp',
+    ]) {
+      expect(() => manifest([resortRecord(url)])).toThrow(/allowlisted/);
+    }
+  });
+
   it('accepts only allowlisted banner Storage objects', () => {
     const mediaKey = 'media:banner:one';
     const record = resortRecord(mediaPlaceholderUrl(mediaKey));

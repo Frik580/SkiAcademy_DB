@@ -6,6 +6,10 @@ import type { Theme } from '../../hooks/useTheme';
 import { CustomHeroSlide } from '../../types';
 import { FALLBACK_SLIDES } from '../../features/admin';
 import {
+  RESORT_SLIDE_RANDOM_IMAGE_KEY,
+  RESORT_SLIDE_WALL_IMAGE_KEYS,
+} from '@ski-academy/shared-domain';
+import {
   heroBackgroundSrcSet,
   preloadHeroLcpImage,
   resolveHeroBackgroundUrl,
@@ -46,11 +50,10 @@ const resolveSlideBackgroundKey = (
   slideIndex: number
 ): string => {
   let bg = activeSlide?.backgroundImage || 'wall';
-  if (bg === 'random') {
-    const walls = ['wall', 'wall2', 'wall3', 'wall4', 'wall5', 'wall6', 'wall7'];
+  if (bg === RESORT_SLIDE_RANDOM_IMAGE_KEY) {
     const slideId = activeSlide?.id || String(slideIndex);
     const hash = Array.from(slideId).reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    bg = walls[hash % walls.length];
+    bg = RESORT_SLIDE_WALL_IMAGE_KEYS[hash % RESORT_SLIDE_WALL_IMAGE_KEYS.length];
   }
   return bg;
 };

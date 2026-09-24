@@ -2,23 +2,27 @@
  * Hero / journey marketing backgrounds from Yandex Object Storage,
  * served through `/api/img` (Cloud Function + sharp + Storage cache).
  *
- * New slide keys (`wall8`, …) need only exist at
- * `https://storage.yandexcloud.net/carve/{key}.webp` — no files in `public/`.
+ * Built-in keys resolve to Carve Object Storage assets — no files in `public/`.
+ * Resort slide promotion supports only the logical keys in the shared-domain contract.
  * Custom HTTPS carve URLs are proxied the same way.
  */
 
 import { optimizedImageSrcSet, optimizedImageUrl } from './optimizedImageUrl';
+import {
+  RESORT_SLIDE_ABOUT_IMAGE_KEY,
+  RESORT_SLIDE_RANDOM_IMAGE_KEY,
+} from '@ski-academy/shared-domain';
 
 const YANDEX_CARVE = 'https://storage.yandexcloud.net/carve';
 
 /** Short keys that are not `/carve/{key}.webp`. */
 const HERO_KEY_ORIGIN: Record<string, string> = {
-  about: `${YANDEX_CARVE}/images/about.jpg`,
+  [RESORT_SLIDE_ABOUT_IMAGE_KEY]: `${YANDEX_CARVE}/images/about.jpg`,
 };
 
 /** Absolute origin URL for a slide background key or custom URL. */
 export const resolveHeroOriginUrl = (bg: string): string => {
-  if (bg === 'random') {
+  if (bg === RESORT_SLIDE_RANDOM_IMAGE_KEY) {
     return `${YANDEX_CARVE}/wall.webp`;
   }
   if (bg.startsWith('http://') || bg.startsWith('https://')) {

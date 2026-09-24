@@ -26,18 +26,32 @@ import {
 } from '@ski-academy/shared-domain';
 import { courseDayInstructorClaimIdentity } from '../canonical/courses/courseDayClaimOperations';
 
-export const STAGING_FIXTURE_ID = 'carve_academy_staging_v1' as const;
-export const STAGING_FIXTURE_VERSION = 1 as const;
+export const STAGING_FIXTURE_ID = 'carve_academy_staging_v2' as const;
+export const STAGING_FIXTURE_VERSION = 2 as const;
 export const STAGING_FIXTURE_MANIFEST_PATH =
   `staging_fixture_manifests/${STAGING_FIXTURE_ID}` as const;
 
+export const LEGACY_STAGING_FIXTURE_ID = 'carve_academy_staging_v1' as const;
+export const LEGACY_STAGING_FIXTURE_VERSION = 1 as const;
+export const LEGACY_STAGING_FIXTURE_MANIFEST_PATH =
+  `staging_fixture_manifests/${LEGACY_STAGING_FIXTURE_ID}` as const;
+
 export const STAGING_ACCOUNT_IDS = {
   admin: AccountIdSchema.parse('staging-admin'),
-  instructor: AccountIdSchema.parse('staging-instructor'),
   parent: AccountIdSchema.parse('staging-parent'),
 } as const;
 
-export const STAGING_INSTRUCTOR_ID = InstructorIdSchema.parse('staging-instructor-catalog');
+const LEGACY_STAGING_ACCOUNT_IDS = {
+  admin: STAGING_ACCOUNT_IDS.admin,
+  instructor: AccountIdSchema.parse('staging-instructor'),
+  parent: STAGING_ACCOUNT_IDS.parent,
+} as const;
+
+type FixtureAccountId =
+  | (typeof STAGING_ACCOUNT_IDS)[keyof typeof STAGING_ACCOUNT_IDS]
+  | (typeof LEGACY_STAGING_ACCOUNT_IDS)[keyof typeof LEGACY_STAGING_ACCOUNT_IDS];
+
+const LEGACY_STAGING_INSTRUCTOR_ID = InstructorIdSchema.parse('staging-instructor-catalog');
 
 export const STAGING_DEPENDENT_PARTICIPANTS = [
   {
@@ -62,17 +76,32 @@ export const STAGING_AUTH_FIXTURES = [
   {
     uid: STAGING_ACCOUNT_IDS.admin,
     email: 'staging-admin@carveacademy.local',
+    displayName: 'Staging Admin (internal fixture actor)',
+    passwordEnvironmentVariable: 'STAGING_ADMIN_PASSWORD',
+  },
+  {
+    uid: STAGING_ACCOUNT_IDS.parent,
+    email: 'staging-parent@carveacademy.local',
+    displayName: 'Staging Parent',
+    passwordEnvironmentVariable: 'STAGING_PARENT_PASSWORD',
+  },
+] as const;
+
+const LEGACY_STAGING_AUTH_FIXTURES = [
+  {
+    uid: LEGACY_STAGING_ACCOUNT_IDS.admin,
+    email: 'staging-admin@carveacademy.local',
     displayName: 'Staging Admin',
     passwordEnvironmentVariable: 'STAGING_ADMIN_PASSWORD',
   },
   {
-    uid: STAGING_ACCOUNT_IDS.instructor,
+    uid: LEGACY_STAGING_ACCOUNT_IDS.instructor,
     email: 'staging-instructor@carveacademy.local',
     displayName: 'Staging Instructor',
     passwordEnvironmentVariable: 'STAGING_INSTRUCTOR_PASSWORD',
   },
   {
-    uid: STAGING_ACCOUNT_IDS.parent,
+    uid: LEGACY_STAGING_ACCOUNT_IDS.parent,
     email: 'staging-parent@carveacademy.local',
     displayName: 'Staging Parent',
     passwordEnvironmentVariable: 'STAGING_PARENT_PASSWORD',
@@ -97,15 +126,7 @@ function addDays(value: string, days: number): string {
   return isoDate(date);
 }
 
-export function nextStagingScheduleAnchorDate(now: Date): string {
-  const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12));
-  date.setUTCDate(date.getUTCDate() + 14);
-  const daysUntilMonday = (8 - date.getUTCDay()) % 7;
-  date.setUTCDate(date.getUTCDate() + daysUntilMonday);
-  return isoDate(date);
-}
-
-export function buildStagingCourseManifests(
+function buildLegacyStagingCourseManifestsV1(
   scheduleAnchorDate: string
 ): readonly CourseProvisioningManifest[] {
   dateFromIsoDate(scheduleAnchorDate);
@@ -118,7 +139,7 @@ export function buildStagingCourseManifests(
       price: KztMinorUnitsSchema.parse(120_000),
       totalSeats: 8,
       capacityPolicy: { kind: 'seed_full' },
-      instructorRosterIds: [STAGING_INSTRUCTOR_ID],
+      instructorRosterIds: [LEGACY_STAGING_INSTRUCTOR_ID],
       timeZone: 'Asia/Almaty',
       days: [0, 2, 4].map((offset, index) => ({
         courseDayId: CourseDayIdSchema.parse(`staging-ski-day-${index + 1}`),
@@ -126,7 +147,7 @@ export function buildStagingCourseManifests(
         localDate: addDays(scheduleAnchorDate, offset),
         localTime: '09:00',
         durationMinutes: 120,
-        instructorId: STAGING_INSTRUCTOR_ID,
+        instructorId: LEGACY_STAGING_INSTRUCTOR_ID,
       })),
       presentation: {
         duration: '3 занятия по 2 часа',
@@ -144,7 +165,7 @@ export function buildStagingCourseManifests(
       price: KztMinorUnitsSchema.parse(150_000),
       totalSeats: 6,
       capacityPolicy: { kind: 'seed_full' },
-      instructorRosterIds: [STAGING_INSTRUCTOR_ID],
+      instructorRosterIds: [LEGACY_STAGING_INSTRUCTOR_ID],
       timeZone: 'Asia/Almaty',
       days: [1, 3, 5].map((offset, index) => ({
         courseDayId: CourseDayIdSchema.parse(`staging-snowboard-day-${index + 1}`),
@@ -152,7 +173,7 @@ export function buildStagingCourseManifests(
         localDate: addDays(scheduleAnchorDate, offset),
         localTime: '14:00',
         durationMinutes: 120,
-        instructorId: STAGING_INSTRUCTOR_ID,
+        instructorId: LEGACY_STAGING_INSTRUCTOR_ID,
       })),
       presentation: {
         duration: '3 занятия по 2 часа',
@@ -167,15 +188,13 @@ export function buildStagingCourseManifests(
   ];
 }
 
-function selfParticipantEnvelope(
-  accountId: (typeof STAGING_ACCOUNT_IDS)[keyof typeof STAGING_ACCOUNT_IDS]
-) {
+function selfParticipantEnvelope(accountId: FixtureAccountId, version: 1 | 2) {
   return {
     kind: 'provision_self_participant',
     context: {
       actor: accountCommandActor(accountId),
       exercisedCapability: 'account_owner',
-      idempotencyKey: `staging-fixture-v1:self:${accountId}`,
+      idempotencyKey: `staging-fixture-v${version}:self:${accountId}`,
       correlationId: CorrelationIdSchema.parse(`staging-self-${accountId}`),
       source: 'client_callable',
     },
@@ -196,10 +215,44 @@ function adminContext(idempotencyKey: string, correlationId: string, expectedRev
   };
 }
 
-export function buildStagingCommandEnvelopes(
+export function buildStagingCommandEnvelopes(): readonly CommandEnvelope<CommandKind>[] {
+  const selfCommand = selfParticipantEnvelope(STAGING_ACCOUNT_IDS.parent, STAGING_FIXTURE_VERSION);
+  const dependentCommands = STAGING_DEPENDENT_PARTICIPANTS.map(
+    (dependent) =>
+      ({
+        kind: 'create_managed_dependent_participant',
+        context: adminContext(
+          `staging-fixture-v${STAGING_FIXTURE_VERSION}:dependent:${dependent.participantId}`,
+          `staging-dependent-${dependent.participantId}`
+        ),
+        intent: {
+          ...dependent,
+          accountId: STAGING_ACCOUNT_IDS.parent,
+          reasonExplanation: 'Create deterministic staging smoke fixture participant',
+        },
+      }) satisfies CommandEnvelope<'create_managed_dependent_participant'>
+  );
+  const walletCommand = {
+    kind: 'record_manual_wallet_funding',
+    context: adminContext(
+      `staging-fixture-v${STAGING_FIXTURE_VERSION}:wallet-funding`,
+      'staging-wallet-funding-v2'
+    ),
+    intent: {
+      accountId: STAGING_ACCOUNT_IDS.parent,
+      amount: KztMinorUnitsSchema.parse(1_000_000),
+      reasonExplanation: 'Deterministic staging smoke fixture opening balance',
+    },
+  } satisfies CommandEnvelope<'record_manual_wallet_funding'>;
+  return [selfCommand, ...dependentCommands, walletCommand];
+}
+
+function buildLegacyStagingCommandEnvelopesV1(
   scheduleAnchorDate: string
 ): readonly CommandEnvelope<CommandKind>[] {
-  const selfCommands = Object.values(STAGING_ACCOUNT_IDS).map(selfParticipantEnvelope);
+  const selfCommands = Object.values(LEGACY_STAGING_ACCOUNT_IDS).map((accountId) =>
+    selfParticipantEnvelope(accountId, LEGACY_STAGING_FIXTURE_VERSION)
+  );
   const dependentCommands = STAGING_DEPENDENT_PARTICIPANTS.map(
     (dependent) =>
       ({
@@ -210,7 +263,7 @@ export function buildStagingCommandEnvelopes(
         ),
         intent: {
           ...dependent,
-          accountId: STAGING_ACCOUNT_IDS.parent,
+          accountId: LEGACY_STAGING_ACCOUNT_IDS.parent,
           reasonExplanation: 'Create deterministic staging fixture participant',
         },
       }) satisfies CommandEnvelope<'create_managed_dependent_participant'>
@@ -219,8 +272,8 @@ export function buildStagingCommandEnvelopes(
     kind: 'create_instructor_catalog_entry',
     context: adminContext('staging-fixture-v1:instructor-catalog', 'staging-instructor-catalog', 1),
     intent: {
-      instructorId: STAGING_INSTRUCTOR_ID,
-      accountId: STAGING_ACCOUNT_IDS.instructor,
+      instructorId: LEGACY_STAGING_INSTRUCTOR_ID,
+      accountId: LEGACY_STAGING_ACCOUNT_IDS.instructor,
       name: 'Staging Instructor',
       specialty: 'both',
       languages: ['ru', 'en'],
@@ -234,12 +287,12 @@ export function buildStagingCommandEnvelopes(
     kind: 'record_manual_wallet_funding',
     context: adminContext('staging-fixture-v1:wallet-funding', 'staging-wallet-funding'),
     intent: {
-      accountId: STAGING_ACCOUNT_IDS.parent,
+      accountId: LEGACY_STAGING_ACCOUNT_IDS.parent,
       amount: KztMinorUnitsSchema.parse(1_000_000),
       reasonExplanation: 'Deterministic staging fixture opening balance',
     },
   } satisfies CommandEnvelope<'record_manual_wallet_funding'>;
-  const courseCommands = buildStagingCourseManifests(scheduleAnchorDate).map(
+  const courseCommands = buildLegacyStagingCourseManifestsV1(scheduleAnchorDate).map(
     (manifest) =>
       ({
         kind: 'apply_canonical_course_provisioning_manifest',
@@ -250,13 +303,7 @@ export function buildStagingCommandEnvelopes(
         intent: { manifest, dryRun: false },
       }) satisfies CommandEnvelope<'apply_canonical_course_provisioning_manifest'>
   );
-  return [
-    ...selfCommands,
-    ...dependentCommands,
-    instructorCommand,
-    walletCommand,
-    ...courseCommands,
-  ];
+  return [...selfCommands, ...dependentCommands, instructorCommand, walletCommand, ...courseCommands];
 }
 
 export interface ResourceClaimOwnership {
@@ -265,8 +312,20 @@ export interface ResourceClaimOwnership {
 }
 
 export interface StagingFixturePlan {
-  readonly scheduleAnchorDate: string;
+  readonly fixtureId: typeof STAGING_FIXTURE_ID | typeof LEGACY_STAGING_FIXTURE_ID;
+  readonly version: typeof STAGING_FIXTURE_VERSION | typeof LEGACY_STAGING_FIXTURE_VERSION;
+  readonly scheduleAnchorDate?: string;
   readonly commandEnvelopes: readonly CommandEnvelope<CommandKind>[];
+  readonly ownedFirestorePaths: readonly string[];
+  readonly resourceClaimOwnership: readonly ResourceClaimOwnership[];
+  readonly authUids: readonly string[];
+  readonly storagePrefixes: readonly string[];
+}
+
+export interface StagingFixtureManifestOwnership {
+  readonly fixtureId: string;
+  readonly version: number;
+  readonly scheduleAnchorDate?: string;
   readonly ownedFirestorePaths: readonly string[];
   readonly resourceClaimOwnership: readonly ResourceClaimOwnership[];
   readonly authUids: readonly string[];
@@ -277,15 +336,10 @@ function transactionPath(path: string): string {
   return path.startsWith('/') ? path.slice(1) : path;
 }
 
-export function buildStagingFixturePlan(scheduleAnchorDate: string): StagingFixturePlan {
-  const manifests = buildStagingCourseManifests(scheduleAnchorDate);
-  const commandEnvelopes = buildStagingCommandEnvelopes(scheduleAnchorDate);
-  const selfParticipants = Object.values(STAGING_ACCOUNT_IDS).map((accountId) => ({
-    participantId: selfParticipantIdFromAccountId(accountId),
-    participantManagementId: participantManagementIdFromSelfProvisioning(accountId),
-  }));
-
-  const resourceClaimOwnership: ResourceClaimOwnership[] = manifests.flatMap((manifest) =>
+function resourceClaimOwnershipForManifests(
+  manifests: readonly CourseProvisioningManifest[]
+): ResourceClaimOwnership[] {
+  return manifests.flatMap((manifest) =>
     manifest.days.map((day) => {
       const interval = resolveManifestDayInterval(day, manifest.timeZone).interval;
       const identity = courseDayInstructorClaimIdentity({
@@ -307,15 +361,33 @@ export function buildStagingFixturePlan(scheduleAnchorDate: string): StagingFixt
       };
     })
   );
+}
 
-  const commandPaths = commandEnvelopes.flatMap((envelope) => {
+function assembleFixturePlan(input: {
+  readonly fixtureId: StagingFixturePlan['fixtureId'];
+  readonly version: StagingFixturePlan['version'];
+  readonly scheduleAnchorDate?: string;
+  readonly accountIds: readonly FixtureAccountId[];
+  readonly selfParticipantAccountIds: readonly FixtureAccountId[];
+  readonly parentAccountId: FixtureAccountId;
+  readonly instructorId?: ReturnType<typeof InstructorIdSchema.parse>;
+  readonly courseManifests: readonly CourseProvisioningManifest[];
+  readonly commandEnvelopes: readonly CommandEnvelope<CommandKind>[];
+  readonly authFixtures: readonly { readonly uid: string }[];
+}): StagingFixturePlan {
+  const selfParticipants = input.selfParticipantAccountIds.map((accountId) => ({
+    participantId: selfParticipantIdFromAccountId(accountId),
+    participantManagementId: participantManagementIdFromSelfProvisioning(accountId),
+  }));
+  const resourceClaimOwnership = resourceClaimOwnershipForManifests(input.courseManifests);
+  const commandPaths = input.commandEnvelopes.flatMap((envelope) => {
     const identity = resolveCommandIdempotencyIdentity(envelope);
     return [
       transactionPath(identity.recordPath),
       transactionPath(canonicalPaths.activityLog(activityLogIdFromCommandId(identity.commandKey))),
     ];
   });
-  const walletEnvelope = commandEnvelopes.find(
+  const walletEnvelope = input.commandEnvelopes.find(
     (envelope) => envelope.kind === 'record_manual_wallet_funding'
   );
   if (!walletEnvelope) throw new Error('Staging wallet command is missing');
@@ -325,9 +397,7 @@ export function buildStagingFixturePlan(scheduleAnchorDate: string): StagingFixt
   );
 
   const paths = new Set<string>([
-    ...Object.values(STAGING_ACCOUNT_IDS).map((accountId) =>
-      transactionPath(canonicalPaths.account(accountId))
-    ),
+    ...input.accountIds.map((accountId) => transactionPath(canonicalPaths.account(accountId))),
     ...selfParticipants.flatMap(({ participantId, participantManagementId }) => [
       transactionPath(canonicalPaths.participant(participantId)),
       transactionPath(canonicalPaths.participantManagement(participantManagementId)),
@@ -338,10 +408,10 @@ export function buildStagingFixturePlan(scheduleAnchorDate: string): StagingFixt
       transactionPath(canonicalPaths.participantManagement(participantManagementId)),
       transactionPath(canonicalPaths.participantManagementActiveOwner(participantId)),
     ]),
-    transactionPath(canonicalPaths.instructor(STAGING_INSTRUCTOR_ID)),
-    transactionPath(canonicalPaths.wallet(STAGING_ACCOUNT_IDS.parent)),
+    ...(input.instructorId ? [transactionPath(canonicalPaths.instructor(input.instructorId))] : []),
+    transactionPath(canonicalPaths.wallet(input.parentAccountId)),
     transactionPath(canonicalPaths.monetaryEvent(walletEventId)),
-    ...manifests.flatMap((manifest) => [
+    ...input.courseManifests.flatMap((manifest) => [
       transactionPath(canonicalPaths.course(manifest.courseId)),
       `course_catalog_content/${manifest.courseId}`,
       ...manifest.days.map((day) =>
@@ -353,11 +423,95 @@ export function buildStagingFixturePlan(scheduleAnchorDate: string): StagingFixt
   ]);
 
   return {
-    scheduleAnchorDate,
-    commandEnvelopes,
+    fixtureId: input.fixtureId,
+    version: input.version,
+    ...(input.scheduleAnchorDate ? { scheduleAnchorDate: input.scheduleAnchorDate } : {}),
+    commandEnvelopes: input.commandEnvelopes,
     ownedFirestorePaths: [...paths].sort(),
     resourceClaimOwnership,
-    authUids: STAGING_AUTH_FIXTURES.map(({ uid }) => uid),
+    authUids: input.authFixtures.map(({ uid }) => uid),
     storagePrefixes: [],
   };
+}
+
+export function buildStagingFixturePlan(): StagingFixturePlan {
+  const commandEnvelopes = buildStagingCommandEnvelopes();
+  return assembleFixturePlan({
+    fixtureId: STAGING_FIXTURE_ID,
+    version: STAGING_FIXTURE_VERSION,
+    accountIds: Object.values(STAGING_ACCOUNT_IDS),
+    selfParticipantAccountIds: [STAGING_ACCOUNT_IDS.parent],
+    parentAccountId: STAGING_ACCOUNT_IDS.parent,
+    courseManifests: [],
+    commandEnvelopes,
+    authFixtures: STAGING_AUTH_FIXTURES,
+  });
+}
+
+export function buildLegacyStagingFixturePlanV1(scheduleAnchorDate: string): StagingFixturePlan {
+  const courseManifests = buildLegacyStagingCourseManifestsV1(scheduleAnchorDate);
+  const commandEnvelopes = buildLegacyStagingCommandEnvelopesV1(scheduleAnchorDate);
+  return assembleFixturePlan({
+    fixtureId: LEGACY_STAGING_FIXTURE_ID,
+    version: LEGACY_STAGING_FIXTURE_VERSION,
+    scheduleAnchorDate,
+    accountIds: Object.values(LEGACY_STAGING_ACCOUNT_IDS),
+    selfParticipantAccountIds: Object.values(LEGACY_STAGING_ACCOUNT_IDS),
+    parentAccountId: LEGACY_STAGING_ACCOUNT_IDS.parent,
+    instructorId: LEGACY_STAGING_INSTRUCTOR_ID,
+    courseManifests,
+    commandEnvelopes,
+    authFixtures: LEGACY_STAGING_AUTH_FIXTURES,
+  });
+}
+
+export function buildStagingFixturePlanForManifest(identity: {
+  readonly fixtureId: unknown;
+  readonly version: unknown;
+  readonly scheduleAnchorDate?: unknown;
+}): StagingFixturePlan {
+  if (identity.fixtureId === STAGING_FIXTURE_ID && identity.version === STAGING_FIXTURE_VERSION) {
+    if (identity.scheduleAnchorDate !== undefined) {
+      throw new Error('Invalid current staging fixture manifest schedule anchor');
+    }
+    return buildStagingFixturePlan();
+  }
+  if (
+    identity.fixtureId === LEGACY_STAGING_FIXTURE_ID &&
+    identity.version === LEGACY_STAGING_FIXTURE_VERSION &&
+    typeof identity.scheduleAnchorDate === 'string'
+  ) {
+    return buildLegacyStagingFixturePlanV1(identity.scheduleAnchorDate);
+  }
+  throw new Error('Invalid or unsupported staging fixture definition version');
+}
+
+function normalizedClaimOwnership(
+  ownership: readonly ResourceClaimOwnership[]
+): readonly ResourceClaimOwnership[] {
+  return ownership
+    .map((item) => ({ claimPath: item.claimPath, guardPaths: [...item.guardPaths].sort() }))
+    .sort((left, right) => left.claimPath.localeCompare(right.claimPath));
+}
+
+function sameStrings(left: readonly string[], right: readonly string[]): boolean {
+  return JSON.stringify([...left].sort()) === JSON.stringify([...right].sort());
+}
+
+export function assertStagingFixtureManifestMatchesPlan(
+  manifest: StagingFixtureManifestOwnership,
+  plan: StagingFixturePlan
+): void {
+  if (
+    manifest.fixtureId !== plan.fixtureId ||
+    manifest.version !== plan.version ||
+    manifest.scheduleAnchorDate !== plan.scheduleAnchorDate ||
+    !sameStrings(manifest.ownedFirestorePaths, plan.ownedFirestorePaths) ||
+    !sameStrings(manifest.authUids, plan.authUids) ||
+    !sameStrings(manifest.storagePrefixes, plan.storagePrefixes) ||
+    JSON.stringify(normalizedClaimOwnership(manifest.resourceClaimOwnership)) !==
+      JSON.stringify(normalizedClaimOwnership(plan.resourceClaimOwnership))
+  ) {
+    throw new Error('STAGING ONLY: fixture manifest ownership does not match its definition version');
+  }
 }

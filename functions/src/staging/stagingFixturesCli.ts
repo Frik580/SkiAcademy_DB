@@ -16,13 +16,17 @@ import { createAuthoritativeCommandClock } from '../canonical/commands/commandCl
 import { createProductionCanonicalCommands } from '../canonical/commands/canonicalCommands';
 import { createFirestoreCanonicalTransactionExecutor } from '../canonical/transactions/firestoreTransactionExecutor';
 import {
+  LEGACY_STAGING_FIXTURE_ID,
+  LEGACY_STAGING_FIXTURE_MANIFEST_PATH,
+  LEGACY_STAGING_FIXTURE_VERSION,
   STAGING_ACCOUNT_IDS,
   STAGING_AUTH_FIXTURES,
   STAGING_FIXTURE_ID,
   STAGING_FIXTURE_MANIFEST_PATH,
   STAGING_FIXTURE_VERSION,
+  assertStagingFixtureManifestMatchesPlan,
   buildStagingFixturePlan,
-  nextStagingScheduleAnchorDate,
+  buildStagingFixturePlanForManifest,
   type ResourceClaimOwnership,
   type StagingFixturePlan,
 } from './stagingFixtureDefinitions';
@@ -34,10 +38,10 @@ import {
 type FixtureStatus = 'seeding' | 'active' | 'resetting';
 
 interface StagingFixtureManifestDocument {
-  readonly fixtureId: typeof STAGING_FIXTURE_ID;
-  readonly version: typeof STAGING_FIXTURE_VERSION;
+  readonly fixtureId: typeof STAGING_FIXTURE_ID | typeof LEGACY_STAGING_FIXTURE_ID;
+  readonly version: typeof STAGING_FIXTURE_VERSION | typeof LEGACY_STAGING_FIXTURE_VERSION;
   readonly projectId: typeof STAGING_FIREBASE_PROJECT_ID;
-  readonly scheduleAnchorDate: string;
+  readonly scheduleAnchorDate?: string;
   readonly ownedFirestorePaths: readonly string[];
   readonly resourceClaimOwnership: readonly ResourceClaimOwnership[];
   readonly authUids: readonly string[];
@@ -58,22 +62,6 @@ function errorCode(error: unknown): string | undefined {
   if (!error || typeof error !== 'object') return undefined;
   const code = (error as { code?: unknown }).code;
   return typeof code === 'string' ? code : undefined;
-}
-
-function sorted(values: readonly string[]): readonly string[] {
-  return [...values].sort();
-}
-
-function sameStrings(left: readonly string[], right: readonly string[]): boolean {
-  return JSON.stringify(sorted(left)) === JSON.stringify(sorted(right));
-}
-
-function normalizedClaimOwnership(
-  ownership: readonly ResourceClaimOwnership[]
-): readonly ResourceClaimOwnership[] {
-  return ownership
-    .map((item) => ({ claimPath: item.claimPath, guardPaths: sorted(item.guardPaths) }))
-    .sort((left, right) => left.claimPath.localeCompare(right.claimPath));
 }
 
 function parseStringArray(value: unknown, field: string): readonly string[] {
@@ -103,22 +91,27 @@ function parseClaimOwnership(value: unknown): readonly ResourceClaimOwnership[] 
 }
 
 function parseManifest(input: Record<string, unknown>): StagingFixtureManifestDocument {
+  const scheduleAnchorDate =
+    typeof input.scheduleAnchorDate === 'string' ? input.scheduleAnchorDate : undefined;
   if (
-    input.fixtureId !== STAGING_FIXTURE_ID ||
-    input.version !== STAGING_FIXTURE_VERSION ||
     input.projectId !== STAGING_FIREBASE_PROJECT_ID ||
-    typeof input.scheduleAnchorDate !== 'string' ||
+    (Object.hasOwn(input, 'scheduleAnchorDate') && scheduleAnchorDate === undefined) ||
     typeof input.createdAt !== 'string' ||
     typeof input.updatedAt !== 'string' ||
     (input.status !== 'seeding' && input.status !== 'active' && input.status !== 'resetting')
   ) {
     throw new Error('Invalid or foreign staging fixture manifest');
   }
+  const plan = buildStagingFixturePlanForManifest({
+    fixtureId: input.fixtureId,
+    version: input.version,
+    ...(scheduleAnchorDate === undefined ? {} : { scheduleAnchorDate }),
+  });
   return {
-    fixtureId: STAGING_FIXTURE_ID,
-    version: STAGING_FIXTURE_VERSION,
+    fixtureId: plan.fixtureId,
+    version: plan.version,
     projectId: STAGING_FIREBASE_PROJECT_ID,
-    scheduleAnchorDate: input.scheduleAnchorDate,
+    ...(scheduleAnchorDate === undefined ? {} : { scheduleAnchorDate }),
     ownedFirestorePaths: parseStringArray(input.ownedFirestorePaths, 'ownedFirestorePaths'),
     resourceClaimOwnership: parseClaimOwnership(input.resourceClaimOwnership),
     authUids: parseStringArray(input.authUids, 'authUids'),
@@ -133,16 +126,7 @@ function assertManifestMatchesPlan(
   manifest: StagingFixtureManifestDocument,
   plan: StagingFixturePlan
 ): void {
-  if (
-    manifest.scheduleAnchorDate !== plan.scheduleAnchorDate ||
-    !sameStrings(manifest.ownedFirestorePaths, plan.ownedFirestorePaths) ||
-    !sameStrings(manifest.authUids, plan.authUids) ||
-    !sameStrings(manifest.storagePrefixes, plan.storagePrefixes) ||
-    JSON.stringify(normalizedClaimOwnership(manifest.resourceClaimOwnership)) !==
-      JSON.stringify(normalizedClaimOwnership(plan.resourceClaimOwnership))
-  ) {
-    throw new Error('STAGING ONLY: fixture manifest ownership does not match this tooling version');
-  }
+  assertStagingFixtureManifestMatchesPlan(manifest, plan);
 }
 
 function initializeStagingAdminApp(projectId: string): App {
@@ -212,10 +196,10 @@ function toManifestDocument(
   createdAt: string
 ): StagingFixtureManifestDocument {
   return {
-    fixtureId: STAGING_FIXTURE_ID,
-    version: STAGING_FIXTURE_VERSION,
+    fixtureId: plan.fixtureId,
+    version: plan.version,
     projectId: STAGING_FIREBASE_PROJECT_ID,
-    scheduleAnchorDate: plan.scheduleAnchorDate,
+    ...(plan.scheduleAnchorDate ? { scheduleAnchorDate: plan.scheduleAnchorDate } : {}),
     ownedFirestorePaths: plan.ownedFirestorePaths,
     resourceClaimOwnership: plan.resourceClaimOwnership,
     authUids: plan.authUids,
@@ -234,19 +218,31 @@ async function ensureSeedManifest(
   readonly manifest: StagingFixtureManifestDocument;
   readonly plan: StagingFixturePlan;
 }> {
-  const manifestRef = firestore.doc(STAGING_FIXTURE_MANIFEST_PATH);
-  const snapshot = await manifestRef.get();
-  if (snapshot.exists) {
-    const manifest = parseManifest(snapshot.data() as Record<string, unknown>);
+  const [legacySnapshot, currentSnapshot] = await firestore.getAll(
+    firestore.doc(LEGACY_STAGING_FIXTURE_MANIFEST_PATH),
+    firestore.doc(STAGING_FIXTURE_MANIFEST_PATH)
+  );
+  if (legacySnapshot.exists && currentSnapshot.exists) {
+    throw new Error('STAGING ONLY: multiple fixture manifests found; refusing overlapping ownership');
+  }
+  if (legacySnapshot.exists) {
+    const manifest = parseManifest(legacySnapshot.data() as Record<string, unknown>);
+    const plan = buildStagingFixturePlanForManifest(manifest);
+    assertManifestMatchesPlan(manifest, plan);
+    throw new Error('STAGING ONLY: v1 fixtures are still owned; run staging:reset before v2 seed');
+  }
+  if (currentSnapshot.exists) {
+    const manifest = parseManifest(currentSnapshot.data() as Record<string, unknown>);
     if (manifest.status === 'resetting') {
       throw new Error('STAGING ONLY: fixture reset is in progress; rerun staging:reset first');
     }
-    const plan = buildStagingFixturePlan(manifest.scheduleAnchorDate);
+    const plan = buildStagingFixturePlan();
     assertManifestMatchesPlan(manifest, plan);
     return { manifest, plan };
   }
 
-  const plan = buildStagingFixturePlan(nextStagingScheduleAnchorDate(now));
+  const manifestRef = firestore.doc(STAGING_FIXTURE_MANIFEST_PATH);
+  const plan = buildStagingFixturePlan();
   await assertFreshFixtureTargets(auth, firestore, plan);
   const createdAt = now.toISOString();
   const manifest = toManifestDocument(plan, 'seeding', createdAt);
@@ -323,7 +319,6 @@ function accountDocument(
     displayName: fixture.displayName,
     avatarUrl: '',
     role: fixture.uid === STAGING_ACCOUNT_IDS.admin ? 'admin' : 'user',
-    ...(fixture.uid === STAGING_ACCOUNT_IDS.admin ? { systemRole: 'owner' } : {}),
     isClientActive: true,
   };
 }
@@ -382,8 +377,11 @@ async function seed(auth: Auth, firestore: Firestore): Promise<void> {
     status: 'active',
     updatedAt: new Date().toISOString(),
   });
+  const scheduleSuffix = manifest.scheduleAnchorDate
+    ? `, legacy schedule anchor ${manifest.scheduleAnchorDate}`
+    : '';
   console.info(
-    `Staging fixtures ready: ${plan.authUids.length} Auth users, ${plan.ownedFirestorePaths.length} owned documents, schedule anchor ${manifest.scheduleAnchorDate}.`
+    `Staging fixtures ready: ${plan.authUids.length} Auth users, ${plan.ownedFirestorePaths.length} owned documents${scheduleSuffix}.`
   );
 }
 
@@ -468,15 +466,29 @@ async function bumpAdminRuntimeRevisions(firestore: Firestore): Promise<void> {
   });
 }
 
-async function reset(auth: Auth, firestore: Firestore): Promise<void> {
-  const manifestRef = firestore.doc(STAGING_FIXTURE_MANIFEST_PATH);
-  const snapshot = await manifestRef.get();
-  if (!snapshot.exists) {
+export async function resetStagingFixtures(auth: Auth, firestore: Firestore): Promise<void> {
+  const snapshots = await firestore.getAll(
+    firestore.doc(LEGACY_STAGING_FIXTURE_MANIFEST_PATH),
+    firestore.doc(STAGING_FIXTURE_MANIFEST_PATH)
+  );
+  const ownedManifests = snapshots.filter((snapshot) => snapshot.exists);
+  if (ownedManifests.length > 1) {
+    throw new Error('STAGING ONLY: multiple fixture manifests found; refusing overlapping ownership');
+  }
+  const snapshot = ownedManifests[0];
+  if (!snapshot) {
     console.info('No staging fixture manifest found; reset is already complete.');
     return;
   }
+  const manifestRef = snapshot.ref;
   const manifest = parseManifest(snapshot.data() as Record<string, unknown>);
-  const plan = buildStagingFixturePlan(manifest.scheduleAnchorDate);
+  const expectedManifestPath = manifest.fixtureId === LEGACY_STAGING_FIXTURE_ID
+    ? LEGACY_STAGING_FIXTURE_MANIFEST_PATH
+    : STAGING_FIXTURE_MANIFEST_PATH;
+  if (manifestRef.path !== expectedManifestPath) {
+    throw new Error('STAGING ONLY: fixture manifest is stored at an unexpected path');
+  }
+  const plan = buildStagingFixturePlanForManifest(manifest);
   assertManifestMatchesPlan(manifest, plan);
   await manifestRef.update({ status: 'resetting', updatedAt: new Date().toISOString() });
   await deleteAuthUsers(auth, plan.authUids);
@@ -514,12 +526,14 @@ async function main(): Promise<void> {
   if (action === 'seed') {
     await seed(auth, firestore);
   } else {
-    await reset(auth, firestore);
+    await resetStagingFixtures(auth, firestore);
   }
 }
 
-void main().catch((error: unknown) => {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(message);
-  process.exitCode = 1;
-});
+if (typeof require !== 'undefined' && require.main === module) {
+  void main().catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(message);
+    process.exitCode = 1;
+  });
+}

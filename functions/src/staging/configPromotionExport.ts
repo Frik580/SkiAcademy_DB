@@ -9,10 +9,17 @@ import { parseCourse, parseCourseDay } from '../canonical/courses/courseStore';
 import { parseInstructorCatalog } from '../canonical/bookings/bookingStore';
 import { LESSON_PRICING_SETTINGS_DOCUMENT_PATH, parseLessonPricingSettings } from '../canonical/pricing/lessonPricingSettingsStore';
 import {
+  LEGACY_STAGING_FIXTURE_ID,
+  LEGACY_STAGING_FIXTURE_MANIFEST_PATH,
+  LEGACY_STAGING_FIXTURE_VERSION,
   STAGING_FIXTURE_ID,
   STAGING_FIXTURE_MANIFEST_PATH,
   STAGING_FIXTURE_VERSION,
+  assertStagingFixtureManifestMatchesPlan,
+  buildLegacyStagingFixturePlanV1,
   buildStagingFixturePlan,
+  buildStagingFixturePlanForManifest,
+  type ResourceClaimOwnership,
 } from './stagingFixtureDefinitions';
 import {
   PROMOTION_MEDIA_MAX_BYTES,
@@ -104,7 +111,7 @@ export interface ConfigPromotionExportInput {
 export async function exportStagingConfigManifest(
   input: ConfigPromotionExportInput
 ): Promise<ConfigPromotionManifest> {
-  const fixture = await readFixtureOwnership(input.firestore);
+  const fixture = await readStagingFixtureOwnership(input.firestore);
   const collections = await Promise.all(PROMOTION_ALLOWED_SOURCE_COLLECTIONS.map((name) => readCollection(input.firestore, name)));
   const singletonSnapshots = await input.firestore.getAll(
     ...SINGLETON_CONFIG_PATHS.map((path) => input.firestore.doc(path))
@@ -279,25 +286,76 @@ export async function exportStagingConfigManifest(
   return parsePromotionManifest(manifest);
 }
 
-async function readFixtureOwnership(firestore: Firestore): Promise<{ ownedPaths: Set<string>; storagePrefixes: readonly string[] }> {
-  const fallback = buildStagingFixturePlan('2026-10-12');
-  const snapshot = await firestore.doc(STAGING_FIXTURE_MANIFEST_PATH).get();
-  if (!snapshot.exists) return { ownedPaths: new Set(fallback.ownedFirestorePaths), storagePrefixes: fallback.storagePrefixes };
+export async function readStagingFixtureOwnership(
+  firestore: Firestore
+): Promise<{ ownedPaths: Set<string>; storagePrefixes: readonly string[] }> {
+  const [legacySnapshot, currentSnapshot] = await firestore.getAll(
+    firestore.doc(LEGACY_STAGING_FIXTURE_MANIFEST_PATH),
+    firestore.doc(STAGING_FIXTURE_MANIFEST_PATH)
+  );
+  const snapshots = [legacySnapshot, currentSnapshot].filter((snapshot) => snapshot.exists);
+  if (snapshots.length > 1) {
+    throw new Error('PROMOTION: refusing multiple active staging fixture ownership manifests');
+  }
+  if (snapshots.length === 0) {
+    const fallback = buildStagingFixturePlan();
+    const legacyFallback = buildLegacyStagingFixturePlanV1('2026-10-12');
+    return {
+      ownedPaths: new Set([...fallback.ownedFirestorePaths, ...legacyFallback.ownedFirestorePaths]),
+      storagePrefixes: [...fallback.storagePrefixes, ...legacyFallback.storagePrefixes],
+    };
+  }
+  const snapshot = snapshots[0]!;
   const raw = snapshot.data();
   if (
-    raw?.fixtureId !== STAGING_FIXTURE_ID || raw.version !== STAGING_FIXTURE_VERSION ||
+    (raw?.fixtureId !== STAGING_FIXTURE_ID && raw?.fixtureId !== LEGACY_STAGING_FIXTURE_ID) ||
+    (raw.version !== STAGING_FIXTURE_VERSION && raw.version !== LEGACY_STAGING_FIXTURE_VERSION) ||
     raw.projectId !== STAGING_PROJECT_ID || !Array.isArray(raw.ownedFirestorePaths) ||
     raw.ownedFirestorePaths.some((path: unknown) => typeof path !== 'string') ||
     !Array.isArray(raw.storagePrefixes) || raw.storagePrefixes.some((path: unknown) => typeof path !== 'string') ||
-    typeof raw.scheduleAnchorDate !== 'string' || raw.status !== 'active'
+    !Array.isArray(raw.authUids) || raw.authUids.some((uid: unknown) => typeof uid !== 'string') ||
+    !Array.isArray(raw.resourceClaimOwnership) ||
+    raw.resourceClaimOwnership.some((entry: unknown) =>
+      !entry || typeof entry !== 'object' || Array.isArray(entry) ||
+      typeof (entry as Record<string, unknown>).claimPath !== 'string' ||
+      !Array.isArray((entry as Record<string, unknown>).guardPaths) ||
+      ((entry as Record<string, unknown>).guardPaths as unknown[]).some((path) => typeof path !== 'string')
+    ) ||
+    (Object.hasOwn(raw ?? {}, 'scheduleAnchorDate') && typeof raw?.scheduleAnchorDate !== 'string') ||
+    raw.status !== 'active'
   ) {
     throw new Error('PROMOTION: refusing invalid or foreign staging fixture ownership manifest');
   }
-  const expected = buildStagingFixturePlan(raw.scheduleAnchorDate);
-  const sameSortedStrings = (left: readonly string[], right: readonly string[]) =>
-    JSON.stringify([...left].sort()) === JSON.stringify([...right].sort());
-  if (!sameSortedStrings(raw.ownedFirestorePaths as string[], expected.ownedFirestorePaths) ||
-      !sameSortedStrings(raw.storagePrefixes as string[], expected.storagePrefixes)) {
+  const expectedPath = raw.fixtureId === LEGACY_STAGING_FIXTURE_ID
+    ? LEGACY_STAGING_FIXTURE_MANIFEST_PATH
+    : STAGING_FIXTURE_MANIFEST_PATH;
+  if (snapshot.ref.path !== expectedPath) {
+    throw new Error('PROMOTION: refusing fixture ownership manifest at an unexpected path');
+  }
+  let expected;
+  try {
+    expected = buildStagingFixturePlanForManifest({
+      fixtureId: raw.fixtureId,
+      version: raw.version,
+      ...(typeof raw.scheduleAnchorDate === 'string'
+        ? { scheduleAnchorDate: raw.scheduleAnchorDate }
+        : {}),
+    });
+    assertStagingFixtureManifestMatchesPlan(
+      {
+        fixtureId: raw.fixtureId,
+        version: raw.version,
+        ...(typeof raw.scheduleAnchorDate === 'string'
+          ? { scheduleAnchorDate: raw.scheduleAnchorDate }
+          : {}),
+        ownedFirestorePaths: raw.ownedFirestorePaths as string[],
+        authUids: raw.authUids as string[],
+        storagePrefixes: raw.storagePrefixes as string[],
+        resourceClaimOwnership: raw.resourceClaimOwnership as ResourceClaimOwnership[],
+      },
+      expected
+    );
+  } catch {
     throw new Error('PROMOTION: refusing stale staging fixture ownership manifest');
   }
   return {

@@ -8,7 +8,8 @@
   "scripts": {
     "build": "npm --prefix ../packages/shared-domain run build && node scripts/syncSharedDomain.cjs && tsc",
     "backfill:attendance-outcome-work": "npm run build && node scripts/backfillBookingAttendanceOutcomeWork.cjs",
-    "deploy": "firebase deploy --only functions"
+    "deploy:staging": "firebase deploy --project staging --only functions",
+    "deploy:prod": "firebase deploy --project prod --only functions"
   },
   "dependencies": {
     "@noble/hashes": "1.8.0",

@@ -27,6 +27,7 @@ import {
 } from 'firebase/firestore';
 import { OperationType } from '../../types';
 import { logger } from '../../shared';
+import { assertFirebaseEnvironment } from './firebaseEnvironmentGuard';
 import { omitLegacyAccountProgressFields } from './omitLegacyAccountProgressFields';
 
 const requiredEnvVars = [
@@ -56,6 +57,14 @@ const firebaseConfig = {
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'demo-project.appspot.com',
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
+
+if (typeof window !== 'undefined' && import.meta.env.MODE !== 'test') {
+  assertFirebaseEnvironment({
+    hostname: window.location.hostname,
+    projectId: firebaseConfig.projectId,
+    useEmulators: import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true',
+  });
+}
 
 const app = initializeApp(firebaseConfig);
 

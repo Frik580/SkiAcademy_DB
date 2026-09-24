@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  CourseIdSchema,
-  InstructorIdSchema,
-} from '@ski-academy/shared-domain';
-import {
   findMediaPlaceholders,
   mediaPlaceholderUrl,
   parsePromotionManifest,
@@ -11,44 +7,71 @@ import {
   type ConfigPromotionManifest,
 } from './configPromotionContract';
 
-const instructorId = InstructorIdSchema.parse('instructor_stage_alpha');
+const exportedAt = '2026-09-24T00:00:00.000Z';
 
-function instructorRecord(overrides: Record<string, unknown> = {}) {
-  const payload = { name: 'Alpine Instructor', pricePerHourKZT: 15_000, ...overrides };
+function excludedSummary() {
+  return { collectionCounts: {}, reasonCounts: {}, fixtureOwnedDocumentCount: 0, excludedPaths: [] };
+}
+
+function pricingPayload(amount = 6_000) {
+  return { additionalParticipantSurchargePerHourKzt: amount, maxParticipantsPerLesson: 4 };
+}
+
+function pricingRecord(payload = pricingPayload()) {
   return {
-    kind: 'instructor' as const,
-    logicalKey: `instructor:${instructorId}`,
-    sourcePath: `instructors/${instructorId}`,
-    sourceId: instructorId,
+    kind: 'lesson_pricing_settings' as const,
+    logicalKey: 'lesson_booking' as const,
+    sourcePath: 'lesson_pricing_settings/lesson_booking' as const,
+    sourceId: 'lesson_booking' as const,
     selected: true,
     sourceHash: stableHash(payload),
     payload,
   };
 }
 
-function manifest(record = instructorRecord()): ConfigPromotionManifest {
+function resortRecord(backgroundImage: string) {
+  const payload = {
+    slides: [{
+      id: 'banner-one',
+      line1En: 'Alpine',
+      line1Ru: 'Альпы',
+      line2En: '',
+      line2Ru: '',
+      line3En: '',
+      line3Ru: '',
+      backgroundImage,
+    }],
+    slideIntervalSeconds: 12,
+    slidesRandomOrder: false,
+  };
+  return {
+    kind: 'resort_slides' as const,
+    logicalKey: 'resort_slides' as const,
+    sourcePath: 'resort_data/config' as const,
+    sourceId: 'resort_config' as const,
+    selected: true,
+    sourceHash: stableHash(payload),
+    payload,
+  };
+}
+
+function manifest(sourceDocuments: unknown[], media: unknown[] = []): ConfigPromotionManifest {
   return parsePromotionManifest({
-    schemaVersion: 1,
+    schemaVersion: 2,
     sourceProjectId: 'ski-school-staging',
-    exportedAt: '2026-09-24T00:00:00.000Z',
-    sourceDocuments: [record],
-    mappings: {
-      instructors: record.kind === 'instructor'
-        ? [{ logicalKey: record.logicalKey, stagingInstructorId: instructorId }]
-        : [],
-      courses: record.kind === 'course'
-        ? [{ logicalKey: record.logicalKey, stagingCourseId: record.sourceId }]
-        : [],
-    },
-    media: [],
-    excludedSummary: { collectionCounts: {}, reasonCounts: {}, fixtureOwnedDocumentCount: 0, excludedPaths: [] },
+    exportedAt,
+    sourceDocuments,
+    media,
+    excludedSummary: excludedSummary(),
   });
 }
 
 describe('configuration promotion manifest contract', () => {
-  it('requires the exact staging source and recomputable source payload hashes', () => {
-    const valid = manifest();
+  it('requires schemaVersion 2, the staging source, and recomputable payload hashes', () => {
+    const valid = manifest([pricingRecord()]);
+    expect(valid.schemaVersion).toBe(2);
     expect(valid.sourceProjectId).toBe('ski-school-staging');
+    expect(valid).not.toHaveProperty('mappings');
     expect(() => parsePromotionManifest({ ...valid, sourceProjectId: 'ski-school-8f3ca' })).toThrow(/source/);
     expect(() => parsePromotionManifest({
       ...valid,
@@ -56,124 +79,77 @@ describe('configuration promotion manifest contract', () => {
     })).toThrow(/hash mismatch/);
   });
 
-  it('rejects copied Account links, revisions, audit fields, and TEST scope', () => {
-    for (const field of ['linkedAccountId', 'revision', 'audit', 'dataScope', 'testSessionId']) {
-      expect(() => manifest(instructorRecord({ [field]: 'forbidden' }))).toThrow();
-    }
-  });
-
-  it('keeps staging Account/Auth identifiers out of exported payloads', () => {
-    const sourceAccountId = 'staging-account-private';
-    const valid = manifest();
-    expect(JSON.stringify(valid.sourceDocuments)).not.toContain(sourceAccountId);
-    expect(JSON.stringify(valid.sourceDocuments)).not.toContain('linkedAccountId');
-  });
-
-  it('rejects Firebase download tokens in any manifest value', () => {
-    const payload = {
-      duration: 'One day', description: 'Course', dates: '1 October',
-      bgImageUrl: 'https://storage.yandexcloud.net/carve/course.webp',
-      videoUrl: 'https://firebasestorage.googleapis.com/v0/b/example/o/video.mp4?alt=media&token=secret',
-    };
-    const courseId = CourseIdSchema.parse('course_stage_alpha');
-    const record = {
-      kind: 'course_catalog_content' as const,
-      logicalKey: `course:${courseId}`,
-      sourcePath: `course_catalog_content/${courseId}`,
-      sourceId: courseId,
-      selected: true,
-      sourceHash: stableHash(payload),
-      payload,
-    };
-    expect(() => manifest(record)).toThrow(/token/i);
-  });
-
-  it('tracks placeholder media references without storing their source URL', () => {
-    const placeholder = mediaPlaceholderUrl('media:course:cover');
-    expect(findMediaPlaceholders({ slides: [{ backgroundImage: placeholder }] })).toEqual(['media:course:cover']);
-  });
-
-  it('rejects image-cache and private Storage objects from the manifest', () => {
-    const mediaKey = 'media:banner:one';
-    const payload = {
-      slides: [{
-        id: 'banner-one', line1En: '', line1Ru: '', line2En: '', line2Ru: '',
-        line3En: '', line3Ru: '', backgroundImage: mediaPlaceholderUrl(mediaKey),
-      }],
-      slideIntervalSeconds: 12,
-      slidesRandomOrder: false,
-    };
-    const record = {
-      kind: 'resort_slides' as const,
-      logicalKey: 'resort_slides' as const,
-      sourcePath: 'resort_data/config' as const,
-      sourceId: 'resort_config' as const,
-      selected: true,
-      sourceHash: stableHash(payload),
-      payload,
-    };
-    const base = {
+  it('fails closed on an older business-entity promotion manifest', () => {
+    expect(() => parsePromotionManifest({
       schemaVersion: 1,
       sourceProjectId: 'ski-school-staging',
-      exportedAt: '2026-09-24T00:00:00.000Z',
-      sourceDocuments: [record],
+      exportedAt,
+      sourceDocuments: [],
+      mappings: {
+        instructors: [{ logicalKey: 'instructor:staging', stagingInstructorId: 'instructor_stage', productionInstructorId: 'instructor_prod', productionAccountId: 'account_prod' }],
+        courses: [{ logicalKey: 'course:staging', stagingCourseId: 'course_stage', productionCourseId: 'course_prod' }],
+      },
+      media: [],
+      excludedSummary: excludedSummary(),
+    })).toThrow(/unsupported manifest schemaVersion 1/);
+    expect(() => parsePromotionManifest({
+      schemaVersion: 2,
+      sourceProjectId: 'ski-school-staging',
+      exportedAt,
+      sourceDocuments: [pricingRecord()],
       mappings: { instructors: [], courses: [] },
+      media: [],
+      excludedSummary: excludedSummary(),
+    })).toThrow(/business-entity mappings/);
+  });
+
+  it('rejects identity, revision, audit, TEST scope, and download tokens', () => {
+    for (const field of ['linkedAccountId', 'revision', 'audit', 'dataScope', 'testSessionId', 'password']) {
+      const payload = { ...pricingPayload(), [field]: 'forbidden' };
+      expect(() => manifest([{ ...pricingRecord(payload), sourceHash: stableHash(payload) }])).toThrow();
+    }
+    const tokenSlide = resortRecord('https://storage.yandexcloud.net/carve/hero.webp');
+    const tokenPayload = {
+      ...tokenSlide.payload,
+      slides: [{ ...(tokenSlide.payload as { slides: Array<Record<string, unknown>> }).slides[0]!, line1En: 'preview?token=secret' }],
+    };
+    expect(() => manifest([{ ...tokenSlide, payload: tokenPayload, sourceHash: stableHash(tokenPayload) }])).toThrow(/token/i);
+  });
+
+  it('accepts a public Yandex banner and rejects private or query-bearing URLs', () => {
+    expect(() => manifest([resortRecord('https://storage.yandexcloud.net/carve/hero.webp')])).not.toThrow();
+    const privatePayload = resortRecord('https://storage.yandexcloud.net/private/hero.webp');
+    expect(() => manifest([privatePayload])).toThrow(/allowlisted/);
+  });
+
+  it('accepts only allowlisted banner Storage objects', () => {
+    const mediaKey = 'media:banner:one';
+    const record = resortRecord(mediaPlaceholderUrl(mediaKey));
+    const base = {
+      schemaVersion: 2,
+      sourceProjectId: 'ski-school-staging',
+      exportedAt,
+      sourceDocuments: [record],
       media: [{
         mediaKey,
         ownerKind: 'resort',
         ownerLogicalKey: 'resort_slides',
         fieldPath: 'slides.0.backgroundImage',
         sourceBucket: 'ski-school-staging.firebasestorage.app',
-        sourceObjectPath: 'image-cache/banner-one',
+        sourceObjectPath: 'banners/winter-banner.webp',
         sha256: 'a'.repeat(64),
         contentType: 'image/webp',
       }],
-      excludedSummary: { collectionCounts: {}, reasonCounts: {}, fixtureOwnedDocumentCount: 0, excludedPaths: [] },
+      excludedSummary: excludedSummary(),
     };
-    expect(() => parsePromotionManifest(base)).toThrow(/outside the source allowlist/);
-    expect(() => parsePromotionManifest({
-      ...base,
-      media: [{ ...base.media[0]!, sourceObjectPath: 'customers/customer-1/private.jpg' }],
-    })).toThrow(/outside the source allowlist/);
-  });
-
-  it('requires operator mappings to match the source logical key', () => {
-    const record = instructorRecord();
-    expect(() => parsePromotionManifest({
-      schemaVersion: 1,
-      sourceProjectId: 'ski-school-staging',
-      exportedAt: '2026-09-24T00:00:00.000Z',
-      sourceDocuments: [record],
-      mappings: {
-        instructors: [{ logicalKey: 'instructor:some-other-key', stagingInstructorId: instructorId }],
-        courses: [],
-      },
-      media: [],
-      excludedSummary: { collectionCounts: {}, reasonCounts: {}, fixtureOwnedDocumentCount: 0, excludedPaths: [] },
-    })).toThrow(/mapping does not match its source logical key/);
-  });
-
-  it('validates Yandex media as HTTPS URLs under /carve/ without query tokens', () => {
-    const courseId = CourseIdSchema.parse('course_stage_alpha');
-    const validPayload = {
-      duration: 'One day', description: 'Course', dates: '1 October',
-      bgImageUrl: 'https://storage.yandexcloud.net/carve/course.webp',
-    };
-    const record = {
-      kind: 'course_catalog_content' as const,
-      logicalKey: `course:${courseId}`,
-      sourcePath: `course_catalog_content/${courseId}`,
-      sourceId: courseId,
-      selected: true,
-      sourceHash: stableHash(validPayload),
-      payload: validPayload,
-    };
-    expect(() => manifest(record)).not.toThrow();
-    expect(() => manifest({
-      ...record,
-      payload: { ...validPayload, bgImageUrl: 'https://storage.yandexcloud.net/private/course.webp' },
-      sourceHash: stableHash({ ...validPayload, bgImageUrl: 'https://storage.yandexcloud.net/private/course.webp' }),
-    })).toThrow(/allowlisted/);
+    expect(() => parsePromotionManifest(base)).not.toThrow();
+    expect(findMediaPlaceholders(record.payload)).toEqual([mediaKey]);
+    for (const sourceObjectPath of ['image-cache/banner.webp', 'courses/course_a.webp', 'instructors/instructor_a.jpg', 'customers/customer_a/avatar.jpg']) {
+      expect(() => parsePromotionManifest({
+        ...base,
+        media: [{ ...base.media[0]!, sourceObjectPath }],
+      })).toThrow(/outside the source allowlist/);
+    }
   });
 
   it('hashes equivalent JSON payloads deterministically', () => {

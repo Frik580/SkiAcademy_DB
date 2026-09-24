@@ -29,11 +29,10 @@ const manifest = CourseProvisioningManifestSchema.parse({
 });
 
 describe('apply_canonical_course_provisioning_manifest intent', () => {
-  it('accepts the optional transactional create-only guard', () => {
+  it('rejects the removed promotion-only createOnly flag', () => {
     const base = { manifest, dryRun: false };
-    expect(parseCommandIntent('apply_canonical_course_provisioning_manifest', { ...base, createOnly: true }).success).toBe(true);
     expect(parseCommandIntent('apply_canonical_course_provisioning_manifest', base).success).toBe(true);
-    expect(parseCommandIntent('apply_canonical_course_provisioning_manifest', { ...base, createOnly: 'true' }).success).toBe(false);
+    expect(parseCommandIntent('apply_canonical_course_provisioning_manifest', { ...base, createOnly: true }).success).toBe(false);
     expect(parseCommandIntent('provision_canonical_course', { manifest, createOnly: true }).success).toBe(false);
   });
 });

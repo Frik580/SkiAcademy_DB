@@ -795,7 +795,6 @@ export const CommandIntentSchemaByKind = {
     .object({
       manifest: CourseProvisioningManifestSchema,
       dryRun: z.boolean(),
-      createOnly: z.boolean().optional(),
     })
     .strict(),
   change_course_title: z

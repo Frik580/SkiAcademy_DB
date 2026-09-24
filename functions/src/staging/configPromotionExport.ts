@@ -5,8 +5,6 @@ import {
   LESSON_PRICING_SETTINGS_ID,
   normalizeFirestoreDocument,
 } from '@ski-academy/shared-domain';
-import { parseCourse, parseCourseDay } from '../canonical/courses/courseStore';
-import { parseInstructorCatalog } from '../canonical/bookings/bookingStore';
 import { LESSON_PRICING_SETTINGS_DOCUMENT_PATH, parseLessonPricingSettings } from '../canonical/pricing/lessonPricingSettingsStore';
 import {
   LEGACY_STAGING_FIXTURE_ID,
@@ -22,8 +20,8 @@ import {
   type ResourceClaimOwnership,
 } from './stagingFixtureDefinitions';
 import {
+  PROMOTION_MANIFEST_VERSION,
   PROMOTION_MEDIA_MAX_BYTES,
-  PROMOTION_PAGE_SIZE,
   STAGING_PROJECT_ID,
   mediaPlaceholderUrl,
   parsePromotionManifest,
@@ -34,18 +32,22 @@ import {
   type PromotionSourceDocument,
 } from './configPromotionContract';
 
-export const PROMOTION_ALLOWED_SOURCE_COLLECTIONS = [
-  'instructors',
-  'courses',
-  'course_catalog_content',
-] as const;
-
-const SINGLETON_CONFIG_PATHS = [
+export const PROMOTION_CONFIG_DOCUMENT_PATHS = [
   LESSON_PRICING_SETTINGS_DOCUMENT_PATH,
   'settings/skill_config',
   'settings/achievements_config',
   'settings/instructor_filters',
   'resort_data/config',
+] as const;
+
+/**
+ * Identity and scheduled business entities are never read, counted, or exported.
+ * Course days live under courses/{courseId}/days and are ignored with courses.
+ */
+export const PROMOTION_IGNORED_BUSINESS_COLLECTIONS = [
+  'instructors',
+  'courses',
+  'course_catalog_content',
 ] as const;
 
 export const PROMOTION_EXCLUDED_COLLECTIONS = [
@@ -89,6 +91,7 @@ export const PROMOTION_EXCLUDED_DOCUMENT_PATHS = [
 
 const PUBLIC_YANDEX_HOST = 'storage.yandexcloud.net';
 const INVALID_MEDIA_PLACEHOLDER = 'unsupported-media-reference';
+const BANNER_OBJECT_PATH = /^banners\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.(?:png|jpe?g|webp)$/i;
 
 interface SourceDocument {
   readonly path: string;
@@ -112,9 +115,8 @@ export async function exportStagingConfigManifest(
   input: ConfigPromotionExportInput
 ): Promise<ConfigPromotionManifest> {
   const fixture = await readStagingFixtureOwnership(input.firestore);
-  const collections = await Promise.all(PROMOTION_ALLOWED_SOURCE_COLLECTIONS.map((name) => readCollection(input.firestore, name)));
   const singletonSnapshots = await input.firestore.getAll(
-    ...SINGLETON_CONFIG_PATHS.map((path) => input.firestore.doc(path))
+    ...PROMOTION_CONFIG_DOCUMENT_PATHS.map((path) => input.firestore.doc(path))
   );
   const excludedCounts = await Promise.all(PROMOTION_EXCLUDED_COLLECTIONS.map(async (name) => {
     try {
@@ -129,9 +131,6 @@ export async function exportStagingConfigManifest(
     return [path, snapshot.exists ? 1 : 0] as const;
   }));
 
-  const byCollection = new Map(PROMOTION_ALLOWED_SOURCE_COLLECTIONS.map((name, index) => [name, collections[index]!]));
-  const docs = new Map<string, SourceDocument[]>();
-  for (const name of PROMOTION_ALLOWED_SOURCE_COLLECTIONS) docs.set(name, byCollection.get(name)!);
   const excludedPaths: string[] = [];
   const reasonCounts: Record<string, number> = {};
   const countExcluded = (reason: string, path: string) => {
@@ -142,112 +141,6 @@ export async function exportStagingConfigManifest(
   const media: PromotionMediaReference[] = [];
   const storageReader = input.bucket ? (objectPath: string) => readStorageMedia(input.bucket!, objectPath) : undefined;
   const bucketName = input.stagingStorageBucketName?.trim();
-
-  for (const doc of docs.get('instructors') ?? []) {
-    if (shouldExcludeSource(doc, fixture.ownedPaths, countExcluded)) continue;
-    const payload = pick(doc.data, ['name', 'specialty', 'languages', 'experienceYears', 'bio', 'avatarUrl', 'pricePerHourKZT']);
-    const issues: string[] = [];
-    if (!parseInstructorCatalog(doc.id, doc.data)) issues.push('invalid_instructor_catalog_shape');
-    await sanitizeMediaField({
-      payload,
-      fieldPath: 'avatarUrl', ownerKind: 'instructor', ownerLogicalKey: `instructor:${doc.id}`,
-      ownerSourceId: doc.id, storageReader, bucketName, media,
-      fixtureStoragePrefixes: fixture.storagePrefixes,
-      onIssue: (reason) => issues.push(reason),
-    });
-    records.push(makeRecord({
-      kind: 'instructor', logicalKey: `instructor:${doc.id}`, sourcePath: doc.path, sourceId: doc.id,
-      payload, issues,
-    }));
-  }
-
-  for (const doc of docs.get('courses') ?? []) {
-    if (shouldExcludeSource(doc, fixture.ownedPaths, countExcluded)) continue;
-    const course = parseCourse(doc.data);
-    if (!course) {
-      records.push(makeRecord({
-        kind: 'course', logicalKey: `course:${doc.id}`, sourcePath: doc.path, sourceId: doc.id,
-        sourceDayPaths: [], payload: { courseId: doc.id }, issues: ['invalid_course_shape'],
-      }));
-      continue;
-    }
-    if (course.lifecycle !== 'active') {
-      countExcluded('archived_course', doc.path);
-      continue;
-    }
-    const rawDays = await readCollection(input.firestore, `${doc.path}/days`);
-    const sourceDayPaths = rawDays.map((day) => day.path).sort();
-    const issues: string[] = [];
-    const days = rawDays
-      .filter((day) => {
-        if (shouldExcludeSource(day, fixture.ownedPaths, countExcluded)) {
-          issues.push('course_day_not_live_or_fixture_owned');
-          return false;
-        }
-        return true;
-      })
-      .map((day) => parseExportCourseDay(day, issues));
-    const timeZones = [...new Set(rawDays.map((day) => parseCourseDay(day.data)?.timeZone).filter(Boolean))];
-    if (timeZones.length !== 1) issues.push('course_days_require_one_time_zone');
-    const payload = {
-      courseId: course.courseId,
-      title: course.title,
-      price: course.price,
-      totalSeats: course.capacity.totalSeats,
-      capacityPolicy: { kind: 'seed_full' as const },
-      instructorRosterIds: [...course.instructorRosterIds],
-      timeZone: timeZones[0] ?? 'UTC',
-      days: days.filter((day): day is NonNullable<typeof day> => day !== undefined),
-    };
-    records.push(makeRecord({
-      kind: 'course', logicalKey: `course:${doc.id}`, sourcePath: doc.path, sourceId: doc.id,
-      sourceDayPaths, payload, issues,
-    }));
-  }
-
-  for (const doc of docs.get('course_catalog_content') ?? []) {
-    if (shouldExcludeSource(doc, fixture.ownedPaths, countExcluded)) continue;
-    const payload = pick(doc.data, [
-      'duration', 'description', 'dates', 'bgImageUrl', 'isHidden', 'order', 'titleRu',
-      'shortDescription', 'shortDescriptionRu', 'detailedDescription', 'detailedDescriptionRu',
-      'badge', 'badgeRu', 'level', 'levelLabel', 'videoUrl', 'benefits', 'benefitsRu',
-      'program', 'programRu', 'faq', 'faqRu', 'galleryPhotos',
-    ]);
-    const logicalKey = `course:${doc.id}`;
-    const issues: string[] = [];
-    await sanitizeMediaField({
-      payload, fieldPath: 'bgImageUrl', ownerKind: 'course', ownerLogicalKey: logicalKey,
-      ownerSourceId: doc.id, storageReader, bucketName, media,
-      fixtureStoragePrefixes: fixture.storagePrefixes,
-      onIssue: (reason) => issues.push(reason),
-    });
-    const photos = payload.galleryPhotos;
-    if (Array.isArray(photos)) {
-      for (let index = 0; index < photos.length; index += 1) {
-        const fieldPath = `galleryPhotos.${index}`;
-        const value = photos[index];
-        if (typeof value === 'string' && isFirebaseDownloadUrl(value)) {
-          setPathValue(payload, fieldPath, INVALID_MEDIA_PLACEHOLDER);
-          issues.push('firebase_gallery_media_not_promotable');
-        } else {
-          await sanitizeMediaField({
-            payload, fieldPath, ownerKind: 'course', ownerLogicalKey: logicalKey,
-            ownerSourceId: doc.id, storageReader, bucketName, media,
-            fixtureStoragePrefixes: fixture.storagePrefixes,
-            onIssue: (reason) => issues.push(reason),
-          });
-        }
-      }
-    }
-    if (typeof payload.videoUrl === 'string' && isFirebaseDownloadUrl(payload.videoUrl)) {
-      payload.videoUrl = INVALID_MEDIA_PLACEHOLDER;
-      issues.push('firebase_video_media_not_promotable');
-    }
-    records.push(makeRecord({
-      kind: 'course_catalog_content', logicalKey, sourcePath: doc.path, sourceId: doc.id,
-      payload, issues,
-    }));
-  }
 
   const singletonRecords = singletonSnapshots
     .filter((snapshot) => snapshot.exists)
@@ -262,22 +155,17 @@ export async function exportStagingConfigManifest(
 
   records.sort((left, right) => left.sourcePath.localeCompare(right.sourcePath));
   media.sort((left, right) => left.mediaKey.localeCompare(right.mediaKey));
+  const collectionCounts = Object.fromEntries(
+    [...excludedCounts, ...excludedDocumentCounts].sort(([left], [right]) => left.localeCompare(right))
+  );
   const manifest = {
-    schemaVersion: 1 as const,
+    schemaVersion: PROMOTION_MANIFEST_VERSION,
     sourceProjectId: STAGING_PROJECT_ID,
     exportedAt: (input.exportedAt ?? new Date()).toISOString(),
     sourceDocuments: records,
-    mappings: {
-      instructors: records
-        .filter((item): item is Extract<PromotionSourceDocument, { kind: 'instructor' }> => item.kind === 'instructor')
-        .map((item) => ({ logicalKey: item.logicalKey, stagingInstructorId: item.sourceId })),
-      courses: records
-        .filter((item): item is Extract<PromotionSourceDocument, { kind: 'course' }> => item.kind === 'course')
-        .map((item) => ({ logicalKey: item.logicalKey, stagingCourseId: item.sourceId })),
-    },
     media,
     excludedSummary: {
-      collectionCounts: Object.fromEntries([...excludedCounts, ...excludedDocumentCounts]),
+      collectionCounts,
       reasonCounts: Object.fromEntries(Object.entries(reasonCounts).sort(([a], [b]) => a.localeCompare(b))),
       fixtureOwnedDocumentCount: excludedPaths.filter((path) => fixture.ownedPaths.has(path)).length,
       excludedPaths: excludedPaths.sort(),
@@ -364,20 +252,6 @@ export async function readStagingFixtureOwnership(
   };
 }
 
-async function readCollection(firestore: Firestore, path: string): Promise<SourceDocument[]> {
-  const documents: SourceDocument[] = [];
-  let query = firestore.collection(path).orderBy('__name__').limit(PROMOTION_PAGE_SIZE);
-  while (true) {
-    const page = await query.get();
-    for (const snapshot of page.docs) {
-      documents.push({ path: snapshot.ref.path, id: snapshot.id, data: snapshot.data() as Record<string, unknown> });
-    }
-    if (page.size < PROMOTION_PAGE_SIZE) break;
-    query = query.startAfter(page.docs[page.docs.length - 1]!);
-  }
-  return documents.sort((left, right) => left.path.localeCompare(right.path));
-}
-
 export function shouldExcludeSource(
   doc: SourceDocument,
   fixturePaths: ReadonlySet<string>,
@@ -403,7 +277,6 @@ function makeRecord(input: {
   readonly logicalKey: string;
   readonly sourcePath: string;
   readonly sourceId: string;
-  readonly sourceDayPaths?: readonly string[];
   readonly payload: Record<string, unknown>;
   readonly issues: readonly string[];
 }): PromotionSourceDocument {
@@ -425,40 +298,9 @@ function makeRecord(input: {
       issueList.push('source_payload_invalid');
     }
   }
-  const withIssues = issueList.length
+  return (issueList.length
     ? { ...base, issues: [...new Set(issueList)].sort() }
-    : base;
-  return input.kind === 'course'
-    ? { ...withIssues, kind: 'course', sourceDayPaths: [...(input.sourceDayPaths ?? [])] } as PromotionSourceDocument
-    : withIssues as PromotionSourceDocument;
-}
-
-function parseExportCourseDay(doc: SourceDocument, issues: string[]): Record<string, unknown> | undefined {
-  const day = parseCourseDay(doc.data);
-  if (!day) {
-    issues.push('invalid_course_day_shape');
-    return undefined;
-  }
-  if (day.actualInstructorIds.length !== 1) {
-    issues.push('course_day_requires_single_instructor');
-    return undefined;
-  }
-  const start = localDateTime(day.interval.startsAt.seconds, day.timeZone);
-  const durationMs = (day.interval.endsAt.seconds - day.interval.startsAt.seconds) * 1_000 +
-    (day.interval.endsAt.nanoseconds - day.interval.startsAt.nanoseconds) / 1_000_000;
-  const durationMinutes = durationMs / 60_000;
-  if (!Number.isInteger(durationMinutes)) {
-    issues.push('course_day_duration_not_whole_minutes');
-    return undefined;
-  }
-  return {
-    courseDayId: day.courseDayId,
-    dayOrder: day.dayOrder,
-    localDate: start.date,
-    localTime: start.time,
-    durationMinutes,
-    instructorId: day.actualInstructorIds[0],
-  };
+    : base) as PromotionSourceDocument;
 }
 
 async function buildSingletonRecord(input: {
@@ -509,9 +351,8 @@ async function buildSingletonRecord(input: {
   const issues: string[] = [];
   if (Array.isArray(payload.slides)) {
     for (let index = 0; index < payload.slides.length; index += 1) {
-      await sanitizeMediaField({
-        payload, fieldPath: `slides.${index}.backgroundImage`, ownerKind: 'resort',
-        ownerLogicalKey: 'resort_slides', ownerSourceId: 'resort_config',
+      await sanitizeBannerField({
+        payload, fieldPath: `slides.${index}.backgroundImage`,
         storageReader: input.storageReader, bucketName: input.bucketName, media: input.media,
         fixtureStoragePrefixes: input.fixtureStoragePrefixes,
         onIssue: (reason) => issues.push(reason),
@@ -522,12 +363,9 @@ async function buildSingletonRecord(input: {
     sourceId: 'resort_config', payload, issues });
 }
 
-async function sanitizeMediaField(input: {
+async function sanitizeBannerField(input: {
   readonly payload: Record<string, unknown>;
   readonly fieldPath: string;
-  readonly ownerKind: PromotionMediaReference['ownerKind'];
-  readonly ownerLogicalKey: string;
-  readonly ownerSourceId: string;
   readonly storageReader?: (path: string) => Promise<MediaBytes>;
   readonly bucketName?: string;
   readonly fixtureStoragePrefixes?: readonly string[];
@@ -549,7 +387,7 @@ async function sanitizeMediaField(input: {
     input.onIssue('fixture_owned_media');
     return;
   }
-  if (!isAllowedStorageObjectPath(input.ownerKind, input.ownerSourceId, firebase.objectPath)) {
+  if (!isAllowedBannerStorageObjectPath(firebase.objectPath)) {
     setPathValue(input.payload, input.fieldPath, INVALID_MEDIA_PLACEHOLDER);
     input.onIssue('storage_object_outside_promotion_allowlist');
     return;
@@ -569,14 +407,14 @@ async function sanitizeMediaField(input: {
     }
     const sha256 = createHash('sha256').update(object.bytes).digest('hex');
     const mediaKey = `media:${stableHash({
-      ownerLogicalKey: input.ownerLogicalKey,
+      ownerLogicalKey: 'resort_slides',
       fieldPath: input.fieldPath,
       sha256,
     }).slice(0, 32)}`;
     input.media.push({
       mediaKey,
-      ownerKind: input.ownerKind,
-      ownerLogicalKey: input.ownerLogicalKey,
+      ownerKind: 'resort',
+      ownerLogicalKey: 'resort_slides',
       fieldPath: input.fieldPath,
       sourceBucket: firebase.bucket,
       sourceObjectPath: firebase.objectPath,
@@ -616,10 +454,6 @@ function parseFirebaseDownloadUrl(value: string): { bucket: string; objectPath: 
   }
 }
 
-function isFirebaseDownloadUrl(value: string): boolean {
-  return parseFirebaseDownloadUrl(value) !== undefined;
-}
-
 function isPublicYandexCarveUrl(value: string): boolean {
   try {
     const parsed = new URL(value);
@@ -630,14 +464,8 @@ function isPublicYandexCarveUrl(value: string): boolean {
   }
 }
 
-export function isAllowedStorageObjectPath(
-  ownerKind: PromotionMediaReference['ownerKind'],
-  sourceId: string,
-  objectPath: string
-): boolean {
-  if (ownerKind === 'course') return objectPath === `courses/${sourceId}.webp`;
-  if (ownerKind === 'instructor') return objectPath === `instructors/${sourceId}.jpg`;
-  return /^banners\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.(?:png|jpe?g|webp)$/i.test(objectPath);
+export function isAllowedBannerStorageObjectPath(objectPath: string): boolean {
+  return BANNER_OBJECT_PATH.test(objectPath);
 }
 
 function pick(raw: Record<string, unknown>, keys: readonly string[]): Record<string, unknown> {
@@ -656,18 +484,6 @@ function jsonSafe(value: unknown): unknown {
       .map(([key, nested]) => [key, jsonSafe(nested)]));
   }
   return undefined;
-}
-
-function localDateTime(epochSeconds: number, timeZone: string): { date: string; time: string } {
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
-  }).formatToParts(new Date(epochSeconds * 1_000));
-  const read = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value;
-  const year = read('year'); const month = read('month'); const day = read('day');
-  const hour = read('hour'); const minute = read('minute');
-  if (!year || !month || !day || !hour || !minute) throw new Error('PROMOTION: cannot normalize CourseDay time');
-  return { date: `${year}-${month}-${day}`, time: `${hour}:${minute}` };
 }
 
 function getPathValue(value: Record<string, unknown>, path: string): unknown {

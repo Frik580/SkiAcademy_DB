@@ -85,3 +85,4 @@ t39-backup/
 t40-reset-backup/
 
 .env.staging
+.env.development

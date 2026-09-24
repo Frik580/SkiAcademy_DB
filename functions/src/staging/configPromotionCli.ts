@@ -7,18 +7,13 @@ import { getStorage } from 'firebase-admin/storage';
 import type { Bucket, File } from '@google-cloud/storage';
 import {
   AccountIdSchema,
-  CourseProvisioningManifestSchema,
-  CorrelationIdSchema,
-  CourseIdSchema,
-  InstructorIdSchema,
   AggregateRevisionSchema,
+  CorrelationIdSchema,
   normalizeFirestoreDocument,
   parsePersistedCanonicalScope,
   type CommandEnvelope,
-  type CourseProvisioningManifest,
 } from '@ski-academy/shared-domain';
 import { parseAccount } from '../canonical/finance/financeStore';
-import { parseCourseCatalogContent } from '../canonical/courses/courseCatalogContentStore';
 import { parseLessonPricingSettings } from '../canonical/pricing/lessonPricingSettingsStore';
 import { createAuthoritativeCommandClock } from '../canonical/commands/commandClock';
 import { createProductionCanonicalCommands } from '../canonical/commands/canonicalCommands';
@@ -159,7 +154,6 @@ async function runPromotion(args: CliArguments): Promise<void> {
   const targetApp = initializeProjectApp(PRODUCTION_PROJECT_ID, 'target');
   const sourceFirestore = getFirestore(sourceApp);
   const targetFirestore = getFirestore(targetApp);
-  await assertInstructorMappingDoesNotReuseStagingAccounts(sourceFirestore, manifest);
   const hasSelectedMedia = manifest.media.some((media) => ownerSelected(manifest, media.ownerLogicalKey));
   const sourceStorage = hasSelectedMedia || manifest.media.length > 0
     ? openBucket(sourceApp, 'source', STAGING_PROJECT_ID)
@@ -204,8 +198,7 @@ async function runPromotion(args: CliArguments): Promise<void> {
   if (targetStorage) {
     for (const media of manifest.media) {
       if (!ownerSelected(manifest, media.ownerLogicalKey)) continue;
-      const targetPath = destinationMediaPath(media, manifest);
-      if (!targetPath) continue;
+      const targetPath = destinationMediaPath(media);
       const observation = await observeStorageFile(targetStorage.bucket, targetPath);
       if (observation.hash === media.sha256 && observation.token) {
         downloadUrls.set(media.mediaKey, buildDownloadUrl(targetStorage.name, targetPath, observation.token));
@@ -217,7 +210,6 @@ async function runPromotion(args: CliArguments): Promise<void> {
     { clock: createAuthoritativeCommandClock(), scope: { dataScope: 'live' } },
     createFirestoreCanonicalTransactionExecutor(targetFirestore)
   );
-  const verifiedMutationGroups = new Set<string>();
   await executePromotionPlan(plan, 'apply', async (operation) => {
     if (operation.kind === 'media') {
       if (!sourceStorage || !targetStorage) throw new Error('PROMOTION: guarded Storage buckets are required for selected media');
@@ -236,48 +228,19 @@ async function runPromotion(args: CliArguments): Promise<void> {
       return;
     }
     const record = findSourceRecordForOperation(manifest, operation);
-    const groupKey = mutationGroupKey(operation);
-    if (!verifiedMutationGroups.has(groupKey)) {
-      await assertDocumentPrecondition(operation, manifest, targetFirestore);
-      verifiedMutationGroups.add(groupKey);
-    }
-    if (!record && operation.kind !== 'instructor_link') throw new Error(`PROMOTION: source record not found for ${operation.operationId}`);
-    const payload = record ? resolveMediaPlaceholders(record.payload, downloadUrls) : undefined;
+    if (!record) throw new Error(`PROMOTION: source record not found for ${operation.operationId}`);
+    await assertDocumentPrecondition(operation, targetFirestore);
+    const payload = resolveMediaPlaceholders(record.payload, downloadUrls);
     await executeOperation({
       operation,
       record,
       payload,
-      manifest,
       firestore: targetFirestore,
       commands,
       adminAccountId,
     });
   });
-  console.info('PROMOTION: apply completed. No delete, Auth, transactional, TEST, or deployment operation was issued.');
-}
-
-async function assertInstructorMappingDoesNotReuseStagingAccounts(
-  firestore: Firestore,
-  manifest: ConfigPromotionManifest
-): Promise<void> {
-  const mappings = manifest.mappings.instructors.filter((entry) => entry.productionAccountId);
-  if (!mappings.length) return;
-  const refs = mappings.flatMap((entry) => [
-    firestore.doc(`instructors/${entry.stagingInstructorId}`),
-    firestore.doc(`users/${entry.productionAccountId}`),
-  ]);
-  const snapshots = await firestore.getAll(...refs);
-  for (let index = 0; index < mappings.length; index += 1) {
-    const instructor = snapshots[index * 2]!;
-    const stagingAccount = snapshots[index * 2 + 1]!;
-    const mappedAccountId = mappings[index]!.productionAccountId;
-    if (
-      (instructor.exists && instructor.get('linkedAccountId') === mappedAccountId) ||
-      stagingAccount.exists
-    ) {
-      throw new Error('PROMOTION: productionAccountId must be independently mapped and cannot reuse the staging Account/Auth UID');
-    }
-  }
+  console.info('PROMOTION: apply completed. No delete, Auth, identity, Course, transactional, TEST, or deployment operation was issued.');
 }
 
 async function readManifest(path: string): Promise<ConfigPromotionManifest> {
@@ -299,7 +262,6 @@ function assertSourceFresh(manifest: ConfigPromotionManifest, current: ConfigPro
       kind: record.kind,
       sourcePath: record.sourcePath,
       sourceId: record.sourceId,
-      sourceDayPaths: record.kind === 'course' ? record.sourceDayPaths : undefined,
       sourceHash: record.sourceHash,
       issues: record.issues ?? [],
     })).sort((a, b) => a.sourcePath.localeCompare(b.sourcePath)),
@@ -327,22 +289,9 @@ async function loadTargetState(input: {
   readonly bucket?: Bucket;
 }): Promise<PromotionTargetState> {
   const paths = new Set<string>();
-  const courseIds = new Set<string>();
   for (const record of input.manifest.sourceDocuments) {
     if (!record.selected) continue;
-    if (record.kind === 'instructor') {
-      const mapping = input.manifest.mappings.instructors.find((entry) => entry.stagingInstructorId === record.sourceId);
-      if (mapping?.productionInstructorId) paths.add(`instructors/${mapping.productionInstructorId}`);
-      if (mapping?.productionAccountId) paths.add(`users/${mapping.productionAccountId}`);
-    } else if (record.kind === 'course' || record.kind === 'course_catalog_content') {
-      const mapping = input.manifest.mappings.courses.find((entry) => entry.stagingCourseId === record.sourceId);
-      const courseId = mapping?.productionCourseId ?? mapping?.stagingCourseId;
-      if (courseId) {
-        courseIds.add(courseId);
-        paths.add(`courses/${courseId}`);
-        if (record.kind === 'course_catalog_content') paths.add(`course_catalog_content/${courseId}`);
-      }
-    } else paths.add(record.sourcePath);
+    paths.add(record.sourcePath);
   }
   if (input.adminAccountId) paths.add(`users/${input.adminAccountId}`);
   const documents: Record<string, Record<string, unknown> | undefined> = {};
@@ -353,75 +302,29 @@ async function loadTargetState(input: {
       ? (normalizeFirestoreDocument(snapshot.data() as Record<string, unknown>) as Record<string, unknown>)
       : undefined;
   });
-  const courseDaysById: Record<string, readonly Record<string, unknown>[]> = {};
-  await Promise.all([...courseIds].map(async (courseId) => {
-    courseDaysById[courseId] = await readTargetDays(input.firestore, courseId);
-  }));
   const mediaHashes: Record<string, string | undefined> = {};
   const mediaVersions: Record<string, string | undefined> = {};
   const mediaUrlReady: Record<string, boolean | undefined> = {};
   if (input.bucket) {
     await Promise.all(input.manifest.media.filter((media) => ownerSelected(input.manifest, media.ownerLogicalKey)).map(async (media) => {
-      const destination = destinationMediaPath(media, input.manifest);
-      if (!destination) return;
+      const destination = destinationMediaPath(media);
       const observation = await observeStorageFile(input.bucket!, destination);
       mediaHashes[destination] = observation.hash;
       mediaVersions[destination] = observation.generation;
       mediaUrlReady[destination] = Boolean(observation.token);
     }));
   }
-  return { documents, courseDaysById, mediaHashes, mediaVersions, mediaUrlReady };
-}
-
-async function readTargetDays(firestore: Firestore, courseId: string): Promise<Record<string, unknown>[]> {
-  const query = firestore.collection(`courses/${courseId}/days`).orderBy('__name__').limit(200);
-  const snapshot = await query.get();
-  if (snapshot.size === 200) throw new Error(`PROMOTION: target Course ${courseId} exceeds the CourseDay safety bound`);
-  return snapshot.docs.map((doc) => normalizeFirestoreDocument(doc.data() as Record<string, unknown>) as Record<string, unknown>);
+  return { documents, mediaHashes, mediaVersions, mediaUrlReady };
 }
 
 async function assertDocumentPrecondition(
   operation: PromotionOperation,
-  manifest: ConfigPromotionManifest,
   firestore: Firestore
 ): Promise<void> {
-  let precondition: unknown;
-  if (operation.kind === 'instructor') {
-    const mapping = manifest.mappings.instructors.find((entry) => entry.logicalKey === operation.logicalKey);
-    if (!mapping?.productionAccountId) throw new Error('PROMOTION: instructor mapping is incomplete');
-    const [instructor, account] = await Promise.all([
-      getNormalizedDocument(firestore, operation.targetPath),
-      getNormalizedDocument(firestore, `users/${mapping.productionAccountId}`),
-    ]);
-    precondition = { instructor: instructor ?? null, account: account ?? null };
-  } else if (operation.kind === 'instructor_link') {
-    const mapping = manifest.mappings.instructors.find((entry) => entry.logicalKey === operation.logicalKey);
-    if (!mapping?.productionAccountId) throw new Error('PROMOTION: instructor link mapping is incomplete');
-    const [instructor, account] = await Promise.all([
-      getNormalizedDocument(firestore, operation.targetPath),
-      getNormalizedDocument(firestore, `users/${mapping.productionAccountId}`),
-    ]);
-    precondition = { instructor: instructor ?? null, account: account ?? null };
-  } else if (operation.kind === 'course') {
-    const course = await getNormalizedDocument(firestore, operation.targetPath);
-    if (operation.status === 'CREATE' && course) throw new Error(`PROMOTION: Course create precondition changed at ${operation.targetPath}`);
-    const courseId = operation.targetPath.slice('courses/'.length);
-    const days = await readTargetDays(firestore, courseId);
-    precondition = { course: course ?? null, days };
-  } else {
-    const current = await getNormalizedDocument(firestore, operation.targetPath);
-    precondition = current ?? null;
-  }
-  if (stableHash(precondition) !== operation.targetPreconditionHash) {
+  const current = await getNormalizedDocument(firestore, operation.targetPath);
+  if (stableHash(current ?? null) !== operation.targetPreconditionHash) {
     throw new Error(`PROMOTION: target changed after planning at ${operation.targetPath}; regenerate the dry-run`);
   }
-}
-
-function mutationGroupKey(operation: PromotionOperation): string {
-  if (operation.kind === 'instructor' || operation.kind === 'instructor_link') {
-    return `instructor:${operation.logicalKey}`;
-  }
-  return `${operation.kind}:${operation.targetPath}`;
 }
 
 async function assertMediaPrecondition(operation: PromotionOperation, bucket: Bucket): Promise<void> {
@@ -446,9 +349,8 @@ async function getNormalizedDocument(firestore: Firestore, path: string): Promis
 
 async function executeOperation(input: {
   readonly operation: PromotionOperation;
-  readonly record?: PromotionSourceDocument;
+  readonly record: PromotionSourceDocument;
   readonly payload: unknown;
-  readonly manifest: ConfigPromotionManifest;
   readonly firestore: Firestore;
   readonly commands: ReturnType<typeof createProductionCanonicalCommands>;
   readonly adminAccountId: string;
@@ -464,53 +366,8 @@ async function executeOperation(input: {
     source: 'admin_callable' as const,
   };
   const payload = input.payload as Record<string, unknown>;
-  let result: { status: string } | undefined;
 
-  if (record?.kind === 'instructor' && operation.kind === 'instructor') {
-    const instructorId = InstructorIdSchema.parse(operation.targetPath.slice('instructors/'.length));
-    const raw = await getNormalizedDocument(input.firestore, operation.targetPath);
-    if (!raw) throw new Error(`PROMOTION: production Instructor disappeared at ${operation.targetPath}`);
-    const envelope = {
-      kind: 'update_instructor_catalog_profile',
-      context: { ...commandContext, expectedRevision: AggregateRevisionSchema.parse(Number(raw.revision ?? 0)) },
-      intent: { instructorId, ...payload, reasonExplanation: APPLY_REASON },
-    } as CommandEnvelope<'update_instructor_catalog_profile'>;
-    result = await input.commands.execute(envelope);
-  } else if (operation.kind === 'instructor_link') {
-    const mapping = input.manifest.mappings.instructors.find((entry) => entry.logicalKey === operation.logicalKey);
-    if (!mapping?.productionAccountId || !mapping.productionInstructorId) {
-      throw new Error('PROMOTION: instructor link mapping is incomplete');
-    }
-    const accountId = AccountIdSchema.parse(mapping.productionAccountId);
-    const instructorId = InstructorIdSchema.parse(mapping.productionInstructorId);
-    const account = parseAccount(await getNormalizedDocument(input.firestore, `users/${accountId}`));
-    if (!account) throw new Error('PROMOTION: mapped production Account disappeared before instructor linkage');
-    const envelope = {
-      kind: 'link_account_instructor_catalog',
-      context: { ...commandContext, expectedRevision: AggregateRevisionSchema.parse(account.revision) },
-      intent: { accountId, instructorId, reasonExplanation: APPLY_REASON },
-    } as CommandEnvelope<'link_account_instructor_catalog'>;
-    result = await input.commands.execute(envelope);
-  } else if (record?.kind === 'course' && operation.kind === 'course') {
-    const courseId = CourseIdSchema.parse(operation.targetPath.slice('courses/'.length));
-    const courseManifest = mapCourseManifestForApply(record.payload as CourseProvisioningManifest, courseId, input.manifest);
-    const envelope = {
-      kind: 'apply_canonical_course_provisioning_manifest',
-      context: commandContext,
-      intent: { manifest: courseManifest, dryRun: false, createOnly: true },
-    } as CommandEnvelope<'apply_canonical_course_provisioning_manifest'>;
-    result = await input.commands.execute(envelope);
-  } else if (record?.kind === 'course_catalog_content' && operation.kind === 'course_catalog_content') {
-    const courseId = CourseIdSchema.parse(operation.targetPath.slice('course_catalog_content/'.length));
-    const current = await getNormalizedDocument(input.firestore, operation.targetPath);
-    const parsed = parseCourseCatalogContent(current, courseId);
-    const envelope = {
-      kind: 'update_course_catalog_content',
-      context: { ...commandContext, expectedRevision: AggregateRevisionSchema.parse(parsed?.revision ?? 0) },
-      intent: { courseId, content: payload, reasonExplanation: APPLY_REASON },
-    } as CommandEnvelope<'update_course_catalog_content'>;
-    result = await input.commands.execute(envelope);
-  } else if (record?.kind === 'lesson_pricing_settings') {
+  if (record.kind === 'lesson_pricing_settings') {
     const current = await getNormalizedDocument(input.firestore, operation.targetPath);
     const settings = parseLessonPricingSettings(current);
     const envelope = {
@@ -518,37 +375,14 @@ async function executeOperation(input: {
       context: { ...commandContext, expectedRevision: AggregateRevisionSchema.parse(settings?.revision ?? 0) },
       intent: { ...payload, reasonExplanation: APPLY_REASON },
     } as CommandEnvelope<'update_lesson_pricing_settings'>;
-    result = await input.commands.execute(envelope);
-  } else {
-    if (!record) throw new Error(`PROMOTION: source record not found for ${operation.operationId}`);
-    await writeAllowlistedConfigWithPrecondition(input.firestore, operation, record.kind, payload);
+    const result = await input.commands.execute(envelope);
+    if (result.status !== 'success') {
+      throw new Error(`PROMOTION: canonical operation failed at ${operation.targetPath}`);
+    }
     return;
   }
-  if (!result || result.status !== 'success') {
-    throw new Error(`PROMOTION: canonical operation failed at ${operation.targetPath}`);
-  }
-}
 
-function mapCourseManifestForApply(
-  source: CourseProvisioningManifest,
-  targetCourseId: string,
-  manifest: ConfigPromotionManifest
-): CourseProvisioningManifest {
-  const mapInstructorId = (sourceId: string): string | undefined =>
-    manifest.mappings.instructors.find((entry) => entry.stagingInstructorId === sourceId)?.productionInstructorId;
-  const instructorRosterIds = source.instructorRosterIds.map(mapInstructorId);
-  const days = source.days.map((day) => ({ ...day, instructorId: mapInstructorId(day.instructorId) }));
-  if (instructorRosterIds.some((id) => !id) || days.some((day) => !day.instructorId)) {
-    throw new Error(`PROMOTION: production instructor mapping is incomplete for Course ${targetCourseId}`);
-  }
-  const mapped = {
-    ...source,
-    courseId: CourseIdSchema.parse(targetCourseId),
-    instructorRosterIds,
-    days,
-  };
-  const cleaned = Object.fromEntries(Object.entries(mapped).filter(([, value]) => value !== undefined));
-  return CourseProvisioningManifestSchema.parse(cleaned);
+  await writeAllowlistedConfigWithPrecondition(input.firestore, operation, record.kind, payload);
 }
 
 async function writeAllowlistedConfigWithPrecondition(
@@ -579,7 +413,7 @@ function findSourceRecordForOperation(
   manifest: ConfigPromotionManifest,
   operation: PromotionOperation
 ): PromotionSourceDocument | undefined {
-  if (operation.kind === 'media' || operation.kind === 'instructor_link') return undefined;
+  if (operation.kind === 'media') return undefined;
   return manifest.sourceDocuments.find((record) => record.kind === operation.kind && record.logicalKey === operation.logicalKey);
 }
 
@@ -657,7 +491,8 @@ function stableHashBytes(bytes: Buffer): string {
   return createHash('sha256').update(bytes).digest('hex');
 }
 
-function isTestRecord(raw: Record<string, unknown>): boolean {
+function isTestRecord(raw: Record<string, unknown> | undefined): boolean {
+  if (!raw) return true;
   if (raw.testSessionId !== undefined) return true;
   try {
     return parsePersistedCanonicalScope(raw, { allowLegacyLive: true }).dataScope !== 'live';

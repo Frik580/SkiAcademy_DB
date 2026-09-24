@@ -1897,6 +1897,11 @@ function linkInstructorCatalogHandler(
         assertAccountActive(envelope, parsed);
         targetAccount = parsed!;
         targetProfile = targetRead.data;
+        // users/{accountId} is outside the transaction scope stamp. Linking is a
+        // LIVE identity binding, so a non-LIVE Account — including a persistent
+        // TestActor — must not become the linked Instructor. This check is
+        // independent of staging promotion. TEST execution of this command stays
+        // deferred at the command router (T42B-8_DEFERRED).
         assertTestMutableSubjectScope({
           correlationId: envelope.context.correlationId,
           scope: session.scope,

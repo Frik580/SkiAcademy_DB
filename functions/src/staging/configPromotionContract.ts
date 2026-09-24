@@ -1,11 +1,6 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import {
-  CourseCatalogContentInputSchema,
-  CourseProvisioningManifestSchema,
-  CourseIdSchema,
-  InstructorIdSchema,
-  AccountIdSchema,
   LESSON_PRICING_SETTINGS_ID,
   KztMinorUnitsSchema,
   canonicalJsonStringify,
@@ -13,8 +8,7 @@ import {
 
 export const STAGING_PROJECT_ID = 'ski-school-staging' as const;
 export const PRODUCTION_PROJECT_ID = 'ski-school-8f3ca' as const;
-export const PROMOTION_MANIFEST_VERSION = 1 as const;
-export const PROMOTION_PAGE_SIZE = 200;
+export const PROMOTION_MANIFEST_VERSION = 2 as const;
 export const PROMOTION_MEDIA_MAX_BYTES = 8 * 1024 * 1024;
 
 const LogicalConfigKeySchema = z.string().trim().min(1).max(96).regex(/^[A-Za-z0-9][A-Za-z0-9._:-]*$/);
@@ -24,25 +18,13 @@ const mediaPlaceholder = (mediaKey: string) => `promotion-media://${mediaKey}`;
 const MediaReferenceSchema = z
   .object({
     mediaKey: LogicalConfigKeySchema,
-    ownerKind: z.enum(['course', 'instructor', 'resort']),
+    ownerKind: z.literal('resort'),
     ownerLogicalKey: LogicalConfigKeySchema,
     fieldPath: z.string().min(1).max(256),
     sourceBucket: z.string().min(1).max(255),
     sourceObjectPath: z.string().min(1).max(1024),
     sha256: hashSchema,
     contentType: z.string().min(1).max(128),
-  })
-  .strict();
-
-const InstructorProfileSchema = z
-  .object({
-    name: z.string().trim().min(1).max(200),
-    specialty: z.enum(['ski', 'snowboard', 'both']).optional(),
-    languages: z.array(z.string().trim().min(1).max(32)).max(16).optional(),
-    experienceYears: z.number().int().min(0).max(80).optional(),
-    bio: z.string().trim().max(4000).optional(),
-    avatarUrl: z.string().trim().min(1).max(2000).optional(),
-    pricePerHourKZT: KztMinorUnitsSchema,
   })
   .strict();
 
@@ -132,38 +114,14 @@ const ResortSlidesSchema = z
   })
   .strict();
 
+const LessonPricingPayloadSchema = z
+  .object({
+    additionalParticipantSurchargePerHourKzt: KztMinorUnitsSchema,
+    maxParticipantsPerLesson: z.number().finite().int().min(1).max(Number.MAX_SAFE_INTEGER),
+  })
+  .strict();
+
 const SourceDocumentSchema = z.discriminatedUnion('kind', [
-  z.object({
-    kind: z.literal('instructor'),
-    logicalKey: LogicalConfigKeySchema,
-    sourcePath: z.string().regex(/^instructors\/[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/),
-    sourceId: InstructorIdSchema,
-    selected: z.boolean(),
-    sourceHash: hashSchema,
-    payload: z.unknown(),
-    issues: z.array(z.string().max(160)).optional(),
-  }).strict(),
-  z.object({
-    kind: z.literal('course'),
-    logicalKey: LogicalConfigKeySchema,
-    sourcePath: z.string().regex(/^courses\/[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/),
-    sourceId: CourseIdSchema,
-    sourceDayPaths: z.array(z.string().regex(/^courses\/[A-Za-z0-9][A-Za-z0-9_-]{0,127}\/days\/[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/)),
-    selected: z.boolean(),
-    sourceHash: hashSchema,
-    payload: z.unknown(),
-    issues: z.array(z.string().max(160)).optional(),
-  }).strict(),
-  z.object({
-    kind: z.literal('course_catalog_content'),
-    logicalKey: LogicalConfigKeySchema,
-    sourcePath: z.string().regex(/^course_catalog_content\/[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/),
-    sourceId: CourseIdSchema,
-    selected: z.boolean(),
-    sourceHash: hashSchema,
-    payload: z.unknown(),
-    issues: z.array(z.string().max(160)).optional(),
-  }).strict(),
   z.object({
     kind: z.literal('lesson_pricing_settings'),
     logicalKey: z.literal('lesson_booking'),
@@ -222,25 +180,6 @@ const ManifestSchema = z
     sourceProjectId: z.string().min(1),
     exportedAt: z.string().datetime({ offset: true }),
     sourceDocuments: z.array(SourceDocumentSchema),
-    mappings: z
-      .object({
-        instructors: z.array(
-          z.object({
-            logicalKey: LogicalConfigKeySchema,
-            stagingInstructorId: InstructorIdSchema,
-            productionInstructorId: InstructorIdSchema.optional(),
-            productionAccountId: AccountIdSchema.optional(),
-          }).strict()
-        ),
-        courses: z.array(
-          z.object({
-            logicalKey: LogicalConfigKeySchema,
-            stagingCourseId: CourseIdSchema,
-            productionCourseId: CourseIdSchema.optional(),
-          }).strict()
-        ),
-      })
-      .strict(),
     media: z.array(MediaReferenceSchema),
     excludedSummary: z
       .object({
@@ -260,7 +199,7 @@ export type PromotionStatus = 'CREATE' | 'UPDATE' | 'UNCHANGED' | 'CONFLICT' | '
 
 export interface PromotionOperation {
   readonly operationId: string;
-  readonly kind: PromotionSourceDocument['kind'] | 'instructor_link' | 'media';
+  readonly kind: PromotionSourceDocument['kind'] | 'media';
   readonly logicalKey: string;
   readonly targetPath: string;
   readonly status: PromotionStatus;
@@ -284,97 +223,71 @@ export function expectedSourceHash(
 }
 
 export function parsePromotionManifest(value: unknown): ConfigPromotionManifest {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('PROMOTION: manifest is not an object');
+  }
+  const record = value as Record<string, unknown>;
+  if (record.schemaVersion !== PROMOTION_MANIFEST_VERSION) {
+    throw new Error(
+      `PROMOTION: unsupported manifest schemaVersion ${String(record.schemaVersion)}; expected ${PROMOTION_MANIFEST_VERSION}. Re-export global configuration. Older business-entity promotion manifests are not accepted.`
+    );
+  }
+  if ('mappings' in record) {
+    throw new Error('PROMOTION: business-entity mappings are not part of the global configuration manifest');
+  }
   const manifest = ManifestSchema.parse(value);
   if (manifest.sourceProjectId !== STAGING_PROJECT_ID) {
     throw new Error(`PROMOTION: manifest source must be ${STAGING_PROJECT_ID}`);
   }
   const paths = new Set<string>();
   const logicalKeys = new Set<string>();
-  for (const record of manifest.sourceDocuments) {
-    if (paths.has(record.sourcePath)) throw new Error(`PROMOTION: duplicate source path ${record.sourcePath}`);
-    paths.add(record.sourcePath);
-    if (record.kind === 'instructor' || record.kind === 'course' || record.kind === 'course_catalog_content') {
-      if (record.sourcePath.split('/').at(-1) !== record.sourceId) {
-        throw new Error(`PROMOTION: source id does not match path ${record.sourcePath}`);
-      }
-      if (record.kind === 'course' && record.sourceDayPaths.some((path) => !path.startsWith(`${record.sourcePath}/days/`))) {
-        throw new Error(`PROMOTION: CourseDay source paths do not match Course ${record.sourcePath}`);
-      }
+  for (const sourceDocument of manifest.sourceDocuments) {
+    if (paths.has(sourceDocument.sourcePath)) {
+      throw new Error(`PROMOTION: duplicate source path ${sourceDocument.sourcePath}`);
     }
-    if (logicalKeys.has(`${record.kind}:${record.logicalKey}`)) {
-      throw new Error(`PROMOTION: duplicate logical key ${record.kind}:${record.logicalKey}`);
+    paths.add(sourceDocument.sourcePath);
+    if (logicalKeys.has(`${sourceDocument.kind}:${sourceDocument.logicalKey}`)) {
+      throw new Error(`PROMOTION: duplicate logical key ${sourceDocument.kind}:${sourceDocument.logicalKey}`);
     }
-    logicalKeys.add(`${record.kind}:${record.logicalKey}`);
-    if (expectedSourceHash(record) !== record.sourceHash) {
-      throw new Error(`PROMOTION: source payload hash mismatch at ${record.sourcePath}`);
+    logicalKeys.add(`${sourceDocument.kind}:${sourceDocument.logicalKey}`);
+    if (expectedSourceHash(sourceDocument) !== sourceDocument.sourceHash) {
+      throw new Error(`PROMOTION: source payload hash mismatch at ${sourceDocument.sourcePath}`);
     }
-    if (!record.issues?.length) validateSourcePayload(record);
-    else assertAllowedPublicImageReferences(record);
+    if (!sourceDocument.issues?.length) validateSourcePayload(sourceDocument);
+    else assertAllowedPublicImageReferences(sourceDocument);
   }
   assertNoSecretOrRuntimeFields(manifest);
-  for (const mapping of manifest.mappings.instructors) {
-    const record = manifest.sourceDocuments.find((item) => item.kind === 'instructor' && item.sourceId === mapping.stagingInstructorId);
-    if (!record || record.logicalKey !== mapping.logicalKey) {
-      throw new Error(`PROMOTION: instructor mapping does not match its source logical key: ${mapping.logicalKey}`);
-    }
-  }
-  for (const mapping of manifest.mappings.courses) {
-    const record = manifest.sourceDocuments.find((item) => item.kind === 'course' && item.sourceId === mapping.stagingCourseId);
-    if (!record || record.logicalKey !== mapping.logicalKey) {
-      throw new Error(`PROMOTION: Course mapping does not match its source logical key: ${mapping.logicalKey}`);
-    }
-  }
-  assertUnique(manifest.mappings.instructors.map((entry) => entry.stagingInstructorId), 'instructor source mapping');
-  assertUnique(manifest.mappings.instructors.flatMap((entry) => entry.productionInstructorId ? [entry.productionInstructorId] : []), 'production instructor mapping');
-  assertUnique(manifest.mappings.instructors.flatMap((entry) => entry.productionAccountId ? [entry.productionAccountId] : []), 'production Account mapping');
-  assertUnique(manifest.mappings.courses.map((entry) => entry.stagingCourseId), 'course source mapping');
-  assertUnique(manifest.mappings.courses.map((entry) => entry.productionCourseId ?? entry.stagingCourseId), 'production course mapping');
   const mediaKeys = new Set<string>();
   for (const media of manifest.media) {
     if (mediaKeys.has(media.mediaKey)) throw new Error(`PROMOTION: duplicate media key ${media.mediaKey}`);
     mediaKeys.add(media.mediaKey);
-    const owner = manifest.sourceDocuments.find((record) => record.logicalKey === media.ownerLogicalKey);
-    if (!owner) throw new Error(`PROMOTION: media owner is missing: ${media.mediaKey}`);
-    const allowedField =
-      (media.ownerKind === 'instructor' && owner.kind === 'instructor' && media.fieldPath === 'avatarUrl') ||
-      (media.ownerKind === 'course' && owner.kind === 'course_catalog_content' && media.fieldPath === 'bgImageUrl') ||
-      (media.ownerKind === 'resort' && owner.kind === 'resort_slides' && /^slides\.\d+\.backgroundImage$/.test(media.fieldPath));
-    if (!allowedField) throw new Error(`PROMOTION: media field is outside the promotion allowlist: ${media.fieldPath}`);
-    const expectedObjectPath = media.ownerKind === 'instructor'
-      ? `instructors/${owner.sourceId}.jpg`
-      : media.ownerKind === 'course'
-        ? `courses/${owner.sourceId}.webp`
-        : undefined;
-    if (expectedObjectPath && media.sourceObjectPath !== expectedObjectPath) {
-      throw new Error(`PROMOTION: media object is outside the source allowlist: ${media.mediaKey}`);
+    const owner = manifest.sourceDocuments.find((item) => item.logicalKey === media.ownerLogicalKey);
+    if (!owner || owner.kind !== 'resort_slides') {
+      throw new Error(`PROMOTION: media owner is missing: ${media.mediaKey}`);
     }
-    if (media.ownerKind === 'resort' && !/^banners\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.(?:png|jpe?g|webp)$/i.test(media.sourceObjectPath)) {
+    if (!/^slides\.\d+\.backgroundImage$/.test(media.fieldPath)) {
+      throw new Error(`PROMOTION: media field is outside the promotion allowlist: ${media.fieldPath}`);
+    }
+    if (!/^banners\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.(?:png|jpe?g|webp)$/i.test(media.sourceObjectPath)) {
       throw new Error(`PROMOTION: banner object is outside the source allowlist: ${media.mediaKey}`);
     }
     const allowedContentType = new Set(['image/jpeg', 'image/png', 'image/webp']);
-    if (!allowedContentType.has(media.contentType)) throw new Error(`PROMOTION: unsupported media content type: ${media.mediaKey}`);
-    if (expectedObjectPath?.endsWith('.webp') && media.contentType !== 'image/webp') {
-      throw new Error(`PROMOTION: course media content type does not match its path: ${media.mediaKey}`);
+    if (!allowedContentType.has(media.contentType)) {
+      throw new Error(`PROMOTION: unsupported media content type: ${media.mediaKey}`);
     }
-    if (expectedObjectPath?.endsWith('.jpg') && media.contentType !== 'image/jpeg') {
-      throw new Error(`PROMOTION: instructor media content type does not match its path: ${media.mediaKey}`);
-    }
-    if (media.ownerKind === 'resort') {
-      const extension = media.contentType === 'image/jpeg' ? 'jpg' : media.contentType.split('/')[1];
-      if (!media.sourceObjectPath.toLowerCase().endsWith(`.${extension}`)) {
-        throw new Error(`PROMOTION: banner media content type does not match its path: ${media.mediaKey}`);
-      }
+    const extension = media.contentType === 'image/jpeg' ? 'jpg' : media.contentType.split('/')[1];
+    if (!media.sourceObjectPath.toLowerCase().endsWith(`.${extension}`)) {
+      throw new Error(`PROMOTION: banner media content type does not match its path: ${media.mediaKey}`);
     }
   }
   const referencedMediaKeys = new Set<string>();
-  for (const record of manifest.sourceDocuments) {
-    for (const entry of findMediaPlaceholderEntries(record.payload)) {
-      const ref = entry.mediaKey;
-      if (!mediaKeys.has(ref)) throw new Error(`PROMOTION: missing media reference ${ref}`);
-      const media = manifest.media.find((item) => item.mediaKey === ref)!;
-      referencedMediaKeys.add(ref);
-      if (media.ownerLogicalKey !== record.logicalKey || media.fieldPath !== entry.fieldPath) {
-        throw new Error(`PROMOTION: media reference does not match its field: ${record.sourcePath}`);
+  for (const sourceDocument of manifest.sourceDocuments) {
+    for (const entry of findMediaPlaceholderEntries(sourceDocument.payload)) {
+      if (!mediaKeys.has(entry.mediaKey)) throw new Error(`PROMOTION: missing media reference ${entry.mediaKey}`);
+      const media = manifest.media.find((item) => item.mediaKey === entry.mediaKey)!;
+      referencedMediaKeys.add(entry.mediaKey);
+      if (media.ownerLogicalKey !== sourceDocument.logicalKey || media.fieldPath !== entry.fieldPath) {
+        throw new Error(`PROMOTION: media reference does not match its field: ${sourceDocument.sourcePath}`);
       }
     }
   }
@@ -404,17 +317,8 @@ function assertNoSecretOrRuntimeFields(value: unknown): void {
 export function validateSourcePayload(record: PromotionSourceDocument): void {
   const schema = (() => {
     switch (record.kind) {
-      case 'instructor':
-        return InstructorProfileSchema;
-      case 'course':
-        return CourseProvisioningManifestSchema;
-      case 'course_catalog_content':
-        return CourseCatalogContentInputSchema;
       case 'lesson_pricing_settings':
-        return z.object({
-          additionalParticipantSurchargePerHourKzt: KztMinorUnitsSchema,
-          maxParticipantsPerLesson: z.number().finite().int().min(1).max(Number.MAX_SAFE_INTEGER),
-        }).strict();
+        return LessonPricingPayloadSchema;
       case 'skill_config':
         return SkillConfigSchema;
       case 'achievements_config':
@@ -430,6 +334,7 @@ export function validateSourcePayload(record: PromotionSourceDocument): void {
 }
 
 function assertAllowedPublicImageReferences(record: PromotionSourceDocument): void {
+  if (record.kind !== 'resort_slides') return;
   const allowed = (value: unknown): boolean => {
     if (typeof value !== 'string') return false;
     if (value === 'unsupported-media-reference') return Boolean(record.issues?.length);
@@ -443,25 +348,10 @@ function assertAllowedPublicImageReferences(record: PromotionSourceDocument): vo
     }
   };
   const payload = record.payload as Record<string, unknown>;
-  if (record.kind === 'instructor' && payload.avatarUrl !== undefined && !allowed(payload.avatarUrl)) {
-    throw new Error(`PROMOTION: instructor image reference is not public/allowlisted at ${record.sourcePath}`);
-  }
-  if (record.kind === 'course_catalog_content') {
-    if (!allowed(payload.bgImageUrl)) {
-      throw new Error(`PROMOTION: course image reference is not public/allowlisted at ${record.sourcePath}`);
-    }
-    if (Array.isArray(payload.galleryPhotos) && payload.galleryPhotos.some((value) => !allowed(value))) {
-      throw new Error(`PROMOTION: gallery image reference is not public/allowlisted at ${record.sourcePath}`);
-    }
-  }
-  if (record.kind === 'resort_slides' && Array.isArray(payload.slides) && payload.slides.some((slide) =>
+  if (Array.isArray(payload.slides) && payload.slides.some((slide) =>
     !slide || typeof slide !== 'object' || !allowed((slide as Record<string, unknown>).backgroundImage))) {
     throw new Error(`PROMOTION: banner image reference is not public/allowlisted at ${record.sourcePath}`);
   }
-}
-
-function assertUnique(values: readonly string[], label: string): void {
-  if (new Set(values).size !== values.length) throw new Error(`PROMOTION: duplicate ${label}`);
 }
 
 export function findMediaPlaceholders(value: unknown): string[] {
@@ -501,19 +391,6 @@ function findMediaPlaceholderEntries(value: unknown): Array<{ mediaKey: string; 
 
 export function mediaPlaceholderUrl(mediaKey: string): string {
   return mediaPlaceholder(mediaKey);
-}
-
-export function classifyPromotionStatus(input: {
-  readonly sourceExists: boolean;
-  readonly targetExists: boolean;
-  readonly sourceHash: string;
-  readonly targetHash?: string;
-  readonly conflictReason?: string;
-}): PromotionStatus {
-  if (input.conflictReason) return 'CONFLICT';
-  if (!input.sourceExists) return 'SKIP';
-  if (!input.targetExists) return 'CREATE';
-  return input.sourceHash === input.targetHash ? 'UNCHANGED' : 'UPDATE';
 }
 
 export function changedFields(

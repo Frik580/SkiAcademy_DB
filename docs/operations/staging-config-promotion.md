@@ -1,66 +1,57 @@
 # Staging configuration promotion
 
-Staging (`ski-school-staging`) is the configuration authoring environment. Production (`ski-school-8f3ca`) receives reviewed, selected configuration through a local manifest. Export and dry-run are read-only. Applying requires `--apply`, fresh source data, a conflict-free plan, an active production administrator Account, and per-operation target preconditions.
+Staging (`ski-school-staging`) is a pre-production test environment. Production (`ski-school-8f3ca`) is where real business entities are created.
+
+Real Accounts, Auth users, Instructors, Courses, CourseDays, and schedules are created directly in production through the normal Admin and canonical workflows. They are not copied between Firebase projects. Cross-project Auth identity, independent entity lifecycles, and the risk of mutating production identity or schedules are why those records stay out of promotion.
+
+Use staging to test new code, synthetic or temporary Instructors and Courses, and booking, payment, attendance, and admin workflows. Smoke fixtures and the real staging Google owner are not configuration-promotion inputs.
 
 ## Commands
 
 ```powershell
 npm run staging:export-config
-# Review .staging-export/config-manifest.json. Set selected=false for entries that should not move.
-# Fill productionInstructorId and productionAccountId for every selected instructor mapping.
-# Fill productionCourseId only when a Course must use a different production ID.
-$env:CONFIG_PROMOTION_ADMIN_ACCOUNT_ID = '<production-admin-account-id>'
+# Review .staging-export/config-manifest.json. Set selected=false for a global document that should not move.
 npm run prod:promote-config -- --manifest .staging-export/config-manifest.json --dry-run
+$env:CONFIG_PROMOTION_ADMIN_ACCOUNT_ID = '<production-admin-account-id>'
 npm run prod:promote-config -- --manifest .staging-export/config-manifest.json --apply
 ```
 
-The export writes only to `.staging-export/`, which is ignored by Git. Do not edit source payloads or hashes to force a promotion: promotion re-exports staging and rejects a stale or altered payload. Operator-controlled logical keys, selection flags, and destination mappings are editable. The exporter creates an instructor slot as `stagingInstructorId -> productionInstructorId + productionAccountId` and a Course slot as `stagingCourseId -> optional productionCourseId`.
+The export writes only to `.staging-export/`, which is ignored by Git. Manifest `schemaVersion` is `2`. Older business-entity manifests are rejected; re-export instead of editing one. Do not edit source payloads or hashes. `selected` may be changed before dry-run. Promotion re-exports staging and rejects a stale or altered payload.
 
-The source and target project IDs are pinned in code and checked against the explicit CLI project, Admin app project, and ambient Firebase project settings. Conflicting IDs and emulator routing are rejected. When selected Firebase media exists, configure `CONFIG_PROMOTION_STAGING_STORAGE_BUCKET` and `CONFIG_PROMOTION_PRODUCTION_STORAGE_BUCKET` to that project's default Firebase Storage bucket (`<project>.appspot.com` or `<project>.firebasestorage.app`). No Firebase Auth API is created or called.
+The source and target project IDs are pinned in code and checked against the explicit CLI project, Admin app project, and ambient Firebase project settings. Conflicting IDs and emulator routing are rejected. When selected banner media exists, configure `CONFIG_PROMOTION_STAGING_STORAGE_BUCKET` and `CONFIG_PROMOTION_PRODUCTION_STORAGE_BUCKET` to that project's default Firebase Storage bucket (`<project>.appspot.com` or `<project>.firebasestorage.app`). No Firebase Auth API is created or called.
 
 ## Promotable configuration
 
-Only the following payload fields can enter the manifest:
+Only these project-global documents can enter the manifest:
 
-- `instructors/{id}` public catalog profile: `name`, `specialty`, `languages`, `experienceYears`, `bio`, `avatarUrl`, `pricePerHourKZT`.
-- A selected active `courses/{id}` and its `days` form a provisioning input: title, KZT price, total seats, instructor roster, time zone, local day/date/time/duration, and CourseDay IDs. `availableSeats`, enrollments, and runtime metadata are excluded. A new production Course uses `seed_full` capacity.
-- `course_catalog_content/{id}` presentation: `duration`, `description`, `dates`, `bgImageUrl`, `isHidden`, `order`, `titleRu`, `shortDescription`, `shortDescriptionRu`, `detailedDescription`, `detailedDescriptionRu`, `badge`, `badgeRu`, `level`, `levelLabel`, `videoUrl`, `benefits`, `benefitsRu`, `program`, `programRu`, `faq`, `faqRu`, and `galleryPhotos`.
 - `lesson_pricing_settings/lesson_booking`: `additionalParticipantSurchargePerHourKzt`, `maxParticipantsPerLesson`.
 - `settings/skill_config`: `passPercentage` and the explicitly shaped catalog `items`.
 - `settings/achievements_config`: the explicitly shaped achievement `items`.
 - `settings/instructor_filters`: `enabled`.
 - `resort_data/config`: `slides`, `slideIntervalSeconds`, and `slidesRandomOrder` only.
 
-An existing production Course is never updated by this pipeline. Any core Course or CourseDay difference, including schedule, capacity, CourseDay addition/removal, or instructor assignment, is `CONFLICT`; use the separate future Course-change workflow. Presentation content remains independent in `course_catalog_content` and may be created or updated when its production Course exists or is planned for canonical creation. Absence from staging never deletes production data.
+Resort geography, names, lift status, currency, and `resort_data/cache` are not promoted. `settings/starter_credit` and `settings/notification_retention` are real global documents and stay outside this pipeline: starter credit is a financial policy, and notification retention was not added to the allowlist.
 
-## Identity and canonical writes
+Absence of a staging document never deletes the production document. Unknown production fields on an allowlisted document are preserved. Lesson pricing is written by canonical `update_lesson_pricing_settings`. The other allowlisted documents are merged in a transaction that rechecks the target document hash.
 
-Instructor mappings are mandatory. The target Instructor and production Account must already exist, be active, parse as their canonical records, and be compatible with each other. Missing mappings or missing production identity bootstrap are `CONFLICT`. A supplied production Account ID is rejected if that document exists in staging or equals the staging Instructor's linked Account ID.
+## Not promoted
 
-The manifest does not export `linkedAccountId`, any Account ID/Auth UID from staging, ratings, review counters, revisions, or audit fields. Instructor linkage is performed only by canonical `link_account_instructor_catalog`; the public profile is changed only by canonical `update_instructor_catalog_profile`. Course presentation, lesson pricing, and new Courses use their canonical commands. There is no Auth creation.
+The exporter does not read Instructors, Courses, CourseDays, or `course_catalog_content`. Their presence or absence does not change the manifest. It also never reads payload documents from Accounts/users, Participants, bookings, proposals/change requests, enrollments, Attendance, payments, wallets, monetary events, provider receipts, reviews, notifications, chats/messages, AdminIssues, activity logs, domain outbox, command idempotency, test sessions/actors, admin runtime revisions, availability blocks, resource claims/guards, or derived caches. It emits aggregate counts for those excluded collections and reads no excluded payloads.
 
-New Courses use canonical `apply_canonical_course_provisioning_manifest` with a transactional `createOnly` precondition. The command creates production CourseDays and derives resource claims/guards in production. Existing Course resources are never copied. Canonical commands may create their own production audit/outbox/idempotency and admin revision effects; those are newly derived production effects, not imported staging runtime documents.
+There is no Instructor or Course ID mapping, no `productionAccountId`, and no canonical Instructor link or Course provisioning in this pipeline. `createOnly` was removed from `apply_canonical_course_provisioning_manifest` because nothing but Course promotion used it.
 
-The settings documents without a canonical write command are written through a Firestore transaction that rechecks the exact target document hash and merges only the allowlisted fields. Unknown fields are preserved.
+`link_account_instructor_catalog` still checks that the target Account matches the execution scope. `users` is outside the transaction scope stamp, so this is the canonical check that a non-LIVE Account cannot be bound to an Instructor. TEST execution of that command remains deferred. The check is independent of promotion.
 
 ## Media
 
-Validated public `https://storage.yandexcloud.net/carve/...` URLs are preserved as URL references, without query strings or fragments. Firebase binaries are eligible only for:
+Validated public `https://storage.yandexcloud.net/carve/...` URLs on resort slides are preserved, without query strings or fragments. Firebase binaries are eligible only for flat `banners/{filename}.{png|jpg|jpeg|webp}` references in resort slides. The source bucket, object path, content hash, and content type are recorded. Firebase download tokens are never put in the manifest. During apply, bytes are re-read and hash-checked, then written with a Storage generation precondition to a content-addressed `promotion-assets/config/` path. The slide reference is rewritten to that production object.
 
-- `courses/{stagingCourseId}.webp` used as the course catalog cover;
-- `instructors/{stagingInstructorId}.jpg` used as the Instructor avatar;
-- flat `banners/{filename}.{png|jpg|jpeg|webp}` references in resort slides.
-
-The source bucket and object path, content hash, and content type are recorded; Firebase download tokens are never put in the manifest. During apply, bytes are re-read and hash-checked, then written with a Storage generation precondition. Course and Instructor media are rewritten to their production ID paths. Banner media uses a content-addressed production path. `image-cache`, `resort_data/cache`, customer/private media, and any unrecognized Storage path are excluded or reported as `CONFLICT`.
-
-## Never promoted
-
-The exporter never reads payload documents from Accounts/users, Participants, bookings, proposals/change requests, enrollments, Attendance, payments, wallets, monetary events, provider receipts, reviews, notifications, chats/messages, AdminIssues, activity logs, domain outbox, command idempotency, test sessions/actors, admin runtime revisions, availability blocks, resource claims/guards, or derived caches. It emits aggregate counts for explicit excluded collections and reads no excluded payloads. `settings/starter_credit` is outside the exporter and requires a separate financial/business-policy workflow.
-
-Staging fixture ownership is honored by exact `ownedFirestorePaths`; TEST scope and `testSessionId` records are excluded. The fixture seed model itself is unchanged in this implementation. Existing synthetic admin/instructor/parent/participant/wallet/Course fixtures remain owned by the current reset manifest and are not promoted. A later seed-model migration should first separate smoke-test actor dependencies from operator-managed live configuration, then update the ownership manifest and verify reset behavior before removing any fixture.
+Course images, Instructor avatars, `image-cache`, customer/private media, and any other Storage path are not copied.
 
 ## Dry-run and apply safety
 
-Dry-run prints deterministic `CREATE`, `UPDATE`, `UNCHANGED`, `CONFLICT`, and `SKIP` operations with paths, changed field names, source hashes, and current target hashes. It makes no writes. Apply requires `--apply`, rejects any `CONFLICT` before starting, re-exports staging to detect stale input, and rechecks target preconditions before each mutation group. Canonical commands additionally enforce aggregate revisions; direct config writes compare target hashes inside their transactions; Storage writes use generation preconditions. No delete operation exists. TEST and transactional records are never inputs, and no deploy is part of this workflow.
+Dry-run is read-only. It prints deterministic `CREATE`, `UPDATE`, `UNCHANGED`, `CONFLICT`, and `SKIP` operations for global configuration and banner media, with paths, changed field names, source hashes, and current target hashes. It does not print field values, and it does not scan production Instructors or Courses.
 
-There is no automatic rollback. Canonical audit history and production state support operator investigation, but recovery is a reviewed forward correction using this workflow or a dedicated Course-change workflow. Do not restore production from the staging manifest.
+Apply requires `--apply`, rejects any `CONFLICT` before starting, re-exports staging to detect stale input, and rechecks target preconditions before each mutation. Canonical lesson-pricing commands enforce aggregate revisions. Direct config writes compare target hashes inside their transactions. Storage writes use generation preconditions. No delete operation exists.
+
+There is no automatic rollback. Recovery is a reviewed forward correction. Do not restore production from the staging manifest.

@@ -22,18 +22,24 @@ import {
 } from './readModelRequestContext';
 import { parseIfVisibleInReadScope, queryDocsMatchingReadScope } from './readModelScope';
 
+const CATALOG_PRESENTATION_EXCLUDED_KEYS = [
+  'courseId',
+  'revision',
+  'dataScope',
+  'testSessionId',
+] as const satisfies readonly (keyof CourseCatalogContent)[];
+
 function catalogPresentation(
   content: CourseCatalogContent | undefined
 ): CourseCatalogReadModel['presentation'] {
   if (!content) return undefined;
-  const {
-    courseId: _courseId,
-    revision: _revision,
-    dataScope: _dataScope,
-    testSessionId: _testSessionId,
-    ...presentation
-  } = content;
-  return presentation;
+  // Presentation is CourseCatalogContentInput: identity, revision, and canonical
+  // scope stay on the course document / read-model root and must not leak here.
+  const presentation: Record<string, unknown> = { ...content };
+  for (const key of CATALOG_PRESENTATION_EXCLUDED_KEYS) {
+    delete presentation[key];
+  }
+  return presentation as CourseCatalogReadModel['presentation'];
 }
 
 async function readCatalogPresentation(

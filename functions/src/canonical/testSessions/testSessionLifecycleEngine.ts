@@ -974,7 +974,7 @@ async function runDestructive(
     const finalStatus = working.maintenance?.resumeStatus === 'closed' ? 'closed' : 'active';
     assertResetCompletionStatus(finalStatus, finalStatus);
     assertTestSessionStatusTransition('resetting', finalStatus);
-    let completed = advance(working, { status: finalStatus, maintenance: undefined }, ports.now(), true);
+    const completed = advance(working, { status: finalStatus, maintenance: undefined }, ports.now(), true);
     if (finalStatus === 'closed') await clearAssignments(ports, completed);
     await persistSession(ports, completed, finalStatus === 'closed' ? 'release' : 'active');
     await ports.firestore.doc(`admin_maintenance_events/${operationId}`).set({

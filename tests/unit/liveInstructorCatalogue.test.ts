@@ -61,16 +61,20 @@ const onSnapshot = vi.hoisted(() =>
 
 const queryBookingInstructorCatalogueReadModels = vi.hoisted(() => vi.fn());
 
-vi.mock('../../src/infrastructure/firebase', () => ({
-  collection: () => ({}),
-  db: {},
-  doc: () => ({}),
-  handleFirestoreError: () => undefined,
-  limit: () => ({}),
-  onSnapshot,
-  OperationType: { GET: 'GET', LIST: 'LIST' },
-  query: () => ({}),
-}));
+vi.mock('../../src/infrastructure/firebase', async () => {
+  const { toInstructor } = await import('../../src/infrastructure/firebase/firestoreMappers');
+  return {
+    collection: () => ({}),
+    db: {},
+    doc: () => ({}),
+    handleFirestoreError: () => undefined,
+    limit: () => ({}),
+    onSnapshot,
+    OperationType: { GET: 'GET', LIST: 'LIST' },
+    query: () => ({}),
+    toInstructor,
+  };
+});
 
 vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
   queryAccountInstructorReviewReadModels: vi.fn(async () => ({

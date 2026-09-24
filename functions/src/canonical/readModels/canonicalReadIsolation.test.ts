@@ -579,7 +579,6 @@ describe('canonical LIVE/TEST read isolation', () => {
   });
 
   it('keeps Issue Center LIVE-only and session-equal for TEST', async () => {
-    const issueFixture = canonicalCourseDeliveryFixtures.openAdminIssue;
     const variants = [
       { suffix: 'legacy01', scope: {} },
       { suffix: 'live0001', scope: { dataScope: 'live' } },
@@ -644,7 +643,7 @@ describe('canonical LIVE/TEST read isolation', () => {
       actor,
       {
         scope: 'admin_detail',
-        issueId: bySuffix.get('testa001') as typeof issueFixture.issueId,
+        issueId: bySuffix.get('testa001') as typeof canonicalCourseDeliveryFixtures.openAdminIssue.issueId,
       },
       { readScope: liveScope }
     );

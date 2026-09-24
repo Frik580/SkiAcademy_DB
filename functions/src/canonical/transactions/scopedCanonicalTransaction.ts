@@ -108,7 +108,10 @@ export function scopeCanonicalTransactionSession(
     if (data.dataScope !== undefined || data.testSessionId !== undefined) {
       assertCompatible(path, data);
     }
-    const { testSessionId: _testSessionId, ...withoutSessionId } = data;
+    // Remove any incoming testSessionId before stamping. LIVE scope fields do not
+    // include one, so a leftover id would persist a malformed live document.
+    const withoutSessionId: Record<string, unknown> = { ...data };
+    delete withoutSessionId.testSessionId;
     return { ...withoutSessionId, ...canonicalScopeFields(scope) };
   };
 

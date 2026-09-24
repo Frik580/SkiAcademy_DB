@@ -6,7 +6,6 @@ import {
   BookingSchema,
   CommandIdSchema,
   CorrelationIdSchema,
-  CourseDayIdSchema,
   CourseIdSchema,
   CourseSchema,
   InstructorIdSchema,

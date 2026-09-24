@@ -1,4 +1,4 @@
-import { toInstructor } from '../../../infrastructure/firebase/firestoreMappers';
+import { toInstructor } from '../../../infrastructure/firebase';
 import { isLiveCompatibleIdentity } from '../../../lib/canonical/liveCompatibleClientRead';
 import type { Instructor } from '../../../types';
 

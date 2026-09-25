@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import type { Firestore } from 'firebase-admin/firestore';
 import {
+  ATTENDANCE_IDENTITY_STRATEGY_VERSION,
   AccountIdSchema,
+  BookingIdSchema,
   InstructorIdSchema,
+  OccurrenceIdSchema,
   ParticipantIdSchema,
   ParticipantManagementIdSchema,
+  attendanceIdFromBookingIdentity,
   instructorRelationshipExpiresAt,
   instructorRelationshipIdFromPair,
+  paymentIdFromBookingId,
   timestampFromDate,
 } from '@ski-academy/shared-domain';
 import {
@@ -44,6 +49,7 @@ function createFixtureFirestore(
   options: Readonly<{
     omitProgress?: boolean;
     leftoverUserProgress?: boolean;
+    bookedChildAttendance?: 'present' | 'absent' | 'missing';
   }> = {}
 ): Firestore {
   const leftoverProgress = options.leftoverUserProgress
@@ -188,6 +194,59 @@ function createFixtureFirestore(
     docs.delete(`participant_progress/${childParticipantId}`);
   }
 
+  if (options.bookedChildAttendance) {
+    const bookingId = BookingIdSchema.parse('booking_progress_read_child');
+    const occurrenceId = OccurrenceIdSchema.parse('occurrence_progress_read_child');
+    const startsAt = timestampFromDate(new Date('2025-12-31T09:00:00.000Z'));
+    const endsAt = timestampFromDate(new Date('2025-12-31T10:00:00.000Z'));
+    docs.set(`bookings/${bookingId}`, {
+      bookingId,
+      attribution: {
+        bookingOrigin: 'admin',
+        bookedBy: { kind: 'account', accountId },
+      },
+      party: { kind: 'individual', participantIds: [childParticipantId] },
+      occurrence: {
+        occurrenceId,
+        instructorId,
+        interval: { startsAt, endsAt },
+        timeZone: 'Asia/Almaty',
+        scheduleRevision: 1,
+        serviceParty: { participantIds: [childParticipantId], frozenAt: startsAt },
+      },
+      lifecycle: { status: 'confirmed' },
+      paymentId: paymentIdFromBookingId(bookingId),
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: metadata.audit,
+    });
+    if (options.bookedChildAttendance !== 'missing') {
+      const attendanceId = attendanceIdFromBookingIdentity({
+        strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+        subjectKind: 'booking',
+        occurrenceId,
+        participantId: childParticipantId,
+      });
+      docs.set(`attendance/${attendanceId}`, {
+        attendanceId,
+        subject: {
+          subjectKind: 'booking',
+          bookingId,
+          occurrenceId,
+          participantId: childParticipantId,
+        },
+        attendanceStatus: options.bookedChildAttendance,
+        recordedBy: { kind: 'instructor', instructorId },
+        recordedAt: endsAt,
+        lastChangedBy: { kind: 'instructor', instructorId },
+        updatedAt: endsAt,
+        revision: 1,
+        correlationId: metadata.audit.correlationId,
+      });
+    }
+  }
+
   const documentRef = (path: string) => ({
     get: async () => {
       const data = docs.get(path);
@@ -204,13 +263,21 @@ function createFixtureFirestore(
     doc: (path: string) => documentRef(path),
     collection: (name: string) => ({
       doc: (id: string) => documentRef(`${name}/${id}`),
-      where: (field: string, _op: string, value: unknown) => ({
+      where: (field: string, op: string, value: unknown) => ({
         limit: () => ({
           get: async () => ({
             docs: [...docs.entries()]
               .filter(([path]) => path.startsWith(`${name}/`))
               .map(([, data]) => data)
-              .filter((data) => data[field] === value)
+              .filter((data) => {
+                const fieldValue = field.split('.').reduce<unknown>((current, part) => {
+                  if (!current || typeof current !== 'object') return undefined;
+                  return (current as Record<string, unknown>)[part];
+                }, data);
+                return op === 'array-contains'
+                  ? Array.isArray(fieldValue) && fieldValue.includes(value)
+                  : fieldValue === value;
+              })
               .map((data) => ({
                 data: () => data,
               })),
@@ -272,12 +339,30 @@ describe('participant progress read models', () => {
     expect(result.items[0]?.level).toBe(3);
   });
 
-  it('denies an instructor with no authorized Participants', async () => {
+  it('denies an instructor-supplied unrelated Participant ID', async () => {
     await expect(
       queryParticipantProgressReadModels(
         createFixtureFirestore(),
         { scope: 'instructor', participantIds: [childParticipantId] },
         { accountId: instructorAccountId, instructorId }
+      )
+    ).rejects.toBeInstanceOf(ParticipantProgressReadDeniedError);
+  });
+
+  it('allows a booked Participant with present Attendance and denies missing Attendance', async () => {
+    const requested = { scope: 'instructor' as const, participantIds: [childParticipantId] };
+    const actor = { accountId: instructorAccountId, instructorId };
+    const allowed = await queryParticipantProgressReadModels(
+      createFixtureFirestore({ bookedChildAttendance: 'present' }),
+      requested,
+      actor
+    );
+    expect(allowed.items.map((item) => item.participantId)).toEqual([childParticipantId]);
+    await expect(
+      queryParticipantProgressReadModels(
+        createFixtureFirestore({ bookedChildAttendance: 'missing' }),
+        requested,
+        actor
       )
     ).rejects.toBeInstanceOf(ParticipantProgressReadDeniedError);
   });

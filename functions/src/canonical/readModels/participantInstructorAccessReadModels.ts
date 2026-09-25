@@ -260,6 +260,7 @@ async function buildParticipantInstructorAccessReadModel(input: Readonly<{
             instructorRelationshipId: relationship.instructorRelationshipId,
             revision: relationship.revision,
             status: relationship.status,
+            validFrom: relationship.validFrom,
             ...(relationship.expiresAt ? { expiresAt: relationship.expiresAt } : {}),
           },
         }

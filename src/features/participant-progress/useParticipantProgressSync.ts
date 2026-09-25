@@ -12,12 +12,14 @@ import {
   refreshManagedParticipantProgress,
 } from './participantProgressService';
 import { useParticipantProgressStore } from './participantProgressStore';
+import { instructorProgressParticipantIds } from './instructorProgressParticipantIds';
 
 export function useParticipantProgressSync() {
   const firebaseUser = useAuthStore((state) => state.firebaseUser);
   const userProfile = useProfileStore((state) => state.userProfile);
   const location = useLocation();
   const lessonBookings = useBookingCollaborationStore(selectInstructorLessonBookings);
+  const participantAccess = useBookingCollaborationStore((state) => state.participantAccess);
   const accountId = firebaseUser?.uid;
   const instructorId = userProfile?.instructorId;
   const isInstructorRoute = location.pathname === '/instructor';
@@ -35,16 +37,15 @@ export function useParticipantProgressSync() {
 
   useEffect(() => {
     if (!accountId || !isInstructorRoute || !instructorId) return;
-    const participantIds = [
-      ...new Set(
-        lessonBookings.flatMap((booking) =>
-          booking.participants.map((participant) => participant.participantId)
-        )
-      ),
-    ];
+    const participantIds = instructorProgressParticipantIds(
+      lessonBookings,
+      participantAccess,
+      instructorId,
+      Date.now()
+    );
     if (participantIds.length === 0) return;
     void refreshInstructorParticipantProgress(participantIds).catch((error) => {
       logger.warn('Failed to load instructor participant progress', error);
     });
-  }, [accountId, instructorId, isInstructorRoute, lessonBookings]);
+  }, [accountId, instructorId, isInstructorRoute, lessonBookings, participantAccess]);
 }

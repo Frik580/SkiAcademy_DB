@@ -25,6 +25,7 @@ export const ParticipantInstructorAccessRelationshipProjectionSchema = z
     instructorRelationshipId: InstructorRelationshipIdSchema,
     revision: AggregateRevisionSchema,
     status: z.enum(['active', 'revoked', 'expired']),
+    validFrom: CanonicalTimestampSchema.optional(),
     expiresAt: CanonicalTimestampSchema.optional(),
   })
   .strict();

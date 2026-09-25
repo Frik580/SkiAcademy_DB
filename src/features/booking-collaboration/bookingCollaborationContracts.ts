@@ -2,6 +2,7 @@ import type {
   BookingChangeRequestReadModelAuthorizedActions,
   BookingStatus,
   BookingProposalReadModelAuthorizedActions,
+  CanonicalTimestamp,
   LessonBookingReadModel,
   LessonBookingReadModelAuthorizedActions,
   ParticipantInstructorAccessReadModelAuthorizedActions,
@@ -88,6 +89,8 @@ export interface ParticipantAccessCabinetItem {
   readonly participantDisplayName: string;
   readonly instructorDisplayName: string;
   readonly relationshipStatus?: 'active' | 'revoked' | 'expired';
+  readonly relationshipValidFrom?: CanonicalTimestamp;
+  readonly relationshipExpiresAt?: CanonicalTimestamp;
   readonly relationshipRevision?: number;
   readonly instructorRelationshipId?: string;
   readonly managerBlockStatus?: 'active' | 'removed';

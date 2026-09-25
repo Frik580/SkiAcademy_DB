@@ -11,6 +11,8 @@ export function mapParticipantInstructorAccessReadModelToCabinetItem(
     participantDisplayName: readModel.participantDisplayName,
     instructorDisplayName: readModel.instructorDisplayName,
     relationshipStatus: readModel.relationship?.status,
+    relationshipValidFrom: readModel.relationship?.validFrom,
+    relationshipExpiresAt: readModel.relationship?.expiresAt,
     relationshipRevision: readModel.relationship?.revision,
     instructorRelationshipId: readModel.relationship?.instructorRelationshipId,
     managerBlockStatus: readModel.managerBlock?.status,

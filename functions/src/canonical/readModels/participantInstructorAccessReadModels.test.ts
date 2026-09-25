@@ -507,6 +507,7 @@ describe('queryParticipantInstructorAccessReadModels account_manager bounded aut
           }),
           revision: 1,
           status: 'active',
+          validFrom: decidedAt,
           expiresAt,
         },
         managerBlock: undefined,

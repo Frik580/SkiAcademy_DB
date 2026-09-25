@@ -397,6 +397,41 @@ describe('readModelAuthorization', () => {
     expect(access.allowed).toBe(true);
   });
 
+  it('denies instructor roster read for archived courses', () => {
+    expect(
+      evaluateInstructorCourseRosterReadAccess({
+        instructorId,
+        course: {
+          instructorRosterIds: [instructorId],
+          lifecycle: 'archived',
+        } as Parameters<typeof evaluateInstructorCourseRosterReadAccess>[0]['course'],
+        courseDays: [],
+      })
+    ).toEqual({ allowed: false });
+  });
+
+  it('denies instructor assignment projection for archived courses', () => {
+    const courseDayId = CourseDayIdSchema.parse('course_day_assignment_auth_archived');
+    expect(
+      resolveInstructorCourseAssignmentProjection({
+        instructorId,
+        course: {
+          instructorRosterIds: [instructorId],
+          lifecycle: 'archived',
+        } as Parameters<typeof resolveInstructorCourseAssignmentProjection>[0]['course'],
+        courseDays: [
+          {
+            courseDayId,
+            actualInstructorIds: [instructorId],
+          },
+        ] as Parameters<typeof resolveInstructorCourseAssignmentProjection>[0]['courseDays'],
+      })
+    ).toEqual({
+      allowed: false,
+      assignedCourseDayIds: [],
+    });
+  });
+
   it('resolves assigned course day ids for roster and course-day-only instructors', () => {
     const courseDayId = CourseDayIdSchema.parse('course_day_assignment_auth_01');
     const otherCourseDayId = CourseDayIdSchema.parse('course_day_assignment_auth_02');

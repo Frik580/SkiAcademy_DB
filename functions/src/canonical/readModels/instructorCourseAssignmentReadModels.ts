@@ -44,7 +44,7 @@ export async function discoverInstructorAssignedCourseIds(
       continue;
     }
     const course = parseIfVisibleInReadScope(doc.data(), parseCourse, readScope);
-    if (course) {
+    if (course && course.lifecycle !== 'archived') {
       courseIds.add(course.courseId);
     }
   }

@@ -604,6 +604,9 @@ export function resolveInstructorCourseAssignmentProjection(
     courseDays: readonly CourseDay[];
   }>
 ): { readonly allowed: boolean; readonly assignedCourseDayIds: readonly CourseDayId[] } {
+  if (input.course.lifecycle === 'archived') {
+    return { allowed: false, assignedCourseDayIds: [] };
+  }
   const onRoster = input.course.instructorRosterIds.includes(input.instructorId);
   const orderedDays = sortedCourseDays(input.courseDays);
   if (onRoster) {

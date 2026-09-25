@@ -80,6 +80,97 @@ describe('useInstructorCourseReadSync', () => {
     });
   });
 
+  it('drops a course from assignedCourses after discovery reload when server omits it', async () => {
+    const archivedCourseItem = {
+      courseId: secondCourseId,
+      revision: 1,
+      title: 'ARCHIVED — Hidden',
+      assignedCourseDayIds: [secondCourseDayId],
+      courseSchedule: {
+        courseId: secondCourseId,
+        courseScheduleRevision: 1,
+        courseDayCount: 1,
+        startAt: { seconds: 1, nanoseconds: 0 },
+        finalCourseDayEndsAt: { seconds: 2, nanoseconds: 0 },
+        courseDays: [
+          {
+            courseDayId: secondCourseDayId,
+            dayOrder: 1,
+            interval: {
+              startsAt: { seconds: 1, nanoseconds: 0 },
+              endsAt: { seconds: 2, nanoseconds: 0 },
+            },
+            timeZone: 'Asia/Almaty',
+            revision: 1,
+          },
+        ],
+      },
+      updatedAt: { seconds: 1, nanoseconds: 0 },
+    };
+    const activeCourseItem = {
+      courseId,
+      revision: 1,
+      title: 'BASE — First Turns',
+      assignedCourseDayIds: [courseDayId],
+      courseSchedule: {
+        courseId,
+        courseScheduleRevision: 1,
+        courseDayCount: 1,
+        startAt: { seconds: 1, nanoseconds: 0 },
+        finalCourseDayEndsAt: { seconds: 2, nanoseconds: 0 },
+        courseDays: [
+          {
+            courseDayId,
+            dayOrder: 1,
+            interval: {
+              startsAt: { seconds: 1, nanoseconds: 0 },
+              endsAt: { seconds: 2, nanoseconds: 0 },
+            },
+            timeZone: 'Asia/Almaty',
+            revision: 1,
+          },
+        ],
+      },
+      updatedAt: { seconds: 1, nanoseconds: 0 },
+    };
+    queryAssignmentMock
+      .mockResolvedValueOnce({
+        scope: 'instructor_assigned',
+        items: [activeCourseItem, archivedCourseItem],
+      })
+      .mockResolvedValueOnce({
+        scope: 'instructor_assigned',
+        items: [activeCourseItem],
+      });
+
+    const { result } = renderHook(() =>
+      useInstructorCourseReadSync({
+        enabled: true,
+        accountId: 'account_instructor_sync_01',
+        instructorId: 'instructor_instructor_sync_01',
+      })
+    );
+
+    await waitFor(() => {
+      expect(useInstructorCourseStore.getState().assignedCourses.length).toBe(2);
+    });
+
+    await act(async () => {
+      await result.current.reload();
+    });
+
+    expect(useInstructorCourseStore.getState().assignedCourses).toEqual([
+      {
+        courseId: 'course_instructor_sync_01',
+        title: 'BASE — First Turns',
+        assignedCourseDayIds: [courseDayId],
+        courseSchedule: expect.objectContaining({
+          courseId: 'course_instructor_sync_01',
+        }),
+      },
+    ]);
+  });
+
   it('loads canonical instructor assignment discovery without roster until selected', async () => {
     renderHook(() =>
       useInstructorCourseReadSync({

@@ -38,7 +38,11 @@ type InstructorFixture = {
     | typeof strangerInstructorId;
 };
 
-function createFirestore(instructor: InstructorFixture): Firestore {
+function createFirestore(
+  instructor: InstructorFixture,
+  options?: { readonly courseLifecycle?: 'active' | 'archived' }
+): Firestore {
+  const courseLifecycle = options?.courseLifecycle ?? 'active';
   const courseDayDoc = {
     courseId,
     courseDayId,
@@ -62,6 +66,7 @@ function createFirestore(instructor: InstructorFixture): Firestore {
   const canonicalCourse = {
     courseId,
     title: 'Assignment Read Fixture',
+    lifecycle: courseLifecycle,
     price: 50_000,
     capacity: { totalSeats: 8, availableSeats: 7 },
     instructorRosterIds: [rosterInstructorId],
@@ -222,6 +227,47 @@ describe('instructor course assignment read model callables', () => {
       handler({
         data: assignmentPayload,
         auth: { uid: strangerAccountId },
+      } as CallableRequest<Record<string, unknown>>)
+    ).resolves.toEqual({
+      scope: 'instructor_assigned',
+      items: [],
+    });
+  });
+
+  it('omits archived courses for roster instructor', async () => {
+    const handler = createQueryInstructorCourseAssignmentReadModelsHandler(
+      createFirestore(
+        { accountId: rosterInstructorAccountId, instructorId: rosterInstructorId },
+        { courseLifecycle: 'archived' }
+      )
+    );
+
+    await expect(
+      handler({
+        data: assignmentPayload,
+        auth: { uid: rosterInstructorAccountId },
+      } as CallableRequest<Record<string, unknown>>)
+    ).resolves.toEqual({
+      scope: 'instructor_assigned',
+      items: [],
+    });
+  });
+
+  it('omits archived courses for course-day-only instructor', async () => {
+    const handler = createQueryInstructorCourseAssignmentReadModelsHandler(
+      createFirestore(
+        {
+          accountId: courseDayInstructorAccountId,
+          instructorId: courseDayInstructorId,
+        },
+        { courseLifecycle: 'archived' }
+      )
+    );
+
+    await expect(
+      handler({
+        data: assignmentPayload,
+        auth: { uid: courseDayInstructorAccountId },
       } as CallableRequest<Record<string, unknown>>)
     ).resolves.toEqual({
       scope: 'instructor_assigned',

@@ -1,6 +1,7 @@
 import { act, fireEvent, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { HeroCarousel } from '../../src/app/components/HeroCarousel';
+import { HERO_CROSSFADE_MS, HeroCarousel } from '../../src/app/components/HeroCarousel';
+import { BANNER_VIDEO_STARTUP_WATCHDOG_MS } from '../../src/ui/BannerMedia';
 import type { CustomHeroSlide } from '../../src/types';
 
 const play = vi.fn(() => Promise.resolve());
@@ -28,9 +29,16 @@ beforeEach(() => {
   });
 });
 
+const originalLoad = HTMLMediaElement.prototype.load;
+
 afterEach(() => {
   document.querySelectorAll('link[data-hero-lcp-preload]').forEach((node) => node.remove());
   vi.useRealTimers();
+  Object.defineProperty(HTMLMediaElement.prototype, 'load', {
+    configurable: true,
+    value: originalLoad,
+  });
+  play.mockImplementation(() => Promise.resolve());
 });
 
 vi.mock('../../src/app/providers/LanguageContext', () => ({
@@ -251,7 +259,8 @@ describe('HeroCarousel video preload', () => {
     expect(layers[1]).toHaveClass('opacity-0');
   });
 
-  it('preloads the first slide when the carousel wraps from the last slide', () => {
+  it('preloads the wrapped first video only after the outgoing video is released', () => {
+    vi.useFakeTimers();
     const { container } = renderCarousel([
       slide('a', 'video'),
       slide('b', 'video'),
@@ -263,14 +272,31 @@ describe('HeroCarousel video preload', () => {
     advance(container);
 
     expect(videoSources(container)).not.toContain('https://cdn.example.com/a.mp4');
+    expect(container.querySelectorAll('video').length).toBeLessThanOrEqual(2);
 
     advance(container);
 
-    expect(videoSources(container)).toContain('https://cdn.example.com/a.mp4');
+    expect(videoSources(container)).not.toContain('https://cdn.example.com/a.mp4');
+    expect(videoSources(container).sort()).toEqual([
+      'https://cdn.example.com/c.mp4',
+      'https://cdn.example.com/d.mp4',
+    ]);
+    expect(container.querySelectorAll('video').length).toBeLessThanOrEqual(2);
+
+    act(() => {
+      vi.advanceTimersByTime(HERO_CROSSFADE_MS);
+    });
+
+    expect(videoSources(container).sort()).toEqual([
+      'https://cdn.example.com/a.mp4',
+      'https://cdn.example.com/d.mp4',
+    ]);
     const first = backgroundLayers(container)[0];
     expect(first.querySelector('video')).toHaveAttribute('preload', 'auto');
+    expect(first.querySelector('video')).toHaveAttribute('data-video-role', 'NEXT_PRELOAD');
     expect(first.querySelector('img')).toBeNull();
     expect(first).toHaveClass('opacity-0');
+    expect(container.querySelectorAll('video').length).toBeLessThanOrEqual(2);
   });
 
   it('keeps hero copy classes from the typography regression fix', () => {
@@ -328,5 +354,314 @@ describe('HeroCarousel video preload', () => {
 
     expect(backgroundLayers(container)[1]).toHaveClass('opacity-100');
     expect(container.querySelector('video')).toBeNull();
+  });
+});
+
+function videoCount(container: HTMLElement): number {
+  return container.querySelectorAll('video').length;
+}
+
+function layerVideo(container: HTMLElement, index: number): HTMLVideoElement {
+  const video = backgroundLayers(container)[index]?.querySelector('video');
+  if (!video) throw new Error(`missing video on layer ${index}`);
+  return video as HTMLVideoElement;
+}
+
+function setMediaState(video: HTMLVideoElement, readyState: number, networkState = 0) {
+  Object.defineProperty(video, 'readyState', { configurable: true, get: () => readyState });
+  Object.defineProperty(video, 'networkState', { configurable: true, get: () => networkState });
+}
+
+describe('HeroCarousel video resource budget', () => {
+  it('keeps three consecutive videos at two mounted elements through the crossfade', () => {
+    vi.useFakeTimers();
+    const { container } = renderCarousel([
+      slide('a', 'video'),
+      slide('b', 'video'),
+      slide('c', 'video'),
+    ]);
+
+    expect(videoSources(container).sort()).toEqual([
+      'https://cdn.example.com/a.mp4',
+      'https://cdn.example.com/b.mp4',
+    ]);
+    expect(layerVideo(container, 0)).toHaveAttribute('data-video-role', 'ACTIVE');
+    expect(layerVideo(container, 1)).toHaveAttribute('data-video-role', 'NEXT_PRELOAD');
+    expect(backgroundLayers(container)[2].querySelector('video')).toBeNull();
+    expect(videoCount(container)).toBeLessThanOrEqual(2);
+    expect(container.querySelector('img')).toBeNull();
+    expect(container.querySelector('video[poster]')).toBeNull();
+
+    advance(container);
+
+    expect(videoSources(container).sort()).toEqual([
+      'https://cdn.example.com/a.mp4',
+      'https://cdn.example.com/b.mp4',
+    ]);
+    expect(videoSources(container)).not.toContain('https://cdn.example.com/c.mp4');
+    expect(layerVideo(container, 0)).toHaveAttribute('data-video-role', 'OUTGOING');
+    expect(layerVideo(container, 0)).toHaveAttribute('src', 'https://cdn.example.com/a.mp4');
+    expect(layerVideo(container, 1)).toHaveAttribute('data-video-role', 'ACTIVE');
+    expect(backgroundLayers(container)[2].querySelector('video')).toBeNull();
+    expect(backgroundLayers(container)[0].querySelector('img')).toBeNull();
+    expect(backgroundLayers(container)[1].querySelector('img')).toBeNull();
+    expect(videoCount(container)).toBeLessThanOrEqual(2);
+
+    act(() => {
+      vi.advanceTimersByTime(HERO_CROSSFADE_MS);
+    });
+
+    expect(videoSources(container).sort()).toEqual([
+      'https://cdn.example.com/b.mp4',
+      'https://cdn.example.com/c.mp4',
+    ]);
+    expect(videoSources(container)).not.toContain('https://cdn.example.com/a.mp4');
+    expect(layerVideo(container, 1)).toHaveAttribute('data-video-role', 'ACTIVE');
+    expect(layerVideo(container, 2)).toHaveAttribute('data-video-role', 'NEXT_PRELOAD');
+    expect(backgroundLayers(container)[0].querySelector('video')).toBeNull();
+    expect(videoCount(container)).toBeLessThanOrEqual(2);
+    expect(container.querySelector('img')).toBeNull();
+    expect(backgroundLayers(container)[1].querySelector(':scope > div > video')).toBeNull();
+    expect(backgroundLayers(container)[2].querySelector(':scope > div > video')).toBeNull();
+  });
+
+  it('preloads the second video while leaving an image-to-video transition within the budget', () => {
+    const { container } = renderCarousel([
+      slide('image', 'image'),
+      slide('a', 'video'),
+      slide('b', 'video'),
+    ]);
+
+    expect(videoSources(container)).toEqual(['https://cdn.example.com/a.mp4']);
+    expect(backgroundLayers(container)[0].querySelector('img')).not.toBeNull();
+    expect(videoCount(container)).toBeLessThanOrEqual(2);
+
+    advance(container);
+
+    expect(videoSources(container).sort()).toEqual([
+      'https://cdn.example.com/a.mp4',
+      'https://cdn.example.com/b.mp4',
+    ]);
+    expect(layerVideo(container, 1)).toHaveAttribute('data-video-role', 'ACTIVE');
+    expect(layerVideo(container, 2)).toHaveAttribute('data-video-role', 'NEXT_PRELOAD');
+    expect(videoCount(container)).toBeLessThanOrEqual(2);
+    expect(backgroundLayers(container)[1].querySelector('img')).toBeNull();
+  });
+
+  it('defers the video after an image until the outgoing video is released', () => {
+    vi.useFakeTimers();
+    const { container } = renderCarousel([
+      slide('a', 'video'),
+      slide('image', 'image'),
+      slide('b', 'video'),
+    ]);
+
+    expect(videoSources(container)).toEqual(['https://cdn.example.com/a.mp4']);
+
+    advance(container);
+
+    expect(videoSources(container)).toEqual(['https://cdn.example.com/a.mp4']);
+    expect(layerVideo(container, 0)).toHaveAttribute('data-video-role', 'OUTGOING');
+    expect(backgroundLayers(container)[2].querySelector('video')).toBeNull();
+    expect(videoCount(container)).toBeLessThanOrEqual(2);
+
+    act(() => {
+      vi.advanceTimersByTime(HERO_CROSSFADE_MS);
+    });
+
+    expect(videoSources(container)).toEqual(['https://cdn.example.com/b.mp4']);
+    expect(layerVideo(container, 2)).toHaveAttribute('data-video-role', 'NEXT_PRELOAD');
+    expect(backgroundLayers(container)[0].querySelector('video')).toBeNull();
+
+    advance(container);
+
+    expect(videoSources(container).sort()).toEqual([
+      'https://cdn.example.com/a.mp4',
+      'https://cdn.example.com/b.mp4',
+    ]);
+    expect(videoCount(container)).toBeLessThanOrEqual(2);
+  });
+
+  it('plays a preloaded second video after the first video succeeds', () => {
+    vi.useFakeTimers();
+    const { container } = renderCarousel(
+      [slide('a', 'video'), slide('b', 'video'), slide('c', 'video')],
+      5
+    );
+
+    fireEvent.loadedData(layerVideo(container, 0));
+    expect(play).toHaveBeenCalled();
+    expect(backgroundLayers(container)[0].querySelector('img')).toBeNull();
+
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+
+    play.mockClear();
+    const second = layerVideo(container, 1);
+    setMediaState(second, 2);
+    fireEvent.loadedData(second);
+
+    expect(second.currentTime).toBe(0);
+    expect(play).toHaveBeenCalled();
+    expect(backgroundLayers(container)[1].querySelector('img')).toBeNull();
+    expect(second.hasAttribute('poster')).toBe(false);
+    expect(videoSources(container)).not.toContain('https://cdn.example.com/c.mp4');
+    expect(videoCount(container)).toBeLessThanOrEqual(2);
+  });
+
+  it('reloads a second video whose preload was discarded and then plays it', () => {
+    vi.useFakeTimers();
+    const loadedSrcs: string[] = [];
+    const load = vi.fn(function (this: HTMLVideoElement) {
+      loadedSrcs.push(this.getAttribute('src') ?? '');
+    });
+    Object.defineProperty(HTMLMediaElement.prototype, 'load', {
+      configurable: true,
+      value: load,
+    });
+
+    const { container } = renderCarousel(
+      [slide('a', 'video'), slide('b', 'video'), slide('c', 'video')],
+      5
+    );
+    const second = layerVideo(container, 1);
+    setMediaState(second, 0, 1);
+    loadedSrcs.length = 0;
+    load.mockClear();
+
+    fireEvent.loadedData(layerVideo(container, 0));
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+
+    expect(loadedSrcs).toContain('https://cdn.example.com/b.mp4');
+    expect(loadedSrcs).not.toContain('https://cdn.example.com/c.mp4');
+    expect(videoCount(container)).toBeLessThanOrEqual(2);
+
+    play.mockClear();
+    fireEvent.loadedData(second);
+
+    expect(play).toHaveBeenCalled();
+    expect(backgroundLayers(container)[1].querySelector('img')).toBeNull();
+    expect(backgroundLayers(container)[1]).toHaveClass('opacity-100');
+  });
+
+  it('falls back when a discarded second video never reaches a frame and continues', async () => {
+    vi.useFakeTimers();
+    const load = vi.fn();
+    Object.defineProperty(HTMLMediaElement.prototype, 'load', {
+      configurable: true,
+      value: load,
+    });
+    const { container } = renderCarousel(
+      [slide('a', 'video'), slide('b', 'video'), slide('c', 'video')],
+      5
+    );
+
+    fireEvent.loadedData(layerVideo(container, 0));
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+
+    const second = layerVideo(container, 1);
+    setMediaState(second, 0, 1);
+    expect(second.error ?? null).toBeNull();
+
+    act(() => {
+      vi.advanceTimersByTime(BANNER_VIDEO_STARTUP_WATCHDOG_MS);
+    });
+
+    expect(backgroundLayers(container)[1].querySelector('video')).toBeNull();
+    expect(backgroundLayers(container)[1].querySelector('img')).toHaveAttribute(
+      'src',
+      'https://cdn.example.com/b.webp'
+    );
+    expect(backgroundLayers(container)[1]).toHaveClass('opacity-100');
+
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+
+    expect(backgroundLayers(container)[2]).toHaveClass('opacity-100');
+    expect(videoCount(container)).toBeLessThanOrEqual(2);
+  });
+
+  it('falls back when the second video play() rejects and continues', async () => {
+    vi.useFakeTimers();
+    const { container } = renderCarousel(
+      [slide('a', 'video'), slide('b', 'video'), slide('c', 'video')],
+      5
+    );
+
+    fireEvent.loadedData(layerVideo(container, 0));
+    play.mockImplementation(() => Promise.reject(new Error('play rejected')));
+
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+
+    fireEvent.loadedData(layerVideo(container, 1));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(backgroundLayers(container)[1].querySelector('video')).toBeNull();
+    expect(backgroundLayers(container)[1].querySelector('img')).not.toBeNull();
+    expect(backgroundLayers(container)[1]).toHaveClass('opacity-100');
+
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+
+    expect(backgroundLayers(container)[2]).toHaveClass('opacity-100');
+  });
+
+  it('continues after a second-video media error', () => {
+    vi.useFakeTimers();
+    const { container } = renderCarousel(
+      [slide('a', 'video'), slide('b', 'video'), slide('c', 'video')],
+      5
+    );
+
+    advance(container);
+    fireEvent.error(layerVideo(container, 1));
+
+    expect(backgroundLayers(container)[1].querySelector('img')).not.toBeNull();
+    expect(backgroundLayers(container)[1].querySelector('video')).toBeNull();
+    expect(backgroundLayers(container)[1]).toHaveClass('opacity-100');
+
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+
+    expect(backgroundLayers(container)[2]).toHaveClass('opacity-100');
+    expect(videoCount(container)).toBeLessThanOrEqual(2);
+  });
+
+  it('does not leak video elements across repeated A → B → C cycles', () => {
+    vi.useFakeTimers();
+    const { container } = renderCarousel([
+      slide('a', 'video'),
+      slide('b', 'video'),
+      slide('c', 'video'),
+    ]);
+    const deferredDuringCrossfade = [
+      'https://cdn.example.com/c.mp4',
+      'https://cdn.example.com/a.mp4',
+      'https://cdn.example.com/b.mp4',
+    ];
+
+    for (let step = 0; step < 6; step += 1) {
+      expect(videoCount(container)).toBeLessThanOrEqual(2);
+      advance(container);
+      expect(videoCount(container)).toBeLessThanOrEqual(2);
+      expect(videoSources(container)).not.toContain(deferredDuringCrossfade[step % 3]);
+      act(() => {
+        vi.advanceTimersByTime(HERO_CROSSFADE_MS);
+      });
+      expect(videoCount(container)).toBeLessThanOrEqual(2);
+      expect(videoSources(container)).toHaveLength(2);
+    }
   });
 });

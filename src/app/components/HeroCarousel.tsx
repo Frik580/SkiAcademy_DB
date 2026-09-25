@@ -16,7 +16,8 @@ import {
   resolveHeroOriginUrl,
 } from '../../lib/mediaAssets';
 import { normalizeBannerMediaMode } from '../../lib/bannerMedia';
-import { BannerMedia } from '../../ui/BannerMedia';
+import { BannerMedia, type BannerVideoRole } from '../../ui/BannerMedia';
+import { logger } from '../../shared';
 
 interface HeroCarouselProps {
   data: {
@@ -44,7 +45,7 @@ const shuffleSlides = (items: CustomHeroSlide[]): CustomHeroSlide[] => {
   return arr;
 };
 
-const HERO_CROSSFADE_MS = 1400;
+export const HERO_CROSSFADE_MS = 1400;
 
 const HERO_SCRIM = { light: '255, 255, 255', dark: '10, 10, 10' };
 
@@ -246,6 +247,44 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
   }, [slides, currentSlide, shouldReduceMotion]);
 
   const scrim = buildScrimGradient(theme, isMobile);
+  const outgoingVideoRetained =
+    outgoingSlide !== null && slideUsesVideo(slides[outgoingSlide], shouldReduceMotion);
+  const nextVideoIndex = slides.length > 1 ? (currentSlide + 1) % slides.length : -1;
+  const videoRoles = new Map<number, BannerVideoRole>();
+  if (slideUsesVideo(slides[currentSlide], shouldReduceMotion)) {
+    videoRoles.set(currentSlide, 'ACTIVE');
+  }
+  if (
+    outgoingVideoRetained &&
+    outgoingSlide !== null &&
+    outgoingSlide !== currentSlide &&
+    !videoRoles.has(outgoingSlide)
+  ) {
+    videoRoles.set(outgoingSlide, 'OUTGOING');
+  }
+  if (
+    !outgoingVideoRetained &&
+    nextVideoIndex >= 0 &&
+    nextVideoIndex !== currentSlide &&
+    slideUsesVideo(slides[nextVideoIndex], shouldReduceMotion) &&
+    !videoRoles.has(nextVideoIndex)
+  ) {
+    videoRoles.set(nextVideoIndex, 'NEXT_PRELOAD');
+  }
+
+  const videoRoleKey = [...videoRoles.entries()]
+    .map(([index, role]) => `${index}:${slides[index]?.id ?? ''}:${role}`)
+    .join('|');
+
+  useEffect(() => {
+    if (!import.meta.env.DEV || import.meta.env.MODE === 'test') return;
+    logger.debug('[hero-video] mounted-count', {
+      count: videoRoleKey ? videoRoleKey.split('|').length : 0,
+      current: currentSlide,
+      outgoing: outgoingSlide,
+      roles: videoRoleKey,
+    });
+  }, [videoRoleKey, currentSlide, outgoingSlide]);
 
   return (
     <section
@@ -264,9 +303,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
         ) : (
           slides.map((slide, idx) => {
             const isActive = idx === currentSlide;
-            const nextIndex = slides.length > 1 ? (currentSlide + 1) % slides.length : -1;
-            const isVideoSlide = slideUsesVideo(slide, shouldReduceMotion);
-            const retainOutgoing = outgoingSlide === idx && isVideoSlide;
+            const videoRole = videoRoles.get(idx);
             const bgKey = resolveSlideBackgroundKey(slide, idx);
             const bgUrl = resolveHeroBackgroundUrl(bgKey);
             const bgOriginUrl = resolveHeroOriginUrl(bgKey);
@@ -287,12 +324,14 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                   videoSourceImageUrl={bgOriginUrl}
                   mediaMode={slide.backgroundMediaMode}
                   isActive={isActive}
-                  shouldLoadVideo={isActive && isVideoSlide}
-                  shouldPreloadVideo={
-                    !isActive && isVideoSlide && (idx === nextIndex || retainOutgoing)
-                  }
+                  shouldLoadVideo={videoRole === 'ACTIVE'}
+                  shouldPreloadVideo={videoRole === 'NEXT_PRELOAD' || videoRole === 'OUTGOING'}
+                  videoRole={videoRole}
+                  slideIndex={idx}
+                  slideId={slide.id}
+                  mountedVideoCount={videoRoles.size}
                   onVideoReady={
-                    isActive && isVideoSlide ? () => setReadySlideIndex(idx) : undefined
+                    videoRole === 'ACTIVE' ? () => setReadySlideIndex(idx) : undefined
                   }
                   className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none"
                   srcSet={srcSet}

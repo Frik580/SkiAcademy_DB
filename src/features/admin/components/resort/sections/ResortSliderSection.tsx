@@ -61,8 +61,8 @@ export const ResortSliderSection: React.FC = () => {
       line1Ru: 'Новое предложение',
       line2En: 'Write slide title here in English.',
       line2Ru: 'Напишите заголовок слайда на русском.',
-      line3En: 'Sub-heading details in English.',
-      line3Ru: 'Детали на русском языке.',
+      line3En: '',
+      line3Ru: '',
       backgroundImage: 'wall',
     };
     setResortSlides([...resortSlides, newSlide]);
@@ -290,20 +290,6 @@ export const ResortSliderSection: React.FC = () => {
                           className="w-full bg-transparent border border-[var(--border)] px-2.5 py-1 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
                         />
                       </div>
-                      <div className="space-y-1">
-                        <label className="block text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
-                          Line 3 (Details)
-                        </label>
-                        <textarea
-                          required
-                          rows={2}
-                          value={slide.line3En}
-                          onChange={(e) =>
-                            handleUpdateSlideField(slide.id, 'line3En', e.target.value)
-                          }
-                          className="w-full bg-transparent border border-[var(--border)] px-2.5 py-1 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none"
-                        />
-                      </div>
                     </div>
 
                     <div className="space-y-3">
@@ -336,20 +322,6 @@ export const ResortSliderSection: React.FC = () => {
                             handleUpdateSlideField(slide.id, 'line2Ru', e.target.value)
                           }
                           className="w-full bg-transparent border border-[var(--border)] px-2.5 py-1 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="block text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
-                          Строка 3 (Описание)
-                        </label>
-                        <textarea
-                          required
-                          rows={2}
-                          value={slide.line3Ru}
-                          onChange={(e) =>
-                            handleUpdateSlideField(slide.id, 'line3Ru', e.target.value)
-                          }
-                          className="w-full bg-transparent border border-[var(--border)] px-2.5 py-1 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none"
                         />
                       </div>
                     </div>

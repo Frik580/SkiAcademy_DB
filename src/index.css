@@ -374,13 +374,8 @@
     text-shadow: var(--hero-title-shadow);
   }
 
-  :root:not(.dark) .hero-copy-eyebrow,
-  :root:not(.dark) .hero-copy-body {
+  :root:not(.dark) .hero-copy-eyebrow {
     text-shadow: var(--hero-body-shadow);
-  }
-
-  .hero-copy-body {
-    color: var(--hero-ink-dim);
   }
 
   /* ─── Shared UI surfaces (theme-aware via CSS variables) ─────────── */
@@ -792,13 +787,6 @@
 
   .hero-copy-eyebrow {
     font-family: var(--font-mono);
-  }
-
-  .hero-copy-body {
-    font-family: var(--font-sans);
-    font-size: 0.875rem;
-    text-transform: none;
-    letter-spacing: 0.025em;
   }
 }
 

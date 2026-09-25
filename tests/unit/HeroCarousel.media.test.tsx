@@ -303,7 +303,6 @@ describe('HeroCarousel video preload', () => {
     const { container } = renderCarousel([slide('a', 'video'), slide('b', 'image')]);
     const title = container.querySelector('.hero-copy-title');
     const eyebrow = container.querySelector('.hero-copy-eyebrow');
-    const body = container.querySelector('.hero-copy-body');
 
     expect(title?.className).toContain('font-serif');
     expect(title?.className).toContain('font-light');
@@ -312,8 +311,7 @@ describe('HeroCarousel video preload', () => {
     expect(title?.className).toContain('lg:text-6xl');
     expect(eyebrow?.className).toContain('font-mono');
     expect(eyebrow?.className).toContain('uppercase');
-    expect(body?.className).toContain('hero-copy-body');
-    expect(body?.className).toContain('max-w-lg');
+    expect(container.querySelector('.hero-copy-body')).toBeNull();
   });
 
   it('does not start the video slide timer before the mp4 can play', () => {

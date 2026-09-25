@@ -43,7 +43,6 @@ function heroCopyClasses(container: HTMLElement) {
   return {
     eyebrow: container.querySelector('.hero-copy-eyebrow')?.className ?? '',
     title: container.querySelector('.hero-copy-title')?.className ?? '',
-    body: container.querySelector('.hero-copy-body')?.className ?? '',
   };
 }
 
@@ -103,7 +102,7 @@ describe('HeroCarousel typography vs media mode', () => {
     expect(imageCopy.title).toContain('md:text-5xl');
     expect(imageCopy.title).toContain('lg:text-6xl');
     expect(imageCopy.eyebrow).toContain('font-mono');
-    expect(imageCopy.body).toContain('hero-copy-body');
+    expect(imageRender.container.querySelector('.hero-copy-body')).toBeNull();
   });
 
   it('does not change hero copy classes when only backgroundMediaMode changes', () => {

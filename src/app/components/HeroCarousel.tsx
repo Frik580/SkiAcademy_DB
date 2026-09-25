@@ -13,7 +13,10 @@ import {
   heroBackgroundSrcSet,
   preloadHeroLcpImage,
   resolveHeroBackgroundUrl,
+  resolveHeroOriginUrl,
 } from '../../lib/mediaAssets';
+import { normalizeBannerMediaMode } from '../../lib/bannerMedia';
+import { BannerMedia } from '../../ui/BannerMedia';
 
 interface HeroCarouselProps {
   data: {
@@ -72,6 +75,12 @@ const buildScrimGradient = (theme: Theme, isMobile = false): string => {
 
 const padSlideIndex = (n: number) => String(n).padStart(2, '0');
 
+const slideUsesVideo = (
+  slide: CustomHeroSlide | undefined,
+  reduceMotion: boolean | null
+): boolean =>
+  normalizeBannerMediaMode(slide?.backgroundMediaMode) === 'video' && reduceMotion !== true;
+
 export const HeroCarousel: React.FC<HeroCarouselProps> = ({
   data: {
     slides: rawSlides,
@@ -85,7 +94,21 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
 }) => {
   const { t } = useLanguage();
   const shouldReduceMotion = useReducedMotion();
-  const [currentSlide, setCurrentSlide] = useState(0);
+  const [carousel, setCarousel] = useState<{ current: number; outgoing: number | null }>({
+    current: 0,
+    outgoing: null,
+  });
+  const currentSlide = carousel.current;
+  const outgoingSlide = carousel.outgoing;
+  const [readySlideIndex, setReadySlideIndex] = useState<number | null>(null);
+
+  const setCurrentSlide = (update: number | ((prev: number) => number)) => {
+    setCarousel((prev) => {
+      const next = typeof update === 'function' ? update(prev.current) : update;
+      if (next === prev.current) return prev;
+      return { current: next, outgoing: prev.current };
+    });
+  };
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia('(max-width: 767px)').matches : false
   );
@@ -144,42 +167,83 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
   };
 
   useEffect(() => {
-    if (currentSlide >= slides.length) {
+    if (slides.length > 0 && currentSlide >= slides.length) {
       setCurrentSlide(0);
     }
   }, [slides.length, currentSlide]);
 
   useEffect(() => {
-    if (slides.length <= 1) return;
+    if (outgoingSlide === null) return;
+    const id = window.setTimeout(() => {
+      setCarousel((prev) => (prev.outgoing === null ? prev : { ...prev, outgoing: null }));
+    }, HERO_CROSSFADE_MS);
+    return () => window.clearTimeout(id);
+  }, [outgoingSlide, currentSlide]);
 
-    const interval = setInterval(() => {
+  const activeSlide = slides[currentSlide];
+  const activeNeedsVideo = slideUsesVideo(activeSlide, shouldReduceMotion);
+  const carouselHasVideo = slides.some((slide) =>
+    slideUsesVideo(slide, shouldReduceMotion)
+  );
+
+  // Image-only carousels keep a continuous interval that does not reset on manual navigation.
+  useEffect(() => {
+    if (slides.length <= 1) return;
+    if (carouselHasVideo) return;
+
+    const interval = window.setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % slides.length);
     }, slideInterval * 1000);
 
-    return () => clearInterval(interval);
-  }, [slides.length, slideInterval]);
+    return () => window.clearInterval(interval);
+  }, [slides.length, slideInterval, carouselHasVideo]);
+
+  // Video slides start their duration only after the MP4 can play.
+  useEffect(() => {
+    if (slides.length <= 1) return;
+    if (!carouselHasVideo) return;
+    if (activeNeedsVideo && readySlideIndex !== currentSlide) return;
+
+    const id = window.setTimeout(() => {
+      setCurrentSlide((prev) => (prev + 1) % slides.length);
+    }, slideInterval * 1000);
+
+    return () => window.clearTimeout(id);
+  }, [
+    slides.length,
+    slideInterval,
+    carouselHasVideo,
+    activeNeedsVideo,
+    readySlideIndex,
+    currentSlide,
+  ]);
 
   const crossfadeStyle = {
     transitionDuration: `${HERO_CROSSFADE_MS}ms`,
     transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
   } as const;
 
-  // Preload the actual first slide (may not be wall when order is random / custom).
+  // Preload the first slide image only when that slide is not a healthy video.
   useLayoutEffect(() => {
     if (slides.length === 0) return;
+    if (slideUsesVideo(slides[0], shouldReduceMotion)) {
+      return preloadHeroLcpImage('');
+    }
     const lcpKey = resolveSlideBackgroundKey(slides[0], 0);
     const lcpUrl = resolveHeroBackgroundUrl(lcpKey);
     return preloadHeroLcpImage(lcpUrl, heroBackgroundSrcSet(lcpKey));
-  }, [slides]);
+  }, [slides, shouldReduceMotion]);
 
-  // Warm only the next slide — avoid competing with LCP for every background.
+  // Warm the next image slide. Video successors are buffered by BannerMedia instead.
   useEffect(() => {
     if (slides.length <= 1) return;
     const nextIdx = (currentSlide + 1) % slides.length;
-    const nextUrl = resolveHeroBackgroundUrl(resolveSlideBackgroundKey(slides[nextIdx], nextIdx));
+    const nextSlide = slides[nextIdx];
+    if (slideUsesVideo(nextSlide, shouldReduceMotion)) return;
+    const nextUrl = resolveHeroBackgroundUrl(resolveSlideBackgroundKey(nextSlide, nextIdx));
     const img = new Image();
     img.src = nextUrl;
-  }, [slides, currentSlide]);
+  }, [slides, currentSlide, shouldReduceMotion]);
 
   const scrim = buildScrimGradient(theme, isMobile);
 
@@ -200,8 +264,12 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
         ) : (
           slides.map((slide, idx) => {
             const isActive = idx === currentSlide;
+            const nextIndex = slides.length > 1 ? (currentSlide + 1) % slides.length : -1;
+            const isVideoSlide = slideUsesVideo(slide, shouldReduceMotion);
+            const retainOutgoing = outgoingSlide === idx && isVideoSlide;
             const bgKey = resolveSlideBackgroundKey(slide, idx);
             const bgUrl = resolveHeroBackgroundUrl(bgKey);
+            const bgOriginUrl = resolveHeroOriginUrl(bgKey);
             const srcSet = heroBackgroundSrcSet(bgKey);
             return (
               <div
@@ -214,16 +282,25 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                   zIndex: isActive ? 2 : 1,
                 }}
               >
-                <img
-                  src={bgUrl}
+                <BannerMedia
+                  imageUrl={bgUrl}
+                  videoSourceImageUrl={bgOriginUrl}
+                  mediaMode={slide.backgroundMediaMode}
+                  isActive={isActive}
+                  shouldLoadVideo={isActive && isVideoSlide}
+                  shouldPreloadVideo={
+                    !isActive && isVideoSlide && (idx === nextIndex || retainOutgoing)
+                  }
+                  onVideoReady={
+                    isActive && isVideoSlide ? () => setReadySlideIndex(idx) : undefined
+                  }
+                  className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none"
                   srcSet={srcSet}
                   sizes="100vw"
-                  alt=""
                   fetchpriority={idx === 0 ? 'high' : 'low'}
                   decoding={isActive ? 'sync' : 'async'}
                   loading={idx === 0 ? 'eager' : 'lazy'}
                   draggable={false}
-                  className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none"
                 />
                 <div
                   className="absolute inset-0 pointer-events-none"

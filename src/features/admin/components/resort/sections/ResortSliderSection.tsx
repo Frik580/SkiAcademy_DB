@@ -12,6 +12,8 @@ import { logger } from '../../../../../shared';
 import { ToggleSwitch } from '../../../../../ui/ToggleSwitch';
 import { FormSkeleton } from '../../../../../ui/Skeleton';
 import { ActionButton } from '../../../../../ui/ActionButton';
+import { BannerBackgroundModeControl } from '../../../../../ui/BannerBackgroundModeControl';
+import type { BannerMediaMode } from '../../../../../lib/bannerMedia';
 import { saveResortConfig, subscribeResortConfig } from '../../../../../features/settings';
 
 const RESORT_SLIDE_WALL_DESCRIPTIONS = [
@@ -82,7 +84,11 @@ export const ResortSliderSection: React.FC = () => {
     setResortSlides(resortSlides.map((s) => (s.id === id ? { ...s, hidden: !s.hidden } : s)));
   };
 
-  const handleUpdateSlideField = (id: string, field: keyof CustomHeroSlide, value: string) => {
+  const handleUpdateSlideField = (
+    id: string,
+    field: keyof CustomHeroSlide,
+    value: string | boolean | BannerMediaMode | undefined
+  ) => {
     setResortSlides(resortSlides.map((s) => (s.id === id ? { ...s, [field]: value } : s)));
   };
 
@@ -350,6 +356,12 @@ export const ResortSliderSection: React.FC = () => {
                   </div>
 
                   <div className="pt-2 border-t border-[var(--border)]/40 grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
+                    <BannerBackgroundModeControl
+                      value={slide.backgroundMediaMode}
+                      onChange={(mode) =>
+                        handleUpdateSlideField(slide.id, 'backgroundMediaMode', mode)
+                      }
+                    />
                     <div className="space-y-1.5">
                       <label className="block text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
                         {t('backgroundWall')}

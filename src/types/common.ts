@@ -41,6 +41,8 @@ export interface ErrorLog {
   path?: string;
 }
 
+import type { BannerMediaMode } from '../lib/bannerMedia';
+
 export interface CustomHeroSlide {
   id: string;
   line1En: string;
@@ -50,6 +52,8 @@ export interface CustomHeroSlide {
   line3En: string;
   line3Ru: string;
   backgroundImage: string; // e.g. 'wall', 'wall2', etc., or custom url
+  /** Defaults to `image` when omitted (legacy documents). */
+  backgroundMediaMode?: BannerMediaMode;
   hidden?: boolean;
 }
 

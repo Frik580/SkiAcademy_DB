@@ -345,7 +345,7 @@ async function buildSingletonRecord(input: {
   if (Array.isArray(payload.slides)) {
     payload.slides = payload.slides.map((slide) => slide && typeof slide === 'object' && !Array.isArray(slide)
       ? pick(slide as Record<string, unknown>, [
-        'id', 'line1En', 'line1Ru', 'line2En', 'line2Ru', 'line3En', 'line3Ru', 'backgroundImage', 'hidden',
+        'id', 'line1En', 'line1Ru', 'line2En', 'line2Ru', 'line3En', 'line3Ru', 'backgroundImage', 'backgroundMediaMode', 'hidden',
       ])
       : slide);
   }

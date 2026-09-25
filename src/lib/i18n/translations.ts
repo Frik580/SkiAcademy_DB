@@ -1513,6 +1513,11 @@ export const translations = {
     customBackgroundUrl: 'Custom Background URL',
     customImageUrlOption: 'Custom Image URL...',
     randomPresetWall: 'Random Preset (from all uploaded walls)',
+    bannerBackgroundMode: 'Background',
+    bannerBackgroundImage: 'Image',
+    bannerBackgroundVideo: 'Video',
+    bannerVideoFileHint:
+      'Video mode uses the same file name with a .mp4 extension (e.g. about.webp → about.mp4).',
     saveResortSettings: 'Save Resort Settings',
     configUpdated: 'Configuration Updated',
     configUpdatedDesc: 'Resort configuration updated successfully!',
@@ -3801,6 +3806,11 @@ export const translations = {
     customBackgroundUrl: 'Ссылка на картинку',
     customImageUrlOption: 'Своя ссылка на картинку...',
     randomPresetWall: 'Случайно из всех загруженных обоев',
+    bannerBackgroundMode: 'Фон',
+    bannerBackgroundImage: 'Изображение',
+    bannerBackgroundVideo: 'Видео',
+    bannerVideoFileHint:
+      'В режиме видео используется то же имя файла с расширением .mp4 (например about.webp → about.mp4).',
     saveResortSettings: 'Сохранить настройки курорта',
     configUpdated: 'Конфигурация обновлена',
     configUpdatedDesc: 'Конфигурация курорта успешно обновлена!',

@@ -50,9 +50,10 @@ const LCP_PRELOAD_ATTR = 'data-hero-lcp-preload';
  * Preload whichever image is actually the first (LCP) slide — not a hard-coded wall.
  */
 export const preloadHeroLcpImage = (href: string, srcSet?: string): (() => void) => {
-  if (typeof document === 'undefined' || !href) return () => {};
+  if (typeof document === 'undefined') return () => {};
 
   document.querySelectorAll(`link[${LCP_PRELOAD_ATTR}]`).forEach((el) => el.remove());
+  if (!href) return () => {};
 
   const link = document.createElement('link');
   link.rel = 'preload';

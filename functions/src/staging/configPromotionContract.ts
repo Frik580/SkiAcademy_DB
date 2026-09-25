@@ -105,6 +105,7 @@ const ResortSlidesSchema = z
             line3En: z.string().max(2000),
             line3Ru: z.string().max(2000),
             backgroundImage: z.string().min(1).max(2000),
+            backgroundMediaMode: z.enum(['image', 'video']).optional(),
             hidden: z.boolean().optional(),
           })
           .strict()

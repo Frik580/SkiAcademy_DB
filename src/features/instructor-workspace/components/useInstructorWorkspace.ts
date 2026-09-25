@@ -185,15 +185,12 @@ export const useInstructorWorkspace = ({
           (booking.attendance ?? []).map((row) => [row.participantId, row])
         );
         const participants = booking.participants.map((participant) => {
-          const client = participant.selfAccountId
-            ? usersList.find((user) => user.uid === participant.selfAccountId)
-            : undefined;
           const attendance = attendanceByParticipantId.get(participant.participantId);
           return {
             participantId: participant.participantId,
             ...(participant.selfAccountId ? { userId: participant.selfAccountId } : {}),
-            clientName: client?.displayName || participant.displayName,
-            clientAvatar: client?.avatarUrl || '',
+            clientName: participant.displayName,
+            clientAvatar: participant.avatarUrl || '',
             ...(attendance?.attendanceStatus
               ? { attendanceStatus: attendance.attendanceStatus }
               : {}),
@@ -243,7 +240,7 @@ export const useInstructorWorkspace = ({
           })(),
         };
       });
-  }, [lessonBookings, userProfile.instructorId, usersList]);
+  }, [lessonBookings, userProfile.instructorId]);
 
   const instructorBookings = useMemo(
     () => mappedInstructorBookings.filter((booking) => booking.status !== 'cancelled'),

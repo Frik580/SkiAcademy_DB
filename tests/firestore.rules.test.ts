@@ -58,6 +58,48 @@ const userProfile = (
   ...(systemRole ? { systemRole } : {}),
 });
 
+describe('/users account reads', () => {
+  beforeEach(async () => {
+    await seedData(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, 'users', USER_ID), userProfile(USER_ID, 'user@example.com'));
+      await setDoc(doc(db, 'users', OTHER_USER_ID), {
+        ...userProfile(OTHER_USER_ID, 'other@example.com'),
+        phoneNumber: '+77000000000',
+      });
+      await setDoc(doc(db, 'users', ADMIN_ID), userProfile(ADMIN_ID, 'admin@example.com', 'admin'));
+      await setDoc(doc(db, 'users', INSTRUCTOR_USER_ID), {
+        ...userProfile(INSTRUCTOR_USER_ID, 'instructor@example.com'),
+        instructorId: 'instructor-1',
+      });
+    });
+  });
+
+  it('denies an instructor other account documents', async () => {
+    const instructorDb = testEnv
+      .authenticatedContext(INSTRUCTOR_USER_ID, { email: 'instructor@example.com' })
+      .firestore();
+    await assertSucceeds(getDoc(doc(instructorDb, 'users', INSTRUCTOR_USER_ID)));
+    await assertFails(getDoc(doc(instructorDb, 'users', OTHER_USER_ID)));
+    await assertFails(getDoc(doc(instructorDb, 'users', USER_ID)));
+  });
+
+  it('denies an instructor arbitrary users listing', async () => {
+    const instructorDb = testEnv
+      .authenticatedContext(INSTRUCTOR_USER_ID, { email: 'instructor@example.com' })
+      .firestore();
+    await assertFails(getDocs(collection(instructorDb, 'users')));
+  });
+
+  it('preserves owner and admin account reads', async () => {
+    const ownerDb = testEnv.authenticatedContext(USER_ID).firestore();
+    const adminDb = testEnv.authenticatedContext(ADMIN_ID).firestore();
+    await assertSucceeds(getDoc(doc(ownerDb, 'users', USER_ID)));
+    await assertSucceeds(getDoc(doc(adminDb, 'users', OTHER_USER_ID)));
+    await assertSucceeds(getDocs(collection(adminDb, 'users')));
+  });
+});
+
 describe('canonical instructor reviews', () => {
   it('denies every client mutation of legacy and canonical review authority', async () => {
     const userDb = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();

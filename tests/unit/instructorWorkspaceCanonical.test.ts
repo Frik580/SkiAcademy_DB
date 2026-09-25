@@ -57,6 +57,7 @@ const individualBooking = {
     {
       participantId: 'participant_workspace_01',
       displayName: 'Lesson Student',
+      avatarUrl: 'https://example.com/participant-avatar.jpg',
       selfAccountId: 'student_workspace_01',
     },
     {
@@ -88,7 +89,7 @@ describe('useInstructorWorkspace canonical lesson isolation', () => {
     vi.useRealTimers();
   });
 
-  it('maps canonical instructor lessons and self-managed participant accounts', () => {
+  it('uses canonical participant identity and avatar without account profiles', () => {
     const { result } = renderHook(() =>
       useInstructorWorkspace({
         userProfile,
@@ -96,16 +97,7 @@ describe('useInstructorWorkspace canonical lesson isolation', () => {
         lessonBookings: [individualBooking],
         reviews: [],
         courses,
-        usersList: [
-          {
-            uid: 'student_workspace_01',
-            displayName: 'Lesson Student',
-          } as UserProfile,
-          {
-            uid: 'student_workspace_02',
-            displayName: 'Second Student',
-          } as UserProfile,
-        ],
+        usersList: [],
       })
     );
 
@@ -113,6 +105,7 @@ describe('useInstructorWorkspace canonical lesson isolation', () => {
     expect(result.current.displayedBookings[0]?.id).toBe('booking_individual_01');
     expect(result.current.displayedBookings[0]).toMatchObject({
       clientName: 'Lesson Student',
+      clientAvatar: 'https://example.com/participant-avatar.jpg',
     });
     expect(result.current.displayedBookings[0]?.participants).toHaveLength(2);
     expect(result.current.myStudents.map((student) => student.name)).toEqual([

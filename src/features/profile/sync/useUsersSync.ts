@@ -2,112 +2,52 @@ import { useEffect } from 'react';
 import {
   collection,
   db,
-  documentId,
   handleFirestoreError,
   limit,
   onSnapshot,
   OperationType,
   query,
-  where,
 } from '../../../infrastructure/firebase';
 import { toUserProfile } from '../../../infrastructure/firebase';
 import { useAuthStore } from '../../auth/authStore';
-import {
-  selectInstructorLessonBookings,
-  useBookingCollaborationStore,
-} from '../../booking-collaboration';
 import { useDataSyncScope } from '../../../store/useDataSyncScope';
 import { useProfileStore } from '../profileStore';
-import {
-  chunkFirestoreInValues,
-  getInstructorStudentProfileIds,
-} from './instructorStudentProfiles';
 import { isLiveCompatibleIdentity } from '../../../lib/canonical/liveCompatibleClientRead';
 
-/** Lazy users directory for admin and instructor workspaces. */
+/** Lazy users directory for the admin workspace. */
 export const useUsersSync = () => {
   const { shouldSyncUsersList } = useDataSyncScope();
   const firebaseUser = useAuthStore((s) => s.firebaseUser);
   const userProfile = useProfileStore((s) => s.userProfile);
   const usersPageSize = useProfileStore((s) => s.usersPageSize);
-  const instructorLessonBookings = useBookingCollaborationStore(selectInstructorLessonBookings);
   const isAdmin = userProfile?.role === 'admin';
-  const instructorId = userProfile?.instructorId;
 
   useEffect(() => {
     useProfileStore.getState().resetUsersPagination();
-  }, [firebaseUser?.uid, shouldSyncUsersList, userProfile?.instructorId, userProfile?.role]);
+  }, [firebaseUser?.uid, shouldSyncUsersList, userProfile?.role]);
 
   useEffect(() => {
-    if (!firebaseUser || !shouldSyncUsersList || (!isAdmin && !instructorId)) {
+    if (!firebaseUser || !shouldSyncUsersList || !isAdmin) {
       useProfileStore.getState().setUsersList([]);
       return;
     }
 
-    if (isAdmin) {
-      return onSnapshot(
-        query(collection(db, 'users'), limit(usersPageSize + 1)),
-        (snapshot) => {
-          const users = snapshot.docs
-            .slice(0, usersPageSize)
-            .filter((userDoc) => userDoc.id !== 'school_global_stats')
-            .flatMap((userDoc) => {
-              const data = userDoc.data();
-              if (!isLiveCompatibleIdentity(data)) return [];
-              const profile = toUserProfile(data, userDoc.id);
-              return profile ? [profile] : [];
-            });
-          useProfileStore.getState().setUsersList(users);
-          useProfileStore.getState().setUsersHasMore(snapshot.docs.length > usersPageSize);
-        },
-        (error) => handleFirestoreError(error, OperationType.LIST, 'users')
-      );
-    }
-
-    const studentProfileIds = getInstructorStudentProfileIds(instructorLessonBookings);
-    if (studentProfileIds.length === 0) {
-      useProfileStore.getState().setUsersList([]);
-      useProfileStore.getState().setUsersHasMore(false);
-      return;
-    }
-
-    const snapshots = new Map<string, import('../../../types').UserProfile[]>();
-    const publish = () => {
-      const users = [
-        ...new Map(
-          [...snapshots.values()].flat().map((profile) => [profile.uid, profile])
-        ).values(),
-      ];
-      useProfileStore.getState().setUsersList(users);
-      useProfileStore.getState().setUsersHasMore(false);
-    };
-
-    const unsubscribers = chunkFirestoreInValues(studentProfileIds).map((profileIds, index) =>
-      onSnapshot(
-        query(collection(db, 'users'), where(documentId(), 'in', profileIds)),
-        (snapshot) => {
-          snapshots.set(
-            String(index),
-            snapshot.docs.flatMap((userDoc) => {
-              const data = userDoc.data();
-              if (!isLiveCompatibleIdentity(data)) return [];
-              const profile = toUserProfile(data, userDoc.id);
-              return profile ? [profile] : [];
-            })
-          );
-          publish();
-        },
-        (error) => handleFirestoreError(error, OperationType.LIST, 'users')
-      )
+    return onSnapshot(
+      query(collection(db, 'users'), limit(usersPageSize + 1)),
+      (snapshot) => {
+        const users = snapshot.docs
+          .slice(0, usersPageSize)
+          .filter((userDoc) => userDoc.id !== 'school_global_stats')
+          .flatMap((userDoc) => {
+            const data = userDoc.data();
+            if (!isLiveCompatibleIdentity(data)) return [];
+            const profile = toUserProfile(data, userDoc.id);
+            return profile ? [profile] : [];
+          });
+        useProfileStore.getState().setUsersList(users);
+        useProfileStore.getState().setUsersHasMore(snapshot.docs.length > usersPageSize);
+      },
+      (error) => handleFirestoreError(error, OperationType.LIST, 'users')
     );
-
-    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
-  }, [
-    firebaseUser,
-    instructorId,
-    instructorLessonBookings,
-    isAdmin,
-    shouldSyncUsersList,
-    usersPageSize,
-  ]);
+  }, [firebaseUser, isAdmin, shouldSyncUsersList, usersPageSize]);
 };

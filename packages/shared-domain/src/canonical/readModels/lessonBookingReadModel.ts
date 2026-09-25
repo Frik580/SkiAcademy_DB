@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ParticipantAvatarUrlSchema } from '../accountParticipantAccess';
 import { IdempotencyKeySchema } from '../commands/commandContext';
 import {
   AccountIdSchema,
@@ -63,6 +64,7 @@ export const LessonBookingReadModelParticipantProjectionSchema = z
   .object({
     participantId: ParticipantIdSchema,
     displayName: z.string().trim().min(1).max(200),
+    avatarUrl: ParticipantAvatarUrlSchema.optional(),
     selfAccountId: AccountIdSchema.optional(),
   })
   .strict();

@@ -335,7 +335,9 @@ describe('instructor lesson booking store refresh', () => {
       revision: 2,
       partyKind: 'individual',
       participantIds: [participantId],
-      participants: [{ participantId, displayName: 'Student' }],
+      participants: [
+        { participantId, displayName: 'Student', avatarUrl: 'https://example.com/student.jpg' },
+      ],
       instructor: { instructorId, displayName: 'Coach' },
       occurrence: {
         startsAt: serviceStart,
@@ -363,6 +365,7 @@ describe('instructor lesson booking store refresh', () => {
       updatedAt: decidedAt,
     });
     expect(item.status).toBe('no_show');
+    expect(item.participants[0]?.avatarUrl).toBe('https://example.com/student.jpg');
     expect(item.attendance[0]?.attendanceStatus).toBe('absent');
   });
 

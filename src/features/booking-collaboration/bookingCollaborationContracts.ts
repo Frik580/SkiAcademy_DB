@@ -63,6 +63,7 @@ export interface InstructorLessonBookingItem {
   readonly participants: readonly {
     readonly participantId: string;
     readonly displayName: string;
+    readonly avatarUrl?: string;
     readonly selfAccountId?: string;
   }[];
   readonly partyKind: 'individual' | 'family_group';

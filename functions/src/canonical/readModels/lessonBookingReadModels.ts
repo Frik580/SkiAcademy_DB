@@ -1064,6 +1064,7 @@ export async function buildInstructorLessonBookingReadModel(
     participants.push({
       participantId: sanitized.participantId,
       displayName: sanitized.displayName,
+      ...(participant.avatarUrl ? { avatarUrl: participant.avatarUrl } : {}),
       ...(selfManagement.success &&
       participant.management.kind === 'managed' &&
       selfManagement.data.participantManagementId ===

@@ -8,7 +8,7 @@ export function resolveDataSyncScope(pathname: string, hasReviewsInstructor: boo
 
   return {
     catalogueScope: isInstructorRoute ? 'instructor' : 'full',
-    shouldSyncUsersList: isAdminRoute || isInstructorRoute,
+    shouldSyncUsersList: isAdminRoute,
     shouldSyncActivityLogs: isAdminRoute || isInstructorRoute || isCabinetRoute,
     shouldSyncReviews: isCabinetRoute || isInstructorRoute || hasReviewsInstructor,
     shouldLoadBookingHistory: false,

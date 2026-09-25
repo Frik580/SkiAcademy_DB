@@ -1156,6 +1156,7 @@ describe('Instructor lesson booking attendance projection', () => {
       ParticipantSchema.parse({
         participantId: participant,
         displayName: name,
+        ...(participant === participantA ? { avatarUrl: 'https://example.com/alice.jpg' } : {}),
         age: { kind: 'age_years', years: 18 },
         skillLevel: 'beginner',
         discipline: 'ski',
@@ -1218,6 +1219,13 @@ describe('Instructor lesson booking attendance projection', () => {
       { instructorId, now: new Date('2026-08-02T11:00:00.000Z') }
     );
     expect(result.items).toHaveLength(1);
+    expect(result.items[0]?.participants).toContainEqual(
+      expect.objectContaining({
+        participantId: participantA,
+        displayName: 'Alice',
+        avatarUrl: 'https://example.com/alice.jpg',
+      })
+    );
     expect(result.items[0]?.attendance).toEqual([
       {
         participantId: participantA,

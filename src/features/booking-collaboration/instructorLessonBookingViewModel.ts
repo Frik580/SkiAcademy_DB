@@ -31,6 +31,7 @@ export function mapInstructorLessonBookingReadModel(
     participants: readModel.participants.map((participant) => ({
       participantId: participant.participantId,
       displayName: participant.displayName,
+      ...(participant.avatarUrl ? { avatarUrl: participant.avatarUrl } : {}),
       ...(participant.selfAccountId ? { selfAccountId: participant.selfAccountId } : {}),
     })),
     partyKind: readModel.partyKind,

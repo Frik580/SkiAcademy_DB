@@ -39,7 +39,10 @@ describe('participant access read models', () => {
     const result = buildInstructorParticipantReadModel({
       topology: canonicalParticipantAccessFixtures.unblockedTopology,
       instructorId: InstructorIdSchema.parse('instructor_access_fixture'),
-      participant: canonicalParticipantAccessFixtures.participant,
+      participant: {
+        ...canonicalParticipantAccessFixtures.participant,
+        avatarUrl: 'https://example.com/participant.jpg',
+      },
       at: decidedAt,
     });
 
@@ -49,6 +52,7 @@ describe('participant access read models', () => {
         canonicalParticipantAccessFixtures.participant.participantId
       );
       expect(result.participant).not.toHaveProperty('revision');
+      expect(result.participant).not.toHaveProperty('avatarUrl');
       expect(result.access.scope).toBe('relationship');
     }
   });

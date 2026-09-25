@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { IdempotencyKeySchema } from '../commands/commandContext';
 import { InstructorIdSchema } from '../identifiers';
+import {
+  InstructorBioTextSchema,
+  instructorSpokenLanguagesSchema,
+} from '../instructorSpokenLanguage';
 
 export const BOOKING_INSTRUCTOR_CATALOGUE_READ_LIMIT = 100;
 
@@ -11,9 +15,11 @@ export const BookingInstructorCatalogueItemSchema = z
     instructorId: InstructorIdSchema,
     name: z.string().trim().min(1).max(200),
     specialty: BookingInstructorSpecialtySchema.optional(),
-    languages: z.array(z.string().trim().min(1).max(40)).max(12).optional(),
+    languages: instructorSpokenLanguagesSchema(12, 40).optional(),
     experienceYears: z.number().int().min(0).max(80).optional(),
-    bio: z.string().max(4000).optional(),
+    bio: InstructorBioTextSchema.optional(),
+    bioRu: InstructorBioTextSchema.optional(),
+    bioEn: InstructorBioTextSchema.optional(),
     avatarUrl: z.string().max(2000).optional(),
     pricePerHour: z.number().finite().optional(),
     pricePerHourKZT: z.number().finite().int().min(0).optional(),

@@ -214,6 +214,8 @@ export async function executeAdminIdentityAttempt(
               ? {}
               : { experienceYears: attempt.experienceYears }),
             ...(attempt.bio === undefined ? {} : { bio: attempt.bio }),
+            ...(attempt.bioRu === undefined ? {} : { bioRu: attempt.bioRu }),
+            ...(attempt.bioEn === undefined ? {} : { bioEn: attempt.bioEn }),
             ...(attempt.avatarUrl === undefined ? {} : { avatarUrl: attempt.avatarUrl }),
             ...(attempt.phoneNumber === undefined ? {} : { phoneNumber: attempt.phoneNumber }),
           },
@@ -246,6 +248,8 @@ export async function executeAdminIdentityAttempt(
                     ? {}
                     : { experienceYears: attempt.experienceYears }),
                   ...(attempt.bio === undefined ? {} : { bio: attempt.bio }),
+                  ...(attempt.bioRu === undefined ? {} : { bioRu: attempt.bioRu }),
+                  ...(attempt.bioEn === undefined ? {} : { bioEn: attempt.bioEn }),
                   ...(attempt.avatarUrl === undefined ? {} : { avatarUrl: attempt.avatarUrl }),
                   ...(attempt.phoneNumber === undefined
                     ? {}

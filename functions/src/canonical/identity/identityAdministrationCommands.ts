@@ -18,6 +18,7 @@ import {
   nextAggregateRevision,
   parseInstructorCatalogRevision,
   participantArchiveBlockedByCommitments,
+  normalizeInstructorSpokenLanguages,
   resolveCommandIdempotencyIdentity,
   timestampFromDate,
   AccountIdSchema,
@@ -214,6 +215,57 @@ function buildIdentityAdminAuditPlan(input: {
   };
 }
 
+function optionalCatalogBio(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0 && value.trim().length <= 4_000
+    ? value.trim()
+    : undefined;
+}
+
+function instructorCatalogTextPatch(
+  intent: {
+    readonly bio?: string;
+    readonly bioRu?: string;
+    readonly bioEn?: string;
+    readonly languages?: readonly string[];
+  },
+  current?: {
+    readonly bio?: string;
+    readonly bioRu?: string;
+    readonly bioEn?: string;
+  }
+): Record<string, unknown> {
+  const patch: Record<string, unknown> = {
+    ...(intent.languages === undefined
+      ? {}
+      : { languages: normalizeInstructorSpokenLanguages(intent.languages) }),
+  };
+
+  // Explicit EN text only; never invent or copy Russian into bioEn.
+  if (intent.bioEn !== undefined) {
+    patch.bioEn = intent.bioEn;
+  }
+
+  if (intent.bioRu !== undefined) {
+    patch.bioRu = intent.bioRu;
+    patch.bio = intent.bio !== undefined ? intent.bio : intent.bioRu;
+    return patch;
+  }
+
+  // One-time legacy migration: existing `bio` without `bioRu` is Russian content.
+  // Do not overwrite an already-persisted bioRu. Never seed bioEn from legacy bio.
+  if (current && !current.bioRu && current.bio) {
+    patch.bioRu = current.bio;
+  } else if (!current && intent.bio !== undefined) {
+    // Create with legacy-only `bio`: treat it as Russian and seed bioRu once.
+    patch.bioRu = intent.bio;
+    patch.bio = intent.bio;
+  } else if (intent.bio !== undefined) {
+    patch.bio = intent.bio;
+  }
+
+  return patch;
+}
+
 function parseCatalogEntry(
   instructorId: string,
   data: Record<string, unknown> | undefined
@@ -243,10 +295,9 @@ function parseCatalogEntry(
     data.experienceYears <= 80
       ? data.experienceYears
       : undefined;
-  const bio =
-    typeof data.bio === 'string' && data.bio.trim().length > 0 && data.bio.trim().length <= 4_000
-      ? data.bio.trim()
-      : undefined;
+  const bio = optionalCatalogBio(data.bio);
+  const bioRu = optionalCatalogBio(data.bioRu);
+  const bioEn = optionalCatalogBio(data.bioEn);
   const avatarUrl = sanitizeInstructorPresentationAvatarUrl(
     typeof data.avatarUrl === 'string' ? data.avatarUrl : undefined
   );
@@ -279,6 +330,8 @@ function parseCatalogEntry(
     ...(languages && languages.length > 0 ? { languages } : {}),
     ...(experienceYears !== undefined ? { experienceYears } : {}),
     ...(bio ? { bio } : {}),
+    ...(bioRu ? { bioRu } : {}),
+    ...(bioEn ? { bioEn } : {}),
     ...(avatarUrl ? { avatarUrl } : {}),
     pricePerHourKZT: data.pricePerHourKZT,
     pricePerHour: data.pricePerHour,
@@ -1579,13 +1632,10 @@ function createInstructorCatalogHandler(
             ...(envelope.intent.specialty === undefined
               ? {}
               : { specialty: envelope.intent.specialty }),
-            ...(envelope.intent.languages === undefined
-              ? {}
-              : { languages: envelope.intent.languages }),
+            ...instructorCatalogTextPatch(envelope.intent),
             ...(envelope.intent.experienceYears === undefined
               ? {}
               : { experienceYears: envelope.intent.experienceYears }),
-            ...(envelope.intent.bio === undefined ? {} : { bio: envelope.intent.bio }),
             ...(envelope.intent.avatarUrl === undefined
               ? {}
               : { avatarUrl: envelope.intent.avatarUrl }),
@@ -1699,13 +1749,10 @@ function updateInstructorCatalogHandler(
             ...(envelope.intent.specialty === undefined
               ? {}
               : { specialty: envelope.intent.specialty }),
-            ...(envelope.intent.languages === undefined
-              ? {}
-              : { languages: envelope.intent.languages }),
+            ...instructorCatalogTextPatch(envelope.intent, current),
             ...(envelope.intent.experienceYears === undefined
               ? {}
               : { experienceYears: envelope.intent.experienceYears }),
-            ...(envelope.intent.bio === undefined ? {} : { bio: envelope.intent.bio }),
             ...(envelope.intent.avatarUrl === undefined
               ? {}
               : { avatarUrl: envelope.intent.avatarUrl }),

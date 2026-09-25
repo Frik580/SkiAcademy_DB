@@ -1,9 +1,12 @@
 import {
   IdempotencyKeySchema,
+  normalizeInstructorSpokenLanguage,
+  normalizeInstructorSpokenLanguages,
   type AccountId,
   type AdminInstructorDetailReadModel,
   type AdminInstructorListItem,
   type InstructorId,
+  type InstructorSpokenLanguageCode,
 } from '@ski-academy/shared-domain';
 
 export const ADMIN_INSTRUCTOR_DIRECTORY_PAGE_SIZE = 20;
@@ -38,6 +41,8 @@ export type AdminInstructorDetailView = Pick<
   | 'linkedAccountLifecycle'
   | 'pricePerHourKZT'
   | 'bio'
+  | 'bioRu'
+  | 'bioEn'
   | 'avatarUrl'
   | 'phoneNumber'
   | 'languages'
@@ -62,7 +67,8 @@ export interface AdminInstructorProfileDraft {
   readonly specialty: AdminInstructorSpecialty;
   readonly languages: string;
   readonly experienceYears: string;
-  readonly bio: string;
+  readonly bioRu: string;
+  readonly bioEn: string;
   readonly phoneNumber: string;
   readonly pricePerHourKZT: string;
   readonly avatarUrl: string;
@@ -73,7 +79,8 @@ export const EMPTY_ADMIN_INSTRUCTOR_PROFILE_DRAFT: AdminInstructorProfileDraft =
   specialty: 'ski',
   languages: '',
   experienceYears: '',
-  bio: '',
+  bioRu: '',
+  bioEn: '',
   phoneNumber: '',
   pricePerHourKZT: '',
   avatarUrl: '',
@@ -87,6 +94,8 @@ export function adminInstructorProfileDraftFromDetail(
     | 'languages'
     | 'experienceYears'
     | 'bio'
+    | 'bioRu'
+    | 'bioEn'
     | 'phoneNumber'
     | 'pricePerHourKZT'
     | 'avatarUrl'
@@ -95,20 +104,43 @@ export function adminInstructorProfileDraftFromDetail(
   return {
     name: detail.name,
     specialty: detail.specialty ?? 'ski',
-    languages: (detail.languages ?? []).join(', '),
+    languages: normalizeInstructorSpokenLanguages(detail.languages ?? []).join(', '),
     experienceYears: detail.experienceYears === undefined ? '' : String(detail.experienceYears),
-    bio: detail.bio ?? '',
+    bioRu: detail.bioRu?.trim() || detail.bio?.trim() || '',
+    bioEn: detail.bioEn?.trim() || '',
     phoneNumber: detail.phoneNumber ?? '',
     pricePerHourKZT: detail.pricePerHourKZT === undefined ? '' : String(detail.pricePerHourKZT),
     avatarUrl: detail.avatarUrl ?? '',
   };
 }
 
+export function localizedInstructorProfileFields(draft: AdminInstructorProfileDraft): {
+  bio?: string;
+  bioRu?: string;
+  bioEn?: string;
+} {
+  const bioRu = draft.bioRu.trim();
+  const bioEn = draft.bioEn.trim();
+  return {
+    ...(bioRu ? { bioRu, bio: bioRu } : {}),
+    ...(bioEn ? { bioEn } : {}),
+  };
+}
+
 export function parseInstructorLanguagesCsv(value: string): string[] {
-  return value
-    .split(',')
-    .map((part) => part.trim())
-    .filter(Boolean);
+  return normalizeInstructorSpokenLanguages(value.split(','));
+}
+
+export function formatInstructorSpokenLanguageList(
+  languages: readonly string[] | undefined,
+  labels: Readonly<Record<InstructorSpokenLanguageCode, string>>
+): string {
+  return normalizeInstructorSpokenLanguages(languages ?? [])
+    .map((token) => {
+      const code = normalizeInstructorSpokenLanguage(token);
+      return code ? labels[code] : token;
+    })
+    .join(', ');
 }
 
 export function adminInstructorAttemptKey(

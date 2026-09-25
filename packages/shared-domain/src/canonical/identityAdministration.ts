@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import {
+  InstructorBioTextSchema,
+  instructorSpokenLanguagesSchema,
+} from './instructorSpokenLanguage';
 import type { Account } from './accountParticipantAccess';
 import {
   AccountIdSchema,
@@ -27,9 +31,11 @@ export const InstructorCatalogEntrySchema = z
     testSessionId: TestSessionIdSchema.optional(),
     name: z.string().trim().min(1).max(200),
     specialty: InstructorCatalogSpecialtySchema.optional(),
-    languages: z.array(z.string().trim().min(1).max(32)).max(16).optional(),
+    languages: instructorSpokenLanguagesSchema(16, 32).optional(),
     experienceYears: z.number().finite().int().min(0).max(80).optional(),
-    bio: z.string().trim().max(4_000).optional(),
+    bio: InstructorBioTextSchema.optional(),
+    bioRu: InstructorBioTextSchema.optional(),
+    bioEn: InstructorBioTextSchema.optional(),
     avatarUrl: z.string().trim().min(1).max(2_000).optional(),
     pricePerHourKZT: z.number().finite().int().positive().optional(),
     pricePerHour: z.number().finite().positive().optional(),

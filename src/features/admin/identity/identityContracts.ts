@@ -73,6 +73,8 @@ export type AdminIdentityAttempt =
       readonly languages?: readonly string[];
       readonly experienceYears?: number;
       readonly bio?: string;
+      readonly bioRu?: string;
+      readonly bioEn?: string;
       readonly avatarUrl?: string;
       readonly phoneNumber?: string;
     })
@@ -88,6 +90,8 @@ export type AdminIdentityAttempt =
       readonly languages?: readonly string[];
       readonly experienceYears?: number;
       readonly bio?: string;
+      readonly bioRu?: string;
+      readonly bioEn?: string;
       readonly avatarUrl?: string;
       readonly phoneNumber?: string;
     })

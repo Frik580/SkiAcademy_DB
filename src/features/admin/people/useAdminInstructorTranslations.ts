@@ -1,4 +1,7 @@
+import { INSTRUCTOR_SPOKEN_LANGUAGE_CODES } from '@ski-academy/shared-domain';
 import { useLanguage } from '../../../app/providers/LanguageContext';
+import { INSTRUCTOR_SPOKEN_LANGUAGE_KEYS } from '../../../lib/i18n/instructorLanguages';
+import { translations } from '../../../lib/i18n/translations';
 
 export function useAdminInstructorTranslations() {
   const { language } = useLanguage();
@@ -80,9 +83,16 @@ export function useAdminInstructorTranslations() {
       cancel: ru ? 'Отмена' : 'Cancel',
       displayName: ru ? 'Имя' : 'Name',
       languages: ru ? 'Языки' : 'Languages',
-      languagesHint: ru ? 'Через запятую' : 'Comma-separated',
+      spokenLanguageLabels: Object.fromEntries(
+        INSTRUCTOR_SPOKEN_LANGUAGE_CODES.map((code) => [
+          code,
+          translations[language][INSTRUCTOR_SPOKEN_LANGUAGE_KEYS[code]],
+        ])
+      ) as Record<(typeof INSTRUCTOR_SPOKEN_LANGUAGE_CODES)[number], string>,
       experienceYears: ru ? 'Опыт (лет)' : 'Experience (years)',
       bio: ru ? 'О себе' : 'Bio',
+      bioRu: ru ? 'О себе — RU' : 'Bio — RU',
+      bioEn: ru ? 'Bio — EN' : 'About — EN',
       phone: ru ? 'Телефон' : 'Phone',
       pricePerHourKZT: ru ? 'Ставка ₸/час' : 'Rate ₸/hour',
       priceRequired: ru ? 'Укажите ставку в тенге.' : 'Enter a rate in tenge.',

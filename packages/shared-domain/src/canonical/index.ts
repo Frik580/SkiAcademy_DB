@@ -79,5 +79,6 @@ export * from './resourceClaims';
 export * from './resourceClaimGuards';
 export * from './validation';
 export * from './identityAdministration';
+export * from './instructorSpokenLanguage';
 export * from './readModels';
 export * from './readModelAuthorization';

@@ -79,6 +79,8 @@ function toCatalogueItem(
       ? data.experienceYears
       : undefined;
   const bio = optionalString(data.bio, 4000);
+  const bioRu = optionalString(data.bioRu, 4000);
+  const bioEn = optionalString(data.bioEn, 4000);
   const avatarUrl = optionalString(data.avatarUrl, 2000);
   const phoneNumber = optionalString(data.phoneNumber, 40);
 
@@ -90,6 +92,8 @@ function toCatalogueItem(
     ...(languages && languages.length > 0 ? { languages } : {}),
     ...(experienceYears !== undefined ? { experienceYears } : {}),
     ...(bio ? { bio } : {}),
+    ...(bioRu ? { bioRu } : {}),
+    ...(bioEn ? { bioEn } : {}),
     ...(avatarUrl ? { avatarUrl } : {}),
     ...(pricePerHour !== undefined ? { pricePerHour } : {}),
     ...(pricePerHourKZT !== undefined ? { pricePerHourKZT } : {}),

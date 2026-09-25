@@ -378,4 +378,65 @@ describe('AdminInstructorDirectory canonical identity UX', () => {
     expect(screen.queryByRole('button', { name: 'Delete instructor' })).not.toBeInTheDocument();
     expect(mockReads.refresh).toHaveBeenCalled();
   });
+
+  it('sends both localized bios when creating an instructor', async () => {
+    mockAccountReads.accounts.items = [
+      {
+        accountId: linkedAccountId,
+        displayName: 'Anna Account',
+        lifecycle: 'active',
+        revision: 4,
+        instructorLink: { isInstructor: false },
+      },
+    ];
+    render(<AdminInstructorDirectory adminAccountId={adminId} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Add instructor' }));
+    fireEvent.click(screen.getByRole('button', { name: /Anna Account/ }));
+    fireEvent.change(screen.getByLabelText('Rate ₸/hour'), { target: { value: '25000' } });
+    fireEvent.change(screen.getByLabelText('Bio — RU'), { target: { value: 'Русское био' } });
+    fireEvent.change(screen.getByLabelText('About — EN'), { target: { value: 'English bio' } });
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Russian' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Create instructor' }));
+    });
+    expect(mockExecute).toHaveBeenCalledWith(
+      adminId,
+      expect.objectContaining({
+        kind: 'create_instructor_catalog_entry',
+        name: 'Anna Account',
+        pricePerHourKZT: 25000,
+        bio: 'Русское био',
+        bioRu: 'Русское био',
+        bioEn: 'English bio',
+        languages: ['ru'],
+      })
+    );
+  });
+
+  it('sends both localized bios when updating an instructor', async () => {
+    mockReads.instructorDetail = instructorDetail({
+      bio: 'Профессиональный инструктор Школы.',
+      languages: ['русский'],
+    });
+    render(<AdminInstructorDirectory adminAccountId={adminId} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit profile' }));
+    expect(screen.getByLabelText('Bio — RU')).toHaveValue('Профессиональный инструктор Школы.');
+    fireEvent.change(screen.getByLabelText('About — EN'), {
+      target: { value: 'Professional school instructor.' },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Save profile' }));
+    });
+    expect(mockExecute).toHaveBeenCalledWith(
+      adminId,
+      expect.objectContaining({
+        kind: 'update_instructor_catalog_profile',
+        bio: 'Профессиональный инструктор Школы.',
+        bioRu: 'Профессиональный инструктор Школы.',
+        bioEn: 'Professional school instructor.',
+        languages: ['ru'],
+      })
+    );
+  });
 });

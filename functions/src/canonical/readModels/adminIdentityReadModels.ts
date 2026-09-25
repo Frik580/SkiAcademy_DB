@@ -978,12 +978,14 @@ async function buildInstructorDetail(
         : {}),
     }),
     ...(readString(data, 'bio') ? { bio: readString(data, 'bio') } : {}),
+    ...(readString(data, 'bioRu') ? { bioRu: readString(data, 'bioRu') } : {}),
+    ...(readString(data, 'bioEn') ? { bioEn: readString(data, 'bioEn') } : {}),
     ...(avatarUrl ? { avatarUrl } : {}),
     ...(readString(data, 'phoneNumber') ? { phoneNumber: readString(data, 'phoneNumber') } : {}),
     ...(Array.isArray(data.languages)
       ? {
           languages: data.languages
-            .filter((item): item is string => typeof item === 'string')
+            .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
             .slice(0, 16),
         }
       : {}),

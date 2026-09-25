@@ -1,6 +1,8 @@
+import { normalizeInstructorSpokenLanguages } from '@ski-academy/shared-domain';
 import { Instructor, Course } from '../../types';
 import { translations, type Language, type TranslationKey } from './translations';
 import { parseCourseDates, formatCourseDates } from './courseDates';
+import { selectInstructorBio } from './instructorBio';
 
 export function translateInstructorName(name: string, language: Language): string {
   const namesMap: Record<string, { en: string; ru: string }> = {
@@ -91,6 +93,15 @@ export function translateInstructor(ins: Instructor, language: Language): Instru
   };
 
   const name = translateInstructorName(ins.name, language);
+  const languages = normalizeInstructorSpokenLanguages(ins.languages ?? []);
+  if (ins.bioRu?.trim() || ins.bioEn?.trim()) {
+    return {
+      ...ins,
+      name,
+      languages,
+      bio: selectInstructorBio(ins, language),
+    };
+  }
 
   const bioTranslation = biosMap[ins.bio] || biosMap[ins.bio.trim()];
   let bio = ins.bio;
@@ -133,6 +144,7 @@ export function translateInstructor(ins: Instructor, language: Language): Instru
   return {
     ...ins,
     name,
+    languages,
     bio,
   };
 }

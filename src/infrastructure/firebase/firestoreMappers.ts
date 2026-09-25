@@ -1,3 +1,4 @@
+import { normalizeInstructorSpokenLanguages } from '@ski-academy/shared-domain';
 import type { ActivityLog, Booking, Course, Instructor, UserProfile } from '../../types';
 import type { DbNotification } from '../../domain/notifications';
 import type { WalletLedgerEntry } from '../../features/wallet/types';
@@ -40,12 +41,36 @@ export const toBooking = (id: string, fields: unknown): Booking | null => {
   logInvalidDocument('bookings', id, result.reason);
   return null;
 };
-export const toInstructor = (id: string, fields: unknown): Instructor => ({
-  ...toDocumentModel<Instructor>(id, fields),
-  // Legacy catalog aggregates are untrusted after the canonical review cutover.
-  rating: null,
-  reviewsCount: 0,
-});
+function optionalInstructorBio(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 && trimmed.length <= 4_000 ? trimmed : undefined;
+}
+
+export const toInstructor = (id: string, fields: unknown): Instructor => {
+  const record =
+    fields && typeof fields === 'object' ? (fields as Record<string, unknown>) : undefined;
+  const languages = Array.isArray(record?.languages)
+    ? normalizeInstructorSpokenLanguages(
+        record.languages.filter((item): item is string => typeof item === 'string')
+      )
+    : [];
+  const bioRu = optionalInstructorBio(record?.bioRu);
+  const bioEn = optionalInstructorBio(record?.bioEn);
+  const model = toDocumentModel<Instructor>(id, fields);
+  delete model.bioRu;
+  delete model.bioEn;
+  return {
+    ...model,
+    bio: typeof model.bio === 'string' ? model.bio : '',
+    languages,
+    ...(bioRu ? { bioRu } : {}),
+    ...(bioEn ? { bioEn } : {}),
+    // Legacy catalog aggregates are untrusted after the canonical review cutover.
+    rating: null,
+    reviewsCount: 0,
+  };
+};
 export const toCourse = (id: string, fields: unknown): Course | null => {
   const result = parseCourse(fields, id);
   if (result.success) return result.data;

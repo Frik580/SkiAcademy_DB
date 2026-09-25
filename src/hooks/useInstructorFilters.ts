@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { Instructor } from '../types';
+import { normalizeInstructorSpokenLanguage } from '@ski-academy/shared-domain';
 import { Language, translateInstructor } from '../app/providers/LanguageContext';
 import { useBookingsStore } from '../features/bookings/bookingsStore';
 import { useSettingsStore } from '../features/settings/settingsStore';
@@ -36,7 +37,16 @@ export const useInstructorFilters = (language: Language) => {
           ins.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
           ins.bio.toLowerCase().includes(searchQuery.toLowerCase());
         const matchSpec = selectedSpecialty === 'all' || ins.specialty === selectedSpecialty;
-        const matchLang = selectedLanguage === 'all' || ins.languages.includes(selectedLanguage);
+        const selectedLanguageCode =
+          selectedLanguage === 'all'
+            ? 'all'
+            : (normalizeInstructorSpokenLanguage(selectedLanguage) ?? selectedLanguage);
+        const matchLang =
+          selectedLanguageCode === 'all' ||
+          ins.languages.some(
+            (spoken) =>
+              (normalizeInstructorSpokenLanguage(spoken) ?? spoken) === selectedLanguageCode
+          );
 
         return matchSearch && matchSpec && matchLang;
       })

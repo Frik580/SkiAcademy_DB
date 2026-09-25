@@ -18,6 +18,10 @@ import {
   InstructorCatalogSpecialtySchema,
 } from '../identityAdministration';
 import { AggregateRevisionSchema, CanonicalTimestampSchema } from '../primitives';
+import {
+  InstructorBioTextSchema,
+  instructorSpokenLanguagesSchema,
+} from '../instructorSpokenLanguage';
 
 export const ADMIN_IDENTITY_READ_MODEL_PAGE_SIZE_DEFAULT = 20;
 export const ADMIN_IDENTITY_READ_MODEL_PAGE_SIZE_MAX = 50;
@@ -137,10 +141,12 @@ export type AdminInstructorListItem = z.output<typeof AdminInstructorListItemSch
 export const AdminInstructorDetailReadModelSchema = AdminInstructorListItemSchema.extend({
   courseRosterCount: z.number().int().nonnegative(),
   courseDayAssignmentCount: z.number().int().nonnegative(),
-  bio: z.string().trim().max(4_000).optional(),
+  bio: InstructorBioTextSchema.optional(),
+  bioRu: InstructorBioTextSchema.optional(),
+  bioEn: InstructorBioTextSchema.optional(),
   avatarUrl: z.string().trim().min(1).max(2_000).optional(),
   phoneNumber: z.string().trim().max(32).optional(),
-  languages: z.array(z.string()).max(16).optional(),
+  languages: instructorSpokenLanguagesSchema(16, 200).optional(),
   experienceYears: z.number().finite().int().min(0).max(80).optional(),
   linkedAccountLifecycle: z.enum(['active', 'disabled', 'uninitialized']).optional(),
   futureLessonCommitmentCount: z.number().int().nonnegative(),

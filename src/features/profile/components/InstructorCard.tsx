@@ -1,9 +1,12 @@
 import React from 'react';
 import { motion, useReducedMotion } from 'motion/react';
+import { normalizeInstructorSpokenLanguage } from '@ski-academy/shared-domain';
 import { Instructor } from '../../../types';
 import { Star, Globe } from 'lucide-react';
-import { useLanguage, type TranslationKey } from '../../../app/providers/LanguageContext';
+import { useLanguage } from '../../../app/providers/LanguageContext';
 import { useCurrency } from '../../../app/providers/CurrencyContext';
+import { INSTRUCTOR_SPOKEN_LANGUAGE_KEYS } from '../../../lib/i18n/instructorLanguages';
+import { selectInstructorBio } from '../../../lib/i18n/instructorBio';
 
 interface InstructorCardProps {
   instructor: Instructor;
@@ -14,7 +17,7 @@ interface InstructorCardProps {
 
 export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardProps>(
   ({ instructor, onBook, onViewReviews, bookLabel }, ref) => {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const { formatPrice } = useCurrency();
     const shouldReduceMotion = useReducedMotion();
 
@@ -30,16 +33,10 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
     };
 
     const getLanguageLabel = (lang: string) => {
-      const mapping: Record<string, TranslationKey> = {
-        English: 'languageEnglishShort',
-        German: 'languageGermanShort',
-        French: 'languageFrenchShort',
-        Russian: 'languageRussianShort',
-        Italian: 'languageItalianShort',
-        Spanish: 'languageSpanishShort',
-      };
-      return mapping[lang] ? t(mapping[lang]) : lang;
+      const code = normalizeInstructorSpokenLanguage(lang);
+      return code ? t(INSTRUCTOR_SPOKEN_LANGUAGE_KEYS[code]) : lang;
     };
+    const bio = selectInstructorBio(instructor, language);
 
     const specialtyText = getSpecialtyLabel(instructor.specialty);
     const specialtyMeta = `${specialtyText} • ${instructor.experienceYears}${t('yearShort')}`;
@@ -84,7 +81,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
     );
 
     const languagesRow = (
-      <div className="inline-flex flex-wrap items-center justify-center md:justify-start gap-1 text-sm lowercase text-[var(--ink-dim)] font-sans">
+      <div className="inline-flex flex-wrap items-center justify-center md:justify-start gap-1 text-sm text-[var(--ink-dim)] font-sans">
         <Globe className="w-3 h-3 shrink-0" />
         <span>{languagesText}</span>
       </div>
@@ -169,7 +166,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
             </div>
 
             <p className="text-sm text-[var(--ink-dim)] leading-relaxed max-w-2xl mx-auto md:mx-0 mb-5 md:mb-6">
-              {instructor.bio}
+              {bio}
             </p>
           </div>
 

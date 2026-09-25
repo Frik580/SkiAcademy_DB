@@ -8,6 +8,8 @@ export interface Instructor {
   languages: string[];
   experienceYears: number;
   bio: string;
+  bioRu?: string;
+  bioEn?: string;
   avatarUrl: string;
   pricePerHour: number;
   pricePerHourKZT?: number;

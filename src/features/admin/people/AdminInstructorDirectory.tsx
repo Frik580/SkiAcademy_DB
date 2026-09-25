@@ -28,6 +28,7 @@ import {
   EMPTY_ADMIN_INSTRUCTOR_PROFILE_DRAFT,
   adminInstructorAttemptKey,
   adminInstructorProfileDraftFromDetail,
+  localizedInstructorProfileFields,
   parseInstructorLanguagesCsv,
   type AdminInstructorProfileDraft,
 } from './adminInstructorContracts';
@@ -299,7 +300,7 @@ export function AdminInstructorDirectory({ adminAccountId }: AdminInstructorDire
       Number.isInteger(experienceYears)
         ? { experienceYears }
         : {}),
-      ...(profileDraft.bio.trim() ? { bio: profileDraft.bio.trim() } : {}),
+      ...localizedInstructorProfileFields(profileDraft),
       ...(profileDraft.avatarUrl.trim() ? { avatarUrl: profileDraft.avatarUrl.trim() } : {}),
       ...(profileDraft.phoneNumber.trim() ? { phoneNumber: profileDraft.phoneNumber.trim() } : {}),
       expectedRevision: createAccountRevision,
@@ -340,7 +341,7 @@ export function AdminInstructorDirectory({ adminAccountId }: AdminInstructorDire
       Number.isInteger(experienceYears)
         ? { experienceYears }
         : {}),
-      ...(profileDraft.bio.trim() ? { bio: profileDraft.bio.trim() } : {}),
+      ...localizedInstructorProfileFields(profileDraft),
       ...(profileDraft.avatarUrl.trim() ? { avatarUrl: profileDraft.avatarUrl.trim() } : {}),
       ...(profileDraft.phoneNumber.trim() ? { phoneNumber: profileDraft.phoneNumber.trim() } : {}),
       expectedRevision: actionRevision('update_instructor_catalog_profile', detail.revision),

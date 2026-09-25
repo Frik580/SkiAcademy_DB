@@ -1,9 +1,10 @@
 import type { AccountId } from '@ski-academy/shared-domain';
 import { useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
-import type {
-  AdminInstructorDetailView,
-  AdminInstructorProfileDraft,
+import {
+  formatInstructorSpokenLanguageList,
+  type AdminInstructorDetailView,
+  type AdminInstructorProfileDraft,
 } from './adminInstructorContracts';
 import { AdminInstructorProfileEditor } from './AdminInstructorProfileEditor';
 import type { useAdminInstructorTranslations } from './useAdminInstructorTranslations';
@@ -348,7 +349,9 @@ export function AdminInstructorDetail({
               <dt className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">
                 {text.languages}
               </dt>
-              <dd>{detail.languages.join(', ')}</dd>
+              <dd>
+                {formatInstructorSpokenLanguageList(detail.languages, text.spokenLanguageLabels)}
+              </dd>
             </div>
           ) : null}
           {detail.experienceYears !== undefined ? (
@@ -359,9 +362,21 @@ export function AdminInstructorDetail({
               <dd>{detail.experienceYears}</dd>
             </div>
           ) : null}
-          {detail.bio ? (
+          {detail.bioRu ? (
             <div>
-              <dt className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">{text.bio}</dt>
+              <dt className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">{text.bioRu}</dt>
+              <dd className="whitespace-pre-wrap">{detail.bioRu}</dd>
+            </div>
+          ) : null}
+          {detail.bioEn ? (
+            <div>
+              <dt className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">{text.bioEn}</dt>
+              <dd className="whitespace-pre-wrap">{detail.bioEn}</dd>
+            </div>
+          ) : null}
+          {!detail.bioRu && !detail.bioEn && detail.bio ? (
+            <div>
+              <dt className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">{text.bioRu}</dt>
               <dd className="whitespace-pre-wrap">{detail.bio}</dd>
             </div>
           ) : null}

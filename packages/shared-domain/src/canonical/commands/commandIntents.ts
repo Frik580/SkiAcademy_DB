@@ -38,6 +38,10 @@ import {
   SaveParticipantLessonFeedbackItemsInputSchema,
 } from '../participantLessonFeedback';
 import { AggregateRevisionSchema, KztMinorUnitsSchema } from '../primitives';
+import {
+  InstructorBioTextSchema,
+  instructorSpokenLanguagesSchema,
+} from '../instructorSpokenLanguage';
 import { ParticipantAvatarUrlSchema } from '../accountParticipantAccess';
 import {
   BookingLessonNotesSchema,
@@ -1001,9 +1005,11 @@ export const CommandIntentSchemaByKind = {
       accountId: AccountIdSchema.optional(),
       name: z.string().trim().min(1).max(200),
       specialty: z.enum(['ski', 'snowboard', 'both']).optional(),
-      languages: z.array(z.string().trim().min(1).max(32)).max(16).optional(),
+      languages: instructorSpokenLanguagesSchema(16, 32).optional(),
       experienceYears: z.number().finite().int().min(0).max(80).optional(),
-      bio: z.string().trim().max(4_000).optional(),
+      bio: InstructorBioTextSchema.optional(),
+      bioRu: InstructorBioTextSchema.optional(),
+      bioEn: InstructorBioTextSchema.optional(),
       avatarUrl: z.string().trim().min(1).max(2_000).optional(),
       pricePerHourKZT: z.number().finite().int().positive(),
       phoneNumber: z.string().trim().max(32).optional(),
@@ -1015,9 +1021,11 @@ export const CommandIntentSchemaByKind = {
       instructorId: InstructorIdSchema,
       name: z.string().trim().min(1).max(200).optional(),
       specialty: z.enum(['ski', 'snowboard', 'both']).optional(),
-      languages: z.array(z.string().trim().min(1).max(32)).max(16).optional(),
+      languages: instructorSpokenLanguagesSchema(16, 32).optional(),
       experienceYears: z.number().finite().int().min(0).max(80).optional(),
-      bio: z.string().trim().max(4_000).optional(),
+      bio: InstructorBioTextSchema.optional(),
+      bioRu: InstructorBioTextSchema.optional(),
+      bioEn: InstructorBioTextSchema.optional(),
       avatarUrl: z.string().trim().min(1).max(2_000).optional(),
       pricePerHourKZT: z.number().finite().int().positive().optional(),
       phoneNumber: z.string().trim().max(32).optional(),
@@ -1031,6 +1039,8 @@ export const CommandIntentSchemaByKind = {
         intent.languages === undefined &&
         intent.experienceYears === undefined &&
         intent.bio === undefined &&
+        intent.bioRu === undefined &&
+        intent.bioEn === undefined &&
         intent.avatarUrl === undefined &&
         intent.pricePerHourKZT === undefined &&
         intent.phoneNumber === undefined

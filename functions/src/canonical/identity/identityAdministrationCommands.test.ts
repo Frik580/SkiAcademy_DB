@@ -565,6 +565,139 @@ describe('canonical identity administration commands', () => {
     });
   });
 
+  it('persists localized bios and canonical spoken-language codes', async () => {
+    const catalogId = InstructorIdSchema.parse('instructor_identity_admin_locale_01');
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${adminAccountId}`]: seedAccount(adminAccountId, { systemRole: 'owner' }),
+    });
+    const created = await run(executor, {
+      kind: 'create_instructor_catalog_entry',
+      context: adminContext('catalog-locale-create-01'),
+      intent: {
+        instructorId: catalogId,
+        name: 'Localized Coach',
+        pricePerHourKZT: 18_000,
+        languages: ['русский', 'English'],
+        bioRu: 'Русское био',
+        bioEn: 'English bio',
+        reasonExplanation: 'Add localized coach',
+      },
+    });
+    expect(created.status).toBe('success');
+    expect(executor.snapshot().docs.get(`instructors/${catalogId}`)?.data).toMatchObject({
+      languages: ['ru', 'en'],
+      bio: 'Русское био',
+      bioRu: 'Русское био',
+      bioEn: 'English bio',
+    });
+
+    const updated = await run(executor, {
+      kind: 'update_instructor_catalog_profile',
+      context: adminContext('catalog-locale-update-01', 1),
+      intent: {
+        instructorId: catalogId,
+        bioRu: 'Обновлённое био',
+        bioEn: 'Updated English bio',
+        languages: ['русский'],
+        reasonExplanation: 'Update localized coach',
+      },
+    });
+    expect(updated.status).toBe('success');
+    expect(executor.snapshot().docs.get(`instructors/${catalogId}`)?.data).toMatchObject({
+      languages: ['ru'],
+      bio: 'Обновлённое био',
+      bioRu: 'Обновлённое био',
+      bioEn: 'Updated English bio',
+      revision: 2,
+    });
+  });
+
+  it('copies legacy bio into bioRu once without inventing bioEn', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${adminAccountId}`]: seedAccount(adminAccountId, { systemRole: 'owner' }),
+      [`instructors/${instructorId}`]: {
+        instructorId,
+        name: 'Legacy Bio Coach',
+        pricePerHourKZT: 20_000,
+        isAvailable: true,
+        revision: 0,
+        bio: 'Профессиональный инструктор Школы.',
+        specialty: 'ski',
+      },
+    });
+    const specialtyOnly = await run(executor, {
+      kind: 'update_instructor_catalog_profile',
+      context: adminContext('catalog-legacy-bio-migrate-01', 0),
+      intent: {
+        instructorId,
+        specialty: 'both',
+        reasonExplanation: 'Migrate legacy bio on unrelated update',
+      },
+    } as never);
+    expect(specialtyOnly.status).toBe('success');
+    const afterMigrate = executor.snapshot().docs.get(`instructors/${instructorId}`)?.data;
+    expect(afterMigrate).toMatchObject({
+      specialty: 'both',
+      bio: 'Профессиональный инструктор Школы.',
+      bioRu: 'Профессиональный инструктор Школы.',
+      revision: 1,
+    });
+    expect(afterMigrate).not.toHaveProperty('bioEn');
+
+    const secondSave = await run(executor, {
+      kind: 'update_instructor_catalog_profile',
+      context: adminContext('catalog-legacy-bio-migrate-02', 1),
+      intent: {
+        instructorId,
+        specialty: 'ski',
+        reasonExplanation: 'Do not overwrite migrated bioRu',
+      },
+    } as never);
+    expect(secondSave.status).toBe('success');
+    expect(executor.snapshot().docs.get(`instructors/${instructorId}`)?.data).toMatchObject({
+      specialty: 'ski',
+      bio: 'Профессиональный инструктор Школы.',
+      bioRu: 'Профессиональный инструктор Школы.',
+      revision: 2,
+    });
+    expect(executor.snapshot().docs.get(`instructors/${instructorId}`)?.data).not.toHaveProperty(
+      'bioEn'
+    );
+  });
+
+  it('does not overwrite existing bioRu or bioEn when migrating is unnecessary', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${adminAccountId}`]: seedAccount(adminAccountId, { systemRole: 'owner' }),
+      [`instructors/${instructorId}`]: {
+        instructorId,
+        name: 'Already Localized Coach',
+        pricePerHourKZT: 22_000,
+        isAvailable: true,
+        revision: 1,
+        bio: 'Старое legacy',
+        bioRu: 'Русское био',
+        bioEn: 'English bio',
+      },
+    });
+    const result = await run(executor, {
+      kind: 'update_instructor_catalog_profile',
+      context: adminContext('catalog-localized-preserve-01', 1),
+      intent: {
+        instructorId,
+        specialty: 'snowboard',
+        reasonExplanation: 'Preserve existing localized bios',
+      },
+    } as never);
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.get(`instructors/${instructorId}`)?.data).toMatchObject({
+      specialty: 'snowboard',
+      bio: 'Старое legacy',
+      bioRu: 'Русское био',
+      bioEn: 'English bio',
+      revision: 2,
+    });
+  });
+
   it('refuses to change the role of a system owner Account', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor({
       [`users/${adminAccountId}`]: seedAccount(adminAccountId, { systemRole: 'owner' }),

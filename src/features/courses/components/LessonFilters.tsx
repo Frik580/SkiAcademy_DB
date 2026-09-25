@@ -25,18 +25,15 @@ export const LessonFilters: React.FC<LessonFiltersProps> = ({
 }) => {
   const { t } = useLanguage();
 
-  const getLanguageLabel = (lang: string) => {
-    if (lang === 'All Languages' || lang === 'all') return t('allLanguages');
-    const mapping: Record<string, TranslationKey> = {
-      English: 'languageEnglish',
-      German: 'languageGerman',
-      French: 'languageFrench',
-      Russian: 'languageRussian',
-      Italian: 'languageItalian',
-      Spanish: 'languageSpanish',
-    };
-    return mapping[lang] ? t(mapping[lang]) : lang;
-  };
+  const languageOptions: readonly { value: string; label: TranslationKey }[] = [
+    { value: 'all', label: 'allLanguages' },
+    { value: 'en', label: 'languageEnglish' },
+    { value: 'de', label: 'languageGerman' },
+    { value: 'fr', label: 'languageFrench' },
+    { value: 'ru', label: 'languageRussian' },
+    { value: 'it', label: 'languageItalian' },
+    { value: 'es', label: 'languageSpanish' },
+  ];
 
   const getSpecialtyLabel = (spec: 'all' | 'ski' | 'snowboard' | 'both') => {
     const mapping: Record<'all' | 'ski' | 'snowboard' | 'both', TranslationKey> = {
@@ -47,16 +44,6 @@ export const LessonFilters: React.FC<LessonFiltersProps> = ({
     };
     return t(mapping[spec]);
   };
-
-  const languagesList = [
-    'All Languages',
-    'English',
-    'German',
-    'French',
-    'Russian',
-    'Italian',
-    'Spanish',
-  ];
 
   return (
     <div className="ui-card p-5 lg:p-6 space-y-5 bg-transparent shadow-none bg-[var(--profile-bg)]">
@@ -103,13 +90,9 @@ export const LessonFilters: React.FC<LessonFiltersProps> = ({
             onChange={(e) => setSelectedLanguage(e.target.value)}
             className="ui-select focus:outline-none focus:border-[var(--ink)]"
           >
-            {languagesList.map((lang) => (
-              <option
-                key={lang}
-                value={lang === 'All Languages' ? 'all' : lang}
-                className="bg-[var(--bg)] text-[var(--ink)]"
-              >
-                {getLanguageLabel(lang)}
+            {languageOptions.map((option) => (
+              <option key={option.value} value={option.value} className="bg-[var(--bg)] text-[var(--ink)]">
+                {t(option.label)}
               </option>
             ))}
           </select>

@@ -101,6 +101,53 @@ describe('booking instructor catalogue read model', () => {
     });
   });
 
+  it('normalizes legacy spoken languages and keeps localized bios', async () => {
+    const result = await queryBookingInstructorCatalogueReadModels(
+      firestore({
+        'instructors/instructor_catalogue_localized': instructor(
+          'instructor_catalogue_localized',
+          {
+            name: 'Arsenii',
+            languages: ['русский', 'English'],
+            bio: 'Профессиональный инструктор Школы.',
+            bioRu: 'Профессиональный инструктор Школы.',
+            bioEn: 'Professional school instructor.',
+          }
+        ),
+      }),
+      { readScope: LIVE_CANONICAL_READ_SCOPE }
+    );
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toMatchObject({
+      name: 'Arsenii',
+      languages: ['ru', 'en'],
+      bio: 'Профессиональный инструктор Школы.',
+      bioRu: 'Профессиональный инструктор Школы.',
+      bioEn: 'Professional school instructor.',
+    });
+  });
+
+  it('keeps a legacy instructor that only has bio', async () => {
+    const result = await queryBookingInstructorCatalogueReadModels(
+      firestore({
+        'instructors/instructor_catalogue_bio_only': instructor('instructor_catalogue_bio_only', {
+          name: 'Legacy Coach',
+          languages: ['Russian'],
+          bio: 'Only legacy bio',
+        }),
+      }),
+      { readScope: LIVE_CANONICAL_READ_SCOPE }
+    );
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toMatchObject({
+      name: 'Legacy Coach',
+      languages: ['ru'],
+      bio: 'Only legacy bio',
+    });
+    expect(result.items[0]).not.toHaveProperty('bioRu');
+    expect(result.items[0]).not.toHaveProperty('bioEn');
+  });
+
   it('hides another session and does not treat email text as scope', async () => {
     const result = await queryBookingInstructorCatalogueReadModels(firestore(catalogue), {
       readScope: testCanonicalReadScope(sessionB),

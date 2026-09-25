@@ -1,4 +1,7 @@
-import type { BookingInstructorCatalogueItem } from '@ski-academy/shared-domain';
+import {
+  normalizeInstructorSpokenLanguages,
+  type BookingInstructorCatalogueItem,
+} from '@ski-academy/shared-domain';
 import type { Instructor } from '../../../types';
 
 export function toBookingCatalogueInstructor(item: BookingInstructorCatalogueItem): Instructor {
@@ -8,9 +11,11 @@ export function toBookingCatalogueInstructor(item: BookingInstructorCatalogueIte
     specialty: item.specialty ?? 'ski',
     rating: null,
     reviewsCount: 0,
-    languages: item.languages ? [...item.languages] : [],
+    languages: normalizeInstructorSpokenLanguages(item.languages ?? []),
     experienceYears: item.experienceYears ?? 0,
     bio: item.bio ?? '',
+    ...(item.bioRu ? { bioRu: item.bioRu } : {}),
+    ...(item.bioEn ? { bioEn: item.bioEn } : {}),
     avatarUrl: item.avatarUrl ?? '',
     pricePerHour: item.pricePerHour ?? item.pricePerHourKZT ?? 0,
     ...(item.pricePerHourKZT !== undefined ? { pricePerHourKZT: item.pricePerHourKZT } : {}),

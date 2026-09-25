@@ -1,4 +1,11 @@
-import type { AdminInstructorProfileDraft } from './adminInstructorContracts';
+import {
+  INSTRUCTOR_SPOKEN_LANGUAGE_CODES,
+  normalizeInstructorSpokenLanguage,
+} from '@ski-academy/shared-domain';
+import {
+  parseInstructorLanguagesCsv,
+  type AdminInstructorProfileDraft,
+} from './adminInstructorContracts';
 import type { useAdminInstructorTranslations } from './useAdminInstructorTranslations';
 import { ActionButton } from '../../../ui/ActionButton';
 
@@ -86,20 +93,45 @@ export function AdminInstructorProfileEditor({
           required
         />
       </label>
-      <label
-        className="block space-y-1.5 text-[10px] font-mono uppercase text-[var(--ink-dim)]"
-        htmlFor="admin-instructor-languages"
-      >
-        {text.languages}
-        <input
-          id="admin-instructor-languages"
-          aria-label={text.languages}
-          value={draft.languages}
-          onChange={(event) => onChange({ ...draft, languages: event.target.value })}
-          placeholder={text.languagesHint}
-          className="w-full border border-[var(--border)] bg-transparent px-3.5 py-2 font-mono text-xs normal-case text-[var(--ink)] placeholder-[var(--ink-dim)] focus:border-[var(--ink)] focus:outline-none"
-        />
-      </label>
+      <fieldset className="space-y-1.5">
+        <legend className="text-[10px] font-mono uppercase text-[var(--ink-dim)]">
+          {text.languages}
+        </legend>
+        <div className="flex flex-wrap gap-2">
+          {INSTRUCTOR_SPOKEN_LANGUAGE_CODES.map((code) => {
+            const selected = new Set(parseInstructorLanguagesCsv(draft.languages));
+            const checked = selected.has(code);
+            return (
+              <label
+                key={code}
+                className="inline-flex items-center gap-1.5 border border-[var(--border)] px-2 py-1 text-[10px] font-mono normal-case text-[var(--ink)]"
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  aria-label={text.spokenLanguageLabels[code]}
+                  onChange={() => {
+                    const next = new Set(selected);
+                    if (checked) next.delete(code);
+                    else next.add(code);
+                    const unknowns = [...selected].filter(
+                      (token) => !normalizeInstructorSpokenLanguage(token)
+                    );
+                    onChange({
+                      ...draft,
+                      languages: [
+                        ...INSTRUCTOR_SPOKEN_LANGUAGE_CODES.filter((item) => next.has(item)),
+                        ...unknowns,
+                      ].join(', '),
+                    });
+                  }}
+                />
+                {text.spokenLanguageLabels[code]}
+              </label>
+            );
+          })}
+        </div>
+      </fieldset>
       <label
         className="block space-y-1.5 text-[10px] font-mono uppercase text-[var(--ink-dim)]"
         htmlFor="admin-instructor-experience"
@@ -133,14 +165,28 @@ export function AdminInstructorProfileEditor({
       </label>
       <label
         className="block space-y-1.5 text-[10px] font-mono uppercase text-[var(--ink-dim)]"
-        htmlFor="admin-instructor-bio"
+        htmlFor="admin-instructor-bio-ru"
       >
-        {text.bio}
+        {text.bioRu}
         <textarea
-          id="admin-instructor-bio"
-          aria-label={text.bio}
-          value={draft.bio}
-          onChange={(event) => onChange({ ...draft, bio: event.target.value })}
+          id="admin-instructor-bio-ru"
+          aria-label={text.bioRu}
+          value={draft.bioRu}
+          onChange={(event) => onChange({ ...draft, bioRu: event.target.value })}
+          rows={3}
+          className="w-full border border-[var(--border)] bg-transparent px-3.5 py-2 font-mono text-xs normal-case text-[var(--ink)] focus:border-[var(--ink)] focus:outline-none"
+        />
+      </label>
+      <label
+        className="block space-y-1.5 text-[10px] font-mono uppercase text-[var(--ink-dim)]"
+        htmlFor="admin-instructor-bio-en"
+      >
+        {text.bioEn}
+        <textarea
+          id="admin-instructor-bio-en"
+          aria-label={text.bioEn}
+          value={draft.bioEn}
+          onChange={(event) => onChange({ ...draft, bioEn: event.target.value })}
           rows={3}
           className="w-full border border-[var(--border)] bg-transparent px-3.5 py-2 font-mono text-xs normal-case text-[var(--ink)] focus:border-[var(--ink)] focus:outline-none"
         />

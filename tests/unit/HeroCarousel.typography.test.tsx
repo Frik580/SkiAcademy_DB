@@ -80,6 +80,8 @@ describe('HeroCarousel typography vs media mode', () => {
       />
     );
     const imageCopy = heroCopyClasses(imageRender.container);
+    expect(imageRender.container.querySelector('.hero-copy')).not.toBeNull();
+    expect(imageRender.container.querySelector('.hero-actions')).not.toBeNull();
     imageRender.unmount();
 
     const videoRender = render(
@@ -134,5 +136,45 @@ describe('HeroCarousel typography vs media mode', () => {
 
     expect(after).toEqual(before);
     expect(firstBackgroundMediaChild(container)?.tagName).toBe('IMG');
+  });
+});
+
+describe('HeroCarousel responsive layout structure', () => {
+  it('keeps centered copy separate from actions and mobile pagination', () => {
+    const { container } = render(
+      <HeroCarousel
+        data={{
+          slides: [
+            baseSlide({ id: 'a' }),
+            baseSlide({ id: 'b', line2En: 'A longer second line for wrap testing' }),
+          ],
+          configReady: true,
+          language: 'en',
+          theme: 'dark',
+        }}
+        actions={{ onScrollToSection: vi.fn() }}
+      />
+    );
+
+    const copy = container.querySelector('.hero-copy');
+    const actions = container.querySelector('.hero-actions');
+    const actionsShell = container.querySelector('.hero-actions-shell');
+    const copyStack = container.querySelector('.hero-copy-stack');
+    const paginationShell = container.querySelector('.hero-pagination-shell');
+    const stage = container.querySelector('.hero-stage');
+
+    expect(stage).not.toBeNull();
+    expect(copyStack).not.toBeNull();
+    expect(copy).not.toBeNull();
+    expect(actionsShell).not.toBeNull();
+    expect(actions).not.toBeNull();
+    expect(paginationShell).not.toBeNull();
+
+    expect(copy?.contains(actionsShell)).toBe(false);
+    expect(copy?.querySelector('.hero-actions')).toBeNull();
+    expect(actionsShell?.parentElement).toBe(copyStack);
+    expect(paginationShell?.parentElement).toBe(stage);
+    expect(paginationShell?.contains(actionsShell)).toBe(false);
+    expect(container.querySelector('.hero-foreground')).toBeNull();
   });
 });

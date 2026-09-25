@@ -809,6 +809,153 @@
   background: var(--ink-dim);
 }
 
+/*
+ * HeroCarousel — one positioning model for all breakpoints:
+ * - `.hero-copy-stack` in-flow height = copy only → shell centers at 50%
+ * - `.hero-actions-shell` absolutely below copy (`top: 100% + gap`)
+ * - `.hero-pagination-shell` pinned to hero bottom (mobile)
+ */
+.ui-hero.hero-layout {
+  --hero-copy-actions-gap: 1.75rem;
+  --hero-actions-gap: 0.75rem;
+  --hero-pagination-bottom: 1.25rem;
+  --hero-pagination-reserve: 3rem;
+  --hero-title-overhang: 0.375rem;
+}
+
+.ui-hero.hero-layout .hero-stage {
+  position: relative;
+  width: 100%;
+}
+
+.ui-hero.hero-layout .hero-copy-shell {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.ui-hero.hero-layout .hero-copy-shell-inner {
+  pointer-events: auto;
+}
+
+.ui-hero.hero-layout .hero-copy-stack {
+  position: relative;
+  width: 100%;
+}
+
+.ui-hero.hero-layout .hero-copy-stack > .grid {
+  margin-bottom: var(--hero-title-overhang);
+}
+
+.ui-hero.hero-layout .hero-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.ui-hero.hero-layout .hero-actions-shell {
+  position: absolute;
+  top: calc(100% + var(--hero-copy-actions-gap));
+  left: 0;
+  width: 100%;
+}
+
+.ui-hero.hero-layout .hero-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--hero-actions-gap);
+  --hero-cta-text-inset: 1.75rem;
+}
+
+@media (max-width: 639px) {
+  .ui-hero.hero-layout .hero-secondary-cta {
+    padding-left: var(--hero-cta-text-inset);
+  }
+}
+
+@media (min-width: 640px) {
+  .ui-hero.hero-layout .hero-actions {
+    flex-flow: row wrap;
+    align-items: center;
+    gap: 1.5rem;
+  }
+}
+
+.ui-hero.hero-layout .hero-pagination-shell {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--hero-pagination-bottom);
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.ui-hero.hero-layout .hero-pagination-shell .hero-pagination {
+  pointer-events: auto;
+}
+
+@media (max-width: 767px) {
+  .ui-hero.hero-layout .hero-stage {
+    padding-bottom: var(--hero-pagination-reserve);
+  }
+}
+
+@media (max-width: 767px) {
+  .ui-hero.hero-layout {
+    --hero-copy-actions-gap: 1.25rem;
+    --hero-actions-gap: 0.625rem;
+  }
+
+  .ui-hero.hero-layout .hero-copy-title {
+    font-size: clamp(1.75rem, 7.5vw, 2.25rem);
+    line-height: 1.15;
+  }
+
+  .ui-hero.hero-layout .hero-primary-cta.btn-primary-hero {
+    padding-top: 0.625rem;
+    padding-bottom: 0.625rem;
+    padding-left: var(--hero-cta-text-inset);
+    padding-right: var(--hero-cta-text-inset);
+  }
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .ui-hero.hero-layout {
+    --hero-copy-actions-gap: 1rem;
+    --hero-actions-gap: 0.5rem;
+    --hero-pagination-bottom: 0.75rem;
+    --hero-pagination-reserve: 2.5rem;
+    --hero-title-overhang: 0.625rem;
+  }
+
+  .ui-hero.hero-layout .hero-copy.space-y-3 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0.375rem;
+  }
+
+  .ui-hero.hero-layout .hero-copy-title {
+    font-size: clamp(1.625rem, 2.6vw + 0.95rem, 2.125rem);
+    line-height: 1.12;
+  }
+
+  .ui-hero.hero-layout .hero-actions {
+    flex-flow: row wrap;
+    align-items: center;
+    gap: 0.5rem 1.25rem;
+  }
+
+  .ui-hero.hero-layout .hero-primary-cta.btn-primary-hero {
+    padding: 0.5rem 1.125rem;
+    font-size: 0.8125rem;
+  }
+}
+
 /* Custom fade animations */
 @keyframes fadeIn {
   from {

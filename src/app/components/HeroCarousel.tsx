@@ -290,7 +290,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
     <section
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
-      className="ui-hero relative w-full min-h-[calc(100svh-4.25rem)] overflow-hidden flex flex-col justify-center touch-pan-y"
+      className="ui-hero hero-layout relative w-full min-h-[calc(100svh-4.25rem)] overflow-hidden touch-pan-y"
     >
       <div className="absolute inset-0 z-0" aria-hidden="true">
         {slides.length === 0 ? (
@@ -352,109 +352,102 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
       </div>
 
       {slides.length > 0 && (
-        <>
-          <div className="relative z-10 w-full max-w-7xl mx-auto px-6 md:px-10 lg:px-12 py-8 md:py-10">
-            <div className="w-full max-w-2xl">
-              <div className="grid w-full [&>*]:col-start-1 [&>*]:row-start-1 min-w-0">
-                {slides.map((slide, idx) => {
-                  const isActive = idx === currentSlide;
-                  return (
-                    <div
-                      key={slide.id || `hero-copy-${idx}`}
-                      aria-hidden={!isActive}
-                      className={`col-start-1 row-start-1 space-y-3 will-change-[opacity] transition-opacity ${
-                        isActive ? 'opacity-100 z-[2]' : 'opacity-0 z-[1] pointer-events-none'
+        <div className="hero-stage relative z-10 w-full min-h-[calc(100svh-4.25rem)]">
+          <div className="hero-copy-shell w-full">
+            <div className="hero-copy-shell-inner w-full max-w-7xl mx-auto px-6 md:px-10 lg:px-12">
+              <div className="hero-copy-stack w-full max-w-2xl">
+                <div className="grid relative w-full [&>*]:col-start-1 [&>*]:row-start-1 min-w-0">
+                  {slides.map((slide, idx) => {
+                    const isActive = idx === currentSlide;
+                    return (
+                      <div
+                        key={slide.id || `hero-copy-${idx}`}
+                        aria-hidden={!isActive}
+                      className={`col-start-1 row-start-1 will-change-[opacity] transition-opacity ${
+                        isActive
+                          ? 'relative opacity-100 z-[2]'
+                          : 'absolute inset-0 opacity-0 z-[1] pointer-events-none'
                       }`}
-                      style={crossfadeStyle}
+                        style={crossfadeStyle}
+                      >
+                        <div className="hero-copy space-y-3">
+                          <motion.span
+                            initial={shouldReduceMotion ? false : { opacity: 0, y: 10 }}
+                            animate={
+                              isActive
+                                ? { opacity: 1, y: 0 }
+                                : { opacity: 0, y: shouldReduceMotion ? 0 : 10 }
+                            }
+                            transition={{
+                              duration: shouldReduceMotion ? 0 : 0.65,
+                              delay: isActive && !shouldReduceMotion ? 0.12 : 0,
+                              ease: [0.22, 1, 0.36, 1],
+                            }}
+                            className="hero-copy-eyebrow text-xs font-mono font-medium uppercase tracking-[0.1em] block"
+                          >
+                            {language === 'en' ? slide.line1En : slide.line1Ru}
+                          </motion.span>
+                          <motion.h2
+                            initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
+                            animate={
+                              isActive
+                                ? { opacity: 1, y: 0 }
+                                : { opacity: 0, y: shouldReduceMotion ? 0 : 16 }
+                            }
+                            transition={{
+                              duration: shouldReduceMotion ? 0 : 0.75,
+                              delay: isActive && !shouldReduceMotion ? 0.26 : 0,
+                              ease: [0.22, 1, 0.36, 1],
+                            }}
+                            className="hero-copy-title text-4xl md:text-5xl lg:text-6xl font-serif font-light leading-tight tracking-tight"
+                          >
+                            {language === 'en' ? slide.line2En : slide.line2Ru}
+                          </motion.h2>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="hero-actions-shell">
+                  <motion.div
+                    initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{
+                      duration: shouldReduceMotion ? 0 : 0.75,
+                      delay: shouldReduceMotion ? 0 : 0.42,
+                      ease: [0.22, 1, 0.36, 1],
+                    }}
+                    className="hero-actions"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => onScrollToSection('coaches-grid')}
+                      className="hero-primary-cta btn-primary-hero px-7 py-3.5 inline-flex items-center justify-center gap-2 group"
                     >
-                      <motion.span
-                        initial={shouldReduceMotion ? false : { opacity: 0, y: 10 }}
-                        animate={
-                          isActive
-                            ? { opacity: 1, y: 0 }
-                            : { opacity: 0, y: shouldReduceMotion ? 0 : 10 }
-                        }
-                        transition={{
-                          duration: shouldReduceMotion ? 0 : 0.65,
-                          delay: isActive && !shouldReduceMotion ? 0.12 : 0,
-                          ease: [0.22, 1, 0.36, 1],
-                        }}
-                        className="hero-copy-eyebrow text-xs font-mono font-medium uppercase tracking-[0.1em] block"
-                      >
-                        {language === 'en' ? slide.line1En : slide.line1Ru}
-                      </motion.span>
-                      <motion.h2
-                        initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
-                        animate={
-                          isActive
-                            ? { opacity: 1, y: 0 }
-                            : { opacity: 0, y: shouldReduceMotion ? 0 : 16 }
-                        }
-                        transition={{
-                          duration: shouldReduceMotion ? 0 : 0.75,
-                          delay: isActive && !shouldReduceMotion ? 0.26 : 0,
-                          ease: [0.22, 1, 0.36, 1],
-                        }}
-                        className="hero-copy-title text-4xl md:text-5xl lg:text-6xl font-serif font-light leading-tight tracking-tight"
-                      >
-                        {language === 'en' ? slide.line2En : slide.line2Ru}
-                      </motion.h2>
-                    </div>
-                  );
-                })}
+                      <span>{t('startYourJourney')}</span>
+                      <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onScrollToSection('courses-grid')}
+                      className="hero-secondary-cta inline-flex items-center gap-1.5 text-sm font-medium text-[var(--hero-ink)]/80 hover:text-[var(--accent)] transition-colors bg-transparent border-0 p-0 cursor-pointer group"
+                    >
+                      <span>{t('chooseCourse')}</span>
+                      <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+                    </button>
+                  </motion.div>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="absolute inset-x-0 bottom-0 z-10 w-full max-w-7xl mx-auto px-6 md:px-10 lg:px-12 pb-16 md:pb-16">
-            <div className="w-full max-w-2xl pb-8 md:pb-0">
-            <motion.div
-              initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{
-                duration: shouldReduceMotion ? 0 : 0.75,
-                delay: shouldReduceMotion ? 0 : 0.42,
-                ease: [0.22, 1, 0.36, 1],
-              }}
-              className="flex flex-col items-start gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-6"
-            >
-              <button
-                onClick={() => onScrollToSection('coaches-grid')}
-                className="btn-primary-hero px-7 py-3.5 inline-flex items-center justify-center gap-2 group"
-              >
-                <span>{t('startYourJourney')}</span>
-                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => onScrollToSection('courses-grid')}
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--hero-ink)]/80 hover:text-[var(--accent)] transition-colors bg-transparent border-0 p-0 cursor-pointer group pl-7 sm:pl-0"
-              >
-                <span>{t('chooseCourse')}</span>
-                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-              </button>
-              {slides.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => setCurrentSlide((prev) => (prev + 1) % slides.length)}
-                  className="hidden md:flex ml-2 md:ml-4 font-mono text-xs font-medium tracking-[0.2em] text-[var(--hero-ink)]/70 items-center gap-2 bg-transparent border-0 p-0 cursor-pointer hover:text-[var(--hero-ink)] transition-colors"
-                  aria-label={`${t('goToSlide')} ${currentSlide + 1} / ${slides.length}`}
-                >
-                  <span aria-hidden="true">{padSlideIndex(currentSlide + 1)}</span>
-                  <span className="w-8 h-px bg-[var(--hero-ink)]/20" aria-hidden="true" />
-                  <span className="text-[var(--hero-ink)]/40" aria-hidden="true">
-                    {padSlideIndex(slides.length)}
-                  </span>
-                </button>
-              )}
-            </motion.div>
-            </div>
-
-            {slides.length > 1 && (
+          {slides.length > 1 && (
+            <div className="hero-pagination-shell md:hidden">
               <button
                 type="button"
                 onClick={() => setCurrentSlide((prev) => (prev + 1) % slides.length)}
-                className="md:hidden absolute bottom-5 left-1/2 -translate-x-1/2 font-mono text-xs font-medium tracking-[0.2em] text-[var(--hero-ink)]/70 flex items-center gap-2 bg-transparent border-0 p-0 cursor-pointer hover:text-[var(--hero-ink)] transition-colors"
+                className="hero-pagination font-mono text-xs font-medium tracking-[0.2em] text-[var(--hero-ink)]/70 flex items-center gap-2 bg-transparent border-0 p-0 cursor-pointer hover:text-[var(--hero-ink)] transition-colors"
                 aria-label={`${t('goToSlide')} ${currentSlide + 1} / ${slides.length}`}
               >
                 <span aria-hidden="true">{padSlideIndex(currentSlide + 1)}</span>
@@ -463,9 +456,9 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                   {padSlideIndex(slides.length)}
                 </span>
               </button>
-            )}
-          </div>
-        </>
+            </div>
+          )}
+        </div>
       )}
     </section>
   );

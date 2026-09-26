@@ -9,6 +9,7 @@ import { InstructorCard } from '../../features/profile';
 import { LessonFilters } from '../../features/courses';
 import { ResortConditionsSidebar } from '../../app/components/ResortConditionsSidebar';
 import { useLanguage } from '../../app/providers/LanguageContext';
+import { useCurrency } from '../../app/providers/CurrencyContext';
 import { useTheme } from '../../hooks/useTheme';
 import { getDefaultWorkspacePath } from '../../lib/workspaceRoutes';
 import { useInstructorFilters } from '../../hooks/useInstructorFilters';
@@ -27,17 +28,35 @@ import { useCabinetProgressParticipantSelectionStore } from '../../features/stud
 import { traceCourseEnrollmentCtaIdentity } from '../../features/courses/courseEnrollmentCtaTrace';
 import { shouldSyncAccountCourseEnrollments } from '../../store/accountCourseEnrollmentSync';
 import { AppInitSkeleton } from '../../ui/Skeleton';
+import { useBookingsStore } from '../../features/bookings/bookingsStore';
+import { ConversionGateReviews } from '../../features/landing/ConversionGateReviews';
+import {
+  countVerifiedInstructorReviews,
+  formatStartingPriceLine,
+  selectStartingPrice,
+} from '../../features/landing/conversionGatePrice';
 import type { AppRoutesProps } from './routeTypes';
 
 /** Connects the public home screen to catalogue data and UI actions. */
 export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIsFahrenheit }) => {
   const { t, language } = useLanguage();
+  const { formatPrice } = useCurrency();
   const { theme } = useTheme();
   const authLoading = useAuthStore((state) => state.authLoading);
   const profileLoading = useProfileStore((state) => state.profileLoading);
   const userProfile = useProfileStore((state) => state.userProfile);
   const firebaseUser = useAuthStore((state) => state.firebaseUser);
   const courses = useCoursesStore((state) => state.courses);
+  const instructors = useBookingsStore((state) => state.instructors);
+  const startingPriceLine = formatStartingPriceLine(
+    selectStartingPrice({
+      instructorHourlyKzt: instructors.map((instructor) => instructor.pricePerHourKZT),
+      coursePackageKzt: courses.map((course) => course.priceKZT),
+    }),
+    formatPrice,
+    t('hr')
+  );
+  const verifiedReviewCount = countVerifiedInstructorReviews(instructors);
   const courseEnrollments = useCourseEnrollmentStore(selectCourseEnrollmentItems);
   const catalogByCourseId = useCourseEnrollmentStore(selectAllCourseCatalogOperationalStates);
   const { participants } = useManagedParticipants(userProfile?.uid);
@@ -113,8 +132,16 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
           slideIntervalSeconds: resortData.resortConfig.slideIntervalSeconds,
           slidesRandomOrder: resortData.resortConfig.slidesRandomOrder,
           isAuthenticated: Boolean(userProfile),
+          startingPriceLine,
         }}
         actions={{ onScrollToSection: handleScrollToSection }}
+      />
+
+      <ConversionGateReviews
+        heading={t('courseStudentReviews')}
+        emptyLabel={t('instructorNoReviews')}
+        verifiedCount={verifiedReviewCount}
+        totalLabel={t('reviewsTotal')}
       />
 
       <YourJourneySection skillConfig={skillConfig} userProfile={null} />

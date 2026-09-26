@@ -18,6 +18,9 @@ import {
 import { normalizeBannerMediaMode } from '../../lib/bannerMedia';
 import { BannerMedia, type BannerVideoRole } from '../../ui/BannerMedia';
 import { logger } from '../../shared';
+import { CONVERSION_GATE_COPY } from '../../features/landing/conversionGateCopy';
+import { ConversionGateHeroCopy } from '../../features/landing/ConversionGateHeroCopy';
+import { ConversionGateWhatsAppCta } from '../../features/landing/ConversionGateWhatsAppCta';
 
 interface HeroCarouselProps {
   data: {
@@ -30,6 +33,8 @@ interface HeroCarouselProps {
     slidesRandomOrder?: boolean;
     /** Авторизованный пользователь — другой текст CTA */
     isAuthenticated?: boolean;
+    /** Formatted starting-price line. Falls back to the Growth placeholder. */
+    startingPriceLine?: string;
   };
   actions: {
     onScrollToSection: (id: string) => void;
@@ -90,6 +95,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
     theme,
     slideIntervalSeconds = 6,
     slidesRandomOrder = false,
+    startingPriceLine = CONVERSION_GATE_COPY.startingPriceFallback,
   },
   actions: { onScrollToSection },
 }) => {
@@ -356,6 +362,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
           <div className="hero-copy-shell w-full">
             <div className="hero-copy-shell-inner w-full max-w-7xl mx-auto px-6 md:px-10 lg:px-12">
               <div className="hero-copy-stack w-full max-w-2xl">
+                <ConversionGateHeroCopy priceLine={startingPriceLine} />
                 <div className="grid relative w-full [&>*]:col-start-1 [&>*]:row-start-1 min-w-0">
                   {slides.map((slide, idx) => {
                     const isActive = idx === currentSlide;
@@ -436,6 +443,10 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                       <span>{t('chooseCourse')}</span>
                       <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
                     </button>
+                    <ConversionGateWhatsAppCta
+                      placement="hero"
+                      className="hero-secondary-cta inline-flex items-center text-sm font-medium text-[var(--hero-ink)]/80 max-w-full break-words"
+                    />
                   </motion.div>
                 </div>
               </div>

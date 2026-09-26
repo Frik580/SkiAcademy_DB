@@ -75,7 +75,6 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
   const faq = (language === 'ru' ? rawCourse.faqRu : rawCourse.faq) || defaultEnriched.faq;
   const photos = rawCourse.galleryPhotos || defaultEnriched.photos;
   const videoUrl = rawCourse.videoUrl?.trim() || '';
-  const reviews = defaultEnriched.reviews;
 
   return (
     <AnimatePresence>
@@ -169,41 +168,12 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                       {t('courseStudentReviews')}
                     </h3>
                   </div>
-                  <div className="space-y-4">
-                    {reviews.map((rev, idx) => (
-                      <div
-                        key={idx}
-                        className="p-4 border border-[var(--border)]/70 bg-black/5 dark:bg-white/5 space-y-2.5"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2.5">
-                            <img
-                              src={rev.avatar}
-                              referrerPolicy="no-referrer"
-                              alt={rev.name}
-                              className="w-7 h-7 object-cover grayscale border border-[var(--border)]"
-                            />
-                            <div>
-                              <p className="text-xs font-bold text-[var(--ink)]">{rev.name}</p>
-                              <p className="text-[9px] font-mono text-[var(--ink-dim)]">
-                                {rev.date}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex gap-0.5">
-                            {[...Array(rev.rating)].map((_, i) => (
-                              <Star key={i} className="w-3 h-3 fill-amber-500 text-transparent" />
-                            ))}
-                          </div>
-                        </div>
-                        <p className="text-xs text-[var(--ink-dim)] italic leading-relaxed font-sans font-light">
-                          {'"'}
-                          {rev.comment}
-                          {'"'}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
+                  <p
+                    className="text-sm text-[var(--ink-dim)]"
+                    data-testid="course-reviews-empty"
+                  >
+                    {t('instructorNoReviews')}
+                  </p>
                 </section>
 
                 <CourseFAQ faq={faq} />

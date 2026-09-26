@@ -92,54 +92,57 @@ export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
 
             {/* Content Area with scroll */}
             <div className="p-6 overflow-y-auto space-y-6 flex-1">
-              {/* Summary / Stats Block */}
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-5 bg-black/5 dark:bg-white/5 p-4 border border-[var(--border)] rounded-xl">
-                {/* Big Rating */}
-                <div className="sm:col-span-5 flex flex-col items-center justify-center text-center sm:border-r border-[var(--border)] pr-2 font-mono">
-                  <span className="text-4xl font-light text-[var(--ink)] leading-none">
-                    {avgRating ?? t('instructorNoReviews')}
-                  </span>
-                  <div className="flex items-center gap-0.5 mt-2 text-amber-500">
-                    {[1, 2, 3, 4, 5].map((star) => {
-                      const isFilled =
-                        avgRating !== undefined && star <= Math.round(Number(avgRating));
+              {totalReviews > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-5 bg-black/5 dark:bg-white/5 p-4 border border-[var(--border)] rounded-xl">
+                  <div className="sm:col-span-5 flex flex-col items-center justify-center text-center sm:border-r border-[var(--border)] pr-2 font-mono">
+                    <span className="text-4xl font-light text-[var(--ink)] leading-none">
+                      {avgRating}
+                    </span>
+                    <div className="flex items-center gap-0.5 mt-2 text-amber-500">
+                      {[1, 2, 3, 4, 5].map((star) => {
+                        const isFilled =
+                          avgRating !== undefined && star <= Math.round(Number(avgRating));
+                        return (
+                          <Star
+                            key={star}
+                            className={`w-3.5 h-3.5 ${isFilled ? 'fill-amber-400 stroke-amber-500' : 'text-slate-200 dark:text-slate-700'}`}
+                          />
+                        );
+                      })}
+                    </div>
+                    <span className="text-[10px] text-[var(--ink-dim)] uppercase tracking-wider mt-2.5 font-medium flex items-center gap-1">
+                      <MessageSquare className="w-3 h-3" />
+                      {totalReviews} {t('reviewsTotal')}
+                    </span>
+                  </div>
+
+                  <div className="sm:col-span-7 flex flex-col justify-center space-y-1.5 font-mono text-[10px]">
+                    {[5, 4, 3, 2, 1].map((stars) => {
+                      const count = ratingDistribution[stars - 1];
+                      const percentage = (count / totalReviews) * 100;
                       return (
-                        <Star
-                          key={star}
-                          className={`w-3.5 h-3.5 ${isFilled ? 'fill-amber-400 stroke-amber-500' : 'text-slate-200 dark:text-slate-700'}`}
-                        />
+                        <div key={stars} className="flex items-center gap-2.5 text-[var(--ink-dim)]">
+                          <span className="w-3 text-right font-semibold">{stars}</span>
+                          <Star className="w-3 h-3 fill-amber-400 stroke-amber-500 text-amber-500 shrink-0" />
+                          <div className="flex-1 h-1.5 bg-black/20 dark:bg-white/10 overflow-hidden rounded-none">
+                            <div
+                              className="h-full bg-[var(--ink)] transition-all duration-500"
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
+                          <span className="w-6 text-right font-medium text-[var(--ink-dim)]">
+                            {count}
+                          </span>
+                        </div>
                       );
                     })}
                   </div>
-                  <span className="text-[10px] text-[var(--ink-dim)] uppercase tracking-wider mt-2.5 font-medium flex items-center gap-1">
-                    <MessageSquare className="w-3 h-3" />
-                    {totalReviews} {t('reviewsTotal')}
-                  </span>
                 </div>
-
-                {/* Progress distribution bars */}
-                <div className="sm:col-span-7 flex flex-col justify-center space-y-1.5 font-mono text-[10px]">
-                  {[5, 4, 3, 2, 1].map((stars) => {
-                    const count = ratingDistribution[stars - 1];
-                    const percentage = totalReviews > 0 ? (count / totalReviews) * 100 : 0;
-                    return (
-                      <div key={stars} className="flex items-center gap-2.5 text-[var(--ink-dim)]">
-                        <span className="w-3 text-right font-semibold">{stars}</span>
-                        <Star className="w-3 h-3 fill-amber-400 stroke-amber-500 text-amber-500 shrink-0" />
-                        <div className="flex-1 h-1.5 bg-black/20 dark:bg-white/10 overflow-hidden rounded-none">
-                          <div
-                            className="h-full bg-[var(--ink)] transition-all duration-500"
-                            style={{ width: `${percentage}%` }}
-                          />
-                        </div>
-                        <span className="w-6 text-right font-medium text-[var(--ink-dim)]">
-                          {count}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+              ) : (
+                <p className="text-sm text-[var(--ink-dim)]" data-testid="instructor-reviews-empty">
+                  {t('instructorNoReviews')}
+                </p>
+              )}
 
               {/* List of individual reviews */}
               <div className="space-y-4">

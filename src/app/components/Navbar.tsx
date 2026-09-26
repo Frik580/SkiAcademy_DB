@@ -7,6 +7,7 @@ import { useLanguage } from '../../app/providers/LanguageContext';
 import { useCurrency } from '../../app/providers/CurrencyContext';
 import { isInstructorWorkspaceUser, getDefaultWorkspacePath } from '../../lib/workspaceRoutes';
 import { Logo } from './Logo';
+import { ConversionGateWhatsAppCta } from '../../features/landing/ConversionGateWhatsAppCta';
 import { useEffectiveBalance } from '../../features/wallet';
 import {
   CabinetParticipantAvatarSwitcher,
@@ -172,6 +173,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                 >
                   {language === 'en' ? 'EN' : 'RU'}
                 </button>
+
+                <ConversionGateWhatsAppCta
+                  placement="header"
+                  className="px-3 py-1.5 text-xs font-sans normal-case border border-[var(--border)] rounded-full max-w-[14rem] truncate text-[var(--ink)]"
+                />
 
                 {onSignInClick && (
                   <button
@@ -451,6 +457,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {language === 'en' ? 'EN' : 'RU'}
               </button>
             </div>
+            {!userProfile && (
+              <ConversionGateWhatsAppCta
+                placement="header-menu"
+                className="w-full max-w-xs mx-auto px-4 py-3 text-sm text-center border border-[var(--border)] rounded-full text-[var(--ink)] break-words"
+              />
+            )}
             {!userProfile && onSignInClick && (
               <button
                 onClick={() => {

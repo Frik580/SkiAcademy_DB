@@ -53,11 +53,12 @@ describe('conversion gate copy', () => {
 });
 
 describe('public storefront reviews', () => {
-  it('hides the block until the canonical count reaches the minimum', () => {
-    expect(PUBLIC_STOREFRONT_REVIEW_MIN).toBe(3);
+  it('shows a public rating only when review_count is at least 1', () => {
+    expect(PUBLIC_STOREFRONT_REVIEW_MIN).toBe(1);
     expect(isPublicStorefrontReviewVisible(0)).toBe(false);
-    expect(isPublicStorefrontReviewVisible(2)).toBe(false);
-    expect(isPublicStorefrontReviewVisible(3)).toBe(true);
+    expect(isPublicStorefrontReviewVisible(null)).toBe(false);
+    expect(isPublicStorefrontReviewVisible(1)).toBe(true);
+    expect(isPublicStorefrontReviewVisible(2)).toBe(true);
     expect(
       countVerifiedInstructorReviews([
         { reviewsCount: 0 },

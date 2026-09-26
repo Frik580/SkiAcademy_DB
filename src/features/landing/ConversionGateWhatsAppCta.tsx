@@ -11,7 +11,7 @@ interface ConversionGateWhatsAppCtaProps {
 }
 
 /**
- * WhatsApp control. Renders nothing until `WHATSAPP_URL` is a real https WhatsApp link.
+ * WhatsApp control. Renders nothing while public WhatsApp is off (`WHATSAPP_URL` null).
  */
 export function ConversionGateWhatsAppCta({
   language,

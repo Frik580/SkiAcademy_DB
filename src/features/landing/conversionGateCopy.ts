@@ -1,13 +1,14 @@
 import type { Language } from '../../lib/i18n/translations';
 
 /**
- * Confirmed WhatsApp link. Empty until Arsenii provides a wa.me URL.
- * Do not invent a phone number. Null or blank hides every WhatsApp control.
+ * No public WhatsApp on the storefront for now.
+ * Leave this null. Do not invent a wa.me link or a phone number.
+ * Null or blank hides every WhatsApp control.
  */
 export const WHATSAPP_URL: string | null = null;
 
-/** Public storefront hides ratings until this many canonical reviews exist. */
-export const PUBLIC_STOREFRONT_REVIEW_MIN = 3;
+/** Public storefront shows a rating block only when at least this many canonical reviews exist. */
+export const PUBLIC_STOREFRONT_REVIEW_MIN = 1;
 
 export interface ConversionGateStrings {
   heroHeadline: string;

@@ -6,7 +6,7 @@ import { useCurrency } from '../../../../app/providers/CurrencyContext';
 import type { CourseCatalogOperationalState } from '../../../course-enrollments';
 import type { CourseEnrollmentLifecycleStatus } from '@ski-academy/shared-domain';
 import { deriveGroupCourseEnrollmentCtaState } from '../../groupCourseEnrollmentCta';
-import { ConversionGateBookBesideNote, ConversionGateWhatsAppCta } from '../../../landing';
+import { ConversionGateBookBesideNote, ConversionGateInstagramCta } from '../../../landing';
 
 interface CourseEnrollActionProps {
   course: Course;
@@ -117,7 +117,7 @@ export const CourseEnrollAction: React.FC<CourseEnrollActionProps> = ({
         </div>
 
         <div className="space-y-3">
-          <ConversionGateWhatsAppCta
+          <ConversionGateInstagramCta
             language={language}
             placement="course-card"
             className="btn-primary w-full py-3.5 text-center"

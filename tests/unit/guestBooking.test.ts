@@ -4,6 +4,7 @@ import {
   createGuestActionTokenNonce,
   guestSubjectIdFromBookingId,
   issueGuestActionToken,
+  GUEST_LESSON_OUTSTANDING_HOLD_LIMIT_PER_INSTRUCTOR,
   resolveGuestLessonReservationExpiresAt,
   signGuestActionCredential,
   timestampFromDate,
@@ -19,6 +20,11 @@ const guestSubjectId = guestSubjectIdFromBookingId(bookingId);
 const secret = 'guest-test-secret-value-01';
 
 describe('guest booking reservation TTL', () => {
+  it('caps outstanding unpaid guest lesson holds per instructor below one sweep page', () => {
+    expect(GUEST_LESSON_OUTSTANDING_HOLD_LIMIT_PER_INSTRUCTOR).toBe(16);
+    expect(GUEST_LESSON_OUTSTANDING_HOLD_LIMIT_PER_INSTRUCTOR).toBeLessThanOrEqual(100);
+  });
+
   it('expires at createdAt + 1h when service is more than 1h away', () => {
     const createdAt = timestampFromDate(new Date('2026-01-01T10:00:00.000Z'));
     const serviceStartsAt = timestampFromDate(new Date('2026-01-01T15:00:00.000Z'));

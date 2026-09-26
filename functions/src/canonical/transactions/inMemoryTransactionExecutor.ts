@@ -8,6 +8,7 @@ import {
   assertReadPhase,
   assertWritePhase,
   applyCanonicalDocumentUpdate,
+  canonicalTransactionQueryFilters,
   type CanonicalTransactionCollectionQuery,
   type CanonicalTransactionDocumentRef,
   type CanonicalTransactionOperations,
@@ -112,9 +113,9 @@ class InMemoryCanonicalTransactionOperations implements CanonicalTransactionOper
           ? pathMatchesCollectionGroup(path, input.collection)
           : path.startsWith(`${input.collection}/`);
         if (!matchesCollection) continue;
-        const fieldValue: unknown = readQueryField(document.data, input.where.field);
-        const compareValue: unknown = input.where.value;
-        const matchesFilter = matchesQueryFilter(input.where.op, fieldValue, compareValue);
+        const matchesFilter = canonicalTransactionQueryFilters(input).every((filter) =>
+          matchesQueryFilter(filter.op, readQueryField(document.data, filter.field), filter.value)
+        );
         if (!matchesFilter) continue;
         results.push({
           path,

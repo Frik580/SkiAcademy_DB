@@ -1,4 +1,5 @@
 import { initializeApp } from 'firebase/app';
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 import { getAuth, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { getFunctions } from 'firebase/functions';
 import { getStorage } from 'firebase/storage';
@@ -67,6 +68,24 @@ if (typeof window !== 'undefined' && import.meta.env.MODE !== 'test') {
 }
 
 const app = initializeApp(firebaseConfig);
+
+const appCheckSiteKey = import.meta.env.VITE_FIREBASE_APP_CHECK_SITE_KEY;
+const useFirebaseEmulators = import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true';
+
+/** True when this browser build will attach App Check tokens to guest callables. */
+export const guestAppCheckActive =
+  typeof window !== 'undefined' &&
+  import.meta.env.MODE !== 'test' &&
+  !useFirebaseEmulators &&
+  typeof appCheckSiteKey === 'string' &&
+  appCheckSiteKey.length > 0;
+
+if (guestAppCheckActive && appCheckSiteKey) {
+  initializeAppCheck(app, {
+    provider: new ReCaptchaV3Provider(appCheckSiteKey),
+    isTokenAutoRefreshEnabled: true,
+  });
+}
 
 // Initialize with specific databaseId if required by config
 export const db = getFirestore(app, import.meta.env.VITE_FIREBASE_DATABASE_ID || '(default)');

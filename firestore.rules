@@ -448,6 +448,8 @@ service cloud.firestore {
     // Canonical progress lives on /participant_progress and is Admin SDK only.
     // New Account creates must not write leftover progress or money fields.
     match /users/{userId} {
+      // Account documents are admin or self only. Instructor linkage
+      // (users.instructorId) is not a grant to get or list other accounts.
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin() || (resource != null && isOwnEmail(resource.data.email));
 

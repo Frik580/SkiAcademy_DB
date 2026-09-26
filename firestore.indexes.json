@@ -376,6 +376,26 @@
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "participantManagementId", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "bookings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "occurrence.instructorId", "order": "ASCENDING" },
+        { "fieldPath": "attribution.bookingOrigin", "order": "ASCENDING" },
+        { "fieldPath": "lifecycle.status", "order": "ASCENDING" },
+        { "fieldPath": "dataScope", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "course_enrollments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "courseId", "order": "ASCENDING" },
+        { "fieldPath": "attribution.bookingOrigin", "order": "ASCENDING" },
+        { "fieldPath": "lifecycle.status", "order": "ASCENDING" },
+        { "fieldPath": "dataScope", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [

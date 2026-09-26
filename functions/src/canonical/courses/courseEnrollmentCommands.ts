@@ -115,6 +115,7 @@ import {
   resolveGuestParticipantProfileForCourseEnrollment,
 } from './guestCourseEnrollmentAuthorization';
 import { buildCreateCourseEnrollmentsAuditPlan } from './courseEnrollmentAudit';
+import { assertGuestCourseOutstandingHoldCapacity } from '../guestHolds/outstandingGuestHoldCapacity';
 import type { GuestCourseEnrollmentCommandEnvironment } from './guestCourseEnrollmentLifecycle';
 import {
   COURSE_ENROLLMENT_PLANNING_ESTIMATES,
@@ -709,6 +710,13 @@ function createCourseEnrollmentsHandler(
         throw new CanonicalCommandError('unavailable', {
           correlationId: envelope.context.correlationId,
           details: { resourceKind: 'course', reason: 'conflict' },
+        });
+      }
+      if (mode === 'guest' && newSeatCount > 0) {
+        await assertGuestCourseOutstandingHoldCapacity(session, {
+          courseId: envelope.intent.courseId,
+          additionalSeats: newSeatCount,
+          correlationId: envelope.context.correlationId,
         });
       }
       totalServicePrice = KztMinorUnitsSchema.parse(servicePrice * newSeatCount);

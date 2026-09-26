@@ -12,6 +12,7 @@ import {
   courseEnrollmentIdFromCommandParticipant,
   guestCommandActor,
   guestSubjectIdFromCourseEnrollmentId,
+  GUEST_COURSE_OUTSTANDING_HOLD_LIMIT_PER_COURSE,
   participantManagementIdFromGuestLink,
   paymentIdFromCourseEnrollmentId,
   resolveCommandIdempotencyIdentity,
@@ -290,5 +291,61 @@ describe('link_guest_course_enrollment_to_account command', () => {
       kind: 'guest',
       guestSubjectId: guestSubjectIdFromCourseEnrollmentId(enrollmentId),
     });
+  });
+});
+
+describe('guest course seat hold ceiling', () => {
+  function seededGuestEnrollment(
+    enrollmentKey: string,
+    overrides: Record<string, unknown> = {}
+  ): Record<string, unknown> {
+    return {
+      enrollmentId: enrollmentKey,
+      courseId,
+      dataScope: 'live',
+      attribution: { bookingOrigin: 'guest' },
+      lifecycle: { status: 'pending' },
+      ...overrides,
+    };
+  }
+
+  it('rejects a new guest seat when the course is at the outstanding unpaid ceiling', async () => {
+    const extra: Record<string, unknown> = {};
+    for (let index = 0; index < GUEST_COURSE_OUTSTANDING_HOLD_LIMIT_PER_COURSE; index += 1) {
+      const enrollmentKey = `enrollment_guest_hold_cap_${index}`;
+      extra[`course_enrollments/${enrollmentKey}`] = seededGuestEnrollment(enrollmentKey);
+    }
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture(extra));
+    const result = await runCommands(executor).execute(
+      guestCreateEnvelope('guest-course-hold-cap-reject')
+    );
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('unavailable');
+      expect(result.error.details).toEqual({
+        field: 'outstandingGuestHolds',
+        resourceKind: 'course',
+        reason: 'conflict',
+      });
+    }
+  });
+
+  it('ignores confirmed guest seats and other courses when counting the ceiling', async () => {
+    const extra: Record<string, unknown> = {};
+    for (let index = 0; index < GUEST_COURSE_OUTSTANDING_HOLD_LIMIT_PER_COURSE; index += 1) {
+      const confirmedKey = `enrollment_guest_confirmed_${index}`;
+      const otherCourseKey = `enrollment_guest_other_course_${index}`;
+      extra[`course_enrollments/${confirmedKey}`] = seededGuestEnrollment(confirmedKey, {
+        lifecycle: { status: 'confirmed' },
+      });
+      extra[`course_enrollments/${otherCourseKey}`] = seededGuestEnrollment(otherCourseKey, {
+        courseId: 'course_guest_course_link_cmd_other',
+      });
+    }
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture(extra));
+    const result = await runCommands(executor).execute(
+      guestCreateEnvelope('guest-course-hold-cap-allow')
+    );
+    expect(result.status).toBe('success');
   });
 });

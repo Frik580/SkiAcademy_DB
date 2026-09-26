@@ -1,7 +1,7 @@
 import { FirebaseError } from 'firebase/app';
 import { httpsCallable } from 'firebase/functions';
 import { logCallableFailure } from '../../features/errors/errorLogService';
-import { functions } from '../../infrastructure/firebase';
+import { functions, guestAppCheckActive } from '../../infrastructure/firebase';
 
 export type FunctionsErrorCode = `functions/${string}` | 'unknown';
 
@@ -124,7 +124,13 @@ const invokeFirebaseCallable: CallableInvoker = async <Input, Output>(
   functionName: string,
   input: Input
 ) => {
-  const callable = httpsCallable<Input, Output>(functions, functionName);
+  const callable = httpsCallable<Input, Output>(
+    functions,
+    functionName,
+    functionName === 'executeGuestCanonicalCommand' && guestAppCheckActive
+      ? { limitedUseAppCheckTokens: true }
+      : {}
+  );
   const { data } = await callable(input);
   return data;
 };

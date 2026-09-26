@@ -91,6 +91,20 @@ describe('/users account reads', () => {
     await assertFails(getDocs(collection(instructorDb, 'users')));
   });
 
+  it('denies an instructor filtered account queries and other account wallets', async () => {
+    const instructorDb = testEnv
+      .authenticatedContext(INSTRUCTOR_USER_ID, { email: 'instructor@example.com' })
+      .firestore();
+    await assertFails(
+      getDocs(query(collection(instructorDb, 'users'), where('phoneNumber', '==', '+77000000000')))
+    );
+    await assertFails(
+      getDocs(query(collection(instructorDb, 'users'), where('role', '==', 'user')))
+    );
+    await assertFails(getDoc(doc(instructorDb, 'users', OTHER_USER_ID, 'wallet', 'state')));
+    await assertSucceeds(getDoc(doc(instructorDb, 'users', INSTRUCTOR_USER_ID)));
+  });
+
   it('preserves owner and admin account reads', async () => {
     const ownerDb = testEnv.authenticatedContext(USER_ID).firestore();
     const adminDb = testEnv.authenticatedContext(ADMIN_ID).firestore();

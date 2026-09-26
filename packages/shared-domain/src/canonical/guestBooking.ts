@@ -9,6 +9,14 @@ import {
 /** Maximum individual guest lesson reservation hold before service start. */
 export const GUEST_LESSON_RESERVATION_TTL_MS = 60 * 60 * 1_000;
 
+/**
+ * Security ceiling on simultaneous unpaid guest lesson holds for one instructor.
+ * The expiry sweeper drains at most 100 candidates per run. Sixteen stays inside
+ * one sweep page and still allows concurrent legitimate guest checkouts during
+ * the one-hour hold.
+ */
+export const GUEST_LESSON_OUTSTANDING_HOLD_LIMIT_PER_INSTRUCTOR = 16;
+
 export function addMillisecondsToCanonicalTimestamp(
   timestamp: CanonicalTimestamp,
   milliseconds: number
@@ -164,8 +172,10 @@ export function evaluateGuestManualPaymentAcceptance(input: {
   return { outcome: 'accepted' };
 }
 
-export type GuestBookingFundedConfirmationRejectReason =
-  Exclude<GuestManualPaymentAcceptanceRejectReason, 'reservation_expired'>;
+export type GuestBookingFundedConfirmationRejectReason = Exclude<
+  GuestManualPaymentAcceptanceRejectReason,
+  'reservation_expired'
+>;
 
 export type GuestBookingFundedConfirmationDecision =
   | { readonly outcome: 'not_applicable' }

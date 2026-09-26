@@ -27,6 +27,7 @@ import { useCabinetProgressParticipantSelectionStore } from '../../features/stud
 import { traceCourseEnrollmentCtaIdentity } from '../../features/courses/courseEnrollmentCtaTrace';
 import { shouldSyncAccountCourseEnrollments } from '../../store/accountCourseEnrollmentSync';
 import { AppInitSkeleton } from '../../ui/Skeleton';
+import { useTrackPublicLanding } from '../../infrastructure/analytics';
 import type { AppRoutesProps } from './routeTypes';
 
 /** Connects the public home screen to catalogue data and UI actions. */
@@ -93,6 +94,9 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
     const element = document.getElementById(id);
     element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
+
+  const isPublicLanding = !authLoading && !profileLoading && !userProfile;
+  useTrackPublicLanding(isPublicLanding);
 
   if (!authLoading && profileLoading) {
     return <AppInitSkeleton label={t('checkingCredentials')} />;

@@ -39,7 +39,7 @@ const slide = (): CustomHeroSlide => ({
 });
 
 describe('HeroCarousel conversion gate', () => {
-  it('shows the landed Russian hero copy and hides WhatsApp until a URL exists', () => {
+  it('shows the landed Russian hero copy and hides Instagram until a URL exists', () => {
     render(
       <HeroCarousel
         data={{
@@ -60,8 +60,11 @@ describe('HeroCarousel conversion gate', () => {
     );
     expect(screen.getByTestId('conversion-gate-price')).toHaveTextContent('от 25 000 ₸/час');
     expect(screen.getByTestId('conversion-gate-course')).toHaveTextContent('курсы от 250 000 ₸');
-    expect(screen.getByTestId('conversion-gate-hero-secondary')).toHaveTextContent('Выбрать урок');
-    expect(screen.queryByTestId('conversion-gate-whatsapp-hero')).toBeNull();
+    expect(screen.getByTestId('conversion-gate-hero-secondary')).toHaveTextContent(
+      'Выбрать инструктора'
+    );
+    expect(screen.queryByTestId('conversion-gate-instagram-hero')).toBeNull();
+    expect(screen.queryByText(/WhatsApp/)).toBeNull();
     expect(screen.queryByText(/от 30 000/)).toBeNull();
     expect(screen.queryByText(/Отзывов пока нет|0 отзывов|No reviews yet/i)).toBeNull();
   });

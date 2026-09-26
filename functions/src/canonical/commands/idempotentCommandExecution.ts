@@ -67,6 +67,13 @@ import {
   planAdminBookingChangeRequestsRevisionBump,
   plannedMutationsAffectAdminBookingChangeRequests,
 } from '../bookings/adminBookingChangeRequestsRevision';
+import {
+  emitConversionAnalyticsBestEffort,
+  runWithConversionAnalyticsDraft,
+  selectCommittedConversionAnalyticsEvents,
+  takeStagedConversionAnalyticsEvents,
+  type StagedConversionAnalyticsEvent,
+} from '../analytics/conversionAnalytics';
 
 export interface IdempotentCommandRevisionTarget {
   readonly ref: CanonicalTransactionDocumentRef;
@@ -191,205 +198,231 @@ export async function executeIdempotentCanonicalCommand<Kind extends CommandKind
   const idempotencyPath = toTransactionPath(identity.recordPath);
 
   try {
-    const observation = await executor.runAtomic<IdempotentCommandExecutionObservation<Kind>>({
+    const observation = await executor.runAtomic<
+      IdempotentCommandExecutionObservation<Kind> & {
+        readonly stagedAnalytics: readonly StagedConversionAnalyticsEvent[];
+      }
+    >({
       correlationId: envelope.context.correlationId,
-      run: async (baseSession) => {
-        const session = scopeCanonicalTransactionSession(baseSession, executionScope);
-        const idempotencyRead = await session.tx.get({ path: idempotencyPath });
-        session.plan.planRead({ path: idempotencyPath, category: 'idempotency' });
+      run: async (baseSession) =>
+        runWithConversionAnalyticsDraft(async () => {
+          const session = scopeCanonicalTransactionSession(baseSession, executionScope);
+          const idempotencyRead = await session.tx.get({ path: idempotencyPath });
+          session.plan.planRead({ path: idempotencyPath, category: 'idempotency' });
 
-        if (idempotencyRead.exists) {
-          const parsedRecord = parseCommandIdempotencyRecord(idempotencyRead.data);
-          if (!parsedRecord.success) {
+          if (idempotencyRead.exists) {
+            const parsedRecord = parseCommandIdempotencyRecord(idempotencyRead.data);
+            if (!parsedRecord.success) {
+              throw new CanonicalCommandError('internal', {
+                correlationId: envelope.context.correlationId,
+              });
+            }
+
+            const record = parsedRecord.data;
+            if (
+              record.actorScope !== identity.actorScope ||
+              record.dataScope !== identity.scope.dataScope ||
+              record.testSessionId !==
+                (identity.scope.dataScope === 'test' ? identity.scope.testSessionId : undefined) ||
+              record.commandKind !== envelope.kind ||
+              record.fingerprint !== identity.fingerprint
+            ) {
+              throw idempotencyConflictError(envelope);
+            }
+
+            return {
+              result: fromStoredCommandResult(record.result, envelope.kind),
+              replayed: true,
+              stagedAnalytics: [],
+            };
+          }
+
+          if (revisionTarget !== undefined) {
+            const aggregateRead = await session.tx.get(revisionTarget.ref);
+            session.plan.planRead({ path: revisionTarget.ref.path, category: 'aggregate' });
+            assertExpectedRevision({
+              correlationId: envelope.context.correlationId,
+              expectedRevision: envelope.context.expectedRevision,
+              currentRevision: aggregateRead.exists
+                ? readAggregateRevision(aggregateRead.data)
+                : undefined,
+              requireExpectedRevision: revisionTarget.requireExpectedRevision,
+            });
+          }
+
+          if (handler.read !== undefined) {
+            await handler.read(session);
+          }
+
+          let auditPlan: AuditOutboxStagingPlan | undefined;
+          let preparedAuditReads: Awaited<ReturnType<typeof prepareAuditOutboxReads>> | undefined;
+
+          if (handler.planAuditOutbox !== undefined) {
+            auditPlan = await handler.planAuditOutbox(session);
+            validateAuditOutboxStagingPlan(envelope, auditPlan);
+            preparedAuditReads = await prepareAuditOutboxReads(
+              session,
+              identity.commandKey,
+              auditPlan
+            );
+          } else if (requireAuditOnSuccess) {
             throw new CanonicalCommandError('internal', {
               correlationId: envelope.context.correlationId,
             });
           }
 
-          const record = parsedRecord.data;
+          session.plan.planMutation({
+            path: idempotencyPath,
+            kind: 'create',
+            category: 'idempotency',
+            estimatedPayloadBytes: 2048,
+          });
+
+          const plannedMutations = session.plan.build().mutations;
+          const mayBumpLiveAdminRuntime = executionScope.dataScope === 'live';
+          const shouldBumpAdminLessonBookingsRevision =
+            mayBumpLiveAdminRuntime && plannedMutationsAffectAdminLessonBookings(plannedMutations);
+          const shouldBumpAdminPlannerRevision =
+            mayBumpLiveAdminRuntime &&
+            plannedMutationsAffectAdminPlanner(plannedMutations, envelope.kind);
+          const shouldBumpAdminCoursesRevision =
+            mayBumpLiveAdminRuntime &&
+            plannedMutationsAffectAdminCourses(plannedMutations, envelope.kind);
+          const shouldBumpAdminFinanceRevision =
+            mayBumpLiveAdminRuntime &&
+            plannedMutationsAffectAdminFinance(plannedMutations, envelope.kind);
+          const shouldBumpAdminPeopleRevision =
+            mayBumpLiveAdminRuntime && plannedMutationsAffectAdminPeople(plannedMutations);
+          const shouldBumpAdminBookingChangeRequestsRevision =
+            mayBumpLiveAdminRuntime &&
+            plannedMutationsAffectAdminBookingChangeRequests(plannedMutations);
+          if (shouldBumpAdminLessonBookingsRevision) {
+            await planAdminLessonBookingsRevisionBump(session);
+          }
+          if (shouldBumpAdminPlannerRevision) {
+            await planAdminPlannerRevisionBump(session);
+          }
+          if (shouldBumpAdminCoursesRevision) {
+            await planAdminCoursesRevisionBump(session);
+          }
+          if (shouldBumpAdminFinanceRevision) {
+            await planAdminFinanceRevisionBump(session);
+          }
+          if (shouldBumpAdminPeopleRevision) {
+            await planAdminPeopleRevisionBump(session);
+          }
+          if (shouldBumpAdminBookingChangeRequestsRevision) {
+            await planAdminBookingChangeRequestsRevisionBump(session);
+          }
+
+          await session.transitionToWrites();
+
+          const decidedAt = environment.clock.decidedAt();
+          let result = await handler.execute(session, {
+            decidedAt,
+            isReplay: false,
+            nextRevision: nextAggregateRevision,
+          });
+
+          if (result.status === 'error' && result.error.retryable) {
+            throw new CanonicalCommandError(result.error.code, {
+              correlationId: envelope.context.correlationId,
+              ...(result.error.currentRevision === undefined
+                ? {}
+                : { currentRevision: result.error.currentRevision }),
+              ...(result.error.details === undefined ? {} : { details: result.error.details }),
+            });
+          }
+
+          if (result.status === 'success' && requireAuditOnSuccess && auditPlan === undefined) {
+            throw new CanonicalCommandError('internal', {
+              correlationId: envelope.context.correlationId,
+            });
+          }
+
           if (
-            record.actorScope !== identity.actorScope ||
-            record.dataScope !== identity.scope.dataScope ||
-            record.testSessionId !==
-              (identity.scope.dataScope === 'test' ? identity.scope.testSessionId : undefined) ||
-            record.commandKind !== envelope.kind ||
-            record.fingerprint !== identity.fingerprint
+            result.status === 'success' &&
+            auditPlan !== undefined &&
+            preparedAuditReads !== undefined
           ) {
-            throw idempotencyConflictError(envelope);
+            stageAuditOutboxInTransaction({
+              session,
+              envelope,
+              commandId: identity.commandKey,
+              decidedAt,
+              committedAt: committedAtFromEnvironment(environment),
+              plan: auditPlan,
+              preparedReads: preparedAuditReads,
+              scope: executionScope,
+            });
+          }
+
+          if (result.status === 'success' && shouldBumpAdminLessonBookingsRevision) {
+            result = mergeAdminLessonBookingsRevisionIntoResult(
+              result,
+              commitAdminLessonBookingsRevisionBump(session, timestampFromDate(decidedAt))
+            );
+          }
+          if (result.status === 'success' && shouldBumpAdminPlannerRevision) {
+            result = mergeAdminPlannerRevisionIntoResult(
+              result,
+              commitAdminPlannerRevisionBump(session, timestampFromDate(decidedAt))
+            );
+          }
+          if (result.status === 'success' && shouldBumpAdminCoursesRevision) {
+            result = mergeAdminCoursesRevisionIntoResult(
+              result,
+              commitAdminCoursesRevisionBump(session, timestampFromDate(decidedAt))
+            );
+          }
+          if (result.status === 'success' && shouldBumpAdminFinanceRevision) {
+            result = mergeAdminFinanceRevisionIntoResult(
+              result,
+              commitAdminFinanceRevisionBump(session, timestampFromDate(decidedAt))
+            );
+          }
+          if (result.status === 'success' && shouldBumpAdminPeopleRevision) {
+            result = mergeAdminPeopleRevisionIntoResult(
+              result,
+              commitAdminPeopleRevisionBump(session, timestampFromDate(decidedAt))
+            );
+          }
+          if (result.status === 'success' && shouldBumpAdminBookingChangeRequestsRevision) {
+            result = mergeAdminBookingChangeRequestsRevisionIntoResult(
+              result,
+              commitAdminBookingChangeRequestsRevisionBump(session, timestampFromDate(decidedAt))
+            );
+          }
+
+          if (shouldPersistIdempotencyOutcome(result)) {
+            const record = buildIdempotencyRecord(envelope, identity, result, decidedAt);
+            session.tx.create({ path: idempotencyPath }, record);
           }
 
           return {
-            result: fromStoredCommandResult(record.result, envelope.kind),
-            replayed: true,
+            result,
+            replayed: false,
+            stagedAnalytics: takeStagedConversionAnalyticsEvents(),
           };
-        }
-
-        if (revisionTarget !== undefined) {
-          const aggregateRead = await session.tx.get(revisionTarget.ref);
-          session.plan.planRead({ path: revisionTarget.ref.path, category: 'aggregate' });
-          assertExpectedRevision({
-            correlationId: envelope.context.correlationId,
-            expectedRevision: envelope.context.expectedRevision,
-            currentRevision: aggregateRead.exists
-              ? readAggregateRevision(aggregateRead.data)
-              : undefined,
-            requireExpectedRevision: revisionTarget.requireExpectedRevision,
-          });
-        }
-
-        if (handler.read !== undefined) {
-          await handler.read(session);
-        }
-
-        let auditPlan: AuditOutboxStagingPlan | undefined;
-        let preparedAuditReads: Awaited<ReturnType<typeof prepareAuditOutboxReads>> | undefined;
-
-        if (handler.planAuditOutbox !== undefined) {
-          auditPlan = await handler.planAuditOutbox(session);
-          validateAuditOutboxStagingPlan(envelope, auditPlan);
-          preparedAuditReads = await prepareAuditOutboxReads(
-            session,
-            identity.commandKey,
-            auditPlan
-          );
-        } else if (requireAuditOnSuccess) {
-          throw new CanonicalCommandError('internal', {
-            correlationId: envelope.context.correlationId,
-          });
-        }
-
-        session.plan.planMutation({
-          path: idempotencyPath,
-          kind: 'create',
-          category: 'idempotency',
-          estimatedPayloadBytes: 2048,
-        });
-
-        const plannedMutations = session.plan.build().mutations;
-        const mayBumpLiveAdminRuntime = executionScope.dataScope === 'live';
-        const shouldBumpAdminLessonBookingsRevision =
-          mayBumpLiveAdminRuntime && plannedMutationsAffectAdminLessonBookings(plannedMutations);
-        const shouldBumpAdminPlannerRevision =
-          mayBumpLiveAdminRuntime &&
-          plannedMutationsAffectAdminPlanner(plannedMutations, envelope.kind);
-        const shouldBumpAdminCoursesRevision =
-          mayBumpLiveAdminRuntime &&
-          plannedMutationsAffectAdminCourses(plannedMutations, envelope.kind);
-        const shouldBumpAdminFinanceRevision =
-          mayBumpLiveAdminRuntime &&
-          plannedMutationsAffectAdminFinance(plannedMutations, envelope.kind);
-        const shouldBumpAdminPeopleRevision =
-          mayBumpLiveAdminRuntime && plannedMutationsAffectAdminPeople(plannedMutations);
-        const shouldBumpAdminBookingChangeRequestsRevision =
-          mayBumpLiveAdminRuntime &&
-          plannedMutationsAffectAdminBookingChangeRequests(plannedMutations);
-        if (shouldBumpAdminLessonBookingsRevision) {
-          await planAdminLessonBookingsRevisionBump(session);
-        }
-        if (shouldBumpAdminPlannerRevision) {
-          await planAdminPlannerRevisionBump(session);
-        }
-        if (shouldBumpAdminCoursesRevision) {
-          await planAdminCoursesRevisionBump(session);
-        }
-        if (shouldBumpAdminFinanceRevision) {
-          await planAdminFinanceRevisionBump(session);
-        }
-        if (shouldBumpAdminPeopleRevision) {
-          await planAdminPeopleRevisionBump(session);
-        }
-        if (shouldBumpAdminBookingChangeRequestsRevision) {
-          await planAdminBookingChangeRequestsRevisionBump(session);
-        }
-
-        await session.transitionToWrites();
-
-        const decidedAt = environment.clock.decidedAt();
-        let result = await handler.execute(session, {
-          decidedAt,
-          isReplay: false,
-          nextRevision: nextAggregateRevision,
-        });
-
-        if (result.status === 'error' && result.error.retryable) {
-          throw new CanonicalCommandError(result.error.code, {
-            correlationId: envelope.context.correlationId,
-            ...(result.error.currentRevision === undefined
-              ? {}
-              : { currentRevision: result.error.currentRevision }),
-            ...(result.error.details === undefined ? {} : { details: result.error.details }),
-          });
-        }
-
-        if (result.status === 'success' && requireAuditOnSuccess && auditPlan === undefined) {
-          throw new CanonicalCommandError('internal', {
-            correlationId: envelope.context.correlationId,
-          });
-        }
-
-        if (
-          result.status === 'success' &&
-          auditPlan !== undefined &&
-          preparedAuditReads !== undefined
-        ) {
-          stageAuditOutboxInTransaction({
-            session,
-            envelope,
-            commandId: identity.commandKey,
-            decidedAt,
-            committedAt: committedAtFromEnvironment(environment),
-            plan: auditPlan,
-            preparedReads: preparedAuditReads,
-            scope: executionScope,
-          });
-        }
-
-        if (result.status === 'success' && shouldBumpAdminLessonBookingsRevision) {
-          result = mergeAdminLessonBookingsRevisionIntoResult(
-            result,
-            commitAdminLessonBookingsRevisionBump(session, timestampFromDate(decidedAt))
-          );
-        }
-        if (result.status === 'success' && shouldBumpAdminPlannerRevision) {
-          result = mergeAdminPlannerRevisionIntoResult(
-            result,
-            commitAdminPlannerRevisionBump(session, timestampFromDate(decidedAt))
-          );
-        }
-        if (result.status === 'success' && shouldBumpAdminCoursesRevision) {
-          result = mergeAdminCoursesRevisionIntoResult(
-            result,
-            commitAdminCoursesRevisionBump(session, timestampFromDate(decidedAt))
-          );
-        }
-        if (result.status === 'success' && shouldBumpAdminFinanceRevision) {
-          result = mergeAdminFinanceRevisionIntoResult(
-            result,
-            commitAdminFinanceRevisionBump(session, timestampFromDate(decidedAt))
-          );
-        }
-        if (result.status === 'success' && shouldBumpAdminPeopleRevision) {
-          result = mergeAdminPeopleRevisionIntoResult(
-            result,
-            commitAdminPeopleRevisionBump(session, timestampFromDate(decidedAt))
-          );
-        }
-        if (result.status === 'success' && shouldBumpAdminBookingChangeRequestsRevision) {
-          result = mergeAdminBookingChangeRequestsRevisionIntoResult(
-            result,
-            commitAdminBookingChangeRequestsRevisionBump(session, timestampFromDate(decidedAt))
-          );
-        }
-
-        if (shouldPersistIdempotencyOutcome(result)) {
-          const record = buildIdempotencyRecord(envelope, identity, result, decidedAt);
-          session.tx.create({ path: idempotencyPath }, record);
-        }
-
-        return { result, replayed: false };
-      },
+        }),
     });
-    onSettled?.(observation);
+    try {
+      emitConversionAnalyticsBestEffort(
+        selectCommittedConversionAnalyticsEvents({
+          dataScope: executionScope.dataScope,
+          replayed: observation.replayed,
+          status: observation.result.status,
+          staged: observation.stagedAnalytics,
+        })
+      );
+    } catch (analyticsError) {
+      console.warn('conversion_analytics_emit_failed', {
+        commandKind: envelope.kind,
+        correlationId: envelope.context.correlationId,
+        message: analyticsError instanceof Error ? analyticsError.message : 'unknown',
+      });
+    }
+    onSettled?.({ result: observation.result, replayed: observation.replayed });
     return observation.result;
   } catch (error) {
     if (error instanceof CanonicalCommandError) {

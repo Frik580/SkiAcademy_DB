@@ -90,6 +90,10 @@ import {
   LESSON_PRICING_SETTINGS_DOCUMENT_PATH,
   parseLessonPricingSettings,
 } from '../pricing/lessonPricingSettingsStore';
+import {
+  conversionEventsForNewCommercialSubject,
+  stageConversionAnalyticsEvents,
+} from '../analytics/conversionAnalytics';
 
 interface CommandMetadata {
   readonly commandId: ReturnType<typeof resolveCommandIdempotencyIdentity>['commandKey'];
@@ -628,6 +632,23 @@ function createConfirmedBookingHandler(
         for (const participantClaimPlan of occurrenceClaimPlans.participantClaimPlans) {
           commitResourceClaimPlan(session, participantClaimPlan, claimMetadata);
         }
+
+        stageConversionAnalyticsEvents(
+          conversionEventsForNewCommercialSubject({
+            commandKind: envelope.kind,
+            commandId: metadata.commandId,
+            correlationId: metadata.correlationId,
+            occurredAt: decidedAt,
+            subjectType: 'booking',
+            subjectId: envelope.intent.bookingId,
+            paymentId,
+            priceMinor: paymentProjection.price,
+            paidAmountMinor: paymentProjection.paidAmount,
+            paymentStatus: paymentProjection.paymentStatus,
+            subjectLifecycle: 'confirmed',
+            accountId: authorization.payerAccountId,
+          })
+        );
 
         return commandSuccessResult(envelope.kind, envelope.context.correlationId);
       } catch (error) {

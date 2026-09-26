@@ -122,6 +122,10 @@ import {
   parseCourseEnrollment,
   toFirestoreWritePayload as enrollmentToFirestoreWritePayload,
 } from './courseEnrollmentStore';
+import {
+  conversionEventsForNewCommercialSubject,
+  stageConversionAnalyticsEvents,
+} from '../analytics/conversionAnalytics';
 
 interface CommandMetadata {
   readonly commandId: ReturnType<typeof resolveCommandIdempotencyIdentity>['commandKey'];
@@ -1069,6 +1073,28 @@ function createCourseEnrollmentsHandler(
           session.tx.create(
             { path: paymentPath(planned.paymentId) },
             financeToFirestoreWritePayload(payment as Record<string, unknown>)
+          );
+
+          stageConversionAnalyticsEvents(
+            conversionEventsForNewCommercialSubject({
+              commandKind: envelope.kind,
+              commandId: metadata.commandId,
+              correlationId: metadata.correlationId,
+              occurredAt: decidedAt,
+              subjectType: 'course_enrollment',
+              subjectId: planned.enrollmentId,
+              paymentId: planned.paymentId,
+              priceMinor: paymentFields.price,
+              paidAmountMinor: paymentFields.paidAmount,
+              paymentStatus: paymentFields.paymentStatus,
+              subjectLifecycle: mode === 'guest' ? 'pending' : 'confirmed',
+              ...(planned.authorization.payerAccountId === undefined
+                ? {}
+                : { accountId: planned.authorization.payerAccountId }),
+              ...(mode === 'guest'
+                ? { guestSubjectId: guestSubjectIdFromCourseEnrollmentId(planned.enrollmentId) }
+                : {}),
+            })
           );
 
           commitAcquireActiveCourseEnrollmentGuard(

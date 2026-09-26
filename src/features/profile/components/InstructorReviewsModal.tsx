@@ -121,7 +121,10 @@ export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
                       const count = ratingDistribution[stars - 1];
                       const percentage = (count / totalReviews) * 100;
                       return (
-                        <div key={stars} className="flex items-center gap-2.5 text-[var(--ink-dim)]">
+                        <div
+                          key={stars}
+                          className="flex items-center gap-2.5 text-[var(--ink-dim)]"
+                        >
                           <span className="w-3 text-right font-semibold">{stars}</span>
                           <Star className="w-3 h-3 fill-amber-400 stroke-amber-500 text-amber-500 shrink-0" />
                           <div className="flex-1 h-1.5 bg-black/20 dark:bg-white/10 overflow-hidden rounded-none">

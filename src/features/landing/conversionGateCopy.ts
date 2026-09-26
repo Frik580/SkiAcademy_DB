@@ -15,7 +15,7 @@ export const CONVERSION_GATE_COPY = {
 
 export type ConversionGateCopyKey = keyof typeof CONVERSION_GATE_COPY;
 
-const GROWTH_COPY_TOKEN = /^\[\[GROWTH_COPY:[a-z0-9_]+\]\]$/;
+const GROWTH_COPY_TOKEN = /^\[\[GROWTH_COPY:\s*[a-z0-9_]+\]\]$/;
 
 export function isGrowthCopyPlaceholder(value: string): boolean {
   return GROWTH_COPY_TOKEN.test(value.trim());

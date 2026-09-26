@@ -11,7 +11,10 @@ interface ConversionGateWhatsAppCtaProps {
  * WhatsApp control for the public gate.
  * Stays inert until Growth replaces `wa_url` with an https WhatsApp link.
  */
-export function ConversionGateWhatsAppCta({ placement, className }: ConversionGateWhatsAppCtaProps) {
+export function ConversionGateWhatsAppCta({
+  placement,
+  className,
+}: ConversionGateWhatsAppCtaProps) {
   const label = CONVERSION_GATE_COPY.waCtaLabel;
   const href = resolveWhatsAppHref(CONVERSION_GATE_COPY.waUrl);
   const testId = `conversion-gate-whatsapp-${placement}`;

@@ -7,7 +7,7 @@ import { useLanguage } from '../../app/providers/LanguageContext';
 import { useCurrency } from '../../app/providers/CurrencyContext';
 import { isInstructorWorkspaceUser, getDefaultWorkspacePath } from '../../lib/workspaceRoutes';
 import { Logo } from './Logo';
-import { ConversionGateWhatsAppCta } from '../../features/landing/ConversionGateWhatsAppCta';
+import { ConversionGateWhatsAppCta } from '../../features/landing';
 import { useEffectiveBalance } from '../../features/wallet';
 import {
   CabinetParticipantAvatarSwitcher,

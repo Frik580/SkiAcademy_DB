@@ -168,10 +168,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                       {t('courseStudentReviews')}
                     </h3>
                   </div>
-                  <p
-                    className="text-sm text-[var(--ink-dim)]"
-                    data-testid="course-reviews-empty"
-                  >
+                  <p className="text-sm text-[var(--ink-dim)]" data-testid="course-reviews-empty">
                     {t('instructorNoReviews')}
                   </p>
                 </section>

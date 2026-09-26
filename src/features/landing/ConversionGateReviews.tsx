@@ -31,7 +31,10 @@ export function ConversionGateReviews({
           {verifiedCount} {totalLabel}
         </p>
       ) : (
-        <p className="mt-2 text-sm text-[var(--ink-dim)]" data-testid="conversion-gate-reviews-empty">
+        <p
+          className="mt-2 text-sm text-[var(--ink-dim)]"
+          data-testid="conversion-gate-reviews-empty"
+        >
           {emptyLabel}
         </p>
       )}

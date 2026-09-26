@@ -110,7 +110,7 @@ export const ModalHost: React.FC = () => {
     bookingInstructorId: selectedInstructor?.id ?? null,
     courseDetailsId: selectedCourseForDetails?.id ?? null,
     courseEnrollmentId: selectedCourseForAuth?.id ?? null,
-    reviewsInstructorId: reviewsInstructor?.id ?? null,
+    instructorDetailId: reviewsInstructor?.id ?? null,
   });
 
   return (

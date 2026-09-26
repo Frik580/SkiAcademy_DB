@@ -7,7 +7,6 @@ import { useLanguage } from '../../../app/providers/LanguageContext';
 import { useCurrency } from '../../../app/providers/CurrencyContext';
 import { INSTRUCTOR_SPOKEN_LANGUAGE_KEYS } from '../../../lib/i18n/instructorLanguages';
 import { selectInstructorBio } from '../../../lib/i18n/instructorBio';
-import { useTrackInstructorCatalogueView } from '../../../infrastructure/analytics';
 
 interface InstructorCardProps {
   instructor: Instructor;
@@ -21,8 +20,6 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
     const { t, language } = useLanguage();
     const { formatPrice } = useCurrency();
     const shouldReduceMotion = useReducedMotion();
-    const cardRef = React.useRef<HTMLDivElement | null>(null);
-    useTrackInstructorCatalogueView(instructor.id, cardRef);
 
     const getSpecialtyLabel = (spec: Instructor['specialty']) => {
       switch (spec) {
@@ -118,11 +115,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
 
     return (
       <motion.div
-        ref={(node: HTMLDivElement | null) => {
-          cardRef.current = node;
-          if (typeof ref === 'function') ref(node);
-          else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
-        }}
+        ref={ref}
         initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, amount: 0.1, margin: '50px 0px' }}

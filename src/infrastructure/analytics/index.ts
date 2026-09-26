@@ -10,23 +10,19 @@ export {
   installGtagScript,
   isClientEmittedConversionEvent,
   readSessionSource,
+  resolveClientMeasurementId,
   sendGtagEvent,
 } from './clientConversionAnalytics';
 export type {
   AnalyticsLocation,
-  BookingProductType,
+  BookingProductKind,
   BookingStartInput,
   ClientConversionAnalytics,
   ClientConversionEventName,
   CourseViewInput,
   InstructorViewInput,
-  InstructorViewSurface,
   ServerConfirmedConversionEventName,
-  SessionSource,
+  SessionSourceParams,
 } from './clientConversionAnalytics';
-export {
-  useTrackConversionModals,
-  useTrackInstructorCatalogueView,
-  useTrackPublicLanding,
-} from './useClientConversionTracking';
+export { useTrackConversionModals, useTrackPublicLanding } from './useClientConversionTracking';
 export type { ConversionModalTargets } from './useClientConversionTracking';

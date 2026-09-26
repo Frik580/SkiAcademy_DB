@@ -1,29 +1,27 @@
 /**
  * Client conversion measurement (CA-CONV-ANALYTICS-001).
  *
- * Emits only client-observed funnel events through GA4 gtag. The measurement
- * id is `VITE_FIREBASE_MEASUREMENT_ID` — the same value already applied to
- * `firebaseConfig.measurementId`. Production is configured as G-XYMQS9SRDM;
- * this module does not hard-code that id, so staging and e2e stay quiet when
- * the variable is empty.
+ * Event contract from Carve Firebase. Names and params are exact. Do not add
+ * aliases. `booking_complete` and `paid` are server-confirmed facts and are
+ * not emitted here.
  *
- * `booking_complete` and `paid` are NOT client events. Carve Firebase emits
- * those from the canonical command / payment outcome. Do not add a client
- * emitter for them. When a Firebase handoff contract arrives, forward only
- * server-confirmed facts — until then this file leaves that path unwired.
+ * measurementId: G-XYMQS9SRDM, unless `VITE_FIREBASE_MEASUREMENT_ID` is set.
  *
- * Shared UI files that call this helper (home landing, instructor cards,
- * modal host) are analytics-only touches. They are not part of landing-copy
- * work (CA-CONV-GATE-001).
+ * Client events:
+ * - session_source { source, medium, campaign, page_path }
+ * - instructor_view { instructor_id }
+ * - course_view { course_id }
+ * - booking_start { product_kind, instructor_id?, course_id?, participant_count? }
+ *
+ * Never put email, phone, or name in params.
  */
 
 export const CLIENT_ANALYTICS_MEASUREMENT_ENV = 'VITE_FIREBASE_MEASUREMENT_ID' as const;
 
-/** Production GA4 measurement id. Supplied at build time via the env var above. */
 export const CARVE_PRODUCTION_GA4_MEASUREMENT_ID = 'G-XYMQS9SRDM' as const;
 
 export const CLIENT_CONVERSION_EVENT_NAMES = [
-  'landing_view',
+  'session_source',
   'instructor_view',
   'course_view',
   'booking_start',
@@ -31,34 +29,23 @@ export const CLIENT_CONVERSION_EVENT_NAMES = [
 
 export type ClientConversionEventName = (typeof CLIENT_CONVERSION_EVENT_NAMES)[number];
 
-/**
- * Server-confirmed conversion facts. Names are documented so the client
- * contract can align when Firebase publishes one. Nothing in this module
- * sends them.
- */
+/** Server-owned. Not sent by this client. */
 export const SERVER_CONFIRMED_CONVERSION_EVENT_NAMES = ['booking_complete', 'paid'] as const;
 
 export type ServerConfirmedConversionEventName =
   (typeof SERVER_CONFIRMED_CONVERSION_EVENT_NAMES)[number];
 
-export type InstructorViewSurface = 'catalogue' | 'reviews';
+export type BookingProductKind = 'lesson' | 'course';
 
-export type BookingProductType = 'lesson' | 'course';
-
-export interface SessionSource {
-  session_source: string;
-  landing_path: string;
-  utm_source?: string;
-  utm_medium?: string;
-  utm_campaign?: string;
-  utm_content?: string;
-  utm_term?: string;
-  referrer?: string;
+export interface SessionSourceParams {
+  source: string;
+  medium: string;
+  campaign: string;
+  page_path: string;
 }
 
 export interface InstructorViewInput {
   instructor_id: string;
-  surface: InstructorViewSurface;
 }
 
 export interface CourseViewInput {
@@ -66,38 +53,33 @@ export interface CourseViewInput {
 }
 
 export interface BookingStartInput {
-  product_type: BookingProductType;
-  product_id: string;
+  product_kind: BookingProductKind;
   instructor_id?: string;
   course_id?: string;
+  participant_count?: number;
 }
 
 export interface AnalyticsLocation {
   pathname: string;
   search: string;
-  referrer: string;
-  host: string;
 }
 
-type AnalyticsParams = Record<string, string>;
+type AnalyticsParams = Record<string, string | number>;
 
 type AnalyticsSender = (eventName: ClientConversionEventName, params: AnalyticsParams) => void;
 
-interface PersistedAnalyticsSession {
-  source: SessionSource;
-  landingTracked: boolean;
-  instructorIds: string[];
-  courseIds: string[];
-}
-
-const STORAGE_KEY = 'carve:client-conversion-analytics:v1';
+const STORAGE_KEY = 'carve:client-conversion-analytics:v2';
 const GTAG_SCRIPT_ID = 'carve-ga4-gtag';
 const PARAM_MAX_LENGTH = 100;
-const BOOKING_START_COLLAPSE_MS = 500;
-const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'] as const;
+const DUPLICATE_COLLAPSE_MS = 500;
 
 export function isClientEmittedConversionEvent(name: string): name is ClientConversionEventName {
   return (CLIENT_CONVERSION_EVENT_NAMES as readonly string[]).includes(name);
+}
+
+export function resolveClientMeasurementId(envValue: string | undefined): string {
+  const trimmed = typeof envValue === 'string' ? envValue.trim() : '';
+  return trimmed || CARVE_PRODUCTION_GA4_MEASUREMENT_ID;
 }
 
 export function createMemoryStorage(): Storage {
@@ -124,28 +106,18 @@ export function createMemoryStorage(): Storage {
   };
 }
 
-export function readSessionSource(location: AnalyticsLocation): SessionSource {
+/** UTM fields only. Missing values stay empty strings. Referrer is not a source alias. */
+export function readSessionSource(location: AnalyticsLocation): SessionSourceParams {
   const params = new URLSearchParams(location.search);
-  const utm: Partial<Record<(typeof UTM_KEYS)[number], string>> = {};
-  for (const key of UTM_KEYS) {
-    const value = sanitizeParam(params.get(key) ?? '');
-    if (value) utm[key] = value;
-  }
-
-  const referrer = referrerHost(location.referrer);
-  const internal = Boolean(referrer && location.host && referrer === location.host.toLowerCase());
-  const externalReferrer = referrer && !internal ? referrer : undefined;
-  const sessionSource = utm.utm_source || externalReferrer || 'direct';
-
   return {
-    session_source: sessionSource,
-    landing_path: sanitizeParam(location.pathname) || '/',
-    ...utm,
-    ...(externalReferrer ? { referrer: externalReferrer } : {}),
+    source: sanitizeParam(params.get('utm_source') ?? ''),
+    medium: sanitizeParam(params.get('utm_medium') ?? ''),
+    campaign: sanitizeParam(params.get('utm_campaign') ?? ''),
+    page_path: sanitizeParam(location.pathname) || '/',
   };
 }
 
-export function installGtagScript(measurementId: string, source?: SessionSource): void {
+export function installGtagScript(measurementId: string, source?: SessionSourceParams): void {
   if (typeof document === 'undefined' || !measurementId) return;
   const w = window as Window & { dataLayer?: unknown[]; gtag?: (...args: unknown[]) => void };
   w.dataLayer = w.dataLayer ?? [];
@@ -165,14 +137,10 @@ export function installGtagScript(measurementId: string, source?: SessionSource)
     document.head.appendChild(script);
   }
 
-  const config: Record<string, string | boolean> = {
-    send_page_view: true,
-  };
-  if (source?.utm_source) config.campaign_source = source.utm_source;
-  if (source?.utm_medium) config.campaign_medium = source.utm_medium;
-  if (source?.utm_campaign) config.campaign_name = source.utm_campaign;
-  if (source?.utm_content) config.campaign_content = source.utm_content;
-  if (source?.utm_term) config.campaign_term = source.utm_term;
+  const config: Record<string, string | boolean> = { send_page_view: true };
+  if (source?.source) config.campaign_source = source.source;
+  if (source?.medium) config.campaign_medium = source.medium;
+  if (source?.campaign) config.campaign_name = source.campaign;
 
   w.gtag('js', new Date());
   w.gtag('config', measurementId, config);
@@ -187,7 +155,7 @@ export function sendGtagEvent(eventName: ClientConversionEventName, params: Anal
 
 export interface ClientConversionAnalytics {
   init(): void;
-  trackLandingView(): void;
+  trackSessionSource(): void;
   trackInstructorView(input: InstructorViewInput): void;
   trackCourseView(input: CourseViewInput): void;
   trackBookingStart(input: BookingStartInput): void;
@@ -199,30 +167,27 @@ export interface ClientConversionAnalyticsDeps {
   storage: Storage;
   readLocation: () => AnalyticsLocation;
   clock: () => number;
-  installGtag: (measurementId: string, source: SessionSource) => void;
+  installGtag: (measurementId: string, source: SessionSourceParams) => void;
 }
 
 export function createClientConversionAnalytics(
   deps: ClientConversionAnalyticsDeps
 ): ClientConversionAnalytics {
   let gtagInstalled = false;
-  let lastBookingStartKey = '';
-  let lastBookingStartAt = Number.NEGATIVE_INFINITY;
+  let lastEventKey = '';
+  let lastEventAt = Number.NEGATIVE_INFINITY;
 
-  const loadSession = (): PersistedAnalyticsSession => {
-    const parsed = readStoredSession(deps.storage);
-    if (parsed) return parsed;
-    return {
-      source: readSessionSource(deps.readLocation()),
-      landingTracked: false,
-      instructorIds: [],
-      courseIds: [],
-    };
+  const sessionSourceAlreadySent = (): boolean => {
+    try {
+      return deps.storage.getItem(STORAGE_KEY) === '1';
+    } catch {
+      return false;
+    }
   };
 
-  const saveSession = (session: PersistedAnalyticsSession) => {
+  const markSessionSourceSent = () => {
     try {
-      deps.storage.setItem(STORAGE_KEY, JSON.stringify(session));
+      deps.storage.setItem(STORAGE_KEY, '1');
     } catch {
       // Measurement must not break the product when storage is unavailable.
     }
@@ -231,113 +196,64 @@ export function createClientConversionAnalytics(
   const emit = (eventName: ClientConversionEventName, params: AnalyticsParams) => {
     if (!deps.measurementId) return;
     if (!isClientEmittedConversionEvent(eventName)) return;
+    const key = `${eventName}:${JSON.stringify(params)}`;
+    const now = deps.clock();
+    if (key === lastEventKey && now - lastEventAt < DUPLICATE_COLLAPSE_MS) return;
+    lastEventKey = key;
+    lastEventAt = now;
     deps.send(eventName, params);
   };
 
   return {
     init() {
-      const session = loadSession();
-      saveSession(session);
       if (!deps.measurementId || gtagInstalled) return;
       gtagInstalled = true;
-      deps.installGtag(deps.measurementId, session.source);
+      deps.installGtag(deps.measurementId, readSessionSource(deps.readLocation()));
     },
 
-    trackLandingView() {
-      const session = loadSession();
-      if (session.landingTracked) return;
-      session.landingTracked = true;
-      saveSession(session);
-      emit('landing_view', sourceParams(session.source));
+    trackSessionSource() {
+      if (sessionSourceAlreadySent()) return;
+      markSessionSourceSent();
+      const params = readSessionSource(deps.readLocation());
+      emit('session_source', {
+        source: params.source,
+        medium: params.medium,
+        campaign: params.campaign,
+        page_path: params.page_path,
+      });
     },
 
     trackInstructorView(input) {
       const instructorId = sanitizeParam(input.instructor_id);
       if (!instructorId) return;
-      const session = loadSession();
-      if (session.instructorIds.includes(instructorId)) return;
-      session.instructorIds = [...session.instructorIds, instructorId].slice(-200);
-      saveSession(session);
-      emit('instructor_view', {
-        ...sourceParams(session.source),
-        instructor_id: instructorId,
-        surface: input.surface,
-      });
+      emit('instructor_view', { instructor_id: instructorId });
     },
 
     trackCourseView(input) {
       const courseId = sanitizeParam(input.course_id);
       if (!courseId) return;
-      const session = loadSession();
-      if (session.courseIds.includes(courseId)) return;
-      session.courseIds = [...session.courseIds, courseId].slice(-200);
-      saveSession(session);
-      emit('course_view', {
-        ...sourceParams(session.source),
-        course_id: courseId,
-      });
+      emit('course_view', { course_id: courseId });
     },
 
     trackBookingStart(input) {
-      const productId = sanitizeParam(input.product_id);
-      if (!productId) return;
-      if (input.product_type !== 'lesson' && input.product_type !== 'course') return;
-      const key = `${input.product_type}:${productId}`;
-      const now = deps.clock();
-      if (key === lastBookingStartKey && now - lastBookingStartAt < BOOKING_START_COLLAPSE_MS) {
-        return;
-      }
-      lastBookingStartKey = key;
-      lastBookingStartAt = now;
-
-      const session = loadSession();
+      if (input.product_kind !== 'lesson' && input.product_kind !== 'course') return;
       const instructorId = sanitizeParam(input.instructor_id ?? '');
       const courseId = sanitizeParam(input.course_id ?? '');
+      const participantCount = normalizeParticipantCount(input.participant_count);
       emit('booking_start', {
-        ...sourceParams(session.source),
-        product_type: input.product_type,
-        product_id: productId,
+        product_kind: input.product_kind,
         ...(instructorId ? { instructor_id: instructorId } : {}),
         ...(courseId ? { course_id: courseId } : {}),
+        ...(participantCount === undefined ? {} : { participant_count: participantCount }),
       });
     },
   };
 }
 
-function sourceParams(source: SessionSource): AnalyticsParams {
-  return {
-    session_source: source.session_source,
-    landing_path: source.landing_path,
-    ...(source.utm_source ? { utm_source: source.utm_source } : {}),
-    ...(source.utm_medium ? { utm_medium: source.utm_medium } : {}),
-    ...(source.utm_campaign ? { utm_campaign: source.utm_campaign } : {}),
-    ...(source.utm_content ? { utm_content: source.utm_content } : {}),
-    ...(source.utm_term ? { utm_term: source.utm_term } : {}),
-    ...(source.referrer ? { referrer: source.referrer } : {}),
-  };
-}
-
-function readStoredSession(storage: Storage): PersistedAnalyticsSession | null {
-  try {
-    const raw = storage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return null;
-    const record = parsed as Partial<PersistedAnalyticsSession>;
-    if (!record.source || typeof record.source.session_source !== 'string') return null;
-    return {
-      source: record.source,
-      landingTracked: record.landingTracked === true,
-      instructorIds: Array.isArray(record.instructorIds)
-        ? record.instructorIds.filter((id): id is string => typeof id === 'string')
-        : [],
-      courseIds: Array.isArray(record.courseIds)
-        ? record.courseIds.filter((id): id is string => typeof id === 'string')
-        : [],
-    };
-  } catch {
-    return null;
-  }
+function normalizeParticipantCount(value: number | undefined): number | undefined {
+  if (value === undefined) return undefined;
+  if (!Number.isInteger(value) || value < 1) return undefined;
+  return value;
 }
 
 function sanitizeParam(value: string): string {
@@ -347,19 +263,8 @@ function sanitizeParam(value: string): string {
     .slice(0, PARAM_MAX_LENGTH);
 }
 
-function referrerHost(referrer: string): string | undefined {
-  if (!referrer) return undefined;
-  try {
-    const host = new URL(referrer).host.toLowerCase();
-    return host || undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 function readMeasurementId(): string {
-  const value = import.meta.env.VITE_FIREBASE_MEASUREMENT_ID;
-  return typeof value === 'string' ? value.trim() : '';
+  return resolveClientMeasurementId(import.meta.env.VITE_FIREBASE_MEASUREMENT_ID);
 }
 
 function browserStorage(): Storage {
@@ -372,14 +277,10 @@ function browserStorage(): Storage {
 }
 
 function readBrowserLocation(): AnalyticsLocation {
-  if (typeof window === 'undefined') {
-    return { pathname: '/', search: '', referrer: '', host: '' };
-  }
+  if (typeof window === 'undefined') return { pathname: '/', search: '' };
   return {
     pathname: window.location.pathname,
     search: window.location.search,
-    referrer: typeof document === 'undefined' ? '' : document.referrer,
-    host: window.location.host,
   };
 }
 

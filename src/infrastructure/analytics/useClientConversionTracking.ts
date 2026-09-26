@@ -1,81 +1,39 @@
-import { useEffect, useRef, type RefObject } from 'react';
-import { clientConversionAnalytics, type BookingProductType } from './clientConversionAnalytics';
+import { useEffect, useRef } from 'react';
+import { clientConversionAnalytics, type BookingProductKind } from './clientConversionAnalytics';
 
-const CATALOGUE_VIEW_THRESHOLD = 0.2;
-
-/** Public marketing landing only. Logged-in workspace redirects are not a landing view. */
+/** First public landing hit. Logged-in workspace redirects are not a session start. */
 export function useTrackPublicLanding(isPublicLanding: boolean): void {
   const tracked = useRef(false);
 
   useEffect(() => {
     if (!isPublicLanding || tracked.current) return;
     tracked.current = true;
-    clientConversionAnalytics.trackLandingView();
+    clientConversionAnalytics.trackSessionSource();
   }, [isPublicLanding]);
-}
-
-/**
- * First meaningful look at an instructor card. Reviews use a separate surface
- * in the modal host; session dedupe keeps one instructor_view per instructor.
- */
-export function useTrackInstructorCatalogueView(
-  instructorId: string,
-  elementRef: RefObject<HTMLElement | null>
-): void {
-  useEffect(() => {
-    const element = elementRef.current;
-    if (!instructorId || !element) return;
-
-    if (typeof IntersectionObserver === 'undefined') {
-      clientConversionAnalytics.trackInstructorView({
-        instructor_id: instructorId,
-        surface: 'catalogue',
-      });
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries.some(
-          (entry) => entry.isIntersecting && entry.intersectionRatio >= CATALOGUE_VIEW_THRESHOLD
-        );
-        if (!visible) return;
-        clientConversionAnalytics.trackInstructorView({
-          instructor_id: instructorId,
-          surface: 'catalogue',
-        });
-        observer.disconnect();
-      },
-      { threshold: [CATALOGUE_VIEW_THRESHOLD] }
-    );
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [elementRef, instructorId]);
 }
 
 export interface ConversionModalTargets {
   bookingInstructorId: string | null;
   courseDetailsId: string | null;
   courseEnrollmentId: string | null;
-  reviewsInstructorId: string | null;
+  /** Instructor reviews modal is the client instructor detail surface. */
+  instructorDetailId: string | null;
 }
 
 /**
- * Modal host is the shared open path for home and cabinet:
- * course details → course_view, reviews → instructor_view,
- * lesson booking modal and course enrollment modal → booking_start.
- * Payment and completion stay on the server.
+ * Modal host is the shared open path for home and cabinet.
+ * Instructor detail → instructor_view. Course details → course_view.
+ * Lesson booking and course enrollment → booking_start.
+ * participant_count is omitted here: the party size is not known when the
+ * flow opens. Payment and completion stay on the server.
  */
 export function useTrackConversionModals(targets: ConversionModalTargets): void {
-  const { bookingInstructorId, courseDetailsId, courseEnrollmentId, reviewsInstructorId } = targets;
+  const { bookingInstructorId, courseDetailsId, courseEnrollmentId, instructorDetailId } = targets;
 
   useEffect(() => {
-    if (!reviewsInstructorId) return;
-    clientConversionAnalytics.trackInstructorView({
-      instructor_id: reviewsInstructorId,
-      surface: 'reviews',
-    });
-  }, [reviewsInstructorId]);
+    if (!instructorDetailId) return;
+    clientConversionAnalytics.trackInstructorView({ instructor_id: instructorDetailId });
+  }, [instructorDetailId]);
 
   useEffect(() => {
     if (!courseDetailsId) return;
@@ -85,8 +43,7 @@ export function useTrackConversionModals(targets: ConversionModalTargets): void 
   useEffect(() => {
     if (!bookingInstructorId) return;
     clientConversionAnalytics.trackBookingStart({
-      product_type: 'lesson' satisfies BookingProductType,
-      product_id: bookingInstructorId,
+      product_kind: 'lesson' satisfies BookingProductKind,
       instructor_id: bookingInstructorId,
     });
   }, [bookingInstructorId]);
@@ -94,8 +51,7 @@ export function useTrackConversionModals(targets: ConversionModalTargets): void 
   useEffect(() => {
     if (!courseEnrollmentId) return;
     clientConversionAnalytics.trackBookingStart({
-      product_type: 'course' satisfies BookingProductType,
-      product_id: courseEnrollmentId,
+      product_kind: 'course' satisfies BookingProductKind,
       course_id: courseEnrollmentId,
     });
   }, [courseEnrollmentId]);

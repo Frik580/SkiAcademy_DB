@@ -18,6 +18,7 @@ import {
   guestCommandActor,
   guestParticipantTransportMetadataFromProfile,
   guestSubjectIdFromBookingId,
+  GUEST_LESSON_OUTSTANDING_HOLD_LIMIT_PER_INSTRUCTOR,
   paymentIdFromBookingId,
   resolveCommandIdempotencyIdentity,
   timestampFromDate,
@@ -205,6 +206,79 @@ describe('create_guest_booking_request command', () => {
     });
     expect(result.payload?.guestActionCredential?.nonce).toMatch(/^[A-Za-z0-9_-]{16,64}$/);
     expect(result.payload?.guestActionCredential?.signature).toMatch(/^[0-9a-fA-F]{64}$/);
+  });
+
+  it('rejects a new guest lesson hold at the instructor outstanding unpaid ceiling', async () => {
+    const extra: Record<string, unknown> = {};
+    for (let index = 0; index < GUEST_LESSON_OUTSTANDING_HOLD_LIMIT_PER_INSTRUCTOR; index += 1) {
+      const holdId = `booking_guest_hold_cap_${index}`;
+      extra[`bookings/${holdId}`] = {
+        bookingId: holdId,
+        dataScope: 'live',
+        attribution: { bookingOrigin: 'guest' },
+        lifecycle: { status: 'pending' },
+        occurrence: { instructorId },
+      };
+    }
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture(extra));
+    const envelope = guestCreateEnvelope();
+    const result = await runCommands(executor).execute({
+      ...envelope,
+      context: { ...envelope.context, idempotencyKey: 'guest-hold-cap-reject' },
+    });
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('unavailable');
+      expect(result.error.details).toEqual({
+        field: 'outstandingGuestHolds',
+        resourceKind: 'instructor',
+        reason: 'conflict',
+      });
+    }
+    expect(executor.snapshot().docs.has(`bookings/${bookingId}`)).toBe(false);
+  });
+
+  it('allows a guest lesson hold below the ceiling and ignores confirmed or other-instructor holds', async () => {
+    const extra: Record<string, unknown> = {};
+    for (let index = 0; index < GUEST_LESSON_OUTSTANDING_HOLD_LIMIT_PER_INSTRUCTOR; index += 1) {
+      const confirmedId = `booking_guest_confirmed_${index}`;
+      const otherId = `booking_guest_other_instructor_${index}`;
+      extra[`bookings/${confirmedId}`] = {
+        bookingId: confirmedId,
+        dataScope: 'live',
+        attribution: { bookingOrigin: 'guest' },
+        lifecycle: { status: 'confirmed' },
+        occurrence: { instructorId },
+      };
+      extra[`bookings/${otherId}`] = {
+        bookingId: otherId,
+        dataScope: 'live',
+        attribution: { bookingOrigin: 'guest' },
+        lifecycle: { status: 'pending' },
+        occurrence: { instructorId: 'instructor_guest_cmd_other' },
+      };
+    }
+    for (
+      let index = 0;
+      index < GUEST_LESSON_OUTSTANDING_HOLD_LIMIT_PER_INSTRUCTOR - 1;
+      index += 1
+    ) {
+      const holdId = `booking_guest_hold_room_${index}`;
+      extra[`bookings/${holdId}`] = {
+        bookingId: holdId,
+        dataScope: 'live',
+        attribution: { bookingOrigin: 'guest' },
+        lifecycle: { status: 'pending' },
+        occurrence: { instructorId },
+      };
+    }
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture(extra));
+    const envelope = guestCreateEnvelope();
+    const result = await runCommands(executor).execute({
+      ...envelope,
+      context: { ...envelope.context, idempotencyKey: 'guest-hold-cap-allow' },
+    });
+    expect(result.status).toBe('success');
   });
 
   it('provisions an unmanaged guest participant atomically when missing', async () => {

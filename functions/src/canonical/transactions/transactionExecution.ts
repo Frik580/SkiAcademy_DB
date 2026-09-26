@@ -20,9 +20,20 @@ export interface CanonicalTransactionQueryFilter {
 export interface CanonicalTransactionCollectionQuery {
   readonly collection: string;
   readonly where: CanonicalTransactionQueryFilter;
+  /** Additional filters AND-ed with `where`. Equality filters for bounded counts. */
+  readonly and?: readonly CanonicalTransactionQueryFilter[];
   readonly limit?: number;
   /** When true, match any nested collection with this id (Firestore collectionGroup). */
   readonly collectionGroup?: boolean;
+}
+
+export function canonicalTransactionQueryFilters(
+  input: CanonicalTransactionCollectionQuery
+): readonly CanonicalTransactionQueryFilter[] {
+  if (input.and === undefined || input.and.length === 0) {
+    return [input.where];
+  }
+  return [input.where, ...input.and];
 }
 
 export interface CanonicalTransactionQueryDocumentResult extends CanonicalTransactionReadResult {

@@ -20,6 +20,7 @@ import {
   mapCommandErrorTransportToHttpsError,
   rethrowCanonicalCommandErrorAsHttps,
 } from './mapCommandError';
+import { assertGuestCallableAppCheck } from './guestCallableProtection';
 
 const MALFORMED_CORRELATION_ID = CorrelationIdSchema.parse('correlation_malformed_guest_callable');
 
@@ -31,6 +32,7 @@ export function createExecuteGuestCanonicalCommandHandler(firestore: Firestore) 
   return async (
     request: CallableRequest<CallableGuestCommandTransportInput<CommandKind>>
   ): Promise<CommandResult<CommandKind>> => {
+    assertGuestCallableAppCheck(request);
     const transportInput = parseCallableGuestCommandTransportInput(request);
     const guestSubjectId = deriveGuestSubjectIdForIntent(transportInput.intent);
     if (!guestSubjectId) {

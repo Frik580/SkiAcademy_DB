@@ -114,6 +114,7 @@ import {
   buildExpireGuestReservationAuditPlan,
   buildLinkGuestBookingAuditPlan,
 } from './guestBookingAudit';
+import { assertGuestLessonOutstandingHoldCapacity } from '../guestHolds/outstandingGuestHoldCapacity';
 
 export interface GuestBookingCommandEnvironment extends CommandExecutionEnvironment {
   readonly guestActionTokenSecret?: string;
@@ -270,6 +271,11 @@ function createGuestBookingRequestHandler(
           details: { resourceKind: 'instructor', reason: 'conflict' },
         });
       }
+
+      await assertGuestLessonOutstandingHoldCapacity(session, {
+        instructorId: envelope.intent.instructorId,
+        correlationId: envelope.context.correlationId,
+      });
 
       schedule = resolveBookingScheduleFromCalendarInput(
         envelope.context.calendarInput!,

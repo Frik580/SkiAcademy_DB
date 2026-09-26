@@ -10,6 +10,7 @@ import {
 import {
   assertReadPhase,
   assertWritePhase,
+  canonicalTransactionQueryFilters,
   isCanonicalFieldDelete,
   type CanonicalTransactionCollectionQuery,
   type CanonicalTransactionDocumentRef,
@@ -73,7 +74,9 @@ class FirestoreCanonicalTransactionOperations implements CanonicalTransactionOpe
     let collectionQuery: Query = input.collectionGroup
       ? this.firestore.collectionGroup(input.collection)
       : this.firestore.collection(input.collection);
-    collectionQuery = collectionQuery.where(input.where.field, input.where.op, input.where.value);
+    for (const filter of canonicalTransactionQueryFilters(input)) {
+      collectionQuery = collectionQuery.where(filter.field, filter.op, filter.value);
+    }
     if (input.limit !== undefined) {
       collectionQuery = collectionQuery.limit(input.limit);
     }

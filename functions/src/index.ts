@@ -6,6 +6,7 @@ import { getAdminFirestore } from './adminFirestore';
 import { purgeExpiredNotifications } from './purgeExpiredNotifications';
 import { createExecuteCanonicalCommandHandler } from './canonical/commands/executeCanonicalCommandCallable';
 import { createExecuteGuestCanonicalCommandHandler } from './canonical/commands/executeGuestCanonicalCommandCallable';
+import { GUEST_CALLABLE_APP_CHECK_OPTIONS } from './canonical/commands/guestCallableProtection';
 import { createQueryLessonBookingReadModelsHandler } from './canonical/readModels/queryLessonBookingReadModelsCallable';
 import { createQueryManagedParticipantPickerReadModelsHandler } from './canonical/readModels/queryManagedParticipantPickerReadModelsCallable';
 import { createQueryBookingProposalReadModelsHandler } from './canonical/readModels/queryBookingProposalReadModelsCallable';
@@ -51,11 +52,20 @@ const GUEST_SECRET_CALLABLE_OPTIONS = {
   secrets: [guestActionTokenSecret],
 };
 
+/**
+ * Public guest create/cancel/withdraw. App Check is enforced here only.
+ * Authenticated canonical commands keep the existing auth check inside the handler.
+ */
+const GUEST_PUBLIC_CALLABLE_OPTIONS = {
+  ...GUEST_SECRET_CALLABLE_OPTIONS,
+  ...GUEST_CALLABLE_APP_CHECK_OPTIONS,
+};
+
 export const executeCanonicalCommand = onCall(GUEST_SECRET_CALLABLE_OPTIONS, async (request) =>
   createExecuteCanonicalCommandHandler(getAdminFirestore())(request)
 );
 
-export const executeGuestCanonicalCommand = onCall(GUEST_SECRET_CALLABLE_OPTIONS, async (request) =>
+export const executeGuestCanonicalCommand = onCall(GUEST_PUBLIC_CALLABLE_OPTIONS, async (request) =>
   createExecuteGuestCanonicalCommandHandler(getAdminFirestore())(request)
 );
 

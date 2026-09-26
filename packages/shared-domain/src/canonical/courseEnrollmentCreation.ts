@@ -20,6 +20,14 @@ import { LIVE_CANONICAL_EXECUTION_SCOPE, type CanonicalExecutionScope } from './
 /** Maximum guest Course enrollment reservation hold before course start. */
 export const GUEST_COURSE_RESERVATION_TTL_MS = 24 * 60 * 60 * 1_000;
 
+/**
+ * Security ceiling on simultaneous unpaid guest seats for one course.
+ * Course capacity remains the seat authority for normal classes. This ceiling
+ * stops an oversized capacity value from letting one course outrun the
+ * 100-candidate expiry sweep during the 24-hour hold.
+ */
+export const GUEST_COURSE_OUTSTANDING_HOLD_LIMIT_PER_COURSE = 32;
+
 export function resolveGuestCourseReservationExpiresAt(input: {
   readonly createdAt: CanonicalTimestamp;
   readonly courseStartsAt: CanonicalTimestamp;

@@ -41,6 +41,10 @@ import {
   type Payment,
   KztMinorUnitsSchema,
 } from '@ski-academy/shared-domain';
+import {
+  conversionEventsForNewCommercialSubject,
+  stageConversionAnalyticsEvents,
+} from '../analytics/conversionAnalytics';
 import type { CommandHandlerMap } from '../commands/canonicalCommands';
 import {
   executeAuthoritativeIdempotentCanonicalCommand,
@@ -462,6 +466,23 @@ function createGuestBookingRequestHandler(
         signature,
         expiresAt: reservationExpiresAt,
       };
+
+      stageConversionAnalyticsEvents(
+        conversionEventsForNewCommercialSubject({
+          commandKind: envelope.kind,
+          commandId: metadata.commandId,
+          correlationId: metadata.correlationId,
+          occurredAt: decidedAt,
+          subjectType: 'booking',
+          subjectId: envelope.intent.bookingId,
+          paymentId,
+          priceMinor: servicePrice,
+          paidAmountMinor: 0,
+          paymentStatus: 'unpaid',
+          subjectLifecycle: 'pending',
+          guestSubjectId,
+        })
+      );
 
       return commandSuccessResult(envelope.kind, envelope.context.correlationId, {
         guestActionCredential,

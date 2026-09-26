@@ -5,6 +5,7 @@ import { BookingSelectors } from './BookingSelectors';
 import { BOOKING_NOTES_FIELD_CLASS } from './bookingAppleFieldStyles';
 import { useCurrency } from '../../../../app/providers/CurrencyContext';
 import { ActionButton } from '../../../../ui/ActionButton';
+import { GuestReservationLimitAlert } from '../../../../ui/GuestReservationLimitAlert';
 
 interface GuestBookingFormProps {
   workspace: ReturnType<typeof useBookingModal>;
@@ -27,6 +28,7 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
     notes,
     setNotes,
     isSubmitting,
+    guestQuotaError,
     guestName,
     setGuestName,
     guestPhone,
@@ -143,6 +145,15 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
           <span className="text-sm text-[var(--ink)]">{t('totalLessonFee')}</span>
           <span className="text-lg font-extrabold text-[var(--accent)]">{totalFormatted}</span>
         </div>
+
+        {guestQuotaError && (
+          <div className="mb-3">
+            <GuestReservationLimitAlert
+              title={t('guestReservationLimitTitle')}
+              description={t('guestReservationLimit')}
+            />
+          </div>
+        )}
 
         <ActionButton
           type="submit"

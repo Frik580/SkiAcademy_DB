@@ -1,6 +1,9 @@
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { act, render, renderHook, screen, waitFor } from '@testing-library/react';
+import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Instructor, UserProfile } from '../../src/types';
+import { CanonicalCommandClientError } from '../../src/lib/canonical/mapCanonicalCommandError';
+import { translations } from '../../src/lib/i18n/translations';
 
 const mocks = vi.hoisted(() => ({
   addNotification: vi.fn(),
@@ -25,6 +28,12 @@ vi.mock('../../src/app/providers/LanguageContext', () => ({
     endTime: '10:00',
   }),
   getDifficultyLabel: (difficulty: string) => difficulty,
+}));
+vi.mock('../../src/app/providers/CurrencyContext', () => ({
+  useCurrency: () => ({ formatPrice: (value: number) => String(value) }),
+}));
+vi.mock('../../src/features/bookings/components/booking_modal/BookingSelectors', () => ({
+  BookingSelectors: () => null,
 }));
 vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
   queryInstructorOccupancyReadModels: (...args: unknown[]) =>
@@ -53,6 +62,7 @@ vi.mock('../../src/features/lesson-bookings', () => ({
   deriveGuestParticipantIdForBooking: () => 'participant_guest_fixture_01',
   deriveExercisedCapabilityFromParticipants: () => 'account_owner',
   presentCanonicalCommandErrorWithContext: (error: unknown) => ({
+    code: error instanceof CanonicalCommandClientError ? error.code : 'internal',
     message: error instanceof Error ? error.message : String(error),
     shouldRefresh: false,
   }),
@@ -73,6 +83,7 @@ import {
   useBookingModal,
   type BookingModalInput,
 } from '../../src/features/bookings/components/booking_modal/useBookingModal';
+import { GuestBookingForm } from '../../src/features/bookings/components/booking_modal/GuestBookingForm';
 
 const instructor = {
   id: 'instructor_fixture_01',
@@ -174,6 +185,98 @@ describe('booking modal submit success UX', () => {
     expect(mocks.addNotification).toHaveBeenCalledWith('error', 'bookingError', 'Request failed');
     expect(result.current.isSubmitting).toBe(false);
     expect(result.current.guestName).toBe('Guest Name');
+  });
+
+  it('shows only inline quota feedback, preserves fields, and clears it during a retry', async () => {
+    let rejectRetry: ((error: unknown) => void) | undefined;
+    const quotaError = new CanonicalCommandClientError('guest_reservation_limit', {
+      correlationId: 'correlation_guest_limit',
+    });
+    mocks.createGuestBooking.mockRejectedValueOnce(quotaError).mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectRetry = reject;
+        })
+    );
+    const props = createProps();
+    const { result } = renderHook(() => useBookingModal(props));
+    await waitForAvailableSlot(result);
+    act(() => {
+      result.current.setGuestName('Guest Name');
+      result.current.setGuestPhone('123456');
+      result.current.setGuestEmail('guest@example.com');
+      result.current.setDifficulty('advanced');
+      result.current.setDuration(3);
+    });
+    const event = { preventDefault: vi.fn() } as unknown as React.FormEvent;
+
+    await act(async () => {
+      await result.current.handleSubmitGuest(event);
+    });
+    expect(result.current.guestQuotaError).toBe(true);
+    expect(result.current.isSubmitting).toBe(false);
+    expect(result.current.guestName).toBe('Guest Name');
+    expect(result.current.guestPhone).toBe('123456');
+    expect(result.current.guestEmail).toBe('guest@example.com');
+    expect(result.current.difficulty).toBe('advanced');
+    expect(result.current.duration).toBe(3);
+    expect(props.onClose).not.toHaveBeenCalled();
+    expect(mocks.confetti).not.toHaveBeenCalled();
+    expect(mocks.addNotification).not.toHaveBeenCalled();
+
+    const { rerender: rerenderForm } = render(
+      React.createElement(GuestBookingForm, { workspace: result.current })
+    );
+    const alert = screen.getByRole('alert');
+    const submit = screen.getByRole('button', { name: /submitGuestApplication/i });
+    expect(alert).toHaveTextContent('guestReservationLimitTitle');
+    expect(alert).toHaveTextContent('guestReservationLimit');
+    expect(alert.compareDocumentPosition(submit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(submit).toBeEnabled();
+
+    let retry: Promise<void>;
+    act(() => {
+      retry = result.current.handleSubmitGuest(event);
+    });
+    expect(result.current.guestQuotaError).toBe(false);
+    expect(result.current.isSubmitting).toBe(true);
+    rerenderForm(React.createElement(GuestBookingForm, { workspace: result.current }));
+    expect(submit).toBeDisabled();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(mocks.createGuestBooking).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      rejectRetry?.(quotaError);
+      await retry!;
+    });
+    expect(result.current.guestQuotaError).toBe(true);
+    expect(result.current.isSubmitting).toBe(false);
+    rerenderForm(React.createElement(GuestBookingForm, { workspace: result.current }));
+    expect(submit).toBeEnabled();
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(mocks.addNotification).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await result.current.handleSubmitGuest(event);
+    });
+    expect(result.current.guestQuotaError).toBe(false);
+    expect(mocks.addNotification).toHaveBeenCalledWith(
+      'success',
+      'guestApplicationSuccess',
+      'guestApplicationSuccessDesc'
+    );
+    expect(props.onClose).toHaveBeenCalledTimes(1);
+    expect(mocks.confetti).toHaveBeenCalledTimes(1);
+  });
+
+  it('has the requested Russian and English inline copy', () => {
+    expect(translations.ru.guestReservationLimitTitle).toBe('Бронирование не создано');
+    expect(translations.ru.guestReservationLimit).toBe(
+      'С этого подключения уже создано слишком много активных заявок. Дождитесь завершения или отмены одной из них и попробуйте снова.'
+    );
+    expect(translations.en.guestReservationLimitTitle).toBe('Booking not created');
+    expect(translations.en.guestReservationLimit).toBe(
+      'Too many active reservations have been created from this connection. Please wait for one to expire or be cancelled and try again.'
+    );
   });
 
   it('clears guest transient state on close and does not replay success when reopened', async () => {

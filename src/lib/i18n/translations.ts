@@ -847,8 +847,9 @@ export const translations = {
     lessonScheduledFor: 'scheduled for',
     debitedSuffix: 'debited.',
     bookingError: 'Booking Error',
+    guestReservationLimitTitle: 'Booking not created',
     guestReservationLimit:
-      'Too many active reservations. Please complete or wait for your current reservations to expire before trying again.',
+      'Too many active reservations have been created from this connection. Please wait for one to expire or be cancelled and try again.',
     bookingRecordFailed: 'Failed to record session in database.',
     bookingSignInPrompt: 'Sign in or register to schedule training with your instructor.',
     privateInstruction: 'private instruction',
@@ -3151,8 +3152,9 @@ export const translations = {
     lessonScheduledFor: 'запланировано на',
     debitedSuffix: 'списано.',
     bookingError: 'Ошибка бронирования',
+    guestReservationLimitTitle: 'Бронирование не создано',
     guestReservationLimit:
-      'Слишком много активных заявок. Завершите текущие бронирования или дождитесь их окончания и попробуйте снова.',
+      'С этого подключения уже создано слишком много активных заявок. Дождитесь завершения или отмены одной из них и попробуйте снова.',
     bookingRecordFailed: 'Не удалось записать занятие в базу данных.',
     bookingSignInPrompt: 'Войдите или зарегистрируйтесь, чтобы записаться на занятие.',
     privateInstruction: 'индивидуальное занятие',

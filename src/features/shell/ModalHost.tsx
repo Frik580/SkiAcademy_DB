@@ -127,6 +127,7 @@ export const ModalHost: React.FC = () => {
             course={translateCourse(selectedCourseForAuth, language)}
             userProfile={userProfile}
             onEnroll={handleBookCourse}
+            onSuccess={() => setSelectedCourseForDetails(null)}
           />
         </LazyLoad>
       )}

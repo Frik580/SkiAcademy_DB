@@ -17,7 +17,6 @@ interface CourseEnrollActionProps {
   isEnrolled: boolean;
   enrollmentLifecycleStatus?: CourseEnrollmentLifecycleStatus;
   onEnroll: (courseId: string) => void;
-  onClose: () => void;
 }
 
 export const CourseEnrollAction: React.FC<CourseEnrollActionProps> = ({
@@ -30,7 +29,6 @@ export const CourseEnrollAction: React.FC<CourseEnrollActionProps> = ({
   isEnrolled,
   enrollmentLifecycleStatus,
   onEnroll,
-  onClose,
 }) => {
   const { t } = useLanguage();
   const { formatPrice } = useCurrency();
@@ -119,7 +117,6 @@ export const CourseEnrollAction: React.FC<CourseEnrollActionProps> = ({
           <button
             onClick={() => {
               onEnroll(course.id);
-              onClose();
             }}
             disabled={cta.enrollDisabled}
             className={`w-full py-3.5 font-mono text-[10px] uppercase tracking-widest transition rounded-none font-bold ${

@@ -98,6 +98,7 @@ export const useBookingModal = ({
   const [difficulty, setDifficulty] = useState<LessonDifficulty>('beginner');
   const [notes, setNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [guestQuotaError, setGuestQuotaError] = useState(false);
   const isSubmittingRef = useRef<boolean>(false);
   const submitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bookingAttemptIdRef = useRef<string | null>(null);
@@ -105,6 +106,7 @@ export const useBookingModal = ({
   useEffect(() => {
     if (!isOpen && !isSubmitting) {
       bookingAttemptIdRef.current = null;
+      setGuestQuotaError(false);
       setSelectedParticipantIds([]);
       setUnauthTab('guest');
       setGuestName('');
@@ -433,6 +435,7 @@ export const useBookingModal = ({
 
     isSubmittingRef.current = true;
     setIsSubmitting(true);
+    setGuestQuotaError(false);
 
     const bookingId = bookingAttemptIdRef.current ?? createLogicalBookingAttemptId();
     bookingAttemptIdRef.current = bookingId;
@@ -466,7 +469,12 @@ export const useBookingModal = ({
       const presented = presentCanonicalCommandErrorWithContext(err, {
         t: t as (key: string) => string,
       });
-      addNotification('error', t('bookingError'), presented.message);
+      if (presented.code === 'guest_reservation_limit') {
+        bookingAttemptIdRef.current = null;
+        setGuestQuotaError(true);
+      } else {
+        addNotification('error', t('bookingError'), presented.message);
+      }
       if (presented.shouldRefresh) {
         setOccupancyRefreshNonce((current) => current + 1);
         setTime('');
@@ -613,6 +621,7 @@ export const useBookingModal = ({
     notes,
     setNotes,
     isSubmitting,
+    guestQuotaError,
     unauthTab,
     setUnauthTab,
     guestName,

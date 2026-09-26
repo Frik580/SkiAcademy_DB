@@ -300,6 +300,23 @@ describe('Https error mapping', () => {
     expect(httpsError.message).toBe('The request is invalid.');
   });
 
+  it('sends guest reservation quota as a stable callable detail', () => {
+    const httpsError = mapCommandErrorTransportToHttpsError({
+      code: 'guest_reservation_limit',
+      message: 'Backend wording may change.',
+      retryable: false,
+      correlationId,
+    });
+    expect(httpsError.code).toBe('resource-exhausted');
+    expect(httpsError.details).toEqual(
+      expect.objectContaining({
+        code: 'guest_reservation_limit',
+        retryable: false,
+        correlationId,
+      })
+    );
+  });
+
   it('sanitizes audit_integrity_violation through rethrow helper', () => {
     expect(() =>
       rethrowCanonicalCommandErrorAsHttps(new Error('audit_integrity_violation raw'), correlationId)

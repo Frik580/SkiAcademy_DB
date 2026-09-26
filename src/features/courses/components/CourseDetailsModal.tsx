@@ -221,7 +221,6 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                   isEnrolled={isEnrolled}
                   enrollmentLifecycleStatus={enrollmentLifecycleStatus}
                   onEnroll={onEnroll}
-                  onClose={onClose}
                 />
               </div>
             </div>

@@ -83,4 +83,48 @@ describe('mapCanonicalCommandError', () => {
     expect(error.code).toBe('stale_version');
     expect(error.currentRevision).toBe(3);
   });
+
+  it('recognizes the guest quota code in callable details without using its message', () => {
+    const error = toCanonicalCommandClientError(
+      {
+        code: 'functions/resource-exhausted',
+        message: 'arbitrary backend text',
+        details: {
+          code: 'guest_reservation_limit',
+          retryable: false,
+          correlationId: 'correlation_guest_limit',
+        },
+      },
+      'correlation_fallback'
+    );
+    expect(error.code).toBe('guest_reservation_limit');
+    expect(error.correlationId).toBe('correlation_guest_limit');
+  });
+
+  it('recovers quota details from the functions client error cause', () => {
+    const error = toCanonicalCommandClientError(
+      {
+        code: 'functions/resource-exhausted',
+        message: 'wrapped transport error',
+        cause: {
+          details: {
+            code: 'guest_reservation_limit',
+            retryable: false,
+            correlationId: 'correlation_guest_wrapped',
+          },
+        },
+      },
+      'correlation_fallback'
+    );
+    expect(error.code).toBe('guest_reservation_limit');
+    expect(error.correlationId).toBe('correlation_guest_wrapped');
+  });
+
+  it('does not classify a different failed precondition as guest quota', () => {
+    const error = toCanonicalCommandClientError(
+      { code: 'functions/failed-precondition', message: 'other precondition' },
+      'correlation_fallback'
+    );
+    expect(error.code).not.toBe('guest_reservation_limit');
+  });
 });

@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ManagedParticipantOption } from '../../src/features/lesson-bookings/lessonBookingContracts';
 import { CourseEnrollmentModal } from '../../src/features/courses/components/CourseEnrollmentModal';
+import { GroupCourseCard } from '../../src/features/courses/components/GroupCourseCard';
+import { CanonicalCommandClientError } from '../../src/lib/canonical/mapCanonicalCommandError';
 
 const mocks = vi.hoisted(() => ({
   participants: [] as ManagedParticipantOption[],
@@ -18,6 +20,8 @@ const mocks = vi.hoisted(() => ({
     (_enrollments: unknown, _courseId: string, _ids: readonly string[]) => false
   ),
   selectActiveGuestCourseEnrollment: vi.fn(() => undefined),
+  addNotification: vi.fn(),
+  confetti: vi.fn(),
 }));
 
 vi.mock('motion/react', () => ({
@@ -27,11 +31,24 @@ vi.mock('motion/react', () => ({
   },
 }));
 
-vi.mock('canvas-confetti', () => ({ default: vi.fn() }));
+vi.mock('canvas-confetti', () => ({ default: mocks.confetti }));
 
 vi.mock('../../src/app/providers/LanguageContext', () => ({
   useLanguage: () => ({ t: (key: string) => key, language: 'en' }),
   getGroupCourseLabel: (title: string) => title,
+  translateCourse: (course: unknown) => course,
+  formatCourseCardDuration: (duration: string) => duration,
+}));
+vi.mock('../../src/features/courses/groupCourseEnrollmentCta', () => ({
+  deriveGroupCourseEnrollmentCtaState: () => ({
+    label: 'enroll',
+    enrollDisabled: false,
+    isFull: false,
+  }),
+}));
+vi.mock('../../src/features/courses/courseCatalogDisplaySchedule', () => ({
+  resolveCourseCatalogDisplaySchedule: () => ({ datePart: '2026-10-01', timePart: '08:00' }),
+  formatCourseCatalogCardDate: (date: string) => date,
 }));
 
 vi.mock('../../src/app/providers/CurrencyContext', () => ({
@@ -39,7 +56,7 @@ vi.mock('../../src/app/providers/CurrencyContext', () => ({
 }));
 
 vi.mock('../../src/features/notifications', () => ({
-  useNotifications: () => ({ addNotification: vi.fn() }),
+  useNotifications: () => ({ addNotification: mocks.addNotification }),
 }));
 
 vi.mock('../../src/features/course-enrollments', () => ({
@@ -366,7 +383,16 @@ describe('CourseEnrollmentModal guest enrollment', () => {
 
   it('submits guest enrollment with the stable session participantId', async () => {
     const onClose = vi.fn();
-    render(<CourseEnrollmentModal isOpen onClose={onClose} course={course} onEnroll={vi.fn()} />);
+    const onSuccess = vi.fn();
+    render(
+      <CourseEnrollmentModal
+        isOpen
+        onClose={onClose}
+        onSuccess={onSuccess}
+        course={course}
+        onEnroll={vi.fn()}
+      />
+    );
 
     fireEvent.change(screen.getByPlaceholderText('guestNamePlaceholder'), {
       target: { value: 'Guest One' },
@@ -391,6 +417,170 @@ describe('CourseEnrollmentModal guest enrollment', () => {
       );
     });
     expect(onClose).toHaveBeenCalled();
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+    expect(mocks.confetti).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a card-initiated quota error in the guest form and off other cards', async () => {
+    const onRequireAuth = vi.fn();
+    render(
+      <>
+        <GroupCourseCard
+          rawCourse={course}
+          courseEnrollments={[]}
+          userProfile={null}
+          language="en"
+          onViewDetails={vi.fn()}
+          onRequireAuth={onRequireAuth}
+        />
+        <GroupCourseCard
+          rawCourse={{ ...course, id: 'course_02', title: 'Group Snowboard' }}
+          courseEnrollments={[]}
+          userProfile={null}
+          language="en"
+          onViewDetails={vi.fn()}
+          onRequireAuth={onRequireAuth}
+        />
+      </>
+    );
+    const cardA = screen.getByText('Group Ski').closest('article')!;
+    const cardB = screen.getByText('Group Snowboard').closest('article')!;
+    fireEvent.click(cardA.querySelector('button')!);
+    expect(onRequireAuth).toHaveBeenCalledWith(course);
+
+    mocks.createGuestEnrollment.mockRejectedValueOnce(
+      new CanonicalCommandClientError('guest_reservation_limit', {
+        correlationId: 'correlation_card_limit',
+      })
+    );
+    render(<CourseEnrollmentModal isOpen onClose={vi.fn()} course={course} onEnroll={vi.fn()} />);
+    fireEvent.change(screen.getByPlaceholderText('guestNamePlaceholder'), {
+      target: { value: 'Guest One' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
+      target: { value: '+77001234567' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /submitGuestCourseApplication/i }));
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+    expect(cardA.querySelector('[role="alert"]')).toBeNull();
+    expect(cardB.querySelector('[role="alert"]')).toBeNull();
+    expect(mocks.addNotification).not.toHaveBeenCalled();
+  });
+
+  it('shows quota rejection only in the current course form and clears it on retry', async () => {
+    let rejectFirst: ((error: unknown) => void) | undefined;
+    let rejectSecond: ((error: unknown) => void) | undefined;
+    mocks.createGuestEnrollment
+      .mockImplementationOnce(
+        () =>
+          new Promise((_resolve, reject) => {
+            rejectFirst = reject;
+          })
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise((_resolve, reject) => {
+            rejectSecond = reject;
+          })
+      );
+    const onClose = vi.fn();
+    const onSuccess = vi.fn();
+    const { rerender } = render(
+      <CourseEnrollmentModal
+        isOpen
+        onClose={onClose}
+        onSuccess={onSuccess}
+        course={course}
+        onEnroll={vi.fn()}
+      />
+    );
+    fireEvent.change(screen.getByPlaceholderText('guestNamePlaceholder'), {
+      target: { value: 'Guest One' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
+      target: { value: '+77001234567' },
+    });
+    const submit = screen.getByRole('button', { name: /submitGuestCourseApplication/i });
+    fireEvent.click(submit);
+    await waitFor(() => expect(mocks.createGuestEnrollment).toHaveBeenCalledTimes(1));
+    expect(submit).toBeDisabled();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    rejectFirst?.(
+      new CanonicalCommandClientError('guest_reservation_limit', {
+        correlationId: 'correlation_course_limit',
+      })
+    );
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+    expect(submit).toBeEnabled();
+    expect(
+      screen.getByRole('alert').compareDocumentPosition(submit) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(screen.getByPlaceholderText('guestNamePlaceholder')).toHaveValue('Guest One');
+    expect(screen.getByPlaceholderText('guestPhonePlaceholder')).toHaveValue('+77001234567');
+    expect(onClose).not.toHaveBeenCalled();
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(mocks.addNotification).not.toHaveBeenCalled();
+    expect(mocks.confetti).not.toHaveBeenCalled();
+
+    fireEvent.click(submit);
+    await waitFor(() => expect(mocks.createGuestEnrollment).toHaveBeenCalledTimes(2));
+    expect(submit).toBeDisabled();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    rejectSecond?.(
+      new CanonicalCommandClientError('guest_reservation_limit', {
+        correlationId: 'correlation_course_limit_retry',
+      })
+    );
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+    expect(submit).toBeEnabled();
+
+    rerender(
+      <CourseEnrollmentModal
+        isOpen
+        onClose={onClose}
+        course={{ ...course, id: 'course_02' }}
+        onEnroll={vi.fn()}
+      />
+    );
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    rerender(
+      <CourseEnrollmentModal
+        isOpen
+        onClose={onClose}
+        onSuccess={onSuccess}
+        course={course}
+        onEnroll={vi.fn()}
+      />
+    );
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+
+    fireEvent.click(submit);
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(mocks.confetti).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps unrelated canonical failures in the existing toast path', async () => {
+    mocks.createGuestEnrollment.mockRejectedValueOnce(
+      new CanonicalCommandClientError('course_full', { correlationId: 'correlation_full' })
+    );
+    render(<CourseEnrollmentModal isOpen onClose={vi.fn()} course={course} onEnroll={vi.fn()} />);
+    fireEvent.change(screen.getByPlaceholderText('guestNamePlaceholder'), {
+      target: { value: 'Guest One' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
+      target: { value: '+77001234567' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /submitGuestCourseApplication/i }));
+    await waitFor(() =>
+      expect(mocks.addNotification).toHaveBeenCalledWith(
+        'error',
+        'bookingError',
+        expect.any(String)
+      )
+    );
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('hides the enroll CTA when the same guest already has a pending enrollment', () => {

@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import confetti from 'canvas-confetti';
 import { X, User, Phone, Mail, Send } from 'lucide-react';
 import { ActionButton } from '../../../ui/ActionButton';
+import { GuestReservationLimitAlert } from '../../../ui/GuestReservationLimitAlert';
 import { Course, UserProfile } from '../../../types';
 import { useLanguage, getGroupCourseLabel } from '../../../app/providers/LanguageContext';
 import { useCurrency } from '../../../app/providers/CurrencyContext';
@@ -39,6 +40,7 @@ interface CourseEnrollmentModalProps {
   userProfile?: UserProfile | null;
   onAuthSuccess?: (profile: UserProfile) => void;
   onEnroll: (courseId: string, selection: AuthenticatedCourseEnrollmentSelection) => void;
+  onSuccess?: () => void;
 }
 
 const COURSE_ENROLLMENT_SELECTION_MAX = 8;
@@ -50,6 +52,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   userProfile,
   onAuthSuccess,
   onEnroll,
+  onSuccess,
 }) => {
   const { t, language } = useLanguage();
   const { formatPrice } = useCurrency();
@@ -65,6 +68,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   const [guestEmail, setGuestEmail] = useState('');
   const [guestNotes, setGuestNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [guestQuotaErrorCourseId, setGuestQuotaErrorCourseId] = useState<string | null>(null);
   const isSubmittingRef = useRef(false);
   const guestEnrollmentAttemptKeyRef = useRef<string | null>(null);
 
@@ -102,6 +106,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
 
   useEffect(() => {
     guestEnrollmentAttemptKeyRef.current = null;
+    setGuestQuotaErrorCourseId(null);
     if (!isOpen) {
       setUnauthTab(userProfile ? 'auth' : 'guest');
     }
@@ -134,6 +139,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
 
     isSubmittingRef.current = true;
     setIsSubmitting(true);
+    setGuestQuotaErrorCourseId(null);
     const stableEnrollmentId =
       guestEnrollmentAttemptKeyRef.current ?? createLogicalEnrollmentAttemptId();
     if (!guestEnrollmentAttemptKeyRef.current) {
@@ -158,6 +164,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
       addNotification('success', t('guestApplicationSuccess'), t('guestApplicationSuccessDesc'));
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
       onClose();
+      onSuccess?.();
     } catch (err) {
       const presented = presentCanonicalCommandErrorWithContext(err, {
         t: t as (key: string) => string,
@@ -167,7 +174,12 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
         onClose();
         return;
       }
-      addNotification('error', t('bookingError'), presented.message || t('bookingRecordFailed'));
+      if (presented.code === 'guest_reservation_limit') {
+        guestEnrollmentAttemptKeyRef.current = null;
+        setGuestQuotaErrorCourseId(course.id);
+      } else {
+        addNotification('error', t('bookingError'), presented.message || t('bookingRecordFailed'));
+      }
     } finally {
       isSubmittingRef.current = false;
       setIsSubmitting(false);
@@ -202,6 +214,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
       const selection = resolveSelectedParticipantCommand(participants, effectiveParticipantIds);
       await Promise.resolve(onEnroll(course.id, selection));
       onClose();
+      onSuccess?.();
     } catch (err) {
       const presented = presentCanonicalCommandErrorWithContext(err, {
         t: t as (key: string) => string,
@@ -434,6 +447,13 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                       </div>
                       <div className="text-xs text-[var(--ink-dim)]">📅 {course.dates}</div>
                     </div>
+
+                    {guestQuotaErrorCourseId === course.id && (
+                      <GuestReservationLimitAlert
+                        title={t('guestReservationLimitTitle')}
+                        description={t('guestReservationLimit')}
+                      />
+                    )}
 
                     <ActionButton
                       type="submit"

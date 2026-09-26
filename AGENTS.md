@@ -26,10 +26,14 @@ For codebase investigation:
   - the user explicitly says not to use it.
 - If `graphify-out/wiki/index.md` exists, use it for broad navigation before reading large source areas.
 - Read `graphify-out/GRAPH_REPORT.md` only for broad architecture review or when `query/path/explain` are insufficient.
+- Always verify Graphify findings against the current source code before making changes, because the graph may lag behind recent commits.
 
 After modifying source code:
 
-- run `graphify update .` once near the end only when graph freshness is required by the project workflow;
+- run `graphify update .` once near the end when the task changes architecture, dependencies, authorization, canonical domain behavior, read models, Cloud Functions, Firestore/Storage access, data flow, or cross-file relationships;
+- for purely local presentation changes such as copy, styling, or isolated visual tweaks where code relationships do not materially change, Graphify refresh is optional;
+- if `graphify update .` cannot run because Graphify CLI/Python is unavailable or misconfigured, do not block the task: report `GRAPHIFY UPDATE: BLOCKED`, explain the exact reason, and continue using the current source code as the authority;
+- when the CLI is unavailable but `graphify-out/graph.json` exists, it may be used only as navigation assistance and must not be treated as fresher or more authoritative than the current source tree;
 - do not repeatedly run expensive Graphify updates during implementation;
 - graph freshness is secondary to product correctness;
 - do not modify product code merely to satisfy graph shape.

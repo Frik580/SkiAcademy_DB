@@ -143,10 +143,38 @@ Minimum dependent Participant data is name, birth date or age, skill level, ski/
 | Participant schedule                   | Active lesson intervals and actual Course Day intervals for that Participant | Account Owner schedule is not a substitute                                                             |
 | Scheduling enforcement                 | Server-owned resource claims and guards                                      | Owners retain lifecycle and schedule intent; sanitized availability is a read model                    |
 | Course admission capacity              | Pre-start active seat occupancy and `totalSeats`                             | `availableSeats` is the transactional admission counter and freezes at `course.startAt`                |
-| Instructor access                      | Active Instructor Relationships and booking-scoped minimum access            | Booking history may establish or extend a relationship but is not itself an access grant query         |
+| Instructor access | Active Instructor Relationships, valid Attendance-based access, and valid assigned Lesson Booking after `booking.occurrence.interval.startsAt` | Backend authorization verifies instructor assignment, Participant membership, Booking lifecycle/deletion state, and server-authoritative lesson start time; client IDs and browser time are not authority |
 | Mutual blocking                        | Independent active Participant Block records                                 | UI suppression is not enforcement                                                                      |
 | Immutable command/action audit history | Activity Logs                                                                | Written in the authoritative transaction; never determine current business state                       |
 | Asynchronous delivery obligations      | Domain Outbox                                                                | Delivery may lag or retry independently; outbox state is not audit or domain state                     |
+
+### Instructor access to Participant progress
+
+Instructor progress/skills access has three canonical authorization bases:
+
+- an active `instructor_relationship`;
+- valid `Attendance = present`;
+- a valid assigned Lesson Booking after `booking.occurrence.interval.startsAt`.
+
+For lesson-based access, the backend must verify all of the following:
+
+- the requesting Instructor is canonically assigned to the Booking;
+- the target Participant belongs to that Booking;
+- the Booking lifecycle is eligible (`confirmed` or `completed`);
+- the Booking is not deleted;
+- server-authoritative current time is greater than or equal to the canonical lesson start time.
+
+There is no fixed post-lesson expiry window for lesson-based progress/skills access.
+
+Before lesson start, assignment to a future lesson does not by itself grant progress/skills access unless another valid authorization basis already exists.
+
+After lesson start, the assigned Instructor may read and update the Participant's progress and skills.
+
+Client-supplied `participantId`, `instructorId`, `bookingId`, local UI state, and browser time are never authorization authority.
+
+Lesson feedback remains a separate, stricter contract and continues to require the applicable Attendance evidence, including `Attendance = present` where required.
+
+Broad Instructor access to `/users` is not part of this contract. Instructor-facing identity data must come through authorized canonical read models.
 
 The UI must not infer canonical state from indirect signals. In particular, `endsAt < now` does not mean a Booking is completed; an authorized server transition must update lifecycle state.
 

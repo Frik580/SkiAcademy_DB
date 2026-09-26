@@ -27,6 +27,9 @@ import { useCabinetProgressParticipantSelectionStore } from '../../features/stud
 import { traceCourseEnrollmentCtaIdentity } from '../../features/courses/courseEnrollmentCtaTrace';
 import { shouldSyncAccountCourseEnrollments } from '../../store/accountCourseEnrollmentSync';
 import { AppInitSkeleton } from '../../ui/Skeleton';
+import { useBookingsStore } from '../../features/bookings/bookingsStore';
+import { ConversionGateReviews } from '../../features/landing/ConversionGateReviews';
+import { countVerifiedInstructorReviews } from '../../features/landing/conversionGatePrice';
 import type { AppRoutesProps } from './routeTypes';
 
 /** Connects the public home screen to catalogue data and UI actions. */
@@ -38,6 +41,8 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
   const userProfile = useProfileStore((state) => state.userProfile);
   const firebaseUser = useAuthStore((state) => state.firebaseUser);
   const courses = useCoursesStore((state) => state.courses);
+  const instructors = useBookingsStore((state) => state.instructors);
+  const verifiedReviewCount = countVerifiedInstructorReviews(instructors);
   const courseEnrollments = useCourseEnrollmentStore(selectCourseEnrollmentItems);
   const catalogByCourseId = useCourseEnrollmentStore(selectAllCourseCatalogOperationalStates);
   const { participants } = useManagedParticipants(userProfile?.uid);
@@ -115,6 +120,12 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
           isAuthenticated: Boolean(userProfile),
         }}
         actions={{ onScrollToSection: handleScrollToSection }}
+      />
+
+      <ConversionGateReviews
+        heading={t('courseStudentReviews')}
+        verifiedCount={verifiedReviewCount}
+        totalLabel={t('reviewsTotal')}
       />
 
       <YourJourneySection skillConfig={skillConfig} userProfile={null} />

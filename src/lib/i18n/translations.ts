@@ -7,11 +7,15 @@ export function isUiLanguage(value: unknown): value is Language {
   return value === 'en' || value === 'ru';
 }
 
-/** Resolve persisted or browser locale to a supported UI language. */
+/**
+ * Resolve the UI language.
+ * A saved `en` or `ru` preference always wins.
+ * First visit and any unsaved or unsupported value (including KZ browser locales
+ * such as `kk`) default to Russian and are not written until the user chooses.
+ */
 export function resolveUiLanguage(saved?: string | null): Language {
   if (isUiLanguage(saved)) return saved;
-  const browserLang = typeof navigator !== 'undefined' ? navigator.language.toLowerCase() : '';
-  return browserLang.startsWith('ru') ? 'ru' : 'en';
+  return 'ru';
 }
 
 export const translations = {

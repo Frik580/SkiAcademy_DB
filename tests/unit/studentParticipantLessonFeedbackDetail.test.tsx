@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { ParticipantLessonFeedbackReadModel } from '@ski-academy/shared-domain';
 import { LanguageProvider } from '../../src/app/providers/LanguageContext';
@@ -69,8 +69,13 @@ vi.mock('../../src/features/booking-collaboration', async (importOriginal) => {
 
 describe('canonical participant lesson feedback detail wiring', () => {
   beforeEach(() => {
+    localStorage.setItem('alpine_glide_lang', 'en');
     presentedFeedbackMock.mockReset();
     useParticipantLessonFeedbackStore.getState().clear();
+  });
+
+  afterEach(() => {
+    localStorage.removeItem('alpine_glide_lang');
   });
 
   it('lesson details modal hides difficulty row when fallback booking has no canonical difficulty', () => {

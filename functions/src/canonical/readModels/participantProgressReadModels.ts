@@ -245,6 +245,7 @@ export async function queryParticipantProgressReadModels(
   options: Readonly<{
     accountId: AccountId;
     instructorId?: InstructorId;
+    now?: () => Date;
     readContext?: ReadModelRequestContext;
     readScope?: CanonicalReadScope;
   }>
@@ -276,7 +277,7 @@ export async function queryParticipantProgressReadModels(
   const participantSnaps = await firestore.getAll(
     ...uniqueRequested.map((participantId) => firestore.collection('participants').doc(participantId))
   );
-  const at = timestampFromDate(new Date());
+  const at = timestampFromDate(options.now?.() ?? new Date());
   const authorized: ParticipantId[] = [];
   for (let index = 0; index < uniqueRequested.length; index += 1) {
     const participant = parseIfVisibleInReadScope(

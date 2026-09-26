@@ -20,6 +20,7 @@ import {
   type ParticipantProgressView,
 } from '../../participant-progress';
 import type { InstructorLessonBookingItem } from '../../booking-collaboration/bookingCollaborationContracts';
+import { useLessonStartClock } from '../../booking-collaboration/useLessonStartClock';
 import {
   computeInstructorLessonMetrics,
   countInstructorRosterLessons,
@@ -170,6 +171,7 @@ export const useInstructorWorkspace = ({
     existingComments: {} as Record<string, string>,
   });
   const progressById = useParticipantProgressStore((state) => state.byId);
+  const nowMs = useLessonStartClock(lessonBookings);
 
   const linkedInstructor = useMemo(() => {
     return instructors.find((ins) => ins.id === userProfile.instructorId);
@@ -438,6 +440,7 @@ export const useInstructorWorkspace = ({
     onLoadMoreReviews,
     myStudents,
     progressById,
+    nowMs,
     selectedChatBooking,
     setSelectedChatBooking,
     closeChatModal,

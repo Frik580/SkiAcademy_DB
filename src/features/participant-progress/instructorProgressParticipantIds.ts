@@ -16,15 +16,13 @@ export function instructorProgressParticipantIds(
     if (
       (booking.status !== 'confirmed' && booking.status !== 'completed') ||
       booking.instructorId !== instructorId ||
-      (booking.status === 'confirmed' && booking.startsAtEpochMs > nowEpochMs)
+      booking.startsAtEpochMs > nowEpochMs
     ) {
       continue;
     }
-    const bookingParticipantIds = new Set(booking.participants.map((item) => item.participantId));
-    for (const row of booking.attendance) {
-      if (row.attendanceStatus === 'present' && bookingParticipantIds.has(row.participantId)) {
-        ids.add(row.participantId);
-      }
+    const partyIds = new Set(booking.participantIds);
+    for (const participant of booking.participants) {
+      if (partyIds.has(participant.participantId)) ids.add(participant.participantId);
     }
   }
 

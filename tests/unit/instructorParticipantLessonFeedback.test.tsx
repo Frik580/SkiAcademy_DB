@@ -102,6 +102,7 @@ function renderCard(displayBooking: DisplayBooking = booking()) {
     <LanguageProvider>
       <InstructorBookingCard
         booking={displayBooking}
+        nowMs={Date.parse('2026-01-15T09:00:00.000Z')}
         usersList={[]}
         theme="light"
         language="en"

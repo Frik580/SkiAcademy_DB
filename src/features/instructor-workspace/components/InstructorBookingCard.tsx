@@ -25,6 +25,7 @@ import { InstructorParticipantLessonFeedbackEditor } from './InstructorParticipa
 
 interface InstructorBookingCardProps {
   booking: DisplayBooking;
+  nowMs: number;
   usersList: UserProfile[];
   theme: string;
   language: Language;
@@ -48,6 +49,7 @@ interface InstructorBookingCardProps {
 
 export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
   booking,
+  nowMs,
   theme,
   language,
   t,
@@ -79,12 +81,10 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
         : participant.attendanceStatus === 'absent'
           ? t('instructorAttendanceAbsent')
           : t('instructorAttendanceMissing');
-    const canAssessInLesson = isLessonContextProgressAssessmentEnabled(
-      participant.attendanceStatus
-    );
+    const canAssessInLesson = isLessonContextProgressAssessmentEnabled(b, nowMs);
     const assessDisabledTitle =
-      participant.attendanceStatus === undefined
-        ? t('instructorAssessMarkAttendanceFirst')
+      !canAssessInLesson
+        ? t('instructorAssessAfterLessonStart')
         : undefined;
     const record = (attendanceStatus: 'present' | 'absent') => {
       collaboration.handleRecordLessonAttendance({
@@ -203,8 +203,14 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
           <InstructorParticipantLessonFeedbackButton
             t={t}
             studentName={studentName}
-            disabled={!canAssessInLesson}
-            title={assessDisabledTitle}
+            disabled={!canAssessInLesson || participant.attendanceStatus !== 'present'}
+            title={
+              !canAssessInLesson
+                ? assessDisabledTitle
+                : participant.attendanceStatus !== 'present'
+                  ? t('instructorAssessMarkAttendanceFirst')
+                  : undefined
+            }
             onClick={() =>
               setFeedbackEditor({
                 participantId: participant.participantId,

@@ -3,7 +3,6 @@ import {
   type BookingScopedParticipantAccessEvidence,
 } from './accountParticipantAccess';
 import type { Booking } from './bookingOccurrenceProposalChange';
-import type { AttendanceStatus } from './courseEnrollmentAttendanceAdminIssue';
 import { addMillisecondsToCanonicalTimestamp } from './guestBooking';
 import type { InstructorId, ParticipantId } from './identifiers';
 import {
@@ -18,8 +17,6 @@ export const BOOKING_LIFECYCLES_THAT_PROVIDE_INSTRUCTOR_PROGRESS_EVIDENCE = [
 
 export type BookingLifecycleThatProvidesInstructorProgressEvidence =
   (typeof BOOKING_LIFECYCLES_THAT_PROVIDE_INSTRUCTOR_PROGRESS_EVIDENCE)[number];
-
-export type InstructorProgressAttendanceFact = AttendanceStatus | undefined;
 
 function participantBelongsToInstructorBooking(input: {
   readonly booking: Booking;
@@ -55,22 +52,13 @@ export function bookingProvidesInstructorProgressEvidence(input: {
   readonly instructorId: InstructorId;
   readonly participantId: ParticipantId;
   readonly at: CanonicalTimestamp;
-  readonly attendanceStatus?: InstructorProgressAttendanceFact;
 }): boolean {
   if (!participantBelongsToInstructorBooking(input)) return false;
 
   const status = input.booking.lifecycle.status;
   if (status === 'no_show') return false;
   if (status !== 'confirmed' && status !== 'completed') return false;
-  if (input.attendanceStatus !== 'present') return false;
-
-  if (status === 'confirmed') {
-    return (
-      compareCanonicalTimestamps(input.at, input.booking.occurrence.interval.startsAt) >= 0
-    );
-  }
-
-  return true;
+  return compareCanonicalTimestamps(input.at, input.booking.occurrence.interval.startsAt) >= 0;
 }
 
 export function bookingScopedEvidenceFromQualifyingProgressBooking(input: {
@@ -78,7 +66,6 @@ export function bookingScopedEvidenceFromQualifyingProgressBooking(input: {
   readonly instructorId: InstructorId;
   readonly participantId: ParticipantId;
   readonly at: CanonicalTimestamp;
-  readonly attendanceStatus?: InstructorProgressAttendanceFact;
 }): BookingScopedParticipantAccessEvidence | undefined {
   if (!bookingProvidesInstructorProgressEvidence(input)) {
     return undefined;

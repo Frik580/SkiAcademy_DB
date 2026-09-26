@@ -74,6 +74,7 @@ export const InstructorBookingList: React.FC<InstructorBookingListProps> = ({
     markBookingChatRead,
     handleUpdateStudentLevel,
     openEvalModal,
+    nowMs,
     usersList,
     instructors,
   } = workspace;
@@ -248,6 +249,7 @@ export const InstructorBookingList: React.FC<InstructorBookingListProps> = ({
               <InstructorBookingCard
                 key={b.id}
                 booking={b}
+                nowMs={nowMs}
                 usersList={usersList}
                 theme={theme}
                 language={language}

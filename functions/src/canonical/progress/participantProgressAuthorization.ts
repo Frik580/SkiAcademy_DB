@@ -1,14 +1,11 @@
 import {
-  ATTENDANCE_IDENTITY_STRATEGY_VERSION,
-  attendanceIdFromBookingIdentity,
   bookingScopedEvidenceFromQualifyingProgressBooking,
   timestampFromDate,
   type BookingScopedParticipantAccessEvidence,
   type InstructorId,
   type ParticipantId,
 } from '@ski-academy/shared-domain';
-import type { Firestore } from 'firebase-admin/firestore';
-import { attendancePath, parseAttendance } from '../bookings/attendanceStore';
+import type { Firestore, QueryDocumentSnapshot } from 'firebase-admin/firestore';
 import { parseBooking } from '../bookings/bookingStore';
 import type { CanonicalAtomicTransactionSession } from '../transactions/firestoreTransactionExecutor';
 
@@ -34,26 +31,11 @@ export async function readInstructorProgressBookingScopedEvidence(
     session.plan.planRead({ path: document.path, category: 'authorization_check' });
     const booking = parseBooking(document.data);
     if (!booking) continue;
-    const attendanceId = attendanceIdFromBookingIdentity({
-      strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
-      subjectKind: 'booking',
-      occurrenceId: booking.occurrence.occurrenceId,
-      participantId: input.participantId,
-    });
-    const attendanceDocumentPath = attendancePath(attendanceId);
-    const attendanceRead = await session.tx.get({ path: attendanceDocumentPath });
-    session.plan.planRead({ path: attendanceDocumentPath, category: 'authorization_check' });
-    const attendance = parseAttendance(
-      attendanceRead.exists ? attendanceRead.data : undefined
-    );
     const scoped = bookingScopedEvidenceFromQualifyingProgressBooking({
       booking,
       instructorId: input.instructorId,
       participantId: input.participantId,
       at: input.at,
-      ...(attendance?.attendanceStatus
-        ? { attendanceStatus: attendance.attendanceStatus }
-        : {}),
     });
     if (scoped) evidence.push(scoped);
   }
@@ -68,36 +50,29 @@ export async function loadInstructorProgressBookingScopedEvidence(
     at: ReturnType<typeof timestampFromDate>;
   }>
 ): Promise<readonly BookingScopedParticipantAccessEvidence[]> {
-  const bookingSnap = await firestore
+  const bookingQuery = firestore
     .collection('bookings')
     .where('party.participantIds', 'array-contains', input.participantId)
-    .limit(50)
-    .get();
+    .where('occurrence.instructorId', '==', input.instructorId)
+    .where('lifecycle.status', 'in', ['confirmed', 'completed'])
+    .where('occurrence.interval.startsAt.seconds', '<=', input.at.seconds)
+    .orderBy('occurrence.interval.startsAt.seconds', 'asc');
 
-  const evidence: BookingScopedParticipantAccessEvidence[] = [];
-  for (const doc of bookingSnap.docs) {
-    const booking = parseBooking(doc.data() as Record<string, unknown>);
-    if (!booking) continue;
-    const attendanceId = attendanceIdFromBookingIdentity({
-      strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
-      subjectKind: 'booking',
-      occurrenceId: booking.occurrence.occurrenceId,
-      participantId: input.participantId,
-    });
-    const attendanceSnap = await firestore.doc(attendancePath(attendanceId)).get();
-    const attendance = parseAttendance(
-      attendanceSnap.data() as Record<string, unknown> | undefined
-    );
-    const scoped = bookingScopedEvidenceFromQualifyingProgressBooking({
-      booking,
-      instructorId: input.instructorId,
-      participantId: input.participantId,
-      at: input.at,
-      ...(attendance?.attendanceStatus
-        ? { attendanceStatus: attendance.attendanceStatus }
-        : {}),
-    });
-    if (scoped) evidence.push(scoped);
+  let cursor: QueryDocumentSnapshot | undefined;
+  while (true) {
+    const page = await (cursor ? bookingQuery.startAfter(cursor) : bookingQuery).limit(50).get();
+    for (const doc of page.docs) {
+      const booking = parseBooking(doc.data() as Record<string, unknown>);
+      if (!booking) continue;
+      const scoped = bookingScopedEvidenceFromQualifyingProgressBooking({
+        booking,
+        instructorId: input.instructorId,
+        participantId: input.participantId,
+        at: input.at,
+      });
+      if (scoped) return [scoped];
+    }
+    if (page.docs.length < 50) return [];
+    cursor = page.docs[page.docs.length - 1];
   }
-  return evidence;
 }

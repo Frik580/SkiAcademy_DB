@@ -7,9 +7,8 @@ import type { CanonicalTimestamp } from './primitives';
 export type InstructorLessonFeedbackAttendanceFact = AttendanceStatus | undefined;
 
 /**
- * Per-lesson feedback write authority follows the same booking attendance gate as
- * lesson-context progress assessment. Active InstructorRelationship does **not**
- * bypass this gate (unlike global participant progress).
+ * Per-lesson feedback still requires factual present Attendance. Active
+ * InstructorRelationship does not bypass this lesson-specific gate.
  */
 export function bookingProvidesInstructorLessonFeedbackEvidence(input: {
   readonly booking: Booking;
@@ -18,5 +17,5 @@ export function bookingProvidesInstructorLessonFeedbackEvidence(input: {
   readonly at: CanonicalTimestamp;
   readonly attendanceStatus?: InstructorLessonFeedbackAttendanceFact;
 }): boolean {
-  return bookingProvidesInstructorProgressEvidence(input);
+  return input.attendanceStatus === 'present' && bookingProvidesInstructorProgressEvidence(input);
 }

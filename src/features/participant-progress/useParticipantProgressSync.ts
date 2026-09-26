@@ -13,6 +13,7 @@ import {
 } from './participantProgressService';
 import { useParticipantProgressStore } from './participantProgressStore';
 import { instructorProgressParticipantIds } from './instructorProgressParticipantIds';
+import { useLessonStartClock } from '../booking-collaboration/useLessonStartClock';
 
 export function useParticipantProgressSync() {
   const firebaseUser = useAuthStore((state) => state.firebaseUser);
@@ -20,6 +21,7 @@ export function useParticipantProgressSync() {
   const location = useLocation();
   const lessonBookings = useBookingCollaborationStore(selectInstructorLessonBookings);
   const participantAccess = useBookingCollaborationStore((state) => state.participantAccess);
+  const nowMs = useLessonStartClock(lessonBookings);
   const accountId = firebaseUser?.uid;
   const instructorId = userProfile?.instructorId;
   const isInstructorRoute = location.pathname === '/instructor';
@@ -41,11 +43,11 @@ export function useParticipantProgressSync() {
       lessonBookings,
       participantAccess,
       instructorId,
-      Date.now()
+      nowMs
     );
     if (participantIds.length === 0) return;
     void refreshInstructorParticipantProgress(participantIds).catch((error) => {
       logger.warn('Failed to load instructor participant progress', error);
     });
-  }, [accountId, instructorId, isInstructorRoute, lessonBookings, participantAccess]);
+  }, [accountId, instructorId, isInstructorRoute, lessonBookings, participantAccess, nowMs]);
 }

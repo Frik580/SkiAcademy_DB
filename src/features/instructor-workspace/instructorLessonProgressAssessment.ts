@@ -1,9 +1,12 @@
 /**
- * Lesson-context UX gate for instructor progress evaluation on a booking card.
- * Global progress authorization (relationships, other surfaces) is separate.
+ * Lesson-context UX gate. Backend authorization remains authoritative.
  */
 export function isLessonContextProgressAssessmentEnabled(
-  attendanceStatus?: 'present' | 'absent'
+  booking: { status: string; startsAtEpochMs: number },
+  nowMs: number
 ): boolean {
-  return attendanceStatus === 'present';
+  return (
+    (booking.status === 'confirmed' || booking.status === 'completed') &&
+    nowMs >= booking.startsAtEpochMs
+  );
 }

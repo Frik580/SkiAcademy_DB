@@ -29,6 +29,7 @@ const selfManagementId = ParticipantManagementIdSchema.parse('management_progres
 const childManagementId = ParticipantManagementIdSchema.parse('management_progress_read_child');
 const otherManagementId = ParticipantManagementIdSchema.parse('management_progress_read_other');
 const instructorId = InstructorIdSchema.parse('instructor_progress_read_01');
+const otherInstructorId = InstructorIdSchema.parse('instructor_progress_read_02');
 const relationshipId = instructorRelationshipIdFromPair({
   participantId: selfParticipantId,
   instructorId,
@@ -50,6 +51,10 @@ function createFixtureFirestore(
     omitProgress?: boolean;
     leftoverUserProgress?: boolean;
     bookedChildAttendance?: 'present' | 'absent' | 'missing';
+    bookedChildStartsAt?: ReturnType<typeof timestampFromDate>;
+    bookedChildInstructorId?: typeof instructorId;
+    bookedChildStatus?: 'confirmed' | 'completed' | 'cancelled';
+    extraInvalidBookings?: number;
   }> = {}
 ): Firestore {
   const leftoverProgress = options.leftoverUserProgress
@@ -64,10 +69,18 @@ function createFixtureFirestore(
       `users/${accountId}`,
       { accountId, lifecycle: { status: 'active' }, ...metadata, ...leftoverProgress },
     ],
-    [`users/${otherAccountId}`, { accountId: otherAccountId, lifecycle: { status: 'active' }, ...metadata }],
+    [
+      `users/${otherAccountId}`,
+      { accountId: otherAccountId, lifecycle: { status: 'active' }, ...metadata },
+    ],
     [
       `users/${instructorAccountId}`,
-      { accountId: instructorAccountId, lifecycle: { status: 'active' }, instructorId, ...metadata },
+      {
+        accountId: instructorAccountId,
+        lifecycle: { status: 'active' },
+        instructorId,
+        ...metadata,
+      },
     ],
     [
       `participants/${selfParticipantId}`,
@@ -197,8 +210,9 @@ function createFixtureFirestore(
   if (options.bookedChildAttendance) {
     const bookingId = BookingIdSchema.parse('booking_progress_read_child');
     const occurrenceId = OccurrenceIdSchema.parse('occurrence_progress_read_child');
-    const startsAt = timestampFromDate(new Date('2025-12-31T09:00:00.000Z'));
-    const endsAt = timestampFromDate(new Date('2025-12-31T10:00:00.000Z'));
+    const startsAt =
+      options.bookedChildStartsAt ?? timestampFromDate(new Date('2026-01-02T09:00:00.000Z'));
+    const endsAt = timestampFromDate(new Date(startsAt.seconds * 1_000 + 60 * 60_000));
     docs.set(`bookings/${bookingId}`, {
       bookingId,
       attribution: {
@@ -208,19 +222,46 @@ function createFixtureFirestore(
       party: { kind: 'individual', participantIds: [childParticipantId] },
       occurrence: {
         occurrenceId,
-        instructorId,
+        instructorId: options.bookedChildInstructorId ?? instructorId,
         interval: { startsAt, endsAt },
         timeZone: 'Asia/Almaty',
         scheduleRevision: 1,
         serviceParty: { participantIds: [childParticipantId], frozenAt: startsAt },
       },
-      lifecycle: { status: 'confirmed' },
+      lifecycle:
+        options.bookedChildStatus === 'cancelled'
+          ? { status: 'cancelled', cancelledAt: endsAt, reasonCode: 'account_owner_cancelled' }
+          : options.bookedChildStatus === 'completed'
+            ? { status: 'completed', completedAt: endsAt }
+            : { status: 'confirmed' },
       paymentId: paymentIdFromBookingId(bookingId),
       revision: 1,
       createdAt: decidedAt,
       updatedAt: decidedAt,
       audit: metadata.audit,
     });
+    const validBooking = docs.get(`bookings/${bookingId}`)!;
+    for (let index = 0; index < (options.extraInvalidBookings ?? 0); index += 1) {
+      const otherBookingId = BookingIdSchema.parse(`booking_progress_read_other_${index}`);
+      const otherOccurrenceId = OccurrenceIdSchema.parse(`occurrence_progress_read_other_${index}`);
+      const earlierStart = timestampFromDate(new Date('2026-01-01T09:00:00.000Z'));
+      docs.set(`bookings/${otherBookingId}`, {
+        ...validBooking,
+        bookingId: otherBookingId,
+        paymentId: paymentIdFromBookingId(otherBookingId),
+        occurrence: {
+          ...(validBooking.occurrence as Record<string, unknown>),
+          occurrenceId: otherOccurrenceId,
+          instructorId,
+          interval: {
+            startsAt: earlierStart,
+            endsAt: timestampFromDate(new Date('2026-01-01T10:00:00.000Z')),
+          },
+          serviceParty: { participantIds: [childParticipantId], frozenAt: earlierStart },
+        },
+        archival: { isDeleted: true, deletedAt: decidedAt },
+      });
+    }
     if (options.bookedChildAttendance !== 'missing') {
       const attendanceId = attendanceIdFromBookingIdentity({
         strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
@@ -261,30 +302,65 @@ function createFixtureFirestore(
     getAll: async (...documentRefs: Array<{ get: () => Promise<unknown> }>) =>
       Promise.all(documentRefs.map((documentRefItem) => documentRefItem.get())),
     doc: (path: string) => documentRef(path),
-    collection: (name: string) => ({
-      doc: (id: string) => documentRef(`${name}/${id}`),
-      where: (field: string, op: string, value: unknown) => ({
-        limit: () => ({
-          get: async () => ({
-            docs: [...docs.entries()]
-              .filter(([path]) => path.startsWith(`${name}/`))
-              .map(([, data]) => data)
-              .filter((data) => {
-                const fieldValue = field.split('.').reduce<unknown>((current, part) => {
-                  if (!current || typeof current !== 'object') return undefined;
-                  return (current as Record<string, unknown>)[part];
-                }, data);
+    collection: (name: string) => {
+      type Row = { path: string; data: Record<string, unknown> };
+      const valueAt = (data: Record<string, unknown>, field: string): unknown =>
+        field.split('.').reduce<unknown>((current, part) => {
+          if (!current || typeof current !== 'object') return undefined;
+          return (current as Record<string, unknown>)[part];
+        }, data);
+      const query = (
+        filters: Array<(row: Row) => boolean> = [],
+        orderField?: string,
+        afterPath?: string,
+        pageSize = Infinity
+      ) => ({
+        where: (field: string, op: string, value: unknown) =>
+          query(
+            [
+              ...filters,
+              (row) => {
+                const fieldValue = valueAt(row.data, field);
                 return op === 'array-contains'
                   ? Array.isArray(fieldValue) && fieldValue.includes(value)
-                  : fieldValue === value;
-              })
-              .map((data) => ({
-                data: () => data,
-              })),
-          }),
-        }),
-      }),
-    }),
+                  : op === 'in'
+                    ? Array.isArray(value) && value.includes(fieldValue)
+                    : op === '<='
+                      ? typeof fieldValue === 'number' && fieldValue <= Number(value)
+                      : fieldValue === value;
+              },
+            ],
+            orderField,
+            afterPath,
+            pageSize
+          ),
+        orderBy: (field: string) => query(filters, field, afterPath, pageSize),
+        startAfter: (snapshot: { path: string }) =>
+          query(filters, orderField, snapshot.path, pageSize),
+        limit: (size: number) => query(filters, orderField, afterPath, size),
+        get: async () => {
+          const rows = [...docs.entries()]
+            .filter(([path]) => path.startsWith(`${name}/`))
+            .map(([path, data]) => ({ path, data }))
+            .filter((row) => filters.every((filter) => filter(row)));
+          if (orderField) {
+            rows.sort(
+              (left, right) =>
+                Number(valueAt(left.data, orderField)) - Number(valueAt(right.data, orderField)) ||
+                left.path.localeCompare(right.path)
+            );
+          }
+          const afterIndex = afterPath ? rows.findIndex((row) => row.path === afterPath) + 1 : 0;
+          return {
+            docs: rows.slice(afterIndex, afterIndex + pageSize).map((row) => ({
+              path: row.path,
+              data: () => row.data,
+            })),
+          };
+        },
+      });
+      return { doc: (id: string) => documentRef(`${name}/${id}`), ...query() };
+    },
   } as unknown as Firestore;
 }
 
@@ -349,22 +425,84 @@ describe('participant progress read models', () => {
     ).rejects.toBeInstanceOf(ParticipantProgressReadDeniedError);
   });
 
-  it('allows a booked Participant with present Attendance and denies missing Attendance', async () => {
+  it('allows started booked progress with present or missing Attendance', async () => {
     const requested = { scope: 'instructor' as const, participantIds: [childParticipantId] };
-    const actor = { accountId: instructorAccountId, instructorId };
+    const actor = {
+      accountId: instructorAccountId,
+      instructorId,
+      now: () => new Date('2026-01-02T09:00:00.000Z'),
+    };
     const allowed = await queryParticipantProgressReadModels(
       createFixtureFirestore({ bookedChildAttendance: 'present' }),
       requested,
       actor
     );
     expect(allowed.items.map((item) => item.participantId)).toEqual([childParticipantId]);
+    const missing = await queryParticipantProgressReadModels(
+      createFixtureFirestore({ bookedChildAttendance: 'missing' }),
+      requested,
+      actor
+    );
+    expect(missing.items.map((item) => item.participantId)).toEqual([childParticipantId]);
+  });
+
+  it('denies before start and allows at start and long after it', async () => {
+    const firestore = createFixtureFirestore({ bookedChildAttendance: 'missing' });
+    const input = { scope: 'instructor' as const, participantIds: [childParticipantId] };
+    const actor = { accountId: instructorAccountId, instructorId };
+    await expect(
+      queryParticipantProgressReadModels(firestore, input, {
+        ...actor,
+        now: () => new Date('2026-01-02T08:59:59.999Z'),
+      })
+    ).rejects.toBeInstanceOf(ParticipantProgressReadDeniedError);
+    for (const date of ['2026-01-02T09:00:00.000Z', '2030-01-01T00:00:00.000Z']) {
+      const result = await queryParticipantProgressReadModels(firestore, input, {
+        ...actor,
+        now: () => new Date(date),
+      });
+      expect(result.items.map((item) => item.participantId)).toEqual([childParticipantId]);
+    }
+  });
+
+  it('denies a different instructor, unrelated Participant and cancelled lesson', async () => {
+    const input = { scope: 'instructor' as const, participantIds: [childParticipantId] };
+    const actor = {
+      accountId: instructorAccountId,
+      instructorId,
+      now: () => new Date('2026-01-02T09:00:00.000Z'),
+    };
+    for (const firestore of [
+      createFixtureFirestore({
+        bookedChildAttendance: 'missing',
+        bookedChildInstructorId: otherInstructorId,
+      }),
+      createFixtureFirestore({ bookedChildAttendance: 'missing', bookedChildStatus: 'cancelled' }),
+    ]) {
+      await expect(
+        queryParticipantProgressReadModels(firestore, input, actor)
+      ).rejects.toBeInstanceOf(ParticipantProgressReadDeniedError);
+    }
     await expect(
       queryParticipantProgressReadModels(
         createFixtureFirestore({ bookedChildAttendance: 'missing' }),
-        requested,
+        { scope: 'instructor', participantIds: [otherParticipantId] },
         actor
       )
     ).rejects.toBeInstanceOf(ParticipantProgressReadDeniedError);
+  });
+
+  it('finds assigned evidence beyond the first 50 unrelated bookings', async () => {
+    const result = await queryParticipantProgressReadModels(
+      createFixtureFirestore({ bookedChildAttendance: 'missing', extraInvalidBookings: 50 }),
+      { scope: 'instructor', participantIds: [childParticipantId] },
+      {
+        accountId: instructorAccountId,
+        instructorId,
+        now: () => new Date('2026-01-02T09:00:00.000Z'),
+      }
+    );
+    expect(result.items.map((item) => item.participantId)).toEqual([childParticipantId]);
   });
 
   it('projects missing canonical docs as empty start and ignores leftover /users progress', async () => {

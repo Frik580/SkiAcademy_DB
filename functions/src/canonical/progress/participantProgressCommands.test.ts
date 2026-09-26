@@ -43,8 +43,8 @@ const childRelationshipId = instructorRelationshipIdFromPair({
 });
 const decidedAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
 
-function environment() {
-  return { clock: createAuthoritativeCommandClock(new Date('2026-01-01T00:00:00.000Z')) };
+function environment(now = new Date('2026-01-01T00:00:00.000Z')) {
+  return { clock: createAuthoritativeCommandClock(now) };
 }
 
 function seedAccount(accountId: typeof studentAccountId) {
@@ -62,10 +62,7 @@ function seedAccount(accountId: typeof studentAccountId) {
   });
 }
 
-function seedParticipant(
-  id: typeof participantId,
-  management: typeof managementId
-) {
+function seedParticipant(id: typeof participantId, management: typeof managementId) {
   return {
     participantId: id,
     displayName: id === childParticipantId ? 'Child' : 'Self',
@@ -162,11 +159,7 @@ function seedWorld() {
     },
     [`participants/${participantId}`]: seedParticipant(participantId, managementId),
     [`participants/${childParticipantId}`]: seedParticipant(childParticipantId, childManagementId),
-    [`participant_management/${managementId}`]: seedManagement(
-      managementId,
-      participantId,
-      'self'
-    ),
+    [`participant_management/${managementId}`]: seedManagement(managementId, participantId, 'self'),
     [`participant_management/${childManagementId}`]: seedManagement(
       childManagementId,
       childParticipantId,
@@ -241,14 +234,14 @@ describe('participantProgressCommands', () => {
       })
     );
     expect(updated.status).toBe('success');
-    expect(executor.snapshot().docs.get(`participant_progress/${participantId}`)?.data).toMatchObject(
-      {
-        participantId,
-        level: 3,
-        skillScores: { carving: 20 },
-        revision: 2,
-      }
-    );
+    expect(
+      executor.snapshot().docs.get(`participant_progress/${participantId}`)?.data
+    ).toMatchObject({
+      participantId,
+      level: 3,
+      skillScores: { carving: 20 },
+      revision: 2,
+    });
     const levelLog = executor.snapshot().docs.get(`activity_logs/act_level_${studentAccountId}_2`);
     expect(levelLog?.data).toMatchObject({
       userId: studentAccountId,
@@ -256,11 +249,13 @@ describe('participantProgressCommands', () => {
       type: 'level_up',
       dataScope: 'live',
       metadata: {
-        skillDeltas: [{
-          itemId: 'carving',
-          title: 'Configured carving',
-          maxPoints: 25,
-        }],
+        skillDeltas: [
+          {
+            itemId: 'carving',
+            title: 'Configured carving',
+            maxPoints: 25,
+          },
+        ],
       },
     });
     expect(levelLog?.data.testSessionId).toBeUndefined();
@@ -307,11 +302,7 @@ describe('participantProgressCommands', () => {
       dataScope: 'test',
       testSessionId,
     });
-    expect(
-      [...executor.snapshot().docs.keys()].filter(
-        (path) => path === logPath
-      )
-    ).toHaveLength(1);
+    expect([...executor.snapshot().docs.keys()].filter((path) => path === logPath)).toHaveLength(1);
   });
 
   it('creates revision 1 from a missing document and does not copy leftover /users progress', async () => {
@@ -330,15 +321,15 @@ describe('participantProgressCommands', () => {
     if (created.status === 'success') {
       expect(created.payload).toMatchObject({ participantId, revision: 1 });
     }
-    expect(executor.snapshot().docs.get(`participant_progress/${participantId}`)?.data).toMatchObject(
-      {
-        participantId,
-        level: 2,
-        skillScores: { carving: 10 },
-        skillComments: { carving: 'Good edge' },
-        revision: 1,
-      }
-    );
+    expect(
+      executor.snapshot().docs.get(`participant_progress/${participantId}`)?.data
+    ).toMatchObject({
+      participantId,
+      level: 2,
+      skillScores: { carving: 10 },
+      skillComments: { carving: 'Good edge' },
+      revision: 1,
+    });
     expect(
       executor.snapshot().docs.get(`participant_progress/${participantId}`)?.data.skillScores
     ).not.toEqual({ carving: 99 });
@@ -359,9 +350,9 @@ describe('participantProgressCommands', () => {
     if (stale.status === 'error') expect(stale.error.code).toBe('stale_version');
     const replay = await commands.execute(envelope({ expectedRevision: 0 }));
     expect(replay.status).toBe('success');
-    expect(executor.snapshot().docs.get(`participant_progress/${participantId}`)?.data).toMatchObject(
-      { revision: 1, level: 2 }
-    );
+    expect(
+      executor.snapshot().docs.get(`participant_progress/${participantId}`)?.data
+    ).toMatchObject({ revision: 1, level: 2 });
   });
 
   it('requires expectedRevision and instructor capability', async () => {
@@ -396,9 +387,9 @@ describe('participantProgressCommands', () => {
   it('keeps self and child progress isolated', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(seedWorld());
     const commands = createProductionCanonicalCommands(environment(), executor);
-    expect(
-      (await commands.execute(envelope({ expectedRevision: 0, level: 3 }))).status
-    ).toBe('success');
+    expect((await commands.execute(envelope({ expectedRevision: 0, level: 3 }))).status).toBe(
+      'success'
+    );
     expect(
       (
         await commands.execute(
@@ -413,9 +404,9 @@ describe('participantProgressCommands', () => {
         )
       ).status
     ).toBe('success');
-    expect(executor.snapshot().docs.get(`participant_progress/${participantId}`)?.data).toMatchObject(
-      { level: 3, skillScores: { carving: 10 } }
-    );
+    expect(
+      executor.snapshot().docs.get(`participant_progress/${participantId}`)?.data
+    ).toMatchObject({ level: 3, skillScores: { carving: 10 } });
     expect(
       executor.snapshot().docs.get(`participant_progress/${childParticipantId}`)?.data
     ).toMatchObject({
@@ -490,7 +481,10 @@ function seedBooking(input: {
   });
 }
 
-function seedAttendance(targetParticipantId: ParticipantId, attendanceStatus: 'present' | 'absent') {
+function seedAttendance(
+  targetParticipantId: ParticipantId,
+  attendanceStatus: 'present' | 'absent'
+) {
   const attendanceId = attendanceIdFromBookingIdentity({
     strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
     subjectKind: 'booking',
@@ -532,7 +526,7 @@ describe('participantProgressCommands booking-scoped evidence', () => {
     );
     expect(result.status).toBe('success');
   });
-  it('denies confirmed booking-based progress without present attendance after startsAt', async () => {
+  it('allows confirmed booking-based progress without Attendance after startsAt', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor({
       ...seedWorldWithoutRelationships(),
       [`bookings/${bookingId}`]: seedBooking({ status: 'confirmed' }) as unknown as Record<
@@ -543,8 +537,7 @@ describe('participantProgressCommands booking-scoped evidence', () => {
     const result = await createProductionCanonicalCommands(environment(), executor).execute(
       envelope({ expectedRevision: 0 })
     );
-    expect(result.status).toBe('error');
-    if (result.status === 'error') expect(result.error.code).toBe('forbidden');
+    expect(result.status).toBe('success');
   });
 
   it('allows confirmed booking-based progress after startsAt with present attendance', async () => {
@@ -563,7 +556,7 @@ describe('participantProgressCommands booking-scoped evidence', () => {
     expect(result.status).toBe('success');
   });
 
-  it('denies confirmed booking-based progress when attendance is absent', async () => {
+  it('allows a valid started lesson even when Attendance is absent', async () => {
     const absent = seedAttendance(participantId, 'absent');
     const executor = createInMemoryCanonicalTransactionExecutor({
       ...seedWorldWithoutRelationships(),
@@ -576,8 +569,7 @@ describe('participantProgressCommands booking-scoped evidence', () => {
     const result = await createProductionCanonicalCommands(environment(), executor).execute(
       envelope({ expectedRevision: 0 })
     );
-    expect(result.status).toBe('error');
-    if (result.status === 'error') expect(result.error.code).toBe('forbidden');
+    expect(result.status).toBe('success');
   });
 
   it('keeps active InstructorRelationship authority without attendance facts', async () => {
@@ -641,7 +633,7 @@ describe('participantProgressCommands booking-scoped evidence', () => {
     if (result.status === 'error') expect(result.error.code).toBe('forbidden');
   });
 
-  it('keeps group present/absent progress authority participant-specific', async () => {
+  it('allows each service Participant of a started group lesson', async () => {
     const present = seedAttendance(participantId, 'present');
     const absent = seedAttendance(childParticipantId, 'absent');
     const executor = createInMemoryCanonicalTransactionExecutor({
@@ -663,11 +655,10 @@ describe('participantProgressCommands booking-scoped evidence', () => {
         idempotencyKey: 'update-absent-child',
       })
     );
-    expect(absentResult.status).toBe('error');
-    if (absentResult.status === 'error') expect(absentResult.error.code).toBe('forbidden');
+    expect(absentResult.status).toBe('success');
   });
 
-  it('denies booking-based progress for a sibling with missing attendance when another is present', async () => {
+  it('allows a sibling with missing Attendance on the same started lesson', async () => {
     const present = seedAttendance(participantId, 'present');
     const executor = createInMemoryCanonicalTransactionExecutor({
       ...seedWorldWithoutRelationships(),
@@ -686,7 +677,44 @@ describe('participantProgressCommands booking-scoped evidence', () => {
         idempotencyKey: 'update-missing-child',
       })
     );
-    expect(missingSibling.status).toBe('error');
-    if (missingSibling.status === 'error') expect(missingSibling.error.code).toBe('forbidden');
+    expect(missingSibling.status).toBe('success');
+  });
+
+  it('allows the exact lesson start according to the authoritative command clock', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      ...seedWorldWithoutRelationships(),
+      [`bookings/${bookingId}`]: seedBooking({ status: 'confirmed' }) as unknown as Record<
+        string,
+        unknown
+      >,
+    });
+    const result = await createProductionCanonicalCommands(
+      environment(new Date('2025-12-31T09:00:00.000Z')),
+      executor
+    ).execute(envelope({ expectedRevision: 0 }));
+    expect(result.status).toBe('success');
+  });
+
+  it('denies a different instructor and an unrelated Participant', async () => {
+    const world = {
+      ...seedWorldWithoutRelationships(),
+      [`bookings/${bookingId}`]: seedBooking({ status: 'confirmed' }) as unknown as Record<
+        string,
+        unknown
+      >,
+    };
+    const otherInstructor = await createProductionCanonicalCommands(
+      environment(),
+      createInMemoryCanonicalTransactionExecutor(world)
+    ).execute(envelope({ actorAccountId: otherInstructorAccountId, expectedRevision: 0 }));
+    expect(otherInstructor.status).toBe('error');
+    if (otherInstructor.status === 'error') expect(otherInstructor.error.code).toBe('forbidden');
+
+    const unrelated = await createProductionCanonicalCommands(
+      environment(),
+      createInMemoryCanonicalTransactionExecutor(world)
+    ).execute(envelope({ participantId: childParticipantId, expectedRevision: 0 }));
+    expect(unrelated.status).toBe('error');
+    if (unrelated.status === 'error') expect(unrelated.error.code).toBe('forbidden');
   });
 });

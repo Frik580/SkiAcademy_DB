@@ -7,7 +7,7 @@ import { useLanguage } from '../../app/providers/LanguageContext';
 import { useCurrency } from '../../app/providers/CurrencyContext';
 import { isInstructorWorkspaceUser, getDefaultWorkspacePath } from '../../lib/workspaceRoutes';
 import { Logo } from './Logo';
-import { ConversionGateStickyWhatsApp, ConversionGateWhatsAppCta } from '../../features/landing';
+import { ConversionGateInstagramCta, ConversionGateStickyInstagram } from '../../features/landing';
 import { useEffectiveBalance } from '../../features/wallet';
 import {
   CabinetParticipantAvatarSwitcher,
@@ -174,7 +174,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   {language === 'en' ? 'EN' : 'RU'}
                 </button>
 
-                <ConversionGateWhatsAppCta
+                <ConversionGateInstagramCta
                   language={language}
                   placement="header"
                   className="px-3 py-1.5 text-xs font-sans normal-case border border-[var(--border)] rounded-full max-w-[14rem] truncate text-[var(--ink)]"
@@ -322,7 +322,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
       </header>
-      {!userProfile ? <ConversionGateStickyWhatsApp language={language} /> : null}
+      {!userProfile ? <ConversionGateStickyInstagram language={language} /> : null}
 
       <AnimatePresence>
         {isWorkspaceMenuOpen && workspaceItems.length > 0 && (
@@ -460,7 +460,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             </div>
             {!userProfile && (
-              <ConversionGateWhatsAppCta
+              <ConversionGateInstagramCta
                 language={language}
                 placement="header-menu"
                 className="w-full max-w-xs mx-auto px-4 py-3 text-sm text-center border border-[var(--border)] rounded-full text-[var(--ink)] break-words"
@@ -493,4 +493,4 @@ export const Navbar: React.FC<NavbarProps> = ({
       </AnimatePresence>
     </div>
   );
-};
+}

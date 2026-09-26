@@ -1,34 +1,65 @@
+import type { Language } from '../../lib/i18n/translations';
+
 /**
- * Conversion-gate copy slots.
- *
- * Carve Growth replaces each `[[GROWTH_COPY: …]]` token in place.
- * Do not invent Russian marketing text, prices, or WhatsApp links here.
+ * Confirmed WhatsApp link. Empty until Arsenii provides a wa.me URL.
+ * Do not invent a phone number. Null or blank hides every WhatsApp control.
  */
-export const CONVERSION_GATE_COPY = {
-  heroLocation: '[[GROWTH_COPY: hero_location]]',
-  heroProduct: '[[GROWTH_COPY: hero_product]]',
-  waUrl: '[[GROWTH_COPY: wa_url]]',
-  waCtaLabel: '[[GROWTH_COPY: wa_cta_label]]',
-  startingPricePrefix: '[[GROWTH_COPY: starting_price_prefix]]',
-  startingPriceFallback: '[[GROWTH_COPY: starting_price_line]]',
-} as const;
+export const WHATSAPP_URL: string | null = null;
 
-export type ConversionGateCopyKey = keyof typeof CONVERSION_GATE_COPY;
+/** Public storefront hides ratings until this many canonical reviews exist. */
+export const PUBLIC_STOREFRONT_REVIEW_MIN = 3;
 
-const GROWTH_COPY_TOKEN = /^\[\[GROWTH_COPY:\s*[a-z0-9_]+\]\]$/;
+export interface ConversionGateStrings {
+  heroHeadline: string;
+  heroSubline: string;
+  startingPrice: string;
+  /** Exact optional chip. English was not supplied. */
+  courseBadge: string | null;
+  waLabel: string;
+  /** Sticky prompt. English was not supplied. */
+  waStickyPrompt: string | null;
+  /** Caption beside Book Lesson when WhatsApp is the primary CTA. English was not supplied. */
+  bookBesideWa: string | null;
+  heroSecondary: string;
+}
 
-export function isGrowthCopyPlaceholder(value: string): boolean {
-  return GROWTH_COPY_TOKEN.test(value.trim());
+const COPY: Record<Language, ConversionGateStrings> = {
+  ru: {
+    heroHeadline: 'Индивидуальные уроки на Шымбулаке',
+    heroSubline: 'Лыжи и сноуборд · техника, прогресс и видеоразбор · Алматы',
+    startingPrice: 'от 25 000 ₸/час',
+    courseBadge: 'Шымбулак · Алматы · уроки от 25 000 ₸/час · курсы от 250 000 ₸',
+    waLabel: 'Написать в WhatsApp',
+    waStickyPrompt: 'Есть вопросы? Напишите в WhatsApp',
+    bookBesideWa: 'Или забронировать онлайн',
+    heroSecondary: 'Выбрать урок',
+  },
+  en: {
+    heroHeadline: 'Private ski & snowboard lessons at Shymbulak',
+    heroSubline: 'Technique, progress tracking and video analysis · Almaty',
+    startingPrice: 'from 25,000 ₸/hour',
+    courseBadge: null,
+    waLabel: 'Message on WhatsApp',
+    waStickyPrompt: null,
+    bookBesideWa: null,
+    heroSecondary: 'Book Lesson',
+  },
+};
+
+export function getConversionGateCopy(language: Language): ConversionGateStrings {
+  return COPY[language];
 }
 
 const WHATSAPP_HOSTS = new Set(['wa.me', 'api.whatsapp.com', 'web.whatsapp.com']);
 
-/** Returns an https WhatsApp URL, or null while the Growth token is still a placeholder. */
-export function resolveWhatsAppHref(url: string): string | null {
-  if (isGrowthCopyPlaceholder(url)) return null;
+/** Hides the CTA when the URL is missing or not an https WhatsApp link. */
+export function resolveWhatsAppHref(url: string | null | undefined): string | null {
+  if (url == null) return null;
+  const trimmed = url.trim();
+  if (!trimmed || trimmed.includes('GROWTH_COPY')) return null;
   let parsed: URL;
   try {
-    parsed = new URL(url);
+    parsed = new URL(trimmed);
   } catch {
     return null;
   }

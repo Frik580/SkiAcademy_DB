@@ -7,6 +7,11 @@ import { useLanguage } from '../../../app/providers/LanguageContext';
 import { useCurrency } from '../../../app/providers/CurrencyContext';
 import { INSTRUCTOR_SPOKEN_LANGUAGE_KEYS } from '../../../lib/i18n/instructorLanguages';
 import { selectInstructorBio } from '../../../lib/i18n/instructorBio';
+import {
+  ConversionGateBookBesideNote,
+  ConversionGateWhatsAppCta,
+  isPublicStorefrontReviewVisible,
+} from '../../landing';
 
 interface InstructorCardProps {
   instructor: Instructor;
@@ -42,7 +47,8 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
     const specialtyMeta = `${specialtyText} • ${instructor.experienceYears}${t('yearShort')}`;
     const languagesText = instructor.languages.map(getLanguageLabel).join(', ');
     const isAvailable = instructor.isAvailable;
-    const hasCanonicalRating = instructor.reviewsCount > 0 && instructor.rating !== null;
+    const hasCanonicalRating =
+      isPublicStorefrontReviewVisible(instructor.reviewsCount) && instructor.rating !== null;
     const ratingLabel = hasCanonicalRating
       ? `${instructor.rating!.toFixed(1)} (${instructor.reviewsCount})`
       : t('instructorNoReviews');
@@ -162,7 +168,9 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
               >
                 {instructor.name}
               </h3>
-              <div className="flex justify-center md:justify-end">{ratingControl}</div>
+              {hasCanonicalRating ? (
+                <div className="flex justify-center md:justify-end">{ratingControl}</div>
+              ) : null}
             </div>
 
             <p className="text-sm text-[var(--ink-dim)] leading-relaxed max-w-2xl mx-auto md:mx-0 mb-5 md:mb-6">
@@ -189,7 +197,15 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
 
             <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4 md:gap-6 w-full md:w-auto md:justify-end">
               {priceBlock}
-              {bookButton}
+              <div className="flex flex-col gap-2 w-full md:w-auto">
+                <ConversionGateWhatsAppCta
+                  language={language}
+                  placement="instructor-card"
+                  className="btn-primary w-full md:w-auto px-6 py-2.5 text-center"
+                />
+                <ConversionGateBookBesideNote language={language} />
+                {bookButton}
+              </div>
             </div>
           </div>
         </div>

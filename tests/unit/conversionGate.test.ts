@@ -1,34 +1,50 @@
 import { describe, expect, it } from 'vitest';
 import { getCourseEnrichedData } from '../../src/features/courses/components/course_details/courseEnrichedData';
 import {
-  CONVERSION_GATE_COPY,
-  isGrowthCopyPlaceholder,
+  PUBLIC_STOREFRONT_REVIEW_MIN,
+  WHATSAPP_URL,
+  getConversionGateCopy,
   resolveWhatsAppHref,
 } from '../../src/features/landing/conversionGateCopy';
 import {
   countVerifiedInstructorReviews,
-  formatStartingPriceLine,
-  selectStartingPrice,
+  isPublicStorefrontReviewVisible,
 } from '../../src/features/landing/conversionGatePrice';
 
 describe('conversion gate copy', () => {
-  it('keeps Growth tokens in place until copy is injected', () => {
-    expect(isGrowthCopyPlaceholder(CONVERSION_GATE_COPY.heroLocation)).toBe(true);
-    expect(isGrowthCopyPlaceholder(CONVERSION_GATE_COPY.heroProduct)).toBe(true);
-    expect(isGrowthCopyPlaceholder(CONVERSION_GATE_COPY.waUrl)).toBe(true);
-    expect(isGrowthCopyPlaceholder(CONVERSION_GATE_COPY.waCtaLabel)).toBe(true);
-    expect(isGrowthCopyPlaceholder(CONVERSION_GATE_COPY.startingPricePrefix)).toBe(true);
-    expect(isGrowthCopyPlaceholder(CONVERSION_GATE_COPY.startingPriceFallback)).toBe(true);
+  it('uses the landed Russian and English strings exactly', () => {
+    expect(getConversionGateCopy('ru')).toMatchObject({
+      heroHeadline: 'Индивидуальные уроки на Шымбулаке',
+      heroSubline: 'Лыжи и сноуборд · техника, прогресс и видеоразбор · Алматы',
+      startingPrice: 'от 25 000 ₸/час',
+      courseBadge: 'Шымбулак · Алматы · уроки от 25 000 ₸/час · курсы от 250 000 ₸',
+      waLabel: 'Написать в WhatsApp',
+      waStickyPrompt: 'Есть вопросы? Напишите в WhatsApp',
+      bookBesideWa: 'Или забронировать онлайн',
+      heroSecondary: 'Выбрать урок',
+    });
+    expect(getConversionGateCopy('en')).toMatchObject({
+      heroHeadline: 'Private ski & snowboard lessons at Shymbulak',
+      heroSubline: 'Technique, progress tracking and video analysis · Almaty',
+      startingPrice: 'from 25,000 ₸/hour',
+      waLabel: 'Message on WhatsApp',
+      heroSecondary: 'Book Lesson',
+    });
+    expect(getConversionGateCopy('ru').startingPrice).not.toContain('30 000');
+    expect(getConversionGateCopy('en').courseBadge).toBeNull();
   });
 
-  it('does not activate a WhatsApp link from a placeholder or a non-WhatsApp URL', () => {
-    expect(resolveWhatsAppHref(CONVERSION_GATE_COPY.waUrl)).toBeNull();
+  it('keeps WhatsApp hidden until a confirmed https link is configured', () => {
+    expect(WHATSAPP_URL).toBeNull();
+    expect(resolveWhatsAppHref(WHATSAPP_URL)).toBeNull();
+    expect(resolveWhatsAppHref('')).toBeNull();
+    expect(resolveWhatsAppHref('   ')).toBeNull();
+    expect(resolveWhatsAppHref('[[GROWTH_COPY: wa_url]]')).toBeNull();
     expect(resolveWhatsAppHref('https://example.com/chat')).toBeNull();
     expect(resolveWhatsAppHref('http://wa.me/77001234567')).toBeNull();
-    expect(resolveWhatsAppHref('not a url')).toBeNull();
   });
 
-  it('accepts an https WhatsApp URL once Growth replaces the token', () => {
+  it('accepts an https WhatsApp URL once the constant is set', () => {
     expect(resolveWhatsAppHref('https://wa.me/77000000000')).toBe('https://wa.me/77000000000');
     expect(resolveWhatsAppHref('https://api.whatsapp.com/send?phone=77000000000')).toBe(
       'https://api.whatsapp.com/send?phone=77000000000'
@@ -36,48 +52,17 @@ describe('conversion gate copy', () => {
   });
 });
 
-describe('conversion gate price and reviews', () => {
-  const formatAmount = (amount: number) => `${amount} ₸`;
-
-  it('uses the lowest instructor hourly KZT price', () => {
-    const source = selectStartingPrice({
-      instructorHourlyKzt: [undefined, 25000, 18000, 0, Number.NaN],
-      coursePackageKzt: [9000],
-    });
-    expect(source).toEqual({ kind: 'instructor_hourly', amountKzt: 18000 });
-    expect(formatStartingPriceLine(source, formatAmount, 'ч')).toBe(
-      '[[GROWTH_COPY: starting_price_prefix]] 18000 ₸ / ч'
-    );
-  });
-
-  it('falls back to a course package price when no hourly KZT rate exists', () => {
-    const source = selectStartingPrice({
-      instructorHourlyKzt: [undefined, null],
-      coursePackageKzt: [45000, 30000],
-    });
-    expect(formatStartingPriceLine(source, formatAmount, 'ч')).toBe(
-      '[[GROWTH_COPY: starting_price_prefix]] 30000 ₸'
-    );
-  });
-
-  it('uses the price placeholder when no verified KZT amount exists', () => {
-    const source = selectStartingPrice({
-      instructorHourlyKzt: [],
-      coursePackageKzt: [0],
-    });
-    expect(formatStartingPriceLine(source, formatAmount, 'hr')).toBe(
-      '[[GROWTH_COPY: starting_price_line]]'
-    );
-  });
-
-  it('counts only positive canonical review totals', () => {
+describe('public storefront reviews', () => {
+  it('hides the block until the canonical count reaches the minimum', () => {
+    expect(PUBLIC_STOREFRONT_REVIEW_MIN).toBe(3);
+    expect(isPublicStorefrontReviewVisible(0)).toBe(false);
+    expect(isPublicStorefrontReviewVisible(2)).toBe(false);
+    expect(isPublicStorefrontReviewVisible(3)).toBe(true);
     expect(
       countVerifiedInstructorReviews([
         { reviewsCount: 0 },
         { reviewsCount: 2 },
-        { reviewsCount: null },
-        { reviewsCount: 1.9 },
-        {},
+        { reviewsCount: 1 },
       ])
     ).toBe(3);
   });

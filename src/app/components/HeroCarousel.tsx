@@ -19,9 +19,10 @@ import { normalizeBannerMediaMode } from '../../lib/bannerMedia';
 import { BannerMedia, type BannerVideoRole } from '../../ui/BannerMedia';
 import { logger } from '../../shared';
 import {
-  CONVERSION_GATE_COPY,
+  WHATSAPP_URL,
   ConversionGateHeroCopy,
-  ConversionGateWhatsAppCta,
+  getConversionGateCopy,
+  resolveWhatsAppHref,
 } from '../../features/landing';
 
 interface HeroCarouselProps {
@@ -35,8 +36,6 @@ interface HeroCarouselProps {
     slidesRandomOrder?: boolean;
     /** Авторизованный пользователь — другой текст CTA */
     isAuthenticated?: boolean;
-    /** Formatted starting-price line. Falls back to the Growth placeholder. */
-    startingPriceLine?: string;
   };
   actions: {
     onScrollToSection: (id: string) => void;
@@ -97,11 +96,12 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
     theme,
     slideIntervalSeconds = 6,
     slidesRandomOrder = false,
-    startingPriceLine = CONVERSION_GATE_COPY.startingPriceFallback,
   },
   actions: { onScrollToSection },
 }) => {
   const { t } = useLanguage();
+  const gateCopy = getConversionGateCopy(language);
+  const whatsAppHref = resolveWhatsAppHref(WHATSAPP_URL);
   const shouldReduceMotion = useReducedMotion();
   const [carousel, setCarousel] = useState<{ current: number; outgoing: number | null }>({
     current: 0,
@@ -360,58 +360,60 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
           <div className="hero-copy-shell w-full">
             <div className="hero-copy-shell-inner w-full max-w-7xl mx-auto px-6 md:px-10 lg:px-12">
               <div className="hero-copy-stack w-full max-w-2xl">
-                <ConversionGateHeroCopy priceLine={startingPriceLine} />
-                <div className="grid relative w-full [&>*]:col-start-1 [&>*]:row-start-1 min-w-0">
-                  {slides.map((slide, idx) => {
-                    const isActive = idx === currentSlide;
-                    return (
-                      <div
-                        key={slide.id || `hero-copy-${idx}`}
-                        aria-hidden={!isActive}
-                        className={`col-start-1 row-start-1 will-change-[opacity] transition-opacity ${
-                          isActive
-                            ? 'relative opacity-100 z-[2]'
-                            : 'absolute inset-0 opacity-0 z-[1] pointer-events-none'
-                        }`}
-                        style={crossfadeStyle}
-                      >
-                        <div className="hero-copy space-y-3">
-                          <motion.span
-                            initial={shouldReduceMotion ? false : { opacity: 0, y: 10 }}
-                            animate={
-                              isActive
-                                ? { opacity: 1, y: 0 }
-                                : { opacity: 0, y: shouldReduceMotion ? 0 : 10 }
-                            }
-                            transition={{
-                              duration: shouldReduceMotion ? 0 : 0.65,
-                              delay: isActive && !shouldReduceMotion ? 0.12 : 0,
-                              ease: [0.22, 1, 0.36, 1],
-                            }}
-                            className="hero-copy-eyebrow text-xs font-mono font-medium uppercase tracking-[0.1em] block"
-                          >
-                            {language === 'en' ? slide.line1En : slide.line1Ru}
-                          </motion.span>
-                          <motion.h2
-                            initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
-                            animate={
-                              isActive
-                                ? { opacity: 1, y: 0 }
-                                : { opacity: 0, y: shouldReduceMotion ? 0 : 16 }
-                            }
-                            transition={{
-                              duration: shouldReduceMotion ? 0 : 0.75,
-                              delay: isActive && !shouldReduceMotion ? 0.26 : 0,
-                              ease: [0.22, 1, 0.36, 1],
-                            }}
-                            className="hero-copy-title text-4xl md:text-5xl lg:text-6xl font-serif font-light leading-tight tracking-tight"
-                          >
-                            {language === 'en' ? slide.line2En : slide.line2Ru}
-                          </motion.h2>
+                <ConversionGateHeroCopy language={language} />
+                <div className="hidden" aria-hidden="true">
+                  <div className="grid relative w-full [&>*]:col-start-1 [&>*]:row-start-1 min-w-0">
+                    {slides.map((slide, idx) => {
+                      const isActive = idx === currentSlide;
+                      return (
+                        <div
+                          key={slide.id || `hero-copy-${idx}`}
+                          aria-hidden={!isActive}
+                          className={`col-start-1 row-start-1 will-change-[opacity] transition-opacity ${
+                            isActive
+                              ? 'relative opacity-100 z-[2]'
+                              : 'absolute inset-0 opacity-0 z-[1] pointer-events-none'
+                          }`}
+                          style={crossfadeStyle}
+                        >
+                          <div className="hero-copy space-y-3">
+                            <motion.span
+                              initial={shouldReduceMotion ? false : { opacity: 0, y: 10 }}
+                              animate={
+                                isActive
+                                  ? { opacity: 1, y: 0 }
+                                  : { opacity: 0, y: shouldReduceMotion ? 0 : 10 }
+                              }
+                              transition={{
+                                duration: shouldReduceMotion ? 0 : 0.65,
+                                delay: isActive && !shouldReduceMotion ? 0.12 : 0,
+                                ease: [0.22, 1, 0.36, 1],
+                              }}
+                              className="hero-copy-eyebrow text-xs font-mono font-medium uppercase tracking-[0.1em] block"
+                            >
+                              {language === 'en' ? slide.line1En : slide.line1Ru}
+                            </motion.span>
+                            <motion.h2
+                              initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
+                              animate={
+                                isActive
+                                  ? { opacity: 1, y: 0 }
+                                  : { opacity: 0, y: shouldReduceMotion ? 0 : 16 }
+                              }
+                              transition={{
+                                duration: shouldReduceMotion ? 0 : 0.75,
+                                delay: isActive && !shouldReduceMotion ? 0.26 : 0,
+                                ease: [0.22, 1, 0.36, 1],
+                              }}
+                              className="hero-copy-title text-4xl md:text-5xl lg:text-6xl font-serif font-light leading-tight tracking-tight"
+                            >
+                              {language === 'en' ? slide.line2En : slide.line2Ru}
+                            </motion.h2>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
 
                 <div className="hero-actions-shell">
@@ -425,26 +427,34 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                     }}
                     className="hero-actions"
                   >
+                    {whatsAppHref ? (
+                      <a
+                        href={whatsAppHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        data-testid="conversion-gate-whatsapp-hero"
+                        className="hero-primary-cta btn-primary-hero px-7 py-3.5 inline-flex items-center justify-center gap-2"
+                      >
+                        {gateCopy.waLabel}
+                      </a>
+                    ) : null}
                     <button
                       type="button"
                       onClick={() => onScrollToSection('coaches-grid')}
-                      className="hero-primary-cta btn-primary-hero px-7 py-3.5 inline-flex items-center justify-center gap-2 group"
+                      data-testid="conversion-gate-hero-secondary"
+                      className={`${whatsAppHref ? 'hero-secondary-cta inline-flex items-center gap-1.5 text-sm font-medium text-[var(--hero-ink)]/80 hover:text-[var(--accent)] transition-colors bg-transparent border-0 p-0 cursor-pointer' : 'hero-primary-cta btn-primary-hero px-7 py-3.5 inline-flex items-center justify-center gap-2'} group`}
                     >
-                      <span>{t('startYourJourney')}</span>
+                      <span>{gateCopy.heroSecondary}</span>
                       <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => onScrollToSection('courses-grid')}
-                      className="hero-secondary-cta inline-flex items-center gap-1.5 text-sm font-medium text-[var(--hero-ink)]/80 hover:text-[var(--accent)] transition-colors bg-transparent border-0 p-0 cursor-pointer group"
-                    >
-                      <span>{t('chooseCourse')}</span>
-                      <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-                    </button>
-                    <ConversionGateWhatsAppCta
-                      placement="hero"
-                      className="hero-secondary-cta inline-flex items-center text-sm font-medium text-[var(--hero-ink)]/80 max-w-full break-words"
-                    />
+                    {whatsAppHref && gateCopy.bookBesideWa ? (
+                      <p
+                        className="text-sm text-[var(--hero-ink)]/80"
+                        data-testid="conversion-gate-book-beside"
+                      >
+                        {gateCopy.bookBesideWa}
+                      </p>
+                    ) : null}
                   </motion.div>
                 </div>
               </div>

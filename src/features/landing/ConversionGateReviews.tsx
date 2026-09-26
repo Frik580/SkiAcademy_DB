@@ -1,21 +1,22 @@
+import { isPublicStorefrontReviewVisible } from './conversionGatePrice';
+
 interface ConversionGateReviewsProps {
   heading: string;
-  emptyLabel: string;
   verifiedCount: number;
   totalLabel: string;
 }
 
 /**
  * Public gate reviews.
- * Count comes from canonical instructor rating summaries.
- * Zero reviews render text only — no stars, ratings, or testimonials.
+ * Hidden until the canonical count reaches the storefront minimum.
+ * Never renders an empty “0 reviews” state.
  */
 export function ConversionGateReviews({
   heading,
-  emptyLabel,
   verifiedCount,
   totalLabel,
 }: ConversionGateReviewsProps) {
+  if (!isPublicStorefrontReviewVisible(verifiedCount)) return null;
   return (
     <section
       className="conversion-gate-reviews px-6 md:px-10 lg:px-12 py-8 max-w-7xl mx-auto"
@@ -23,21 +24,12 @@ export function ConversionGateReviews({
       aria-label={heading}
     >
       <h2 className="ui-section-title">{heading}</h2>
-      {verifiedCount > 0 ? (
-        <p
-          className="mt-2 text-sm font-mono text-[var(--ink-dim)]"
-          data-testid="conversion-gate-reviews-count"
-        >
-          {verifiedCount} {totalLabel}
-        </p>
-      ) : (
-        <p
-          className="mt-2 text-sm text-[var(--ink-dim)]"
-          data-testid="conversion-gate-reviews-empty"
-        >
-          {emptyLabel}
-        </p>
-      )}
+      <p
+        className="mt-2 text-sm font-mono text-[var(--ink-dim)]"
+        data-testid="conversion-gate-reviews-count"
+      >
+        {verifiedCount} {totalLabel}
+      </p>
     </section>
   );
 }

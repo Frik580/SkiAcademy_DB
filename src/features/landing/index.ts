@@ -1,16 +1,19 @@
 export {
-  CONVERSION_GATE_COPY,
-  isGrowthCopyPlaceholder,
+  PUBLIC_STOREFRONT_REVIEW_MIN,
+  WHATSAPP_URL,
+  getConversionGateCopy,
   resolveWhatsAppHref,
 } from './conversionGateCopy';
-export type { ConversionGateCopyKey } from './conversionGateCopy';
+export type { ConversionGateStrings } from './conversionGateCopy';
 export {
   countVerifiedInstructorReviews,
-  formatStartingPriceLine,
-  selectStartingPrice,
+  isPublicStorefrontReviewVisible,
 } from './conversionGatePrice';
-export type { StartingPriceSource } from './conversionGatePrice';
 export { ConversionGateHeroCopy } from './ConversionGateHeroCopy';
 export { ConversionGateReviews } from './ConversionGateReviews';
-export { ConversionGateWhatsAppCta } from './ConversionGateWhatsAppCta';
+export {
+  ConversionGateBookBesideNote,
+  ConversionGateStickyWhatsApp,
+  ConversionGateWhatsAppCta,
+} from './ConversionGateWhatsAppCta';
 export type { ConversionGateWhatsAppPlacement } from './ConversionGateWhatsAppCta';

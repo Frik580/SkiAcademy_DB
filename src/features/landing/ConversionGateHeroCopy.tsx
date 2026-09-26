@@ -1,22 +1,29 @@
-import { CONVERSION_GATE_COPY } from './conversionGateCopy';
+import type { Language } from '../../lib/i18n/translations';
+import { getConversionGateCopy } from './conversionGateCopy';
 
 interface ConversionGateHeroCopyProps {
-  priceLine: string;
+  language: Language;
 }
 
-/** Persistent above-the-fold location, product, and starting price. Not slide copy. */
-export function ConversionGateHeroCopy({ priceLine }: ConversionGateHeroCopyProps) {
+/** Above-the-fold headline, subline, hourly price, and optional course chip. */
+export function ConversionGateHeroCopy({ language }: ConversionGateHeroCopyProps) {
+  const copy = getConversionGateCopy(language);
   return (
     <div className="conversion-gate" data-testid="conversion-gate">
-      <p className="conversion-gate-location" data-testid="conversion-gate-location">
-        {CONVERSION_GATE_COPY.heroLocation}
-      </p>
-      <p className="conversion-gate-product" data-testid="conversion-gate-product">
-        {CONVERSION_GATE_COPY.heroProduct}
+      <h1 className="conversion-gate-headline" data-testid="conversion-gate-headline">
+        {copy.heroHeadline}
+      </h1>
+      <p className="conversion-gate-subline" data-testid="conversion-gate-subline">
+        {copy.heroSubline}
       </p>
       <p className="conversion-gate-price" data-testid="conversion-gate-price">
-        {priceLine}
+        {copy.startingPrice}
       </p>
+      {copy.courseBadge ? (
+        <p className="conversion-gate-course" data-testid="conversion-gate-course">
+          {copy.courseBadge}
+        </p>
+      ) : null}
     </div>
   );
 }

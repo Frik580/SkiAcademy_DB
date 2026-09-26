@@ -141,80 +141,79 @@ export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
                     })}
                   </div>
                 </div>
-              ) : (
-                <p className="text-sm text-[var(--ink-dim)]" data-testid="instructor-reviews-empty">
-                  {t('instructorNoReviews')}
-                </p>
-              )}
+              ) : null}
 
-              {/* List of individual reviews */}
-              <div className="space-y-4">
-                <h4 className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider">
-                  {t('reviewFeed')}
-                </h4>
+              {totalReviews > 0 || instructorReviews.length > 0 ? (
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider">
+                    {t('reviewFeed')}
+                  </h4>
 
-                {instructorReviews.length === 0 ? (
-                  <div className="py-12 text-center border border-dashed border-[var(--border)] rounded-none bg-black/5">
-                    <MessageSquare className="w-8 h-8 text-[var(--ink-dim)] mx-auto mb-2 opacity-55" />
-                    <p className="text-xs text-[var(--ink)] font-mono">
-                      {t('noInstructorWrittenReviews')}
-                    </p>
-                    <p className="text-[10px] text-[var(--ink-dim)] font-mono mt-1 uppercase tracking-wider">
-                      {t('firstInstructorReviewPrompt')}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {instructorReviews.map((rev) => (
-                      <div
-                        key={rev.id}
-                        className="p-4 bg-black/5 border border-[var(--border)] rounded-none flex flex-col space-y-2.5 transition duration-300 hover:border-[var(--ink-dim)]"
-                      >
-                        {/* Review Header: User details, rating and date */}
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-none overflow-hidden bg-black/15 border border-[var(--border)] flex items-center justify-center shrink-0">
-                              {rev.userAvatar ? (
-                                <img
-                                  src={rev.userAvatar}
-                                  alt={rev.userName}
-                                  className="w-full h-full object-cover filter grayscale"
-                                />
-                              ) : (
-                                <User className="w-4 h-4 text-[var(--ink-dim)]" />
-                              )}
-                            </div>
-                            <div>
-                              <div className="text-xs font-bold text-[var(--ink)]">
-                                {rev.userName || 'Anonymous'}
-                              </div>
-                              <div className="flex items-center gap-0.5 text-amber-500 mt-0.5">
-                                {[1, 2, 3, 4, 5].map((star) => (
-                                  <Star
-                                    key={star}
-                                    className={`w-3 h-3 ${star <= rev.rating ? 'fill-amber-400 stroke-amber-500' : 'text-slate-200 dark:text-slate-700'}`}
-                                  />
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                          <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1 shrink-0">
-                            <Calendar className="w-3 h-3" />
-                            {rev.date}
-                          </span>
-                        </div>
-
-                        {/* Review text comment */}
-                        {rev.comment && (
-                          <p className="text-xs text-[var(--ink)] leading-relaxed pl-10">
-                            {rev.comment}
-                          </p>
-                        )}
+                  {instructorReviews.length === 0 ? (
+                    totalReviews > 0 ? (
+                      <div className="py-12 text-center border border-dashed border-[var(--border)] rounded-none bg-black/5">
+                        <MessageSquare className="w-8 h-8 text-[var(--ink-dim)] mx-auto mb-2 opacity-55" />
+                        <p className="text-xs text-[var(--ink)] font-mono">
+                          {t('noInstructorWrittenReviews')}
+                        </p>
+                        <p className="text-[10px] text-[var(--ink-dim)] font-mono mt-1 uppercase tracking-wider">
+                          {t('firstInstructorReviewPrompt')}
+                        </p>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                    ) : null
+                  ) : (
+                    <div className="space-y-3">
+                      {instructorReviews.map((rev) => (
+                        <div
+                          key={rev.id}
+                          className="p-4 bg-black/5 border border-[var(--border)] rounded-none flex flex-col space-y-2.5 transition duration-300 hover:border-[var(--ink-dim)]"
+                        >
+                          {/* Review Header: User details, rating and date */}
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-none overflow-hidden bg-black/15 border border-[var(--border)] flex items-center justify-center shrink-0">
+                                {rev.userAvatar ? (
+                                  <img
+                                    src={rev.userAvatar}
+                                    alt={rev.userName}
+                                    className="w-full h-full object-cover filter grayscale"
+                                  />
+                                ) : (
+                                  <User className="w-4 h-4 text-[var(--ink-dim)]" />
+                                )}
+                              </div>
+                              <div>
+                                <div className="text-xs font-bold text-[var(--ink)]">
+                                  {rev.userName || 'Anonymous'}
+                                </div>
+                                <div className="flex items-center gap-0.5 text-amber-500 mt-0.5">
+                                  {[1, 2, 3, 4, 5].map((star) => (
+                                    <Star
+                                      key={star}
+                                      className={`w-3 h-3 ${star <= rev.rating ? 'fill-amber-400 stroke-amber-500' : 'text-slate-200 dark:text-slate-700'}`}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                            <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1 shrink-0">
+                              <Calendar className="w-3 h-3" />
+                              {rev.date}
+                            </span>
+                          </div>
+
+                          {/* Review text comment */}
+                          {rev.comment && (
+                            <p className="text-xs text-[var(--ink)] leading-relaxed pl-10">
+                              {rev.comment}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : null}
             </div>
 
             {/* Footer */}

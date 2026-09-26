@@ -39,7 +39,7 @@ const slide = (): CustomHeroSlide => ({
 });
 
 describe('HeroCarousel conversion gate', () => {
-  it('shows location, product, price, and an inert WhatsApp control above the fold', () => {
+  it('shows the landed Russian hero copy and hides WhatsApp until a URL exists', () => {
     render(
       <HeroCarousel
         data={{
@@ -47,23 +47,22 @@ describe('HeroCarousel conversion gate', () => {
           configReady: true,
           language: 'ru',
           theme: 'light',
-          startingPriceLine: '[[GROWTH_COPY: starting_price_prefix]] 18 000 ₸ / ч',
         }}
         actions={{ onScrollToSection: vi.fn() }}
       />
     );
 
-    expect(screen.getByTestId('conversion-gate-location')).toHaveTextContent(
-      '[[GROWTH_COPY: hero_location]]'
+    expect(screen.getByTestId('conversion-gate-headline')).toHaveTextContent(
+      'Индивидуальные уроки на Шымбулаке'
     );
-    expect(screen.getByTestId('conversion-gate-product')).toHaveTextContent(
-      '[[GROWTH_COPY: hero_product]]'
+    expect(screen.getByTestId('conversion-gate-subline')).toHaveTextContent(
+      'Лыжи и сноуборд · техника, прогресс и видеоразбор · Алматы'
     );
-    expect(screen.getByTestId('conversion-gate-price')).toHaveTextContent('18 000 ₸');
-    const whatsapp = screen.getByTestId('conversion-gate-whatsapp-hero');
-    expect(whatsapp).toHaveAttribute('aria-disabled', 'true');
-    expect(whatsapp.tagName).not.toBe('A');
-    expect(whatsapp.closest('.hero-actions')).not.toBeNull();
-    expect(whatsapp.className).not.toMatch(/fixed|sticky/);
+    expect(screen.getByTestId('conversion-gate-price')).toHaveTextContent('от 25 000 ₸/час');
+    expect(screen.getByTestId('conversion-gate-course')).toHaveTextContent('курсы от 250 000 ₸');
+    expect(screen.getByTestId('conversion-gate-hero-secondary')).toHaveTextContent('Выбрать урок');
+    expect(screen.queryByTestId('conversion-gate-whatsapp-hero')).toBeNull();
+    expect(screen.queryByText(/от 30 000/)).toBeNull();
+    expect(screen.queryByText(/Отзывов пока нет|0 отзывов|No reviews yet/i)).toBeNull();
   });
 });

@@ -1,6 +1,7 @@
 import React from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Users, Star, Heart } from 'lucide-react';
+import { Users, Star } from 'lucide-react';
+import { isPublicStorefrontReviewVisible } from '../../landing';
 import { Course, Instructor, UserProfile } from '../../../types';
 import { useLanguage, translateInstructorName } from '../../../app/providers/LanguageContext';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';
@@ -142,16 +143,13 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                                 <span className="text-[9px] font-mono text-sky-500 bg-sky-500/10 dark:bg-sky-500/20 px-1.5 py-0.5 font-bold">
                                   {ins.experienceYears} {t('courseYearsExperienceShort')}
                                 </span>
-                                {ins.rating !== null && ins.reviewsCount > 0 ? (
+                                {ins.rating !== null &&
+                                isPublicStorefrontReviewVisible(ins.reviewsCount) ? (
                                   <span className="flex items-center gap-0.5 text-[9px] font-mono text-amber-500 font-bold">
                                     <Star className="w-2.5 h-2.5 fill-amber-500 text-transparent" />
                                     {ins.rating.toFixed(1)}
                                   </span>
-                                ) : (
-                                  <span className="text-[9px] font-mono text-[var(--ink-dim)]">
-                                    {t('instructorNoReviews')}
-                                  </span>
-                                )}
+                                ) : null}
                               </div>
                             </div>
                           </div>
@@ -160,18 +158,6 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                     </div>
                   </section>
                 )}
-
-                <section className="space-y-4">
-                  <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2">
-                    <Heart className="w-4 h-4 text-pink-500" />
-                    <h3 className="text-xs font-mono uppercase tracking-widest text-[var(--ink)] font-bold">
-                      {t('courseStudentReviews')}
-                    </h3>
-                  </div>
-                  <p className="text-sm text-[var(--ink-dim)]" data-testid="course-reviews-empty">
-                    {t('instructorNoReviews')}
-                  </p>
-                </section>
 
                 <CourseFAQ faq={faq} />
               </div>

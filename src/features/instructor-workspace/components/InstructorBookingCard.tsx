@@ -82,10 +82,14 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
           ? t('instructorAttendanceAbsent')
           : t('instructorAttendanceMissing');
     const canAssessInLesson = isLessonContextProgressAssessmentEnabled(b, nowMs);
-    const assessDisabledTitle =
-      !canAssessInLesson
-        ? t('instructorAssessAfterLessonStart')
-        : undefined;
+    const canOpenProgress = participant.attendanceStatus === 'present';
+    const assessDisabledTitle = !canAssessInLesson
+      ? t('instructorAssessAfterLessonStart')
+      : undefined;
+    const progressDisabledTitle =
+      participant.attendanceStatus === 'absent'
+        ? t('instructorProgressAbsent')
+        : t('instructorProgressMarkPresent');
     const record = (attendanceStatus: 'present' | 'absent') => {
       collaboration.handleRecordLessonAttendance({
         bookingId: b.id,
@@ -174,8 +178,8 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
           )}
           <StudentAssessButton
             t={t}
-            disabled={!canAssessInLesson}
-            title={assessDisabledTitle}
+            disabled={!canOpenProgress}
+            title={canOpenProgress ? undefined : progressDisabledTitle}
             ariaLabel={`${studentName}: ${t('instructorAssess')}`}
             onClick={() =>
               onOpenEval(

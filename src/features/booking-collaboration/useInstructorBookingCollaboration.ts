@@ -160,7 +160,7 @@ export function useInstructorBookingCollaboration(input: {
           attempt.expectedAttendanceRevision === undefined
             ? input.t('instructorAttendanceRecorded')
             : input.t('instructorAttendanceUpdated'),
-          input.t('scheduleUpdatedDesc')
+          input.t('instructorAttendanceSavedDesc')
         );
       } catch (error) {
         await handleCommandError(error);

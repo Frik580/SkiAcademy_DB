@@ -372,6 +372,16 @@ Guest email, phone, and display name may be diagnostic evidence. They are not id
 
 A disabled Account and an archived or otherwise ineligible Participant cannot be used as new linking targets.
 
+## Guest contact authority
+
+`Participant` remains the canonical identity of the attendee. `GuestContact` stores application-scoped contact details; phone and email are not Account/User or Participant identity authority. The same `GuestContact` contract is used for guest Lesson Bookings and guest CourseEnrollments.
+
+The canonical record is `/guest_contacts/{contactId}`. Its `subject` is either `{ kind: 'booking', bookingId }` or `{ kind: 'course_enrollment', enrollmentId }`. The document ID is derived from that subject: `booking_${bookingId}` or `course_enrollment_${enrollmentId}`. The record contains a required non-empty `phone` and an optional validated `email`. Guest `displayName` remains on the Participant; it is not a second contact source of truth.
+
+Guest creation persists its GuestContact in the same canonical transaction as the corresponding Booking or CourseEnrollment. Replaying the same idempotent creation returns the stored command result and does not create another application or GuestContact. Contact persistence does not determine payment or confirmation; the lifecycle and fully-funded Payment rules above remain authoritative.
+
+GuestContact is protected server/admin data. Firestore Rules deny direct client reads and writes. Public and Instructor read models do not project phone or email. Authorized administrative read models may include `guestContact` details. Older guest applications without a GuestContact are valid legacy records; administrative projections omit contact details when the record is absent. No historical backfill is implied.
+
 ## Unpaid cancellation and rejection
 
 Established policy only:

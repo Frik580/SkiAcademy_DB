@@ -129,6 +129,7 @@ Minimum dependent Participant data is name, birth date or age, skill level, ski/
 | Course Enrollment lifecycle            | `CourseEnrollment.status`                                                    | UI labels, timestamps, notifications, Activity Logs                                                    |
 | Booking origin                         | Immutable `bookingOrigin`                                                    | Guest identifiers and linking state must not be used to infer it                                       |
 | Ownership and participation            | `bookedBy`, Participant references, optional `payerAccountId`                | Display names and contact snapshots                                                                    |
+| Guest contact                          | `/guest_contacts/{contactId}`; `subject` references one guest Booking or CourseEnrollment | Canonical phone/email; authorized admin read-model projection; not Account/User or Participant identity |
 | Course participation                   | Explicit Course Enrollment with `courseId` and `participantId`               | Synthetic `instructorId: course_{courseId}` is retired leftover; T41 closed leftover `booking_course_` authorization |
 | Current financial state and price      | Payment State and Payment numeric fields                                     | Booking/Enrollment pricing basis and read models do not replace Payment authority                      |
 | Canonical financial history            | Append-only `monetary_events`                                                | Activity Logs may reference events but are not a financial ledger                                      |
@@ -147,6 +148,12 @@ Minimum dependent Participant data is name, birth date or age, skill level, ski/
 | Mutual blocking                        | Independent active Participant Block records                                 | UI suppression is not enforcement                                                                      |
 | Immutable command/action audit history | Activity Logs                                                                | Written in the authoritative transaction; never determine current business state                       |
 | Asynchronous delivery obligations      | Domain Outbox                                                                | Delivery may lag or retry independently; outbox state is not audit or domain state                     |
+
+### Guest contact authority and access
+
+`Participant` is attendee identity. Guest Lesson Bookings and guest CourseEnrollments use the same `GuestContact` contract for application contact data. `subject` is `{ kind: 'booking', bookingId }` or `{ kind: 'course_enrollment', enrollmentId }`, with document IDs `booking_${bookingId}` or `course_enrollment_${enrollmentId}` under `/guest_contacts/`. The record has required `phone` and optional `email`; guest `displayName` remains on the Participant. Phone and email are not Account/User or Participant identity authority.
+
+GuestContact is persisted atomically with its guest application. Replaying the same idempotent creation does not create another application or contact, and contact persistence is not payment or confirmation authority. Direct client reads and writes are denied. Public and Instructor read models omit phone/email; authorized administrative read models may expose them. A legacy application may have no GuestContact, in which case the administrative projection omits the contact details.
 
 ### Instructor access to Participant progress
 

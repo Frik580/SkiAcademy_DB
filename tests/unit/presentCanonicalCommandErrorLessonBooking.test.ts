@@ -29,6 +29,17 @@ describe('presentCanonicalCommandError (lesson-bookings)', () => {
     expect(presented.message).toBe('translated:insufficientFunds');
   });
 
+  it('presents a localized guest reservation limit without internal key details', () => {
+    const presented = presentCanonicalCommandErrorWithContext(
+      new CanonicalCommandClientError('guest_reservation_limit', {
+        correlationId: 'correlation_guest_limit',
+      }),
+      { t: (key: string) => `translated:${key}` }
+    );
+    expect(presented.message).toBe('translated:guestReservationLimit');
+    expect(presented.shouldRefresh).toBe(false);
+  });
+
   it('marks schedule conflicts as shouldRefresh for availability refetch', () => {
     const presented = presentCanonicalCommandError(
       new CanonicalCommandClientError('instructor_conflict', {

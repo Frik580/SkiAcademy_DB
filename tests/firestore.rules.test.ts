@@ -123,6 +123,23 @@ describe('protected guest contact evidence', () => {
   });
 });
 
+describe('guest reservation admission guards', () => {
+  it('denies direct reads and writes for every client role', async () => {
+    for (const context of [
+      testEnv.unauthenticatedContext(),
+      testEnv.authenticatedContext(USER_ID),
+      testEnv.authenticatedContext(INSTRUCTOR_USER_ID),
+      testEnv.authenticatedContext(ADMIN_ID),
+    ]) {
+      const db = context.firestore();
+      const guard = doc(db, 'guest_reservation_admission', 'lesson_actor');
+      await assertFails(getDoc(guard));
+      await assertFails(getDocs(collection(db, 'guest_reservation_admission')));
+      await assertFails(setDoc(guard, { reservationPaths: [] }));
+    }
+  });
+});
+
 describe('canonical instructor reviews', () => {
   it('denies every client mutation of legacy and canonical review authority', async () => {
     const userDb = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();

@@ -55,6 +55,12 @@ import {
   executeAuthoritativeIdempotentCanonicalCommand,
   type AuthoritativeIdempotentCanonicalCommandHandler,
 } from '../commands/idempotentCommandExecution';
+import {
+  commitGuestReservationAdmission,
+  readAndPlanGuestReservationAdmission,
+  type GuestReservationAdmissionPlan,
+  type GuestReservationAdmissionPolicy,
+} from '../commands/guestReservationAdmission';
 import { mapFinanceDomainError } from '../finance/financeAuthorization';
 import { guestContactDetailsFromCommand, guestContactPath } from '../guestContact/guestContactStore';
 import {
@@ -325,7 +331,9 @@ function assertNoBlocksForCourseDays(
 
 function createCourseEnrollmentsHandler(
   envelope: CommandEnvelope<'create_course_enrollments'>,
-  environment: GuestCourseEnrollmentCommandEnvironment,
+  environment: GuestCourseEnrollmentCommandEnvironment & {
+    readonly guestReservationAdmission?: GuestReservationAdmissionPolicy;
+  },
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
 ): Promise<CommandResult<'create_course_enrollments'>> {
   const metadata = metadataFromEnvelope(envelope, environment);
@@ -372,10 +380,12 @@ function createCourseEnrollmentsHandler(
   let stagedEventIds: ReturnType<typeof monetaryEventIdFromCourseEnrollmentInitialCharge>[] = [];
   let underfunded = false;
   let equivalentReplayOnly = false;
+  let admissionPlan: GuestReservationAdmissionPlan | undefined;
   const guestLinkCredentials: GuestCourseEnrollmentLinkCredential[] = [];
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'create_course_enrollments'> = {
     read: async (session) => {
+      admissionPlan = undefined;
       const now = timestampFromDate(environment.clock.now());
       const courseRead = await session.tx.get({ path: courseDocumentPath });
       session.plan.planRead({ path: courseDocumentPath, category: 'aggregate' });
@@ -717,6 +727,19 @@ function createCourseEnrollmentsHandler(
 
       const newPlanned = nextPlanned.filter((planned) => !planned.alreadyApplied);
       equivalentReplayOnly = newPlanned.length === 0;
+      if (mode === 'guest' && !equivalentReplayOnly && environment.guestReservationAdmission) {
+        admissionPlan = await readAndPlanGuestReservationAdmission(session, {
+          kind: 'course',
+          policy: environment.guestReservationAdmission,
+          reservationPath: courseEnrollmentPath(newPlanned[0]!.enrollmentId),
+          reservationExpiresAt: resolveGuestCourseReservationExpiresAt({
+            createdAt: timestampFromDate(environment.clock.decidedAt()),
+            courseStartsAt: courseRecord.startAt,
+          }),
+          now: environment.clock.now(),
+          correlationId: envelope.context.correlationId,
+        });
+      }
       const newSeatCount = newPlanned.length;
       if (courseRecord.capacity.availableSeats < newSeatCount) {
         throw new CanonicalCommandError('unavailable', {
@@ -926,6 +949,7 @@ function createCourseEnrollmentsHandler(
       }),
     execute: async (session, context) => {
       try {
+        if (admissionPlan) commitGuestReservationAdmission(session, admissionPlan);
         const decidedAt = timestampFromDate(context.decidedAt);
         const audit = revisionAuditLink(envelope, metadata);
         const newEnrollments = plannedEnrollments.filter((planned) => !planned.alreadyApplied);
@@ -1224,13 +1248,17 @@ function createCourseEnrollmentsHandler(
 
 export function createCourseEnrollmentCommandHandlers(
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor'],
-  guestActionTokenSecret?: string
+  guestActionTokenSecret?: string,
+  guestReservationAdmission?: GuestReservationAdmissionPolicy
 ): Pick<CommandHandlerMap, 'create_course_enrollments'> {
   const environmentBase = (
     environment: CommandExecutionEnvironment
-  ): GuestCourseEnrollmentCommandEnvironment => ({
+  ): GuestCourseEnrollmentCommandEnvironment & {
+    readonly guestReservationAdmission?: GuestReservationAdmissionPolicy;
+  } => ({
     ...environment,
     guestActionTokenSecret,
+    guestReservationAdmission,
   });
 
   return {

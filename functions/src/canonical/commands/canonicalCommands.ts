@@ -50,6 +50,7 @@ import {
 } from '../courses';
 import type { GuestBookingCommandEnvironment } from '../bookings/guestBookingCommands';
 import type { GuestCourseEnrollmentCommandEnvironment } from '../courses/guestCourseEnrollmentLifecycle';
+import type { GuestReservationAdmissionPolicy } from './guestReservationAdmission';
 import { createLessonPricingSettingsCommandHandlers } from '../pricing/lessonPricingSettingsCommands';
 import { createInstructorReviewCommandHandlers } from '../reviews/instructorReviewCommands';
 import { createParticipantProgressCommandHandlers } from '../progress/participantProgressCommands';
@@ -190,6 +191,7 @@ export function createProductionCanonicalCommands(
   executor: CanonicalTransactionExecutor,
   options: {
     readonly guestActionTokenSecret?: string;
+    readonly guestReservationAdmission?: GuestReservationAdmissionPolicy;
     readonly monetaryEventLoader?: MonetaryEventLoader;
   } = {}
 ): CanonicalCommands {
@@ -217,7 +219,11 @@ export function createProductionCanonicalCommands(
     ...createLessonPricingSettingsCommandHandlers(executor),
     ...createBookingCommandHandlers(executor),
     ...createBookingRescheduleCommandHandlers(executor),
-    ...createGuestBookingCommandHandlers(executor, options.guestActionTokenSecret),
+    ...createGuestBookingCommandHandlers(
+      executor,
+      options.guestActionTokenSecret,
+      options.guestReservationAdmission
+    ),
     ...createAdminGuestBookingLinkCommandHandlers(executor),
     ...createBookingCancellationCommandHandlers(executor, guestEnvironmentFactory),
     ...createBookingPartyCommandHandlers(executor),
@@ -231,7 +237,11 @@ export function createProductionCanonicalCommands(
     ...createCourseDayCommandHandlers(executor),
     ...createCourseProvisioningCommandHandlers(executor),
     ...createCourseAdministrationCommandHandlers(executor),
-    ...createCourseEnrollmentCommandHandlers(executor, options.guestActionTokenSecret),
+    ...createCourseEnrollmentCommandHandlers(
+      executor,
+      options.guestActionTokenSecret,
+      options.guestReservationAdmission
+    ),
     ...createCourseEnrollmentLifecycleCommandHandlers(
       executor,
       guestCourseEnrollmentEnvironmentFactory

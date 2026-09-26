@@ -23,6 +23,10 @@ import {
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
+import {
+  GUEST_RESERVATION_ACTIVE_LIMITS,
+  type GuestReservationAdmissionPolicy,
+} from '../commands/guestReservationAdmission';
 import { sweepGuestConfirmationLifecycleMismatches } from '../guestConfirmation/guestConfirmationReconciliationSweep';
 
 const PROJECT_ID = 'ski-academy-guest-emulator-test';
@@ -57,6 +61,7 @@ const COLLECTIONS_TO_CLEAR = [
   'admin_issues',
   'domain_outbox',
   'command_idempotency',
+  'guest_reservation_admission',
   'users',
   'participant_management',
   'participant_management_active_owner',
@@ -165,12 +170,12 @@ async function seedFixture(): Promise<void> {
     });
 }
 
-function createCommands(at: string) {
+function createCommands(at: string, guestReservationAdmission?: GuestReservationAdmissionPolicy) {
   const executor = createFirestoreCanonicalTransactionExecutor(firestore);
   return createProductionCanonicalCommands(
     { clock: createAuthoritativeCommandClock(new Date(at)) },
     executor,
-    { guestActionTokenSecret: tokenSecret }
+    { guestActionTokenSecret: tokenSecret, guestReservationAdmission }
   );
 }
 
@@ -190,6 +195,109 @@ describe.skipIf(!runsOnFirestoreEmulator)('guest booking commands (firestore emu
   beforeEach(async () => {
     await clearCollections([...COLLECTIONS_TO_CLEAR]);
     await seedFixture();
+  }, 30_000);
+
+  it('admits three active lesson holds per network source and rejects the fourth', async () => {
+    const commands = createCommands('2026-01-01T10:00:00.000Z', {
+      actorKey: 'actor_production_limit',
+      ...GUEST_RESERVATION_ACTIVE_LIMITS,
+    });
+    for (const [index, localTime] of ['09:00', '11:00', '13:00'].entries()) {
+      const result = await commands.execute(
+        guestCreateEnvelope({
+          bookingId: `booking_guest_production_limit_${index}`,
+          idempotencyKey: `guest-production-limit-${index}`,
+          localTime,
+        })
+      );
+      expect(result.status).toBe('success');
+    }
+    const excess = await commands.execute(
+      guestCreateEnvelope({
+        bookingId: 'booking_guest_production_limit_3',
+        idempotencyKey: 'guest-production-limit-3',
+        localTime: '15:00',
+      })
+    );
+    expect(excess.status === 'error' && excess.error.code).toBe('guest_reservation_limit');
+    expect((await firestore.collection('bookings').get()).size).toBe(3);
+  }, 30_000);
+
+  it('limits active lesson holds, preserves replay, and frees terminal holds', async () => {
+    const policy = { actorKey: 'actor_a', maxActiveLesson: 1, maxActiveCourse: 1 };
+    const commands = createCommands('2026-01-01T10:00:00.000Z', policy);
+    const firstEnvelope = guestCreateEnvelope({
+      bookingId: 'booking_guest_limit_1',
+      idempotencyKey: 'guest-limit-1',
+      localTime: '09:00',
+    });
+    const first = await commands.execute(firstEnvelope);
+    expect(first.status).toBe('success');
+    expect(await commands.execute(firstEnvelope)).toEqual(first);
+
+    const secondEnvelope = guestCreateEnvelope({
+      bookingId: 'booking_guest_limit_2',
+      idempotencyKey: 'guest-limit-2',
+      localTime: '11:00',
+    });
+    const excess = await commands.execute(secondEnvelope);
+    expect(excess.status === 'error' && excess.error.code).toBe('guest_reservation_limit');
+    expect((await firestore.collection('bookings').get()).size).toBe(1);
+
+    const otherActor = createCommands('2026-01-01T10:00:00.000Z', {
+      ...policy,
+      actorKey: 'actor_b',
+    });
+    expect((await otherActor.execute(secondEnvelope)).status).toBe('success');
+
+    await firestore.doc('bookings/booking_guest_limit_1').update({
+      lifecycle: { status: 'cancelled', cancelledAt: decidedAt, reasonCode: 'guest_cancelled' },
+    });
+    const third = await commands.execute(
+      guestCreateEnvelope({
+        bookingId: 'booking_guest_limit_3',
+        idempotencyKey: 'guest-limit-3',
+        localTime: '13:00',
+      })
+    );
+    expect(third.status).toBe('success');
+    const guard = await firestore.doc('guest_reservation_admission/lesson_actor_a').get();
+    expect(guard.data()?.reservationPaths).toEqual(['bookings/booking_guest_limit_3']);
+
+    const afterExpiry = await createCommands('2026-01-01T11:01:00.000Z', policy).execute(
+      guestCreateEnvelope({
+        bookingId: 'booking_guest_limit_4',
+        idempotencyKey: 'guest-limit-4',
+        localTime: '15:00',
+      })
+    );
+    expect(afterExpiry.status).toBe('success');
+  }, 30_000);
+
+  it('serializes simultaneous lesson admissions at the quota boundary', async () => {
+    const commands = createCommands('2026-01-01T10:00:00.000Z', {
+      actorKey: 'actor_race',
+      maxActiveLesson: 1,
+      maxActiveCourse: 1,
+    });
+    const attempts = await Promise.all([
+      commands.execute(
+        guestCreateEnvelope({
+          bookingId: 'booking_guest_limit_race_1',
+          idempotencyKey: 'guest-limit-race-1',
+          localTime: '09:00',
+        })
+      ),
+      commands.execute(
+        guestCreateEnvelope({
+          bookingId: 'booking_guest_limit_race_2',
+          idempotencyKey: 'guest-limit-race-2',
+          localTime: '11:00',
+        })
+      ),
+    ]);
+    expect(attempts.filter((result) => result.status === 'success')).toHaveLength(1);
+    expect((await firestore.collection('bookings').get()).size).toBe(1);
   }, 30_000);
 
   it('serializes overlapping guest instructor requests so exactly one wins', async () => {

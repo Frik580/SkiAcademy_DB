@@ -26,6 +26,7 @@ const SCOPE_STAMPED_COLLECTIONS = new Set([
   'resource_claims',
   'resource_claim_guards',
   'active_course_enrollment_guards',
+  'guest_reservation_admission',
   'command_idempotency',
   'domain_outbox',
   'activity_logs',

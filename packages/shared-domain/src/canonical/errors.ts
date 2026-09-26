@@ -13,6 +13,7 @@ export const COMMAND_ERROR_CODES = [
   'instructor_conflict',
   'course_full',
   'duplicate_active_enrollment',
+  'guest_reservation_limit',
   'stale_version',
   'concurrent_modification',
   'invalid_transition',
@@ -47,6 +48,10 @@ export const COMMAND_ERROR_POLICY = {
   course_full: { message: 'The Course has no available seats.', retryable: false },
   duplicate_active_enrollment: {
     message: 'An active Enrollment already exists.',
+    retryable: false,
+  },
+  guest_reservation_limit: {
+    message: 'Too many active reservations. Please complete or wait for your current reservations to expire before trying again.',
     retryable: false,
   },
   stale_version: {

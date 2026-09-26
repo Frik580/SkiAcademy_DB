@@ -60,6 +60,8 @@ export function presentCanonicalCommandErrorWithContext(
       return { ...presented, message: context.t('instructorNotAccepting') };
     case 'duplicate_active_enrollment':
       return { ...presented, message: context.t('alreadyEnrolledDesc') };
+    case 'guest_reservation_limit':
+      return { ...presented, message: context.t('guestReservationLimit') };
     default:
       return presented;
   }

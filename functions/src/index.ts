@@ -6,6 +6,7 @@ import { getAdminFirestore } from './adminFirestore';
 import { purgeExpiredNotifications } from './purgeExpiredNotifications';
 import { createExecuteCanonicalCommandHandler } from './canonical/commands/executeCanonicalCommandCallable';
 import { createExecuteGuestCanonicalCommandHandler } from './canonical/commands/executeGuestCanonicalCommandCallable';
+import { GUEST_RESERVATION_ACTIVE_LIMITS } from './canonical/commands/guestReservationAdmission';
 import { createQueryLessonBookingReadModelsHandler } from './canonical/readModels/queryLessonBookingReadModelsCallable';
 import { createQueryManagedParticipantPickerReadModelsHandler } from './canonical/readModels/queryManagedParticipantPickerReadModelsCallable';
 import { createQueryBookingProposalReadModelsHandler } from './canonical/readModels/queryBookingProposalReadModelsCallable';
@@ -56,7 +57,9 @@ export const executeCanonicalCommand = onCall(GUEST_SECRET_CALLABLE_OPTIONS, asy
 );
 
 export const executeGuestCanonicalCommand = onCall(GUEST_SECRET_CALLABLE_OPTIONS, async (request) =>
-  createExecuteGuestCanonicalCommandHandler(getAdminFirestore())(request)
+  createExecuteGuestCanonicalCommandHandler(getAdminFirestore(), GUEST_RESERVATION_ACTIVE_LIMITS)(
+    request
+  )
 );
 
 export const queryLessonBookingReadModels = onCall(GUEST_SECRET_CALLABLE_OPTIONS, async (request) =>

@@ -62,6 +62,8 @@ export function mapCanonicalErrorMessage(code: CommandErrorCode): string {
       return 'The request has expired.';
     case 'unavailable':
       return 'The requested option is unavailable.';
+    case 'guest_reservation_limit':
+      return 'Too many active reservations. Please complete or wait for your current reservations to expire before trying again.';
     case 'duplicate_active_enrollment':
       return 'An active Enrollment already exists.';
     case 'internal':

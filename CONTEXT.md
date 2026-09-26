@@ -197,6 +197,8 @@ An Account Owner may create a confirmed Booking or Course Enrollment with `booki
 
 A guest request with `bookingOrigin = guest` is the only normal source of `pending`. It may be created up to `startAt` and temporarily reserves the resource until `min(createdAt + TTL, startAt)`: at most one hour for a lesson and 24 hours for a Course Enrollment.
 
+Public guest creation has independent per-network-source admission limits: 3 active pending, unexpired Lesson Bookings and 2 active pending, unexpired Course Enrollments. The guard is server-only, stores an HMAC actor key rather than raw IP, and never uses phone/email as its abuse key. Idempotent replay consumes no additional quota; terminal or expired reservations do not count. The limits apply only to public guest creation, not Administrator or authenticated student flows, schedulers, reconciliation, payment, or confirmation. See [ADR-0007](docs/adr/0007-guest-identity-payment-and-confirmation.md).
+
 The authoritative guest invariant, detailed in [ADR-0007](docs/adr/0007-guest-identity-payment-and-confirmation.md), is:
 
 ```text

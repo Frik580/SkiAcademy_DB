@@ -20,6 +20,7 @@ const COMMAND_ERROR_TO_HTTPS: Record<
   instructor_conflict: 'aborted',
   course_full: 'failed-precondition',
   duplicate_active_enrollment: 'failed-precondition',
+  guest_reservation_limit: 'resource-exhausted',
   stale_version: 'failed-precondition',
   concurrent_modification: 'aborted',
   invalid_transition: 'failed-precondition',

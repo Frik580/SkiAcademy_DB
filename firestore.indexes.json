@@ -380,6 +380,12 @@
   ],
   "fieldOverrides": [
     {
+      "collectionGroup": "guest_reservation_admission",
+      "fieldPath": "deleteAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
       "collectionGroup": "days",
       "fieldPath": "actualInstructorIds",
       "indexes": [{ "arrayConfig": "CONTAINS", "queryScope": "COLLECTION_GROUP" }]

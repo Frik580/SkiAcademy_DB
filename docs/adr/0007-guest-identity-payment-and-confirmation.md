@@ -212,6 +212,14 @@ Confirmation does not:
 
 Capacity was already consumed during guest enrollment creation. Before `course.startAt`, `pending` already occupies one seat; confirmation does not occupy a second seat.
 
+## Public guest reservation admission
+
+The public `executeGuestCanonicalCommand` applies independent per-network-source limits when creating guest reservations: at most **3 active Lesson Bookings** and **2 active Course Enrollments**. An active reservation is guest-origin, `pending`, and before `reservationExpiresAt`. Terminal and expired reservations are removed from the count on the next admission attempt. The same idempotent command replay returns its existing result without consuming another place. Admission and reservation creation occur in the same canonical transaction, including at the concurrency boundary.
+
+The server derives an HMAC actor key from the trusted forwarded network address and stores only that key in a server-only Firestore guard; it does not store a raw IP or use phone/email as the abuse key. Lesson and Course guard documents are separate and have TTL cleanup. This policy applies only to public guest creation; Administrator creation, authenticated student booking, schedulers, reconciliation, payment, and confirmation commands do not use the guard. The canonical Booking and CourseEnrollment remain the lifecycle authorities.
+
+Staging verification of this deployed Firebase `https.onCall` path observed exactly one `X-Forwarded-For` address supplied through Cloud Functions ingress. The admission guard accepts that one valid IPv4 or IPv6 address as its network source and HMACs it. This rule is specific to the verified callable ingress and its callable request verification; it is not a general XFF parsing rule. Missing or malformed evidence, any multi-entry XFF chain, and missing HMAC material fail closed with safe diagnostic reason codes. A change in ingress or proxy topology requires a new trust review before admission can accept it. The guard never falls back to `rawRequest.ip`, `socket.remoteAddress`, or `Forwarded`. The observed one-entry shape alone does not prove that a caller cannot supply its value; staging must verify XFF header provenance before relying on this limit as a spoof-resistant abuse control.
+
 ## Guest CourseEnrollment reservation expiry (T32.9A.9A.F5)
 
 Guest CourseEnrollment reservation expiry reuses the same **reservation deadline vs confirmation authority** distinction as guest Lesson Booking expiry (F2). This section documents CourseEnrollment-specific policy only; it does not rewrite Lesson Booking semantics.

@@ -49,6 +49,12 @@ import {
   executeAuthoritativeIdempotentCanonicalCommand,
   type AuthoritativeIdempotentCanonicalCommandHandler,
 } from '../commands/idempotentCommandExecution';
+import {
+  commitGuestReservationAdmission,
+  readAndPlanGuestReservationAdmission,
+  type GuestReservationAdmissionPlan,
+  type GuestReservationAdmissionPolicy,
+} from '../commands/guestReservationAdmission';
 import { expireGuestCourseEnrollmentReservation } from '../courses/guestCourseEnrollmentLifecycle';
 import { guestContactDetailsFromCommand, guestContactPath } from '../guestContact/guestContactStore';
 import {
@@ -121,6 +127,7 @@ import {
 
 export interface GuestBookingCommandEnvironment extends CommandExecutionEnvironment {
   readonly guestActionTokenSecret?: string;
+  readonly guestReservationAdmission?: GuestReservationAdmissionPolicy;
 }
 
 interface CommandMetadata {
@@ -177,6 +184,7 @@ function createGuestBookingRequestHandler(
   let schedule!: ReturnType<typeof resolveBookingScheduleFromCalendarInput>;
   let servicePrice!: KztMinorUnits;
   let reservationExpiresAt!: ReturnType<typeof resolveGuestLessonReservationExpiresAt>;
+  let admissionPlan: GuestReservationAdmissionPlan | undefined;
   let instructorClaimPlan!: Awaited<ReturnType<typeof readAndPlanAcquireResourceClaim>>;
   let participantClaimPlan!: Awaited<ReturnType<typeof readAndPlanAcquireResourceClaim>>;
   let shouldCreateGuestParticipant = false;
@@ -187,6 +195,7 @@ function createGuestBookingRequestHandler(
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'create_guest_booking_request'> = {
     read: async (session) => {
+      admissionPlan = undefined;
       if (!environment.guestActionTokenSecret) {
         throw new CanonicalCommandError('unavailable', {
           correlationId: envelope.context.correlationId,
@@ -292,6 +301,17 @@ function createGuestBookingRequestHandler(
         serviceStartsAt: schedule.interval.startsAt,
       });
 
+      if (environment.guestReservationAdmission) {
+        admissionPlan = await readAndPlanGuestReservationAdmission(session, {
+          kind: 'lesson',
+          policy: environment.guestReservationAdmission,
+          reservationPath: bookingDocumentPath,
+          reservationExpiresAt,
+          now: environment.clock.now(),
+          correlationId: envelope.context.correlationId,
+        });
+      }
+
       const claimMetadata = {
         correlationId: metadata.correlationId,
         commandId: metadata.commandId,
@@ -357,6 +377,7 @@ function createGuestBookingRequestHandler(
       }),
     execute: async (session, context) => {
       const decidedAt = timestampFromDate(context.decidedAt);
+      if (admissionPlan) commitGuestReservationAdmission(session, admissionPlan);
       const audit = revisionAuditLink(envelope, metadata);
       const partyParticipantIds = [participantId];
 
@@ -1063,7 +1084,8 @@ function linkGuestBookingToAccountHandler(
 
 export function createGuestBookingCommandHandlers(
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor'],
-  guestActionTokenSecret?: string
+  guestActionTokenSecret?: string,
+  guestReservationAdmission?: GuestReservationAdmissionPolicy
 ): Pick<
   CommandHandlerMap,
   | 'create_guest_booking_request'
@@ -1076,6 +1098,7 @@ export function createGuestBookingCommandHandlers(
   ): GuestBookingCommandEnvironment => ({
     ...environment,
     guestActionTokenSecret,
+    guestReservationAdmission,
   });
 
   return {

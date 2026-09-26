@@ -23,6 +23,10 @@ import {
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
+import {
+  GUEST_RESERVATION_ACTIVE_LIMITS,
+  type GuestReservationAdmissionPolicy,
+} from '../commands/guestReservationAdmission';
 import { deriveGuestSubjectIdForIntent } from '../commands/guestCallableTransportAdapter';
 import { verifyGuestCourseEnrollmentActionCredentialPartsAuthoritative } from '../bookings/guestCredentialVerification';
 import { queryCourseEnrollmentReadModels } from '../readModels/courseEnrollmentReadModels';
@@ -55,11 +59,14 @@ function environment(at = '2026-01-01T00:00:00.000Z') {
   return { clock: createAuthoritativeCommandClock(new Date(at)), guestActionTokenSecret };
 }
 
-function createCommands(at = '2026-01-01T00:00:00.000Z') {
+function createCommands(
+  at = '2026-01-01T00:00:00.000Z',
+  guestReservationAdmission?: GuestReservationAdmissionPolicy
+) {
   return createProductionCanonicalCommands(
     environment(at),
     createFirestoreCanonicalTransactionExecutor(firestore),
-    { guestActionTokenSecret }
+    { guestActionTokenSecret, guestReservationAdmission }
   );
 }
 
@@ -255,6 +262,7 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
       'resource_claim_guards',
       'active_course_enrollment_guards',
       'command_idempotency',
+      'guest_reservation_admission',
     ];
     for (const collection of collections) {
       const snapshot = await firestore.collection(collection).get();
@@ -264,6 +272,114 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
     }
     await seedCourse();
   });
+
+  it('admits two active course holds per network source and rejects the third', async () => {
+    const commands = createCommands('2026-01-01T00:00:00.000Z', {
+      actorKey: 'actor_production_limit',
+      ...GUEST_RESERVATION_ACTIVE_LIMITS,
+    });
+    for (const index of [0, 1]) {
+      const result = await commands.execute(
+        guestEnrollmentAttemptEnvelope({
+          idempotencyKey: `guest-course-production-limit-${index}`,
+          participantId: ParticipantIdSchema.parse(`participant_guest_course_production_${index}`),
+          enrollmentId: CourseEnrollmentIdSchema.parse(`enrollment_guest_course_production_${index}`),
+        })
+      );
+      expect(result.status).toBe('success');
+    }
+    const excess = await commands.execute(
+      guestEnrollmentAttemptEnvelope({
+        idempotencyKey: 'guest-course-production-limit-2',
+        participantId: ParticipantIdSchema.parse('participant_guest_course_production_2'),
+        enrollmentId: CourseEnrollmentIdSchema.parse('enrollment_guest_course_production_2'),
+      })
+    );
+    expect(excess.status === 'error' && excess.error.code).toBe('guest_reservation_limit');
+    expect((await firestore.collection('course_enrollments').get()).size).toBe(2);
+  }, 30_000);
+
+  it('limits active course holds while preserving replay and terminal release', async () => {
+    const policy = { actorKey: 'actor_a', maxActiveLesson: 1, maxActiveCourse: 1 };
+    const commands = createCommands('2026-01-01T00:00:00.000Z', policy);
+    const firstEnvelope = guestEnrollmentAttemptEnvelope({
+      idempotencyKey: 'guest-course-limit-1',
+      participantId: ParticipantIdSchema.parse('participant_guest_course_limit_1'),
+      enrollmentId: CourseEnrollmentIdSchema.parse('enrollment_guest_course_limit_1'),
+    });
+    const first = await commands.execute(firstEnvelope);
+    expect(first.status).toBe('success');
+    expect(await commands.execute(firstEnvelope)).toEqual(first);
+
+    const secondEnvelope = guestEnrollmentAttemptEnvelope({
+      idempotencyKey: 'guest-course-limit-2',
+      participantId: ParticipantIdSchema.parse('participant_guest_course_limit_2'),
+      enrollmentId: CourseEnrollmentIdSchema.parse('enrollment_guest_course_limit_2'),
+    });
+    const excess = await commands.execute(secondEnvelope);
+    expect(excess.status === 'error' && excess.error.code).toBe('guest_reservation_limit');
+    expect((await firestore.collection('course_enrollments').get()).size).toBe(1);
+
+    expect(
+      (
+        await createCommands('2026-01-01T00:00:00.000Z', {
+          ...policy,
+          actorKey: 'actor_b',
+        }).execute(secondEnvelope)
+      ).status
+    ).toBe('success');
+
+    await firestore.doc('course_enrollments/enrollment_guest_course_limit_1').update({
+      lifecycle: { status: 'cancelled', cancelledAt: decidedAt, reasonCode: 'guest_cancelled' },
+    });
+    const third = await commands.execute(
+      guestEnrollmentAttemptEnvelope({
+        idempotencyKey: 'guest-course-limit-3',
+        participantId: ParticipantIdSchema.parse('participant_guest_course_limit_3'),
+        enrollmentId: CourseEnrollmentIdSchema.parse('enrollment_guest_course_limit_3'),
+      })
+    );
+    expect(third.status).toBe('success');
+    const guard = await firestore.doc('guest_reservation_admission/course_actor_a').get();
+    expect(guard.data()?.reservationPaths).toEqual([
+      'course_enrollments/enrollment_guest_course_limit_3',
+    ]);
+
+    const afterExpiry = await createCommands('2026-01-02T01:00:00.000Z', policy).execute(
+      guestEnrollmentAttemptEnvelope({
+        idempotencyKey: 'guest-course-limit-4',
+        participantId: ParticipantIdSchema.parse('participant_guest_course_limit_4'),
+        enrollmentId: CourseEnrollmentIdSchema.parse('enrollment_guest_course_limit_4'),
+      })
+    );
+    expect(afterExpiry.status).toBe('success');
+  }, 30_000);
+
+  it('serializes simultaneous course admissions at the quota boundary', async () => {
+    const commands = createCommands('2026-01-01T00:00:00.000Z', {
+      actorKey: 'actor_race',
+      maxActiveLesson: 1,
+      maxActiveCourse: 1,
+    });
+    const attempts = await Promise.all([
+      commands.execute(
+        guestEnrollmentAttemptEnvelope({
+          idempotencyKey: 'guest-course-limit-race-1',
+          participantId: ParticipantIdSchema.parse('participant_guest_course_race_1'),
+          enrollmentId: CourseEnrollmentIdSchema.parse('enrollment_guest_course_race_1'),
+        })
+      ),
+      commands.execute(
+        guestEnrollmentAttemptEnvelope({
+          idempotencyKey: 'guest-course-limit-race-2',
+          participantId: ParticipantIdSchema.parse('participant_guest_course_race_2'),
+          enrollmentId: CourseEnrollmentIdSchema.parse('enrollment_guest_course_race_2'),
+        })
+      ),
+    ]);
+    expect(attempts.filter((result) => result.status === 'success')).toHaveLength(1);
+    expect((await firestore.collection('course_enrollments').get()).size).toBe(1);
+  }, 30_000);
 
   it('provisions guest participant, enrolls, returns credentials, and authorizes guest_single read', async () => {
     const derivedSubject = deriveGuestSubjectIdForIntent({

@@ -3,6 +3,7 @@ import { createAuthoritativeCommandClock } from './commandClock';
 import { createProductionCanonicalCommands, type CanonicalCommands } from './canonicalCommands';
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
 import type { CanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
+import type { GuestReservationAdmissionPolicy } from './guestReservationAdmission';
 import {
   withCanonicalExecutionScope,
   type CanonicalExecutionScope,
@@ -10,6 +11,7 @@ import {
 
 export interface CanonicalCommandRuntimeOptions {
   readonly guestActionTokenSecret?: string;
+  readonly guestReservationAdmission?: GuestReservationAdmissionPolicy;
 }
 
 export interface CanonicalCommandRuntime {
@@ -30,6 +32,7 @@ export function createCanonicalCommandRuntime(
         executor,
         {
           guestActionTokenSecret: options.guestActionTokenSecret,
+          guestReservationAdmission: options.guestReservationAdmission,
         }
       );
     },

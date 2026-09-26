@@ -698,6 +698,11 @@ service cloud.firestore {
     }
 
     // Idempotency records are written by Callables via the Admin SDK.
+    // Guest admission guard is server-owned; its network-derived key is never a client read model.
+    match /guest_reservation_admission/{actorKey} {
+      allow read, write: if false;
+    }
+
     match /function_idempotency/{id} {
       allow read, write: if false;
     }

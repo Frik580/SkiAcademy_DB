@@ -19,10 +19,10 @@ import { normalizeBannerMediaMode } from '../../lib/bannerMedia';
 import { BannerMedia, type BannerVideoRole } from '../../ui/BannerMedia';
 import { logger } from '../../shared';
 import {
-  WHATSAPP_URL,
+  INSTAGRAM_URL,
   ConversionGateHeroCopy,
   getConversionGateCopy,
-  resolveWhatsAppHref,
+  resolveInstagramHref,
 } from '../../features/landing';
 
 interface HeroCarouselProps {
@@ -101,7 +101,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
 }) => {
   const { t } = useLanguage();
   const gateCopy = getConversionGateCopy(language);
-  const whatsAppHref = resolveWhatsAppHref(WHATSAPP_URL);
+  const instagramHref = resolveInstagramHref(INSTAGRAM_URL);
   const shouldReduceMotion = useReducedMotion();
   const [carousel, setCarousel] = useState<{ current: number; outgoing: number | null }>({
     current: 0,
@@ -427,32 +427,32 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                     }}
                     className="hero-actions"
                   >
-                    {whatsAppHref ? (
+                    {instagramHref ? (
                       <a
-                        href={whatsAppHref}
+                        href={instagramHref}
                         target="_blank"
                         rel="noopener noreferrer"
-                        data-testid="conversion-gate-whatsapp-hero"
+                        data-testid="conversion-gate-instagram-hero"
                         className="hero-primary-cta btn-primary-hero px-7 py-3.5 inline-flex items-center justify-center gap-2"
                       >
-                        {gateCopy.waLabel}
+                        {gateCopy.contactLabel}
                       </a>
                     ) : null}
                     <button
                       type="button"
                       onClick={() => onScrollToSection('coaches-grid')}
                       data-testid="conversion-gate-hero-secondary"
-                      className={`${whatsAppHref ? 'hero-secondary-cta inline-flex items-center gap-1.5 text-sm font-medium text-[var(--hero-ink)]/80 hover:text-[var(--accent)] transition-colors bg-transparent border-0 p-0 cursor-pointer' : 'hero-primary-cta btn-primary-hero px-7 py-3.5 inline-flex items-center justify-center gap-2'} group`}
+                      className={`${instagramHref ? 'hero-secondary-cta inline-flex items-center gap-1.5 text-sm font-medium text-[var(--hero-ink)]/80 hover:text-[var(--accent)] transition-colors bg-transparent border-0 p-0 cursor-pointer' : 'hero-primary-cta btn-primary-hero px-7 py-3.5 inline-flex items-center justify-center gap-2'} group`}
                     >
                       <span>{gateCopy.heroSecondary}</span>
                       <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
                     </button>
-                    {whatsAppHref && gateCopy.bookBesideWa ? (
+                    {instagramHref && gateCopy.bookBeside ? (
                       <p
                         className="text-sm text-[var(--hero-ink)]/80"
                         data-testid="conversion-gate-book-beside"
                       >
-                        {gateCopy.bookBesideWa}
+                        {gateCopy.bookBeside}
                       </p>
                     ) : null}
                   </motion.div>

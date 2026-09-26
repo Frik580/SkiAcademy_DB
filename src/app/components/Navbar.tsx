@@ -493,4 +493,4 @@ export const Navbar: React.FC<NavbarProps> = ({
       </AnimatePresence>
     </div>
   );
-}
+};

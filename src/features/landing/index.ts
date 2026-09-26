@@ -1,8 +1,8 @@
 export {
+  INSTAGRAM_URL,
   PUBLIC_STOREFRONT_REVIEW_MIN,
-  WHATSAPP_URL,
   getConversionGateCopy,
-  resolveWhatsAppHref,
+  resolveInstagramHref,
 } from './conversionGateCopy';
 export type { ConversionGateStrings } from './conversionGateCopy';
 export {
@@ -13,7 +13,7 @@ export { ConversionGateHeroCopy } from './ConversionGateHeroCopy';
 export { ConversionGateReviews } from './ConversionGateReviews';
 export {
   ConversionGateBookBesideNote,
-  ConversionGateStickyWhatsApp,
-  ConversionGateWhatsAppCta,
-} from './ConversionGateWhatsAppCta';
-export type { ConversionGateWhatsAppPlacement } from './ConversionGateWhatsAppCta';
+  ConversionGateInstagramCta,
+  ConversionGateStickyInstagram,
+} from './ConversionGateInstagramCta';
+export type { ConversionGateInstagramPlacement } from './ConversionGateInstagramCta';

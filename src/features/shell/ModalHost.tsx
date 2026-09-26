@@ -22,6 +22,7 @@ import { ModalSkeleton } from '../../ui/Skeleton';
 import { BodyScrollLock } from '../../ui/BodyScrollLock';
 import { loadMoreCanonicalInstructorReviews } from '../reviews';
 import { logger } from '../../shared';
+import { useTrackConversionModals } from '../../infrastructure/analytics';
 
 const BookingModal = React.lazy(() =>
   import('../../features/bookings').then(({ BookingModal }) => ({ default: BookingModal }))
@@ -104,6 +105,13 @@ export const ModalHost: React.FC = () => {
           studentCourseProgressCopyFromLanguage(language === 'ru' ? 'ru' : 'en', t)
         )
       : undefined;
+
+  useTrackConversionModals({
+    bookingInstructorId: selectedInstructor?.id ?? null,
+    courseDetailsId: selectedCourseForDetails?.id ?? null,
+    courseEnrollmentId: selectedCourseForAuth?.id ?? null,
+    reviewsInstructorId: reviewsInstructor?.id ?? null,
+  });
 
   return (
     <>

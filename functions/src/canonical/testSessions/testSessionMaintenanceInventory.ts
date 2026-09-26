@@ -8,6 +8,7 @@ import {
 /** Session-owned collections scanned by equality on testSessionId. Page size is bounded. */
 export const TEST_SESSION_MAINTENANCE_COLLECTIONS = [
   'bookings',
+  'guest_contacts',
   'booking_proposals',
   'booking_change_requests',
   'attendance',

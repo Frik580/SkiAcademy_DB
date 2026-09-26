@@ -149,6 +149,8 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
         participantId,
         identity: { enrollmentId: stableEnrollmentId, idempotencyKey },
         guestDisplayName: guestName.trim(),
+        guestPhone: guestPhone.trim(),
+        guestEmail: guestEmail.trim() || undefined,
         guestSkillLevel: 'beginner',
         guestDiscipline: 'ski',
         guestAgeYears: 25,

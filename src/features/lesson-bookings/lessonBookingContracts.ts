@@ -75,6 +75,8 @@ export interface GuestLessonBookingInput {
   readonly timezone: string;
   readonly identity: LessonBookingSubmissionIdentity;
   readonly guestDisplayName: string;
+  readonly guestPhone: string;
+  readonly guestEmail?: string;
   readonly guestSkillLevel: string;
   readonly guestDiscipline: 'ski' | 'snowboard';
   readonly guestAgeYears: number;

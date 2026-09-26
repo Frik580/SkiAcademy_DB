@@ -588,7 +588,7 @@ async function verifySessionFixtures(
     }
   }
   if (expectCleanResidue) {
-    for (const collection of ['bookings', 'course_enrollments', 'attendance', 'payments', 'instructor_reviews', 'admin_issues']) {
+    for (const collection of ['bookings', 'guest_contacts', 'course_enrollments', 'attendance', 'payments', 'instructor_reviews', 'admin_issues']) {
       const count = (
         await ports.firestore.collection(collection).where('testSessionId', '==', session.testSessionId).count().get()
       ).data().count;

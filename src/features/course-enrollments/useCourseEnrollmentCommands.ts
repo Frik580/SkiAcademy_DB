@@ -171,6 +171,8 @@ export function useCourseEnrollmentCommands(accountId: string | undefined) {
           },
           idempotencyKey: input.identity.idempotencyKey,
           guestParticipantDisplayName: input.guestDisplayName,
+          guestPhone: input.guestPhone,
+          guestEmail: input.guestEmail,
           guestParticipantSkillLevel: input.guestSkillLevel,
           guestParticipantDiscipline: input.guestDiscipline,
           guestParticipantAgeYears: input.guestAgeYears,

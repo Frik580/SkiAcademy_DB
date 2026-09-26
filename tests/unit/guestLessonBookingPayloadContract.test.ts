@@ -31,6 +31,8 @@ function frontendGuestLessonBookingPayload() {
     durationMinutes: 120,
     timezone: 'Asia/Almaty',
     guestDisplayName: 'Guest Transport Contract',
+    guestPhone: '+7 701 123 45 67',
+    guestEmail: 'guest@example.com',
     guestSkillLevel: 'beginner',
     guestDiscipline: 'ski',
     guestAgeYears: 25,
@@ -46,6 +48,8 @@ describe('guest lesson booking callable transport contract', () => {
     expect(parseCallableGuestCommandTransport(payload).success).toBe(true);
     expect(payload.intent.difficulty).toBe('freestyle');
     expect(payload.intent.notes).toBe('Park session');
+    expect(payload.guestPhone).toBe('+7 701 123 45 67');
+    expect(payload.guestEmail).toBe('guest@example.com');
   });
 
   it('builds a valid command envelope for executeGuestCanonicalCommand', () => {

@@ -152,6 +152,8 @@ export function useLessonBookingCommands(
         calendarInput,
         timezone: input.timezone,
         guestParticipantDisplayName: input.guestDisplayName,
+        guestPhone: input.guestPhone,
+        guestEmail: input.guestEmail,
         guestParticipantSkillLevel: input.guestSkillLevel,
         guestParticipantDiscipline: input.guestDiscipline,
         guestParticipantAgeYears: input.guestAgeYears,

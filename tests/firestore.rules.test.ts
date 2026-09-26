@@ -100,6 +100,29 @@ describe('/users account reads', () => {
   });
 });
 
+describe('protected guest contact evidence', () => {
+  it('denies direct reads and writes to public, client, instructor, and admin client SDKs', async () => {
+    await seedData(async (context) => {
+      await setDoc(doc(context.firestore(), 'guest_contacts', 'booking_booking-1'), {
+        subject: { kind: 'booking', bookingId: 'booking-1' },
+        phone: '+7 701 123 45 67',
+        email: 'guest@example.com',
+      });
+    });
+    for (const context of [
+      testEnv.unauthenticatedContext(),
+      testEnv.authenticatedContext(USER_ID),
+      testEnv.authenticatedContext(INSTRUCTOR_USER_ID),
+      testEnv.authenticatedContext(ADMIN_ID),
+    ]) {
+      const db = context.firestore();
+      await assertFails(getDoc(doc(db, 'guest_contacts', 'booking_booking-1')));
+      await assertFails(getDocs(collection(db, 'guest_contacts')));
+      await assertFails(setDoc(doc(db, 'guest_contacts', 'booking_new'), { phone: '1' }));
+    }
+  });
+});
+
 describe('canonical instructor reviews', () => {
   it('denies every client mutation of legacy and canonical review authority', async () => {
     const userDb = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();

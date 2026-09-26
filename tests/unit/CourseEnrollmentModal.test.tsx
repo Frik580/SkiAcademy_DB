@@ -374,6 +374,9 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
       target: { value: '+77001234567' },
     });
+    fireEvent.change(screen.getByPlaceholderText('guestEmailPlaceholder'), {
+      target: { value: 'guest@example.com' },
+    });
     await userEvent.click(screen.getByRole('button', { name: /submitGuestCourseApplication/i }));
 
     await waitFor(() => {
@@ -382,6 +385,8 @@ describe('CourseEnrollmentModal guest enrollment', () => {
           courseId: 'course_01',
           participantId: 'guest_session_participant_01',
           enrollmentId: 'attempt_01',
+          guestPhone: '+77001234567',
+          guestEmail: 'guest@example.com',
         })
       );
     });

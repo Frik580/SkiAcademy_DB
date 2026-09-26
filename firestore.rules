@@ -498,6 +498,11 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Guest application contact evidence is exposed only by authorized server read models.
+    match /guest_contacts/{contactId} {
+      allow read, write: if false;
+    }
+
     match /participant_management/{managementId} {
       allow read, write: if false;
     }

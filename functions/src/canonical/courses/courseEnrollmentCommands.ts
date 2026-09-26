@@ -1,5 +1,8 @@
 import {
   AggregateRevisionSchema,
+  GuestContactSchema,
+  canonicalScopeFields,
+  LIVE_CANONICAL_EXECUTION_SCOPE,
   CanonicalCommandError,
   CourseEnrollmentSchema,
   KztMinorUnitsSchema,
@@ -53,6 +56,7 @@ import {
   type AuthoritativeIdempotentCanonicalCommandHandler,
 } from '../commands/idempotentCommandExecution';
 import { mapFinanceDomainError } from '../finance/financeAuthorization';
+import { guestContactDetailsFromCommand, guestContactPath } from '../guestContact/guestContactStore';
 import {
   FINANCE_PLANNING_ESTIMATES,
   accountPath,
@@ -335,6 +339,7 @@ function createCourseEnrollmentsHandler(
   }
 
   const mode = resolveCourseEnrollmentCreationAuthorization(envelope);
+  const guestContactDetails = mode === 'guest' ? guestContactDetailsFromCommand(envelope) : undefined;
   if (mode === 'guest') {
     assertGuestCourseEnrollmentRequestContext(envelope);
     for (const enrollmentId of envelope.intent.enrollmentIds!) {
@@ -694,6 +699,14 @@ function createCourseEnrollmentsHandler(
           category: 'aggregate',
           estimatedPayloadBytes: COURSE_ENROLLMENT_PLANNING_ESTIMATES.enrollmentBytes,
         });
+        if (mode === 'guest' && guestContactDetails) {
+          session.plan.planMutation({
+            path: guestContactPath({ kind: 'course_enrollment', enrollmentId }),
+            kind: 'create',
+            category: 'aggregate',
+            estimatedPayloadBytes: 512,
+          });
+        }
         session.plan.planMutation({
           path: paymentPathValue,
           kind: 'create',
@@ -993,6 +1006,16 @@ function createCourseEnrollmentsHandler(
               { path: participantPath(planned.participantId) },
               guestParticipant as Record<string, unknown>
             );
+          }
+
+          if (mode === 'guest' && guestContactDetails) {
+            const subject = { kind: 'course_enrollment' as const, enrollmentId: planned.enrollmentId };
+            session.tx.create({ path: guestContactPath(subject) }, GuestContactSchema.parse({
+              subject,
+              ...guestContactDetails,
+              ...canonicalScopeFields(session.scope ?? LIVE_CANONICAL_EXECUTION_SCOPE),
+              createdAt: decidedAt,
+            }) as Record<string, unknown>);
           }
 
           const lifecycle =

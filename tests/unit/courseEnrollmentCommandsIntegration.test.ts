@@ -207,12 +207,17 @@ describe('courseEnrollment commands integration', () => {
         idempotencyKey: `create-guest-course-enrollment:${enrollmentId}`,
       },
       guestDisplayName: 'Guest',
+      guestPhone: '+7 701 123 45 67',
+      guestEmail: 'course@example.com',
       guestSkillLevel: 'beginner',
       guestDiscipline: 'ski',
       guestAgeYears: 20,
     });
 
     expect(returned).toEqual(credential);
+    expect(executeGuestMock).toHaveBeenCalledWith(
+      expect.objectContaining({ guestPhone: '+7 701 123 45 67', guestEmail: 'course@example.com' })
+    );
     expect(
       localStorage.getItem(`ski_academy_guest_course_enrollment_credential:${enrollmentId}`)
     ).toBeTruthy();

@@ -58,6 +58,8 @@ export function lessonBookingToMonitorRow(booking: LessonBookingReadModel): Book
     ...(booking.notes ? { notes: booking.notes } : {}),
     isGuest,
     guestName: participant?.displayName,
+    guestPhone: booking.admin?.guestContact?.phone,
+    guestEmail: booking.admin?.guestContact?.email,
     createdAt: timestampToIso(createdAtSeconds),
   };
 }
@@ -81,6 +83,8 @@ export function courseEnrollmentToMonitorRow(enrollment: AdminCourseEnrollmentRo
     status: asBookingStatus(enrollment.lifecycleStatus),
     isGuest,
     guestName: enrollment.participant.displayName,
+    guestPhone: enrollment.guestContact?.phone,
+    guestEmail: enrollment.guestContact?.email,
     courseId: enrollment.course.courseId,
     createdAt: timestampToIso(enrollment.updatedAt.seconds),
   };

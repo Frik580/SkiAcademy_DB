@@ -273,6 +273,11 @@ describe.skipIf(!runsOnFirestoreEmulator)('T42B-7 TestSession lifecycle emulator
       testSessionId: sessionId,
       revision: 1,
     });
+    await firestore.doc('guest_contacts/booking_booking_t42b7').set({
+      dataScope: 'test',
+      testSessionId: sessionId,
+    });
+    await firestore.doc('guest_contacts/booking_live_t42b7').set({ dataScope: 'live' });
     await firestore.doc(`courses/${cloneId}`).update({ 'capacity.availableSeats': 1 });
     await firestore.doc('course_enrollments/enrollment_t42b7').set({
       dataScope: 'test',
@@ -317,6 +322,7 @@ describe.skipIf(!runsOnFirestoreEmulator)('T42B-7 TestSession lifecycle emulator
       testSessionId: sessionId,
     });
     expect(preview.manifest?.counts.bookings).toBe(1);
+    expect(preview.manifest?.counts.guestContacts).toBe(1);
     expect(preview.manifest?.counts.payments).toBe(1);
     expect(preview.manifest?.preserve).toContain('test_actors');
     const executed = await executeTestSessionLifecycle(ports(), adminId, {
@@ -332,6 +338,8 @@ describe.skipIf(!runsOnFirestoreEmulator)('T42B-7 TestSession lifecycle emulator
     expect((await firestore.doc(`users/${liveWalletId}/wallet/state`).get()).get('balance')).toBe(888_000);
     expect((await firestore.doc('payments/payment_t42b7').get()).exists).toBe(false);
     expect((await firestore.doc('bookings/booking_t42b7').get()).exists).toBe(false);
+    expect((await firestore.doc('guest_contacts/booking_booking_t42b7').get()).exists).toBe(false);
+    expect((await firestore.doc('guest_contacts/booking_live_t42b7').get()).exists).toBe(true);
     expect((await firestore.doc(`participant_progress/${participantId}`).get()).exists).toBe(false);
     expect((await firestore.doc(`participant_achievements/${participantId}`).get()).exists).toBe(false);
     expect((await firestore.doc('instructor_reviews/review_t42b7').get()).exists).toBe(false);

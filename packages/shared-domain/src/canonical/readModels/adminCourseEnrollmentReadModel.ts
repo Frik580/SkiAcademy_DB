@@ -22,6 +22,7 @@ import {
   CourseLifecycleStatusSchema,
 } from '../courseEnrollmentAttendanceAdminIssue';
 import { GuestIdentityLinkUnavailableReasonSchema } from '../guestIdentityLinkingPolicy';
+import { GuestContactDetailsSchema } from '../guestContact';
 import { PaymentStatusSchema } from '../paymentWallet';
 import {
   AggregateRevisionSchema,
@@ -131,6 +132,7 @@ export const AdminCourseEnrollmentAuthorizedActionsSchema = z
 
 export const AdminCourseEnrollmentRosterItemSchema = z
   .object({
+    guestContact: GuestContactDetailsSchema.optional(),
     enrollmentId: CourseEnrollmentIdSchema,
     revision: AggregateRevisionSchema,
     course: AdminCourseEnrollmentCoursePresentationSchema,

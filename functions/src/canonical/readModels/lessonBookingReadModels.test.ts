@@ -18,6 +18,7 @@ import {
 } from '@ski-academy/shared-domain';
 import {
   buildAdminLessonBookingReadModel,
+  buildInstructorLessonBookingReadModel,
   canAccountViewLessonBookingFinancial,
   canAccountViewLessonBookingService,
   queryLessonBookingReadModels,
@@ -369,6 +370,7 @@ describe('Admin lesson booking read models', () => {
       readonly unpaidPayment?: boolean;
       readonly partialOutstandingPayment?: { readonly price: number; readonly paid: number };
       readonly omitPaymentPayerAccountId?: boolean;
+      readonly guestContact?: { readonly phone: string; readonly email?: string };
     } = {}
   ) {
     const participantDocuments: Record<string, Record<string, unknown>> = {};
@@ -483,6 +485,15 @@ describe('Admin lesson booking read models', () => {
             },
           },
           participants: participantDocuments,
+          guest_contacts: Object.fromEntries(
+            bookings.filter((booking) => booking.attribution.bookingOrigin === 'guest' && options.guestContact)
+              .map((booking) => [`booking_${booking.bookingId}`, {
+                subject: { kind: 'booking', bookingId: booking.bookingId },
+                ...options.guestContact,
+                dataScope: 'live',
+                createdAt: booking.createdAt,
+              }])
+          ),
           payments: paymentDocuments,
           users: {
             [adminId]: {
@@ -818,7 +829,10 @@ describe('Admin lesson booking read models', () => {
         serviceParty: { participantIds: base.party.participantIds },
       },
     });
-    const { firestore } = adminFixture([booking], { unmanagedGuest: true });
+    const { firestore } = adminFixture([booking], {
+      unmanagedGuest: true,
+      guestContact: { phone: '+7 701 123 45 67', email: 'guest@example.com' },
+    });
 
     const model = await buildAdminLessonBookingReadModel(firestore, adminActor, booking, {
       now: readNow,
@@ -829,6 +843,15 @@ describe('Admin lesson booking read models', () => {
       canLinkGuestToAccount: true,
     });
     expect(model?.admin?.guestIdentityLinkUnavailableReason).toBeUndefined();
+    expect(model?.admin?.guestContact).toEqual({
+      phone: '+7 701 123 45 67', email: 'guest@example.com',
+    });
+    const instructor = await buildInstructorLessonBookingReadModel(firestore, instructorId, booking);
+    expect(instructor).toBeDefined();
+    expect(instructor?.admin).toBeUndefined();
+    expect(JSON.stringify(instructor)).not.toContain('guest@example.com');
+    expect(JSON.stringify(instructor)).not.toContain('+7 701 123 45 67');
+    expect(JSON.stringify(model?.participants)).not.toContain('guest@example.com');
   });
 
   it('lists only pending guest-origin bookings in admin_pending_guest (not paid confirmed guest-origin)', async () => {

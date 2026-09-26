@@ -46,6 +46,7 @@ const runsOnFirestoreEmulator = Boolean(
 const COLLECTIONS_TO_CLEAR = [
   'instructors',
   'participants',
+  'guest_contacts',
   'bookings',
   'payments',
   'monetary_events',
@@ -80,12 +81,16 @@ function guestCreateEnvelope(input: {
         durationMinutes: 60,
       },
       timezone: 'Asia/Almaty',
-      transportMetadata: guestParticipantTransportMetadataFromProfile({
-        displayName: 'Guest Emulator Participant',
-        skillLevel: 'beginner',
-        discipline: 'ski',
-        ageYears: 24,
-      }),
+      transportMetadata: {
+        ...guestParticipantTransportMetadataFromProfile({
+          displayName: 'Guest Emulator Participant',
+          skillLevel: 'beginner',
+          discipline: 'ski',
+          ageYears: 24,
+        }),
+        guest_contact_phone: '+7 701 123 45 67',
+        guest_contact_email: 'lesson@example.com',
+      },
     },
     intent: {
       bookingId: BookingIdSchema.parse(input.bookingId),
@@ -426,6 +431,13 @@ describe.skipIf(!runsOnFirestoreEmulator)('guest booking commands (firestore emu
     const participants = await firestore.collection('participants').get();
     expect(participants.size).toBe(1);
     expect(participants.docs[0]?.data().management).toEqual({ kind: 'unmanaged_guest' });
+    const contacts = await firestore.collection('guest_contacts').get();
+    expect(contacts.size).toBe(1);
+    expect(contacts.docs[0]?.data()).toMatchObject({
+      subject: { kind: 'booking', bookingId },
+      phone: '+7 701 123 45 67',
+      email: 'lesson@example.com',
+    });
   }, 30_000);
 
   it('persists guest booking without invalid undefined optional Firestore fields', async () => {

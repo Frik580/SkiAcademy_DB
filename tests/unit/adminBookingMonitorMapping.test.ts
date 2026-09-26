@@ -81,6 +81,23 @@ function lessonReadModel(
 }
 
 describe('adminBookingMonitorMapping', () => {
+  it('passes admin-only guest contacts to monitor rows and tolerates missing historical contact', () => {
+    const lesson = lessonReadModel('pending');
+    expect(lessonBookingToMonitorRow(lesson).guestPhone).toBeUndefined();
+    const withContact = {
+      ...lesson,
+      bookingOrigin: 'guest' as const,
+      admin: {
+        participants: [{ participantId: 'part_1', displayName: 'Client' }],
+        payment: { price: 0 },
+        guestContact: { phone: '+7 701 123 45 67', email: 'guest@example.com' },
+      },
+    } as LessonBookingReadModel;
+    expect(lessonBookingToMonitorRow(withContact)).toMatchObject({
+      guestPhone: '+7 701 123 45 67', guestEmail: 'guest@example.com',
+    });
+  });
+
   it('preserves canonical no_show lifecycle instead of mapping to cancelled', () => {
     const row = lessonBookingToMonitorRow(lessonReadModel('no_show'));
     expect(row.status).toBe('no_show');

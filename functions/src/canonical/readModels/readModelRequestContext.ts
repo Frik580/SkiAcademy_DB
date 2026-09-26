@@ -13,6 +13,8 @@ import {
   type CanonicalReadScope,
   type CourseEnrollmentId,
   type CourseId,
+  type GuestContactSubject,
+  guestContactDocumentId,
   type InstructorId,
   type Participant,
   type ParticipantManagementId,
@@ -64,6 +66,7 @@ export class ReadModelRequestContext {
   private readonly walletByAccountId = new Map<string, Promise<DocumentSnapshot>>();
   private readonly bookingById = new Map<string, Promise<DocumentSnapshot>>();
   private readonly enrollmentById = new Map<string, Promise<DocumentSnapshot>>();
+  private readonly guestContactById = new Map<string, Promise<DocumentSnapshot>>();
   private readonly attendanceById = new Map<string, Promise<DocumentSnapshot>>();
   private readonly participantBlockById = new Map<string, Promise<DocumentSnapshot>>();
   private readonly courseDaysByCourseId = new Map<string, Promise<QuerySnapshot>>();
@@ -205,6 +208,13 @@ export class ReadModelRequestContext {
   enrollment(enrollmentId: CourseEnrollmentId): Promise<DocumentSnapshot> {
     return this.memoize(this.enrollmentById, enrollmentId, async () =>
       this.scopedDoc(await this.firestore.collection('course_enrollments').doc(enrollmentId).get())
+    );
+  }
+
+  adminGuestContact(subject: GuestContactSubject): Promise<DocumentSnapshot> {
+    const id = guestContactDocumentId(subject);
+    return this.memoize(this.guestContactById, id, async () =>
+      this.scopedDoc(await this.firestore.collection('guest_contacts').doc(id).get())
     );
   }
 

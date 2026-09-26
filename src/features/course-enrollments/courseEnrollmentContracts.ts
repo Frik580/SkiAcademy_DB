@@ -105,6 +105,8 @@ export interface GuestCourseEnrollmentInput {
   readonly participantId: string;
   readonly identity: CourseEnrollmentSubmissionIdentity;
   readonly guestDisplayName: string;
+  readonly guestPhone: string;
+  readonly guestEmail?: string;
   readonly guestSkillLevel: string;
   readonly guestDiscipline: 'ski' | 'snowboard';
   readonly guestAgeYears: number;

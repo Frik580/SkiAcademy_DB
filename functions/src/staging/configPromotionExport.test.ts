@@ -172,6 +172,7 @@ describe('configuration promotion export allowlist', () => {
     ]);
     expect(PROMOTION_IGNORED_BUSINESS_COLLECTIONS).toEqual(['instructors', 'courses', 'course_catalog_content']);
     expect(PROMOTION_EXCLUDED_COLLECTIONS).toContain('bookings');
+    expect(PROMOTION_EXCLUDED_COLLECTIONS).toContain('guest_contacts');
     expect(PROMOTION_EXCLUDED_COLLECTIONS).toContain('users');
     expect(PROMOTION_EXCLUDED_COLLECTIONS).toContain('image-cache');
     for (const name of PROMOTION_IGNORED_BUSINESS_COLLECTIONS) {

@@ -8,6 +8,7 @@ import {
   type IdempotencyKey,
 } from './commandContext';
 import { CommandIntentSchemaByKind } from './commandIntents';
+import { GuestContactDetailsSchema } from '../guestContact';
 import type { CommandKind } from './commandKinds';
 
 const guestParticipantProfileTransportFields = {
@@ -28,6 +29,8 @@ export const CreateGuestBookingRequestTransportSchema = z
     calendarInput: CommandCalendarInputSchema,
     timezone: IanaTimeZoneSchema,
     ...guestParticipantProfileTransportFields,
+    guestPhone: GuestContactDetailsSchema.shape.phone,
+    guestEmail: GuestContactDetailsSchema.shape.email,
   })
   .strict();
 
@@ -63,7 +66,13 @@ function guestCallableTransportSchemaForKind<Kind extends CommandKind>(kind: Kin
 const guestCallableTransportSchemas = [
   CreateGuestBookingRequestTransportSchema,
   guestCallableTransportSchemaForKind('request_booking_cancellation'),
-  guestCallableTransportSchemaForKind('create_course_enrollments'),
+  z.object({
+    kind: z.literal('create_course_enrollments'),
+    intent: CommandIntentSchemaByKind.create_course_enrollments,
+    ...guestCallableTransportBaseFields,
+    guestPhone: GuestContactDetailsSchema.shape.phone,
+    guestEmail: GuestContactDetailsSchema.shape.email,
+  }).strict(),
   guestCallableTransportSchemaForKind('withdraw_course_enrollment'),
   guestCallableTransportSchemaForKind('request_course_enrollment_cancellation'),
 ] as const;
@@ -89,6 +98,8 @@ export interface FrontendGuestLessonBookingCallablePayload {
   readonly guestParticipantSkillLevel: string;
   readonly guestParticipantDiscipline: 'ski' | 'snowboard';
   readonly guestParticipantAgeYears: number;
+  readonly guestPhone: string;
+  readonly guestEmail?: string;
 }
 
 export function buildFrontendGuestLessonBookingCallablePayload(input: {
@@ -105,6 +116,8 @@ export function buildFrontendGuestLessonBookingCallablePayload(input: {
   readonly guestSkillLevel: string;
   readonly guestDiscipline: 'ski' | 'snowboard';
   readonly guestAgeYears: number;
+  readonly guestPhone: string;
+  readonly guestEmail?: string;
   readonly difficulty?: CreateGuestBookingRequestTransport['intent']['difficulty'];
   readonly notes?: string;
 }): FrontendGuestLessonBookingCallablePayload {
@@ -129,5 +142,7 @@ export function buildFrontendGuestLessonBookingCallablePayload(input: {
     guestParticipantSkillLevel: input.guestSkillLevel,
     guestParticipantDiscipline: input.guestDiscipline,
     guestParticipantAgeYears: input.guestAgeYears,
+    guestPhone: input.guestPhone,
+    ...(input.guestEmail ? { guestEmail: input.guestEmail } : {}),
   };
 }

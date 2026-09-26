@@ -32,6 +32,7 @@ export * from './participantAchievementCommandIdempotency';
 export * from './participantLessonFeedback';
 export * from './participantLessonFeedbackAccessPolicy';
 export * from './guestBooking';
+export * from './guestContact';
 export * from './guestIdentityLinkingPolicy';
 export * from './guestCourseEnrollmentTransport';
 export * from './bookingProposalPolicy';

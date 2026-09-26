@@ -172,6 +172,7 @@ export interface TestSessionMaintenanceCandidate {
 
 const DISPOSABLE_ROOTS = new Set([
   'bookings',
+  'guest_contacts',
   'booking_proposals',
   'booking_change_requests',
   'attendance',
@@ -377,6 +378,7 @@ export type ExecuteTestSessionLifecycleInput = z.output<
 
 export const TEST_SESSION_MAINTENANCE_COUNT_KEYS = [
   'bookings',
+  'guestContacts',
   'bookingProposals',
   'bookingChangeRequests',
   'attendance',
@@ -415,6 +417,7 @@ export const MAINTENANCE_COLLECTION_COUNT_KEYS: Readonly<
   Record<string, TestSessionMaintenanceCountKey>
 > = {
   bookings: 'bookings',
+  guest_contacts: 'guestContacts',
   booking_proposals: 'bookingProposals',
   booking_change_requests: 'bookingChangeRequests',
   attendance: 'attendance',

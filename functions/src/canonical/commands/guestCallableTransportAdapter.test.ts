@@ -30,6 +30,8 @@ function validTransportPayload() {
     durationMinutes: 120,
     timezone: 'Asia/Almaty',
     guestDisplayName: 'Guest Handler Contract',
+    guestPhone: '+7 701 123 45 67',
+    guestEmail: 'guest@example.com',
     guestSkillLevel: 'beginner',
     guestDiscipline: 'ski',
     guestAgeYears: 25,
@@ -44,6 +46,10 @@ describe('guestCallableTransportAdapter', () => {
 
     const envelope = buildGuestCommandEnvelopeFromCallable(guestSubjectId!, transport);
     expect(parseCommandEnvelope(envelope).success).toBe(true);
+    expect(envelope.context.transportMetadata).toMatchObject({
+      guest_contact_phone: '+7 701 123 45 67',
+      guest_contact_email: 'guest@example.com',
+    });
     expect(envelope.context.transportMetadata?.participant_display_name).toBe(
       'Guest Handler Contract'
     );

@@ -129,6 +129,7 @@ describe('booking modal submit success UX', () => {
     act(() => {
       result.current.setGuestName('Guest Name');
       result.current.setGuestPhone('123456');
+      result.current.setGuestEmail('guest@example.com');
     });
     const event = { preventDefault: vi.fn() } as unknown as React.FormEvent;
 
@@ -139,6 +140,9 @@ describe('booking modal submit success UX', () => {
     });
 
     expect(mocks.createGuestBooking).toHaveBeenCalledTimes(1);
+    expect(mocks.createGuestBooking).toHaveBeenCalledWith(
+      expect.objectContaining({ guestPhone: '123456', guestEmail: 'guest@example.com' })
+    );
     expect(mocks.addNotification).toHaveBeenCalledWith(
       'success',
       'guestApplicationSuccess',

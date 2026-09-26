@@ -312,6 +312,13 @@ function seed() {
     [`participants/${historyParticipant}`]: participant(historyParticipant, 'History User'),
     [`participants/${transferParticipant}`]: participant(transferParticipant, 'Transfer User'),
     [`course_enrollments/${pending.enrollmentId}`]: pending as unknown as Record<string, unknown>,
+    [`guest_contacts/course_enrollment_${pending.enrollmentId}`]: {
+      subject: { kind: 'course_enrollment', enrollmentId: pending.enrollmentId },
+      phone: '+7 701 123 45 67',
+      email: 'course@example.com',
+      dataScope: 'live',
+      createdAt: now,
+    },
     [`course_enrollments/${confirmed.enrollmentId}`]: confirmed as unknown as Record<
       string,
       unknown
@@ -382,6 +389,10 @@ describe('Admin CourseEnrollment read-model callable', () => {
     expect(roster.items).toHaveLength(3);
     expect(roster.items.every((item) => !('bookingId' in item))).toBe(true);
     expect(roster.items.every((item) => item.course.courseId !== undefined)).toBe(true);
+    expect(roster.items.find((item) => item.guestState === 'pending_unlinked')?.guestContact)
+      .toEqual({ phone: '+7 701 123 45 67', email: 'course@example.com' });
+    expect(roster.items.find((item) => item.guestState === 'not_guest')?.guestContact)
+      .toBeUndefined();
 
     const cancellation = roster.items.find(
       (item) => item.lifecycleStatus === 'pending_cancellation'

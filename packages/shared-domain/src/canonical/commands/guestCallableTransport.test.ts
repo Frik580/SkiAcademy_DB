@@ -18,6 +18,8 @@ describe('guestCallableTransport schema', () => {
     durationMinutes: 120,
     timezone: 'Asia/Almaty',
     guestDisplayName: 'Schema Guest',
+    guestPhone: ' +7 701 123 45 67 ',
+    guestEmail: ' guest@example.com ',
     guestSkillLevel: 'beginner',
     guestDiscipline: 'ski',
     guestAgeYears: 25,
@@ -26,6 +28,10 @@ describe('guestCallableTransport schema', () => {
   it('accepts the canonical guest lesson booking transport payload', () => {
     expect(CreateGuestBookingRequestTransportSchema.safeParse(payload).success).toBe(true);
     expect(parseCallableGuestCommandTransport(payload).success).toBe(true);
+    expect(CreateGuestBookingRequestTransportSchema.parse(payload)).toMatchObject({
+      guestPhone: '+7 701 123 45 67',
+      guestEmail: 'guest@example.com',
+    });
   });
 
   it('rejects unknown top-level transport fields', () => {
@@ -35,5 +41,11 @@ describe('guestCallableTransport schema', () => {
         legacyGuestName: 'legacy',
       }).success
     ).toBe(false);
+  });
+
+  it('requires a nonempty phone and validates optional email', () => {
+    expect(parseCallableGuestCommandTransport({ ...payload, guestPhone: ' ' }).success).toBe(false);
+    expect(parseCallableGuestCommandTransport({ ...payload, guestEmail: 'bad' }).success).toBe(false);
+    expect(parseCallableGuestCommandTransport({ ...payload, guestEmail: '' }).success).toBe(false);
   });
 });

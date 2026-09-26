@@ -600,6 +600,8 @@ export function AdminCourseEnrollmentDetail({
       <p className="text-xs">
         {t.participant}: {detail.participant.displayName}
       </p>
+      {detail.guestContact?.phone && <p className="text-xs">📞 {detail.guestContact.phone}</p>}
+      {detail.guestContact?.email && <p className="text-xs">✉️ {detail.guestContact.email}</p>}
       {detail.authorizedActions.canLinkGuest ? (
         <div className="space-y-2">
           <p className="text-xs font-medium">{t.linkGuestTitle}</p>

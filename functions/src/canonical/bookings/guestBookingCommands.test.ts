@@ -108,12 +108,16 @@ function baseFixture(extra: Record<string, unknown> = {}) {
 }
 
 function guestParticipantTransport() {
-  return guestParticipantTransportMetadataFromProfile({
-    displayName: 'Guest Participant',
-    skillLevel: 'beginner',
-    discipline: 'ski',
-    ageYears: 25,
-  });
+  return {
+    ...guestParticipantTransportMetadataFromProfile({
+      displayName: 'Guest Participant',
+      skillLevel: 'beginner',
+      discipline: 'ski',
+      ageYears: 25,
+    }),
+    guest_contact_phone: '+7 701 123 45 67',
+    guest_contact_email: 'guest@example.com',
+  };
 }
 
 function guestCreateEnvelope(
@@ -217,6 +221,11 @@ describe('create_guest_booking_request command', () => {
     expect(participant?.management).toEqual({ kind: 'unmanaged_guest' });
     expect(participant?.displayName).toBe('Guest Participant');
     expect(participant?.initialManagementEligibleAccountId).toBeUndefined();
+    expect(executor.snapshot().docs.get(`guest_contacts/booking_${bookingId}`)?.data).toMatchObject({
+      subject: { kind: 'booking', bookingId },
+      phone: '+7 701 123 45 67',
+      email: 'guest@example.com',
+    });
   });
 
   it('stores per-lesson difficulty and notes without changing guest Participant.skillLevel', async () => {
@@ -274,6 +283,7 @@ describe('create_guest_booking_request command', () => {
     const snapshot = executor.snapshot();
     expect(snapshot.docs.get(`bookings/${bookingId}`)).toBeDefined();
     expect(snapshot.docs.get(`participants/${participantId}`)).toBeDefined();
+    expect([...snapshot.docs.keys()].filter((path) => path.startsWith('guest_contacts/'))).toHaveLength(1);
     expect(
       [...snapshot.docs.keys()].filter((path) => path.startsWith('activity_logs/')).length
     ).toBe(1);

@@ -20,6 +20,7 @@ import {
   AttendanceStatusSchema,
 } from '../courseEnrollmentAttendanceAdminIssue';
 import { GuestIdentityLinkUnavailableReasonSchema } from '../guestIdentityLinkingPolicy';
+import { GuestContactDetailsSchema } from '../guestContact';
 import {
   BookingLessonNotesSchema,
   BookingLifecycleStatusSchema,
@@ -271,6 +272,7 @@ export const LessonBookingAdminAuthorizedActionsSchema = z
 
 export const LessonBookingAdminProjectionSchema = z
   .object({
+    guestContact: GuestContactDetailsSchema.optional(),
     participants: z.array(LessonBookingAdminParticipantProjectionSchema).min(1),
     attribution: z
       .object({

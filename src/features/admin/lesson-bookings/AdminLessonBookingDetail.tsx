@@ -484,6 +484,22 @@ export function AdminLessonBookingDetail({
                   : t('adminLessonParticipant')}
               </dt>
               <dd>{participantNames}</dd>
+              {admin.guestContact?.phone && (
+                <>
+                  <dt className="text-[var(--ink-dim)]">{t('guestPhoneLabel')}</dt>
+                  <dd>
+                    <a href={`tel:${admin.guestContact.phone}`}>{admin.guestContact.phone}</a>
+                  </dd>
+                </>
+              )}
+              {admin.guestContact?.email && (
+                <>
+                  <dt className="text-[var(--ink-dim)]">{t('guestEmailLabel')}</dt>
+                  <dd>
+                    <a href={`mailto:${admin.guestContact.email}`}>{admin.guestContact.email}</a>
+                  </dd>
+                </>
+              )}
               {showPayer && admin.payer && (
                 <>
                   <dt className="text-[var(--ink-dim)]">{t('adminLessonPayer')}</dt>

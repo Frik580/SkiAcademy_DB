@@ -5,6 +5,8 @@ import {
   GUEST_ACTION_NONCE_TRANSPORT_KEY,
   GUEST_ACTION_SIGNATURE_TRANSPORT_KEY,
   GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS,
+  GUEST_CONTACT_TRANSPORT_METADATA_KEYS,
+  GuestContactDetailsSchema,
   guestParticipantTransportMetadataFromProfile,
   guestSubjectIdFromBookingId,
   deriveGuestSubjectIdFromCourseEnrollmentIntent,
@@ -35,6 +37,8 @@ export interface CallableGuestCommandTransportInput<Kind extends CommandKind> {
   readonly guestParticipantSkillLevel?: string;
   readonly guestParticipantDiscipline?: 'ski' | 'snowboard';
   readonly guestParticipantAgeYears?: number;
+  readonly guestPhone?: string;
+  readonly guestEmail?: string;
 }
 
 export function deriveGuestSubjectIdForIntent(
@@ -81,6 +85,8 @@ export function buildGuestCommandContextFromCallable(
     | 'guestParticipantSkillLevel'
     | 'guestParticipantDiscipline'
     | 'guestParticipantAgeYears'
+    | 'guestPhone'
+    | 'guestEmail'
   >
 ): CommandContext {
   const transportMetadata: Record<string, string> = { transport: 'firebase_callable' };
@@ -114,6 +120,15 @@ export function buildGuestCommandContextFromCallable(
       transportMetadata,
       guestParticipantTransportMetadataFromProfile(guestParticipantProfile.data)
     );
+  }
+
+  if (input.guestPhone !== undefined) {
+    const contact = GuestContactDetailsSchema.parse({
+      phone: input.guestPhone,
+      ...(input.guestEmail === undefined ? {} : { email: input.guestEmail }),
+    });
+    transportMetadata[GUEST_CONTACT_TRANSPORT_METADATA_KEYS.phone] = contact.phone;
+    if (contact.email) transportMetadata[GUEST_CONTACT_TRANSPORT_METADATA_KEYS.email] = contact.email;
   }
 
   return {

@@ -63,6 +63,7 @@ import type { Firestore, Query, QueryDocumentSnapshot } from 'firebase-admin/fir
 import { parseAdminIssue } from '../adminIssues';
 import { verifyGuestActionCredentialPartsAuthoritative } from '../bookings/guestCredentialVerification';
 import { parseBooking, parseInstructorCatalog } from '../bookings/bookingStore';
+import { parseGuestContact } from '../guestContact/guestContactStore';
 import { loadOpenChangeRequestsForBooking } from '../bookings/bookingChangeRequestStore';
 import { parseAttendance } from '../bookings/attendanceStore';
 import { parsePayment, parseWallet } from '../finance/financeStore';
@@ -584,6 +585,7 @@ export async function buildAdminLessonBookingReadModel(
     relatedOpenChangeRequests,
     participantSnaps,
     attendanceSnaps,
+    guestContactSnap,
   ] = await Promise.all([
     readContext.instructor(booking.occurrence.instructorId),
     readContext.payment(booking.paymentId),
@@ -604,7 +606,15 @@ export async function buildAdminLessonBookingReadModel(
         return readContext.attendance(attendanceId);
       })
     ),
+    booking.attribution.bookingOrigin === 'guest'
+      ? readContext.adminGuestContact({ kind: 'booking', bookingId: booking.bookingId })
+      : Promise.resolve(undefined),
   ]);
+  const guestContact = parseGuestContact(
+    guestContactSnap?.data() as Record<string, unknown> | undefined
+  );
+  const matchingGuestContact = guestContact?.subject.kind === 'booking' &&
+    guestContact.subject.bookingId === booking.bookingId ? guestContact : undefined;
 
   const instructorCatalog = parseInstructorCatalog(
     booking.occurrence.instructorId,
@@ -764,6 +774,9 @@ export async function buildAdminLessonBookingReadModel(
     authorizedActions: INSTRUCTOR_LESSON_DENIED_ACTIONS,
     ...lessonContentFromBooking(booking),
     admin: {
+      ...(matchingGuestContact
+        ? { guestContact: { phone: matchingGuestContact.phone, ...(matchingGuestContact.email ? { email: matchingGuestContact.email } : {}) } }
+        : {}),
       participants: participantRecords.map((participant) => ({
         participantId: participant.participantId,
         displayName: participant.displayName,

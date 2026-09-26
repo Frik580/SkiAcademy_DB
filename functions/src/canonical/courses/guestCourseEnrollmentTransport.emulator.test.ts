@@ -91,6 +91,8 @@ function guestEnrollmentAttemptEnvelope(input: {
         participant_skill_level: 'beginner',
         participant_discipline: 'ski',
         participant_age_years: '25',
+        guest_contact_phone: '+7 701 123 45 67',
+        guest_contact_email: 'course@example.com',
       },
     },
     intent: {
@@ -247,6 +249,7 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
       'courses',
       'course_enrollments',
       'participants',
+      'guest_contacts',
       'payments',
       'resource_claims',
       'resource_claim_guards',
@@ -288,6 +291,8 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
     const participant = participantSnap.data();
     expect(participantSnap.exists).toBe(true);
     expect(participant?.management?.kind).toBe('unmanaged_guest');
+    expect((await firestore.doc(`guest_contacts/course_enrollment_${enrollmentId}`).get()).data())
+      .toMatchObject({ phone: '+7 701 123 45 67', email: 'course@example.com' });
 
     const enrollmentSnap = await firestore.doc(`course_enrollments/${enrollmentId}`).get();
     const enrollment = parseCourseEnrollment(

@@ -161,6 +161,8 @@ describe('lessonBooking commands integration', () => {
         idempotencyKey: `create-guest-request:${bookingId}`,
       },
       guestDisplayName: 'Guest User',
+      guestPhone: '+7 701 123 45 67',
+      guestEmail: 'guest@example.com',
       guestSkillLevel: 'beginner',
       guestDiscipline: 'ski',
       guestAgeYears: 12,
@@ -174,6 +176,8 @@ describe('lessonBooking commands integration', () => {
       expect.objectContaining({
         kind: 'create_guest_booking_request',
         guestParticipantDisplayName: 'Guest User',
+        guestPhone: '+7 701 123 45 67',
+        guestEmail: 'guest@example.com',
         guestParticipantSkillLevel: 'beginner',
         intent: expect.objectContaining({
           difficulty: 'freeride',
@@ -213,6 +217,7 @@ describe('lessonBooking commands integration', () => {
         idempotencyKey: `create-guest-request:${bookingId}`,
       },
       guestDisplayName: 'Guest User',
+      guestPhone: '+7 701 123 45 67',
       guestSkillLevel: 'beginner',
       guestDiscipline: 'ski',
       guestAgeYears: 12,
@@ -246,6 +251,7 @@ describe('lessonBooking commands integration', () => {
           idempotencyKey: 'create-guest-request:booking_guest_create_03',
         },
         guestDisplayName: 'Guest User',
+        guestPhone: '+7 701 123 45 67',
         guestSkillLevel: 'beginner',
         guestDiscipline: 'ski',
         guestAgeYears: 12,

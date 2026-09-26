@@ -2,6 +2,9 @@ import {
   AggregateRevisionSchema,
   assertBookingPaymentIdentity,
   BookingSchema,
+  GuestContactSchema,
+  canonicalScopeFields,
+  LIVE_CANONICAL_EXECUTION_SCOPE,
   CanonicalCommandError,
   PaymentSchema,
   ResourceClaimIdentityInputSchema,
@@ -47,6 +50,7 @@ import {
   type AuthoritativeIdempotentCanonicalCommandHandler,
 } from '../commands/idempotentCommandExecution';
 import { expireGuestCourseEnrollmentReservation } from '../courses/guestCourseEnrollmentLifecycle';
+import { guestContactDetailsFromCommand, guestContactPath } from '../guestContact/guestContactStore';
 import {
   FINANCE_PLANNING_ESTIMATES,
   parsePayment,
@@ -157,6 +161,9 @@ function createGuestBookingRequestHandler(
   const paymentPathValue = paymentPath(paymentId);
   const occurrenceId = initialBookingOccurrenceIdFromBookingId(envelope.intent.bookingId);
   const participantDocumentPath = participantPath(participantId);
+  const contactSubject = { kind: 'booking' as const, bookingId: envelope.intent.bookingId };
+  const contactDetails = guestContactDetailsFromCommand(envelope);
+  const contactDocumentPath = guestContactPath(contactSubject);
   const instructorDocumentPath = instructorCatalogPath(envelope.intent.instructorId);
   const instructorBlockPath = participantBlockPath(
     participantBlockIdFromDirection({
@@ -323,6 +330,14 @@ function createGuestBookingRequestHandler(
         category: 'aggregate',
         estimatedPayloadBytes: BOOKING_PLANNING_ESTIMATES.bookingBytes,
       });
+      if (contactDetails) {
+        session.plan.planMutation({
+          path: contactDocumentPath,
+          kind: 'create',
+          category: 'aggregate',
+          estimatedPayloadBytes: 512,
+        });
+      }
       session.plan.planMutation({
         path: paymentPathValue,
         kind: 'create',
@@ -344,6 +359,15 @@ function createGuestBookingRequestHandler(
       const decidedAt = timestampFromDate(context.decidedAt);
       const audit = revisionAuditLink(envelope, metadata);
       const partyParticipantIds = [participantId];
+
+      if (contactDetails) {
+        session.tx.create({ path: contactDocumentPath }, GuestContactSchema.parse({
+          subject: contactSubject,
+          ...contactDetails,
+          ...canonicalScopeFields(session.scope ?? LIVE_CANONICAL_EXECUTION_SCOPE),
+          createdAt: decidedAt,
+        }) as Record<string, unknown>);
+      }
 
       if (shouldCreateGuestParticipant) {
         const participant: Participant = {

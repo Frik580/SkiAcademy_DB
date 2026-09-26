@@ -146,6 +146,10 @@ function guestCreateEnvelope(
     idempotencyKey,
     correlationId,
     source: 'guest_callable' as const,
+    transportMetadata: {
+      guest_contact_phone: '+7 701 123 45 67',
+      guest_contact_email: 'course@example.com',
+    },
     calendarInput: {
       localDate: '2026-02-01',
       localTime: '09:00',
@@ -223,6 +227,11 @@ describe('link_guest_course_enrollment_to_account command', () => {
     const createEnvelope = guestCreateEnvelope('guest-link-unit-create');
     const createResult = await commands.execute(createEnvelope);
     expect(createResult.status).toBe('success');
+    expect(executor.snapshot().docs.get(
+      `guest_contacts/course_enrollment_${createEnvelope.intent.enrollmentIds![0]}`
+    )?.data).toMatchObject({
+      phone: '+7 701 123 45 67', email: 'course@example.com',
+    });
     if (createResult.status !== 'success') {
       return;
     }

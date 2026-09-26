@@ -44,6 +44,7 @@ import { parseAccount, parseParticipant } from '../participantAccess/participant
 import { parseCourse } from '../courses/courseStore';
 import { parseCourseDays } from '../courses/courseStore';
 import { parseCourseEnrollment } from '../courses/courseEnrollmentStore';
+import { parseGuestContact } from '../guestContact/guestContactStore';
 import { parseAttendance } from '../bookings/attendanceStore';
 import {
   createReadModelRequestContext,
@@ -453,12 +454,20 @@ async function buildAdminCourseEnrollmentItem(
     }
   | undefined
 > {
-  const [courseSnapshot, participantSnapshot, paymentSnapshot, issues] = await Promise.all([
+  const [courseSnapshot, participantSnapshot, paymentSnapshot, issues, guestContactSnapshot] = await Promise.all([
     readContext.course(enrollment.courseId),
     readContext.participant(enrollment.participantId),
     readContext.payment(enrollment.paymentId),
     loadRelatedIssues(firestore, enrollment, readContext.readScope),
+    enrollment.attribution.bookingOrigin === 'guest'
+      ? readContext.adminGuestContact({ kind: 'course_enrollment', enrollmentId: enrollment.enrollmentId })
+      : Promise.resolve(undefined),
   ]);
+  const guestContact = parseGuestContact(
+    guestContactSnapshot?.data() as Record<string, unknown> | undefined
+  );
+  const matchingGuestContact = guestContact?.subject.kind === 'course_enrollment' &&
+    guestContact.subject.enrollmentId === enrollment.enrollmentId ? guestContact : undefined;
   const course = parseCourse(courseSnapshot.data() as Record<string, unknown> | undefined);
   const participant = parseParticipant(
     participantSnapshot.data() as Record<string, unknown> | undefined
@@ -523,6 +532,9 @@ async function buildAdminCourseEnrollmentItem(
   );
 
   const item: AdminCourseEnrollmentRosterItem = {
+    ...(matchingGuestContact
+      ? { guestContact: { phone: matchingGuestContact.phone, ...(matchingGuestContact.email ? { email: matchingGuestContact.email } : {}) } }
+      : {}),
     enrollmentId: enrollment.enrollmentId,
     revision: enrollment.revision,
     course: {

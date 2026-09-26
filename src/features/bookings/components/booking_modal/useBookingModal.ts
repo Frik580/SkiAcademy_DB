@@ -451,6 +451,8 @@ export const useBookingModal = ({
           idempotencyKey: deriveGuestCreateIdempotencyKey(bookingId),
         },
         guestDisplayName: guestName.trim(),
+        guestPhone: guestPhone.trim(),
+        guestEmail: guestEmail.trim() || undefined,
         guestSkillLevel: difficulty,
         guestDiscipline: 'ski',
         guestAgeYears: 25,

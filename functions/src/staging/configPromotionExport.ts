@@ -59,6 +59,7 @@ export const PROMOTION_EXCLUDED_COLLECTIONS = [
   'instructor_relationships',
   'participant_blocks',
   'bookings',
+  'guest_contacts',
   'instructor_reviews',
   'instructor_rating_summaries',
   'participant_progress',

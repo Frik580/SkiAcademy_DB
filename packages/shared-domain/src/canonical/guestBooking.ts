@@ -213,6 +213,11 @@ export const GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS = {
   ageYears: 'participant_age_years',
 } as const;
 
+export const GUEST_CONTACT_TRANSPORT_METADATA_KEYS = {
+  phone: 'guest_contact_phone',
+  email: 'guest_contact_email',
+} as const;
+
 export const GuestParticipantProfileFromTransportSchema = z
   .object({
     displayName: z.string().trim().min(1).max(200),

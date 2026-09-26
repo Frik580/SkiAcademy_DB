@@ -49,6 +49,8 @@ export interface GuestCanonicalCommandSubmission<Kind extends CommandKind> {
   readonly guestParticipantSkillLevel?: string;
   readonly guestParticipantDiscipline?: 'ski' | 'snowboard';
   readonly guestParticipantAgeYears?: number;
+  readonly guestPhone?: string;
+  readonly guestEmail?: string;
 }
 
 function createCorrelationId(): string {
@@ -159,6 +161,8 @@ export async function executeGuestCanonicalCommand<Kind extends CommandKind>(
     ...(submission.guestParticipantAgeYears !== undefined
       ? { guestParticipantAgeYears: submission.guestParticipantAgeYears }
       : {}),
+    ...(submission.guestPhone ? { guestPhone: submission.guestPhone } : {}),
+    ...(submission.guestEmail ? { guestEmail: submission.guestEmail } : {}),
   };
 
   try {

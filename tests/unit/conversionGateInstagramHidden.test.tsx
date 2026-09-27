@@ -10,26 +10,14 @@ vi.mock('../../src/features/landing/conversionGateCopy', async (importOriginal) 
   };
 });
 
-import {
-  ConversionGateBookBesideNote,
-  ConversionGateInstagramCta,
-  ConversionGateStickyInstagram,
-} from '../../src/features/landing/ConversionGateInstagramCta';
+import { ConversionGateInstagramCta } from '../../src/features/landing/ConversionGateInstagramCta';
 
 describe('Instagram CTA when the URL is null', () => {
-  it('renders no contact link, sticky prompt, or beside-book note', () => {
-    render(
-      <>
-        <ConversionGateInstagramCta language="ru" placement="header" />
-        <ConversionGateStickyInstagram language="ru" />
-        <ConversionGateBookBesideNote language="ru" />
-      </>
-    );
+  it('renders no contact link', () => {
+    render(<ConversionGateInstagramCta language="ru" placement="header" />);
 
     expect(screen.queryByRole('link')).toBeNull();
     expect(screen.queryByTestId('conversion-gate-instagram-header')).toBeNull();
-    expect(screen.queryByTestId('conversion-gate-instagram-sticky')).toBeNull();
-    expect(screen.queryByTestId('conversion-gate-book-beside')).toBeNull();
     expect(screen.queryByText('Написать в Instagram')).toBeNull();
   });
 });

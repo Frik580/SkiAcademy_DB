@@ -9,44 +9,15 @@ export const INSTAGRAM_URL: string | null = 'https://www.instagram.com/carve_aca
 export const PUBLIC_STOREFRONT_REVIEW_MIN = 1;
 
 export interface ConversionGateStrings {
-  heroHeadline: string;
-  heroSubline: string;
-  startingPrice: string;
-  /** Exact optional chip. English was not supplied. */
-  courseBadge: string | null;
   contactLabel: string;
-  /** Sticky prompt. English was not supplied. */
-  stickyPrompt: string | null;
-  /** Caption beside the on-site book action when Instagram is the primary CTA. English was not supplied. */
-  bookBeside: string | null;
-  /** Hero secondary: on-site path to the instructor list. */
-  heroSecondary: string;
-  /** Instructor-card booking action. */
-  bookAction: string;
 }
 
 const COPY: Record<Language, ConversionGateStrings> = {
   ru: {
-    heroHeadline: 'Индивидуальные уроки на Шымбулаке',
-    heroSubline: 'Лыжи и сноуборд · техника, прогресс и видеоразбор · Алматы',
-    startingPrice: 'от 25 000 ₸/час',
-    courseBadge: 'Шымбулак · Алматы · уроки от 25 000 ₸/час · курсы от 250 000 ₸',
     contactLabel: 'Написать в Instagram',
-    stickyPrompt: 'Есть вопросы? Напишите в Instagram',
-    bookBeside: 'Или забронировать онлайн',
-    heroSecondary: 'Выбрать инструктора',
-    bookAction: 'Забронировать',
   },
   en: {
-    heroHeadline: 'Private ski & snowboard lessons at Shymbulak',
-    heroSubline: 'Technique, progress tracking and video analysis · Almaty',
-    startingPrice: 'from 25,000 ₸/hour',
-    courseBadge: null,
     contactLabel: 'Message on Instagram',
-    stickyPrompt: null,
-    bookBeside: null,
-    heroSecondary: 'Choose instructor',
-    bookAction: 'Book a lesson',
   },
 };
 

@@ -9,11 +9,5 @@ export {
   countVerifiedInstructorReviews,
   isPublicStorefrontReviewVisible,
 } from './conversionGatePrice';
-export { ConversionGateHeroCopy } from './ConversionGateHeroCopy';
-export { ConversionGateReviews } from './ConversionGateReviews';
-export {
-  ConversionGateBookBesideNote,
-  ConversionGateInstagramCta,
-  ConversionGateStickyInstagram,
-} from './ConversionGateInstagramCta';
+export { ConversionGateInstagramCta } from './ConversionGateInstagramCta';
 export type { ConversionGateInstagramPlacement } from './ConversionGateInstagramCta';

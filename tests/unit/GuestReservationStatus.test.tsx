@@ -26,6 +26,7 @@ function show(overrides: Partial<Parameters<typeof GuestReservationStatus>[0]> =
       onRefresh={onRefresh}
       refreshing={false}
       refreshError={false}
+      statusHydrated
       onClose={onClose}
       {...overrides}
     />
@@ -80,6 +81,20 @@ describe('guest reservation status', () => {
     expect(screen.getByText('Course place hold expired')).toBeInTheDocument();
     expect(screen.queryByText(/administrator will contact/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Booking price:/)).not.toBeInTheDocument();
+  });
+
+  it('shows a generic cancellation for a different canonical reason', () => {
+    show({ lifecycleStatus: 'cancelled', reasonCode: 'administrator_cancelled' });
+    expect(screen.getByText('Reservation cancelled')).toBeInTheDocument();
+    expect(screen.queryByText('Reservation expired')).not.toBeInTheDocument();
+  });
+
+  it('offers a new booking for a terminal request', () => {
+    const onNewBooking = vi.fn();
+    show({ lifecycleStatus: 'cancelled', reasonCode: 'reservation_expired', onNewBooking });
+    fireEvent.click(screen.getByRole('button', { name: 'New booking' }));
+    expect(onNewBooking).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('button', { name: 'Check status' })).not.toBeInTheDocument();
   });
 
   it('preserves the state and reports a neutral refresh error', () => {

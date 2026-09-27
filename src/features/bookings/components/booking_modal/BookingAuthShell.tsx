@@ -13,7 +13,7 @@ interface BookingAuthShellProps {
 }
 
 export const BookingAuthShell: React.FC<BookingAuthShellProps> = ({ workspace }) => {
-  const { targetInstructor, t, onClose, unauthTab, setUnauthTab, onAuthSuccess } = workspace;
+  const { targetInstructor, t, unauthTab, setUnauthTab, onAuthSuccess } = workspace;
 
   if (!targetInstructor) return null;
 
@@ -30,7 +30,11 @@ export const BookingAuthShell: React.FC<BookingAuthShellProps> = ({ workspace })
       aria-label={t('bookLessonWith')}
       onClick={(e) => e.stopPropagation()}
     >
-      <BookingModalHeader targetInstructor={targetInstructor} t={t} onClose={onClose} />
+      <BookingModalHeader
+        targetInstructor={targetInstructor}
+        t={t}
+        onClose={workspace.closeGuestStatus}
+      />
 
       {!workspace.guestCreatedBookingId && (
         <div className="px-4 py-2 border-b border-[var(--border)] bg-black/5 dark:bg-white/5 shrink-0">
@@ -57,7 +61,8 @@ export const BookingAuthShell: React.FC<BookingAuthShellProps> = ({ workspace })
             refreshing={workspace.guestRefreshing}
             refreshError={workspace.guestRefreshError}
             statusHydrated={Boolean(workspace.guestReservation)}
-            onClose={onClose}
+            onClose={workspace.closeGuestStatus}
+            onNewBooking={workspace.startNewGuestBooking}
           />
         ) : unauthTab === 'auth' ? (
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">

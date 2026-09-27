@@ -15,6 +15,7 @@ interface GuestReservationStatusProps {
   /** True when lifecycle/payment details came from a successful read-model fetch. */
   statusHydrated: boolean;
   onClose: () => void;
+  onNewBooking?: () => void;
 }
 
 export function GuestReservationStatus({
@@ -30,17 +31,13 @@ export function GuestReservationStatus({
   refreshError,
   statusHydrated,
   onClose,
+  onNewBooking,
 }: GuestReservationStatusProps) {
   const locale = language === 'ru' ? 'ru-RU' : 'en-US';
   const deadline =
     reservationExpiresAt &&
     new Date(reservationExpiresAt.seconds * 1000 + reservationExpiresAt.nanoseconds / 1_000_000);
-  const expired =
-    (lifecycleStatus === 'cancelled' && reasonCode === 'reservation_expired') ||
-    (lifecycleStatus === 'pending' &&
-      !payment?.paymentSatisfied &&
-      deadline != null &&
-      deadline.getTime() <= Date.now());
+  const expired = lifecycleStatus === 'cancelled' && reasonCode === 'reservation_expired';
   const confirmed = lifecycleStatus === 'confirmed';
   const cancelled = lifecycleStatus === 'cancelled';
   const createdWithoutStatusDetails =
@@ -129,14 +126,20 @@ export function GuestReservationStatus({
         <p className="text-sm text-rose-600">{t('guestStatusRefreshFailed')}</p>
       )}
       <div className="mt-auto flex flex-wrap gap-2 pt-3">
-        <button
-          type="button"
-          onClick={onRefresh}
-          disabled={refreshing}
-          className="btn-secondary px-4 py-2 text-sm"
-        >
-          {refreshing ? t('processing') : t('guestCheckStatus')}
-        </button>
+        {cancelled && onNewBooking ? (
+          <button type="button" onClick={onNewBooking} className="btn-secondary px-4 py-2 text-sm">
+            {t('guestNewBooking')}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={refreshing}
+            className="btn-secondary px-4 py-2 text-sm"
+          >
+            {refreshing ? t('processing') : t('guestCheckStatus')}
+          </button>
+        )}
         <button type="button" onClick={onClose} className="btn-primary px-4 py-2 text-sm">
           {t('closeBtn')}
         </button>

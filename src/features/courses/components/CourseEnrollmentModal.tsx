@@ -26,6 +26,8 @@ import type { AuthenticatedCourseEnrollmentSelection } from '../useCourseActions
 import { ParticipantPicker } from '../../participants/components/ParticipantPicker';
 import { GuestReservationStatus } from '../../guest-reservations/GuestReservationStatus';
 import {
+  forgetGuestReservation,
+  isUnusableGuestReservationError,
   rememberGuestReservation,
   rememberedGuestReservation,
 } from '../../guest-reservations/guestReservationLookup';
@@ -79,6 +81,8 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
     useState<Awaited<ReturnType<typeof loadGuestSingleCourseEnrollment>>>();
   const [guestRefreshError, setGuestRefreshError] = useState(false);
   const [guestRefreshing, setGuestRefreshing] = useState(false);
+  const [guestLookupError, setGuestLookupError] = useState<'stale' | 'recoverable' | null>(null);
+  const guestLookupInFlightRef = useRef(false);
   const isSubmittingRef = useRef(false);
   const guestEnrollmentAttemptKeyRef = useRef<string | null>(null);
 
@@ -121,6 +125,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
       setGuestCreatedEnrollmentId(null);
       setGuestReservation(undefined);
       setGuestRefreshError(false);
+      setGuestLookupError(null);
       setUnauthTab(userProfile ? 'auth' : 'guest');
     }
   }, [course?.id, isOpen, userProfile]);
@@ -220,14 +225,41 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
     ? (rememberedGuestReservation('course', course.id) ?? guestActiveEnrollment?.enrollmentId)
     : null;
   const checkPreviousGuestStatus = async () => {
-    if (!previousGuestEnrollmentId) return;
+    if (!previousGuestEnrollmentId || guestLookupInFlightRef.current) return;
+    guestLookupInFlightRef.current = true;
+    setGuestRefreshing(true);
+    setGuestLookupError(null);
     try {
       setGuestReservation(await loadGuestSingleCourseEnrollment(previousGuestEnrollmentId));
       setGuestCreatedEnrollmentId(previousGuestEnrollmentId);
       setGuestRefreshError(false);
-    } catch {
-      addNotification('error', t('guestStatusRefreshFailed'), t('guestStatusRefreshFailed'));
+    } catch (error) {
+      if (isUnusableGuestReservationError(error)) {
+        forgetGuestReservation('course', course.id, previousGuestEnrollmentId);
+        setGuestLookupError('stale');
+      } else {
+        setGuestLookupError('recoverable');
+      }
+    } finally {
+      guestLookupInFlightRef.current = false;
+      setGuestRefreshing(false);
     }
+  };
+
+  const closeGuestStatus = () => {
+    if (guestReservation?.lifecycle.status === 'cancelled') {
+      forgetGuestReservation('course', course.id, guestCreatedEnrollmentId ?? undefined);
+    }
+    onClose();
+  };
+
+  const startNewGuestBooking = () => {
+    forgetGuestReservation('course', course.id, guestCreatedEnrollmentId ?? undefined);
+    guestEnrollmentAttemptKeyRef.current = null;
+    setGuestCreatedEnrollmentId(null);
+    setGuestReservation(undefined);
+    setGuestRefreshError(false);
+    setGuestLookupError(null);
   };
 
   const handleSubmitAuthenticated = async (e: React.FormEvent) => {
@@ -285,7 +317,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={onClose}
+            onClick={closeGuestStatus}
             className="ui-modal-overlay fixed inset-0 h-[100dvh] w-screen max-w-none !rounded-none border-0"
             aria-hidden="true"
           />
@@ -323,7 +355,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                 </div>
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={closeGuestStatus}
                   className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-[var(--ink-dim)] hover:text-[var(--ink)] cursor-pointer z-10"
                 >
                   <X className="w-5 h-5" />
@@ -359,7 +391,8 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                     refreshing={guestRefreshing}
                     refreshError={guestRefreshError}
                     statusHydrated={Boolean(guestReservation)}
-                    onClose={onClose}
+                    onClose={closeGuestStatus}
+                    onNewBooking={startNewGuestBooking}
                   />
                 ) : showAuthenticatedEnrollment ? (
                   <form onSubmit={handleSubmitAuthenticated} className="space-y-4">
@@ -443,10 +476,20 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                       <button
                         type="button"
                         onClick={() => void checkPreviousGuestStatus()}
+                        disabled={guestRefreshing}
                         className="btn-secondary w-full px-4 py-2 text-sm"
                       >
-                        {t('guestCheckPreviousStatus')}
+                        {guestRefreshing ? t('processing') : t('guestCheckPreviousStatus')}
                       </button>
+                    )}
+                    {guestLookupError && (
+                      <p role="status" className="text-sm text-[var(--ink)]">
+                        {t(
+                          guestLookupError === 'stale'
+                            ? 'guestPreviousUnavailable'
+                            : 'guestStatusRefreshFailed'
+                        )}
+                      </p>
                     )}
                     <div className="p-3 bg-[var(--accent-muted)] border border-[var(--border)] text-xs text-[var(--ink)] leading-relaxed rounded-none rounded-[var(--radius-md)]">
                       💡 {t('guestBookingNotice')}

@@ -16,6 +16,10 @@ import {
   deriveGuestParticipantIdForEnrollment,
 } from '../../src/features/course-enrollments/deriveEnrollmentIds';
 import { guestSubjectIdFromCourseEnrollmentId } from '@ski-academy/shared-domain';
+import {
+  forgetGuestReservation,
+  rememberGuestReservation,
+} from '../../src/features/guest-reservations/guestReservationLookup';
 
 const readModelFixture: CourseEnrollmentReadModel = {
   enrollmentId: 'enrollment_vm_fixture_01',
@@ -194,5 +198,8 @@ describe('courseEnrollmentViewModel', () => {
     );
     expect(selectActiveGuestCourseEnrollment([cancelled], 'course_vm_fixture_01')).toBeUndefined();
     expect(selectActiveGuestCourseEnrollment([pending], 'course_other')).toBeUndefined();
+    rememberGuestReservation('course', 'course_vm_fixture_01', pending.enrollmentId);
+    forgetGuestReservation('course', 'course_vm_fixture_01');
+    expect(selectActiveGuestCourseEnrollment([pending], 'course_vm_fixture_01')).toBeUndefined();
   });
 });

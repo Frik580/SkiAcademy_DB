@@ -37,11 +37,13 @@ vi.mock('canvas-confetti', () => ({ default: mocks.confetti }));
 vi.mock('../../src/app/providers/LanguageContext', () => ({
   useLanguage: () => ({
     t: (key: string) =>
-      ({
-        guestCourseHoldUntil: 'Your place on the course is temporarily held until {deadline}.',
-        guestCoursePrice: 'Course price: {amount}.',
-        guestAdminContactPayment: 'An administrator will contact you to arrange payment.',
-      } as Record<string, string>)[key] ?? key,
+      (
+        ({
+          guestCourseHoldUntil: 'Your place on the course is temporarily held until {deadline}.',
+          guestCoursePrice: 'Course price: {amount}.',
+          guestAdminContactPayment: 'An administrator will contact you to arrange payment.',
+        }) as Record<string, string>
+      )[key] ?? key,
     language: 'en',
   }),
   getGroupCourseLabel: (title: string) => title,
@@ -523,6 +525,27 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     fireEvent.click(screen.getByRole('button', { name: 'guestCheckPreviousStatus' }));
     await waitFor(() => expect(screen.getByText('guestCourseExpiredTitle')).toBeInTheDocument());
     expect(screen.queryByText('guestAdminContactPayment')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'guestNewBooking' }));
+    expect(
+      screen.getByRole('button', { name: /submitGuestCourseApplication/i })
+    ).toBeInTheDocument();
+    expect(localStorage.getItem('ski_academy_guest_reservation:course:course_01')).toBeNull();
+  });
+
+  it('clears an unusable saved course request and leaves the form available', async () => {
+    const key = 'ski_academy_guest_reservation:course:course_01';
+    localStorage.setItem(key, 'attempt_01');
+    mocks.loadGuestSingleCourseEnrollment.mockRejectedValueOnce(new Error('expired'));
+    render(<CourseEnrollmentModal isOpen onClose={vi.fn()} course={course} onEnroll={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'guestCheckPreviousStatus' }));
+    await waitFor(() => expect(screen.getByText('guestPreviousUnavailable')).toBeInTheDocument());
+    expect(
+      screen.queryByRole('button', { name: 'guestCheckPreviousStatus' })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /submitGuestCourseApplication/i })
+    ).toBeInTheDocument();
+    expect(localStorage.getItem(key)).toBeNull();
   });
 
   it('keeps a card-initiated quota error in the guest form and off other cards', async () => {

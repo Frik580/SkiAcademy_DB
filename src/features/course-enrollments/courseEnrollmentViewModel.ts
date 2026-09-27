@@ -5,6 +5,7 @@ import type {
   QueryCourseEnrollmentReadModelsResult,
 } from '@ski-academy/shared-domain';
 import { canonicalTimestampToLocalParts } from '../lesson-bookings/mapCalendarInput';
+import { wasGuestReservationForgotten } from '../guest-reservations/guestReservationLookup';
 import { useCourseEnrollmentStore } from './courseEnrollmentStore';
 import type {
   CourseCatalogOperationalState,
@@ -107,6 +108,7 @@ export function selectActiveGuestCourseEnrollment(
     (enrollment) =>
       enrollment.courseId === courseId &&
       enrollment.bookingOrigin === 'guest' &&
+      !wasGuestReservationForgotten('course', courseId, enrollment.enrollmentId) &&
       isActiveCourseEnrollmentLifecycle(enrollment.lifecycleStatus)
   );
 }

@@ -45,6 +45,8 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
     handleSubmitGuest,
     checkPreviousGuestStatus,
     previousGuestReservationId,
+    guestRefreshing,
+    guestLookupError,
   } = workspace;
 
   const fieldClass =
@@ -65,10 +67,18 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
           <button
             type="button"
             onClick={() => void checkPreviousGuestStatus()}
+            disabled={guestRefreshing}
             className="btn-secondary w-full px-4 py-2 text-sm"
           >
-            {t('guestCheckPreviousStatus')}
+            {guestRefreshing ? t('processing') : t('guestCheckPreviousStatus')}
           </button>
+        )}
+        {guestLookupError && (
+          <p role="status" className="text-sm text-[var(--ink)]">
+            {t(
+              guestLookupError === 'stale' ? 'guestPreviousUnavailable' : 'guestStatusRefreshFailed'
+            )}
+          </p>
         )}
         <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--accent-muted)] p-3 text-xs leading-relaxed text-[var(--ink)]">
           {t('guestBookingNotice')}

@@ -53,6 +53,8 @@ import {
 import { resolveEffectiveParticipantIds } from './authBookingState';
 import { toggleParticipantSelection } from '../../../participants/participantSelectionState';
 import {
+  forgetGuestReservation,
+  isUnusableGuestReservationError,
   rememberGuestReservation,
   rememberedGuestReservation,
 } from '../../../guest-reservations/guestReservationLookup';
@@ -112,6 +114,8 @@ export const useBookingModal = ({
   const [guestReservation, setGuestReservation] = useState<LessonBookingReadModel>();
   const [guestRefreshError, setGuestRefreshError] = useState(false);
   const [guestRefreshing, setGuestRefreshing] = useState(false);
+  const [guestLookupError, setGuestLookupError] = useState<'stale' | 'recoverable' | null>(null);
+  const guestLookupInFlightRef = useRef(false);
   const isSubmittingRef = useRef<boolean>(false);
   const submitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bookingAttemptIdRef = useRef<string | null>(null);
@@ -123,6 +127,7 @@ export const useBookingModal = ({
       setGuestCreatedBookingId(null);
       setGuestReservation(undefined);
       setGuestRefreshError(false);
+      setGuestLookupError(null);
       setSelectedParticipantIds([]);
       setUnauthTab('guest');
       setGuestName('');
@@ -520,17 +525,46 @@ export const useBookingModal = ({
   };
 
   const checkPreviousGuestStatus = async () => {
-    if (!targetInstructor) return;
+    if (!targetInstructor || guestLookupInFlightRef.current) return;
     const bookingId = rememberedGuestReservation('lesson', targetInstructor.id);
     if (!bookingId) return;
+    guestLookupInFlightRef.current = true;
+    setGuestRefreshing(true);
+    setGuestLookupError(null);
     try {
       const reservation = await loadGuestSingleLessonBooking(bookingId);
       setGuestReservation(reservation);
       setGuestCreatedBookingId(bookingId);
       setGuestRefreshError(false);
-    } catch {
-      addNotification('error', t('guestStatusRefreshFailed'), t('guestStatusRefreshFailed'));
+    } catch (error) {
+      if (isUnusableGuestReservationError(error)) {
+        forgetGuestReservation('lesson', targetInstructor.id, bookingId);
+        setGuestLookupError('stale');
+      } else {
+        setGuestLookupError('recoverable');
+      }
+    } finally {
+      guestLookupInFlightRef.current = false;
+      setGuestRefreshing(false);
     }
+  };
+
+  const closeGuestStatus = () => {
+    if (guestReservation?.lifecycle.status === 'cancelled' && targetInstructor) {
+      forgetGuestReservation('lesson', targetInstructor.id, guestCreatedBookingId ?? undefined);
+    }
+    onClose();
+  };
+
+  const startNewGuestBooking = () => {
+    if (targetInstructor) {
+      forgetGuestReservation('lesson', targetInstructor.id, guestCreatedBookingId ?? undefined);
+    }
+    bookingAttemptIdRef.current = null;
+    setGuestCreatedBookingId(null);
+    setGuestReservation(undefined);
+    setGuestRefreshError(false);
+    setGuestLookupError(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -661,7 +695,7 @@ export const useBookingModal = ({
     t,
     language,
     isOpen,
-    onClose,
+    onClose: closeGuestStatus,
     targetInstructor,
     userProfile,
     onAuthSuccess,
@@ -681,8 +715,11 @@ export const useBookingModal = ({
     guestReservation,
     guestRefreshError,
     guestRefreshing,
+    guestLookupError,
     refreshGuestStatus,
     checkPreviousGuestStatus,
+    closeGuestStatus,
+    startNewGuestBooking,
     previousGuestReservationId: targetInstructor
       ? rememberedGuestReservation('lesson', targetInstructor.id)
       : null,

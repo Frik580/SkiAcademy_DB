@@ -13,30 +13,13 @@ import {
 import { readRepoFile } from '../helpers/readRepoFile';
 
 describe('conversion gate copy', () => {
-  it('uses the landed Russian and English strings exactly', () => {
-    expect(getConversionGateCopy('ru')).toMatchObject({
-      heroHeadline: 'Индивидуальные уроки на Шымбулаке',
-      heroSubline: 'Лыжи и сноуборд · техника, прогресс и видеоразбор · Алматы',
-      startingPrice: 'от 25 000 ₸/час',
-      courseBadge: 'Шымбулак · Алматы · уроки от 25 000 ₸/час · курсы от 250 000 ₸',
+  it('uses the Instagram contact labels exactly', () => {
+    expect(getConversionGateCopy('ru')).toEqual({
       contactLabel: 'Написать в Instagram',
-      stickyPrompt: 'Есть вопросы? Напишите в Instagram',
-      bookBeside: 'Или забронировать онлайн',
-      heroSecondary: 'Выбрать инструктора',
-      bookAction: 'Забронировать',
     });
-    expect(getConversionGateCopy('en')).toMatchObject({
-      heroHeadline: 'Private ski & snowboard lessons at Shymbulak',
-      heroSubline: 'Technique, progress tracking and video analysis · Almaty',
-      startingPrice: 'from 25,000 ₸/hour',
+    expect(getConversionGateCopy('en')).toEqual({
       contactLabel: 'Message on Instagram',
-      stickyPrompt: null,
-      bookBeside: null,
-      heroSecondary: 'Choose instructor',
-      bookAction: 'Book a lesson',
     });
-    expect(getConversionGateCopy('ru').startingPrice).not.toContain('30 000');
-    expect(getConversionGateCopy('en').courseBadge).toBeNull();
   });
 
   it('uses the confirmed public Instagram profile', () => {
@@ -61,16 +44,42 @@ describe('conversion gate copy', () => {
     expect(resolveInstagramHref('https://ig.me/m/example')).toBe('https://ig.me/m/example');
   });
 
-  it('does not keep a public WhatsApp control', () => {
+  it('keeps Instagram on the guest navbar and off the hero, cards, and home reviews section', () => {
     const copy = readRepoFile('src/features/landing/conversionGateCopy.ts');
     const cta = readRepoFile('src/features/landing/ConversionGateInstagramCta.tsx');
+    const navbar = readRepoFile('src/app/components/Navbar.tsx');
+    const hero = readRepoFile('src/app/components/HeroCarousel.tsx');
+    const card = readRepoFile('src/features/profile/components/InstructorCard.tsx');
+    const courseCard = readRepoFile('src/features/courses/components/GroupCourseCard.tsx');
+    const enroll = readRepoFile(
+      'src/features/courses/components/course_details/CourseEnrollAction.tsx'
+    );
+    const home = readRepoFile('src/app/routes/HomeRouteContainer.tsx');
+
     expect(copy).not.toMatch(/WHATSAPP_URL|wa\.me|Написать в WhatsApp/);
     expect(cta).toContain('if (!href) return null');
     expect(cta).toContain('target="_blank"');
     expect(cta).toContain('rel="noopener noreferrer"');
     expect(cta).not.toContain('instagram_contact_click');
-    const card = readRepoFile('src/features/profile/components/InstructorCard.tsx');
-    expect(card).toContain('getConversionGateCopy(language).bookAction');
+    expect(cta).not.toContain('ConversionGateStickyInstagram');
+    expect(cta).not.toContain('ConversionGateBookBesideNote');
+
+    expect(navbar).toContain('placement="header"');
+    expect(navbar).toContain('placement="header-menu"');
+    expect(navbar).not.toContain('ConversionGateStickyInstagram');
+
+    expect(hero).toContain("t('startYourJourney')");
+    expect(hero).toContain("t('chooseCourse')");
+    expect(hero).not.toContain('ConversionGateHeroCopy');
+    expect(hero).not.toContain('INSTAGRAM');
+
+    expect(card).toContain('isPublicStorefrontReviewVisible');
+    expect(card).toContain("t('bookNow')");
+    expect(card).not.toContain('ConversionGateInstagramCta');
+
+    expect(courseCard).not.toContain('ConversionGateInstagramCta');
+    expect(enroll).not.toContain('ConversionGateInstagramCta');
+    expect(home).not.toContain('ConversionGateReviews');
   });
 });
 

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { HeroCarousel } from '../../src/app/components/HeroCarousel';
 import { ConversionGateInstagramCta } from '../../src/features/landing';
@@ -40,7 +40,8 @@ const slide = (): CustomHeroSlide => ({
 });
 
 describe('HeroCarousel conversion gate', () => {
-  it('shows the landed Russian hero copy and the Instagram contact CTA', () => {
+  it('shows the slide copy and the original on-site hero actions', () => {
+    const onScrollToSection = vi.fn();
     render(
       <HeroCarousel
         data={{
@@ -49,32 +50,23 @@ describe('HeroCarousel conversion gate', () => {
           language: 'ru',
           theme: 'light',
         }}
-        actions={{ onScrollToSection: vi.fn() }}
+        actions={{ onScrollToSection }}
       />
     );
 
-    expect(screen.getByTestId('conversion-gate-headline')).toHaveTextContent(
-      'Индивидуальные уроки на Шымбулаке'
-    );
-    expect(screen.getByTestId('conversion-gate-subline')).toHaveTextContent(
-      'Лыжи и сноуборд · техника, прогресс и видеоразбор · Алматы'
-    );
-    expect(screen.getByTestId('conversion-gate-price')).toHaveTextContent('от 25 000 ₸/час');
-    expect(screen.getByTestId('conversion-gate-course')).toHaveTextContent('курсы от 250 000 ₸');
-    expect(screen.getByTestId('conversion-gate-hero-secondary')).toHaveTextContent(
-      'Выбрать инструктора'
-    );
-    const instagram = screen.getByTestId('conversion-gate-instagram-hero');
-    expect(instagram).toHaveAttribute('href', 'https://www.instagram.com/carve_academy');
-    expect(instagram).toHaveAttribute('target', '_blank');
-    expect(instagram).toHaveAttribute('rel', 'noopener noreferrer');
-    expect(instagram).toHaveTextContent('Написать в Instagram');
-    expect(screen.getByTestId('conversion-gate-book-beside')).toHaveTextContent(
-      'Или забронировать онлайн'
-    );
+    expect(screen.getByText('Надзаголовок')).toBeInTheDocument();
+    expect(screen.getByText('Заголовок')).toBeInTheDocument();
+    expect(screen.queryByTestId('conversion-gate-headline')).toBeNull();
+    expect(screen.queryByTestId('conversion-gate-price')).toBeNull();
+    expect(screen.queryByTestId('conversion-gate-course')).toBeNull();
+    expect(screen.queryByTestId('conversion-gate-instagram-hero')).toBeNull();
     expect(screen.queryByText(/WhatsApp/)).toBeNull();
-    expect(screen.queryByText(/от 30 000/)).toBeNull();
-    expect(screen.queryByText(/Отзывов пока нет|0 отзывов|No reviews yet/i)).toBeNull();
+    expect(screen.queryByText(/от 25 000|от 30 000/)).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'startYourJourney' }));
+    fireEvent.click(screen.getByRole('button', { name: 'chooseCourse' }));
+    expect(onScrollToSection).toHaveBeenNthCalledWith(1, 'coaches-grid');
+    expect(onScrollToSection).toHaveBeenNthCalledWith(2, 'courses-grid');
   });
 
   it('renders the shared Instagram CTA with the confirmed href and labels', () => {

@@ -14,7 +14,9 @@ import {
   GuestBookingActionCredentialSchema,
   type GuestBookingActionCredential,
 } from '@ski-academy/shared-domain';
+import { runPostCreateRefresh } from '../../lib/canonical/runPostCreateRefresh';
 import type {
+  AuthenticatedLessonBookingCommandResult,
   AuthenticatedLessonBookingInput,
   GuestLessonBookingInput,
 } from './lessonBookingContracts';
@@ -98,7 +100,9 @@ export function useLessonBookingCommands(
   );
 
   const createAuthenticatedBooking = useCallback(
-    async (input: AuthenticatedLessonBookingInput): Promise<void> => {
+    async (
+      input: AuthenticatedLessonBookingInput
+    ): Promise<AuthenticatedLessonBookingCommandResult> => {
       if (!accountId) {
         throw new Error('Authentication is required.');
       }
@@ -125,7 +129,7 @@ export function useLessonBookingCommands(
       });
       const error = mapCanonicalCommandResultError(result);
       if (error) throw error;
-      await refreshAfterCommand();
+      return runPostCreateRefresh(refreshAfterCommand, 'booking_created_refresh_failed');
     },
     [accountId, refreshAfterCommand]
   );

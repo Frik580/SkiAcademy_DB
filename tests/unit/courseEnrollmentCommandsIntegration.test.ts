@@ -66,6 +66,31 @@ describe('courseEnrollment commands integration', () => {
     expect(queryCatalogMock).toHaveBeenCalledWith({ scope: 'product' });
   });
 
+  it('keeps authenticated enrollment successful when post-create refresh fails', async () => {
+    const accountId = 'account_fixture_01';
+    executeAuthenticatedMock.mockResolvedValueOnce({
+      status: 'success',
+      payload: { outcome: 'created' },
+    });
+    queryEnrollmentMock.mockRejectedValueOnce(new Error('read failed'));
+    queryCatalogMock.mockResolvedValueOnce({ scope: 'product', items: [] });
+
+    const { result } = renderHook(() => useCourseEnrollmentCommands(accountId));
+    const created = await result.current.createAuthenticatedEnrollment({
+      courseId: 'course_fixture_01',
+      participantIds: ['participant_fixture_01'],
+      exercisedCapability: 'account_owner',
+      identity: {
+        enrollmentId: '',
+        idempotencyKey: 'create-course-enrollment:course_fixture_01:participant_fixture_01',
+      },
+    });
+
+    expect(created).toEqual({ outcome: 'created', refreshFailed: true });
+    expect(executeAuthenticatedMock).toHaveBeenCalledTimes(1);
+    expect(queryEnrollmentMock).toHaveBeenCalledTimes(1);
+  });
+
   it('returns already_exists outcome for equivalent success without treating it as a new debit', async () => {
     const accountId = 'account_fixture_01';
     executeAuthenticatedMock.mockResolvedValueOnce({

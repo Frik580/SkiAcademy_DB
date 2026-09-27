@@ -368,6 +368,37 @@ describe('canonical Admin lesson booking commands', () => {
     expect(refresh).toHaveBeenCalledWith(target.bookingId);
   });
 
+  it('reports a committed create-on-behalf separately from a failed projection refresh', async () => {
+    const refresh = vi.fn().mockResolvedValue({ status: 'failure' });
+    const attempt: AdminLessonBookingMutationAttempt = {
+      kind: 'create_confirmed_booking',
+      bookingId: BookingIdSchema.parse('booking_admin_create_refresh_01'),
+      idempotencyKey: createAdminLessonBookingAttemptId('create'),
+      instructorId: 'instructor_admin_create_01',
+      participantIds: ['participant_admin_create_01'],
+      payerAccountId: 'account_admin_create_01',
+      localDate: '2026-09-03',
+      localTime: '09:00',
+      durationMinutes: 90,
+      timezone: 'Asia/Almaty',
+      reasonExplanation: 'Telephone booking',
+    };
+    const { result } = renderHook(() =>
+      useAdminLessonBookingCommands({
+        adminAccountId: 'admin_account_01',
+        refreshBooking: refresh,
+      })
+    );
+
+    let outcome: Awaited<ReturnType<typeof result.current.runAttempt>> | undefined;
+    await act(async () => {
+      outcome = await result.current.runAttempt(attempt);
+    });
+
+    expect(executeMock).toHaveBeenCalledTimes(1);
+    expect(outcome).toEqual({ status: 'success', refreshFailed: true });
+  });
+
   it('reports a committed cash Payment separately from a failed projection refresh', async () => {
     const refresh = vi.fn().mockResolvedValue({ status: 'failure' });
     const attempt: AdminLessonBookingMutationAttempt = {

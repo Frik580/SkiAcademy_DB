@@ -12,6 +12,8 @@ interface GuestReservationStatusProps {
   onRefresh: () => void;
   refreshing: boolean;
   refreshError: boolean;
+  /** True when lifecycle/payment details came from a successful read-model fetch. */
+  statusHydrated: boolean;
   onClose: () => void;
 }
 
@@ -26,6 +28,7 @@ export function GuestReservationStatus({
   onRefresh,
   refreshing,
   refreshError,
+  statusHydrated,
   onClose,
 }: GuestReservationStatusProps) {
   const locale = language === 'ru' ? 'ru-RU' : 'en-US';
@@ -40,13 +43,21 @@ export function GuestReservationStatus({
       deadline.getTime() <= Date.now());
   const confirmed = lifecycleStatus === 'confirmed';
   const cancelled = lifecycleStatus === 'cancelled';
+  const createdWithoutStatusDetails =
+    !statusHydrated && !confirmed && !expired && !cancelled && lifecycleStatus === 'pending';
   const title = confirmed
     ? t(kind === 'lesson' ? 'guestLessonConfirmedTitle' : 'guestCourseConfirmedTitle')
     : expired
       ? t(kind === 'lesson' ? 'guestLessonExpiredTitle' : 'guestCourseExpiredTitle')
       : cancelled
         ? t('guestCancelledTitle')
-        : t('guestPendingTitle');
+        : createdWithoutStatusDetails
+          ? t(
+              kind === 'lesson'
+                ? 'postCreateRefreshFailedLessonTitle'
+                : 'postCreateRefreshFailedCourseTitle'
+            )
+          : t('guestPendingTitle');
   const formattedDeadline =
     deadline &&
     new Intl.DateTimeFormat(locale, {
@@ -70,6 +81,8 @@ export function GuestReservationStatus({
         </p>
       ) : cancelled ? (
         <p className="text-sm text-[var(--ink)]">{t('guestCancelledBody')}</p>
+      ) : createdWithoutStatusDetails ? (
+        <p className="text-sm text-[var(--ink)]">{t('postCreateRefreshFailedBody')}</p>
       ) : (
         <div className="space-y-3 text-sm text-[var(--ink)]">
           {formattedDeadline && (
@@ -100,7 +113,7 @@ export function GuestReservationStatus({
           )}
           {payment?.paymentSatisfied ? (
             <p>{t('guestPaymentReceivedPendingConfirmation')}</p>
-          ) : (
+          ) : statusHydrated ? (
             <>
               <p>{t('guestAdminContactPayment')}</p>
               <p>
@@ -109,10 +122,12 @@ export function GuestReservationStatus({
                 )}
               </p>
             </>
-          )}
+          ) : null}
         </div>
       )}
-      {refreshError && <p className="text-sm text-rose-600">{t('guestStatusRefreshFailed')}</p>}
+      {refreshError && statusHydrated && (
+        <p className="text-sm text-rose-600">{t('guestStatusRefreshFailed')}</p>
+      )}
       <div className="mt-auto flex flex-wrap gap-2 pt-3">
         <button
           type="button"

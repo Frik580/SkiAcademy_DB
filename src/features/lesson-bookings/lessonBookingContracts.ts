@@ -53,6 +53,10 @@ export interface LessonBookingSubmissionIdentity {
   readonly idempotencyKey: string;
 }
 
+export interface AuthenticatedLessonBookingCommandResult {
+  readonly refreshFailed?: boolean;
+}
+
 export interface AuthenticatedLessonBookingInput {
   readonly instructorId: string;
   readonly participantIds: readonly string[];

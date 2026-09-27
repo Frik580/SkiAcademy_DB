@@ -2302,6 +2302,11 @@ export const translations = {
     guestCheckStatus: 'Check status',
     guestCheckPreviousStatus: 'Check previous request',
     guestStatusRefreshFailed: 'Could not refresh the reservation status. Please try again.',
+    postCreateRefreshFailedTitle: 'Request created',
+    postCreateRefreshFailedLessonTitle: 'Booking created',
+    postCreateRefreshFailedCourseTitle: 'Course application created',
+    postCreateRefreshFailedBody:
+      'Your request was created successfully, but the latest status could not be loaded. Please try checking the status again.',
     guestBadge: 'GUEST / REQUEST',
     guestContact: 'Guest Contact',
     guestRequestsTitle: 'Guest Applications',
@@ -4634,6 +4639,11 @@ export const translations = {
     guestCheckStatus: 'Проверить статус',
     guestCheckPreviousStatus: 'Проверить предыдущую заявку',
     guestStatusRefreshFailed: 'Не удалось обновить статус бронирования. Попробуйте ещё раз.',
+    postCreateRefreshFailedTitle: 'Заявка создана',
+    postCreateRefreshFailedLessonTitle: 'Бронирование создано',
+    postCreateRefreshFailedCourseTitle: 'Заявка на курс создана',
+    postCreateRefreshFailedBody:
+      'Заявка успешно создана, но не удалось сразу обновить данные. Попробуйте проверить статус ещё раз.',
     guestBadge: 'ГОСТЬ / ЗАЯВКА',
     guestContact: 'Контакты гостя',
     guestRequestsTitle: 'Заявки без регистрации',

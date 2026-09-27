@@ -191,12 +191,15 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
     const result = await commands.runAttempt(confirmation.attempt);
     setMutationPending(false);
     if (result.status === 'success') {
-      if (
-        result.refreshFailed &&
-        (confirmation.attempt.kind === 'record_provider_payment_event' ||
-          confirmation.attempt.kind === 'pay_service_from_wallet_as_administrator')
-      ) {
-        setMutationNotice(t('adminLessonPaymentRecordedRefreshPending'));
+      if (result.refreshFailed) {
+        if (
+          confirmation.attempt.kind === 'record_provider_payment_event' ||
+          confirmation.attempt.kind === 'pay_service_from_wallet_as_administrator'
+        ) {
+          setMutationNotice(t('adminLessonPaymentRecordedRefreshPending'));
+        } else if (confirmation.attempt.kind === 'create_confirmed_booking') {
+          setMutationNotice(t('postCreateRefreshFailedBody'));
+        }
       }
       setConfirmation(undefined);
       return;

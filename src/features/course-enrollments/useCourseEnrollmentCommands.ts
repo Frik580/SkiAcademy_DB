@@ -15,6 +15,7 @@ import {
   type ClientCallableCapability,
 } from '../../lib/canonical/canonicalCommandClient';
 import { mapCanonicalCommandResultError } from '../../lib/canonical/mapCanonicalCommandError';
+import { runPostCreateRefresh } from '../../lib/canonical/runPostCreateRefresh';
 import {
   queryCourseCatalogReadModels,
   queryCourseEnrollmentReadModels,
@@ -153,8 +154,11 @@ export function useCourseEnrollmentCommands(accountId: string | undefined) {
       const error = mapCanonicalCommandResultError(result);
       if (error) throw error;
       const outcome = resolveCreateEnrollmentOutcome(result);
-      await refetchAccountHotEnrollments();
-      return { outcome };
+      const refresh = await runPostCreateRefresh(
+        refetchAccountHotEnrollments,
+        'course_enrollment_created_refresh_failed'
+      );
+      return { outcome, ...refresh };
     },
     [accountId]
   );

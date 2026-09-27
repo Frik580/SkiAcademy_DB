@@ -143,7 +143,7 @@ export function useCourseActions() {
           selection.participantIds
         );
 
-        const { outcome } = await withOptimisticBalance(-estimatedPrice, () =>
+        const { outcome, refreshFailed } = await withOptimisticBalance(-estimatedPrice, () =>
           createAuthenticatedEnrollment({
             courseId,
             participantIds: selection.participantIds,
@@ -169,6 +169,9 @@ export function useCourseActions() {
           t('enrollmentConfirmed'),
           `${t('enrollmentConfirmedDesc')} ${courseTitle}.`
         );
+        if (refreshFailed) {
+          notify('warning', t('postCreateRefreshFailedTitle'), t('postCreateRefreshFailedBody'));
+        }
         confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
       } catch (error) {
         const presented = presentCanonicalCommandErrorWithContext(error, {

@@ -97,6 +97,7 @@ export type AuthenticatedCourseEnrollmentCommandOutcome = 'created' | 'already_e
 
 export interface AuthenticatedCourseEnrollmentCommandResult {
   readonly outcome: AuthenticatedCourseEnrollmentCommandOutcome;
+  readonly refreshFailed?: boolean;
 }
 
 export interface GuestCourseEnrollmentInput {

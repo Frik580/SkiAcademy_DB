@@ -121,7 +121,7 @@ describe('booking modal submit success UX', () => {
     localStorage.clear();
     mocks.addNotification.mockReset();
     mocks.confetti.mockReset();
-    mocks.createAuthenticatedBooking.mockReset().mockResolvedValue(undefined);
+    mocks.createAuthenticatedBooking.mockReset().mockResolvedValue({});
     mocks.createGuestBooking.mockReset().mockResolvedValue({ bookingId: 'booking_guest_fixture_01' });
     mocks.loadGuestSingleLessonBooking.mockReset().mockResolvedValue({
       lifecycle: { status: 'pending', reservationExpiresAt: { seconds: 1_800_000_000, nanoseconds: 0 } },
@@ -167,6 +167,38 @@ describe('booking modal submit success UX', () => {
     expect(mocks.confetti).not.toHaveBeenCalled();
     expect(props.onClose).not.toHaveBeenCalled();
     expect(result.current.isSubmitting).toBe(false);
+  });
+
+  it('keeps created state when post-create status read fails and allows read-only retry', async () => {
+    mocks.loadGuestSingleLessonBooking.mockRejectedValueOnce(new Error('read failed'));
+    const props = createProps();
+    const { result } = renderHook(() => useBookingModal(props));
+    await waitForAvailableSlot(result);
+    act(() => {
+      result.current.setGuestName('Guest Name');
+      result.current.setGuestPhone('123456');
+    });
+    await act(async () => {
+      await result.current.handleSubmitGuest({ preventDefault: vi.fn() } as unknown as React.FormEvent);
+    });
+
+    expect(mocks.createGuestBooking).toHaveBeenCalledTimes(1);
+    expect(result.current.guestCreatedBookingId).toBe('booking_guest_fixture_01');
+    expect(result.current.guestRefreshError).toBe(true);
+    expect(result.current.guestReservation).toBeUndefined();
+    expect(mocks.addNotification).not.toHaveBeenCalledWith('error', 'bookingError', expect.anything());
+    expect(props.onClose).not.toHaveBeenCalled();
+
+    mocks.loadGuestSingleLessonBooking.mockResolvedValueOnce({
+      lifecycle: { status: 'pending' },
+      guestPaymentSummary: { price: 25_000 },
+    });
+    await act(async () => {
+      await result.current.refreshGuestStatus();
+    });
+    expect(result.current.guestRefreshError).toBe(false);
+    expect(result.current.guestReservation?.lifecycle.status).toBe('pending');
+    expect(mocks.createGuestBooking).toHaveBeenCalledTimes(1);
   });
 
   it('refreshes the same guest Lesson from pending to canonical confirmed', async () => {

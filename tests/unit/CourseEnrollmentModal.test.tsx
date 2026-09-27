@@ -454,6 +454,35 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     expect(mocks.confetti).not.toHaveBeenCalled();
   });
 
+  it('stays in created state when post-create enrollment read fails', async () => {
+    mocks.loadGuestSingleCourseEnrollment.mockRejectedValueOnce(new Error('read failed'));
+    const onClose = vi.fn();
+    render(<CourseEnrollmentModal isOpen onClose={onClose} course={course} onEnroll={vi.fn()} />);
+    fireEvent.change(screen.getByPlaceholderText('guestNamePlaceholder'), {
+      target: { value: 'Guest One' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
+      target: { value: '+77001234567' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /submitGuestCourseApplication/i }));
+
+    await waitFor(() => {
+      expect(mocks.createGuestEnrollment).toHaveBeenCalledTimes(1);
+      expect(screen.getByText('postCreateRefreshFailedCourseTitle')).toBeInTheDocument();
+      expect(screen.getByText('postCreateRefreshFailedBody')).toBeInTheDocument();
+    });
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'guestCheckStatus' })).toBeEnabled();
+
+    mocks.loadGuestSingleCourseEnrollment.mockResolvedValueOnce({
+      lifecycle: { status: 'pending' },
+      guestPaymentSummary: { price: 45_000 },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'guestCheckStatus' }));
+    await waitFor(() => expect(screen.getByText('guestPendingTitle')).toBeInTheDocument());
+    expect(mocks.createGuestEnrollment).toHaveBeenCalledTimes(1);
+  });
+
   it('refreshes a guest course request from pending to confirmed without closing the modal', async () => {
     mocks.loadGuestSingleCourseEnrollment
       .mockResolvedValueOnce({

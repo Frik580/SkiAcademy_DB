@@ -358,6 +358,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                     onRefresh={refreshGuestStatus}
                     refreshing={guestRefreshing}
                     refreshError={guestRefreshError}
+                    statusHydrated={Boolean(guestReservation)}
                     onClose={onClose}
                   />
                 ) : showAuthenticatedEnrollment ? (

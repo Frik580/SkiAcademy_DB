@@ -295,6 +295,33 @@ describe('lessonBooking commands integration', () => {
     expect(scopedReadCount('account_history')).toBe(0);
   });
 
+  it('keeps authenticated create successful when account_hot refresh fails', async () => {
+    const bookingId = 'booking_auth_create_refresh_fail';
+    const accountId = 'account_fixture_01';
+    executeAuthenticatedMock.mockResolvedValueOnce({ status: 'success', payload: {} });
+    queryReadModelsMock.mockRejectedValueOnce(new Error('read failed'));
+
+    const { result } = renderHook(() => useLessonBookingCommands(accountId));
+    const created = await result.current.createAuthenticatedBooking({
+      instructorId: 'instructor_fixture_01',
+      participantIds: ['participant_fixture_01'],
+      exercisedCapability: 'account_owner',
+      localDate: '2026-06-15',
+      localTime: '08:00',
+      durationMinutes: 120,
+      timezone: 'Asia/Almaty',
+      identity: {
+        bookingId,
+        idempotencyKey: `create-confirmed:${bookingId}`,
+      },
+      difficulty: 'intermediate',
+    });
+
+    expect(created).toEqual({ refreshFailed: true });
+    expect(executeAuthenticatedMock).toHaveBeenCalledTimes(1);
+    expect(queryReadModelsMock).toHaveBeenCalledTimes(1);
+  });
+
   it('surfaces canonical errors without legacy fallback', async () => {
     executeAuthenticatedMock.mockResolvedValueOnce({
       status: 'error',

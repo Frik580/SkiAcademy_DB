@@ -612,7 +612,7 @@ export const useBookingModal = ({
         .map((participant) => participant.authority);
 
       try {
-        await createAuthenticatedBooking({
+        const createResult = await createAuthenticatedBooking({
           instructorId: targetInstructor.id,
           participantIds: effectiveParticipantIds,
           exercisedCapability: deriveExercisedCapabilityFromParticipants(selectedAuthorities),
@@ -632,6 +632,13 @@ export const useBookingModal = ({
           t('lessonBooked'),
           `${t('lessonBookedPrefix')} ${targetInstructor.name} ${t('lessonScheduledFor')} ${date} ${t('lessonRescheduledAdminAt')} ${time}.`
         );
+        if (createResult?.refreshFailed) {
+          addNotification(
+            'warning',
+            t('postCreateRefreshFailedTitle'),
+            t('postCreateRefreshFailedBody')
+          );
+        }
         confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
         onClose();
       } catch (err) {

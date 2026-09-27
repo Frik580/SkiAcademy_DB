@@ -56,6 +56,7 @@ export const BookingAuthShell: React.FC<BookingAuthShellProps> = ({ workspace })
             onRefresh={workspace.refreshGuestStatus}
             refreshing={workspace.guestRefreshing}
             refreshError={workspace.guestRefreshError}
+            statusHydrated={Boolean(workspace.guestReservation)}
             onClose={onClose}
           />
         ) : unauthTab === 'auth' ? (

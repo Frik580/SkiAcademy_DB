@@ -70,7 +70,7 @@ export class ReadModelRequestContext {
   private readonly attendanceById = new Map<string, Promise<DocumentSnapshot>>();
   private readonly participantBlockById = new Map<string, Promise<DocumentSnapshot>>();
   private readonly courseDaysByCourseId = new Map<string, Promise<QuerySnapshot>>();
-  private readonly courseAttendancesByCourseId = new Map<string, Promise<QuerySnapshot>>();
+  private readonly courseAttendanceExistsByCourseId = new Map<string, Promise<boolean>>();
   private readonly attendancesByEnrollmentIds = new Map<string, Promise<QuerySnapshot>>();
   private readonly enrollmentAttendancesByEnrollmentId = new Map<string, Promise<QuerySnapshot>>();
   private readonly allActiveManagementByAccountId = new Map<
@@ -238,12 +238,24 @@ export class ReadModelRequestContext {
     );
   }
 
-  courseAttendances(courseId: CourseId): Promise<QuerySnapshot> {
-    return this.memoize(this.courseAttendancesByCourseId, courseId, async () =>
-      this.scopedQuery(
-        await this.firestore.collection('attendance').where('subject.courseId', '==', courseId).get()
-      )
-    );
+  courseHasAttendance(courseId: CourseId): Promise<boolean> {
+    return this.memoize(this.courseAttendanceExistsByCourseId, courseId, async () => {
+      const courseAttendanceQuery = () =>
+        this.firestore.collection('attendance').where('subject.courseId', '==', courseId);
+      if (this.readScope.dataScope === 'test') {
+        const snapshot = await courseAttendanceQuery()
+          .where('dataScope', '==', 'test')
+          .where('testSessionId', '==', this.readScope.testSessionId)
+          .limit(1)
+          .get();
+        return !snapshot.empty;
+      }
+      const [allAttendance, testAttendance] = await Promise.all([
+        courseAttendanceQuery().count().get(),
+        courseAttendanceQuery().where('dataScope', '==', 'test').count().get(),
+      ]);
+      return allAttendance.data().count > testAttendance.data().count;
+    });
   }
 
   attendancesForEnrollments(enrollmentIds: readonly CourseEnrollmentId[]): Promise<QuerySnapshot> {

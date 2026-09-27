@@ -43,17 +43,20 @@ export function useAdminCourseEnrollmentReadModels(input: {
   const [detail, setDetail] = useState<AdminCourseEnrollmentDetailState>({ loading: false });
   const listGeneration = useRef(0);
   const detailGeneration = useRef(0);
+  const loadedPageCount = useRef(0);
 
   const loadList = useCallback(
-    async (cursor?: string, append = false, quiet = false) => {
+    async (cursor?: string, append = false) => {
       if (!enabled) {
+        loadedPageCount.current = 0;
         setList({ items: [], loading: false, loadingMore: false, hasMore: false });
         return;
       }
+      if (!append) loadedPageCount.current = 1;
       const generation = ++listGeneration.current;
       setList((current) => ({
-        ...(append || quiet ? current : { ...EMPTY_LIST, items: [] }),
-        loading: !append && !quiet,
+        ...(append ? current : { ...EMPTY_LIST, items: [] }),
+        loading: !append,
         loadingMore: append,
         error: undefined,
       }));
@@ -65,6 +68,7 @@ export function useAdminCourseEnrollmentReadModels(input: {
         });
         if (generation !== listGeneration.current) return;
         if (result.scope === 'admin_enrollment_detail') throw new Error('Unexpected detail result');
+        if (append) loadedPageCount.current += 1;
         setList((current) => ({
           items: append
             ? mergeAdminCourseEnrollmentItems(current.items, result.items)
@@ -86,6 +90,57 @@ export function useAdminCourseEnrollmentReadModels(input: {
     },
     [courseId, enabled, view]
   );
+
+  const refreshLoadedPages = useCallback(async () => {
+    if (!enabled) {
+      loadedPageCount.current = 0;
+      setList({ items: [], loading: false, loadingMore: false, hasMore: false });
+      return;
+    }
+    const generation = ++listGeneration.current;
+    const pagesToRefresh = Math.max(1, loadedPageCount.current);
+    setList((current) => ({ ...current, loading: false, loadingMore: false, error: undefined }));
+    try {
+      let cursor: string | undefined;
+      let items: AdminCourseEnrollmentListState['items'] = [];
+      let hasMore = false;
+      let nextCursor: string | undefined;
+      let pagesLoaded = 0;
+      for (let pageIndex = 0; pageIndex < pagesToRefresh; pageIndex += 1) {
+        const result = await queryAdminCourseEnrollmentReadModels({
+          scope: scopeForView(view),
+          ...(courseId ? { courseId } : {}),
+          ...(cursor ? { cursor } : {}),
+        });
+        if (generation !== listGeneration.current) return;
+        if (result.scope === 'admin_enrollment_detail') throw new Error('Unexpected detail result');
+        items =
+          pageIndex === 0 ? result.items : mergeAdminCourseEnrollmentItems(items, result.items);
+        hasMore = result.hasMore;
+        nextCursor = result.nextCursor;
+        pagesLoaded += 1;
+        if (!hasMore || !nextCursor) break;
+        cursor = nextCursor;
+      }
+      if (generation !== listGeneration.current) return;
+      loadedPageCount.current = pagesLoaded;
+      setList({
+        items,
+        loading: false,
+        loadingMore: false,
+        hasMore,
+        ...(nextCursor ? { cursor: nextCursor } : {}),
+      });
+    } catch (error) {
+      if (generation !== listGeneration.current) return;
+      setList((current) => ({
+        ...current,
+        loading: false,
+        loadingMore: false,
+        error: readError(error),
+      }));
+    }
+  }, [courseId, enabled, view]);
 
   const loadDetail = useCallback(async (enrollmentId: CourseEnrollmentId, quiet = false) => {
     const generation = ++detailGeneration.current;
@@ -132,7 +187,7 @@ export function useAdminCourseEnrollmentReadModels(input: {
 
   useAdminCoursesRevisionRefresh(
     () => {
-      void loadList(undefined, false, true);
+      void refreshLoadedPages();
       if (selectedEnrollmentId) {
         void loadDetail(selectedEnrollmentId, true);
       }
@@ -168,10 +223,10 @@ export function useAdminCourseEnrollmentReadModels(input: {
   return {
     list,
     detail,
-    retryList: () => loadList(),
+    retryList: refreshLoadedPages,
     retryDetail: selectedEnrollmentId ? () => loadDetail(selectedEnrollmentId) : undefined,
     loadMore: list.cursor ? () => loadList(list.cursor, true) : undefined,
-    refreshList: () => loadList(),
+    refreshList: refreshLoadedPages,
     refreshEnrollment,
   };
 }

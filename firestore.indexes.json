@@ -240,6 +240,32 @@
       ]
     },
     {
+      "collectionGroup": "attendance",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "subject.courseId", "order": "ASCENDING" },
+        { "fieldPath": "dataScope", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "attendance",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "subject.courseId", "order": "ASCENDING" },
+        { "fieldPath": "dataScope", "order": "ASCENDING" },
+        { "fieldPath": "testSessionId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "admin_issues",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "subjectRef.enrollmentId", "order": "ASCENDING" },
+        { "fieldPath": "dataScope", "order": "ASCENDING" },
+        { "fieldPath": "testSessionId", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "admin_issues",
       "queryScope": "COLLECTION",
       "fields": [
@@ -265,6 +291,110 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "lifecycle.status", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt.seconds", "order": "DESCENDING" },
+        { "fieldPath": "updatedAt.nanoseconds", "order": "DESCENDING" },
+        { "fieldPath": "enrollmentId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "course_enrollments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "courseId", "order": "ASCENDING" },
+        { "fieldPath": "dataScope", "order": "ASCENDING" },
+        { "fieldPath": "testSessionId", "order": "ASCENDING" },
+        { "fieldPath": "lifecycle.status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "course_enrollments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "courseId", "order": "ASCENDING" },
+        { "fieldPath": "dataScope", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "course_enrollments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "courseId", "order": "ASCENDING" },
+        { "fieldPath": "dataScope", "order": "ASCENDING" },
+        { "fieldPath": "lifecycle.status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "course_enrollments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "dataScope", "order": "ASCENDING" },
+        { "fieldPath": "testSessionId", "order": "ASCENDING" },
+        { "fieldPath": "lifecycle.status", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt.seconds", "order": "DESCENDING" },
+        { "fieldPath": "updatedAt.nanoseconds", "order": "DESCENDING" },
+        { "fieldPath": "enrollmentId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "course_enrollments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "courseId", "order": "ASCENDING" },
+        { "fieldPath": "dataScope", "order": "ASCENDING" },
+        { "fieldPath": "testSessionId", "order": "ASCENDING" },
+        { "fieldPath": "lifecycle.status", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt.seconds", "order": "DESCENDING" },
+        { "fieldPath": "updatedAt.nanoseconds", "order": "DESCENDING" },
+        { "fieldPath": "enrollmentId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "course_enrollments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "attribution.bookingOrigin", "order": "ASCENDING" },
+        { "fieldPath": "lifecycle.status", "order": "ASCENDING" },
+        { "fieldPath": "dataScope", "order": "ASCENDING" },
+        { "fieldPath": "testSessionId", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt.seconds", "order": "DESCENDING" },
+        { "fieldPath": "updatedAt.nanoseconds", "order": "DESCENDING" },
+        { "fieldPath": "enrollmentId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "course_enrollments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "courseId", "order": "ASCENDING" },
+        { "fieldPath": "attribution.bookingOrigin", "order": "ASCENDING" },
+        { "fieldPath": "lifecycle.status", "order": "ASCENDING" },
+        { "fieldPath": "dataScope", "order": "ASCENDING" },
+        { "fieldPath": "testSessionId", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt.seconds", "order": "DESCENDING" },
+        { "fieldPath": "updatedAt.nanoseconds", "order": "DESCENDING" },
+        { "fieldPath": "enrollmentId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "course_enrollments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "lifecycle.status", "order": "ASCENDING" },
+        { "fieldPath": "dataScope", "order": "ASCENDING" },
+        { "fieldPath": "testSessionId", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt.seconds", "order": "DESCENDING" },
+        { "fieldPath": "updatedAt.nanoseconds", "order": "DESCENDING" },
+        { "fieldPath": "enrollmentId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "course_enrollments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "courseId", "order": "ASCENDING" },
+        { "fieldPath": "lifecycle.status", "order": "ASCENDING" },
+        { "fieldPath": "dataScope", "order": "ASCENDING" },
+        { "fieldPath": "testSessionId", "order": "ASCENDING" },
         { "fieldPath": "updatedAt.seconds", "order": "DESCENDING" },
         { "fieldPath": "updatedAt.nanoseconds", "order": "DESCENDING" },
         { "fieldPath": "enrollmentId", "order": "ASCENDING" }

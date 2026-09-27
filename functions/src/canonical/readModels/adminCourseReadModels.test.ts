@@ -6,12 +6,19 @@ import {
   CorrelationIdSchema,
   CourseDayIdSchema,
   CourseDaySchema,
+  CourseEnrollmentIdSchema,
+  CourseEnrollmentSchema,
   CourseIdSchema,
   CourseSchema,
   InstructorIdSchema,
+  PaymentIdSchema,
+  TestSessionIdSchema,
+  testCanonicalReadScope,
   timestampFromDate,
 } from '@ski-academy/shared-domain';
+import { canonicalCourseDeliveryFixtures } from '@ski-academy/shared-domain/testing';
 import { createQueryAdminCourseReadModelsHandler } from './queryAdminCourseReadModelsCallable';
+import { queryAdminCourseReadModels } from './adminCourseReadModels';
 
 const adminId = AccountIdSchema.parse('account_admin_course_read_01');
 const userId = AccountIdSchema.parse('account_user_course_read_01');
@@ -56,13 +63,13 @@ function fakeFirestore(
         return key.slice(path.length + 1).split('/').length === 1;
       });
     const createQuery = () => {
-      const filters: Array<{ field: string; value: unknown }> = [];
+      const filters: Array<{ field: string; op: string; value: unknown }> = [];
       const orderings: Array<{ field: string; direction: 'asc' | 'desc' }> = [];
       let after: readonly unknown[] | undefined;
       let maximum: number | undefined;
       const query = {
-        where: (field: string, _op: string, value: unknown) => {
-          filters.push({ field, value });
+        where: (field: string, op: string, value: unknown) => {
+          filters.push({ field, op, value });
           return query;
         },
         orderBy: (field: unknown, direction: 'asc' | 'desc' = 'asc') => {
@@ -79,8 +86,14 @@ function fakeFirestore(
         },
         get: async () => {
           reads.push(`${path}:query`);
+          if (maximum !== undefined) reads.push(`${path}:limit:${maximum}`);
           let result = entries().filter(([, data]) =>
-            filters.every(({ field, value }) => Object.is(nestedValue(data, field), value))
+            filters.every(({ field, op, value }) => {
+              const actual = nestedValue(data, field);
+              return op === 'in'
+                ? (value as readonly unknown[]).includes(actual)
+                : Object.is(actual, value);
+            })
           );
           const tuple = ([entryPath, data]: [string, Record<string, unknown>]) =>
             orderings.map(({ field }) =>
@@ -109,6 +122,20 @@ function fakeFirestore(
           }
           return snapshot(maximum === undefined ? result : result.slice(0, maximum));
         },
+        count: () => ({
+          get: async () => {
+            reads.push(`${path}:count`);
+            const count = entries().filter(([, data]) =>
+              filters.every(({ field, op, value }) => {
+                const actual = nestedValue(data, field);
+                return op === 'in'
+                  ? (value as readonly unknown[]).includes(actual)
+                  : Object.is(actual, value);
+              })
+            ).length;
+            return { data: () => ({ count }) };
+          },
+        }),
       };
       return query;
     };
@@ -276,6 +303,122 @@ describe('Admin Course read-model callable', () => {
     expect(detail.scope).toBe('admin_course_detail');
     if (detail.scope === 'admin_course_detail')
       expect(detail.item?.instructors[0]?.name).toBe('Safe Coach');
+  });
+
+  it('keeps exact CourseEnrollment totals without reading the course history', async () => {
+    const data = seed();
+    const reads: string[] = [];
+    const enrollmentCount = 63;
+    for (let index = 0; index < enrollmentCount; index += 1) {
+      const enrollmentId = CourseEnrollmentIdSchema.parse(
+        `course_enrollment_admin_count_${String(index).padStart(2, '0')}`
+      );
+      const lifecycle =
+        index < 40
+          ? { status: 'confirmed' as const }
+          : index < 50
+            ? {
+                status: 'pending' as const,
+                reservationExpiresAt: timestampFromDate(new Date('2026-11-15T00:00:00.000Z')),
+              }
+            : {
+                status: 'cancelled' as const,
+                cancelledAt: createdAt,
+                reasonCode: 'administrator_cancelled' as const,
+              };
+      const enrollment = CourseEnrollmentSchema.parse({
+        ...canonicalCourseDeliveryFixtures.confirmedEnrollment,
+        enrollmentId,
+        courseId,
+        paymentId: PaymentIdSchema.parse(`payment_admin_count_${String(index).padStart(2, '0')}`),
+        lifecycle,
+        ...(index >= 40 && index < 50
+          ? {
+              attribution: {
+                bookingOrigin: 'guest' as const,
+                bookedBy: {
+                  kind: 'guest' as const,
+                  guestSubjectId: `guest_subject_admin_count_${String(index).padStart(2, '0')}`,
+                },
+              },
+              payerAccountId: undefined,
+            }
+          : {}),
+        updatedAt: createdAt,
+      });
+      data[`course_enrollments/${enrollmentId}`] = enrollment as unknown as Record<string, unknown>;
+    }
+    const testSessionId = TestSessionIdSchema.parse('test_admin_count_hidden_session_01');
+    data['course_enrollments/course_enrollment_admin_count_hidden_test_active'] = {
+      courseId,
+      dataScope: 'test',
+      testSessionId,
+      lifecycle: { status: 'confirmed' },
+    };
+    data['course_enrollments/course_enrollment_admin_count_hidden_test_history'] = {
+      courseId,
+      dataScope: 'test',
+      testSessionId,
+      lifecycle: { status: 'cancelled' },
+    };
+
+    const handler = createQueryAdminCourseReadModelsHandler(fakeFirestore(data, reads));
+    const detail = await handler({
+      auth: { uid: adminId },
+      data: { scope: 'admin_course_detail', courseId },
+    } as never);
+
+    expect(detail.scope).toBe('admin_course_detail');
+    if (detail.scope !== 'admin_course_detail') return;
+    expect(detail.item).toMatchObject({ activeEnrollmentCount: 50, totalEnrollmentCount: 63 });
+    expect(detail.item?.authorizedActions.map((action) => action.kind)).not.toContain(
+      'remove_course_day'
+    );
+    expect(reads).not.toContain('course_enrollments:query');
+    expect(reads.filter((read) => read === 'course_enrollments:count')).toHaveLength(4);
+    expect(reads.filter((read) => read === 'attendance:count')).toHaveLength(2);
+  });
+
+  it('keeps aggregate counts inside the requested Test Session scope', async () => {
+    const data = seed();
+    const testSessionId = TestSessionIdSchema.parse('test_admin_course_count_scope_01');
+    const otherSessionId = TestSessionIdSchema.parse('test_admin_course_count_scope_02');
+    data[`courses/${courseId}`] = {
+      ...data[`courses/${courseId}`],
+      dataScope: 'test',
+      testSessionId,
+    };
+    data[`courses/${courseId}/days/${dayId}`] = {
+      ...data[`courses/${courseId}/days/${dayId}`],
+      dataScope: 'test',
+      testSessionId,
+    };
+    const records = [
+      { id: 'enrollment_scope_active', scope: testSessionId, status: 'confirmed' },
+      { id: 'enrollment_scope_history', scope: testSessionId, status: 'cancelled' },
+      { id: 'enrollment_scope_other', scope: otherSessionId, status: 'confirmed' },
+      { id: 'enrollment_scope_live', scope: undefined, status: 'confirmed' },
+    ];
+    for (const record of records) {
+      data[`course_enrollments/${record.id}`] = {
+        courseId,
+        lifecycle: { status: record.status },
+        ...(record.scope
+          ? { dataScope: 'test', testSessionId: record.scope }
+          : { dataScope: 'live' }),
+      };
+    }
+
+    const result = await queryAdminCourseReadModels(
+      fakeFirestore(data),
+      { kind: 'administrator', accountId: adminId },
+      { scope: 'admin_course_detail', courseId },
+      { readScope: testCanonicalReadScope(testSessionId) }
+    );
+
+    expect(result.scope).toBe('admin_course_detail');
+    if (result.scope !== 'admin_course_detail') return;
+    expect(result.item).toMatchObject({ activeEnrollmentCount: 1, totalEnrollmentCount: 2 });
   });
 
   it('keeps the list projection free of detail-grade joins', async () => {

@@ -13,6 +13,9 @@ import {
   ParticipantSchema,
   PaymentIdSchema,
   PaymentSchema,
+  TestSessionIdSchema,
+  encodeAdminCourseEnrollmentCursor,
+  testCanonicalReadScope,
   timestampFromDate,
 } from '@ski-academy/shared-domain';
 import {
@@ -20,6 +23,11 @@ import {
   canonicalPaymentWalletAuditFixtures,
 } from '@ski-academy/shared-domain/testing';
 import { createQueryAdminCourseEnrollmentReadModelsHandler } from './queryAdminCourseEnrollmentReadModelsCallable';
+import {
+  AdminCourseEnrollmentRelatedIssuesLimitError,
+  InvalidAdminCourseEnrollmentCursorError,
+  queryAdminCourseEnrollmentReadModels,
+} from './adminCourseEnrollmentReadModels';
 
 const adminId = AccountIdSchema.parse('account_admin_course_enrollment_read_01');
 const userId = AccountIdSchema.parse('account_user_course_enrollment_read_01');
@@ -70,6 +78,7 @@ function fakeFirestore(
         limit: (count: number) => makeQuery(filters, orders, cursor, count),
         get: async () => {
           recordRead(`query:${path}`);
+          if (max !== undefined) recordRead(`query:${path}:limit:${max}`);
           let entries = baseEntries().filter(([, data]) =>
             filters.every(({ field, op, value }) => {
               const actual = nestedValue(data, field);
@@ -352,9 +361,7 @@ function seed() {
 describe('Admin CourseEnrollment read-model callable', () => {
   it('loads shared Course, payer Account, and CourseDays once per request', async () => {
     const reads = new Map<string, number>();
-    const handler = createQueryAdminCourseEnrollmentReadModelsHandler(
-      fakeFirestore(seed(), reads)
-    );
+    const handler = createQueryAdminCourseEnrollmentReadModelsHandler(fakeFirestore(seed(), reads));
 
     const roster = await handler({
       auth: { uid: adminId },
@@ -372,9 +379,9 @@ describe('Admin CourseEnrollment read-model callable', () => {
         enrollmentId: CourseEnrollmentIdSchema.parse('course_enrollment_admin_transfer'),
       },
     } as never);
-    expect(
-      reads.get(`query:courses/${canonicalCourseDeliveryFixtures.course.courseId}/days`)
-    ).toBe(1);
+    expect(reads.get(`query:courses/${canonicalCourseDeliveryFixtures.course.courseId}/days`)).toBe(
+      1
+    );
     expect(reads.get(`doc:users/${adminId}`)).toBe(1);
   });
 
@@ -389,10 +396,12 @@ describe('Admin CourseEnrollment read-model callable', () => {
     expect(roster.items).toHaveLength(3);
     expect(roster.items.every((item) => !('bookingId' in item))).toBe(true);
     expect(roster.items.every((item) => item.course.courseId !== undefined)).toBe(true);
-    expect(roster.items.find((item) => item.guestState === 'pending_unlinked')?.guestContact)
-      .toEqual({ phone: '+7 701 123 45 67', email: 'course@example.com' });
-    expect(roster.items.find((item) => item.guestState === 'not_guest')?.guestContact)
-      .toBeUndefined();
+    expect(
+      roster.items.find((item) => item.guestState === 'pending_unlinked')?.guestContact
+    ).toEqual({ phone: '+7 701 123 45 67', email: 'course@example.com' });
+    expect(
+      roster.items.find((item) => item.guestState === 'not_guest')?.guestContact
+    ).toBeUndefined();
 
     const cancellation = roster.items.find(
       (item) => item.lifecycleStatus === 'pending_cancellation'
@@ -483,6 +492,194 @@ describe('Admin CourseEnrollment read-model callable', () => {
     });
   });
 
+  it('paginates 63 equal-timestamp enrollments without duplicate or missing rows', async () => {
+    const data = seed();
+    for (const key of Object.keys(data)) {
+      if (key.startsWith('course_enrollments/')) delete data[key];
+    }
+    const sharedParticipantId = ParticipantIdSchema.parse('participant_admin_enrollment_confirmed');
+    for (let index = 0; index < 63; index += 1) {
+      const record = enrollment({
+        id: `course_enrollment_equal_time_${String(index).padStart(2, '0')}`,
+        participantId: sharedParticipantId,
+        status: 'confirmed',
+        updatedOffset: 1,
+      });
+      data[`course_enrollments/${record.enrollmentId}`] = record as unknown as Record<
+        string,
+        unknown
+      >;
+    }
+
+    const handler = createQueryAdminCourseEnrollmentReadModelsHandler(fakeFirestore(data));
+    const pages: string[][] = [];
+    let cursor: string | undefined;
+    let hasMore = true;
+    while (hasMore) {
+      const result = await handler({
+        auth: { uid: adminId },
+        data: {
+          scope: 'admin_course_roster',
+          courseId: canonicalCourseDeliveryFixtures.course.courseId,
+          pageSize: 25,
+          ...(cursor ? { cursor } : {}),
+        },
+      } as never);
+      expect(result.scope).toBe('admin_course_roster');
+      if (result.scope !== 'admin_course_roster') return;
+      pages.push(result.items.map((item) => item.enrollmentId));
+      cursor = result.nextCursor;
+      hasMore = result.hasMore;
+    }
+
+    expect(pages.map((page) => page.length)).toEqual([25, 25, 13]);
+    const ids = pages.flat();
+    expect(ids).toHaveLength(63);
+    expect(new Set(ids).size).toBe(63);
+    expect(ids).toEqual([...ids].sort());
+  });
+
+  it('continues past out-of-scope rows without losing later LIVE enrollments', async () => {
+    const data = seed();
+    for (const key of Object.keys(data)) {
+      if (key.startsWith('course_enrollments/')) delete data[key];
+    }
+    const sharedParticipantId = ParticipantIdSchema.parse('participant_admin_enrollment_confirmed');
+    for (let index = 0; index < 48; index += 1) {
+      const record = enrollment({
+        id: `course_enrollment_equal_time_live_${String(index).padStart(2, '0')}`,
+        participantId: sharedParticipantId,
+        status: 'confirmed',
+        updatedOffset: 1,
+      });
+      data[`course_enrollments/${record.enrollmentId}`] = record as unknown as Record<
+        string,
+        unknown
+      >;
+    }
+    const testSessionId = TestSessionIdSchema.parse('test_admin_enrollment_other_scope_01');
+    for (let index = 0; index < 3; index += 1) {
+      const record = enrollment({
+        id: `course_enrollment_equal_time_000_test_${String(index).padStart(2, '0')}`,
+        participantId: sharedParticipantId,
+        status: 'confirmed',
+        updatedOffset: 1,
+      });
+      data[`course_enrollments/${record.enrollmentId}`] = {
+        ...record,
+        dataScope: 'test',
+        testSessionId,
+      } as unknown as Record<string, unknown>;
+    }
+
+    const handler = createQueryAdminCourseEnrollmentReadModelsHandler(fakeFirestore(data));
+    const pages: string[][] = [];
+    let cursor: string | undefined;
+    let hasMore = true;
+    while (hasMore) {
+      const result = await handler({
+        auth: { uid: adminId },
+        data: {
+          scope: 'admin_course_roster',
+          courseId: canonicalCourseDeliveryFixtures.course.courseId,
+          pageSize: 25,
+          ...(cursor ? { cursor } : {}),
+        },
+      } as never);
+      expect(result.scope).toBe('admin_course_roster');
+      if (result.scope !== 'admin_course_roster') return;
+      pages.push(result.items.map((item) => item.enrollmentId));
+      cursor = result.nextCursor;
+      hasMore = result.hasMore;
+    }
+
+    expect(pages.map((page) => page.length)).toEqual([23, 25]);
+    const ids = pages.flat();
+    expect(ids).toHaveLength(48);
+    expect(new Set(ids).size).toBe(48);
+    expect(ids.every((id) => id.includes('_live_'))).toBe(true);
+  });
+
+  it('rejects an enrollment cursor reused in a different canonical read scope', async () => {
+    const sessionId = TestSessionIdSchema.parse('test_admin_enrollment_cursor_scope_01');
+    const cursor = encodeAdminCourseEnrollmentCursor({
+      scope: 'admin_course_roster',
+      courseId: canonicalCourseDeliveryFixtures.course.courseId,
+      readScope: { dataScope: 'live' },
+      updatedAtSeconds: 1,
+      updatedAtNanoseconds: 0,
+      enrollmentId: CourseEnrollmentIdSchema.parse('course_enrollment_cursor_scope_anchor'),
+    });
+
+    await expect(
+      queryAdminCourseEnrollmentReadModels(
+        fakeFirestore(seed()),
+        { kind: 'administrator', accountId: adminId },
+        {
+          scope: 'admin_course_roster',
+          courseId: canonicalCourseDeliveryFixtures.course.courseId,
+          cursor,
+        },
+        { readScope: testCanonicalReadScope(sessionId) }
+      )
+    ).rejects.toBeInstanceOf(InvalidAdminCourseEnrollmentCursorError);
+  });
+
+  it('keeps Issue queries constant and bounded at the maximum roster page size', async () => {
+    const data = seed();
+    for (const key of Object.keys(data)) {
+      if (key.startsWith('course_enrollments/')) delete data[key];
+    }
+    const sharedParticipantId = ParticipantIdSchema.parse('participant_admin_enrollment_confirmed');
+    for (let index = 0; index < 50; index += 1) {
+      const record = enrollment({
+        id: `course_enrollment_issue_batch_${String(index).padStart(2, '0')}`,
+        participantId: sharedParticipantId,
+        status: 'confirmed',
+        updatedOffset: 1,
+      });
+      data[`course_enrollments/${record.enrollmentId}`] = record as unknown as Record<
+        string,
+        unknown
+      >;
+    }
+
+    const reads = new Map<string, number>();
+    const handler = createQueryAdminCourseEnrollmentReadModelsHandler(fakeFirestore(data, reads));
+    const result = await handler({
+      auth: { uid: adminId },
+      data: {
+        scope: 'admin_course_roster',
+        courseId: canonicalCourseDeliveryFixtures.course.courseId,
+        pageSize: 50,
+      },
+    } as never);
+
+    expect(result.scope).toBe('admin_course_roster');
+    if (result.scope !== 'admin_course_roster') return;
+    expect(result.items).toHaveLength(50);
+    expect(reads.get('query:admin_issues')).toBe(2);
+    expect(reads.get('query:admin_issues:limit:961')).toBe(1);
+    expect(reads.get('query:admin_issues:limit:641')).toBe(1);
+  });
+
+  it('fails explicitly when related Issue history exceeds the read-model contract', async () => {
+    const data = seed();
+    const enrollmentId = CourseEnrollmentIdSchema.parse('course_enrollment_admin_transfer');
+    for (let index = 0; index < 33; index += 1) {
+      data[`admin_issues/admin_course_related_issue_over_limit_${String(index).padStart(2, '0')}`] =
+        { subjectRef: { enrollmentId } };
+    }
+
+    const handler = createQueryAdminCourseEnrollmentReadModelsHandler(fakeFirestore(data));
+    await expect(
+      handler({
+        auth: { uid: adminId },
+        data: { scope: 'admin_enrollment_detail', enrollmentId },
+      } as never)
+    ).rejects.toBeInstanceOf(AdminCourseEnrollmentRelatedIssuesLimitError);
+  });
+
   it('keeps duplicate parsed enrollmentIds across distinct snapshot document.ids and does not dedupe items', async () => {
     const logical = enrollment({
       id: 'course_enrollment_logical_dup',
@@ -518,9 +715,7 @@ describe('Admin CourseEnrollment read-model callable', () => {
     } as never);
     expect(roster.scope).toBe('admin_course_roster');
     if (roster.scope !== 'admin_course_roster') return;
-    const matchingItems = roster.items.filter(
-      (item) => item.enrollmentId === logical.enrollmentId
-    );
+    const matchingItems = roster.items.filter((item) => item.enrollmentId === logical.enrollmentId);
     expect(matchingItems).toHaveLength(3);
   });
 

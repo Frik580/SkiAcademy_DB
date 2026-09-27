@@ -3,11 +3,16 @@ import { deleteApp, getApps, initializeApp, type App } from 'firebase-admin/app'
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import {
   AccountIdSchema,
+  CourseDayIdSchema,
+  CourseDaySchema,
   CourseIdSchema,
   CourseSchema,
   InstructorIdSchema,
+  TestSessionIdSchema,
+  testCanonicalReadScope,
   timestampFromDate,
 } from '@ski-academy/shared-domain';
+import { canonicalCourseDeliveryFixtures } from '@ski-academy/shared-domain/testing';
 import { queryAdminCourseReadModels } from './adminCourseReadModels';
 
 const PROJECT_ID = 'ski-academy-admin-course-read-model-test';
@@ -158,5 +163,171 @@ describeEmulator('admin Course read models', () => {
 
     await expect(readScope('active')).resolves.toEqual(activeIds);
     await expect(readScope('archived')).resolves.toEqual(archivedIds);
+  });
+
+  it('uses exact enrollment counts and a bounded Attendance existence query for Course detail', async () => {
+    const dayId = CourseDayIdSchema.parse('course_day_admin_emulator_bound_01');
+    const day = CourseDaySchema.parse({
+      ...canonicalCourseDeliveryFixtures.courseDays[0],
+      courseId: activeCourseId,
+      courseDayId: dayId,
+      dayOrder: 1,
+      interval: {
+        startsAt: timestampFromDate(new Date('2026-12-01T05:00:00.000Z')),
+        endsAt: timestampFromDate(new Date('2026-12-01T07:00:00.000Z')),
+      },
+      actualInstructorIds: [instructorId],
+    });
+    await Promise.all([
+      firestore.collection('courses').doc(activeCourseId).set(course(activeCourseId, 'active')),
+      firestore.doc(`courses/${activeCourseId}/days/${dayId}`).set(day),
+      firestore.collection('instructors').doc(instructorId).set({
+        id: instructorId,
+        name: 'Course Coach',
+        isAvailable: true,
+      }),
+    ]);
+    await Promise.all(
+      Array.from({ length: 63 }, (_, index) => {
+        const status = index < 40 ? 'confirmed' : index < 50 ? 'pending' : 'cancelled';
+        return firestore
+          .collection('course_enrollments')
+          .doc(`course_enrollment_admin_emulator_bound_${String(index).padStart(2, '0')}`)
+          .set({
+            courseId: activeCourseId,
+            lifecycle: { status },
+            dataScope: 'live',
+          });
+      })
+    );
+    const testSessionId = TestSessionIdSchema.parse('test_admin_course_emulator_count_hidden_01');
+    await Promise.all([
+      firestore
+        .collection('course_enrollments')
+        .doc('course_enrollment_admin_hidden_test_active')
+        .set({
+          courseId: activeCourseId,
+          lifecycle: { status: 'confirmed' },
+          dataScope: 'test',
+          testSessionId,
+        }),
+      firestore
+        .collection('course_enrollments')
+        .doc('course_enrollment_admin_hidden_test_history')
+        .set({
+          courseId: activeCourseId,
+          lifecycle: { status: 'cancelled' },
+          dataScope: 'test',
+          testSessionId,
+        }),
+    ]);
+    await Promise.all(
+      Array.from({ length: 99 }, (_, index) =>
+        firestore
+          .collection('attendance')
+          .doc(`attendance_admin_course_emulator_test_${String(index).padStart(3, '0')}`)
+          .set({
+            subject: { courseId: activeCourseId },
+            dataScope: 'test',
+            testSessionId,
+          })
+      )
+    );
+    await firestore
+      .collection('attendance')
+      .doc('attendance_admin_course_emulator_live_z')
+      .set({ subject: { courseId: activeCourseId }, dataScope: 'live' });
+
+    const result = await queryAdminCourseReadModels(
+      firestore,
+      { kind: 'administrator', accountId: adminAccountId },
+      { scope: 'admin_course_detail', courseId: activeCourseId }
+    );
+
+    expect(result.scope).toBe('admin_course_detail');
+    if (result.scope !== 'admin_course_detail') return;
+    expect(result.item).toMatchObject({ activeEnrollmentCount: 50, totalEnrollmentCount: 63 });
+    expect(result.item?.authorizedActions.map((action) => action.kind)).not.toContain(
+      'remove_course_day'
+    );
+  });
+
+  it('keeps aggregate counts and the Attendance guard inside the Test Session scope', async () => {
+    const testSessionId = TestSessionIdSchema.parse('test_admin_course_emulator_scope_01');
+    const otherSessionId = TestSessionIdSchema.parse('test_admin_course_emulator_scope_02');
+    const scopedCourse = CourseSchema.parse({
+      ...course(activeCourseId, 'active'),
+      dataScope: 'test',
+      testSessionId,
+    });
+    const dayId = CourseDayIdSchema.parse('course_day_admin_emulator_test_scope_01');
+    const day = CourseDaySchema.parse({
+      ...canonicalCourseDeliveryFixtures.courseDays[0],
+      courseId: activeCourseId,
+      dataScope: 'test',
+      testSessionId,
+      courseDayId: dayId,
+      dayOrder: 1,
+      interval: {
+        startsAt: timestampFromDate(new Date('2026-12-01T05:00:00.000Z')),
+        endsAt: timestampFromDate(new Date('2026-12-01T07:00:00.000Z')),
+      },
+      actualInstructorIds: [instructorId],
+    });
+    await Promise.all([
+      firestore.collection('courses').doc(activeCourseId).set(scopedCourse),
+      firestore.doc(`courses/${activeCourseId}/days/${dayId}`).set(day),
+      firestore.collection('instructors').doc(instructorId).set({
+        id: instructorId,
+        name: 'Course Coach',
+        isAvailable: true,
+      }),
+      firestore
+        .collection('course_enrollments')
+        .doc('course_enrollment_admin_emulator_other_session')
+        .set({
+          courseId: activeCourseId,
+          lifecycle: { status: 'confirmed' },
+          dataScope: 'test',
+          testSessionId: otherSessionId,
+        }),
+      firestore
+        .collection('course_enrollments')
+        .doc('course_enrollment_admin_emulator_live_scope')
+        .set({
+          courseId: activeCourseId,
+          lifecycle: { status: 'confirmed' },
+          dataScope: 'live',
+        }),
+      firestore
+        .collection('attendance')
+        .doc('attendance_admin_course_emulator_other_session')
+        .set({
+          subject: { courseId: activeCourseId },
+          dataScope: 'test',
+          testSessionId: otherSessionId,
+        }),
+      firestore
+        .collection('attendance')
+        .doc('attendance_admin_course_emulator_live_scope')
+        .set({
+          subject: { courseId: activeCourseId },
+          dataScope: 'live',
+        }),
+    ]);
+
+    const result = await queryAdminCourseReadModels(
+      firestore,
+      { kind: 'administrator', accountId: adminAccountId },
+      { scope: 'admin_course_detail', courseId: activeCourseId },
+      { readScope: testCanonicalReadScope(testSessionId) }
+    );
+
+    expect(result.scope).toBe('admin_course_detail');
+    if (result.scope !== 'admin_course_detail') return;
+    expect(result.item).toMatchObject({ activeEnrollmentCount: 0, totalEnrollmentCount: 0 });
+    expect(result.item?.authorizedActions.map((action) => action.kind)).toContain(
+      'remove_course_day'
+    );
   });
 });

@@ -11,6 +11,7 @@ import {
   InstructorIdSchema,
   ParticipantIdSchema,
   PaymentIdSchema,
+  TestSessionIdSchema,
 } from '../identifiers';
 import {
   AdminIssueKindSchema,
@@ -224,6 +225,10 @@ export const AdminCourseEnrollmentReadModelCursorSchema = z
   .object({
     scope: z.enum(['admin_course_roster', 'admin_pending_guest', 'admin_history']),
     courseId: CourseIdSchema.optional(),
+    readScope: z.discriminatedUnion('dataScope', [
+      z.object({ dataScope: z.literal('live') }).strict(),
+      z.object({ dataScope: z.literal('test'), testSessionId: TestSessionIdSchema }).strict(),
+    ]),
     updatedAtSeconds: z.number().int().nonnegative(),
     updatedAtNanoseconds: z.number().int().nonnegative().max(999_999_999),
     enrollmentId: CourseEnrollmentIdSchema,

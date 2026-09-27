@@ -20,7 +20,6 @@ import {
   type CanonicalReadScope,
 } from '@ski-academy/shared-domain';
 import { parseCourse, parseCourseDays, parseInstructorCatalog } from '../courses/courseStore';
-import { parseCourseEnrollment } from '../courses/courseEnrollmentStore';
 import {
   courseCatalogContentPath,
   parseCourseCatalogContent,
@@ -151,24 +150,60 @@ async function buildAdminCourseReadModel(
   now = timestampFromDate(new Date()),
   readContext: ReadModelRequestContext = createReadModelRequestContext(firestore)
 ): Promise<AdminCourseReadModel | undefined> {
-  const [daySnapshot, enrollmentSnapshot, catalogSnapshot, attendanceSnapshot] = await Promise.all([
+  const courseEnrollmentCountQuery = () =>
+    firestore.collection('course_enrollments').where('courseId', '==', course.courseId);
+  const activeCourseEnrollmentCountQuery = () =>
+    firestore
+      .collection('course_enrollments')
+      .where('courseId', '==', course.courseId)
+      .where('lifecycle.status', 'in', [...ACTIVE_ENROLLMENT_STATUSES]);
+  let enrollmentQuery = courseEnrollmentCountQuery();
+  let activeEnrollmentQuery = activeCourseEnrollmentCountQuery();
+  const outOfScopeEnrollmentQuery = courseEnrollmentCountQuery().where(
+    'dataScope',
+    '==',
+    'test'
+  );
+  const outOfScopeActiveEnrollmentQuery = activeCourseEnrollmentCountQuery().where(
+    'dataScope',
+    '==',
+    'test'
+  );
+  if (readContext.readScope.dataScope === 'test') {
+    enrollmentQuery = enrollmentQuery
+      .where('dataScope', '==', 'test')
+      .where('testSessionId', '==', readContext.readScope.testSessionId);
+    activeEnrollmentQuery = activeEnrollmentQuery
+      .where('dataScope', '==', 'test')
+      .where('testSessionId', '==', readContext.readScope.testSessionId);
+  }
+  // LIVE may still contain legacy documents without a scope marker. Count the
+  // course rows and subtract every explicitly TEST row to preserve that policy.
+  const aggregateQueries =
+    readContext.readScope.dataScope === 'live'
+      ? [
+          enrollmentQuery.count().get(),
+          activeEnrollmentQuery.count().get(),
+          outOfScopeEnrollmentQuery.count().get(),
+          outOfScopeActiveEnrollmentQuery.count().get(),
+        ]
+      : [enrollmentQuery.count().get(), activeEnrollmentQuery.count().get()];
+  const [daySnapshot, aggregateResults, catalogSnapshot, hasAttendance] = await Promise.all([
     readContext.courseDays(course.courseId),
-    firestore.collection('course_enrollments').where('courseId', '==', course.courseId).get(),
+    Promise.all(aggregateQueries),
     firestore.doc(courseCatalogContentPath(course.courseId)).get(),
-    readContext.courseAttendances(course.courseId),
+    readContext.courseHasAttendance(course.courseId),
   ]);
+  const totalEnrollmentCount =
+    aggregateResults[0]!.data().count -
+    (readContext.readScope.dataScope === 'live' ? aggregateResults[2]!.data().count : 0);
+  const activeEnrollmentCount =
+    aggregateResults[1]!.data().count -
+    (readContext.readScope.dataScope === 'live' ? aggregateResults[3]!.data().count : 0);
 
   const courseDays = parseCourseDays(
     daySnapshot.docs.map((document) => ({ data: document.data() as Record<string, unknown> }))
   ).sort((left, right) => left.dayOrder - right.dayOrder);
-  const enrollments = enrollmentSnapshot.docs
-    .map((document) =>
-      parseIfVisibleInReadScope(document.data(), parseCourseEnrollment, readContext.readScope)
-    )
-    .filter((value): value is NonNullable<typeof value> => value !== undefined);
-  const activeEnrollmentCount = enrollments.filter((enrollment) =>
-    ACTIVE_ENROLLMENT_STATUSES.has(enrollment.lifecycle.status)
-  ).length;
   const occupiedConfirmedSeats = course.capacity.totalSeats - course.capacity.availableSeats;
   const catalogContent = parseCourseCatalogContent(
     catalogSnapshot.data() as Record<string, unknown> | undefined,
@@ -202,7 +237,7 @@ async function buildAdminCourseReadModel(
         { kind: 'reassign_course_day_instructor', expectedRevision },
         { kind: 'reschedule_course_day', expectedRevision }
       );
-      if (enrollments.length === 0 && attendanceSnapshot.empty) {
+      if (totalEnrollmentCount === 0 && !hasAttendance) {
         actions.push({ kind: 'remove_course_day', expectedRevision });
       }
     }
@@ -233,7 +268,7 @@ async function buildAdminCourseReadModel(
     instructors,
     courseDays,
     activeEnrollmentCount,
-    totalEnrollmentCount: enrollments.length,
+    totalEnrollmentCount,
     provisioning: {
       status: provisioningStatus,
       ...(course.provisioningManifestFingerprint

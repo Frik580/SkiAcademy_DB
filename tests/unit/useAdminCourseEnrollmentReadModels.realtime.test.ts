@@ -76,6 +76,52 @@ describe('useAdminCourseEnrollmentReadModels realtime invalidation', () => {
     expect(queryMock.mock.calls[1]?.[0]).toMatchObject({ scope: 'admin_course_roster' });
   });
 
+  it('refreshes only the loaded pages and follows the refreshed cursor after invalidation', async () => {
+    queryMock.mockImplementation(async (input: { cursor?: string }) => {
+      if (!input.cursor) {
+        return {
+          scope: 'admin_course_roster',
+          items: [enrollment('course_enrollment_admin_page_01')],
+          hasMore: true,
+          nextCursor: 'cursor_refreshed_page_1',
+        };
+      }
+      return {
+        scope: 'admin_course_roster',
+        items: [enrollment('course_enrollment_admin_page_02')],
+        hasMore: true,
+        nextCursor: 'cursor_refreshed_page_2',
+      };
+    });
+    let emitInvalidation: (() => void) | undefined;
+    registerListenerMock.mockImplementation((listener: () => void) => {
+      emitInvalidation = listener;
+      return unregisterMock;
+    });
+
+    const { result } = renderHook(() => useAdminCourseEnrollmentReadModels({ view: 'roster' }));
+    await waitFor(() => expect(queryMock).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      await result.current.loadMore?.();
+    });
+    expect(result.current.list.items).toHaveLength(2);
+
+    act(() => {
+      emitInvalidation?.();
+    });
+
+    await waitFor(() => expect(queryMock).toHaveBeenCalledTimes(4));
+    expect(queryMock.mock.calls[2]?.[0]).toMatchObject({ scope: 'admin_course_roster' });
+    expect(queryMock.mock.calls[3]?.[0]).toMatchObject({
+      scope: 'admin_course_roster',
+      cursor: 'cursor_refreshed_page_1',
+    });
+    expect(result.current.list.items.map((item) => item.enrollmentId)).toEqual([
+      'course_enrollment_admin_page_01',
+      'course_enrollment_admin_page_02',
+    ]);
+  });
+
   it('unsubscribes when unmounted', async () => {
     queryMock.mockResolvedValue({
       scope: 'admin_pending_guest',

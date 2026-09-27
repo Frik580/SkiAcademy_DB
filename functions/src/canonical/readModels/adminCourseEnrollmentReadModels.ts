@@ -57,6 +57,9 @@ type AdminCourseEnrollmentIssueSummary = AdminCourseEnrollmentRosterItem['relate
 
 const ACTIVE_STATUSES = ['pending', 'confirmed', 'pending_cancellation'] as const;
 const TERMINAL_STATUSES = ['cancelled', 'withdrawn', 'completed', 'no_show'] as const;
+const RELATED_ISSUE_LOOKUP_MAX_ENROLLMENT_IDS = 30;
+// Match AdminCourseEnrollmentRosterItemSchema.relatedIssues.max(32).
+const RELATED_ISSUES_MAX_PER_ENROLLMENT = 32;
 const RECONCILIATION_ISSUE_KINDS = new Set<AdminIssue['kind']>([
   'payment_required_at_start',
   'attendance_payment_conflict',
@@ -68,6 +71,13 @@ export class InvalidAdminCourseEnrollmentCursorError extends Error {
   constructor() {
     super('Invalid Admin CourseEnrollment cursor');
     this.name = 'InvalidAdminCourseEnrollmentCursorError';
+  }
+}
+
+export class AdminCourseEnrollmentRelatedIssuesLimitError extends Error {
+  constructor() {
+    super('Too many related Admin Issues for a CourseEnrollment read-model page');
+    this.name = 'AdminCourseEnrollmentRelatedIssuesLimitError';
   }
 }
 
@@ -426,24 +436,59 @@ async function transferTargetOptions(input: {
     .sort((left, right) => left.title.localeCompare(right.title));
 }
 
-async function loadRelatedIssues(
+async function loadRelatedIssuesByEnrollmentIds(
   firestore: Firestore,
-  enrollment: CourseEnrollment,
+  enrollmentIds: readonly CourseEnrollment['enrollmentId'][],
   readScope: CanonicalReadScope
-): Promise<AdminIssue[]> {
-  const snapshot = await firestore
-    .collection('admin_issues')
-    .where('subjectRef.enrollmentId', '==', enrollment.enrollmentId)
-    .get();
-  return snapshot.docs.flatMap((document) => {
-    const issue = parseIfVisibleInReadScope(document.data(), parseAdminIssue, readScope);
-    return issue ? [issue] : [];
-  });
+): Promise<ReadonlyMap<CourseEnrollment['enrollmentId'], readonly AdminIssue[]>> {
+  const issuesByEnrollmentId = new Map<CourseEnrollment['enrollmentId'], AdminIssue[]>();
+  const uniqueEnrollmentIds = [...new Set(enrollmentIds)];
+  for (const enrollmentId of uniqueEnrollmentIds) {
+    issuesByEnrollmentId.set(enrollmentId, []);
+  }
+
+  for (
+    let offset = 0;
+    offset < uniqueEnrollmentIds.length;
+    offset += RELATED_ISSUE_LOOKUP_MAX_ENROLLMENT_IDS
+  ) {
+    const enrollmentIdChunk = uniqueEnrollmentIds.slice(
+      offset,
+      offset + RELATED_ISSUE_LOOKUP_MAX_ENROLLMENT_IDS
+    );
+    const chunkResultLimit = enrollmentIdChunk.length * RELATED_ISSUES_MAX_PER_ENROLLMENT + 1;
+    let query: Query = firestore
+      .collection('admin_issues')
+      .where('subjectRef.enrollmentId', 'in', enrollmentIdChunk);
+    if (readScope.dataScope === 'test') {
+      query = query
+        .where('dataScope', '==', 'test')
+        .where('testSessionId', '==', readScope.testSessionId);
+    }
+    const snapshot = await query.limit(chunkResultLimit).get();
+    if (snapshot.docs.length > chunkResultLimit - 1) {
+      throw new AdminCourseEnrollmentRelatedIssuesLimitError();
+    }
+
+    for (const document of snapshot.docs) {
+      const issue = parseIfVisibleInReadScope(document.data(), parseAdminIssue, readScope);
+      if (!issue || issue.subjectRef.subjectKind !== 'course_enrollment') continue;
+      const enrollmentIssues = issuesByEnrollmentId.get(issue.subjectRef.enrollmentId);
+      if (!enrollmentIssues) continue;
+      if (enrollmentIssues.length >= RELATED_ISSUES_MAX_PER_ENROLLMENT) {
+        throw new AdminCourseEnrollmentRelatedIssuesLimitError();
+      }
+      enrollmentIssues.push(issue);
+    }
+  }
+
+  return issuesByEnrollmentId;
 }
 
 async function buildAdminCourseEnrollmentItem(
   firestore: Firestore,
   enrollment: CourseEnrollment,
+  issues: readonly AdminIssue[],
   includeOperationalDetail = false,
   administratorAccountActive = true,
   readContext: ReadModelRequestContext = createReadModelRequestContext(firestore)
@@ -454,20 +499,26 @@ async function buildAdminCourseEnrollmentItem(
     }
   | undefined
 > {
-  const [courseSnapshot, participantSnapshot, paymentSnapshot, issues, guestContactSnapshot] = await Promise.all([
-    readContext.course(enrollment.courseId),
-    readContext.participant(enrollment.participantId),
-    readContext.payment(enrollment.paymentId),
-    loadRelatedIssues(firestore, enrollment, readContext.readScope),
-    enrollment.attribution.bookingOrigin === 'guest'
-      ? readContext.adminGuestContact({ kind: 'course_enrollment', enrollmentId: enrollment.enrollmentId })
-      : Promise.resolve(undefined),
-  ]);
+  const [courseSnapshot, participantSnapshot, paymentSnapshot, guestContactSnapshot] =
+    await Promise.all([
+      readContext.course(enrollment.courseId),
+      readContext.participant(enrollment.participantId),
+      readContext.payment(enrollment.paymentId),
+      enrollment.attribution.bookingOrigin === 'guest'
+        ? readContext.adminGuestContact({
+            kind: 'course_enrollment',
+            enrollmentId: enrollment.enrollmentId,
+          })
+        : Promise.resolve(undefined),
+    ]);
   const guestContact = parseGuestContact(
     guestContactSnapshot?.data() as Record<string, unknown> | undefined
   );
-  const matchingGuestContact = guestContact?.subject.kind === 'course_enrollment' &&
-    guestContact.subject.enrollmentId === enrollment.enrollmentId ? guestContact : undefined;
+  const matchingGuestContact =
+    guestContact?.subject.kind === 'course_enrollment' &&
+    guestContact.subject.enrollmentId === enrollment.enrollmentId
+      ? guestContact
+      : undefined;
   const course = parseCourse(courseSnapshot.data() as Record<string, unknown> | undefined);
   const participant = parseParticipant(
     participantSnapshot.data() as Record<string, unknown> | undefined
@@ -621,7 +672,8 @@ function listQuery(
   input: Extract<
     QueryAdminCourseEnrollmentReadModelsInput,
     { scope: 'admin_course_roster' | 'admin_pending_guest' | 'admin_history' }
-  >
+  >,
+  readScope: CanonicalReadScope
 ): Query {
   let query: Query = firestore.collection('course_enrollments');
   if (input.courseId) query = query.where('courseId', '==', input.courseId);
@@ -634,6 +686,11 @@ function listQuery(
   } else {
     query = query.where('lifecycle.status', 'in', TERMINAL_STATUSES);
   }
+  if (readScope.dataScope === 'test') {
+    query = query
+      .where('dataScope', '==', 'test')
+      .where('testSessionId', '==', readScope.testSessionId);
+  }
   query = query
     .orderBy('updatedAt.seconds', 'desc')
     .orderBy('updatedAt.nanoseconds', 'desc')
@@ -642,7 +699,13 @@ function listQuery(
   const cursor = input.cursor ? decodeAdminCourseEnrollmentCursor(input.cursor) : undefined;
   if (
     input.cursor &&
-    (!cursor || cursor.scope !== input.scope || cursor.courseId !== input.courseId)
+    (!cursor ||
+      cursor.scope !== input.scope ||
+      cursor.courseId !== input.courseId ||
+      cursor.readScope.dataScope !== readScope.dataScope ||
+      (readScope.dataScope === 'test' &&
+        (cursor.readScope.dataScope !== 'test' ||
+          cursor.readScope.testSessionId !== readScope.testSessionId)))
   ) {
     throw new InvalidAdminCourseEnrollmentCursorError();
   }
@@ -675,9 +738,15 @@ export async function queryAdminCourseEnrollmentReadModels(
       snapshot.data() as Record<string, unknown> | undefined
     );
     if (!enrollment) return { scope: input.scope };
+    const issuesByEnrollmentId = await loadRelatedIssuesByEnrollmentIds(
+      firestore,
+      [enrollment.enrollmentId],
+      readScope
+    );
     const built = await buildAdminCourseEnrollmentItem(
       firestore,
       enrollment,
+      issuesByEnrollmentId.get(enrollment.enrollmentId) ?? [],
       true,
       administratorAccountActive,
       readContext
@@ -689,19 +758,26 @@ export async function queryAdminCourseEnrollmentReadModels(
     input.pageSize ?? ADMIN_COURSE_ENROLLMENT_PAGE_SIZE_DEFAULT,
     ADMIN_COURSE_ENROLLMENT_PAGE_SIZE_MAX
   );
-  const snapshot = await listQuery(firestore, input)
+  const snapshot = await listQuery(firestore, input, readScope)
     .limit(pageSize + 1)
     .get();
-  const enrollments = snapshot.docs.flatMap((document) => {
+  const visibleRows = snapshot.docs.flatMap((document) => {
     const enrollment = parseIfVisibleInReadScope(document.data(), parseCourseEnrollment, readScope);
-    return enrollment ? [enrollment] : [];
+    return enrollment ? [{ document, enrollment }] : [];
   });
-  const page = enrollments.slice(0, pageSize);
+  const pageRows = visibleRows.slice(0, pageSize);
+  const page = pageRows.map(({ enrollment }) => enrollment);
+  const issuesByEnrollmentId = await loadRelatedIssuesByEnrollmentIds(
+    firestore,
+    page.map((enrollment) => enrollment.enrollmentId),
+    readScope
+  );
   const built = await Promise.all(
     page.map((enrollment) =>
       buildAdminCourseEnrollmentItem(
         firestore,
         enrollment,
+        issuesByEnrollmentId.get(enrollment.enrollmentId) ?? [],
         false,
         administratorAccountActive,
         readContext
@@ -709,20 +785,33 @@ export async function queryAdminCourseEnrollmentReadModels(
     )
   );
   const items = built.flatMap((value) => (value ? [value.item] : []));
-  const hasMore = enrollments.length > pageSize;
-  const last = page[page.length - 1];
+  const hasMore = snapshot.docs.length > pageSize;
+  const lastVisible = visibleRows.length > pageSize ? pageRows[pageRows.length - 1]?.enrollment : undefined;
+  const lastScannedDocument = snapshot.docs[snapshot.docs.length - 1];
+  const lastScanned =
+    hasMore && !lastVisible && lastScannedDocument
+      ? parseCourseEnrollment(
+          lastScannedDocument.data() as Record<string, unknown> | undefined
+        )
+      : undefined;
+  const cursorAnchor = lastVisible ?? lastScanned;
+  if (hasMore && !cursorAnchor) throw new InvalidAdminCourseEnrollmentCursorError();
   const result: QueryAdminCourseEnrollmentReadModelsResult = {
     scope: input.scope,
     items,
     hasMore,
-    ...(hasMore && last
+    ...(hasMore && cursorAnchor
       ? {
           nextCursor: encodeAdminCourseEnrollmentCursor({
             scope: input.scope,
             ...(input.courseId ? { courseId: input.courseId } : {}),
-            updatedAtSeconds: last.updatedAt.seconds,
-            updatedAtNanoseconds: last.updatedAt.nanoseconds,
-            enrollmentId: last.enrollmentId,
+            readScope:
+              readScope.dataScope === 'live'
+                ? { dataScope: 'live' }
+                : { dataScope: 'test', testSessionId: readScope.testSessionId },
+            updatedAtSeconds: cursorAnchor.updatedAt.seconds,
+            updatedAtNanoseconds: cursorAnchor.updatedAt.nanoseconds,
+            enrollmentId: cursorAnchor.enrollmentId,
           }),
         }
       : {}),

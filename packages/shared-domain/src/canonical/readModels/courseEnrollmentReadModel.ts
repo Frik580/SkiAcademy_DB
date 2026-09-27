@@ -7,7 +7,7 @@ import {
   CourseEnrollmentLifecycleStatusSchema,
 } from '../courseEnrollmentAttendanceAdminIssue';
 import { ImmutableBookingAttributionSchema } from '../bookingOccurrenceProposalChange';
-import { PaymentStatusSchema } from '../paymentWallet';
+import { GuestPaymentSummarySchema, PaymentStatusSchema } from '../paymentWallet';
 import {
   CourseEnrollmentReadModelAuthorizedActionsSchema,
   InstructorCourseEnrollmentRosterAuthorizedActionsSchema,
@@ -213,6 +213,7 @@ export const CourseEnrollmentReadModelSchema = z
     bookingOrigin: ImmutableBookingAttributionSchema.shape.bookingOrigin,
     authorizedActions: CourseEnrollmentReadModelAuthorizedActionsSchema,
     paymentPresentation: CourseEnrollmentReadModelPaymentPresentationSchema.optional(),
+    guestPaymentSummary: GuestPaymentSummarySchema.optional(),
     attendanceSummary: CourseEnrollmentAttendanceSummaryPresentationSchema.optional(),
     courseProgress: CourseEnrollmentProgressProjectionSchema,
     updatedAt: CanonicalTimestampSchema,

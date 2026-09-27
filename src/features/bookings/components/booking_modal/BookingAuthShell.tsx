@@ -6,6 +6,7 @@ import { GuestBookingForm } from './GuestBookingForm';
 import { useBookingModal } from './useBookingModal';
 import { AuthModeSliderSwitch } from './AuthModeSliderSwitch';
 import { BOOKING_MODAL_SHELL_CLASS } from './bookingModalLayout';
+import { GuestReservationStatus } from '../../../guest-reservations/GuestReservationStatus';
 
 interface BookingAuthShellProps {
   workspace: ReturnType<typeof useBookingModal>;
@@ -31,17 +32,33 @@ export const BookingAuthShell: React.FC<BookingAuthShellProps> = ({ workspace })
     >
       <BookingModalHeader targetInstructor={targetInstructor} t={t} onClose={onClose} />
 
-      <div className="px-4 py-2 border-b border-[var(--border)] bg-black/5 dark:bg-white/5 shrink-0">
-        <AuthModeSliderSwitch
-          unauthTab={unauthTab}
-          onChange={setUnauthTab}
-          guestLabel={t('guestBookingTab')}
-          authLabel={t('authTab')}
-        />
-      </div>
+      {!workspace.guestCreatedBookingId && (
+        <div className="px-4 py-2 border-b border-[var(--border)] bg-black/5 dark:bg-white/5 shrink-0">
+          <AuthModeSliderSwitch
+            unauthTab={unauthTab}
+            onChange={setUnauthTab}
+            guestLabel={t('guestBookingTab')}
+            authLabel={t('authTab')}
+          />
+        </div>
+      )}
 
       <div className="flex min-h-0 flex-1 flex-col">
-        {unauthTab === 'auth' ? (
+        {workspace.guestCreatedBookingId ? (
+          <GuestReservationStatus
+            kind="lesson"
+            lifecycleStatus={workspace.guestReservation?.lifecycle.status ?? 'pending'}
+            reasonCode={workspace.guestReservation?.lifecycle.reasonCode}
+            reservationExpiresAt={workspace.guestReservation?.lifecycle.reservationExpiresAt}
+            payment={workspace.guestReservation?.guestPaymentSummary}
+            language={workspace.language}
+            t={t}
+            onRefresh={workspace.refreshGuestStatus}
+            refreshing={workspace.guestRefreshing}
+            refreshError={workspace.guestRefreshError}
+            onClose={onClose}
+          />
+        ) : unauthTab === 'auth' ? (
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">
             <p className="text-center text-xs leading-relaxed text-[var(--ink-dim)]">
               {t('bookingSignInPrompt')}

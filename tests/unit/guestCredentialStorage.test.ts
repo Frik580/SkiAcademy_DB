@@ -56,6 +56,19 @@ describe('guestCredentialStorage', () => {
     expect(readGuestBookingCredential(credential.bookingId)).toEqual({ error: 'expired' });
   });
 
+  it('keeps scoped status access after the cancellation credential expires', () => {
+    const credential = {
+      ...buildCredential(new Date('2000-01-01T00:00:00.000Z')),
+      statusCredential: {
+        nonce: 'status_nonce_16chars',
+        signature: 'b'.repeat(64),
+        expiresAt: timestampFromDate(new Date('2099-01-01T00:00:00.000Z')),
+      },
+    };
+    persistGuestBookingCredential(credential);
+    expect(readGuestBookingCredential(credential.bookingId).credential).toEqual(credential);
+  });
+
   it('reports malformed credential', () => {
     localStorage.setItem('ski_academy_guest_booking_credential:booking_bad', '{not-json');
     expect(readGuestBookingCredential('booking_bad')).toEqual({ error: 'malformed' });

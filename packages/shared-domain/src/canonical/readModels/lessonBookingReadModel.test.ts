@@ -286,12 +286,7 @@ describe('lessonBookingReadModel contracts', () => {
 
   it('publishes strict Admin list and detail scopes', () => {
     expect(LESSON_BOOKING_READ_SCOPES).toEqual(
-      expect.arrayContaining([
-        'admin_hot',
-        'admin_pending_guest',
-        'admin_history',
-        'admin_detail',
-      ])
+      expect.arrayContaining(['admin_hot', 'admin_pending_guest', 'admin_history', 'admin_detail'])
     );
     expect(
       QueryLessonBookingReadModelsInputSchema.safeParse({
@@ -333,6 +328,34 @@ describe('lessonBookingReadModel contracts', () => {
         scope: 'admin_history',
         guestActionNonce: 'spoofed',
         guestActionSignature: 'spoofed',
+      }).success
+    ).toBe(false);
+  });
+
+  it('accepts a complete guest status credential only for its guest_single read', () => {
+    const status = {
+      guestStatusNonce: 'status_nonce_16chars',
+      guestStatusSignature: 'a'.repeat(64),
+      guestStatusExpiresAt: timestampFromDate(new Date('2026-01-15T10:00:00.000Z')),
+    };
+    expect(
+      QueryLessonBookingReadModelsInputSchema.safeParse({
+        scope: 'guest_single',
+        bookingId: 'booking_status_01',
+        ...status,
+      }).success
+    ).toBe(true);
+    expect(
+      QueryLessonBookingReadModelsInputSchema.safeParse({
+        scope: 'guest_single',
+        bookingId: 'booking_status_01',
+        guestStatusNonce: status.guestStatusNonce,
+      }).success
+    ).toBe(false);
+    expect(
+      QueryLessonBookingReadModelsInputSchema.safeParse({
+        scope: 'admin_history',
+        ...status,
       }).success
     ).toBe(false);
   });

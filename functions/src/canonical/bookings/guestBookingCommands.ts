@@ -56,7 +56,10 @@ import {
   type GuestReservationAdmissionPolicy,
 } from '../commands/guestReservationAdmission';
 import { expireGuestCourseEnrollmentReservation } from '../courses/guestCourseEnrollmentLifecycle';
-import { guestContactDetailsFromCommand, guestContactPath } from '../guestContact/guestContactStore';
+import {
+  guestContactDetailsFromCommand,
+  guestContactPath,
+} from '../guestContact/guestContactStore';
 import {
   FINANCE_PLANNING_ESTIMATES,
   parsePayment,
@@ -382,12 +385,15 @@ function createGuestBookingRequestHandler(
       const partyParticipantIds = [participantId];
 
       if (contactDetails) {
-        session.tx.create({ path: contactDocumentPath }, GuestContactSchema.parse({
-          subject: contactSubject,
-          ...contactDetails,
-          ...canonicalScopeFields(session.scope ?? LIVE_CANONICAL_EXECUTION_SCOPE),
-          createdAt: decidedAt,
-        }) as Record<string, unknown>);
+        session.tx.create(
+          { path: contactDocumentPath },
+          GuestContactSchema.parse({
+            subject: contactSubject,
+            ...contactDetails,
+            ...canonicalScopeFields(session.scope ?? LIVE_CANONICAL_EXECUTION_SCOPE),
+            createdAt: decidedAt,
+          }) as Record<string, unknown>
+        );
       }
 
       if (shouldCreateGuestParticipant) {
@@ -500,12 +506,26 @@ function createGuestBookingRequestHandler(
         expiresAt: reservationExpiresAt,
         nonce,
       });
+      const statusNonce = createGuestActionTokenNonce();
       const guestActionCredential: GuestBookingActionCredential = {
         bookingId: envelope.intent.bookingId,
         guestSubjectId,
         nonce,
         signature,
         expiresAt: reservationExpiresAt,
+        statusCredential: {
+          nonce: statusNonce,
+          signature: signGuestActionCredential(secret, {
+            version: GUEST_ACTION_TOKEN_VERSION,
+            subjectKind: 'booking',
+            bookingId: envelope.intent.bookingId,
+            guestSubjectId,
+            purpose: 'read_reservation_status',
+            expiresAt: schedule.interval.endsAt,
+            nonce: statusNonce,
+          }),
+          expiresAt: schedule.interval.endsAt,
+        },
       };
 
       return commandSuccessResult(envelope.kind, envelope.context.correlationId, {

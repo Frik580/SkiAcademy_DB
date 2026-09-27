@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
-import confetti from 'canvas-confetti';
 import { X, User, Phone, Mail, Send } from 'lucide-react';
 import { ActionButton } from '../../../ui/ActionButton';
 import { GuestReservationLimitAlert } from '../../../ui/GuestReservationLimitAlert';
@@ -25,6 +24,12 @@ import {
 import { presentCanonicalCommandErrorWithContext } from '../../../features/lesson-bookings';
 import type { AuthenticatedCourseEnrollmentSelection } from '../useCourseActions';
 import { ParticipantPicker } from '../../participants/components/ParticipantPicker';
+import { GuestReservationStatus } from '../../guest-reservations/GuestReservationStatus';
+import {
+  rememberGuestReservation,
+  rememberedGuestReservation,
+} from '../../guest-reservations/guestReservationLookup';
+import { loadGuestSingleCourseEnrollment } from '../../course-enrollments/useCourseEnrollmentReadSync';
 import { useParticipantSelection } from '../../participants/useParticipantSelection';
 import {
   requiresExplicitParticipantSelection,
@@ -69,6 +74,11 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   const [guestNotes, setGuestNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [guestQuotaErrorCourseId, setGuestQuotaErrorCourseId] = useState<string | null>(null);
+  const [guestCreatedEnrollmentId, setGuestCreatedEnrollmentId] = useState<string | null>(null);
+  const [guestReservation, setGuestReservation] =
+    useState<Awaited<ReturnType<typeof loadGuestSingleCourseEnrollment>>>();
+  const [guestRefreshError, setGuestRefreshError] = useState(false);
+  const [guestRefreshing, setGuestRefreshing] = useState(false);
   const isSubmittingRef = useRef(false);
   const guestEnrollmentAttemptKeyRef = useRef<string | null>(null);
 
@@ -108,6 +118,9 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
     guestEnrollmentAttemptKeyRef.current = null;
     setGuestQuotaErrorCourseId(null);
     if (!isOpen) {
+      setGuestCreatedEnrollmentId(null);
+      setGuestReservation(undefined);
+      setGuestRefreshError(false);
       setUnauthTab(userProfile ? 'auth' : 'guest');
     }
   }, [course?.id, isOpen, userProfile]);
@@ -149,7 +162,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
     const idempotencyKey = deriveGuestCreateEnrollmentIdempotencyKey(stableEnrollmentId);
 
     try {
-      await createGuestEnrollment({
+      const credential = await createGuestEnrollment({
         courseId: course.id,
         enrollmentId: stableEnrollmentId,
         participantId,
@@ -161,9 +174,13 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
         guestDiscipline: 'ski',
         guestAgeYears: 25,
       });
-      addNotification('success', t('guestApplicationSuccess'), t('guestApplicationSuccessDesc'));
-      confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-      onClose();
+      rememberGuestReservation('course', course.id, credential.enrollmentId);
+      setGuestCreatedEnrollmentId(credential.enrollmentId);
+      try {
+        setGuestReservation(await loadGuestSingleCourseEnrollment(credential.enrollmentId));
+      } catch {
+        setGuestRefreshError(true);
+      }
       onSuccess?.();
     } catch (err) {
       const presented = presentCanonicalCommandErrorWithContext(err, {
@@ -183,6 +200,33 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
     } finally {
       isSubmittingRef.current = false;
       setIsSubmitting(false);
+    }
+  };
+
+  const refreshGuestStatus = async () => {
+    if (!guestCreatedEnrollmentId || guestRefreshing) return;
+    setGuestRefreshing(true);
+    try {
+      setGuestReservation(await loadGuestSingleCourseEnrollment(guestCreatedEnrollmentId));
+      setGuestRefreshError(false);
+    } catch {
+      setGuestRefreshError(true);
+    } finally {
+      setGuestRefreshing(false);
+    }
+  };
+
+  const previousGuestEnrollmentId = course
+    ? (rememberedGuestReservation('course', course.id) ?? guestActiveEnrollment?.enrollmentId)
+    : null;
+  const checkPreviousGuestStatus = async () => {
+    if (!previousGuestEnrollmentId) return;
+    try {
+      setGuestReservation(await loadGuestSingleCourseEnrollment(previousGuestEnrollmentId));
+      setGuestCreatedEnrollmentId(previousGuestEnrollmentId);
+      setGuestRefreshError(false);
+    } catch {
+      addNotification('error', t('guestStatusRefreshFailed'), t('guestStatusRefreshFailed'));
     }
   };
 
@@ -271,8 +315,10 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                     {t('courseEnrollment')}
                   </h3>
                   <p className="text-xs text-[var(--ink-dim)] mt-0.5">
-                    {getGroupCourseLabel(course.title, language)} •{' '}
-                    {course.priceKZT != null ? formatPrice(course.priceKZT) : '—'}
+                    {getGroupCourseLabel(course.title, language)}
+                    {!guestCreatedEnrollmentId && (
+                      <> • {course.priceKZT != null ? formatPrice(course.priceKZT) : '—'}</>
+                    )}
                   </p>
                 </div>
                 <button
@@ -284,7 +330,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                 </button>
               </div>
 
-              {!showAuthenticatedEnrollment && (
+              {!showAuthenticatedEnrollment && !guestCreatedEnrollmentId && (
                 <div className="px-4 py-2 border-b border-[var(--border)] bg-black/5 dark:bg-white/5 shrink-0">
                   <AuthModeSliderSwitch
                     unauthTab={unauthTab}
@@ -296,7 +342,25 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
               )}
 
               <div className="p-5 md:p-6 overflow-y-auto space-y-4 flex-1 min-h-0">
-                {showAuthenticatedEnrollment ? (
+                {guestCreatedEnrollmentId ? (
+                  <GuestReservationStatus
+                    kind="course"
+                    lifecycleStatus={guestReservation?.lifecycle.status ?? 'pending'}
+                    reasonCode={guestReservation?.lifecycle.reasonCode}
+                    reservationExpiresAt={guestReservation?.lifecycle.reservationExpiresAt}
+                    payment={
+                      guestReservation && 'guestPaymentSummary' in guestReservation
+                        ? guestReservation.guestPaymentSummary
+                        : undefined
+                    }
+                    language={language}
+                    t={t}
+                    onRefresh={refreshGuestStatus}
+                    refreshing={guestRefreshing}
+                    refreshError={guestRefreshError}
+                    onClose={onClose}
+                  />
+                ) : showAuthenticatedEnrollment ? (
                   <form onSubmit={handleSubmitAuthenticated} className="space-y-4">
                     {showParticipantPicker && (
                       <>
@@ -374,6 +438,15 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                   </div>
                 ) : (
                   <form onSubmit={handleSubmitGuest} className="space-y-4">
+                    {previousGuestEnrollmentId && (
+                      <button
+                        type="button"
+                        onClick={() => void checkPreviousGuestStatus()}
+                        className="btn-secondary w-full px-4 py-2 text-sm"
+                      >
+                        {t('guestCheckPreviousStatus')}
+                      </button>
+                    )}
                     <div className="p-3 bg-[var(--accent-muted)] border border-[var(--border)] text-xs text-[var(--ink)] leading-relaxed rounded-none rounded-[var(--radius-md)]">
                       💡 {t('guestBookingNotice')}
                     </div>

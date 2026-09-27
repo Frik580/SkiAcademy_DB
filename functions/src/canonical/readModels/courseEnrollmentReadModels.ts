@@ -8,6 +8,7 @@ import {
   isCourseEnrollmentHot,
   isInstructorActiveRosterEnrollment,
   paymentIdFromCourseEnrollmentId,
+  isPaymentFullyFundedForService,
   timestampFromDate,
   guestSubjectIdFromCourseEnrollmentId,
   type Account,
@@ -524,8 +525,10 @@ async function loadAuthorizedAccountEnrollmentPage(
     readonly readScope?: CanonicalReadScope;
   }
 ): Promise<{ readonly enrollments: CourseEnrollment[]; readonly hasMore: boolean }> {
-  const readScope = options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
-  const readContext = options.readContext ?? createReadModelRequestContext(firestore, { readScope });
+  const readScope =
+    options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
+  const readContext =
+    options.readContext ?? createReadModelRequestContext(firestore, { readScope });
   const authContext =
     options.authContext ??
     (await loadCourseEnrollmentReadAuthorizationContext(firestore, accountId, readContext));
@@ -621,8 +624,10 @@ export async function queryCourseEnrollmentReadModels(
     readonly readScope?: CanonicalReadScope;
   } = {}
 ): Promise<QueryCourseEnrollmentReadModelsResult> {
-  const readScope = options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
-  const readContext = options.readContext ?? createReadModelRequestContext(firestore, { readScope });
+  const readScope =
+    options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
+  const readContext =
+    options.readContext ?? createReadModelRequestContext(firestore, { readScope });
   const pageSize = Math.min(
     input.pageSize ?? COURSE_ENROLLMENT_READ_MODEL_PAGE_SIZE_DEFAULT,
     COURSE_ENROLLMENT_READ_MODEL_PAGE_SIZE_MAX
@@ -682,6 +687,18 @@ export async function queryCourseEnrollmentReadModels(
       courseDays,
       attendancesByCourseDayId: attendanceByEnrollment.get(enrollment.enrollmentId) ?? new Map(),
     });
+    const paymentSnapshot = await readContext.payment(enrollment.paymentId);
+    const payment = parsePayment(paymentSnapshot.data() as Record<string, unknown> | undefined);
+    if (
+      !payment ||
+      payment.paymentId !== enrollment.paymentId ||
+      payment.subjectType !== 'course_enrollment' ||
+      payment.subjectId !== enrollment.enrollmentId
+    ) {
+      throw new Error(
+        `Canonical guest CourseEnrollment read integrity failure: payments/${enrollment.paymentId}`
+      );
+    }
     const item: CourseEnrollmentReadModel = {
       enrollmentId: enrollment.enrollmentId,
       revision: enrollment.revision,
@@ -698,6 +715,12 @@ export async function queryCourseEnrollmentReadModels(
       courseSchedule: buildCourseScheduleProjectionReadModel(course, courseDays),
       bookingOrigin: enrollment.attribution.bookingOrigin,
       authorizedActions: { canWithdraw: false, canRequestCancellation: false },
+      guestPaymentSummary: {
+        currency: payment.currency,
+        price: payment.price,
+        outstandingAmount: payment.outstandingAmount,
+        paymentSatisfied: isPaymentFullyFundedForService(payment),
+      },
       courseProgress: courseProgressProjection(progress),
       updatedAt: enrollment.updatedAt,
     };

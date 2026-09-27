@@ -155,6 +155,13 @@ export async function loadGuestSingleLessonBooking(bookingId: string) {
     bookingId: BookingIdSchema.parse(bookingId),
     guestActionNonce: stored.credential.nonce,
     guestActionSignature: stored.credential.signature,
+    ...(stored.credential.statusCredential
+      ? {
+          guestStatusNonce: stored.credential.statusCredential.nonce,
+          guestStatusSignature: stored.credential.statusCredential.signature,
+          guestStatusExpiresAt: stored.credential.statusCredential.expiresAt,
+        }
+      : {}),
   });
   if (result.items.length === 0) {
     throw new Error('Guest booking read model was not found.');

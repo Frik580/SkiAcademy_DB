@@ -75,6 +75,12 @@ outstandingAmount === 0
 
 `paymentStatus` alone is never sufficient evidence of payment satisfaction. A Payment may have a status such as `partially_refunded` while still requiring the accounting fields to determine whether the service remains fully funded.
 
+## Guest payment and status UX
+
+Guest payment is currently manual and Administrator-assisted. After creating a Lesson Booking or CourseEnrollment, the guest sees the canonical Payment price, the subject's `lifecycle.reservationExpiresAt`, and a pending explanation. An Administrator contacts the guest using GuestContact to arrange payment outside the site, then records money actually received through the existing canonical Finance command. Full canonical funding confirms the subject; the client never confirms it from a form success or Administrator approval. No guest QR, checkout, payment link, or online provider is integrated.
+
+Credential-scoped `guest_single` read models expose only a minimal Payment summary (KZT price, outstanding amount, and the canonical fully-funded predicate result) alongside lifecycle and reservation deadline. They do not expose Payment documents, Wallet, provider details, or monetary events to public Firestore clients or Instructor projections. Guest status is refreshed on request, without polling. The Lesson creation result includes a separate subject-scoped status credential valid through the original lesson end; its cancellation credential still expires at the reservation deadline. The Course credential remains scoped to its Enrollment and valid through the final Course day. These reads allow the guest to observe canonical confirmation or reservation expiry while the respective status credential is valid.
+
 ## Guest Lesson Booking lifecycle
 
 Guest creation remains:

@@ -70,6 +70,11 @@ describe('lessonBooking read sync integration', () => {
       nonce: 'nonce_fixture_16chars',
       signature: 'b'.repeat(64),
       expiresAt: timestampFromDate(new Date('2099-01-01T00:00:00.000Z')),
+      statusCredential: {
+        nonce: 'status_nonce_16chars',
+        signature: 'c'.repeat(64),
+        expiresAt: timestampFromDate(new Date('2099-01-02T00:00:00.000Z')),
+      },
     });
 
     queryLessonBookingReadModelsMock.mockResolvedValueOnce({
@@ -85,6 +90,7 @@ describe('lessonBooking read sync integration', () => {
         scope: 'guest_single',
         bookingId: BookingIdSchema.parse(bookingId),
         guestActionNonce: 'nonce_fixture_16chars',
+        guestStatusNonce: 'status_nonce_16chars',
       })
     );
     expect(useLessonBookingStore.getState().items.get(bookingId)?.revision).toBe(2);

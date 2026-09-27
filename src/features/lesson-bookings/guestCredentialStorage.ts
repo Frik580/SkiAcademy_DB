@@ -41,8 +41,8 @@ export function readGuestBookingCredential(bookingId: string): {
       return { error: 'malformed' };
     }
     const nowMs = Date.now();
-    const expiresMs =
-      result.data.expiresAt.seconds * 1000 + result.data.expiresAt.nanoseconds / 1_000_000;
+    const readExpiresAt = result.data.statusCredential?.expiresAt ?? result.data.expiresAt;
+    const expiresMs = readExpiresAt.seconds * 1000 + readExpiresAt.nanoseconds / 1_000_000;
     if (expiresMs <= nowMs) {
       return { error: 'expired' };
     }

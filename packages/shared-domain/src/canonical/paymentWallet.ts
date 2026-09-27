@@ -35,6 +35,18 @@ const PersistedEventRevisionSchema = AggregateRevisionSchema.refine(
   'Event revision must be non-negative'
 );
 
+/** Minimal canonical finance projection for a credential-scoped guest subject read. */
+export const GuestPaymentSummarySchema = z
+  .object({
+    currency: z.literal('KZT'),
+    price: KztMinorUnitsSchema,
+    outstandingAmount: KztMinorUnitsSchema,
+    paymentSatisfied: z.boolean(),
+  })
+  .strict();
+
+export type GuestPaymentSummary = z.output<typeof GuestPaymentSummarySchema>;
+
 export const PAYMENT_SUBJECT_TYPES = ['booking', 'course_enrollment'] as const;
 export type PaymentSubjectType = (typeof PAYMENT_SUBJECT_TYPES)[number];
 

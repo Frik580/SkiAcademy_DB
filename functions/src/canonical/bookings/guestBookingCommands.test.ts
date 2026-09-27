@@ -209,6 +209,9 @@ describe('create_guest_booking_request command', () => {
     });
     expect(result.payload?.guestActionCredential?.nonce).toMatch(/^[A-Za-z0-9_-]{16,64}$/);
     expect(result.payload?.guestActionCredential?.signature).toMatch(/^[0-9a-fA-F]{64}$/);
+    expect(result.payload?.guestActionCredential?.statusCredential?.signature).toMatch(
+      /^[0-9a-fA-F]{64}$/
+    );
   });
 
   it('provisions an unmanaged guest participant atomically when missing', async () => {
@@ -221,11 +224,13 @@ describe('create_guest_booking_request command', () => {
     expect(participant?.management).toEqual({ kind: 'unmanaged_guest' });
     expect(participant?.displayName).toBe('Guest Participant');
     expect(participant?.initialManagementEligibleAccountId).toBeUndefined();
-    expect(executor.snapshot().docs.get(`guest_contacts/booking_${bookingId}`)?.data).toMatchObject({
-      subject: { kind: 'booking', bookingId },
-      phone: '+7 701 123 45 67',
-      email: 'guest@example.com',
-    });
+    expect(executor.snapshot().docs.get(`guest_contacts/booking_${bookingId}`)?.data).toMatchObject(
+      {
+        subject: { kind: 'booking', bookingId },
+        phone: '+7 701 123 45 67',
+        email: 'guest@example.com',
+      }
+    );
   });
 
   it('stores per-lesson difficulty and notes without changing guest Participant.skillLevel', async () => {
@@ -283,7 +288,9 @@ describe('create_guest_booking_request command', () => {
     const snapshot = executor.snapshot();
     expect(snapshot.docs.get(`bookings/${bookingId}`)).toBeDefined();
     expect(snapshot.docs.get(`participants/${participantId}`)).toBeDefined();
-    expect([...snapshot.docs.keys()].filter((path) => path.startsWith('guest_contacts/'))).toHaveLength(1);
+    expect(
+      [...snapshot.docs.keys()].filter((path) => path.startsWith('guest_contacts/'))
+    ).toHaveLength(1);
     expect(
       [...snapshot.docs.keys()].filter((path) => path.startsWith('activity_logs/')).length
     ).toBe(1);
@@ -338,6 +345,7 @@ describe('create_guest_booking_request command', () => {
     expect(createResult.status).toBe('success');
     const credential = createResult.payload?.guestActionCredential;
     expect(credential).toBeDefined();
+    expect(credential?.statusCredential).toBeDefined();
 
     const snapshot = executor.snapshot();
     const booking = snapshot.docs.get(`bookings/${bookingId}`)?.data;
@@ -349,7 +357,7 @@ describe('create_guest_booking_request command', () => {
         doc: (id: string) => ({
           get: async () => {
             const path = `${name}/${id}`;
-            const data = snapshot.docs.get(path)?.data;
+            const data = executor.snapshot().docs.get(path)?.data;
             return {
               exists: data !== undefined,
               data: () => data,
@@ -376,6 +384,12 @@ describe('create_guest_booking_request command', () => {
     );
     expect(authorized.items).toHaveLength(1);
     expect(authorized.items[0]?.bookingId).toBe(bookingId);
+    expect(authorized.items[0]?.guestPaymentSummary).toEqual({
+      currency: 'KZT',
+      price: 12_000,
+      outstandingAmount: 12_000,
+      paymentSatisfied: false,
+    });
 
     const wrongSubject = await queryLessonBookingReadModels(
       firestore,
@@ -389,6 +403,28 @@ describe('create_guest_booking_request command', () => {
     );
     expect(wrongSubject.items).toHaveLength(0);
 
+    const statusInput = {
+      scope: 'guest_single' as const,
+      bookingId,
+      guestStatusNonce: credential!.statusCredential!.nonce,
+      guestStatusSignature: credential!.statusCredential!.signature,
+      guestStatusExpiresAt: credential!.statusCredential!.expiresAt,
+    };
+    const afterHold = await queryLessonBookingReadModels(firestore, statusInput, {
+      guestActionSecret: tokenSecret,
+      now: new Date('2026-01-01T12:30:00.000Z'),
+    });
+    expect(afterHold.items).toHaveLength(1);
+    const wrongStatusSubject = await queryLessonBookingReadModels(
+      firestore,
+      {
+        ...statusInput,
+        bookingId: BookingIdSchema.parse('booking_guest_cmd_other'),
+      },
+      { guestActionSecret: tokenSecret, now: new Date('2026-01-01T12:30:00.000Z') }
+    );
+    expect(wrongStatusSubject.items).toHaveLength(0);
+
     const expired = await queryLessonBookingReadModels(
       firestore,
       {
@@ -400,6 +436,42 @@ describe('create_guest_booking_request command', () => {
       { guestActionSecret: tokenSecret, now: new Date('2026-01-01T12:30:00.000Z') }
     );
     expect(expired.items).toHaveLength(0);
+
+    const full = await runCommands(executor, '2026-01-01T10:45:00.000Z').execute({
+      kind: 'record_provider_payment_event',
+      context: {
+        actor: accountCommandActor(adminAccountId),
+        exercisedCapability: 'administrator',
+        idempotencyKey: 'guest-read-full-payment',
+        correlationId,
+        source: 'admin_callable',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+      },
+      intent: {
+        paymentId,
+        amount: 12_000,
+        sourceKind: 'manual_external',
+        manualReference: 'guest-read-full',
+      },
+    });
+    expect(full.status).toBe('success');
+    const confirmedWithOriginalCredential = await queryLessonBookingReadModels(
+      firestore,
+      {
+        scope: 'guest_single',
+        bookingId,
+        guestActionNonce: credential!.nonce,
+        guestActionSignature: credential!.signature,
+      },
+      { guestActionSecret: tokenSecret, now: new Date('2026-01-01T10:50:00.000Z') }
+    );
+    expect(confirmedWithOriginalCredential.items[0]?.lifecycle.status).toBe('confirmed');
+    const confirmedRead = await queryLessonBookingReadModels(firestore, statusInput, {
+      guestActionSecret: tokenSecret,
+      now: new Date('2026-01-01T12:30:00.000Z'),
+    });
+    expect(confirmedRead.items[0]?.lifecycle.status).toBe('confirmed');
+    expect(confirmedRead.items[0]?.guestPaymentSummary?.paymentSatisfied).toBe(true);
 
     expect(booking).toBeDefined();
     expect(instructor).toBeDefined();

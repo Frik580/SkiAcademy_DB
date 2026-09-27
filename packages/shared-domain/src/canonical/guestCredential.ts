@@ -11,7 +11,11 @@ import {
   type CourseEnrollmentId,
   type GuestSubjectId,
 } from './identifiers';
-import { CanonicalTimestampSchema, compareCanonicalTimestamps, type CanonicalTimestamp } from './primitives';
+import {
+  CanonicalTimestampSchema,
+  compareCanonicalTimestamps,
+  type CanonicalTimestamp,
+} from './primitives';
 
 export const GUEST_ACTION_TOKEN_VERSION = 'guest-token:v1' as const;
 
@@ -30,7 +34,7 @@ const GuestActionTokenPayloadSchema = z.discriminatedUnion('subjectKind', [
       subjectKind: z.literal('booking'),
       bookingId: BookingIdSchema,
       guestSubjectId: GuestSubjectIdSchema,
-      purpose: z.literal('cancel_pending_reservation'),
+      purpose: z.enum(['cancel_pending_reservation', 'read_reservation_status']),
       expiresAt: CanonicalTimestampSchema,
       nonce: guestActionNonceSchema,
     })
@@ -142,7 +146,7 @@ export function verifyGuestActionCredentialParts(input: {
   readonly now: CanonicalTimestamp;
   readonly expectedBookingId: BookingId;
   readonly expectedGuestSubjectId: GuestSubjectId;
-  readonly expectedPurpose: 'cancel_pending_reservation';
+  readonly expectedPurpose: 'cancel_pending_reservation' | 'read_reservation_status';
   readonly expiresAt: CanonicalTimestamp;
   readonly compareSignatures: CompareHmacSha256Signatures;
 }): GuestActionTokenVerificationResult {

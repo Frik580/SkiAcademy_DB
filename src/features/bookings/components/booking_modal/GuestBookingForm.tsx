@@ -43,6 +43,8 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
     totalCost,
     targetInstructor,
     handleSubmitGuest,
+    checkPreviousGuestStatus,
+    previousGuestReservationId,
   } = workspace;
 
   const fieldClass =
@@ -59,6 +61,15 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
   return (
     <form onSubmit={handleSubmitGuest} className="flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
+        {previousGuestReservationId && (
+          <button
+            type="button"
+            onClick={() => void checkPreviousGuestStatus()}
+            className="btn-secondary w-full px-4 py-2 text-sm"
+          >
+            {t('guestCheckPreviousStatus')}
+          </button>
+        )}
         <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--accent-muted)] p-3 text-xs leading-relaxed text-[var(--ink)]">
           {t('guestBookingNotice')}
         </div>

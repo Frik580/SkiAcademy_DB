@@ -70,7 +70,9 @@ function createCommands(
   );
 }
 
-function guestEnrollmentEnvelope(idempotencyKey: string): CommandEnvelope<'create_course_enrollments'> {
+function guestEnrollmentEnvelope(
+  idempotencyKey: string
+): CommandEnvelope<'create_course_enrollments'> {
   return guestEnrollmentAttemptEnvelope({
     idempotencyKey,
     participantId,
@@ -283,7 +285,9 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
         guestEnrollmentAttemptEnvelope({
           idempotencyKey: `guest-course-production-limit-${index}`,
           participantId: ParticipantIdSchema.parse(`participant_guest_course_production_${index}`),
-          enrollmentId: CourseEnrollmentIdSchema.parse(`enrollment_guest_course_production_${index}`),
+          enrollmentId: CourseEnrollmentIdSchema.parse(
+            `enrollment_guest_course_production_${index}`
+          ),
         })
       );
       expect(result.status).toBe('success');
@@ -399,7 +403,8 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
     const commands = createCommands();
     const result = await commands.execute(guestEnrollmentEnvelope('idem-guest-transport-01'));
     expect(result.status).toBe('success');
-    const credential = result.status === 'success' ? result.payload?.guestLinkCredentials?.[0] : undefined;
+    const credential =
+      result.status === 'success' ? result.payload?.guestLinkCredentials?.[0] : undefined;
     expect(credential?.enrollmentId).toBe(enrollmentId);
     expect(credential?.guestSubjectId).toBe(guestSubjectId);
 
@@ -407,8 +412,9 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
     const participant = participantSnap.data();
     expect(participantSnap.exists).toBe(true);
     expect(participant?.management?.kind).toBe('unmanaged_guest');
-    expect((await firestore.doc(`guest_contacts/course_enrollment_${enrollmentId}`).get()).data())
-      .toMatchObject({ phone: '+7 701 123 45 67', email: 'course@example.com' });
+    expect(
+      (await firestore.doc(`guest_contacts/course_enrollment_${enrollmentId}`).get()).data()
+    ).toMatchObject({ phone: '+7 701 123 45 67', email: 'course@example.com' });
 
     const enrollmentSnap = await firestore.doc(`course_enrollments/${enrollmentId}`).get();
     const enrollment = parseCourseEnrollment(
@@ -453,6 +459,15 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
     );
     expect(read.items).toHaveLength(1);
     expect(read.items[0]?.enrollmentId).toBe(enrollmentId);
+    expect(read.items[0]?.guestPaymentSummary).toMatchObject({
+      currency: 'KZT',
+      paymentSatisfied: false,
+    });
+    const payment = (await firestore.doc(`payments/${enrollment!.paymentId}`).get()).data();
+    expect(read.items[0]?.guestPaymentSummary?.price).toBe(payment?.price);
+    expect(read.items[0]?.lifecycle.reservationExpiresAt).toEqual(
+      enrollment?.lifecycle.reservationExpiresAt
+    );
 
     const tampered = await queryCourseEnrollmentReadModels(
       firestore,
@@ -554,7 +569,8 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
 
     const successes = attempts.filter((attempt) => attempt.status === 'success');
     const duplicates = attempts.filter(
-      (attempt) => attempt.status === 'error' && attempt.error.code === 'duplicate_active_enrollment'
+      (attempt) =>
+        attempt.status === 'error' && attempt.error.code === 'duplicate_active_enrollment'
     );
     expect(successes).toHaveLength(1);
     expect(duplicates).toHaveLength(1);
@@ -571,9 +587,7 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
     const first = await commands.execute(guestEnrollmentEnvelope('idem-guest-other-first'));
     expect(first.status).toBe('success');
 
-    const otherParticipantId = ParticipantIdSchema.parse(
-      'participant_guest_transport_emulator_02'
-    );
+    const otherParticipantId = ParticipantIdSchema.parse('participant_guest_transport_emulator_02');
     const otherEnrollmentId = CourseEnrollmentIdSchema.parse(
       'enrollment_guest_transport_emulator_other'
     );
@@ -612,7 +626,9 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
       })
     );
     if (second.status === 'error') {
-      throw new Error(`course Y enroll failed: ${second.error.code} ${JSON.stringify(second.error.details)}`);
+      throw new Error(
+        `course Y enroll failed: ${second.error.code} ${JSON.stringify(second.error.details)}`
+      );
     }
 
     const firstCourse = await durableGuestCounts(courseId);
@@ -636,6 +652,24 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
       })
     );
     expect(expired.status).toBe('success');
+
+    const credential = created.payload?.guestLinkCredentials?.[0];
+    expect(credential).toBeDefined();
+    const expiredRead = await queryCourseEnrollmentReadModels(
+      firestore,
+      {
+        scope: 'guest_single',
+        enrollmentId,
+        guestActionNonce: credential!.nonce,
+        guestActionSignature: credential!.signature,
+      },
+      { guestActionSecret: guestActionTokenSecret, now: new Date('2026-01-02T01:05:00.000Z') }
+    );
+    expect(expiredRead.items[0]?.lifecycle).toMatchObject({
+      status: 'cancelled',
+      reasonCode: 'reservation_expired',
+    });
+    expect(expiredRead.items[0]?.guestPaymentSummary?.paymentSatisfied).toBe(false);
 
     const afterExpiry = await durableGuestCounts();
     expect(afterExpiry.availableSeats).toBe(8);

@@ -405,11 +405,7 @@ describe('Admin lesson booking read models', () => {
       }
       const partial = options.partialOutstandingPayment;
       const paymentPrice = partial?.price ?? 50_000;
-      const paymentPaid = partial
-        ? partial.paid
-        : options.unpaidPayment
-          ? 0
-          : 50_000;
+      const paymentPaid = partial ? partial.paid : options.unpaidPayment ? 0 : 50_000;
       const paymentOutstanding = partial
         ? partial.price - partial.paid
         : options.unpaidPayment
@@ -429,11 +425,7 @@ describe('Admin lesson booking read models', () => {
         writtenOffAmount: 0,
         outstandingAmount: paymentOutstanding,
         paymentStatus:
-          paymentOutstanding > 0
-            ? paymentPaid > 0
-              ? 'partially_paid'
-              : 'unpaid'
-            : 'paid',
+          paymentOutstanding > 0 ? (paymentPaid > 0 ? 'partially_paid' : 'unpaid') : 'paid',
         ...(options.omitPaymentPayerAccountId ? {} : { payerAccountId: adminId }),
         incrementalRequirements: [],
         eventRevision: 1,
@@ -486,13 +478,19 @@ describe('Admin lesson booking read models', () => {
           },
           participants: participantDocuments,
           guest_contacts: Object.fromEntries(
-            bookings.filter((booking) => booking.attribution.bookingOrigin === 'guest' && options.guestContact)
-              .map((booking) => [`booking_${booking.bookingId}`, {
-                subject: { kind: 'booking', bookingId: booking.bookingId },
-                ...options.guestContact,
-                dataScope: 'live',
-                createdAt: booking.createdAt,
-              }])
+            bookings
+              .filter(
+                (booking) => booking.attribution.bookingOrigin === 'guest' && options.guestContact
+              )
+              .map((booking) => [
+                `booking_${booking.bookingId}`,
+                {
+                  subject: { kind: 'booking', bookingId: booking.bookingId },
+                  ...options.guestContact,
+                  dataScope: 'live',
+                  createdAt: booking.createdAt,
+                },
+              ])
           ),
           payments: paymentDocuments,
           users: {
@@ -731,9 +729,13 @@ describe('Admin lesson booking read models', () => {
   });
 
   it('projects admin canReschedule from administrator reschedule eligibility', async () => {
-    const confirmed = canonicalBooking('booking_admin_reschedule_confirmed', '2026-08-01T12:00:00.000Z', {
-      status: 'confirmed',
-    });
+    const confirmed = canonicalBooking(
+      'booking_admin_reschedule_confirmed',
+      '2026-08-01T12:00:00.000Z',
+      {
+        status: 'confirmed',
+      }
+    );
     const { firestore: confirmedFirestore } = adminFixture([confirmed]);
     const confirmedModel = await buildAdminLessonBookingReadModel(
       confirmedFirestore,
@@ -844,9 +846,14 @@ describe('Admin lesson booking read models', () => {
     });
     expect(model?.admin?.guestIdentityLinkUnavailableReason).toBeUndefined();
     expect(model?.admin?.guestContact).toEqual({
-      phone: '+7 701 123 45 67', email: 'guest@example.com',
+      phone: '+7 701 123 45 67',
+      email: 'guest@example.com',
     });
-    const instructor = await buildInstructorLessonBookingReadModel(firestore, instructorId, booking);
+    const instructor = await buildInstructorLessonBookingReadModel(
+      firestore,
+      instructorId,
+      booking
+    );
     expect(instructor).toBeDefined();
     expect(instructor?.admin).toBeUndefined();
     expect(JSON.stringify(instructor)).not.toContain('guest@example.com');
@@ -1057,6 +1064,7 @@ describe('Admin lesson booking read models', () => {
       { instructorId, now: new Date('2026-08-01T10:00:00.000Z') }
     );
     expect(instructorHot.items.map((item) => item.bookingId)).toEqual([hot.bookingId]);
+    expect(instructorHot.items[0]?.guestPaymentSummary).toBeUndefined();
     expect(instructorHistory.items.map((item) => item.bookingId)).toEqual([history.bookingId]);
     const detail = await queryLessonBookingReadModels(
       firestore,
@@ -1211,7 +1219,10 @@ describe('Instructor lesson booking attendance projection', () => {
             unknown
           >,
           [participantB]: participantDoc(participantB, 'Bob') as unknown as Record<string, unknown>,
-          [participantC]: participantDoc(participantC, 'Cara') as unknown as Record<string, unknown>,
+          [participantC]: participantDoc(participantC, 'Cara') as unknown as Record<
+            string,
+            unknown
+          >,
         },
         attendance: {
           [attendanceAId]: {
@@ -1288,7 +1299,9 @@ describe('Instructor lesson booking attendance projection', () => {
         serviceParty: { participantIds: [participantId], frozenAt: startsAt },
       },
       lifecycle: { status: 'confirmed' },
-      paymentId: paymentIdFromBookingId(BookingIdSchema.parse('booking_instructor_ended_confirmed_01')),
+      paymentId: paymentIdFromBookingId(
+        BookingIdSchema.parse('booking_instructor_ended_confirmed_01')
+      ),
       revision: 1,
       createdAt: decidedAt,
       updatedAt: decidedAt,

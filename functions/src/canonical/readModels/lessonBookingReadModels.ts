@@ -19,6 +19,7 @@ import {
   ParticipantManagementSchema,
   paymentIdFromBookingId,
   paymentIdMatchesSubject,
+  isPaymentFullyFundedForService,
   refundableRetainedAmount,
   evaluateLessonBookingAuthorizedActions,
   evaluateInstructorLessonBookingAuthorizedActions,
@@ -52,6 +53,7 @@ import {
   lessonBookingIntersectsCalendarRange,
   timestampFromDate,
   guestSubjectIdFromBookingId,
+  resolveGuestLessonReservationExpiresAt,
   type Attendance,
   type CanonicalTimestamp,
   type ParticipantId,
@@ -351,12 +353,14 @@ function resolveAccountPartyManagementAccess(
   context: LessonBookingReadAuthorizationContext,
   accountId: AccountId,
   participantIds: readonly Participant['participantId'][]
-): Readonly<{
-  participant: Participant;
-  management: ParticipantManagement;
-  authority: 'self' | 'parent_guardian';
-  clientExercisedCapability: 'account_owner' | 'parent_guardian';
-}> | undefined {
+):
+  | Readonly<{
+      participant: Participant;
+      management: ParticipantManagement;
+      authority: 'self' | 'parent_guardian';
+      clientExercisedCapability: 'account_owner' | 'parent_guardian';
+    }>
+  | undefined {
   if (!context.account) {
     return undefined;
   }
@@ -430,11 +434,7 @@ async function loadRelatedBookingAdminIssues(
     .limit(50)
     .get();
   const issues = snapshot.docs.flatMap((document) => {
-    const issue = parseIfVisibleInReadScope(
-      document.data(),
-      parseAdminIssue,
-      readScope
-    );
+    const issue = parseIfVisibleInReadScope(document.data(), parseAdminIssue, readScope);
     if (!issue) return [];
     if (
       !issue ||
@@ -474,9 +474,7 @@ function buildAdminAuthorizedActions(input: {
     participantsActive &&
     isAdministratorRescheduleEligibleBooking(input.booking, input.now);
   const confirmedServiceChangeEligible =
-    accountActive &&
-    participantsActive &&
-    isRescheduleEligibleBooking(input.booking);
+    accountActive && participantsActive && isRescheduleEligibleBooking(input.booking);
   const primaryParticipant = input.participants[0];
   const managedServiceChange =
     confirmedServiceChangeEligible &&
@@ -521,15 +519,13 @@ function buildAdminAuthorizedActions(input: {
       }).outcome === 'accepted'
     );
   })();
-  const linkedPayerAccountId =
-    input.booking.payerAccountId ?? input.payment?.payerAccountId;
+  const linkedPayerAccountId = input.booking.payerAccountId ?? input.payment?.payerAccountId;
   const canPayFromWallet = Boolean(
     accountActive &&
     input.payment !== undefined &&
     input.payment.outstandingAmount > 0 &&
     linkedPayerAccountId !== undefined &&
-    (input.booking.lifecycle.status === 'pending' ||
-      input.booking.lifecycle.status === 'confirmed')
+    (input.booking.lifecycle.status === 'pending' || input.booking.lifecycle.status === 'confirmed')
   );
   const linkAvailability = evaluateAdminGuestBookingIdentityLinkAvailability({
     bookingOrigin: input.booking.attribution.bookingOrigin,
@@ -613,8 +609,10 @@ export async function buildAdminLessonBookingReadModel(
   const guestContact = parseGuestContact(
     guestContactSnap?.data() as Record<string, unknown> | undefined
   );
-  const matchingGuestContact = guestContact?.subject.kind === 'booking' &&
-    guestContact.subject.bookingId === booking.bookingId ? guestContact : undefined;
+  const matchingGuestContact =
+    guestContact?.subject.kind === 'booking' && guestContact.subject.bookingId === booking.bookingId
+      ? guestContact
+      : undefined;
 
   const instructorCatalog = parseInstructorCatalog(
     booking.occurrence.instructorId,
@@ -775,7 +773,12 @@ export async function buildAdminLessonBookingReadModel(
     ...lessonContentFromBooking(booking),
     admin: {
       ...(matchingGuestContact
-        ? { guestContact: { phone: matchingGuestContact.phone, ...(matchingGuestContact.email ? { email: matchingGuestContact.email } : {}) } }
+        ? {
+            guestContact: {
+              phone: matchingGuestContact.phone,
+              ...(matchingGuestContact.email ? { email: matchingGuestContact.email } : {}),
+            },
+          }
         : {}),
       participants: participantRecords.map((participant) => ({
         participantId: participant.participantId,
@@ -829,12 +832,12 @@ export async function buildAdminLessonBookingReadModel(
       relatedOpenChangeRequests: relatedOpenChangeRequests
         .filter((changeRequest) => documentMatchesReadScope(readContext.readScope, changeRequest))
         .map((changeRequest) => ({
-        requestId: changeRequest.requestId,
-        revision: changeRequest.revision,
-        requestType: changeRequest.requestType,
-        reason: changeRequest.reason,
-        createdAt: changeRequest.createdAt,
-      })),
+          requestId: changeRequest.requestId,
+          revision: changeRequest.revision,
+          requestType: changeRequest.requestType,
+          reason: changeRequest.reason,
+          createdAt: changeRequest.createdAt,
+        })),
       attendance,
       scheduleRevision: booking.occurrence.scheduleRevision,
       serviceParticipantIds: [...booking.occurrence.serviceParty.participantIds],
@@ -1252,8 +1255,10 @@ export async function loadAuthorizedAccountBookings(
     readonly readScope?: CanonicalReadScope;
   } = {}
 ): Promise<Booking[]> {
-  const readScope = options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
-  const readContext = options.readContext ?? createReadModelRequestContext(firestore, { readScope });
+  const readScope =
+    options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
+  const readContext =
+    options.readContext ?? createReadModelRequestContext(firestore, { readScope });
   const authContext =
     options.authContext ??
     (await loadLessonBookingReadAuthorizationContext(firestore, accountId, readContext));
@@ -1317,8 +1322,10 @@ export async function loadAuthorizedAccountBookingsForCalendarRange(
     readonly readScope?: CanonicalReadScope;
   } = {}
 ): Promise<Booking[]> {
-  const readScope = options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
-  const readContext = options.readContext ?? createReadModelRequestContext(firestore, { readScope });
+  const readScope =
+    options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
+  const readContext =
+    options.readContext ?? createReadModelRequestContext(firestore, { readScope });
   const authContext =
     options.authContext ??
     (await loadLessonBookingReadAuthorizationContext(firestore, accountId, readContext));
@@ -1376,7 +1383,8 @@ export async function loadInstructorHotBookings(
     readonly readScope?: CanonicalReadScope;
   } = {}
 ): Promise<Booking[]> {
-  const readScope = options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
+  const readScope =
+    options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
   const snapshot = await firestore
     .collection('bookings')
     .where('occurrence.instructorId', '==', instructorId)
@@ -1407,8 +1415,10 @@ export async function queryLessonBookingReadModels(
     readonly readScope?: CanonicalReadScope;
   } = {}
 ): Promise<QueryLessonBookingReadModelsResult> {
-  const readScope = options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
-  const readContext = options.readContext ?? createReadModelRequestContext(firestore, { readScope });
+  const readScope =
+    options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
+  const readContext =
+    options.readContext ?? createReadModelRequestContext(firestore, { readScope });
   const pageSize = Math.min(
     input.pageSize ?? LESSON_BOOKING_READ_MODEL_PAGE_SIZE_DEFAULT,
     LESSON_BOOKING_READ_MODEL_PAGE_SIZE_MAX
@@ -1557,18 +1567,27 @@ export async function queryLessonBookingReadModels(
     }
 
     const guestSubjectId = guestSubjectIdFromBookingId(bookingId);
+    const useStatusCredential = Boolean(
+      input.guestStatusNonce && input.guestStatusSignature && input.guestStatusExpiresAt
+    );
     const verification = verifyGuestActionCredentialPartsAuthoritative({
       secret: options.guestActionSecret ?? '',
-      nonce: input.guestActionNonce!,
-      signature: input.guestActionSignature!,
+      nonce: useStatusCredential ? input.guestStatusNonce! : input.guestActionNonce!,
+      signature: useStatusCredential ? input.guestStatusSignature! : input.guestActionSignature!,
       now,
       expectedBookingId: bookingId,
       expectedGuestSubjectId: guestSubjectId,
-      expectedPurpose: 'cancel_pending_reservation',
-      expiresAt:
-        booking.lifecycle.status === 'pending'
+      expectedPurpose: useStatusCredential
+        ? 'read_reservation_status'
+        : 'cancel_pending_reservation',
+      expiresAt: useStatusCredential
+        ? input.guestStatusExpiresAt!
+        : booking.lifecycle.status === 'pending'
           ? booking.lifecycle.reservationExpiresAt
-          : booking.updatedAt,
+          : resolveGuestLessonReservationExpiresAt({
+              createdAt: booking.createdAt,
+              serviceStartsAt: booking.occurrence.interval.startsAt,
+            }),
     });
     if (!verification.valid) {
       return { scope: input.scope, items: [], hasMore: false };
@@ -1787,6 +1806,21 @@ async function buildGuestLessonBookingReadModel(
     ),
   };
 
+  const paymentSnapshot = await readContext.payment(booking.paymentId);
+  const payment = parsePayment(paymentSnapshot.data() as Record<string, unknown> | undefined);
+  if (
+    !payment ||
+    payment.paymentId !== booking.paymentId ||
+    !paymentIdMatchesSubject(payment, {
+      subjectType: 'booking',
+      subjectId: booking.bookingId,
+    })
+  ) {
+    throw new Error(
+      `Canonical guest Booking read integrity failure: payments/${booking.paymentId}`
+    );
+  }
+
   return {
     bookingId: booking.bookingId,
     revision: booking.revision,
@@ -1798,6 +1832,12 @@ async function buildGuestLessonBookingReadModel(
     lifecycle: buildLifecycleProjection(booking),
     bookingOrigin: booking.attribution.bookingOrigin,
     authorizedActions: INSTRUCTOR_LESSON_DENIED_ACTIONS,
+    guestPaymentSummary: {
+      currency: payment.currency,
+      price: payment.price,
+      outstandingAmount: payment.outstandingAmount,
+      paymentSatisfied: isPaymentFullyFundedForService(payment),
+    },
     ...lessonContentFromBooking(booking),
     updatedAt: booking.updatedAt,
   };

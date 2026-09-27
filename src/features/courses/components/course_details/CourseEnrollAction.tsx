@@ -41,6 +41,8 @@ export const CourseEnrollAction: React.FC<CourseEnrollActionProps> = ({
     enrollmentLifecycleStatus,
     isClientActive: userProfile?.isClientActive,
   });
+  const canCheckGuestStatus =
+    !userProfile && (cta.label === 'awaitingPayment' || cta.label === 'enrolled');
   const displayPriceMinorUnits = catalogOperational?.priceMinorUnits ?? course.priceKZT;
 
   return (
@@ -118,18 +120,22 @@ export const CourseEnrollAction: React.FC<CourseEnrollActionProps> = ({
             onClick={() => {
               onEnroll(course.id);
             }}
-            disabled={cta.enrollDisabled}
+            disabled={cta.enrollDisabled && !canCheckGuestStatus}
             className={`w-full py-3.5 font-mono text-[10px] uppercase tracking-widest transition rounded-none font-bold ${
-              cta.label === 'enrolled' || cta.label === 'awaitingPayment'
-                ? 'bg-black/5 dark:bg-black/60 border border-[var(--border)]/60 text-[var(--ink-dim)] cursor-default'
-                : cta.label === 'accessSuspended'
-                  ? 'border border-rose-900/40 text-rose-500 cursor-not-allowed bg-rose-950/10'
-                  : cta.label === 'enroll'
-                    ? 'btn-primary cursor-pointer shadow-md'
-                    : 'btn-secondary cursor-not-allowed opacity-60'
+              canCheckGuestStatus
+                ? 'btn-secondary cursor-pointer'
+                : cta.label === 'enrolled' || cta.label === 'awaitingPayment'
+                  ? 'bg-black/5 dark:bg-black/60 border border-[var(--border)]/60 text-[var(--ink-dim)] cursor-default'
+                  : cta.label === 'accessSuspended'
+                    ? 'border border-rose-900/40 text-rose-500 cursor-not-allowed bg-rose-950/10'
+                    : cta.label === 'enroll'
+                      ? 'btn-primary cursor-pointer shadow-md'
+                      : 'btn-secondary cursor-not-allowed opacity-60'
             }`}
           >
-            {cta.label === 'enrolled' ? (
+            {canCheckGuestStatus ? (
+              t('guestCheckStatus')
+            ) : cta.label === 'enrolled' ? (
               <span className="flex items-center justify-center gap-1.5 normal-case font-sans text-xs">
                 <span className="text-emerald-500 font-bold text-sm">✔</span> {t('courseEnrolled')}
               </span>

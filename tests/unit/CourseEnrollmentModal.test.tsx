@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   toggleParticipant: vi.fn(),
   resetSelection: vi.fn(),
   createGuestEnrollment: vi.fn(),
+  loadGuestSingleCourseEnrollment: vi.fn(),
   isAnySelectedParticipantEnrolledInCourse: vi.fn(
     (_enrollments: unknown, _courseId: string, _ids: readonly string[]) => false
   ),
@@ -34,7 +35,15 @@ vi.mock('motion/react', () => ({
 vi.mock('canvas-confetti', () => ({ default: mocks.confetti }));
 
 vi.mock('../../src/app/providers/LanguageContext', () => ({
-  useLanguage: () => ({ t: (key: string) => key, language: 'en' }),
+  useLanguage: () => ({
+    t: (key: string) =>
+      ({
+        guestCourseHoldUntil: 'Your place on the course is temporarily held until {deadline}.',
+        guestCoursePrice: 'Course price: {amount}.',
+        guestAdminContactPayment: 'An administrator will contact you to arrange payment.',
+      } as Record<string, string>)[key] ?? key,
+    language: 'en',
+  }),
   getGroupCourseLabel: (title: string) => title,
   translateCourse: (course: unknown) => course,
   formatCourseCardDuration: (duration: string) => duration,
@@ -75,6 +84,11 @@ vi.mock('../../src/features/course-enrollments', () => ({
     ids: readonly string[]
   ) => mocks.isAnySelectedParticipantEnrolledInCourse(enrollments, courseId, ids),
   selectActiveGuestCourseEnrollment: () => mocks.selectActiveGuestCourseEnrollment(),
+}));
+
+vi.mock('../../src/features/course-enrollments/useCourseEnrollmentReadSync', () => ({
+  loadGuestSingleCourseEnrollment: (...args: unknown[]) =>
+    mocks.loadGuestSingleCourseEnrollment(...args),
 }));
 
 vi.mock('../../src/features/participants/useParticipantSelection', () => ({
@@ -376,8 +390,21 @@ describe('CourseEnrollmentModal authenticated enrollment', () => {
 
 describe('CourseEnrollmentModal guest enrollment', () => {
   beforeEach(() => {
+    localStorage.clear();
     vi.clearAllMocks();
     mocks.createGuestEnrollment.mockResolvedValue({ enrollmentId: 'attempt_01' });
+    mocks.loadGuestSingleCourseEnrollment.mockResolvedValue({
+      lifecycle: {
+        status: 'pending',
+        reservationExpiresAt: { seconds: 1_800_000_000, nanoseconds: 0 },
+      },
+      guestPaymentSummary: {
+        currency: 'KZT',
+        price: 45_000,
+        outstandingAmount: 45_000,
+        paymentSatisfied: false,
+      },
+    });
     mocks.selectActiveGuestCourseEnrollment.mockReturnValue(undefined);
   });
 
@@ -416,9 +443,57 @@ describe('CourseEnrollmentModal guest enrollment', () => {
         })
       );
     });
-    expect(onClose).toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
     expect(onSuccess).toHaveBeenCalledTimes(1);
-    expect(mocks.confetti).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('guestPendingTitle')).toBeInTheDocument();
+    expect(screen.getByText(/Course price: 45,000 KZT/)).toBeInTheDocument();
+    expect(screen.getByText(/temporarily held until/)).toBeInTheDocument();
+    expect(screen.getByText(/administrator will contact you/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /pay/i })).not.toBeInTheDocument();
+    expect(mocks.loadGuestSingleCourseEnrollment).toHaveBeenCalledWith('attempt_01');
+    expect(mocks.confetti).not.toHaveBeenCalled();
+  });
+
+  it('refreshes a guest course request from pending to confirmed without closing the modal', async () => {
+    mocks.loadGuestSingleCourseEnrollment
+      .mockResolvedValueOnce({
+        lifecycle: { status: 'pending' },
+        guestPaymentSummary: { price: 45_000 },
+      })
+      .mockResolvedValueOnce({
+        lifecycle: { status: 'confirmed' },
+        guestPaymentSummary: { price: 45_000, paymentSatisfied: true },
+      });
+    const onClose = vi.fn();
+    render(<CourseEnrollmentModal isOpen onClose={onClose} course={course} onEnroll={vi.fn()} />);
+    fireEvent.change(screen.getByPlaceholderText('guestNamePlaceholder'), {
+      target: { value: 'Guest One' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
+      target: { value: '+77001234567' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /submitGuestCourseApplication/i }));
+    await waitFor(() => expect(screen.getByText('guestPendingTitle')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'guestCheckStatus' }));
+    await waitFor(() => expect(screen.getByText('guestCourseConfirmedTitle')).toBeInTheDocument());
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('reopens a stored course request to read its current expired state', async () => {
+    localStorage.setItem('ski_academy_guest_reservation:course:course_01', 'attempt_01');
+    mocks.loadGuestSingleCourseEnrollment.mockResolvedValueOnce({
+      lifecycle: { status: 'cancelled', reasonCode: 'reservation_expired' },
+      guestPaymentSummary: {
+        currency: 'KZT',
+        price: 45_000,
+        outstandingAmount: 45_000,
+        paymentSatisfied: false,
+      },
+    });
+    render(<CourseEnrollmentModal isOpen onClose={vi.fn()} course={course} onEnroll={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'guestCheckPreviousStatus' }));
+    await waitFor(() => expect(screen.getByText('guestCourseExpiredTitle')).toBeInTheDocument());
+    expect(screen.queryByText('guestAdminContactPayment')).not.toBeInTheDocument();
   });
 
   it('keeps a card-initiated quota error in the guest form and off other cards', async () => {
@@ -555,10 +630,11 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
 
     fireEvent.click(submit);
-    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1));
+    expect(onClose).not.toHaveBeenCalled();
     expect(onSuccess).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-    expect(mocks.confetti).toHaveBeenCalledTimes(1);
+    expect(mocks.confetti).not.toHaveBeenCalled();
   });
 
   it('keeps unrelated canonical failures in the existing toast path', async () => {

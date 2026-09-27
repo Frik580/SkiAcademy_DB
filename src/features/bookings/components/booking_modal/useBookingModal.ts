@@ -8,7 +8,11 @@ import {
   LessonDifficulty,
   Course,
 } from '../../../../types';
-import { InstructorIdSchema, type AdminPlannerOccupancyItem } from '@ski-academy/shared-domain';
+import {
+  InstructorIdSchema,
+  type AdminPlannerOccupancyItem,
+  type LessonBookingReadModel,
+} from '@ski-academy/shared-domain';
 import { useNotifications } from '../../../../features/notifications';
 import {
   useLanguage,
@@ -42,11 +46,16 @@ import {
   deriveExercisedCapabilityFromParticipants,
   presentCanonicalCommandErrorWithContext,
   resolveLessonBookingTimezone,
+  loadGuestSingleLessonBooking,
   useLessonBookingCommands,
   useManagedParticipants,
 } from '../../../lesson-bookings';
 import { resolveEffectiveParticipantIds } from './authBookingState';
 import { toggleParticipantSelection } from '../../../participants/participantSelectionState';
+import {
+  rememberGuestReservation,
+  rememberedGuestReservation,
+} from '../../../guest-reservations/guestReservationLookup';
 
 export interface BookingModalInput {
   isOpen: boolean;
@@ -99,6 +108,10 @@ export const useBookingModal = ({
   const [notes, setNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [guestQuotaError, setGuestQuotaError] = useState(false);
+  const [guestCreatedBookingId, setGuestCreatedBookingId] = useState<string | null>(null);
+  const [guestReservation, setGuestReservation] = useState<LessonBookingReadModel>();
+  const [guestRefreshError, setGuestRefreshError] = useState(false);
+  const [guestRefreshing, setGuestRefreshing] = useState(false);
   const isSubmittingRef = useRef<boolean>(false);
   const submitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bookingAttemptIdRef = useRef<string | null>(null);
@@ -107,6 +120,9 @@ export const useBookingModal = ({
     if (!isOpen && !isSubmitting) {
       bookingAttemptIdRef.current = null;
       setGuestQuotaError(false);
+      setGuestCreatedBookingId(null);
+      setGuestReservation(undefined);
+      setGuestRefreshError(false);
       setSelectedParticipantIds([]);
       setUnauthTab('guest');
       setGuestName('');
@@ -442,7 +458,7 @@ export const useBookingModal = ({
     const participantId = deriveGuestParticipantIdForBooking(bookingId);
 
     try {
-      await createGuestBooking({
+      const credential = await createGuestBooking({
         instructorId: targetInstructor.id,
         participantId,
         localDate: date,
@@ -462,9 +478,14 @@ export const useBookingModal = ({
         difficulty,
         notes: notes.trim() || undefined,
       });
-      addNotification('success', t('guestApplicationSuccess'), t('guestApplicationSuccessDesc'));
-      confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-      onClose();
+      if (!credential) throw new Error('Guest booking credential was not returned.');
+      rememberGuestReservation('lesson', targetInstructor.id, credential.bookingId);
+      setGuestCreatedBookingId(credential.bookingId);
+      try {
+        setGuestReservation(await loadGuestSingleLessonBooking(credential.bookingId));
+      } catch {
+        setGuestRefreshError(true);
+      }
     } catch (err) {
       const presented = presentCanonicalCommandErrorWithContext(err, {
         t: t as (key: string) => string,
@@ -482,6 +503,33 @@ export const useBookingModal = ({
     } finally {
       isSubmittingRef.current = false;
       setIsSubmitting(false);
+    }
+  };
+
+  const refreshGuestStatus = async () => {
+    if (!guestCreatedBookingId || guestRefreshing) return;
+    setGuestRefreshing(true);
+    try {
+      setGuestReservation(await loadGuestSingleLessonBooking(guestCreatedBookingId));
+      setGuestRefreshError(false);
+    } catch {
+      setGuestRefreshError(true);
+    } finally {
+      setGuestRefreshing(false);
+    }
+  };
+
+  const checkPreviousGuestStatus = async () => {
+    if (!targetInstructor) return;
+    const bookingId = rememberedGuestReservation('lesson', targetInstructor.id);
+    if (!bookingId) return;
+    try {
+      const reservation = await loadGuestSingleLessonBooking(bookingId);
+      setGuestReservation(reservation);
+      setGuestCreatedBookingId(bookingId);
+      setGuestRefreshError(false);
+    } catch {
+      addNotification('error', t('guestStatusRefreshFailed'), t('guestStatusRefreshFailed'));
     }
   };
 
@@ -622,6 +670,15 @@ export const useBookingModal = ({
     setNotes,
     isSubmitting,
     guestQuotaError,
+    guestCreatedBookingId,
+    guestReservation,
+    guestRefreshError,
+    guestRefreshing,
+    refreshGuestStatus,
+    checkPreviousGuestStatus,
+    previousGuestReservationId: targetInstructor
+      ? rememberedGuestReservation('lesson', targetInstructor.id)
+      : null,
     unauthTab,
     setUnauthTab,
     guestName,

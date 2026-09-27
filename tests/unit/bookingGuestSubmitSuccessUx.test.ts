@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   confetti: vi.fn(),
   createAuthenticatedBooking: vi.fn(),
   createGuestBooking: vi.fn(),
+  loadGuestSingleLessonBooking: vi.fn(),
   managedParticipants: [] as Array<Record<string, unknown>>,
   queryInstructorOccupancy: vi.fn(),
   queryLessonPricingSettings: vi.fn(),
@@ -71,6 +72,7 @@ vi.mock('../../src/features/lesson-bookings', () => ({
     createAuthenticatedBooking: mocks.createAuthenticatedBooking,
     createGuestBooking: mocks.createGuestBooking,
   }),
+  loadGuestSingleLessonBooking: (...args: unknown[]) => mocks.loadGuestSingleLessonBooking(...args),
   useManagedParticipants: () => ({
     participants: mocks.managedParticipants,
     loading: false,
@@ -116,10 +118,15 @@ async function waitForAvailableSlot(result: {
 
 describe('booking modal submit success UX', () => {
   beforeEach(() => {
+    localStorage.clear();
     mocks.addNotification.mockReset();
     mocks.confetti.mockReset();
     mocks.createAuthenticatedBooking.mockReset().mockResolvedValue(undefined);
-    mocks.createGuestBooking.mockReset().mockResolvedValue(undefined);
+    mocks.createGuestBooking.mockReset().mockResolvedValue({ bookingId: 'booking_guest_fixture_01' });
+    mocks.loadGuestSingleLessonBooking.mockReset().mockResolvedValue({
+      lifecycle: { status: 'pending', reservationExpiresAt: { seconds: 1_800_000_000, nanoseconds: 0 } },
+      guestPaymentSummary: { currency: 'KZT', price: 25_000, outstandingAmount: 25_000, paymentSatisfied: false },
+    });
     mocks.managedParticipants.splice(0, mocks.managedParticipants.length);
     mocks.queryInstructorOccupancy.mockReset().mockResolvedValue({
       item: { occupancy: [] },
@@ -133,7 +140,7 @@ describe('booking modal submit success UX', () => {
     });
   });
 
-  it('shows guest success feedback, runs confetti, closes, and accepts one request per click', async () => {
+  it('keeps the guest modal open with canonical pending data and accepts one request per click', async () => {
     const props = createProps();
     const { result } = renderHook(() => useBookingModal(props));
     await waitForAvailableSlot(result);
@@ -154,14 +161,40 @@ describe('booking modal submit success UX', () => {
     expect(mocks.createGuestBooking).toHaveBeenCalledWith(
       expect.objectContaining({ guestPhone: '123456', guestEmail: 'guest@example.com' })
     );
-    expect(mocks.addNotification).toHaveBeenCalledWith(
-      'success',
-      'guestApplicationSuccess',
-      'guestApplicationSuccessDesc'
-    );
-    expect(mocks.confetti).toHaveBeenCalledTimes(1);
-    expect(props.onClose).toHaveBeenCalledTimes(1);
+    expect(result.current.guestReservation?.lifecycle.status).toBe('pending');
+    expect(result.current.guestReservation?.guestPaymentSummary?.price).toBe(25_000);
+    expect(mocks.loadGuestSingleLessonBooking).toHaveBeenCalledWith('booking_guest_fixture_01');
+    expect(mocks.confetti).not.toHaveBeenCalled();
+    expect(props.onClose).not.toHaveBeenCalled();
     expect(result.current.isSubmitting).toBe(false);
+  });
+
+  it('refreshes the same guest Lesson from pending to canonical confirmed', async () => {
+    mocks.loadGuestSingleLessonBooking
+      .mockResolvedValueOnce({ lifecycle: { status: 'pending' }, guestPaymentSummary: { price: 25_000 } })
+      .mockResolvedValueOnce({ lifecycle: { status: 'confirmed' }, guestPaymentSummary: { price: 25_000, paymentSatisfied: true } });
+    const props = createProps();
+    const { result } = renderHook(() => useBookingModal(props));
+    await waitForAvailableSlot(result);
+    act(() => {
+      result.current.setGuestName('Guest Name');
+      result.current.setGuestPhone('123456');
+    });
+    await act(async () => { await result.current.handleSubmitGuest({ preventDefault: vi.fn() } as unknown as React.FormEvent); });
+    expect(result.current.guestReservation?.lifecycle.status).toBe('pending');
+    await act(async () => { await result.current.refreshGuestStatus(); });
+    expect(result.current.guestReservation?.lifecycle.status).toBe('confirmed');
+    expect(props.onClose).not.toHaveBeenCalled();
+  });
+
+  it('reopens a stored Lesson request and reads its current status', async () => {
+    localStorage.setItem('ski_academy_guest_reservation:lesson:instructor_fixture_01', 'booking_guest_fixture_01');
+    mocks.loadGuestSingleLessonBooking.mockResolvedValueOnce({ lifecycle: { status: 'confirmed' } });
+    const { result } = renderHook(() => useBookingModal(createProps()));
+    await waitForAvailableSlot(result);
+    await act(async () => { await result.current.checkPreviousGuestStatus(); });
+    expect(result.current.guestCreatedBookingId).toBe('booking_guest_fixture_01');
+    expect(result.current.guestReservation?.lifecycle.status).toBe('confirmed');
   });
 
   it('keeps the guest modal open and form data after request failure', async () => {
@@ -259,13 +292,9 @@ describe('booking modal submit success UX', () => {
       await result.current.handleSubmitGuest(event);
     });
     expect(result.current.guestQuotaError).toBe(false);
-    expect(mocks.addNotification).toHaveBeenCalledWith(
-      'success',
-      'guestApplicationSuccess',
-      'guestApplicationSuccessDesc'
-    );
-    expect(props.onClose).toHaveBeenCalledTimes(1);
-    expect(mocks.confetti).toHaveBeenCalledTimes(1);
+    expect(result.current.guestCreatedBookingId).toBe('booking_guest_fixture_01');
+    expect(props.onClose).not.toHaveBeenCalled();
+    expect(mocks.confetti).not.toHaveBeenCalled();
   });
 
   it('has the requested Russian and English inline copy', () => {
@@ -301,7 +330,7 @@ describe('booking modal submit success UX', () => {
         preventDefault: vi.fn(),
       } as unknown as React.FormEvent);
     });
-    expect(mocks.confetti).toHaveBeenCalledTimes(1);
+    expect(result.current.guestCreatedBookingId).toBe('booking_guest_fixture_01');
     const occupancyReadsBeforeReopen = mocks.queryInstructorOccupancy.mock.calls.length;
 
     await act(async () => {
@@ -313,6 +342,7 @@ describe('booking modal submit success UX', () => {
     expect(result.current.notes).toBe('');
     expect(result.current.unauthTab).toBe('guest');
     expect(result.current.isSubmitting).toBe(false);
+    expect(result.current.guestCreatedBookingId).toBeNull();
 
     await act(async () => {
       rerender({ ...props, isOpen: true });
@@ -321,8 +351,8 @@ describe('booking modal submit success UX', () => {
     expect(mocks.queryInstructorOccupancy.mock.calls.length).toBeGreaterThan(
       occupancyReadsBeforeReopen
     );
-    expect(mocks.confetti).toHaveBeenCalledTimes(1);
-    expect(mocks.addNotification).toHaveBeenCalledTimes(1);
+    expect(mocks.confetti).not.toHaveBeenCalled();
+    expect(mocks.addNotification).not.toHaveBeenCalled();
   });
 
   it('keeps authenticated success feedback working and suppresses a duplicate submit', async () => {

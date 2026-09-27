@@ -28,7 +28,7 @@ import {
   BookingPartyKindSchema,
   LessonDifficultySchema,
 } from '../bookingOccurrenceProposalChange';
-import { PaymentStatusSchema } from '../paymentWallet';
+import { GuestPaymentSummarySchema, PaymentStatusSchema } from '../paymentWallet';
 import { LessonBookingReadModelAuthorizedActionsSchema as LessonBookingAuthorizedActionsSchema } from './readModelAuthorizedActions';
 import { bookingInstructorAttendanceWindowEnd } from '../bookingAttendancePolicy';
 import {
@@ -354,6 +354,7 @@ export const LessonBookingReadModelSchema = z
     authorizedActions: LessonBookingAuthorizedActionsSchema,
     clientExercisedCapability: z.enum(['account_owner', 'parent_guardian']).optional(),
     paymentPresentation: LessonBookingReadModelPaymentPresentationSchema.optional(),
+    guestPaymentSummary: GuestPaymentSummarySchema.optional(),
     difficulty: LessonDifficultySchema.optional(),
     notes: BookingLessonNotesSchema,
     attendance: z.array(LessonBookingInstructorAttendancePresentationSchema).min(1).optional(),
@@ -397,10 +398,35 @@ export const QueryLessonBookingReadModelsInputSchema = z
     rangeEnd: CanonicalTimestampSchema.optional(),
     guestActionNonce: z.string().trim().min(1).max(256).optional(),
     guestActionSignature: z.string().trim().min(1).max(256).optional(),
+    guestStatusNonce: z.string().trim().min(1).max(256).optional(),
+    guestStatusSignature: z.string().trim().min(1).max(256).optional(),
+    guestStatusExpiresAt: CanonicalTimestampSchema.optional(),
     idempotencyKey: IdempotencyKeySchema.optional(),
   })
   .strict()
   .superRefine((input, context) => {
+    const anyGuestStatusField =
+      input.guestStatusNonce !== undefined ||
+      input.guestStatusSignature !== undefined ||
+      input.guestStatusExpiresAt !== undefined;
+    if (input.scope !== 'guest_single' && anyGuestStatusField) {
+      context.addIssue({
+        code: 'custom',
+        path: ['guestStatusNonce'],
+        message: 'Guest status credential is only allowed for guest_single scope',
+      });
+    }
+    if (
+      input.scope === 'guest_single' &&
+      anyGuestStatusField &&
+      (!input.guestStatusNonce || !input.guestStatusSignature || !input.guestStatusExpiresAt)
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['guestStatusNonce'],
+        message: 'Guest status credential must be complete',
+      });
+    }
     if (input.scope !== 'account_calendar_month') {
       if (input.rangeStart !== undefined || input.rangeEnd !== undefined) {
         context.addIssue({
@@ -474,7 +500,10 @@ export const QueryLessonBookingReadModelsInputSchema = z
           message: 'bookingId is required for guest_single scope',
         });
       }
-      if (!input.guestActionNonce || !input.guestActionSignature) {
+      if (
+        (!input.guestActionNonce || !input.guestActionSignature) &&
+        (!input.guestStatusNonce || !input.guestStatusSignature || !input.guestStatusExpiresAt)
+      ) {
         context.addIssue({
           code: 'custom',
           path: ['guestActionNonce'],
@@ -642,10 +671,7 @@ export function isInstructorLessonBookingHot(input: {
   }
   if (input.lifecycleStatus === 'confirmed') {
     return (
-      compareCanonicalTimestamps(
-        input.now,
-        bookingInstructorAttendanceWindowEnd(input.endsAt)
-      ) <= 0
+      compareCanonicalTimestamps(input.now, bookingInstructorAttendanceWindowEnd(input.endsAt)) <= 0
     );
   }
   return isLessonBookingHot(input);

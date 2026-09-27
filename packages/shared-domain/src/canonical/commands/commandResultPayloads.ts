@@ -37,6 +37,14 @@ export const GuestBookingActionCredentialSchema = z
     nonce: z.string().regex(/^[A-Za-z0-9_-]{16,64}$/),
     signature: z.string().regex(/^[0-9a-fA-F]{64}$/),
     expiresAt: CanonicalTimestampSchema,
+    statusCredential: z
+      .object({
+        nonce: z.string().regex(/^[A-Za-z0-9_-]{16,64}$/),
+        signature: z.string().regex(/^[0-9a-fA-F]{64}$/),
+        expiresAt: CanonicalTimestampSchema,
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 
@@ -66,8 +74,8 @@ export type CreateCourseEnrollmentsResultPayload = Readonly<
 export const CreateGuestBookingRequestResultPayloadSchema = z
   .object({
     guestActionCredential: GuestBookingActionCredentialSchema,
-    adminLessonBookingsRevision: AdminLessonBookingsRevisionPayloadSchema.shape
-      .adminLessonBookingsRevision,
+    adminLessonBookingsRevision:
+      AdminLessonBookingsRevisionPayloadSchema.shape.adminLessonBookingsRevision,
     adminPlannerRevision: AdminPlannerRevisionPayloadSchema.shape.adminPlannerRevision,
     adminFinanceRevision: AdminFinanceRevisionPayloadSchema.shape.adminFinanceRevision,
   })
@@ -167,8 +175,8 @@ export type SetParticipantLessonFeedbackItemCompletionResultPayload = Readonly<
 export const RequestCancellationResultPayloadSchema = z
   .object({
     lifecycleStatus: RequestCancellationLifecycleStatusSchema,
-    adminLessonBookingsRevision: AdminLessonBookingsRevisionPayloadSchema.shape
-      .adminLessonBookingsRevision,
+    adminLessonBookingsRevision:
+      AdminLessonBookingsRevisionPayloadSchema.shape.adminLessonBookingsRevision,
     adminPlannerRevision: AdminPlannerRevisionPayloadSchema.shape.adminPlannerRevision,
     adminCoursesRevision: AdminCoursesRevisionPayloadSchema.shape.adminCoursesRevision,
     adminFinanceRevision: AdminFinanceRevisionPayloadSchema.shape.adminFinanceRevision,
@@ -197,13 +205,13 @@ export const CommandResultPayloadSchemaByKind = {
     SetParticipantLessonFeedbackItemCompletionResultPayloadSchema,
 } as const;
 
-export type CommandResultPayloadForKind<Kind extends keyof typeof CommandResultPayloadSchemaByKind> =
-  z.output<(typeof CommandResultPayloadSchemaByKind)[Kind]>;
+export type CommandResultPayloadForKind<
+  Kind extends keyof typeof CommandResultPayloadSchemaByKind,
+> = z.output<(typeof CommandResultPayloadSchemaByKind)[Kind]>;
 
-export function parseCommandResultPayload<Kind extends keyof typeof CommandResultPayloadSchemaByKind>(
-  kind: Kind,
-  input: unknown
-): z.ZodSafeParseResult<CommandResultPayloadForKind<Kind>> {
+export function parseCommandResultPayload<
+  Kind extends keyof typeof CommandResultPayloadSchemaByKind,
+>(kind: Kind, input: unknown): z.ZodSafeParseResult<CommandResultPayloadForKind<Kind>> {
   return CommandResultPayloadSchemaByKind[kind].safeParse(input) as z.ZodSafeParseResult<
     CommandResultPayloadForKind<Kind>
   >;

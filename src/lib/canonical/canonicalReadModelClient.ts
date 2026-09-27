@@ -823,7 +823,12 @@ export async function queryCourseAttendanceReadModels(
 export async function queryInstructorCourseAssignmentReadModels(
   input: CanonicalReadQueryInput<QueryInstructorCourseAssignmentReadModelsInput>
 ): Promise<QueryInstructorCourseAssignmentReadModelsResult> {
-  const idempotencyKey = `read:instructor_course_assignment:${input.scope}`;
+  const idempotencyKey = buildCanonicalReadIdempotencyKey([
+    'read:instructor_course_assignment',
+    input.scope,
+    String(input.pageSize ?? 'default'),
+    boundCanonicalReadIdempotencyCursor(input.cursor),
+  ]);
   return invokeCanonicalReadCallable<
     QueryInstructorCourseAssignmentReadModelsInput,
     QueryInstructorCourseAssignmentReadModelsResult

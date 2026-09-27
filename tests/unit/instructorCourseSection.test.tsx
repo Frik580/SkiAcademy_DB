@@ -114,6 +114,7 @@ describe('InstructorCourseSection', () => {
           courseDayId: rosterCourseDayId,
         }),
       ],
+      hasMore: false,
     });
     queryEnrollmentMock.mockResolvedValue({
       scope: 'instructor_roster',
@@ -170,6 +171,7 @@ describe('InstructorCourseSection', () => {
           courseDayId: dayOnlyCourseDayId,
         }),
       ],
+      hasMore: false,
     });
     queryEnrollmentMock.mockResolvedValue({
       scope: 'instructor_roster',
@@ -199,6 +201,7 @@ describe('InstructorCourseSection', () => {
           courseDayId: rosterCourseDayId,
         }),
       ],
+      hasMore: false,
     });
     queryEnrollmentMock.mockResolvedValue({
       scope: 'instructor_roster',
@@ -294,6 +297,7 @@ describe('InstructorCourseSection', () => {
           courseDayId: rosterCourseDayId,
         }),
       ],
+      hasMore: false,
     });
     queryEnrollmentMock.mockResolvedValue({
       scope: 'instructor_roster',
@@ -470,6 +474,7 @@ describe('InstructorCourseSection', () => {
           courseDayId: rosterCourseDayId,
         }),
       ],
+      hasMore: false,
     });
     queryEnrollmentMock.mockResolvedValue({
       scope: 'instructor_roster',
@@ -560,10 +565,58 @@ describe('InstructorCourseSection', () => {
     );
   });
 
+  it('shows load more when discovery has continuation', async () => {
+    queryAssignmentMock
+      .mockResolvedValueOnce({
+        scope: 'instructor_assigned',
+        items: [
+          buildAssignmentItem({
+            courseId: rosterCourseId,
+            title: 'BASE — First Turns',
+            assignedCourseDayIds: [rosterCourseDayId],
+            courseDayId: rosterCourseDayId,
+          }),
+        ],
+        hasMore: true,
+        nextCursor: 'cursor-page-2',
+      })
+      .mockResolvedValueOnce({
+        scope: 'instructor_assigned',
+        items: [
+          buildAssignmentItem({
+            courseId: dayOnlyCourseId,
+            title: 'Course B',
+            assignedCourseDayIds: [dayOnlyCourseDayId],
+            courseDayId: dayOnlyCourseDayId,
+          }),
+        ],
+        hasMore: false,
+      });
+    queryEnrollmentMock.mockResolvedValue({
+      scope: 'instructor_roster',
+      items: [],
+      hasMore: false,
+    });
+
+    renderSection();
+
+    await waitFor(() => {
+      expect(screen.getByText('instructorCourseDiscoveryLoadMore')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByText('instructorCourseDiscoveryLoadMore'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Course B')).toBeInTheDocument();
+    });
+    expect(queryAssignmentMock).toHaveBeenCalledTimes(2);
+  });
+
   it('shows empty state when instructor has no assigned courses', async () => {
     queryAssignmentMock.mockResolvedValue({
       scope: 'instructor_assigned',
       items: [],
+      hasMore: false,
     });
 
     renderSection();
@@ -620,6 +673,7 @@ describe('InstructorCourseSection', () => {
             courseDayId: rosterCourseDayId,
           }),
         ],
+        hasMore: false,
       });
     });
     queryEnrollmentMock.mockResolvedValue({

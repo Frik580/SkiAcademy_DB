@@ -9,6 +9,15 @@
       ]
     },
     {
+      "collectionGroup": "courses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "instructorRosterIds", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "lifecycle", "order": "ASCENDING" },
+        { "fieldPath": "title", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "bookings",
       "queryScope": "COLLECTION",
       "fields": [
@@ -468,7 +477,8 @@
       "queryScope": "COLLECTION_GROUP",
       "fields": [
         { "fieldPath": "actualInstructorIds", "arrayConfig": "CONTAINS" },
-        { "fieldPath": "interval.startsAt.seconds", "order": "ASCENDING" }
+        { "fieldPath": "interval.startsAt.seconds", "order": "ASCENDING" },
+        { "fieldPath": "interval.startsAt.nanoseconds", "order": "ASCENDING" }
       ]
     },
     {

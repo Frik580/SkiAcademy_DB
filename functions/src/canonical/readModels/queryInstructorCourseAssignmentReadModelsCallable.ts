@@ -57,6 +57,9 @@ export function createQueryInstructorCourseAssignmentReadModelsHandler(firestore
         readScope,
       });
     } catch (error) {
+      if (error instanceof Error && error.message === 'invalid_cursor') {
+        throw new HttpsError('invalid-argument', 'The cursor is invalid.');
+      }
       rethrowReadScopeHttpsError(error);
     }
   };

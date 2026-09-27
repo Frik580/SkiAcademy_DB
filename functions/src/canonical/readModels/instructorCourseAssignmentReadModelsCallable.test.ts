@@ -43,6 +43,8 @@ function createFirestore(
   options?: { readonly courseLifecycle?: 'active' | 'archived' }
 ): Firestore {
   const courseLifecycle = options?.courseLifecycle ?? 'active';
+  let dayDiscoveryDocsReturned = false;
+  let rosterDiscoveryDocsReturned = false;
   const courseDayDoc = {
     courseId,
     courseDayId,
@@ -121,18 +123,36 @@ function createFirestore(
               },
             }),
           }),
-          where: (field: string, operator: string, value: unknown) => ({
-            limit: () => ({
-              get: async () => ({
-                docs:
-                  field === 'instructorRosterIds' &&
-                  operator === 'array-contains' &&
-                  value === rosterInstructorId
-                    ? [{ data: () => canonicalCourse }]
-                    : [],
+          where: () => {
+            const chain = {
+              where: () => chain,
+              orderBy: () => chain,
+              startAfter: () => chain,
+              limit: () => ({
+                get: async () => {
+                  if (
+                    rosterDiscoveryDocsReturned ||
+                    instructor.instructorId !== rosterInstructorId ||
+                    courseLifecycle !== 'active'
+                  ) {
+                    return { docs: [] };
+                  }
+                  rosterDiscoveryDocsReturned = true;
+                  return {
+                    docs: [
+                      {
+                        id: courseId,
+                        data: () => canonicalCourse,
+                        get: (field: string) =>
+                          field === 'title' ? canonicalCourse.title : undefined,
+                      },
+                    ],
+                  };
+                },
               }),
-            }),
-          }),
+            };
+            return chain;
+          },
         };
       }
       if (name === `courses/${courseId}/days`) {
@@ -150,18 +170,32 @@ function createFirestore(
         throw new Error(`Unexpected collection group: ${name}`);
       }
       return {
-        where: (field: string, operator: string, value: unknown) => ({
-          limit: () => ({
-            get: async () => ({
-              docs:
-                field === 'actualInstructorIds' &&
-                operator === 'array-contains' &&
-                value === courseDayInstructorId
-                  ? [{ data: () => courseDayDoc }]
-                  : [],
+        where: () => {
+          const chain = {
+            orderBy: () => chain,
+            startAfter: () => chain,
+            limit: () => ({
+              get: async () => {
+                if (
+                  dayDiscoveryDocsReturned ||
+                  instructor.instructorId !== courseDayInstructorId
+                ) {
+                  return { docs: [] };
+                }
+                dayDiscoveryDocsReturned = true;
+                return {
+                  docs: [
+                    {
+                      id: courseDayId,
+                      data: () => courseDayDoc,
+                    },
+                  ],
+                };
+              },
             }),
-          }),
-        }),
+          };
+          return chain;
+        },
       };
     },
   } as unknown as Firestore;
@@ -231,6 +265,7 @@ describe('instructor course assignment read model callables', () => {
     ).resolves.toEqual({
       scope: 'instructor_assigned',
       items: [],
+      hasMore: false,
     });
   });
 
@@ -250,6 +285,7 @@ describe('instructor course assignment read model callables', () => {
     ).resolves.toEqual({
       scope: 'instructor_assigned',
       items: [],
+      hasMore: false,
     });
   });
 
@@ -272,6 +308,7 @@ describe('instructor course assignment read model callables', () => {
     ).resolves.toEqual({
       scope: 'instructor_assigned',
       items: [],
+      hasMore: false,
     });
   });
 

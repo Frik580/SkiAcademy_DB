@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import {
+  INSTRUCTOR_COURSE_ASSIGNMENT_READ_MODEL_PAGE_SIZE_DEFAULT,
   CourseDayIdSchema,
   CourseEnrollmentIdSchema,
   CourseIdSchema,
@@ -68,6 +69,7 @@ describe('useInstructorCourseReadSync', () => {
           updatedAt: { seconds: 1, nanoseconds: 0 },
         },
       ],
+      hasMore: false,
     });
     queryEnrollmentMock.mockResolvedValue({
       scope: 'instructor_roster',
@@ -137,10 +139,12 @@ describe('useInstructorCourseReadSync', () => {
       .mockResolvedValueOnce({
         scope: 'instructor_assigned',
         items: [activeCourseItem, archivedCourseItem],
+        hasMore: false,
       })
       .mockResolvedValueOnce({
         scope: 'instructor_assigned',
         items: [activeCourseItem],
+        hasMore: false,
       });
 
     const { result } = renderHook(() =>
@@ -184,7 +188,10 @@ describe('useInstructorCourseReadSync', () => {
       expect(useInstructorCourseStore.getState().assignedCourses.length).toBe(1);
     });
 
-    expect(queryAssignmentMock).toHaveBeenCalledWith({ scope: 'instructor_assigned' });
+    expect(queryAssignmentMock).toHaveBeenCalledWith({
+      scope: 'instructor_assigned',
+      pageSize: 25,
+    });
     expect(queryEnrollmentMock).not.toHaveBeenCalled();
     expect(queryAttendanceMock).not.toHaveBeenCalled();
     expect(useInstructorCourseStore.getState().assignedCourses).toEqual([
@@ -257,6 +264,7 @@ describe('useInstructorCourseReadSync', () => {
           updatedAt: { seconds: 1, nanoseconds: 0 },
         },
       ],
+      hasMore: false,
     });
 
     const { rerender } = renderHook(

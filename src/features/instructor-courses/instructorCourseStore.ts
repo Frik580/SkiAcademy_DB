@@ -11,13 +11,19 @@ interface InstructorCourseStoreState {
   readonly coursesById: ReadonlyMap<string, InstructorCourseViewModel>;
   readonly coursesList: readonly InstructorCourseViewModel[];
   readonly discoveryLoading: boolean;
+  readonly discoveryLoadingMore: boolean;
+  readonly discoveryHasMore: boolean;
+  readonly discoveryNextCursor?: string;
   readonly rosterLoading: boolean;
   readonly loaded: boolean;
   readonly error?: string;
   readonly errorCode?: InstructorCourseReadErrorCode;
   setAssignedCourses: (courses: readonly InstructorAssignedCourseRef[]) => void;
+  appendAssignedCourses: (courses: readonly InstructorAssignedCourseRef[]) => void;
+  setDiscoveryPagination: (input: Readonly<{ hasMore: boolean; nextCursor?: string }>) => void;
   mergeCourses: (courses: ReadonlyMap<string, InstructorCourseViewModel>) => void;
   setDiscoveryLoading: (loading: boolean) => void;
+  setDiscoveryLoadingMore: (loading: boolean) => void;
   setRosterLoading: (loading: boolean) => void;
   setLoaded: (loaded: boolean) => void;
   setError: (error?: string, errorCode?: InstructorCourseReadErrorCode) => void;
@@ -31,6 +37,9 @@ const initialState = {
   coursesById: new Map<string, InstructorCourseViewModel>(),
   coursesList: EMPTY_COURSES_LIST,
   discoveryLoading: false,
+  discoveryLoadingMore: false,
+  discoveryHasMore: false,
+  discoveryNextCursor: undefined as string | undefined,
   rosterLoading: false,
   loaded: false,
   error: undefined as string | undefined,
@@ -39,7 +48,25 @@ const initialState = {
 
 export const useInstructorCourseStore = create<InstructorCourseStoreState>((set) => ({
   ...initialState,
-  setAssignedCourses: (assignedCourses) => set({ assignedCourses }),
+  setAssignedCourses: (assignedCourses) =>
+    set({ assignedCourses, discoveryHasMore: false, discoveryNextCursor: undefined }),
+  appendAssignedCourses: (incoming) =>
+    set((state) => {
+      const byId = new Map(state.assignedCourses.map((course) => [course.courseId, course]));
+      for (const course of incoming) {
+        byId.set(course.courseId, course);
+      }
+      return {
+        assignedCourses: [...byId.values()].sort((left, right) =>
+          left.title.localeCompare(right.title, undefined, { sensitivity: 'base' })
+        ),
+      };
+    }),
+  setDiscoveryPagination: (input) =>
+    set({
+      discoveryHasMore: input.hasMore,
+      discoveryNextCursor: input.nextCursor,
+    }),
   mergeCourses: (courses) =>
     set((state) => {
       const merged = new Map(state.coursesById);
@@ -89,6 +116,7 @@ export const useInstructorCourseStore = create<InstructorCourseStoreState>((set)
       };
     }),
   setDiscoveryLoading: (discoveryLoading) => set({ discoveryLoading }),
+  setDiscoveryLoadingMore: (discoveryLoadingMore) => set({ discoveryLoadingMore }),
   setRosterLoading: (rosterLoading) => set({ rosterLoading }),
   setLoaded: (loaded) => set({ loaded }),
   setError: (error, errorCode) => set({ error, errorCode }),

@@ -81,6 +81,32 @@ function createMixedFirestore(): Firestore {
   return {
     collection: (name: string) => {
       if (name === 'courses') {
+        const rosterDocs = [{ id: activeCourseId, data: () => activeCourse }];
+        const createQuery = () => {
+          let rosterIndex = 0;
+          const chain = {
+            where: () => chain,
+            orderBy: () => chain,
+            startAfter: (title: string, documentId: string) => {
+              const index = rosterDocs.findIndex(
+                (entry) => entry.id === documentId && entry.data().title === title
+              );
+              rosterIndex = index < 0 ? rosterDocs.length : index + 1;
+              return chain;
+            },
+            limit: () => ({
+              get: async () => ({
+                docs: rosterDocs.slice(rosterIndex, rosterIndex + 1).map((entry) => ({
+                  id: entry.id,
+                  data: entry.data,
+                  get: (field: string) =>
+                    field === 'title' ? entry.data().title : undefined,
+                })),
+              }),
+            }),
+          };
+          return chain;
+        };
         return {
           doc: (id: string) => ({
             get: async () => {
@@ -93,21 +119,7 @@ function createMixedFirestore(): Firestore {
               return { exists: false, data: () => undefined };
             },
           }),
-          where: (field: string, operator: string, value: unknown) => ({
-            limit: () => ({
-              get: async () => ({
-                docs:
-                  field === 'instructorRosterIds' &&
-                  operator === 'array-contains' &&
-                  value === instructorId
-                    ? [
-                        { data: () => activeCourse },
-                        { data: () => archivedCourse },
-                      ]
-                    : [],
-              }),
-            }),
-          }),
+          where: () => createQuery(),
         };
       }
       if (name === `courses/${activeCourseId}/days`) {
@@ -128,11 +140,16 @@ function createMixedFirestore(): Firestore {
       throw new Error(`Unexpected collection: ${name}`);
     },
     collectionGroup: () => ({
-      where: () => ({
-        limit: () => ({
-          get: async () => ({ docs: [] }),
-        }),
-      }),
+      where: () => {
+        const chain = {
+          orderBy: () => chain,
+          startAfter: () => chain,
+          limit: () => ({
+            get: async () => ({ docs: [] }),
+          }),
+        };
+        return chain;
+      },
     }),
   } as unknown as Firestore;
 }
@@ -152,5 +169,6 @@ describe('queryInstructorCourseAssignmentReadModels lifecycle filtering', () => 
       }),
     ]);
     expect(result.items.some((item) => item.courseId === archivedCourseId)).toBe(false);
+    expect(result.hasMore).toBe(false);
   });
 });

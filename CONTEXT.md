@@ -183,6 +183,8 @@ Lesson feedback remains a separate, stricter contract and continues to require t
 
 Broad Instructor access to `/users` is not part of this contract. Instructor-facing identity data must come through authorized canonical read models.
 
+Instructor course assignment discovery read models must stay bounded per request and expose explicit continuation (`hasMore` / `nextCursor`) when more authorized assignments exist; hard scan ceilings must never imply completeness.
+
 The UI must not infer canonical state from indirect signals. In particular, `endsAt < now` does not mean a Booking is completed; an authorized server transition must update lifecycle state.
 
 Canonical scheduling enforcement uses the server-owned resource claims and guards defined by ADR-0001. The former `/availability_slots` and `/availability_hour_locks` collections are retired legacy implementation details; leftover runtime authority for those shapes is closed as of T41. Neither is canonical, a required future projection, nor a source of truth. Future derived scheduling read models may exist under a distinct canonical contract, but they must not be confused with those retired collections or used as enforcement authority.

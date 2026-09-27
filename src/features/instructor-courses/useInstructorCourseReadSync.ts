@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import {
+  INSTRUCTOR_COURSE_ASSIGNMENT_READ_MODEL_PAGE_SIZE_DEFAULT,
   CourseIdSchema,
   COURSE_ENROLLMENT_READ_MODEL_PAGE_SIZE_MAX,
   drainInstructorRosterCompleteSet,
@@ -161,11 +162,44 @@ export async function refetchInstructorCourseReadModels(
   );
 }
 
-export async function loadInstructorAssignedCourses(): Promise<InstructorAssignedCourseRef[]> {
+export async function loadInstructorAssignedCoursesPage(input?: {
+  readonly cursor?: string;
+  readonly pageSize?: number;
+}): Promise<{
+  readonly assigned: InstructorAssignedCourseRef[];
+  readonly hasMore: boolean;
+  readonly nextCursor?: string;
+}> {
   const result = await queryInstructorCourseAssignmentReadModels({
     scope: 'instructor_assigned',
+    pageSize: input?.pageSize ?? INSTRUCTOR_COURSE_ASSIGNMENT_READ_MODEL_PAGE_SIZE_DEFAULT,
+    ...(input?.cursor ? { cursor: input.cursor } : {}),
   });
-  return mapInstructorCourseAssignmentReadModelsToAssignedCourses(result.items);
+  return {
+    assigned: mapInstructorCourseAssignmentReadModelsToAssignedCourses(result.items),
+    hasMore: result.hasMore,
+    ...(result.nextCursor ? { nextCursor: result.nextCursor } : {}),
+  };
+}
+
+const DISCOVERY_EMPTY_PAGE_AUTO_CHAIN_MAX = 5;
+
+export async function loadInstructorAssignedCourses(): Promise<InstructorAssignedCourseRef[]> {
+  let cursor: string | undefined;
+  let assigned: InstructorAssignedCourseRef[] = [];
+  let hasMore = true;
+  let autoChainCount = 0;
+  while (hasMore && autoChainCount < DISCOVERY_EMPTY_PAGE_AUTO_CHAIN_MAX) {
+    const page = await loadInstructorAssignedCoursesPage({ ...(cursor ? { cursor } : {}) });
+    assigned = page.assigned;
+    hasMore = page.hasMore;
+    cursor = page.nextCursor;
+    autoChainCount += 1;
+    if (assigned.length > 0 || !hasMore) {
+      break;
+    }
+  }
+  return assigned;
 }
 
 export function useInstructorCourseReadSync(input: InstructorCourseReadSyncInput) {
@@ -184,12 +218,32 @@ export function useInstructorCourseReadSync(input: InstructorCourseReadSyncInput
     useInstructorCourseStore.getState().setDiscoveryLoading(true);
     useInstructorCourseStore.getState().setError(undefined, undefined);
     try {
-      const nextAssigned = await loadInstructorAssignedCourses();
+      let cursor: string | undefined;
+      let assigned: InstructorAssignedCourseRef[] = [];
+      let hasMore = true;
+      let autoChainCount = 0;
+      while (isCurrent() && hasMore && autoChainCount < DISCOVERY_EMPTY_PAGE_AUTO_CHAIN_MAX) {
+        const page = await loadInstructorAssignedCoursesPage({ ...(cursor ? { cursor } : {}) });
+        if (!isCurrent()) {
+          return;
+        }
+        assigned = page.assigned;
+        hasMore = page.hasMore;
+        cursor = page.nextCursor;
+        autoChainCount += 1;
+        if (assigned.length > 0 || !hasMore) {
+          break;
+        }
+      }
       if (!isCurrent()) {
         return;
       }
-      useInstructorCourseStore.getState().setAssignedCourses(nextAssigned);
-      if (nextAssigned.length === 0) {
+      useInstructorCourseStore.getState().setAssignedCourses(assigned);
+      useInstructorCourseStore.getState().setDiscoveryPagination({
+        hasMore,
+        nextCursor: cursor,
+      });
+      if (assigned.length === 0) {
         useInstructorCourseStore.getState().setLoaded(true);
       }
     } catch (error) {
@@ -253,6 +307,51 @@ export function useInstructorCourseReadSync(input: InstructorCourseReadSyncInput
     }
   }, [accountId, enabled, instructorId, selectedCourseId]);
 
+  const loadMoreDiscovery = useCallback(async () => {
+    const state = useInstructorCourseStore.getState();
+    if (
+      !enabled ||
+      !accountId ||
+      !instructorId ||
+      !state.discoveryHasMore ||
+      state.discoveryLoadingMore ||
+      !state.discoveryNextCursor
+    ) {
+      return;
+    }
+    const generation = discoveryGeneration.current;
+    const isCurrent = () => discoveryGeneration.current === generation;
+    useInstructorCourseStore.getState().setDiscoveryLoadingMore(true);
+    try {
+      const page = await loadInstructorAssignedCoursesPage({
+        cursor: state.discoveryNextCursor,
+      });
+      if (!isCurrent()) {
+        return;
+      }
+      useInstructorCourseStore.getState().appendAssignedCourses(page.assigned);
+      useInstructorCourseStore.getState().setDiscoveryPagination({
+        hasMore: page.hasMore,
+        nextCursor: page.nextCursor,
+      });
+    } catch (error) {
+      if (!isCurrent()) {
+        return;
+      }
+      const errorCode = classifyInstructorCourseReadError(error);
+      useInstructorCourseStore
+        .getState()
+        .setError(
+          error instanceof Error ? error.message : 'Failed to load instructor course read models.',
+          errorCode
+        );
+    } finally {
+      if (isCurrent()) {
+        useInstructorCourseStore.getState().setDiscoveryLoadingMore(false);
+      }
+    }
+  }, [accountId, enabled, instructorId]);
+
   const load = useCallback(async () => {
     await loadDiscovery();
     await loadSelectedRoster();
@@ -282,5 +381,5 @@ export function useInstructorCourseReadSync(input: InstructorCourseReadSyncInput
     };
   }, [accountId, assignedCourses, enabled, instructorId, loadSelectedRoster, selectedCourseId]);
 
-  return { reload: load };
+  return { reload: load, loadMoreDiscovery };
 }

@@ -633,6 +633,7 @@ describe('canonicalReadModelClient', () => {
     callFunctionMock.mockResolvedValueOnce({
       scope: 'instructor_assigned',
       items: [],
+      hasMore: false,
     });
 
     const result = await queryInstructorCourseAssignmentReadModels({
@@ -645,7 +646,7 @@ describe('canonicalReadModelClient', () => {
       { scope: 'instructor_assigned' },
       expect.objectContaining({
         idempotencyKey: liveReadIdempotencyKey(
-          'read:instructor_course_assignment:instructor_assigned'
+          'read:instructor_course_assignment:instructor_assigned:default:start'
         ),
         maxAttempts: 1,
       })

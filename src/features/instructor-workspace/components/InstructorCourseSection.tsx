@@ -61,11 +61,13 @@ export const InstructorCourseSection: React.FC<InstructorCourseSectionProps> = (
   const [selectedCourseDayId, setSelectedCourseDayId] = useState<string | undefined>();
   const assignedCourses = useInstructorCourseStore((state) => state.assignedCourses);
   const discoveryLoading = useInstructorCourseStore((state) => state.discoveryLoading);
+  const discoveryLoadingMore = useInstructorCourseStore((state) => state.discoveryLoadingMore);
+  const discoveryHasMore = useInstructorCourseStore((state) => state.discoveryHasMore);
   const rosterLoading = useInstructorCourseStore((state) => state.rosterLoading);
   const loaded = useInstructorCourseStore((state) => state.loaded);
   const error = useInstructorCourseStore((state) => state.error);
   const errorCode = useInstructorCourseStore((state) => state.errorCode);
-  const { reload } = useInstructorCourseReadSync({
+  const { reload, loadMoreDiscovery } = useInstructorCourseReadSync({
     enabled: true,
     accountId,
     instructorId,
@@ -161,7 +163,7 @@ export const InstructorCourseSection: React.FC<InstructorCourseSectionProps> = (
     );
   }
 
-  if (loaded && assignedCourses.length === 0) {
+  if (loaded && assignedCourses.length === 0 && !discoveryHasMore) {
     return (
       <div className="space-y-4">
         <SectionHeader t={t} />
@@ -215,6 +217,22 @@ export const InstructorCourseSection: React.FC<InstructorCourseSectionProps> = (
           );
         })}
       </div>
+
+      {discoveryHasMore ? (
+        <div className="flex justify-center pt-1">
+          <ActionButton
+            type="button"
+            variant="secondary"
+            disabled={discoveryLoadingMore}
+            onClick={() => void loadMoreDiscovery()}
+          >
+            {discoveryLoadingMore ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : null}
+            {t('instructorCourseDiscoveryLoadMore')}
+          </ActionButton>
+        </div>
+      ) : null}
 
       {selectedAssignment ? (
         <div className="border border-slate-200/70 dark:border-slate-800/70 bg-[var(--card-bg)] rounded-xs p-4 space-y-4">

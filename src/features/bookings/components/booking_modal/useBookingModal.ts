@@ -42,6 +42,7 @@ import {
   createLogicalBookingAttemptId,
   deriveAuthenticatedCreateIdempotencyKey,
   deriveGuestCreateIdempotencyKey,
+  deriveCancellationIdempotencyKey,
   deriveGuestParticipantIdForBooking,
   deriveExercisedCapabilityFromParticipants,
   presentCanonicalCommandErrorWithContext,
@@ -49,8 +50,10 @@ import {
   loadGuestSingleLessonBooking,
   useLessonBookingCommands,
   useManagedParticipants,
+  readGuestBookingCredential,
 } from '../../../lesson-bookings';
 import { resolveEffectiveParticipantIds } from './authBookingState';
+import { presentCancellationError } from '../../../student-cabinet/presentCancellationError';
 import { toggleParticipantSelection } from '../../../participants/participantSelectionState';
 import {
   forgetGuestReservation,
@@ -79,7 +82,7 @@ export const useBookingModal = ({
 }: BookingModalInput) => {
   const { addNotification } = useNotifications();
   const { t, language } = useLanguage();
-  const { createAuthenticatedBooking, createGuestBooking } = useLessonBookingCommands(
+  const { createAuthenticatedBooking, createGuestBooking, requestCancellation } = useLessonBookingCommands(
     userProfile?.uid
   );
   const {
@@ -515,12 +518,63 @@ export const useBookingModal = ({
     if (!guestCreatedBookingId || guestRefreshing) return;
     setGuestRefreshing(true);
     try {
-      setGuestReservation(await loadGuestSingleLessonBooking(guestCreatedBookingId));
+      const refreshed = await loadGuestSingleLessonBooking(guestCreatedBookingId);
+      setGuestReservation((current) =>
+        current?.lifecycle.status === 'cancelled' &&
+        (refreshed.revision < current.revision || refreshed.lifecycle.status !== 'cancelled')
+          ? current
+          : refreshed
+      );
       setGuestRefreshError(false);
     } catch {
       setGuestRefreshError(true);
     } finally {
       setGuestRefreshing(false);
+    }
+  };
+
+  const cancelPendingGuestBooking = async () => {
+    if (!guestCreatedBookingId || guestReservation?.lifecycle.status !== 'pending') return false;
+    const credential = readGuestBookingCredential(guestCreatedBookingId).credential;
+    if (!credential) {
+      addNotification('error', t('requestFailed'), t('guestCancelFailed'));
+      return false;
+    }
+    try {
+      await requestCancellation({
+        bookingId: guestCreatedBookingId,
+        expectedRevision: guestReservation.revision,
+        idempotencyKey: deriveCancellationIdempotencyKey(guestCreatedBookingId, guestReservation.revision),
+        exercisedCapability: 'account_owner',
+        guestCredential: credential,
+      });
+      setGuestReservation({
+        ...guestReservation,
+        revision: guestReservation.revision + 1,
+        lifecycle: { status: 'cancelled', reasonCode: 'guest_cancelled' },
+      } as LessonBookingReadModel);
+      addNotification('success', t('guestCancelledTitle'), t('guestCancelledBody'));
+      try {
+        const refreshed = await loadGuestSingleLessonBooking(guestCreatedBookingId);
+        if (refreshed.revision <= guestReservation.revision || refreshed.lifecycle.status !== 'cancelled') {
+          throw new Error('Cancellation read model has not caught up.');
+        }
+        setGuestReservation(refreshed);
+        setGuestRefreshError(false);
+      } catch {
+        setGuestRefreshError(true);
+        addNotification('warning', t('cabinetCancellationRefreshWarning'), t('cabinetCancellationRefreshWarningDesc'));
+      }
+      return true;
+    } catch (error) {
+      const presented = presentCancellationError(error, t as (key: string) => string, true);
+      addNotification('error', t('requestFailed'), presented.message);
+      try {
+        setGuestReservation(await loadGuestSingleLessonBooking(guestCreatedBookingId));
+      } catch {
+        setGuestRefreshError(true);
+      }
+      return false;
     }
   };
 
@@ -717,6 +771,7 @@ export const useBookingModal = ({
     guestRefreshing,
     guestLookupError,
     refreshGuestStatus,
+    cancelPendingGuestBooking,
     checkPreviousGuestStatus,
     closeGuestStatus,
     startNewGuestBooking,

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { CanonicalTimestamp, GuestPaymentSummary } from '@ski-academy/shared-domain';
 import type { TranslationKey } from '../../lib/i18n/translations';
 
@@ -16,6 +17,7 @@ interface GuestReservationStatusProps {
   statusHydrated: boolean;
   onClose: () => void;
   onNewBooking?: () => void;
+  onCancelPending?: () => Promise<boolean>;
 }
 
 export function GuestReservationStatus({
@@ -32,7 +34,10 @@ export function GuestReservationStatus({
   statusHydrated,
   onClose,
   onNewBooking,
+  onCancelPending,
 }: GuestReservationStatusProps) {
+  const [confirmCancellation, setConfirmCancellation] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const locale = language === 'ru' ? 'ru-RU' : 'en-US';
   const deadline =
     reservationExpiresAt &&
@@ -40,6 +45,12 @@ export function GuestReservationStatus({
   const expired = lifecycleStatus === 'cancelled' && reasonCode === 'reservation_expired';
   const confirmed = lifecycleStatus === 'confirmed';
   const cancelled = lifecycleStatus === 'cancelled';
+  const canCancelPending =
+    statusHydrated &&
+    lifecycleStatus === 'pending' &&
+    payment?.unpaidCancellationEligible === true &&
+    (!deadline || deadline.getTime() > Date.now()) &&
+    Boolean(onCancelPending);
   const createdWithoutStatusDetails =
     !statusHydrated && !confirmed && !expired && !cancelled && lifecycleStatus === 'pending';
   const title = confirmed
@@ -47,7 +58,7 @@ export function GuestReservationStatus({
     : expired
       ? t(kind === 'lesson' ? 'guestLessonExpiredTitle' : 'guestCourseExpiredTitle')
       : cancelled
-        ? t('guestCancelledTitle')
+        ? t(kind === 'lesson' ? 'guestCancelledTitle' : 'guestCourseCancelledTitle')
         : createdWithoutStatusDetails
           ? t(
               kind === 'lesson'
@@ -126,6 +137,35 @@ export function GuestReservationStatus({
         <p className="text-sm text-rose-600">{t('guestStatusRefreshFailed')}</p>
       )}
       <div className="mt-auto flex flex-wrap gap-2 pt-3">
+        {canCancelPending && !confirmCancellation && (
+          <button type="button" onClick={() => setConfirmCancellation(true)} className="btn-secondary px-4 py-2 text-sm">
+            {t('guestCancelPending')}
+          </button>
+        )}
+        {canCancelPending && confirmCancellation && (
+          <div className="w-full space-y-2">
+            <p className="text-sm text-[var(--ink)]">{t('guestCancelConfirm')}</p>
+            <button
+              type="button"
+              disabled={cancelling}
+              onClick={async () => {
+                if (!onCancelPending) return;
+                setCancelling(true);
+                try {
+                  if (await onCancelPending()) setConfirmCancellation(false);
+                } finally {
+                  setCancelling(false);
+                }
+              }}
+              className="btn-secondary px-4 py-2 text-sm"
+            >
+              {t('guestCancelPending')}
+            </button>
+            <button type="button" onClick={() => setConfirmCancellation(false)} className="btn-secondary px-4 py-2 text-sm">
+              {t('cancel')}
+            </button>
+          </div>
+        )}
         {cancelled && onNewBooking ? (
           <button type="button" onClick={onNewBooking} className="btn-secondary px-4 py-2 text-sm">
             {t('guestNewBooking')}

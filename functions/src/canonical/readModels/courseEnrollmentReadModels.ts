@@ -720,6 +720,10 @@ export async function queryCourseEnrollmentReadModels(
         price: payment.price,
         outstandingAmount: payment.outstandingAmount,
         paymentSatisfied: isPaymentFullyFundedForService(payment),
+        unpaidCancellationEligible:
+          enrollment.lifecycle.status === 'pending' &&
+          payment.paidAmount === 0 &&
+          compareCanonicalTimestamps(now, enrollment.lifecycle.reservationExpiresAt) < 0,
       },
       courseProgress: courseProgressProjection(progress),
       updatedAt: enrollment.updatedAt,

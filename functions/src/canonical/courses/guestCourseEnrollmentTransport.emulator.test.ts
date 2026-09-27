@@ -7,6 +7,8 @@ import {
   CourseDayIdSchema,
   CourseEnrollmentIdSchema,
   CourseIdSchema,
+  GUEST_ACTION_NONCE_TRANSPORT_KEY,
+  GUEST_ACTION_SIGNATURE_TRANSPORT_KEY,
   InstructorIdSchema,
   ParticipantIdSchema,
   SystemActorIdSchema,
@@ -462,6 +464,7 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
     expect(read.items[0]?.guestPaymentSummary).toMatchObject({
       currency: 'KZT',
       paymentSatisfied: false,
+      unpaidCancellationEligible: true,
     });
     const payment = (await firestore.doc(`payments/${enrollment!.paymentId}`).get()).data();
     expect(read.items[0]?.guestPaymentSummary?.price).toBe(payment?.price);
@@ -508,6 +511,49 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
     );
     expect(expired.items).toHaveLength(0);
   });
+
+  it('cancels an unpaid guest hold with one canonical write-off and one seat release', async () => {
+    const commands = createCommands();
+    const created = await commands.execute(guestEnrollmentEnvelope('idem-guest-course-cancel-01'));
+    expect(created.status).toBe('success');
+    const cancellationCredential =
+      created.status === 'success'
+        ? created.payload?.guestLinkCredentials?.[0]?.cancellationCredential
+        : undefined;
+    expect(cancellationCredential).toBeDefined();
+
+    const cancelEnvelope: CommandEnvelope<'request_course_enrollment_cancellation'> = {
+      kind: 'request_course_enrollment_cancellation',
+      context: {
+        actor: guestCommandActor(guestSubjectId),
+        exercisedCapability: 'guest',
+        idempotencyKey: 'idem-guest-course-cancel-02',
+        correlationId,
+        source: 'guest_callable',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+        transportMetadata: {
+          [GUEST_ACTION_NONCE_TRANSPORT_KEY]: cancellationCredential!.nonce,
+          [GUEST_ACTION_SIGNATURE_TRANSPORT_KEY]: cancellationCredential!.signature,
+        },
+      },
+      intent: { courseEnrollmentId: enrollmentId },
+    };
+    expect((await commands.execute(cancelEnvelope)).status).toBe('success');
+    expect((await commands.execute(cancelEnvelope)).status).toBe('success');
+
+    const enrollment = (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data();
+    const payment = (await firestore.doc(`payments/${enrollment?.paymentId}`).get()).data();
+    expect(enrollment?.lifecycle).toMatchObject({ status: 'cancelled', reasonCode: 'guest_cancelled' });
+    expect(payment).toMatchObject({
+      paidAmount: 0,
+      refundedAmount: 0,
+      writtenOffAmount: 50_000,
+      outstandingAmount: 0,
+      revision: 2,
+    });
+    expect((await firestore.collection('monetary_events').get()).size).toBe(1);
+    expect((await firestore.doc(`courses/${courseId}`).get()).data()?.capacity.availableSeats).toBe(8);
+  }, 30_000);
 
   it('refreshes targeted public catalog seats after guest enrollment', async () => {
     const commands = createCommands();

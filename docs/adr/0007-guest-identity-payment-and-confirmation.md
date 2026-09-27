@@ -79,7 +79,7 @@ outstandingAmount === 0
 
 Guest payment is currently manual and Administrator-assisted. After creating a Lesson Booking or CourseEnrollment, the guest sees the canonical Payment price, the subject's `lifecycle.reservationExpiresAt`, and a pending explanation. An Administrator contacts the guest using GuestContact to arrange payment outside the site, then records money actually received through the existing canonical Finance command. Full canonical funding confirms the subject; the client never confirms it from a form success or Administrator approval. No guest QR, checkout, payment link, or online provider is integrated.
 
-Credential-scoped `guest_single` read models expose only a minimal Payment summary (KZT price, outstanding amount, and the canonical fully-funded predicate result) alongside lifecycle and reservation deadline. They do not expose Payment documents, Wallet, provider details, or monetary events to public Firestore clients or Instructor projections. Guest status is refreshed on request, without polling. The Lesson creation result includes a separate subject-scoped status credential valid through the original lesson end; its cancellation credential still expires at the reservation deadline. The Course credential remains scoped to its Enrollment and valid through the final Course day. These reads allow the guest to observe canonical confirmation or reservation expiry while the respective status credential is valid.
+Credential-scoped `guest_single` read models expose only a minimal Payment summary (KZT price, outstanding amount, the canonical fully-funded predicate result, and a boolean indicating whether an unpaid pending cancellation is eligible) alongside lifecycle and reservation deadline. They do not expose Payment documents, Wallet, provider details, or monetary events to public Firestore clients or Instructor projections. Guest status is refreshed on request, without polling. The Lesson creation result includes a separate subject-scoped status credential valid through the original lesson end; its cancellation credential still expires at the reservation deadline. The Course creation result includes an Enrollment-scoped status/link credential valid through the final Course day and a separate cancellation credential valid only until the reservation deadline. These reads allow the guest to observe canonical confirmation or reservation expiry while the respective status credential is valid.
 
 ## Guest Lesson Booking lifecycle
 
@@ -418,6 +418,8 @@ The following are not defined by this ADR and are not supported:
 - automatic cleanup of unused unmanaged guest Participants.
 
 Current implementation of partially-paid pending guest rejection is fail-closed. A separate product and domain policy is required before automatic refund, retention, or write-off behavior is added. This ADR does not invent a refund percentage, cancellation fee, Wallet credit, external refund, or paid-amount write-off.
+
+Guest voluntary cancellation commands verify Payment in the canonical transaction and reject a pending reservation once any amount has been paid. The guest cancellation button uses the server-derived unpaid eligibility flag; an older read result cannot bypass the command check.
 
 Supporting pay-on-site or unpaid Admin override later requires a dedicated product and domain decision. Current policy remains: required Payment fully funded → confirmation.
 

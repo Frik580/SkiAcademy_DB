@@ -37,6 +37,7 @@ import {
   presentCabinetCancellationNotifications,
   type CabinetCancellationCommandResult,
 } from '../../features/student-cabinet/cabinetCancellationOutcome';
+import { presentCancellationError } from '../../features/student-cabinet/presentCancellationError';
 
 const PersonalCabinet = React.lazy(loadPersonalCabinet);
 
@@ -143,10 +144,14 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
   const handleCanonicalCancel = useCallback(
     async (bookingId: string, _reason?: string) => {
       const booking = lessonBookings.find((item) => item.bookingId === bookingId);
-      if (!booking) return;
+      if (!booking) {
+        addNotification('warning', t('requestFailed'), t('cancelStatusChanged'));
+        throw new Error('Lesson booking is no longer available for cancellation.');
+      }
       const exercisedCapability = resolveLessonBookingClientExercisedCapability(booking);
       if (!exercisedCapability) {
-        return;
+        addNotification('warning', t('requestFailed'), t('cancelStatusChanged'));
+        throw new Error('Lesson booking cancellation is no longer authorized.');
       }
       try {
         const outcome = await requestCancellation({
@@ -157,13 +162,12 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
         });
         notifyCancellationOutcome('lesson', outcome);
       } catch (error) {
-        const presented = presentCanonicalCommandErrorWithContext(error, {
-          t: t as (key: string) => string,
-        });
+        const presented = presentCancellationError(error, t as (key: string) => string);
         if (presented.shouldRefresh) {
-          await refetchAccountHotBookings?.();
+          await refetchAccountHotBookings?.().catch(() => undefined);
           addNotification('warning', t('requestFailed'), presented.message);
-          return;
+        } else {
+          addNotification('error', t('requestFailed'), presented.message);
         }
         throw error;
       }
@@ -215,7 +219,10 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
   const handleCourseCancellationRequest = useCallback(
     async (enrollmentId: string) => {
       const enrollment = courseEnrollments.find((item) => item.enrollmentId === enrollmentId);
-      if (!enrollment?.authorizedActions.canRequestCancellation) return;
+      if (!enrollment?.authorizedActions.canRequestCancellation) {
+        addNotification('warning', t('requestFailed'), t('cancelStatusChanged'));
+        throw new Error('Course enrollment is no longer available for cancellation.');
+      }
       try {
         const outcome = await requestCourseCancellation({
           enrollmentId: enrollment.enrollmentId,
@@ -228,15 +235,14 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
         });
         notifyCancellationOutcome('course', outcome);
       } catch (error) {
-        const presented = presentCanonicalCommandErrorWithContext(error, {
-          t: t as (key: string) => string,
-        });
+        const presented = presentCancellationError(error, t as (key: string) => string);
         if (presented.shouldRefresh) {
-          await refetchAccountHotEnrollments?.();
+          await refetchAccountHotEnrollments?.().catch(() => undefined);
           addNotification('warning', t('requestFailed'), presented.message);
-          return;
+        } else {
+          addNotification('error', t('requestFailed'), presented.message);
         }
-        addNotification('error', t('requestFailed'), presented.message);
+        throw error;
       }
     },
     [

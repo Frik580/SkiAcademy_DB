@@ -265,6 +265,9 @@ export function useCourseEnrollmentCommands(accountId: string | undefined) {
       readonly guestCredential?: GuestCourseEnrollmentLinkCredential;
     }): Promise<CabinetCancellationCommandResult> => {
       if (input.guestCredential) {
+        if (!input.guestCredential.cancellationCredential) {
+          throw new Error('Guest cancellation credential is unavailable.');
+        }
         const result = await executeGuestCanonicalCommand({
           kind: 'request_course_enrollment_cancellation',
           intent: {
@@ -272,8 +275,8 @@ export function useCourseEnrollmentCommands(accountId: string | undefined) {
           },
           idempotencyKey: input.idempotencyKey as never,
           expectedRevision: AggregateRevisionSchema.parse(input.expectedRevision),
-          guestActionNonce: input.guestCredential.nonce,
-          guestActionSignature: input.guestCredential.signature,
+          guestActionNonce: input.guestCredential.cancellationCredential.nonce,
+          guestActionSignature: input.guestCredential.cancellationCredential.signature,
         });
         const error = mapCanonicalCommandResultError(result);
         if (error) throw error;

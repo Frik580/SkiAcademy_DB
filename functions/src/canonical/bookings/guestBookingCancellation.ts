@@ -1,5 +1,6 @@
 import {
   AggregateRevisionSchema,
+  assertBookingPaymentIdentity,
   BookingSchema,
   CanonicalCommandError,
   commandSuccessResult,
@@ -21,6 +22,7 @@ import { buildPendingGuestCancellationAuditPlan } from './guestBookingAudit';
 import type { GuestBookingCommandEnvironment } from './guestBookingCommands';
 import { commitPlannedReleaseBookingClaims, planReleaseBookingClaims } from './bookingClaimOperations';
 import { BOOKING_PLANNING_ESTIMATES, bookingPath, parseBooking, toFirestoreWritePayload } from './bookingStore';
+import { parsePayment, paymentPath } from '../finance/financeStore';
 
 interface CommandMetadata {
   readonly commandId: ReturnType<typeof resolveCommandIdempotencyIdentity>['commandKey'];
@@ -81,6 +83,24 @@ export function requestPendingGuestCancellationHandler(
         throw new CanonicalCommandError('invalid_transition', {
           correlationId: envelope.context.correlationId,
           details: { field: 'reservationExpiresAt', reason: 'out_of_range' },
+        });
+      }
+
+      const paymentDocumentPath = paymentPath(booking.paymentId);
+      const paymentRead = await session.tx.get({ path: paymentDocumentPath });
+      session.plan.planRead({ path: paymentDocumentPath, category: 'payment_wallet' });
+      const payment = parsePayment(paymentRead.exists ? paymentRead.data : undefined);
+      if (!payment) {
+        throw new CanonicalCommandError('validation', {
+          correlationId: envelope.context.correlationId,
+          details: { field: 'paymentId', reason: 'conflict' },
+        });
+      }
+      assertBookingPaymentIdentity(envelope.context.correlationId, booking, payment);
+      if (payment.paidAmount !== 0) {
+        throw new CanonicalCommandError('invalid_transition', {
+          correlationId: envelope.context.correlationId,
+          details: { field: 'paymentId', reason: 'unsupported' },
         });
       }
 

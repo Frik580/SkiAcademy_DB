@@ -9,6 +9,7 @@ import {
   guestCourseCancellationReasonCode,
   isGuestReservationExpired,
   isPaymentFullyFundedForService,
+  KztMinorUnitsSchema,
   nextAggregateRevision,
   paymentIdFromCourseEnrollmentId,
   reservationExpiredCourseCancellationReasonCode,
@@ -23,6 +24,7 @@ import {
   type CommandExecutionEnvironment,
   type CommandResult,
   type GuestSubjectId,
+  type Payment,
 } from '@ski-academy/shared-domain';
 import { verifyGuestCourseEnrollmentActionCredentialPartsAuthoritative } from '../bookings/guestCredentialVerification';
 import { assertExpireGuestReservationAuthorization } from '../bookings/guestBookingAuthorization';
@@ -60,6 +62,11 @@ import {
   type PlannedGuestPaymentConfirmation,
 } from '../guestConfirmation/guestPaymentConfirmation';
 import { buildStandaloneGuestPaymentConfirmationAuditPlan } from '../guestConfirmation/guestPaymentConfirmationAudit';
+import {
+  commitPlannedCourseEnrollmentCancellationFinance,
+  planCourseEnrollmentCancellationFinance,
+  type PlannedCourseEnrollmentCancellationFinance,
+} from './courseEnrollmentLifecycleFinance';
 
 export interface GuestCourseEnrollmentCommandEnvironment extends CommandExecutionEnvironment {
   readonly guestActionTokenSecret?: string;
@@ -167,11 +174,13 @@ export function requestPendingGuestCourseEnrollmentCancellationHandler(
 
   let enrollment!: CourseEnrollment;
   let course!: Course;
+  let payment!: Payment;
   let reasonCode!: CourseEnrollmentCancellationReasonCode;
   let plannedRevision = AggregateRevisionSchema.parse(1);
   let plannedCourseRevision = AggregateRevisionSchema.parse(1);
   let plannedReleaseClaims:
     Awaited<ReturnType<typeof planReleaseCourseEnrollmentClaims>> | undefined;
+  let plannedFinance: PlannedCourseEnrollmentCancellationFinance | undefined;
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'request_course_enrollment_cancellation'> =
     {
@@ -209,6 +218,25 @@ export function requestPendingGuestCourseEnrollmentCancellationHandler(
           throw new CanonicalCommandError('invalid_transition', {
             correlationId: envelope.context.correlationId,
             details: { field: 'reservationExpiresAt', reason: 'out_of_range' },
+          });
+        }
+
+        const paymentDocumentPath = paymentPath(enrollment.paymentId);
+        const paymentRead = await session.tx.get({ path: paymentDocumentPath });
+        session.plan.planRead({ path: paymentDocumentPath, category: 'payment_wallet' });
+        const parsedPayment = parsePayment(paymentRead.exists ? paymentRead.data : undefined);
+        if (!parsedPayment) {
+          throw new CanonicalCommandError('validation', {
+            correlationId: envelope.context.correlationId,
+            details: { field: 'paymentId', reason: 'conflict' },
+          });
+        }
+        payment = parsedPayment;
+        assertCourseEnrollmentPaymentIdentity(envelope.context.correlationId, enrollment, payment);
+        if (payment.paidAmount !== 0) {
+          throw new CanonicalCommandError('invalid_transition', {
+            correlationId: envelope.context.correlationId,
+            details: { field: 'paymentId', reason: 'unsupported' },
           });
         }
 
@@ -253,6 +281,15 @@ export function requestPendingGuestCourseEnrollmentCancellationHandler(
         if (releaseSeat) {
           plannedCourseRevision = nextAggregateRevision(course.revision);
         }
+        plannedFinance = await planCourseEnrollmentCancellationFinance(session, {
+          envelope,
+          enrollment,
+          payment,
+          refundAmount: KztMinorUnitsSchema.parse(0),
+          commandId: metadata.commandId,
+          correlationId: metadata.correlationId,
+          decidedAt: now,
+        });
         session.plan.planMutation({
           path: enrollmentDocumentPath,
           kind: 'update',
@@ -296,6 +333,9 @@ export function requestPendingGuestCourseEnrollmentCancellationHandler(
           { path: enrollmentDocumentPath },
           enrollmentToFirestoreWritePayload(updatedEnrollment as Record<string, unknown>)
         );
+        if (plannedFinance) {
+          commitPlannedCourseEnrollmentCancellationFinance(session, plannedFinance);
+        }
         if (plannedReleaseClaims) {
           commitPlannedCourseEnrollmentClaimRelease(session, {
             metadata: { ...metadata, decidedAt: context.decidedAt },

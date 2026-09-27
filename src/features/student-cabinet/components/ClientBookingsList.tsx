@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, Clock, MessageSquare, Trash2 } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Clock, MessageSquare } from 'lucide-react';
 import { Course, Instructor, UserProfile } from '../../../types';
 import type { LessonBookingCabinetItem } from '../../../features/lesson-bookings/lessonBookingContracts';
 import {
@@ -493,20 +493,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                               onCancel={onCancel}
                               submitting={collaborationSubmittingId === b.bookingId}
                             />
-                          ) : (
-                            b.status === 'confirmed' && (
-                              <div className="flex items-center gap-1">
-                                <button
-                                  id={`cancel-btn-${b.id}`}
-                                  onClick={() => onCancel(b)}
-                                  title={t('cancelBookingRefund')}
-                                  className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
-                            )
-                          )}
+                          ) : null}
                         </div>
                       </div>
                     </div>
@@ -578,7 +565,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                             onClick={() => void onCourseWithdraw(item.enrollmentId)}
                             className="px-3 py-1.5 text-xs font-medium border border-rose-200 dark:border-rose-800 rounded-lg text-rose-600 transition"
                           >
-                            {t('cancelBookingRefund')}
+                            {t('collabWithdrawCancellation')}
                           </button>
                         )}
 
@@ -589,7 +576,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                               onClick={() => void onCourseRequestCancellation(item.enrollmentId)}
                               className="px-3 py-1.5 text-xs font-medium border border-rose-200 dark:border-rose-800 rounded-lg text-rose-600 transition"
                             >
-                              {t('cancellationRequested')}
+                              {t('requestCourseCancellation')}
                             </button>
                           )}
                       </div>

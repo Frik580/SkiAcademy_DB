@@ -405,6 +405,7 @@ describe.skipIf(!runsOnFirestoreEmulator)(
       );
       expect(authorized.items).toHaveLength(1);
       expect(authorized.items[0]?.bookingId).toBe(guestBookingId);
+      expect(authorized.items[0]?.guestPaymentSummary?.unpaidCancellationEligible).toBe(true);
 
       const wrongSubject = await queryLessonBookingReadModels(
         firestore,

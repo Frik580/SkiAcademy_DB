@@ -389,6 +389,7 @@ describe('create_guest_booking_request command', () => {
       price: 12_000,
       outstandingAmount: 12_000,
       paymentSatisfied: false,
+      unpaidCancellationEligible: true,
     });
 
     const wrongSubject = await queryLessonBookingReadModels(
@@ -472,6 +473,7 @@ describe('create_guest_booking_request command', () => {
     });
     expect(confirmedRead.items[0]?.lifecycle.status).toBe('confirmed');
     expect(confirmedRead.items[0]?.guestPaymentSummary?.paymentSatisfied).toBe(true);
+    expect(confirmedRead.items[0]?.guestPaymentSummary?.unpaidCancellationEligible).toBe(false);
 
     expect(booking).toBeDefined();
     expect(instructor).toBeDefined();
@@ -1272,6 +1274,53 @@ describe('guest pending cancellation command', () => {
       status: 'cancelled',
       reasonCode: 'guest_cancelled',
     });
+  });
+
+  it('rejects voluntary cancellation after partial payment without changing lifecycle or money', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    const commands = runCommands(executor);
+    const createResult = await commands.execute(guestCreateEnvelope());
+    const credential = createResult.payload?.guestActionCredential;
+    expect(credential).toBeDefined();
+    const paymentResult = await commands.execute({
+      kind: 'record_provider_payment_event',
+      context: {
+        actor: accountCommandActor(adminAccountId),
+        exercisedCapability: 'administrator',
+        idempotencyKey: 'guest-cancel-partial-payment',
+        correlationId,
+        source: 'admin_callable',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+      },
+      intent: {
+        paymentId,
+        amount: 5_000,
+        sourceKind: 'manual_external',
+        manualReference: 'guest-cancel-partial-payment-ref',
+      },
+    });
+    expect(paymentResult.status).toBe('success');
+    const before = executor.snapshot().docs.get(`payments/${paymentId}`)?.data;
+    const result = await commands.execute({
+      kind: 'request_booking_cancellation',
+      context: {
+        actor: guestCommandActor(guestSubjectId),
+        exercisedCapability: 'guest',
+        idempotencyKey: 'guest-cancel-partial-rejected',
+        correlationId,
+        source: 'guest_callable',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+        transportMetadata: {
+          [GUEST_ACTION_NONCE_TRANSPORT_KEY]: credential!.nonce,
+          [GUEST_ACTION_SIGNATURE_TRANSPORT_KEY]: credential!.signature,
+        },
+      },
+      intent: { bookingId },
+    });
+    expect(result.status).toBe('error');
+    expect(result.status === 'error' ? result.error.code : '').toBe('invalid_transition');
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe('pending');
+    expect(executor.snapshot().docs.get(`payments/${paymentId}`)?.data).toEqual(before);
   });
 });
 

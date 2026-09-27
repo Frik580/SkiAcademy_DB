@@ -42,6 +42,7 @@ export const GuestPaymentSummarySchema = z
     price: KztMinorUnitsSchema,
     outstandingAmount: KztMinorUnitsSchema,
     paymentSatisfied: z.boolean(),
+    unpaidCancellationEligible: z.boolean().optional(),
   })
   .strict();
 

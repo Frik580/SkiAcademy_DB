@@ -14,6 +14,7 @@ import { BodyScrollLock } from '../../../ui/BodyScrollLock';
 import {
   createLogicalEnrollmentAttemptId,
   deriveGuestCreateEnrollmentIdempotencyKey,
+  deriveRequestCancellationIdempotencyKey,
   resolveGuestCourseSessionParticipantId,
   isAnySelectedParticipantEnrolledInCourse,
   selectActiveGuestCourseEnrollment,
@@ -21,10 +22,12 @@ import {
   useCourseEnrollmentCommands,
   useCourseEnrollmentStore,
 } from '../../../features/course-enrollments';
+import { readGuestCourseEnrollmentCredential } from '../../../features/course-enrollments/guestCourseEnrollmentCredentialStorage';
 import { presentCanonicalCommandErrorWithContext } from '../../../features/lesson-bookings';
 import type { AuthenticatedCourseEnrollmentSelection } from '../useCourseActions';
 import { ParticipantPicker } from '../../participants/components/ParticipantPicker';
 import { GuestReservationStatus } from '../../guest-reservations/GuestReservationStatus';
+import { presentCancellationError } from '../../student-cabinet/presentCancellationError';
 import {
   forgetGuestReservation,
   isUnusableGuestReservationError,
@@ -64,7 +67,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   const { t, language } = useLanguage();
   const { formatPrice } = useCurrency();
   const { addNotification } = useNotifications();
-  const { createGuestEnrollment } = useCourseEnrollmentCommands(undefined);
+  const { createGuestEnrollment, requestCancellation } = useCourseEnrollmentCommands(undefined);
 
   const [unauthTab, setUnauthTab] = useState<'guest' | 'auth'>('guest');
   const [authenticatedProfile, setAuthenticatedProfile] = useState<UserProfile | null>(
@@ -212,7 +215,13 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
     if (!guestCreatedEnrollmentId || guestRefreshing) return;
     setGuestRefreshing(true);
     try {
-      setGuestReservation(await loadGuestSingleCourseEnrollment(guestCreatedEnrollmentId));
+      const refreshed = await loadGuestSingleCourseEnrollment(guestCreatedEnrollmentId);
+      setGuestReservation((current) =>
+        current?.lifecycle.status === 'cancelled' &&
+        (refreshed.revision < current.revision || refreshed.lifecycle.status !== 'cancelled')
+          ? current
+          : refreshed
+      );
       setGuestRefreshError(false);
     } catch {
       setGuestRefreshError(true);
@@ -251,6 +260,51 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
       forgetGuestReservation('course', course.id, guestCreatedEnrollmentId ?? undefined);
     }
     onClose();
+  };
+
+  const cancelPendingGuestEnrollment = async () => {
+    if (!guestCreatedEnrollmentId || guestReservation?.lifecycle.status !== 'pending') return false;
+    const credential = readGuestCourseEnrollmentCredential(guestCreatedEnrollmentId).credential;
+    if (!credential) {
+      addNotification('error', t('requestFailed'), t('guestCancelFailed'));
+      return false;
+    }
+    try {
+      await requestCancellation({
+        enrollmentId: guestCreatedEnrollmentId,
+        expectedRevision: guestReservation.revision,
+        idempotencyKey: deriveRequestCancellationIdempotencyKey(guestCreatedEnrollmentId, guestReservation.revision),
+        exercisedCapability: 'account_owner',
+        guestCredential: credential,
+      });
+      setGuestReservation({
+        ...guestReservation,
+        revision: guestReservation.revision + 1,
+        lifecycle: { status: 'cancelled', reasonCode: 'guest_cancelled' },
+      } as typeof guestReservation);
+      addNotification('success', t('guestCourseCancelledTitle'), t('guestCancelledBody'));
+      try {
+        const refreshed = await loadGuestSingleCourseEnrollment(guestCreatedEnrollmentId);
+        if (refreshed.revision <= guestReservation.revision || refreshed.lifecycle.status !== 'cancelled') {
+          throw new Error('Cancellation read model has not caught up.');
+        }
+        setGuestReservation(refreshed);
+        setGuestRefreshError(false);
+      } catch {
+        setGuestRefreshError(true);
+        addNotification('warning', t('cabinetCancellationRefreshWarning'), t('cabinetCancellationRefreshWarningDesc'));
+      }
+      return true;
+    } catch (error) {
+      const presented = presentCancellationError(error, t as (key: string) => string, true);
+      addNotification('error', t('requestFailed'), presented.message);
+      try {
+        setGuestReservation(await loadGuestSingleCourseEnrollment(guestCreatedEnrollmentId));
+      } catch {
+        setGuestRefreshError(true);
+      }
+      return false;
+    }
   };
 
   const startNewGuestBooking = () => {
@@ -393,6 +447,11 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                     statusHydrated={Boolean(guestReservation)}
                     onClose={closeGuestStatus}
                     onNewBooking={startNewGuestBooking}
+                    onCancelPending={
+                      readGuestCourseEnrollmentCredential(guestCreatedEnrollmentId).credential?.cancellationCredential
+                        ? cancelPendingGuestEnrollment
+                        : undefined
+                    }
                   />
                 ) : showAuthenticatedEnrollment ? (
                   <form onSubmit={handleSubmitAuthenticated} className="space-y-4">

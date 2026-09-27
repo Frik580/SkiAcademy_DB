@@ -4,6 +4,8 @@ import {
   AccountSchema,
   AggregateRevisionSchema,
   CorrelationIdSchema,
+  GUEST_ACTION_NONCE_TRANSPORT_KEY,
+  GUEST_ACTION_SIGNATURE_TRANSPORT_KEY,
   CourseDayIdSchema,
   CourseEnrollmentIdSchema,
   CourseIdSchema,
@@ -293,6 +295,107 @@ async function createGuestEnrollment(extra: Record<string, unknown> = {}) {
 }
 
 describe('payment-driven guest course enrollment confirmation', () => {
+  it('cancels a fully unpaid guest enrollment with its cancellation credential', async () => {
+    const { executor, enrollmentId, credential } = await createGuestEnrollment();
+    expect(credential?.cancellationCredential).toBeDefined();
+    const linkTokenAttempt = await runCommands(executor).execute({
+      kind: 'request_course_enrollment_cancellation',
+      context: {
+        actor: guestCommandActor(guestSubjectIdFromCourseEnrollmentId(enrollmentId)),
+        exercisedCapability: 'guest',
+        idempotencyKey: 'guest-course-link-token-cannot-cancel',
+        correlationId,
+        source: 'guest_callable',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+        transportMetadata: {
+          [GUEST_ACTION_NONCE_TRANSPORT_KEY]: credential!.nonce,
+          [GUEST_ACTION_SIGNATURE_TRANSPORT_KEY]: credential!.signature,
+        },
+      },
+      intent: { courseEnrollmentId: enrollmentId },
+    });
+    expect(linkTokenAttempt.status).toBe('error');
+    expect(linkTokenAttempt.status === 'error' ? linkTokenAttempt.error.code : '').toBe('unauthorized');
+    const result = await runCommands(executor).execute({
+      kind: 'request_course_enrollment_cancellation',
+      context: {
+        actor: guestCommandActor(guestSubjectIdFromCourseEnrollmentId(enrollmentId)),
+        exercisedCapability: 'guest',
+        idempotencyKey: 'guest-course-voluntary-unpaid-cancel',
+        correlationId,
+        source: 'guest_callable',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+        transportMetadata: {
+          [GUEST_ACTION_NONCE_TRANSPORT_KEY]: credential!.cancellationCredential!.nonce,
+          [GUEST_ACTION_SIGNATURE_TRANSPORT_KEY]: credential!.cancellationCredential!.signature,
+        },
+      },
+      intent: { courseEnrollmentId: enrollmentId },
+    });
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle).toMatchObject({
+      status: 'cancelled',
+      reasonCode: 'guest_cancelled',
+    });
+    const paymentId = paymentIdFromCourseEnrollmentId(enrollmentId);
+    expect(executor.snapshot().docs.get(`payments/${paymentId}`)?.data).toMatchObject({
+      paidAmount: 0,
+      refundedAmount: 0,
+      writtenOffAmount: COURSE_PRICE_KZT,
+      outstandingAmount: 0,
+    });
+    expect(
+      [...executor.snapshot().docs.entries()]
+        .filter(([path]) => path.startsWith('monetary_events/'))
+        .map(([, document]) => document.data.eventKind)
+    ).toContain('write_off');
+    expect(executor.snapshot().docs.get(`courses/${courseId}`)?.data.capacity.availableSeats).toBe(8);
+  });
+
+  it('rejects guest voluntary cancellation after partial funding', async () => {
+    const { executor, enrollmentId, credential } = await createGuestEnrollment();
+    expect(credential?.cancellationCredential).toBeDefined();
+    const paymentId = paymentIdFromCourseEnrollmentId(enrollmentId);
+    const paymentResult = await runCommands(executor).execute({
+      kind: 'record_provider_payment_event',
+      context: {
+        actor: accountCommandActor(adminAccountId),
+        exercisedCapability: 'administrator',
+        idempotencyKey: 'guest-course-voluntary-partial-funding',
+        correlationId,
+        source: 'admin_callable',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+      },
+      intent: {
+        paymentId,
+        amount: 10_000,
+        sourceKind: 'manual_external',
+        manualReference: 'guest-course-voluntary-partial-funding-ref',
+      },
+    });
+    expect(paymentResult.status).toBe('success');
+    const paymentBefore = executor.snapshot().docs.get(`payments/${paymentId}`)?.data;
+    const result = await runCommands(executor).execute({
+      kind: 'request_course_enrollment_cancellation',
+      context: {
+        actor: guestCommandActor(guestSubjectIdFromCourseEnrollmentId(enrollmentId)),
+        exercisedCapability: 'guest',
+        idempotencyKey: 'guest-course-voluntary-partial-cancel',
+        correlationId,
+        source: 'guest_callable',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+        transportMetadata: {
+          [GUEST_ACTION_NONCE_TRANSPORT_KEY]: credential!.cancellationCredential!.nonce,
+          [GUEST_ACTION_SIGNATURE_TRANSPORT_KEY]: credential!.cancellationCredential!.signature,
+        },
+      },
+      intent: { courseEnrollmentId: enrollmentId },
+    });
+    expect(result.status).toBe('error');
+    expect(result.status === 'error' ? result.error.code : '').toBe('invalid_transition');
+    expect(executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle.status).toBe('pending');
+    expect(executor.snapshot().docs.get(`payments/${paymentId}`)?.data).toEqual(paymentBefore);
+  });
   it('keeps partial funding pending and confirms atomically on the full canonical Payment', async () => {
     const { executor, enrollmentId } = await createGuestEnrollment();
     const paymentId = paymentIdFromCourseEnrollmentId(enrollmentId);

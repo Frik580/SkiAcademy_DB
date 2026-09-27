@@ -7,6 +7,7 @@ import { useBookingModal } from './useBookingModal';
 import { AuthModeSliderSwitch } from './AuthModeSliderSwitch';
 import { BOOKING_MODAL_SHELL_CLASS } from './bookingModalLayout';
 import { GuestReservationStatus } from '../../../guest-reservations/GuestReservationStatus';
+import { readGuestBookingCredential } from '../../../lesson-bookings/guestCredentialStorage';
 
 interface BookingAuthShellProps {
   workspace: ReturnType<typeof useBookingModal>;
@@ -63,6 +64,11 @@ export const BookingAuthShell: React.FC<BookingAuthShellProps> = ({ workspace })
             statusHydrated={Boolean(workspace.guestReservation)}
             onClose={workspace.closeGuestStatus}
             onNewBooking={workspace.startNewGuestBooking}
+            onCancelPending={
+              readGuestBookingCredential(workspace.guestCreatedBookingId).credential
+                ? workspace.cancelPendingGuestBooking
+                : undefined
+            }
           />
         ) : unauthTab === 'auth' ? (
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">

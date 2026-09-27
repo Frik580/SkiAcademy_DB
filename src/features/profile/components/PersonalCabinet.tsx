@@ -227,14 +227,15 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
     setCancelReason('');
     setConfirmModal({
       message: confirmationText,
-      showReasonInput: true,
-      onConfirm: async (reason?: string) => {
-        try {
-          await onCancel(booking.id, reason);
-        } catch {
-          addNotification('error', t('requestFailed'), t('requestFailedDesc'));
-        }
-      },
+      onConfirm: () => onCancel(booking.id),
+    });
+  };
+
+  const handleCourseCancelClick = async (enrollmentId: string) => {
+    if (!onCourseRequestCancellation) return;
+    setConfirmModal({
+      message: t('courseCancelConfirmMessage'),
+      onConfirm: () => onCourseRequestCancellation(enrollmentId),
     });
   };
 
@@ -319,7 +320,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
             onRescheduleBooking={collaboration.setRescheduleTarget}
             collaborationSubmittingId={collaboration.submittingId}
             onCourseWithdraw={onCourseWithdraw}
-            onCourseRequestCancellation={onCourseRequestCancellation}
+            onCourseRequestCancellation={handleCourseCancelClick}
           />
 
           <RescheduleBookingModal
@@ -359,9 +360,14 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
             }}
             onConfirmAction={async (reason) => {
               const action = confirmModal?.onConfirm;
-              setConfirmModal(null);
-              setCancelReason('');
-              if (action) await action(reason);
+              if (!action) return;
+              try {
+                await action(reason);
+                setConfirmModal(null);
+                setCancelReason('');
+              } catch {
+                // The command handler reports the error. Keep confirmation open.
+              }
             }}
             selectedChatBooking={selectedChatBooking}
             onCloseChat={() => setSelectedChatBookingId(null)}

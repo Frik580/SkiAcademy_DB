@@ -222,11 +222,11 @@ export const getCourseEnrichedData = (
     },
     {
       q: 'What happens in case of extreme weather or lift closure?',
-      a: 'If resort lifts are completely closed due to weather conditions, we will reschedule the sessions or offer a full refund for the affected days.',
+      a: 'If resort lifts close, contact the administrator to learn which options are available for the affected days.',
     },
     {
       q: 'Can I cancel or change dates?',
-      a: 'Yes, you can cancel or reschedule free of charge up to 48 hours before the course starts. Within 48 hours, a 50% cancellation fee applies.',
+      a: 'For a confirmed enrollment managed through an account, cancellation at least 7 days before the course starts returns 100% of the amount actually paid to the account Wallet. From 2 to less than 7 days, it returns 50%. Later, a cancellation request goes to the administrator for a decision. A confirmed guest enrollment cannot be cancelled through the guest status page.',
     },
   ];
   const faqRu: CourseFaqItem[] = [
@@ -236,11 +236,11 @@ export const getCourseEnrichedData = (
     },
     {
       q: 'Что происходит в случае экстремальной погоды или закрытия подъемников?',
-      a: 'Если подъемники курорта полностью закрыты из-за погодных условий, мы перенесем занятие на другое время или вернем полную стоимость за отмененные дни.',
+      a: 'Если подъёмники закроются, обратитесь к администратору, чтобы узнать доступные варианты для затронутых дней.',
     },
     {
       q: 'Могу ли я отменить бронирование или изменить даты?',
-      a: 'Да, вы можете бесплатно отменить или изменить даты курса за 48 часов до его начала. При отмене менее чем за 48 часов удерживается сбор в размере 50%.',
+      a: 'Для подтверждённой записи через аккаунт отмена за 7 дней и более до начала курса возвращает 100% фактически оплаченной суммы в кошелёк аккаунта. От 2 до менее 7 дней возвращается 50%. Позже запрос на отмену рассматривает администратор. Подтверждённую гостевую запись нельзя отменить через страницу статуса.',
     },
   ];
 

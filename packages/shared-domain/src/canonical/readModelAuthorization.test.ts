@@ -16,6 +16,7 @@ import {
   evaluateAdminBookingChangeRequestAuthorizedActions,
   evaluateBookingChangeRequestAuthorizedActions,
   evaluateBookingProposalAuthorizedActions,
+  evaluateCourseEnrollmentAuthorizedActions,
   evaluateInstructorCourseRosterReadAccess,
   evaluateInstructorLessonBookingAuthorizedActions,
   evaluateLessonBookingAuthorizedActions,
@@ -102,6 +103,27 @@ function openProposal() {
 }
 
 describe('readModelAuthorization', () => {
+  it('offers a course cancellation request for confirmed enrollment even inside two days, but not pending', () => {
+    const input = {
+      actor: accountManagerActor,
+      account: canonicalParticipantAccessFixtures.account,
+      participant: canonicalParticipantAccessFixtures.participant,
+      management: canonicalParticipantAccessFixtures.management,
+      course: { startAt: serviceStart } as Parameters<typeof evaluateCourseEnrollmentAuthorizedActions>[0]['course'],
+      topology: canonicalParticipantAccessFixtures.unblockedTopology,
+      now: serviceStart,
+    };
+    const confirmed = evaluateCourseEnrollmentAuthorizedActions({
+      ...input,
+      enrollment: { lifecycle: { status: 'confirmed' } } as Parameters<typeof evaluateCourseEnrollmentAuthorizedActions>[0]['enrollment'],
+    });
+    const pending = evaluateCourseEnrollmentAuthorizedActions({
+      ...input,
+      enrollment: { lifecycle: { status: 'pending' } } as Parameters<typeof evaluateCourseEnrollmentAuthorizedActions>[0]['enrollment'],
+    });
+    expect(confirmed.canRequestCancellation).toBe(true);
+    expect(pending.canRequestCancellation).toBe(false);
+  });
   it('computes lesson booking cancellation and reschedule actions for authorized account managers', () => {
     const actions = evaluateLessonBookingAuthorizedActions({
       actor: accountManagerActor,

@@ -1593,7 +1593,7 @@ export async function queryLessonBookingReadModels(
       return { scope: input.scope, items: [], hasMore: false };
     }
 
-    const readModel = await buildGuestLessonBookingReadModel(firestore, booking, readContext);
+    const readModel = await buildGuestLessonBookingReadModel(firestore, booking, readContext, now);
     return {
       scope: input.scope,
       items: readModel ? [readModel] : [],
@@ -1764,7 +1764,8 @@ export async function queryLessonBookingReadModels(
 async function buildGuestLessonBookingReadModel(
   firestore: Firestore,
   booking: Booking,
-  readContext: ReadModelRequestContext
+  readContext: ReadModelRequestContext,
+  now: CanonicalTimestamp
 ): Promise<LessonBookingReadModel | undefined> {
   const instructorSnap = await readContext.instructor(booking.occurrence.instructorId);
   const instructorCatalog = parseInstructorCatalog(
@@ -1837,6 +1838,10 @@ async function buildGuestLessonBookingReadModel(
       price: payment.price,
       outstandingAmount: payment.outstandingAmount,
       paymentSatisfied: isPaymentFullyFundedForService(payment),
+      unpaidCancellationEligible:
+        booking.lifecycle.status === 'pending' &&
+        payment.paidAmount === 0 &&
+        compareCanonicalTimestamps(now, booking.lifecycle.reservationExpiresAt) < 0,
     },
     ...lessonContentFromBooking(booking),
     updatedAt: booking.updatedAt,

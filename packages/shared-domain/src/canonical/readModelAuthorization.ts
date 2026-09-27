@@ -52,8 +52,6 @@ import type {
   ParticipantInstructorAccessReadModelAuthorizedActions,
 } from './readModels/readModelAuthorizedActions';
 import {
-  evaluateClientCourseCancellationTiming,
-  isConfirmedOrPendingCourseEnrollment,
   isCourseCapacityFrozen,
   isPendingCancellationCourseEnrollment,
   isTerminalCourseEnrollmentLifecycle,
@@ -580,16 +578,7 @@ export function evaluateCourseEnrollmentAuthorizedActions(
 
   const canWithdraw = isPendingCancellationCourseEnrollment(input.enrollment);
 
-  const timing = evaluateClientCourseCancellationTiming({
-    requestAt: input.now,
-    startAt: input.course.startAt,
-  });
-
-  const canRequestCancellation =
-    isConfirmedOrPendingCourseEnrollment(input.enrollment) &&
-    !isTerminalCourseEnrollmentLifecycle(input.enrollment) &&
-    timing.kind !== 'pending_request' &&
-    input.enrollment.lifecycle.status !== 'pending_cancellation';
+  const canRequestCancellation = input.enrollment.lifecycle.status === 'confirmed';
 
   return {
     canWithdraw,

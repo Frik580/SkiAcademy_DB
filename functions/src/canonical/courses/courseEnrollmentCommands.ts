@@ -43,6 +43,7 @@ import {
   type Course,
   type CourseDay,
   type CourseEnrollment,
+  type CanonicalTimestamp,
   type KztMinorUnits,
   type MonetaryEvent,
   type Payment,
@@ -148,8 +149,55 @@ interface PlannedParticipantEnrollment {
   readonly seatClaimPlan?: ResourceClaimOperationPlan;
   readonly dayClaimPlans: readonly ResourceClaimOperationPlan[];
   readonly alreadyApplied: boolean;
+  readonly existingReservationExpiresAt?: CanonicalTimestamp;
   readonly shouldCreateGuestParticipant?: boolean;
   readonly guestParticipantProfile?: import('@ski-academy/shared-domain').GuestParticipantProfileFromTransport;
+}
+
+function guestCourseCredential(input: {
+  readonly enrollmentId: CourseEnrollment['enrollmentId'];
+  readonly secret: string;
+  readonly linkExpiresAt: CanonicalTimestamp;
+  readonly cancellationExpiresAt?: CanonicalTimestamp;
+}): GuestCourseEnrollmentLinkCredential {
+  const guestSubjectId = guestSubjectIdFromCourseEnrollmentId(input.enrollmentId);
+  const nonce = createGuestActionTokenNonce();
+  const signature = signGuestCourseEnrollmentActionCredential(input.secret, {
+    version: GUEST_ACTION_TOKEN_VERSION,
+    subjectKind: 'course_enrollment',
+    enrollmentId: input.enrollmentId,
+    guestSubjectId,
+    purpose: 'link_guest_course_enrollment',
+    expiresAt: input.linkExpiresAt,
+    nonce,
+  });
+  const cancellationNonce = input.cancellationExpiresAt
+    ? createGuestActionTokenNonce()
+    : undefined;
+  return {
+    enrollmentId: input.enrollmentId,
+    guestSubjectId,
+    nonce,
+    signature,
+    expiresAt: input.linkExpiresAt,
+    ...(input.cancellationExpiresAt && cancellationNonce
+      ? {
+          cancellationCredential: {
+            nonce: cancellationNonce,
+            signature: signGuestCourseEnrollmentActionCredential(input.secret, {
+              version: GUEST_ACTION_TOKEN_VERSION,
+              subjectKind: 'course_enrollment',
+              enrollmentId: input.enrollmentId,
+              guestSubjectId,
+              purpose: 'cancel_pending_reservation',
+              expiresAt: input.cancellationExpiresAt,
+              nonce: cancellationNonce,
+            }),
+            expiresAt: input.cancellationExpiresAt,
+          },
+        }
+      : {}),
+  };
 }
 
 function assertEquivalentExistingCourseEnrollment(input: {
@@ -509,6 +557,9 @@ function createCourseEnrollmentsHandler(
             },
             dayClaimPlans: [],
             alreadyApplied: true,
+            ...(existingEnrollment.lifecycle.status === 'pending'
+              ? { existingReservationExpiresAt: existingEnrollment.lifecycle.reservationExpiresAt }
+              : {}),
           });
           continue;
         }
@@ -983,31 +1034,18 @@ function createCourseEnrollmentsHandler(
         for (const planned of plannedEnrollments) {
           if (planned.alreadyApplied) {
             if (mode === 'guest') {
-              const guestSubjectId = guestSubjectIdFromCourseEnrollmentId(planned.enrollmentId);
-              const nonce = createGuestActionTokenNonce();
-              const expiresAt = courseRecord.scheduleProjection.finalCourseDayEndsAt;
               const secret = environment.guestActionTokenSecret;
               if (!secret) {
                 throw new CanonicalCommandError('unavailable', {
                   correlationId: envelope.context.correlationId,
                 });
               }
-              const signature = signGuestCourseEnrollmentActionCredential(secret, {
-                version: GUEST_ACTION_TOKEN_VERSION,
-                subjectKind: 'course_enrollment',
+              guestLinkCredentials.push(guestCourseCredential({
                 enrollmentId: planned.enrollmentId,
-                guestSubjectId,
-                purpose: 'link_guest_course_enrollment',
-                expiresAt,
-                nonce,
-              });
-              guestLinkCredentials.push({
-                enrollmentId: planned.enrollmentId,
-                guestSubjectId,
-                nonce,
-                signature,
-                expiresAt,
-              });
+                secret,
+                linkExpiresAt: courseRecord.scheduleProjection.finalCourseDayEndsAt,
+                cancellationExpiresAt: planned.existingReservationExpiresAt,
+              }));
             }
             continue;
           }
@@ -1136,31 +1174,21 @@ function createCourseEnrollmentsHandler(
           }
 
           if (mode === 'guest') {
-            const guestSubjectId = guestSubjectIdFromCourseEnrollmentId(planned.enrollmentId);
-            const nonce = createGuestActionTokenNonce();
-            const expiresAt = courseRecord.scheduleProjection.finalCourseDayEndsAt;
             const secret = environment.guestActionTokenSecret;
             if (!secret) {
               throw new CanonicalCommandError('unavailable', {
                 correlationId: envelope.context.correlationId,
               });
             }
-            const signature = signGuestCourseEnrollmentActionCredential(secret, {
-              version: GUEST_ACTION_TOKEN_VERSION,
-              subjectKind: 'course_enrollment',
+            guestLinkCredentials.push(guestCourseCredential({
               enrollmentId: planned.enrollmentId,
-              guestSubjectId,
-              purpose: 'link_guest_course_enrollment',
-              expiresAt,
-              nonce,
-            });
-            guestLinkCredentials.push({
-              enrollmentId: planned.enrollmentId,
-              guestSubjectId,
-              nonce,
-              signature,
-              expiresAt,
-            });
+              secret,
+              linkExpiresAt: courseRecord.scheduleProjection.finalCourseDayEndsAt,
+              cancellationExpiresAt: resolveGuestCourseReservationExpiresAt({
+                createdAt: decidedAt,
+                courseStartsAt: courseRecord.startAt,
+              }),
+            }));
           }
         }
 

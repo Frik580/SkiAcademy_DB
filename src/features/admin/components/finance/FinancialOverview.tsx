@@ -34,12 +34,15 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
 }) => {
   const { t } = useLanguage();
 
-  const revenueReady = !revenueLoading && !revenueError && netSettledKzt !== undefined;
+  const revenueReady =
+    !revenueLoading && !revenueError && !revenueTruncated && netSettledKzt !== undefined;
   const revenueLabel = revenueLoading
     ? '…'
     : revenueError
       ? t('adminFinanceOverviewLoadFailed')
-      : formatCanonicalKztForDisplay(netSettledKzt ?? 0);
+      : revenueTruncated
+        ? '—'
+        : formatCanonicalKztForDisplay(netSettledKzt ?? 0);
 
   return (
     <div className="space-y-3">

@@ -560,6 +560,7 @@ async function queryFinancialOverviewReadModel(
   const pageSize = 200;
   const scanCap = 5_000;
   const events: MonetaryEvent[] = [];
+  let scanned = 0;
   let truncated = false;
   let query: Query = firestore
     .collection('monetary_events')
@@ -570,7 +571,8 @@ async function queryFinancialOverviewReadModel(
     .orderBy('eventId', 'asc');
 
   for (;;) {
-    const snapshot = await query.limit(pageSize).get();
+    const snapshot = await query.limit(Math.min(pageSize, scanCap - scanned)).get();
+    scanned += snapshot.docs.length;
     for (const document of snapshot.docs) {
       if (!documentMatchesReadScope(readScope, document.data() ?? {})) continue;
       const event = parseMonetaryEvent(document.data() as Record<string, unknown>);
@@ -582,12 +584,9 @@ async function queryFinancialOverviewReadModel(
       events.push(event);
     }
     if (snapshot.docs.length < pageSize) break;
-    if (events.length >= scanCap) {
-      truncated = true;
-      break;
-    }
-    const lastEvent = events[events.length - 1];
-    if (!lastEvent) break;
+    const lastDocument = snapshot.docs.at(-1);
+    if (!lastDocument) break;
+    const lastOccurredAt = lastDocument.get('occurredAt') as MonetaryEvent['occurredAt'];
     query = firestore
       .collection('monetary_events')
       .where('occurredAt.seconds', '>=', window.startsAt.seconds)
@@ -596,10 +595,14 @@ async function queryFinancialOverviewReadModel(
       .orderBy('occurredAt.nanoseconds', 'desc')
       .orderBy('eventId', 'asc')
       .startAfter(
-        lastEvent.occurredAt.seconds,
-        lastEvent.occurredAt.nanoseconds,
-        lastEvent.eventId
+        lastOccurredAt.seconds,
+        lastOccurredAt.nanoseconds,
+        lastDocument.get('eventId')
       );
+    if (scanned >= scanCap) {
+      truncated = (await query.limit(1).get()).docs.length > 0;
+      break;
+    }
   }
 
   const totals = financialOverviewTotalsFromMonetaryEffects(events, window);

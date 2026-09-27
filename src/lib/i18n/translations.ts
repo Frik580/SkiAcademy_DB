@@ -1052,7 +1052,7 @@ export const translations = {
     adminFinancePeriodDay: 'Day',
     adminFinancePeriodWeek: 'Week',
     adminFinancePeriodMonth: 'Month',
-    adminFinanceOverviewTruncated: 'Period scan truncated; later MonetaryEvents were not included.',
+    adminFinanceOverviewTruncated: 'Total unavailable: this period exceeds the read limit.',
     adminFinanceOverviewLoadFailed: 'Could not load revenue for this period.',
     adminFinanceOverviewSettled: 'Settled',
     adminFinanceOverviewRefunded: 'Refunded',
@@ -3396,8 +3396,7 @@ export const translations = {
     adminFinancePeriodDay: 'День',
     adminFinancePeriodWeek: 'Неделя',
     adminFinancePeriodMonth: 'Месяц',
-    adminFinanceOverviewTruncated:
-      'Сканирование периода обрезано; часть MonetaryEvent не включена.',
+    adminFinanceOverviewTruncated: 'Итог недоступен: период превышает лимит чтения.',
     adminFinanceOverviewLoadFailed: 'Не удалось загрузить выручку за выбранный период.',
     adminFinanceOverviewSettled: 'Погашено',
     adminFinanceOverviewRefunded: 'Возвраты',

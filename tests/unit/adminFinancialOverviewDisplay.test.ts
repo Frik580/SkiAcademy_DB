@@ -16,6 +16,8 @@ describe('T32.9A.1 FinancialOverview display', () => {
     expect(host).toContain('revenueError={finance.error}');
     expect(host).toContain('finance.error ? undefined : finance.item?.netSettledKzt');
     expect(overview).toContain('adminFinanceOverviewLoadFailed');
+    expect(overview).toContain('!revenueTruncated');
+    expect(overview).toMatch(/revenueTruncated\s+\? '—'/);
     expect(overview).not.toContain('revenueIsCanonicalKzt');
     expect(overview).toContain("t('totalRevenue')");
     expect(overview).toContain("(['day', 'week', 'month'] as const)");

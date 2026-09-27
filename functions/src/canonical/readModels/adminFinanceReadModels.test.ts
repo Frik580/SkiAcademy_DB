@@ -128,7 +128,7 @@ function readPath(data: Record<string, unknown>, field: string): unknown {
   }, data);
 }
 
-function createQuery(documents: readonly FakeDocument[]) {
+function createQuery(documents: readonly FakeDocument[], onRead?: (count: number) => void) {
   let selected = [...documents];
   let after: readonly unknown[] | undefined;
   let queryLimit = Number.MAX_SAFE_INTEGER;
@@ -180,10 +180,13 @@ function createQuery(documents: readonly FakeDocument[]) {
           );
         });
       }
+      const page = selected.slice(0, queryLimit);
+      onRead?.(page.length);
       return {
-        docs: selected.slice(0, queryLimit).map((document) => ({
+        docs: page.map((document) => ({
           id: document.id,
           data: () => document.data,
+          get: (field: string) => readPath(document.data, field),
         })),
       };
     },
@@ -191,7 +194,10 @@ function createQuery(documents: readonly FakeDocument[]) {
   return query;
 }
 
-function createFirestore(events: readonly MonetaryEvent[]): Firestore {
+function createFirestore(
+  events: readonly MonetaryEvent[],
+  onEventRead?: (count: number) => void
+): Firestore {
   const userData = { ...account, displayName: 'Ada Skier', email: 'ada@example.com' };
   return {
     collection: (name: string) => {
@@ -215,7 +221,10 @@ function createFirestore(events: readonly MonetaryEvent[]): Firestore {
         };
       }
       if (name === 'monetary_events') {
-        return createQuery(events.map((event) => ({ id: event.eventId, data: event })));
+        return createQuery(
+          events.map((event) => ({ id: event.eventId, data: event })),
+          onEventRead
+        );
       }
       if (name === 'admin_issues') return createQuery([]);
       throw new Error(`Unexpected collection: ${name}`);
@@ -375,6 +384,87 @@ describe('Admin canonical finance read models', () => {
     expect(result.item.netSettledKzt).toBe(0);
     expect(result.item.settledRevenueKzt).toBe(0);
     expect(result.item.refundedKzt).toBe(0);
+    expect(result.item.truncated).toBe(false);
+  });
+
+  it('advances past a page containing only other-scope events', async () => {
+    const hidden = Array.from({ length: 200 }, (_, index) => ({
+      ...walletEvent(1, 1_000),
+      eventId: monetaryEventIdFromCommandEffect(`command_hidden_overview_${index}`, 0),
+      occurredAt: timestampFromDate(new Date(Date.UTC(2026, 0, 30, 0, 0, -index))),
+      dataScope: 'test' as const,
+      testSessionId: 'test_session_other',
+    }));
+    const visible = paymentEffectEvent(1, '2026-01-20T12:00:00.000Z', {
+      settledAmountDelta: 7_000,
+    });
+    const result = await queryAdminFinanceReadModels(createFirestore([...hidden, visible]), actor, {
+      scope: 'admin_financial_overview',
+      period: 'month',
+      localDate: '2026-01-30',
+      timeZone: 'UTC',
+    });
+    expect(result.scope).toBe('admin_financial_overview');
+    if (result.scope !== 'admin_financial_overview') return;
+    expect(result.item.settledRevenueKzt).toBe(7_000);
+    expect(result.item.truncated).toBe(false);
+  });
+
+  it('marks totals incomplete when the read cap hides a later in-scope event', async () => {
+    const hidden = Array.from({ length: 5_000 }, (_, index) => ({
+      ...walletEvent(1, 1_000),
+      eventId: monetaryEventIdFromCommandEffect(`command_hidden_cap_${index}`, 0),
+      occurredAt: timestampFromDate(new Date(Date.UTC(2026, 0, 30, 0, 0, -index))),
+      dataScope: 'test' as const,
+      testSessionId: 'test_session_other',
+    }));
+    const laterVisible = paymentEffectEvent(1, '2026-01-20T12:00:00.000Z', {
+      settledAmountDelta: 7_000,
+    });
+    let readCount = 0;
+    const result = await queryAdminFinanceReadModels(
+      createFirestore([...hidden, laterVisible], (count) => {
+        readCount += count;
+      }),
+      actor,
+      {
+        scope: 'admin_financial_overview',
+        period: 'month',
+        localDate: '2026-01-30',
+        timeZone: 'UTC',
+      }
+    );
+    expect(result.scope).toBe('admin_financial_overview');
+    if (result.scope !== 'admin_financial_overview') return;
+    expect(readCount).toBe(5_001);
+    expect(result.item.settledRevenueKzt).toBe(0);
+    expect(result.item.truncated).toBe(true);
+  });
+
+  it('does not mark an exactly full period scan as truncated', async () => {
+    const hidden = Array.from({ length: 5_000 }, (_, index) => ({
+      ...walletEvent(1, 1_000),
+      eventId: monetaryEventIdFromCommandEffect(`command_exact_cap_${index}`, 0),
+      occurredAt: timestampFromDate(new Date(Date.UTC(2026, 0, 30, 0, 0, -index))),
+      dataScope: 'test' as const,
+      testSessionId: 'test_session_other',
+    }));
+    let readCount = 0;
+    const result = await queryAdminFinanceReadModels(
+      createFirestore(hidden, (count) => {
+        readCount += count;
+      }),
+      actor,
+      {
+        scope: 'admin_financial_overview',
+        period: 'month',
+        localDate: '2026-01-30',
+        timeZone: 'UTC',
+      }
+    );
+    expect(result.scope).toBe('admin_financial_overview');
+    if (result.scope !== 'admin_financial_overview') return;
+    expect(readCount).toBe(5_000);
     expect(result.item.truncated).toBe(false);
   });
 });

@@ -1,11 +1,9 @@
 import type { Language } from '../../lib/i18n/translations';
 
 /**
- * No public Instagram contact link on the storefront until the exact URL is provided.
- * Leave this null. Do not invent a handle, instagram.com path, or ig.me link.
- * Null or blank hides every Instagram control.
+ * Public Instagram profile. Null or blank still hides every Instagram control.
  */
-export const INSTAGRAM_URL: string | null = null;
+export const INSTAGRAM_URL: string | null = 'https://www.instagram.com/carve_academy';
 
 /** Public storefront shows a rating block only when at least this many canonical reviews exist. */
 export const PUBLIC_STOREFRONT_REVIEW_MIN = 1;

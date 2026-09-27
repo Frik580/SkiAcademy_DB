@@ -39,9 +39,13 @@ describe('conversion gate copy', () => {
     expect(getConversionGateCopy('en').courseBadge).toBeNull();
   });
 
-  it('keeps Instagram hidden until a confirmed https link is configured', () => {
-    expect(INSTAGRAM_URL).toBeNull();
-    expect(resolveInstagramHref(INSTAGRAM_URL)).toBeNull();
+  it('uses the confirmed public Instagram profile', () => {
+    expect(INSTAGRAM_URL).toBe('https://www.instagram.com/carve_academy');
+    expect(resolveInstagramHref(INSTAGRAM_URL)).toBe('https://www.instagram.com/carve_academy');
+  });
+
+  it('hides the CTA when the URL is null, blank, or not an https Instagram link', () => {
+    expect(resolveInstagramHref(null)).toBeNull();
     expect(resolveInstagramHref('')).toBeNull();
     expect(resolveInstagramHref('   ')).toBeNull();
     expect(resolveInstagramHref('[[GROWTH_COPY: ig_url]]')).toBeNull();
@@ -50,7 +54,7 @@ describe('conversion gate copy', () => {
     expect(resolveInstagramHref('https://wa.me/77001234567')).toBeNull();
   });
 
-  it('accepts an https Instagram URL once the constant is set', () => {
+  it('accepts an https Instagram URL', () => {
     expect(resolveInstagramHref('https://www.instagram.com/example')).toBe(
       'https://www.instagram.com/example'
     );
@@ -61,6 +65,7 @@ describe('conversion gate copy', () => {
     const copy = readRepoFile('src/features/landing/conversionGateCopy.ts');
     const cta = readRepoFile('src/features/landing/ConversionGateInstagramCta.tsx');
     expect(copy).not.toMatch(/WHATSAPP_URL|wa\.me|Написать в WhatsApp/);
+    expect(cta).toContain('if (!href) return null');
     expect(cta).toContain('target="_blank"');
     expect(cta).toContain('rel="noopener noreferrer"');
     expect(cta).not.toContain('instagram_contact_click');

@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { HeroCarousel } from '../../src/app/components/HeroCarousel';
+import { ConversionGateInstagramCta } from '../../src/features/landing';
 import type { CustomHeroSlide } from '../../src/types';
 
 beforeEach(() => {
@@ -39,7 +40,7 @@ const slide = (): CustomHeroSlide => ({
 });
 
 describe('HeroCarousel conversion gate', () => {
-  it('shows the landed Russian hero copy and hides Instagram until a URL exists', () => {
+  it('shows the landed Russian hero copy and the Instagram contact CTA', () => {
     render(
       <HeroCarousel
         data={{
@@ -63,9 +64,31 @@ describe('HeroCarousel conversion gate', () => {
     expect(screen.getByTestId('conversion-gate-hero-secondary')).toHaveTextContent(
       'Выбрать инструктора'
     );
-    expect(screen.queryByTestId('conversion-gate-instagram-hero')).toBeNull();
+    const instagram = screen.getByTestId('conversion-gate-instagram-hero');
+    expect(instagram).toHaveAttribute('href', 'https://www.instagram.com/carve_academy');
+    expect(instagram).toHaveAttribute('target', '_blank');
+    expect(instagram).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(instagram).toHaveTextContent('Написать в Instagram');
+    expect(screen.getByTestId('conversion-gate-book-beside')).toHaveTextContent(
+      'Или забронировать онлайн'
+    );
     expect(screen.queryByText(/WhatsApp/)).toBeNull();
     expect(screen.queryByText(/от 30 000/)).toBeNull();
     expect(screen.queryByText(/Отзывов пока нет|0 отзывов|No reviews yet/i)).toBeNull();
+  });
+
+  it('renders the shared Instagram CTA with the confirmed href and labels', () => {
+    const { unmount } = render(<ConversionGateInstagramCta language="ru" placement="header" />);
+    const ru = screen.getByTestId('conversion-gate-instagram-header');
+    expect(ru).toHaveAttribute('href', 'https://www.instagram.com/carve_academy');
+    expect(ru).toHaveAttribute('target', '_blank');
+    expect(ru).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(ru).toHaveTextContent('Написать в Instagram');
+    unmount();
+
+    render(<ConversionGateInstagramCta language="en" placement="header" />);
+    expect(screen.getByTestId('conversion-gate-instagram-header')).toHaveTextContent(
+      'Message on Instagram'
+    );
   });
 });

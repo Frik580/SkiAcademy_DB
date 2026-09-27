@@ -7,12 +7,7 @@ import { useLanguage } from '../../../app/providers/LanguageContext';
 import { useCurrency } from '../../../app/providers/CurrencyContext';
 import { INSTRUCTOR_SPOKEN_LANGUAGE_KEYS } from '../../../lib/i18n/instructorLanguages';
 import { selectInstructorBio } from '../../../lib/i18n/instructorBio';
-import {
-  ConversionGateBookBesideNote,
-  ConversionGateInstagramCta,
-  getConversionGateCopy,
-  isPublicStorefrontReviewVisible,
-} from '../../landing';
+import { isPublicStorefrontReviewVisible } from '../../landing';
 
 interface InstructorCardProps {
   instructor: Instructor;
@@ -116,9 +111,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
           isAvailable ? 'btn-primary' : 'btn-secondary cursor-not-allowed opacity-70'
         }`}
       >
-        {isAvailable
-          ? (bookLabel ?? getConversionGateCopy(language).bookAction)
-          : t('instructorFull')}
+        {isAvailable ? (bookLabel ?? t('bookNow')) : t('instructorFull')}
       </button>
     );
 
@@ -200,15 +193,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
 
             <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4 md:gap-6 w-full md:w-auto md:justify-end">
               {priceBlock}
-              <div className="flex flex-col gap-2 w-full md:w-auto">
-                <ConversionGateInstagramCta
-                  language={language}
-                  placement="instructor-card"
-                  className="btn-primary w-full md:w-auto px-6 py-2.5 text-center"
-                />
-                <ConversionGateBookBesideNote language={language} />
-                {bookButton}
-              </div>
+              {bookButton}
             </div>
           </div>
         </div>

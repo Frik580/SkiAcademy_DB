@@ -25,7 +25,6 @@ import {
 } from '../../course-enrollments/courseProgressViewModel';
 import { StudentCourseProgressSummary } from '../../course-enrollments/StudentCourseProgressSummary';
 import { deriveGroupCourseEnrollmentCtaState } from '../groupCourseEnrollmentCta';
-import { ConversionGateBookBesideNote, ConversionGateInstagramCta } from '../../landing';
 import {
   formatCourseCatalogCardDate,
   resolveCourseCatalogDisplaySchedule,
@@ -185,12 +184,6 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
             <p className="text-xs text-[var(--ink-dim)]/60 font-sans">{t('perCourse')}</p>
           </div>
 
-          <ConversionGateInstagramCta
-            language={language}
-            placement="course-card"
-            className="btn-primary w-full px-3 py-2 text-center"
-          />
-          <ConversionGateBookBesideNote language={language} />
           <div className="grid grid-cols-[minmax(0,7fr)_minmax(0,3fr)] gap-3 w-full">
             <button
               type="button"

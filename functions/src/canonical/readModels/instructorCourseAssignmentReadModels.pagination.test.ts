@@ -4,8 +4,11 @@ import {
   CourseDayIdSchema,
   CourseIdSchema,
   InstructorIdSchema,
+  INSTRUCTOR_COURSE_ASSIGNMENT_DISCOVERY_SCAN_CEILING,
   INSTRUCTOR_COURSE_ASSIGNMENT_READ_MODEL_PAGE_SIZE_MAX,
+  TestSessionIdSchema,
   encodeInstructorCourseAssignmentReadModelCursor,
+  testCanonicalReadScope,
   timestampFromDate,
 } from '@ski-academy/shared-domain';
 import { queryInstructorCourseAssignmentReadModels } from './instructorCourseAssignmentReadModels';
@@ -93,6 +96,7 @@ function createRosterPaginationFirestore(courseCount: number): Firestore {
   };
 
   return {
+    doc: (path: string) => ({ path }),
     collection: (name: string) => {
       if (name === 'courses') {
         return {
@@ -141,8 +145,8 @@ function createRosterPaginationFirestore(courseCount: number): Firestore {
       where: () => {
         const chain = {
           orderBy: () => chain,
+          startAfter: () => chain,
           limit: () => ({
-            startAfter: () => chain.limit(0),
             get: async () => ({ docs: [] }),
           }),
         };
@@ -171,6 +175,7 @@ describe('queryInstructorCourseAssignmentReadModels pagination', () => {
     );
     expect(second.items).toHaveLength(20);
     expect(second.hasMore).toBe(true);
+    expect(second.nextCursor).not.toBe(first.nextCursor);
 
     const third = await queryInstructorCourseAssignmentReadModels(
       firestore,
@@ -273,5 +278,208 @@ describe('queryInstructorCourseAssignmentReadModels pagination', () => {
     expect(result.items).toHaveLength(1);
     expect(result.items[0]?.courseId).toBe(active.courseId);
     expect(result.hasMore).toBe(false);
+  });
+
+  it('rejects malformed, cross-scope, and non-course day cursors', async () => {
+    const firestore = createRosterPaginationFirestore(1);
+    const rawCursor = (value: unknown) =>
+      Buffer.from(JSON.stringify(value), 'utf8').toString('base64url');
+    const base = {
+      instructorId,
+      readScope: { dataScope: 'live' as const },
+      roster: { exhausted: false },
+    };
+    await expect(
+      queryInstructorCourseAssignmentReadModels(
+        firestore,
+        { scope: 'instructor_assigned', cursor: '%%%' },
+        { instructorId }
+      )
+    ).rejects.toThrow('invalid_cursor');
+    await expect(
+      queryInstructorCourseAssignmentReadModels(
+        firestore,
+        {
+          scope: 'instructor_assigned',
+          cursor: rawCursor({
+            ...base,
+            days: {
+              exhausted: false,
+              startsAtSeconds: 1,
+              startsAtNanoseconds: 0,
+              documentPath: 'users/account_1',
+            },
+          }),
+        },
+        { instructorId }
+      )
+    ).rejects.toThrow('invalid_cursor');
+    await expect(
+      queryInstructorCourseAssignmentReadModels(
+        firestore,
+        {
+          scope: 'instructor_assigned',
+          cursor: rawCursor({
+            ...base,
+            days: {
+              exhausted: false,
+              startsAtSeconds: 1,
+              startsAtNanoseconds: 0,
+              documentPath: 'payments/payment_1',
+            },
+          }),
+        },
+        { instructorId }
+      )
+    ).rejects.toThrow('invalid_cursor');
+    const liveCursor = encodeInstructorCourseAssignmentReadModelCursor({
+      ...base,
+      days: { exhausted: false },
+    });
+    await expect(
+      queryInstructorCourseAssignmentReadModels(
+        firestore,
+        { scope: 'instructor_assigned', cursor: liveCursor },
+        {
+          instructorId,
+          readScope: testCanonicalReadScope(TestSessionIdSchema.parse('test_session_pagination_cursor')),
+        }
+      )
+    ).rejects.toThrow('invalid_cursor');
+  });
+
+  it('reports an incomplete scan when the day stream hits the scan ceiling before an active assignment', async () => {
+    const activeCourseId = CourseIdSchema.parse('course_pagination_ceiling_active');
+    const activeDayId = CourseDayIdSchema.parse('course_day_pagination_ceiling_active');
+    const fillerInstructorId = InstructorIdSchema.parse('instructor_pagination_ceiling_filler');
+    const dayCount = INSTRUCTOR_COURSE_ASSIGNMENT_DISCOVERY_SCAN_CEILING;
+    const skippedDays = Array.from({ length: dayCount }, (_, index) => {
+      const courseId = CourseIdSchema.parse(`course_pagination_ceiling_${String(index).padStart(3, '0')}`);
+      const courseDayId = CourseDayIdSchema.parse(
+        `course_day_pagination_ceiling_${String(index).padStart(3, '0')}`
+      );
+      return {
+        ref: { path: `courses/${courseId}/days/${courseDayId}` },
+        id: courseDayId,
+        data: () => ({
+          courseId,
+          courseDayId,
+          dayOrder: 1,
+          interval: { startsAt: dayStart, endsAt: dayEnd },
+          timeZone: 'Asia/Almaty',
+          actualInstructorIds: [instructorId],
+          revision: 1,
+          createdAt: decidedAt,
+          updatedAt: decidedAt,
+          audit: {
+            createdByCommandId: 'seed',
+            lastChangedByCommandId: 'seed',
+            correlationId: 'correlation_pagination',
+          },
+        }),
+        get: (field: string) => {
+          if (field === 'interval.startsAt.seconds') return dayStart.seconds + index;
+          if (field === 'interval.startsAt.nanoseconds') return 0;
+          return undefined;
+        },
+      };
+    });
+    const activeDay = {
+      ref: { path: `courses/${activeCourseId}/days/${activeDayId}` },
+      id: activeDayId,
+      data: () => ({
+        courseId: activeCourseId,
+        courseDayId: activeDayId,
+        dayOrder: 1,
+        interval: { startsAt: dayStart, endsAt: dayEnd },
+        timeZone: 'Asia/Almaty',
+        actualInstructorIds: [instructorId],
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'seed',
+          lastChangedByCommandId: 'seed',
+          correlationId: 'correlation_pagination',
+        },
+      }),
+      get: (field: string) => {
+        if (field === 'interval.startsAt.seconds') return dayStart.seconds + dayCount;
+        if (field === 'interval.startsAt.nanoseconds') return 0;
+        return undefined;
+      },
+    };
+    const days = [...skippedDays, activeDay];
+    let dayIndex = 0;
+    const activeCourse = {
+      ...buildRosterCourse(1).course,
+      courseId: activeCourseId,
+      title: 'Ceiling Active',
+      instructorRosterIds: [fillerInstructorId],
+    };
+    const firestore = {
+      doc: (path: string) => ({ path }),
+      collection: (name: string) => {
+        if (name === 'courses') {
+          return {
+            doc: (id: string) => ({
+              get: async () =>
+                id === activeCourseId
+                  ? { exists: true, data: () => activeCourse }
+                  : { exists: false, data: () => undefined },
+            }),
+            where: () => {
+              const chain = {
+                where: () => chain,
+                orderBy: () => chain,
+                startAfter: () => chain,
+                limit: () => ({ get: async () => ({ docs: [] }) }),
+              };
+              return chain;
+            },
+          };
+        }
+        if (name === `courses/${activeCourseId}/days`) {
+          return { get: async () => ({ docs: [{ data: () => activeDay.data() }] }) };
+        }
+        if (isTestScopeCollection(name)) return missingTestScopeCollection();
+        throw new Error(`Unexpected collection: ${name}`);
+      },
+      collectionGroup: () => ({
+        where: () => {
+          const chain = {
+            orderBy: () => chain,
+            startAfter: (...args: unknown[]) => {
+              const ref = args[2] as { path?: string } | undefined;
+              const found = days.findIndex((day) => day.ref.path === ref?.path);
+              dayIndex = found < 0 ? days.length : found + 1;
+              return chain;
+            },
+            limit: () => ({
+              get: async () => ({ docs: days.slice(dayIndex, dayIndex + 1) }),
+            }),
+          };
+          return chain;
+        },
+      }),
+    } as unknown as Firestore;
+
+    const first = await queryInstructorCourseAssignmentReadModels(
+      firestore,
+      { scope: 'instructor_assigned', pageSize: 20 },
+      { instructorId }
+    );
+    expect(first.items).toEqual([]);
+    expect(first.hasMore).toBe(true);
+    expect(first.discoveryScanIncomplete).toBe(true);
+    expect(first.nextCursor).toBeDefined();
+
+    const second = await queryInstructorCourseAssignmentReadModels(
+      firestore,
+      { scope: 'instructor_assigned', pageSize: 20, cursor: first.nextCursor },
+      { instructorId }
+    );
+    expect(second.items.map((item) => item.courseId)).toEqual([activeCourseId]);
+    expect(second.nextCursor).not.toBe(first.nextCursor);
   });
 });

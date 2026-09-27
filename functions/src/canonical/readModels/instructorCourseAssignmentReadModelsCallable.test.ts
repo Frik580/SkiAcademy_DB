@@ -89,6 +89,7 @@ function createFirestore(
   };
 
   return {
+    doc: (path: string) => ({ path }),
     collection: (name: string) => {
       if (name === 'users') {
         return {
@@ -187,7 +188,13 @@ function createFirestore(
                   docs: [
                     {
                       id: courseDayId,
+                      ref: { path: `courses/${courseId}/days/${courseDayId}` },
                       data: () => courseDayDoc,
+                      get: (field: string) => {
+                        if (field === 'interval.startsAt.seconds') return dayStart.seconds;
+                        if (field === 'interval.startsAt.nanoseconds') return dayStart.nanoseconds;
+                        return undefined;
+                      },
                     },
                   ],
                 };

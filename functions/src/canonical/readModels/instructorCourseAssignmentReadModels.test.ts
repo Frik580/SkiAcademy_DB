@@ -79,6 +79,7 @@ function createMixedFirestore(): Firestore {
   const archivedCourseDay = buildCourseDay(archivedCourseId, archivedCourseDayId);
 
   return {
+    doc: (path: string) => ({ path }),
     collection: (name: string) => {
       if (name === 'courses') {
         const rosterDocs = [{ id: activeCourseId, data: () => activeCourse }];

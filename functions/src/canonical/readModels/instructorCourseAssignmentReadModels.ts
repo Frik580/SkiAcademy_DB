@@ -2,6 +2,8 @@ import {
   compareInstructorCourseAssignmentSortKeys,
   decodeInstructorCourseAssignmentReadModelCursor,
   encodeInstructorCourseAssignmentReadModelCursor,
+  instructorCourseAssignmentDayDocumentPath,
+  parseInstructorCourseAssignmentDayDocumentPath,
   INSTRUCTOR_COURSE_ASSIGNMENT_DISCOVERY_SCAN_CEILING,
   INSTRUCTOR_COURSE_ASSIGNMENT_READ_MODEL_PAGE_SIZE_DEFAULT,
   INSTRUCTOR_COURSE_ASSIGNMENT_READ_MODEL_PAGE_SIZE_MAX,
@@ -18,7 +20,12 @@ import {
   LIVE_CANONICAL_READ_SCOPE,
   type CanonicalReadScope,
 } from '@ski-academy/shared-domain';
-import { FieldPath, type Firestore, type Query } from 'firebase-admin/firestore';
+import {
+  FieldPath,
+  type Firestore,
+  type Query,
+  type QueryDocumentSnapshot,
+} from 'firebase-admin/firestore';
 import {
   parseCourse,
   parseCourseDay,
@@ -128,86 +135,184 @@ async function buildInstructorCourseAssignmentReadModel(
   };
 }
 
+type BufferedCandidate = Readonly<{
+  sortKey: AssignmentSortKey;
+  boundary: InstructorCourseAssignmentReadModelCursor['roster'] | InstructorCourseAssignmentReadModelCursor['days'];
+}>;
+
+function dayBoundaryFromDocument(
+  document: QueryDocumentSnapshot
+): InstructorCourseAssignmentReadModelCursor['days'] | undefined {
+  const seconds = readOrderNumber(document, 'interval.startsAt.seconds');
+  const nanoseconds = readOrderNumber(document, 'interval.startsAt.nanoseconds');
+  const identity = parseInstructorCourseAssignmentDayDocumentPath(document.ref.path);
+  if (
+    seconds === undefined ||
+    nanoseconds === undefined ||
+    seconds < 0 ||
+    nanoseconds < 0 ||
+    nanoseconds > 999_999_999 ||
+    !identity
+  ) {
+    return undefined;
+  }
+  return {
+    exhausted: false,
+    startsAtSeconds: seconds,
+    startsAtNanoseconds: nanoseconds,
+    documentPath: instructorCourseAssignmentDayDocumentPath(identity.courseId, identity.courseDayId),
+  };
+}
+
+function readOrderNumber(
+  document: QueryDocumentSnapshot,
+  field: string
+): number | undefined {
+  const direct = document.get(field);
+  if (typeof direct === 'number' && Number.isInteger(direct)) {
+    return direct;
+  }
+  let current: unknown = document.data();
+  for (const key of field.split('.')) {
+    if (!current || typeof current !== 'object') {
+      return undefined;
+    }
+    current = (current as Record<string, unknown>)[key];
+  }
+  return typeof current === 'number' && Number.isInteger(current) ? current : undefined;
+}
+
 class RosterDiscoveryStream {
   private scans = 0;
+  private buffer: BufferedCandidate | undefined;
+  private bufferLoaded = false;
 
   constructor(
     private readonly firestore: Firestore,
     private readonly instructorId: InstructorId,
     private readonly readScope: CanonicalReadScope,
-    private rosterState: InstructorCourseAssignmentReadModelCursor['roster']
+    private committed: InstructorCourseAssignmentReadModelCursor['roster']
   ) {}
 
   get exhausted(): boolean {
-    return this.rosterState.exhausted;
+    return this.committed.exhausted;
   }
 
   get scanCount(): number {
     return this.scans;
   }
 
-  async nextCandidate(): Promise<AssignmentSortKey | undefined> {
-    if (this.rosterState.exhausted) {
-      return undefined;
+  async peek(): Promise<AssignmentSortKey | undefined> {
+    if (!this.bufferLoaded) {
+      this.buffer = await this.pull();
+      this.bufferLoaded = true;
     }
-    let query: Query = this.firestore
-      .collection('courses')
-      .where('instructorRosterIds', 'array-contains', this.instructorId)
-      .where('lifecycle', '==', 'active')
-      .orderBy('title', 'asc')
-      .orderBy(FieldPath.documentId(), 'asc');
-    if (this.rosterState.title !== undefined && this.rosterState.documentId !== undefined) {
-      query = query.startAfter(this.rosterState.title, this.rosterState.documentId);
+    return this.buffer?.sortKey;
+  }
+
+  commit(): void {
+    if (this.buffer && 'documentId' in this.buffer.boundary) {
+      this.committed = this.buffer.boundary;
     }
-    const snapshot = await query.limit(1).get();
-    this.scans += snapshot.docs.length;
-    if (snapshot.docs.length === 0) {
-      this.rosterState = { exhausted: true };
-      return undefined;
-    }
-    const document = snapshot.docs[0]!;
-    this.rosterState = {
-      exhausted: false,
-      title: String(document.get('title')),
-      documentId: document.id as CourseId,
-    };
-    if (legacyCourseDocumentFailsCanonicalParse(document.data() as Record<string, unknown>)) {
-      return this.nextCandidate();
-    }
-    const course = parseIfVisibleInReadScope(document.data(), parseCourse, this.readScope);
-    if (!course || course.lifecycle !== 'active') {
-      return this.nextCandidate();
-    }
-    return { title: course.title, courseId: course.courseId };
+    this.buffer = undefined;
+    this.bufferLoaded = false;
   }
 
   snapshotState(): InstructorCourseAssignmentReadModelCursor['roster'] {
-    return this.rosterState;
+    return this.committed;
+  }
+
+  private async pull(): Promise<BufferedCandidate | undefined> {
+    while (!this.committed.exhausted) {
+      if (this.scans >= INSTRUCTOR_COURSE_ASSIGNMENT_DISCOVERY_SCAN_CEILING) {
+        return undefined;
+      }
+      let query: Query = this.firestore
+        .collection('courses')
+        .where('instructorRosterIds', 'array-contains', this.instructorId)
+        .where('lifecycle', '==', 'active')
+        .orderBy('title', 'asc')
+        .orderBy(FieldPath.documentId(), 'asc');
+      if (this.committed.title !== undefined && this.committed.documentId !== undefined) {
+        query = query.startAfter(this.committed.title, this.committed.documentId);
+      }
+      const snapshot = await query.limit(1).get();
+      this.scans += snapshot.docs.length;
+      if (snapshot.docs.length === 0) {
+        this.committed = { exhausted: true };
+        return undefined;
+      }
+      const document = snapshot.docs[0]!;
+      const boundary: InstructorCourseAssignmentReadModelCursor['roster'] = {
+        exhausted: false,
+        title: String(document.get('title')),
+        documentId: document.id as CourseId,
+      };
+      if (legacyCourseDocumentFailsCanonicalParse(document.data() as Record<string, unknown>)) {
+        this.committed = boundary;
+        continue;
+      }
+      const course = parseIfVisibleInReadScope(document.data(), parseCourse, this.readScope);
+      if (!course || course.lifecycle !== 'active') {
+        this.committed = boundary;
+        continue;
+      }
+      return {
+        sortKey: { title: course.title, courseId: course.courseId },
+        boundary,
+      };
+    }
+    return undefined;
   }
 }
 
 class DayDiscoveryStream {
   private scans = 0;
-  private readonly dayUniqueCourseIds = new Set<CourseId>();
+  private readonly seenCourseIds = new Set<CourseId>();
+  private buffer: BufferedCandidate | undefined;
+  private bufferLoaded = false;
 
   constructor(
     private readonly firestore: Firestore,
     private readonly instructorId: InstructorId,
     private readonly readScope: CanonicalReadScope,
     private readonly readContext: ReadModelRequestContext,
-    private daysState: InstructorCourseAssignmentReadModelCursor['days']
+    private committed: InstructorCourseAssignmentReadModelCursor['days']
   ) {}
 
   get exhausted(): boolean {
-    return this.daysState.exhausted;
+    return this.committed.exhausted;
   }
 
   get scanCount(): number {
     return this.scans;
   }
 
-  async nextCandidate(): Promise<AssignmentSortKey | undefined> {
-    while (!this.daysState.exhausted) {
+  async peek(): Promise<AssignmentSortKey | undefined> {
+    if (!this.bufferLoaded) {
+      this.buffer = await this.pull();
+      this.bufferLoaded = true;
+    }
+    return this.buffer?.sortKey;
+  }
+
+  commit(): void {
+    if (this.buffer && 'documentPath' in this.buffer.boundary) {
+      this.committed = this.buffer.boundary;
+    }
+    this.buffer = undefined;
+    this.bufferLoaded = false;
+  }
+
+  snapshotState(): InstructorCourseAssignmentReadModelCursor['days'] {
+    return this.committed;
+  }
+
+  private async pull(): Promise<BufferedCandidate | undefined> {
+    while (!this.committed.exhausted) {
+      if (this.scans >= INSTRUCTOR_COURSE_ASSIGNMENT_DISCOVERY_SCAN_CEILING) {
+        return undefined;
+      }
       let query: Query = this.firestore
         .collectionGroup('days')
         .where('actualInstructorIds', 'array-contains', this.instructorId)
@@ -215,66 +320,82 @@ class DayDiscoveryStream {
         .orderBy('interval.startsAt.nanoseconds', 'asc')
         .orderBy(FieldPath.documentId(), 'asc');
       if (
-        this.daysState.startsAtSeconds !== undefined &&
-        this.daysState.startsAtNanoseconds !== undefined &&
-        this.daysState.courseDayId !== undefined
+        this.committed.startsAtSeconds !== undefined &&
+        this.committed.startsAtNanoseconds !== undefined &&
+        this.committed.documentPath !== undefined
       ) {
+        const identity = parseInstructorCourseAssignmentDayDocumentPath(this.committed.documentPath);
+        if (!identity) {
+          throw new Error('invalid_cursor');
+        }
         query = query.startAfter(
-          this.daysState.startsAtSeconds,
-          this.daysState.startsAtNanoseconds,
-          this.daysState.courseDayId
+          this.committed.startsAtSeconds,
+          this.committed.startsAtNanoseconds,
+          this.firestore.doc(
+            instructorCourseAssignmentDayDocumentPath(identity.courseId, identity.courseDayId)
+          )
         );
       }
       const snapshot = await query.limit(1).get();
       this.scans += snapshot.docs.length;
       if (snapshot.docs.length === 0) {
-        this.daysState = { exhausted: true };
+        this.committed = { exhausted: true };
         return undefined;
       }
       const document = snapshot.docs[0]!;
+      const boundary = dayBoundaryFromDocument(document);
+      if (!boundary) {
+        this.committed = { exhausted: true };
+        return undefined;
+      }
       const courseDay = parseIfVisibleInReadScope(
         document.data() as Record<string, unknown>,
         parseCourseDay,
         this.readScope
       );
-      const parsedDay = courseDay ?? parseCourseDay(document.data() as Record<string, unknown>);
-      const startsAt = parsedDay?.interval.startsAt;
-      this.daysState = {
-        exhausted: false,
-        ...(startsAt && parsedDay
-          ? {
-              startsAtSeconds: startsAt.seconds,
-              startsAtNanoseconds: startsAt.nanoseconds,
-              courseDayId: parsedDay.courseDayId,
-            }
-          : {}),
-      };
-      if (!courseDay) {
+      if (!courseDay || this.seenCourseIds.has(courseDay.courseId)) {
+        this.committed = boundary;
         continue;
       }
-      if (this.dayUniqueCourseIds.has(courseDay.courseId)) {
-        continue;
-      }
-      this.dayUniqueCourseIds.add(courseDay.courseId);
       const courseSnap = await this.readContext.course(courseDay.courseId);
       if (
         legacyCourseDocumentFailsCanonicalParse(
           courseSnap.data() as Record<string, unknown> | undefined
         )
       ) {
+        this.committed = boundary;
         continue;
       }
       const course = parseCourse(courseSnap.data() as Record<string, unknown> | undefined);
       if (!course || course.lifecycle === 'archived') {
+        this.committed = boundary;
         continue;
       }
-      return { title: course.title, courseId: course.courseId };
+      this.seenCourseIds.add(courseDay.courseId);
+      return {
+        sortKey: { title: course.title, courseId: course.courseId },
+        boundary,
+      };
     }
     return undefined;
   }
+}
 
-  snapshotState(): InstructorCourseAssignmentReadModelCursor['days'] {
-    return this.daysState;
+async function skipIneligible(
+  stream: RosterDiscoveryStream | DayDiscoveryStream,
+  lastEmitted: AssignmentSortKey | undefined,
+  processedCourseIds: Set<CourseId>
+): Promise<void> {
+  let guard = 0;
+  while (guard++ < INSTRUCTOR_COURSE_ASSIGNMENT_DISCOVERY_SCAN_CEILING) {
+    const peeked = await stream.peek();
+    if (!peeked) {
+      return;
+    }
+    if (isAfterLastEmitted(peeked, lastEmitted) && !processedCourseIds.has(peeked.courseId)) {
+      return;
+    }
+    stream.commit();
   }
 }
 
@@ -284,40 +405,35 @@ async function pickNextCandidate(
   lastEmitted: AssignmentSortKey | undefined,
   processedCourseIds: Set<CourseId>
 ): Promise<StreamCandidate | undefined> {
-  let rosterPeek = await rosterStream.nextCandidate();
-  let rosterGuard = 0;
-  while (
-    rosterPeek &&
-    (!isAfterLastEmitted(rosterPeek, lastEmitted) || processedCourseIds.has(rosterPeek.courseId)) &&
-    rosterGuard++ < INSTRUCTOR_COURSE_ASSIGNMENT_DISCOVERY_SCAN_CEILING
-  ) {
-    rosterPeek = await rosterStream.nextCandidate();
-  }
-  let dayPeek = await dayStream.nextCandidate();
-  let dayGuard = 0;
-  while (
-    dayPeek &&
-    (!isAfterLastEmitted(dayPeek, lastEmitted) || processedCourseIds.has(dayPeek.courseId)) &&
-    dayGuard++ < INSTRUCTOR_COURSE_ASSIGNMENT_DISCOVERY_SCAN_CEILING
-  ) {
-    dayPeek = await dayStream.nextCandidate();
-  }
-
+  await skipIneligible(rosterStream, lastEmitted, processedCourseIds);
+  await skipIneligible(dayStream, lastEmitted, processedCourseIds);
+  const rosterPeek = await rosterStream.peek();
+  const dayPeek = await dayStream.peek();
   if (!rosterPeek && !dayPeek) {
     return undefined;
   }
-  if (!rosterPeek) {
-    return dayPeek ? { source: 'days', sortKey: dayPeek } : undefined;
-  }
-  if (!dayPeek) {
+  if (!dayPeek && rosterPeek) {
+    rosterStream.commit();
     return { source: 'roster', sortKey: rosterPeek };
+  }
+  if (!rosterPeek && dayPeek) {
+    dayStream.commit();
+    return { source: 'days', sortKey: dayPeek };
+  }
+  if (!rosterPeek || !dayPeek) {
+    return undefined;
   }
   if (rosterPeek.courseId === dayPeek.courseId) {
+    rosterStream.commit();
+    dayStream.commit();
     return { source: 'roster', sortKey: rosterPeek };
   }
-  return compareInstructorCourseAssignmentSortKeys(rosterPeek, dayPeek) <= 0
-    ? { source: 'roster', sortKey: rosterPeek }
-    : { source: 'days', sortKey: dayPeek };
+  if (compareInstructorCourseAssignmentSortKeys(rosterPeek, dayPeek) <= 0) {
+    rosterStream.commit();
+    return { source: 'roster', sortKey: rosterPeek };
+  }
+  dayStream.commit();
+  return { source: 'days', sortKey: dayPeek };
 }
 
 export async function queryInstructorCourseAssignmentReadModels(
@@ -416,13 +532,18 @@ export async function queryInstructorCourseAssignmentReadModels(
     ...(lastEmitted ? { lastEmitted } : {}),
   };
 
+  const nextCursor = hasMore
+    ? encodeInstructorCourseAssignmentReadModelCursor(nextCursorState)
+    : undefined;
+  if (hasMore && input.cursor && nextCursor === input.cursor) {
+    throw new Error('cursor_did_not_advance');
+  }
+
   return QueryInstructorCourseAssignmentReadModelsResultSchema.parse({
     scope: input.scope,
     items,
     hasMore,
-    ...(hasMore
-      ? { nextCursor: encodeInstructorCourseAssignmentReadModelCursor(nextCursorState) }
-      : {}),
+    ...(nextCursor ? { nextCursor } : {}),
     ...(scanCeilingReached ? { discoveryScanIncomplete: true } : {}),
   });
 }

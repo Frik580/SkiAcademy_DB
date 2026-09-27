@@ -1,6 +1,13 @@
 import { z } from 'zod';
 import { IdempotencyKeySchema } from '../commands/commandContext';
-import { CourseDayIdSchema, CourseIdSchema, InstructorIdSchema, TestSessionIdSchema } from '../identifiers';
+import {
+  CourseDayIdSchema,
+  CourseIdSchema,
+  InstructorIdSchema,
+  TestSessionIdSchema,
+  type CourseDayId,
+  type CourseId,
+} from '../identifiers';
 import { CourseScheduleProjectionReadModelSchema } from './courseDayScheduleProjection';
 import { AggregateRevisionSchema, CanonicalTimestampSchema } from '../primitives';
 
@@ -16,6 +23,44 @@ export const INSTRUCTOR_COURSE_ASSIGNMENT_READ_MODEL_PAGE_SIZE_DEFAULT = 25;
 export const INSTRUCTOR_COURSE_ASSIGNMENT_READ_MODEL_PAGE_SIZE_MAX = 50;
 /** Max Firestore docs scanned per discovery stream per page request (roster + days). */
 export const INSTRUCTOR_COURSE_ASSIGNMENT_DISCOVERY_SCAN_CEILING = 250;
+/**
+ * Opaque cursor ceiling. Must fit a max-length title, canonical ids, and a
+ * course-day document path. 512 was too small once the day boundary stored a path.
+ */
+export const INSTRUCTOR_COURSE_ASSIGNMENT_READ_MODEL_CURSOR_MAX_LENGTH = 4096;
+
+const COURSE_DAY_DOCUMENT_PATH_PATTERN =
+  /^courses\/([A-Za-z0-9][A-Za-z0-9_-]{0,127})\/days\/([A-Za-z0-9][A-Za-z0-9_-]{0,127})$/;
+
+export function instructorCourseAssignmentDayDocumentPath(
+  courseId: CourseId,
+  courseDayId: CourseDayId
+): string {
+  return `courses/${courseId}/days/${courseDayId}`;
+}
+
+/** Server-validated collection-group identity. Rejects any non-course-day path. */
+export function parseInstructorCourseAssignmentDayDocumentPath(
+  documentPath: string
+): { readonly courseId: CourseId; readonly courseDayId: CourseDayId } | undefined {
+  const match = COURSE_DAY_DOCUMENT_PATH_PATTERN.exec(documentPath);
+  if (!match?.[1] || !match[2]) {
+    return undefined;
+  }
+  const courseId = CourseIdSchema.safeParse(match[1]);
+  const courseDayId = CourseDayIdSchema.safeParse(match[2]);
+  if (!courseId.success || !courseDayId.success) {
+    return undefined;
+  }
+  const canonicalPath = instructorCourseAssignmentDayDocumentPath(
+    courseId.data,
+    courseDayId.data
+  );
+  if (canonicalPath !== documentPath) {
+    return undefined;
+  }
+  return { courseId: courseId.data, courseDayId: courseDayId.data };
+}
 
 export const InstructorCourseAssignmentReadModelSchema = z
   .object({
@@ -67,9 +112,31 @@ export const InstructorCourseAssignmentReadModelCursorSchema = z
         exhausted: z.boolean(),
         startsAtSeconds: z.number().int().nonnegative().optional(),
         startsAtNanoseconds: z.number().int().nonnegative().max(999_999_999).optional(),
-        courseDayId: CourseDayIdSchema.optional(),
+        documentPath: z.string().min(1).max(300).optional(),
       })
-      .strict(),
+      .strict()
+      .superRefine((days, context) => {
+        const present = [
+          days.startsAtSeconds !== undefined,
+          days.startsAtNanoseconds !== undefined,
+          days.documentPath !== undefined,
+        ].filter(Boolean).length;
+        if (present !== 0 && present !== 3) {
+          context.addIssue({
+            code: 'custom',
+            message: 'Day cursor boundary must include startsAt and documentPath together',
+          });
+        }
+        if (
+          days.documentPath !== undefined &&
+          parseInstructorCourseAssignmentDayDocumentPath(days.documentPath) === undefined
+        ) {
+          context.addIssue({
+            code: 'custom',
+            message: 'Day cursor documentPath must be a courses/{courseId}/days/{courseDayId} path',
+          });
+        }
+      }),
     lastEmitted: InstructorCourseAssignmentSortKeySchema.optional(),
   })
   .strict();
@@ -117,7 +184,12 @@ export const QueryInstructorCourseAssignmentReadModelsInputSchema = z
       .positive()
       .max(INSTRUCTOR_COURSE_ASSIGNMENT_READ_MODEL_PAGE_SIZE_MAX)
       .optional(),
-    cursor: z.string().trim().min(1).max(512).optional(),
+    cursor: z
+      .string()
+      .trim()
+      .min(1)
+      .max(INSTRUCTOR_COURSE_ASSIGNMENT_READ_MODEL_CURSOR_MAX_LENGTH)
+      .optional(),
     idempotencyKey: IdempotencyKeySchema.optional(),
   })
   .strict();
@@ -133,7 +205,12 @@ export const QueryInstructorCourseAssignmentReadModelsResultSchema = z
       .array(InstructorCourseAssignmentReadModelSchema)
       .max(INSTRUCTOR_COURSE_ASSIGNMENT_READ_MODEL_PAGE_SIZE_MAX),
     hasMore: z.boolean(),
-    nextCursor: z.string().trim().min(1).max(512).optional(),
+    nextCursor: z
+      .string()
+      .trim()
+      .min(1)
+      .max(INSTRUCTOR_COURSE_ASSIGNMENT_READ_MODEL_CURSOR_MAX_LENGTH)
+      .optional(),
     discoveryScanIncomplete: z.boolean().optional(),
   })
   .strict()

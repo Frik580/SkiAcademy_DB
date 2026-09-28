@@ -4,14 +4,6 @@ export interface CourseProgramStep {
   desc: string;
 }
 
-export interface CourseReview {
-  name: string;
-  rating: number;
-  date: string;
-  avatar: string;
-  comment: string;
-}
-
 export interface CourseFaqItem {
   q: string;
   a: string;
@@ -22,7 +14,6 @@ export interface CourseEnrichedData {
   videoUrl: string;
   benefits: string[];
   program: CourseProgramStep[];
-  reviews: CourseReview[];
   faq: CourseFaqItem[];
 }
 
@@ -175,46 +166,6 @@ export const getCourseEnrichedData = (
     ];
   }
 
-  const reviewsEn: CourseReview[] = [
-    {
-      name: 'Alex Thompson',
-      rating: 5,
-      date: 'Feb 15, 2026',
-      avatar:
-        'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150',
-      comment:
-        'Absolutely transformed my confidence on steep slopes. The level of detail from instructors is amazing.',
-    },
-    {
-      name: 'Emma Watson',
-      rating: 5,
-      date: 'Jan 10, 2026',
-      avatar:
-        'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150',
-      comment: 'Incredibly well structured. Worth every penny. Felt very safe yet challenged!',
-    },
-  ];
-  const reviewsRu: CourseReview[] = [
-    {
-      name: 'Алексей Томпсон',
-      rating: 5,
-      date: '15 Фев 2026',
-      avatar:
-        'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150',
-      comment:
-        'Абсолютно изменило мою уверенность на крутых склонах. Уровень детализации от инструкторов поражает.',
-    },
-    {
-      name: 'Эмма Ватсон',
-      rating: 5,
-      date: '10 Янв 2026',
-      avatar:
-        'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150',
-      comment:
-        'Невероятно хорошо спланировано. Стоит каждой копейки. Чувствовала себя в безопасности, но при этом был классный вызов!',
-    },
-  ];
-
   const faqEn: CourseFaqItem[] = [
     {
       q: 'Is professional gear rental included in the price?',
@@ -249,7 +200,6 @@ export const getCourseEnrichedData = (
     videoUrl,
     benefits: language === 'ru' ? benefitsRu : benefitsEn,
     program: language === 'ru' ? programRu : programEn,
-    reviews: language === 'ru' ? reviewsRu : reviewsEn,
     faq: language === 'ru' ? faqRu : faqEn,
   };
 };

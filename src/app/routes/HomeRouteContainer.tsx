@@ -1,4 +1,4 @@
-﻿import React, { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { AnimatePresence } from 'motion/react';
 import { Navigate } from 'react-router-dom';
 import { Compass } from 'lucide-react';

@@ -139,13 +139,16 @@ describe('canonical review frontend cutover', () => {
     expect(flow).not.toContain('reviewEmpty');
   });
 
-  it('renders unrated instructors as no-reviews instead of a zero-star score', () => {
+  it('hides a public rating until a verified review exists instead of a zero-star score', () => {
     const card = readRepoFile('src/features/profile/components/InstructorCard.tsx');
-    expect(card).toContain("t('instructorNoReviews')");
-    expect(card).toContain('instructor.reviewsCount > 0 && instructor.rating !== null');
+    expect(card).toContain(
+      'isPublicStorefrontReviewVisible(instructor.reviewsCount) && instructor.rating !== null'
+    );
+    expect(card).toContain('{hasCanonicalRating ? (');
     const modal = readRepoFile('src/features/profile/components/InstructorReviewsModal.tsx');
-    expect(modal).toContain("t('instructorNoReviews')");
     expect(modal).toContain('targetInstructor.reviewsCount');
+    expect(modal).toContain('totalReviews > 0');
+    expect(modal).not.toContain("t('instructorNoReviews')");
   });
 
   it('clears account review authority projections on session reset', () => {

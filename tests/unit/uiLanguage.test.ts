@@ -19,10 +19,13 @@ describe('UI language helpers', () => {
     expect(resolveUiLanguage('ru')).toBe('ru');
   });
 
-  it('resolveUiLanguage falls back for unsupported saved values', () => {
-    expect(resolveUiLanguage('de')).toBe('en');
-    expect(resolveUiLanguage('fr')).toBe('en');
-    expect(resolveUiLanguage('')).toBe('en');
-    expect(resolveUiLanguage(null)).toBe('en');
+  it('resolveUiLanguage defaults to ru without overriding a saved preference', () => {
+    expect(resolveUiLanguage('de')).toBe('ru');
+    expect(resolveUiLanguage('fr')).toBe('ru');
+    expect(resolveUiLanguage('kk')).toBe('ru');
+    expect(resolveUiLanguage('')).toBe('ru');
+    expect(resolveUiLanguage(null)).toBe('ru');
+    expect(resolveUiLanguage(undefined)).toBe('ru');
+    expect(resolveUiLanguage('en')).toBe('en');
   });
 });

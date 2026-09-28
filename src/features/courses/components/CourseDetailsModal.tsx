@@ -1,6 +1,7 @@
 import React from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Users, Star, Heart } from 'lucide-react';
+import { Users, Star } from 'lucide-react';
+import { isPublicStorefrontReviewVisible } from '../../landing';
 import { Course, Instructor, UserProfile } from '../../../types';
 import { useLanguage, translateInstructorName } from '../../../app/providers/LanguageContext';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';
@@ -75,7 +76,6 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
   const faq = (language === 'ru' ? rawCourse.faqRu : rawCourse.faq) || defaultEnriched.faq;
   const photos = rawCourse.galleryPhotos || defaultEnriched.photos;
   const videoUrl = rawCourse.videoUrl?.trim() || '';
-  const reviews = defaultEnriched.reviews;
 
   return (
     <AnimatePresence>
@@ -143,16 +143,13 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                                 <span className="text-[9px] font-mono text-sky-500 bg-sky-500/10 dark:bg-sky-500/20 px-1.5 py-0.5 font-bold">
                                   {ins.experienceYears} {t('courseYearsExperienceShort')}
                                 </span>
-                                {ins.rating !== null && ins.reviewsCount > 0 ? (
+                                {ins.rating !== null &&
+                                isPublicStorefrontReviewVisible(ins.reviewsCount) ? (
                                   <span className="flex items-center gap-0.5 text-[9px] font-mono text-amber-500 font-bold">
                                     <Star className="w-2.5 h-2.5 fill-amber-500 text-transparent" />
                                     {ins.rating.toFixed(1)}
                                   </span>
-                                ) : (
-                                  <span className="text-[9px] font-mono text-[var(--ink-dim)]">
-                                    {t('instructorNoReviews')}
-                                  </span>
-                                )}
+                                ) : null}
                               </div>
                             </div>
                           </div>
@@ -161,50 +158,6 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                     </div>
                   </section>
                 )}
-
-                <section className="space-y-4">
-                  <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2">
-                    <Heart className="w-4 h-4 text-pink-500" />
-                    <h3 className="text-xs font-mono uppercase tracking-widest text-[var(--ink)] font-bold">
-                      {t('courseStudentReviews')}
-                    </h3>
-                  </div>
-                  <div className="space-y-4">
-                    {reviews.map((rev, idx) => (
-                      <div
-                        key={idx}
-                        className="p-4 border border-[var(--border)]/70 bg-black/5 dark:bg-white/5 space-y-2.5"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2.5">
-                            <img
-                              src={rev.avatar}
-                              referrerPolicy="no-referrer"
-                              alt={rev.name}
-                              className="w-7 h-7 object-cover grayscale border border-[var(--border)]"
-                            />
-                            <div>
-                              <p className="text-xs font-bold text-[var(--ink)]">{rev.name}</p>
-                              <p className="text-[9px] font-mono text-[var(--ink-dim)]">
-                                {rev.date}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex gap-0.5">
-                            {[...Array(rev.rating)].map((_, i) => (
-                              <Star key={i} className="w-3 h-3 fill-amber-500 text-transparent" />
-                            ))}
-                          </div>
-                        </div>
-                        <p className="text-xs text-[var(--ink-dim)] italic leading-relaxed font-sans font-light">
-                          {'"'}
-                          {rev.comment}
-                          {'"'}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </section>
 
                 <CourseFAQ faq={faq} />
               </div>

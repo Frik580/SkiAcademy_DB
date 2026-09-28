@@ -183,9 +183,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
 
   const activeSlide = slides[currentSlide];
   const activeNeedsVideo = slideUsesVideo(activeSlide, shouldReduceMotion);
-  const carouselHasVideo = slides.some((slide) =>
-    slideUsesVideo(slide, shouldReduceMotion)
-  );
+  const carouselHasVideo = slides.some((slide) => slideUsesVideo(slide, shouldReduceMotion));
 
   // Image-only carousels keep a continuous interval that does not reset on manual navigation.
   useEffect(() => {
@@ -330,9 +328,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                   slideIndex={idx}
                   slideId={slide.id}
                   mountedVideoCount={videoRoles.size}
-                  onVideoReady={
-                    videoRole === 'ACTIVE' ? () => setReadySlideIndex(idx) : undefined
-                  }
+                  onVideoReady={videoRole === 'ACTIVE' ? () => setReadySlideIndex(idx) : undefined}
                   className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none"
                   srcSet={srcSet}
                   sizes="100vw"
@@ -363,11 +359,11 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                       <div
                         key={slide.id || `hero-copy-${idx}`}
                         aria-hidden={!isActive}
-                      className={`col-start-1 row-start-1 will-change-[opacity] transition-opacity ${
-                        isActive
-                          ? 'relative opacity-100 z-[2]'
-                          : 'absolute inset-0 opacity-0 z-[1] pointer-events-none'
-                      }`}
+                        className={`col-start-1 row-start-1 will-change-[opacity] transition-opacity ${
+                          isActive
+                            ? 'relative opacity-100 z-[2]'
+                            : 'absolute inset-0 opacity-0 z-[1] pointer-events-none'
+                        }`}
                         style={crossfadeStyle}
                       >
                         <div className="hero-copy space-y-3">

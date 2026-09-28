@@ -1,0 +1,52 @@
+import type { Language } from '../../lib/i18n/translations';
+
+/**
+ * Public Instagram profile. Null or blank still hides every Instagram control.
+ */
+export const INSTAGRAM_URL: string | null = 'https://www.instagram.com/carve_academy';
+
+/** Public storefront shows a rating block only when at least this many canonical reviews exist. */
+export const PUBLIC_STOREFRONT_REVIEW_MIN = 1;
+
+export interface ConversionGateStrings {
+  contactLabel: string;
+}
+
+const COPY: Record<Language, ConversionGateStrings> = {
+  ru: {
+    contactLabel: 'Написать в Instagram',
+  },
+  en: {
+    contactLabel: 'Message on Instagram',
+  },
+};
+
+export function getConversionGateCopy(language: Language): ConversionGateStrings {
+  return COPY[language];
+}
+
+function isInstagramHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  return (
+    host === 'instagram.com' ||
+    host.endsWith('.instagram.com') ||
+    host === 'ig.me' ||
+    host.endsWith('.ig.me')
+  );
+}
+
+/** Hides the CTA when the URL is missing or not an https Instagram link. */
+export function resolveInstagramHref(url: string | null | undefined): string | null {
+  if (url == null) return null;
+  const trimmed = url.trim();
+  if (!trimmed || trimmed.includes('GROWTH_COPY')) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== 'https:') return null;
+  if (!isInstagramHost(parsed.hostname)) return null;
+  return parsed.toString();
+}

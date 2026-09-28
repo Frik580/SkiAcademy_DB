@@ -92,123 +92,128 @@ export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
 
             {/* Content Area with scroll */}
             <div className="p-6 overflow-y-auto space-y-6 flex-1">
-              {/* Summary / Stats Block */}
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-5 bg-black/5 dark:bg-white/5 p-4 border border-[var(--border)] rounded-xl">
-                {/* Big Rating */}
-                <div className="sm:col-span-5 flex flex-col items-center justify-center text-center sm:border-r border-[var(--border)] pr-2 font-mono">
-                  <span className="text-4xl font-light text-[var(--ink)] leading-none">
-                    {avgRating ?? t('instructorNoReviews')}
-                  </span>
-                  <div className="flex items-center gap-0.5 mt-2 text-amber-500">
-                    {[1, 2, 3, 4, 5].map((star) => {
-                      const isFilled =
-                        avgRating !== undefined && star <= Math.round(Number(avgRating));
+              {totalReviews > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-5 bg-black/5 dark:bg-white/5 p-4 border border-[var(--border)] rounded-xl">
+                  <div className="sm:col-span-5 flex flex-col items-center justify-center text-center sm:border-r border-[var(--border)] pr-2 font-mono">
+                    <span className="text-4xl font-light text-[var(--ink)] leading-none">
+                      {avgRating}
+                    </span>
+                    <div className="flex items-center gap-0.5 mt-2 text-amber-500">
+                      {[1, 2, 3, 4, 5].map((star) => {
+                        const isFilled =
+                          avgRating !== undefined && star <= Math.round(Number(avgRating));
+                        return (
+                          <Star
+                            key={star}
+                            className={`w-3.5 h-3.5 ${isFilled ? 'fill-amber-400 stroke-amber-500' : 'text-slate-200 dark:text-slate-700'}`}
+                          />
+                        );
+                      })}
+                    </div>
+                    <span className="text-[10px] text-[var(--ink-dim)] uppercase tracking-wider mt-2.5 font-medium flex items-center gap-1">
+                      <MessageSquare className="w-3 h-3" />
+                      {totalReviews} {t('reviewsTotal')}
+                    </span>
+                  </div>
+
+                  <div className="sm:col-span-7 flex flex-col justify-center space-y-1.5 font-mono text-[10px]">
+                    {[5, 4, 3, 2, 1].map((stars) => {
+                      const count = ratingDistribution[stars - 1];
+                      const percentage = (count / totalReviews) * 100;
                       return (
-                        <Star
-                          key={star}
-                          className={`w-3.5 h-3.5 ${isFilled ? 'fill-amber-400 stroke-amber-500' : 'text-slate-200 dark:text-slate-700'}`}
-                        />
+                        <div
+                          key={stars}
+                          className="flex items-center gap-2.5 text-[var(--ink-dim)]"
+                        >
+                          <span className="w-3 text-right font-semibold">{stars}</span>
+                          <Star className="w-3 h-3 fill-amber-400 stroke-amber-500 text-amber-500 shrink-0" />
+                          <div className="flex-1 h-1.5 bg-black/20 dark:bg-white/10 overflow-hidden rounded-none">
+                            <div
+                              className="h-full bg-[var(--ink)] transition-all duration-500"
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
+                          <span className="w-6 text-right font-medium text-[var(--ink-dim)]">
+                            {count}
+                          </span>
+                        </div>
                       );
                     })}
                   </div>
-                  <span className="text-[10px] text-[var(--ink-dim)] uppercase tracking-wider mt-2.5 font-medium flex items-center gap-1">
-                    <MessageSquare className="w-3 h-3" />
-                    {totalReviews} {t('reviewsTotal')}
-                  </span>
                 </div>
+              ) : null}
 
-                {/* Progress distribution bars */}
-                <div className="sm:col-span-7 flex flex-col justify-center space-y-1.5 font-mono text-[10px]">
-                  {[5, 4, 3, 2, 1].map((stars) => {
-                    const count = ratingDistribution[stars - 1];
-                    const percentage = totalReviews > 0 ? (count / totalReviews) * 100 : 0;
-                    return (
-                      <div key={stars} className="flex items-center gap-2.5 text-[var(--ink-dim)]">
-                        <span className="w-3 text-right font-semibold">{stars}</span>
-                        <Star className="w-3 h-3 fill-amber-400 stroke-amber-500 text-amber-500 shrink-0" />
-                        <div className="flex-1 h-1.5 bg-black/20 dark:bg-white/10 overflow-hidden rounded-none">
-                          <div
-                            className="h-full bg-[var(--ink)] transition-all duration-500"
-                            style={{ width: `${percentage}%` }}
-                          />
-                        </div>
-                        <span className="w-6 text-right font-medium text-[var(--ink-dim)]">
-                          {count}
-                        </span>
+              {totalReviews > 0 || instructorReviews.length > 0 ? (
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider">
+                    {t('reviewFeed')}
+                  </h4>
+
+                  {instructorReviews.length === 0 ? (
+                    totalReviews > 0 ? (
+                      <div className="py-12 text-center border border-dashed border-[var(--border)] rounded-none bg-black/5">
+                        <MessageSquare className="w-8 h-8 text-[var(--ink-dim)] mx-auto mb-2 opacity-55" />
+                        <p className="text-xs text-[var(--ink)] font-mono">
+                          {t('noInstructorWrittenReviews')}
+                        </p>
+                        <p className="text-[10px] text-[var(--ink-dim)] font-mono mt-1 uppercase tracking-wider">
+                          {t('firstInstructorReviewPrompt')}
+                        </p>
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* List of individual reviews */}
-              <div className="space-y-4">
-                <h4 className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider">
-                  {t('reviewFeed')}
-                </h4>
-
-                {instructorReviews.length === 0 ? (
-                  <div className="py-12 text-center border border-dashed border-[var(--border)] rounded-none bg-black/5">
-                    <MessageSquare className="w-8 h-8 text-[var(--ink-dim)] mx-auto mb-2 opacity-55" />
-                    <p className="text-xs text-[var(--ink)] font-mono">
-                      {t('noInstructorWrittenReviews')}
-                    </p>
-                    <p className="text-[10px] text-[var(--ink-dim)] font-mono mt-1 uppercase tracking-wider">
-                      {t('firstInstructorReviewPrompt')}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {instructorReviews.map((rev) => (
-                      <div
-                        key={rev.id}
-                        className="p-4 bg-black/5 border border-[var(--border)] rounded-none flex flex-col space-y-2.5 transition duration-300 hover:border-[var(--ink-dim)]"
-                      >
-                        {/* Review Header: User details, rating and date */}
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-none overflow-hidden bg-black/15 border border-[var(--border)] flex items-center justify-center shrink-0">
-                              {rev.userAvatar ? (
-                                <img
-                                  src={rev.userAvatar}
-                                  alt={rev.userName}
-                                  className="w-full h-full object-cover filter grayscale"
-                                />
-                              ) : (
-                                <User className="w-4 h-4 text-[var(--ink-dim)]" />
-                              )}
-                            </div>
-                            <div>
-                              <div className="text-xs font-bold text-[var(--ink)]">
-                                {rev.userName || 'Anonymous'}
-                              </div>
-                              <div className="flex items-center gap-0.5 text-amber-500 mt-0.5">
-                                {[1, 2, 3, 4, 5].map((star) => (
-                                  <Star
-                                    key={star}
-                                    className={`w-3 h-3 ${star <= rev.rating ? 'fill-amber-400 stroke-amber-500' : 'text-slate-200 dark:text-slate-700'}`}
+                    ) : null
+                  ) : (
+                    <div className="space-y-3">
+                      {instructorReviews.map((rev) => (
+                        <div
+                          key={rev.id}
+                          className="p-4 bg-black/5 border border-[var(--border)] rounded-none flex flex-col space-y-2.5 transition duration-300 hover:border-[var(--ink-dim)]"
+                        >
+                          {/* Review Header: User details, rating and date */}
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-none overflow-hidden bg-black/15 border border-[var(--border)] flex items-center justify-center shrink-0">
+                                {rev.userAvatar ? (
+                                  <img
+                                    src={rev.userAvatar}
+                                    alt={rev.userName}
+                                    className="w-full h-full object-cover filter grayscale"
                                   />
-                                ))}
+                                ) : (
+                                  <User className="w-4 h-4 text-[var(--ink-dim)]" />
+                                )}
+                              </div>
+                              <div>
+                                <div className="text-xs font-bold text-[var(--ink)]">
+                                  {rev.userName || 'Anonymous'}
+                                </div>
+                                <div className="flex items-center gap-0.5 text-amber-500 mt-0.5">
+                                  {[1, 2, 3, 4, 5].map((star) => (
+                                    <Star
+                                      key={star}
+                                      className={`w-3 h-3 ${star <= rev.rating ? 'fill-amber-400 stroke-amber-500' : 'text-slate-200 dark:text-slate-700'}`}
+                                    />
+                                  ))}
+                                </div>
                               </div>
                             </div>
+                            <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1 shrink-0">
+                              <Calendar className="w-3 h-3" />
+                              {rev.date}
+                            </span>
                           </div>
-                          <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1 shrink-0">
-                            <Calendar className="w-3 h-3" />
-                            {rev.date}
-                          </span>
-                        </div>
 
-                        {/* Review text comment */}
-                        {rev.comment && (
-                          <p className="text-xs text-[var(--ink)] leading-relaxed pl-10">
-                            {rev.comment}
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                          {/* Review text comment */}
+                          {rev.comment && (
+                            <p className="text-xs text-[var(--ink)] leading-relaxed pl-10">
+                              {rev.comment}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : null}
             </div>
 
             {/* Footer */}

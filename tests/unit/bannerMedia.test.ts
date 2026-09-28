@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { deriveBannerVideoUrl, normalizeBannerMediaMode } from '../../src/lib/bannerMedia';
+import {
+  deriveBannerVideoUrl,
+  isBannerVideoUrl,
+  normalizeBannerMediaMode,
+} from '../../src/lib/bannerMedia';
 
 describe('normalizeBannerMediaMode', () => {
   it('defaults missing values to image', () => {
@@ -38,5 +42,28 @@ describe('deriveBannerVideoUrl', () => {
     expect(deriveBannerVideoUrl('https://cdn.example.com/banner')).toBe(
       'https://cdn.example.com/banner.mp4'
     );
+  });
+
+  it('keeps direct video URLs unchanged', () => {
+    const girl =
+      'https://storage.yandexcloud.net/carve/images/girl.mp4';
+    expect(deriveBannerVideoUrl(girl)).toBe(girl);
+    expect(deriveBannerVideoUrl('https://cdn.example.com/clip.webm?v=1')).toBe(
+      'https://cdn.example.com/clip.webm?v=1'
+    );
+    expect(deriveBannerVideoUrl('https://cdn.example.com/intro.MOV')).toBe(
+      'https://cdn.example.com/intro.MOV'
+    );
+  });
+});
+
+describe('isBannerVideoUrl', () => {
+  it('detects common video extensions on the path', () => {
+    expect(
+      isBannerVideoUrl('https://storage.yandexcloud.net/carve/images/girl.mp4')
+    ).toBe(true);
+    expect(isBannerVideoUrl('https://cdn.example.com/a.webm')).toBe(true);
+    expect(isBannerVideoUrl('https://cdn.example.com/a.mov?x=1')).toBe(true);
+    expect(isBannerVideoUrl('https://cdn.example.com/a.jpg')).toBe(false);
   });
 });

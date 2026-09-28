@@ -89,4 +89,19 @@ describe('mediaAssets', () => {
     expect(resolveHeroBackgroundUrl('wall')).toContain(IMAGE_PROXY_PATH);
     expect(heroBackgroundSrcSet('wall')).toContain('960w');
   });
+
+  it('does not proxy direct carve video URLs', () => {
+    vi.stubEnv('VITE_IMAGE_PROXY', 'true');
+    const girl = 'https://storage.yandexcloud.net/carve/images/girl.mp4';
+    expect(resolveHeroBackgroundUrl(girl)).toBe(girl);
+    expect(heroBackgroundSrcSet(girl)).toBeUndefined();
+    expect(optimizedImageUrl(girl, 1920)).toBe(girl);
+  });
+
+  it('still proxies carve jpg/png/webp through /api/img', () => {
+    vi.stubEnv('VITE_IMAGE_PROXY', 'true');
+    expect(resolveHeroBackgroundUrl('about')).toContain(IMAGE_PROXY_PATH);
+    expect(optimizedImageUrl(CARVE_ABOUT, 1920)).toContain(IMAGE_PROXY_PATH);
+    expect(optimizedImageUrl(CARVE_WALL, 1920)).toContain(IMAGE_PROXY_PATH);
+  });
 });

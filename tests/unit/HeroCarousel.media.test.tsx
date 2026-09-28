@@ -100,7 +100,27 @@ function videoSources(container: HTMLElement): string[] {
   return Array.from(container.querySelectorAll('video')).map((video) => video.getAttribute('src') ?? '');
 }
 
+const CARVE_GIRL_MP4 = 'https://storage.yandexcloud.net/carve/images/girl.mp4';
+
 describe('HeroCarousel video preload', () => {
+  it('plays carve mp4 banners directly without /api/img', () => {
+    vi.stubEnv('VITE_IMAGE_PROXY', 'true');
+    const { container } = renderCarousel([
+      {
+        ...slide('girl', 'video', CARVE_GIRL_MP4),
+        backgroundImage: CARVE_GIRL_MP4,
+      },
+      slide('next', 'image', 'https://storage.yandexcloud.net/carve/wall.webp'),
+    ]);
+
+    const layer = backgroundLayers(container)[0];
+    const activeVideo = layer.querySelector('video');
+    expect(activeVideo).toHaveAttribute('src', CARVE_GIRL_MP4);
+    expect(activeVideo?.getAttribute('src')).not.toContain('/api/img');
+    expect(layer.innerHTML).not.toContain('girl.mp4.mp4');
+    expect(layer.querySelector('img')).toBeNull();
+  });
+
   it('loads the active video immediately and does not request its image', () => {
     const assigned: string[] = [];
     const OriginalImage = window.Image;

@@ -7,6 +7,7 @@
  * Custom HTTPS carve URLs are proxied the same way.
  */
 
+import { isBannerVideoUrl } from './bannerMedia';
 import { optimizedImageSrcSet, optimizedImageUrl } from './optimizedImageUrl';
 import {
   RESORT_SLIDE_ABOUT_IMAGE_KEY,
@@ -32,8 +33,11 @@ export const resolveHeroOriginUrl = (bg: string): string => {
 };
 
 /** Display URL for hero (proxied WebP at ~1920w when proxy is on). */
-export const resolveHeroBackgroundUrl = (bg: string): string =>
-  optimizedImageUrl(resolveHeroOriginUrl(bg), 1920);
+export const resolveHeroBackgroundUrl = (bg: string): string => {
+  const origin = resolveHeroOriginUrl(bg);
+  if (isBannerVideoUrl(origin)) return origin;
+  return optimizedImageUrl(origin, 1920);
+};
 
 /** Responsive srcset for a slide background key or origin URL. */
 export const heroBackgroundSrcSet = (bgOrOrigin: string): string | undefined => {
@@ -41,6 +45,7 @@ export const heroBackgroundSrcSet = (bgOrOrigin: string): string | undefined => 
     bgOrOrigin.startsWith('http://') || bgOrOrigin.startsWith('https://')
       ? bgOrOrigin
       : resolveHeroOriginUrl(bgOrOrigin);
+  if (isBannerVideoUrl(origin)) return undefined;
   return optimizedImageSrcSet(origin, [960, 1920]);
 };
 

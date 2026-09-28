@@ -305,9 +305,10 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
             const isActive = idx === currentSlide;
             const videoRole = videoRoles.get(idx);
             const bgKey = resolveSlideBackgroundKey(slide, idx);
-            const bgUrl = resolveHeroBackgroundUrl(bgKey);
             const bgOriginUrl = resolveHeroOriginUrl(bgKey);
-            const srcSet = heroBackgroundSrcSet(bgKey);
+            const slideIsVideo = slideUsesVideo(slide, shouldReduceMotion);
+            const bgUrl = slideIsVideo ? bgOriginUrl : resolveHeroBackgroundUrl(bgKey);
+            const srcSet = slideIsVideo ? undefined : heroBackgroundSrcSet(bgKey);
             return (
               <div
                 key={slide.id || `hero-bg-${idx}`}

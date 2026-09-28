@@ -3,6 +3,8 @@
  * In local Vite dev the proxy is off unless VITE_IMAGE_PROXY=true (needs Hosting/Functions).
  */
 
+import { isBannerVideoUrl } from './bannerMedia';
+
 export const IMAGE_PROXY_PATH = '/api/img';
 
 export const IMAGE_PROXY_WIDTHS = [480, 960, 1280, 1920] as const;
@@ -47,7 +49,7 @@ export const optimizedImageUrl = (
   width: number,
   quality: number = DEFAULT_QUALITY
 ): string => {
-  if (!src || !isProxyableImageUrl(src) || !isImageProxyEnabled()) {
+  if (!src || !isProxyableImageUrl(src) || isBannerVideoUrl(src) || !isImageProxyEnabled()) {
     return src;
   }
   const w = snapWidth(width);
@@ -65,7 +67,7 @@ export const optimizedImageSrcSet = (
   widths: readonly number[] = [960, 1920],
   quality: number = DEFAULT_QUALITY
 ): string | undefined => {
-  if (!src || !isProxyableImageUrl(src) || !isImageProxyEnabled()) {
+  if (!src || !isProxyableImageUrl(src) || isBannerVideoUrl(src) || !isImageProxyEnabled()) {
     return undefined;
   }
   return widths.map((w) => `${optimizedImageUrl(src, w, quality)} ${snapWidth(w)}w`).join(', ');

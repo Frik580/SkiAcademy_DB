@@ -13,7 +13,7 @@ import { ToggleSwitch } from '../../../../../ui/ToggleSwitch';
 import { FormSkeleton } from '../../../../../ui/Skeleton';
 import { ActionButton } from '../../../../../ui/ActionButton';
 import { BannerBackgroundModeControl } from '../../../../../ui/BannerBackgroundModeControl';
-import type { BannerMediaMode } from '../../../../../lib/bannerMedia';
+import { resolveBannerFocalPoint, type BannerMediaMode } from '../../../../../lib/bannerMedia';
 import { saveResortConfig, subscribeResortConfig } from '../../../../../features/settings';
 
 const RESORT_SLIDE_WALL_DESCRIPTIONS = [
@@ -25,6 +25,60 @@ const RESORT_SLIDE_WALL_DESCRIPTIONS = [
   'Evening frost',
   'Deep ski trace',
 ] as const;
+
+function MobileBackgroundPositionControl({
+  slideId,
+  value,
+  label,
+  leftLabel,
+  centerLabel,
+  rightLabel,
+  onChange,
+}: {
+  slideId: string;
+  value: unknown;
+  label: string;
+  leftLabel: string;
+  centerLabel: string;
+  rightLabel: string;
+  onChange: (next: number) => void;
+}) {
+  const position = resolveBannerFocalPoint(value);
+  const inputId = `mobile-focal-${slideId}`;
+
+  return (
+    <div className="space-y-1.5 pt-1">
+      <div className="flex items-baseline justify-between gap-3">
+        <label
+          htmlFor={inputId}
+          className="block text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)]"
+        >
+          {label}
+        </label>
+        <span className="font-mono text-[10px] tabular-nums text-[var(--ink)]">{position}%</span>
+      </div>
+      <input
+        id={inputId}
+        type="range"
+        min={0}
+        max={100}
+        step={1}
+        value={position}
+        onChange={(event) => onChange(Number(event.target.value))}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={position}
+        aria-label={label}
+        className="w-full cursor-pointer accent-[var(--ink)]"
+      />
+      <div className="flex justify-between text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+        <span>{leftLabel}</span>
+        <span>{centerLabel}</span>
+        <span>{rightLabel}</span>
+      </div>
+    </div>
+  );
+}
 
 export const ResortSliderSection: React.FC = () => {
   const { t } = useLanguage();
@@ -87,7 +141,7 @@ export const ResortSliderSection: React.FC = () => {
   const handleUpdateSlideField = (
     id: string,
     field: keyof CustomHeroSlide,
-    value: string | boolean | BannerMediaMode | undefined
+    value: string | boolean | BannerMediaMode | number | undefined
   ) => {
     setResortSlides(resortSlides.map((s) => (s.id === id ? { ...s, [field]: value } : s)));
   };
@@ -97,7 +151,11 @@ export const ResortSliderSection: React.FC = () => {
     setIsSaving(true);
     try {
       await saveResortConfig({
-        slides: resortSlides,
+        slides: resortSlides.map((slide) =>
+          slide.mobileFocalPointX === undefined
+            ? slide
+            : { ...slide, mobileFocalPointX: resolveBannerFocalPoint(slide.mobileFocalPointX) }
+        ),
         slideIntervalSeconds: Number(resortSlideInterval),
         slidesRandomOrder,
       });
@@ -391,6 +449,18 @@ export const ResortSliderSection: React.FC = () => {
                       </div>
                     )}
                   </div>
+
+                  <MobileBackgroundPositionControl
+                    slideId={slide.id}
+                    value={slide.mobileFocalPointX}
+                    label={t('mobileBackgroundPosition')}
+                    leftLabel={t('mobileBackgroundPositionLeft')}
+                    centerLabel={t('mobileBackgroundPositionCenter')}
+                    rightLabel={t('mobileBackgroundPositionRight')}
+                    onChange={(next) =>
+                      handleUpdateSlideField(slide.id, 'mobileFocalPointX', next)
+                    }
+                  />
                 </div>
               );
             })}

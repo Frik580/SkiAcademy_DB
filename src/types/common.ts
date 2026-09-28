@@ -54,6 +54,11 @@ export interface CustomHeroSlide {
   backgroundImage: string; // e.g. 'wall', 'wall2', etc., or custom url
   /** Defaults to `image` when omitted (legacy documents). */
   backgroundMediaMode?: BannerMediaMode;
+  /**
+   * Horizontal focal point for this banner on mobile (0 = left edge, 50 = center, 100 = right edge).
+   * Omitted values render as 50. Vertical position stays centered until a future `mobileFocalPointY`.
+   */
+  mobileFocalPointX?: number;
   hidden?: boolean;
 }
 

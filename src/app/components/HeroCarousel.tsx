@@ -15,7 +15,7 @@ import {
   resolveHeroBackgroundUrl,
   resolveHeroOriginUrl,
 } from '../../lib/mediaAssets';
-import { normalizeBannerMediaMode } from '../../lib/bannerMedia';
+import { normalizeBannerMediaMode, resolveBannerFocalPoint } from '../../lib/bannerMedia';
 import { BannerMedia, type BannerVideoRole } from '../../ui/BannerMedia';
 import { logger } from '../../shared';
 
@@ -334,7 +334,8 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                   onVideoReady={
                     videoRole === 'ACTIVE' ? () => setReadySlideIndex(idx) : undefined
                   }
-                  className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none"
+                  mobileFocalPointX={resolveBannerFocalPoint(slide.mobileFocalPointX)}
+                  className="hero-banner-media absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none"
                   srcSet={srcSet}
                   sizes="100vw"
                   fetchpriority={idx === 0 ? 'high' : 'low'}

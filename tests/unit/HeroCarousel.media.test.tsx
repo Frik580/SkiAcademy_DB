@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { act, fireEvent, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HERO_CROSSFADE_MS, HeroCarousel } from '../../src/app/components/HeroCarousel';
@@ -681,5 +683,76 @@ describe('HeroCarousel video resource budget', () => {
       expect(videoCount(container)).toBeLessThanOrEqual(2);
       expect(videoSources(container)).toHaveLength(2);
     }
+  });
+});
+
+function focalX(element: Element | null): string {
+  return (element as HTMLElement | null)?.style.getPropertyValue('--hero-mobile-position-x') ?? '';
+}
+
+describe('HeroCarousel mobile focal point', () => {
+  it('centers an existing banner that has no mobileFocalPointX', () => {
+    const { container } = renderCarousel([slide('a', 'image')]);
+    const image = container.querySelector('img');
+
+    expect(focalX(image)).toBe('50%');
+    expect(image?.style.getPropertyValue('--hero-mobile-position-y')).toBe('50%');
+    expect(image?.style.objectPosition).toBe('');
+    expect(image).toHaveClass('object-cover', 'object-center', 'hero-banner-media');
+  });
+
+  it('applies the same per-slide focal point to image and video media', () => {
+    const imageCarousel = renderCarousel([
+      { ...slide('photo', 'image'), mobileFocalPointX: 76 },
+    ]);
+    const videoCarousel = renderCarousel([
+      { ...slide('film', 'video'), mobileFocalPointX: 76 },
+    ]);
+
+    expect(focalX(imageCarousel.container.querySelector('img'))).toBe('76%');
+    expect(focalX(videoCarousel.container.querySelector('video'))).toBe('76%');
+    expect(videoCarousel.container.querySelector('img')).toBeNull();
+    expect(videoCarousel.container.querySelector('video')?.style.objectPosition).toBe('');
+  });
+
+  it('keeps each slide, including the preload video, on its own focal point', () => {
+    const { container } = renderCarousel([
+      { ...slide('a', 'video'), mobileFocalPointX: 76 },
+      { ...slide('b', 'video'), mobileFocalPointX: 32 },
+      { ...slide('c', 'image'), mobileFocalPointX: 10 },
+    ]);
+    const layers = backgroundLayers(container);
+    const activeVideo = layers[0].querySelector('video');
+    const preloadVideo = layers[1].querySelector('video');
+
+    expect(activeVideo).toHaveAttribute('data-video-role', 'ACTIVE');
+    expect(preloadVideo).toHaveAttribute('data-video-role', 'NEXT_PRELOAD');
+    expect(focalX(activeVideo)).toBe('76%');
+    expect(focalX(preloadVideo)).toBe('32%');
+    expect(focalX(layers[2].querySelector('img'))).toBe('10%');
+    expect(layers[1].querySelector('img')).toBeNull();
+  });
+
+  it('does not emit an invalid object-position variable for malformed values', () => {
+    const { container } = renderCarousel([
+      { ...slide('low', 'image'), mobileFocalPointX: -10 },
+      { ...slide('high', 'video'), mobileFocalPointX: 120 },
+      { ...slide('bad', 'image'), mobileFocalPointX: Number.NaN },
+    ]);
+    const layers = backgroundLayers(container);
+
+    expect(focalX(layers[0].querySelector('img'))).toBe('0%');
+    expect(focalX(layers[1].querySelector('video'))).toBe('100%');
+    expect(focalX(layers[2].querySelector('img'))).toBe('50%');
+    expect(container.innerHTML).not.toContain('NaN');
+  });
+
+  it('keeps desktop object-position centered and limits the shift to the mobile breakpoint', () => {
+    const css = readFileSync(resolve('src/index.css'), 'utf8');
+    const rule = css.match(
+      /\.ui-hero\.hero-layout \.hero-banner-media \{[^}]*object-fit: cover;[^}]*object-position: center center;[^}]*\}\s*@media \(max-width: 767px\) \{\s*\.ui-hero\.hero-layout \.hero-banner-media \{\s*object-position: var\(--hero-mobile-position-x, 50%\) var\(--hero-mobile-position-y, 50%\);/
+    );
+
+    expect(rule).not.toBeNull();
   });
 });

@@ -3,7 +3,26 @@ import {
   deriveBannerVideoUrl,
   isBannerVideoUrl,
   normalizeBannerMediaMode,
+  resolveBannerFocalPoint,
 } from '../../src/lib/bannerMedia';
+
+describe('resolveBannerFocalPoint', () => {
+  it('defaults missing values to the centered 50% position', () => {
+    expect(resolveBannerFocalPoint(undefined)).toBe(50);
+    expect(resolveBannerFocalPoint(null)).toBe(50);
+    expect(resolveBannerFocalPoint('76')).toBe(50);
+    expect(resolveBannerFocalPoint(Number.NaN)).toBe(50);
+    expect(resolveBannerFocalPoint(Number.POSITIVE_INFINITY)).toBe(50);
+  });
+
+  it('clamps out-of-range numbers and keeps in-range values', () => {
+    expect(resolveBannerFocalPoint(-10)).toBe(0);
+    expect(resolveBannerFocalPoint(0)).toBe(0);
+    expect(resolveBannerFocalPoint(76)).toBe(76);
+    expect(resolveBannerFocalPoint(100)).toBe(100);
+    expect(resolveBannerFocalPoint(120)).toBe(100);
+  });
+});
 
 describe('normalizeBannerMediaMode', () => {
   it('defaults missing values to image', () => {

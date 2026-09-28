@@ -281,6 +281,37 @@ describe('configuration promotion export allowlist', () => {
     expect(JSON.stringify(manifest)).not.toContain('unsupported_media_reference');
   });
 
+  it('keeps each banner mobileFocalPointX and does not invent one for older slides', async () => {
+    const documents = globalDocuments({
+      'resort_data/config': {
+        slides: [
+          {
+            id: 'tuned',
+            line1En: '', line1Ru: '', line2En: '', line2Ru: '', line3En: '', line3Ru: '',
+            backgroundImage: 'wall',
+            mobileFocalPointX: 76,
+          },
+          {
+            id: 'legacy',
+            line1En: '', line1Ru: '', line2En: '', line2Ru: '', line3En: '', line3Ru: '',
+            backgroundImage: 'wall2',
+          },
+        ],
+        slideIntervalSeconds: 12,
+        slidesRandomOrder: false,
+      },
+    });
+    const manifest = await exportStagingConfigManifest({
+      firestore: promotionFirestore(documents) as never,
+      exportedAt,
+    });
+    const resort = manifest.sourceDocuments.find((item) => item.kind === 'resort_slides');
+    const slides = (resort?.payload as { slides: Array<{ id: string; mobileFocalPointX?: number }> }).slides;
+
+    expect(slides.find((slide) => slide.id === 'tuned')?.mobileFocalPointX).toBe(76);
+    expect(slides.find((slide) => slide.id === 'legacy')).not.toHaveProperty('mobileFocalPointX');
+  });
+
   it('marks unknown logical keys and unsupported image URLs as export issues', async () => {
     const documents = globalDocuments({
       'resort_data/config': {

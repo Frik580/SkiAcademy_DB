@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useReducedMotion } from 'motion/react';
 import {
+  DEFAULT_BANNER_FOCAL_POINT_PERCENT,
   deriveBannerVideoUrl,
   normalizeBannerMediaMode,
+  resolveBannerFocalPoint,
   type BannerMediaMode,
 } from '../lib/bannerMedia';
 import { logger } from '../shared';
@@ -32,6 +34,11 @@ export interface BannerMediaProps {
   slideId?: string;
   /** Development trace: how many hero videos are mounted with this one. */
   mountedVideoCount?: number;
+  /**
+   * This slide's mobile horizontal focal point (0–100).
+   * Applied to every visible media element for this slide. Omit outside the hero.
+   */
+  mobileFocalPointX?: unknown;
   /** Applied to the image or video element (background fill). */
   className?: string;
   srcSet?: string;
@@ -46,6 +53,19 @@ export type BannerVideoRole = 'ACTIVE' | 'NEXT_PRELOAD' | 'OUTGOING';
 
 const DEFAULT_MEDIA_CLASS =
   'absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none';
+
+type HeroFocalStyle = React.CSSProperties & {
+  '--hero-mobile-position-x': string;
+  '--hero-mobile-position-y': string;
+};
+
+/** Desktop object-position stays in CSS. These variables are read only inside the mobile media query. */
+function heroMobileFocalStyle(focalPointX: unknown): HeroFocalStyle {
+  return {
+    '--hero-mobile-position-x': `${resolveBannerFocalPoint(focalPointX)}%`,
+    '--hero-mobile-position-y': `${DEFAULT_BANNER_FOCAL_POINT_PERCENT}%`,
+  };
+}
 
 /** HAVE_CURRENT_DATA — enough to show a frame without waiting for canplaythrough. */
 const HAVE_CURRENT_DATA = 2;
@@ -94,6 +114,7 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
   slideIndex,
   slideId,
   mountedVideoCount,
+  mobileFocalPointX,
   className = DEFAULT_MEDIA_CLASS,
   srcSet,
   sizes,
@@ -274,6 +295,9 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
     onVideoReadyRef.current?.();
   }, [isActive, videoFailed, preferVideo]);
 
+  const focalStyle =
+    mobileFocalPointX === undefined ? undefined : heroMobileFocalStyle(mobileFocalPointX);
+
   const revealBufferedFrame = (event: React.SyntheticEvent<HTMLVideoElement>) => {
     const video = event.currentTarget;
     traceRef.current(event.type, video);
@@ -296,6 +320,7 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
           loading={loading}
           draggable={draggable}
           className={className}
+          style={focalStyle}
         />
       ) : null}
       {mountVideo ? (
@@ -303,6 +328,7 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
           ref={attachVideo}
           className={className}
           style={{
+            ...focalStyle,
             opacity: videoRevealed ? 1 : 0,
             transition: 'opacity 160ms linear',
           }}

@@ -823,6 +823,18 @@
   --hero-title-overhang: 0.375rem;
 }
 
+/* Cover crop stays. Desktop/tablet remain centered; mobile shifts per slide. */
+.ui-hero.hero-layout .hero-banner-media {
+  object-fit: cover;
+  object-position: center center;
+}
+
+@media (max-width: 767px) {
+  .ui-hero.hero-layout .hero-banner-media {
+    object-position: var(--hero-mobile-position-x, 50%) var(--hero-mobile-position-y, 50%);
+  }
+}
+
 .ui-hero.hero-layout .hero-stage {
   position: relative;
   width: 100%;

@@ -1,5 +1,19 @@
 export type BannerMediaMode = 'image' | 'video';
 
+/** Shared default for horizontal and a future vertical mobile focal point. */
+export const DEFAULT_BANNER_FOCAL_POINT_PERCENT = 50;
+
+/**
+ * Safe mobile focal coordinate. Missing, null, and non-finite values stay centered.
+ * Out-of-range numbers clamp to 0–100 so CSS never receives NaN.
+ */
+export function resolveBannerFocalPoint(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return DEFAULT_BANNER_FOCAL_POINT_PERCENT;
+  }
+  return Math.min(100, Math.max(0, value));
+}
+
 const IMAGE_EXTENSIONS = /\.(webp|jpe?g|png|avif)$/i;
 const VIDEO_EXTENSIONS = /\.(mp4|webm|mov)$/i;
 

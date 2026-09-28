@@ -116,6 +116,28 @@ describe('configuration promotion manifest contract', () => {
     expect(() => manifest([{ ...tokenSlide, payload: tokenPayload, sourceHash: stableHash(tokenPayload) }])).toThrow(/token/i);
   });
 
+  it('accepts an omitted or in-range mobile focal point and rejects values outside 0-100', () => {
+    const withFocal = (mobileFocalPointX?: number) => {
+      const base = resortRecord('wall');
+      const slide = (base.payload as { slides: Array<Record<string, unknown>> }).slides[0]!;
+      const payload = {
+        ...base.payload,
+        slides: [{
+          ...slide,
+          ...(mobileFocalPointX === undefined ? {} : { mobileFocalPointX }),
+        }],
+      };
+      return { ...base, payload, sourceHash: stableHash(payload) };
+    };
+
+    expect(() => manifest([withFocal()])).not.toThrow();
+    expect(() => manifest([withFocal(76)])).not.toThrow();
+    expect(() => manifest([withFocal(0)])).not.toThrow();
+    expect(() => manifest([withFocal(100)])).not.toThrow();
+    expect(() => manifest([withFocal(-1)])).toThrow();
+    expect(() => manifest([withFocal(101)])).toThrow();
+  });
+
   it('accepts a public Yandex banner and rejects private or query-bearing URLs', () => {
     expect(() => manifest([resortRecord('https://storage.yandexcloud.net/carve/hero.webp')])).not.toThrow();
     const privatePayload = resortRecord('https://storage.yandexcloud.net/private/hero.webp');

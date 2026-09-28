@@ -1532,6 +1532,10 @@ export const translations = {
     bannerBackgroundMode: 'Background',
     bannerBackgroundImage: 'Image',
     bannerBackgroundVideo: 'Video',
+    mobileBackgroundPosition: 'Mobile background position',
+    mobileBackgroundPositionLeft: 'Left',
+    mobileBackgroundPositionCenter: 'Center',
+    mobileBackgroundPositionRight: 'Right',
     bannerVideoFileHint:
       'Video mode uses the same file name with a .mp4 extension (e.g. about.webp → about.mp4).',
     saveResortSettings: 'Save Resort Settings',
@@ -3879,6 +3883,10 @@ export const translations = {
     bannerBackgroundMode: 'Фон',
     bannerBackgroundImage: 'Изображение',
     bannerBackgroundVideo: 'Видео',
+    mobileBackgroundPosition: 'Позиция фона на мобильном',
+    mobileBackgroundPositionLeft: 'Слева',
+    mobileBackgroundPositionCenter: 'Центр',
+    mobileBackgroundPositionRight: 'Справа',
     bannerVideoFileHint:
       'В режиме видео используется то же имя файла с расширением .mp4 (например about.webp → about.mp4).',
     saveResortSettings: 'Сохранить настройки курорта',

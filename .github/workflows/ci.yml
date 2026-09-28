@@ -39,6 +39,9 @@ jobs:
       - name: Install coverage tooling
         run: npm install -D @vitest/coverage-v8@2.1.9
 
+      - name: Firestore index contracts
+        run: npm run test:index-contracts
+
       - name: Lint
         run: npm run lint
 

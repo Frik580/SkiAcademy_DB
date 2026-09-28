@@ -263,6 +263,8 @@ An Instructor never charges a Wallet or directly creates a confirmed client Book
 - Inactive or terminal statuses are `cancelled`, `completed`, `no_show`, and, for Courses, `withdrawn`.
 - Booking mutation, old-resource release, new-resource acquisition, Participant checks, and price/payment changes belonging to one operation are atomic. The operation is also audited.
 
+Firestore composite indexes for scheduling and other shared read models are additive by default. Do not replace or remove an existing index merely because a new query needs a superset index. Remove an index only after proving that no runtime query depends on its exact shape and updating its explicit index contract test.
+
 ## Individual Booking lifecycle
 
 ### State-transition matrix

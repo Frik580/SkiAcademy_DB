@@ -19,6 +19,7 @@
     "preview": "vite preview",
     "emulators:firestore": "firebase emulators:start --only firestore --ui",
     "test:unit:app": "vitest run --config vitest.config.ts tests/unit && vitest run --config packages/shared-domain/vitest.config.ts",
+    "test:index-contracts": "vitest run tests/unit/firestoreIndexContracts.test.ts",
     "test:functions": "vitest run --config functions/vitest.config.ts --exclude \"**/*.emulator.test.ts\"",
     "test:functions:emulator": "vitest run --config functions/vitest.config.ts .emulator.test.ts --no-file-parallelism --testTimeout=30000 --hookTimeout=60000",
     "test:unit:functions": "npm run test:functions",

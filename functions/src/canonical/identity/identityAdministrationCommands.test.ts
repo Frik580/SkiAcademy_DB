@@ -1815,6 +1815,288 @@ describe('canonical identity administration commands', () => {
     });
   });
 
+  it('seeds bioRu from a legacy-only bio when creating a catalog entry', async () => {
+    const catalogId = InstructorIdSchema.parse('instructor_identity_admin_create_bio_01');
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${adminAccountId}`]: seedAccount(adminAccountId, { systemRole: 'owner' }),
+    });
+
+    const created = await run(executor, {
+      kind: 'create_instructor_catalog_entry',
+      context: adminContext('catalog-create-bio-01'),
+      intent: {
+        instructorId: catalogId,
+        name: 'Legacy Bio Create Coach',
+        pricePerHourKZT: 19_000,
+        bio: 'Synthetic legacy instructor bio',
+        reasonExplanation: 'Create with legacy-only bio must still seed bioRu once',
+      },
+    } as never);
+    expect(created.status).toBe('success');
+    const afterCreate = executor.snapshot().docs.get(`instructors/${catalogId}`)?.data;
+    expect(afterCreate).toMatchObject({
+      bio: 'Synthetic legacy instructor bio',
+      bioRu: 'Synthetic legacy instructor bio',
+      revision: 1,
+    });
+    expect(afterCreate).not.toHaveProperty('bioEn');
+
+    // A later explicit bio update must replace the bio and must not resurrect the old text.
+    const updated = await run(executor, {
+      kind: 'update_instructor_catalog_profile',
+      context: adminContext('catalog-create-bio-02', 1),
+      intent: {
+        instructorId: catalogId,
+        bio: 'Replaced legacy instructor bio',
+        reasonExplanation: 'Explicit bio replaces the seeded value',
+      },
+    } as never);
+    expect(updated.status).toBe('success');
+    expect(executor.snapshot().docs.get(`instructors/${catalogId}`)?.data).toMatchObject({
+      bio: 'Replaced legacy instructor bio',
+      bioRu: 'Synthetic legacy instructor bio',
+      revision: 2,
+    });
+  });
+
+  it('persists the requested bio on a repeated catalog save and preserves unrelated fields', async () => {
+    const nextAvatar =
+      'https://firebasestorage.googleapis.com/v0/b/bucket/o/instructors%2Frepeat.jpg?alt=media&token=t';
+    const legacyAvatar = `data:image/jpeg;base64,${'B'.repeat(2_500)}`;
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${adminAccountId}`]: seedAccount(adminAccountId, { systemRole: 'owner' }),
+      [`instructors/${instructorId}`]: {
+        instructorId,
+        name: 'Repeat Coach',
+        specialty: 'both',
+        languages: ['Русский'],
+        experienceYears: 10,
+        pricePerHourKZT: 24_000,
+        phoneNumber: '+77055492235',
+        isAvailable: true,
+        avatarUrl: legacyAvatar,
+        // revision field intentionally absent — production legacy shape
+      },
+    });
+
+    const first = await run(executor, {
+      kind: 'update_instructor_catalog_profile',
+      context: adminContext('catalog-repeat-bio-01', 0),
+      intent: {
+        instructorId,
+        bio: 'Bio B',
+        avatarUrl: nextAvatar,
+        reasonExplanation: 'First legacy save replaces the bad avatar and bio',
+      },
+    } as never);
+    expect(first.status).toBe('success');
+    expect(executor.snapshot().docs.get(`instructors/${instructorId}`)?.data).toMatchObject({
+      bio: 'Bio B',
+      avatarUrl: nextAvatar,
+      revision: 1,
+      name: 'Repeat Coach',
+      specialty: 'both',
+      experienceYears: 10,
+      pricePerHourKZT: 24_000,
+      phoneNumber: '+77055492235',
+      isAvailable: true,
+    });
+
+    const second = await run(executor, {
+      kind: 'update_instructor_catalog_profile',
+      context: adminContext('catalog-repeat-bio-02', 1),
+      intent: {
+        instructorId,
+        bio: 'Bio C',
+        reasonExplanation: 'Second save must persist the new bio',
+      },
+    } as never);
+    expect(second.status).toBe('success');
+    const afterSecond = executor.snapshot().docs.get(`instructors/${instructorId}`)?.data;
+    expect(afterSecond).toMatchObject({
+      bio: 'Bio C',
+      revision: 2,
+      avatarUrl: nextAvatar,
+      name: 'Repeat Coach',
+      specialty: 'both',
+      // Unrelated fields absent from the intent must survive untouched.
+      languages: ['Русский'],
+      experienceYears: 10,
+      pricePerHourKZT: 24_000,
+      phoneNumber: '+77055492235',
+      isAvailable: true,
+    });
+    // An explicit `bio` wins; legacy migration must not invent a bioRu projection.
+    expect(afterSecond).not.toHaveProperty('bioRu');
+    expect(afterSecond).not.toHaveProperty('bioEn');
+  });
+
+  it('persists an explicit empty bio as empty and never resurrects the previous bio', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${adminAccountId}`]: seedAccount(adminAccountId, { systemRole: 'owner' }),
+      [`instructors/${instructorId}`]: {
+        instructorId,
+        name: 'Empty Bio Coach',
+        pricePerHourKZT: 21_000,
+        isAvailable: true,
+        revision: 1,
+        bio: 'Existing bio',
+      },
+    });
+
+    // The catalog schema allows `bio: ''`, so an explicit empty string is a real
+    // clear request, not "omitted". It must be written verbatim.
+    const cleared = await run(executor, {
+      kind: 'update_instructor_catalog_profile',
+      context: adminContext('catalog-empty-bio-01', 1),
+      intent: {
+        instructorId,
+        bio: '',
+        reasonExplanation: 'Explicit empty bio must persist as empty',
+      },
+    } as never);
+    expect(cleared.status).toBe('success');
+    expect(executor.snapshot().docs.get(`instructors/${instructorId}`)?.data).toMatchObject({
+      bio: '',
+      revision: 2,
+    });
+
+    // A later unrelated save must not resurrect the previous bio via migration.
+    const unrelated = await run(executor, {
+      kind: 'update_instructor_catalog_profile',
+      context: adminContext('catalog-empty-bio-02', 2),
+      intent: {
+        instructorId,
+        specialty: 'ski',
+        reasonExplanation: 'Unrelated save after clearing bio',
+      },
+    } as never);
+    expect(unrelated.status).toBe('success');
+    expect(executor.snapshot().docs.get(`instructors/${instructorId}`)?.data).toMatchObject({
+      bio: '',
+      specialty: 'ski',
+      revision: 3,
+    });
+  });
+
+  it('clears only the legacy bio when a localized bioRu is already persisted', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${adminAccountId}`]: seedAccount(adminAccountId, { systemRole: 'owner' }),
+      [`instructors/${instructorId}`]: {
+        instructorId,
+        name: 'Localized Coach',
+        pricePerHourKZT: 21_000,
+        isAvailable: true,
+        revision: 1,
+        bio: 'Старое legacy',
+        bioRu: 'Русское био',
+      },
+    });
+
+    const cleared = await run(executor, {
+      kind: 'update_instructor_catalog_profile',
+      context: adminContext('catalog-empty-legacy-bio-01', 1),
+      intent: {
+        instructorId,
+        bio: '',
+        reasonExplanation: 'Clearing the legacy bio must not touch the localized projection',
+      },
+    } as never);
+    expect(cleared.status).toBe('success');
+    expect(executor.snapshot().docs.get(`instructors/${instructorId}`)?.data).toMatchObject({
+      bio: '',
+      bioRu: 'Русское био',
+      revision: 2,
+    });
+  });
+
+  it('rejects a repeated save with stale expectedRevision without changing bio', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${adminAccountId}`]: seedAccount(adminAccountId, { systemRole: 'owner' }),
+      [`instructors/${instructorId}`]: {
+        instructorId,
+        name: 'Repeated Stale Coach',
+        pricePerHourKZT: 23_000,
+        isAvailable: true,
+        revision: 1,
+        bio: 'Bio B',
+      },
+    });
+
+    const stale = await run(executor, {
+      kind: 'update_instructor_catalog_profile',
+      context: adminContext('catalog-repeat-stale-01', 0),
+      intent: {
+        instructorId,
+        bio: 'Bio C',
+        reasonExplanation: 'Stale repeated save must be rejected',
+      },
+    } as never);
+    expect(stale.status).toBe('error');
+    if (stale.status === 'error') {
+      expect(stale.error.code).toBe('stale_version');
+      expect(stale.error.currentRevision).toBe(1);
+    }
+    expect(executor.snapshot().docs.get(`instructors/${instructorId}`)?.data).toMatchObject({
+      bio: 'Bio B',
+      revision: 1,
+    });
+  });
+
+  it('does not increment revision twice on same-key replay of a repeated bio save', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${adminAccountId}`]: seedAccount(adminAccountId, { systemRole: 'owner' }),
+      [`instructors/${instructorId}`]: {
+        instructorId,
+        name: 'Replay Coach',
+        pricePerHourKZT: 23_000,
+        isAvailable: true,
+        revision: 1,
+        bio: 'Bio B',
+      },
+    });
+
+    const envelope = {
+      kind: 'update_instructor_catalog_profile',
+      context: adminContext('catalog-replay-bio-01', 1),
+      intent: {
+        instructorId,
+        bio: 'Bio C',
+        reasonExplanation: 'Replay must not double-apply',
+      },
+    } as never;
+
+    const applied = await run(executor, envelope);
+    expect(applied.status).toBe('success');
+    expect(executor.snapshot().docs.get(`instructors/${instructorId}`)?.data).toMatchObject({
+      bio: 'Bio C',
+      revision: 2,
+    });
+
+    const replay = await run(executor, envelope);
+    expect(replay.status).toBe('success');
+    expect(executor.snapshot().docs.get(`instructors/${instructorId}`)?.data).toMatchObject({
+      bio: 'Bio C',
+      revision: 2,
+    });
+
+    // A genuinely new edit with a new idempotency key must still apply.
+    const nextEdit = await run(executor, {
+      kind: 'update_instructor_catalog_profile',
+      context: adminContext('catalog-replay-bio-02', 2),
+      intent: {
+        instructorId,
+        bio: 'Bio D',
+        reasonExplanation: 'New edit after replay',
+      },
+    } as never);
+    expect(nextEdit.status).toBe('success');
+    expect(executor.snapshot().docs.get(`instructors/${instructorId}`)?.data).toMatchObject({
+      bio: 'Bio D',
+      revision: 3,
+    });
+  });
+
   it('updates catalog-only instructor profile without linked Account', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor({
       [`users/${adminAccountId}`]: seedAccount(adminAccountId, { systemRole: 'owner' }),

@@ -612,6 +612,17 @@ describe.skipIf(!runsOnFirestoreEmulator)('identity administration Firestore emu
       revision: 2,
     });
 
+    // The read-model projection must agree with the canonical document after save #2.
+    const detailAfter = await queryAdminIdentityReadModels(
+      firestore,
+      { kind: 'administrator', accountId: adminAccountId },
+      { scope: 'admin_instructor_detail', instructorId: legacyInstructorId }
+    );
+    expect(detailAfter.scope).toBe('admin_instructor_detail');
+    if (detailAfter.scope !== 'admin_instructor_detail') return;
+    expect(detailAfter.item?.bio).toBe('Second legacy emulator save');
+    expect(detailAfter.item?.revision).toBe(2);
+
     const stale = await commands.execute({
       kind: 'update_instructor_catalog_profile',
       context: adminContext('identity-emulator-missing-rev-stale', 0),
@@ -754,6 +765,28 @@ describe.skipIf(!runsOnFirestoreEmulator)('identity administration Firestore emu
       revision: 2,
       linkedAccountId: linkedAccount,
     });
+
+    // The Account is a live link binding, not a mirrored bio projection: a profile
+    // save must not touch it, and the reverse link must stay intact after save #2.
+    const accountAfterSecond = (await firestore.collection('users').doc(linkedAccount).get()).data();
+    expect(accountAfterSecond).toMatchObject({
+      instructorId: linkedInstructorId,
+      isInstructor: true,
+      revision: accountRevisionBefore,
+    });
+
+    const detailAfter = await queryAdminIdentityReadModels(
+      firestore,
+      { kind: 'administrator', accountId: adminAccountId },
+      { scope: 'admin_instructor_detail', instructorId: linkedInstructorId }
+    );
+    expect(detailAfter.scope).toBe('admin_instructor_detail');
+    if (detailAfter.scope !== 'admin_instructor_detail') return;
+    expect(detailAfter.item?.bio).toBe('Second emulator linked save');
+    expect(detailAfter.item?.revision).toBe(2);
+    expect(detailAfter.item?.linkedAccountId).toBe(linkedAccount);
+    expect(detailAfter.item?.avatarUrl).toBe(nextAvatar);
+    expect(detailAfter.item).not.toHaveProperty('bioRu');
   }, 60_000);
 
   it('hard-deletes a linked instructor catalog while preserving the Account and dropping it from directory', async () => {

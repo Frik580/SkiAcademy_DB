@@ -251,16 +251,22 @@ function instructorCatalogTextPatch(
     return patch;
   }
 
-  // One-time legacy migration: existing `bio` without `bioRu` is Russian content.
-  // Do not overwrite an already-persisted bioRu. Never seed bioEn from legacy bio.
+  // An explicit `bio` always wins over the legacy migration below.
+  if (intent.bio !== undefined) {
+    patch.bio = intent.bio;
+    if (!current) {
+      // Create with legacy-only `bio`: treat it as Russian and seed bioRu once.
+      patch.bioRu = intent.bio;
+    }
+    return patch;
+  }
+
+  // One-time legacy migration: an existing `bio` without `bioRu` is Russian content
+  // and seeds the missing bioRu projection. Never seed bioEn from legacy bio, and
+  // never write the migrated legacy text back over a newly requested bio — that
+  // would let a repeated save advance the revision while persisting the old bio.
   if (current && !current.bioRu && current.bio) {
     patch.bioRu = current.bio;
-  } else if (!current && intent.bio !== undefined) {
-    // Create with legacy-only `bio`: treat it as Russian and seed bioRu once.
-    patch.bioRu = intent.bio;
-    patch.bio = intent.bio;
-  } else if (intent.bio !== undefined) {
-    patch.bio = intent.bio;
   }
 
   return patch;

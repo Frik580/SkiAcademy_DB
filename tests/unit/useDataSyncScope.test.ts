@@ -28,10 +28,10 @@ describe('resolveDataSyncScope', () => {
     });
   });
 
-  it('loads usersList, activityLogs, and reviews on instructor route', () => {
+  it('does not sync the broad users list on instructor route', () => {
     expect(resolveDataSyncScope('/instructor', false)).toEqual({
       catalogueScope: 'instructor',
-      shouldSyncUsersList: true,
+      shouldSyncUsersList: false,
       shouldSyncActivityLogs: true,
       shouldSyncReviews: true,
       shouldLoadBookingHistory: false,

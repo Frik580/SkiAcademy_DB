@@ -1,4 +1,4 @@
-export const E2E_PROJECT_ID = 'ski-school-8f3ca';
+export const E2E_PROJECT_ID = 'demo-ski-school-e2e';
 export const AUTH_EMULATOR_HOST = 'http://127.0.0.1:9299';
 export const FUNCTIONS_EMULATOR_HOST = '127.0.0.1';
 export const FUNCTIONS_EMULATOR_PORT = 5001;

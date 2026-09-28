@@ -28,6 +28,18 @@ test.describe('booking flow', () => {
   test('guest can submit a lesson request from the home page', async ({ page }, testInfo) => {
     const runtimeConfig = loadRuntimeConfig();
     const guestParticipantsBefore = await getLatestGuestParticipant();
+    const guestIngressAddress = `2001:db8::${(testInfo.repeatEachIndex + 1).toString(16)}`;
+
+    // The local Functions emulator has no Firebase ingress to supply its trusted XFF address.
+    await page.route('**/executeGuestCanonicalCommand', async (route) => {
+      if (route.request().method() !== 'POST') {
+        await route.continue();
+        return;
+      }
+      await route.continue({
+        headers: { ...route.request().headers(), 'x-forwarded-for': guestIngressAddress },
+      });
+    });
 
     await openGuestBookingModal(page, runtimeConfig.instructorName);
 

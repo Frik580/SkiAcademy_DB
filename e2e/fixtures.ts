@@ -55,7 +55,7 @@ export async function signInStudent(
   page: Page,
   config: Pick<E2ERuntimeConfig, 'studentEmail' | 'studentPassword'> = loadRuntimeConfig()
 ): Promise<void> {
-  await page.goto('/');
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: 'Sign In', exact: true }).first().click();
   const authModal = page.locator('.ui-modal');
   await authModal.getByPlaceholder('Email Address').fill(config.studentEmail);
@@ -72,7 +72,7 @@ export async function signInStudentB(page: Page, config = loadRuntimeConfig()): 
 }
 
 export async function openGuestBookingModal(page: Page, instructorName: string): Promise<void> {
-  await page.goto('/');
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
   await expect(page.getByRole('heading', { name: instructorName })).toBeVisible({
     timeout: 20_000,
   });
@@ -151,10 +151,11 @@ function displayMatchesTargetDate(display: string, targetDate: Date): boolean {
   const monthLabel = getMonthLabel(targetDate);
   const shortMonth = formatShortMonth(targetDate);
   const hasDay = new RegExp(`\\b${day}\\b`).test(display);
+  const hasYear = display.includes(String(targetDate.getFullYear()));
   const hasMonth =
     display.includes(shortMonth) ||
     display.toLowerCase().includes(monthLabel.slice(0, 3).toLowerCase());
-  return hasDay && hasMonth;
+  return hasDay && hasMonth && hasYear;
 }
 
 export async function selectBookingDateInModal(page: Page, dayOffset: number): Promise<void> {
@@ -173,6 +174,18 @@ export async function selectBookingDateInModal(page: Page, dayOffset: number): P
   await dateButton.click();
   await expect(dateButton).toHaveAttribute('aria-expanded', 'true');
 
+  if (!currentDisplay.includes(String(targetDate.getFullYear()))) {
+    const yearButton = bookingModal.getByRole('button', {
+      name: String(targetDate.getFullYear()),
+      exact: true,
+    });
+    await yearButton.scrollIntoViewIfNeeded();
+    await yearButton.click();
+    if ((await dateButton.getAttribute('aria-expanded')) !== 'true') {
+      await dateButton.click();
+    }
+  }
+
   const currentHasTargetMonth =
     currentDisplay.includes(formatShortMonth(targetDate)) ||
     currentDisplay.toLowerCase().includes(monthLabel.slice(0, 3).toLowerCase());
@@ -181,8 +194,12 @@ export async function selectBookingDateInModal(page: Page, dayOffset: number): P
     const monthButton = bookingModal.getByRole('button', { name: monthLabel, exact: true });
     await monthButton.scrollIntoViewIfNeeded();
     await monthButton.click();
+    if ((await dateButton.getAttribute('aria-expanded')) !== 'true') {
+      await dateButton.click();
+    }
   }
 
+  await expect(dateButton).toHaveAttribute('aria-expanded', 'true');
   const dayButton = bookingModal.getByRole('button', { name: dayLabel, exact: true });
   await dayButton.scrollIntoViewIfNeeded();
   await expect(dayButton).toBeVisible({ timeout: 10_000 });
@@ -191,6 +208,14 @@ export async function selectBookingDateInModal(page: Page, dayOffset: number): P
   if ((await dateButton.getAttribute('aria-expanded')) === 'true') {
     await page.keyboard.press('Escape');
   }
+  await expect
+    .poll(async () =>
+      displayMatchesTargetDate(
+        ((await dateButton.locator('span').first().textContent()) ?? '').trim(),
+        targetDate
+      )
+    )
+    .toBe(true);
 }
 
 export async function fillBookingSelectors(
@@ -244,7 +269,7 @@ export async function fillBookingSelectors(
 }
 
 export async function submitGuestBookingApplication(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'Submit Application to Admin' }).click();
+  await page.getByRole('button', { name: 'Submit booking request' }).click();
 }
 
 export async function submitStudentBookingConfirmation(page: Page): Promise<void> {

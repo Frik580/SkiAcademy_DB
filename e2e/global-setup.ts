@@ -4,19 +4,23 @@ import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import {
   AUTH_EMULATOR_HOST,
+  E2E_ADMIN_DISPLAY_NAME,
+  E2E_ADMIN_EMAIL,
+  E2E_ADMIN_PASSWORD,
   E2E_CHILD_DISPLAY_NAME,
   E2E_INSTRUCTOR_ID,
+  E2E_INSTRUCTOR_EMAIL,
   E2E_INSTRUCTOR_NAME,
+  E2E_INSTRUCTOR_PASSWORD,
   E2E_PROJECT_ID,
   E2E_STUDENT_B_EMAIL,
   E2E_STUDENT_B_PASSWORD,
   E2E_STUDENT_DISPLAY_NAME,
   E2E_STUDENT_EMAIL,
   E2E_STUDENT_PASSWORD,
+  E2E_WORKSPACE_INSTRUCTOR_ID,
+  E2E_WORKSPACE_INSTRUCTOR_NAME,
   FIRESTORE_EMULATOR_HOST,
-  FUNCTIONS_EMULATOR_HOST,
-  FUNCTIONS_EMULATOR_PORT,
-  FUNCTIONS_REGION,
   functionsCallableUrl,
 } from './emulator-config';
 
@@ -64,6 +68,13 @@ export interface E2ERuntimeConfig {
   studentBParticipantId: string;
   instructorId: string;
   instructorName: string;
+  instructorEmail: string;
+  instructorPassword: string;
+  workspaceInstructorId: string;
+  workspaceInstructorName: string;
+  adminEmail: string;
+  adminPassword: string;
+  adminDisplayName: string;
 }
 
 const E2E_WALLET_BALANCE_KZT = 500_000;
@@ -288,6 +299,38 @@ async function seedStudentAccount(input: {
   }
 }
 
+async function seedWorkspaceAccount(input: {
+  uid: string;
+  email: string;
+  displayName: string;
+  role: 'user' | 'admin';
+  instructorId?: string;
+}): Promise<void> {
+  const decidedAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
+  await getFirestore()
+    .doc(`users/${input.uid}`)
+    .set({
+      ...AccountSchema.parse({
+        accountId: input.uid,
+        lifecycle: { status: 'active' },
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'command_e2e_seed',
+          lastChangedByCommandId: 'command_e2e_seed',
+          correlationId: 'correlation_e2e_seed',
+        },
+      }),
+      uid: input.uid,
+      email: input.email,
+      displayName: input.displayName,
+      role: input.role,
+      avatarUrl: '',
+      ...(input.instructorId ? { isInstructor: true, instructorId: input.instructorId } : {}),
+    });
+}
+
 async function seedCanonicalFirestoreFixtures(
   studentUid: string,
   studentBUid: string
@@ -403,7 +446,33 @@ export default async function globalSetup(): Promise<void> {
 
   const studentUid = await createAuthUser(E2E_STUDENT_EMAIL, E2E_STUDENT_PASSWORD);
   const studentBUid = await createAuthUser(E2E_STUDENT_B_EMAIL, E2E_STUDENT_B_PASSWORD);
+  const instructorUid = await createAuthUser(E2E_INSTRUCTOR_EMAIL, E2E_INSTRUCTOR_PASSWORD);
+  const adminUid = await createAuthUser(E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD);
   const participantIds = await seedCanonicalFirestoreFixtures(studentUid, studentBUid);
+
+  await seedWorkspaceAccount({
+    uid: instructorUid,
+    email: E2E_INSTRUCTOR_EMAIL,
+    displayName: E2E_WORKSPACE_INSTRUCTOR_NAME,
+    role: 'user',
+    instructorId: E2E_WORKSPACE_INSTRUCTOR_ID,
+  });
+  await seedWorkspaceAccount({
+    uid: adminUid,
+    email: E2E_ADMIN_EMAIL,
+    displayName: E2E_ADMIN_DISPLAY_NAME,
+    role: 'admin',
+  });
+  await getFirestore().doc(`instructors/${E2E_WORKSPACE_INSTRUCTOR_ID}`).set({
+    id: E2E_WORKSPACE_INSTRUCTOR_ID,
+    name: E2E_WORKSPACE_INSTRUCTOR_NAME,
+    specialty: 'ski',
+    pricePerHour: 50,
+    pricePerHourKZT: 12_000,
+    isAvailable: true,
+    rating: 5,
+    reviewsCount: 0,
+  });
 
   const runtimeConfig: E2ERuntimeConfig = {
     projectId: E2E_PROJECT_ID,
@@ -420,6 +489,13 @@ export default async function globalSetup(): Promise<void> {
     studentBParticipantId: participantIds.studentBParticipantId,
     instructorId: E2E_INSTRUCTOR_ID,
     instructorName: E2E_INSTRUCTOR_NAME,
+    instructorEmail: E2E_INSTRUCTOR_EMAIL,
+    instructorPassword: E2E_INSTRUCTOR_PASSWORD,
+    workspaceInstructorId: E2E_WORKSPACE_INSTRUCTOR_ID,
+    workspaceInstructorName: E2E_WORKSPACE_INSTRUCTOR_NAME,
+    adminEmail: E2E_ADMIN_EMAIL,
+    adminPassword: E2E_ADMIN_PASSWORD,
+    adminDisplayName: E2E_ADMIN_DISPLAY_NAME,
   };
 
   writeFileSync(

@@ -11,6 +11,15 @@ export const E2E_STUDENT_PASSWORD = 'password123';
 export const E2E_STUDENT_B_EMAIL = 'student-b@e2e.test';
 export const E2E_STUDENT_B_PASSWORD = 'password123';
 
+export const E2E_INSTRUCTOR_EMAIL = 'instructor@e2e.test';
+export const E2E_INSTRUCTOR_PASSWORD = 'password123';
+export const E2E_WORKSPACE_INSTRUCTOR_ID = 'e2e-workspace-instructor';
+export const E2E_WORKSPACE_INSTRUCTOR_NAME = 'E2E Workspace Coach';
+
+export const E2E_ADMIN_EMAIL = 'admin@e2e.test';
+export const E2E_ADMIN_PASSWORD = 'password123';
+export const E2E_ADMIN_DISPLAY_NAME = 'E2E Admin';
+
 export const E2E_INSTRUCTOR_ID = 'e2e-instructor-1';
 export const E2E_INSTRUCTOR_NAME = 'E2E Test Coach';
 

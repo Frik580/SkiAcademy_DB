@@ -4,17 +4,19 @@ import { fileURLToPath } from 'node:url';
 import { E2E_PROJECT_ID, FIRESTORE_EMULATOR_HOST } from './emulator-config';
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
+const requireRoot = createRequire(join(rootDir, 'package.json'));
 const requireFunctions = createRequire(join(rootDir, 'functions/package.json'));
-const { initializeApp, getApps } = requireFunctions('firebase-admin/app') as typeof import('firebase-admin/app');
-const { getFirestore } = requireFunctions('firebase-admin/firestore') as typeof import('firebase-admin/firestore');
+const { CourseSchema, CourseDaySchema, CourseCatalogContentSchema, timestampFromDate } =
+  requireRoot('@ski-academy/shared-domain') as typeof import('@ski-academy/shared-domain');
+const { initializeApp, getApps } = requireFunctions(
+  'firebase-admin/app'
+) as typeof import('firebase-admin/app');
+const { getFirestore } = requireFunctions(
+  'firebase-admin/firestore'
+) as typeof import('firebase-admin/firestore');
 
 export type BookingLifecycleStatus =
-  | 'pending'
-  | 'confirmed'
-  | 'pending_cancellation'
-  | 'cancelled'
-  | 'completed'
-  | 'no_show';
+  'pending' | 'confirmed' | 'pending_cancellation' | 'cancelled' | 'completed' | 'no_show';
 
 export interface E2EBookingRecord {
   readonly bookingId: string;
@@ -50,6 +52,81 @@ function ensureFirestore() {
   return getFirestore();
 }
 
+export async function seedE2ECourse(input: {
+  courseId: string;
+  title: string;
+  instructorId: string;
+  dayOffset: number;
+}): Promise<void> {
+  const firestore = ensureFirestore();
+  const startsAt = new Date();
+  startsAt.setUTCDate(startsAt.getUTCDate() + input.dayOffset);
+  startsAt.setUTCHours(9, 0, 0, 0);
+  const endsAt = new Date(startsAt.getTime() + 2 * 60 * 60 * 1000);
+  const decidedAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
+  const metadata = {
+    revision: 1,
+    createdAt: decidedAt,
+    updatedAt: decidedAt,
+    audit: {
+      createdByCommandId: 'command_e2e_seed_course',
+      lastChangedByCommandId: 'command_e2e_seed_course',
+      correlationId: 'correlation_e2e_seed_course',
+    },
+  };
+  const courseDayId = `${input.courseId}_day_1`;
+  await firestore.doc(`courses/${input.courseId}`).set(
+    CourseSchema.parse({
+      courseId: input.courseId,
+      title: input.title,
+      lifecycle: 'active',
+      price: 20_000,
+      capacity: { totalSeats: 8, availableSeats: 8 },
+      instructorRosterIds: [input.instructorId],
+      startAt: timestampFromDate(startsAt),
+      scheduleProjection: {
+        courseDayCount: 1,
+        finalCourseDayEndsAt: timestampFromDate(endsAt),
+        courseScheduleRevision: 1,
+      },
+      ...metadata,
+    })
+  );
+  await firestore.doc(`courses/${input.courseId}/days/${courseDayId}`).set(
+    CourseDaySchema.parse({
+      courseId: input.courseId,
+      courseDayId,
+      dayOrder: 1,
+      interval: { startsAt: timestampFromDate(startsAt), endsAt: timestampFromDate(endsAt) },
+      timeZone: 'Asia/Almaty',
+      actualInstructorIds: [input.instructorId],
+      ...metadata,
+    })
+  );
+  await firestore.doc(`course_catalog_content/${input.courseId}`).set(
+    CourseCatalogContentSchema.parse({
+      courseId: input.courseId,
+      duration: '2 hours',
+      description: 'Playwright course enrollment fixture.',
+      dates: startsAt.toISOString().slice(0, 10),
+      bgImageUrl: 'data:image/svg+xml,%3Csvg%20xmlns="http://www.w3.org/2000/svg"/%3E',
+    })
+  );
+}
+
+export async function hasCourseEnrollment(
+  courseId: string,
+  participantId: string
+): Promise<boolean> {
+  const snapshot = await ensureFirestore()
+    .collection('course_enrollments')
+    .where('courseId', '==', courseId)
+    .where('participantId', '==', participantId)
+    .limit(1)
+    .get();
+  return snapshot.docs.some((doc) => doc.data().lifecycle?.status === 'confirmed');
+}
+
 function mapBookingRecord(data: Record<string, unknown>): E2EBookingRecord {
   const createdAtSeconds = Number(
     (data.createdAt as { seconds?: number } | undefined)?.seconds ?? 0
@@ -79,7 +156,8 @@ export async function listBookingsForInstructor(instructorId: string): Promise<E
 
 export async function countBlockingBookingsForInstructor(instructorId: string): Promise<number> {
   const bookings = await listBookingsForInstructor(instructorId);
-  return bookings.filter((booking) => BLOCKING_BOOKING_STATUSES.has(booking.lifecycleStatus)).length;
+  return bookings.filter((booking) => BLOCKING_BOOKING_STATUSES.has(booking.lifecycleStatus))
+    .length;
 }
 
 export async function listBlockingBookingsForPayer(

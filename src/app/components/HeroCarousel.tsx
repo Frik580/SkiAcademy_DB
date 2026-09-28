@@ -357,7 +357,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
         <div className="hero-stage relative z-10 w-full min-h-[calc(100svh-4.25rem)]">
           <div className="hero-copy-shell w-full">
             <div className="hero-copy-shell-inner w-full max-w-7xl mx-auto px-6 md:px-10 lg:px-12">
-              <div className="hero-copy-stack w-full max-w-2xl">
+              <div className="hero-copy-stack w-full max-w-[min(42rem,70vw)]">
                 <div className="grid relative w-full [&>*]:col-start-1 [&>*]:row-start-1 min-w-0">
                   {slides.map((slide, idx) => {
                     const isActive = idx === currentSlide;

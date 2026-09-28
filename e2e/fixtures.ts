@@ -36,6 +36,33 @@ function simpleHash(input: string): number {
 export interface E2ETestIsolation {
   repeatEachIndex: number;
   title: string;
+  workerIndex?: number;
+}
+
+export function isolatedCourseId(
+  kind: 'instructor' | 'enrollment',
+  testInfo: E2ETestIsolation
+): string {
+  return `course_e2e_${kind}_w${testInfo.workerIndex ?? 0}_r${testInfo.repeatEachIndex}`;
+}
+
+export function watchBrowserFailures(page: Page): () => void {
+  const failures: string[] = [];
+  page.on('pageerror', (error) => failures.push(`uncaught: ${error.message}`));
+  page.on('console', (message) => {
+    if (
+      message.type() === 'error' &&
+      /permission-denied|FirebaseError:.*INTERNAL|UnhandledPromiseRejection/i.test(message.text())
+    ) {
+      failures.push(`console: ${message.text()}`);
+    }
+  });
+  page.on('response', (response) => {
+    if (response.status() >= 500 && /127\.0\.0\.1:5001/.test(response.url())) {
+      failures.push(`callable: ${response.status()} ${response.url()}`);
+    }
+  });
+  return () => expect(failures).toEqual([]);
 }
 
 export function uniqueDayOffset(baseOffset: number, testInfo: E2ETestIsolation): number {
@@ -51,17 +78,32 @@ export function loadRuntimeConfig(): E2ERuntimeConfig {
   return JSON.parse(readFileSync(runtimeConfigPath, 'utf8')) as E2ERuntimeConfig;
 }
 
-export async function signInStudent(
+export async function signInAccount(
   page: Page,
-  config: Pick<E2ERuntimeConfig, 'studentEmail' | 'studentPassword'> = loadRuntimeConfig()
+  credentials: { email: string; password: string; expectedPath?: '/cabinet' | '/instructor' }
 ): Promise<void> {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: 'Sign In', exact: true }).first().click();
   const authModal = page.locator('.ui-modal');
-  await authModal.getByPlaceholder('Email Address').fill(config.studentEmail);
-  await authModal.getByPlaceholder('Password').fill(config.studentPassword);
+  await authModal.getByPlaceholder('Email Address').fill(credentials.email);
+  await authModal.getByPlaceholder('Password').fill(credentials.password);
   await authModal.getByRole('button', { name: 'Sign In', exact: true }).click();
-  await expect(page).toHaveURL(/\/cabinet/);
+  if (credentials.expectedPath) {
+    await expect(page).toHaveURL(new RegExp(`${credentials.expectedPath}(?:/|$)`));
+  } else {
+    await expect(page.getByRole('button', { name: 'Sign Out' })).toBeVisible();
+  }
+}
+
+export async function signInStudent(
+  page: Page,
+  config: Pick<E2ERuntimeConfig, 'studentEmail' | 'studentPassword'> = loadRuntimeConfig()
+): Promise<void> {
+  await signInAccount(page, {
+    email: config.studentEmail,
+    password: config.studentPassword,
+    expectedPath: '/cabinet',
+  });
 }
 
 export async function signInStudentB(page: Page, config = loadRuntimeConfig()): Promise<void> {

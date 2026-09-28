@@ -262,6 +262,7 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
       'participants',
       'guest_contacts',
       'payments',
+      'monetary_events',
       'resource_claims',
       'resource_claim_guards',
       'active_course_enrollment_guards',

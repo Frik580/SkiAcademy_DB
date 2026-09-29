@@ -12,6 +12,7 @@ vi.mock('../../src/infrastructure/firebase', () => ({
 }));
 
 import {
+  registerAdminFinanceRevisionFromCommand,
   registerAdminFinanceRevisionListener,
   resetAdminFinanceRevisionCoordinatorForTests,
 } from '../../src/features/admin/finance/adminFinanceRevisionCoordinator';
@@ -122,6 +123,24 @@ describe('Admin realtime revision listener recovery', () => {
     unregisterSecond();
     unregisterRacing();
     expect(listeners[1].unsubscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it('deduplicates the recovered current snapshot after a command result was delivered', async () => {
+    const refresh = vi.fn();
+    const unregister = registerAdminFinanceRevisionListener(refresh);
+    emitRevision(listeners[0], 10);
+
+    registerAdminFinanceRevisionFromCommand(11);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    failListener(listeners[0], 'unavailable');
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    emitRevision(listeners[1], 11);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    emitRevision(listeners[1], 12);
+    expect(refresh).toHaveBeenCalledTimes(2);
+
+    unregister();
   });
 
   it('cancels a scheduled retry when the last consumer stops', async () => {

@@ -5,6 +5,8 @@ type AdminPlannerRevisionListener = () => void;
 
 const listeners = new Set<AdminPlannerRevisionListener>();
 let revisionState: { initialized: boolean; lastRevision?: number } = { initialized: false };
+// Snapshot baselines and globally delivered invalidations are separate facts.
+let lastNotifiedRevision: number | undefined;
 let unsubscribeRevision: (() => void) | undefined;
 
 function ensureRevisionSubscription(): void {
@@ -16,6 +18,7 @@ function ensureRevisionSubscription(): void {
       lastRevision: reduced.lastRevision,
     };
     if (!reduced.shouldRefresh) return;
+    lastNotifiedRevision = Math.max(lastNotifiedRevision ?? nextRevision, nextRevision);
     for (const listener of listeners) {
       listener();
     }
@@ -27,6 +30,7 @@ function teardownRevisionSubscriptionIfIdle(): void {
   unsubscribeRevision();
   unsubscribeRevision = undefined;
   revisionState = { initialized: false };
+  lastNotifiedRevision = undefined;
 }
 
 export function registerAdminPlannerRevisionListener(
@@ -44,10 +48,19 @@ export function registerAdminPlannerRevisionFromCommand(
   adminPlannerRevision: number | undefined
 ): void {
   if (adminPlannerRevision === undefined) return;
+  if (lastNotifiedRevision !== undefined && adminPlannerRevision <= lastNotifiedRevision) return;
   revisionState = {
     initialized: revisionState.initialized,
-    lastRevision: adminPlannerRevision,
+    lastRevision: Math.max(
+      revisionState.lastRevision ?? adminPlannerRevision,
+      adminPlannerRevision
+    ),
   };
+  if (listeners.size === 0) return;
+  lastNotifiedRevision = adminPlannerRevision;
+  for (const listener of listeners) {
+    listener();
+  }
 }
 
 export function resetAdminPlannerRevisionCoordinatorForTests(): void {
@@ -55,4 +68,5 @@ export function resetAdminPlannerRevisionCoordinatorForTests(): void {
   unsubscribeRevision?.();
   unsubscribeRevision = undefined;
   revisionState = { initialized: false };
+  lastNotifiedRevision = undefined;
 }

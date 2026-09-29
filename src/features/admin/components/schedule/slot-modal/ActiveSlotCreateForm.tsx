@@ -4,6 +4,7 @@ import { ActionButton } from '../../../../../ui/ActionButton';
 import type { Instructor, LessonDifficulty } from '../../../../../types';
 import { useLanguage } from '../../../../../app/providers/LanguageContext';
 import { formatDurationLabel } from '../../../../../lib/i18n/duration';
+import { resolveInstructorHourlyRateKztForDisplay } from '../../../../../domain/pricing';
 import { AdminManagedParticipantPicker } from '../../../identity';
 import type { AdminManagedParticipantSelection } from '../../../identity';
 import type { AccountDirectoryOption } from '../../../identity/accountDirectorySearch';
@@ -59,9 +60,11 @@ export const ActiveSlotCreateForm: React.FC<ActiveSlotCreateFormProps> = ({
 }) => {
   const { t, language } = useLanguage();
   const [bookingIdentityReady, setBookingIdentityReady] = useState(false);
+  const hourlyRateKzt = resolveInstructorHourlyRateKztForDisplay(instructor);
   const submitDisabled =
     isSlotActionSubmitting ||
-    (modalTab === 'booking' && (!instructor.isAvailable || !bookingIdentityReady));
+    (modalTab === 'booking' &&
+      (!instructor.isAvailable || !bookingIdentityReady || hourlyRateKzt === undefined));
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">

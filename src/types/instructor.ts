@@ -11,6 +11,7 @@ export interface Instructor {
   bioRu?: string;
   bioEn?: string;
   avatarUrl: string;
+  /** Legacy compatibility mirror only; current product pricing uses pricePerHourKZT. */
   pricePerHour: number;
   pricePerHourKZT?: number;
   isAvailable: boolean;

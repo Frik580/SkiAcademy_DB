@@ -9,6 +9,7 @@ import {
 } from './primitives';
 
 export interface InstructorTariffInput {
+  /** Historical read compatibility only; never used for current booking pricing. */
   readonly pricePerHour?: number;
   readonly pricePerHourKZT?: number;
 }
@@ -89,16 +90,15 @@ export function resolveBookingScheduleFromCalendarInput(
 }
 
 export function resolveInstructorHourlyRateKzt(tariff: InstructorTariffInput): KztMinorUnits {
-  if (tariff.pricePerHourKZT !== undefined) {
-    if (!Number.isFinite(tariff.pricePerHourKZT) || tariff.pricePerHourKZT <= 0) {
-      throw new Error('Invalid instructor hourly rate');
-    }
-    return KztMinorUnitsSchema.parse(Math.round(tariff.pricePerHourKZT));
-  }
-  if (tariff.pricePerHour === undefined || !Number.isFinite(tariff.pricePerHour) || tariff.pricePerHour <= 0) {
+  if (
+    tariff.pricePerHourKZT === undefined ||
+    !Number.isFinite(tariff.pricePerHourKZT) ||
+    !Number.isInteger(tariff.pricePerHourKZT) ||
+    tariff.pricePerHourKZT <= 0
+  ) {
     throw new Error('Invalid instructor hourly rate');
   }
-  return KztMinorUnitsSchema.parse(Math.round(tariff.pricePerHour * 100));
+  return KztMinorUnitsSchema.parse(tariff.pricePerHourKZT);
 }
 
 export function calculateIndividualBookingPriceKzt(

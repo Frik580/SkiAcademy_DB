@@ -5,9 +5,22 @@ import { Language, translateInstructor } from '../app/providers/LanguageContext'
 import { useBookingsStore } from '../features/bookings/bookingsStore';
 import { useSettingsStore } from '../features/settings/settingsStore';
 import { useUiStore } from '../features/shell';
+import { resolveInstructorHourlyRateKztForDisplay } from '../domain/pricing';
 
 export type InstructorSortBy = 'rating' | 'priceAsc' | 'priceDesc' | 'experience';
 export type InstructorSpecialty = 'all' | 'ski' | 'snowboard' | 'both';
+
+export function compareInstructorPriceKzt(
+  a: Pick<Instructor, 'pricePerHourKZT'>,
+  b: Pick<Instructor, 'pricePerHourKZT'>,
+  sortBy: 'priceAsc' | 'priceDesc'
+): number {
+  const aRate = resolveInstructorHourlyRateKztForDisplay(a);
+  const bRate = resolveInstructorHourlyRateKztForDisplay(b);
+  if (aRate === undefined) return bRate === undefined ? 0 : 1;
+  if (bRate === undefined) return -1;
+  return sortBy === 'priceAsc' ? aRate - bRate : bRate - aRate;
+}
 
 export const useInstructorFilters = (language: Language) => {
   const instructors = useBookingsStore((s) => s.instructors);
@@ -53,8 +66,9 @@ export const useInstructorFilters = (language: Language) => {
       .sort((a, b) => {
         if (sortBy === 'rating') return (b.rating ?? -1) - (a.rating ?? -1);
         if (sortBy === 'experience') return b.experienceYears - a.experienceYears;
-        if (sortBy === 'priceAsc') return a.pricePerHour - b.pricePerHour;
-        if (sortBy === 'priceDesc') return b.pricePerHour - a.pricePerHour;
+        if (sortBy === 'priceAsc' || sortBy === 'priceDesc') {
+          return compareInstructorPriceKzt(a, b, sortBy);
+        }
         return 0;
       });
   }, [

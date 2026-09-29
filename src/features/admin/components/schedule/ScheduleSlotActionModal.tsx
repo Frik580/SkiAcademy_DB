@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { AlertCircle, Clock, Shield, X } from 'lucide-react';
 import type { Booking, Course, Instructor, UserProfile } from '../../../../types';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
+import { resolveInstructorHourlyRateKztForDisplay } from '../../../../domain/pricing';
 import { BodyScrollLock } from '../../../../ui/BodyScrollLock';
 import { useNotifications } from '../../../../features/notifications';
 import { BookingChatModal } from '../../../../features/bookings';
@@ -410,7 +411,13 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
           setIsSlotActionSubmitting(false);
           return;
         }
-        const bookingPrice = activeSlot.instructor.pricePerHour * bookingDuration;
+        const hourlyRateKzt = resolveInstructorHourlyRateKztForDisplay(activeSlot.instructor);
+        if (hourlyRateKzt === undefined) {
+          addNotification('error', t('actionFailedTitle'), t('instructorPriceUnavailable'));
+          setIsSlotActionSubmitting(false);
+          return;
+        }
+        const bookingPrice = hourlyRateKzt * bookingDuration;
 
         const newBooking: PlannerCreateOccupancyInput = {
           id: `booking_${Math.random().toString(36).substring(2, 9)}`,
@@ -512,6 +519,13 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
           return;
         }
 
+        const targetHourlyRateKzt = resolveInstructorHourlyRateKztForDisplay(targetInstructor);
+        if (targetHourlyRateKzt === undefined) {
+          addNotification('error', t('actionFailedTitle'), t('instructorPriceUnavailable'));
+          setIsSlotActionSubmitting(false);
+          return;
+        }
+
         try {
           await onReassignInstructor!(
             activeSlot.booking.id,
@@ -524,7 +538,7 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
             const fallbackRequired =
               Math.max(
                 0,
-                targetInstructor.pricePerHour * activeSlot.booking.durationHours -
+                targetHourlyRateKzt * activeSlot.booking.durationHours -
                   (activeSlot.booking.totalPrice ?? 0)
               ) || 0;
             setInsufficientFundsPrompt({

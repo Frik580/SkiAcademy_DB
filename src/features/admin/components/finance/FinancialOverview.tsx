@@ -1,5 +1,5 @@
 import React from 'react';
-import { DollarSign } from 'lucide-react';
+import { Banknote } from 'lucide-react';
 import type { AdminFinancialOverviewPeriod } from '@ski-academy/shared-domain';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { formatCanonicalKztForDisplay } from '../../operations/adminFinancialOverview';
@@ -110,7 +110,7 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
             ) : null}
           </div>
           <div className="w-10 h-10 border border-[var(--border)] rounded-none flex items-center justify-center text-[var(--ink)] bg-black/5 dark:bg-white/5">
-            <DollarSign className="w-5 h-5" />
+            <Banknote className="w-5 h-5" />
           </div>
         </div>
       </div>

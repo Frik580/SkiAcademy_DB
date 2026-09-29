@@ -69,6 +69,35 @@ describe('walletLedger history', () => {
     expect(history[0].durationLabel).toBe('2 hours');
   });
 
+  it('does not display historical USD ledger entries as KZT', () => {
+    const ledger: WalletLedgerEntry[] = [
+      {
+        id: 'wl_legacy_usd',
+        userId: 'user-1',
+        amount: -60,
+        balanceAfter: 120,
+        currency: 'USD',
+        type: 'lesson_payment',
+        createdAt: '2026-12-01T10:00:00.000Z',
+      },
+      {
+        id: 'wl_current_kzt',
+        userId: 'user-1',
+        amount: -30_000,
+        balanceAfter: 90_000,
+        currency: 'KZT',
+        type: 'lesson_payment',
+        createdAt: '2026-12-02T10:00:00.000Z',
+      },
+    ];
+
+    const history = buildWalletOperationHistory('user-1', [], [], ledger, 'en');
+
+    expect(history.map((entry) => entry.id)).toEqual(['wl_current_kzt']);
+    expect(history[0].amount).toBe(-30_000);
+    expect(history[0].currency).toBe('KZT');
+  });
+
   it('adds refund synthetic entry for cancelled bookings with prior payment', () => {
     const history = buildWalletOperationHistory(
       'user-1',

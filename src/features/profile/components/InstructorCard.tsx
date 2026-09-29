@@ -7,6 +7,7 @@ import { useLanguage } from '../../../app/providers/LanguageContext';
 import { useCurrency } from '../../../app/providers/CurrencyContext';
 import { INSTRUCTOR_SPOKEN_LANGUAGE_KEYS } from '../../../lib/i18n/instructorLanguages';
 import { selectInstructorBio } from '../../../lib/i18n/instructorBio';
+import { resolveInstructorHourlyRateKztForDisplay } from '../../../domain/pricing';
 
 interface InstructorCardProps {
   instructor: Instructor;
@@ -42,6 +43,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
     const specialtyMeta = `${specialtyText} • ${instructor.experienceYears}${t('yearShort')}`;
     const languagesText = instructor.languages.map(getLanguageLabel).join(', ');
     const isAvailable = instructor.isAvailable;
+    const hourlyRateKzt = resolveInstructorHourlyRateKztForDisplay(instructor);
     const hasCanonicalRating = instructor.reviewsCount > 0 && instructor.rating !== null;
     const ratingLabel = hasCanonicalRating
       ? `${instructor.rating!.toFixed(1)} (${instructor.reviewsCount})`
@@ -93,9 +95,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
           isAvailable ? 'text-[var(--ink)]' : 'text-[var(--ink-dim)]'
         }`}
       >
-        {instructor.pricePerHourKZT != null && Number.isFinite(instructor.pricePerHourKZT)
-          ? formatPrice(instructor.pricePerHourKZT)
-          : '—'}{' '}
+        {hourlyRateKzt !== undefined ? formatPrice(hourlyRateKzt) : '—'}{' '}
         <span className="text-xs tracking-wider text-[var(--ink-dim)] font-sans">/ {t('hr')}</span>
       </div>
     );

@@ -19,7 +19,17 @@ vi.mock('../../src/features/bookings/components/booking_modal/BookingOverlapWarn
 }));
 
 vi.mock('../../src/features/bookings/components/booking_modal/BookingPriceAccordion', () => ({
-  BookingPriceAccordion: () => <div data-testid="booking-price" />,
+  BookingPriceAccordion: ({
+    hourlyRateLabel,
+    totalLabel,
+  }: {
+    hourlyRateLabel: string;
+    totalLabel: string;
+  }) => (
+    <div data-testid="booking-price">
+      {hourlyRateLabel} · {totalLabel}
+    </div>
+  ),
 }));
 
 const selfOnly: ManagedParticipantOption = {
@@ -120,6 +130,47 @@ describe('AuthBookingForm participant picker', () => {
     expect(submit).toBeEnabled();
     await userEvent.click(submit);
     expect(handleSubmit).toHaveBeenCalled();
+  });
+
+  it('shows the canonical KZT hourly rate when the legacy rate conflicts', () => {
+    render(
+      <AuthBookingForm
+        workspace={createWorkspace({
+          targetInstructor: {
+            id: 'instructor_conflicting_rates',
+            name: 'Coach',
+            isAvailable: true,
+            pricePerHour: 60,
+            pricePerHourKZT: 30_000,
+          },
+          totalCost: 30_000,
+          duration: 1,
+        })}
+      />
+    );
+
+    expect(screen.getByTestId('booking-price')).toHaveTextContent('30000 / hr');
+    expect(screen.getByTestId('booking-price')).not.toHaveTextContent('$60');
+  });
+
+  it('shows no price and blocks submit when only the legacy rate exists', () => {
+    render(
+      <AuthBookingForm
+        workspace={createWorkspace({
+          targetInstructor: {
+            id: 'instructor_legacy_only',
+            name: 'Legacy Coach',
+            isAvailable: true,
+            pricePerHour: 60,
+          },
+          totalCost: 0,
+          duration: 1,
+        })}
+      />
+    );
+
+    expect(screen.getByTestId('booking-price')).toHaveTextContent('— / hr · —');
+    expect(screen.getByRole('button', { name: /payConfirmLesson/i })).toBeDisabled();
   });
 
   it('shows the picker and requires an explicit choice when two participants exist', () => {

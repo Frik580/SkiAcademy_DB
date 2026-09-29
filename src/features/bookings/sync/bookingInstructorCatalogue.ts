@@ -17,7 +17,9 @@ export function toBookingCatalogueInstructor(item: BookingInstructorCatalogueIte
     ...(item.bioRu ? { bioRu: item.bioRu } : {}),
     ...(item.bioEn ? { bioEn: item.bioEn } : {}),
     avatarUrl: item.avatarUrl ?? '',
-    pricePerHour: item.pricePerHour ?? item.pricePerHourKZT ?? 0,
+    // `pricePerHour` is retained on Instructor for compatibility, but current
+    // booking behavior must only receive the canonical KZT amount here.
+    pricePerHour: item.pricePerHourKZT ?? 0,
     ...(item.pricePerHourKZT !== undefined ? { pricePerHourKZT: item.pricePerHourKZT } : {}),
     isAvailable: item.isAvailable,
     ...(item.phoneNumber ? { phoneNumber: item.phoneNumber } : {}),

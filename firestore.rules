@@ -301,15 +301,6 @@ service cloud.firestore {
         email.lower() == request.auth.token.email.lower();
     }
 
-    function availabilityMigrationComplete() {
-      return exists(
-        /databases/$(database)/documents/settings/availability_slots_migration
-      ) &&
-      get(
-        /databases/$(database)/documents/settings/availability_slots_migration
-      ).data.complete == true;
-    }
-
     function bookingBlocksAvailability(booking) {
       return !booking.instructorId.matches('^course_.*') &&
         (!('isDeleted' in booking) || booking.isDeleted != true) &&
@@ -552,8 +543,7 @@ service cloud.firestore {
         !exists(/databases/$(database)/documents/bookings/$(bookingId)) ||
         isOwner(resource.data.userId) ||
         isAssignedInstructor(resource.data) ||
-        isMigratableClientBooking(resource.data) ||
-        (isAuthenticated() && !availabilityMigrationComplete());
+        isMigratableClientBooking(resource.data);
 
       // Booking documents are created by server Callables. Clients cannot insert bookings.
       allow create: if false;

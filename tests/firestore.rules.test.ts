@@ -22,6 +22,16 @@ import {
   where,
   writeBatch,
 } from 'firebase/firestore';
+import {
+  BookingIdSchema,
+  BookingSchema,
+  OccurrenceIdSchema,
+  ParticipantIdSchema,
+  InstructorIdSchema,
+  CorrelationIdSchema,
+  paymentIdFromBookingId,
+  timestampFromDate,
+} from '@ski-academy/shared-domain';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   PROD_COURSE_ID,
@@ -40,6 +50,7 @@ const ADMIN_ID = 'admin-1';
 const OWNER_ID = 'owner-1';
 const INSTRUCTOR_USER_ID = 'instructor-user-1';
 const INSTRUCTOR_USER_ID_2 = 'instructor-user-2';
+const CANONICAL_VICTIM_BOOKING_ID = 'booking_security_rule_01';
 
 let testEnv: RulesTestEnvironment;
 
@@ -57,6 +68,56 @@ const userProfile = (
   balanceUSD: 100,
   ...(systemRole ? { systemRole } : {}),
 });
+
+function canonicalVictimBooking() {
+  const bookingId = BookingIdSchema.parse(CANONICAL_VICTIM_BOOKING_ID);
+  const occurrenceId = OccurrenceIdSchema.parse('occurrence_security_rule_01');
+  const participantId = ParticipantIdSchema.parse('participant_security_rule_01');
+  const instructorId = InstructorIdSchema.parse('instructor_security_rule_01');
+  const correlationId = CorrelationIdSchema.parse('correlation_security_rule_01');
+  const startsAt = timestampFromDate(new Date('2026-12-01T09:00:00.000Z'));
+  const endsAt = timestampFromDate(new Date('2026-12-01T10:00:00.000Z'));
+  const createdAt = timestampFromDate(new Date('2026-11-01T00:00:00.000Z'));
+
+  return BookingSchema.parse({
+    bookingId,
+    attribution: {
+      bookingOrigin: 'admin',
+      bookedBy: { kind: 'account', accountId: OTHER_USER_ID },
+    },
+    party: { kind: 'individual', participantIds: [participantId] },
+    occurrence: {
+      occurrenceId,
+      instructorId,
+      interval: { startsAt, endsAt },
+      timeZone: 'Asia/Qyzylorda',
+      scheduleRevision: 1,
+      serviceParty: { participantIds: [participantId], frozenAt: startsAt },
+    },
+    lifecycle: { status: 'confirmed' },
+    paymentId: paymentIdFromBookingId(bookingId),
+    revision: 1,
+    createdAt,
+    updatedAt: createdAt,
+    audit: {
+      createdByCommandId: 'seed',
+      lastChangedByCommandId: 'seed',
+      correlationId,
+    },
+  });
+}
+
+async function bookingReadOutcome(operation: Promise<unknown>): Promise<string> {
+  try {
+    const result = await operation;
+    if (typeof result === 'object' && result !== null && 'size' in result) {
+      return `ALLOW(${String(result.size)})`;
+    }
+    return 'ALLOW';
+  } catch {
+    return 'DENY';
+  }
+}
 
 describe('/users account reads', () => {
   beforeEach(async () => {
@@ -257,6 +318,10 @@ describe('bookings', () => {
         ...userProfile(INSTRUCTOR_USER_ID, 'instructor@example.com'),
         instructorId: 'instructor-1',
       });
+      await setDoc(doc(db, 'users', INSTRUCTOR_USER_ID_2), {
+        ...userProfile(INSTRUCTOR_USER_ID_2, 'instructor-2@example.com'),
+        instructorId: 'instructor-2',
+      });
     });
   });
 
@@ -265,11 +330,14 @@ describe('bookings', () => {
     const ownerDb = testEnv.authenticatedContext(USER_ID).firestore();
     const otherDb = testEnv.authenticatedContext(OTHER_USER_ID).firestore();
     const instructorDb = testEnv.authenticatedContext(INSTRUCTOR_USER_ID).firestore();
+    const unrelatedInstructorDb = testEnv.authenticatedContext(INSTRUCTOR_USER_ID_2).firestore();
     const adminDb = testEnv.authenticatedContext(OWNER_ID).firestore();
 
     await assertFails(getDoc(doc(anonymousDb, 'bookings', 'booking-1')));
     await assertFails(getDoc(doc(otherDb, 'bookings', 'booking-1')));
     await assertSucceeds(getDoc(doc(ownerDb, 'bookings', 'booking-1')));
+    await assertSucceeds(getDoc(doc(instructorDb, 'bookings', 'booking-1')));
+    await assertFails(getDoc(doc(unrelatedInstructorDb, 'bookings', 'booking-1')));
     await assertFails(getDocs(collection(otherDb, 'bookings')));
     await assertSucceeds(
       getDocs(query(collection(ownerDb, 'bookings'), where('userId', '==', USER_ID)))
@@ -283,6 +351,81 @@ describe('bookings', () => {
     await assertSucceeds(getDoc(doc(anonymousDb, 'availability_slots', 'booking-1')));
     await assertSucceeds(
       getDoc(doc(anonymousDb, 'availability_hour_locks', 'instructor-1__2026-12-01__09:00'))
+    );
+  });
+
+  it('keeps canonical Booking reads private when the availability migration is missing or incomplete', async () => {
+    await seedData(async (context) => {
+      await setDoc(
+        doc(context.firestore(), 'bookings', CANONICAL_VICTIM_BOOKING_ID),
+        canonicalVictimBooking()
+      );
+    });
+
+    const states = [
+      { name: 'missing', document: undefined },
+      { name: 'false', document: { complete: false } },
+      { name: 'missing complete field', document: {} },
+      { name: 'null', document: { complete: null } },
+      { name: 'wrong type', document: { complete: 'true' } },
+      { name: 'true', document: { complete: true } },
+    ] as const;
+    const attackerDb = testEnv.authenticatedContext(USER_ID).firestore();
+    const anonymousDb = testEnv.unauthenticatedContext().firestore();
+    const ownerDb = testEnv.authenticatedContext(USER_ID).firestore();
+    const instructorDb = testEnv.authenticatedContext(INSTRUCTOR_USER_ID).firestore();
+    const unrelatedInstructorDb = testEnv.authenticatedContext(INSTRUCTOR_USER_ID_2).firestore();
+    const adminDb = testEnv.authenticatedContext(OWNER_ID).firestore();
+    const results: Record<string, Record<string, string>> = {};
+
+    for (const state of states) {
+      await seedData(async (context) => {
+        const migrationRef = doc(
+          context.firestore(),
+          'settings',
+          'availability_slots_migration'
+        );
+        if (state.document === undefined) {
+          await deleteDoc(migrationRef);
+        } else {
+          await setDoc(migrationRef, state.document);
+        }
+      });
+
+      results[state.name] = {
+        attackerGet: await bookingReadOutcome(
+          getDoc(doc(attackerDb, 'bookings', CANONICAL_VICTIM_BOOKING_ID))
+        ),
+        attackerList: await bookingReadOutcome(getDocs(collection(attackerDb, 'bookings'))),
+        anonymousGet: await bookingReadOutcome(
+          getDoc(doc(anonymousDb, 'bookings', CANONICAL_VICTIM_BOOKING_ID))
+        ),
+        ownerGet: await bookingReadOutcome(getDoc(doc(ownerDb, 'bookings', 'booking-1'))),
+        assignedInstructorGet: await bookingReadOutcome(
+          getDoc(doc(instructorDb, 'bookings', 'booking-1'))
+        ),
+        unrelatedInstructorGet: await bookingReadOutcome(
+          getDoc(doc(unrelatedInstructorDb, 'bookings', 'booking-1'))
+        ),
+        adminGet: await bookingReadOutcome(
+          getDoc(doc(adminDb, 'bookings', CANONICAL_VICTIM_BOOKING_ID))
+        ),
+        adminList: await bookingReadOutcome(getDocs(collection(adminDb, 'bookings'))),
+      };
+    }
+
+    const deniedState = {
+      attackerGet: 'DENY',
+      attackerList: 'DENY',
+      anonymousGet: 'DENY',
+      ownerGet: 'ALLOW',
+      assignedInstructorGet: 'ALLOW',
+      unrelatedInstructorGet: 'DENY',
+      adminGet: 'ALLOW',
+      adminList: 'ALLOW(2)',
+    };
+    expect(results).toEqual(
+      Object.fromEntries(states.map(({ name }) => [name, deniedState]))
     );
   });
 

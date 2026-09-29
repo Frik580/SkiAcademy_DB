@@ -28,7 +28,7 @@ export type ScheduleClient = Pick<UserProfile, 'uid' | 'displayName' | 'avatarUr
 
 export type ScheduleInstructor = Pick<
   Instructor,
-  'id' | 'name' | 'avatarUrl' | 'isAvailable' | 'pricePerHour'
+  'id' | 'name' | 'avatarUrl' | 'isAvailable' | 'specialty' | 'pricePerHourKZT'
 >;
 
 export type ScheduleCourse = Pick<

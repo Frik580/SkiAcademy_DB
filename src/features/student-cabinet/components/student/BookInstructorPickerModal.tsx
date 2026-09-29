@@ -5,6 +5,7 @@ import { Star, X } from 'lucide-react';
 import { Booking, Instructor, UserProfile } from '../../../../types';
 import { useLanguage, translateInstructor } from '../../../../app/providers/LanguageContext';
 import { useCurrency } from '../../../../app/providers/CurrencyContext';
+import { resolveInstructorHourlyRateKztForDisplay } from '../../../../domain/pricing';
 import { getInstructorPickerGroups } from './studentCabinetUtils';
 import { BodyScrollLock } from '../../../../ui/BodyScrollLock';
 
@@ -30,6 +31,10 @@ export const BookInstructorPickerModal: React.FC<BookInstructorPickerModalProps>
   const { language, t } = useLanguage();
   const { formatPrice } = useCurrency();
   const lang = language === 'ru' ? 'ru' : 'en';
+  const formatHourlyRateKzt = (instructor: Instructor) => {
+    const rate = resolveInstructorHourlyRateKztForDisplay(instructor);
+    return rate === undefined ? '—' : formatPrice(rate);
+  };
 
   const groups = useMemo(
     () =>
@@ -146,11 +151,7 @@ export const BookInstructorPickerModal: React.FC<BookInstructorPickerModalProps>
                                     <span>{t('instructorNoReviews')}</span>
                                   )}
                                   <span>
-                                    {instructor.pricePerHourKZT != null &&
-                                    Number.isFinite(instructor.pricePerHourKZT)
-                                      ? formatPrice(instructor.pricePerHourKZT)
-                                      : '—'}
-                                    /{t('hr')}
+                                    {formatHourlyRateKzt(instructor)}/{t('hr')}
                                   </span>
                                 </span>
                               </span>

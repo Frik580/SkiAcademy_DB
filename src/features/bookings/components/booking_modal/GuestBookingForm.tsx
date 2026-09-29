@@ -6,6 +6,7 @@ import { BOOKING_NOTES_FIELD_CLASS } from './bookingAppleFieldStyles';
 import { useCurrency } from '../../../../app/providers/CurrencyContext';
 import { ActionButton } from '../../../../ui/ActionButton';
 import { GuestReservationLimitAlert } from '../../../../ui/GuestReservationLimitAlert';
+import { resolveInstructorHourlyRateKztForDisplay } from '../../../../domain/pricing';
 
 interface GuestBookingFormProps {
   workspace: ReturnType<typeof useBookingModal>;
@@ -40,7 +41,6 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
     availableSlots,
     minBookingDateStr,
     isTimeSlotOccupied,
-    totalCost,
     targetInstructor,
     handleSubmitGuest,
     checkPreviousGuestStatus,
@@ -54,11 +54,10 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
 
   const labelStyle = 'flex items-center gap-1.5 text-xs text-[var(--ink-dim)] mb-1';
 
-  const totalFormatted = formatPrice(
-    targetInstructor?.pricePerHourKZT != null && Number.isFinite(targetInstructor.pricePerHourKZT)
-      ? targetInstructor.pricePerHourKZT * duration
-      : totalCost
-  );
+  const hourlyRateKzt = targetInstructor
+    ? resolveInstructorHourlyRateKztForDisplay(targetInstructor)
+    : undefined;
+  const totalFormatted = hourlyRateKzt === undefined ? '—' : formatPrice(hourlyRateKzt * duration);
 
   return (
     <form onSubmit={handleSubmitGuest} className="flex min-h-0 flex-1 flex-col">
@@ -180,7 +179,9 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
           type="submit"
           pending={isSubmitting}
           pendingLabel={t('submitting')}
-          disabled={isTimeSlotOccupied || !targetInstructor?.isAvailable}
+          disabled={
+            isTimeSlotOccupied || !targetInstructor?.isAvailable || hourlyRateKzt === undefined
+          }
           className="btn-primary w-full py-3"
         >
           <Send className="h-3.5 w-3.5" />

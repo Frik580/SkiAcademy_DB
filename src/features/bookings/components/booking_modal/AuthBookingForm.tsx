@@ -8,6 +8,7 @@ import { ParticipantPicker } from '../../../participants/components/ParticipantP
 import { BOOKING_NOTES_FIELD_CLASS } from './bookingAppleFieldStyles';
 import { useCurrency } from '../../../../app/providers/CurrencyContext';
 import { ActionButton } from '../../../../ui/ActionButton';
+import { resolveInstructorHourlyRateKztForDisplay } from '../../../../domain/pricing';
 import {
   isAuthenticatedBookingSubmitDisabled,
   resolveEffectiveParticipantIds,
@@ -61,11 +62,8 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
 
   if (!targetInstructor) return null;
 
-  const hourlyRateKzt =
-    targetInstructor.pricePerHourKZT != null && Number.isFinite(targetInstructor.pricePerHourKZT)
-      ? targetInstructor.pricePerHourKZT
-      : undefined;
-  const totalFormatted = formatPrice(totalCost);
+  const hourlyRateKzt = resolveInstructorHourlyRateKztForDisplay(targetInstructor);
+  const totalFormatted = hourlyRateKzt === undefined ? '—' : formatPrice(totalCost);
   const hourlyRateLabel =
     hourlyRateKzt != null ? `${formatPrice(hourlyRateKzt)} / ${t('hr')}` : `— / ${t('hr')}`;
 
@@ -86,6 +84,7 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
       clientActive: userProfile?.isClientActive !== false,
       selectedParticipantCount: effectiveParticipantIds.length,
     }) ||
+    hourlyRateKzt === undefined ||
     pricingSettingsLoading ||
     lessonSettingsUnavailable ||
     participantSelectionExceedsMax;

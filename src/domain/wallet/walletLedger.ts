@@ -247,7 +247,11 @@ export function buildWalletOperationHistory(
   ledgerEntries: WalletLedgerEntry[],
   language: 'en' | 'ru'
 ): WalletOperationView[] {
-  const fromLedger = ledgerEntries.map(ledgerEntryToView);
+  // Historical USD ledger rows remain in storage for compatibility, but this
+  // KZT wallet surface must not relabel their amounts or balances as ₸.
+  const fromLedger = ledgerEntries
+    .filter((entry) => entry.currency !== 'USD')
+    .map(ledgerEntryToView);
   const synthetic = buildSyntheticWalletOperations(
     userId,
     bookings,

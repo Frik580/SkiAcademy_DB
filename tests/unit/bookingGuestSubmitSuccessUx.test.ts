@@ -143,6 +143,41 @@ describe('booking modal submit success UX', () => {
     });
   });
 
+  it('shows the canonical KZT rate in the guest total when legacy data conflicts', async () => {
+    const props = createProps({
+      instructor: {
+        ...instructor,
+        pricePerHour: 60,
+        pricePerHourKZT: 30_000,
+      },
+    });
+    const { result } = renderHook(() => useBookingModal(props));
+    await waitForAvailableSlot(result);
+    const { container } = render(
+      React.createElement(GuestBookingForm, { workspace: result.current })
+    );
+
+    expect(container.textContent).toContain('60000');
+    expect(container.textContent).not.toContain('$60');
+    expect(container.textContent).not.toContain('60 ₸');
+  });
+
+  it('shows an unavailable guest total and disables submit without a KZT rate', async () => {
+    const props = createProps({
+      instructor: {
+        ...instructor,
+        pricePerHour: 60,
+        pricePerHourKZT: undefined,
+      },
+    });
+    const { result } = renderHook(() => useBookingModal(props));
+    await waitForAvailableSlot(result);
+    render(React.createElement(GuestBookingForm, { workspace: result.current }));
+
+    expect(screen.getByText('—')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /submitGuestApplication/i })).toBeDisabled();
+  });
+
   it('keeps the guest modal open with canonical pending data and accepts one request per click', async () => {
     const props = createProps();
     const { result } = renderHook(() => useBookingModal(props));

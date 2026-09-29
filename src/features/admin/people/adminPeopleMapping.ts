@@ -53,7 +53,8 @@ export function instructorListItemToInstructor(
     experienceYears: fallback?.experienceYears ?? 0,
     bio: fallback?.bio ?? '',
     avatarUrl: fallback?.avatarUrl ?? '',
-    pricePerHour: fallback?.pricePerHour ?? fallback?.pricePerHourKZT ?? 0,
+    // Keep the legacy Instructor property as a KZT mirror only.
+    pricePerHour: fallback?.pricePerHourKZT ?? 0,
     pricePerHourKZT: fallback?.pricePerHourKZT,
     phoneNumber: fallback?.phoneNumber,
     isAvailable: item.isAvailable,

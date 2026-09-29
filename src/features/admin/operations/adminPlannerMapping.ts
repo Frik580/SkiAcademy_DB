@@ -60,6 +60,7 @@ export function mapPlannerInstructors(model: AdminPlannerReadModel): Instructor[
     experienceYears: 0,
     bio: '',
     avatarUrl: instructor.avatarUrl ?? '',
+    // The old Instructor shape requires this field; keep it as a KZT mirror only.
     pricePerHour: instructor.pricePerHourKZT ?? 0,
     pricePerHourKZT: instructor.pricePerHourKZT,
     isAvailable: instructor.isAvailable,

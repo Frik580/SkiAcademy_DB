@@ -8,7 +8,9 @@ export function resolveInstructorHourlyRateKztForDisplay(instructor: {
   pricePerHourKZT?: number | null;
 }): number | undefined {
   const rate = instructor.pricePerHourKZT;
-  if (typeof rate === 'number' && Number.isFinite(rate) && rate > 0) return rate;
+  if (typeof rate === 'number' && Number.isFinite(rate) && Number.isInteger(rate) && rate > 0) {
+    return rate;
+  }
   return undefined;
 }
 

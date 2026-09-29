@@ -20,6 +20,7 @@ describe('courseDisplay', () => {
     expect(isLegacyCourseDocument(legacy)).toBe(true);
     const course = resolveCourseDocument('course_legacy_01', legacy);
     expect(course?.title).toBe('Legacy');
+    expect(course?.priceKZT).toBeUndefined();
   });
 
   it('merges canonical aggregate with catalog content for display', () => {

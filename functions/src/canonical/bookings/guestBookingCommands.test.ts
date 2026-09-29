@@ -8,6 +8,7 @@ import {
   CourseDayIdSchema,
   CourseIdSchema,
   CorrelationIdSchema,
+  GUEST_ACTION_TOKEN_VERSION,
   GUEST_ACTION_NONCE_TRANSPORT_KEY,
   GUEST_ACTION_SIGNATURE_TRANSPORT_KEY,
   InstructorIdSchema,
@@ -24,6 +25,7 @@ import {
   WalletSchema,
   systemCommandActor,
   resolveRefundDestination,
+  signGuestActionCredential,
   PaymentSchema,
   BookingSchema,
   type Booking,
@@ -334,7 +336,7 @@ describe('create_guest_booking_request command', () => {
     }
   });
 
-  it('authorizes guest_single reads with the returned credential', async () => {
+  it('rejects guest lesson status credential when guest action secret is unavailable', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(fixtureWithoutParticipant());
     const commands = runCommands(executor);
     const createResult = await commands.execute(
@@ -411,11 +413,43 @@ describe('create_guest_booking_request command', () => {
       guestStatusSignature: credential!.statusCredential!.signature,
       guestStatusExpiresAt: credential!.statusCredential!.expiresAt,
     };
+    const emptyKeyStatusSignature = signGuestActionCredential('', {
+      version: GUEST_ACTION_TOKEN_VERSION,
+      subjectKind: 'booking',
+      bookingId,
+      guestSubjectId,
+      purpose: 'read_reservation_status',
+      expiresAt: statusInput.guestStatusExpiresAt,
+      nonce: statusInput.guestStatusNonce,
+    });
+    for (const guestActionSecret of [undefined, '', '   ']) {
+      const emptyKeyStatusRead = await queryLessonBookingReadModels(
+        firestore,
+        {
+          ...statusInput,
+          guestStatusSignature: emptyKeyStatusSignature,
+        },
+        { guestActionSecret, now: new Date('2026-01-01T10:30:00.000Z') }
+      );
+      expect(emptyKeyStatusRead.items).toHaveLength(0);
+    }
+    const oldCredentialRead = await queryLessonBookingReadModels(firestore, statusInput, {
+      guestActionSecret: undefined,
+      now: new Date('2026-01-01T10:30:00.000Z'),
+    });
+    expect(oldCredentialRead.items).toHaveLength(0);
+
     const afterHold = await queryLessonBookingReadModels(firestore, statusInput, {
       guestActionSecret: tokenSecret,
       now: new Date('2026-01-01T12:30:00.000Z'),
     });
     expect(afterHold.items).toHaveLength(1);
+    const wrongStatusSignature = await queryLessonBookingReadModels(
+      firestore,
+      { ...statusInput, guestStatusSignature: 'a'.repeat(64) },
+      { guestActionSecret: tokenSecret, now: new Date('2026-01-01T10:30:00.000Z') }
+    );
+    expect(wrongStatusSignature.items).toHaveLength(0);
     const wrongStatusSubject = await queryLessonBookingReadModels(
       firestore,
       {

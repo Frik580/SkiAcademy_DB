@@ -65,6 +65,26 @@ describe('guestCallableTransportAdapter', () => {
     ).toThrow(HttpsError);
   });
 
+  it('treats missing, empty, and whitespace-only guest action secrets as unavailable', () => {
+    const previousSecret = process.env.GUEST_ACTION_TOKEN_SECRET;
+    try {
+      delete process.env.GUEST_ACTION_TOKEN_SECRET;
+      expect(readGuestActionTokenSecret()).toBeUndefined();
+
+      process.env.GUEST_ACTION_TOKEN_SECRET = '';
+      expect(readGuestActionTokenSecret()).toBeUndefined();
+
+      process.env.GUEST_ACTION_TOKEN_SECRET = '   ';
+      expect(readGuestActionTokenSecret()).toBeUndefined();
+    } finally {
+      if (previousSecret === undefined) {
+        delete process.env.GUEST_ACTION_TOKEN_SECRET;
+      } else {
+        process.env.GUEST_ACTION_TOKEN_SECRET = previousSecret;
+      }
+    }
+  });
+
   it('fails closed when a public creation has no trusted network evidence', async () => {
     vi.stubEnv('GUEST_ACTION_TOKEN_SECRET', 'test-guest-action-secret');
     const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);

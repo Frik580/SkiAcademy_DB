@@ -639,6 +639,11 @@ export async function queryCourseEnrollmentReadModels(
   }
 
   if (input.scope === 'guest_single') {
+    const guestActionSecret = options.guestActionSecret;
+    if (!guestActionSecret?.trim()) {
+      return { scope: input.scope, items: [], hasMore: false };
+    }
+
     const enrollmentId = input.enrollmentId!;
     const enrollmentSnap = await readContext.enrollment(enrollmentId);
     const enrollment = parseCourseEnrollment(
@@ -657,7 +662,7 @@ export async function queryCourseEnrollmentReadModels(
 
     const guestSubjectId = guestSubjectIdFromCourseEnrollmentId(enrollmentId);
     const verification = verifyGuestCourseEnrollmentActionCredentialPartsAuthoritative({
-      secret: options.guestActionSecret ?? '',
+      secret: guestActionSecret,
       nonce: input.guestActionNonce!,
       signature: input.guestActionSignature!,
       now,

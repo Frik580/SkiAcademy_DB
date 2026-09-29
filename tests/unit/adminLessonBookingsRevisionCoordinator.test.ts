@@ -60,7 +60,7 @@ describe('adminLessonBookingsRevisionCoordinator', () => {
     expect(listener).toHaveBeenCalledTimes(1);
   });
 
-  it('suppresses the listener refresh for the same-client command revision', () => {
+  it('notifies mounted consumers once for a command revision and deduplicates its snapshot', () => {
     let emitRevision: ((revision: number) => void) | undefined;
     subscribeMock.mockImplementation((onRevision: (revision: number) => void) => {
       emitRevision = onRevision;
@@ -71,11 +71,12 @@ describe('adminLessonBookingsRevisionCoordinator', () => {
 
     emitRevision?.(20);
     registerAdminLessonBookingsRevisionFromCommand(21);
+    expect(listener).toHaveBeenCalledTimes(1);
     emitRevision?.(21);
-    expect(listener).not.toHaveBeenCalled();
+    expect(listener).toHaveBeenCalledTimes(1);
 
     emitRevision?.(22);
-    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenCalledTimes(2);
   });
 
   it('does not register a fake revision from a failed command payload', () => {

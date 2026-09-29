@@ -5,6 +5,8 @@ type AdminLessonBookingsRevisionListener = () => void;
 
 const listeners = new Set<AdminLessonBookingsRevisionListener>();
 let revisionState: { initialized: boolean; lastRevision?: number } = { initialized: false };
+// Snapshot baselines and globally delivered invalidations are separate facts.
+let lastNotifiedRevision: number | undefined;
 let unsubscribeRevision: (() => void) | undefined;
 
 function ensureRevisionSubscription(): void {
@@ -16,6 +18,7 @@ function ensureRevisionSubscription(): void {
       lastRevision: reduced.lastRevision,
     };
     if (!reduced.shouldRefresh) return;
+    lastNotifiedRevision = Math.max(lastNotifiedRevision ?? nextRevision, nextRevision);
     for (const listener of listeners) {
       listener();
     }
@@ -27,6 +30,7 @@ function teardownRevisionSubscriptionIfIdle(): void {
   unsubscribeRevision();
   unsubscribeRevision = undefined;
   revisionState = { initialized: false };
+  lastNotifiedRevision = undefined;
 }
 
 export function registerAdminLessonBookingsRevisionListener(
@@ -44,10 +48,20 @@ export function registerAdminLessonBookingsRevisionFromCommand(
   adminLessonBookingsRevision: number | undefined
 ): void {
   if (adminLessonBookingsRevision === undefined) return;
+  if (lastNotifiedRevision !== undefined && adminLessonBookingsRevision <= lastNotifiedRevision)
+    return;
   revisionState = {
     initialized: revisionState.initialized,
-    lastRevision: adminLessonBookingsRevision,
+    lastRevision: Math.max(
+      revisionState.lastRevision ?? adminLessonBookingsRevision,
+      adminLessonBookingsRevision
+    ),
   };
+  if (listeners.size === 0) return;
+  lastNotifiedRevision = adminLessonBookingsRevision;
+  for (const listener of listeners) {
+    listener();
+  }
 }
 
 export function resetAdminLessonBookingsRevisionCoordinatorForTests(): void {
@@ -55,4 +69,5 @@ export function resetAdminLessonBookingsRevisionCoordinatorForTests(): void {
   unsubscribeRevision?.();
   unsubscribeRevision = undefined;
   revisionState = { initialized: false };
+  lastNotifiedRevision = undefined;
 }

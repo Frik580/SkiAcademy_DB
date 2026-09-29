@@ -5,6 +5,8 @@ type AdminIssueInboxRevisionListener = () => void;
 
 const listeners = new Set<AdminIssueInboxRevisionListener>();
 let revisionState: { initialized: boolean; lastRevision?: number } = { initialized: false };
+// Snapshot baselines and globally delivered invalidations are separate facts.
+let lastNotifiedRevision: number | undefined;
 let unsubscribeRevision: (() => void) | undefined;
 
 function ensureRevisionSubscription(): void {
@@ -16,6 +18,7 @@ function ensureRevisionSubscription(): void {
       lastRevision: reduced.lastRevision,
     };
     if (!reduced.shouldRefresh) return;
+    lastNotifiedRevision = Math.max(lastNotifiedRevision ?? nextRevision, nextRevision);
     for (const listener of listeners) {
       listener();
     }
@@ -27,6 +30,7 @@ function teardownRevisionSubscriptionIfIdle(): void {
   unsubscribeRevision();
   unsubscribeRevision = undefined;
   revisionState = { initialized: false };
+  lastNotifiedRevision = undefined;
 }
 
 export function registerAdminIssueInboxRevisionListener(
@@ -44,10 +48,19 @@ export function registerAdminIssueInboxRevisionFromCommand(
   adminIssueInboxRevision: number | undefined
 ): void {
   if (adminIssueInboxRevision === undefined) return;
+  if (lastNotifiedRevision !== undefined && adminIssueInboxRevision <= lastNotifiedRevision) return;
   revisionState = {
     initialized: revisionState.initialized,
-    lastRevision: adminIssueInboxRevision,
+    lastRevision: Math.max(
+      revisionState.lastRevision ?? adminIssueInboxRevision,
+      adminIssueInboxRevision
+    ),
   };
+  if (listeners.size === 0) return;
+  lastNotifiedRevision = adminIssueInboxRevision;
+  for (const listener of listeners) {
+    listener();
+  }
 }
 
 export function resetAdminIssueInboxRevisionCoordinatorForTests(): void {
@@ -55,4 +68,5 @@ export function resetAdminIssueInboxRevisionCoordinatorForTests(): void {
   unsubscribeRevision?.();
   unsubscribeRevision = undefined;
   revisionState = { initialized: false };
+  lastNotifiedRevision = undefined;
 }

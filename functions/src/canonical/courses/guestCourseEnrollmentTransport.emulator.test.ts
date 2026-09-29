@@ -7,6 +7,7 @@ import {
   CourseDayIdSchema,
   CourseEnrollmentIdSchema,
   CourseIdSchema,
+  GUEST_ACTION_TOKEN_VERSION,
   GUEST_ACTION_NONCE_TRANSPORT_KEY,
   GUEST_ACTION_SIGNATURE_TRANSPORT_KEY,
   InstructorIdSchema,
@@ -16,6 +17,7 @@ import {
   guestCommandActor,
   guestSubjectIdFromCourseEnrollmentId,
   systemCommandActor,
+  signGuestCourseEnrollmentActionCredential,
   timestampFromDate,
   type CommandEnvelope,
   type CourseEnrollmentId,
@@ -512,6 +514,49 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
     );
     expect(expired.items).toHaveLength(0);
   });
+
+  it('rejects guest course status credential when guest action secret is unavailable', async () => {
+    const commands = createCommands();
+    const result = await commands.execute(guestEnrollmentEnvelope('idem-guest-course-missing-secret'));
+    expect(result.status).toBe('success');
+    const credential =
+      result.status === 'success' ? result.payload?.guestLinkCredentials?.[0] : undefined;
+    expect(credential).toBeDefined();
+
+    const courseSnap = await firestore.doc(`courses/${courseId}`).get();
+    const course = parseCourse(courseSnap.data() as Record<string, unknown> | undefined);
+    expect(course).toBeDefined();
+    const expiresAt = course!.scheduleProjection.finalCourseDayEndsAt;
+    const emptyKeySignature = signGuestCourseEnrollmentActionCredential('', {
+      version: GUEST_ACTION_TOKEN_VERSION,
+      subjectKind: 'course_enrollment',
+      enrollmentId,
+      guestSubjectId,
+      purpose: 'link_guest_course_enrollment',
+      expiresAt,
+      nonce: credential!.nonce,
+    });
+
+    const emptyKeyReadInput = {
+      scope: 'guest_single' as const,
+      enrollmentId,
+      guestActionNonce: credential!.nonce,
+      guestActionSignature: emptyKeySignature,
+    };
+    for (const guestActionSecret of [undefined, '', '   ']) {
+      const read = await queryCourseEnrollmentReadModels(firestore, emptyKeyReadInput, {
+        guestActionSecret,
+        now: new Date('2026-01-01T00:00:00.000Z'),
+      });
+      expect(read.items).toHaveLength(0);
+    }
+    const oldCredentialRead = await queryCourseEnrollmentReadModels(
+      firestore,
+      { ...emptyKeyReadInput, guestActionSignature: credential!.signature },
+      { guestActionSecret: undefined, now: new Date('2026-01-01T00:00:00.000Z') }
+    );
+    expect(oldCredentialRead.items).toHaveLength(0);
+  }, 30_000);
 
   it('cancels an unpaid guest hold with one canonical write-off and one seat release', async () => {
     const commands = createCommands();

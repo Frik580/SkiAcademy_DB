@@ -7,6 +7,7 @@ import {
   AggregateRevisionSchema,
   BookingIdSchema,
   CorrelationIdSchema,
+  GUEST_ACTION_TOKEN_VERSION,
   InstructorIdSchema,
   ParticipantIdSchema,
   ParticipantManagementIdSchema,
@@ -16,6 +17,7 @@ import {
   guestParticipantTransportMetadataFromProfile,
   guestSubjectIdFromBookingId,
   paymentIdFromBookingId,
+  signGuestActionCredential,
   timestampFromDate,
   type CommandEnvelope,
 } from '@ski-academy/shared-domain';
@@ -379,7 +381,7 @@ describe.skipIf(!runsOnFirestoreEmulator)(
       expect(detail.items[0]?.admin?.authorizedActions.canDirectCancel).toBe(true);
     }, 30_000);
 
-    it('guest create provisions participant, returns credential, and authorizes guest_single reads', async () => {
+    it('rejects guest lesson status credential when guest action secret is unavailable', async () => {
       await seedInstructor();
       const commands = createCommands('2026-01-01T10:00:00.000Z');
       const createResult = await commands.execute(
@@ -406,6 +408,42 @@ describe.skipIf(!runsOnFirestoreEmulator)(
       expect(authorized.items).toHaveLength(1);
       expect(authorized.items[0]?.bookingId).toBe(guestBookingId);
       expect(authorized.items[0]?.guestPaymentSummary?.unpaidCancellationEligible).toBe(true);
+
+      const statusCredential = credential!.statusCredential;
+      expect(statusCredential).toBeDefined();
+      const emptyKeySignature = signGuestActionCredential('', {
+        version: GUEST_ACTION_TOKEN_VERSION,
+        subjectKind: 'booking',
+        bookingId: guestBookingId,
+        guestSubjectId: guestSubjectIdFromBookingId(guestBookingId),
+        purpose: 'read_reservation_status',
+        expiresAt: statusCredential!.expiresAt,
+        nonce: statusCredential!.nonce,
+      });
+      const emptyKeyStatusInput = {
+        scope: 'guest_single' as const,
+        bookingId: guestBookingId,
+        guestStatusNonce: statusCredential!.nonce,
+        guestStatusSignature: emptyKeySignature,
+        guestStatusExpiresAt: statusCredential!.expiresAt,
+      };
+      for (const guestActionSecret of [undefined, '', '   ']) {
+        const emptyKeyStatusRead = await queryLessonBookingReadModels(
+          firestore,
+          emptyKeyStatusInput,
+          { guestActionSecret, now: new Date('2026-01-01T10:30:00.000Z') }
+        );
+        expect(emptyKeyStatusRead.items).toHaveLength(0);
+      }
+      const oldCredentialRead = await queryLessonBookingReadModels(
+        firestore,
+        {
+          ...emptyKeyStatusInput,
+          guestStatusSignature: statusCredential!.signature,
+        },
+        { guestActionSecret: undefined, now: new Date('2026-01-01T10:30:00.000Z') }
+      );
+      expect(oldCredentialRead.items).toHaveLength(0);
 
       const wrongSubject = await queryLessonBookingReadModels(
         firestore,

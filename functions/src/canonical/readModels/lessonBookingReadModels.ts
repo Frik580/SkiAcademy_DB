@@ -1559,6 +1559,11 @@ export async function queryLessonBookingReadModels(
   }
 
   if (input.scope === 'guest_single') {
+    const guestActionSecret = options.guestActionSecret;
+    if (!guestActionSecret?.trim()) {
+      return { scope: input.scope, items: [], hasMore: false };
+    }
+
     const bookingId = input.bookingId!;
     const bookingSnap = await readContext.booking(bookingId);
     const booking = parseBooking(bookingSnap.data() as Record<string, unknown> | undefined);
@@ -1571,7 +1576,7 @@ export async function queryLessonBookingReadModels(
       input.guestStatusNonce && input.guestStatusSignature && input.guestStatusExpiresAt
     );
     const verification = verifyGuestActionCredentialPartsAuthoritative({
-      secret: options.guestActionSecret ?? '',
+      secret: guestActionSecret,
       nonce: useStatusCredential ? input.guestStatusNonce! : input.guestActionNonce!,
       signature: useStatusCredential ? input.guestStatusSignature! : input.guestActionSignature!,
       now,

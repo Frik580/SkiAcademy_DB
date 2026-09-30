@@ -226,6 +226,12 @@ describe('CanonicalCoursesManager lifecycle pagination', () => {
     renderManager();
 
     await screen.findByText('Active A');
+    const row = screen.getByText('Active A').closest('[data-admin-course-row]');
+    expect(row?.className).toContain('rounded-[var(--radius-md)]');
+    expect(row?.className).toContain('border-l-[3px]');
+    expect(screen.getByRole('region', { name: 'Course catalog' }).className).toContain(
+      'bg-[var(--card-bg)]'
+    );
     expect(queryAdminCourseReadModels).toHaveBeenCalledTimes(1);
     expect(queryAdminCourseReadModels).toHaveBeenCalledWith({
       scope: 'admin_course_list',
@@ -387,6 +393,7 @@ describe('CanonicalCoursesManager lifecycle pagination', () => {
     });
     renderManager();
     await screen.findByText('Archivable course');
+    await userEvent.click(screen.getByRole('button', { name: 'Course actions' }));
     await userEvent.click(screen.getByTitle('Archive course'));
 
     await screen.findByText('No active courses yet.');

@@ -547,7 +547,9 @@ describe('CanonicalCoursesManager structured edit regressions', () => {
       })
     );
     expect(screen.getAllByText(/Inactive Coach.*inactive/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(dayId)).toBeInTheDocument();
+    expect(screen.getByText(dayId).closest('article')?.className).toContain(
+      'rounded-[var(--radius-md)]'
+    );
     expect(executeAuthenticatedCanonicalCommand).not.toHaveBeenCalled();
   });
 

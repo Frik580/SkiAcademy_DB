@@ -1,5 +1,17 @@
-import React from 'react';
-import { Copy, Edit2, Eye, EyeOff, Info, RotateCcw, Trash2, ArrowDown, ArrowUp } from 'lucide-react';
+import React, { useState } from 'react';
+import {
+  ArrowDown,
+  ArrowUp,
+  ChevronRight,
+  Copy,
+  Edit2,
+  Ellipsis,
+  Eye,
+  EyeOff,
+  Info,
+  RotateCcw,
+  Trash2,
+} from 'lucide-react';
 import type { Course, Instructor } from '../../../../types';
 import {
   translateCourse,
@@ -7,6 +19,8 @@ import {
   type Language,
   type TranslationKey,
 } from '../../../../app/providers/LanguageContext';
+import { ActionButton } from '../../../../ui/ActionButton';
+import { AdminCourseStatusChip, adminRecordCardClass } from './adminCourseSurface';
 
 interface CanonicalCourseDatabaseListProps {
   courses: Course[];
@@ -14,6 +28,7 @@ interface CanonicalCourseDatabaseListProps {
   language: Language;
   t: (key: TranslationKey) => string;
   selectedCourseId?: string | null;
+  lifecycle: 'active' | 'archived';
   onToggleVisibility: (course: Course) => void;
   onEdit: (course: Course) => void;
   onView?: (course: Course) => void;
@@ -31,7 +46,11 @@ interface CanonicalCourseDatabaseListProps {
   canMove?: (course: Course) => boolean;
   detailsLabel?: string;
   reactivateLabel?: string;
+  actionsLabel?: string;
 }
+
+const menuItemClass =
+  'flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-[var(--ink)] hover:bg-[var(--accent-muted)] disabled:opacity-40';
 
 export const CanonicalCourseDatabaseList: React.FC<CanonicalCourseDatabaseListProps> = ({
   courses,
@@ -39,6 +58,7 @@ export const CanonicalCourseDatabaseList: React.FC<CanonicalCourseDatabaseListPr
   language,
   t,
   selectedCourseId,
+  lifecycle,
   onToggleVisibility,
   onEdit,
   onView,
@@ -56,6 +76,7 @@ export const CanonicalCourseDatabaseList: React.FC<CanonicalCourseDatabaseListPr
   canMove,
   detailsLabel = 'Details',
   reactivateLabel = 'Restore',
+  actionsLabel = 'Course actions',
 }) => {
   const sorted = [...courses].sort((a, b) => {
     const orderA = a.order !== undefined ? a.order : 999;
@@ -63,12 +84,10 @@ export const CanonicalCourseDatabaseList: React.FC<CanonicalCourseDatabaseListPr
     if (orderA !== orderB) return orderA - orderB;
     return a.title.localeCompare(b.title);
   });
-
-  const quietAction =
-    'inline-flex h-6 w-6 items-center justify-center text-[var(--ink-dim)] hover:text-[var(--ink)] disabled:opacity-30';
+  const ru = language === 'ru';
 
   return (
-    <ul className="divide-y divide-[var(--border)]">
+    <div className="space-y-2">
       {sorted.map((course, idx) => {
         const translated = translateCourse(course, language);
         const lead = course.instructorIds
@@ -79,33 +98,63 @@ export const CanonicalCourseDatabaseList: React.FC<CanonicalCourseDatabaseListPr
           .join('');
         const selected = selectedCourseId === course.id;
         const occupied = Math.max(0, course.totalSeats - course.availableSeats);
+        const full = course.availableSeats <= 0;
         const secondary = [translated.dates, lead].filter(Boolean).join(' · ');
+        const archiveLabel = archiveInsteadOfDelete ? t('archiveCourse') : t('deleteCourse');
         return (
-          <li key={course.id}>
-            <div
-              className={`group px-3 py-2.5 ${
-                selected ? 'bg-[var(--accent-muted)] shadow-[inset_3px_0_0_var(--accent)]' : ''
-              }`}
+          <article
+            key={course.id}
+            data-admin-course-row
+            className={`${adminRecordCardClass} border-l-transparent ${
+              full ? 'border-l-amber-500 bg-amber-500/[0.055]' : ''
+            } ${selected ? 'ring-1 ring-[var(--accent)] ring-offset-1 ring-offset-[var(--bg)]' : ''}`}
+          >
+            <button
+              type="button"
+              className="group w-full text-left"
+              onClick={() => onView?.(course)}
             >
-              <button
-                type="button"
-                className="grid w-full grid-cols-[minmax(0,1fr)_5.5rem] items-start gap-x-3 text-left"
-                onClick={() => onView?.(course)}
-              >
-                <span className="truncate text-sm font-semibold text-[var(--ink)]">{translated.title}</span>
-                <span className="text-right font-mono text-xs text-[var(--ink)]">
-                  {course.priceKZT != null ? `${course.priceKZT.toLocaleString()} ₸` : '—'}
-                </span>
-                <span className="truncate text-[11px] text-[var(--ink-dim)]">{secondary || '—'}</span>
-                <span className="text-right text-[10px] text-[var(--ink-dim)]">
-                  {occupied}/{course.totalSeats}
-                </span>
-              </button>
-              <div className="mt-1 flex flex-wrap items-center gap-0.5 opacity-70 group-hover:opacity-100 group-focus-within:opacity-100">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="break-words text-sm font-semibold text-[var(--ink)]">
+                    {translated.title}
+                  </p>
+                  {secondary ? (
+                    <p className="mt-1 break-words text-xs text-[var(--ink-dim)]">{secondary}</p>
+                  ) : null}
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[var(--ink-dim)]">
+                    <span className="font-mono font-medium text-[var(--ink)]">
+                      {course.priceKZT != null ? `${course.priceKZT.toLocaleString()} ₸` : '—'}
+                    </span>
+                    <span aria-hidden="true">·</span>
+                    <span>
+                      {occupied}/{course.totalSeats}
+                    </span>
+                  </div>
+                </div>
+                <ChevronRight
+                  className="mt-0.5 h-4 w-4 shrink-0 text-[var(--ink-dim)] transition-transform group-hover:translate-x-0.5"
+                  aria-hidden="true"
+                />
+              </div>
+            </button>
+            <div className="mt-3 flex flex-wrap items-center gap-1.5">
+              <AdminCourseStatusChip tone={lifecycle === 'archived' ? 'archived' : 'active'}>
+                {lifecycle === 'archived' ? (ru ? 'Архив' : 'Archived') : ru ? 'Активный' : 'Active'}
+              </AdminCourseStatusChip>
+              {full ? (
+                <AdminCourseStatusChip tone="attention">
+                  {ru ? 'Мест нет' : 'Full'}
+                </AdminCourseStatusChip>
+              ) : null}
+              {course.isHidden && lifecycle !== 'archived' ? (
+                <AdminCourseStatusChip tone="neutral">{t('hiddenLabel')}</AdminCourseStatusChip>
+              ) : null}
+              <div className="ml-auto flex flex-wrap items-center gap-1">
                 {canView?.(course) && onView ? (
                   <button
                     type="button"
-                    className={quietAction}
+                    className="inline-flex h-7 w-7 items-center justify-center text-[var(--ink-dim)] hover:text-[var(--ink)]"
                     title={detailsLabel}
                     aria-label={detailsLabel}
                     onClick={() => onView(course)}
@@ -113,21 +162,10 @@ export const CanonicalCourseDatabaseList: React.FC<CanonicalCourseDatabaseListPr
                     <Info className="h-3.5 w-3.5" />
                   </button>
                 ) : null}
-                {canToggleVisibility?.(course) ? (
-                  <button
-                    type="button"
-                    className={quietAction}
-                    title={course.isHidden ? t('showCourse') : t('hideCourse')}
-                    aria-label={course.isHidden ? t('showCourse') : t('hideCourse')}
-                    onClick={() => onToggleVisibility(course)}
-                  >
-                    {course.isHidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                  </button>
-                ) : null}
                 {canEdit?.(course) ? (
                   <button
                     type="button"
-                    className={quietAction}
+                    className="inline-flex h-7 w-7 items-center justify-center text-[var(--ink-dim)] hover:text-[var(--ink)]"
                     title={t('editCourse')}
                     aria-label={t('editCourse')}
                     onClick={() => onEdit(course)}
@@ -135,68 +173,133 @@ export const CanonicalCourseDatabaseList: React.FC<CanonicalCourseDatabaseListPr
                     <Edit2 className="h-3.5 w-3.5" />
                   </button>
                 ) : null}
-                {canClone?.(course) ? (
-                  <button
-                    type="button"
-                    className={quietAction}
-                    title={t('cloneCourse')}
-                    aria-label={t('cloneCourse')}
-                    onClick={() => onClone(course)}
-                  >
-                    <Copy className="h-3.5 w-3.5" />
-                  </button>
-                ) : null}
-                {canArchive?.(course) ? (
-                  <button
-                    type="button"
-                    className={quietAction}
-                    title={archiveInsteadOfDelete ? t('archiveCourse') : t('deleteCourse')}
-                    aria-label={archiveInsteadOfDelete ? t('archiveCourse') : t('deleteCourse')}
-                    onClick={() => onDelete(course)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                ) : null}
                 {canReactivate?.(course) && onReactivate ? (
-                  <button
+                  <ActionButton
                     type="button"
-                    className={quietAction}
+                    size="sm"
+                    variant="secondary"
                     title={reactivateLabel}
                     aria-label={reactivateLabel}
                     onClick={() => onReactivate(course)}
                   >
                     <RotateCcw className="h-3.5 w-3.5" />
-                  </button>
+                    {reactivateLabel}
+                  </ActionButton>
                 ) : null}
-                {canMove?.(course) ? (
-                  <>
-                    <button
-                      type="button"
-                      className={quietAction}
-                      title={t('moveUp')}
-                      aria-label={t('moveUp')}
-                      disabled={idx === 0}
-                      onClick={() => onMove(course, 'up')}
-                    >
-                      <ArrowUp className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      className={quietAction}
-                      title={t('moveDown')}
-                      aria-label={t('moveDown')}
-                      disabled={idx === sorted.length - 1}
-                      onClick={() => onMove(course, 'down')}
-                    >
-                      <ArrowDown className="h-3.5 w-3.5" />
-                    </button>
-                  </>
-                ) : null}
+                <CourseRowMenu
+                  label={actionsLabel}
+                  items={[
+                    canToggleVisibility?.(course)
+                      ? {
+                          key: 'visibility',
+                          label: course.isHidden ? t('showCourse') : t('hideCourse'),
+                          icon: course.isHidden ? (
+                            <EyeOff className="h-3.5 w-3.5" />
+                          ) : (
+                            <Eye className="h-3.5 w-3.5" />
+                          ),
+                          onClick: () => onToggleVisibility(course),
+                        }
+                      : null,
+                    canClone?.(course)
+                      ? {
+                          key: 'clone',
+                          label: t('cloneCourse'),
+                          icon: <Copy className="h-3.5 w-3.5" />,
+                          onClick: () => onClone(course),
+                        }
+                      : null,
+                    canArchive?.(course)
+                      ? {
+                          key: 'archive',
+                          label: archiveLabel,
+                          destructive: true,
+                          icon: <Trash2 className="h-3.5 w-3.5" />,
+                          onClick: () => onDelete(course),
+                        }
+                      : null,
+                    canMove?.(course)
+                      ? {
+                          key: 'up',
+                          label: t('moveUp'),
+                          disabled: idx === 0,
+                          icon: <ArrowUp className="h-3.5 w-3.5" />,
+                          onClick: () => onMove(course, 'up'),
+                        }
+                      : null,
+                    canMove?.(course)
+                      ? {
+                          key: 'down',
+                          label: t('moveDown'),
+                          disabled: idx === sorted.length - 1,
+                          icon: <ArrowDown className="h-3.5 w-3.5" />,
+                          onClick: () => onMove(course, 'down'),
+                        }
+                      : null,
+                  ]}
+                />
               </div>
             </div>
-          </li>
+          </article>
         );
       })}
-    </ul>
+    </div>
   );
 };
+
+function CourseRowMenu({
+  label,
+  items,
+}: {
+  readonly label: string;
+  readonly items: ReadonlyArray<
+    | {
+        readonly key: string;
+        readonly label: string;
+        readonly icon?: React.ReactNode;
+        readonly destructive?: boolean;
+        readonly disabled?: boolean;
+        readonly onClick: () => void;
+      }
+    | null
+  >;
+}) {
+  const [open, setOpen] = useState(false);
+  const visible = items.filter((item): item is NonNullable<typeof item> => item !== null);
+  if (visible.length === 0) return null;
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        className="inline-flex h-7 w-7 items-center justify-center text-[var(--ink-dim)] hover:text-[var(--ink)]"
+        aria-label={label}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <Ellipsis className="h-4 w-4" />
+      </button>
+      {open ? (
+        <div className="absolute right-0 z-20 mt-1 min-w-44 border border-[var(--border)] bg-[var(--card-bg)] py-1 shadow-lg">
+          {visible.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              className={`${menuItemClass} ${item.destructive ? 'text-rose-700 dark:text-rose-300' : ''}`}
+              title={item.label}
+              aria-label={item.label}
+              disabled={item.disabled}
+              onClick={() => {
+                setOpen(false);
+                item.onClick();
+              }}
+            >
+              {item.icon}
+              {item.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}

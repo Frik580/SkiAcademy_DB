@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import type { AdminCourseReadModel } from '@ski-academy/shared-domain';
 import { Ellipsis, Plus } from 'lucide-react';
+import { ActionButton } from '../../../../ui/ActionButton';
 import { localDateTimeFromTimestamp } from '../../operations/adminTimeZone';
 import { formatAdminCourseDayLocalDate } from './adminCourseTableMapping';
+import { AdminCourseStatusChip, adminRecordCardClass } from './adminCourseSurface';
 import {
   CanonicalCourseDayForm,
   type CourseDayDraft,
@@ -233,9 +235,10 @@ export const CanonicalCourseDaysEditor: React.FC<CanonicalCourseDaysEditorProps>
           </p>
         </div>
         {can('create_course_day') ? (
-          <button
+          <ActionButton
             type="button"
-            className="ui-btn inline-flex items-center gap-1"
+            size="sm"
+            variant="secondary"
             onClick={() =>
               onDraftChange({
                 kind: 'create_course_day',
@@ -248,7 +251,7 @@ export const CanonicalCourseDaysEditor: React.FC<CanonicalCourseDaysEditorProps>
           >
             <Plus className="h-3.5 w-3.5" />
             {ru ? 'Добавить день' : 'Add day'}
-          </button>
+          </ActionButton>
         ) : null}
       </div>
 
@@ -267,11 +270,13 @@ export const CanonicalCourseDaysEditor: React.FC<CanonicalCourseDaysEditorProps>
       ) : null}
 
       {ordered.length === 0 ? (
-        <p className="text-xs text-[var(--ink-dim)]">{emptyLabel}</p>
+        <p className="border border-dashed border-[var(--border)] p-8 text-center text-xs text-[var(--ink-dim)]">
+          {emptyLabel}
+        </p>
       ) : compact ? (
         <div className="text-xs">
           <div>
-            <div className="hidden gap-2 py-1 text-[10px] uppercase tracking-wide text-[var(--ink-dim)] md:grid md:grid-cols-[2.5rem_6.5rem_8rem_5.5rem_minmax(8rem,1fr)_7rem_2.5rem]">
+            <div className="hidden gap-2 border-b border-[var(--border)] py-2 text-[10px] font-medium uppercase tracking-wide text-[var(--ink-dim)] md:grid md:grid-cols-[2.5rem_6.5rem_8rem_5.5rem_minmax(8rem,1fr)_7rem_2.5rem]">
               <span>{ru ? 'День' : 'Day'}</span>
               <span>{ru ? 'Дата' : 'Date'}</span>
               <span>{ru ? 'Время' : 'Time'}</span>
@@ -393,7 +398,7 @@ const DayLine: React.FC<{
   );
   if (compact) {
     return (
-      <div className="grid grid-cols-1 gap-1 border-t border-[var(--border)] py-2 md:grid-cols-[2.5rem_6.5rem_8rem_5.5rem_minmax(8rem,1fr)_7rem_2.5rem] md:items-center md:gap-2">
+      <div className="grid grid-cols-1 gap-1 border-t border-[var(--border)] py-2.5 md:grid-cols-[2.5rem_6.5rem_8rem_5.5rem_minmax(8rem,1fr)_7rem_2.5rem] md:items-center md:gap-2 md:hover:bg-[var(--accent-muted)]">
         <span>{day.dayOrder}</span>
         <span>
           <span className="block">{formatAdminCourseDayLocalDate(day)}</span>
@@ -402,10 +407,12 @@ const DayLine: React.FC<{
         <span>{range}</span>
         <span>{ru ? `${minutes} мин` : `${minutes} min`}</span>
         <span className="truncate">{instructorName}</span>
-        <span className={issue || instructorInactive ? 'text-amber-500' : 'text-[var(--ink-dim)]'}>
-          {status}
+        <span>
+          <AdminCourseStatusChip tone={issue || instructorInactive ? 'attention' : 'info'}>
+            {status}
+          </AdminCourseStatusChip>
           {issue ? (
-            <span role="alert" className="mt-0.5 block normal-case tracking-normal text-amber-500">
+            <span role="alert" className="mt-0.5 block text-[11px] text-amber-800 dark:text-amber-200">
               {issue}
             </span>
           ) : null}
@@ -415,7 +422,7 @@ const DayLine: React.FC<{
     );
   }
   return (
-    <article className="space-y-2 py-3">
+    <article className={`${adminRecordCardClass} space-y-2 border-l-transparent`}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-baseline gap-x-3">
@@ -432,9 +439,9 @@ const DayLine: React.FC<{
           <p className="mt-1 text-xs text-[var(--ink-dim)]">{instructorName}</p>
           <p className="font-mono text-[10px] text-[var(--ink-dim)]">{day.courseDayId}</p>
         </div>
-        <span className={`text-[11px] ${issue || instructorInactive ? 'text-amber-500' : 'text-[var(--ink-dim)]'}`}>
+        <AdminCourseStatusChip tone={issue || instructorInactive ? 'attention' : 'info'}>
           {status}
-        </span>
+        </AdminCourseStatusChip>
       </div>
       {issue ? (
         <p role="alert" className="text-xs text-amber-500">

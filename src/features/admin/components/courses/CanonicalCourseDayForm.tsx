@@ -1,6 +1,7 @@
 import React from 'react';
 import type { AdminCourseReadModel } from '@ski-academy/shared-domain';
 import { ActionButton } from '../../../../ui/ActionButton';
+import { adminFormControls } from './adminCourseSurface';
 
 export interface CourseDayDraft {
   readonly kind: 'create_course_day' | 'reassign_course_day_instructor' | 'reschedule_course_day';
@@ -54,10 +55,10 @@ export const CanonicalCourseDayForm: React.FC<CanonicalCourseDayFormProps> = ({
           ? 'Перенести день'
           : 'Reschedule day';
   return (
-    <form className="grid max-w-xl gap-3" onSubmit={onSubmit}>
+    <form className={`grid max-w-xl gap-3 ${adminFormControls}`} onSubmit={onSubmit}>
       <h5 className="text-sm font-medium text-[var(--ink)]">{heading}</h5>
       {alertMessage ? (
-        <p role="alert" className="text-xs text-amber-500">
+        <p role="alert" className="border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
           {alertMessage}
         </p>
       ) : null}
@@ -110,17 +111,17 @@ export const CanonicalCourseDayForm: React.FC<CanonicalCourseDayFormProps> = ({
       </label>
       <div className="flex gap-2">
         <ActionButton
-          className="ui-btn ui-btn-primary"
-          unstyled
+          variant="primary"
+          size="sm"
           pending={pending}
           pendingLabel={pendingLabel}
           type="submit"
         >
           {ru ? 'Сохранить день' : 'Save day'}
         </ActionButton>
-        <button className="ui-btn" type="button" disabled={pending} onClick={onCancel}>
+        <ActionButton type="button" size="sm" variant="secondary" disabled={pending} onClick={onCancel}>
           {ru ? 'Отмена' : 'Cancel'}
-        </button>
+        </ActionButton>
       </div>
     </form>
   );

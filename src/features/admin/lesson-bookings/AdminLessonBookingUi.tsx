@@ -196,7 +196,18 @@ export function AdminLessonBookingListRow({
 
 export interface AdminLessonDetailSection {
   readonly id:
-    'overview' | 'payment' | 'attendance' | 'cancellation' | 'guest' | 'issues' | 'technical';
+    | 'overview'
+    | 'payment'
+    | 'attendance'
+    | 'cancellation'
+    | 'guest'
+    | 'issues'
+    | 'technical'
+    | 'schedule'
+    | 'instructors'
+    | 'participants'
+    | 'enrollment'
+    | 'settings';
   readonly label: string;
   readonly attention?: boolean;
 }

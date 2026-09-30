@@ -13,12 +13,17 @@ export const CoursesManagerToolbar: React.FC<CoursesManagerToolbarProps> = ({
   t,
   showCourseForm,
   onToggle,
-  className = 'flex items-center justify-end border-b border-[var(--border)] pb-3',
+  className = 'flex items-center',
 }) => (
   <div className={className}>
     <button
+      type="button"
       onClick={onToggle}
-      className="py-1.5 px-3 border border-[var(--border)] hover:bg-[var(--ink)] hover:text-[var(--bg)] bg-transparent text-[var(--ink)] rounded-none text-xs font-mono uppercase tracking-widest transition cursor-pointer flex items-center gap-1.5"
+      className={
+        showCourseForm
+          ? 'inline-flex items-center gap-1.5 border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--ink)] transition-colors hover:border-[var(--ink)]'
+          : 'inline-flex items-center gap-1.5 border border-[var(--ink)] bg-[var(--ink)] px-3 py-1.5 text-xs font-semibold text-[var(--bg)] transition-colors hover:opacity-85'
+      }
     >
       {showCourseForm ? (
         <>

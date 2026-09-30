@@ -202,6 +202,7 @@ describe('Canonical CoursesManager delete/clone from compact v2', () => {
         readModelVersion: 2,
       })
     );
+    await userEvent.click(screen.getByRole('button', { name: 'Course actions' }));
     await userEvent.click(screen.getByRole('button', { name: 'Archive course' }));
     await waitFor(() => expect(executeAuthenticatedCanonicalCommand).toHaveBeenCalled());
     expect(executeAuthenticatedCanonicalCommand.mock.calls[0]?.[1]).toMatchObject({
@@ -223,6 +224,7 @@ describe('Canonical CoursesManager delete/clone from compact v2', () => {
       />
     );
     expect((await screen.findAllByText('Canonical Freeride Camp')).length).toBeGreaterThan(0);
+    await userEvent.click(screen.getByRole('button', { name: 'Course actions' }));
     await userEvent.click(screen.getByRole('button', { name: 'Clone course' }));
 
     await waitFor(() => {
@@ -273,6 +275,7 @@ describe('Canonical CoursesManager delete/clone from compact v2', () => {
       />
     );
     expect((await screen.findAllByText('Canonical Freeride Camp')).length).toBeGreaterThan(0);
+    await userEvent.click(screen.getByRole('button', { name: 'Course actions' }));
     await userEvent.click(screen.getByRole('button', { name: 'Clone course' }));
     await screen.findByDisplayValue('Canonical Freeride Camp (copy)');
 
@@ -313,6 +316,7 @@ describe('Canonical CoursesManager delete/clone from compact v2', () => {
       />
     );
     expect((await screen.findAllByText('Canonical Freeride Camp')).length).toBeGreaterThan(0);
+    await userEvent.click(screen.getByRole('button', { name: 'Course actions' }));
     await userEvent.click(screen.getByRole('button', { name: 'Clone course' }));
     await screen.findByDisplayValue('Canonical Freeride Camp (copy)');
     fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-12-15' } });
@@ -357,6 +361,7 @@ describe('Canonical CoursesManager delete/clone from compact v2', () => {
       />
     );
     expect((await screen.findAllByText('Canonical Freeride Camp')).length).toBeGreaterThan(0);
+    await userEvent.click(screen.getByRole('button', { name: 'Course actions' }));
     await userEvent.click(screen.getByRole('button', { name: 'Clone course' }));
     await screen.findByDisplayValue('Canonical Freeride Camp (copy)');
     fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-12-15' } });

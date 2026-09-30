@@ -3,6 +3,7 @@ import { defineConfig } from 'vite';
 import { fileURLToPath, URL } from 'node:url';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+import { hostingBuildInfoPlugin } from './scripts/hostingBuildInfoPlugin.mjs';
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -19,7 +20,7 @@ export default defineConfig({
       ),
     },
   },
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), hostingBuildInfoPlugin()],
   server: {
     port: 3000,
     host: true,

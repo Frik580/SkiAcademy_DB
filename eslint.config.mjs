@@ -160,6 +160,7 @@ export default tseslint.config(
       'dist',
       'packages/*/dist',
       'functions/lib',
+      'functions/src/generated/**',
       'functions/shared-domain',
       'node_modules',
       '.firebase',

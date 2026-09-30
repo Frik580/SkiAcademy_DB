@@ -632,8 +632,8 @@ describe('CanonicalCoursesManager structured CourseDay regressions', () => {
     await openEdit();
     await userEvent.click(screen.getByRole('button', { name: 'Add day' }));
     fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-09-20' } });
-    fireEvent.change(screen.getByLabelText('Time'), { target: { value: '10:30' } });
-    fireEvent.change(screen.getByLabelText('Duration (minutes)'), { target: { value: '90' } });
+    fireEvent.change(screen.getByLabelText('Start time'), { target: { value: '10:30' } });
+    fireEvent.change(screen.getByLabelText('End time'), { target: { value: '12:00' } });
     fireEvent.change(screen.getByLabelText('Actual day instructor'), {
       target: { value: instructorA },
     });
@@ -650,17 +650,12 @@ describe('CanonicalCoursesManager structured CourseDay regressions', () => {
     expect(submission.intent.courseDayId).toMatch(/^course_day_/);
   });
 
-  async function openDayActions(order = 1) {
-    await userEvent.click(screen.getByRole('button', { name: `Day ${order} actions` }));
-  }
-
   it('reschedules using Course and CourseDay revisions while preserving duration', async () => {
     await openEdit();
-    await openDayActions();
-    await userEvent.click(screen.getByRole('button', { name: 'Reschedule day 1' }));
-    expect(screen.getByLabelText('Duration (minutes)')).toHaveValue(120);
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
     fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-09-20' } });
-    fireEvent.change(screen.getByLabelText('Time'), { target: { value: '11:00' } });
+    fireEvent.change(screen.getByLabelText('Start time'), { target: { value: '11:00' } });
+    fireEvent.change(screen.getByLabelText('End time'), { target: { value: '13:00' } });
     await userEvent.click(screen.getByRole('button', { name: 'Save day' }));
 
     expect(commandSubmissions()[0]).toMatchObject({
@@ -673,7 +668,7 @@ describe('CanonicalCoursesManager structured CourseDay regressions', () => {
 
   it('reassigns actual instructor without changing the Course roster', async () => {
     await openEdit();
-    await userEvent.click(screen.getByRole('button', { name: 'Day 1 instructor' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
     fireEvent.change(screen.getByLabelText('Actual day instructor'), {
       target: { value: instructorB },
     });
@@ -689,7 +684,7 @@ describe('CanonicalCoursesManager structured CourseDay regressions', () => {
 
   it('removes only when authorized, confirms, and sends both authoritative revisions', async () => {
     await openEdit();
-    await openDayActions();
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
     await userEvent.click(screen.getByRole('button', { name: 'Remove day 1' }));
     await waitFor(() => expect(onRequestConfirm).toHaveBeenCalledTimes(1));
     expect(commandSubmissions()[0]).toMatchObject({
@@ -707,8 +702,7 @@ describe('CanonicalCoursesManager structured CourseDay regressions', () => {
       error: { code: 'instructor_conflict' },
     });
     await openEdit();
-    await openDayActions();
-    await userEvent.click(screen.getByRole('button', { name: 'Reschedule day 1' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
     fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-09-20' } });
     await userEvent.click(screen.getByRole('button', { name: 'Save day' }));
     await screen.findByText(/instructor is already occupied/i);
@@ -723,7 +717,7 @@ describe('CanonicalCoursesManager structured CourseDay regressions', () => {
       error: { code: 'stale_version' },
     });
     await openEdit();
-    await openDayActions();
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
     const detailReadsBefore = queryAdminCourseReadModels.mock.calls.filter(
       ([input]) => input.scope === 'admin_course_detail'
     ).length;
@@ -748,7 +742,7 @@ describe('CanonicalCoursesManager structured CourseDay regressions', () => {
         : { scope: 'admin_course_list', items: [listItem()] }
     );
     await openEdit();
-    await openDayActions();
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
     expect(screen.queryByRole('button', { name: 'Remove day 1' })).not.toBeInTheDocument();
   });
 });

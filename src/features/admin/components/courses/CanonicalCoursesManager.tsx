@@ -1541,57 +1541,71 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
   const submitCourseDayDraft = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!selectedCourse || !courseDayDraft) return;
-    const durationMinutes = Number(courseDayDraft.durationMinutes);
+    const durationMinutes = minutesForDayTimes(courseDayDraft.localTime, courseDayDraft.endTime);
     if (
       !/^\d{4}-\d{2}-\d{2}$/.test(courseDayDraft.localDate) ||
-      !/^\d{2}:\d{2}$/.test(courseDayDraft.localTime) ||
-      !Number.isInteger(durationMinutes) ||
+      durationMinutes === undefined ||
       durationMinutes < 15
     ) {
       setMutationError(commandError('validation'));
-      return;
-    }
-    const action = selectedCourse.authorizedActions.find(
-      (candidate) => candidate.kind === courseDayDraft.kind
-    );
-    if (!action) {
-      setMutationError(text.permissionDenied);
       return;
     }
     const day = courseDayDraft.courseDayId
       ? selectedCourse.courseDays.find((item) => item.courseDayId === courseDayDraft.courseDayId)
       : undefined;
     const reasonExplanation = editReason.trim() || 'Admin CourseDay edit';
-    let input: Parameters<typeof execute>[0];
     if (courseDayDraft.kind === 'create_course_day') {
-      input = {
-        kind: 'create_course_day',
-        expectedRevision: action.expectedRevision,
-        calendarInput: {
-          localDate: courseDayDraft.localDate,
-          localTime: courseDayDraft.localTime,
-          durationMinutes,
-        },
-        timezone: selectedCourse.courseDays[0]?.timeZone ?? ('Asia/Almaty' as never),
-        intent: {
-          courseId: selectedCourse.courseId,
-          courseDayId: `course_day_${newIdentity('day').split(':').at(-1)}` as never,
-          instructorId: courseDayDraft.instructorId as never,
-        },
-      };
-    } else if (courseDayDraft.kind === 'reassign_course_day_instructor' && day) {
-      input = {
-        kind: 'reassign_course_day_instructor',
-        expectedRevision: day.revision,
-        intent: {
-          courseId: selectedCourse.courseId,
-          courseDayId: day.courseDayId,
-          instructorId: courseDayDraft.instructorId as never,
-          reasonExplanation,
-        },
-      };
-    } else if (courseDayDraft.kind === 'reschedule_course_day' && day) {
-      input = {
+      const action = selectedCourse.authorizedActions.find(
+        (candidate) => candidate.kind === 'create_course_day'
+      );
+      if (!action) {
+        setMutationError(text.permissionDenied);
+        return;
+      }
+      if (
+        await execute({
+          kind: 'create_course_day',
+          expectedRevision: action.expectedRevision,
+          calendarInput: {
+            localDate: courseDayDraft.localDate,
+            localTime: courseDayDraft.localTime,
+            durationMinutes,
+          },
+          timezone: selectedCourse.courseDays[0]?.timeZone ?? ('Asia/Almaty' as never),
+          intent: {
+            courseId: selectedCourse.courseId,
+            courseDayId: `course_day_${newIdentity('day').split(':').at(-1)}` as never,
+            instructorId: courseDayDraft.instructorId as never,
+          },
+        })
+      )
+        setCourseDayDraft(null);
+      return;
+    }
+    if (!day) return;
+    const local = localDateTimeFromTimestamp(day.interval.startsAt.seconds, day.timeZone);
+    const originalDuration = Math.max(
+      15,
+      Math.round((day.interval.endsAt.seconds - day.interval.startsAt.seconds) / 60)
+    );
+    const scheduleChanged =
+      courseDayDraft.localDate !== local.date ||
+      courseDayDraft.localTime !== local.time ||
+      durationMinutes !== originalDuration;
+    const instructorChanged = courseDayDraft.instructorId !== (day.actualInstructorIds[0] ?? '');
+    if (!scheduleChanged && !instructorChanged) {
+      setCourseDayDraft(null);
+      return;
+    }
+    if (scheduleChanged) {
+      const action = selectedCourse.authorizedActions.find(
+        (candidate) => candidate.kind === 'reschedule_course_day'
+      );
+      if (!action) {
+        setMutationError(text.permissionDenied);
+        return;
+      }
+      const saved = await execute({
         kind: 'reschedule_course_day',
         expectedRevision: action.expectedRevision,
         calendarInput: {
@@ -1606,9 +1620,30 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
           expectedCourseDayRevision: day.revision,
           reasonExplanation,
         },
-      };
-    } else return;
-    if (await execute(input as never)) setCourseDayDraft(null);
+      });
+      if (!saved) return;
+    }
+    if (instructorChanged) {
+      const action = selectedCourse.authorizedActions.find(
+        (candidate) => candidate.kind === 'reassign_course_day_instructor'
+      );
+      if (!action) {
+        setMutationError(text.permissionDenied);
+        return;
+      }
+      const saved = await execute({
+        kind: 'reassign_course_day_instructor',
+        expectedRevision: day.revision,
+        intent: {
+          courseId: selectedCourse.courseId,
+          courseDayId: day.courseDayId,
+          instructorId: courseDayDraft.instructorId as never,
+          reasonExplanation,
+        },
+      });
+      if (!saved) return;
+    }
+    setCourseDayDraft(null);
   };
 
   const courseDayAction = async (
@@ -1861,6 +1896,10 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
   };
 
   const openCourseDetail = (courseId: string, edit: boolean) => {
+    if (showCreate) {
+      resetCreateForm();
+      setShowCreate(false);
+    }
     setWorkspaceSection('overview');
     setSelectedCourseId(courseId);
     setSelectedCourse(null);
@@ -1915,6 +1954,24 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
             totalSeats: 'Вместимость',
             timeZone: 'Часовой пояс',
             bgImageUrl: 'URL изображения',
+            description: 'Описание',
+            shortDescription: 'Краткое описание (EN)',
+            shortDescriptionRu: 'Краткое описание (RU)',
+            detailedDescription: 'Подробное описание (EN)',
+            detailedDescriptionRu: 'Подробное описание (RU)',
+            badge: 'Бейдж',
+            badgeRu: 'Бейдж (RU)',
+            level: 'Уровень',
+            levelLabel: 'Подпись уровня',
+            videoUrl: 'Ссылка на видео',
+            benefits: 'Преимущества (по одному в строке)',
+            benefitsRu: 'Преимущества RU (по одному в строке)',
+            program: 'Программа EN (день | заголовок | описание)',
+            programRu: 'Программа RU (день | заголовок | описание)',
+            faq: 'FAQ EN (вопрос | ответ)',
+            faqRu: 'FAQ RU (вопрос | ответ)',
+            galleryPhotos: 'Галерея (один URL в строке)',
+            order: 'Порядок',
           }
         : {
             title: 'Title',
@@ -1923,6 +1980,24 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
             totalSeats: 'Capacity',
             timeZone: 'Time zone',
             bgImageUrl: 'Image URL',
+            description: 'Description',
+            shortDescription: 'Short description (EN)',
+            shortDescriptionRu: 'Short description (RU)',
+            detailedDescription: 'Detailed description (EN)',
+            detailedDescriptionRu: 'Detailed description (RU)',
+            badge: 'Badge',
+            badgeRu: 'Badge (RU)',
+            level: 'Level',
+            levelLabel: 'Level label',
+            videoUrl: 'Video URL',
+            benefits: 'Benefits (one per line)',
+            benefitsRu: 'Benefits RU (one per line)',
+            program: 'Program EN (day | title | description)',
+            programRu: 'Program RU (day | title | description)',
+            faq: 'FAQ EN (question | answer)',
+            faqRu: 'FAQ RU (question | answer)',
+            galleryPhotos: 'Gallery (one URL per line)',
+            order: 'Order',
           };
     return labels[field as keyof typeof labels] ?? field;
   };
@@ -1974,16 +2049,232 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
           {text.stale}
         </div>
       ) : null}
-      {showCreate && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/55" onClick={toggleCreate}>
-        <form
-          className={`flex h-full w-full max-w-md flex-col overflow-hidden border-l border-[var(--border)] bg-[var(--card-bg)] shadow-[var(--shadow-soft)] ${adminFormControls}`}
+
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(320px,38fr)_minmax(0,62fr)]">
+        <section
+          aria-label={t('adminCourseDatabaseListLabel')}
+          className="overflow-hidden rounded-[var(--radius)] bg-[var(--card-bg)] shadow-[var(--shadow-soft)]"
+        >
+          <div className="space-y-3 border-b border-[var(--border)] p-3">
+            <div className="inline-flex rounded-full bg-[var(--profile-bg)] p-1" role="tablist" aria-label={text.lifecycle}>
+              {(['active', 'archived'] as const).map((scope) => (
+                <button
+                  key={scope}
+                  type="button"
+                  role="tab"
+                  aria-selected={lifecycleScope === scope}
+                  onClick={() => {
+                    if (scope === lifecycleScope) return;
+                    setLifecycleScope(scope);
+                    setSelectedCourseId(null);
+                    setSelectedCourse(null);
+                    setEditForm(null);
+                    setEditOriginal(null);
+                    setCourseDayDraft(null);
+                    setMutationError(null);
+                    setStale(false);
+                    setWorkspaceSection('overview');
+                  }}
+                  className={`px-4 py-2 text-xs font-semibold transition-colors ${
+                    lifecycleScope === scope
+                      ? 'bg-[var(--ink)] text-[var(--bg)] shadow-sm'
+                      : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'
+                  }`}
+                >
+                  {scope === 'active' ? text.active : text.archived}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {(
+                [
+                  [
+                    'active-loaded',
+                    language === 'ru' ? 'Активные' : 'Active',
+                    courseLists.active.initialized ? String(courseLists.active.items.length) : '—',
+                  ],
+                  [
+                    'archived-loaded',
+                    language === 'ru' ? 'Архив' : 'Archived',
+                    courseLists.archived.initialized ? String(courseLists.archived.items.length) : '—',
+                  ],
+                  [
+                    'seats-loaded',
+                    language === 'ru' ? 'Места' : 'Seats',
+                    courseLists.active.initialized
+                      ? `${loadedEnrollment.occupied}/${loadedEnrollment.seats}`
+                      : '—',
+                  ],
+                ] as const
+              ).map(([key, label, value]) => (
+                <span key={key} className="text-xs text-[var(--ink-dim)]">
+                  {label}
+                  <span className="ml-1.5 font-mono font-medium text-[var(--ink)]">{value}</span>
+                </span>
+              ))}
+              <input
+                aria-label={t('adminCourseSearchLabel')}
+                value={listQuery}
+                onChange={(event) => setListQuery(event.target.value)}
+                placeholder={language === 'ru' ? 'Поиск курсов…' : 'Search courses…'}
+                className="min-w-40 flex-1 border border-[var(--border)] bg-[var(--bg)] p-1.5 text-xs"
+              />
+              {pending ? <span role="status" className="text-xs">{text.pending}</span> : null}
+              {stale ? <span role="status" className="text-xs">{text.stale}</span> : null}
+              <CoursesManagerToolbar
+                t={t}
+                showCourseForm={showCreate}
+                onToggle={toggleCreate}
+                className="flex items-center"
+              />
+              <button
+                type="button"
+                className="flex items-center gap-1.5 border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--ink-dim)] hover:text-[var(--ink)]"
+                onClick={() => void refresh()}
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                {text.refresh}
+              </button>
+            </div>
+            {currentList.error && courses.length > 0 ? (
+              <span role="alert" className="text-xs">
+                {currentList.error}{' '}
+                <button
+                  type="button"
+                  className="underline"
+                  onClick={() =>
+                    void loadCoursePage(
+                      lifecycleScope,
+                      courses.length > 0 ? currentList.cursor : undefined,
+                      courses.length > 0
+                    )
+                  }
+                >
+                  {text.retry}
+                </button>
+              </span>
+            ) : null}
+          </div>
+
+          <div className="p-3">
+            {(!currentList.initialized || currentList.loadingInitial) && courses.length === 0 ? (
+              <div
+                role="status"
+                className="flex min-h-36 items-center justify-center gap-2 text-xs"
+              >
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {text.loading}
+              </div>
+            ) : currentList.error && courses.length === 0 ? (
+              <div role="alert" className="border border-red-500/30 p-4 text-xs">
+                <p>{currentList.error}</p>
+                <button
+                  type="button"
+                  onClick={() => void refresh()}
+                  className="mt-3 flex items-center gap-2 border border-[var(--border)] px-3 py-2"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  {text.retry}
+                </button>
+              </div>
+            ) : courses.length === 0 ? (
+              <p className="border border-dashed border-[var(--border)] p-8 text-center text-xs text-[var(--ink-dim)]">
+                {lifecycleScope === 'active' ? text.activeEmpty : text.archivedEmpty}
+              </p>
+            ) : (
+              <CanonicalCourseDatabaseList
+                courses={visibleTableCourses}
+          selectedCourseId={selectedCourseId}
+          lifecycle={lifecycleScope}
+          actionsLabel={language === 'ru' ? 'Действия курса' : 'Course actions'}
+          instructors={tableInstructors}
+          language={language}
+          t={t}
+          onToggleVisibility={(course) => void handleToggleVisibility(course)}
+          onEdit={(course) => openCourseDetail(course.id, true)}
+          onView={(course) => openCourseDetail(course.id, false)}
+          onDelete={handleArchive}
+          onReactivate={handleReactivate}
+          onClone={(course) => void handleClone(course)}
+          onMove={(course, direction) => void handleMove(course, direction)}
+          canToggleVisibility={(course) =>
+            lifecycleScope === 'active' &&
+            courses
+              .find((candidate) => candidate.courseId === course.id)
+              ?.authorizedActions.some(
+                (action) => action.kind === 'update_course_catalog_content'
+              ) === true
+          }
+          canEdit={(course) =>
+            (() => {
+              const item = courses.find((candidate) => candidate.courseId === course.id);
+              if (!item) return false;
+              // Compact active v2 rows intentionally carry only list-grade actions;
+              // detail authoritatively resolves the complete edit action set.
+              if (item.lifecycle === 'active') return item.authorizedActions.length > 0;
+              return item.authorizedActions.some((action) =>
+                [
+                  'change_course_title',
+                  'change_course_price',
+                  'change_course_capacity',
+                  'add_course_roster_instructor',
+                  'remove_course_roster_instructor',
+                  'update_course_catalog_content',
+                ].includes(action.kind)
+              );
+            })()
+          }
+          canView={() => true}
+          canArchive={(course) =>
+            courses
+              .find((candidate) => candidate.courseId === course.id)
+              ?.authorizedActions.some((action) => action.kind === 'archive_course') === true
+          }
+          canReactivate={(course) =>
+            courses
+              .find((candidate) => candidate.courseId === course.id)
+              ?.authorizedActions.some((action) => action.kind === 'reactivate_course') === true
+          }
+          canClone={() => lifecycleScope === 'active'}
+          canMove={(course) =>
+            lifecycleScope === 'active' &&
+            courses
+              .find((candidate) => candidate.courseId === course.id)
+              ?.authorizedActions.some(
+                (action) => action.kind === 'update_course_catalog_content'
+              ) === true
+          }
+          archiveInsteadOfDelete
+          detailsLabel={text.details}
+          reactivateLabel={text.restore}
+        />
+            )}
+
+            {currentList.hasMore && currentList.cursor ? (
+              <button
+                type="button"
+                className="mt-2 w-full border border-[var(--border)] px-3 py-2 text-xs font-medium disabled:opacity-50"
+                disabled={currentList.loadingMore}
+                onClick={() => void loadCoursePage(lifecycleScope, currentList.cursor, true)}
+              >
+                {currentList.loadingMore ? text.loadingMore : text.loadMore}
+              </button>
+            ) : null}
+          </div>
+        </section>
+
+        <aside
+          className="min-h-[32rem] rounded-[var(--radius)] bg-[var(--card-bg)] shadow-[var(--shadow-soft)] lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto"
+          aria-label={t('adminCourseDatabaseDetailLabel')}
+        >
+          {showCreate ? (
+            <form
+          className={`flex min-h-full flex-col ${adminFormControls}`}
           onSubmit={(event) => void createCourse(event)}
-          onClick={(event) => event.stopPropagation()}
           noValidate
           aria-label={text.create}
         >
-          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--border)] px-4 py-3">
+          <div className="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-[var(--border)] bg-[var(--card-bg)] px-4 py-3">
             <h3 className="text-sm font-medium text-[var(--ink)]">
               {createMode === 'clone' ? text.createClone : text.create}
             </h3>
@@ -1996,7 +2287,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
               <X className="h-4 w-4" />
             </button>
           </div>
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
+          <div className="space-y-3 px-4 py-3">
           {createFormError || createValidationIssues.length > 0 ? (
             <div role="alert" className="grid gap-1 border border-red-500/30 bg-red-500/5 p-3 text-xs text-[var(--ink)] md:col-span-2">
               {createFormError ? <p>{createFormError}</p> : null}
@@ -2347,7 +2638,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                 htmlFor="canonical-course-description"
                 className="grid gap-1 text-xs md:col-span-2"
               >
-                description
+                {createFieldLabel('description')}
                 <textarea
                   id="canonical-course-description"
                   rows={3}
@@ -2386,7 +2677,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                   htmlFor={`canonical-course-${field}`}
                   className="grid gap-1 text-xs"
                 >
-                  {field}
+                  {createFieldLabel(field)}
                   <textarea
                     id={`canonical-course-${field}`}
                     rows={field.startsWith('detailed') || field.startsWith('program') ? 4 : 2}
@@ -2397,10 +2688,22 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                     }
                     placeholder={
                       field.startsWith('program')
-                        ? 'Day 1 | Title | Description'
+                        ? language === 'ru'
+                          ? 'День 1 | Заголовок | Описание'
+                          : 'Day 1 | Title | Description'
                         : field.startsWith('faq')
-                          ? 'Question | Answer'
-                          : undefined
+                          ? language === 'ru'
+                            ? 'Вопрос | Ответ'
+                            : 'Question | Answer'
+                          : field.startsWith('benefits')
+                            ? language === 'ru'
+                              ? 'Один пункт в строке'
+                              : 'One item per line'
+                            : field === 'galleryPhotos'
+                              ? language === 'ru'
+                                ? 'Один URL в строке'
+                                : 'One URL per line'
+                              : undefined
                     }
                     onChange={(event) => updateCreateField(field, event.target.value)}
                   />
@@ -2408,7 +2711,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                 </label>
               ))}
               <label htmlFor="canonical-course-level" className="grid gap-1 text-xs">
-                level
+                {createFieldLabel('level')}
                 <select
                   id="canonical-course-level"
                   value={createForm.level}
@@ -2417,14 +2720,18 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                   }
                 >
                   <option value="">—</option>
-                  <option value="beginner">beginner</option>
-                  <option value="intermediate">intermediate</option>
-                  <option value="advanced">advanced</option>
-                  <option value="expert">expert</option>
+                  <option value="beginner">{language === 'ru' ? 'Начальный' : 'Beginner'}</option>
+                  <option value="intermediate">
+                    {language === 'ru' ? 'Средний' : 'Intermediate'}
+                  </option>
+                  <option value="advanced">
+                    {language === 'ru' ? 'Продвинутый' : 'Advanced'}
+                  </option>
+                  <option value="expert">{language === 'ru' ? 'Экспертный' : 'Expert'}</option>
                 </select>
               </label>
               <label htmlFor="canonical-course-order" className="grid gap-1 text-xs">
-                order
+                {createFieldLabel('order')}
                 <input
                   id="canonical-course-order"
                   type="number"
@@ -2454,7 +2761,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
             </p>
           ) : null}
           </div>
-          <div className="shrink-0 border-t border-[var(--border)] px-4 py-3">
+          <div className="sticky bottom-0 z-20 border-t border-[var(--border)] bg-[var(--card-bg)] px-4 py-3">
           <ActionButton
             pending={pending !== null}
             pendingLabel={text.pending}
@@ -2467,227 +2774,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
           </ActionButton>
           </div>
         </form>
-        </div>
-      )}
-
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(320px,38fr)_minmax(0,62fr)]">
-        <section
-          aria-label={t('adminCourseDatabaseListLabel')}
-          className="overflow-hidden rounded-[var(--radius)] bg-[var(--card-bg)] shadow-[var(--shadow-soft)]"
-        >
-          <div className="space-y-3 border-b border-[var(--border)] p-3">
-            <div className="inline-flex rounded-full bg-[var(--profile-bg)] p-1" role="tablist" aria-label={text.lifecycle}>
-              {(['active', 'archived'] as const).map((scope) => (
-                <button
-                  key={scope}
-                  type="button"
-                  role="tab"
-                  aria-selected={lifecycleScope === scope}
-                  onClick={() => {
-                    if (scope === lifecycleScope) return;
-                    setLifecycleScope(scope);
-                    setSelectedCourseId(null);
-                    setSelectedCourse(null);
-                    setEditForm(null);
-                    setEditOriginal(null);
-                    setCourseDayDraft(null);
-                    setMutationError(null);
-                    setStale(false);
-                    setWorkspaceSection('overview');
-                  }}
-                  className={`px-4 py-2 text-xs font-semibold transition-colors ${
-                    lifecycleScope === scope
-                      ? 'bg-[var(--ink)] text-[var(--bg)] shadow-sm'
-                      : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'
-                  }`}
-                >
-                  {scope === 'active' ? text.active : text.archived}
-                </button>
-              ))}
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {(
-                [
-                  [
-                    'active-loaded',
-                    language === 'ru' ? 'Активные' : 'Active',
-                    courseLists.active.initialized ? String(courseLists.active.items.length) : '—',
-                  ],
-                  [
-                    'archived-loaded',
-                    language === 'ru' ? 'Архив' : 'Archived',
-                    courseLists.archived.initialized ? String(courseLists.archived.items.length) : '—',
-                  ],
-                  [
-                    'seats-loaded',
-                    language === 'ru' ? 'Места' : 'Seats',
-                    courseLists.active.initialized
-                      ? `${loadedEnrollment.occupied}/${loadedEnrollment.seats}`
-                      : '—',
-                  ],
-                ] as const
-              ).map(([key, label, value]) => (
-                <span key={key} className="text-xs text-[var(--ink-dim)]">
-                  {label}
-                  <span className="ml-1.5 font-mono font-medium text-[var(--ink)]">{value}</span>
-                </span>
-              ))}
-              <input
-                aria-label={t('adminCourseSearchLabel')}
-                value={listQuery}
-                onChange={(event) => setListQuery(event.target.value)}
-                placeholder={language === 'ru' ? 'Поиск курсов…' : 'Search courses…'}
-                className="min-w-40 flex-1 border border-[var(--border)] bg-[var(--bg)] p-1.5 text-xs"
-              />
-              {pending ? <span role="status" className="text-xs">{text.pending}</span> : null}
-              {stale ? <span role="status" className="text-xs">{text.stale}</span> : null}
-              <CoursesManagerToolbar
-                t={t}
-                showCourseForm={showCreate}
-                onToggle={toggleCreate}
-                className="flex items-center"
-              />
-              <button
-                type="button"
-                className="flex items-center gap-1.5 border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--ink-dim)] hover:text-[var(--ink)]"
-                onClick={() => void refresh()}
-              >
-                <RefreshCw className="h-3.5 w-3.5" />
-                {text.refresh}
-              </button>
-            </div>
-            {currentList.error && courses.length > 0 ? (
-              <span role="alert" className="text-xs">
-                {currentList.error}{' '}
-                <button
-                  type="button"
-                  className="underline"
-                  onClick={() =>
-                    void loadCoursePage(
-                      lifecycleScope,
-                      courses.length > 0 ? currentList.cursor : undefined,
-                      courses.length > 0
-                    )
-                  }
-                >
-                  {text.retry}
-                </button>
-              </span>
-            ) : null}
-          </div>
-
-          <div className="p-3">
-            {(!currentList.initialized || currentList.loadingInitial) && courses.length === 0 ? (
-              <div
-                role="status"
-                className="flex min-h-36 items-center justify-center gap-2 text-xs"
-              >
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {text.loading}
-              </div>
-            ) : currentList.error && courses.length === 0 ? (
-              <div role="alert" className="border border-red-500/30 p-4 text-xs">
-                <p>{currentList.error}</p>
-                <button
-                  type="button"
-                  onClick={() => void refresh()}
-                  className="mt-3 flex items-center gap-2 border border-[var(--border)] px-3 py-2"
-                >
-                  <RefreshCw className="h-3.5 w-3.5" />
-                  {text.retry}
-                </button>
-              </div>
-            ) : courses.length === 0 ? (
-              <p className="border border-dashed border-[var(--border)] p-8 text-center text-xs text-[var(--ink-dim)]">
-                {lifecycleScope === 'active' ? text.activeEmpty : text.archivedEmpty}
-              </p>
-            ) : (
-              <CanonicalCourseDatabaseList
-                courses={visibleTableCourses}
-          selectedCourseId={selectedCourseId}
-          lifecycle={lifecycleScope}
-          actionsLabel={language === 'ru' ? 'Действия курса' : 'Course actions'}
-          instructors={tableInstructors}
-          language={language}
-          t={t}
-          onToggleVisibility={(course) => void handleToggleVisibility(course)}
-          onEdit={(course) => openCourseDetail(course.id, true)}
-          onView={(course) => openCourseDetail(course.id, false)}
-          onDelete={handleArchive}
-          onReactivate={handleReactivate}
-          onClone={(course) => void handleClone(course)}
-          onMove={(course, direction) => void handleMove(course, direction)}
-          canToggleVisibility={(course) =>
-            lifecycleScope === 'active' &&
-            courses
-              .find((candidate) => candidate.courseId === course.id)
-              ?.authorizedActions.some(
-                (action) => action.kind === 'update_course_catalog_content'
-              ) === true
-          }
-          canEdit={(course) =>
-            (() => {
-              const item = courses.find((candidate) => candidate.courseId === course.id);
-              if (!item) return false;
-              // Compact active v2 rows intentionally carry only list-grade actions;
-              // detail authoritatively resolves the complete edit action set.
-              if (item.lifecycle === 'active') return item.authorizedActions.length > 0;
-              return item.authorizedActions.some((action) =>
-                [
-                  'change_course_title',
-                  'change_course_price',
-                  'change_course_capacity',
-                  'add_course_roster_instructor',
-                  'remove_course_roster_instructor',
-                  'update_course_catalog_content',
-                ].includes(action.kind)
-              );
-            })()
-          }
-          canView={() => true}
-          canArchive={(course) =>
-            courses
-              .find((candidate) => candidate.courseId === course.id)
-              ?.authorizedActions.some((action) => action.kind === 'archive_course') === true
-          }
-          canReactivate={(course) =>
-            courses
-              .find((candidate) => candidate.courseId === course.id)
-              ?.authorizedActions.some((action) => action.kind === 'reactivate_course') === true
-          }
-          canClone={() => lifecycleScope === 'active'}
-          canMove={(course) =>
-            lifecycleScope === 'active' &&
-            courses
-              .find((candidate) => candidate.courseId === course.id)
-              ?.authorizedActions.some(
-                (action) => action.kind === 'update_course_catalog_content'
-              ) === true
-          }
-          archiveInsteadOfDelete
-          detailsLabel={text.details}
-          reactivateLabel={text.restore}
-        />
-            )}
-
-            {currentList.hasMore && currentList.cursor ? (
-              <button
-                type="button"
-                className="mt-2 w-full border border-[var(--border)] px-3 py-2 text-xs font-medium disabled:opacity-50"
-                disabled={currentList.loadingMore}
-                onClick={() => void loadCoursePage(lifecycleScope, currentList.cursor, true)}
-              >
-                {currentList.loadingMore ? text.loadingMore : text.loadMore}
-              </button>
-            ) : null}
-          </div>
-        </section>
-
-        <aside
-          className="min-h-[32rem] rounded-[var(--radius)] bg-[var(--card-bg)] shadow-[var(--shadow-soft)] lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto"
-          aria-label={t('adminCourseDatabaseDetailLabel')}
-        >
-          {selectedCourse ? (
+          ) : selectedCourse ? (
             <article>
               <div className="sticky top-3 z-20 rounded-t-[var(--radius)] bg-[var(--card-bg)] shadow-[0_8px_20px_-18px_rgba(17,17,17,0.45)] lg:top-0">
                 <header className="space-y-3 p-4 pb-0">

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+﻿import React from 'react';
 import type { AdminCourseReadModel } from '@ski-academy/shared-domain';
-import { Ellipsis, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { ActionButton } from '../../../../ui/ActionButton';
 import { localDateTimeFromTimestamp } from '../../operations/adminTimeZone';
 import { formatAdminCourseDayLocalDate } from './adminCourseTableMapping';
@@ -47,19 +47,24 @@ function endTime(start: string, minutes: number): string {
   return `${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}`;
 }
 
-function draftFromDay(
-  day: CourseDayRecord,
-  kind: CourseDayDraft['kind']
-): CourseDayDraft {
+function draftFromDay(day: CourseDayRecord, kind: CourseDayDraft['kind']): CourseDayDraft {
   const local = localDateTimeFromTimestamp(day.interval.startsAt.seconds, day.timeZone);
   return {
     kind,
     courseDayId: day.courseDayId,
     localDate: local.date,
     localTime: local.time,
-    durationMinutes: String(durationMinutes(day)),
+    endTime: endTime(local.time, durationMinutes(day)),
     instructorId: day.actualInstructorIds[0] ?? '',
   };
+}
+
+function formatDurationHours(minutes: number, ru: boolean): string {
+  const hours = Math.round((minutes / 60) * 10) / 10;
+  const text = Number.isInteger(hours)
+    ? String(hours)
+    : hours.toFixed(1).replace('.', ru ? ',' : '.');
+  return ru ? `${text} ч` : `${text} h`;
 }
 
 function weekdayLabel(day: CourseDayRecord, language: string): string {
@@ -73,122 +78,17 @@ function weekdayLabel(day: CourseDayRecord, language: string): string {
 }
 
 const CanonicalCourseDayActions: React.FC<{
-  day: CourseDayRecord;
   language: string;
-  pending: boolean;
-  canReschedule: boolean;
-  canReassign: boolean;
-  canRemove: boolean;
-  compact: boolean;
+  canEdit: boolean;
   onEdit: () => void;
-  onReassign: () => void;
-  onReschedule: () => void;
-  onRemove: () => void;
-}> = ({
-  day,
-  language,
-  pending,
-  canReschedule,
-  canReassign,
-  canRemove,
-  compact,
-  onEdit,
-  onReassign,
-  onReschedule,
-  onRemove,
-}) => {
-  const [open, setOpen] = useState(false);
+}> = ({ language, canEdit, onEdit }) => {
+  if (!canEdit) return null;
   const ru = language === 'ru';
-  const order = day.dayOrder;
-  const rescheduleLabel = ru ? `Перенести день ${order}` : `Reschedule day ${order}`;
-  const instructorLabel = ru ? `Инструктор дня ${order}` : `Day ${order} instructor`;
-  const removeLabel = ru ? `Удалить день ${order}` : `Remove day ${order}`;
-  const menuHasItems = canReschedule || canRemove || (compact && canReassign);
   return (
-    <div className="flex items-center justify-end gap-2">
-      {canReschedule && !compact ? (
-        <button type="button" className="text-xs text-[var(--ink)] hover:underline" onClick={onEdit}>
-          {ru ? 'Редактировать' : 'Edit'}
-        </button>
-      ) : null}
-      {canReassign && !compact ? (
-        <button
-          type="button"
-          className="text-xs text-[var(--ink-dim)] hover:text-[var(--ink)]"
-          aria-label={instructorLabel}
-          onClick={onReassign}
-        >
-          {ru ? 'Сменить инструктора' : 'Change instructor'}
-        </button>
-      ) : null}
-      {menuHasItems ? (
-        <div className="relative">
-          <button
-            type="button"
-            className="inline-flex h-7 w-7 items-center justify-center text-[var(--ink-dim)] hover:text-[var(--ink)]"
-            aria-label={ru ? `Действия дня ${order}` : `Day ${order} actions`}
-            aria-haspopup="menu"
-            aria-expanded={open}
-            onClick={() => setOpen((current) => !current)}
-          >
-            <Ellipsis className="h-4 w-4" />
-          </button>
-          {open ? (
-            <div className="absolute right-0 z-20 mt-1 min-w-44 border border-[var(--border)] bg-[var(--card-bg)] py-1 shadow-lg">
-              {compact && canReschedule ? (
-                <button
-                  type="button"
-                  className="block w-full px-3 py-1.5 text-left text-xs hover:bg-[var(--surface)]"
-                  onClick={() => {
-                    setOpen(false);
-                    onEdit();
-                  }}
-                >
-                  {ru ? 'Редактировать' : 'Edit'}
-                </button>
-              ) : null}
-              {compact && canReassign ? (
-                <button
-                  type="button"
-                  className="block w-full px-3 py-1.5 text-left text-xs hover:bg-[var(--surface)]"
-                  aria-label={instructorLabel}
-                  onClick={() => {
-                    setOpen(false);
-                    onReassign();
-                  }}
-                >
-                  {ru ? 'Сменить инструктора' : 'Change instructor'}
-                </button>
-              ) : null}
-              {canReschedule ? (
-                <button
-                  type="button"
-                  className="block w-full px-3 py-1.5 text-left text-xs hover:bg-[var(--surface)]"
-                  onClick={() => {
-                    setOpen(false);
-                    onReschedule();
-                  }}
-                >
-                  {rescheduleLabel}
-                </button>
-              ) : null}
-              {canRemove ? (
-                <button
-                  type="button"
-                  className="block w-full px-3 py-1.5 text-left text-xs text-red-400 hover:bg-[var(--surface)]"
-                  disabled={pending}
-                  onClick={() => {
-                    setOpen(false);
-                    onRemove();
-                  }}
-                >
-                  {removeLabel}
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
+    <div className="flex items-center justify-end">
+      <button type="button" className="text-xs text-[var(--ink)] hover:underline" onClick={onEdit}>
+        {ru ? 'Редактировать' : 'Edit'}
+      </button>
     </div>
   );
 };
@@ -207,9 +107,9 @@ export const CanonicalCourseDaysEditor: React.FC<CanonicalCourseDaysEditorProps>
   onRemove,
 }) => {
   const ru = language === 'ru';
-  const compact = course.courseDays.length >= 3;
   const can = (kind: AdminCourseReadModel['authorizedActions'][number]['kind']) =>
     course.authorizedActions.some((action) => action.kind === kind);
+  const canEditDay = can('reschedule_course_day') || can('reassign_course_day_instructor');
   const nameFor = (id: string) => instructors.find((instructor) => instructor.id === id)?.name ?? id;
   const inactive = (id: string) =>
     instructors.find((instructor) => instructor.id === id)?.inactive === true;
@@ -220,6 +120,9 @@ export const CanonicalCourseDaysEditor: React.FC<CanonicalCourseDaysEditorProps>
       ? dayIssue.message
       : undefined;
   const ordered = [...course.courseDays].sort((left, right) => left.dayOrder - right.dayOrder);
+  const editingDay = draft?.courseDayId
+    ? ordered.find((day) => day.courseDayId === draft.courseDayId)
+    : undefined;
 
   return (
     <div className="space-y-3">
@@ -244,7 +147,7 @@ export const CanonicalCourseDaysEditor: React.FC<CanonicalCourseDaysEditorProps>
                 kind: 'create_course_day',
                 localDate: '',
                 localTime: '',
-                durationMinutes: '120',
+                endTime: '',
                 instructorId: course.instructorRosterIds[0] ?? '',
               })
             }
@@ -263,9 +166,19 @@ export const CanonicalCourseDaysEditor: React.FC<CanonicalCourseDaysEditorProps>
           pendingLabel={pendingLabel}
           instructors={instructors}
           alertMessage={unmatchedIssue}
+          removeLabel={
+            editingDay && can('remove_course_day')
+              ? ru
+                ? `Удалить день ${editingDay.dayOrder}`
+                : `Remove day ${editingDay.dayOrder}`
+              : undefined
+          }
           onChange={onDraftChange}
           onSubmit={onSubmit}
           onCancel={() => onDraftChange(null)}
+          onRemove={
+            editingDay && can('remove_course_day') ? () => onRemove(editingDay) : undefined
+          }
         />
       ) : null}
 
@@ -273,41 +186,6 @@ export const CanonicalCourseDaysEditor: React.FC<CanonicalCourseDaysEditorProps>
         <p className="border border-dashed border-[var(--border)] p-8 text-center text-xs text-[var(--ink-dim)]">
           {emptyLabel}
         </p>
-      ) : compact ? (
-        <div className="text-xs">
-          <div>
-            <div className="hidden gap-2 border-b border-[var(--border)] py-2 text-[10px] font-medium uppercase tracking-wide text-[var(--ink-dim)] md:grid md:grid-cols-[2.5rem_6.5rem_8rem_5.5rem_minmax(8rem,1fr)_7rem_2.5rem]">
-              <span>{ru ? 'День' : 'Day'}</span>
-              <span>{ru ? 'Дата' : 'Date'}</span>
-              <span>{ru ? 'Время' : 'Time'}</span>
-              <span>{ru ? 'Длительность' : 'Duration'}</span>
-              <span>{ru ? 'Инструктор' : 'Instructor'}</span>
-              <span>{ru ? 'Статус' : 'Status'}</span>
-              <span className="sr-only">{ru ? 'Действия' : 'Actions'}</span>
-            </div>
-            {ordered.map((day) => (
-              <DayLine
-                key={day.courseDayId}
-                day={day}
-                language={language}
-                compact
-                pending={pending}
-                canReschedule={can('reschedule_course_day')}
-                canReassign={can('reassign_course_day_instructor')}
-                canRemove={can('remove_course_day')}
-                instructorName={day.actualInstructorIds.map(nameFor).join(', ')}
-                instructorInactive={day.actualInstructorIds.some(inactive)}
-                issue={issueFor(day)}
-                onEdit={() => onDraftChange(draftFromDay(day, 'reschedule_course_day'))}
-                onReassign={() =>
-                  onDraftChange(draftFromDay(day, 'reassign_course_day_instructor'))
-                }
-                onReschedule={() => onDraftChange(draftFromDay(day, 'reschedule_course_day'))}
-                onRemove={() => onRemove(day)}
-              />
-            ))}
-          </div>
-        </div>
       ) : (
         <div className="space-y-2">
           {ordered.map((day) => (
@@ -315,18 +193,20 @@ export const CanonicalCourseDaysEditor: React.FC<CanonicalCourseDaysEditorProps>
               key={day.courseDayId}
               day={day}
               language={language}
-              compact={false}
-              pending={pending}
-              canReschedule={can('reschedule_course_day')}
-              canReassign={can('reassign_course_day_instructor')}
-              canRemove={can('remove_course_day')}
+              canEdit={canEditDay}
               instructorName={day.actualInstructorIds.map(nameFor).join(', ')}
               instructorInactive={day.actualInstructorIds.some(inactive)}
               issue={issueFor(day)}
-              onEdit={() => onDraftChange(draftFromDay(day, 'reschedule_course_day'))}
-              onReassign={() => onDraftChange(draftFromDay(day, 'reassign_course_day_instructor'))}
-              onReschedule={() => onDraftChange(draftFromDay(day, 'reschedule_course_day'))}
-              onRemove={() => onRemove(day)}
+              onEdit={() =>
+                onDraftChange(
+                  draftFromDay(
+                    day,
+                    can('reschedule_course_day')
+                      ? 'reschedule_course_day'
+                      : 'reassign_course_day_instructor'
+                  )
+                )
+              }
             />
           ))}
         </div>
@@ -338,34 +218,12 @@ export const CanonicalCourseDaysEditor: React.FC<CanonicalCourseDaysEditorProps>
 const DayLine: React.FC<{
   day: CourseDayRecord;
   language: string;
-  compact: boolean;
-  pending: boolean;
-  canReschedule: boolean;
-  canReassign: boolean;
-  canRemove: boolean;
+  canEdit: boolean;
   instructorName: string;
   instructorInactive: boolean;
   issue?: string;
   onEdit: () => void;
-  onReassign: () => void;
-  onReschedule: () => void;
-  onRemove: () => void;
-}> = ({
-  day,
-  language,
-  compact,
-  pending,
-  canReschedule,
-  canReassign,
-  canRemove,
-  instructorName,
-  instructorInactive,
-  issue,
-  onEdit,
-  onReassign,
-  onReschedule,
-  onRemove,
-}) => {
+}> = ({ day, language, canEdit, instructorName, instructorInactive, issue, onEdit }) => {
   const ru = language === 'ru';
   const local = localDateTimeFromTimestamp(day.interval.startsAt.seconds, day.timeZone);
   const minutes = durationMinutes(day);
@@ -381,50 +239,10 @@ const DayLine: React.FC<{
       : ru
         ? 'Запланирован'
         : 'Scheduled';
-  const actions = (
-    <CanonicalCourseDayActions
-      day={day}
-      language={language}
-      pending={pending}
-      canReschedule={canReschedule}
-      canReassign={canReassign}
-      canRemove={canRemove}
-      compact={compact}
-      onEdit={onEdit}
-      onReassign={onReassign}
-      onReschedule={onReschedule}
-      onRemove={onRemove}
-    />
-  );
-  if (compact) {
-    return (
-      <div className="grid grid-cols-1 gap-1 border-t border-[var(--border)] py-2.5 md:grid-cols-[2.5rem_6.5rem_8rem_5.5rem_minmax(8rem,1fr)_7rem_2.5rem] md:items-center md:gap-2 md:hover:bg-[var(--accent-muted)]">
-        <span>{day.dayOrder}</span>
-        <span>
-          <span className="block">{formatAdminCourseDayLocalDate(day)}</span>
-          <span className="block font-mono text-[10px] text-[var(--ink-dim)]">{day.courseDayId}</span>
-        </span>
-        <span>{range}</span>
-        <span>{ru ? `${minutes} мин` : `${minutes} min`}</span>
-        <span className="truncate">{instructorName}</span>
-        <span>
-          <AdminCourseStatusChip tone={issue || instructorInactive ? 'attention' : 'info'}>
-            {status}
-          </AdminCourseStatusChip>
-          {issue ? (
-            <span role="alert" className="mt-0.5 block text-[11px] text-amber-800 dark:text-amber-200">
-              {issue}
-            </span>
-          ) : null}
-        </span>
-        {actions}
-      </div>
-    );
-  }
   return (
     <article className={`${adminRecordCardClass} space-y-2 border-l-transparent`}>
       <div className="flex items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <div className="flex flex-wrap items-baseline gap-x-3">
             <h5 className="text-sm font-semibold text-[var(--ink)]">
               {ru ? `День ${day.dayOrder}` : `Day ${day.dayOrder}`}
@@ -434,9 +252,9 @@ const DayLine: React.FC<{
           </div>
           <p className="mt-1 text-xs text-[var(--ink)]">
             {range}
-            <span className="ml-3 text-[var(--ink-dim)]">{ru ? `${minutes} мин` : `${minutes} min`}</span>
+            <span className="ml-3 text-[var(--ink-dim)]">{formatDurationHours(minutes, ru)}</span>
           </p>
-          <p className="mt-1 text-xs text-[var(--ink-dim)]">{instructorName}</p>
+          <p className="mt-1 break-words text-xs text-[var(--ink-dim)]">{instructorName}</p>
           <p className="font-mono text-[10px] text-[var(--ink-dim)]">{day.courseDayId}</p>
         </div>
         <AdminCourseStatusChip tone={issue || instructorInactive ? 'attention' : 'info'}>
@@ -448,7 +266,7 @@ const DayLine: React.FC<{
           {issue}
         </p>
       ) : null}
-      {actions}
+      <CanonicalCourseDayActions language={language} canEdit={canEdit} onEdit={onEdit} />
     </article>
   );
 };

@@ -94,7 +94,7 @@ export function useAdminCourseTranslations() {
       restoreExplanation: ru
         ? 'Курс вернётся в активный список; расписание и история не изменятся.'
         : 'The Course will return to the active list; its schedule and history will not change.',
-      create: ru ? 'Создать canonical-курс' : 'Create canonical course',
+      create: ru ? 'Создать курс' : 'Create canonical course',
       createClone: ru ? 'Создать копию курса' : 'Create course copy',
       cloneDraftReady: ru
         ? 'Черновик клона из detail. Проверьте расписание перед сохранением.'

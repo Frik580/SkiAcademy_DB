@@ -539,7 +539,7 @@ describe('T32.9A Admin UX parity behavior', () => {
     );
     expect(
       readRepoFile('src/features/admin/components/courses/CanonicalCoursesManager.tsx')
-    ).toContain('CoursesTable');
+    ).toContain('CanonicalCourseDatabaseList');
     expect(
       readRepoFile('src/features/admin/components/courses/CanonicalCoursesManager.tsx')
     ).not.toContain("scope: 'admin_course_roster'");

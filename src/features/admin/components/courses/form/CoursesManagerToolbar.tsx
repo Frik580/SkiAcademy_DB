@@ -6,14 +6,16 @@ interface CoursesManagerToolbarProps {
   t: (key: TranslationKey) => string;
   showCourseForm: boolean;
   onToggle: () => void;
+  className?: string;
 }
 
 export const CoursesManagerToolbar: React.FC<CoursesManagerToolbarProps> = ({
   t,
   showCourseForm,
   onToggle,
+  className = 'flex items-center justify-end border-b border-[var(--border)] pb-3',
 }) => (
-  <div className="flex items-center justify-end border-b border-[var(--border)] pb-3">
+  <div className={className}>
     <button
       onClick={onToggle}
       className="py-1.5 px-3 border border-[var(--border)] hover:bg-[var(--ink)] hover:text-[var(--bg)] bg-transparent text-[var(--ink)] rounded-none text-xs font-mono uppercase tracking-widest transition cursor-pointer flex items-center gap-1.5"

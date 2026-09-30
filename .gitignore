@@ -18,6 +18,7 @@ ui-debug.log
 
 # Cloud Functions build output
 functions/lib/
+functions/src/generated/
 
 # TypeScript
 *.tsbuildinfo

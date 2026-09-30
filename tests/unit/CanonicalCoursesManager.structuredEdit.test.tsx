@@ -648,8 +648,13 @@ describe('CanonicalCoursesManager structured CourseDay regressions', () => {
     expect(submission.intent.courseDayId).toMatch(/^course_day_/);
   });
 
+  async function openDayActions(order = 1) {
+    await userEvent.click(screen.getByRole('button', { name: `Day ${order} actions` }));
+  }
+
   it('reschedules using Course and CourseDay revisions while preserving duration', async () => {
     await openEdit();
+    await openDayActions();
     await userEvent.click(screen.getByRole('button', { name: 'Reschedule day 1' }));
     expect(screen.getByLabelText('Duration (minutes)')).toHaveValue(120);
     fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-09-20' } });
@@ -682,6 +687,7 @@ describe('CanonicalCoursesManager structured CourseDay regressions', () => {
 
   it('removes only when authorized, confirms, and sends both authoritative revisions', async () => {
     await openEdit();
+    await openDayActions();
     await userEvent.click(screen.getByRole('button', { name: 'Remove day 1' }));
     await waitFor(() => expect(onRequestConfirm).toHaveBeenCalledTimes(1));
     expect(commandSubmissions()[0]).toMatchObject({
@@ -699,6 +705,7 @@ describe('CanonicalCoursesManager structured CourseDay regressions', () => {
       error: { code: 'instructor_conflict' },
     });
     await openEdit();
+    await openDayActions();
     await userEvent.click(screen.getByRole('button', { name: 'Reschedule day 1' }));
     fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-09-20' } });
     await userEvent.click(screen.getByRole('button', { name: 'Save day' }));
@@ -714,6 +721,7 @@ describe('CanonicalCoursesManager structured CourseDay regressions', () => {
       error: { code: 'stale_version' },
     });
     await openEdit();
+    await openDayActions();
     const detailReadsBefore = queryAdminCourseReadModels.mock.calls.filter(
       ([input]) => input.scope === 'admin_course_detail'
     ).length;
@@ -738,6 +746,7 @@ describe('CanonicalCoursesManager structured CourseDay regressions', () => {
         : { scope: 'admin_course_list', items: [listItem()] }
     );
     await openEdit();
+    await openDayActions();
     expect(screen.queryByRole('button', { name: 'Remove day 1' })).not.toBeInTheDocument();
   });
 });

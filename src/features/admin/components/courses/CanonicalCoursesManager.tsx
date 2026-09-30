@@ -4,29 +4,41 @@ import {
   CourseCatalogContentInputSchema,
   CourseIdSchema,
   CourseProvisioningManifestSchema,
+  InstructorIdSchema,
+  IanaTimeZoneSchema,
+  intervalsOverlap,
+  resolveBookingScheduleFromCalendarInput,
   IdempotencyKeySchema,
   type AdminCourseListItem,
   type AdminCourseReadModel,
+  type AdminPlannerReadModel,
   type CommandEnvelope,
   type CommandKind,
   type CourseCatalogContentInput,
+  type TimeInterval,
 } from '@ski-academy/shared-domain';
+import { ZodError, type ZodIssue } from 'zod';
 import { executeAuthenticatedCanonicalCommand } from '../../../../lib/canonical/canonicalCommandClient';
 import { toCanonicalCommandClientError } from '../../../../lib/canonical/mapCanonicalCommandError';
+import { X } from 'lucide-react';
 import { ActionButton } from '../../../../ui/ActionButton';
-import { queryAdminCourseReadModels } from '../../../../lib/canonical/canonicalReadModelClient';
+import {
+  queryAdminCourseReadModels,
+  queryAdminPlannerReadModels,
+} from '../../../../lib/canonical/canonicalReadModelClient';
 import { applyAdminCoursesCommandResult } from '../../courses/adminCoursesLocalSync';
 import { applyAdminFinanceCommandResult } from '../../finance/adminFinanceLocalSync';
 import { useAdminCoursesRevisionRefresh } from '../../courses/useAdminCoursesRevisionRefresh';
 import { useAdminIdentityReadModels } from '../../identity/useAdminIdentityReadModels';
 import type { CanonicalCoursesManagerInput } from './adminCourseContracts';
 import { useAdminCourseTranslations } from './useAdminCourseTranslations';
+import { CanonicalCourseDatabaseList } from './CanonicalCourseDatabaseList';
+import { CanonicalCourseDaysEditor } from './CanonicalCourseDaysEditor';
+import type { CourseDayDraft } from './CanonicalCourseDayForm';
 import { CoursesManagerToolbar } from './form/CoursesManagerToolbar';
-import { CoursesTable } from './form/CoursesTable';
 import { CourseBackgroundImageField } from './CourseBackgroundImageField';
 import {
   catalogContentInputFromCourse,
-  formatAdminCourseDayLocalDate,
   formatAdminCourseDaysScheduleDates,
   mapAdminCourseToTableCourse,
 } from './adminCourseTableMapping';
@@ -88,6 +100,271 @@ function mergeCoursePages(
 interface CreateAttempt {
   readonly idempotencyKey: ReturnType<typeof IdempotencyKeySchema.parse>;
   readonly seed: string;
+}
+
+interface CreateFormValidationIssue {
+  readonly key: string;
+  readonly field: string;
+  readonly label: string;
+  readonly targetId: string;
+  readonly message: string;
+}
+
+interface CreateCourseDayRow {
+  readonly id: string;
+  readonly localDate: string;
+  readonly startTime: string;
+  readonly endTime: string;
+  readonly instructorId: string;
+}
+
+interface PlannerAvailabilityForDate {
+  readonly item?: AdminPlannerReadModel;
+  readonly loading: boolean;
+  readonly error?: 'read-failed' | 'incomplete';
+}
+
+let courseDayRowSequence = 0;
+
+function newCourseDayRow(input: Partial<Omit<CreateCourseDayRow, 'id'>> = {}): CreateCourseDayRow {
+  courseDayRowSequence += 1;
+  return {
+    id: `course-day-row-${courseDayRowSequence}`,
+    localDate: input.localDate ?? '',
+    startTime: input.startTime ?? '',
+    endTime: input.endTime ?? '',
+    instructorId: input.instructorId ?? '',
+  };
+}
+
+function minutesForDayTimes(startTime: string, endTime: string): number | undefined {
+  if (!isValidCourseTime(startTime) || !isValidCourseTime(endTime)) return undefined;
+  const toMinutes = (value: string) => {
+    const [hour, minute] = value.split(':').map(Number);
+    return hour! * 60 + minute!;
+  };
+  const start = toMinutes(startTime);
+  const end = toMinutes(endTime);
+  const duration = (end - start + 24 * 60) % (24 * 60);
+  return duration === 0 ? 24 * 60 : duration;
+}
+
+function endTimeFromDuration(startTime: string, durationMinutes: number): string {
+  const [hour, minute] = startTime.split(':').map(Number);
+  const end = ((hour! * 60 + minute! + durationMinutes) % (24 * 60) + 24 * 60) % (24 * 60);
+  return `${String(Math.floor(end / 60)).padStart(2, '0')}:${String(end % 60).padStart(2, '0')}`;
+}
+
+function createCourseDayRowsFromSerialized(value: string): CreateCourseDayRow[] {
+  return value
+    .split('\n')
+    .map((line) => line.trim().split(/\s+/))
+    .filter((parts) => parts.length === 4)
+    .flatMap((parts) => {
+      const [localDate, startTime, durationText, instructorId] = parts as [string, string, string, string];
+      const durationMinutes = Number(durationText);
+      if (
+        !isValidCalendarDate(localDate) ||
+        !isValidCourseTime(startTime) ||
+        !Number.isInteger(durationMinutes) ||
+        durationMinutes < 15 ||
+        durationMinutes > 24 * 60
+      ) {
+        return [];
+      }
+      return [
+        newCourseDayRow({
+          localDate,
+          startTime,
+          endTime: endTimeFromDuration(startTime, durationMinutes),
+          instructorId,
+        }),
+      ];
+    });
+}
+
+function serializeCreateCourseDayRows(rows: readonly CreateCourseDayRow[]): string {
+  return rows
+    .flatMap((row) => {
+      const durationMinutes = minutesForDayTimes(row.startTime, row.endTime);
+      if (
+        !isValidCalendarDate(row.localDate) ||
+        durationMinutes === undefined ||
+        !row.instructorId
+      ) {
+        return [];
+      }
+      return [`${row.localDate} ${row.startTime} ${durationMinutes} ${row.instructorId}`];
+    })
+    .join('\n');
+}
+
+function calendarDateOrdinal(localDate: string): number {
+  const [year, month, day] = localDate.split('-').map(Number);
+  const date = new Date(0);
+  date.setUTCFullYear(year!, month! - 1, day!);
+  date.setUTCHours(0, 0, 0, 0);
+  return date.getTime() / (24 * 60 * 60 * 1_000);
+}
+
+function createCourseDayRowsForPeriod(
+  startDate: string,
+  endDate: string,
+  existingRows: readonly CreateCourseDayRow[]
+): CreateCourseDayRow[] {
+  if (!isValidCalendarDate(startDate) || !isValidCalendarDate(endDate)) return [];
+  const startOrdinal = calendarDateOrdinal(startDate);
+  const endOrdinal = calendarDateOrdinal(endDate);
+  if (endOrdinal < startOrdinal) return [];
+
+  const existingByDate = new Map(existingRows.map((row) => [row.localDate, row]));
+  const dayCount = Math.min(endOrdinal - startOrdinal + 1, 65);
+  return Array.from({ length: dayCount }, (_, index) => {
+    const localDate = new Date((startOrdinal + index) * 24 * 60 * 60 * 1_000)
+      .toISOString()
+      .slice(0, 10);
+    return existingByDate.get(localDate) ?? newCourseDayRow({ localDate });
+  });
+}
+
+function plannerDateWindows(localDates: readonly string[]) {
+  const sortedDates = [...new Set(localDates.filter(isValidCalendarDate))].sort();
+  const windows: Array<{ readonly localDate: string; readonly dates: string[]; readonly windowDays: number }> = [];
+  let index = 0;
+  while (index < sortedDates.length) {
+    const localDate = sortedDates[index]!;
+    const startOrdinal = calendarDateOrdinal(localDate);
+    const dates: string[] = [];
+    while (
+      index < sortedDates.length &&
+      calendarDateOrdinal(sortedDates[index]!) - startOrdinal <= 60
+    ) {
+      dates.push(sortedDates[index]!);
+      index += 1;
+    }
+    const lastOrdinal = calendarDateOrdinal(dates[dates.length - 1]!);
+    windows.push({
+      localDate,
+      dates,
+      // Include the day after the last selected date for sessions that end after midnight.
+      windowDays: Math.max(2, lastOrdinal - startOrdinal + 2),
+    });
+  }
+  return windows;
+}
+
+function courseDayInterval(row: CreateCourseDayRow, timeZone: string) {
+  const durationMinutes = minutesForDayTimes(row.startTime, row.endTime);
+  if (!durationMinutes || !isValidCalendarDate(row.localDate)) return undefined;
+  try {
+    const resolved = resolveBookingScheduleFromCalendarInput(
+      { localDate: row.localDate, localTime: row.startTime, durationMinutes },
+      IanaTimeZoneSchema.parse(timeZone)
+    );
+    return { interval: resolved.interval, durationMinutes };
+  } catch {
+    return undefined;
+  }
+}
+
+function courseDayDateSummary(rows: readonly CreateCourseDayRow[]): string {
+  const dates = rows
+    .filter((row) => isValidCalendarDate(row.localDate))
+    .map((row) => row.localDate)
+    .sort();
+  if (dates.length === 0) return '';
+  const format = (date: string) => {
+    const [, year, month, day] = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date)!;
+    return `${day}.${month}.${year}`;
+  };
+  const first = format(dates[0]!);
+  const last = format(dates[dates.length - 1]!);
+  return first === last ? first : `${first} – ${last}`;
+}
+
+function courseDurationSummary(rows: readonly CreateCourseDayRow[], language: 'en' | 'ru'): string {
+  const durations = rows
+    .map((row) => minutesForDayTimes(row.startTime, row.endTime))
+    .filter((value): value is number => value !== undefined);
+  if (durations.length === 0) return '';
+  const totalMinutes = durations.reduce((sum, value) => sum + value, 0);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  const time = language === 'ru'
+    ? `${hours ? `${hours} ч.` : ''}${minutes ? `${hours ? ' ' : ''}${minutes} мин.` : ''}`
+    : `${hours ? `${hours} hr${hours === 1 ? '' : 's'}` : ''}${minutes ? `${hours ? ' ' : ''}${minutes} min` : ''}`;
+  const dayCount = durations.length;
+  if (language === 'ru') {
+    const lastTwo = dayCount % 100;
+    const last = dayCount % 10;
+    const noun = lastTwo >= 11 && lastTwo <= 14 ? 'дней' : last === 1 ? 'день' : last >= 2 && last <= 4 ? 'дня' : 'дней';
+    return `${dayCount} ${noun} (${time})`;
+  }
+  return `${dayCount} ${dayCount === 1 ? 'day' : 'days'} (${time})`;
+}
+
+function availableInstructorIdsForCourseDay(
+  row: CreateCourseDayRow,
+  rows: readonly CreateCourseDayRow[],
+  rosterIds: readonly string[],
+  availability: PlannerAvailabilityForDate | undefined,
+  timeZone: string
+): string[] {
+  const candidate = courseDayInterval(row, timeZone);
+  const model = availability?.item;
+  if (!candidate || !model || availability?.loading || availability?.error) return [];
+  const availableIds = new Set<string>(
+    model.instructors
+      .filter((instructor) => instructor.isAvailable)
+      .map((instructor) => instructor.instructorId as string)
+  );
+  return rosterIds.filter((instructorId) => {
+    if (!availableIds.has(instructorId)) return false;
+    const hasExistingConflict = model.occupancy.some(
+      (item) =>
+        item.instructorId === instructorId && intervalsOverlap(candidate.interval, item.interval)
+    );
+    if (hasExistingConflict) return false;
+    return !rows.some((other) => {
+      if (other.id === row.id || other.instructorId !== instructorId) return false;
+      const otherInterval = courseDayInterval(other, timeZone);
+      return Boolean(otherInterval && intervalsOverlap(candidate.interval, otherInterval.interval));
+    });
+  });
+}
+
+function isValidCalendarDate(value: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const [, yearText, monthText, dayText] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const date = new Date(0);
+  date.setUTCFullYear(year, month - 1, day);
+  date.setUTCHours(0, 0, 0, 0);
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+}
+
+function isValidCourseTime(value: string): boolean {
+  const match = /^(\d{2}):(\d{2})$/.exec(value);
+  if (!match) return false;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59;
+}
+
+function isValidCourseImageUrl(value: string): boolean {
+  try {
+    new URL(value);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 const EMPTY_CREATE_FORM: CreateFormState = {
@@ -186,26 +463,40 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<AdminCourseReadModel | null>(null);
   const [mutationError, setMutationError] = useState<string | null>(null);
+  const [createFormError, setCreateFormError] = useState<string | null>(null);
+  const [createValidationIssues, setCreateValidationIssues] = useState<
+    readonly CreateFormValidationIssue[]
+  >([]);
   const [stale, setStale] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [listQuery, setListQuery] = useState('');
+  const [workspaceSection, setWorkspaceSection] = useState<
+    'overview' | 'schedule' | 'instructors' | 'participants' | 'enrollment' | 'settings'
+  >('overview');
   const [createMode, setCreateMode] = useState<'create' | 'clone'>('create');
   const [createForm, setCreateForm] = useState<CreateFormState>(EMPTY_CREATE_FORM);
+  const [createCourseDays, setCreateCourseDays] = useState<CreateCourseDayRow[]>([]);
+  const [createPeriodStart, setCreatePeriodStart] = useState('');
+  const [createPeriodEnd, setCreatePeriodEnd] = useState('');
+  const [plannerAvailabilityByDate, setPlannerAvailabilityByDate] = useState<
+    Record<string, PlannerAvailabilityForDate>
+  >({});
+  const [availabilityRefreshToken, setAvailabilityRefreshToken] = useState(0);
   const [editForm, setEditForm] = useState<CreateFormState | null>(null);
   const [editOriginal, setEditOriginal] = useState<AdminCourseReadModel | null>(null);
   const [editReason, setEditReason] = useState('');
   const [imageUploaderOpen, setImageUploaderOpen] = useState(false);
-  const [courseDayDraft, setCourseDayDraft] = useState<{
-    readonly kind: 'create_course_day' | 'reassign_course_day_instructor' | 'reschedule_course_day';
+  const [courseDayDraft, setCourseDayDraft] = useState<CourseDayDraft | null>(null);
+  const [courseDayIssue, setCourseDayIssue] = useState<{
     readonly courseDayId?: string;
-    readonly localDate: string;
-    readonly localTime: string;
-    readonly durationMinutes: string;
-    readonly instructorId: string;
+    readonly message: string;
   } | null>(null);
   const createAttemptRef = useRef<CreateAttempt | null>(null);
   const cloneDraftRef = useRef<CanonicalCourseCloneDraft | null>(null);
+  const createPresentationDetailsRef = useRef<HTMLDetailsElement | null>(null);
   const commandInFlightRef = useRef(false);
+  const plannerAvailabilityRequestRef = useRef(0);
   const detailRequestRef = useRef(0);
   const listRequestRef = useRef<Record<CourseLifecycleScope, number>>({ active: 0, archived: 0 });
   const instructorReads = useAdminIdentityReadModels({
@@ -318,7 +609,88 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
       ),
     [instructorReads.instructors.items]
   );
+  const selectedCourseDayDates = useMemo(
+    () => [...new Set(createCourseDays.map((row) => row.localDate).filter(isValidCalendarDate))],
+    [createCourseDays]
+  );
+
+  useEffect(() => {
+    const requestId = ++plannerAvailabilityRequestRef.current;
+    const dates = selectedCourseDayDates;
+    if (!showCreate || dates.length === 0) {
+      setPlannerAvailabilityByDate({});
+      return () => {
+        if (plannerAvailabilityRequestRef.current === requestId) {
+          plannerAvailabilityRequestRef.current += 1;
+        }
+      };
+    }
+
+    const timeZone = IanaTimeZoneSchema.safeParse(createForm.timeZone);
+    if (!timeZone.success) {
+      setPlannerAvailabilityByDate(
+        Object.fromEntries(dates.map((date) => [date, { loading: false, error: 'read-failed' }]))
+      );
+      return;
+    }
+
+    setPlannerAvailabilityByDate(
+      Object.fromEntries(dates.map((date) => [date, { loading: true }]))
+    );
+    const windows = plannerDateWindows(dates);
+    void Promise.all(
+      windows.map(async (window) => {
+        try {
+          const result = await queryAdminPlannerReadModels({
+            scope: 'admin_planner',
+            localDate: window.localDate,
+            view: 'day',
+            timeZone: timeZone.data,
+            windowDays: window.windowDays,
+          });
+          const availability: PlannerAvailabilityForDate = result.item.truncated
+            ? { item: result.item, loading: false, error: 'incomplete' }
+            : { item: result.item, loading: false };
+          return { dates: window.dates, availability };
+        } catch {
+          return {
+            dates: window.dates,
+            availability: { loading: false, error: 'read-failed' } satisfies PlannerAvailabilityForDate,
+          };
+        }
+      })
+    ).then((results) => {
+      if (plannerAvailabilityRequestRef.current !== requestId) return;
+      setPlannerAvailabilityByDate(
+        Object.fromEntries(
+          results.flatMap(({ dates: windowDates, availability }) =>
+            windowDates.map((date) => [date, availability] as const)
+          )
+        )
+      );
+    });
+
+    return () => {
+      if (plannerAvailabilityRequestRef.current === requestId) {
+        plannerAvailabilityRequestRef.current += 1;
+      }
+    };
+  }, [availabilityRefreshToken, createForm.timeZone, selectedCourseDayDates, showCreate]);
   const tableCourses = useMemo(() => courses.map(mapAdminCourseToTableCourse), [courses]);
+  const visibleTableCourses = useMemo(() => {
+    const query = listQuery.trim().toLowerCase();
+    if (!query) return tableCourses;
+    return tableCourses.filter((course) =>
+      `${course.title} ${course.titleRu ?? ''} ${course.dates}`.toLowerCase().includes(query)
+    );
+  }, [listQuery, tableCourses]);
+  const loadedEnrollment = useMemo(() => {
+    const active = courseLists.active.items;
+    return {
+      occupied: active.reduce((sum, course) => sum + course.capacity.occupiedConfirmedSeats, 0),
+      seats: active.reduce((sum, course) => sum + course.capacity.totalSeats, 0),
+    };
+  }, [courseLists.active.items]);
   const tableInstructors = useMemo<Instructor[]>(() => {
     const byId = new Map<string, Instructor>();
     const remember = (id: string, name: string, avatarUrl = '', isAvailable = true) => {
@@ -362,6 +734,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
       commandInFlightRef.current = true;
       setPending(input.kind);
       setMutationError(null);
+      setCourseDayIssue(null);
       setStale(false);
       try {
         const result = await executeAuthenticatedCanonicalCommand(currentAccountId, {
@@ -380,7 +753,20 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
             await refresh();
             if (selectedCourseId) await loadCourseDetail(selectedCourseId);
           }
-          setMutationError(commandError(result.error.code));
+          const message = commandError(result.error.code);
+          setMutationError(message);
+          if (
+            input.kind === 'create_course_day' ||
+            input.kind === 'reassign_course_day_instructor' ||
+            input.kind === 'reschedule_course_day' ||
+            input.kind === 'remove_course_day'
+          ) {
+            const courseDayId = (input.intent as { readonly courseDayId?: string }).courseDayId;
+            setCourseDayIssue({ ...(courseDayId ? { courseDayId } : {}), message });
+          }
+          if (input.kind === 'apply_canonical_course_provisioning_manifest') {
+            setCreateFormError(message);
+          }
           return false;
         }
         applyAdminCoursesCommandResult(result);
@@ -422,7 +808,20 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
           caught,
           'correlation_admin_course_command'
         );
-        setMutationError(commandError(normalized.code));
+        const message = commandError(normalized.code);
+        setMutationError(message);
+        if (
+          input.kind === 'create_course_day' ||
+          input.kind === 'reassign_course_day_instructor' ||
+          input.kind === 'reschedule_course_day' ||
+          input.kind === 'remove_course_day'
+        ) {
+          const courseDayId = (input.intent as { readonly courseDayId?: string }).courseDayId;
+          setCourseDayIssue({ ...(courseDayId ? { courseDayId } : {}), message });
+        }
+        if (input.kind === 'apply_canonical_course_provisioning_manifest') {
+          setCreateFormError(message);
+        }
         return false;
       } finally {
         commandInFlightRef.current = false;
@@ -437,8 +836,13 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
   const resetCreateForm = () => {
     createAttemptRef.current = null;
     cloneDraftRef.current = null;
+    setCreateFormError(null);
+    setCreateValidationIssues([]);
     setCreateMode('create');
     setCreateForm(EMPTY_CREATE_FORM);
+    setCreateCourseDays([]);
+    setCreatePeriodStart('');
+    setCreatePeriodEnd('');
   };
 
   const updateCreateField = <Field extends keyof CreateFormState>(
@@ -446,7 +850,32 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
     value: CreateFormState[Field]
   ) => {
     createAttemptRef.current = null;
+    setCreateFormError(null);
+    setCreateValidationIssues((issues) =>
+      issues.filter((issue) => issue.field !== field && !(field === 'roster' && issue.field === 'days'))
+    );
     setCreateForm((state) => ({ ...state, [field]: value }));
+  };
+
+  const updateCreateCourseDays = (rows: CreateCourseDayRow[]) => {
+    createAttemptRef.current = null;
+    setCreateFormError(null);
+    setCreateValidationIssues((issues) => issues.filter((issue) => issue.field !== 'days'));
+    setCreateCourseDays(rows);
+    setCreateForm((state) => ({ ...state, days: serializeCreateCourseDayRows(rows) }));
+  };
+
+  const updateCreatePeriod = (field: 'start' | 'end', value: string) => {
+    createAttemptRef.current = null;
+    setCreateFormError(null);
+    setCreateValidationIssues((issues) => issues.filter((issue) => issue.field !== 'days'));
+    const startDate = field === 'start' ? value : createPeriodStart;
+    const endDate = field === 'end' ? value : createPeriodEnd;
+    setCreatePeriodStart(startDate);
+    setCreatePeriodEnd(endDate);
+    const rows = createCourseDayRowsForPeriod(startDate, endDate, createCourseDays);
+    setCreateCourseDays(rows);
+    setCreateForm((state) => ({ ...state, days: serializeCreateCourseDayRows(rows) }));
   };
 
   const toggleCreate = () => {
@@ -530,16 +959,402 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
 
   const createCourse = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (commandInFlightRef.current) return;
+
+    setCreateFormError(null);
+    setCreateValidationIssues([]);
+
+    const fieldLabels: Record<string, string> = {
+      title: language === 'ru' ? 'Название' : 'Title',
+      titleRu: language === 'ru' ? 'Название на русском' : 'Russian title',
+      price: language === 'ru' ? 'Цена (KZT)' : 'Price (KZT)',
+      totalSeats: language === 'ru' ? 'Вместимость' : 'Capacity',
+      timeZone: language === 'ru' ? 'Часовой пояс' : 'Time zone',
+      roster: language === 'ru' ? 'Состав инструкторов' : 'Instructor roster',
+      days: 'CourseDays',
+      duration: language === 'ru' ? 'Длительность' : 'Duration',
+      description: language === 'ru' ? 'Описание' : 'Description',
+      dates: language === 'ru' ? 'Даты' : 'Dates',
+      bgImageUrl: language === 'ru' ? 'Ссылка на изображение' : 'Background image URL',
+      shortDescription: language === 'ru' ? 'Краткое описание' : 'Short description',
+      shortDescriptionRu:
+        language === 'ru' ? 'Краткое описание на русском' : 'Russian short description',
+      detailedDescription: language === 'ru' ? 'Подробное описание' : 'Detailed description',
+      detailedDescriptionRu:
+        language === 'ru' ? 'Подробное описание на русском' : 'Russian detailed description',
+      badge: language === 'ru' ? 'Метка' : 'Badge',
+      badgeRu: language === 'ru' ? 'Метка на русском' : 'Russian badge',
+      level: language === 'ru' ? 'Уровень' : 'Level',
+      levelLabel: language === 'ru' ? 'Подпись уровня' : 'Level label',
+      videoUrl: language === 'ru' ? 'Ссылка на видео' : 'Video URL',
+      benefits: language === 'ru' ? 'Преимущества' : 'Benefits',
+      benefitsRu: language === 'ru' ? 'Преимущества на русском' : 'Russian benefits',
+      program: language === 'ru' ? 'Программа' : 'Program',
+      programRu: language === 'ru' ? 'Программа на русском' : 'Russian program',
+      faq: 'FAQ',
+      faqRu: language === 'ru' ? 'FAQ на русском' : 'Russian FAQ',
+      galleryPhotos: language === 'ru' ? 'Фотографии галереи' : 'Gallery photos',
+    };
+    const targetIdForField = (field: string) =>
+      field === 'roster' ? 'canonical-course-instructor-roster' : `canonical-course-${field}`;
+    const makeIssue = (
+      field: string,
+      message: string,
+      key = field,
+      targetId = targetIdForField(field),
+      label = fieldLabels[field] ?? field
+    ): CreateFormValidationIssue => ({ key, field, label, targetId, message });
+    const makeDayIssue = (
+      row: CreateCourseDayRow,
+      index: number,
+      field: 'date' | 'start' | 'end' | 'instructor',
+      message: string
+    ) =>
+      makeIssue(
+        'days',
+        message,
+        `days:${row.id}:${field}`,
+        `canonical-course-day-${row.id}-${field}`,
+        language === 'ru'
+          ? `День ${index + 1} — ${field === 'date' ? 'дата' : field === 'start' ? 'начало' : field === 'end' ? 'окончание' : 'инструктор'}`
+          : `Day ${index + 1} ${field === 'date' ? 'date' : field === 'start' ? 'start time' : field === 'end' ? 'end time' : 'instructor'}`
+      );
+    const reportIssues = (issues: readonly CreateFormValidationIssue[]) => {
+      if (issues.length === 0) return;
+      setCreateValidationIssues(issues);
+      setCreateFormError(null);
+      const firstIssue = issues[0]!;
+      if (
+        [
+          'description',
+          'shortDescription',
+          'shortDescriptionRu',
+          'detailedDescription',
+          'detailedDescriptionRu',
+          'badge',
+          'badgeRu',
+          'level',
+          'levelLabel',
+          'videoUrl',
+          'benefits',
+          'benefitsRu',
+          'program',
+          'programRu',
+          'faq',
+          'faqRu',
+          'galleryPhotos',
+        ].includes(firstIssue.field)
+      ) {
+        if (createPresentationDetailsRef.current) createPresentationDetailsRef.current.open = true;
+      }
+      document.getElementById(firstIssue.targetId)?.focus();
+    };
+    const messageForZodIssue = (issue: ZodIssue): CreateFormValidationIssue => {
+      const path = issue.path.map(String);
+      const issueRoot = path[0] === 'presentation' ? path[1] : path[0];
+      const field =
+        issueRoot === 'instructorRosterIds'
+          ? 'roster'
+          : issueRoot === 'days' || issueRoot === undefined
+            ? 'days'
+            : issueRoot;
+      const dayIndex = path[0] === 'days' && /^\d+$/.test(path[1] ?? '') ? Number(path[1]) + 1 : 0;
+      const dayField = path[dayIndex > 0 ? 2 : 1];
+      let message: string;
+      if (field === 'days' && dayField === 'localDate') {
+        message = language === 'ru'
+          ? `Строка ${dayIndex}: укажите существующую дату в формате YYYY-MM-DD.`
+          : `Line ${dayIndex}: enter a real date in YYYY-MM-DD format.`;
+      } else if (field === 'days' && dayField === 'localTime') {
+        message = language === 'ru'
+          ? `Строка ${dayIndex}: укажите время в формате HH:mm.`
+          : `Line ${dayIndex}: enter a time in HH:mm format.`;
+      } else if (field === 'days' && dayField === 'durationMinutes') {
+        message = language === 'ru'
+          ? `Строка ${dayIndex}: длительность должна быть целым числом от 15 до 1440 минут.`
+          : `Line ${dayIndex}: duration must be a whole number from 15 to 1440 minutes.`;
+      } else if (field === 'days' && dayField === 'instructorId') {
+        message = language === 'ru'
+          ? `Строка ${dayIndex}: укажите корректный ID инструктора из состава курса.`
+          : `Line ${dayIndex}: enter a valid instructor ID from the course roster.`;
+      } else if (field === 'days') {
+        message = language === 'ru'
+          ? 'Добавьте хотя бы один день; дни должны идти в хронологическом порядке.'
+          : 'Add at least one CourseDay and keep days in chronological order.';
+      } else if (field === 'roster') {
+        message = language === 'ru'
+          ? 'Выберите от 1 до 16 корректных инструкторов курса.'
+          : 'Select between 1 and 16 valid Course instructors.';
+      } else if (field === 'timeZone') {
+        message = language === 'ru'
+          ? 'Укажите корректный часовой пояс IANA, например Asia/Almaty.'
+          : 'Enter a valid IANA time zone, such as Asia/Almaty.';
+      } else if (field === 'title') {
+        message = language === 'ru'
+          ? 'Название обязательно и должно содержать не более 200 символов.'
+          : 'Title is required and must be at most 200 characters.';
+      } else if (field === 'price') {
+        message = language === 'ru'
+          ? 'Укажите целую сумму в KZT в допустимом диапазоне.'
+          : 'Enter a whole-number KZT price in the allowed range.';
+      } else if (field === 'totalSeats') {
+        message = text.capacityRange;
+      } else if (field === 'duration') {
+        message = language === 'ru'
+          ? 'Укажите длительность курса (не более 200 символов).'
+          : 'Enter a course duration of at most 200 characters.';
+      } else if (field === 'bgImageUrl') {
+        message = language === 'ru'
+          ? 'Укажите корректный URL изображения.'
+          : 'Enter a valid image URL.';
+      } else if (field === 'titleRu') {
+        message = language === 'ru'
+          ? 'Название на русском должно содержать не более 200 символов.'
+          : 'Russian title must be at most 200 characters.';
+      } else if (field === 'description') {
+        message = language === 'ru'
+          ? 'Описание должно содержать не более 10 000 символов.'
+          : 'Description must be at most 10,000 characters.';
+      } else {
+        message = language === 'ru'
+          ? 'Проверьте значение и допустимую длину поля.'
+          : 'Check this value and the allowed field length.';
+      }
+      return makeIssue(field, message, `${path.join('.') || field}:${issue.code}`);
+    };
+
     try {
+      const issues: CreateFormValidationIssue[] = [];
+      if (!createForm.title.trim()) {
+        issues.push(makeIssue('title', language === 'ru' ? 'Укажите название курса.' : 'Enter a course title.'));
+      }
+      if (!createForm.price.trim()) {
+        issues.push(makeIssue('price', language === 'ru' ? 'Укажите цену в KZT.' : 'Enter a KZT price.'));
+      }
+      if (!createForm.totalSeats.trim()) {
+        issues.push(makeIssue('totalSeats', text.capacityRange));
+      }
+      if (!createForm.timeZone.trim()) {
+        issues.push(makeIssue('timeZone', language === 'ru' ? 'Укажите часовой пояс.' : 'Enter a time zone.'));
+      } else if (!IanaTimeZoneSchema.safeParse(createForm.timeZone).success) {
+        issues.push(makeIssue(
+          'timeZone',
+          language === 'ru'
+            ? 'Укажите корректный часовой пояс IANA, например Asia/Almaty.'
+            : 'Enter a valid IANA time zone, such as Asia/Almaty.'
+        ));
+      }
+
       const roster = createForm.roster
         .split(',')
         .map((value) => value.trim())
         .filter(Boolean);
+      if (roster.length === 0) {
+        issues.push(makeIssue(
+          'roster',
+          language === 'ru'
+            ? 'Выберите хотя бы одного инструктора курса.'
+            : 'Select at least one instructor for this Course.'
+        ));
+      } else if (roster.length > 16) {
+        issues.push(makeIssue(
+          'roster',
+          language === 'ru'
+            ? 'В составе курса может быть не более 16 инструкторов.'
+            : 'A Course can have at most 16 instructors in its roster.'
+        ));
+      }
       const totalSeats = Number(createForm.totalSeats);
-      if (!Number.isInteger(totalSeats) || totalSeats < 1 || totalSeats > 64) {
-        setMutationError(text.capacityRange);
+      if (createForm.totalSeats.trim() && (!Number.isInteger(totalSeats) || totalSeats < 1 || totalSeats > 64)) {
+        issues.push(makeIssue('totalSeats', text.capacityRange));
+      }
+
+      if (!createForm.bgImageUrl.trim() || !isValidCourseImageUrl(createForm.bgImageUrl.trim())) {
+        issues.push(makeIssue(
+          'bgImageUrl',
+          language === 'ru'
+            ? 'Укажите корректный URL изображения.'
+            : 'Enter a valid image URL.'
+        ));
+      }
+
+      const parsedDayLines: Array<{
+        readonly localDate: string;
+        readonly localTime: string;
+        readonly durationMinutes: number;
+        readonly instructorId: string;
+        readonly interval: TimeInterval;
+      }> = [];
+      if (createMode === 'create' && (!isValidCalendarDate(createPeriodStart) || !isValidCalendarDate(createPeriodEnd))) {
+        const focusEnd = isValidCalendarDate(createPeriodStart);
+        issues.push(makeIssue(
+          'days',
+          language === 'ru'
+            ? 'Выберите начало и окончание периода курса в календаре.'
+            : 'Choose the course period start and end dates from the calendar.',
+          'period',
+          focusEnd ? 'canonical-course-period-end' : 'canonical-course-period-start',
+          language === 'ru' ? 'Период курса' : 'Course period'
+        ));
+      } else if (createMode === 'create' && calendarDateOrdinal(createPeriodEnd) < calendarDateOrdinal(createPeriodStart)) {
+        issues.push(makeIssue(
+          'days',
+          language === 'ru'
+            ? 'Окончание периода не может быть раньше его начала.'
+            : 'The period end cannot be earlier than its start.',
+          'period',
+          'canonical-course-period-end',
+          language === 'ru' ? 'Период курса' : 'Course period'
+        ));
+      }
+      if (createCourseDays.length === 0 && createMode === 'clone') {
+        issues.push(makeIssue(
+          'days',
+          language === 'ru' ? 'Добавьте хотя бы один день курса.' : 'Add at least one CourseDay.'
+        ));
+      } else if (createCourseDays.length > 64) {
+        issues.push(makeIssue(
+          'days',
+          language === 'ru'
+            ? 'На курс можно добавить не более 64 дней.'
+            : 'A Course can have at most 64 CourseDays.'
+        ));
+      }
+      if (createCourseDays.length <= 64) createCourseDays.forEach((row, index) => {
+        let valid = true;
+        if (!isValidCalendarDate(row.localDate)) {
+          valid = false;
+          issues.push(makeDayIssue(
+            row,
+            index,
+            'date',
+            language === 'ru' ? 'Выберите дату курса в календаре.' : 'Choose a course date from the calendar.'
+          ));
+        }
+        if (!isValidCourseTime(row.startTime)) {
+          valid = false;
+          issues.push(makeDayIssue(
+            row,
+            index,
+            'start',
+            language === 'ru' ? 'Укажите время начала в формате 00:00.' : 'Choose a start time in 00:00 format.'
+          ));
+        }
+        if (!isValidCourseTime(row.endTime)) {
+          valid = false;
+          issues.push(makeDayIssue(
+            row,
+            index,
+            'end',
+            language === 'ru' ? 'Укажите время окончания в формате 00:00.' : 'Choose an end time in 00:00 format.'
+          ));
+        }
+        const durationMinutes = minutesForDayTimes(row.startTime, row.endTime);
+        if (durationMinutes === undefined || durationMinutes < 15 || durationMinutes > 24 * 60) {
+          valid = false;
+          issues.push(makeDayIssue(
+            row,
+            index,
+            'end',
+            language === 'ru'
+              ? 'Интервал дня должен длиться от 15 минут до 24 часов.'
+              : 'The daily time range must be from 15 minutes to 24 hours.'
+          ));
+        }
+        if (!InstructorIdSchema.safeParse(row.instructorId).success) {
+          valid = false;
+          issues.push(makeDayIssue(
+            row,
+            index,
+            'instructor',
+            language === 'ru' ? 'Выберите инструктора.' : 'Choose an instructor.'
+          ));
+        } else if (!roster.includes(row.instructorId)) {
+          valid = false;
+          issues.push(makeDayIssue(
+            row,
+            index,
+            'instructor',
+            language === 'ru'
+              ? 'Инструктор должен входить в выбранный состав курса.'
+              : 'The instructor must be selected in the course roster.'
+          ));
+        }
+
+        const interval = courseDayInterval(row, createForm.timeZone);
+        if (interval && InstructorIdSchema.safeParse(row.instructorId).success && roster.includes(row.instructorId)) {
+          const availability = plannerAvailabilityByDate[row.localDate];
+          if (availability?.loading) {
+            valid = false;
+            issues.push(makeDayIssue(
+              row,
+              index,
+              'instructor',
+              language === 'ru' ? 'Дождитесь проверки доступности инструкторов.' : 'Wait for instructor availability to finish loading.'
+            ));
+          } else if (!availability?.item || availability.error) {
+            valid = false;
+            issues.push(makeDayIssue(
+              row,
+              index,
+              'instructor',
+              language === 'ru'
+                ? availability?.error === 'incomplete'
+                  ? 'Слишком много записей для проверки доступности. Уточните расписание и повторите.'
+                  : 'Не удалось проверить доступность инструкторов. Повторите попытку.'
+                : availability?.error === 'incomplete'
+                  ? 'Too many schedule entries to confirm availability. Review the schedule and retry.'
+                  : 'Instructor availability could not be checked. Retry the availability check.'
+            ));
+          } else if (
+            !availableInstructorIdsForCourseDay(
+              row,
+              createCourseDays,
+              roster,
+              availability,
+              createForm.timeZone
+            ).includes(row.instructorId)
+          ) {
+            valid = false;
+            issues.push(makeDayIssue(
+              row,
+              index,
+              'instructor',
+              language === 'ru'
+                ? 'Инструктор занят или недоступен в это время. Выберите другого.'
+                : 'This instructor is busy or unavailable at this time. Choose another.'
+            ));
+          }
+        }
+        if (valid && interval && durationMinutes !== undefined) {
+          parsedDayLines.push({
+            localDate: row.localDate,
+            localTime: row.startTime,
+            durationMinutes,
+            instructorId: row.instructorId,
+            interval: interval.interval,
+          });
+        }
+      });
+
+      parsedDayLines.sort((left, right) => left.interval.startsAt.seconds - right.interval.startsAt.seconds);
+      for (let index = 1; index < parsedDayLines.length; index += 1) {
+        if (parsedDayLines[index]!.interval.startsAt.seconds <= parsedDayLines[index - 1]!.interval.startsAt.seconds) {
+          issues.push(makeIssue(
+            'days',
+            language === 'ru'
+              ? 'Для каждого CourseDay укажите отдельное время начала; дни должны идти в хронологическом порядке.'
+              : 'Give each CourseDay a distinct start time and keep the schedule chronological.'
+          ));
+          break;
+        }
+      }
+
+      if (issues.length > 0) {
+        reportIssues(issues);
         return;
       }
+
       const attemptPrefix = createMode === 'clone' ? 'admin-course:clone' : 'admin-course:create';
       const attempt =
         createAttemptRef.current ??
@@ -553,23 +1368,18 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
       createAttemptRef.current = attempt;
       const { seed } = attempt;
       const courseId = `course_${seed}`;
-      const days = createForm.days
-        .split('\n')
-        .map((line) => line.trim())
-        .filter(Boolean)
-        .map((line, index) => {
-          const [localDate, localTime, duration, instructorId] = line.split(/\s+/);
-          return {
-            courseDayId: `course_day_${seed}_${index + 1}`,
-            dayOrder: index + 1,
-            localDate,
-            localTime,
-            durationMinutes: Number(duration),
-            instructorId,
-          };
-        });
+      const days = parsedDayLines.map(({ interval: _interval, ...day }, index) => ({
+        courseDayId: `course_day_${seed}_${index + 1}`,
+        dayOrder: index + 1,
+        ...day,
+      }));
+      const presentationForm: CreateFormState = {
+        ...createForm,
+        dates: courseDayDateSummary(createCourseDays),
+        duration: courseDurationSummary(createCourseDays, language),
+      };
       const presentation: CourseCatalogContentInput = catalogContentInputFromCreateForm(
-        createForm,
+        presentationForm,
         cloneDraftRef.current?.presentation
       );
       const manifest = CourseProvisioningManifestSchema.parse({
@@ -591,8 +1401,12 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
       if (!succeeded) return;
       resetCreateForm();
       setShowCreate(false);
-    } catch {
-      setMutationError(commandError('validation'));
+    } catch (caught) {
+      if (caught instanceof ZodError) {
+        reportIssues(caught.issues.map(messageForZodIssue));
+        return;
+      }
+      setCreateFormError(caught instanceof Error ? caught.message : text.mutationFailed);
     }
   };
 
@@ -1045,6 +1859,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
   };
 
   const openCourseDetail = (courseId: string, edit: boolean) => {
+    setWorkspaceSection('overview');
     setSelectedCourseId(courseId);
     setSelectedCourse(null);
     setEditForm(null);
@@ -1066,6 +1881,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
       cloneDraftRef.current = draft;
       setCreateMode('clone');
       setCreateForm(draft.form);
+      setCreateCourseDays(createCourseDayRowsFromSerialized(draft.form.days));
       setShowCreate(true);
     } catch (caught) {
       setMutationError(caught instanceof Error ? caught.message : text.mutationFailed);
@@ -1082,11 +1898,80 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
     ? formatAdminCourseDaysScheduleDates(selectedCourse.courseDays)
     : '';
 
+  const catalogHidden =
+    selectedCourse?.catalogContent.content?.isHidden === true ||
+    selectedCourse?.lifecycle === 'archived';
+  const createFieldIssue = (field: string) =>
+    createValidationIssues.find((issue) => issue.field === field);
+  const instructorOptionById = (id: string) => {
+    const parsedId = InstructorIdSchema.safeParse(id);
+    return parsedId.success ? instructorOptions.get(parsedId.data) : undefined;
+  };
+  const renderCreateFieldError = (field: string) => {
+    const issue = createFieldIssue(field);
+    return issue ? (
+      <p id={`canonical-course-${field}-error`} className="text-xs text-red-700">
+        {issue.message}
+      </p>
+    ) : null;
+  };
+  const showWorkspace = (
+    ...sections: Array<typeof workspaceSection>
+  ) => workspaceSection === 'overview' || sections.includes(workspaceSection);
+
   return (
     <div
-      className="space-y-4"
+      className="relative space-y-3"
       aria-busy={pending !== null || currentList.loadingInitial || currentList.loadingMore}
     >
+      <header className="flex flex-wrap items-center justify-end gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {pending ? <span role="status">{text.pending}</span> : null}
+          {stale ? <span role="status">{text.stale}</span> : null}
+          {mutationError && mutationError !== courseDayIssue?.message ? (
+            <span role="alert">{mutationError}</span>
+          ) : null}
+          <CoursesManagerToolbar
+            t={t}
+            showCourseForm={showCreate}
+            onToggle={toggleCreate}
+            className="flex items-center"
+          />
+          <button type="button" className="ui-btn" onClick={() => void refresh()}>
+            {text.refresh}
+          </button>
+        </div>
+      </header>
+      <dl className="grid grid-cols-3 gap-px overflow-hidden rounded-md border border-[var(--border)] bg-[var(--border)] text-xs">
+        {(
+          [
+            [
+              'active-loaded',
+              language === 'ru' ? 'Активные, загружено' : 'Active loaded',
+              courseLists.active.initialized ? String(courseLists.active.items.length) : '—',
+            ],
+            [
+              'archived-loaded',
+              language === 'ru' ? 'Архивные, загружено' : 'Archived loaded',
+              courseLists.archived.initialized ? String(courseLists.archived.items.length) : '—',
+            ],
+            [
+              'seats-loaded',
+              language === 'ru' ? 'Места, загружено' : 'Seats loaded',
+              courseLists.active.initialized
+                ? `${loadedEnrollment.occupied} / ${loadedEnrollment.seats}`
+                : '—',
+            ],
+          ] as const
+        ).map(([key, label, value]) => (
+          <div key={key} className="bg-[var(--card-bg)] px-3 py-2">
+            <dt className="text-[10px] uppercase tracking-wide text-[var(--ink-dim)]">{label}</dt>
+            <dd className="mt-0.5 font-mono text-base text-[var(--ink)]">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(17.5rem,34%)_minmax(0,1fr)]">
+      <aside className="min-w-0 space-y-3">
       <div className="flex gap-2" role="tablist" aria-label={text.lifecycle}>
         {(['active', 'archived'] as const).map((scope) => (
           <button
@@ -1105,20 +1990,22 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
               setCourseDayDraft(null);
               setMutationError(null);
               setStale(false);
+              setWorkspaceSection('overview');
             }}
           >
             {scope === 'active' ? text.active : text.archived}
           </button>
         ))}
       </div>
-      <div className="flex flex-wrap items-center justify-end gap-2 border-b border-[var(--border)] pb-3">
-        <CoursesManagerToolbar t={t} showCourseForm={showCreate} onToggle={toggleCreate} />
-        <button type="button" className="ui-btn" onClick={() => void refresh()}>
-          {text.refresh}
-        </button>
-        {pending && <span role="status">{text.pending}</span>}
-        {stale && <span role="status">{text.stale}</span>}
-        {mutationError && <span role="alert">{mutationError}</span>}
+      <label className="grid gap-1 text-xs text-[var(--ink-dim)]">
+        {language === 'ru' ? 'Поиск курсов' : 'Search courses'}
+        <input
+          value={listQuery}
+          onChange={(event) => setListQuery(event.target.value)}
+          placeholder={language === 'ru' ? 'Поиск курсов…' : 'Search courses…'}
+        />
+      </label>
+      <div className="flex flex-wrap items-center gap-2">
         {currentList.error && courses.length > 0 ? (
           <span role="alert">
             {currentList.error}{' '}
@@ -1141,9 +2028,37 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
 
       {showCreate && (
         <form
-          className="grid gap-2 rounded border border-[var(--border)] p-3 md:grid-cols-2"
+          className="fixed inset-y-0 right-0 z-50 flex w-[min(100%,400px)] flex-col overflow-hidden border-l border-[var(--border)] bg-[var(--card-bg)] shadow-[-12px_0_32px_rgba(0,0,0,0.28)]"
           onSubmit={(event) => void createCourse(event)}
+          noValidate
+          aria-label={text.create}
         >
+          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--border)] px-4 py-3">
+            <h3 className="font-serif text-lg text-[var(--ink)]">
+              {createMode === 'clone' ? text.createClone : text.create}
+            </h3>
+            <button type="button" className="ui-btn px-2" aria-label={t('closeForm')} onClick={toggleCreate}>
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
+          {createFormError || createValidationIssues.length > 0 ? (
+            <div role="alert" className="grid gap-1 border border-red-300 bg-red-50 p-2 text-xs text-red-800 md:col-span-2">
+              {createFormError ? <p>{createFormError}</p> : null}
+              {createValidationIssues.length > 0 ? (
+                <ul className="list-inside list-disc">
+                  {createValidationIssues.map((issue) => (
+                    <li key={issue.key}>
+                      <strong>{issue.label}:</strong> {issue.message}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
+          <p className="text-[11px] uppercase tracking-wide text-[var(--ink-dim)] md:col-span-2">
+            {language === 'ru' ? 'Основное' : 'Basic information'}
+          </p>
           {(
             [
               ['title', 'text'],
@@ -1151,8 +2066,6 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
               ['price', 'number'],
               ['totalSeats', 'number'],
               ['timeZone', 'text'],
-              ['duration', 'text'],
-              ['dates', 'text'],
               ['bgImageUrl', 'url'],
             ] as const
           ).map(([field, type]) => (
@@ -1160,20 +2073,41 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
               {field === 'price' ? `${field} (KZT)` : field}
               <input
                 id={`canonical-course-${field}`}
-                required
+                required={
+                  field === 'title' ||
+                  field === 'price' ||
+                  field === 'totalSeats' ||
+                  field === 'timeZone' ||
+                  field === 'bgImageUrl'
+                }
                 type={type}
                 {...(field === 'totalSeats' ? { min: 1, max: 64 } : {})}
                 {...(field === 'price' ? { min: 0, step: 1 } : {})}
                 value={createForm[field]}
+                aria-invalid={createFieldIssue(field) ? true : undefined}
+                aria-describedby={
+                  createFieldIssue(field) ? `canonical-course-${field}-error` : undefined
+                }
                 onChange={(event) => updateCreateField(field, event.target.value)}
               />
+              {renderCreateFieldError(field)}
             </label>
           ))}
-          <fieldset className="grid gap-2 border border-[var(--border)] p-3 md:col-span-2">
+          <fieldset
+            id="canonical-course-instructor-roster"
+            tabIndex={-1}
+            className="grid gap-2"
+            aria-required="true"
+            aria-invalid={createFieldIssue('roster') ? true : undefined}
+            aria-describedby={createFieldIssue('roster') ? 'canonical-course-roster-error' : undefined}
+          >
             <legend className="px-1 text-sm">
-              {language === 'ru' ? 'Состав инструкторов курса' : 'Course instructor roster'}
+              {language === 'ru' ? 'Инструкторы' : 'Instructors'}
             </legend>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            <p className="text-xs text-[var(--ink-dim)]">
+              {language === 'ru' ? 'Состав инструкторов курса' : 'Course instructor roster'}
+            </p>
+            <div className="grid gap-1.5">
               {[...instructorOptions.entries()].map(([id, instructor]) => {
                 const selected = createForm.roster
                   .split(',')
@@ -1205,26 +2139,240 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                 );
               })}
             </div>
+            {createFieldIssue('roster') ? (
+              <p id="canonical-course-roster-error" className="text-xs text-red-700">
+                {createFieldIssue('roster')?.message}
+              </p>
+            ) : null}
           </fieldset>
-          <label htmlFor="canonical-course-days" className="grid gap-1 text-sm md:col-span-2">
-            CourseDays: one line = YYYY-MM-DD HH:mm minutes instructorId
-            <textarea
-              id="canonical-course-days"
-              required
-              rows={4}
-              value={createForm.days}
-              onChange={(event) => updateCreateField('days', event.target.value)}
-            />
-          </label>
-          <p className="text-xs md:col-span-2">
-            Instructors:{' '}
-            {[...instructorOptions.entries()]
-              .map(([id, instructor]) => `${instructor.name} (${id})`)
-              .join(', ')}
-          </p>
-          <details className="space-y-3 border border-[var(--border)] p-3 md:col-span-2">
+          <fieldset
+            id="canonical-course-days"
+            tabIndex={-1}
+            className="grid gap-3"
+            aria-required="true"
+            aria-invalid={createFieldIssue('days') ? true : undefined}
+            aria-describedby={createFieldIssue('days') ? 'canonical-course-days-error' : undefined}
+          >
+            <legend className="px-1 text-sm">{language === 'ru' ? 'Дни курса' : 'Course days'}</legend>
+            <p className="text-xs text-[var(--ink-dim)]">
+              {createMode === 'create'
+                ? language === 'ru'
+                  ? 'Выберите период курса: форма создаст день для каждой календарной даты. Для каждого дня укажите время начала и окончания; длительность рассчитается автоматически.'
+                  : 'Choose the course period: the form adds a day for every calendar date. Enter start and end times for each day; duration is calculated automatically.'
+                : language === 'ru'
+                  ? 'Для каждого дня выберите дату, время начала и окончания. Длительность рассчитается автоматически.'
+                  : 'Choose a date, start and end time for each day. Duration is calculated automatically.'}
+            </p>
+            {createMode === 'create' ? (
+              <div className="grid gap-2">
+                <label htmlFor="canonical-course-period-start" className="grid gap-1 text-xs">
+                  {language === 'ru' ? 'Период — с' : 'Period starts'}
+                  <input
+                    id="canonical-course-period-start"
+                    type="date"
+                    required
+                    value={createPeriodStart}
+                    aria-invalid={createValidationIssues.some((issue) => issue.targetId === 'canonical-course-period-start') || undefined}
+                    aria-describedby={createValidationIssues.some((issue) => issue.key === 'period') ? 'canonical-course-period-error' : undefined}
+                    onChange={(event) => updateCreatePeriod('start', event.target.value)}
+                  />
+                </label>
+                <label htmlFor="canonical-course-period-end" className="grid gap-1 text-xs">
+                  {language === 'ru' ? 'Период — по' : 'Period ends'}
+                  <input
+                    id="canonical-course-period-end"
+                    type="date"
+                    required
+                    value={createPeriodEnd}
+                    aria-invalid={createValidationIssues.some((issue) => issue.targetId === 'canonical-course-period-end') || undefined}
+                    aria-describedby={createValidationIssues.some((issue) => issue.key === 'period') ? 'canonical-course-period-error' : undefined}
+                    onChange={(event) => updateCreatePeriod('end', event.target.value)}
+                  />
+                </label>
+                {createValidationIssues.find((issue) => issue.key === 'period') ? (
+                  <p id="canonical-course-period-error" className="text-xs text-red-700 col-span-2">
+                    {createValidationIssues.find((issue) => issue.key === 'period')?.message}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+            {createCourseDays.map((row, index) => {
+              const prefix = `canonical-course-day-${row.id}`;
+              const durationMinutes = minutesForDayTimes(row.startTime, row.endTime);
+              const availability = plannerAvailabilityByDate[row.localDate];
+              const availableIds = availableInstructorIdsForCourseDay(
+                row,
+                createCourseDays,
+                createForm.roster.split(',').map((value) => value.trim()).filter(Boolean),
+                availability,
+                createForm.timeZone
+              );
+              const rowFieldIssue = (field: 'date' | 'start' | 'end' | 'instructor') =>
+                createValidationIssues.find((issue) => issue.targetId === `${prefix}-${field}`);
+              const selectedInstructorIsUnavailable =
+                row.instructorId !== '' && !availableIds.includes(row.instructorId);
+              const updateRowField = (
+                field: 'localDate' | 'startTime' | 'endTime' | 'instructorId',
+                value: string
+              ) =>
+                updateCreateCourseDays(
+                  createCourseDays.map((candidate) =>
+                    candidate.id === row.id ? { ...candidate, [field]: value } : candidate
+                  )
+                );
+              return (
+                <div key={row.id} className="grid gap-2 border-t border-[var(--border)] pt-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <strong className="text-xs">
+                      {language === 'ru' ? `День ${index + 1}` : `Day ${index + 1}`}
+                      {createMode === 'create' ? ` · ${row.localDate}` : ''}
+                    </strong>
+                    {createMode === 'clone' && createCourseDays.length > 1 ? (
+                      <button
+                        type="button"
+                        className="ui-btn"
+                        onClick={() => updateCreateCourseDays(createCourseDays.filter((candidate) => candidate.id !== row.id))}
+                      >
+                        {language === 'ru' ? 'Удалить день' : 'Remove day'}
+                      </button>
+                    ) : null}
+                  </div>
+                  {createMode === 'clone' ? (
+                    <label htmlFor={`${prefix}-date`} className="grid gap-1 text-xs">
+                      {language === 'ru' ? 'Дата' : 'Date'}
+                      <input
+                        id={`${prefix}-date`}
+                        type="date"
+                        required
+                        value={row.localDate}
+                        aria-invalid={rowFieldIssue('date') ? true : undefined}
+                        aria-describedby={rowFieldIssue('date') ? `${prefix}-date-error` : undefined}
+                        onChange={(event) => updateRowField('localDate', event.target.value)}
+                      />
+                      {rowFieldIssue('date') ? <span id={`${prefix}-date-error`} className="text-red-700">{rowFieldIssue('date')?.message}</span> : null}
+                    </label>
+                  ) : null}
+                  <div className="grid gap-2">
+                    <label htmlFor={`${prefix}-start`} className="grid gap-1 text-xs">
+                      {language === 'ru' ? 'Начало' : 'Starts'}
+                      <input
+                        id={`${prefix}-start`}
+                        type="time"
+                        step={60}
+                        required
+                        value={row.startTime}
+                        aria-invalid={rowFieldIssue('start') ? true : undefined}
+                        aria-describedby={rowFieldIssue('start') ? `${prefix}-start-error` : undefined}
+                        onChange={(event) => updateRowField('startTime', event.target.value)}
+                      />
+                      {rowFieldIssue('start') ? <span id={`${prefix}-start-error`} className="text-red-700">{rowFieldIssue('start')?.message}</span> : null}
+                    </label>
+                    <label htmlFor={`${prefix}-end`} className="grid gap-1 text-xs">
+                      {language === 'ru' ? 'Окончание' : 'Ends'}
+                      <input
+                        id={`${prefix}-end`}
+                        type="time"
+                        step={60}
+                        required
+                        value={row.endTime}
+                        aria-invalid={rowFieldIssue('end') ? true : undefined}
+                        aria-describedby={rowFieldIssue('end') ? `${prefix}-end-error` : undefined}
+                        onChange={(event) => updateRowField('endTime', event.target.value)}
+                      />
+                      {rowFieldIssue('end') ? <span id={`${prefix}-end-error`} className="text-red-700">{rowFieldIssue('end')?.message}</span> : null}
+                    </label>
+                  </div>
+                  {durationMinutes !== undefined ? (
+                    <p className="text-[11px] text-[var(--ink-dim)]">
+                      {language === 'ru' ? 'Длительность' : 'Duration'}: {durationMinutes} {language === 'ru' ? 'мин.' : 'min'}
+                      {row.endTime < row.startTime
+                        ? language === 'ru'
+                          ? ' · окончание на следующие сутки'
+                          : ' · ends the next day'
+                        : row.endTime === row.startTime
+                          ? language === 'ru'
+                            ? ' · полные сутки'
+                            : ' · full day'
+                          : ''}
+                    </p>
+                  ) : null}
+                  <p className="text-[11px] text-[var(--ink-dim)]">
+                    {language === 'ru'
+                      ? 'Если окончание раньше начала, интервал продолжается до следующих суток.'
+                      : 'If the end time is earlier than the start, the interval continues into the next day.'}
+                  </p>
+                  <label htmlFor={`${prefix}-instructor`} className="grid gap-1 text-xs">
+                    {language === 'ru' ? 'Доступный инструктор' : 'Available instructor'}
+                    <select
+                      id={`${prefix}-instructor`}
+                      required
+                      value={row.instructorId}
+                      disabled={!courseDayInterval(row, createForm.timeZone) || availability?.loading || !availability?.item || Boolean(availability.error)}
+                      aria-invalid={rowFieldIssue('instructor') ? true : undefined}
+                      aria-describedby={rowFieldIssue('instructor') ? `${prefix}-instructor-error` : undefined}
+                      onChange={(event) => updateRowField('instructorId', event.target.value)}
+                    >
+                      <option value="">{language === 'ru' ? 'Выберите инструктора' : 'Choose an instructor'}</option>
+                      {row.instructorId && selectedInstructorIsUnavailable ? (
+                        <option value={row.instructorId} disabled>
+                          {instructorOptionById(row.instructorId)?.name ?? row.instructorId} — {language === 'ru' ? 'недоступен в это время' : 'unavailable at this time'}
+                        </option>
+                      ) : null}
+                      {availableIds.map((id) => (
+                        <option key={id} value={id}>{instructorOptionById(id)?.name ?? availability?.item?.instructors.find((instructor) => String(instructor.instructorId) === id)?.name ?? id}</option>
+                      ))}
+                    </select>
+                    {rowFieldIssue('instructor') ? <span id={`${prefix}-instructor-error`} className="text-red-700">{rowFieldIssue('instructor')?.message}</span> : null}
+                    {availability?.loading ? (
+                      <span className="text-[var(--ink-dim)]">{language === 'ru' ? 'Проверяем расписание…' : 'Checking schedule…'}</span>
+                    ) : availability?.error ? (
+                      <span className="text-red-700">
+                        {language === 'ru' ? 'Не удалось подтвердить доступность.' : 'Availability could not be confirmed.'}{' '}
+                        <button
+                          type="button"
+                          className="underline"
+                          onClick={() => setAvailabilityRefreshToken((token) => token + 1)}
+                        >
+                          {language === 'ru' ? 'Повторить проверку' : 'Retry check'}
+                        </button>
+                      </span>
+                    ) : courseDayInterval(row, createForm.timeZone) && availableIds.length === 0 ? (
+                      <span className="text-[var(--ink-dim)]">{language === 'ru' ? 'Нет свободных инструкторов на выбранный интервал.' : 'No instructors are free for this time range.'}</span>
+                    ) : null}
+                  </label>
+                </div>
+              );
+            })}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] pt-3 text-xs">
+              {createMode === 'clone' ? (
+                <button
+                  type="button"
+                  className="ui-btn"
+                  disabled={createCourseDays.length >= 64}
+                  onClick={() => updateCreateCourseDays([...createCourseDays, newCourseDayRow()])}
+                >
+                  {language === 'ru' ? 'Добавить день' : 'Add day'}
+                </button>
+              ) : null}
+              <span className="text-[var(--ink-dim)]">
+                {courseDayDateSummary(createCourseDays) || (language === 'ru' ? 'Даты курса не выбраны' : 'No course dates selected')}
+                {createCourseDays.some((row) => minutesForDayTimes(row.startTime, row.endTime) !== undefined)
+                  ? ` · ${courseDurationSummary(createCourseDays, language)}`
+                  : ''}
+              </span>
+            </div>
+            {createFieldIssue('days') ? (
+              <p id="canonical-course-days-error" className="text-xs text-red-700">
+                {createFieldIssue('days')?.message}
+              </p>
+            ) : null}
+          </fieldset>
+          <details
+            ref={createPresentationDetailsRef}
+            className="space-y-3"
+          >
             <summary className="cursor-pointer text-sm font-bold">{text.presentation}</summary>
-            <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <div className="mt-3 grid gap-3">
               <label
                 htmlFor="canonical-course-description"
                 className="grid gap-1 text-xs md:col-span-2"
@@ -1234,8 +2382,15 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                   id="canonical-course-description"
                   rows={3}
                   value={createForm.description}
+                  aria-invalid={createFieldIssue('description') ? true : undefined}
+                  aria-describedby={
+                    createFieldIssue('description')
+                      ? 'canonical-course-description-error'
+                      : undefined
+                  }
                   onChange={(event) => updateCreateField('description', event.target.value)}
                 />
+                {renderCreateFieldError('description')}
               </label>
               {(
                 [
@@ -1266,6 +2421,10 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                     id={`canonical-course-${field}`}
                     rows={field.startsWith('detailed') || field.startsWith('program') ? 4 : 2}
                     value={createForm[field]}
+                    aria-invalid={createFieldIssue(field) ? true : undefined}
+                    aria-describedby={
+                      createFieldIssue(field) ? `canonical-course-${field}-error` : undefined
+                    }
                     placeholder={
                       field.startsWith('program')
                         ? 'Day 1 | Title | Description'
@@ -1275,6 +2434,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                     }
                     onChange={(event) => updateCreateField(field, event.target.value)}
                   />
+                  {renderCreateFieldError(field)}
                 </label>
               ))}
               <label htmlFor="canonical-course-level" className="grid gap-1 text-xs">
@@ -1323,15 +2483,18 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
               {text.cloneDraftReady}
             </p>
           ) : null}
+          </div>
+          <div className="shrink-0 border-t border-[var(--border)] px-4 py-3">
           <ActionButton
             pending={pending !== null}
             pendingLabel={text.pending}
             unstyled
-            className="ui-btn ui-btn-primary"
+            className="ui-btn ui-btn-primary w-full"
             type="submit"
           >
             {createMode === 'clone' ? text.createClone : text.create}
           </ActionButton>
+          </div>
         </form>
       )}
 
@@ -1347,10 +2510,9 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
       ) : courses.length === 0 ? (
         <p>{lifecycleScope === 'active' ? text.activeEmpty : text.archivedEmpty}</p>
       ) : (
-        <CoursesTable
-          courses={tableCourses}
-          bookings={[]}
-          usersList={[]}
+        <CanonicalCourseDatabaseList
+          courses={visibleTableCourses}
+          selectedCourseId={selectedCourseId}
           instructors={tableInstructors}
           language={language}
           t={t}
@@ -1424,30 +2586,25 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
           {currentList.loadingMore ? text.loadingMore : text.loadMore}
         </button>
       ) : null}
-
+      </aside>
+      <section className="min-w-0 space-y-4">
       {selectedCourse ? (
-        <article className="space-y-4 rounded border border-[var(--border)] p-4">
+        <article className="space-y-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h3 className="font-serif text-lg">{selectedCourse.title}</h3>
-              <p className="text-xs text-[var(--ink-dim)]">
-                {selectedCourse.courseId} · {text.lifecycle}: {selectedCourse.lifecycle} ·{' '}
-                {selectedCourse.capacity.availableSeats}/{selectedCourse.capacity.totalSeats} ·{' '}
-                {selectedCourse.price.toLocaleString()} ₸
+              <h3 className="font-serif text-2xl font-light">{selectedCourse.title}</h3>
+              <p className="text-[11px] uppercase tracking-wide text-[var(--ink-dim)]">
+                {selectedCourse.lifecycle}
               </p>
               {selectedCourseScheduleDates ? (
                 <p
-                  className="text-xs font-bold text-[var(--ink)]"
+                  className="mt-1 text-sm text-[var(--ink)]"
                   data-testid="admin-course-detail-dates"
                 >
                   {language === 'ru' ? 'Даты проведения' : 'Schedule dates'}:{' '}
                   {selectedCourseScheduleDates}
                 </p>
               ) : null}
-              <p className="text-xs text-[var(--ink-dim)]">
-                {text.activeEnrollments}: {selectedCourse.activeEnrollmentCount} ·{' '}
-                {text.totalEnrollments}: {selectedCourse.totalEnrollmentCount}
-              </p>
             </div>
             <button
               type="button"
@@ -1460,16 +2617,101 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
               {text.closeDetails}
             </button>
           </div>
+          <nav
+            className="flex flex-wrap gap-1 border-b border-[var(--border)] text-xs"
+            aria-label={language === 'ru' ? 'Разделы курса' : 'Course workspace'}
+            role="tablist"
+          >
+            {(
+              [
+                ['overview', language === 'ru' ? 'Обзор' : 'Overview'],
+                ['schedule', language === 'ru' ? 'Расписание' : 'Schedule'],
+                ['instructors', language === 'ru' ? 'Инструкторы' : 'Instructors'],
+                ['participants', language === 'ru' ? 'Участники' : 'Participants'],
+                ['enrollment', language === 'ru' ? 'Запись' : 'Enrollment'],
+                ['settings', language === 'ru' ? 'Настройки' : 'Settings'],
+              ] as const
+            ).map(([id, label]) => {
+              const active = workspaceSection === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  className={`-mb-px border-b-2 px-3 py-2 ${
+                    active
+                      ? 'border-[var(--accent)] font-semibold text-[var(--ink)]'
+                      : 'border-transparent text-[var(--ink-dim)] hover:text-[var(--ink)]'
+                  }`}
+                  onClick={() => setWorkspaceSection(id)}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </nav>
+          <div
+            id="course-overview"
+            className={
+              workspaceSection === 'overview'
+                ? 'grid grid-cols-2 gap-x-6 gap-y-2 text-xs sm:grid-cols-4'
+                : 'hidden'
+            }
+          >
+            <div>
+              <div className="font-mono text-sm text-[var(--ink)]">
+                {selectedCourse.price.toLocaleString()} ₸
+              </div>
+              <div className="text-[var(--ink-dim)]">{language === 'ru' ? 'Цена' : 'Price'}</div>
+            </div>
+            <div>
+              <div className="font-mono text-sm text-[var(--ink)]">
+                {selectedCourse.capacity.totalSeats - selectedCourse.capacity.availableSeats} /{' '}
+                {selectedCourse.capacity.totalSeats}
+              </div>
+              <div className="text-[var(--ink-dim)]">{text.enrollments}</div>
+            </div>
+            <div>
+              <div className="font-mono text-sm text-[var(--ink)]">
+                {selectedCourse.catalogContent.content?.duration?.trim() || '—'}
+              </div>
+              <div className="text-[var(--ink-dim)]">
+                {language === 'ru' ? 'Длительность' : 'Duration'}
+              </div>
+            </div>
+            <div>
+              <div className="font-mono text-sm text-[var(--ink)]">
+                {catalogHidden
+                  ? language === 'ru'
+                    ? 'Скрыт'
+                    : 'Hidden'
+                  : language === 'ru'
+                    ? 'Публичный'
+                    : 'Public'}
+              </div>
+              <div className="text-[var(--ink-dim)]">{language === 'ru' ? 'Каталог' : 'Catalog'}</div>
+            </div>
+          </div>
 
           {selectedCourse.instructors.some((instructor) => instructor.isAvailable === false) ? (
-            <p role="status" className="text-xs text-amber-700">
+            <p
+              role="status"
+              className={
+                showWorkspace('instructors') ? 'text-xs text-amber-700' : 'hidden'
+              }
+            >
               {text.unavailableInstructor}
             </p>
           ) : null}
 
           {editForm ? (
             <form
-              className="grid gap-3 border border-[var(--border)] p-3 md:grid-cols-2"
+              className={
+                showWorkspace('settings', 'instructors')
+                  ? 'grid gap-3 md:grid-cols-2'
+                  : 'hidden'
+              }
               onSubmit={(event) => void saveStructuredEdit(event)}
             >
               <h4 className="text-sm font-bold md:col-span-2">
@@ -1551,7 +2793,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                   onChange={(event) => updateEditField('videoUrl', event.target.value)}
                 />
               </label>
-              <fieldset className="grid gap-2 md:col-span-2">
+              <fieldset id="course-instructors" className="grid gap-2 md:col-span-2">
                 <legend className="text-xs font-bold">
                   {language === 'ru' ? 'Состав инструкторов курса' : 'Course instructor roster'}
                 </legend>
@@ -1596,7 +2838,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                   })}
                 </div>
               </fieldset>
-              <details className="grid gap-2 md:col-span-2">
+              <details id="course-settings" className="grid gap-2 md:col-span-2">
                 <summary className="cursor-pointer text-xs font-bold">{text.presentation}</summary>
                 <div className="grid gap-2 md:grid-cols-2">
                   <label
@@ -1803,290 +3045,71 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
             </form>
           ) : null}
 
-          <section className="space-y-2">
+          <section
+            id="course-schedule"
+            className={showWorkspace('schedule') ? 'space-y-3' : 'hidden'}
+          >
             <h4 className="text-xs font-bold uppercase tracking-wider">
               {text.operationalSchedule}
             </h4>
-            {selectedCourse.courseDays.length === 0 ? (
-              <p className="text-xs text-[var(--ink-dim)]">{text.noSchedule}</p>
-            ) : (
-              <div className="overflow-x-auto border border-[var(--border)]">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="bg-[var(--surface)] text-[var(--ink-dim)]">
-                      <th className="p-2">#</th>
-                      <th className="p-2">CourseDay</th>
-                      <th className="p-2">{language === 'ru' ? 'Дата' : 'Date'}</th>
-                      <th className="p-2">{language === 'ru' ? 'Время' : 'Time'}</th>
-                      <th className="p-2">{language === 'ru' ? 'Минуты' : 'Minutes'}</th>
-                      <th className="p-2">{language === 'ru' ? 'Инструктор' : 'Instructor'}</th>
-                      <th className="p-2">Rev</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedCourse.courseDays.map((day) => {
-                      const local = localDateTimeFromTimestamp(
-                        day.interval.startsAt.seconds,
-                        day.timeZone
-                      );
-                      const durationMinutes = Math.max(
-                        15,
-                        Math.round(
-                          (day.interval.endsAt.seconds - day.interval.startsAt.seconds) / 60
-                        )
-                      );
-                      return (
-                        <tr key={day.courseDayId} className="border-t border-[var(--border)]">
-                          <td className="p-2">{day.dayOrder}</td>
-                          <td className="p-2 font-mono">{day.courseDayId}</td>
-                          <td className="p-2">{formatAdminCourseDayLocalDate(day)}</td>
-                          <td className="p-2">{local.time}</td>
-                          <td className="p-2">{durationMinutes}</td>
-                          <td className="p-2">
-                            {day.actualInstructorIds
-                              .map((id) => instructorOptions.get(id)?.name ?? id)
-                              .join(', ')}
-                          </td>
-                          <td className="p-2">{day.revision}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-
-          <section className="space-y-2 border border-[var(--border)] p-3">
-            <div className="flex items-center justify-between gap-2">
-              <h4 className="text-xs font-bold uppercase">
-                {language === 'ru' ? 'Редактор дней курса' : 'Course day editor'}
-              </h4>
-              {selectedCourse.authorizedActions.some(
-                (action) => action.kind === 'create_course_day'
-              ) ? (
-                <button
-                  type="button"
-                  className="ui-btn"
-                  onClick={() =>
-                    setCourseDayDraft({
-                      kind: 'create_course_day',
-                      localDate: '',
-                      localTime: '',
-                      durationMinutes: '120',
-                      instructorId: selectedCourse.instructorRosterIds[0] ?? '',
-                    })
+            <CanonicalCourseDaysEditor
+              course={selectedCourse}
+              language={language}
+              draft={courseDayDraft}
+              pending={pending !== null}
+              pendingLabel={text.pending}
+              instructors={selectedCourse.instructorRosterIds.map((id) => ({
+                id,
+                name: instructorOptions.get(id)?.name ?? id,
+                inactive: instructorOptions.get(id)?.isAvailable === false,
+              }))}
+              dayIssue={courseDayIssue}
+              emptyLabel={text.noSchedule}
+              onDraftChange={setCourseDayDraft}
+              onSubmit={(event) => void submitCourseDayDraft(event)}
+              onRemove={(day) =>
+                onRequestConfirm(
+                  language === 'ru'
+                    ? `Удалить день курса ${day.dayOrder}?`
+                    : `Remove course day ${day.dayOrder}?`,
+                  async () => {
+                    const action = selectedCourse.authorizedActions.find(
+                      (item) => item.kind === 'remove_course_day'
+                    );
+                    if (action)
+                      await execute({
+                        kind: 'remove_course_day',
+                        expectedRevision: action.expectedRevision,
+                        intent: {
+                          courseId: selectedCourse.courseId,
+                          courseDayId: day.courseDayId,
+                          expectedCourseDayRevision: day.revision,
+                          reasonExplanation: editReason.trim() || 'Admin CourseDay removal',
+                        },
+                      });
                   }
-                >
-                  {language === 'ru' ? 'Добавить день' : 'Add day'}
-                </button>
-              ) : null}
-            </div>
-            {courseDayDraft ? (
-              <form
-                className="grid gap-2 md:grid-cols-2"
-                onSubmit={(event) => void submitCourseDayDraft(event)}
-              >
-                <label htmlFor="course-day-date" className="grid gap-1 text-xs">
-                  {language === 'ru' ? 'Дата' : 'Date'}
-                  <input
-                    id="course-day-date"
-                    required
-                    type="date"
-                    value={courseDayDraft.localDate}
-                    onChange={(event) =>
-                      setCourseDayDraft({ ...courseDayDraft, localDate: event.target.value })
-                    }
-                  />
-                </label>
-                <label htmlFor="course-day-time" className="grid gap-1 text-xs">
-                  {language === 'ru' ? 'Время' : 'Time'}
-                  <input
-                    id="course-day-time"
-                    required
-                    type="time"
-                    value={courseDayDraft.localTime}
-                    onChange={(event) =>
-                      setCourseDayDraft({ ...courseDayDraft, localTime: event.target.value })
-                    }
-                  />
-                </label>
-                <label htmlFor="course-day-duration" className="grid gap-1 text-xs">
-                  {language === 'ru' ? 'Длительность (мин.)' : 'Duration (minutes)'}
-                  <input
-                    id="course-day-duration"
-                    required
-                    type="number"
-                    min="15"
-                    value={courseDayDraft.durationMinutes}
-                    onChange={(event) =>
-                      setCourseDayDraft({ ...courseDayDraft, durationMinutes: event.target.value })
-                    }
-                  />
-                </label>
-                <label htmlFor="course-day-instructor" className="grid gap-1 text-xs">
-                  {language === 'ru' ? 'Фактический инструктор дня' : 'Actual day instructor'}
-                  <select
-                    id="course-day-instructor"
-                    required
-                    value={courseDayDraft.instructorId}
-                    onChange={(event) =>
-                      setCourseDayDraft({ ...courseDayDraft, instructorId: event.target.value })
-                    }
-                  >
-                    {selectedCourse.instructorRosterIds.map((id) => (
-                      <option
-                        key={id}
-                        value={id}
-                        disabled={instructorOptions.get(id)?.isAvailable === false}
-                      >
-                        {instructorOptions.get(id)?.name ?? id}
-                        {instructorOptions.get(id)?.isAvailable === false
-                          ? ` (${language === 'ru' ? 'деактивирован' : 'inactive'})`
-                          : ''}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <div className="flex gap-2">
-                  <ActionButton
-                    className="ui-btn ui-btn-primary"
-                    unstyled
-                    pending={pending !== null}
-                    pendingLabel={text.pending}
-                    type="submit"
-                  >
-                    {language === 'ru' ? 'Сохранить день' : 'Save day'}
-                  </ActionButton>
-                  <button
-                    className="ui-btn"
-                    type="button"
-                    disabled={pending !== null}
-                    onClick={() => setCourseDayDraft(null)}
-                  >
-                    {language === 'ru' ? 'Отмена' : 'Cancel'}
-                  </button>
-                </div>
-              </form>
-            ) : null}
-            <div className="flex flex-wrap gap-2">
-              {selectedCourse.courseDays.map((day) => (
-                <React.Fragment key={day.courseDayId}>
-                  {selectedCourse.authorizedActions.some(
-                    (action) => action.kind === 'reschedule_course_day'
-                  ) ? (
-                    <button
-                      type="button"
-                      className="ui-btn"
-                      onClick={() => {
-                        const local = localDateTimeFromTimestamp(
-                          day.interval.startsAt.seconds,
-                          day.timeZone
-                        );
-                        setCourseDayDraft({
-                          kind: 'reschedule_course_day',
-                          courseDayId: day.courseDayId,
-                          localDate: local.date,
-                          localTime: local.time,
-                          durationMinutes: String(
-                            Math.max(
-                              15,
-                              Math.round(
-                                (day.interval.endsAt.seconds - day.interval.startsAt.seconds) / 60
-                              )
-                            )
-                          ),
-                          instructorId: day.actualInstructorIds[0] ?? '',
-                        });
-                      }}
-                    >
-                      {language === 'ru'
-                        ? `Перенести день ${day.dayOrder}`
-                        : `Reschedule day ${day.dayOrder}`}
-                    </button>
-                  ) : null}
-                  {selectedCourse.authorizedActions.some(
-                    (action) => action.kind === 'reassign_course_day_instructor'
-                  ) ? (
-                    <button
-                      type="button"
-                      className="ui-btn"
-                      onClick={() => {
-                        const local = localDateTimeFromTimestamp(
-                          day.interval.startsAt.seconds,
-                          day.timeZone
-                        );
-                        setCourseDayDraft({
-                          kind: 'reassign_course_day_instructor',
-                          courseDayId: day.courseDayId,
-                          localDate: local.date,
-                          localTime: local.time,
-                          durationMinutes: String(
-                            Math.max(
-                              15,
-                              Math.round(
-                                (day.interval.endsAt.seconds - day.interval.startsAt.seconds) / 60
-                              )
-                            )
-                          ),
-                          instructorId: day.actualInstructorIds[0] ?? '',
-                        });
-                      }}
-                    >
-                      {language === 'ru'
-                        ? `Инструктор дня ${day.dayOrder}`
-                        : `Day ${day.dayOrder} instructor`}
-                    </button>
-                  ) : null}
-                  {selectedCourse.authorizedActions.some(
-                    (action) => action.kind === 'remove_course_day'
-                  ) ? (
-                    <button
-                      type="button"
-                      className="ui-btn"
-                      disabled={pending !== null}
-                      onClick={() =>
-                        onRequestConfirm(
-                          language === 'ru'
-                            ? `Удалить день курса ${day.dayOrder}?`
-                            : `Remove course day ${day.dayOrder}?`,
-                          async () => {
-                            const action = selectedCourse.authorizedActions.find(
-                              (item) => item.kind === 'remove_course_day'
-                            );
-                            if (action)
-                              await execute({
-                                kind: 'remove_course_day',
-                                expectedRevision: action.expectedRevision,
-                                intent: {
-                                  courseId: selectedCourse.courseId,
-                                  courseDayId: day.courseDayId,
-                                  expectedCourseDayRevision: day.revision,
-                                  reasonExplanation: editReason.trim() || 'Admin CourseDay removal',
-                                },
-                              });
-                          }
-                        )
-                      }
-                    >
-                      {language === 'ru'
-                        ? `Удалить день ${day.dayOrder}`
-                        : `Remove day ${day.dayOrder}`}
-                    </button>
-                  ) : null}
-                </React.Fragment>
-              ))}
-            </div>
+                )
+              }
+            />
           </section>
 
-          {onOpenEnrollments ? (
-            <button
-              type="button"
-              className="ui-btn"
-              onClick={() => onOpenEnrollments(selectedCourse.courseId)}
+            {onOpenEnrollments ? (
+            <div
+              id="course-enrollment"
+              className={showWorkspace('enrollment', 'participants') ? 'space-y-2' : 'hidden'}
             >
-              {text.manageEnrollments}
-            </button>
+              <p id="course-participants" className="text-xs text-[var(--ink-dim)]">
+                {text.activeEnrollments}: {selectedCourse.activeEnrollmentCount} ·{' '}
+                {text.totalEnrollments}: {selectedCourse.totalEnrollmentCount}
+              </p>
+              <button
+                type="button"
+                className="ui-btn"
+                onClick={() => onOpenEnrollments(selectedCourse.courseId)}
+              >
+                {text.manageEnrollments}
+              </button>
+            </div>
           ) : null}
           <div className="flex flex-wrap gap-2">
             {(['archive_course', 'reactivate_course'] as const)
@@ -2109,7 +3132,13 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
               ))}
           </div>
         </article>
-      ) : null}
+      ) : (
+        <p className="text-xs text-[var(--ink-dim)]">
+          {language === 'ru' ? 'Выберите курс в списке.' : 'Select a course from the list.'}
+        </p>
+      )}
+      </section>
+      </div>
     </div>
   );
 };

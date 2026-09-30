@@ -26,6 +26,8 @@ import { CourseProvisioningManifestSchema } from '@ski-academy/shared-domain';
 
 const queryAdminCourseReadModels = vi.fn();
 const queryAdminCourseEnrollmentReadModels = vi.fn();
+const queryAdminIdentityReadModels = vi.fn();
+const queryAdminPlannerReadModels = vi.fn();
 const executeAuthenticatedCanonicalCommand = vi.fn();
 
 vi.mock('../../src/app/providers/LanguageContext', async (importOriginal) => {
@@ -43,6 +45,8 @@ vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
   queryAdminCourseReadModels: (...args: unknown[]) => queryAdminCourseReadModels(...args),
   queryAdminCourseEnrollmentReadModels: (...args: unknown[]) =>
     queryAdminCourseEnrollmentReadModels(...args),
+  queryAdminIdentityReadModels: (...args: unknown[]) => queryAdminIdentityReadModels(...args),
+  queryAdminPlannerReadModels: (...args: unknown[]) => queryAdminPlannerReadModels(...args),
 }));
 
 vi.mock('../../src/lib/canonical/canonicalCommandClient', () => ({
@@ -139,6 +143,43 @@ describe('Canonical CoursesManager delete/clone from compact v2', () => {
       items: [],
       hasMore: false,
     });
+    queryAdminIdentityReadModels.mockResolvedValue({
+      scope: 'admin_instructor_list',
+      items: [
+        {
+          instructorId: 'instructor_admin_component_01',
+          name: 'Coach',
+          specialty: 'ski',
+          isAvailable: true,
+          revision: 1,
+          authorizedActions: [],
+        },
+      ],
+      hasMore: false,
+    });
+    queryAdminPlannerReadModels.mockImplementation(
+      async (input: { localDate: string; timeZone: string }) => ({
+        scope: 'admin_planner',
+        item: {
+          view: 'day',
+          localDate: input.localDate,
+          timeZone: input.timeZone,
+          window: {
+            startsAt: { seconds: 0, nanoseconds: 0 },
+            endsAt: { seconds: 10_000_000_000, nanoseconds: 0 },
+          },
+          instructors: [
+            {
+              instructorId: 'instructor_admin_component_01',
+              name: 'Coach',
+              isAvailable: true,
+            },
+          ],
+          occupancy: [],
+          truncated: false,
+        },
+      })
+    );
     executeAuthenticatedCanonicalCommand.mockResolvedValue({
       status: 'success',
       kind: 'archive_course',
@@ -235,10 +276,12 @@ describe('Canonical CoursesManager delete/clone from compact v2', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Clone course' }));
     await screen.findByDisplayValue('Canonical Freeride Camp (copy)');
 
-    const daysField = screen.getByLabelText(/CourseDays/);
-    fireEvent.change(daysField, {
-      target: { value: '2026-12-15 10:00 120 instructor_admin_component_01' },
-    });
+    fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-12-15' } });
+    fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '10:00' } });
+    fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '12:00' } });
+    const instructorSelect = await screen.findByLabelText('Available instructor');
+    await waitFor(() => expect(instructorSelect).not.toBeDisabled());
+    await userEvent.selectOptions(instructorSelect, 'instructor_admin_component_01');
     fireEvent.submit(document.querySelector('form')!);
 
     await waitFor(() => expect(executeAuthenticatedCanonicalCommand).toHaveBeenCalledTimes(1));
@@ -272,9 +315,12 @@ describe('Canonical CoursesManager delete/clone from compact v2', () => {
     expect((await screen.findAllByText('Canonical Freeride Camp')).length).toBeGreaterThan(0);
     await userEvent.click(screen.getByRole('button', { name: 'Clone course' }));
     await screen.findByDisplayValue('Canonical Freeride Camp (copy)');
-    fireEvent.change(screen.getByLabelText(/CourseDays/), {
-      target: { value: '2026-12-15 10:00 120 instructor_admin_component_01' },
-    });
+    fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-12-15' } });
+    fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '10:00' } });
+    fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '12:00' } });
+    const instructorSelect = await screen.findByLabelText('Available instructor');
+    await waitFor(() => expect(instructorSelect).not.toBeDisabled());
+    await userEvent.selectOptions(instructorSelect, 'instructor_admin_component_01');
 
     const form = document.querySelector('form')!;
     fireEvent.submit(form);
@@ -313,9 +359,12 @@ describe('Canonical CoursesManager delete/clone from compact v2', () => {
     expect((await screen.findAllByText('Canonical Freeride Camp')).length).toBeGreaterThan(0);
     await userEvent.click(screen.getByRole('button', { name: 'Clone course' }));
     await screen.findByDisplayValue('Canonical Freeride Camp (copy)');
-    fireEvent.change(screen.getByLabelText(/CourseDays/), {
-      target: { value: '2026-12-15 10:00 120 instructor_admin_component_01' },
-    });
+    fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-12-15' } });
+    fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '10:00' } });
+    fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '12:00' } });
+    const instructorSelect = await screen.findByLabelText('Available instructor');
+    await waitFor(() => expect(instructorSelect).not.toBeDisabled());
+    await userEvent.selectOptions(instructorSelect, 'instructor_admin_component_01');
     const form = document.querySelector('form')!;
     fireEvent.submit(form);
     await waitFor(() => expect(executeAuthenticatedCanonicalCommand).toHaveBeenCalledTimes(1));

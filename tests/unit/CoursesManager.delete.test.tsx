@@ -276,7 +276,7 @@ describe('Canonical CoursesManager', () => {
     fill('Price (KZT)', '50000');
     await user.click(await screen.findByLabelText(/Coach/));
     fill('Image URL', 'https://example.com/retry.webp');
-    fill('description', 'Canonical retry description');
+    fill('Description', 'Canonical retry description');
     fireEvent.change(screen.getByLabelText('Period starts'), { target: { value: '2026-12-01' } });
     fireEvent.change(screen.getByLabelText('Period ends'), { target: { value: '2026-12-01' } });
     fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '10:00' } });

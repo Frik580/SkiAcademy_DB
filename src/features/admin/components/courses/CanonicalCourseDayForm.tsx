@@ -8,7 +8,7 @@ export interface CourseDayDraft {
   readonly courseDayId?: string;
   readonly localDate: string;
   readonly localTime: string;
-  readonly durationMinutes: string;
+  readonly endTime: string;
   readonly instructorId: string;
 }
 
@@ -25,9 +25,11 @@ interface CanonicalCourseDayFormProps {
   pendingLabel: string;
   instructors: readonly InstructorChoice[];
   alertMessage?: string;
+  removeLabel?: string;
   onChange: (draft: CourseDayDraft) => void;
   onSubmit: (event: React.FormEvent) => void;
   onCancel: () => void;
+  onRemove?: () => void;
 }
 
 export const CanonicalCourseDayForm: React.FC<CanonicalCourseDayFormProps> = ({
@@ -37,9 +39,11 @@ export const CanonicalCourseDayForm: React.FC<CanonicalCourseDayFormProps> = ({
   pendingLabel,
   instructors,
   alertMessage,
+  removeLabel,
   onChange,
   onSubmit,
   onCancel,
+  onRemove,
 }) => {
   const ru = language === 'ru';
   const heading =
@@ -47,13 +51,9 @@ export const CanonicalCourseDayForm: React.FC<CanonicalCourseDayFormProps> = ({
       ? ru
         ? 'Новый день'
         : 'New day'
-      : draft.kind === 'reassign_course_day_instructor'
-        ? ru
-          ? 'Сменить инструктора'
-          : 'Change instructor'
-        : ru
-          ? 'Перенести день'
-          : 'Reschedule day';
+      : ru
+        ? 'Редактировать день'
+        : 'Edit day';
   return (
     <form className={`grid max-w-xl gap-3 ${adminFormControls}`} onSubmit={onSubmit}>
       <h5 className="text-sm font-medium text-[var(--ink)]">{heading}</h5>
@@ -72,27 +72,30 @@ export const CanonicalCourseDayForm: React.FC<CanonicalCourseDayFormProps> = ({
           onChange={(event) => onChange({ ...draft, localDate: event.target.value })}
         />
       </label>
-      <label htmlFor="course-day-time" className="grid gap-1 text-xs">
-        {ru ? 'Время' : 'Time'}
-        <input
-          id="course-day-time"
-          required
-          type="time"
-          value={draft.localTime}
-          onChange={(event) => onChange({ ...draft, localTime: event.target.value })}
-        />
-      </label>
-      <label htmlFor="course-day-duration" className="grid gap-1 text-xs">
-        {ru ? 'Длительность (мин.)' : 'Duration (minutes)'}
-        <input
-          id="course-day-duration"
-          required
-          type="number"
-          min="15"
-          value={draft.durationMinutes}
-          onChange={(event) => onChange({ ...draft, durationMinutes: event.target.value })}
-        />
-      </label>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label htmlFor="course-day-time" className="grid gap-1 text-xs">
+          {ru ? 'Время начала' : 'Start time'}
+          <input
+            id="course-day-time"
+            required
+            type="time"
+            step={60}
+            value={draft.localTime}
+            onChange={(event) => onChange({ ...draft, localTime: event.target.value })}
+          />
+        </label>
+        <label htmlFor="course-day-end" className="grid gap-1 text-xs">
+          {ru ? 'Время окончания' : 'End time'}
+          <input
+            id="course-day-end"
+            required
+            type="time"
+            step={60}
+            value={draft.endTime}
+            onChange={(event) => onChange({ ...draft, endTime: event.target.value })}
+          />
+        </label>
+      </div>
       <label htmlFor="course-day-instructor" className="grid gap-1 text-xs">
         {ru ? 'Фактический инструктор дня' : 'Actual day instructor'}
         <select
@@ -122,6 +125,11 @@ export const CanonicalCourseDayForm: React.FC<CanonicalCourseDayFormProps> = ({
         <ActionButton type="button" size="sm" variant="secondary" disabled={pending} onClick={onCancel}>
           {ru ? 'Отмена' : 'Cancel'}
         </ActionButton>
+        {onRemove && removeLabel ? (
+          <ActionButton type="button" size="sm" variant="danger" disabled={pending} onClick={onRemove}>
+            {removeLabel}
+          </ActionButton>
+        ) : null}
       </div>
     </form>
   );

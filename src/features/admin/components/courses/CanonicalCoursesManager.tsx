@@ -20,7 +20,9 @@ import {
 import { ZodError, type ZodIssue } from 'zod';
 import { executeAuthenticatedCanonicalCommand } from '../../../../lib/canonical/canonicalCommandClient';
 import { toCanonicalCommandClientError } from '../../../../lib/canonical/mapCanonicalCommandError';
-import { X } from 'lucide-react';
+import { Loader2, RefreshCw, X } from 'lucide-react';
+import { AdminLessonDetailTabs } from '../../lesson-bookings/AdminLessonBookingUi';
+import { AdminCourseStatusChip, adminFormControls, adminRecordCardClass } from './adminCourseSurface';
 import { ActionButton } from '../../../../ui/ActionButton';
 import {
   queryAdminCourseReadModels,
@@ -1903,6 +1905,27 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
     selectedCourse?.lifecycle === 'archived';
   const createFieldIssue = (field: string) =>
     createValidationIssues.find((issue) => issue.field === field);
+  const createFieldLabel = (field: string) => {
+    const labels =
+      language === 'ru'
+        ? {
+            title: 'Название',
+            titleRu: 'Название (RU)',
+            price: 'Цена (KZT)',
+            totalSeats: 'Вместимость',
+            timeZone: 'Часовой пояс',
+            bgImageUrl: 'URL изображения',
+          }
+        : {
+            title: 'Title',
+            titleRu: 'Title (RU)',
+            price: 'Price (KZT)',
+            totalSeats: 'Capacity',
+            timeZone: 'Time zone',
+            bgImageUrl: 'Image URL',
+          };
+    return labels[field as keyof typeof labels] ?? field;
+  };
   const instructorOptionById = (id: string) => {
     const parsedId = InstructorIdSchema.safeParse(id);
     return parsedId.success ? instructorOptions.get(parsedId.data) : undefined;
@@ -1918,132 +1941,64 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
   const showWorkspace = (
     ...sections: Array<typeof workspaceSection>
   ) => workspaceSection === 'overview' || sections.includes(workspaceSection);
+  const courseWorkspaceSections = useMemo(
+    () =>
+      [
+        { id: 'overview' as const, label: language === 'ru' ? 'Обзор' : 'Overview' },
+        { id: 'schedule' as const, label: language === 'ru' ? 'Расписание' : 'Schedule' },
+        { id: 'instructors' as const, label: language === 'ru' ? 'Инструкторы' : 'Instructors' },
+        { id: 'participants' as const, label: language === 'ru' ? 'Участники' : 'Participants' },
+        { id: 'enrollment' as const, label: language === 'ru' ? 'Запись' : 'Enrollment' },
+        { id: 'settings' as const, label: language === 'ru' ? 'Настройки' : 'Settings' },
+      ] satisfies ReadonlyArray<{ id: typeof workspaceSection; label: string }>,
+    [language]
+  );
 
   return (
     <div
-      className="relative space-y-3"
+      className="relative space-y-6"
       aria-busy={pending !== null || currentList.loadingInitial || currentList.loadingMore}
     >
-      <header className="flex flex-wrap items-center justify-end gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          {pending ? <span role="status">{text.pending}</span> : null}
-          {stale ? <span role="status">{text.stale}</span> : null}
-          {mutationError && mutationError !== courseDayIssue?.message ? (
-            <span role="alert">{mutationError}</span>
-          ) : null}
-          <CoursesManagerToolbar
-            t={t}
-            showCourseForm={showCreate}
-            onToggle={toggleCreate}
-            className="flex items-center"
-          />
-          <button type="button" className="ui-btn" onClick={() => void refresh()}>
-            {text.refresh}
-          </button>
+      {mutationError && mutationError !== courseDayIssue?.message ? (
+        <div role="alert" className="border border-red-500/30 bg-red-500/5 p-3 text-xs">
+          {mutationError}
         </div>
-      </header>
-      <dl className="grid grid-cols-3 gap-px overflow-hidden rounded-md border border-[var(--border)] bg-[var(--border)] text-xs">
-        {(
-          [
-            [
-              'active-loaded',
-              language === 'ru' ? 'Активные, загружено' : 'Active loaded',
-              courseLists.active.initialized ? String(courseLists.active.items.length) : '—',
-            ],
-            [
-              'archived-loaded',
-              language === 'ru' ? 'Архивные, загружено' : 'Archived loaded',
-              courseLists.archived.initialized ? String(courseLists.archived.items.length) : '—',
-            ],
-            [
-              'seats-loaded',
-              language === 'ru' ? 'Места, загружено' : 'Seats loaded',
-              courseLists.active.initialized
-                ? `${loadedEnrollment.occupied} / ${loadedEnrollment.seats}`
-                : '—',
-            ],
-          ] as const
-        ).map(([key, label, value]) => (
-          <div key={key} className="bg-[var(--card-bg)] px-3 py-2">
-            <dt className="text-[10px] uppercase tracking-wide text-[var(--ink-dim)]">{label}</dt>
-            <dd className="mt-0.5 font-mono text-base text-[var(--ink)]">{value}</dd>
-          </div>
-        ))}
-      </dl>
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(17.5rem,34%)_minmax(0,1fr)]">
-      <aside className="min-w-0 space-y-3">
-      <div className="flex gap-2" role="tablist" aria-label={text.lifecycle}>
-        {(['active', 'archived'] as const).map((scope) => (
-          <button
-            key={scope}
-            type="button"
-            role="tab"
-            aria-selected={lifecycleScope === scope}
-            className={`ui-btn ${lifecycleScope === scope ? 'ui-btn-primary' : ''}`}
-            onClick={() => {
-              if (scope === lifecycleScope) return;
-              setLifecycleScope(scope);
-              setSelectedCourseId(null);
-              setSelectedCourse(null);
-              setEditForm(null);
-              setEditOriginal(null);
-              setCourseDayDraft(null);
-              setMutationError(null);
-              setStale(false);
-              setWorkspaceSection('overview');
-            }}
-          >
-            {scope === 'active' ? text.active : text.archived}
-          </button>
-        ))}
-      </div>
-      <label className="grid gap-1 text-xs text-[var(--ink-dim)]">
-        {language === 'ru' ? 'Поиск курсов' : 'Search courses'}
-        <input
-          value={listQuery}
-          onChange={(event) => setListQuery(event.target.value)}
-          placeholder={language === 'ru' ? 'Поиск курсов…' : 'Search courses…'}
-        />
-      </label>
-      <div className="flex flex-wrap items-center gap-2">
-        {currentList.error && courses.length > 0 ? (
-          <span role="alert">
-            {currentList.error}{' '}
-            <button
-              type="button"
-              className="underline"
-              onClick={() =>
-                void loadCoursePage(
-                  lifecycleScope,
-                  courses.length > 0 ? currentList.cursor : undefined,
-                  courses.length > 0
-                )
-              }
-            >
-              {text.retry}
-            </button>
-          </span>
-        ) : null}
-      </div>
-
+      ) : null}
+      {pending ? (
+        <div role="status" className="border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
+          {text.pending}
+        </div>
+      ) : null}
+      {stale ? (
+        <div role="status" className="border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
+          {text.stale}
+        </div>
+      ) : null}
       {showCreate && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/55" onClick={toggleCreate}>
         <form
-          className="fixed inset-y-0 right-0 z-50 flex w-[min(100%,400px)] flex-col overflow-hidden border-l border-[var(--border)] bg-[var(--card-bg)] shadow-[-12px_0_32px_rgba(0,0,0,0.28)]"
+          className={`flex h-full w-full max-w-md flex-col overflow-hidden border-l border-[var(--border)] bg-[var(--card-bg)] shadow-[var(--shadow-soft)] ${adminFormControls}`}
           onSubmit={(event) => void createCourse(event)}
+          onClick={(event) => event.stopPropagation()}
           noValidate
           aria-label={text.create}
         >
           <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--border)] px-4 py-3">
-            <h3 className="font-serif text-lg text-[var(--ink)]">
+            <h3 className="text-sm font-medium text-[var(--ink)]">
               {createMode === 'clone' ? text.createClone : text.create}
             </h3>
-            <button type="button" className="ui-btn px-2" aria-label={t('closeForm')} onClick={toggleCreate}>
+            <button
+              type="button"
+              className="flex h-8 w-8 shrink-0 items-center justify-center border border-[var(--border)] text-[var(--ink-dim)] hover:text-[var(--ink)]"
+              aria-label={t('closeForm')}
+              onClick={toggleCreate}
+            >
               <X className="h-4 w-4" />
             </button>
           </div>
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
           {createFormError || createValidationIssues.length > 0 ? (
-            <div role="alert" className="grid gap-1 border border-red-300 bg-red-50 p-2 text-xs text-red-800 md:col-span-2">
+            <div role="alert" className="grid gap-1 border border-red-500/30 bg-red-500/5 p-3 text-xs text-[var(--ink)] md:col-span-2">
               {createFormError ? <p>{createFormError}</p> : null}
               {createValidationIssues.length > 0 ? (
                 <ul className="list-inside list-disc">
@@ -2056,7 +2011,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
               ) : null}
             </div>
           ) : null}
-          <p className="text-[11px] uppercase tracking-wide text-[var(--ink-dim)] md:col-span-2">
+          <p className="text-xs font-mono uppercase tracking-wider text-[var(--ink-dim)] md:col-span-2">
             {language === 'ru' ? 'Основное' : 'Basic information'}
           </p>
           {(
@@ -2069,10 +2024,19 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
               ['bgImageUrl', 'url'],
             ] as const
           ).map(([field, type]) => (
-            <label key={field} htmlFor={`canonical-course-${field}`} className="grid gap-1 text-sm">
-              {field === 'price' ? `${field} (KZT)` : field}
+            <label key={field} htmlFor={`canonical-course-${field}`} className="grid gap-1 text-xs">
+              <span>
+                {createFieldLabel(field)}
+                {field === 'titleRu' ? null : (
+                  <span aria-hidden="true" className="text-rose-600">
+                    {' '}
+                    *
+                  </span>
+                )}
+              </span>
               <input
                 id={`canonical-course-${field}`}
+                aria-label={createFieldLabel(field)}
                 required={
                   field === 'title' ||
                   field === 'price' ||
@@ -2090,6 +2054,11 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                 }
                 onChange={(event) => updateCreateField(field, event.target.value)}
               />
+              {field === 'titleRu' ? (
+                <span aria-hidden="true" className="text-[11px] text-[var(--ink-dim)]">
+                  {language === 'ru' ? 'Необязательно' : 'Optional'}
+                </span>
+              ) : null}
               {renderCreateFieldError(field)}
             </label>
           ))}
@@ -2101,7 +2070,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
             aria-invalid={createFieldIssue('roster') ? true : undefined}
             aria-describedby={createFieldIssue('roster') ? 'canonical-course-roster-error' : undefined}
           >
-            <legend className="px-1 text-sm">
+            <legend className="px-1 text-xs font-medium">
               {language === 'ru' ? 'Инструкторы' : 'Instructors'}
             </legend>
             <p className="text-xs text-[var(--ink-dim)]">
@@ -2153,7 +2122,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
             aria-invalid={createFieldIssue('days') ? true : undefined}
             aria-describedby={createFieldIssue('days') ? 'canonical-course-days-error' : undefined}
           >
-            <legend className="px-1 text-sm">{language === 'ru' ? 'Дни курса' : 'Course days'}</legend>
+            <legend className="px-1 text-xs font-medium">{language === 'ru' ? 'Дни курса' : 'Course days'}</legend>
             <p className="text-xs text-[var(--ink-dim)]">
               {createMode === 'create'
                 ? language === 'ru'
@@ -2221,7 +2190,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                   )
                 );
               return (
-                <div key={row.id} className="grid gap-2 border-t border-[var(--border)] pt-3">
+                <div key={row.id} className={`${adminRecordCardClass} grid gap-2 border-l-transparent`}>
                   <div className="flex items-center justify-between gap-2">
                     <strong className="text-xs">
                       {language === 'ru' ? `День ${index + 1}` : `Day ${index + 1}`}
@@ -2230,7 +2199,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                     {createMode === 'clone' && createCourseDays.length > 1 ? (
                       <button
                         type="button"
-                        className="ui-btn"
+                        className="text-xs text-rose-700 hover:underline dark:text-rose-300"
                         onClick={() => updateCreateCourseDays(createCourseDays.filter((candidate) => candidate.id !== row.id))}
                       >
                         {language === 'ru' ? 'Удалить день' : 'Remove day'}
@@ -2345,14 +2314,15 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
             })}
             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] pt-3 text-xs">
               {createMode === 'clone' ? (
-                <button
+                <ActionButton
                   type="button"
-                  className="ui-btn"
+                  size="sm"
+                  variant="secondary"
                   disabled={createCourseDays.length >= 64}
                   onClick={() => updateCreateCourseDays([...createCourseDays, newCourseDayRow()])}
                 >
                   {language === 'ru' ? 'Добавить день' : 'Add day'}
-                </button>
+                </ActionButton>
               ) : null}
               <span className="text-[var(--ink-dim)]">
                 {courseDayDateSummary(createCourseDays) || (language === 'ru' ? 'Даты курса не выбраны' : 'No course dates selected')}
@@ -2371,7 +2341,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
             ref={createPresentationDetailsRef}
             className="space-y-3"
           >
-            <summary className="cursor-pointer text-sm font-bold">{text.presentation}</summary>
+            <summary className="cursor-pointer text-xs font-medium">{text.presentation}</summary>
             <div className="mt-3 grid gap-3">
               <label
                 htmlFor="canonical-course-description"
@@ -2488,31 +2458,155 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
           <ActionButton
             pending={pending !== null}
             pendingLabel={text.pending}
-            unstyled
-            className="ui-btn ui-btn-primary w-full"
+            variant="primary"
+            size="sm"
+            className="w-full"
             type="submit"
           >
             {createMode === 'clone' ? text.createClone : text.create}
           </ActionButton>
           </div>
         </form>
+        </div>
       )}
 
-      {(!currentList.initialized || currentList.loadingInitial) && courses.length === 0 ? (
-        <p>{text.loading}</p>
-      ) : currentList.error && courses.length === 0 ? (
-        <div role="alert">
-          <p>{currentList.error}</p>
-          <button type="button" onClick={() => void refresh()}>
-            {text.retry}
-          </button>
-        </div>
-      ) : courses.length === 0 ? (
-        <p>{lifecycleScope === 'active' ? text.activeEmpty : text.archivedEmpty}</p>
-      ) : (
-        <CanonicalCourseDatabaseList
-          courses={visibleTableCourses}
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(320px,38fr)_minmax(0,62fr)]">
+        <section
+          aria-label={t('adminCourseDatabaseListLabel')}
+          className="overflow-hidden rounded-[var(--radius)] bg-[var(--card-bg)] shadow-[var(--shadow-soft)]"
+        >
+          <div className="space-y-3 border-b border-[var(--border)] p-3">
+            <div className="inline-flex rounded-full bg-[var(--profile-bg)] p-1" role="tablist" aria-label={text.lifecycle}>
+              {(['active', 'archived'] as const).map((scope) => (
+                <button
+                  key={scope}
+                  type="button"
+                  role="tab"
+                  aria-selected={lifecycleScope === scope}
+                  onClick={() => {
+                    if (scope === lifecycleScope) return;
+                    setLifecycleScope(scope);
+                    setSelectedCourseId(null);
+                    setSelectedCourse(null);
+                    setEditForm(null);
+                    setEditOriginal(null);
+                    setCourseDayDraft(null);
+                    setMutationError(null);
+                    setStale(false);
+                    setWorkspaceSection('overview');
+                  }}
+                  className={`px-4 py-2 text-xs font-semibold transition-colors ${
+                    lifecycleScope === scope
+                      ? 'bg-[var(--ink)] text-[var(--bg)] shadow-sm'
+                      : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'
+                  }`}
+                >
+                  {scope === 'active' ? text.active : text.archived}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {(
+                [
+                  [
+                    'active-loaded',
+                    language === 'ru' ? 'Активные' : 'Active',
+                    courseLists.active.initialized ? String(courseLists.active.items.length) : '—',
+                  ],
+                  [
+                    'archived-loaded',
+                    language === 'ru' ? 'Архив' : 'Archived',
+                    courseLists.archived.initialized ? String(courseLists.archived.items.length) : '—',
+                  ],
+                  [
+                    'seats-loaded',
+                    language === 'ru' ? 'Места' : 'Seats',
+                    courseLists.active.initialized
+                      ? `${loadedEnrollment.occupied}/${loadedEnrollment.seats}`
+                      : '—',
+                  ],
+                ] as const
+              ).map(([key, label, value]) => (
+                <span key={key} className="text-xs text-[var(--ink-dim)]">
+                  {label}
+                  <span className="ml-1.5 font-mono font-medium text-[var(--ink)]">{value}</span>
+                </span>
+              ))}
+              <input
+                aria-label={t('adminCourseSearchLabel')}
+                value={listQuery}
+                onChange={(event) => setListQuery(event.target.value)}
+                placeholder={language === 'ru' ? 'Поиск курсов…' : 'Search courses…'}
+                className="min-w-40 flex-1 border border-[var(--border)] bg-[var(--bg)] p-1.5 text-xs"
+              />
+              {pending ? <span role="status" className="text-xs">{text.pending}</span> : null}
+              {stale ? <span role="status" className="text-xs">{text.stale}</span> : null}
+              <CoursesManagerToolbar
+                t={t}
+                showCourseForm={showCreate}
+                onToggle={toggleCreate}
+                className="flex items-center"
+              />
+              <button
+                type="button"
+                className="flex items-center gap-1.5 border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--ink-dim)] hover:text-[var(--ink)]"
+                onClick={() => void refresh()}
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                {text.refresh}
+              </button>
+            </div>
+            {currentList.error && courses.length > 0 ? (
+              <span role="alert" className="text-xs">
+                {currentList.error}{' '}
+                <button
+                  type="button"
+                  className="underline"
+                  onClick={() =>
+                    void loadCoursePage(
+                      lifecycleScope,
+                      courses.length > 0 ? currentList.cursor : undefined,
+                      courses.length > 0
+                    )
+                  }
+                >
+                  {text.retry}
+                </button>
+              </span>
+            ) : null}
+          </div>
+
+          <div className="p-3">
+            {(!currentList.initialized || currentList.loadingInitial) && courses.length === 0 ? (
+              <div
+                role="status"
+                className="flex min-h-36 items-center justify-center gap-2 text-xs"
+              >
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {text.loading}
+              </div>
+            ) : currentList.error && courses.length === 0 ? (
+              <div role="alert" className="border border-red-500/30 p-4 text-xs">
+                <p>{currentList.error}</p>
+                <button
+                  type="button"
+                  onClick={() => void refresh()}
+                  className="mt-3 flex items-center gap-2 border border-[var(--border)] px-3 py-2"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  {text.retry}
+                </button>
+              </div>
+            ) : courses.length === 0 ? (
+              <p className="border border-dashed border-[var(--border)] p-8 text-center text-xs text-[var(--ink-dim)]">
+                {lifecycleScope === 'active' ? text.activeEmpty : text.archivedEmpty}
+              </p>
+            ) : (
+              <CanonicalCourseDatabaseList
+                courses={visibleTableCourses}
           selectedCourseId={selectedCourseId}
+          lifecycle={lifecycleScope}
+          actionsLabel={language === 'ru' ? 'Действия курса' : 'Course actions'}
           instructors={tableInstructors}
           language={language}
           t={t}
@@ -2574,83 +2668,84 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
           detailsLabel={text.details}
           reactivateLabel={text.restore}
         />
-      )}
+            )}
 
-      {currentList.hasMore && currentList.cursor ? (
-        <button
-          type="button"
-          className="ui-btn"
-          disabled={currentList.loadingMore}
-          onClick={() => void loadCoursePage(lifecycleScope, currentList.cursor, true)}
-        >
-          {currentList.loadingMore ? text.loadingMore : text.loadMore}
-        </button>
-      ) : null}
-      </aside>
-      <section className="min-w-0 space-y-4">
-      {selectedCourse ? (
-        <article className="space-y-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h3 className="font-serif text-2xl font-light">{selectedCourse.title}</h3>
-              <p className="text-[11px] uppercase tracking-wide text-[var(--ink-dim)]">
-                {selectedCourse.lifecycle}
-              </p>
-              {selectedCourseScheduleDates ? (
-                <p
-                  className="mt-1 text-sm text-[var(--ink)]"
-                  data-testid="admin-course-detail-dates"
-                >
-                  {language === 'ru' ? 'Даты проведения' : 'Schedule dates'}:{' '}
-                  {selectedCourseScheduleDates}
-                </p>
-              ) : null}
-            </div>
-            <button
-              type="button"
-              className="ui-btn"
-              onClick={() => {
-                setSelectedCourseId(null);
-                setSelectedCourse(null);
-              }}
-            >
-              {text.closeDetails}
-            </button>
+            {currentList.hasMore && currentList.cursor ? (
+              <button
+                type="button"
+                className="mt-2 w-full border border-[var(--border)] px-3 py-2 text-xs font-medium disabled:opacity-50"
+                disabled={currentList.loadingMore}
+                onClick={() => void loadCoursePage(lifecycleScope, currentList.cursor, true)}
+              >
+                {currentList.loadingMore ? text.loadingMore : text.loadMore}
+              </button>
+            ) : null}
           </div>
-          <nav
-            className="flex flex-wrap gap-1 border-b border-[var(--border)] text-xs"
-            aria-label={language === 'ru' ? 'Разделы курса' : 'Course workspace'}
-            role="tablist"
-          >
-            {(
-              [
-                ['overview', language === 'ru' ? 'Обзор' : 'Overview'],
-                ['schedule', language === 'ru' ? 'Расписание' : 'Schedule'],
-                ['instructors', language === 'ru' ? 'Инструкторы' : 'Instructors'],
-                ['participants', language === 'ru' ? 'Участники' : 'Participants'],
-                ['enrollment', language === 'ru' ? 'Запись' : 'Enrollment'],
-                ['settings', language === 'ru' ? 'Настройки' : 'Settings'],
-              ] as const
-            ).map(([id, label]) => {
-              const active = workspaceSection === id;
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  className={`-mb-px border-b-2 px-3 py-2 ${
-                    active
-                      ? 'border-[var(--accent)] font-semibold text-[var(--ink)]'
-                      : 'border-transparent text-[var(--ink-dim)] hover:text-[var(--ink)]'
-                  }`}
-                  onClick={() => setWorkspaceSection(id)}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </nav>
+        </section>
+
+        <aside
+          className="min-h-[32rem] rounded-[var(--radius)] bg-[var(--card-bg)] shadow-[var(--shadow-soft)] lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto"
+          aria-label={t('adminCourseDatabaseDetailLabel')}
+        >
+          {selectedCourse ? (
+            <article>
+              <div className="sticky top-3 z-20 rounded-t-[var(--radius)] bg-[var(--card-bg)] shadow-[0_8px_20px_-18px_rgba(17,17,17,0.45)] lg:top-0">
+                <header className="space-y-3 p-4 pb-0">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <h3 className="break-words text-xl font-medium">{selectedCourse.title}</h3>
+                      <p
+                        className="mt-1 text-xs text-[var(--ink-dim)]"
+                        data-testid="admin-course-detail-dates"
+                      >
+                        {selectedCourseScheduleDates || selectedCourse.lifecycle}
+                      </p>
+                      <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                        <AdminCourseStatusChip
+                          tone={selectedCourse.lifecycle === 'archived' ? 'archived' : 'active'}
+                        >
+                          {selectedCourse.lifecycle === 'archived' ? text.archived : text.active}
+                        </AdminCourseStatusChip>
+                        {selectedCourse.capacity.availableSeats <= 0 ? (
+                          <AdminCourseStatusChip tone="attention">
+                            {language === 'ru' ? 'Мест нет' : 'Full'}
+                          </AdminCourseStatusChip>
+                        ) : null}
+                        {selectedCourse.catalogContent.content?.isHidden === true &&
+                        selectedCourse.lifecycle !== 'archived' ? (
+                          <AdminCourseStatusChip tone="neutral">
+                            {language === 'ru' ? 'Скрыт' : 'Hidden'}
+                          </AdminCourseStatusChip>
+                        ) : null}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      aria-label={text.closeDetails}
+                      onClick={() => {
+                        setSelectedCourseId(null);
+                        setSelectedCourse(null);
+                      }}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center border border-[var(--border)] text-[var(--ink-dim)] hover:text-[var(--ink)]"
+                    >
+                      <X className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  </div>
+                </header>
+                <AdminLessonDetailTabs
+                  sections={courseWorkspaceSections}
+                  activeSection={workspaceSection}
+                  onChange={(section) => {
+                    if (courseWorkspaceSections.some((item) => item.id === section)) {
+                      setWorkspaceSection(section as typeof workspaceSection);
+                    }
+                  }}
+                  ariaLabel={language === 'ru' ? 'Разделы курса' : 'Course workspace'}
+                  attentionLabel={language === 'ru' ? 'Требует внимания' : 'Needs attention'}
+                  idPrefix="admin-course"
+                />
+              </div>
+              <div className="space-y-4 p-4 pt-3">
           <div
             id="course-overview"
             className={
@@ -2709,7 +2804,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
             <form
               className={
                 showWorkspace('settings', 'instructors')
-                  ? 'grid gap-3 md:grid-cols-2'
+                  ? `grid gap-3 md:grid-cols-2 ${adminFormControls}`
                   : 'hidden'
               }
               onSubmit={(event) => void saveStructuredEdit(event)}
@@ -2768,7 +2863,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                 />
                 <button
                   type="button"
-                  className="ui-btn"
+                  className="border border-[var(--border)] px-3 py-1.5 text-xs hover:border-[var(--ink)]"
                   onClick={() => setImageUploaderOpen((value) => !value)}
                 >
                   {language === 'ru' ? 'Загрузить изображение' : 'Upload image'}
@@ -3034,8 +3129,8 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                 />
               </label>
               <ActionButton
-                className="ui-btn ui-btn-primary"
-                unstyled
+                variant="primary"
+                size="sm"
                 pending={pending !== null}
                 pendingLabel={text.pending}
                 type="submit"
@@ -3104,7 +3199,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
               </p>
               <button
                 type="button"
-                className="ui-btn"
+                className="border border-[var(--border)] px-3 py-1.5 text-xs hover:border-[var(--ink)]"
                 onClick={() => onOpenEnrollments(selectedCourse.courseId)}
               >
                 {text.manageEnrollments}
@@ -3117,9 +3212,11 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                 selectedCourse.authorizedActions.some((action) => action.kind === kind)
               )
               .map((kind) => (
-                <button
+                <ActionButton
                   key={kind}
                   type="button"
+                  size="sm"
+                  variant={kind === 'archive_course' ? 'danger' : 'secondary'}
                   disabled={pending !== null}
                   onClick={() => {
                     if (kind === 'archive_course')
@@ -3128,16 +3225,17 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                   }}
                 >
                   {actionLabel(kind)}
-                </button>
+                </ActionButton>
               ))}
           </div>
-        </article>
-      ) : (
-        <p className="text-xs text-[var(--ink-dim)]">
-          {language === 'ru' ? 'Выберите курс в списке.' : 'Select a course from the list.'}
-        </p>
-      )}
-      </section>
+              </div>
+            </article>
+          ) : (
+            <p className="flex min-h-52 items-center justify-center text-center text-xs text-[var(--ink-dim)]">
+              {t('adminCourseDatabaseSelectPrompt')}
+            </p>
+          )}
+        </aside>
       </div>
     </div>
   );

@@ -87,7 +87,10 @@ describe('Canonical CoursesManager', () => {
     expect((await screen.findAllByText('Canonical Freeride Camp')).length).toBeGreaterThan(0);
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Add Course' }));
-    await screen.findByLabelText('title');
+    await screen.findByLabelText('Title');
+    expect(screen.getByRole('form', { name: 'Create canonical course' }).className).toContain(
+      'border-[var(--border)]'
+    );
     return user;
   };
 
@@ -106,10 +109,10 @@ describe('Canonical CoursesManager', () => {
     const fill = (label: string | RegExp, value: string) => {
       fireEvent.change(screen.getByLabelText(label), { target: { value } });
     };
-    fill('title', overrides.title ?? 'Canonical Create Validation Course');
-    fill('price (KZT)', '50000');
+    fill('Title', overrides.title ?? 'Canonical Create Validation Course');
+    fill('Price (KZT)', '50000');
     await user.click(await screen.findByLabelText(/Coach/));
-    fill('bgImageUrl', overrides.bgImageUrl ?? 'https://example.com/course.webp');
+    fill('Image URL', overrides.bgImageUrl ?? 'https://example.com/course.webp');
     fireEvent.change(screen.getByLabelText('Period starts'), {
       target: { value: overrides.date ?? '2026-12-01' },
     });
@@ -195,6 +198,7 @@ describe('Canonical CoursesManager', () => {
     );
 
     expect((await screen.findAllByText('Canonical Freeride Camp')).length).toBeGreaterThan(0);
+    await userEvent.click(screen.getByRole('button', { name: 'Course actions' }));
     await userEvent.click(screen.getByRole('button', { name: 'Archive course' }));
 
     expect(onRequestConfirm).toHaveBeenCalledWith(
@@ -236,6 +240,7 @@ describe('Canonical CoursesManager', () => {
       />
     );
     expect((await screen.findAllByText('Canonical Freeride Camp')).length).toBeGreaterThan(0);
+    await userEvent.click(screen.getByRole('button', { name: 'Course actions' }));
     await userEvent.click(screen.getByRole('button', { name: 'Archive course' }));
     expect(await screen.findByRole('alert')).toBeInTheDocument();
     expect(screen.getByRole('alert').textContent?.length).toBeGreaterThan(0);
@@ -267,10 +272,10 @@ describe('Canonical CoursesManager', () => {
     const fill = (label: string | RegExp, value: string) => {
       fireEvent.change(screen.getByLabelText(label), { target: { value } });
     };
-    fill('title', 'Canonical Retry Course');
-    fill('price (KZT)', '50000');
+    fill('Title', 'Canonical Retry Course');
+    fill('Price (KZT)', '50000');
     await user.click(await screen.findByLabelText(/Coach/));
-    fill('bgImageUrl', 'https://example.com/retry.webp');
+    fill('Image URL', 'https://example.com/retry.webp');
     fill('description', 'Canonical retry description');
     fireEvent.change(screen.getByLabelText('Period starts'), { target: { value: '2026-12-01' } });
     fireEvent.change(screen.getByLabelText('Period ends'), { target: { value: '2026-12-01' } });
@@ -434,7 +439,7 @@ describe('Canonical CoursesManager', () => {
   it('shows a field-specific error and focuses a missing required field', async () => {
     const user = await openCreateForm();
     await fillValidCreateFields(user);
-    fireEvent.change(screen.getByLabelText('title'), { target: { value: '' } });
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: '' } });
 
     await user.click(screen.getByRole('button', { name: 'Create canonical course' }));
 
@@ -490,7 +495,7 @@ describe('Canonical CoursesManager', () => {
   it('shows the specific shared-schema field issue instead of swallowing it', async () => {
     const user = await openCreateForm();
     await fillValidCreateFields(user);
-    fireEvent.change(screen.getByLabelText('titleRu'), {
+    fireEvent.change(screen.getByLabelText('Title (RU)'), {
       target: { value: 'Русское название'.repeat(15) },
     });
 

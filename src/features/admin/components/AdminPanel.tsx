@@ -397,11 +397,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
       {activeTab === 'product' && (
         <div className="space-y-6">
-          <Suspense fallback={<SectionLoadingFallback label={t('coursesManagerTitle')} />}>
+          <Suspense fallback={<SectionLoadingFallback label={t('coursesDatabaseTitle')} />}>
             <AdminCollapsibleSection
               id="courses_manager"
-              title={t('coursesManagerTitle')}
-              subtitle={t('coursesManagerSub')}
+              title={t('coursesDatabaseTitle')}
+              subtitle={t('coursesDatabaseSub')}
               icon={BookOpen}
               defaultOpen
             >

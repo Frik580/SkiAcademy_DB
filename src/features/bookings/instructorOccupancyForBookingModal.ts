@@ -3,6 +3,7 @@ import {
   localCalendarInputToUtcDate,
   type AdminPlannerOccupancyItem,
   type InstructorOccupancyReadModel,
+  type QueryParticipantOccupancyReadModelsResult,
 } from '@ski-academy/shared-domain';
 import {
   fitsLessonDaySchedule,
@@ -171,6 +172,20 @@ export function mapInstructorOccupancyToCourses(
       },
     ];
   });
+}
+
+export function flattenParticipantOccupancyReadModels(
+  results: readonly QueryParticipantOccupancyReadModelsResult[]
+): AdminPlannerOccupancyItem[] {
+  const byOccupancyId = new Map<string, AdminPlannerOccupancyItem>();
+  for (const result of results) {
+    for (const slice of result.item.items) {
+      for (const item of slice.occupancy) {
+        byOccupancyId.set(item.occupancyId, item);
+      }
+    }
+  }
+  return [...byOccupancyId.values()];
 }
 
 export function mapInstructorOccupancyReadModelForBookingModal(

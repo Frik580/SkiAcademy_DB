@@ -145,7 +145,7 @@ async function loadOverdueAttendanceFacts(
   return overdue;
 }
 
-async function paginateWindowQuery(
+export async function paginateWindowQuery(
   baseQuery: Query,
   scanCap = PLANNER_QUERY_SCAN_CAP
 ): Promise<{ docs: QueryDocumentSnapshot[]; truncated: boolean }> {

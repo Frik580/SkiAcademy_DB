@@ -27,6 +27,7 @@ import {
   type ResourceClaimGuardEntry,
   type ResourceClaimId,
   type ResourceClaimIdentityInput,
+  type ParticipantId,
   type ResourceClaimReplacementIgnore,
   type TimeInterval,
   type UtcGuardBucket,
@@ -277,6 +278,13 @@ function assertNoIntervalConflict(
           ...(conflictDetailsResourceKind(resourceKind) === undefined
             ? {}
             : { resourceKind: conflictDetailsResourceKind(resourceKind) }),
+          ...(resourceKind === 'participant'
+            ? {
+                participantIds: [
+                  bucket.bucket.bucketIdentity.resourceId as ParticipantId,
+                ],
+              }
+            : {}),
         },
       });
     }

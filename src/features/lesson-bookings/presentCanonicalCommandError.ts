@@ -3,12 +3,17 @@ import {
   mapCanonicalErrorMessage,
 } from '../../lib/canonical/mapCanonicalCommandError';
 import type { CommandErrorCode } from '@ski-academy/shared-domain';
+import {
+  formatParticipantBookingConflictMessage,
+  participantConflictIdsFromDetails,
+} from './lessonBookingParticipantPresentation';
 
 export interface PresentedCanonicalCommandError {
   readonly code: CommandErrorCode;
   readonly message: string;
   readonly correlationId?: string;
   readonly currentRevision?: number;
+  readonly details?: CanonicalCommandClientError['details'];
   readonly shouldRefresh?: boolean;
 }
 
@@ -34,13 +39,17 @@ export function presentCanonicalCommandError(error: unknown): PresentedCanonical
     message: mapCanonicalErrorMessage(normalized.code),
     correlationId: normalized.correlationId,
     currentRevision: normalized.currentRevision,
+    details: normalized.details,
     shouldRefresh,
   };
 }
 
 export function presentCanonicalCommandErrorWithContext(
   error: unknown,
-  context: { readonly t: (key: string, ...args: unknown[]) => string }
+  context: {
+    readonly t: (key: string, ...args: unknown[]) => string;
+    readonly resolveParticipantDisplayName?: (participantId: string) => string | undefined;
+  }
 ): PresentedCanonicalCommandError {
   const presented = presentCanonicalCommandError(error);
   switch (presented.code) {
@@ -48,7 +57,20 @@ export function presentCanonicalCommandErrorWithContext(
       return { ...presented, message: context.t('insufficientFunds') };
     case 'payment_required':
       return { ...presented, message: context.t('bookingBalanceTooLow') };
-    case 'participant_conflict':
+    case 'participant_conflict': {
+      const conflictParticipantIds = participantConflictIdsFromDetails(presented.details);
+      if (conflictParticipantIds.length > 0 && context.resolveParticipantDisplayName) {
+        return {
+          ...presented,
+          message: formatParticipantBookingConflictMessage({
+            participantIds: conflictParticipantIds,
+            resolveDisplayName: context.resolveParticipantDisplayName,
+            t: context.t,
+          }),
+        };
+      }
+      return { ...presented, message: context.t('slotUnavailable') };
+    }
     case 'instructor_conflict':
     case 'resource_conflict':
       return { ...presented, message: context.t('slotUnavailable') };

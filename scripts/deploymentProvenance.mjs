@@ -288,12 +288,29 @@ export function isCloudFunctionService(service) {
   );
 }
 
-export function evaluateFunctionsComparison({ localCommitSha, localDirty, services }) {
+export function normalizeFunctionServiceName(name) {
+  if (typeof name !== 'string' || name.trim() === '') return '';
+  const short = name.includes('/') ? name.split('/').pop() : name;
+  return short.trim().toLowerCase();
+}
+
+export function evaluateFunctionsComparison({
+  localCommitSha,
+  localDirty,
+  services,
+  onlyFunctionNames = null,
+}) {
   const rows = [];
+  const only =
+    onlyFunctionNames instanceof Set && onlyFunctionNames.size > 0 ? onlyFunctionNames : null;
   for (const service of services) {
     if (!isCloudFunctionService(service)) continue;
     const name = service?.metadata?.name;
     if (typeof name !== 'string' || name.trim() === '') continue;
+    if (only) {
+      const normalized = normalizeFunctionServiceName(name);
+      if (!only.has(normalized)) continue;
+    }
     const labels = service.metadata.labels ?? {};
     const commitSha = normalizeCommitSha(labels.commit_sha);
     const dirtyLabel = labels.commit_dirty;
@@ -310,7 +327,7 @@ export function evaluateFunctionsComparison({ localCommitSha, localDirty, servic
   rows.sort((left, right) => left.name.localeCompare(right.name));
   const reasons = [];
   if (localDirty) reasons.push('local-dirty');
-  if (rows.length === 0) reasons.push('unverified');
+  if (rows.length === 0) reasons.push(only ? 'missing-target' : 'unverified');
   if (rows.some((row) => row.status !== 'match')) reasons.push('functions');
   return {
     match: reasons.length === 0,
@@ -319,9 +336,29 @@ export function evaluateFunctionsComparison({ localCommitSha, localDirty, servic
   };
 }
 
-export const RELEASE_COMMANDS = {
-  'hosting:staging': 'npm run build:staging && firebase deploy --project staging --only hosting',
-  'hosting:prod': 'npm run build:prod && firebase deploy --project prod --only hosting',
-  'functions:staging': 'firebase deploy --project staging --only functions',
-  'functions:prod': 'firebase deploy --project prod --only functions',
+export const RELEASE_TARGET_SPECS = {
+  'hosting:staging': {
+    environment: 'staging',
+    scope: 'hosting',
+    deploy: 'npm run build:staging && firebase deploy --project staging --only hosting',
+  },
+  'hosting:prod': {
+    environment: 'production',
+    scope: 'hosting',
+    deploy: 'npm run build:prod && firebase deploy --project prod --only hosting',
+  },
+  'functions:staging': {
+    environment: 'staging',
+    scope: 'functions',
+    deploy: 'firebase deploy --project staging --only functions',
+  },
+  'functions:prod': {
+    environment: 'production',
+    scope: 'functions',
+    deploy: 'firebase deploy --project prod --only functions',
+  },
 };
+
+export const RELEASE_COMMANDS = Object.fromEntries(
+  Object.entries(RELEASE_TARGET_SPECS).map(([key, value]) => [key, value.deploy])
+);

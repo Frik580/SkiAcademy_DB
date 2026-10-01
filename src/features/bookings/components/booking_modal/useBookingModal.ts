@@ -12,6 +12,7 @@ import {
   InstructorIdSchema,
   type AdminPlannerOccupancyItem,
   type LessonBookingReadModel,
+  type ParticipantId,
 } from '@ski-academy/shared-domain';
 import { useNotifications } from '../../../../features/notifications';
 import {
@@ -30,6 +31,7 @@ import {
 import {
   queryInstructorOccupancyReadModels,
   queryLessonPricingSettingsReadModel,
+  queryParticipantOccupancyReadModels,
 } from '../../../../lib/canonical/canonicalReadModelClient';
 import {
   getAvailableLessonStartTimes,
@@ -37,6 +39,7 @@ import {
   addBookingLocalDays,
   normalizeBookingLocalDate,
   resolveLessonStartTimeSelection,
+  flattenParticipantOccupancyReadModels,
 } from '../../instructorOccupancyForBookingModal';
 import {
   createLogicalBookingAttemptId,
@@ -192,10 +195,14 @@ export const useBookingModal = ({
   const [instructorBookings, setInstructorBookings] = useState<AvailabilitySlot[]>([]);
   const [occupancyCourses, setOccupancyCourses] = useState<Course[]>([]);
   const [occupancyItems, setOccupancyItems] = useState<AdminPlannerOccupancyItem[]>([]);
+  const [participantOccupancyItems, setParticipantOccupancyItems] = useState<
+    AdminPlannerOccupancyItem[]
+  >([]);
   const [isLoadingBookings, setIsLoadingBookings] = useState<boolean>(true);
   const [occupancyLoadFailed, setOccupancyLoadFailed] = useState(false);
   const [occupancyRefreshNonce, setOccupancyRefreshNonce] = useState(0);
   const occupancyFetchVersionRef = useRef(0);
+  const participantOccupancyFetchVersionRef = useRef(0);
 
   const normalizeDateStr = normalizeBookingLocalDate;
 
@@ -303,6 +310,75 @@ export const useBookingModal = ({
     void fetchOccupancy();
   }, [isOpen, targetInstructor?.id, date, userProfile?.uid, courses, occupancyRefreshNonce]);
 
+  const effectiveParticipantIds = resolveEffectiveParticipantIds(
+    managedParticipants,
+    selectedParticipantIds
+  );
+  const participantOccupancyKey = effectiveParticipantIds.slice().sort().join(',');
+
+  useEffect(() => {
+    if (
+      !isOpen ||
+      !date ||
+      !userProfile?.uid ||
+      userProfile.uid.startsWith('local_') ||
+      effectiveParticipantIds.length === 0
+    ) {
+      setParticipantOccupancyItems([]);
+      return;
+    }
+
+    const fetchVersion = ++participantOccupancyFetchVersionRef.current;
+    const selectedDate = normalizeDateStr(date);
+    const participantIds = [
+      ...resolveEffectiveParticipantIds(managedParticipants, selectedParticipantIds),
+    ] as ParticipantId[];
+
+    const fetchParticipantOccupancy = async () => {
+      try {
+        const [selectedDay, nextDay] = await Promise.all([
+          queryParticipantOccupancyReadModels({
+            scope: 'account_participant_day',
+            participantIds,
+            localDate: selectedDate,
+            timeZone: timezone,
+          }),
+          queryParticipantOccupancyReadModels({
+            scope: 'account_participant_day',
+            participantIds,
+            localDate: addBookingLocalDays(selectedDate, 1),
+            timeZone: timezone,
+          }),
+        ]);
+        if (fetchVersion !== participantOccupancyFetchVersionRef.current) return;
+        setParticipantOccupancyItems(
+          flattenParticipantOccupancyReadModels([selectedDay, nextDay])
+        );
+      } catch (err) {
+        logger.error('Error fetching participant occupancy:', err);
+        if (fetchVersion === participantOccupancyFetchVersionRef.current) {
+          setParticipantOccupancyItems([]);
+        }
+      }
+    };
+
+    void fetchParticipantOccupancy();
+  }, [
+    isOpen,
+    date,
+    userProfile?.uid,
+    participantOccupancyKey,
+    occupancyRefreshNonce,
+    timezone,
+    managedParticipants,
+    selectedParticipantIds,
+  ]);
+
+  const combinedOccupancyItems = useMemo(
+    () => [...occupancyItems, ...participantOccupancyItems],
+    [occupancyItems, participantOccupancyItems]
+  );
+
   const availableSlots = useMemo((): string[] => {
     return getAvailableLessonStartTimes({
       candidateStarts: DEFAULT_LESSON_TIME_SLOTS,
@@ -311,7 +387,7 @@ export const useBookingModal = ({
       instructorId: targetInstructor?.id,
       occupancySlots: instructorBookings,
       occupancyCourses,
-      occupancyItems,
+      occupancyItems: combinedOccupancyItems,
       timeZone: timezone,
     });
   }, [
@@ -319,7 +395,7 @@ export const useBookingModal = ({
     duration,
     instructorBookings,
     occupancyCourses,
-    occupancyItems,
+    combinedOccupancyItems,
     targetInstructor?.id,
     timezone,
   ]);
@@ -390,10 +466,16 @@ export const useBookingModal = ({
     !!overlappingBooking ||
     !!overlappingCourse;
 
-  const effectiveParticipantIds = resolveEffectiveParticipantIds(
-    managedParticipants,
-    selectedParticipantIds
-  );
+  const resolveParticipantDisplayName = (participantId: string): string | undefined =>
+    managedParticipants.find((participant) => participant.participantId === participantId)
+      ?.displayName;
+
+  const presentBookingCommandError = (err: unknown) =>
+    presentCanonicalCommandErrorWithContext(err, {
+      t: t as (key: string, ...args: unknown[]) => string,
+      resolveParticipantDisplayName,
+    });
+
   const baseLessonCost =
     targetInstructor?.pricePerHourKZT != null && Number.isFinite(targetInstructor.pricePerHourKZT)
       ? targetInstructor.pricePerHourKZT * duration
@@ -496,9 +578,7 @@ export const useBookingModal = ({
         setGuestRefreshError(true);
       }
     } catch (err) {
-      const presented = presentCanonicalCommandErrorWithContext(err, {
-        t: t as (key: string) => string,
-      });
+      const presented = presentBookingCommandError(err);
       if (presented.code === 'guest_reservation_limit') {
         bookingAttemptIdRef.current = null;
         setGuestQuotaError(true);
@@ -731,13 +811,19 @@ export const useBookingModal = ({
         confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
         onClose();
       } catch (err) {
-        const presented = presentCanonicalCommandErrorWithContext(err, {
-          t: t as (key: string) => string,
-        });
+        const presented = presentBookingCommandError(err);
+        if (presented.code === 'participant_conflict' && presented.correlationId) {
+          logger.warn('Booking participant_conflict', {
+            correlationId: presented.correlationId,
+            code: presented.code,
+          });
+        }
         addNotification('error', t('bookingError'), presented.message);
         if (presented.shouldRefresh) {
           setOccupancyRefreshNonce((current) => current + 1);
-          setTime('');
+          if (presented.code !== 'participant_conflict') {
+            setTime('');
+          }
         }
       } finally {
         isSubmittingRef.current = false;

@@ -857,6 +857,10 @@ export const translations = {
     instructorPriceUnavailable: 'This instructor does not have a current KZT rate.',
     slotUnavailable: 'Slot Unavailable',
     instructorAlreadyBooked: 'is already booked during this time period.',
+    bookingParticipantTimeConflict:
+      'This time is already booked for participant {name}. Choose another time.',
+    bookingParticipantsTimeConflict:
+      'This time is already booked for participants:\n{names}\n\nChoose another time.',
     lessonBooked: 'Lesson Booked!',
     lessonBookedPrefix: 'Coaching with',
     lessonScheduledFor: 'scheduled for',
@@ -3236,6 +3240,10 @@ export const translations = {
     instructorPriceUnavailable: 'Для этого инструктора не задана текущая ставка в тенге.',
     slotUnavailable: 'Время недоступно',
     instructorAlreadyBooked: 'уже занят(а) в данный промежуток времени.',
+    bookingParticipantTimeConflict:
+      'У участника {name} это время уже занято. Выберите другое время.',
+    bookingParticipantsTimeConflict:
+      'Это время уже занято у участников:\n{names}\n\nВыберите другое время.',
     lessonBooked: 'Урок забронирован!',
     lessonBookedPrefix: 'Занятие с',
     lessonScheduledFor: 'запланировано на',

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { AggregateRevisionSchema, type AggregateRevision } from './primitives';
-import { CorrelationIdSchema, type CorrelationId } from './identifiers';
+import { CorrelationIdSchema, ParticipantIdSchema, type CorrelationId } from './identifiers';
 
 export const COMMAND_ERROR_CODES = [
   'unauthorized',
@@ -89,6 +89,8 @@ export const CommandErrorDetailsSchema = z
     resourceKind: z
       .enum(['participant', 'instructor', 'course', 'booking', 'course_enrollment'])
       .optional(),
+    participantId: ParticipantIdSchema.optional(),
+    participantIds: z.array(ParticipantIdSchema).min(1).max(8).optional(),
   })
   .strict();
 

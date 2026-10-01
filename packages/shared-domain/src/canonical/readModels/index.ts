@@ -18,6 +18,7 @@ export * from './adminCourseEnrollmentReadModel';
 export * from './adminIdentityReadModel';
 export * from './adminPlannerReadModel';
 export * from './instructorOccupancyReadModel';
+export * from './participantOccupancyReadModel';
 export * from './bookingInstructorCatalogueReadModel';
 export * from './lessonPricingSettingsReadModel';
 export * from './emailDeliverySettingsReadModel';

@@ -218,6 +218,103 @@ describe('getAvailableLessonStartTimes', () => {
     expect(starts).toContain('12:00');
   });
 
+  it('hides participant-busy slots from canonical occupancy items', () => {
+    const starts = getAvailableLessonStartTimes({
+      candidateStarts: DEFAULT_LESSON_TIME_SLOTS,
+      durationHours: 1,
+      localDate,
+      instructorId,
+      occupancySlots: [],
+      occupancyCourses: [],
+      occupancyItems: [
+        occupancyItem({
+          occupancyKind: 'lesson_booking',
+          occupancyId: 'participant_busy_10',
+          localTime: '10:00',
+          durationMinutes: 60,
+        }),
+      ],
+      timeZone,
+      now: futureNow,
+    });
+    expect(starts).not.toContain('10:00');
+    expect(starts).toContain('09:00');
+  });
+
+  it('hides duration overlap when participant is busy 10:00-11:00 and lesson is 120 minutes', () => {
+    const starts = getAvailableLessonStartTimes({
+      candidateStarts: DEFAULT_LESSON_TIME_SLOTS,
+      durationHours: 2,
+      localDate,
+      instructorId,
+      occupancySlots: [],
+      occupancyCourses: [],
+      occupancyItems: [
+        occupancyItem({
+          occupancyKind: 'lesson_booking',
+          occupancyId: 'participant_busy_10',
+          localTime: '10:00',
+          durationMinutes: 60,
+        }),
+      ],
+      timeZone,
+      now: futureNow,
+    });
+    expect(starts).not.toContain('09:00');
+    expect(starts).not.toContain('10:00');
+  });
+
+  it('allows a candidate that ends exactly when participant occupancy starts', () => {
+    const starts = getAvailableLessonStartTimes({
+      candidateStarts: DEFAULT_LESSON_TIME_SLOTS,
+      durationHours: 1,
+      localDate,
+      instructorId,
+      occupancySlots: [],
+      occupancyCourses: [],
+      occupancyItems: [
+        occupancyItem({
+          occupancyKind: 'lesson_booking',
+          occupancyId: 'participant_busy_10',
+          localTime: '10:00',
+          durationMinutes: 60,
+        }),
+      ],
+      timeZone,
+      now: futureNow,
+    });
+    expect(starts).toContain('09:00');
+  });
+
+  it('hides a slot when any combined participant occupancy item overlaps', () => {
+    const starts = getAvailableLessonStartTimes({
+      candidateStarts: DEFAULT_LESSON_TIME_SLOTS,
+      durationHours: 1,
+      localDate,
+      instructorId,
+      occupancySlots: [],
+      occupancyCourses: [],
+      occupancyItems: [
+        occupancyItem({
+          occupancyKind: 'lesson_booking',
+          occupancyId: 'participant_a_busy',
+          localTime: '10:00',
+          durationMinutes: 60,
+        }),
+        occupancyItem({
+          occupancyKind: 'lesson_booking',
+          occupancyId: 'participant_b_free',
+          localTime: '14:00',
+          durationMinutes: 60,
+        }),
+      ],
+      timeZone,
+      now: futureNow,
+    });
+    expect(starts).not.toContain('10:00');
+    expect(starts).toContain('11:00');
+  });
+
   it('recomputes options when duration changes', () => {
     const occupancy = [block('13:00', 1)];
     const oneHourStarts = availableStarts(occupancy, [], 1);

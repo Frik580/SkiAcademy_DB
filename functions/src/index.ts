@@ -25,6 +25,7 @@ import { createQueryAdminCourseEnrollmentReadModelsHandler } from './canonical/r
 import { createQueryAdminIdentityReadModelsHandler } from './canonical/readModels/queryAdminIdentityReadModelsCallable';
 import { createQueryAdminPlannerReadModelsHandler } from './canonical/readModels/queryAdminPlannerReadModelsCallable';
 import { createQueryInstructorOccupancyReadModelsHandler } from './canonical/readModels/queryInstructorOccupancyReadModelsCallable';
+import { createQueryParticipantOccupancyReadModelsHandler } from './canonical/readModels/queryParticipantOccupancyReadModelsCallable';
 import { createQueryBookingInstructorCatalogueReadModelsHandler } from './canonical/readModels/queryBookingInstructorCatalogueReadModelsCallable';
 import { createQueryLessonPricingSettingsReadModelHandler } from './canonical/readModels/queryLessonPricingSettingsReadModelCallable';
 import { createQueryEmailDeliverySettingsReadModelHandler } from './canonical/readModels/queryEmailDeliverySettingsReadModelCallable';
@@ -143,6 +144,11 @@ export const queryAdminPlannerReadModels = onCall(CANONICAL_CALLABLE_OPTIONS, as
 export const queryInstructorOccupancyReadModels = onCall(
   CANONICAL_CALLABLE_OPTIONS,
   async (request) => createQueryInstructorOccupancyReadModelsHandler(getAdminFirestore())(request)
+);
+
+export const queryParticipantOccupancyReadModels = onCall(
+  CANONICAL_CALLABLE_OPTIONS,
+  async (request) => createQueryParticipantOccupancyReadModelsHandler(getAdminFirestore())(request)
 );
 
 export const queryBookingInstructorCatalogueReadModels = onCall(

@@ -28,6 +28,8 @@ import {
   type QueryInstructorCourseAssignmentReadModelsResult,
   type QueryInstructorOccupancyReadModelsInput,
   type QueryInstructorOccupancyReadModelsResult,
+  type QueryParticipantOccupancyReadModelsInput,
+  type QueryParticipantOccupancyReadModelsResult,
   type QueryBookingInstructorCatalogueReadModelsInput,
   type QueryBookingInstructorCatalogueReadModelsResult,
   type QueryLessonBookingReadModelsInput,
@@ -84,6 +86,8 @@ export const QUERY_ADMIN_COURSE_ENROLLMENT_READ_MODELS_CALLABLE =
 export const QUERY_ADMIN_IDENTITY_READ_MODELS_CALLABLE = 'queryAdminIdentityReadModels';
 export const QUERY_ADMIN_PLANNER_READ_MODELS_CALLABLE = 'queryAdminPlannerReadModels';
 export const QUERY_INSTRUCTOR_OCCUPANCY_READ_MODELS_CALLABLE = 'queryInstructorOccupancyReadModels';
+export const QUERY_PARTICIPANT_OCCUPANCY_READ_MODELS_CALLABLE =
+  'queryParticipantOccupancyReadModels';
 export const QUERY_BOOKING_INSTRUCTOR_CATALOGUE_READ_MODELS_CALLABLE =
   'queryBookingInstructorCatalogueReadModels';
 export const QUERY_LESSON_PRICING_SETTINGS_READ_MODEL_CALLABLE =
@@ -906,6 +910,25 @@ export async function queryInstructorOccupancyReadModels(
     QueryInstructorOccupancyReadModelsResult
   >(QUERY_INSTRUCTOR_OCCUPANCY_READ_MODELS_CALLABLE, input, {
     idempotencyKey: `read:instructor_occupancy:${identityHash}`,
+    maxAttempts: 1,
+  });
+}
+
+export async function queryParticipantOccupancyReadModels(
+  input: CanonicalReadQueryInput<QueryParticipantOccupancyReadModelsInput>
+): Promise<QueryParticipantOccupancyReadModelsResult> {
+  const identityHash = canonicalDeterministicHash([
+    'read:participant_occupancy:v1',
+    ...[...input.participantIds].sort(),
+    input.localDate,
+    input.timeZone,
+    String(input.windowDays ?? 1),
+  ]);
+  return invokeCanonicalReadCallable<
+    QueryParticipantOccupancyReadModelsInput,
+    QueryParticipantOccupancyReadModelsResult
+  >(QUERY_PARTICIPANT_OCCUPANCY_READ_MODELS_CALLABLE, input, {
+    idempotencyKey: `read:participant_occupancy:${identityHash}`,
     maxAttempts: 1,
   });
 }

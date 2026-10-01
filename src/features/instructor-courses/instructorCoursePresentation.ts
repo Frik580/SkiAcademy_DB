@@ -29,15 +29,15 @@ export function resolveAssignedCourseDays(
 }
 
 export function formatInstructorCourseScheduleSummary(
-  assignment: Pick<InstructorAssignedCourseRef, 'assignedCourseDayIds' | 'courseSchedule'>
+  assignment: Pick<InstructorAssignedCourseRef, 'courseSchedule'>
 ): string {
-  const assignedDays = resolveAssignedCourseDays(assignment);
-  if (assignedDays.length === 0) {
+  const courseDays = assignment.courseSchedule.courseDays;
+  if (courseDays.length === 0) {
     return '';
   }
 
-  const firstDay = assignedDays[0]!;
-  const lastDay = assignedDays[assignedDays.length - 1]!;
+  const firstDay = courseDays[0]!;
+  const lastDay = courseDays[courseDays.length - 1]!;
   const startDate = formatCourseDayDate(firstDay);
   const endDate = formatCourseDayDate(lastDay);
   const startTime = formatCourseDayTime(firstDay);

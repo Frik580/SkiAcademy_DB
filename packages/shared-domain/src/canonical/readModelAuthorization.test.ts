@@ -478,7 +478,7 @@ describe('readModelAuthorization', () => {
       })
     ).toEqual({
       allowed: true,
-      assignedCourseDayIds: [courseDayId, otherCourseDayId],
+      assignedCourseDayIds: [courseDayId],
     });
 
     expect(
@@ -531,5 +531,94 @@ describe('readModelAuthorization', () => {
         lifecycle: { status: 'pending', reservationExpiresAt: decidedAt },
       })
     ).toBe(false);
+  });
+});
+
+describe('mixed CourseDay instructor assignment', () => {
+  const stagingAdminId = InstructorIdSchema.parse('instructor_staging_admin');
+  const arseniiId = InstructorIdSchema.parse('instructor_arsenii_gerasimchuk');
+  const instructorCId = InstructorIdSchema.parse('instructor_unassigned_c');
+  const dayOneId = CourseDayIdSchema.parse('course_day_carving_01');
+  const dayTwoId = CourseDayIdSchema.parse('course_day_carving_02');
+  const dayThreeId = CourseDayIdSchema.parse('course_day_carving_03');
+  const activeCourse = {
+    lifecycle: 'active' as const,
+    instructorRosterIds: [stagingAdminId, arseniiId],
+  } as Parameters<typeof resolveInstructorCourseAssignmentProjection>[0]['course'];
+  const courseDays = [
+    { courseDayId: dayThreeId, dayOrder: 3, actualInstructorIds: [arseniiId] },
+    { courseDayId: dayOneId, dayOrder: 1, actualInstructorIds: [stagingAdminId] },
+    { courseDayId: dayTwoId, dayOrder: 2, actualInstructorIds: [stagingAdminId] },
+  ] as Parameters<typeof resolveInstructorCourseAssignmentProjection>[0]['courseDays'];
+
+  it('keeps the course for Staging Admin and returns only Day 1 and Day 2 in order', () => {
+    expect(
+      resolveInstructorCourseAssignmentProjection({
+        instructorId: stagingAdminId,
+        course: activeCourse,
+        courseDays,
+      })
+    ).toEqual({
+      allowed: true,
+      assignedCourseDayIds: [dayOneId, dayTwoId],
+    });
+  });
+
+  it('keeps the course for Arsenii and returns only Day 3', () => {
+    expect(
+      resolveInstructorCourseAssignmentProjection({
+        instructorId: arseniiId,
+        course: activeCourse,
+        courseDays,
+      })
+    ).toEqual({
+      allowed: true,
+      assignedCourseDayIds: [dayThreeId],
+    });
+  });
+
+  it('omits the course for an instructor with no CourseDay assignment', () => {
+    expect(
+      resolveInstructorCourseAssignmentProjection({
+        instructorId: instructorCId,
+        course: activeCourse,
+        courseDays,
+      })
+    ).toEqual({
+      allowed: false,
+      assignedCourseDayIds: [],
+    });
+  });
+
+  it('does not treat roster membership without a CourseDay as assigned days', () => {
+    expect(
+      resolveInstructorCourseAssignmentProjection({
+        instructorId: instructorCId,
+        course: {
+          lifecycle: 'active',
+          instructorRosterIds: [stagingAdminId, arseniiId, instructorCId],
+        } as Parameters<typeof resolveInstructorCourseAssignmentProjection>[0]['course'],
+        courseDays,
+      })
+    ).toEqual({
+      allowed: true,
+      assignedCourseDayIds: [],
+    });
+  });
+
+  it('still hides archived courses from instructor assignment', () => {
+    expect(
+      resolveInstructorCourseAssignmentProjection({
+        instructorId: stagingAdminId,
+        course: {
+          lifecycle: 'archived',
+          instructorRosterIds: [stagingAdminId, arseniiId],
+        } as Parameters<typeof resolveInstructorCourseAssignmentProjection>[0]['course'],
+        courseDays,
+      })
+    ).toEqual({
+      allowed: false,
+      assignedCourseDayIds: [],
+    });
   });
 });

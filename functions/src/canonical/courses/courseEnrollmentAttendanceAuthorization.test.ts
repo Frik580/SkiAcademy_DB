@@ -117,6 +117,14 @@ describe('Course Attendance multi-instructor authorization', () => {
     expect(() => authorize(unrelatedInstructorId, assignedDay)).toThrow();
   });
 
+  it('denies an instructor who is assigned only to other days of the course', () => {
+    expect(() => authorize(firstInstructorId, courseDay([secondInstructorId]))).toThrow();
+  });
+
+  it('allows the instructor assigned to this course day', () => {
+    expect(authorize(secondInstructorId, courseDay([secondInstructorId]))).toBe('instructor');
+  });
+
   it('denies instructor authorization for an empty assignment', () => {
     expect(() => authorize(firstInstructorId, courseDay([]))).toThrow();
   });

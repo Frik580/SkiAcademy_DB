@@ -38,16 +38,14 @@ const courseSchedule = {
 } as const;
 
 describe('instructorCoursePresentation', () => {
-  it('formats schedule summary from assigned course days only', () => {
+  it('formats the course card from the full course period', () => {
     expect(
       formatInstructorCourseScheduleSummary({
-        assignedCourseDayIds: [dayOneId, dayTwoId],
         courseSchedule,
       })
     ).toContain('2026-02-01');
     expect(
       formatInstructorCourseScheduleSummary({
-        assignedCourseDayIds: [dayOneId, dayTwoId],
         courseSchedule,
       })
     ).toContain('2026-02-03');

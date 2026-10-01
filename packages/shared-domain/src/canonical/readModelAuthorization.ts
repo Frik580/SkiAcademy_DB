@@ -598,18 +598,13 @@ export function resolveInstructorCourseAssignmentProjection(
   }
   const onRoster = input.course.instructorRosterIds.includes(input.instructorId);
   const orderedDays = sortedCourseDays(input.courseDays);
-  if (onRoster) {
-    return {
-      allowed: true,
-      assignedCourseDayIds: orderedDays.map((courseDay) => courseDay.courseDayId),
-    };
-  }
-
+  // instructorRosterIds is course discovery membership. Day visibility follows
+  // CourseDay.actualInstructorIds and is not implied by roster membership.
   const assignedCourseDayIds = orderedDays
     .filter((courseDay) => instructorAssignedToCourseDay(courseDay, input.instructorId))
     .map((courseDay) => courseDay.courseDayId);
   return {
-    allowed: assignedCourseDayIds.length > 0,
+    allowed: onRoster || assignedCourseDayIds.length > 0,
     assignedCourseDayIds,
   };
 }

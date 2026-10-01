@@ -305,6 +305,73 @@ describe('Admin Course read-model callable', () => {
       expect(detail.item?.instructors[0]?.name).toBe('Safe Coach');
   });
 
+  it('returns every CourseDay to Admin regardless of day instructor assignment', async () => {
+    const data = seed();
+    const secondInstructorId = InstructorIdSchema.parse('instructor_admin_read_02');
+    const thirdInstructorId = InstructorIdSchema.parse('instructor_admin_read_03');
+    const dayTwoId = CourseDayIdSchema.parse('course_day_admin_read_02');
+    const dayThreeId = CourseDayIdSchema.parse('course_day_admin_read_03');
+    const dayTwoStart = timestampFromDate(new Date('2026-12-02T04:00:00.000Z'));
+    const dayTwoEnd = timestampFromDate(new Date('2026-12-02T10:00:00.000Z'));
+    const dayThreeStart = timestampFromDate(new Date('2026-12-03T04:00:00.000Z'));
+    const dayThreeEnd = timestampFromDate(new Date('2026-12-03T10:00:00.000Z'));
+    data[`courses/${courseId}`] = CourseSchema.parse({
+      ...(data[`courses/${courseId}`] as Record<string, unknown>),
+      instructorRosterIds: [instructorId, secondInstructorId, thirdInstructorId],
+      scheduleProjection: {
+        courseDayCount: 3,
+        finalCourseDayEndsAt: dayThreeEnd,
+        courseScheduleRevision: 3,
+      },
+    }) as unknown as Record<string, unknown>;
+    const extraDay = (
+      courseDayId: typeof dayTwoId,
+      dayOrder: number,
+      assignedInstructorId: typeof instructorId,
+      startsAt: typeof dayTwoStart,
+      endsAt: typeof dayTwoEnd
+    ) =>
+      CourseDaySchema.parse({
+        ...(data[`courses/${courseId}/days/${dayId}`] as Record<string, unknown>),
+        courseDayId,
+        dayOrder,
+        interval: { startsAt, endsAt },
+        actualInstructorIds: [assignedInstructorId],
+      }) as unknown as Record<string, unknown>;
+    data[`courses/${courseId}/days/${dayTwoId}`] = extraDay(
+      dayTwoId,
+      2,
+      secondInstructorId,
+      dayTwoStart,
+      dayTwoEnd
+    );
+    data[`courses/${courseId}/days/${dayThreeId}`] = extraDay(
+      dayThreeId,
+      3,
+      thirdInstructorId,
+      dayThreeStart,
+      dayThreeEnd
+    );
+
+    const handler = createQueryAdminCourseReadModelsHandler(fakeFirestore(data));
+    const detail = await handler({
+      auth: { uid: adminId },
+      data: {
+        scope: 'admin_course_detail',
+        courseId,
+        idempotencyKey: `read:admin_course:admin_course_detail:${courseId}:mixed-days`,
+      },
+    } as never);
+
+    expect(detail.scope).toBe('admin_course_detail');
+    if (detail.scope !== 'admin_course_detail') return;
+    expect(detail.item?.courseDays.map((day) => day.courseDayId)).toEqual([
+      dayId,
+      dayTwoId,
+      dayThreeId,
+    ]);
+  });
+
   it('keeps exact CourseEnrollment totals without reading the course history', async () => {
     const data = seed();
     const reads: string[] = [];

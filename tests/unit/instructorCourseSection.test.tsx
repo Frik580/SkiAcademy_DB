@@ -190,6 +190,64 @@ describe('InstructorCourseSection', () => {
     expect(screen.queryByText('instructorCourseDay 2')).not.toBeInTheDocument();
   });
 
+  it('renders only instructor-scoped CourseDays inside an assigned course', async () => {
+    const dayThreeId = CourseDayIdSchema.parse('course_day_instructor_ui_03');
+    const dayThreeStart = timestampFromDate(new Date('2026-02-03T03:00:00.000Z'));
+    const dayThreeEnd = timestampFromDate(new Date('2026-02-03T05:00:00.000Z'));
+    const assignment = buildAssignmentItem({
+      courseId: rosterCourseId,
+      title: 'Carving Essentials',
+      assignedCourseDayIds: [rosterCourseDayId, dayOnlyCourseDayId],
+      courseDayId: rosterCourseDayId,
+    });
+    assignment.courseSchedule = {
+      ...assignment.courseSchedule,
+      courseDayCount: 3,
+      finalCourseDayEndsAt: dayThreeEnd,
+      courseDays: [
+        ...assignment.courseSchedule.courseDays,
+        {
+          courseDayId: dayThreeId,
+          dayOrder: 3,
+          interval: { startsAt: dayThreeStart, endsAt: dayThreeEnd },
+          timeZone: 'Asia/Almaty',
+          revision: 1,
+        },
+      ],
+    };
+    queryAssignmentMock.mockResolvedValue({
+      scope: 'instructor_assigned',
+      items: [assignment],
+      hasMore: false,
+    });
+    queryEnrollmentMock.mockResolvedValue({
+      scope: 'instructor_roster',
+      items: [
+        {
+          enrollmentId,
+          revision: 1,
+          courseId: rosterCourseId,
+          participant: { participantId, displayName: 'Canonical Student' },
+          lifecycle: { status: 'confirmed' },
+          courseDisplay: { courseId: rosterCourseId, title: 'Carving Essentials' },
+          courseSchedule: assignment.courseSchedule,
+          authorizedActions: { canRecordAttendance: true },
+          updatedAt: decidedAt,
+        },
+      ],
+      hasMore: false,
+    });
+
+    renderSection();
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Carving Essentials').length).toBeGreaterThan(0);
+    });
+    expect(screen.getByText('instructorCourseDay 1')).toBeInTheDocument();
+    expect(screen.getByText('instructorCourseDay 2')).toBeInTheDocument();
+    expect(screen.queryByText('instructorCourseDay 3')).not.toBeInTheDocument();
+  });
+
   it('changes selected CourseDay without showing a stale attendance projection', async () => {
     queryAssignmentMock.mockResolvedValue({
       scope: 'instructor_assigned',

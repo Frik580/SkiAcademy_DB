@@ -986,6 +986,12 @@ export const CommandIntentSchemaByKind = {
       reasonExplanation: z.string().trim().min(1).max(1_000),
     })
     .strict(),
+  set_email_delivery_enabled: z
+    .object({
+      enabled: z.boolean(),
+      reasonExplanation: z.string().trim().min(1).max(1_000),
+    })
+    .strict(),
   update_account_contact_as_administrator: z
     .object({
       accountId: AccountIdSchema,

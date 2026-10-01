@@ -85,6 +85,16 @@ const AdminSystemSettings = lazy(() =>
     default: m.AdminSystemSettings,
   }))
 );
+const EmailDeliverySettingsSection = lazy(() =>
+  import('./settings').then((m) => ({
+    default: m.EmailDeliverySettingsSection,
+  }))
+);
+const OutboxDeadLetterSection = lazy(() =>
+  import('./settings').then((m) => ({
+    default: m.OutboxDeadLetterSection,
+  }))
+);
 const AdminTestingPanel = lazy(() =>
   import('../testing').then((m) => ({
     default: m.AdminTestingPanel,
@@ -426,6 +436,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
       {activeTab === 'system' && (
         <div className="space-y-6">
+          <Suspense fallback={<SectionLoadingFallback label={t('emailDeliveryTitle')} />}>
+            <EmailDeliverySettingsSection />
+          </Suspense>
+          <Suspense fallback={<SectionLoadingFallback label={t('outboxDeadLetterTitle')} />}>
+            <OutboxDeadLetterSection />
+          </Suspense>
           <Suspense fallback={<SectionLoadingFallback label={t('systemSettingsTitle')} />}>
             <AdminSystemSettings
               filtersEnabled={filtersEnabled}

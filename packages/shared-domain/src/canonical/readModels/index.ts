@@ -20,6 +20,8 @@ export * from './adminPlannerReadModel';
 export * from './instructorOccupancyReadModel';
 export * from './bookingInstructorCatalogueReadModel';
 export * from './lessonPricingSettingsReadModel';
+export * from './emailDeliverySettingsReadModel';
+export * from './outboxDeadLetterReadModel';
 export * from './instructorReviewReadModel';
 export * from './participantProgressReadModel';
 export * from './participantAchievementsReadModel';

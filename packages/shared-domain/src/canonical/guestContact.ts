@@ -4,6 +4,19 @@ import { CanonicalTimestampSchema } from './primitives';
 import { DataScopeSchema } from './canonicalScope';
 import { TestSessionIdSchema } from './identifiers';
 
+export const NotificationLocaleSchema = z.enum(['ru', 'en']);
+export type NotificationLocale = z.output<typeof NotificationLocaleSchema>;
+
+/** Explicit app locale carried on guest command transport. Never inferred from contact details. */
+export const NOTIFICATION_LOCALE_TRANSPORT_KEY = 'notification_locale' as const;
+
+export function notificationLocaleFromTransportMetadata(
+  metadata: Readonly<Record<string, string>> | undefined
+): NotificationLocale | undefined {
+  const parsed = NotificationLocaleSchema.safeParse(metadata?.[NOTIFICATION_LOCALE_TRANSPORT_KEY]);
+  return parsed.success ? parsed.data : undefined;
+}
+
 export const GuestContactDetailsSchema = z.object({
   phone: z.string().trim().min(1).max(32),
   email: z.string().trim().email().max(320).optional(),
@@ -17,6 +30,7 @@ export const GuestContactSubjectSchema = z.discriminatedUnion('kind', [
 export const GuestContactSchema = z.object({
   subject: GuestContactSubjectSchema,
   ...GuestContactDetailsSchema.shape,
+  notificationLocale: NotificationLocaleSchema.optional(),
   dataScope: DataScopeSchema,
   testSessionId: TestSessionIdSchema.optional(),
   createdAt: CanonicalTimestampSchema,

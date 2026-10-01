@@ -10,6 +10,7 @@ import {
   type PaymentId,
   type AccountId,
 } from '@ski-academy/shared-domain';
+import { renderInputsWithCommandLocale } from '../auditOutbox/outboxLocale';
 
 export function buildCreateGuestBookingRequestAuditPlan(input: {
   envelope: CommandEnvelope<'create_guest_booking_request'>;
@@ -103,7 +104,10 @@ export function buildCreateGuestBookingRequestAuditPlan(input: {
         channel: 'email',
         templateId: 'guest_booking_pending',
         templateVersion: 'v1',
-        renderInputs: { bookingId: input.bookingId },
+        renderInputs: renderInputsWithCommandLocale(
+          { bookingId: input.bookingId },
+          input.envelope.context.transportMetadata
+        ),
         deliverySemantics: 'transactional',
       },
     ],

@@ -12,6 +12,7 @@ import {
   type MonetaryEventId,
   type PaymentId,
 } from '@ski-academy/shared-domain';
+import { renderInputsWithCommandLocale } from '../auditOutbox/outboxLocale';
 
 export function buildDirectClientCourseCancellationAuditPlan(input: {
   envelope: CommandEnvelope<'request_course_enrollment_cancellation'>;
@@ -590,10 +591,13 @@ export function buildGuestCourseEnrollmentCancellationAuditPlan(input: {
         channel: 'email',
         templateId: 'guest_course_enrollment_cancelled',
         templateVersion: 'v1',
-        renderInputs: {
-          courseEnrollmentId: input.courseEnrollmentId,
-          reasonCode: input.reasonCode,
-        },
+        renderInputs: renderInputsWithCommandLocale(
+          {
+            courseEnrollmentId: input.courseEnrollmentId,
+            reasonCode: input.reasonCode,
+          },
+          input.envelope.context.transportMetadata
+        ),
         deliverySemantics: 'transactional',
       },
     ],

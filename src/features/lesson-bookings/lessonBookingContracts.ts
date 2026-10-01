@@ -84,6 +84,7 @@ export interface GuestLessonBookingInput {
   readonly guestSkillLevel: string;
   readonly guestDiscipline: 'ski' | 'snowboard';
   readonly guestAgeYears: number;
+  readonly notificationLocale?: 'ru' | 'en';
   readonly difficulty?: LessonDifficulty;
   readonly notes?: string;
 }

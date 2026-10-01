@@ -55,6 +55,18 @@ describe('guestCallableTransportAdapter', () => {
     expect(envelope.context.transportMetadata?.participant_display_name).toBe(
       'Guest Handler Contract'
     );
+    expect(envelope.context.transportMetadata).not.toHaveProperty('notification_locale');
+  });
+
+  it('copies an explicit notification locale and does not invent one from the phone number', () => {
+    const transport = {
+      ...validTransportPayload(),
+      notificationLocale: 'ru' as const,
+    };
+    const guestSubjectId = deriveGuestSubjectIdForIntent(transport.intent);
+    const envelope = buildGuestCommandEnvelopeFromCallable(guestSubjectId!, transport);
+    expect(envelope.context.transportMetadata?.notification_locale).toBe('ru');
+    expect(envelope.context.transportMetadata?.guest_contact_phone).toBe('+7 701 123 45 67');
   });
 
   it('rejects malformed transport payloads before envelope construction', () => {

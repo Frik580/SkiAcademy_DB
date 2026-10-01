@@ -8,7 +8,7 @@ import {
   type IdempotencyKey,
 } from './commandContext';
 import { CommandIntentSchemaByKind } from './commandIntents';
-import { GuestContactDetailsSchema } from '../guestContact';
+import { GuestContactDetailsSchema, NotificationLocaleSchema } from '../guestContact';
 import type { CommandKind } from './commandKinds';
 
 const guestParticipantProfileTransportFields = {
@@ -31,6 +31,7 @@ export const CreateGuestBookingRequestTransportSchema = z
     ...guestParticipantProfileTransportFields,
     guestPhone: GuestContactDetailsSchema.shape.phone,
     guestEmail: GuestContactDetailsSchema.shape.email,
+    notificationLocale: NotificationLocaleSchema.optional(),
   })
   .strict();
 
@@ -51,6 +52,7 @@ const guestCallableTransportBaseFields = {
   guestParticipantSkillLevel: guestParticipantProfileTransportFields.guestParticipantSkillLevel.optional(),
   guestParticipantDiscipline: guestParticipantProfileTransportFields.guestParticipantDiscipline.optional(),
   guestParticipantAgeYears: guestParticipantProfileTransportFields.guestParticipantAgeYears.optional(),
+  notificationLocale: NotificationLocaleSchema.optional(),
 } as const;
 
 function guestCallableTransportSchemaForKind<Kind extends CommandKind>(kind: Kind) {
@@ -100,6 +102,7 @@ export interface FrontendGuestLessonBookingCallablePayload {
   readonly guestParticipantAgeYears: number;
   readonly guestPhone: string;
   readonly guestEmail?: string;
+  readonly notificationLocale?: 'ru' | 'en';
 }
 
 export function buildFrontendGuestLessonBookingCallablePayload(input: {
@@ -118,6 +121,7 @@ export function buildFrontendGuestLessonBookingCallablePayload(input: {
   readonly guestAgeYears: number;
   readonly guestPhone: string;
   readonly guestEmail?: string;
+  readonly notificationLocale?: 'ru' | 'en';
   readonly difficulty?: CreateGuestBookingRequestTransport['intent']['difficulty'];
   readonly notes?: string;
 }): FrontendGuestLessonBookingCallablePayload {
@@ -144,5 +148,6 @@ export function buildFrontendGuestLessonBookingCallablePayload(input: {
     guestParticipantAgeYears: input.guestAgeYears,
     guestPhone: input.guestPhone,
     ...(input.guestEmail ? { guestEmail: input.guestEmail } : {}),
+    ...(input.notificationLocale ? { notificationLocale: input.notificationLocale } : {}),
   };
 }

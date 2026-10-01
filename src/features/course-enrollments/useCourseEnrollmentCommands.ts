@@ -180,6 +180,7 @@ export function useCourseEnrollmentCommands(accountId: string | undefined) {
           guestParticipantSkillLevel: input.guestSkillLevel,
           guestParticipantDiscipline: input.guestDiscipline,
           guestParticipantAgeYears: input.guestAgeYears,
+          ...(input.notificationLocale ? { notificationLocale: input.notificationLocale } : {}),
         });
         const error = mapCanonicalCommandResultError(result);
         if (error) throw error;

@@ -483,6 +483,7 @@ export const useBookingModal = ({
         guestSkillLevel: difficulty,
         guestDiscipline: 'ski',
         guestAgeYears: 25,
+        notificationLocale: language,
         difficulty,
         notes: notes.trim() || undefined,
       });

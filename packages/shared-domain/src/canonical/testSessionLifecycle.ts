@@ -205,6 +205,7 @@ const DISPOSABLE_ROOTS = new Set([
 const PRESERVE_ROOTS = new Set([
   'settings',
   'lesson_pricing_settings',
+  'email_delivery_settings',
   'resort_data',
   'system_migrations',
   'admin_runtime',

@@ -50,6 +50,7 @@ import {
   type PaymentAccountingFields,
   type PaymentAccountingProjection,
   type Wallet,
+  notificationLocaleFromTransportMetadata,
 } from '@ski-academy/shared-domain';
 import type { CommandHandlerMap } from '../commands/canonicalCommands';
 import {
@@ -1072,9 +1073,13 @@ function createCourseEnrollmentsHandler(
 
           if (mode === 'guest' && guestContactDetails) {
             const subject = { kind: 'course_enrollment' as const, enrollmentId: planned.enrollmentId };
+            const notificationLocale = notificationLocaleFromTransportMetadata(
+              envelope.context.transportMetadata
+            );
             session.tx.create({ path: guestContactPath(subject) }, GuestContactSchema.parse({
               subject,
               ...guestContactDetails,
+              ...(notificationLocale ? { notificationLocale } : {}),
               ...canonicalScopeFields(session.scope ?? LIVE_CANONICAL_EXECUTION_SCOPE),
               createdAt: decidedAt,
             }) as Record<string, unknown>);

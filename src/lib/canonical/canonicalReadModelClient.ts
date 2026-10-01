@@ -34,6 +34,10 @@ import {
   type QueryLessonBookingReadModelsResult,
   type QueryLessonPricingSettingsReadModelInput,
   type QueryLessonPricingSettingsReadModelResult,
+  type QueryEmailDeliverySettingsReadModelInput,
+  type QueryEmailDeliverySettingsReadModelResult,
+  type QueryOutboxDeadLetterReadModelInput,
+  type QueryOutboxDeadLetterReadModelResult,
   type QueryManagedParticipantPickerReadModelsInput,
   type QueryManagedParticipantPickerReadModelsResult,
   type QueryParticipantInstructorAccessReadModelsInput,
@@ -84,6 +88,9 @@ export const QUERY_BOOKING_INSTRUCTOR_CATALOGUE_READ_MODELS_CALLABLE =
   'queryBookingInstructorCatalogueReadModels';
 export const QUERY_LESSON_PRICING_SETTINGS_READ_MODEL_CALLABLE =
   'queryLessonPricingSettingsReadModel';
+export const QUERY_EMAIL_DELIVERY_SETTINGS_READ_MODEL_CALLABLE =
+  'queryEmailDeliverySettingsReadModel';
+export const QUERY_OUTBOX_DEAD_LETTER_READ_MODEL_CALLABLE = 'queryOutboxDeadLetterReadModel';
 export const QUERY_INSTRUCTOR_REVIEW_READ_MODELS_CALLABLE = 'queryInstructorReviewReadModels';
 export const QUERY_PARTICIPANT_PROGRESS_READ_MODELS_CALLABLE = 'queryParticipantProgressReadModels';
 export const QUERY_PARTICIPANT_ACHIEVEMENTS_READ_MODELS_CALLABLE =
@@ -119,6 +126,30 @@ export async function queryLessonPricingSettingsReadModel(
     QueryLessonPricingSettingsReadModelResult
   >(QUERY_LESSON_PRICING_SETTINGS_READ_MODEL_CALLABLE, input, {
     idempotencyKey: input.idempotencyKey ?? 'read:lesson_pricing_settings:current',
+    maxAttempts: 1,
+  });
+}
+
+export async function queryEmailDeliverySettingsReadModel(
+  input: QueryEmailDeliverySettingsReadModelInput
+): Promise<QueryEmailDeliverySettingsReadModelResult> {
+  return invokeCanonicalReadCallable<
+    QueryEmailDeliverySettingsReadModelInput,
+    QueryEmailDeliverySettingsReadModelResult
+  >(QUERY_EMAIL_DELIVERY_SETTINGS_READ_MODEL_CALLABLE, input, {
+    idempotencyKey: 'read:email_delivery_settings:current',
+    maxAttempts: 1,
+  });
+}
+
+export async function queryOutboxDeadLetterReadModel(
+  input: QueryOutboxDeadLetterReadModelInput
+): Promise<QueryOutboxDeadLetterReadModelResult> {
+  return invokeCanonicalReadCallable<
+    QueryOutboxDeadLetterReadModelInput,
+    QueryOutboxDeadLetterReadModelResult
+  >(QUERY_OUTBOX_DEAD_LETTER_READ_MODEL_CALLABLE, input, {
+    idempotencyKey: 'read:outbox_dead_letters:current',
     maxAttempts: 1,
   });
 }

@@ -52,6 +52,8 @@ import type { GuestBookingCommandEnvironment } from '../bookings/guestBookingCom
 import type { GuestCourseEnrollmentCommandEnvironment } from '../courses/guestCourseEnrollmentLifecycle';
 import type { GuestReservationAdmissionPolicy } from './guestReservationAdmission';
 import { createLessonPricingSettingsCommandHandlers } from '../pricing/lessonPricingSettingsCommands';
+import { createEmailDeliverySettingsCommandHandlers } from '../auditOutbox/emailDeliverySettingsCommands';
+import { emailDeliveryProviderConfigured } from '../auditOutbox/outboxDeliveryAdapters';
 import { createInstructorReviewCommandHandlers } from '../reviews/instructorReviewCommands';
 import { createParticipantProgressCommandHandlers } from '../progress/participantProgressCommands';
 import { createParticipantAchievementsCommandHandlers } from '../achievements/participantAchievementsCommands';
@@ -193,6 +195,7 @@ export function createProductionCanonicalCommands(
     readonly guestActionTokenSecret?: string;
     readonly guestReservationAdmission?: GuestReservationAdmissionPolicy;
     readonly monetaryEventLoader?: MonetaryEventLoader;
+    readonly isEmailProviderConfigured?: () => boolean;
   } = {}
 ): CanonicalCommands {
   const guestEnvironmentFactory = (
@@ -217,6 +220,10 @@ export function createProductionCanonicalCommands(
     ...createAdministrativeAvailabilityBlockCommandHandlers(executor),
     ...createFinanceCommandHandlers(executor, options.monetaryEventLoader),
     ...createLessonPricingSettingsCommandHandlers(executor),
+    ...createEmailDeliverySettingsCommandHandlers(
+      executor,
+      options.isEmailProviderConfigured ?? emailDeliveryProviderConfigured
+    ),
     ...createBookingCommandHandlers(executor),
     ...createBookingRescheduleCommandHandlers(executor),
     ...createGuestBookingCommandHandlers(

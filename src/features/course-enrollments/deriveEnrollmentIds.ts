@@ -1,4 +1,5 @@
 import {
+  buildBoundedCanonicalIdempotencyKey,
   CourseEnrollmentIdSchema,
   ParticipantIdSchema,
   canonicalDeterministicHash,
@@ -56,8 +57,15 @@ export function deriveAuthenticatedCreateEnrollmentIdempotencyKey(
   courseId: string,
   participantIds: readonly string[]
 ): IdempotencyKey {
-  const participantPart = [...participantIds].sort().join(',');
-  return `create-course-enrollment:${courseId}:${participantPart}` as IdempotencyKey;
+  const participantHash = canonicalDeterministicHash([
+    'course-enrollment-participants:v1',
+    ...[...participantIds].sort(),
+  ]);
+  return buildBoundedCanonicalIdempotencyKey([
+    'create-course-enrollment',
+    courseId,
+    participantHash,
+  ]);
 }
 
 export function deriveGuestCreateEnrollmentIdempotencyKey(enrollmentId: string): IdempotencyKey {

@@ -4,6 +4,7 @@ import {
   OUTBOX_DELIVERY_MAX_ATTEMPTS,
   type DomainOutboxObligation,
 } from '../auditOutbox';
+import { IdempotencyKeySchema } from '../commands/commandContext';
 import { DomainOutboxIdSchema } from '../identifiers';
 import { CanonicalTimestampSchema } from '../primitives';
 import { OUTBOX_DEAD_LETTER_PAGE_LIMIT } from '../outboxDeliveryLifecycle';
@@ -11,6 +12,7 @@ import { OUTBOX_DEAD_LETTER_PAGE_LIMIT } from '../outboxDeliveryLifecycle';
 export const QueryOutboxDeadLetterReadModelInputSchema = z
   .object({
     scope: z.literal('outbox_dead_letters'),
+    idempotencyKey: IdempotencyKeySchema.optional(),
   })
   .strict();
 

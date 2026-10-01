@@ -1,0 +1,647 @@
+[
+  {
+    "mechanic": "Canonical Lesson Booking lifecycle",
+    "entity": "Booking (/bookings/{bookingId}) — packages/shared-domain/src/canonical/bookingOccurrenceProposalChange.ts (BookingSchema, BookingLifecycleSchema)",
+    "states": ["pending", "confirmed", "pending_cancellation", "cancelled", "completed", "no_show"],
+    "transitions": [
+      "pending -> confirmed: create_guest_booking / confirm_guest_booking, ONLY when bookingOrigin === 'guest' (validateBookingOriginLifecycleConsistency: 'Only guest-origin Bookings may be pending').",
+      "pending -> cancelled: expire_guest_reservation with reasonCode 'reservation_expired'.",
+      "confirmed -> pending_cancellation: request_booking_cancellation (client) when inside the 24h window.",
+      "pending_cancellation -> confirmed: withdraw_booking_cancellation_request.",
+      "pending_cancellation -> cancelled: resolve_booking_cancellation (admin) approve/direct_cancel.",
+      "confirmed -> completed: complete_booking / finalize_booking_attendance (derived from Attendance evidence).",
+      "confirmed -> no_show: record_booking_no_show (derived from Attendance evidence).",
+      "confirmed -> cancelled: resolve_booking_cancellation direct path by administrator."
+    ],
+    "actor": "student",
+    "authority": "cloud-function",
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/bookingOccurrenceProposalChange.ts",
+      "packages/shared-domain/src/canonical/bookingCancellationPolicy.ts",
+      "packages/shared-domain/src/canonical/bookingAttendancePolicy.ts",
+      "functions/src/canonical/bookings/bookingCommands.ts",
+      "functions/src/canonical/bookings/bookingCancellationCommands.ts"
+    ],
+    "uiImplication": "Six lifecycle states, not five. 'pending_cancellation' is a distinct USER-VISIBLE state (awaiting admin) and must have its own chip — do not merge it into 'cancelled'. 'pending' is a guest-only slot hold that always shows a countdown to reservationExpiresAt. 'cancelled' must always render reasonCode (7 possible codes). Terminal states (cancelled/completed/no_show) are frozen — no actions offered."
+  },
+  {
+    "mechanic": "Booking cancellation timing + fees",
+    "entity": "Booking.lifecycle + Payment (/payments/{paymentId})",
+    "states": ["direct_cancel", "pending_request", "after_start_rejected"],
+    "transitions": [
+      "requestAt >= startAt -> after_start_rejected (hard block, no cancellation possible).",
+      "timeUntilStart >= INDIVIDUAL_BOOKING_CLIENT_CANCELLATION_WINDOW_MS (24*60*60*1000) -> direct_cancel (full refund of retained amount).",
+      "0 < timeUntilStart < 24h -> pending_request (admin must approve; refundPercentBasisPoints 0..10000 applied)."
+    ],
+    "actor": "student",
+    "authority": "cloud-function",
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/bookingCancellationPolicy.ts",
+      "functions/src/canonical/bookings/bookingCancellationCommands.ts"
+    ],
+    "uiImplication": "The 24h boundary is the single most important booking constraint. Show a live 'cancel until HH:MM' deadline. Inside 24h the UI must NOT promise a refund — it must say 'request sent, awaiting admin'. Never show an amount before the server returns refundDelta/writeOffDelta (projectCancellationFinancialEffects)."
+  },
+  {
+    "mechanic": "Booking reschedule (self-service)",
+    "entity": "Booking.clientSelfServiceRescheduleConsumedAt",
+    "states": ["allowed", "inside_window_rejected", "after_start_rejected"],
+    "transitions": [
+      "requestAt >= startAt -> after_start_rejected.",
+      "timeUntilStart < INDIVIDUAL_BOOKING_CLIENT_RESCHEDULE_WINDOW_MS (24h) -> inside_window_rejected.",
+      "timeUntilStart >= 24h AND clientSelfServiceRescheduleConsumedAt === undefined -> allowed (one-shot).",
+      "Second use -> allowed=false (isClientSelfServiceRescheduleAllowanceAvailable)."
+    ],
+    "actor": "student",
+    "authority": "cloud-function",
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/bookingReschedulePolicy.ts",
+      "functions/src/canonical/bookings/bookingRescheduleCommands.ts"
+    ],
+    "uiImplication": "Self-service reschedule is ONE-TIME per booking and only ≥24h before start. The UI must reflect the consumed allowance (hide/disable the affordance, not just let the server 409)."
+  },
+  {
+    "mechanic": "Multi-participant Booking party (the core contract)",
+    "entity": "Booking.party = { kind: 'individual' | 'family_group', participantIds: ParticipantId[] }",
+    "states": ["individual", "family_group"],
+    "transitions": [
+      "deriveBookingPartyKind(1) === 'individual'; deriveBookingPartyKind(n>1) === 'family_group'. Enforced by validateBookingPartyKindConsistency — party.kind must always match participantIds.length.",
+      "participantIds are unique (duplicateParticipantIndexes) and min length BOOKING_PARTY_MIN = 1.",
+      "party.participantIds is superseded per-occurrence by occurrence.serviceParty.participantIds (the FROZEN roster). serviceParty must be a subset of party (validateServicePartySubset).",
+      "occurrence.serviceParty.frozenAt gates whether Attendance can be recorded at all (resolveBookingAttendanceTargets -> 'service_party_not_frozen')."
+    ],
+    "actor": "student",
+    "authority": "cloud-function",
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/bookingOccurrenceProposalChange.ts",
+      "packages/shared-domain/src/canonical/bookingPartyPolicy.ts",
+      "packages/shared-domain/src/canonical/bookingAttendancePolicy.ts"
+    ],
+    "uiImplication": "ONE Booking = ONE lesson = ONE slot reservation = ONE payment for the WHOLE party. Never render N bookings for N skiers. The booking card must be a party card showing an avatar stack of N Participants, each with independent attendance. Booking kind label switches at exactly N=2 ('family_group')."
+  },
+  {
+    "mechanic": "Additional-participant pricing (configuration, NOT a UI constant)",
+    "entity": "LessonPricingSettings (/lesson_pricing_settings/lesson_booking) + Booking.pricingSnapshot",
+    "states": ["configured", "not_configured"],
+    "transitions": [
+      "update_lesson_pricing_settings (admin) writes additionalParticipantSurchargePerHourKzt + maxParticipantsPerLesson + revision.",
+      "calculateLessonPartyPriceKzt = baseLessonPriceKzt + round(additionalParticipantSurchargePerHourKzt * (participantCount - 1) * lessonDurationMinutes / 60).",
+      "Booking.pricingSnapshot freezes strategyVersion 'lesson_party:v1', baseLessonPriceKzt, additionalParticipantSurchargePerHourKzt, settingsRevision, lessonDurationMinutes, participantCount, totalPriceKzt.",
+      "Server rejects create/change when participantCount > maxParticipantsPerLesson (functions/src/canonical/bookings/bookingCommands.ts:371, bookingPartyCommands.ts:267).",
+      "Multi-participant pricing REQUIRES a surcharge snapshot; a snapshot without surcharge is valid only when participantCount === 1."
+    ],
+    "actor": "admin",
+    "authority": "cloud-function",
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/lessonPricingSettings.ts",
+      "packages/shared-domain/src/canonical/bookingOccurrenceProposalChange.ts",
+      "packages/shared-domain/src/canonical/readModels/lessonPricingSettingsReadModel.ts",
+      "src/features/bookings/components/booking_modal/useBookingModal.ts",
+      "functions/src/canonical/pricing/lessonPricingSettingsCommands.ts"
+    ],
+    "uiImplication": "HARD RULE: the booking modal must read surcharge + maxParticipantsPerLesson from the queryLessonPricingSettingsReadModel callable, never hard-code. Existing client behaviour confirms this: useBookingModal.ts:658 renders `Можно выбрать не более ${maxParticipantsPerLesson} участников.` / `Select no more than ${maxParticipantsPerLesson} participants.` When settings are not configured, multi-participant selection must be BLOCKED in the UI (useBookingModal.ts:410)."
+  },
+  {
+    "mechanic": "Booking party change (add/remove participants)",
+    "entity": "Booking.party.participantIds + IncrementalRequirement[] (on Payment)",
+    "states": ["allowed", "inside_window_rejected", "after_start_rejected"],
+    "transitions": [
+      "change_booking_party; isPartyChangeEligibleBooking requires lifecycle.status === 'confirmed' (pending/pending_cancellation/terminal rejected).",
+      "requestAt >= startAt -> after_start_rejected; inside BOOKING_PARTY_CHANGE_WINDOW_MS (24h) -> inside_window_rejected.",
+      "ADD: partitionAddedParticipantsByMarginalDelta computes a per-participant requiredPriceDelta; each becomes an IncrementalRequirement with state 'active' -> 'fully_funded'.",
+      "REMOVE (self-service): calculateSelfServiceRemoveRefundBasisKzt = negative of the price delta, requires a strictly lower authoritative price.",
+      "REMOVE (admin, late): calculateAdminLateRemoveRefundAmountKzt applies refundPercentBasisPoints (0..10000), capped by maxPartyRemoveRefundKzt = min(paid - refunded, tariffDifference).",
+      "rollback_unpaid_booking_party_additions sets requirement state 'rolled_back' and zeroes allocations."
+    ],
+    "actor": "student",
+    "authority": "cloud-function",
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/bookingPartyPolicy.ts",
+      "packages/shared-domain/src/canonical/bookingPartyFinance.ts",
+      "functions/src/canonical/bookings/bookingPartyCommands.ts"
+    ],
+    "uiImplication": "Adding a participant creates a financial obligation that may be only PARTIALLY funded. The party editor must show per-participant 'unpaid surcharge' rows and keep the booking usable while a requirement is still 'active'. Removal is price-decrease-only; never allow a removal that would increase the price."
+  },
+  {
+    "mechanic": "Guest lesson reservation (unauthenticated booking)",
+    "entity": "Booking with attribution.bookingOrigin === 'guest'",
+    "states": ["pending (held)", "confirmed", "expired"],
+    "transitions": [
+      "create_guest_booking_request via the executeGuestCanonicalCommand callable (guestActionNonce + guestActionSignature + guestPhone/guestEmail transport fields).",
+      "resolveGuestLessonReservationExpiresAt = min(createdAt + GUEST_LESSON_RESERVATION_TTL_MS (1 hour), serviceStartsAt) — the hold is min(1h, until start).",
+      "expire_guest_reservation -> cancelled with reasonCode 'reservation_expired'.",
+      "confirm_guest_booking when the Payment is fully funded and now < start (evaluateGuestBookingFundedConfirmation).",
+      "link_guest_booking_to_account / ..._as_administrator attaches the guest Booking to a real Account.",
+      "Guest participant profile is carried in transport metadata: participant_display_name, participant_skill_level, participant_discipline ('ski'|'snowboard'), participant_age_years."
+    ],
+    "actor": "guest",
+    "authority": "cloud-function",
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/guestBooking.ts",
+      "packages/shared-domain/src/canonical/guestCredential.ts",
+      "packages/shared-domain/src/canonical/guestContact.ts",
+      "functions/src/canonical/bookings/guestBookingCommands.ts",
+      "functions/src/canonical/commands/guestReservationAdmission.ts",
+      "src/lib/canonical/canonicalCommandClient.ts"
+    ],
+    "uiImplication": "Guest booking is a HOLD with a 1-hour countdown, not a booking. The guest checkout must show an explicit reservation-expiry timer and an explicit 'pay at the desk / pay online' choice (evaluateGuestManualPaymentAcceptance allows money on a CONFIRMED guest booking while outstanding > 0). Guest contact (phone/email) is required at the guest transport layer, not stored on the Booking UI form."
+  },
+  {
+    "mechanic": "Booking proposal (instructor-initiated offer)",
+    "entity": "BookingProposal (/booking_proposals/{proposalId})",
+    "states": ["open", "accepted", "declined", "expired", "unavailable", "cancelled"],
+    "transitions": [
+      "create_booking_proposal -> open (carries NO reservation authority: proposalCarriesNoReservationAuthority forbids resourceClaimId/reservationExpiresAt/hourLockId).",
+      "accept_booking_proposal -> accepted (+ resultingBookingId) — this is what actually creates the slot lock.",
+      "cancel_booking_proposal with reasonCode 'instructor_withdrawn' | 'instructor_blocked_by_owner'.",
+      "expire_booking_proposal -> expired; declined -> declined; slot taken -> unavailable."
+    ],
+    "actor": "instructor",
+    "authority": "cloud-function",
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/bookingOccurrenceProposalChange.ts",
+      "packages/shared-domain/src/canonical/bookingProposalPolicy.ts",
+      "functions/src/canonical/bookings/bookingProposalCommands.ts",
+      "packages/shared-domain/src/canonical/readModels/bookingProposalReadModel.ts"
+    ],
+    "uiImplication": "A proposal is an OFFER, not a held slot. Two different visual states: 'awaiting instructor response' vs 'slot held'. The proposal count is also checked against maxParticipantsPerLesson (bookingProposalAuthorization.ts:89)."
+  },
+  {
+    "mechanic": "Booking change request (instructor unavailable)",
+    "entity": "BookingChangeRequest (/booking_change_requests/{requestId})",
+    "states": ["open", "resolved", "cancelled"],
+    "transitions": [
+      "create_booking_change_request, requestType is the single literal 'instructor_unavailable'.",
+      "resolve_booking_change_request -> resolved with resolution 'rescheduled' | 'booking_cancelled' | 'no_change'.",
+      "withdraw_booking_change_request -> cancelled.",
+      "The request MUST NOT carry direct Booking lifecycle mutation (changeRequestCarriesNoDirectBookingMutation forbids bookingStatus/targetBookingStatus/lifecyclePatch/setStatus/transitionTo)."
+    ],
+    "actor": "instructor",
+    "authority": "cloud-function",
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/bookingOccurrenceProposalChange.ts",
+      "packages/shared-domain/src/canonical/bookingChangeRequestPolicy.ts",
+      "functions/src/canonical/bookings/bookingChangeRequestCommands.ts"
+    ],
+    "uiImplication": "The booking UI must surface an 'instructor requested a change' banner with three admin outcomes. The change-request lifecycle and the Booking lifecycle are INDEPENDENT machines — never render them as one status."
+  },
+  {
+    "mechanic": "Participant vs Account (identity model)",
+    "entity": "Participant (/participants/{participantId}) and Account (/users/{accountId})",
+    "states": ["active", "archived"],
+    "transitions": [
+      "Participant.identityClassification (admin read model) = 'self' | 'dependent' | 'unmanaged_guest'.",
+      "Participant.management = { kind: 'unmanaged_guest' } or { kind: 'managed', participantManagementId }.",
+      "ParticipantManagement (/participant_management/{id}) status 'active' -> 'ended'; authority is 'self' | 'parent_guardian'; role is always the literal 'owner'.",
+      "A managed Participant must have EXACTLY ONE active owner relationship (ParticipantAccessTopologySchema).",
+      "assign_participant_management / revoke_participant_management; assign_participant_management_as_administrator.",
+      "archive_participant -> lifecycle 'archived' with archivedAt; reactivate_participant -> 'active'.",
+      "Account lifecycle: 'active' | 'disabled' (disable_account / enable_account)."
+    ],
+    "actor": "admin",
+    "authority": "cloud-function",
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/accountParticipantAccess.ts",
+      "packages/shared-domain/src/canonical/participantAccess/",
+      "packages/shared-domain/src/canonical/readModels/adminIdentityReadModel.ts",
+      "firestore.rules:488"
+    ],
+    "uiImplication": "Participant is the PERSON; Account is the LOGIN. The profile screen must let a user manage multiple people (self + dependents) under one login. Do NOT build a single 'user profile' form — build a person switcher. firestore.rules makes /participants fully server-only, so the UI gets participants ONLY through read-model callables, never direct Firestore reads."
+  },
+  {
+    "mechanic": "Participant provisioning",
+    "entity": "Account -> self Participant (+ starter credit)",
+    "states": ["uninitialized", "initialized"],
+    "transitions": [
+      "provision_self_participant / provision_self_participant_for_account create the self Participant bound to the Account.",
+      "grant_starter_credit seeds the wallet.",
+      "create_managed_dependent_participant creates a dependent under an Account's management authority.",
+      "create_participant / update_participant_profile (participant-scoped identity fields only).",
+      "Admin identity projection distinguishes account lifecycle 'active' | 'disabled' | 'uninitialized'."
+    ],
+    "actor": "student",
+    "authority": "cloud-function",
+    "sourceFiles": [
+      "src/lib/canonical/canonicalAccountProvisioningClient.ts",
+      "functions/src/canonical/participantAccess/",
+      "packages/shared-domain/src/canonical/readModels/adminIdentityReadModel.ts:54"
+    ],
+    "uiImplication": "ensureCanonicalSelfParticipant() is called with a FIXED idempotency key ('provision-self-participant-v2'), so it is safe to call on every app bootstrap. New accounts therefore always have exactly one self Participant and a starter credit — the onboarding UI can assume the self Participant exists."
+  },
+  {
+    "mechanic": "Participant avatars",
+    "entity": "Participant.avatarUrl",
+    "states": ["absent", "present"],
+    "transitions": [
+      "avatarUrl: trimmed string, 1..2000 chars, MUST NOT be a data: URL (ParticipantAvatarUrlSchema).",
+      "Each Participant has an INDEPENDENT avatarUrl; changing one never mutates another.",
+      "Instructor-facing profile projection sanitizeParticipantProfileForInstructor() deliberately DROPS avatarUrl (and account contact) — instructors see participantId/displayName/age/skillLevel/discipline/instructorComment only."
+    ],
+    "actor": "student",
+    "authority": "cloud-function",
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/accountParticipantAccess.ts:221-230,980-998",
+      "packages/shared-domain/src/canonical/readModels/lessonBookingReadModel.ts:64-75"
+    ],
+    "uiImplication": "Avatars are participant-scoped, never account-scoped. Every person row (self AND each dependent) needs its own avatar slot with its own fallback. Data-URL uploads must be rejected client-side with a clear message. The lesson-booking read model DOES project participant avatarUrl, so party avatar stacks are renderable; the instructor detail view is not."
+  },
+  {
+    "mechanic": "Money — Wallet (server-authoritative, KZT minor units)",
+    "entity": "Wallet (/users/{accountId}/wallet/state) + MonetaryEvent (/monetary_events/{eventId})",
+    "states": ["wallet_credit", "wallet_adjustment", "booking_charge", "course_charge", "external_payment", "manual_payment", "refund_to_wallet", "manual_external_refund", "admin_price_adjustment", "write_off", "correction"],
+    "transitions": [
+      "Top-up: record_manual_wallet_funding (admin) or record_provider_payment_event (provider callback) -> MonetaryEvent with sourceKind 'provider' | 'cash' | 'bank_transfer' | 'manual_external'.",
+      "Spend: booking_charge / course_charge debit the payer wallet inside the same canonical transaction.",
+      "Refund: refund_to_wallet (destinationKind 'wallet') or manual_external_refund (destinationKind 'manual_external').",
+      "resolveRefundDestination: refund goes to 'wallet' when the Booking has payerAccountId, otherwise 'manual_external'.",
+      "Correction path: record_financial_correction / record_audit_correction / adjust_service_price -> 'correction' / 'admin_price_adjustment'.",
+      "Every event carries signed deltas in paymentEffect (priceDelta, paidAmountDelta, refundedAmountDelta, settledAmountDelta, writtenOffAmountDelta, outstandingAmountDelta) and walletBalanceDelta."
+    ],
+    "actor": "admin",
+    "authority": "cloud-function",
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/paymentWallet.ts",
+      "packages/shared-domain/src/canonical/paymentWalletOperations.ts",
+      "firestore.rules:471-475",
+      "functions/src/canonical/finance/"
+    ],
+    "uiImplication": "firestore.rules gives the client GET-only on /users/{uid}/wallet/state (create/update/delete = false). The client NEVER writes money. All money UI is read-only projection plus command submission. Never compute a balance locally — always render the server balance."
+  },
+  {
+    "mechanic": "Money — Payment aggregate + outstanding balance",
+    "entity": "Payment (/payments/{paymentId})",
+    "states": ["unpaid", "partially_paid", "paid", "refunded", "partially_refunded"],
+    "transitions": [
+      "derivePaymentStatus(fields): refundedAmount>0 -> 'refunded' if retained==0 else 'partially_refunded'; price==0 -> 'paid'; settled==0 -> 'unpaid'; settled==price && writtenOff==0 && outstanding==0 -> 'paid'; else 'partially_paid'.",
+      "PARTIAL PAYMENT IS FIRST CLASS: a Payment can be 'partially_paid' with a non-zero outstandingAmount.",
+      "Subject is either { subjectType: 'booking' } or { subjectType: 'course_enrollment' } — exactly two subjects.",
+      "GuestPaymentSummary exposes currency KZT, price, outstandingAmount, paymentSatisfied, unpaidCancellationEligible.",
+      "Read-model presentation is a discriminated union: { kind: 'visible', paymentStatus, paymentRevision, price } | { kind: 'withheld' }."
+    ],
+    "actor": "system",
+    "authority": "cloud-function",
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/paymentWallet.ts:51-139",
+      "packages/shared-domain/src/canonical/readModels/lessonBookingReadModel.ts:123-137,169-184"
+    ],
+    "uiImplication": "Partial payment must be a real UI state — 'partially paid 8 000 / 12 000 ₸' with an outstanding badge, not a generic 'unpaid'. Respect the {kind:'withheld'} arm: some audiences (e.g. an instructor, or a party member who is not the payer) see NO payment figures at all. The UI must branch on that kind."
+  },
+  {
+    "mechanic": "Money — cancellation financial effects",
+    "entity": "Payment + Booking.lifecycle",
+    "states": ["refund", "write_off"],
+    "transitions": [
+      "projectCancellationFinancialEffects(payment, refundAmount): assertApprovedRefundAmount caps refund at paid - refunded; applyRefundDelta then applyWriteOffAmount for any remaining outstandingAmount.",
+      "Every cancellation therefore produces BOTH a refundDelta and a writeOffDelta — outstanding debt is written off, never left dangling."
+    ],
+    "actor": "system",
+    "authority": "cloud-function",
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/bookingCancellationPolicy.ts:52-100"
+    ],
+    "uiImplication": "The cancellation receipt must show TWO lines (refunded amount + written-off amount) when both are non-zero. Conflating them hides that a partially-paid guest's remainder was forgiven."
+  },
+  {
+    "mechanic": "Money — idempotency",
+    "entity": "CommandIdempotencyRecord (/command_idempotency/{commandId})",
+    "states": ["completed", "rejected"],
+    "transitions": [
+      "COMMAND_IDEMPOTENCY_SCHEMA_VERSION = 'idempotency:v2'; prefixes 'command-key:v2' and 'command-fingerprint:v2'.",
+      "commandKey = canonicalDeterministicHash(['command-key:v2', ...scopeParts, actorScope, idempotencyKey]).",
+      "actorScope = encodeCommandActorScope(actor) — account/guest/system/provider are separate idempotency namespaces.",
+      "A fingerprint mismatch on the same key is an idempotency conflict, not a re-execution.",
+      "shouldPersistIdempotencyOutcome: successes are persisted; errors are persisted only when NOT retryable."
+    ],
+    "actor": "system",
+    "authority": "cloud-function",
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/commandIdempotency.ts",
+      "packages/shared-domain/src/canonical/commandActorScope.ts",
+      "packages/shared-domain/src/canonical/commandFingerprint.ts",
+      "functions/src/canonical/commands/idempotentCommandExecution.ts",
+      "firestore.rules:696 (/function_idempotency = false)"
+    ],
+    "uiImplication": "Every mutation form must generate a STABLE idempotency key (same key on retry of the same intent, new key on a genuinely new intent). Otherwise double-taps create duplicate Bookings. Retryable errors must NOT be cached — show a retry affordance."
+  },
+  {
+    "mechanic": "Money — KZT display rules",
+    "entity": "Client formatting — src/domain/pricing/kztDisplay.ts",
+    "states": ["formatted"],
+    "transitions": [
+      "Canonical storage is KZT MINOR UNITS (integers, KztMinorUnitsSchema); display converts minor -> major.",
+      "Wallet ledger type union (legacy projection): top_up | starter_credit | lesson_payment | course_payment | refund | admin_adjustment | guest_payment.",
+      "Legacy WalletCurrency is 'USD' | 'KZT' and a missing currency is treated as KZT — USD is LEGACY ONLY; every canonical schema pins currency: z.literal('KZT')."
+    ],
+    "actor": "student",
+    "authority": "client",
+    "sourceFiles": [
+      "src/domain/pricing/kztDisplay.ts",
+      "src/domain/wallet/walletLedger.ts",
+      "src/types/user.ts:6-30",
+      "packages/shared-domain/src/canonical/paymentWallet.ts"
+    ],
+    "uiImplication": "All new UI is KZT-only. Any USD affordance is legacy and should be removed from the redesign. Always format through kztDisplay.ts so thousands separators, ₸ placement and decimal handling stay consistent; never toLocaleString() ad hoc."
+  },
+  {
+    "mechanic": "Attendance — lesson Booking (participant-scoped evidence)",
+    "entity": "Attendance (/attendance/{attendanceId})",
+    "states": ["present", "absent"],
+    "transitions": [
+      "record_booking_attendance (instructor, capability 'instructor') writes one Attendance row PER participant — never one per booking.",
+      "Window: evaluateInstructorAttendanceWindow -> 'before_start' | 'in_window' | 'after_instructor_window'. In-window = [startsAt, endsAt + BOOKING_INSTRUCTOR_ATTENDANCE_WINDOW_MS (24h)].",
+      "Correction: instructorMayCorrectAttendance allows the SAME instructor to flip their own row (present->absent or absent->present) while lifecycle is 'confirmed' or 'pending_cancellation'; once recorded 'present' it cannot be re-set to 'present'.",
+      "Terminal exception: instructorMayFillMissingFamilyGroupAttendanceOnTerminal allows back-filling a MISSING row on a 'family_group' booking already 'completed'/'no_show' — but only if the projection does not change the outcome.",
+      "finalize_booking_attendance / evaluateBookingOutcomeCalculator derives the Booking lifecycle from evidence."
+    ],
+    "actor": "instructor",
+    "authority": "cloud-function",
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/bookingAttendancePolicy.ts",
+      "packages/shared-domain/src/canonical/courseEnrollmentAttendanceAdminIssue.ts:694-696",
+      "functions/src/canonical/bookings/bookingAttendanceCommands.ts"
+    ],
+    "uiImplication": "Attendance is PER PARTICIPANT on a multi-person booking — the roster must be a list with present/absent toggles per person, not a single checkbox. The edit affordance must be disabled outside [start, end+24h] and must reflect canRecordPresent/canRecordAbsent exactly (e.g. a recorded 'present' disables the Present button)."
+  },
+  {
+    "mechanic": "Attendance — missing means UNKNOWN, never absent",
+    "entity": "Booking.occurrence.serviceParty vs /attendance",
+    "states": ["present", "absent", "UNKNOWN (no Attendance document)"],
+    "transitions": [
+      "missingAttendanceIsDocumentAbsence(): true — the absence of an Attendance row IS the unknown state (function named for what it does NOT do).",
+      "missingAttendanceParticipantIds treats any participant with a status that is neither 'present' nor 'absent' as missing.",
+      "Derivation: individual booking -> no row = 'missing_attendance'; 'present' = completed, 'absent' = no_show.",
+      "Group derivation (deriveGroupBookingAttendanceOutcomeFromStatuses): >=1 present -> 'completed'; ALL absent -> 'no_show'; otherwise -> 'missing_attendance' (with missingParticipantIds).",
+      "The Booking STAYS 'confirmed' during the instructor window even with zero attendance; only the scheduler acts at end+24h.",
+      "Escalation: attendanceIsOverdue -> AdminIssue kind 'missing_attendance' via missingBookingAttendanceIssueIdentity."
+    ],
+    "actor": "system",
+    "authority": "cloud-function",
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/courseEnrollmentAttendanceAdminIssue.ts:893-895",
+      "packages/shared-domain/src/canonical/bookingAttendancePolicy.ts:86-97,184-228,376-392"
+    ],
+    "uiImplication": "CRITICAL: a third visual state 'Not recorded' is mandatory. The UI must never grey out a booking as 'Absent' just because time passed. For a group lesson, 1 present + 2 unrecorded means 'completed' but the card must still show two 'Not recorded' rows plus an open issue badge — do not silently fill them in."
+  },
+  {
+    "mechanic": "AdminIssue escalation inbox",
+    "entity": "AdminIssue (/admin_issues/{adminIssueId})",
+    "states": ["open", "resolved", "dismissed"],
+    "transitions": [
+      "ADMIN_ISSUE_KINDS: missing_attendance | payment_required_at_start | unresolved_pending_cancellation | attendance_payment_conflict | resource_reconciliation_mismatch | financial_reconciliation_mismatch | outcome_correction_required.",
+      "ADMIN_ISSUE_SEVERITIES: normal | urgent | critical.",
+      "open -> resolved (admin action) or open -> dismissed (requires a reason: 'reason is required').",
+      "Dedupe: ADMIN_ISSUE_DEDUPE_STRATEGY_VERSION 'issue:v1' + kind + subjectKind + subjectId + occurrenceId (+participantId) => one issue per fact.",
+      "hasOpenOutcomeBlockingAdminIssue: an open issue with blocksOutcome and kind in {payment_required_at_start, unresolved_pending_cancellation, attendance_payment_conflict, outcome_correction_required} BLOCKS outcome resolution."
+    ],
+    "actor": "admin",
+    "authority": "cloud-function",
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/courseEnrollmentAttendanceAdminIssue.ts:897-917",
+      "packages/shared-domain/src/canonical/adminIssuePolicy.ts",
+      "packages/shared-domain/src/canonical/bookingAttendancePolicy.ts:274-286",
+      "packages/shared-domain/src/canonical/readModels/adminIssueReadModel.ts",
+      "packages/shared-domain/src/canonical/readModels/adminIssueInboxProjection.ts"
+    ],
+    "uiImplication": "The admin inbox is severity-sorted with 3 severities and 7 kinds, each needing its own icon + remediation action. Issues carry `blocksOutcome` — the UI must visually distinguish 'advisory' from 'this booking is frozen'. Dismissal must require a typed reason."
+  },
+  {
+    "mechanic": "Course lifecycle",
+    "entity": "Course (/courses/{courseId})",
+    "states": ["active", "archived"],
+    "transitions": [
+      "COURSE_LIFECYCLE_STATUSES = ['active', 'archived'].",
+      "archive_course -> 'archived'; reactivate_course -> 'active'.",
+      "Bilingual catalog content lives in a separate collection: change_course_title, change_course_price, change_course_capacity, update_course_catalog_content.",
+      "Course days are a SUBCOLLECTION: /courses/{courseId}/days/{courseDayId} (canonicalPaths.courseDay).",
+      "Course day ops: create_course_day, reschedule_course_day, remove_course_day, reassign_course_day_instructor.",
+      "Legacy Course docs carry `isHidden` and `availableSeats`; canonical capacity is enforced via active_course_enrollment_guards."
+    ],
+    "actor": "admin",
+    "authority": "cloud-function",
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/courseEnrollmentAttendanceAdminIssue.ts:162-163",
+      "packages/shared-domain/src/canonical/courseDayScheduling.ts",
+      "packages/shared-domain/src/canonical/courseCatalogContent.ts",
+      "packages/shared-domain/src/canonical/paths.ts:279-282",
+      "firestore.rules:626"
+    ],
+    "uiImplication": "Archived courses must disappear from the public catalog but REMAIN readable in the admin archive with their enrollments intact. Course days are a first-class schedule, not a text field — the course detail screen needs a per-day schedule list. Legacy `isHidden` is NOT the canonical archive flag."
+  },
+  {
+    "mechanic": "CourseEnrollment lifecycle (participant-scoped)",
+    "entity": "CourseEnrollment (/course_enrollments/{courseEnrollmentId})",
+    "states": ["pending", "confirmed", "pending_cancellation", "cancelled", "withdrawn", "completed", "no_show"],
+    "transitions": [
+      "create_course_enrollments (admin bulk) / guest transport (guestCourseEnrollmentTransport) -> pending or confirmed.",
+      "request_course_enrollment_cancellation (client): >=7d -> direct cancel; >=2d -> pending request; <2d -> later tier (COURSE_CLIENT_CANCELLATION_WINDOW_7D_MS, COURSE_CLIENT_CANCELLATION_WINDOW_2D_MS).",
+      "resolve_course_enrollment_cancellation (admin); withdraw_course_enrollment (self-service exit) -> 'withdrawn'.",
+      "transfer_course_enrollment moves a seat between Participants.",
+      "reconcile_course_enrollment repairs drift (refuses if isTerminalCourseEnrollmentLifecycle).",
+      "link_guest_course_enrollment_to_account / ..._as_administrator.",
+      "Terminal set = cancelled | withdrawn | completed | no_show.",
+      "COURSE_ENROLLMENT_CANCELLATION_REASON_CODES: reservation_expired | guest_cancelled | account_owner_cancelled | administrator_cancelled | incomplete_payment | system_expired."
+    ],
+    "actor": "student",
+    "authority": "cloud-function",
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/courseEnrollmentAttendanceAdminIssue.ts:285-353",
+      "packages/shared-domain/src/canonical/courseEnrollmentCancellationPolicy.ts:23-59",
+      "packages/shared-domain/src/canonical/courseEnrollmentCreation.ts",
+      "packages/shared-domain/src/canonical/courseEnrollmentReconciliationPolicy.ts"
+    ],
+    "uiImplication": "CourseEnrollment has SEVEN states vs the Booking's six — the extra one is 'withdrawn' (distinct from 'cancelled', carries withdrawnAt and no reasonCode). Do not reuse the booking status chip component without adding this state. Cancellation uses 7d/2d tiers, NOT the booking's single 24h window — the UI must not reuse the booking deadline copy."
+  },
+  {
+    "mechanic": "Course day attendance",
+    "entity": "Attendance with subjectKind 'course_enrollment' + /courses/{courseId}/days/{courseDayId}",
+    "states": ["present", "absent", "UNKNOWN"],
+    "transitions": [
+      "record_course_day_attendance (instructor) against a course day; attendance is per Participant per course day.",
+      "CourseEnrollmentAttendanceSummary = { recordedDayCount, presentDayCount, absentDayCount, projectionRevision }.",
+      "courseProgressPresentation derives lifecycle + progress from the summary; CourseEnrollment stays 'confirmed' while evidence is incomplete.",
+      "courseEnrollmentAttendanceAdminIssue.ts raises 'missing_attendance' AdminIssues per course enrollment."
+    ],
+    "actor": "instructor",
+    "authority": "cloud-function",
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/courseEnrollmentAttendancePolicy.ts",
+      "packages/shared-domain/src/canonical/courseEnrollmentAttendanceAdminIssue.ts",
+      "packages/shared-domain/src/canonical/readModels/courseAttendanceReadModel.ts",
+      "functions/src/canonical/courses/"
+    ],
+    "uiImplication": "Course progress is a ratio of RECORDED days (recorded/present/absent), never of total scheduled days. A day with no record counts in neither numerator nor denominator — show 'x of y days recorded' plus a separate progress bar, so a partially-attended course is not displayed as 0%."
+  },
+  {
+    "mechanic": "Participant progress + skills",
+    "entity": "ParticipantProgress (/participant_progress/{participantId})",
+    "states": ["participant-scoped record"],
+    "transitions": [
+      "update_participant_progress (instructor capability) writes the canonical progress aggregate.",
+      "Reads go through queryParticipantProgressReadModels with an access policy (participantProgressAccessPolicy): self, parent_guardian, or instructor-with-relationship.",
+      "Legacy progress fields (level, skillScores, skillComments, hideProgressTracking, todaySkillItemIds, completedTodayTaskIds) still live on /users but firestore.rules marks them READ-ONLY LEGACY and non-authoritative (firestore.rules:438-440)."
+    ],
+    "actor": "instructor",
+    "authority": "cloud-function",
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/participantProgress.ts",
+      "packages/shared-domain/src/canonical/participantProgressAccessPolicy.ts",
+      "packages/shared-domain/src/canonical/readModels/participantProgressReadModel.ts",
+      "firestore.rules:438-440,523-525"
+    ],
+    "uiImplication": "The Today checklist (customTodayTasks, todaySkillItemIds, completedTodayTaskIds, dismissedTodayTaskIds, completedTodayDate) is still a CLIENT-WRITABLE /users field (firestore.rules:447-462 allows exactly these keys). So the checklist is the one progress surface the client owns directly — keep it, but do not treat it as canonical skill assessment."
+  },
+  {
+    "mechanic": "Review (instructor -> participant)",
+    "entity": "InstructorReview (/instructor_reviews/{reviewId})",
+    "states": ["written"],
+    "transitions": [
+      "create_instructor_review (instructor capability; requires an instructor<->participant relationship).",
+      "Aggregates roll up to /instructor_rating_summaries/{instructorId}.",
+      "Reads: queryInstructorReviewReadModels; public aggregates via queryPublicInstructorRatingSummaries; account-scoped via queryAccountInstructorReviewReadModels.",
+      "Participant side gate is in participantLessonFeedbackAccessPolicy / instructorReview.ts."
+    ],
+    "actor": "instructor",
+    "authority": "cloud-function",
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/instructorReview.ts",
+      "packages/shared-domain/src/canonical/readModels/instructorReviewReadModel.ts",
+      "functions/src/canonical/reviews/instructorReviewCommands.ts",
+      "firestore.rules:515-521"
+    ],
+    "uiImplication": "Reviews are PUBLIC (instructor_rating_summaries are readable) but the underlying instructor_reviews collection is rules-denied. The instructor card needs a rating summary (aggregate only), while the review body is visible only to authorized scopes."
+  },
+  {
+    "mechanic": "Lesson feedback / recommendations (instructor homework)",
+    "entity": "ParticipantLessonFeedback (/participant_lesson_feedback/{feedbackId})",
+    "states": ["assigned", "item_completed"],
+    "transitions": [
+      "save_participant_lesson_feedback (instructor) writes the feedback + items.",
+      "set_participant_lesson_feedback_item_completion (participant, self) ticks an individual item.",
+      "Command idempotency is separate: participantLessonFeedbackCommandIdempotency + participantAchievementCommandIdempotency.",
+      "Access: participantLessonFeedbackAccessPolicy; participantLessonStatsSemantics defines what counts."
+    ],
+    "actor": "instructor",
+    "authority": "cloud-function",
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/participantLessonFeedback.ts",
+      "packages/shared-domain/src/canonical/participantLessonFeedbackAccessPolicy.ts",
+      "packages/shared-domain/src/canonical/readModels/participantLessonFeedbackReadModel.ts",
+      "firestore.rules:531-533"
+    ],
+    "uiImplication": "Feedback is participant-scoped and the PARTICIPANT ticks items — the cabinet checklist is writable by the learner, the lesson report is read-only. Do not merge the instructor's authoring view with the student's completion view."
+  },
+  {
+    "mechanic": "Achievements",
+    "entity": "ParticipantAchievements (/participant_achievements/{participantId})",
+    "states": ["participant-scoped record"],
+    "transitions": [
+      "record_participant_achievements (system/instructor) writes achievement state.",
+      "Evaluation is deterministic: canonicalAchievementEvaluation + trainingStreak (domain/achievements).",
+      "Reads: queryParticipantAchievementsReadModels / queryManagedParticipantAchievementsReadModels."
+    ],
+    "actor": "system",
+    "authority": "cloud-function",
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/participantAchievements.ts",
+      "src/domain/achievements/canonicalAchievementEvaluation.ts",
+      "src/domain/achievements/trainingStreak.ts",
+      "firestore.rules:527-529"
+    ],
+    "uiImplication": "Achievements are a per-PARTICIENT badge wall, so it must render inside the person switcher, not the account header. Two participants in one family each need their own wall."
+  },
+  {
+    "mechanic": "Certificate",
+    "entity": "NOT IMPLEMENTED",
+    "states": [],
+    "transitions": [],
+    "actor": "admin",
+    "authority": "cloud-function",
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/paths.ts:102-138 (CANONICAL_COLLECTIONS has no certificate entry)",
+      "packages/shared-domain/src/canonical/commands/commandKinds.ts (no certificate command kind)"
+    ],
+    "uiImplication": "DO NOT design a certificate screen against current code — there is no Certificate model, no command, no collection, and no storage path. The closest canonical substitutes are ParticipantAchievements and the 'completed' CourseEnrollment lifecycle. If the redesign shows certificates, flag it as NEW BUILD, not a migration."
+  },
+  {
+    "mechanic": "Instructor access to a Participant",
+    "entity": "InstructorRelationship (/instructor_relationships/{id}) + ParticipantBlock (/participant_blocks/{id})",
+    "states": ["active", "revoked", "expired"],
+    "transitions": [
+      "Relationship basis kinds: confirmed_booking | confirmed_course_enrollment | administration_assignment | guardian_permission.",
+      "instructorRelationshipExpiresAt(validFrom) = validFrom + 12 months (automatic expiry).",
+      "revoke_instructor_relationship / create_instructor_relationship; revokedBy is a participant_manager or an administrator.",
+      "block_participant / unblock_participant create a directional (participant, instructor) block; only the creator may remove it.",
+      "evaluateInstructorParticipantAccess: scope 'relationship' (long-lived) or 'booking_scoped' (from a confirmed booking or course day, with blockedForNewActivity)."
+    ],
+    "actor": "instructor",
+    "authority": "cloud-function",
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/accountParticipantAccess.ts:327-511,1000-1052",
+      "packages/shared-domain/src/canonical/readModels/participantInstructorAccessReadModel.ts"
+    ],
+    "uiImplication": "An instructor's view of a student can be narrow (booking-scoped, read-only progress) or long-lived (full). The UI must be driven by the read model's authorizedActions, never by assuming an instructor always has full access. A blocked pair must show an explicit 'student requested not to be taught by you' state, not an empty screen."
+  },
+  {
+    "mechanic": "Command + read-model transport (how the UI mutates anything)",
+    "entity": "Two callables + 24 read-model callables",
+    "states": ["executeCanonicalCommand (authenticated)", "executeGuestCanonicalCommand (guest)"],
+    "transitions": [
+      "executeAuthenticatedCanonicalCommand / executeGuestCanonicalCommand in src/lib/canonical/canonicalCommandClient.ts wrap every mutation in a CommandEnvelope { kind, intent, context, idempotencyKey, correlationId }.",
+      "correlationId is auto-generated per submission ('correlation_<uuid>'); causationId links a follow-up to its predecessor; expectedRevision provides optimistic concurrency (expectedRevision / bookingRevision).",
+      "exercisedCapability is one of 'account_owner' | 'parent_guardian' | 'instructor' | 'administrator' (account actors), or 'guest' | 'system' | 'provider_callback'.",
+      "systemActorCannotMasqueradeAsAdministrator — a system actor claiming 'administrator' is 'forbidden'.",
+      "The client may declare only a SUBSET of capabilities: ClientCallableCapability = 'account_owner' | 'parent_guardian' | 'instructor' (administratorContext is a separate boolean).",
+      "requestedTestSessionId switches execution into the isolated test data scope; omitting it means LIVE."
+    ],
+    "actor": "system",
+    "authority": "cloud-function",
+    "sourceFiles": [
+      "src/lib/canonical/canonicalCommandClient.ts:16-19",
+      "packages/shared-domain/src/canonical/commands/commandKinds.ts",
+      "packages/shared-domain/src/canonical/commands/capabilities.ts",
+      "packages/shared-domain/src/canonical/commands/authorization.ts",
+      "functions/src/canonical/commands/canonicalCommands.ts"
+    ],
+    "uiImplication": "There are NO generic setters — 'setStatus', 'updateStatus', 'patchBooking', 'adjustWallet', 'changeBalance', 'setCapacity', 'transitionTo', 'update_course' are explicitly forbidden (FORBIDDEN_GENERIC_COMMAND_KINDS). Every button in the redesign must map to exactly one named command kind, and optimistic UI must carry correlationId + idempotencyKey so retries are safe."
+  },
+  {
+    "mechanic": "Command authorization matrix",
+    "entity": "CommandContext actor x exercisedCapability",
+    "states": ["authorized", "forbidden", "unauthorized"],
+    "transitions": [
+      "ACTOR_CAPABILITY_MATRIX: account -> [account_owner, parent_guardian, administrator, instructor]; guest -> [guest]; system -> [system]; provider -> [provider_callback].",
+      "evaluateCommandContextAuthorization first checks isSourceCompatibleWithActorKind(context.source, actor.kind), then the actor/capability pairing.",
+      "A Booking's own actors are constrained by attribution: bookingOrigin 'guest' requires a guest bookedBy actor; 'account'/'instructor' require an Account actor; 'admin' may be either.",
+      "Canonical AccountRole is only ['user', 'admin'] (ACCOUNT_ROLES). Instructor is NOT a role — it is a separate /instructors catalog entity plus an 'instructor' capability."
+    ],
+    "actor": "admin",
+    "authority": "cloud-function",
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/commands/capabilities.ts",
+      "packages/shared-domain/src/canonical/commands/authorization.ts",
+      "packages/shared-domain/src/canonical/identityAdministration.ts:21-22",
+      "packages/shared-domain/src/canonical/bookingOccurrenceProposalChange.ts:225-252"
+    ],
+    "uiImplication": "Route guards must not branch on 'role === instructor'. Branch on (role === 'admin') || (isInstructor). Legacy UserProfile.systemRole === 'owner' is a separate super-admin concept that must remain visually distinct from plain admin."
+  },
+  {
+    "mechanic": "Canonical role model vs legacy profile",
+    "entity": "UserProfile (/users/{accountId}) vs canonical Account",
+    "states": ["role: 'user' | 'admin'", "systemRole: 'owner' (optional)", "isInstructor: boolean"],
+    "transitions": [
+      "Canonical: AccountLifecycle 'active' | 'disabled'; role ['user','admin']; instructor is /instructors catalog membership, not a role.",
+      "Legacy projection fields still on /users: isInstructor, instructorId, level, skillScores, skillComments, balanceUSD, walletBalances, pendingWalletCredit, lastRefundBookingId.",
+      "firestore.rules:447-462 permits client updates to ONLY: displayName, avatarUrl, hideProgressTracking, hasCompletedOnboarding, todaySkillItemIds, completedTodayTaskIds, completedTodayDate, customTodayTasks, dismissedTodayTaskIds, dismissedReviewIds.",
+      "canonicalAccountAuthorityFieldsUnchanged() + authoritativeMoneyFieldsUnchanged() guard the /users update path.",
+      "The Navbar reads a role-derived label ('Manager' / 'Skier' — translations.ts:25-26)."
+    ],
+    "actor": "admin",
+    "authority": "rules",
+    "sourceFiles": [
+      "src/types/user.ts:32-71",
+      "firestore.rules:441-476",
+      "packages/shared-domain/src/canonical/accountParticipantAccess.ts:96-130",
+      "src/lib/i18n/translations.ts:25-26"
+    ],
+    "uiImplication": "The client-writable field list is the HARD ceiling on any profile/settings screen: only those 11 keys can be saved from the browser. Everything else (name edits on dependents, progress, money) must go through a canonical command. Designing a profile form that writes skillScores or balance will be rejected by Firestore rules."
+  }
+]

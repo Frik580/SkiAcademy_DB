@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 800" preserveAspectRatio="xMidYMid slice" width="1600" height="800">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#06191f"/>
+      <stop offset="38%" stop-color="#0d3540"/>
+      <stop offset="72%" stop-color="#2b6a76"/>
+      <stop offset="100%" stop-color="#8fbec2"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.72" cy="0.62" r="0.28">
+      <stop offset="0%" stop-color="#ffe9c9" stop-opacity="0.55"/>
+      <stop offset="60%" stop-color="#ffd9a8" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#ffd9a8" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="far" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#b9d6d8"/>
+      <stop offset="100%" stop-color="#7aa6ad"/>
+    </linearGradient>
+    <linearGradient id="mid" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4c818c"/>
+      <stop offset="100%" stop-color="#255761"/>
+    </linearGradient>
+    <linearGradient id="near" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#16404a"/>
+      <stop offset="100%" stop-color="#08202a"/>
+    </linearGradient>
+    <linearGradient id="snow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f4f8f8"/>
+      <stop offset="55%" stop-color="#dbe7e8"/>
+      <stop offset="100%" stop-color="#c3d5d7"/>
+    </linearGradient>
+    <linearGradient id="haze" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#cfe3e4" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#cfe3e4" stop-opacity="0.55"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1600" height="800" fill="url(#sky)"/>
+  <rect width="1600" height="800" fill="url(#glow)"/>
+  <circle cx="1150" cy="470" r="46" fill="#fff2dc" opacity="0.75"/>
+
+  <!-- far ridge -->
+  <path d="M0 470 L140 400 L240 452 L360 372 L470 440 L560 402 L690 470 L820 396 L930 452 L1060 386 L1180 448 L1310 404 L1440 462 L1600 418 L1600 800 L0 800 Z" fill="url(#far)" opacity="0.55"/>
+  <!-- haze between layers -->
+  <rect y="430" width="1600" height="120" fill="url(#haze)" opacity="0.5"/>
+
+  <!-- mid ridge -->
+  <path d="M0 566 L120 486 L210 540 L330 452 L450 540 L540 500 L660 566 L800 470 L900 540 L1010 462 L1140 552 L1270 494 L1380 560 L1500 508 L1600 552 L1600 800 L0 800 Z" fill="url(#mid)"/>
+
+  <!-- snow caps on mid ridge -->
+  <path d="M330 452 L300 476 L316 480 L330 470 L344 482 L362 474 Z" fill="#e9f2f2" opacity="0.85"/>
+  <path d="M800 470 L762 500 L784 506 L800 492 L818 508 L842 498 Z" fill="#e9f2f2" opacity="0.85"/>
+  <path d="M1010 462 L976 490 L996 496 L1012 484 L1028 498 L1050 488 Z" fill="#e9f2f2" opacity="0.85"/>
+  <path d="M1140 552 L1116 570 L1130 574 L1142 566 L1156 574 L1170 568 Z" fill="#dfeaeb" opacity="0.7"/>
+
+  <!-- near ridge (dark) -->
+  <path d="M0 664 L140 596 L260 648 L400 574 L520 646 L640 604 L780 668 L900 606 L1040 662 L1180 600 L1320 656 L1460 612 L1600 650 L1600 800 L0 800 Z" fill="url(#near)"/>
+
+  <!-- foreground snow slope -->
+  <path d="M0 800 L0 742 L220 706 L460 726 L700 700 L940 728 L1180 706 L1420 730 L1600 712 L1600 800 Z" fill="url(#snow)"/>
+  <!-- piste grooming lines -->
+  <g opacity="0.5" stroke="#b9cdcf" stroke-width="2">
+    <path d="M60 800 L420 720" fill="none"/>
+    <path d="M300 800 L620 722" fill="none"/>
+    <path d="M700 800 L900 730" fill="none"/>
+    <path d="M1150 800 L1240 726" fill="none"/>
+  </g>
+
+  <!-- powder sparkle -->
+  <g fill="#ffffff" opacity="0.5">
+    <circle cx="300" cy="760" r="1.6"/><circle cx="520" cy="748" r="1.2"/><circle cx="860" cy="762" r="1.5"/>
+    <circle cx="1080" cy="752" r="1.2"/><circle cx="1330" cy="766" r="1.4"/><circle cx="1470" cy="744" r="1.1"/>
+  </g>
+</svg>

@@ -1,0 +1,3908 @@
+[
+  {
+    "id": "ops.planner.load",
+    "tab": "operations",
+    "screen": "Schedule board (admin_planner section)",
+    "capability": "Load the week occupancy + instructor roster for the planner",
+    "entryPoint": "src/features/admin/operations/AdminPlannerBoard.tsx:76 useAdminPlannerReadModels",
+    "userAction": "Open Admin -> Operations; navigate days/weeks",
+    "states": [
+      "loading ('Loading planner…')",
+      "error ('permission-denied'|'read-failed', red text)",
+      "truncated (amber t('plannerOccupancyTruncated'))",
+      "empty (t('noInstructorsAvailable'))"
+    ],
+    "commandOrReadModel": "queryAdminPlannerReadModels scope=admin_planner (view always 'week' Monday window via plannerFetchWindow)",
+    "currentResult": "AdminPlannerReadModel { instructors[], occupancy[]<=500, truncated, timeZone, window }",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/operations/useAdminPlannerReadModels.ts",
+      "src/features/admin/operations/adminPlannerDayWindow.ts",
+      "packages/shared-domain/src/canonical/readModels/adminPlannerReadModel.ts",
+      "functions/src/canonical/readModels/adminPlannerReadModels.ts",
+      "functions/src/canonical/readModels/instructorOccupancyReadSupport.ts"
+    ]
+  },
+  {
+    "id": "ops.planner.tz",
+    "tab": "operations",
+    "screen": "Schedule board",
+    "capability": "Resolve the planner IANA timezone (Almaty default, per-item zone preferred)",
+    "entryPoint": "src/features/admin/operations/adminTimeZone.ts:1-9",
+    "userAction": "implicit for every load and every create/move",
+    "states": [
+      "browser zone",
+      "fallback 'Asia/Almaty'"
+    ],
+    "commandOrReadModel": "ADMIN_DEFAULT_TIMEZONE / resolveAdminTimeZone / IanaTimeZoneSchema",
+    "currentResult": "timezone sent in every calendar command; item.timeZone used for rendering",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/operations/adminTimeZone.ts",
+      "src/features/admin/operations/adminPlannerMapping.ts:15-33",
+      "packages/shared-domain/src/canonical/primitives.ts"
+    ]
+  },
+  {
+    "id": "ops.planner.grid",
+    "tab": "operations",
+    "screen": "Schedule board",
+    "capability": "Instructor x hourly-slot timetable (08:00-18:00), with colSpan merge for multi-hour bookings and course tiles",
+    "entryPoint": "src/features/admin/components/schedule/ScheduleCalendar.tsx:336-382 + ScheduleTimetableCells.tsx",
+    "userAction": "view day schedule",
+    "states": [
+      "normal",
+      "instructor unavailable (lock cells)",
+      "no instructors",
+      "no slots available"
+    ],
+    "commandOrReadModel": "SCHEDULE_TIME_SLOTS (scheduleOverlap.ts:5-17) + dayViewColSpanForBooking (scheduleDayViewPlacement.ts:74-84)",
+    "currentResult": "dense table; booking cells, break/day-off cells, violet course tiles",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/components/schedule/ScheduleCalendar.tsx",
+      "src/features/admin/components/schedule/ScheduleTimetableCells.tsx",
+      "src/features/admin/components/schedule/ScheduleBookingCell.tsx",
+      "src/features/admin/components/schedule/scheduleOverlap.ts",
+      "src/features/admin/components/schedule/scheduleDayViewPlacement.ts"
+    ]
+  },
+  {
+    "id": "ops.planner.week",
+    "tab": "operations",
+    "screen": "Schedule board (week view)",
+    "capability": "Instructor x 7-day grid; bookings and course events merged and sorted by time in each cell",
+    "entryPoint": "src/features/admin/components/schedule/ScheduleCalendar.tsx:383-549",
+    "userAction": "switch to week view; click a weekday in the mobile strip (:168-192)",
+    "states": [
+      "bookings",
+      "course events",
+      "combined",
+      "empty cell"
+    ],
+    "commandOrReadModel": "getWeekRange (scheduleUtils.ts:52-62), mapPlannerCourses (adminPlannerMapping.ts:135-163)",
+    "currentResult": "per-day cell listing; course tile shows seats + enrolled count (enrolled lookup is currently always empty, see §1.6)",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/components/schedule/ScheduleCalendar.tsx",
+      "src/features/admin/operations/adminPlannerMapping.ts"
+    ]
+  },
+  {
+    "id": "ops.planner.mobile",
+    "tab": "operations",
+    "screen": "Schedule board (mobile < sm)",
+    "capability": "Mobile card-per-coach day view with weekday strip, slot grid, course chips and inline +/lock states",
+    "entryPoint": "src/features/admin/components/schedule/ScheduleCalendar.tsx:160-313",
+    "userAction": "view and open slots on phone",
+    "states": [
+      "no instructors",
+      "unavailable instructor (Lock icon, opacity-75)",
+      "occupied slot (disabled)",
+      "course chip",
+      "booking cell"
+    ],
+    "commandOrReadModel": "dayViewBookingForSlot + parseCourseDates",
+    "currentResult": "same actions as desktop via handleOpenSlotAction",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/components/schedule/ScheduleCalendar.tsx"
+    ]
+  },
+  {
+    "id": "ops.planner.instructorCell",
+    "tab": "operations",
+    "screen": "Schedule board",
+    "capability": "Instructor row header: avatar, name, specialty, KZT hourly rate, unavailable state (lock overlay, grayscale, strikethrough)",
+    "entryPoint": "src/features/admin/components/schedule/ScheduleInstructorCell.tsx:14-59",
+    "userAction": "view",
+    "states": [
+      "available",
+      "unavailable (t('unavailableLabel'))",
+      "rate undefined -> '—/ч'"
+    ],
+    "commandOrReadModel": "resolveInstructorHourlyRateKztForDisplay (src/domain/pricing), getSpecialtyLabel (scheduleUtils.ts:64-87)",
+    "currentResult": "pricePerHourKZT from mapPlannerInstructors (adminPlannerMapping.ts:52-68)",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/components/schedule/ScheduleInstructorCell.tsx",
+      "src/features/admin/operations/adminPlannerMapping.ts"
+    ]
+  },
+  {
+    "id": "ops.planner.create.lesson",
+    "tab": "operations",
+    "screen": "Slot modal -> 'Lesson' tab",
+    "capability": "Manually create a confirmed lesson booking for a selected Participant / payer Account",
+    "entryPoint": "src/features/admin/components/schedule/ScheduleSlotActionModal.tsx:369-443 (ActiveSlotCreateForm.tsx:150-245)",
+    "userAction": "click empty slot -> Lesson tab -> pick client/duration/level/notes -> Save",
+    "states": [
+      "submit disabled (unavailable instructor / no identity ready / no rate)",
+      "missing participant notification",
+      "conflictDetected",
+      "instructorUnavailableTitle",
+      "instructorPriceUnavailable",
+      "success t('manualBookingAdded')",
+      "error t('actionFailedTitle')"
+    ],
+    "commandOrReadModel": "createPlannerOccupancyFromLegacyBookingShape -> create_confirmed_booking (plus provision_self_participant_for_account when the payer has no self Participant)",
+    "currentResult": "new confirmed Lesson Booking; duration rounded from hours; price computed client-side for display only",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/components/schedule/ScheduleSlotActionModal.tsx",
+      "src/features/admin/components/schedule/slot-modal/ActiveSlotCreateForm.tsx",
+      "src/features/admin/operations/adminPlannerCommands.ts:155-208",
+      "src/features/admin/identity/AdminManagedParticipantPicker.tsx",
+      "src/features/admin/lesson-bookings/useAdminLessonBookingCommands.ts:46-73"
+    ]
+  },
+  {
+    "id": "ops.planner.create.break",
+    "tab": "operations",
+    "screen": "Slot modal -> 'Break' tab",
+    "capability": "Create an instructor availability break block (duration + notes)",
+    "entryPoint": "src/features/admin/components/schedule/ScheduleSlotActionModal.tsx:297-332 (ActiveSlotCreateForm.tsx:95-138)",
+    "userAction": "click empty slot -> Break tab -> duration/notes -> Save",
+    "states": [
+      "conflictDetected + t('conflictBreakDesc')",
+      "t('noHoursAvailable')",
+      "success t('breakAdded')"
+    ],
+    "commandOrReadModel": "create_administrative_availability_block (kind='break')",
+    "currentResult": "AdministrativeAvailabilityBlock; notes default to t('breakLabel')",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/components/schedule/ScheduleSlotActionModal.tsx",
+      "src/features/admin/operations/adminPlannerCommands.ts:161-186",
+      "functions/src/canonical/availability/administrativeAvailabilityBlockCommands.ts:88-120"
+    ]
+  },
+  {
+    "id": "ops.planner.create.dayOff",
+    "tab": "operations",
+    "screen": "Slot modal -> 'Day off' tab",
+    "capability": "Create a full-day instructor day-off block (hard-coded 08:00, 11 h)",
+    "entryPoint": "src/features/admin/components/schedule/ScheduleSlotActionModal.tsx:333-368 (ActiveSlotCreateForm.tsx:140-148)",
+    "userAction": "click empty slot -> Day off tab -> Save (no fields)",
+    "states": [
+      "conflictDetected + t('conflictDayOffDesc')",
+      "success t('dayOffSet')"
+    ],
+    "commandOrReadModel": "create_administrative_availability_block (kind='day_off')",
+    "currentResult": "AdministrativeAvailabilityBlock 08:00-19:00",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/components/schedule/ScheduleSlotActionModal.tsx",
+      "src/features/admin/components/schedule/slot-modal/ActiveSlotCreateForm.tsx",
+      "src/features/admin/operations/adminPlannerCommands.ts:161-186"
+    ]
+  },
+  {
+    "id": "ops.planner.move.retime",
+    "tab": "operations",
+    "screen": "Slot modal (existing booking) -> Reschedule/move form",
+    "capability": "Change date and/or start time of a booking, block or course day",
+    "entryPoint": "src/features/admin/components/schedule/slot-modal/ActiveSlotMoveForm.tsx:88-126 -> ScheduleSlotActionModal.tsx:456-577",
+    "userAction": "change date/time selects -> Apply move",
+    "states": [
+      "t('noSlotsAvailable')",
+      "conflictDetected + t('conflictRescheduleDesc')",
+      "success t('scheduleUpdated')",
+      "error t('updateFailed')",
+      "no-op -> just closes"
+    ],
+    "commandOrReadModel": "reschedulePlannerOccupancy -> reschedule_booking | reschedule_administrative_availability_block | reschedule_course_day",
+    "currentResult": "moved occupancy; success-path time options recomputed from hasScheduleOverlap",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/components/schedule/slot-modal/ActiveSlotMoveForm.tsx",
+      "src/features/admin/operations/adminPlannerCommands.ts:210-279"
+    ]
+  },
+  {
+    "id": "ops.planner.move.instructor",
+    "tab": "operations",
+    "screen": "Slot modal (existing booking) -> instructor select",
+    "capability": "Reassign a lesson/course day to a different instructor (optionally combined with a move)",
+    "entryPoint": "src/features/admin/components/schedule/slot-modal/ActiveSlotMoveForm.tsx:64-86 -> ScheduleSlotActionModal.tsx:500-556",
+    "userAction": "pick a different instructor -> Apply move",
+    "states": [
+      "instructorUnavailableTitle",
+      "instructorPriceUnavailable",
+      "success t('lessonReassigned')",
+      "insufficientFundsPrompt (DEAD branch on canonical planner)",
+      "error t('updateFailed')"
+    ],
+    "commandOrReadModel": "reassignPlannerOccupancy -> change_booking_instructor | reassign_course_day_instructor (blocks are a no-op, adminPlannerCommands.ts:322-324)",
+    "currentResult": "instructor changed; reschedule runs first when date/time also changed, then the revision is re-read (:327-333)",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/components/schedule/slot-modal/ActiveSlotMoveForm.tsx",
+      "src/features/admin/operations/adminPlannerCommands.ts:281-341"
+    ]
+  },
+  {
+    "id": "ops.planner.duration",
+    "tab": "operations",
+    "screen": "Slot modal (existing booking) -> hours select",
+    "capability": "Change lesson duration (1-4 h, closing-time constrained); ordering differs for shrink vs grow",
+    "entryPoint": "src/features/admin/components/schedule/slot-modal/ActiveSlotMoveForm.tsx:128-157 -> ScheduleSlotActionModal.tsx:496-498,561-563",
+    "userAction": "pick a new duration -> Apply move",
+    "states": [
+      "t('noHoursAvailable')",
+      "success t('scheduleUpdated')",
+      "no-op short-circuit when duration is unchanged (adminPlannerCommands.ts:357)"
+    ],
+    "commandOrReadModel": "changePlannerOccupancyDuration -> change_booking_duration (lesson bookings only)",
+    "currentResult": "duration in minutes = max(1, round(hours*60))",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/components/schedule/slot-modal/ActiveSlotMoveForm.tsx",
+      "src/features/admin/operations/adminPlannerCommands.ts:343-365"
+    ]
+  },
+  {
+    "id": "ops.planner.delete",
+    "tab": "operations",
+    "screen": "Schedule board cell hover X, or slot modal red button",
+    "capability": "Release an availability block OR cancel a lesson booking with maximum refund",
+    "entryPoint": "src/features/admin/components/schedule/ScheduleBookingCell.tsx:37,58,150 -> ScheduleCalendar.tsx:146-148 -> ScheduleSlotActionModal.tsx:791-818 (confirm) ; ActiveSlotMoveForm.tsx:191-199",
+    "userAction": "hover the cell -> X (or modal red button) -> Confirm",
+    "states": [
+      "confirm modal t('deleteBlockConfirm') / t('confirm') / t('cancel')",
+      "success t('blockRemoved')",
+      "error t('configSaveError') + t('removeBlockFailed')",
+      "not offered for completed/no_show cells (ScheduleBookingCell.tsx:146)"
+    ],
+    "commandOrReadModel": "releasePlannerOccupancy -> release_administrative_availability_block | resolve_booking_cancellation(decision='direct_cancel', refundAmount=admin.cancellationFinancial.maximumRefund)",
+    "currentResult": "block released / booking cancelled and refunded; CourseDay is explicitly refused server-call-side ('CourseDay occupancy is not deleted from the planner')",
+    "destructive": true,
+    "sourceFiles": [
+      "src/features/admin/components/schedule/ScheduleBookingCell.tsx",
+      "src/features/admin/components/schedule/ScheduleSlotActionModal.tsx:785-879",
+      "src/features/admin/operations/adminPlannerCommands.ts:367-407"
+    ]
+  },
+  {
+    "id": "ops.planner.complete",
+    "tab": "operations",
+    "screen": "Slot modal -> 'Mark lesson completed'",
+    "capability": "Finalize attendance for the whole service party (all Participants marked present)",
+    "entryPoint": "src/features/admin/components/schedule/slot-modal/ActiveSlotMoveForm.tsx:160-175 -> AdminPlannerBoard.tsx:218-231",
+    "userAction": "click 'Mark lesson completed' (no confirmation)",
+    "states": [
+      "shown only when status==='confirmed' and booking is a planner lesson (ScheduleSlotActionModal.tsx:181-186)"
+    ],
+    "commandOrReadModel": "completePlannerLesson -> finalize_booking_attendance",
+    "currentResult": "every service participant set to 'present'; requires non-empty service party (adminPlannerCommands.ts:425-427)",
+    "destructive": true,
+    "sourceFiles": [
+      "src/features/admin/components/schedule/slot-modal/ActiveSlotMoveForm.tsx",
+      "src/features/admin/operations/adminPlannerCommands.ts:409-444"
+    ]
+  },
+  {
+    "id": "ops.planner.guestLink",
+    "tab": "operations",
+    "screen": "Slot modal -> 'Link to client'",
+    "capability": "Link a guest booking to a registered client Account (provisioning the payer self Participant if needed)",
+    "entryPoint": "src/features/admin/components/schedule/slot-modal/ActiveSlotDetails.tsx:101-110 -> ScheduleSlotActionModal.tsx:736-750 -> src/features/admin/components/bookings/LinkGuestBookingModal.tsx",
+    "userAction": "click 'Link to client' -> search + select a client -> Confirm",
+    "states": [
+      "success screen (1200 ms auto-close)",
+      "error banner (client-side text reused from the insufficient-funds path)",
+      "no clients found"
+    ],
+    "commandOrReadModel": "linkPlannerGuestBooking -> link_guest_booking_to_account_as_administrator (+ provision_self_participant_for_account)",
+    "currentResult": "booking bound to the Account/Participant",
+    "destructive": true,
+    "sourceFiles": [
+      "src/features/admin/components/schedule/slot-modal/ActiveSlotDetails.tsx",
+      "src/features/admin/components/bookings/LinkGuestBookingModal.tsx",
+      "src/features/admin/operations/adminPlannerCommands.ts:446-466"
+    ]
+  },
+  {
+    "id": "ops.planner.details",
+    "tab": "operations",
+    "screen": "Slot modal (existing booking)",
+    "capability": "Read-only detail: type, client, difficulty, guest phone/email, notes, cancellation reason",
+    "entryPoint": "src/features/admin/components/schedule/slot-modal/ActiveSlotDetails.tsx:17-122",
+    "userAction": "open an occupied slot",
+    "states": [
+      "break",
+      "day off",
+      "lesson (with/without difficulty)",
+      "guest contact",
+      "notes",
+      "pending_cancellation + reason"
+    ],
+    "commandOrReadModel": "Booking projection from AdminPlannerOccupancyItem (adminPlannerMapping.ts:110-131)",
+    "currentResult": "detail block; no edits",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/components/schedule/slot-modal/ActiveSlotDetails.tsx",
+      "src/features/admin/operations/adminPlannerMapping.ts"
+    ]
+  },
+  {
+    "id": "ops.planner.chat",
+    "tab": "operations",
+    "screen": "Slot modal -> 'Open chat discussion'",
+    "capability": "Open the booking chat thread from the planner",
+    "entryPoint": "src/features/admin/components/schedule/slot-modal/ActiveSlotDetails.tsx:111-118 -> ScheduleSlotActionModal.tsx:833,881-889",
+    "userAction": "click 'Open chat discussion'",
+    "states": [
+      "chat modal open/close"
+    ],
+    "commandOrReadModel": "BookingChatModal (src/features/bookings) with adminProfile as currentUserProfile",
+    "currentResult": "chat UI; no planner-level mutation",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/components/schedule/ScheduleSlotActionModal.tsx",
+      "src/features/admin/components/schedule/slot-modal/ActiveSlotDetails.tsx"
+    ]
+  },
+  {
+    "id": "ops.planner.lessonDetailLink",
+    "tab": "operations",
+    "screen": "Slot modal -> 'Open lesson detail'",
+    "capability": "Navigate to the canonical lesson booking detail panel",
+    "entryPoint": "src/features/admin/components/schedule/slot-modal/ActiveSlotMoveForm.tsx:177-189 -> AdminPlannerBoard.tsx:249-262",
+    "userAction": "click 'Open lesson detail'",
+    "states": [
+      "shown only for planner lesson bookings (ScheduleSlotActionModal.tsx:187-189)"
+    ],
+    "commandOrReadModel": "URL ?tab=operations&booking=<id> (adminNavigation.ts:17,28)",
+    "currentResult": "AdminLessonBookingPanel opens on the booking",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/operations/AdminPlannerBoard.tsx",
+      "src/features/admin/components/schedule/ScheduleSlotActionModal.tsx",
+      "src/features/admin/adminNavigation.ts"
+    ]
+  },
+  {
+    "id": "ops.planner.courseInfo",
+    "tab": "operations",
+    "screen": "Course tile (day and week grid)",
+    "capability": "Show course info notification: other guides, schedule, seats, enrolled names",
+    "entryPoint": "src/features/admin/components/schedule/ScheduleTimetableCells.tsx:134-152 and ScheduleCalendar.tsx:491-514",
+    "userAction": "click a violet course tile",
+    "states": [
+      "t('noClientsEnrolled') when no names (always, on canonical planner)"
+    ],
+    "commandOrReadModel": "mapPlannerCourses output (Course projection) + bookings filter on 'course_<occupancyId>'",
+    "currentResult": "info notification (addNotification); no mutation, no modal",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/components/schedule/ScheduleTimetableCells.tsx",
+      "src/features/admin/components/schedule/ScheduleCalendar.tsx",
+      "src/features/admin/operations/adminPlannerMapping.ts:135-163"
+    ]
+  },
+  {
+    "id": "ops.planner.overlap",
+    "tab": "operations",
+    "screen": "Slot modal (create + move)",
+    "capability": "Client-side conflict pre-check and available time/duration suggestion lists",
+    "entryPoint": "src/features/admin/components/schedule/scheduleOverlap.ts:33-144",
+    "userAction": "open slot, change instructor/date/time/duration",
+    "states": [
+      "conflict blocked (no request sent)",
+      "restricted option lists",
+      "t('noSlotsAvailable')/t('noHoursAvailable')"
+    ],
+    "commandOrReadModel": "hasScheduleOverlap / getAvailableMoveTimeSlots / getAvailableScheduleDurations (SCHEDULE_CLOSING_TIME_MINUTES=19:00)",
+    "currentResult": "pre-validated options; server re-validates via resource claims",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/components/schedule/scheduleOverlap.ts",
+      "src/features/admin/components/schedule/ScheduleSlotActionModal.tsx:200-289"
+    ]
+  },
+  {
+    "id": "ops.planner.nav",
+    "tab": "operations",
+    "screen": "Schedule toolbar",
+    "capability": "Navigation: day/week toggle, prev, next, today, date picker, mobile weekday strip; window state persisted in ?plannerDate=",
+    "entryPoint": "src/features/admin/components/schedule/ScheduleToolbar.tsx:33-95 -> ScheduleCalendar.tsx:104-129,319-330 -> AdminPlannerBoard.tsx:122-136",
+    "userAction": "click toolbar controls",
+    "states": [
+      "day mode",
+      "week mode (shows 'Mon - Sun' range instead of a picker)"
+    ],
+    "commandOrReadModel": "re-query of queryAdminPlannerReadModels with the new Monday window",
+    "currentResult": "new window loaded; ?plannerDate= updated with replace:true",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/components/schedule/ScheduleToolbar.tsx",
+      "src/features/admin/components/schedule/ScheduleCalendar.tsx",
+      "src/features/admin/operations/AdminPlannerBoard.tsx",
+      "src/features/admin/adminNavigation.ts:59-60"
+    ]
+  },
+  {
+    "id": "ops.planner.focusDeepLink",
+    "tab": "operations",
+    "screen": "Schedule board",
+    "capability": "Deep link ?plannerBooking=<id> auto-opens that booking's slot modal and expands the section",
+    "entryPoint": "src/features/admin/components/schedule/ScheduleCalendar.tsx:89-102 -> AdminPlannerBoard.tsx:264-274; AdminPanel.tsx:201-209",
+    "userAction": "arrive with ?plannerBooking=<id> (or ?plannerDate=)",
+    "states": [
+      "modal opens when both booking and instructor are resolvable, then the param is deleted"
+    ],
+    "commandOrReadModel": "URL params only",
+    "currentResult": "focused slot modal; one-shot consumption",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/components/schedule/ScheduleCalendar.tsx",
+      "src/features/admin/operations/AdminPlannerBoard.tsx",
+      "src/features/admin/components/AdminPanel.tsx"
+    ]
+  },
+  {
+    "id": "ops.planner.realtime",
+    "tab": "operations",
+    "screen": "Schedule board (background)",
+    "capability": "Realtime refresh of the board when the admin planner revision document changes, or when a local command returns adminPlannerRevision",
+    "entryPoint": "src/features/admin/operations/adminPlannerRevisionCoordinator.ts (subscribe :12-26, from-command :47-64) <- subscribeAdminPlannerRevision.ts <- src/lib/admin/subscribeAdminRealtimeRevision.ts",
+    "userAction": "implicit (any client writes a booking/block/course day)",
+    "states": [
+      "listening",
+      "backoff 1s->30s on retryable Firestore errors",
+      "unsubscribed at zero listeners",
+      "no visible offline state"
+    ],
+    "commandOrReadModel": "onSnapshot(ADMIN_PLANNER_REVISION_COLLECTION/ADMIN_PLANNER_REVISION_DOCUMENT_ID) -> reduceAdminRealtimeRevisionSignal -> full re-query",
+    "currentResult": "board re-renders with the new window; no diffing, no debounce, no user feedback",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/operations/adminPlannerRevisionCoordinator.ts",
+      "src/features/admin/operations/adminPlannerLocalSync.ts",
+      "src/features/admin/operations/subscribeAdminPlannerRevision.ts",
+      "src/features/admin/operations/useAdminPlannerReadModels.ts",
+      "src/lib/admin/subscribeAdminRealtimeRevision.ts"
+    ]
+  },
+  {
+    "id": "ops.planner.optimisticConcurrency",
+    "tab": "operations",
+    "screen": "All planner mutations",
+    "capability": "On stale_version / concurrent_modification, refresh projections before rethrowing; expectedRevision sent for blocks/course days; lesson revision re-read via admin_detail",
+    "entryPoint": "src/features/admin/operations/AdminPlannerBoard.tsx:44-60; adminPlannerCommands.ts:52-60,231,254,316,385",
+    "userAction": "any planner mutation that raced with another writer",
+    "states": [
+      "refresh-then-throw -> error toast t('updateFailed')/t('actionFailedTitle')",
+      "success -> refreshAllProjections"
+    ],
+    "commandOrReadModel": "queryLessonBookingReadModels(scope='admin_detail') + AggregateRevisionSchema.parse",
+    "currentResult": "consistent re-read; user must retry manually",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/operations/AdminPlannerBoard.tsx",
+      "src/features/admin/operations/adminPlannerCommands.ts",
+      "src/features/admin/operations/AdminMonitorReadModelsContext.tsx"
+    ]
+  },
+  {
+    "id": "ops.metrics.counters",
+    "tab": "operations",
+    "screen": "Top of the Operations tab",
+    "capability": "Operational counters: active lessons, completed lessons (+ no-show sub-count), instructor count",
+    "entryPoint": "src/features/admin/operations/AdminOperationalMetricsHost.tsx:14-36 -> AdminOperationalMetrics.tsx:12-73",
+    "userAction": "view (no interaction)",
+    "states": [
+      "loading (Suspense fallback t('financialOverview'))",
+      "zeros"
+    ],
+    "commandOrReadModel": "computeAdminOperationalOverview over admin_hot + admin_history lesson read models (drainAll)",
+    "currentResult": "3 read-only tiles; no revenue; heading text is t('financialOverview')",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/operations/AdminOperationalMetrics.tsx",
+      "src/features/admin/operations/AdminOperationalMetricsHost.tsx",
+      "src/features/admin/operations/adminOperationalOverview.ts",
+      "src/features/admin/operations/useAdminMonitorReadModels.ts"
+    ]
+  },
+  {
+    "id": "ops.monitor.list",
+    "tab": "operations",
+    "screen": "Bookings log (admin_booking_monitor section)",
+    "capability": "Realtime operational list of hot lessons + course enrollments (roster u pending_guest) with guest contact, payment/status badges",
+    "entryPoint": "src/features/admin/operations/AdminActiveBookingMonitor.tsx:18-79 -> src/features/admin/components/bookings/BookingsLog.tsx",
+    "userAction": "view",
+    "states": [
+      "empty (t('noScheduledSessions'))",
+      "guest rows with badge + tel/mailto",
+      "notes",
+      "cancellation reason"
+    ],
+    "commandOrReadModel": "useAdminMonitorReadModels (lessons hot/history drainAll + enrollments roster/pending_guest/history)",
+    "currentResult": "table of Booking projections; system blocks filtered out",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/operations/AdminActiveBookingMonitor.tsx",
+      "src/features/admin/operations/adminBookingMonitorMapping.ts",
+      "src/features/admin/operations/useAdminMonitorReadModels.ts",
+      "src/features/admin/components/bookings/BookingsLog.tsx"
+    ]
+  },
+  {
+    "id": "ops.monitor.statusBadge",
+    "tab": "operations",
+    "screen": "Bookings log status column",
+    "capability": "Derived status badge incl. 'awaiting payment' and 'in progress' (now inside the occurrence window)",
+    "entryPoint": "src/features/admin/operations/AdminMonitorLessonStatusBadge.tsx:22-38 -> lessonBookingAdminPresentation.ts:83-116",
+    "userAction": "view",
+    "states": [
+      "awaiting_payment (pending + outstanding + unpaid status)",
+      "in_progress (confirmed and now in [startsAt, endsAt))",
+      "lifecycle status",
+      "fallback plain StatusBadge when no canonicalLifecycleStatus (course rows)"
+    ],
+    "commandOrReadModel": "Booking row fields canonicalLifecycleStatus / occurrenceStart- EndSeconds / paymentOutstanding / paymentStatus",
+    "currentResult": "tone-mapped StatusBadge with translated label",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/operations/AdminMonitorLessonStatusBadge.tsx",
+      "src/features/admin/lesson-bookings/lessonBookingAdminPresentation.ts"
+    ]
+  },
+  {
+    "id": "ops.monitor.navigate",
+    "tab": "operations",
+    "screen": "Bookings log action column + guest 'link to client' button",
+    "capability": "Navigate to the canonical lesson/enrollment detail with a lifecycle-derived view (hot | history | pending_guest | roster)",
+    "entryPoint": "src/features/admin/operations/AdminActiveBookingMonitor.tsx:22-70 (invoked from BookingsLog.tsx:117-127,178-299)",
+    "userAction": "click 'open lesson detail' / 'open cancellation detail' / 'open enrollment attendance' / 'link to client'",
+    "states": [
+      "per-status label + button set"
+    ],
+    "commandOrReadModel": "URL ?tab=operations&booking=<id>&bookingView=<v> | &enrollment=<id>&enrollmentView=<v>",
+    "currentResult": "Training records panel opens at the right view; no mutation from the monitor",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/operations/AdminActiveBookingMonitor.tsx",
+      "src/features/admin/components/bookings/BookingsLog.tsx",
+      "src/features/admin/adminNavigation.ts:17-36,59-63"
+    ]
+  },
+  {
+    "id": "ops.monitor.refresh",
+    "tab": "operations",
+    "screen": "Operations tab (shared)",
+    "capability": "One-shot refresh of all 5 monitor read models after any planner mutation, then the planner itself",
+    "entryPoint": "src/features/admin/operations/AdminMonitorReadModelsContext.tsx:19-40",
+    "userAction": "implicit after create/move/reassign/delete/complete/link",
+    "states": [
+      "no visible busy state for the background refresh"
+    ],
+    "commandOrReadModel": "lessonsHot.retryList, lessonsHistory.retryList, enrollmentsRoster/Pending/History.refreshList, planner refresh",
+    "currentResult": "all operations-tab data stays consistent after a planner write",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/operations/AdminMonitorReadModelsContext.tsx",
+      "src/features/admin/operations/useAdminMonitorReadModels.ts",
+      "src/features/admin/components/AdminPanel.tsx:188"
+    ]
+  },
+  {
+    "id": "TR-01",
+    "tab": "operations",
+    "screen": "canonical_training_records",
+    "capability": "Open the unified training-records section (lessons + course enrollments in one list)",
+    "entryPoint": "AdminPanel → Operations → section title adminTrainingRecordsTitle",
+    "userAction": "Expand the collapsible section",
+    "states": [
+      "collapsed",
+      "expanded"
+    ],
+    "commandOrReadModel": "none (UI shell)",
+    "currentResult": "Renders AdminTrainingRecordsPanel; force-opens when booking/enrollment/enrollmentCourse is in the URL",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/components/AdminPanel.tsx:252-281",
+      "src/features/admin/adminNavigation.ts:31-36"
+    ]
+  },
+  {
+    "id": "TR-02",
+    "tab": "operations",
+    "screen": "canonical_training_records",
+    "capability": "Filter records by kind: all / lessons / courses",
+    "entryPoint": "Kind pills, AdminTrainingRecordsPanel",
+    "userAction": "Click pill",
+    "states": [
+      "all",
+      "lesson",
+      "course"
+    ],
+    "commandOrReadModel": "URL trainingKind; toggles lessonReads.enabled / courseReads.enabled",
+    "currentResult": "Merged list re-sorts; booking and enrollment selection cleared",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/training-records/AdminTrainingRecordsPanel.tsx:433-452",
+      "adminTrainingRecordUtils.ts:24-36"
+    ]
+  },
+  {
+    "id": "TR-03",
+    "tab": "operations",
+    "screen": "canonical_training_records",
+    "capability": "Filter records by scope: current / history / pending guest",
+    "entryPoint": "Scope buttons, AdminTrainingRecordsPanel",
+    "userAction": "Click scope button",
+    "states": [
+      "current",
+      "history",
+      "pending_guest"
+    ],
+    "commandOrReadModel": "URL trainingScope + bookingView + enrollmentView → read scopes admin_hot|admin_history|admin_pending_guest and admin_course_roster|admin_history|admin_pending_guest",
+    "currentResult": "List shows the active set, the history set, or unlinked guest reservations; selection cleared",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminTrainingRecordsPanel.tsx:454-472,294-301",
+      "adminTrainingRecordUtils.ts:38-65",
+      "useAdminLessonBookingReadModels.ts:94-99",
+      "useAdminCourseEnrollmentReadModels.ts:29-33"
+    ]
+  },
+  {
+    "id": "TR-04",
+    "tab": "operations",
+    "screen": "canonical_training_records",
+    "capability": "Filter by course (enrollments only)",
+    "entryPoint": "Course select, shown when kind !== 'lesson'",
+    "userAction": "Choose a course / 'All courses'",
+    "states": [
+      "all courses",
+      "single course"
+    ],
+    "commandOrReadModel": "URL enrollmentCourse → queryAdminCourseEnrollmentReadModels({courseId})",
+    "currentResult": "Roster narrowed to that course; enrollment selection cleared",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminTrainingRecordsPanel.tsx:473-492"
+    ]
+  },
+  {
+    "id": "TR-05",
+    "tab": "operations",
+    "screen": "canonical_training_records",
+    "capability": "Load more records (cursor pagination, both domains)",
+    "entryPoint": "'Load more' button under the list",
+    "userAction": "Click",
+    "states": [
+      "more available",
+      "exhausted"
+    ],
+    "commandOrReadModel": "lessonReads.loadMore() + courseReads.loadMore()",
+    "currentResult": "Appends one page from each enabled source; hasMore is the OR of both",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminTrainingRecordsPanel.tsx:324,674-688"
+    ]
+  },
+  {
+    "id": "TR-06",
+    "tab": "operations",
+    "screen": "canonical_training_records",
+    "capability": "Retry a failed list read",
+    "entryPoint": "Error panel button (RefreshCw)",
+    "userAction": "Click",
+    "states": [
+      "error",
+      "loading",
+      "loaded"
+    ],
+    "commandOrReadModel": "lessonReads.retryList() + courseReads.retryList()",
+    "currentResult": "permission-denied shown as adminLessonPermissionDenied, else adminLessonReadFailed",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminTrainingRecordsPanel.tsx:563-578"
+    ]
+  },
+  {
+    "id": "TR-07",
+    "tab": "operations",
+    "screen": "canonical_training_records",
+    "capability": "Select a record (the only per-row action)",
+    "entryPoint": "Any list row (AdminLessonBookingListRow button)",
+    "userAction": "Click row",
+    "states": [
+      "unselected",
+      "selected"
+    ],
+    "commandOrReadModel": "URL booking=… (clears enrollment) or enrollment=… (clears booking)",
+    "currentResult": "Right pane loads admin_detail / admin_enrollment_detail; aria-current + ring; data-admin-training-kind / -record-id attributes set",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminTrainingRecordListRow.tsx:17-21",
+      "AdminLessonBookingUi.tsx:135-145",
+      "AdminTrainingRecordsPanel.tsx:598-603,650-655"
+    ]
+  },
+  {
+    "id": "TR-08",
+    "tab": "operations",
+    "screen": "canonical_training_records",
+    "capability": "Create a course enrollment on behalf of a managed participant",
+    "entryPoint": "'Create' block (kind !== 'lesson')",
+    "userAction": "Pick course (active + seats>0), pick participant, type reason, click Create, confirm",
+    "states": [
+      "disabled",
+      "confirm dialog",
+      "success",
+      "error (stale_version closes dialog)"
+    ],
+    "commandOrReadModel": "create_course_enrollments (courseId, courseRevision, participantId, reasonExplanation, administratorContext)",
+    "currentResult": "Enrollment created; list + course catalog refreshed",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminTrainingRecordsPanel.tsx:496-553",
+      "useAdminCourseEnrollmentCommands.ts:43-58"
+    ]
+  },
+  {
+    "id": "TR-09",
+    "tab": "operations",
+    "screen": "canonical_training_records",
+    "capability": "Close the detail pane",
+    "entryPoint": "X button in the detail header",
+    "userAction": "Click",
+    "states": [
+      "detail open",
+      "detail closed"
+    ],
+    "commandOrReadModel": "URL booking / enrollment removed",
+    "currentResult": "Select-prompt text adminTrainingSelectPrompt shown",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminLessonBookingDetail.tsx:343-350",
+      "AdminCourseEnrollmentDetail.tsx:806-815",
+      "AdminTrainingRecordsPanel.tsx:742,840"
+    ]
+  },
+  {
+    "id": "TR-10",
+    "tab": "operations",
+    "screen": "training-record detail (lesson)",
+    "capability": "Lesson detail tabs: overview / payment / attendance / cancellation / guest / issues / technical",
+    "entryPoint": "AdminLessonDetailTabs in the lesson detail header",
+    "userAction": "Click tab; ArrowLeft/Right/Home/End keyboard nav",
+    "states": [
+      "overview",
+      "payment",
+      "attendance",
+      "cancellation",
+      "guest",
+      "issues",
+      "technical"
+    ],
+    "commandOrReadModel": "read model only",
+    "currentResult": "attention dot on payment (outstanding>0), cancellation (pending_cancellation), issues (any open); active panel + hidden sibling panels for a11y",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminLessonBookingDetail.tsx:256-297,455-469",
+      "AdminLessonBookingUi.tsx:215-283"
+    ]
+  },
+  {
+    "id": "TR-11",
+    "tab": "operations",
+    "screen": "training-record detail (lesson)",
+    "capability": "Open the booking in the planner (reschedule hand-off)",
+    "entryPoint": "'Open in planner' header button; change-request card button",
+    "userAction": "Click",
+    "states": [
+      "idle",
+      "navigated"
+    ],
+    "commandOrReadModel": "URL tab=operations&plannerDate=YYYY-MM-DD&plannerBooking=<bookingId>",
+    "currentResult": "Planner section force-opens focused on the booking's local date; actual reschedule/instructor/duration commands live in adminPlannerCommands",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminLessonBookingDetail.tsx:353-361,443-450,562-567",
+      "AdminTrainingRecordsPanel.tsx:89-104,734-741"
+    ]
+  },
+  {
+    "id": "TR-12",
+    "tab": "operations",
+    "screen": "training-record detail (lesson)",
+    "capability": "Send SMS to the guest (not implemented)",
+    "entryPoint": "Disabled 'Send SMS' button with aria-describedby",
+    "userAction": "None (button is disabled)",
+    "states": [
+      "unavailable"
+    ],
+    "commandOrReadModel": "none",
+    "currentResult": "adminLessonSmsUnavailable hint text; capability stub must be preserved or consciously removed",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminLessonBookingDetail.tsx:362-377"
+    ]
+  },
+  {
+    "id": "TR-13",
+    "tab": "operations",
+    "screen": "training-record detail (lesson)",
+    "capability": "Record a cash payment (provider payment event)",
+    "entryPoint": "Payment tab → AdminPaymentCaptureSection, when canRecordGuestPayment",
+    "userAction": "Enter integer amount 1..outstanding, click 'Record payment', confirm",
+    "states": [
+      "hidden",
+      "invalid amount",
+      "confirming",
+      "success / refreshFailed notice"
+    ],
+    "commandOrReadModel": "record_provider_payment_event (sourceKind 'cash', manualReference admin-cash:<hash>, expectedRevision = payment revision)",
+    "currentResult": "Payment applied server-side; booking list+detail and all monitor projections refreshed; admin_payment_detail re-queried; warning notice adminLessonPaymentRecordedRefreshPending when refresh fails",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminLessonBookingDetail.tsx:650-696",
+      "AdminPaymentCaptureSection.tsx:44,63-94",
+      "useAdminLessonBookingCommands.ts:75-93,306-315"
+    ]
+  },
+  {
+    "id": "TR-14",
+    "tab": "operations",
+    "screen": "training-record detail (lesson)",
+    "capability": "Pay the service from the payer's wallet",
+    "entryPoint": "Payment tab, when canPayFromWallet",
+    "userAction": "Click 'Pay from wallet', confirm",
+    "states": [
+      "insufficient funds (disabled)",
+      "enabled",
+      "confirming",
+      "success"
+    ],
+    "commandOrReadModel": "pay_service_from_wallet_as_administrator (subjectKind 'booking'; no expectedRevision)",
+    "currentResult": "Wallet debited server-side; projections refreshed",
+    "destructive": true,
+    "sourceFiles": [
+      "AdminLessonBookingDetail.tsx:673-685",
+      "AdminPaymentCaptureSection.tsx:46-48,95-107",
+      "useAdminLessonBookingCommands.ts:95-106"
+    ]
+  },
+  {
+    "id": "TR-15",
+    "tab": "operations",
+    "screen": "training-record detail (lesson)",
+    "capability": "Open the related payment in the Finance tab",
+    "entryPoint": "'Open payment' button",
+    "userAction": "Click",
+    "states": [
+      "navigated"
+    ],
+    "commandOrReadModel": "URL tab=finance&payment=<paymentId>",
+    "currentResult": "Canonical finance panel force-opens on that payment",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminLessonBookingDetail.tsx:697-703",
+      "AdminTrainingRecordsPanel.tsx:743-748"
+    ]
+  },
+  {
+    "id": "TR-16",
+    "tab": "operations",
+    "screen": "training-record detail (lesson)",
+    "capability": "Approve a pending cancellation with a refund",
+    "entryPoint": "Cancellation tab, when canResolveCancellation",
+    "userAction": "Enter refund 0..maximumRefund (default suggestedRefund), enter reason, click 'Approve', confirm",
+    "states": [
+      "pending_cancellation",
+      "approving",
+      "rejected",
+      "resolved"
+    ],
+    "commandOrReadModel": "resolve_booking_cancellation decision 'approve' (refundAmount + expectedPaymentRevision, expectedRevision = booking revision)",
+    "currentResult": "Booking cancelled server-side with the requested refund; money effect computed server-side",
+    "destructive": true,
+    "sourceFiles": [
+      "AdminLessonBookingDetail.tsx:829-850",
+      "useAdminLessonBookingCommands.ts:111-130"
+    ]
+  },
+  {
+    "id": "TR-17",
+    "tab": "operations",
+    "screen": "training-record detail (lesson)",
+    "capability": "Reject a pending cancellation",
+    "entryPoint": "Cancellation tab, when canResolveCancellation",
+    "userAction": "Enter reason, click 'Reject', confirm",
+    "states": [
+      "pending_cancellation",
+      "rejected"
+    ],
+    "commandOrReadModel": "resolve_booking_cancellation decision 'reject' (reason only, no refund)",
+    "currentResult": "Booking returns to its active lifecycle; no money movement",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminLessonBookingDetail.tsx:851-869"
+    ]
+  },
+  {
+    "id": "TR-18",
+    "tab": "operations",
+    "screen": "training-record detail (lesson)",
+    "capability": "Directly cancel a booking with a refund",
+    "entryPoint": "Cancellation tab, when canDirectCancel",
+    "userAction": "Enter refund + reason, click 'Direct cancel' (rose button), confirm",
+    "states": [
+      "confirming",
+      "cancelled"
+    ],
+    "commandOrReadModel": "resolve_booking_cancellation decision 'direct_cancel'",
+    "currentResult": "Immediate cancellation + refund; cancellationFinancial.timing is displayed only in the technical tab",
+    "destructive": true,
+    "sourceFiles": [
+      "AdminLessonBookingDetail.tsx:871-891",
+      "lessonBookingAdminPresentation.ts:248-256"
+    ]
+  },
+  {
+    "id": "TR-19",
+    "tab": "operations",
+    "screen": "training-record detail (lesson)",
+    "capability": "Record attendance per participant (draft) then finalize the whole booking",
+    "entryPoint": "Attendance tab, per authorizedActions.canRecordPresent/canRecordAbsent",
+    "userAction": "Click Present/Absent per participant → enter reason → 'Finalize attendance' → warning dialog → Submit",
+    "states": [
+      "unrecorded",
+      "drafted",
+      "confirm dialog",
+      "committed"
+    ],
+    "commandOrReadModel": "finalize_booking_attendance (per-participant attendanceStatus + expectedAttendanceRevision, administratorContext)",
+    "currentResult": "Attendance stored participant-scoped; draft cleared via attendanceFinalizeSuccessNonce; finalize requires ALL target participants drafted",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminLessonBookingDetail.tsx:707-794,305-319,1073-1133",
+      "useAdminLessonAttendanceDraft.ts",
+      "useAdminLessonBookingCommands.ts:185-209"
+    ]
+  },
+  {
+    "id": "TR-20",
+    "tab": "operations",
+    "screen": "training-record detail (lesson)",
+    "capability": "See that attendance is not yet available (pending confirmation)",
+    "entryPoint": "Attendance tab when attendanceUnavailableReason==='pending'",
+    "userAction": "Read hint",
+    "states": [
+      "pending",
+      "available"
+    ],
+    "commandOrReadModel": "attendanceUnavailableReason (read model)",
+    "currentResult": "Shows adminLessonAttendanceAfterConfirm; no status is invented; unrecorded participants show adminLessonAttendanceMissing",
+    "destructive": false,
+    "sourceFiles": [
+      "lessonBookingAdminPresentation.ts:264-279",
+      "AdminLessonBookingDetail.tsx:768-772"
+    ]
+  },
+  {
+    "id": "TR-21",
+    "tab": "operations",
+    "screen": "training-record detail (lesson)",
+    "capability": "Link a guest booking to an account + participant",
+    "entryPoint": "Guest tab, when canLinkGuestToAccount",
+    "userAction": "Pick managed participant, enter reason, click 'Link', confirm",
+    "states": [
+      "not eligible (reason text)",
+      "eligible",
+      "confirming",
+      "linked"
+    ],
+    "commandOrReadModel": "link_guest_booking_to_account_as_administrator (targetAccountId, targetParticipantId, reasonExplanation, expectedRevision)",
+    "currentResult": "Guest identity linked; drafts reset when the selection changes",
+    "destructive": true,
+    "sourceFiles": [
+      "AdminLessonBookingDetail.tsx:899-972",
+      "useAdminLessonBookingCommands.ts:267-281",
+      "lessonBookingAdminPresentation.ts:281-300"
+    ]
+  },
+  {
+    "id": "TR-22",
+    "tab": "operations",
+    "screen": "training-record detail (lesson)",
+    "capability": "Review related issues and jump to the issue inbox",
+    "entryPoint": "Issues tab (only when relatedIssues.length > 0)",
+    "userAction": "Click 'Open issue'",
+    "states": [
+      "no issues",
+      "list",
+      "navigated"
+    ],
+    "commandOrReadModel": "URL tab=operations&issue=<issueId>",
+    "currentResult": "Each row shows severity · kind · lifecycleStatus",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminLessonBookingDetail.tsx:974-998",
+      "AdminTrainingRecordsPanel.tsx:749-754"
+    ]
+  },
+  {
+    "id": "TR-23",
+    "tab": "operations",
+    "screen": "training-record detail (lesson)",
+    "capability": "Inspect technical identifiers/revisions/authorized actions",
+    "entryPoint": "Technical tab (<details>)",
+    "userAction": "Expand",
+    "states": [
+      "collapsed",
+      "expanded"
+    ],
+    "commandOrReadModel": "read model",
+    "currentResult": "bookingId, booking+schedule+payment revisions, lifecycle, origin, instructorId, participantIds, payer, timezone, updatedAt, cancellationFinancial, true authorized-action keys",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminLessonBookingDetail.tsx:1000-1059"
+    ]
+  },
+  {
+    "id": "TR-24",
+    "tab": "operations",
+    "screen": "training-record detail (lesson)",
+    "capability": "Resolve an instructor change request by cancelling the booking",
+    "entryPoint": "Overview change-request card",
+    "userAction": "Enter reason + refund, click 'Resolve → cancel', confirm",
+    "states": [
+      "open request",
+      "confirming",
+      "resolved"
+    ],
+    "commandOrReadModel": "resolve_booking_change_request resolution 'booking_cancelled' (bookingChangeRequestId, requestRevision, refundAmount, reasonExplanation)",
+    "currentResult": "Request resolved as booking_cancelled with refund; booking also cancelled",
+    "destructive": true,
+    "sourceFiles": [
+      "AdminLessonBookingDetail.tsx:525-607",
+      "useAdminLessonBookingCommands.ts:235-265"
+    ]
+  },
+  {
+    "id": "TR-25",
+    "tab": "operations",
+    "screen": "training-record detail (lesson)",
+    "capability": "Reject an instructor change request (no change)",
+    "entryPoint": "Overview change-request card",
+    "userAction": "Click 'Resolve → reject', confirm",
+    "states": [
+      "open request",
+      "no_change"
+    ],
+    "commandOrReadModel": "resolve_booking_change_request resolution 'no_change' (no bookingRevision)",
+    "currentResult": "Request closed; booking untouched",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminLessonBookingDetail.tsx:588-604"
+    ]
+  },
+  {
+    "id": "TR-26",
+    "tab": "operations",
+    "screen": "training-record detail (course)",
+    "capability": "Course detail tabs: overview / payment / attendance / cancellation / guest / issues / technical",
+    "entryPoint": "AdminLessonDetailTabs (idPrefix 'admin-course')",
+    "userAction": "Click tab",
+    "states": [
+      "overview",
+      "payment",
+      "attendance",
+      "cancellation",
+      "guest",
+      "issues",
+      "technical"
+    ],
+    "commandOrReadModel": "read model only",
+    "currentResult": "attention dots on payment (canRecordPayment || awaitingPayment), cancellation, issues; guest tab always present",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminCourseEnrollmentDetail.tsx:178-222,884-893"
+    ]
+  },
+  {
+    "id": "TR-27",
+    "tab": "operations",
+    "screen": "training-record detail (course)",
+    "capability": "Transfer an enrollment to another course",
+    "entryPoint": "Overview, when canTransfer",
+    "userAction": "Pick target course (from transfer.targetOptions), enter reason, click Transfer, confirm",
+    "states": [
+      "blocked (transfer.blockedReason shown in technical)",
+      "available",
+      "confirming",
+      "transferred"
+    ],
+    "commandOrReadModel": "transfer_course_enrollment (targetCourseId, reasonExplanation, expectedRevision)",
+    "currentResult": "Enrollment moved; originalCourseId retained and shown in technical",
+    "destructive": true,
+    "sourceFiles": [
+      "AdminCourseEnrollmentDetail.tsx:275-319",
+      "useAdminCourseEnrollmentCommands.ts:115-129"
+    ]
+  },
+  {
+    "id": "TR-28",
+    "tab": "operations",
+    "screen": "training-record detail (course)",
+    "capability": "Record a course-day attendance status",
+    "entryPoint": "Attendance tab, per day, per authorizedActions.canRecordPresent/canRecordAbsent",
+    "userAction": "Enter reason, click 'Record present'/'Record absent', confirm",
+    "states": [
+      "missing",
+      "present",
+      "absent"
+    ],
+    "commandOrReadModel": "record_course_day_attendance (courseDayId, attendanceStatus, expectedAttendanceRevision, expectedEnrollmentRevision, administratorContext)",
+    "currentResult": "Day attendance stored; no bulk finalize exists for enrollments",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminCourseEnrollmentDetail.tsx:422-474",
+      "useAdminCourseEnrollmentCommands.ts:130-153"
+    ]
+  },
+  {
+    "id": "TR-29",
+    "tab": "operations",
+    "screen": "training-record detail (course)",
+    "capability": "Resolve the attendance outcome for an enrollment",
+    "entryPoint": "Attendance tab, when canResolveAttendanceOutcome",
+    "userAction": "Click 'Resolve outcome', confirm",
+    "states": [
+      "outcome unresolved",
+      "resolved"
+    ],
+    "commandOrReadModel": "resolve_attendance_outcome (subjectKind 'course_enrollment', subjectId)",
+    "currentResult": "Outcome correction applied; coupled admin-issue resolution may follow",
+    "destructive": true,
+    "sourceFiles": [
+      "AdminCourseEnrollmentDetail.tsx:476-489",
+      "useAdminCourseEnrollmentCommands.ts:155-166"
+    ]
+  },
+  {
+    "id": "TR-30",
+    "tab": "operations",
+    "screen": "training-record detail (course)",
+    "capability": "Cancel an unpaid guest enrollment",
+    "entryPoint": "Cancellation tab, when canCancelUnpaidGuest",
+    "userAction": "Enter reason, click 'Cancel unpaid guest' (rose), confirm",
+    "states": [
+      "confirming",
+      "cancelled"
+    ],
+    "commandOrReadModel": "resolve_course_enrollment_cancellation decision 'direct_cancel' with refundAmount hardcoded 0",
+    "currentResult": "Enrollment cancelled with no refund",
+    "destructive": true,
+    "sourceFiles": [
+      "AdminCourseEnrollmentDetail.tsx:517-536"
+    ]
+  },
+  {
+    "id": "TR-31",
+    "tab": "operations",
+    "screen": "training-record detail (course)",
+    "capability": "Approve / reject an enrollment cancellation with a refund",
+    "entryPoint": "Cancellation tab, when canResolveCancellation",
+    "userAction": "Enter refund 0..maximumRefund + reason, click Approve or Reject, confirm",
+    "states": [
+      "pending_cancellation",
+      "approving",
+      "rejecting",
+      "resolved"
+    ],
+    "commandOrReadModel": "resolve_course_enrollment_cancellation decision 'approve'|'reject'",
+    "currentResult": "Server-side cancellation + refund, or cancellation rejected",
+    "destructive": true,
+    "sourceFiles": [
+      "AdminCourseEnrollmentDetail.tsx:537-590",
+      "useAdminCourseEnrollmentCommands.ts:97-114"
+    ]
+  },
+  {
+    "id": "TR-32",
+    "tab": "operations",
+    "screen": "training-record detail (course)",
+    "capability": "Record payment / pay from wallet for an enrollment",
+    "entryPoint": "Payment tab → AdminPaymentCaptureSection",
+    "userAction": "Enter amount, click 'Record payment' or 'Pay from wallet', confirm",
+    "states": [
+      "hidden",
+      "valid",
+      "confirming",
+      "success / refreshFailed notice"
+    ],
+    "commandOrReadModel": "record_provider_payment_event (paymentId from target, manualReference admin-cash:<hash>) / pay_service_from_wallet_as_administrator (subjectKind 'course_enrollment')",
+    "currentResult": "Payment applied; enrollment detail + admin_payment_detail refreshed; paymentRecordedRefreshPending notice on refresh failure",
+    "destructive": true,
+    "sourceFiles": [
+      "AdminCourseEnrollmentDetail.tsx:368-403",
+      "useAdminCourseEnrollmentCommands.ts:60-93,206-236"
+    ]
+  },
+  {
+    "id": "TR-33",
+    "tab": "operations",
+    "screen": "training-record detail (course)",
+    "capability": "Link a guest enrollment to an account + participant",
+    "entryPoint": "Guest tab, when canLinkGuest",
+    "userAction": "Pick participant, enter reason, click 'Link', confirm",
+    "states": [
+      "not eligible",
+      "eligible",
+      "confirming",
+      "linked"
+    ],
+    "commandOrReadModel": "link_guest_course_enrollment_to_account_as_administrator",
+    "currentResult": "Guest identity linked; link drafts reset on selection change",
+    "destructive": true,
+    "sourceFiles": [
+      "AdminCourseEnrollmentDetail.tsx:594-667",
+      "useAdminCourseEnrollmentCommands.ts:167-182"
+    ]
+  },
+  {
+    "id": "TR-34",
+    "tab": "operations",
+    "screen": "training-record detail (course)",
+    "capability": "Reconcile a course enrollment from reconciliation evidence",
+    "entryPoint": "Technical tab, when canReconcile",
+    "userAction": "Click 'Reconcile', confirm",
+    "states": [
+      "evidence present",
+      "reconciling",
+      "reconciled"
+    ],
+    "commandOrReadModel": "reconcile_course_enrollment (courseEnrollmentId, expectedRevision)",
+    "currentResult": "Server reconciliation run against detail.reconciliation.evidenceIssueIds",
+    "destructive": true,
+    "sourceFiles": [
+      "AdminCourseEnrollmentDetail.tsx:771-784",
+      "useAdminCourseEnrollmentCommands.ts:183-190"
+    ]
+  },
+  {
+    "id": "TR-35",
+    "tab": "operations",
+    "screen": "training-record detail (course)",
+    "capability": "Inspect enrollment technical data (ids, raw lifecycle, guest state, capacity, payment, audit, actions)",
+    "entryPoint": "Technical tab",
+    "userAction": "Read",
+    "states": [
+      "visible"
+    ],
+    "commandOrReadModel": "read model",
+    "currentResult": "Full identifier/revision/audit dump incl. seatHeld vs seatReleased and per-day attendance revisions",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminCourseEnrollmentDetail.tsx:688-770"
+    ]
+  },
+  {
+    "id": "TR-36",
+    "tab": "operations",
+    "screen": "admin_issue_inbox",
+    "capability": "Open the issue inbox / attention inbox (issues + change requests merged)",
+    "entryPoint": "AdminPanel → Operations → 'admin_issue_inbox' collapsible section (defaultOpen false)",
+    "userAction": "Expand section",
+    "states": [
+      "collapsed",
+      "expanded",
+      "auto-expanded via issue/changeRequest URL"
+    ],
+    "commandOrReadModel": "none (shell)",
+    "currentResult": "AdminIssueCenter renders",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminPanel.tsx:231-250"
+    ]
+  },
+  {
+    "id": "TR-37",
+    "tab": "operations",
+    "screen": "admin_issue_inbox",
+    "capability": "Switch between the open inbox and the history view",
+    "entryPoint": "Two-button toggle (Actionable / Resolved)",
+    "userAction": "Click",
+    "states": [
+      "open",
+      "history"
+    ],
+    "commandOrReadModel": "URL issueView; read scopes admin_open / admin_history",
+    "currentResult": "History shows resolved and dismissed issues with no further state filter; both buttons clear issue and changeRequest",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminIssueCenter.tsx:261-293,121-126",
+      "adminNavigation.ts:167-169"
+    ]
+  },
+  {
+    "id": "TR-38",
+    "tab": "operations",
+    "screen": "admin_issue_inbox",
+    "capability": "Filter issues by severity (server-side)",
+    "entryPoint": "Severity select (All / Normal / Urgent / Critical)",
+    "userAction": "Choose value",
+    "states": [
+      "all",
+      "normal",
+      "urgent",
+      "critical"
+    ],
+    "commandOrReadModel": "URL issueSeverity → queryAdminIssueReadModels({severity})",
+    "currentResult": "List narrowed server-side; issue selection cleared",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminIssueCenter.tsx:295-321",
+      "useAdminIssueReadModels.ts:98-102"
+    ]
+  },
+  {
+    "id": "TR-39",
+    "tab": "operations",
+    "screen": "admin_issue_inbox",
+    "capability": "Filter by category (client-side): attendance / payment / cancellation / reconciliation / change_request / guest",
+    "entryPoint": "Category select",
+    "userAction": "Choose value",
+    "states": [
+      "all",
+      "attendance",
+      "payment",
+      "cancellation",
+      "reconciliation",
+      "change_request",
+      "guest"
+    ],
+    "commandOrReadModel": "local filter adminIssueMatchesCategory over the fetched page; issue + changeRequest cleared",
+    "currentResult": "Only matching entries remain; the 'guest' option is hidden unless at least one issue has presentationOrigin 'guest'",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminIssueCenter.tsx:323-344,179-191",
+      "adminIssuePresentation.ts:74-113"
+    ]
+  },
+  {
+    "id": "TR-40",
+    "tab": "operations",
+    "screen": "admin_issue_inbox",
+    "capability": "Free-text search of the inbox (local state, not deep-linkable)",
+    "entryPoint": "Search input with magnifier icon",
+    "userAction": "Type",
+    "states": [
+      "empty",
+      "filtering",
+      "no matches"
+    ],
+    "commandOrReadModel": "local; haystack = issue kind + subjectDisplayName + courseTitle + localized kind label, or instructor + participants + reason for change requests",
+    "currentResult": "Filtered entries; empty state adminIssueEmptySearch",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminIssueCenter.tsx:106,346-356,184-209",
+      "adminIssuePresentation.ts:115-121"
+    ]
+  },
+  {
+    "id": "TR-41",
+    "tab": "operations",
+    "screen": "admin_issue_inbox",
+    "capability": "Refresh / retry the inbox (issues + change requests)",
+    "entryPoint": "Refresh button and per-error retry buttons",
+    "userAction": "Click",
+    "states": [
+      "ok",
+      "error",
+      "retrying"
+    ],
+    "commandOrReadModel": "retryList on both useAdminIssueReadModels and useAdminAttentionChangeRequests",
+    "currentResult": "permission-denied vs read-failed copy differentiated",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminIssueCenter.tsx:218-221,358-365,368-413"
+    ]
+  },
+  {
+    "id": "TR-42",
+    "tab": "operations",
+    "screen": "admin_issue_inbox",
+    "capability": "Page the issue list",
+    "entryPoint": "'Load more' button",
+    "userAction": "Click",
+    "states": [
+      "more",
+      "exhausted"
+    ],
+    "commandOrReadModel": "useAdminIssueReadModels.loadMore (cursor)",
+    "currentResult": "Next page appended; page size default 20",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminIssueCenter.tsx:527-536",
+      "useAdminIssueReadModels.ts:222-223",
+      "adminIssueReadModel.ts:34-35"
+    ]
+  },
+  {
+    "id": "TR-43",
+    "tab": "operations",
+    "screen": "admin_issue_inbox",
+    "capability": "Open an issue detail (severity, blocking, subject, participant, timings, payment summary, attendance evidence, authorized-actions state)",
+    "entryPoint": "Issue row click",
+    "userAction": "Click issue row",
+    "states": [
+      "no selection",
+      "invalid id (error + close)",
+      "loading",
+      "loading error",
+      "not found",
+      "detail"
+    ],
+    "commandOrReadModel": "queryAdminIssueReadModels({scope:'admin_detail', issueId})",
+    "currentResult": "Detail pane is fixed-overlay on small screens, static on lg; banner distinguishes action_required vs informational and shows resolution guidance",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminIssueCenter.tsx:470-525,541-876",
+      "useAdminIssueReadModels.ts:126-154"
+    ]
+  },
+  {
+    "id": "TR-44",
+    "tab": "operations",
+    "screen": "admin_issue_inbox",
+    "capability": "Navigate from an issue to the coupled domain surface (lesson / enrollment / payment)",
+    "entryPoint": "Primary destination button (+ 'Check payment' secondary button)",
+    "userAction": "Click",
+    "states": [
+      "lesson",
+      "enrollment",
+      "payment"
+    ],
+    "commandOrReadModel": "URL tab=operations&booking=… | tab=operations&enrollment=… | tab=finance&payment=…",
+    "currentResult": "Destination = payment for payment_required_at_start / financial_reconciliation_mismatch / attendance_payment_conflict (when a payment projection exists), else lesson or enrollment by subjectRef.subjectKind",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminIssueCenter.tsx:224-246,798-830",
+      "adminIssuePresentation.ts:68-107"
+    ]
+  },
+  {
+    "id": "TR-45",
+    "tab": "operations",
+    "screen": "admin_issue_inbox",
+    "capability": "Review a booking change request and hand off to the lesson detail",
+    "entryPoint": "Change-request row → detail panel",
+    "userAction": "Click row, then 'Review request'",
+    "states": [
+      "inbox",
+      "detail",
+      "handed off"
+    ],
+    "commandOrReadModel": "queryBookingChangeRequestReadModels admin_open / admin_detail; hand-off URL tab=operations&booking=…&changeRequest=…",
+    "currentResult": "Shows instructor, participants, lesson time, reason, created at; the actual resolve_*_change_request happens in the lesson detail overview",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminIssueCenter.tsx:428-468,586-641",
+      "useAdminAttentionChangeRequests.ts"
+    ]
+  },
+  {
+    "id": "TR-46",
+    "tab": "operations",
+    "screen": "admin_issue_inbox",
+    "capability": "Close the issue / change-request detail",
+    "entryPoint": "X button in either detail header",
+    "userAction": "Click",
+    "states": [
+      "open",
+      "closed"
+    ],
+    "commandOrReadModel": "URL issue / changeRequest removed",
+    "currentResult": "Returns to the select-prompt state",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminIssueCenter.tsx:591-598,694-700"
+    ]
+  },
+  {
+    "id": "TR-47",
+    "tab": "operations",
+    "screen": "admin_issue_inbox",
+    "capability": "Live inbox invalidation + optimistic removal of resolved issues",
+    "entryPoint": "Firestore revision doc + command payloads",
+    "userAction": "(automatic)",
+    "states": [
+      "live",
+      "stale",
+      "patched"
+    ],
+    "commandOrReadModel": "subscribeAdminIssueInboxRevision + applyAdminIssueInboxCommandResult (AttendanceAdminIssueResultPayload.resolvedAdminIssueIds)",
+    "currentResult": "Resolved issues disappear from the open list and the open detail is cleared without waiting for a refetch; history views are excluded from realtime",
+    "destructive": false,
+    "sourceFiles": [
+      "subscribeAdminIssueInboxRevision.ts",
+      "adminIssueInboxRevisionCoordinator.ts",
+      "adminIssueInboxLocalSync.ts:39-64",
+      "useAdminIssueReadModels.ts:180-206"
+    ]
+  },
+  {
+    "id": "TR-48",
+    "tab": "operations",
+    "screen": "admin_issue_inbox",
+    "capability": "Absence of issue-level resolve / dismiss (by design)",
+    "entryPoint": "AdminIssueCenter detail authorized-actions block",
+    "userAction": "None available",
+    "states": [
+      "informational",
+      "missing context",
+      "deferred"
+    ],
+    "commandOrReadModel": "none — canResolveDirectly is literal false; every action is availability 'deferred'",
+    "currentResult": "Text-only state; all 7 kinds have allowDismiss:false and requireCoupledDomainCommandToResolve:true, so dismissal and standalone resolution are impossible by policy",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminIssueCenter.tsx:861-874",
+      "readModelAuthorizedActions.ts:95-142",
+      "adminIssuePolicy.ts:49-99,562-575,659-672"
+    ]
+  },
+  {
+    "id": "TR-49",
+    "tab": "operations",
+    "screen": "admin_booking_monitor (legacy, live)",
+    "capability": "Legacy bookings/enrollments log with per-row status-aware deep links and guest link entry",
+    "entryPoint": "'admin_booking_monitor' collapsible section",
+    "userAction": "Scroll, click 'Open lesson detail' / 'Open enrollment attendance' / 'Open cancellation detail' / 'Link to client'",
+    "states": [
+      "pending",
+      "pending_cancellation",
+      "confirmed",
+      "cancelled",
+      "completed"
+    ],
+    "commandOrReadModel": "URL tab=operations + booking/bookingView or enrollment/enrollmentView",
+    "currentResult": "Boots AdminTrainingRecordsPanel to the right record; guest rows expose phone/email and a link-to-client entry",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/components/bookings/BookingsLog.tsx:90-300",
+      "src/features/admin/operations/AdminActiveBookingMonitor.tsx:22-78",
+      "AdminPanel.tsx:219-229"
+    ]
+  },
+  {
+    "id": "TR-50",
+    "tab": "operations",
+    "screen": "schedule slot action modal (legacy, live)",
+    "capability": "Legacy guest→account link modal from the planner",
+    "entryPoint": "ScheduleSlotActionModal",
+    "userAction": "Search user, select, submit",
+    "states": [
+      "closed",
+      "open",
+      "submitting",
+      "success (auto-close after 1.2s)",
+      "error (insufficient funds)"
+    ],
+    "commandOrReadModel": "non-canonical onLinkBooking(bookingId, targetUserId)",
+    "currentResult": "Distinct from the canonical link_guest_booking_to_account_as_administrator flow in the training-records guest tab; both must be preserved",
+    "destructive": true,
+    "sourceFiles": [
+      "src/features/admin/components/bookings/LinkGuestBookingModal.tsx",
+      "src/features/admin/components/schedule/ScheduleSlotActionModal.tsx:17,737"
+    ]
+  },
+  {
+    "id": "people.clients.directory.list",
+    "tab": "people",
+    "screen": "Clients directory (section id admin_clients)",
+    "capability": "Paginated canonical Account directory with server-side search, badges, and per-row open",
+    "entryPoint": "AdminPanel people tab -> AdminCollapsibleSection id=admin_clients -> AdminPeopleSection surface=clients -> AdminClientDirectory",
+    "userAction": "Type in the search box (1000ms debounce) or click 'Load more' / row 'Open'",
+    "states": [
+      "loading",
+      "emptyDirectory",
+      "emptySearch",
+      "read-failed+retry",
+      "permission-denied",
+      "hasMore/loadMore",
+      "selectedRowHighlight"
+    ],
+    "commandOrReadModel": "readModel admin_account_list via callable queryAdminIdentityReadModels (pageSize 20, cursor pagination)",
+    "currentResult": "5-column table: Client(+You/Owner/Admin/Coach badges) | Contact(email) | Lifecycle | Participants(count) | Actions(Open)",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/people/AdminClientDirectory.tsx:135-142,222-348",
+      "src/features/admin/identity/useAdminIdentityReadModels.ts:69-164",
+      "src/features/admin/identity/accountDirectorySearch.ts:9",
+      "src/features/admin/people/adminClientContracts.ts:11"
+    ]
+  },
+  {
+    "id": "people.clients.deeplink.clientAccount",
+    "tab": "people",
+    "screen": "Clients directory deep link",
+    "capability": "Open an Account detail from ?tab=people&clientAccount=<accountId> and self-expand the section",
+    "entryPoint": "AdminRoleList 'Open client' / AdminInstructorDetail 'Open client' -> adminClientAccountSearchParams -> AdminClientDirectory effect",
+    "userAction": "Click 'Open client' on a Roles or Instructors row",
+    "states": [
+      "invalid id ignored (param retained)",
+      "valid id selects account, clears participant selection and contact edit, removes param via replace:true",
+      "forceOpen + forceOpenToken expand admin_clients"
+    ],
+    "commandOrReadModel": "search param ADMIN_CLIENT_ACCOUNT_QUERY_KEY='clientAccount' -> readModel admin_account_detail",
+    "currentResult": "Account detail aside opens; the deep-link param is consumed and removed from the URL",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/adminNavigation.ts:27,105-113",
+      "src/features/admin/people/AdminClientDirectory.tsx:104-121",
+      "src/features/admin/components/AdminPanel.tsx:353-354",
+      "src/features/admin/people/AdminRoleDirectory.tsx:163-167",
+      "src/features/admin/people/AdminInstructorDirectory.tsx:689-696"
+    ]
+  },
+  {
+    "id": "people.clients.detail.view",
+    "tab": "people",
+    "screen": "Clients account detail aside",
+    "capability": "Full Account card: identity, contact, role/instructor badges, lifecycle label, managed participants, wallet summary",
+    "entryPoint": "AdminClientDirectory aside -> AdminClientAccountDetail",
+    "userAction": "Click row 'Open' (or deep link)",
+    "states": [
+      "detailLoading+close",
+      "detailError+retry+close",
+      "loaded",
+      "missingAccount",
+      "missingParticipant"
+    ],
+    "commandOrReadModel": "readModel admin_account_detail (AdminAccountDetailReadModel)",
+    "currentResult": "Header (name, email, phone/noPhone, lifecycle, Owner/Admin/Coach badges) + lifecycle action bar + contact section + participant list + wallet summary",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/people/AdminClientAccountDetail.tsx:74-199",
+      "src/features/admin/people/adminClientContracts.ts:32-45",
+      "packages/shared-domain/src/canonical/readModels/adminIdentityReadModel.ts:67-73"
+    ]
+  },
+  {
+    "id": "people.clients.contact.edit",
+    "tab": "people",
+    "screen": "Clients account detail -> contact editor",
+    "capability": "Edit displayName and phoneNumber; email is read-only (sign-in identity)",
+    "entryPoint": "AdminClientAccountDetail 'Edit contact' -> AdminClientContactEditor",
+    "userAction": "Edit name/phone, click 'Save contact' or 'Cancel'",
+    "states": [
+      "readOnly dl (not editing)",
+      "editing form",
+      "pending",
+      "stale",
+      "forbidden"
+    ],
+    "commandOrReadModel": "command update_account_contact_as_administrator (reason 'Admin client directory contact update')",
+    "currentResult": "Account contact updated; email shown disabled with explanatory note; cancel restores server values",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/people/AdminClientContactEditor.tsx:24-97",
+      "src/features/admin/people/AdminClientDirectory.tsx:478-500",
+      "src/features/admin/identity/useAdminIdentityCommands.ts:62-77"
+    ]
+  },
+  {
+    "id": "people.clients.lifecycle.disable_enable",
+    "tab": "people",
+    "screen": "Clients account detail action bar",
+    "capability": "Toggle Account lifecycle active <-> disabled with an explicit warning confirm",
+    "entryPoint": "AdminClientAccountDetail Disable/Enable buttons",
+    "userAction": "Click Disable (window.confirm) or Enable",
+    "states": [
+      "confirm required on disable",
+      "stale",
+      "forbidden",
+      "pending"
+    ],
+    "commandOrReadModel": "commands disable_account / enable_account (reason 'Admin client directory lifecycle update')",
+    "currentResult": "Account lifecycle toggled; participants and lessons are not deleted; owner accounts are server-protected",
+    "destructive": true,
+    "sourceFiles": [
+      "src/features/admin/people/AdminClientDirectory.tsx:501-527",
+      "src/features/admin/people/adminClientLabels.ts:6-13",
+      "packages/shared-domain/src/canonical/identityAdministration.ts:169-180"
+    ]
+  },
+  {
+    "id": "people.clients.wallet.summary",
+    "tab": "people",
+    "screen": "Clients account detail -> finance block",
+    "capability": "Read-only KZT wallet balance summary plus a jump to Finance on the same Account",
+    "entryPoint": "AdminClientAccountDetail -> AdminClientWalletSummary",
+    "userAction": "Click 'Open Finance'",
+    "states": [
+      "loading",
+      "balance (testid admin-client-wallet-balance)",
+      "walletMissing (no synthetic zero)",
+      "walletUnavailable"
+    ],
+    "commandOrReadModel": "readModel admin_wallet (finance) -> navigation tab=finance&account=<id> (payment/movement params cleared)",
+    "currentResult": "Formatted KZT balance or an explicit 'wallet is not created' state; Finance opens pre-filtered to that Account",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/people/AdminClientWalletSummary.tsx:20-45",
+      "src/features/admin/people/adminClientLabels.ts:51-58",
+      "src/features/admin/people/AdminClientDirectory.tsx:144-147,528-537",
+      "src/features/admin/adminNavigation.ts:88-99",
+      "packages/shared-domain/src/canonical/readModels/adminFinanceReadModel.ts:113-124"
+    ]
+  },
+  {
+    "id": "people.clients.participants.list",
+    "tab": "people",
+    "screen": "Clients account detail -> participants section",
+    "capability": "List managed Participants with relationship, lifecycle, age, skill level, discipline; open each one",
+    "entryPoint": "AdminClientAccountDetail -> AdminClientParticipantList",
+    "userAction": "Click 'Open participant' on a row",
+    "states": [
+      "noParticipants",
+      "provision-self block (canProvisionSelf)",
+      "loaded"
+    ],
+    "commandOrReadModel": "readModel admin_account_detail .managedParticipants",
+    "currentResult": "Per-participant card + 'Open participant'; 'no managed participants' when empty; a 'create participant for this account' block when self is missing",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/people/AdminClientParticipantList.tsx:41-98",
+      "src/features/admin/people/adminClientLabels.ts:15-49"
+    ]
+  },
+  {
+    "id": "people.clients.participants.add_dependent",
+    "tab": "people",
+    "screen": "Clients account detail -> add participant form",
+    "capability": "Create a managed dependent Participant (child) under the Account",
+    "entryPoint": "AdminClientParticipantList inline form (shown when canCreateDependent)",
+    "userAction": "Fill displayName / birthDate / skillLevel / discipline and click 'Add participant'",
+    "states": [
+      "no cancel button (draft persists)",
+      "pending",
+      "stale",
+      "forbidden",
+      "noParticipants -> populated"
+    ],
+    "commandOrReadModel": "command create_managed_dependent_participant (reason 'Admin client directory add participant'); client-generated participantId = canonicalDeterministicHash(['participant:v1','dependent',accountId,entropy()])",
+    "currentResult": "New dependent Participant appears in the list with authority parent_guardian",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/people/AdminClientParticipantList.tsx:99-158",
+      "src/features/admin/people/AdminClientDirectory.tsx:46-58,539-569",
+      "src/features/admin/identity/useAdminIdentityCommands.ts:150-171"
+    ]
+  },
+  {
+    "id": "people.clients.participants.provision_self",
+    "tab": "people",
+    "screen": "Clients account detail -> missing-self block",
+    "capability": "Provision the Account's own self Participant (identity repair)",
+    "entryPoint": "AdminClientParticipantList 'provisionSelf' button (shown when canProvisionSelf)",
+    "userAction": "Click 'Create participant for this account'",
+    "states": [
+      "pending",
+      "stale",
+      "forbidden"
+    ],
+    "commandOrReadModel": "command provision_self_participant_for_account (no expectedRevision; reason 'Admin client directory provision self participant')",
+    "currentResult": "Self Participant created; no wallet/starter-credit side effect",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/people/AdminClientParticipantList.tsx:44-56",
+      "src/features/admin/people/AdminClientDirectory.tsx:570-581",
+      "functions/src/canonical/participantAccess/selfParticipantProvisioningCommands.ts:545-563"
+    ]
+  },
+  {
+    "id": "people.clients.participants.profile_edit",
+    "tab": "people",
+    "screen": "Clients -> participant detail",
+    "capability": "Edit a Participant's profile: displayName, birthDate, skillLevel, discipline, instructorComment",
+    "entryPoint": "AdminClientParticipantDetail edit form (shown when canEdit)",
+    "userAction": "Edit fields, click 'Save participant'",
+    "states": [
+      "archiveBlockedByCommitments notice",
+      "pending",
+      "stale",
+      "forbidden",
+      "no cancel (draft persists)"
+    ],
+    "commandOrReadModel": "command update_participant_profile (administratorContext: true; reason 'Admin client directory participant update')",
+    "currentResult": "Profile saved; birthDate omitted when blank (so age_years form cannot be written); instructorComment cannot be cleared from this form",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/people/AdminClientParticipantDetail.tsx:87-160",
+      "src/features/admin/people/AdminClientDirectory.tsx:60-78,157-160,405-425",
+      "src/features/admin/identity/useAdminIdentityCommands.ts:92-114"
+    ]
+  },
+  {
+    "id": "people.clients.participants.archive_restore",
+    "tab": "people",
+    "screen": "Clients -> participant detail action row",
+    "capability": "Archive a Participant or reactivate an archived one",
+    "entryPoint": "AdminClientParticipantDetail 'Archive' / 'Restore' buttons",
+    "userAction": "Click 'Archive' or 'Restore' (NO confirmation dialog today)",
+    "states": [
+      "archiveBlockedByCommitments notice (server-enforced)",
+      "pending",
+      "stale",
+      "forbidden"
+    ],
+    "commandOrReadModel": "commands archive_participant / reactivate_participant (reason 'Admin client directory participant update')",
+    "currentResult": "Participant lifecycle becomes archived/active; server blocks archive while commitments exist",
+    "destructive": true,
+    "sourceFiles": [
+      "src/features/admin/people/AdminClientParticipantDetail.tsx:84-86,161-182",
+      "src/features/admin/people/AdminClientDirectory.tsx:426-449",
+      "packages/shared-domain/src/canonical/identityAdministration.ts:330-360"
+    ]
+  },
+  {
+    "id": "people.clients.error_and_refresh",
+    "tab": "people",
+    "screen": "Clients surface (global behaviour)",
+    "capability": "Canonical error mapping + automatic refresh on stale revision; success notice",
+    "entryPoint": "AdminClientDirectory.runAttempt + error/notice paragraphs",
+    "userAction": "Any mutation",
+    "states": [
+      "stale -> 'data was stale and refreshed' + reads.refresh() + participantRead.refresh()",
+      "forbidden -> 'Administrator permission required.'",
+      "other -> server message or 'The operation failed.'",
+      "success -> 'Saved.'"
+    ],
+    "commandOrReadModel": "toCanonicalCommandClientError(caught,'admin_clients') over command results",
+    "currentResult": "Single inline error paragraph (role=alert) + inline notice paragraph; post-command refresh of both reads",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/people/AdminClientDirectory.tsx:163-194,236-241",
+      "src/lib/canonical/mapCanonicalCommandError.ts"
+    ]
+  },
+  {
+    "id": "people.instructors.directory.list",
+    "tab": "people",
+    "screen": "Instructors directory (section id admin_instructors)",
+    "capability": "Paginated canonical instructor-catalog directory with server-side search",
+    "entryPoint": "AdminPanel people tab -> section id=admin_instructors -> AdminPeopleSection surface=instructors -> AdminInstructorDirectory",
+    "userAction": "Type in the search box (1000ms debounce), click 'Load more' or row 'Open'",
+    "states": [
+      "loading",
+      "emptyDirectory",
+      "emptySearch",
+      "read-failed+retry",
+      "permission-denied",
+      "hasMore/loadMore",
+      "selectedRowHighlight"
+    ],
+    "commandOrReadModel": "readModel admin_instructor_list via queryAdminIdentityReadModels (pageSize 20, cursor)",
+    "currentResult": "6-column table: Instructor | Specialty | Rate (KZT, ru-RU grouping) | Availability | Account | Actions(Open)",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/people/AdminInstructorDirectory.tsx:153-160,390-516",
+      "src/features/admin/people/AdminInstructorList.tsx:28-81",
+      "src/features/admin/people/adminInstructorContracts.ts:12,20-31"
+    ]
+  },
+  {
+    "id": "people.instructors.detail.commitments",
+    "tab": "people",
+    "screen": "Instructors detail aside",
+    "capability": "Show linked Account, Account lifecycle, future lessons, future course days, active availability blocks, and block reasons",
+    "entryPoint": "AdminInstructorDetail account + commitments sections",
+    "userAction": "Open an instructor",
+    "states": [
+      "accountNotLinked",
+      "account lifecycle active/disabled/uninitialized",
+      "unlinkBlocked/deleteBlocked status line",
+      "deleteBlockedReason === 'availability_cleanup_required' shows a generic failure line"
+    ],
+    "commandOrReadModel": "readModel admin_instructor_detail (AdminInstructorDetailReadModel)",
+    "currentResult": "Account name + lifecycle; three counters; a block notice; 'Instructor is unavailable.' when the detail cannot load",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/people/AdminInstructorDetail.tsx:138-172",
+      "src/features/admin/people/adminInstructorContracts.ts:33-61",
+      "packages/shared-domain/src/canonical/identityAdministration.ts:182-301"
+    ]
+  },
+  {
+    "id": "people.instructors.profile.edit",
+    "tab": "people",
+    "screen": "Instructors detail -> Edit profile panel",
+    "capability": "Edit every catalog profile field: name, specialty(ski/snowboard/both), rate KZT/hr, spoken languages (ru/en/de/fr/it/es checkboxes), experience years, phone, bioRu, bioEn, avatar URL",
+    "entryPoint": "AdminInstructorDetail 'Edit profile' -> AdminInstructorProfileEditor (submitLabel = Save profile)",
+    "userAction": "Edit fields, optionally upload a photo, click 'Save profile' or 'Cancel'",
+    "states": [
+      "pending",
+      "stale",
+      "forbidden",
+      "nameRequired",
+      "priceRequired",
+      "uploading (submit disabled)",
+      "cancel re-hydrates draft from detail"
+    ],
+    "commandOrReadModel": "command update_instructor_catalog_profile (reason 'Admin instructor directory profile update'; expectedRevision falls back to detail.revision, so revision 0 is preserved)",
+    "currentResult": "Catalog profile updated; bioRu also mirrors into legacy 'bio'; revision comes from the refreshed read model for the next save",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/people/AdminInstructorProfileEditor.tsx:35-247",
+      "src/features/admin/people/AdminInstructorDirectory.tsx:317-351",
+      "src/features/admin/people/adminInstructorContracts.ts:63-144",
+      "packages/shared-domain/src/canonical/instructorSpokenLanguage.ts:3"
+    ]
+  },
+  {
+    "id": "people.instructors.photo.upload",
+    "tab": "people",
+    "screen": "Instructors profile editor -> avatar",
+    "capability": "Upload a center-cropped 400x400 JPEG(0.8) instructor photo to Firebase Storage and set the returned URL into the profile draft",
+    "entryPoint": "AdminInstructorProfileEditor file input -> AdminInstructorDirectory.handleUploadPhoto",
+    "userAction": "Pick an image file (accept=image/*); preview appears; save is required to persist the URL",
+    "states": [
+      "uploading (button label 'Uploading photo…', submit disabled)",
+      "error -> text.mutationFailed",
+      "preview img 64x64",
+      "manual avatarUrl text field remains available"
+    ],
+    "commandOrReadModel": "direct Firebase Storage uploadImage() at instructorAssetStoragePath(LIVE_CANONICAL_EXECUTION_SCOPE, instructorId) — no Firestore command",
+    "currentResult": "URL lands in the draft only; an abandoned form leaves an orphan Storage object",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/people/AdminInstructorDirectory.tsx:55-103,253-268,453-461,594-596",
+      "src/features/admin/people/AdminInstructorProfileEditor.tsx:208-230",
+      "src/infrastructure/firebase/storage.ts:5-9",
+      "packages/shared-domain/src/canonical/testStoragePaths.ts:127-139"
+    ]
+  },
+  {
+    "id": "people.instructors.create",
+    "tab": "people",
+    "screen": "Instructors -> Add instructor panel",
+    "capability": "Create an instructor catalog entry linked to an existing active, not-yet-linked Account",
+    "entryPoint": "AdminInstructorDirectory 'Add instructor' -> account picker + AdminInstructorProfileEditor (submitLabel = Create instructor)",
+    "userAction": "Pick an account (name auto-fills if blank), fill profile, click 'Create instructor'",
+    "states": [
+      "accountRequired",
+      "nameRequired",
+      "priceRequired",
+      "pending",
+      "stale",
+      "forbidden",
+      "picker emptyAccounts / unavailable-for-link list / Load more"
+    ],
+    "commandOrReadModel": "command create_instructor_catalog_entry with accountId and expectedRevision = picked account revision (reason 'Admin instructor directory create')",
+    "currentResult": "Instructor created, auto-selected in the detail pane, draft reset; a new instructorId becomes the active selection",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/people/AdminInstructorDirectory.tsx:270-315,404-464",
+      "src/features/admin/people/AdminInstructorAccountPicker.tsx:36-132",
+      "src/features/admin/people/adminInstructorContracts.ts:13"
+    ]
+  },
+  {
+    "id": "people.instructors.lifecycle.pause_resume",
+    "tab": "people",
+    "screen": "Instructors detail action bar",
+    "capability": "Pause/resume new bookings (isAvailable) with commitment-aware confirmation wording",
+    "entryPoint": "AdminInstructorDetail 'Pause new bookings' / 'Resume new bookings'",
+    "userAction": "Click Pause (window.confirm, wording depends on future commitments) or Resume (no confirm)",
+    "states": [
+      "confirmPause",
+      "confirmPauseWithFuture (+ inline reminder paragraph)",
+      "pending",
+      "stale",
+      "forbidden",
+      "reactivate blocked when linked Account disabled (server)"
+    ],
+    "commandOrReadModel": "commands deactivate_instructor_catalog / reactivate_instructor_catalog (reason 'Admin instructor directory lifecycle update')",
+    "currentResult": "Availability toggled; existing commitments are preserved",
+    "destructive": true,
+    "sourceFiles": [
+      "src/features/admin/people/AdminInstructorDirectory.tsx:597-630",
+      "src/features/admin/people/AdminInstructorDetail.tsx:186-205,301-305",
+      "packages/shared-domain/src/canonical/identityAdministration.ts:182-186"
+    ]
+  },
+  {
+    "id": "people.instructors.link_unlink_account",
+    "tab": "people",
+    "screen": "Instructors detail -> link panel / action bar",
+    "capability": "Link the instructor catalog entry to an Account, or unlink it (stop being an instructor)",
+    "entryPoint": "AdminInstructorDetail 'Link account' -> account picker; 'Stop being instructor' in the action bar",
+    "userAction": "Pick an account (link commits immediately) or click Stop being instructor (window.confirm)",
+    "states": [
+      "linking panel + cancel",
+      "unlinkBlockedByCommitments (button disabled + pre-guard error)",
+      "confirmStopBeingInstructor",
+      "pending",
+      "stale",
+      "forbidden",
+      "picker already-linked accounts hidden"
+    ],
+    "commandOrReadModel": "commands link_account_instructor_catalog (reason 'Admin instructor directory account link') / unlink_account_instructor_catalog (reason 'Admin instructor directory account unlink')",
+    "currentResult": "Account↔instructor link created/removed; existing commitments are not deleted; unlink refused while future lessons/course days exist",
+    "destructive": true,
+    "sourceFiles": [
+      "src/features/admin/people/AdminInstructorDirectory.tsx:353-388,631-662",
+      "src/features/admin/people/AdminInstructorDetail.tsx:206-235,324-335",
+      "packages/shared-domain/src/canonical/identityAdministration.ts:200-246"
+    ]
+  },
+  {
+    "id": "people.instructors.delete",
+    "tab": "people",
+    "screen": "Instructors detail -> red delete zone",
+    "capability": "Irreversible hard delete of the instructor catalog entry (Account and past lesson history retained)",
+    "entryPoint": "AdminInstructorDetail red zone -> 'Delete instructor' -> typed confirmation -> 'Delete permanently'",
+    "userAction": "Click Delete, then type DELETE (or УДАЛИТЬ) or the exact instructor name, then confirm",
+    "states": [
+      "armed (deleteConfirming)",
+      "typed confirm required (deleteConfirmMatches)",
+      "deleteBlockedByCommitments pre-guard -> 'Transfer or cancel future lessons and course days first.'",
+      "conflict error -> text.deleteBlocked",
+      "success closes the detail pane and refreshes account reads"
+    ],
+    "commandOrReadModel": "command delete_instructor_catalog_entry (reason 'Admin instructor directory hard delete'; effect resource_claim_changed)",
+    "currentResult": "Catalog entry deleted; linked Account and completed history preserved",
+    "destructive": true,
+    "sourceFiles": [
+      "src/features/admin/people/AdminInstructorDetail.tsx:99-103,245-299",
+      "src/features/admin/people/AdminInstructorDirectory.tsx:663-688",
+      "packages/shared-domain/src/canonical/auditEffectRegistry.ts:205",
+      "packages/shared-domain/src/canonical/identityAdministration.ts:245-301"
+    ]
+  },
+  {
+    "id": "people.instructors.cross_navigation",
+    "tab": "people",
+    "screen": "Instructors detail action bar",
+    "capability": "Jump to the linked client in People, or to today's Operations planner",
+    "entryPoint": "AdminInstructorDetail 'Open client' / 'Open planner'",
+    "userAction": "Click the button",
+    "states": [
+      "Open client hidden when no linkedAccountId",
+      "planner always shown",
+      "accountId must parse as AccountId or the navigation is skipped"
+    ],
+    "commandOrReadModel": "adminClientAccountSearchParams / adminPlannerSearchParams (instructorId is reserved but unused today)",
+    "currentResult": "navigates to ?tab=people&clientAccount=<id> or ?tab=operations&plannerDate=<today YYYY-MM-DD>",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/people/AdminInstructorDirectory.tsx:689-707",
+      "src/features/admin/people/AdminInstructorDetail.tsx:226-241",
+      "src/features/admin/adminNavigation.ts:105-134",
+      "src/features/admin/components/schedule/scheduleUtils.ts"
+    ]
+  },
+  {
+    "id": "people.roles.list",
+    "tab": "people",
+    "screen": "Admins/Roles (section id admin_roles)",
+    "capability": "List current administrators (Accounts filtered to role=admin) with Owner and Instructor badges, lifecycle, and open-client links",
+    "entryPoint": "AdminPanel people tab -> section id=admin_roles -> AdminPeopleSection surface=admins -> AdminRoleDirectory -> AdminRoleList",
+    "userAction": "Scroll, click 'Load more' or row 'Open client'",
+    "states": [
+      "loading",
+      "noAdministrators",
+      "read-failed+retry",
+      "permission-denied",
+      "hasMore/loadMore",
+      "ownerBadge",
+      "instructorBadge"
+    ],
+    "commandOrReadModel": "readModel admin_account_list with server role='admin' filter (pageSize 20) + admin_account_detail of the actor's own account",
+    "currentResult": "max-h-[360px] scrollable card list; name + Owner/Instructor badges + email + 'Administrator' + lifecycle label; 'Open client' per row",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/people/AdminRoleDirectory.tsx:31-43,71-79,203-218",
+      "src/features/admin/people/AdminRoleList.tsx:18-131",
+      "src/features/admin/people/adminRoleContracts.ts:3,7-18"
+    ]
+  },
+  {
+    "id": "people.roles.promote",
+    "tab": "people",
+    "screen": "Roles -> Add administrator picker",
+    "capability": "Grant admin role to an eligible Account (server-authorized, owner-oriented)",
+    "entryPoint": "AdminRoleDirectory 'Add administrator' -> AdminRoleAccountPicker -> shared onRequestConfirm modal -> change_account_role(role='admin')",
+    "userAction": "Search, pick an eligible account, click 'Make administrator', then Confirm in the portal modal",
+    "states": [
+      "ownerOnlyMutations banner hides the whole Add flow for non-authorized actors",
+      "emptyCandidates",
+      "unavailableForPromote list (inactive / already admin / owner / no revision / unauthorized)",
+      "selection cleared on search change",
+      "confirm disabled until a selectable row is chosen",
+      "pending",
+      "stale",
+      "mutationFailed"
+    ],
+    "commandOrReadModel": "command change_account_role role='admin' (expectedRevision from changeAccountRoleAuthorizedAction; key admin_role:promote:<entropy>; reason 'Admin role directory promote administrator')",
+    "currentResult": "Target Account becomes an administrator and appears in the current-administrators list",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/people/AdminRoleDirectory.tsx:143-161",
+      "src/features/admin/people/AdminRoleAccountPicker.tsx:35-155",
+      "packages/shared-domain/src/canonical/identityAdministration.ts:114-156,398-402",
+      "src/features/admin/components/AdminPanel.tsx:462-497"
+    ]
+  },
+  {
+    "id": "people.roles.demote",
+    "tab": "people",
+    "screen": "Roles -> current administrators list",
+    "capability": "Revoke admin role (admin -> user); owner rows are never demotable",
+    "entryPoint": "AdminRoleList 'Remove administrator rights' -> onRequestConfirm modal -> change_account_role(role='user')",
+    "userAction": "Click revoke, then Confirm in the portal modal",
+    "states": [
+      "button hidden unless canDemoteCanonicalAccountAdminRole (not owner, authorizedActions has change_account_role)",
+      "pending disables the button",
+      "stale",
+      "mutationFailed (raw server message; no forbidden->permissionDenied mapping)"
+    ],
+    "commandOrReadModel": "command change_account_role role='user' (key admin_role:demote:<entropy>; reason 'Admin role directory revoke administrator')",
+    "currentResult": "Account loses administrator rights; owner is protected and self-demotion is rejected server-side",
+    "destructive": true,
+    "sourceFiles": [
+      "src/features/admin/people/AdminRoleDirectory.tsx:103-148",
+      "src/features/admin/people/AdminRoleList.tsx:58-113",
+      "packages/shared-domain/src/canonical/identityAdministration.ts:114-131,159-167"
+    ]
+  },
+  {
+    "id": "people.identity.provisioning_and_resolution",
+    "tab": "people",
+    "screen": "Clients + Instructors (canonical identity provisioning)",
+    "capability": "Create/link/unlink the canonical Participant↔Account topology from the admin UI: self participant, dependent participant, instructor Account link",
+    "entryPoint": "Clients participant section; Instructors account link/unlink",
+    "userAction": "See people.clients.participants.provision_self / add_dependent and people.instructors.link_unlink_account",
+    "states": [
+      "IDs generated client-side via canonicalDeterministicHash + participantManagementIdFromGuestLink",
+      "idempotency keys admin_clients:<action>:<subject>:<entropy>",
+      "revision from authorizedActions; provision_self sends no expectedRevision",
+      "no global participant directory exists in the live People tab"
+    ],
+    "commandOrReadModel": "create_managed_dependent_participant, provision_self_participant_for_account, link/unlink_account_instructor_catalog via executeAdminIdentityAttempt -> callable executeCanonicalCommand",
+    "currentResult": "Identity graph repaired/extended; effects participant_access_changed + outbox_obligation_created; NO wallet/starter-credit effect from any People command",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/identity/useAdminIdentityCommands.ts:29-300",
+      "src/features/admin/identity/identityContracts.ts:18-106",
+      "src/features/admin/people/AdminClientDirectory.tsx:544-581",
+      "src/features/admin/people/AdminInstructorDirectory.tsx:353-384,641-662",
+      "packages/shared-domain/src/canonical/auditEffectRegistry.ts:176-209"
+    ]
+  },
+  {
+    "id": "people.identity.realtime_refresh",
+    "tab": "people",
+    "screen": "All three People surfaces (invisible infrastructure)",
+    "capability": "Cross-client freshness: Firestore revision doc + in-process command-result signal refresh all People lists/details",
+    "entryPoint": "useAdminIdentityReadModels(realtime:true) / useAdminParticipantDetail({realtime:true}) -> useAdminPeopleRevisionRefresh -> adminPeopleRevisionCoordinator",
+    "userAction": "Any admin action anywhere in the product (including other tabs)",
+    "states": [
+      "subscribe on first listener, unsubscribe when the last listener leaves",
+      "lastNotifiedRevision tracked separately from lastRevision",
+      "unknown command payloads ignored (safeParse)",
+      "non-realtime hooks (useAdminEligibleParticipants) do not subscribe"
+    ],
+    "commandOrReadModel": "Firestore doc admin_runtime/admin_people (AdminPeopleRevisionDocumentSchema) + payload.adminPeopleRevision on every command result",
+    "currentResult": "Lists and details re-query without a manual refresh button; CanonicalIdentityManager's Refresh button was the only manual one and it is dead code",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/identity/adminPeopleRevisionCoordinator.ts:1-69",
+      "src/features/admin/identity/subscribeAdminPeopleRevision.ts:8-17",
+      "src/features/admin/identity/adminPeopleLocalSync.ts:4-13",
+      "src/features/admin/identity/useAdminPeopleRevisionRefresh.ts:4-13",
+      "src/features/admin/identity/useAdminIdentityReadModels.ts:220-225,292-297",
+      "packages/shared-domain/src/canonical/adminPeopleRevision.ts:1-26",
+      "src/lib/admin/subscribeAdminRealtimeRevision.ts:22"
+    ]
+  },
+  {
+    "id": "people.legacy.compat_reexports",
+    "tab": "people",
+    "screen": "Compatibility barrel (not a UI surface)",
+    "capability": "Legacy import paths AdminRoleManager and ClientsManager still resolve to the canonical People surfaces",
+    "entryPoint": "src/features/admin/components/users/{AdminRoleManager,ClientsManager}.tsx -> people/{AdminRoleDirectory,AdminClientDirectory}",
+    "userAction": "none (no runtime consumer)",
+    "states": [
+      "DEAD as UI: no src/ file imports AdminRoleManager or ClientsManager; only src/features/admin/index.ts:18 re-exports them, and no consumer imports them from there (only FALLBACK_SLIDES and loadAdminPanel are consumed)"
+    ],
+    "commandOrReadModel": "n/a (pure re-export alias)",
+    "currentResult": "No user-visible capability; safe to drop from a rebuilt People tab without capability loss, but it is a live public barrel entry point of the admin feature",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/components/users/AdminRoleManager.tsx:1-2",
+      "src/features/admin/components/users/ClientsManager.tsx:1",
+      "src/features/admin/components/users/index.ts:1-2",
+      "src/features/admin/index.ts:18",
+      "tests/unit/adminUxParity.test.ts:479-503"
+    ]
+  },
+  {
+    "id": "people.identity.debug_console.dead",
+    "tab": "people",
+    "screen": "CanonicalIdentityManager (never mounted)",
+    "capability": "Reference console for the full identity command set: participants directory, diagnostics, management assign/revoke, catalog CRUD, repair owner guard",
+    "entryPoint": "src/features/admin/identity/CanonicalIdentityManager.tsx (exported from identity/index.ts, imported by nothing)",
+    "userAction": "none (unreachable)",
+    "states": [
+      "DEAD — four tests assert AdminPanel.tsx must NOT contain 'CanonicalIdentityManager' (adminClientIdentityBoundary.test.ts:21, adminInstructorIdentityBoundary.test.ts:28, adminRoleIdentityBoundary.test.ts:29, adminUxParity.test.ts:427)"
+    ],
+    "commandOrReadModel": "assign_participant_management_as_administrator, revoke_participant_management, repair_participant_management_owner_guard, admin_participant_list/detail — command branches and read scopes exist in production code with no other UI caller",
+    "currentResult": "Zero user-facing capability today. MUST NOT be re-mounted into People; if the rebuild needs these three commands it must add a boundary-compliant UI, not this console",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/identity/CanonicalIdentityManager.tsx:1-825",
+      "src/features/admin/identity/index.ts:1",
+      "src/features/admin/identity/useAdminIdentityCommands.ts:115-149,185-198",
+      "src/features/admin/identity/useAdminIdentityReadModels.ts:99-101,179-192"
+    ]
+  },
+  {
+    "id": "people.clients_and_instructors.test_only_helpers",
+    "tab": "people",
+    "screen": "Legacy adapters (no UI)",
+    "capability": "Legacy UserProfile/Instructor merge + local booking-occupancy helpers kept alive only by parity tests",
+    "entryPoint": "src/features/admin/people/adminPeopleMapping.ts, adminPeopleOccupancy.ts (imported only by tests/unit/adminUxParity.test.ts:13,24)",
+    "userAction": "none",
+    "states": [
+      "TEST_ONLY / legacy residue; boundary tests assert the live People surfaces must not contain mergeAdminClientDirectory / mergeAdminInstructorDirectory"
+    ],
+    "commandOrReadModel": "n/a (pure client-side mapping on legacy Booking/UserProfile types with legacy statuses pending|confirmed|pending_cancellation)",
+    "currentResult": "No capability. Occupancy is authoritative server-side (admin_instructor_detail); do not re-introduce client-side occupancy logic in the rebuild",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/people/adminPeopleMapping.ts:1-93",
+      "src/features/admin/people/adminPeopleOccupancy.ts:1-25",
+      "tests/unit/adminUxParity.test.ts:13,24,486-488"
+    ]
+  },
+  {
+    "id": "people.managed_participant_picker",
+    "tab": "people",
+    "screen": "Lesson Booking / Course Enrollment / Planner slot modal",
+    "capability": "Account search + eligible-Participant selection with self auto-select and ready-gating for provisioning",
+    "entryPoint": "AdminManagedParticipantPicker (imported by course-enrollments, training-records, lesson-bookings, slot-modal — never by People)",
+    "userAction": "Search an Account, pick a Participant",
+    "states": [
+      "loading option",
+      "noEligible",
+      "directoryError + retry",
+      "Load more",
+      "auto-select unique self hides the participant field",
+      "ready when selection exists or (autoSelectUniqueSelf and zero eligible -> caller may provision self)"
+    ],
+    "commandOrReadModel": "readModels admin_account_list (active|uninitialized only) + admin_eligible_participants; separate managedParticipantPickerReadModel with anti-spoofing guards",
+    "currentResult": "Selection {accountId, participantId, displayName, accountDisplayName?}; no mutations",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/identity/AdminManagedParticipantPicker.tsx:1-316",
+      "src/features/admin/identity/accountDirectorySearch.ts:9-137",
+      "src/features/admin/identity/useAdminIdentityReadModels.ts:302-333",
+      "src/features/admin/identity/identityContracts.ts:110-115",
+      "packages/shared-domain/src/canonical/readModels/managedParticipantPickerReadModel.ts:1-102"
+    ]
+  },
+  {
+    "id": "P01",
+    "tab": "product",
+    "screen": "courses_manager",
+    "capability": "List canonical courses (active/archived)",
+    "entryPoint": "Product tab > courses_manager section",
+    "userAction": "Switch lifecycle tab; scroll list; paginate",
+    "states": [
+      "loading",
+      "empty active",
+      "empty archived",
+      "error+retry",
+      "load more"
+    ],
+    "commandOrReadModel": "queryAdminCourseReadModels scope=admin_course_list v2",
+    "currentResult": "Bounded page of AdminCourseListItem cards with price, occupancy, chips",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/components/courses/CanonicalCoursesManager.tsx:2059-2263",
+      "CanonicalCourseDatabaseList.tsx"
+    ]
+  },
+  {
+    "id": "P02",
+    "tab": "product",
+    "screen": "courses_manager",
+    "capability": "Search courses",
+    "entryPoint": "Search input in list header",
+    "userAction": "Type query (title/titleRu/dates)",
+    "states": [
+      "query",
+      "no match"
+    ],
+    "commandOrReadModel": "client filter over loaded page",
+    "currentResult": "visibleTableCourses filtered",
+    "destructive": false,
+    "sourceFiles": [
+      "CanonicalCoursesManager.tsx:475,682-688,2115-2121"
+    ]
+  },
+  {
+    "id": "P03",
+    "tab": "product",
+    "screen": "courses_manager",
+    "capability": "Open course detail (read-only)",
+    "entryPoint": "Row click / Info button",
+    "userAction": "Click course card",
+    "states": [
+      "detail open",
+      "select prompt"
+    ],
+    "commandOrReadModel": "queryAdminCourseReadModels scope=admin_course_detail",
+    "currentResult": "6-tab workspace: overview/schedule/instructors/participants/enrollment/settings",
+    "destructive": false,
+    "sourceFiles": [
+      "CanonicalCoursesManager.tsx:1898-1913,2777-3319"
+    ]
+  },
+  {
+    "id": "P04",
+    "tab": "product",
+    "screen": "courses_manager",
+    "capability": "Create canonical course (provisioning manifest)",
+    "entryPoint": "Toolbar Add course / Clone course copy",
+    "userAction": "Fill form incl. period + per-day instructor availability; submit",
+    "states": [
+      "form",
+      "validation issues",
+      "pending",
+      "success",
+      "error",
+      "permission denied"
+    ],
+    "commandOrReadModel": "apply_canonical_course_provisioning_manifest (dryRun:false)",
+    "currentResult": "Course + CourseDays provisioned from one manifest",
+    "destructive": false,
+    "sourceFiles": [
+      "CanonicalCoursesManager.tsx:962-1413,2270-2776"
+    ]
+  },
+  {
+    "id": "P05",
+    "tab": "product",
+    "screen": "courses_manager",
+    "capability": "Clone course into a new course",
+    "entryPoint": "Row menu > Clone",
+    "userAction": "Click Clone; review prefilled schedule; save",
+    "states": [
+      "draft ready",
+      "days removable",
+      "add day",
+      "error if source has no CourseDays/instructors"
+    ],
+    "commandOrReadModel": "apply_canonical_course_provisioning_manifest",
+    "currentResult": "New course titled '(copy)' / '(копия)' with cloned days",
+    "destructive": false,
+    "sourceFiles": [
+      "adminCourseCloneDraft.ts:164-230",
+      "CanonicalCoursesManager.tsx:1915-1930"
+    ]
+  },
+  {
+    "id": "P06",
+    "tab": "product",
+    "screen": "courses_detail/settings",
+    "capability": "Structured course edit (title, price, capacity, roster, catalog content)",
+    "entryPoint": "Edit button on row",
+    "userAction": "Edit fields, type reason, Save changes",
+    "states": [
+      "edit form",
+      "reason missing",
+      "capacity range error",
+      "price invalid",
+      "permission denied",
+      "stale"
+    ],
+    "commandOrReadModel": "change_course_title, change_course_price, change_course_capacity, add/remove_course_roster_instructor, update_course_catalog_content",
+    "currentResult": "Sequential OCC-guarded command chain with per-step authoritative refresh",
+    "destructive": false,
+    "sourceFiles": [
+      "CanonicalCoursesManager.tsx:1426-1539,2890-3227"
+    ]
+  },
+  {
+    "id": "P07",
+    "tab": "product",
+    "screen": "courses_detail/settings",
+    "capability": "Set course capacity (1..64)",
+    "entryPoint": "Capacity field in edit form",
+    "userAction": "Enter value 1-64, save",
+    "states": [
+      "valid",
+      "out of range error"
+    ],
+    "commandOrReadModel": "change_course_capacity",
+    "currentResult": "capacity.totalSeats updated; occupied seats preserved server-side",
+    "destructive": false,
+    "sourceFiles": [
+      "CanonicalCoursesManager.tsx:1436-1441,1485-1493,2931-2942"
+    ]
+  },
+  {
+    "id": "P08",
+    "tab": "product",
+    "screen": "courses_detail/settings",
+    "capability": "Set course price (whole KZT)",
+    "entryPoint": "Price (KZT) field",
+    "userAction": "Enter non-negative integer, save",
+    "states": [
+      "valid",
+      "invalid"
+    ],
+    "commandOrReadModel": "change_course_price",
+    "currentResult": "course.price updated; displayed as 'N ₸'",
+    "destructive": false,
+    "sourceFiles": [
+      "CanonicalCoursesManager.tsx:1442-1445,1476-1484,2919-2930"
+    ]
+  },
+  {
+    "id": "P09",
+    "tab": "product",
+    "screen": "courses_manager",
+    "capability": "Toggle course visibility (hide/show from catalog)",
+    "entryPoint": "Row menu > Show/Hide course",
+    "userAction": "Click",
+    "states": [
+      "action hidden unless active + authorized"
+    ],
+    "commandOrReadModel": "update_course_catalog_content (isHidden)",
+    "currentResult": "content.isHidden flipped; 'Hidden' chip appears",
+    "destructive": false,
+    "sourceFiles": [
+      "CanonicalCoursesManager.tsx:1813-1828,2200-2207"
+    ]
+  },
+  {
+    "id": "P10",
+    "tab": "product",
+    "screen": "courses_manager",
+    "capability": "Reorder courses (move up/down)",
+    "entryPoint": "Row menu > Move up / Move down (or arrow buttons)",
+    "userAction": "Click; two sequential catalog updates swap order",
+    "states": [
+      "disabled at ends",
+      "action hidden unless active + authorized"
+    ],
+    "commandOrReadModel": "update_course_catalog_content (order) x2",
+    "currentResult": "Order values swapped between neighbours",
+    "destructive": false,
+    "sourceFiles": [
+      "CanonicalCoursesManager.tsx:1830-1852,2239-2246"
+    ]
+  },
+  {
+    "id": "P11",
+    "tab": "product",
+    "screen": "courses_manager",
+    "capability": "Archive course (lifecycle, not delete)",
+    "entryPoint": "Row menu > Archive (Trash2, destructive styling)",
+    "userAction": "Click; confirm modal",
+    "states": [
+      "confirm",
+      "builder error",
+      "success removes from active",
+      "stale"
+    ],
+    "commandOrReadModel": "archive_course via buildArchiveCourseCommandFromListItem",
+    "currentResult": "Course leaves active list; enrollments/attendance/payment history preserved",
+    "destructive": true,
+    "sourceFiles": [
+      "adminCourseArchiveCommand.ts:29-51",
+      "CanonicalCoursesManager.tsx:1854-1874"
+    ]
+  },
+  {
+    "id": "P12",
+    "tab": "product",
+    "screen": "courses_manager",
+    "capability": "Restore archived course",
+    "entryPoint": "Restore button in archived tab",
+    "userAction": "Click; confirm modal",
+    "states": [
+      "confirm",
+      "success moves to active"
+    ],
+    "commandOrReadModel": "reactivate_course via buildReactivateCourseCommandFromListItem",
+    "currentResult": "Course returns to active; schedule and history unchanged",
+    "destructive": false,
+    "sourceFiles": [
+      "adminCourseArchiveCommand.ts:54-75",
+      "CanonicalCoursesManager.tsx:1876-1896"
+    ]
+  },
+  {
+    "id": "P13",
+    "tab": "product",
+    "screen": "courses_detail/schedule",
+    "capability": "List course days",
+    "entryPoint": "Schedule workspace tab",
+    "userAction": "View dayOrder, local date, weekday, time range, duration, instructor, status chip",
+    "states": [
+      "empty (noSchedule)",
+      "per-day conflict",
+      "instructor unavailable",
+      "scheduled"
+    ],
+    "commandOrReadModel": "admin_course_detail courseDays",
+    "currentResult": "Chronologically ordered day cards",
+    "destructive": false,
+    "sourceFiles": [
+      "CanonicalCourseDaysEditor.tsx:96-271"
+    ]
+  },
+  {
+    "id": "P14",
+    "tab": "product",
+    "screen": "courses_detail/schedule",
+    "capability": "Add course day",
+    "entryPoint": "Add day button",
+    "userAction": "Set date/start/end/instructor; Save day",
+    "states": [
+      "draft",
+      "validation error",
+      "permission denied",
+      "conflict"
+    ],
+    "commandOrReadModel": "create_course_day (calendarInput + timezone)",
+    "currentResult": "New CourseDay appended",
+    "destructive": false,
+    "sourceFiles": [
+      "CanonicalCourseDayForm.tsx",
+      "CanonicalCoursesManager.tsx:1557-1583"
+    ]
+  },
+  {
+    "id": "P15",
+    "tab": "product",
+    "screen": "courses_detail/schedule",
+    "capability": "Reschedule course day",
+    "entryPoint": "Edit on day line",
+    "userAction": "Change date/time/duration; Save day",
+    "states": [
+      "no-op short-circuit",
+      "conflict",
+      "error"
+    ],
+    "commandOrReadModel": "reschedule_course_day with expectedCourseDayRevision",
+    "currentResult": "Day interval moved",
+    "destructive": false,
+    "sourceFiles": [
+      "CanonicalCoursesManager.tsx:1600-1625"
+    ]
+  },
+  {
+    "id": "P16",
+    "tab": "product",
+    "screen": "courses_detail/schedule",
+    "capability": "Reassign course day instructor",
+    "entryPoint": "Edit on day line",
+    "userAction": "Pick instructor; Save day",
+    "states": [
+      "validation",
+      "error"
+    ],
+    "commandOrReadModel": "reassign_course_day_instructor (expectedRevision = day.revision)",
+    "currentResult": "actualInstructorIds changed",
+    "destructive": false,
+    "sourceFiles": [
+      "CanonicalCoursesManager.tsx:1626-1645"
+    ]
+  },
+  {
+    "id": "P17",
+    "tab": "product",
+    "screen": "courses_detail/schedule",
+    "capability": "Remove course day",
+    "entryPoint": "Remove day button inside day form",
+    "userAction": "Click; confirm modal",
+    "states": [
+      "confirm",
+      "permission denied",
+      "error"
+    ],
+    "commandOrReadModel": "remove_course_day with expectedCourseDayRevision",
+    "currentResult": "CourseDay removed",
+    "destructive": true,
+    "sourceFiles": [
+      "CanonicalCourseDayForm.tsx:128-132",
+      "CanonicalCoursesManager.tsx:3252-3274"
+    ]
+  },
+  {
+    "id": "P18",
+    "tab": "product",
+    "screen": "courses_detail/enrollment",
+    "capability": "Open course enrollments & attendance",
+    "entryPoint": "Open enrollments and attendance button",
+    "userAction": "Click → routes to Operations with course filter",
+    "states": [
+      "enabled when onOpenEnrollments provided"
+    ],
+    "commandOrReadModel": "adminCourseEnrollmentSearchParams (URL)",
+    "currentResult": "Admin CourseEnrollment roster for that course",
+    "destructive": false,
+    "sourceFiles": [
+      "CanonicalCoursesManager.tsx:3278-3295",
+      "adminNavigation.ts:137-149"
+    ]
+  },
+  {
+    "id": "P19",
+    "tab": "product",
+    "screen": "courses_detail/settings",
+    "capability": "Upload course background image (optimized)",
+    "entryPoint": "Upload image toggle → drag/drop or file picker",
+    "userAction": "Drop or pick an image",
+    "states": [
+      "uploading spinner",
+      "invalid file error",
+      "upload failed"
+    ],
+    "commandOrReadModel": "optimizeCourseImage (webp, max 800x600, q0.82) + uploadImage(liveCourseCoverStoragePath)",
+    "currentResult": "Optimized URL written into bgImageUrl; preview rendered",
+    "destructive": false,
+    "sourceFiles": [
+      "CourseBackgroundImageField.tsx",
+      "courseImage.ts"
+    ]
+  },
+  {
+    "id": "P20",
+    "tab": "product",
+    "screen": "lesson_pricing",
+    "capability": "Configure additional-participant surcharge (₸/hour)",
+    "entryPoint": "Product tab > lesson_pricing section",
+    "userAction": "Enter non-negative whole KZT + reason; Save",
+    "states": [
+      "loading",
+      "unconfigured warning",
+      "invalid",
+      "stale (OCC reload)",
+      "saved",
+      "failed"
+    ],
+    "commandOrReadModel": "update_lesson_pricing_settings via executeAuthenticatedCanonicalCommand",
+    "currentResult": "lesson_pricing_settings/lesson_booking.additionalParticipantSurchargePerHourKzt updated with revision, audit, idempotency",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/components/settings/CanonicalLessonPricingSettings.tsx:48-97",
+      "functions/src/canonical/pricing/lessonPricingSettingsCommands.ts"
+    ]
+  },
+  {
+    "id": "P21",
+    "tab": "product",
+    "screen": "lesson_pricing",
+    "capability": "Configure max participants per lesson",
+    "entryPoint": "Same section",
+    "userAction": "Enter positive integer; Save",
+    "states": [
+      "same as P20"
+    ],
+    "commandOrReadModel": "update_lesson_pricing_settings.maxParticipantsPerLesson",
+    "currentResult": "maxParticipantsPerLesson persisted; no business upper bound (safe integer)",
+    "destructive": false,
+    "sourceFiles": [
+      "CanonicalLessonPricingSettings.tsx:121-131",
+      "packages/shared-domain/src/canonical/lessonPricingSettings.ts:27-32"
+    ]
+  },
+  {
+    "id": "P22",
+    "tab": "product",
+    "screen": "resort_data",
+    "capability": "Edit resort identity, geolocation and lift status",
+    "entryPoint": "Product tab > resort_data section",
+    "userAction": "Edit name/sub (EN+RU), lat/lon, showLifts, open/total lifts, OPEN toggle; Save",
+    "states": [
+      "skeleton",
+      "save pending",
+      "success/failure notification"
+    ],
+    "commandOrReadModel": "saveResortConfig / subscribeResortConfig (Firestore resort_data/config, merge)",
+    "currentResult": "Resort name, GPS and lift status persisted",
+    "destructive": false,
+    "sourceFiles": [
+      "sections/ResortDataSection.tsx",
+      "src/features/settings/resortService.ts:4,56-58"
+    ]
+  },
+  {
+    "id": "P23",
+    "tab": "product",
+    "screen": "resort_slider",
+    "capability": "Manage hero banner slides",
+    "entryPoint": "Product tab > resort_slider section",
+    "userAction": "Add / delete / reorder / show-hide slide; edit EN+RU line1/line2, background mode, wall or custom URL, mobile focal point; set interval 2-60 s; toggle random order; Save",
+    "states": [
+      "skeleton",
+      "no slides",
+      "save pending",
+      "reset-to-defaults confirm"
+    ],
+    "commandOrReadModel": "saveResortConfig {slides, slideIntervalSeconds, slidesRandomOrder}",
+    "currentResult": "Homepage banner content and rotation persisted",
+    "destructive": false,
+    "sourceFiles": [
+      "sections/ResortSliderSection.tsx",
+      "resortConfigDefaults.ts"
+    ]
+  },
+  {
+    "id": "P24",
+    "tab": "product",
+    "screen": "resort_slider",
+    "capability": "Reset banner slides to 4 curated defaults",
+    "entryPoint": "Reset to defaults button",
+    "userAction": "Click; window.confirm",
+    "states": [
+      "confirm",
+      "applied"
+    ],
+    "commandOrReadModel": "local state reset to FALLBACK_SLIDES + slidesRandomOrder=false",
+    "currentResult": "Slides replaced with the 4 built-in presets",
+    "destructive": true,
+    "sourceFiles": [
+      "ResortSliderSection.tsx:213-223"
+    ]
+  },
+  {
+    "id": "S01",
+    "tab": "system",
+    "screen": "system_settings header",
+    "capability": "Toggle instructor filters globally",
+    "entryPoint": "ToggleSwitch in System settings header",
+    "userAction": "Toggle",
+    "states": [
+      "on",
+      "off"
+    ],
+    "commandOrReadModel": "useSettingsStore.handleToggleFilters",
+    "currentResult": "settings/instructor_filters {enabled} persisted",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminSystemSettings.tsx:117-124",
+      "settingsStore.ts:48-51",
+      "settingsService.ts:15"
+    ]
+  },
+  {
+    "id": "S02",
+    "tab": "system",
+    "screen": "notification_retention",
+    "capability": "Set notification retention days (1..365, default 14)",
+    "entryPoint": "notification_retention section",
+    "userAction": "Enter value or press Enter; Save changes",
+    "states": [
+      "out of range → input reverted",
+      "saving",
+      "info notification"
+    ],
+    "commandOrReadModel": "useSettingsStore.handleSetNotificationRetentionDays",
+    "currentResult": "settings/notification_retention {days} persisted",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminSystemSettings.tsx:62-81,127-176",
+      "settingsStore.ts:52-56"
+    ]
+  },
+  {
+    "id": "S03",
+    "tab": "system",
+    "screen": "starter_credit",
+    "capability": "Set starter wallet credit (KZT)",
+    "entryPoint": "starter_credit section",
+    "userAction": "Enter amount; Save changes (button disabled without handler)",
+    "states": [
+      "out of range → reverted",
+      "saving",
+      "info notification"
+    ],
+    "commandOrReadModel": "useSettingsStore.handleSetStarterCreditKzt",
+    "currentResult": "settings/starter_credit persisted",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminSystemSettings.tsx:83-102,178-229",
+      "settingsStore.ts:57-61"
+    ]
+  },
+  {
+    "id": "S04",
+    "tab": "system",
+    "screen": "skill_matrix",
+    "capability": "Configure skill/level matrix",
+    "entryPoint": "skill_matrix section",
+    "userAction": "Set pass % (50-100); switch 3 level transitions; add/edit/delete items (category, title EN+RU, maxPoints, radar dimension); Save; Reset to defaults",
+    "states": [
+      "editing item",
+      "filter by transition",
+      "saving",
+      "reset confirm"
+    ],
+    "commandOrReadModel": "useSettingsStore.handleUpdateSkillConfig",
+    "currentResult": "settings/skill_config persisted; required score auto-derived per transition",
+    "destructive": false,
+    "sourceFiles": [
+      "SkillConfigManager.tsx",
+      "AdminSystemSettings.tsx:231-249"
+    ]
+  },
+  {
+    "id": "S05",
+    "tab": "system",
+    "screen": "skill_matrix",
+    "capability": "Reset skill matrix to defaults",
+    "entryPoint": "Reset button",
+    "userAction": "Click; window.confirm",
+    "states": [
+      "confirm",
+      "applied (pass% back to 80)"
+    ],
+    "commandOrReadModel": "local state → DEFAULT_SKILL_CONFIG",
+    "currentResult": "Skill items replaced with domain defaults",
+    "destructive": true,
+    "sourceFiles": [
+      "SkillConfigManager.tsx:94-99,116-122"
+    ]
+  },
+  {
+    "id": "S06",
+    "tab": "system",
+    "screen": "achievements_config",
+    "capability": "Configure achievements",
+    "entryPoint": "achievements_config section",
+    "userAction": "Add/delete achievements; edit icon, labelRu, labelEn, rule type (9 types), order, count threshold, skill item selection; Save",
+    "states": [
+      "empty",
+      "saving",
+      "delete confirm"
+    ],
+    "commandOrReadModel": "useSettingsStore.handleUpdateAchievementsConfig",
+    "currentResult": "settings/achievements_config persisted (normalized)",
+    "destructive": false,
+    "sourceFiles": [
+      "AchievementsManager.tsx",
+      "AdminSystemSettings.tsx:251-265"
+    ]
+  },
+  {
+    "id": "S07",
+    "tab": "system",
+    "screen": "danger_zone",
+    "capability": "(Former) clear student bookings — REMOVED",
+    "entryPoint": "clear_student_bookings section",
+    "userAction": "None — disabled notice",
+    "states": [
+      "notice only"
+    ],
+    "commandOrReadModel": "none",
+    "currentResult": "t('destructiveAdminToolsDisabled') placeholder; no destructive admin tool remains",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminSystemSettings.tsx:267-279"
+    ]
+  },
+  {
+    "id": "S08",
+    "tab": "system",
+    "screen": "testing",
+    "capability": "List TestSessions, actors and LIVE course templates",
+    "entryPoint": "System tab > AdminTestingPanel",
+    "userAction": "Refresh; select a session",
+    "states": [
+      "loading",
+      "load error",
+      "empty"
+    ],
+    "commandOrReadModel": "queryTestSessionReadModels: test_session_list, test_actor_directory, live_course_templates",
+    "currentResult": "Session/actor/template panels rendered",
+    "destructive": false,
+    "sourceFiles": [
+      "testing/AdminTestingPanel.tsx:125-152,360-591"
+    ]
+  },
+  {
+    "id": "S09",
+    "tab": "system",
+    "screen": "testing",
+    "capability": "Open test data context (?testSession=)",
+    "entryPoint": "Open button on an active session",
+    "userAction": "Click Open; later click Return to live",
+    "states": [
+      "banner shown",
+      "invalid param auto-stripped"
+    ],
+    "commandOrReadModel": "URL query key ADMIN_TEST_SESSION_QUERY_KEY='testSession'",
+    "currentResult": "All admin surfaces enter scoped test reads; amber banner visible",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminTestingPanel.tsx:264-285,291-313",
+      "adminNavigation.ts:65-86"
+    ]
+  },
+  {
+    "id": "S10",
+    "tab": "system",
+    "screen": "testing",
+    "capability": "Create TestSession",
+    "entryPoint": "Create TestSession details block",
+    "userAction": "Enter label, starting balance, pick templates/parent actors/instructor; Create",
+    "states": [
+      "invalid (button disabled)",
+      "pending",
+      "phase report",
+      "lifecycle error"
+    ],
+    "commandOrReadModel": "create_test_session",
+    "currentResult": "New isolated TestSession with wallet seed and course clones",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminTestingPanel.tsx:593-723"
+    ]
+  },
+  {
+    "id": "S11",
+    "tab": "system",
+    "screen": "testing",
+    "capability": "Close TestSession",
+    "entryPoint": "Close button",
+    "userAction": "Click (active only)",
+    "states": [
+      "pending",
+      "error"
+    ],
+    "commandOrReadModel": "close_test_session",
+    "currentResult": "Session status → closed",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminTestingPanel.tsx:724-736"
+    ]
+  },
+  {
+    "id": "S12",
+    "tab": "system",
+    "screen": "testing",
+    "capability": "Preview + execute TestSession deletion",
+    "entryPoint": "Delete → type confirmation → Execute delete",
+    "userAction": "Click Delete; read manifest counts/preserve; type TEST_SESSION_DELETE_CONFIRMATION; Execute",
+    "states": [
+      "manifest",
+      "confirmation invalid (disabled)",
+      "pending",
+      "error"
+    ],
+    "commandOrReadModel": "preview_test_session_delete then execute_test_session_delete (manifestId)",
+    "currentResult": "TestSession data destroyed; session list refreshes",
+    "destructive": true,
+    "sourceFiles": [
+      "AdminTestingPanel.tsx:737-773,689-701"
+    ]
+  },
+  {
+    "id": "S13",
+    "tab": "system",
+    "screen": "testing",
+    "capability": "Retry stuck TestSession maintenance",
+    "entryPoint": "Retry maintenance button (failed/provisioning/locked/resetting/deleting)",
+    "userAction": "Click",
+    "states": [
+      "pending",
+      "error"
+    ],
+    "commandOrReadModel": "retry_test_session_maintenance",
+    "currentResult": "Maintenance resumes",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminTestingPanel.tsx:774-792"
+    ]
+  },
+  {
+    "id": "S14",
+    "tab": "system",
+    "screen": "testing/reset",
+    "capability": "Preview TestSession reset manifest",
+    "entryPoint": "TestSessionResetSection preview button",
+    "userAction": "Click preview",
+    "states": [
+      "preview_loading",
+      "preview_ready",
+      "preview_expired",
+      "failed"
+    ],
+    "commandOrReadModel": "preview_test_session_reset",
+    "currentResult": "Manifest with counts, preserve list, live/foreign target safety counters, expiry",
+    "destructive": false,
+    "sourceFiles": [
+      "TestSessionResetSection.tsx:107-131,232-372"
+    ]
+  },
+  {
+    "id": "S15",
+    "tab": "system",
+    "screen": "testing/reset",
+    "capability": "Execute TestSession reset with confirmation modal",
+    "entryPoint": "Execute reset → confirm modal → Confirm execute",
+    "userAction": "Review destructiveTotal/preserve/reseed; click Confirm execute",
+    "states": [
+      "modal",
+      "executing",
+      "complete+verifier",
+      "failed"
+    ],
+    "commandOrReadModel": "execute_test_session_reset (manifestId + TEST_SESSION_RESET_CONFIRMATION, idempotency execute_reset_<manifestId>)",
+    "currentResult": "Test bookings/identity/storage wiped; wallet reseeded; courses reprovisioned",
+    "destructive": true,
+    "sourceFiles": [
+      "TestSessionResetSection.tsx:133-157,407-474"
+    ]
+  },
+  {
+    "id": "S16",
+    "tab": "system",
+    "screen": "error_logs",
+    "capability": "List, search, filter and expand error logs",
+    "entryPoint": "error_logs section (System tab, collapsed)",
+    "userAction": "Search, choose source filter, click row to expand stack/UA/URL, Load more",
+    "states": [
+      "skeleton",
+      "no match",
+      "expanded row",
+      "hasMore"
+    ],
+    "commandOrReadModel": "subscribeErrorLogs onSnapshot (error_logs, orderBy timestamp desc, limit pageSize+1)",
+    "currentResult": "Error log list with details",
+    "destructive": false,
+    "sourceFiles": [
+      "ErrorLogsPanel.tsx",
+      "src/features/admin/adminService.ts:17-34"
+    ]
+  },
+  {
+    "id": "S17",
+    "tab": "system",
+    "screen": "error_logs",
+    "capability": "Delete a single error log",
+    "entryPoint": "Per-row Trash2",
+    "userAction": "Click (no confirmation)",
+    "states": [
+      "success notification",
+      "error logged"
+    ],
+    "commandOrReadModel": "deleteErrorLog → deleteDoc error_logs/{id}",
+    "currentResult": "Log removed",
+    "destructive": true,
+    "sourceFiles": [
+      "ErrorLogsPanel.tsx:51-58,170-179",
+      "adminService.ts:36-43"
+    ]
+  },
+  {
+    "id": "S18",
+    "tab": "system",
+    "screen": "error_logs",
+    "capability": "Clear all loaded error logs",
+    "entryPoint": "Clear all logs danger button",
+    "userAction": "Click; confirm modal",
+    "states": [
+      "confirm",
+      "success",
+      "error"
+    ],
+    "commandOrReadModel": "deleteErrorLogs(ids) → Promise.all(deleteErrorLog)",
+    "currentResult": "All currently loaded logs removed",
+    "destructive": true,
+    "sourceFiles": [
+      "ErrorLogsPanel.tsx:60-70,90-97",
+      "adminService.ts:45-47"
+    ]
+  },
+  {
+    "id": "U01",
+    "tab": "system",
+    "screen": "all collapsible sections",
+    "capability": "Per-section expand/collapse with persistence",
+    "entryPoint": "Section headers",
+    "userAction": "Click toggle",
+    "states": [
+      "open",
+      "closed"
+    ],
+    "commandOrReadModel": "localStorage key admin_section_open_<id>",
+    "currentResult": "Layout remembered per admin per browser",
+    "destructive": false,
+    "sourceFiles": [
+      "AdminCollapsibleSection.tsx:35-64"
+    ]
+  },
+  {
+    "id": "U02",
+    "tab": "system",
+    "screen": "all admin mutations",
+    "capability": "Mandatory reason for every canonical Course mutation",
+    "entryPoint": "window.prompt (reason) or the edit form reason field",
+    "userAction": "Type reason; empty aborts the command",
+    "states": [
+      "empty → abort",
+      "provided"
+    ],
+    "commandOrReadModel": "reasonExplanation in every Course intent",
+    "currentResult": "Audited reason recorded server-side",
+    "destructive": false,
+    "sourceFiles": [
+      "CanonicalCoursesManager.tsx:836,900,1429-1435,1556,1749"
+    ]
+  },
+  {
+    "id": "fin.overview.periods",
+    "tab": "finance",
+    "screen": "financial_overview",
+    "capability": "Switch the financial overview period between day / week / month",
+    "entryPoint": "Finance tab > FinancialOverview period buttons (AdminFinancialOverviewHost)",
+    "userAction": "Click one of the three period buttons",
+    "states": [
+      "selected day",
+      "selected week",
+      "selected month"
+    ],
+    "commandOrReadModel": "queryAdminFinanceReadModels({scope:'admin_financial_overview', period, localDate, timeZone})",
+    "currentResult": "Totals recomputed server-side for the IANA-zone window; ADMIN_FINANCIAL_OVERVIEW_PERIODS = ['day','week','month']",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/components/finance/FinancialOverview.tsx:53-72",
+      "src/features/admin/operations/AdminFinancialOverviewHost.tsx",
+      "packages/shared-domain/src/canonical/financialOverviewPolicy.ts:11-12,34-68"
+    ]
+  },
+  {
+    "id": "fin.overview.totals",
+    "tab": "finance",
+    "screen": "financial_overview",
+    "capability": "Read net settled revenue, settled revenue and refunds for the selected period",
+    "entryPoint": "Finance tab > revenue tile",
+    "userAction": "(read only)",
+    "states": [
+      "loading '…'",
+      "read error (adminFinanceOverviewLoadFailed)",
+      "truncated (amber, adminFinanceOverviewTruncated)",
+      "ready with settled+refunded subline"
+    ],
+    "commandOrReadModel": "AdminFinancialOverviewReadModel{settledRevenueKzt, refundedKzt, netSettledKzt, truncated, window}",
+    "currentResult": "Three KZT figures derived from MonetaryEvent paymentEffect deltas; refunds do not change settledAmount (ADR-0003) so they are only subtracted when a settlement delta is absent",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/components/finance/FinancialOverview.tsx:37-101",
+      "packages/shared-domain/src/canonical/financialOverviewPolicy.ts:79-105"
+    ]
+  },
+  {
+    "id": "fin.overview.openMovement",
+    "tab": "finance",
+    "screen": "financial_overview",
+    "capability": "Drill from the overview tile into the school-movement ledger for the same period",
+    "entryPoint": "'open movement' link under the revenue figure",
+    "userAction": "Click",
+    "states": [
+      "link hidden unless onOpenPeriodMovement is provided",
+      "navigated"
+    ],
+    "commandOrReadModel": "URL tab=finance&movement=1&movementPeriod=<period> (ADMIN_FINANCE_MOVEMENT_FOCUS_QUERY_KEY / _PERIOD_QUERY_KEY)",
+    "currentResult": "canonical_school_movement section force-opens and filters to the same period",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/components/finance/FinancialOverview.tsx:102-110",
+      "src/features/admin/adminNavigation.ts:25-26,202-208",
+      "src/features/admin/components/AdminPanel.tsx:336"
+    ]
+  },
+  {
+    "id": "fin.guestFunds.list",
+    "tab": "finance",
+    "screen": "canonical_guest_finance",
+    "capability": "List guest-originated payments with payer, service and money columns",
+    "entryPoint": "Finance tab > 'canonical_guest_finance' section (defaultOpen)",
+    "userAction": "Scroll, page, search locally",
+    "states": [
+      "loading",
+      "load more",
+      "permission-denied",
+      "read-failed + retry",
+      "empty"
+    ],
+    "commandOrReadModel": "queryAdminFinanceReadModels({scope:'admin_guest_funds', filter, cursor})",
+    "currentResult": "Rows of AdminGuestFundsDiscoveryRow: linkState linked|unlinked, guest name, payer, payment status, price/paid/outstanding/refunded/retained/writtenOff, and the lesson or enrollment service summary",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/finance/CanonicalGuestFinancePanel.tsx",
+      "src/features/admin/finance/useAdminGuestFundsReadModel.ts",
+      "packages/shared-domain/src/canonical/readModels/adminFinanceReadModel.ts:227-302"
+    ]
+  },
+  {
+    "id": "fin.guestFunds.filter",
+    "tab": "finance",
+    "screen": "canonical_guest_finance",
+    "capability": "Filter guest funds by all / unlinked / linked / outstanding / unpaid / partially_paid / paid / refunded / partially_refunded",
+    "entryPoint": "Filter select above the guest funds table",
+    "userAction": "Choose a filter value",
+    "states": [
+      "9 exact filter values (ADMIN_GUEST_FUNDS_DISCOVERY_FILTERS)",
+      "filter change re-queries from page 1"
+    ],
+    "commandOrReadModel": "queryAdminFinanceReadModels({scope:'admin_guest_funds', filter})",
+    "currentResult": "Server-filtered guest payment rows",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/finance/CanonicalGuestFinancePanel.tsx:77,142-150",
+      "packages/shared-domain/src/canonical/readModels/adminFinanceReadModel.ts:227-239"
+    ]
+  },
+  {
+    "id": "fin.guestFunds.search",
+    "tab": "finance",
+    "screen": "canonical_guest_finance",
+    "capability": "Client-side free-text filter of the loaded guest funds page",
+    "entryPoint": "page search input",
+    "userAction": "Type",
+    "states": [
+      "no query",
+      "filtered",
+      "no matches"
+    ],
+    "commandOrReadModel": "local matchesPageLocalSearch over the loaded page only",
+    "currentResult": "Narrowed rows; explicitly NOT a server search",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/finance/CanonicalGuestFinancePanel.tsx:78,82-91"
+    ]
+  },
+  {
+    "id": "fin.guestFunds.openPayment",
+    "tab": "finance",
+    "screen": "canonical_guest_finance",
+    "capability": "Open a guest payment in the canonical finance panel",
+    "entryPoint": "'open payment' button on a guest funds row",
+    "userAction": "Click",
+    "states": [
+      "navigated"
+    ],
+    "commandOrReadModel": "URL tab=finance&payment=<paymentId>",
+    "currentResult": "canonical_finance section force-opens on that payment detail",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/finance/CanonicalGuestFinancePanel.tsx:275",
+      "src/features/admin/components/AdminPanel.tsx:311-319"
+    ]
+  },
+  {
+    "id": "fin.guestFunds.openSubject",
+    "tab": "finance",
+    "screen": "canonical_guest_finance",
+    "capability": "Navigate from a guest payment to the underlying lesson or enrollment",
+    "entryPoint": "row action buttons (open lesson / open enrollment)",
+    "userAction": "Click",
+    "states": [
+      "booking row -> training records",
+      "enrollment row -> training records"
+    ],
+    "commandOrReadModel": "URL tab=operations&booking=… | tab=operations&enrollment=…",
+    "currentResult": "Unified training-records section opens the record so the admin can link the guest identity",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/finance/CanonicalGuestFinancePanel.tsx:284-310"
+    ]
+  },
+  {
+    "id": "fin.wallet.open",
+    "tab": "finance",
+    "screen": "canonical_finance",
+    "capability": "Open a wallet by Account id (deep link or manual paste)",
+    "entryPoint": "Finance tab > 'canonical_finance' section > account input + Open",
+    "userAction": "Type an AccountId and click Open, or arrive with ?account=",
+    "states": [
+      "empty",
+      "invalid id ignored",
+      "loaded",
+      "not found (adminFinanceAccountUnavailable)"
+    ],
+    "commandOrReadModel": "queryAdminFinanceReadModels({scope:'admin_wallet', accountId, cursor})",
+    "currentResult": "AdminWalletReadModel: accountIdentity, accountStatus active|unavailable, exists, balance KZT, revision, eventRevision, allowedActions, paged monetary events",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/components/finance/CanonicalFinancePanel.tsx:415-557",
+      "src/features/admin/components/finance/useAdminFinanceReadModels.ts:51-80"
+    ]
+  },
+  {
+    "id": "fin.wallet.fund",
+    "tab": "finance",
+    "screen": "canonical_finance",
+    "capability": "Record a manual wallet funding (cash/bank top-up) for an account",
+    "entryPoint": "Wallet panel > amount + reason inputs + 'Fund wallet' button",
+    "userAction": "Enter whole KZT amount, enter a reason, click Fund wallet, confirm in the shared admin confirm modal",
+    "states": [
+      "invalid (KztMinorUnitsSchema fails)",
+      "confirm modal",
+      "pending",
+      "success (adminFinanceFundingSuccess)",
+      "failure with Retry Same Action"
+    ],
+    "commandOrReadModel": "record_manual_wallet_funding (expectedWalletRevision from authorizedActions, idempotencyKey admin_finance:record_manual_wallet_funding:<uuid>)",
+    "currentResult": "Wallet balance increased server-side; a MonetaryEvent is appended; client never writes the wallet document",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/components/finance/CanonicalFinancePanel.tsx:245-300,480-540",
+      "src/features/admin/components/finance/financeContracts.ts:38-55"
+    ]
+  },
+  {
+    "id": "fin.wallet.ledger",
+    "tab": "finance",
+    "screen": "canonical_finance",
+    "capability": "Read the account's monetary event ledger with cursor pagination",
+    "entryPoint": "Wallet panel > 'Monetary events' list",
+    "userAction": "Scroll / click Load more",
+    "states": [
+      "empty (adminFinanceEventsEmpty)",
+      "paged",
+      "load more"
+    ],
+    "commandOrReadModel": "AdminFinanceEventPage{events, nextCursor, hasMore} merged by eventId",
+    "currentResult": "Append-only event history (wallet_credit, manual_payment, refund_to_wallet, admin_price_adjustment, write_off, correction, …)",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/components/finance/CanonicalFinancePanel.tsx:542-555",
+      "packages/shared-domain/src/canonical/paymentWallet.ts:320-333"
+    ]
+  },
+  {
+    "id": "fin.payment.open",
+    "tab": "finance",
+    "screen": "canonical_finance",
+    "capability": "Open a payment by PaymentId (deep link or manual paste)",
+    "entryPoint": "Finance tab > payment input + Open",
+    "userAction": "Type a PaymentId and click Open, or arrive with ?payment=",
+    "states": [
+      "empty",
+      "invalid id ignored",
+      "loaded",
+      "not found (adminFinancePaymentNotFound)"
+    ],
+    "commandOrReadModel": "queryAdminFinanceReadModels({scope:'admin_payment_detail', paymentId, cursor})",
+    "currentResult": "AdminPaymentDetailReadModel with the full accounting field set, providerState, relatedIssues and allowedActions",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/components/finance/CanonicalFinancePanel.tsx:562-597",
+      "packages/shared-domain/src/canonical/readModels/adminFinanceReadModel.ts:137-161"
+    ]
+  },
+  {
+    "id": "fin.payment.inspect",
+    "tab": "finance",
+    "screen": "canonical_finance",
+    "capability": "Inspect the full Payment accounting breakdown",
+    "entryPoint": "Payment detail panel",
+    "userAction": "(read only)",
+    "states": [
+      "subject, payer, status, revision always shown",
+      "original price only when it differs from current price",
+      "refunded/retained/settled/written-off rows only when non-zero"
+    ],
+    "commandOrReadModel": "Payment{originalPrice, price, paidAmount, refundedAmount, retainedAmount, settledAmount, writtenOffAmount, outstandingAmount, paymentStatus}",
+    "currentResult": "Every amount is whole KZT; invariant price = settled + writtenOff + outstanding is server-enforced",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/components/finance/CanonicalFinancePanel.tsx:599-637",
+      "packages/shared-domain/src/canonical/paymentWallet.ts:200-293"
+    ]
+  },
+  {
+    "id": "fin.payment.correction",
+    "tab": "finance",
+    "screen": "canonical_finance",
+    "capability": "Apply a financial correction to a payment (admin_refund / write_off / reverse_write_off / rebuild_payment_projection)",
+    "entryPoint": "Payment detail > correction action select + amount + manual reference + reason",
+    "userAction": "Pick an allowed action, enter amount (<= maximumAmount) and a mandatory reason, click 'Apply correction', confirm",
+    "states": [
+      "actions deferred until an AdminIssue exists (unavailableReason missing_required_context)",
+      "invalid amount",
+      "confirm modal",
+      "pending",
+      "success (adminFinanceCorrectionSuccess)",
+      "failure with Retry Same Action"
+    ],
+    "commandOrReadModel": "record_financial_correction / record_audit_correction via executeAuthenticatedCanonicalCommand; every AdminPaymentAction requires adminIssueId + expectedAdminIssueRevision + expectedPaymentRevision and requiresReason: true",
+    "currentResult": "Server plans a FinancialCorrectionPlan (FINANCIAL_CORRECTION_KINDS = admin_refund, write_off, reverse_write_off, compensating_event) and appends MonetaryEvents; the wallet is never overdrawn (assertWalletCorrectionDoesNotOverdraw)",
+    "destructive": true,
+    "sourceFiles": [
+      "src/features/admin/components/finance/CanonicalFinancePanel.tsx:645-736",
+      "packages/shared-domain/src/canonical/readModels/adminFinanceReadModel.ts:90-103",
+      "packages/shared-domain/src/canonical/financialCorrectionPolicy.ts:32-39,214-232"
+    ]
+  },
+  {
+    "id": "fin.payment.relatedIssues",
+    "tab": "finance",
+    "screen": "canonical_finance",
+    "capability": "See the AdminIssues blocking corrections on this payment",
+    "entryPoint": "Payment detail > 'Related issues' block",
+    "userAction": "(read only; issues themselves open from the Operations tab)",
+    "states": [
+      "none (adminFinanceNoRelatedIssues)",
+      "list"
+    ],
+    "commandOrReadModel": "AdminPaymentDetailReadModel.relatedIssues (max 50)",
+    "currentResult": "Issue list; the issue inbox is the only place a resolution action exists, and it is itself a hand-off",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/components/finance/CanonicalFinancePanel.tsx:639-644"
+    ]
+  },
+  {
+    "id": "fin.payment.ledger",
+    "tab": "finance",
+    "screen": "canonical_finance",
+    "capability": "Read the payment's monetary event history",
+    "entryPoint": "Payment detail > 'Monetary events' list",
+    "userAction": "Click Load more",
+    "states": [
+      "empty",
+      "paged"
+    ],
+    "commandOrReadModel": "AdminFinanceEventPage scoped to the payment",
+    "currentResult": "Event trail for the payment subject",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/components/finance/CanonicalFinancePanel.tsx:740-752"
+    ]
+  },
+  {
+    "id": "fin.movement.list",
+    "tab": "finance",
+    "screen": "canonical_school_movement",
+    "capability": "Read the school-wide cash-flow ledger (all monetary events)",
+    "entryPoint": "Finance tab > 'canonical_school_movement' section (defaultOpen)",
+    "userAction": "Scroll, filter, page, search",
+    "states": [
+      "loading",
+      "empty",
+      "hasMore + load more",
+      "permission-denied / read-failed"
+    ],
+    "commandOrReadModel": "queryAdminFinanceReadModels({scope:'admin_school_movement', period?, localDate?, timeZone?, cursor})",
+    "currentResult": "Paged AdminMonetaryEventPresentation rows in KZT",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/finance/CanonicalSchoolMovementPanel.tsx:48-203",
+      "packages/shared-domain/src/canonical/readModels/adminFinanceReadModel.ts:183-199"
+    ]
+  },
+  {
+    "id": "fin.movement.period",
+    "tab": "finance",
+    "screen": "canonical_school_movement",
+    "capability": "Filter the school movement ledger by day / week / month",
+    "entryPoint": "Movement period control (deep-linked via ?movementPeriod=)",
+    "userAction": "Choose a period",
+    "states": [
+      "no period (all time)",
+      "day",
+      "week",
+      "month"
+    ],
+    "commandOrReadModel": "parseAdminFinanceMovementPeriod + ADMIN_FINANCIAL_OVERVIEW_PERIODS",
+    "currentResult": "Server window computed by adminFinancialOverviewWindow in the admin time zone",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/finance/CanonicalSchoolMovementPanel.tsx:49,67-72",
+      "src/features/admin/adminNavigation.ts:26,202-208"
+    ]
+  },
+  {
+    "id": "fin.movement.filters",
+    "tab": "finance",
+    "screen": "canonical_school_movement",
+    "capability": "Filter the movement ledger by direction (all/in/out/neutral) and by source kind",
+    "entryPoint": "Direction select + source-kind select + local search box",
+    "userAction": "Change any control",
+    "states": [
+      "all / in / out / neutral",
+      "source kind (wallet|provider|cash|bank_transfer|manual_external|admin_adjustment|system)",
+      "local search"
+    ],
+    "commandOrReadModel": "local filters over the loaded page (direction, sourceKind, page, search)",
+    "currentResult": "Filtered event rows; search and filters are page-local, not server queries",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/finance/CanonicalSchoolMovementPanel.tsx:58-61,110-200",
+      "packages/shared-domain/src/canonical/paymentWallet.ts:335-345"
+    ]
+  },
+  {
+    "id": "fin.movement.focus",
+    "tab": "finance",
+    "screen": "canonical_school_movement",
+    "capability": "Deep-link focus a specific movement (?movement=) forcing the section open",
+    "entryPoint": "Section header forceOpen in AdminPanel",
+    "userAction": "Arrive with the query param",
+    "states": [
+      "collapsed -> forced open + scrolled"
+    ],
+    "commandOrReadModel": "URL ADMIN_FINANCE_MOVEMENT_FOCUS_QUERY_KEY='movement'",
+    "currentResult": "Movement panel opened and scrolled into view after 320ms",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/components/AdminPanel.tsx:336",
+      "src/features/admin/adminNavigation.ts:25,38-49"
+    ]
+  },
+  {
+    "id": "fin.realtime",
+    "tab": "finance",
+    "screen": "finance (all sections)",
+    "capability": "Live refresh of wallet, payment, movement, guest-funds and issue surfaces from the admin_finance revision document",
+    "entryPoint": "background revision subscription",
+    "userAction": "(automatic)",
+    "states": [
+      "listening",
+      "backoff 1s->30s on retryable Firestore errors",
+      "unsubscribed at zero listeners"
+    ],
+    "commandOrReadModel": "subscribeAdminFinanceRevision on admin_runtime/admin_finance + adminFinanceLocalSync.applyAdminFinanceCommandResult (payload.adminFinanceRevision)",
+    "currentResult": "Every admin command that moves money bumps the revision; the affected read models re-query without user action",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/finance/subscribeAdminFinanceRevision.ts",
+      "src/features/admin/finance/adminFinanceRevisionCoordinator.ts",
+      "src/features/admin/finance/adminFinanceLocalSync.ts",
+      "src/features/admin/finance/useAdminFinanceRevisionRefresh.ts"
+    ]
+  },
+  {
+    "id": "fin.money.authority",
+    "tab": "finance",
+    "screen": "authorization",
+    "capability": "Server-authoritative money model — the client never writes Wallet / Payment / MonetaryEvent",
+    "entryPoint": "(architecture invariant, not a control)",
+    "userAction": "(none)",
+    "states": [
+      "n/a"
+    ],
+    "commandOrReadModel": "Wallet{accountId, currency:'KZT', balance, revision, eventRevision} · Payment{subjectType booking|course_enrollment, 8 accounting fields, paymentStatus ∈ unpaid|partially_paid|paid|refunded|partially_refunded, incrementalRequirements} · MonetaryEvent{eventKind ×11, sourceKind ×7, paymentEffect deltas, actor}",
+    "currentResult": "firestore.rules denies all client writes to /users/{id}/wallet/{state}, /wallet_ledger, /activity_logs; only callable commands via Admin SDK may mutate money, and every one carries an idempotency key",
+    "destructive": false,
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/paymentWallet.ts:200-348",
+      "firestore.rules:468-475,652-662",
+      "src/features/admin/components/finance/useAdminFinanceReadModels.ts"
+    ]
+  },
+  {
+    "id": "fin.correction.gating",
+    "tab": "finance",
+    "screen": "canonical_finance",
+    "capability": "Financial corrections are only available through an AdminIssue, never as a free-standing refund button",
+    "entryPoint": "AdminPaymentAction.allowedActions from the read model",
+    "userAction": "(constraint)",
+    "states": [
+      "allowedActions empty when no issue",
+      "unavailableReason='missing_required_context'",
+      "actions marked availability:'deferred'"
+    ],
+    "commandOrReadModel": "AdminPaymentActionSchema requires {kind, adminIssueId, expectedAdminIssueRevision, expectedPaymentRevision, maximumAmount?, requiresReason:true}",
+    "currentResult": "An admin cannot invent a refund/write-off: it must first be opened as a financial_reconciliation_mismatch AdminIssue. This is the single most important money-preservation constraint",
+    "destructive": false,
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/readModels/adminFinanceReadModel.ts:90-103",
+      "packages/shared-domain/src/canonical/adminIssuePolicy.ts:85-91"
+    ]
+  },
+  {
+    "id": "authz.route.gate",
+    "tab": "system",
+    "screen": "authorization",
+    "capability": "Client-side /admin route guard",
+    "entryPoint": "src/app/routes/AppRoutes.tsx:40 <Route path=\"/admin\" element={<AdminRouteContainer/>} wrapped in AdminRoute",
+    "userAction": "Navigate to /admin",
+    "states": [
+      "auth/profile loading -> AppInitSkeleton (checkingCredentials)",
+      "no profile -> Navigate to fallbackPath '/'",
+      "role !== 'admin' -> Navigate to '/'",
+      "otherwise -> AdminPanel"
+    ],
+    "commandOrReadModel": "RouteGate gateType='admin' checks userProfile.role !== 'admin' only",
+    "currentResult": "The only /admin route path; the guard does NOT distinguish systemRole==='owner' from a plain admin",
+    "destructive": false,
+    "sourceFiles": [
+      "src/app/routes/AppRoutes.tsx:40",
+      "src/app/routes/AdminRouteContainer.tsx:45",
+      "src/features/shell/RouteGate.tsx:19-56"
+    ]
+  },
+  {
+    "id": "authz.firestore.adminHelper",
+    "tab": "system",
+    "screen": "authorization",
+    "capability": "Firestore admin gate is a document lookup on users/{uid} (role / systemRole), not a custom claim",
+    "entryPoint": "firestore.rules function isAdmin() / isSystemOwner()",
+    "userAction": "(constraint)",
+    "states": [
+      "isAdmin = isSystemOwner() OR users/{uid}.role == 'admin'",
+      "isSystemOwner = users/{uid}.systemRole == 'owner'"
+    ],
+    "commandOrReadModel": "firestore.rules:27-39",
+    "currentResult": "Every admin-relevant allow rule costs one exists()+get() on the caller's own user document",
+    "destructive": false,
+    "sourceFiles": [
+      "firestore.rules:27-39"
+    ]
+  },
+  {
+    "id": "authz.firestore.denied",
+    "tab": "system",
+    "screen": "authorization",
+    "capability": "Client SDK cannot write canonical identity, money or review aggregates at all",
+    "entryPoint": "firestore.rules match blocks",
+    "userAction": "(constraint)",
+    "states": [
+      "allow read, write: if false"
+    ],
+    "commandOrReadModel": "participants, guest_contacts, participant_management, participant_blocks, instructor_relationships, reviews, instructor_reviews, instructor_rating_summaries, participant_progress, participant_achievements, participant_lesson_feedback, participant_management_active_owner, function_idempotency, guest_reservation_admission",
+    "currentResult": "All of these are Admin-SDK/callable-only. An admin UI rebuild must keep every write going through executeCanonicalCommand, never direct Firestore",
+    "destructive": false,
+    "sourceFiles": [
+      "firestore.rules:7-9,488-538,692-698"
+    ]
+  },
+  {
+    "id": "authz.firestore.adminWritable",
+    "tab": "system",
+    "screen": "authorization",
+    "capability": "Firestore paths an admin client may still write directly (legacy, non-canonical)",
+    "entryPoint": "firestore.rules allow write rules",
+    "userAction": "(constraint)",
+    "states": [
+      "admin write allowed"
+    ],
+    "commandOrReadModel": "availability_slots, availability_hour_locks, /settings/{id} (except guest_wallet, and starter_credit only via validStarterCreditSetting), /courses (only when legacyAdminCourseWriteAllowed and the doc is not canonical-protected), course_catalog_content, notifications, error_logs, resort_data",
+    "currentResult": "These are exactly the places the admin UI still uses setDoc: settingsStore (instructor_filters, notification_retention, starter_credit, skill_config, achievements_config), resortService (resort_data/config) and error_logs deletes. Everything else must be a canonical command",
+    "destructive": false,
+    "sourceFiles": [
+      "firestore.rules:600-640,676-688,717-720",
+      "src/features/settings/settingsService.ts",
+      "src/features/settings/resortService.ts",
+      "src/features/admin/adminService.ts"
+    ]
+  },
+  {
+    "id": "authz.firestore.adminRuntime",
+    "tab": "system",
+    "screen": "authorization",
+    "capability": "Admin realtime revision documents are admin-readable and server-write-only",
+    "entryPoint": "firestore.rules match /admin_runtime/{documentId}",
+    "userAction": "(constraint)",
+    "states": [
+      "read allowed only for the seven known admin document ids",
+      "write: if false"
+    ],
+    "commandOrReadModel": "admin_issue_inbox, admin_lesson_bookings, admin_planner, admin_courses, admin_finance, admin_people, admin_booking_change_requests",
+    "currentResult": "This is the entire realtime invalidation channel for the admin tabs. Any new admin section must be added here or it silently loses live refresh",
+    "destructive": false,
+    "sourceFiles": [
+      "firestore.rules:700-714"
+    ]
+  },
+  {
+    "id": "authz.command.catalog",
+    "tab": "system",
+    "screen": "authorization",
+    "capability": "All admin mutations go through one typed command catalog (95 kinds) with a generic-write denylist",
+    "entryPoint": "packages/shared-domain/src/canonical/commands/commandKinds.ts",
+    "userAction": "(constraint)",
+    "states": [
+      "COMMAND_KINDS has 96 entries",
+      "FORBIDDEN_GENERIC_COMMAND_KINDS = setStatus, updateStatus, patchBooking, patchEnrollment, adjustWallet, changeBalance, setCapacity, writeDocument, genericMutation, transitionTo, patchAggregate, update_course"
+    ],
+    "commandOrReadModel": "executeCanonicalCommand callable via executeAuthenticatedCanonicalCommand(adminAccountId, {kind, intent, idempotencyKey, expectedRevision?, administratorContext?})",
+    "currentResult": "catalogExcludesGenericMutationCommands() asserts the denylist never appears. A rebuild must not add a direct Firestore money/booking/enrollment write",
+    "destructive": false,
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/commands/commandKinds.ts:1-118",
+      "src/lib/canonical/canonicalCommandClient.ts"
+    ]
+  },
+  {
+    "id": "authz.command.administratorContext",
+    "tab": "system",
+    "screen": "authorization",
+    "capability": "Administrator authority is asserted per command, not per page",
+    "entryPoint": "administratorContext: true in command envelopes",
+    "userAction": "(constraint)",
+    "states": [
+      "flag present for privileged commands",
+      "absent for self-service commands"
+    ],
+    "commandOrReadModel": "actor.kind must be 'account' and exercisedCapability must be 'administrator' (assertAdministratorMayMutateAdminIssue); system actor cannot masquerade as administrator",
+    "currentResult": "A rebuild must keep setting administratorContext on privileged commands; the server rejects admin-only aggregates otherwise",
+    "destructive": false,
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/commands/capabilities.ts:31-43",
+      "packages/shared-domain/src/canonical/adminIssuePolicy.ts:387-395"
+    ]
+  },
+  {
+    "id": "authz.command.idempotency",
+    "tab": "system",
+    "screen": "authorization",
+    "capability": "Every admin mutation carries a client-minted idempotency key and an expectedRevision for OCC",
+    "entryPoint": "idempotencyKey / expectedRevision in every command envelope",
+    "userAction": "(constraint)",
+    "states": [
+      "random key per click (admin_lesson:<action>:<uuid>, admin_finance:<action>:<uuid>, admin_clients:<action>:<id>:<uuid>, admin_role:<action>:<uuid>)",
+      "manifest-scoped key for TestSession reset (execute_reset_<manifestId>)",
+      "some commands intentionally omit expectedRevision (provision_self_participant_for_account, pay_service_from_wallet_as_administrator)"
+    ],
+    "commandOrReadModel": "commandIdempotency.ts, boundedCanonicalIdempotency.ts, scheduledIdempotency.ts, revisionConcurrency.assertExpectedRevision",
+    "currentResult": "A stale expectedRevision yields stale_version; the admin UI must map that to a refresh + retry affordance, which is a user-visible state to preserve",
+    "destructive": false,
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/commands/commandIdempotency.ts",
+      "src/features/admin/lesson-bookings/lessonBookingAdminUtils.ts:29-31",
+      "src/features/admin/components/finance/financeContracts.ts:49-55"
+    ]
+  },
+  {
+    "id": "authz.command.authorizedActions",
+    "tab": "system",
+    "screen": "authorization",
+    "capability": "Every admin control is gated on read-model advertised authorizedActions, not on local role logic",
+    "entryPoint": "detail.authorizedActions / allowedActions arrays returned by admin read models",
+    "userAction": "(constraint)",
+    "states": [
+      "action present + expectedRevision -> control enabled",
+      "action absent -> control disabled or permission-denied copy"
+    ],
+    "commandOrReadModel": "AdminIdentityAuthorizedActionSchema{kind, expectedRevision, expectedSecondaryRevision?}, AdminCourseListItem.authorizedActions, AdminPaymentAction.allowedActions (max 16), LessonBookingAdminAuthorizedActions, AdminIssueReadModelAuthorizedActions (canResolveDirectly literal false)",
+    "currentResult": "The authorized-action arrays are capped (identity 8, payment 16, issues 3). A rebuild must not re-derive permissions from role strings",
+    "destructive": false,
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/readModels/readModelAuthorizedActions.ts",
+      "packages/shared-domain/src/canonical/identityAdministration.ts:362-402"
+    ]
+  },
+  {
+    "id": "authz.readmodel.scopes",
+    "tab": "system",
+    "screen": "authorization",
+    "capability": "Admin reads are all callable-backed read models, not client Firestore queries",
+    "entryPoint": "src/lib/canonical/canonicalReadModelClient.ts",
+    "userAction": "(constraint)",
+    "states": [
+      "scope-discriminated results with pagination"
+    ],
+    "commandOrReadModel": "admin_wallet, admin_payment_detail, admin_school_movement, admin_financial_overview, admin_guest_funds, admin_planner, admin_course_list(v2), admin_course_detail, admin_course_enrollment_roster, admin_account_list, admin_account_detail, admin_participant_list, admin_participant_detail, admin_instructor_list, admin_instructor_detail, admin_eligible_participants, admin_open/admin_history/admin_detail (issues), admin_hot/admin_history/admin_pending_guest (lessons), lesson_pricing_settings, test_session_*",
+    "currentResult": "Every admin read is authorized server-side by readModelAuthorization.ts; the client cannot widen scope by editing a query",
+    "destructive": false,
+    "sourceFiles": [
+      "src/lib/canonical/canonicalReadModelClient.ts",
+      "packages/shared-domain/src/canonical/readModels/index.ts",
+      "packages/shared-domain/src/canonical/readModelAuthorization.ts"
+    ]
+  },
+  {
+    "id": "authz.error.classification",
+    "tab": "system",
+    "screen": "authorization",
+    "capability": "Permission-denied is a first-class, separately rendered state on every admin read",
+    "entryPoint": "classifyAdminIssueReadError / classifyAdminFinanceReadError / classify() in useAdminIdentityReadModels / useAdminLessonBookingReadModels",
+    "userAction": "(read state)",
+    "states": [
+      "'permission-denied' when toFunctionsClientError(error).code === 'functions/permission-denied'",
+      "'read-failed' for everything else"
+    ],
+    "commandOrReadModel": "toFunctionsClientError → FunctionsClientError.code",
+    "currentResult": "Each surface renders a dedicated permission-denied message and a retry button; mutating a forbidden action maps to text.permissionDenied. Preserve both",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/issues/useAdminIssueReadModels.ts:48-52",
+      "src/features/admin/components/finance/useAdminFinanceReadModels.ts:17-23",
+      "src/features/admin/identity/useAdminIdentityReadModels.ts:30-34"
+    ]
+  },
+  {
+    "id": "authz.resource.claims",
+    "tab": "system",
+    "screen": "authorization",
+    "capability": "Scheduling conflicts are resolved server-side by transactional resource claims, not by client overlap checks",
+    "entryPoint": "functions/src/canonical/resourceClaims/resourceClaimEngine.ts",
+    "userAction": "(constraint)",
+    "states": [
+      "instructor_conflict / participant_conflict / resource_conflict on overlapping claims",
+      "exactly one winner per guard bucket"
+    ],
+    "commandOrReadModel": "AcquireResourceClaimInput / MoveResourceClaimInput / ReleaseResourceClaimInput inside the command transaction",
+    "currentResult": "The client-side hasScheduleOverlap is only a pre-check UX affordance; the server claim is authoritative",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/components/schedule/scheduleOverlap.ts",
+      "functions/src/canonical/resourceClaims/resourceClaimEngine.ts"
+    ]
+  },
+  {
+    "id": "authz.issue.policy",
+    "tab": "system",
+    "screen": "authorization",
+    "capability": "AdminIssue resolution policy forbids standalone resolve and forbids dismissal for every kind",
+    "entryPoint": "packages/shared-domain/src/canonical/adminIssuePolicy.ts ADMIN_ISSUE_KIND_POLICIES",
+    "userAction": "(constraint)",
+    "states": [
+      "7 kinds, all allowDismiss:false",
+      "all 7 requireCoupledDomainCommandToResolve:true",
+      "severity: normal (2) / urgent (4) / critical (1)"
+    ],
+    "commandOrReadModel": "dismissAdminIssue throws invalid_transition when !allowDismiss; resolveAdminIssue requires coupledDomainCommand; read model exposes canResolveDirectly: z.literal(false)",
+    "currentResult": "The issue inbox is a pure navigation/triage surface. A rebuild that adds a 'Close issue' button would break the domain contract",
+    "destructive": true,
+    "sourceFiles": [
+      "packages/shared-domain/src/canonical/adminIssuePolicy.ts:49-99,562-672",
+      "packages/shared-domain/src/canonical/readModels/readModelAuthorizedActions.ts:124-142"
+    ]
+  },
+  {
+    "id": "authz.testsession.isolation",
+    "tab": "system",
+    "screen": "authorization",
+    "capability": "TestSession data isolation is a server-enforced domain boundary, not a UI convention",
+    "entryPoint": "?testSession=<id> carried as passive navigation context on every admin tab",
+    "userAction": "Open a TestSession from System -> Testing",
+    "states": [
+      "sessions are visible",
+      "active session openable",
+      "maintenanceLocked for provisioning|locked|resetting|deleting"
+    ],
+    "commandOrReadModel": "TestSessionIdSchema, testSessionDomainIsolation.ts, testSideEffectPolicy.ts, testStoragePaths.ts; grant_starter_credit is forbidden inside a TestSession",
+    "currentResult": "Each admin surface must explicitly opt into test reads/commands; adminTabSearchParams deliberately preserves the param across tab switches",
+    "destructive": false,
+    "sourceFiles": [
+      "src/features/admin/adminNavigation.ts:64-86",
+      "packages/shared-domain/src/canonical/testSessionDomainIsolation.ts",
+      "packages/shared-domain/src/canonical/testSessions.ts"
+    ]
+  }
+]

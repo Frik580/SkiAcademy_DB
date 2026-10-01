@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 560" preserveAspectRatio="xMidYMid slice" width="800" height="560">
+  <defs>
+    <linearGradient id="sB" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#12303a"/><stop offset="55%" stop-color="#2d5f6d"/><stop offset="100%" stop-color="#7aa9ad"/></linearGradient>
+    <linearGradient id="nB" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0b2229"/><stop offset="100%" stop-color="#06171c"/></linearGradient>
+  </defs>
+  <rect width="800" height="560" fill="url(#sB)"/>
+  <circle cx="180" cy="120" r="40" fill="#f3f7f6" opacity="0.5"/>
+  <g fill="#eef5f5" opacity="0.7"><circle cx="320" cy="90" r="2"/><circle cx="420" cy="140" r="1.6"/><circle cx="540" cy="80" r="2"/><circle cx="620" cy="170" r="1.5"/><circle cx="700" cy="110" r="1.8"/></g>
+  <path d="M0 330 L140 268 L250 322 L360 254 L470 330 L590 276 L700 330 L800 292 L800 560 L0 560 Z" fill="url(#nB)"/>
+  <!-- gondola line -->
+  <g stroke="#dfeaea" stroke-width="2.5" opacity="0.75">
+    <path d="M-20 180 L820 400" fill="none"/>
+    <path d="M120 216 L820 428" fill="none" opacity="0.5"/>
+  </g>
+  <g>
+    <g transform="translate(240,248)"><rect x="-18" y="0" width="36" height="44" rx="8" fill="#0d3138"/><rect x="-13" y="6" width="26" height="16" rx="4" fill="#bfe0e2" opacity="0.85"/><path d="M0 0 L0 -14" stroke="#dfeaea" stroke-width="2"/></g>
+    <g transform="translate(470,326)"><rect x="-18" y="0" width="36" height="44" rx="8" fill="#0d3138"/><rect x="-13" y="6" width="26" height="16" rx="4" fill="#bfe0e2" opacity="0.85"/><path d="M0 0 L0 -14" stroke="#dfeaea" stroke-width="2"/></g>
+    <g transform="translate(690,384)"><rect x="-18" y="0" width="36" height="44" rx="8" fill="#0d3138"/><rect x="-13" y="6" width="26" height="16" rx="4" fill="#bfe0e2" opacity="0.85"/><path d="M0 0 L0 -14" stroke="#dfeaea" stroke-width="2"/></g>
+  </g>
+  <path d="M0 560 L0 430 L220 396 L460 424 L700 396 L800 414 L800 560 Z" fill="#e9f1f1"/>
+  <path d="M0 560 L0 500 L240 470 L520 496 L800 470 L800 560 Z" fill="#f7fafa"/>
+</svg>

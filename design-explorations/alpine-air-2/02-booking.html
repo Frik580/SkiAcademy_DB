@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Carve Academy — Alpine Air 2.0 · Запись на занятие</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+  .crumbs { font-size: 12.5px; color: var(--ink-3); }
+  .crumbs b { color: var(--ink-2); font-weight: 500; }
+  .layout { display: grid; grid-template-columns: 1fr 372px; gap: 40px; align-items: start; }
+  .price-line { display: flex; justify-content: space-between; padding: 9px 0; font-size: 14px; color: var(--ink-2); }
+  .total-line { display: flex; justify-content: space-between; align-items: baseline; padding-top: 14px; border-top: 1px solid var(--line); margin-top: 6px; }
+  .sticky { position: sticky; top: 92px; }
+  .person {
+    display: flex; align-items: center; gap: 14px; padding: 14px 16px;
+    border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface);
+  }
+  .person-on { border-color: var(--accent); background: var(--accent-soft); }
+  .skill-row { display: flex; align-items: center; gap: 12px; padding: 9px 0; }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="wrap row-between" style="height:68px">
+    <div class="logo-mark">Carve Academy <span>Алматы</span></div>
+    <div class="row gap-32" style="font-size:14px">
+      <a class="nav-link">Инструкторы</a>
+      <a class="nav-link nav-link-on">Запись</a>
+      <a class="nav-link">Кабинет</a>
+    </div>
+    <div class="row gap-12">
+      <div class="icon-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>
+      </div>
+      <div class="avatar avatar-36">АС</div>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap" style="padding-top:28px;padding-bottom:80px">
+  <div class="crumbs">Главная <span class="tag-line" style="margin:0 8px"></span> <b>Инструкторы</b> <span class="tag-line" style="margin:0 8px"></span> <b>Айдар Керметов</b></div>
+
+  <div class="layout mt-24">
+    <!-- ============ LEFT: booking steps ============ -->
+    <main>
+      <!-- instructor header -->
+      <div class="card pad-24 row gap-20" style="align-items:flex-start">
+        <div class="avatar avatar-72">АК</div>
+        <div class="grow">
+          <div class="row gap-10" style="align-items:baseline">
+            <h1 class="d3">Айдар Керметов</h1>
+            <span class="rate" style="font-size:14px">★ 5.0</span>
+            <span class="tiny">128 отзывов</span>
+          </div>
+          <div class="small mt-6">Горные лыжи · Стаж 11 лет · ISASI Level 2 · Специализация: начинающие и «возврат к катанию»</div>
+          <div class="row gap-8 mt-12">
+            <span class="chip chip-accent">Русский</span>
+            <span class="chip chip-accent">Қазақша</span>
+            <span class="chip chip-accent">English</span>
+            <span class="chip chip-line">Сноуборд</span>
+            <span class="chip chip-line">Дети</span>
+          </div>
+        </div>
+        <div class="col gap-6" style="align-items:flex-end">
+          <div class="num" style="font-size:24px">9 000 ₸</div>
+          <div class="tiny">за 60 минут</div>
+        </div>
+      </div>
+
+      <!-- step 1: date -->
+      <section class="mt-32">
+        <div class="row-between" style="align-items:flex-end">
+          <div>
+            <div class="eyebrow eyebrow-accent">Шаг 1 — дата</div>
+            <h2 class="d3 mt-6">Декабрь 2025</h2>
+          </div>
+          <div class="row gap-8">
+            <button class="icon-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 6l-6 6 6 6"/></svg></button>
+            <button class="icon-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 6l6 6-6 6"/></svg></button>
+          </div>
+        </div>
+
+        <div class="row gap-8 mt-16">
+          <div class="daychip daychip-on"><div class="tiny" style="color:rgba(255,255,255,.75)">пн</div><div class="strong">8</div></div>
+          <div class="daychip"><div class="tiny">вт</div><div class="strong">9</div></div>
+          <div class="daychip"><div class="tiny">ср</div><div class="strong">10</div></div>
+          <div class="daychip"><div class="tiny">чт</div><div class="strong">11</div></div>
+          <div class="daychip"><div class="tiny">пт</div><div class="strong">12</div></div>
+          <div class="daychip"><div class="tiny">сб</div><div class="strong">13</div></div>
+          <div class="daychip"><div class="tiny">вс</div><div class="strong">14</div></div>
+        </div>
+      </section>
+
+      <!-- step 2: slot -->
+      <section class="mt-40">
+        <div class="row-between" style="align-items:flex-end">
+          <div>
+            <div class="eyebrow eyebrow-accent">Шаг 2 — время</div>
+            <h2 class="d3 mt-6">Свободные слоты</h2>
+          </div>
+          <div class="row gap-8">
+            <div class="chip chip-pine"><span class="dot"></span>4 свободно</div>
+            <div class="chip chip-flame"><span class="dot"></span>1 со скидкой</div>
+          </div>
+        </div>
+
+        <div class="card pad-24 mt-16">
+          <div class="row gap-8" style="flex-wrap:wrap">
+            <div class="slot slot-off">08:00</div>
+            <div class="slot slot-off">09:00</div>
+            <div class="slot">10:00</div>
+            <div class="slot slot-on">11:00</div>
+            <div class="slot">12:00</div>
+            <div class="slot">13:00</div>
+            <div class="slot slot-off">14:00</div>
+            <div class="slot">15:00</div>
+            <div class="slot">16:00</div>
+            <div class="slot">17:00</div>
+            <div class="slot slot-off">18:00</div>
+            <div class="slot">19:00</div>
+          </div>
+          <div class="row gap-20 mt-20">
+            <span class="tiny"><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:var(--accent);vertical-align:middle"></span>&nbsp; выбрано</span>
+            <span class="tiny"><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:var(--paper-2);vertical-align:middle"></span>&nbsp; свободно</span>
+            <span class="tiny"><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:var(--paper-2);opacity:.6;vertical-align:middle"></span>&nbsp; занято</span>
+          </div>
+        </div>
+
+        <div class="card-quiet pad-16 mt-12 row gap-12">
+          <div class="chip chip-flame">−10%</div>
+          <div class="small grow">Слот <b>19:00</b> — вечерний тариф. −900 ₸ автоматически при оформлении.</div>
+          <button class="btn btn-ghost btn-sm">Применить</button>
+        </div>
+      </section>
+
+      <!-- step 3: participants -->
+      <section class="mt-40">
+        <div class="row-between" style="align-items:flex-end">
+          <div>
+            <div class="eyebrow eyebrow-accent">Шаг 3 — участники</div>
+            <h2 class="d3 mt-6">Кто едет на склон</h2>
+          </div>
+          <span class="tiny">Один слот — до 3 участников. Оплата списывается на баланс.</span>
+        </div>
+
+        <div class="col gap-8 mt-16">
+          <div class="person person-on">
+            <div class="check check-on"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M4 12l6 6L20 6"/></svg></div>
+            <div class="avatar avatar-44">АС</div>
+            <div class="grow">
+              <div class="strong">Артём Соколов <span class="tiny">· это вы</span></div>
+              <div class="tiny">Горные лыжи · средний · 14 занятий</div>
+            </div>
+            <div class="num" style="font-size:15px">9 000 ₸</div>
+          </div>
+
+          <div class="person person-on">
+            <div class="check check-on"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M4 12l6 6L20 6"/></svg></div>
+            <div class="avatar avatar-44 avatar-gold">ЕС</div>
+            <div class="grow">
+              <div class="strong">Ева Соколова <span class="tiny">· 9 лет, начинающая</span></div>
+              <div class="tiny">Доплата за второго участника · программа «Дети»</div>
+            </div>
+            <div class="num" style="font-size:15px">+6 000 ₸</div>
+          </div>
+
+          <div class="person">
+            <div class="check"></div>
+            <div class="avatar avatar-44 avatar-slate">—</div>
+            <div class="grow">
+              <div class="strong muted" style="color:var(--ink-3)">Добавить ребёнка</div>
+              <div class="tiny">Дети 6–14 лет, отдельная программа и отчёт инструктору</div>
+            </div>
+            <div class="btn btn-ghost btn-sm">Добавить</div>
+          </div>
+        </div>
+
+        <div class="card pad-20 mt-16">
+          <div class="row-between" style="align-items:flex-start">
+            <div>
+              <div class="strong">Пожелания к занятию</div>
+              <div class="tiny mt-4">Инструктор увидит это до выезда на склон</div>
+            </div>
+          </div>
+          <div class="field field-focus mt-12" style="height:76px;align-items:flex-start;padding-top:14px;color:var(--ink)">
+            Ева боится длинных спусков — взять короткие трассы и больше перерывов.
+          </div>
+          <div class="row gap-8 mt-12">
+            <span class="chip chip-line">Только зелёные трассы</span>
+            <span class="chip chip-line">Без подъёмника</span>
+            <span class="chip chip-line">Фото на склоне</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ============ RIGHT: summary ============ -->
+    <aside class="sticky">
+      <div class="card pad-24">
+        <div class="row-between">
+          <div class="eyebrow eyebrow-accent">Итого</div>
+          <span class="tiny">Пн, 8 декабря</span>
+        </div>
+
+        <div class="card-quiet pad-16 mt-16">
+          <div class="row gap-12">
+            <div class="avatar avatar-44">АК</div>
+            <div class="grow">
+              <div class="strong">Айдар Керметов</div>
+              <div class="tiny">Горные лыжи · 60 мин</div>
+            </div>
+          </div>
+          <hr class="snowline mt-12">
+          <div class="row-between mt-12">
+            <div class="col">
+              <div class="num" style="font-size:20px">11:00</div>
+              <div class="tiny">Ташлинская тафта, Meeting Point</div>
+            </div>
+            <div class="col gap-6" style="align-items:flex-end">
+              <span class="chip chip-accent">Слот свободен</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-16">
+          <div class="price-line"><span>Занятие · Артём</span><span class="num" style="font-size:13px">9 000 ₸</span></div>
+          <div class="price-line"><span>Доп. участник · Ева</span><span class="num" style="font-size:13px">6 000 ₸</span></div>
+          <div class="price-line"><span>Аренда снаряда</span><span class="num" style="font-size:13px">1 200 ₸</span></div>
+          <div class="price-line"><span style="color:var(--pine)">Вечерний тариф</span><span class="num" style="font-size:13px;color:var(--pine)">−1 500 ₸</span></div>
+        </div>
+
+        <div class="total-line">
+          <div>
+            <div class="label-mono">К оплате</div>
+            <div class="tiny mt-4">С баланса: 8 200 ₸</div>
+          </div>
+          <div class="num" style="font-size:28px">14 700 ₸</div>
+        </div>
+
+        <button class="btn btn-primary btn-lg mt-20" style="width:100%">Записаться · 14 700 ₸</button>
+        <div class="tiny mt-12" style="text-align:center">Перенос и отмена — бесплатно за 12 часов</div>
+
+        <hr class="snowline mt-20">
+
+        <div class="row-between mt-16">
+          <div class="label-mono">Способы оплаты</div>
+          <span class="tiny">secured</span>
+        </div>
+        <div class="col gap-8 mt-12">
+          <div class="row gap-12" style="align-items:center">
+            <div class="radio radio-on"></div>
+            <div class="grow strong" style="font-size:14px">Кошелёк Carve</div>
+            <div class="num" style="font-size:13px">8 200 ₸</div>
+          </div>
+          <div class="row gap-12" style="align-items:center">
+            <div class="radio"></div>
+            <div class="grow strong" style="font-size:14px">Kaspi.kz</div>
+            <span class="tiny">Visa · Mastercard</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-quiet pad-20 mt-16">
+        <div class="row gap-12" style="align-items:flex-start">
+          <div class="avatar avatar-36 avatar-gold" style="width:28px;height:28px;font-size:12px">АК</div>
+          <div class="small">
+            «Ещё не катался два сезона. Начнём спокойно, без перегруза.»
+            <div class="tiny mt-4">— Айдар, о серии занятий</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+</body>
+</html>

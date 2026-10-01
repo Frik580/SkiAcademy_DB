@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Carve Academy — Alpine Air 2.0 · Мобильные экраны</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body { background: #e9e7e1; }
+  .phones { display: flex; gap: 48px; padding: 48px; align-items: flex-start; }
+  .phone { width: 390px; height: 844px; border-radius: 46px; border: 10px solid #14181a; overflow: hidden; position: relative; background: var(--paper); box-shadow: var(--shadow-lg); flex: none; }
+  .screen-label { text-align: center; margin-bottom: 14px; }
+  .tabbar { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,.92); backdrop-filter: blur(18px); border-top: 1px solid var(--line); display: flex; padding: 10px 0 26px; }
+  .tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10px; color: var(--ink-3); }
+  .tab-on { color: var(--accent); }
+  .scroll { overflow: hidden; height: 100%; }
+  .m-hero { position: relative; height: 380px; overflow: hidden; }
+  .m-hero img { width: 100%; height: 100%; object-fit: cover; }
+  .m-hero-scrim { position: absolute; inset: 0; background: linear-gradient(0deg, rgba(6,26,32,.92) 4%, rgba(6,26,32,.25) 55%, rgba(6,26,32,.1) 100%); }
+  .m-hero-content { position: absolute; left: 20px; right: 20px; bottom: 20px; color: #fff; }
+  .hscroll { display: flex; gap: 12px; overflow: hidden; }
+  .mini-instr { width: 156px; padding: 14px; border-radius: var(--r); background: var(--surface); border: 1px solid var(--line); flex: none; }
+  .sheet { position: absolute; left: 0; right: 0; bottom: 0; background: var(--surface); border-radius: 26px 26px 0 0; box-shadow: 0 -20px 60px rgba(12,16,18,.18); }
+  .scrim { position: absolute; inset: 0; background: rgba(12,16,18,.35); }
+  .handle { width: 40px; height: 4px; border-radius: 99px; background: var(--line-2); margin: 10px auto 0; }
+  .stickybar { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,.95); backdrop-filter: blur(18px); border-top: 1px solid var(--line); padding: 14px 20px 22px; }
+</style>
+</head>
+<body>
+
+<div class="phones">
+
+  <!-- ============ 1. HOME ============ -->
+  <div>
+    <div class="screen-label"><div class="label-mono">01 · Главная</div></div>
+    <div class="phone">
+      <div class="scroll">
+        <!-- top bar -->
+        <div style="position:absolute;top:0;left:0;right:0;z-index:4;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;color:#fff">
+          <div class="logo-mark" style="font-size:18px">Carve Academy</div>
+          <div class="row gap-8">
+            <div class="avatar avatar-36" style="width:32px;height:32px;font-size:13px;background:rgba(255,255,255,.2)">АС</div>
+          </div>
+        </div>
+
+        <div class="m-hero">
+          <img src="assets/hero-mountains.svg" alt="">
+          <div class="m-hero-scrim"></div>
+          <div class="m-hero-content">
+            <div class="eyebrow" style="color:rgba(255,255,255,.6)">−12° · ветер 4 м/с</div>
+            <h1 class="d3 mt-6" style="color:#fff;font-size:42px">Учимся кататься<br><span class="serif-it">в горах</span></h1>
+            <div class="row gap-8 mt-24">
+              <span class="chip chip-on-dark">Снег 42 см</span>
+              <span class="chip chip-on-dark"><span class="dot" style="color:#6ee7a8"></span>Открыто</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:-26px;position:relative;z-index:3;padding:0 20px">
+          <div class="card-glass" style="padding:16px;display:flex;align-items:center;gap:12px">
+            <div class="col grow">
+              <div class="label-mono">Ближайший слот</div>
+              <div class="num mt-4" style="font-size:19px">Сегодня, 14:30</div>
+            </div>
+            <button class="btn btn-primary btn-sm">Записаться</button>
+          </div>
+        </div>
+
+        <div style="padding:24px 20px 96px">
+          <div class="row-between">
+            <h2 class="d4">Инструкторы</h2>
+            <span class="tiny">Все 12</span>
+          </div>
+          <div class="hscroll mt-12">
+            <div class="mini-instr">
+              <div class="avatar avatar-44">АК</div>
+              <div class="strong mt-10" style="font-size:14px">Айдар Керметов</div>
+              <div class="tiny mt-4">Горные лыжи</div>
+              <div class="row-between mt-10">
+                <span class="mono" style="font-size:12px">9 000 ₸</span>
+                <span class="rate tiny">★ 5.0</span>
+              </div>
+            </div>
+            <div class="mini-instr">
+              <div class="avatar avatar-44 avatar-gold">МС</div>
+              <div class="strong mt-10" style="font-size:14px">Марина Соколова</div>
+              <div class="tiny mt-4">Сноуборд</div>
+              <div class="row-between mt-10">
+                <span class="mono" style="font-size:12px">11 000 ₸</span>
+                <span class="rate tiny">★ 4.9</span>
+              </div>
+            </div>
+            <div class="mini-instr">
+              <div class="avatar avatar-44 avatar-pine">ТА</div>
+              <div class="strong mt-10" style="font-size:14px">Тимур Абдрахманов</div>
+              <div class="tiny mt-4">Начинающие</div>
+              <div class="row-between mt-10">
+                <span class="mono" style="font-size:12px">8 000 ₸</span>
+                <span class="rate tiny">★ 4.8</span>
+              </div>
+            </div>
+          </div>
+
+          <h2 class="d4 mt-28">Курсы сезона</h2>
+          <div class="card mt-12" style="overflow:hidden">
+            <img src="assets/course-b.svg" style="width:100%;height:120px;object-fit:cover;display:block">
+            <div style="padding:16px">
+              <span class="chip chip-accent">Уровень 3+</span>
+              <div class="strong mt-10">Сноуборд: карвинг</div>
+              <div class="tiny mt-4">6 недель · вечерние слоты</div>
+              <div class="row-between mt-12">
+                <span class="num" style="font-size:16px">58 000 ₸</span>
+                <button class="btn btn-ghost btn-sm">Подробнее</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tabbar">
+        <div class="tab tab-on">⌂<span>Главная</span></div>
+        <div class="tab">📅<span>Занятия</span></div>
+        <div class="tab">💬<span>Чат</span></div>
+        <div class="tab">👤<span>Кабинет</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 2. BOOKING SHEET ============ -->
+  <div>
+    <div class="screen-label"><div class="label-mono">02 · Бронирование (bottom sheet)</div></div>
+    <div class="phone">
+      <div class="scroll" style="opacity:.9">
+        <div class="pad" style="padding:20px">
+          <div class="row gap-12">
+            <div class="avatar avatar-56">АК</div>
+            <div class="col grow">
+              <div class="strong">Айдар Керметов</div>
+              <div class="tiny">Горные лыжи · ★ 5.0</div>
+              <div class="row gap-6 mt-8">
+                <span class="chip chip-accent">Русский</span><span class="chip chip-line">EN</span>
+              </div>
+            </div>
+          </div>
+          <div class="card-quiet pad-16 mt-16">
+            <div class="small">«Начнём спокойно: короткие трассы, без перегруза.»</div>
+          </div>
+          <div class="card pad-16 mt-16">
+            <div class="label-mono">Отзывы</div>
+            <div class="small mt-8">Уверенно поставил на склон после двух сезонов без катания.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="scrim"></div>
+
+      <div class="sheet" style="height:640px">
+        <div class="handle"></div>
+        <div style="padding:14px 20px 0">
+          <div class="row-between">
+            <div>
+              <div class="label-mono">Выбор времени</div>
+              <div class="strong mt-4" style="font-size:15px">Пн, 8 декабря</div>
+            </div>
+            <button class="icon-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+          </div>
+
+          <div class="row gap-8 mt-16">
+            <div class="daychip daychip-on" style="width:46px"><div class="tiny" style="color:rgba(255,255,255,.7)">пн</div><div class="strong">8</div></div>
+            <div class="daychip" style="width:46px"><div class="tiny">вт</div><div class="strong">9</div></div>
+            <div class="daychip" style="width:46px"><div class="tiny">ср</div><div class="strong">10</div></div>
+            <div class="daychip" style="width:46px"><div class="tiny">чт</div><div class="strong">11</div></div>
+            <div class="daychip" style="width:46px"><div class="tiny">пт</div><div class="strong">12</div></div>
+            <div class="daychip" style="width:46px"><div class="tiny">сб</div><div class="strong">13</div></div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:16px">
+            <div class="slot slot-off" style="height:40px">09:00</div>
+            <div class="slot" style="height:40px">10:00</div>
+            <div class="slot slot-on" style="height:40px">11:00</div>
+            <div class="slot" style="height:40px">12:00</div>
+            <div class="slot" style="height:40px">13:00</div>
+            <div class="slot slot-off" style="height:40px">14:00</div>
+            <div class="slot" style="height:40px">15:00</div>
+            <div class="slot" style="height:40px">16:00</div>
+            <div class="slot" style="height:40px">17:00</div>
+            <div class="slot slot-off" style="height:40px">18:00</div>
+            <div class="slot" style="height:40px">19:00</div>
+            <div class="slot slot-off" style="height:40px">20:00</div>
+          </div>
+
+          <div class="label-mono mt-20">Участники</div>
+          <div class="row gap-10 mt-10" style="padding:12px;border:1px solid var(--accent);border-radius:var(--r-sm);background:var(--accent-soft)">
+            <div class="check check-on"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M4 12l6 6L20 6"/></svg></div>
+            <div class="avatar avatar-36">АС</div>
+            <div class="col grow"><span class="strong" style="font-size:13.5px">Артём</span><span class="tiny">это вы</span></div>
+            <span class="num" style="font-size:13px">9 000 ₸</span>
+          </div>
+          <div class="row gap-10 mt-8" style="padding:12px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface)">
+            <div class="check check-on"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M4 12l6 6L20 6"/></svg></div>
+            <div class="avatar avatar-36 avatar-gold">ЕС</div>
+            <div class="col grow"><span class="strong" style="font-size:13.5px">Ева</span><span class="tiny">9 лет</span></div>
+            <span class="num" style="font-size:13px">+6 000 ₸</span>
+          </div>
+        </div>
+
+        <div class="stickybar">
+          <div class="row-between" style="align-items:baseline">
+            <div>
+              <div class="label-mono">К оплате</div>
+              <div class="tiny mt-4">С баланса 8 200 ₸</div>
+            </div>
+            <div class="num" style="font-size:24px">14 700 ₸</div>
+          </div>
+          <button class="btn btn-primary btn-lg mt-12" style="width:100%">Записаться</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 3. CABINET ============ -->
+  <div>
+    <div class="screen-label"><div class="label-mono">03 · Кабинет</div></div>
+    <div class="phone">
+      <div style="background:#0b2229;color:#fff;padding:52px 20px 24px">
+        <div class="label-mono" style="color:rgba(255,255,255,.45)">Кабинет</div>
+        <h1 class="d3 mt-4" style="color:#fff">Привет, Артём</h1>
+        <div class="row gap-8 mt-16">
+          <div class="chip chip-on-dark" style="height:32px"><span class="dot" style="color:#8dd8ef"></span>Артём · лыжи</div>
+          <div class="chip chip-on-dark" style="height:32px">Ева · дети</div>
+        </div>
+      </div>
+
+      <div style="padding:20px;padding-bottom:96px">
+        <div class="card pad-20" style="border-top:3px solid var(--accent)">
+          <div class="row-between">
+            <span class="chip chip-accent">Ближайшее</span>
+            <span class="tiny">№15</span>
+          </div>
+          <div class="row-between mt-16" style="align-items:flex-end">
+            <div class="col">
+              <div class="num" style="font-size:36px;line-height:1">11:00</div>
+              <div class="tiny mt-4">пн, 8 декабря</div>
+            </div>
+            <div class="row gap-10" style="align-items:center">
+              <div class="avatar avatar-44">АК</div>
+              <div class="col" style="align-items:flex-end">
+                <span class="strong" style="font-size:13.5px">Айдар К.</span>
+                <span class="tiny">60 мин</span>
+              </div>
+            </div>
+          </div>
+          <div class="row gap-8 mt-16">
+            <button class="btn btn-soft btn-sm" style="flex:1">Перенести</button>
+            <button class="btn btn-ghost btn-sm" style="flex:1">Написать</button>
+          </div>
+        </div>
+
+        <div class="card-dark pad-20 mt-16">
+          <div class="row-between">
+            <div class="label-mono" style="color:rgba(255,255,255,.5)">Кошелёк</div>
+            <span class="tiny" style="color:rgba(255,255,255,.45)">Kaspi ID</span>
+          </div>
+          <div class="num mt-8" style="font-size:30px;color:#fff">8 200 ₸</div>
+          <button class="btn btn-light mt-12" style="width:100%;height:40px">Пополнить</button>
+        </div>
+
+        <div class="card pad-20 mt-16">
+          <div class="row-between"><div class="label-mono">Прогресс</div><span class="tiny">14 занятий</span></div>
+          <div class="mt-12 col gap-12">
+            <div>
+              <div class="row-between"><span class="small">Параллель</span><span class="mono tiny">80%</span></div>
+              <div class="bar mt-6"><div class="bar-fill" style="width:80%"></div></div>
+            </div>
+            <div>
+              <div class="row-between"><span class="small">Карвинг</span><span class="mono tiny">45%</span></div>
+              <div class="bar mt-6"><div class="bar-fill" style="width:45%"></div></div>
+            </div>
+            <div>
+              <div class="row-between"><span class="small">Чёрная трасса</span><span class="mono tiny">20%</span></div>
+              <div class="bar mt-6"><div class="bar-fill" style="width:20%"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card pad-20 mt-16">
+          <div class="label-mono">Дальше</div>
+          <div class="list-row mt-8">
+            <div class="col" style="width:62px"><span class="num" style="font-size:14px">15 дек</span><span class="tiny">11:00</span></div>
+            <div class="grow"><div class="strong" style="font-size:13.5px">Марина Соколова</div><div class="tiny">Сноуборд · кантон</div></div>
+            <span class="chip chip-pine" style="height:22px;font-size:10px">Оплачено</span>
+          </div>
+          <div class="list-row">
+            <div class="col" style="width:62px"><span class="num" style="font-size:14px">18 дек</span><span class="tiny">14:30</span></div>
+            <div class="grow"><div class="strong" style="font-size:13.5px">Тимур А.</div><div class="tiny">Параллельные</div></div>
+            <span class="chip chip-flame" style="height:22px;font-size:10px">Оплатить</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tabbar">
+        <div class="tab">⌂<span>Главная</span></div>
+        <div class="tab tab-on">📅<span>Занятия</span></div>
+        <div class="tab">💬<span>Чат</span></div>
+        <div class="tab">👤<span>Кабинет</span></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

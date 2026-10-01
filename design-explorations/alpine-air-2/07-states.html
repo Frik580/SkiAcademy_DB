@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Carve Academy — Alpine Air 2.0 · Состояния продукта</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+  .state-row { display: grid; grid-template-columns: 260px 1fr; gap: 20px; align-items: start; padding: 16px 0; border-bottom: 1px solid var(--line); }
+  .state-row:last-child { border-bottom: 0; }
+  .sk { background: var(--paper-2); border-radius: 8px; height: 14px; }
+  .sk-circle { width: 44px; height: 44px; border-radius: 50%; background: var(--paper-2); }
+  .toast { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: var(--r-sm); background: var(--ink); color: #fff; font-size: 13.5px; }
+  .overlay-demo { position: relative; height: 260px; border-radius: var(--r); background: var(--paper-2); overflow: hidden; display: grid; place-items: center; }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="wrap row-between" style="height:68px">
+    <div class="logo-mark">Carve Academy <span>Состояния продукта</span></div>
+    <div class="row gap-12">
+      <div class="seg" title="Язык интерфейса: только RU и EN"><div class="seg-item">EN</div><div class="seg-item seg-item-on">RU</div></div>
+      <span class="tiny">спроектировано по аудиту staging</span>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap" style="padding:48px 40px 80px;max-width:1180px">
+
+  <div class="eyebrow eyebrow-accent">Phase 5 · State inventory</div>
+  <h1 class="d2 mt-10">Не только happy path</h1>
+  <p class="body mt-16" style="max-width:680px">
+    Каждое состояние ниже существует в реальном домене продукта. Ни одно состояние не выдумано для дизайна.
+    Flame используется <b>только</b> там, где от пользователя требуется действие. Ни одно состояние не передаётся одним цветом:
+    у каждого есть подпись, иконка или форма.
+  </p>
+
+  <!-- ============ BOOKING 6 STATES ============ -->
+  <section class="mt-56">
+    <div class="row-between" style="align-items:flex-end">
+      <div>
+        <div class="eyebrow eyebrow-accent">Booking · 6 состояний</div>
+        <h2 class="d3 mt-8">Жизненный цикл записи на занятие</h2>
+      </div>
+      <span class="tiny">bookingLifecycleSchema</span>
+    </div>
+
+    <div class="card pad-28 mt-20">
+      <div class="state-row">
+        <div><div class="strong">Ожидает</div><div class="tiny mt-4">pending · только гостевые</div></div>
+        <div>
+          <div class="row gap-10">
+            <span class="chip chip-gold"><span class="dot"></span>Ожидает</span>
+            <span class="chip chip-line">Гость · Алматы, 11:00</span>
+            <span class="mono tiny">Бронь истекает через 00:42:18</span>
+          </div>
+          <div class="body mt-8">Слот удерживается 1 час. Виден обратный отсчёт до <span class="mono">reservationExpiresAt</span>. Действия: подтвердить, отменить.</div>
+        </div>
+      </div>
+
+      <div class="state-row">
+        <div><div class="strong">Подтверждён</div><div class="tiny mt-4">confirmed</div></div>
+        <div>
+          <div class="row gap-10">
+            <span class="chip chip-pine"><span class="dot"></span>Подтверждён</span>
+            <span class="chip chip-line">Оплачено</span>
+            <span class="chip chip-line">Айдар К., 8 дек, 11:00</span>
+          </div>
+          <div class="body mt-8">Базовое состояние. Действия: перенести, отменить, написать инструктору.</div>
+        </div>
+      </div>
+
+      <div class="state-row">
+        <div><div class="strong">Ожидает отмены</div><div class="tiny mt-4">pending_cancellation · <b>не значит «отменён»</b></div></div>
+        <div>
+          <div class="row gap-10">
+            <span class="chip chip-accent"><span class="dot"></span>Ожидает отмены</span>
+            <span class="chip chip-line">Запрос клиента · 6 ч назад</span>
+          </div>
+          <div class="body mt-8">Отдельное видимое состояние: заявка ждёт решения администратора. Средства заморожены, слот удерживается.
+          Действие у клиента: <b>отозвать заявку</b>. Кнопки «Отменено» здесь быть не должно.</div>
+        </div>
+      </div>
+
+      <div class="state-row">
+        <div><div class="strong">Отменён</div><div class="tiny mt-4">cancelled · всегда с причиной</div></div>
+        <div>
+          <div class="row gap-10">
+            <span class="chip"><span class="dot"></span>Отменён</span>
+            <span class="chip chip-line">Причина: отмена учеником</span>
+            <span class="chip chip-line">Возврат 9 000 ₸</span>
+          </div>
+          <div class="body mt-8">Терминальное состояние — действий нет. Всегда показывается код/текст причины и результат по деньгам (возврат и/или списание).</div>
+        </div>
+      </div>
+
+      <div class="state-row">
+        <div><div class="strong">Проведён</div><div class="tiny mt-4">completed · из отметки посещаемости</div></div>
+        <div>
+          <div class="row gap-10">
+            <span class="chip chip-pine"><span class="dot"></span>Проведён</span>
+            <span class="chip chip-line">Посещаемость: пришёл</span>
+            <span class="chip chip-line">Начислено инструктору 6 500 ₸</span>
+          </div>
+          <div class="body mt-8">Терминальное. Открывается только просмотр отчёта и отзыв.</div>
+        </div>
+      </div>
+
+      <div class="state-row">
+        <div><div class="strong">Неявка</div><div class="tiny mt-4">no_show · никогда не выводится из «прошло время»</div></div>
+        <div>
+          <div class="row gap-10">
+            <span class="chip chip-flame"><span class="dot"></span>Неявка</span>
+            <span class="chip chip-flame">Требует решения администратора</span>
+          </div>
+          <div class="body mt-8">Ставится только на основании явной отметки посещаемости. Терминальное.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ATTENDANCE + PAYMENT ============ -->
+  <section class="grid-2 mt-40">
+    <div class="card pad-28">
+      <div class="eyebrow eyebrow-accent">Посещаемость · 3 состояния</div>
+      <h3 class="d4 mt-8">Отсутствие не выводится из времени</h3>
+      <div class="col gap-16 mt-20">
+        <div>
+          <div class="row gap-10"><span class="chip chip-pine"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M4 12l6 6L20 6"/></svg>Пришёл</span><span class="small">Отметка инструктора</span></div>
+          <div class="tiny mt-4">Занятие может завершиться.</div>
+        </div>
+        <div>
+          <div class="row gap-10"><span class="chip chip-flame"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 6l12 12M18 6L6 18"/></svg>Не пришёл</span><span class="small">Явная отметка</span></div>
+          <div class="tiny mt-4">Только явное действие человека, никогда автоматически.</div>
+        </div>
+        <div>
+          <div class="row gap-10"><span class="chip chip-line"><span class="dot"></span>Не отмечено</span><span class="small">Факт неизвестен</span></div>
+          <div class="tiny mt-4">Обязательное третье состояние. До +24ч после конца занятия остаётся <span class="mono">confirmed</span>, затем поднимается AdminIssue <span class="mono">missing_attendance</span>.</div>
+        </div>
+      </div>
+      <div class="card-quiet pad-16 mt-20">
+        <div class="tiny">Запрещённый паттерн</div>
+        <div class="small mt-8" style="text-decoration:line-through;color:var(--ink-3)">«Занятие закончилось → отметить отсутствующим»</div>
+      </div>
+    </div>
+
+    <div class="card pad-28">
+      <div class="eyebrow eyebrow-accent">Оплата · состояния</div>
+      <h3 class="d4 mt-8">Деньги считает сервер</h3>
+      <div class="col gap-12 mt-20">
+        <div class="row-between"><span class="small">Не оплачено</span><span class="chip chip-flame"><span class="dot"></span>Требует оплаты</span></div>
+        <hr class="snowline">
+        <div class="row-between"><span class="small">Частично покрыто балансом</span><span class="mono" style="font-size:13px">8 200 / 14 700 ₸</span></div>
+        <hr class="snowline">
+        <div class="row-between"><span class="small">Обрабатывается</span><span class="chip chip-accent"><span class="dot"></span>В обработке</span></div>
+        <hr class="snowline">
+        <div class="row-between"><span class="small">Ошибка платежа</span><span class="chip chip-flame"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 6l12 12M18 6L6 18"/></svg>Ошибка</span></div>
+        <hr class="snowline">
+        <div class="row-between"><span class="small">Оплачено</span><span class="chip chip-pine"><span class="dot"></span>Оплачено</span></div>
+      </div>
+      <div class="card-quiet pad-16 mt-20">
+        <div class="tiny">Инвариант</div>
+        <div class="small mt-8">Клиент только <b>показывает</b> суммы. Баланс кошелька доступен клиенту только на чтение; любая мутация — именованная каноническая команда со своим ключом идемпотентности.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ DATA STATES ============ -->
+  <section class="mt-40">
+    <div class="eyebrow eyebrow-accent">Данные · общие состояния</div>
+    <h2 class="d3 mt-8">Загрузка, пусто, ошибка, доступ</h2>
+    <div class="grid-4 mt-20">
+      <div class="card pad-20">
+        <div class="label-mono">Загрузка</div>
+        <div class="card mt-12" style="padding:14px">
+          <div class="row gap-10">
+            <div class="sk sk-circle"></div>
+            <div class="grow col gap-6"><div class="sk" style="width:70%"></div><div class="sk" style="width:45%"></div></div>
+          </div>
+          <div class="sk mt-12" style="width:100%"></div>
+        </div>
+        <div class="tiny mt-10">Скелетон повторяет финальную раскладку — без скачка лэйаута.</div>
+      </div>
+      <div class="card pad-20">
+        <div class="label-mono">Пусто</div>
+        <div class="card mt-12" style="padding:22px;text-align:center">
+          <div class="d5">Пока нет занятий</div>
+          <div class="tiny mt-8">Запишитесь — слоты видны сразу.</div>
+          <button class="btn btn-soft btn-sm mt-12">Записаться</button>
+        </div>
+        <div class="tiny mt-10">Пустое состояние всегда с одним понятным действием.</div>
+      </div>
+      <div class="card pad-20">
+        <div class="label-mono">Ошибка</div>
+        <div class="card mt-12" style="padding:22px;border-left:3px solid var(--flame)">
+          <div class="strong">Не удалось загрузить</div>
+          <div class="tiny mt-8">permission-denied · обновите страницу</div>
+          <button class="btn btn-ghost btn-sm mt-12">Повторить</button>
+        </div>
+        <div class="tiny mt-10">Flame — только здесь: состояние требует внимания.</div>
+      </div>
+      <div class="card pad-20">
+        <div class="label-mono">Нет доступа</div>
+        <div class="card mt-12" style="padding:22px">
+          <div class="strong">Раздел недоступен</div>
+          <div class="tiny mt-8">Сейчас пользователь просто перенаправляется. Дизайн предлагает явный экран.</div>
+          <button class="btn btn-ghost btn-sm mt-12">Вернуться в кабинет</button>
+        </div>
+        <div class="tiny mt-10">Требует решения владельца продукта.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ OVERLAYS + A11Y ============ -->
+  <section class="mt-40">
+    <div class="eyebrow eyebrow-accent">Оверлеи и доступность</div>
+    <h2 class="d3 mt-8">Диалог на десктопе, шторка на мобильном</h2>
+    <div class="grid-3 mt-20">
+      <div>
+        <div class="overlay-demo">
+          <div class="card pad-24" style="width:320px;box-shadow:var(--shadow-lg)">
+            <div class="row-between"><div class="strong">Отменить занятие?</div><span class="icon-btn" style="width:28px;height:28px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 6l12 12M18 6L6 18"/></svg></span></div>
+            <div class="small mt-12">Айдар Керметов · пн, 8 декабря, 11:00</div>
+            <div class="field mt-12" style="height:40px">Причина обязательна…</div>
+            <div class="row gap-8 mt-16">
+              <button class="btn btn-flame btn-sm" style="flex:1">Отменить</button>
+              <button class="btn btn-ghost btn-sm">Назад</button>
+            </div>
+            <div class="tiny mt-12">Esc закрывает · фокус внутри · фокус возвращается</div>
+          </div>
+        </div>
+        <div class="tiny mt-10">Диалог ≥768px: причина обязательна, имя цели показано.</div>
+      </div>
+      <div>
+        <div class="overlay-demo">
+          <div class="card" style="width:260px;padding:18px;border-radius:22px 22px 0 0;position:absolute;bottom:0;left:0;right:0;box-shadow:var(--shadow-lg)">
+            <div style="width:36px;height:4px;border-radius:99px;background:var(--line-2);margin:0 auto 12px"></div>
+            <div class="strong" style="font-size:14px">Выбор времени</div>
+            <div class="row gap-6 mt-12">
+              <div class="slot slot-on" style="flex:1;height:38px">10:00</div>
+              <div class="slot" style="flex:1;height:38px">11:00</div>
+              <div class="slot slot-off" style="flex:1;height:38px">12:00</div>
+            </div>
+            <button class="btn btn-primary btn-sm mt-12" style="width:100%">Далее</button>
+          </div>
+        </div>
+        <div class="tiny mt-10">Bottom sheet на мобильном: не полноэкранный диалог «на автомате», а шторка с ручкой.</div>
+      </div>
+      <div>
+        <div class="col gap-12">
+          <div class="toast"><span class="chip chip-pine" style="height:20px"><span class="dot"></span></span> Запись подтверждена на 11:00</div>
+          <div class="toast" style="background:#7a2d10"><span class="chip chip-flame" style="height:20px"><span class="dot"></span></span> Не хватает 6 500 ₸ на балансе</div>
+          <div class="card pad-16" style="border-left:3px solid var(--accent)">
+            <div class="tiny">aria-live = polite</div>
+            <div class="small mt-8">Тост объявляется, не только показывается. Доступные изменения доступов объявляются тоже.</div>
+          </div>
+          <div class="card pad-16">
+            <div class="tiny">Фокус</div>
+            <div class="small mt-8">Видимое кольцо фокуса на каждом интерактивном элементе, ссылка «к содержанию» вверху страницы, целевые области ≥44px.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PARTICIPANT STATES ============ -->
+  <section class="mt-40">
+    <div class="eyebrow eyebrow-accent">Участники</div>
+    <h2 class="d3 mt-8">Один аккаунт — несколько людей</h2>
+    <div class="card pad-28 mt-20">
+      <div class="row gap-24" style="align-items:flex-start">
+        <div class="col gap-8" style="width:280px">
+          <div class="row gap-10" style="padding:10px 12px;border:1px solid var(--accent);border-radius:var(--r-pill);background:var(--accent-soft)">
+            <div class="check check-on"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M4 12l6 6L20 6"/></svg></div>
+            <div class="avatar avatar-36">АС</div>
+            <div class="grow col"><span class="strong" style="font-size:13.5px">Артём · это вы</span><span class="tiny">Горные лыжи</span></div>
+          </div>
+          <div class="row gap-10" style="padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-pill);background:var(--surface)">
+            <div class="check"></div>
+            <div class="avatar avatar-36 avatar-gold">ЕС</div>
+            <div class="grow col"><span class="strong" style="font-size:13.5px">Ева</span><span class="tiny">9 лет · детская программа</span></div>
+          </div>
+          <div class="row gap-10" style="padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-pill);background:var(--surface)">
+            <div class="check"></div>
+            <div class="avatar avatar-36 avatar-slate">МС</div>
+            <div class="grow col"><span class="strong" style="font-size:13.5px">Максим · данные не заполнены</span><span class="tiny">Черновик участника</span></div>
+          </div>
+          <div class="btn btn-ghost btn-sm mt-4">+ Добавить участника</div>
+        </div>
+        <div class="grow">
+          <div class="body">
+            <b>Аккаунт — это вход. Участник — это человек.</b> Личность, аватар, прогресс, посещаемость, достижения и сертификаты
+            принадлежат участнику, а не аккаунту. Переключатель виден всегда на мобильном, потому что именно он выбирает, чьи данные показаны.
+          </div>
+          <div class="grid-3 mt-20">
+            <div class="card-quiet pad-16"><div class="label-mono">Один участник</div><div class="small mt-8">Переключатель скрывается, лишних элементов нет.</div></div>
+            <div class="card-quiet pad-16"><div class="label-mono">Несколько</div><div class="small mt-8">Переключатель + подпись активного участника во всех экранах.</div></div>
+            <div class="card-quiet pad-16"><div class="label-mono">Незаполненный</div><div class="small mt-8">Состояние «черновик» с понятным следующим действием, а не пустой экран.</div></div>
+          </div>
+          <div class="card-quiet pad-16 mt-16">
+            <div class="label-mono">Одна запись — одна группа</div>
+            <div class="small mt-8">Одно занятие, один слот, одна оплата на всех участников. <span class="mono">party.kind = family_group</span> при двух и более людях.
+            Никогда не создаётся отдельная запись на каждого.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+</body>
+</html>

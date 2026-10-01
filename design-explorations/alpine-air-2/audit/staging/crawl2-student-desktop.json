@@ -1,0 +1,524 @@
+{
+  "student-desktop-01-after-login": {
+    "url": "https://ski-school-staging.web.app/cabinet",
+    "headings": [
+      "H2|From first turns to expert carving",
+      "H3|BEGINNER",
+      "H3|CARVE",
+      "H3|PERFORMANCE",
+      "H3|EXPERT",
+      "H2|Today",
+      "H2|Latest coach recommendation"
+    ],
+    "buttons": [
+      "S",
+      "A",
+      "M",
+      "EN",
+      "Add to Today",
+      "Development →",
+      "My Lessons",
+      "Home",
+      "Training",
+      "Coach",
+      "Profile"
+    ],
+    "links": [
+      "=>/cabinet"
+    ],
+    "inputs": [
+      "INPUT[text]:New reminder"
+    ],
+    "tabs": [],
+    "dialogs": [],
+    "tables": [],
+    "counts": {
+      "btn": 23,
+      "a": 1,
+      "input": 1,
+      "table": 0,
+      "row": 0
+    }
+  },
+  "student-desktop-02-cabinet-home": {
+    "url": "https://ski-school-staging.web.app/cabinet",
+    "headings": [
+      "H2|From first turns to expert carving",
+      "H3|BEGINNER",
+      "H3|CARVE",
+      "H3|PERFORMANCE",
+      "H3|EXPERT",
+      "H2|Today",
+      "H2|Latest coach recommendation"
+    ],
+    "buttons": [
+      "S",
+      "A",
+      "M",
+      "EN",
+      "Add to Today",
+      "Development →",
+      "My Lessons",
+      "Home",
+      "Training",
+      "Coach",
+      "Profile"
+    ],
+    "links": [
+      "=>/cabinet"
+    ],
+    "inputs": [
+      "INPUT[text]:New reminder"
+    ],
+    "tabs": [],
+    "dialogs": [],
+    "tables": [],
+    "counts": {
+      "btn": 23,
+      "a": 1,
+      "input": 1,
+      "table": 0,
+      "row": 0
+    }
+  },
+  "student-desktop-03-cab-Home": {
+    "url": "https://ski-school-staging.web.app/cabinet",
+    "headings": [
+      "H2|From first turns to expert carving",
+      "H3|BEGINNER",
+      "H3|CARVE",
+      "H3|PERFORMANCE",
+      "H3|EXPERT",
+      "H2|Today",
+      "H2|Latest coach recommendation"
+    ],
+    "buttons": [
+      "S",
+      "A",
+      "M",
+      "EN",
+      "Add to Today",
+      "Development →",
+      "My Lessons",
+      "Home",
+      "Training",
+      "Coach",
+      "Profile"
+    ],
+    "links": [
+      "=>/cabinet"
+    ],
+    "inputs": [
+      "INPUT[text]:New reminder"
+    ],
+    "tabs": [],
+    "dialogs": [],
+    "tables": [],
+    "counts": {
+      "btn": 23,
+      "a": 1,
+      "input": 1,
+      "table": 0,
+      "row": 0
+    }
+  },
+  "student-desktop-04-cab-Training": {
+    "url": "https://ski-school-staging.web.app/cabinet/training",
+    "headings": [
+      "H1|Training"
+    ],
+    "buttons": [
+      "S",
+      "A",
+      "M",
+      "EN",
+      "Home",
+      "Development Skill development",
+      "My Lessons My Lessons",
+      "Courses Courses",
+      "Home",
+      "Training",
+      "Coach",
+      "Profile"
+    ],
+    "links": [
+      "=>/cabinet"
+    ],
+    "inputs": [],
+    "tabs": [],
+    "dialogs": [],
+    "tables": [],
+    "counts": {
+      "btn": 20,
+      "a": 1,
+      "input": 0,
+      "table": 0,
+      "row": 0
+    }
+  },
+  "student-desktop-05-cab-Coach": {
+    "url": "https://ski-school-staging.web.app/cabinet/coach",
+    "headings": [
+      "H1|Coach",
+      "H2|Available coaches",
+      "H3|Arsenii Gerasimchuk",
+      "H3|Staging Admin (internal fixture actor)"
+    ],
+    "buttons": [
+      "S",
+      "A",
+      "M",
+      "EN",
+      "Home",
+      "No reviews received yet.",
+      "Book Lesson",
+      "No reviews received yet.",
+      "Book Lesson",
+      "Home",
+      "Training",
+      "Coach",
+      "Profile"
+    ],
+    "links": [
+      "=>/cabinet"
+    ],
+    "inputs": [],
+    "tabs": [],
+    "dialogs": [],
+    "tables": [],
+    "counts": {
+      "btn": 21,
+      "a": 1,
+      "input": 0,
+      "table": 0,
+      "row": 0
+    }
+  },
+  "student-desktop-06-cab-Profile": {
+    "url": "https://ski-school-staging.web.app/cabinet/settings",
+    "headings": [
+      "H1|Profile"
+    ],
+    "buttons": [
+      "S",
+      "A",
+      "M",
+      "EN",
+      "Home",
+      "Participants Edit personal info, avatars, and dependent participants.",
+      "Wallet transaction history Credits, debits and current balance",
+      "My history Progress and training history",
+      "Skills Skill radar and exercise progress",
+      "Certificates Course and level certificates",
+      "Achievements Badges earned on the slopes",
+      "This season Stats for the current season",
+      "Video archive Training videos from your lessons",
+      "Settings Privacy and account",
+      "Home",
+      "Training",
+      "Coach",
+      "Profile"
+    ],
+    "links": [
+      "=>/cabinet"
+    ],
+    "inputs": [],
+    "tabs": [],
+    "dialogs": [],
+    "tables": [],
+    "counts": {
+      "btn": 26,
+      "a": 1,
+      "input": 0,
+      "table": 0,
+      "row": 0
+    }
+  },
+  "student-desktop-07-slug-lessons": {
+    "url": "https://ski-school-staging.web.app/cabinet",
+    "headings": [
+      "H2|From first turns to expert carving",
+      "H3|BEGINNER",
+      "H3|CARVE",
+      "H3|PERFORMANCE",
+      "H3|EXPERT",
+      "H2|Today",
+      "H2|Latest coach recommendation"
+    ],
+    "buttons": [
+      "S",
+      "A",
+      "M",
+      "EN",
+      "Add to Today",
+      "Development →",
+      "My Lessons",
+      "Home",
+      "Training",
+      "Coach",
+      "Profile"
+    ],
+    "links": [
+      "=>/cabinet"
+    ],
+    "inputs": [
+      "INPUT[text]:New reminder"
+    ],
+    "tabs": [],
+    "dialogs": [],
+    "tables": [],
+    "counts": {
+      "btn": 23,
+      "a": 1,
+      "input": 1,
+      "table": 0,
+      "row": 0
+    }
+  },
+  "student-desktop-08-slug-progress": {
+    "url": "https://ski-school-staging.web.app/cabinet",
+    "headings": [
+      "H2|From first turns to expert carving",
+      "H3|BEGINNER",
+      "H3|CARVE",
+      "H3|PERFORMANCE",
+      "H3|EXPERT",
+      "H2|Today",
+      "H2|Latest coach recommendation"
+    ],
+    "buttons": [
+      "S",
+      "A",
+      "M",
+      "EN",
+      "Add to Today",
+      "Development →",
+      "My Lessons",
+      "Home",
+      "Training",
+      "Coach",
+      "Profile"
+    ],
+    "links": [
+      "=>/cabinet"
+    ],
+    "inputs": [
+      "INPUT[text]:New reminder"
+    ],
+    "tabs": [],
+    "dialogs": [],
+    "tables": [],
+    "counts": {
+      "btn": 23,
+      "a": 1,
+      "input": 1,
+      "table": 0,
+      "row": 0
+    }
+  },
+  "student-desktop-09-slug-skills": {
+    "url": "https://ski-school-staging.web.app/cabinet",
+    "headings": [
+      "H2|From first turns to expert carving",
+      "H3|BEGINNER",
+      "H3|CARVE",
+      "H3|PERFORMANCE",
+      "H3|EXPERT",
+      "H2|Today",
+      "H2|Latest coach recommendation"
+    ],
+    "buttons": [
+      "S",
+      "A",
+      "M",
+      "EN",
+      "Add to Today",
+      "Development →",
+      "My Lessons",
+      "Home",
+      "Training",
+      "Coach",
+      "Profile"
+    ],
+    "links": [
+      "=>/cabinet"
+    ],
+    "inputs": [
+      "INPUT[text]:New reminder"
+    ],
+    "tabs": [],
+    "dialogs": [],
+    "tables": [],
+    "counts": {
+      "btn": 23,
+      "a": 1,
+      "input": 1,
+      "table": 0,
+      "row": 0
+    }
+  },
+  "student-desktop-10-slug-wallet": {
+    "url": "https://ski-school-staging.web.app/cabinet",
+    "headings": [
+      "H2|From first turns to expert carving",
+      "H3|BEGINNER",
+      "H3|CARVE",
+      "H3|PERFORMANCE",
+      "H3|EXPERT",
+      "H2|Today",
+      "H2|Latest coach recommendation"
+    ],
+    "buttons": [
+      "S",
+      "A",
+      "M",
+      "EN",
+      "Add to Today",
+      "Development →",
+      "My Lessons",
+      "Home",
+      "Training",
+      "Coach",
+      "Profile"
+    ],
+    "links": [
+      "=>/cabinet"
+    ],
+    "inputs": [
+      "INPUT[text]:New reminder"
+    ],
+    "tabs": [],
+    "dialogs": [],
+    "tables": [],
+    "counts": {
+      "btn": 23,
+      "a": 1,
+      "input": 1,
+      "table": 0,
+      "row": 0
+    }
+  },
+  "student-desktop-11-slug-achievements": {
+    "url": "https://ski-school-staging.web.app/cabinet",
+    "headings": [
+      "H2|From first turns to expert carving",
+      "H3|BEGINNER",
+      "H3|CARVE",
+      "H3|PERFORMANCE",
+      "H3|EXPERT",
+      "H2|Today",
+      "H2|Latest coach recommendation"
+    ],
+    "buttons": [
+      "S",
+      "A",
+      "M",
+      "EN",
+      "Add to Today",
+      "Development →",
+      "My Lessons",
+      "Home",
+      "Training",
+      "Coach",
+      "Profile"
+    ],
+    "links": [
+      "=>/cabinet"
+    ],
+    "inputs": [
+      "INPUT[text]:New reminder"
+    ],
+    "tabs": [],
+    "dialogs": [],
+    "tables": [],
+    "counts": {
+      "btn": 23,
+      "a": 1,
+      "input": 1,
+      "table": 0,
+      "row": 0
+    }
+  },
+  "student-desktop-12-slug-participants": {
+    "url": "https://ski-school-staging.web.app/cabinet",
+    "headings": [
+      "H2|From first turns to expert carving",
+      "H3|BEGINNER",
+      "H3|CARVE",
+      "H3|PERFORMANCE",
+      "H3|EXPERT",
+      "H2|Today",
+      "H2|Latest coach recommendation"
+    ],
+    "buttons": [
+      "S",
+      "A",
+      "M",
+      "EN",
+      "Add to Today",
+      "Development →",
+      "My Lessons",
+      "Home",
+      "Training",
+      "Coach",
+      "Profile"
+    ],
+    "links": [
+      "=>/cabinet"
+    ],
+    "inputs": [
+      "INPUT[text]:New reminder"
+    ],
+    "tabs": [],
+    "dialogs": [],
+    "tables": [],
+    "counts": {
+      "btn": 23,
+      "a": 1,
+      "input": 1,
+      "table": 0,
+      "row": 0
+    }
+  },
+  "student-desktop-13-slug-profile": {
+    "url": "https://ski-school-staging.web.app/cabinet",
+    "headings": [
+      "H2|From first turns to expert carving",
+      "H3|BEGINNER",
+      "H3|CARVE",
+      "H3|PERFORMANCE",
+      "H3|EXPERT",
+      "H2|Today",
+      "H2|Latest coach recommendation"
+    ],
+    "buttons": [
+      "S",
+      "A",
+      "M",
+      "EN",
+      "Add to Today",
+      "Development →",
+      "My Lessons",
+      "Home",
+      "Training",
+      "Coach",
+      "Profile"
+    ],
+    "links": [
+      "=>/cabinet"
+    ],
+    "inputs": [
+      "INPUT[text]:New reminder"
+    ],
+    "tabs": [],
+    "dialogs": [],
+    "tables": [],
+    "counts": {
+      "btn": 23,
+      "a": 1,
+      "input": 1,
+      "table": 0,
+      "row": 0
+    }
+  }
+}

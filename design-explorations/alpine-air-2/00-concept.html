@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Carve Academy — Alpine Air 2.0 · Концепция</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+  .swatch { height: 92px; border-radius: var(--r-sm); display: flex; align-items: flex-end; padding: 10px; }
+  .specimen { border-bottom: 1px solid var(--line); padding: 14px 0; display: flex; align-items: baseline; gap: 24px; }
+  .spec-num { width: 130px; color: var(--ink-3); font-family: var(--f-mono); font-size: 11px; }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="wrap row-between" style="height:68px">
+    <div class="logo-mark">Carve Academy <span>Дизайн-система 2.0</span></div>
+    <div class="row gap-8">
+      <span class="chip chip-line">Концепт</span>
+      <span class="chip chip-accent">Интерфейс: RU / EN — ровно два языка</span>
+      <span class="tiny">Код продукта не изменён</span>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap" style="padding:56px 40px 90px;max-width:1160px">
+
+  <div class="eyebrow eyebrow-accent">Дизайн-направление</div>
+  <h1 class="d1 mt-12" style="max-width:900px">Alpine Air 2.0 —<br><span class="serif-it">«Снежное поле»</span></h1>
+  <p class="body mt-24" style="max-width:640px;font-size:17px">
+  Не ломаем редакционную ДНК Alpine Air (серифные заголовки, тихие границы, матовое стекло). Двигаем её в сторону
+  холодной, «инструментальной» системы: бумажный фон, ледниковый акцент, моноширинные цифры для денег и времени,
+  волосяные разделители вместо рамок и один тёплый сигналный цвет для срочности.
+  </p>
+
+  <div class="grid-4 mt-40">
+    <div class="card pad-20">
+      <div class="label-mono">Было</div>
+      <div class="body mt-8">Данные прятались в текст: «слот 11:00, зал 2» обычным предложением.</div>
+    </div>
+    <div class="card pad-20">
+      <div class="label-mono">Стало</div>
+      <div class="body mt-8">Время, деньги и статус — моноцифрами, мгновенно читаемыми.</div>
+    </div>
+    <div class="card pad-20">
+      <div class="label-mono">Было</div>
+      <div class="body mt-8">Много одинаковых карточек и рамок, визуальный шум.</div>
+    </div>
+    <div class="card pad-20">
+      <div class="label-mono">Стало</div>
+      <div class="body mt-8">Группировка через snowline-разделители и воздух, карточек меньше.</div>
+    </div>
+  </div>
+
+  <h2 class="d3 mt-72">Цвет</h2>
+  <div class="grid-4 mt-20">
+    <div><div class="swatch" style="background:#f6f5f1;border:1px solid var(--line)"><span class="label-mono">paper</span></div><div class="tiny mt-8">#F6F5F1 — фон</div></div>
+    <div><div class="swatch" style="background:#0e5a6b;color:#fff"><span class="label-mono">glacier</span></div><div class="tiny mt-8">#0E5A6B — акцент, CTA</div></div>
+    <div><div class="swatch" style="background:#0b2229;color:#fff"><span class="label-mono">night</span></div><div class="tiny mt-8">#0B2229 — тёмные панели</div></div>
+    <div><div class="swatch" style="background:#c2410c;color:#fff"><span class="label-mono">flame</span></div><div class="tiny mt-8">#C2410C — срочность, не оплачено</div></div>
+    <div><div class="swatch" style="background:#2f6b52;color:#fff"><span class="label-mono">pine</span></div><div class="tiny mt-8">#2F6B52 — подтверждено, деньги +</div></div>
+    <div><div class="swatch" style="background:#9a6b1f;color:#fff"><span class="label-mono">gold</span></div><div class="tiny mt-8">#9A6B1F — достижения, курсы</div></div>
+    <div><div class="swatch" style="background:#0c1012;color:#fff"><span class="label-mono">ink</span></div><div class="tiny mt-8">#0C1012 — текст</div></div>
+    <div><div class="swatch" style="background:#e4eef0"><span class="label-mono">accent-soft</span></div><div class="tiny mt-8">#E4EEF0 — выделение, вкладки</div></div>
+  </div>
+
+  <h2 class="d3 mt-72">Типографика</h2>
+  <div class="mt-20">
+    <div class="specimen">
+      <div class="spec-num">Display 84/0.96</div>
+      <div class="d1" style="font-size:56px">Учимся кататься в горах</div>
+    </div>
+    <div class="specimen">
+      <div class="spec-num">Display 40/1.08</div>
+      <div class="d3">Выберите, кому доверите склон</div>
+    </div>
+    <div class="specimen">
+      <div class="spec-num">UI 15/1.6</div>
+      <div class="body" style="font-size:15px">Инструктор увидит пожелания до выезда на склон.</div>
+    </div>
+    <div class="specimen">
+      <div class="spec-num">Mono 13 · данные</div>
+      <div class="num" style="font-size:22px">11:00 — 12:00 · 9 000 ₸ · 128 отзывов</div>
+    </div>
+    <div class="specimen" style="border-bottom:0">
+      <div class="spec-num">Eyebrow 10.5</div>
+      <div class="eyebrow">Шаг 2 — время · свободные слоты</div>
+    </div>
+  </div>
+  <div class="row gap-32 mt-16">
+    <span class="tiny">Cormorant Garamond — заголовки</span>
+    <span class="tiny">DM Sans — интерфейс</span>
+    <span class="tiny">Space Mono — цифры и лейблы</span>
+  </div>
+
+  <h2 class="d3 mt-72">Компоненты</h2>
+  <div class="grid-2 mt-20">
+    <div class="card pad-24">
+      <div class="label-mono">Кнопки</div>
+      <div class="row gap-8 mt-12" style="flex-wrap:wrap">
+        <button class="btn btn-primary">Основная</button>
+        <button class="btn btn-soft">Мягкая</button>
+        <button class="btn btn-ghost">Вторичная</button>
+        <button class="btn btn-flame">Срочная</button>
+      </div>
+      <div class="row gap-8 mt-12">
+        <button class="btn btn-primary btn-lg">Крупная CTA</button>
+        <button class="btn btn-ghost btn-sm">Мелкая</button>
+      </div>
+    </div>
+    <div class="card pad-24">
+      <div class="label-mono">Статусы</div>
+      <div class="row gap-8 mt-12" style="flex-wrap:wrap">
+        <span class="chip chip-pine">Оплачено</span>
+        <span class="chip chip-flame">Не оплачено</span>
+        <span class="chip chip-accent">Подтверждено</span>
+        <span class="chip chip-gold">Курс</span>
+        <span class="chip chip-line">Ожидает</span>
+        <span class="chip">Свободно</span>
+      </div>
+      <div class="row gap-8 mt-16">
+        <div class="attend" style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 12px;border:1px solid var(--line-2);border-radius:999px;font-size:13px">Перенос</div>
+        <div style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 12px;border-radius:999px;font-size:13px;background:var(--pine);color:#fff;border:1px solid var(--pine)">Пришёл</div>
+        <div style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 12px;border-radius:999px;font-size:13px;background:var(--flame);color:#fff;border:1px solid var(--flame)">Не пришёл</div>
+      </div>
+    </div>
+    <div class="card pad-24">
+      <div class="label-mono">Snowline-разделитель</div>
+      <hr class="snowline mt-12">
+      <hr class="snowline mt-24">
+      <hr class="snowline-strong mt-24">
+      <div class="tiny mt-12">Заменяет рамки: группировка без «коробок».</div>
+    </div>
+    <div class="card pad-24">
+      <div class="label-mono">Слоты</div>
+      <div class="row gap-8 mt-12">
+        <div class="slot" style="width:64px">10:00</div>
+        <div class="slot slot-on" style="width:64px">11:00</div>
+        <div class="slot slot-off" style="width:64px">12:00</div>
+      </div>
+      <div class="row gap-8 mt-12">
+        <div class="bar" style="flex:1"><div class="bar-fill" style="width:72%"></div></div>
+        <div class="bar" style="flex:1"><div class="bar-fill bar-fill-gold" style="width:38%"></div></div>
+        <div class="bar" style="flex:1"><div class="bar-fill" style="width:14%;background:var(--flame)"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="d3 mt-72">Принципы</h2>
+  <div class="grid-3 mt-20">
+    <div class="card pad-24">
+      <div class="label-mono">01 · Склон важнее интерфейса</div>
+      <div class="body mt-8">Погода, состояние трасс и свободные слоты видны на первом экране — это и есть аргумент продажи.</div>
+    </div>
+    <div class="card pad-24">
+      <div class="label-mono">02 · Цифра решает</div>
+      <div class="body mt-8">Сумма, время и статус всегда моноширинные: их сравнивают и сканируют, а не читают.</div>
+    </div>
+    <div class="card pad-24">
+      <div class="label-mono">03 · Меньше рамок</div>
+      <div class="body mt-8">Группировка через разделители и воздух; рамка только там, где есть действие.</div>
+    </div>
+    <div class="card pad-24">
+      <div class="label-mono">04 · Один тёплый сигнал</div>
+      <div class="body mt-8">Flame только для «требует действия»: не оплачено, ждёт отметки, дедлайн.</div>
+    </div>
+    <div class="card pad-24">
+      <div class="label-mono">05 · Участник, а не аккаунт</div>
+      <div class="body mt-8">Переключатель участников виден всегда: у каждого свои занятия, прогресс и аватар.</div>
+    </div>
+    <div class="card pad-24">
+      <div class="label-mono">06 · Мобильный бронирование</div>
+      <div class="body mt-8">Выбор даты и слота — в bottom sheet, оплата — в липкой нижней панели.</div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

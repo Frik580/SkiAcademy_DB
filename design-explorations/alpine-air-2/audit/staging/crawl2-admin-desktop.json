@@ -1,0 +1,291 @@
+{
+  "admin-desktop-01-after-login": {
+    "url": "https://ski-school-staging.web.app/",
+    "headings": [
+      "H2|Step-by-step coaching from your very first lesson.",
+      "H2|Private ski & snowboard coaching for every level.",
+      "H2|Build confidence and enjoy every part of the mountain.",
+      "H2|Clean turns. Better edge control. More flow.",
+      "H2|From first turns to expert carving",
+      "H3|BEGINNER",
+      "H3|CARVE",
+      "H3|PERFORMANCE",
+      "H3|EXPERT",
+      "H3|Intensive Group Courses",
+      "H4|Carving Essentials",
+      "H4|Performance Carving Masterclass",
+      "H3|Meet Our Professional Guides",
+      "H3|Arsenii Gerasimchuk",
+      "H3|Staging Admin (internal fixture actor)"
+    ],
+    "buttons": [
+      "Client Cabinet",
+      "EN",
+      "Start Your Journey",
+      "Choose Course",
+      "01 04",
+      "0°",
+      "Enroll",
+      "Details",
+      "Enroll",
+      "Details",
+      "No reviews received yet.",
+      "Book Lesson",
+      "No reviews received yet.",
+      "Book Lesson"
+    ],
+    "links": [
+      "=>/"
+    ],
+    "inputs": [],
+    "tabs": [],
+    "dialogs": [],
+    "tables": [],
+    "counts": {
+      "btn": 24,
+      "a": 1,
+      "input": 0,
+      "table": 0,
+      "row": 0
+    }
+  },
+  "admin-desktop-02-admin-operations": {
+    "url": "https://ski-school-staging.web.app/admin?tab=operations",
+    "headings": [
+      "H3|FINANCIAL OVERVIEW",
+      "H3|Instructor Timetable & Schedule Board",
+      "H3|Active Bookings Monitor",
+      "H3|Attention center",
+      "H3|Lessons and courses"
+    ],
+    "buttons": [
+      "Client Cabinet",
+      "EN",
+      "OPERATIONS",
+      "FINANCE",
+      "PEOPLE",
+      "PRODUCT",
+      "SYSTEM",
+      "HIDE",
+      "Day",
+      "Week",
+      "Today",
+      "HIDE",
+      "SHOW",
+      "SHOW"
+    ],
+    "links": [
+      "=>/"
+    ],
+    "inputs": [
+      "INPUT[date]:"
+    ],
+    "tabs": [],
+    "dialogs": [],
+    "tables": [
+      "COACH | 08:00 | 09:00 | 10:00 | 11:00 | 12:00 | 13:00 | 14:00 | 15:00 | 16:00 | 17:00 | 18:00 [rows=2]",
+      "BOOKING ID | BOOKING DATE | SKIER | COACH | TRAINING LEVEL | DATE/TIME | FEE | STATUS | APPROVAL ACTIONS [rows=1]"
+    ],
+    "counts": {
+      "btn": 65,
+      "a": 1,
+      "input": 1,
+      "table": 2,
+      "row": 3
+    }
+  },
+  "admin-desktop-03-admin-finance": {
+    "url": "https://ski-school-staging.web.app/admin?tab=finance",
+    "headings": [
+      "H3|FINANCIAL OVERVIEW",
+      "H3|Guest funds",
+      "H3|Canonical payments and wallets",
+      "H3|School cash flow"
+    ],
+    "buttons": [
+      "Client Cabinet",
+      "EN",
+      "OPERATIONS",
+      "FINANCE",
+      "PEOPLE",
+      "PRODUCT",
+      "SYSTEM",
+      "DAY",
+      "WEEK",
+      "MONTH",
+      "OPEN MONETARY MOVEMENT FOR THIS PERIOD",
+      "HIDE",
+      "SHOW",
+      "HIDE"
+    ],
+    "links": [
+      "=>/"
+    ],
+    "inputs": [
+      "SELECT[select-one]:",
+      "INPUT[text]:Guest name, payment, service…",
+      "INPUT[text]:Search guides by name or bio...",
+      "SELECT[select-one]:",
+      "SELECT[select-one]:"
+    ],
+    "tabs": [],
+    "dialogs": [],
+    "tables": [
+      "TIME | KIND | SOURCE | SUBJECT | PAYMENT | WALLET | AMOUNT [rows=0]"
+    ],
+    "counts": {
+      "btn": 19,
+      "a": 1,
+      "input": 2,
+      "table": 1,
+      "row": 0
+    }
+  },
+  "admin-desktop-04-admin-people": {
+    "url": "https://ski-school-staging.web.app/admin?tab=people",
+    "headings": [
+      "H3|Client Database Management",
+      "H3|Coaches Directory Management",
+      "H3|Administrator Role Management",
+      "H4|CURRENT ADMINISTRATORS"
+    ],
+    "buttons": [
+      "Client Cabinet",
+      "EN",
+      "OPERATIONS",
+      "FINANCE",
+      "PEOPLE",
+      "PRODUCT",
+      "SYSTEM",
+      "HIDE",
+      "HIDE",
+      "ADD INSTRUCTOR",
+      "HIDE"
+    ],
+    "links": [
+      "=>/"
+    ],
+    "inputs": [
+      "INPUT[search]:Search clients",
+      "INPUT[search]:Search instructors"
+    ],
+    "tabs": [],
+    "dialogs": [],
+    "tables": [],
+    "counts": {
+      "btn": 16,
+      "a": 1,
+      "input": 2,
+      "table": 0,
+      "row": 0
+    }
+  },
+  "admin-desktop-05-admin-product": {
+    "url": "https://ski-school-staging.web.app/admin?tab=product",
+    "headings": [
+      "H3|Courses Database Management",
+      "H3|Lesson settings",
+      "H3|Resort Details & Weather Location",
+      "H3|Hero Slider Slides & Speed"
+    ],
+    "buttons": [
+      "Client Cabinet",
+      "EN",
+      "OPERATIONS",
+      "FINANCE",
+      "PEOPLE",
+      "PRODUCT",
+      "SYSTEM",
+      "HIDE",
+      "Active",
+      "Archived",
+      "Add Course",
+      "Refresh",
+      "Carving Essentials January 1 - 3, 2027, 09:00 - 13:00 · Arsenii Gerasimchuk 150 000 ₸ · 0/10",
+      "Performance Carving Masterclass December 10 - 15, 2026, 09:00 - 13:00 · Arsenii Gerasimchuk 250 000 ₸ · 0/4",
+      "HIDE",
+      "Save settings",
+      "SHOW",
+      "SHOW"
+    ],
+    "links": [
+      "=>/"
+    ],
+    "inputs": [
+      "INPUT[text]:Search courses",
+      "INPUT[number]:",
+      "INPUT[number]:",
+      "INPUT[text]:For example: seasonal tariff update"
+    ],
+    "tabs": [
+      "Active",
+      "Archived"
+    ],
+    "dialogs": [],
+    "tables": [],
+    "counts": {
+      "btn": 29,
+      "a": 1,
+      "input": 4,
+      "table": 0,
+      "row": 0
+    }
+  },
+  "admin-desktop-06-admin-system": {
+    "url": "https://ski-school-staging.web.app/admin?tab=system",
+    "headings": [
+      "H3|System Settings & Controls",
+      "H3|Notification Retention",
+      "H3|Starter gift credit",
+      "H3|Client Rating & Skill Level Matrix",
+      "H3|Student achievements",
+      "H3|Danger zone",
+      "H3|Testing environment",
+      "H4|Test session has not been created.",
+      "H4|Test Actors",
+      "H4|LIVE course templates",
+      "H3|System Error Logs"
+    ],
+    "buttons": [
+      "Client Cabinet",
+      "EN",
+      "OPERATIONS",
+      "FINANCE",
+      "PEOPLE",
+      "PRODUCT",
+      "SYSTEM",
+      "HIDE",
+      "Save Changes",
+      "SHOW",
+      "SHOW",
+      "SHOW",
+      "SHOW",
+      "RETRY",
+      "Create test session",
+      "Close session",
+      "Delete session",
+      "SHOW"
+    ],
+    "links": [
+      "=>/"
+    ],
+    "inputs": [
+      "INPUT[number]:",
+      "INPUT[text]:",
+      "INPUT[number]:",
+      "INPUT[checkbox]:",
+      "INPUT[checkbox]:",
+      "INPUT[checkbox]:"
+    ],
+    "tabs": [],
+    "dialogs": [],
+    "tables": [],
+    "counts": {
+      "btn": 24,
+      "a": 1,
+      "input": 6,
+      "table": 0,
+      "row": 0
+    }
+  }
+}

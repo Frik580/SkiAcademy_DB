@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Carve Academy — Alpine Air 2.0 · Админ-панель</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+  .shell { display: grid; grid-template-columns: 244px 1fr; min-height: 100vh; }
+  .side { background: #0b2229; color: rgba(255,255,255,.72); padding: 22px 16px; }
+  .side-link { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--r-xs); font-size: 14px; }
+  .side-link-on { background: rgba(255,255,255,.12); color: #fff; }
+  .board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; align-items: start; }
+  .col-head { padding: 12px 14px; border-bottom: 1px solid var(--line); }
+  .bcard { border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface); padding: 12px; }
+  .bcard-time { font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); }
+  .stat-strip { display: grid; grid-template-columns: repeat(5, 1fr); border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); overflow: hidden; }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="side">
+    <div class="row gap-10" style="padding:4px 8px 22px">
+      <div class="logo-mark" style="color:#fff;font-size:19px">Carve <span style="color:rgba(255,255,255,.4)">Admin</span></div>
+    </div>
+
+    <div class="label-mono" style="padding:0 12px 8px;color:rgba(255,255,255,.35)">Разделы</div>
+    <div class="col gap-2">
+      <a class="side-link side-link-on">Операции</a>
+      <a class="side-link">Финансы</a>
+      <a class="side-link">Люди</a>
+      <a class="side-link">Продукт</a>
+      <a class="side-link">Система</a>
+    </div>
+
+    <div class="label-mono" style="padding:24px 12px 8px;color:rgba(255,255,255,.35)">Операции</div>
+    <div class="col gap-2" style="font-size:13.5px">
+      <a class="side-link">Расписание</a>
+      <a class="side-link">Занятия и курсы</a>
+      <a class="side-link">Посещаемость</a>
+      <a class="side-link">Обращения <span class="chip chip-flame" style="height:20px;font-size:10px;margin-left:auto">7</span></a>
+    </div>
+
+    <div class="mt-40" style="padding:0 8px">
+      <div class="card" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.14);padding:14px">
+        <div class="tiny" style="color:rgba(255,255,255,.5)">Смена открыта</div>
+        <div class="num mt-4" style="font-size:15px;color:#fff">08:00 – 18:00</div>
+        <div class="tiny mt-8" style="color:rgba(255,255,255,.45)">Декабрь · Горный</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <div style="background:var(--paper)">
+    <div class="row-between" style="padding:22px 32px;border-bottom:1px solid var(--line);background:rgba(246,245,241,.85);backdrop-filter:blur(12px)">
+      <div>
+        <div class="eyebrow eyebrow-accent">Операции</div>
+        <h1 class="d3 mt-4">Расписание на 8 декабря</h1>
+      </div>
+      <div class="row gap-12">
+        <div class="seg">
+          <div class="seg-item">День</div><div class="seg-item seg-item-on">Неделя</div><div class="seg-item">Месяц</div>
+        </div>
+        <button class="btn btn-ghost">Сегодня</button>
+        <button class="btn btn-primary">+ Новая запись</button>
+      </div>
+    </div>
+
+    <div style="padding:28px 32px 60px">
+      <!-- alerts -->
+      <div class="row gap-12 mb" style="gap:12px;margin-bottom:24px">
+        <div class="card pad-16 row gap-12 grow" style="border-left:3px solid var(--flame)">
+          <div class="chip chip-flame" style="height:24px">Требует внимания</div>
+          <div class="small grow">7 учеников не отмечены после занятия — посещаемость не закрыта.</div>
+          <button class="btn btn-ghost btn-sm">Закрыть массово</button>
+        </div>
+        <div class="card pad-16 row gap-12" style="border-left:3px solid var(--gold)">
+          <div class="chip chip-gold" style="height:24px">Жалоба</div>
+          <div class="small">Отмена за 2 часа</div>
+          <button class="btn btn-ghost btn-sm">Открыть</button>
+        </div>
+        <div class="card pad-16 row gap-12" style="border-left:3px solid var(--accent)">
+          <div class="chip chip-accent" style="height:24px">Согласование</div>
+          <div class="small">Возврат 9 000 ₸</div>
+          <button class="btn btn-ghost btn-sm">Открыть</button>
+        </div>
+      </div>
+
+      <!-- stats -->
+      <div class="stat-strip">
+        <div style="padding:18px 20px;border-right:1px solid var(--line)">
+          <div class="label-mono">Загрузка инструкторов</div>
+          <div class="num mt-6" style="font-size:24px">78%</div>
+          <div class="bar mt-10"><div class="bar-fill" style="width:78%"></div></div>
+        </div>
+        <div style="padding:18px 20px;border-right:1px solid var(--line)">
+          <div class="label-mono">Занятий сегодня</div>
+          <div class="num mt-6" style="font-size:24px">64</div>
+          <div class="tiny mt-4">из 78 возможных</div>
+        </div>
+        <div style="padding:18px 20px;border-right:1px solid var(--line)">
+          <div class="label-mono">Выручка за день</div>
+          <div class="num mt-6" style="font-size:24px">1 240 000 ₸</div>
+          <div class="tiny mt-4" style="color:var(--pine)">+12% к прошлой неделе</div>
+        </div>
+        <div style="padding:18px 20px;border-right:1px solid var(--line)">
+          <div class="label-mono">Средняя загрузка участника</div>
+          <div class="num mt-6" style="font-size:24px">6.1</div>
+          <div class="tiny mt-4">занятий в месяц</div>
+        </div>
+        <div style="padding:18px 20px">
+          <div class="label-mono">Отмены</div>
+          <div class="num mt-6" style="font-size:24px">5</div>
+          <div class="tiny mt-4" style="color:var(--flame)">2 — за 2 часа</div>
+        </div>
+      </div>
+
+      <!-- board -->
+      <div class="row-between mt-40" style="align-items:flex-end">
+        <h2 class="d4">Смены инструкторов</h2>
+        <div class="row gap-8">
+          <span class="chip chip-pine"><span class="dot"></span>Подтверждено</span>
+          <span class="chip chip-flame"><span class="dot"></span>Не оплачено</span>
+          <span class="chip chip-line">Ожидает</span>
+        </div>
+      </div>
+
+      <div class="board mt-16">
+        <div class="card" style="overflow:hidden">
+          <div class="col-head row-between">
+            <div class="row gap-10">
+              <div class="avatar avatar-36">АК</div>
+              <div class="col"><span class="strong" style="font-size:13.5px">Айдар К.</span><span class="tiny">5 занятий</span></div>
+            </div>
+            <span class="chip chip-accent" style="height:22px;font-size:10.5px">100%</span>
+          </div>
+          <div class="col gap-8" style="padding:12px">
+            <div class="bcard">
+              <div class="row-between"><span class="bcard-time">11:00</span><span class="chip chip-pine" style="height:20px;font-size:10px">Оплачено</span></div>
+              <div class="strong mt-6" style="font-size:13.5px">Артём Соколов</div>
+              <div class="tiny">Горные лыжи · 1 участник</div>
+              <div class="row gap-6 mt-8"><span class="chip chip-flame">Нет отметки</span></div>
+            </div>
+            <div class="bcard">
+              <div class="row-between"><span class="bcard-time">13:00</span><span class="chip chip-pine" style="height:20px;font-size:10px">Оплачено</span></div>
+              <div class="strong mt-6" style="font-size:13.5px">Ева Соколова</div>
+              <div class="tiny">Сноуборд · детская</div>
+            </div>
+            <div class="bcard">
+              <div class="row-between"><span class="bcard-time">15:00</span><span class="chip chip-flame" style="height:20px;font-size:10px">Не оплачено</span></div>
+              <div class="strong mt-6" style="font-size:13.5px">Камиль Нурланов</div>
+              <div class="tiny">Горные лыжи · 1 участник</div>
+            </div>
+            <div class="bcard" style="border-style:dashed">
+              <div class="row-between"><span class="bcard-time">17:00</span><span class="chip chip-line" style="height:20px;font-size:10px">Ожидает</span></div>
+              <div class="strong mt-6" style="font-size:13.5px">Дамир Бекетов</div>
+              <div class="tiny">Фрирайд · 3 участника</div>
+            </div>
+            <div class="bcard" style="border-style:dashed">
+              <div class="row-between"><span class="bcard-time">19:00</span><span class="chip chip-line" style="height:20px;font-size:10px">Ожидает</span></div>
+              <div class="strong mt-6" style="font-size:13.5px">Иван Ткаченко</div>
+              <div class="tiny">Горные лыжи · 1 участник</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="overflow:hidden">
+          <div class="col-head row-between">
+            <div class="row gap-10">
+              <div class="avatar avatar-36 avatar-gold">МС</div>
+              <div class="col"><span class="strong" style="font-size:13.5px">Марина С.</span><span class="tiny">6 занятий</span></div>
+            </div>
+            <span class="chip chip-accent" style="height:22px;font-size:10.5px">100%</span>
+          </div>
+          <div class="col gap-8" style="padding:12px">
+            <div class="bcard">
+              <div class="row-between"><span class="bcard-time">09:00</span><span class="chip chip-pine" style="height:20px;font-size:10px">Оплачено</span></div>
+              <div class="strong mt-6" style="font-size:13.5px">Аяулым Кенжеева</div>
+              <div class="tiny">Сноуборд · кантон</div>
+            </div>
+            <div class="bcard">
+              <div class="row-between"><span class="bcard-time">11:00</span><span class="chip chip-pine" style="height:20px;font-size:10px">Оплачено</span></div>
+              <div class="strong mt-6" style="font-size:13.5px">Антон Дрей</div>
+              <div class="tiny">Сноуборд · 1 участник</div>
+              <div class="row gap-6 mt-8"><span class="chip chip-flame">Нет отметки</span></div>
+            </div>
+            <div class="bcard">
+              <div class="row-between"><span class="bcard-time">14:00</span><span class="chip chip-pine" style="height:20px;font-size:10px">Оплачено</span></div>
+              <div class="strong mt-6" style="font-size:13.5px">Группа 3 чел.</div>
+              <div class="tiny">Сноуборд · младшая</div>
+            </div>
+            <div class="bcard">
+              <div class="row-between"><span class="bcard-time">16:30</span><span class="chip chip-pine" style="height:20px;font-size:10px">Оплачено</span></div>
+              <div class="strong mt-6" style="font-size:13.5px">Семья Орловых</div>
+              <div class="tiny">Сноуборд · 3 участника</div>
+            </div>
+            <div class="bcard" style="border-style:dashed">
+              <div class="row-between"><span class="bcard-time">18:30</span><span class="chip chip-line" style="height:20px;font-size:10px">Ожидает</span></div>
+              <div class="strong mt-6" style="font-size:13.5px">Вечерняя группа</div>
+              <div class="tiny">Фрирайд · 4 участника</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="overflow:hidden">
+          <div class="col-head row-between">
+            <div class="row gap-10">
+              <div class="avatar avatar-36 avatar-pine">ТА</div>
+              <div class="col"><span class="strong" style="font-size:13.5px">Тимур А.</span><span class="tiny">4 занятия</span></div>
+            </div>
+            <span class="chip chip-gold" style="height:22px;font-size:10.5px">67%</span>
+          </div>
+          <div class="col gap-8" style="padding:12px">
+            <div class="bcard">
+              <div class="row-between"><span class="bcard-time">10:00</span><span class="chip chip-pine" style="height:20px;font-size:10px">Оплачено</span></div>
+              <div class="strong mt-6" style="font-size:13.5px">Нурлан Сагындык</div>
+              <div class="tiny">Горные лыжи · 1 участник</div>
+              <div class="row gap-6 mt-8"><span class="chip chip-flame">Нет отметки</span></div>
+            </div>
+            <div class="bcard">
+              <div class="row-between"><span class="bcard-time">12:00</span><span class="chip chip-pine" style="height:20px;font-size:10px">Оплачено</span></div>
+              <div class="strong mt-6" style="font-size:13.5px">Детская группа</div>
+              <div class="tiny">7–9 лет · 4 участника</div>
+            </div>
+            <div class="bcard">
+              <div class="row-between"><span class="bcard-time">14:30</span><span class="chip chip-flame" style="height:20px;font-size:10px">Не оплачено</span></div>
+              <div class="strong mt-6" style="font-size:13.5px">Руслан Ержанов</div>
+              <div class="tiny">Горные лыжи · 1 участник</div>
+            </div>
+            <div class="bcard" style="border-style:dashed">
+              <div class="row-between"><span class="bcard-time">16:30</span><span class="chip chip-line" style="height:20px;font-size:10px">Свободно</span></div>
+              <div class="tiny mt-6">Открытый слот</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="overflow:hidden">
+          <div class="col-head row-between">
+            <div class="row gap-10">
+              <div class="avatar avatar-36 avatar-slate">ДЛ</div>
+              <div class="col"><span class="strong" style="font-size:13.5px">Дана Л.</span><span class="tiny">5 занятий</span></div>
+            </div>
+            <span class="chip chip-gold" style="height:22px;font-size:10.5px">83%</span>
+          </div>
+          <div class="col gap-8" style="padding:12px">
+            <div class="bcard">
+              <div class="row-between"><span class="bcard-time">09:30</span><span class="chip chip-pine" style="height:20px;font-size:10px">Оплачено</span></div>
+              <div class="strong mt-6" style="font-size:13.5px">Миша Гаврилов</div>
+              <div class="tiny">Детская группа · 8 лет</div>
+            </div>
+            <div class="bcard">
+              <div class="row-between"><span class="bcard-time">11:30</span><span class="chip chip-pine" style="height:20px;font-size:10px">Оплачено</span></div>
+              <div class="strong mt-6" style="font-size:13.5px">Группа 2 чел.</div>
+              <div class="tiny">Сноуборд · младшая</div>
+              <div class="row gap-6 mt-8"><span class="chip chip-flame">Нет отметки</span></div>
+            </div>
+            <div class="bcard">
+              <div class="row-between"><span class="bcard-time">15:00</span><span class="chip chip-pine" style="height:20px;font-size:10px">Оплачено</span></div>
+              <div class="strong mt-6" style="font-size:13.5px">Ева Соколова</div>
+              <div class="tiny">Детская программа</div>
+            </div>
+            <div class="bcard" style="border-style:dashed">
+              <div class="row-between"><span class="bcard-time">17:00</span><span class="chip chip-line" style="height:20px;font-size:10px">Ожидает</span></div>
+              <div class="strong mt-6" style="font-size:13.5px">Братья Ахметовы</div>
+              <div class="tiny">Детская программа · 2</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- bottom row -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:40px">
+        <div class="card pad-24">
+          <div class="row-between"><h2 class="d4">Обращения</h2><span class="tiny">7 открытых</span></div>
+          <div class="mt-12">
+            <div class="list-row">
+              <div class="chip chip-flame" style="height:24px">Высокий</div>
+              <div class="grow">
+                <div class="strong" style="font-size:14px">Отмена занятия за 2 часа</div>
+                <div class="tiny">Артём Соколов · занятие 11:00 · возврат не оформлен</div>
+              </div>
+              <span class="tiny">12 мин назад</span>
+              <button class="btn btn-ghost btn-sm">Открыть</button>
+            </div>
+            <div class="list-row">
+              <div class="chip chip-gold" style="height:24px">Средний</div>
+              <div class="grow">
+                <div class="strong" style="font-size:14px">Не пришла оплата курса</div>
+                <div class="tiny">Семья Орловых · курс «Карвинг»</div>
+              </div>
+              <span class="tiny">1 ч назад</span>
+              <button class="btn btn-ghost btn-sm">Открыть</button>
+            </div>
+            <div class="list-row">
+              <div class="chip chip-line" style="height:24px">Низкий</div>
+              <div class="grow">
+                <div class="strong" style="font-size:14px">Просьба сменить инструктора</div>
+                <div class="tiny">Камиль Нурланов · пожелание без объяснений</div>
+              </div>
+              <span class="tiny">вчера</span>
+              <button class="btn btn-ghost btn-sm">Открыть</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card pad-24">
+          <div class="row-between"><h2 class="d4">Финансы дня</h2><span class="tiny">по кассе и кошелькам</span></div>
+          <div class="col gap-16" style="margin-top:28px">
+            <div>
+              <div class="row-between"><span class="small">Принято оплат</span><span class="mono" style="font-size:13px">412 000 ₸</span></div>
+              <div class="bar mt-8"><div class="bar-fill" style="width:88%"></div></div>
+            </div>
+            <div>
+              <div class="row-between"><span class="small">Ожидается оплат</span><span class="mono" style="font-size:13px">58 000 ₸</span></div>
+              <div class="bar mt-8"><div class="bar-fill-flame bar-fill" style="width:12%"></div></div>
+            </div>
+            <div>
+              <div class="row-between"><span class="small">Возвраты</span><span class="mono" style="font-size:13px;color:var(--flame)">9 000 ₸</span></div>
+              <div class="bar mt-8"><div class="bar-fill" style="width:6%;background:var(--flame)"></div></div>
+            </div>
+          </div>
+          <hr class="snowline mt-24">
+          <div class="row gap-8 mt-20">
+            <button class="btn btn-ghost btn-sm">Сверка</button>
+            <button class="btn btn-ghost btn-sm">Экспорт</button>
+            <button class="btn btn-soft btn-sm">Проводки</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

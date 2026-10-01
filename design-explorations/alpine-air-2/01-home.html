@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Carve Academy — Alpine Air 2.0 · Главная</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+  .hero-stats { display: flex; gap: 44px; margin-top: 44px; }
+  .hero-stat-v { font-family: var(--f-mono); font-size: 22px; letter-spacing: -0.03em; color: #fff; }
+  .hero-stat-l { font-size: 12px; color: rgba(255,255,255,.6); margin-top: 2px; }
+
+  .hero-glass {
+    position: absolute; right: 40px; bottom: 104px; width: 320px;
+    background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.22);
+    border-radius: var(--r); padding: 20px; color: #fff;
+    backdrop-filter: blur(22px) saturate(160%); -webkit-backdrop-filter: blur(22px) saturate(160%);
+  }
+  .hero-glass-row { display: flex; align-items: center; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,.14); }
+  .hero-glass-row:last-child { border-bottom: 0; }
+
+  .instructor-row { display: flex; align-items: center; gap: 24px; padding: 22px 24px; border-radius: var(--r); transition: background .2s ease; }
+  .instructor-row:hover { background: var(--surface); box-shadow: var(--shadow-sm); }
+  .rate { display: inline-flex; align-items: center; gap: 5px; font-family: var(--f-mono); font-size: 13px; }
+
+  .course-card { overflow: hidden; border-radius: var(--r); background: var(--surface); border: 1px solid var(--line); }
+  .course-media { position: relative; aspect-ratio: 4/3; overflow: hidden; }
+  .course-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .course-tag { position: absolute; top: 14px; left: 14px; background: rgba(255,255,255,.9); border-radius: var(--r-pill); padding: 5px 12px; font-size: 11.5px; font-weight: 500; }
+
+  .step-num { font-family: var(--f-mono); font-size: 12px; color: var(--accent); letter-spacing: .1em; }
+</style>
+</head>
+<body>
+
+<!-- ============ NAV ============ -->
+<nav class="nav">
+  <div class="wrap row-between" style="height:68px">
+    <div class="logo-mark">Carve Academy <span>Алматы</span></div>
+    <div class="row gap-32" style="font-size:14px">
+      <a class="nav-link nav-link-on">Инструкторы</a>
+      <a class="nav-link">Курсы</a>
+      <a class="nav-link">Условия</a>
+      <a class="nav-link">О школе</a>
+    </div>
+    <div class="row gap-12">
+      <div class="seg" title="Язык интерфейса: только RU и EN">
+        <div class="seg-item">EN</div>
+        <div class="seg-item seg-item-on">RU</div>
+      </div>
+      <div class="icon-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>
+      </div>
+      <div class="btn btn-primary">Войти</div>
+    </div>
+  </div>
+</nav>
+
+<!-- ============ HERO ============ -->
+<header class="hero">
+  <img class="hero-img" src="assets/hero-mountains.svg" alt="">
+  <div class="hero-scrim"></div>
+  <div class="hero-inner">
+    <div class="wrap">
+      <div style="max-width:620px">
+        <div class="eyebrow" style="color:rgba(255,255,255,.62)">Горнолыжная школа · Шерегеш / Алматы</div>
+        <h1 class="d1 mt-16" style="color:#fff">Учимся кататься<br><span class="serif-it">в настоящих горах</span></h1>
+        <p class="body mt-24" style="color:rgba(255,255,255,.78);font-size:17px;max-width:520px">
+          Персональные занятия и группы. Инструкторы с допуском ISASI, бронирование за 30 секунд, честная цена без доплат на месте.
+        </p>
+        <div class="row gap-12 mt-32">
+          <button class="btn btn-light btn-lg">Записаться на занятие</button>
+          <button class="btn btn-outline-light btn-lg">Смотреть инструкторов</button>
+        </div>
+        <div class="hero-stats">
+          <div><div class="hero-stat-v">12</div><div class="hero-stat-l">инструкторов</div></div>
+          <div><div class="hero-stat-v">2 480</div><div class="hero-stat-l">записанных уроков</div></div>
+          <div><div class="hero-stat-v">4.9</div><div class="hero-stat-l">средний рейтинг</div></div>
+        </div>
+      </div>
+
+      <div class="hero-glass">
+        <div class="row-between">
+          <div>
+            <div class="label-mono" style="color:rgba(255,255,255,.55)">Сегодня на склоне</div>
+            <div class="mono" style="font-size:17px;margin-top:6px">−12° · ветер 4 м/с</div>
+          </div>
+          <div class="chip chip-on-dark"><span class="dot" style="color:#6ee7a8"></span>Открыто</div>
+        </div>
+        <div class="mt-12">
+          <div class="hero-glass-row"><span style="font-size:13px;color:rgba(255,255,255,.72)">Снег</span><span class="mono" style="font-size:14px">42 см</span></div>
+          <div class="hero-glass-row"><span style="font-size:13px;color:rgba(255,255,255,.72)">Видимость</span><span class="mono" style="font-size:14px">800 м</span></div>
+          <div class="hero-glass-row"><span style="font-size:13px;color:rgba(255,255,255,.72)">Свободно слотов</span><span class="mono" style="font-size:14px">7</span></div>
+        </div>
+        <button class="btn btn-light mt-16" style="width:100%">Выбрать время</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ============ CONDITIONS ============ -->
+<div class="wrap" style="margin-top:-34px;position:relative;z-index:5">
+  <div class="conditions">
+    <div class="cond-item">
+      <div class="label-mono">Температура</div><div class="cond-v">−12°C</div>
+    </div>
+    <div class="cond-item">
+      <div class="label-mono">Ощущается</div><div class="cond-v">−17°C</div>
+    </div>
+    <div class="cond-item">
+      <div class="label-mono">Свежий снег</div><div class="cond-v">18 см</div>
+    </div>
+    <div class="cond-item">
+      <div class="label-mono">Ветер</div><div class="cond-v">4 м/с</div>
+    </div>
+    <div class="cond-item">
+      <div class="label-mono">Подъёмник</div><div class="cond-v" style="color:var(--pine)">Работает</div>
+    </div>
+    <div class="cond-item" style="background:var(--accent-soft);border-right:0">
+      <div class="label-mono" style="color:var(--accent)">Ближайший слот</div><div class="cond-v" style="color:var(--accent-ink)">14:30</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ INSTRUCTORS ============ -->
+<section class="wrap mt-72">
+  <div class="row-between">
+    <div>
+      <div class="eyebrow eyebrow-accent">Инструкторы</div>
+      <h2 class="d2 mt-8">Выберите,<br>кому доверите склон</h2>
+    </div>
+    <div class="col gap-8" style="align-items:flex-end">
+      <div class="row gap-8">
+        <div class="chip chip-line chip-lg">Алтай</div>
+        <div class="chip chip-accent chip-lg">Сноуборд</div>
+        <div class="chip chip-line chip-lg">Дети</div>
+        <div class="chip chip-line chip-lg">Русский / English</div>
+      </div>
+      <a class="small strong" style="border-bottom:1px solid var(--line-2);padding-bottom:2px">Все 12 инструкторов →</a>
+    </div>
+  </div>
+
+  <div class="mt-32 col gap-4">
+    <div class="instructor-row">
+      <div class="avatar avatar-56">АК</div>
+      <div class="col gap-4" style="width:230px">
+        <div class="strong">Айдар Керметов</div>
+        <div class="tiny">Горные лыжи · Стаж 11 лет</div>
+      </div>
+      <div class="row gap-6" style="width:250px">
+        <span class="chip chip-accent">Сноуборд</span>
+        <span class="chip chip-line">Дети</span>
+      </div>
+      <div class="col gap-4" style="width:190px">
+        <span class="rate">★ 5.0 <span class="tiny">· 128 отзывов</span></span>
+        <span class="tiny">Русский, Қазақша, English</span>
+      </div>
+      <div class="col gap-4 grow" style="align-items:flex-end">
+        <div class="num" style="font-size:19px">9 000 ₸ <span class="tiny" style="font-family:var(--f-ui)">/ 60 мин</span></div>
+        <span class="tiny">слоты сегодня: 14:30, 17:00</span>
+      </div>
+      <button class="btn btn-primary">Записаться</button>
+    </div>
+
+    <div class="instructor-row">
+      <div class="avatar avatar-56 avatar-gold">МС</div>
+      <div class="col gap-4" style="width:230px">
+        <div class="strong">Марина Соколова</div>
+        <div class="tiny">Сноуборд · Кросс-фрирайд</div>
+      </div>
+      <div class="row gap-6" style="width:250px">
+        <span class="chip chip-accent">Фрирайд</span>
+        <span class="chip chip-line">Средний+</span>
+      </div>
+      <div class="col gap-4" style="width:190px">
+        <span class="rate">★ 4.9 <span class="tiny">· 96 отзывов</span></span>
+        <span class="tiny">Русский, English</span>
+      </div>
+      <div class="col gap-4 grow" style="align-items:flex-end">
+        <div class="num" style="font-size:19px">11 000 ₸ <span class="tiny" style="font-family:var(--f-ui)">/ 60 мин</span></div>
+        <span class="tiny">слоты сегодня: 11:00, 16:30</span>
+      </div>
+      <button class="btn btn-primary">Записаться</button>
+    </div>
+
+    <div class="instructor-row">
+      <div class="avatar avatar-56 avatar-pine">ТА</div>
+      <div class="col gap-4" style="width:230px">
+        <div class="strong">Тимур Абдрахманов</div>
+        <div class="tiny">Горные лыжи · Начинающие</div>
+      </div>
+      <div class="row gap-6" style="width:250px">
+        <span class="chip chip-pine">Начинающие</span>
+        <span class="chip chip-line">Семейный</span>
+      </div>
+      <div class="col gap-4" style="width:190px">
+        <span class="rate">★ 4.8 <span class="tiny">· 74 отзыва</span></span>
+        <span class="tiny">Русский, Қазақша</span>
+      </div>
+      <div class="col gap-4 grow" style="align-items:flex-end">
+        <div class="num" style="font-size:19px">8 000 ₸ <span class="tiny" style="font-family:var(--f-ui)">/ 60 мин</span></div>
+        <span class="tiny">слоты сегодня: 10:00, 13:00</span>
+      </div>
+      <button class="btn btn-primary">Записаться</button>
+    </div>
+
+    <div class="instructor-row">
+      <div class="avatar avatar-56 avatar-slate">ДЛ</div>
+      <div class="col gap-4" style="width:230px">
+        <div class="strong">Дана Лысенко</div>
+        <div class="tiny">Сноуборд · Детские группы</div>
+      </div>
+      <div class="row gap-6" style="width:250px">
+        <span class="chip chip-gold">Дети 6–12</span>
+        <span class="chip chip-line">Первое занятие</span>
+      </div>
+      <div class="col gap-4" style="width:190px">
+        <span class="rate">★ 5.0 <span class="tiny">· 51 отзыв</span></span>
+        <span class="tiny">Русский, English</span>
+      </div>
+      <div class="col gap-4 grow" style="align-items:flex-end">
+        <div class="num" style="font-size:19px">8 500 ₸ <span class="tiny" style="font-family:var(--f-ui)">/ 60 мин</span></div>
+        <span class="tiny">слоты сегодня: 15:00</span>
+      </div>
+      <button class="btn btn-primary">Записаться</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ COURSES ============ -->
+<section class="wrap mt-72">
+  <div class="row-between">
+    <div>
+      <div class="eyebrow eyebrow-accent">Программы</div>
+      <h2 class="d2 mt-8">Курсы, которые<br>ведут в горы</h2>
+    </div>
+    <p class="body" style="max-width:320px">Групповые программы на сезон с промежуточной аттестацией на склоне и разбором видео.</p>
+  </div>
+
+  <div class="grid-3 mt-32">
+    <article class="course-card hover-lift">
+      <div class="course-media">
+        <img src="assets/course-a.svg" alt="">
+        <div class="course-tag">Уровень 1–2</div>
+      </div>
+      <div style="padding:22px">
+        <div class="label-mono">8 недель · 2 занятия в неделю</div>
+        <h3 class="d4 mt-8">Горные лыжи с нуля</h3>
+        <p class="body mt-8">Стойка, спуск, поворот «плуг» и первые трассы подъёмника. Материалы включены.</p>
+        <div class="row-between mt-20">
+          <div class="num" style="font-size:18px">64 000 ₸</div>
+          <div class="row gap-8">
+            <div class="avatar-stack row" style="gap:0">
+              <div class="avatar avatar-36" style="width:26px;height:26px;font-size:11px;border:2px solid #fff">А</div>
+              <div class="avatar avatar-36 avatar-gold" style="width:26px;height:26px;font-size:11px;border:2px solid #fff;margin-left:-8px">М</div>
+              <div class="avatar avatar-36 avatar-pine" style="width:26px;height:26px;font-size:11px;border:2px solid #fff;margin-left:-8px">+9</div>
+            </div>
+            <button class="btn btn-ghost btn-sm">Подробнее</button>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <article class="course-card hover-lift">
+      <div class="course-media">
+        <img src="assets/course-b.svg" alt="">
+        <div class="course-tag">Уровень 3+</div>
+      </div>
+      <div style="padding:22px">
+        <div class="label-mono">6 недель · вечерние слоты</div>
+        <h3 class="d4 mt-8">Сноуборд: карвинг</h3>
+        <p class="body mt-8">Работа с кантом, нагрузка на доску и чистый спуск по чёрному. Разбор техники на видео.</p>
+        <div class="row-between mt-20">
+          <div class="num" style="font-size:18px">58 000 ₸</div>
+          <div class="row gap-8">
+            <div class="row" style="gap:0">
+              <div class="avatar avatar-36" style="width:26px;height:26px;font-size:11px;border:2px solid #fff">Т</div>
+              <div class="avatar avatar-36 avatar-slate" style="width:26px;height:26px;font-size:11px;border:2px solid #fff;margin-left:-8px">Е</div>
+              <div class="avatar avatar-36 avatar-flame" style="width:26px;height:26px;font-size:11px;border:2px solid #fff;margin-left:-8px">+6</div>
+            </div>
+            <button class="btn btn-ghost btn-sm">Подробнее</button>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <article class="course-card hover-lift">
+      <div class="course-media">
+        <img src="assets/course-c.svg" alt="">
+        <div class="course-tag">Вечерние</div>
+      </div>
+      <div style="padding:22px">
+        <div class="label-mono">8 недель · подсветка</div>
+        <h3 class="d4 mt-8">Фрирайд-подготовка</h3>
+        <p class="body mt-8">Лавины, снег, рельеф. Курс под светом прожекторов, малые группы до 4 человек.</p>
+        <div class="row-between mt-20">
+          <div class="num" style="font-size:18px">72 000 ₸</div>
+          <div class="row gap-8">
+            <div class="row" style="gap:0">
+              <div class="avatar avatar-36 avatar-gold" style="width:26px;height:26px;font-size:11px;border:2px solid #fff">М</div>
+              <div class="avatar avatar-36 avatar-pine" style="width:26px;height:26px;font-size:11px;border:2px solid #fff;margin-left:-8px">А</div>
+              <div class="avatar avatar-36 avatar-slate" style="width:26px;height:26px;font-size:11px;border:2px solid #fff;margin-left:-8px">+3</div>
+            </div>
+            <button class="btn btn-ghost btn-sm">Подробнее</button>
+          </div>
+        </div>
+      </div>
+    </article>
+  </div>
+</section>
+
+<!-- ============ HOW IT WORKS ============ -->
+<section class="wrap mt-72" style="padding-bottom:72px">
+  <div class="card-dark" style="padding:48px 52px;position:relative;overflow:hidden">
+    <div style="position:absolute;right:-40px;top:-40px;width:320px;height:320px;border-radius:50%;background:radial-gradient(circle,rgba(94,200,232,.22),transparent 70%)"></div>
+    <div class="row gap-56" style="position:relative">
+      <div style="width:360px">
+        <div class="eyebrow" style="color:rgba(255,255,255,.5)">Как это работает</div>
+        <h2 class="d2 mt-12" style="color:#fff">Три шага<br>до первого спуска</h2>
+        <p class="body mt-16" style="color:rgba(255,255,255,.66)">Никаких переписок в мессенджерах: бронирование, оплата и история занятий — в одном кабинете.</p>
+        <button class="btn btn-light mt-24">Создать запись</button>
+      </div>
+      <div class="grow col gap-24">
+        <div class="row gap-16">
+          <div class="step-num">01</div>
+          <div>
+            <div class="d5" style="color:#fff">Выбираете инструктора и слот</div>
+            <div class="small mt-4" style="color:rgba(255,255,255,.6)">Календарь в реальном времени, свободные окна видно сразу.</div>
+          </div>
+        </div>
+        <hr class="snowline" style="background:linear-gradient(90deg,rgba(255,255,255,.18),rgba(255,255,255,.05))">
+        <div class="row gap-16">
+          <div class="step-num" style="color:#8dd8ef">02</div>
+          <div>
+            <div class="d5" style="color:#fff">Оплата с баланса или картой</div>
+            <div class="small mt-4" style="color:rgba(255,255,255,.6)">Возврат при переносе — полная сумма, без комиссий.</div>
+          </div>
+        </div>
+        <hr class="snowline" style="background:linear-gradient(90deg,rgba(255,255,255,.18),rgba(255,255,255,.05))">
+        <div class="row gap-16">
+          <div class="step-num" style="color:#8dd8ef">03</div>
+          <div>
+            <div class="d5" style="color:#fff">Отмечаете прогресс</div>
+            <div class="small mt-4" style="color:rgba(255,255,255,.6)">Инструктор ставит отметку, программа растёт вместе с вами.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer style="background:#0b2229;color:rgba(255,255,255,.7)">
+  <div class="wrap" style="padding:56px 40px">
+    <div class="row-between">
+      <div>
+        <div class="logo-mark" style="color:#fff">Carve Academy <span style="color:rgba(255,255,255,.4)">Алматы</span></div>
+        <div class="tiny mt-12" style="color:rgba(255,255,255,.45)">Школа горных лыж и сноуборда. Урок — это доверие.</div>
+      </div>
+      <div class="row gap-56">
+        <div class="col gap-8">
+          <div class="label-mono" style="color:rgba(255,255,255,.4)">Обучение</div>
+          <span class="small">Инструкторы</span><span class="small">Курсы</span><span class="small">Детские группы</span>
+        </div>
+        <div class="col gap-8">
+          <div class="label-mono" style="color:rgba(255,255,255,.4)">Школа</div>
+          <span class="small">Условия склона</span><span class="small">Прокат</span><span class="small">О нас</span>
+        </div>
+        <div class="col gap-8">
+          <div class="label-mono" style="color:rgba(255,255,255,.4)">Контакты</div>
+          <span class="small">+7 727 000 00 00</span><span class="small">school@carve.kz</span>
+        </div>
+      </div>
+    </div>
+    <hr class="snowline mt-32" style="background:rgba(255,255,255,.12)">
+    <div class="row-between mt-16">
+      <span class="tiny" style="color:rgba(255,255,255,.35)">© 2025 Carve Academy. Демонстрационный макет дизайна.</span>
+      <span class="tiny" style="color:rgba(255,255,255,.35)">Оферта · Политика</span>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,149 @@
+{
+  "01-home": {
+    "url": "https://ski-school-staging.web.app/",
+    "headings": [
+      "H2|Пошаговое обучение с самого первого занятия.",
+      "H2|Индивидуальные занятия на лыжах и сноуборде для любого уровня.",
+      "H2|Катайтесь увереннее и получайте удовольствие от каждого спуска.",
+      "H2|Чистые повороты. Лучший контроль кантов. Больше плавности.",
+      "H2|От первых поворотов до экспертного карвинга",
+      "H3|НАЧИНАЮЩИЙ",
+      "H3|КАРВИНГ",
+      "H3|МАСТЕРСТВО",
+      "H3|ЭКСПЕРТ",
+      "H3|Интенсивные групповые курсы",
+      "H3|Наши профессиональные гиды",
+      "H3|Staging Admin (internal fixture actor)",
+      "H3|Арсений Герасимчук"
+    ],
+    "buttons": [
+      "RU",
+      "Войти",
+      "Начать свой путь",
+      "Подобрать курс",
+      "01 04",
+      "0°",
+      "Записаться",
+      "Подробнее",
+      "Записаться",
+      "Подробнее",
+      "Отзывов пока нет.",
+      "Забронировать",
+      "Отзывов пока нет.",
+      "Забронировать"
+    ],
+    "links": [
+      "=>/"
+    ],
+    "inputs": [],
+    "tabs": [],
+    "dialogs": [],
+    "selects": [],
+    "tables": [],
+    "counts": {
+      "btn": 21,
+      "a": 1,
+      "input": 0,
+      "table": 0,
+      "rows": 0
+    }
+  },
+  "02-language-menu": {
+    "url": "https://ski-school-staging.web.app/",
+    "headings": [
+      "H2|Step-by-step coaching from your very first lesson.",
+      "H2|Private ski & snowboard coaching for every level.",
+      "H2|Build confidence and enjoy every part of the mountain.",
+      "H2|Clean turns. Better edge control. More flow.",
+      "H2|From first turns to expert carving",
+      "H3|BEGINNER",
+      "H3|CARVE",
+      "H3|PERFORMANCE",
+      "H3|EXPERT",
+      "H3|Intensive Group Courses",
+      "H3|Meet Our Professional Guides",
+      "H3|Staging Admin (internal fixture actor)",
+      "H3|Arsenii Gerasimchuk"
+    ],
+    "buttons": [
+      "EN",
+      "Sign In",
+      "Start Your Journey",
+      "Choose Course",
+      "01 04",
+      "0°",
+      "Enroll",
+      "Details",
+      "Enroll",
+      "Details",
+      "No reviews received yet.",
+      "Book Lesson",
+      "No reviews received yet.",
+      "Book Lesson"
+    ],
+    "links": [
+      "=>/"
+    ],
+    "inputs": [],
+    "tabs": [],
+    "dialogs": [],
+    "selects": [],
+    "tables": [],
+    "counts": {
+      "btn": 21,
+      "a": 1,
+      "input": 0,
+      "table": 0,
+      "rows": 0
+    }
+  },
+  "03-auth-dialog": {
+    "url": "https://ski-school-staging.web.app/",
+    "headings": [
+      "H2|Step-by-step coaching from your very first lesson.",
+      "H2|Private ski & snowboard coaching for every level.",
+      "H2|Build confidence and enjoy every part of the mountain.",
+      "H2|Clean turns. Better edge control. More flow.",
+      "H2|From first turns to expert carving",
+      "H3|BEGINNER",
+      "H3|CARVE",
+      "H3|PERFORMANCE",
+      "H3|EXPERT",
+      "H3|Intensive Group Courses",
+      "H3|Meet Our Professional Guides",
+      "H3|Staging Admin (internal fixture actor)",
+      "H3|Arsenii Gerasimchuk"
+    ],
+    "buttons": [
+      "EN",
+      "Sign In",
+      "Start Your Journey",
+      "Choose Course",
+      "02 04",
+      "0°",
+      "Enroll",
+      "Details",
+      "Enroll",
+      "Details",
+      "No reviews received yet.",
+      "Book Lesson",
+      "No reviews received yet.",
+      "Book Lesson"
+    ],
+    "links": [
+      "=>/"
+    ],
+    "inputs": [],
+    "tabs": [],
+    "dialogs": [],
+    "selects": [],
+    "tables": [],
+    "counts": {
+      "btn": 21,
+      "a": 1,
+      "input": 0,
+      "table": 0,
+      "rows": 0
+    }
+  }
+}

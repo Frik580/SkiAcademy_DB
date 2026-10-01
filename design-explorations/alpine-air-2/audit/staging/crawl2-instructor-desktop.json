@@ -1,0 +1,74 @@
+{
+  "instructor-desktop-01-after-login": {
+    "url": "https://ski-school-staging.web.app/",
+    "headings": [
+      "H2|Step-by-step coaching from your very first lesson.",
+      "H2|Private ski & snowboard coaching for every level.",
+      "H2|Build confidence and enjoy every part of the mountain.",
+      "H2|Clean turns. Better edge control. More flow.",
+      "H2|From first turns to expert carving",
+      "H3|BEGINNER",
+      "H3|CARVE",
+      "H3|PERFORMANCE",
+      "H3|EXPERT",
+      "H3|Intensive Group Courses",
+      "H4|Carving Essentials",
+      "H4|Performance Carving Masterclass",
+      "H3|Meet Our Professional Guides",
+      "H3|Arsenii Gerasimchuk",
+      "H3|Staging Admin (internal fixture actor)"
+    ],
+    "buttons": [
+      "Client Cabinet",
+      "EN",
+      "Start Your Journey",
+      "Choose Course",
+      "01 04",
+      "0°",
+      "Enroll",
+      "Details",
+      "Enroll",
+      "Details",
+      "No reviews received yet.",
+      "Book Lesson",
+      "No reviews received yet.",
+      "Book Lesson"
+    ],
+    "links": [
+      "=>/"
+    ],
+    "inputs": [],
+    "tabs": [],
+    "dialogs": [],
+    "tables": [],
+    "counts": {
+      "btn": 24,
+      "a": 1,
+      "input": 0,
+      "table": 0,
+      "row": 0
+    }
+  },
+  "instructor-desktop-02-instructor-home": {
+    "url": "https://ski-school-staging.web.app/instructor",
+    "headings": [],
+    "buttons": [
+      "Instructor Workspace",
+      "EN"
+    ],
+    "links": [
+      "=>/"
+    ],
+    "inputs": [],
+    "tabs": [],
+    "dialogs": [],
+    "tables": [],
+    "counts": {
+      "btn": 7,
+      "a": 1,
+      "input": 0,
+      "table": 0,
+      "row": 0
+    }
+  }
+}

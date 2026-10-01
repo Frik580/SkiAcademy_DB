@@ -294,16 +294,20 @@ export function getCabinetSessionSubtitle(item: CabinetSessionItem, language: 'e
   return language === 'ru' ? 'Групповой курс' : 'Group course';
 }
 
+export function formatSessionCalendarDateLabel(date: string, language: 'en' | 'ru'): string {
+  const parsed = new Date(`${date}T12:00:00`);
+  if (Number.isNaN(parsed.getTime())) return date;
+  return parsed.toLocaleDateString(language === 'ru' ? 'ru-RU' : 'en-US', {
+    day: 'numeric',
+    month: 'long',
+  });
+}
+
 export function formatCourseDayDateLabel(
   item: CourseDaySessionItem,
   language: 'en' | 'ru'
 ): string {
-  const date = new Date(`${item.date}T12:00:00`);
-  if (Number.isNaN(date.getTime())) return item.date;
-  return date.toLocaleDateString(language === 'ru' ? 'ru-RU' : 'en-US', {
-    day: 'numeric',
-    month: 'long',
-  });
+  return formatSessionCalendarDateLabel(item.date, language);
 }
 
 export function isLessonCabinetItem(

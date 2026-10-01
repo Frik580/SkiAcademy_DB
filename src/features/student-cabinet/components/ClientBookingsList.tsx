@@ -10,12 +10,18 @@ import { formatLessonBookingParticipantLine } from '../../../features/lesson-boo
 import { cabinetItemToLegacyPresentation } from '../../../features/lesson-bookings/mergeCabinetBookings';
 import type { CabinetSessionItem } from '../../../features/course-enrollments';
 import {
-  filterSessionsByScope,
+  aggregateCabinetSessionsForStudentList,
+  cabinetListItemKey,
+  courseEnrollmentListBadgeStatus,
+  filterCabinetListByDate,
+  filterCabinetListByScope,
+  formatCourseDayCountLabel,
+  formatCourseEnrollmentDateRange,
+} from '../../../features/course-enrollments/courseEnrollmentListProjection';
+import {
   isSessionOnDate,
   sessionDisplayDate,
   sessionDisplayTime,
-  sessionDisplayTitle,
-  sessionItemKey,
   type SessionListScope,
 } from '../../../features/course-enrollments/sessionScheduleHelpers';
 import { BookingCallCoachButton } from './student/BookingCallCoachButton';
@@ -41,7 +47,6 @@ import {
   StudentOpenChangeRequestNotice,
   useBookingCollaborationStore,
 } from '../../../features/booking-collaboration';
-import { formatCourseDayDateLabel } from '../../../features/course-enrollments/sessionScheduleHelpers';
 import {
   resolveInitialVisibleAccountCalendarMonth,
   shiftVisibleAccountCalendarMonth,
@@ -162,17 +167,20 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
     return `${year}-${mm}-${dd}`;
   };
 
-  const scopedSessions = useMemo(
-    () =>
-      selectedDateFilter ? filteredSessions : filterSessionsByScope(filteredSessions, listScope),
-    [filteredSessions, listScope, selectedDateFilter]
+  const studentListItems = useMemo(
+    () => aggregateCabinetSessionsForStudentList(filteredSessions),
+    [filteredSessions]
   );
 
-  const displayedSessions = selectedDateFilter
-    ? getSessionsOnDate(selectedDateFilter)
-    : scopedSessions;
+  const displayedListItems = useMemo(
+    () =>
+      selectedDateFilter
+        ? filterCabinetListByDate(studentListItems, selectedDateFilter)
+        : filterCabinetListByScope(studentListItems, listScope),
+    [studentListItems, listScope, selectedDateFilter]
+  );
 
-  const totalPages = Math.max(1, Math.ceil(displayedSessions.length / ITEMS_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(displayedListItems.length / ITEMS_PER_PAGE));
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -182,8 +190,8 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
 
   const paginatedSessions = useMemo(() => {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    return displayedSessions.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-  }, [displayedSessions, currentPage]);
+    return displayedListItems.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [displayedListItems, currentPage]);
 
   const unreviewedIds = useMemo(
     () => new Set(unreviewedCompletedBookings.map((booking) => booking.id)),
@@ -353,7 +361,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
               description={t('browseInstructorsHint')}
               className="py-12"
             />
-          ) : displayedSessions.length === 0 ? (
+          ) : displayedListItems.length === 0 ? (
             <StateCard title={selectedDateFilter ? t('noSessionsOnDate') : t('allSessionsHidden')}>
               {selectedDateFilter ? (
                 <ScTextButton onClick={() => handleSelectDateFilter(null)}>
@@ -368,11 +376,11 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
           ) : (
             <div className="space-y-3">
               {paginatedSessions.map((item) => {
-                const key = sessionItemKey(item);
-                const displayDate = sessionDisplayDate(item);
-                const displayTime = sessionDisplayTime(item);
+                const key = cabinetListItemKey(item);
 
                 if (item.kind === 'lesson') {
+                  const displayDate = sessionDisplayDate({ kind: 'lesson', session: item.session });
+                  const displayTime = sessionDisplayTime({ kind: 'lesson', session: item.session });
                   const b = item.session;
                   const paymentDisplay = resolveLessonBookingPaymentDisplay(b, t);
                   const paymentLabel = lessonBookingPaymentDisplayLabel(paymentDisplay, t);
@@ -385,6 +393,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                     <div
                       key={key}
                       id={`booking-card-${b.id}`}
+                      data-testid="lesson-booking-card"
                       className="p-4 rounded-lg border flex flex-col gap-4 transition border-[var(--border-subtle)] bg-[var(--profile-bg)]"
                     >
                       <div className="flex flex-1 items-start gap-4 min-w-0 w-full">
@@ -500,58 +509,47 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                   );
                 }
 
+                const locale = language === 'ru' ? 'ru' : 'en';
+                const dayCountLabel = formatCourseDayCountLabel(item.days.length, locale, [
+                  t('scCourseDayOne'),
+                  t('scCourseDayFew'),
+                  t('scCourseDayMany'),
+                ]);
                 return (
                   <div
                     key={key}
+                    data-testid="course-enrollment-card"
+                    data-enrollment-id={item.enrollmentId}
                     className="p-4 rounded-lg border flex flex-col gap-4 transition border-violet-200/80 dark:border-violet-800/40 bg-violet-50/40 dark:bg-violet-950/20"
                   >
                     <div className="flex flex-1 items-start gap-4 min-w-0 w-full">
                       <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center text-violet-700 dark:text-violet-300 text-xs font-medium">
-                        {t('scCourseDetailsTitle').slice(0, 2).toUpperCase()}
+                        {t('scGroupCourse').slice(0, 2).toUpperCase()}
                       </div>
                       <div className="space-y-1.5 min-w-0 flex-1">
                         <h4 className="text-sm font-medium text-[var(--ink)]">
-                          {sessionDisplayTitle(item)}
+                          {item.courseTitle}
                         </h4>
                         <p className="text-xs text-[var(--ink-dim)]">
-                          {item.participantName} ·{' '}
-                          {formatCourseDayDateLabel(item, language === 'ru' ? 'ru' : 'en')}
+                          {t('scGroupCourse')} · {dayCountLabel}
                         </p>
-                        <div className="flex items-center gap-2 flex-wrap text-xs text-[var(--ink-dim)]">
-                          <span className="inline-flex items-center gap-1">
-                            <Calendar className="w-3.5 h-3.5 text-violet-500" /> {displayDate}
-                          </span>
-                          <span className="inline-flex items-center gap-1">
-                            <Clock className="w-3.5 h-3.5 text-violet-500" /> {displayTime}
-                          </span>
-                        </div>
+                        <p className="text-xs text-[var(--ink-dim)]">
+                          {formatCourseEnrollmentDateRange(item, locale)}
+                        </p>
+                        <p className="text-xs text-[var(--ink-dim)]">{item.participantName}</p>
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-violet-200/60 dark:border-violet-800/40 pt-3">
-                      <div>
-                        <span className="text-xs text-[var(--ink-dim)] block">
-                          {language === 'ru' ? 'Групповой курс' : 'Group course'}
-                        </span>
-                        <span className="text-sm font-medium text-[var(--ink)]">
-                          {t('scCourseDetailsTitle')}
-                        </span>
-                      </div>
-
+                    <div className="flex flex-wrap items-center justify-end gap-3 border-t border-violet-200/60 dark:border-violet-800/40 pt-3">
                       <div className="flex items-center gap-2 flex-wrap">
                         <StatusBadge
-                          status={
-                            item.lifecycleStatus === 'pending_cancellation'
-                              ? 'pending_cancellation'
-                              : item.lifecycleStatus === 'confirmed'
-                                ? 'confirmed'
-                                : 'pending'
-                          }
+                          status={courseEnrollmentListBadgeStatus(item.lifecycleStatus)}
                         />
 
                         {onViewCourseDetails && (
                           <button
                             type="button"
+                            data-testid="course-enrollment-details"
                             onClick={() => onViewCourseDetails(item.courseId, item.enrollmentId)}
                             className="px-3 py-1.5 text-xs font-medium border border-violet-200 dark:border-violet-800 rounded-lg text-[var(--ink)] hover:border-violet-400 transition"
                           >
@@ -573,6 +571,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                           onCourseRequestCancellation && (
                             <button
                               type="button"
+                              data-testid="cancel-course-enrollment"
                               onClick={() => void onCourseRequestCancellation(item.enrollmentId)}
                               className="px-3 py-1.5 text-xs font-medium border border-rose-200 dark:border-rose-800 rounded-lg text-rose-600 transition"
                             >
@@ -588,7 +587,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
               <ApplePagination
                 currentPage={currentPage}
                 totalPages={totalPages}
-                totalItems={displayedSessions.length}
+                totalItems={displayedListItems.length}
                 itemsPerPage={ITEMS_PER_PAGE}
                 onPageChange={setCurrentPage}
                 itemLabel={language === 'ru' ? 'занятий' : 'sessions'}

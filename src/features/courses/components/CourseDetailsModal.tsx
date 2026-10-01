@@ -1,6 +1,10 @@
 import React from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Users, Star, Heart } from 'lucide-react';
+import type {
+  CourseEnrollmentLifecycleStatus,
+  CourseScheduleProjectionReadModel,
+} from '@ski-academy/shared-domain';
 import { Course, Instructor, UserProfile } from '../../../types';
 import { useLanguage, translateInstructorName } from '../../../app/providers/LanguageContext';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';
@@ -11,7 +15,8 @@ import { CourseGallery } from './course_details/CourseGallery';
 import { CourseFAQ } from './course_details/CourseFAQ';
 import { CourseEnrollAction } from './course_details/CourseEnrollAction';
 import type { CourseCatalogOperationalState } from '../../course-enrollments';
-import type { CourseEnrollmentLifecycleStatus } from '@ski-academy/shared-domain';
+import { CourseEnrollmentScheduleList } from '../../course-enrollments/CourseEnrollmentScheduleList';
+import { buildCourseEnrollmentScheduleLines } from '../../course-enrollments/courseEnrollmentListProjection';
 import type { StudentCourseProgressSummaryInput } from '../../course-enrollments/courseProgressViewModel';
 import { StudentCourseProgressSummary } from '../../course-enrollments/StudentCourseProgressSummary';
 import {
@@ -30,6 +35,7 @@ interface CourseDetailsModalProps {
   isEnrolled: boolean;
   enrollmentLifecycleStatus?: CourseEnrollmentLifecycleStatus;
   courseProgress?: StudentCourseProgressSummaryInput;
+  enrollmentSchedule?: CourseScheduleProjectionReadModel;
   onEnroll: (courseId: string) => void;
 }
 
@@ -44,6 +50,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
   isEnrolled,
   enrollmentLifecycleStatus,
   courseProgress,
+  enrollmentSchedule,
   onEnroll,
 }) => {
   const { language, t } = useLanguage();
@@ -101,6 +108,14 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
           <div className="overflow-y-auto flex-1 bg-[var(--bg)]">
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-8 p-6 sm:p-8">
               <div className="space-y-10">
+                {enrollmentSchedule ? (
+                  <CourseEnrollmentScheduleList
+                    lines={buildCourseEnrollmentScheduleLines(
+                      enrollmentSchedule,
+                      language === 'ru' ? 'ru' : 'en'
+                    )}
+                  />
+                ) : null}
                 <CourseProgram course={course} benefits={benefits} program={program} />
 
                 <CourseGallery photos={photos} videoUrl={videoUrl} courseTitle={course.title} />

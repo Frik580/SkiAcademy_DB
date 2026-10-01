@@ -111,6 +111,7 @@ export interface GuestCourseEnrollmentInput {
   readonly guestSkillLevel: string;
   readonly guestDiscipline: 'ski' | 'snowboard';
   readonly guestAgeYears: number;
+  readonly notificationLocale?: 'ru' | 'en';
 }
 
 export type CourseEnrollmentReadSyncState = {

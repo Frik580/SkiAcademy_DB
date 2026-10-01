@@ -7,6 +7,7 @@ import {
   GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS,
   GUEST_CONTACT_TRANSPORT_METADATA_KEYS,
   GuestContactDetailsSchema,
+  NOTIFICATION_LOCALE_TRANSPORT_KEY,
   guestParticipantTransportMetadataFromProfile,
   guestSubjectIdFromBookingId,
   deriveGuestSubjectIdFromCourseEnrollmentIntent,
@@ -39,6 +40,7 @@ export interface CallableGuestCommandTransportInput<Kind extends CommandKind> {
   readonly guestParticipantAgeYears?: number;
   readonly guestPhone?: string;
   readonly guestEmail?: string;
+  readonly notificationLocale?: 'ru' | 'en';
 }
 
 export function deriveGuestSubjectIdForIntent(
@@ -87,6 +89,7 @@ export function buildGuestCommandContextFromCallable(
     | 'guestParticipantAgeYears'
     | 'guestPhone'
     | 'guestEmail'
+    | 'notificationLocale'
   >
 ): CommandContext {
   const transportMetadata: Record<string, string> = { transport: 'firebase_callable' };
@@ -129,6 +132,10 @@ export function buildGuestCommandContextFromCallable(
     });
     transportMetadata[GUEST_CONTACT_TRANSPORT_METADATA_KEYS.phone] = contact.phone;
     if (contact.email) transportMetadata[GUEST_CONTACT_TRANSPORT_METADATA_KEYS.email] = contact.email;
+  }
+
+  if (input.notificationLocale === 'ru' || input.notificationLocale === 'en') {
+    transportMetadata[NOTIFICATION_LOCALE_TRANSPORT_KEY] = input.notificationLocale;
   }
 
   return {

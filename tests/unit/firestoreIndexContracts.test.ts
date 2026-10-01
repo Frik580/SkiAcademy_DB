@@ -95,6 +95,116 @@ const criticalIndexContracts: Array<{ name: string; index: CompositeIndex }> = [
     },
   },
   {
+    name: 'domain outbox due retries',
+    index: {
+      collectionGroup: 'domain_outbox',
+      queryScope: 'COLLECTION',
+      fields: [
+        { fieldPath: 'delivery.status', order: 'ASCENDING' },
+        { fieldPath: 'deliverySemantics', order: 'ASCENDING' },
+        { fieldPath: 'delivery.nextAttemptAt.seconds', order: 'ASCENDING' },
+      ],
+    },
+  },
+  {
+    name: 'domain outbox pending by creation',
+    index: {
+      collectionGroup: 'domain_outbox',
+      queryScope: 'COLLECTION',
+      fields: [
+        { fieldPath: 'delivery.status', order: 'ASCENDING' },
+        { fieldPath: 'deliverySemantics', order: 'ASCENDING' },
+        { fieldPath: 'createdAt.seconds', order: 'DESCENDING' },
+        { fieldPath: 'createdAt.nanoseconds', order: 'DESCENDING' },
+      ],
+    },
+  },
+  {
+    name: 'domain outbox stale leases',
+    index: {
+      collectionGroup: 'domain_outbox',
+      queryScope: 'COLLECTION',
+      fields: [
+        { fieldPath: 'delivery.status', order: 'ASCENDING' },
+        { fieldPath: 'deliverySemantics', order: 'ASCENDING' },
+        { fieldPath: 'delivery.leaseExpiresAt.seconds', order: 'ASCENDING' },
+      ],
+    },
+  },
+  {
+    name: 'domain outbox non-email due retries',
+    index: {
+      collectionGroup: 'domain_outbox',
+      queryScope: 'COLLECTION',
+      fields: [
+        { fieldPath: 'delivery.status', order: 'ASCENDING' },
+        { fieldPath: 'deliverySemantics', order: 'ASCENDING' },
+        { fieldPath: 'channel', order: 'ASCENDING' },
+        { fieldPath: 'delivery.nextAttemptAt.seconds', order: 'ASCENDING' },
+      ],
+    },
+  },
+  {
+    name: 'domain outbox non-email pending by creation',
+    index: {
+      collectionGroup: 'domain_outbox',
+      queryScope: 'COLLECTION',
+      fields: [
+        { fieldPath: 'delivery.status', order: 'ASCENDING' },
+        { fieldPath: 'deliverySemantics', order: 'ASCENDING' },
+        { fieldPath: 'channel', order: 'ASCENDING' },
+        { fieldPath: 'createdAt.seconds', order: 'DESCENDING' },
+        { fieldPath: 'createdAt.nanoseconds', order: 'DESCENDING' },
+      ],
+    },
+  },
+  {
+    name: 'domain outbox non-email stale leases',
+    index: {
+      collectionGroup: 'domain_outbox',
+      queryScope: 'COLLECTION',
+      fields: [
+        { fieldPath: 'delivery.status', order: 'ASCENDING' },
+        { fieldPath: 'deliverySemantics', order: 'ASCENDING' },
+        { fieldPath: 'channel', order: 'ASCENDING' },
+        { fieldPath: 'delivery.leaseExpiresAt.seconds', order: 'ASCENDING' },
+      ],
+    },
+  },
+  {
+    name: 'domain outbox delivered retention',
+    index: {
+      collectionGroup: 'domain_outbox',
+      queryScope: 'COLLECTION',
+      fields: [
+        { fieldPath: 'delivery.status', order: 'ASCENDING' },
+        { fieldPath: 'delivery.deliveredAt.seconds', order: 'ASCENDING' },
+      ],
+    },
+  },
+  {
+    name: 'domain outbox dead letter retention',
+    index: {
+      collectionGroup: 'domain_outbox',
+      queryScope: 'COLLECTION',
+      fields: [
+        { fieldPath: 'delivery.status', order: 'ASCENDING' },
+        { fieldPath: 'delivery.deadLetteredAt.seconds', order: 'ASCENDING' },
+      ],
+    },
+  },
+  {
+    name: 'domain outbox dead letter visibility',
+    index: {
+      collectionGroup: 'domain_outbox',
+      queryScope: 'COLLECTION',
+      fields: [
+        { fieldPath: 'delivery.status', order: 'ASCENDING' },
+        { fieldPath: 'delivery.deadLetteredAt.seconds', order: 'DESCENDING' },
+      ],
+    },
+  },
+  {
     name: 'instructor administrative availability blocks',
     index: {
       collectionGroup: 'administrative_availability_blocks',

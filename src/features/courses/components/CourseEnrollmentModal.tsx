@@ -181,6 +181,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
         guestSkillLevel: 'beginner',
         guestDiscipline: 'ski',
         guestAgeYears: 25,
+        notificationLocale: language,
       });
       rememberGuestReservation('course', course.id, credential.enrollmentId);
       setGuestCreatedEnrollmentId(credential.enrollmentId);

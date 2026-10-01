@@ -2,7 +2,8 @@ import './deploymentProvenanceBootstrap';
 import { defineSecret } from 'firebase-functions/params';
 import { onCall } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
-import { onDocumentWritten } from 'firebase-functions/v2/firestore';
+import { onDocumentCreated, onDocumentWritten } from 'firebase-functions/v2/firestore';
+import { OUTBOX_RECOVERY_INTERVAL_MINUTES } from '@ski-academy/shared-domain';
 import { getAdminFirestore } from './adminFirestore';
 import { purgeExpiredNotifications } from './purgeExpiredNotifications';
 import { createExecuteCanonicalCommandHandler } from './canonical/commands/executeCanonicalCommandCallable';
@@ -26,6 +27,8 @@ import { createQueryAdminPlannerReadModelsHandler } from './canonical/readModels
 import { createQueryInstructorOccupancyReadModelsHandler } from './canonical/readModels/queryInstructorOccupancyReadModelsCallable';
 import { createQueryBookingInstructorCatalogueReadModelsHandler } from './canonical/readModels/queryBookingInstructorCatalogueReadModelsCallable';
 import { createQueryLessonPricingSettingsReadModelHandler } from './canonical/readModels/queryLessonPricingSettingsReadModelCallable';
+import { createQueryEmailDeliverySettingsReadModelHandler } from './canonical/readModels/queryEmailDeliverySettingsReadModelCallable';
+import { createQueryOutboxDeadLetterReadModelHandler } from './canonical/readModels/queryOutboxDeadLetterReadModelCallable';
 import { createQueryInstructorReviewReadModelsHandler } from './canonical/readModels/queryInstructorReviewReadModelsCallable';
 import { createQueryParticipantProgressReadModelsHandler } from './canonical/readModels/queryParticipantProgressReadModelsCallable';
 import { createQueryParticipantAchievementsReadModelsHandler } from './canonical/readModels/queryParticipantAchievementsReadModelsCallable';
@@ -37,6 +40,11 @@ import { sweepExpiredGuestLessonReservations } from './canonical/bookings/guestL
 import { sweepExpiredGuestCourseReservations } from './canonical/courses/guestCourseReservationExpirySweep';
 import { sweepLessonBookingAttendanceOutcomes } from './canonical/bookings/bookingAttendanceOutcomeSweep';
 import { syncLessonBookingAttendanceOutcomeWorkForBookingWrite } from './canonical/bookings/bookingAttendanceOutcomeWorkSync';
+import {
+  deliverCreatedDomainOutbox,
+  deliverDueDomainOutbox,
+} from './canonical/auditOutbox/firestoreOutboxDeliveryStore';
+import { purgeTerminalDomainOutbox } from './canonical/auditOutbox/outboxRetention';
 import { sweepCourseEnrollmentOutcomes } from './canonical/courses/courseEnrollmentOutcomeSweep';
 import { syncCourseEnrollmentOutcomeWorkForEnrollmentWrite } from './canonical/courses/courseEnrollmentOutcomeWorkSync';
 
@@ -148,6 +156,16 @@ export const queryLessonPricingSettingsReadModel = onCall(
   async (request) => createQueryLessonPricingSettingsReadModelHandler(getAdminFirestore())(request)
 );
 
+export const queryEmailDeliverySettingsReadModel = onCall(
+  CANONICAL_CALLABLE_OPTIONS,
+  async (request) =>
+    createQueryEmailDeliverySettingsReadModelHandler(getAdminFirestore())(request)
+);
+
+export const queryOutboxDeadLetterReadModel = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>
+  createQueryOutboxDeadLetterReadModelHandler(getAdminFirestore())(request)
+);
+
 export const queryInstructorReviewReadModels = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>
   createQueryInstructorReviewReadModelsHandler(getAdminFirestore())(request)
 );
@@ -177,14 +195,66 @@ export const executeTestSessionLifecycle = onCall(CANONICAL_CALLABLE_OPTIONS, as
   createExecuteTestSessionLifecycleHandler(getAdminFirestore())(request)
 );
 
+export const deliverDomainOutboxOnCreate = onDocumentCreated(
+  {
+    document: 'domain_outbox/{outboxId}',
+    region: 'us-central1',
+    cpu: 1,
+    memory: '256MiB',
+    maxInstances: 10,
+    retry: true,
+  },
+  async (event) => {
+    const outboxId = event.params.outboxId;
+    if (!outboxId) return;
+    await deliverCreatedDomainOutbox(getAdminFirestore(), outboxId);
+  }
+);
+
+export const scheduledDeliverDomainOutbox = onSchedule(
+  {
+    schedule: `every ${OUTBOX_RECOVERY_INTERVAL_MINUTES} minutes`,
+    timeZone: 'UTC',
+    cpu: 'gcf_gen1',
+    memory: '256MiB',
+    maxInstances: 1,
+  },
+  async () => {
+    const result = await deliverDueDomainOutbox(getAdminFirestore());
+    console.log(
+      JSON.stringify({
+        job: 'scheduledDeliverDomainOutbox',
+        role: 'recovery',
+        scanned: result.scanned,
+        claimed: result.claimed,
+        sent: result.sent,
+        retryScheduled: result.retryScheduled,
+        deadLetter: result.deadLetter,
+        notConfigured: result.notConfigured,
+        skipped: result.skipped,
+        failed: result.failed,
+      })
+    );
+  }
+);
+
 export const scheduledPurgeExpiredNotifications = onSchedule(
   {
     schedule: 'every 24 hours',
     timeZone: 'Asia/Almaty',
   },
   async () => {
-    const deletedCount = await purgeExpiredNotifications(getAdminFirestore());
-    console.log(`Purged ${deletedCount} expired notification(s).`);
+    const firestore = getAdminFirestore();
+    const deletedCount = await purgeExpiredNotifications(firestore);
+    const outbox = await purgeTerminalDomainOutbox(firestore);
+    console.log(
+      JSON.stringify({
+        job: 'scheduledPurgeExpiredNotifications',
+        notificationsDeleted: deletedCount,
+        deliveredOutboxDeleted: outbox.deliveredDeleted,
+        deadLetterOutboxDeleted: outbox.deadLetterDeleted,
+      })
+    );
   }
 );
 

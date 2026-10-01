@@ -99,6 +99,7 @@ export const TestSessionIdSchema = CanonicalOpaqueIdSchema.refine(
   'TestSession ID must use the test_ prefix'
 ).transform((value) => value as CanonicalId<'test_session'>);
 export const LessonPricingSettingsIdSchema = z.literal('lesson_booking');
+export const EmailDeliverySettingsIdSchema = z.literal('email');
 
 export type AccountId = z.output<typeof AccountIdSchema>;
 export type InstructorId = z.output<typeof InstructorIdSchema>;
@@ -137,6 +138,7 @@ export type TestSessionId = z.output<typeof TestSessionIdSchema>;
 export type SystemActorId = z.output<typeof SystemActorIdSchema>;
 export type ProviderId = z.output<typeof ProviderIdSchema>;
 export type LessonPricingSettingsId = z.output<typeof LessonPricingSettingsIdSchema>;
+export type EmailDeliverySettingsId = z.output<typeof EmailDeliverySettingsIdSchema>;
 
 const referenceSchemas = {
   account: AccountIdSchema,
@@ -147,6 +149,7 @@ const referenceSchemas = {
   participant_block: ParticipantBlockIdSchema,
   booking: BookingIdSchema,
   lesson_pricing_settings: LessonPricingSettingsIdSchema,
+  email_delivery_settings: EmailDeliverySettingsIdSchema,
   course: CourseIdSchema,
   course_day: CourseDayIdSchema,
   course_enrollment: CourseEnrollmentIdSchema,

@@ -494,6 +494,11 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Outbox obligations are server-owned. Clients never read or write delivery state.
+    match /domain_outbox/{outboxId} {
+      allow read, write: if false;
+    }
+
     match /participant_management/{managementId} {
       allow read, write: if false;
     }

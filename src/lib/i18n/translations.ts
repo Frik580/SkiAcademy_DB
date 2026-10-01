@@ -1482,6 +1482,24 @@ export const translations = {
     instructorFilters: 'Instructor Filters',
     instructorFiltersDesc:
       'Enable or disable the filtering panel (Search, Specialty, Languages, Sorting) for clients on the main page.',
+    emailDeliveryTitle: 'Email delivery',
+    emailDeliveryProviderLabel: 'Provider',
+    emailDeliveryProviderConfigured: 'Configured',
+    emailDeliveryProviderNotConfigured: 'Not configured',
+    emailDeliveryToggleLabel: 'External email delivery',
+    emailDeliveryUnavailable:
+      'No email provider is configured. External email delivery is disabled.',
+    emailDeliveryEnabledHint: 'Customer emails will be processed by the outbox worker.',
+    emailDeliveryDisabledHint:
+      'External email delivery is off. Queued emails stay saved, and in-app notifications continue.',
+    emailDeliverySaving: 'Saving…',
+    emailDeliverySaved: 'Email delivery setting saved.',
+    emailDeliverySaveFailed: 'Could not save the email delivery setting.',
+    outboxDeadLetterTitle: 'Delivery failures',
+    outboxDeadLetterSub: 'Permanent outbox failures. Each job is listed once.',
+    outboxDeadLetterEmpty: 'No permanent delivery failures.',
+    outboxDeadLetterLoadFailed: 'Could not load delivery failures.',
+    outboxDeadLetterAttempts: 'Attempts',
     notificationRetentionTitle: 'Notification Retention',
     notificationRetentionSub:
       'Automatically delete stored notifications from the database after the specified number of days.',
@@ -3838,6 +3856,24 @@ export const translations = {
     instructorFilters: 'Фильтры инструкторов',
     instructorFiltersDesc:
       'Включение или отключение панели фильтров (Поиск, Специализация, Языки, Сортировка) для клиентов на главной странице.',
+    emailDeliveryTitle: 'Email-уведомления',
+    emailDeliveryProviderLabel: 'Провайдер',
+    emailDeliveryProviderConfigured: 'Настроен',
+    emailDeliveryProviderNotConfigured: 'Не настроен',
+    emailDeliveryToggleLabel: 'Внешняя отправка email',
+    emailDeliveryUnavailable:
+      'Email-провайдер не настроен. Внешняя отправка писем отключена.',
+    emailDeliveryEnabledHint: 'Письма клиентам будут обрабатываться воркером очереди.',
+    emailDeliveryDisabledHint:
+      'Внешняя отправка email выключена. Письма остаются в очереди, уведомления в приложении продолжаются.',
+    emailDeliverySaving: 'Сохранение…',
+    emailDeliverySaved: 'Настройка отправки email сохранена.',
+    emailDeliverySaveFailed: 'Не удалось сохранить настройку отправки email.',
+    outboxDeadLetterTitle: 'Сбои доставки',
+    outboxDeadLetterSub: 'Окончательные сбои очереди. Каждое задание показано один раз.',
+    outboxDeadLetterEmpty: 'Окончательных сбоев доставки нет.',
+    outboxDeadLetterLoadFailed: 'Не удалось загрузить сбои доставки.',
+    outboxDeadLetterAttempts: 'Попытки',
     notificationRetentionTitle: 'Хранение уведомлений',
     notificationRetentionSub:
       'Автоматическое удаление сохранённых уведомлений из базы данных через заданное количество дней.',

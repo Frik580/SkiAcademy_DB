@@ -217,6 +217,89 @@
       ]
     },
     {
+      "collectionGroup": "domain_outbox",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "delivery.status", "order": "ASCENDING" },
+        { "fieldPath": "deliverySemantics", "order": "ASCENDING" },
+        { "fieldPath": "delivery.nextAttemptAt.seconds", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "domain_outbox",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "delivery.status", "order": "ASCENDING" },
+        { "fieldPath": "deliverySemantics", "order": "ASCENDING" },
+        { "fieldPath": "createdAt.seconds", "order": "DESCENDING" },
+        { "fieldPath": "createdAt.nanoseconds", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "domain_outbox",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "delivery.status", "order": "ASCENDING" },
+        { "fieldPath": "deliverySemantics", "order": "ASCENDING" },
+        { "fieldPath": "delivery.leaseExpiresAt.seconds", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "domain_outbox",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "delivery.status", "order": "ASCENDING" },
+        { "fieldPath": "deliverySemantics", "order": "ASCENDING" },
+        { "fieldPath": "channel", "order": "ASCENDING" },
+        { "fieldPath": "delivery.nextAttemptAt.seconds", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "domain_outbox",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "delivery.status", "order": "ASCENDING" },
+        { "fieldPath": "deliverySemantics", "order": "ASCENDING" },
+        { "fieldPath": "channel", "order": "ASCENDING" },
+        { "fieldPath": "createdAt.seconds", "order": "DESCENDING" },
+        { "fieldPath": "createdAt.nanoseconds", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "domain_outbox",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "delivery.status", "order": "ASCENDING" },
+        { "fieldPath": "deliverySemantics", "order": "ASCENDING" },
+        { "fieldPath": "channel", "order": "ASCENDING" },
+        { "fieldPath": "delivery.leaseExpiresAt.seconds", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "domain_outbox",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "delivery.status", "order": "ASCENDING" },
+        { "fieldPath": "delivery.deliveredAt.seconds", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "domain_outbox",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "delivery.status", "order": "ASCENDING" },
+        { "fieldPath": "delivery.deadLetteredAt.seconds", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "domain_outbox",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "delivery.status", "order": "ASCENDING" },
+        { "fieldPath": "delivery.deadLetteredAt.seconds", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "notifications",
       "queryScope": "COLLECTION",
       "fields": [

@@ -43,6 +43,37 @@ describe('guestCallableTransport schema', () => {
     ).toBe(false);
   });
 
+  it('keeps an explicit ru or en locale and rejects an invented one', () => {
+    expect(
+      parseCallableGuestCommandTransport({ ...payload, notificationLocale: 'ru' }).success
+    ).toBe(true);
+    expect(
+      parseCallableGuestCommandTransport({ ...payload, notificationLocale: 'en' }).success
+    ).toBe(true);
+    expect(
+      parseCallableGuestCommandTransport({ ...payload, notificationLocale: 'kk' }).success
+    ).toBe(false);
+    const parsed = buildFrontendGuestLessonBookingCallablePayload({
+      bookingId: 'booking_schema_01',
+      instructorId: 'instructor_schema_01',
+      participantId: '708ccb686eb97bd353927802f8b85c0e0dfa4b80d0bf579313f9667a147a9e9c',
+      idempotencyKey: 'create-guest-request:booking_schema_01',
+      correlationId: 'correlation_schema_01',
+      localDate: '2026-12-15',
+      localTime: '10:00',
+      durationMinutes: 120,
+      timezone: 'Asia/Almaty',
+      guestDisplayName: 'Schema Guest',
+      guestPhone: '+7 701 123 45 67',
+      guestEmail: 'guest@example.com',
+      guestSkillLevel: 'beginner',
+      guestDiscipline: 'ski',
+      guestAgeYears: 25,
+      notificationLocale: 'en',
+    });
+    expect(parsed.notificationLocale).toBe('en');
+  });
+
   it('requires a nonempty phone and validates optional email', () => {
     expect(parseCallableGuestCommandTransport({ ...payload, guestPhone: ' ' }).success).toBe(false);
     expect(parseCallableGuestCommandTransport({ ...payload, guestEmail: 'bad' }).success).toBe(false);

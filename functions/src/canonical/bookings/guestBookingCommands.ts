@@ -23,6 +23,7 @@ import {
   isSyntheticCourseInstructorId,
   lessonContentFields,
   nextAggregateRevision,
+  notificationLocaleFromTransportMetadata,
   participantBlockIdFromDirection,
   participantManagementIdFromGuestLink,
   paymentIdFromBookingId,
@@ -173,6 +174,9 @@ function createGuestBookingRequestHandler(
   const participantDocumentPath = participantPath(participantId);
   const contactSubject = { kind: 'booking' as const, bookingId: envelope.intent.bookingId };
   const contactDetails = guestContactDetailsFromCommand(envelope);
+  const notificationLocale = notificationLocaleFromTransportMetadata(
+    envelope.context.transportMetadata
+  );
   const contactDocumentPath = guestContactPath(contactSubject);
   const instructorDocumentPath = instructorCatalogPath(envelope.intent.instructorId);
   const instructorBlockPath = participantBlockPath(
@@ -390,6 +394,7 @@ function createGuestBookingRequestHandler(
           GuestContactSchema.parse({
             subject: contactSubject,
             ...contactDetails,
+            ...(notificationLocale ? { notificationLocale } : {}),
             ...canonicalScopeFields(session.scope ?? LIVE_CANONICAL_EXECUTION_SCOPE),
             createdAt: decidedAt,
           }) as Record<string, unknown>

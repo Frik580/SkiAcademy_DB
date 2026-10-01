@@ -89,6 +89,7 @@ export const AUDIT_EFFECT_KINDS = [
   'guest_course_enrollment_linked',
   'payment_association_changed',
   'pricing_settings_changed',
+  'email_delivery_settings_changed',
   'instructor_review_created',
   'participant_progress_changed',
   'participant_achievements_changed',
@@ -280,6 +281,12 @@ export const OUTBOX_DELIVERY_STATUSES = [
 ] as const;
 export type OutboxDeliveryStatus = (typeof OUTBOX_DELIVERY_STATUSES)[number];
 
+export const OUTBOX_DELIVERY_MAX_ATTEMPTS = 5;
+const OutboxAttemptCountSchema = z.number().int().min(0).max(OUTBOX_DELIVERY_MAX_ATTEMPTS);
+const OutboxDeliveryErrorCodeSchema = z.string().min(1).max(64);
+const OutboxLeaseTokenSchema = z.string().min(8).max(128);
+const OutboxProviderMessageIdSchema = z.string().min(1).max(128);
+
 export const OutboxRecipientRefSchema = z
   .object({
     kind: z.enum(['account', 'participant', 'instructor', 'guest']),
@@ -308,25 +315,38 @@ export const DomainOutboxObligationSchema = z
     deliverySemantics: z.enum(['transactional', 'operational']),
     createdAt: CanonicalTimestampSchema,
     delivery: z.discriminatedUnion('status', [
-      z.object({ status: z.literal('pending') }).strict(),
+      z
+        .object({
+          status: z.literal('pending'),
+          attemptCount: OutboxAttemptCountSchema.optional(),
+          nextAttemptAt: CanonicalTimestampSchema.optional(),
+          lastErrorCode: OutboxDeliveryErrorCodeSchema.optional(),
+        })
+        .strict(),
       z
         .object({
           status: z.literal('leased'),
           leasedAt: CanonicalTimestampSchema,
           leaseExpiresAt: CanonicalTimestampSchema,
+          attemptCount: OutboxAttemptCountSchema.optional(),
+          leaseToken: OutboxLeaseTokenSchema.optional(),
+          lastErrorCode: OutboxDeliveryErrorCodeSchema.optional(),
         })
         .strict(),
       z
         .object({
           status: z.literal('delivered'),
           deliveredAt: CanonicalTimestampSchema,
+          attemptCount: OutboxAttemptCountSchema.optional(),
+          providerMessageId: OutboxProviderMessageIdSchema.optional(),
         })
         .strict(),
       z
         .object({
           status: z.literal('dead_letter'),
           deadLetteredAt: CanonicalTimestampSchema,
-          lastErrorCode: z.string().min(1).max(64),
+          lastErrorCode: OutboxDeliveryErrorCodeSchema,
+          attemptCount: OutboxAttemptCountSchema.optional(),
         })
         .strict(),
       z
@@ -376,7 +396,11 @@ export const MutableAuditFieldNames = [
   'updatedAt',
   'delivery',
   'leaseExpiresAt',
+  'leaseToken',
+  'attemptCount',
+  'nextAttemptAt',
   'lastErrorCode',
+  'providerMessageId',
 ] as const;
 
 export const LegacyMutableActivityLogShapeSchema = z

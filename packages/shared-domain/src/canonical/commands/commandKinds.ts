@@ -56,6 +56,7 @@ export const COMMAND_KINDS = [
   'provision_self_participant_for_account',
   'change_account_role',
   'update_lesson_pricing_settings',
+  'set_email_delivery_enabled',
   'update_account_contact_as_administrator',
   'update_own_account_contact',
   'create_instructor_catalog_entry',

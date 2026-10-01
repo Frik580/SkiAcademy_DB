@@ -51,6 +51,7 @@ import {
   selectCabinetProgressView,
   useParticipantProgressStore,
 } from '../../../participant-progress';
+import { applyParticipantTodayChecklistToProfile } from '../../participantTodayChecklist';
 import { useCabinetProgressParticipantSelection } from '../../useCabinetProgressParticipantSelection';
 import {
   filterCabinetCourseDaysForParticipant,
@@ -264,7 +265,10 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
     progressById,
     progressReady ? selectedProgressParticipantId : undefined
   );
-  const progressProfile = applyParticipantProgressToProfile(props.userProfile, selectedProgress);
+  const progressProfile = applyParticipantTodayChecklistToProfile(
+    applyParticipantProgressToProfile(props.userProfile, selectedProgress),
+    selectedProgressParticipantId
+  );
   const progressViewKey = selectedProgressParticipantId ?? 'cabinet-progress-unselected';
   const isolatedEnrollments = useMemo(
     () =>

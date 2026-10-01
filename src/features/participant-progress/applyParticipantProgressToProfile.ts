@@ -43,7 +43,9 @@ export function resolveSelfParticipantIdFromAccount(accountId: string): string |
 
 /**
  * Overlay canonical participant progress onto the signed-in account profile
- * for existing presentational consumers. Checklist/privacy fields stay on Account.
+ * for existing presentational consumers. This overlay does not resolve the
+ * Today checklist; cabinet presentation applies participantTodayChecklists
+ * separately. hideProgressTracking stays account-scoped.
  * Missing canonical progress is empty start. Leftover `/users` level/skillScores/
  * skillComments are stripped and are never fallback authority.
  */

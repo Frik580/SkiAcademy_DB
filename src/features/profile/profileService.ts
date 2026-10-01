@@ -13,7 +13,7 @@ import {
 } from '../../infrastructure/firebase';
 import { executeAuthenticatedCanonicalCommand } from '../../lib/canonical/canonicalCommandClient';
 import { mapCanonicalCommandResultError } from '../../lib/canonical/mapCanonicalCommandError';
-import { UserProfile } from '../../types';
+import { ParticipantTodayChecklistState, UserProfile } from '../../types';
 import { logger } from '../../shared';
 
 function deriveOwnAccountContactIdempotencyKey(): ReturnType<typeof IdempotencyKeySchema.parse> {
@@ -48,6 +48,25 @@ export async function updateUserProfileService(
 
   if (Object.keys(rest).length === 0) return;
   await updateDoc(doc(db, 'users', userId), rest);
+}
+
+const PARTICIPANT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
+
+/**
+ * Writes one participant checklist entry. Field-path update leaves every other
+ * participant entry on the account document unchanged.
+ */
+export async function updateParticipantTodayChecklistService(
+  userId: string,
+  participantId: string,
+  checklist: ParticipantTodayChecklistState
+): Promise<void> {
+  if (!PARTICIPANT_ID_PATTERN.test(participantId)) {
+    throw new Error('Invalid participant id');
+  }
+  await updateDoc(doc(db, 'users', userId), {
+    [`participantTodayChecklists.${participantId}`]: checklist,
+  } as Record<string, unknown>);
 }
 
 export async function updateUserRoleService(

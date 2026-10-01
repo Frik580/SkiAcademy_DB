@@ -86,6 +86,19 @@ export const CourseDocumentSchema = z
   })
   .passthrough();
 
+const CustomTodayTaskSchema = z.object({
+  id: z.string(),
+  text: z.string(),
+});
+
+const ParticipantTodayChecklistStateSchema = z.object({
+  todaySkillItemIds: z.array(z.string()).optional(),
+  completedTodayTaskIds: z.array(z.string()).optional(),
+  completedTodayDate: z.string().optional(),
+  customTodayTasks: z.array(CustomTodayTaskSchema).optional(),
+  dismissedTodayTaskIds: z.array(z.string()).optional(),
+});
+
 export const UserProfileDocumentSchema = z
   .object({
     uid: z.string(),
@@ -109,8 +122,11 @@ export const UserProfileDocumentSchema = z
     todaySkillItemIds: z.array(z.string()).optional(),
     completedTodayTaskIds: z.array(z.string()).optional(),
     completedTodayDate: z.string().optional(),
-    customTodayTasks: z.array(z.object({ id: z.string(), text: z.string() })).optional(),
+    customTodayTasks: z.array(CustomTodayTaskSchema).optional(),
     dismissedTodayTaskIds: z.array(z.string()).optional(),
+    participantTodayChecklists: z
+      .record(z.string(), ParticipantTodayChecklistStateSchema)
+      .optional(),
     dismissedReviewIds: z.array(z.string()).optional(),
   })
   .passthrough();

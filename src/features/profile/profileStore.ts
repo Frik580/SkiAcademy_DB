@@ -14,12 +14,14 @@ import {
 import type { SkillItem } from '../../domain/achievements';
 import { notify, t } from '../../store/storeContext';
 import { QUERY_LIMITS } from '../../shared';
+import { useCabinetProgressParticipantSelectionStore } from '../student-cabinet/cabinetProgressParticipantSelectionStore';
 import {
   updateUserProfileService,
   updateUserRoleService,
   addUserService,
   updateUserDataWithoutMoneyService,
   dismissReviewService,
+  updateParticipantTodayChecklistService,
 } from './profileService';
 
 export interface ProfileState {
@@ -59,6 +61,9 @@ export interface ProfileState {
   handleAddCustomTodayTask: (text: string) => Promise<void>;
   handleRemoveTodayTask: (task: TodayTaskRef) => Promise<void>;
 }
+
+const selectedTodayParticipantId = (): string | undefined =>
+  useCabinetProgressParticipantSelectionStore.getState().selectedParticipantId;
 
 export const useProfileStore = create<ProfileState>((set, get) => ({
   userProfile: null,
@@ -137,17 +142,24 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
 
   handleToggleSkillToday: async (skillItemId, pinned) => {
     const { userProfile } = get();
-    if (!userProfile) return;
-    const updated = buildToggleSkillTodayUpdate(userProfile, skillItemId, pinned);
-    await get().handleUpdateProfile(updated);
+    const participantId = selectedTodayParticipantId();
+    if (!userProfile || !participantId) return;
+    const updated = buildToggleSkillTodayUpdate(userProfile, participantId, skillItemId, pinned);
+    await commitParticipantTodayChecklist(set, get, userProfile, participantId, updated);
   },
 
   handlePinSkillsToday: async (skillItemIds, skillItems) => {
     const { userProfile } = get();
-    if (!userProfile || skillItemIds.length === 0) return;
-    const addedTitles = getNewlyPinnedSkillTitles(userProfile, skillItemIds, skillItems);
-    const updated = buildPinSkillsTodayUpdate(userProfile, skillItemIds);
-    await get().handleUpdateProfile(updated);
+    const participantId = selectedTodayParticipantId();
+    if (!userProfile || !participantId || skillItemIds.length === 0) return;
+    const addedTitles = getNewlyPinnedSkillTitles(
+      userProfile,
+      participantId,
+      skillItemIds,
+      skillItems
+    );
+    const updated = buildPinSkillsTodayUpdate(userProfile, participantId, skillItemIds);
+    await commitParticipantTodayChecklist(set, get, userProfile, participantId, updated);
     if (addedTitles.length === 0) return;
     notify(
       'success',
@@ -158,23 +170,56 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
 
   handleToggleTodayTaskComplete: async (taskId, done) => {
     const { userProfile } = get();
-    if (!userProfile) return;
-    const updated = buildToggleTodayCompleteUpdate(userProfile, taskId, done);
-    await get().handleUpdateProfile(updated);
+    const participantId = selectedTodayParticipantId();
+    if (!userProfile || !participantId) return;
+    const updated = buildToggleTodayCompleteUpdate(userProfile, participantId, taskId, done);
+    await commitParticipantTodayChecklist(set, get, userProfile, participantId, updated);
   },
 
   handleAddCustomTodayTask: async (text) => {
     const { userProfile } = get();
-    if (!userProfile) return;
-    const updated = buildAddCustomTodayTaskUpdate(userProfile, text);
+    const participantId = selectedTodayParticipantId();
+    if (!userProfile || !participantId) return;
+    const updated = buildAddCustomTodayTaskUpdate(userProfile, participantId, text);
     if (!updated) return;
-    await get().handleUpdateProfile(updated);
+    await commitParticipantTodayChecklist(set, get, userProfile, participantId, updated);
   },
 
   handleRemoveTodayTask: async (task) => {
     const { userProfile } = get();
-    if (!userProfile) return;
-    const updated = buildRemoveTodayTaskUpdate(userProfile, task);
-    await get().handleUpdateProfile(updated);
+    const participantId = selectedTodayParticipantId();
+    if (!userProfile || !participantId) return;
+    const updated = buildRemoveTodayTaskUpdate(userProfile, participantId, task);
+    await commitParticipantTodayChecklist(set, get, userProfile, participantId, updated);
   },
 }));
+
+async function commitParticipantTodayChecklist(
+  set: (partial: Partial<ProfileState> | ((state: ProfileState) => Partial<ProfileState>)) => void,
+  get: () => ProfileState,
+  previousProfile: NonNullable<ProfileState['userProfile']>,
+  participantId: string,
+  updated: Partial<UserProfile>
+): Promise<void> {
+  const checklist = updated.participantTodayChecklists?.[participantId];
+  if (!checklist) return;
+  set({
+    userProfile: {
+      ...previousProfile,
+      participantTodayChecklists: {
+        ...(previousProfile.participantTodayChecklists ?? {}),
+        [participantId]: checklist,
+      },
+    },
+  });
+  try {
+    await updateParticipantTodayChecklistService(previousProfile.uid, participantId, checklist);
+  } catch (err) {
+    const current = get().userProfile;
+    if (current?.participantTodayChecklists?.[participantId] === checklist) {
+      set({ userProfile: previousProfile });
+    }
+    logger.error('Participant today checklist update failed:', err);
+    throw err;
+  }
+}

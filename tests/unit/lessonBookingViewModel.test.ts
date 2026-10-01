@@ -66,6 +66,37 @@ describe('lessonBookingViewModel', () => {
     expect(item.totalPrice).toBe(50000);
     expect(item.isLessonBooking).toBe(true);
     expect(item.participantNames).toEqual(['Alice Student']);
+    expect(item.participantIds).toEqual(readModel.participantIds);
+    expect(item.participantIds).not.toBe(readModel.participantIds);
+  });
+
+  it('preserves the canonical multi-participant party independently of display projections', () => {
+    const participantIds = [
+      ParticipantIdSchema.parse('participant_a'),
+      ParticipantIdSchema.parse('participant_b'),
+    ];
+    const item = mapLessonBookingReadModelToCabinetItem(
+      buildReadModel({
+        bookingId: BookingIdSchema.parse('booking_shared_party'),
+        revision: 1,
+        participantIds,
+        partyKind: 'family_group',
+        participants: [{ participantId: participantIds[0], displayName: 'Same name' }],
+      })
+    );
+    expect(item.participantIds).toEqual(participantIds);
+  });
+
+  it('fails closed for an older unnormalized payload without party IDs', () => {
+    const readModel = buildReadModel({
+      bookingId: BookingIdSchema.parse('booking_unidentified_legacy'),
+      revision: 1,
+    });
+    const item = mapLessonBookingReadModelToCabinetItem({
+      ...readModel,
+      participantIds: undefined,
+    } as unknown as LessonBookingReadModel);
+    expect(item.participantIds).toEqual([]);
   });
 
   it('round-trips difficulty and notes without substituting beginner', () => {

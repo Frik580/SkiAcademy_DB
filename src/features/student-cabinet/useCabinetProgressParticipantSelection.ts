@@ -23,6 +23,9 @@ export function useCabinetProgressParticipantSelection(input: {
   const selectedParticipantId = useCabinetProgressParticipantSelectionStore(
     (state) => state.selectedParticipantId
   );
+  const selectionAccountId = useCabinetProgressParticipantSelectionStore(
+    (state) => state.accountId
+  );
   const syncManagedSet = useCabinetProgressParticipantSelectionStore(
     (state) => state.syncManagedSet
   );
@@ -43,7 +46,13 @@ export function useCabinetProgressParticipantSelection(input: {
   );
 
   return {
-    selectedParticipantId,
+    // Reconcile before effects run: stale account/removed participant selections
+    // must never supply a presentation scope, even for one render.
+    selectedParticipantId:
+      selectionAccountId === accountId &&
+      participants.some((participant) => participant.participantId === selectedParticipantId)
+        ? selectedParticipantId
+        : undefined,
     selectParticipant,
   };
 }

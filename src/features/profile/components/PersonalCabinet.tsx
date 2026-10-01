@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useLayoutEffect } from 'react';
 import {
   UserProfile,
   Review,
@@ -34,6 +34,7 @@ import {
   useParticipantProgressStore,
 } from '../../participant-progress';
 import { togglePresentedParticipantLessonFeedbackItem } from '../../student-cabinet/useSelectedParticipantLessonFeedback';
+import { useCabinetProgressParticipantSelectionStore } from '../../student-cabinet/cabinetProgressParticipantSelectionStore';
 
 export interface PersonalCabinetProps {
   userProfile: UserProfile;
@@ -186,6 +187,24 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
     onNotify: (type, title, message) => addNotification(type, title, message),
     t: t as (key: string) => string,
   });
+  const selectedParticipantId = useCabinetProgressParticipantSelectionStore(
+    (state) => state.selectedParticipantId
+  );
+  const modalScope = `${userProfile.uid}/${selectedParticipantId ?? ''}`;
+  const previousModalScope = useRef(modalScope);
+  const closeReview = reviewFlow.closeReview;
+  const setRescheduleTarget = collaboration.setRescheduleTarget;
+  useLayoutEffect(() => {
+    if (previousModalScope.current === modalScope) return;
+    previousModalScope.current = modalScope;
+    setSelectedChatBookingId(null);
+    setLessonDetailsId(null);
+    setConfirmModal(null);
+    setCancelReason('');
+    setLevelUpModal(null);
+    closeReview();
+    setRescheduleTarget(null);
+  }, [modalScope, closeReview, setRescheduleTarget]);
 
   useEffect(() => {
     if (!selectedChatBookingId) return;

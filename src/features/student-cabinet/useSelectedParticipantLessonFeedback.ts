@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useLayoutEffect } from 'react';
 import type { ParticipantLessonFeedbackReadModel } from '@ski-academy/shared-domain';
 import type { ManagedParticipantOption } from '../lesson-bookings/lessonBookingContracts';
 import { presentCanonicalCommandError } from '../lesson-bookings/presentCanonicalCommandError';
@@ -116,7 +116,9 @@ export function useSelectedParticipantLessonFeedback(input: {
     (state) => state.setCompletionCapability
   );
 
-  useEffect(() => {
+  // Commit the selected presentation before paint, so cached A feedback cannot
+  // flash under B while the participant-specific query is loading.
+  useLayoutEffect(() => {
     setPresentationParticipantId(selectedParticipantId);
   }, [selectedParticipantId, setPresentationParticipantId]);
 

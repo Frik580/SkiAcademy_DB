@@ -36,6 +36,8 @@ export interface LessonBookingCabinetItem {
   readonly instructorName: string;
   readonly instructorAvatar: string;
   readonly participantNames: readonly string[];
+  /** Canonical party ownership. Missing on unidentified legacy presentation rows. */
+  readonly participantIds?: readonly string[];
   readonly partyKind: 'individual' | 'family_group';
   readonly payment: LessonBookingPaymentPresentation;
   readonly totalPrice?: number;

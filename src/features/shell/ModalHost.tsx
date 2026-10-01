@@ -145,6 +145,7 @@ export const ModalHost: React.FC = () => {
             isEnrolled={Boolean(selectedEnrollment)}
             enrollmentLifecycleStatus={selectedEnrollment?.lifecycleStatus}
             courseProgress={selectedCourseProgress}
+            enrollmentSchedule={selectedEnrollment?.courseSchedule}
             onEnroll={() => {
               setSelectedCourseForAuth(selectedCourseForDetails);
             }}

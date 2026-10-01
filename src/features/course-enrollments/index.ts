@@ -7,6 +7,8 @@ export * from './guestCourseEnrollmentCredentialStorage';
 export * from './deriveEnrollmentIds';
 export * from './courseProgressViewModel';
 export * from './cabinetSessionItems';
+export * from './courseEnrollmentListProjection';
+export { CourseEnrollmentScheduleList } from './CourseEnrollmentScheduleList';
 export * from './resolveEnrollmentParticipants';
 export * from './sessionScheduleHelpers';
 export { StudentCourseProgressSummary } from './StudentCourseProgressSummary';

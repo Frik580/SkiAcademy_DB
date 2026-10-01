@@ -80,8 +80,10 @@ function parseIsoLocalDate(isoLocalDate: string): LocalCalendarDay | null {
 export function formatCatalogLocalDateRange(
   startIsoLocalDate: string,
   endIsoLocalDate: string,
-  language: Language
+  language: Language,
+  options?: { readonly includeYear?: boolean }
 ): string {
+  const includeYear = options?.includeYear !== false;
   const start = parseIsoLocalDate(startIsoLocalDate);
   const end = parseIsoLocalDate(endIsoLocalDate);
   if (!start || !end) {
@@ -93,28 +95,21 @@ export function formatCatalogLocalDateRange(
   const ru = language === 'ru';
   const monthName = (monthIndex: number) =>
     ru ? MONTHS_RU_GENITIVE[monthIndex]! : MONTHS_EN[monthIndex]!;
+  const yearSuffix = (year: number) => (includeYear ? ` ${year}` : '');
 
   if (start.year === end.year && start.monthIndex === end.monthIndex && start.day === end.day) {
-    return ru
-      ? `${start.day} ${monthName(start.monthIndex)} ${start.year}`
-      : `${start.day} ${monthName(start.monthIndex)} ${start.year}`;
+    return `${start.day} ${monthName(start.monthIndex)}${yearSuffix(start.year)}`;
   }
 
   if (start.year === end.year && start.monthIndex === end.monthIndex) {
-    return ru
-      ? `${start.day}–${end.day} ${monthName(start.monthIndex)} ${start.year}`
-      : `${start.day}–${end.day} ${monthName(start.monthIndex)} ${start.year}`;
+    return `${start.day}–${end.day} ${monthName(start.monthIndex)}${yearSuffix(start.year)}`;
   }
 
-  if (start.year === end.year) {
-    return ru
-      ? `${start.day} ${monthName(start.monthIndex)} – ${end.day} ${monthName(end.monthIndex)} ${start.year}`
-      : `${start.day} ${monthName(start.monthIndex)} – ${end.day} ${monthName(end.monthIndex)} ${start.year}`;
+  if (start.year === end.year || !includeYear) {
+    return `${start.day} ${monthName(start.monthIndex)} – ${end.day} ${monthName(end.monthIndex)}${yearSuffix(start.year)}`;
   }
 
-  return ru
-    ? `${start.day} ${monthName(start.monthIndex)} ${start.year} – ${end.day} ${monthName(end.monthIndex)} ${end.year}`
-    : `${start.day} ${monthName(start.monthIndex)} ${start.year} – ${end.day} ${monthName(end.monthIndex)} ${end.year}`;
+  return `${start.day} ${monthName(start.monthIndex)} ${start.year} – ${end.day} ${monthName(end.monthIndex)} ${end.year}`;
 }
 
 /**

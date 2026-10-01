@@ -50,7 +50,19 @@ If none of the three sources is a full 40-character SHA, the build fails. It doe
 | Functions on `ski-school-staging`   | staging     | `ski-school-staging`  |
 | Functions emulator                  | e2e         | the emulator project  |
 
-## Verify Hosting
+## Automatic verification after release deploys
+
+`npm run deploy:staging`, `npm run deploy:prod`, `npm run deploy:functions:staging`, and `npm run deploy:functions:prod` run provenance verification automatically after a successful Firebase deploy. If the deploy command fails, verification does not run. If the deploy succeeds but verification fails, the release command exits non-zero and prints `Deployment completed, but provenance verification failed.` The deploy is not rolled back.
+
+Hosting release commands verify Hosting only. Functions release commands verify Functions only, so a Functions deploy is not failed by Hosting that legitimately remains on another commit.
+
+Post-deploy verification retries briefly when Cloud Run or Hosting metadata may still show the previous revision. Manual `deploy:verify` stays read-only and does not retry.
+
+## Manual verification (diagnostics)
+
+All verify commands are read-only. They do not deploy or mutate Firebase.
+
+### Hosting only
 
 From a clean checkout:
 
@@ -59,7 +71,7 @@ npm run deploy:verify -- --environment production
 npm run deploy:verify -- --environment staging
 ```
 
-Exit `0` means the live Hosting manifest matches local `HEAD`, is clean, names the requested environment and project, and is served with a revalidation cache header. Any other result exits non-zero. The command only reads Hosting. It does not deploy or mutate Firebase.
+Exit `0` means the live Hosting manifest matches local `HEAD`, is clean, names the requested environment and project, and is served with a revalidation cache header. Any other result exits non-zero.
 
 The command runs Node with `--use-system-ca`, which adds the operating system trust store to Node's bundled certificate authorities. Certificate validation stays enabled. Application runtime TLS is unchanged.
 
@@ -67,16 +79,30 @@ The command runs Node with `--use-system-ca`, which adds the operating system tr
 
 A mismatch can mean a different commit, a dirty build, staging content on the production host, or a response that can be cached.
 
-## Verify Functions
+### Functions only
+
+```text
+npm run deploy:verify -- --environment production --functions-only
+npm run deploy:verify -- --environment staging --functions-only
+```
+
+Optional selective scope after a single-function deploy:
+
+```text
+npm run deploy:verify -- --environment production --functions-only --function executeCanonicalCommand
+npm run deploy:verify -- --environment production --functions-only --function foo,bar
+```
+
+This lists Cloud Run services for the Firebase project in `us-central1` and reads each service's `commit_sha` and `commit_dirty` labels. It requires `gcloud` authentication. Hosting is not checked.
+
+### Full environment audit (Hosting + Functions)
 
 ```text
 npm run deploy:verify -- --environment production --functions
 npm run deploy:verify -- --environment staging --functions
 ```
 
-This lists Cloud Run services for the Firebase project in `us-central1` and reads each service's `commit_sha` and `commit_dirty` labels. It requires `gcloud` authentication and does not deploy.
-
-Functions MATCH means every discovered function service has the same clean SHA as local `HEAD`. A selective deploy can leave functions on different commits. The command prints one line per service and does not hide that split behind a single match.
+Functions MATCH in this mode means every discovered function service has the same clean SHA as local `HEAD`. A selective deploy can leave functions on different commits. The command prints one line per service and does not hide that split behind a single match.
 
 Services deployed before this change have no commit label and are reported as `UNVERIFIED`.
 

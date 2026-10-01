@@ -1532,6 +1532,19 @@ describe('T32.8A identity authority containment', () => {
         dismissedReviewIds: ['booking-review-active'],
       })
     );
+    await assertSucceeds(
+      updateDoc(doc(userDb, 'users', USER_ID), {
+        participantTodayChecklists: {
+          'participant-self': {
+            todaySkillItemIds: ['skill-1'],
+            completedTodayTaskIds: ['skill:skill-1'],
+            completedTodayDate: '2026-08-31',
+            customTodayTasks: [{ id: 'custom-1', text: 'Stretch' }],
+            dismissedTodayTaskIds: ['task-2'],
+          },
+        },
+      })
+    );
     await assertSucceeds(getDoc(doc(userDb, 'users', USER_ID)));
   });
 
@@ -1555,6 +1568,13 @@ describe('T32.8A identity authority containment', () => {
     await assertFails(updateDoc(profileRef, { hideProgressTracking: true }));
     await assertFails(updateDoc(profileRef, { dismissedReviewIds: ['booking-review-disabled'] }));
     await assertFails(updateDoc(profileRef, { completedTodayTaskIds: ['task-disabled'] }));
+    await assertFails(
+      updateDoc(profileRef, {
+        participantTodayChecklists: {
+          'participant-disabled': { todaySkillItemIds: ['skill-x'] },
+        },
+      })
+    );
     await assertFails(updateDoc(profileRef, { balanceUSD: 50 }));
     await assertFails(updateDoc(profileRef, { lifecycle: { status: 'active' } }));
     await assertFails(updateDoc(profileRef, { role: 'admin' }));

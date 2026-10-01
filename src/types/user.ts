@@ -3,6 +3,19 @@ export interface CustomTodayTask {
   text: string;
 }
 
+/**
+ * Training-plan checklist for one Participant.
+ * Stored on the account user document, keyed by participantId.
+ */
+export interface ParticipantTodayChecklistState {
+  todaySkillItemIds?: string[];
+  customTodayTasks?: CustomTodayTask[];
+  completedTodayTaskIds?: string[];
+  /** YYYY-MM-DD — date when completedTodayTaskIds was last updated (daily reset) */
+  completedTodayDate?: string;
+  dismissedTodayTaskIds?: string[];
+}
+
 export type WalletCurrency = 'USD' | 'KZT';
 
 export type WalletLedgerType =
@@ -56,7 +69,11 @@ export interface UserProfile {
   /** Instructor comments per skill exercise id */
   skillComments?: Record<string, string>;
   hideProgressTracking?: boolean;
-  /** Skill exercise ids pinned to the Today checklist */
+  /**
+   * Legacy account-level Today checklist.
+   * Read only as a fallback for the self Participant until that participant
+   * has an entry in participantTodayChecklists. Never a source for dependents.
+   */
   todaySkillItemIds?: string[];
   /** Completed Today task ids (skill:*, custom:*) */
   completedTodayTaskIds?: string[];
@@ -66,6 +83,8 @@ export interface UserProfile {
   customTodayTasks?: CustomTodayTask[];
   /** Today checklist items hidden by the user (recommendation task ids) */
   dismissedTodayTaskIds?: string[];
+  /** Participant-scoped Today checklist. Key is participantId. */
+  participantTodayChecklists?: Record<string, ParticipantTodayChecklistState>;
   /** Booking IDs for which review notifications have been dismissed */
   dismissedReviewIds?: string[];
 }

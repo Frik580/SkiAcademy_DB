@@ -430,7 +430,8 @@ service cloud.firestore {
     // User Profiles
     // Preserved client writes (non-authoritative only):
     // - create: signup / guest-claim migration (Auth.tsx, migratePreExistingProfile)
-    // - update self presentation: today tasks, dismissReview, preferences
+    // - update self presentation: today tasks (legacy fields and
+    //   participantTodayChecklists), dismissReview, preferences
     //   (owner only, and only while stored Account lifecycle is active/absent)
     // Identity contact (phoneNumber) is canonical-command-only.
     // Canonical Wallet / Payment / MonetaryEvent are command-only.
@@ -458,6 +459,7 @@ service cloud.firestore {
           'completedTodayDate',
           'customTodayTasks',
           'dismissedTodayTaskIds',
+          'participantTodayChecklists',
           'dismissedReviewIds'
         ]);
 

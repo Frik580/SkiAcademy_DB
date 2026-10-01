@@ -213,6 +213,10 @@ export const getNextStepAction = (
   };
 };
 
+/**
+ * Reads Today fields already resolved for one Participant
+ * (`applyParticipantTodayChecklistToProfile`). Does not read the account map.
+ */
 export const getTodayTasks = (
   userProfile: UserProfile,
   language: 'en' | 'ru',

@@ -16,6 +16,7 @@ const OPTIONAL_NULLABLE_KEYS = [
   'completedTodayDate',
   'customTodayTasks',
   'dismissedTodayTaskIds',
+  'participantTodayChecklists',
   'dismissedReviewIds',
 ] as const;
 
@@ -160,6 +161,23 @@ export function normalizeUserProfileRead(
   for (const key of OPTIONAL_NULLABLE_KEYS) {
     if (normalized[key] === null) {
       delete normalized[key];
+    }
+  }
+
+  const rawChecklists = normalized.participantTodayChecklists;
+  if (rawChecklists !== undefined) {
+    if (typeof rawChecklists !== 'object' || Array.isArray(rawChecklists)) {
+      delete normalized.participantTodayChecklists;
+    } else {
+      const checklists: Record<string, unknown> = {};
+      for (const [participantId, entry] of Object.entries(
+        rawChecklists as Record<string, unknown>
+      )) {
+        if (entry !== null && typeof entry === 'object' && !Array.isArray(entry)) {
+          checklists[participantId] = entry;
+        }
+      }
+      normalized.participantTodayChecklists = checklists;
     }
   }
 

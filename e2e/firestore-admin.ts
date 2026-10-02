@@ -289,6 +289,9 @@ export async function getBookingSlotContext(bookingId: string): Promise<{
 export async function getLatestGuestParticipant(): Promise<{
   participantId: string;
   managementKind: string;
+  discipline: string;
+  skillLevel: string;
+  age: import('@ski-academy/shared-domain').Participant['age'];
 } | null> {
   const firestore = ensureFirestore();
   const snapshot = await firestore.collection('participants').get();
@@ -309,5 +312,8 @@ export async function getLatestGuestParticipant(): Promise<{
   return {
     participantId: String(latest.participantId),
     managementKind: String(latest.management?.kind ?? ''),
+    discipline: String(latest.discipline),
+    skillLevel: String(latest.skillLevel),
+    age: latest.age,
   };
 }

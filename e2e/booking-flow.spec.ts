@@ -3,6 +3,7 @@ import {
   expect,
   ensureParticipantSelected,
   fillBookingSelectors,
+  fillGuestParticipantFields,
   loadRuntimeConfig,
   uniqueDayOffset,
   uniqueTimeSlot,
@@ -29,6 +30,8 @@ test.describe('booking flow', () => {
     const runtimeConfig = loadRuntimeConfig();
     const guestParticipantsBefore = await getLatestGuestParticipant();
     const guestIngressAddress = `2001:db8::${(testInfo.repeatEachIndex + 1).toString(16)}`;
+    const guestProfile = { age: 32, discipline: 'ski', skillLevel: 'intermediate' } as const;
+    let guestCommandRequests = 0;
 
     // The local Functions emulator has no Firebase ingress to supply its trusted XFF address.
     await page.route('**/executeGuestCanonicalCommand', async (route) => {
@@ -36,6 +39,7 @@ test.describe('booking flow', () => {
         await route.continue();
         return;
       }
+      guestCommandRequests += 1;
       await route.continue({
         headers: { ...route.request().headers(), 'x-forwarded-for': guestIngressAddress },
       });
@@ -45,12 +49,19 @@ test.describe('booking flow', () => {
 
     await page.getByPlaceholder('e.g. Alex Carter').fill('Guest Skier');
     await page.getByPlaceholder('+1 (555) 000-0000').fill('+1 555 0100');
+    await expect(submitGuestBookingApplication(page)).rejects.toThrow(
+      'Guest booking blocked by browser form validation'
+    );
+    expect(guestCommandRequests).toBe(0);
+    await fillGuestParticipantFields(page, guestProfile);
     const slot = await fillBookingSelectors(page, uniqueDayOffset(1, testInfo), {
       time: uniqueTimeSlot(testInfo),
     });
 
     await waitForFunctionsEmulatorReady();
     await submitGuestBookingApplication(page);
+    expect(guestCommandRequests).toBe(1);
+    await expect(page.getByRole('heading', { name: 'Request created', exact: true })).toBeVisible();
 
     await expect
       .poll(async () => {
@@ -61,6 +72,9 @@ test.describe('booking flow', () => {
 
     const guestParticipant = await getLatestGuestParticipant();
     expect(guestParticipant?.managementKind).toBe('unmanaged_guest');
+    expect(guestParticipant?.discipline).toBe(guestProfile.discipline);
+    expect(guestParticipant?.skillLevel).toBe(guestProfile.skillLevel);
+    expect(guestParticipant?.age).toEqual({ kind: 'age_years', years: guestProfile.age });
 
     await expect
       .poll(async () => {

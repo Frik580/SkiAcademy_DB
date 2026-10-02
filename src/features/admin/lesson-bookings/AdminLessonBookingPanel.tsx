@@ -139,7 +139,7 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
   );
 
   const revealLessonBookingCard = useCallback((bookingId: string) => {
-    window.setTimeout(() => {
+    return window.setTimeout(() => {
       scrollAdminElementIntoView(ADMIN_LESSON_BOOKINGS_SECTION_ID);
       document
         .querySelector(`[data-admin-lesson-booking-id="${bookingId}"]`)
@@ -155,10 +155,14 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
       lastFocusedBookingRef.current = undefined;
       return;
     }
-    if (lastFocusedBookingRef.current === selectedBookingId) return;
-    const shouldRevealInitialSelection = lastFocusedBookingRef.current === undefined;
+    // Effect replay must reschedule the same initial selection after its timer was cancelled.
+    const shouldRevealInitialSelection =
+      lastFocusedBookingRef.current === undefined ||
+      lastFocusedBookingRef.current === selectedBookingId;
     lastFocusedBookingRef.current = selectedBookingId;
-    if (shouldRevealInitialSelection) revealLessonBookingCard(selectedBookingId);
+    if (!shouldRevealInitialSelection) return;
+    const timeoutId = revealLessonBookingCard(selectedBookingId);
+    return () => window.clearTimeout(timeoutId);
   }, [revealLessonBookingCard, selectedBookingId]);
 
   useEffect(() => {

@@ -129,7 +129,7 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
         <div className="flex flex-col">
           <div
             id="main-content-pane"
-            className="p-4 sm:p-8 md:p-10 lg:p-12 space-y-16 flex flex-col justify-start min-w-0"
+            className="p-4 sm:p-8 md:p-10 lg:p-12 space-y-16 flex flex-col justify-start min-w-0 w-full max-w-5xl mx-auto"
           >
             <GroupCoursesSection
               data={{
@@ -146,7 +146,7 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
               }}
             />
 
-            <div id="coaches-grid" className="space-y-10">
+            <div id="coaches-grid" className="space-y-10 w-full max-w-5xl">
               <div>
                 <h3 className="ui-section-title">{t('meetGuides')}</h3>
                 <p className="ui-section-eyebrow mt-2">{t('meetGuidesSub')}</p>

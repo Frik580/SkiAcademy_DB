@@ -40,7 +40,7 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
   const visibleCourses = sortVisibleCourses(courses);
 
   return (
-    <div id="courses-grid" className="space-y-6 max-w-3xl w-full">
+    <div id="courses-grid" className="space-y-6 max-w-5xl w-full">
       <div>
         <h3 className="ui-section-title">{t('intensiveGroupCourses')}</h3>
         <p className="ui-section-eyebrow mt-2">{t('intensiveGroupCoursesSub')}</p>

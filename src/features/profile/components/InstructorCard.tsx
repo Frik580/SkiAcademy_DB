@@ -128,7 +128,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
           transform: 'translate3d(0,0,0)',
           willChange: 'opacity, transform',
         }}
-        className={`ui-list-row w-full max-w-6xl flex flex-col md:flex-row items-center md:items-start gap-6 md:gap-8 group ${
+        className={`ui-list-row w-full max-w-5xl flex flex-col md:flex-row items-center md:items-start gap-6 md:gap-8 group ${
           !isAvailable ? 'opacity-70' : ''
         }`}
       >

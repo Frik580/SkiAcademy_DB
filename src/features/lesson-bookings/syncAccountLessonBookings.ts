@@ -3,6 +3,8 @@ import {
   timestampFromDate,
   type CanonicalTimestamp,
   type LessonBookingReadModel,
+  type QueryLessonBookingReadModelsInput,
+  type QueryLessonBookingReadModelsResult,
 } from '@ski-academy/shared-domain';
 import { queryLessonBookingReadModels } from '../../lib/canonical/canonicalReadModelClient';
 import { parseBookingEndTime } from '../student-cabinet/components/student/studentBookingSchedule';
@@ -68,6 +70,7 @@ function cabinetItemEndsAtTimestamp(item: LessonBookingCabinetItem): CanonicalTi
   return timestampFromDate(endDate);
 }
 
+/** Only valid against the complete authoritative account_hot collection. */
 export function findStaleHotLessonBookingIds(
   items: ReadonlyMap<string, LessonBookingCabinetItem>,
   hotItems: readonly LessonBookingReadModel[],
@@ -98,7 +101,9 @@ export function applyAccountLessonBookingReadResults(input: {
   readonly hotItems: readonly LessonBookingReadModel[];
   readonly historyItems: readonly LessonBookingReadModel[];
   readonly calendarItems?: readonly LessonBookingReadModel[];
-  readonly reconcileHot?: boolean;
+  /** Response pagination and the input cursor used to read hotItems. */
+  readonly reconcileHot?: Pick<QueryLessonBookingReadModelsResult, 'hasMore'> &
+    Pick<QueryLessonBookingReadModelsInput, 'cursor'>;
   readonly syncGeneration?: number;
 }): void {
   if (input.syncGeneration !== undefined && !isCurrentSyncGeneration(input.syncGeneration)) {
@@ -111,7 +116,10 @@ export function applyAccountLessonBookingReadResults(input: {
     merged = mergeLessonBookingRecords(merged, input.calendarItems);
   }
   useLessonBookingStore.getState().mergeItems(merged);
-  if (!input.reconcileHot) {
+  // A first page is authoritative only when it exhausts the collection.
+  // A terminal continuation page is still partial, even with hasMore: false.
+  // Missing pagination metadata never authorizes removal.
+  if (input.reconcileHot?.hasMore !== false || input.reconcileHot.cursor !== undefined) {
     return;
   }
   const staleIds = findStaleHotLessonBookingIds(
@@ -138,7 +146,7 @@ export async function syncAccountLessonBookingsFromServer(): Promise<void> {
       applyAccountLessonBookingReadResults({
         hotItems: hot.items,
         historyItems: history.items,
-        reconcileHot: true,
+        reconcileHot: { hasMore: hot.hasMore },
         syncGeneration: generation,
       });
       markAccountHotApplied(generation);
@@ -166,7 +174,7 @@ export async function syncAccountHotLessonBookingsFromServer(): Promise<void> {
       applyAccountLessonBookingReadResults({
         hotItems: hot.items,
         historyItems: [],
-        reconcileHot: true,
+        reconcileHot: { hasMore: hot.hasMore },
         syncGeneration: generation,
       });
       markAccountHotApplied(generation);

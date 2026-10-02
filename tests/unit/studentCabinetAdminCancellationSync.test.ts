@@ -16,6 +16,7 @@ import {
   findStaleHotLessonBookingIds,
   isAccountLessonBookingBackgroundSyncAllowed,
   resetAccountLessonBookingSyncStateForTests,
+  syncAccountHotLessonBookingsFromServer,
   syncAccountLessonBookingsFromServer,
 } from '../../src/features/lesson-bookings/syncAccountLessonBookings';
 import { mapLessonBookingReadModelToCabinetItem } from '../../src/features/lesson-bookings/lessonBookingViewModel';
@@ -277,7 +278,7 @@ describe('Student Cabinet admin cancellation sync (T32.9A.9A)', () => {
     applyAccountLessonBookingReadResults({
       hotItems: [],
       historyItems: [],
-      reconcileHot: true,
+      reconcileHot: { hasMore: false },
     });
 
     expect(useLessonBookingStore.getState().items.has(bookingId)).toBe(false);
@@ -301,7 +302,7 @@ describe('Student Cabinet admin cancellation sync (T32.9A.9A)', () => {
     applyAccountLessonBookingReadResults({
       hotItems: [],
       historyItems: [],
-      reconcileHot: true,
+      reconcileHot: { hasMore: false },
     });
 
     expect(useLessonBookingStore.getState().items.has(bookingId)).toBe(true);
@@ -350,7 +351,7 @@ describe('Student Cabinet admin cancellation sync (T32.9A.9A)', () => {
     applyAccountLessonBookingReadResults({
       hotItems: [buildReadModel({ bookingId, revision: 3, status: 'pending_cancellation' })],
       historyItems: [],
-      reconcileHot: true,
+      reconcileHot: { hasMore: false },
     });
 
     expect(useLessonBookingStore.getState().items.get(bookingId)?.status).toBe('cancelled');
@@ -410,6 +411,245 @@ describe('Student Cabinet admin cancellation sync (T32.9A.9A)', () => {
     });
     const now = new Date('2026-09-07T00:00:00.000Z');
     expect(filterSessionsByScope(sessions, 'upcoming', now)).toHaveLength(0);
+  });
+});
+
+describe('account hot pagination reconciliation (Issue 42)', () => {
+  beforeEach(() => {
+    useLessonBookingStore.getState().reset();
+    resetAccountLessonBookingSyncStateForTests();
+    queryLessonBookingReadModelsMock.mockReset();
+  });
+
+  function hotBookings(count: number): LessonBookingReadModel[] {
+    return Array.from({ length: count }, (_, index) =>
+      buildReadModel({
+        bookingId: `booking-${String(index + 1).padStart(2, '0')}`,
+        revision: 2,
+        status: 'confirmed',
+      })
+    );
+  }
+
+  function seed(items: readonly LessonBookingReadModel[]): void {
+    useLessonBookingStore
+      .getState()
+      .mergeItems(
+        new Map(
+          items.map((item) => [
+            String(item.bookingId),
+            mapLessonBookingReadModelToCabinetItem(item),
+          ])
+        )
+      );
+  }
+
+  it.each([
+    ['hot refresh', syncAccountHotLessonBookingsFromServer],
+    ['hot/history command refresh', syncAccountLessonBookingsFromServer],
+  ] as const)('%s does not evict bookings 26–40 from a partial first page', async (_, sync) => {
+    const items = hotBookings(40);
+    seed(items);
+    queryLessonBookingReadModelsMock.mockImplementation((input: { scope: string }) =>
+      Promise.resolve({
+        scope: input.scope,
+        items: input.scope === 'account_hot' ? items.slice(0, 25) : [],
+        hasMore: input.scope === 'account_hot',
+        ...(input.scope === 'account_hot' ? { nextCursor: 'page-2' } : {}),
+      })
+    );
+
+    await sync();
+
+    expect([...useLessonBookingStore.getState().items.keys()]).toEqual(
+      items.map((item) => String(item.bookingId))
+    );
+    expect(useLessonBookingStore.getState().itemsList).toHaveLength(40);
+    expect(
+      queryLessonBookingReadModelsMock.mock.calls.filter(([input]) => input.scope === 'account_hot')
+    ).toEqual([[{ scope: 'account_hot' }]]);
+  });
+
+  it.each([24, 25, 26, 40, 41])(
+    'preserves valid bookings at the %i-booking boundary',
+    async (count) => {
+      const items = hotBookings(count);
+      const stale = buildReadModel({
+        bookingId: 'booking-stale',
+        revision: 2,
+        status: 'confirmed',
+      });
+      seed([...items, stale]);
+      queryLessonBookingReadModelsMock.mockResolvedValueOnce({
+        scope: 'account_hot',
+        items: items.slice(0, 25),
+        hasMore: count > 25,
+        ...(count > 25 ? { nextCursor: 'page-2' } : {}),
+      });
+
+      await syncAccountHotLessonBookingsFromServer();
+
+      const state = useLessonBookingStore.getState();
+      for (const item of items) expect(state.items.has(String(item.bookingId))).toBe(true);
+      // Absence from a partial page cannot prove even a truly stale row is stale.
+      expect(state.items.has('booking-stale')).toBe(count > 25);
+      expect(state.loaded).toBe(true);
+      expect(state.hotLoadedAtMs).toBeTypeOf('number');
+    }
+  );
+
+  it('merges a partial page without pruning and applies newer revisions', () => {
+    const items = hotBookings(40);
+    seed(items);
+
+    applyAccountLessonBookingReadResults({
+      hotItems: items.slice(0, 25).map((item) => ({ ...item, revision: 3 })),
+      historyItems: [],
+      reconcileHot: { hasMore: true },
+    });
+
+    expect(useLessonBookingStore.getState().itemsList).toHaveLength(40);
+    expect(useLessonBookingStore.getState().items.get('booking-01')?.revision).toBe(3);
+    expect(useLessonBookingStore.getState().items.get('booking-40')?.revision).toBe(2);
+  });
+
+  it('removes C when the complete authoritative snapshot contains only A and B', () => {
+    const items = ['A', 'B', 'C'].map((bookingId) =>
+      buildReadModel({ bookingId, revision: 2, status: 'confirmed' })
+    );
+    seed(items);
+
+    applyAccountLessonBookingReadResults({
+      hotItems: items.slice(0, 2),
+      historyItems: [],
+      reconcileHot: { hasMore: false },
+    });
+
+    expect([...useLessonBookingStore.getState().items.keys()]).toEqual(['A', 'B']);
+  });
+
+  it('does not prune earlier pages from a terminal continuation page', () => {
+    const items = hotBookings(40);
+    seed(items);
+
+    applyAccountLessonBookingReadResults({
+      hotItems: items.slice(25),
+      historyItems: [],
+      reconcileHot: { hasMore: false, cursor: 'page-2' },
+    });
+
+    expect(useLessonBookingStore.getState().itemsList).toHaveLength(40);
+  });
+
+  it('keeps all 40 bookings and removes a truly stale row from a complete 25+15 snapshot', () => {
+    const items = hotBookings(40);
+    seed([
+      ...items,
+      buildReadModel({ bookingId: 'booking-stale', revision: 2, status: 'confirmed' }),
+    ]);
+    const page1 = { items: items.slice(0, 25), hasMore: true };
+    const page2 = { items: items.slice(25), hasMore: false };
+
+    // Only the assembled collection, read from the beginning through exhaustion,
+    // may reconcile. Production currently reads page 1 without draining.
+    applyAccountLessonBookingReadResults({
+      hotItems: [...page1.items, ...page2.items],
+      historyItems: [],
+      reconcileHot: { hasMore: page2.hasMore },
+    });
+
+    expect([...useLessonBookingStore.getState().items.keys()]).toEqual(
+      items.map((item) => String(item.bookingId))
+    );
+    expect(useLessonBookingStore.getState().itemsList).toHaveLength(40);
+  });
+
+  it('preserves cached hot bookings when a filtered partial page is empty', () => {
+    seed(hotBookings(40));
+    applyAccountLessonBookingReadResults({
+      hotItems: [],
+      historyItems: [],
+      reconcileHot: { hasMore: true },
+    });
+    expect(useLessonBookingStore.getState().itemsList).toHaveLength(40);
+  });
+
+  it('does not prune when completeness metadata is omitted', () => {
+    seed(hotBookings(40));
+    applyAccountLessonBookingReadResults({ hotItems: [], historyItems: [] });
+    expect(useLessonBookingStore.getState().itemsList).toHaveLength(40);
+  });
+
+  it('initial load applies a partial first page without requesting a drain', async () => {
+    const items = hotBookings(40);
+    queryLessonBookingReadModelsMock.mockResolvedValueOnce({
+      scope: 'account_hot',
+      items: items.slice(0, 25),
+      hasMore: true,
+      nextCursor: 'page-2',
+    });
+
+    renderHook(() => useLessonBookingReadSync(true, 'account_fixture_01'));
+    await waitFor(() => expect(useLessonBookingStore.getState().loaded).toBe(true));
+
+    expect(useLessonBookingStore.getState().itemsList).toHaveLength(25);
+    expect(queryLessonBookingReadModelsMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('an invalidated hot surface preserves cached bookings beyond the first page', async () => {
+    const items = hotBookings(40);
+    seed(items);
+    useLessonBookingStore.getState().setLoaded(true);
+    useLessonBookingStore.getState().setHotLoadedAtMs(Date.now());
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    queryLessonBookingReadModelsMock.mockResolvedValueOnce({
+      scope: 'account_hot',
+      items: items.slice(0, 25),
+      hasMore: true,
+      nextCursor: 'page-2',
+    });
+    const { unmount } = renderHook(() => useLessonBookingReadSync(true, 'account_fixture_01'));
+    expect(queryLessonBookingReadModelsMock).not.toHaveBeenCalled();
+
+    useLessonBookingStore.getState().markHotStale();
+    document.dispatchEvent(new Event('visibilitychange'));
+    await waitFor(() =>
+      expect(useLessonBookingStore.getState().hotLoadedAtMs).toBeTypeOf('number')
+    );
+
+    expect(useLessonBookingStore.getState().itemsList).toHaveLength(40);
+    expect(queryLessonBookingReadModelsMock).toHaveBeenCalledTimes(1);
+    unmount();
+  });
+
+  it.each([
+    ['hot refresh', syncAccountHotLessonBookingsFromServer],
+    ['hot/history command refresh', syncAccountLessonBookingsFromServer],
+  ] as const)('%s ignores an old complete snapshot after account reset/logout', async (_, sync) => {
+    let resolveHot!: (value: unknown) => void;
+    queryLessonBookingReadModelsMock.mockImplementation((input: { scope: string }) =>
+      input.scope === 'account_hot'
+        ? new Promise((resolve) => {
+            resolveHot = resolve;
+          })
+        : Promise.resolve({ scope: input.scope, items: [], hasMore: false })
+    );
+    const oldItems = hotBookings(2);
+    seed(oldItems);
+    const request = sync();
+    useLessonBookingStore.getState().reset();
+    const newItem = buildReadModel({
+      bookingId: 'booking-new-account',
+      revision: 2,
+      status: 'confirmed',
+    });
+    seed([newItem]);
+
+    resolveHot({ scope: 'account_hot', items: oldItems, hasMore: false });
+    await request;
+
+    expect([...useLessonBookingStore.getState().items.keys()]).toEqual(['booking-new-account']);
+    expect(useLessonBookingStore.getState().loaded).toBe(false);
   });
 });
 

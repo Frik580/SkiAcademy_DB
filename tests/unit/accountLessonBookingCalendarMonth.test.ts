@@ -262,7 +262,7 @@ describe('account calendar month store merge', () => {
     applyAccountLessonBookingReadResults({
       hotItems: [],
       historyItems: [],
-      reconcileHot: true,
+      reconcileHot: { hasMore: false },
     });
 
     expect(useLessonBookingStore.getState().items.has('booking_cal_past')).toBe(true);

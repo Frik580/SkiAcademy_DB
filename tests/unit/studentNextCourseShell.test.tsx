@@ -15,7 +15,10 @@ import type {
   CabinetSessionItem,
   CourseEnrollmentCabinetItem,
 } from '../../src/features/course-enrollments/courseEnrollmentContracts';
-import type { ManagedParticipantOption } from '../../src/features/lesson-bookings/lessonBookingContracts';
+import type {
+  LessonBookingCabinetItem,
+  ManagedParticipantOption,
+} from '../../src/features/lesson-bookings/lessonBookingContracts';
 import type { TodayProgressBlockInput } from '../../src/features/student-cabinet/components/student/studentCabinetContracts';
 import type { StudentCabinetTab } from '../../src/features/student-cabinet/components/student/studentCabinetUtils';
 import type { Course, UserProfile } from '../../src/types';
@@ -27,8 +30,12 @@ const { managedMock, calendarSpy, coursesSpy, progressSpy } = vi.hoisted(() => (
   coursesSpy: vi.fn(),
   progressSpy: vi.fn(),
 }));
-vi.mock('../../src/app/providers/LanguageContext', () => ({
+vi.mock('../../src/app/providers/LanguageContext', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/app/providers/LanguageContext')>()),
   useLanguage: () => ({ language: 'en', t: (key: string) => key }),
+}));
+vi.mock('../../src/features/lesson-bookings/useAccountLessonBookingCalendarMonth', () => ({
+  useAccountLessonBookingCalendarMonth: () => ({ loading: false, error: undefined }),
 }));
 vi.mock('../../src/features/lesson-bookings/useManagedParticipants', () => ({
   useManagedParticipants: managedMock,
@@ -69,29 +76,41 @@ vi.mock('../../src/features/student-cabinet/components/student/StudentTodayProgr
     );
   },
 }));
-vi.mock('../../src/features/student-cabinet/components/student/StudentCabinetPanels', () => ({
-  StudentCalendarPanel: (props: { sessionItems: CabinetSessionItem[] }) => {
-    calendarSpy(props);
-    return (
-      <output data-testid="calendar-scope">
-        {props.sessionItems
-          .filter((item) => item.kind === 'course_day')
-          .map((item) => item.enrollmentId)
-          .join(',')}
-      </output>
-    );
-  },
-  StudentCoursesPanel: (props: { courseEnrollments: CourseEnrollmentCabinetItem[] }) => {
-    coursesSpy(props);
-    return (
-      <output data-testid="courses-scope">
-        {props.courseEnrollments.map((item) => item.enrollmentId).join(',')}
-      </output>
-    );
-  },
-  StudentDevelopmentPanel: () => null,
-  StudentTrainingPanel: () => null,
-}));
+vi.mock(
+  '../../src/features/student-cabinet/components/student/StudentCabinetPanels',
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import('../../src/features/student-cabinet/components/student/StudentCabinetPanels')
+      >();
+    return {
+      StudentCalendarPanel: (props: React.ComponentProps<typeof actual.StudentCalendarPanel>) => {
+        calendarSpy(props);
+        return (
+          <>
+            <actual.StudentCalendarPanel {...props} />
+            <output data-testid="calendar-scope">
+              {props.sessionItems
+                .filter((item) => item.kind === 'course_day')
+                .map((item) => item.enrollmentId)
+                .join(',')}
+            </output>
+          </>
+        );
+      },
+      StudentCoursesPanel: (props: { courseEnrollments: CourseEnrollmentCabinetItem[] }) => {
+        coursesSpy(props);
+        return (
+          <output data-testid="courses-scope">
+            {props.courseEnrollments.map((item) => item.enrollmentId).join(',')}
+          </output>
+        );
+      },
+      StudentDevelopmentPanel: () => null,
+      StudentTrainingPanel: () => null,
+    };
+  }
+);
 vi.mock('../../src/features/student-cabinet/components/student/StudentHistoryPanel', () => ({
   StudentHistoryPanel: () => null,
 }));
@@ -375,5 +394,145 @@ describe('Shell → Home → next course card', () => {
       useCabinetProgressParticipantSelectionStore.setState({ selectedParticipantId: undefined })
     );
     assertCourseCard();
+  });
+});
+
+function lesson(
+  id: string,
+  participantIds: string[],
+  status: LessonBookingCabinetItem['status'] = 'confirmed'
+): LessonBookingCabinetItem {
+  return {
+    id,
+    bookingId: id,
+    revision: 1,
+    status,
+    date: status === 'completed' ? '2026-10-01' : '2026-10-04',
+    time: '10:00',
+    durationHours: 1,
+    instructorId: 'coach_' + id,
+    instructorName: 'Coach ' + id,
+    instructorAvatar: '',
+    participantIds,
+    participantDisplayNames: Object.fromEntries(participantIds.map((id) => [id, id])),
+    participantNames: participantIds,
+    partyKind: participantIds.length > 1 ? 'family_group' : 'individual',
+    payment: { kind: 'withheld' },
+    bookingOrigin: 'account',
+    isLessonBooking: true,
+    clientExercisedCapability: 'parent_guardian',
+    authorizedActions: {
+      canRequestCancellation: true,
+      canWithdrawCancellation: false,
+      canReschedule: true,
+    },
+  };
+}
+function lessonShellProps() {
+  const props = shellProps();
+  props.bookings = [lesson('only_a', ['a']), lesson('only_b', ['b']), lesson('shared', ['a', 'b'])];
+  props.unreviewedCompletedBookings = [
+    lesson('done_a', ['a'], 'completed'),
+    lesson('done_b', ['b'], 'completed'),
+    lesson('done_shared', ['a', 'b'], 'completed'),
+  ];
+  props.bookings = [...props.bookings, ...props.unreviewedCompletedBookings];
+  props.sessionItems = buildMixedCabinetSessionItems({
+    lessonBookings: props.bookings,
+    courseEnrollments: props.courseEnrollments ?? [],
+  });
+  props.hasUnreadChat = vi.fn(() => true);
+  props.onRescheduleBooking = vi.fn();
+  return props;
+}
+
+describe('Shell → real BookingsPanel → ClientBookingsList participant isolation', () => {
+  it('updates single and shared lessons through the header without reload and keeps course filtering', async () => {
+    const user = userEvent.setup();
+    const props = lessonShellProps();
+    setup(props);
+    expect(screen.getByText('Coach only_a')).toBeInTheDocument();
+    expect(screen.getByText('Coach only_b')).toBeInTheDocument();
+    vi.mocked(props.hasUnreadChat!).mockClear();
+    await user.click(screen.getByRole('button', { name: 'calendar', exact: true }));
+    expect(screen.getByText('Coach only_a')).toBeInTheDocument();
+    expect(screen.queryByText('Coach only_b')).not.toBeInTheDocument();
+    expect(screen.getByText('Coach shared')).toBeInTheDocument();
+    expect(
+      calendarSpy.mock.lastCall?.[0].bookings.map((b: LessonBookingCabinetItem) => b.id)
+    ).toEqual(['only_a', 'shared', 'done_a', 'done_shared']);
+    expect(screen.getByTestId('calendar-scope')).toHaveTextContent('ea');
+    expect(props.hasUnreadChat).not.toHaveBeenCalledWith('only_b');
+    expect(
+      screen.getAllByTitle('chatNewMessages').filter((element) => element.tagName === 'BUTTON')
+    ).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'cancelBookingRefund' })).toHaveLength(2);
+    await user.click(
+      screen.getAllByTitle('chatNewMessages').filter((element) => element.tagName === 'BUTTON')[0]
+    );
+    expect(props.onChat).toHaveBeenCalledWith(props.bookings[0]);
+    await user.click(screen.getAllByRole('button', { name: 'cancelBookingRefund' })[0]);
+    expect(props.onCancel).toHaveBeenCalledWith(props.bookings[0]);
+    await user.click(screen.getAllByRole('button', { name: 'rescheduleBtn' })[0]);
+    expect(props.onRescheduleBooking).toHaveBeenCalledWith(props.bookings[0]);
+    await user.click(screen.getByRole('button', { name: 'Select Bob Full Name' }));
+    expect(screen.queryByText('Coach only_a')).not.toBeInTheDocument();
+    expect(screen.getByText('Coach only_b')).toBeInTheDocument();
+    expect(screen.getByText('Coach shared')).toBeInTheDocument();
+    expect(screen.getByTestId('calendar-scope')).toHaveTextContent('eb');
+    expect(
+      calendarSpy.mock.lastCall?.[0].bookings.map((b: LessonBookingCabinetItem) => b.id)
+    ).toEqual(['only_b', 'shared', 'done_b', 'done_shared']);
+    await user.click(screen.getByRole('button', { name: 'home', exact: true }));
+    expect(screen.getByText('Coach only_a')).toBeInTheDocument();
+    expect(screen.getByText('Coach only_b')).toBeInTheDocument();
+  });
+
+  it('scopes completed lessons and review prompts to each selected participant', async () => {
+    const user = userEvent.setup();
+    const props = lessonShellProps();
+    setup(props);
+    await user.click(screen.getByRole('button', { name: 'calendar', exact: true }));
+    expect(
+      calendarSpy.mock.lastCall?.[0].unreviewedCompletedBookings.map(
+        (b: LessonBookingCabinetItem) => b.id
+      )
+    ).toEqual(['done_a', 'done_shared']);
+    await user.click(screen.getByRole('button', { name: 'scCalendarPast' }));
+    expect(screen.getByText('Coach done_a')).toBeInTheDocument();
+    expect(screen.queryByText('Coach done_b')).not.toBeInTheDocument();
+    expect(screen.getByText('Coach done_shared')).toBeInTheDocument();
+    const reviewButtons = screen.getAllByRole('button', { name: 'writeReviewBtn' });
+    expect(reviewButtons).toHaveLength(2);
+    await user.click(reviewButtons[0]);
+    expect(props.onWriteReview).toHaveBeenCalledWith(props.bookings.find((b) => b.id === 'done_a'));
+    await user.click(screen.getByRole('button', { name: 'Select Bob Full Name' }));
+    expect(
+      calendarSpy.mock.lastCall?.[0].unreviewedCompletedBookings.map(
+        (b: LessonBookingCabinetItem) => b.id
+      )
+    ).toEqual(['done_b', 'done_shared']);
+    await user.click(screen.getByRole('button', { name: 'scCalendarPast' }));
+    expect(screen.queryByText('Coach done_a')).not.toBeInTheDocument();
+    expect(screen.getByText('Coach done_b')).toBeInTheDocument();
+    expect(screen.getByText('Coach done_shared')).toBeInTheDocument();
+  });
+
+  it('preserves account lesson lists when selection is absent', async () => {
+    const user = userEvent.setup();
+    const props = lessonShellProps();
+    setup(props);
+    await user.click(screen.getByRole('button', { name: 'calendar', exact: true }));
+    act(() =>
+      useCabinetProgressParticipantSelectionStore.setState({ selectedParticipantId: undefined })
+    );
+    expect(calendarSpy.mock.lastCall?.[0].bookings).toEqual(props.bookings);
+    expect(calendarSpy.mock.lastCall?.[0].unreviewedCompletedBookings).toEqual(
+      props.unreviewedCompletedBookings
+    );
+    expect(screen.getByText('Coach only_a')).toBeInTheDocument();
+    expect(screen.getByText('Coach only_b')).toBeInTheDocument();
+    expect(screen.getByText('Coach shared')).toBeInTheDocument();
+    expect(screen.getByTestId('calendar-scope')).toBeEmptyDOMElement();
   });
 });

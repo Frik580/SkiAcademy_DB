@@ -68,6 +68,7 @@ import {
   useSelectedParticipantAchievementsRecorder,
 } from '../../../participant-achievements';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
+import type { StudentBooking } from './studentCabinetContracts';
 
 const getSwipeNeighborSequence = (
   currentTab: StudentCabinetTab,
@@ -276,13 +277,27 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
       filterEnrollmentsForParticipant(props.courseEnrollments ?? [], selectedProgressParticipantId),
     [props.courseEnrollments, selectedProgressParticipantId]
   );
+  const belongsToSelectedParticipant = useCallback(
+    (booking: StudentBooking) =>
+      !selectedProgressParticipantId ||
+      booking.participantIds.includes(selectedProgressParticipantId),
+    [selectedProgressParticipantId]
+  );
+  const isolatedBookings = useMemo(
+    () => props.bookings.filter(belongsToSelectedParticipant),
+    [props.bookings, belongsToSelectedParticipant]
+  );
+  const isolatedUnreviewedCompletedBookings = useMemo(
+    () => props.unreviewedCompletedBookings.filter(belongsToSelectedParticipant),
+    [props.unreviewedCompletedBookings, belongsToSelectedParticipant]
+  );
   const isolatedSessionItems = useMemo(
     () =>
       filterCabinetCourseDaysForParticipant(
         props.sessionItems ?? [],
         selectedProgressParticipantId
-      ),
-    [props.sessionItems, selectedProgressParticipantId]
+      ).filter((item) => item.kind !== 'lesson' || belongsToSelectedParticipant(item.session)),
+    [props.sessionItems, selectedProgressParticipantId, belongsToSelectedParticipant]
   );
 
   useEffect(() => {
@@ -307,11 +322,19 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
     [props.bookings, props.userProfile.uid]
   );
 
+  const isolatedLegacyBookings = useMemo(
+    () =>
+      isolatedBookings.map((booking) =>
+        cabinetItemToLegacyPresentation(booking, props.userProfile.uid)
+      ),
+    [isolatedBookings, props.userProfile.uid]
+  );
+
   const ctx = {
     participantProfiles: toCabinetParticipantAvatarItems(participants, props.userProfile.avatarUrl),
     userProfile: progressProfile,
     selectedParticipantId: selectedProgressParticipantId,
-    bookings: legacyBookings,
+    bookings: isolatedLegacyBookings,
     sessionItems: isolatedSessionItems,
     courses: props.courses,
     instructors: props.instructors,
@@ -355,7 +378,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
 
   const panelProps = {
     ...ctx,
-    bookings: props.bookings,
+    bookings: isolatedBookings,
     onOpenLesson: props.onOpenLesson,
     onChat: props.onChat,
     onWriteReview: props.onWriteReview,
@@ -475,7 +498,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
 
   const legacyPanelProps = {
     ...panelProps,
-    bookings: legacyBookings,
+    bookings: isolatedLegacyBookings,
     selectedParticipantId: selectedProgressParticipantId,
     onOpenLesson: (booking: Booking) => {
       const cabinetBooking = props.bookings.find((item) => item.id === booking.id);
@@ -518,7 +541,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
         {activeTab === 'history' && (
           <StudentHistoryPanel
             userProfile={progressProfile}
-            bookings={legacyBookings}
+            bookings={isolatedLegacyBookings}
             courses={props.courses}
             reviews={props.reviews}
             activityLogs={props.activityLogs}
@@ -546,7 +569,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
             onViewCourseDetails={props.onViewCourseDetails}
             onCourseWithdraw={props.onCourseWithdraw}
             onCourseRequestCancellation={props.onCourseRequestCancellation}
-            unreviewedCompletedBookings={props.unreviewedCompletedBookings}
+            unreviewedCompletedBookings={isolatedUnreviewedCompletedBookings}
             onDismissReview={props.onDismissReview}
             collaborationProposals={props.collaborationProposals}
             onAcceptProposal={props.onAcceptProposal}
@@ -568,7 +591,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
         )}
         {(activeTab === 'coach' || activeTab === 'instructors') && (
           <StudentCoachPanel
-            bookings={legacyBookings}
+            bookings={isolatedLegacyBookings}
             courses={props.courses}
             instructors={props.instructors}
             userProfile={progressProfile}
@@ -596,7 +619,9 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
         {activeTab === 'profile_participants' && (
           <StudentProfileParticipantsPanel {...legacyPanelProps} />
         )}
-        {activeTab === 'profile_wallet' && <StudentProfileWalletPanel {...legacyPanelProps} />}
+        {activeTab === 'profile_wallet' && (
+          <StudentProfileWalletPanel {...legacyPanelProps} bookings={legacyBookings} />
+        )}
         {activeTab === 'profile_journey' && <StudentProfileJourneyPanel {...legacyPanelProps} />}
         {activeTab === 'profile_skills' && <StudentProfileSkillsPanel {...legacyPanelProps} />}
         {activeTab === 'profile_certificates' && (

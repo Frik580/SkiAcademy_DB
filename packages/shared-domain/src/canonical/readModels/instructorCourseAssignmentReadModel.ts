@@ -68,7 +68,7 @@ export const InstructorCourseAssignmentReadModelSchema = z
     revision: AggregateRevisionSchema,
     title: z.string().trim().min(1).max(200),
     courseSchedule: CourseScheduleProjectionReadModelSchema,
-    assignedCourseDayIds: z.array(CourseDayIdSchema).min(1).max(64),
+    assignedCourseDayIds: z.array(CourseDayIdSchema).max(64),
     updatedAt: CanonicalTimestampSchema,
   })
   .strict();

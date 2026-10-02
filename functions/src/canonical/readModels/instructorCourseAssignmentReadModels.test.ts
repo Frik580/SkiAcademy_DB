@@ -371,6 +371,12 @@ describe('queryInstructorCourseAssignmentReadModels day scope', () => {
       },
     ]);
     await expect(assignedDays(instructorCId)).resolves.toEqual([]);
-    await expect(assignedDays(rosterOnlyId)).resolves.toEqual([]);
+    await expect(assignedDays(rosterOnlyId)).resolves.toEqual([
+      {
+        courseId: carvingCourseId,
+        assignedCourseDayIds: [],
+        scheduleDayIds: [dayOneId, dayTwoId, dayThreeId],
+      },
+    ]);
   });
 });

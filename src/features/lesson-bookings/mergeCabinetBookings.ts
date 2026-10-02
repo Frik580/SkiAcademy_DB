@@ -17,6 +17,8 @@ export function mapLegacyCourseBookingToCabinetItem(booking: Booking): LessonBoo
     instructorId: booking.instructorId,
     instructorName: booking.instructorName,
     instructorAvatar: booking.instructorAvatar,
+    participantIds: [],
+    participantDisplayNames: {},
     participantNames: [],
     partyKind: 'individual',
     payment: { kind: 'visible' },

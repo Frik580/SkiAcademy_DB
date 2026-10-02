@@ -19,6 +19,7 @@ export const StudentTodaySection = memo<StudentTodaySectionInput>(function Stude
   currentSessions,
   nextSession = null,
   nextSessions,
+  participantsBySessionKey,
   sessionItems,
   miniDays,
   courses,
@@ -124,6 +125,7 @@ export const StudentTodaySection = memo<StudentTodaySectionInput>(function Stude
 
       <NextSessionBlock
         nextSessions={effectiveNextSessions}
+        participantsBySessionKey={participantsBySessionKey}
         miniDays={miniDays}
         courses={courses}
         instructors={instructors}

@@ -1,7 +1,9 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { LessonBookingReadModel } from '@ski-academy/shared-domain';
 import { MemoryRouter, useLocation } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import * as adminNavigation from '../../src/features/admin/adminNavigation';
 
 const readMock = vi.fn();
 const runAttemptMock = vi.fn();
@@ -375,7 +377,8 @@ function linkedUnpaidWalletAdminDetail(walletBalance: number): LessonBookingRead
 
 function renderPanel(
   item?: LessonBookingReadModel,
-  path = '/admin?tab=operations&booking=booking_admin_panel_01'
+  path = '/admin?tab=operations&booking=booking_admin_panel_01',
+  reactStrictMode = false
 ) {
   readMock.mockReturnValue({
     list: {
@@ -402,7 +405,8 @@ function renderPanel(
         ]}
       />
       <LocationProbe />
-    </MemoryRouter>
+    </MemoryRouter>,
+    { reactStrictMode }
   );
 }
 
@@ -417,6 +421,78 @@ function paymentTabAttentionIndicator() {
 }
 
 describe('AdminLessonBookingPanel', () => {
+  describe('reveal timer lifecycle', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.spyOn(adminNavigation, 'scrollAdminElementIntoView').mockImplementation(() => {});
+    });
+    afterEach(() => {
+      cleanup();
+      vi.useRealTimers();
+      vi.restoreAllMocks();
+    });
+
+    it('cancels the pending reveal on unmount without executing its callback', () => {
+      const view = renderPanel(detail());
+      expect(vi.getTimerCount()).toBe(1);
+      view.unmount();
+      expect(vi.getTimerCount()).toBe(0);
+      expect(() => act(() => vi.advanceTimersByTime(1_000))).not.toThrow();
+      expect(adminNavigation.scrollAdminElementIntoView).not.toHaveBeenCalled();
+    });
+
+    it('preserves the 320ms reveal delay while mounted', () => {
+      renderPanel(detail());
+      act(() => vi.advanceTimersByTime(319));
+      expect(adminNavigation.scrollAdminElementIntoView).not.toHaveBeenCalled();
+      act(() => vi.advanceTimersByTime(1));
+      expect(adminNavigation.scrollAdminElementIntoView).toHaveBeenCalledTimes(1);
+      expect(adminNavigation.scrollAdminElementIntoView).toHaveBeenCalledWith(
+        adminNavigation.ADMIN_LESSON_BOOKINGS_SECTION_ID
+      );
+    });
+
+    it('cancels the old selection reveal when selectedBookingId changes', () => {
+      const view = renderPanel(detail());
+      const first = isolationDetail('booking_admin_panel_01', 'First Student');
+      const second = isolationDetail('booking_timer_b', 'Second Timer Student');
+      const reads = readMock.mock.results.at(-1)!.value;
+      readMock.mockImplementation((input: { selectedBookingId?: string }) => ({
+        ...reads,
+        list: { ...reads.list, items: [first, second] },
+        detail: {
+          item: input.selectedBookingId === second.bookingId ? second : first,
+          loading: false,
+        },
+      }));
+      view.rerender(
+        <MemoryRouter initialEntries={['/admin?tab=operations&booking=booking_admin_panel_01']}>
+          <AdminLessonBookingPanel adminAccountId="admin_account_01" instructors={[]} />
+          <LocationProbe />
+        </MemoryRouter>
+      );
+      expect(vi.getTimerCount()).toBe(1);
+      fireEvent.click(screen.getByRole('button', { name: /Second Timer Student/ }));
+      expect(screen.getByLabelText('location')).toHaveTextContent('booking=booking_timer_b');
+      expect(vi.getTimerCount()).toBe(0);
+      act(() => vi.advanceTimersByTime(1_000));
+      expect(adminNavigation.scrollAdminElementIntoView).not.toHaveBeenCalled();
+    });
+
+    it('keeps one live reveal after StrictMode effect replay and cancels it on unmount', () => {
+      const view = renderPanel(
+        detail(),
+        '/admin?tab=operations&booking=booking_admin_panel_01',
+        true
+      );
+      expect(vi.getTimerCount()).toBe(1);
+      act(() => vi.advanceTimersByTime(320));
+      expect(adminNavigation.scrollAdminElementIntoView).toHaveBeenCalledTimes(1);
+      view.unmount();
+      expect(vi.getTimerCount()).toBe(0);
+    });
+  });
+
   beforeEach(() => {
     readMock.mockReset();
     runAttemptMock.mockReset();

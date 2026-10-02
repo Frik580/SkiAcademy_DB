@@ -234,14 +234,20 @@ describe('courseEnrollment commands integration', () => {
       guestDisplayName: 'Guest',
       guestPhone: '+7 701 123 45 67',
       guestEmail: 'course@example.com',
-      guestSkillLevel: 'beginner',
-      guestDiscipline: 'ski',
-      guestAgeYears: 20,
+      guestSkillLevel: 'intermediate',
+      guestDiscipline: 'snowboard',
+      guestAgeYears: 12,
     });
 
     expect(returned).toEqual(credential);
     expect(executeGuestMock).toHaveBeenCalledWith(
-      expect.objectContaining({ guestPhone: '+7 701 123 45 67', guestEmail: 'course@example.com' })
+      expect.objectContaining({
+        guestPhone: '+7 701 123 45 67',
+        guestEmail: 'course@example.com',
+        guestParticipantSkillLevel: 'intermediate',
+        guestParticipantDiscipline: 'snowboard',
+        guestParticipantAgeYears: 12,
+      })
     );
     expect(
       localStorage.getItem(`ski_academy_guest_course_enrollment_credential:${enrollmentId}`)

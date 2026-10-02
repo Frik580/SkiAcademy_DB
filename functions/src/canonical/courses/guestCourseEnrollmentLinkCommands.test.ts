@@ -11,6 +11,7 @@ import {
   ParticipantIdSchema,
   courseEnrollmentIdFromCommandParticipant,
   guestCommandActor,
+  guestParticipantTransportMetadataFromProfile,
   guestSubjectIdFromCourseEnrollmentId,
   participantManagementIdFromGuestLink,
   paymentIdFromCourseEnrollmentId,
@@ -218,6 +219,49 @@ function runCommands(
   });
 }
 
+describe('guest course enrollment participant profile creation', () => {
+  it.each(['ski', 'snowboard'] as const)(
+    'stores the actual %s guest profile and participant-scoped enrollment',
+    async (discipline) => {
+      const fixture = baseFixture();
+      delete fixture[`participants/${guestParticipantId}`];
+      const executor = createInMemoryCanonicalTransactionExecutor(fixture);
+      const envelope = guestCreateEnvelope('guest-profile-create');
+      const result = await runCommands(executor).execute({
+        ...envelope,
+        context: {
+          ...envelope.context,
+          transportMetadata: {
+            ...envelope.context.transportMetadata,
+            ...guestParticipantTransportMetadataFromProfile({
+              displayName: 'Guest Child',
+              discipline,
+              skillLevel: 'intermediate',
+              ageYears: 12,
+            }),
+          },
+        },
+      });
+      expect(result.status).toBe('success');
+      const snapshot = executor.snapshot();
+      expect(snapshot.docs.get(`participants/${guestParticipantId}`)?.data).toMatchObject({
+        participantId: guestParticipantId,
+        displayName: 'Guest Child',
+        discipline,
+        skillLevel: 'intermediate',
+        age: { kind: 'age_years', years: 12 },
+        management: { kind: 'unmanaged_guest' },
+      });
+      expect(
+        snapshot.docs.get(`course_enrollments/${envelope.intent.enrollmentIds![0]}`)?.data
+      ).toMatchObject({
+        participantId: guestParticipantId,
+        courseId,
+      });
+    }
+  );
+});
+
 describe('link_guest_course_enrollment_to_account command', () => {
   it('does not duplicate create_managed writes when the transaction callback retries', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(baseFixture(), {
@@ -227,10 +271,14 @@ describe('link_guest_course_enrollment_to_account command', () => {
     const createEnvelope = guestCreateEnvelope('guest-link-unit-create');
     const createResult = await commands.execute(createEnvelope);
     expect(createResult.status).toBe('success');
-    expect(executor.snapshot().docs.get(
-      `guest_contacts/course_enrollment_${createEnvelope.intent.enrollmentIds![0]}`
-    )?.data).toMatchObject({
-      phone: '+7 701 123 45 67', email: 'course@example.com',
+    expect(
+      executor
+        .snapshot()
+        .docs.get(`guest_contacts/course_enrollment_${createEnvelope.intent.enrollmentIds![0]}`)
+        ?.data
+    ).toMatchObject({
+      phone: '+7 701 123 45 67',
+      email: 'course@example.com',
     });
     if (createResult.status !== 'success') {
       return;

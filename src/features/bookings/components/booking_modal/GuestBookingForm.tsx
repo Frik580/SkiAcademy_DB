@@ -7,6 +7,7 @@ import { useCurrency } from '../../../../app/providers/CurrencyContext';
 import { ActionButton } from '../../../../ui/ActionButton';
 import { GuestReservationLimitAlert } from '../../../../ui/GuestReservationLimitAlert';
 import { resolveInstructorHourlyRateKztForDisplay } from '../../../../domain/pricing';
+import { GuestParticipantFields } from '../../../guest-reservations/GuestParticipantFields';
 
 interface GuestBookingFormProps {
   workspace: ReturnType<typeof useBookingModal>;
@@ -36,6 +37,10 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
     setGuestPhone,
     guestEmail,
     setGuestEmail,
+    guestAgeYears,
+    setGuestAgeYears,
+    guestDiscipline,
+    setGuestDiscipline,
     isLoadingBookings,
     occupancyLoadFailed,
     availableSlots,
@@ -128,6 +133,19 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
             />
           </div>
         </div>
+
+        <GuestParticipantFields
+          ageYears={guestAgeYears}
+          onAgeYearsChange={setGuestAgeYears}
+          discipline={guestDiscipline}
+          onDisciplineChange={setGuestDiscipline}
+          labels={{
+            age: t('participantsAgeLabel'),
+            discipline: t('participantsDisciplineLabel'),
+            ski: t('participantsDisciplineSki'),
+            snowboard: t('participantsDisciplineSnowboard'),
+          }}
+        />
 
         <BookingSelectors
           date={date}

@@ -59,6 +59,11 @@ import { resolveEffectiveParticipantIds } from './authBookingState';
 import { presentCancellationError } from '../../../student-cabinet/presentCancellationError';
 import { toggleParticipantSelection } from '../../../participants/participantSelectionState';
 import {
+  parseGuestParticipantForm,
+  guestParticipantCommandFields,
+  type GuestParticipantFormInput,
+} from '../../../guest-reservations/guestParticipantForm';
+import {
   forgetGuestReservation,
   isUnusableGuestReservationError,
   rememberGuestReservation,
@@ -85,9 +90,8 @@ export const useBookingModal = ({
 }: BookingModalInput) => {
   const { addNotification } = useNotifications();
   const { t, language } = useLanguage();
-  const { createAuthenticatedBooking, createGuestBooking, requestCancellation } = useLessonBookingCommands(
-    userProfile?.uid
-  );
+  const { createAuthenticatedBooking, createGuestBooking, requestCancellation } =
+    useLessonBookingCommands(userProfile?.uid);
   const {
     participants: managedParticipants,
     loading: managedParticipantsLoading,
@@ -139,6 +143,8 @@ export const useBookingModal = ({
       setGuestName('');
       setGuestPhone('');
       setGuestEmail('');
+      setGuestAgeYears('');
+      setGuestDiscipline('');
       setDate('');
       setTime('08:00');
       setDuration(2);
@@ -191,6 +197,9 @@ export const useBookingModal = ({
   const [guestName, setGuestName] = useState<string>('');
   const [guestPhone, setGuestPhone] = useState<string>('');
   const [guestEmail, setGuestEmail] = useState<string>('');
+  const [guestAgeYears, setGuestAgeYears] = useState('');
+  const [guestDiscipline, setGuestDiscipline] =
+    useState<GuestParticipantFormInput['discipline']>('');
 
   const [instructorBookings, setInstructorBookings] = useState<AvailabilitySlot[]>([]);
   const [occupancyCourses, setOccupancyCourses] = useState<Course[]>([]);
@@ -351,9 +360,7 @@ export const useBookingModal = ({
           }),
         ]);
         if (fetchVersion !== participantOccupancyFetchVersionRef.current) return;
-        setParticipantOccupancyItems(
-          flattenParticipantOccupancyReadModels([selectedDay, nextDay])
-        );
+        setParticipantOccupancyItems(flattenParticipantOccupancyReadModels([selectedDay, nextDay]));
       } catch (err) {
         logger.error('Error fetching participant occupancy:', err);
         if (fetchVersion === participantOccupancyFetchVersionRef.current) {
@@ -518,6 +525,27 @@ export const useBookingModal = ({
       addNotification('warning', t('missingDetails'), t('guestPhoneLabel'));
       return;
     }
+    const guestProfile = parseGuestParticipantForm({
+      displayName: guestName,
+      ageYears: guestAgeYears,
+      discipline: guestDiscipline,
+      skillLevel: difficulty,
+    });
+    if (!guestProfile.success) {
+      const field = guestProfile.error.issues[0]?.path[0];
+      addNotification(
+        'warning',
+        t('missingDetails'),
+        t(
+          field === 'discipline'
+            ? 'participantsDisciplineLabel'
+            : field === 'skillLevel'
+              ? 'participantsSkillLabel'
+              : 'participantsAgeLabel'
+        )
+      );
+      return;
+    }
     if (!date) {
       addNotification('warning', t('missingDetails'), t('bookingSelectValidDate'));
       return;
@@ -559,12 +587,9 @@ export const useBookingModal = ({
           bookingId,
           idempotencyKey: deriveGuestCreateIdempotencyKey(bookingId),
         },
-        guestDisplayName: guestName.trim(),
+        ...guestParticipantCommandFields(guestProfile.data),
         guestPhone: guestPhone.trim(),
         guestEmail: guestEmail.trim() || undefined,
-        guestSkillLevel: difficulty,
-        guestDiscipline: 'ski',
-        guestAgeYears: 25,
         notificationLocale: language,
         difficulty,
         notes: notes.trim() || undefined,
@@ -625,7 +650,10 @@ export const useBookingModal = ({
       await requestCancellation({
         bookingId: guestCreatedBookingId,
         expectedRevision: guestReservation.revision,
-        idempotencyKey: deriveCancellationIdempotencyKey(guestCreatedBookingId, guestReservation.revision),
+        idempotencyKey: deriveCancellationIdempotencyKey(
+          guestCreatedBookingId,
+          guestReservation.revision
+        ),
         exercisedCapability: 'account_owner',
         guestCredential: credential,
       });
@@ -637,14 +665,21 @@ export const useBookingModal = ({
       addNotification('success', t('guestCancelledTitle'), t('guestCancelledBody'));
       try {
         const refreshed = await loadGuestSingleLessonBooking(guestCreatedBookingId);
-        if (refreshed.revision <= guestReservation.revision || refreshed.lifecycle.status !== 'cancelled') {
+        if (
+          refreshed.revision <= guestReservation.revision ||
+          refreshed.lifecycle.status !== 'cancelled'
+        ) {
           throw new Error('Cancellation read model has not caught up.');
         }
         setGuestReservation(refreshed);
         setGuestRefreshError(false);
       } catch {
         setGuestRefreshError(true);
-        addNotification('warning', t('cabinetCancellationRefreshWarning'), t('cabinetCancellationRefreshWarningDesc'));
+        addNotification(
+          'warning',
+          t('cabinetCancellationRefreshWarning'),
+          t('cabinetCancellationRefreshWarningDesc')
+        );
       }
       return true;
     } catch (error) {
@@ -873,6 +908,10 @@ export const useBookingModal = ({
     setGuestPhone,
     guestEmail,
     setGuestEmail,
+    guestAgeYears,
+    setGuestAgeYears,
+    guestDiscipline,
+    setGuestDiscipline,
     isLoadingBookings,
     occupancyLoadFailed,
     availableSlots,

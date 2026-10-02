@@ -30,7 +30,10 @@ import { AppInitSkeleton } from '../../ui/Skeleton';
 import type { AppRoutesProps } from './routeTypes';
 
 /** Connects the public home screen to catalogue data and UI actions. */
-export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIsFahrenheit }) => {
+export const HomeRouteContainer: React.FC<AppRoutesProps> = ({
+  resortData,
+  setIsFahrenheit,
+}) => {
   const { t, language } = useLanguage();
   const { theme } = useTheme();
   const authLoading = useAuthStore((state) => state.authLoading);
@@ -39,18 +42,25 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
   const firebaseUser = useAuthStore((state) => state.firebaseUser);
   const courses = useCoursesStore((state) => state.courses);
   const courseEnrollments = useCourseEnrollmentStore(selectCourseEnrollmentItems);
-  const catalogByCourseId = useCourseEnrollmentStore(selectAllCourseCatalogOperationalStates);
+  const catalogByCourseId = useCourseEnrollmentStore(
+    selectAllCourseCatalogOperationalStates
+  );
   const { participants } = useManagedParticipants(userProfile?.uid);
+
   const selectedParticipantId = useCabinetProgressParticipantSelectionStore(
     (state) => state.selectedParticipantId
   );
+
   useEffect(() => {
     if (!import.meta.env.DEV || !userProfile) return;
+
     for (const course of courses) {
       traceCourseEnrollmentCtaIdentity({
         courseId: course.id,
         selectedParticipantId,
-        availableParticipantIds: participants.map((participant) => participant.participantId),
+        availableParticipantIds: participants.map(
+          (participant) => participant.participantId
+        ),
         courseEnrollments,
         accountId: userProfile.uid,
         accountRole: userProfile.role,
@@ -70,12 +80,23 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
     selectedParticipantId,
     userProfile,
   ]);
+
   const filtersEnabled = useSettingsStore((state) => state.filtersEnabled);
   const skillConfig = useSettingsStore((state) => state.skillConfig);
-  const setSelectedInstructor = useUiStore((state) => state.setSelectedInstructor);
-  const setSelectedCourseForAuth = useUiStore((state) => state.setSelectedCourseForAuth);
-  const setSelectedCourseForDetails = useUiStore((state) => state.setSelectedCourseForDetails);
-  const setReviewsInstructor = useUiStore((state) => state.setReviewsInstructor);
+
+  const setSelectedInstructor = useUiStore(
+    (state) => state.setSelectedInstructor
+  );
+  const setSelectedCourseForAuth = useUiStore(
+    (state) => state.setSelectedCourseForAuth
+  );
+  const setSelectedCourseForDetails = useUiStore(
+    (state) => state.setSelectedCourseForDetails
+  );
+  const setReviewsInstructor = useUiStore(
+    (state) => state.setReviewsInstructor
+  );
+
   const {
     filteredInstructors,
     searchQuery,
@@ -91,7 +112,10 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
 
   const handleScrollToSection = (id: string) => {
     const element = document.getElementById(id);
-    element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    element?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
   };
 
   if (!authLoading && profileLoading) {
@@ -123,13 +147,16 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
         onToggleUnit={() => setIsFahrenheit(!resortData.isFahrenheit)}
       />
 
-      <YourJourneySection skillConfig={skillConfig} userProfile={null} />
+      <YourJourneySection
+        skillConfig={skillConfig}
+        userProfile={null}
+      />
 
       <div className="flex flex-col">
         <div className="flex flex-col">
           <div
             id="main-content-pane"
-            className="p-4 sm:p-8 md:p-10 lg:p-12 space-y-16 flex flex-col justify-start min-w-0 w-full max-w-5xl mx-auto"
+            className="p-4 sm:p-8 md:p-10 lg:p-12 space-y-16 flex flex-col justify-start min-w-0 w-full"
           >
             <GroupCoursesSection
               data={{
@@ -146,10 +173,18 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
               }}
             />
 
-            <div id="coaches-grid" className="space-y-10 w-full max-w-5xl">
+            <div
+              id="coaches-grid"
+              className="space-y-10 w-full max-w-[1200px] mx-auto"
+            >
               <div>
-                <h3 className="ui-section-title">{t('meetGuides')}</h3>
-                <p className="ui-section-eyebrow mt-2">{t('meetGuidesSub')}</p>
+                <h3 className="ui-section-title">
+                  {t('meetGuides')}
+                </h3>
+
+                <p className="ui-section-eyebrow mt-2">
+                  {t('meetGuidesSub')}
+                </p>
               </div>
 
               {filtersEnabled && (
@@ -168,9 +203,11 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
               {filteredInstructors.length === 0 ? (
                 <div className="ui-empty-state py-16">
                   <Compass className="w-10 h-10 text-[var(--ink-dim)] mx-auto mb-3" />
+
                   <p className="text-xs font-mono text-[var(--ink-dim)] uppercase tracking-wider">
                     {t('noCoachesMatch')}
                   </p>
+
                   <button
                     onClick={resetFilters}
                     className="text-xs font-mono uppercase tracking-widest text-accent text-accent-hover mt-2 hover:underline transition cursor-pointer"

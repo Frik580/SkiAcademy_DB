@@ -28,6 +28,13 @@ import type { AuthenticatedCourseEnrollmentSelection } from '../useCourseActions
 import { ParticipantPicker } from '../../participants/components/ParticipantPicker';
 import { GuestReservationStatus } from '../../guest-reservations/GuestReservationStatus';
 import { presentCancellationError } from '../../student-cabinet/presentCancellationError';
+import { GuestParticipantFields } from '../../guest-reservations/GuestParticipantFields';
+import {
+  parseGuestParticipantForm,
+  guestParticipantCommandFields,
+  type GuestParticipantFormInput,
+} from '../../guest-reservations/guestParticipantForm';
+import { getDifficultyLabel } from '../../../lib/i18n/bookingLabels';
 import {
   forgetGuestReservation,
   isUnusableGuestReservationError,
@@ -54,6 +61,14 @@ interface CourseEnrollmentModalProps {
 }
 
 const COURSE_ENROLLMENT_SELECTION_MAX = 8;
+const GUEST_SKILL_LEVELS = [
+  'beginner',
+  'intermediate',
+  'advanced',
+  'expert',
+  'freeride',
+  'freestyle',
+];
 
 export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   isOpen,
@@ -65,6 +80,11 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   onSuccess,
 }) => {
   const { t, language } = useLanguage();
+  const guestSkillOptions = GUEST_SKILL_LEVELS.map((value) => ({
+    value,
+    label:
+      value === 'expert' ? t('journeyLevelExpert') : getDifficultyLabel(value, language, 'short'),
+  }));
   const { formatPrice } = useCurrency();
   const { addNotification } = useNotifications();
   const { createGuestEnrollment, requestCancellation } = useCourseEnrollmentCommands(undefined);
@@ -77,6 +97,10 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   const [guestPhone, setGuestPhone] = useState('');
   const [guestEmail, setGuestEmail] = useState('');
   const [guestNotes, setGuestNotes] = useState('');
+  const [guestAgeYears, setGuestAgeYears] = useState('');
+  const [guestDiscipline, setGuestDiscipline] =
+    useState<GuestParticipantFormInput['discipline']>('');
+  const [guestSkillLevel, setGuestSkillLevel] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [guestQuotaErrorCourseId, setGuestQuotaErrorCourseId] = useState<string | null>(null);
   const [guestCreatedEnrollmentId, setGuestCreatedEnrollmentId] = useState<string | null>(null);
@@ -171,6 +195,27 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
       addNotification('warning', t('missingDetails'), t('guestPhoneLabel'));
       return;
     }
+    const guestProfile = parseGuestParticipantForm({
+      displayName: guestName,
+      ageYears: guestAgeYears,
+      discipline: guestDiscipline,
+      skillLevel: guestSkillLevel,
+    });
+    if (!guestProfile.success) {
+      const field = guestProfile.error.issues[0]?.path[0];
+      addNotification(
+        'warning',
+        t('missingDetails'),
+        t(
+          field === 'discipline'
+            ? 'participantsDisciplineLabel'
+            : field === 'skillLevel'
+              ? 'participantsSkillLabel'
+              : 'participantsAgeLabel'
+        )
+      );
+      return;
+    }
 
     isSubmittingRef.current = true;
     setIsSubmitting(true);
@@ -189,12 +234,9 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
         enrollmentId: stableEnrollmentId,
         participantId,
         identity: { enrollmentId: stableEnrollmentId, idempotencyKey },
-        guestDisplayName: guestName.trim(),
+        ...guestParticipantCommandFields(guestProfile.data),
         guestPhone: guestPhone.trim(),
         guestEmail: guestEmail.trim() || undefined,
-        guestSkillLevel: 'beginner',
-        guestDiscipline: 'ski',
-        guestAgeYears: 25,
         notificationLocale: language,
       });
       rememberGuestReservation('course', course.id, credential.enrollmentId);
@@ -640,6 +682,25 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                         />
                       </div>
                     </div>
+
+                    <GuestParticipantFields
+                      ageYears={guestAgeYears}
+                      onAgeYearsChange={setGuestAgeYears}
+                      discipline={guestDiscipline}
+                      onDisciplineChange={setGuestDiscipline}
+                      labels={{
+                        age: t('participantsAgeLabel'),
+                        discipline: t('participantsDisciplineLabel'),
+                        ski: t('participantsDisciplineSki'),
+                        snowboard: t('participantsDisciplineSnowboard'),
+                      }}
+                      skill={{
+                        value: guestSkillLevel,
+                        onChange: setGuestSkillLevel,
+                        label: t('participantsSkillLabel'),
+                        options: guestSkillOptions,
+                      }}
+                    />
 
                     <div>
                       <label className="uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 font-sans text-xs">

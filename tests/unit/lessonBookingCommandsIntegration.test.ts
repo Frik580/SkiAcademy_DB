@@ -134,58 +134,65 @@ describe('lessonBooking commands integration', () => {
     expect(useLessonBookingStore.getState().items.get(bookingId)?.status).toBe('confirmed');
   });
 
-  it('creates guest booking, persists credential, and does not call legacy callables', async () => {
-    const bookingId = 'booking_guest_create_01';
-    const credential = {
-      bookingId: BookingIdSchema.parse(bookingId),
-      guestSubjectId: 'guest_fixture_01',
-      nonce: 'nonce_fixture_16chars',
-      signature: 'c'.repeat(64),
-      expiresAt: timestampFromDate(new Date('2099-01-01T00:00:00.000Z')),
-    };
-    executeGuestMock.mockResolvedValueOnce({
-      status: 'success',
-      payload: { guestActionCredential: credential },
-    });
+  it.each(['ski', 'snowboard'] as const)(
+    'creates a %s guest booking with actual profile data and persists its credential',
+    async (discipline) => {
+      const bookingId = 'booking_guest_create_01';
+      const credential = {
+        bookingId: BookingIdSchema.parse(bookingId),
+        guestSubjectId: 'guest_fixture_01',
+        nonce: 'nonce_fixture_16chars',
+        signature: 'c'.repeat(64),
+        expiresAt: timestampFromDate(new Date('2099-01-01T00:00:00.000Z')),
+      };
+      executeGuestMock.mockResolvedValueOnce({
+        status: 'success',
+        payload: { guestActionCredential: credential },
+      });
 
-    const { result } = renderHook(() => useLessonBookingCommands(undefined));
-    const returned = await result.current.createGuestBooking({
-      instructorId: 'instructor_fixture_01',
-      participantId: 'participant_fixture_01',
-      localDate: '2026-06-15',
-      localTime: '08:00',
-      durationMinutes: 120,
-      timezone: 'Asia/Almaty',
-      identity: {
-        bookingId,
-        idempotencyKey: `create-guest-request:${bookingId}`,
-      },
-      guestDisplayName: 'Guest User',
-      guestPhone: '+7 701 123 45 67',
-      guestEmail: 'guest@example.com',
-      guestSkillLevel: 'beginner',
-      guestDiscipline: 'ski',
-      guestAgeYears: 12,
-      difficulty: 'freeride',
-      notes: 'First off-piste',
-    });
-
-    expect(returned.nonce).toBe('nonce_fixture_16chars');
-    expect(localStorage.getItem(`ski_academy_guest_booking_credential:${bookingId}`)).toBeTruthy();
-    expect(executeGuestMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        kind: 'create_guest_booking_request',
-        guestParticipantDisplayName: 'Guest User',
+      const { result } = renderHook(() => useLessonBookingCommands(undefined));
+      const returned = await result.current.createGuestBooking({
+        instructorId: 'instructor_fixture_01',
+        participantId: 'participant_fixture_01',
+        localDate: '2026-06-15',
+        localTime: '08:00',
+        durationMinutes: 120,
+        timezone: 'Asia/Almaty',
+        identity: {
+          bookingId,
+          idempotencyKey: `create-guest-request:${bookingId}`,
+        },
+        guestDisplayName: 'Guest User',
         guestPhone: '+7 701 123 45 67',
         guestEmail: 'guest@example.com',
-        guestParticipantSkillLevel: 'beginner',
-        intent: expect.objectContaining({
-          difficulty: 'freeride',
-          notes: 'First off-piste',
-        }),
-      })
-    );
-  });
+        guestSkillLevel: 'intermediate',
+        guestDiscipline: discipline,
+        guestAgeYears: 12,
+        difficulty: 'freeride',
+        notes: 'First off-piste',
+      });
+
+      expect(returned.nonce).toBe('nonce_fixture_16chars');
+      expect(
+        localStorage.getItem(`ski_academy_guest_booking_credential:${bookingId}`)
+      ).toBeTruthy();
+      expect(executeGuestMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kind: 'create_guest_booking_request',
+          guestParticipantDisplayName: 'Guest User',
+          guestPhone: '+7 701 123 45 67',
+          guestEmail: 'guest@example.com',
+          guestParticipantSkillLevel: 'intermediate',
+          guestParticipantDiscipline: discipline,
+          guestParticipantAgeYears: 12,
+          intent: expect.objectContaining({
+            difficulty: 'freeride',
+            notes: 'First off-piste',
+          }),
+        })
+      );
+    }
+  );
 
   it('treats guest booking as successful when local credential persistence fails after remote success', async () => {
     const bookingId = 'booking_guest_create_02';

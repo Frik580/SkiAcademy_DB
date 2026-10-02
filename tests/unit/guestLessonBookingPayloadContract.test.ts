@@ -8,11 +8,16 @@ import {
   parseCallableGuestCommandTransport,
   parseCommandEnvelope,
   guestSubjectIdFromBookingId,
+  parseGuestParticipantProfileFromTransportMetadata,
 } from '@ski-academy/shared-domain';
 import {
   buildGuestCommandEnvelopeFromCallable,
   deriveGuestSubjectIdForIntent,
 } from '../../functions/src/canonical/commands/guestCallableTransportAdapter';
+import {
+  parseGuestParticipantForm,
+  guestParticipantCommandFields,
+} from '../../src/features/guest-reservations/guestParticipantForm';
 
 const bookingId = BookingIdSchema.parse('booking_transport_contract_01');
 const instructorId = InstructorIdSchema.parse('instructor_transport_contract_01');
@@ -42,6 +47,48 @@ function frontendGuestLessonBookingPayload() {
 }
 
 describe('guest lesson booking callable transport contract', () => {
+  it.each(['ski', 'snowboard'] as const)(
+    'preserves the actual %s form profile through the server adapter',
+    (discipline) => {
+      const form = parseGuestParticipantForm({
+        displayName: 'Guest Child',
+        discipline,
+        skillLevel: 'intermediate',
+        ageYears: '12',
+      });
+      if (!form.success) throw form.error;
+      const payload = buildFrontendGuestLessonBookingCallablePayload({
+        bookingId,
+        instructorId,
+        participantId,
+        correlationId,
+        idempotencyKey: `create-guest-request:${bookingId}`,
+        localDate: '2026-12-15',
+        localTime: '10:00',
+        durationMinutes: 120,
+        timezone: 'Asia/Almaty',
+        guestPhone: '+77001234567',
+        difficulty: 'intermediate',
+        ...guestParticipantCommandFields(form.data),
+      });
+      expect(parseCallableGuestCommandTransport(payload).success).toBe(true);
+      const envelope = buildGuestCommandEnvelopeFromCallable(
+        deriveGuestSubjectIdForIntent(payload.intent)!,
+        payload
+      );
+      expect(
+        parseGuestParticipantProfileFromTransportMetadata(envelope.context.transportMetadata)
+      ).toMatchObject({
+        success: true,
+        data: { displayName: 'Guest Child', discipline, skillLevel: 'intermediate', ageYears: 12 },
+      });
+    }
+  );
+
+  it('rejects missing age on the server transport', () => {
+    const { guestParticipantAgeYears: _age, ...payload } = frontendGuestLessonBookingPayload();
+    expect(parseCallableGuestCommandTransport(payload).success).toBe(false);
+  });
   it('accepts the frontend guest booking payload shape', () => {
     const payload = frontendGuestLessonBookingPayload();
     expect(CreateGuestBookingRequestTransportSchema.safeParse(payload).success).toBe(true);

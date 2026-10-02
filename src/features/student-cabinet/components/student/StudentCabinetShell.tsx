@@ -18,6 +18,7 @@ import {
 import { AchievementsConfig } from '../../../../domain/achievements';
 import { cabinetPathForTab, parseCabinetTabParam } from '../../../../lib/workspaceRoutes';
 import { StudentCabinetHome } from './StudentCabinetHome';
+import { toCabinetParticipantAvatarItems } from '../../cabinetParticipantAvatarSwitcherContract';
 import { StudentHistoryPanel } from './StudentHistoryPanel';
 import { StudentCoachPanel } from './StudentCoachPanel';
 import { BookInstructorPickerModal } from './BookInstructorPickerModal';
@@ -307,6 +308,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
   );
 
   const ctx = {
+    participantProfiles: toCabinetParticipantAvatarItems(participants, props.userProfile.avatarUrl),
     userProfile: progressProfile,
     selectedParticipantId: selectedProgressParticipantId,
     bookings: legacyBookings,
@@ -509,7 +511,9 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
         </div>
       )}
       <div key={progressViewKey}>
-        {activeTab === 'home' && <StudentCabinetHome {...ctx} />}
+        {activeTab === 'home' && (
+          <StudentCabinetHome {...ctx} nextSessionItems={props.sessionItems ?? []} />
+        )}
         {activeTab === 'training' && <StudentTrainingPanel onGoToTab={goToTab} />}
         {activeTab === 'history' && (
           <StudentHistoryPanel

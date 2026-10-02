@@ -44,7 +44,14 @@ export interface CurrentSessionsBlockInput {
   hasUnreadChat?: (bookingId: string) => boolean;
 }
 
+export interface SessionParticipantInput {
+  readonly participantId: string;
+  readonly displayName: string;
+  readonly avatarUrl?: string;
+}
+
 export interface NextSessionBlockInput {
+  participantsBySessionKey?: Readonly<Record<string, readonly SessionParticipantInput[]>>;
   nextSessions: NextSessionItem[];
   miniDays: MiniCalendarDay[];
   courses: StudentCourse[];
@@ -148,6 +155,9 @@ export type StudentProfilePanelProps = StudentProfilePanelInput & {
 
 /** The complete data boundary for the student-cabinet home container. */
 export interface StudentCabinetHomeContext {
+  participantProfiles?: readonly SessionParticipantInput[];
+  /** Account sessions before header filtering; used only by the next-session block. */
+  nextSessionItems?: readonly CabinetSessionItem[];
   userProfile: UserProfile;
   selectedParticipantId?: string;
   bookings: Booking[];
@@ -185,6 +195,7 @@ export interface StudentCabinetHomeContext {
 
 /** Input boundary for the presentational "today" section. */
 export interface StudentTodaySectionInput {
+  participantsBySessionKey?: NextSessionBlockInput['participantsBySessionKey'];
   currentSessions: CabinetSessionItem[];
   nextSession?: CabinetSessionItem | null;
   nextSessions?: NextSessionItem[];

@@ -35,6 +35,13 @@ export function mapLessonBookingReadModelToCabinetItem(
     instructorId: readModel.instructor.instructorId,
     instructorName: readModel.instructor.displayName,
     instructorAvatar: readModel.instructor.avatarUrl ?? '',
+    participantIds: readModel.participantIds,
+    participantDisplayNames: Object.fromEntries(
+      readModel.participants.map((participant) => [
+        participant.participantId,
+        participant.displayName,
+      ])
+    ),
     participantNames: readModel.participants.map((participant) => participant.displayName),
     partyKind: readModel.partyKind,
     payment,

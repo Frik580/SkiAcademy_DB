@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import { YourJourneySection } from '../../../../features/journey';
 import {
   getMiniCalendarDaysFromSessions,
-  getNextSessionsNext7DaysFromSessions,
   hasTrainingTodayFromSessions,
 } from '../../../../features/course-enrollments/sessionScheduleHelpers';
 import {
@@ -21,6 +20,7 @@ import {
   StudentCabinetWeatherSection,
   StudentLatestRecommendationSection,
 } from './StudentHomeBottomSections';
+import { buildNextSessionCards } from './studentSessionParticipants';
 import type { StudentCabinetHomeContext } from './studentCabinetContracts';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 
@@ -69,9 +69,10 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     if (booking) onOpenLesson(booking);
   };
 
-  const nextSessions = useMemo(
-    () => getNextSessionsNext7DaysFromSessions(sessionItems, new Date()),
-    [sessionItems]
+  const nextSessionItems = props.nextSessionItems ?? sessionItems;
+  const { nextSessions, participantsBySessionKey } = useMemo(
+    () => buildNextSessionCards(nextSessionItems, props.participantProfiles ?? [], new Date()),
+    [nextSessionItems, props.participantProfiles]
   );
   const nextSession = nextSessions[0]?.session ?? null;
   const currentSessions = useMemo(
@@ -142,6 +143,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
             currentSessions={currentSessions}
             nextSession={nextSession}
             nextSessions={nextSessions}
+            participantsBySessionKey={participantsBySessionKey}
             sessionItems={sessionItems}
             miniDays={miniDays}
             courses={courses}

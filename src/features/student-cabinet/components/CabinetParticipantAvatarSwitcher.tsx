@@ -6,14 +6,14 @@ import {
   type CabinetParticipantAvatarSwitcherProps,
 } from '../cabinetParticipantAvatarSwitcherContract';
 
-function AvatarFace({
+export function ParticipantAvatarFace({
   url,
   name,
-  active,
+  active = true,
 }: {
   readonly url?: string;
   readonly name: string;
-  readonly active: boolean;
+  readonly active?: boolean;
 }) {
   if (url) {
     return (
@@ -57,7 +57,7 @@ function AvatarCircle({
           : 'shadow-none opacity-90 group-hover:opacity-100 group-focus-visible:opacity-100'
       }`}
     >
-      <AvatarFace url={item.avatarUrl} name={item.displayName} active={active} />
+      <ParticipantAvatarFace url={item.avatarUrl} name={item.displayName} active={active} />
     </span>
   );
 }

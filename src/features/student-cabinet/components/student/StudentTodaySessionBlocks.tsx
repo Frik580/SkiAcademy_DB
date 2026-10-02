@@ -18,6 +18,7 @@ import type {
   SessionCountdownBlockInput,
 } from './studentCabinetContracts';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
+import { ParticipantAvatarFace } from '../CabinetParticipantAvatarSwitcher';
 import { cabinetItemToLegacyPresentation } from '../../../../features/lesson-bookings/mergeCabinetBookings';
 
 const SUBSECTION_LABEL = 'text-[10px] font-medium tracking-widest uppercase text-[var(--ink-dim)]';
@@ -234,6 +235,7 @@ export const CurrentSessionsBlock = memo<CurrentSessionsBlockInput>(function Cur
 
 export const NextSessionBlock = memo<NextSessionBlockInput>(function NextSessionBlock({
   nextSessions,
+  participantsBySessionKey = {},
   miniDays,
   courses,
   instructors,
@@ -315,6 +317,27 @@ export const NextSessionBlock = memo<NextSessionBlockInput>(function NextSession
                       ? formatCourseDayDateLabel(session, lang)
                       : getCabinetSessionSubtitle(session, lang)}
                   </p>
+                  <ul
+                    className="flex flex-wrap gap-x-4 gap-y-2"
+                    aria-label={t('bookingParticipantsLabel')}
+                  >
+                    {(participantsBySessionKey[sessionItemKey(session)] ?? []).map(
+                      (participant) => (
+                        <li
+                          key={participant.participantId}
+                          className="flex min-w-0 items-center gap-2 text-sm text-[var(--ink)]"
+                        >
+                          <span className="ui-avatar h-8 w-8 shrink-0 overflow-hidden rounded-full">
+                            <ParticipantAvatarFace
+                              url={participant.avatarUrl}
+                              name={participant.displayName}
+                            />
+                          </span>
+                          <span className="break-words">{participant.displayName}</span>
+                        </li>
+                      )
+                    )}
+                  </ul>
                   <div className="flex flex-wrap gap-4 pt-2">
                     {session.kind === 'lesson' ? (
                       <>
@@ -361,9 +384,8 @@ export const NextSessionBlock = memo<NextSessionBlockInput>(function NextSession
                     ) : (
                       onViewCourseDetails && (
                         <ScTextButton
-                          onClick={() =>
-                            onViewCourseDetails(session.courseId, session.enrollmentId)
-                          }
+                          // Account-level course card: let details resolve the selected participant.
+                          onClick={() => onViewCourseDetails(session.courseId)}
                         >
                           {t('scMoreDetails')}
                         </ScTextButton>

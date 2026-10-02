@@ -35,6 +35,8 @@ export interface LessonBookingCabinetItem {
   readonly instructorId: string;
   readonly instructorName: string;
   readonly instructorAvatar: string;
+  readonly participantIds: readonly string[];
+  readonly participantDisplayNames: Readonly<Record<string, string>>;
   readonly participantNames: readonly string[];
   readonly partyKind: 'individual' | 'family_group';
   readonly payment: LessonBookingPaymentPresentation;

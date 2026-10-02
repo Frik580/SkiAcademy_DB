@@ -46,6 +46,24 @@ function buildReadModel(
 }
 
 describe('lessonBookingViewModel', () => {
+  it('preserves booking participantIds and resolves projected names by ID despite profile order', () => {
+    const alice = ParticipantIdSchema.parse('participant_alice');
+    const bob = ParticipantIdSchema.parse('participant_bob');
+    const item = mapLessonBookingReadModelToCabinetItem(
+      buildReadModel({
+        bookingId: BookingIdSchema.parse('booking_party'),
+        revision: 1,
+        participantIds: [bob, alice],
+        participants: [
+          { participantId: alice, displayName: 'Alice' },
+          { participantId: bob, displayName: 'Bob' },
+        ],
+      })
+    );
+    expect(item.participantIds).toEqual([bob, alice]);
+    expect(item.participantDisplayNames).toEqual({ [alice]: 'Alice', [bob]: 'Bob' });
+  });
+
   it('maps visible payment presentation from canonical read model', () => {
     const readModel = buildReadModel({
       bookingId: BookingIdSchema.parse('booking_visible_01'),

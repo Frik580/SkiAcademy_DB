@@ -7,6 +7,7 @@ import { useParticipantLessonFeedbackStore } from '../features/participant-lesso
 import { useParticipantAchievementsStore } from '../features/participant-achievements/participantAchievementsStore';
 import { useAccountParticipantLessonStatsStore } from '../features/lesson-bookings/accountParticipantLessonStatsStore';
 import { useLessonBookingStore } from '../features/lesson-bookings/lessonBookingStore';
+import { useManagedParticipantsStore } from '../features/lesson-bookings/managedParticipantsStore';
 import { useCourseEnrollmentStore } from '../features/course-enrollments/courseEnrollmentStore';
 import { useProfileStore } from '../features/profile/profileStore';
 import { useCabinetProgressParticipantSelectionStore } from '../features/student-cabinet/cabinetProgressParticipantSelectionStore';
@@ -59,6 +60,7 @@ export function resetUserScopedStores(): void {
   useParticipantAchievementsStore.getState().clear();
   useAccountParticipantLessonStatsStore.getState().reset();
   useLessonBookingStore.getState().reset();
+  useManagedParticipantsStore.getState().reset();
   useCourseEnrollmentStore.getState().clearScopedEnrollments();
   useCabinetProgressParticipantSelectionStore.getState().reset();
   // Participant-access query cache is session-scoped; wipe on logout/account end.

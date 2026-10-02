@@ -121,7 +121,7 @@ async function buildInstructorCourseAssignmentReadModel(
     course,
     courseDays,
   });
-  if (!assignment.allowed || assignment.assignedCourseDayIds.length === 0) {
+  if (!assignment.allowed) {
     return undefined;
   }
 
@@ -505,7 +505,6 @@ export async function queryInstructorCourseAssignmentReadModels(
     if (!candidate) {
       break;
     }
-    processedCourseIds.add(candidate.sortKey.courseId);
     const item = await buildInstructorCourseAssignmentReadModel(
       firestore,
       instructorId,
@@ -514,6 +513,7 @@ export async function queryInstructorCourseAssignmentReadModels(
       readScope
     );
     if (item) {
+      processedCourseIds.add(candidate.sortKey.courseId);
       items.push(item);
       lastEmitted = { title: item.title, courseId: item.courseId };
     }

@@ -614,7 +614,7 @@ describe.skipIf(!runsOnFirestoreEmulator)('booking commands (firestore emulator)
       .collection('participant_management')
       .doc(managementId)
       .set(seedManagementRecord({ managementId, participantId }));
-    await seedInstructor(instructorId, { pricePerHour: 120 });
+    await seedInstructor(instructorId, { pricePerHourKZT: BOOKING_PRICE_KZT });
     await firestore.collection('lesson_pricing_settings').doc('lesson_booking').set({
       settingsId: 'lesson_booking',
       additionalParticipantSurchargePerHourKzt: 6_000,

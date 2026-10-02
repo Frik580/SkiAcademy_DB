@@ -616,7 +616,7 @@ describe.skipIf(!runsOnFirestoreEmulator)('booking cancellation emulator races',
     await firestore.doc(`instructors/${instructorId}`).set({
       id: instructorId,
       name: 'Emulator Coach',
-      pricePerHour: 120,
+      pricePerHourKZT: BOOKING_PRICE_KZT,
       isAvailable: true,
     });
 

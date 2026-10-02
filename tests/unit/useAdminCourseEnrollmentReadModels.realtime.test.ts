@@ -81,7 +81,7 @@ describe('useAdminCourseEnrollmentReadModels realtime invalidation', () => {
     });
 
     renderHook(() => useAdminCourseEnrollmentReadModels({ view: 'roster' }));
-    await waitFor(() => expect(queryMock).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(queryMock).toHaveBeenCalledTimes(1));
     expect(queryMock.mock.calls[0]?.[0]).toMatchObject({ scope: 'admin_course_roster' });
 
     act(() => {
@@ -148,13 +148,30 @@ describe('useAdminCourseEnrollmentReadModels realtime invalidation', () => {
     });
 
     const { result } = renderHook(() => useAdminCourseEnrollmentReadModels({ view: 'roster' }));
-    await waitFor(() => expect(queryMock).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(queryMock).toHaveBeenCalledTimes(1));
+  await waitFor(() => {
+    expect(result.current.list.items).toHaveLength(1);
+    expect(result.current.list.hasMore).toBe(true);
+    expect(result.current.list.cursor).toBe('cursor_initial_page_1');
+    expect(result.current.loadMore).toBeDefined();
+  });
+
+  await act(async () => {
+    await result.current.loadMore?.();
+  });
+
+  await waitFor(() => {
+    expect(result.current.list.items).toHaveLength(2);
+    expect(result.current.list.cursor).toBe('cursor_initial_page_2');
+  });
     await act(async () => {
       await result.current.loadMore?.();
     });
-    await act(async () => {
-      await result.current.loadMore?.();
-    });
+
+  await waitFor(() => {
+    expect(result.current.list.items).toHaveLength(3);
+    expect(result.current.list.cursor).toBe('cursor_initial_page_3');
+  });
     expect(result.current.list.items).toHaveLength(3);
     expect(queryMock.mock.calls[1]?.[0]).toMatchObject({ cursor: 'cursor_initial_page_1' });
     expect(queryMock.mock.calls[2]?.[0]).toMatchObject({ cursor: 'cursor_initial_page_2' });
@@ -164,6 +181,8 @@ describe('useAdminCourseEnrollmentReadModels realtime invalidation', () => {
     });
 
     await waitFor(() => expect(queryMock).toHaveBeenCalledTimes(6));
+
+  await waitFor(() => {
     expect(queryMock.mock.calls[3]?.[0]).toMatchObject({ scope: 'admin_course_roster' });
     expect(queryMock.mock.calls[4]?.[0]).toMatchObject({
       scope: 'admin_course_roster',
@@ -181,6 +200,7 @@ describe('useAdminCourseEnrollmentReadModels realtime invalidation', () => {
     expect(new Set(result.current.list.items.map((item) => item.enrollmentId)).size).toBe(3);
     expect(result.current.list.hasMore).toBe(false);
     expect(result.current.list.cursor).toBeUndefined();
+  });
   });
 
   it('lets realtime refresh supersede an in-flight load-more request', async () => {
@@ -298,10 +318,37 @@ describe('useAdminCourseEnrollmentReadModels realtime invalidation', () => {
     await act(async () => {
       await result.current.loadMore?.();
     });
+  await waitFor(() => {
     expect(result.current.list.items).toHaveLength(4);
+  });
 
     act(() => emitInvalidation?.());
-    await waitFor(() => expect(queryMock).toHaveBeenCalledTimes(4));
+  await waitFor(() => expect(queryMock).toHaveBeenCalledTimes(4));
+
+  await waitFor(() => {
+    expect(
+      result.current.list.items.map((item) => item.enrollmentId)
+    ).toEqual([
+      'course_enrollment_admin_scope_row_02',
+      'course_enrollment_admin_scope_row_03',
+      'course_enrollment_admin_scope_row_04',
+      'course_enrollment_admin_scope_row_05',
+    ]);
+
+    expect(
+      result.current.list.items.map((item) => item.enrollmentId)
+    ).not.toContain('course_enrollment_admin_leaves_roster');
+
+    expect(
+      new Set(
+        result.current.list.items.map((item) => item.enrollmentId)
+      ).size
+    ).toBe(4);
+
+    expect(result.current.list.cursor).toBe(
+      'cursor_refreshed_page_2'
+    );
+  });
 
     expect(result.current.list.items.map((item) => item.enrollmentId)).toEqual([
       'course_enrollment_admin_scope_row_02',

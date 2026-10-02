@@ -117,7 +117,11 @@ export const Navbar: React.FC<NavbarProps> = ({
     if (!el) return;
 
     const syncNavbarHeight = () => {
-      document.documentElement.style.setProperty('--app-navbar-height', `${el.offsetHeight}px`);
+      // offsetHeight rounds fractional CSS pixels, leaving a gap below the sticky header.
+      document.documentElement.style.setProperty(
+        '--app-navbar-height',
+        `${el.getBoundingClientRect().height}px`
+      );
     };
 
     syncNavbarHeight();

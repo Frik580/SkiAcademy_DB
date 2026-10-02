@@ -577,12 +577,17 @@ export const translations = {
       'The cancellation or cancellation request succeeded, but the latest details could not be refreshed. Reload if the card looks outdated.',
     requestFailed: 'Request Failed',
     requestFailedDesc: 'Failed to request cancellation.',
-    cancelTooLate: 'The lesson has already started, so it can no longer be cancelled by the account owner.',
+    cancelTooLate:
+      'The lesson has already started, so it can no longer be cancelled by the account owner.',
     cancelReservationExpired: 'The reservation has expired. Its place is no longer held.',
-    cancelPaymentConflict: 'This request has received payment. Contact the administrator to resolve cancellation and payment.',
-    cancelPaymentChanged: 'Payment details changed. Refresh this booking or enrollment before trying again, or contact the administrator.',
-    cancelStatusChanged: 'This booking or enrollment no longer accepts a cancellation request. Refresh its status.',
-    cancelUnauthorized: 'This credential cannot cancel the request. Check its current status or contact the administrator.',
+    cancelPaymentConflict:
+      'This request has received payment. Contact the administrator to resolve cancellation and payment.',
+    cancelPaymentChanged:
+      'Payment details changed. Refresh this booking or enrollment before trying again, or contact the administrator.',
+    cancelStatusChanged:
+      'This booking or enrollment no longer accepts a cancellation request. Refresh its status.',
+    cancelUnauthorized:
+      'This credential cannot cancel the request. Check its current status or contact the administrator.',
     invalidFile: 'Invalid File',
     invalidFileDesc: 'Please select an image file.',
     profilePhotoChanged: 'Profile Photo Changed',
@@ -592,8 +597,10 @@ export const translations = {
     reviewInvitationPrefix: 'Your coaching session with',
     reviewInvitationSuffix: 'has completed! Leave feedback to share your experience.',
     cancelConfirmMessage: 'Cancel the entire lesson booking with',
-    cancelConfirmSuffix: 'If cancellation is available now, the place will be released. Otherwise, a request will be sent to the administrator. Any refund follows the applicable cancellation policy.',
-    courseCancelConfirmMessage: 'Cancel this course enrollment? Depending on the time before the course starts, the enrollment may be cancelled now or sent to the administrator for a decision. Any refund follows the course cancellation policy.',
+    cancelConfirmSuffix:
+      'If cancellation is available now, the place will be released. Otherwise, a request will be sent to the administrator. Any refund follows the applicable cancellation policy.',
+    courseCancelConfirmMessage:
+      'Cancel this course enrollment? Depending on the time before the course starts, the enrollment may be cancelled now or sent to the administrator for a decision. Any refund follows the course cancellation policy.',
     requestCourseCancellation: 'Request course cancellation',
     collabProposalInbox: 'Lesson proposals',
     collabProposalOpen: 'Open',
@@ -1407,8 +1414,10 @@ export const translations = {
     adminTestingReset: 'Reset test data',
     adminTestingDelete: 'Delete session',
     adminTestingClose: 'Close session',
-    adminTestingCloseHint: 'Close stops new test operations and keeps session history. It does not delete data.',
-    adminTestingResetHint: 'Reset removes disposable test activity and restores the session fixtures.',
+    adminTestingCloseHint:
+      'Close stops new test operations and keeps session history. It does not delete data.',
+    adminTestingResetHint:
+      'Reset removes disposable test activity and restores the session fixtures.',
     adminTestingDeleteHint: 'Delete removes this Test Session. Persistent Test Actors stay.',
     adminTestingSelectParents: 'Test parents',
     adminTestingSelectInstructor: 'Dedicated test instructor',
@@ -1451,7 +1460,8 @@ export const translations = {
     adminTestingResetDestructiveTotal: 'Destructive targets',
     adminTestingResetLiveTargets: 'LIVE targets',
     adminTestingResetForeignTargets: 'Foreign-session targets',
-    adminTestingResetSafetyBlocked: 'Reset is blocked until LIVE and foreign-session targets are zero.',
+    adminTestingResetSafetyBlocked:
+      'Reset is blocked until LIVE and foreign-session targets are zero.',
     adminTestingResetWillDelete: 'Will be deleted',
     adminTestingResetWillDeleteSummary: '{count} test documents in this session',
     adminTestingResetWillPreserve: 'Will be preserved',
@@ -1483,10 +1493,12 @@ export const translations = {
     adminTestingLifecycleError_TEST_MAINTENANCE_LEASE_CONFLICT:
       'Another maintenance operation holds the lease.',
     adminTestingLifecycleError_TEST_MAINTENANCE_FAILED: 'Maintenance failed. Inspect server state.',
-    adminTestingLifecycleError_TEST_MAINTENANCE_CONFIRMATION_INVALID: 'Confirmation rejected by server.',
+    adminTestingLifecycleError_TEST_MAINTENANCE_CONFIRMATION_INVALID:
+      'Confirmation rejected by server.',
     adminTestingLifecycleError_TEST_SESSION_NOT_FOUND: 'Test session not found.',
     adminTestingLifecycleError_TEST_SESSION_NOT_ACTIVE: 'Test session is not active.',
-    adminTestingLifecycleError_TEST_SESSION_TRANSITION_FORBIDDEN: 'Session status transition forbidden.',
+    adminTestingLifecycleError_TEST_SESSION_TRANSITION_FORBIDDEN:
+      'Session status transition forbidden.',
     adminTestingLifecycleError_LIFECYCLE_FORBIDDEN: 'Lifecycle command is not allowed.',
     instructorFilters: 'Instructor Filters',
     instructorFiltersDesc:
@@ -2094,6 +2106,7 @@ export const translations = {
     courseSeatsOf: 'of',
     courseSeatsLeft: 'LEFT',
     courseTotalTuition: 'Total Tuition',
+    coursePricePerParticipant: 'price per participant',
     courseAllDaysIncluded: 'All days included',
     courseEnrolled: 'Enrolled',
     courseAwaitingPayment: 'Awaiting payment',
@@ -2331,27 +2344,35 @@ export const translations = {
     guestBookingPrice: 'Booking price: {amount}.',
     guestCoursePrice: 'Course price: {amount}.',
     guestOutstandingAmount: 'Remaining to pay: {amount}.',
-    guestAdminContactPayment: 'An administrator will contact you using the details you provided to arrange payment.',
-    guestLessonAfterFullPayment: 'Your reservation will be confirmed after full payment is received.',
-    guestCourseAfterFullPayment: 'Your course enrollment will be confirmed after full payment is received.',
+    guestAdminContactPayment:
+      'An administrator will contact you using the details you provided to arrange payment.',
+    guestLessonAfterFullPayment:
+      'Your reservation will be confirmed after full payment is received.',
+    guestCourseAfterFullPayment:
+      'Your course enrollment will be confirmed after full payment is received.',
     guestPaymentReceivedPendingConfirmation: 'Payment received. Confirmation is being processed.',
     guestLessonConfirmedTitle: 'Booking confirmed',
     guestCourseConfirmedTitle: 'Course enrollment confirmed',
     guestConfirmedBody: 'Payment received. Your reservation is confirmed.',
     guestLessonExpiredTitle: 'Reservation expired',
     guestCourseExpiredTitle: 'Course place hold expired',
-    guestLessonExpiredBody: 'Your place is no longer being held. Create a new request if you would like to book a lesson.',
-    guestCourseExpiredBody: 'Your course place is no longer held. Create a new request if places are still available.',
+    guestLessonExpiredBody:
+      'Your place is no longer being held. Create a new request if you would like to book a lesson.',
+    guestCourseExpiredBody:
+      'Your course place is no longer held. Create a new request if places are still available.',
     guestCancelledTitle: 'Reservation cancelled',
     guestCourseCancelledTitle: 'Course enrollment cancelled',
     guestCancelledBody: 'Your place is no longer being held.',
     guestCancelPending: 'Cancel request',
-    guestCancelConfirm: 'Cancel this request? Your place will no longer be held after cancellation.',
-    guestCancelFailed: 'The request could not be cancelled. Check its current status and try again.',
+    guestCancelConfirm:
+      'Cancel this request? Your place will no longer be held after cancellation.',
+    guestCancelFailed:
+      'The request could not be cancelled. Check its current status and try again.',
     guestCheckStatus: 'Check status',
     guestCheckPreviousStatus: 'Check request status',
     guestNewBooking: 'New booking',
-    guestPreviousUnavailable: 'Your previous request is no longer available. You can create a new request.',
+    guestPreviousUnavailable:
+      'Your previous request is no longer available. You can create a new request.',
     guestStatusRefreshFailed: 'Could not refresh the reservation status. Please try again.',
     postCreateRefreshFailedTitle: 'Request created',
     postCreateRefreshFailedLessonTitle: 'Booking created',
@@ -2960,10 +2981,13 @@ export const translations = {
     requestFailedDesc: 'Не удалось отправить запрос на отмену.',
     cancelTooLate: 'Занятие уже началось, поэтому владелец аккаунта больше не может его отменить.',
     cancelReservationExpired: 'Срок бронирования истёк. Место больше не удерживается.',
-    cancelPaymentConflict: 'По заявке уже поступила оплата. Для решения вопроса об отмене и оплате обратитесь к администратору.',
-    cancelPaymentChanged: 'Данные об оплате изменились. Обновите запись перед повторной попыткой или обратитесь к администратору.',
+    cancelPaymentConflict:
+      'По заявке уже поступила оплата. Для решения вопроса об отмене и оплате обратитесь к администратору.',
+    cancelPaymentChanged:
+      'Данные об оплате изменились. Обновите запись перед повторной попыткой или обратитесь к администратору.',
     cancelStatusChanged: 'Отменить эту запись или отправить запрос уже нельзя. Обновите её статус.',
-    cancelUnauthorized: 'Этот токен не позволяет отменить заявку. Проверьте её статус или обратитесь к администратору.',
+    cancelUnauthorized:
+      'Этот токен не позволяет отменить заявку. Проверьте её статус или обратитесь к администратору.',
     invalidFile: 'Неверный файл',
     invalidFileDesc: 'Пожалуйста, выберите изображение.',
     profilePhotoChanged: 'Фото профиля изменено',
@@ -2973,8 +2997,10 @@ export const translations = {
     reviewInvitationPrefix: 'Ваше занятие с инструктором',
     reviewInvitationSuffix: 'успешно завершилось! Напишите отзыв, чтобы поделиться впечатлениями.',
     cancelConfirmMessage: 'Отменить всё бронирование занятия с',
-    cancelConfirmSuffix: 'Если отмена доступна сейчас, место освободится. Иначе запрос поступит администратору. Возврат средств зависит от условий отмены.',
-    courseCancelConfirmMessage: 'Отменить запись на курс? В зависимости от времени до начала запись отменится сразу или запрос поступит администратору. Возврат средств зависит от условий отмены курса.',
+    cancelConfirmSuffix:
+      'Если отмена доступна сейчас, место освободится. Иначе запрос поступит администратору. Возврат средств зависит от условий отмены.',
+    courseCancelConfirmMessage:
+      'Отменить запись на курс? В зависимости от времени до начала запись отменится сразу или запрос поступит администратору. Возврат средств зависит от условий отмены курса.',
     requestCourseCancellation: 'Отменить запись на курс',
     collabProposalInbox: 'Предложения уроков',
     collabProposalOpen: 'Открыто',
@@ -3787,9 +3813,12 @@ export const translations = {
     adminTestingReset: 'Сбросить тестовые данные',
     adminTestingDelete: 'Удалить сессию',
     adminTestingClose: 'Закрыть сессию',
-    adminTestingCloseHint: 'Закрытие останавливает новые тестовые операции и сохраняет историю сессии. Данные не удаляются.',
-    adminTestingResetHint: 'Сброс удаляет одноразовую тестовую активность и заново создаёт фикстуры сессии.',
-    adminTestingDeleteHint: 'Удаление убирает эту Test Session. Постоянные Test Actors сохраняются.',
+    adminTestingCloseHint:
+      'Закрытие останавливает новые тестовые операции и сохраняет историю сессии. Данные не удаляются.',
+    adminTestingResetHint:
+      'Сброс удаляет одноразовую тестовую активность и заново создаёт фикстуры сессии.',
+    adminTestingDeleteHint:
+      'Удаление убирает эту Test Session. Постоянные Test Actors сохраняются.',
     adminTestingSelectParents: 'Тестовые родители',
     adminTestingSelectInstructor: 'Выделенный тестовый инструктор',
     adminTestingConfirmation: 'Подтверждение',
@@ -3866,10 +3895,12 @@ export const translations = {
       'Другая операция обслуживания удерживает lease.',
     adminTestingLifecycleError_TEST_MAINTENANCE_FAILED:
       'Сбой обслуживания. Проверьте состояние на сервере.',
-    adminTestingLifecycleError_TEST_MAINTENANCE_CONFIRMATION_INVALID: 'Сервер отклонил подтверждение.',
+    adminTestingLifecycleError_TEST_MAINTENANCE_CONFIRMATION_INVALID:
+      'Сервер отклонил подтверждение.',
     adminTestingLifecycleError_TEST_SESSION_NOT_FOUND: 'Тестовая сессия не найдена.',
     adminTestingLifecycleError_TEST_SESSION_NOT_ACTIVE: 'Тестовая сессия не активна.',
-    adminTestingLifecycleError_TEST_SESSION_TRANSITION_FORBIDDEN: 'Переход статуса сессии запрещён.',
+    adminTestingLifecycleError_TEST_SESSION_TRANSITION_FORBIDDEN:
+      'Переход статуса сессии запрещён.',
     adminTestingLifecycleError_LIFECYCLE_FORBIDDEN: 'Команда жизненного цикла запрещена.',
     instructorFilters: 'Фильтры инструкторов',
     instructorFiltersDesc:
@@ -3879,8 +3910,7 @@ export const translations = {
     emailDeliveryProviderConfigured: 'Настроен',
     emailDeliveryProviderNotConfigured: 'Не настроен',
     emailDeliveryToggleLabel: 'Внешняя отправка email',
-    emailDeliveryUnavailable:
-      'Email-провайдер не настроен. Внешняя отправка писем отключена.',
+    emailDeliveryUnavailable: 'Email-провайдер не настроен. Внешняя отправка писем отключена.',
     emailDeliveryEnabledHint: 'Письма клиентам будут обрабатываться воркером очереди.',
     emailDeliveryDisabledHint:
       'Внешняя отправка email выключена. Письма остаются в очереди, уведомления в приложении продолжаются.',
@@ -4482,6 +4512,7 @@ export const translations = {
     courseSeatsOf: 'из',
     courseSeatsLeft: 'СВОБОДНО',
     courseTotalTuition: 'Стоимость за курс',
+    coursePricePerParticipant: 'цена за участника',
     courseAllDaysIncluded: 'Все дни включены',
     courseEnrolled: 'Вы записаны',
     courseAwaitingPayment: 'Ожидает оплаты',
@@ -4718,7 +4749,8 @@ export const translations = {
     guestBookingPrice: 'Стоимость бронирования: {amount}.',
     guestCoursePrice: 'Стоимость курса: {amount}.',
     guestOutstandingAmount: 'Осталось оплатить: {amount}.',
-    guestAdminContactPayment: 'Администратор свяжется с вами по указанным контактам для организации оплаты.',
+    guestAdminContactPayment:
+      'Администратор свяжется с вами по указанным контактам для организации оплаты.',
     guestLessonAfterFullPayment: 'Бронирование будет подтверждено после получения полной оплаты.',
     guestCourseAfterFullPayment: 'Запись на курс будет подтверждена после получения полной оплаты.',
     guestPaymentReceivedPendingConfirmation: 'Оплата получена. Подтверждение обрабатывается.',
@@ -4727,18 +4759,22 @@ export const translations = {
     guestConfirmedBody: 'Оплата получена. Ваше место подтверждено.',
     guestLessonExpiredTitle: 'Срок бронирования истёк',
     guestCourseExpiredTitle: 'Срок удержания места истёк',
-    guestLessonExpiredBody: 'Место больше не удерживается. Создайте новую заявку, если хотите забронировать занятие.',
-    guestCourseExpiredBody: 'Место на курсе больше не удерживается. Создайте новую заявку, если места ещё доступны.',
+    guestLessonExpiredBody:
+      'Место больше не удерживается. Создайте новую заявку, если хотите забронировать занятие.',
+    guestCourseExpiredBody:
+      'Место на курсе больше не удерживается. Создайте новую заявку, если места ещё доступны.',
     guestCancelledTitle: 'Бронирование отменено',
     guestCourseCancelledTitle: 'Запись на курс отменена',
     guestCancelledBody: 'Место больше не удерживается.',
     guestCancelPending: 'Отменить заявку',
     guestCancelConfirm: 'Отменить заявку? После отмены место больше не будет удерживаться.',
-    guestCancelFailed: 'Не удалось отменить заявку. Проверьте её текущий статус и попробуйте снова.',
+    guestCancelFailed:
+      'Не удалось отменить заявку. Проверьте её текущий статус и попробуйте снова.',
     guestCheckStatus: 'Проверить статус',
     guestCheckPreviousStatus: 'Проверить статус заявки',
     guestNewBooking: 'Новое бронирование',
-    guestPreviousUnavailable: 'Предыдущая заявка больше недоступна. Вы можете создать новую заявку.',
+    guestPreviousUnavailable:
+      'Предыдущая заявка больше недоступна. Вы можете создать новую заявку.',
     guestStatusRefreshFailed: 'Не удалось обновить статус бронирования. Попробуйте ещё раз.',
     postCreateRefreshFailedTitle: 'Заявка создана',
     postCreateRefreshFailedLessonTitle: 'Бронирование создано',

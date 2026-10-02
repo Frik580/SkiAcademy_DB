@@ -64,7 +64,10 @@ import {
   type GuestReservationAdmissionPolicy,
 } from '../commands/guestReservationAdmission';
 import { mapFinanceDomainError } from '../finance/financeAuthorization';
-import { guestContactDetailsFromCommand, guestContactPath } from '../guestContact/guestContactStore';
+import {
+  guestContactDetailsFromCommand,
+  guestContactPath,
+} from '../guestContact/guestContactStore';
 import {
   FINANCE_PLANNING_ESTIMATES,
   accountPath,
@@ -97,7 +100,8 @@ import {
   readAndPlanAcquireActiveCourseEnrollmentGuard,
 } from '../resourceClaims/uniquenessGuards';
 import {
-  commitResourceClaimPlan,
+  commitResourceClaimBatch,
+  planResourceClaimBatch,
   readAndPlanAcquireResourceClaim,
   registerResourceClaimPlanInGuardOverlay,
   type InTransactionGuardOverlay,
@@ -172,9 +176,7 @@ function guestCourseCredential(input: {
     expiresAt: input.linkExpiresAt,
     nonce,
   });
-  const cancellationNonce = input.cancellationExpiresAt
-    ? createGuestActionTokenNonce()
-    : undefined;
+  const cancellationNonce = input.cancellationExpiresAt ? createGuestActionTokenNonce() : undefined;
   return {
     enrollmentId: input.enrollmentId,
     guestSubjectId,
@@ -396,7 +398,8 @@ function createCourseEnrollmentsHandler(
   }
 
   const mode = resolveCourseEnrollmentCreationAuthorization(envelope);
-  const guestContactDetails = mode === 'guest' ? guestContactDetailsFromCommand(envelope) : undefined;
+  const guestContactDetails =
+    mode === 'guest' ? guestContactDetailsFromCommand(envelope) : undefined;
   if (mode === 'guest') {
     assertGuestCourseEnrollmentRequestContext(envelope);
     for (const enrollmentId of envelope.intent.enrollmentIds!) {
@@ -435,6 +438,18 @@ function createCourseEnrollmentsHandler(
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'create_course_enrollments'> = {
     read: async (session) => {
       admissionPlan = undefined;
+      const authorizationAccountReadCache = new Map<
+        string,
+        { readonly exists: boolean; readonly data?: Record<string, unknown> }
+      >();
+      const readAuthorizationAccount = async (path: string) => {
+        const cached = authorizationAccountReadCache.get(path);
+        if (cached) return cached;
+        session.plan.planRead({ path, category: 'authorization_check' });
+        const snapshot = await session.tx.get({ path });
+        authorizationAccountReadCache.set(path, snapshot);
+        return snapshot;
+      };
       const now = timestampFromDate(environment.clock.now());
       const courseRead = await session.tx.get({ path: courseDocumentPath });
       session.plan.planRead({ path: courseDocumentPath, category: 'aggregate' });
@@ -506,6 +521,10 @@ function createCourseEnrollmentsHandler(
 
       const nextPlanned: PlannedParticipantEnrollment[] = [];
       const resourceClaimGuardOverlay: InTransactionGuardOverlay = new Map();
+      const resourceClaimGuardReadCache = new Map<
+        string,
+        { readonly exists: boolean; readonly data?: Record<string, unknown> }
+      >();
 
       for (const [index, participantId] of envelope.intent.participantIds.entries()) {
         const enrollmentId = enrollmentIds[index]!;
@@ -648,11 +667,7 @@ function createCourseEnrollmentsHandler(
           }
 
           const actor = requireAccountActor(envelope);
-          const actorAccountRead = await session.tx.get({ path: accountPath(actor.accountId) });
-          session.plan.planRead({
-            path: accountPath(actor.accountId),
-            category: 'authorization_check',
-          });
+          const actorAccountRead = await readAuthorizationAccount(accountPath(actor.accountId));
           const actorAccount = parseAccount(
             actorAccountRead.exists ? actorAccountRead.data : undefined
           );
@@ -668,13 +683,9 @@ function createCourseEnrollmentsHandler(
             management: managementRecord,
           });
 
-          const payerRead = await session.tx.get({
-            path: accountPath(authorization.payerAccountId!),
-          });
-          session.plan.planRead({
-            path: accountPath(authorization.payerAccountId!),
-            category: 'authorization_check',
-          });
+          const payerRead = await readAuthorizationAccount(
+            accountPath(authorization.payerAccountId!)
+          );
           const payerAccount = parseAccount(payerRead.exists ? payerRead.data : undefined);
           if (!payerAccount || payerAccount.lifecycle.status !== 'active') {
             throw new CanonicalCommandError('validation', {
@@ -719,6 +730,8 @@ function createCourseEnrollmentsHandler(
           identity: seatIdentity.identity,
           interval: seatInterval,
           inTransactionGuardOverlay: resourceClaimGuardOverlay,
+          guardBucketReadCache: resourceClaimGuardReadCache,
+          deferPlanMutations: true,
         });
         registerResourceClaimPlanInGuardOverlay(resourceClaimGuardOverlay, seatClaimPlan);
 
@@ -735,6 +748,8 @@ function createCourseEnrollmentsHandler(
             identity: dayIdentity.identity,
             interval: courseDay.interval,
             inTransactionGuardOverlay: resourceClaimGuardOverlay,
+            guardBucketReadCache: resourceClaimGuardReadCache,
+            deferPlanMutations: true,
           });
           registerResourceClaimPlanInGuardOverlay(resourceClaimGuardOverlay, dayClaimPlan);
           dayClaimPlans.push(dayClaimPlan);
@@ -778,6 +793,10 @@ function createCourseEnrollmentsHandler(
       }
 
       const newPlanned = nextPlanned.filter((planned) => !planned.alreadyApplied);
+      planResourceClaimBatch(
+        session,
+        newPlanned.flatMap((planned) => [planned.seatClaimPlan!, ...planned.dayClaimPlans])
+      );
       equivalentReplayOnly = newPlanned.length === 0;
       if (mode === 'guest' && !equivalentReplayOnly && environment.guestReservationAdmission) {
         admissionPlan = await readAndPlanGuestReservationAdmission(session, {
@@ -1041,12 +1060,14 @@ function createCourseEnrollmentsHandler(
                   correlationId: envelope.context.correlationId,
                 });
               }
-              guestLinkCredentials.push(guestCourseCredential({
-                enrollmentId: planned.enrollmentId,
-                secret,
-                linkExpiresAt: courseRecord.scheduleProjection.finalCourseDayEndsAt,
-                cancellationExpiresAt: planned.existingReservationExpiresAt,
-              }));
+              guestLinkCredentials.push(
+                guestCourseCredential({
+                  enrollmentId: planned.enrollmentId,
+                  secret,
+                  linkExpiresAt: courseRecord.scheduleProjection.finalCourseDayEndsAt,
+                  cancellationExpiresAt: planned.existingReservationExpiresAt,
+                })
+              );
             }
             continue;
           }
@@ -1072,17 +1093,23 @@ function createCourseEnrollmentsHandler(
           }
 
           if (mode === 'guest' && guestContactDetails) {
-            const subject = { kind: 'course_enrollment' as const, enrollmentId: planned.enrollmentId };
+            const subject = {
+              kind: 'course_enrollment' as const,
+              enrollmentId: planned.enrollmentId,
+            };
             const notificationLocale = notificationLocaleFromTransportMetadata(
               envelope.context.transportMetadata
             );
-            session.tx.create({ path: guestContactPath(subject) }, GuestContactSchema.parse({
-              subject,
-              ...guestContactDetails,
-              ...(notificationLocale ? { notificationLocale } : {}),
-              ...canonicalScopeFields(session.scope ?? LIVE_CANONICAL_EXECUTION_SCOPE),
-              createdAt: decidedAt,
-            }) as Record<string, unknown>);
+            session.tx.create(
+              { path: guestContactPath(subject) },
+              GuestContactSchema.parse({
+                subject,
+                ...guestContactDetails,
+                ...(notificationLocale ? { notificationLocale } : {}),
+                ...canonicalScopeFields(session.scope ?? LIVE_CANONICAL_EXECUTION_SCOPE),
+                createdAt: decidedAt,
+              }) as Record<string, unknown>
+            );
           }
 
           const lifecycle =
@@ -1173,10 +1200,6 @@ function createCourseEnrollmentsHandler(
             planned.guardPlan!.guard,
             planned.guardPlan!.hadExisting
           );
-          commitResourceClaimPlan(session, planned.seatClaimPlan!, claimMetadata);
-          for (const dayClaimPlan of planned.dayClaimPlans) {
-            commitResourceClaimPlan(session, dayClaimPlan, claimMetadata);
-          }
 
           if (mode === 'guest') {
             const secret = environment.guestActionTokenSecret;
@@ -1185,17 +1208,25 @@ function createCourseEnrollmentsHandler(
                 correlationId: envelope.context.correlationId,
               });
             }
-            guestLinkCredentials.push(guestCourseCredential({
-              enrollmentId: planned.enrollmentId,
-              secret,
-              linkExpiresAt: courseRecord.scheduleProjection.finalCourseDayEndsAt,
-              cancellationExpiresAt: resolveGuestCourseReservationExpiresAt({
-                createdAt: decidedAt,
-                courseStartsAt: courseRecord.startAt,
-              }),
-            }));
+            guestLinkCredentials.push(
+              guestCourseCredential({
+                enrollmentId: planned.enrollmentId,
+                secret,
+                linkExpiresAt: courseRecord.scheduleProjection.finalCourseDayEndsAt,
+                cancellationExpiresAt: resolveGuestCourseReservationExpiresAt({
+                  createdAt: decidedAt,
+                  courseStartsAt: courseRecord.startAt,
+                }),
+              })
+            );
           }
         }
+
+        commitResourceClaimBatch(
+          session,
+          newEnrollments.flatMap((planned) => [planned.seatClaimPlan!, ...planned.dayClaimPlans]),
+          claimMetadata
+        );
 
         if (includeWalletEffect && payerAccountId) {
           const wallet = walletRecord ?? initialWallet(payerAccountId, decidedAt);

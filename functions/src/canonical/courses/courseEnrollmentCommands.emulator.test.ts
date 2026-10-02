@@ -35,8 +35,10 @@ const accountId = AccountIdSchema.parse('account_course_enrollment_owner_01');
 const adminAccountId = AccountIdSchema.parse('account_course_enrollment_admin_01');
 const participantId = ParticipantIdSchema.parse('participant_course_enrollment_01');
 const participantIdB = ParticipantIdSchema.parse('participant_course_enrollment_02');
+const participantIdC = ParticipantIdSchema.parse('participant_course_enrollment_03');
 const managementId = ParticipantManagementIdSchema.parse('management_course_enrollment_01');
 const managementIdB = ParticipantManagementIdSchema.parse('management_course_enrollment_02');
+const managementIdC = ParticipantManagementIdSchema.parse('management_course_enrollment_03');
 const instructorId = InstructorIdSchema.parse('instructor_course_enrollment_01');
 const courseId = CourseIdSchema.parse('course_course_enrollment_emulator_01');
 const courseIdB = CourseIdSchema.parse('course_course_enrollment_emulator_02');
@@ -313,12 +315,22 @@ async function seedBase(
       displaySuffix: 'B',
     })
   );
+  await firestore.doc(`participants/${participantIdC}`).set(
+    seedParticipantRecord({
+      participantId: participantIdC,
+      managementId: managementIdC,
+      displaySuffix: 'C',
+    })
+  );
   await firestore
     .doc(`participant_management/${managementId}`)
     .set(seedManagementRecord({ managementId, participantId }));
   await firestore
     .doc(`participant_management/${managementIdB}`)
     .set(seedManagementRecord({ managementId: managementIdB, participantId: participantIdB }));
+  await firestore
+    .doc(`participant_management/${managementIdC}`)
+    .set(seedManagementRecord({ managementId: managementIdC, participantId: participantIdC }));
   await firestore.doc(`instructors/${instructorId}`).set({
     id: instructorId,
     name: `Instructor ${instructorId}`,
@@ -344,8 +356,7 @@ async function seedWalletRaceCourses() {
 
 function enrollmentEnvelope(input: {
   idempotencyKey: string;
-  participantIds:
-    readonly [typeof participantId] | readonly [typeof participantId, typeof participantIdB];
+  participantIds: readonly (typeof participantId)[];
   enrollmentIds?: readonly string[];
   correlation?: typeof correlationId;
   targetCourseId?: typeof courseId;
@@ -916,29 +927,43 @@ describe.sequential.runIf(runsOnFirestoreEmulator)('course enrollment commands e
 
   it('N. commits all children atomically when multi-child enrollment is fully valid and funded', async () => {
     await clearCollections(firestore);
-    await seedBase(COURSE_PRICE_KZT * 2, 1, 8);
+    await seedBase(COURSE_PRICE_KZT * 3, 3, 8);
 
     const commands = createCommands();
-    const result = await commands.execute(
-      enrollmentEnvelope({
-        idempotencyKey: 'enrollment-multi-child-success',
-        participantIds: [participantId, participantIdB],
-      })
-    );
+    const envelope = enrollmentEnvelope({
+      idempotencyKey: 'enrollment-multi-child-success',
+      participantIds: [participantId, participantIdB, participantIdC],
+    });
+    const result = await commands.execute(envelope);
     expect(result.status).toBe('success');
+    expect((await commands.execute(envelope)).status).toBe('success');
 
     const state = await durableCounts();
-    expect(state.enrollments).toBe(2);
-    expect(state.payments).toBe(2);
-    expect(state.monetaryEvents).toBe(2);
-    expect(state.enrollmentGuards).toBe(2);
-    expect(state.availableSeats).toBe(6);
+    expect(state.enrollments).toBe(3);
+    expect(state.payments).toBe(3);
+    expect(state.monetaryEvents).toBe(3);
+    expect(state.enrollmentGuards).toBe(3);
+    expect(state.enrollmentClaims).toBe(12);
+    expect(state.availableSeats).toBe(5);
     expect(state.walletBalance).toBe(0);
+
+    const enrollmentDocuments = await firestore.collection('course_enrollments').get();
+    const participants = [participantId, participantIdB, participantIdC];
+    for (const participant of participants) {
+      const enrollment = enrollmentDocuments.docs.find(
+        (document) => document.data().participantId === participant
+      );
+      expect(enrollment).toBeDefined();
+      const payment = await firestore.doc(`payments/${enrollment!.data().paymentId}`).get();
+      expect(payment.data()?.subjectId).toBe(enrollment!.id);
+      expect(payment.data()?.price).toBe(COURSE_PRICE_KZT);
+      expect(payment.data()?.originalPrice).toBe(COURSE_PRICE_KZT);
+    }
   }, 30_000);
 
   it('O. rejects multi-child enrollment when one child has a participant conflict', async () => {
     await clearCollections(firestore);
-    await seedBase(COURSE_PRICE_KZT * 2 + BOOKING_PRICE_KZT, 1, 8);
+    await seedBase(COURSE_PRICE_KZT * 3 + BOOKING_PRICE_KZT, 1, 8);
 
     const commands = createCommands();
     const bookingResult = await commands.execute(
@@ -955,7 +980,7 @@ describe.sequential.runIf(runsOnFirestoreEmulator)('course enrollment commands e
     const result = await commands.execute(
       enrollmentEnvelope({
         idempotencyKey: 'enrollment-multi-child-conflict',
-        participantIds: [participantId, participantIdB],
+        participantIds: [participantId, participantIdB, participantIdC],
       })
     );
     expect(result.status).toBe('error');
@@ -968,17 +993,18 @@ describe.sequential.runIf(runsOnFirestoreEmulator)('course enrollment commands e
     expect(state.enrollmentGuards).toBe(0);
     expect(state.payments).toBe(1);
     expect(state.availableSeats).toBe(8);
+    expect(state.walletBalance).toBe(COURSE_PRICE_KZT * 3);
   }, 30_000);
 
   it('P. rejects multi-child enrollment when wallet can fund only a subset', async () => {
     await clearCollections(firestore);
-    await seedBase(COURSE_PRICE_KZT + 1_000, 1, 8);
+    await seedBase(COURSE_PRICE_KZT * 2 + 1_000, 1, 8);
 
     const commands = createCommands();
     const result = await commands.execute(
       enrollmentEnvelope({
         idempotencyKey: 'enrollment-multi-child-wallet',
-        participantIds: [participantId, participantIdB],
+        participantIds: [participantId, participantIdB, participantIdC],
       })
     );
     expect(result.status).toBe('error');
@@ -990,7 +1016,7 @@ describe.sequential.runIf(runsOnFirestoreEmulator)('course enrollment commands e
     expect(state.enrollments).toBe(0);
     expect(state.payments).toBe(0);
     expect(state.availableSeats).toBe(8);
-    expect(state.walletBalance).toBe(COURSE_PRICE_KZT + 1_000);
+    expect(state.walletBalance).toBe(COURSE_PRICE_KZT * 2 + 1_000);
   }, 30_000);
 
   it('Q. rejects multi-child enrollment when capacity cannot fit the whole batch', async () => {

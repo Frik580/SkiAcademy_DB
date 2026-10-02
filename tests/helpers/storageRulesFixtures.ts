@@ -2,8 +2,9 @@ import { assertFails, assertSucceeds, RulesTestEnvironment } from '@firebase/rul
 import { readRepoFile } from './readRepoFile';
 import { doc, setDoc } from 'firebase/firestore';
 import { getBytes, ref, uploadBytes } from 'firebase/storage';
+import { E2E_PROJECT_ID } from '../../e2e/emulator-config';
 
-export const STORAGE_RULES_PROJECT_ID = 'ski-school-8f3ca';
+export const STORAGE_RULES_PROJECT_ID = E2E_PROJECT_ID;
 
 export const STORAGE_USER_ID = 'user-1';
 export const STORAGE_OTHER_USER_ID = 'user-2';

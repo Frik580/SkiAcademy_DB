@@ -216,24 +216,47 @@ describe('create_guest_booking_request command', () => {
     );
   });
 
-  it('provisions an unmanaged guest participant atomically when missing', async () => {
-    const executor = createInMemoryCanonicalTransactionExecutor(fixtureWithoutParticipant());
-    const commands = runCommands(executor);
-    const result = await commands.execute(guestCreateEnvelope());
-    expect(result.status).toBe('success');
+  it.each(['ski', 'snowboard'] as const)(
+    'provisions an unmanaged %s guest participant with actual profile data atomically',
+    async (discipline) => {
+      const executor = createInMemoryCanonicalTransactionExecutor(fixtureWithoutParticipant());
+      const commands = runCommands(executor);
+      const envelope = guestCreateEnvelope();
+      const result = await commands.execute({
+        ...envelope,
+        context: {
+          ...envelope.context,
+          transportMetadata: {
+            ...guestParticipantTransport(),
+            ...guestParticipantTransportMetadataFromProfile({
+              displayName: 'Guest Child',
+              discipline,
+              skillLevel: 'intermediate',
+              ageYears: 12,
+            }),
+          },
+        },
+      });
+      expect(result.status).toBe('success');
 
-    const participant = executor.snapshot().docs.get(`participants/${participantId}`)?.data;
-    expect(participant?.management).toEqual({ kind: 'unmanaged_guest' });
-    expect(participant?.displayName).toBe('Guest Participant');
-    expect(participant?.initialManagementEligibleAccountId).toBeUndefined();
-    expect(executor.snapshot().docs.get(`guest_contacts/booking_${bookingId}`)?.data).toMatchObject(
-      {
+      const participant = executor.snapshot().docs.get(`participants/${participantId}`)?.data;
+      expect(participant?.management).toEqual({ kind: 'unmanaged_guest' });
+      expect(participant).toMatchObject({
+        displayName: 'Guest Child',
+        discipline,
+        skillLevel: 'intermediate',
+        age: { kind: 'age_years', years: 12 },
+      });
+      expect(participant?.initialManagementEligibleAccountId).toBeUndefined();
+      expect(
+        executor.snapshot().docs.get(`guest_contacts/booking_${bookingId}`)?.data
+      ).toMatchObject({
         subject: { kind: 'booking', bookingId },
         phone: '+7 701 123 45 67',
         email: 'guest@example.com',
-      }
-    );
-  });
+      });
+    }
+  );
 
   it('stores per-lesson difficulty and notes without changing guest Participant.skillLevel', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(fixtureWithoutParticipant());
@@ -1353,7 +1376,9 @@ describe('guest pending cancellation command', () => {
     });
     expect(result.status).toBe('error');
     expect(result.status === 'error' ? result.error.code : '').toBe('invalid_transition');
-    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe('pending');
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe(
+      'pending'
+    );
     expect(executor.snapshot().docs.get(`payments/${paymentId}`)?.data).toEqual(before);
   });
 });

@@ -311,7 +311,77 @@ export async function fillBookingSelectors(
 }
 
 export async function submitGuestBookingApplication(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'Submit booking request' }).click();
+  const bookingModal = getBookingModal(page);
+  const submit = bookingModal.getByRole('button', { name: 'Submit booking request', exact: true });
+
+  const invalidFields = await submit.evaluate((button: HTMLButtonElement) =>
+    Array.from(button.form?.elements ?? []).flatMap((control) => {
+      if (
+        (control instanceof HTMLInputElement ||
+          control instanceof HTMLSelectElement ||
+          control instanceof HTMLTextAreaElement) &&
+        !control.validity.valid
+      ) {
+        return `${control.labels?.[0]?.textContent?.trim() ?? control.name}: ${control.validationMessage}`;
+      }
+      return [];
+    })
+  );
+  expect(invalidFields, 'Guest booking blocked by browser form validation').toEqual([]);
+  await submit.click();
+
+  const success = page.getByRole('heading', { name: 'Request created', exact: true });
+  const error = page
+    .getByText(/^(Booking Error|Missing Details)$/)
+    .or(page.getByRole('alert').filter({ hasText: 'Booking not created' }));
+  let outcome = 'pending';
+  let errorText = '';
+  await expect
+    .poll(async () => {
+      if (await error.first().isVisible()) {
+        errorText = (await error.allTextContents()).join('; ');
+        outcome = 'error';
+      } else if (await success.isVisible()) {
+        outcome = 'success';
+      } else if (!(await bookingModal.isVisible())) {
+        outcome = 'closed';
+      }
+      return outcome;
+    })
+    .not.toBe('pending');
+  expect(outcome, `Guest booking failed: ${errorText}`).not.toBe('error');
+}
+
+export async function fillGuestParticipantFields(
+  page: Page,
+  profile: {
+    age: number;
+    discipline: 'ski' | 'snowboard';
+    skillLevel: 'beginner' | 'intermediate' | 'advanced' | 'freeride' | 'freestyle';
+  }
+): Promise<void> {
+  const bookingModal = getBookingModal(page);
+  await bookingModal
+    .getByRole('spinbutton', { name: 'Age (years) *', exact: true })
+    .fill(String(profile.age));
+  await bookingModal
+    .getByRole('combobox', { name: 'Discipline *', exact: true })
+    .selectOption(profile.discipline);
+
+  const skillLabels = {
+    beginner: '🟢 Beginner',
+    intermediate: '🔵 Intermediate',
+    advanced: '🔴 Advanced',
+    freeride: '🏔️ Off-Piste / Freeride',
+    freestyle: '🛹 Terrain Park Freestyle',
+  };
+  const stage = bookingModal.getByRole('button', { name: 'Lesson Stage', exact: true });
+  await stage.click();
+  await bookingModal
+    .getByRole('button', { name: skillLabels[profile.skillLevel], exact: true })
+    .click();
+  await page.keyboard.press('Escape');
+  await expect(stage).toHaveText(skillLabels[profile.skillLevel]);
 }
 
 export async function submitStudentBookingConfirmation(page: Page): Promise<void> {

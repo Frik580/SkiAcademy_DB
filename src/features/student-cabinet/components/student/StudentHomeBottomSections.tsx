@@ -12,10 +12,10 @@ import { RecommendationIndicator } from '../RecommendationIndicator';
 
 export interface StudentCabinetResortSnapshot {
   resortConfig: ResortConfig;
-  tempC: number;
-  snowDepthCm: number;
-  windKmh: number;
-  weatherCode: number;
+  tempC: number | null;
+  snowDepthCm: number | null;
+  windKmh: number | null;
+  weatherCode: number | null;
   isFahrenheit: boolean;
 }
 
@@ -85,7 +85,8 @@ export const StudentCabinetWeatherSection: React.FC<StudentCabinetWeatherSection
     statusText.toUpperCase().includes('ЗАКР') ||
     statusText.toUpperCase().includes('OFF');
 
-  const displayTemp = isFahrenheit ? Math.round((tempC * 9) / 5 + 32) : tempC;
+  const displayTemp =
+    tempC === null ? null : isFahrenheit ? Math.round((tempC * 9) / 5 + 32) : tempC;
 
   return (
     <section className="py-6 space-y-3">
@@ -97,25 +98,33 @@ export const StudentCabinetWeatherSection: React.FC<StudentCabinetWeatherSection
               {language === 'ru' ? resortConfig.nameRu : resortConfig.nameEn}
             </p>
             <p className="text-xs text-[var(--ink-dim)]">
-              {t(getWeatherConditionKey(weatherCode))}
+              {weatherCode === null
+                ? t('conditionsUnavailable')
+                : t(getWeatherConditionKey(weatherCode))}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onToggleTemperatureUnit}
-            className="font-serif text-3xl font-light text-[var(--ink)] leading-none shrink-0 bg-transparent border-0 p-0 cursor-pointer"
-            aria-label={t('mountainTemp')}
-          >
-            <AnimatedNumber value={displayTemp} />°
-          </button>
+          {displayTemp !== null && (
+            <button
+              type="button"
+              onClick={onToggleTemperatureUnit}
+              className="font-serif text-3xl font-light text-[var(--ink)] leading-none shrink-0 bg-transparent border-0 p-0 cursor-pointer"
+              aria-label={t('mountainTemp')}
+            >
+              <AnimatedNumber value={displayTemp} />°
+            </button>
+          )}
         </div>
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs sm:text-sm text-[var(--ink-dim)]">
-          <span>
-            {t('snowCover')} <AnimatedNumber value={snowDepthCm} /> {t('centimetersShort')}
-          </span>
-          <span>
-            {t('windSpeed')} <AnimatedNumber value={windKmh} /> {t('kilometersPerHourShort')}
-          </span>
+          {snowDepthCm !== null && (
+            <span>
+              {t('snowCover')} <AnimatedNumber value={snowDepthCm} /> {t('centimetersShort')}
+            </span>
+          )}
+          {windKmh !== null && (
+            <span>
+              {t('windSpeed')} <AnimatedNumber value={windKmh} /> {t('kilometersPerHourShort')}
+            </span>
+          )}
         </div>
         {resortConfig.showLifts !== false && (
           <p

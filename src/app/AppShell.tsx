@@ -53,6 +53,7 @@ export const AppShell: React.FC = () => {
   const {
     resortConfig,
     isResortConfigReady,
+    conditions,
     tempC,
     snowDepthCm,
     newSnow24h,
@@ -126,6 +127,7 @@ export const AppShell: React.FC = () => {
           resortData={{
             resortConfig,
             isResortConfigReady,
+            conditions,
             tempC,
             snowDepthCm,
             newSnow24h,

@@ -7,7 +7,7 @@ import { GroupCoursesSection } from '../../features/courses';
 import { HeroCarousel } from '../../app/components/HeroCarousel';
 import { InstructorCard } from '../../features/profile';
 import { LessonFilters } from '../../features/courses';
-import { ResortConditionsSidebar } from '../../app/components/ResortConditionsSidebar';
+import { ConditionsStrip } from '../../features/resort-conditions';
 import { useLanguage } from '../../app/providers/LanguageContext';
 import { useTheme } from '../../hooks/useTheme';
 import { getDefaultWorkspacePath } from '../../lib/workspaceRoutes';
@@ -117,22 +117,15 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
         actions={{ onScrollToSection: handleScrollToSection }}
       />
 
+      <ConditionsStrip
+        conditions={resortData.conditions}
+        unit={resortData.isFahrenheit ? 'fahrenheit' : 'celsius'}
+        onToggleUnit={() => setIsFahrenheit(!resortData.isFahrenheit)}
+      />
+
       <YourJourneySection skillConfig={skillConfig} userProfile={null} />
 
-      <div className="flex flex-col lg:grid gap-0 lg:gap-16 lg:grid-cols-[minmax(140px,200px)_1fr]">
-        <ResortConditionsSidebar
-          data={{
-            language,
-            resortConfig: resortData.resortConfig,
-            tempC: resortData.tempC,
-            snowDepthCm: resortData.snowDepthCm,
-            windKmh: resortData.windKmh,
-            weatherCode: resortData.weatherCode,
-            isFahrenheit: resortData.isFahrenheit,
-          }}
-          actions={{ onToggleTemperatureUnit: () => setIsFahrenheit(!resortData.isFahrenheit) }}
-        />
-
+      <div className="flex flex-col">
         <div className="flex flex-col">
           <div
             id="main-content-pane"

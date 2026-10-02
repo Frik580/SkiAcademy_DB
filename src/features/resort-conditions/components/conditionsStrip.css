@@ -1,0 +1,112 @@
+.conditions-strip {
+  flex-shrink: 0;
+  width: 100%;
+  height: 58px;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+}
+
+.conditions-strip-scroll {
+  height: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.conditions-strip-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.conditions-strip-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: max-content;
+  height: 100%;
+  font-size: 0.75rem;
+}
+
+.conditions-strip-items {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  width: max-content;
+  height: 100%;
+  font-size: 0.75rem;
+  gap: 0;
+}
+
+.conditions-strip__main {
+  flex: none;
+}
+
+.conditions-strip__meta {
+  display: flex;
+  align-items: center;
+  flex: none;
+  margin-left: auto;
+  padding-left: 1rem;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.conditions-strip-items > li {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 0.45rem;
+  padding-inline: 1rem;
+  white-space: nowrap;
+}
+
+.conditions-strip-items > li:first-child {
+  padding-left: 0;
+}
+
+.conditions-strip-items > li + li {
+  border-left: 1px solid var(--border);
+}
+
+.conditions-label,
+.conditions-source {
+  color: color-mix(in srgb, var(--ink) 70%, var(--bg));
+}
+
+.conditions-unit {
+  background: transparent;
+  padding: 0.4rem 0.2rem;
+  cursor: pointer;
+}
+
+.conditions-unit:focus-visible,
+.conditions-source a:focus-visible,
+.conditions-strip-scroll:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.conditions-updated {
+  display: none !important;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.conditions-source a:hover {
+  text-decoration: underline;
+}
+
+@media (min-width: 1024px) {
+  .conditions-strip {
+    position: sticky;
+    top: var(--app-navbar-height);
+    z-index: 20;
+  }
+
+  .conditions-updated {
+    display: flex !important;
+  }
+}

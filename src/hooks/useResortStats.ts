@@ -1,13 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import {
   subscribeResortConfig,
-  getResortWeatherCache,
-  saveResortWeatherCache,
   readCachedResortConfig,
   writeCachedResortConfig,
 } from '../features/settings';
 import { ResortConfig } from '../types';
 import { logger } from '../shared';
+import { useResortConditions } from '../features/resort-conditions';
 
 const DEFAULT_CONFIG: ResortConfig = {
   nameEn: 'Shymbulak Mountain Resort',
@@ -67,15 +66,21 @@ export const useResortStats = () => {
   const [isResortConfigReady, setIsResortConfigReady] = useState(() => {
     return readCachedResortConfig() !== null;
   });
-  const [tempC, setTempC] = useState(0);
-  const [snowDepthCm, setSnowDepthCm] = useState(0);
-  const [newSnow24h, setNewSnow24h] = useState(0);
-  const [windKmh, setWindKmh] = useState(0);
-  const [weatherCode, setWeatherCode] = useState(0);
-  const [openLifts, setOpenLifts] = useState(0);
-  const [isFahrenheit, setIsFahrenheit] = useState(false);
-  const [isResortLoading, setIsResortLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState('--:--');
+  const [isFahrenheit, setIsFahrenheit] = useState(() => {
+    try {
+      return localStorage.getItem('carve_temperature_unit') === 'fahrenheit';
+    } catch {
+      return false;
+    }
+  });
+  const { conditions, refresh } = useResortConditions(resortConfig, isResortConfigReady);
+  useEffect(() => {
+    try {
+      localStorage.setItem('carve_temperature_unit', isFahrenheit ? 'fahrenheit' : 'celsius');
+    } catch {
+      // The unit switch also works when browser storage is unavailable.
+    }
+  }, [isFahrenheit]);
 
   // Real-time listener for resort configuration
   useEffect(() => {
@@ -94,133 +99,20 @@ export const useResortStats = () => {
     );
   }, []);
 
-  const fetchResortStats = useCallback(async (config: ResortConfig) => {
-    setIsResortLoading(true);
-    try {
-      const data = await getResortWeatherCache();
-      if (data) {
-        const now = new Date().getTime();
-        const lastUpdatedTime = data.lastUpdatedTimestamp || 0;
-
-        if (
-          now - lastUpdatedTime < 3600 * 1000 &&
-          data.latitude === config.latitude &&
-          data.longitude === config.longitude
-        ) {
-          setTempC(data.tempC);
-          setSnowDepthCm(data.snowDepthCm);
-          setNewSnow24h(data.newSnow24h);
-          setWindKmh(data.windKmh);
-          setWeatherCode(typeof data.weatherCode === 'number' ? data.weatherCode : 0);
-          setOpenLifts(data.openLifts);
-          setLastUpdated(
-            new Date(lastUpdatedTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          );
-          logger.debug('Weather data loaded from Firestore cache.');
-          setIsResortLoading(false);
-          return;
-        }
-      }
-
-      logger.debug(
-        `Fetching fresh weather data for Lat: ${config.latitude}, Lon: ${config.longitude} from API...`
-      );
-
-      const forecastApiUrl = `https://api.open-meteo.com/v1/forecast?latitude=${config.latitude}&longitude=${config.longitude}&current=temperature_2m,wind_speed_10m,weather_code&hourly=snow_depth&daily=snowfall_sum&timezone=auto`;
-
-      const response = await fetch(forecastApiUrl);
-
-      if (!response.ok) {
-        logger.error('Forecast API Error:', await response.text());
-        throw new Error('Failed to fetch weather data');
-      }
-
-      const forecastData = await response.json();
-
-      const newTempC =
-        forecastData.current?.temperature_2m !== undefined
-          ? Math.round(forecastData.current.temperature_2m)
-          : -5;
-      const newWindKmh =
-        forecastData.current?.wind_speed_10m !== undefined
-          ? Math.round(forecastData.current.wind_speed_10m)
-          : 15;
-      const newWeatherCode =
-        forecastData.current?.weather_code !== undefined ? forecastData.current.weather_code : 0;
-      const newSnowfall24h =
-        forecastData.daily?.snowfall_sum?.[0] !== undefined
-          ? Math.round(forecastData.daily.snowfall_sum[0])
-          : 12;
-
-      const firstHourlySnowDepth = forecastData.hourly?.snow_depth?.[0];
-      const newSnowDepthCm =
-        firstHourlySnowDepth !== undefined && firstHourlySnowDepth !== null
-          ? Math.round(firstHourlySnowDepth * 100)
-          : 175;
-
-      const baseOpenLifts = newWindKmh > 40 ? 8 : 13;
-      const newOpenLifts = baseOpenLifts - Math.floor(Math.random() * 3);
-      const updatedTimestamp = new Date();
-
-      setTempC(newTempC);
-      setWindKmh(newWindKmh);
-      setWeatherCode(newWeatherCode);
-      setSnowDepthCm(newSnowDepthCm);
-      setNewSnow24h(newSnowfall24h);
-      setOpenLifts(newOpenLifts);
-      setLastUpdated(
-        updatedTimestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      );
-
-      const dataToCache = {
-        tempC: newTempC,
-        windKmh: newWindKmh,
-        weatherCode: newWeatherCode,
-        snowDepthCm: newSnowDepthCm,
-        newSnow24h: newSnowfall24h,
-        openLifts: newOpenLifts,
-        lastUpdatedTimestamp: updatedTimestamp.getTime(),
-        latitude: config.latitude,
-        longitude: config.longitude,
-      };
-
-      try {
-        await saveResortWeatherCache(dataToCache);
-        logger.debug('Weather data cached to Firestore.');
-      } catch (cacheError) {
-        logger.warn('Weather cache update skipped:', cacheError);
-      }
-    } catch (error) {
-      logger.error('Error fetching resort stats:', error);
-      setTempC(-5);
-      setSnowDepthCm(175);
-      setNewSnow24h(12);
-      setWindKmh(15);
-      setWeatherCode(0);
-      setOpenLifts(12);
-    } finally {
-      setIsResortLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!isResortConfigReady) return;
-    fetchResortStats(resortConfig);
-  }, [resortConfig, fetchResortStats, isResortConfigReady]);
-
   return {
     resortConfig,
     isResortConfigReady,
-    tempC,
-    snowDepthCm,
-    newSnow24h,
-    windKmh,
-    weatherCode,
-    openLifts,
+    conditions,
+    tempC: conditions.data?.temperatureC ?? null,
+    snowDepthCm: conditions.data?.snowDepthCm ?? null,
+    newSnow24h: null,
+    windKmh: conditions.data?.windKmh ?? null,
+    weatherCode: conditions.data?.weatherCode ?? null,
+    openLifts: conditions.data?.liftsOpen ?? null,
     isFahrenheit,
     setIsFahrenheit,
-    isResortLoading,
-    lastUpdated,
-    handleRefreshResortStats: () => fetchResortStats(resortConfig),
+    isResortLoading: conditions.status === 'loading',
+    lastUpdated: conditions.data?.updatedAt ?? '',
+    handleRefreshResortStats: refresh,
   };
 };

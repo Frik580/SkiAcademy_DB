@@ -506,7 +506,7 @@ describe('AdminCourseEnrollmentPanel', () => {
     );
     expect(await screen.findByRole('button', { name: 'Accept payment' })).toBeVisible();
     const amount = screen.getByLabelText('Amount, KZT');
-    expect(amount).toHaveValue(15_000);
+    await waitFor(() => expect(amount).toHaveValue(15_000));
     await user.clear(amount);
     await user.type(amount, '5000');
     await user.click(screen.getByRole('button', { name: 'Accept payment' }));

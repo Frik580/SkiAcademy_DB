@@ -343,6 +343,50 @@ describe('CourseEnrollmentModal authenticated enrollment', () => {
     });
   });
 
+  it('updates authenticated tuition as participants are toggled', async () => {
+    const secondDependent: ManagedParticipantOption = {
+      ...dependent,
+      participantId: 'participant_dependent_2',
+      participantManagementId: 'management_dependent_2',
+      displayName: 'Second Dependent',
+    };
+    mocks.participants = [selfOnly, dependent, secondDependent];
+    mocks.selectedParticipantIds = ['participant_self'];
+
+    const props = {
+      isOpen: true,
+      onClose: vi.fn(),
+      course,
+      userProfile,
+      onEnroll,
+    };
+    const { rerender } = render(<CourseEnrollmentModal {...props} />);
+
+    expect(screen.getByText('45000', { exact: true })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /Dependent Child/i }));
+    expect(mocks.toggleParticipant).toHaveBeenCalledWith('participant_dependent');
+    mocks.selectedParticipantIds = ['participant_self', 'participant_dependent'];
+    rerender(<CourseEnrollmentModal {...props} />);
+    expect(screen.getByText('90000', { exact: true })).toBeInTheDocument();
+    expect(screen.getByText('45000 × 2')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /Second Dependent/i }));
+    expect(mocks.toggleParticipant).toHaveBeenCalledWith('participant_dependent_2');
+    mocks.selectedParticipantIds = [
+      'participant_self',
+      'participant_dependent',
+      'participant_dependent_2',
+    ];
+    rerender(<CourseEnrollmentModal {...props} />);
+    expect(screen.getByText('135000', { exact: true })).toBeInTheDocument();
+    expect(screen.getByText('45000 × 3')).toBeInTheDocument();
+
+    mocks.selectedParticipantIds = [];
+    rerender(<CourseEnrollmentModal {...props} />);
+    expect(screen.getByText('—', { exact: true })).toBeInTheDocument();
+    expect(screen.queryByText('0', { exact: true })).not.toBeInTheDocument();
+  });
+
   it('does not auto-select the first participant when multiple exist', async () => {
     mocks.participants = [selfOnly, dependent];
     mocks.selectedParticipantIds = [];

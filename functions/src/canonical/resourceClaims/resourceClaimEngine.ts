@@ -47,12 +47,21 @@ export interface AcquireResourceClaimInput extends ResourceClaimCommandMetadata 
   readonly interval: TimeInterval;
   readonly replacementIgnore?: ResourceClaimReplacementIgnore;
   readonly inTransactionGuardOverlay?: InTransactionGuardOverlay;
+  readonly guardBucketReadCache?: Map<string, ResourceClaimGuardReadSnapshot>;
+  readonly deferPlanMutations?: boolean;
 }
 
 export interface MoveResourceClaimInput extends ResourceClaimCommandMetadata {
   readonly claimId: ResourceClaimId;
   readonly newInterval: TimeInterval;
   readonly replacementIgnore?: ResourceClaimReplacementIgnore;
+  readonly guardBucketReadCache?: Map<string, ResourceClaimGuardReadSnapshot>;
+  readonly deferPlanMutations?: boolean;
+}
+
+export interface ResourceClaimGuardReadSnapshot {
+  readonly exists: boolean;
+  readonly data?: Record<string, unknown>;
 }
 
 export interface ReleaseResourceClaimInput extends ResourceClaimCommandMetadata {
@@ -206,36 +215,28 @@ function activeClaimMatches(
   );
 }
 
-function planGuardRead(
-  session: CanonicalAtomicTransactionSession,
-  bucket: UtcGuardBucket
-): LoadedGuardBucket {
-  const guardId = resourceClaimGuardIdFromBucketIdentity(bucket.bucketIdentity, bucket.scope);
-  const path = guardPathFor(guardId);
-  session.plan.planRead({ path, category: 'resource_guard' });
-  return {
-    bucket,
-    guardId,
-    path,
-    existing: undefined,
-    documentExists: false,
-    conflictEntries: [],
-  };
-}
-
 async function loadGuardBuckets(
   session: CanonicalAtomicTransactionSession,
-  buckets: readonly UtcGuardBucket[]
+  buckets: readonly UtcGuardBucket[],
+  readCache?: Map<string, ResourceClaimGuardReadSnapshot>
 ): Promise<LoadedGuardBucket[]> {
-  const planned = buckets.map((bucket) => planGuardRead(session, bucket));
   const loaded: LoadedGuardBucket[] = [];
 
-  for (const item of planned) {
-    const snapshot = await session.tx.get({ path: item.path });
+  for (const bucket of buckets) {
+    const guardId = resourceClaimGuardIdFromBucketIdentity(bucket.bucketIdentity, bucket.scope);
+    const path = guardPathFor(guardId);
+    let snapshot = readCache?.get(path);
+    if (!snapshot) {
+      session.plan.planRead({ path, category: 'resource_guard' });
+      snapshot = await session.tx.get({ path });
+      readCache?.set(path, snapshot);
+    }
     const rawData = snapshot.exists ? snapshot.data : undefined;
     const existing = rawData ? parseGuard(rawData) : undefined;
     loaded.push({
-      ...item,
+      bucket,
+      guardId,
+      path,
       existing,
       documentExists: snapshot.exists,
       conflictEntries: conflictEntriesForBucket(existing, rawData),
@@ -280,9 +281,7 @@ function assertNoIntervalConflict(
             : { resourceKind: conflictDetailsResourceKind(resourceKind) }),
           ...(resourceKind === 'participant'
             ? {
-                participantIds: [
-                  bucket.bucket.bucketIdentity.resourceId as ParticipantId,
-                ],
+                participantIds: [bucket.bucket.bucketIdentity.resourceId as ParticipantId],
               }
             : {}),
         },
@@ -420,6 +419,108 @@ function planBudgetForOperation(
   }
 }
 
+type CoalescedResourceClaimGuardWrite = ResourceClaimOperationPlan['guardWrites'][number];
+
+function coalesceResourceClaimGuardWrites(
+  plans: readonly ResourceClaimOperationPlan[]
+): CoalescedResourceClaimGuardWrite[] {
+  const byPath = new Map<
+    string,
+    {
+      readonly first: CoalescedResourceClaimGuardWrite;
+      readonly latest: CoalescedResourceClaimGuardWrite;
+    }
+  >();
+  for (const plan of plans) {
+    for (const write of plan.guardWrites) {
+      const existing = byPath.get(write.path);
+      byPath.set(
+        write.path,
+        existing ? { first: existing.first, latest: write } : { first: write, latest: write }
+      );
+    }
+  }
+
+  const result: CoalescedResourceClaimGuardWrite[] = [];
+  for (const { first, latest } of byPath.values()) {
+    const existedBeforeTransaction = first.mutationKind !== 'create';
+    if (latest.entries.length === 0) {
+      if (existedBeforeTransaction) result.push({ ...latest, mutationKind: 'delete' });
+      continue;
+    }
+    result.push({
+      ...latest,
+      mutationKind: existedBeforeTransaction ? 'update' : 'create',
+    });
+  }
+  return result;
+}
+
+function isNoopResourceClaimPlan(plan: ResourceClaimOperationPlan): boolean {
+  return (
+    plan.claimMutationKind === 'update' &&
+    plan.guardWrites.length === 0 &&
+    plan.guardBuckets.length === 0
+  );
+}
+
+/** Plan one operation per claim and one final write per shared guard document. */
+export function planResourceClaimBatch(
+  session: CanonicalAtomicTransactionSession,
+  plans: readonly ResourceClaimOperationPlan[]
+): void {
+  for (const plan of plans) {
+    if (isNoopResourceClaimPlan(plan)) continue;
+    session.plan.planMutation({
+      path: plan.claimPath,
+      kind: plan.claimMutationKind,
+      category: 'resource_claim',
+      estimatedPayloadBytes: RESOURCE_CLAIM_PLANNING_ESTIMATES.claimDocumentBytes,
+    });
+  }
+  for (const guardWrite of coalesceResourceClaimGuardWrites(plans)) {
+    session.plan.planMutation({
+      path: guardWrite.path,
+      kind: guardWrite.mutationKind,
+      category: 'resource_guard',
+      estimatedPayloadBytes: estimateGuardMutationBytes(guardWrite.entries.length),
+    });
+  }
+}
+
+/** Commit a multi-claim plan with each shared resource guard updated once. */
+export function commitResourceClaimBatch(
+  session: CanonicalAtomicTransactionSession,
+  plans: readonly ResourceClaimOperationPlan[],
+  metadata: ResourceClaimCommandMetadata
+): void {
+  for (const plan of plans) {
+    if (isNoopResourceClaimPlan(plan)) continue;
+    const claimPayload = {
+      ...plan.claim,
+      updatedAt: timestampFromDate(metadata.decidedAt),
+      lastChangedByCommandId: metadata.commandId,
+      correlationId: metadata.correlationId,
+    };
+    if (plan.claimMutationKind === 'create') {
+      session.tx.create({ path: plan.claimPath }, claimPayload as Record<string, unknown>);
+    } else {
+      session.tx.update({ path: plan.claimPath }, claimPayload as Record<string, unknown>);
+    }
+  }
+
+  for (const guardWrite of coalesceResourceClaimGuardWrites(plans)) {
+    const payload = planGuardDocumentWrite(guardWrite, metadata);
+    if (guardWrite.mutationKind === 'create') {
+      session.tx.create({ path: guardWrite.path }, payload);
+    } else if (guardWrite.mutationKind === 'delete') {
+      session.tx.delete({ path: guardWrite.path });
+    } else {
+      session.tx.update({ path: guardWrite.path }, payload);
+    }
+  }
+}
+
 export async function readAndPlanAcquireResourceClaim(
   session: CanonicalAtomicTransactionSession,
   input: AcquireResourceClaimInput
@@ -441,18 +542,20 @@ export async function readAndPlanAcquireResourceClaim(
           input.identity.resourceId,
           input.interval,
           scope
-        )
+        ),
+        input.guardBucketReadCache
       ),
       input.inTransactionGuardOverlay
     );
     if (guardOccupancyMatchesClaim(buckets, existingClaim)) {
-      return {
+      const plan: ResourceClaimOperationPlan = {
         claim: existingClaim,
         claimPath,
         claimMutationKind: 'update',
         guardBuckets: buckets,
         guardWrites: [],
       };
+      return plan;
     }
 
     const repairWrites = planGuardWritesForAcquire(
@@ -461,13 +564,14 @@ export async function readAndPlanAcquireResourceClaim(
       input.correlationId,
       input.inTransactionGuardOverlay
     );
-    return {
+    const plan: ResourceClaimOperationPlan = {
       claim: existingClaim,
       claimPath,
       claimMutationKind: 'update',
       guardBuckets: buckets,
       guardWrites: repairWrites,
     };
+    return plan;
   }
 
   if (
@@ -482,6 +586,8 @@ export async function readAndPlanAcquireResourceClaim(
       claimId,
       newInterval: input.interval,
       replacementIgnore: input.replacementIgnore ?? replacementIgnoreFromClaim(existingClaim),
+      guardBucketReadCache: input.guardBucketReadCache,
+      deferPlanMutations: input.deferPlanMutations,
     });
   }
 
@@ -509,7 +615,7 @@ export async function readAndPlanAcquireResourceClaim(
     bucketMap.set(bucket.bucketKey, bucket);
   }
   const buckets = applyInTransactionGuardOverlay(
-    await loadGuardBuckets(session, [...bucketMap.values()]),
+    await loadGuardBuckets(session, [...bucketMap.values()], input.guardBucketReadCache),
     input.inTransactionGuardOverlay
   );
 
@@ -576,21 +682,7 @@ export async function readAndPlanAcquireResourceClaim(
     guardWrites,
   };
 
-  session.plan.planMutation({
-    path: claimPath,
-    kind: plan.claimMutationKind,
-    category: 'resource_claim',
-    estimatedPayloadBytes: RESOURCE_CLAIM_PLANNING_ESTIMATES.claimDocumentBytes,
-  });
-
-  for (const guardWrite of guardWrites) {
-    session.plan.planMutation({
-      path: guardWrite.path,
-      kind: guardWrite.mutationKind,
-      category: 'resource_guard',
-      estimatedPayloadBytes: estimateGuardMutationBytes(guardWrite.entries.length),
-    });
-  }
+  if (!input.deferPlanMutations) planBudgetForOperation(session, plan);
 
   return plan;
 }
@@ -697,7 +789,7 @@ export async function readAndPlanMoveResourceClaim(
   }
   const unionBuckets = [...bucketMap.values()];
 
-  const loadedBuckets = await loadGuardBuckets(session, unionBuckets);
+  const loadedBuckets = await loadGuardBuckets(session, unionBuckets, input.guardBucketReadCache);
   assertNoIntervalConflict(
     input.correlationId,
     existingClaim.resourceKind,
@@ -768,7 +860,7 @@ export async function readAndPlanMoveResourceClaim(
     releaseOldBuckets: loadedBuckets.filter((bucket) => oldBucketKeys.has(bucket.bucket.bucketKey)),
   };
 
-  planBudgetForOperation(session, plan);
+  if (!input.deferPlanMutations) planBudgetForOperation(session, plan);
   return plan;
 }
 

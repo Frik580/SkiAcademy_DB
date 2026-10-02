@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   AccountIdSchema,
   AccountSchema,
@@ -23,6 +23,8 @@ import {
   paymentIdFromCourseEnrollmentId,
   resolveCommandIdempotencyIdentity,
   timestampFromDate,
+  estimateTransactionPlan,
+  TransactionPlanBuilder,
   type CommandEnvelope,
 } from '@ski-academy/shared-domain';
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
@@ -55,7 +57,8 @@ function accountContext(
     exercisedCapability: capability,
     idempotencyKey,
     correlationId,
-    source: capability === 'administrator' ? ('admin_callable' as const) : ('client_callable' as const),
+    source:
+      capability === 'administrator' ? ('admin_callable' as const) : ('client_callable' as const),
     calendarInput: {
       localDate: '2026-02-01',
       localTime: '09:00',
@@ -253,9 +256,9 @@ describe('create_course_enrollments command', () => {
         path.startsWith('active_course_enrollment_guards/')
       ).length
     ).toBe(1);
-    expect(snapshot.docs.has(`activity_logs/${activityLogIdFromCommandId(identity.commandKey)}`)).toBe(
-      true
-    );
+    expect(
+      snapshot.docs.has(`activity_logs/${activityLogIdFromCommandId(identity.commandKey)}`)
+    ).toBe(true);
     expect(
       snapshot.docs.has(
         `monetary_events/${monetaryEventIdFromCourseEnrollmentInitialCharge(enrollmentId)}`
@@ -353,9 +356,9 @@ describe('create_course_enrollments command', () => {
     }
 
     const snapshot = executor.snapshot();
-    expect([...snapshot.docs.keys()].filter((path) => path.startsWith('course_enrollments/')).length).toBe(
-      0
-    );
+    expect(
+      [...snapshot.docs.keys()].filter((path) => path.startsWith('course_enrollments/')).length
+    ).toBe(0);
     expect([...snapshot.docs.keys()].filter((path) => path.startsWith('payments/')).length).toBe(0);
     expect(
       [...snapshot.docs.keys()].filter((path) => path.startsWith('resource_claims/')).length
@@ -377,7 +380,8 @@ describe('create_course_enrollments command', () => {
       expect(result.error.code).toBe('validation');
     }
     expect(
-      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('course_enrollments/')).length
+      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('course_enrollments/'))
+        .length
     ).toBe(0);
   });
 
@@ -394,7 +398,8 @@ describe('create_course_enrollments command', () => {
       expect(result.error.code).toBe('forbidden');
     }
     expect(
-      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('course_enrollments/')).length
+      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('course_enrollments/'))
+        .length
     ).toBe(0);
   });
 
@@ -408,10 +413,12 @@ describe('create_course_enrollments command', () => {
     expect(first.status).toBe('success');
     expect(second.status).toBe('success');
     expect(
-      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('course_enrollments/')).length
+      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('course_enrollments/'))
+        .length
     ).toBe(1);
     expect(
-      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('monetary_events/')).length
+      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('monetary_events/'))
+        .length
     ).toBe(1);
   });
 
@@ -436,7 +443,9 @@ describe('create_course_enrollments command', () => {
 
   it('commits multi-child enrollment atomically when fully funded', async () => {
     const participantTwoId = ParticipantIdSchema.parse('participant_course_enrollment_cmd_02');
-    const managementTwoId = ParticipantManagementIdSchema.parse('management_course_enrollment_cmd_02');
+    const managementTwoId = ParticipantManagementIdSchema.parse(
+      'management_course_enrollment_cmd_02'
+    );
     const executor = createInMemoryCanonicalTransactionExecutor(
       baseFixture({
         [`participants/${participantTwoId}`]: {
@@ -466,6 +475,210 @@ describe('create_course_enrollments command', () => {
     ).toBe(2);
     expect([...snapshot.docs.keys()].filter((path) => path.startsWith('payments/')).length).toBe(2);
     expect(snapshot.docs.get(`courses/${courseId}`)?.data.capacity.availableSeats).toBe(6);
+  });
+
+  it('keeps a three-participant fifteen-day enrollment atomic and within the transaction budget', async () => {
+    const participantTwoId = ParticipantIdSchema.parse('participant_course_enrollment_cmd_02');
+    const participantThreeId = ParticipantIdSchema.parse('participant_course_enrollment_cmd_03');
+    const managementTwoId = ParticipantManagementIdSchema.parse(
+      'management_course_enrollment_cmd_02'
+    );
+    const managementThreeId = ParticipantManagementIdSchema.parse(
+      'management_course_enrollment_cmd_03'
+    );
+    const courseDayCount = 15;
+    const extra: Record<string, unknown> = {
+      [`participants/${participantTwoId}`]: {
+        ...seedParticipant(),
+        participantId: participantTwoId,
+        management: { kind: 'managed', participantManagementId: managementTwoId },
+      },
+      [`participant_management/${managementTwoId}`]: {
+        ...seedManagement(),
+        participantManagementId: managementTwoId,
+        participantId: participantTwoId,
+      },
+      [`participants/${participantThreeId}`]: {
+        ...seedParticipant(),
+        participantId: participantThreeId,
+        management: { kind: 'managed', participantManagementId: managementThreeId },
+      },
+      [`participant_management/${managementThreeId}`]: {
+        ...seedManagement(),
+        participantManagementId: managementThreeId,
+        participantId: participantThreeId,
+      },
+      [`users/${accountId}/wallet/state`]: seedWallet(COURSE_PRICE_KZT * 3),
+      [`courses/${courseId}`]: {
+        ...seedCourse(),
+        scheduleProjection: {
+          courseDayCount,
+          finalCourseDayEndsAt: timestampFromDate(new Date('2026-02-15T05:00:00.000Z')),
+          courseScheduleRevision: 1,
+        },
+      },
+    };
+    for (let dayOrder = 2; dayOrder <= courseDayCount; dayOrder += 1) {
+      const dayId = CourseDayIdSchema.parse(
+        `course_day_enrollment_cmd_${String(dayOrder).padStart(2, '0')}`
+      );
+      const dayStart = new Date(Date.UTC(2026, 1, dayOrder, 3));
+      extra[`courses/${courseId}/days/${dayId}`] = {
+        ...seedCourseDay(),
+        courseDayId: dayId,
+        dayOrder,
+        interval: {
+          startsAt: timestampFromDate(dayStart),
+          endsAt: timestampFromDate(new Date(dayStart.getTime() + 2 * 60 * 60 * 1000)),
+        },
+      };
+    }
+
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture(extra));
+    const capturedPlans: ReturnType<TransactionPlanBuilder['build']>[] = [];
+    const originalBuild = TransactionPlanBuilder.prototype.build;
+    const buildSpy = vi
+      .spyOn(TransactionPlanBuilder.prototype, 'build')
+      .mockImplementation(function () {
+        const plan = originalBuild.call(this);
+        capturedPlans.push(plan);
+        return plan;
+      });
+    const envelope = createEnvelope({
+      context: accountContext('account_owner', accountId, 'enrollment-three-participant-budget'),
+      intent: { courseId, participantIds: [participantId, participantTwoId, participantThreeId] },
+    });
+    let result: Awaited<ReturnType<typeof runCommand>>;
+    try {
+      result = await runCommand(executor, envelope);
+    } finally {
+      buildSpy.mockRestore();
+    }
+    expect(capturedPlans.length).toBeGreaterThan(0);
+    expect(result!.status).toBe('success');
+
+    const estimate = estimateTransactionPlan(capturedPlans[0]!);
+    expect(estimate).toMatchObject({
+      readCount: 216,
+      mutationCount: 204,
+      estimatedPayloadBytes: 231_872,
+      estimatedIndexImpactBytes: 0,
+      totalEstimatedBytes: 231_872,
+    });
+    expect(estimate.byCategory.resource_guard.reads).toBe(136);
+    expect(estimate.byCategory.resource_guard.mutations).toBe(136);
+    const resourceGuardReads = capturedPlans[0]!.reads.filter(
+      (read) => read.category === 'resource_guard'
+    );
+    const resourceGuardMutations = capturedPlans[0]!.mutations.filter(
+      (mutation) => mutation.category === 'resource_guard'
+    );
+    expect(new Set(resourceGuardReads.map((read) => read.path)).size).toBe(
+      resourceGuardReads.length
+    );
+    expect(new Set(resourceGuardMutations.map((mutation) => mutation.path)).size).toBe(
+      resourceGuardMutations.length
+    );
+
+    const snapshot = executor.snapshot();
+    const enrollments = [...snapshot.docs.entries()]
+      .filter(([path]) => path.startsWith('course_enrollments/'))
+      .map(([, document]) => document.data);
+    const payments = [...snapshot.docs.entries()]
+      .filter(([path]) => path.startsWith('payments/'))
+      .map(([, document]) => document.data);
+    const participants = [participantId, participantTwoId, participantThreeId];
+    expect(enrollments).toHaveLength(3);
+    expect(payments).toHaveLength(3);
+    for (const participant of participants) {
+      const enrollment = enrollments.find((item) => item.participantId === participant);
+      expect(enrollment).toBeDefined();
+      const payment = payments.find((item) => item.paymentId === enrollment?.paymentId);
+      expect(payment?.price).toBe(COURSE_PRICE_KZT);
+      expect(payment?.subjectId).toBe(enrollment?.enrollmentId);
+    }
+    expect(
+      [...snapshot.docs.keys()].filter((path) => path.startsWith('monetary_events/'))
+    ).toHaveLength(3);
+    expect(
+      [...snapshot.docs.keys()].filter((path) => path.startsWith('resource_claims/'))
+    ).toHaveLength(3 * (courseDayCount + 1));
+    expect(snapshot.docs.get(`courses/${courseId}`)?.data.capacity.availableSeats).toBe(5);
+    expect(snapshot.docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(0);
+
+    expect((await runCommand(executor, envelope)).status).toBe('success');
+    const replay = executor.snapshot();
+    expect(
+      [...replay.docs.keys()].filter((path) => path.startsWith('course_enrollments/'))
+    ).toHaveLength(3);
+    expect([...replay.docs.keys()].filter((path) => path.startsWith('payments/'))).toHaveLength(3);
+    expect(replay.docs.get(`courses/${courseId}`)?.data.capacity.availableSeats).toBe(5);
+    expect(replay.docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(0);
+  });
+
+  it('does not partially enroll three participants when the wallet funds only two', async () => {
+    const participantTwoId = ParticipantIdSchema.parse('participant_course_enrollment_cmd_02');
+    const participantThreeId = ParticipantIdSchema.parse('participant_course_enrollment_cmd_03');
+    const managementTwoId = ParticipantManagementIdSchema.parse(
+      'management_course_enrollment_cmd_02'
+    );
+    const managementThreeId = ParticipantManagementIdSchema.parse(
+      'management_course_enrollment_cmd_03'
+    );
+    const executor = createInMemoryCanonicalTransactionExecutor(
+      baseFixture({
+        [`participants/${participantTwoId}`]: {
+          ...seedParticipant(),
+          participantId: participantTwoId,
+          management: { kind: 'managed', participantManagementId: managementTwoId },
+        },
+        [`participant_management/${managementTwoId}`]: {
+          ...seedManagement(),
+          participantManagementId: managementTwoId,
+          participantId: participantTwoId,
+        },
+        [`participants/${participantThreeId}`]: {
+          ...seedParticipant(),
+          participantId: participantThreeId,
+          management: { kind: 'managed', participantManagementId: managementThreeId },
+        },
+        [`participant_management/${managementThreeId}`]: {
+          ...seedManagement(),
+          participantManagementId: managementThreeId,
+          participantId: participantThreeId,
+        },
+        [`users/${accountId}/wallet/state`]: seedWallet(COURSE_PRICE_KZT * 2),
+      })
+    );
+
+    const result = await runCommand(
+      executor,
+      createEnvelope({
+        context: accountContext('account_owner', accountId, 'enrollment-three-participant-wallet'),
+        intent: {
+          courseId,
+          participantIds: [participantId, participantTwoId, participantThreeId],
+        },
+      })
+    );
+    expect(result.status).toBe('error');
+    if (result.status === 'error') expect(result.error.code).toBe('insufficient_funds');
+
+    const snapshot = executor.snapshot();
+    expect(snapshot.writesAttempted).toBe(0);
+    expect(
+      [...snapshot.docs.keys()].filter((path) => path.startsWith('course_enrollments/'))
+    ).toHaveLength(0);
+    expect([...snapshot.docs.keys()].filter((path) => path.startsWith('payments/'))).toHaveLength(
+      0
+    );
+    expect(
+      [...snapshot.docs.keys()].filter((path) => path.startsWith('resource_claims/'))
+    ).toHaveLength(0);
+    expect(snapshot.docs.get(`courses/${courseId}`)?.data.capacity.availableSeats).toBe(8);
+    expect(snapshot.docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(
+      COURSE_PRICE_KZT * 2
+    );
   });
 
   it('decrements only the TEST course when a TEST enrollment is created', async () => {
@@ -772,9 +985,11 @@ describe('create_course_enrollments command', () => {
     expect(funded.status).toBe('success');
     const fundingIdentity = resolveCommandIdempotencyIdentity(funding);
     expect(
-      executor.snapshot().docs.get(
-        `monetary_events/${monetaryEventIdFromCommandEffect(fundingIdentity.commandKey, 0)}`
-      )?.data
+      executor
+        .snapshot()
+        .docs.get(
+          `monetary_events/${monetaryEventIdFromCommandEffect(fundingIdentity.commandKey, 0)}`
+        )?.data
     ).toMatchObject({
       eventKind: 'wallet_credit',
       dataScope: 'test',

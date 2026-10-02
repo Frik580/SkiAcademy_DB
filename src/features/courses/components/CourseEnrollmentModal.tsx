@@ -104,6 +104,20 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
     participants,
     selectedParticipantIds
   );
+  const selectedParticipantCount = effectiveParticipantIds.length;
+  const authenticatedDisplayTotalKZT =
+    authenticatedProfile &&
+    course != null &&
+    selectedParticipantCount > 0 &&
+    course.priceKZT != null
+      ? course.priceKZT * selectedParticipantCount
+      : undefined;
+  const authenticatedHeaderPrice =
+    authenticatedDisplayTotalKZT !== undefined
+      ? formatPrice(authenticatedDisplayTotalKZT)
+      : course != null && course.priceKZT != null
+        ? `${formatPrice(course.priceKZT)} · ${t('coursePricePerParticipant')}`
+        : '—';
   const showParticipantPicker = shouldShowParticipantPicker({
     participants,
     loading: participantsLoading,
@@ -274,7 +288,10 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
       await requestCancellation({
         enrollmentId: guestCreatedEnrollmentId,
         expectedRevision: guestReservation.revision,
-        idempotencyKey: deriveRequestCancellationIdempotencyKey(guestCreatedEnrollmentId, guestReservation.revision),
+        idempotencyKey: deriveRequestCancellationIdempotencyKey(
+          guestCreatedEnrollmentId,
+          guestReservation.revision
+        ),
         exercisedCapability: 'account_owner',
         guestCredential: credential,
       });
@@ -286,14 +303,21 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
       addNotification('success', t('guestCourseCancelledTitle'), t('guestCancelledBody'));
       try {
         const refreshed = await loadGuestSingleCourseEnrollment(guestCreatedEnrollmentId);
-        if (refreshed.revision <= guestReservation.revision || refreshed.lifecycle.status !== 'cancelled') {
+        if (
+          refreshed.revision <= guestReservation.revision ||
+          refreshed.lifecycle.status !== 'cancelled'
+        ) {
           throw new Error('Cancellation read model has not caught up.');
         }
         setGuestReservation(refreshed);
         setGuestRefreshError(false);
       } catch {
         setGuestRefreshError(true);
-        addNotification('warning', t('cabinetCancellationRefreshWarning'), t('cabinetCancellationRefreshWarningDesc'));
+        addNotification(
+          'warning',
+          t('cabinetCancellationRefreshWarning'),
+          t('cabinetCancellationRefreshWarningDesc')
+        );
       }
       return true;
     } catch (error) {
@@ -404,7 +428,15 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                   <p className="text-xs text-[var(--ink-dim)] mt-0.5">
                     {getGroupCourseLabel(course.title, language)}
                     {!guestCreatedEnrollmentId && (
-                      <> • {course.priceKZT != null ? formatPrice(course.priceKZT) : '—'}</>
+                      <>
+                        {' '}
+                        •{' '}
+                        {authenticatedProfile
+                          ? authenticatedHeaderPrice
+                          : course != null && course.priceKZT != null
+                            ? formatPrice(course.priceKZT)
+                            : '—'}
+                      </>
                     )}
                   </p>
                 </div>
@@ -449,7 +481,8 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                     onClose={closeGuestStatus}
                     onNewBooking={startNewGuestBooking}
                     onCancelPending={
-                      readGuestCourseEnrollmentCredential(guestCreatedEnrollmentId).credential?.cancellationCredential
+                      readGuestCourseEnrollmentCredential(guestCreatedEnrollmentId).credential
+                        ?.cancellationCredential
                         ? cancelPendingGuestEnrollment
                         : undefined
                     }
@@ -483,9 +516,16 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                           {t('courseTotalTuition')}
                         </span>
                         <span className="text-lg font-extrabold text-[var(--accent)] font-sans">
-                          {course.priceKZT != null ? formatPrice(course.priceKZT) : '—'}
+                          {authenticatedDisplayTotalKZT !== undefined
+                            ? formatPrice(authenticatedDisplayTotalKZT)
+                            : '—'}
                         </span>
                       </div>
+                      {selectedParticipantCount > 1 && course.priceKZT != null && (
+                        <div className="text-xs text-[var(--ink-dim)]">
+                          {formatPrice(course.priceKZT)} × {selectedParticipantCount}
+                        </div>
+                      )}
                       <div className="text-xs text-[var(--ink-dim)]">📅 {course.dates}</div>
                     </div>
 

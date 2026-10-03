@@ -249,22 +249,168 @@ describe('participant-scoped CourseEnrollment hot sync pagination', () => {
     expect([...useCourseEnrollmentStore.getState().items.keys()]).toEqual(['enrollment_01']);
   });
 
-  it('loads the first hot page on fresh login without draining continuation pages', async () => {
-    const items = Array.from({ length: 25 }, (_, index) => enrollment(index + 1));
-    queryMock.mockResolvedValueOnce(page(items, true));
-    renderHook(() => useCourseEnrollmentReadSync(true, 'account_sync_01', participantId));
-    await waitFor(() => expect(queryMock).toHaveBeenCalledTimes(2));
-    expect(useCourseEnrollmentStore.getState().items.size).toBe(25);
-    expect(useCourseEnrollmentStore.getState().loaded).toBe(true);
-    expect(queryMock.mock.calls.map(([input]) => input.scope)).toEqual([
-      'account_hot',
-      'account_history',
-    ]);
-    expect(queryMock.mock.calls[0][0]).toEqual({
-      scope: 'account_hot',
-      selectedParticipantId: participantId,
+  it.each([24, 25, 26, 40, 41, 100])(
+    'loads all %i hot enrollments on fresh login',
+    async (count) => {
+      const items = Array.from({ length: count }, (_, index) => enrollment(index + 1));
+      for (let offset = 0; offset < count; offset += 25) {
+        queryMock.mockResolvedValueOnce({
+          ...page(items.slice(offset, offset + 25), offset + 25 < count),
+          ...(offset + 25 < count ? { nextCursor: `cursor-${offset + 25}` } : {}),
+        });
+      }
+      renderHook(() => useCourseEnrollmentReadSync(true, 'account_sync_01', participantId));
+      const hotRequests = Math.ceil(count / 25);
+      await waitFor(() => expect(queryMock).toHaveBeenCalledTimes(hotRequests + 1));
+      expect([...useCourseEnrollmentStore.getState().items.keys()]).toEqual(
+        items.map((item) => item.enrollmentId)
+      );
+      expect(useCourseEnrollmentStore.getState().loaded).toBe(true);
+      expect(queryMock.mock.calls.map(([input]) => input.scope)).toEqual([
+        ...Array.from({ length: hotRequests }, () => 'account_hot'),
+        'account_history',
+      ]);
+      for (let index = 0; index < hotRequests; index += 1) {
+        expect(queryMock.mock.calls[index][0]).toEqual({
+          scope: 'account_hot',
+          selectedParticipantId: participantId,
+          ...(index ? { cursor: `cursor-${index * 25}` } : {}),
+        });
+      }
+    }
+  );
+
+  it.each([
+    [0, 8],
+    [15, 20],
+  ])(
+    'continues after a filtered first page with %i hot items',
+    async (firstCount, remainingCount) => {
+      const items = Array.from({ length: firstCount + remainingCount }, (_, index) =>
+        enrollment(index + 1)
+      );
+      queryMock.mockResolvedValueOnce(page(items.slice(0, firstCount), true));
+      queryMock.mockResolvedValueOnce(page(items.slice(firstCount)));
+      renderHook(() => useCourseEnrollmentReadSync(true, 'account_sync_01', participantId));
+      await waitFor(() => expect(useCourseEnrollmentStore.getState().loaded).toBe(true));
+      expect(useCourseEnrollmentStore.getState().items.size).toBe(firstCount + remainingCount);
+      expect(queryMock.mock.calls.map(([input]) => input.scope)).toEqual([
+        'account_hot',
+        'account_hot',
+        'account_history',
+      ]);
+    }
+  );
+
+  it('merges three pages, deduplicates IDs and preserves newer and equal-revision derived data and history', async () => {
+    const { result } = renderHook(() => useCourseEnrollmentReadSync(false, undefined));
+    const history = { ...enrollment(9), lifecycle: { status: 'completed' as const } };
+    const generation = seed([history]);
+    queryMock.mockResolvedValueOnce(page([enrollment(1), enrollment(2)], true));
+    queryMock.mockImplementationOnce(async () => {
+      useCourseEnrollmentStore
+        .getState()
+        .mergeItems(mergeCourseEnrollmentRecords(new Map(), page([enrollment(1, 5)])));
+      return { ...page([enrollment(1, 2), enrollment(3)], true), nextCursor: 'third-page' };
     });
+    const updated = enrollment(2);
+    updated.participant.displayName = 'Updated on continuation';
+    queryMock.mockResolvedValueOnce(page([updated, enrollment(4)]));
+    await act(async () => {
+      await result.current.reloadHot(participantId, generation, true);
+    });
+    const state = useCourseEnrollmentStore.getState();
+    expect(state.items.size).toBe(5);
+    expect(state.items.get('enrollment_01')?.revision).toBe(5);
+    expect(state.items.get('enrollment_02')?.participantName).toBe('Updated on continuation');
+    expect(state.items.get('enrollment_09')?.lifecycleStatus).toBe('completed');
+    expect(queryMock).toHaveBeenCalledTimes(3);
   });
+
+  it.each(['missing', 'repeated', 'cycle'])(
+    'fails controllably for a %s continuation cursor',
+    async (kind) => {
+      queryMock.mockResolvedValueOnce(
+        kind === 'missing' ? { scope: 'account_hot', items: [], hasMore: true } : page([], true)
+      );
+      if (kind === 'repeated') queryMock.mockResolvedValueOnce(page([], true));
+      if (kind === 'cycle') {
+        queryMock.mockResolvedValueOnce({ ...page([], true), nextCursor: 'other-cursor' });
+        queryMock.mockResolvedValueOnce(page([], true));
+      }
+      renderHook(() => useCourseEnrollmentReadSync(true, 'account_sync_01', participantId));
+      await waitFor(() =>
+        expect(useCourseEnrollmentStore.getState().error).toMatch(/pagination cursor/)
+      );
+      expect(useCourseEnrollmentStore.getState().loaded).toBe(false);
+      expect(useCourseEnrollmentStore.getState().hotLoading).toBe(false);
+      expect(queryMock).toHaveBeenCalledTimes(kind === 'missing' ? 1 : kind === 'cycle' ? 3 : 2);
+    }
+  );
+
+  it('completes an empty initial dataset and loads only the first history page', async () => {
+    queryMock.mockResolvedValueOnce(page([]));
+    queryMock.mockResolvedValueOnce({
+      scope: 'account_history',
+      items: [{ ...enrollment(9), lifecycle: { status: 'completed' } }],
+      hasMore: true,
+      nextCursor: 'history-next',
+    });
+    renderHook(() => useCourseEnrollmentReadSync(true, 'account_sync_01', participantId));
+    await waitFor(() => expect(useCourseEnrollmentStore.getState().items.size).toBe(1));
+    expect(useCourseEnrollmentStore.getState().loaded).toBe(true);
+    expect(useCourseEnrollmentStore.getState().historyCursor).toBe('history-next');
+    expect(useCourseEnrollmentStore.getState().historyHasMore).toBe(true);
+    expect(queryMock).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(['participant', 'account', 'logout', 'reset'])(
+    'discards a late continuation after %s change',
+    async (change) => {
+      let finish!: (value: QueryCourseEnrollmentReadModelsResult) => void;
+      queryMock.mockResolvedValueOnce(page([enrollment(1)], true));
+      queryMock.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finish = resolve;
+          })
+      );
+      const { rerender } = renderHook(
+        ({ account, participant }) =>
+          useCourseEnrollmentReadSync(Boolean(account), account, participant),
+        {
+          initialProps: {
+            account: 'account_sync_01' as string | undefined,
+            participant: participantId,
+          },
+        }
+      );
+      await waitFor(() => expect(queryMock).toHaveBeenCalledTimes(2));
+      expect(useCourseEnrollmentStore.getState().loaded).toBe(false);
+      if (change === 'reset') act(() => useCourseEnrollmentStore.getState().reset());
+      else
+        rerender({
+          account:
+            change === 'logout'
+              ? undefined
+              : change === 'account'
+                ? 'account_sync_02'
+                : 'account_sync_01',
+          participant: change === 'participant' ? 'participant_sync_02' : participantId,
+        });
+      if (change === 'participant' || change === 'account') {
+        await waitFor(() => expect(useCourseEnrollmentStore.getState().loaded).toBe(true));
+      }
+      const before = useCourseEnrollmentStore.getState();
+      const requests = queryMock.mock.calls.length;
+      await act(async () => {
+        finish(page([enrollment(2)], true));
+      });
+      expect(useCourseEnrollmentStore.getState()).toBe(before);
+      expect(queryMock).toHaveBeenCalledTimes(requests);
+      expect(useCourseEnrollmentStore.getState().items.has('enrollment_02')).toBe(false);
+    }
+  );
 
   it('keeps outside-page entries and newer revisions when concurrent partial refreshes finish out of order', async () => {
     const { result } = renderHook(() => useCourseEnrollmentReadSync(false, undefined));

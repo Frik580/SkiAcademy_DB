@@ -26,6 +26,8 @@ export interface BannerMediaProps {
   shouldLoadVideo?: boolean;
   /** Next or outgoing slide: mount and buffer the video without playing it. */
   shouldPreloadVideo?: boolean;
+  /** Keep an admitted resource paused in the DOM within the carousel's video budget. */
+  retainVideo?: boolean;
   /** Active video can play, or the active video fell back to an image. */
   onVideoReady?: () => void;
   /** Development trace: which carousel slot this element occupies. */
@@ -69,8 +71,6 @@ function heroMobileFocalStyle(focalPointX: unknown): HeroFocalStyle {
 
 /** HAVE_CURRENT_DATA — enough to show a frame without waiting for canplaythrough. */
 const HAVE_CURRENT_DATA = 2;
-const NETWORK_IDLE = 1;
-const NETWORK_LOADING = 2;
 const NETWORK_NO_SOURCE = 3;
 
 /**
@@ -82,6 +82,8 @@ const NETWORK_NO_SOURCE = 3;
 export const BANNER_VIDEO_STARTUP_WATCHDOG_MS = 8000;
 
 const HERO_VIDEO_DEBUG = import.meta.env.DEV && import.meta.env.MODE !== 'test';
+const videoElementIds = new WeakMap<HTMLVideoElement, number>();
+let nextVideoElementId = 1;
 
 /**
  * Safari can keep a detached element's decoder alive after React removes the node.
@@ -109,6 +111,7 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
   isActive: isActiveProp,
   shouldLoadVideo: shouldLoadVideoProp,
   shouldPreloadVideo = false,
+  retainVideo = false,
   onVideoReady,
   videoRole,
   slideIndex,
@@ -128,7 +131,7 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
   const [videoFailed, setVideoFailed] = useState(false);
   const [videoRevealed, setVideoRevealed] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const sawPreloadRef = useRef(false);
+  const [retainedVideoUrl, setRetainedVideoUrl] = useState<string | null>(null);
   const onVideoReadyRef = useRef(onVideoReady);
   onVideoReadyRef.current = onVideoReady;
 
@@ -138,11 +141,14 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
   const derivationBase = videoSourceImageUrl || imageUrl;
   const videoUrl = deriveBannerVideoUrl(derivationBase);
   const preferVideo = mode === 'video' && !shouldReduceMotion && Boolean(videoUrl);
-  const mountVideo = preferVideo && !videoFailed && (shouldLoadVideo || shouldPreloadVideo);
+  const requestedVideo = shouldLoadVideo || shouldPreloadVideo;
+  const mountVideo = preferVideo && !videoFailed &&
+    (requestedVideo || (retainVideo && retainedVideoUrl === videoUrl));
   const showImage = !preferVideo || videoFailed;
-  if (mountVideo && !isActive) {
-    sawPreloadRef.current = true;
-  }
+  useEffect(() => {
+    if (retainVideo && mountVideo) setRetainedVideoUrl(videoUrl);
+    else if (!retainVideo || !preferVideo) setRetainedVideoUrl(null);
+  }, [retainVideo, mountVideo, preferVideo, videoUrl]);
   const traceRef = useRef<
     (event: string, video?: HTMLVideoElement | null, extra?: Record<string, unknown>) => void
   >(() => {});
@@ -152,6 +158,7 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
       slideIndex,
       slideId,
       videoUrl,
+      elementId: video ? videoElementIds.get(video) : undefined,
       role: videoRole ?? (isActive ? 'ACTIVE' : shouldPreloadVideo ? 'PRELOAD' : 'IDLE'),
       mountedVideoCount,
       readyState: video?.readyState,
@@ -162,6 +169,7 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
 
   const attachVideo = useCallback((node: HTMLVideoElement | null) => {
     if (node) {
+      if (!videoElementIds.has(node)) videoElementIds.set(node, nextVideoElementId++);
       videoRef.current = node;
       traceRef.current('mount', node);
       return;
@@ -256,16 +264,10 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
     if (video.readyState >= HAVE_CURRENT_DATA) {
       beginPlayback();
     } else {
-      // A previous preload is not proof the frame is still buffered. Safari drops
-      // inactive video data and leaves readyState at 0/1 with no MediaError.
-      // A brand-new active element (network empty, never preloaded) keeps the
-      // browser's own src load. A preloaded element that is still not ready is reloaded.
-      const preloadDiscarded =
-        video.networkState !== NETWORK_LOADING &&
-        (sawPreloadRef.current ||
-          video.networkState === NETWORK_IDLE ||
-          video.networkState === NETWORK_NO_SOURCE);
-      if (preloadDiscarded) {
+      // Safari may discard buffered frames of a paused preload. play() resumes
+      // fetching on the same resource; readyState 0/1 or NETWORK_IDLE alone is
+      // not an error and must not reset the resource with load().
+      if (video.networkState === NETWORK_NO_SOURCE) {
         traceRef.current('load', video);
         try {
           video.load();
@@ -276,6 +278,11 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
       armWatchdog();
       video.addEventListener('loadeddata', beginPlayback);
       video.addEventListener('canplay', beginPlayback);
+      try {
+        video.play()?.catch(() => failStartup('play-reject'));
+      } catch {
+        failStartup('play-throw');
+      }
     }
 
     const onMediaError = () => failStartup('media-error');

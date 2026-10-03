@@ -7,6 +7,7 @@ import { useLanguage } from '../../app/providers/LanguageContext';
 import { useCurrency } from '../../app/providers/CurrencyContext';
 import { isInstructorWorkspaceUser, getDefaultWorkspacePath } from '../../lib/workspaceRoutes';
 import { Logo } from './Logo';
+import { LanguageSwitch } from './LanguageSwitch';
 import { useEffectiveBalance } from '../../features/wallet';
 import {
   CabinetParticipantAvatarSwitcher,
@@ -169,13 +170,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                   )}
                 </button>
 
-                <button
-                  onClick={() => setLanguage(language === 'en' ? 'ru' : 'en')}
-                  className="ui-icon-btn px-2.5 sm:px-3 font-sans text-xs xl:text-sm normal-case shrink-0"
-                  title={t('switchLanguage')}
-                >
-                  {language === 'en' ? 'EN' : 'RU'}
-                </button>
+                <LanguageSwitch
+                  language={language}
+                  onChange={setLanguage}
+                  label={t('switchLanguage')}
+                />
 
                 {onSignInClick && (
                   <button
@@ -264,13 +263,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                     )}
                   </button>
 
-                  <button
-                    onClick={() => setLanguage(language === 'en' ? 'ru' : 'en')}
-                    className="ui-icon-btn px-2.5 sm:px-3 font-sans text-xs xl:text-sm normal-case shrink-0"
-                    title={t('switchLanguage')}
-                  >
-                    {language === 'en' ? 'EN' : 'RU'}
-                  </button>
+                  <LanguageSwitch
+                    language={language}
+                    onChange={setLanguage}
+                    label={t('switchLanguage')}
+                  />
 
                   {userProfile.role === 'admin' && (
                     <button
@@ -448,12 +445,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
             <div className="flex items-center justify-between text-sm text-[var(--ink)]">
               <span>{t('languageLabel')}</span>
-              <button
-                onClick={() => setLanguage(language === 'en' ? 'ru' : 'en')}
-                className="ui-icon-btn px-3 text-xs"
-              >
-                {language === 'en' ? 'EN' : 'RU'}
-              </button>
+              <LanguageSwitch
+                language={language}
+                onChange={setLanguage}
+                label={t('switchLanguage')}
+              />
             </div>
             {!userProfile && onSignInClick && (
               <button

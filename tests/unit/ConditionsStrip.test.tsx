@@ -155,6 +155,8 @@ describe('ConditionsStrip', () => {
     expect(css).toContain('flex-wrap: nowrap');
     expect(css).toContain('height: 58px');
     expect(css).toContain('top: var(--app-navbar-height)');
+    expect(css.split('@media')[0]).toContain('position: sticky');
+    expect(css).toContain('-webkit-overflow-scrolling: touch');
   });
 
   it('places exactly one strip after Hero and before Journey, with no weather inside Hero', () => {
@@ -165,6 +167,14 @@ describe('ConditionsStrip', () => {
     expect(stripStart).toBeGreaterThan(heroEnd);
     expect(stripStart).toBeLessThan(home.indexOf('<YourJourneySection'));
     expect(home.match(/<ConditionsStrip/g)).toHaveLength(1);
+    const scopeStart = home.indexOf('<div className="conditions-sticky-scope shrink-0">');
+    const scopeEnd = home.indexOf('</div>', scopeStart);
+    expect(scopeStart).toBeGreaterThan(heroEnd);
+    expect(scopeStart).toBeLessThan(stripStart);
+    expect(scopeEnd).toBeGreaterThan(home.indexOf('<YourJourneySection'));
+    expect(home.slice(scopeStart, scopeEnd)).not.toMatch(/height|overflow|spacer/);
+    expect(home.slice(scopeEnd)).toMatch(/^<\/div>\s*<div className="flex flex-col">/);
+    expect(home).not.toMatch(/addEventListener\(['"]scroll|IntersectionObserver|scrollDirection|scrollY/);
     expect(home).not.toContain('ResortConditionsSidebar');
     expect(hero).not.toMatch(
       /ConditionsStrip|weatherService|useResortConditions|resort-conditions/

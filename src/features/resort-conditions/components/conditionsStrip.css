@@ -1,4 +1,7 @@
 .conditions-strip {
+  position: sticky;
+  top: var(--app-navbar-height);
+  z-index: 20;
   flex-shrink: 0;
   width: 100%;
   height: 58px;
@@ -100,12 +103,6 @@
 }
 
 @media (min-width: 1024px) {
-  .conditions-strip {
-    position: sticky;
-    top: var(--app-navbar-height);
-    z-index: 20;
-  }
-
   .conditions-updated {
     display: flex !important;
   }

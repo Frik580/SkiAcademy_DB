@@ -64,9 +64,9 @@ import {
 } from '../../useSelectedParticipantLessonFeedback';
 import {
   accountReviewEvidenceFromCanonicalPresentation,
-  usePresentedParticipantAchievements,
   useSelectedParticipantAchievementsRecorder,
 } from '../../../participant-achievements';
+import { usePresentedParticipantAchievements } from '../../../participant-achievements/usePresentedParticipantAchievements';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 import type { StudentBooking } from './studentCabinetContracts';
 

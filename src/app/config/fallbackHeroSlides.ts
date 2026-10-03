@@ -1,4 +1,4 @@
-import type { CustomHeroSlide } from '../../../../types';
+import type { CustomHeroSlide } from '../../types';
 
 export const FALLBACK_SLIDES: CustomHeroSlide[] = [
   {

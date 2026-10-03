@@ -4,6 +4,7 @@ import { AdminCoursesRevisionPayloadSchema } from '../adminCoursesRevision';
 import { AdminFinanceRevisionPayloadSchema } from '../adminFinanceRevision';
 import { AdminLessonBookingsRevisionPayloadSchema } from '../adminLessonBookingsRevision';
 import { AdminPlannerRevisionPayloadSchema } from '../adminPlannerRevision';
+import { AdminPeopleRevisionPayloadSchema } from '../adminPeopleRevision';
 import {
   BookingIdSchema,
   CourseEnrollmentIdSchema,
@@ -72,6 +73,7 @@ export const CreateCourseEnrollmentsResultPayloadSchema = z
     guestLinkCredentials: z.array(GuestCourseEnrollmentLinkCredentialSchema).optional(),
     adminCoursesRevision: AdminCoursesRevisionPayloadSchema.shape.adminCoursesRevision,
     adminFinanceRevision: AdminFinanceRevisionPayloadSchema.shape.adminFinanceRevision,
+    adminPeopleRevision: AdminPeopleRevisionPayloadSchema.shape.adminPeopleRevision,
   })
   .strict();
 

@@ -66,6 +66,44 @@ describe('courseEnrollment commands integration', () => {
     expect(queryCatalogMock).toHaveBeenCalledWith({ scope: 'product' });
   });
 
+  it('cancels a guest enrollment with the canonical command and cancellation-scoped credential', async () => {
+    const expiresAt = timestampFromDate(new Date('2099-01-01T00:00:00.000Z'));
+    const guestCredential = {
+      enrollmentId: 'enrollment_guest_cancel_01',
+      guestSubjectId: 'a'.repeat(64),
+      nonce: 'lookup_nonce_fixture_01',
+      signature: 'b'.repeat(64),
+      expiresAt,
+      cancellationCredential: {
+        nonce: 'cancel_nonce_fixture_01',
+        signature: 'c'.repeat(64),
+        expiresAt,
+      },
+    };
+    executeGuestMock.mockResolvedValueOnce({
+      status: 'success',
+      payload: { lifecycleStatus: 'cancelled' },
+    });
+    const { result } = renderHook(() => useCourseEnrollmentCommands(undefined));
+    const outcome = await result.current.requestCancellation({
+      enrollmentId: guestCredential.enrollmentId,
+      expectedRevision: 1,
+      idempotencyKey: 'cancel:enrollment_guest_cancel_01:1',
+      exercisedCapability: 'account_owner',
+      guestCredential: guestCredential as never,
+    });
+    expect(executeGuestMock).toHaveBeenCalledWith({
+      kind: 'request_course_enrollment_cancellation',
+      intent: { courseEnrollmentId: guestCredential.enrollmentId },
+      idempotencyKey: 'cancel:enrollment_guest_cancel_01:1',
+      expectedRevision: 1,
+      guestActionNonce: guestCredential.cancellationCredential.nonce,
+      guestActionSignature: guestCredential.cancellationCredential.signature,
+    });
+    expect(outcome).toEqual({ lifecycleStatus: 'cancelled', refreshFailed: false });
+    expect(executeAuthenticatedMock).not.toHaveBeenCalled();
+  });
+
   it('keeps authenticated enrollment successful when post-create refresh fails', async () => {
     const accountId = 'account_fixture_01';
     executeAuthenticatedMock.mockResolvedValueOnce({

@@ -1,11 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { StrictMode } from 'react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ManagedParticipantOption } from '../../src/features/lesson-bookings/lessonBookingContracts';
 import { CourseEnrollmentModal } from '../../src/features/courses/components/CourseEnrollmentModal';
 import { GroupCourseCard } from '../../src/features/courses/components/GroupCourseCard';
 import { CanonicalCommandClientError } from '../../src/lib/canonical/mapCanonicalCommandError';
+import { persistGuestCourseEnrollmentCredential } from '../../src/features/course-enrollments/guestCourseEnrollmentCredentialStorage';
 
 const mocks = vi.hoisted(() => ({
   participants: [] as ManagedParticipantOption[],
@@ -16,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   toggleParticipant: vi.fn(),
   resetSelection: vi.fn(),
   createGuestEnrollment: vi.fn(),
+  requestCancellation: vi.fn(),
   loadGuestSingleCourseEnrollment: vi.fn(),
   isAnySelectedParticipantEnrolledInCourse: vi.fn(
     (_enrollments: unknown, _courseId: string, _ids: readonly string[]) => false
@@ -73,9 +76,12 @@ vi.mock('../../src/features/notifications', () => ({
 vi.mock('../../src/features/course-enrollments', () => ({
   createLogicalEnrollmentAttemptId: () => 'attempt_01',
   deriveGuestCreateEnrollmentIdempotencyKey: () => 'guest-idempotency',
+  deriveRequestCancellationIdempotencyKey: (id: string, revision: number) =>
+    `cancel:${id}:${revision}`,
   resolveGuestCourseSessionParticipantId: () => 'guest_session_participant_01',
   useCourseEnrollmentCommands: () => ({
     createGuestEnrollment: mocks.createGuestEnrollment,
+    requestCancellation: mocks.requestCancellation,
   }),
   selectCourseEnrollmentItems: () => [],
   useCourseEnrollmentStore: (selector: (state: { items: Map<string, never> }) => unknown) =>
@@ -444,6 +450,53 @@ function fillGuestProfile(discipline = 'ski', skillLevel = 'intermediate', age =
   });
 }
 
+const guestCredential = {
+  enrollmentId: 'attempt_01',
+  guestSubjectId: 'a'.repeat(64),
+  nonce: 'lookup_nonce_fixture_01',
+  signature: 'b'.repeat(64),
+  expiresAt: { seconds: 4_070_908_800, nanoseconds: 0 },
+  cancellationCredential: {
+    nonce: 'cancel_nonce_fixture_01',
+    signature: 'c'.repeat(64),
+    expiresAt: { seconds: 4_070_908_800, nanoseconds: 0 },
+  },
+};
+
+const pendingGuestReservation = {
+  enrollmentId: 'attempt_01',
+  revision: 1,
+  lifecycle: { status: 'pending' },
+  courseDisplay: { courseId: 'course_01', title: 'Canonical course title' },
+  participant: { participantId: 'guest_session_participant_01', displayName: 'Canonical Guest' },
+  courseSchedule: {
+    courseId: 'course_01',
+    courseScheduleRevision: 1,
+    courseDayCount: 1,
+    startAt: { seconds: 1_800_003_600, nanoseconds: 0 },
+    finalCourseDayEndsAt: { seconds: 1_800_010_800, nanoseconds: 0 },
+    courseDays: [
+      {
+        courseDayId: 'course_day_01',
+        dayOrder: 1,
+        revision: 1,
+        timeZone: 'Asia/Almaty',
+        interval: {
+          startsAt: { seconds: 1_800_003_600, nanoseconds: 0 },
+          endsAt: { seconds: 1_800_010_800, nanoseconds: 0 },
+        },
+      },
+    ],
+  },
+  guestPaymentSummary: {
+    currency: 'KZT',
+    price: 45_000,
+    outstandingAmount: 45_000,
+    paymentSatisfied: false,
+    unpaidCancellationEligible: true,
+  },
+};
+
 describe('CourseEnrollmentModal guest enrollment', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -462,6 +515,149 @@ describe('CourseEnrollmentModal guest enrollment', () => {
       },
     });
     mocks.selectActiveGuestCourseEnrollment.mockReturnValue(undefined);
+  });
+
+  it.each(['cancelled', 'pending'])(
+    'keeps submit → status → canonical cancellation → cancelled when reconcile returns %s',
+    async (reconciledStatus) => {
+      mocks.createGuestEnrollment.mockImplementationOnce(async () => {
+        persistGuestCourseEnrollmentCredential(guestCredential as never);
+        return guestCredential;
+      });
+      mocks.loadGuestSingleCourseEnrollment.mockResolvedValueOnce(pendingGuestReservation);
+      mocks.requestCancellation.mockResolvedValueOnce(undefined);
+      const onClose = vi.fn();
+      const onSuccess = vi.fn();
+      render(
+        <CourseEnrollmentModal
+          isOpen
+          onClose={onClose}
+          onSuccess={onSuccess}
+          course={course}
+          onEnroll={vi.fn()}
+        />
+      );
+      const dialog = screen.getByRole('dialog');
+      fireEvent.change(screen.getByPlaceholderText('guestNamePlaceholder'), {
+        target: { value: 'Guest One' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
+        target: { value: '+77001234567' },
+      });
+      fillGuestProfile();
+      fireEvent.click(screen.getByRole('button', { name: /submitGuestCourseApplication/i }));
+      await waitFor(() =>
+        expect(within(dialog).getByRole('status')).toHaveTextContent('guestPendingTitle')
+      );
+      expect(screen.getByRole('dialog')).toBe(dialog);
+      expect(dialog.querySelector('form')).toBeNull();
+      expect(within(dialog).getByRole('status')).toHaveTextContent('Canonical course title');
+      expect(within(dialog).getByRole('status')).toHaveTextContent('Canonical Guest');
+      expect(within(dialog).getAllByRole('listitem')).toHaveLength(1);
+      expect(onSuccess).toHaveBeenCalledOnce();
+      expect(localStorage.getItem('ski_academy_guest_reservation:course:course_01')).toBe(
+        'attempt_01'
+      );
+      let finishReconcile!: (value: unknown) => void;
+      mocks.loadGuestSingleCourseEnrollment.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishReconcile = resolve;
+          })
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'guestCancelPending' }));
+      fireEvent.click(screen.getByRole('button', { name: 'guestCancelPending' }));
+      await waitFor(() =>
+        expect(within(dialog).getByRole('status')).toHaveTextContent('guestCourseCancelledTitle')
+      );
+      expect(mocks.requestCancellation).toHaveBeenCalledWith({
+        enrollmentId: 'attempt_01',
+        expectedRevision: 1,
+        idempotencyKey: 'cancel:attempt_01:1',
+        exercisedCapability: 'account_owner',
+        guestCredential,
+      });
+      expect(screen.queryByRole('button', { name: 'guestCancelPending' })).not.toBeInTheDocument();
+      expect(onClose).not.toHaveBeenCalled();
+      await act(async () => {
+        finishReconcile({
+          ...pendingGuestReservation,
+          revision: 2,
+          lifecycle: { status: reconciledStatus, reasonCode: 'guest_cancelled' },
+        });
+      });
+      expect(screen.getByRole('dialog')).toBe(dialog);
+      expect(within(dialog).getByRole('status')).toHaveTextContent('guestCourseCancelledTitle');
+      expect(screen.queryByRole('button', { name: 'guestCancelPending' })).not.toBeInTheDocument();
+      expect(mocks.createGuestEnrollment).toHaveBeenCalledOnce();
+      expect(mocks.loadGuestSingleCourseEnrollment).toHaveBeenCalledTimes(2);
+    }
+  );
+
+  it('automatically restores a saved credential on reopen, including StrictMode effect replay', async () => {
+    persistGuestCourseEnrollmentCredential(guestCredential as never);
+    localStorage.setItem('ski_academy_guest_reservation:course:course_01', 'attempt_01');
+    mocks.loadGuestSingleCourseEnrollment.mockResolvedValue(pendingGuestReservation);
+    const props = { onClose: vi.fn(), course, onEnroll: vi.fn() };
+    const { rerender } = render(
+      <StrictMode>
+        <CourseEnrollmentModal {...props} isOpen />
+      </StrictMode>
+    );
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Canonical Guest'));
+    expect(mocks.loadGuestSingleCourseEnrollment).toHaveBeenCalledTimes(1);
+    expect(
+      screen.queryByRole('button', { name: /submitGuestCourseApplication/i })
+    ).not.toBeInTheDocument();
+    rerender(
+      <StrictMode>
+        <CourseEnrollmentModal {...props} isOpen={false} />
+      </StrictMode>
+    );
+    mocks.loadGuestSingleCourseEnrollment.mockResolvedValue({
+      ...pendingGuestReservation,
+      lifecycle: { status: 'confirmed' },
+    });
+    rerender(
+      <StrictMode>
+        <CourseEnrollmentModal {...props} isOpen />
+      </StrictMode>
+    );
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent('guestCourseConfirmedTitle')
+    );
+    expect(mocks.loadGuestSingleCourseEnrollment).toHaveBeenCalledTimes(2);
+    expect(mocks.createGuestEnrollment).not.toHaveBeenCalled();
+    expect(props.onClose).not.toHaveBeenCalled();
+  });
+
+  it('ignores a delayed saved reservation lookup after switching courses', async () => {
+    persistGuestCourseEnrollmentCredential(guestCredential as never);
+    localStorage.setItem('ski_academy_guest_reservation:course:course_01', 'attempt_01');
+    let finishLookup!: (value: unknown) => void;
+    mocks.loadGuestSingleCourseEnrollment.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishLookup = resolve;
+        })
+    );
+    const props = { isOpen: true, onClose: vi.fn(), onEnroll: vi.fn() };
+    const { rerender } = render(<CourseEnrollmentModal {...props} course={course} />);
+    expect(
+      screen.queryByRole('button', { name: /submitGuestCourseApplication/i })
+    ).not.toBeInTheDocument();
+    rerender(
+      <CourseEnrollmentModal
+        {...props}
+        course={{ ...course, id: 'course_02', title: 'Other course' }}
+      />
+    );
+    await act(async () => {
+      finishLookup(pendingGuestReservation);
+    });
+    expect(screen.getByRole('button', { name: /submitGuestCourseApplication/i })).toBeEnabled();
+    expect(screen.queryByText('Canonical Guest')).not.toBeInTheDocument();
+    expect(mocks.createGuestEnrollment).not.toHaveBeenCalled();
   });
 
   it.each(['ski', 'snowboard'])(

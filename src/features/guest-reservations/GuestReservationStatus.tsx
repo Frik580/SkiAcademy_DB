@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { CanonicalTimestamp, GuestPaymentSummary } from '@ski-academy/shared-domain';
 import type { TranslationKey } from '../../lib/i18n/translations';
+import { CourseEnrollmentScheduleList } from '../course-enrollments/CourseEnrollmentScheduleList';
+import type { CourseEnrollmentScheduleLine } from '../course-enrollments/courseEnrollmentListProjection';
 
 interface GuestReservationStatusProps {
   kind: 'lesson' | 'course';
@@ -18,6 +20,11 @@ interface GuestReservationStatusProps {
   onClose: () => void;
   onNewBooking?: () => void;
   onCancelPending?: () => Promise<boolean>;
+  reservationDetails?: {
+    readonly title: string;
+    readonly participantName: string;
+    readonly scheduleLines: readonly CourseEnrollmentScheduleLine[];
+  };
 }
 
 export function GuestReservationStatus({
@@ -35,6 +42,7 @@ export function GuestReservationStatus({
   onClose,
   onNewBooking,
   onCancelPending,
+  reservationDetails,
 }: GuestReservationStatusProps) {
   const [confirmCancellation, setConfirmCancellation] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -81,6 +89,13 @@ export function GuestReservationStatus({
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-5" role="status">
       <h3 className="font-serif text-xl text-[var(--ink)]">{title}</h3>
+      {reservationDetails && (
+        <div className="space-y-3 text-sm text-[var(--ink)]">
+          <p>{reservationDetails.title}</p>
+          <p>{reservationDetails.participantName}</p>
+          <CourseEnrollmentScheduleList lines={reservationDetails.scheduleLines} />
+        </div>
+      )}
       {confirmed ? (
         <p className="text-sm text-[var(--ink)]">{t('guestConfirmedBody')}</p>
       ) : expired ? (
@@ -138,7 +153,11 @@ export function GuestReservationStatus({
       )}
       <div className="mt-auto flex flex-wrap gap-2 pt-3">
         {canCancelPending && !confirmCancellation && (
-          <button type="button" onClick={() => setConfirmCancellation(true)} className="btn-secondary px-4 py-2 text-sm">
+          <button
+            type="button"
+            onClick={() => setConfirmCancellation(true)}
+            className="btn-secondary px-4 py-2 text-sm"
+          >
             {t('guestCancelPending')}
           </button>
         )}
@@ -161,7 +180,11 @@ export function GuestReservationStatus({
             >
               {t('guestCancelPending')}
             </button>
-            <button type="button" onClick={() => setConfirmCancellation(false)} className="btn-secondary px-4 py-2 text-sm">
+            <button
+              type="button"
+              onClick={() => setConfirmCancellation(false)}
+              className="btn-secondary px-4 py-2 text-sm"
+            >
               {t('cancel')}
             </button>
           </div>

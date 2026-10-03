@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { GuestReservationStatus } from '../../src/features/guest-reservations/GuestReservationStatus';
+import { LanguageProvider } from '../../src/app/providers/LanguageContext';
 import { translations, type TranslationKey } from '../../src/lib/i18n/translations';
 
 const deadline = { seconds: 1_800_000_000, nanoseconds: 0 };
@@ -17,20 +18,22 @@ function show(overrides: Partial<Parameters<typeof GuestReservationStatus>[0]> =
   const onRefresh = vi.fn();
   const onClose = vi.fn();
   render(
-    <GuestReservationStatus
-      kind="lesson"
-      lifecycleStatus="pending"
-      reservationExpiresAt={deadline}
-      payment={payment}
-      language="en"
-      t={t}
-      onRefresh={onRefresh}
-      refreshing={false}
-      refreshError={false}
-      statusHydrated
-      onClose={onClose}
-      {...overrides}
-    />
+    <LanguageProvider>
+      <GuestReservationStatus
+        kind="lesson"
+        lifecycleStatus="pending"
+        reservationExpiresAt={deadline}
+        payment={payment}
+        language="en"
+        t={t}
+        onRefresh={onRefresh}
+        refreshing={false}
+        refreshError={false}
+        statusHydrated
+        onClose={onClose}
+        {...overrides}
+      />
+    </LanguageProvider>
   );
   return { onRefresh, onClose };
 }
@@ -50,7 +53,10 @@ describe('guest reservation status', () => {
   });
 
   it('shows remaining amount for partial funding while remaining pending', () => {
-    show({ payment: { ...payment, outstandingAmount: 15_000, unpaidCancellationEligible: false }, onCancelPending: vi.fn() });
+    show({
+      payment: { ...payment, outstandingAmount: 15_000, unpaidCancellationEligible: false },
+      onCancelPending: vi.fn(),
+    });
     expect(screen.getByText(/Booking price: 25,000 KZT/)).toBeInTheDocument();
     expect(screen.getByText(/Remaining to pay: 15,000 KZT/)).toBeInTheDocument();
     expect(screen.queryByText('Booking confirmed')).not.toBeInTheDocument();
@@ -61,7 +67,9 @@ describe('guest reservation status', () => {
     const onCancelPending = vi.fn().mockResolvedValue(true);
     show({ onCancelPending });
     fireEvent.click(screen.getByRole('button', { name: 'Cancel request' }));
-    expect(screen.getByText(/Your place will no longer be held after cancellation/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Your place will no longer be held after cancellation/)
+    ).toBeInTheDocument();
     fireEvent.click(screen.getAllByRole('button', { name: 'Cancel request' })[0]);
     await waitFor(() => expect(onCancelPending).toHaveBeenCalledOnce());
   });
@@ -72,7 +80,9 @@ describe('guest reservation status', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel request' }));
     fireEvent.click(screen.getAllByRole('button', { name: 'Cancel request' })[0]);
     await waitFor(() => expect(onCancelPending).toHaveBeenCalledOnce());
-    expect(screen.getByText(/Your place will no longer be held after cancellation/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Your place will no longer be held after cancellation/)
+    ).toBeInTheDocument();
   });
 
   it('uses course-specific pending wording with the canonical amount and deadline', () => {
@@ -84,10 +94,31 @@ describe('guest reservation status', () => {
     ).toBeInTheDocument();
   });
 
+  it('renders prepared course reservation details and permits canonical unpaid cancellation', () => {
+    show({
+      kind: 'course',
+      onCancelPending: vi.fn(),
+      reservationDetails: {
+        title: 'Carving course',
+        participantName: 'Guest participant',
+        scheduleLines: [{ courseDayId: 'day_01', label: 'Dec 12, 2026 · 10:00–12:00' }],
+      },
+    });
+    expect(screen.getByRole('status')).toHaveTextContent('Carving course');
+    expect(screen.getByRole('status')).toHaveTextContent('Guest participant');
+    expect(screen.getByRole('listitem')).toHaveTextContent('Dec 12, 2026 · 10:00–12:00');
+    expect(screen.getByRole('button', { name: 'Cancel request' })).toBeEnabled();
+  });
+
   it('shows confirmed only for canonical confirmed lifecycle', () => {
     show({
       lifecycleStatus: 'confirmed',
-      payment: { ...payment, outstandingAmount: 0, paymentSatisfied: true, unpaidCancellationEligible: false },
+      payment: {
+        ...payment,
+        outstandingAmount: 0,
+        paymentSatisfied: true,
+        unpaidCancellationEligible: false,
+      },
     });
     expect(screen.getByText('Booking confirmed')).toBeInTheDocument();
     expect(

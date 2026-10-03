@@ -32,16 +32,20 @@ export function useLessonBookingReadSync(
 
   const loadHot = useCallback(async () => {
     if (!accountId) return;
+    const syncGeneration = useLessonBookingStore.getState().syncGeneration;
     useLessonBookingStore.getState().setHotLoading(true);
     useLessonBookingStore.getState().setError(undefined);
     try {
       await syncAccountHotLessonBookingsFromServer();
     } catch (error) {
+      if (useLessonBookingStore.getState().syncGeneration !== syncGeneration) return;
       useLessonBookingStore
         .getState()
         .setError(error instanceof Error ? error.message : 'Failed to load bookings.');
     } finally {
-      useLessonBookingStore.getState().setHotLoading(false);
+      if (useLessonBookingStore.getState().syncGeneration === syncGeneration) {
+        useLessonBookingStore.getState().setHotLoading(false);
+      }
     }
   }, [accountId]);
 

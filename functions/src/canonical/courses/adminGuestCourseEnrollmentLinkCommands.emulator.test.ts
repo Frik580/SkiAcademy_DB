@@ -14,6 +14,7 @@ import {
   accountCommandActor,
   courseEnrollmentIdFromCommandParticipant,
   guestCommandActor,
+  guestParticipantTransportMetadataFromProfile,
   guestSubjectIdFromCourseEnrollmentId,
   participantManagementIdFromGuestLink,
   paymentIdFromCourseEnrollmentId,
@@ -29,7 +30,9 @@ const PROJECT_ID = 'ski-academy-admin-guest-enroll-link-emulator';
 const correlationId = CorrelationIdSchema.parse('correlation_admin_guest_enroll_link_em_01');
 const adminAccountId = AccountIdSchema.parse('account_admin_guest_enroll_link_em_admin');
 const targetAccountId = AccountIdSchema.parse('account_admin_guest_enroll_link_em_target');
-const guestParticipantId = ParticipantIdSchema.parse('participant_admin_guest_enroll_link_em_guest');
+const guestParticipantId = ParticipantIdSchema.parse(
+  'participant_admin_guest_enroll_link_em_guest'
+);
 const managedParticipantId = ParticipantIdSchema.parse(
   'participant_admin_guest_enroll_link_em_managed'
 );
@@ -220,6 +223,12 @@ function guestCreateEnvelope(): CommandEnvelope<'create_course_enrollments'> {
     idempotencyKey: 'admin-guest-enroll-em-create',
     correlationId,
     source: 'guest_callable' as const,
+    transportMetadata: guestParticipantTransportMetadataFromProfile({
+      displayName: 'Guest Enrollment Emulator',
+      ageYears: 18,
+      discipline: 'ski',
+      skillLevel: 'beginner',
+    }),
     calendarInput: {
       localDate: '2026-02-01',
       localTime: '09:00',
@@ -281,8 +290,7 @@ describe.skipIf(!runsOnFirestoreEmulator)(
   'link_guest_course_enrollment_to_account_as_administrator (firestore emulator)',
   () => {
     beforeAll(() => {
-      process.env.FIRESTORE_EMULATOR_HOST =
-        process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8080';
+      process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8080';
       app = getApps().length > 0 ? getApps()[0]! : initializeApp({ projectId: PROJECT_ID });
       firestore = getFirestore(app);
     }, 30_000);
@@ -298,65 +306,57 @@ describe.skipIf(!runsOnFirestoreEmulator)(
       await seedFixture();
     }, 30_000);
 
-    it(
-      'links existing_managed without consuming capacity, charging, or recreating the enrollment',
-      async () => {
-        const commands = createCommands();
-        const createEnvelope = guestCreateEnvelope();
-        expect((await commands.execute(createEnvelope)).status).toBe('success');
-        const enrollmentId = createEnvelope.intent.enrollmentIds![0]!;
-        const paymentId = paymentIdFromCourseEnrollmentId(enrollmentId);
-        const beforeCourse = (await firestore.doc(`courses/${courseId}`).get()).data();
-        const paymentBefore = (await firestore.doc(`payments/${paymentId}`).get()).data();
-        const enrollmentBefore = (
-          await firestore.doc(`course_enrollments/${enrollmentId}`).get()
-        ).data();
+    it('links existing_managed without consuming capacity, charging, or recreating the enrollment', async () => {
+      const commands = createCommands();
+      const createEnvelope = guestCreateEnvelope();
+      expect((await commands.execute(createEnvelope)).status).toBe('success');
+      const enrollmentId = createEnvelope.intent.enrollmentIds![0]!;
+      const paymentId = paymentIdFromCourseEnrollmentId(enrollmentId);
+      const beforeCourse = (await firestore.doc(`courses/${courseId}`).get()).data();
+      const paymentBefore = (await firestore.doc(`payments/${paymentId}`).get()).data();
+      const enrollmentBefore = (
+        await firestore.doc(`course_enrollments/${enrollmentId}`).get()
+      ).data();
 
-        const envelope = adminLinkEnvelope(enrollmentId, 'admin-guest-enroll-em-link');
-        expect((await commands.execute(envelope)).status).toBe('success');
-        expect((await commands.execute(envelope)).status).toBe('success');
+      const envelope = adminLinkEnvelope(enrollmentId, 'admin-guest-enroll-em-link');
+      expect((await commands.execute(envelope)).status).toBe('success');
+      expect((await commands.execute(envelope)).status).toBe('success');
 
-        const enrollment = (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data();
-        const payment = (await firestore.doc(`payments/${paymentId}`).get()).data();
-        expect(enrollment?.participantId).toBe(managedParticipantId);
-        expect(enrollment?.guestAccountLink).toMatchObject({
-          linkedAccountId: targetAccountId,
-          linkedParticipantId: managedParticipantId,
-        });
-        expect(enrollment?.guestAccountLink?.credentialNonce).toBeUndefined();
-        expect(enrollment?.attribution).toEqual(enrollmentBefore?.attribution);
-        expect(payment?.payerAccountId).toBe(targetAccountId);
-        expect(payment?.paidAmount).toBe(paymentBefore?.paidAmount);
-        expect(payment?.paymentStatus).toBe(paymentBefore?.paymentStatus);
-        expect((await firestore.doc(`courses/${courseId}`).get()).data()?.capacity.availableSeats).toBe(
-          beforeCourse?.capacity.availableSeats
-        );
-        expect((await firestore.collection('course_enrollments').get()).size).toBe(1);
-        expect(
-          (await firestore.doc(`participants/${guestParticipantId}`).get()).data()?.management
-        ).toEqual({ kind: 'unmanaged_guest' });
-      },
-      30_000
-    );
+      const enrollment = (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data();
+      const payment = (await firestore.doc(`payments/${paymentId}`).get()).data();
+      expect(enrollment?.participantId).toBe(managedParticipantId);
+      expect(enrollment?.guestAccountLink).toMatchObject({
+        linkedAccountId: targetAccountId,
+        linkedParticipantId: managedParticipantId,
+      });
+      expect(enrollment?.guestAccountLink?.credentialNonce).toBeUndefined();
+      expect(enrollment?.attribution).toEqual(enrollmentBefore?.attribution);
+      expect(payment?.payerAccountId).toBe(targetAccountId);
+      expect(payment?.paidAmount).toBe(paymentBefore?.paidAmount);
+      expect(payment?.paymentStatus).toBe(paymentBefore?.paymentStatus);
+      expect(
+        (await firestore.doc(`courses/${courseId}`).get()).data()?.capacity.availableSeats
+      ).toBe(beforeCourse?.capacity.availableSeats);
+      expect((await firestore.collection('course_enrollments').get()).size).toBe(1);
+      expect(
+        (await firestore.doc(`participants/${guestParticipantId}`).get()).data()?.management
+      ).toEqual({ kind: 'unmanaged_guest' });
+    }, 30_000);
 
-    it(
-      'serializes concurrent Admin enrollment link attempts to one effect',
-      async () => {
-        const commands = createCommands();
-        const createEnvelope = guestCreateEnvelope();
-        expect((await commands.execute(createEnvelope)).status).toBe('success');
-        const enrollmentId = createEnvelope.intent.enrollmentIds![0]!;
-        const [first, second] = await Promise.all([
-          commands.execute(adminLinkEnvelope(enrollmentId, 'admin-guest-enroll-em-race-a')),
-          commands.execute(adminLinkEnvelope(enrollmentId, 'admin-guest-enroll-em-race-b')),
-        ]);
-        const successes = [first, second].filter((result) => result.status === 'success');
-        expect(successes.length).toBe(1);
-        expect(
-          (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data()?.participantId
-        ).toBe(managedParticipantId);
-      },
-      30_000
-    );
+    it('serializes concurrent Admin enrollment link attempts to one effect', async () => {
+      const commands = createCommands();
+      const createEnvelope = guestCreateEnvelope();
+      expect((await commands.execute(createEnvelope)).status).toBe('success');
+      const enrollmentId = createEnvelope.intent.enrollmentIds![0]!;
+      const [first, second] = await Promise.all([
+        commands.execute(adminLinkEnvelope(enrollmentId, 'admin-guest-enroll-em-race-a')),
+        commands.execute(adminLinkEnvelope(enrollmentId, 'admin-guest-enroll-em-race-b')),
+      ]);
+      const successes = [first, second].filter((result) => result.status === 'success');
+      expect(successes.length).toBe(1);
+      expect(
+        (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data()?.participantId
+      ).toBe(managedParticipantId);
+    }, 30_000);
   }
 );

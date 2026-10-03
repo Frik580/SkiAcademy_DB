@@ -19,6 +19,7 @@ import {
   COURSE_CLIENT_CANCELLATION_WINDOW_7D_MS,
   courseEnrollmentIdFromCommandParticipant,
   guestCommandActor,
+  guestParticipantTransportMetadataFromProfile,
   guestSubjectIdFromCourseEnrollmentId,
   paymentIdFromCourseEnrollmentId,
   resolveCommandIdempotencyIdentity,
@@ -420,6 +421,12 @@ function guestEnrollmentEnvelope(
     idempotencyKey,
     correlationId,
     source: 'guest_callable' as const,
+    transportMetadata: guestParticipantTransportMetadataFromProfile({
+      displayName: 'Guest Lifecycle Participant',
+      ageYears: 18,
+      discipline: 'ski',
+      skillLevel: 'beginner',
+    }),
     calendarInput: {
       localDate: '2026-02-01',
       localTime: '09:00',

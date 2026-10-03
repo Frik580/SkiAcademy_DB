@@ -168,7 +168,13 @@ describe('courseEnrollment commands integration', () => {
     };
     executeGuestMock.mockResolvedValueOnce({
       status: 'success',
-      payload: { outcome: 'created', guestLinkCredentials: [credential] },
+      payload: {
+        outcome: 'created',
+        guestLinkCredentials: [credential],
+        adminCoursesRevision: 1,
+        adminFinanceRevision: 1,
+        adminPeopleRevision: 1,
+      },
     });
     queryCatalogMock.mockResolvedValueOnce({
       scope: 'public',

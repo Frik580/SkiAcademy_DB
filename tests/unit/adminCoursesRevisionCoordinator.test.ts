@@ -40,7 +40,7 @@ describe('adminCoursesRevisionCoordinator', () => {
     expect(unsubscribeMock).toHaveBeenCalledTimes(1);
   });
 
-  it('skips the initial snapshot and duplicate revisions, then notifies once', () => {
+  it('reconciles the initial nonzero snapshot once and deduplicates subsequent revisions', () => {
     let emitRevision: ((revision: number) => void) | undefined;
     subscribeMock.mockImplementation((onRevision: (revision: number) => void) => {
       emitRevision = onRevision;
@@ -51,13 +51,13 @@ describe('adminCoursesRevisionCoordinator', () => {
 
     emitRevision?.(10);
     emitRevision?.(10);
-    expect(listener).not.toHaveBeenCalled();
-
-    emitRevision?.(11);
     expect(listener).toHaveBeenCalledTimes(1);
 
     emitRevision?.(11);
-    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenCalledTimes(2);
+
+    emitRevision?.(11);
+    expect(listener).toHaveBeenCalledTimes(2);
   });
 
   it('notifies mounted consumers once for a command revision and deduplicates its snapshot', () => {
@@ -70,6 +70,7 @@ describe('adminCoursesRevisionCoordinator', () => {
     registerAdminCoursesRevisionListener(listener);
 
     emitRevision?.(41);
+    listener.mockClear();
     registerAdminCoursesRevisionFromCommand(42);
     expect(listener).toHaveBeenCalledTimes(1);
     emitRevision?.(42);
@@ -90,6 +91,27 @@ describe('adminCoursesRevisionCoordinator', () => {
     registerAdminCoursesRevisionListener(listener);
 
     emitRevision?.(5);
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips an empty baseline and does not repeat a command invalidation in the first snapshot', () => {
+    let emitRevision: ((revision: number) => void) | undefined;
+    subscribeMock.mockImplementation((onRevision: (revision: number) => void) => {
+      emitRevision = onRevision;
+      return unsubscribeMock;
+    });
+    const listener = vi.fn();
+    registerAdminCoursesRevisionListener(listener);
+    emitRevision?.(0);
     expect(listener).not.toHaveBeenCalled();
+
+    resetAdminCoursesRevisionCoordinatorForTests();
+    registerAdminCoursesRevisionListener(listener);
+    registerAdminCoursesRevisionFromCommand(1);
+    expect(listener).toHaveBeenCalledTimes(1);
+    emitRevision?.(1);
+    expect(listener).toHaveBeenCalledTimes(1);
+    emitRevision?.(2);
+    expect(listener).toHaveBeenCalledTimes(2);
   });
 });

@@ -12,12 +12,18 @@ let unsubscribeRevision: (() => void) | undefined;
 function ensureRevisionSubscription(): void {
   if (unsubscribeRevision) return;
   unsubscribeRevision = subscribeAdminCoursesRevision((nextRevision) => {
+    // The list query can finish before the first snapshot. Reconcile a nonzero
+    // baseline once so a mutation in that window cannot leave the list stale.
+    const shouldReconcileInitialSnapshot =
+      !revisionState.initialized &&
+      nextRevision > 0 &&
+      (lastNotifiedRevision === undefined || nextRevision > lastNotifiedRevision);
     const reduced = reduceAdminRealtimeRevisionSignal(revisionState, nextRevision);
     revisionState = {
       initialized: reduced.initialized,
       lastRevision: reduced.lastRevision,
     };
-    if (!reduced.shouldRefresh) return;
+    if (!reduced.shouldRefresh && !shouldReconcileInitialSnapshot) return;
     lastNotifiedRevision = Math.max(lastNotifiedRevision ?? nextRevision, nextRevision);
     for (const listener of listeners) {
       listener();

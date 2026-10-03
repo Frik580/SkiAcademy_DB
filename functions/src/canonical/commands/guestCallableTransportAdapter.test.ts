@@ -3,6 +3,10 @@ import { HttpsError } from 'firebase-functions/v2/https';
 import {
   BookingIdSchema,
   CorrelationIdSchema,
+  CourseEnrollmentIdSchema,
+  CourseIdSchema,
+  ParticipantIdSchema,
+  guestSubjectIdFromCourseEnrollmentId,
   InstructorIdSchema,
   buildFrontendGuestLessonBookingCallablePayload,
   parseCommandEnvelope,
@@ -41,6 +45,56 @@ function validTransportPayload() {
 }
 
 describe('guestCallableTransportAdapter', () => {
+  it('derives the canonical guest subject for a single course enrollment cancellation intent', () => {
+    const courseEnrollmentId = CourseEnrollmentIdSchema.parse(
+      'enrollment_guest_cancel_contract_01'
+    );
+    expect(deriveGuestSubjectIdForIntent({ courseEnrollmentId })).toBe(
+      guestSubjectIdFromCourseEnrollmentId(courseEnrollmentId)
+    );
+  });
+
+  it.each(['request_course_enrollment_cancellation', 'withdraw_course_enrollment'] as const)(
+    'derives the same subject for the %s transport without trusting a browser actor',
+    (kind) => {
+      const courseEnrollmentId = CourseEnrollmentIdSchema.parse('enrollment_guest_single_contract');
+      const transport = parseCallableGuestCommandTransportInput({
+        data: {
+          kind,
+          intent: { courseEnrollmentId },
+          correlationId,
+          idempotencyKey: `${kind}:${courseEnrollmentId}`,
+          expectedRevision: 1,
+          guestActionNonce: 'guest_cancel_nonce',
+          guestActionSignature: 'a'.repeat(64),
+        },
+      } as never);
+      const subject = deriveGuestSubjectIdForIntent(transport.intent);
+      expect(subject).toBe(guestSubjectIdFromCourseEnrollmentId(courseEnrollmentId));
+      expect(
+        parseCommandEnvelope(buildGuestCommandEnvelopeFromCallable(subject!, transport)).success
+      ).toBe(true);
+    }
+  );
+
+  it.each([undefined, null, '', 'enrollment/invalid', 123])(
+    'rejects invalid enrollment IDs: %s',
+    (courseEnrollmentId) => {
+      expect(deriveGuestSubjectIdForIntent({ courseEnrollmentId } as never)).toBeUndefined();
+    }
+  );
+
+  it('preserves guest course creation subject derivation', () => {
+    const enrollmentId = CourseEnrollmentIdSchema.parse('enrollment_guest_create_contract');
+    expect(
+      deriveGuestSubjectIdForIntent({
+        courseId: CourseIdSchema.parse('course_guest_create_contract'),
+        participantIds: [ParticipantIdSchema.parse('participant_guest_create_contract')],
+        enrollmentIds: [enrollmentId],
+      })
+    ).toBe(guestSubjectIdFromCourseEnrollmentId(enrollmentId));
+  });
+
   it('maps callable transport input into a valid guest booking envelope', () => {
     const transport = validTransportPayload();
     const guestSubjectId = deriveGuestSubjectIdForIntent(transport.intent);

@@ -3,6 +3,8 @@ import { initializeApp, getApps, deleteApp, type App } from 'firebase-admin/app'
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import {
   AggregateRevisionSchema,
+  AccountIdSchema,
+  canonicalPaths,
   CorrelationIdSchema,
   CourseDayIdSchema,
   CourseEnrollmentIdSchema,
@@ -12,6 +14,7 @@ import {
   GUEST_ACTION_SIGNATURE_TRANSPORT_KEY,
   InstructorIdSchema,
   ParticipantIdSchema,
+  parseCommandResultPayload,
   SystemActorIdSchema,
   deriveGuestSubjectIdFromCourseEnrollmentIntent,
   guestCommandActor,
@@ -31,12 +34,18 @@ import {
   GUEST_RESERVATION_ACTIVE_LIMITS,
   type GuestReservationAdmissionPolicy,
 } from '../commands/guestReservationAdmission';
-import { deriveGuestSubjectIdForIntent } from '../commands/guestCallableTransportAdapter';
+import {
+  buildGuestCommandEnvelopeFromCallable,
+  deriveGuestSubjectIdForIntent,
+  parseCallableGuestCommandTransportInput,
+} from '../commands/guestCallableTransportAdapter';
 import { verifyGuestCourseEnrollmentActionCredentialPartsAuthoritative } from '../bookings/guestCredentialVerification';
 import { queryCourseEnrollmentReadModels } from '../readModels/courseEnrollmentReadModels';
 import { queryCourseCatalogReadModels } from '../readModels/courseCatalogReadModels';
 import { parseCourse } from '../courses/courseStore';
 import { parseCourseEnrollment } from '../courses/courseEnrollmentStore';
+import { parseParticipant } from '../participantAccess/participantAccessStore';
+import { queryAdminCourseEnrollmentReadModels } from '../readModels/adminCourseEnrollmentReadModels';
 
 const PROJECT_ID = 'ski-academy-guest-course-transport-emulator-test';
 const guestActionTokenSecret = 'guest-course-transport-emulator-secret';
@@ -47,6 +56,10 @@ const participantId = ParticipantIdSchema.parse('participant_guest_transport_emu
 const enrollmentId = CourseEnrollmentIdSchema.parse('enrollment_guest_transport_emulator_01');
 const instructorId = InstructorIdSchema.parse('instructor_guest_transport_emulator_01');
 const guestSubjectId = guestSubjectIdFromCourseEnrollmentId(enrollmentId);
+const adminActor = {
+  accountId: AccountIdSchema.parse('account_guest_transport_admin'),
+  role: 'admin' as const,
+};
 const decidedAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
 const dayOneStart = timestampFromDate(new Date('2026-02-01T03:00:00.000Z'));
 const dayOneEnd = timestampFromDate(new Date('2026-02-01T05:00:00.000Z'));
@@ -270,6 +283,7 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
       'active_course_enrollment_guards',
       'command_idempotency',
       'guest_reservation_admission',
+      'admin_runtime',
     ];
     for (const collection of collections) {
       const snapshot = await firestore.collection(collection).get();
@@ -278,6 +292,180 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
       await batch.commit();
     }
     await seedCourse();
+  });
+
+  it('projects a newly created pending guest to admin exactly once and bumps the realtime revision', async () => {
+    const queryPending = () =>
+      queryAdminCourseEnrollmentReadModels(firestore, adminActor, { scope: 'admin_pending_guest' });
+    expect(await queryPending()).toMatchObject({ items: [], hasMore: false });
+    const revisionRef = firestore.doc(canonicalPaths.adminCoursesRevision().replace(/^\//, ''));
+    const beforeRevision = (await revisionRef.get()).data()?.revision ?? 0;
+    const commands = createCommands();
+    const envelope = guestEnrollmentEnvelope('idem-guest-admin-visible');
+    const created = await commands.execute(envelope);
+    expect(created.status).toBe('success');
+    expect(parseCommandResultPayload('create_course_enrollments', created.payload).success).toBe(
+      true
+    );
+    expect(created.payload?.adminCoursesRevision).toBe(beforeRevision + 1);
+    expect((await revisionRef.get()).data()?.revision).toBe(beforeRevision + 1);
+
+    const enrollment = parseCourseEnrollment(
+      (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data()
+    );
+    expect(enrollment).toMatchObject({
+      attribution: { bookingOrigin: 'guest' },
+      lifecycle: { status: 'pending' },
+    });
+    expect(
+      parseParticipant((await firestore.doc(`participants/${participantId}`).get()).data())
+    ).toMatchObject({
+      management: { kind: 'unmanaged_guest' },
+      lifecycle: { status: 'active' },
+    });
+    const pending = await queryPending();
+    expect(pending.scope).toBe('admin_pending_guest');
+    if (pending.scope === 'admin_enrollment_detail') throw new Error('Unexpected detail');
+    expect(pending.items).toHaveLength(1);
+    expect(pending.items[0]).toMatchObject({
+      enrollmentId,
+      course: { courseId, title: 'Guest Transport Course' },
+      participant: { participantId, displayName: 'Guest Transport Student' },
+      guestState: 'pending_unlinked',
+      lifecycleStatus: 'pending',
+      payment: { paymentId: enrollment!.paymentId, outstanding: 50_000 },
+      guestContact: { phone: '+7 701 123 45 67', email: 'course@example.com' },
+    });
+    expect(await commands.execute(envelope)).toEqual(created);
+    expect((await revisionRef.get()).data()?.revision).toBe(beforeRevision + 1);
+    expect(await queryPending()).toMatchObject({ items: [pending.items[0]] });
+
+    // Keep the full canonical document shape while changing only the query discriminators.
+    const accountEnrollmentId = CourseEnrollmentIdSchema.parse('enrollment_account_admin_filter');
+    await firestore.doc(`course_enrollments/${accountEnrollmentId}`).set({
+      ...(await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data(),
+      enrollmentId: accountEnrollmentId,
+      attribution: {
+        bookingOrigin: 'account',
+        bookedBy: { kind: 'account', accountId: adminActor.accountId },
+      },
+    });
+    expect(await queryPending()).toMatchObject({ items: [pending.items[0]] });
+    await firestore.doc(`course_enrollments/${enrollmentId}`).update({
+      lifecycle: { status: 'confirmed', confirmedAt: decidedAt },
+    });
+    expect(await queryPending()).toMatchObject({ items: [] });
+  });
+
+  it('cancels through parsed guest callable transport, refreshes guest/admin reads, and replays without another mutation', async () => {
+    const commands = createCommands();
+    const created = await commands.execute(guestEnrollmentEnvelope('idem-guest-cancel-create'));
+    expect(created.status).toBe('success');
+    const credential = created.payload!.guestLinkCredentials![0]!;
+    expect(credential.cancellationCredential).toBeDefined();
+    const transport = parseCallableGuestCommandTransportInput({
+      data: {
+        kind: 'request_course_enrollment_cancellation',
+        intent: { courseEnrollmentId: enrollmentId },
+        idempotencyKey: `request-course-enrollment-cancellation:${enrollmentId}:1`,
+        correlationId,
+        expectedRevision: 1,
+        guestActionNonce: credential.cancellationCredential!.nonce,
+        guestActionSignature: credential.cancellationCredential!.signature,
+      },
+    } as never);
+    const subject = deriveGuestSubjectIdForIntent(transport.intent);
+    expect(subject).toBe(guestSubjectId);
+    const envelope = buildGuestCommandEnvelopeFromCallable(subject!, transport);
+    const cancelled = await commands.execute(envelope);
+    expect(cancelled.status).toBe('success');
+    expect(cancelled.payload).toMatchObject({
+      adminCoursesRevision: (created.payload!.adminCoursesRevision ?? 0) + 1,
+    });
+    expect(
+      parseCourseEnrollment(
+        (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data()
+      )
+    ).toMatchObject({
+      revision: 2,
+      lifecycle: { status: 'cancelled', reasonCode: 'guest_cancelled' },
+    });
+    expect(await commands.execute(envelope)).toEqual(cancelled);
+    const read = await queryCourseEnrollmentReadModels(
+      firestore,
+      {
+        scope: 'guest_single',
+        enrollmentId,
+        guestActionNonce: credential.nonce,
+        guestActionSignature: credential.signature,
+      },
+      { guestActionSecret: guestActionTokenSecret, now: new Date('2026-01-01T00:00:00.000Z') }
+    );
+    expect(read.items[0]?.lifecycle.status).toBe('cancelled');
+    expect(
+      await queryAdminCourseEnrollmentReadModels(firestore, adminActor, {
+        scope: 'admin_pending_guest',
+      })
+    ).toMatchObject({ items: [] });
+    const history = await queryAdminCourseEnrollmentReadModels(firestore, adminActor, {
+      scope: 'admin_history',
+    });
+    expect(history).toMatchObject({
+      items: [expect.objectContaining({ enrollmentId, lifecycleStatus: 'cancelled' })],
+    });
+  });
+
+  it.each([
+    'other-enrollment',
+    'tampered-signature',
+    'link-purpose',
+    'expired',
+    'stale-revision',
+  ] as const)('rejects guest cancellation with %s without changing lifecycle', async (invalid) => {
+    const commands = createCommands();
+    const created = await commands.execute(
+      guestEnrollmentEnvelope(`idem-guest-negative-create-${invalid}`)
+    );
+    const credential = created.payload!.guestLinkCredentials![0]!;
+    let targetId = enrollmentId;
+    if (invalid === 'other-enrollment') {
+      targetId = CourseEnrollmentIdSchema.parse('enrollment_guest_cancel_other');
+      expect(
+        (
+          await commands.execute(
+            guestEnrollmentAttemptEnvelope({
+              enrollmentId: targetId,
+              participantId: ParticipantIdSchema.parse('participant_guest_cancel_other'),
+              idempotencyKey: 'idem-guest-negative-other-create',
+            })
+          )
+        ).status
+      ).toBe('success');
+    }
+    const action = invalid === 'link-purpose' ? credential : credential.cancellationCredential!;
+    const transport = parseCallableGuestCommandTransportInput({
+      data: {
+        kind: 'request_course_enrollment_cancellation',
+        intent: { courseEnrollmentId: targetId },
+        correlationId,
+        idempotencyKey: `guest-negative-cancel-${invalid}`,
+        expectedRevision: invalid === 'stale-revision' ? 2 : 1,
+        guestActionNonce: action.nonce,
+        guestActionSignature: invalid === 'tampered-signature' ? 'a'.repeat(64) : action.signature,
+      },
+    } as never);
+    const subject = deriveGuestSubjectIdForIntent(transport.intent);
+    expect(subject).toBe(guestSubjectIdFromCourseEnrollmentId(targetId));
+    const result = await (
+      invalid === 'expired' ? createCommands('2026-01-02T01:00:00.000Z') : commands
+    ).execute(buildGuestCommandEnvelopeFromCallable(subject!, transport));
+    expect(result.status).toBe('error');
+    expect(
+      parseCourseEnrollment((await firestore.doc(`course_enrollments/${targetId}`).get()).data())
+    ).toMatchObject({
+      revision: 1,
+      lifecycle: { status: 'pending' },
+    });
   });
 
   it('admits two active course holds per network source and rejects the third', async () => {
@@ -517,7 +705,9 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
 
   it('rejects guest course status credential when guest action secret is unavailable', async () => {
     const commands = createCommands();
-    const result = await commands.execute(guestEnrollmentEnvelope('idem-guest-course-missing-secret'));
+    const result = await commands.execute(
+      guestEnrollmentEnvelope('idem-guest-course-missing-secret')
+    );
     expect(result.status).toBe('success');
     const credential =
       result.status === 'success' ? result.payload?.guestLinkCredentials?.[0] : undefined;
@@ -589,7 +779,10 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
 
     const enrollment = (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data();
     const payment = (await firestore.doc(`payments/${enrollment?.paymentId}`).get()).data();
-    expect(enrollment?.lifecycle).toMatchObject({ status: 'cancelled', reasonCode: 'guest_cancelled' });
+    expect(enrollment?.lifecycle).toMatchObject({
+      status: 'cancelled',
+      reasonCode: 'guest_cancelled',
+    });
     expect(payment).toMatchObject({
       paidAmount: 0,
       refundedAmount: 0,
@@ -598,7 +791,9 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
       revision: 2,
     });
     expect((await firestore.collection('monetary_events').get()).size).toBe(1);
-    expect((await firestore.doc(`courses/${courseId}`).get()).data()?.capacity.availableSeats).toBe(8);
+    expect((await firestore.doc(`courses/${courseId}`).get()).data()?.capacity.availableSeats).toBe(
+      8
+    );
   }, 30_000);
 
   it('refreshes targeted public catalog seats after guest enrollment', async () => {

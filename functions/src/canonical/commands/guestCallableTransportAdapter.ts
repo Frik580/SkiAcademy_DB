@@ -10,6 +10,7 @@ import {
   NOTIFICATION_LOCALE_TRANSPORT_KEY,
   guestParticipantTransportMetadataFromProfile,
   guestSubjectIdFromBookingId,
+  guestSubjectIdFromCourseEnrollmentId,
   deriveGuestSubjectIdFromCourseEnrollmentIntent,
   parseCallableGuestCommandTransport,
   parseGuestParticipantProfileFromTransportMetadata,
@@ -64,6 +65,11 @@ export function deriveGuestSubjectIdForIntent(
     });
   }
 
+  const parsedEnrollmentId = CourseEnrollmentIdSchema.safeParse(record.courseEnrollmentId);
+  if (parsedEnrollmentId.success) {
+    return guestSubjectIdFromCourseEnrollmentId(parsedEnrollmentId.data);
+  }
+
   const parsedBookingId = BookingIdSchema.safeParse(record.bookingId);
   if (!parsedBookingId.success) {
     return undefined;
@@ -103,13 +109,20 @@ export function buildGuestCommandContextFromCallable(
   const guestParticipantProfile = parseGuestParticipantProfileFromTransportMetadata({
     ...(input.guestParticipantDisplayName === undefined
       ? {}
-      : { [GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.displayName]: input.guestParticipantDisplayName }),
+      : {
+          [GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.displayName]:
+            input.guestParticipantDisplayName,
+        }),
     ...(input.guestParticipantSkillLevel === undefined
       ? {}
-      : { [GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.skillLevel]: input.guestParticipantSkillLevel }),
+      : {
+          [GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.skillLevel]: input.guestParticipantSkillLevel,
+        }),
     ...(input.guestParticipantDiscipline === undefined
       ? {}
-      : { [GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.discipline]: input.guestParticipantDiscipline }),
+      : {
+          [GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.discipline]: input.guestParticipantDiscipline,
+        }),
     ...(input.guestParticipantAgeYears === undefined
       ? {}
       : {
@@ -131,7 +144,8 @@ export function buildGuestCommandContextFromCallable(
       ...(input.guestEmail === undefined ? {} : { email: input.guestEmail }),
     });
     transportMetadata[GUEST_CONTACT_TRANSPORT_METADATA_KEYS.phone] = contact.phone;
-    if (contact.email) transportMetadata[GUEST_CONTACT_TRANSPORT_METADATA_KEYS.email] = contact.email;
+    if (contact.email)
+      transportMetadata[GUEST_CONTACT_TRANSPORT_METADATA_KEYS.email] = contact.email;
   }
 
   if (input.notificationLocale === 'ru' || input.notificationLocale === 'en') {

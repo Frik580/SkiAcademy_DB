@@ -18,7 +18,8 @@
     "format:check": "prettier --check .",
     "preview": "vite preview",
     "emulators:firestore": "firebase emulators:start --only firestore --ui",
-    "test:unit:app": "vitest run --config vitest.config.ts tests/unit && vitest run --config packages/shared-domain/vitest.config.ts",
+    "test:unit:shared-domain": "vitest run --config packages/shared-domain/vitest.config.ts",
+    "test:unit:app": "vitest run --config vitest.config.ts tests/unit && npm run test:unit:shared-domain",
     "test:index-contracts": "vitest run tests/unit/firestoreIndexContracts.test.ts",
     "test:functions": "vitest run --config functions/vitest.config.ts --exclude \"**/*.emulator.test.ts\"",
     "test:functions:emulator": "vitest run --config functions/vitest.config.ts .emulator.test.ts --no-file-parallelism --testTimeout=30000 --hookTimeout=60000",
@@ -28,7 +29,7 @@
     "test:integration": "firebase emulators:exec --only firestore \"vitest run --config vitest.config.ts tests/integration --no-file-parallelism\"",
     "test:vitest:integration": "vitest run --config vitest.config.ts tests/firestore.rules.test.ts tests/integration tests/storage.rules.test.ts tests/callable --no-file-parallelism --testTimeout=30000 --hookTimeout=60000",
     "test:under-emulators": "npm run test:unit:app && npm run test:functions && npm run test:functions:emulator && npm run test:vitest:integration && playwright test",
-    "test:e2e": "npm run build:functions && playwright install chromium && npx cross-env GUEST_ACTION_TOKEN_SECRET=e2e-guest-action-token-secret firebase emulators:exec --project demo-ski-school-e2e --only auth,firestore,functions,storage \"playwright test\"",
+    "test:e2e": "npm run build:functions && npx cross-env GUEST_ACTION_TOKEN_SECRET=e2e-guest-action-token-secret firebase emulators:exec --project demo-ski-school-e2e --only auth,firestore,functions,storage \"playwright test\"",
     "test:e2e:integration": "firebase emulators:exec --only firestore \"vitest run --config vitest.config.ts tests/integration --no-file-parallelism\"",
     "test:rules": "firebase emulators:exec --only firestore \"vitest run --config vitest.config.ts tests/firestore.rules.test.ts\"",
     "test:firestore": "firebase emulators:exec --only firestore \"vitest run --config vitest.config.ts tests/firestore.rules.test.ts tests/integration --no-file-parallelism\"",
@@ -50,7 +51,6 @@
     "test:emulators": "firebase emulators:exec --only firestore,storage \"vitest run --config vitest.config.ts tests/firestore.rules.test.ts tests/integration tests/storage.rules.test.ts --no-file-parallelism\"",
     "test": "npm run build:functions && npx cross-env GUEST_ACTION_TOKEN_SECRET=e2e-guest-action-token-secret firebase emulators:exec --project demo-ski-school-e2e --only auth,firestore,functions,storage \"npm run test:under-emulators\"",
     "test:all": "npm run test",
-    "postinstall": "playwright install chromium",
     "i18n:check": "node scripts/check-translations.mjs"
   },
   "dependencies": {

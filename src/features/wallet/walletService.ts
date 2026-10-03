@@ -21,19 +21,3 @@ export async function withOptimisticBalance<T>(
     throw error;
   }
 }
-
-/**
- * Applies wallet credit to user account.
- * This is a placeholder for future wallet credit logic.
- */
-export async function applyWalletCredit(
-  userId: string,
-  amount: number,
-  type: 'top_up' | 'refund'
-): Promise<void> {
-  // TODO: реализовать применение кредита в Firestore
-  // будет выноситься из bookingStore и courseStore позже
-  console.warn(
-    `Wallet credit not yet implemented: userId=${userId}, amount=${amount}, type=${type}`
-  );
-}

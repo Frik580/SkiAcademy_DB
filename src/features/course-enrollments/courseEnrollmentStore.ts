@@ -28,6 +28,8 @@ interface CourseEnrollmentStoreState {
     readonly generation: number;
     readonly incoming: ReadonlyMap<string, CourseEnrollmentCabinetItem>;
     readonly mode: 'replace' | 'merge';
+    /** Derived read-model fields can change without an enrollment revision bump. */
+    readonly refreshEqualRevisions?: boolean;
   }) => boolean;
   setHotLoading: (loading: boolean) => void;
   setHistoryLoading: (loading: boolean) => void;
@@ -58,14 +60,19 @@ function enrollmentsForParticipant(
 
 function mergeEnrollmentMaps(
   existing: ReadonlyMap<string, CourseEnrollmentCabinetItem>,
-  incoming: ReadonlyMap<string, CourseEnrollmentCabinetItem>
+  incoming: ReadonlyMap<string, CourseEnrollmentCabinetItem>,
+  refreshEqualRevisions = false
 ): { readonly items: Map<string, CourseEnrollmentCabinetItem>; readonly changed: boolean } {
   const merged = new Map(existing);
   let changed = false;
   for (const [key, value] of incoming) {
     const cached = merged.get(key);
     if (!cached || value.revision >= cached.revision) {
-      if (!cached || cached.revision !== value.revision) {
+      if (
+        !cached ||
+        cached.revision !== value.revision ||
+        (refreshEqualRevisions && cached !== value)
+      ) {
         merged.set(key, value);
         changed = true;
       }
@@ -161,7 +168,7 @@ export const useCourseEnrollmentStore = create<CourseEnrollmentStoreState>((set,
     });
     return generation;
   },
-  applyScopedItems: ({ participantId, generation, incoming, mode }) => {
+  applyScopedItems: ({ participantId, generation, incoming, mode, refreshEqualRevisions }) => {
     const state = get();
     if (state.loadGeneration !== generation || state.scopedParticipantId !== participantId) {
       return false;
@@ -174,7 +181,11 @@ export const useCourseEnrollmentStore = create<CourseEnrollmentStoreState>((set,
       });
       return true;
     }
-    const { items: merged, changed } = mergeEnrollmentMaps(state.items, filteredIncoming);
+    const { items: merged, changed } = mergeEnrollmentMaps(
+      state.items,
+      filteredIncoming,
+      refreshEqualRevisions
+    );
     if (!changed) {
       return true;
     }

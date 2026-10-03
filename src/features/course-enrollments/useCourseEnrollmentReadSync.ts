@@ -1,5 +1,12 @@
 import { useCallback, useEffect } from 'react';
-import { CourseEnrollmentIdSchema, ParticipantIdSchema } from '@ski-academy/shared-domain';
+import {
+  CourseEnrollmentIdSchema,
+  ParticipantIdSchema,
+  isCourseEnrollmentHot,
+  timestampFromDate,
+  type QueryCourseEnrollmentReadModelsInput,
+  type QueryCourseEnrollmentReadModelsResult,
+} from '@ski-academy/shared-domain';
 import {
   queryCourseCatalogReadModels,
   queryCourseEnrollmentReadModels,
@@ -46,6 +53,50 @@ function finishScopedHistoryLoad(participantId: string, generation: number): boo
   return true;
 }
 
+/** Apply one hot page; only an exhausted first page can reconcile missing hot IDs. */
+export function applyScopedHotCourseEnrollmentPage(input: {
+  readonly participantId: string;
+  readonly generation: number;
+  readonly result: QueryCourseEnrollmentReadModelsResult;
+  readonly cursor?: QueryCourseEnrollmentReadModelsInput['cursor'];
+}): boolean {
+  const state = useCourseEnrollmentStore.getState();
+  if (
+    input.result.scope !== 'account_hot' ||
+    state.loadGeneration !== input.generation ||
+    state.scopedParticipantId !== input.participantId
+  ) {
+    return false;
+  }
+  // Merge against the state at response time to preserve newer cached revisions.
+  const merged = mergeCourseEnrollmentRecords(state.items, input.result);
+  const complete = input.cursor === undefined && input.result.hasMore === false;
+  if (complete) {
+    const hotIds = new Set(input.result.items.map((item) => String(item.enrollmentId)));
+    const now = timestampFromDate(new Date());
+    for (const [id, item] of state.items) {
+      // account_hot is authoritative for hot items only, never cached history.
+      if (
+        !hotIds.has(id) &&
+        isCourseEnrollmentHot({
+          lifecycleStatus: item.lifecycleStatus,
+          finalCourseDayEndsAt: item.courseSchedule.finalCourseDayEndsAt,
+          now,
+        })
+      ) {
+        merged.delete(id);
+      }
+    }
+  }
+  return state.applyScopedItems({
+    participantId: input.participantId,
+    generation: input.generation,
+    incoming: merged,
+    mode: complete ? 'replace' : 'merge',
+    refreshEqualRevisions: true,
+  });
+}
+
 /**
  * Account course enrollment sync. Public catalog ownership lives in
  * `useCourseCatalogReadSync` so cabinet mount issues one catalog callable.
@@ -62,16 +113,16 @@ export function useCourseEnrollmentReadSync(
   const loadHot = useCallback(async (participantId: string, generation: number) => {
     useCourseEnrollmentStore.getState().setError(undefined);
     try {
-      const result = await queryCourseEnrollmentReadModels({
+      const query: QueryCourseEnrollmentReadModelsInput = {
         scope: 'account_hot',
         selectedParticipantId: ParticipantIdSchema.parse(participantId),
-      });
-      const merged = mergeCourseEnrollmentRecords(new Map(), result);
-      const applied = useCourseEnrollmentStore.getState().applyScopedItems({
+      };
+      const result = await queryCourseEnrollmentReadModels(query);
+      const applied = applyScopedHotCourseEnrollmentPage({
         participantId,
         generation,
-        incoming: merged,
-        mode: 'replace',
+        result,
+        cursor: query.cursor,
       });
       if (applied) {
         useCourseEnrollmentStore.getState().setLoaded(true);
@@ -219,7 +270,9 @@ export function useCourseCatalogReadSync(enabled: boolean) {
     useCourseEnrollmentStore.getState().replaceCatalog(new Map());
     const result = await queryCourseCatalogReadModels({ scope: 'product' });
     if (useAuthStore.getState().firebaseUser?.uid !== uid) return;
-    useCourseEnrollmentStore.getState().replaceCatalog(mergeCatalogRecords(new Map(), result.items));
+    useCourseEnrollmentStore
+      .getState()
+      .replaceCatalog(mergeCatalogRecords(new Map(), result.items));
   }, [enabled]);
 
   useEffect(() => {

@@ -131,8 +131,40 @@ export function applyAccountLessonBookingReadResults(input: {
   }
 }
 
+/** Initial hot hydration drains pages; later refreshes retain their single-page semantics. */
+async function applyAccountHotPages(input: {
+  readonly firstPage: QueryLessonBookingReadModelsResult;
+  readonly historyItems?: readonly LessonBookingReadModel[];
+  readonly generation: number;
+  readonly drain: boolean;
+}): Promise<void> {
+  let page = input.firstPage;
+  let cursor: QueryLessonBookingReadModelsInput['cursor'];
+  const seenCursors = new Set<string>();
+  while (isCurrentSyncGeneration(input.generation)) {
+    applyAccountLessonBookingReadResults({
+      hotItems: page.items,
+      historyItems: cursor === undefined ? (input.historyItems ?? []) : [],
+      reconcileHot: { hasMore: page.hasMore, cursor },
+      syncGeneration: input.generation,
+    });
+    if (!input.drain || !page.hasMore) {
+      markAccountHotApplied(input.generation);
+      return;
+    }
+    // Empty filtered pages still continue. A terminal continuation is merge-only.
+    if (!page.nextCursor || seenCursors.has(page.nextCursor)) {
+      throw new Error('Invalid lesson Booking hot pagination cursor.');
+    }
+    seenCursors.add(page.nextCursor);
+    cursor = page.nextCursor;
+    if (!isCurrentSyncGeneration(input.generation)) return;
+    page = await queryLessonBookingReadModels({ scope: 'account_hot', cursor });
+  }
+}
+
 export async function syncAccountLessonBookingsFromServer(): Promise<void> {
-  const generation = useLessonBookingStore.getState().syncGeneration;
+  const { syncGeneration: generation, loaded } = useLessonBookingStore.getState();
   if (syncInFlight?.generation === generation) {
     return syncInFlight.promise;
   }
@@ -143,13 +175,12 @@ export async function syncAccountLessonBookingsFromServer(): Promise<void> {
         queryLessonBookingReadModels({ scope: 'account_hot' }),
         queryLessonBookingReadModels({ scope: 'account_history' }),
       ]);
-      applyAccountLessonBookingReadResults({
-        hotItems: hot.items,
+      await applyAccountHotPages({
+        firstPage: hot,
         historyItems: history.items,
-        reconcileHot: { hasMore: hot.hasMore },
-        syncGeneration: generation,
+        generation,
+        drain: !loaded,
       });
-      markAccountHotApplied(generation);
     } finally {
       if (syncInFlight?.generation === generation) {
         syncInFlight = undefined;
@@ -161,9 +192,9 @@ export async function syncAccountLessonBookingsFromServer(): Promise<void> {
   return promise;
 }
 
-/** Cheap background refresh that deliberately avoids the account history scan. */
+/** Hot-only sync: complete initial hydration, then cheap single-page background refreshes. */
 export async function syncAccountHotLessonBookingsFromServer(): Promise<void> {
-  const generation = useLessonBookingStore.getState().syncGeneration;
+  const { syncGeneration: generation, loaded } = useLessonBookingStore.getState();
   if (hotSyncInFlight?.generation === generation) {
     return hotSyncInFlight.promise;
   }
@@ -171,13 +202,7 @@ export async function syncAccountHotLessonBookingsFromServer(): Promise<void> {
   const promise = (async () => {
     try {
       const hot = await queryLessonBookingReadModels({ scope: 'account_hot' });
-      applyAccountLessonBookingReadResults({
-        hotItems: hot.items,
-        historyItems: [],
-        reconcileHot: { hasMore: hot.hasMore },
-        syncGeneration: generation,
-      });
-      markAccountHotApplied(generation);
+      await applyAccountHotPages({ firstPage: hot, generation, drain: !loaded });
     } finally {
       if (hotSyncInFlight?.generation === generation) {
         hotSyncInFlight = undefined;

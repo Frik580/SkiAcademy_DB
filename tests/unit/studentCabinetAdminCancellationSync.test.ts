@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import {
   BookingIdSchema,
   InstructorIdSchema,
@@ -450,6 +450,7 @@ describe('account hot pagination reconciliation (Issue 42)', () => {
   ] as const)('%s does not evict bookings 26–40 from a partial first page', async (_, sync) => {
     const items = hotBookings(40);
     seed(items);
+    useLessonBookingStore.getState().setLoaded(true);
     queryLessonBookingReadModelsMock.mockImplementation((input: { scope: string }) =>
       Promise.resolve({
         scope: input.scope,
@@ -480,6 +481,7 @@ describe('account hot pagination reconciliation (Issue 42)', () => {
         status: 'confirmed',
       });
       seed([...items, stale]);
+      useLessonBookingStore.getState().setLoaded(true);
       queryLessonBookingReadModelsMock.mockResolvedValueOnce({
         scope: 'account_hot',
         items: items.slice(0, 25),
@@ -551,7 +553,7 @@ describe('account hot pagination reconciliation (Issue 42)', () => {
     const page2 = { items: items.slice(25), hasMore: false };
 
     // Only the assembled collection, read from the beginning through exhaustion,
-    // may reconcile. Production currently reads page 1 without draining.
+    // may reconcile. Individual continuation pages never authorize cleanup.
     applyAccountLessonBookingReadResults({
       hotItems: [...page1.items, ...page2.items],
       historyItems: [],
@@ -580,20 +582,297 @@ describe('account hot pagination reconciliation (Issue 42)', () => {
     expect(useLessonBookingStore.getState().itemsList).toHaveLength(40);
   });
 
-  it('initial load applies a partial first page without requesting a drain', async () => {
+  it.each([24, 25, 26, 40, 41, 63, 100])(
+    'fresh cabinet load merges all %i hot bookings through the terminal page',
+    async (count) => {
+      const items = hotBookings(count);
+      queryLessonBookingReadModelsMock.mockImplementation((input: { cursor?: string }) => {
+        const offset = Number(input.cursor ?? 0);
+        return Promise.resolve({
+          scope: 'account_hot',
+          items: items.slice(offset, offset + 25),
+          hasMore: offset + 25 < count,
+          ...(offset + 25 < count ? { nextCursor: String(offset + 25) } : {}),
+        });
+      });
+
+      const { unmount } = renderHook(() => useLessonBookingReadSync(true, 'account_fixture_01'));
+      await waitFor(() => expect(useLessonBookingStore.getState().loaded).toBe(true));
+
+      expect([...useLessonBookingStore.getState().items.keys()]).toEqual(
+        items.map((item) => String(item.bookingId))
+      );
+      expect(queryLessonBookingReadModelsMock).toHaveBeenCalledTimes(Math.ceil(count / 25));
+      expect(queryLessonBookingReadModelsMock).toHaveBeenNthCalledWith(1, { scope: 'account_hot' });
+      for (let offset = 25; offset < count; offset += 25) {
+        expect(queryLessonBookingReadModelsMock).toHaveBeenNthCalledWith(offset / 25 + 1, {
+          scope: 'account_hot',
+          cursor: String(offset),
+        });
+      }
+      expect(useLessonBookingStore.getState().hotLoadedAtMs).toBeTypeOf('number');
+      unmount();
+    }
+  );
+
+  it('initial hot/history sync drains hot pages and preserves existing history', async () => {
     const items = hotBookings(40);
-    queryLessonBookingReadModelsMock.mockResolvedValueOnce({
-      scope: 'account_hot',
-      items: items.slice(0, 25),
-      hasMore: true,
-      nextCursor: 'page-2',
+    const history = buildReadModel({ bookingId: 'history', revision: 3, status: 'cancelled' });
+    const cachedHistory = buildReadModel({
+      bookingId: 'cached-history',
+      revision: 2,
+      status: 'cancelled',
     });
+    seed([cachedHistory]);
+    queryLessonBookingReadModelsMock.mockImplementation(
+      (input: { scope: string; cursor?: string }) =>
+        Promise.resolve({
+          scope: input.scope,
+          items:
+            input.scope === 'account_history'
+              ? [history]
+              : input.cursor
+                ? items.slice(25)
+                : items.slice(0, 25),
+          hasMore: input.scope === 'account_hot' && !input.cursor,
+          ...(input.scope === 'account_hot' && !input.cursor ? { nextCursor: 'page-2' } : {}),
+        })
+    );
+    await syncAccountLessonBookingsFromServer();
+    expect(useLessonBookingStore.getState().itemsList).toHaveLength(42);
+    expect(useLessonBookingStore.getState().items.has('cached-history')).toBe(true);
+    expect(useLessonBookingStore.getState().items.has('history')).toBe(true);
+    expect(queryLessonBookingReadModelsMock).toHaveBeenCalledTimes(3);
+  });
 
-    renderHook(() => useLessonBookingReadSync(true, 'account_fixture_01'));
-    await waitFor(() => expect(useLessonBookingStore.getState().loaded).toBe(true));
+  it('continues an empty filtered page while keeping history and earlier hot entries', async () => {
+    const history = buildReadModel({ bookingId: 'history', revision: 2, status: 'cancelled' });
+    const cachedHot = buildReadModel({ bookingId: 'cached-hot', revision: 8, status: 'confirmed' });
+    seed([history, cachedHot]);
+    queryLessonBookingReadModelsMock
+      .mockResolvedValueOnce({
+        scope: 'account_hot',
+        items: [],
+        hasMore: true,
+        nextCursor: 'page-2',
+      })
+      .mockResolvedValueOnce({ scope: 'account_hot', items: hotBookings(8), hasMore: false });
+    await syncAccountHotLessonBookingsFromServer();
+    expect(useLessonBookingStore.getState().itemsList).toHaveLength(10);
+    expect(useLessonBookingStore.getState().items.has('cached-hot')).toBe(true);
+    expect(useLessonBookingStore.getState().items.has('history')).toBe(true);
+    expect(useLessonBookingStore.getState().loaded).toBe(true);
+    expect(queryLessonBookingReadModelsMock).toHaveBeenNthCalledWith(2, {
+      scope: 'account_hot',
+      cursor: 'page-2',
+    });
+  });
 
+  it('deduplicates pages and preserves a newer revision received during continuation', async () => {
+    const first = hotBookings(25);
+    let resolvePage!: (value: unknown) => void;
+    queryLessonBookingReadModelsMock
+      .mockResolvedValueOnce({
+        scope: 'account_hot',
+        items: first,
+        hasMore: true,
+        nextCursor: 'page-2',
+      })
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolvePage = resolve;
+          })
+      );
+    const request = syncAccountHotLessonBookingsFromServer();
+    await waitFor(() => expect(queryLessonBookingReadModelsMock).toHaveBeenCalledTimes(2));
     expect(useLessonBookingStore.getState().itemsList).toHaveLength(25);
-    expect(queryLessonBookingReadModelsMock).toHaveBeenCalledTimes(1);
+    expect(useLessonBookingStore.getState().loaded).toBe(false);
+    expect(useLessonBookingStore.getState().hotLoadedAtMs).toBeUndefined();
+    const newer = buildReadModel({
+      bookingId: 'booking-delayed',
+      revision: 8,
+      status: 'confirmed',
+    });
+    applyAccountLessonBookingReadResults({ hotItems: [newer], historyItems: [] });
+    resolvePage({
+      scope: 'account_hot',
+      items: [
+        { ...first[0], revision: 3 },
+        buildReadModel({ bookingId: 'booking-delayed', revision: 7, status: 'confirmed' }),
+      ],
+      hasMore: false,
+    });
+    await request;
+    expect(useLessonBookingStore.getState().itemsList).toHaveLength(26);
+    expect(useLessonBookingStore.getState().items.get(String(first[0].bookingId))?.revision).toBe(
+      3
+    );
+    expect(useLessonBookingStore.getState().items.get('booking-delayed')?.revision).toBe(8);
+  });
+
+  it('preserves the cached presentation for equal revisions across pages', async () => {
+    const first = hotBookings(1)[0];
+    queryLessonBookingReadModelsMock
+      .mockResolvedValueOnce({
+        scope: 'account_hot',
+        items: [first],
+        hasMore: true,
+        nextCursor: 'page-2',
+      })
+      .mockResolvedValueOnce({
+        scope: 'account_hot',
+        items: [{ ...first, notes: 'equal-revision incoming' }],
+        hasMore: false,
+      });
+    await syncAccountHotLessonBookingsFromServer();
+    expect(useLessonBookingStore.getState().itemsList).toHaveLength(1);
+    expect(
+      useLessonBookingStore.getState().items.get(String(first.bookingId))?.notes
+    ).toBeUndefined();
+  });
+
+  it.each([
+    ['account switch', false],
+    ['account switch', true],
+    ['logout/reset', false],
+    ['logout/reset', true],
+  ] as const)('ignores late continuation after %s (failure=%s)', async (scenario, failure) => {
+    let resolvePage!: (value: unknown) => void;
+    let rejectPage!: (error: Error) => void;
+    queryLessonBookingReadModelsMock
+      .mockResolvedValueOnce({
+        scope: 'account_hot',
+        items: hotBookings(25),
+        hasMore: true,
+        nextCursor: 'page-2',
+      })
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve, reject) => {
+            resolvePage = resolve;
+            rejectPage = reject;
+          })
+      )
+      .mockResolvedValueOnce({
+        scope: 'account_hot',
+        items: [buildReadModel({ bookingId: 'new-account', revision: 2, status: 'confirmed' })],
+        hasMore: false,
+      });
+    const { unmount } = renderHook(() => useLessonBookingReadSync(true, 'account_A'));
+    await waitFor(() => expect(queryLessonBookingReadModelsMock).toHaveBeenCalledTimes(2));
+    useLessonBookingStore.getState().reset();
+    if (scenario === 'account switch') {
+      await syncAccountHotLessonBookingsFromServer();
+      useLessonBookingStore.getState().setHotLoading(true);
+    }
+    const stateAfterReset = useLessonBookingStore.getState();
+    await act(async () => {
+      if (failure) {
+        rejectPage(new Error('old account continuation failed'));
+      } else {
+        resolvePage({
+          scope: 'account_hot',
+          items: hotBookings(40).slice(25),
+          hasMore: true,
+          nextCursor: 'page-3',
+        });
+      }
+    });
+    expect(useLessonBookingStore.getState()).toBe(stateAfterReset);
+    expect(queryLessonBookingReadModelsMock).toHaveBeenCalledTimes(
+      scenario === 'account switch' ? 3 : 2
+    );
+    unmount();
+  });
+
+  it.each(['missing', 'repeated', 'cycle'])(
+    'rejects %s continuation cursors without marking the partial load complete',
+    async (kind) => {
+      queryLessonBookingReadModelsMock.mockResolvedValueOnce({
+        scope: 'account_hot',
+        items: hotBookings(1),
+        hasMore: true,
+        ...(kind !== 'missing' ? { nextCursor: 'page-2' } : {}),
+      });
+      if (kind === 'repeated') {
+        queryLessonBookingReadModelsMock.mockResolvedValueOnce({
+          scope: 'account_hot',
+          items: [],
+          hasMore: true,
+          nextCursor: 'page-2',
+        });
+      } else if (kind === 'cycle') {
+        queryLessonBookingReadModelsMock
+          .mockResolvedValueOnce({
+            scope: 'account_hot',
+            items: [],
+            hasMore: true,
+            nextCursor: 'page-3',
+          })
+          .mockResolvedValueOnce({
+            scope: 'account_hot',
+            items: [],
+            hasMore: true,
+            nextCursor: 'page-2',
+          });
+      }
+      await expect(syncAccountHotLessonBookingsFromServer()).rejects.toThrow(
+        'Invalid lesson Booking hot pagination cursor.'
+      );
+      expect(queryLessonBookingReadModelsMock).toHaveBeenCalledTimes(
+        kind === 'missing' ? 1 : kind === 'repeated' ? 2 : 3
+      );
+      expect(useLessonBookingStore.getState().loaded).toBe(false);
+      expect(useLessonBookingStore.getState().hotLoadedAtMs).toBeUndefined();
+      expect(useLessonBookingStore.getState().itemsList).toHaveLength(1);
+      queryLessonBookingReadModelsMock.mockResolvedValueOnce({
+        scope: 'account_hot',
+        items: hotBookings(1),
+        hasMore: false,
+      });
+      await syncAccountHotLessonBookingsFromServer();
+      expect(useLessonBookingStore.getState().loaded).toBe(true);
+    }
+  );
+
+  it('retries a failed continuation from the beginning and shares the initial in-flight drain', async () => {
+    let rejectPage!: (reason: Error) => void;
+    queryLessonBookingReadModelsMock
+      .mockResolvedValueOnce({
+        scope: 'account_hot',
+        items: hotBookings(25),
+        hasMore: true,
+        nextCursor: 'page-2',
+      })
+      .mockImplementationOnce(
+        () =>
+          new Promise((_, reject) => {
+            rejectPage = reject;
+          })
+      );
+    const first = syncAccountHotLessonBookingsFromServer();
+    const second = syncAccountHotLessonBookingsFromServer();
+    await waitFor(() => expect(queryLessonBookingReadModelsMock).toHaveBeenCalledTimes(2));
+    rejectPage(new Error('continuation failed'));
+    await expect(first).rejects.toThrow('continuation failed');
+    await expect(second).rejects.toThrow('continuation failed');
+    expect(useLessonBookingStore.getState().loaded).toBe(false);
+    queryLessonBookingReadModelsMock
+      .mockResolvedValueOnce({
+        scope: 'account_hot',
+        items: hotBookings(40).slice(0, 25),
+        hasMore: true,
+        nextCursor: 'page-2',
+      })
+      .mockResolvedValueOnce({
+        scope: 'account_hot',
+        items: hotBookings(40).slice(25),
+        hasMore: false,
+      });
+    await syncAccountHotLessonBookingsFromServer();
+    expect(useLessonBookingStore.getState().itemsList).toHaveLength(40);
+    expect(queryLessonBookingReadModelsMock).toHaveBeenNthCalledWith(3, { scope: 'account_hot' });
   });
 
   it('an invalidated hot surface preserves cached bookings beyond the first page', async () => {

@@ -6,20 +6,24 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  VITE_FIREBASE_API_KEY: ci-placeholder-api-key
+  VITE_FIREBASE_APP_ID: ci-placeholder-app-id
+  VITE_FIREBASE_AUTH_DOMAIN: ci-placeholder.firebaseapp.com
+  VITE_FIREBASE_MESSAGING_SENDER_ID: '000000000000'
+  VITE_FIREBASE_PROJECT_ID: ci-placeholder-project
+  VITE_FIREBASE_STORAGE_BUCKET: ci-placeholder-project.appspot.com
+  VITE_FIREBASE_MEASUREMENT_ID: G-PLACEHOLDER
+  VITE_FIREBASE_DATABASE_ID: '(default)'
+
 jobs:
-  quality:
+  lint:
+    name: Lint and i18n
     runs-on: ubuntu-latest
-
-    env:
-      VITE_FIREBASE_API_KEY: ci-placeholder-api-key
-      VITE_FIREBASE_APP_ID: ci-placeholder-app-id
-      VITE_FIREBASE_AUTH_DOMAIN: ci-placeholder.firebaseapp.com
-      VITE_FIREBASE_MESSAGING_SENDER_ID: '000000000000'
-      VITE_FIREBASE_PROJECT_ID: ci-placeholder-project
-      VITE_FIREBASE_STORAGE_BUCKET: ci-placeholder-project.appspot.com
-      VITE_FIREBASE_MEASUREMENT_ID: G-PLACEHOLDER
-      VITE_FIREBASE_DATABASE_ID: '(default)'
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -31,16 +35,7 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
-
-      - name: Install functions dependencies
-        run: npm ci --prefix functions
-
-      - name: Install coverage tooling
-        run: npm install -D @vitest/coverage-v8@2.1.9
-
-      - name: Firestore index contracts
-        run: npm run test:index-contracts
+        run: npm ci --ignore-scripts
 
       - name: Lint
         run: npm run lint
@@ -48,8 +43,62 @@ jobs:
       - name: i18n key parity
         run: npm run i18n:check
 
-      - name: Unit tests
-        run: npm run test:unit
+  app-tests:
+    name: App unit coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Unit tests with coverage
+        run: npm run test:coverage
+
+      - name: Shared domain unit tests
+        run: npm run test:unit:shared-domain
+
+  functions-tests:
+    name: Functions unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Install Functions dependencies
+        run: npm ci --prefix functions --ignore-scripts
+
+      - name: Functions unit tests
+        run: npm run test:unit:functions
+
+  firestore:
+    name: Firestore rules
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -57,14 +106,50 @@ jobs:
           distribution: temurin
           java-version: '21'
 
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
       - name: Firestore rules and course enrollment tests
         run: npm run test:firestore-enrollment
 
-      - name: Coverage (lib + studentCabinetUtils)
-        run: npm run test:coverage
+  build:
+    name: Production build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
 
       - name: Production build
         run: npm run build
+
+  quality:
+    name: quality
+    if: always()
+    needs: [lint, app-tests, functions-tests, firestore, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify quality jobs
+        env:
+          LINT_RESULT: ${{ needs.lint.result }}
+          APP_TESTS_RESULT: ${{ needs.app-tests.result }}
+          FUNCTIONS_TESTS_RESULT: ${{ needs.functions-tests.result }}
+          FIRESTORE_RESULT: ${{ needs.firestore.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+        run: |
+          test "$LINT_RESULT" = "success"
+          test "$APP_TESTS_RESULT" = "success"
+          test "$FUNCTIONS_TESTS_RESULT" = "success"
+          test "$FIRESTORE_RESULT" = "success"
+          test "$BUILD_RESULT" = "success"
 
   e2e:
     name: Playwright E2E
@@ -90,10 +175,10 @@ jobs:
           java-version: '21'
 
       - name: Install root dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Install Functions dependencies
-        run: npm ci --prefix functions
+        run: npm ci --prefix functions --ignore-scripts
 
       - name: Install Playwright Chromium and system dependencies
         run: npx playwright install --with-deps chromium

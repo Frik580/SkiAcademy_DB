@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { StrictMode } from 'react';
 import { resolve } from 'node:path';
 import { act, fireEvent, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -71,8 +72,8 @@ const slide = (
   backgroundMediaMode: mode,
 });
 
-function renderCarousel(slides: CustomHeroSlide[], slideIntervalSeconds = 60) {
-  return render(
+function renderCarousel(slides: CustomHeroSlide[], slideIntervalSeconds = 60, strict = false) {
+  const carousel = (
     <HeroCarousel
       data={{
         slides,
@@ -84,6 +85,7 @@ function renderCarousel(slides: CustomHeroSlide[], slideIntervalSeconds = 60) {
       actions={{ onScrollToSection: vi.fn() }}
     />
   );
+  return render(strict ? <StrictMode>{carousel}</StrictMode> : carousel);
 }
 
 function backgroundLayers(container: HTMLElement): HTMLElement[] {
@@ -393,6 +395,48 @@ function setMediaState(video: HTMLVideoElement, readyState: number, networkState
 }
 
 describe('HeroCarousel video resource budget', () => {
+  it.each([
+    { strict: false, withImage: false },
+    { strict: true, withImage: false },
+    { strict: false, withImage: true },
+    { strict: true, withImage: true },
+  ])('reuses wall3/wall4 over automatic cycles: %j', ({ strict, withImage }) => {
+    vi.useFakeTimers();
+    const load = vi.fn();
+    Object.defineProperty(HTMLMediaElement.prototype, 'load', { configurable: true, value: load });
+    const slides = [slide('wall3', 'video'), slide('wall4', 'video')];
+    if (withImage) slides.push(slide('photo', 'image'));
+    const { container, unmount } = renderCarousel(slides, 5, strict);
+    const originalVideos = Array.from(container.querySelectorAll('video'));
+    expect(originalVideos).toHaveLength(2);
+    for (const video of originalVideos) setMediaState(video, 2, 1);
+    fireEvent.loadedData(originalVideos[0]);
+    fireEvent.loadedData(originalVideos[1]);
+    const observer = new MutationObserver(() => {});
+    observer.observe(container, { subtree: true, childList: true, attributes: true, attributeFilter: ['src'] });
+    load.mockClear();
+
+    for (let step = 0; step < slides.length * 4; step += 1) {
+      act(() => { vi.advanceTimersByTime(5000); });
+      const videos = Array.from(container.querySelectorAll('video'));
+      expect(videos).toEqual(originalVideos);
+      expect(new Set(videoSources(container)).size).toBe(2);
+      expect(videoSources(container)).toEqual([
+        'https://cdn.example.com/wall3.mp4',
+        'https://cdn.example.com/wall4.mp4',
+      ]);
+      const mutations = observer.takeRecords();
+      expect(mutations.filter((record) => record.type === 'attributes')).toHaveLength(0);
+      expect(mutations.flatMap((record) => Array.from(record.removedNodes))
+        .filter((node) => node instanceof HTMLVideoElement)).toHaveLength(0);
+      expect(load).not.toHaveBeenCalled();
+    }
+    observer.disconnect();
+    unmount();
+    expect(originalVideos.every((video) => !video.isConnected && !video.hasAttribute('src'))).toBe(true);
+    expect(load).toHaveBeenCalledTimes(2);
+  });
+
   it('keeps three consecutive videos at two mounted elements through the crossfade', () => {
     vi.useFakeTimers();
     const { container } = renderCarousel([
@@ -489,9 +533,12 @@ describe('HeroCarousel video resource budget', () => {
       vi.advanceTimersByTime(HERO_CROSSFADE_MS);
     });
 
-    expect(videoSources(container)).toEqual(['https://cdn.example.com/b.mp4']);
+    expect(videoSources(container).sort()).toEqual([
+      'https://cdn.example.com/a.mp4',
+      'https://cdn.example.com/b.mp4',
+    ]);
     expect(layerVideo(container, 2)).toHaveAttribute('data-video-role', 'NEXT_PRELOAD');
-    expect(backgroundLayers(container)[0].querySelector('video')).toBeNull();
+    expect(layerVideo(container, 0)).toHaveAttribute('src', 'https://cdn.example.com/a.mp4');
 
     advance(container);
 
@@ -530,7 +577,7 @@ describe('HeroCarousel video resource budget', () => {
     expect(videoCount(container)).toBeLessThanOrEqual(2);
   });
 
-  it('reloads a second video whose preload was discarded and then plays it', () => {
+  it('resumes a second video whose preload was discarded without load()', () => {
     vi.useFakeTimers();
     const loadedSrcs: string[] = [];
     const load = vi.fn(function (this: HTMLVideoElement) {
@@ -555,7 +602,7 @@ describe('HeroCarousel video resource budget', () => {
       vi.advanceTimersByTime(5000);
     });
 
-    expect(loadedSrcs).toContain('https://cdn.example.com/b.mp4');
+    expect(load).not.toHaveBeenCalled();
     expect(loadedSrcs).not.toContain('https://cdn.example.com/c.mp4');
     expect(videoCount(container)).toBeLessThanOrEqual(2);
 

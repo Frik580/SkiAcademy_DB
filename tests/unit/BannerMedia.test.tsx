@@ -287,7 +287,7 @@ describe('BannerMedia', () => {
     expect(document.querySelector('img')).toBeNull();
   });
 
-  it('reloads a discarded preload and plays once a frame arrives', () => {
+  it('resumes a discarded Safari preload without resetting the resource', () => {
     const load = vi.fn();
     Object.defineProperty(HTMLMediaElement.prototype, 'load', {
       configurable: true,
@@ -323,8 +323,8 @@ describe('BannerMedia', () => {
       />
     );
 
-    expect(load).toHaveBeenCalled();
-    expect(play).not.toHaveBeenCalled();
+    expect(load).not.toHaveBeenCalled();
+    expect(play).toHaveBeenCalled();
     expect(document.querySelector('img')).toBeNull();
 
     fireEvent.loadedData(video);
@@ -365,6 +365,26 @@ describe('BannerMedia', () => {
     expect(document.querySelector('video')).toBeNull();
     expect(container.querySelector('img')).toHaveAttribute('src', 'https://example.com/hero.webp');
     expect(container.querySelector('div')).toBeNull();
+  });
+
+  it.each(['inactive', 'unmount'])('ignores an old play rejection after %s', async (exit) => {
+    let rejectPlayback!: (reason?: unknown) => void;
+    play.mockImplementationOnce(() => new Promise<void>((_, reject) => { rejectPlayback = reject; }));
+    const onVideoReady = vi.fn();
+    const { container, rerender, unmount } = render(
+      <BannerMedia imageUrl="https://example.com/hero.webp" mediaMode="video"
+        isActive shouldLoadVideo retainVideo onVideoReady={onVideoReady} />
+    );
+    const video = container.querySelector('video');
+    if (exit === 'unmount') unmount();
+    else rerender(
+      <BannerMedia imageUrl="https://example.com/hero.webp" mediaMode="video"
+        isActive={false} shouldLoadVideo={false} retainVideo onVideoReady={onVideoReady} />
+    );
+    await act(async () => { rejectPlayback(new Error('interrupted playback')); });
+    expect(onVideoReady).not.toHaveBeenCalled();
+    expect(container.querySelector('img')).toBeNull();
+    if (exit === 'inactive') expect(container.querySelector('video')).toBe(video);
   });
 
   it('falls back to an image when play() rejects', async () => {

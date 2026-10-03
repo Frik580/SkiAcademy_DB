@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useLanguage, type Language } from '../../app/providers/LanguageContext';
@@ -94,6 +94,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
   actions: { onScrollToSection },
 }) => {
   const { t } = useLanguage();
+  const sectionRef = useRef<HTMLElement | null>(null);
   const shouldReduceMotion = useReducedMotion();
   const [carousel, setCarousel] = useState<{ current: number; outgoing: number | null }>({
     current: 0,
@@ -186,6 +187,11 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
   const carouselHasVideo = slides.some((slide) =>
     slideUsesVideo(slide, shouldReduceMotion)
   );
+  // Keep the two banner decoders/resources across cycles, including image slides.
+  // Larger configurations retain the existing active/outgoing/next eviction budget.
+  const retainVideos = slides.filter((slide) =>
+    slideUsesVideo(slide, shouldReduceMotion)
+  ).length <= 2;
 
   // Image-only carousels keep a continuous interval that does not reset on manual navigation.
   useEffect(() => {
@@ -279,7 +285,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
   useEffect(() => {
     if (!import.meta.env.DEV || import.meta.env.MODE === 'test') return;
     logger.debug('[hero-video] mounted-count', {
-      count: videoRoleKey ? videoRoleKey.split('|').length : 0,
+      count: sectionRef.current?.querySelectorAll('video').length ?? 0,
       current: currentSlide,
       outgoing: outgoingSlide,
       roles: videoRoleKey,
@@ -288,6 +294,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
 
   return (
     <section
+      ref={sectionRef}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
       className="ui-hero hero-layout relative w-full min-h-[calc(100svh-4.25rem)] overflow-hidden touch-pan-y"
@@ -327,10 +334,10 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                   isActive={isActive}
                   shouldLoadVideo={videoRole === 'ACTIVE'}
                   shouldPreloadVideo={videoRole === 'NEXT_PRELOAD' || videoRole === 'OUTGOING'}
+                  retainVideo={retainVideos}
                   videoRole={videoRole}
                   slideIndex={idx}
                   slideId={slide.id}
-                  mountedVideoCount={videoRoles.size}
                   onVideoReady={
                     videoRole === 'ACTIVE' ? () => setReadySlideIndex(idx) : undefined
                   }

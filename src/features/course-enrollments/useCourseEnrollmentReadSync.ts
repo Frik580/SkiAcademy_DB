@@ -110,24 +110,36 @@ export function useCourseEnrollmentReadSync(
 ) {
   const historyRequestNonce = useCourseEnrollmentStore((state) => state.historyRequestNonce);
 
-  const loadHot = useCallback(async (participantId: string, generation: number) => {
+  const loadHot = useCallback(async (participantId: string, generation: number, drain = false) => {
     useCourseEnrollmentStore.getState().setError(undefined);
     try {
-      const query: QueryCourseEnrollmentReadModelsInput = {
-        scope: 'account_hot',
-        selectedParticipantId: ParticipantIdSchema.parse(participantId),
-      };
-      const result = await queryCourseEnrollmentReadModels(query);
-      const applied = applyScopedHotCourseEnrollmentPage({
-        participantId,
-        generation,
-        result,
-        cursor: query.cursor,
-      });
-      if (applied) {
-        useCourseEnrollmentStore.getState().setLoaded(true);
-      }
-      return applied;
+      let cursor: QueryCourseEnrollmentReadModelsInput['cursor'];
+      const seenCursors = new Set<string>();
+      do {
+        const state = useCourseEnrollmentStore.getState();
+        if (state.loadGeneration !== generation || state.scopedParticipantId !== participantId) {
+          return false;
+        }
+        const result = await queryCourseEnrollmentReadModels({
+          scope: 'account_hot',
+          selectedParticipantId: ParticipantIdSchema.parse(participantId),
+          ...(cursor ? { cursor } : {}),
+        });
+        if (!applyScopedHotCourseEnrollmentPage({ participantId, generation, result, cursor })) {
+          return false;
+        }
+        if (!drain || !result.hasMore) {
+          useCourseEnrollmentStore.getState().setLoaded(true);
+          return true;
+        }
+        // Filtering follows the scan: an empty page can still have a continuation.
+        if (!result.nextCursor || seenCursors.has(result.nextCursor)) {
+          throw new Error('Invalid CourseEnrollment hot pagination cursor.');
+        }
+        seenCursors.add(result.nextCursor);
+        cursor = result.nextCursor;
+      } while (cursor !== undefined);
+      return false;
     } catch (error) {
       const state = useCourseEnrollmentStore.getState();
       if (state.loadGeneration === generation && state.scopedParticipantId === participantId) {
@@ -195,7 +207,7 @@ export function useCourseEnrollmentReadSync(
       return;
     }
     const generation = useCourseEnrollmentStore.getState().beginScopedLoad(selectedParticipantId);
-    void loadHot(selectedParticipantId, generation).then((applied) => {
+    void loadHot(selectedParticipantId, generation, true).then((applied) => {
       if (applied) {
         void loadHistoryPage(selectedParticipantId, generation);
       }

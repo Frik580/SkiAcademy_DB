@@ -10,6 +10,115 @@ import {
 import { hasCourseEnrollment, seedE2ECourse } from './firestore-admin';
 import { waitForFunctionsEmulatorReady } from './global-setup';
 
+const GUEST_COURSE_SESSION_STORAGE_KEY = 'ski_academy_guest_course_session_identity';
+
+test('same browser guest changes from Petr to Ars on a new course application', async ({
+  page,
+  browser,
+}, testInfo) => {
+  test.setTimeout(180_000);
+  const config = loadRuntimeConfig();
+  const courseA = `${isolatedCourseId('enrollment', testInfo)}_guest_profile_a`;
+  const courseB = `${isolatedCourseId('enrollment', testInfo)}_guest_profile_b`;
+  const titleA = `E2E Guest Profile A ${testInfo.repeatEachIndex}`;
+  const titleB = `E2E Guest Profile B ${testInfo.repeatEachIndex}`;
+  await seedE2ECourse({
+    courseId: courseA,
+    title: titleA,
+    instructorId: config.instructorId,
+    dayOffset: 14,
+  });
+  await seedE2ECourse({
+    courseId: courseB,
+    title: titleB,
+    instructorId: config.instructorId,
+    dayOffset: 21,
+  });
+  await waitForFunctionsEmulatorReady();
+  const assertGuestHealthy = watchBrowserFailures(page);
+  await page.route('**/executeGuestCanonicalCommand', async (route) => {
+    await route.continue(
+      route.request().method() === 'POST'
+        ? {
+            headers: { ...route.request().headers(), 'x-forwarded-for': '2001:db8:2::1' },
+          }
+        : undefined
+    );
+  });
+  await page.goto('/');
+  const submit = async (title: string, name: string, age: string, skill: string) => {
+    const card = page
+      .getByRole('article')
+      .filter({ has: page.getByRole('heading', { name: title, exact: true }) });
+    await expect(card).toBeVisible();
+    await card.getByRole('button', { name: 'Enroll', exact: true }).click();
+    const modal = page.getByRole('dialog', { name: 'Course Enrollment' });
+    await modal.getByPlaceholder('e.g. Alex Carter').fill(name);
+    await modal.getByPlaceholder('+1 (555) 000-0000').fill('+7 701 123 45 67');
+    await modal.getByRole('spinbutton', { name: 'Age (years) *', exact: true }).fill(age);
+    await modal.getByRole('combobox', { name: 'Discipline *', exact: true }).selectOption('ski');
+    await modal.getByRole('combobox', { name: 'Skill level *', exact: true }).selectOption(skill);
+    await waitForFunctionsEmulatorReady();
+    const responsePromise = page.waitForResponse(
+      (response) =>
+        response.url().endsWith('/executeGuestCanonicalCommand') &&
+        response.request().postDataJSON()?.data?.kind === 'create_course_enrollments'
+    );
+    await modal.getByRole('button', { name: 'Submit Course Application', exact: true }).click();
+    const response = await responsePromise;
+    const body = await response.json();
+    expect(response.ok(), JSON.stringify(body)).toBe(true);
+    const result = body.result;
+    expect(result, JSON.stringify(body)).toMatchObject({
+      status: 'success',
+      payload: { outcome: 'created' },
+    });
+    await expect(modal.getByRole('status')).toContainText('Request created');
+    await expect(modal.getByRole('status')).toContainText(name);
+    await modal.getByRole('button', { name: 'Close', exact: true }).last().click();
+    await expect(modal).not.toBeVisible();
+    return {
+      participantId: response.request().postDataJSON().data.intent.participantIds[0],
+      enrollmentId: result.payload.guestLinkCredentials[0].enrollmentId,
+    };
+  };
+  const first = await submit(titleA, 'Petr', '30', 'beginner');
+  const seed = await page.evaluate(
+    (key) => localStorage.getItem(key),
+    GUEST_COURSE_SESSION_STORAGE_KEY
+  );
+  expect(seed).toBeTruthy();
+  const second = await submit(titleB, 'Ars', '43', 'intermediate');
+  expect(second.participantId).toBe(first.participantId);
+  expect(second.enrollmentId).not.toBe(first.enrollmentId);
+  expect(
+    await page.evaluate((key) => localStorage.getItem(key), GUEST_COURSE_SESSION_STORAGE_KEY)
+  ).toBe(seed);
+  const secondCard = page
+    .getByRole('article')
+    .filter({ has: page.getByRole('heading', { name: titleB, exact: true }) });
+  await secondCard.getByRole('button', { name: 'Check status', exact: true }).click();
+  await expect(
+    page.getByRole('dialog', { name: 'Course Enrollment' }).getByRole('status')
+  ).toContainText('Ars');
+  const adminContext = await browser.newContext({ locale: 'en-US' });
+  try {
+    const admin = await adminContext.newPage();
+    const assertAdminHealthy = watchBrowserFailures(admin);
+    await signInAccount(admin, { email: config.adminEmail, password: config.adminPassword });
+    await admin.goto(
+      `/admin?tab=operations&trainingKind=course&trainingScope=pending_guest&enrollmentCourse=${courseB}`
+    );
+    const list = admin.getByRole('region', { name: 'Lessons and course enrollments', exact: true });
+    await expect(list.getByText('Ars', { exact: true })).toHaveCount(1);
+    await expect(list.getByText('Petr', { exact: true })).toHaveCount(0);
+    assertAdminHealthy();
+  } finally {
+    await adminContext.close();
+  }
+  assertGuestHealthy();
+});
+
 test('student enrolls in an available course with the test wallet', async ({ page }, testInfo) => {
   const config = loadRuntimeConfig();
   const courseId = isolatedCourseId('enrollment', testInfo);

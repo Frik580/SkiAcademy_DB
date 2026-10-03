@@ -17,6 +17,8 @@ import {
   testCanonicalExecutionScope,
   activityLogIdFromCommandId,
   accountCommandActor,
+  guestCommandActor,
+  guestSubjectIdFromCourseEnrollmentId,
   courseEnrollmentIdFromCommandParticipant,
   monetaryEventIdFromCommandEffect,
   monetaryEventIdFromCourseEnrollmentInitialCharge,
@@ -30,6 +32,7 @@ import {
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
 import { createInMemoryCanonicalTransactionExecutor } from '../transactions';
+import type { CanonicalTransactionExecutor } from '../transactions';
 
 const correlationId = CorrelationIdSchema.parse('correlation_course_enrollment_cmd_01');
 const accountId = AccountIdSchema.parse('account_course_enrollment_cmd_01');
@@ -223,6 +226,81 @@ async function runCommand(
 }
 
 describe('create_course_enrollments command', () => {
+  it.each([
+    ['unchanged', {}, false],
+    ['name', { participant_display_name: 'Ars' }, true],
+    ['age', { participant_age_years: '43' }, true],
+    ['discipline', { participant_discipline: 'snowboard' }, true],
+    ['skill', { participant_skill_level: 'advanced' }, true],
+  ] as const)(
+    'plans a guest Participant update only for a changed %s profile',
+    async (_, patch, changed) => {
+      const participantPath = `participants/${participantId}`;
+      const participant = {
+        ...seedParticipant(),
+        displayName: 'Petr',
+        management: { kind: 'unmanaged_guest' },
+      };
+      const executor = createInMemoryCanonicalTransactionExecutor(
+        baseFixture({ [participantPath]: participant })
+      );
+      const plans: ReturnType<TransactionPlanBuilder['build']>[] = [];
+      const trackedExecutor: CanonicalTransactionExecutor = {
+        runAtomic: (input) =>
+          executor.runAtomic({
+            ...input,
+            run: async (session) => {
+              const result = await input.run(session);
+              plans.push(session.plan.build());
+              return result;
+            },
+          }),
+      };
+      const enrollmentId = CourseEnrollmentIdSchema.parse('enrollment_guest_profile_plan');
+      const commands = createProductionCanonicalCommands(environment(), trackedExecutor, {
+        guestActionTokenSecret: 'guest-profile-plan-secret',
+      });
+      const envelope: CommandEnvelope<'create_course_enrollments'> = {
+        kind: 'create_course_enrollments',
+        context: {
+          actor: guestCommandActor(guestSubjectIdFromCourseEnrollmentId(enrollmentId)),
+          exercisedCapability: 'guest',
+          source: 'guest_callable',
+          correlationId,
+          idempotencyKey: 'guest-profile-plan',
+          transportMetadata: {
+            participant_display_name: 'Petr',
+            participant_age_years: '20',
+            participant_discipline: 'ski',
+            participant_skill_level: 'intermediate',
+            guest_contact_phone: '+7 701 123 45 67',
+            ...patch,
+          },
+        },
+        intent: { courseId, participantIds: [participantId], enrollmentIds: [enrollmentId] },
+      };
+      const created = await commands.execute(envelope);
+      expect(created).toMatchObject({ status: 'success' });
+      const participantMutations = plans
+        .flatMap((plan) => plan.mutations)
+        .filter((mutation) => mutation.path === participantPath);
+      expect(participantMutations).toEqual(
+        changed ? [expect.objectContaining({ kind: 'update' })] : []
+      );
+      if (changed) {
+        expect(created.payload?.adminPeopleRevision).toBe(1);
+        expect(executor.snapshot().docs.get(participantPath)?.data.revision).toBe(2);
+      } else {
+        expect(created.payload).not.toHaveProperty('adminPeopleRevision');
+        expect(executor.snapshot().docs.get(participantPath)?.data).toEqual(participant);
+      }
+      const after = executor.snapshot();
+      expect(await commands.execute(envelope)).toEqual(created);
+      expect(executor.snapshot()).toEqual(after);
+      expect(plans.at(-1)?.mutations).toEqual([]);
+    }
+  );
+
   it('creates a fully funded single-participant enrollment with payment, claims, and audit', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
     const envelope = createEnvelope();

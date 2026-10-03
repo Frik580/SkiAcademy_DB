@@ -14,6 +14,7 @@ import {
   GUEST_ACTION_NONCE_TRANSPORT_KEY,
   GUEST_ACTION_SIGNATURE_TRANSPORT_KEY,
   InstructorIdSchema,
+  InstructorRelationshipSchema,
   ParticipantIdSchema,
   parseCommandResultPayload,
   SystemActorIdSchema,
@@ -278,6 +279,7 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
       'courses',
       'course_enrollments',
       'participants',
+      'instructor_relationships',
       'guest_contacts',
       'payments',
       'monetary_events',
@@ -296,6 +298,239 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
     }
     await seedCourse();
   });
+
+  it('synchronizes a reused browser guest profile across courses and both read models', async () => {
+    const commands = createCommands();
+    const firstEnvelope = guestEnrollmentEnvelope('idem-browser-profile-first');
+    const first = await commands.execute({
+      ...firstEnvelope,
+      context: {
+        ...firstEnvelope.context,
+        transportMetadata: {
+          ...firstEnvelope.context.transportMetadata,
+          participant_display_name: 'Petr',
+          participant_age_years: '30',
+        },
+      },
+    });
+    expect(first.status).toBe('success');
+    const participantRef = firestore.doc(`participants/${participantId}`);
+    await participantRef.update({
+      avatarUrl: 'https://example.com/guest-avatar.png',
+      instructorComment: 'Keep the existing instructor comment',
+    });
+    const before = (await participantRef.get()).data()!;
+    expect(parseParticipant(before)).toMatchObject({
+      participantId,
+      displayName: 'Petr',
+      age: { kind: 'age_years', years: 30 },
+      discipline: 'ski',
+      skillLevel: 'beginner',
+      management: { kind: 'unmanaged_guest' },
+    });
+    const secondCourseId = await seedSecondCourse();
+    const secondEnrollmentId = CourseEnrollmentIdSchema.parse('enrollment_browser_profile_second');
+    const secondEnvelope = guestEnrollmentAttemptEnvelope({
+      idempotencyKey: 'idem-browser-profile-second',
+      participantId,
+      enrollmentId: secondEnrollmentId,
+      courseId: secondCourseId,
+    });
+    const updatedEnvelope = {
+      ...secondEnvelope,
+      context: {
+        ...secondEnvelope.context,
+        transportMetadata: {
+          ...secondEnvelope.context.transportMetadata,
+          participant_display_name: 'Ars',
+          participant_age_years: '43',
+          participant_skill_level: 'intermediate',
+        },
+      },
+    };
+    const peopleRef = firestore.doc(canonicalPaths.adminPeopleRevision().replace(/^\//, ''));
+    const peopleBefore = (await peopleRef.get()).data()!.revision;
+    const second = await createCommands('2026-01-02T00:00:00.000Z').execute(updatedEnvelope);
+    expect(second.status).toBe('success');
+    const after = (await participantRef.get()).data()!;
+    expect(parseParticipant(after)).toMatchObject({
+      participantId,
+      displayName: 'Ars',
+      age: { kind: 'age_years', years: 43 },
+      discipline: 'ski',
+      skillLevel: 'intermediate',
+      management: { kind: 'unmanaged_guest' },
+      revision: before.revision + 1,
+    });
+    expect(after).toEqual({
+      ...before,
+      displayName: 'Ars',
+      age: { kind: 'age_years', years: 43 },
+      skillLevel: 'intermediate',
+      revision: before.revision + 1,
+      updatedAt: timestampFromDate(new Date('2026-01-02T00:00:00.000Z')),
+      audit: {
+        ...before.audit,
+        lastChangedByCommandId: expect.any(String),
+        correlationId,
+      },
+    });
+    expect(after.audit.lastChangedByCommandId).not.toBe(before.audit.lastChangedByCommandId);
+    expect(second.payload?.adminPeopleRevision).toBe(peopleBefore + 1);
+    expect((await peopleRef.get()).data()?.revision).toBe(peopleBefore + 1);
+
+    const queryGuest = async (created: typeof first, id: CourseEnrollmentId) => {
+      const credential = created.payload!.guestLinkCredentials![0]!;
+      return queryCourseEnrollmentReadModels(
+        firestore,
+        {
+          scope: 'guest_single',
+          enrollmentId: id,
+          guestActionNonce: credential.nonce,
+          guestActionSignature: credential.signature,
+        },
+        { guestActionSecret: guestActionTokenSecret, now: new Date('2026-01-02T00:00:00.000Z') }
+      );
+    };
+    expect((await queryGuest(second, secondEnrollmentId)).items).toEqual([
+      expect.objectContaining({
+        enrollmentId: secondEnrollmentId,
+        participant: expect.objectContaining({ participantId, displayName: 'Ars' }),
+      }),
+    ]);
+    expect((await queryGuest(first, enrollmentId)).items[0]).toMatchObject({
+      participant: { participantId, displayName: 'Ars' },
+    });
+    const admin = await queryAdminCourseEnrollmentReadModels(firestore, adminActor, {
+      scope: 'admin_pending_guest',
+    });
+    if (admin.scope === 'admin_enrollment_detail') throw new Error('Unexpected detail');
+    expect(admin.items).toHaveLength(2);
+    for (const id of [enrollmentId, secondEnrollmentId]) {
+      expect(admin.items.find((item) => item.enrollmentId === id)).toMatchObject({
+        participant: { participantId, displayName: 'Ars' },
+      });
+    }
+    expect(await commands.execute(updatedEnvelope)).toEqual(second);
+    expect((await participantRef.get()).data()).toEqual(after);
+    expect((await peopleRef.get()).data()?.revision).toBe(peopleBefore + 1);
+  });
+
+  it('leaves an unchanged guest profile and people revision untouched on a new enrollment', async () => {
+    const commands = createCommands();
+    expect(
+      (await commands.execute(guestEnrollmentEnvelope('idem-same-profile-first'))).status
+    ).toBe('success');
+    const participantRef = firestore.doc(`participants/${participantId}`);
+    const before = (await participantRef.get()).data();
+    const peopleRef = firestore.doc(canonicalPaths.adminPeopleRevision().replace(/^\//, ''));
+    const peopleBefore = (await peopleRef.get()).data();
+    const secondCourseId = await seedSecondCourse();
+    const second = await createCommands('2026-01-02T00:00:00.000Z').execute(
+      guestEnrollmentAttemptEnvelope({
+        idempotencyKey: 'idem-same-profile-second',
+        participantId,
+        enrollmentId: CourseEnrollmentIdSchema.parse('enrollment_same_profile_second'),
+        courseId: secondCourseId,
+      })
+    );
+    expect(second.status).toBe('success');
+    expect(second.payload).not.toHaveProperty('adminPeopleRevision');
+    expect((await participantRef.get()).data()).toEqual(before);
+    expect((await peopleRef.get()).data()).toEqual(peopleBefore);
+  });
+
+  it.each([
+    'managed',
+    'archived',
+    'malformed',
+    'mismatched-id',
+    'unsupported-type',
+    'instructor-linked',
+  ])(
+    'rejects a guest profile update of an existing %s participant without changing it',
+    async (invalid) => {
+      expect(
+        (await createCommands().execute(guestEnrollmentEnvelope(`idem-protected-seed-${invalid}`)))
+          .status
+      ).toBe('success');
+      const participantRef = firestore.doc(`participants/${participantId}`);
+      if (invalid === 'instructor-linked') {
+        await firestore.doc('instructor_relationships/relationship_protected_guest').set(
+          InstructorRelationshipSchema.parse({
+            instructorRelationshipId: 'relationship_protected_guest',
+            participantId,
+            instructorId,
+            basis: { kind: 'administration_assignment', assignedByAccountId: adminActor.accountId },
+            status: 'active',
+            validFrom: decidedAt,
+            expiresAt: dayOneEnd,
+            revision: 1,
+            createdAt: decidedAt,
+            updatedAt: decidedAt,
+            audit: {
+              createdByCommandId: 'command_seed',
+              lastChangedByCommandId: 'command_seed',
+              correlationId,
+            },
+          })
+        );
+      }
+      const patch =
+        invalid === 'managed'
+          ? {
+              management: {
+                kind: 'managed',
+                participantManagementId: 'management_protected_guest',
+              },
+            }
+          : invalid === 'archived'
+            ? { lifecycle: { status: 'archived', archivedAt: decidedAt } }
+            : invalid === 'malformed'
+              ? { age: { kind: 'age_years', years: -1 } }
+              : invalid === 'mismatched-id'
+                ? { participantId: 'participant_another_guest' }
+                : invalid === 'unsupported-type'
+                  ? { management: { kind: 'instructor' } }
+                  : {};
+      if (Object.keys(patch).length > 0) await participantRef.update(patch);
+      const before = (await participantRef.get()).data();
+      const countsBefore = await durableGuestCounts();
+      const peopleRef = firestore.doc(canonicalPaths.adminPeopleRevision().replace(/^\//, ''));
+      const peopleBefore = (await peopleRef.get()).data();
+      const secondCourseId = await seedSecondCourse();
+      const secondEnvelope = guestEnrollmentAttemptEnvelope({
+        idempotencyKey: `idem-protected-update-${invalid}`,
+        participantId,
+        enrollmentId: CourseEnrollmentIdSchema.parse(`enrollment_protected_${invalid}`),
+        courseId: secondCourseId,
+      });
+      const rejected = await createCommands().execute({
+        ...secondEnvelope,
+        context: {
+          ...secondEnvelope.context,
+          transportMetadata: {
+            ...secondEnvelope.context.transportMetadata,
+            participant_display_name: 'Ars',
+          },
+        },
+      });
+      expect(rejected).toMatchObject({
+        status: 'error',
+        error: {
+          code:
+            invalid === 'managed' || invalid === 'instructor-linked'
+              ? 'forbidden'
+              : invalid === 'mismatched-id'
+                ? 'validation'
+                : 'invalid_transition',
+        },
+      });
+      expect((await participantRef.get()).data()).toEqual(before);
+      expect((await peopleRef.get()).data()).toEqual(peopleBefore);
+      expect(await durableGuestCounts()).toEqual(countsBefore);
+    }
+  );
 
   it('projects a newly created pending guest to admin exactly once and bumps the realtime revision', async () => {
     const queryPending = () =>

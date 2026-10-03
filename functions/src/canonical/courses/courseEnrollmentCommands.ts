@@ -4,6 +4,7 @@ import {
   canonicalScopeFields,
   LIVE_CANONICAL_EXECUTION_SCOPE,
   CanonicalCommandError,
+  CANONICAL_COLLECTIONS,
   CourseEnrollmentSchema,
   KztMinorUnitsSchema,
   PaymentSchema,
@@ -157,6 +158,7 @@ interface PlannedParticipantEnrollment {
   readonly existingReservationExpiresAt?: CanonicalTimestamp;
   readonly shouldCreateGuestParticipant?: boolean;
   readonly guestParticipantProfile?: import('@ski-academy/shared-domain').GuestParticipantProfileFromTransport;
+  readonly guestParticipantToUpdate?: import('@ski-academy/shared-domain').Participant;
 }
 
 function guestCourseCredential(input: {
@@ -595,10 +597,11 @@ function createCourseEnrollmentsHandler(
         let guestParticipantProfile:
           import('@ski-academy/shared-domain').GuestParticipantProfileFromTransport | undefined;
         let participantRecord!: import('@ski-academy/shared-domain').Participant;
+        let guestParticipantToUpdate: import('@ski-academy/shared-domain').Participant | undefined;
 
         if (mode === 'guest') {
-          if (!existingParticipant) {
-            guestParticipantProfile = resolveGuestParticipantProfileForCourseEnrollment(envelope);
+          guestParticipantProfile = resolveGuestParticipantProfileForCourseEnrollment(envelope);
+          if (!participantRead.exists) {
             shouldCreateGuestParticipant = true;
             session.plan.planMutation({
               path: participantPath(participantId),
@@ -625,6 +628,36 @@ function createCourseEnrollmentsHandler(
               existingParticipant,
               participantId
             );
+            if (
+              participantRecord.displayName !== guestParticipantProfile.displayName ||
+              participantRecord.age.kind !== 'age_years' ||
+              participantRecord.age.years !== guestParticipantProfile.ageYears ||
+              participantRecord.discipline !== guestParticipantProfile.discipline ||
+              participantRecord.skillLevel !== guestParticipantProfile.skillLevel
+            ) {
+              const relationships = await session.tx.query({
+                collection: CANONICAL_COLLECTIONS.instructorRelationships,
+                where: { field: 'participantId', op: '==', value: participantId },
+                limit: 1,
+              });
+              session.plan.planRead({
+                path: `${CANONICAL_COLLECTIONS.instructorRelationships}/query`,
+                category: 'authorization_check',
+              });
+              if (relationships.length > 0) {
+                throw new CanonicalCommandError('forbidden', {
+                  correlationId: envelope.context.correlationId,
+                  details: { resourceKind: 'participant', reason: 'conflict' },
+                });
+              }
+              guestParticipantToUpdate = participantRecord;
+              session.plan.planMutation({
+                path: participantPath(participantId),
+                kind: 'update',
+                category: 'aggregate',
+                estimatedPayloadBytes: PARTICIPANT_ACCESS_PLANNING_ESTIMATES.participantBytes,
+              });
+            }
           }
           authorization = { mode: 'guest' };
           const guestBlocks = await loadParticipantBlocksForCourseDays(session, {
@@ -765,8 +798,8 @@ function createCourseEnrollmentsHandler(
           seatClaimPlan,
           dayClaimPlans,
           alreadyApplied: false,
-          ...(shouldCreateGuestParticipant && guestParticipantProfile
-            ? { shouldCreateGuestParticipant, guestParticipantProfile }
+          ...((shouldCreateGuestParticipant || guestParticipantToUpdate) && guestParticipantProfile
+            ? { shouldCreateGuestParticipant, guestParticipantProfile, guestParticipantToUpdate }
             : {}),
         });
 
@@ -1089,6 +1122,25 @@ function createCourseEnrollmentsHandler(
             session.tx.create(
               { path: participantPath(planned.participantId) },
               guestParticipant as Record<string, unknown>
+            );
+          } else if (planned.guestParticipantToUpdate && planned.guestParticipantProfile) {
+            const existing = planned.guestParticipantToUpdate;
+            session.tx.update(
+              { path: participantPath(planned.participantId) },
+              {
+                ...existing,
+                displayName: planned.guestParticipantProfile.displayName,
+                age: { kind: 'age_years', years: planned.guestParticipantProfile.ageYears },
+                discipline: planned.guestParticipantProfile.discipline,
+                skillLevel: planned.guestParticipantProfile.skillLevel,
+                revision: nextAggregateRevision(existing.revision),
+                updatedAt: decidedAt,
+                audit: {
+                  ...existing.audit,
+                  lastChangedByCommandId: metadata.commandId,
+                  correlationId: metadata.correlationId,
+                },
+              }
             );
           }
 

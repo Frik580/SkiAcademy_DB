@@ -4,7 +4,7 @@ import { motion, useReducedMotion } from 'motion/react';
 import { useLanguage, type Language } from '../../app/providers/LanguageContext';
 import type { Theme } from '../../hooks/useTheme';
 import { CustomHeroSlide } from '../../types';
-import { FALLBACK_SLIDES } from '../../features/admin';
+import { FALLBACK_SLIDES } from '../config/fallbackHeroSlides';
 import {
   RESORT_SLIDE_RANDOM_IMAGE_KEY,
   RESORT_SLIDE_WALL_IMAGE_KEYS,

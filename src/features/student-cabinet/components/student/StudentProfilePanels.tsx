@@ -31,10 +31,8 @@ import type { StudentProfileHubInput, StudentProfilePanelProps } from './student
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 import { usePresentedParticipantLessonFeedback } from '../../usePresentedParticipantLessonFeedback';
 import { useSelectedParticipantLessonStats } from '../../useSelectedParticipantLessonStats';
-import {
-  accountReviewEvidenceFromCanonicalPresentation,
-  usePresentedParticipantAchievements,
-} from '../../../participant-achievements';
+import { accountReviewEvidenceFromCanonicalPresentation } from '../../../participant-achievements';
+import { usePresentedParticipantAchievements } from '../../../participant-achievements/usePresentedParticipantAchievements';
 import { ParticipantManagementPanel } from '../../../participants/components/ParticipantManagementPanel';
 
 type ProfileHubTab = Extract<

@@ -2,8 +2,8 @@ import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { UserProfile } from '../../types';
 import { isInstructorWorkspaceUser } from '../../lib/workspaceRoutes';
-import { useAuthStore } from '../auth';
-import { useProfileStore } from '../profile';
+import { useAuthStore } from '../auth/authStore';
+import { useProfileStore } from '../profile/profileStore';
 import { useLanguage } from '../../app/providers/LanguageContext';
 import { AppInitSkeleton } from '../../ui/Skeleton';
 

@@ -141,16 +141,18 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({
         actions={{ onScrollToSection: handleScrollToSection }}
       />
 
-      <ConditionsStrip
-        conditions={resortData.conditions}
-        unit={resortData.isFahrenheit ? 'fahrenheit' : 'celsius'}
-        onToggleUnit={() => setIsFahrenheit(!resortData.isFahrenheit)}
-      />
+      <div className="conditions-sticky-scope shrink-0">
+        <ConditionsStrip
+          conditions={resortData.conditions}
+          unit={resortData.isFahrenheit ? 'fahrenheit' : 'celsius'}
+          onToggleUnit={() => setIsFahrenheit(!resortData.isFahrenheit)}
+        />
 
-      <YourJourneySection
-        skillConfig={skillConfig}
-        userProfile={null}
-      />
+        <YourJourneySection
+          skillConfig={skillConfig}
+          userProfile={null}
+        />
+      </div>
 
       <div className="flex flex-col">
         <div className="flex flex-col">

@@ -8,6 +8,7 @@ import {
   CourseIdSchema,
   InstructorIdSchema,
   GuestSubjectIdSchema,
+  GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS,
   ParticipantIdSchema,
   courseEnrollmentIdFromCommandParticipant,
   guestCommandActor,
@@ -148,6 +149,12 @@ function guestCreateEnvelope(
     correlationId,
     source: 'guest_callable' as const,
     transportMetadata: {
+      ...guestParticipantTransportMetadataFromProfile({
+        displayName: 'Guest Link Unit Participant',
+        ageYears: 18,
+        discipline: 'ski',
+        skillLevel: 'beginner',
+      }),
       guest_contact_phone: '+7 701 123 45 67',
       guest_contact_email: 'course@example.com',
     },
@@ -220,6 +227,48 @@ function runCommands(
 }
 
 describe('guest course enrollment participant profile creation', () => {
+  it.each([
+    ['displayName', undefined],
+    ['ageYears', '-1'],
+    ['discipline', 'invalid'],
+    ['skillLevel', ''],
+  ] as const)('rejects invalid %s metadata even for an existing guest', async (field, value) => {
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    const before = executor.snapshot();
+    const envelope = guestCreateEnvelope(`guest-invalid-profile-${field}`);
+    const transportMetadata = { ...envelope.context.transportMetadata };
+    const key = GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS[field];
+    if (value === undefined) delete transportMetadata[key];
+    else transportMetadata[key] = value;
+    expect(
+      await runCommands(executor).execute({
+        ...envelope,
+        context: { ...envelope.context, transportMetadata },
+      })
+    ).toMatchObject({
+      status: 'error',
+      error: {
+        code: 'validation',
+        details: { field: 'guestParticipantDisplayName', reason: 'required' },
+      },
+    });
+    expect(executor.snapshot()).toEqual(before);
+  });
+
+  it('replays a guest create with the same profile without participant or people revision writes', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    const before = executor.snapshot().docs.get(`participants/${guestParticipantId}`)?.data;
+    const commands = runCommands(executor);
+    const envelope = guestCreateEnvelope('guest-same-profile-replay');
+    const created = await commands.execute(envelope);
+    expect(created.status, JSON.stringify(created)).toBe('success');
+    expect(created.payload).not.toHaveProperty('adminPeopleRevision');
+    const after = executor.snapshot();
+    expect(after.docs.get(`participants/${guestParticipantId}`)?.data).toEqual(before);
+    expect(await commands.execute(envelope)).toEqual(created);
+    expect(executor.snapshot()).toEqual(after);
+  });
+
   it.each(['ski', 'snowboard'] as const)(
     'stores the actual %s guest profile and participant-scoped enrollment',
     async (discipline) => {
@@ -270,7 +319,7 @@ describe('link_guest_course_enrollment_to_account command', () => {
     const commands = runCommands(executor);
     const createEnvelope = guestCreateEnvelope('guest-link-unit-create');
     const createResult = await commands.execute(createEnvelope);
-    expect(createResult.status).toBe('success');
+    expect(createResult.status, JSON.stringify(createResult)).toBe('success');
     expect(
       executor
         .snapshot()

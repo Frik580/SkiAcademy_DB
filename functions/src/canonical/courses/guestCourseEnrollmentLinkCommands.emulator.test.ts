@@ -19,6 +19,7 @@ import {
   accountCommandActor,
   courseEnrollmentIdFromCommandParticipant,
   guestCommandActor,
+  guestParticipantTransportMetadataFromProfile,
   guestSubjectIdFromBookingId,
   guestSubjectIdFromCourseEnrollmentId,
   participantManagementIdFromGuestLink,
@@ -427,6 +428,17 @@ function guestEnrollmentEnvelope(
     idempotencyKey,
     correlationId,
     source: 'guest_callable' as const,
+    transportMetadata: guestParticipantTransportMetadataFromProfile({
+      displayName:
+        targetParticipantId === guestParticipantIdTwo
+          ? 'Guest Link Emulator Participant Two'
+          : targetParticipantId === guestParticipantIdThree
+            ? 'Guest Link Emulator Participant Three'
+            : 'Guest Link Emulator Participant',
+      ageYears: 18,
+      discipline: 'ski',
+      skillLevel: 'beginner',
+    }),
     calendarInput: {
       localDate: '2026-02-01',
       localTime: '09:00',

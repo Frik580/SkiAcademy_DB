@@ -16,6 +16,7 @@ import {
   accountCommandActor,
   courseEnrollmentIdFromCommandParticipant,
   guestCommandActor,
+  guestParticipantTransportMetadataFromProfile,
   guestSubjectIdFromCourseEnrollmentId,
   participantManagementIdFromGuestLink,
   paymentIdFromCourseEnrollmentId,
@@ -208,6 +209,12 @@ function guestCreateEnvelope(idempotencyKey: string): CommandEnvelope<'create_co
     idempotencyKey,
     correlationId,
     source: 'guest_callable' as const,
+    transportMetadata: guestParticipantTransportMetadataFromProfile({
+      displayName: 'Guest Enrollment Source',
+      ageYears: 18,
+      discipline: 'ski',
+      skillLevel: 'beginner',
+    }),
     calendarInput: {
       localDate: '2026-02-01',
       localTime: '09:00',
@@ -285,7 +292,7 @@ async function createGuestEnrollment(extra: Record<string, unknown> = {}) {
   const executor = createInMemoryCanonicalTransactionExecutor(baseFixture(extra));
   const envelope = guestCreateEnvelope('admin-guest-enroll-create-01');
   const created = await runCommands(executor).execute(envelope);
-  expect(created.status).toBe('success');
+  expect(created.status, JSON.stringify(created)).toBe('success');
   return {
     executor,
     enrollmentId: envelope.intent.enrollmentIds![0]!,
@@ -315,7 +322,9 @@ describe('payment-driven guest course enrollment confirmation', () => {
       intent: { courseEnrollmentId: enrollmentId },
     });
     expect(linkTokenAttempt.status).toBe('error');
-    expect(linkTokenAttempt.status === 'error' ? linkTokenAttempt.error.code : '').toBe('unauthorized');
+    expect(linkTokenAttempt.status === 'error' ? linkTokenAttempt.error.code : '').toBe(
+      'unauthorized'
+    );
     const result = await runCommands(executor).execute({
       kind: 'request_course_enrollment_cancellation',
       context: {
@@ -333,7 +342,9 @@ describe('payment-driven guest course enrollment confirmation', () => {
       intent: { courseEnrollmentId: enrollmentId },
     });
     expect(result.status).toBe('success');
-    expect(executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle).toMatchObject({
+    expect(
+      executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle
+    ).toMatchObject({
       status: 'cancelled',
       reasonCode: 'guest_cancelled',
     });
@@ -349,7 +360,9 @@ describe('payment-driven guest course enrollment confirmation', () => {
         .filter(([path]) => path.startsWith('monetary_events/'))
         .map(([, document]) => document.data.eventKind)
     ).toContain('write_off');
-    expect(executor.snapshot().docs.get(`courses/${courseId}`)?.data.capacity.availableSeats).toBe(8);
+    expect(executor.snapshot().docs.get(`courses/${courseId}`)?.data.capacity.availableSeats).toBe(
+      8
+    );
   });
 
   it('rejects guest voluntary cancellation after partial funding', async () => {
@@ -393,7 +406,9 @@ describe('payment-driven guest course enrollment confirmation', () => {
     });
     expect(result.status).toBe('error');
     expect(result.status === 'error' ? result.error.code : '').toBe('invalid_transition');
-    expect(executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle.status).toBe('pending');
+    expect(
+      executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle.status
+    ).toBe('pending');
     expect(executor.snapshot().docs.get(`payments/${paymentId}`)?.data).toEqual(paymentBefore);
   });
   it('keeps partial funding pending and confirms atomically on the full canonical Payment', async () => {

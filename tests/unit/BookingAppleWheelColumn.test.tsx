@@ -3,7 +3,7 @@
  * the options prop changes (async occupancy load scenario).
  */
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { BookingAppleWheelColumn } from '../../src/features/bookings/components/booking_modal/BookingAppleWheelColumn';
 import type { BookingAppleWheelOption } from '../../src/features/bookings/components/booking_modal/BookingAppleWheelPicker';
@@ -13,6 +13,40 @@ function makeOptions(times: string[]): BookingAppleWheelOption[] {
 }
 
 describe('BookingAppleWheelColumn', () => {
+  it('keeps an explicit selection when scrollend arrives before smooth scrolling finishes', () => {
+    const options = makeOptions(['Beginner', 'Intermediate', 'Advanced']);
+    const onChange = vi.fn();
+    function ControlledWheel() {
+      const [value, setValue] = React.useState('Advanced');
+      return (
+        <BookingAppleWheelColumn
+          value={value}
+          options={options}
+          onChange={(next) => {
+            onChange(next);
+            setValue(next);
+          }}
+          isOpen
+        />
+      );
+    }
+    const { container } = render(<ControlledWheel />);
+    const wheel = container.firstElementChild as HTMLDivElement;
+    wheel.scrollTop = 80;
+    // A smooth scroll does not synchronously move away from the previous position.
+    wheel.scrollTo = vi.fn((settings?: ScrollToOptions | number) => {
+      if (typeof settings === 'object' && settings.behavior !== 'smooth') {
+        wheel.scrollTop = settings.top ?? 0;
+      }
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Intermediate', exact: true }));
+    fireEvent(wheel, new Event('scrollend'));
+
+    expect(onChange).toHaveBeenCalled();
+    expect(onChange.mock.calls.every(([value]) => value === 'Intermediate')).toBe(true);
+  });
+
   it('renders only enabled options', () => {
     const options: BookingAppleWheelOption[] = [
       { value: '08:00', label: '08:00' },

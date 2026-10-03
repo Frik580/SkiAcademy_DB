@@ -181,7 +181,9 @@ export const BookingAppleWheelColumn: React.FC<BookingAppleWheelColumnProps> = (
               tabIndex={isOpen ? 0 : -1}
               onClick={() => {
                 const optionIndex = enabledOptions.findIndex((item) => item.value === option.value);
-                scrollToIndex(optionIndex, 'smooth');
+                // Commit the position together with the value so pending scroll events
+                // cannot restore an earlier selection while a smooth scroll is in flight.
+                scrollToIndex(optionIndex);
                 setScrollOffset(optionIndex);
                 if (option.value === value) {
                   onPickSame?.();

@@ -21,12 +21,7 @@ import {
   getDifficultyLabel,
 } from '../../../../app/providers/LanguageContext';
 import { logger } from '../../../../shared';
-import {
-  blocksInstructorAvailability,
-  DEFAULT_LESSON_TIME_SLOTS,
-  toAvailabilitySlot,
-  toLocalDateStr,
-} from '../../../../domain/availability';
+import { DEFAULT_LESSON_TIME_SLOTS, toLocalDateStr } from '../../../../domain/availability';
 
 import {
   queryInstructorOccupancyReadModels,
@@ -85,7 +80,6 @@ export const useBookingModal = ({
   onClose,
   instructor,
   userProfile,
-  courses = [],
   onAuthSuccess,
 }: BookingModalInput) => {
   const { addNotification } = useNotifications();
@@ -154,7 +148,7 @@ export const useBookingModal = ({
   }, [isOpen, isSubmitting]);
 
   useEffect(() => {
-    if (!isOpen || !userProfile?.uid || userProfile.uid.startsWith('local_')) {
+    if (!isOpen || !userProfile?.uid) {
       setAdditionalParticipantSurchargePerHourKzt(undefined);
       setMaxParticipantsPerLesson(undefined);
       return;
@@ -246,61 +240,31 @@ export const useBookingModal = ({
       setIsLoadingBookings(true);
       setOccupancyLoadFailed(false);
       try {
-        const isSandbox = userProfile?.uid?.startsWith('local_') || false;
-        if (!isSandbox) {
-          const timezone = resolveLessonBookingTimezone();
-          const selectedDate = normalizeDateStr(date);
-          const [selectedDay, nextDay] = await Promise.all([
-            queryInstructorOccupancyReadModels({
-              scope: 'public_instructor_day',
-              instructorId: InstructorIdSchema.parse(targetInstructor.id),
-              localDate: selectedDate,
-              timeZone: timezone,
-            }),
-            queryInstructorOccupancyReadModels({
-              scope: 'public_instructor_day',
-              instructorId: InstructorIdSchema.parse(targetInstructor.id),
-              localDate: addBookingLocalDays(selectedDate, 1),
-              timeZone: timezone,
-            }),
-          ]);
-          if (fetchVersion !== occupancyFetchVersionRef.current) return;
-          const occupancy = [...selectedDay.item.occupancy, ...nextDay.item.occupancy];
-          const mapped = mapInstructorOccupancyReadModelForBookingModal({
-            ...selectedDay.item,
-            occupancy,
-          });
-          setOccupancyItems(occupancy);
-          setInstructorBookings(mapped.slots);
-          setOccupancyCourses(mapped.courses);
-        } else {
-          const localList: Booking[] = [];
-          for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key && key.startsWith('alpine_glide_bookings_')) {
-              try {
-                const val = localStorage.getItem(key);
-                if (val) {
-                  const parsed = JSON.parse(val);
-                  if (Array.isArray(parsed)) {
-                    localList.push(...parsed);
-                  }
-                }
-              } catch (e) {
-                // Ignore parse errors
-              }
-            }
-          }
-          setOccupancyItems([]);
-          setInstructorBookings(
-            localList
-              .filter(
-                (b) => b.instructorId === targetInstructor.id && blocksInstructorAvailability(b)
-              )
-              .map(toAvailabilitySlot)
-          );
-          setOccupancyCourses(courses);
-        }
+        const timezone = resolveLessonBookingTimezone();
+        const selectedDate = normalizeDateStr(date);
+        const [selectedDay, nextDay] = await Promise.all([
+          queryInstructorOccupancyReadModels({
+            scope: 'public_instructor_day',
+            instructorId: InstructorIdSchema.parse(targetInstructor.id),
+            localDate: selectedDate,
+            timeZone: timezone,
+          }),
+          queryInstructorOccupancyReadModels({
+            scope: 'public_instructor_day',
+            instructorId: InstructorIdSchema.parse(targetInstructor.id),
+            localDate: addBookingLocalDays(selectedDate, 1),
+            timeZone: timezone,
+          }),
+        ]);
+        if (fetchVersion !== occupancyFetchVersionRef.current) return;
+        const occupancy = [...selectedDay.item.occupancy, ...nextDay.item.occupancy];
+        const mapped = mapInstructorOccupancyReadModelForBookingModal({
+          ...selectedDay.item,
+          occupancy,
+        });
+        setOccupancyItems(occupancy);
+        setInstructorBookings(mapped.slots);
+        setOccupancyCourses(mapped.courses);
       } catch (err) {
         logger.error('Error fetching instructor occupancy:', err);
         if (fetchVersion === occupancyFetchVersionRef.current) {
@@ -317,7 +281,7 @@ export const useBookingModal = ({
     };
 
     void fetchOccupancy();
-  }, [isOpen, targetInstructor?.id, date, userProfile?.uid, courses, occupancyRefreshNonce]);
+  }, [isOpen, targetInstructor?.id, date, occupancyRefreshNonce]);
 
   const effectiveParticipantIds = resolveEffectiveParticipantIds(
     managedParticipants,
@@ -326,13 +290,7 @@ export const useBookingModal = ({
   const participantOccupancyKey = effectiveParticipantIds.slice().sort().join(',');
 
   useEffect(() => {
-    if (
-      !isOpen ||
-      !date ||
-      !userProfile?.uid ||
-      userProfile.uid.startsWith('local_') ||
-      effectiveParticipantIds.length === 0
-    ) {
+    if (!isOpen || !date || !userProfile?.uid || effectiveParticipantIds.length === 0) {
       setParticipantOccupancyItems([]);
       return;
     }

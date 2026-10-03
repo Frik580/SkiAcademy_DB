@@ -14,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   loadGuestSingleLessonBooking: vi.fn(),
   managedParticipants: [] as Array<Record<string, unknown>>,
   queryInstructorOccupancy: vi.fn(),
+  queryParticipantOccupancy: vi.fn(),
+  mapInstructorOccupancy: vi.fn(),
   queryLessonPricingSettings: vi.fn(),
 }));
 
@@ -40,21 +42,23 @@ vi.mock('../../src/features/bookings/components/booking_modal/BookingSelectors',
 vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
   queryInstructorOccupancyReadModels: (...args: unknown[]) =>
     mocks.queryInstructorOccupancy(...args),
+  queryParticipantOccupancyReadModels: (...args: unknown[]) =>
+    mocks.queryParticipantOccupancy(...args),
   queryLessonPricingSettingsReadModel: (...args: unknown[]) =>
     mocks.queryLessonPricingSettings(...args),
 }));
 vi.mock('../../src/features/bookings/instructorOccupancyForBookingModal', () => ({
   getAvailableLessonStartTimes: () => ['08:00'],
-  mapInstructorOccupancyReadModelForBookingModal: () => ({ slots: [], courses: [] }),
+  mapInstructorOccupancyReadModelForBookingModal: (...args: unknown[]) =>
+    mocks.mapInstructorOccupancy(...args),
+  flattenParticipantOccupancyReadModels: () => [],
   addBookingLocalDays: (date: string) => date,
   normalizeBookingLocalDate: (date: string) => date,
   resolveLessonStartTimeSelection: (time: string, slots: string[]) =>
     slots.includes(time) ? time : (slots[0] ?? ''),
 }));
 vi.mock('../../src/domain/availability', () => ({
-  blocksInstructorAvailability: () => false,
   DEFAULT_LESSON_TIME_SLOTS: ['08:00'],
-  toAvailabilitySlot: (booking: unknown) => booking,
   toLocalDateStr: () => '2026-06-15',
 }));
 vi.mock('../../src/features/lesson-bookings', () => ({
@@ -144,6 +148,8 @@ describe('booking modal submit success UX', () => {
     mocks.queryInstructorOccupancy.mockReset().mockResolvedValue({
       item: { occupancy: [] },
     });
+    mocks.queryParticipantOccupancy.mockReset().mockResolvedValue({ items: [] });
+    mocks.mapInstructorOccupancy.mockReset().mockReturnValue({ slots: [], courses: [] });
     mocks.queryLessonPricingSettings.mockReset().mockResolvedValue({
       item: {
         configured: true,
@@ -208,6 +214,16 @@ describe('booking modal submit success UX', () => {
     });
 
     expect(mocks.createGuestBooking).toHaveBeenCalledTimes(1);
+    expect(mocks.queryInstructorOccupancy).toHaveBeenCalledTimes(2);
+    expect(mocks.queryInstructorOccupancy).toHaveBeenCalledWith({
+      scope: 'public_instructor_day',
+      instructorId: instructor.id,
+      localDate: '2026-06-15',
+      timeZone: 'Asia/Almaty',
+    });
+    expect(mocks.queryParticipantOccupancy).not.toHaveBeenCalled();
+    expect(mocks.queryLessonPricingSettings).not.toHaveBeenCalled();
+    expect(mocks.createAuthenticatedBooking).not.toHaveBeenCalled();
     expect(mocks.createGuestBooking).toHaveBeenCalledWith(
       expect.objectContaining({ guestPhone: '123456', guestEmail: 'guest@example.com' })
     );
@@ -699,30 +715,91 @@ describe('booking modal submit success UX', () => {
     expect(mocks.addNotification).not.toHaveBeenCalled();
   });
 
-  it('keeps authenticated success feedback working and suppresses a duplicate submit', async () => {
-    mocks.managedParticipants.push({
-      participantId: 'participant_fixture_01',
-      authority: 'self',
-    });
-    const props = createProps({
-      userProfile: { uid: 'account_fixture_01', isClientActive: true } as UserProfile,
-    });
-    const { result } = renderHook(() => useBookingModal(props));
-    await waitForAvailableSlot(result);
-    const event = { preventDefault: vi.fn() } as unknown as React.FormEvent;
+  it.each(['account_fixture_01', 'local_account_fixture_01'])(
+    'uses canonical reads and authenticated submit for %s, ignoring stale local bookings',
+    async (uid) => {
+      localStorage.setItem(
+        `alpine_glide_bookings_${uid}`,
+        JSON.stringify([{ instructorId: instructor.id, date: '2026-06-15', time: '08:00' }])
+      );
+      mocks.managedParticipants.push({
+        participantId: 'participant_fixture_01',
+        authority: 'self',
+      });
+      const props = createProps({
+        userProfile: { uid, isClientActive: true } as UserProfile,
+      });
+      const { result } = renderHook(() => useBookingModal(props));
+      await waitForAvailableSlot(result);
+      await waitFor(() => expect(result.current.lessonSettingsUnavailable).toBe(false));
+      expect(mocks.queryInstructorOccupancy).toHaveBeenCalledTimes(2);
+      expect(mocks.queryInstructorOccupancy).toHaveBeenCalledWith({
+        scope: 'public_instructor_day',
+        instructorId: instructor.id,
+        localDate: '2026-06-15',
+        timeZone: 'Asia/Almaty',
+      });
+      expect(mocks.mapInstructorOccupancy).toHaveBeenCalledWith({ occupancy: [] });
+      expect(mocks.queryLessonPricingSettings).toHaveBeenCalledWith({
+        scope: 'lesson_pricing_settings',
+      });
+      expect(mocks.queryParticipantOccupancy).toHaveBeenCalledTimes(2);
+      expect(mocks.queryParticipantOccupancy).toHaveBeenCalledWith({
+        scope: 'account_participant_day',
+        participantIds: ['participant_fixture_01'],
+        localDate: '2026-06-15',
+        timeZone: 'Asia/Almaty',
+      });
+      const event = { preventDefault: vi.fn() } as unknown as React.FormEvent;
 
-    act(() => {
-      void result.current.handleSubmit(event);
-      void result.current.handleSubmit(event);
-    });
+      act(() => {
+        void result.current.handleSubmit(event);
+        void result.current.handleSubmit(event);
+      });
 
-    await waitFor(() => expect(mocks.createAuthenticatedBooking).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(props.onClose).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(mocks.createAuthenticatedBooking).toHaveBeenCalledTimes(1));
+      expect(mocks.createAuthenticatedBooking).toHaveBeenCalledWith(
+        expect.objectContaining({
+          instructorId: instructor.id,
+          participantIds: ['participant_fixture_01'],
+          exercisedCapability: 'account_owner',
+          localDate: '2026-06-15',
+          localTime: '08:00',
+          durationMinutes: 120,
+        })
+      );
+      expect(mocks.createGuestBooking).not.toHaveBeenCalled();
+      await waitFor(() => expect(props.onClose).toHaveBeenCalledTimes(1));
+      expect(mocks.addNotification).toHaveBeenCalledWith(
+        'success',
+        'lessonBooked',
+        expect.stringContaining('Coach')
+      );
+      expect(mocks.confetti).toHaveBeenCalledTimes(1);
+    }
+  );
+
+  it('does not fall back to local bookings when canonical occupancy fails', async () => {
+    localStorage.setItem('alpine_glide_bookings_local_account_fixture_01', '[]');
+    mocks.queryInstructorOccupancy.mockRejectedValue(new Error('Occupancy unavailable'));
+    mocks.managedParticipants.push({ participantId: 'participant_fixture_01', authority: 'self' });
+    const { result } = renderHook(() =>
+      useBookingModal(
+        createProps({ userProfile: { uid: 'local_account_fixture_01' } as UserProfile })
+      )
+    );
+    await waitFor(() => expect(result.current.isLoadingBookings).toBe(false));
+    await waitFor(() => expect(result.current.lessonSettingsUnavailable).toBe(false));
+    expect(result.current.isTimeSlotOccupied).toBe(true);
+    await act(async () => {
+      await result.current.handleSubmit({ preventDefault: vi.fn() } as unknown as React.FormEvent);
+    });
+    expect(mocks.createAuthenticatedBooking).not.toHaveBeenCalled();
+    expect(mocks.mapInstructorOccupancy).not.toHaveBeenCalled();
     expect(mocks.addNotification).toHaveBeenCalledWith(
-      'success',
-      'lessonBooked',
+      'error',
+      'slotUnavailable',
       expect.stringContaining('Coach')
     );
-    expect(mocks.confetti).toHaveBeenCalledTimes(1);
   });
 });

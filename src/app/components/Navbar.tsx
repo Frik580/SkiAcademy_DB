@@ -9,8 +9,10 @@ import { isInstructorWorkspaceUser, getDefaultWorkspacePath } from '../../lib/wo
 import { Logo } from './Logo';
 import { LanguageSwitch } from './LanguageSwitch';
 import { useEffectiveBalance } from '../../features/wallet';
-import { CabinetParticipantAvatarSwitcher } from '../../features/student-cabinet/components/CabinetParticipantAvatarSwitcher';
-import { useNavbarParticipantSwitcher } from '../../features/student-cabinet/useNavbarParticipantSwitcher';
+import {
+  CabinetParticipantAvatarSwitcher,
+  useNavbarParticipantSwitcher,
+} from '../../features/student-cabinet/navbar';
 
 interface NavbarProps {
   userProfile: UserProfile | null;

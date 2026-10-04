@@ -244,7 +244,13 @@ export default tseslint.config(
         {
           patterns: [
             {
-              group: ['**/features/*/**'],
+              // Official startup public subpaths; all other feature internals stay restricted.
+              group: [
+                '**/features/*/**',
+                '!**/features/student-cabinet/navbar',
+                '!**/features/profile/runtime',
+                '!**/features/auth/session',
+              ],
               message: 'Import feature capabilities from its public API (features/<domain>).',
             },
             {

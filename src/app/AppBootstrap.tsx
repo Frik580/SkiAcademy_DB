@@ -6,7 +6,7 @@ import { useStoreSync } from '../store/useStoreSync';
 import { registerFirestoreErrorListener } from '../infrastructure/firebase';
 import { logger } from '../shared';
 import { useUiStore } from '../features/shell';
-import { useAchievementsSync } from '../features/profile/sync/useAchievementsSync';
+import { useAchievementsSync } from '../features/profile/runtime';
 
 export interface AppBootstrapProps {
   children: React.ReactNode;

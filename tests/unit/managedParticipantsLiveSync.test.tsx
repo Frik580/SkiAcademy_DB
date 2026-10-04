@@ -13,8 +13,10 @@ import { useProfileStore } from '../../src/features/profile/profileStore';
 import type { UpdateManagedParticipantProfileInput } from '../../src/features/participants/participantManagementContracts';
 import { ParticipantManagementPanel } from '../../src/features/participants/components/ParticipantManagementPanel';
 import { resetUserScopedStores } from '../../src/store/resetDataStores';
-import { useNavbarParticipantSwitcher } from '../../src/features/student-cabinet/useNavbarParticipantSwitcher';
-import { CabinetParticipantAvatarSwitcher } from '../../src/features/student-cabinet/components/CabinetParticipantAvatarSwitcher';
+import {
+  useNavbarParticipantSwitcher,
+  CabinetParticipantAvatarSwitcher,
+} from '../../src/features/student-cabinet/navbar';
 import { useCabinetProgressParticipantSelectionStore } from '../../src/features/student-cabinet/cabinetProgressParticipantSelectionStore';
 import type { UserProfile } from '../../src/types';
 

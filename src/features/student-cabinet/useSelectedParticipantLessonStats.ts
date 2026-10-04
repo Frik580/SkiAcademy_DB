@@ -3,6 +3,8 @@ import {
   aggregateParticipantLessonStats,
   evidenceListFromAccountReadModels,
   selectLatestParticipantAttendedEvidenceForInstructor,
+} from '@ski-academy/shared-domain/canonical/participantLessonStatsSemantics';
+import {
   type InstructorId,
   type ParticipantId,
   type ParticipantLessonStatsEvidence,

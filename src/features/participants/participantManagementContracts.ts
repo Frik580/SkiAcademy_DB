@@ -1,8 +1,6 @@
-import {
-  LIVE_CANONICAL_EXECUTION_SCOPE,
-  participantAvatarStoragePath as scopedParticipantAvatarStoragePath,
-  type ManagedParticipantPickerAgeProjection,
-} from '@ski-academy/shared-domain';
+import { LIVE_CANONICAL_EXECUTION_SCOPE } from '@ski-academy/shared-domain/canonical/canonicalScope';
+import { participantAvatarStoragePath as scopedParticipantAvatarStoragePath } from '@ski-academy/shared-domain/canonical/testStoragePaths';
+import { type ManagedParticipantPickerAgeProjection } from '@ski-academy/shared-domain';
 import type { ManagedParticipantOption } from '../lesson-bookings/lessonBookingContracts';
 
 export type ManagedParticipantAgeInput = ManagedParticipantPickerAgeProjection;

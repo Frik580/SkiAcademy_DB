@@ -1,7 +1,9 @@
+import { ParticipantIdSchema } from '@ski-academy/shared-domain/canonical/identifiers';
 import {
-  ParticipantIdSchema,
   canonicalDeterministicHash,
   participantManagementIdFromGuestLink,
+} from '@ski-academy/shared-domain/canonical/deterministicIdentity';
+import {
   type AccountId,
   type IdempotencyKey,
   type ParticipantId,

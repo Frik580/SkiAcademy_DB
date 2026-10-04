@@ -1,7 +1,5 @@
-import {
-  GuestBookingActionCredentialSchema,
-  type GuestBookingActionCredential,
-} from '@ski-academy/shared-domain';
+import { GuestBookingActionCredentialSchema } from '@ski-academy/shared-domain/canonical/commands/commandResultPayloads';
+import { type GuestBookingActionCredential } from '@ski-academy/shared-domain';
 
 const STORAGE_KEY_PREFIX = 'ski_academy_guest_booking_credential:';
 

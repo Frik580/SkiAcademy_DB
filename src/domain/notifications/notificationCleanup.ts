@@ -11,7 +11,7 @@ import {
 } from 'firebase/firestore';
 import { getNotificationRetentionMs } from './notificationConfig';
 import { logger } from '../../shared';
-import { notificationEligibleForUserPurge } from '@ski-academy/shared-domain';
+import { notificationEligibleForUserPurge } from '@ski-academy/shared-domain/canonical/testSideEffectPolicy';
 
 const CLEANUP_BATCH_SIZE = 200;
 

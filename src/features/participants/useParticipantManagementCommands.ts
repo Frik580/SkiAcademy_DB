@@ -1,10 +1,10 @@
 import { useCallback } from 'react';
+import { AggregateRevisionSchema } from '@ski-academy/shared-domain/canonical/primitives';
 import {
-  AggregateRevisionSchema,
   ParticipantIdSchema,
   ParticipantManagementIdSchema,
-  type AccountId,
-} from '@ski-academy/shared-domain';
+} from '@ski-academy/shared-domain/canonical/identifiers';
+import { type AccountId } from '@ski-academy/shared-domain';
 import {
   executeAuthenticatedCanonicalCommand,
   type ClientCallableCapability,

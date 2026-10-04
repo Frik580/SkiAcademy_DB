@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { evidenceListFromAccountReadModels, type ParticipantId } from '@ski-academy/shared-domain';
+import { evidenceListFromAccountReadModels } from '@ski-academy/shared-domain/canonical/participantLessonStatsSemantics';
+import { type ParticipantId } from '@ski-academy/shared-domain';
 import {
   evaluateEarnedAchievements,
   normalizeAchievementsConfig,

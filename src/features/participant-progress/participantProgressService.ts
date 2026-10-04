@@ -1,10 +1,7 @@
-import {
-  AggregateRevisionSchema,
-  ParticipantIdSchema,
-  parseCommandResultPayload,
-  type IdempotencyKey,
-  type ParticipantId,
-} from '@ski-academy/shared-domain';
+import { AggregateRevisionSchema } from '@ski-academy/shared-domain/canonical/primitives';
+import { ParticipantIdSchema } from '@ski-academy/shared-domain/canonical/identifiers';
+import { parseCommandResultPayload } from '@ski-academy/shared-domain/canonical/commands/commandResultPayloads';
+import { type IdempotencyKey, type ParticipantId } from '@ski-academy/shared-domain';
 import { executeAuthenticatedCanonicalCommand } from '../../lib/canonical/canonicalCommandClient';
 import { mapCanonicalCommandResultError } from '../../lib/canonical/mapCanonicalCommandError';
 import {

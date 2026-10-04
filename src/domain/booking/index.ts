@@ -14,6 +14,8 @@ export {
   participantPresentQualifiesStreakWeekFromEvidence,
   participantWasAbsentFromLesson,
   resolveParticipantBookingAttendance,
+} from '@ski-academy/shared-domain/canonical/participantLessonStatsSemantics';
+export {
   type ParticipantBookingAttendanceResolution,
   type ParticipantLessonStatsInput,
   type ParticipantStreakWeekEvidence,

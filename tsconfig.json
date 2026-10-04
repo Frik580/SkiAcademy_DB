@@ -7,6 +7,11 @@
     "baseUrl": ".",
     "paths": {
       "@ski-academy/shared-domain": ["packages/shared-domain/src/index.ts"],
+      "@ski-academy/shared-domain/canonical/*": ["packages/shared-domain/src/canonical/*.ts"],
+      "@ski-academy/shared-domain/booking": ["packages/shared-domain/src/booking.ts"],
+      "@ski-academy/shared-domain/resortSlideImages": [
+        "packages/shared-domain/src/resortSlideImages.ts"
+      ],
       "@ski-academy/shared-domain/entities": ["packages/shared-domain/src/entities.ts"],
       "@ski-academy/shared-domain/testing": ["packages/shared-domain/src/testing/index.ts"]
     },

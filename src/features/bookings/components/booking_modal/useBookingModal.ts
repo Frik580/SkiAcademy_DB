@@ -8,8 +8,8 @@ import {
   LessonDifficulty,
   Course,
 } from '../../../../types';
+import { InstructorIdSchema } from '@ski-academy/shared-domain/canonical/identifiers';
 import {
-  InstructorIdSchema,
   type AdminPlannerOccupancyItem,
   type LessonBookingReadModel,
   type ParticipantId,

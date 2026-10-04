@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react';
-import { BookingIdSchema } from '@ski-academy/shared-domain';
+import { BookingIdSchema } from '@ski-academy/shared-domain/canonical/identifiers';
 import { queryLessonBookingReadModels } from '../../lib/canonical/canonicalReadModelClient';
 import { useLessonBookingStore } from './lessonBookingStore';
 import { mergeLessonBookingRecords } from './lessonBookingViewModel';

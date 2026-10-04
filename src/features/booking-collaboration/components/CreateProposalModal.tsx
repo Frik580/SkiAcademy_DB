@@ -1,10 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Calendar, Clock } from 'lucide-react';
-import {
-  calculateIndividualBookingPriceKzt,
-  calculateLessonPartyPriceKzt,
-  KztMinorUnitsSchema,
-} from '@ski-academy/shared-domain';
+import { calculateIndividualBookingPriceKzt } from '@ski-academy/shared-domain/canonical/bookingCreation';
+import { calculateLessonPartyPriceKzt } from '@ski-academy/shared-domain/canonical/lessonPricingSettings';
+import { KztMinorUnitsSchema } from '@ski-academy/shared-domain/canonical/primitives';
 import type { InstructorProposalPartyCandidate } from '../bookingCollaborationContracts';
 import { useBookingCollaborationTranslations } from '../useBookingCollaborationTranslations';
 import { useRescheduleBookingAvailability } from '../useRescheduleBookingAvailability';

@@ -22,7 +22,10 @@ import {
   queryInstructorReviewReadModels,
   queryPublicInstructorRatingSummaries,
 } from '../../../lib/canonical/canonicalReadModelClient';
-import { BookingIdSchema, InstructorIdSchema } from '@ski-academy/shared-domain';
+import {
+  BookingIdSchema,
+  InstructorIdSchema,
+} from '@ski-academy/shared-domain/canonical/identifiers';
 import { useLessonBookingStore } from '../../lesson-bookings';
 import { mergeAccountReviewBookingStates } from '../../reviews/mergeAccountReviewBookingStates';
 import { toBookingCatalogueInstructor } from './bookingInstructorCatalogue';

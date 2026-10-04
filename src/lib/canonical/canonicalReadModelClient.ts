@@ -1,7 +1,12 @@
 import {
   boundCanonicalReadIdempotencyCursor,
   buildCanonicalReadIdempotencyKey,
-  canonicalDeterministicHash,
+} from '@ski-academy/shared-domain/canonical/readIdempotency';
+import { canonicalDeterministicHash } from '@ski-academy/shared-domain/canonical/deterministicIdentity';
+import { INSTRUCTOR_REVIEW_ACCOUNT_BOOKING_IDS_MAX } from '@ski-academy/shared-domain/canonical/readModels/instructorReviewReadModel';
+import { PARTICIPANT_PROGRESS_READ_MODEL_IDS_MAX } from '@ski-academy/shared-domain/canonical/readModels/participantProgressReadModel';
+import { PARTICIPANT_ACHIEVEMENTS_READ_MODEL_IDS_MAX } from '@ski-academy/shared-domain/canonical/readModels/participantAchievementsReadModel';
+import {
   type QueryAdminFinanceReadModelsInput,
   type QueryAdminFinanceReadModelsResult,
   type QueryAdminCourseReadModelsInput,
@@ -58,9 +63,6 @@ import {
   type BookingId,
   type InstructorId,
   type ParticipantId,
-  INSTRUCTOR_REVIEW_ACCOUNT_BOOKING_IDS_MAX,
-  PARTICIPANT_PROGRESS_READ_MODEL_IDS_MAX,
-  PARTICIPANT_ACHIEVEMENTS_READ_MODEL_IDS_MAX,
 } from '@ski-academy/shared-domain';
 import { callFunction, type FunctionsCallOptions } from '../functions/functionsClient';
 import { auth } from '../../infrastructure/firebase';

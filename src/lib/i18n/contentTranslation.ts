@@ -1,4 +1,4 @@
-import { normalizeInstructorSpokenLanguages } from '@ski-academy/shared-domain';
+import { normalizeInstructorSpokenLanguages } from '@ski-academy/shared-domain/canonical/instructorSpokenLanguage';
 import { Instructor, Course } from '../../types';
 import { translations, type Language, type TranslationKey } from './translations';
 import { parseCourseDates, formatCourseDates } from './courseDates';

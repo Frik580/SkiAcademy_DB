@@ -1,7 +1,5 @@
-import {
-  compareCanonicalTimestamps,
-  type ParticipantLessonFeedbackReadModel,
-} from '@ski-academy/shared-domain';
+import { compareCanonicalTimestamps } from '@ski-academy/shared-domain/canonical/primitives';
+import { type ParticipantLessonFeedbackReadModel } from '@ski-academy/shared-domain';
 import { RECOMMENDATION_TODAY_WINDOW_DAYS } from './components/student/studentLessonPresentation';
 
 export interface CanonicalRecommendationTodayTask {

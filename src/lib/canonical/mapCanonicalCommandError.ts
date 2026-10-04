@@ -1,5 +1,5 @@
+import { CommandErrorTransportSchema } from '@ski-academy/shared-domain/canonical/errors';
 import {
-  CommandErrorTransportSchema,
   type CommandErrorCode,
   type CommandErrorTransport,
   type CommandKind,

@@ -1,7 +1,5 @@
-import {
-  parseCommandResultPayload,
-  type RequestCancellationLifecycleStatus,
-} from '@ski-academy/shared-domain';
+import { parseCommandResultPayload } from '@ski-academy/shared-domain/canonical/commands/commandResultPayloads';
+import { type RequestCancellationLifecycleStatus } from '@ski-academy/shared-domain';
 import type { CourseEnrollmentLifecycleStatus } from '@ski-academy/shared-domain';
 import type { BookingStatus } from '@ski-academy/shared-domain';
 

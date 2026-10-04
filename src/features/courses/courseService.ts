@@ -3,7 +3,7 @@ import { stripUndefinedFields } from '../../domain/course';
 import { Course, Booking } from '../../types';
 import { createNotificationForUser } from '../../domain/notifications';
 import { buildNotification, translateKey } from '../../domain/notifications';
-import { isCanonicalCourseProtectedFromLegacyAdminWrites } from '@ski-academy/shared-domain';
+import { isCanonicalCourseProtectedFromLegacyAdminWrites } from '@ski-academy/shared-domain/canonical/courseProvisioningManifest';
 
 export class CanonicalCourseAdminWriteBlockedError extends Error {
   readonly courseId: string;

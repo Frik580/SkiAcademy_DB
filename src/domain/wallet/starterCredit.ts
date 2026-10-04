@@ -4,7 +4,7 @@ import {
   MIN_STARTER_CREDIT_KZT,
   normalizeStarterCreditKzt,
   resolveStarterCreditAmountKzt,
-} from '@ski-academy/shared-domain';
+} from '@ski-academy/shared-domain/canonical/starterCredit';
 
 export const DEFAULT_STARTER_CREDIT_KZT_VALUE = DEFAULT_STARTER_CREDIT_KZT;
 export {

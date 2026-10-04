@@ -3,7 +3,7 @@ import {
   blocksInstructorAvailability as sharedBlocksInstructorAvailability,
   isCourseBooking as sharedIsCourseBooking,
   timeStrToMinutes as sharedTimeStrToMinutes,
-} from '@ski-academy/shared-domain';
+} from '@ski-academy/shared-domain/booking';
 
 export const AVAILABILITY_SLOTS_COLLECTION = 'availability_slots';
 export const AVAILABILITY_MIGRATION_SETTING = 'availability_slots_migration';

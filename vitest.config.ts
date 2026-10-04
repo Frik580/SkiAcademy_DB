@@ -30,6 +30,15 @@ const COVERAGE_EXCLUDE = [
 export default defineConfig({
   resolve: {
     alias: {
+      '@ski-academy/shared-domain/canonical': fileURLToPath(
+        new URL('./packages/shared-domain/src/canonical/', import.meta.url)
+      ),
+      '@ski-academy/shared-domain/booking': fileURLToPath(
+        new URL('./packages/shared-domain/src/booking.ts', import.meta.url)
+      ),
+      '@ski-academy/shared-domain/resortSlideImages': fileURLToPath(
+        new URL('./packages/shared-domain/src/resortSlideImages.ts', import.meta.url)
+      ),
       '@ski-academy/shared-domain/testing': fileURLToPath(
         new URL('./packages/shared-domain/src/testing/index.ts', import.meta.url)
       ),

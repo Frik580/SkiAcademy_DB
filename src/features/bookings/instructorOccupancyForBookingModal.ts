@@ -1,6 +1,6 @@
+import { IanaTimeZoneSchema } from '@ski-academy/shared-domain/canonical/primitives';
+import { localCalendarInputToUtcDate } from '@ski-academy/shared-domain/canonical/bookingCreation';
 import {
-  IanaTimeZoneSchema,
-  localCalendarInputToUtcDate,
   type AdminPlannerOccupancyItem,
   type InstructorOccupancyReadModel,
   type QueryParticipantOccupancyReadModelsResult,

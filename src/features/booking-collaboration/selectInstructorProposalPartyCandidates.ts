@@ -1,4 +1,4 @@
-import { instructorMayCreateBookingProposal } from '@ski-academy/shared-domain';
+import { instructorMayCreateBookingProposal } from '@ski-academy/shared-domain/canonical/bookingProposalPolicy';
 import type { InstructorProposalPartyCandidate } from './bookingCollaborationContracts';
 
 export interface InstructorProposalPartyBookingView {

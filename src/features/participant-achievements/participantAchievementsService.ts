@@ -1,14 +1,16 @@
 import {
   AggregateRevisionSchema,
-  ParticipantIdSchema,
-  parseCommandResultPayload,
   timestampFromDate,
+} from '@ski-academy/shared-domain/canonical/primitives';
+import { ParticipantIdSchema } from '@ski-academy/shared-domain/canonical/identifiers';
+import { parseCommandResultPayload } from '@ski-academy/shared-domain/canonical/commands/commandResultPayloads';
+import {
   type IdempotencyKey,
   type ParticipantAchievementSource,
   type ParticipantId,
   type RecordParticipantAchievementInput,
 } from '@ski-academy/shared-domain';
-import { deriveRecordParticipantAchievementsIdempotencyKey } from '@ski-academy/shared-domain';
+import { deriveRecordParticipantAchievementsIdempotencyKey } from '@ski-academy/shared-domain/canonical/participantAchievementCommandIdempotency';
 import { executeAuthenticatedCanonicalCommand } from '../../lib/canonical/canonicalCommandClient';
 import { mapCanonicalCommandResultError } from '../../lib/canonical/mapCanonicalCommandError';
 import { queryManagedParticipantAchievementsReadModels } from '../../lib/canonical/canonicalReadModelClient';

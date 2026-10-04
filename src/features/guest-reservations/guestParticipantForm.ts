@@ -1,4 +1,4 @@
-import { GuestParticipantProfileFromTransportSchema } from '@ski-academy/shared-domain';
+import { GuestParticipantProfileFromTransportSchema } from '@ski-academy/shared-domain/canonical/guestBooking';
 
 export interface GuestParticipantFormInput {
   readonly displayName: string;

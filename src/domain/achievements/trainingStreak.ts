@@ -1,8 +1,8 @@
 import {
   lessonStartsAtLocalCalendarDate,
   participantAttendedLessonFromEvidence,
-  type ParticipantLessonStatsEvidence,
-} from '@ski-academy/shared-domain';
+} from '@ski-academy/shared-domain/canonical/participantLessonStatsSemantics';
+import { type ParticipantLessonStatsEvidence } from '@ski-academy/shared-domain';
 
 export const toIsoWeekKey = (input: string | Date): string | null => {
   const d =

@@ -92,7 +92,7 @@ function renderCarousel(slides: CustomHeroSlide[], slideIntervalSeconds = 60, st
 
 function backgroundLayers(container: HTMLElement): HTMLElement[] {
   return Array.from(
-    container.querySelectorAll<HTMLElement>('div.absolute.inset-0.will-change-\\[opacity\\]')
+    container.querySelectorAll<HTMLElement>('.ui-hero > .z-0 > div.will-change-\\[opacity\\]')
   );
 }
 
@@ -116,6 +116,14 @@ function confirmPlayback(video: HTMLVideoElement) {
 
 function videoSources(container: HTMLElement): string[] {
   return Array.from(container.querySelectorAll('video')).map((video) => video.getAttribute('src') ?? '');
+}
+
+function expectPresentation(container: HTMLElement, index: number) {
+  const copies = [...container.querySelectorAll('.hero-copy-stack .grid > [aria-hidden]')];
+  expect(copies.findIndex((copy) => copy.getAttribute('aria-hidden') === 'false')).toBe(index);
+  expect(backgroundLayers(container).map((layer) => layer.classList.contains('opacity-100')))
+    .toEqual(copies.map((_, slideIndex) => slideIndex === index));
+  expect(container.querySelector('.hero-pagination')).toHaveAttribute('aria-label', `goToSlide ${index + 1} / ${copies.length}`);
 }
 
 const CARVE_GIRL_MP4 = 'https://storage.yandexcloud.net/carve/images/girl.mp4';
@@ -755,7 +763,212 @@ describe('HeroCarousel video resource budget', () => {
 });
 
 describe('HeroCarousel activation frames', () => {
-  it('restarts girl.mp4 through two full cycles without resource churn or stale readiness', () => {
+  it('does not natively loop hero videos', () => {
+    const { container } = renderCarousel([slide('girl', 'video', CARVE_GIRL_MP4), slide('photo', 'image')]);
+    const video = layerVideo(container, 0);
+    expect(video.loop).toBe(false);
+    expect(video).not.toHaveAttribute('loop');
+  });
+
+  it('holds the ended girl frame until the existing timer and restarts the retained element on its next activation', () => {
+    vi.useFakeTimers();
+    const frames = mockBannerVideoFrames();
+    try {
+      const { container } = renderCarousel([slide('girl', 'video', CARVE_GIRL_MP4), slide('photo', 'image')], 9);
+      const video = layerVideo(container, 0);
+      setMediaState(video, 2, 1);
+      Object.defineProperty(video, 'duration', { configurable: true, value: 7.5 });
+      frames.deliver(video);
+      expectPresentation(container, 0);
+      act(() => { vi.advanceTimersByTime(7500); });
+      video.currentTime = 7.5;
+      Object.defineProperty(video, 'ended', { configurable: true, value: true });
+      Object.defineProperty(video, 'paused', { configurable: true, value: true });
+      const playCalls = play.mock.calls.length;
+      const loadCalls = vi.mocked(HTMLMediaElement.prototype.load).mock.calls.length;
+      fireEvent.ended(video);
+      expect(layerVideo(container, 0)).toBe(video);
+      expect(video).toHaveAttribute('src', CARVE_GIRL_MP4);
+      expect(video.currentTime).toBe(7.5);
+      expect(video).toHaveStyle({ opacity: '1' });
+      expect(backgroundLayers(container)[0].querySelector('img')).toBeNull();
+      expect(container.querySelector('section')).toHaveAttribute('data-desired-slide', '0');
+      expectPresentation(container, 0);
+      expect(play).toHaveBeenCalledTimes(playCalls);
+      expect(HTMLMediaElement.prototype.load).toHaveBeenCalledTimes(loadCalls);
+      act(() => { vi.advanceTimersByTime(1499); });
+      expectPresentation(container, 0);
+      expect(video.currentTime).toBe(7.5);
+      act(() => { vi.advanceTimersByTime(1); });
+      expectPresentation(container, 1);
+      expect(layerVideo(container, 0)).toBe(video);
+      expect(video.currentTime).toBe(7.5);
+      expect(pause.mock.contexts).toContain(video);
+      Object.defineProperty(video, 'ended', { configurable: true, value: false });
+      act(() => { vi.advanceTimersByTime(9000); });
+      expect(container.querySelector('section')).toHaveAttribute('data-desired-slide', '0');
+      expectPresentation(container, 1); // Fresh readiness still gates the new activation.
+      expect(layerVideo(container, 0)).toBe(video);
+      expect(video.currentTime).toBe(0);
+      expect(play).toHaveBeenCalledTimes(playCalls + 1);
+      fireEvent.seeked(video);
+      frames.deliver(video);
+      expectPresentation(container, 0);
+      expect(video).toHaveStyle({ opacity: '1' });
+      expect(video).toHaveAttribute('src', CARVE_GIRL_MP4);
+      expect(HTMLMediaElement.prototype.load).toHaveBeenCalledTimes(loadCalls);
+      expect(container.querySelectorAll('video').length).toBeLessThanOrEqual(2);
+    } finally { frames.restore(); }
+  });
+
+  it('pauses the retained girl normally when the timer is shorter than its duration', () => {
+    vi.useFakeTimers();
+    const frames = mockBannerVideoFrames();
+    try {
+      const { container } = renderCarousel([slide('girl', 'video', CARVE_GIRL_MP4), slide('photo', 'image')], 5);
+      const video = layerVideo(container, 0);
+      setMediaState(video, 2, 1);
+      Object.defineProperty(video, 'duration', { configurable: true, value: 7.5 });
+      frames.deliver(video);
+      video.currentTime = 4.9;
+      const loadCalls = vi.mocked(HTMLMediaElement.prototype.load).mock.calls.length;
+      act(() => { vi.advanceTimersByTime(5000); });
+      expectPresentation(container, 1);
+      expect(pause.mock.contexts).toContain(video);
+      expect(layerVideo(container, 0)).toBe(video);
+      expect(video.currentTime).toBe(4.9);
+      expect(video).toHaveAttribute('src', CARVE_GIRL_MP4);
+      expect(HTMLMediaElement.prototype.load).toHaveBeenCalledTimes(loadCalls);
+    } finally { frames.restore(); }
+  });
+
+  it.each([false, true])('presents a healthy cold first video before starting its interval; StrictMode: %s', (strict) => {
+    vi.useFakeTimers();
+    const frames = mockBannerVideoFrames();
+    try {
+      const { container } = renderCarousel([slide('girl', 'video', CARVE_GIRL_MP4), slide('photo', 'image')], 5, strict);
+      const video = layerVideo(container, 0);
+      expect(video).toHaveAttribute('data-video-role', 'ACTIVE');
+      expect(container.querySelector('section')).toHaveAttribute('data-desired-slide', '0');
+      expect(container.querySelector('section')).toHaveAttribute('data-presented-slide', '');
+      act(() => { vi.advanceTimersByTime(7000); });
+      expect(layerVideo(container, 0)).toBe(video);
+      expect(container.querySelector('[aria-hidden="false"]')).toBeNull();
+      expect(container.querySelector('section')).toHaveAttribute('data-desired-slide', '0');
+      setMediaState(video, 2, 1);
+      fireEvent.loadedMetadata(video);
+      fireEvent.loadedData(video);
+      fireEvent.playing(video);
+      act(() => { vi.advanceTimersByTime(249); });
+      expect(container.querySelector('section')).toHaveAttribute('data-presented-slide', '');
+      frames.deliver(video);
+      expectPresentation(container, 0);
+      act(() => { vi.advanceTimersByTime(4999); });
+      expectPresentation(container, 0);
+      act(() => { vi.advanceTimersByTime(1); });
+      expectPresentation(container, 1);
+      expect(layerVideo(container, 0)).toBe(video);
+      expect(video).toHaveAttribute('src', CARVE_GIRL_MP4);
+      expect(HTMLMediaElement.prototype.load).not.toHaveBeenCalled();
+    } finally { frames.restore(); }
+  });
+
+  it('waits for the full watchdog before skipping an unready first direct MP4', () => {
+    vi.useFakeTimers();
+    const frames = mockBannerVideoFrames();
+    try {
+      const { container } = renderCarousel([slide('girl', 'video', CARVE_GIRL_MP4), slide('photo', 'image')], 5);
+      const video = layerVideo(container, 0);
+      act(() => { vi.advanceTimersByTime(BANNER_VIDEO_STARTUP_WATCHDOG_MS - 1); });
+      expect(layerVideo(container, 0)).toBe(video);
+      expect(container.querySelector('section')).toHaveAttribute('data-desired-slide', '0');
+      expect(container.querySelector('section')).toHaveAttribute('data-presented-slide', '');
+      act(() => { vi.advanceTimersByTime(1); });
+      expectPresentation(container, 1);
+    } finally { frames.restore(); }
+  });
+
+  it('presents the cold first video through the no-RVFC playing fallback', () => {
+    vi.useFakeTimers();
+    const { container } = renderCarousel([slide('girl', 'video', CARVE_GIRL_MP4), slide('photo', 'image')]);
+    const video = layerVideo(container, 0);
+    setMediaState(video, 2, 1);
+    fireEvent.loadedData(video);
+    expect(container.querySelector('section')).toHaveAttribute('data-presented-slide', '');
+    fireEvent.playing(video);
+    expectPresentation(container, 0);
+  });
+
+  it('keeps outgoing fallback media while the next video is pending', async () => {
+    const frames = mockBannerVideoFrames();
+    try {
+      play.mockImplementationOnce(() => Promise.reject(new Error('temporary failure')));
+      const { container } = renderCarousel([slide('still', 'video'), slide('girl', 'video', CARVE_GIRL_MP4)]);
+      await act(async () => { await Promise.resolve(); });
+      expectPresentation(container, 0);
+      const image = backgroundLayers(container)[0].querySelector('img');
+      fireEvent.click(container.querySelector('.hero-pagination')!);
+      expectPresentation(container, 0);
+      expect(backgroundLayers(container)[0].querySelector('img')).toBe(image);
+      expect(backgroundLayers(container)[0].querySelector('video')).toBeNull();
+      const incoming = layerVideo(container, 1);
+      setMediaState(incoming, 2, 1);
+      frames.deliver(incoming);
+      expectPresentation(container, 1);
+    } finally { frames.restore(); }
+  });
+
+  it('recovers the same girl URL after transient failure and keeps the recovered element over five cycles', async () => {
+    const frames = mockBannerVideoFrames();
+    try {
+      const { container } = renderCarousel([slide('girl', 'video', CARVE_GIRL_MP4), slide('photo', 'image'), slide('last', 'image')]);
+      const first = layerVideo(container, 0);
+      setMediaState(first, 2, 1);
+      frames.deliver(first);
+      expectPresentation(container, 0);
+      const click = () => fireEvent.click(container.querySelector('.hero-pagination')!);
+      click(); click();
+      play.mockImplementationOnce(() => Promise.reject(new Error('transient activation failure')));
+      click();
+      await act(async () => { await Promise.resolve(); });
+      expectPresentation(container, 1);
+      click();
+      const recovered = layerVideo(container, 0);
+      expect(recovered).not.toBe(first);
+      expect(recovered).toHaveAttribute('src', CARVE_GIRL_MP4);
+      setMediaState(recovered, 2, 1);
+      click();
+      expect(container.querySelector('section')).toHaveAttribute('data-desired-slide', '0');
+      expectPresentation(container, 2);
+      frames.deliver(recovered);
+      expectPresentation(container, 0);
+      for (let cycle = 0; cycle < 5; cycle++) {
+        recovered.currentTime = 3;
+        click(); click(); click();
+        expectPresentation(container, 2);
+        expect(layerVideo(container, 0)).toBe(recovered);
+        expect(recovered.currentTime).toBe(0);
+        fireEvent.seeked(recovered);
+        frames.deliver(recovered);
+        expectPresentation(container, 0);
+        expect(recovered).toHaveAttribute('src', CARVE_GIRL_MP4);
+      }
+      expect(vi.mocked(HTMLMediaElement.prototype.load).mock.contexts).not.toContain(recovered);
+    } finally { frames.restore(); }
+  });
+
+  it('bounds a chain where every video rejects instead of retrying forever', async () => {
+    vi.useFakeTimers();
+    play.mockImplementation(() => Promise.reject(new Error('playback denied')));
+    const { container } = renderCarousel([slide('girl', 'video', CARVE_GIRL_MP4), slide('other', 'video', 'https://example.com/other.mp4')]);
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(play).toHaveBeenCalledTimes(2);
+    act(() => { vi.advanceTimersByTime(BANNER_VIDEO_STARTUP_WATCHDOG_MS * 3); });
+    expect(play).toHaveBeenCalledTimes(2);
+    expect(container.querySelector('section')).toHaveAttribute('data-presented-slide', '');
+  });
+
+  it('restarts girl.mp4 through five full cycles without resource churn or stale readiness', () => {
     vi.useFakeTimers();
     const frames = mockBannerVideoFrames();
     try {
@@ -768,13 +981,14 @@ describe('HeroCarousel activation frames', () => {
       const observer = new MutationObserver(() => {});
       observer.observe(container, { subtree: true, childList: true, attributes: true, attributeFilter: ['src'] });
       const clickNext = () => fireEvent.click(container.querySelector('button[aria-label^="goToSlide"]')!);
-      for (let cycle = 0; cycle < 3; cycle++) {
+      for (let cycle = 0; cycle < 6; cycle++) {
         expect(layerVideo(container, 0)).toBe(video);
         expect(video).toHaveAttribute('src', CARVE_GIRL_MP4);
         expect(video.currentTime).toBe(0);
         expect(video).toHaveStyle({ opacity: '0' });
         expect(backgroundLayers(container)[0]).toHaveClass('opacity-0');
         if (cycle > 0) expect(backgroundLayers(container)[2]).toHaveClass('opacity-100');
+        if (cycle > 0) expectPresentation(container, 2);
         // Old readiness must neither reveal nor start the new slide's interval.
         act(() => { vi.advanceTimersByTime(5000); });
         expect(video).toHaveAttribute('data-video-role', 'ACTIVE');
@@ -782,16 +996,17 @@ describe('HeroCarousel activation frames', () => {
         frames.deliver(video);
         expect(video).toHaveStyle({ opacity: '1' });
         expect(backgroundLayers(container)[0]).toHaveClass('opacity-100');
+        expectPresentation(container, 0);
         expect(container.querySelectorAll('img')).toHaveLength(2);
         video.currentTime = 3;
-        if (cycle === 2) break;
+        if (cycle === 5) break;
         clickNext();
         expect(pause).toHaveBeenCalled();
         expect(video.currentTime).toBe(3);
         clickNext();
         clickNext();
       }
-      expect(play).toHaveBeenCalledTimes(3);
+      expect(play).toHaveBeenCalledTimes(6);
       expect(load).not.toHaveBeenCalled();
       const mutations = observer.takeRecords();
       expect(mutations.filter((record) => record.type === 'attributes')).toHaveLength(0);
@@ -887,16 +1102,104 @@ describe('HeroCarousel activation frames', () => {
       expect(container.querySelector('img')).toBeNull();
       act(() => { vi.advanceTimersByTime(HERO_CROSSFADE_MS); });
       expect(a).toHaveAttribute('data-video-role', 'OUTGOING');
-      // Queue was cancelled; both timeout and explicit navigation can proceed.
+      // No other viable target remains: preserve the previous slide as a whole.
       if (failure === 'watchdog') act(() => { vi.advanceTimersByTime(5000 - HERO_CROSSFADE_MS); });
       else fireEvent.click(container.querySelector('button[aria-label^="goToSlide"]')!);
-      expect(a).toHaveAttribute('data-video-role', 'ACTIVE');
-      expect(a.currentTime).toBe(0);
-      fireEvent.seeked(a);
-      frames.deliver(a);
+      expect(a).toHaveAttribute('data-video-role', 'OUTGOING');
+      expect(a.currentTime).toBe(3);
+      expectPresentation(container, 0);
       expect(backgroundLayers(container)[0]).toHaveClass('opacity-100');
       expect(a).toHaveAttribute('src', CARVE_GIRL_MP4);
       expect(vi.mocked(HTMLMediaElement.prototype.load).mock.contexts).not.toContain(a);
+      expect(videoCount(container)).toBeLessThanOrEqual(2);
+    } finally { frames.restore(); }
+  });
+
+  it.each(['reject', 'watchdog'] as const)('skips a direct MP4 after %s without changing presentation while pending', async (failure) => {
+    vi.useFakeTimers();
+    const frames = mockBannerVideoFrames();
+    try {
+      const { container } = renderCarousel([
+        slide('photo', 'image'), slide('girl', 'video', CARVE_GIRL_MP4), slide('next', 'image'),
+      ], 5);
+      expectPresentation(container, 0);
+      if (failure === 'reject') play.mockImplementationOnce(() => Promise.reject(new Error('failed')));
+      fireEvent.click(container.querySelector('.hero-pagination')!);
+      expectPresentation(container, 0);
+      if (failure === 'watchdog') {
+        act(() => { vi.advanceTimersByTime(5000); });
+        expectPresentation(container, 0); // No duration timer for an uncommitted slide.
+        act(() => { vi.advanceTimersByTime(BANNER_VIDEO_STARTUP_WATCHDOG_MS - 5000); });
+      } else await act(async () => { await Promise.resolve(); });
+      expectPresentation(container, 2);
+      expect(backgroundLayers(container)[1].querySelector('video,img')).toBeNull();
+      act(() => { vi.advanceTimersByTime(5000); });
+      expectPresentation(container, 0);
+      act(() => { vi.advanceTimersByTime(5000); });
+      expectPresentation(container, 0); // A transient failure gets a new readiness attempt.
+      const retry = layerVideo(container, 1);
+      setMediaState(retry, 2, 1);
+      fireEvent.seeked(retry);
+      frames.deliver(retry);
+      expectPresentation(container, 1);
+      expect(retry).toHaveAttribute('src', CARVE_GIRL_MP4);
+      expect(vi.mocked(HTMLMediaElement.prototype.load).mock.contexts).not.toContain(retry);
+    } finally { frames.restore(); }
+  });
+
+  it('commits the same-slide image fallback together with copy and indicator', () => {
+    vi.useFakeTimers();
+    const { container } = renderCarousel([slide('photo', 'image'), slide('video', 'video'), slide('next', 'image')], 5);
+    fireEvent.click(container.querySelector('.hero-pagination')!);
+    expectPresentation(container, 0);
+    fireEvent.error(layerVideo(container, 1));
+    expectPresentation(container, 1);
+    expect(backgroundLayers(container)[1].querySelector('img')).toHaveAttribute('src', 'https://cdn.example.com/video.webp');
+    act(() => { vi.advanceTimersByTime(5000); });
+    expectPresentation(container, 2);
+  });
+
+  it('retries a previously failed source after configuration changes away and back during terminal hold', () => {
+    const frames = mockBannerVideoFrames();
+    try {
+      const b = slide('girl', 'video', CARVE_GIRL_MP4);
+      const view = (middle: CustomHeroSlide) => <HeroCarousel
+        data={{ slides: [slide('photo', 'image'), middle, slide('other', 'video', 'https://example.com/other.mp4')],
+          language: 'en', theme: 'dark' }} actions={{ onScrollToSection: vi.fn() }} />;
+      const { container, rerender } = render(view(b));
+      fireEvent.click(container.querySelector('.hero-pagination')!);
+      fireEvent.error(layerVideo(container, 1));
+      fireEvent.error(layerVideo(container, 2));
+      expectPresentation(container, 0);
+      rerender(view({ ...b, backgroundImage: 'https://example.com/replacement.mp4' }));
+      fireEvent.error(layerVideo(container, 1));
+      expectPresentation(container, 0);
+      rerender(view(b));
+      const recovered = layerVideo(container, 1);
+      setMediaState(recovered, 2, 1);
+      frames.deliver(recovered);
+      expectPresentation(container, 1);
+      expect(recovered).toHaveAttribute('src', CARVE_GIRL_MP4);
+    } finally { frames.restore(); }
+  });
+
+  it('keeps copy/media/indicator together when navigation advances during pending media', () => {
+    const frames = mockBannerVideoFrames();
+    try {
+      const { container } = renderCarousel([slide('photo', 'image'), slide('one', 'video'), slide('two', 'video')]);
+      fireEvent.click(container.querySelector('.hero-pagination')!);
+      expectPresentation(container, 0);
+      const abandoned = layerVideo(container, 1);
+      const [, { callback }] = frames.pending(abandoned);
+      fireEvent.click(container.querySelector('.hero-pagination')!);
+      expectPresentation(container, 0);
+      setMediaState(abandoned, 2, 1);
+      act(() => callback(0, {} as VideoFrameCallbackMetadata));
+      expectPresentation(container, 0);
+      const incoming = layerVideo(container, 2);
+      setMediaState(incoming, 2, 1);
+      frames.deliver(incoming);
+      expectPresentation(container, 2);
       expect(videoCount(container)).toBeLessThanOrEqual(2);
     } finally { frames.restore(); }
   });

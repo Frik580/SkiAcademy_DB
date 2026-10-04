@@ -1,6 +1,6 @@
 import { act, fireEvent, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { BANNER_VIDEO_STARTUP_WATCHDOG_MS, BannerMedia } from '../../src/ui/BannerMedia';
+import { BANNER_VIDEO_FRAME_FALLBACK_MS, BANNER_VIDEO_STARTUP_WATCHDOG_MS, BannerMedia } from '../../src/ui/BannerMedia';
 import { mockBannerVideoFrames } from './helpers/bannerVideoFrames';
 
 const useReducedMotion = vi.fn(() => false);
@@ -423,6 +423,114 @@ describe('BannerMedia', () => {
       Object.defineProperty(video, 'networkState', { configurable: true, value: 1 });
     };
 
+    it.each(['play', 'watchdog', 'network'] as const)('retries %s activation failure at the next admission with the same URL', async (failure) => {
+      const onVideoReady = vi.fn();
+      const props = { imageUrl: girl, mediaMode: 'video', retainVideo: true, onVideoReady };
+      const { container, rerender } = render(<BannerMedia {...props} isActive videoRole="ACTIVE" />);
+      const first = container.querySelector('video')!;
+      buffered(first);
+      frames.deliver(first);
+      rerender(<BannerMedia {...props} isActive={false} shouldLoadVideo={false} />);
+      if (failure === 'play') play.mockImplementationOnce(() => Promise.reject(new Error('temporary playback failure')));
+      rerender(<BannerMedia {...props} isActive videoRole="ACTIVE" />);
+      if (failure === 'watchdog') act(() => { vi.advanceTimersByTime(BANNER_VIDEO_STARTUP_WATCHDOG_MS); });
+      else if (failure === 'network') {
+        Object.defineProperty(first, 'error', { configurable: true, value: { code: 2 } });
+        fireEvent.error(first);
+      } else await act(async () => { await Promise.resolve(); });
+      expect(container.querySelector('video')).toBeNull();
+      expect(onVideoReady).toHaveBeenLastCalledWith(false, 'activation');
+      const attempts = play.mock.calls.length;
+      act(() => { vi.advanceTimersByTime(BANNER_VIDEO_STARTUP_WATCHDOG_MS * 2); });
+      expect(play).toHaveBeenCalledTimes(attempts); // No retry in the failed activation.
+      rerender(<BannerMedia {...props} isActive={false} shouldLoadVideo={false} />);
+      rerender(<BannerMedia {...props} isActive={false} shouldLoadVideo={false} shouldPreloadVideo videoRole="NEXT_PRELOAD" />);
+      const retry = container.querySelector('video')!;
+      expect(retry).not.toBeNull();
+      expect(retry).not.toBe(first);
+      expect(retry).toHaveAttribute('src', girl);
+      buffered(retry);
+      const notifications = onVideoReady.mock.calls.length;
+      rerender(<BannerMedia {...props} isActive videoRole="ACTIVE" />);
+      expect(onVideoReady).toHaveBeenCalledTimes(notifications); // Stale failed notification cannot skip this activation.
+      frames.deliver(retry);
+      expect(onVideoReady).toHaveBeenLastCalledWith(true);
+      expect(retry).toHaveStyle({ opacity: '1' });
+      expect(vi.mocked(HTMLMediaElement.prototype.load).mock.contexts).not.toContain(retry);
+    });
+
+    it.each([3, 4])('keeps a real resource error %s persistent across admissions', (code) => {
+      const onVideoReady = vi.fn();
+      const props = { imageUrl: girl, mediaMode: 'video', retainVideo: true, onVideoReady };
+      const { container, rerender } = render(<BannerMedia {...props} isActive />);
+      const video = container.querySelector('video')!;
+      Object.defineProperty(video, 'error', { configurable: true, value: { code } });
+      fireEvent.error(video);
+      expect(onVideoReady).toHaveBeenLastCalledWith(false, 'resource');
+      const attempts = play.mock.calls.length;
+      rerender(<BannerMedia {...props} isActive={false} shouldLoadVideo={false} shouldPreloadVideo videoRole="NEXT_PRELOAD" />);
+      rerender(<BannerMedia {...props} isActive />);
+      expect(container.querySelector('video,img')).toBeNull();
+      expect(play).toHaveBeenCalledTimes(attempts);
+      rerender(<BannerMedia {...props} imageUrl="https://example.com/repaired.mp4" isActive />);
+      expect(container.querySelector('video')).toHaveAttribute('src', 'https://example.com/repaired.mp4');
+    });
+
+    it('bounds missing frame callbacks after resolved play, fresh playing and completed seek', async () => {
+      const onVideoReady = vi.fn();
+      const props = { imageUrl: girl, mediaMode: 'video', retainVideo: true, onVideoReady };
+      const { container, rerender } = render(<BannerMedia {...props} isActive={false} shouldPreloadVideo />);
+      const video = container.querySelector('video')!;
+      buffered(video);
+      video.currentTime = 3;
+      Object.defineProperty(video, 'paused', { configurable: true, value: false });
+      rerender(<BannerMedia {...props} isActive />);
+      await act(async () => { await Promise.resolve(); });
+      fireEvent.playing(video);
+      act(() => { vi.advanceTimersByTime(BANNER_VIDEO_FRAME_FALLBACK_MS); });
+      expect(onVideoReady).not.toHaveBeenCalled(); // playing alone cannot bypass the pending restart.
+      fireEvent.seeked(video);
+      act(() => { vi.advanceTimersByTime(BANNER_VIDEO_FRAME_FALLBACK_MS - 1); });
+      expect(video).toHaveStyle({ opacity: '0' });
+      act(() => { vi.advanceTimersByTime(1); });
+      expect(onVideoReady).toHaveBeenCalledTimes(1);
+      expect(onVideoReady).toHaveBeenCalledWith(true);
+      expect(video).toHaveStyle({ opacity: '1' });
+      expect(container.querySelector('video')).toBe(video);
+      expect(video).toHaveAttribute('src', girl);
+      act(() => { vi.advanceTimersByTime(BANNER_VIDEO_STARTUP_WATCHDOG_MS); });
+      expect(container.querySelector('video')).toBe(video);
+      expect(HTMLMediaElement.prototype.load).not.toHaveBeenCalled();
+    });
+
+    it('does not use cached data or resolved play without fresh playing when frame callbacks never arrive', async () => {
+      const onVideoReady = vi.fn();
+      const { container } = render(<BannerMedia imageUrl={girl} mediaMode="video" onVideoReady={onVideoReady} />);
+      const video = container.querySelector('video')!;
+      buffered(video);
+      Object.defineProperty(video, 'paused', { configurable: true, value: false });
+      fireEvent.loadedData(video);
+      await act(async () => { await Promise.resolve(); });
+      act(() => { vi.advanceTimersByTime(BANNER_VIDEO_STARTUP_WATCHDOG_MS); });
+      expect(onVideoReady).toHaveBeenCalledTimes(1);
+      expect(onVideoReady).toHaveBeenCalledWith(false, 'activation');
+      expect(container.querySelector('video,img')).toBeNull();
+    });
+
+    it('cancels the bounded frame fallback when deactivated', () => {
+      const onVideoReady = vi.fn();
+      const props = { imageUrl: girl, mediaMode: 'video', retainVideo: true, onVideoReady };
+      const { container, rerender } = render(<BannerMedia {...props} isActive />);
+      const video = container.querySelector('video')!;
+      buffered(video);
+      Object.defineProperty(video, 'paused', { configurable: true, value: false });
+      fireEvent.playing(video);
+      rerender(<BannerMedia {...props} isActive={false} shouldLoadVideo={false} />);
+      act(() => { vi.advanceTimersByTime(BANNER_VIDEO_STARTUP_WATCHDOG_MS); });
+      expect(onVideoReady).not.toHaveBeenCalled();
+      expect(container.querySelector('video')).toBe(video);
+    });
+
     it('does not reveal initial girl.mp4 from data, playing or resolved play before its frame', async () => {
       const onVideoReady = vi.fn();
       const { container } = render(<BannerMedia imageUrl={girl} mediaMode="video" onVideoReady={onVideoReady} />);
@@ -564,7 +672,7 @@ describe('BannerMedia', () => {
       expect(container.querySelector('video')).toBeNull();
       expect(container.querySelector('img')).toBeNull();
       expect(onVideoReady).toHaveBeenCalledTimes(1); // Terminal failure releases carousel timing.
-      expect(onVideoReady).toHaveBeenCalledWith(false);
+      expect(onVideoReady).toHaveBeenCalledWith(false, 'activation');
     });
 
     it('uses an available source image for a direct MP4 fallback', () => {

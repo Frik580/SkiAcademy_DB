@@ -50,8 +50,8 @@ vi.mock('../../src/app/providers/LanguageContext', () => ({
   useLanguage: () => ({ t: (key: string) => key, language: 'en' as const }),
 }));
 
-vi.mock('motion/react', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('motion/react')>();
+vi.mock('framer-motion', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('framer-motion')>();
   return {
     ...actual,
     useReducedMotion: () => false,

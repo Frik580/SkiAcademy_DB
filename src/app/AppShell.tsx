@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { LazyMotion, domAnimation } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../app/providers/LanguageContext';
 import { useNotifications } from '../features/notifications';
@@ -105,46 +106,48 @@ export const AppShell: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[var(--bg)] text-[var(--ink)] transition-colors duration-300">
-      <Navbar
-        userProfile={navbarProfile}
-        onOpenNotifications={handleOpenNotifications}
-        unreadNotificationCount={notificationBadgeCount}
-        onSignOut={onSignOut}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-        onSignInClick={() => setIsAuthModalOpen(true)}
-      />
-
-      <FeaturePageShell
-        isPaddedWorkspace={isPaddedWorkspaceRoute}
-        isHomeRoute={isHomeRoute}
-        isAuthenticated={Boolean(userProfile)}
-        dbStatusWarning={dbStatusWarning}
-        onDismissDbWarning={() => setDbStatusWarning(null)}
-      >
-        <AppRoutes
-          resortData={{
-            resortConfig,
-            isResortConfigReady,
-            conditions,
-            tempC,
-            snowDepthCm,
-            newSnow24h,
-            windKmh,
-            weatherCode,
-            openLifts,
-            isFahrenheit,
-            isResortLoading,
-            lastUpdated,
-          }}
-          setIsFahrenheit={setIsFahrenheit}
-          onRefreshResortStats={handleRefreshResortStats}
+    <LazyMotion features={domAnimation}>
+      <div className="min-h-screen flex flex-col bg-[var(--bg)] text-[var(--ink)] transition-colors duration-300">
+        <Navbar
+          userProfile={navbarProfile}
+          onOpenNotifications={handleOpenNotifications}
+          unreadNotificationCount={notificationBadgeCount}
           onSignOut={onSignOut}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          onSignInClick={() => setIsAuthModalOpen(true)}
         />
-      </FeaturePageShell>
 
-      <ModalHost />
-    </div>
+        <FeaturePageShell
+          isPaddedWorkspace={isPaddedWorkspaceRoute}
+          isHomeRoute={isHomeRoute}
+          isAuthenticated={Boolean(userProfile)}
+          dbStatusWarning={dbStatusWarning}
+          onDismissDbWarning={() => setDbStatusWarning(null)}
+        >
+          <AppRoutes
+            resortData={{
+              resortConfig,
+              isResortConfigReady,
+              conditions,
+              tempC,
+              snowDepthCm,
+              newSnow24h,
+              windKmh,
+              weatherCode,
+              openLifts,
+              isFahrenheit,
+              isResortLoading,
+              lastUpdated,
+            }}
+            setIsFahrenheit={setIsFahrenheit}
+            onRefreshResortStats={handleRefreshResortStats}
+            onSignOut={onSignOut}
+          />
+        </FeaturePageShell>
+
+        <ModalHost />
+      </div>
+    </LazyMotion>
   );
 };

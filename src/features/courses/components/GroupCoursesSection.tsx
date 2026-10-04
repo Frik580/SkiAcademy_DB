@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion, useReducedMotion } from 'motion/react';
+import { m, useReducedMotion } from 'framer-motion';
 import { useLanguage, type Language } from '../../../app/providers/LanguageContext';
 import { Course, UserProfile } from '../../../types';
 import { GroupCourseCard, sortVisibleCourses } from './GroupCourseCard';
@@ -61,7 +61,7 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
         }}
       >
         {visibleCourses.map((rawCourse, index) => (
-          <motion.div
+          <m.div
             key={rawCourse.id}
             initial={
               shouldReduceMotion
@@ -100,7 +100,7 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
               onRequireAuth={onRequireAuth}
               className="h-full w-full"
             />
-          </motion.div>
+          </m.div>
         ))}
       </div>
 

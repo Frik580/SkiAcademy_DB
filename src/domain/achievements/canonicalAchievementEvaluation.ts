@@ -1,7 +1,9 @@
+import { compareCanonicalTimestamps } from '@ski-academy/shared-domain/canonical/primitives';
 import {
-  compareCanonicalTimestamps,
   participantAttendedLessonFromEvidence,
   participantLearningDurationHoursFromEvidence,
+} from '@ski-academy/shared-domain/canonical/participantLessonStatsSemantics';
+import {
   type ParticipantLessonFeedbackReadModel,
   type ParticipantLessonStatsEvidence,
 } from '@ski-academy/shared-domain';

@@ -1,13 +1,13 @@
 import { useCallback } from 'react';
+import { AggregateRevisionSchema } from '@ski-academy/shared-domain/canonical/primitives';
 import {
-  AggregateRevisionSchema,
   CourseEnrollmentIdSchema,
   CourseIdSchema,
   ParticipantIdSchema,
-  accountCommandActor,
-  parseCommandResultPayload,
-  type GuestCourseEnrollmentLinkCredential,
-} from '@ski-academy/shared-domain';
+} from '@ski-academy/shared-domain/canonical/identifiers';
+import { accountCommandActor } from '@ski-academy/shared-domain/canonical/commands/actors';
+import { parseCommandResultPayload } from '@ski-academy/shared-domain/canonical/commands/commandResultPayloads';
+import { type GuestCourseEnrollmentLinkCredential } from '@ski-academy/shared-domain';
 import {
   executeAuthenticatedCanonicalCommand,
   executeGuestCanonicalCommand,

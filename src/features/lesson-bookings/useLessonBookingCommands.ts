@@ -9,11 +9,11 @@ import {
   BookingIdSchema,
   InstructorIdSchema,
   ParticipantIdSchema,
-  AggregateRevisionSchema,
-  lessonContentFields,
-  GuestBookingActionCredentialSchema,
-  type GuestBookingActionCredential,
-} from '@ski-academy/shared-domain';
+} from '@ski-academy/shared-domain/canonical/identifiers';
+import { AggregateRevisionSchema } from '@ski-academy/shared-domain/canonical/primitives';
+import { lessonContentFields } from '@ski-academy/shared-domain/canonical/bookingOccurrenceProposalChange';
+import { GuestBookingActionCredentialSchema } from '@ski-academy/shared-domain/canonical/commands/commandResultPayloads';
+import { type GuestBookingActionCredential } from '@ski-academy/shared-domain';
 import { runPostCreateRefresh } from '../../lib/canonical/runPostCreateRefresh';
 import type {
   AuthenticatedLessonBookingCommandResult,

@@ -1,4 +1,4 @@
-import { IdempotencyKeySchema } from '@ski-academy/shared-domain';
+import { IdempotencyKeySchema } from '@ski-academy/shared-domain/canonical/commands/commandContext';
 import { executeAuthenticatedCanonicalCommand } from './canonicalCommandClient';
 import { mapCanonicalCommandResultError } from './mapCanonicalCommandError';
 

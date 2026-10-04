@@ -1,6 +1,6 @@
+import { isLessonBookingHot } from '@ski-academy/shared-domain/canonical/readModels/lessonBookingReadModel';
+import { timestampFromDate } from '@ski-academy/shared-domain/canonical/primitives';
 import {
-  isLessonBookingHot,
-  timestampFromDate,
   type CanonicalTimestamp,
   type LessonBookingReadModel,
   type QueryLessonBookingReadModelsInput,

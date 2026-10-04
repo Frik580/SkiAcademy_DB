@@ -1,4 +1,4 @@
-import { CourseCatalogContentSchema } from '@ski-academy/shared-domain';
+import { CourseCatalogContentSchema } from '@ski-academy/shared-domain/canonical/courseCatalogContent';
 import { CourseDocumentSchema } from '@ski-academy/shared-domain/entities';
 import type { Course } from '../../types';
 

@@ -2,8 +2,10 @@ import { useCallback, useEffect } from 'react';
 import {
   CourseEnrollmentIdSchema,
   ParticipantIdSchema,
-  isCourseEnrollmentHot,
-  timestampFromDate,
+} from '@ski-academy/shared-domain/canonical/identifiers';
+import { isCourseEnrollmentHot } from '@ski-academy/shared-domain/canonical/readModels/courseEnrollmentReadModel';
+import { timestampFromDate } from '@ski-academy/shared-domain/canonical/primitives';
+import {
   type QueryCourseEnrollmentReadModelsInput,
   type QueryCourseEnrollmentReadModelsResult,
 } from '@ski-academy/shared-domain';

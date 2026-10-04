@@ -1,7 +1,5 @@
-import {
-  normalizeInstructorSpokenLanguages,
-  type BookingInstructorCatalogueItem,
-} from '@ski-academy/shared-domain';
+import { normalizeInstructorSpokenLanguages } from '@ski-academy/shared-domain/canonical/instructorSpokenLanguage';
+import { type BookingInstructorCatalogueItem } from '@ski-academy/shared-domain';
 import type { Instructor } from '../../../types';
 
 export function toBookingCatalogueInstructor(item: BookingInstructorCatalogueItem): Instructor {

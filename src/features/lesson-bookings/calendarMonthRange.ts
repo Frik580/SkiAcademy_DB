@@ -1,4 +1,5 @@
-import { timestampFromDate, type CanonicalTimestamp } from '@ski-academy/shared-domain';
+import { timestampFromDate } from '@ski-academy/shared-domain/canonical/primitives';
+import { type CanonicalTimestamp } from '@ski-academy/shared-domain';
 
 export function accountCalendarMonthKey(year: number, monthIndex: number): string {
   return `${year}-${String(monthIndex + 1).padStart(2, '0')}`;

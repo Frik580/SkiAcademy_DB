@@ -1,14 +1,18 @@
+import { CorrelationIdSchema } from '@ski-academy/shared-domain/canonical/identifiers';
 import {
-  CorrelationIdSchema,
   deriveCommandKey,
-  encodeCommandActorScope,
   resolveCommandIdempotencyIdentity,
+} from '@ski-academy/shared-domain/canonical/commandIdempotency';
+import { encodeCommandActorScope } from '@ski-academy/shared-domain/canonical/commandActorScope';
+import {
+  accountCommandActor,
+  guestCommandActor,
+} from '@ski-academy/shared-domain/canonical/commands/actors';
+import {
   type CommandEnvelope,
   type CommandKind,
   type CommandResult,
   type IdempotencyKey,
-  accountCommandActor,
-  guestCommandActor,
 } from '@ski-academy/shared-domain';
 import { callFunction } from '../functions/functionsClient';
 import { toCanonicalCommandClientError } from './mapCanonicalCommandError';

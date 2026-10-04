@@ -1,7 +1,5 @@
-import {
-  GuestCourseEnrollmentLinkCredentialSchema,
-  type GuestCourseEnrollmentLinkCredential,
-} from '@ski-academy/shared-domain';
+import { GuestCourseEnrollmentLinkCredentialSchema } from '@ski-academy/shared-domain/canonical/commands/commandResultPayloads';
+import { type GuestCourseEnrollmentLinkCredential } from '@ski-academy/shared-domain';
 
 const STORAGE_KEY_PREFIX = 'ski_academy_guest_course_enrollment_credential:';
 

@@ -8,7 +8,7 @@ import { FALLBACK_SLIDES } from '../config/fallbackHeroSlides';
 import {
   RESORT_SLIDE_RANDOM_IMAGE_KEY,
   RESORT_SLIDE_WALL_IMAGE_KEYS,
-} from '@ski-academy/shared-domain';
+} from '@ski-academy/shared-domain/resortSlideImages';
 import {
   heroBackgroundSrcSet,
   preloadHeroLcpImage,

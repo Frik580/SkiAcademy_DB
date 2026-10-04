@@ -12,7 +12,7 @@ import { optimizedImageSrcSet, optimizedImageUrl } from './optimizedImageUrl';
 import {
   RESORT_SLIDE_ABOUT_IMAGE_KEY,
   RESORT_SLIDE_RANDOM_IMAGE_KEY,
-} from '@ski-academy/shared-domain';
+} from '@ski-academy/shared-domain/resortSlideImages';
 
 const YANDEX_CARVE = 'https://storage.yandexcloud.net/carve';
 

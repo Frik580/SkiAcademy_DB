@@ -5,12 +5,12 @@ import {
   queryLessonBookingReadModels,
   queryParticipantInstructorAccessReadModels,
 } from '../../lib/canonical/canonicalReadModelClient';
+import { drainPagedReadModelItems } from '@ski-academy/shared-domain/canonical/readModels/drainPagedReadModels';
 import {
-  drainPagedReadModelItems,
   InstructorIdSchema,
   ParticipantIdSchema,
-  type LessonBookingReadModel,
-} from '@ski-academy/shared-domain';
+} from '@ski-academy/shared-domain/canonical/identifiers';
+import { type LessonBookingReadModel } from '@ski-academy/shared-domain';
 import { useBookingCollaborationStore } from './bookingCollaborationStore';
 import { mergeProposalRecords } from './proposalViewModel';
 import { mergeChangeRequestRecords } from './changeRequestViewModel';

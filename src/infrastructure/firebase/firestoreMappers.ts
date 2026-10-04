@@ -1,4 +1,4 @@
-import { normalizeInstructorSpokenLanguages } from '@ski-academy/shared-domain';
+import { normalizeInstructorSpokenLanguages } from '@ski-academy/shared-domain/canonical/instructorSpokenLanguage';
 import type { ActivityLog, Booking, Course, Instructor, UserProfile } from '../../types';
 import type { DbNotification } from '../../domain/notifications';
 import type { WalletLedgerEntry } from '../../features/wallet/types';

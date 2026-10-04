@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { Instructor } from '../types';
-import { normalizeInstructorSpokenLanguage } from '@ski-academy/shared-domain';
+import { normalizeInstructorSpokenLanguage } from '@ski-academy/shared-domain/canonical/instructorSpokenLanguage';
 import { Language, translateInstructor } from '../app/providers/LanguageContext';
 import { useBookingsStore } from '../features/bookings/bookingsStore';
 import { useSettingsStore } from '../features/settings/settingsStore';

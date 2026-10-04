@@ -2,7 +2,7 @@ import type {
   InstructorLessonBookingItem,
   ParticipantAccessCabinetItem,
 } from '../booking-collaboration/bookingCollaborationContracts';
-import { canonicalTimestampToEpochMs } from '@ski-academy/shared-domain';
+import { canonicalTimestampToEpochMs } from '@ski-academy/shared-domain/canonical/bookingCancellationPolicy';
 
 export function instructorProgressParticipantIds(
   bookings: readonly InstructorLessonBookingItem[],

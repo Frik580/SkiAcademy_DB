@@ -1,7 +1,7 @@
 import { db, doc, setDoc } from '../../infrastructure/firebase';
 import { logger } from '../../shared';
 import type { BilingualNotificationContent } from './notificationText';
-import { TEST_NOTIFICATION_CLIENT_REACHABILITY } from '@ski-academy/shared-domain';
+import { TEST_NOTIFICATION_CLIENT_REACHABILITY } from '@ski-academy/shared-domain/canonical/testSideEffectPolicy';
 
 export type NotificationType = 'info' | 'warning' | 'success';
 export { TEST_NOTIFICATION_CLIENT_REACHABILITY };

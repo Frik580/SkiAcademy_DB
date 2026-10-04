@@ -1,9 +1,7 @@
 import type { UserProfile } from '../../types';
-import {
-  AccountIdSchema,
-  selfParticipantIdFromAccountId,
-  type ParticipantProgressReadModel,
-} from '@ski-academy/shared-domain';
+import { AccountIdSchema } from '@ski-academy/shared-domain/canonical/identifiers';
+import { selfParticipantIdFromAccountId } from '@ski-academy/shared-domain/canonical/deterministicIdentity';
+import { type ParticipantProgressReadModel } from '@ski-academy/shared-domain';
 
 export interface ParticipantProgressView {
   readonly participantId: string;

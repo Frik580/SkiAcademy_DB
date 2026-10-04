@@ -22,6 +22,24 @@
       "import": "./dist/testing/index.js",
       "require": "./dist/testing/index.js",
       "default": "./dist/testing/index.js"
+    },
+    "./canonical/*": {
+      "types": "./dist/canonical/*.d.ts",
+      "import": "./dist/canonical/*.js",
+      "require": "./dist/canonical/*.js",
+      "default": "./dist/canonical/*.js"
+    },
+    "./booking": {
+      "types": "./dist/booking.d.ts",
+      "import": "./dist/booking.js",
+      "require": "./dist/booking.js",
+      "default": "./dist/booking.js"
+    },
+    "./resortSlideImages": {
+      "types": "./dist/resortSlideImages.d.ts",
+      "import": "./dist/resortSlideImages.js",
+      "require": "./dist/resortSlideImages.js",
+      "default": "./dist/resortSlideImages.js"
     }
   },
   "dependencies": {

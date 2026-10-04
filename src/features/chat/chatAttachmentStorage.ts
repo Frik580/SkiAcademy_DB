@@ -2,7 +2,7 @@ import {
   assertTestStorageClientReachable,
   bookingChatStoragePath,
   parseResourceStorageScope,
-} from '@ski-academy/shared-domain';
+} from '@ski-academy/shared-domain/canonical/testStoragePaths';
 
 export function resolveBookingChatAttachmentStoragePath(
   booking: {

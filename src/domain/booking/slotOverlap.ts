@@ -6,7 +6,7 @@ import {
   buildHourLockIds,
   hasOverlappingAvailabilitySlot,
   slotsOverlap,
-} from '@ski-academy/shared-domain';
+} from '@ski-academy/shared-domain/booking';
 
 export {
   AVAILABILITY_HOUR_LOCKS_COLLECTION,

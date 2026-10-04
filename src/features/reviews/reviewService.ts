@@ -1,11 +1,13 @@
 import {
   BookingIdSchema,
   InstructorIdSchema,
+} from '@ski-academy/shared-domain/canonical/identifiers';
+import {
   INSTRUCTOR_REVIEW_COMMENT_MAX_LENGTH,
   normalizeInstructorReviewComment,
-  parseCommandResultPayload,
-  type IdempotencyKey,
-} from '@ski-academy/shared-domain';
+} from '@ski-academy/shared-domain/canonical/instructorReview';
+import { parseCommandResultPayload } from '@ski-academy/shared-domain/canonical/commands/commandResultPayloads';
+import { type IdempotencyKey } from '@ski-academy/shared-domain';
 import {
   executeAuthenticatedCanonicalCommand,
   type ClientCallableCapability,

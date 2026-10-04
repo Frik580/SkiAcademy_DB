@@ -4,8 +4,8 @@ import {
   BookingChangeRequestIdSchema,
   InstructorRelationshipIdSchema,
   ParticipantBlockIdSchema,
-  type IdempotencyKey,
-} from '@ski-academy/shared-domain';
+} from '@ski-academy/shared-domain/canonical/identifiers';
+import { type IdempotencyKey } from '@ski-academy/shared-domain';
 
 export function createLogicalBookingProposalId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {

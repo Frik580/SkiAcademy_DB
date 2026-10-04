@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, useReducedMotion } from 'motion/react';
-import { normalizeInstructorSpokenLanguage } from '@ski-academy/shared-domain';
+import { normalizeInstructorSpokenLanguage } from '@ski-academy/shared-domain/canonical/instructorSpokenLanguage';
 import { Instructor } from '../../../types';
 import { Star, Globe } from 'lucide-react';
 import { useLanguage } from '../../../app/providers/LanguageContext';

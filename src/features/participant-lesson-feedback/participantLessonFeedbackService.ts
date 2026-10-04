@@ -1,11 +1,15 @@
+import { AggregateRevisionSchema } from '@ski-academy/shared-domain/canonical/primitives';
 import {
-  AggregateRevisionSchema,
   BookingIdSchema,
+  ParticipantIdSchema,
+} from '@ski-academy/shared-domain/canonical/identifiers';
+import {
   deriveSaveParticipantLessonFeedbackIdempotencyKey,
   deriveSetParticipantLessonFeedbackItemCompletionIdempotencyKey,
-  ParticipantIdSchema,
-  ParticipantLessonFeedbackItemIdSchema,
-  parseCommandResultPayload,
+} from '@ski-academy/shared-domain/canonical/participantLessonFeedbackCommandIdempotency';
+import { ParticipantLessonFeedbackItemIdSchema } from '@ski-academy/shared-domain/canonical/participantLessonFeedback';
+import { parseCommandResultPayload } from '@ski-academy/shared-domain/canonical/commands/commandResultPayloads';
+import {
   type ParticipantLessonFeedbackItem,
   type ParticipantLessonFeedbackReadModel,
 } from '@ski-academy/shared-domain';
@@ -25,7 +29,7 @@ import {
 export {
   deriveSaveParticipantLessonFeedbackIdempotencyKey,
   deriveSetParticipantLessonFeedbackItemCompletionIdempotencyKey,
-} from '@ski-academy/shared-domain';
+} from '@ski-academy/shared-domain/canonical/participantLessonFeedbackCommandIdempotency';
 
 export async function queryInstructorLessonParticipantFeedback(input: {
   readonly participantId: string;

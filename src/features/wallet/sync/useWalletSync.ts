@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
-import { WalletSchema, normalizeFirestoreDocument, type Wallet } from '@ski-academy/shared-domain';
+import { WalletSchema } from '@ski-academy/shared-domain/canonical/paymentWallet';
+import { normalizeFirestoreDocument } from '@ski-academy/shared-domain/canonical/firestoreSerialization';
+import { type Wallet } from '@ski-academy/shared-domain';
 import {
   collection,
   db,

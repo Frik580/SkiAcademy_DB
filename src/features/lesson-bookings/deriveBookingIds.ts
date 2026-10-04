@@ -1,7 +1,9 @@
 import {
   BookingIdSchema,
   ParticipantIdSchema,
-  canonicalDeterministicHash,
+} from '@ski-academy/shared-domain/canonical/identifiers';
+import { canonicalDeterministicHash } from '@ski-academy/shared-domain/canonical/deterministicIdentity';
+import {
   type BookingId,
   type IdempotencyKey,
   type ParticipantId,

@@ -1,9 +1,13 @@
+import { buildBoundedCanonicalIdempotencyKey } from '@ski-academy/shared-domain/canonical/boundedCanonicalIdempotency';
 import {
-  buildBoundedCanonicalIdempotencyKey,
   CourseEnrollmentIdSchema,
   ParticipantIdSchema,
+} from '@ski-academy/shared-domain/canonical/identifiers';
+import {
   canonicalDeterministicHash,
   courseEnrollmentIdFromCommandParticipant,
+} from '@ski-academy/shared-domain/canonical/deterministicIdentity';
+import {
   type CourseEnrollmentId,
   type IdempotencyKey,
   type ParticipantId,

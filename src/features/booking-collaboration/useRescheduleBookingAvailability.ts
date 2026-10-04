@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { InstructorIdSchema, type AdminPlannerOccupancyItem } from '@ski-academy/shared-domain';
+import { InstructorIdSchema } from '@ski-academy/shared-domain/canonical/identifiers';
+import { type AdminPlannerOccupancyItem } from '@ski-academy/shared-domain';
 import type { AvailabilitySlot, Course } from '../../types';
 import { DEFAULT_LESSON_TIME_SLOTS } from '../../domain/availability';
 import { logger } from '../../shared';

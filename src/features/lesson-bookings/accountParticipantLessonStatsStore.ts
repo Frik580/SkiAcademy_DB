@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { LessonBookingReadModel } from '@ski-academy/shared-domain';
-import { mergeLessonBookingReadModelsByRevision } from '@ski-academy/shared-domain';
+import { mergeLessonBookingReadModelsByRevision } from '@ski-academy/shared-domain/canonical/participantLessonStatsSemantics';
 
 export interface AccountParticipantLessonStatsState {
   readonly accountId: string | undefined;

@@ -1,8 +1,12 @@
 import {
   emptyParticipantLessonFeedbackProjection,
   normalizeParticipantLessonFeedbackItems,
+} from '@ski-academy/shared-domain/canonical/participantLessonFeedback';
+import {
   BookingIdSchema,
   ParticipantIdSchema,
+} from '@ski-academy/shared-domain/canonical/identifiers';
+import {
   type ParticipantLessonFeedbackItem,
   type ParticipantLessonFeedbackReadModel,
 } from '@ski-academy/shared-domain';

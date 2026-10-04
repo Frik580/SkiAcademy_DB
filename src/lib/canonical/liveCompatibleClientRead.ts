@@ -2,7 +2,7 @@ import {
   LIVE_CANONICAL_READ_SCOPE,
   documentMatchesReadScope,
   identityDocumentMatchesReadScope,
-} from '@ski-academy/shared-domain';
+} from '@ski-academy/shared-domain/canonical/canonicalReadScope';
 
 /**
  * Client-side LIVE compatibility filter for remaining direct Firestore listeners.

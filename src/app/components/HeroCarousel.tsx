@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useLanguage, type Language } from '../../app/providers/LanguageContext';
@@ -96,21 +96,40 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
   const { t } = useLanguage();
   const sectionRef = useRef<HTMLElement | null>(null);
   const shouldReduceMotion = useReducedMotion();
-  const [carousel, setCarousel] = useState<{ current: number; outgoing: number | null }>({
+  const [carousel, setCarousel] = useState<{
+    current: number; outgoing: number | null; activation: number; pending: number | null;
+  }>({
     current: 0,
     outgoing: null,
+    activation: 0,
+    pending: null,
   });
   const currentSlide = carousel.current;
   const outgoingSlide = carousel.outgoing;
-  const [readySlideIndex, setReadySlideIndex] = useState<number | null>(null);
+  const [readyVideo, setReadyVideo] = useState<{
+    activation: number; slideId: string | undefined; source: string; hasVisibleMedia: boolean;
+  } | null>(null);
 
-  const setCurrentSlide = (update: number | ((prev: number) => number)) => {
+  const slideReadinessRef = useRef<(index: number, activation: number) => {
+    settled: boolean; visible: boolean; video: boolean;
+  }>(() => ({ settled: false, visible: false, video: false }));
+  const setCurrentSlide = useCallback((update: number | ((prev: number) => number)) => {
     setCarousel((prev) => {
-      const next = typeof update === 'function' ? update(prev.current) : update;
-      if (next === prev.current) return prev;
-      return { current: next, outgoing: prev.current };
+      const next = typeof update === 'function' ? update(prev.pending ?? prev.current) : update;
+      if (next === prev.current) return prev.pending === null ? prev : { ...prev, pending: null };
+      const previous = slideReadinessRef.current(prev.current, prev.activation);
+      // Restarting the only visible outgoing video would erase its retained frame.
+      // Finish the pending incoming frame first, then use it as the outgoing layer.
+      if (!previous.settled && next === prev.outgoing &&
+        slideReadinessRef.current(next, prev.activation).video) return { ...prev, pending: next };
+      return {
+        current: next,
+        outgoing: previous.visible ? prev.current : prev.outgoing ?? prev.current,
+        activation: prev.activation + 1,
+        pending: null,
+      };
     });
-  };
+  }, []);
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia('(max-width: 767px)').matches : false
   );
@@ -172,18 +191,44 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
     if (slides.length > 0 && currentSlide >= slides.length) {
       setCurrentSlide(0);
     }
-  }, [slides.length, currentSlide]);
+  }, [slides.length, currentSlide, setCurrentSlide]);
+
+  const activeSlide = slides[currentSlide];
+  const activeNeedsVideo = slideUsesVideo(activeSlide, shouldReduceMotion);
+  const activeVideoSource = resolveHeroOriginUrl(resolveSlideBackgroundKey(activeSlide, currentSlide));
+  slideReadinessRef.current = (index, activation) => {
+    const video = slideUsesVideo(slides[index], shouldReduceMotion);
+    const settled = !video || (readyVideo?.activation === activation && readyVideo.slideId === slides[index]?.id &&
+      readyVideo.source === resolveHeroOriginUrl(resolveSlideBackgroundKey(slides[index], index)));
+    return { video, settled, visible: !video || (settled && readyVideo?.hasVisibleMedia === true) };
+  };
+  const activeFrameReady = !activeNeedsVideo ||
+    (readyVideo?.activation === carousel.activation && readyVideo.slideId === activeSlide?.id &&
+      readyVideo.source === activeVideoSource);
+  const activeMediaVisible = !activeNeedsVideo || (activeFrameReady && readyVideo?.hasVisibleMedia === true);
 
   useEffect(() => {
-    if (outgoingSlide === null) return;
+    if (!activeFrameReady || carousel.pending === null) return;
+    if (!activeMediaVisible) {
+      // Terminal empty failure releases timing, but must not replace the last visible frame.
+      setCarousel((prev) => prev.activation === carousel.activation ? { ...prev, pending: null } : prev);
+      return;
+    }
+    setCarousel((prev) => prev.activation !== carousel.activation || prev.pending === null ? prev : {
+      current: prev.pending,
+      outgoing: prev.current,
+      activation: prev.activation + 1,
+      pending: null,
+    });
+  }, [activeFrameReady, activeMediaVisible, carousel.activation, carousel.pending]);
+
+  useEffect(() => {
+    if (outgoingSlide === null || !activeMediaVisible) return;
     const id = window.setTimeout(() => {
       setCarousel((prev) => (prev.outgoing === null ? prev : { ...prev, outgoing: null }));
     }, HERO_CROSSFADE_MS);
     return () => window.clearTimeout(id);
-  }, [outgoingSlide, currentSlide]);
-
-  const activeSlide = slides[currentSlide];
-  const activeNeedsVideo = slideUsesVideo(activeSlide, shouldReduceMotion);
+  }, [outgoingSlide, currentSlide, carousel.activation, activeMediaVisible]);
   const carouselHasVideo = slides.some((slide) =>
     slideUsesVideo(slide, shouldReduceMotion)
   );
@@ -203,13 +248,13 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
     }, slideInterval * 1000);
 
     return () => window.clearInterval(interval);
-  }, [slides.length, slideInterval, carouselHasVideo]);
+  }, [slides.length, slideInterval, carouselHasVideo, setCurrentSlide]);
 
   // Video slides start their duration only after the MP4 can play.
   useEffect(() => {
     if (slides.length <= 1) return;
     if (!carouselHasVideo) return;
-    if (activeNeedsVideo && readySlideIndex !== currentSlide) return;
+    if (!activeFrameReady) return;
 
     const id = window.setTimeout(() => {
       setCurrentSlide((prev) => (prev + 1) % slides.length);
@@ -220,9 +265,10 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
     slides.length,
     slideInterval,
     carouselHasVideo,
-    activeNeedsVideo,
-    readySlideIndex,
+    activeFrameReady,
     currentSlide,
+    carousel.activation,
+    setCurrentSlide,
   ]);
 
   const crossfadeStyle = {
@@ -310,6 +356,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
         ) : (
           slides.map((slide, idx) => {
             const isActive = idx === currentSlide;
+            const isVisible = isActive ? activeMediaVisible : idx === outgoingSlide && !activeMediaVisible;
             const videoRole = videoRoles.get(idx);
             const bgKey = resolveSlideBackgroundKey(slide, idx);
             const bgOriginUrl = resolveHeroOriginUrl(bgKey);
@@ -320,7 +367,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
               <div
                 key={slide.id || `hero-bg-${idx}`}
                 className={`absolute inset-0 will-change-[opacity] transition-opacity ${
-                  isActive ? 'opacity-100' : 'opacity-0'
+                  isVisible ? 'opacity-100' : 'opacity-0'
                 }`}
                 style={{
                   ...crossfadeStyle,
@@ -338,8 +385,14 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                   videoRole={videoRole}
                   slideIndex={idx}
                   slideId={slide.id}
+                  onVideoActivationStart={videoRole === 'ACTIVE' ? () => setReadyVideo(null) : undefined}
                   onVideoReady={
-                    videoRole === 'ACTIVE' ? () => setReadySlideIndex(idx) : undefined
+                    videoRole === 'ACTIVE' ? (hasVisibleMedia) => setReadyVideo({
+                      activation: carousel.activation,
+                      slideId: slide.id,
+                      source: bgOriginUrl,
+                      hasVisibleMedia,
+                    }) : undefined
                   }
                   mobileFocalPointX={resolveBannerFocalPoint(slide.mobileFocalPointX)}
                   className="hero-banner-media absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none"

@@ -1,8 +1,9 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useReducedMotion } from 'motion/react';
 import {
   DEFAULT_BANNER_FOCAL_POINT_PERCENT,
   deriveBannerVideoUrl,
+  isBannerVideoUrl,
   normalizeBannerMediaMode,
   resolveBannerFocalPoint,
   type BannerMediaMode,
@@ -28,8 +29,10 @@ export interface BannerMediaProps {
   shouldPreloadVideo?: boolean;
   /** Keep an admitted resource paused in the DOM within the carousel's video budget. */
   retainVideo?: boolean;
-  /** Active video can play, or the active video fell back to an image. */
-  onVideoReady?: () => void;
+  /** Startup completed; false means terminal failure without a usable image fallback. */
+  onVideoReady?: (hasVisibleMedia: boolean) => void;
+  /** Invalidates the caller's readiness when playback restarts, including source/mode changes. */
+  onVideoActivationStart?: () => void;
   /** Development trace: which carousel slot this element occupies. */
   videoRole?: BannerVideoRole;
   slideIndex?: number;
@@ -113,6 +116,7 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
   shouldPreloadVideo = false,
   retainVideo = false,
   onVideoReady,
+  onVideoActivationStart,
   videoRole,
   slideIndex,
   slideId,
@@ -131,9 +135,12 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
   const [videoFailed, setVideoFailed] = useState(false);
   const [videoRevealed, setVideoRevealed] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const activationSequence = useRef(0);
   const [retainedVideoUrl, setRetainedVideoUrl] = useState<string | null>(null);
   const onVideoReadyRef = useRef(onVideoReady);
   onVideoReadyRef.current = onVideoReady;
+  const onVideoActivationStartRef = useRef(onVideoActivationStart);
+  onVideoActivationStartRef.current = onVideoActivationStart;
 
   const shouldLoadVideo = shouldLoadVideoProp ?? loadVideo;
   const isActive = isActiveProp ?? shouldLoadVideo;
@@ -144,7 +151,9 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
   const requestedVideo = shouldLoadVideo || shouldPreloadVideo;
   const mountVideo = preferVideo && !videoFailed &&
     (requestedVideo || (retainVideo && retainedVideoUrl === videoUrl));
-  const showImage = !preferVideo || videoFailed;
+  const fallbackImageUrl = !isBannerVideoUrl(imageUrl) ? imageUrl
+    : videoSourceImageUrl && !isBannerVideoUrl(videoSourceImageUrl) ? videoSourceImageUrl : undefined;
+  const showImage = (!preferVideo || videoFailed) && Boolean(fallbackImageUrl);
   useEffect(() => {
     if (retainVideo && mountVideo) setRetainedVideoUrl(videoUrl);
     else if (!retainVideo || !preferVideo) setRetainedVideoUrl(null);
@@ -159,10 +168,17 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
       slideId,
       videoUrl,
       elementId: video ? videoElementIds.get(video) : undefined,
+      activationId: activationSequence.current,
       role: videoRole ?? (isActive ? 'ACTIVE' : shouldPreloadVideo ? 'PRELOAD' : 'IDLE'),
       mountedVideoCount,
       readyState: video?.readyState,
       networkState: video?.networkState,
+      currentTime: video?.currentTime,
+      paused: video?.paused,
+      seeking: video?.seeking,
+      videoRevealed,
+      src: video?.getAttribute('src'),
+      currentSrc: video?.currentSrc,
       ...extra,
     });
   };
@@ -181,12 +197,12 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
     releaseVideoElement(previous);
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setVideoFailed(false);
     setVideoRevealed(false);
   }, [imageUrl, videoSourceImageUrl, mode, videoUrl]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const video = videoRef.current;
     if (!mountVideo || !video) return;
 
@@ -202,123 +218,178 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
 
     video.muted = true;
     video.playsInline = true;
+    const activationId = ++activationSequence.current;
+    const trace = (event: string, extra?: Record<string, unknown>) =>
+      traceRef.current(event, video, { activationId, ...extra });
+    setVideoRevealed(false);
+    onVideoActivationStartRef.current?.();
+    trace('activation-start', { videoRevealed: false });
 
     let cancelled = false;
     let failed = false;
-    let playbackRequested = false;
+    let ready = false;
+    let restarted = false;
+    let seekConfirmed = false;
+    let playingObserved = false;
+    let frameCallbackId: number | undefined;
+    let frameRequestSequence = 0;
     let watchdogId = 0;
+    const hasFrameCallback = typeof video.requestVideoFrameCallback === 'function';
+    const isCurrent = () => !cancelled && !failed && activationSequence.current === activationId;
+
+    const cancelFrame = () => {
+      frameRequestSequence++;
+      if (frameCallbackId !== undefined) video.cancelVideoFrameCallback?.(frameCallbackId);
+      frameCallbackId = undefined;
+    };
 
     const markReady = () => {
+      if (!isCurrent() || ready) return;
+      ready = true;
       window.clearTimeout(watchdogId);
+      cancelFrame();
+      trace('frame-ready');
       setVideoRevealed(true);
-      onVideoReadyRef.current?.();
+      trace('activation-ready', { videoRevealed: true });
+      onVideoReadyRef.current?.(true);
     };
 
     const failStartup = (reason: 'watchdog' | 'play-reject' | 'play-throw' | 'media-error') => {
-      if (cancelled || failed) return;
+      if (!isCurrent()) return;
       failed = true;
       window.clearTimeout(watchdogId);
+      cancelFrame();
       const mediaError = video.error;
-      traceRef.current('startup-failure', video, {
+      trace(reason === 'watchdog' ? 'watchdog' : 'startup-failure', {
         reason,
         failureClass: mediaError ? 'VIDEO_FILE_FAILURE' : 'RESOURCE_LIFECYCLE_FAILURE',
         mediaErrorCode: mediaError?.code ?? null,
       });
+      trace('fallback-enter', { imageUrl: fallbackImageUrl ?? null });
       setVideoFailed(true);
     };
 
-    const beginPlayback = () => {
-      if (cancelled || failed || playbackRequested) return;
-      playbackRequested = true;
-      window.clearTimeout(watchdogId);
-      video.muted = true;
-      video.playsInline = true;
+    const restart = () => {
+      if (!isCurrent() || restarted) return;
       try {
+        // At HAVE_NOTHING this sets the default start position; no seeked is required.
+        seekConfirmed = video.currentTime === 0 || video.readyState === 0;
+        trace('seek-request', { target: 0 });
         video.currentTime = 0;
+        restarted = true;
       } catch {
-        // Seek can throw before the element has metadata.
-      }
-      markReady();
-      traceRef.current('play', video);
-      let pending: Promise<void> | undefined;
-      try {
-        pending = video.play();
-      } catch {
-        failStartup('play-throw');
-        return;
-      }
-      if (pending && typeof pending.then === 'function') {
-        pending.then(
-          () => undefined,
-          () => {
-            failStartup('play-reject');
-          }
-        );
+        // Retry on metadata/data events if the browser cannot seek yet.
       }
     };
 
-    const armWatchdog = () => {
-      watchdogId = window.setTimeout(() => failStartup('watchdog'), BANNER_VIDEO_STARTUP_WATCHDOG_MS);
+    const frameEligible = () => restarted && seekConfirmed && !video.seeking &&
+      video.readyState >= HAVE_CURRENT_DATA;
+    const confirmFallback = () => {
+      // A fresh playing event is required: cached readyState alone is never readiness.
+      if (!hasFrameCallback && playingObserved && frameEligible()) markReady();
     };
+    const requestFrame = () => {
+      if (!hasFrameCallback || !isCurrent() || ready || frameCallbackId !== undefined) return;
+      const requestSequence = ++frameRequestSequence;
+      frameCallbackId = video.requestVideoFrameCallback((_now, metadata) => {
+        if (!isCurrent() || requestSequence !== frameRequestSequence) return;
+        frameCallbackId = undefined;
+        trace('video-frame', { mediaTime: metadata.mediaTime, presentedFrames: metadata.presentedFrames });
+        if (frameEligible()) markReady();
+        else requestFrame();
+      });
+    };
+    const onData = () => {
+      restart();
+      confirmFallback();
+    };
+    const onSeeking = () => {
+      if (!isCurrent()) return;
+      seekConfirmed = false;
+      trace('seeking');
+    };
+    const onSeeked = () => {
+      if (!isCurrent() || !restarted || video.seeking) return;
+      seekConfirmed = true;
+      trace('seeked');
+      // Discard a callback registered before seek completion, even if already queued.
+      cancelFrame();
+      requestFrame();
+      confirmFallback();
+    };
+    const onPlaying = () => {
+      if (!isCurrent()) return;
+      playingObserved = true;
+      trace('playing');
+      onData();
+    };
+    const onMediaError = () => failStartup('media-error');
 
-    if (video.readyState >= HAVE_CURRENT_DATA) {
-      beginPlayback();
-    } else {
-      // Safari may discard buffered frames of a paused preload. play() resumes
-      // fetching on the same resource; readyState 0/1 or NETWORK_IDLE alone is
-      // not an error and must not reset the resource with load().
-      if (video.networkState === NETWORK_NO_SOURCE) {
-        traceRef.current('load', video);
-        try {
-          video.load();
-        } catch {
-          // load() can throw if the element was detached mid-transition.
-        }
-      }
-      armWatchdog();
-      video.addEventListener('loadeddata', beginPlayback);
-      video.addEventListener('canplay', beginPlayback);
+    video.addEventListener('loadedmetadata', onData);
+    video.addEventListener('loadeddata', onData);
+    video.addEventListener('canplay', onData);
+    video.addEventListener('seeking', onSeeking);
+    video.addEventListener('seeked', onSeeked);
+    video.addEventListener('playing', onPlaying);
+    video.addEventListener('error', onMediaError);
+    watchdogId = window.setTimeout(() => failStartup('watchdog'), BANNER_VIDEO_STARTUP_WATCHDOG_MS);
+
+    // Only an unusable source can reset loading. Paused/discarded buffers keep their resource.
+    if (video.readyState < HAVE_CURRENT_DATA && video.networkState === NETWORK_NO_SOURCE) {
+      trace('load');
       try {
-        video.play()?.catch(() => failStartup('play-reject'));
+        video.load();
       } catch {
-        failStartup('play-throw');
+        // load() on a detached node is best-effort.
       }
     }
-
-    const onMediaError = () => failStartup('media-error');
-    video.addEventListener('error', onMediaError);
+    requestFrame();
+    restart();
+    trace('play-request');
+    try {
+      video.play()?.then(() => {
+        if (!isCurrent()) return;
+        trace('play-resolve');
+        confirmFallback();
+      }, (error: unknown) => {
+        if (!isCurrent()) return;
+        trace('play-reject', { error: String(error) });
+        failStartup('play-reject');
+      });
+    } catch (error) {
+      trace('play-reject', { error: String(error) });
+      failStartup('play-throw');
+    }
 
     return () => {
       cancelled = true;
+      trace('activation-cancel');
       window.clearTimeout(watchdogId);
-      video.removeEventListener('loadeddata', beginPlayback);
-      video.removeEventListener('canplay', beginPlayback);
+      cancelFrame();
+      video.removeEventListener('loadedmetadata', onData);
+      video.removeEventListener('loadeddata', onData);
+      video.removeEventListener('canplay', onData);
+      video.removeEventListener('seeking', onSeeking);
+      video.removeEventListener('seeked', onSeeked);
+      video.removeEventListener('playing', onPlaying);
       video.removeEventListener('error', onMediaError);
     };
-  }, [isActive, mountVideo, videoUrl]);
+  }, [isActive, mountVideo, videoUrl, fallbackImageUrl]);
 
   useEffect(() => {
     if (!isActive || !videoFailed || !preferVideo) return;
-    onVideoReadyRef.current?.();
-  }, [isActive, videoFailed, preferVideo]);
+    onVideoReadyRef.current?.(Boolean(fallbackImageUrl));
+  }, [isActive, videoFailed, preferVideo, fallbackImageUrl]);
 
   const focalStyle =
     mobileFocalPointX === undefined ? undefined : heroMobileFocalStyle(mobileFocalPointX);
-
-  const revealBufferedFrame = (event: React.SyntheticEvent<HTMLVideoElement>) => {
-    const video = event.currentTarget;
-    traceRef.current(event.type, video);
-    if (video.readyState >= HAVE_CURRENT_DATA) {
-      setVideoRevealed(true);
-    }
-  };
 
   return (
     <>
       {showImage ? (
         <img
-          src={imageUrl}
-          srcSet={srcSet}
+          src={fallbackImageUrl}
+          srcSet={fallbackImageUrl === imageUrl ? srcSet : undefined}
           sizes={sizes}
           alt=""
           aria-hidden="true"
@@ -349,14 +420,15 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
           preload="auto"
           src={videoUrl}
           onLoadedMetadata={(event) => traceRef.current('loadedmetadata', event.currentTarget)}
-          onLoadedData={revealBufferedFrame}
-          onCanPlay={revealBufferedFrame}
+          onLoadedData={(event) => traceRef.current('loadeddata', event.currentTarget)}
+          onCanPlay={(event) => traceRef.current('canplay', event.currentTarget)}
           onError={(event) => {
             const video = event.currentTarget;
             traceRef.current('error', video, {
               failureClass: video.error ? 'VIDEO_FILE_FAILURE' : 'RESOURCE_LIFECYCLE_FAILURE',
               mediaErrorCode: video.error?.code ?? null,
             });
+            if (!isActive) traceRef.current('fallback-enter', video, { imageUrl: fallbackImageUrl ?? null });
             setVideoFailed(true);
           }}
           tabIndex={-1}

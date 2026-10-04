@@ -1,6 +1,7 @@
 import { act, fireEvent, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BANNER_VIDEO_STARTUP_WATCHDOG_MS, BannerMedia } from '../../src/ui/BannerMedia';
+import { mockBannerVideoFrames } from './helpers/bannerVideoFrames';
 
 const useReducedMotion = vi.fn(() => false);
 const play = vi.fn(() => Promise.resolve());
@@ -18,6 +19,7 @@ describe('BannerMedia', () => {
     play.mockClear();
     play.mockImplementation(() => Promise.resolve());
     pause.mockClear();
+    Object.defineProperty(HTMLMediaElement.prototype, 'load', { configurable: true, value: vi.fn() });
     Object.defineProperty(HTMLMediaElement.prototype, 'play', {
       configurable: true,
       value: play,
@@ -409,6 +411,209 @@ describe('BannerMedia', () => {
     expect(document.querySelector('video')).toBeNull();
     expect(container.querySelector('img')).toHaveAttribute('src', 'https://example.com/hero.webp');
     expect(container.querySelector('div')).toBeNull();
+  });
+
+  describe('activation frame readiness', () => {
+    const girl = 'https://storage.yandexcloud.net/carve/images/girl.mp4';
+    let frames: ReturnType<typeof mockBannerVideoFrames>;
+    beforeEach(() => { vi.useFakeTimers(); frames = mockBannerVideoFrames(); });
+    afterEach(() => { frames.restore(); });
+    const buffered = (video: HTMLVideoElement) => {
+      Object.defineProperty(video, 'readyState', { configurable: true, value: 2 });
+      Object.defineProperty(video, 'networkState', { configurable: true, value: 1 });
+    };
+
+    it('does not reveal initial girl.mp4 from data, playing or resolved play before its frame', async () => {
+      const onVideoReady = vi.fn();
+      const { container } = render(<BannerMedia imageUrl={girl} mediaMode="video" onVideoReady={onVideoReady} />);
+      const video = container.querySelector('video')!;
+      buffered(video);
+      fireEvent.loadedData(video);
+      fireEvent.canPlay(video);
+      fireEvent.playing(video);
+      await act(async () => { await Promise.resolve(); });
+      expect(play).toHaveBeenCalledTimes(1);
+      expect(video).toHaveStyle({ opacity: '0' });
+      expect(onVideoReady).not.toHaveBeenCalled();
+      const [, { callback }] = frames.pending(video);
+      frames.deliver(video);
+      expect(video).toHaveStyle({ opacity: '1' });
+      expect(onVideoReady).toHaveBeenCalledTimes(1);
+      expect(onVideoReady).toHaveBeenCalledWith(true);
+      act(() => callback(0, {} as VideoFrameCallbackMetadata));
+      expect(onVideoReady).toHaveBeenCalledTimes(1);
+      expect(container.querySelector('img')).toBeNull();
+    });
+
+    it('retains element/src and waits for a post-seek frame on reactivation', () => {
+      const onVideoReady = vi.fn();
+      const props = { imageUrl: girl, mediaMode: 'video', retainVideo: true, onVideoReady };
+      const { container, rerender } = render(<BannerMedia {...props} isActive shouldLoadVideo />);
+      const video = container.querySelector('video')!;
+      buffered(video);
+      frames.deliver(video);
+      let position = 3;
+      let seeking = false;
+      const order: string[] = [];
+      Object.defineProperty(video, 'currentTime', { configurable: true, get: () => position, set: (value) => {
+        expect(frames.request).toHaveBeenCalled();
+        order.push('seek'); position = value; seeking = true;
+      } });
+      Object.defineProperty(video, 'seeking', { configurable: true, get: () => seeking });
+      play.mockImplementation(() => { order.push('play'); return Promise.resolve(); });
+      const observer = new MutationObserver(() => {});
+      observer.observe(container, { subtree: true, childList: true, attributes: true, attributeFilter: ['src'] });
+      rerender(<BannerMedia {...props} isActive={false} shouldLoadVideo={false} />);
+      expect(pause).toHaveBeenCalled();
+      expect(video.currentTime).toBe(3);
+      frames.request.mockClear();
+      rerender(<BannerMedia {...props} isActive shouldLoadVideo />);
+      expect(container.querySelector('video')).toBe(video);
+      expect(video).toHaveAttribute('src', girl);
+      expect(video.currentTime).toBe(0);
+      expect(order).toEqual(['seek', 'play']);
+      expect(video).toHaveStyle({ opacity: '0' });
+      frames.deliver(video); // A callback during the seek cannot reveal the old frame.
+      expect(onVideoReady).toHaveBeenCalledTimes(1);
+      const [beforeSeekedId, { callback: beforeSeeked }] = frames.pending(video);
+      seeking = false;
+      fireEvent.seeked(video);
+      expect(frames.cancel).toHaveBeenCalledWith(beforeSeekedId);
+      act(() => beforeSeeked(0, {} as VideoFrameCallbackMetadata));
+      expect(video).toHaveStyle({ opacity: '0' });
+      frames.deliver(video);
+      expect(video).toHaveStyle({ opacity: '1' });
+      expect(onVideoReady).toHaveBeenCalledTimes(2);
+      expect(HTMLMediaElement.prototype.load).not.toHaveBeenCalled();
+      expect(observer.takeRecords()).toHaveLength(0);
+      observer.disconnect();
+    });
+
+    it('cancels old frame callbacks and event listeners before the next activation', () => {
+      const onVideoReady = vi.fn();
+      const props = { imageUrl: girl, mediaMode: 'video', retainVideo: true, onVideoReady };
+      const { container, rerender } = render(<BannerMedia {...props} isActive shouldLoadVideo />);
+      const video = container.querySelector('video')!;
+      buffered(video);
+      const [oldId, { callback }] = frames.pending(video);
+      const remove = vi.spyOn(video, 'removeEventListener');
+      rerender(<BannerMedia {...props} isActive={false} shouldLoadVideo={false} />);
+      expect(frames.cancel).toHaveBeenCalledWith(oldId);
+      expect(remove).toHaveBeenCalledWith('playing', expect.any(Function));
+      expect(remove).toHaveBeenCalledWith('seeked', expect.any(Function));
+      rerender(<BannerMedia {...props} isActive shouldLoadVideo />);
+      act(() => callback(0, {} as VideoFrameCallbackMetadata));
+      expect(onVideoReady).not.toHaveBeenCalled();
+      expect(video).toHaveStyle({ opacity: '0' });
+      frames.deliver(video);
+      expect(onVideoReady).toHaveBeenCalledTimes(1);
+    });
+
+    it('confirms a zero-position activation without requiring seeked', () => {
+      const onVideoReady = vi.fn();
+      const { container } = render(<BannerMedia imageUrl={girl} mediaMode="video" onVideoReady={onVideoReady} />);
+      const video = container.querySelector('video')!;
+      buffered(video);
+      expect(video.currentTime).toBe(0);
+      frames.deliver(video);
+      expect(onVideoReady).toHaveBeenCalledTimes(1);
+    });
+
+    it('invalidates the previous source frame when an active video URL changes', () => {
+      const onVideoReady = vi.fn();
+      const { container, rerender } = render(<BannerMedia imageUrl={girl} mediaMode="video" onVideoReady={onVideoReady} />);
+      const video = container.querySelector('video')!;
+      buffered(video);
+      const [, { callback }] = frames.pending(video);
+      rerender(<BannerMedia imageUrl="https://example.com/new.mp4" mediaMode="video" onVideoReady={onVideoReady} />);
+      expect(container.querySelector('video')).toBe(video);
+      expect(video).toHaveAttribute('src', 'https://example.com/new.mp4');
+      act(() => callback(0, {} as VideoFrameCallbackMetadata));
+      expect(onVideoReady).not.toHaveBeenCalled();
+      frames.deliver(video);
+      expect(onVideoReady).toHaveBeenCalledTimes(1);
+    });
+
+    it.each(['resolve', 'reject'] as const)('ignores a stale play %s while the next activation waits for a frame', async (settlement) => {
+      let resolve!: () => void;
+      let reject!: (reason: Error) => void;
+      play.mockImplementationOnce(() => new Promise<void>((ok, fail) => { resolve = ok; reject = fail; }));
+      const onVideoReady = vi.fn();
+      const props = { imageUrl: girl, mediaMode: 'video', retainVideo: true, onVideoReady };
+      const { container, rerender } = render(<BannerMedia {...props} isActive shouldLoadVideo />);
+      const video = container.querySelector('video')!;
+      buffered(video);
+      rerender(<BannerMedia {...props} isActive={false} shouldLoadVideo={false} />);
+      rerender(<BannerMedia {...props} isActive shouldLoadVideo />);
+      await act(async () => { if (settlement === 'resolve') resolve(); else reject(new Error('old activation')); });
+      expect(container.querySelector('video')).toBe(video);
+      expect(container.querySelector('img')).toBeNull();
+      expect(onVideoReady).not.toHaveBeenCalled();
+      frames.deliver(video);
+      expect(onVideoReady).toHaveBeenCalledTimes(1);
+    });
+
+    it.each(['throw', 'reject'] as const)('handles current play %s without rendering an MP4 as an image', async (failure) => {
+      play.mockImplementation(() => {
+        if (failure === 'throw') throw new Error('play failed');
+        return Promise.reject(new Error('play failed'));
+      });
+      const onVideoReady = vi.fn();
+      const { container } = render(<BannerMedia imageUrl={girl} mediaMode="video" onVideoReady={onVideoReady} />);
+      await act(async () => { await Promise.resolve(); });
+      expect(container.querySelector('video')).toBeNull();
+      expect(container.querySelector('img')).toBeNull();
+      expect(onVideoReady).toHaveBeenCalledTimes(1); // Terminal failure releases carousel timing.
+      expect(onVideoReady).toHaveBeenCalledWith(false);
+    });
+
+    it('uses an available source image for a direct MP4 fallback', () => {
+      const { container } = render(<BannerMedia imageUrl={girl} videoSourceImageUrl="https://example.com/girl.webp" mediaMode="video" />);
+      fireEvent.error(container.querySelector('video')!);
+      expect(container.querySelector('img')).toHaveAttribute('src', 'https://example.com/girl.webp');
+    });
+
+    it.each([false, true])('keeps watchdog through pending playback; frame confirmed: %s', (confirmed) => {
+      play.mockImplementation(() => new Promise<void>(() => {}));
+      const onVideoReady = vi.fn();
+      const { container } = render(<BannerMedia imageUrl="https://example.com/girl.webp" mediaMode="video" onVideoReady={onVideoReady} />);
+      const video = container.querySelector('video')!;
+      buffered(video);
+      fireEvent.loadedData(video);
+      fireEvent.playing(video);
+      act(() => { vi.advanceTimersByTime(BANNER_VIDEO_STARTUP_WATCHDOG_MS - 1); });
+      expect(container.querySelector('video')).toBe(video);
+      expect(onVideoReady).not.toHaveBeenCalled();
+      if (confirmed) frames.deliver(video);
+      act(() => { vi.advanceTimersByTime(1); });
+      expect(onVideoReady).toHaveBeenCalledTimes(1);
+      if (confirmed) {
+        expect(container.querySelector('video')).toBe(video);
+        expect(HTMLMediaElement.prototype.load).not.toHaveBeenCalled();
+      } else expect(container.querySelector('img')).toHaveAttribute('src', 'https://example.com/girl.webp');
+    });
+
+    it.each([0, 3])('fallback requires fresh playing and completed restart at position %s', (position) => {
+      frames.restore(); // Browser without requestVideoFrameCallback.
+      const onVideoReady = vi.fn();
+      const props = { imageUrl: girl, mediaMode: 'video', retainVideo: true, onVideoReady };
+      const { container, rerender } = render(<BannerMedia {...props} isActive={false} shouldLoadVideo={false} shouldPreloadVideo />);
+      const video = container.querySelector('video')!;
+      buffered(video);
+      video.currentTime = position;
+      rerender(<BannerMedia {...props} isActive shouldLoadVideo />);
+      fireEvent.loadedData(video);
+      fireEvent.canPlay(video);
+      expect(onVideoReady).not.toHaveBeenCalled();
+      fireEvent.playing(video);
+      if (position > 0) {
+        expect(onVideoReady).not.toHaveBeenCalled();
+        fireEvent.seeked(video);
+      }
+      expect(video.currentTime).toBe(0);
+      expect(onVideoReady).toHaveBeenCalledTimes(1);
+      expect(video).toHaveStyle({ opacity: '1' });
+    });
   });
 });
 

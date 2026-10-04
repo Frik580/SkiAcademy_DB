@@ -12,7 +12,7 @@ import { useEffectiveBalance } from '../../features/wallet';
 import {
   CabinetParticipantAvatarSwitcher,
   useNavbarParticipantSwitcher,
-} from '../../features/student-cabinet';
+} from '../../features/student-cabinet/navbar';
 
 interface NavbarProps {
   userProfile: UserProfile | null;

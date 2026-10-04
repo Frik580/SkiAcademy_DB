@@ -10,7 +10,7 @@ import {
   buildToggleTodayCompleteUpdate,
   getNewlyPinnedSkillTitles,
   type TodayTaskRef,
-} from '../../features/student-cabinet';
+} from '../student-cabinet/todayChecklist';
 import type { SkillItem } from '../../domain/achievements';
 import { notify, t } from '../../store/storeContext';
 import { QUERY_LIMITS } from '../../shared';

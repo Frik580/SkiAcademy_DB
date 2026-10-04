@@ -11,8 +11,8 @@ import { AppRoutes } from './routes/AppRoutes';
 import { FeaturePageShell } from './FeaturePageShell';
 import { logger } from '../shared';
 
-import { useAuthStore } from '../features/auth';
-import { useProfileStore } from '../features/profile';
+import { useAuthStore } from '../features/auth/session';
+import { useProfileStore } from '../features/profile/runtime';
 import { useNotificationActions } from '../features/notifications';
 import { useUnreadNotificationCount } from '../features/notifications';
 import { useBookingsStore } from '../features/bookings';

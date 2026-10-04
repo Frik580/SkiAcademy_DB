@@ -7,8 +7,10 @@ vi.mock('../../src/app/providers/LanguageContext', () => ({
   useLanguage: () => ({ language: 'en', t: (key: string) => key, setLanguage: vi.fn() }),
 }));
 vi.mock('../../src/features/wallet', () => ({ useEffectiveBalance: () => 0 }));
-vi.mock('../../src/features/student-cabinet', () => ({
+vi.mock('../../src/features/student-cabinet/useNavbarParticipantSwitcher', () => ({
   useNavbarParticipantSwitcher: () => ({ items: [] }),
+}));
+vi.mock('../../src/features/student-cabinet/components/CabinetParticipantAvatarSwitcher', () => ({
   CabinetParticipantAvatarSwitcher: () => null,
 }));
 

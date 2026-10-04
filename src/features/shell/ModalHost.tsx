@@ -16,28 +16,32 @@ import {
 } from '../course-enrollments';
 import { useCabinetProgressParticipantSelectionStore } from '../student-cabinet/cabinetProgressParticipantSelectionStore';
 import { NotificationsPanel } from '../notifications/NotificationsPanel';
-import { AuthModal } from '../../features/auth';
 import { LazyLoad } from '../../ui/LazyLoad';
 import { ModalSkeleton } from '../../ui/Skeleton';
 import { BodyScrollLock } from '../../ui/BodyScrollLock';
 import { loadMoreCanonicalInstructorReviews } from '../reviews';
 import { logger } from '../../shared';
 
+const AuthModal = React.lazy(() =>
+  import('../auth/components/AuthModal').then(({ AuthModal }) => ({ default: AuthModal }))
+);
 const BookingModal = React.lazy(() =>
-  import('../../features/bookings').then(({ BookingModal }) => ({ default: BookingModal }))
+  import('../bookings/components/BookingModal').then(({ BookingModal }) => ({
+    default: BookingModal,
+  }))
 );
 const CourseEnrollmentModal = React.lazy(() =>
-  import('../../features/courses').then(({ CourseEnrollmentModal }) => ({
+  import('../courses/components/CourseEnrollmentModal').then(({ CourseEnrollmentModal }) => ({
     default: CourseEnrollmentModal,
   }))
 );
 const CourseDetailsModal = React.lazy(() =>
-  import('../../features/courses').then(({ CourseDetailsModal }) => ({
+  import('../courses/components/CourseDetailsModal').then(({ CourseDetailsModal }) => ({
     default: CourseDetailsModal,
   }))
 );
 const InstructorReviewsModal = React.lazy(() =>
-  import('../../features/profile').then(({ InstructorReviewsModal }) => ({
+  import('../profile/components/InstructorReviewsModal').then(({ InstructorReviewsModal }) => ({
     default: InstructorReviewsModal,
   }))
 );
@@ -68,6 +72,10 @@ export const ModalHost: React.FC = () => {
 
   const isAuthModalOpen = useUiStore((s) => s.isAuthModalOpen);
   const setIsAuthModalOpen = useUiStore((s) => s.setIsAuthModalOpen);
+  const [hasOpenedAuthModal, setHasOpenedAuthModal] = React.useState(false);
+  React.useEffect(() => {
+    if (isAuthModalOpen) setHasOpenedAuthModal(true);
+  }, [isAuthModalOpen]);
   const selectedInstructor = useUiStore((s) => s.selectedInstructor);
   const setSelectedInstructor = useUiStore((s) => s.setSelectedInstructor);
   const selectedCourseForAuth = useUiStore((s) => s.selectedCourseForAuth);
@@ -174,7 +182,12 @@ export const ModalHost: React.FC = () => {
         </LazyLoad>
       )}
 
-      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+      {/* Keep the loaded modal mounted so its existing exit animation can finish. */}
+      {(isAuthModalOpen || hasOpenedAuthModal) && (
+        <LazyLoad fallback={isAuthModalOpen ? <ModalLoadingFallback label={t('loading')} /> : null}>
+          <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+        </LazyLoad>
+      )}
       <NotificationsPanel />
     </>
   );

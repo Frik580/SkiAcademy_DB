@@ -16,7 +16,7 @@ import {
   resolveHeroOriginUrl,
 } from '../../lib/mediaAssets';
 import { normalizeBannerMediaMode, resolveBannerFocalPoint } from '../../lib/bannerMedia';
-import { BannerMedia, type BannerVideoRole } from '../../ui/BannerMedia';
+import { BannerMedia, type BannerVideoFailureKind, type BannerVideoRole } from '../../ui/BannerMedia';
 import { logger } from '../../shared';
 
 interface HeroCarouselProps {
@@ -97,9 +97,10 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
   const sectionRef = useRef<HTMLElement | null>(null);
   const shouldReduceMotion = useReducedMotion();
   const [carousel, setCarousel] = useState<{
-    current: number; outgoing: number | null; activation: number; pending: number | null;
+    current: number; presented: number | null; outgoing: number | null; activation: number; pending: number | null;
   }>({
     current: 0,
+    presented: null,
     outgoing: null,
     activation: 0,
     pending: null,
@@ -108,6 +109,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
   const outgoingSlide = carousel.outgoing;
   const [readyVideo, setReadyVideo] = useState<{
     activation: number; slideId: string | undefined; source: string; hasVisibleMedia: boolean;
+    failureKind?: BannerVideoFailureKind;
   } | null>(null);
 
   const slideReadinessRef = useRef<(index: number, activation: number) => {
@@ -118,11 +120,14 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
       const next = typeof update === 'function' ? update(prev.pending ?? prev.current) : update;
       if (next === prev.current) return prev.pending === null ? prev : { ...prev, pending: null };
       const previous = slideReadinessRef.current(prev.current, prev.activation);
+      if (previous.settled && !previous.visible && next === prev.presented &&
+        slideReadinessRef.current(next, prev.activation).video) return prev;
       // Restarting the only visible outgoing video would erase its retained frame.
       // Finish the pending incoming frame first, then use it as the outgoing layer.
       if (!previous.settled && next === prev.outgoing &&
         slideReadinessRef.current(next, prev.activation).video) return { ...prev, pending: next };
       return {
+        ...prev,
         current: next,
         outgoing: previous.visible ? prev.current : prev.outgoing ?? prev.current,
         activation: prev.activation + 1,
@@ -202,33 +207,75 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
       readyVideo.source === resolveHeroOriginUrl(resolveSlideBackgroundKey(slides[index], index)));
     return { video, settled, visible: !video || (settled && readyVideo?.hasVisibleMedia === true) };
   };
-  const activeFrameReady = !activeNeedsVideo ||
+  const activeFrameReady = Boolean(activeSlide) && (!activeNeedsVideo ||
     (readyVideo?.activation === carousel.activation && readyVideo.slideId === activeSlide?.id &&
-      readyVideo.source === activeVideoSource);
-  const activeMediaVisible = !activeNeedsVideo || (activeFrameReady && readyVideo?.hasVisibleMedia === true);
-
+      readyVideo.source === activeVideoSource));
+  const activeMediaVisible = Boolean(activeSlide) && (!activeNeedsVideo || (activeFrameReady && readyVideo?.hasVisibleMedia === true));
+  // Commit all presentation bindings in the same render; keep the full previous slide while preparing.
+  const presentedSlide = activeMediaVisible ? currentSlide : carousel.presented;
+  const sourceKey = useCallback((index: number) =>
+    `${slides[index]?.id}:${resolveHeroOriginUrl(resolveSlideBackgroundKey(slides[index], index))}`, [slides]);
+  const mediaConfiguration = slides.map((slide, index) =>
+    `${sourceKey(index)}:${normalizeBannerMediaMode(slide.backgroundMediaMode)}`).join('|');
+  const failedSourceState = useMemo(() => ({ configuration: mediaConfiguration,
+    sources: new Set<string>(), resources: new Set<string>() }), [mediaConfiguration]);
+  const failedSources = failedSourceState.sources;
+  const runtimeTrace = useRef<(event: string, extra?: Record<string, unknown>) => void>(() => {});
+  runtimeTrace.current = (event, extra) => {
+    if (!import.meta.env.DEV || import.meta.env.MODE === 'test') return;
+    const video = sectionRef.current?.querySelectorAll('.ui-hero > .z-0 > div')[currentSlide]?.querySelector('video');
+    logger.debug('[hero-video]', event, { timestamp: new Date().toISOString(), slideIndex: currentSlide,
+      slideId: activeSlide?.id, activationId: carousel.activation, desiredSlide: currentSlide,
+      currentSlide, outgoingSlide, presentedSlide, elementId: video?.dataset.heroElementId,
+      readyState: video?.readyState, networkState: video?.networkState, currentTime: video?.currentTime,
+      paused: video?.paused, error: video?.error?.code ?? null, reason: null, ...extra });
+  };
+  useEffect(() => { runtimeTrace.current('carousel-init'); }, []);
   useEffect(() => {
-    if (!activeFrameReady || carousel.pending === null) return;
+    if (slides.length) runtimeTrace.current('slides-ready', {
+      slides: slides.map((slide, index) => ({ index, slideId: slide.id, source: sourceKey(index) })) });
+  }, [slides, sourceKey]);
+
+  useLayoutEffect(() => {
+    if (!activeFrameReady) return;
     if (!activeMediaVisible) {
-      // Terminal empty failure releases timing, but must not replace the last visible frame.
-      setCarousel((prev) => prev.activation === carousel.activation ? { ...prev, pending: null } : prev);
+      failedSources.add(sourceKey(currentSlide));
+      if (readyVideo?.failureKind === 'resource') failedSourceState.resources.add(sourceKey(currentSlide));
+      // Skip empty failures. If only the presented slide remains, preserve it without restarting its video.
+      const candidates = Array.from({ length: slides.length }, (_, offset) =>
+        (currentSlide + offset + 1) % slides.length);
+      if (carousel.pending !== null) candidates.unshift(carousel.pending);
+      const next = candidates.find((index) => index !== carousel.presented &&
+        !failedSources.has(sourceKey(index)));
+      runtimeTrace.current('skip-slide', { reason: readyVideo?.failureKind, nextSlide: next ?? null });
+      setCarousel((prev) => prev.activation !== carousel.activation ? prev : next === undefined
+        ? prev.pending === null ? prev : { ...prev, pending: null }
+        : { ...prev, current: next, activation: prev.activation + 1, pending: null });
       return;
     }
-    setCarousel((prev) => prev.activation !== carousel.activation || prev.pending === null ? prev : {
-      current: prev.pending,
-      outgoing: prev.current,
-      activation: prev.activation + 1,
-      pending: null,
+    // Bound a chain of failed skips; allow transient failures again after a successful presentation.
+    failedSources.clear();
+    failedSourceState.resources.delete(sourceKey(currentSlide));
+    failedSourceState.resources.forEach((source) => failedSources.add(source));
+    setCarousel((prev) => prev.activation !== carousel.activation ? prev : prev.pending === null
+      ? prev.presented === prev.current ? prev : { ...prev, presented: prev.current }
+      : {
+      ...prev, current: prev.pending, presented: prev.current, outgoing: prev.current,
+      activation: prev.activation + 1, pending: null,
     });
-  }, [activeFrameReady, activeMediaVisible, carousel.activation, carousel.pending]);
+  }, [activeFrameReady, activeMediaVisible, carousel.activation, carousel.pending, carousel.presented, currentSlide, slides, failedSources, failedSourceState, sourceKey, readyVideo?.failureKind]);
 
   useEffect(() => {
     if (outgoingSlide === null || !activeMediaVisible) return;
     const id = window.setTimeout(() => {
+      if (import.meta.env.DEV && import.meta.env.MODE !== 'test') {
+        logger.debug('[hero-video]', 'crossfade-end', { timestamp: new Date().toISOString(),
+          currentSlide, outgoingSlide, presentedSlide });
+      }
       setCarousel((prev) => (prev.outgoing === null ? prev : { ...prev, outgoing: null }));
     }, HERO_CROSSFADE_MS);
     return () => window.clearTimeout(id);
-  }, [outgoingSlide, currentSlide, carousel.activation, activeMediaVisible]);
+  }, [outgoingSlide, currentSlide, carousel.activation, activeMediaVisible, presentedSlide]);
   const carouselHasVideo = slides.some((slide) =>
     slideUsesVideo(slide, shouldReduceMotion)
   );
@@ -254,9 +301,11 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
   useEffect(() => {
     if (slides.length <= 1) return;
     if (!carouselHasVideo) return;
-    if (!activeFrameReady) return;
+    if (!activeMediaVisible) return;
+    runtimeTrace.current('carousel-timer-start', { intervalMs: slideInterval * 1000 });
 
     const id = window.setTimeout(() => {
+      runtimeTrace.current('carousel-next', { reason: 'duration' });
       setCurrentSlide((prev) => (prev + 1) % slides.length);
     }, slideInterval * 1000);
 
@@ -265,7 +314,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
     slides.length,
     slideInterval,
     carouselHasVideo,
-    activeFrameReady,
+    activeMediaVisible,
     currentSlide,
     carousel.activation,
     setCurrentSlide,
@@ -327,20 +376,36 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
   const videoRoleKey = [...videoRoles.entries()]
     .map(([index, role]) => `${index}:${slides[index]?.id ?? ''}:${role}`)
     .join('|');
+  const previousTrace = useRef({ current: -1, presented: null as number | null });
 
   useEffect(() => {
     if (!import.meta.env.DEV || import.meta.env.MODE === 'test') return;
+    const trace = { timestamp: new Date().toISOString(), activationId: carousel.activation,
+      currentSlide, outgoingSlide, presentedSlide };
+    if (previousTrace.current.current !== currentSlide) logger.debug('[hero-video]', 'carousel-next', trace);
+    if (previousTrace.current.current !== currentSlide) runtimeTrace.current('desired-slide');
+    if (previousTrace.current.presented !== presentedSlide) logger.debug('[hero-video]', 'crossfade-start', trace);
+    if (previousTrace.current.presented !== presentedSlide) {
+      runtimeTrace.current('presented-slide');
+      if (presentedSlide !== null) runtimeTrace.current('presentation-commit');
+    }
+    previousTrace.current = { current: currentSlide, presented: presentedSlide };
     logger.debug('[hero-video] mounted-count', {
+      timestamp: new Date().toISOString(),
       count: sectionRef.current?.querySelectorAll('video').length ?? 0,
       current: currentSlide,
       outgoing: outgoingSlide,
+      presented: presentedSlide,
       roles: videoRoleKey,
     });
-  }, [videoRoleKey, currentSlide, outgoingSlide]);
+  }, [videoRoleKey, currentSlide, outgoingSlide, presentedSlide, carousel.activation]);
 
   return (
     <section
       ref={sectionRef}
+      data-desired-slide={currentSlide}
+      data-presented-slide={presentedSlide ?? ''}
+      data-outgoing-slide={outgoingSlide ?? ''}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
       className="ui-hero hero-layout relative w-full min-h-[calc(100svh-4.25rem)] overflow-hidden touch-pan-y"
@@ -356,7 +421,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
         ) : (
           slides.map((slide, idx) => {
             const isActive = idx === currentSlide;
-            const isVisible = isActive ? activeMediaVisible : idx === outgoingSlide && !activeMediaVisible;
+            const isVisible = idx === presentedSlide;
             const videoRole = videoRoles.get(idx);
             const bgKey = resolveSlideBackgroundKey(slide, idx);
             const bgOriginUrl = resolveHeroOriginUrl(bgKey);
@@ -385,13 +450,19 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                   videoRole={videoRole}
                   slideIndex={idx}
                   slideId={slide.id}
-                  onVideoActivationStart={videoRole === 'ACTIVE' ? () => setReadyVideo(null) : undefined}
+                  onVideoActivationStart={videoRole === 'ACTIVE' ? () => {
+                    setReadyVideo(null);
+                    // A source/mode replacement cannot retain a presentation whose resource was replaced.
+                    setCarousel((prev) => ({ ...prev, activation: prev.activation + 1,
+                      presented: prev.presented === idx && prev.current === idx ? null : prev.presented }));
+                  } : undefined}
                   onVideoReady={
-                    videoRole === 'ACTIVE' ? (hasVisibleMedia) => setReadyVideo({
+                    videoRole === 'ACTIVE' ? (hasVisibleMedia, failureKind) => setReadyVideo({
                       activation: carousel.activation,
                       slideId: slide.id,
                       source: bgOriginUrl,
                       hasVisibleMedia,
+                      failureKind,
                     }) : undefined
                   }
                   mobileFocalPointX={resolveBannerFocalPoint(slide.mobileFocalPointX)}
@@ -420,7 +491,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
               <div className="hero-copy-stack w-full max-w-[min(42rem,70vw)]">
                 <div className="grid relative w-full [&>*]:col-start-1 [&>*]:row-start-1 min-w-0">
                   {slides.map((slide, idx) => {
-                    const isActive = idx === currentSlide;
+                    const isActive = idx === presentedSlide;
                     return (
                       <div
                         key={slide.id || `hero-copy-${idx}`}
@@ -510,9 +581,10 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                 type="button"
                 onClick={() => setCurrentSlide((prev) => (prev + 1) % slides.length)}
                 className="hero-pagination font-mono text-xs font-medium tracking-[0.2em] text-[var(--hero-ink)]/70 flex items-center gap-2 bg-transparent border-0 p-0 cursor-pointer hover:text-[var(--hero-ink)] transition-colors"
-                aria-label={`${t('goToSlide')} ${currentSlide + 1} / ${slides.length}`}
+                style={{ visibility: presentedSlide === null ? 'hidden' : undefined }}
+                aria-label={`${t('goToSlide')} ${(presentedSlide ?? currentSlide) + 1} / ${slides.length}`}
               >
-                <span aria-hidden="true">{padSlideIndex(currentSlide + 1)}</span>
+                <span aria-hidden="true">{padSlideIndex((presentedSlide ?? currentSlide) + 1)}</span>
                 <span className="w-8 h-px bg-[var(--hero-ink)]/20" aria-hidden="true" />
                 <span className="text-[var(--hero-ink)]/40" aria-hidden="true">
                   {padSlideIndex(slides.length)}

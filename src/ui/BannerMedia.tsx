@@ -30,7 +30,7 @@ export interface BannerMediaProps {
   /** Keep an admitted resource paused in the DOM within the carousel's video budget. */
   retainVideo?: boolean;
   /** Startup completed; false means terminal failure without a usable image fallback. */
-  onVideoReady?: (hasVisibleMedia: boolean) => void;
+  onVideoReady?: (hasVisibleMedia: boolean, failureKind?: BannerVideoFailureKind) => void;
   /** Invalidates the caller's readiness when playback restarts, including source/mode changes. */
   onVideoActivationStart?: () => void;
   /** Development trace: which carousel slot this element occupies. */
@@ -55,6 +55,7 @@ export interface BannerMediaProps {
 }
 
 export type BannerVideoRole = 'ACTIVE' | 'NEXT_PRELOAD' | 'OUTGOING';
+export type BannerVideoFailureKind = 'resource' | 'activation';
 
 const DEFAULT_MEDIA_CLASS =
   'absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none';
@@ -83,6 +84,7 @@ const NETWORK_NO_SOURCE = 3;
  * file can still reach loadeddata before the image fallback.
  */
 export const BANNER_VIDEO_STARTUP_WATCHDOG_MS = 8000;
+export const BANNER_VIDEO_FRAME_FALLBACK_MS = 250;
 
 const HERO_VIDEO_DEBUG = import.meta.env.DEV && import.meta.env.MODE !== 'test';
 const videoElementIds = new WeakMap<HTMLVideoElement, number>();
@@ -133,6 +135,7 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
   const shouldReduceMotion = useReducedMotion() === true;
   const mode = normalizeBannerMediaMode(mediaMode);
   const [videoFailed, setVideoFailed] = useState(false);
+  const failureKindRef = useRef<BannerVideoFailureKind | null>(null);
   const [videoRevealed, setVideoRevealed] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const activationSequence = useRef(0);
@@ -151,6 +154,11 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
   const requestedVideo = shouldLoadVideo || shouldPreloadVideo;
   const mountVideo = preferVideo && !videoFailed &&
     (requestedVideo || (retainVideo && retainedVideoUrl === videoUrl));
+  if (HERO_VIDEO_DEBUG && videoUrl.includes('girl.mp4')) {
+    logger.debug('[girl-video]', 'render-state', { timestamp: new Date().toISOString(),
+      videoFailed, preferVideo, requestedVideo, retainVideo, retainedVideoUrl, videoUrl,
+      mountVideo, shouldLoadVideo, shouldPreloadVideo, isActive, failureKind: failureKindRef.current });
+  }
   const fallbackImageUrl = !isBannerVideoUrl(imageUrl) ? imageUrl
     : videoSourceImageUrl && !isBannerVideoUrl(videoSourceImageUrl) ? videoSourceImageUrl : undefined;
   const showImage = (!preferVideo || videoFailed) && Boolean(fallbackImageUrl);
@@ -163,7 +171,9 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
   >(() => {});
   traceRef.current = (event, video, extra) => {
     if (!HERO_VIDEO_DEBUG) return;
+    const hero = video?.closest<HTMLElement>('.ui-hero');
     logger.debug('[hero-video]', event, {
+      timestamp: new Date().toISOString(),
       slideIndex,
       slideId,
       videoUrl,
@@ -176,7 +186,12 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
       currentTime: video?.currentTime,
       paused: video?.paused,
       seeking: video?.seeking,
+      error: video?.error?.code ?? null,
       videoRevealed,
+      currentSlide: hero?.dataset.desiredSlide,
+      outgoingSlide: hero?.dataset.outgoingSlide,
+      presentedSlide: hero?.dataset.presentedSlide,
+      layerOpacity: video?.parentElement ? getComputedStyle(video.parentElement).opacity : undefined,
       src: video?.getAttribute('src'),
       currentSrc: video?.currentSrc,
       ...extra,
@@ -186,8 +201,10 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
   const attachVideo = useCallback((node: HTMLVideoElement | null) => {
     if (node) {
       if (!videoElementIds.has(node)) videoElementIds.set(node, nextVideoElementId++);
+      if (HERO_VIDEO_DEBUG) node.dataset.heroElementId = String(videoElementIds.get(node));
       videoRef.current = node;
       traceRef.current('mount', node);
+      traceRef.current('video-mount', node);
       return;
     }
     const previous = videoRef.current;
@@ -198,9 +215,39 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
   }, []);
 
   useLayoutEffect(() => {
+    if (HERO_VIDEO_DEBUG && videoUrl.includes('girl.mp4')) {
+      logger.debug('[girl-video]', 'failure-reset', { timestamp: new Date().toISOString(), reason: 'source-or-mode-change' });
+    }
+    failureKindRef.current = null;
     setVideoFailed(false);
     setVideoRevealed(false);
   }, [imageUrl, videoSourceImageUrl, mode, videoUrl]);
+
+  useLayoutEffect(() => {
+    if ((!isActive && (!shouldPreloadVideo || videoRole === 'OUTGOING')) ||
+      failureKindRef.current === 'resource') return;
+    if (failureKindRef.current !== null) {
+      traceRef.current('failure-reset', videoRef.current, { reason: 'new-admission' });
+      if (HERO_VIDEO_DEBUG && videoUrl.includes('girl.mp4')) {
+        logger.debug('[girl-video]', 'failure-reset', { timestamp: new Date().toISOString(), reason: 'new-admission' });
+      }
+    }
+    // Reset only on an admission edge, never as a reaction to this activation failing.
+    failureKindRef.current = null;
+    setVideoFailed(false);
+  }, [isActive, shouldPreloadVideo, videoRole, videoUrl]);
+
+  const markVideoFailed = useCallback((reason: string, video: HTMLVideoElement) => {
+    const code = video.error?.code;
+    failureKindRef.current = code === 3 || code === 4 ? 'resource' : 'activation';
+    traceRef.current('video-failure', video, { reason, failureKind: failureKindRef.current });
+    if (HERO_VIDEO_DEBUG && video.getAttribute('src')?.includes('girl.mp4')) {
+      logger.debug('[girl-video]', 'video-failed', { timestamp: new Date().toISOString(), reason,
+        activationId: activationSequence.current, currentTime: video.currentTime, readyState: video.readyState,
+        networkState: video.networkState, error: code ?? null, failureKind: failureKindRef.current });
+    }
+    setVideoFailed(true);
+  }, []);
 
   useLayoutEffect(() => {
     const video = videoRef.current;
@@ -219,21 +266,22 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
     video.muted = true;
     video.playsInline = true;
     const activationId = ++activationSequence.current;
+    let ready = false;
     const trace = (event: string, extra?: Record<string, unknown>) =>
-      traceRef.current(event, video, { activationId, ...extra });
+      traceRef.current(event, video, { activationId, videoRevealed: ready, ...extra });
     setVideoRevealed(false);
     onVideoActivationStartRef.current?.();
     trace('activation-start', { videoRevealed: false });
 
     let cancelled = false;
     let failed = false;
-    let ready = false;
     let restarted = false;
     let seekConfirmed = false;
     let playingObserved = false;
     let frameCallbackId: number | undefined;
     let frameRequestSequence = 0;
     let watchdogId = 0;
+    let fallbackId: number | undefined;
     const hasFrameCallback = typeof video.requestVideoFrameCallback === 'function';
     const isCurrent = () => !cancelled && !failed && activationSequence.current === activationId;
 
@@ -247,6 +295,7 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
       if (!isCurrent() || ready) return;
       ready = true;
       window.clearTimeout(watchdogId);
+      window.clearTimeout(fallbackId);
       cancelFrame();
       trace('frame-ready');
       setVideoRevealed(true);
@@ -258,6 +307,7 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
       if (!isCurrent()) return;
       failed = true;
       window.clearTimeout(watchdogId);
+      window.clearTimeout(fallbackId);
       cancelFrame();
       const mediaError = video.error;
       trace(reason === 'watchdog' ? 'watchdog' : 'startup-failure', {
@@ -266,7 +316,7 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
         mediaErrorCode: mediaError?.code ?? null,
       });
       trace('fallback-enter', { imageUrl: fallbackImageUrl ?? null });
-      setVideoFailed(true);
+      markVideoFailed(reason, video);
     };
 
     const restart = () => {
@@ -286,11 +336,23 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
       video.readyState >= HAVE_CURRENT_DATA;
     const confirmFallback = () => {
       // A fresh playing event is required: cached readyState alone is never readiness.
-      if (!hasFrameCallback && playingObserved && frameEligible()) markReady();
+      if (!isCurrent() || ready || !playingObserved || !frameEligible()) return;
+      if (!hasFrameCallback) { trace('fallback-ready'); markReady(); }
+      else if (fallbackId === undefined) {
+        // Retained hidden layers must not depend indefinitely on compositor callbacks.
+        fallbackId = window.setTimeout(() => {
+          fallbackId = undefined;
+          if (!isCurrent() || ready || video.paused || !frameEligible()) return;
+          trace('frame-fallback');
+          trace('fallback-ready');
+          markReady();
+        }, BANNER_VIDEO_FRAME_FALLBACK_MS);
+      }
     };
     const requestFrame = () => {
       if (!hasFrameCallback || !isCurrent() || ready || frameCallbackId !== undefined) return;
       const requestSequence = ++frameRequestSequence;
+      trace('frame-request');
       frameCallbackId = video.requestVideoFrameCallback((_now, metadata) => {
         if (!isCurrent() || requestSequence !== frameRequestSequence) return;
         frameCallbackId = undefined;
@@ -306,6 +368,8 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
     const onSeeking = () => {
       if (!isCurrent()) return;
       seekConfirmed = false;
+      window.clearTimeout(fallbackId);
+      fallbackId = undefined;
       trace('seeking');
     };
     const onSeeked = () => {
@@ -365,6 +429,7 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
       cancelled = true;
       trace('activation-cancel');
       window.clearTimeout(watchdogId);
+      window.clearTimeout(fallbackId);
       cancelFrame();
       video.removeEventListener('loadedmetadata', onData);
       video.removeEventListener('loadeddata', onData);
@@ -374,11 +439,11 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
       video.removeEventListener('playing', onPlaying);
       video.removeEventListener('error', onMediaError);
     };
-  }, [isActive, mountVideo, videoUrl, fallbackImageUrl]);
+  }, [isActive, mountVideo, videoUrl, fallbackImageUrl, markVideoFailed]);
 
   useEffect(() => {
-    if (!isActive || !videoFailed || !preferVideo) return;
-    onVideoReadyRef.current?.(Boolean(fallbackImageUrl));
+    if (!isActive || !videoFailed || !preferVideo || failureKindRef.current === null) return;
+    onVideoReadyRef.current?.(Boolean(fallbackImageUrl), failureKindRef.current);
   }, [isActive, videoFailed, preferVideo, fallbackImageUrl]);
 
   const focalStyle =
@@ -414,7 +479,6 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
           data-video-role={videoRole}
           autoPlay={isActive}
           muted
-          loop
           playsInline
           controls={false}
           preload="auto"
@@ -422,6 +486,9 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
           onLoadedMetadata={(event) => traceRef.current('loadedmetadata', event.currentTarget)}
           onLoadedData={(event) => traceRef.current('loadeddata', event.currentTarget)}
           onCanPlay={(event) => traceRef.current('canplay', event.currentTarget)}
+          onEnded={(event) => traceRef.current('ended', event.currentTarget, {
+            duration: event.currentTarget.duration,
+          })}
           onError={(event) => {
             const video = event.currentTarget;
             traceRef.current('error', video, {
@@ -429,7 +496,7 @@ export const BannerMedia: React.FC<BannerMediaProps> = ({
               mediaErrorCode: video.error?.code ?? null,
             });
             if (!isActive) traceRef.current('fallback-enter', video, { imageUrl: fallbackImageUrl ?? null });
-            setVideoFailed(true);
+            if (!isActive) markVideoFailed('media-error', video);
           }}
           tabIndex={-1}
         />

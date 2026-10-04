@@ -5,18 +5,18 @@ import { Compass } from 'lucide-react';
 import { YourJourneySection } from '../../features/journey';
 import { GroupCoursesSection } from '../../features/courses';
 import { HeroCarousel } from '../../app/components/HeroCarousel';
-import { InstructorCard } from '../../features/profile';
+import { InstructorCard } from '../../features/profile/components/InstructorCard';
 import { LessonFilters } from '../../features/courses';
 import { ConditionsStrip } from '../../features/resort-conditions';
 import { useLanguage } from '../../app/providers/LanguageContext';
 import { useTheme } from '../../hooks/useTheme';
 import { getDefaultWorkspacePath } from '../../lib/workspaceRoutes';
 import { useInstructorFilters } from '../../hooks/useInstructorFilters';
-import { useProfileStore } from '../../features/profile';
+import { useProfileStore } from '../../features/profile/profileStore';
 import { useCoursesStore } from '../../features/courses';
 import { useSettingsStore } from '../../features/settings';
 import { useUiStore } from '../../features/shell';
-import { useAuthStore } from '../../features/auth';
+import { useAuthStore } from '../../features/auth/authStore';
 import {
   selectAllCourseCatalogOperationalStates,
   selectCourseEnrollmentItems,

@@ -9,8 +9,10 @@ import { useResortConditions } from '../../src/features/resort-conditions/hooks/
 import { weatherService } from '../../src/features/resort-conditions/api/weatherService';
 
 vi.mock('../../src/features/wallet', () => ({ useEffectiveBalance: () => 0 }));
-vi.mock('../../src/features/student-cabinet', () => ({
+vi.mock('../../src/features/student-cabinet/useNavbarParticipantSwitcher', () => ({
   useNavbarParticipantSwitcher: () => ({ items: [] }),
+}));
+vi.mock('../../src/features/student-cabinet/components/CabinetParticipantAvatarSwitcher', () => ({
   CabinetParticipantAvatarSwitcher: () => null,
 }));
 

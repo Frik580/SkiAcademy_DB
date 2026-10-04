@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HERO_CROSSFADE_MS, HeroCarousel } from '../../src/app/components/HeroCarousel';
 import { BANNER_VIDEO_STARTUP_WATCHDOG_MS } from '../../src/ui/BannerMedia';
 import type { CustomHeroSlide } from '../../src/types';
+import { mockBannerVideoFrames } from './helpers/bannerVideoFrames';
 
 const play = vi.fn(() => Promise.resolve());
 const pause = vi.fn();
@@ -13,6 +14,7 @@ const pause = vi.fn();
 beforeEach(() => {
   play.mockClear();
   pause.mockClear();
+  Object.defineProperty(HTMLMediaElement.prototype, 'load', { configurable: true, value: vi.fn() });
   Object.defineProperty(HTMLMediaElement.prototype, 'play', {
     configurable: true,
     value: play,
@@ -95,9 +97,21 @@ function backgroundLayers(container: HTMLElement): HTMLElement[] {
 }
 
 function advance(container: HTMLElement) {
+  // Existing navigation/budget tests model healthy completed activations.
+  const current = container.querySelector<HTMLVideoElement>('video[data-video-role="ACTIVE"]');
+  if (current) confirmPlayback(current);
   const button = container.querySelector('button[aria-label^="goToSlide"]');
   if (!button) throw new Error('missing slide control');
   fireEvent.click(button);
+  const incoming = container.querySelector<HTMLVideoElement>('video[data-video-role="ACTIVE"]');
+  if (incoming) confirmPlayback(incoming);
+}
+
+function confirmPlayback(video: HTMLVideoElement) {
+  setMediaState(video, 2, 1);
+  fireEvent.loadedData(video);
+  fireEvent.seeked(video);
+  fireEvent.playing(video);
 }
 
 function videoSources(container: HTMLElement): string[] {
@@ -165,6 +179,7 @@ describe('HeroCarousel video preload', () => {
     const layers = backgroundLayers(container);
 
     expect(layers[0].querySelector('video')).toHaveAttribute('preload', 'auto');
+    confirmPlayback(layers[0].querySelector('video')!);
     expect(layers[0]).toHaveClass('opacity-100');
     expect(layers[1].querySelector('video')).toHaveAttribute('src', 'https://cdn.example.com/b.mp4');
     expect(layers[1].querySelector('video')).toHaveAttribute('preload', 'auto');
@@ -195,9 +210,7 @@ describe('HeroCarousel video preload', () => {
   it('resets currentTime and requests play when a video slide is active', () => {
     const { container } = renderCarousel([slide('a', 'video')]);
     const video = container.querySelector('video') as HTMLVideoElement;
-    video.currentTime = 5;
-
-    fireEvent.canPlay(video);
+    confirmPlayback(video);
 
     expect(video.currentTime).toBe(0);
     expect(play).toHaveBeenCalled();
@@ -338,7 +351,7 @@ describe('HeroCarousel video preload', () => {
     expect(container.querySelector('.hero-copy-body')).toBeNull();
   });
 
-  it('does not start the video slide timer before the mp4 can play', () => {
+  it('does not reveal or start the video slide timer from canplay alone', () => {
     vi.useFakeTimers();
     const { container } = renderCarousel(
       [slide('a', 'video'), slide('b', 'image')],
@@ -348,9 +361,11 @@ describe('HeroCarousel video preload', () => {
     act(() => {
       vi.advanceTimersByTime(5000);
     });
-    expect(backgroundLayers(container)[0]).toHaveClass('opacity-100');
+    expect(backgroundLayers(container)[0]).toHaveClass('opacity-0');
 
     fireEvent.canPlay(container.querySelector('video')!);
+    expect(backgroundLayers(container)[0]).toHaveClass('opacity-0');
+    confirmPlayback(container.querySelector('video')!);
 
     act(() => {
       vi.advanceTimersByTime(4999);
@@ -410,14 +425,15 @@ describe('HeroCarousel video resource budget', () => {
     const originalVideos = Array.from(container.querySelectorAll('video'));
     expect(originalVideos).toHaveLength(2);
     for (const video of originalVideos) setMediaState(video, 2, 1);
-    fireEvent.loadedData(originalVideos[0]);
-    fireEvent.loadedData(originalVideos[1]);
+    confirmPlayback(originalVideos[0]);
     const observer = new MutationObserver(() => {});
     observer.observe(container, { subtree: true, childList: true, attributes: true, attributeFilter: ['src'] });
     load.mockClear();
 
     for (let step = 0; step < slides.length * 4; step += 1) {
       act(() => { vi.advanceTimersByTime(5000); });
+      const active = container.querySelector<HTMLVideoElement>('video[data-video-role="ACTIVE"]');
+      if (active) confirmPlayback(active);
       const videos = Array.from(container.querySelectorAll('video'));
       expect(videos).toEqual(originalVideos);
       expect(new Set(videoSources(container)).size).toBe(2);
@@ -556,7 +572,7 @@ describe('HeroCarousel video resource budget', () => {
       5
     );
 
-    fireEvent.loadedData(layerVideo(container, 0));
+    confirmPlayback(layerVideo(container, 0));
     expect(play).toHaveBeenCalled();
     expect(backgroundLayers(container)[0].querySelector('img')).toBeNull();
 
@@ -564,10 +580,9 @@ describe('HeroCarousel video resource budget', () => {
       vi.advanceTimersByTime(5000);
     });
 
-    play.mockClear();
     const second = layerVideo(container, 1);
     setMediaState(second, 2);
-    fireEvent.loadedData(second);
+    confirmPlayback(second);
 
     expect(second.currentTime).toBe(0);
     expect(play).toHaveBeenCalled();
@@ -597,7 +612,7 @@ describe('HeroCarousel video resource budget', () => {
     loadedSrcs.length = 0;
     load.mockClear();
 
-    fireEvent.loadedData(layerVideo(container, 0));
+    confirmPlayback(layerVideo(container, 0));
     act(() => {
       vi.advanceTimersByTime(5000);
     });
@@ -606,8 +621,7 @@ describe('HeroCarousel video resource budget', () => {
     expect(loadedSrcs).not.toContain('https://cdn.example.com/c.mp4');
     expect(videoCount(container)).toBeLessThanOrEqual(2);
 
-    play.mockClear();
-    fireEvent.loadedData(second);
+    confirmPlayback(second);
 
     expect(play).toHaveBeenCalled();
     expect(backgroundLayers(container)[1].querySelector('img')).toBeNull();
@@ -626,7 +640,7 @@ describe('HeroCarousel video resource budget', () => {
       5
     );
 
-    fireEvent.loadedData(layerVideo(container, 0));
+    confirmPlayback(layerVideo(container, 0));
     act(() => {
       vi.advanceTimersByTime(5000);
     });
@@ -650,6 +664,8 @@ describe('HeroCarousel video resource budget', () => {
       vi.advanceTimersByTime(5000);
     });
 
+    expect(layerVideo(container, 2)).toHaveAttribute('data-video-role', 'ACTIVE');
+    confirmPlayback(layerVideo(container, 2));
     expect(backgroundLayers(container)[2]).toHaveClass('opacity-100');
     expect(videoCount(container)).toBeLessThanOrEqual(2);
   });
@@ -661,7 +677,7 @@ describe('HeroCarousel video resource budget', () => {
       5
     );
 
-    fireEvent.loadedData(layerVideo(container, 0));
+    confirmPlayback(layerVideo(container, 0));
     play.mockImplementation(() => Promise.reject(new Error('play rejected')));
 
     act(() => {
@@ -676,11 +692,14 @@ describe('HeroCarousel video resource budget', () => {
     expect(backgroundLayers(container)[1].querySelector('video')).toBeNull();
     expect(backgroundLayers(container)[1].querySelector('img')).not.toBeNull();
     expect(backgroundLayers(container)[1]).toHaveClass('opacity-100');
+    play.mockImplementation(() => Promise.resolve());
 
     act(() => {
       vi.advanceTimersByTime(5000);
     });
 
+    expect(layerVideo(container, 2)).toHaveAttribute('data-video-role', 'ACTIVE');
+    confirmPlayback(layerVideo(container, 2));
     expect(backgroundLayers(container)[2]).toHaveClass('opacity-100');
   });
 
@@ -702,6 +721,8 @@ describe('HeroCarousel video resource budget', () => {
       vi.advanceTimersByTime(5000);
     });
 
+    expect(layerVideo(container, 2)).toHaveAttribute('data-video-role', 'ACTIVE');
+    confirmPlayback(layerVideo(container, 2));
     expect(backgroundLayers(container)[2]).toHaveClass('opacity-100');
     expect(videoCount(container)).toBeLessThanOrEqual(2);
   });
@@ -730,6 +751,181 @@ describe('HeroCarousel video resource budget', () => {
       expect(videoCount(container)).toBeLessThanOrEqual(2);
       expect(videoSources(container)).toHaveLength(2);
     }
+  });
+});
+
+describe('HeroCarousel activation frames', () => {
+  it('restarts girl.mp4 through two full cycles without resource churn or stale readiness', () => {
+    vi.useFakeTimers();
+    const frames = mockBannerVideoFrames();
+    try {
+      const { container } = renderCarousel([
+        slide('girl', 'video', CARVE_GIRL_MP4), slide('two', 'image'), slide('three', 'image'),
+      ], 5);
+      const video = layerVideo(container, 0);
+      const load = vi.mocked(HTMLMediaElement.prototype.load);
+      setMediaState(video, 2, 1);
+      const observer = new MutationObserver(() => {});
+      observer.observe(container, { subtree: true, childList: true, attributes: true, attributeFilter: ['src'] });
+      const clickNext = () => fireEvent.click(container.querySelector('button[aria-label^="goToSlide"]')!);
+      for (let cycle = 0; cycle < 3; cycle++) {
+        expect(layerVideo(container, 0)).toBe(video);
+        expect(video).toHaveAttribute('src', CARVE_GIRL_MP4);
+        expect(video.currentTime).toBe(0);
+        expect(video).toHaveStyle({ opacity: '0' });
+        expect(backgroundLayers(container)[0]).toHaveClass('opacity-0');
+        if (cycle > 0) expect(backgroundLayers(container)[2]).toHaveClass('opacity-100');
+        // Old readiness must neither reveal nor start the new slide's interval.
+        act(() => { vi.advanceTimersByTime(5000); });
+        expect(video).toHaveAttribute('data-video-role', 'ACTIVE');
+        fireEvent.seeked(video);
+        frames.deliver(video);
+        expect(video).toHaveStyle({ opacity: '1' });
+        expect(backgroundLayers(container)[0]).toHaveClass('opacity-100');
+        expect(container.querySelectorAll('img')).toHaveLength(2);
+        video.currentTime = 3;
+        if (cycle === 2) break;
+        clickNext();
+        expect(pause).toHaveBeenCalled();
+        expect(video.currentTime).toBe(3);
+        clickNext();
+        clickNext();
+      }
+      expect(play).toHaveBeenCalledTimes(3);
+      expect(load).not.toHaveBeenCalled();
+      const mutations = observer.takeRecords();
+      expect(mutations.filter((record) => record.type === 'attributes')).toHaveLength(0);
+      expect(mutations.flatMap((record) => [...record.removedNodes])
+        .filter((node) => node instanceof HTMLVideoElement)).toHaveLength(0);
+      observer.disconnect();
+    } finally { frames.restore(); }
+  });
+
+  it('keeps the last visible outgoing layer when an unready incoming video is skipped', () => {
+    const { container } = renderCarousel([
+      slide('photo', 'image'), slide('one', 'video'), slide('two', 'video'),
+    ]);
+    const clickNext = () => fireEvent.click(container.querySelector('button[aria-label^="goToSlide"]')!);
+    clickNext();
+    clickNext();
+    expect(backgroundLayers(container)[0]).toHaveClass('opacity-100');
+    expect(backgroundLayers(container)[2]).toHaveClass('opacity-0');
+    expect(videoCount(container)).toBeLessThanOrEqual(2);
+    confirmPlayback(layerVideo(container, 2));
+    expect(backgroundLayers(container)[0]).toHaveClass('opacity-0');
+    expect(backgroundLayers(container)[2]).toHaveClass('opacity-100');
+  });
+
+  it('waits for the pending incoming frame before restarting the only visible outgoing video', () => {
+    const frames = mockBannerVideoFrames();
+    try {
+      const { container } = renderCarousel([slide('a', 'video'), slide('b', 'video')]);
+      const a = layerVideo(container, 0);
+      const b = layerVideo(container, 1);
+      setMediaState(a, 2, 1);
+      setMediaState(b, 2, 1);
+      frames.deliver(a);
+      a.currentTime = 3;
+      fireEvent.click(container.querySelector('button[aria-label^="goToSlide"]')!);
+      const section = container.querySelector('section')!;
+      fireEvent.touchStart(section, { touches: [{ clientX: 0, clientY: 0 }] });
+      fireEvent.touchEnd(section, { changedTouches: [{ clientX: 100, clientY: 0 }] });
+      expect(a).toHaveAttribute('data-video-role', 'OUTGOING');
+      expect(backgroundLayers(container)[0]).toHaveClass('opacity-100');
+      expect(a.currentTime).toBe(3);
+      frames.deliver(b);
+      expect(a).toHaveAttribute('data-video-role', 'ACTIVE');
+      expect(a.currentTime).toBe(0);
+      expect(a).toHaveStyle({ opacity: '0' });
+      expect(backgroundLayers(container)[1]).toHaveClass('opacity-100');
+      fireEvent.seeked(a);
+      frames.deliver(a);
+      expect(backgroundLayers(container)[0]).toHaveClass('opacity-100');
+      expect(layerVideo(container, 0)).toBe(a);
+      expect(layerVideo(container, 1)).toBe(b);
+      expect(videoCount(container)).toBe(2);
+      expect(HTMLMediaElement.prototype.load).not.toHaveBeenCalled();
+    } finally { frames.restore(); }
+  });
+
+  it('returns immediately to an outgoing image while the incoming video is pending', () => {
+    const { container } = renderCarousel([slide('photo', 'image'), slide('video', 'video')]);
+    fireEvent.click(container.querySelector('button[aria-label^="goToSlide"]')!);
+    const section = container.querySelector('section')!;
+    fireEvent.touchStart(section, { touches: [{ clientX: 0, clientY: 0 }] });
+    fireEvent.touchEnd(section, { changedTouches: [{ clientX: 100, clientY: 0 }] });
+    expect(container.querySelector('button[aria-label^="goToSlide"]')).toHaveAttribute('aria-label', 'goToSlide 1 / 2');
+    expect(backgroundLayers(container)[0]).toHaveClass('opacity-100');
+    expect(container.querySelector('video[data-video-role="ACTIVE"]')).toBeNull();
+  });
+
+  it.each(['reject', 'watchdog'] as const)('keeps the visible outgoing after queued incoming MP4 %s without an image fallback', async (failure) => {
+    vi.useFakeTimers();
+    const frames = mockBannerVideoFrames();
+    try {
+      const { container } = renderCarousel([
+        slide('girl', 'video', CARVE_GIRL_MP4), slide('other', 'video', 'https://example.com/other.mp4'),
+      ], 5);
+      const a = layerVideo(container, 0);
+      const b = layerVideo(container, 1);
+      setMediaState(a, 2, 1);
+      setMediaState(b, 2, 1);
+      frames.deliver(a);
+      a.currentTime = 3;
+      if (failure === 'reject') play.mockImplementationOnce(() => Promise.reject(new Error('incoming failed')));
+      fireEvent.click(container.querySelector('button[aria-label^="goToSlide"]')!);
+      const section = container.querySelector('section')!;
+      fireEvent.touchStart(section, { touches: [{ clientX: 0, clientY: 0 }] });
+      fireEvent.touchEnd(section, { changedTouches: [{ clientX: 100, clientY: 0 }] });
+      if (failure === 'watchdog') act(() => { vi.advanceTimersByTime(BANNER_VIDEO_STARTUP_WATCHDOG_MS); });
+      else await act(async () => { await Promise.resolve(); });
+      expect(layerVideo(container, 0)).toBe(a);
+      expect(a).toHaveAttribute('data-video-role', 'OUTGOING');
+      expect(a.currentTime).toBe(3);
+      expect(backgroundLayers(container)[0]).toHaveClass('opacity-100');
+      expect(backgroundLayers(container)[1]).toHaveClass('opacity-0');
+      expect(container.querySelector('img')).toBeNull();
+      act(() => { vi.advanceTimersByTime(HERO_CROSSFADE_MS); });
+      expect(a).toHaveAttribute('data-video-role', 'OUTGOING');
+      // Queue was cancelled; both timeout and explicit navigation can proceed.
+      if (failure === 'watchdog') act(() => { vi.advanceTimersByTime(5000 - HERO_CROSSFADE_MS); });
+      else fireEvent.click(container.querySelector('button[aria-label^="goToSlide"]')!);
+      expect(a).toHaveAttribute('data-video-role', 'ACTIVE');
+      expect(a.currentTime).toBe(0);
+      fireEvent.seeked(a);
+      frames.deliver(a);
+      expect(backgroundLayers(container)[0]).toHaveClass('opacity-100');
+      expect(a).toHaveAttribute('src', CARVE_GIRL_MP4);
+      expect(vi.mocked(HTMLMediaElement.prototype.load).mock.contexts).not.toContain(a);
+      expect(videoCount(container)).toBeLessThanOrEqual(2);
+    } finally { frames.restore(); }
+  });
+
+  it.each(['source', 'mode'] as const)('invalidates old readiness after %s changes away and back without navigation', (change) => {
+    vi.useFakeTimers();
+    const frames = mockBannerVideoFrames();
+    try {
+      const original = slide('girl', 'video', CARVE_GIRL_MP4);
+      const view = (first: CustomHeroSlide) => <HeroCarousel
+        data={{ slides: [first, slide('image', 'image')], language: 'en', theme: 'dark', slideIntervalSeconds: 5 }}
+        actions={{ onScrollToSection: vi.fn() }} />;
+      const { container, rerender } = render(view(original));
+      const first = layerVideo(container, 0);
+      setMediaState(first, 2, 1);
+      frames.deliver(first);
+      expect(backgroundLayers(container)[0]).toHaveClass('opacity-100');
+      rerender(view(change === 'source' ? { ...original, backgroundImage: 'https://example.com/other.mp4' }
+        : { ...original, backgroundMediaMode: 'image' }));
+      rerender(view(original));
+      const video = layerVideo(container, 0);
+      setMediaState(video, 2, 1);
+      expect(backgroundLayers(container)[0]).toHaveClass('opacity-0');
+      expect(video).toHaveStyle({ opacity: '0' });
+      act(() => { vi.advanceTimersByTime(5000); });
+      expect(video).toHaveAttribute('data-video-role', 'ACTIVE');
+      frames.deliver(video);
+      expect(backgroundLayers(container)[0]).toHaveClass('opacity-100');
+    } finally { frames.restore(); }
   });
 });
 

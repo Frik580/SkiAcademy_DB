@@ -7,7 +7,7 @@ const useReducedMotion = vi.fn(() => false);
 const play = vi.fn(() => Promise.resolve());
 const pause = vi.fn();
 
-vi.mock('motion/react', () => ({
+vi.mock('framer-motion', () => ({
   useReducedMotion: () => useReducedMotion(),
 }));
 

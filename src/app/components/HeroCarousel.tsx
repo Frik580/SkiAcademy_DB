@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
-import { motion, useReducedMotion } from 'motion/react';
+import { m, useReducedMotion } from 'framer-motion';
 import { useLanguage, type Language } from '../../app/providers/LanguageContext';
 import type { Theme } from '../../hooks/useTheme';
 import { CustomHeroSlide } from '../../types';
@@ -504,7 +504,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                         style={crossfadeStyle}
                       >
                         <div className="hero-copy space-y-3">
-                          <motion.span
+                          <m.span
                             initial={shouldReduceMotion ? false : { opacity: 0, y: 10 }}
                             animate={
                               isActive
@@ -519,8 +519,8 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                             className="hero-copy-eyebrow text-xs font-mono font-medium uppercase tracking-[0.1em] block"
                           >
                             {language === 'en' ? slide.line1En : slide.line1Ru}
-                          </motion.span>
-                          <motion.h2
+                          </m.span>
+                          <m.h2
                             initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
                             animate={
                               isActive
@@ -535,7 +535,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                             className="hero-copy-title text-4xl md:text-5xl lg:text-6xl font-serif font-light leading-tight tracking-tight"
                           >
                             {language === 'en' ? slide.line2En : slide.line2Ru}
-                          </motion.h2>
+                          </m.h2>
                         </div>
                       </div>
                     );
@@ -543,7 +543,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                 </div>
 
                 <div className="hero-actions-shell">
-                  <motion.div
+                  <m.div
                     initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{
@@ -569,7 +569,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                       <span>{t('chooseCourse')}</span>
                       <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
                     </button>
-                  </motion.div>
+                  </m.div>
                 </div>
               </div>
             </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion, useReducedMotion } from 'motion/react';
+import { m, useReducedMotion } from 'framer-motion';
 import { normalizeInstructorSpokenLanguage } from '@ski-academy/shared-domain/canonical/instructorSpokenLanguage';
 import { Instructor } from '../../../types';
 import { Star, Globe } from 'lucide-react';
@@ -114,7 +114,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
     );
 
     return (
-      <motion.div
+      <m.div
         ref={ref}
         initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -193,7 +193,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
             </div>
           </div>
         </div>
-      </motion.div>
+      </m.div>
     );
   }
 );

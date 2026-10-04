@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { useReducedMotion } from 'motion/react';
+import { useReducedMotion } from 'framer-motion';
 import {
   DEFAULT_BANNER_FOCAL_POINT_PERCENT,
   deriveBannerVideoUrl,

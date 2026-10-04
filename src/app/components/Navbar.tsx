@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { UserProfile } from '../../types';
 import { LogOut, Bell, Sun, Moon, Menu, X, Settings, ChevronDown } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { m, AnimatePresence } from 'framer-motion';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../app/providers/LanguageContext';
 import { useCurrency } from '../../app/providers/CurrencyContext';
@@ -319,7 +319,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       <AnimatePresence>
         {isWorkspaceMenuOpen && workspaceItems.length > 0 && (
-          <motion.div
+          <m.div
             key="workspace-menu"
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
@@ -345,13 +345,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </Link>
               ))}
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 
       <AnimatePresence>
         {isMenuOpen && (
-          <motion.div
+          <m.div
             initial={{ y: -12 }}
             animate={{ y: 0 }}
             exit={{ y: -12 }}
@@ -473,7 +473,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {t('signOut')}
               </button>
             )}
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </div>

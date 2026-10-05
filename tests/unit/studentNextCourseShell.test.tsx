@@ -749,6 +749,135 @@ function countdownProps(bookings: LessonBookingCabinetItem[]) {
   return props;
 }
 
+function currentCards() {
+  return Array.from(screen.getByText('scCurrentSessions').nextElementSibling!.children);
+}
+
+function currentPeople(card: HTMLElement) {
+  return within(card).getByRole('list', { name: 'bookingParticipantsLabel' });
+}
+
+describe('account-level current sessions through the real header', () => {
+  it('keeps B, the instructor, card instance, and booking actions through A → B → A', () => {
+    vi.setSystemTime(new Date('2026-10-02T12:30:00'));
+    const booking = upcomingLesson('current_b', ['b'], '12:00');
+    const props = countdownProps([booking]);
+    props.usersList = [
+      {
+        uid: 'coach_user',
+        instructorId: booking.instructorId,
+        phoneNumber: '+7 777 123 45 67',
+      } as UserProfile,
+    ];
+    setup(props);
+    const card = currentCards()[0] as HTMLElement;
+    const people = currentPeople(card);
+    const assertCard = () => {
+      expect(currentCards()).toHaveLength(1);
+      expect(currentCards()[0]).toBe(card);
+      expect(currentPeople(card)).toBe(people);
+      expect(
+        within(people)
+          .getAllByRole('listitem')
+          .map((item) => item.textContent)
+      ).toEqual(['Bob Full Name']);
+      expect(people.querySelector('img')).toHaveAttribute('src', '/b.png');
+      expect(within(card).getByText('Coach current_b')).toBeInTheDocument();
+      expect(within(people).queryByText('Coach current_b')).not.toBeInTheDocument();
+      expect(within(card).getByRole('link', { name: 'scCallCoach' })).toHaveAttribute(
+        'href',
+        'tel:+77771234567'
+      );
+      fireEvent.click(within(card).getByRole('button', { name: 'scMoreDetails' }));
+      expect(props.onOpenLesson).toHaveBeenLastCalledWith(booking);
+      fireEvent.click(within(card).getByRole('button', { name: 'chat', exact: true }));
+      expect(props.onChat).toHaveBeenLastCalledWith(booking);
+    };
+    assertCard();
+    fireEvent.click(screen.getByRole('button', { name: 'Select Bob Full Name' }));
+    assertCard();
+    fireEvent.click(screen.getByRole('button', { name: 'Select Alice Full Name' }));
+    assertCard();
+  });
+
+  it('shows A+B with account avatars when C is selected and preserves the card on switching', () => {
+    vi.setSystemTime(new Date('2026-10-02T12:30:00'));
+    selectHeader('c');
+    setup(countdownProps([upcomingLesson('current_shared', ['a', 'b'], '12:00')]));
+    const card = currentCards()[0] as HTMLElement;
+    const people = currentPeople(card);
+    expect(
+      within(people)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent)
+    ).toEqual(['Alice Full Name', 'Bob Full Name']);
+    expect([...people.querySelectorAll('img')].map((img) => img.getAttribute('src'))).toEqual([
+      '/a.png',
+      '/b.png',
+    ]);
+    fireEvent.click(screen.getByRole('button', { name: 'Select Alice Full Name' }));
+    expect(currentCards()[0]).toBe(card);
+    expect(currentPeople(card)).toHaveTextContent('Alice Full NameBob Full Name');
+  });
+
+  it('uses the existing avatar fallback for a participant without an image', () => {
+    vi.setSystemTime(new Date('2026-10-02T12:30:00'));
+    managedMock.mockReturnValue({
+      participants: participants.map((person) =>
+        person.participantId === 'b' ? { ...person, avatarUrl: undefined } : person
+      ),
+      loading: false,
+      error: undefined,
+      reload: vi.fn(),
+    });
+    setup(countdownProps([upcomingLesson('current_fallback', ['b'], '12:00')]));
+    const people = currentPeople(currentCards()[0] as HTMLElement);
+    expect(people.querySelector('img')).toBeNull();
+    expect(people.querySelector('[data-participant-avatar-face]')).toHaveTextContent('B');
+    expect(within(people).getByText('Bob Full Name')).toBeInTheDocument();
+  });
+
+  it('keeps active enrollment B scoped to B and its actions while header A is selected', () => {
+    vi.setSystemTime(new Date('2026-10-03T10:30:00+05:00'));
+    const props = shellProps();
+    props.sessionItems = props.sessionItems!.map((item) =>
+      item.kind === 'course_day' && item.participantId === 'a'
+        ? { ...item, time: '16:00', endTime: '17:00' }
+        : item
+    );
+    setup(props);
+    const card = currentCards()[0] as HTMLElement;
+    expect(currentCards()).toHaveLength(1);
+    expect(
+      within(currentPeople(card))
+        .getAllByRole('listitem')
+        .map((item) => item.textContent)
+    ).toEqual(['Bob Full Name']);
+    for (const name of ['Select Bob Full Name', 'Select Alice Full Name']) {
+      fireEvent.click(screen.getByRole('button', { name }));
+      expect(currentCards()[0]).toBe(card);
+      fireEvent.click(within(card).getByRole('button', { name: 'scMoreDetails' }));
+      expect(props.onViewCourseDetails).toHaveBeenLastCalledWith(props.courses[0], 'eb');
+    }
+  });
+
+  it('renders simultaneous enrollments as independent cards with their own participants and actions', () => {
+    vi.setSystemTime(new Date('2026-10-03T10:30:00+05:00'));
+    const props = shellProps();
+    setup(props);
+    expect(currentCards()).toHaveLength(2);
+    for (const element of currentCards()) {
+      const card = element as HTMLElement;
+      const people = currentPeople(card);
+      expect(within(people).getAllByRole('listitem')).toHaveLength(1);
+      const enrollmentId = people.textContent === 'Alice Full Name' ? 'ea' : 'eb';
+      expect(people.textContent).toBe(enrollmentId === 'ea' ? 'Alice Full Name' : 'Bob Full Name');
+      fireEvent.click(within(card).getByRole('button', { name: 'scMoreDetails' }));
+      expect(props.onViewCourseDetails).toHaveBeenLastCalledWith(props.courses[0], enrollmentId);
+    }
+  });
+});
+
 describe('account-level countdown through the real header', () => {
   it('selects B at 14:00 ahead of A at 16:00 and preserves the running timer through A → B → C switches', () => {
     vi.useRealTimers();

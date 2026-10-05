@@ -36,6 +36,7 @@ export interface SessionCountdownBlockInput {
 
 export interface CurrentSessionsBlockInput {
   sessions: CabinetSessionItem[];
+  participantsBySessionKey?: Readonly<Record<string, readonly SessionParticipantInput[]>>;
   courses: StudentCourse[];
   instructors: StudentInstructor[];
   usersList: StudentProfile[];
@@ -157,7 +158,7 @@ export type StudentProfilePanelProps = StudentProfilePanelInput & {
 /** The complete data boundary for the student-cabinet home container. */
 export interface StudentCabinetHomeContext {
   participantProfiles?: readonly SessionParticipantInput[];
-  /** Account sessions before header filtering; used only by the next-session block. */
+  /** Account sessions before header filtering for next, countdown, and current blocks. */
   nextSessionItems?: readonly CabinetSessionItem[];
   /** Account-level today fact, independent of header participant selection. */
   hasAnyParticipantSessionToday: boolean;
@@ -202,6 +203,7 @@ export interface StudentTodaySectionInput {
   countdownParticipants?: readonly SessionParticipantInput[];
   participantsBySessionKey?: NextSessionBlockInput['participantsBySessionKey'];
   currentSessions: CabinetSessionItem[];
+  currentParticipantsBySessionKey?: CurrentSessionsBlockInput['participantsBySessionKey'];
   nextSession?: CabinetSessionItem | null;
   nextSessions?: NextSessionItem[];
   sessionItems: readonly CabinetSessionItem[];

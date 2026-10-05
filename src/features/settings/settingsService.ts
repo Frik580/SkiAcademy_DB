@@ -1,4 +1,12 @@
 import { db, doc, setDoc } from '../../infrastructure/firebase';
+import { auth } from '../../infrastructure/firebase';
+import { serverTimestamp } from 'firebase/firestore';
+import {
+  STUDENT_DASHBOARD_LAYOUT_SETTING_ID,
+  normalizeStudentDashboardLayout,
+  validateStudentDashboardLayout,
+  type StudentDashboardLayout,
+} from './studentDashboardLayout';
 import { AchievementsConfig, normalizeAchievementsConfig } from '../../domain/achievements';
 import {
   MAX_NOTIFICATION_RETENTION_DAYS,
@@ -13,6 +21,21 @@ import {
 
 export const saveFiltersEnabled = (enabled: boolean): Promise<void> =>
   setDoc(doc(db, 'settings', 'instructor_filters'), { enabled });
+
+export async function saveStudentDashboardLayout(
+  config: StudentDashboardLayout
+): Promise<StudentDashboardLayout> {
+  validateStudentDashboardLayout(config);
+  const updatedBy = auth.currentUser?.uid;
+  if (!updatedBy) throw new Error('Authentication required');
+  const layout = normalizeStudentDashboardLayout(config);
+  await setDoc(doc(db, 'settings', STUDENT_DASHBOARD_LAYOUT_SETTING_ID), {
+    ...layout,
+    updatedAt: serverTimestamp(),
+    updatedBy,
+  });
+  return layout;
+}
 
 export async function saveNotificationRetentionDays(days: number): Promise<number> {
   const normalizedDays = Math.min(

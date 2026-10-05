@@ -1,10 +1,16 @@
+import { StudentDashboardTileHeader, StudentDashboardTileBody } from './StudentDashboardTile';
 import React, { useMemo } from 'react';
 import { Booking, Review } from '../../../../types';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { getNeedsAttentionBookings, isBookingReviewed } from './studentCabinetUtils';
 import { isReviewEligibleLessonStatus } from '../../../../domain/booking';
-import { ScDivider, ScSectionTitle, ScTextButton } from './StudentCabinetUI';
+import { ScDivider, ScTextButton } from './StudentCabinetUI';
 import { RecommendationIndicator } from '../RecommendationIndicator';
+import { StudentDashboardTile } from './StudentDashboardTile';
+import {
+  STUDENT_DASHBOARD_TILES,
+  type DashboardTileSize,
+} from '../../../settings/studentDashboardLayout';
 import {
   formatLessonFeedbackDateLabel,
   type LessonFeedbackView,
@@ -15,6 +21,7 @@ export interface NeedsAttentionFeedbackItem {
 }
 
 interface StudentNeedsAttentionProps {
+  dashboardSize?: DashboardTileSize;
   bookings: Booking[];
   reviews: Review[];
   userId: string;
@@ -36,6 +43,7 @@ type NeedsAttentionRow = {
 };
 
 export const StudentNeedsAttention: React.FC<StudentNeedsAttentionProps> = ({
+  dashboardSize,
   bookings,
   reviews,
   userId,
@@ -97,58 +105,58 @@ export const StudentNeedsAttention: React.FC<StudentNeedsAttentionProps> = ({
   if (items.length === 0) return null;
 
   return (
-    <>
-      <ScDivider />
-      <section className="py-6 space-y-4">
-        <div className="space-y-1">
-          <ScSectionTitle>{t('scNeedsAttention')}</ScSectionTitle>
-          <p className="text-sm text-[var(--ink-dim)]">{t('scNeedsAttentionSub')}</p>
-        </div>
-        <ul className="space-y-3">
-          {items.map((item) => (
-            <li
-              key={item.id}
-              className="rounded-lg border border-[var(--border-subtle)] bg-[var(--profile-bg)] px-4 py-3 space-y-2"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-[var(--ink)]">{item.instructorName}</p>
-                  <p className="text-xs text-[var(--ink-dim)]">{item.dateLabel}</p>
+    <StudentDashboardTile tileKey={STUDENT_DASHBOARD_TILES.needsAttention.key} size={dashboardSize}>
+      {!dashboardSize && <ScDivider />}
+      <section>
+        <StudentDashboardTileHeader title={t('scNeedsAttention')} />
+        <StudentDashboardTileBody>
+          <p className="mb-4 text-sm text-[var(--ink-dim)]">{t('scNeedsAttentionSub')}</p>
+          <ul className="space-y-3">
+            {items.map((item) => (
+              <li
+                key={item.id}
+                className="rounded-lg border border-[var(--border-subtle)] bg-[var(--profile-bg)] px-4 py-3 space-y-2"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-[var(--ink)]">{item.instructorName}</p>
+                    <p className="text-xs text-[var(--ink-dim)]">{item.dateLabel}</p>
+                  </div>
+                  {item.hasPendingFeedback && <RecommendationIndicator pending />}
                 </div>
-                {item.hasPendingFeedback && <RecommendationIndicator pending />}
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                {item.needsReview && item.booking && (
-                  <>
-                    <ScTextButton arrow onClick={() => onWriteReview(item.booking!)}>
-                      {t('writeReviewBtn')}
+                <div className="flex flex-wrap items-center gap-3">
+                  {item.needsReview && item.booking && (
+                    <>
+                      <ScTextButton arrow onClick={() => onWriteReview(item.booking!)}>
+                        {t('writeReviewBtn')}
+                      </ScTextButton>
+                      {onDismissReview && (
+                        <button
+                          type="button"
+                          onClick={() => onDismissReview(item.booking!.id)}
+                          className="text-xs text-[var(--ink-dim)] hover:text-[var(--ink)] transition"
+                        >
+                          {t('scDismissReviewPrompt')}
+                        </button>
+                      )}
+                    </>
+                  )}
+                  {item.hasPendingFeedback && (
+                    <ScTextButton
+                      onClick={() => {
+                        if (item.booking) onOpenLesson(item.booking);
+                        else onOpenFeedbackLesson(item.id);
+                      }}
+                    >
+                      {t('scHistoryOpenRecommendations')}
                     </ScTextButton>
-                    {onDismissReview && (
-                      <button
-                        type="button"
-                        onClick={() => onDismissReview(item.booking!.id)}
-                        className="text-xs text-[var(--ink-dim)] hover:text-[var(--ink)] transition"
-                      >
-                        {t('scDismissReviewPrompt')}
-                      </button>
-                    )}
-                  </>
-                )}
-                {item.hasPendingFeedback && (
-                  <ScTextButton
-                    onClick={() => {
-                      if (item.booking) onOpenLesson(item.booking);
-                      else onOpenFeedbackLesson(item.id);
-                    }}
-                  >
-                    {t('scHistoryOpenRecommendations')}
-                  </ScTextButton>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </StudentDashboardTileBody>
       </section>
-    </>
+    </StudentDashboardTile>
   );
 };

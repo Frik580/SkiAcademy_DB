@@ -1,3 +1,4 @@
+import { StudentDashboardTileHeader, StudentDashboardTileBody } from './StudentDashboardTile';
 import React from 'react';
 import type { ResortConditionsPresentation } from '../../../resort-conditions';
 import { useResortConditionsTranslations } from '../../../resort-conditions/hooks/useResortConditionsTranslations';
@@ -5,7 +6,7 @@ import {
   formatLessonFeedbackDateLabel,
   type LessonFeedbackView,
 } from '../../studentLessonFeedbackPresentation';
-import { ScSectionTitle, ScTextButton, ScTintCard } from './StudentCabinetUI';
+import { ScTextButton, ScTintCard } from './StudentCabinetUI';
 import { AnimatedNumber } from '../../../../ui/AnimatedNumber';
 import { RecommendationIndicator } from '../RecommendationIndicator';
 import { ParticipantScopeIndicator } from './ParticipantScopeIndicator';
@@ -40,34 +41,38 @@ export const StudentLatestRecommendationSection: React.FC<
   const instructorLabel = latest?.instructorName;
 
   return (
-    <section className="py-6 space-y-3">
-      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-        <ScSectionTitle>{t('scLatestCoachRecommendation')}</ScSectionTitle>
-        <ParticipantScopeIndicator
-          participant={scopeParticipant}
-          visible={Boolean(scopeParticipant)}
-        />
-      </div>
-      {loading ? (
-        <p className="text-sm text-[var(--ink-dim)]">{t('loading')}</p>
-      ) : !latest || !highlightText ? (
-        <p className="text-sm text-[var(--ink-dim)]">{t('scNoLatestRecommendation')}</p>
-      ) : (
-        <ScTintCard tint="amber" className="px-4 py-3.5 space-y-2">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 space-y-1">
-              <p className="text-xs text-[var(--ink-dim)]">
-                {[dateLabel, instructorLabel].filter(Boolean).join(' · ')}
-              </p>
-              <p className="text-sm text-[var(--ink)] leading-relaxed">{highlightText}</p>
+    <section>
+      <StudentDashboardTileHeader
+        title={t('scLatestCoachRecommendation')}
+        actions={
+          <ParticipantScopeIndicator
+            participant={scopeParticipant}
+            visible={Boolean(scopeParticipant)}
+          />
+        }
+      />
+      <StudentDashboardTileBody>
+        {loading ? (
+          <p className="text-sm text-[var(--ink-dim)]">{t('loading')}</p>
+        ) : !latest || !highlightText ? (
+          <p className="text-sm text-[var(--ink-dim)]">{t('scNoLatestRecommendation')}</p>
+        ) : (
+          <ScTintCard tint="amber" className="px-4 py-3.5 space-y-2">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 space-y-1">
+                <p className="text-xs text-[var(--ink-dim)]">
+                  {[dateLabel, instructorLabel].filter(Boolean).join(' · ')}
+                </p>
+                <p className="text-sm text-[var(--ink)] leading-relaxed">{highlightText}</p>
+              </div>
+              {highlightPending && <RecommendationIndicator pending className="shrink-0 mt-0.5" />}
             </div>
-            {highlightPending && <RecommendationIndicator pending className="shrink-0 mt-0.5" />}
-          </div>
-          <ScTextButton onClick={() => onOpenLesson(latest.lessonBookingId)}>
-            {t('scMoreDetails')}
-          </ScTextButton>
-        </ScTintCard>
-      )}
+            <ScTextButton onClick={() => onOpenLesson(latest.lessonBookingId)}>
+              {t('scMoreDetails')}
+            </ScTextButton>
+          </ScTintCard>
+        )}
+      </StudentDashboardTileBody>
     </section>
   );
 };
@@ -91,52 +96,54 @@ export const StudentCabinetWeatherSection: React.FC<StudentCabinetWeatherSection
   } = resort;
 
   return (
-    <section className="py-6 space-y-3">
-      <ScSectionTitle tint="sky">{t('scWeatherOnSlope')}</ScSectionTitle>
-      <ScTintCard tint="sky" className="px-4 py-3.5 space-y-3">
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-1 min-w-0">
-            <p className="text-sm font-medium text-[var(--ink)]">
-              {language === 'ru' ? resort.nameRu : resort.nameEn}
-            </p>
-            <p className="text-xs text-[var(--ink-dim)]">
-              {t(
-                conditionKey ??
-                  (resort.status === 'loading' ? 'conditionsLoading' : 'conditionsUnavailable')
-              )}
-            </p>
+    <section>
+      <StudentDashboardTileHeader title={t('scWeatherOnSlope')} />
+      <StudentDashboardTileBody>
+        <ScTintCard tint="sky" className="px-4 py-3.5 space-y-3">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1 min-w-0">
+              <p className="text-sm font-medium text-[var(--ink)]">
+                {language === 'ru' ? resort.nameRu : resort.nameEn}
+              </p>
+              <p className="text-xs text-[var(--ink-dim)]">
+                {t(
+                  conditionKey ??
+                    (resort.status === 'loading' ? 'conditionsLoading' : 'conditionsUnavailable')
+                )}
+              </p>
+            </div>
+            {displayTemp !== null && (
+              <button
+                type="button"
+                onClick={onToggleTemperatureUnit}
+                className="font-serif text-3xl font-light text-[var(--ink)] leading-none shrink-0 bg-transparent border-0 p-0 cursor-pointer"
+                aria-label={t('mountainTemp')}
+              >
+                <AnimatedNumber value={displayTemp} />°
+              </button>
+            )}
           </div>
-          {displayTemp !== null && (
-            <button
-              type="button"
-              onClick={onToggleTemperatureUnit}
-              className="font-serif text-3xl font-light text-[var(--ink)] leading-none shrink-0 bg-transparent border-0 p-0 cursor-pointer"
-              aria-label={t('mountainTemp')}
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs sm:text-sm text-[var(--ink-dim)]">
+            {snowDepthCm !== null && (
+              <span>
+                {t('snowCover')} <AnimatedNumber value={snowDepthCm} /> {t('centimetersShort')}
+              </span>
+            )}
+            {windKmh !== null && (
+              <span>
+                {t('windSpeed')} <AnimatedNumber value={windKmh} /> {t('kilometersPerHourShort')}
+              </span>
+            )}
+          </div>
+          {resortStatusKey && (
+            <p
+              className={`text-xs sm:text-sm font-medium ${resortStatusKey === 'closedToday' ? 'text-rose-500' : 'text-[var(--ink)]'}`}
             >
-              <AnimatedNumber value={displayTemp} />°
-            </button>
+              {t(resortStatusKey)}
+            </p>
           )}
-        </div>
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs sm:text-sm text-[var(--ink-dim)]">
-          {snowDepthCm !== null && (
-            <span>
-              {t('snowCover')} <AnimatedNumber value={snowDepthCm} /> {t('centimetersShort')}
-            </span>
-          )}
-          {windKmh !== null && (
-            <span>
-              {t('windSpeed')} <AnimatedNumber value={windKmh} /> {t('kilometersPerHourShort')}
-            </span>
-          )}
-        </div>
-        {resortStatusKey && (
-          <p
-            className={`text-xs sm:text-sm font-medium ${resortStatusKey === 'closedToday' ? 'text-rose-500' : 'text-[var(--ink)]'}`}
-          >
-            {t(resortStatusKey)}
-          </p>
-        )}
-      </ScTintCard>
+        </ScTintCard>
+      </StudentDashboardTileBody>
     </section>
   );
 };

@@ -1,3 +1,4 @@
+import { StudentDashboardTileHeader, StudentDashboardTileBody } from './StudentDashboardTile';
 import { memo } from 'react';
 import type { Booking } from '../../../../types';
 import { TodayChecklist } from '../../../../features/profile';
@@ -8,8 +9,6 @@ import { useParticipantLessonFeedbackStore } from '../../../participant-lesson-f
 import { ParticipantScopeIndicator } from './ParticipantScopeIndicator';
 import type { SessionParticipantInput } from './studentCabinetContracts';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
-
-const SUBSECTION_LABEL = 'text-[10px] font-medium tracking-widest uppercase text-[var(--ink-dim)]';
 
 export const TodayTasksBlock = memo<{
   scopeParticipant?: SessionParticipantInput;
@@ -39,32 +38,36 @@ export const TodayTasksBlock = memo<{
   const pendingKeys = useParticipantLessonFeedbackStore((state) => state.pendingKeys);
 
   return (
-    <div className="pt-5 space-y-2">
-      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-        <p className={SUBSECTION_LABEL}>{t('scQuickActions')}</p>
-        <ParticipantScopeIndicator
-          participant={scopeParticipant}
-          visible={Boolean(scopeParticipant)}
-        />
-      </div>
-      <TodayChecklist
-        tasks={todayTasks}
-        bookings={bookings}
-        onToggleRecommendation={onToggleRecommendation}
-        isRecommendationPending={(lessonBookingId, itemId) =>
-          Boolean(
-            presentationParticipantId &&
-            pendingKeys[
-              participantLessonFeedbackItemKey(presentationParticipantId, lessonBookingId, itemId)
-            ]
-          )
+    <section>
+      <StudentDashboardTileHeader
+        title={t('scQuickActions')}
+        actions={
+          <ParticipantScopeIndicator
+            participant={scopeParticipant}
+            visible={Boolean(scopeParticipant)}
+          />
         }
-        onToggleTaskComplete={onToggleTodayTaskComplete}
-        onAddTask={onAddCustomTodayTask}
-        onRemoveTask={onRemoveTodayTask}
-        onOpenLesson={onOpenLesson}
-        onOpenDevelopment={onContinueDevelopment}
       />
-    </div>
+      <StudentDashboardTileBody>
+        <TodayChecklist
+          tasks={todayTasks}
+          bookings={bookings}
+          onToggleRecommendation={onToggleRecommendation}
+          isRecommendationPending={(lessonBookingId, itemId) =>
+            Boolean(
+              presentationParticipantId &&
+              pendingKeys[
+                participantLessonFeedbackItemKey(presentationParticipantId, lessonBookingId, itemId)
+              ]
+            )
+          }
+          onToggleTaskComplete={onToggleTodayTaskComplete}
+          onAddTask={onAddCustomTodayTask}
+          onRemoveTask={onRemoveTodayTask}
+          onOpenLesson={onOpenLesson}
+          onOpenDevelopment={onContinueDevelopment}
+        />
+      </StudentDashboardTileBody>
+    </section>
   );
 });

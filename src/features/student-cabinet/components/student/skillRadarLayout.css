@@ -1,0 +1,46 @@
+/* Only the embedded companion data layout changes; ring geometry and interactions stay intact. */
+.student-radar-activity {
+  container: student-radar-activity / inline-size;
+}
+
+.student-radar-data {
+  container: student-radar-data / inline-size;
+  width: 100%;
+  min-width: 0;
+}
+
+.student-radar-legend {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px 20px;
+}
+
+.student-radar-skill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+}
+
+/* Each column gets at least 246px, including room for the right-aligned values. */
+@container student-radar-data (min-width: 512px) {
+  .student-radar-legend {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container student-radar-activity (min-width: 800px) {
+  .student-radar-content {
+    flex-direction: row;
+    gap: 24px;
+  }
+}
+
+.student-radar-values {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+  margin-top: 0;
+}

@@ -25,6 +25,7 @@ import {
 } from './studentSkillRadarData';
 import type { SkillRadarChartInput } from './studentCabinetContracts';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
+import './skillRadarLayout.css';
 
 export type {
   RadarDimension,
@@ -348,16 +349,16 @@ export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
       </svg>
     );
 
-  /** Home embed: side legend from sm+. Development: always mobile-style row under rings. */
+  /** Embedded legend responds to its available width, independently of the viewport. */
   const sideLegend = Boolean(embed);
 
   const fitnessLegend = ringCount > 0 && (
     <ul
-      className={`flex flex-row flex-wrap justify-center gap-x-3 gap-y-2 shrink-0 items-center ${
+      className={
         sideLegend
-          ? 'sm:flex-1 sm:grid sm:grid-cols-2 md:grid-cols-3 sm:gap-x-4 sm:gap-y-2.5 sm:items-center'
-          : ''
-      }`}
+          ? 'student-radar-legend'
+          : 'flex flex-row flex-wrap justify-center gap-x-3 gap-y-2 shrink-0 items-center'
+      }
     >
       {chartDimensions.map((dim) => {
         const titleText = t(dim.titleKey) || dim.defaultTitle;
@@ -371,27 +372,27 @@ export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
               type="button"
               onClick={() => setSelectedDimensionKey(dim.key)}
               className={`text-center rounded-lg px-1.5 py-1 transition w-full ${
-                sideLegend ? 'sm:text-left' : ''
+                sideLegend ? 'student-radar-skill' : ''
               } ${active ? 'opacity-100 bg-black/5 dark:bg-white/5' : hasAxisFocus ? 'opacity-45' : 'opacity-100'} hover:opacity-100`}
             >
               <p
                 className={`font-semibold tracking-wide text-[var(--ink)] leading-tight ${
-                  sideLegend ? 'sm:text-xs' : 'text-[10px]'
+                  sideLegend ? 'min-w-0 text-xs' : 'text-[10px]'
                 }`}
               >
                 {titleText}
               </p>
               <p
                 className={`font-semibold tabular-nums leading-tight mt-0.5 ${
-                  sideLegend ? 'text-xs sm:text-[15px]' : 'text-xs'
+                  sideLegend ? 'student-radar-values shrink-0 text-right text-[15px]' : 'text-xs'
                 }`}
                 style={{ color: dim.color }}
               >
                 {Math.round(dim.percent * drawProgress)}%
                 {showSim && <span className="text-[#FF9F0A] font-medium"> → {simVal}%</span>}
                 {sideLegend && (
-                  <span className="hidden sm:inline text-[var(--ink-dim)] font-normal text-[11px] ml-1.5">
-                    {dim.earned}/{dim.max}
+                  <span className="text-[var(--ink-dim)] font-normal text-[11px]">
+                    · {dim.earned}/{dim.max}
                   </span>
                 )}
               </p>
@@ -403,14 +404,14 @@ export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
   );
 
   const activityCard = (
-    <div className="w-full rounded-[1.35rem] px-3.5 py-3.5 sm:px-5 sm:py-4 max-w-full bg-transparent border border-black/10 dark:border-transparent dark:bg-[#1C1C1E]">
+    <div
+      className={`w-full rounded-[1.35rem] px-3.5 py-3.5 sm:px-5 sm:py-4 max-w-full bg-transparent border border-black/10 dark:border-transparent dark:bg-[#1C1C1E] ${sideLegend ? 'student-radar-activity' : ''}`}
+    >
       <div
-        className={`flex flex-col items-center gap-3 ${
-          sideLegend ? 'sm:flex-row sm:gap-6 sm:items-center sm:justify-start' : ''
-        }`}
+        className={`flex flex-col items-center gap-3 ${sideLegend ? 'student-radar-content' : ''}`}
       >
         <div className="shrink-0 flex items-center justify-center">{ringsSvg}</div>
-        {fitnessLegend}
+        {sideLegend ? <div className="student-radar-data">{fitnessLegend}</div> : fitnessLegend}
       </div>
     </div>
   );

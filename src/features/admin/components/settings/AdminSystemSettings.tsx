@@ -18,6 +18,7 @@ import { SkillConfigManager } from './SkillConfigManager';
 import { AchievementsManager } from './AchievementsManager';
 import { AdminCollapsibleSection } from './AdminCollapsibleSection';
 import { ToggleSwitch } from '../../../../ui/ToggleSwitch';
+import { AdminStudentDashboardSettings } from './AdminStudentDashboardSettings';
 
 export interface AdminSystemSettingsProps {
   filtersEnabled?: boolean;
@@ -227,6 +228,8 @@ export const AdminSystemSettings: React.FC<AdminSystemSettingsProps> = ({
           </ActionButton>
         </div>
       </AdminCollapsibleSection>
+
+      <AdminStudentDashboardSettings />
 
       <AdminCollapsibleSection
         id="skill_matrix"

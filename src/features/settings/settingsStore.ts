@@ -10,9 +10,18 @@ import {
   saveNotificationRetentionDays,
   saveSkillConfig,
   saveStarterCreditKzt,
+  saveStudentDashboardLayout,
 } from './settingsService';
+import {
+  DEFAULT_STUDENT_DASHBOARD_LAYOUT,
+  normalizeStudentDashboardLayout,
+  type StudentDashboardLayout,
+} from './studentDashboardLayout';
 
 export interface SettingsState {
+  studentDashboardLayout: StudentDashboardLayout;
+  setStudentDashboardLayout: (config: unknown) => void;
+  handleUpdateStudentDashboardLayout: (config: StudentDashboardLayout) => Promise<void>;
   filtersEnabled: boolean;
   notificationRetentionDays: number;
   starterCreditKzt: number;
@@ -33,6 +42,13 @@ export interface SettingsState {
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
+  studentDashboardLayout: DEFAULT_STUDENT_DASHBOARD_LAYOUT,
+  setStudentDashboardLayout: (config) =>
+    set({ studentDashboardLayout: normalizeStudentDashboardLayout(config) }),
+  handleUpdateStudentDashboardLayout: async (config) => {
+    const studentDashboardLayout = await saveStudentDashboardLayout(config);
+    set({ studentDashboardLayout });
+  },
   filtersEnabled: true,
   notificationRetentionDays: DEFAULT_NOTIFICATION_RETENTION_DAYS,
   starterCreditKzt: DEFAULT_STARTER_CREDIT_KZT,

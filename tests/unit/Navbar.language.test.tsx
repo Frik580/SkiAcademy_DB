@@ -1,3 +1,4 @@
+import { buildResortConditionsPresentation } from '../../src/features/resort-conditions';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
@@ -22,7 +23,10 @@ function WeatherSnapshot() {
   const { conditions } = useResortConditions({ latitude: 43.1281, longitude: 77.0808 }, true);
   return (
     <div lang={language}>
-      <ConditionsStrip conditions={conditions} unit="celsius" onToggleUnit={vi.fn()} />
+      <ConditionsStrip
+        presentation={buildResortConditionsPresentation(conditions, 'celsius')}
+        onToggleUnit={vi.fn()}
+      />
     </div>
   );
 }

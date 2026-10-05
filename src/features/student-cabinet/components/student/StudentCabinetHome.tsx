@@ -1,9 +1,6 @@
 import React, { useMemo } from 'react';
 import { YourJourneySection } from '../../../../features/journey';
-import {
-  getMiniCalendarDaysFromSessions,
-  hasTrainingTodayFromSessions,
-} from '../../../../features/course-enrollments/sessionScheduleHelpers';
+import { getMiniCalendarDaysFromSessions } from '../../../../features/course-enrollments/sessionScheduleHelpers';
 import {
   getCurrentSessions,
   getFirstName,
@@ -106,9 +103,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     () => getMiniCalendarDaysFromSessions(sessionItems, lang),
     [sessionItems, lang]
   );
-  const showWeather =
-    Boolean(resortSnapshot) &&
-    (currentSessions.length > 0 || hasTrainingTodayFromSessions(sessionItems));
+  const showWeather = Boolean(resortSnapshot) && props.hasAnyParticipantSessionToday;
 
   const viewCourseById = useMemo(
     () =>

@@ -1,3 +1,4 @@
+import { buildResortConditionsPresentation } from '../../src/features/resort-conditions';
 import { useState } from 'react';
 import { readFileSync } from 'node:fs';
 import { cleanup, render, screen } from '@testing-library/react';
@@ -34,8 +35,13 @@ function Harness({
   return (
     <LanguageProvider>
       <ConditionsStrip
-        conditions={state}
-        unit={unit}
+        presentation={buildResortConditionsPresentation(state, unit, {
+          nameEn: 'Shymbulak',
+          nameRu: 'Shymbulak',
+          showLifts: true,
+          liftsStatusEn: '',
+          liftsStatusRu: '',
+        })}
         onToggleUnit={() => setUnit(unit === 'celsius' ? 'fahrenheit' : 'celsius')}
       />
     </LanguageProvider>

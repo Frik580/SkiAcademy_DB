@@ -1,38 +1,23 @@
 import { useResortConditionsTranslations } from '../hooks/useResortConditionsTranslations';
-import {
-  measurementValue,
-  temperatureValue,
-  updatedTime,
-  visibilityKey,
-  weatherConditionKey,
-} from '../model/presentation';
-import type { ResortConditionsState, TemperatureUnit } from '../model/conditions';
+import { updatedTime, type ResortConditionsPresentation } from '../model/presentation';
 import './conditionsStrip.css';
 
 /* eslint-disable jsx-a11y/no-noninteractive-tabindex -- The horizontal scroll region needs keyboard focus. */
 
 interface ConditionsStripInput {
-  conditions: ResortConditionsState;
-  unit: TemperatureUnit;
+  presentation: ResortConditionsPresentation;
   onToggleUnit: () => void;
 }
 
-export function ConditionsStrip({ conditions, unit, onToggleUnit }: ConditionsStripInput) {
+export function ConditionsStrip({ presentation, onToggleUnit }: ConditionsStripInput) {
   const { t, language } = useResortConditionsTranslations();
-  const data = conditions.data;
-  const conditionKey = weatherConditionKey(data?.weatherCode ?? null);
-  const visibility = visibilityKey(data?.visibilityM ?? null);
-  const time = updatedTime(data?.updatedAt ?? null, language);
-  const temperature = data?.temperatureC;
-  const feelsLike = data?.apparentTemperatureC;
-  const displayedTemperature = temperature != null ? temperatureValue(temperature, unit) : null;
+  const { unit, temperature, conditionKey, visibility, wind, gusts, snow, resortStatusKey } =
+    presentation;
+  const time = updatedTime(presentation.updatedAt, language);
   const apparentLabel =
-    feelsLike != null
-      ? `${t('conditionsFeelsLike')} ${temperatureValue(feelsLike, unit)}°`
+    presentation.apparentTemperature != null
+      ? `${t('conditionsFeelsLike')} ${presentation.apparentTemperature}°`
       : undefined;
-  const wind = measurementValue(data?.windKmh);
-  const gusts = measurementValue(data?.windGustKmh);
-  const snow = measurementValue(data?.snowDepthCm);
   const gustsLabel =
     gusts != null ? `${t('conditionsGusts')} ${gusts} ${t('kilometersPerHourShort')}` : undefined;
 
@@ -48,18 +33,22 @@ export function ConditionsStrip({ conditions, unit, onToggleUnit }: ConditionsSt
           <ul
             className="conditions-strip-items conditions-strip__main"
             aria-live="polite"
-            aria-busy={conditions.status === 'loading'}
+            aria-busy={presentation.status === 'loading'}
           >
-            <li className="font-medium tracking-wide">{t('conditionsResortName')}</li>
-            {conditions.status !== 'ready' && (
+            <li className="font-medium tracking-wide">
+              {language === 'ru' ? presentation.nameRu : presentation.nameEn}
+            </li>
+            {presentation.status !== 'ready' && (
               <li>
-                {t(conditions.status === 'loading' ? 'conditionsLoading' : 'conditionsUnavailable')}
+                {t(
+                  presentation.status === 'loading' ? 'conditionsLoading' : 'conditionsUnavailable'
+                )}
               </li>
             )}
             {(temperature != null || conditionKey) && (
               <li title={apparentLabel}>
                 {temperature != null && (
-                  <strong className="font-medium tabular-nums">{displayedTemperature}°</strong>
+                  <strong className="font-medium tabular-nums">{temperature}°</strong>
                 )}
                 {conditionKey && <span>{t(conditionKey)}</span>}
               </li>
@@ -86,18 +75,19 @@ export function ConditionsStrip({ conditions, unit, onToggleUnit }: ConditionsSt
                 <span>{t(visibility)}</span>
               </li>
             )}
-            {data?.liftsOpen != null && data.liftsTotal != null && (
+            {resortStatusKey && <li>{t(resortStatusKey)}</li>}
+            {presentation.liftsOpen != null && presentation.liftsTotal != null && (
               <li>
                 <span className="conditions-label">{t('operatingLifts')}</span>
                 <span>
-                  {data.liftsOpen}/{data.liftsTotal}
+                  {presentation.liftsOpen}/{presentation.liftsTotal}
                 </span>
               </li>
             )}
-            {data?.trailsOpen != null && (
+            {presentation.trailsOpen != null && (
               <li>
                 <span className="conditions-label">{t('conditionsTrails')}</span>
-                <span>{data.trailsOpen}</span>
+                <span>{presentation.trailsOpen}</span>
               </li>
             )}
             <li>
@@ -125,7 +115,8 @@ export function ConditionsStrip({ conditions, unit, onToggleUnit }: ConditionsSt
           <div className="conditions-strip__meta conditions-label">
             {time && (
               <span className="conditions-updated">
-                {t('lastUpdated')} <time dateTime={data?.updatedAt ?? undefined}>{time}</time>
+                {t('lastUpdated')}{' '}
+                <time dateTime={presentation.updatedAt ?? undefined}>{time}</time>
                 <span aria-hidden="true">·</span>
               </span>
             )}

@@ -24,6 +24,8 @@ import {
 import { buildNextSessionCards, buildSessionParticipants } from './studentSessionParticipants';
 import type { StudentCabinetHomeContext } from './studentCabinetContracts';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
+import { ParticipantScopeIndicator } from './ParticipantScopeIndicator';
+import { buildParticipantTodayProgress } from './studentTodayProgress';
 
 type StudentCabinetHomeProps = StudentCabinetHomeContext;
 
@@ -60,7 +62,18 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
   } = props;
 
   const hideProgress = Boolean(userProfile.hideProgressTracking);
+  const selectedParticipant = props.participantProfiles?.find(
+    (participant) => participant.participantId === selectedParticipantId
+  );
+  const scopeParticipant =
+    (props.participantProfiles?.length ?? 0) > 1 ? selectedParticipant : undefined;
   const feedback = usePresentedParticipantLessonFeedback(bookings);
+  const todayProgress = buildParticipantTodayProgress(
+    selectedParticipantId,
+    props.participantProgress,
+    skillConfig,
+    lang
+  );
   const openLessonById = (lessonBookingId: string) => {
     if (onOpenLessonByBookingId) {
       onOpenLessonByBookingId(lessonBookingId);
@@ -141,6 +154,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
           key={selectedParticipantId}
           skillConfig={skillConfig}
           userProfile={userProfile}
+          markerParticipant={selectedParticipant}
           animateSequence={false}
           fillViewport
           onOpenDevelopment={onContinueDevelopment}
@@ -154,6 +168,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
           </p>
 
           <StudentTodaySection
+            todayProgress={todayProgress}
             countdown={countdown}
             countdownParticipants={countdownParticipants}
             currentSessions={currentSessions}
@@ -171,7 +186,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
             reviews={reviews}
             userProfile={userProfile}
             selectedParticipantId={selectedParticipantId}
-            activityLogs={props.activityLogs}
+            scopeParticipant={scopeParticipant}
             achievementsConfig={props.achievementsConfig}
             skillConfig={props.skillConfig}
             onOpenSession={onOpenSession}
@@ -190,9 +205,15 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
 
           {!hideProgress && (
             <div className="pt-3 min-w-0 w-full">
-              <p className="text-[10px] font-medium tracking-widest uppercase text-[var(--ink-dim)] mb-2.5">
-                {t('scRadarTitle')}
-              </p>
+              <div className="mb-2.5 flex min-w-0 flex-wrap items-center justify-between gap-2">
+                <p className="text-[10px] font-medium tracking-widest uppercase text-[var(--ink-dim)]">
+                  {t('scRadarTitle')}
+                </p>
+                <ParticipantScopeIndicator
+                  participant={scopeParticipant}
+                  visible={Boolean(scopeParticipant)}
+                />
+              </div>
               <div className="shrink-0 min-w-0 w-full">
                 <LazySkillRadarChart
                   key={selectedParticipantId}
@@ -232,6 +253,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
         <StudentLatestRecommendationSection
           key={`recommendation:${selectedParticipantId}`}
           latest={feedback.latestView}
+          scopeParticipant={scopeParticipant}
           highlightPending={feedback.latestHighlight?.isPending ?? false}
           highlightText={feedback.latestHighlight?.item.text ?? null}
           loading={feedback.isLoadingPlaceholder}

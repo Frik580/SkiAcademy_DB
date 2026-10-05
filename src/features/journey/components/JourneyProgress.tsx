@@ -5,7 +5,14 @@ import { getDefaultWorkspacePath } from '../../../lib/workspaceRoutes';
 import type { UserProfile } from '../../../types';
 import { EQUAL_MARKER_STOPS, LEVEL_MARKER_X } from './constants';
 import { buildWavyPath, getJourneyMarkerXpFontSize, mapLogicalPathProgress } from './journeyUtils';
-import type { JourneyEarnedSkill, JourneyLevel, LevelShape, PathBend } from './types';
+import type {
+  JourneyEarnedSkill,
+  JourneyLevel,
+  JourneyMarkerParticipantInput,
+  LevelShape,
+  PathBend,
+} from './types';
+import { ParticipantAvatarFace } from '../../student-cabinet/components/CabinetParticipantAvatarSwitcher';
 
 export const JourneyPath: React.FC<{
   ys: [number, number, number, number];
@@ -168,33 +175,56 @@ export const JourneyPath: React.FC<{
 };
 
 export const UserPathMarker: React.FC<{
+  participant?: JourneyMarkerParticipantInput;
+  accent?: string;
   point: { x: number; y: number };
   isDark: boolean;
   label: string;
   xp?: number;
   markerTravelRatio?: number;
   onClick?: () => void;
-}> = ({ point, isDark, label, xp = 0, markerTravelRatio = 0, onClick }) => {
+}> = ({
+  point,
+  isDark,
+  label,
+  xp = 0,
+  markerTravelRatio = 0,
+  onClick,
+  participant,
+  accent = '#f0d060',
+}) => {
   const xpFontSizePx = getJourneyMarkerXpFontSize(markerTravelRatio);
 
   const innerContent = (
     <>
-      <span className="relative block w-3.5 h-3.5 sm:w-4 sm:h-4">
-        {/* Пульсирующее кольцо */}
-        <span className="absolute inset-0 animate-ping" aria-hidden="true">
-          <span className="block h-full w-full rotate-45 border-2 border-[#f5d76e]/55" />
+      {participant ? (
+        <span
+          className="ui-avatar relative block h-7 w-7 shrink-0 overflow-hidden rounded-full border-2 sm:h-8 sm:w-8"
+          style={{ borderColor: accent, boxShadow: `0 0 0 2px ${isDark ? '#0b1220' : '#fff'}` }}
+          role="img"
+          aria-label={participant.displayName}
+          title={participant.displayName}
+        >
+          <ParticipantAvatarFace url={participant.avatarUrl} name={participant.displayName} />
         </span>
-        <span className="journey-marker-pulse absolute inset-0" aria-hidden="true">
-          <span
-            className="block h-full w-full rotate-45 border-2 border-[#f0d060]"
-            style={{
-              background:
-                'linear-gradient(145deg, #fff3b0 0%, #f5d76e 42%, #d4a017 78%, #a67c00 100%)',
-              boxShadow: '0 0 12px rgba(245, 215, 110, 0.85), 0 0 22px rgba(212, 160, 23, 0.45)',
-            }}
-          />
+      ) : (
+        <span className="relative block w-3.5 h-3.5 sm:w-4 sm:h-4">
+          {/* Пульсирующее кольцо */}
+          <span className="absolute inset-0 animate-ping" aria-hidden="true">
+            <span className="block h-full w-full rotate-45 border-2 border-[#f5d76e]/55" />
+          </span>
+          <span className="journey-marker-pulse absolute inset-0" aria-hidden="true">
+            <span
+              className="block h-full w-full rotate-45 border-2 border-[#f0d060]"
+              style={{
+                background:
+                  'linear-gradient(145deg, #fff3b0 0%, #f5d76e 42%, #d4a017 78%, #a67c00 100%)',
+                boxShadow: '0 0 12px rgba(245, 215, 110, 0.85), 0 0 22px rgba(212, 160, 23, 0.45)',
+              }}
+            />
+          </span>
         </span>
-      </span>
+      )}
       <div className="absolute left-1/2 bottom-full mb-3.5 -translate-x-1/2 whitespace-nowrap z-20 flex flex-col items-center gap-1">
         <div
           className={`bg-transparent font-mono font-bold tracking-wider flex items-baseline justify-center gap-1 ${
@@ -230,7 +260,7 @@ export const UserPathMarker: React.FC<{
       <button
         type="button"
         onClick={onClick}
-        aria-label={label}
+        aria-label={participant ? `${label}: ${participant.displayName}` : label}
         className="absolute z-30 -translate-x-1/2 -translate-y-1/2 cursor-pointer bg-transparent border-0 p-3 group"
         style={{
           left: `${(point.x / 400) * 100}%`,
@@ -328,6 +358,7 @@ export const LevelNode: React.FC<{
 };
 
 export const JourneyPathStrip: React.FC<{
+  markerParticipant?: JourneyMarkerParticipantInput;
   effectiveFillViewport: boolean;
   markerYs: [number, number, number, number];
   pathBends: [PathBend, PathBend, PathBend];
@@ -353,6 +384,7 @@ export const JourneyPathStrip: React.FC<{
   clearHover: () => void;
   selectLevel: (levelId: number) => void;
 }> = ({
+  markerParticipant,
   effectiveFillViewport,
   markerYs,
   pathBends,
@@ -403,6 +435,8 @@ export const JourneyPathStrip: React.FC<{
 
         {userPoint && userProfile && displayProgress != null && (
           <UserPathMarker
+            participant={markerParticipant}
+            accent={levelsWithXp.find((level) => level.id === currentUserLevelId)?.accent}
             point={userPoint}
             isDark={isDark}
             label={t('journeyYouAreHere')}

@@ -11,7 +11,8 @@ function toTransactionPath(path: string): string {
 }
 
 export const PARTICIPANT_PROGRESS_PLANNING_ESTIMATES = {
-  progressBytes: 2_048,
+  // Current maps plus the bounded 128-entry daily score baseline.
+  progressBytes: 16_384,
 } as const;
 
 export function participantProgressPath(participantId: ParticipantId): string {

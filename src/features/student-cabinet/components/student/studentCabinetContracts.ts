@@ -16,6 +16,20 @@ import type {
 } from './studentCabinetUtils';
 import type { CabinetSessionItem, MiniCalendarDay } from '../../../../features/course-enrollments';
 import type { CanonicalRecommendationTodayTask } from '../../studentLessonFeedbackPresentation';
+import type { ParticipantProgressView } from '../../../participant-progress/applyParticipantProgressToProfile';
+
+export interface ParticipantTodayProgressInput {
+  readonly level?: number;
+  readonly todayXP: number | null;
+  readonly todayLevelUp: number | null;
+  readonly exercises: readonly {
+    itemId: string;
+    title: string;
+    delta: number;
+    newScore: number;
+    maxPoints: number;
+  }[];
+}
 
 export type StudentBooking =
   import('../../../../features/lesson-bookings/lessonBookingContracts').LessonBookingCabinetItem;
@@ -67,15 +81,11 @@ export interface NextSessionBlockInput {
 }
 
 export interface TodayProgressBlockInput {
-  userProfile?: StudentProfile;
+  scopeParticipant?: SessionParticipantInput;
+  progress: ParticipantTodayProgressInput;
   selectedParticipantId?: string;
-  bookings: Booking[];
-  courses: StudentCourse[];
-  reviews: StudentReview[];
-  activityLogs?: StudentActivityLog[];
   achievementsConfig?: AchievementsConfig;
   skillConfig?: StudentSkillConfig;
-  todayTasks: TodayTask[];
 }
 
 export interface SkillRadarChartInput {
@@ -157,6 +167,7 @@ export type StudentProfilePanelProps = StudentProfilePanelInput & {
 
 /** The complete data boundary for the student-cabinet home container. */
 export interface StudentCabinetHomeContext {
+  participantProgress?: ParticipantProgressView;
   participantProfiles?: readonly SessionParticipantInput[];
   /** Account sessions before header filtering for next, countdown, and current blocks. */
   nextSessionItems?: readonly CabinetSessionItem[];
@@ -199,6 +210,8 @@ export interface StudentCabinetHomeContext {
 
 /** Input boundary for the presentational "today" section. */
 export interface StudentTodaySectionInput {
+  todayProgress?: ParticipantTodayProgressInput;
+  scopeParticipant?: SessionParticipantInput;
   countdown?: TodaySessionCountdown | null;
   countdownParticipants?: readonly SessionParticipantInput[];
   participantsBySessionKey?: NextSessionBlockInput['participantsBySessionKey'];
@@ -216,7 +229,6 @@ export interface StudentTodaySectionInput {
   reviews?: Review[];
   userProfile?: UserProfile;
   selectedParticipantId?: string;
-  activityLogs?: ActivityLog[];
   achievementsConfig?: AchievementsConfig;
   skillConfig?: SkillConfig;
   onOpenSession: (booking: Booking) => void;

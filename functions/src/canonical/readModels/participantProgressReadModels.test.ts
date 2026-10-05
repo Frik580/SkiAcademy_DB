@@ -48,6 +48,7 @@ const metadata = {
 
 function createFixtureFirestore(
   options: Readonly<{
+    childDailyProgress?: import('@ski-academy/shared-domain').ParticipantDailyProgress;
     omitProgress?: boolean;
     leftoverUserProgress?: boolean;
     bookedChildAttendance?: 'present' | 'absent' | 'missing';
@@ -176,6 +177,7 @@ function createFixtureFirestore(
         participantId: childParticipantId,
         level: 2,
         skillScores: { skating: 6 },
+        ...(options.childDailyProgress ? { dailyProgress: options.childDailyProgress } : {}),
         skillComments: {},
         revision: 1,
         createdAt: decidedAt,
@@ -365,6 +367,26 @@ function createFixtureFirestore(
 }
 
 describe('participant progress read models', () => {
+  it('projects the daily evidence only with its authorized participant row', async () => {
+    const dailyProgress = {
+      date: '2026-01-01',
+      timeZone: 'Asia/Almaty' as const,
+      baselineLevel: 1,
+      baselineSkillScores: { skating: 2 },
+      complete: true,
+    };
+    const result = await queryParticipantProgressReadModels(
+      createFixtureFirestore({ childDailyProgress: dailyProgress }),
+      { scope: 'managed' },
+      { accountId }
+    );
+    expect(
+      result.items.find((item) => item.participantId === childParticipantId)?.dailyProgress
+    ).toEqual(dailyProgress);
+    expect(
+      result.items.find((item) => item.participantId === selfParticipantId)?.dailyProgress
+    ).toBeUndefined();
+  });
   it('returns self Participant progress for the managing Account', async () => {
     const result = await queryParticipantProgressReadModels(
       createFixtureFirestore(),

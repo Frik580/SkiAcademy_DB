@@ -2,6 +2,7 @@ import type { UserProfile } from '../../types';
 import { AccountIdSchema } from '@ski-academy/shared-domain/canonical/identifiers';
 import { selfParticipantIdFromAccountId } from '@ski-academy/shared-domain/canonical/deterministicIdentity';
 import { type ParticipantProgressReadModel } from '@ski-academy/shared-domain';
+import type { ParticipantDailyProgress } from '@ski-academy/shared-domain';
 
 export interface ParticipantProgressView {
   readonly participantId: string;
@@ -9,6 +10,7 @@ export interface ParticipantProgressView {
   readonly skillScores: Record<string, number>;
   readonly skillComments: Record<string, string>;
   readonly revision: number;
+  readonly dailyProgress?: ParticipantDailyProgress;
 }
 
 export function toParticipantProgressView(
@@ -20,6 +22,7 @@ export function toParticipantProgressView(
     skillScores: { ...item.skillScores },
     skillComments: { ...item.skillComments },
     revision: item.revision,
+    ...(item.dailyProgress ? { dailyProgress: item.dailyProgress } : {}),
   };
 }
 

@@ -1,15 +1,18 @@
 import { memo } from 'react';
 import type { Booking } from '../../../../types';
-import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { TodayChecklist } from '../../../../features/profile';
 import type { TodayTask } from './studentCabinetUtils';
 import type { TodayTaskRef } from '../..';
 import { participantLessonFeedbackItemKey } from '../../../participant-lesson-feedback/participantLessonFeedbackStore';
 import { useParticipantLessonFeedbackStore } from '../../../participant-lesson-feedback/participantLessonFeedbackStore';
+import { ParticipantScopeIndicator } from './ParticipantScopeIndicator';
+import type { SessionParticipantInput } from './studentCabinetContracts';
+import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 
 const SUBSECTION_LABEL = 'text-[10px] font-medium tracking-widest uppercase text-[var(--ink-dim)]';
 
 export const TodayTasksBlock = memo<{
+  scopeParticipant?: SessionParticipantInput;
   todayTasks: TodayTask[];
   bookings: Booking[];
   onToggleRecommendation?: (bookingId: string, recommendationId: string, checked: boolean) => void;
@@ -19,6 +22,7 @@ export const TodayTasksBlock = memo<{
   onOpenLesson: (booking: Booking) => void;
   onContinueDevelopment: () => void;
 }>(function TodayTasksBlock({
+  scopeParticipant,
   todayTasks,
   bookings,
   onToggleRecommendation,
@@ -28,7 +32,7 @@ export const TodayTasksBlock = memo<{
   onOpenLesson,
   onContinueDevelopment,
 }) {
-  const { t } = useLanguage();
+  const { t } = useStudentCabinetTranslations();
   const presentationParticipantId = useParticipantLessonFeedbackStore(
     (state) => state.presentationParticipantId
   );
@@ -36,7 +40,13 @@ export const TodayTasksBlock = memo<{
 
   return (
     <div className="pt-5 space-y-2">
-      <p className={SUBSECTION_LABEL}>{t('scQuickActions')}</p>
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+        <p className={SUBSECTION_LABEL}>{t('scQuickActions')}</p>
+        <ParticipantScopeIndicator
+          participant={scopeParticipant}
+          visible={Boolean(scopeParticipant)}
+        />
+      </div>
       <TodayChecklist
         tasks={todayTasks}
         bookings={bookings}

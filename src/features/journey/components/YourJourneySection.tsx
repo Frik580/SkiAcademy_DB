@@ -42,6 +42,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
   animateSequence = true,
   fillViewport = false,
   onOpenDevelopment,
+  markerParticipant,
 }) => {
   const { t, language } = useLanguage();
   const { theme } = useTheme();
@@ -474,6 +475,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
             markerStops={markerStops}
             userPoint={userPoint}
             userProfile={userProfile}
+            markerParticipant={markerParticipant}
             animatedXp={animatedXp}
             markerTravelRatio={markerTravelRatio}
             animateSequence={animateSequence}

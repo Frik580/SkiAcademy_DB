@@ -1,7 +1,6 @@
 import React from 'react';
 import type { ResortConditionsPresentation } from '../../../resort-conditions';
 import { useResortConditionsTranslations } from '../../../resort-conditions/hooks/useResortConditionsTranslations';
-import { useLanguage } from '../../../../app/providers/LanguageContext';
 import {
   formatLessonFeedbackDateLabel,
   type LessonFeedbackView,
@@ -9,10 +8,14 @@ import {
 import { ScSectionTitle, ScTextButton, ScTintCard } from './StudentCabinetUI';
 import { AnimatedNumber } from '../../../../ui/AnimatedNumber';
 import { RecommendationIndicator } from '../RecommendationIndicator';
+import { ParticipantScopeIndicator } from './ParticipantScopeIndicator';
+import type { SessionParticipantInput } from './studentCabinetContracts';
+import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 
 export type StudentCabinetResortSnapshot = ResortConditionsPresentation;
 
 interface StudentLatestRecommendationSectionProps {
+  scopeParticipant?: SessionParticipantInput;
   latest: LessonFeedbackView | null;
   highlightPending: boolean;
   highlightText: string | null;
@@ -22,9 +25,15 @@ interface StudentLatestRecommendationSectionProps {
 
 export const StudentLatestRecommendationSection: React.FC<
   StudentLatestRecommendationSectionProps
-> = ({ latest, highlightPending, highlightText, loading = false, onOpenLesson }) => {
-  const { language, t } = useLanguage();
-  const lang = language === 'ru' ? 'ru' : 'en';
+> = ({
+  latest,
+  highlightPending,
+  highlightText,
+  loading = false,
+  onOpenLesson,
+  scopeParticipant,
+}) => {
+  const { lang, t } = useStudentCabinetTranslations();
   const dateLabel = latest
     ? formatLessonFeedbackDateLabel(latest.lessonDate, lang) || latest.lessonDate
     : '';
@@ -32,7 +41,13 @@ export const StudentLatestRecommendationSection: React.FC<
 
   return (
     <section className="py-6 space-y-3">
-      <ScSectionTitle>{t('scLatestCoachRecommendation')}</ScSectionTitle>
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+        <ScSectionTitle>{t('scLatestCoachRecommendation')}</ScSectionTitle>
+        <ParticipantScopeIndicator
+          participant={scopeParticipant}
+          visible={Boolean(scopeParticipant)}
+        />
+      </div>
       {loading ? (
         <p className="text-sm text-[var(--ink-dim)]">{t('loading')}</p>
       ) : !latest || !highlightText ? (

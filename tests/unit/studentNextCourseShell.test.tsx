@@ -78,7 +78,7 @@ vi.mock('../../src/features/student-cabinet/components/student/StudentTodayProgr
     progressSpy(props);
     return (
       <output data-testid="progress-scope">
-        {props.selectedParticipantId}:{props.userProfile?.level}
+        {props.selectedParticipantId}:{props.progress.level}
       </output>
     );
   },

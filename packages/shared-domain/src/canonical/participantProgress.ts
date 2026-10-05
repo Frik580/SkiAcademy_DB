@@ -94,6 +94,50 @@ export const ParticipantProgressSkillCommentsSchema = z
     addSkillMapSizeIssue(context, 'skillComments', Object.keys(comments).length);
   });
 
+export const PARTICIPANT_PROGRESS_DAY_TIME_ZONE = 'Asia/Almaty';
+const progressDayFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: PARTICIPANT_PROGRESS_DAY_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+export function participantProgressDayKey(at: Date): string {
+  const parts = progressDayFormatter.formatToParts(at);
+  const value = (type: string) => parts.find((part) => part.type === type)!.value;
+  return `${value('year')}-${value('month')}-${value('day')}`;
+}
+
+/** Bounded daily evidence in the existing authoritative progress aggregate. */
+export const ParticipantDailyProgressSchema = z
+  .object({
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    timeZone: z.literal(PARTICIPANT_PROGRESS_DAY_TIME_ZONE),
+    baselineLevel: ParticipantProgressLevelSchema,
+    baselineSkillScores: ParticipantProgressSkillScoresSchema,
+    /** False when an older document was already changed today before baseline tracking began. */
+    complete: z.boolean(),
+  })
+  .strict();
+export type ParticipantDailyProgress = Readonly<z.output<typeof ParticipantDailyProgressSchema>>;
+
+export function nextParticipantDailyProgress(
+  previous:
+    Pick<ParticipantProgress, 'level' | 'skillScores' | 'updatedAt' | 'dailyProgress'> | undefined,
+  at: Date
+): ParticipantDailyProgress {
+  const date = participantProgressDayKey(at);
+  if (previous?.dailyProgress?.date === date) return previous.dailyProgress;
+  return {
+    date,
+    timeZone: PARTICIPANT_PROGRESS_DAY_TIME_ZONE,
+    baselineLevel: previous?.level ?? 1,
+    baselineSkillScores: { ...(previous?.skillScores ?? {}) },
+    complete:
+      !previous || participantProgressDayKey(new Date(previous.updatedAt.seconds * 1000)) !== date,
+  };
+}
+
 export function normalizeParticipantProgressSkillComments(
   comments: Record<string, string> | undefined
 ): Record<string, string> {
@@ -125,6 +169,7 @@ export const ParticipantProgressSchema = z
     level: ParticipantProgressLevelSchema,
     skillScores: ParticipantProgressSkillScoresSchema,
     skillComments: ParticipantProgressSkillCommentsSchema,
+    dailyProgress: ParticipantDailyProgressSchema.optional(),
     updatedBy: ParticipantProgressUpdatedBySchema.optional(),
     revision: PersistedAggregateRevisionSchema,
     createdAt: CanonicalTimestampSchema,

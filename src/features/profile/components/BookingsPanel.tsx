@@ -11,6 +11,8 @@ import { StudentCabinetTab } from '../../../features/student-cabinet';
 export interface BookingsPanelProps {
   userProfile: UserProfile;
   sessionItems: readonly import('../../../features/course-enrollments').CabinetSessionItem[];
+  listSessionItems?: readonly import('../../../features/course-enrollments').CabinetSessionItem[];
+  participantProfiles?: readonly import('../../../features/student-cabinet/components/student/studentCabinetContracts').SessionParticipantInput[];
   bookings: LessonBookingCabinetItem[];
   courses?: Course[];
   instructors?: Instructor[];
@@ -39,6 +41,8 @@ export interface BookingsPanelProps {
 
 export const BookingsPanel: React.FC<BookingsPanelProps> = ({
   sessionItems,
+  listSessionItems,
+  participantProfiles,
   bookings,
   courses = [],
   instructors = [],
@@ -86,6 +90,8 @@ export const BookingsPanel: React.FC<BookingsPanelProps> = ({
       )}
       <ClientBookingsList
         sessionItems={sessionItems}
+        listSessionItems={listSessionItems}
+        participantProfiles={participantProfiles}
         userBookings={userBookings}
         courses={courses}
         instructors={instructors}

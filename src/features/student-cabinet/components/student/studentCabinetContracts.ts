@@ -28,6 +28,7 @@ export type StudentSkillConfig = SkillConfig;
 
 export interface SessionCountdownBlockInput {
   countdown: TodaySessionCountdown;
+  participants?: readonly SessionParticipantInput[];
   courses: StudentCourse[];
   instructors: StudentInstructor[];
   usersList: StudentProfile[];
@@ -197,6 +198,8 @@ export interface StudentCabinetHomeContext {
 
 /** Input boundary for the presentational "today" section. */
 export interface StudentTodaySectionInput {
+  countdown?: TodaySessionCountdown | null;
+  countdownParticipants?: readonly SessionParticipantInput[];
   participantsBySessionKey?: NextSessionBlockInput['participantsBySessionKey'];
   currentSessions: CabinetSessionItem[];
   nextSession?: CabinetSessionItem | null;

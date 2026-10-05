@@ -1,11 +1,15 @@
 import React, { useMemo } from 'react';
 import { YourJourneySection } from '../../../../features/journey';
-import { getMiniCalendarDaysFromSessions } from '../../../../features/course-enrollments/sessionScheduleHelpers';
+import {
+  getMiniCalendarDaysFromSessions,
+  sessionItemKey,
+} from '../../../../features/course-enrollments/sessionScheduleHelpers';
 import {
   getCurrentSessions,
   getFirstName,
   getGreeting,
   getTodayTasks,
+  getTodaySessionCountdown,
 } from './studentCabinetUtils';
 import { buildCanonicalRecommendationTodayTasks } from '../../studentLessonFeedbackPresentation';
 import { usePresentedParticipantLessonFeedback } from '../../usePresentedParticipantLessonFeedback';
@@ -17,7 +21,7 @@ import {
   StudentCabinetWeatherSection,
   StudentLatestRecommendationSection,
 } from './StudentHomeBottomSections';
-import { buildNextSessionCards } from './studentSessionParticipants';
+import { buildNextSessionCards, buildSessionParticipants } from './studentSessionParticipants';
 import type { StudentCabinetHomeContext } from './studentCabinetContracts';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 
@@ -72,6 +76,16 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     [nextSessionItems, props.participantProfiles]
   );
   const nextSession = nextSessions[0]?.session ?? null;
+  const countdown = useMemo(() => getTodaySessionCountdown(nextSessionItems), [nextSessionItems]);
+  const countdownParticipants = useMemo(
+    () =>
+      countdown
+        ? (buildSessionParticipants([countdown.session], props.participantProfiles ?? [])[
+            sessionItemKey(countdown.session)
+          ] ?? [])
+        : [],
+    [countdown, props.participantProfiles]
+  );
   const currentSessions = useMemo(
     () => getCurrentSessions(sessionItems, new Date()),
     [sessionItems]
@@ -120,6 +134,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     <div className="space-y-0 pb-24 w-full min-w-0">
       <div className="w-full shrink-0">
         <YourJourneySection
+          key={selectedParticipantId}
           skillConfig={skillConfig}
           userProfile={userProfile}
           animateSequence={false}
@@ -135,6 +150,8 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
           </p>
 
           <StudentTodaySection
+            countdown={countdown}
+            countdownParticipants={countdownParticipants}
             currentSessions={currentSessions}
             nextSession={nextSession}
             nextSessions={nextSessions}
@@ -173,6 +190,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
               </p>
               <div className="shrink-0 min-w-0 w-full">
                 <LazySkillRadarChart
+                  key={selectedParticipantId}
                   userProfile={userProfile}
                   skillConfig={skillConfig}
                   onToggleSkillToday={props.onToggleSkillToday}
@@ -190,6 +208,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
         </section>
 
         <StudentNeedsAttention
+          key={`attention:${selectedParticipantId}`}
           bookings={bookings}
           reviews={reviews}
           userId={userProfile.uid}
@@ -206,6 +225,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
         <ScDivider />
 
         <StudentLatestRecommendationSection
+          key={`recommendation:${selectedParticipantId}`}
           latest={feedback.latestView}
           highlightPending={feedback.latestHighlight?.isPending ?? false}
           highlightText={feedback.latestHighlight?.item.text ?? null}

@@ -288,10 +288,6 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
     () => props.bookings.filter(belongsToSelectedParticipant),
     [props.bookings, belongsToSelectedParticipant]
   );
-  const isolatedUnreviewedCompletedBookings = useMemo(
-    () => props.unreviewedCompletedBookings.filter(belongsToSelectedParticipant),
-    [props.unreviewedCompletedBookings, belongsToSelectedParticipant]
-  );
   const hasAnyParticipantSessionToday = hasTrainingTodayFromSessions(props.sessionItems ?? []);
 
   const isolatedSessionItems = useMemo(
@@ -537,7 +533,13 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
           />
         </div>
       )}
-      <div key={progressViewKey}>
+      <div
+        key={
+          activeTab === 'home' || activeTab === 'calendar'
+            ? 'cabinet-account-sessions'
+            : progressViewKey
+        }
+      >
         {activeTab === 'home' && (
           <StudentCabinetHome {...ctx} nextSessionItems={props.sessionItems ?? []} />
         )}
@@ -570,10 +572,12 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
           <StudentCalendarPanel
             {...panelProps}
             sessionItems={isolatedSessionItems}
+            listSessionItems={props.sessionItems ?? []}
+            participantProfiles={ctx.participantProfiles}
             onViewCourseDetails={props.onViewCourseDetails}
             onCourseWithdraw={props.onCourseWithdraw}
             onCourseRequestCancellation={props.onCourseRequestCancellation}
-            unreviewedCompletedBookings={isolatedUnreviewedCompletedBookings}
+            unreviewedCompletedBookings={props.unreviewedCompletedBookings}
             onDismissReview={props.onDismissReview}
             collaborationProposals={props.collaborationProposals}
             onAcceptProposal={props.onAcceptProposal}

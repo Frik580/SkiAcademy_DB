@@ -94,11 +94,19 @@ export const ModalHost: React.FC = () => {
       : undefined
   );
 
+  // Explicit enrollment cards carry their own Participant; catalog details use the header.
+  const detailsParticipantId = selectedCourseDetailsEnrollmentId
+    ? courseEnrollments.find(
+        (enrollment) =>
+          enrollment.enrollmentId === selectedCourseDetailsEnrollmentId &&
+          enrollment.courseId === selectedCourseForDetails?.id
+      )?.participantId
+    : selectedParticipantId;
   const selectedEnrollment = selectedCourseForDetails
     ? (selectEnrollmentForCourseParticipant({
         enrollments: courseEnrollments,
         courseId: selectedCourseForDetails.id,
-        selectedParticipantId,
+        selectedParticipantId: detailsParticipantId,
         enrollmentId: selectedCourseDetailsEnrollmentId,
       }) ??
       (!userProfile

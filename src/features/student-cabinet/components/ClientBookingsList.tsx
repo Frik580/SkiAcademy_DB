@@ -6,7 +6,9 @@ import {
   lessonBookingPaymentDisplayLabel,
   resolveLessonBookingPaymentDisplay,
 } from '../../../features/lesson-bookings/lessonBookingPaymentPresentation';
-import { formatLessonBookingParticipantLine } from '../../../features/lesson-bookings/lessonBookingParticipantPresentation';
+import { buildSessionParticipants } from './student/studentSessionParticipants';
+import { SessionParticipants } from './student/SessionParticipants';
+import type { SessionParticipantInput } from './student/studentCabinetContracts';
 import { cabinetItemToLegacyPresentation } from '../../../features/lesson-bookings/mergeCabinetBookings';
 import type { CabinetSessionItem } from '../../../features/course-enrollments';
 import {
@@ -19,6 +21,7 @@ import {
   formatCourseEnrollmentDateRange,
 } from '../../../features/course-enrollments/courseEnrollmentListProjection';
 import {
+  sessionItemKey,
   isSessionOnDate,
   sessionDisplayDate,
   sessionDisplayTime,
@@ -64,6 +67,9 @@ const LIST_SCOPE_LABEL_KEYS = {
 
 interface ClientBookingsListProps {
   sessionItems: readonly CabinetSessionItem[];
+  /** Account sessions for the list; sessionItems retain calendar/day widget scope. */
+  listSessionItems?: readonly CabinetSessionItem[];
+  participantProfiles?: readonly SessionParticipantInput[];
   userBookings: LessonBookingCabinetItem[];
   courses?: Course[];
   instructors?: Instructor[];
@@ -86,6 +92,8 @@ interface ClientBookingsListProps {
 
 export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
   sessionItems,
+  listSessionItems = sessionItems,
+  participantProfiles = [],
   courses = [],
   instructors = [],
   usersList = [],
@@ -167,9 +175,21 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
     return `${year}-${mm}-${dd}`;
   };
 
+  const participantsBySessionKey = useMemo(
+    () => buildSessionParticipants(listSessionItems, participantProfiles),
+    [listSessionItems, participantProfiles]
+  );
   const studentListItems = useMemo(
-    () => aggregateCabinetSessionsForStudentList(filteredSessions),
-    [filteredSessions]
+    () =>
+      aggregateCabinetSessionsForStudentList(
+        listSessionItems.filter((item) => {
+          if (!hideCancelled) return true;
+          return item.kind === 'lesson'
+            ? item.session.status !== 'cancelled'
+            : item.lifecycleStatus !== 'cancelled' && item.lifecycleStatus !== 'withdrawn';
+        })
+      ),
+    [listSessionItems, hideCancelled]
   );
 
   const displayedListItems = useMemo(
@@ -199,8 +219,10 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
   );
 
   const hasCancelledSessions =
-    sessionItems.some((item) => item.kind === 'lesson' && item.session.status === 'cancelled') ||
-    sessionItems.some(
+    listSessionItems.some(
+      (item) => item.kind === 'lesson' && item.session.status === 'cancelled'
+    ) ||
+    listSessionItems.some(
       (item) =>
         item.kind === 'course_day' &&
         (item.lifecycleStatus === 'cancelled' || item.lifecycleStatus === 'withdrawn')
@@ -355,7 +377,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
             </div>
           )}
 
-          {sessionItems.length === 0 ? (
+          {listSessionItems.length === 0 ? (
             <StateCard
               title={t('noSessionsScheduledYet')}
               description={t('browseInstructorsHint')}
@@ -384,11 +406,6 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                   const b = item.session;
                   const paymentDisplay = resolveLessonBookingPaymentDisplay(b, t);
                   const paymentLabel = lessonBookingPaymentDisplayLabel(paymentDisplay, t);
-                  const participantLine = formatLessonBookingParticipantLine({
-                    participantNames: b.participantNames,
-                    participantLabel: t('bookingParticipantLabel'),
-                    participantsLabel: t('bookingParticipantsLabel'),
-                  });
                   return (
                     <div
                       key={key}
@@ -413,7 +430,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                             {b.difficulty ? `${getDifficultyLabel(b.difficulty, language)} · ` : ''}
                             {b.durationHours} {t('hrSession')}
                           </p>
-                          <p className="text-xs text-[var(--ink-dim)]">{participantLine}</p>
+                          <SessionParticipants participants={participantsBySessionKey[key] ?? []} />
                           <div className="flex items-center gap-2 flex-wrap text-xs text-[var(--ink-dim)]">
                             <span className="inline-flex items-center gap-1">
                               <Calendar className="w-3.5 h-3.5 text-[var(--accent)]" />{' '}
@@ -536,7 +553,11 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                         <p className="text-xs text-[var(--ink-dim)]">
                           {formatCourseEnrollmentDateRange(item, locale)}
                         </p>
-                        <p className="text-xs text-[var(--ink-dim)]">{item.participantName}</p>
+                        <SessionParticipants
+                          participants={
+                            participantsBySessionKey[sessionItemKey(item.days[0])] ?? []
+                          }
+                        />
                       </div>
                     </div>
 

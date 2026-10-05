@@ -75,6 +75,8 @@ type PanelProps = StudentCabinetPanelInput;
 export const StudentCalendarPanel: React.FC<
   PanelProps & {
     sessionItems: readonly import('../../../../features/course-enrollments').CabinetSessionItem[];
+    listSessionItems: readonly import('../../../../features/course-enrollments').CabinetSessionItem[];
+    participantProfiles: readonly import('./studentCabinetContracts').SessionParticipantInput[];
     unreviewedCompletedBookings: import('./studentCabinetContracts').StudentBooking[];
     onDismissReview?: (id: string) => void;
     onViewCourseDetails?: (course: Course, enrollmentId?: string) => void;
@@ -97,6 +99,8 @@ export const StudentCalendarPanel: React.FC<
 > = ({
   userProfile,
   sessionItems,
+  listSessionItems,
+  participantProfiles,
   bookings,
   courses,
   instructors,
@@ -124,6 +128,8 @@ export const StudentCalendarPanel: React.FC<
     <BookingsPanel
       userProfile={userProfile}
       sessionItems={sessionItems}
+      listSessionItems={listSessionItems}
+      participantProfiles={participantProfiles}
       bookings={[...bookings]}
       courses={courses}
       instructors={instructors}

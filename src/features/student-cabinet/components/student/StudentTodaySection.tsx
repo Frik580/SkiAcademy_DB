@@ -16,6 +16,8 @@ import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 const SUBSECTION_LABEL = 'text-[10px] font-medium tracking-widest uppercase text-[var(--ink-dim)]';
 
 export const StudentTodaySection = memo<StudentTodaySectionInput>(function StudentTodaySection({
+  countdown,
+  countdownParticipants,
   currentSessions,
   nextSession = null,
   nextSessions,
@@ -54,7 +56,10 @@ export const StudentTodaySection = memo<StudentTodaySectionInput>(function Stude
     return [{ session: nextSession, dateStr: sessionDisplayDate(nextSession) }];
   }, [nextSessions, nextSession]);
 
-  const todayCountdown = useMemo(() => getTodaySessionCountdown(sessionItems), [sessionItems]);
+  const todayCountdown = useMemo(
+    () => (countdown === undefined ? getTodaySessionCountdown(sessionItems) : countdown),
+    [countdown, sessionItems]
+  );
 
   const nextStepAction = useMemo(() => {
     if (!userProfile) return null;
@@ -81,6 +86,7 @@ export const StudentTodaySection = memo<StudentTodaySectionInput>(function Stude
       {todayCountdown && (
         <SessionCountdownBlock
           countdown={todayCountdown}
+          participants={countdownParticipants}
           courses={courses}
           instructors={instructors}
           usersList={usersList}
@@ -88,6 +94,7 @@ export const StudentTodaySection = memo<StudentTodaySectionInput>(function Stude
       )}
 
       <TodayTasksBlock
+        key={`tasks:${selectedParticipantId}`}
         todayTasks={todayTasks}
         bookings={bookings}
         onToggleRecommendation={onToggleRecommendation}
@@ -140,6 +147,7 @@ export const StudentTodaySection = memo<StudentTodaySectionInput>(function Stude
       <ScDivider />
 
       <TodayProgressBlock
+        key={`progress:${selectedParticipantId}`}
         userProfile={userProfile}
         selectedParticipantId={selectedParticipantId}
         bookings={bookings}

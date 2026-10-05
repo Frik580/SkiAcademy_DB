@@ -1,6 +1,6 @@
 import { buildResortConditionsPresentation } from '../../src/features/resort-conditions';
 import { toYMD } from '../../src/features/student-cabinet/components/student/studentCabinetPresentation';
-import { act, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
@@ -449,8 +449,8 @@ function lessonShellProps() {
   return props;
 }
 
-describe('Shell → real BookingsPanel → ClientBookingsList participant isolation', () => {
-  it('updates single and shared lessons through the header without reload and keeps course filtering', async () => {
+describe('Shell → real BookingsPanel → account-level ClientBookingsList', () => {
+  it('keeps account lessons and their participants through header switches while the calendar stays scoped', async () => {
     const user = userEvent.setup();
     const props = lessonShellProps();
     setup(props);
@@ -459,17 +459,51 @@ describe('Shell → real BookingsPanel → ClientBookingsList participant isolat
     vi.mocked(props.hasUnreadChat!).mockClear();
     await user.click(screen.getByRole('button', { name: 'calendar', exact: true }));
     expect(screen.getByText('Coach only_a')).toBeInTheDocument();
-    expect(screen.queryByText('Coach only_b')).not.toBeInTheDocument();
+    expect(screen.getByText('Coach only_b')).toBeInTheDocument();
     expect(screen.getByText('Coach shared')).toBeInTheDocument();
     expect(
       calendarSpy.mock.lastCall?.[0].bookings.map((b: LessonBookingCabinetItem) => b.id)
     ).toEqual(['only_a', 'shared', 'done_a', 'done_shared']);
     expect(screen.getByTestId('calendar-scope')).toHaveTextContent('ea');
-    expect(props.hasUnreadChat).not.toHaveBeenCalledWith('only_b');
+    const assertMembership = () => {
+      const cards = screen.getAllByTestId('lesson-booking-card');
+      expect(cards).toHaveLength(3);
+      for (const [id, names] of [
+        ['only_a', ['Alice Full Name']],
+        ['only_b', ['Bob Full Name']],
+        ['shared', ['Alice Full Name', 'Bob Full Name']],
+      ] as const) {
+        const card = document.getElementById('booking-card-' + id)!;
+        const people = within(card).getByRole('list', { name: 'bookingParticipantsLabel' });
+        expect(
+          within(people)
+            .getAllByRole('listitem')
+            .map((person) => person.textContent)
+        ).toEqual(names);
+        expect(people.querySelector('img')).toHaveAttribute(
+          'src',
+          id === 'only_b' ? '/b.png' : '/a.png'
+        );
+      }
+      const courseCards = screen.getAllByTestId('course-enrollment-card');
+      expect(courseCards).toHaveLength(2);
+      expect(
+        within(courseCards.find((card) => card.dataset.enrollmentId === 'ea')!).getByText(
+          'Alice Full Name'
+        )
+      ).toBeInTheDocument();
+      expect(
+        within(courseCards.find((card) => card.dataset.enrollmentId === 'eb')!).getByText(
+          'Bob Full Name'
+        )
+      ).toBeInTheDocument();
+    };
+    assertMembership();
+    expect(props.hasUnreadChat).toHaveBeenCalledWith('only_b');
     expect(
       screen.getAllByTitle('chatNewMessages').filter((element) => element.tagName === 'BUTTON')
-    ).toHaveLength(2);
-    expect(screen.getAllByRole('button', { name: 'cancelBookingRefund' })).toHaveLength(2);
+    ).toHaveLength(3);
+    expect(screen.getAllByRole('button', { name: 'cancelBookingRefund' })).toHaveLength(3);
     await user.click(
       screen.getAllByTitle('chatNewMessages').filter((element) => element.tagName === 'BUTTON')[0]
     );
@@ -479,19 +513,23 @@ describe('Shell → real BookingsPanel → ClientBookingsList participant isolat
     await user.click(screen.getAllByRole('button', { name: 'rescheduleBtn' })[0]);
     expect(props.onRescheduleBooking).toHaveBeenCalledWith(props.bookings[0]);
     await user.click(screen.getByRole('button', { name: 'Select Bob Full Name' }));
-    expect(screen.queryByText('Coach only_a')).not.toBeInTheDocument();
+    expect(screen.getByText('Coach only_a')).toBeInTheDocument();
     expect(screen.getByText('Coach only_b')).toBeInTheDocument();
     expect(screen.getByText('Coach shared')).toBeInTheDocument();
     expect(screen.getByTestId('calendar-scope')).toHaveTextContent('eb');
+    assertMembership();
     expect(
       calendarSpy.mock.lastCall?.[0].bookings.map((b: LessonBookingCabinetItem) => b.id)
     ).toEqual(['only_b', 'shared', 'done_b', 'done_shared']);
+    await user.click(screen.getByRole('button', { name: 'Select Charlie Full Name' }));
+    assertMembership();
+    expect(calendarSpy.mock.lastCall?.[0].sessionItems).toEqual([]);
     await user.click(screen.getByRole('button', { name: 'home', exact: true }));
     expect(screen.getByText('Coach only_a')).toBeInTheDocument();
     expect(screen.getByText('Coach only_b')).toBeInTheDocument();
   });
 
-  it('scopes completed lessons and review prompts to each selected participant', async () => {
+  it('keeps all completed lessons, review actions and the past tab through header switches', async () => {
     const user = userEvent.setup();
     const props = lessonShellProps();
     setup(props);
@@ -500,13 +538,13 @@ describe('Shell → real BookingsPanel → ClientBookingsList participant isolat
       calendarSpy.mock.lastCall?.[0].unreviewedCompletedBookings.map(
         (b: LessonBookingCabinetItem) => b.id
       )
-    ).toEqual(['done_a', 'done_shared']);
+    ).toEqual(['done_a', 'done_b', 'done_shared']);
     await user.click(screen.getByRole('button', { name: 'scCalendarPast' }));
     expect(screen.getByText('Coach done_a')).toBeInTheDocument();
-    expect(screen.queryByText('Coach done_b')).not.toBeInTheDocument();
+    expect(screen.getByText('Coach done_b')).toBeInTheDocument();
     expect(screen.getByText('Coach done_shared')).toBeInTheDocument();
     const reviewButtons = screen.getAllByRole('button', { name: 'writeReviewBtn' });
-    expect(reviewButtons).toHaveLength(2);
+    expect(reviewButtons).toHaveLength(3);
     await user.click(reviewButtons[0]);
     expect(props.onWriteReview).toHaveBeenCalledWith(props.bookings.find((b) => b.id === 'done_a'));
     await user.click(screen.getByRole('button', { name: 'Select Bob Full Name' }));
@@ -514,11 +552,40 @@ describe('Shell → real BookingsPanel → ClientBookingsList participant isolat
       calendarSpy.mock.lastCall?.[0].unreviewedCompletedBookings.map(
         (b: LessonBookingCabinetItem) => b.id
       )
-    ).toEqual(['done_b', 'done_shared']);
-    await user.click(screen.getByRole('button', { name: 'scCalendarPast' }));
-    expect(screen.queryByText('Coach done_a')).not.toBeInTheDocument();
+    ).toEqual(['done_a', 'done_b', 'done_shared']);
+    expect(screen.getByText('Coach done_a')).toBeInTheDocument();
     expect(screen.getByText('Coach done_b')).toBeInTheDocument();
     expect(screen.getByText('Coach done_shared')).toBeInTheDocument();
+  });
+
+  it('keeps four course days as one enrollment card for B with the account avatar while A is selected', async () => {
+    const user = userEvent.setup();
+    const props = shellProps([enrollment('eb', 'b')]);
+    const first = props.sessionItems![0];
+    if (first.kind !== 'course_day') throw new Error('expected course day');
+    props.sessionItems = Array.from({ length: 4 }, (_, index) => ({
+      ...first,
+      courseDayId: 'day_' + index,
+      date: '2026-10-0' + (3 + index),
+      dayOrder: index + 1,
+    }));
+    setup(props);
+    await user.click(screen.getByRole('button', { name: 'calendar', exact: true }));
+    const cards = screen.getAllByTestId('course-enrollment-card');
+    expect(cards).toHaveLength(1);
+    expect(cards[0]).toHaveAttribute('data-enrollment-id', 'eb');
+    const people = within(cards[0]).getByRole('list', { name: 'bookingParticipantsLabel' });
+    expect(within(people).getAllByRole('listitem')).toHaveLength(1);
+    expect(within(people).getByText('Bob Full Name')).toBeInTheDocument();
+    expect(people.querySelector('img')).toHaveAttribute('src', '/b.png');
+    expect(within(cards[0]).getByText('scGroupCourse · 4 scCourseDayMany')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'scMoreDetails' }));
+    expect(props.onViewCourseDetails).toHaveBeenCalledWith(props.courses[0], 'eb');
+    await user.click(screen.getByRole('button', { name: 'Select Bob Full Name' }));
+    expect(screen.getAllByTestId('course-enrollment-card')).toHaveLength(1);
+    expect(
+      within(screen.getByTestId('course-enrollment-card')).getByText('Bob Full Name')
+    ).toBeInTheDocument();
   });
 
   it('preserves account lesson lists when selection is absent', async () => {
@@ -663,5 +730,100 @@ describe('account-level weather visibility', () => {
     vi.setSystemTime(new Date('2026-10-03T00:05:00'));
     setup(lessonProps(['a'], 'confirmed', '2026-10-02'));
     expect(screen.queryByTestId('weather-widget')).not.toBeInTheDocument();
+  });
+});
+
+function countdownCard() {
+  return screen.getByText('scCountdownToSession').parentElement!;
+}
+function upcomingLesson(id: string, ids: string[], time: string) {
+  return { ...lesson(id, ids), date: '2026-10-02', time };
+}
+function countdownProps(bookings: LessonBookingCabinetItem[]) {
+  const props = shellProps([]);
+  props.bookings = bookings;
+  props.sessionItems = buildMixedCabinetSessionItems({
+    lessonBookings: bookings,
+    courseEnrollments: [],
+  });
+  return props;
+}
+
+describe('account-level countdown through the real header', () => {
+  it('selects B at 14:00 ahead of A at 16:00 and preserves the running timer through A → B → C switches', () => {
+    vi.useRealTimers();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-02T12:00:00'));
+    const intervals = vi.spyOn(window, 'setInterval');
+    setup(
+      countdownProps([
+        upcomingLesson('later_a', ['a'], '16:00'),
+        upcomingLesson('nearest_b', ['b'], '14:00'),
+      ])
+    );
+    const card = countdownCard();
+    expect(within(card).getByText(/Coach nearest_b/)).toBeInTheDocument();
+    expect(within(card).queryByText(/Coach later_a/)).not.toBeInTheDocument();
+    const people = within(card).getByRole('list', { name: 'bookingParticipantsLabel' });
+    expect(within(people).getByText('Bob Full Name')).toBeInTheDocument();
+    expect(people.querySelector('img')).toHaveAttribute('src', '/b.png');
+    const timer = card.querySelector('[aria-live="polite"]')!;
+    const initialText = timer.textContent;
+    expect(initialText).toBe('2:00:00');
+    const intervalCount = intervals.mock.calls.filter((call) => call[1] === 1000).length;
+    act(() => vi.advanceTimersByTime(1000));
+    expect(timer.textContent).not.toBe(initialText);
+    const elapsedText = timer.textContent;
+    fireEvent.click(screen.getByRole('button', { name: 'Select Bob Full Name' }));
+    expect(countdownCard()).toBe(card);
+    expect(countdownCard().querySelector('[aria-live="polite"]')).toBe(timer);
+    expect(timer.textContent).toBe(elapsedText);
+    expect(intervals.mock.calls.filter((call) => call[1] === 1000)).toHaveLength(intervalCount);
+    fireEvent.click(screen.getByRole('button', { name: 'Select Charlie Full Name' }));
+    expect(countdownCard()).toBe(card);
+    expect(within(card).getByText('Bob Full Name')).toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(1000));
+    expect(timer.textContent).not.toBe(elapsedText);
+    // The original expiry transition remains hidden even after a header switch.
+    vi.setSystemTime(new Date('2026-10-02T14:00:00'));
+    act(() => vi.advanceTimersByTime(1000));
+    expect(screen.queryByText('scCountdownToSession')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Select Alice Full Name' }));
+    expect(screen.queryByText('scCountdownToSession')).not.toBeInTheDocument();
+  });
+
+  it('shows both booking participants with their account avatars', () => {
+    setup(countdownProps([upcomingLesson('shared_countdown', ['a', 'b'], '14:00')]));
+    const people = within(countdownCard()).getByRole('list', { name: 'bookingParticipantsLabel' });
+    expect(
+      within(people)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent)
+    ).toEqual(['Alice Full Name', 'Bob Full Name']);
+    expect([...people.querySelectorAll('img')].map((img) => img.getAttribute('src'))).toEqual([
+      '/a.png',
+      '/b.png',
+    ]);
+  });
+
+  it('shows only B for the nearest course day of enrollment B while A is selected', async () => {
+    vi.setSystemTime(new Date('2026-10-03T08:00:00'));
+    const user = userEvent.setup();
+    const props = shellProps([enrollment('ea', 'a'), enrollment('eb', 'b')]);
+    props.sessionItems = props.sessionItems!.map((item) =>
+      item.kind === 'course_day' && item.participantId === 'a'
+        ? { ...item, time: '16:00', endTime: '17:00' }
+        : item
+    );
+    setup(props);
+    const card = countdownCard();
+    expect(within(card).getByText('Shared Alpine Course')).toBeInTheDocument();
+    const people = within(card).getByRole('list', { name: 'bookingParticipantsLabel' });
+    expect(within(people).getAllByRole('listitem')).toHaveLength(1);
+    expect(within(people).getByText('Bob Full Name')).toBeInTheDocument();
+    expect(people.querySelector('img')).toHaveAttribute('src', '/b.png');
+    await user.click(screen.getByRole('button', { name: 'Select Bob Full Name' }));
+    expect(countdownCard()).toBe(card);
+    expect(within(card).getByText('Bob Full Name')).toBeInTheDocument();
   });
 });

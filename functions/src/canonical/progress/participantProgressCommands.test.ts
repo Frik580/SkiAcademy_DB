@@ -212,6 +212,63 @@ function envelope(
 }
 
 describe('participantProgressCommands', () => {
+  it('atomically keeps participant daily baselines across updates, replay and the school-day rollover', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedWorld());
+    const at = new Date('2026-01-01T18:50:00Z');
+    const commands = createProductionCanonicalCommands(environment(at), executor);
+    const first = envelope({
+      participantId: childParticipantId,
+      expectedRevision: 0,
+      skillScores: { carving: 5 },
+    });
+    expect((await commands.execute(first)).status).toBe('success');
+    const path = `participant_progress/${childParticipantId}`;
+    const firstDaily = executor.snapshot().docs.get(path)?.data.dailyProgress;
+    expect(firstDaily).toMatchObject({
+      date: '2026-01-01',
+      timeZone: 'Asia/Almaty',
+      baselineSkillScores: {},
+      baselineLevel: 1,
+      complete: true,
+    });
+    const second = envelope({
+      participantId: childParticipantId,
+      expectedRevision: 1,
+      idempotencyKey: 'daily-second',
+      level: 3,
+      skillScores: { carving: 15 },
+    });
+    expect((await commands.execute(second)).status).toBe('success');
+    expect((await commands.execute(second)).status).toBe('success');
+    expect(executor.snapshot().docs.get(path)?.data).toMatchObject({
+      revision: 2,
+      dailyProgress: firstDaily,
+    });
+    const nextDay = createProductionCanonicalCommands(
+      environment(new Date('2026-01-01T19:00:00Z')),
+      executor
+    );
+    expect(
+      (
+        await nextDay.execute(
+          envelope({
+            participantId: childParticipantId,
+            expectedRevision: 2,
+            idempotencyKey: 'daily-next-day',
+            level: 3,
+            skillScores: { carving: 20 },
+          })
+        )
+      ).status
+    ).toBe('success');
+    expect(executor.snapshot().docs.get(path)?.data.dailyProgress).toMatchObject({
+      date: '2026-01-02',
+      baselineSkillScores: { carving: 15 },
+      baselineLevel: 3,
+      complete: true,
+    });
+    expect(executor.snapshot().docs.has(`participant_progress/${participantId}`)).toBe(false);
+  });
   it('lets an instructor with relationship authority create and then OCC-update progress', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor({
       ...seedWorld(),

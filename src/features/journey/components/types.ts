@@ -19,7 +19,13 @@ export interface JourneyLevel {
 
 export type JourneyEarnedSkill = { id: string; title: string };
 
+export interface JourneyMarkerParticipantInput {
+  readonly displayName: string;
+  readonly avatarUrl?: string;
+}
+
 export interface YourJourneySectionProps {
+  markerParticipant?: JourneyMarkerParticipantInput;
   skillConfig?: SkillConfig;
   userProfile?: UserProfile | null;
   animateSequence?: boolean;

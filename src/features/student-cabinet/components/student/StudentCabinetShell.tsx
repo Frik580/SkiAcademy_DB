@@ -332,6 +332,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
   const ctx = {
     participantProfiles: toCabinetParticipantAvatarItems(participants, props.userProfile.avatarUrl),
     userProfile: progressProfile,
+    participantProgress: selectedProgress,
     selectedParticipantId: selectedProgressParticipantId,
     bookings: isolatedLegacyBookings,
     sessionItems: isolatedSessionItems,

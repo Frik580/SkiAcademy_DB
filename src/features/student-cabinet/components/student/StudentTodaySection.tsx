@@ -12,10 +12,13 @@ import { TodayTasksBlock } from './StudentTodayTasksBlock';
 import { TodayProgressBlock } from './StudentTodayProgressBlock';
 import type { StudentTodaySectionInput } from './studentCabinetContracts';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
+import { ParticipantScopeIndicator } from './ParticipantScopeIndicator';
 
 const SUBSECTION_LABEL = 'text-[10px] font-medium tracking-widest uppercase text-[var(--ink-dim)]';
 
 export const StudentTodaySection = memo<StudentTodaySectionInput>(function StudentTodaySection({
+  todayProgress = { todayXP: null, todayLevelUp: null, exercises: [] },
+  scopeParticipant,
   countdown,
   countdownParticipants,
   currentSessions,
@@ -30,10 +33,8 @@ export const StudentTodaySection = memo<StudentTodaySectionInput>(function Stude
   usersList = [],
   todayTasks,
   bookings,
-  reviews = [],
   userProfile,
   selectedParticipantId,
-  activityLogs = [],
   achievementsConfig,
   skillConfig,
   onOpenSession,
@@ -98,6 +99,7 @@ export const StudentTodaySection = memo<StudentTodaySectionInput>(function Stude
       <TodayTasksBlock
         key={`tasks:${selectedParticipantId}`}
         todayTasks={todayTasks}
+        scopeParticipant={scopeParticipant}
         bookings={bookings}
         onToggleRecommendation={onToggleRecommendation}
         onToggleTodayTaskComplete={onToggleTodayTaskComplete}
@@ -112,7 +114,13 @@ export const StudentTodaySection = memo<StudentTodaySectionInput>(function Stude
       {nextStepAction && (
         <>
           <div className="py-5 space-y-2">
-            <p className={SUBSECTION_LABEL}>{t('scNextStepTitle')}</p>
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+              <p className={SUBSECTION_LABEL}>{t('scNextStepTitle')}</p>
+              <ParticipantScopeIndicator
+                participant={scopeParticipant}
+                visible={Boolean(scopeParticipant)}
+              />
+            </div>
             <StudentNextStepCard
               action={nextStepAction}
               onStartExercise={(exerciseId) => {
@@ -149,16 +157,12 @@ export const StudentTodaySection = memo<StudentTodaySectionInput>(function Stude
       <ScDivider />
 
       <TodayProgressBlock
+        progress={todayProgress}
+        scopeParticipant={scopeParticipant}
         key={`progress:${selectedParticipantId}`}
-        userProfile={userProfile}
         selectedParticipantId={selectedParticipantId}
-        bookings={bookings}
-        courses={courses}
-        reviews={reviews}
-        activityLogs={activityLogs}
         achievementsConfig={achievementsConfig}
         skillConfig={skillConfig}
-        todayTasks={todayTasks}
       />
     </section>
   );

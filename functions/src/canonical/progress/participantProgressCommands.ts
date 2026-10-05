@@ -12,6 +12,7 @@ import {
   identityDocumentMatchesReadScope,
   instructorRelationshipIdFromPair,
   nextAggregateRevision,
+  nextParticipantDailyProgress,
   participantBlockIdFromDirection,
   resolveCommandIdempotencyIdentity,
   timestampFromDate,
@@ -395,6 +396,7 @@ function updateParticipantProgressHandler(
         level: envelope.intent.level,
         skillScores: envelope.intent.skillScores,
         skillComments: envelope.intent.skillComments,
+        dailyProgress: nextParticipantDailyProgress(current, environment.clock.decidedAt()),
         updatedBy: {
           kind: 'instructor',
           instructorId,

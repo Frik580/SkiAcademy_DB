@@ -8,6 +8,7 @@ import {
   ParticipantProgressSkillCommentsSchema,
   ParticipantProgressSkillScoresSchema,
   ParticipantProgressUpdatedBySchema,
+  ParticipantDailyProgressSchema,
 } from '../participantProgress';
 import { AggregateRevisionSchema, CanonicalTimestampSchema } from '../primitives';
 
@@ -19,6 +20,7 @@ export const ParticipantProgressReadModelSchema = z
     level: ParticipantProgressLevelSchema,
     skillScores: ParticipantProgressSkillScoresSchema,
     skillComments: ParticipantProgressSkillCommentsSchema,
+    dailyProgress: ParticipantDailyProgressSchema.optional(),
     revision: AggregateRevisionSchema,
     updatedAt: CanonicalTimestampSchema.optional(),
     updatedBy: ParticipantProgressUpdatedBySchema.optional(),

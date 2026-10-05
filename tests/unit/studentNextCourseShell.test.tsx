@@ -13,6 +13,11 @@ import { useCabinetProgressParticipantSelection } from '../../src/features/stude
 import { useCabinetProgressParticipantSelectionStore } from '../../src/features/student-cabinet/cabinetProgressParticipantSelectionStore';
 import { useParticipantProgressStore } from '../../src/features/participant-progress/participantProgressStore';
 import { buildMixedCabinetSessionItems } from '../../src/features/course-enrollments/cabinetSessionItems';
+import {
+  getCurrentSessionItems,
+  resolveSessionStartDateTime,
+  resolveSessionEndDateTime,
+} from '../../src/features/course-enrollments/sessionScheduleHelpers';
 import type {
   CabinetSessionItem,
   CourseEnrollmentCabinetItem,
@@ -293,7 +298,6 @@ function assertCourseCard() {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.spyOn(Date, 'now').mockReturnValue(new Date('2026-10-02T12:00:00').getTime());
   // Preserve native timers for userEvent; only freeze the Date constructor.
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date('2026-10-02T12:00:00'));
@@ -838,13 +842,19 @@ describe('account-level current sessions through the real header', () => {
   });
 
   it('keeps active enrollment B scoped to B and its actions while header A is selected', () => {
-    vi.setSystemTime(new Date('2026-10-03T10:30:00+05:00'));
+    vi.setSystemTime(new Date('2026-10-03T05:30:00Z'));
     const props = shellProps();
     props.sessionItems = props.sessionItems!.map((item) =>
       item.kind === 'course_day' && item.participantId === 'a'
         ? { ...item, time: '16:00', endTime: '17:00' }
         : item
     );
+    const active = props.sessionItems!.find(
+      (item) => item.kind === 'course_day' && item.enrollmentId === 'eb'
+    )!;
+    expect(resolveSessionStartDateTime(active)?.toISOString()).toBe('2026-10-03T05:00:00.000Z');
+    expect(resolveSessionEndDateTime(active)?.toISOString()).toBe('2026-10-03T06:00:00.000Z');
+    expect(getCurrentSessionItems(props.sessionItems!, new Date())).toEqual([active]);
     setup(props);
     const card = currentCards()[0] as HTMLElement;
     expect(currentCards()).toHaveLength(1);
@@ -862,8 +872,14 @@ describe('account-level current sessions through the real header', () => {
   });
 
   it('renders simultaneous enrollments as independent cards with their own participants and actions', () => {
-    vi.setSystemTime(new Date('2026-10-03T10:30:00+05:00'));
+    vi.setSystemTime(new Date('2026-10-03T05:30:00Z'));
     const props = shellProps();
+    expect(Date.now()).toBe(Date.parse('2026-10-03T05:30:00Z'));
+    for (const session of props.sessionItems!) {
+      expect(resolveSessionStartDateTime(session)?.toISOString()).toBe('2026-10-03T05:00:00.000Z');
+      expect(resolveSessionEndDateTime(session)?.toISOString()).toBe('2026-10-03T06:00:00.000Z');
+    }
+    expect(getCurrentSessionItems(props.sessionItems!, new Date())).toHaveLength(2);
     setup(props);
     expect(currentCards()).toHaveLength(2);
     for (const element of currentCards()) {
@@ -936,7 +952,7 @@ describe('account-level countdown through the real header', () => {
   });
 
   it('shows only B for the nearest course day of enrollment B while A is selected', async () => {
-    vi.setSystemTime(new Date('2026-10-03T08:00:00'));
+    vi.setSystemTime(new Date('2026-10-03T03:00:00Z'));
     const user = userEvent.setup();
     const props = shellProps([enrollment('ea', 'a'), enrollment('eb', 'b')]);
     props.sessionItems = props.sessionItems!.map((item) =>

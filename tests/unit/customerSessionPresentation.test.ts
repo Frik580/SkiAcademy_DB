@@ -15,6 +15,8 @@ import {
   getMiniCalendarDaysFromSessions,
   getNextSessionsNext7DaysFromSessions,
   isSessionOnDate,
+  getCurrentSessionItems,
+  isSessionUpcomingBySchedule,
   resolveSessionEndDateTime,
   resolveSessionStartDateTime,
   sessionDisplayDate,
@@ -111,6 +113,39 @@ describe('customer session presentation cutover', () => {
     expect(end).not.toBeNull();
     expect(end!.getTime()).toBeGreaterThan(start!.getTime());
     expect(formatCabinetSessionTimeRange(session)).toContain('–');
+  });
+
+  it('classifies Almaty CourseDays by their canonical instants across host timezones', () => {
+    const interval = {
+      startsAt: { seconds: Date.parse('2026-10-03T05:00:00Z') / 1000, nanoseconds: 0 },
+      endsAt: { seconds: Date.parse('2026-10-03T06:00:00Z') / 1000, nanoseconds: 0 },
+    };
+    const [session] = expandEnrollmentsToCourseDaySessions([
+      {
+        ...enrollment,
+        courseSchedule: {
+          ...enrollment.courseSchedule,
+          startAt: interval.startsAt,
+          finalCourseDayEndsAt: interval.endsAt,
+          courseDays: [
+            { ...enrollment.courseSchedule.courseDays[0], timeZone: 'Asia/Almaty', interval },
+          ],
+        },
+      },
+    ]);
+    expect(session).toMatchObject({ date: '2026-10-03', time: '10:00', endTime: '11:00' });
+    expect(resolveSessionStartDateTime(session)?.toISOString()).toBe('2026-10-03T05:00:00.000Z');
+    expect(resolveSessionEndDateTime(session)?.toISOString()).toBe('2026-10-03T06:00:00.000Z');
+    for (const [instant, current, upcoming] of [
+      ['2026-10-03T04:59:59Z', false, true],
+      ['2026-10-03T05:00:00Z', true, false],
+      ['2026-10-03T05:30:00Z', true, false],
+      ['2026-10-03T06:00:00Z', false, false],
+    ] as const) {
+      const now = new Date(instant);
+      expect(getCurrentSessionItems([session], now)).toEqual(current ? [session] : []);
+      expect(isSessionUpcomingBySchedule(session, now)).toBe(upcoming);
+    }
   });
 
   it('detects course_day sessions on date without course_* booking conventions', () => {

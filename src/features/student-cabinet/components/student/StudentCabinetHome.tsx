@@ -87,8 +87,12 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     [countdown, props.participantProfiles]
   );
   const currentSessions = useMemo(
-    () => getCurrentSessions(sessionItems, new Date()),
-    [sessionItems]
+    () => getCurrentSessions(nextSessionItems, new Date()),
+    [nextSessionItems]
+  );
+  const currentParticipantsBySessionKey = useMemo(
+    () => buildSessionParticipants(currentSessions, props.participantProfiles ?? []),
+    [currentSessions, props.participantProfiles]
   );
   const recommendationTodayTasks = useMemo(
     () =>
@@ -153,6 +157,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
             countdown={countdown}
             countdownParticipants={countdownParticipants}
             currentSessions={currentSessions}
+            currentParticipantsBySessionKey={currentParticipantsBySessionKey}
             nextSession={nextSession}
             nextSessions={nextSessions}
             participantsBySessionKey={participantsBySessionKey}

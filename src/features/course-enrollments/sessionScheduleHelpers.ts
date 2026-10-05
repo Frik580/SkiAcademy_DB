@@ -1,4 +1,6 @@
 import type { LessonBookingCabinetItem } from '../lesson-bookings/lessonBookingContracts';
+import { localCalendarInputToUtcDate } from '@ski-academy/shared-domain/canonical/bookingCreation';
+import { IanaTimeZoneSchema } from '@ski-academy/shared-domain/canonical/primitives';
 import {
   parseBookingEndTime,
   parseBookingStartTime,
@@ -70,8 +72,10 @@ export function resolveSessionStartDateTime(item: CabinetSessionItem): Date | nu
       ? buildLocalDateTime(item.session.date, start.h, start.m)
       : buildLocalDateTime(item.session.date, 0, 0);
   }
-  const [h, m] = item.time.split(':').map(Number);
-  return buildLocalDateTime(item.date, h, m);
+  return localCalendarInputToUtcDate(
+    { localDate: item.date, localTime: item.time, durationMinutes: 60 },
+    IanaTimeZoneSchema.parse(item.timeZone)
+  );
 }
 
 export function resolveSessionEndDateTime(item: CabinetSessionItem): Date | null {
@@ -79,8 +83,10 @@ export function resolveSessionEndDateTime(item: CabinetSessionItem): Date | null
     const end = parseBookingEndTime(item.session.time, item.session.durationHours);
     return end ? buildLocalDateTime(item.session.date, end.h, end.m) : null;
   }
-  const [h, m] = item.endTime.split(':').map(Number);
-  return buildLocalDateTime(item.date, h, m);
+  return localCalendarInputToUtcDate(
+    { localDate: item.date, localTime: item.endTime, durationMinutes: 60 },
+    IanaTimeZoneSchema.parse(item.timeZone)
+  );
 }
 
 export function getSessionDailyTimeWindow(
@@ -95,6 +101,11 @@ export function getSessionDailyTimeWindow(
 
 export function isSessionInProgressNow(item: CabinetSessionItem, now = new Date()): boolean {
   if (!isActiveSessionItem(item)) return false;
+  if (item.kind === 'course_day') {
+    const start = resolveSessionStartDateTime(item);
+    const end = resolveSessionEndDateTime(item);
+    return Boolean(start && end && now >= start && now < end);
+  }
   const todayStr = toYMD(now);
   const window = getSessionDailyTimeWindow(item, todayStr);
   return Boolean(window && now >= window.start && now < window.end);

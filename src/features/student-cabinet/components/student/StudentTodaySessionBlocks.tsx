@@ -16,6 +16,7 @@ import type {
   CurrentSessionsBlockInput,
   NextSessionBlockInput,
   SessionCountdownBlockInput,
+  SessionParticipantInput,
 } from './studentCabinetContracts';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 import { SessionParticipants } from './SessionParticipants';
@@ -126,11 +127,13 @@ export const SessionCountdownBlock = memo<SessionCountdownBlockInput>(
 );
 
 const SessionCard = memo<
-  Omit<CurrentSessionsBlockInput, 'sessions'> & {
+  Omit<CurrentSessionsBlockInput, 'sessions' | 'participantsBySessionKey'> & {
     session: CabinetSessionItem;
+    participants: readonly SessionParticipantInput[];
   }
 >(function SessionCard({
   session,
+  participants,
   courses,
   instructors,
   usersList,
@@ -159,6 +162,7 @@ const SessionCard = memo<
           ? formatCourseDayDateLabel(session, lang)
           : getCabinetSessionSubtitle(session, lang)}
       </p>
+      <SessionParticipants participants={participants} />
       <div className="flex flex-wrap gap-4 pt-2">
         {session.kind === 'lesson' ? (
           <>
@@ -205,6 +209,7 @@ const SessionCard = memo<
 
 export const CurrentSessionsBlock = memo<CurrentSessionsBlockInput>(function CurrentSessionsBlock({
   sessions,
+  participantsBySessionKey = {},
   courses,
   instructors,
   usersList,
@@ -224,6 +229,7 @@ export const CurrentSessionsBlock = memo<CurrentSessionsBlockInput>(function Cur
             <SessionCard
               key={sessionItemKey(session)}
               session={session}
+              participants={participantsBySessionKey[sessionItemKey(session)] ?? []}
               courses={courses}
               instructors={instructors}
               usersList={usersList}

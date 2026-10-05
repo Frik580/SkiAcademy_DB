@@ -4,8 +4,7 @@ import { UserProfile } from '../../types';
 import { isInstructorWorkspaceUser } from '../../lib/workspaceRoutes';
 import { useAuthStore } from '../auth/authStore';
 import { useProfileStore } from '../profile/profileStore';
-import { useLanguage } from '../../app/providers/LanguageContext';
-import { AppInitSkeleton } from '../../ui/Skeleton';
+import { RouteContentLoading } from '../../ui/RouteContentLoading';
 
 export type RouteGateRole = 'auth' | 'admin' | 'instructor';
 
@@ -22,13 +21,12 @@ export const RouteGate: React.FC<RouteGateProps> = ({
   fallbackPath = '/',
   children,
 }) => {
-  const { t } = useLanguage();
   const authLoading = useAuthStore((s) => s.authLoading);
   const profileLoading = useProfileStore((s) => s.profileLoading);
 
   // Wait for auth + profile before redirecting — avoids /cabinet → / → /cabinet on reload.
   if (authLoading || profileLoading) {
-    return <AppInitSkeleton label={t('checkingCredentials')} />;
+    return <RouteContentLoading />;
   }
 
   if (!userProfile) {

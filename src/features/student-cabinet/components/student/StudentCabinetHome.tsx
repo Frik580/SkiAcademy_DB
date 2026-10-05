@@ -1,4 +1,15 @@
-import React, { useMemo } from 'react';
+import { compactStudentDashboardLanes } from '../../../settings/studentDashboardVerticalLayout';
+import { useStudentDashboardTileHeights } from './useStudentDashboardTileHeights';
+import {
+  useStudentTodayAchievements,
+  hasStudentTodayProgress,
+} from './useStudentTodayAchievements';
+import { resolveStudentDashboardDesktopLayout } from '../../../settings/studentDashboardDesktopLayout';
+import { StudentDashboardPlacementContext } from './studentDashboardPlacementContext';
+import { useStudentDashboardViewport } from './useStudentDashboardDesktop';
+import { resolveStudentDashboardTabletLayout } from '../../../settings/studentDashboardTabletLayout';
+import { StudentDashboardTileHeader, StudentDashboardTileBody } from './StudentDashboardTile';
+import React, { useMemo, useState, useRef } from 'react';
 import { YourJourneySection } from '../../../../features/journey';
 import {
   getMiniCalendarDaysFromSessions,
@@ -10,12 +21,27 @@ import {
   getGreeting,
   getTodayTasks,
   getTodaySessionCountdown,
+  getNextStepAction,
+  getNeedsAttentionBookings,
 } from './studentCabinetUtils';
 import { buildCanonicalRecommendationTodayTasks } from '../../studentLessonFeedbackPresentation';
 import { usePresentedParticipantLessonFeedback } from '../../usePresentedParticipantLessonFeedback';
-import { ScDivider, ScTextButton } from './StudentCabinetUI';
+import { ScTextButton } from './StudentCabinetUI';
 import { StudentNeedsAttention } from './StudentNeedsAttention';
-import { StudentTodaySection } from './StudentTodaySection';
+import {
+  CurrentSessionsBlock,
+  NextSessionBlock,
+  SessionCountdownBlock,
+} from './StudentTodaySessionBlocks';
+import { TodayTasksBlock } from './StudentTodayTasksBlock';
+import { PresentedTodayProgressBlock } from './StudentTodayProgressBlock';
+import { StudentNextStepCard } from './StudentNextStepCard';
+import { StudentDashboardTile, STUDENT_DASHBOARD_GRID_CLASSES } from './StudentDashboardTile';
+import { useSettingsStore } from '../../../settings/settingsStore';
+import {
+  STUDENT_DASHBOARD_TILES,
+  type StudentDashboardTileKey,
+} from '../../../settings/studentDashboardLayout';
 import { LazySkillRadarChart } from './LazySkillRadarChart';
 import {
   StudentCabinetWeatherSection,
@@ -33,6 +59,12 @@ export type { StudentCabinetHomeContext as StudentCabinetContext } from './stude
 
 export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => {
   const { t, lang } = useStudentCabinetTranslations();
+  const viewport = useStudentDashboardViewport();
+  const isDesktop = viewport === 'desktop';
+  const isTablet = viewport === 'tablet';
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [expiredCountdown, setExpiredCountdown] = useState<number | null>(null);
+  const layout = useSettingsStore((state) => state.studentDashboardLayout);
   const {
     userProfile,
     selectedParticipantId,
@@ -74,6 +106,18 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     skillConfig,
     lang
   );
+  const todayAchievements = useStudentTodayAchievements({
+    selectedParticipantId,
+    achievementsConfig: props.achievementsConfig,
+    skillConfig,
+  });
+  const pendingFeedback = feedback.incomplete
+    .map((item) => feedback.feedbackForLesson(item.lessonBookingId))
+    .filter((item): item is NonNullable<typeof item> => item != null);
+  const showAchievements = hasStudentTodayProgress(todayProgress, todayAchievements);
+  const showAttention =
+    pendingFeedback.length > 0 ||
+    getNeedsAttentionBookings(bookings, reviews, dismissedReviewIds, userProfile.uid).length > 0;
   const openLessonById = (lessonBookingId: string) => {
     if (onOpenLessonByBookingId) {
       onOpenLessonByBookingId(lessonBookingId);
@@ -88,7 +132,6 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     () => buildNextSessionCards(nextSessionItems, props.participantProfiles ?? [], new Date()),
     [nextSessionItems, props.participantProfiles]
   );
-  const nextSession = nextSessions[0]?.session ?? null;
   const countdown = useMemo(() => getTodaySessionCountdown(nextSessionItems), [nextSessionItems]);
   const countdownParticipants = useMemo(
     () =>
@@ -147,6 +190,232 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     [courses, onViewCourseDetails]
   );
 
+  const nextStepAction = useMemo(
+    () => getNextStepAction(userProfile, recommendationTodayTasks[0], skillConfig, lang),
+    [userProfile, recommendationTodayTasks, skillConfig, lang]
+  );
+  const showCountdown = Boolean(
+    countdown &&
+    countdown.startsAt.getTime() > Date.now() &&
+    expiredCountdown !== countdown.startsAt.getTime()
+  );
+  const tiles: Record<StudentDashboardTileKey, React.ReactNode> = {
+    currentSessions:
+      currentSessions.length > 0 ? (
+        <StudentDashboardTile
+          tileKey={STUDENT_DASHBOARD_TILES.currentSessions.key}
+          size={layout.tiles.currentSessions.desktopSize}
+        >
+          <CurrentSessionsBlock
+            sessions={currentSessions}
+            participantsBySessionKey={currentParticipantsBySessionKey}
+            courses={courses}
+            instructors={instructors}
+            usersList={usersList}
+            onOpenLesson={onOpenLesson}
+            onOpenSession={onOpenSession}
+            onViewCourseDetails={viewCourseById}
+            hasUnreadChat={props.hasUnreadChat}
+          />
+        </StudentDashboardTile>
+      ) : null,
+    countdown:
+      countdown && showCountdown ? (
+        <SessionCountdownBlock
+          key={countdown.startsAt.getTime()}
+          dashboardSize={layout.tiles.countdown.desktopSize}
+          countdown={countdown}
+          onExpire={() => setExpiredCountdown(countdown.startsAt.getTime())}
+          participants={countdownParticipants}
+          courses={courses}
+          instructors={instructors}
+          usersList={usersList}
+        />
+      ) : null,
+    todayTasks: (
+      <StudentDashboardTile
+        tileKey={STUDENT_DASHBOARD_TILES.todayTasks.key}
+        size={layout.tiles.todayTasks.desktopSize}
+      >
+        <TodayTasksBlock
+          key={`tasks:${selectedParticipantId}`}
+          todayTasks={todayTasks}
+          scopeParticipant={scopeParticipant}
+          bookings={bookings}
+          onToggleRecommendation={onToggleRecommendation}
+          onToggleTodayTaskComplete={onToggleTodayTaskComplete}
+          onAddCustomTodayTask={onAddCustomTodayTask}
+          onRemoveTodayTask={onRemoveTodayTask}
+          onOpenLesson={onOpenLesson}
+          onContinueDevelopment={onContinueDevelopment}
+        />
+      </StudentDashboardTile>
+    ),
+    nextStep: nextStepAction ? (
+      <StudentDashboardTile
+        tileKey={STUDENT_DASHBOARD_TILES.nextStep.key}
+        size={layout.tiles.nextStep.desktopSize}
+      >
+        <section>
+          <StudentDashboardTileHeader
+            title={t('scNextStepTitle')}
+            actions={
+              <ParticipantScopeIndicator
+                participant={scopeParticipant}
+                visible={Boolean(scopeParticipant)}
+              />
+            }
+          />
+          <StudentDashboardTileBody>
+            <StudentNextStepCard
+              action={nextStepAction}
+              onStartExercise={(exerciseId) => {
+                const pinned = userProfile.todaySkillItemIds?.includes(exerciseId);
+                if (!pinned) void onToggleSkillToday?.(exerciseId, true);
+              }}
+              onOpenRecommendation={(bookingId) => {
+                const booking = bookings.find((item) => item.id === bookingId);
+                if (booking) onOpenLesson(booking);
+              }}
+              onContinueDevelopment={onContinueDevelopment}
+            />
+          </StudentDashboardTileBody>
+        </section>
+      </StudentDashboardTile>
+    ) : null,
+    nextSession: (
+      <StudentDashboardTile
+        tileKey={STUDENT_DASHBOARD_TILES.nextSession.key}
+        size={layout.tiles.nextSession.desktopSize}
+      >
+        <NextSessionBlock
+          nextSessions={nextSessions}
+          participantsBySessionKey={participantsBySessionKey}
+          miniDays={miniDays}
+          courses={courses}
+          instructors={instructors}
+          usersList={usersList}
+          onGoToTab={onGoToTab}
+          onOpenLesson={onOpenLesson}
+          onOpenSession={onOpenSession}
+          onViewCourseDetails={viewCourseById}
+          hasUnreadChat={props.hasUnreadChat}
+        />
+      </StudentDashboardTile>
+    ),
+    todayAchievements: showAchievements ? (
+      <PresentedTodayProgressBlock
+        key={`progress:${selectedParticipantId}`}
+        dashboardSize={layout.tiles.todayAchievements.desktopSize}
+        progress={todayProgress}
+        todayAchievements={todayAchievements}
+        scopeParticipant={scopeParticipant}
+        selectedParticipantId={selectedParticipantId}
+        achievementsConfig={props.achievementsConfig}
+        skillConfig={skillConfig}
+      />
+    ) : null,
+    skillRadar: !hideProgress ? (
+      <StudentDashboardTile
+        tileKey={STUDENT_DASHBOARD_TILES.skillRadar.key}
+        size={layout.tiles.skillRadar.desktopSize}
+      >
+        <section>
+          <StudentDashboardTileHeader
+            title={t('scRadarTitle')}
+            actions={
+              <ParticipantScopeIndicator
+                participant={scopeParticipant}
+                visible={Boolean(scopeParticipant)}
+              />
+            }
+          />
+          <StudentDashboardTileBody>
+            <LazySkillRadarChart
+              key={selectedParticipantId}
+              userProfile={userProfile}
+              skillConfig={skillConfig}
+              onToggleSkillToday={onToggleSkillToday}
+              compact
+              embed
+            />
+            <div className="pt-2">
+              <ScTextButton arrow onClick={onContinueDevelopment}>
+                {t('scContinueDevelopment')}
+              </ScTextButton>
+            </div>
+          </StudentDashboardTileBody>
+        </section>
+      </StudentDashboardTile>
+    ) : null,
+    needsAttention: showAttention ? (
+      <StudentNeedsAttention
+        key={`attention:${selectedParticipantId}`}
+        dashboardSize={layout.tiles.needsAttention.desktopSize}
+        bookings={bookings}
+        reviews={reviews}
+        userId={userProfile.uid}
+        dismissedReviewIds={dismissedReviewIds}
+        pendingFeedback={pendingFeedback}
+        onOpenLesson={onOpenLesson}
+        onOpenFeedbackLesson={openLessonById}
+        onWriteReview={onWriteReview}
+        onDismissReview={onDismissReview}
+      />
+    ) : null,
+    instructorRecommendations: (
+      <StudentDashboardTile
+        tileKey={STUDENT_DASHBOARD_TILES.instructorRecommendations.key}
+        size={layout.tiles.instructorRecommendations.desktopSize}
+      >
+        <StudentLatestRecommendationSection
+          key={`recommendation:${selectedParticipantId}`}
+          latest={feedback.latestView}
+          scopeParticipant={scopeParticipant}
+          highlightPending={feedback.latestHighlight?.isPending ?? false}
+          highlightText={feedback.latestHighlight?.item.text ?? null}
+          loading={feedback.isLoadingPlaceholder}
+          onOpenLesson={openLessonById}
+        />
+      </StudentDashboardTile>
+    ),
+    weather:
+      showWeather && resortSnapshot ? (
+        <StudentDashboardTile
+          tileKey={STUDENT_DASHBOARD_TILES.weather.key}
+          size={layout.tiles.weather.desktopSize}
+        >
+          <StudentCabinetWeatherSection
+            resort={resortSnapshot}
+            onToggleTemperatureUnit={onToggleTemperatureUnit}
+          />
+        </StudentDashboardTile>
+      ) : null,
+  };
+
+  const visibleKeys = layout.order.filter((key) => tiles[key] !== null);
+  const desktopRows = isDesktop ? resolveStudentDashboardDesktopLayout(layout, visibleKeys) : [];
+  const horizontal = desktopRows.flatMap((row) => row.tiles);
+  const layoutIdentity = isDesktop
+    ? 'desktop:' +
+      horizontal.map((tile) => `${tile.key}:${tile.effectiveSize}:${tile.column}`).join('|')
+    : `${viewport}:${visibleKeys.join('|')}`;
+  const heights = useStudentDashboardTileHeights(gridRef, isDesktop || isTablet, layoutIdentity);
+  const canCompact =
+    isDesktop && horizontal.length > 0 && horizontal.every((tile) => (heights[tile.key] ?? 0) > 0);
+  const compacted = canCompact ? compactStudentDashboardLanes(desktopRows, heights) : null;
+  const tablet =
+    isTablet && visibleKeys.length > 0 && visibleKeys.every((key) => (heights[key] ?? 0) > 0)
+      ? resolveStudentDashboardTabletLayout(
+          visibleKeys.map((key) => ({ key, width: 'half' })),
+          heights
+        )
+      : null;
+  const placements = tablet?.placements ?? compacted?.placements ?? horizontal;
+  const renderOrder = isDesktop || tablet ? placements.map((tile) => tile.key) : visibleKeys;
+  const placementMap =
+    isDesktop || tablet ? new Map(placements.map((tile) => [tile.key, tile])) : null;
+
   return (
     <div className="space-y-0 pb-24 w-full min-w-0">
       <div className="w-full shrink-0">
@@ -160,115 +429,27 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
           onOpenDevelopment={onContinueDevelopment}
         />
       </div>
-
-      <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 min-w-0">
-        <section className="py-6 space-y-2.5 min-w-0">
+      <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 min-w-0">
+        <header className="py-6 space-y-2.5 min-w-0">
           <p className="text-base sm:text-lg font-medium text-[var(--ink)] leading-snug break-words">
             {getGreeting(lang, getFirstName(userProfile.displayName))}
           </p>
-
-          <StudentTodaySection
-            todayProgress={todayProgress}
-            countdown={countdown}
-            countdownParticipants={countdownParticipants}
-            currentSessions={currentSessions}
-            currentParticipantsBySessionKey={currentParticipantsBySessionKey}
-            nextSession={nextSession}
-            nextSessions={nextSessions}
-            participantsBySessionKey={participantsBySessionKey}
-            sessionItems={sessionItems}
-            miniDays={miniDays}
-            courses={courses}
-            instructors={instructors}
-            usersList={usersList}
-            todayTasks={todayTasks}
-            bookings={bookings}
-            reviews={reviews}
-            userProfile={userProfile}
-            selectedParticipantId={selectedParticipantId}
-            scopeParticipant={scopeParticipant}
-            achievementsConfig={props.achievementsConfig}
-            skillConfig={props.skillConfig}
-            onOpenSession={onOpenSession}
-            onOpenLesson={onOpenLesson}
-            onViewCourseDetails={viewCourseById}
-            onGoToTab={onGoToTab}
-            onContinueDevelopment={onContinueDevelopment}
-            pendingRecommendation={recommendationTodayTasks[0]}
-            onToggleRecommendation={onToggleRecommendation}
-            onToggleSkillToday={onToggleSkillToday}
-            onToggleTodayTaskComplete={onToggleTodayTaskComplete}
-            onAddCustomTodayTask={onAddCustomTodayTask}
-            onRemoveTodayTask={onRemoveTodayTask}
-            hasUnreadChat={props.hasUnreadChat}
-          />
-
-          {!hideProgress && (
-            <div className="pt-3 min-w-0 w-full">
-              <div className="mb-2.5 flex min-w-0 flex-wrap items-center justify-between gap-2">
-                <p className="text-[10px] font-medium tracking-widest uppercase text-[var(--ink-dim)]">
-                  {t('scRadarTitle')}
-                </p>
-                <ParticipantScopeIndicator
-                  participant={scopeParticipant}
-                  visible={Boolean(scopeParticipant)}
-                />
-              </div>
-              <div className="shrink-0 min-w-0 w-full">
-                <LazySkillRadarChart
-                  key={selectedParticipantId}
-                  userProfile={userProfile}
-                  skillConfig={skillConfig}
-                  onToggleSkillToday={props.onToggleSkillToday}
-                  compact
-                  embed
-                />
-              </div>
-              <div className="pt-2">
-                <ScTextButton arrow onClick={onContinueDevelopment}>
-                  {t('scContinueDevelopment')}
-                </ScTextButton>
-              </div>
-            </div>
-          )}
-        </section>
-
-        <StudentNeedsAttention
-          key={`attention:${selectedParticipantId}`}
-          bookings={bookings}
-          reviews={reviews}
-          userId={userProfile.uid}
-          dismissedReviewIds={dismissedReviewIds}
-          pendingFeedback={feedback.incomplete
-            .map((item) => feedback.feedbackForLesson(item.lessonBookingId))
-            .filter((item): item is NonNullable<typeof item> => item != null)}
-          onOpenLesson={onOpenLesson}
-          onOpenFeedbackLesson={openLessonById}
-          onWriteReview={onWriteReview}
-          onDismissReview={onDismissReview}
-        />
-
-        <ScDivider />
-
-        <StudentLatestRecommendationSection
-          key={`recommendation:${selectedParticipantId}`}
-          latest={feedback.latestView}
-          scopeParticipant={scopeParticipant}
-          highlightPending={feedback.latestHighlight?.isPending ?? false}
-          highlightText={feedback.latestHighlight?.item.text ?? null}
-          loading={feedback.isLoadingPlaceholder}
-          onOpenLesson={openLessonById}
-        />
-
-        {showWeather && resortSnapshot && (
-          <>
-            <ScDivider />
-            <StudentCabinetWeatherSection
-              resort={resortSnapshot}
-              onToggleTemperatureUnit={onToggleTemperatureUnit}
-            />
-          </>
-        )}
+          <p className="text-[10px] font-medium tracking-widest uppercase text-[var(--ink-dim)]">
+            {t('scTodaySection')}
+          </p>
+        </header>
+        <StudentDashboardPlacementContext.Provider value={placementMap}>
+          <div
+            ref={gridRef}
+            className={`${STUDENT_DASHBOARD_GRID_CLASSES} relative`}
+            style={tablet || compacted ? { height: (tablet ?? compacted)!.height } : undefined}
+            data-testid="student-dashboard-grid"
+          >
+            {renderOrder.map((key) => (
+              <React.Fragment key={key}>{tiles[key]}</React.Fragment>
+            ))}
+          </div>
+        </StudentDashboardPlacementContext.Provider>
       </div>
     </div>
   );

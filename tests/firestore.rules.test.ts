@@ -42,6 +42,10 @@ import {
 } from './helpers/courseEnrollmentFixtures';
 import { addHourLocksToBatch } from './helpers/hourLockFixtures';
 import { readRepoFile } from './helpers/readRepoFile';
+import {
+  DEFAULT_STUDENT_DASHBOARD_LAYOUT,
+  STUDENT_DASHBOARD_LAYOUT_SETTING_ID,
+} from '../src/features/settings/studentDashboardLayout';
 
 const PROJECT_ID = 'ski-academy-rules-test';
 const USER_ID = 'user-1';
@@ -53,6 +57,66 @@ const INSTRUCTOR_USER_ID_2 = 'instructor-user-2';
 const CANONICAL_VICTIM_BOOKING_ID = 'booking_security_rule_01';
 
 let testEnv: RulesTestEnvironment;
+
+describe('student-dashboard-layout-settings-permissions', () => {
+  beforeEach(async () => {
+    await seedData(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, 'users', ADMIN_ID), userProfile(ADMIN_ID, 'admin@example.com', 'admin'));
+      await setDoc(doc(db, 'users', USER_ID), userProfile(USER_ID, 'client@example.com'));
+      await setDoc(doc(db, 'users', INSTRUCTOR_USER_ID), {
+        ...userProfile(INSTRUCTOR_USER_ID, 'coach@example.com'),
+        role: 'instructor',
+      });
+      await setDoc(
+        doc(db, 'settings', STUDENT_DASHBOARD_LAYOUT_SETTING_ID),
+        DEFAULT_STUDENT_DASHBOARD_LAYOUT
+      );
+    });
+  });
+  it('allows layout reads for clients, instructors and anonymous users via existing public settings policy', async () => {
+    for (const context of [
+      testEnv.authenticatedContext(USER_ID),
+      testEnv.authenticatedContext(INSTRUCTOR_USER_ID),
+      testEnv.unauthenticatedContext(),
+    ]) {
+      await assertSucceeds(
+        getDoc(doc(context.firestore(), 'settings', STUDENT_DASHBOARD_LAYOUT_SETTING_ID))
+      );
+    }
+  });
+  it.each([ADMIN_ID, OWNER_ID])(
+    'allows the authorized administrator %s to save layout',
+    async (uid) => {
+      await assertSucceeds(
+        setDoc(
+          doc(
+            testEnv.authenticatedContext(uid).firestore(),
+            'settings',
+            STUDENT_DASHBOARD_LAYOUT_SETTING_ID
+          ),
+          { ...DEFAULT_STUDENT_DASHBOARD_LAYOUT, updatedBy: uid }
+        )
+      );
+    }
+  );
+  it.each([USER_ID, INSTRUCTOR_USER_ID, null])(
+    'denies create/update/delete for non-admin %s',
+    async (uid) => {
+      const db = (
+        uid ? testEnv.authenticatedContext(uid) : testEnv.unauthenticatedContext()
+      ).firestore();
+      const ref = doc(db, 'settings', STUDENT_DASHBOARD_LAYOUT_SETTING_ID);
+      await assertFails(setDoc(ref, DEFAULT_STUDENT_DASHBOARD_LAYOUT));
+      await assertFails(updateDoc(ref, { order: ['weather'] }));
+      await assertFails(deleteDoc(ref));
+      await seedData(async (context) =>
+        deleteDoc(doc(context.firestore(), 'settings', STUDENT_DASHBOARD_LAYOUT_SETTING_ID))
+      );
+      await assertFails(setDoc(ref, DEFAULT_STUDENT_DASHBOARD_LAYOUT));
+    }
+  );
+});
 
 const userProfile = (
   uid: string,

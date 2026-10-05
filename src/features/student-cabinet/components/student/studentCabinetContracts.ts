@@ -17,6 +17,7 @@ import type {
 import type { CabinetSessionItem, MiniCalendarDay } from '../../../../features/course-enrollments';
 import type { CanonicalRecommendationTodayTask } from '../../studentLessonFeedbackPresentation';
 import type { ParticipantProgressView } from '../../../participant-progress/applyParticipantProgressToProfile';
+import type { DashboardTileSize } from '../../../settings/studentDashboardLayout';
 
 export interface ParticipantTodayProgressInput {
   readonly level?: number;
@@ -41,6 +42,8 @@ export type StudentActivityLog = ActivityLog;
 export type StudentSkillConfig = SkillConfig;
 
 export interface SessionCountdownBlockInput {
+  onExpire?: () => void;
+  dashboardSize?: DashboardTileSize;
   countdown: TodaySessionCountdown;
   participants?: readonly SessionParticipantInput[];
   courses: StudentCourse[];
@@ -81,6 +84,7 @@ export interface NextSessionBlockInput {
 }
 
 export interface TodayProgressBlockInput {
+  dashboardSize?: DashboardTileSize;
   scopeParticipant?: SessionParticipantInput;
   progress: ParticipantTodayProgressInput;
   selectedParticipantId?: string;

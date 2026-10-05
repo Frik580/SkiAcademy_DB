@@ -1,3 +1,4 @@
+import { StudentDashboardTileHeader, StudentDashboardTileBody } from './StudentDashboardTile';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import type { CabinetSessionItem } from '../../../../features/course-enrollments';
 import {
@@ -21,8 +22,8 @@ import type {
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 import { SessionParticipants } from './SessionParticipants';
 import { cabinetItemToLegacyPresentation } from '../../../../features/lesson-bookings/mergeCabinetBookings';
-
-const SUBSECTION_LABEL = 'text-[10px] font-medium tracking-widest uppercase text-[var(--ink-dim)]';
+import { StudentDashboardTile } from './StudentDashboardTile';
+import { STUDENT_DASHBOARD_TILES } from '../../../settings/studentDashboardLayout';
 
 const CountdownDigits = memo<{
   startsAtMs: number;
@@ -70,6 +71,8 @@ const CountdownDigits = memo<{
 
 export const SessionCountdownBlock = memo<SessionCountdownBlockInput>(
   function SessionCountdownBlock({
+    dashboardSize,
+    onExpire,
     countdown,
     participants = [],
     courses,
@@ -85,43 +88,48 @@ export const SessionCountdownBlock = memo<SessionCountdownBlockInput>(
     const isCourseDay = session.kind === 'course_day';
 
     return (
-      <>
-        <div className="pt-5 pb-5 space-y-2">
-          <p className={SUBSECTION_LABEL}>{t('scCountdownToSession')}</p>
-          <ScTintCard tint="accent" className="px-4 py-4 space-y-2">
-            <CountdownDigits
-              startsAtMs={countdown.startsAt.getTime()}
-              lang={lang}
-              onExpire={() => setVisible(false)}
-            />
-            <p className="text-base font-medium text-[var(--ink)]">
-              {getCabinetSessionTitle(session, lang)}
-            </p>
-            <p className="text-sm text-[var(--ink-dim)]">
-              {formatCabinetSessionTimeRange(session)}
-              {' · '}
-              {isCourseDay
-                ? formatCourseDayDateLabel(session, lang)
-                : getCabinetSessionSubtitle(session, lang)}
-            </p>
-            <SessionParticipants participants={participants} />
-            {session.kind === 'lesson' && (
-              <div className="flex flex-wrap gap-4 pt-1">
-                <BookingCallCoachButton
-                  booking={cabinetItemToLegacyPresentation(
-                    session.session,
-                    usersList[0]?.uid ?? ''
-                  )}
-                  courses={courses}
-                  instructors={instructors}
-                  usersList={usersList}
-                />
-              </div>
-            )}
-          </ScTintCard>
-        </div>
-        <ScDivider />
-      </>
+      <StudentDashboardTile tileKey={STUDENT_DASHBOARD_TILES.countdown.key} size={dashboardSize}>
+        <section>
+          <StudentDashboardTileHeader title={t('scCountdownToSession')} />
+          <StudentDashboardTileBody>
+            <ScTintCard tint="accent" className="px-4 py-4 space-y-2">
+              <CountdownDigits
+                startsAtMs={countdown.startsAt.getTime()}
+                lang={lang}
+                onExpire={() => {
+                  setVisible(false);
+                  onExpire?.();
+                }}
+              />
+              <p className="text-base font-medium text-[var(--ink)]">
+                {getCabinetSessionTitle(session, lang)}
+              </p>
+              <p className="text-sm text-[var(--ink-dim)]">
+                {formatCabinetSessionTimeRange(session)}
+                {' · '}
+                {isCourseDay
+                  ? formatCourseDayDateLabel(session, lang)
+                  : getCabinetSessionSubtitle(session, lang)}
+              </p>
+              <SessionParticipants participants={participants} />
+              {session.kind === 'lesson' && (
+                <div className="flex flex-wrap gap-4 pt-1">
+                  <BookingCallCoachButton
+                    booking={cabinetItemToLegacyPresentation(
+                      session.session,
+                      usersList[0]?.uid ?? ''
+                    )}
+                    courses={courses}
+                    instructors={instructors}
+                    usersList={usersList}
+                  />
+                </div>
+              )}
+            </ScTintCard>
+          </StudentDashboardTileBody>
+        </section>
+        {!dashboardSize && <ScDivider />}
+      </StudentDashboardTile>
     );
   }
 );
@@ -222,26 +230,27 @@ export const CurrentSessionsBlock = memo<CurrentSessionsBlockInput>(function Cur
 
   return (
     <>
-      <div className="pt-5 pb-5 space-y-2">
-        <p className={SUBSECTION_LABEL}>{t('scCurrentSessions')}</p>
-        <div className="space-y-2">
-          {sessions.map((session) => (
-            <SessionCard
-              key={sessionItemKey(session)}
-              session={session}
-              participants={participantsBySessionKey[sessionItemKey(session)] ?? []}
-              courses={courses}
-              instructors={instructors}
-              usersList={usersList}
-              onOpenLesson={onOpenLesson}
-              onOpenSession={onOpenSession}
-              onViewCourseDetails={onViewCourseDetails}
-              hasUnreadChat={hasUnreadChat}
-            />
-          ))}
-        </div>
-      </div>
-      <ScDivider />
+      <section>
+        <StudentDashboardTileHeader title={t('scCurrentSessions')} />
+        <StudentDashboardTileBody>
+          <div className="space-y-2">
+            {sessions.map((session) => (
+              <SessionCard
+                key={sessionItemKey(session)}
+                session={session}
+                participants={participantsBySessionKey[sessionItemKey(session)] ?? []}
+                courses={courses}
+                instructors={instructors}
+                usersList={usersList}
+                onOpenLesson={onOpenLesson}
+                onOpenSession={onOpenSession}
+                onViewCourseDetails={onViewCourseDetails}
+                hasUnreadChat={hasUnreadChat}
+              />
+            ))}
+          </div>
+        </StudentDashboardTileBody>
+      </section>
     </>
   );
 });
@@ -267,136 +276,139 @@ export const NextSessionBlock = memo<NextSessionBlockInput>(function NextSession
   );
 
   return (
-    <div className="py-5 space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <p className={SUBSECTION_LABEL}>{t('scNextSessionOrCourse')}</p>
-        <ScTextButton onClick={() => onGoToTab('calendar')}>{t('scFullCalendar')}</ScTextButton>
-      </div>
-
-      <ScTintCard tint="purple" className="px-4 py-4 sm:px-5 space-y-4">
-        <div className="flex justify-between gap-1 text-center text-sm overflow-x-auto no-scrollbar pb-1">
-          {miniDays.map(({ day, dateStr, hasSession, isToday, weekdayLabel }) => {
-            const isUpcomingDay = upcomingDatesSet.has(dateStr);
-            return (
-              <div key={dateStr} className="flex flex-col items-center gap-1 min-w-[2rem] flex-1">
-                <span
-                  className={`text-[10px] uppercase ${
-                    isToday || isUpcomingDay ? 'text-[#BF5AF2]' : 'text-[var(--ink-dim)]'
-                  }`}
-                >
-                  {weekdayLabel}
-                </span>
-                <span
-                  className={`flex h-8 w-8 items-center justify-center rounded-full text-[var(--ink)] ${
-                    isToday || isUpcomingDay ? 'font-bold bg-[#BF5AF2]/20 text-[#BF5AF2]' : ''
-                  } ${isUpcomingDay && !isToday ? 'ring-2 ring-[#BF5AF2]/40' : ''}`}
-                >
-                  {day}
-                </span>
-                <span
-                  className={`text-[10px] ${hasSession ? 'text-[#30D158]' : 'text-[var(--border)]'}`}
-                  title={hasSession ? t('bookedLesson') : t('noLessons')}
-                >
-                  {hasSession ? '●' : '○'}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-
-        {nextSessions.length > 0 ? (
-          <div className="space-y-4 pt-1 border-t border-[#BF5AF2]/15 divide-y divide-[#BF5AF2]/15">
-            {nextSessions.map(({ session, dateStr }, index) => {
-              const isCourseDay = session.kind === 'course_day';
+    <section>
+      <StudentDashboardTileHeader
+        title={t('scNextSessionOrCourse')}
+        actions={
+          <ScTextButton onClick={() => onGoToTab('calendar')}>{t('scFullCalendar')}</ScTextButton>
+        }
+      />
+      <StudentDashboardTileBody>
+        <ScTintCard tint="purple" className="px-4 py-4 sm:px-5 space-y-4">
+          <div className="flex justify-between gap-1 text-center text-sm overflow-x-auto no-scrollbar pb-1">
+            {miniDays.map(({ day, dateStr, hasSession, isToday, weekdayLabel }) => {
+              const isUpcomingDay = upcomingDatesSet.has(dateStr);
               return (
-                <div
-                  key={`${sessionItemKey(session)}_${dateStr}_${index}`}
-                  className={index > 0 ? 'pt-3 space-y-1' : 'space-y-1'}
-                >
-                  <p className="text-sm font-medium text-[var(--ink-dim)]">
-                    {formatSessionDayLabel(dateStr, lang, t)}
-                  </p>
-                  <p className="text-2xl font-serif font-light text-[var(--ink)]">
-                    {formatCabinetSessionTimeRange(session)}
-                  </p>
-                  <p className="flex items-center gap-2 flex-wrap text-base font-medium text-[var(--ink)]">
-                    <span>{getCabinetSessionTitle(session, lang)}</span>
-                    {session.kind === 'lesson' && (
-                      <LessonFeedbackIndicator lessonBookingId={session.session.id} />
-                    )}
-                  </p>
-                  <p className="text-sm text-[var(--ink-dim)]">
-                    {isCourseDay
-                      ? formatCourseDayDateLabel(session, lang)
-                      : getCabinetSessionSubtitle(session, lang)}
-                  </p>
-                  <SessionParticipants
-                    participants={participantsBySessionKey[sessionItemKey(session)] ?? []}
-                  />
-                  <div className="flex flex-wrap gap-4 pt-2">
-                    {session.kind === 'lesson' ? (
-                      <>
-                        <ScTextButton
-                          onClick={() =>
-                            onOpenLesson(
-                              cabinetItemToLegacyPresentation(
-                                session.session,
-                                usersList[0]?.uid ?? ''
-                              )
-                            )
-                          }
-                        >
-                          {t('scMoreDetails')}
-                        </ScTextButton>
-                        <ScTextButton
-                          onClick={() =>
-                            onOpenSession(
-                              cabinetItemToLegacyPresentation(
-                                session.session,
-                                usersList[0]?.uid ?? ''
-                              )
-                            )
-                          }
-                          title={
-                            hasUnreadChat?.(session.session.id) ? t('chatNewMessages') : t('chat')
-                          }
-                        >
-                          {t('chat')}
-                          <ChatUnreadIndicator
-                            show={hasUnreadChat?.(session.session.id) ?? false}
-                          />
-                        </ScTextButton>
-                        <BookingCallCoachButton
-                          booking={cabinetItemToLegacyPresentation(
-                            session.session,
-                            usersList[0]?.uid ?? ''
-                          )}
-                          courses={courses}
-                          instructors={instructors}
-                          usersList={usersList}
-                        />
-                      </>
-                    ) : (
-                      onViewCourseDetails && (
-                        <ScTextButton
-                          // Account-level course card: let details resolve the selected participant.
-                          onClick={() => onViewCourseDetails(session.courseId)}
-                        >
-                          {t('scMoreDetails')}
-                        </ScTextButton>
-                      )
-                    )}
-                  </div>
+                <div key={dateStr} className="flex flex-col items-center gap-1 min-w-[2rem] flex-1">
+                  <span
+                    className={`text-[10px] uppercase ${
+                      isToday || isUpcomingDay ? 'text-[#BF5AF2]' : 'text-[var(--ink-dim)]'
+                    }`}
+                  >
+                    {weekdayLabel}
+                  </span>
+                  <span
+                    className={`flex h-8 w-8 items-center justify-center rounded-full text-[var(--ink)] ${
+                      isToday || isUpcomingDay ? 'font-bold bg-[#BF5AF2]/20 text-[#BF5AF2]' : ''
+                    } ${isUpcomingDay && !isToday ? 'ring-2 ring-[#BF5AF2]/40' : ''}`}
+                  >
+                    {day}
+                  </span>
+                  <span
+                    className={`text-[10px] ${hasSession ? 'text-[#30D158]' : 'text-[var(--border)]'}`}
+                    title={hasSession ? t('bookedLesson') : t('noLessons')}
+                  >
+                    {hasSession ? '●' : '○'}
+                  </span>
                 </div>
               );
             })}
           </div>
-        ) : (
-          <p className="text-sm text-[var(--ink-dim)] pt-1 border-t border-[#BF5AF2]/15">
-            {t('scNoUpcomingSession')}
-          </p>
-        )}
-      </ScTintCard>
-    </div>
+
+          {nextSessions.length > 0 ? (
+            <div className="space-y-4 pt-1 border-t border-[#BF5AF2]/15 divide-y divide-[#BF5AF2]/15">
+              {nextSessions.map(({ session, dateStr }, index) => {
+                const isCourseDay = session.kind === 'course_day';
+                return (
+                  <div
+                    key={`${sessionItemKey(session)}_${dateStr}_${index}`}
+                    className={index > 0 ? 'pt-3 space-y-1' : 'space-y-1'}
+                  >
+                    <p className="text-sm font-medium text-[var(--ink-dim)]">
+                      {formatSessionDayLabel(dateStr, lang, t)}
+                    </p>
+                    <p className="text-2xl font-serif font-light text-[var(--ink)]">
+                      {formatCabinetSessionTimeRange(session)}
+                    </p>
+                    <p className="flex items-center gap-2 flex-wrap text-base font-medium text-[var(--ink)]">
+                      <span>{getCabinetSessionTitle(session, lang)}</span>
+                      {session.kind === 'lesson' && (
+                        <LessonFeedbackIndicator lessonBookingId={session.session.id} />
+                      )}
+                    </p>
+                    <p className="text-sm text-[var(--ink-dim)]">
+                      {isCourseDay
+                        ? formatCourseDayDateLabel(session, lang)
+                        : getCabinetSessionSubtitle(session, lang)}
+                    </p>
+                    <SessionParticipants
+                      participants={participantsBySessionKey[sessionItemKey(session)] ?? []}
+                    />
+                    <div className="flex flex-wrap gap-4 pt-2">
+                      {session.kind === 'lesson' ? (
+                        <>
+                          <ScTextButton
+                            onClick={() =>
+                              onOpenLesson(
+                                cabinetItemToLegacyPresentation(
+                                  session.session,
+                                  usersList[0]?.uid ?? ''
+                                )
+                              )
+                            }
+                          >
+                            {t('scMoreDetails')}
+                          </ScTextButton>
+                          <ScTextButton
+                            onClick={() =>
+                              onOpenSession(
+                                cabinetItemToLegacyPresentation(
+                                  session.session,
+                                  usersList[0]?.uid ?? ''
+                                )
+                              )
+                            }
+                            title={
+                              hasUnreadChat?.(session.session.id) ? t('chatNewMessages') : t('chat')
+                            }
+                          >
+                            {t('chat')}
+                            <ChatUnreadIndicator
+                              show={hasUnreadChat?.(session.session.id) ?? false}
+                            />
+                          </ScTextButton>
+                          <BookingCallCoachButton
+                            booking={cabinetItemToLegacyPresentation(
+                              session.session,
+                              usersList[0]?.uid ?? ''
+                            )}
+                            courses={courses}
+                            instructors={instructors}
+                            usersList={usersList}
+                          />
+                        </>
+                      ) : (
+                        onViewCourseDetails && (
+                          <ScTextButton
+                            // Account-level course card: let details resolve the selected participant.
+                            onClick={() => onViewCourseDetails(session.courseId)}
+                          >
+                            {t('scMoreDetails')}
+                          </ScTextButton>
+                        )
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-[var(--ink-dim)] pt-1 border-t border-[#BF5AF2]/15">
+              {t('scNoUpcomingSession')}
+            </p>
+          )}
+        </ScTintCard>
+      </StudentDashboardTileBody>
+    </section>
   );
 });

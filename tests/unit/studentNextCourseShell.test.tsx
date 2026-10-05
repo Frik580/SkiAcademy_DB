@@ -53,7 +53,12 @@ vi.mock('../../src/features/student-cabinet/useSelectedParticipantLessonFeedback
 }));
 vi.mock('../../src/features/participant-achievements', () => ({
   accountReviewEvidenceFromCanonicalPresentation: () => [],
-  usePresentedParticipantAchievements: () => ({ evaluation: undefined }),
+  usePresentedParticipantAchievements: () => ({
+    evaluation: undefined,
+    achievements: [
+      { id: 'shell_fixture', label: 'Fixture achievement', earnedAt: new Date().toISOString() },
+    ],
+  }),
   useSelectedParticipantAchievementsRecorder: () => {},
 }));
 vi.mock('../../src/features/journey', () => ({ YourJourneySection: () => null }));
@@ -74,7 +79,7 @@ vi.mock('../../src/features/student-cabinet/components/student/StudentNextStepCa
   StudentNextStepCard: () => null,
 }));
 vi.mock('../../src/features/student-cabinet/components/student/StudentTodayProgressBlock', () => ({
-  TodayProgressBlock: (props: TodayProgressBlockInput) => {
+  PresentedTodayProgressBlock: (props: TodayProgressBlockInput) => {
     progressSpy(props);
     return (
       <output data-testid="progress-scope">
@@ -738,7 +743,10 @@ describe('account-level weather visibility', () => {
 });
 
 function countdownCard() {
-  return screen.getByText('scCountdownToSession').parentElement!;
+  return screen
+    .getByText('scCountdownToSession')
+    .closest('section')!
+    .querySelector('[data-dashboard-body]')!.firstElementChild as HTMLElement;
 }
 function upcomingLesson(id: string, ids: string[], time: string) {
   return { ...lesson(id, ids), date: '2026-10-02', time };
@@ -754,7 +762,11 @@ function countdownProps(bookings: LessonBookingCabinetItem[]) {
 }
 
 function currentCards() {
-  return Array.from(screen.getByText('scCurrentSessions').nextElementSibling!.children);
+  const body = screen
+    .getByText('scCurrentSessions')
+    .closest('section')!
+    .querySelector('[data-dashboard-body]')!;
+  return Array.from(body.firstElementChild!.children);
 }
 
 function currentPeople(card: HTMLElement) {

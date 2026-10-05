@@ -9,6 +9,7 @@ import { DEFAULT_SKILL_CONFIG } from '../../../domain/achievements';
 import { DEFAULT_STARTER_CREDIT_KZT, resolveStarterCreditAmountKzt } from '../../../domain/wallet';
 import { logger } from '../../../shared';
 import { useSettingsStore } from '../settingsStore';
+import { STUDENT_DASHBOARD_LAYOUT_SETTING_ID } from '../studentDashboardLayout';
 
 const scheduleIdle = (fn: () => void): (() => void) => {
   if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
@@ -35,8 +36,22 @@ export const useSettingsSync = () => {
     let unsubscribeStarterCredit: (() => void) | undefined;
     let unsubscribeSkills: (() => void) | undefined;
     let unsubscribeAchievements: (() => void) | undefined;
+    let unsubscribeDashboardLayout: (() => void) | undefined;
 
     const cancelIdle = scheduleIdle(() => {
+      unsubscribeDashboardLayout = onSnapshot(
+        doc(db, 'settings', STUDENT_DASHBOARD_LAYOUT_SETTING_ID),
+        { includeMetadataChanges: true },
+        (snapshot) => {
+          // A pending local write may still fail; only acknowledged data is saved state.
+          if (!snapshot.metadata.hasPendingWrites) {
+            useSettingsStore
+              .getState()
+              .setStudentDashboardLayout(snapshot.exists() ? snapshot.data() : undefined);
+          }
+        },
+        (error) => logger.error('Student dashboard layout settings sync error:', error)
+      );
       unsubscribeRetention = onSnapshot(
         doc(db, 'settings', 'notification_retention'),
         (snapshot) =>
@@ -98,6 +113,7 @@ export const useSettingsSync = () => {
       unsubscribeStarterCredit?.();
       unsubscribeSkills?.();
       unsubscribeAchievements?.();
+      unsubscribeDashboardLayout?.();
     };
   }, []);
 };

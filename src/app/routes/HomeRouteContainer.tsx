@@ -26,7 +26,6 @@ import { useManagedParticipants } from '../../features/lesson-bookings';
 import { useCabinetProgressParticipantSelectionStore } from '../../features/student-cabinet/cabinetProgressParticipantSelectionStore';
 import { traceCourseEnrollmentCtaIdentity } from '../../features/courses/courseEnrollmentCtaTrace';
 import { shouldSyncAccountCourseEnrollments } from '../../store/accountCourseEnrollmentSync';
-import { AppInitSkeleton } from '../../ui/Skeleton';
 import type { AppRoutesProps } from './routeTypes';
 
 /** Connects the public home screen to catalogue data and UI actions. */
@@ -118,11 +117,7 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({
     });
   };
 
-  if (!authLoading && profileLoading) {
-    return <AppInitSkeleton label={t('checkingCredentials')} />;
-  }
-
-  if (!authLoading && userProfile && userProfile.role !== 'admin') {
+  if (!authLoading && !profileLoading && userProfile && userProfile.role !== 'admin') {
     return <Navigate to={getDefaultWorkspacePath(userProfile)} replace />;
   }
 

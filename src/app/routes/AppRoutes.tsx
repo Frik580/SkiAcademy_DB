@@ -1,17 +1,15 @@
 import React from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { HomeRouteContainer } from './HomeRouteContainer';
+import { CabinetRoute } from './CabinetRoute';
+import { ErrorBoundary } from '../components/ErrorBoundary';
+import { RouteContentLoading } from '../../ui/RouteContentLoading';
 import type { AppRoutesProps } from './routeTypes';
 
 export type { AppRoutesProps, ResortData } from './routeTypes';
 
 const AdminRouteContainer = React.lazy(() =>
   import('./AdminRouteContainer').then(({ AdminRouteContainer: Component }) => ({
-    default: Component,
-  }))
-);
-const CabinetRouteContainer = React.lazy(() =>
-  import('./CabinetRouteContainer').then(({ CabinetRouteContainer: Component }) => ({
     default: Component,
   }))
 );
@@ -31,15 +29,27 @@ const T31bCoursePilotPage = import.meta.env.DEV
     )
   : null;
 
-const RouteLoadingFallback = () => <div className="min-h-[16rem]" aria-busy="true" />;
-
 /** Route table. Each screen owns its own feature-level container. */
 export const AppRoutes: React.FC<AppRoutesProps> = (props) => (
-  <React.Suspense fallback={<RouteLoadingFallback />}>
+  <React.Suspense fallback={<RouteContentLoading />}>
     <Routes>
       <Route path="/admin" element={<AdminRouteContainer />} />
-      <Route path="/cabinet" element={<CabinetRouteContainer {...props} />} />
-      <Route path="/cabinet/:tab" element={<CabinetRouteContainer {...props} />} />
+      <Route
+        path="/cabinet"
+        element={
+          <ErrorBoundary>
+            <CabinetRoute {...props} />
+          </ErrorBoundary>
+        }
+      />
+      <Route
+        path="/cabinet/:tab"
+        element={
+          <ErrorBoundary>
+            <CabinetRoute {...props} />
+          </ErrorBoundary>
+        }
+      />
       <Route path="/instructor" element={<InstructorRouteContainer />} />
       {import.meta.env.DEV && T31bCoursePilotPage ? (
         <Route path="/__dev/t31b-course-pilot" element={<T31bCoursePilotPage />} />

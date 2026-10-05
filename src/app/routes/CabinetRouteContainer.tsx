@@ -1,11 +1,9 @@
 import React, { useCallback, useMemo } from 'react';
 import { Navigate, useLocation, useParams } from 'react-router-dom';
-import { AuthRoute } from '../../features/shell';
 import { useLanguage } from '../../app/providers/LanguageContext';
 import { CABINET_TABS } from '../../lib/workspaceRoutes';
-import { LazyLoad } from '../../ui/LazyLoad';
-import { CardSkeleton, Skeleton } from '../../ui/Skeleton';
-import { loadPersonalCabinet } from '../../features/profile';
+import { ErrorBoundary } from '../components/ErrorBoundary';
+import { PersonalCabinet } from '../../features/profile/cabinet';
 import { useProfileStore } from '../../features/profile/profileStore';
 import { useBookingsStore } from '../../features/bookings/bookingsStore';
 import { useCoursesStore } from '../../features/courses/coursesStore';
@@ -38,18 +36,6 @@ import {
   type CabinetCancellationCommandResult,
 } from '../../features/student-cabinet/cabinetCancellationOutcome';
 import { presentCancellationError } from '../../features/student-cabinet/presentCancellationError';
-
-const PersonalCabinet = React.lazy(loadPersonalCabinet);
-
-const CabinetLoadingFallback: React.FC<{ label: string }> = ({ label }) => (
-  <div className="max-w-7xl mx-auto p-6 space-y-6">
-    <div className="flex items-center justify-between">
-      <Skeleton className="h-6 w-48" />
-      <span className="ui-section-eyebrow text-xs">{label}</span>
-    </div>
-    <CardSkeleton count={3} />
-  </div>
-);
 
 /** Connects personal cabinet UI to profile, bookings, courses, wallet and UI state. */
 export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
@@ -260,49 +246,47 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
   }
 
   return (
-    <AuthRoute userProfile={userProfile}>
+    <ErrorBoundary>
       <div className="w-full min-w-0">
         {userProfile && (
-          <LazyLoad fallback={<CabinetLoadingFallback label={t('loading')} />}>
-            <PersonalCabinet
-              userProfile={userProfile}
-              bookings={lessonBookings}
-              courseEnrollments={courseEnrollments}
-              sessionItems={sessionItems}
-              reviews={reviews}
-              reviewBookingStates={reviewBookingStates}
-              dismissedReviewIds={dismissedReviewIds}
-              onDismissReview={handleDismissReview}
-              onCancel={handleCanonicalCancel}
-              onCourseWithdraw={handleCourseWithdraw}
-              onCourseRequestCancellation={handleCourseCancellationRequest}
-              onAddReview={handleAddReview}
-              onToggleSkillToday={handleToggleSkillToday}
-              onPinSkillsToday={(skillItemIds) =>
-                handlePinSkillsToday(skillItemIds, skillConfig.items)
-              }
-              onToggleTodayTaskComplete={handleToggleTodayTaskComplete}
-              onAddCustomTodayTask={handleAddCustomTodayTask}
-              onRemoveTodayTask={handleRemoveTodayTask}
-              onSignOut={onSignOut}
-              onUpdateProfile={handleUpdateProfile}
-              courses={courses}
-              instructors={instructors}
-              usersList={usersList}
-              skillConfig={skillConfig}
-              achievementsConfig={achievementsConfig}
-              activityLogs={activityLogs}
-              walletLedgerEntries={walletLedgerEntries}
-              onViewCourseDetails={setSelectedCourseForDetails}
-              onRequireCourseAuth={setSelectedCourseForAuth}
-              onBookInstructor={setSelectedInstructor}
-              onViewInstructorReviews={setReviewsInstructor}
-              resortSnapshot={resortData.presentation}
-              onToggleTemperatureUnit={() => setIsFahrenheit(!resortData.isFahrenheit)}
-            />
-          </LazyLoad>
+          <PersonalCabinet
+            userProfile={userProfile}
+            bookings={lessonBookings}
+            courseEnrollments={courseEnrollments}
+            sessionItems={sessionItems}
+            reviews={reviews}
+            reviewBookingStates={reviewBookingStates}
+            dismissedReviewIds={dismissedReviewIds}
+            onDismissReview={handleDismissReview}
+            onCancel={handleCanonicalCancel}
+            onCourseWithdraw={handleCourseWithdraw}
+            onCourseRequestCancellation={handleCourseCancellationRequest}
+            onAddReview={handleAddReview}
+            onToggleSkillToday={handleToggleSkillToday}
+            onPinSkillsToday={(skillItemIds) =>
+              handlePinSkillsToday(skillItemIds, skillConfig.items)
+            }
+            onToggleTodayTaskComplete={handleToggleTodayTaskComplete}
+            onAddCustomTodayTask={handleAddCustomTodayTask}
+            onRemoveTodayTask={handleRemoveTodayTask}
+            onSignOut={onSignOut}
+            onUpdateProfile={handleUpdateProfile}
+            courses={courses}
+            instructors={instructors}
+            usersList={usersList}
+            skillConfig={skillConfig}
+            achievementsConfig={achievementsConfig}
+            activityLogs={activityLogs}
+            walletLedgerEntries={walletLedgerEntries}
+            onViewCourseDetails={setSelectedCourseForDetails}
+            onRequireCourseAuth={setSelectedCourseForAuth}
+            onBookInstructor={setSelectedInstructor}
+            onViewInstructorReviews={setReviewsInstructor}
+            resortSnapshot={resortData.presentation}
+            onToggleTemperatureUnit={() => setIsFahrenheit(!resortData.isFahrenheit)}
+          />
         )}
       </div>
-    </AuthRoute>
+    </ErrorBoundary>
   );
 };

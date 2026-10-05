@@ -1,7 +1,7 @@
 import React from 'react';
-import { ResortConfig } from '../../../../types';
+import type { ResortConditionsPresentation } from '../../../resort-conditions';
+import { useResortConditionsTranslations } from '../../../resort-conditions/hooks/useResortConditionsTranslations';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
-import { getWeatherConditionKey } from '../../../../shared';
 import {
   formatLessonFeedbackDateLabel,
   type LessonFeedbackView,
@@ -10,14 +10,7 @@ import { ScSectionTitle, ScTextButton, ScTintCard } from './StudentCabinetUI';
 import { AnimatedNumber } from '../../../../ui/AnimatedNumber';
 import { RecommendationIndicator } from '../RecommendationIndicator';
 
-export interface StudentCabinetResortSnapshot {
-  resortConfig: ResortConfig;
-  tempC: number | null;
-  snowDepthCm: number | null;
-  windKmh: number | null;
-  weatherCode: number | null;
-  isFahrenheit: boolean;
-}
+export type StudentCabinetResortSnapshot = ResortConditionsPresentation;
 
 interface StudentLatestRecommendationSectionProps {
   latest: LessonFeedbackView | null;
@@ -73,20 +66,14 @@ export const StudentCabinetWeatherSection: React.FC<StudentCabinetWeatherSection
   resort,
   onToggleTemperatureUnit,
 }) => {
-  const { language, t } = useLanguage();
-  const { resortConfig, tempC, snowDepthCm, windKmh, weatherCode, isFahrenheit } = resort;
-
-  const statusText =
-    language === 'ru'
-      ? resortConfig.liftsStatusRu || 'ОТКРЫТО'
-      : resortConfig.liftsStatusEn || 'OPEN';
-  const isClosed =
-    statusText.toUpperCase().includes('CLOSE') ||
-    statusText.toUpperCase().includes('ЗАКР') ||
-    statusText.toUpperCase().includes('OFF');
-
-  const displayTemp =
-    tempC === null ? null : isFahrenheit ? Math.round((tempC * 9) / 5 + 32) : tempC;
+  const { language, t } = useResortConditionsTranslations();
+  const {
+    temperature: displayTemp,
+    conditionKey,
+    snow: snowDepthCm,
+    wind: windKmh,
+    resortStatusKey,
+  } = resort;
 
   return (
     <section className="py-6 space-y-3">
@@ -95,12 +82,13 @@ export const StudentCabinetWeatherSection: React.FC<StudentCabinetWeatherSection
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1 min-w-0">
             <p className="text-sm font-medium text-[var(--ink)]">
-              {language === 'ru' ? resortConfig.nameRu : resortConfig.nameEn}
+              {language === 'ru' ? resort.nameRu : resort.nameEn}
             </p>
             <p className="text-xs text-[var(--ink-dim)]">
-              {weatherCode === null
-                ? t('conditionsUnavailable')
-                : t(getWeatherConditionKey(weatherCode))}
+              {t(
+                conditionKey ??
+                  (resort.status === 'loading' ? 'conditionsLoading' : 'conditionsUnavailable')
+              )}
             </p>
           </div>
           {displayTemp !== null && (
@@ -126,11 +114,11 @@ export const StudentCabinetWeatherSection: React.FC<StudentCabinetWeatherSection
             </span>
           )}
         </div>
-        {resortConfig.showLifts !== false && (
+        {resortStatusKey && (
           <p
-            className={`text-xs sm:text-sm font-medium ${isClosed ? 'text-rose-500' : 'text-[var(--ink)]'}`}
+            className={`text-xs sm:text-sm font-medium ${resortStatusKey === 'closedToday' ? 'text-rose-500' : 'text-[var(--ink)]'}`}
           >
-            {isClosed ? t('closedToday') : t('openToday')}
+            {t(resortStatusKey)}
           </p>
         )}
       </ScTintCard>

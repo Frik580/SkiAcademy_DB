@@ -1,11 +1,15 @@
 import type { ResortConfig } from '../../types';
-import type { ResortConditionsState } from '../../features/resort-conditions';
+import type {
+  ResortConditionsState,
+  ResortConditionsPresentation,
+} from '../../features/resort-conditions';
 
 export interface ResortData {
   resortConfig: ResortConfig;
   /** False until first Firestore snapshot (or local cache hydrate) for resort config. */
   isResortConfigReady: boolean;
   conditions: ResortConditionsState;
+  presentation: ResortConditionsPresentation;
   tempC: number | null;
   snowDepthCm: number | null;
   newSnow24h: number | null;

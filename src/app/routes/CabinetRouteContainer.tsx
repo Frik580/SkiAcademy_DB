@@ -297,14 +297,7 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
               onRequireCourseAuth={setSelectedCourseForAuth}
               onBookInstructor={setSelectedInstructor}
               onViewInstructorReviews={setReviewsInstructor}
-              resortSnapshot={{
-                resortConfig: resortData.resortConfig,
-                tempC: resortData.tempC,
-                snowDepthCm: resortData.snowDepthCm,
-                windKmh: resortData.windKmh,
-                weatherCode: resortData.weatherCode,
-                isFahrenheit: resortData.isFahrenheit,
-              }}
+              resortSnapshot={resortData.presentation}
               onToggleTemperatureUnit={() => setIsFahrenheit(!resortData.isFahrenheit)}
             />
           </LazyLoad>

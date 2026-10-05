@@ -12,8 +12,8 @@ export const ResortDataSection: React.FC = () => {
   const { t, language } = useLanguage();
   const { addNotification } = useNotifications();
 
-  const [resortNameEn, setResortNameEn] = useState('Chamonix-Mont-Blanc');
-  const [resortNameRu, setResortNameRu] = useState('Шамони-Монблан');
+  const [resortNameEn, setResortNameEn] = useState('');
+  const [resortNameRu, setResortNameRu] = useState('');
   const [resortSubEn, setResortSubEn] = useState('French Alps resort');
   const [resortSubRu, setResortSubRu] = useState('Курорт в Альпах');
   const [resortLat, setResortLat] = useState(45.9237);
@@ -30,8 +30,8 @@ export const ResortDataSection: React.FC = () => {
     const unsub = subscribeResortConfig(
       (data) => {
         if (data) {
-          setResortNameEn(data.nameEn || 'Chamonix-Mont-Blanc');
-          setResortNameRu(data.nameRu || 'Шамони-Монблан');
+          setResortNameEn(data.nameEn ?? '');
+          setResortNameRu(data.nameRu ?? '');
           setResortSubEn(data.subNameEn || 'French Alps resort');
           setResortSubRu(data.subNameRu || 'Курорт в Альпах');
           setResortLat(data.latitude || 45.9237);
@@ -97,7 +97,7 @@ export const ResortDataSection: React.FC = () => {
             value={resortNameEn}
             onChange={(e) => setResortNameEn(e.target.value)}
             className="w-full bg-transparent border border-[var(--border)] px-3 py-1.5 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
-            placeholder="e.g. Chamonix-Mont-Blanc"
+            placeholder={t('resortNameEnLabel')}
           />
         </div>
 
@@ -111,7 +111,7 @@ export const ResortDataSection: React.FC = () => {
             value={resortNameRu}
             onChange={(e) => setResortNameRu(e.target.value)}
             className="w-full bg-transparent border border-[var(--border)] px-3 py-1.5 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
-            placeholder="например, Шамони-Монблан"
+            placeholder={t('resortNameRuLabel')}
           />
         </div>
 

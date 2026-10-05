@@ -158,6 +158,8 @@ export interface StudentCabinetHomeContext {
   participantProfiles?: readonly SessionParticipantInput[];
   /** Account sessions before header filtering; used only by the next-session block. */
   nextSessionItems?: readonly CabinetSessionItem[];
+  /** Account-level today fact, independent of header participant selection. */
+  hasAnyParticipantSessionToday: boolean;
   userProfile: UserProfile;
   selectedParticipantId?: string;
   bookings: Booking[];

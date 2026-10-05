@@ -1,3 +1,5 @@
+import { buildResortConditionsPresentation } from '../../src/features/resort-conditions';
+import { toYMD } from '../../src/features/student-cabinet/components/student/studentCabinetPresentation';
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
@@ -57,7 +59,7 @@ vi.mock('../../src/features/student-cabinet/components/student/LazySkillRadarCha
   LazySkillRadarChart: () => null,
 }));
 vi.mock('../../src/features/student-cabinet/components/student/StudentHomeBottomSections', () => ({
-  StudentCabinetWeatherSection: () => null,
+  StudentCabinetWeatherSection: () => <output data-testid="weather-widget" />,
   StudentLatestRecommendationSection: () => null,
 }));
 vi.mock('../../src/features/student-cabinet/components/student/StudentTodayTasksBlock', () => ({
@@ -152,10 +154,10 @@ vi.mock(
 );
 
 const accountId = 'account_next_course';
-const participants: ManagedParticipantOption[] = ['a', 'b'].map((id) => ({
+const participants: ManagedParticipantOption[] = ['a', 'b', 'c'].map((id) => ({
   participantId: id,
   participantManagementId: 'management_' + id,
-  displayName: id === 'a' ? 'Alice Full Name' : 'Bob Full Name',
+  displayName: id === 'a' ? 'Alice Full Name' : id === 'b' ? 'Bob Full Name' : 'Charlie Full Name',
   avatarUrl: '/' + id + '.png',
   authority: 'parent_guardian',
   discipline: 'ski',
@@ -213,6 +215,7 @@ function shellProps(
       email: 'owner@example.test',
       hideProgressTracking: true,
     } as UserProfile,
+    resortSnapshot: buildResortConditionsPresentation({ status: 'loading', data: null }, 'celsius'),
     bookings: [],
     courses: [
       {
@@ -534,5 +537,131 @@ describe('Shell → real BookingsPanel → ClientBookingsList participant isolat
     expect(screen.getByText('Coach only_b')).toBeInTheDocument();
     expect(screen.getByText('Coach shared')).toBeInTheDocument();
     expect(screen.getByTestId('calendar-scope')).toBeEmptyDOMElement();
+  });
+});
+
+function lessonProps(
+  participantIds = ['a'],
+  status: LessonBookingCabinetItem['status'] = 'confirmed',
+  date = toYMD(new Date())
+) {
+  const todayLesson = { ...lesson('today_lesson', participantIds, status), date };
+  const props = shellProps([]);
+  props.bookings = [todayLesson];
+  props.sessionItems = buildMixedCabinetSessionItems({
+    lessonBookings: [todayLesson],
+    courseEnrollments: [],
+  });
+  return props;
+}
+function selectHeader(participantId: string) {
+  act(() =>
+    useCabinetProgressParticipantSelectionStore
+      .getState()
+      .selectParticipant(participantId, participants)
+  );
+}
+
+describe('account-level weather visibility', () => {
+  it.each(['a', 'b', 'c'])(
+    'shows A lesson today regardless of header participant %s',
+    (selected) => {
+      selectHeader(selected);
+      setup(lessonProps());
+      expect(screen.getByTestId('weather-widget')).toBeInTheDocument();
+    }
+  );
+  it('hides weather when all account sessions are on another day', () => {
+    setup(); // Both course days are tomorrow.
+    expect(screen.queryByTestId('weather-widget')).not.toBeInTheDocument();
+  });
+  it('shows B CourseDay today with A selected', () => {
+    vi.setSystemTime(new Date('2026-10-03T12:00:00'));
+    setup(shellProps([enrollment('eb', 'b')]));
+    expect(screen.getByTestId('weather-widget')).toBeInTheDocument();
+  });
+  it.each(['cancelled', 'rejected', 'completed'] as const)('ignores %s lessons today', (status) => {
+    setup(lessonProps(['a'], status));
+    expect(screen.queryByTestId('weather-widget')).not.toBeInTheDocument();
+  });
+  it.each(['confirmed', 'pending'] as const)(
+    'retains existing active %s lesson semantics',
+    (status) => {
+      setup(lessonProps(['a'], status));
+      expect(screen.getByTestId('weather-widget')).toBeInTheDocument();
+    }
+  );
+  it('shows one multi-participant lesson when C is selected', () => {
+    selectHeader('c');
+    setup(lessonProps(['a', 'b']));
+    expect(screen.getAllByTestId('weather-widget')).toHaveLength(1);
+  });
+  it('remains visible through actual A → B → C header switches and keeps calendar isolated', async () => {
+    const user = userEvent.setup();
+    setup(lessonProps());
+    expect(screen.getByTestId('weather-widget')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Select Bob Full Name' }));
+    expect(screen.getByTestId('weather-widget')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Select Charlie Full Name' }));
+    expect(screen.getByTestId('weather-widget')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'calendar', exact: true }));
+    expect(calendarSpy.mock.lastCall?.[0].sessionItems).toEqual([]);
+    await user.click(screen.getByRole('button', { name: 'Select Alice Full Name' }));
+    expect(calendarSpy.mock.lastCall?.[0].sessionItems).toHaveLength(1);
+  });
+  it.each(['confirmed', 'pending', 'pending_cancellation'] as const)(
+    'shows active %s CourseDay today',
+    (status) => {
+      vi.setSystemTime(new Date('2026-10-03T12:00:00'));
+      setup(shellProps([enrollment('eb', 'b', status)]));
+      expect(screen.getByTestId('weather-widget')).toBeInTheDocument();
+    }
+  );
+  it.each(['cancelled', 'withdrawn', 'completed'] as const)(
+    'ignores inactive %s course enrollments',
+    (status) => {
+      vi.setSystemTime(new Date('2026-10-03T12:00:00'));
+      setup(shellProps([enrollment('eb', 'b', status)]));
+      expect(screen.queryByTestId('weather-widget')).not.toBeInTheDocument();
+    }
+  );
+  it('keeps a lesson on the local day just after midnight, even on the previous UTC date', () => {
+    const localMidnight = new Date('2026-10-03T00:05:00');
+    vi.setSystemTime(localMidnight);
+    setup(lessonProps(['a'], 'confirmed', '2026-10-03'));
+    expect(screen.getByTestId('weather-widget')).toBeInTheDocument();
+  });
+  it('shows CourseDay normalized in the resort timezone across the UTC midnight boundary', () => {
+    vi.setSystemTime(new Date('2026-10-03T00:05:00'));
+    const course = enrollment('midnight_b', 'b');
+    const day = course.courseSchedule.courseDays[0];
+    const midnightCourse = {
+      ...course,
+      courseSchedule: {
+        ...course.courseSchedule,
+        courseDays: [
+          {
+            ...day,
+            interval: {
+              startsAt: { seconds: Date.parse('2026-10-02T19:10:00Z') / 1000, nanoseconds: 0 },
+              endsAt: { seconds: Date.parse('2026-10-02T20:10:00Z') / 1000, nanoseconds: 0 },
+            },
+          },
+        ],
+      },
+    };
+    const props = shellProps([midnightCourse]);
+    expect(props.sessionItems?.[0]).toMatchObject({ kind: 'course_day', date: '2026-10-03' });
+    setup(props);
+    expect(screen.getByTestId('weather-widget')).toBeInTheDocument();
+  });
+  it('hides weather for an account with no sessions', () => {
+    setup(shellProps([]));
+    expect(screen.queryByTestId('weather-widget')).not.toBeInTheDocument();
+  });
+  it('hides yesterday lesson just after local midnight', () => {
+    vi.setSystemTime(new Date('2026-10-03T00:05:00'));
+    setup(lessonProps(['a'], 'confirmed', '2026-10-02'));
+    expect(screen.queryByTestId('weather-widget')).not.toBeInTheDocument();
   });
 });

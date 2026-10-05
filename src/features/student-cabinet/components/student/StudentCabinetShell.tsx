@@ -18,6 +18,7 @@ import {
 import { AchievementsConfig } from '../../../../domain/achievements';
 import { cabinetPathForTab, parseCabinetTabParam } from '../../../../lib/workspaceRoutes';
 import { StudentCabinetHome } from './StudentCabinetHome';
+import { hasTrainingTodayFromSessions } from '../../../course-enrollments/sessionScheduleHelpers';
 import { toCabinetParticipantAvatarItems } from '../../cabinetParticipantAvatarSwitcherContract';
 import { StudentHistoryPanel } from './StudentHistoryPanel';
 import { StudentCoachPanel } from './StudentCoachPanel';
@@ -291,6 +292,8 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
     () => props.unreviewedCompletedBookings.filter(belongsToSelectedParticipant),
     [props.unreviewedCompletedBookings, belongsToSelectedParticipant]
   );
+  const hasAnyParticipantSessionToday = hasTrainingTodayFromSessions(props.sessionItems ?? []);
+
   const isolatedSessionItems = useMemo(
     () =>
       filterCabinetCourseDaysForParticipant(
@@ -336,6 +339,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
     selectedParticipantId: selectedProgressParticipantId,
     bookings: isolatedLegacyBookings,
     sessionItems: isolatedSessionItems,
+    hasAnyParticipantSessionToday,
     courses: props.courses,
     instructors: props.instructors,
     reviews: props.reviews,

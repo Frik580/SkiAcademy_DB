@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   subscribeResortConfig,
   readCachedResortConfig,
@@ -6,7 +6,10 @@ import {
 } from '../features/settings';
 import { ResortConfig } from '../types';
 import { logger } from '../shared';
-import { useResortConditions } from '../features/resort-conditions';
+import {
+  useResortConditions,
+  buildResortConditionsPresentation,
+} from '../features/resort-conditions';
 
 const DEFAULT_CONFIG: ResortConfig = {
   nameEn: 'Shymbulak Mountain Resort',
@@ -99,7 +102,18 @@ export const useResortStats = () => {
     );
   }, []);
 
+  const presentation = useMemo(
+    () =>
+      buildResortConditionsPresentation(
+        conditions,
+        isFahrenheit ? 'fahrenheit' : 'celsius',
+        resortConfig
+      ),
+    [conditions, isFahrenheit, resortConfig]
+  );
+
   return {
+    presentation,
     resortConfig,
     isResortConfigReady,
     conditions,

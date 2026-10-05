@@ -143,8 +143,7 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({
 
       <div className="conditions-sticky-scope shrink-0">
         <ConditionsStrip
-          conditions={resortData.conditions}
-          unit={resortData.isFahrenheit ? 'fahrenheit' : 'celsius'}
+          presentation={resortData.presentation}
           onToggleUnit={() => setIsFahrenheit(!resortData.isFahrenheit)}
         />
 

@@ -17,6 +17,15 @@ type CompositeIndex = {
 const firestoreIndexesPath = resolve(process.cwd(), 'firestore.indexes.json');
 const firestoreIndexes = JSON.parse(readFileSync(firestoreIndexesPath, 'utf8')) as {
   indexes: CompositeIndex[];
+  fieldOverrides: Array<{
+    collectionGroup: string;
+    fieldPath: string;
+    indexes: Array<{
+      order?: 'ASCENDING' | 'DESCENDING';
+      queryScope: 'COLLECTION' | 'COLLECTION_GROUP';
+      arrayConfig?: 'CONTAINS';
+    }>;
+  }>;
 };
 
 function canonicalIndex(index: CompositeIndex): string {
@@ -226,5 +235,23 @@ describe('Firestore composite index contracts', () => {
     expect(hasExactCompositeIndex([assignmentDaysIndex], occupancyDaysIndex)).toBe(false);
     expect(hasExactCompositeIndex([assignmentDaysIndex], assignmentDaysIndex)).toBe(true);
     expect(() => expectCompositeIndex([assignmentDaysIndex], occupancyDaysIndex)).toThrow();
+  });
+});
+
+describe('Firestore single-field index contracts', () => {
+  it('supports participant course-day occupancy without removing collection-group ordering', () => {
+    const overrides = firestoreIndexes.fieldOverrides.filter(
+      (override) =>
+        override.collectionGroup === 'days' &&
+        override.fieldPath === 'interval.startsAt.seconds'
+    );
+
+    expect(overrides).toHaveLength(1);
+    expect(overrides[0].indexes).toEqual(
+      expect.arrayContaining([
+        { order: 'ASCENDING', queryScope: 'COLLECTION' },
+        { order: 'ASCENDING', queryScope: 'COLLECTION_GROUP' },
+      ])
+    );
   });
 });

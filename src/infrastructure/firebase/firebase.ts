@@ -1,7 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { getFunctions } from 'firebase/functions';
-import { getStorage } from 'firebase/storage';
 import {
   arrayUnion,
   arrayRemove,
@@ -66,12 +65,11 @@ if (typeof window !== 'undefined' && import.meta.env.MODE !== 'test') {
   });
 }
 
-const app = initializeApp(firebaseConfig);
+export const app = initializeApp(firebaseConfig);
 
 // Initialize with specific databaseId if required by config
 export const db = getFirestore(app, import.meta.env.VITE_FIREBASE_DATABASE_ID || '(default)');
 export const auth = getAuth(app);
-export const storage = getStorage(app);
 export const functions = getFunctions(
   app,
   import.meta.env.VITE_FIREBASE_FUNCTIONS_REGION || 'us-central1'

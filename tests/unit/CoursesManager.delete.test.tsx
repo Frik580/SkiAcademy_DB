@@ -109,6 +109,7 @@ describe('Canonical CoursesManager', () => {
     const fill = (label: string | RegExp, value: string) => {
       fireEvent.change(screen.getByLabelText(label), { target: { value } });
     };
+    await user.selectOptions(screen.getByLabelText('Discipline *'), 'ski');
     fill('Title', overrides.title ?? 'Canonical Create Validation Course');
     fill('Price (KZT)', '50000');
     await user.click(await screen.findByLabelText(/Coach/));
@@ -272,6 +273,7 @@ describe('Canonical CoursesManager', () => {
     const fill = (label: string | RegExp, value: string) => {
       fireEvent.change(screen.getByLabelText(label), { target: { value } });
     };
+    await user.selectOptions(screen.getByLabelText('Discipline *'), 'ski');
     fill('Title', 'Canonical Retry Course');
     fill('Price (KZT)', '50000');
     await user.click(await screen.findByLabelText(/Coach/));

@@ -7,7 +7,6 @@ import { useCurrency } from '../../../../app/providers/CurrencyContext';
 import { ActionButton } from '../../../../ui/ActionButton';
 import { GuestReservationLimitAlert } from '../../../../ui/GuestReservationLimitAlert';
 import { resolveInstructorHourlyRateKztForDisplay } from '../../../../domain/pricing';
-import { GuestParticipantFields } from '../../../guest-reservations/GuestParticipantFields';
 
 interface GuestBookingFormProps {
   workspace: ReturnType<typeof useBookingModal>;
@@ -37,8 +36,8 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
     setGuestPhone,
     guestEmail,
     setGuestEmail,
-    guestAgeYears,
-    setGuestAgeYears,
+    showGuestOptionalDetails,
+    setShowGuestOptionalDetails,
     guestDiscipline,
     setGuestDiscipline,
     isLoadingBookings,
@@ -72,9 +71,9 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
             type="button"
             onClick={() => void checkPreviousGuestStatus()}
             disabled={guestRefreshing}
-            className="btn-secondary w-full px-4 py-2 text-sm"
+            className="text-xs text-[var(--ink-dim)] underline-offset-2 hover:underline"
           >
-            {guestRefreshing ? t('processing') : t('guestCheckPreviousStatus')}
+            {guestRefreshing ? t('processing') : t('guestHaveRequest')}
           </button>
         )}
         {guestLookupError && (
@@ -84,18 +83,15 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
             )}
           </p>
         )}
-        <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--accent-muted)] p-3 text-xs leading-relaxed text-[var(--ink)]">
-          {t('guestBookingNotice')}
-        </div>
-
         <div className="space-y-3">
-          <div className="grid grid-cols-2 items-end gap-2.5">
+          <div className="grid grid-cols-1 items-end gap-2.5 sm:grid-cols-2">
             <div className="flex flex-col justify-end">
-              <label className={`${labelStyle} min-h-[20px]`}>
+              <label htmlFor="guest-lesson-name" className={`${labelStyle} min-h-[20px]`}>
                 <User className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{t('guestNameLabel')} *</span>
+                <span className="truncate">{t('guestCourseNameLabel')} *</span>
               </label>
               <input
+                id="guest-lesson-name"
                 type="text"
                 required
                 value={guestName}
@@ -105,11 +101,12 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
               />
             </div>
             <div className="flex flex-col justify-end">
-              <label className={`${labelStyle} min-h-[20px]`}>
+              <label htmlFor="guest-lesson-phone" className={`${labelStyle} min-h-[20px]`}>
                 <Phone className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{t('guestPhoneLabel')} *</span>
+                <span className="truncate">{t('guestCoursePhoneLabel')} *</span>
               </label>
               <input
+                id="guest-lesson-phone"
                 type="tel"
                 required
                 value={guestPhone}
@@ -119,33 +116,23 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
               />
             </div>
           </div>
-
-          <div>
-            <label className={labelStyle}>
-              <Mail className="h-3.5 w-3.5" /> {t('guestEmailLabel')}
-            </label>
-            <input
-              type="email"
-              value={guestEmail}
-              onChange={(e) => setGuestEmail(e.target.value)}
-              placeholder={t('guestEmailPlaceholder')}
-              className={fieldClass}
-            />
-          </div>
         </div>
 
-        <GuestParticipantFields
-          ageYears={guestAgeYears}
-          onAgeYearsChange={setGuestAgeYears}
-          discipline={guestDiscipline}
-          onDisciplineChange={setGuestDiscipline}
-          labels={{
-            age: t('participantsAgeLabel'),
-            discipline: t('participantsDisciplineLabel'),
-            ski: t('participantsDisciplineSki'),
-            snowboard: t('participantsDisciplineSnowboard'),
-          }}
-        />
+        <label className="block space-y-1 text-xs text-[var(--ink-dim)]">
+          <span>{t('participantsDisciplineLabel')} *</span>
+          <select
+            required
+            value={guestDiscipline}
+            onChange={(e) => setGuestDiscipline(e.target.value as typeof guestDiscipline)}
+            className={fieldClass}
+          >
+            <option value="" disabled>
+              —
+            </option>
+            <option value="ski">{t('participantsDisciplineSki')}</option>
+            <option value="snowboard">{t('participantsDisciplineSnowboard')}</option>
+          </select>
+        </label>
 
         <BookingSelectors
           date={date}
@@ -164,23 +151,52 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
           language={language}
           getDifficultyLabel={getDifficultyLabel}
           gapClass="gap-2.5"
+          showDifficulty={false}
         />
 
-        <div>
-          <label className={labelStyle}>{t('personalGoalsNotes')}</label>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder={t('personalGoalsPlaceholder')}
-            rows={2}
-            className={BOOKING_NOTES_FIELD_CLASS}
-          />
-        </div>
+        <button
+          type="button"
+          aria-expanded={showGuestOptionalDetails}
+          aria-controls="guest-lesson-optional"
+          onClick={() => setShowGuestOptionalDetails(!showGuestOptionalDetails)}
+          className="text-left text-xs text-[var(--ink-dim)] underline-offset-2 hover:underline"
+        >
+          {t('guestCourseAddOptionalDetails')}
+        </button>
+        {showGuestOptionalDetails && (
+          <div id="guest-lesson-optional" className="space-y-3">
+            <label className="block space-y-1 text-xs text-[var(--ink-dim)]">
+              <span className="flex items-center gap-1.5">
+                <Mail className="h-3.5 w-3.5" /> {t('guestCourseEmailLabel')} · {t('guestOptional')}
+              </span>
+              <input
+                type="email"
+                value={guestEmail}
+                onChange={(e) => setGuestEmail(e.target.value)}
+                placeholder={t('guestEmailPlaceholder')}
+                className={fieldClass}
+              />
+            </label>
+            <label className="block space-y-1 text-xs text-[var(--ink-dim)]">
+              <span>
+                {t('guestCourseCommentLabel')} · {t('guestOptional')}
+              </span>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                maxLength={1000}
+                placeholder={t('personalGoalsPlaceholder')}
+                rows={2}
+                className={BOOKING_NOTES_FIELD_CLASS}
+              />
+            </label>
+          </div>
+        )}
       </div>
 
       <div className="shrink-0 border-t border-[var(--border)] bg-[var(--card-bg)] px-4 pb-4 pt-3">
         <div className="mb-3 flex items-center justify-between">
-          <span className="text-sm text-[var(--ink)]">{t('totalLessonFee')}</span>
+          <span className="text-sm text-[var(--ink)]">{t('guestTotal')}</span>
           <span className="text-lg font-extrabold text-[var(--accent)]">{totalFormatted}</span>
         </div>
 
@@ -203,8 +219,11 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
           className="btn-primary w-full py-3"
         >
           <Send className="h-3.5 w-3.5" />
-          {t('submitGuestApplication')}
+          {t('submitGuestCourseApplicationShort')}
         </ActionButton>
+        <p className="mt-2 text-center text-[11px] text-[var(--ink-dim)]">
+          {t('guestCoursePaymentNote')}
+        </p>
       </div>
     </form>
   );

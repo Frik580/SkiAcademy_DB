@@ -85,9 +85,21 @@ describe('guest lesson booking callable transport contract', () => {
     }
   );
 
-  it('rejects missing age on the server transport', () => {
+  it('accepts missing age on the guest lesson transport', () => {
     const { guestParticipantAgeYears: _age, ...payload } = frontendGuestLessonBookingPayload();
-    expect(parseCallableGuestCommandTransport(payload).success).toBe(false);
+    expect(parseCallableGuestCommandTransport(payload).success).toBe(true);
+  });
+  it('accepts missing skill while still requiring explicit valid discipline', () => {
+    const { guestParticipantSkillLevel: _skill, ...payload } = frontendGuestLessonBookingPayload();
+    expect(parseCallableGuestCommandTransport(payload).success).toBe(true);
+    expect(
+      parseCallableGuestCommandTransport({ ...payload, guestParticipantDiscipline: undefined })
+        .success
+    ).toBe(false);
+    expect(
+      parseCallableGuestCommandTransport({ ...payload, guestParticipantDiscipline: 'skate' })
+        .success
+    ).toBe(false);
   });
   it('accepts the frontend guest booking payload shape', () => {
     const payload = frontendGuestLessonBookingPayload();

@@ -3,13 +3,10 @@ import {
   expect,
   ensureParticipantSelected,
   fillBookingSelectors,
-  fillGuestParticipantFields,
   loadRuntimeConfig,
   uniqueDayOffset,
   uniqueTimeSlot,
-  openGuestBookingModal,
   openStudentBookingModal,
-  submitGuestBookingApplication,
   submitStudentBookingConfirmation,
   waitForNewBlockingBookingForPayer,
 } from './fixtures';
@@ -17,79 +14,12 @@ import { waitForFunctionsEmulatorReady } from './global-setup';
 import {
   getBlockingBookingIdsForPayer,
   getLatestBlockingBookingForPayer,
-  getLatestGuestParticipant,
   listResourceClaimsForBooking,
 } from './firestore-admin';
 
 test.describe('booking flow', () => {
   test.beforeAll(async () => {
     await waitForFunctionsEmulatorReady();
-  });
-
-  test('guest can submit a lesson request from the home page', async ({ page }, testInfo) => {
-    const runtimeConfig = loadRuntimeConfig();
-    const guestParticipantsBefore = await getLatestGuestParticipant();
-    const guestIngressAddress = `2001:db8::${(testInfo.repeatEachIndex + 1).toString(16)}`;
-    const guestProfile = { age: 32, discipline: 'ski', skillLevel: 'intermediate' } as const;
-    let guestCommandRequests = 0;
-
-    // The local Functions emulator has no Firebase ingress to supply its trusted XFF address.
-    await page.route('**/executeGuestCanonicalCommand', async (route) => {
-      if (route.request().method() !== 'POST') {
-        await route.continue();
-        return;
-      }
-      guestCommandRequests += 1;
-      await route.continue({
-        headers: { ...route.request().headers(), 'x-forwarded-for': guestIngressAddress },
-      });
-    });
-
-    await openGuestBookingModal(page, runtimeConfig.instructorName);
-
-    await page.getByPlaceholder('e.g. Alex Carter').fill('Guest Skier');
-    await page.getByPlaceholder('+1 (555) 000-0000').fill('+1 555 0100');
-    await expect(submitGuestBookingApplication(page)).rejects.toThrow(
-      'Guest booking blocked by browser form validation'
-    );
-    expect(guestCommandRequests).toBe(0);
-    await fillGuestParticipantFields(page, guestProfile);
-    const slot = await fillBookingSelectors(page, uniqueDayOffset(1, testInfo), {
-      time: uniqueTimeSlot(testInfo),
-    });
-
-    await waitForFunctionsEmulatorReady();
-    await submitGuestBookingApplication(page);
-    expect(guestCommandRequests).toBe(1);
-    await expect(page.getByRole('heading', { name: 'Request created', exact: true })).toBeVisible();
-
-    await expect
-      .poll(async () => {
-        const guestParticipant = await getLatestGuestParticipant();
-        return guestParticipant?.participantId ?? null;
-      })
-      .not.toEqual(guestParticipantsBefore?.participantId ?? null);
-
-    const guestParticipant = await getLatestGuestParticipant();
-    expect(guestParticipant?.managementKind).toBe('unmanaged_guest');
-    expect(guestParticipant?.discipline).toBe(guestProfile.discipline);
-    expect(guestParticipant?.skillLevel).toBe(guestProfile.skillLevel);
-    expect(guestParticipant?.age).toEqual({ kind: 'age_years', years: guestProfile.age });
-
-    await expect
-      .poll(async () => {
-        const { listBookingsForInstructor } = await import('./firestore-admin');
-        const bookings = await listBookingsForInstructor(runtimeConfig.instructorId);
-        return bookings.some(
-          (booking) =>
-            booking.lifecycleStatus === 'pending' &&
-            booking.participantIds.includes(guestParticipant?.participantId ?? '')
-        );
-      })
-      .toBe(true);
-
-    expect(slot.localDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    expect(slot.localTime).toMatch(/^\d{1,2}:\d{2}$/);
   });
 
   test('signed-in student can book a lesson from the cabinet', async ({ page }, testInfo) => {

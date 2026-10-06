@@ -312,7 +312,7 @@ export async function fillBookingSelectors(
 
 export async function submitGuestBookingApplication(page: Page): Promise<void> {
   const bookingModal = getBookingModal(page);
-  const submit = bookingModal.getByRole('button', { name: 'Submit booking request', exact: true });
+  const submit = bookingModal.getByRole('button', { name: 'Send request', exact: true });
 
   const invalidFields = await submit.evaluate((button: HTMLButtonElement) =>
     Array.from(button.form?.elements ?? []).flatMap((control) => {

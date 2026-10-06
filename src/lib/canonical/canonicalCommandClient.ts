@@ -49,6 +49,7 @@ export interface GuestCanonicalCommandSubmission<Kind extends CommandKind> {
   readonly timezone?: CommandEnvelope<Kind>['context']['timezone'];
   readonly guestActionNonce?: string;
   readonly guestActionSignature?: string;
+  readonly guestProfileExpiresAt?: import('@ski-academy/shared-domain').CanonicalTimestamp;
   readonly guestParticipantDisplayName?: string;
   readonly guestParticipantSkillLevel?: string;
   readonly guestParticipantDiscipline?: 'ski' | 'snowboard';
@@ -151,6 +152,9 @@ export async function executeGuestCanonicalCommand<Kind extends CommandKind>(
     ...(submission.calendarInput ? { calendarInput: submission.calendarInput } : {}),
     ...(submission.timezone ? { timezone: submission.timezone } : {}),
     ...(submission.guestActionNonce ? { guestActionNonce: submission.guestActionNonce } : {}),
+    ...(submission.guestProfileExpiresAt
+      ? { guestProfileExpiresAt: submission.guestProfileExpiresAt }
+      : {}),
     ...(submission.guestActionSignature
       ? { guestActionSignature: submission.guestActionSignature }
       : {}),
@@ -168,9 +172,7 @@ export async function executeGuestCanonicalCommand<Kind extends CommandKind>(
       : {}),
     ...(submission.guestPhone ? { guestPhone: submission.guestPhone } : {}),
     ...(submission.guestEmail ? { guestEmail: submission.guestEmail } : {}),
-    ...(submission.notificationLocale
-      ? { notificationLocale: submission.notificationLocale }
-      : {}),
+    ...(submission.notificationLocale ? { notificationLocale: submission.notificationLocale } : {}),
   };
 
   try {

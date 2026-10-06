@@ -34,7 +34,11 @@ const GuestActionTokenPayloadSchema = z.discriminatedUnion('subjectKind', [
       subjectKind: z.literal('booking'),
       bookingId: BookingIdSchema,
       guestSubjectId: GuestSubjectIdSchema,
-      purpose: z.enum(['cancel_pending_reservation', 'read_reservation_status']),
+      purpose: z.enum([
+        'cancel_pending_reservation',
+        'read_reservation_status',
+        'complete_guest_participant_profile',
+      ]),
       expiresAt: CanonicalTimestampSchema,
       nonce: guestActionNonceSchema,
     })
@@ -146,7 +150,8 @@ export function verifyGuestActionCredentialParts(input: {
   readonly now: CanonicalTimestamp;
   readonly expectedBookingId: BookingId;
   readonly expectedGuestSubjectId: GuestSubjectId;
-  readonly expectedPurpose: 'cancel_pending_reservation' | 'read_reservation_status';
+  readonly expectedPurpose:
+    'cancel_pending_reservation' | 'read_reservation_status' | 'complete_guest_participant_profile';
   readonly expiresAt: CanonicalTimestamp;
   readonly compareSignatures: CompareHmacSha256Signatures;
 }): GuestActionTokenVerificationResult {

@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { CausationIdSchema, CorrelationIdSchema } from '../identifiers';
-import { AggregateRevisionSchema, IanaTimeZoneSchema } from '../primitives';
+import {
+  AggregateRevisionSchema,
+  IanaTimeZoneSchema,
+  CanonicalTimestampSchema,
+} from '../primitives';
 import {
   CommandCalendarInputSchema,
   IdempotencyKeySchema,
@@ -29,6 +33,10 @@ export const CreateGuestBookingRequestTransportSchema = z
     calendarInput: CommandCalendarInputSchema,
     timezone: IanaTimeZoneSchema,
     ...guestParticipantProfileTransportFields,
+    guestParticipantSkillLevel:
+      guestParticipantProfileTransportFields.guestParticipantSkillLevel.optional(),
+    guestParticipantAgeYears:
+      guestParticipantProfileTransportFields.guestParticipantAgeYears.optional(),
     guestPhone: GuestContactDetailsSchema.shape.phone,
     guestEmail: GuestContactDetailsSchema.shape.email,
     notificationLocale: NotificationLocaleSchema.optional(),
@@ -48,10 +56,15 @@ const guestCallableTransportBaseFields = {
   timezone: IanaTimeZoneSchema.optional(),
   guestActionNonce: z.string().optional(),
   guestActionSignature: z.string().optional(),
-  guestParticipantDisplayName: guestParticipantProfileTransportFields.guestParticipantDisplayName.optional(),
-  guestParticipantSkillLevel: guestParticipantProfileTransportFields.guestParticipantSkillLevel.optional(),
-  guestParticipantDiscipline: guestParticipantProfileTransportFields.guestParticipantDiscipline.optional(),
-  guestParticipantAgeYears: guestParticipantProfileTransportFields.guestParticipantAgeYears.optional(),
+  guestProfileExpiresAt: CanonicalTimestampSchema.optional(),
+  guestParticipantDisplayName:
+    guestParticipantProfileTransportFields.guestParticipantDisplayName.optional(),
+  guestParticipantSkillLevel:
+    guestParticipantProfileTransportFields.guestParticipantSkillLevel.optional(),
+  guestParticipantDiscipline:
+    guestParticipantProfileTransportFields.guestParticipantDiscipline.optional(),
+  guestParticipantAgeYears:
+    guestParticipantProfileTransportFields.guestParticipantAgeYears.optional(),
   notificationLocale: NotificationLocaleSchema.optional(),
 } as const;
 
@@ -68,15 +81,18 @@ function guestCallableTransportSchemaForKind<Kind extends CommandKind>(kind: Kin
 const guestCallableTransportSchemas = [
   CreateGuestBookingRequestTransportSchema,
   guestCallableTransportSchemaForKind('request_booking_cancellation'),
-  z.object({
-    kind: z.literal('create_course_enrollments'),
-    intent: CommandIntentSchemaByKind.create_course_enrollments,
-    ...guestCallableTransportBaseFields,
-    guestParticipantDisplayName: guestParticipantProfileTransportFields.guestParticipantDisplayName,
-    guestParticipantDiscipline: guestParticipantProfileTransportFields.guestParticipantDiscipline,
-    guestPhone: GuestContactDetailsSchema.shape.phone,
-    guestEmail: GuestContactDetailsSchema.shape.email,
-  }).strict(),
+  z
+    .object({
+      kind: z.literal('create_course_enrollments'),
+      intent: CommandIntentSchemaByKind.create_course_enrollments,
+      ...guestCallableTransportBaseFields,
+      guestParticipantDisplayName:
+        guestParticipantProfileTransportFields.guestParticipantDisplayName,
+      guestParticipantDiscipline: guestParticipantProfileTransportFields.guestParticipantDiscipline,
+      guestPhone: GuestContactDetailsSchema.shape.phone,
+      guestEmail: GuestContactDetailsSchema.shape.email,
+    })
+    .strict(),
   guestCallableTransportSchemaForKind('complete_guest_participant_profile'),
   guestCallableTransportSchemaForKind('withdraw_course_enrollment'),
   guestCallableTransportSchemaForKind('request_course_enrollment_cancellation'),
@@ -100,9 +116,9 @@ export interface FrontendGuestLessonBookingCallablePayload {
   readonly calendarInput: CommandCalendarInput;
   readonly timezone: CreateGuestBookingRequestTransport['timezone'];
   readonly guestParticipantDisplayName: string;
-  readonly guestParticipantSkillLevel: string;
+  readonly guestParticipantSkillLevel?: string;
   readonly guestParticipantDiscipline: 'ski' | 'snowboard';
-  readonly guestParticipantAgeYears: number;
+  readonly guestParticipantAgeYears?: number;
   readonly guestPhone: string;
   readonly guestEmail?: string;
   readonly notificationLocale?: 'ru' | 'en';
@@ -119,9 +135,9 @@ export function buildFrontendGuestLessonBookingCallablePayload(input: {
   readonly durationMinutes: number;
   readonly timezone: string;
   readonly guestDisplayName: string;
-  readonly guestSkillLevel: string;
+  readonly guestSkillLevel?: string;
   readonly guestDiscipline: 'ski' | 'snowboard';
-  readonly guestAgeYears: number;
+  readonly guestAgeYears?: number;
   readonly guestPhone: string;
   readonly guestEmail?: string;
   readonly notificationLocale?: 'ru' | 'en';
@@ -146,9 +162,11 @@ export function buildFrontendGuestLessonBookingCallablePayload(input: {
     }),
     timezone: IanaTimeZoneSchema.parse(input.timezone),
     guestParticipantDisplayName: input.guestDisplayName,
-    guestParticipantSkillLevel: input.guestSkillLevel,
+    ...(input.guestSkillLevel !== undefined
+      ? { guestParticipantSkillLevel: input.guestSkillLevel }
+      : {}),
     guestParticipantDiscipline: input.guestDiscipline,
-    guestParticipantAgeYears: input.guestAgeYears,
+    ...(input.guestAgeYears !== undefined ? { guestParticipantAgeYears: input.guestAgeYears } : {}),
     guestPhone: input.guestPhone,
     ...(input.guestEmail ? { guestEmail: input.guestEmail } : {}),
     ...(input.notificationLocale ? { notificationLocale: input.notificationLocale } : {}),

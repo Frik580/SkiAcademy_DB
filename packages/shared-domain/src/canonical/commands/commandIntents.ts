@@ -26,10 +26,7 @@ import { CourseCatalogContentInputSchema } from '../courseCatalogContent';
 import { AdministrativeAvailabilityBlockKindSchema } from '../administrativeAvailabilityBlock';
 import { MonetaryPaymentEffectSchema } from '../paymentWallet';
 import { MaxParticipantsPerLessonSchema } from '../lessonPricingSettings';
-import {
-  InstructorReviewCommentSchema,
-  InstructorReviewRatingSchema,
-} from '../instructorReview';
+import { InstructorReviewCommentSchema, InstructorReviewRatingSchema } from '../instructorReview';
 import {
   ParticipantProgressLevelSchema,
   ParticipantProgressSkillCommentsSchema,
@@ -728,13 +725,22 @@ export const CommandIntentSchemaByKind = {
     })
     .strict(),
   update_participant_profile: participantProfilePatchIntent,
-  complete_guest_participant_profile: z
-    .object({
-      courseEnrollmentId: CourseEnrollmentIdSchema,
-      ageYears: z.number().finite().int().min(0).max(125),
-      skillLevel: z.string().trim().min(1).max(64),
-    })
-    .strict(),
+  complete_guest_participant_profile: z.union([
+    z
+      .object({
+        courseEnrollmentId: CourseEnrollmentIdSchema,
+        ageYears: z.number().finite().int().min(0).max(125),
+        skillLevel: z.string().trim().min(1).max(64),
+      })
+      .strict(),
+    z
+      .object({
+        bookingId: BookingIdSchema,
+        ageYears: z.number().finite().int().min(0).max(125),
+        skillLevel: z.string().trim().min(1).max(64),
+      })
+      .strict(),
+  ]),
   assign_participant_management: z
     .object({
       participantManagementId: ParticipantManagementIdSchema,

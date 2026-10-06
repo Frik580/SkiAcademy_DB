@@ -13,6 +13,7 @@ import {
   type AdminPlannerOccupancyItem,
   type LessonBookingReadModel,
   type ParticipantId,
+  GuestLessonParticipantProfileFromTransportSchema,
 } from '@ski-academy/shared-domain';
 import { useNotifications } from '../../../../features/notifications';
 import {
@@ -53,11 +54,7 @@ import {
 import { resolveEffectiveParticipantIds } from './authBookingState';
 import { presentCancellationError } from '../../../student-cabinet/presentCancellationError';
 import { toggleParticipantSelection } from '../../../participants/participantSelectionState';
-import {
-  parseGuestParticipantForm,
-  guestParticipantCommandFields,
-  type GuestParticipantFormInput,
-} from '../../../guest-reservations/guestParticipantForm';
+import type { GuestParticipantFormInput } from '../../../guest-reservations/guestParticipantForm';
 import {
   forgetGuestReservation,
   isUnusableGuestReservationError,
@@ -84,8 +81,12 @@ export const useBookingModal = ({
 }: BookingModalInput) => {
   const { addNotification } = useNotifications();
   const { t, language } = useLanguage();
-  const { createAuthenticatedBooking, createGuestBooking, requestCancellation } =
-    useLessonBookingCommands(userProfile?.uid);
+  const {
+    createAuthenticatedBooking,
+    createGuestBooking,
+    completeGuestParticipantProfile,
+    requestCancellation,
+  } = useLessonBookingCommands(userProfile?.uid);
   const {
     participants: managedParticipants,
     loading: managedParticipantsLoading,
@@ -137,6 +138,9 @@ export const useBookingModal = ({
       setGuestName('');
       setGuestPhone('');
       setGuestEmail('');
+      setShowGuestOptionalDetails(false);
+      setShowGuestProfileCompletion(false);
+      setGuestProfileSkillLevel('');
       setGuestAgeYears('');
       setGuestDiscipline('');
       setDate('');
@@ -192,6 +196,16 @@ export const useBookingModal = ({
   const [guestPhone, setGuestPhone] = useState<string>('');
   const [guestEmail, setGuestEmail] = useState<string>('');
   const [guestAgeYears, setGuestAgeYears] = useState('');
+  const [showGuestOptionalDetails, setShowGuestOptionalDetails] = useState(false);
+  const [showGuestProfileCompletion, setShowGuestProfileCompletion] = useState(false);
+  const [guestProfileSkillLevel, setGuestProfileSkillLevel] = useState('');
+  const [isCompletingGuestProfile, setIsCompletingGuestProfile] = useState(false);
+  const guestProfileAttemptRef = useRef(false);
+  useEffect(() => {
+    setShowGuestProfileCompletion(false);
+    setGuestAgeYears('');
+    setGuestProfileSkillLevel('');
+  }, [guestCreatedBookingId]);
   const [guestDiscipline, setGuestDiscipline] =
     useState<GuestParticipantFormInput['discipline']>('');
 
@@ -483,11 +497,9 @@ export const useBookingModal = ({
       addNotification('warning', t('missingDetails'), t('guestPhoneLabel'));
       return;
     }
-    const guestProfile = parseGuestParticipantForm({
+    const guestProfile = GuestLessonParticipantProfileFromTransportSchema.safeParse({
       displayName: guestName,
-      ageYears: guestAgeYears,
       discipline: guestDiscipline,
-      skillLevel: difficulty,
     });
     if (!guestProfile.success) {
       const field = guestProfile.error.issues[0]?.path[0];
@@ -545,11 +557,11 @@ export const useBookingModal = ({
           bookingId,
           idempotencyKey: deriveGuestCreateIdempotencyKey(bookingId),
         },
-        ...guestParticipantCommandFields(guestProfile.data),
+        guestDisplayName: guestProfile.data.displayName,
+        guestDiscipline: guestProfile.data.discipline,
         guestPhone: guestPhone.trim(),
         guestEmail: guestEmail.trim() || undefined,
         notificationLocale: language,
-        difficulty,
         notes: notes.trim() || undefined,
       });
       if (!credential) throw new Error('Guest booking credential was not returned.');
@@ -575,6 +587,62 @@ export const useBookingModal = ({
     } finally {
       isSubmittingRef.current = false;
       setIsSubmitting(false);
+    }
+  };
+
+  const openGuestProfileCompletion = () => {
+    const profile = guestReservation?.guestParticipantProfile;
+    setGuestAgeYears(profile?.age.kind === 'age_years' ? String(profile.age.years) : '');
+    setGuestProfileSkillLevel(profile?.skillLevel ?? '');
+    setShowGuestProfileCompletion(true);
+  };
+
+  const completeGuestProfile = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const profile = guestReservation?.guestParticipantProfile;
+    if (!guestCreatedBookingId || !profile || guestProfileAttemptRef.current) return;
+    const ageYears = Number(guestAgeYears);
+    if (
+      !guestAgeYears.trim() ||
+      !Number.isInteger(ageYears) ||
+      ageYears < 0 ||
+      ageYears > 125 ||
+      !guestProfileSkillLevel
+    ) {
+      addNotification('warning', t('missingDetails'), t('guestCompleteProfile'));
+      return;
+    }
+    const credential = readGuestBookingCredential(guestCreatedBookingId).credential;
+    if (!credential?.profileCompletionCredential) {
+      addNotification('error', t('requestFailed'), t('guestStatusRefreshFailed'));
+      return;
+    }
+    guestProfileAttemptRef.current = true;
+    setIsCompletingGuestProfile(true);
+    try {
+      await completeGuestParticipantProfile({
+        bookingId: guestCreatedBookingId,
+        expectedRevision: profile.revision,
+        ageYears,
+        skillLevel: guestProfileSkillLevel,
+        guestCredential: credential,
+      });
+      setGuestReservation(await loadGuestSingleLessonBooking(guestCreatedBookingId));
+      setGuestRefreshError(false);
+      setShowGuestProfileCompletion(false);
+    } catch (error) {
+      const presented = presentBookingCommandError(error);
+      addNotification('error', t('requestFailed'), presented.message);
+      if (presented.shouldRefresh) {
+        try {
+          setGuestReservation(await loadGuestSingleLessonBooking(guestCreatedBookingId));
+        } catch {
+          setGuestRefreshError(true);
+        }
+      }
+    } finally {
+      guestProfileAttemptRef.current = false;
+      setIsCompletingGuestProfile(false);
     }
   };
 
@@ -866,6 +934,15 @@ export const useBookingModal = ({
     setGuestPhone,
     guestEmail,
     setGuestEmail,
+    showGuestOptionalDetails,
+    setShowGuestOptionalDetails,
+    showGuestProfileCompletion,
+    setShowGuestProfileCompletion,
+    openGuestProfileCompletion,
+    guestProfileSkillLevel,
+    setGuestProfileSkillLevel,
+    isCompletingGuestProfile,
+    completeGuestProfile,
     guestAgeYears,
     setGuestAgeYears,
     guestDiscipline,

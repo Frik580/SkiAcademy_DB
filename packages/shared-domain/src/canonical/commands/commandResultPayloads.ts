@@ -54,6 +54,14 @@ export const GuestBookingActionCredentialSchema = z
       })
       .strict()
       .optional(),
+    profileCompletionCredential: z
+      .object({
+        nonce: z.string().regex(/^[A-Za-z0-9_-]{16,64}$/),
+        signature: z.string().regex(/^[0-9a-fA-F]{64}$/),
+        expiresAt: CanonicalTimestampSchema,
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 

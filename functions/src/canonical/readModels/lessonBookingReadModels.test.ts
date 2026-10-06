@@ -367,6 +367,7 @@ describe('Admin lesson booking read models', () => {
     bookings: readonly ReturnType<typeof canonicalBooking>[],
     options: {
       readonly unmanagedGuest?: boolean;
+      readonly incompleteGuest?: boolean;
       readonly unpaidPayment?: boolean;
       readonly partialOutstandingPayment?: { readonly price: number; readonly paid: number };
       readonly omitPaymentPayerAccountId?: boolean;
@@ -383,8 +384,8 @@ describe('Admin lesson booking read models', () => {
         participantDocuments[participantIdValue] = ParticipantSchema.parse({
           participantId: participantIdValue,
           displayName: `Student ${participantIdValue}`,
-          age: { kind: 'age_years', years: 17 },
-          skillLevel: 'intermediate',
+          age: options.incompleteGuest ? { kind: 'unknown' } : { kind: 'age_years', years: 17 },
+          ...(options.incompleteGuest ? {} : { skillLevel: 'intermediate' }),
           discipline: 'ski',
           management: options.unmanagedGuest
             ? { kind: 'unmanaged_guest' }
@@ -539,6 +540,36 @@ describe('Admin lesson booking read models', () => {
         .reduce((total, [, count]) => total + count, 0)
     ).toBe(20);
   });
+
+  it.each([true, false])(
+    'projects incomplete/completed guest profiles without extra reads (%s)',
+    async (incompleteGuest) => {
+      const base = canonicalBooking('booking_admin_guest_profile', '2026-08-01T12:00:00.000Z', {
+        status: 'confirmed',
+      });
+      const booking = BookingSchema.parse({
+        ...base,
+        attribution: {
+          bookingOrigin: 'guest',
+          bookedBy: { kind: 'guest', guestSubjectId: 'guest_admin_profile' },
+        },
+      });
+      const { firestore, reads } = adminFixture([booking], {
+        unmanagedGuest: true,
+        incompleteGuest,
+      });
+      const model = await buildAdminLessonBookingReadModel(firestore, adminActor, booking, {
+        now: readNow,
+      });
+      expect(model?.admin?.participants[0]?.age).toEqual(
+        incompleteGuest ? { kind: 'unknown' } : { kind: 'age_years', years: 17 }
+      );
+      expect(model?.admin?.participants[0]?.skillLevel).toBe(
+        incompleteGuest ? undefined : 'intermediate'
+      );
+      expect(reads.get(`participants/${booking.party.participantIds[0]}`)).toBe(1);
+    }
+  );
 
   it('projects canonical payment, participant, policy, issue, and action detail', async () => {
     const booking = canonicalBooking('booking_admin_detail_read_01', '2026-08-01T12:00:00.000Z', {

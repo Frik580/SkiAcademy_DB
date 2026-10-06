@@ -4,12 +4,12 @@ import {
   GUEST_ACTION_SIGNATURE_TRANSPORT_KEY,
   administratorCapabilityExercisedByAccount,
   guestSubjectIdFromBookingId,
-  parseGuestParticipantProfileFromTransportMetadata,
+  parseGuestLessonParticipantProfileFromTransportMetadata,
   type Booking,
   type BookingCancellationReasonCode,
   type CanonicalTimestamp,
   type CommandEnvelope,
-  type GuestParticipantProfileFromTransport,
+  type GuestLessonParticipantProfileFromTransport,
   type GuestSubjectId,
   type Participant,
 } from '@ski-academy/shared-domain';
@@ -21,9 +21,9 @@ import {
 import { parseParticipant } from '../participantAccess/participantAccessStore';
 import { verifyGuestActionCredentialPartsAuthoritative } from './guestCredentialVerification';
 
-export function requireGuestActor(
-  envelope: CommandEnvelope
-): { readonly guestSubjectId: GuestSubjectId } {
+export function requireGuestActor(envelope: CommandEnvelope): {
+  readonly guestSubjectId: GuestSubjectId;
+} {
   const actor = envelope.context.actor;
   if (actor.kind !== 'guest') {
     throw new CanonicalCommandError('forbidden', {
@@ -224,8 +224,8 @@ export function resolvePendingGuestCancellationAuthorization(
 
 export function resolveGuestParticipantProfileForBooking(
   envelope: CommandEnvelope<'create_guest_booking_request'>
-): GuestParticipantProfileFromTransport {
-  const parsed = parseGuestParticipantProfileFromTransportMetadata(
+): GuestLessonParticipantProfileFromTransport {
+  const parsed = parseGuestLessonParticipantProfileFromTransportMetadata(
     envelope.context.transportMetadata
   );
   if (!parsed.success) {

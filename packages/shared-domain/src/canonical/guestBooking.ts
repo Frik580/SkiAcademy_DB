@@ -164,8 +164,10 @@ export function evaluateGuestManualPaymentAcceptance(input: {
   return { outcome: 'accepted' };
 }
 
-export type GuestBookingFundedConfirmationRejectReason =
-  Exclude<GuestManualPaymentAcceptanceRejectReason, 'reservation_expired'>;
+export type GuestBookingFundedConfirmationRejectReason = Exclude<
+  GuestManualPaymentAcceptanceRejectReason,
+  'reservation_expired'
+>;
 
 export type GuestBookingFundedConfirmationDecision =
   | { readonly outcome: 'not_applicable' }
@@ -230,6 +232,25 @@ export const GuestParticipantProfileFromTransportSchema = z
 export type GuestParticipantProfileFromTransport = Readonly<
   z.output<typeof GuestParticipantProfileFromTransportSchema>
 >;
+
+export const GuestLessonParticipantProfileFromTransportSchema =
+  GuestParticipantProfileFromTransportSchema.partial({ ageYears: true, skillLevel: true });
+
+export type GuestLessonParticipantProfileFromTransport = Readonly<
+  z.output<typeof GuestLessonParticipantProfileFromTransportSchema>
+>;
+
+export function parseGuestLessonParticipantProfileFromTransportMetadata(
+  transportMetadata: Readonly<Record<string, string>> | undefined
+) {
+  const ageYears = transportMetadata?.[GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.ageYears];
+  return GuestLessonParticipantProfileFromTransportSchema.safeParse({
+    displayName: transportMetadata?.[GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.displayName],
+    discipline: transportMetadata?.[GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.discipline],
+    skillLevel: transportMetadata?.[GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.skillLevel],
+    ageYears: ageYears === undefined ? undefined : ageYears.trim() === '' ? NaN : Number(ageYears),
+  });
+}
 
 export const GuestCourseParticipantProfileFromTransportSchema = z
   .object({

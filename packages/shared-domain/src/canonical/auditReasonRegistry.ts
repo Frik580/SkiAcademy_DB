@@ -90,6 +90,7 @@ const COMMAND_KIND_REASON_CODES: Partial<Record<CommandKind, readonly AuditReaso
   provision_self_participant: ['participant_management'],
   create_participant: ['participant_management', 'other'],
   update_participant_profile: ['participant_management', 'other'],
+  complete_guest_participant_profile: ['participant_management'],
   assign_participant_management: ['participant_management', 'other'],
   revoke_participant_management: ['participant_management', 'other'],
   create_instructor_relationship: ['participant_management', 'manual_override', 'other'],

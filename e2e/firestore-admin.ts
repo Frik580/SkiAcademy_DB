@@ -6,8 +6,13 @@ import { E2E_PROJECT_ID, FIRESTORE_EMULATOR_HOST } from './emulator-config';
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
 const requireRoot = createRequire(join(rootDir, 'package.json'));
 const requireFunctions = createRequire(join(rootDir, 'functions/package.json'));
-const { CourseSchema, CourseDaySchema, CourseCatalogContentSchema, timestampFromDate } =
-  requireRoot('@ski-academy/shared-domain') as typeof import('@ski-academy/shared-domain');
+const {
+  CourseSchema,
+  CourseDaySchema,
+  CourseCatalogContentSchema,
+  ParticipantSchema,
+  timestampFromDate,
+} = requireRoot('@ski-academy/shared-domain') as typeof import('@ski-academy/shared-domain');
 const { initializeApp, getApps } = requireFunctions(
   'firebase-admin/app'
 ) as typeof import('firebase-admin/app');
@@ -57,6 +62,7 @@ export async function seedE2ECourse(input: {
   title: string;
   instructorId: string;
   dayOffset: number;
+  discipline?: 'ski' | 'snowboard';
 }): Promise<void> {
   const firestore = ensureFirestore();
   const startsAt = new Date();
@@ -106,12 +112,18 @@ export async function seedE2ECourse(input: {
   await firestore.doc(`course_catalog_content/${input.courseId}`).set(
     CourseCatalogContentSchema.parse({
       courseId: input.courseId,
+      ...(input.discipline ? { discipline: input.discipline } : {}),
       duration: '2 hours',
       description: 'Playwright course enrollment fixture.',
       dates: startsAt.toISOString().slice(0, 10),
       bgImageUrl: 'data:image/svg+xml,%3Csvg%20xmlns="http://www.w3.org/2000/svg"/%3E',
     })
   );
+}
+
+export async function getParticipantProfile(participantId: string) {
+  const document = await ensureFirestore().doc(`participants/${participantId}`).get();
+  return document.exists ? ParticipantSchema.parse(document.data()) : null;
 }
 
 export async function hasCourseEnrollment(

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { CanonicalTimestamp, GuestPaymentSummary } from '@ski-academy/shared-domain';
 import type { TranslationKey } from '../../lib/i18n/translations';
 import { CourseEnrollmentScheduleList } from '../course-enrollments/CourseEnrollmentScheduleList';
@@ -25,6 +25,7 @@ interface GuestReservationStatusProps {
     readonly participantName: string;
     readonly scheduleLines: readonly CourseEnrollmentScheduleLine[];
   };
+  profileCompletion?: ReactNode;
 }
 
 export function GuestReservationStatus({
@@ -43,6 +44,7 @@ export function GuestReservationStatus({
   onNewBooking,
   onCancelPending,
   reservationDetails,
+  profileCompletion,
 }: GuestReservationStatusProps) {
   const [confirmCancellation, setConfirmCancellation] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -148,6 +150,7 @@ export function GuestReservationStatus({
           ) : null}
         </div>
       )}
+      {profileCompletion}
       {refreshError && statusHydrated && (
         <p className="text-sm text-rose-600">{t('guestStatusRefreshFailed')}</p>
       )}

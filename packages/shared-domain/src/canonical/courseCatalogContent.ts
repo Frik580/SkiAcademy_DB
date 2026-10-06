@@ -30,6 +30,7 @@ export const CourseCatalogContentSchema = z
     badge: z.string().trim().max(500).optional(),
     badgeRu: z.string().trim().max(500).optional(),
     level: z.enum(['beginner', 'intermediate', 'advanced', 'expert', '']).optional(),
+    discipline: z.enum(['ski', 'snowboard']).optional(),
     levelLabel: z.string().trim().max(200).optional(),
     videoUrl: z.string().trim().max(2_000).optional(),
     benefits: z.array(z.string().trim().min(1).max(500)).max(32).optional(),

@@ -278,6 +278,7 @@ describe('courseEnrollment commands integration', () => {
       guestDisplayName: 'Guest',
       guestPhone: '+7 701 123 45 67',
       guestEmail: 'course@example.com',
+      guestComment: 'Own board',
       guestSkillLevel: 'intermediate',
       guestDiscipline: 'snowboard',
       guestAgeYears: 12,
@@ -288,6 +289,7 @@ describe('courseEnrollment commands integration', () => {
       expect.objectContaining({
         guestPhone: '+7 701 123 45 67',
         guestEmail: 'course@example.com',
+        intent: expect.objectContaining({ guestComment: 'Own board' }),
         guestParticipantSkillLevel: 'intermediate',
         guestParticipantDiscipline: 'snowboard',
         guestParticipantAgeYears: 12,

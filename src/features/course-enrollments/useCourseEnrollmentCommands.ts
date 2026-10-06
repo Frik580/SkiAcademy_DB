@@ -6,6 +6,7 @@ import {
   ParticipantIdSchema,
 } from '@ski-academy/shared-domain/canonical/identifiers';
 import { accountCommandActor } from '@ski-academy/shared-domain/canonical/commands/actors';
+import { IdempotencyKeySchema } from '@ski-academy/shared-domain/canonical/commands/commandContext';
 import { parseCommandResultPayload } from '@ski-academy/shared-domain/canonical/commands/commandResultPayloads';
 import { type GuestCourseEnrollmentLinkCredential } from '@ski-academy/shared-domain';
 import {
@@ -172,6 +173,7 @@ export function useCourseEnrollmentCommands(accountId: string | undefined) {
             courseId: CourseIdSchema.parse(input.courseId),
             participantIds: [ParticipantIdSchema.parse(input.participantId)],
             enrollmentIds: [CourseEnrollmentIdSchema.parse(input.enrollmentId)],
+            ...(input.guestComment === undefined ? {} : { guestComment: input.guestComment }),
           },
           idempotencyKey: input.identity.idempotencyKey,
           guestParticipantDisplayName: input.guestDisplayName,
@@ -211,6 +213,34 @@ export function useCourseEnrollmentCommands(accountId: string | undefined) {
         }).catch(() => undefined);
         throw error;
       }
+    },
+    []
+  );
+
+  const completeGuestParticipantProfile = useCallback(
+    async (input: {
+      readonly enrollmentId: string;
+      readonly ageYears: number;
+      readonly skillLevel: string;
+      readonly guestCredential: GuestCourseEnrollmentLinkCredential;
+    }): Promise<void> => {
+      const idempotencyKey = IdempotencyKeySchema.parse(
+        `complete-guest-profile:${input.enrollmentId}`
+      );
+      const result = await executeGuestCanonicalCommand({
+        kind: 'complete_guest_participant_profile',
+        intent: {
+          courseEnrollmentId: CourseEnrollmentIdSchema.parse(input.enrollmentId),
+          ageYears: input.ageYears,
+          skillLevel: input.skillLevel,
+        },
+        idempotencyKey,
+        guestActionNonce: input.guestCredential.nonce,
+        guestActionSignature: input.guestCredential.signature,
+      });
+      const error = mapCanonicalCommandResultError(result);
+      if (error) throw error;
+      await loadGuestSingleCourseEnrollment(input.enrollmentId).catch(() => undefined);
     },
     []
   );
@@ -329,6 +359,7 @@ export function useCourseEnrollmentCommands(accountId: string | undefined) {
   return {
     createAuthenticatedEnrollment,
     createGuestEnrollment,
+    completeGuestParticipantProfile,
     withdrawEnrollment,
     requestCancellation,
     refetchAccountHotEnrollments: accountId ? () => refetchAccountHotEnrollments() : undefined,

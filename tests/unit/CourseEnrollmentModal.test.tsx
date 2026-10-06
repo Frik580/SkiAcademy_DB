@@ -10,6 +10,7 @@ import { CanonicalCommandClientError } from '../../src/lib/canonical/mapCanonica
 import { persistGuestCourseEnrollmentCredential } from '../../src/features/course-enrollments/guestCourseEnrollmentCredentialStorage';
 
 const mocks = vi.hoisted(() => ({
+  language: 'en' as 'ru' | 'en',
   participants: [] as ManagedParticipantOption[],
   selectedParticipantIds: [] as string[],
   loading: false,
@@ -18,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   toggleParticipant: vi.fn(),
   resetSelection: vi.fn(),
   createGuestEnrollment: vi.fn(),
+  completeGuestParticipantProfile: vi.fn(),
   requestCancellation: vi.fn(),
   loadGuestSingleCourseEnrollment: vi.fn(),
   isAnySelectedParticipantEnrolledInCourse: vi.fn(
@@ -35,6 +37,18 @@ vi.mock('motion/react', () => ({
   },
 }));
 
+vi.mock('../../src/features/auth', () => ({
+  Auth: ({ onSuccess }: any) => (
+    <div aria-label="Existing auth UI">
+      <button type="button">Sign in</button>
+      <button type="button">Register</button>
+      <button type="button" onClick={() => onSuccess(userProfile)}>
+        Finish auth
+      </button>
+    </div>
+  ),
+}));
+
 vi.mock('canvas-confetti', () => ({ default: mocks.confetti }));
 
 vi.mock('../../src/app/providers/LanguageContext', () => ({
@@ -42,12 +56,17 @@ vi.mock('../../src/app/providers/LanguageContext', () => ({
     t: (key: string) =>
       (
         ({
+          courseEnrollment: mocks.language === 'ru' ? 'Запись на курс' : 'Course Enrollment',
+          journeyLevelExpert: mocks.language === 'ru' ? 'Эксперт' : 'Expert',
+          submitGuestCourseApplicationShort: 'Send request',
+          guestCourseSignIn: 'Already have an account? Sign in',
+          guestCourseAddOptionalDetails: '+ Add email or comment',
           guestCourseHoldUntil: 'Your place on the course is temporarily held until {deadline}.',
           guestCoursePrice: 'Course price: {amount}.',
           guestAdminContactPayment: 'An administrator will contact you to arrange payment.',
         }) as Record<string, string>
       )[key] ?? key,
-    language: 'en',
+    language: mocks.language,
   }),
   getGroupCourseLabel: (title: string) => title,
   translateCourse: (course: unknown) => course,
@@ -81,6 +100,7 @@ vi.mock('../../src/features/course-enrollments', () => ({
   resolveGuestCourseSessionParticipantId: () => 'guest_session_participant_01',
   useCourseEnrollmentCommands: () => ({
     createGuestEnrollment: mocks.createGuestEnrollment,
+    completeGuestParticipantProfile: mocks.completeGuestParticipantProfile,
     requestCancellation: mocks.requestCancellation,
   }),
   selectCourseEnrollmentItems: () => [],
@@ -117,6 +137,7 @@ const course = {
   price: 100,
   priceKZT: 45000,
   dates: '2026-03-01',
+  discipline: 'ski',
 } as any;
 
 const userProfile = {
@@ -152,6 +173,7 @@ describe('CourseEnrollmentModal authenticated enrollment', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.language = 'en';
     mocks.participants = [selfOnly];
     mocks.selectedParticipantIds = ['participant_self'];
     mocks.loading = false;
@@ -440,16 +462,6 @@ describe('CourseEnrollmentModal authenticated enrollment', () => {
   });
 });
 
-function fillGuestProfile(discipline = 'ski', skillLevel = 'intermediate', age = '12') {
-  fireEvent.change(screen.getByLabelText('participantsAgeLabel *'), { target: { value: age } });
-  fireEvent.change(screen.getByLabelText('participantsDisciplineLabel *'), {
-    target: { value: discipline },
-  });
-  fireEvent.change(screen.getByLabelText('participantsSkillLabel *'), {
-    target: { value: skillLevel },
-  });
-}
-
 const guestCredential = {
   enrollmentId: 'attempt_01',
   guestSubjectId: 'a'.repeat(64),
@@ -501,7 +513,9 @@ describe('CourseEnrollmentModal guest enrollment', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
+    mocks.language = 'en';
     mocks.createGuestEnrollment.mockResolvedValue({ enrollmentId: 'attempt_01' });
+    mocks.completeGuestParticipantProfile.mockResolvedValue(undefined);
     mocks.loadGuestSingleCourseEnrollment.mockResolvedValue({
       lifecycle: {
         status: 'pending',
@@ -544,8 +558,7 @@ describe('CourseEnrollmentModal guest enrollment', () => {
       fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
         target: { value: '+77001234567' },
       });
-      fillGuestProfile();
-      fireEvent.click(screen.getByRole('button', { name: /submitGuestCourseApplication/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Send request/i }));
       await waitFor(() =>
         expect(within(dialog).getByRole('status')).toHaveTextContent('guestPendingTitle')
       );
@@ -606,9 +619,7 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     );
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Canonical Guest'));
     expect(mocks.loadGuestSingleCourseEnrollment).toHaveBeenCalledTimes(1);
-    expect(
-      screen.queryByRole('button', { name: /submitGuestCourseApplication/i })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Send request/i })).not.toBeInTheDocument();
     rerender(
       <StrictMode>
         <CourseEnrollmentModal {...props} isOpen={false} />
@@ -643,9 +654,7 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     );
     const props = { isOpen: true, onClose: vi.fn(), onEnroll: vi.fn() };
     const { rerender } = render(<CourseEnrollmentModal {...props} course={course} />);
-    expect(
-      screen.queryByRole('button', { name: /submitGuestCourseApplication/i })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Send request/i })).not.toBeInTheDocument();
     rerender(
       <CourseEnrollmentModal
         {...props}
@@ -655,8 +664,112 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     await act(async () => {
       finishLookup(pendingGuestReservation);
     });
-    expect(screen.getByRole('button', { name: /submitGuestCourseApplication/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /Send request/i })).toBeEnabled();
     expect(screen.queryByText('Canonical Guest')).not.toBeInTheDocument();
+    expect(mocks.createGuestEnrollment).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['ru', undefined, 'Новичок'],
+    ['en', undefined, 'Beginner'],
+    ['ru', userProfile, 'Новичок'],
+    ['en', userProfile, 'Beginner'],
+  ] as const)(
+    'uses only the structured level in the %s header for guest/authenticated enrollment',
+    (language, profile, subtitle) => {
+      mocks.language = language;
+      render(
+        <CourseEnrollmentModal
+          isOpen
+          onClose={vi.fn()}
+          course={{ ...course, title: 'Новичок (Групповой курс)', level: 'beginner' }}
+          userProfile={profile}
+          onEnroll={vi.fn()}
+        />
+      );
+      const title = language === 'ru' ? 'Запись на курс' : 'Course Enrollment';
+      const header = screen.getByRole('heading', { name: title }).parentElement!;
+      expect(within(header).getByText(subtitle)).toBeInTheDocument();
+      expect(header.textContent).toBe(title + subtitle);
+      expect(header).not.toHaveTextContent(/Групповой курс|Group Course|45000/);
+    }
+  );
+
+  it('uses the structured level label when the course has no level', () => {
+    render(
+      <CourseEnrollmentModal
+        isOpen
+        onClose={vi.fn()}
+        course={{ ...course, levelLabel: 'Custom level', title: 'Beginner (Group Course)' }}
+        onEnroll={vi.fn()}
+      />
+    );
+    const header = screen.getByRole('heading', { name: 'Course Enrollment' }).parentElement!;
+    expect(header.textContent).toBe('Course EnrollmentCustom level');
+  });
+
+  it('omits the subtitle when no structured level metadata exists', () => {
+    render(
+      <CourseEnrollmentModal
+        isOpen
+        onClose={vi.fn()}
+        course={{ ...course, title: 'Beginner (Group Course)' }}
+        onEnroll={vi.fn()}
+      />
+    );
+    const header = screen.getByRole('heading', { name: 'Course Enrollment' }).parentElement!;
+    expect(header.textContent).toBe('Course Enrollment');
+  });
+
+  it('localizes the expert course level', () => {
+    mocks.language = 'ru';
+    render(
+      <CourseEnrollmentModal
+        isOpen
+        onClose={vi.fn()}
+        course={{ ...course, level: 'expert' }}
+        onEnroll={vi.fn()}
+      />
+    );
+    const header = screen.getByRole('heading', { name: 'Запись на курс' }).parentElement!;
+    expect(within(header).getByText('Эксперт')).toBeInTheDocument();
+  });
+
+  it('starts with only required contacts and discloses optional details without losing them in auth', async () => {
+    render(<CourseEnrollmentModal isOpen onClose={vi.fn()} course={course} onEnroll={vi.fn()} />);
+    expect(screen.getByLabelText('guestCourseNameLabel *')).toBeRequired();
+    expect(screen.getByLabelText('guestCoursePhoneLabel *')).toBeRequired();
+    expect(screen.queryByLabelText('participantsAgeLabel *')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('participantsSkillLabel *')).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('guestEmailPlaceholder')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('personalGoalsPlaceholder')).not.toBeInTheDocument();
+    expect(screen.queryByText('guestBookingNotice')).not.toBeInTheDocument();
+    expect(screen.getAllByText('45000')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Send request' })).toBeEnabled();
+    await userEvent.click(screen.getByRole('button', { name: '+ Add email or comment' }));
+    const email = screen.getByLabelText('guestCourseEmailLabel');
+    const comment = screen.getByLabelText('guestCourseCommentLabel');
+    expect(email).not.toBeRequired();
+    expect(comment).not.toBeRequired();
+    await userEvent.type(email, 'guest@example.com');
+    await userEvent.type(comment, 'Please call');
+    await userEvent.click(screen.getByRole('button', { name: 'Already have an account? Sign in' }));
+    expect(screen.getByLabelText('Existing auth UI')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Register' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Send request' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'guestBookingTab' }));
+    expect(screen.getByLabelText('guestCourseEmailLabel')).toHaveValue('guest@example.com');
+    expect(screen.getByLabelText('guestCourseCommentLabel')).toHaveValue('Please call');
+  });
+
+  it('continues into the existing authenticated enrollment after auth succeeds', async () => {
+    mocks.participants = [selfOnly];
+    render(<CourseEnrollmentModal isOpen onClose={vi.fn()} course={course} onEnroll={vi.fn()} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Already have an account? Sign in' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Finish auth' }));
+    expect(screen.getByRole('button', { name: /enroll/i })).toBeEnabled();
+    expect(mocks.resetSelection).toHaveBeenCalledOnce();
     expect(mocks.createGuestEnrollment).not.toHaveBeenCalled();
   });
 
@@ -670,22 +783,28 @@ describe('CourseEnrollmentModal guest enrollment', () => {
           isOpen
           onClose={onClose}
           onSuccess={onSuccess}
-          course={{ ...course, level: 'intermediate' }}
+          course={{ ...course, level: 'intermediate', discipline }}
           onEnroll={vi.fn()}
         />
       );
 
+      expect(screen.queryByLabelText('participantsDisciplineLabel *')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('participantsAgeLabel *')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('participantsSkillLabel *')).not.toBeInTheDocument();
       fireEvent.change(screen.getByPlaceholderText('guestNamePlaceholder'), {
         target: { value: 'Guest One' },
       });
       fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
         target: { value: '+77001234567' },
       });
-      fillGuestProfile(discipline);
+      fireEvent.click(screen.getByRole('button', { name: '+ Add email or comment' }));
       fireEvent.change(screen.getByPlaceholderText('guestEmailPlaceholder'), {
         target: { value: 'guest@example.com' },
       });
-      await userEvent.click(screen.getByRole('button', { name: /submitGuestCourseApplication/i }));
+      fireEvent.change(screen.getByLabelText('guestCourseCommentLabel'), {
+        target: { value: '  Please call  ' },
+      });
+      await userEvent.click(screen.getByRole('button', { name: /Send request/i }));
 
       await waitFor(() => {
         expect(mocks.createGuestEnrollment).toHaveBeenCalledWith(
@@ -693,14 +812,16 @@ describe('CourseEnrollmentModal guest enrollment', () => {
             courseId: 'course_01',
             participantId: 'guest_session_participant_01',
             enrollmentId: 'attempt_01',
+            guestDisplayName: 'Guest One',
             guestPhone: '+77001234567',
             guestEmail: 'guest@example.com',
+            guestComment: 'Please call',
             guestDiscipline: discipline,
-            guestSkillLevel: 'intermediate',
-            guestAgeYears: 12,
           })
         );
       });
+      expect(mocks.createGuestEnrollment.mock.calls[0]?.[0]).not.toHaveProperty('guestAgeYears');
+      expect(mocks.createGuestEnrollment.mock.calls[0]?.[0]).not.toHaveProperty('guestSkillLevel');
       expect(onClose).not.toHaveBeenCalled();
       expect(onSuccess).toHaveBeenCalledTimes(1);
       expect(screen.getByText('guestPendingTitle')).toBeInTheDocument();
@@ -713,7 +834,45 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     }
   );
 
-  it('blocks missing guest age without sending a fictitious value', () => {
+  it.each(['', '   ', 'x'.repeat(500)])(
+    'submits optional comment with trim and the 500-character limit (%s)',
+    async (comment) => {
+      render(<CourseEnrollmentModal isOpen onClose={vi.fn()} course={course} onEnroll={vi.fn()} />);
+      fireEvent.change(screen.getByLabelText('guestCourseNameLabel *'), {
+        target: { value: 'Guest One' },
+      });
+      fireEvent.change(screen.getByLabelText('guestCoursePhoneLabel *'), {
+        target: { value: '+77001234567' },
+      });
+      await userEvent.click(screen.getByRole('button', { name: '+ Add email or comment' }));
+      const textarea = screen.getByLabelText('guestCourseCommentLabel');
+      expect(textarea).toHaveAttribute('maxLength', '500');
+      fireEvent.change(textarea, { target: { value: comment } });
+      await userEvent.click(screen.getByRole('button', { name: 'Send request' }));
+      await waitFor(() => expect(mocks.createGuestEnrollment).toHaveBeenCalledOnce());
+      const input = mocks.createGuestEnrollment.mock.calls[0][0];
+      if (comment.trim()) expect(input.guestComment).toBe(comment.trim());
+      else expect(input).not.toHaveProperty('guestComment');
+    }
+  );
+
+  it('completes age and skill level after the guest reservation is created', async () => {
+    mocks.createGuestEnrollment.mockImplementationOnce(async () => {
+      persistGuestCourseEnrollmentCredential(guestCredential as never);
+      return guestCredential;
+    });
+    mocks.loadGuestSingleCourseEnrollment
+      .mockResolvedValueOnce(pendingGuestReservation)
+      .mockResolvedValueOnce({
+        ...pendingGuestReservation,
+        participant: {
+          ...pendingGuestReservation.participant,
+          ageYears: 12,
+          skillLevel: 'intermediate',
+          discipline: 'ski',
+        },
+      });
+
     render(<CourseEnrollmentModal isOpen onClose={vi.fn()} course={course} onEnroll={vi.fn()} />);
     fireEvent.change(screen.getByPlaceholderText('guestNamePlaceholder'), {
       target: { value: 'Guest Child' },
@@ -721,30 +880,73 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
       target: { value: '+77001234567' },
     });
-    fillGuestProfile('snowboard', 'intermediate', '');
-    const submit = screen.getByRole('button', { name: /submitGuestCourseApplication/i });
-    expect(screen.getByLabelText('participantsAgeLabel *')).toBeRequired();
-    fireEvent.submit(submit.closest('form')!);
-    expect(mocks.createGuestEnrollment).not.toHaveBeenCalled();
-    expect(mocks.addNotification).toHaveBeenCalledWith(
-      'warning',
-      'missingDetails',
-      'participantsAgeLabel'
+    fireEvent.click(screen.getByRole('button', { name: /Send request/i }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Complete profile' })).toBeInTheDocument()
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Complete profile' }));
+    fireEvent.change(screen.getByLabelText('participantsAgeLabel *'), {
+      target: { value: '12' },
+    });
+    fireEvent.change(screen.getByLabelText('participantsSkillLabel *'), {
+      target: { value: 'intermediate' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save profile' }));
+
+    await waitFor(() =>
+      expect(mocks.completeGuestParticipantProfile).toHaveBeenCalledWith({
+        enrollmentId: 'attempt_01',
+        ageYears: 12,
+        skillLevel: 'intermediate',
+        guestCredential,
+      })
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Complete profile' })).not.toBeInTheDocument()
     );
   });
 
-  it('requires explicit profile choices even when the course has a catalog level', () => {
-    render(
-      <CourseEnrollmentModal
-        isOpen
-        onClose={vi.fn()}
-        course={{ ...course, level: 'intermediate' }}
-        onEnroll={vi.fn()}
-      />
+  it('does not ask for age or skill before submitting a course with catalog discipline', async () => {
+    render(<CourseEnrollmentModal isOpen onClose={vi.fn()} course={course} onEnroll={vi.fn()} />);
+    expect(screen.queryByLabelText('participantsAgeLabel *')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('participantsSkillLabel *')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('participantsDisciplineLabel *')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText('guestNamePlaceholder'), {
+      target: { value: 'Guest Child' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
+      target: { value: '+77001234567' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Send request/i }));
+
+    await waitFor(() =>
+      expect(mocks.createGuestEnrollment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          guestDisplayName: 'Guest Child',
+          guestDiscipline: 'ski',
+          guestPhone: '+77001234567',
+        })
+      )
     );
-    expect(screen.getByLabelText('participantsSkillLabel *')).toBeRequired();
-    expect(screen.getByLabelText('participantsSkillLabel *')).toHaveValue('');
-    expect(screen.getByLabelText('participantsDisciplineLabel *')).toHaveValue('');
+    const submitted = mocks.createGuestEnrollment.mock.calls[0]?.[0];
+    expect(submitted).not.toHaveProperty('guestAgeYears');
+    expect(submitted).not.toHaveProperty('guestSkillLevel');
+  });
+
+  it('asks only for discipline on a legacy course without catalog discipline', () => {
+    const legacyCourse = { ...course };
+    delete legacyCourse.discipline;
+    expect(legacyCourse).not.toHaveProperty('discipline');
+    render(
+      <CourseEnrollmentModal isOpen onClose={vi.fn()} course={legacyCourse} onEnroll={vi.fn()} />
+    );
+    expect(
+      screen.getByRole('combobox', { name: /^participantsDisciplineLabel \*/ })
+    ).toBeRequired();
+    expect(screen.queryByLabelText('participantsAgeLabel *')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('participantsSkillLabel *')).not.toBeInTheDocument();
   });
 
   it('stays in created state when post-create enrollment read fails', async () => {
@@ -757,8 +959,7 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
       target: { value: '+77001234567' },
     });
-    fillGuestProfile();
-    fireEvent.click(screen.getByRole('button', { name: /submitGuestCourseApplication/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Send request/i }));
 
     await waitFor(() => {
       expect(mocks.createGuestEnrollment).toHaveBeenCalledTimes(1);
@@ -795,8 +996,7 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
       target: { value: '+77001234567' },
     });
-    fillGuestProfile();
-    fireEvent.click(screen.getByRole('button', { name: /submitGuestCourseApplication/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Send request/i }));
     await waitFor(() => expect(screen.getByText('guestPendingTitle')).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: 'guestCheckStatus' }));
     await waitFor(() => expect(screen.getByText('guestCourseConfirmedTitle')).toBeInTheDocument());
@@ -819,9 +1019,7 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     await waitFor(() => expect(screen.getByText('guestCourseExpiredTitle')).toBeInTheDocument());
     expect(screen.queryByText('guestAdminContactPayment')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'guestNewBooking' }));
-    expect(
-      screen.getByRole('button', { name: /submitGuestCourseApplication/i })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Send request/i })).toBeInTheDocument();
     expect(localStorage.getItem('ski_academy_guest_reservation:course:course_01')).toBeNull();
   });
 
@@ -835,9 +1033,7 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     expect(
       screen.queryByRole('button', { name: 'guestCheckPreviousStatus' })
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /submitGuestCourseApplication/i })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Send request/i })).toBeInTheDocument();
     expect(localStorage.getItem(key)).toBeNull();
   });
 
@@ -880,8 +1076,7 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
       target: { value: '+77001234567' },
     });
-    fillGuestProfile();
-    fireEvent.click(screen.getByRole('button', { name: /submitGuestCourseApplication/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Send request/i }));
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
     expect(cardA.querySelector('[role="alert"]')).toBeNull();
     expect(cardB.querySelector('[role="alert"]')).toBeNull();
@@ -921,8 +1116,7 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
       target: { value: '+77001234567' },
     });
-    fillGuestProfile();
-    const submit = screen.getByRole('button', { name: /submitGuestCourseApplication/i });
+    const submit = screen.getByRole('button', { name: /Send request/i });
     fireEvent.click(submit);
     await waitFor(() => expect(mocks.createGuestEnrollment).toHaveBeenCalledTimes(1));
     expect(submit).toBeDisabled();
@@ -995,8 +1189,7 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
       target: { value: '+77001234567' },
     });
-    fillGuestProfile();
-    fireEvent.click(screen.getByRole('button', { name: /submitGuestCourseApplication/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Send request/i }));
     await waitFor(() =>
       expect(mocks.addNotification).toHaveBeenCalledWith(
         'error',
@@ -1016,9 +1209,7 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     render(<CourseEnrollmentModal isOpen onClose={vi.fn()} course={course} onEnroll={vi.fn()} />);
 
     expect(screen.getByRole('button', { name: /courseAwaitingPayment/i })).toBeDisabled();
-    expect(
-      screen.queryByRole('button', { name: /submitGuestCourseApplication/i })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Send request/i })).not.toBeInTheDocument();
   });
 
   it('hides the enroll CTA when the same guest is already confirmed', () => {
@@ -1030,8 +1221,6 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     render(<CourseEnrollmentModal isOpen onClose={vi.fn()} course={course} onEnroll={vi.fn()} />);
 
     expect(screen.getByRole('button', { name: /courseEnrolled/i })).toBeDisabled();
-    expect(
-      screen.queryByRole('button', { name: /submitGuestCourseApplication/i })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Send request/i })).not.toBeInTheDocument();
   });
 });

@@ -493,7 +493,9 @@ async function buildAccountDetail(
         revision: participant?.revision ?? AggregateRevisionSchema.parse(1),
         ...(participant?.skillLevel ? { skillLevel: participant.skillLevel } : {}),
         ...(participant?.discipline ? { discipline: participant.discipline } : {}),
-        ...(participant?.age ? { age: participant.age } : {}),
+        ...(participant && participant.age.kind !== 'unknown'
+          ? { age: participant.age }
+          : {}),
       };
     })
   );

@@ -55,6 +55,7 @@ export interface GuestCanonicalCommandSubmission<Kind extends CommandKind> {
   readonly guestParticipantAgeYears?: number;
   readonly guestPhone?: string;
   readonly guestEmail?: string;
+  readonly notificationLocale?: 'ru' | 'en';
 }
 
 function createCorrelationId(): string {
@@ -167,6 +168,9 @@ export async function executeGuestCanonicalCommand<Kind extends CommandKind>(
       : {}),
     ...(submission.guestPhone ? { guestPhone: submission.guestPhone } : {}),
     ...(submission.guestEmail ? { guestEmail: submission.guestEmail } : {}),
+    ...(submission.notificationLocale
+      ? { notificationLocale: submission.notificationLocale }
+      : {}),
   };
 
   try {

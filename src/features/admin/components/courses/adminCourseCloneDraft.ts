@@ -28,6 +28,7 @@ export interface CanonicalCourseCreateFormState {
   badge: string;
   badgeRu: string;
   level: '' | 'beginner' | 'intermediate' | 'advanced' | 'expert';
+  discipline: '' | 'ski' | 'snowboard';
   levelLabel: string;
   videoUrl: string;
   benefits: string;
@@ -144,6 +145,7 @@ export function catalogContentInputFromCreateForm(
       ...(badge ? { badge } : {}),
       ...(badgeRu ? { badgeRu } : {}),
       ...(form.level ? { level: form.level } : {}),
+      ...(form.discipline ? { discipline: form.discipline } : {}),
       ...(levelLabel ? { levelLabel } : {}),
       ...(videoUrl ? { videoUrl } : {}),
       ...(benefits ? { benefits } : {}),
@@ -210,6 +212,7 @@ export function buildCanonicalCourseCloneDraft(
       badge: presentation.badge ?? '',
       badgeRu: presentation.badgeRu ?? '',
       level: presentation.level ?? '',
+      discipline: presentation.discipline ?? '',
       levelLabel: presentation.levelLabel ?? '',
       videoUrl: presentation.videoUrl ?? '',
       benefits: presentation.benefits?.join('\n') ?? '',

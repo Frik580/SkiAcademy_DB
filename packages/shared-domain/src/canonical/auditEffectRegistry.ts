@@ -175,6 +175,7 @@ const COMMAND_KIND_ALLOWED_EFFECTS: Partial<Record<CommandKind, readonly AuditEf
   provision_self_participant: ['participant_access_changed'],
   create_participant: ['participant_access_changed'],
   update_participant_profile: ['participant_access_changed'],
+  complete_guest_participant_profile: ['participant_access_changed'],
   assign_participant_management: ['participant_access_changed'],
   revoke_participant_management: ['participant_access_changed'],
   create_instructor_relationship: ['participant_access_changed'],

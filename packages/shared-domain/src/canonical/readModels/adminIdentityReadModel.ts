@@ -93,6 +93,7 @@ export const AdminParticipantProfileProjectionSchema = z
   .object({
     displayName: z.string().trim().min(1).max(200),
     age: z.discriminatedUnion('kind', [
+      z.object({ kind: z.literal('unknown') }).strict(),
       z
         .object({
           kind: z.literal('birth_date'),
@@ -106,7 +107,7 @@ export const AdminParticipantProfileProjectionSchema = z
         })
         .strict(),
     ]),
-    skillLevel: z.string().trim().min(1).max(64),
+    skillLevel: z.string().trim().min(1).max(64).optional(),
     discipline: z.enum(['ski', 'snowboard']),
     instructorComment: z.string().trim().min(1).max(2_000).optional(),
   })

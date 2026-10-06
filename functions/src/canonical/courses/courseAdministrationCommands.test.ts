@@ -232,6 +232,64 @@ describe('canonical Course administration commands', () => {
     if (stale.status === 'error') expect(stale.error.code).toBe('stale_version');
   });
 
+  it.each(['ski', 'snowboard'] as const)(
+    'sets %s on a legacy catalog and changes it without losing discipline',
+    async (discipline) => {
+      const content = {
+        duration: 'One day',
+        description: '',
+        dates: '',
+        bgImageUrl: 'https://example.com/course.webp',
+      };
+      const executor = createInMemoryCanonicalTransactionExecutor({
+        ...fixture(),
+        [`course_catalog_content/${courseId}`]: { ...content, courseId, revision: 1 },
+      });
+      const commands = createProductionCanonicalCommands(environment(), executor);
+      const result = await commands.execute({
+        kind: 'update_course_catalog_content',
+        context: context(`idem-set-discipline-${discipline}`, 1),
+        intent: {
+          courseId,
+          content: { ...content, discipline },
+          reasonExplanation: 'Set course discipline',
+        },
+      });
+      expect(result.status).toBe('success');
+      expect(
+        executor.snapshot().docs.get(`course_catalog_content/${courseId}`)?.data.discipline
+      ).toBe(discipline);
+
+      const nextDiscipline = discipline === 'ski' ? 'snowboard' : 'ski';
+      const edit = await commands.execute({
+        kind: 'update_course_catalog_content',
+        context: context(`idem-change-discipline-${discipline}`, 2),
+        intent: {
+          courseId,
+          content: { ...content, discipline: nextDiscipline },
+          reasonExplanation: 'Change course discipline',
+        },
+      });
+      expect(edit.status).toBe('success');
+      expect(
+        executor.snapshot().docs.get(`course_catalog_content/${courseId}`)?.data.discipline
+      ).toBe(nextDiscipline);
+
+      const removal = await commands.execute({
+        kind: 'update_course_catalog_content',
+        context: context(`idem-remove-discipline-${discipline}`, 3),
+        intent: { courseId, content, reasonExplanation: 'Omitted discipline' },
+      });
+      expect(removal.status).toBe('error');
+      expect(
+        executor.snapshot().docs.get(`course_catalog_content/${courseId}`)?.data.discipline
+      ).toBe(nextDiscipline);
+      expect(executor.snapshot().docs.get(`courses/${courseId}`)?.data).not.toHaveProperty(
+        'discipline'
+      );
+    }
+  );
+
   it('writes catalog presentation only to course_catalog_content', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(fixture());
     const commands = createProductionCanonicalCommands(environment(), executor);

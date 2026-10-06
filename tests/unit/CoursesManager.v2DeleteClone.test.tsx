@@ -86,6 +86,7 @@ const listCourse = {
       description: 'Camp description',
       dates: '1–2 Dec',
       bgImageUrl: 'https://example.com/camp.webp',
+      discipline: 'snowboard',
     },
   },
   authorizedActions: [{ kind: 'archive_course', expectedRevision: 2 }],
@@ -278,6 +279,7 @@ describe('Canonical CoursesManager delete/clone from compact v2', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Course actions' }));
     await userEvent.click(screen.getByRole('button', { name: 'Clone course' }));
     await screen.findByDisplayValue('Canonical Freeride Camp (copy)');
+    expect(screen.getByLabelText('Discipline *')).toHaveValue('snowboard');
 
     fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-12-15' } });
     fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '10:00' } });
@@ -285,6 +287,13 @@ describe('Canonical CoursesManager delete/clone from compact v2', () => {
     const instructorSelect = await screen.findByLabelText('Available instructor');
     await waitFor(() => expect(instructorSelect).not.toBeDisabled());
     await userEvent.selectOptions(instructorSelect, 'instructor_admin_component_01');
+    const disciplineSelect = screen.getByLabelText('Discipline *');
+    expect(disciplineSelect).toBeRequired();
+    fireEvent.change(disciplineSelect, { target: { value: '' } });
+    fireEvent.submit(document.querySelector('form')!);
+    expect(executeAuthenticatedCanonicalCommand).not.toHaveBeenCalled();
+    expect(disciplineSelect).toHaveAttribute('aria-invalid', 'true');
+    fireEvent.change(disciplineSelect, { target: { value: 'snowboard' } });
     fireEvent.submit(document.querySelector('form')!);
 
     await waitFor(() => expect(executeAuthenticatedCanonicalCommand).toHaveBeenCalledTimes(1));
@@ -298,6 +307,7 @@ describe('Canonical CoursesManager delete/clone from compact v2', () => {
     );
     expect(submission.intent.manifest.days[0].localDate).toBe('2026-12-15');
     expect(submission.intent.manifest.title).toBe('Canonical Freeride Camp (copy)');
+    expect(submission.intent.manifest.presentation.discipline).toBe('snowboard');
   });
 
   it('starts exactly one provisioning command for repeated submit events while save is pending', async () => {
@@ -463,6 +473,7 @@ describe('archive/clone command semantics with canonical executor', () => {
             },
           ],
           presentation: {
+            discipline: 'ski',
             duration: '2h',
             description: 'Source',
             dates: '1 Mar',
@@ -525,6 +536,7 @@ describe('archive/clone command semantics with canonical executor', () => {
         },
       ],
       presentation: {
+        discipline: 'snowboard',
         duration: '2h',
         description: 'Source',
         dates: '1 Mar',
@@ -574,6 +586,7 @@ describe('archive/clone command semantics with canonical executor', () => {
           description: 'Source',
           dates: '1 Mar',
           bgImageUrl: 'https://example.com/a.webp',
+          discipline: 'snowboard',
         },
       },
       authorizedActions: [],

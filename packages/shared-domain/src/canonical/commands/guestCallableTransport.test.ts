@@ -76,7 +76,49 @@ describe('guestCallableTransport schema', () => {
 
   it('requires a nonempty phone and validates optional email', () => {
     expect(parseCallableGuestCommandTransport({ ...payload, guestPhone: ' ' }).success).toBe(false);
-    expect(parseCallableGuestCommandTransport({ ...payload, guestEmail: 'bad' }).success).toBe(false);
+    expect(parseCallableGuestCommandTransport({ ...payload, guestEmail: 'bad' }).success).toBe(
+      false
+    );
     expect(parseCallableGuestCommandTransport({ ...payload, guestEmail: '' }).success).toBe(false);
   });
+});
+
+describe('guest course comment transport', () => {
+  const payload = {
+    kind: 'create_course_enrollments',
+    intent: {
+      courseId: 'course_comment',
+      participantIds: ['participant_comment'],
+      enrollmentIds: ['enrollment_comment'],
+    },
+    idempotencyKey: 'guest-comment',
+    correlationId: 'correlation_comment',
+    guestParticipantDisplayName: 'Guest',
+    guestParticipantDiscipline: 'ski',
+    guestPhone: '+77001234567',
+  };
+  it.each([undefined, 'Own board', '  Own board  ', 'x'.repeat(500)])(
+    'accepts and normalizes optional comments (%s)',
+    (comment) => {
+      const parsed = parseCallableGuestCommandTransport({
+        ...payload,
+        intent: { ...payload.intent, ...(comment === undefined ? {} : { guestComment: comment }) },
+      });
+      expect(parsed.success).toBe(true);
+      if (!parsed.success || parsed.data.kind !== 'create_course_enrollments')
+        throw new Error('Invalid fixture');
+      expect(parsed.data.intent.guestComment).toBe(comment?.trim());
+    }
+  );
+  it.each(['', '   ', 'x'.repeat(501)])(
+    'rejects empty or over-limit comments (%s)',
+    (guestComment) => {
+      expect(
+        parseCallableGuestCommandTransport({
+          ...payload,
+          intent: { ...payload.intent, guestComment },
+        }).success
+      ).toBe(false);
+    }
+  );
 });

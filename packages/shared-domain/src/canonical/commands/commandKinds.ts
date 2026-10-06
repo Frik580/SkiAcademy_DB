@@ -41,6 +41,7 @@ export const COMMAND_KINDS = [
   'provision_self_participant',
   'create_participant',
   'update_participant_profile',
+  'complete_guest_participant_profile',
   'assign_participant_management',
   'revoke_participant_management',
   'create_instructor_relationship',

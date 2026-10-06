@@ -602,6 +602,14 @@ export function AdminCourseEnrollmentDetail({
       </p>
       {detail.guestContact?.phone && <p className="text-xs">📞 {detail.guestContact.phone}</p>}
       {detail.guestContact?.email && <p className="text-xs">✉️ {detail.guestContact.email}</p>}
+      {detail.guestComment && (
+        <div className="space-y-1 text-xs">
+          <p className="font-medium">{t.customerComment}</p>
+          <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+            {detail.guestComment}
+          </p>
+        </div>
+      )}
       {detail.authorizedActions.canLinkGuest ? (
         <div className="space-y-2">
           <p className="text-xs font-medium">{t.linkGuestTitle}</p>

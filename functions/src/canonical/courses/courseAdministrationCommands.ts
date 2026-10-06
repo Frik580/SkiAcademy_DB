@@ -634,6 +634,12 @@ function updateCourseCatalogContentHandler(
         contentRead.exists ? contentRead.data : undefined,
         envelope.intent.courseId
       );
+      if (currentContent?.discipline && !envelope.intent.content.discipline) {
+        throw new CanonicalCommandError('validation', {
+          correlationId: envelope.context.correlationId,
+          details: { field: 'content.discipline', reason: 'required' },
+        });
+      }
       const expectedRevision = envelope.context.expectedRevision;
       if (expectedRevision === undefined) {
         throw new CanonicalCommandError('validation', {

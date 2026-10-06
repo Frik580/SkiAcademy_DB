@@ -17,7 +17,10 @@ import {
   ParticipantManagementIdSchema,
   PaymentIdSchema,
 } from '../identifiers';
-import { AttendanceStatusSchema } from '../courseEnrollmentAttendanceAdminIssue';
+import {
+  AttendanceStatusSchema,
+  GuestCourseCommentSchema,
+} from '../courseEnrollmentAttendanceAdminIssue';
 import { CourseProvisioningManifestSchema } from '../courseProvisioningManifest';
 import { CourseCatalogContentInputSchema } from '../courseCatalogContent';
 import { AdministrativeAvailabilityBlockKindSchema } from '../administrativeAvailabilityBlock';
@@ -560,6 +563,7 @@ export const CommandIntentSchemaByKind = {
     .strict(),
   create_course_enrollments: z
     .object({
+      guestComment: GuestCourseCommentSchema.optional(),
       courseId: CourseIdSchema,
       participantIds: z.array(ParticipantIdSchema).min(1).max(8),
       enrollmentIds: z.array(CourseEnrollmentIdSchema).min(1).max(8).optional(),
@@ -724,6 +728,13 @@ export const CommandIntentSchemaByKind = {
     })
     .strict(),
   update_participant_profile: participantProfilePatchIntent,
+  complete_guest_participant_profile: z
+    .object({
+      courseEnrollmentId: CourseEnrollmentIdSchema,
+      ageYears: z.number().finite().int().min(0).max(125),
+      skillLevel: z.string().trim().min(1).max(64),
+    })
+    .strict(),
   assign_participant_management: z
     .object({
       participantManagementId: ParticipantManagementIdSchema,

@@ -183,6 +183,7 @@ function isCalendarDate(value: string): boolean {
 }
 
 const ParticipantAgeSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('unknown') }).strict(),
   z
     .object({
       kind: z.literal('birth_date'),
@@ -236,7 +237,7 @@ export const ParticipantSchema = z
     testSessionId: TestSessionIdSchema.optional(),
     displayName: z.string().trim().min(1).max(200),
     age: ParticipantAgeSchema,
-    skillLevel: z.string().trim().min(1).max(64),
+    skillLevel: z.string().trim().min(1).max(64).optional(),
     discipline: z.enum(['ski', 'snowboard']),
     instructorComment: z.string().trim().min(1).max(2_000).optional(),
     avatarUrl: ParticipantAvatarUrlSchema.optional(),
@@ -248,6 +249,22 @@ export const ParticipantSchema = z
   .strict()
   .superRefine((participant, context) => {
     addRecordChronologyIssue(participant, context);
+    if (participant.management.kind === 'managed') {
+      if (participant.age.kind === 'unknown') {
+        context.addIssue({
+          code: 'custom',
+          path: ['age'],
+          message: 'Managed Participant age must be known',
+        });
+      }
+      if (participant.skillLevel === undefined) {
+        context.addIssue({
+          code: 'custom',
+          path: ['skillLevel'],
+          message: 'Managed Participant skillLevel must be known',
+        });
+      }
+    }
     if (
       participant.lifecycle.status === 'archived' &&
       (compareCanonicalTimestamps(participant.lifecycle.archivedAt, participant.createdAt) < 0 ||
@@ -981,7 +998,7 @@ export function sanitizeParticipantProfileForInstructor(participant: Participant
   participantId: ParticipantId;
   displayName: string;
   age: Participant['age'];
-  skillLevel: string;
+  skillLevel: Participant['skillLevel'];
   discipline: Participant['discipline'];
   instructorComment?: string;
 }> {

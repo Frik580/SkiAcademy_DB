@@ -20,6 +20,7 @@ export interface Course {
   badge?: string;
   badgeRu?: string;
   level?: 'beginner' | 'intermediate' | 'advanced' | 'expert' | '';
+  discipline?: 'ski' | 'snowboard';
   levelLabel?: string;
   videoUrl?: string;
   benefits?: string[];

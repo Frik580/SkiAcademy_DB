@@ -231,6 +231,19 @@ export type GuestParticipantProfileFromTransport = Readonly<
   z.output<typeof GuestParticipantProfileFromTransportSchema>
 >;
 
+export const GuestCourseParticipantProfileFromTransportSchema = z
+  .object({
+    displayName: z.string().trim().min(1).max(200),
+    skillLevel: z.string().trim().min(1).max(64).optional(),
+    discipline: z.enum(['ski', 'snowboard']),
+    ageYears: z.number().finite().int().min(0).max(125).optional(),
+  })
+  .strict();
+
+export type GuestCourseParticipantProfileFromTransport = Readonly<
+  z.output<typeof GuestCourseParticipantProfileFromTransportSchema>
+>;
+
 export function parseGuestParticipantProfileFromTransportMetadata(
   transportMetadata: Readonly<Record<string, string>> | undefined
 ): z.ZodSafeParseResult<GuestParticipantProfileFromTransport> {
@@ -242,6 +255,24 @@ export function parseGuestParticipantProfileFromTransportMetadata(
   const parsedAgeYears = ageYearsRaw === undefined ? undefined : Number.parseInt(ageYearsRaw, 10);
 
   return GuestParticipantProfileFromTransportSchema.safeParse({
+    displayName: transportMetadata[GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.displayName],
+    skillLevel: transportMetadata[GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.skillLevel],
+    discipline: transportMetadata[GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.discipline],
+    ageYears: parsedAgeYears,
+  });
+}
+
+export function parseGuestCourseParticipantProfileFromTransportMetadata(
+  transportMetadata: Readonly<Record<string, string>> | undefined
+): z.ZodSafeParseResult<GuestCourseParticipantProfileFromTransport> {
+  if (!transportMetadata) {
+    return GuestCourseParticipantProfileFromTransportSchema.safeParse(undefined);
+  }
+
+  const ageYearsRaw = transportMetadata[GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.ageYears];
+  const parsedAgeYears = ageYearsRaw === undefined ? undefined : Number.parseInt(ageYearsRaw, 10);
+
+  return GuestCourseParticipantProfileFromTransportSchema.safeParse({
     displayName: transportMetadata[GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.displayName],
     skillLevel: transportMetadata[GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.skillLevel],
     discipline: transportMetadata[GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.discipline],

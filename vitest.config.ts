@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 import { fileURLToPath, URL } from 'node:url';
 import react from '@vitejs/plugin-react';
 
@@ -52,6 +52,7 @@ export default defineConfig({
   },
   plugins: [react()],
   test: {
+    exclude: [...configDefaults.exclude, '.scratch/**'],
     environment: 'jsdom',
     environmentMatchGlobs: [
       ['tests/callable/**', 'node'],

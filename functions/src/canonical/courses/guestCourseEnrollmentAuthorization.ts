@@ -3,10 +3,10 @@ import {
   GUEST_ACTION_NONCE_TRANSPORT_KEY,
   GUEST_ACTION_SIGNATURE_TRANSPORT_KEY,
   guestSubjectIdFromCourseEnrollmentId,
-  parseGuestParticipantProfileFromTransportMetadata,
+  parseGuestCourseParticipantProfileFromTransportMetadata,
   type CommandEnvelope,
   type CourseEnrollmentId,
-  type GuestParticipantProfileFromTransport,
+  type GuestCourseParticipantProfileFromTransport,
   type GuestSubjectId,
   type Participant,
 } from '@ski-academy/shared-domain';
@@ -67,8 +67,8 @@ export function assertGuestActorMatchesEnrollment(
 
 export function resolveGuestParticipantProfileForCourseEnrollment(
   envelope: CommandEnvelope<'create_course_enrollments'>
-): GuestParticipantProfileFromTransport {
-  const parsed = parseGuestParticipantProfileFromTransportMetadata(
+): GuestCourseParticipantProfileFromTransport {
+  const parsed = parseGuestCourseParticipantProfileFromTransportMetadata(
     envelope.context.transportMetadata
   );
   if (!parsed.success) {

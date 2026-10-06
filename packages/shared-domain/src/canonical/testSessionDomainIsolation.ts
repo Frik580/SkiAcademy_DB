@@ -118,6 +118,7 @@ export const TEST_SESSION_COMMAND_SUPPORT = {
   provision_self_participant: 'T42B-8_DEFERRED',
   create_participant: 'T42B-8_DEFERRED',
   update_participant_profile: 'T42B-8_DEFERRED',
+  complete_guest_participant_profile: 'T43_DEFERRED',
   assign_participant_management: 'T42B-8_DEFERRED',
   revoke_participant_management: 'T42B-8_DEFERRED',
   create_instructor_relationship: 'T42B-8_DEFERRED',

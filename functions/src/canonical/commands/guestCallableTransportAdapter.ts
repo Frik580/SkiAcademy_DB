@@ -8,12 +8,10 @@ import {
   GUEST_CONTACT_TRANSPORT_METADATA_KEYS,
   GuestContactDetailsSchema,
   NOTIFICATION_LOCALE_TRANSPORT_KEY,
-  guestParticipantTransportMetadataFromProfile,
   guestSubjectIdFromBookingId,
   guestSubjectIdFromCourseEnrollmentId,
   deriveGuestSubjectIdFromCourseEnrollmentIntent,
   parseCallableGuestCommandTransport,
-  parseGuestParticipantProfileFromTransportMetadata,
   type CommandContext,
   type CommandEnvelope,
   type CommandKind,
@@ -106,35 +104,21 @@ export function buildGuestCommandContextFromCallable(
     transportMetadata[GUEST_ACTION_SIGNATURE_TRANSPORT_KEY] = input.guestActionSignature;
   }
 
-  const guestParticipantProfile = parseGuestParticipantProfileFromTransportMetadata({
-    ...(input.guestParticipantDisplayName === undefined
-      ? {}
-      : {
-          [GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.displayName]:
-            input.guestParticipantDisplayName,
-        }),
-    ...(input.guestParticipantSkillLevel === undefined
-      ? {}
-      : {
-          [GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.skillLevel]: input.guestParticipantSkillLevel,
-        }),
-    ...(input.guestParticipantDiscipline === undefined
-      ? {}
-      : {
-          [GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.discipline]: input.guestParticipantDiscipline,
-        }),
-    ...(input.guestParticipantAgeYears === undefined
-      ? {}
-      : {
-          [GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.ageYears]: String(
-            input.guestParticipantAgeYears
-          ),
-        }),
-  });
-  if (guestParticipantProfile.success) {
-    Object.assign(
-      transportMetadata,
-      guestParticipantTransportMetadataFromProfile(guestParticipantProfile.data)
+  if (input.guestParticipantDisplayName !== undefined) {
+    transportMetadata[GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.displayName] =
+      input.guestParticipantDisplayName;
+  }
+  if (input.guestParticipantSkillLevel !== undefined) {
+    transportMetadata[GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.skillLevel] =
+      input.guestParticipantSkillLevel;
+  }
+  if (input.guestParticipantDiscipline !== undefined) {
+    transportMetadata[GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.discipline] =
+      input.guestParticipantDiscipline;
+  }
+  if (input.guestParticipantAgeYears !== undefined) {
+    transportMetadata[GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.ageYears] = String(
+      input.guestParticipantAgeYears
     );
   }
 

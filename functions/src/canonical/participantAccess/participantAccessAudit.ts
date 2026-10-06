@@ -14,6 +14,7 @@ type ParticipantAccessCommandKind = Extract<
   | 'provision_self_participant_for_account'
   | 'create_participant'
   | 'update_participant_profile'
+  | 'complete_guest_participant_profile'
   | 'assign_participant_management'
   | 'revoke_participant_management'
   | 'create_instructor_relationship'
@@ -38,6 +39,8 @@ function summaryForKind(kind: ParticipantAccessCommandKind): string {
       return 'Participant profile created';
     case 'update_participant_profile':
       return 'Participant profile updated';
+    case 'complete_guest_participant_profile':
+      return 'Guest participant profile completed';
     case 'assign_participant_management':
       return 'Participant management assigned';
     case 'revoke_participant_management':

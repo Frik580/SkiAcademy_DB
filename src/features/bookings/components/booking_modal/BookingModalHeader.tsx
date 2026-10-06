@@ -34,8 +34,7 @@ export const BookingModalHeader: React.FC<BookingModalHeaderProps> = ({
             {t('bookLessonWith')} {targetInstructor.name}
           </h3>
           <p className="mt-0.5 truncate text-[11px] text-[var(--ink-dim)]">
-            {hourlyRateKzt === undefined ? '—' : formatPrice(hourlyRateKzt)}/{t('hr')} ·{' '}
-            {t('privateInstruction')}
+            {hourlyRateKzt === undefined ? '—' : formatPrice(hourlyRateKzt)}/{t('hr')}
           </p>
         </div>
       </div>

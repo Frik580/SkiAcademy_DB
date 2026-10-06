@@ -16,6 +16,7 @@ import {
   type CommandEnvelope,
   type CommandKind,
   type GuestSubjectId,
+  type CanonicalTimestamp,
 } from '@ski-academy/shared-domain';
 import type { CallableRequest } from 'firebase-functions/v2/https';
 import { HttpsError } from 'firebase-functions/v2/https';
@@ -33,6 +34,7 @@ export interface CallableGuestCommandTransportInput<Kind extends CommandKind> {
   readonly timezone?: CommandContext['timezone'];
   readonly guestActionNonce?: string;
   readonly guestActionSignature?: string;
+  readonly guestProfileExpiresAt?: CanonicalTimestamp;
   readonly guestParticipantDisplayName?: string;
   readonly guestParticipantSkillLevel?: string;
   readonly guestParticipantDiscipline?: 'ski' | 'snowboard';
@@ -87,6 +89,7 @@ export function buildGuestCommandContextFromCallable(
     | 'timezone'
     | 'guestActionNonce'
     | 'guestActionSignature'
+    | 'guestProfileExpiresAt'
     | 'guestParticipantDisplayName'
     | 'guestParticipantSkillLevel'
     | 'guestParticipantDiscipline'
@@ -102,6 +105,9 @@ export function buildGuestCommandContextFromCallable(
   }
   if (input.guestActionSignature) {
     transportMetadata[GUEST_ACTION_SIGNATURE_TRANSPORT_KEY] = input.guestActionSignature;
+  }
+  if (input.guestProfileExpiresAt) {
+    transportMetadata.guest_profile_expires_at = JSON.stringify(input.guestProfileExpiresAt);
   }
 
   if (input.guestParticipantDisplayName !== undefined) {

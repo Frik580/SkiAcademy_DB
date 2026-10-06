@@ -13,6 +13,7 @@ import type { AdminLessonBookingMutationDraft } from './lessonBookingAdminContra
 import { AdminPaymentCaptureSection } from '../components/finance/AdminPaymentCaptureSection';
 import {
   attendanceStatusLabelKey,
+  lessonAdminGuestProfileAgeLabel,
   attendanceUnavailableReason,
   formatLessonAdminDuration,
   guestLinkUnavailableLabelKey,
@@ -217,6 +218,16 @@ export function AdminLessonBookingDetail({
   const participantNames = admin.participants
     .map((participant) => participant.displayName)
     .join(', ');
+  const guestParticipant =
+    detail.bookingOrigin === 'guest' && admin.participants.length === 1
+      ? admin.participants[0]
+      : undefined;
+  const guestAgeLabel = guestParticipant
+    ? lessonAdminGuestProfileAgeLabel(guestParticipant.age)
+    : undefined;
+  const guestSkillLabel = guestParticipant?.skillLevel
+    ? formatLessonDifficultyOrUnspecified(guestParticipant.skillLevel, language, '—', 'short')
+    : '—';
   const primaryStatus = resolveLessonAdminPrimaryStatus(detail);
   const statusLabel = t(LESSON_ADMIN_PRIMARY_STATUS_KEYS[primaryStatus]);
   const emptyActions = resolveLessonAdminEmptyActionsReason(detail);
@@ -484,6 +495,14 @@ export function AdminLessonBookingDetail({
                   : t('adminLessonParticipant')}
               </dt>
               <dd>{participantNames}</dd>
+              {guestParticipant && (
+                <>
+                  <dt className="text-[var(--ink-dim)]">{t('participantsAgeLabel')}</dt>
+                  <dd>{guestAgeLabel}</dd>
+                  <dt className="text-[var(--ink-dim)]">{t('participantsSkillLabel')}</dt>
+                  <dd>{guestSkillLabel}</dd>
+                </>
+              )}
               {admin.guestContact?.phone && (
                 <>
                   <dt className="text-[var(--ink-dim)]">{t('guestPhoneLabel')}</dt>

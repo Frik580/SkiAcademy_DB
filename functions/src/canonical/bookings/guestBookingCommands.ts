@@ -38,7 +38,7 @@ import {
   type CommandExecutionEnvironment,
   type CommandResult,
   type GuestBookingActionCredential,
-  type GuestParticipantProfileFromTransport,
+  type GuestLessonParticipantProfileFromTransport,
   type KztMinorUnits,
   type Participant,
   type ParticipantManagement,
@@ -195,7 +195,7 @@ function createGuestBookingRequestHandler(
   let instructorClaimPlan!: Awaited<ReturnType<typeof readAndPlanAcquireResourceClaim>>;
   let participantClaimPlan!: Awaited<ReturnType<typeof readAndPlanAcquireResourceClaim>>;
   let shouldCreateGuestParticipant = false;
-  let guestParticipantProfile!: GuestParticipantProfileFromTransport;
+  let guestParticipantProfile!: GuestLessonParticipantProfileFromTransport;
   const plannedPaymentRevision = AggregateRevisionSchema.parse(1);
   const plannedBookingRevision = AggregateRevisionSchema.parse(1);
   const plannedParticipantRevision = AggregateRevisionSchema.parse(1);
@@ -405,8 +405,13 @@ function createGuestBookingRequestHandler(
         const participant: Participant = {
           participantId,
           displayName: guestParticipantProfile.displayName,
-          age: { kind: 'age_years', years: guestParticipantProfile.ageYears },
-          skillLevel: guestParticipantProfile.skillLevel,
+          age:
+            guestParticipantProfile.ageYears === undefined
+              ? { kind: 'unknown' }
+              : { kind: 'age_years', years: guestParticipantProfile.ageYears },
+          ...(guestParticipantProfile.skillLevel === undefined
+            ? {}
+            : { skillLevel: guestParticipantProfile.skillLevel }),
           discipline: guestParticipantProfile.discipline,
           management: { kind: 'unmanaged_guest' },
           lifecycle: { status: 'active' },
@@ -512,12 +517,30 @@ function createGuestBookingRequestHandler(
         nonce,
       });
       const statusNonce = createGuestActionTokenNonce();
+      const profileNonce = createGuestActionTokenNonce();
       const guestActionCredential: GuestBookingActionCredential = {
         bookingId: envelope.intent.bookingId,
         guestSubjectId,
         nonce,
         signature,
         expiresAt: reservationExpiresAt,
+        ...(shouldCreateGuestParticipant
+          ? {
+              profileCompletionCredential: {
+                nonce: profileNonce,
+                signature: signGuestActionCredential(secret, {
+                  version: GUEST_ACTION_TOKEN_VERSION,
+                  subjectKind: 'booking',
+                  bookingId: envelope.intent.bookingId,
+                  guestSubjectId,
+                  purpose: 'complete_guest_participant_profile',
+                  expiresAt: schedule.interval.endsAt,
+                  nonce: profileNonce,
+                }),
+                expiresAt: schedule.interval.endsAt,
+              },
+            }
+          : {}),
         statusCredential: {
           nonce: statusNonce,
           signature: signGuestActionCredential(secret, {

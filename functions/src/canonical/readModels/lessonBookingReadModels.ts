@@ -1782,6 +1782,7 @@ async function buildGuestLessonBookingReadModel(
   }
 
   const participants: LessonBookingReadModelParticipantProjection[] = [];
+  let guestParticipantProfile: LessonBookingReadModel['guestParticipantProfile'];
   for (const participantId of booking.party.participantIds) {
     const participantSnap = await readContext.participant(participantId);
     const participant = parseParticipant(
@@ -1794,6 +1795,20 @@ async function buildGuestLessonBookingReadModel(
       participantId: participant.participantId,
       displayName: participant.displayName,
     });
+    if (
+      booking.party.participantIds.length === 1 &&
+      participant.management.kind === 'unmanaged_guest' &&
+      participant.audit.createdByCommandId === booking.audit.createdByCommandId
+    ) {
+      guestParticipantProfile = {
+        participantId: participant.participantId,
+        displayName: participant.displayName,
+        discipline: participant.discipline,
+        age: participant.age,
+        ...(participant.skillLevel ? { skillLevel: participant.skillLevel } : {}),
+        revision: participant.revision,
+      };
+    }
   }
 
   const instructor: LessonBookingReadModelInstructorProjection = {
@@ -1848,6 +1863,7 @@ async function buildGuestLessonBookingReadModel(
         payment.paidAmount === 0 &&
         compareCanonicalTimestamps(now, booking.lifecycle.reservationExpiresAt) < 0,
     },
+    ...(guestParticipantProfile ? { guestParticipantProfile } : {}),
     ...lessonContentFromBooking(booking),
     updatedAt: booking.updatedAt,
   };

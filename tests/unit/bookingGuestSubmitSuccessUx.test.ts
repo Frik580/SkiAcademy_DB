@@ -1,4 +1,4 @@
-import { act, render, renderHook, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Instructor, UserProfile } from '../../src/types';
@@ -10,6 +10,9 @@ const mocks = vi.hoisted(() => ({
   confetti: vi.fn(),
   createAuthenticatedBooking: vi.fn(),
   createGuestBooking: vi.fn(),
+  completeGuestParticipantProfile: vi.fn(),
+  requestCancellation: vi.fn(),
+  readGuestBookingCredential: vi.fn(),
   createLogicalBookingAttemptId: vi.fn(),
   loadGuestSingleLessonBooking: vi.fn(),
   managedParticipants: [] as Array<Record<string, unknown>>,
@@ -36,8 +39,8 @@ vi.mock('../../src/app/providers/LanguageContext', () => ({
 vi.mock('../../src/app/providers/CurrencyContext', () => ({
   useCurrency: () => ({ formatPrice: (value: number) => String(value) }),
 }));
-vi.mock('../../src/features/bookings/components/booking_modal/BookingSelectors', () => ({
-  BookingSelectors: () => null,
+vi.mock('../../src/features/auth', () => ({
+  Auth: () => React.createElement('div', null, 'Existing auth flow'),
 }));
 vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
   queryInstructorOccupancyReadModels: (...args: unknown[]) =>
@@ -76,7 +79,10 @@ vi.mock('../../src/features/lesson-bookings', () => ({
   useLessonBookingCommands: () => ({
     createAuthenticatedBooking: mocks.createAuthenticatedBooking,
     createGuestBooking: mocks.createGuestBooking,
+    completeGuestParticipantProfile: mocks.completeGuestParticipantProfile,
+    requestCancellation: mocks.requestCancellation,
   }),
+  readGuestBookingCredential: (...args: unknown[]) => mocks.readGuestBookingCredential(...args),
   loadGuestSingleLessonBooking: (...args: unknown[]) => mocks.loadGuestSingleLessonBooking(...args),
   useManagedParticipants: () => ({
     participants: mocks.managedParticipants,
@@ -91,6 +97,7 @@ import {
   type BookingModalInput,
 } from '../../src/features/bookings/components/booking_modal/useBookingModal';
 import { GuestBookingForm } from '../../src/features/bookings/components/booking_modal/GuestBookingForm';
+import { BookingAuthShell } from '../../src/features/bookings/components/booking_modal/BookingAuthShell';
 import { GuestReservationStatus } from '../../src/features/guest-reservations/GuestReservationStatus';
 
 const instructor = {
@@ -123,10 +130,145 @@ async function waitForAvailableSlot(result: {
 }
 
 describe('booking modal submit success UX', () => {
+  it('completes a created guest profile using its credential and Participant revision', async () => {
+    const credential = {
+      bookingId: 'booking_guest_fixture_01',
+      guestSubjectId: 'guest_fixture_01',
+      nonce: 'cancel_guest_nonce',
+      signature: 'a'.repeat(64),
+      expiresAt: { seconds: 2_000_000_000, nanoseconds: 0 },
+      profileCompletionCredential: {
+        nonce: 'profile_guest_nonce',
+        signature: 'b'.repeat(64),
+        expiresAt: { seconds: 2_000_000_000, nanoseconds: 0 },
+      },
+    };
+    localStorage.setItem(
+      `ski_academy_guest_booking_credential:${credential.bookingId}`,
+      JSON.stringify(credential)
+    );
+    mocks.readGuestBookingCredential.mockReturnValue({ credential });
+    const profile = {
+      participantId: 'participant_guest_fixture_01',
+      displayName: 'Guest',
+      discipline: 'ski',
+      age: { kind: 'unknown' },
+      revision: 1,
+    };
+    mocks.loadGuestSingleLessonBooking.mockResolvedValueOnce({
+      lifecycle: { status: 'pending' },
+      guestParticipantProfile: profile,
+    });
+    const { result } = renderHook(() => useBookingModal(createProps()));
+    await waitForAvailableSlot(result);
+    act(() => {
+      result.current.setGuestName('Guest');
+      result.current.setGuestPhone('12345');
+      result.current.setGuestDiscipline('ski');
+    });
+    await act(async () =>
+      result.current.handleSubmitGuest({ preventDefault: vi.fn() } as unknown as React.FormEvent)
+    );
+    const shell = () =>
+      React.createElement(BookingAuthShell, {
+        workspace: { ...result.current, t: (key) => translations.en[key] },
+      });
+    const { rerender } = render(shell());
+    act(() => screen.getByRole('button', { name: 'Complete profile' }).click());
+    rerender(shell());
+    expect(screen.queryByRole('combobox', { name: 'Discipline *' })).not.toBeInTheDocument();
+    expect(screen.getByRole('spinbutton', { name: 'Age (years) *' })).toHaveValue(null);
+    expect(screen.getByRole('combobox', { name: 'Skill level *' })).toHaveValue('');
+    fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '25' } });
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'intermediate' } });
+    mocks.loadGuestSingleLessonBooking.mockResolvedValue({
+      lifecycle: { status: 'pending' },
+      guestParticipantProfile: {
+        ...profile,
+        age: { kind: 'age_years', years: 25 },
+        skillLevel: 'intermediate',
+        revision: 2,
+      },
+    });
+    await act(async () => {
+      await result.current.completeGuestProfile({
+        preventDefault: vi.fn(),
+      } as unknown as React.FormEvent);
+    });
+    rerender(shell());
+    expect(mocks.completeGuestParticipantProfile).toHaveBeenCalledWith({
+      bookingId: credential.bookingId,
+      expectedRevision: 1,
+      ageYears: 25,
+      skillLevel: 'intermediate',
+      guestCredential: credential,
+    });
+    expect(screen.queryByRole('button', { name: 'Complete profile' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Save profile' })).not.toBeInTheDocument();
+  });
+  it('shows compact initial controls and preserves optional values across Guest/Auth/Guest', async () => {
+    localStorage.setItem(
+      'ski_academy_guest_reservation:lesson:instructor_fixture_01',
+      'booking_previous'
+    );
+    const { result } = renderHook(() => useBookingModal(createProps()));
+    await waitForAvailableSlot(result);
+    const shell = () =>
+      React.createElement(BookingAuthShell, {
+        workspace: { ...result.current, t: (key) => translations.en[key] },
+      });
+    const { rerender } = render(shell());
+    expect(screen.getByRole('textbox', { name: 'Name *' })).toBeRequired();
+    expect(screen.getByRole('textbox', { name: 'Phone *' })).toBeRequired();
+    expect(screen.getByRole('combobox', { name: 'Discipline *' })).toBeRequired();
+    expect(screen.getByRole('button', { name: 'Select Date' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Time Slot' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Duration' })).toBeInTheDocument();
+    expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Lesson Stage' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: /Email|Comment/ })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Have a request? Check status' })
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Send request' })).toBeInTheDocument();
+    expect(screen.getByText('20000')).toBeInTheDocument();
+    act(() => screen.getByRole('button', { name: '+ Add email or comment' }).click());
+    rerender(shell());
+    expect(screen.getByRole('button', { name: '+ Add email or comment' })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    );
+    fireEvent.change(screen.getByRole('textbox', { name: 'Email · Optional' }), {
+      target: { value: 'guest@example.com' },
+    });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Comment · Optional' }), {
+      target: { value: 'Own skis' },
+    });
+    rerender(shell());
+    act(() => screen.getByRole('button', { name: 'Already have an account? Sign in' }).click());
+    rerender(shell());
+    expect(screen.getByText('Existing auth flow')).toBeInTheDocument();
+    act(() => screen.getByRole('button', { name: translations.en.guestBookingTab }).click());
+    rerender(shell());
+    expect(screen.getByRole('textbox', { name: 'Email · Optional' })).toHaveValue(
+      'guest@example.com'
+    );
+    expect(screen.getByRole('textbox', { name: 'Comment · Optional' })).toHaveValue('Own skis');
+    expect(screen.getByRole('textbox', { name: 'Comment · Optional' })).toHaveAttribute(
+      'maxlength',
+      '1000'
+    );
+    act(() => result.current.setDuration(3));
+    rerender(shell());
+    expect(screen.getByText('30000')).toBeInTheDocument();
+  });
   beforeEach(() => {
     localStorage.clear();
     mocks.addNotification.mockReset();
     mocks.confetti.mockReset();
+    mocks.completeGuestParticipantProfile.mockReset().mockResolvedValue(undefined);
+    mocks.requestCancellation.mockReset().mockResolvedValue(undefined);
+    mocks.readGuestBookingCredential.mockReset().mockReturnValue({});
     mocks.createAuthenticatedBooking.mockReset().mockResolvedValue({});
     mocks.createGuestBooking
       .mockReset()
@@ -191,7 +333,9 @@ describe('booking modal submit success UX', () => {
     render(React.createElement(GuestBookingForm, { workspace: result.current }));
 
     expect(screen.getByText('—', { selector: 'span' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /submitGuestApplication/i })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: /submitGuestCourseApplicationShort/i })
+    ).toBeDisabled();
   });
 
   it('keeps the guest modal open with canonical pending data and accepts one request per click', async () => {
@@ -236,7 +380,7 @@ describe('booking modal submit success UX', () => {
   });
 
   it.each(['ski', 'snowboard'] as const)(
-    'submits actual %s guest data and the selected lesson level',
+    'submits %s discipline and lesson schedule without deferred profile fields',
     async (discipline) => {
       const props = createProps({ instructor: { ...instructor, specialty: 'both' } });
       const { result } = renderHook(() => useBookingModal(props));
@@ -256,29 +400,31 @@ describe('booking modal submit success UX', () => {
       expect(mocks.createGuestBooking).toHaveBeenCalledWith(
         expect.objectContaining({
           guestDisplayName: 'Guest Child',
-          guestAgeYears: 12,
           guestDiscipline: discipline,
-          guestSkillLevel: 'intermediate',
-          difficulty: 'intermediate',
+          localDate: '2026-06-15',
+          localTime: '08:00',
+          durationMinutes: 120,
         })
       );
+      const submitted = mocks.createGuestBooking.mock.calls[0][0];
+      expect(submitted).not.toHaveProperty('guestAgeYears');
+      expect(submitted).not.toHaveProperty('guestSkillLevel');
+      expect(submitted).not.toHaveProperty('difficulty');
     }
   );
 
-  it('requires real age and explicit discipline in the guest UI and submit handler', async () => {
+  it('requires explicit discipline and omits age from the initial guest UI', async () => {
     const { result } = renderHook(() => useBookingModal(createProps()));
     await waitForAvailableSlot(result);
     const { rerender } = render(
       React.createElement(GuestBookingForm, { workspace: result.current })
     );
-    expect(screen.getByLabelText('participantsAgeLabel *')).toBeRequired();
-    expect(screen.getByLabelText('participantsAgeLabel *')).toHaveValue(null);
+    expect(screen.queryByLabelText('participantsAgeLabel *')).not.toBeInTheDocument();
     expect(screen.getByLabelText('participantsDisciplineLabel *')).toBeRequired();
     expect(screen.getByLabelText('participantsDisciplineLabel *')).toHaveValue('');
     act(() => {
       result.current.setGuestName('Guest Child');
       result.current.setGuestPhone('+77001234567');
-      result.current.setGuestDiscipline('snowboard');
     });
     await act(async () => {
       await result.current.handleSubmitGuest({
@@ -289,10 +435,10 @@ describe('booking modal submit success UX', () => {
     expect(mocks.addNotification).toHaveBeenCalledWith(
       'warning',
       'missingDetails',
-      'participantsAgeLabel'
+      'participantsDisciplineLabel'
     );
     act(() => {
-      result.current.setGuestAgeYears('12');
+      result.current.setGuestDiscipline('snowboard');
     });
     rerender(React.createElement(GuestBookingForm, { workspace: result.current }));
     await act(async () => {
@@ -301,7 +447,7 @@ describe('booking modal submit success UX', () => {
       } as unknown as React.FormEvent);
     });
     expect(mocks.createGuestBooking).toHaveBeenCalledWith(
-      expect.objectContaining({ guestAgeYears: 12 })
+      expect.objectContaining({ guestDiscipline: 'snowboard' })
     );
   });
 
@@ -617,7 +763,7 @@ describe('booking modal submit success UX', () => {
       React.createElement(GuestBookingForm, { workspace: result.current })
     );
     const alert = screen.getByRole('alert');
-    const submit = screen.getByRole('button', { name: /submitGuestApplication/i });
+    const submit = screen.getByRole('button', { name: /submitGuestCourseApplicationShort/i });
     expect(alert).toHaveTextContent('guestReservationLimitTitle');
     expect(alert).toHaveTextContent('guestReservationLimit');
     expect(alert.compareDocumentPosition(submit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

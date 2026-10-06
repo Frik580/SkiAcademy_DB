@@ -126,6 +126,11 @@ export async function getParticipantProfile(participantId: string) {
   return document.exists ? ParticipantSchema.parse(document.data()) : null;
 }
 
+export async function getBookingRecord(bookingId: string) {
+  const document = await ensureFirestore().doc(`bookings/${bookingId}`).get();
+  return document.exists ? document.data() : null;
+}
+
 export async function hasCourseEnrollment(
   courseId: string,
   participantId: string

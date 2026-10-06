@@ -15,6 +15,13 @@ export type LessonAdminPrimaryStatusKind =
   | 'completed'
   | 'no_show';
 
+export function lessonAdminGuestProfileAgeLabel(
+  age: LessonBookingAdminProjection['participants'][number]['age']
+): string {
+  if (age.kind === 'unknown') return '—';
+  return age.kind === 'age_years' ? String(age.years) : age.birthDate;
+}
+
 export const LESSON_ADMIN_PRIMARY_STATUS_KEYS: Record<
   LessonAdminPrimaryStatusKind,
   TranslationKey

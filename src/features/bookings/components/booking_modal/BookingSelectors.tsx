@@ -37,6 +37,7 @@ interface BookingSelectorsProps {
     variant?: DifficultyLabelVariant
   ) => string;
   gapClass?: string;
+  showDifficulty?: boolean;
 }
 
 export const BookingSelectors: React.FC<BookingSelectorsProps> = ({
@@ -56,6 +57,7 @@ export const BookingSelectors: React.FC<BookingSelectorsProps> = ({
   language,
   getDifficultyLabel,
   gapClass = 'gap-4',
+  showDifficulty = true,
 }) => {
   const labelStyle = 'mb-1.5 flex items-center gap-1.5 truncate text-xs text-[var(--ink-dim)]';
 
@@ -128,7 +130,7 @@ export const BookingSelectors: React.FC<BookingSelectorsProps> = ({
         />
       </div>
 
-      <div>
+      <div className={showDifficulty ? undefined : 'sm:col-span-2'}>
         <label className={labelStyle}>
           <Clock className="h-3.5 w-3.5" /> {t('durationHours')}
         </label>
@@ -140,17 +142,19 @@ export const BookingSelectors: React.FC<BookingSelectorsProps> = ({
         />
       </div>
 
-      <div>
-        <label className={labelStyle}>
-          <HelpCircle className="h-3.5 w-3.5" /> {t('lessonStage')}
-        </label>
-        <BookingAppleWheelPicker
-          value={difficulty}
-          onChange={(value) => setDifficulty(value as LessonDifficulty)}
-          options={stageOptions}
-          aria-label={t('lessonStage')}
-        />
-      </div>
+      {showDifficulty && (
+        <div>
+          <label className={labelStyle}>
+            <HelpCircle className="h-3.5 w-3.5" /> {t('lessonStage')}
+          </label>
+          <BookingAppleWheelPicker
+            value={difficulty}
+            onChange={(value) => setDifficulty(value as LessonDifficulty)}
+            options={stageOptions}
+            aria-label={t('lessonStage')}
+          />
+        </div>
+      )}
     </div>
   );
 };

@@ -358,6 +358,10 @@ export const LessonBookingReadModelSchema = z
     guestPaymentSummary: GuestPaymentSummarySchema.optional(),
     difficulty: LessonDifficultySchema.optional(),
     notes: BookingLessonNotesSchema,
+    /** Credential-scoped guest profile; hydrated from the existing Participant read. */
+    guestParticipantProfile: LessonBookingAdminParticipantProjectionSchema.extend({
+      revision: AggregateRevisionSchema,
+    }).optional(),
     attendance: z.array(LessonBookingInstructorAttendancePresentationSchema).min(1).optional(),
     /**
      * Frozen occurrence service party. Account scopes populate this for participant stats.

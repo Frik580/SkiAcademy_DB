@@ -31,6 +31,9 @@ import {
   type Booking,
   type CommandEnvelope,
   type Payment,
+  type GuestBookingActionCredential,
+  ParticipantSchema,
+  LessonBookingReadModelSchema,
 } from '@ski-academy/shared-domain';
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
@@ -166,7 +169,376 @@ function runCommands(
   });
 }
 
+async function incompleteGuestFixture() {
+  const executor = createInMemoryCanonicalTransactionExecutor(fixtureWithoutParticipant());
+  const envelope = guestCreateEnvelope();
+  const transportMetadata = { ...envelope.context.transportMetadata };
+  delete transportMetadata.participant_age_years;
+  delete transportMetadata.participant_skill_level;
+  const result = await runCommands(executor).execute({
+    ...envelope,
+    context: { ...envelope.context, transportMetadata },
+  });
+  if (result.status !== 'success' || !result.payload?.guestActionCredential)
+    throw new Error('Creation failed');
+  return { executor, credential: result.payload.guestActionCredential };
+}
+
+function completeProfileEnvelope(
+  credential: GuestBookingActionCredential
+): CommandEnvelope<'complete_guest_participant_profile'> {
+  const profile = credential.profileCompletionCredential!;
+  return {
+    kind: 'complete_guest_participant_profile',
+    context: {
+      actor: guestCommandActor(guestSubjectId),
+      exercisedCapability: 'guest',
+      source: 'guest_callable',
+      idempotencyKey: 'complete-guest-profile-01',
+      correlationId,
+      expectedRevision: AggregateRevisionSchema.parse(1),
+      transportMetadata: {
+        [GUEST_ACTION_NONCE_TRANSPORT_KEY]: profile.nonce,
+        [GUEST_ACTION_SIGNATURE_TRANSPORT_KEY]: profile.signature,
+        guest_profile_expires_at: JSON.stringify(profile.expiresAt),
+      },
+    },
+    intent: { bookingId, ageYears: 32, skillLevel: 'intermediate' },
+  };
+}
+
+function fixtureFirestore(executor: ReturnType<typeof createInMemoryCanonicalTransactionExecutor>) {
+  return {
+    collection: (name: string) => ({
+      doc: (id: string) => ({
+        get: async () => {
+          const data = executor.snapshot().docs.get(`${name}/${id}`)?.data;
+          return { exists: data !== undefined, data: () => data };
+        },
+      }),
+      where: () => ({ limit: () => ({ get: async () => ({ docs: [] }) }) }),
+    }),
+  } as unknown as import('firebase-admin/firestore').Firestore;
+}
+
+describe('guest lesson profile completion canonical security', () => {
+  it('does not grant profile authority or disclose profile data when creation reuses a foreign unmanaged guest', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    const created = await runCommands(executor).execute(guestCreateEnvelope());
+    expect(created.status).toBe('success');
+    if (created.status !== 'success') throw new Error('Creation failed');
+    const credential = created.payload!.guestActionCredential;
+    expect(credential.profileCompletionCredential).toBeUndefined();
+    const read = await queryLessonBookingReadModels(
+      fixtureFirestore(executor),
+      {
+        scope: 'guest_single',
+        bookingId,
+        guestStatusNonce: credential.statusCredential!.nonce,
+        guestStatusSignature: credential.statusCredential!.signature,
+        guestStatusExpiresAt: credential.statusCredential!.expiresAt,
+      },
+      { guestActionSecret: tokenSecret, now: new Date('2026-01-01T10:30:00.000Z') }
+    );
+    expect(read.items[0]).not.toHaveProperty('guestParticipantProfile');
+    // Even a correctly signed booking credential cannot authorize a foreign Participant.
+    const nonce = 'guest_profile_attack_nonce';
+    const forged = {
+      ...credential,
+      profileCompletionCredential: {
+        nonce,
+        expiresAt: credential.statusCredential!.expiresAt,
+        signature: signGuestActionCredential(tokenSecret, {
+          version: GUEST_ACTION_TOKEN_VERSION,
+          subjectKind: 'booking',
+          bookingId,
+          guestSubjectId,
+          purpose: 'complete_guest_participant_profile',
+          nonce,
+          expiresAt: credential.statusCredential!.expiresAt,
+        }),
+      },
+    };
+    const before = executor.snapshot().docs.get(`participants/${participantId}`)?.data;
+    expect(await runCommands(executor).execute(completeProfileEnvelope(forged))).toMatchObject({
+      status: 'error',
+      error: { code: 'forbidden' },
+    });
+    expect(executor.snapshot().docs.get(`participants/${participantId}`)?.data).toEqual(before);
+  });
+
+  it('keeps the signed original completion expiry after the lesson schedule changes', async () => {
+    const { executor, credential } = await incompleteGuestFixture();
+    const docs = Object.fromEntries(
+      [...executor.snapshot().docs].map(([path, document]) => [path, document.data])
+    );
+    const booking = BookingSchema.parse(docs[`bookings/${bookingId}`]);
+    docs[`bookings/${bookingId}`] = BookingSchema.parse({
+      ...booking,
+      occurrence: {
+        ...booking.occurrence,
+        scheduleRevision: 2,
+        interval: {
+          startsAt: timestampFromDate(new Date('2026-01-16T04:00:00.000Z')),
+          endsAt: timestampFromDate(new Date('2026-01-16T06:00:00.000Z')),
+        },
+      },
+    });
+    const moved = createInMemoryCanonicalTransactionExecutor(docs);
+    expect((await runCommands(moved).execute(completeProfileEnvelope(credential))).status).toBe(
+      'success'
+    );
+    const expired = createInMemoryCanonicalTransactionExecutor(docs);
+    expect(
+      await runCommands(expired, '2026-01-15T05:00:00.000Z').execute(
+        completeProfileEnvelope(credential)
+      )
+    ).toMatchObject({ status: 'error', error: { code: 'unauthorized' } });
+  });
+
+  it('rejects tampering with the signed completion expiry', async () => {
+    const { executor, credential } = await incompleteGuestFixture();
+    const envelope = completeProfileEnvelope(credential);
+    expect(
+      await runCommands(executor).execute({
+        ...envelope,
+        context: {
+          ...envelope.context,
+          transportMetadata: {
+            ...envelope.context.transportMetadata,
+            guest_profile_expires_at: JSON.stringify(timestampFromDate(new Date('2027-01-01'))),
+          },
+        },
+      })
+    ).toMatchObject({ status: 'error', error: { code: 'unauthorized' } });
+  });
+  it('projects unknown profile, completes it with audit/revision, and replays exactly once', async () => {
+    const { executor, credential } = await incompleteGuestFixture();
+    const read = () =>
+      queryLessonBookingReadModels(
+        fixtureFirestore(executor),
+        {
+          scope: 'guest_single',
+          bookingId,
+          guestStatusNonce: credential.statusCredential!.nonce,
+          guestStatusSignature: credential.statusCredential!.signature,
+          guestStatusExpiresAt: credential.statusCredential!.expiresAt,
+        },
+        { guestActionSecret: tokenSecret, now: new Date('2026-01-01T10:30:00.000Z') }
+      );
+    const before = (await read()).items[0]!;
+    expect(LessonBookingReadModelSchema.parse(before)).toMatchObject({ bookingId });
+    expect(before.guestParticipantProfile).toMatchObject({
+      age: { kind: 'unknown' },
+      revision: 1,
+      discipline: 'ski',
+    });
+    expect(before.guestParticipantProfile).not.toHaveProperty('skillLevel');
+    const commands = runCommands(executor);
+    const envelope = completeProfileEnvelope(credential);
+    const first = await commands.execute(envelope);
+    expect(first.status).toBe('success');
+    expect(await commands.execute(envelope)).toEqual(first);
+    const participant = ParticipantSchema.parse(
+      executor.snapshot().docs.get(`participants/${participantId}`)?.data
+    );
+    expect(participant).toMatchObject({
+      age: { kind: 'age_years', years: 32 },
+      skillLevel: 'intermediate',
+      revision: 2,
+    });
+    expect(participant.audit.lastChangedByCommandId).toBe(
+      resolveCommandIdempotencyIdentity(envelope).commandKey
+    );
+    const after = (await read()).items[0]!;
+    expect(after.guestParticipantProfile).toMatchObject({
+      age: { kind: 'age_years', years: 32 },
+      skillLevel: 'intermediate',
+      revision: 2,
+    });
+    expect(after.revision).toBe(before.revision);
+    expect(after.guestPaymentSummary).toEqual(before.guestPaymentSummary);
+    expect(
+      await commands.execute({ ...envelope, intent: { ...envelope.intent, ageYears: 33 } })
+    ).toMatchObject({ status: 'error', error: { code: 'idempotency_conflict' } });
+    expect(
+      await commands.execute({
+        ...envelope,
+        context: { ...envelope.context, idempotencyKey: 'different-attempt' },
+      })
+    ).toMatchObject({ status: 'error', error: { code: 'stale_version' } });
+  });
+
+  it.each([
+    'invalid',
+    'cancel',
+    'status',
+    'other-booking',
+    'wrong-subject',
+    'expired',
+    'missing-revision',
+  ] as const)('rejects %s completion authority without mutating Participant', async (failure) => {
+    const { executor, credential } = await incompleteGuestFixture();
+    const envelope = completeProfileEnvelope(credential);
+    let context = envelope.context;
+    let at = '2026-01-01T10:00:00.000Z';
+    if (failure === 'expired') at = '2026-01-15T05:00:00.000Z';
+    if (failure === 'invalid')
+      context = {
+        ...envelope.context,
+        transportMetadata: {
+          ...envelope.context.transportMetadata,
+          [GUEST_ACTION_SIGNATURE_TRANSPORT_KEY]: 'a'.repeat(64),
+        },
+      };
+    if (failure === 'cancel' || failure === 'status') {
+      const wrong = failure === 'cancel' ? credential : credential.statusCredential!;
+      context = {
+        ...envelope.context,
+        transportMetadata: {
+          ...envelope.context.transportMetadata,
+          [GUEST_ACTION_NONCE_TRANSPORT_KEY]: wrong.nonce,
+          [GUEST_ACTION_SIGNATURE_TRANSPORT_KEY]: wrong.signature,
+        },
+      };
+    }
+    if (failure === 'other-booking') {
+      context = {
+        ...envelope.context,
+        transportMetadata: {
+          ...envelope.context.transportMetadata,
+          [GUEST_ACTION_NONCE_TRANSPORT_KEY]: credential.profileCompletionCredential!.nonce,
+          [GUEST_ACTION_SIGNATURE_TRANSPORT_KEY]: signGuestActionCredential(tokenSecret, {
+            version: GUEST_ACTION_TOKEN_VERSION,
+            subjectKind: 'booking',
+            bookingId: BookingIdSchema.parse('booking_other'),
+            guestSubjectId: guestSubjectIdFromBookingId(BookingIdSchema.parse('booking_other')),
+            purpose: 'complete_guest_participant_profile',
+            expiresAt: credential.profileCompletionCredential!.expiresAt,
+            nonce: credential.profileCompletionCredential!.nonce,
+          }),
+        },
+      };
+    }
+    if (failure === 'wrong-subject')
+      context = {
+        ...envelope.context,
+        actor: guestCommandActor(
+          guestSubjectIdFromBookingId(BookingIdSchema.parse('booking_other'))
+        ),
+      };
+    if (failure === 'missing-revision')
+      context = { ...envelope.context, expectedRevision: undefined };
+    const before = executor.snapshot().docs.get(`participants/${participantId}`)?.data;
+    expect((await runCommands(executor, at).execute({ ...envelope, context })).status).toBe(
+      'error'
+    );
+    expect(executor.snapshot().docs.get(`participants/${participantId}`)?.data).toEqual(before);
+  });
+
+  it.each(['managed', 'cancelled', 'linked', 'foreign-party'] as const)(
+    'rejects a %s target',
+    async (failure) => {
+      const { executor, credential } = await incompleteGuestFixture();
+      const docs = Object.fromEntries(
+        [...executor.snapshot().docs].map(([path, document]) => [path, document.data])
+      );
+      const participant = docs[`participants/${participantId}`]!;
+      const booking = docs[`bookings/${bookingId}`]!;
+      if (failure === 'managed')
+        docs[`participants/${participantId}`] = ParticipantSchema.parse({
+          ...participant,
+          age: { kind: 'age_years', years: 20 },
+          skillLevel: 'advanced',
+          management: { kind: 'managed', participantManagementId: 'management_guest' },
+        });
+      if (failure === 'cancelled')
+        docs[`bookings/${bookingId}`] = {
+          ...booking,
+          lifecycle: { status: 'cancelled', reasonCode: 'guest_cancelled', cancelledAt: decidedAt },
+        };
+      if (failure === 'linked')
+        docs[`bookings/${bookingId}`] = {
+          ...booking,
+          attribution: {
+            bookingOrigin: 'guest',
+            bookedBy: { kind: 'account', accountId: linkAccountId },
+          },
+        };
+      if (failure === 'foreign-party')
+        docs[`bookings/${bookingId}`] = {
+          ...booking,
+          party: { kind: 'individual', participantIds: ['missing_participant'] },
+          occurrence: {
+            ...BookingSchema.parse(booking).occurrence,
+            serviceParty: { participantIds: ['missing_participant'] },
+          },
+        };
+      const modified = createInMemoryCanonicalTransactionExecutor(docs);
+      expect(
+        (await runCommands(modified).execute(completeProfileEnvelope(credential))).status
+      ).toBe('error');
+      expect(modified.snapshot().docs.get(`participants/${participantId}`)?.data).toEqual(
+        docs[`participants/${participantId}`]
+      );
+    }
+  );
+});
+
 describe('create_guest_booking_request command', () => {
+  it.each(['participant_age_years', 'participant_skill_level', 'both'])(
+    'provisions incomplete unmanaged guests when %s is absent, without fake defaults',
+    async (missing) => {
+      const envelope = guestCreateEnvelope();
+      const transportMetadata = { ...envelope.context.transportMetadata };
+      if (missing !== 'participant_skill_level') delete transportMetadata.participant_age_years;
+      if (missing !== 'participant_age_years') delete transportMetadata.participant_skill_level;
+      const executor = createInMemoryCanonicalTransactionExecutor(fixtureWithoutParticipant());
+      expect(
+        (
+          await runCommands(executor).execute({
+            ...envelope,
+            context: { ...envelope.context, transportMetadata },
+          })
+        ).status
+      ).toBe('success');
+      const participant = ParticipantSchema.parse(
+        executor.snapshot().docs.get(`participants/${participantId}`)?.data
+      );
+      expect(participant.age).toEqual(
+        missing === 'participant_skill_level'
+          ? { kind: 'age_years', years: 25 }
+          : { kind: 'unknown' }
+      );
+      expect(participant.skillLevel).toBe(
+        missing === 'participant_age_years' ? 'beginner' : undefined
+      );
+      expect(
+        ParticipantSchema.safeParse({
+          ...participant,
+          management: { kind: 'managed', participantManagementId: 'management_guest' },
+        }).success
+      ).toBe(false);
+    }
+  );
+
+  it.each([undefined, 'skate'])(
+    'rejects missing/invalid discipline (%s) before provisioning',
+    async (discipline) => {
+      const envelope = guestCreateEnvelope();
+      const transportMetadata = { ...envelope.context.transportMetadata };
+      if (discipline === undefined) delete transportMetadata.participant_discipline;
+      else transportMetadata.participant_discipline = discipline;
+      const executor = createInMemoryCanonicalTransactionExecutor(fixtureWithoutParticipant());
+      expect(
+        await runCommands(executor).execute({
+          ...envelope,
+          context: { ...envelope.context, transportMetadata },
+        })
+      ).toMatchObject({ status: 'error', error: { code: 'validation' } });
+      expect(executor.snapshot().docs.has(`participants/${participantId}`)).toBe(false);
+    }
+  );
   it('keeps guest creation single-participant at the guest boundary', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
     const commands = runCommands(executor);

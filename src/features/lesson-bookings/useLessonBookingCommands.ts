@@ -158,9 +158,13 @@ export function useLessonBookingCommands(
         guestParticipantDisplayName: input.guestDisplayName,
         guestPhone: input.guestPhone,
         guestEmail: input.guestEmail,
-        guestParticipantSkillLevel: input.guestSkillLevel,
+        ...(input.guestSkillLevel !== undefined
+          ? { guestParticipantSkillLevel: input.guestSkillLevel }
+          : {}),
         guestParticipantDiscipline: input.guestDiscipline,
-        guestParticipantAgeYears: input.guestAgeYears,
+        ...(input.guestAgeYears !== undefined
+          ? { guestParticipantAgeYears: input.guestAgeYears }
+          : {}),
         ...(input.notificationLocale ? { notificationLocale: input.notificationLocale } : {}),
       });
       const error = mapCanonicalCommandResultError(result);
@@ -177,6 +181,35 @@ export function useLessonBookingCommands(
 
       persistGuestBookingCredential(parsedCredential.data);
       return parsedCredential.data;
+    },
+    []
+  );
+
+  const completeGuestParticipantProfile = useCallback(
+    async (input: {
+      readonly bookingId: string;
+      readonly ageYears: number;
+      readonly skillLevel: string;
+      readonly expectedRevision: number;
+      readonly guestCredential: GuestBookingActionCredential;
+    }): Promise<void> => {
+      const credential = input.guestCredential.profileCompletionCredential;
+      if (!credential) throw new Error('Guest profile credential is required.');
+      const result = await executeGuestCanonicalCommand({
+        kind: 'complete_guest_participant_profile',
+        intent: {
+          bookingId: BookingIdSchema.parse(input.bookingId),
+          ageYears: input.ageYears,
+          skillLevel: input.skillLevel,
+        },
+        expectedRevision: AggregateRevisionSchema.parse(input.expectedRevision),
+        idempotencyKey: `complete-guest-lesson-profile:${input.bookingId}:${input.expectedRevision}`,
+        guestActionNonce: credential.nonce,
+        guestActionSignature: credential.signature,
+        guestProfileExpiresAt: credential.expiresAt,
+      });
+      const error = mapCanonicalCommandResultError(result);
+      if (error) throw error;
     },
     []
   );
@@ -249,6 +282,7 @@ export function useLessonBookingCommands(
   return {
     createAuthenticatedBooking,
     createGuestBooking,
+    completeGuestParticipantProfile,
     requestCancellation,
     // Post-command recovery refetch: deliberately account_hot only. No caller
     // depended on the account_history side effect this used to carry.

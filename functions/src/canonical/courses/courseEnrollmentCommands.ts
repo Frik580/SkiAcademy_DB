@@ -157,7 +157,7 @@ interface PlannedParticipantEnrollment {
   readonly alreadyApplied: boolean;
   readonly existingReservationExpiresAt?: CanonicalTimestamp;
   readonly shouldCreateGuestParticipant?: boolean;
-  readonly guestParticipantProfile?: import('@ski-academy/shared-domain').GuestParticipantProfileFromTransport;
+  readonly guestParticipantProfile?: import('@ski-academy/shared-domain').GuestCourseParticipantProfileFromTransport;
   readonly guestParticipantToUpdate?: import('@ski-academy/shared-domain').Participant;
 }
 
@@ -595,7 +595,7 @@ function createCourseEnrollmentsHandler(
         let authorization: CourseEnrollmentCreationAuthorization = { mode };
         let shouldCreateGuestParticipant = false;
         let guestParticipantProfile:
-          import('@ski-academy/shared-domain').GuestParticipantProfileFromTransport | undefined;
+          import('@ski-academy/shared-domain').GuestCourseParticipantProfileFromTransport | undefined;
         let participantRecord!: import('@ski-academy/shared-domain').Participant;
         let guestParticipantToUpdate: import('@ski-academy/shared-domain').Participant | undefined;
 
@@ -612,8 +612,13 @@ function createCourseEnrollmentsHandler(
             participantRecord = {
               participantId,
               displayName: guestParticipantProfile.displayName,
-              age: { kind: 'age_years', years: guestParticipantProfile.ageYears },
-              skillLevel: guestParticipantProfile.skillLevel,
+              age:
+                guestParticipantProfile.ageYears === undefined
+                  ? { kind: 'unknown' }
+                  : { kind: 'age_years', years: guestParticipantProfile.ageYears },
+              ...(guestParticipantProfile.skillLevel === undefined
+                ? {}
+                : { skillLevel: guestParticipantProfile.skillLevel }),
               discipline: guestParticipantProfile.discipline,
               management: { kind: 'unmanaged_guest' },
               lifecycle: { status: 'active' },
@@ -630,10 +635,12 @@ function createCourseEnrollmentsHandler(
             );
             if (
               participantRecord.displayName !== guestParticipantProfile.displayName ||
-              participantRecord.age.kind !== 'age_years' ||
-              participantRecord.age.years !== guestParticipantProfile.ageYears ||
+              (guestParticipantProfile.ageYears !== undefined &&
+                (participantRecord.age.kind !== 'age_years' ||
+                  participantRecord.age.years !== guestParticipantProfile.ageYears)) ||
               participantRecord.discipline !== guestParticipantProfile.discipline ||
-              participantRecord.skillLevel !== guestParticipantProfile.skillLevel
+              (guestParticipantProfile.skillLevel !== undefined &&
+                participantRecord.skillLevel !== guestParticipantProfile.skillLevel)
             ) {
               const relationships = await session.tx.query({
                 collection: CANONICAL_COLLECTIONS.instructorRelationships,
@@ -1109,8 +1116,13 @@ function createCourseEnrollmentsHandler(
             const guestParticipant = {
               participantId: planned.participantId,
               displayName: planned.guestParticipantProfile.displayName,
-              age: { kind: 'age_years', years: planned.guestParticipantProfile.ageYears },
-              skillLevel: planned.guestParticipantProfile.skillLevel,
+              age:
+                planned.guestParticipantProfile.ageYears === undefined
+                  ? { kind: 'unknown' }
+                  : { kind: 'age_years', years: planned.guestParticipantProfile.ageYears },
+              ...(planned.guestParticipantProfile.skillLevel === undefined
+                ? {}
+                : { skillLevel: planned.guestParticipantProfile.skillLevel }),
               discipline: planned.guestParticipantProfile.discipline,
               management: { kind: 'unmanaged_guest' },
               lifecycle: { status: 'active' },
@@ -1130,9 +1142,18 @@ function createCourseEnrollmentsHandler(
               {
                 ...existing,
                 displayName: planned.guestParticipantProfile.displayName,
-                age: { kind: 'age_years', years: planned.guestParticipantProfile.ageYears },
+                ...(planned.guestParticipantProfile.ageYears === undefined
+                  ? {}
+                  : {
+                      age: {
+                        kind: 'age_years',
+                        years: planned.guestParticipantProfile.ageYears,
+                      },
+                    }),
                 discipline: planned.guestParticipantProfile.discipline,
-                skillLevel: planned.guestParticipantProfile.skillLevel,
+                ...(planned.guestParticipantProfile.skillLevel === undefined
+                  ? {}
+                  : { skillLevel: planned.guestParticipantProfile.skillLevel }),
                 revision: nextAggregateRevision(existing.revision),
                 updatedAt: decidedAt,
                 audit: {

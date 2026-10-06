@@ -4,6 +4,8 @@ import {
   evaluateGuestLessonReservationExpiry,
   evaluateGuestManualPaymentAcceptance,
   isGuestReservationExpired,
+  parseGuestCourseParticipantProfileFromTransportMetadata,
+  GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS,
 } from './guestBooking';
 import { timestampFromDate } from './primitives';
 
@@ -224,5 +226,34 @@ describe('evaluateGuestLessonReservationExpiry', () => {
         paymentFullyFunded: false,
       })
     );
+  });
+});
+
+
+describe('guest course participant profile transport', () => {
+  it('accepts a short course profile with name and discipline only', () => {
+    const parsed = parseGuestCourseParticipantProfileFromTransportMetadata({
+      [GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.displayName]: 'Guest Child',
+      [GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.discipline]: 'ski',
+    });
+
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data).toEqual({
+        displayName: 'Guest Child',
+        discipline: 'ski',
+      });
+    }
+  });
+
+  it('still validates optional age and skill when supplied', () => {
+    expect(
+      parseGuestCourseParticipantProfileFromTransportMetadata({
+        [GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.displayName]: 'Guest Child',
+        [GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.discipline]: 'snowboard',
+        [GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.ageYears]: '12',
+        [GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.skillLevel]: 'intermediate',
+      }).success
+    ).toBe(true);
   });
 });

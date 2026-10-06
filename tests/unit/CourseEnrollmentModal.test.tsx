@@ -538,7 +538,6 @@ describe('CourseEnrollmentModal guest enrollment', () => {
       fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
         target: { value: '+77001234567' },
       });
-      fillGuestProfile();
       fireEvent.click(screen.getByRole('button', { name: /submitGuestCourseApplication/i }));
       await waitFor(() =>
         expect(within(dialog).getByRole('status')).toHaveTextContent('guestPendingTitle')
@@ -664,7 +663,7 @@ describe('CourseEnrollmentModal guest enrollment', () => {
           isOpen
           onClose={onClose}
           onSuccess={onSuccess}
-          course={{ ...course, level: 'intermediate' }}
+          course={{ ...course, level: 'intermediate', discipline }}
           onEnroll={vi.fn()}
         />
       );
@@ -675,7 +674,6 @@ describe('CourseEnrollmentModal guest enrollment', () => {
       fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
         target: { value: '+77001234567' },
       });
-      fillGuestProfile(discipline);
       fireEvent.change(screen.getByPlaceholderText('guestEmailPlaceholder'), {
         target: { value: 'guest@example.com' },
       });
@@ -690,8 +688,6 @@ describe('CourseEnrollmentModal guest enrollment', () => {
             guestPhone: '+77001234567',
             guestEmail: 'guest@example.com',
             guestDiscipline: discipline,
-            guestSkillLevel: 'intermediate',
-            guestAgeYears: 12,
           })
         );
       });
@@ -707,38 +703,46 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     }
   );
 
-  it('blocks missing guest age without sending a fictitious value', () => {
+  it('does not ask for age or skill before submitting a course with catalog discipline', async () => {
     render(<CourseEnrollmentModal isOpen onClose={vi.fn()} course={course} onEnroll={vi.fn()} />);
+    expect(screen.queryByLabelText('participantsAgeLabel *')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('participantsSkillLabel *')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('participantsDisciplineLabel *')).not.toBeInTheDocument();
+
     fireEvent.change(screen.getByPlaceholderText('guestNamePlaceholder'), {
       target: { value: 'Guest Child' },
     });
     fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
       target: { value: '+77001234567' },
     });
-    fillGuestProfile('snowboard', 'intermediate', '');
-    const submit = screen.getByRole('button', { name: /submitGuestCourseApplication/i });
-    expect(screen.getByLabelText('participantsAgeLabel *')).toBeRequired();
-    fireEvent.submit(submit.closest('form')!);
-    expect(mocks.createGuestEnrollment).not.toHaveBeenCalled();
-    expect(mocks.addNotification).toHaveBeenCalledWith(
-      'warning',
-      'missingDetails',
-      'participantsAgeLabel'
+    fireEvent.click(screen.getByRole('button', { name: /submitGuestCourseApplication/i }));
+
+    await waitFor(() =>
+      expect(mocks.createGuestEnrollment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          guestDisplayName: 'Guest Child',
+          guestDiscipline: 'ski',
+          guestPhone: '+77001234567',
+        })
+      )
     );
+    const submitted = mocks.createGuestEnrollment.mock.calls[0]?.[0];
+    expect(submitted).not.toHaveProperty('guestAgeYears');
+    expect(submitted).not.toHaveProperty('guestSkillLevel');
   });
 
-  it('requires explicit profile choices even when the course has a catalog level', () => {
+  it('asks only for discipline on a legacy course without catalog discipline', () => {
     render(
       <CourseEnrollmentModal
         isOpen
         onClose={vi.fn()}
-        course={{ ...course, level: 'intermediate' }}
+        course={{ ...course, discipline: undefined }}
         onEnroll={vi.fn()}
       />
     );
-    expect(screen.getByLabelText('participantsSkillLabel *')).toBeRequired();
-    expect(screen.getByLabelText('participantsSkillLabel *')).toHaveValue('');
-    expect(screen.getByLabelText('participantsDisciplineLabel *')).toHaveValue('');
+    expect(screen.getByLabelText('participantsDisciplineLabel *')).toBeRequired();
+    expect(screen.queryByLabelText('participantsAgeLabel *')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('participantsSkillLabel *')).not.toBeInTheDocument();
   });
 
   it('stays in created state when post-create enrollment read fails', async () => {
@@ -751,7 +755,6 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
       target: { value: '+77001234567' },
     });
-    fillGuestProfile();
     fireEvent.click(screen.getByRole('button', { name: /submitGuestCourseApplication/i }));
 
     await waitFor(() => {
@@ -789,7 +792,6 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
       target: { value: '+77001234567' },
     });
-    fillGuestProfile();
     fireEvent.click(screen.getByRole('button', { name: /submitGuestCourseApplication/i }));
     await waitFor(() => expect(screen.getByText('guestPendingTitle')).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: 'guestCheckStatus' }));
@@ -874,7 +876,6 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
       target: { value: '+77001234567' },
     });
-    fillGuestProfile();
     fireEvent.click(screen.getByRole('button', { name: /submitGuestCourseApplication/i }));
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
     expect(cardA.querySelector('[role="alert"]')).toBeNull();
@@ -915,7 +916,6 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
       target: { value: '+77001234567' },
     });
-    fillGuestProfile();
     const submit = screen.getByRole('button', { name: /submitGuestCourseApplication/i });
     fireEvent.click(submit);
     await waitFor(() => expect(mocks.createGuestEnrollment).toHaveBeenCalledTimes(1));
@@ -989,7 +989,6 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
       target: { value: '+77001234567' },
     });
-    fillGuestProfile();
     fireEvent.click(screen.getByRole('button', { name: /submitGuestCourseApplication/i }));
     await waitFor(() =>
       expect(mocks.addNotification).toHaveBeenCalledWith(

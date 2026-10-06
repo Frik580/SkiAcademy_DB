@@ -703,6 +703,57 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     }
   );
 
+  it('completes age and skill level after the guest reservation is created', async () => {
+    mocks.createGuestEnrollment.mockImplementationOnce(async () => {
+      persistGuestCourseEnrollmentCredential(guestCredential as never);
+      return guestCredential;
+    });
+    mocks.loadGuestSingleCourseEnrollment
+      .mockResolvedValueOnce(pendingGuestReservation)
+      .mockResolvedValueOnce({
+        ...pendingGuestReservation,
+        participant: {
+          ...pendingGuestReservation.participant,
+          ageYears: 12,
+          skillLevel: 'intermediate',
+          discipline: 'ski',
+        },
+      });
+
+    render(<CourseEnrollmentModal isOpen onClose={vi.fn()} course={course} onEnroll={vi.fn()} />);
+    fireEvent.change(screen.getByPlaceholderText('guestNamePlaceholder'), {
+      target: { value: 'Guest Child' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
+      target: { value: '+77001234567' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /submitGuestCourseApplication/i }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Complete profile' })).toBeInTheDocument()
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Complete profile' }));
+    fireEvent.change(screen.getByLabelText('participantsAgeLabel *'), {
+      target: { value: '12' },
+    });
+    fireEvent.change(screen.getByLabelText('participantsSkillLabel *'), {
+      target: { value: 'intermediate' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save profile' }));
+
+    await waitFor(() =>
+      expect(mocks.completeGuestParticipantProfile).toHaveBeenCalledWith({
+        enrollmentId: 'attempt_01',
+        ageYears: 12,
+        skillLevel: 'intermediate',
+        guestCredential,
+      })
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Complete profile' })).not.toBeInTheDocument()
+    );
+  });
+
   it('does not ask for age or skill before submitting a course with catalog discipline', async () => {
     render(<CourseEnrollmentModal isOpen onClose={vi.fn()} course={course} onEnroll={vi.fn()} />);
     expect(screen.queryByLabelText('participantsAgeLabel *')).not.toBeInTheDocument();

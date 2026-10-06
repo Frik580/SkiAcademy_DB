@@ -998,7 +998,7 @@ export function sanitizeParticipantProfileForInstructor(participant: Participant
   participantId: ParticipantId;
   displayName: string;
   age: Participant['age'];
-  skillLevel: string;
+  skillLevel: Participant['skillLevel'];
   discipline: Participant['discipline'];
   instructorComment?: string;
 }> {

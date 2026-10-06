@@ -45,6 +45,7 @@ import {
   createCourseEnrollmentReconciliationCommandHandlers,
   createGuestCourseEnrollmentLinkCommandHandlers,
   createAdminGuestCourseEnrollmentLinkCommandHandlers,
+  createGuestParticipantProfileCommandHandlers,
   createCourseProvisioningCommandHandlers,
   createCourseAdministrationCommandHandlers,
 } from '../courses';
@@ -256,6 +257,10 @@ export function createProductionCanonicalCommands(
     ...createCourseEnrollmentAttendanceCommandHandlers(executor),
     ...createCourseEnrollmentReconciliationCommandHandlers(executor),
     ...createGuestCourseEnrollmentLinkCommandHandlers(executor, options.guestActionTokenSecret),
+    ...createGuestParticipantProfileCommandHandlers(
+      executor,
+      guestCourseEnrollmentEnvironmentFactory
+    ),
     ...createAdminGuestCourseEnrollmentLinkCommandHandlers(executor),
   };
   commandsRef.current = createCanonicalCommands(handlerMap, environment);

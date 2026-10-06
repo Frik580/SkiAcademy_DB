@@ -140,9 +140,10 @@ export const LessonBookingAdminParticipantProjectionSchema = z
   .object({
     participantId: ParticipantIdSchema,
     displayName: z.string().trim().min(1).max(200),
-    skillLevel: z.string().trim().min(1).max(64),
+    skillLevel: z.string().trim().min(1).max(64).optional(),
     discipline: z.enum(['ski', 'snowboard']),
     age: z.discriminatedUnion('kind', [
+      z.object({ kind: z.literal('unknown') }).strict(),
       z
         .object({
           kind: z.literal('birth_date'),

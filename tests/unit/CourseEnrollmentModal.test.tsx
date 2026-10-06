@@ -783,15 +783,18 @@ describe('CourseEnrollmentModal guest enrollment', () => {
   });
 
   it('asks only for discipline on a legacy course without catalog discipline', () => {
+    const legacyCourse = { ...course };
+    delete legacyCourse.discipline;
+    expect(legacyCourse).not.toHaveProperty('discipline');
     render(
       <CourseEnrollmentModal
         isOpen
         onClose={vi.fn()}
-        course={{ ...course, discipline: undefined }}
+        course={legacyCourse}
         onEnroll={vi.fn()}
       />
     );
-    expect(screen.getByLabelText('participantsDisciplineLabel *')).toBeRequired();
+    expect(screen.getByRole('combobox', { name: /^participantsDisciplineLabel \*/ })).toBeRequired();
     expect(screen.queryByLabelText('participantsAgeLabel *')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('participantsSkillLabel *')).not.toBeInTheDocument();
   });

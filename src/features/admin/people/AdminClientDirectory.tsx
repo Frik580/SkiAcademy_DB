@@ -4,6 +4,7 @@ import {
   canonicalDeterministicHash,
   participantManagementIdFromGuestLink,
   type AccountId,
+  type AdminParticipantDetailReadModel,
   type ParticipantId,
 } from '@ski-academy/shared-domain';
 import { Loader2, Search, X } from 'lucide-react';
@@ -57,21 +58,13 @@ function entropy(): string {
   return `${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
 }
 
-function profileDraftFromDetail(detail: {
-  readonly profile: {
-    readonly displayName: string;
-    readonly age:
-      | { readonly kind: 'birth_date'; readonly birthDate: string }
-      | { readonly kind: 'age_years'; readonly years: number };
-    readonly skillLevel: string;
-    readonly discipline: 'ski' | 'snowboard';
-    readonly instructorComment?: string;
-  };
-}): AdminClientParticipantProfileDraft {
+function profileDraftFromDetail(
+  detail: Pick<AdminParticipantDetailReadModel, 'profile'>
+): AdminClientParticipantProfileDraft {
   return {
     displayName: detail.profile.displayName,
     birthDate: detail.profile.age.kind === 'birth_date' ? detail.profile.age.birthDate : '',
-    skillLevel: detail.profile.skillLevel,
+    skillLevel: detail.profile.skillLevel ?? '',
     discipline: detail.profile.discipline,
     instructorComment: detail.profile.instructorComment ?? '',
   };

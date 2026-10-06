@@ -86,7 +86,7 @@ export function AdminClientParticipantDetail({
       ) : null}
       <section className="space-y-2 border border-[var(--border)] p-4 text-xs">
         <p>
-          {text.participantSkillLevel}: {adminClientSkillLevelLabel(detail.profile.skillLevel)}
+          {text.participantSkillLevel}: {adminClientSkillLevelLabel(detail.profile.skillLevel) ?? '—'}
         </p>
         <p>
           {text.discipline}: {adminClientDisciplineLabel(detail.profile.discipline, text)}
@@ -95,7 +95,9 @@ export function AdminClientParticipantDetail({
           {text.age}:{' '}
           {detail.profile.age.kind === 'birth_date'
             ? detail.profile.age.birthDate
-            : `${detail.profile.age.years} ${text.ageYears}`}
+            : detail.profile.age.kind === 'age_years'
+              ? `${detail.profile.age.years} ${text.ageYears}`
+              : '—'}
         </p>
         {detail.profile.instructorComment ? (
           <p>

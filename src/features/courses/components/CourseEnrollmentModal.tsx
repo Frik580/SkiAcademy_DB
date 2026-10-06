@@ -618,6 +618,86 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                         ? cancelPendingGuestEnrollment
                         : undefined
                     }
+                    profileCompletion={
+                      guestProfileIncomplete && guestReservation?.lifecycle.status !== 'cancelled' ? (
+                        <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--accent-muted)] p-3">
+                          {!showGuestProfileCompletion ? (
+                            <div className="space-y-2">
+                              <p className="text-sm text-[var(--ink)]">
+                                {language === 'ru'
+                                  ? 'Дополните данные участника: возраст и текущий уровень.'
+                                  : 'Complete the participant profile with age and current skill level.'}
+                              </p>
+                              <button
+                                type="button"
+                                className="btn-secondary px-4 py-2 text-sm"
+                                onClick={() => setShowGuestProfileCompletion(true)}
+                              >
+                                {language === 'ru' ? 'Дополнить профиль' : 'Complete profile'}
+                              </button>
+                            </div>
+                          ) : (
+                            <form onSubmit={completeGuestProfile} className="space-y-3">
+                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <label className="space-y-1 text-xs text-[var(--ink-dim)]">
+                                  <span>{t('participantsAgeLabel')} *</span>
+                                  <input
+                                    type="number"
+                                    required
+                                    min={0}
+                                    max={125}
+                                    step={1}
+                                    value={guestProfileAgeYears}
+                                    onChange={(event) =>
+                                      setGuestProfileAgeYears(event.target.value)
+                                    }
+                                    className="ui-field-plain"
+                                  />
+                                </label>
+                                <label className="space-y-1 text-xs text-[var(--ink-dim)]">
+                                  <span>{t('participantsSkillLabel')} *</span>
+                                  <select
+                                    required
+                                    value={guestProfileSkillLevel}
+                                    onChange={(event) =>
+                                      setGuestProfileSkillLevel(event.target.value)
+                                    }
+                                    className="ui-field-plain"
+                                  >
+                                    <option value="" disabled>
+                                      —
+                                    </option>
+                                    {guestSkillOptions.map((option) => (
+                                      <option key={option.value} value={option.value}>
+                                        {option.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                <ActionButton
+                                  type="submit"
+                                  pending={isCompletingGuestProfile}
+                                  pendingLabel={t('processing')}
+                                  className="btn-primary px-4 py-2 text-sm"
+                                >
+                                  {language === 'ru' ? 'Сохранить данные' : 'Save profile'}
+                                </ActionButton>
+                                <button
+                                  type="button"
+                                  className="btn-secondary px-4 py-2 text-sm"
+                                  disabled={isCompletingGuestProfile}
+                                  onClick={() => setShowGuestProfileCompletion(false)}
+                                >
+                                  {t('cancel')}
+                                </button>
+                              </div>
+                            </form>
+                          )}
+                        </div>
+                      ) : undefined
+                    }
                   />
                 ) : guestRefreshing && !showAuthenticatedEnrollment ? (
                   <p role="status">{t('processing')}</p>
@@ -775,24 +855,30 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                       </div>
                     </div>
 
-                    <GuestParticipantFields
-                      ageYears={guestAgeYears}
-                      onAgeYearsChange={setGuestAgeYears}
-                      discipline={guestDiscipline}
-                      onDisciplineChange={setGuestDiscipline}
-                      labels={{
-                        age: t('participantsAgeLabel'),
-                        discipline: t('participantsDisciplineLabel'),
-                        ski: t('participantsDisciplineSki'),
-                        snowboard: t('participantsDisciplineSnowboard'),
-                      }}
-                      skill={{
-                        value: guestSkillLevel,
-                        onChange: setGuestSkillLevel,
-                        label: t('participantsSkillLabel'),
-                        options: guestSkillOptions,
-                      }}
-                    />
+                    {!course.discipline && (
+                      <label className="space-y-1 text-xs text-[var(--ink-dim)]">
+                        <span>{t('participantsDisciplineLabel')} *</span>
+                        <select
+                          required
+                          value={guestDiscipline}
+                          onChange={(event) =>
+                            setGuestDiscipline(event.target.value as '' | 'ski' | 'snowboard')
+                          }
+                          className="ui-field-plain"
+                        >
+                          <option value="" disabled>
+                            —
+                          </option>
+                          <option value="ski">{t('participantsDisciplineSki')}</option>
+                          <option value="snowboard">{t('participantsDisciplineSnowboard')}</option>
+                        </select>
+                        <span className="block text-[11px]">
+                          {language === 'ru'
+                            ? 'Для старого курса дисциплина ещё не указана в каталоге.'
+                            : 'This legacy course does not yet have a catalog discipline.'}
+                        </span>
+                      </label>
+                    )}
 
                     <div>
                       <label className="uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 font-sans text-xs">

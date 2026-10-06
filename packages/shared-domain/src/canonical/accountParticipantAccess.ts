@@ -237,7 +237,7 @@ export const ParticipantSchema = z
     testSessionId: TestSessionIdSchema.optional(),
     displayName: z.string().trim().min(1).max(200),
     age: ParticipantAgeSchema,
-    skillLevel: z.string().trim().min(1).max(64),
+    skillLevel: z.string().trim().min(1).max(64).optional(),
     discipline: z.enum(['ski', 'snowboard']),
     instructorComment: z.string().trim().min(1).max(2_000).optional(),
     avatarUrl: ParticipantAvatarUrlSchema.optional(),

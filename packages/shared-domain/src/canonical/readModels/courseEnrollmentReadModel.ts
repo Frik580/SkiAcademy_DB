@@ -117,6 +117,9 @@ export const CourseEnrollmentReadModelParticipantProjectionSchema = z
   .object({
     participantId: ParticipantIdSchema,
     displayName: z.string().trim().min(1).max(200),
+    ageYears: z.number().finite().int().min(0).max(125).optional(),
+    skillLevel: z.string().trim().min(1).max(64).optional(),
+    discipline: z.enum(['ski', 'snowboard']).optional(),
   })
   .strict();
 

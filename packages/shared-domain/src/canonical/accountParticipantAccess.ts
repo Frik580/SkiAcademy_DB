@@ -249,6 +249,22 @@ export const ParticipantSchema = z
   .strict()
   .superRefine((participant, context) => {
     addRecordChronologyIssue(participant, context);
+    if (participant.management.kind === 'managed') {
+      if (participant.age.kind === 'unknown') {
+        context.addIssue({
+          code: 'custom',
+          path: ['age'],
+          message: 'Managed Participant age must be known',
+        });
+      }
+      if (participant.skillLevel === undefined) {
+        context.addIssue({
+          code: 'custom',
+          path: ['skillLevel'],
+          message: 'Managed Participant skillLevel must be known',
+        });
+      }
+    }
     if (
       participant.lifecycle.status === 'archived' &&
       (compareCanonicalTimestamps(participant.lifecycle.archivedAt, participant.createdAt) < 0 ||

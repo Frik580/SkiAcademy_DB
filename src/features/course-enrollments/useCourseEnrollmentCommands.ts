@@ -224,7 +224,7 @@ export function useCourseEnrollmentCommands(accountId: string | undefined) {
       readonly guestCredential: GuestCourseEnrollmentLinkCredential;
     }): Promise<void> => {
       const idempotencyKey = IdempotencyKeySchema.parse(
-        `complete-guest-profile:${input.enrollmentId}:${input.ageYears}:${input.skillLevel}`
+        `complete-guest-profile:${input.enrollmentId}`
       );
       const result = await executeGuestCanonicalCommand({
         kind: 'complete_guest_participant_profile',

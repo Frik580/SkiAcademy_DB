@@ -239,10 +239,7 @@ export function useCourseEnrollmentCommands(accountId: string | undefined) {
       });
       const error = mapCanonicalCommandResultError(result);
       if (error) throw error;
-      await refreshGuestEnrollmentSurfaces({
-        courseId: '',
-        enrollmentId: input.enrollmentId,
-      }).catch(() => undefined);
+      await loadGuestSingleCourseEnrollment(input.enrollmentId).catch(() => undefined);
     },
     []
   );

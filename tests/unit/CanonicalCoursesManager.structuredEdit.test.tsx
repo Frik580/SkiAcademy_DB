@@ -249,6 +249,26 @@ describe('CanonicalCoursesManager structured edit regressions', () => {
     });
   });
 
+  it('requires an explicit discipline on the new course form', async () => {
+    render(
+      <CoursesManager
+        currentAccountId="account_structured_edit_01"
+        instructors={[]}
+        onRequestConfirm={onRequestConfirm}
+      />
+    );
+    await userEvent.click(screen.getByRole('button', { name: translations.en.addCourse }));
+    const disciplineSelect = screen.getByLabelText('Discipline *');
+    expect(disciplineSelect).toBeRequired();
+    expect(disciplineSelect).toHaveValue('');
+    fireEvent.submit(disciplineSelect.closest('form')!);
+    expect(executeAuthenticatedCanonicalCommand).not.toHaveBeenCalled();
+    expect(disciplineSelect).toHaveAttribute('aria-invalid', 'true');
+    expect(document.getElementById('canonical-course-discipline-error')).toHaveTextContent(
+      'Select a course discipline.'
+    );
+  });
+
   it.each([
     ['title', 'Title', 'Course B', 'change_course_title'],
     ['price', 'Price (KZT)', '15000', 'change_course_price'],
@@ -263,6 +283,40 @@ describe('CanonicalCoursesManager structured edit regressions', () => {
 
     await waitFor(() => expect(executeAuthenticatedCanonicalCommand).toHaveBeenCalledTimes(1));
     expect(commandSubmissions().map((submission) => submission.kind)).toEqual([expectedKind]);
+  });
+
+  it.each(['ski', 'snowboard'])(
+    'fills legacy course discipline with %s through the catalog command',
+    async (discipline) => {
+      await openEdit();
+      expect(screen.getByLabelText('Discipline')).toHaveValue('');
+      fireEvent.change(screen.getByLabelText('Discipline'), { target: { value: discipline } });
+      fireEvent.change(screen.getByLabelText('Reason for change'), {
+        target: { value: 'Fill legacy course discipline' },
+      });
+      fireEvent.submit(editForm());
+      await waitFor(() => expect(executeAuthenticatedCanonicalCommand).toHaveBeenCalledTimes(1));
+      expect(commandSubmissions()[0]).toMatchObject({
+        kind: 'update_course_catalog_content',
+        intent: { courseId, content: { discipline } },
+      });
+    }
+  );
+
+  it('loads and saves a changed catalog discipline', async () => {
+    Object.assign(authoritative.catalogContent.content!, { discipline: 'ski' });
+    await openEdit();
+    expect(screen.getByLabelText('Discipline')).toHaveValue('ski');
+    fireEvent.change(screen.getByLabelText('Discipline'), { target: { value: 'snowboard' } });
+    fireEvent.change(screen.getByLabelText('Reason for change'), {
+      target: { value: 'Change course discipline' },
+    });
+    fireEvent.submit(editForm());
+    await waitFor(() => expect(executeAuthenticatedCanonicalCommand).toHaveBeenCalledTimes(1));
+    expect(commandSubmissions()[0]).toMatchObject({
+      kind: 'update_course_catalog_content',
+      intent: { content: { discipline: 'snowboard' } },
+    });
   });
 
   it('keeps Description only inside Presentation / Catalog, not in Course core fields', async () => {

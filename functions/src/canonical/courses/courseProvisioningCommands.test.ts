@@ -71,6 +71,7 @@ const manifest = CourseProvisioningManifestSchema.parse({
     },
   ],
   presentation: {
+    discipline: 'ski',
     duration: '1 day',
     description: 'Provisioned course description',
     dates: '1 February 2026, 09:00–11:00',
@@ -225,6 +226,145 @@ function applyEnvelopeWithManifest(
 }
 
 describe('course provisioning commands', () => {
+  it.each(['provision_canonical_course', 'apply_canonical_course_provisioning_manifest'] as const)(
+    '%s rejects an orphan catalog with missing or conflicting discipline and accepts a matching catalog',
+    async (kind) => {
+      for (const discipline of [undefined, 'snowboard', 'ski'] as const) {
+        const docs = legacyCourseFixture();
+        delete docs[`courses/${courseId}`];
+        const executor = createInMemoryCanonicalTransactionExecutor({
+          ...docs,
+          [courseCatalogContentPath(courseId)]: {
+            ...manifest.presentation,
+            courseId,
+            revision: 1,
+            discipline,
+          },
+        });
+        const commands = createProductionCanonicalCommands(environment(), executor);
+        const before = executor.snapshot();
+        const result = await commands.execute({
+          kind,
+          context: adminContext(`idem-orphan-discipline-${kind}`),
+          intent: {
+            manifest,
+            ...(kind === 'apply_canonical_course_provisioning_manifest' ? { dryRun: false } : {}),
+          },
+        });
+        if (discipline === 'ski') {
+          expect(result.status).toBe('success');
+          expect(
+            parseCourseCatalogContent(
+              executor.snapshot().docs.get(courseCatalogContentPath(courseId))?.data,
+              courseId
+            )?.discipline
+          ).toBe('ski');
+        } else {
+          expect(result.status).toBe('error');
+          if (result.status === 'error') {
+            expect(result.error).toMatchObject({
+              code: 'validation',
+              details: { field: 'presentation.discipline', reason: 'conflict' },
+            });
+          }
+          expect(executor.snapshot()).toEqual(before);
+        }
+      }
+    }
+  );
+
+  it.each(['provision_canonical_course', 'apply_canonical_course_provisioning_manifest'] as const)(
+    '%s rejects new courses without discipline or catalog content before any writes',
+    async (kind) => {
+      for (const presentation of [
+        undefined,
+        {
+          duration: '1 day',
+          description: '',
+          dates: '',
+          bgImageUrl: 'https://example.com/course.webp',
+        },
+      ]) {
+        const docs = legacyCourseFixture();
+        delete docs[`courses/${courseId}`];
+        const executor = createInMemoryCanonicalTransactionExecutor(docs);
+        const commands = createProductionCanonicalCommands(environment(), executor);
+        const before = executor.snapshot();
+        const result = await commands.execute({
+          kind,
+          context: adminContext(`idem-missing-discipline-${kind}`),
+          intent: {
+            manifest: CourseProvisioningManifestSchema.parse({ ...manifest, presentation }),
+            ...(kind === 'apply_canonical_course_provisioning_manifest' ? { dryRun: false } : {}),
+          },
+        });
+        expect(result.status).toBe('error');
+        if (result.status === 'error') {
+          expect(result.error).toMatchObject({
+            code: 'validation',
+            details: { field: 'presentation.discipline', reason: 'required' },
+          });
+        }
+        expect(executor.snapshot()).toEqual(before);
+      }
+    }
+  );
+
+  it.each(['ski', 'snowboard'] as const)(
+    'persists %s on a newly created canonical course',
+    async (discipline) => {
+      const docs = legacyCourseFixture();
+      delete docs[`courses/${courseId}`];
+      const executor = createInMemoryCanonicalTransactionExecutor(docs);
+      const commands = createProductionCanonicalCommands(environment(), executor);
+      const result = await commands.execute(
+        applyEnvelopeWithManifest(
+          `idem-new-course-${discipline}`,
+          CourseProvisioningManifestSchema.parse({
+            ...manifest,
+            presentation: { ...manifest.presentation, discipline },
+          })
+        )
+      );
+      expect(result.status).toBe('success');
+      expect(
+        parseCourseCatalogContent(
+          executor.snapshot().docs.get(courseCatalogContentPath(courseId))?.data,
+          courseId
+        )?.discipline
+      ).toBe(discipline);
+      expect(executor.snapshot().docs.get(`courses/${courseId}`)?.data).not.toHaveProperty(
+        'discipline'
+      );
+    }
+  );
+
+  it('still repairs an existing legacy course with a manifest without discipline', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(legacyCourseFixture());
+    const commands = createProductionCanonicalCommands(environment(), executor);
+    const result = await commands.execute(
+      applyEnvelopeWithManifest(
+        'idem-legacy-without-discipline',
+        CourseProvisioningManifestSchema.parse({
+          ...manifest,
+          presentation: {
+            duration: '1 day',
+            description: '',
+            dates: '',
+            bgImageUrl: 'https://example.com/course.webp',
+          },
+        })
+      )
+    );
+    expect(result.status).toBe('success');
+    expect(
+      parseCourseCatalogContent(
+        executor.snapshot().docs.get(courseCatalogContentPath(courseId))?.data,
+        courseId
+      )?.discipline
+    ).toBeUndefined();
+  });
+
   it('dry-run validates manifest without writes', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(legacyCourseFixture());
     const commands = createProductionCanonicalCommands(environment(), executor);

@@ -38,6 +38,7 @@ import { requireAccountActor } from '../participantAccess/participantAccessAutho
 import {
   COURSE_CATALOG_CONTENT_PLANNING_ESTIMATES,
   courseCatalogContentPath,
+  parseCourseCatalogContent,
   toFirestoreWritePayload as catalogContentToFirestoreWritePayload,
 } from './courseCatalogContentStore';
 import { assertCourseProvisioningAdminAuthorization } from './courseProvisioningAuthorization';
@@ -138,6 +139,12 @@ function provisionCanonicalCourseHandler(
 
       const courseRead = await session.tx.get({ path: courseDocumentPath });
       session.plan.planRead({ path: courseDocumentPath, category: 'aggregate' });
+      if (!courseRead.exists && !manifest.presentation?.discipline) {
+        throw new CanonicalCommandError('validation', {
+          correlationId: envelope.context.correlationId,
+          details: { field: 'presentation.discipline', reason: 'required' },
+        });
+      }
       const rawCourseData = courseRead.exists
         ? (courseRead.data as Record<string, unknown>)
         : undefined;
@@ -253,6 +260,17 @@ function provisionCanonicalCourseHandler(
         const contentRead = await session.tx.get({ path: catalogContentDocumentPath });
         session.plan.planRead({ path: catalogContentDocumentPath, category: 'aggregate' });
         catalogContentAlreadyExists = contentRead.exists;
+        if (
+          !courseDocumentExists &&
+          contentRead.exists &&
+          parseCourseCatalogContent(contentRead.data, manifest.courseId)?.discipline !==
+            manifest.presentation?.discipline
+        ) {
+          throw new CanonicalCommandError('validation', {
+            correlationId: envelope.context.correlationId,
+            details: { field: 'presentation.discipline', reason: 'conflict' },
+          });
+        }
       }
 
       if (courseDocumentExistsRead && !requiresShapeReplacement) {
@@ -408,6 +426,12 @@ export async function applyCanonicalCourseProvisioningManifest(
 
         const courseRead = await session.tx.get({ path: courseDocumentPath });
         session.plan.planRead({ path: courseDocumentPath, category: 'aggregate' });
+        if (!courseRead.exists && !manifest.presentation?.discipline) {
+          throw new CanonicalCommandError('validation', {
+            correlationId: envelope.context.correlationId,
+            details: { field: 'presentation.discipline', reason: 'required' },
+          });
+        }
         const rawCourseData = courseRead.exists
           ? (courseRead.data as Record<string, unknown>)
           : undefined;
@@ -537,6 +561,17 @@ export async function applyCanonicalCourseProvisioningManifest(
           const contentRead = await session.tx.get({ path: catalogContentDocumentPath });
           session.plan.planRead({ path: catalogContentDocumentPath, category: 'aggregate' });
           catalogContentAlreadyExists = contentRead.exists;
+          if (
+            !courseDocumentExists &&
+            contentRead.exists &&
+            parseCourseCatalogContent(contentRead.data, manifest.courseId)?.discipline !==
+              manifest.presentation?.discipline
+          ) {
+            throw new CanonicalCommandError('validation', {
+              correlationId: envelope.context.correlationId,
+              details: { field: 'presentation.discipline', reason: 'conflict' },
+            });
+          }
         }
 
         const guardOverlay: InTransactionGuardOverlay = new Map();

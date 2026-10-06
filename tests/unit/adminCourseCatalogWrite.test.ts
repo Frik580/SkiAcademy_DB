@@ -147,6 +147,7 @@ function formFrom(course: ReturnType<typeof detail>): CanonicalCourseCreateFormS
     badge: content.badge ?? '',
     badgeRu: content.badgeRu ?? '',
     level: (content.level ?? '') as CanonicalCourseCreateFormState['level'],
+    discipline: content.discipline ?? '',
     levelLabel: content.levelLabel ?? '',
     videoUrl: content.videoUrl ?? '',
     benefits: content.benefits?.join('\n') ?? '',
@@ -193,6 +194,18 @@ function assertRealSchemaWrite(content: unknown) {
 }
 
 describe('admin course catalog strict write DTO', () => {
+  it.each(['ski', 'snowboard'] as const)(
+    'preserves %s through admin mapping, form and write encoding',
+    (discipline) => {
+      const course = detail({ ...richContent, discipline });
+      const form = formFrom(course);
+      expect(form.discipline).toBe(discipline);
+      const content = catalogContentInputFromCreateForm(form);
+      expect(content.discipline).toBe(discipline);
+      assertRealSchemaWrite(content);
+    }
+  );
+
   it('D. rich untouched form normalizes equal and survives Firebase encode + real schema', () => {
     const course = detail(richContent);
     const original = catalogContentInputFromCourse(course as never);

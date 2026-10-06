@@ -1134,6 +1134,12 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
       if (!createForm.title.trim()) {
         issues.push(makeIssue('title', language === 'ru' ? 'Укажите название курса.' : 'Enter a course title.'));
       }
+      if (!createForm.discipline) {
+        issues.push(makeIssue(
+          'discipline',
+          language === 'ru' ? 'Выберите дисциплину курса.' : 'Select a course discipline.'
+        ));
+      }
       if (!createForm.price.trim()) {
         issues.push(makeIssue('price', language === 'ru' ? 'Укажите цену в KZT.' : 'Enter a KZT price.'));
       }
@@ -1430,6 +1436,12 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
   const saveStructuredEdit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!editForm || !editOriginal) return;
+    if (editOriginal.catalogContent.content?.discipline && !editForm.discipline) {
+      setMutationError(
+        language === 'ru' ? 'Выберите дисциплину курса.' : 'Select a course discipline.'
+      );
+      return;
+    }
     const reasonExplanation = editReason.trim();
     if (!reasonExplanation) {
       setMutationError(
@@ -1966,6 +1978,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
             badge: 'Бейдж',
             badgeRu: 'Бейдж (RU)',
             level: 'Уровень',
+            discipline: 'Дисциплина',
             levelLabel: 'Подпись уровня',
             videoUrl: 'Ссылка на видео',
             benefits: 'Преимущества (по одному в строке)',
@@ -1992,6 +2005,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
             badge: 'Badge',
             badgeRu: 'Badge (RU)',
             level: 'Level',
+            discipline: 'Discipline',
             levelLabel: 'Level label',
             videoUrl: 'Video URL',
             benefits: 'Benefits (one per line)',
@@ -2735,9 +2749,14 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                 </select>
               </label>
               <label htmlFor="canonical-course-discipline" className="grid gap-1 text-xs">
-                {createFieldLabel('discipline')}
+                {createFieldLabel('discipline')} *
                 <select
                   id="canonical-course-discipline"
+                  required
+                  aria-invalid={createFieldIssue('discipline') ? true : undefined}
+                  aria-describedby={
+                    createFieldIssue('discipline') ? 'canonical-course-discipline-error' : undefined
+                  }
                   value={createForm.discipline}
                   onChange={(event) =>
                     updateCreateField(
@@ -2750,6 +2769,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                   <option value="ski">{language === 'ru' ? 'Лыжи' : 'Ski'}</option>
                   <option value="snowboard">{language === 'ru' ? 'Сноуборд' : 'Snowboard'}</option>
                 </select>
+                {renderCreateFieldError('discipline')}
               </label>
               <label htmlFor="canonical-course-order" className="grid gap-1 text-xs">
                 {createFieldLabel('order')}
@@ -3156,6 +3176,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                     {language === 'ru' ? 'Дисциплина' : 'Discipline'}
                     <select
                       id="course-edit-discipline"
+                      required={Boolean(editOriginal?.catalogContent.content?.discipline)}
                       value={editForm.discipline}
                       onChange={(event) =>
                         updateEditField(

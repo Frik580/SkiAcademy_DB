@@ -102,6 +102,18 @@ function wrapper({ children }: { children: ReactNode }) {
 }
 
 describe('product course catalogue client', () => {
+  it.each(['ski', 'snowboard'] as const)(
+    'preserves %s through the public catalog UI mapping',
+    (discipline) => {
+      expect(
+        courseFromProductCatalogItem({
+          ...productItem,
+          presentation: { ...productItem.presentation, discipline },
+        } as never)?.discipline
+      ).toBe(discipline);
+    }
+  );
+
   beforeEach(() => {
     onSnapshot.mockClear();
     queryCourseCatalogReadModels.mockReset();

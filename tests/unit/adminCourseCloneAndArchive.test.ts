@@ -180,6 +180,21 @@ describe('adminCourseArchiveCommand', () => {
 });
 
 describe('adminCourseCloneDraft', () => {
+  it.each(['ski', 'snowboard'] as const)(
+    'preserves %s in the clone form and catalog payload',
+    (discipline) => {
+      const source = detailCourse();
+      source.catalogContent = {
+        status: 'present',
+        content: { ...source.catalogContent.content!, discipline },
+      };
+      const draft = buildCanonicalCourseCloneDraft(source);
+      expect(draft.presentation.discipline).toBe(discipline);
+      expect(draft.form.discipline).toBe(discipline);
+      expect(catalogContentInputFromCreateForm(draft.form).discipline).toBe(discipline);
+    }
+  );
+
   it('builds a client-only draft with copy title and source schedule lines', () => {
     const draft = buildCanonicalCourseCloneDraft(detailCourse());
     expect(draft.sourceCourseId).toBe('course_v2_list_01');

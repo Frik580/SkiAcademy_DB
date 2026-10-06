@@ -668,6 +668,9 @@ describe('CourseEnrollmentModal guest enrollment', () => {
         />
       );
 
+      expect(screen.queryByLabelText('participantsDisciplineLabel *')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('participantsAgeLabel *')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('participantsSkillLabel *')).not.toBeInTheDocument();
       fireEvent.change(screen.getByPlaceholderText('guestNamePlaceholder'), {
         target: { value: 'Guest One' },
       });
@@ -691,6 +694,8 @@ describe('CourseEnrollmentModal guest enrollment', () => {
           })
         );
       });
+      expect(mocks.createGuestEnrollment.mock.calls[0]?.[0]).not.toHaveProperty('guestAgeYears');
+      expect(mocks.createGuestEnrollment.mock.calls[0]?.[0]).not.toHaveProperty('guestSkillLevel');
       expect(onClose).not.toHaveBeenCalled();
       expect(onSuccess).toHaveBeenCalledTimes(1);
       expect(screen.getByText('guestPendingTitle')).toBeInTheDocument();

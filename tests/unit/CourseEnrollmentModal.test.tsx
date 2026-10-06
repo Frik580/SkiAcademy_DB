@@ -10,6 +10,7 @@ import { CanonicalCommandClientError } from '../../src/lib/canonical/mapCanonica
 import { persistGuestCourseEnrollmentCredential } from '../../src/features/course-enrollments/guestCourseEnrollmentCredentialStorage';
 
 const mocks = vi.hoisted(() => ({
+  language: 'en' as 'ru' | 'en',
   participants: [] as ManagedParticipantOption[],
   selectedParticipantIds: [] as string[],
   loading: false,
@@ -55,6 +56,8 @@ vi.mock('../../src/app/providers/LanguageContext', () => ({
     t: (key: string) =>
       (
         ({
+          courseEnrollment: mocks.language === 'ru' ? 'Запись на курс' : 'Course Enrollment',
+          journeyLevelExpert: mocks.language === 'ru' ? 'Эксперт' : 'Expert',
           submitGuestCourseApplicationShort: 'Send request',
           guestCourseSignIn: 'Already have an account? Sign in',
           guestCourseAddOptionalDetails: '+ Add email or comment',
@@ -63,7 +66,7 @@ vi.mock('../../src/app/providers/LanguageContext', () => ({
           guestAdminContactPayment: 'An administrator will contact you to arrange payment.',
         }) as Record<string, string>
       )[key] ?? key,
-    language: 'en',
+    language: mocks.language,
   }),
   getGroupCourseLabel: (title: string) => title,
   translateCourse: (course: unknown) => course,
@@ -170,6 +173,7 @@ describe('CourseEnrollmentModal authenticated enrollment', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.language = 'en';
     mocks.participants = [selfOnly];
     mocks.selectedParticipantIds = ['participant_self'];
     mocks.loading = false;
@@ -509,6 +513,7 @@ describe('CourseEnrollmentModal guest enrollment', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
+    mocks.language = 'en';
     mocks.createGuestEnrollment.mockResolvedValue({ enrollmentId: 'attempt_01' });
     mocks.completeGuestParticipantProfile.mockResolvedValue(undefined);
     mocks.loadGuestSingleCourseEnrollment.mockResolvedValue({
@@ -662,6 +667,72 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     expect(screen.getByRole('button', { name: /Send request/i })).toBeEnabled();
     expect(screen.queryByText('Canonical Guest')).not.toBeInTheDocument();
     expect(mocks.createGuestEnrollment).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['ru', undefined, 'Новичок'],
+    ['en', undefined, 'Beginner'],
+    ['ru', userProfile, 'Новичок'],
+    ['en', userProfile, 'Beginner'],
+  ] as const)(
+    'uses only the structured level in the %s header for guest/authenticated enrollment',
+    (language, profile, subtitle) => {
+      mocks.language = language;
+      render(
+        <CourseEnrollmentModal
+          isOpen
+          onClose={vi.fn()}
+          course={{ ...course, title: 'Новичок (Групповой курс)', level: 'beginner' }}
+          userProfile={profile}
+          onEnroll={vi.fn()}
+        />
+      );
+      const title = language === 'ru' ? 'Запись на курс' : 'Course Enrollment';
+      const header = screen.getByRole('heading', { name: title }).parentElement!;
+      expect(within(header).getByText(subtitle)).toBeInTheDocument();
+      expect(header.textContent).toBe(title + subtitle);
+      expect(header).not.toHaveTextContent(/Групповой курс|Group Course|45000/);
+    }
+  );
+
+  it('uses the structured level label when the course has no level', () => {
+    render(
+      <CourseEnrollmentModal
+        isOpen
+        onClose={vi.fn()}
+        course={{ ...course, levelLabel: 'Custom level', title: 'Beginner (Group Course)' }}
+        onEnroll={vi.fn()}
+      />
+    );
+    const header = screen.getByRole('heading', { name: 'Course Enrollment' }).parentElement!;
+    expect(header.textContent).toBe('Course EnrollmentCustom level');
+  });
+
+  it('omits the subtitle when no structured level metadata exists', () => {
+    render(
+      <CourseEnrollmentModal
+        isOpen
+        onClose={vi.fn()}
+        course={{ ...course, title: 'Beginner (Group Course)' }}
+        onEnroll={vi.fn()}
+      />
+    );
+    const header = screen.getByRole('heading', { name: 'Course Enrollment' }).parentElement!;
+    expect(header.textContent).toBe('Course Enrollment');
+  });
+
+  it('localizes the expert course level', () => {
+    mocks.language = 'ru';
+    render(
+      <CourseEnrollmentModal
+        isOpen
+        onClose={vi.fn()}
+        course={{ ...course, level: 'expert' }}
+        onEnroll={vi.fn()}
+      />
+    );
+    const header = screen.getByRole('heading', { name: 'Запись на курс' }).parentElement!;
+    expect(within(header).getByText('Эксперт')).toBeInTheDocument();
   });
 
   it('starts with only required contacts and discloses optional details without losing them in auth', async () => {

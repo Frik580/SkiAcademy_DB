@@ -137,12 +137,6 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
     course.priceKZT != null
       ? course.priceKZT * selectedParticipantCount
       : undefined;
-  const authenticatedHeaderPrice =
-    authenticatedDisplayTotalKZT !== undefined
-      ? formatPrice(authenticatedDisplayTotalKZT)
-      : course != null && course.priceKZT != null
-        ? `${formatPrice(course.priceKZT)} · ${t('coursePricePerParticipant')}`
-        : '—';
   const showParticipantPicker = shouldShowParticipantPicker({
     participants,
     loading: participantsLoading,
@@ -495,6 +489,11 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
     }
   };
 
+  const courseSubtitle = course.level
+    ? course.level === 'expert'
+      ? t('journeyLevelExpert')
+      : getDifficultyLabel(course.level, language, 'short')
+    : course.levelLabel?.trim();
   const showAuthenticatedEnrollment = Boolean(authenticatedProfile);
   const guestProfileIncomplete =
     Boolean(guestReservation?.participant) &&
@@ -556,15 +555,9 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                   >
                     {t('courseEnrollment')}
                   </h3>
-                  <p className="text-xs text-[var(--ink-dim)] mt-0.5">
-                    {getGroupCourseLabel(course.title, language)}
-                    {!guestCreatedEnrollmentId && authenticatedProfile && (
-                      <> · {authenticatedHeaderPrice}</>
-                    )}
-                    {!guestCreatedEnrollmentId && !authenticatedProfile && (
-                      <> · {t('groupCourseInfoPrefix')}</>
-                    )}
-                  </p>
+                  {courseSubtitle && (
+                    <p className="text-xs text-[var(--ink-dim)] mt-0.5">{courseSubtitle}</p>
+                  )}
                 </div>
                 <button
                   type="button"

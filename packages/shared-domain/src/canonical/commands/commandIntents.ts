@@ -78,7 +78,6 @@ const participantAgeIntent = z.discriminatedUnion('kind', [
 const participantProfilePatchIntent = z
   .object({
     participantId: ParticipantIdSchema,
-    courseEnrollmentId: CourseEnrollmentIdSchema.optional(),
     displayName: z.string().trim().min(1).max(200).optional(),
     age: participantAgeIntent.optional(),
     skillLevel: z.string().trim().min(1).max(64).optional(),
@@ -725,6 +724,13 @@ export const CommandIntentSchemaByKind = {
     })
     .strict(),
   update_participant_profile: participantProfilePatchIntent,
+  complete_guest_participant_profile: z
+    .object({
+      courseEnrollmentId: CourseEnrollmentIdSchema,
+      ageYears: z.number().finite().int().min(0).max(125),
+      skillLevel: z.string().trim().min(1).max(64),
+    })
+    .strict(),
   assign_participant_management: z
     .object({
       participantManagementId: ParticipantManagementIdSchema,

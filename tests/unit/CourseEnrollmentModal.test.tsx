@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   toggleParticipant: vi.fn(),
   resetSelection: vi.fn(),
   createGuestEnrollment: vi.fn(),
+  completeGuestParticipantProfile: vi.fn(),
   requestCancellation: vi.fn(),
   loadGuestSingleCourseEnrollment: vi.fn(),
   isAnySelectedParticipantEnrolledInCourse: vi.fn(
@@ -81,6 +82,7 @@ vi.mock('../../src/features/course-enrollments', () => ({
   resolveGuestCourseSessionParticipantId: () => 'guest_session_participant_01',
   useCourseEnrollmentCommands: () => ({
     createGuestEnrollment: mocks.createGuestEnrollment,
+    completeGuestParticipantProfile: mocks.completeGuestParticipantProfile,
     requestCancellation: mocks.requestCancellation,
   }),
   selectCourseEnrollmentItems: () => [],
@@ -117,6 +119,7 @@ const course = {
   price: 100,
   priceKZT: 45000,
   dates: '2026-03-01',
+  discipline: 'ski',
 } as any;
 
 const userProfile = {
@@ -440,16 +443,6 @@ describe('CourseEnrollmentModal authenticated enrollment', () => {
   });
 });
 
-function fillGuestProfile(discipline = 'ski', skillLevel = 'intermediate', age = '12') {
-  fireEvent.change(screen.getByLabelText('participantsAgeLabel *'), { target: { value: age } });
-  fireEvent.change(screen.getByLabelText('participantsDisciplineLabel *'), {
-    target: { value: discipline },
-  });
-  fireEvent.change(screen.getByLabelText('participantsSkillLabel *'), {
-    target: { value: skillLevel },
-  });
-}
-
 const guestCredential = {
   enrollmentId: 'attempt_01',
   guestSubjectId: 'a'.repeat(64),
@@ -502,6 +495,7 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     localStorage.clear();
     vi.clearAllMocks();
     mocks.createGuestEnrollment.mockResolvedValue({ enrollmentId: 'attempt_01' });
+    mocks.completeGuestParticipantProfile.mockResolvedValue(undefined);
     mocks.loadGuestSingleCourseEnrollment.mockResolvedValue({
       lifecycle: {
         status: 'pending',

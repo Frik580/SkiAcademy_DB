@@ -1,3 +1,4 @@
+import { GUEST_COURSE_COMMENT_MAX_LENGTH } from '@ski-academy/shared-domain/canonical/courseEnrollmentAttendanceAdminIssue';
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
@@ -9,7 +10,6 @@ import { useLanguage, getGroupCourseLabel } from '../../../app/providers/Languag
 import { useCurrency } from '../../../app/providers/CurrencyContext';
 import { useNotifications } from '../../../features/notifications';
 import { Auth } from '../../../features/auth';
-import { AuthModeSliderSwitch } from '../../../features/bookings';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';
 import {
   createLogicalEnrollmentAttemptId,
@@ -93,6 +93,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   const [guestPhone, setGuestPhone] = useState('');
   const [guestEmail, setGuestEmail] = useState('');
   const [guestNotes, setGuestNotes] = useState('');
+  const [showGuestOptionalDetails, setShowGuestOptionalDetails] = useState(false);
   const [guestDiscipline, setGuestDiscipline] = useState<'' | 'ski' | 'snowboard'>('');
   const [guestProfileAgeYears, setGuestProfileAgeYears] = useState('');
   const [guestProfileSkillLevel, setGuestProfileSkillLevel] = useState('');
@@ -285,6 +286,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
         guestDiscipline: resolvedGuestDiscipline,
         guestPhone: guestPhone.trim(),
         guestEmail: guestEmail.trim() || undefined,
+        ...(guestNotes.trim() ? { guestComment: guestNotes.trim() } : {}),
         notificationLocale: language,
       });
       rememberGuestReservation('course', course.id, credential.enrollmentId);
@@ -429,9 +431,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
       addNotification(
         'success',
         language === 'ru' ? 'Профиль участника заполнен' : 'Participant profile completed',
-        language === 'ru'
-          ? 'Возраст и уровень сохранены.'
-          : 'Age and skill level were saved.'
+        language === 'ru' ? 'Возраст и уровень сохранены.' : 'Age and skill level were saved.'
       );
     } catch (error) {
       const presented = presentCanonicalCommandErrorWithContext(error, {
@@ -558,16 +558,11 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                   </h3>
                   <p className="text-xs text-[var(--ink-dim)] mt-0.5">
                     {getGroupCourseLabel(course.title, language)}
-                    {!guestCreatedEnrollmentId && (
-                      <>
-                        {' '}
-                        •{' '}
-                        {authenticatedProfile
-                          ? authenticatedHeaderPrice
-                          : course != null && course.priceKZT != null
-                            ? formatPrice(course.priceKZT)
-                            : '—'}
-                      </>
+                    {!guestCreatedEnrollmentId && authenticatedProfile && (
+                      <> · {authenticatedHeaderPrice}</>
+                    )}
+                    {!guestCreatedEnrollmentId && !authenticatedProfile && (
+                      <> · {t('groupCourseInfoPrefix')}</>
                     )}
                   </p>
                 </div>
@@ -581,13 +576,14 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
               </div>
 
               {!showAuthenticatedEnrollment && !guestCreatedEnrollmentId && (
-                <div className="px-4 py-2 border-b border-[var(--border)] bg-black/5 dark:bg-white/5 shrink-0">
-                  <AuthModeSliderSwitch
-                    unauthTab={unauthTab}
-                    onChange={setUnauthTab}
-                    guestLabel={t('guestBookingTab')}
-                    authLabel={t('authTab')}
-                  />
+                <div className="px-5 pt-3 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setUnauthTab(unauthTab === 'guest' ? 'auth' : 'guest')}
+                    className="text-xs text-[var(--ink-dim)] underline underline-offset-4 hover:text-[var(--ink)]"
+                  >
+                    {t(unauthTab === 'guest' ? 'guestCourseSignIn' : 'guestBookingTab')}
+                  </button>
                 </div>
               )}
 
@@ -619,7 +615,8 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                         : undefined
                     }
                     profileCompletion={
-                      guestProfileIncomplete && guestReservation?.lifecycle.status !== 'cancelled' ? (
+                      guestProfileIncomplete &&
+                      guestReservation?.lifecycle.status !== 'cancelled' ? (
                         <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--accent-muted)] p-3">
                           {!showGuestProfileCompletion ? (
                             <div className="space-y-2">
@@ -805,18 +802,18 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                         )}
                       </p>
                     )}
-                    <div className="p-3 bg-[var(--accent-muted)] border border-[var(--border)] text-xs text-[var(--ink)] leading-relaxed rounded-none rounded-[var(--radius-md)]">
-                      💡 {t('guestBookingNotice')}
-                    </div>
-
                     <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 items-end">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 items-end">
                         <div className="flex flex-col justify-end">
-                          <label className="uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 font-sans text-xs min-h-[20px]">
+                          <label
+                            htmlFor="course-guest-name"
+                            className="text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 font-sans text-xs min-h-[20px]"
+                          >
                             <User className="w-3.5 h-3.5 shrink-0" />{' '}
-                            <span className="truncate">{t('guestNameLabel')} *</span>
+                            <span className="truncate">{t('guestCourseNameLabel')} *</span>
                           </label>
                           <input
+                            id="course-guest-name"
                             type="text"
                             required
                             value={guestName}
@@ -826,11 +823,15 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                           />
                         </div>
                         <div className="flex flex-col justify-end">
-                          <label className="uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 font-sans text-xs min-h-[20px]">
+                          <label
+                            htmlFor="course-guest-phone"
+                            className="text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 font-sans text-xs min-h-[20px]"
+                          >
                             <Phone className="w-3.5 h-3.5 shrink-0" />{' '}
-                            <span className="truncate">{t('guestPhoneLabel')} *</span>
+                            <span className="truncate">{t('guestCoursePhoneLabel')} *</span>
                           </label>
                           <input
+                            id="course-guest-phone"
                             type="tel"
                             required
                             value={guestPhone}
@@ -841,18 +842,53 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                         </div>
                       </div>
 
-                      <div>
-                        <label className="uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 font-sans text-xs">
-                          <Mail className="w-3.5 h-3.5" /> {t('guestEmailLabel')}
-                        </label>
-                        <input
-                          type="email"
-                          value={guestEmail}
-                          onChange={(e) => setGuestEmail(e.target.value)}
-                          placeholder={t('guestEmailPlaceholder')}
-                          className="ui-field-plain focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)]"
-                        />
-                      </div>
+                      {!showGuestOptionalDetails ? (
+                        <button
+                          type="button"
+                          aria-expanded={false}
+                          aria-controls="course-guest-optional-details"
+                          onClick={() => setShowGuestOptionalDetails(true)}
+                          className="text-xs text-[var(--ink-dim)] hover:text-[var(--ink)]"
+                        >
+                          {t('guestCourseAddOptionalDetails')}
+                        </button>
+                      ) : (
+                        <div id="course-guest-optional-details" className="space-y-3">
+                          <div>
+                            <label
+                              htmlFor="course-guest-email"
+                              className="text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 font-sans text-xs"
+                            >
+                              <Mail className="w-3.5 h-3.5" /> {t('guestCourseEmailLabel')}
+                            </label>
+                            <input
+                              id="course-guest-email"
+                              type="email"
+                              value={guestEmail}
+                              onChange={(e) => setGuestEmail(e.target.value)}
+                              placeholder={t('guestEmailPlaceholder')}
+                              className="ui-field-plain focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)]"
+                            />
+                          </div>
+
+                          <div>
+                            <label
+                              htmlFor="course-guest-comment"
+                              className="text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 font-sans text-xs"
+                            >
+                              {t('guestCourseCommentLabel')}
+                            </label>
+                            <textarea
+                              id="course-guest-comment"
+                              maxLength={GUEST_COURSE_COMMENT_MAX_LENGTH}
+                              value={guestNotes}
+                              onChange={(e) => setGuestNotes(e.target.value)}
+                              placeholder={t('personalGoalsPlaceholder')}
+                              className="ui-field-plain focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)] h-16 resize-none"
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {!course.discipline && (
@@ -880,28 +916,11 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                       </label>
                     )}
 
-                    <div>
-                      <label className="uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 font-sans text-xs">
-                        {t('guestCourseNotes')}
-                      </label>
-                      <textarea
-                        value={guestNotes}
-                        onChange={(e) => setGuestNotes(e.target.value)}
-                        placeholder={t('personalGoalsPlaceholder')}
-                        className="ui-field-plain focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)] h-16 resize-none"
-                      />
-                    </div>
-
-                    <div className="p-3.5 border border-[var(--border)] bg-black/5 dark:bg-white/5 rounded-none rounded-[var(--radius-md)] space-y-1">
-                      <div className="flex justify-between items-baseline">
-                        <span className="text-xs text-[var(--ink)] font-sans normal-case text-sm">
-                          {t('courseTotalTuition')}
-                        </span>
-                        <span className="text-lg font-extrabold text-[var(--accent)] font-sans">
-                          {course.priceKZT != null ? formatPrice(course.priceKZT) : '—'}
-                        </span>
-                      </div>
-                      <div className="text-xs text-[var(--ink-dim)]">📅 {course.dates}</div>
+                    <div className="flex items-center justify-between gap-3 py-2 border-t border-[var(--border)]">
+                      <span className="text-xs text-[var(--ink-dim)]">{course.dates}</span>
+                      <span className="shrink-0 text-base font-bold text-[var(--ink)]">
+                        {course.priceKZT != null ? formatPrice(course.priceKZT) : '—'}
+                      </span>
                     </div>
 
                     {guestQuotaErrorCourseId === course.id && (
@@ -931,10 +950,13 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                       ) : (
                         <>
                           <Send className="w-3.5 h-3.5" />
-                          {t('submitGuestCourseApplication')}
+                          {t('submitGuestCourseApplicationShort')}
                         </>
                       )}
                     </ActionButton>
+                    <p className="text-center text-xs text-[var(--ink-dim)]">
+                      {t('guestCoursePaymentNote')}
+                    </p>
                   </form>
                 )}
               </div>

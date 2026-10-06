@@ -28,7 +28,10 @@ import {
   estimateTransactionPlan,
   TransactionPlanBuilder,
   type CommandEnvelope,
+  parseCallableGuestCommandTransport,
+  CourseEnrollmentSchema,
 } from '@ski-academy/shared-domain';
+import { buildGuestCommandEnvelopeFromCallable } from '../commands/guestCallableTransportAdapter';
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
 import { createInMemoryCanonicalTransactionExecutor } from '../transactions';
@@ -226,6 +229,89 @@ async function runCommand(
 }
 
 describe('create_course_enrollments command', () => {
+  it.each([undefined, 'Own board', '  Own board\nFirst time  ', 'x'.repeat(500)])(
+    'persists parsed guest comment only on the enrollment and preserves replay (%s)',
+    async (guestComment) => {
+      const enrollmentId = CourseEnrollmentIdSchema.parse('enrollment_guest_comment');
+      const executor = createInMemoryCanonicalTransactionExecutor(
+        baseFixture({
+          [`participants/${participantId}`]: {
+            ...seedParticipant(),
+            management: { kind: 'unmanaged_guest' },
+          },
+        })
+      );
+      const parsed = parseCallableGuestCommandTransport({
+        kind: 'create_course_enrollments',
+        intent: {
+          courseId,
+          participantIds: [participantId],
+          enrollmentIds: [enrollmentId],
+          ...(guestComment === undefined ? {} : { guestComment }),
+        },
+        idempotencyKey: 'guest-comment',
+        correlationId,
+        guestParticipantDisplayName: 'Guest',
+        guestParticipantDiscipline: 'ski',
+        guestPhone: '+77001234567',
+      });
+      if (!parsed.success || parsed.data.kind !== 'create_course_enrollments')
+        throw new Error('Invalid fixture');
+      const envelope = buildGuestCommandEnvelopeFromCallable(
+        guestSubjectIdFromCourseEnrollmentId(enrollmentId),
+        parsed.data
+      );
+      const commands = createProductionCanonicalCommands(environment(), executor, {
+        guestActionTokenSecret: 'guest-comment-secret',
+      });
+      const result = await commands.execute(envelope);
+      expect(result).toMatchObject({ status: 'success' });
+      const persisted = executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data;
+      expect(CourseEnrollmentSchema.safeParse(persisted).success).toBe(true);
+      if (guestComment === undefined) expect(persisted).not.toHaveProperty('guestComment');
+      else expect(persisted?.guestComment).toBe(guestComment.trim());
+      expect(
+        executor.snapshot().docs.get(`participants/${participantId}`)?.data
+      ).not.toHaveProperty('guestComment');
+      const after = executor.snapshot();
+      expect(await commands.execute(envelope)).toEqual(result);
+      expect(executor.snapshot()).toEqual(after);
+      const conflict = await commands.execute({
+        ...envelope,
+        intent: { ...envelope.intent, guestComment: 'Different comment' },
+      });
+      expect(conflict).toMatchObject({ status: 'error', error: { code: 'idempotency_conflict' } });
+      expect(executor.snapshot()).toEqual(after);
+    }
+  );
+
+  it.each(['', '   ', 'x'.repeat(501)])(
+    'rejects invalid guest comments before canonical writes (%s)',
+    async (guestComment) => {
+      const enrollmentId = CourseEnrollmentIdSchema.parse('enrollment_guest_comment_invalid');
+      const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+      const before = executor.snapshot();
+      const envelope = createEnvelope({
+        context: {
+          actor: guestCommandActor(guestSubjectIdFromCourseEnrollmentId(enrollmentId)),
+          exercisedCapability: 'guest',
+          source: 'guest_callable',
+          correlationId,
+          idempotencyKey: 'invalid-comment',
+        },
+        intent: {
+          courseId,
+          participantIds: [participantId],
+          enrollmentIds: [enrollmentId],
+          guestComment,
+        },
+      });
+      const result = await runCommand(executor, envelope);
+      expect(result).toMatchObject({ status: 'error', error: { code: 'validation' } });
+      expect(executor.snapshot()).toEqual(before);
+    }
+  );
+
   it.each([
     ['unchanged', {}, false],
     ['name', { participant_display_name: 'Ars' }, true],

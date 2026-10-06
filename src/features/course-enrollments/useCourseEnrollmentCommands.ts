@@ -173,6 +173,7 @@ export function useCourseEnrollmentCommands(accountId: string | undefined) {
             courseId: CourseIdSchema.parse(input.courseId),
             participantIds: [ParticipantIdSchema.parse(input.participantId)],
             enrollmentIds: [CourseEnrollmentIdSchema.parse(input.enrollmentId)],
+            ...(input.guestComment === undefined ? {} : { guestComment: input.guestComment }),
           },
           idempotencyKey: input.identity.idempotencyKey,
           guestParticipantDisplayName: input.guestDisplayName,

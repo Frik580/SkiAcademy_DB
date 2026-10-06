@@ -637,6 +637,7 @@ async function buildAdminCourseEnrollmentItem(
   const detail: AdminCourseEnrollmentDetailReadModel = {
     ...item,
     originalCourseId: enrollment.originalCourseId,
+    ...(enrollment.guestComment === undefined ? {} : { guestComment: enrollment.guestComment }),
     paymentId: enrollment.paymentId,
     ...(payerAccountId ? { payerAccountId } : {}),
     capacity: {

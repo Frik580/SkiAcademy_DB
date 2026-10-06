@@ -400,6 +400,13 @@ export function attendanceSummaryIsDerivedProjection(
   );
 }
 
+export const GUEST_COURSE_COMMENT_MAX_LENGTH = 500;
+export const GuestCourseCommentSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(GUEST_COURSE_COMMENT_MAX_LENGTH);
+
 export const CourseEnrollmentSchema = z
   .object({
     enrollmentId: CourseEnrollmentIdSchema,
@@ -408,6 +415,7 @@ export const CourseEnrollmentSchema = z
     participantId: ParticipantIdSchema,
     courseId: CourseIdSchema,
     originalCourseId: CourseIdSchema,
+    guestComment: GuestCourseCommentSchema.optional(),
     attribution: ImmutableBookingAttributionSchema,
     lifecycle: CourseEnrollmentLifecycleSchema,
     paymentId: PaymentIdSchema,

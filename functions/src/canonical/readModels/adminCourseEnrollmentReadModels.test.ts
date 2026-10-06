@@ -359,6 +359,37 @@ function seed() {
 }
 
 describe('Admin CourseEnrollment read-model callable', () => {
+  it.each([undefined, 'Own board\n<script>alert(1)</script>'])(
+    'projects comments only into admin detail without additional reads (%s)',
+    async (guestComment) => {
+      const fixtures = seed();
+      const id = CourseEnrollmentIdSchema.parse('course_enrollment_admin_pending');
+      const path = `course_enrollments/${id}`;
+      fixtures[path] = {
+        ...fixtures[path],
+        ...(guestComment === undefined ? {} : { guestComment }),
+      };
+      const reads = new Map<string, number>();
+      const handler = createQueryAdminCourseEnrollmentReadModelsHandler(
+        fakeFirestore(fixtures, reads)
+      );
+      const response = await handler({
+        auth: { uid: adminId },
+        data: { scope: 'admin_enrollment_detail', enrollmentId: id },
+      } as never);
+      if (response.scope !== 'admin_enrollment_detail') throw new Error('Unexpected scope');
+      if (guestComment === undefined) expect(response.item).not.toHaveProperty('guestComment');
+      else expect(response.item?.guestComment).toBe(guestComment);
+      expect(reads.get(`doc:${path}`)).toBe(1);
+      const roster = await handler({
+        auth: { uid: adminId },
+        data: { scope: 'admin_course_roster' },
+      } as never);
+      if (roster.scope !== 'admin_course_roster') throw new Error('Unexpected scope');
+      expect(roster.items.every((item) => !('guestComment' in item))).toBe(true);
+    }
+  );
+
   it('loads shared Course, payer Account, and CourseDays once per request', async () => {
     const reads = new Map<string, number>();
     const handler = createQueryAdminCourseEnrollmentReadModelsHandler(fakeFirestore(seed(), reads));

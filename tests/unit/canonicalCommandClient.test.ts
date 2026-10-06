@@ -13,6 +13,32 @@ vi.mock('../../src/lib/functions/functionsClient', () => ({
 }));
 
 describe('canonicalCommandClient', () => {
+  it('forwards the guest course comment in canonical intent', async () => {
+    callFunctionMock.mockResolvedValue({
+      status: 'success',
+      kind: 'create_course_enrollments',
+      correlationId: 'correlation_guest_comment',
+    });
+    await executeGuestCanonicalCommand({
+      kind: 'create_course_enrollments',
+      intent: {
+        courseId: 'course_comment',
+        participantIds: ['participant_comment'],
+        enrollmentIds: ['enrollment_comment'],
+        guestComment: 'Own board',
+      },
+      idempotencyKey: 'guest-comment',
+      guestParticipantDisplayName: 'Guest',
+      guestParticipantDiscipline: 'ski',
+      guestPhone: '+77001234567',
+    });
+    expect(callFunctionMock).toHaveBeenLastCalledWith(
+      GUEST_CANONICAL_COMMAND_CALLABLE,
+      expect.objectContaining({ intent: expect.objectContaining({ guestComment: 'Own board' }) }),
+      expect.anything()
+    );
+  });
+
   it('routes authenticated commands through executeCanonicalCommand callable', async () => {
     callFunctionMock.mockResolvedValueOnce({
       status: 'success',
@@ -62,8 +88,7 @@ describe('canonicalCommandClient', () => {
     });
 
     const payload = callFunctionMock.mock.calls.find(
-      (call) =>
-        (call[1] as { kind?: string } | undefined)?.kind === 'record_manual_wallet_funding'
+      (call) => (call[1] as { kind?: string } | undefined)?.kind === 'record_manual_wallet_funding'
     )?.[1] as {
       intent: Record<string, unknown>;
       requestedTestSessionId?: string;

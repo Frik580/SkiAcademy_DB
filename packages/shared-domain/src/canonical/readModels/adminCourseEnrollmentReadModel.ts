@@ -20,6 +20,7 @@ import {
   AttendanceRecorderSchema,
   AttendanceStatusSchema,
   CourseEnrollmentLifecycleStatusSchema,
+  GuestCourseCommentSchema,
   CourseLifecycleStatusSchema,
 } from '../courseEnrollmentAttendanceAdminIssue';
 import { GuestIdentityLinkUnavailableReasonSchema } from '../guestIdentityLinkingPolicy';
@@ -165,6 +166,7 @@ export type AdminCourseEnrollmentRosterItem = z.output<
 export const AdminCourseEnrollmentDetailReadModelSchema =
   AdminCourseEnrollmentRosterItemSchema.extend({
     originalCourseId: CourseIdSchema,
+    guestComment: GuestCourseCommentSchema.optional(),
     paymentId: PaymentIdSchema,
     payerAccountId: AccountIdSchema.optional(),
     capacity: z

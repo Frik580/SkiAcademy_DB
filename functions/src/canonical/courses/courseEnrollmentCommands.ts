@@ -400,6 +400,12 @@ function createCourseEnrollmentsHandler(
   }
 
   const mode = resolveCourseEnrollmentCreationAuthorization(envelope);
+  if (mode !== 'guest' && envelope.intent.guestComment !== undefined) {
+    throw new CanonicalCommandError('validation', {
+      correlationId: envelope.context.correlationId,
+      details: { field: 'guestComment', reason: 'unsupported' },
+    });
+  }
   const guestContactDetails =
     mode === 'guest' ? guestContactDetailsFromCommand(envelope) : undefined;
   if (mode === 'guest') {
@@ -595,7 +601,8 @@ function createCourseEnrollmentsHandler(
         let authorization: CourseEnrollmentCreationAuthorization = { mode };
         let shouldCreateGuestParticipant = false;
         let guestParticipantProfile:
-          import('@ski-academy/shared-domain').GuestCourseParticipantProfileFromTransport | undefined;
+          | import('@ski-academy/shared-domain').GuestCourseParticipantProfileFromTransport
+          | undefined;
         let participantRecord!: import('@ski-academy/shared-domain').Participant;
         let guestParticipantToUpdate: import('@ski-academy/shared-domain').Participant | undefined;
 
@@ -1215,6 +1222,9 @@ function createCourseEnrollmentsHandler(
             participantId: planned.participantId,
             courseId: envelope.intent.courseId,
             originalCourseId: envelope.intent.courseId,
+            ...(envelope.intent.guestComment === undefined
+              ? {}
+              : { guestComment: envelope.intent.guestComment }),
             attribution,
             lifecycle,
             paymentId: planned.paymentId,

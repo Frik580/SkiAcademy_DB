@@ -36,6 +36,18 @@ vi.mock('motion/react', () => ({
   },
 }));
 
+vi.mock('../../src/features/auth', () => ({
+  Auth: ({ onSuccess }: any) => (
+    <div aria-label="Existing auth UI">
+      <button type="button">Sign in</button>
+      <button type="button">Register</button>
+      <button type="button" onClick={() => onSuccess(userProfile)}>
+        Finish auth
+      </button>
+    </div>
+  ),
+}));
+
 vi.mock('canvas-confetti', () => ({ default: mocks.confetti }));
 
 vi.mock('../../src/app/providers/LanguageContext', () => ({
@@ -43,6 +55,9 @@ vi.mock('../../src/app/providers/LanguageContext', () => ({
     t: (key: string) =>
       (
         ({
+          submitGuestCourseApplicationShort: 'Send request',
+          guestCourseSignIn: 'Already have an account? Sign in',
+          guestCourseAddOptionalDetails: '+ Add email or comment',
           guestCourseHoldUntil: 'Your place on the course is temporarily held until {deadline}.',
           guestCoursePrice: 'Course price: {amount}.',
           guestAdminContactPayment: 'An administrator will contact you to arrange payment.',
@@ -538,7 +553,7 @@ describe('CourseEnrollmentModal guest enrollment', () => {
       fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
         target: { value: '+77001234567' },
       });
-      fireEvent.click(screen.getByRole('button', { name: /submitGuestCourseApplication/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Send request/i }));
       await waitFor(() =>
         expect(within(dialog).getByRole('status')).toHaveTextContent('guestPendingTitle')
       );
@@ -599,9 +614,7 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     );
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Canonical Guest'));
     expect(mocks.loadGuestSingleCourseEnrollment).toHaveBeenCalledTimes(1);
-    expect(
-      screen.queryByRole('button', { name: /submitGuestCourseApplication/i })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Send request/i })).not.toBeInTheDocument();
     rerender(
       <StrictMode>
         <CourseEnrollmentModal {...props} isOpen={false} />
@@ -636,9 +649,7 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     );
     const props = { isOpen: true, onClose: vi.fn(), onEnroll: vi.fn() };
     const { rerender } = render(<CourseEnrollmentModal {...props} course={course} />);
-    expect(
-      screen.queryByRole('button', { name: /submitGuestCourseApplication/i })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Send request/i })).not.toBeInTheDocument();
     rerender(
       <CourseEnrollmentModal
         {...props}
@@ -648,8 +659,46 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     await act(async () => {
       finishLookup(pendingGuestReservation);
     });
-    expect(screen.getByRole('button', { name: /submitGuestCourseApplication/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /Send request/i })).toBeEnabled();
     expect(screen.queryByText('Canonical Guest')).not.toBeInTheDocument();
+    expect(mocks.createGuestEnrollment).not.toHaveBeenCalled();
+  });
+
+  it('starts with only required contacts and discloses optional details without losing them in auth', async () => {
+    render(<CourseEnrollmentModal isOpen onClose={vi.fn()} course={course} onEnroll={vi.fn()} />);
+    expect(screen.getByLabelText('guestCourseNameLabel *')).toBeRequired();
+    expect(screen.getByLabelText('guestCoursePhoneLabel *')).toBeRequired();
+    expect(screen.queryByLabelText('participantsAgeLabel *')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('participantsSkillLabel *')).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('guestEmailPlaceholder')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('personalGoalsPlaceholder')).not.toBeInTheDocument();
+    expect(screen.queryByText('guestBookingNotice')).not.toBeInTheDocument();
+    expect(screen.getAllByText('45000')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Send request' })).toBeEnabled();
+    await userEvent.click(screen.getByRole('button', { name: '+ Add email or comment' }));
+    const email = screen.getByLabelText('guestCourseEmailLabel');
+    const comment = screen.getByLabelText('guestCourseCommentLabel');
+    expect(email).not.toBeRequired();
+    expect(comment).not.toBeRequired();
+    await userEvent.type(email, 'guest@example.com');
+    await userEvent.type(comment, 'Please call');
+    await userEvent.click(screen.getByRole('button', { name: 'Already have an account? Sign in' }));
+    expect(screen.getByLabelText('Existing auth UI')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Register' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Send request' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'guestBookingTab' }));
+    expect(screen.getByLabelText('guestCourseEmailLabel')).toHaveValue('guest@example.com');
+    expect(screen.getByLabelText('guestCourseCommentLabel')).toHaveValue('Please call');
+  });
+
+  it('continues into the existing authenticated enrollment after auth succeeds', async () => {
+    mocks.participants = [selfOnly];
+    render(<CourseEnrollmentModal isOpen onClose={vi.fn()} course={course} onEnroll={vi.fn()} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Already have an account? Sign in' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Finish auth' }));
+    expect(screen.getByRole('button', { name: /enroll/i })).toBeEnabled();
+    expect(mocks.resetSelection).toHaveBeenCalledOnce();
     expect(mocks.createGuestEnrollment).not.toHaveBeenCalled();
   });
 
@@ -677,10 +726,14 @@ describe('CourseEnrollmentModal guest enrollment', () => {
       fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
         target: { value: '+77001234567' },
       });
+      fireEvent.click(screen.getByRole('button', { name: '+ Add email or comment' }));
       fireEvent.change(screen.getByPlaceholderText('guestEmailPlaceholder'), {
         target: { value: 'guest@example.com' },
       });
-      await userEvent.click(screen.getByRole('button', { name: /submitGuestCourseApplication/i }));
+      fireEvent.change(screen.getByLabelText('guestCourseCommentLabel'), {
+        target: { value: '  Please call  ' },
+      });
+      await userEvent.click(screen.getByRole('button', { name: /Send request/i }));
 
       await waitFor(() => {
         expect(mocks.createGuestEnrollment).toHaveBeenCalledWith(
@@ -688,8 +741,10 @@ describe('CourseEnrollmentModal guest enrollment', () => {
             courseId: 'course_01',
             participantId: 'guest_session_participant_01',
             enrollmentId: 'attempt_01',
+            guestDisplayName: 'Guest One',
             guestPhone: '+77001234567',
             guestEmail: 'guest@example.com',
+            guestComment: 'Please call',
             guestDiscipline: discipline,
           })
         );
@@ -705,6 +760,28 @@ describe('CourseEnrollmentModal guest enrollment', () => {
       expect(screen.queryByRole('button', { name: /pay/i })).not.toBeInTheDocument();
       expect(mocks.loadGuestSingleCourseEnrollment).toHaveBeenCalledWith('attempt_01');
       expect(mocks.confetti).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each(['', '   ', 'x'.repeat(500)])(
+    'submits optional comment with trim and the 500-character limit (%s)',
+    async (comment) => {
+      render(<CourseEnrollmentModal isOpen onClose={vi.fn()} course={course} onEnroll={vi.fn()} />);
+      fireEvent.change(screen.getByLabelText('guestCourseNameLabel *'), {
+        target: { value: 'Guest One' },
+      });
+      fireEvent.change(screen.getByLabelText('guestCoursePhoneLabel *'), {
+        target: { value: '+77001234567' },
+      });
+      await userEvent.click(screen.getByRole('button', { name: '+ Add email or comment' }));
+      const textarea = screen.getByLabelText('guestCourseCommentLabel');
+      expect(textarea).toHaveAttribute('maxLength', '500');
+      fireEvent.change(textarea, { target: { value: comment } });
+      await userEvent.click(screen.getByRole('button', { name: 'Send request' }));
+      await waitFor(() => expect(mocks.createGuestEnrollment).toHaveBeenCalledOnce());
+      const input = mocks.createGuestEnrollment.mock.calls[0][0];
+      if (comment.trim()) expect(input.guestComment).toBe(comment.trim());
+      else expect(input).not.toHaveProperty('guestComment');
     }
   );
 
@@ -732,7 +809,7 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
       target: { value: '+77001234567' },
     });
-    fireEvent.click(screen.getByRole('button', { name: /submitGuestCourseApplication/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Send request/i }));
 
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Complete profile' })).toBeInTheDocument()
@@ -771,7 +848,7 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
       target: { value: '+77001234567' },
     });
-    fireEvent.click(screen.getByRole('button', { name: /submitGuestCourseApplication/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Send request/i }));
 
     await waitFor(() =>
       expect(mocks.createGuestEnrollment).toHaveBeenCalledWith(
@@ -792,14 +869,11 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     delete legacyCourse.discipline;
     expect(legacyCourse).not.toHaveProperty('discipline');
     render(
-      <CourseEnrollmentModal
-        isOpen
-        onClose={vi.fn()}
-        course={legacyCourse}
-        onEnroll={vi.fn()}
-      />
+      <CourseEnrollmentModal isOpen onClose={vi.fn()} course={legacyCourse} onEnroll={vi.fn()} />
     );
-    expect(screen.getByRole('combobox', { name: /^participantsDisciplineLabel \*/ })).toBeRequired();
+    expect(
+      screen.getByRole('combobox', { name: /^participantsDisciplineLabel \*/ })
+    ).toBeRequired();
     expect(screen.queryByLabelText('participantsAgeLabel *')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('participantsSkillLabel *')).not.toBeInTheDocument();
   });
@@ -814,7 +888,7 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
       target: { value: '+77001234567' },
     });
-    fireEvent.click(screen.getByRole('button', { name: /submitGuestCourseApplication/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Send request/i }));
 
     await waitFor(() => {
       expect(mocks.createGuestEnrollment).toHaveBeenCalledTimes(1);
@@ -851,7 +925,7 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
       target: { value: '+77001234567' },
     });
-    fireEvent.click(screen.getByRole('button', { name: /submitGuestCourseApplication/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Send request/i }));
     await waitFor(() => expect(screen.getByText('guestPendingTitle')).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: 'guestCheckStatus' }));
     await waitFor(() => expect(screen.getByText('guestCourseConfirmedTitle')).toBeInTheDocument());
@@ -874,9 +948,7 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     await waitFor(() => expect(screen.getByText('guestCourseExpiredTitle')).toBeInTheDocument());
     expect(screen.queryByText('guestAdminContactPayment')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'guestNewBooking' }));
-    expect(
-      screen.getByRole('button', { name: /submitGuestCourseApplication/i })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Send request/i })).toBeInTheDocument();
     expect(localStorage.getItem('ski_academy_guest_reservation:course:course_01')).toBeNull();
   });
 
@@ -890,9 +962,7 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     expect(
       screen.queryByRole('button', { name: 'guestCheckPreviousStatus' })
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /submitGuestCourseApplication/i })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Send request/i })).toBeInTheDocument();
     expect(localStorage.getItem(key)).toBeNull();
   });
 
@@ -935,7 +1005,7 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
       target: { value: '+77001234567' },
     });
-    fireEvent.click(screen.getByRole('button', { name: /submitGuestCourseApplication/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Send request/i }));
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
     expect(cardA.querySelector('[role="alert"]')).toBeNull();
     expect(cardB.querySelector('[role="alert"]')).toBeNull();
@@ -975,7 +1045,7 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
       target: { value: '+77001234567' },
     });
-    const submit = screen.getByRole('button', { name: /submitGuestCourseApplication/i });
+    const submit = screen.getByRole('button', { name: /Send request/i });
     fireEvent.click(submit);
     await waitFor(() => expect(mocks.createGuestEnrollment).toHaveBeenCalledTimes(1));
     expect(submit).toBeDisabled();
@@ -1048,7 +1118,7 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
       target: { value: '+77001234567' },
     });
-    fireEvent.click(screen.getByRole('button', { name: /submitGuestCourseApplication/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Send request/i }));
     await waitFor(() =>
       expect(mocks.addNotification).toHaveBeenCalledWith(
         'error',
@@ -1068,9 +1138,7 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     render(<CourseEnrollmentModal isOpen onClose={vi.fn()} course={course} onEnroll={vi.fn()} />);
 
     expect(screen.getByRole('button', { name: /courseAwaitingPayment/i })).toBeDisabled();
-    expect(
-      screen.queryByRole('button', { name: /submitGuestCourseApplication/i })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Send request/i })).not.toBeInTheDocument();
   });
 
   it('hides the enroll CTA when the same guest is already confirmed', () => {
@@ -1082,8 +1150,6 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     render(<CourseEnrollmentModal isOpen onClose={vi.fn()} course={course} onEnroll={vi.fn()} />);
 
     expect(screen.getByRole('button', { name: /courseEnrolled/i })).toBeDisabled();
-    expect(
-      screen.queryByRole('button', { name: /submitGuestCourseApplication/i })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Send request/i })).not.toBeInTheDocument();
   });
 });

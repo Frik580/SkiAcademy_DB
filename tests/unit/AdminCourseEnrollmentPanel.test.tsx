@@ -184,6 +184,39 @@ const course = {
 };
 
 describe('AdminCourseEnrollmentPanel', () => {
+  it.each([undefined, 'Own board\n<script>alert(1)</script>'])(
+    'renders optional customer comment as plain text (%s)',
+    async (guestComment) => {
+      queryAdminCourseEnrollmentReadModels.mockImplementation(async (input) =>
+        input.scope === 'admin_enrollment_detail'
+          ? {
+              scope: input.scope,
+              item: {
+                ...detail,
+                guestState: 'pending_unlinked',
+                ...(guestComment === undefined ? {} : { guestComment }),
+              },
+            }
+          : { scope: input.scope, items: [rosterItem], hasMore: false }
+      );
+      const { container } = render(
+        <MemoryRouter initialEntries={['/?enrollment=course_enrollment_admin_component_01']}>
+          <AdminCourseEnrollmentPanel adminAccountId="account_admin_component_01" />
+        </MemoryRouter>
+      );
+      await screen.findByRole('heading', { name: 'Canonical Participant' });
+      if (guestComment === undefined)
+        expect(screen.queryByText('Customer comment')).not.toBeInTheDocument();
+      else {
+        expect(screen.getByText('Customer comment')).toBeInTheDocument();
+        const text = screen.getByText('Own board <script>alert(1)</script>');
+        expect(text.textContent).toBe(guestComment);
+        expect(text).toHaveClass('whitespace-pre-wrap');
+        expect(container.querySelector('script')).toBeNull();
+      }
+    }
+  );
+
   beforeEach(() => {
     vi.clearAllMocks();
     queryAdminCourseEnrollmentReadModels.mockImplementation(async (input) =>

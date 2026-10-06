@@ -17,7 +17,10 @@ import {
   ParticipantManagementIdSchema,
   PaymentIdSchema,
 } from '../identifiers';
-import { AttendanceStatusSchema } from '../courseEnrollmentAttendanceAdminIssue';
+import {
+  AttendanceStatusSchema,
+  GuestCourseCommentSchema,
+} from '../courseEnrollmentAttendanceAdminIssue';
 import { CourseProvisioningManifestSchema } from '../courseProvisioningManifest';
 import { CourseCatalogContentInputSchema } from '../courseCatalogContent';
 import { AdministrativeAvailabilityBlockKindSchema } from '../administrativeAvailabilityBlock';
@@ -560,6 +563,7 @@ export const CommandIntentSchemaByKind = {
     .strict(),
   create_course_enrollments: z
     .object({
+      guestComment: GuestCourseCommentSchema.optional(),
       courseId: CourseIdSchema,
       participantIds: z.array(ParticipantIdSchema).min(1).max(8),
       enrollmentIds: z.array(CourseEnrollmentIdSchema).min(1).max(8).optional(),

@@ -72,9 +72,12 @@ const guestCallableTransportSchemas = [
     kind: z.literal('create_course_enrollments'),
     intent: CommandIntentSchemaByKind.create_course_enrollments,
     ...guestCallableTransportBaseFields,
+    guestParticipantDisplayName: guestParticipantProfileTransportFields.guestParticipantDisplayName,
+    guestParticipantDiscipline: guestParticipantProfileTransportFields.guestParticipantDiscipline,
     guestPhone: GuestContactDetailsSchema.shape.phone,
     guestEmail: GuestContactDetailsSchema.shape.email,
   }).strict(),
+  guestCallableTransportSchemaForKind('update_participant_profile'),
   guestCallableTransportSchemaForKind('withdraw_course_enrollment'),
   guestCallableTransportSchemaForKind('request_course_enrollment_cancellation'),
 ] as const;

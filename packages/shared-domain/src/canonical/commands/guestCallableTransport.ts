@@ -77,7 +77,7 @@ const guestCallableTransportSchemas = [
     guestPhone: GuestContactDetailsSchema.shape.phone,
     guestEmail: GuestContactDetailsSchema.shape.email,
   }).strict(),
-  guestCallableTransportSchemaForKind('update_participant_profile'),
+  guestCallableTransportSchemaForKind('complete_guest_participant_profile'),
   guestCallableTransportSchemaForKind('withdraw_course_enrollment'),
   guestCallableTransportSchemaForKind('request_course_enrollment_cancellation'),
 ] as const;

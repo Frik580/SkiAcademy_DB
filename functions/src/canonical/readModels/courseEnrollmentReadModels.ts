@@ -714,6 +714,9 @@ export async function queryCourseEnrollmentReadModels(
       participant: {
         participantId: participant.participantId,
         displayName: participant.displayName,
+        ...(participant.age.kind === 'age_years' ? { ageYears: participant.age.years } : {}),
+        ...(participant.skillLevel ? { skillLevel: participant.skillLevel } : {}),
+        discipline: participant.discipline,
       },
       lifecycle: buildLifecycleProjection(enrollment),
       courseDisplay: { courseId: course.courseId, title: course.title },

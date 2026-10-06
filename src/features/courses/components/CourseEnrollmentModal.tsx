@@ -28,12 +28,6 @@ import type { AuthenticatedCourseEnrollmentSelection } from '../useCourseActions
 import { ParticipantPicker } from '../../participants/components/ParticipantPicker';
 import { GuestReservationStatus } from '../../guest-reservations/GuestReservationStatus';
 import { presentCancellationError } from '../../student-cabinet/presentCancellationError';
-import { GuestParticipantFields } from '../../guest-reservations/GuestParticipantFields';
-import {
-  parseGuestParticipantForm,
-  guestParticipantCommandFields,
-  type GuestParticipantFormInput,
-} from '../../guest-reservations/guestParticipantForm';
 import { getDifficultyLabel } from '../../../lib/i18n/bookingLabels';
 import {
   forgetGuestReservation,
@@ -88,7 +82,8 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   }));
   const { formatPrice } = useCurrency();
   const { addNotification } = useNotifications();
-  const { createGuestEnrollment, requestCancellation } = useCourseEnrollmentCommands(undefined);
+  const { createGuestEnrollment, completeGuestParticipantProfile, requestCancellation } =
+    useCourseEnrollmentCommands(undefined);
 
   const [unauthTab, setUnauthTab] = useState<'guest' | 'auth'>('guest');
   const [authenticatedProfile, setAuthenticatedProfile] = useState<UserProfile | null>(
@@ -98,10 +93,11 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   const [guestPhone, setGuestPhone] = useState('');
   const [guestEmail, setGuestEmail] = useState('');
   const [guestNotes, setGuestNotes] = useState('');
-  const [guestAgeYears, setGuestAgeYears] = useState('');
-  const [guestDiscipline, setGuestDiscipline] =
-    useState<GuestParticipantFormInput['discipline']>('');
-  const [guestSkillLevel, setGuestSkillLevel] = useState('');
+  const [guestDiscipline, setGuestDiscipline] = useState<'' | 'ski' | 'snowboard'>('');
+  const [guestProfileAgeYears, setGuestProfileAgeYears] = useState('');
+  const [guestProfileSkillLevel, setGuestProfileSkillLevel] = useState('');
+  const [showGuestProfileCompletion, setShowGuestProfileCompletion] = useState(false);
+  const [isCompletingGuestProfile, setIsCompletingGuestProfile] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [guestQuotaErrorCourseId, setGuestQuotaErrorCourseId] = useState<string | null>(null);
   const [guestCreatedEnrollmentId, setGuestCreatedEnrollmentId] = useState<string | null>(null);
@@ -207,6 +203,10 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
     setGuestRefreshing(false);
     setGuestRefreshError(false);
     setGuestLookupError(null);
+    setGuestProfileAgeYears('');
+    setGuestProfileSkillLevel('');
+    setShowGuestProfileCompletion(false);
+    setIsCompletingGuestProfile(false);
     if (!isOpen) {
       setUnauthTab(userProfile ? 'auth' : 'guest');
     }
@@ -258,25 +258,9 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
       addNotification('warning', t('missingDetails'), t('guestPhoneLabel'));
       return;
     }
-    const guestProfile = parseGuestParticipantForm({
-      displayName: guestName,
-      ageYears: guestAgeYears,
-      discipline: guestDiscipline,
-      skillLevel: guestSkillLevel,
-    });
-    if (!guestProfile.success) {
-      const field = guestProfile.error.issues[0]?.path[0];
-      addNotification(
-        'warning',
-        t('missingDetails'),
-        t(
-          field === 'discipline'
-            ? 'participantsDisciplineLabel'
-            : field === 'skillLevel'
-              ? 'participantsSkillLabel'
-              : 'participantsAgeLabel'
-        )
-      );
+    const resolvedGuestDiscipline = course.discipline ?? guestDiscipline;
+    if (!resolvedGuestDiscipline) {
+      addNotification('warning', t('missingDetails'), t('participantsDisciplineLabel'));
       return;
     }
 
@@ -297,7 +281,8 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
         enrollmentId: stableEnrollmentId,
         participantId,
         identity: { enrollmentId: stableEnrollmentId, idempotencyKey },
-        ...guestParticipantCommandFields(guestProfile.data),
+        guestDisplayName: guestName.trim(),
+        guestDiscipline: resolvedGuestDiscipline,
         guestPhone: guestPhone.trim(),
         guestEmail: guestEmail.trim() || undefined,
         notificationLocale: language,
@@ -412,6 +397,52 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
     }
   };
 
+  const completeGuestProfile = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!guestCreatedEnrollmentId || isCompletingGuestProfile) return;
+    const ageYears = Number(guestProfileAgeYears);
+    if (!Number.isInteger(ageYears) || ageYears < 0 || ageYears > 125) {
+      addNotification('warning', t('missingDetails'), t('participantsAgeLabel'));
+      return;
+    }
+    if (!guestProfileSkillLevel) {
+      addNotification('warning', t('missingDetails'), t('participantsSkillLabel'));
+      return;
+    }
+    const credential = readGuestCourseEnrollmentCredential(guestCreatedEnrollmentId).credential;
+    if (!credential) {
+      addNotification('error', t('requestFailed'), t('guestStatusRefreshFailed'));
+      return;
+    }
+    setIsCompletingGuestProfile(true);
+    try {
+      await completeGuestParticipantProfile({
+        enrollmentId: guestCreatedEnrollmentId,
+        ageYears,
+        skillLevel: guestProfileSkillLevel,
+        guestCredential: credential,
+      });
+      const refreshed = await loadGuestSingleCourseEnrollment(guestCreatedEnrollmentId);
+      setGuestReservation(refreshed);
+      setGuestRefreshError(false);
+      setShowGuestProfileCompletion(false);
+      addNotification(
+        'success',
+        language === 'ru' ? 'Профиль участника заполнен' : 'Participant profile completed',
+        language === 'ru'
+          ? 'Возраст и уровень сохранены.'
+          : 'Age and skill level were saved.'
+      );
+    } catch (error) {
+      const presented = presentCanonicalCommandErrorWithContext(error, {
+        t: t as (key: string) => string,
+      });
+      addNotification('error', t('requestFailed'), presented.message || t('bookingRecordFailed'));
+    } finally {
+      setIsCompletingGuestProfile(false);
+    }
+  };
+
   const startNewGuestBooking = () => {
     forgetGuestReservation('course', course.id, guestCreatedEnrollmentId ?? undefined);
     guestEnrollmentAttemptKeyRef.current = null;
@@ -419,6 +450,9 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
     setGuestReservation(undefined);
     setGuestRefreshError(false);
     setGuestLookupError(null);
+    setGuestProfileAgeYears('');
+    setGuestProfileSkillLevel('');
+    setShowGuestProfileCompletion(false);
   };
 
   const handleSubmitAuthenticated = async (e: React.FormEvent) => {
@@ -462,6 +496,10 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   };
 
   const showAuthenticatedEnrollment = Boolean(authenticatedProfile);
+  const guestProfileIncomplete =
+    Boolean(guestReservation?.participant) &&
+    (guestReservation?.participant.ageYears === undefined ||
+      !guestReservation?.participant.skillLevel);
   const guestReservationDetails =
     guestReservation?.courseSchedule &&
     guestReservation.courseDisplay &&

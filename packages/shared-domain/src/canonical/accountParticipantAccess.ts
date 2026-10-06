@@ -183,6 +183,7 @@ function isCalendarDate(value: string): boolean {
 }
 
 const ParticipantAgeSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('unknown') }).strict(),
   z
     .object({
       kind: z.literal('birth_date'),

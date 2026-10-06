@@ -390,6 +390,7 @@ const EMPTY_CREATE_FORM: CreateFormState = {
   badge: '',
   badgeRu: '',
   level: '',
+  discipline: '',
   levelLabel: '',
   videoUrl: '',
   benefits: '',
@@ -436,6 +437,7 @@ function formFromAuthoritativeDetail(course: AdminCourseReadModel): CreateFormSt
     badge: content.badge ?? '',
     badgeRu: content.badgeRu ?? '',
     level: content.level ?? '',
+    discipline: content.discipline ?? '',
     levelLabel: content.levelLabel ?? '',
     videoUrl: content.videoUrl ?? '',
     benefits: content.benefits?.join('\n') ?? '',
@@ -987,6 +989,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
       badge: language === 'ru' ? 'Метка' : 'Badge',
       badgeRu: language === 'ru' ? 'Метка на русском' : 'Russian badge',
       level: language === 'ru' ? 'Уровень' : 'Level',
+      discipline: language === 'ru' ? 'Дисциплина' : 'Discipline',
       levelLabel: language === 'ru' ? 'Подпись уровня' : 'Level label',
       videoUrl: language === 'ru' ? 'Ссылка на видео' : 'Video URL',
       benefits: language === 'ru' ? 'Преимущества' : 'Benefits',
@@ -1036,6 +1039,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
           'badge',
           'badgeRu',
           'level',
+          'discipline',
           'levelLabel',
           'videoUrl',
           'benefits',
@@ -2730,6 +2734,23 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                   <option value="expert">{language === 'ru' ? 'Экспертный' : 'Expert'}</option>
                 </select>
               </label>
+              <label htmlFor="canonical-course-discipline" className="grid gap-1 text-xs">
+                {createFieldLabel('discipline')}
+                <select
+                  id="canonical-course-discipline"
+                  value={createForm.discipline}
+                  onChange={(event) =>
+                    updateCreateField(
+                      'discipline',
+                      event.target.value as CreateFormState['discipline']
+                    )
+                  }
+                >
+                  <option value="">—</option>
+                  <option value="ski">{language === 'ru' ? 'Лыжи' : 'Ski'}</option>
+                  <option value="snowboard">{language === 'ru' ? 'Сноуборд' : 'Snowboard'}</option>
+                </select>
+              </label>
               <label htmlFor="canonical-course-order" className="grid gap-1 text-xs">
                 {createFieldLabel('order')}
                 <input
@@ -3129,6 +3150,23 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                         {language === 'ru' ? 'Продвинутый' : 'Advanced'}
                       </option>
                       <option value="expert">{language === 'ru' ? 'Экспертный' : 'Expert'}</option>
+                    </select>
+                  </label>
+                  <label htmlFor="course-edit-discipline" className="grid gap-1 text-xs">
+                    {language === 'ru' ? 'Дисциплина' : 'Discipline'}
+                    <select
+                      id="course-edit-discipline"
+                      value={editForm.discipline}
+                      onChange={(event) =>
+                        updateEditField(
+                          'discipline',
+                          event.target.value as CreateFormState['discipline']
+                        )
+                      }
+                    >
+                      <option value="">—</option>
+                      <option value="ski">{language === 'ru' ? 'Лыжи' : 'Ski'}</option>
+                      <option value="snowboard">{language === 'ru' ? 'Сноуборд' : 'Snowboard'}</option>
                     </select>
                   </label>
                   <label htmlFor="course-edit-level-label" className="grid gap-1 text-xs">

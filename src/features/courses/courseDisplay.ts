@@ -63,6 +63,7 @@ export function buildCourseFromCanonicalAggregateAndContent(
     badge: catalog?.badge,
     badgeRu: catalog?.badgeRu,
     level: catalog?.level,
+    discipline: catalog?.discipline,
     levelLabel: catalog?.levelLabel,
     videoUrl: catalog?.videoUrl,
     benefits: catalog?.benefits,

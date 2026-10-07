@@ -5,7 +5,8 @@ import { ResortDataSection } from '../../src/features/admin/components/resort/se
 const { source } = vi.hoisted(() => ({
   source: { config: null as null | { nameEn?: string; nameRu?: string } },
 }));
-vi.mock('../../src/features/settings', () => ({
+vi.mock('../../src/features/settings', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/features/settings')>()),
   subscribeResortConfig: (onConfig: (config: typeof source.config) => void) => {
     onConfig(source.config);
     return () => {};

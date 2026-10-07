@@ -71,7 +71,8 @@ vi.mock('../../src/features/courses/coursesStore', () => ({
   useCoursesStore: (select: (value: Record<string, unknown>) => unknown) =>
     select({ courses: state.empty }),
 }));
-vi.mock('../../src/features/settings', () => ({
+vi.mock('../../src/features/settings', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/features/settings')>()),
   useSettingsStore: (select: (value: Record<string, unknown>) => unknown) =>
     select({ filtersEnabled: false }),
 }));

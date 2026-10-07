@@ -1,15 +1,9 @@
-import { compactStudentDashboardLanes } from '../../../settings/studentDashboardVerticalLayout';
-import { useStudentDashboardTileHeights } from './useStudentDashboardTileHeights';
 import {
   useStudentTodayAchievements,
   hasStudentTodayProgress,
 } from './useStudentTodayAchievements';
-import { resolveStudentDashboardDesktopLayout } from '../../../settings/studentDashboardDesktopLayout';
-import { StudentDashboardPlacementContext } from './studentDashboardPlacementContext';
-import { useStudentDashboardViewport } from './useStudentDashboardDesktop';
-import { resolveStudentDashboardTabletLayout } from '../../../settings/studentDashboardTabletLayout';
 import { StudentDashboardTileHeader, StudentDashboardTileBody } from './StudentDashboardTile';
-import React, { useMemo, useState, useRef } from 'react';
+import React, { useMemo, useState } from 'react';
 import { YourJourneySection } from '../../../../features/journey';
 import {
   getMiniCalendarDaysFromSessions,
@@ -36,7 +30,8 @@ import {
 import { TodayTasksBlock } from './StudentTodayTasksBlock';
 import { PresentedTodayProgressBlock } from './StudentTodayProgressBlock';
 import { StudentNextStepCard } from './StudentNextStepCard';
-import { StudentDashboardTile, STUDENT_DASHBOARD_GRID_CLASSES } from './StudentDashboardTile';
+import { StudentDashboardTile } from './StudentDashboardTile';
+import { StudentDashboardColumns } from './StudentDashboardColumns';
 import { useSettingsStore } from '../../../settings/settingsStore';
 import {
   STUDENT_DASHBOARD_TILES,
@@ -59,10 +54,6 @@ export type { StudentCabinetHomeContext as StudentCabinetContext } from './stude
 
 export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => {
   const { t, lang } = useStudentCabinetTranslations();
-  const viewport = useStudentDashboardViewport();
-  const isDesktop = viewport === 'desktop';
-  const isTablet = viewport === 'tablet';
-  const gridRef = useRef<HTMLDivElement>(null);
   const [expiredCountdown, setExpiredCountdown] = useState<number | null>(null);
   const layout = useSettingsStore((state) => state.studentDashboardLayout);
   const {
@@ -393,29 +384,6 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
       ) : null,
   };
 
-  const visibleKeys = layout.order.filter((key) => tiles[key] !== null);
-  const desktopRows = isDesktop ? resolveStudentDashboardDesktopLayout(layout, visibleKeys) : [];
-  const horizontal = desktopRows.flatMap((row) => row.tiles);
-  const layoutIdentity = isDesktop
-    ? 'desktop:' +
-      horizontal.map((tile) => `${tile.key}:${tile.effectiveSize}:${tile.column}`).join('|')
-    : `${viewport}:${visibleKeys.join('|')}`;
-  const heights = useStudentDashboardTileHeights(gridRef, isDesktop || isTablet, layoutIdentity);
-  const canCompact =
-    isDesktop && horizontal.length > 0 && horizontal.every((tile) => (heights[tile.key] ?? 0) > 0);
-  const compacted = canCompact ? compactStudentDashboardLanes(desktopRows, heights) : null;
-  const tablet =
-    isTablet && visibleKeys.length > 0 && visibleKeys.every((key) => (heights[key] ?? 0) > 0)
-      ? resolveStudentDashboardTabletLayout(
-          visibleKeys.map((key) => ({ key, width: 'half' })),
-          heights
-        )
-      : null;
-  const placements = tablet?.placements ?? compacted?.placements ?? horizontal;
-  const renderOrder = isDesktop || tablet ? placements.map((tile) => tile.key) : visibleKeys;
-  const placementMap =
-    isDesktop || tablet ? new Map(placements.map((tile) => [tile.key, tile])) : null;
-
   return (
     <div className="space-y-0 pb-24 w-full min-w-0">
       <div className="w-full shrink-0">
@@ -438,18 +406,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
             {t('scTodaySection')}
           </p>
         </header>
-        <StudentDashboardPlacementContext.Provider value={placementMap}>
-          <div
-            ref={gridRef}
-            className={`${STUDENT_DASHBOARD_GRID_CLASSES} relative`}
-            style={tablet || compacted ? { height: (tablet ?? compacted)!.height } : undefined}
-            data-testid="student-dashboard-grid"
-          >
-            {renderOrder.map((key) => (
-              <React.Fragment key={key}>{tiles[key]}</React.Fragment>
-            ))}
-          </div>
-        </StudentDashboardPlacementContext.Provider>
+        <StudentDashboardColumns tiles={tiles} order={layout.order} />
       </div>
     </div>
   );

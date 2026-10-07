@@ -222,9 +222,17 @@ beforeEach(() => {
 
 describe('Student Home dashboard grid', () => {
   const tileOrder = () =>
-    [...screen.getByTestId('student-dashboard-grid').children].map((node) =>
-      node.getAttribute('data-dashboard-tile')
-    );
+    [
+      ...screen
+        .getByTestId('student-dashboard-grid')
+        .querySelectorAll<HTMLElement>('[data-dashboard-item]'),
+    ].map((node) => node.getAttribute('data-dashboard-item'));
+  const columnOrder = (column: 'left' | 'right') =>
+    [
+      ...screen
+        .getByTestId('student-dashboard-grid')
+        .querySelector(`[data-dashboard-column="${column}"]`)!.children,
+    ].map((node) => node.getAttribute('data-dashboard-item'));
 
   it('renders Journey full width above and outside the grid, independently of remote order and size', () => {
     const view = render(
@@ -257,9 +265,9 @@ describe('Student Home dashboard grid', () => {
     expectMarkerProgress('Alice Student', 'alice');
     expect(tileOrder()).not.toContain('masteryPath');
     expect(tileOrder().slice(0, 2)).toEqual(['weather', 'skillRadar']);
-    expect(screen.getByText('scWeatherOnSlope').closest('[data-dashboard-tile]')).toHaveClass(
-      'xl:col-span-12'
-    );
+    expect(
+      screen.getByText('scWeatherOnSlope').closest('[data-dashboard-item]')!.parentElement
+    ).toBe(grid);
     view.rerender(
       <MemoryRouter>
         <StudentCabinetHome {...input('bob')} />
@@ -272,6 +280,13 @@ describe('Student Home dashboard grid', () => {
   });
 
   it('uses the same shell, header and body for all ten tiles while leaving Journey independent', () => {
+    let desktop = true;
+    const listeners = new Set<() => void>();
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query === '(min-width: 1280px)' && desktop,
+      addEventListener: (_event: string, callback: () => void) => listeners.add(callback),
+      removeEventListener: (_event: string, callback: () => void) => listeners.delete(callback),
+    }));
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date(2099, 0, 1, 9, 0));
     const upcoming: CabinetSessionItem = {
@@ -327,8 +342,18 @@ describe('Student Home dashboard grid', () => {
       </MemoryRouter>
     );
     const grid = screen.getByTestId('student-dashboard-grid');
-    expect(tileOrder()).toEqual(DEFAULT_STUDENT_DASHBOARD_LAYOUT.order);
-    for (const tile of Array.from(grid.children)) {
+    expect(new Set(tileOrder())).toEqual(new Set(DEFAULT_STUDENT_DASHBOARD_LAYOUT.order));
+    expect(columnOrder('left')).toEqual([
+      'currentSessions',
+      'countdown',
+      'nextStep',
+      'skillRadar',
+      'needsAttention',
+      'instructorRecommendations',
+      'weather',
+    ]);
+    expect(columnOrder('right')).toEqual(['todayTasks', 'nextSession', 'todayAchievements']);
+    for (const tile of Array.from(grid.querySelectorAll('[data-dashboard-tile]'))) {
       expect(tile).toHaveClass('ui-card', 'p-4', 'sm:p-5');
       const header = tile.querySelector('[data-dashboard-header]')!;
       expect(header).toHaveClass('flex', 'items-center', 'h-12', 'min-h-12');
@@ -350,7 +375,6 @@ describe('Student Home dashboard grid', () => {
 
     // Optional export uses this real ten-tile render for isolated Chromium layout verification.
     if (process.env.STUDENT_DASHBOARD_VISUAL_DIR) {
-      vi.stubGlobal('matchMedia', () => ({ matches: true }));
       const radar = render(
         <SkillRadarChart
           userProfile={input('alice').userProfile}
@@ -365,289 +389,167 @@ describe('Student Home dashboard grid', () => {
         .replaceWith(radar.container.firstElementChild!.cloneNode(true));
       mkdirSync(process.env.STUDENT_DASHBOARD_VISUAL_DIR, { recursive: true });
       writeFileSync(process.env.STUDENT_DASHBOARD_VISUAL_DIR + '/tiles.html', fixture.outerHTML);
-    }
-  });
-
-  it('uses resolved desktop DOM order and restores canonical mobile order without remounting', () => {
-    let desktop = true;
-    const listeners = new Set<() => void>();
-    vi.stubGlobal('matchMedia', (query: string) => ({
-      matches: query === '(min-width: 1280px)' && desktop,
-      addEventListener: (_event: string, callback: () => void) => listeners.add(callback),
-      removeEventListener: (_event: string, callback: () => void) => listeners.delete(callback),
-    }));
-    useSettingsStore.getState().setStudentDashboardLayout({
-      version: 1,
-      order: ['weather', 'todayTasks', 'nextStep'],
-      tiles: {
-        weather: { desktopSize: 'large', allowAutoGrow: false },
-        todayTasks: { desktopSize: 'medium', allowAutoGrow: false },
-        nextStep: { desktopSize: 'small', allowAutoGrow: true },
-      },
-    });
-    render(
-      <MemoryRouter>
-        <StudentCabinetHome {...base} />
-      </MemoryRouter>
-    );
-    const weather = screen.getByText('scWeatherOnSlope').closest('[data-dashboard-tile]')!;
-    expect(tileOrder().slice(0, 3)).toEqual(['weather', 'nextStep', 'todayTasks']);
-    expect(weather).toHaveAttribute('data-effective-size', 'large');
-    expect(weather).toHaveStyle({ gridColumn: '1 / span 8', gridRow: '1' });
-    const savedOrder = useSettingsStore.getState().studentDashboardLayout.order;
-    act(() => {
-      desktop = false;
-      for (const listener of listeners) listener();
-    });
-    expect(tileOrder().slice(0, 3)).toEqual(['weather', 'todayTasks', 'nextStep']);
-    expect(screen.getByText('scWeatherOnSlope').closest('[data-dashboard-tile]')).toBe(weather);
-    expect((weather as HTMLElement).style.cssText).toBe('');
-    expect(useSettingsStore.getState().studentDashboardLayout.order).toEqual(savedOrder);
-    act(() => {
-      desktop = true;
-      for (const listener of listeners) listener();
-    });
-    expect(tileOrder().slice(0, 3)).toEqual(['weather', 'nextStep', 'todayTasks']);
-    expect(tileOrder()).not.toContain('countdown');
-    expect(tileOrder()).not.toContain('todayAchievements');
-    expect(tileOrder()).not.toContain('needsAttention');
-  });
-
-  it('renders measured same-width lanes in visual reading order and clears placement on mobile', () => {
-    let desktop = true;
-    const listeners = new Set<() => void>();
-    vi.stubGlobal('matchMedia', (query: string) => ({
-      matches: query === '(min-width: 1280px)' && desktop,
-      addEventListener: (_event: string, callback: () => void) => listeners.add(callback),
-      removeEventListener: (_event: string, callback: () => void) => listeners.delete(callback),
-    }));
-    const heights: Record<string, number> = {
-      weather: 400,
-      todayTasks: 100,
-      nextStep: 90,
-      nextSession: 110,
-      skillRadar: 100,
-      instructorRecommendations: 100,
-    };
-    const measure = vi
-      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
-      .mockImplementation(function () {
-        return { height: heights[this.dataset.dashboardTile ?? ''] ?? 0 } as DOMRect;
-      });
-    const order = Object.keys(heights);
-    useSettingsStore.getState().setStudentDashboardLayout({
-      version: 1,
-      order,
-      tiles: Object.fromEntries(
-        order.map((key) => [key, { desktopSize: 'medium', allowAutoGrow: false }])
-      ),
-    });
-    try {
-      const view = render(
-        <MemoryRouter>
-          <StudentCabinetHome {...base} />
-        </MemoryRouter>
-      );
-      const grid = screen.getByTestId('student-dashboard-grid');
-      const tile = (key: string) => grid.querySelector(`[data-dashboard-tile="${key}"]`)!;
-      expect(tileOrder()).toEqual([
-        'weather',
-        'todayTasks',
-        'nextSession',
-        'instructorRecommendations',
-        'nextStep',
-        'skillRadar',
-      ]);
-      expect(tile('nextSession')).toHaveStyle({ position: 'absolute', top: '120px' });
-      expect(tile('nextStep')).toHaveStyle({ position: 'absolute', top: '420px' });
-      expect(tile('nextStep')).toHaveAttribute('data-dashboard-lane', '1:medium');
-      expect(grid).toHaveStyle({ height: '630px' });
-      expect(
-        view.container.querySelector('#your-journey')!.closest('[data-dashboard-tile]')
-      ).toBeNull();
-      expect(useSettingsStore.getState().studentDashboardLayout.order.slice(0, 6)).toEqual(order);
       act(() => {
         desktop = false;
         for (const listener of listeners) listener();
       });
-      expect(tileOrder()).toEqual(order);
-      expect(grid.style.height).toBe('');
-      expect(tile('nextStep')).not.toHaveAttribute('data-dashboard-lane');
-      expect((tile('nextStep') as HTMLElement).style.position).toBe('');
-    } finally {
-      measure.mockRestore();
+      const mobileFixture = grid.cloneNode(true) as HTMLElement;
+      mobileFixture
+        .querySelector('[data-testid="radar-scores"]')!
+        .replaceWith(radar.container.firstElementChild!.cloneNode(true));
+      writeFileSync(
+        process.env.STUDENT_DASHBOARD_VISUAL_DIR + '/tiles-mobile.html',
+        mobileFixture.outerHTML
+      );
     }
   });
 
-  it('reuses shell measurements for tablet, reflows dynamic/hidden tiles and cleans breakpoint placement', async () => {
-    let viewport: 'mobile' | 'tablet' | 'desktop' = 'tablet';
-    const listeners = new Set<() => void>();
-    vi.stubGlobal('matchMedia', (query: string) => ({
-      matches:
-        query === '(min-width: 1280px)'
-          ? viewport === 'desktop'
-          : query === '(min-width: 768px)' && viewport !== 'mobile',
-      addEventListener: (_event: string, callback: () => void) => listeners.add(callback),
-      removeEventListener: (_event: string, callback: () => void) => listeners.delete(callback),
-    }));
-    const heights: Record<string, number> = {
-      weather: 200,
-      todayTasks: 500,
-      nextStep: 200,
-      nextSession: 200,
-      skillRadar: 300,
-      instructorRecommendations: 100,
-    };
-    const order = Object.keys(heights);
-    const measure = vi
-      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
-      .mockImplementation(function () {
-        return { height: heights[this.dataset.dashboardTile ?? ''] ?? 0 } as DOMRect;
-      });
-    const observers: { targets: Element[]; callback: () => void; disconnected: boolean }[] = [];
-    vi.stubGlobal(
-      'ResizeObserver',
-      class {
-        targets: Element[] = [];
-        disconnected = false;
-        constructor(public callback: () => void) {
-          observers.push(this);
-        }
-        observe(target: Element) {
-          this.targets.push(target);
-        }
-        disconnect() {
-          this.disconnected = true;
-        }
-        unobserve() {}
-      }
-    );
-    const currentObserver = () =>
-      observers.filter(
-        (o) => !o.disconnected && o.targets.some((t) => t.hasAttribute('data-dashboard-tile'))
-      );
-    const switchViewport = (next: typeof viewport) =>
-      act(() => {
-        viewport = next;
-        for (const listener of listeners) listener();
-      });
-    useSettingsStore.getState().setStudentDashboardLayout({
-      version: 1,
-      order,
-      tiles: Object.fromEntries(
-        order.map((key, i) => [key, { desktopSize: i % 2 ? 'full' : 'large', allowAutoGrow: true }])
-      ),
-    });
-    try {
-      const view = render(
-        <MemoryRouter>
-          <StudentCabinetHome {...base} />
-        </MemoryRouter>
-      );
-      const grid = screen.getByTestId('student-dashboard-grid');
-      const tile = (key: string) => grid.querySelector(`[data-dashboard-tile="${key}"]`)!;
-      const saved = JSON.stringify(useSettingsStore.getState().studentDashboardLayout);
-      expect(tile('weather')).toHaveStyle({ gridColumn: '1 / span 1', top: '0px' });
-      expect(tile('todayTasks')).toHaveStyle({ gridColumn: '2 / span 1', top: '0px' });
-      expect(tile('nextStep')).toHaveStyle({ gridColumn: '1 / span 1', top: '216px' });
-      expect(tile('todayTasks')).toHaveAttribute('data-tablet-width', 'half');
-      expect(currentObserver()).toHaveLength(1);
-      expect(currentObserver()[0].targets).toHaveLength(6);
-      heights.weather = 600;
-      await act(async () => {
-        currentObserver()[0].callback();
-        await new Promise((resolve) => requestAnimationFrame(resolve));
-      });
-      expect(tile('nextStep')).toHaveStyle({ gridColumn: '2 / span 1', top: '516px' });
-      heights.weather = 150;
-      await act(async () => {
-        currentObserver()[0].callback();
-        await new Promise((resolve) => requestAnimationFrame(resolve));
-      });
-      expect(tile('nextStep')).toHaveStyle({ gridColumn: '1 / span 1', top: '166px' });
-      view.rerender(
-        <MemoryRouter>
-          <StudentCabinetHome {...base} hasAnyParticipantSessionToday={false} />
-        </MemoryRouter>
-      );
-      expect(tile('weather')).toBeNull();
-      expect(tile('todayTasks')).toHaveStyle({ gridColumn: '1 / span 1', top: '0px' });
-      expect(currentObserver()[0].targets).toHaveLength(5);
-      view.rerender(
-        <MemoryRouter>
-          <StudentCabinetHome {...base} />
-        </MemoryRouter>
-      );
-      expect(tile('weather')).toHaveStyle({ gridColumn: '1 / span 1', top: '0px' });
-      switchViewport('desktop');
-      expect(tile('weather')).not.toHaveAttribute('data-tablet-width');
-      expect(tile('weather')).toHaveStyle({ gridColumn: '1 / span 12' });
-      expect(currentObserver()).toHaveLength(1);
-      switchViewport('tablet');
-      expect(tile('weather')).toHaveStyle({ gridColumn: '1 / span 1' });
-      switchViewport('mobile');
-      expect(grid.style.height).toBe('');
-      expect((tile('weather') as HTMLElement).style.cssText).toBe('');
-      expect(tileOrder()).toEqual(order);
-      expect(currentObserver()).toHaveLength(0);
-      switchViewport('tablet');
-      expect(tile('weather')).toHaveAttribute('data-dashboard-lane', 'left');
-      expect(JSON.stringify(useSettingsStore.getState().studentDashboardLayout)).toBe(saved);
-      view.unmount();
-      expect(currentObserver()).toHaveLength(0);
-    } finally {
-      measure.mockRestore();
-    }
-  });
-
-  it('uses effective spans only on desktop and repacks when visibility or grow intent changes', () => {
+  it('fixes desktop column membership regardless of saved sizes, order or auto-grow', () => {
     vi.stubGlobal('matchMedia', (query: string) => ({
       matches: query === '(min-width: 1280px)',
       addEventListener: () => {},
       removeEventListener: () => {},
     }));
-    const config = {
+    useSettingsStore.getState().setStudentDashboardLayout({
       version: 1,
-      order: ['weather', 'nextStep'],
-      tiles: Object.fromEntries(
-        DEFAULT_STUDENT_DASHBOARD_LAYOUT.order.map((key) => [
-          key,
-          {
-            desktopSize: key === 'weather' ? 'medium' : key === 'nextStep' ? 'small' : 'full',
-            allowAutoGrow: key === 'nextStep',
-          },
-        ])
-      ),
-    };
-    useSettingsStore.getState().setStudentDashboardLayout(config);
+      order: ['weather', 'todayTasks', 'nextStep'],
+      tiles: {
+        weather: { desktopSize: 'full', allowAutoGrow: true },
+        todayTasks: { desktopSize: 'small', allowAutoGrow: true },
+      },
+    });
+    const measure = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect');
     const view = render(
       <MemoryRouter>
         <StudentCabinetHome {...base} />
       </MemoryRouter>
     );
-    const step = () => screen.getByText('scNextStepTitle').closest('[data-dashboard-tile]')!;
-    expect(step()).toHaveAttribute('data-base-size', 'small');
-    expect(step()).toHaveAttribute('data-effective-size', 'medium');
+    const grid = screen.getByTestId('student-dashboard-grid');
+    expect(grid).toHaveClass(
+      'grid-cols-1',
+      'md:grid-cols-2',
+      'xl:grid-cols-3',
+      'gap-4',
+      'xl:gap-5',
+      'items-start'
+    );
+    expect(columnOrder('left')).toEqual([
+      'nextStep',
+      'skillRadar',
+      'instructorRecommendations',
+      'weather',
+    ]);
+    expect(columnOrder('right')).toEqual(['todayTasks', 'nextSession']);
+    expect(grid.querySelector('[data-dashboard-column="left"]')).toHaveClass(
+      'contents',
+      'xl:col-span-1',
+      'xl:flex',
+      'xl:flex-col',
+      'xl:gap-5'
+    );
+    expect(grid.querySelector('[data-dashboard-column="right"]')).toHaveClass(
+      'contents',
+      'xl:col-span-2',
+      'xl:flex',
+      'xl:flex-col',
+      'xl:gap-5'
+    );
+    const weather = grid.querySelector('[data-dashboard-tile="weather"]');
+    const tasks = grid.querySelector('[data-dashboard-tile="todayTasks"]');
     act(() =>
       useSettingsStore.getState().setStudentDashboardLayout({
-        ...config,
-        tiles: { ...config.tiles, nextStep: { desktopSize: 'small', allowAutoGrow: false } },
+        version: 1,
+        order: ['nextSession', 'weather', 'skillRadar'],
+        tiles: { weather: { desktopSize: 'small', allowAutoGrow: false } },
       })
     );
-    expect(step()).toHaveAttribute('data-effective-size', 'small');
+    expect(columnOrder('left')).toEqual([
+      'nextStep',
+      'skillRadar',
+      'instructorRecommendations',
+      'weather',
+    ]);
+    expect(columnOrder('right')).toEqual(['todayTasks', 'nextSession']);
+    expect(grid.querySelector('[data-dashboard-tile="weather"]')).toBe(weather);
+    expect(grid.querySelector('[data-dashboard-tile="todayTasks"]')).toBe(tasks);
     view.rerender(
       <MemoryRouter>
-        <StudentCabinetHome {...base} hasAnyParticipantSessionToday={false} />
+        <StudentCabinetHome
+          {...base}
+          hasAnyParticipantSessionToday={false}
+          userProfile={{ ...accountProfile, hideProgressTracking: true }}
+        />
       </MemoryRouter>
     );
-    expect(tileOrder()[0]).toBe('nextStep');
-    expect(step()).toHaveStyle({ gridColumn: '1 / span 4', gridRow: '1' });
-    expect(useSettingsStore.getState().studentDashboardLayout.order.slice(0, 2)).toEqual([
-      'weather',
-      'nextStep',
-    ]);
+    expect(columnOrder('left')).toEqual(['instructorRecommendations']);
+    expect(columnOrder('right')).toEqual(['todayTasks', 'nextSession']);
+    for (const item of grid.querySelectorAll<HTMLElement>('[data-dashboard-item]')) {
+      expect(item.querySelectorAll('[data-dashboard-tile]')).toHaveLength(1);
+      expect(item.style.height).toBe('');
+      expect(item.querySelector<HTMLElement>('[data-dashboard-tile]')!.style.cssText).toBe('');
+    }
+    expect(grid.style.height).toBe('');
+    expect(grid.querySelector('[data-dashboard-lane]')).toBeNull();
+    expect(
+      measure.mock.instances.some((element) => element.hasAttribute('data-dashboard-tile'))
+    ).toBe(false);
+    measure.mockRestore();
   });
 
+  it('preserves mobile/tablet DOM order and card instances across desktop resizing', () => {
+    let desktop = true;
+    const listeners = new Set<() => void>();
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query === '(min-width: 1280px)' && desktop,
+      addEventListener: (_event: string, callback: () => void) => listeners.add(callback),
+      removeEventListener: (_event: string, callback: () => void) => listeners.delete(callback),
+    }));
+    const view = render(
+      <MemoryRouter>
+        <StudentCabinetHome {...input('alice')} />
+      </MemoryRouter>
+    );
+    const grid = screen.getByTestId('student-dashboard-grid');
+    const cards = [...grid.querySelectorAll('[data-dashboard-tile]')];
+    act(() =>
+      useSettingsStore.getState().setStudentDashboardLayout({
+        version: 1,
+        order: ['weather', 'todayTasks', 'nextStep', 'todayAchievements'],
+      })
+    );
+    expect(columnOrder('right')).toEqual(['todayTasks', 'nextSession', 'todayAchievements']);
+    expect([...grid.querySelectorAll('[data-dashboard-tile]')]).toEqual(cards);
+    act(() => {
+      desktop = false;
+      for (const listener of listeners) listener();
+    });
+    expect(tileOrder().slice(0, 4)).toEqual([
+      'weather',
+      'todayTasks',
+      'nextStep',
+      'todayAchievements',
+    ]);
+    for (const card of cards)
+      expect(
+        grid.querySelector(`[data-dashboard-tile="${card.getAttribute('data-dashboard-tile')}"]`)
+      ).toBe(card);
+    expect(columnOrder('left')).toEqual([]);
+    expect(columnOrder('right')).toEqual([]);
+    act(() => {
+      desktop = true;
+      for (const listener of listeners) listener();
+    });
+    expect([...grid.querySelectorAll('[data-dashboard-tile]')]).toEqual(cards);
+    expect(columnOrder('right')).toEqual(['todayTasks', 'nextSession', 'todayAchievements']);
+    expect(new Set(cards.map((card) => card.getAttribute('data-dashboard-tile'))).size).toBe(
+      cards.length
+    );
+    expect(grid.querySelectorAll('[data-dashboard-column]')).toHaveLength(2);
+    expect(grid.querySelectorAll('[data-dashboard-item]')).toHaveLength(cards.length);
+    expect(view.container.querySelectorAll('[data-testid="student-dashboard-grid"]')).toHaveLength(
+      1
+    );
+  });
   it('renders visible default tiles in DOM order without empty grid items', () => {
     render(
       <MemoryRouter>
@@ -690,7 +592,9 @@ describe('Student Home dashboard grid', () => {
     );
     expect(tileOrder().slice(0, 2)).toEqual(['weather', 'skillRadar']);
     expect(screen.getByText('scWeatherOnSlope').closest('section')).toBe(weather);
-    expect(weather!.parentElement).toHaveClass('col-span-1', 'xl:col-span-12');
+    expect(weather!.closest('[data-dashboard-item]')!.parentElement).toBe(
+      screen.getByTestId('student-dashboard-grid')
+    );
     expect(useSettingsStore.getState().studentDashboardLayout.order.slice(0, 3)).toEqual([
       'weather',
       'countdown',

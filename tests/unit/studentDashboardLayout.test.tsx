@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   DASHBOARD_TILE_SIZES,
   DEFAULT_STUDENT_DASHBOARD_LAYOUT,
-  DESKTOP_TILE_CLASSES,
   getOrderedDashboardTiles,
   normalizeStudentDashboardLayout,
   STUDENT_DASHBOARD_TILE_REGISTRY,
@@ -54,7 +53,7 @@ describe('student dashboard layout', () => {
     expect(() => validateStudentDashboardLayout(DEFAULT_STUDENT_DASHBOARD_LAYOUT)).not.toThrow();
   });
   it.each(DASHBOARD_TILE_SIZES)(
-    'accepts remote %s and keeps mobile single column',
+    'accepts remote %s without sizing cards outside their column',
     (desktopSize) => {
       const layout = normalizeStudentDashboardLayout({
         version: 1,
@@ -65,15 +64,13 @@ describe('student dashboard layout', () => {
           Weather
         </StudentDashboardTile>
       );
-      expect(container.firstChild).toHaveClass(
-        'col-span-1',
-        'md:col-span-1',
-        DESKTOP_TILE_CLASSES[desktopSize]
-      );
+      expect(container.firstChild).toHaveClass('ui-card', 'min-w-0', 'w-full');
+      expect(container.firstChild).toHaveAttribute('data-base-size', desktopSize);
+      expect((container.firstChild as HTMLElement).style.cssText).toBe('');
       expect(STUDENT_DASHBOARD_GRID_CLASSES).toContain('grid-cols-1');
       expect(STUDENT_DASHBOARD_GRID_CLASSES).not.toContain('dense');
       expect(STUDENT_DASHBOARD_GRID_CLASSES).toContain('md:grid-cols-2');
-      expect(STUDENT_DASHBOARD_GRID_CLASSES).toContain('xl:grid-cols-12');
+      expect(STUDENT_DASHBOARD_GRID_CLASSES).toContain('xl:grid-cols-3');
     }
   );
   it.each(['gigantic', 7, null, undefined, {}, ['small']])(

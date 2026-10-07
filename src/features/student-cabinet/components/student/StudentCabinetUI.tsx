@@ -130,7 +130,7 @@ export const StudentCabinetTabBar: React.FC<StudentCabinetTabBarProps> = ({
       >
         <div className="pointer-events-auto w-full max-w-md sm:max-w-lg mx-auto flex items-center gap-4 relative">
           <div
-            className="relative flex items-center justify-between flex-1 min-w-0 overflow-hidden rounded-full px-2 bg-[color-mix(in_srgb,var(--card-bg)_70%,transparent)] backdrop-blur-xl backdrop-saturate-150 border border-[color-mix(in_srgb,var(--ink)_7%,transparent)] shadow-[0_12px_36px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.06),inset_0_1px_1px_rgba(255,255,255,0.3)]"
+            className="relative flex items-center justify-between flex-1 min-w-0 overflow-hidden rounded-full px-2 bg-[color-mix(in_srgb,var(--card-bg)_70%,transparent)] backdrop-blur-xl backdrop-saturate-150 border border-[color-mix(in_srgb,var(--ink)_7%,transparent)] shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
             style={{ height: STUDENT_TAB_BAR_HEIGHT }}
             role="presentation"
           >

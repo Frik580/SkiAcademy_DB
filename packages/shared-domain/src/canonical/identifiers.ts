@@ -149,6 +149,7 @@ const referenceSchemas = {
   participant_block: ParticipantBlockIdSchema,
   booking: BookingIdSchema,
   lesson_pricing_settings: LessonPricingSettingsIdSchema,
+  lesson_levels: z.literal('lesson_levels'),
   email_delivery_settings: EmailDeliverySettingsIdSchema,
   course: CourseIdSchema,
   course_day: CourseDayIdSchema,

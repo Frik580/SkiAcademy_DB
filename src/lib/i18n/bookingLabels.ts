@@ -1,3 +1,7 @@
+import { formatLessonLevelLabel } from '@ski-academy/shared-domain';
+import { useLessonLevelsStore } from '../../features/settings/lessonLevelsStore';
+import { logger } from '../../shared/logger';
+const reportedUnknown = new Set<string>();
 import type { LessonDifficulty } from '../../types';
 import type { Language } from './translations';
 
@@ -34,107 +38,13 @@ export function getDifficultyLabel(
   language: Language,
   variant: DifficultyLabelVariant = 'full'
 ): string {
-  const key = String(diff).toLowerCase() as LessonDifficulty;
-
-  if (variant === 'short') {
-    if (language === 'ru') {
-      switch (key) {
-        case 'beginner':
-          return 'Новичок';
-        case 'intermediate':
-          return 'Средний';
-        case 'advanced':
-          return 'Продвинутый';
-        case 'freeride':
-          return 'Фрирайд';
-        case 'freestyle':
-          return 'Фристайл';
-        default:
-          return String(diff);
-      }
+  void variant; // Kept for compatibility; every surface now uses the catalog label.
+  return formatLessonLevelLabel(diff, language, useLessonLevelsStore.getState().levels, (value) => {
+    if (!reportedUnknown.has(value)) {
+      reportedUnknown.add(value);
+      logger.warn('Unknown lesson level:', value);
     }
-    return key.charAt(0).toUpperCase() + key.slice(1);
-  }
-
-  if (variant === 'compact') {
-    if (language === 'ru') {
-      switch (key) {
-        case 'beginner':
-          return '🟢 Начинающий';
-        case 'intermediate':
-          return '🔵 Средний уровень';
-        case 'advanced':
-          return '🔴 Продвинутый';
-        case 'freeride':
-          return '🏔️ Фрирайд';
-        case 'freestyle':
-          return '🛹 Фристайл';
-      }
-    }
-    return key.charAt(0).toUpperCase() + key.slice(1);
-  }
-
-  if (variant === 'booking') {
-    if (language === 'ru') {
-      switch (key) {
-        case 'beginner':
-          return '🟢 Начинающий';
-        case 'intermediate':
-          return '🔵 Средний уровень';
-        case 'advanced':
-          return '🔴 Продвинутый';
-        case 'freeride':
-          return '🏔️ Вне трассы / Фрирайд';
-        case 'freestyle':
-          return '🛹 Фристайл в парке';
-        default:
-          return String(diff);
-      }
-    }
-    switch (key) {
-      case 'beginner':
-        return '🟢 Beginner';
-      case 'intermediate':
-        return '🔵 Intermediate';
-      case 'advanced':
-        return '🔴 Advanced';
-      case 'freeride':
-        return '🏔️ Off-Piste / Freeride';
-      case 'freestyle':
-        return '🛹 Terrain Park Freestyle';
-      default:
-        return String(diff);
-    }
-  }
-
-  // full (PersonalCabinet default)
-  if (language === 'ru') {
-    switch (key) {
-      case 'beginner':
-        return '🟢 Начинающий (Зеленые)';
-      case 'intermediate':
-        return '🔵 Средний уровень (Синие)';
-      case 'advanced':
-        return '🔴 Продвинутый (Черные)';
-      case 'freeride':
-        return '🏔️ Фрирайд';
-      case 'freestyle':
-        return '🛹 Фристайл';
-    }
-  }
-  switch (key) {
-    case 'beginner':
-      return '🟢 Beginner (Green)';
-    case 'intermediate':
-      return '🔵 Intermediate (Blue)';
-    case 'advanced':
-      return '🔴 Advanced (Black)';
-    case 'freeride':
-      return '🏔️ Freeride';
-    case 'freestyle':
-      return '🛹 Freestyle';
-  }
-  return String(diff);
+  });
 }
 
 export function formatLessonDifficultyOrUnspecified(

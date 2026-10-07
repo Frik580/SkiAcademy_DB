@@ -1,3 +1,4 @@
+import { getDifficultyLabel } from '../../../../lib/i18n/bookingLabels';
 import { Booking } from '../../../../types';
 import { type TranslationKey } from '../../../../app/providers/LanguageContext';
 import { parseBookingStartTime } from './studentBookingSchedule';
@@ -44,14 +45,7 @@ export const formatSessionDayLabel = (
   });
 };
 
-export const getDifficultyShort = (difficulty: Booking['difficulty'] | undefined) => {
-  if (!difficulty) return '';
-  const labels: Record<string, string> = {
-    beginner: 'BASE',
-    intermediate: 'CARVE',
-    advanced: 'PRO',
-    freeride: 'FREERIDE',
-    freestyle: 'PARK',
-  };
-  return labels[difficulty] || '';
-};
+export const getDifficultyShort = (
+  difficulty: Booking['difficulty'] | undefined,
+  language: 'ru' | 'en' = 'en'
+) => difficulty ? getDifficultyLabel(difficulty, language) : '';

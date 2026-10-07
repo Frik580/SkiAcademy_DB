@@ -132,9 +132,7 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
   >();
   const [createAccountId, setCreateAccountId] = useState<string | undefined>();
   const [bookingDuration, setBookingDuration] = useState(1);
-  const [bookingDifficulty, setBookingDifficulty] = useState<
-    'beginner' | 'intermediate' | 'advanced' | 'freeride' | 'freestyle'
-  >('beginner');
+  const [bookingDifficulty, setBookingDifficulty] = useState<string>('beginner');
   const [bookingNotes, setBookingNotes] = useState('');
   const [isSlotActionSubmitting, setIsSlotActionSubmitting] = useState(false);
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);

@@ -1,3 +1,4 @@
+import { AdminLessonLevelsSettings } from './AdminLessonLevelsSettings';
 import React, { useState } from 'react';
 import { Settings, Award, Trophy, Bell, Trash2, Gift } from 'lucide-react';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
@@ -230,6 +231,7 @@ export const AdminSystemSettings: React.FC<AdminSystemSettingsProps> = ({
       </AdminCollapsibleSection>
 
       <AdminStudentDashboardSettings />
+      <AdminLessonLevelsSettings />
 
       <AdminCollapsibleSection
         id="skill_matrix"

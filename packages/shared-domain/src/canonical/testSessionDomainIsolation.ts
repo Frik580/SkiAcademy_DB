@@ -134,6 +134,7 @@ export const TEST_SESSION_COMMAND_SUPPORT = {
   provision_self_participant_for_account: 'T42B-8_DEFERRED',
   change_account_role: 'T42B-8_DEFERRED',
   update_lesson_pricing_settings: 'TEST_FORBIDDEN',
+  update_lesson_levels: 'TEST_FORBIDDEN',
   set_email_delivery_enabled: 'TEST_FORBIDDEN',
   update_account_contact_as_administrator: 'T42B-8_DEFERRED',
   update_own_account_contact: 'T42B-8_DEFERRED',

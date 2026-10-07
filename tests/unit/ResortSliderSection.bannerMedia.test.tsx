@@ -13,7 +13,8 @@ vi.mock('../../src/features/notifications', () => ({
   useNotifications: () => ({ addNotification: vi.fn() }),
 }));
 
-vi.mock('../../src/features/settings', () => ({
+vi.mock('../../src/features/settings', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/features/settings')>()),
   saveResortConfig: (...args: unknown[]) => saveResortConfig(...args),
   subscribeResortConfig: (...args: unknown[]) => subscribeResortConfig(...args),
 }));

@@ -96,7 +96,7 @@ export const HistoryLessonCard: React.FC<HistoryLessonCardProps> = ({
         {booking.difficulty && (
           <>
             <span>·</span>
-            <span>{getDifficultyShort(booking.difficulty)}</span>
+            <span>{getDifficultyShort(booking.difficulty, lang)}</span>
           </>
         )}
       </div>

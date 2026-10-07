@@ -89,6 +89,7 @@ export const AUDIT_EFFECT_KINDS = [
   'guest_course_enrollment_linked',
   'payment_association_changed',
   'pricing_settings_changed',
+  'lesson_levels_changed',
   'email_delivery_settings_changed',
   'instructor_review_created',
   'participant_progress_changed',

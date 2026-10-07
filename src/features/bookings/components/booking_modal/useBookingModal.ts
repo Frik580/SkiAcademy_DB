@@ -1,3 +1,5 @@
+import { activeLessonLevels, resolveLessonLevel } from '@ski-academy/shared-domain';
+import { useLessonLevelsStore } from '../../../settings/lessonLevelsStore';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import {
@@ -111,7 +113,13 @@ export const useBookingModal = ({
   const [date, setDate] = useState<string>('');
   const [time, setTime] = useState<string>('08:00');
   const [duration, setDuration] = useState<number>(2);
+  const levels = useLessonLevelsStore((state) => state.levels);
   const [difficulty, setDifficulty] = useState<LessonDifficulty>('beginner');
+  useEffect(() => {
+    if (!resolveLessonLevel(difficulty, levels)?.isActive) {
+      setDifficulty(activeLessonLevels(levels)[0]?.id ?? '');
+    }
+  }, [difficulty, levels]);
   const [notes, setNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [guestQuotaError, setGuestQuotaError] = useState(false);
@@ -146,7 +154,7 @@ export const useBookingModal = ({
       setDate('');
       setTime('08:00');
       setDuration(2);
-      setDifficulty('beginner');
+      setDifficulty(activeLessonLevels(useLessonLevelsStore.getState().levels)[0]?.id ?? '');
       setNotes('');
     }
   }, [isOpen, isSubmitting]);

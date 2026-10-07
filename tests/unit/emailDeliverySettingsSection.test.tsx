@@ -7,7 +7,8 @@ import { translations } from '../../src/lib/i18n/translations';
 const queryEmailDeliverySettingsReadModel = vi.fn();
 const executeAuthenticatedCanonicalCommand = vi.fn();
 
-vi.mock('../../src/infrastructure/firebase', () => ({
+vi.mock('../../src/infrastructure/firebase', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/infrastructure/firebase')>()),
   auth: { currentUser: { uid: 'account_email_admin_01' } },
 }));
 

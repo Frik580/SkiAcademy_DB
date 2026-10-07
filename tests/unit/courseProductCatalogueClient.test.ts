@@ -42,9 +42,11 @@ const onSnapshot = vi.hoisted(() =>
 
 const queryCourseCatalogReadModels = vi.hoisted(() => vi.fn());
 
-vi.mock('../../src/infrastructure/firebase', () => ({
+vi.mock('../../src/infrastructure/firebase', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/infrastructure/firebase')>()),
   collection: () => ({}),
   db: {},
+  doc: (_db: unknown, collection: string, id: string) => ({ path: `${collection}/${id}` }),
   handleFirestoreError: () => undefined,
   limit: () => ({}),
   onSnapshot,

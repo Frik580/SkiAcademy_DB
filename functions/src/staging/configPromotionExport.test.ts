@@ -165,6 +165,7 @@ describe('configuration promotion export allowlist', () => {
   it('reads only global configuration documents and excluded aggregate counts', () => {
     expect(PROMOTION_CONFIG_DOCUMENT_PATHS).toEqual([
       'lesson_pricing_settings/lesson_booking',
+      'settings/lesson_levels',
       'settings/skill_config',
       'settings/achievements_config',
       'settings/instructor_filters',

@@ -17,7 +17,8 @@ const { config } = vi.hoisted(() => ({
     liftsStatusRu: 'ОТКРЫТО',
   },
 }));
-vi.mock('../../src/features/settings', () => ({
+vi.mock('../../src/features/settings', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/features/settings')>()),
   readCachedResortConfig: () => config,
   writeCachedResortConfig: vi.fn(),
   subscribeResortConfig: () => () => {},

@@ -1,3 +1,4 @@
+import { getParticipantSkillLabel } from '../../../lib/i18n/participantSkillLabels';
 import type {
   LessonBookingAdminProjection,
   LessonBookingReadModel,
@@ -226,7 +227,7 @@ export function AdminLessonBookingDetail({
     ? lessonAdminGuestProfileAgeLabel(guestParticipant.age)
     : undefined;
   const guestSkillLabel = guestParticipant?.skillLevel
-    ? formatLessonDifficultyOrUnspecified(guestParticipant.skillLevel, language, '—', 'short')
+    ? getParticipantSkillLabel(guestParticipant.skillLevel, language)
     : '—';
   const primaryStatus = resolveLessonAdminPrimaryStatus(detail);
   const statusLabel = t(LESSON_ADMIN_PRIMARY_STATUS_KEYS[primaryStatus]);

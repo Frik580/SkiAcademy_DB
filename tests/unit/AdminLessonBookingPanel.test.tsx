@@ -1046,7 +1046,7 @@ describe('AdminLessonBookingPanel', () => {
     openDetailSection('adminLessonOverviewTitle');
     expect(screen.getByText('adminLessonScheduleInPlanner')).toBeVisible();
     expect(screen.getByText('adminLessonDifficulty')).toBeVisible();
-    expect(screen.getByText('Freeride')).toBeVisible();
+    expect(screen.getByText('🏔️ Freeride')).toBeVisible();
     expect(screen.getByText('Bring a helmet')).toBeVisible();
   });
 
@@ -1170,7 +1170,7 @@ describe('AdminLessonBookingPanel', () => {
     expect(screen.queryByText('adminFinanceWrittenOff')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'adminLessonReschedule' })).not.toBeInTheDocument();
     openDetailSection('adminLessonOverviewTitle');
-    expect(screen.getByText('Freestyle')).toBeVisible();
+    expect(screen.getByText('🛹 Freestyle')).toBeVisible();
     openDetailSection('adminLessonTechnicalDetails');
     expect(screen.getByText('adminLessonTechnicalDetails', { selector: 'summary' })).toBeVisible();
     expect(screen.getByText('booking_admin_panel_01')).not.toBeVisible();

@@ -25,6 +25,7 @@ import { CourseProvisioningManifestSchema } from '../courseProvisioningManifest'
 import { CourseCatalogContentInputSchema } from '../courseCatalogContent';
 import { AdministrativeAvailabilityBlockKindSchema } from '../administrativeAvailabilityBlock';
 import { MonetaryPaymentEffectSchema } from '../paymentWallet';
+import { LessonLevelsPayloadSchema } from '../lessonLevels';
 import { MaxParticipantsPerLessonSchema } from '../lessonPricingSettings';
 import { InstructorReviewCommentSchema, InstructorReviewRatingSchema } from '../instructorReview';
 import {
@@ -996,6 +997,9 @@ export const CommandIntentSchemaByKind = {
       reasonExplanation: z.string().trim().min(1).max(1_000),
     })
     .strict(),
+  update_lesson_levels: LessonLevelsPayloadSchema.safeExtend({
+    reasonExplanation: z.string().trim().min(1).max(1_000),
+  }),
   update_lesson_pricing_settings: z
     .object({
       additionalParticipantSurchargePerHourKzt: KztMinorUnitsSchema,

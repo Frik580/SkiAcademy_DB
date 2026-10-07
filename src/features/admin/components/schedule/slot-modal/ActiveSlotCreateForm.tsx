@@ -1,3 +1,5 @@
+import { activeLessonLevels, resolveLessonLevel, formatLessonLevelLabel } from '@ski-academy/shared-domain';
+import { useLessonLevelsStore } from '../../../../settings/lessonLevelsStore';
 import React, { useState } from 'react';
 import { Calendar, Check } from 'lucide-react';
 import { ActionButton } from '../../../../../ui/ActionButton';
@@ -59,6 +61,12 @@ export const ActiveSlotCreateForm: React.FC<ActiveSlotCreateFormProps> = ({
   onClose,
 }) => {
   const { t, language } = useLanguage();
+  const levels = useLessonLevelsStore((state) => state.levels);
+  React.useEffect(() => {
+    if (!resolveLessonLevel(bookingDifficulty, levels)?.isActive) {
+      setBookingDifficulty(activeLessonLevels(levels)[0]?.id ?? '');
+    }
+  }, [bookingDifficulty, levels, setBookingDifficulty]);
   const [bookingIdentityReady, setBookingIdentityReady] = useState(false);
   const hourlyRateKzt = resolveInstructorHourlyRateKztForDisplay(instructor);
   const submitDisabled =
@@ -210,21 +218,11 @@ export const ActiveSlotCreateForm: React.FC<ActiveSlotCreateFormProps> = ({
                 onChange={(event) => setBookingDifficulty(event.target.value as LessonDifficulty)}
                 className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none cursor-pointer"
               >
-                <option value="beginner" className="bg-[var(--card-bg)] text-[var(--ink)]">
-                  {t('difficultyBeginner')}
-                </option>
-                <option value="intermediate" className="bg-[var(--card-bg)] text-[var(--ink)]">
-                  {t('difficultyIntermediate')}
-                </option>
-                <option value="advanced" className="bg-[var(--card-bg)] text-[var(--ink)]">
-                  {t('difficultyAdvanced')}
-                </option>
-                <option value="freeride" className="bg-[var(--card-bg)] text-[var(--ink)]">
-                  {t('difficultyFreeride')}
-                </option>
-                <option value="freestyle" className="bg-[var(--card-bg)] text-[var(--ink)]">
-                  {t('difficultyFreestyle')}
-                </option>
+                {activeLessonLevels(levels).map((level) => (
+                  <option key={level.id} value={level.id} className="bg-[var(--card-bg)] text-[var(--ink)]">
+                    {formatLessonLevelLabel(level.id, language, levels)}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

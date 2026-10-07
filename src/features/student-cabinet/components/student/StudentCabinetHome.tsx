@@ -195,7 +195,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
       currentSessions.length > 0 ? (
         <StudentDashboardTile
           tileKey={STUDENT_DASHBOARD_TILES.currentSessions.key}
-          size={layout.tiles.currentSessions.desktopSize}
+          size={STUDENT_DASHBOARD_TILES.currentSessions.defaultSize}
         >
           <CurrentSessionsBlock
             sessions={currentSessions}
@@ -214,7 +214,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
       countdown && showCountdown ? (
         <SessionCountdownBlock
           key={countdown.startsAt.getTime()}
-          dashboardSize={layout.tiles.countdown.desktopSize}
+          dashboardSize={STUDENT_DASHBOARD_TILES.countdown.defaultSize}
           countdown={countdown}
           onExpire={() => setExpiredCountdown(countdown.startsAt.getTime())}
           participants={countdownParticipants}
@@ -226,7 +226,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     todayTasks: (
       <StudentDashboardTile
         tileKey={STUDENT_DASHBOARD_TILES.todayTasks.key}
-        size={layout.tiles.todayTasks.desktopSize}
+        size={STUDENT_DASHBOARD_TILES.todayTasks.defaultSize}
       >
         <TodayTasksBlock
           key={`tasks:${selectedParticipantId}`}
@@ -245,7 +245,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     nextStep: nextStepAction ? (
       <StudentDashboardTile
         tileKey={STUDENT_DASHBOARD_TILES.nextStep.key}
-        size={layout.tiles.nextStep.desktopSize}
+        size={STUDENT_DASHBOARD_TILES.nextStep.defaultSize}
       >
         <section>
           <StudentDashboardTileHeader
@@ -277,7 +277,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     nextSession: (
       <StudentDashboardTile
         tileKey={STUDENT_DASHBOARD_TILES.nextSession.key}
-        size={layout.tiles.nextSession.desktopSize}
+        size={STUDENT_DASHBOARD_TILES.nextSession.defaultSize}
       >
         <NextSessionBlock
           nextSessions={nextSessions}
@@ -297,7 +297,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     todayAchievements: showAchievements ? (
       <PresentedTodayProgressBlock
         key={`progress:${selectedParticipantId}`}
-        dashboardSize={layout.tiles.todayAchievements.desktopSize}
+        dashboardSize={STUDENT_DASHBOARD_TILES.todayAchievements.defaultSize}
         progress={todayProgress}
         todayAchievements={todayAchievements}
         scopeParticipant={scopeParticipant}
@@ -309,7 +309,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     skillRadar: !hideProgress ? (
       <StudentDashboardTile
         tileKey={STUDENT_DASHBOARD_TILES.skillRadar.key}
-        size={layout.tiles.skillRadar.desktopSize}
+        size={STUDENT_DASHBOARD_TILES.skillRadar.defaultSize}
       >
         <section>
           <StudentDashboardTileHeader
@@ -342,7 +342,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     needsAttention: showAttention ? (
       <StudentNeedsAttention
         key={`attention:${selectedParticipantId}`}
-        dashboardSize={layout.tiles.needsAttention.desktopSize}
+        dashboardSize={STUDENT_DASHBOARD_TILES.needsAttention.defaultSize}
         bookings={bookings}
         reviews={reviews}
         userId={userProfile.uid}
@@ -357,7 +357,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     instructorRecommendations: (
       <StudentDashboardTile
         tileKey={STUDENT_DASHBOARD_TILES.instructorRecommendations.key}
-        size={layout.tiles.instructorRecommendations.desktopSize}
+        size={STUDENT_DASHBOARD_TILES.instructorRecommendations.defaultSize}
       >
         <StudentLatestRecommendationSection
           key={`recommendation:${selectedParticipantId}`}
@@ -374,7 +374,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
       showWeather && resortSnapshot ? (
         <StudentDashboardTile
           tileKey={STUDENT_DASHBOARD_TILES.weather.key}
-          size={layout.tiles.weather.desktopSize}
+          size={STUDENT_DASHBOARD_TILES.weather.defaultSize}
         >
           <StudentCabinetWeatherSection
             resort={resortSnapshot}

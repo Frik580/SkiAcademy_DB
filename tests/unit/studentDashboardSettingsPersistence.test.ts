@@ -34,11 +34,10 @@ describe('dashboard settings persistence', () => {
     expect(setDoc).toHaveBeenCalledTimes(1);
     const written = vi.mocked(setDoc).mock.calls[0][1];
     expect(written.order).not.toContain('masteryPath');
-    expect(written.tiles).not.toHaveProperty('masteryPath');
+    expect(written).not.toHaveProperty('tiles');
     expect(written.order).toHaveLength(10);
-    expect(written.tiles.weather).toEqual({ desktopSize: 'large', allowAutoGrow: true });
   });
-  it('writes semantic order/sizes and audit fields to existing settings collection', async () => {
+  it('writes order and audit fields to existing settings collection', async () => {
     const layout = normalizeStudentDashboardLayout({
       version: 1,
       order: ['weather'],
@@ -52,15 +51,15 @@ describe('dashboard settings persistence', () => {
       updatedAt: serverTimestamp(),
     });
   });
-  it('persists only base size and boolean intent, discarding runtime placement fields', async () => {
+  it('persists only order, discarding runtime placement fields', async () => {
     const config = normalizeStudentDashboardLayout({
       version: 1,
       tiles: { weather: { desktopSize: 'small', allowAutoGrow: false } },
     });
-    Object.assign(config.tiles.weather, { effectiveSize: 'medium', row: 1, column: 1 });
+    Object.assign(config, { tiles: { weather: { effectiveSize: 'medium', row: 1, column: 1 } } });
     await saveStudentDashboardLayout(config);
     const written = vi.mocked(setDoc).mock.calls[0][1];
-    expect(written.tiles.weather).toEqual({ desktopSize: 'small', allowAutoGrow: false });
+    expect(written).not.toHaveProperty('tiles');
     expect(written).not.toHaveProperty('rows');
   });
   it('rejects malformed drafts before any write', async () => {

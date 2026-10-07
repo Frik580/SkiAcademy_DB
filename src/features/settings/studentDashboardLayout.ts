@@ -4,72 +4,72 @@ export type DashboardTileSize = 'small' | 'medium' | 'large' | 'full';
 export const STUDENT_DASHBOARD_TILES = {
   currentSessions: {
     key: 'currentSessions',
+    desktopColumn: 'left',
     label: { ru: 'Сейчас идут', en: 'Current sessions' },
     defaultSize: 'medium',
-    defaultAllowAutoGrow: true,
     defaultOrder: 1,
   },
   countdown: {
     key: 'countdown',
+    desktopColumn: 'left',
     label: { ru: 'До начала', en: 'Session countdown' },
     defaultSize: 'small',
-    defaultAllowAutoGrow: true,
     defaultOrder: 2,
   },
   todayTasks: {
     key: 'todayTasks',
+    desktopColumn: 'right',
     label: { ru: 'Задачи на сегодня', en: 'Today’s tasks' },
     defaultSize: 'medium',
-    defaultAllowAutoGrow: true,
     defaultOrder: 3,
   },
   nextStep: {
     key: 'nextStep',
+    desktopColumn: 'left',
     label: { ru: 'Следующий шаг', en: 'Next step' },
     defaultSize: 'small',
-    defaultAllowAutoGrow: true,
     defaultOrder: 4,
   },
   nextSession: {
     key: 'nextSession',
+    desktopColumn: 'right',
     label: { ru: 'Следующая тренировка / курс', en: 'Next session / course' },
     defaultSize: 'large',
-    defaultAllowAutoGrow: true,
     defaultOrder: 5,
   },
   todayAchievements: {
     key: 'todayAchievements',
+    desktopColumn: 'right',
     label: { ru: 'Достижения за сегодня', en: 'Today’s progress' },
     defaultSize: 'medium',
-    defaultAllowAutoGrow: false,
     defaultOrder: 6,
   },
   skillRadar: {
     key: 'skillRadar',
+    desktopColumn: 'left',
     label: { ru: 'Радар навыков', en: 'Skill radar' },
     defaultSize: 'medium',
-    defaultAllowAutoGrow: true,
     defaultOrder: 7,
   },
   needsAttention: {
     key: 'needsAttention',
+    desktopColumn: 'left',
     label: { ru: 'Требует внимания', en: 'Needs attention' },
     defaultSize: 'medium',
-    defaultAllowAutoGrow: true,
     defaultOrder: 8,
   },
   instructorRecommendations: {
     key: 'instructorRecommendations',
+    desktopColumn: 'left',
     label: { ru: 'Рекомендации тренера', en: 'Coach recommendations' },
     defaultSize: 'medium',
-    defaultAllowAutoGrow: true,
     defaultOrder: 9,
   },
   weather: {
     key: 'weather',
+    desktopColumn: 'left',
     label: { ru: 'Погода', en: 'Weather' },
     defaultSize: 'small',
-    defaultAllowAutoGrow: true,
     defaultOrder: 10,
   },
 } as const satisfies Record<
@@ -79,7 +79,7 @@ export const STUDENT_DASHBOARD_TILES = {
     label: { ru: string; en: string };
     defaultSize: DashboardTileSize;
     defaultOrder: number;
-    defaultAllowAutoGrow: boolean;
+    desktopColumn: 'left' | 'right';
   }
 >;
 
@@ -88,42 +88,43 @@ export const STUDENT_DASHBOARD_TILE_REGISTRY = Object.values(STUDENT_DASHBOARD_T
   (a, b) => a.defaultOrder - b.defaultOrder
 );
 export const STUDENT_DASHBOARD_LAYOUT_SETTING_ID = 'student_dashboard_layout';
-export const DASHBOARD_TILE_SIZES: readonly DashboardTileSize[] = [
-  'small',
-  'medium',
-  'large',
-  'full',
-];
-export const DASHBOARD_TILE_COLUMNS: Record<DashboardTileSize, number> = {
-  small: 4,
-  medium: 6,
-  large: 8,
-  full: 12,
-};
-export const DESKTOP_TILE_CLASSES: Record<DashboardTileSize, string> = {
-  small: 'xl:col-span-4',
-  medium: 'xl:col-span-6',
-  large: 'xl:col-span-8',
-  full: 'xl:col-span-12',
-};
-
-export interface StudentDashboardTileLayout {
-  desktopSize: DashboardTileSize;
-  allowAutoGrow: boolean;
-}
-
+export type StudentDashboardColumn = 'left' | 'right';
 export interface StudentDashboardLayout {
   version: 1;
   order: StudentDashboardTileKey[];
-  tiles: Record<StudentDashboardTileKey, StudentDashboardTileLayout>;
+}
+export const STUDENT_DASHBOARD_COLUMNS = ['left', 'right'] as const;
+export function getDashboardColumnKeys(column: StudentDashboardColumn) {
+  return STUDENT_DASHBOARD_TILE_REGISTRY.filter((tile) => tile.desktopColumn === column).map(
+    (tile) => tile.key
+  );
+}
+/** Swap only this column's existing slots, preserving the interleaved mobile order. */
+export function moveDashboardTile(
+  layout: StudentDashboardLayout,
+  key: StudentDashboardTileKey,
+  target: StudentDashboardTileKey
+): StudentDashboardLayout {
+  const column = STUDENT_DASHBOARD_TILES[key].desktopColumn;
+  if (STUDENT_DASHBOARD_TILES[target].desktopColumn !== column) return layout;
+  const keys = layout.order.filter(
+    (item) => STUDENT_DASHBOARD_TILES[item].desktopColumn === column
+  );
+  const index = keys.indexOf(target);
+  if (index < 0 || !keys.includes(key)) return layout;
+  keys.splice(keys.indexOf(key), 1);
+  keys.splice(index, 0, key);
+  let cursor = 0;
+  return {
+    version: 1,
+    order: layout.order.map((item) =>
+      STUDENT_DASHBOARD_TILES[item].desktopColumn === column ? keys[cursor++] : item
+    ),
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-export function isDashboardTileSize(value: unknown): value is DashboardTileSize {
-  return DASHBOARD_TILE_SIZES.some((size) => size === value);
 }
 
 export function isStudentDashboardTileKey(value: unknown): value is StudentDashboardTileKey {
@@ -142,24 +143,7 @@ export function normalizeStudentDashboardLayout(remote?: unknown): StudentDashbo
   for (const tile of STUDENT_DASHBOARD_TILE_REGISTRY) {
     if (!order.includes(tile.key)) order.push(tile.key);
   }
-  const remoteTiles = isRecord(data.tiles) ? data.tiles : {};
-  const tiles = Object.fromEntries(
-    STUDENT_DASHBOARD_TILE_REGISTRY.map((tile) => {
-      const override = remoteTiles[tile.key];
-      const size = isRecord(override) ? override.desktopSize : undefined;
-      return [
-        tile.key,
-        {
-          desktopSize: isDashboardTileSize(size) ? size : tile.defaultSize,
-          allowAutoGrow:
-            isRecord(override) && typeof override.allowAutoGrow === 'boolean'
-              ? override.allowAutoGrow
-              : tile.defaultAllowAutoGrow,
-        },
-      ];
-    })
-  ) as StudentDashboardLayout['tiles'];
-  return { version: 1, order, tiles };
+  return { version: 1, order };
 }
 
 export const DEFAULT_STUDENT_DASHBOARD_LAYOUT = normalizeStudentDashboardLayout();
@@ -171,13 +155,7 @@ export function validateStudentDashboardLayout(value: StudentDashboardLayout): v
     !Array.isArray(value.order) ||
     value.order.length !== STUDENT_DASHBOARD_TILE_REGISTRY.length ||
     new Set(value.order).size !== value.order.length ||
-    !value.order.every(isStudentDashboardTileKey) ||
-    !isRecord(value.tiles) ||
-    !STUDENT_DASHBOARD_TILE_REGISTRY.every(
-      (tile) =>
-        isDashboardTileSize(value.tiles[tile.key]?.desktopSize) &&
-        typeof value.tiles[tile.key]?.allowAutoGrow === 'boolean'
-    )
+    !value.order.every(isStudentDashboardTileKey)
   ) {
     throw new Error('Invalid student dashboard layout');
   }

@@ -349,10 +349,18 @@ describe('Student Home dashboard grid', () => {
       'nextStep',
       'skillRadar',
       'needsAttention',
-      'instructorRecommendations',
       'weather',
     ]);
-    expect(columnOrder('right')).toEqual(['todayTasks', 'nextSession', 'todayAchievements']);
+    expect(columnOrder('right')).toEqual([
+      'todayTasks',
+      'nextSession',
+      'todayAchievements',
+      'instructorRecommendations',
+    ]);
+    expect(
+      grid.querySelector('[data-dashboard-tile="instructorRecommendations"]')?.parentElement
+        ?.parentElement
+    ).toBe(grid.querySelector('[data-dashboard-column="right"]'));
     for (const tile of Array.from(grid.querySelectorAll('[data-dashboard-tile]'))) {
       expect(tile).toHaveClass('ui-card', 'p-4', 'sm:p-5');
       const header = tile.querySelector('[data-dashboard-header]')!;
@@ -437,9 +445,12 @@ describe('Student Home dashboard grid', () => {
       'weather',
       'nextStep',
       'skillRadar',
+    ]);
+    expect(columnOrder('right')).toEqual([
+      'todayTasks',
+      'nextSession',
       'instructorRecommendations',
     ]);
-    expect(columnOrder('right')).toEqual(['todayTasks', 'nextSession']);
     expect(grid.querySelector('[data-dashboard-column="left"]')).toHaveClass(
       'contents',
       'xl:col-span-1',
@@ -467,9 +478,12 @@ describe('Student Home dashboard grid', () => {
       'weather',
       'skillRadar',
       'nextStep',
+    ]);
+    expect(columnOrder('right')).toEqual([
+      'nextSession',
+      'todayTasks',
       'instructorRecommendations',
     ]);
-    expect(columnOrder('right')).toEqual(['nextSession', 'todayTasks']);
     expect(grid.querySelector('[data-dashboard-tile="weather"]')).toBe(weather);
     expect(grid.querySelector('[data-dashboard-tile="todayTasks"]')).toBe(tasks);
     view.rerender(
@@ -481,8 +495,12 @@ describe('Student Home dashboard grid', () => {
         />
       </MemoryRouter>
     );
-    expect(columnOrder('left')).toEqual(['instructorRecommendations']);
-    expect(columnOrder('right')).toEqual(['nextSession', 'todayTasks']);
+    expect(columnOrder('left')).toEqual([]);
+    expect(columnOrder('right')).toEqual([
+      'nextSession',
+      'todayTasks',
+      'instructorRecommendations',
+    ]);
     for (const item of grid.querySelectorAll<HTMLElement>('[data-dashboard-item]')) {
       expect(item.querySelectorAll('[data-dashboard-tile]')).toHaveLength(1);
       expect(item.style.height).toBe('');
@@ -517,7 +535,12 @@ describe('Student Home dashboard grid', () => {
         order: ['weather', 'todayTasks', 'nextStep', 'todayAchievements'],
       })
     );
-    expect(columnOrder('right')).toEqual(['todayTasks', 'todayAchievements', 'nextSession']);
+    expect(columnOrder('right')).toEqual([
+      'todayTasks',
+      'todayAchievements',
+      'nextSession',
+      'instructorRecommendations',
+    ]);
     for (const card of cards) expect(grid.contains(card)).toBe(true);
     act(() => {
       desktop = false;
@@ -540,7 +563,12 @@ describe('Student Home dashboard grid', () => {
       for (const listener of listeners) listener();
     });
     for (const card of cards) expect(grid.contains(card)).toBe(true);
-    expect(columnOrder('right')).toEqual(['todayTasks', 'todayAchievements', 'nextSession']);
+    expect(columnOrder('right')).toEqual([
+      'todayTasks',
+      'todayAchievements',
+      'nextSession',
+      'instructorRecommendations',
+    ]);
     expect(new Set(cards.map((card) => card.getAttribute('data-dashboard-tile'))).size).toBe(
       cards.length
     );

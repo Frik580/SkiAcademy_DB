@@ -20,13 +20,25 @@ describe('fixed dashboard order', () => {
       'nextStep',
       'skillRadar',
       'needsAttention',
-      'instructorRecommendations',
       'weather',
     ]);
     expect(getDashboardColumnKeys('right')).toEqual([
       'todayTasks',
       'nextSession',
       'todayAchievements',
+      'instructorRecommendations',
+    ]);
+    expect(defaults.order).toEqual([
+      'currentSessions',
+      'countdown',
+      'todayTasks',
+      'nextStep',
+      'nextSession',
+      'todayAchievements',
+      'skillRadar',
+      'needsAttention',
+      'instructorRecommendations',
+      'weather',
     ]);
     expect(() => validateStudentDashboardLayout(defaults)).not.toThrow();
   });
@@ -53,6 +65,26 @@ describe('fixed dashboard order', () => {
       ],
     });
   });
+  it('normalizes a legacy recommendation position into the canonical right column', () => {
+    const legacyOrder = [
+      'instructorRecommendations',
+      'todayTasks',
+      'nextSession',
+      'todayAchievements',
+      'weather',
+    ] as const;
+    const layout = normalizeStudentDashboardLayout({ version: 1, order: legacyOrder });
+
+    expect(layout.order).toEqual(legacyOrder.concat(
+      defaults.order.filter((key) => !legacyOrder.includes(key))
+    ));
+    expect(layout.order.filter((key) => getDashboardColumnKeys('left').includes(key))).not.toContain(
+      'instructorRecommendations'
+    );
+    expect(
+      layout.order.filter((key) => getDashboardColumnKeys('right').includes(key))
+    ).toEqual(['instructorRecommendations', 'todayTasks', 'nextSession', 'todayAchievements']);
+  });
   it('rejects incomplete and duplicate writes', () => {
     expect(() => validateStudentDashboardLayout({ ...defaults, order: ['weather'] })).toThrow();
     expect(() =>
@@ -68,6 +100,10 @@ describe('fixed dashboard order', () => {
       expect(moved.order.indexOf(key)).toBe(defaults.order.indexOf(target));
     }
     expect(moveDashboardTile(defaults, 'todayTasks', 'weather')).toBe(defaults);
+    expect(moveDashboardTile(defaults, 'instructorRecommendations', 'weather')).toBe(defaults);
+    expect(
+      moveDashboardTile(defaults, 'instructorRecommendations', 'todayTasks').order
+    ).not.toEqual(defaults.order);
   });
   it('renders saved column order and restores conditional cards without empty hosts', () => {
     vi.stubGlobal('matchMedia', () => ({
@@ -83,7 +119,10 @@ describe('fixed dashboard order', () => {
       defaults.order.map((key) => [key, <span key={key}>{key}</span>])
     ) as Parameters<typeof StudentDashboardColumns>[0]['tiles'];
     const { container, rerender } = render(
-      <StudentDashboardColumns tiles={{ ...tiles, countdown: null }} order={layout.order} />
+      <StudentDashboardColumns
+        tiles={{ ...tiles, countdown: null, instructorRecommendations: null }}
+        order={layout.order}
+      />
     );
     const keys = (column: string) =>
       [
@@ -93,7 +132,9 @@ describe('fixed dashboard order', () => {
       ].map((el) => el.getAttribute('data-dashboard-item'));
     expect(keys('left').slice(0, 2)).toEqual(['weather', 'currentSessions']);
     expect(keys('right').slice(0, 2)).toEqual(['todayAchievements', 'todayTasks']);
+    expect(keys('right')).not.toContain('instructorRecommendations');
     rerender(<StudentDashboardColumns tiles={tiles} order={layout.order} />);
     expect(keys('left').slice(0, 3)).toEqual(['weather', 'countdown', 'currentSessions']);
+    expect(keys('right').at(-1)).toBe('instructorRecommendations');
   });
 });

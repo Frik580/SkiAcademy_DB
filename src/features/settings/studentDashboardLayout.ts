@@ -60,8 +60,8 @@ export const STUDENT_DASHBOARD_TILES = {
   },
   instructorRecommendations: {
     key: 'instructorRecommendations',
-    desktopColumn: 'left',
-    label: { ru: 'Рекомендации тренера', en: 'Coach recommendations' },
+    desktopColumn: 'right',
+    label: { ru: 'Последняя рекомендация тренера', en: 'Latest coach recommendation' },
     defaultSize: 'medium',
     defaultOrder: 9,
   },

@@ -39,6 +39,24 @@ describe('admin student dashboard settings', () => {
     expect(container.querySelector('[data-preview-column="left"]')).toHaveClass('col-span-1');
     expect(container.querySelector('[data-preview-column="right"]')).toHaveClass('col-span-2');
     expect(
+      keys(container.querySelector('[data-preview-column="left"]')!, 'data-preview-tile')
+    ).toEqual([
+      'currentSessions',
+      'countdown',
+      'nextStep',
+      'skillRadar',
+      'needsAttention',
+      'weather',
+    ]);
+    expect(
+      keys(container.querySelector('[data-preview-column="right"]')!, 'data-preview-tile')
+    ).toEqual([
+      'todayTasks',
+      'nextSession',
+      'todayAchievements',
+      'instructorRecommendations',
+    ]);
+    expect(
       screen.getByRole('button', { name: 'Переместить «Задачи на сегодня» выше' })
     ).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Переместить «Погода» ниже' })).toBeDisabled();
@@ -54,7 +72,12 @@ describe('admin student dashboard settings', () => {
     ).toBe('weather');
     expect(
       keys(container.querySelector('[data-preview-column="right"]')!, 'data-preview-tile')
-    ).toEqual(['todayTasks', 'todayAchievements', 'nextSession']);
+    ).toEqual([
+      'todayTasks',
+      'todayAchievements',
+      'nextSession',
+      'instructorRecommendations',
+    ]);
     await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
     expect(save).toHaveBeenCalledTimes(1);
     expect(Object.keys(save.mock.calls[0][0]).sort()).toEqual(['order', 'version']);
@@ -74,6 +97,34 @@ describe('admin student dashboard settings', () => {
     expect(
       keys(container.querySelector('[data-preview-column="left"]')!, 'data-preview-tile')[0]
     ).toBe('weather');
+
+    fireEvent.dragStart(
+      screen.getByRole('button', { name: 'Перетащить «Последняя рекомендация тренера»' }),
+      { dataTransfer: { setData: vi.fn() } }
+    );
+    fireEvent.drop(container.querySelector('[data-layout-setting="currentSessions"]')!);
+    expect(
+      keys(container.querySelector('[data-preview-column="right"]')!, 'data-preview-tile')
+    ).toEqual([
+      'todayTasks',
+      'nextSession',
+      'todayAchievements',
+      'instructorRecommendations',
+    ]);
+  });
+  it('allows recommendation order changes within the right group', async () => {
+    const { container } = render(<AdminStudentDashboardSettings />);
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Переместить «Последняя рекомендация тренера» выше' })
+    );
+    expect(
+      keys(container.querySelector('[data-preview-column="right"]')!, 'data-preview-tile')
+    ).toEqual([
+      'todayTasks',
+      'nextSession',
+      'instructorRecommendations',
+      'todayAchievements',
+    ]);
   });
   it('preserves failed draft and supports cancel/reset', async () => {
     useSettingsStore.getState().setStudentDashboardLayout({ version: 1, order: ['weather'] });

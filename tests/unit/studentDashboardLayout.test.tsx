@@ -1,147 +1,99 @@
 import { cleanup, render } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  DASHBOARD_TILE_SIZES,
-  DEFAULT_STUDENT_DASHBOARD_LAYOUT,
-  getOrderedDashboardTiles,
+  DEFAULT_STUDENT_DASHBOARD_LAYOUT as defaults,
+  getDashboardColumnKeys,
+  moveDashboardTile,
   normalizeStudentDashboardLayout,
-  STUDENT_DASHBOARD_TILE_REGISTRY,
-  STUDENT_DASHBOARD_TILES,
   validateStudentDashboardLayout,
 } from '../../src/features/settings/studentDashboardLayout';
-import {
-  StudentDashboardTile,
-  STUDENT_DASHBOARD_GRID_CLASSES,
-} from '../../src/features/student-cabinet/components/student/StudentDashboardTile';
-
-afterEach(cleanup);
-describe('student dashboard layout', () => {
-  it('registers only the ten configurable tiles, excluding Journey from defaults', () => {
-    expect(STUDENT_DASHBOARD_TILE_REGISTRY).toHaveLength(10);
-    expect(STUDENT_DASHBOARD_TILES).not.toHaveProperty('masteryPath');
-    expect(DEFAULT_STUDENT_DASHBOARD_LAYOUT.order).not.toContain('masteryPath');
-    expect(DEFAULT_STUDENT_DASHBOARD_LAYOUT.tiles).not.toHaveProperty('masteryPath');
-    expect(DEFAULT_STUDENT_DASHBOARD_LAYOUT.order[0]).toBe('currentSessions');
-  });
-  it('ignores obsolete Journey order and size while preserving other remote preferences', () => {
-    const layout = normalizeStudentDashboardLayout({
-      version: 1,
-      order: ['masteryPath', 'weather', 'countdown', 'masteryPath'],
-      tiles: { masteryPath: { desktopSize: 'small' }, weather: { desktopSize: 'full' } },
-    });
-    expect(layout.order).toEqual([
-      'weather',
-      'countdown',
-      ...DEFAULT_STUDENT_DASHBOARD_LAYOUT.order.filter(
-        (key) => key !== 'weather' && key !== 'countdown'
-      ),
-    ]);
-    expect(layout.tiles).not.toHaveProperty('masteryPath');
-    expect(layout.tiles.weather.desktopSize).toBe('full');
-    expect(() => validateStudentDashboardLayout(layout)).not.toThrow();
-  });
-  it.each([undefined, null, [], 'bad', { version: 9 }, { version: 1, order: 4, tiles: null }])(
-    'falls back safely without a usable document: %j',
-    (remote) => {
-      expect(normalizeStudentDashboardLayout(remote)).toEqual(DEFAULT_STUDENT_DASHBOARD_LAYOUT);
-    }
-  );
-  it('default order matches the registry and writes valid semantic sizes', () => {
-    expect(DEFAULT_STUDENT_DASHBOARD_LAYOUT.order).toEqual(
-      STUDENT_DASHBOARD_TILE_REGISTRY.map((tile) => tile.key)
-    );
-    expect(() => validateStudentDashboardLayout(DEFAULT_STUDENT_DASHBOARD_LAYOUT)).not.toThrow();
-  });
-  it.each(DASHBOARD_TILE_SIZES)(
-    'accepts remote %s without sizing cards outside their column',
-    (desktopSize) => {
-      const layout = normalizeStudentDashboardLayout({
-        version: 1,
-        tiles: { weather: { desktopSize } },
-      });
-      const { container } = render(
-        <StudentDashboardTile tileKey="weather" size={layout.tiles.weather.desktopSize}>
-          Weather
-        </StudentDashboardTile>
-      );
-      expect(container.firstChild).toHaveClass('ui-card', 'min-w-0', 'w-full');
-      expect(container.firstChild).toHaveAttribute('data-base-size', desktopSize);
-      expect((container.firstChild as HTMLElement).style.cssText).toBe('');
-      expect(STUDENT_DASHBOARD_GRID_CLASSES).toContain('grid-cols-1');
-      expect(STUDENT_DASHBOARD_GRID_CLASSES).not.toContain('dense');
-      expect(STUDENT_DASHBOARD_GRID_CLASSES).toContain('md:grid-cols-2');
-      expect(STUDENT_DASHBOARD_GRID_CLASSES).toContain('xl:grid-cols-3');
-    }
-  );
-  it.each(['gigantic', 7, null, undefined, {}, ['small']])(
-    'falls back per tile for malformed size %j',
-    (desktopSize) => {
-      const layout = normalizeStudentDashboardLayout({
-        version: 1,
-        tiles: { weather: { desktopSize }, nextSession: { desktopSize: 'full' } },
-      });
-      expect(layout.tiles.weather).toEqual(DEFAULT_STUDENT_DASHBOARD_LAYOUT.tiles.weather);
-      expect(layout.tiles.nextSession.desktopSize).toBe('full');
-    }
-  );
-  it('keeps remote order, removes duplicates/unknown/invalid keys, appends missing and new tiles deterministically', () => {
-    const layout = normalizeStudentDashboardLayout({
-      version: 1,
-      order: ['countdown', 'weather', 'UNKNOWN', 'countdown', null, 3, '__proto__'],
-    });
-    expect(layout.order).toEqual([
-      'countdown',
-      'weather',
-      ...DEFAULT_STUDENT_DASHBOARD_LAYOUT.order.filter(
-        (key) => key !== 'countdown' && key !== 'weather'
-      ),
-    ]);
-    expect(getOrderedDashboardTiles(layout).map((tile) => tile.key)).toEqual(layout.order);
-  });
-  it('rejects incomplete, duplicate and malformed drafts before writing', () => {
-    expect(() =>
-      validateStudentDashboardLayout({ ...DEFAULT_STUDENT_DASHBOARD_LAYOUT, order: ['weather'] })
-    ).toThrow();
-    const bad = normalizeStudentDashboardLayout();
-    bad.order[0] = bad.order[1];
-    expect(() => validateStudentDashboardLayout(bad)).toThrow();
-    const invalid = normalizeStudentDashboardLayout();
-    Object.assign(invalid.tiles.weather, { desktopSize: 'gigantic' });
-    expect(() => validateStudentDashboardLayout(invalid)).toThrow();
-  });
+import { StudentDashboardColumns } from '../../src/features/student-cabinet/components/student/StudentDashboardColumns';
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
 });
-
-describe('dashboard auto-grow configuration', () => {
-  it('uses registry boolean defaults for old configs without a migration', () => {
-    for (const tile of STUDENT_DASHBOARD_TILE_REGISTRY) {
-      const config = normalizeStudentDashboardLayout({
-        version: 1,
-        tiles: { [tile.key]: { desktopSize: 'full' } },
-      });
-      expect(config.tiles[tile.key].allowAutoGrow).toBe(tile.defaultAllowAutoGrow);
-      expect(config.tiles[tile.key].desktopSize).toBe('full');
-    }
+describe('fixed dashboard order', () => {
+  it('uses canonical default membership and order', () => {
+    expect(getDashboardColumnKeys('left')).toEqual([
+      'currentSessions',
+      'countdown',
+      'nextStep',
+      'skillRadar',
+      'needsAttention',
+      'instructorRecommendations',
+      'weather',
+    ]);
+    expect(getDashboardColumnKeys('right')).toEqual([
+      'todayTasks',
+      'nextSession',
+      'todayAchievements',
+    ]);
+    expect(() => validateStudentDashboardLayout(defaults)).not.toThrow();
   });
-  it.each([true, false])('reads explicit boolean %s', (allowAutoGrow) => {
-    expect(
-      normalizeStudentDashboardLayout({ version: 1, tiles: { weather: { allowAutoGrow } } }).tiles
-        .weather.allowAutoGrow
-    ).toBe(allowAutoGrow);
-  });
-  it.each(['yes', 1, null, undefined, {}, []])(
-    'falls back on malformed auto-grow %j',
-    (allowAutoGrow) => {
-      const config = normalizeStudentDashboardLayout({
-        version: 1,
-        tiles: { weather: { allowAutoGrow }, todayAchievements: { allowAutoGrow } },
-      });
-      expect(config.tiles.weather.allowAutoGrow).toBe(true);
-      expect(config.tiles.todayAchievements.allowAutoGrow).toBe(false);
+  it.each([undefined, null, [], 'bad', { version: 9 }, { version: 1, order: 4 }])(
+    'defaults malformed documents %j',
+    (value) => {
+      expect(normalizeStudentDashboardLayout(value)).toEqual(defaults);
     }
   );
-  it('rejects a non-boolean draft before persistence', () => {
-    const config = normalizeStudentDashboardLayout();
-    Object.assign(config.tiles.weather, { allowAutoGrow: 'yes' });
-    expect(() => validateStudentDashboardLayout(config)).toThrow();
+  it('preserves legacy order, removes invalid and duplicate IDs, appends missing tiles and ignores geometry', () => {
+    const layout = normalizeStudentDashboardLayout({
+      version: 1,
+      order: ['weather', 'UNKNOWN', 'weather', '__proto__', 'countdown'],
+      tiles: { weather: { desktopSize: 'full', allowAutoGrow: true, column: 'right' } },
+      placement: {},
+      masonry: true,
+    });
+    expect(layout).toEqual({
+      version: 1,
+      order: [
+        'weather',
+        'countdown',
+        ...defaults.order.filter((key) => key !== 'weather' && key !== 'countdown'),
+      ],
+    });
+  });
+  it('rejects incomplete and duplicate writes', () => {
+    expect(() => validateStudentDashboardLayout({ ...defaults, order: ['weather'] })).toThrow();
+    expect(() =>
+      validateStudentDashboardLayout({ ...defaults, order: defaults.order.map(() => 'weather') })
+    ).toThrow();
+  });
+  it('reorders each column while preserving other column slots and refusing cross-column moves', () => {
+    for (const [key, target] of [
+      ['weather', 'currentSessions'],
+      ['todayAchievements', 'todayTasks'],
+    ] as const) {
+      const moved = moveDashboardTile(defaults, key, target);
+      expect(moved.order.indexOf(key)).toBe(defaults.order.indexOf(target));
+    }
+    expect(moveDashboardTile(defaults, 'todayTasks', 'weather')).toBe(defaults);
+  });
+  it('renders saved column order and restores conditional cards without empty hosts', () => {
+    vi.stubGlobal('matchMedia', () => ({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+    const layout = normalizeStudentDashboardLayout({
+      version: 1,
+      order: ['weather', 'countdown', 'todayAchievements', 'todayTasks'],
+    });
+    const tiles = Object.fromEntries(
+      defaults.order.map((key) => [key, <span key={key}>{key}</span>])
+    ) as Parameters<typeof StudentDashboardColumns>[0]['tiles'];
+    const { container, rerender } = render(
+      <StudentDashboardColumns tiles={{ ...tiles, countdown: null }} order={layout.order} />
+    );
+    const keys = (column: string) =>
+      [
+        ...container.querySelectorAll(
+          `[data-dashboard-column="${column}"] > [data-dashboard-item]`
+        ),
+      ].map((el) => el.getAttribute('data-dashboard-item'));
+    expect(keys('left').slice(0, 2)).toEqual(['weather', 'currentSessions']);
+    expect(keys('right').slice(0, 2)).toEqual(['todayAchievements', 'todayTasks']);
+    rerender(<StudentDashboardColumns tiles={tiles} order={layout.order} />);
+    expect(keys('left').slice(0, 3)).toEqual(['weather', 'countdown', 'currentSessions']);
   });
 });

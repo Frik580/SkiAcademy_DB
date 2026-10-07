@@ -46,9 +46,7 @@ describe('student dashboard config sync', () => {
       })
     );
     expect(useSettingsStore.getState().studentDashboardLayout.order[0]).toBe('weather');
-    expect(useSettingsStore.getState().studentDashboardLayout.tiles.weather.desktopSize).toBe(
-      'full'
-    );
+    expect(useSettingsStore.getState().studentDashboardLayout).not.toHaveProperty('tiles');
     act(() =>
       next({
         exists: () => true,

@@ -1,22 +1,14 @@
 import { useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { type StudentDashboardTileKey } from '../../../settings/studentDashboardLayout';
+import {
+  getDashboardColumnKeys,
+  STUDENT_DASHBOARD_TILES,
+  type StudentDashboardTileKey,
+} from '../../../settings/studentDashboardLayout';
 import { STUDENT_DASHBOARD_GRID_CLASSES } from './StudentDashboardTile';
 
-const LEFT_TILES: readonly StudentDashboardTileKey[] = [
-  'currentSessions',
-  'countdown',
-  'nextStep',
-  'skillRadar',
-  'needsAttention',
-  'instructorRecommendations',
-  'weather',
-];
-const RIGHT_TILES: readonly StudentDashboardTileKey[] = [
-  'todayTasks',
-  'nextSession',
-  'todayAchievements',
-];
+const LEFT_TILES = getDashboardColumnKeys('left');
+const RIGHT_TILES = getDashboardColumnKeys('right');
 const desktopQuery = '(min-width: 1280px)';
 const readDesktop = () =>
   typeof window.matchMedia === 'function' && window.matchMedia(desktopQuery).matches;
@@ -68,8 +60,14 @@ export function StudentDashboardColumns({
       });
     };
     if (isDesktop) {
-      place(leftRef.current!, LEFT_TILES);
-      place(rightRef.current!, RIGHT_TILES);
+      place(
+        leftRef.current!,
+        order.filter((key) => STUDENT_DASHBOARD_TILES[key].desktopColumn === 'left')
+      );
+      place(
+        rightRef.current!,
+        order.filter((key) => STUDENT_DASHBOARD_TILES[key].desktopColumn === 'right')
+      );
     } else {
       place(
         gridRef.current!,
@@ -83,7 +81,7 @@ export function StudentDashboardColumns({
     ) {
       focusedElement.focus({ preventScroll: true });
     }
-  }, [hosts, isDesktop, visibleIdentity]);
+  }, [hosts, isDesktop, visibleIdentity, order]);
 
   return (
     <div

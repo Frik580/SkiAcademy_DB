@@ -1,8 +1,4 @@
 import { useLanguage } from '../../../../app/providers/LanguageContext';
-import {
-  DASHBOARD_TILE_COLUMNS,
-  type DashboardTileSize,
-} from '../../../settings/studentDashboardLayout';
 
 export function useStudentDashboardSettingsTranslations() {
   const { language } = useLanguage();
@@ -12,22 +8,16 @@ export function useStudentDashboardSettingsTranslations() {
     lang,
     title: ru ? 'Кабинет ученика → Главная' : 'Student cabinet → Home',
     description: ru
-      ? 'Порядок карточек на всех экранах и размеры на desktop.'
-      : 'Card order on every screen and desktop sizes.',
-    size: ru ? 'Базовый размер' : 'Base size',
-    autoGrow: ru ? 'Авторасширение' : 'Auto-grow',
-    autoGrowDescription: ru
-      ? 'Разрешить плитке увеличиваться на один размер, если это помогает заполнить строку.'
-      : 'Allow the tile to grow by one size when it helps fill the row.',
-    autoGrowLimit: (size: DashboardTileSize) =>
-      ru
-        ? `Разрешить увеличение до ${size} · ${DASHBOARD_TILE_COLUMNS[size]}/12`
-        : `Allow growth up to ${size} · ${DASHBOARD_TILE_COLUMNS[size]}/12`,
-    fullWidth: ru
-      ? 'Плитка уже занимает максимальную ширину'
-      : 'The tile already occupies the maximum width',
-    sizeLabel: (size: DashboardTileSize) =>
-      `${size[0].toUpperCase()}${size.slice(1)} · ${DASHBOARD_TILE_COLUMNS[size]}/12`,
+      ? 'Порядок карточек внутри фиксированных колонок.'
+      : 'Card order within fixed columns.',
+    column: (column: 'left' | 'right') =>
+      column === 'left'
+        ? ru
+          ? 'Левая колонка · 1/3'
+          : 'Left column · 1/3'
+        : ru
+          ? 'Основная колонка · 2/3'
+          : 'Main column · 2/3',
     preview: ru ? 'Предпросмотр desktop' : 'Desktop preview',
     save: ru ? 'Сохранить' : 'Save',
     saving: ru ? 'Сохранение…' : 'Saving…',

@@ -217,6 +217,7 @@ function isCanonicalDocumentPath(path: string): boolean {
   ) {
     return true;
   }
+  if (path === '/settings/lesson_levels') return true;
   if (segments.length === 3) {
     const idSchema = topLevelDocumentSchemas[segments[1]];
     return Boolean(idSchema?.safeParse(segments[2]).success);

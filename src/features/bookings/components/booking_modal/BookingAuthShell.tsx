@@ -1,3 +1,4 @@
+import { getParticipantSkillLabel } from '../../../../lib/i18n/participantSkillLabels';
 import React from 'react';
 import { motion } from 'motion/react';
 import { Auth } from '../../../../features/auth';
@@ -117,7 +118,7 @@ export const BookingAuthShell: React.FC<BookingAuthShellProps> = ({ workspace })
                             ] as const
                           ).map((skill) => (
                             <option key={skill} value={skill}>
-                              {workspace.getDifficultyLabel(skill, workspace.language, 'booking')}
+                              {getParticipantSkillLabel(skill, workspace.language, true)}
                             </option>
                           ))}
                         </select>

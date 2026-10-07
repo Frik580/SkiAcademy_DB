@@ -124,7 +124,7 @@ const mapActivityLogToHistoryEvent = (
         );
       }
       if (meta.difficulty ?? linkedBooking?.difficulty) {
-        subtitleParts.push(getDifficultyShort(meta.difficulty ?? linkedBooking!.difficulty));
+        subtitleParts.push(getDifficultyShort(meta.difficulty ?? linkedBooking!.difficulty, language));
       }
 
       return {
@@ -348,7 +348,7 @@ export const getHistoryEvents = (
               getRecentLessonTitle(b, courses, language)
             )
           : t('scHistoryLessonWith').replace('{name}', b.instructorName),
-        subtitle: `${t('scHistoryTimeLabel')}: ${timeRange} · ${t('scHistoryDurationLabel')}: ${durationText} · ${getDifficultyShort(b.difficulty)}`,
+        subtitle: `${t('scHistoryTimeLabel')}: ${timeRange} · ${t('scHistoryDurationLabel')}: ${durationText} · ${getDifficultyShort(b.difficulty, language)}`,
         kind: 'training' as const,
         bookingId: b.id,
       };

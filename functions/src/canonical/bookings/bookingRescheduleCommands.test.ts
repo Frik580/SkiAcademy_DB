@@ -1,3 +1,4 @@
+import { DEFAULT_LESSON_LEVELS } from '@ski-academy/shared-domain';
 import { describe, expect, it } from 'vitest';
 import {
   AccountIdSchema,
@@ -1675,4 +1676,22 @@ describe('admin change_booking_instructor unmanaged_guest', () => {
       executor.snapshot().docs.get(`bookings/${guestBookingId}`)?.data.occurrence.instructorId
     ).toBe(instructorId);
   });
+});
+
+
+it('reschedules a historical archived lesson level without changing its reference', async () => {
+  const initial = createInMemoryCanonicalTransactionExecutor(seedBase());
+  await createConfirmedBooking(initial);
+  const fixture = Object.fromEntries([...initial.snapshot().docs].map(([path, doc]) => [path, doc.data]));
+  fixture[`bookings/${bookingId}`] = { ...fixture[`bookings/${bookingId}`], difficulty: 'ADVANCED' };
+  fixture['settings/lesson_levels'] = {
+    levels: DEFAULT_LESSON_LEVELS.map((level) => ({ ...level, isActive: level.id !== 'advanced' })),
+    revision: 1, createdAt: decidedAt, updatedAt: decidedAt,
+    audit: { createdByCommandId: 'command_seed', lastChangedByCommandId: 'command_seed', correlationId },
+  };
+  const executor = createInMemoryCanonicalTransactionExecutor(fixture);
+  const commands = createProductionCanonicalCommands(environment('2026-01-01T00:00:00.000Z'), executor);
+  const result = await commands.execute(rescheduleEnvelope('archive-unrelated-reschedule', 'administrator'));
+  expect(result.status).toBe('success');
+  expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.difficulty).toBe('ADVANCED');
 });

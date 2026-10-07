@@ -3557,3 +3557,23 @@ describe('admin runtime unknown revision document', () => {
     await assertFails(deleteDoc(anonymousRef));
   });
 });
+
+
+describe('lesson-level-settings-permissions', () => {
+  it('allows public reads and denies every direct client mutation including admin', async () => {
+    await seedData(async (context) => {
+      await setDoc(doc(context.firestore(), 'users', ADMIN_ID), userProfile(ADMIN_ID, 'admin@example.com', 'admin'));
+      await setDoc(doc(context.firestore(), 'settings', 'lesson_levels'), { levels: [] });
+    });
+    for (const uid of [ADMIN_ID, OWNER_ID, USER_ID, null]) {
+      const db = (uid ? testEnv.authenticatedContext(uid) : testEnv.unauthenticatedContext()).firestore();
+      const ref = doc(db, 'settings', 'lesson_levels');
+      await assertSucceeds(getDoc(ref));
+      await assertFails(setDoc(ref, { levels: [] }));
+      await assertFails(updateDoc(ref, { levels: [] }));
+      await assertFails(deleteDoc(ref));
+    }
+    await seedData(async (context) => deleteDoc(doc(context.firestore(), 'settings', 'lesson_levels')));
+    await assertFails(setDoc(doc(testEnv.authenticatedContext(ADMIN_ID).firestore(), 'settings', 'lesson_levels'), { levels: [] }));
+  });
+});

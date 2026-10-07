@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import {
   LESSON_PRICING_SETTINGS_ID,
+  LessonLevelsPayloadSchema,
   KztMinorUnitsSchema,
   canonicalJsonStringify,
   isSupportedResortSlideLogicalImageKey,
@@ -125,6 +126,12 @@ const LessonPricingPayloadSchema = z
   .strict();
 
 const SourceDocumentSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('lesson_levels'), logicalKey: z.literal('lesson_levels'),
+    sourcePath: z.literal('settings/lesson_levels'), sourceId: z.literal('lesson_levels'),
+    selected: z.boolean(), sourceHash: hashSchema, payload: z.unknown(),
+    issues: z.array(z.string().max(160)).optional(),
+  }).strict(),
   z.object({
     kind: z.literal('lesson_pricing_settings'),
     logicalKey: z.literal('lesson_booking'),
@@ -320,6 +327,8 @@ function assertNoSecretOrRuntimeFields(value: unknown): void {
 export function validateSourcePayload(record: PromotionSourceDocument): void {
   const schema = (() => {
     switch (record.kind) {
+      case 'lesson_levels':
+        return LessonLevelsPayloadSchema;
       case 'lesson_pricing_settings':
         return LessonPricingPayloadSchema;
       case 'skill_config':

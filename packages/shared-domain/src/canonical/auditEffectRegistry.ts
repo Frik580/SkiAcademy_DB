@@ -14,6 +14,7 @@ const COMMAND_KIND_ALLOWED_EFFECTS: Partial<Record<CommandKind, readonly AuditEf
     'outbox_obligation_created',
   ],
   update_lesson_pricing_settings: ['pricing_settings_changed'],
+  update_lesson_levels: ['lesson_levels_changed'],
   set_email_delivery_enabled: ['email_delivery_settings_changed'],
   create_guest_booking_request: [
     'booking_lifecycle_changed',

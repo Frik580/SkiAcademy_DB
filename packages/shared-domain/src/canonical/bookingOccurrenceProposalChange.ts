@@ -433,7 +433,8 @@ export const LESSON_DIFFICULTIES = [
   'freestyle',
 ] as const;
 
-export const LessonDifficultySchema = z.enum(LESSON_DIFFICULTIES);
+// Syntax validation permits catalog additions and historical legacy codes.
+export const LessonDifficultySchema = z.string().trim().min(1).max(80).regex(/^[A-Za-z][A-Za-z0-9_-]*$/);
 
 export const BookingLessonNotesSchema = z.preprocess((value) => {
   if (typeof value !== 'string') return value;

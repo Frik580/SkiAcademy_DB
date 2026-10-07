@@ -28,7 +28,7 @@ import type { AuthenticatedCourseEnrollmentSelection } from '../useCourseActions
 import { ParticipantPicker } from '../../participants/components/ParticipantPicker';
 import { GuestReservationStatus } from '../../guest-reservations/GuestReservationStatus';
 import { presentCancellationError } from '../../student-cabinet/presentCancellationError';
-import { getDifficultyLabel } from '../../../lib/i18n/bookingLabels';
+import { getParticipantSkillLabel } from '../../../lib/i18n/participantSkillLabels';
 import {
   forgetGuestReservation,
   isUnusableGuestReservationError,
@@ -78,7 +78,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   const guestSkillOptions = GUEST_SKILL_LEVELS.map((value) => ({
     value,
     label:
-      value === 'expert' ? t('journeyLevelExpert') : getDifficultyLabel(value, language, 'short'),
+      value === 'expert' ? t('journeyLevelExpert') : getParticipantSkillLabel(value, language),
   }));
   const { formatPrice } = useCurrency();
   const { addNotification } = useNotifications();
@@ -492,7 +492,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   const courseSubtitle = course.level
     ? course.level === 'expert'
       ? t('journeyLevelExpert')
-      : getDifficultyLabel(course.level, language, 'short')
+      : getParticipantSkillLabel(course.level, language)
     : course.levelLabel?.trim();
   const showAuthenticatedEnrollment = Boolean(authenticatedProfile);
   const guestProfileIncomplete =

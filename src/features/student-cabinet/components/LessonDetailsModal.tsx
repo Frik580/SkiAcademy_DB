@@ -51,7 +51,7 @@ export const LessonDetailsModal: React.FC<LessonDetailsModalProps> = ({
   const dateLabel = formatBookingDayMonth(booking, courses, lang);
   const shortDate = formatShortBookingDate(booking, language, courses);
   const modalTitle = t('scLessonDetails');
-  const difficultyLabel = getDifficultyShort(booking.difficulty);
+  const difficultyLabel = getDifficultyShort(booking.difficulty, language);
   const lessonFeedback = feedback.feedbackForLesson(booking.id);
   const pendingItemIds = new Set(
     lessonFeedback && feedback.participantId

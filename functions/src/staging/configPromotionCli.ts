@@ -1,3 +1,4 @@
+import { parseLessonLevels } from '../canonical/pricing/lessonLevelsStore';
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
@@ -367,6 +368,21 @@ async function executeOperation(input: {
   };
   const payload = input.payload as Record<string, unknown>;
 
+  if (record.kind === 'lesson_levels') {
+    const current = await getNormalizedDocument(input.firestore, operation.targetPath);
+    if (stableHash(current ?? null) !== operation.targetPreconditionHash) {
+      throw new Error(`PROMOTION: target changed before catalog command at ${operation.targetPath}; regenerate the dry-run`);
+    }
+    const catalog = parseLessonLevels(current);
+    const envelope = {
+      kind: 'update_lesson_levels',
+      context: { ...commandContext, expectedRevision: AggregateRevisionSchema.parse(catalog?.revision ?? 0) },
+      intent: { ...payload, reasonExplanation: APPLY_REASON },
+    } as CommandEnvelope<'update_lesson_levels'>;
+    const result = await input.commands.execute(envelope);
+    if (result.status !== 'success') throw new Error(`PROMOTION: canonical operation failed at ${operation.targetPath}`);
+    return;
+  }
   if (record.kind === 'lesson_pricing_settings') {
     const current = await getNormalizedDocument(input.firestore, operation.targetPath);
     const settings = parseLessonPricingSettings(current);

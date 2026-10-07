@@ -25,6 +25,7 @@ export * from './participantLessonStatsSemantics';
 export * from './bookingPartyFinance';
 export * from './bookingCreation';
 export * from './lessonPricingSettings';
+export * from './lessonLevels';
 export * from './emailDeliverySettings';
 export * from './instructorReview';
 export * from './participantProgress';

@@ -1,3 +1,4 @@
+import { parseLessonLevels } from '../canonical/pricing/lessonLevelsStore';
 import { createHash } from 'node:crypto';
 import type { Bucket } from '@google-cloud/storage';
 import type { Firestore } from 'firebase-admin/firestore';
@@ -36,6 +37,7 @@ import {
 
 export const PROMOTION_CONFIG_DOCUMENT_PATHS = [
   LESSON_PRICING_SETTINGS_DOCUMENT_PATH,
+  'settings/lesson_levels',
   'settings/skill_config',
   'settings/achievements_config',
   'settings/instructor_filters',
@@ -328,6 +330,12 @@ async function buildSingletonRecord(input: {
         maxParticipantsPerLesson: settings.maxParticipantsPerLesson,
       }, issues: [],
     });
+  }
+  if (doc.path === 'settings/lesson_levels') {
+    const catalog = parseLessonLevels(raw);
+    return makeRecord({ kind: 'lesson_levels', logicalKey: 'lesson_levels', sourcePath: doc.path,
+      sourceId: 'lesson_levels', payload: catalog ? { levels: catalog.levels } : {},
+      issues: catalog ? [] : ['invalid_lesson_levels'] });
   }
   if (doc.path === 'settings/skill_config') {
     return makeRecord({ kind: 'skill_config', logicalKey: 'skill_config', sourcePath: doc.path,

@@ -1,3 +1,5 @@
+import { activeLessonLevels } from '@ski-academy/shared-domain';
+import { useLessonLevelsStore } from '../../../settings/lessonLevelsStore';
 import React, { useMemo } from 'react';
 import { Calendar, Clock, HelpCircle } from 'lucide-react';
 import { LessonDifficulty } from '../../../../types';
@@ -7,14 +9,6 @@ import { formatDurationLabel } from '../../../../lib/i18n/duration';
 import { BookingAppleDatePicker } from './BookingAppleDatePicker';
 import { BookingAppleWheelPicker } from './BookingAppleWheelPicker';
 import { buildBookingTimePickerOptions } from './bookingTimePickerOptions';
-
-const DIFFICULTY_OPTIONS: LessonDifficulty[] = [
-  'beginner',
-  'intermediate',
-  'advanced',
-  'freeride',
-  'freestyle',
-];
 
 interface BookingSelectorsProps {
   date: string;
@@ -59,6 +53,7 @@ export const BookingSelectors: React.FC<BookingSelectorsProps> = ({
   gapClass = 'gap-4',
   showDifficulty = true,
 }) => {
+  const levels = useLessonLevelsStore((state) => state.levels);
   const labelStyle = 'mb-1.5 flex items-center gap-1.5 truncate text-xs text-[var(--ink-dim)]';
 
   const timeOptions = useMemo(
@@ -83,11 +78,11 @@ export const BookingSelectors: React.FC<BookingSelectorsProps> = ({
 
   const stageOptions = useMemo(
     () =>
-      DIFFICULTY_OPTIONS.map((diff) => ({
-        value: diff,
-        label: getDifficultyLabel(diff, language, 'booking'),
+      activeLessonLevels(levels).map((level) => ({
+        value: level.id,
+        label: getDifficultyLabel(level.id, language, 'booking'),
       })),
-    [getDifficultyLabel, language]
+    [getDifficultyLabel, language, levels]
   );
 
   const locale = language === 'ru' ? 'ru-RU' : 'en-US';

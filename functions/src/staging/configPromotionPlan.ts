@@ -1,3 +1,5 @@
+import { DEFAULT_LESSON_LEVELS, LessonLevelsPayloadSchema, assertLessonLevelsRetained } from '@ski-academy/shared-domain';
+import { parseLessonLevels } from '../canonical/pricing/lessonLevelsStore';
 import { parsePersistedCanonicalScope } from '@ski-academy/shared-domain';
 import { parseLessonPricingSettings } from '../canonical/pricing/lessonPricingSettingsStore';
 import {
@@ -77,6 +79,14 @@ export function planConfigPromotion(
         targetShapeConflict = true;
       }
     }
+    if (record.kind === 'lesson_levels') {
+      try {
+        const sourceLevels = LessonLevelsPayloadSchema.parse(source).levels;
+        const existing = raw ? parseLessonLevels(raw) : undefined;
+        if (raw && !existing) throw new Error('Invalid target catalog');
+        assertLessonLevelsRetained(existing?.levels ?? DEFAULT_LESSON_LEVELS, sourceLevels);
+      } catch { targetShapeConflict = true; }
+    }
     const comparable = current
       ? normalizeTargetMedia(current, source, manifest.media, record.logicalKey, target.mediaHashes)
       : undefined;
@@ -147,6 +157,10 @@ export function configProjection(kind: PromotionSourceDocument['kind'], raw: Rec
             maxParticipantsPerLesson: parsed.maxParticipantsPerLesson,
           }
         : {};
+    }
+    case 'lesson_levels': {
+      const catalog = parseLessonLevels(raw);
+      return catalog ? { levels: catalog.levels } : {};
     }
     case 'skill_config':
       return pick(raw, ['passPercentage', 'items']);

@@ -1,4 +1,5 @@
-export type LessonDifficulty = 'beginner' | 'intermediate' | 'advanced' | 'freeride' | 'freestyle';
+/** Immutable lesson catalog ID; validated by canonical commands. */
+export type LessonDifficulty = string;
 
 export type BookingStatus =
   | 'pending'

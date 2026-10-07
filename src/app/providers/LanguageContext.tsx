@@ -1,3 +1,4 @@
+import { useLessonLevelsStore } from '../../features/settings';
 import React, { createContext, useContext, useState } from 'react';
 import {
   translations,
@@ -28,6 +29,8 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Subscribe once at the provider so all localized surfaces rerender after catalog edits.
+  useLessonLevelsStore((state) => state.levels);
   const [language, setLanguageState] = useState<Language>(() =>
     resolveUiLanguage(localStorage.getItem('alpine_glide_lang'))
   );

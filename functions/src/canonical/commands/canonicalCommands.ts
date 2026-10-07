@@ -52,6 +52,7 @@ import {
 import type { GuestBookingCommandEnvironment } from '../bookings/guestBookingCommands';
 import type { GuestCourseEnrollmentCommandEnvironment } from '../courses/guestCourseEnrollmentLifecycle';
 import type { GuestReservationAdmissionPolicy } from './guestReservationAdmission';
+import { createLessonLevelsCommandHandlers } from '../pricing/lessonLevelsCommands';
 import { createLessonPricingSettingsCommandHandlers } from '../pricing/lessonPricingSettingsCommands';
 import { createEmailDeliverySettingsCommandHandlers } from '../auditOutbox/emailDeliverySettingsCommands';
 import { emailDeliveryProviderConfigured } from '../auditOutbox/outboxDeliveryAdapters';
@@ -221,6 +222,7 @@ export function createProductionCanonicalCommands(
     ...createAdministrativeAvailabilityBlockCommandHandlers(executor),
     ...createFinanceCommandHandlers(executor, options.monetaryEventLoader),
     ...createLessonPricingSettingsCommandHandlers(executor),
+    ...createLessonLevelsCommandHandlers(executor),
     ...createEmailDeliverySettingsCommandHandlers(
       executor,
       options.isEmailProviderConfigured ?? emailDeliveryProviderConfigured

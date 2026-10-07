@@ -1,3 +1,4 @@
+import { DEFAULT_LESSON_LEVELS } from '@ski-academy/shared-domain';
 import { describe, expect, it } from 'vitest';
 import { mediaPlaceholderUrl, parsePromotionManifest, stableHash } from './configPromotionContract';
 import { destinationMediaPath, planConfigPromotion } from './configPromotionPlan';
@@ -5,8 +6,9 @@ import { destinationMediaPath, planConfigPromotion } from './configPromotionPlan
 const exportedAt = '2026-09-24T00:00:00.000Z';
 const pricing = { additionalParticipantSurchargePerHourKzt: 424_242, maxParticipantsPerLesson: 4 };
 
-function record(kind: 'lesson_pricing_settings' | 'skill_config' | 'achievements_config' | 'instructor_filters' | 'resort_slides', payload: Record<string, unknown>, issues?: string[]) {
+function record(kind: 'lesson_levels' | 'lesson_pricing_settings' | 'skill_config' | 'achievements_config' | 'instructor_filters' | 'resort_slides', payload: Record<string, unknown>, issues?: string[]) {
   const identity = {
+    lesson_levels: { logicalKey: 'lesson_levels', sourcePath: 'settings/lesson_levels', sourceId: 'lesson_levels' },
     lesson_pricing_settings: { logicalKey: 'lesson_booking', sourcePath: 'lesson_pricing_settings/lesson_booking', sourceId: 'lesson_booking' },
     skill_config: { logicalKey: 'skill_config', sourcePath: 'settings/skill_config', sourceId: 'skill_config' },
     achievements_config: { logicalKey: 'achievements_config', sourcePath: 'settings/achievements_config', sourceId: 'achievements_config' },
@@ -167,5 +169,29 @@ describe('staging configuration promotion plan', () => {
       mediaUrlReady: { [destination]: true },
     });
     expect(unchanged.operations.find((operation) => operation.kind === 'media')?.status).toBe('UNCHANGED');
+  });
+});
+
+
+describe('lesson catalog promotion', () => {
+  const catalog = {
+    levels: DEFAULT_LESSON_LEVELS, revision: 1,
+    createdAt: { seconds: 1, nanoseconds: 0 }, updatedAt: { seconds: 1, nanoseconds: 0 },
+    audit: { createdByCommandId: 'command_seed', lastChangedByCommandId: 'command_seed', correlationId: 'correlation_seed' },
+  };
+  it('creates, compares and updates lesson level display properties', () => {
+    const source = manifest([record('lesson_levels', { levels: DEFAULT_LESSON_LEVELS })]);
+    expect(planConfigPromotion(source, { documents: {}, mediaHashes: {} }).operations[0]?.status).toBe('CREATE');
+    expect(planConfigPromotion(source, { documents: { 'settings/lesson_levels': catalog }, mediaHashes: {} }).operations[0]?.status).toBe('UNCHANGED');
+    const renamed = DEFAULT_LESSON_LEVELS.map((level) => ({ ...level, nameEn: level.nameEn + ' renamed' }));
+    const changed = manifest([record('lesson_levels', { levels: renamed })]);
+    expect(planConfigPromotion(changed, { documents: { 'settings/lesson_levels': catalog }, mediaHashes: {} }).operations[0]?.status).toBe('UPDATE');
+  });
+  it('blocks promotion that would drop production or initial stable IDs', () => {
+    const source = manifest([record('lesson_levels', { levels: DEFAULT_LESSON_LEVELS })]);
+    const target = { ...catalog, levels: [...DEFAULT_LESSON_LEVELS, { ...DEFAULT_LESSON_LEVELS[0], id: 'race', order: 5 }] };
+    expect(planConfigPromotion(source, { documents: { 'settings/lesson_levels': target }, mediaHashes: {} }).hasConflicts).toBe(true);
+    const missing = manifest([record('lesson_levels', { levels: DEFAULT_LESSON_LEVELS.slice(1) })]);
+    expect(planConfigPromotion(missing, { documents: {}, mediaHashes: {} }).hasConflicts).toBe(true);
   });
 });

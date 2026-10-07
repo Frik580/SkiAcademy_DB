@@ -623,6 +623,7 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin() &&
         settingId != 'guest_wallet' &&
+        settingId != 'lesson_levels' &&
         (
           settingId != 'starter_credit' ||
           validStarterCreditSetting()

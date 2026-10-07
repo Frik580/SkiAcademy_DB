@@ -1,3 +1,4 @@
+import { getDifficultyLabel } from '../../lib/i18n/bookingLabels';
 import type { LessonBookingCabinetItem } from '../lesson-bookings/lessonBookingContracts';
 import { localCalendarInputToUtcDate } from '@ski-academy/shared-domain/canonical/bookingCreation';
 import { IanaTimeZoneSchema } from '@ski-academy/shared-domain/canonical/primitives';
@@ -284,16 +285,11 @@ export function formatCabinetSessionTimeRange(item: CabinetSessionItem): string 
   return `${item.time}–${item.endTime}`;
 }
 
-export function getCabinetSessionTitle(item: CabinetSessionItem, _language: 'en' | 'ru'): string {
+export function getCabinetSessionTitle(item: CabinetSessionItem, language: 'en' | 'ru'): string {
   if (item.kind === 'lesson') {
-    const labels: Record<string, string> = {
-      beginner: 'BASE',
-      intermediate: 'CARVE',
-      advanced: 'PRO',
-      freeride: 'FREERIDE',
-      freestyle: 'PARK',
-    };
-    return labels[item.session.difficulty ?? ''] ?? 'BASE';
+    return item.session.difficulty
+      ? getDifficultyLabel(item.session.difficulty, language)
+      : language === 'ru' ? 'Индивидуальное занятие' : 'Individual lesson';
   }
   return item.courseTitle;
 }

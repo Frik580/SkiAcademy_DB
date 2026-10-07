@@ -1,3 +1,4 @@
+import { useLessonLevelsStore } from '../lessonLevelsStore';
 import { useEffect } from 'react';
 import { db, doc, onSnapshot } from '../../../infrastructure/firebase';
 import {
@@ -22,6 +23,19 @@ const scheduleIdle = (fn: () => void): (() => void) => {
 
 export const useSettingsSync = () => {
   useEffect(() => {
+    const unsubscribeLessonLevels = onSnapshot(
+      doc(db, 'settings', 'lesson_levels'),
+      { includeMetadataChanges: true },
+      (snapshot) => {
+        if (!snapshot.metadata.hasPendingWrites) {
+          useLessonLevelsStore.getState().receive(snapshot.exists() ? snapshot.data() : undefined);
+        }
+      },
+      (error) => {
+        useLessonLevelsStore.getState().fail();
+        logger.error('Lesson levels sync error:', error);
+      }
+    );
     // Theme + filters affect first paint / home layout — subscribe immediately.
     const unsubscribeFilters = onSnapshot(
       doc(db, 'settings', 'instructor_filters'),
@@ -108,6 +122,7 @@ export const useSettingsSync = () => {
 
     return () => {
       cancelIdle();
+      unsubscribeLessonLevels();
       unsubscribeFilters();
       unsubscribeRetention?.();
       unsubscribeStarterCredit?.();

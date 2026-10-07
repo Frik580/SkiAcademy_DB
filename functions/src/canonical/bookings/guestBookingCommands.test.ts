@@ -1,3 +1,4 @@
+import { DEFAULT_LESSON_LEVELS } from '@ski-academy/shared-domain';
 import { describe, expect, it } from 'vitest';
 import {
   AccountIdSchema,
@@ -2218,5 +2219,36 @@ describe('guest booking audit registry', () => {
         .snapshot()
         .docs.has(`activity_logs/${activityLogIdFromCommandId(identity.commandKey)}`)
     ).toBe(true);
+  });
+});
+
+
+describe('lesson catalog admission', () => {
+  it.each(['advanced', 'ADVANCED', 'unknown_level'])('rejects archived/unknown %s before money or reservations', async (difficulty) => {
+    const catalog = {
+      levels: DEFAULT_LESSON_LEVELS.map((level) => ({ ...level, isActive: level.id !== 'advanced' })),
+      revision: 1, createdAt: decidedAt, updatedAt: decidedAt,
+      audit: { createdByCommandId: 'command_seed', lastChangedByCommandId: 'command_seed', correlationId },
+    };
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture({ 'settings/lesson_levels': catalog }));
+    const original = guestCreateEnvelope();
+    const request = { ...original, intent: { ...original.intent, difficulty } };
+    const result = await runCommands(executor).execute(request);
+    expect(result).toMatchObject({ status: 'error', error: { code: 'validation' } });
+    expect(executor.snapshot().docs.has(`bookings/${bookingId}`)).toBe(false);
+    expect(executor.snapshot().docs.has(`payments/${paymentId}`)).toBe(false);
+    expect([...executor.snapshot().docs.keys()].some((path) => path.startsWith('resource_claims/'))).toBe(false);
+  });
+  it('accepts a new catalog ID without changing code or rewriting other references', async () => {
+    const catalog = {
+      levels: [...DEFAULT_LESSON_LEVELS, { id: 'race', nameRu: 'Гонки', nameEn: 'Race', marker: '🏁', order: 5, isActive: true }],
+      revision: 1, createdAt: decidedAt, updatedAt: decidedAt,
+      audit: { createdByCommandId: 'command_seed', lastChangedByCommandId: 'command_seed', correlationId },
+    };
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture({ 'settings/lesson_levels': catalog }));
+    const original = guestCreateEnvelope();
+    const request = { ...original, intent: { ...original.intent, difficulty: 'race' } };
+    expect((await runCommands(executor).execute(request)).status).toBe('success');
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.difficulty).toBe('race');
   });
 });

@@ -1,3 +1,4 @@
+import { assertActiveLessonLevel } from '../pricing/lessonLevelsStore';
 import {
   AggregateRevisionSchema,
   assertBookingPaymentIdentity,
@@ -202,6 +203,7 @@ function createGuestBookingRequestHandler(
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'create_guest_booking_request'> = {
     read: async (session) => {
+      await assertActiveLessonLevel(session, envelope, envelope.intent.difficulty);
       admissionPlan = undefined;
       if (!environment.guestActionTokenSecret) {
         throw new CanonicalCommandError('unavailable', {

@@ -30,6 +30,7 @@ const COMMAND_KIND_REASON_CODES: Partial<Record<CommandKind, readonly AuditReaso
   complete_booking: ['self_service_completion', 'scheduled_system_action', 'other'],
   create_confirmed_booking: ['self_service_booking', 'manual_override', 'other'],
   update_lesson_pricing_settings: ['manual_override'],
+  update_lesson_levels: ['manual_override'],
   set_email_delivery_enabled: ['manual_override'],
   create_guest_booking_request: ['other'],
   confirm_guest_booking: ['manual_override', 'other'],

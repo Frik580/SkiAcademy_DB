@@ -1,3 +1,4 @@
+import { cabinetLessonTiming } from '../fixtures/cabinetLessonTiming';
 import { describe, expect, it } from 'vitest';
 import type { LessonBookingCabinetItem } from '../../src/features/lesson-bookings/lessonBookingContracts';
 import {
@@ -31,6 +32,7 @@ const lessonFixture: LessonBookingCabinetItem = {
   date: '2027-03-15',
   time: '10:00-12:00',
   durationHours: 2,
+  ...cabinetLessonTiming('2027-03-15', '10:00', 2),
   instructorId: 'instructor_fixture_01',
   instructorName: 'Coach',
   instructorAvatar: '',

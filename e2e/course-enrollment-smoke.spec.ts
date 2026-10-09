@@ -2,6 +2,7 @@ import { test } from '@playwright/test';
 import {
   expect,
   isolatedCourseId,
+  isolatedCourseDayOffset,
   loadRuntimeConfig,
   signInStudent,
   signInAccount,
@@ -170,7 +171,7 @@ test('student enrolls in an available course with the test wallet', async ({ pag
     title: courseTitle,
     instructorId: config.instructorId,
     discipline: 'ski',
-    dayOffset: 120 + testInfo.repeatEachIndex * 7,
+    dayOffset: isolatedCourseDayOffset(120, testInfo),
   });
   await waitForFunctionsEmulatorReady();
   const assertNoBrowserFailures = watchBrowserFailures(page);

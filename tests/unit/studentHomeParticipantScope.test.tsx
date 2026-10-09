@@ -1,3 +1,4 @@
+import { cabinetLessonTiming } from '../fixtures/cabinetLessonTiming';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -22,6 +23,13 @@ import { usePresentedParticipantAchievements } from '../../src/features/particip
 import { useSettingsStore } from '../../src/features/settings/settingsStore';
 import { DEFAULT_STUDENT_DASHBOARD_LAYOUT } from '../../src/features/settings/studentDashboardLayout';
 import type { CabinetSessionItem } from '../../src/features/course-enrollments';
+import { canonicalTimestampToEpochMs } from '@ski-academy/shared-domain/canonical/bookingCancellationPolicy';
+
+function cabinetLessonInstant(date: string, time: string): Date {
+  const [hour, minute, seconds = '0'] = time.split(':');
+  const { startsAt } = cabinetLessonTiming(date, `${hour}:${minute}`, 1);
+  return new Date(canonicalTimestampToEpochMs(startsAt) + Number(seconds) * 1_000);
+}
 
 vi.mock('../../src/app/providers/LanguageContext', () => ({
   useLanguage: () => ({ language: 'en', t: (key: string) => key }),
@@ -288,7 +296,7 @@ describe('Student Home dashboard grid', () => {
       removeEventListener: (_event: string, callback: () => void) => listeners.delete(callback),
     }));
     vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(new Date(2099, 0, 1, 9, 0));
+    vi.setSystemTime(cabinetLessonInstant('2099-01-01', '09:00'));
     const upcoming: CabinetSessionItem = {
       kind: 'lesson',
       session: {
@@ -299,6 +307,7 @@ describe('Student Home dashboard grid', () => {
         date: '2099-01-01',
         time: '09:30',
         durationHours: 1,
+        ...cabinetLessonTiming('2099-01-01', '09:30', 1),
         instructorId: 'coach',
         instructorName: 'Coach',
         instructorAvatar: '',
@@ -317,6 +326,7 @@ describe('Student Home dashboard grid', () => {
         id: 'current_visual',
         bookingId: 'current_visual',
         time: '08:30',
+        ...cabinetLessonTiming('2099-01-01', '08:30', 1),
       },
     };
     const reviewBooking: Booking = {
@@ -632,7 +642,7 @@ describe('Student Home dashboard grid', () => {
 
   it('hides and restores conditional tiles at their saved positions without changing account/participant scope', () => {
     vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(new Date(2099, 0, 1, 9, 0));
+    vi.setSystemTime(cabinetLessonInstant('2099-01-01', '09:00'));
     const lesson: CabinetSessionItem = {
       kind: 'lesson',
       session: {
@@ -643,6 +653,7 @@ describe('Student Home dashboard grid', () => {
         date: '2099-01-01',
         time: '09:30',
         durationHours: 1,
+        ...cabinetLessonTiming('2099-01-01', '09:30', 1),
         instructorId: 'coach',
         instructorName: 'Coach',
         instructorAvatar: '',
@@ -683,7 +694,7 @@ describe('Student Home dashboard grid', () => {
       </MemoryRouter>
     );
     expect(tileOrder().slice(0, 3)).toEqual(['weather', 'countdown', 'nextSession']);
-    vi.setSystemTime(new Date(2099, 0, 1, 10, 0));
+    vi.setSystemTime(cabinetLessonInstant('2099-01-01', '10:00'));
     view.rerender(
       <MemoryRouter>
         <StudentCabinetHome {...base} nextSessionItems={[{ ...lesson }]} />
@@ -705,7 +716,7 @@ describe('Student Home dashboard grid', () => {
       removeEventListener: () => {},
     }));
     vi.useFakeTimers();
-    vi.setSystemTime(new Date(2099, 0, 1, 9, 29, 59));
+    vi.setSystemTime(cabinetLessonInstant('2099-01-01', '09:29:59'));
     const lesson: CabinetSessionItem = {
       kind: 'lesson',
       session: {
@@ -716,6 +727,7 @@ describe('Student Home dashboard grid', () => {
         date: '2099-01-01',
         time: '09:30',
         durationHours: 1,
+        ...cabinetLessonTiming('2099-01-01', '09:30', 1),
         instructorId: 'coach',
         instructorName: 'Coach',
         instructorAvatar: '',
@@ -879,6 +891,7 @@ describe('Student Home participant scope', () => {
         date: '2099-01-02',
         time: '10:00',
         durationHours: 1,
+        ...cabinetLessonTiming('2099-01-02', '10:00', 1),
         instructorId: 'coach',
         instructorName: 'Coach',
         instructorAvatar: '',

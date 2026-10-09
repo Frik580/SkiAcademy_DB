@@ -1,6 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { EventEmitter } from 'node:events';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { runInNewContext } from 'node:vm';
+import { describe, expect, it, vi } from 'vitest';
 import { E2E_PROJECT_ID } from '../../e2e/emulator-config';
 import {
   assertFirebaseEnvironment,
@@ -10,6 +13,45 @@ import {
 } from '../../src/infrastructure/firebase/firebaseEnvironmentGuard';
 
 const repoRoot = process.cwd();
+
+/** Execute the real runner with process and filesystem effects intercepted. */
+async function captureE2ERunner(argv: string[] = [], env: Record<string, string> = {}) {
+  const runnerPath = resolve(repoRoot, 'scripts/runE2E.mjs');
+  const source = readFileSync(runnerPath, 'utf8')
+    .replace(/^import .* from 'node:[^']+';\r?\n/gm, '')
+    .replace(/import\.meta\.url/g, 'runnerUrl');
+  const spawn = vi.fn(() => {
+    const child = new EventEmitter();
+    queueMicrotask(() => child.emit('exit', 0));
+    return child;
+  });
+  const writeFileSync = vi.fn();
+  const unlinkSync = vi.fn();
+  const runnerProcess = {
+    argv: [process.execPath, runnerPath, ...argv],
+    execPath: process.execPath,
+    platform: process.platform,
+    env,
+    on: vi.fn(),
+    off: vi.fn(),
+    exitCode: undefined,
+  };
+  await runInNewContext(`(async () => {\n${source}\n})()`, {
+    runnerUrl: pathToFileURL(runnerPath).href,
+    URL,
+    fileURLToPath,
+    process: runnerProcess,
+    spawn,
+    spawnSync: vi.fn(),
+    existsSync: () => true,
+    readFileSync: () => 'GUEST_ACTION_TOKEN_SECRET=e2e-guest-action-token-secret\n',
+    writeFileSync,
+    unlinkSync,
+  });
+  expect(writeFileSync).not.toHaveBeenCalled();
+  expect(unlinkSync).not.toHaveBeenCalled();
+  return spawn;
+}
 
 function parseEnv(text: string): Record<string, string> {
   const values: Record<string, string> = {};
@@ -208,7 +250,7 @@ describe('vite firebase env resolution', () => {
     ).not.toThrow();
   });
 
-  it('e2e mode uses the isolated emulator project and requires emulator routing', () => {
+  it('e2e mode uses the isolated emulator project and requires emulator routing', async () => {
     const e2eEnvFile = readFileSync(resolve(repoRoot, '.env.e2e'), 'utf8');
     const env = resolveViteModeEnv('e2e', {
       '.env': 'VITE_FIREBASE_PROJECT_ID=ski-school-8f3ca\nVITE_USE_FIREBASE_EMULATORS=false\n',
@@ -234,7 +276,54 @@ describe('vite firebase env resolution', () => {
     const packageJson = JSON.parse(readFileSync(resolve(repoRoot, 'package.json'), 'utf8')) as {
       scripts: Record<string, string>;
     };
-    expect(packageJson.scripts['test:e2e']).toContain(`--project ${E2E_PROJECT_ID}`);
+    expect(packageJson.scripts['test:e2e']).toBe(
+      'npm run build:functions && node scripts/runE2E.mjs'
+    );
+    const spawn = await captureE2ERunner(['--project=chromium'], {
+      GCLOUD_PROJECT: PRODUCTION_FIREBASE_PROJECT_ID,
+    });
+    expect(spawn).toHaveBeenCalledTimes(1);
+    expect(spawn).toHaveBeenCalledWith(
+      process.execPath,
+      [
+        resolve(repoRoot, 'node_modules/firebase-tools/lib/bin/firebase.js'),
+        'emulators:exec',
+        '--project',
+        E2E_PROJECT_ID,
+        '--only',
+        'auth,firestore,functions,storage',
+        'node scripts/runE2E.mjs --playwright',
+      ],
+      expect.objectContaining({
+        cwd: fileURLToPath(new URL('../', pathToFileURL(resolve(repoRoot, 'scripts/runE2E.mjs')))),
+        env: expect.objectContaining({
+          CARVE_E2E_PLAYWRIGHT_ARGS: JSON.stringify(['--project=chromium']),
+        }),
+      })
+    );
+    const emulatorEnv = {
+      GCLOUD_PROJECT: E2E_PROJECT_ID,
+      FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9299',
+      FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080',
+      FIREBASE_STORAGE_EMULATOR_HOST: '127.0.0.1:9199',
+      CARVE_E2E_PLAYWRIGHT_ARGS: JSON.stringify(['--project=chromium']),
+    };
+    const playwrightSpawn = await captureE2ERunner(['--playwright'], emulatorEnv);
+    expect(playwrightSpawn).toHaveBeenCalledTimes(1);
+    expect(playwrightSpawn).toHaveBeenCalledWith(
+      process.execPath,
+      [resolve(repoRoot, 'node_modules/@playwright/test/cli.js'), 'test', '--project=chromium'],
+      expect.objectContaining({ env: emulatorEnv })
+    );
+    for (const unsafeEnv of [
+      {},
+      { ...emulatorEnv, GCLOUD_PROJECT: PRODUCTION_FIREBASE_PROJECT_ID },
+      { ...emulatorEnv, FIRESTORE_EMULATOR_HOST: '' },
+    ]) {
+      await expect(captureE2ERunner(['--playwright'], unsafeEnv)).rejects.toThrow(
+        'Run E2E through npm run test:e2e with the demo emulators.'
+      );
+    }
     expect(readFileSync(resolve(repoRoot, 'playwright.config.ts'), 'utf8')).toMatch(
       /npm run dev -- --mode e2e/
     );

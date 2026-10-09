@@ -251,6 +251,8 @@ export function expandEnrollmentToCourseDaySessions(
       time: start.time,
       endTime: end.time,
       timeZone: courseDay.timeZone,
+      startsAt: courseDay.interval.startsAt,
+      endsAt: courseDay.interval.endsAt,
       dayOrder: courseDay.dayOrder,
       lifecycleStatus: enrollment.lifecycleStatus,
       participantName: enrollment.participantName,

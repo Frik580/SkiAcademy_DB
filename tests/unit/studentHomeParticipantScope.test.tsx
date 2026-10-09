@@ -790,7 +790,10 @@ describe('Student Home participant scope', () => {
       'src',
       '/alice.png'
     );
-    expect(screen.getByText('journeyYouAreHere')).toBeInTheDocument();
+    expect(screen.queryByText('journeyYouAreHere')).toBeNull();
+    expect(document.querySelector('.journey-level-badge')).toHaveTextContent(
+      'journeyLevelBeginner'
+    );
     expectMarkerProgress('Alice Student', 'alice');
   });
 

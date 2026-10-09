@@ -1,5 +1,6 @@
 import React, { useLayoutEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Lock } from 'lucide-react';
 import { useLanguage } from '../../../app/providers/LanguageContext';
 import { getDefaultWorkspacePath } from '../../../lib/workspaceRoutes';
 import type { UserProfile } from '../../../types';
@@ -15,6 +16,7 @@ import type {
 import { ParticipantAvatarFace } from '../../student-cabinet/components/CabinetParticipantAvatarSwitcher';
 
 export const JourneyPath: React.FC<{
+  isCabinet?: boolean;
   ys: [number, number, number, number];
   bends: [PathBend, PathBend, PathBend];
   activeId: number | null;
@@ -27,6 +29,7 @@ export const JourneyPath: React.FC<{
   /** Реальные позиции меток на длине пути */
   markerStops?: [number, number, number, number];
 }> = ({
+  isCabinet = false,
   ys,
   bends,
   activeId,
@@ -36,6 +39,7 @@ export const JourneyPath: React.FC<{
   markerStops = EQUAL_MARKER_STOPS,
 }) => {
   const d = buildWavyPath(LEVEL_MARKER_X, ys, bends);
+  const completedGradientId = React.useId();
   const measureRef = React.useRef<SVGPathElement>(null);
   const [pathLength, setPathLength] = useState(0);
 
@@ -62,6 +66,20 @@ export const JourneyPath: React.FC<{
       aria-hidden="true"
     >
       <defs>
+        {isCabinet && (
+          <linearGradient
+            id={completedGradientId}
+            gradientUnits="userSpaceOnUse"
+            x1={LEVEL_MARKER_X[0]}
+            y1="0"
+            x2={measureRef.current?.getPointAtLength(traveled ?? 0).x ?? LEVEL_MARKER_X[0]}
+            y2="0"
+          >
+            <stop offset="0%" stopColor="var(--journey-gradient-start)" />
+            <stop offset="50%" stopColor="var(--journey-gradient-middle)" />
+            <stop offset="100%" stopColor="var(--journey-gradient-end)" />
+          </linearGradient>
+        )}
         <linearGradient id="journey-path-grad" x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" stopColor="#67e8f9" />
           <stop offset="45%" stopColor="#38bdf8" />
@@ -165,7 +183,7 @@ export const JourneyPath: React.FC<{
           className="journey-traveled"
           d={d}
           fill="none"
-          stroke="url(#journey-path-grad)"
+          stroke={`url(#${isCabinet ? completedGradientId : 'journey-path-grad'})`}
           strokeWidth="3.25"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -179,6 +197,7 @@ export const JourneyPath: React.FC<{
 };
 
 export const UserPathMarker: React.FC<{
+  isCabinet?: boolean;
   participant?: JourneyMarkerParticipantInput;
   accent?: string;
   point: { x: number; y: number };
@@ -188,6 +207,7 @@ export const UserPathMarker: React.FC<{
   markerTravelRatio?: number;
   onClick?: () => void;
 }> = ({
+  isCabinet = false,
   point,
   isDark,
   label,
@@ -246,15 +266,17 @@ export const UserPathMarker: React.FC<{
           </span>
           <span className="text-[10px] font-sans font-semibold opacity-85 leading-none">XP</span>
         </div>
-        <span
-          className={`rounded-full px-2.5 py-0.5 text-[9px] sm:text-[10px] font-semibold tracking-[0.12em] uppercase shadow-sm transition-opacity ${
-            isDark
-              ? 'bg-[#0b1220]/90 text-[#f5d76e] border border-[#f5d76e]/35'
-              : 'bg-white/95 text-[#b8860b] border border-[#d4a017]/40'
-          }`}
-        >
-          {label}
-        </span>
+        {!isCabinet && (
+          <span
+            className={`rounded-full px-2.5 py-0.5 text-[9px] sm:text-[10px] font-semibold tracking-[0.12em] uppercase shadow-sm transition-opacity ${
+              isDark
+                ? 'bg-[#0b1220]/90 text-[#f5d76e] border border-[#f5d76e]/35'
+                : 'bg-white/95 text-[#b8860b] border border-[#d4a017]/40'
+            }`}
+          >
+            {label}
+          </span>
+        )}
       </div>
     </>
   );
@@ -432,6 +454,7 @@ export const JourneyPathStrip: React.FC<{
         }`}
       >
         <JourneyPath
+          isCabinet={isCabinet}
           ys={markerYs}
           bends={pathBends}
           activeId={activeLevelId}
@@ -443,6 +466,7 @@ export const JourneyPathStrip: React.FC<{
 
         {userPoint && userProfile && displayProgress != null && (
           <UserPathMarker
+            isCabinet={isCabinet}
             participant={markerParticipant}
             accent={levelsWithXp.find((level) => level.id === currentUserLevelId)?.accent}
             point={userPoint}
@@ -509,6 +533,9 @@ export const JourneyPathStrip: React.FC<{
                     current={isCurrent}
                     isDark={isDark}
                   />
+                  {isCabinet && currentUserLevelId != null && level.id > currentUserLevelId && (
+                    <Lock className="journey-stage-lock absolute h-3.5 w-3.5" aria-hidden="true" />
+                  )}
                 </button>
               </div>
             );

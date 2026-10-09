@@ -35,6 +35,7 @@ import type { JourneyEarnedSkill, YourJourneySectionProps } from './types';
 import { useBreakpoint } from './useBreakpoint';
 import { useCabinetJourneyLayout } from './useCabinetJourneyLayout';
 import { optimizedImageUrl } from '../../../lib/optimizedImageUrl';
+import { getCourseLevelCardBadgeClass, userLevelToCourseLevel } from '../../../domain/course';
 import './journeyCabinet.css';
 
 // Presentation geometry only. XP thresholds and stage advancement remain domain-owned.
@@ -114,6 +115,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
     () => Object.values(earnedSkillsByLevel).reduce((sum, skills) => sum + skills.length, 0),
     [earnedSkillsByLevel]
   );
+  const showSkillCards = !isCabinet || !showUserPosition || earnedSkillsCount > 0;
 
   useEffect(() => {
     if (currentUserLevelId == null) return;
@@ -463,23 +465,29 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
           </div>
           {isCabinet && showUserPosition && currentUserLevelId != null && (
             <div className="journey-summary">
-              <span>{t(JOURNEY_LEVELS[currentUserLevelId - 1].labelKey)}</span>
-              <span>
+              <span
+                className={`journey-level-badge inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${getCourseLevelCardBadgeClass(userLevelToCourseLevel(currentUserLevelId))}`}
+              >
+                {t(JOURNEY_LEVELS[currentUserLevelId - 1].labelKey)}
+              </span>
+              <span className="journey-summary-xp">
                 {totalUserXp} {t('journeyXp')}
               </span>
             </div>
           )}
-          {showUserPosition && xpToNextLevel ? (
+          {!isCabinet && showUserPosition && xpToNextLevel ? (
             <TrainingStreak isDark={isDark} xpToNextLevel={xpToNextLevel} />
           ) : (
-            <div
-              className={`space-y-0.5 text-sm leading-relaxed ${
-                isDark ? 'text-white/55' : 'text-[var(--ink-dim)]'
-              }`}
-            >
-              <p>{t('journeyDesc1')}</p>
-              <p>{t('journeyDesc2')}</p>
-            </div>
+            (!isCabinet || !showUserPosition) && (
+              <div
+                className={`space-y-0.5 text-sm leading-relaxed ${
+                  isDark ? 'text-white/55' : 'text-[var(--ink-dim)]'
+                }`}
+              >
+                <p>{t('journeyDesc1')}</p>
+                <p>{t('journeyDesc2')}</p>
+              </div>
+            )
           )}
         </header>
 
@@ -522,7 +530,14 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
             selectLevel={selectLevel}
           />
 
-          {showAllCards ? (
+          {isCabinet && showUserPosition && xpToNextLevel && (
+            <div className="journey-criteria">
+              <h3>{t('journeyCurrentLevel')}</h3>
+              <TrainingStreak isDark={isDark} xpToNextLevel={xpToNextLevel} />
+            </div>
+          )}
+
+          {showSkillCards && showAllCards ? (
             <DesktopSkillCards
               levelsWithXp={levelsWithXp}
               activeLevelId={activeLevelId}
@@ -537,7 +552,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
               activateLevel={activateLevel}
               clearHover={clearHover}
             />
-          ) : (
+          ) : showSkillCards ? (
             <MobileSkillCards
               activeLevelId={activeLevelId}
               levelsWithXp={levelsWithXp}
@@ -550,7 +565,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
               activateLevel={activateLevel}
               clearHover={clearHover}
             />
-          )}
+          ) : null}
         </div>
 
         {!userProfile && <AchievementGrid isDark={isDark} visibleLevelCount={visibleLevelCount} />}

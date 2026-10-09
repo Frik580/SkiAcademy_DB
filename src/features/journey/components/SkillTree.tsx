@@ -27,7 +27,7 @@ export const LevelCardBody: React.FC<{
 
   return (
     <div
-      className={`flex flex-col gap-3 ${
+      className={`journey-skill-body flex flex-col gap-3 ${
         stretchLayout ? `h-full min-h-0 flex-1 ${scrollSkills ? 'overflow-hidden' : ''}` : ''
       }`}
     >
@@ -93,7 +93,7 @@ export const LevelCardBody: React.FC<{
             e.stopPropagation();
             onOpenDevelopment();
           }}
-          className={`mt-auto w-full shrink-0 pt-1 border-t text-left sm:text-xs font-medium transition-colors inline-flex items-center gap-1 ${
+          className={`journey-development-link mt-auto w-full shrink-0 pt-1 border-t text-left sm:text-xs font-medium transition-colors inline-flex items-center gap-1 ${
             isDark
               ? 'border-white/10 text-[#7ec8ff] hover:text-white'
               : 'border-black/8 text-[var(--accent)] hover:text-[var(--ink)]'
@@ -228,7 +228,7 @@ export const CompactLevelCards: React.FC<{
             ref={(el) => {
               cardRefs.current[index] = el;
             }}
-            className={`col-start-1 row-start-1 w-max max-w-[min(100%,20rem)] justify-self-start rounded-2xl border px-3.5 py-4 flex flex-col min-w-0 transition-all duration-300 ${
+            className={`journey-skill-card col-start-1 row-start-1 w-max max-w-[min(100%,20rem)] justify-self-start rounded-2xl border px-3.5 py-4 flex flex-col min-w-0 transition-all duration-300 ${
               fillViewport ? 'h-full max-h-full min-h-0 overflow-hidden' : 'h-full'
             } ${
               isEmpty
@@ -306,9 +306,10 @@ export const DesktopSkillCards: React.FC<{
       return (
         <article
           key={level.id}
+          data-journey-highlighted={isHighlighted || undefined}
           onMouseEnter={() => !isEmpty && activateLevel(level.id)}
           onMouseLeave={clearHover}
-          className={`w-full min-w-0 rounded-2xl border px-3.5 py-4 md:px-4 md:py-5 flex flex-col transition-all duration-500 transform ${
+          className={`journey-skill-card w-full min-w-0 rounded-2xl border px-3.5 py-4 md:px-4 md:py-5 flex flex-col transition-all duration-500 transform ${
             effectiveFillViewport ? 'h-full min-h-0 overflow-hidden' : 'h-full'
           } ${
             isEmpty

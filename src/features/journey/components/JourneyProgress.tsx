@@ -58,7 +58,7 @@ export const JourneyPath: React.FC<{
     <svg
       viewBox="0 0 400 100"
       preserveAspectRatio="none"
-      className="absolute inset-0 w-full h-full overflow-visible"
+      className="journey-path absolute inset-0 w-full h-full overflow-visible"
       aria-hidden="true"
     >
       <defs>
@@ -114,6 +114,7 @@ export const JourneyPath: React.FC<{
       </defs>
       <path
         ref={measureRef}
+        className="journey-track-halo"
         d={d}
         fill="none"
         stroke="url(#journey-path-grad)"
@@ -125,6 +126,7 @@ export const JourneyPath: React.FC<{
         opacity="0.22"
       />
       <path
+        className="journey-track"
         d={d}
         fill="none"
         stroke="url(#journey-path-grad)"
@@ -145,6 +147,7 @@ export const JourneyPath: React.FC<{
           if (zoneLength <= 0) return null;
           return (
             <path
+              className="journey-level-up-zone"
               key={`level-up-zone-${index}`}
               d={d}
               fill="none"
@@ -159,6 +162,7 @@ export const JourneyPath: React.FC<{
         })}
       {traveled != null && lineDrawProgress >= 1 && (
         <path
+          className="journey-traveled"
           d={d}
           fill="none"
           stroke="url(#journey-path-grad)"
@@ -225,7 +229,7 @@ export const UserPathMarker: React.FC<{
           </span>
         </span>
       )}
-      <div className="absolute left-1/2 bottom-full mb-3.5 -translate-x-1/2 whitespace-nowrap z-20 flex flex-col items-center gap-1">
+      <div className="journey-marker-caption absolute left-1/2 bottom-full mb-3.5 -translate-x-1/2 whitespace-nowrap z-20 flex flex-col items-center gap-1">
         <div
           className={`bg-transparent font-mono font-bold tracking-wider flex items-baseline justify-center gap-1 ${
             isDark ? 'text-[#f5d76e]' : 'text-[#b8860b]'
@@ -259,9 +263,10 @@ export const UserPathMarker: React.FC<{
     return (
       <button
         type="button"
+        data-caption-align={point.x >= 250 ? 'end' : 'start'}
         onClick={onClick}
         aria-label={participant ? `${label}: ${participant.displayName}` : label}
-        className="absolute z-30 -translate-x-1/2 -translate-y-1/2 cursor-pointer bg-transparent border-0 p-3 group"
+        className="journey-user-marker absolute z-30 -translate-x-1/2 -translate-y-1/2 cursor-pointer bg-transparent border-0 p-3 group"
         style={{
           left: `${(point.x / 400) * 100}%`,
           top: `${(point.y / 100) * 100}%`,
@@ -274,7 +279,8 @@ export const UserPathMarker: React.FC<{
 
   return (
     <div
-      className="absolute z-30 -translate-x-1/2 -translate-y-1/2 p-3 group cursor-default"
+      data-caption-align={point.x >= 250 ? 'end' : 'start'}
+      className="journey-user-marker absolute z-30 -translate-x-1/2 -translate-y-1/2 p-3 group cursor-default"
       style={{
         left: `${(point.x / 400) * 100}%`,
         top: `${(point.y / 100) * 100}%`,
@@ -358,6 +364,7 @@ export const LevelNode: React.FC<{
 };
 
 export const JourneyPathStrip: React.FC<{
+  isCabinet?: boolean;
   markerParticipant?: JourneyMarkerParticipantInput;
   effectiveFillViewport: boolean;
   markerYs: [number, number, number, number];
@@ -384,6 +391,7 @@ export const JourneyPathStrip: React.FC<{
   clearHover: () => void;
   selectLevel: (levelId: number) => void;
 }> = ({
+  isCabinet = false,
   markerParticipant,
   effectiveFillViewport,
   markerYs,
@@ -414,14 +422,14 @@ export const JourneyPathStrip: React.FC<{
   const navigate = useNavigate();
 
   return (
-    <div className="flex flex-col gap-4 sm:gap-5 md:gap-6 shrink-0">
+    <div className="journey-path-strip flex flex-col gap-4 sm:gap-5 md:gap-6 shrink-0">
       {/* Полоса пути: метки + волнистая линия */}
       <div
-        className={
+        className={`journey-rail ${
           effectiveFillViewport
             ? 'relative w-full h-40 sm:h-48 md:h-52 shrink-0'
             : 'relative w-full h-48 sm:h-56 md:h-64 shrink-0'
-        }
+        }`}
       >
         <JourneyPath
           ys={markerYs}
@@ -462,7 +470,7 @@ export const JourneyPathStrip: React.FC<{
               <div key={level.id} className="relative flex justify-center">
                 {showDropLine && (
                   <div
-                    className={`absolute w-px border-l border-dashed transition-opacity duration-500 ${
+                    className={`journey-drop-line absolute w-px border-l border-dashed transition-opacity duration-500 ${
                       isDark ? 'border-white/25' : 'border-black/15'
                     } ${isRevealed ? 'opacity-100' : 'opacity-0'} ${
                       isCurrent ? (isDark ? 'border-[#f5d76e]/50' : 'border-[#d4a017]/45') : ''
@@ -472,8 +480,15 @@ export const JourneyPathStrip: React.FC<{
                   />
                 )}
                 <button
+                  data-journey-state={
+                    isCurrent
+                      ? 'current'
+                      : currentUserLevelId != null && level.id < currentUserLevelId
+                        ? 'passed'
+                        : 'upcoming'
+                  }
                   type="button"
-                  className={`absolute -translate-x-1/2 -translate-y-1/2 left-1/2 z-10 bg-transparent border-0 p-3 transition-all duration-500 transform ${
+                  className={`journey-stage-node absolute -translate-x-1/2 -translate-y-1/2 left-1/2 z-10 bg-transparent border-0 p-3 transition-all duration-500 transform ${
                     isRevealed ? 'opacity-100 scale-100' : 'opacity-0 scale-50 pointer-events-none'
                   } ${isLocked ? 'cursor-default pointer-events-none' : 'cursor-pointer'}`}
                   style={{ top: `${topPct}%` }}
@@ -488,7 +503,7 @@ export const JourneyPathStrip: React.FC<{
                   onClick={() => !isLocked && selectLevel(level.id)}
                 >
                   <LevelNode
-                    shape={level.shape}
+                    shape={isCabinet ? 'circle' : level.shape}
                     accent={level.accent}
                     active={isActive}
                     current={isCurrent}
@@ -506,7 +521,7 @@ export const JourneyPathStrip: React.FC<{
         Desktop: все карточки с навыками в ряд.
         Mobile/tablet: одна карточка под активной меткой, clamped в видимую область.
       */}
-      <div className="grid grid-cols-4 gap-2 sm:gap-3 md:gap-4 shrink-0">
+      <div className="journey-stage-labels grid grid-cols-4 gap-2 sm:gap-3 md:gap-4 shrink-0">
         {levelsWithXp.map((level) => {
           const earnedSkills = showUserPosition ? (earnedSkillsByLevel[level.id] ?? []) : null;
           const isLocked =

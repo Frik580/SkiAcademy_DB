@@ -35,8 +35,22 @@ import type { JourneyEarnedSkill, YourJourneySectionProps } from './types';
 import { useBreakpoint } from './useBreakpoint';
 import { useCabinetJourneyLayout } from './useCabinetJourneyLayout';
 import { optimizedImageUrl } from '../../../lib/optimizedImageUrl';
+import './journeyCabinet.css';
+
+// Presentation geometry only. XP thresholds and stage advancement remain domain-owned.
+const CABINET_MARKER_Y: [number, number, number, number] = [50, 50, 50, 50];
+const CABINET_PATH_BENDS = [
+  { at: 0.5, amount: 0 },
+  { at: 0.5, amount: 0 },
+  { at: 0.5, amount: 0 },
+] as [
+  { at: number; amount: number },
+  { at: number; amount: number },
+  { at: number; amount: number },
+];
 
 export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
+  appearance = 'default',
   skillConfig = DEFAULT_SKILL_CONFIG,
   userProfile = null,
   animateSequence = true,
@@ -47,6 +61,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
   const { t, language } = useLanguage();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+  const isCabinet = appearance === 'cabinet';
   const breakpoint = useBreakpoint();
   const showAllCards = breakpoint === 'desktop';
   const isCompactJourneyLayout = !showAllCards;
@@ -141,12 +156,12 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
   ]);
 
   const { sectionRef, effectiveFillViewport } = useCabinetJourneyLayout(
-    fillViewport && showAllCards,
+    fillViewport && showAllCards && !isCabinet,
     `${breakpoint}-${activeLevelId ?? 'none'}-${earnedSkillsCount}`
   );
 
-  const markerYs = LEVEL_MARKER_Y[breakpoint];
-  const pathBends = LEVEL_PATH_BEND[breakpoint];
+  const markerYs = isCabinet ? CABINET_MARKER_Y : LEVEL_MARKER_Y[breakpoint];
+  const pathBends = isCabinet ? CABINET_PATH_BENDS : LEVEL_PATH_BEND[breakpoint];
   const pathD = useMemo(
     () => buildWavyPath(LEVEL_MARKER_X, markerYs, pathBends),
     [markerYs, pathBends]
@@ -395,51 +410,65 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
     <section
       ref={sectionRef}
       id="your-journey"
-      className={`journey-section relative overflow-hidden shrink-0 ${
+      className={`journey-section ${isCabinet ? 'sc-journey' : ''} relative overflow-hidden shrink-0 ${
         isDark ? 'bg-[#070b14]' : 'bg-[#eef1f5]'
       } ${effectiveFillViewport ? 'cabinet-journey-fill' : ''}`}
     >
-      <img
-        src={bgUrl}
-        alt=""
-        loading="lazy"
-        decoding="async"
-        fetchpriority="low"
-        className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none"
-        draggable={false}
-        aria-hidden="true"
-      />
-      <div
-        className={`absolute inset-0 pointer-events-none ${
-          isDark
-            ? 'bg-gradient-to-b from-[#070b14]/55 via-transparent to-transparent'
-            : 'bg-gradient-to-b from-[#eef1f5]/50 via-transparent to-transparent'
-        }`}
-        aria-hidden="true"
-      />
+      {!isCabinet && (
+        <img
+          src={bgUrl}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          fetchpriority="low"
+          className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none"
+          draggable={false}
+          aria-hidden="true"
+        />
+      )}
+      {!isCabinet && (
+        <div
+          className={`absolute inset-0 pointer-events-none ${
+            isDark
+              ? 'bg-gradient-to-b from-[#070b14]/55 via-transparent to-transparent'
+              : 'bg-gradient-to-b from-[#eef1f5]/50 via-transparent to-transparent'
+          }`}
+          aria-hidden="true"
+        />
+      )}
 
       <div
-        className={`relative z-10 max-w-5xl mx-auto px-5 sm:px-8 md:px-10 w-full ${
+        className={`journey-content relative z-10 max-w-5xl mx-auto px-5 sm:px-8 md:px-10 w-full ${
           effectiveFillViewport
             ? 'flex-1 flex flex-col min-h-0 pt-6 sm:pt-8 md:pt-10 pb-22 sm:pb-22 md:pb-22 gap-6 sm:gap-8 md:gap-10'
             : 'py-8 sm:py-14 md:py-20 space-y-6 sm:space-y-10 md:space-y-12'
         }`}
       >
-        <header className="text-center space-y-3 max-w-2xl mx-auto shrink-0">
-          <p
-            className={`sm:text-xs font-medium tracking-[0.22em] uppercase ${
-              isDark ? 'text-[#7ec8ff]' : 'text-[var(--accent)]'
-            }`}
-          >
-            {t('journeyEyebrow')}
-          </p>
-          <h2
-            className={`font-serif sm:text-3xl md:text-4xl font-light tracking-tight leading-tight ${
-              isDark ? 'text-white' : 'text-[var(--ink)]'
-            }`}
-          >
-            {t('journeyTitle')}
-          </h2>
+        <header className="journey-header text-center space-y-3 max-w-2xl mx-auto shrink-0">
+          <div className="journey-heading space-y-3">
+            <p
+              className={`sm:text-xs font-medium tracking-[0.22em] uppercase ${
+                isDark ? 'text-[#7ec8ff]' : 'text-[var(--accent)]'
+              }`}
+            >
+              {t('journeyEyebrow')}
+            </p>
+            <h2
+              className={`font-serif sm:text-3xl md:text-4xl font-light tracking-tight leading-tight ${
+                isDark ? 'text-white' : 'text-[var(--ink)]'
+              }`}
+            >
+              {t('journeyTitle')}
+            </h2>
+          </div>
+          {isCabinet && showUserPosition && currentUserLevelId != null && (
+            <div className="journey-summary">
+              <span>{t(JOURNEY_LEVELS[currentUserLevelId - 1].labelKey)}</span>
+              <span>
+                {totalUserXp} {t('journeyXp')}
+              </span>
+            </div>
+          )}
           {showUserPosition && xpToNextLevel ? (
             <TrainingStreak isDark={isDark} xpToNextLevel={xpToNextLevel} />
           ) : (
@@ -456,15 +485,16 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
 
         <div
           ref={pathBlockRef}
-          className={
+          className={`journey-body ${
             effectiveFillViewport
               ? 'relative flex-1 flex flex-col min-h-0 space-y-4 sm:space-y-6'
               : isCompactJourneyLayout
                 ? 'relative flex flex-col space-y-4 sm:space-y-6'
                 : 'relative space-y-6 sm:space-y-8'
-          }
+          }`}
         >
           <JourneyPathStrip
+            isCabinet={isCabinet}
             effectiveFillViewport={effectiveFillViewport}
             markerYs={markerYs}
             pathBends={pathBends}

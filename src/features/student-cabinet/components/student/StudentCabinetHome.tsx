@@ -390,6 +390,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
       <div className="w-full shrink-0">
         <YourJourneySection
           key={selectedParticipantId}
+          appearance="cabinet"
           skillConfig={skillConfig}
           userProfile={userProfile}
           markerParticipant={selectedParticipant}

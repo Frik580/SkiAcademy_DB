@@ -22,14 +22,14 @@ export function StudentDashboardTile({
     <div
       data-dashboard-tile={tileKey}
       data-base-size={size}
-      className="ui-card p-4 sm:p-5 min-w-0 w-full"
+      className="sc-dashboard-card ui-card p-4 sm:p-5 min-w-0 w-full"
     >
       {children}
     </div>
   );
 }
 
-/** Reserve two title lines so wrapping and participant badges keep the first baseline aligned. */
+/** Reserve two title lines; the Home foundation allows extra lines without clipping. */
 export function StudentDashboardTileHeader({
   title,
   actions,

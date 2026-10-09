@@ -32,6 +32,7 @@ import { PresentedTodayProgressBlock } from './StudentTodayProgressBlock';
 import { StudentNextStepCard } from './StudentNextStepCard';
 import { StudentDashboardTile } from './StudentDashboardTile';
 import { StudentDashboardColumns } from './StudentDashboardColumns';
+import './studentCabinetFoundation.css';
 import { useSettingsStore } from '../../../settings/settingsStore';
 import {
   STUDENT_DASHBOARD_TILES,
@@ -385,7 +386,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
   };
 
   return (
-    <div className="space-y-0 pb-24 w-full min-w-0">
+    <div className="sc-cabinet-home space-y-0 pb-24 w-full min-w-0">
       <div className="w-full shrink-0">
         <YourJourneySection
           key={selectedParticipantId}
@@ -397,7 +398,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
           onOpenDevelopment={onContinueDevelopment}
         />
       </div>
-      <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 min-w-0">
+      <div className="sc-dashboard max-w-7xl mx-auto w-full px-4 sm:px-6 min-w-0">
         <header className="py-6 space-y-2.5 min-w-0">
           <p className="text-base sm:text-lg font-medium text-[var(--ink)] leading-snug break-words">
             {getGreeting(lang, getFirstName(userProfile.displayName))}

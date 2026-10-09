@@ -285,7 +285,9 @@ export const ScTintCard: React.FC<{
   className?: string;
   children: React.ReactNode;
 }> = ({ tint, className = '', children }) => (
-  <div className={`rounded-xl border ${SC_TINT_CARD[tint]} ${className}`}>{children}</div>
+  <div className={`sc-tint-card rounded-xl border ${SC_TINT_CARD[tint]} ${className}`}>
+    {children}
+  </div>
 );
 
 export const ScSectionTitle: React.FC<{
@@ -369,7 +371,7 @@ export const ScTextButton: React.FC<
 > = ({ children, arrow, className = '', ...props }) => (
   <button
     type="button"
-    className={`text-sm font-medium text-[var(--ink)] hover:text-[var(--accent)] transition inline-flex items-center gap-1 ${className}`}
+    className={`sc-text-button text-sm font-medium text-[var(--ink)] hover:text-[var(--accent)] transition inline-flex items-center gap-1 ${className}`}
     {...props}
   >
     {children}

@@ -23,6 +23,13 @@ import { usePresentedParticipantAchievements } from '../../src/features/particip
 import { useSettingsStore } from '../../src/features/settings/settingsStore';
 import { DEFAULT_STUDENT_DASHBOARD_LAYOUT } from '../../src/features/settings/studentDashboardLayout';
 import type { CabinetSessionItem } from '../../src/features/course-enrollments';
+import { canonicalTimestampToEpochMs } from '@ski-academy/shared-domain/canonical/bookingCancellationPolicy';
+
+function cabinetLessonInstant(date: string, time: string): Date {
+  const [hour, minute, seconds = '0'] = time.split(':');
+  const { startsAt } = cabinetLessonTiming(date, `${hour}:${minute}`, 1);
+  return new Date(canonicalTimestampToEpochMs(startsAt) + Number(seconds) * 1_000);
+}
 
 vi.mock('../../src/app/providers/LanguageContext', () => ({
   useLanguage: () => ({ language: 'en', t: (key: string) => key }),
@@ -289,7 +296,7 @@ describe('Student Home dashboard grid', () => {
       removeEventListener: (_event: string, callback: () => void) => listeners.delete(callback),
     }));
     vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(new Date(2099, 0, 1, 9, 0));
+    vi.setSystemTime(cabinetLessonInstant('2099-01-01', '09:00'));
     const upcoming: CabinetSessionItem = {
       kind: 'lesson',
       session: {
@@ -635,7 +642,7 @@ describe('Student Home dashboard grid', () => {
 
   it('hides and restores conditional tiles at their saved positions without changing account/participant scope', () => {
     vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(new Date(2099, 0, 1, 9, 0));
+    vi.setSystemTime(cabinetLessonInstant('2099-01-01', '09:00'));
     const lesson: CabinetSessionItem = {
       kind: 'lesson',
       session: {
@@ -687,7 +694,7 @@ describe('Student Home dashboard grid', () => {
       </MemoryRouter>
     );
     expect(tileOrder().slice(0, 3)).toEqual(['weather', 'countdown', 'nextSession']);
-    vi.setSystemTime(new Date(2099, 0, 1, 10, 0));
+    vi.setSystemTime(cabinetLessonInstant('2099-01-01', '10:00'));
     view.rerender(
       <MemoryRouter>
         <StudentCabinetHome {...base} nextSessionItems={[{ ...lesson }]} />
@@ -709,7 +716,7 @@ describe('Student Home dashboard grid', () => {
       removeEventListener: () => {},
     }));
     vi.useFakeTimers();
-    vi.setSystemTime(new Date(2099, 0, 1, 9, 29, 59));
+    vi.setSystemTime(cabinetLessonInstant('2099-01-01', '09:29:59'));
     const lesson: CabinetSessionItem = {
       kind: 'lesson',
       session: {

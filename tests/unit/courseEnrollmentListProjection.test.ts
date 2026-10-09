@@ -1,3 +1,4 @@
+import { cabinetLessonTiming } from '../fixtures/cabinetLessonTiming';
 import { describe, expect, it } from 'vitest';
 import type { CourseScheduleProjectionReadModel } from '@ski-academy/shared-domain';
 import type { LessonBookingCabinetItem } from '../../src/features/lesson-bookings/lessonBookingContracts';
@@ -42,6 +43,7 @@ function lesson(id: string, date: string): LessonBookingCabinetItem {
     date,
     time: '09:00',
     durationHours: 2,
+    ...cabinetLessonTiming(date, '09:00', 2),
     instructorId: 'instructor_1',
     instructorName: `Coach ${id}`,
     instructorAvatar: '',

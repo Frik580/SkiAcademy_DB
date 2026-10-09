@@ -1,5 +1,12 @@
-import { IanaTimeZoneSchema } from '@ski-academy/shared-domain/canonical/primitives';
-import { localCalendarInputToUtcDate } from '@ski-academy/shared-domain/canonical/bookingCreation';
+import {
+  IanaTimeZoneSchema,
+  intervalsOverlap,
+} from '@ski-academy/shared-domain/canonical/primitives';
+import {
+  localCalendarInputToUtcDate,
+  resolveBookingScheduleFromCalendarInput,
+} from '@ski-academy/shared-domain/canonical/bookingCreation';
+import { canonicalTimestampToLocalParts } from '../lesson-bookings/mapCalendarInput';
 import {
   type AdminPlannerOccupancyItem,
   type InstructorOccupancyReadModel,
@@ -14,7 +21,7 @@ import { parseCourseDates } from '../../lib/i18n/courseDates';
 import type { AvailabilitySlot, Course } from '../../types';
 
 function durationHours(minutes: number): number {
-  return Math.max(1, Math.round(minutes / 60));
+  return minutes / 60;
 }
 
 export function normalizeScheduleTime(time: string): string {
@@ -30,26 +37,6 @@ function minutesToTime(totalMinutes: number): string {
   return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 }
 
-function localDateTime(seconds: number, timeZone: string): { date: string; time: string } {
-  const values = Object.fromEntries(
-    new Intl.DateTimeFormat('en-CA', {
-      timeZone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hourCycle: 'h23',
-    })
-      .formatToParts(new Date(seconds * 1_000))
-      .map((part) => [part.type, part.value])
-  );
-  return {
-    date: `${values.year}-${values.month}-${values.day}`,
-    time: normalizeScheduleTime(`${values.hour}:${values.minute}`),
-  };
-}
-
 function dayWindowSeconds(
   localDate: string,
   timeZone: string
@@ -59,7 +46,11 @@ function dayWindowSeconds(
     IanaTimeZoneSchema.parse(timeZone)
   );
   const startsAt = Math.floor(start.getTime() / 1_000);
-  return { startsAt, endsAt: startsAt + 24 * 60 * 60 };
+  const end = localCalendarInputToUtcDate(
+    { localDate: addBookingLocalDays(localDate, 1), localTime: '00:00', durationMinutes: 60 },
+    IanaTimeZoneSchema.parse(timeZone)
+  );
+  return { startsAt, endsAt: end.getTime() / 1_000 };
 }
 
 function occupancyPresentationForDay(
@@ -73,7 +64,7 @@ function occupancyPresentationForDay(
   if (clipEndSeconds <= clipStartSeconds) {
     return { date: '', time: '00:00', durationMinutes: 0 };
   }
-  const local = localDateTime(clipStartSeconds, timeZone);
+  const local = canonicalTimestampToLocalParts(clipStartSeconds, 0, timeZone);
   return {
     date: local.date,
     time: local.time,
@@ -95,14 +86,7 @@ export function mapInstructorOccupancyToAvailabilitySlots(
     if (item.occupancyKind === 'course_day') {
       return [];
     }
-    const presentation =
-      item.localDate === displayLocalDate
-        ? {
-            date: item.localDate,
-            time: normalizeScheduleTime(item.localTime),
-            durationMinutes: item.durationMinutes,
-          }
-        : occupancyPresentationForDay(item, displayLocalDate, timeZone);
+    const presentation = occupancyPresentationForDay(item, displayLocalDate, timeZone);
     if (presentation.date !== displayLocalDate) {
       return [];
     }
@@ -138,22 +122,13 @@ export function mapInstructorOccupancyToCourses(
 ): Course[] {
   return occupancy.flatMap<Course>((item) => {
     if (item.occupancyKind !== 'course_day' || !item.courseId) return [];
-    const presentation =
-      item.localDate === displayLocalDate
-        ? {
-            date: item.localDate,
-            time: normalizeScheduleTime(item.localTime),
-            durationMinutes: item.durationMinutes,
-          }
-        : occupancyPresentationForDay(item, displayLocalDate, timeZone);
+    const presentation = occupancyPresentationForDay(item, displayLocalDate, timeZone);
     if (presentation.date !== displayLocalDate) {
       return [];
     }
-    const endFromInterval = localDateTime(item.interval.endsAt.seconds, timeZone);
-    const endTime =
-      item.localDate === displayLocalDate
-        ? minutesToTime(timeStrToMinutes(presentation.time) + presentation.durationMinutes)
-        : endFromInterval.time;
+    const endTime = minutesToTime(
+      timeStrToMinutes(presentation.time) + presentation.durationMinutes
+    );
     const startDate = courseDate(presentation.date);
     const endDate = courseDate(presentation.date);
     const startTime = presentation.time;
@@ -261,8 +236,7 @@ function addBusyInterval(
 
 /**
  * Convert public occupancy items into busy minutes on the selected local day.
- * Uses both server-provided localDate/localTime/durationMinutes and the clipped UTC interval
- * so a wrong localDate cannot resurrect a slot that still overlaps the requested day.
+ * Source-zone local labels are presentation only; project the canonical interval once.
  */
 export function busyIntervalsFromOccupancyItems(
   occupancy: readonly AdminPlannerOccupancyItem[],
@@ -274,11 +248,6 @@ export function busyIntervalsFromOccupancyItems(
   if (!normDate) return intervals;
 
   for (const item of occupancy) {
-    if (normalizeBookingLocalDate(item.localDate) === normDate) {
-      const start = timeStrToMinutes(normalizeScheduleTime(item.localTime));
-      addBusyInterval(intervals, start, start + item.durationMinutes);
-    }
-
     const presentation = occupancyPresentationForDay(item, normDate, timeZone);
     if (presentation.date !== normDate) continue;
     const clippedStart = timeStrToMinutes(presentation.time);
@@ -313,22 +282,34 @@ export function getAvailableLessonStartTimes(input: GetAvailableLessonStartTimes
     now = new Date(),
   } = input;
   const normDate = normalizeBookingLocalDate(localDate);
-  const occupancyBusy = timeZone
-    ? busyIntervalsFromOccupancyItems(occupancyItems, normDate, timeZone)
-    : [];
+  const canonicalTimeZone = timeZone ? IanaTimeZoneSchema.parse(timeZone) : undefined;
+  const localNow = canonicalTimeZone
+    ? canonicalTimestampToLocalParts(Math.floor(now.getTime() / 1000), 0, canonicalTimeZone)
+    : undefined;
 
   return candidateStarts.filter((slot) => {
     if (!fitsLessonDaySchedule(slot, durationHours)) return false;
-    if (normDate && isBookingSlotInPast(normDate, slot, now)) return false;
+    if (
+      normDate &&
+      (localNow
+        ? normDate === localNow.date && timeStrToMinutes(slot) < timeStrToMinutes(localNow.time)
+        : isBookingSlotInPast(normDate, slot, now))
+    )
+      return false;
     if (!normDate) return true;
 
     const start = timeStrToMinutes(slot);
     const end = start + durationHours * 60;
 
-    const hasCanonicalOccupancyOverlap = occupancyBusy.some((interval) =>
-      lessonIntervalsOverlap(start, end, interval.startMinutes, interval.endMinutes)
-    );
-    if (hasCanonicalOccupancyOverlap) return false;
+    // The read models already scope instructor and selected Participant occupancy.
+    // Compare instants, never union source-zone labels or rounded UI projections.
+    if (canonicalTimeZone && input.occupancyItems !== undefined) {
+      const candidate = resolveBookingScheduleFromCalendarInput(
+        { localDate: normDate, localTime: slot, durationMinutes: durationHours * 60 },
+        canonicalTimeZone
+      ).interval;
+      return !occupancyItems.some((item) => intervalsOverlap(candidate, item.interval));
+    }
 
     const hasOccupancyOverlap = occupancySlots.some((occupancy) => {
       if (normalizeBookingLocalDate(occupancy.date) !== normDate) return false;

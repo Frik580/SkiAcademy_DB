@@ -1,3 +1,4 @@
+import { cabinetLessonTiming } from '../fixtures/cabinetLessonTiming';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -299,6 +300,7 @@ describe('Student Home dashboard grid', () => {
         date: '2099-01-01',
         time: '09:30',
         durationHours: 1,
+        ...cabinetLessonTiming('2099-01-01', '09:30', 1),
         instructorId: 'coach',
         instructorName: 'Coach',
         instructorAvatar: '',
@@ -317,6 +319,7 @@ describe('Student Home dashboard grid', () => {
         id: 'current_visual',
         bookingId: 'current_visual',
         time: '08:30',
+        ...cabinetLessonTiming('2099-01-01', '08:30', 1),
       },
     };
     const reviewBooking: Booking = {
@@ -643,6 +646,7 @@ describe('Student Home dashboard grid', () => {
         date: '2099-01-01',
         time: '09:30',
         durationHours: 1,
+        ...cabinetLessonTiming('2099-01-01', '09:30', 1),
         instructorId: 'coach',
         instructorName: 'Coach',
         instructorAvatar: '',
@@ -716,6 +720,7 @@ describe('Student Home dashboard grid', () => {
         date: '2099-01-01',
         time: '09:30',
         durationHours: 1,
+        ...cabinetLessonTiming('2099-01-01', '09:30', 1),
         instructorId: 'coach',
         instructorName: 'Coach',
         instructorAvatar: '',
@@ -879,6 +884,7 @@ describe('Student Home participant scope', () => {
         date: '2099-01-02',
         time: '10:00',
         durationHours: 1,
+        ...cabinetLessonTiming('2099-01-02', '10:00', 1),
         instructorId: 'coach',
         instructorName: 'Coach',
         instructorAvatar: '',

@@ -1,5 +1,6 @@
 import type {
   BookingStatus,
+  CanonicalTimestamp,
   LessonBookingReadModelAuthorizedActions,
   ManagedParticipantPickerAgeProjection,
 } from '@ski-academy/shared-domain';
@@ -32,6 +33,10 @@ export interface LessonBookingCabinetItem {
   readonly date: string;
   readonly time: string;
   readonly durationHours: number;
+  /** Always supplied by the canonical adapter; deferred legacy course rows have no instants. */
+  readonly startsAt?: CanonicalTimestamp;
+  readonly endsAt?: CanonicalTimestamp;
+  readonly timeZone?: string;
   readonly instructorId: string;
   readonly instructorName: string;
   readonly instructorAvatar: string;

@@ -1,12 +1,9 @@
 import { getDifficultyLabel } from '../../lib/i18n/bookingLabels';
 import type { LessonBookingCabinetItem } from '../lesson-bookings/lessonBookingContracts';
+import { canonicalTimestampToLocalParts } from '../lesson-bookings/mapCalendarInput';
 import { localCalendarInputToUtcDate } from '@ski-academy/shared-domain/canonical/bookingCreation';
 import { IanaTimeZoneSchema } from '@ski-academy/shared-domain/canonical/primitives';
-import {
-  parseBookingEndTime,
-  parseBookingStartTime,
-} from '../student-cabinet/components/student/studentBookingSchedule';
-import { toYMD } from '../student-cabinet/components/student/studentCabinetPresentation';
+import { parseBookingEndTime } from '../student-cabinet/components/student/studentBookingSchedule';
 import { isTerminalPastLessonStatus } from '../../domain/booking';
 import type { CabinetSessionItem, CourseDaySessionItem } from './courseEnrollmentContracts';
 
@@ -61,18 +58,30 @@ export function sessionItemKey(item: CabinetSessionItem): string {
   return `course_day:${item.enrollmentId}:${item.courseDayId}`;
 }
 
-const buildLocalDateTime = (dateStr: string, h: number, m: number): Date => {
-  const [year, month, day] = dateStr.split('-').map(Number);
-  return new Date(year, month - 1, day, h, m, 0, 0);
-};
+// Calendar labels use resort days; comparisons use the projected canonical instants.
+const RESORT_TIME_ZONE = 'Asia/Almaty';
+
+function dateInTimeZone(now: Date, timeZone: string): string {
+  return canonicalTimestampToLocalParts(now.getTime() / 1000, 0, timeZone).date;
+}
+
+function sessionTimeZone(item: CabinetSessionItem): string {
+  return item.kind === 'lesson' ? item.session.timeZone ?? RESORT_TIME_ZONE : item.timeZone;
+}
+
+function resortCalendarDays(now: Date): Date[] {
+  const first = new Date(`${dateInTimeZone(now, RESORT_TIME_ZONE)}T12:00:00Z`);
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(first);
+    date.setUTCDate(date.getUTCDate() + index);
+    return date;
+  });
+}
 
 export function resolveSessionStartDateTime(item: CabinetSessionItem): Date | null {
-  if (item.kind === 'lesson') {
-    const start = parseBookingStartTime(item.session.time);
-    return start
-      ? buildLocalDateTime(item.session.date, start.h, start.m)
-      : buildLocalDateTime(item.session.date, 0, 0);
-  }
+  const { startsAt } = item.kind === 'lesson' ? item.session : item;
+  if (startsAt) return new Date(startsAt.seconds * 1000 + startsAt.nanoseconds / 1_000_000);
+  if (item.kind === 'lesson') return null;
   return localCalendarInputToUtcDate(
     { localDate: item.date, localTime: item.time, durationMinutes: 60 },
     IanaTimeZoneSchema.parse(item.timeZone)
@@ -80,10 +89,9 @@ export function resolveSessionStartDateTime(item: CabinetSessionItem): Date | nu
 }
 
 export function resolveSessionEndDateTime(item: CabinetSessionItem): Date | null {
-  if (item.kind === 'lesson') {
-    const end = parseBookingEndTime(item.session.time, item.session.durationHours);
-    return end ? buildLocalDateTime(item.session.date, end.h, end.m) : null;
-  }
+  const { endsAt } = item.kind === 'lesson' ? item.session : item;
+  if (endsAt) return new Date(endsAt.seconds * 1000 + endsAt.nanoseconds / 1_000_000);
+  if (item.kind === 'lesson') return null;
   return localCalendarInputToUtcDate(
     { localDate: item.date, localTime: item.endTime, durationMinutes: 60 },
     IanaTimeZoneSchema.parse(item.timeZone)
@@ -102,14 +110,9 @@ export function getSessionDailyTimeWindow(
 
 export function isSessionInProgressNow(item: CabinetSessionItem, now = new Date()): boolean {
   if (!isActiveSessionItem(item)) return false;
-  if (item.kind === 'course_day') {
-    const start = resolveSessionStartDateTime(item);
-    const end = resolveSessionEndDateTime(item);
-    return Boolean(start && end && now >= start && now < end);
-  }
-  const todayStr = toYMD(now);
-  const window = getSessionDailyTimeWindow(item, todayStr);
-  return Boolean(window && now >= window.start && now < window.end);
+  const start = resolveSessionStartDateTime(item);
+  const end = resolveSessionEndDateTime(item);
+  return Boolean(start && end && now >= start && now < end);
 }
 
 export function isSessionUpcomingBySchedule(item: CabinetSessionItem, now = new Date()): boolean {
@@ -173,14 +176,12 @@ export function getTodaySessionCountdownFromSessions(
   items: readonly CabinetSessionItem[],
   now = new Date()
 ): TodaySessionCountdown | null {
-  const todayStr = toYMD(now);
   return (
     items
       .filter(isActiveSessionItem)
-      .filter((item) => isSessionOnDate(item, todayStr))
       .map((item) => ({
         session: item,
-        window: getSessionDailyTimeWindow(item, todayStr),
+        window: getSessionDailyTimeWindow(item, dateInTimeZone(now, sessionTimeZone(item))),
       }))
       .filter(
         (entry): entry is { session: CabinetSessionItem; window: { start: Date; end: Date } } =>
@@ -200,13 +201,8 @@ export function getNextSessionsNext7DaysFromSessions(
   items: readonly CabinetSessionItem[],
   fromDate = new Date()
 ): NextSessionItem[] {
-  const todayStr = toYMD(fromDate);
-  const dateRange = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(fromDate);
-    date.setHours(12, 0, 0, 0);
-    date.setDate(date.getDate() + index);
-    return toYMD(date);
-  });
+  const todayStr = dateInTimeZone(fromDate, RESORT_TIME_ZONE);
+  const dateRange = resortCalendarDays(fromDate).map((date) => date.toISOString().slice(0, 10));
 
   const rows = items
     .filter(isActiveSessionItem)
@@ -242,23 +238,20 @@ export function getMiniCalendarDaysFromSessions(
   language: 'en' | 'ru' = 'ru',
   fromDate = new Date()
 ): MiniCalendarDay[] {
-  const todayStr = toYMD(fromDate);
+  const todayStr = dateInTimeZone(fromDate, RESORT_TIME_ZONE);
   const locale = language === 'ru' ? 'ru-RU' : 'en-US';
   const active = items.filter(isActiveSessionItem);
   const days: MiniCalendarDay[] = [];
 
-  for (let index = 0; index < 7; index += 1) {
-    const date = new Date(fromDate);
-    date.setHours(12, 0, 0, 0);
-    date.setDate(date.getDate() + index);
-    const dateStr = toYMD(date);
+  for (const date of resortCalendarDays(fromDate)) {
+    const dateStr = date.toISOString().slice(0, 10);
     const hasSession = active.some((item) => isSessionOnDate(item, dateStr));
     days.push({
-      day: date.getDate(),
+      day: date.getUTCDate(),
       dateStr,
       hasSession,
       isToday: dateStr === todayStr,
-      weekdayLabel: date.toLocaleDateString(locale, { weekday: 'short' }),
+      weekdayLabel: date.toLocaleDateString(locale, { weekday: 'short', timeZone: 'UTC' }),
     });
   }
 
@@ -269,8 +262,11 @@ export function hasTrainingTodayFromSessions(
   items: readonly CabinetSessionItem[],
   fromDate = new Date()
 ): boolean {
-  const todayStr = toYMD(fromDate);
-  return items.some((item) => isActiveSessionItem(item) && isSessionOnDate(item, todayStr));
+  return items.some(
+    (item) =>
+      isActiveSessionItem(item) &&
+      isSessionOnDate(item, dateInTimeZone(fromDate, sessionTimeZone(item)))
+  );
 }
 
 export function formatCabinetSessionTimeRange(item: CabinetSessionItem): string {

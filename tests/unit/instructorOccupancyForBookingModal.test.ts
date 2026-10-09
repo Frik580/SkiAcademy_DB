@@ -4,6 +4,8 @@ import type {
   InstructorOccupancyReadModel,
 } from '@ski-academy/shared-domain';
 import { DEFAULT_LESSON_TIME_SLOTS } from '../../src/domain/availability';
+import { resolveBookingScheduleFromCalendarInput } from '@ski-academy/shared-domain/canonical/bookingCreation';
+import { IanaTimeZoneSchema } from '@ski-academy/shared-domain/canonical/primitives';
 import {
   getAvailableLessonStartTimes,
   lessonIntervalsOverlap,
@@ -21,7 +23,7 @@ import {
 const timeZone = 'Asia/Almaty';
 const localDate = '2026-01-15';
 const instructorId = 'instructor_guest_availability';
-const futureNow = new Date('2026-01-15T00:00:00');
+const futureNow = new Date('2026-01-14T00:00:00Z');
 
 function occupancyItem(
   overrides: Partial<AdminPlannerOccupancyItem> &
@@ -29,16 +31,23 @@ function occupancyItem(
 ): AdminPlannerOccupancyItem {
   return {
     instructorId,
-    interval: {
-      startsAt: { seconds: 1_736_928_000, nanoseconds: 0 },
-      endsAt: { seconds: 1_736_931_600, nanoseconds: 0 },
-    },
     timeZone,
     localDate,
     localTime: '09:00',
     durationMinutes: 60,
     displayTitle: 'Occupied',
     ...overrides,
+    // Local labels and canonical instants must describe the same fixture occurrence.
+    interval:
+      overrides.interval ??
+      resolveBookingScheduleFromCalendarInput(
+        {
+          localDate: overrides.localDate ?? localDate,
+          localTime: overrides.localTime ?? '09:00',
+          durationMinutes: overrides.durationMinutes ?? 60,
+        },
+        IanaTimeZoneSchema.parse(overrides.timeZone ?? timeZone)
+      ).interval,
   } as AdminPlannerOccupancyItem;
 }
 
@@ -461,7 +470,7 @@ describe('runtime occupancy payload', () => {
       occupancyCourses: [],
       occupancyItems: [item],
       timeZone: 'Asia/Qyzylorda',
-      now: new Date('2026-09-02T00:00:00'),
+      now: new Date('2026-09-01T00:00:00Z'),
     });
 
     expect(starts).not.toContain('11:00');

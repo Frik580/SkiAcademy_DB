@@ -1,3 +1,4 @@
+import { cabinetLessonTiming } from '../fixtures/cabinetLessonTiming';
 import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type {
@@ -57,6 +58,7 @@ function lesson(ids: string[]): CabinetSessionItem {
       date: '2099-01-02',
       time: '10:00',
       durationHours: 1,
+      ...cabinetLessonTiming('2099-01-02', '10:00', 1),
       instructorId: 'coach',
       instructorName: 'Coach',
       instructorAvatar: '',

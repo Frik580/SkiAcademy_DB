@@ -1,3 +1,4 @@
+import { cabinetLessonTiming } from '../fixtures/cabinetLessonTiming';
 import { buildResortConditionsPresentation } from '../../src/features/resort-conditions';
 import { toYMD } from '../../src/features/student-cabinet/components/student/studentCabinetPresentation';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
@@ -305,7 +306,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   // Preserve native timers for userEvent; only freeze the Date constructor.
   vi.useFakeTimers({ toFake: ['Date'] });
-  vi.setSystemTime(new Date('2026-10-02T12:00:00'));
+  vi.setSystemTime(new Date('2026-10-02T12:00:00+05:00'));
   managedMock.mockReturnValue({ participants, loading: false, error: undefined, reload: vi.fn() });
   useCabinetProgressParticipantSelectionStore.getState().reset();
   useCabinetProgressParticipantSelectionStore
@@ -422,6 +423,7 @@ function lesson(
     date: status === 'completed' ? '2026-10-01' : '2026-10-04',
     time: '10:00',
     durationHours: 1,
+    ...cabinetLessonTiming(status === 'completed' ? '2026-10-01' : '2026-10-04', '10:00', 1),
     instructorId: 'coach_' + id,
     instructorName: 'Coach ' + id,
     instructorAvatar: '',
@@ -621,7 +623,11 @@ function lessonProps(
   status: LessonBookingCabinetItem['status'] = 'confirmed',
   date = toYMD(new Date())
 ) {
-  const todayLesson = { ...lesson('today_lesson', participantIds, status), date };
+  const todayLesson = {
+    ...lesson('today_lesson', participantIds, status),
+    date,
+    ...cabinetLessonTiming(date, '10:00', 1),
+  };
   const props = shellProps([]);
   props.bookings = [todayLesson];
   props.sessionItems = buildMixedCabinetSessionItems({
@@ -652,7 +658,7 @@ describe('account-level weather visibility', () => {
     expect(screen.queryByTestId('weather-widget')).not.toBeInTheDocument();
   });
   it('shows B CourseDay today with A selected', () => {
-    vi.setSystemTime(new Date('2026-10-03T12:00:00'));
+    vi.setSystemTime(new Date('2026-10-03T12:00:00+05:00'));
     setup(shellProps([enrollment('eb', 'b')]));
     expect(screen.getByTestId('weather-widget')).toBeInTheDocument();
   });
@@ -688,7 +694,7 @@ describe('account-level weather visibility', () => {
   it.each(['confirmed', 'pending', 'pending_cancellation'] as const)(
     'shows active %s CourseDay today',
     (status) => {
-      vi.setSystemTime(new Date('2026-10-03T12:00:00'));
+      vi.setSystemTime(new Date('2026-10-03T12:00:00+05:00'));
       setup(shellProps([enrollment('eb', 'b', status)]));
       expect(screen.getByTestId('weather-widget')).toBeInTheDocument();
     }
@@ -696,19 +702,19 @@ describe('account-level weather visibility', () => {
   it.each(['cancelled', 'withdrawn', 'completed'] as const)(
     'ignores inactive %s course enrollments',
     (status) => {
-      vi.setSystemTime(new Date('2026-10-03T12:00:00'));
+      vi.setSystemTime(new Date('2026-10-03T12:00:00+05:00'));
       setup(shellProps([enrollment('eb', 'b', status)]));
       expect(screen.queryByTestId('weather-widget')).not.toBeInTheDocument();
     }
   );
   it('keeps a lesson on the local day just after midnight, even on the previous UTC date', () => {
-    const localMidnight = new Date('2026-10-03T00:05:00');
+    const localMidnight = new Date('2026-10-03T00:05:00+05:00');
     vi.setSystemTime(localMidnight);
     setup(lessonProps(['a'], 'confirmed', '2026-10-03'));
     expect(screen.getByTestId('weather-widget')).toBeInTheDocument();
   });
   it('shows CourseDay normalized in the resort timezone across the UTC midnight boundary', () => {
-    vi.setSystemTime(new Date('2026-10-03T00:05:00'));
+    vi.setSystemTime(new Date('2026-10-03T00:05:00+05:00'));
     const course = enrollment('midnight_b', 'b');
     const day = course.courseSchedule.courseDays[0];
     const midnightCourse = {
@@ -736,7 +742,7 @@ describe('account-level weather visibility', () => {
     expect(screen.queryByTestId('weather-widget')).not.toBeInTheDocument();
   });
   it('hides yesterday lesson just after local midnight', () => {
-    vi.setSystemTime(new Date('2026-10-03T00:05:00'));
+    vi.setSystemTime(new Date('2026-10-03T00:05:00+05:00'));
     setup(lessonProps(['a'], 'confirmed', '2026-10-02'));
     expect(screen.queryByTestId('weather-widget')).not.toBeInTheDocument();
   });
@@ -749,7 +755,12 @@ function countdownCard() {
     .querySelector('[data-dashboard-body]')!.firstElementChild as HTMLElement;
 }
 function upcomingLesson(id: string, ids: string[], time: string) {
-  return { ...lesson(id, ids), date: '2026-10-02', time };
+  return {
+    ...lesson(id, ids),
+    date: '2026-10-02',
+    time,
+    ...cabinetLessonTiming('2026-10-02', time, 1),
+  };
 }
 function countdownProps(bookings: LessonBookingCabinetItem[]) {
   const props = shellProps([]);
@@ -775,7 +786,7 @@ function currentPeople(card: HTMLElement) {
 
 describe('account-level current sessions through the real header', () => {
   it('keeps B, the instructor, card instance, and booking actions through A → B → A', () => {
-    vi.setSystemTime(new Date('2026-10-02T12:30:00'));
+    vi.setSystemTime(new Date('2026-10-02T12:30:00+05:00'));
     const booking = upcomingLesson('current_b', ['b'], '12:00');
     const props = countdownProps([booking]);
     props.usersList = [
@@ -817,7 +828,7 @@ describe('account-level current sessions through the real header', () => {
   });
 
   it('shows A+B with account avatars when C is selected and preserves the card on switching', () => {
-    vi.setSystemTime(new Date('2026-10-02T12:30:00'));
+    vi.setSystemTime(new Date('2026-10-02T12:30:00+05:00'));
     selectHeader('c');
     setup(countdownProps([upcomingLesson('current_shared', ['a', 'b'], '12:00')]));
     const card = currentCards()[0] as HTMLElement;
@@ -837,7 +848,7 @@ describe('account-level current sessions through the real header', () => {
   });
 
   it('uses the existing avatar fallback for a participant without an image', () => {
-    vi.setSystemTime(new Date('2026-10-02T12:30:00'));
+    vi.setSystemTime(new Date('2026-10-02T12:30:00+05:00'));
     managedMock.mockReturnValue({
       participants: participants.map((person) =>
         person.participantId === 'b' ? { ...person, avatarUrl: undefined } : person
@@ -858,7 +869,12 @@ describe('account-level current sessions through the real header', () => {
     const props = shellProps();
     props.sessionItems = props.sessionItems!.map((item) =>
       item.kind === 'course_day' && item.participantId === 'a'
-        ? { ...item, time: '16:00', endTime: '17:00' }
+        ? {
+            ...item,
+            time: '16:00',
+            endTime: '17:00',
+            ...cabinetLessonTiming(item.date, '16:00', 1),
+          }
         : item
     );
     const active = props.sessionItems!.find(
@@ -910,7 +926,7 @@ describe('account-level countdown through the real header', () => {
   it('selects B at 14:00 ahead of A at 16:00 and preserves the running timer through A → B → C switches', () => {
     vi.useRealTimers();
     vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-10-02T12:00:00'));
+    vi.setSystemTime(new Date('2026-10-02T12:00:00+05:00'));
     const intervals = vi.spyOn(window, 'setInterval');
     setup(
       countdownProps([
@@ -942,7 +958,7 @@ describe('account-level countdown through the real header', () => {
     act(() => vi.advanceTimersByTime(1000));
     expect(timer.textContent).not.toBe(elapsedText);
     // The original expiry transition remains hidden even after a header switch.
-    vi.setSystemTime(new Date('2026-10-02T14:00:00'));
+    vi.setSystemTime(new Date('2026-10-02T14:00:00+05:00'));
     act(() => vi.advanceTimersByTime(1000));
     expect(screen.queryByText('scCountdownToSession')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Select Alice Full Name' }));
@@ -969,7 +985,12 @@ describe('account-level countdown through the real header', () => {
     const props = shellProps([enrollment('ea', 'a'), enrollment('eb', 'b')]);
     props.sessionItems = props.sessionItems!.map((item) =>
       item.kind === 'course_day' && item.participantId === 'a'
-        ? { ...item, time: '16:00', endTime: '17:00' }
+        ? {
+            ...item,
+            time: '16:00',
+            endTime: '17:00',
+            ...cabinetLessonTiming(item.date, '16:00', 1),
+          }
         : item
     );
     setup(props);

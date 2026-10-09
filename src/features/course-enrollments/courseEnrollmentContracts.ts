@@ -1,4 +1,5 @@
 import type {
+  CanonicalTimestamp,
   CourseEnrollmentLifecycleStatus,
   CourseEnrollmentProgressProjection,
   CourseEnrollmentReadModelAuthorizedActions,
@@ -71,6 +72,8 @@ export interface CourseDaySessionItem {
   readonly time: string;
   readonly endTime: string;
   readonly timeZone: string;
+  readonly startsAt?: CanonicalTimestamp;
+  readonly endsAt?: CanonicalTimestamp;
   readonly dayOrder: number;
   readonly lifecycleStatus: CourseEnrollmentLifecycleStatus;
   readonly participantName: string;

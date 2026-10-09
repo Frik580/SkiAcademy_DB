@@ -1,0 +1,407 @@
+/* Phase 2: scoped to Student Home's opt-in Journey presentation. */
+.sc-journey {
+  --journey-muted: #5b6676;
+  --journey-surface: #f3f6f8;
+  --journey-passed: #08734f;
+  --journey-padding: 1rem;
+  --journey-gradient-start: #1a6578;
+  --journey-gradient-middle: #2d8fa7;
+  --journey-gradient-end: #5ec8e8;
+  width: calc(100% - 2rem);
+  max-width: calc(80rem - 3rem);
+  margin: 1rem auto 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card-bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  box-shadow:
+    0 4px 20px -3px rgb(15 23 42 / 3%),
+    0 1px 3px rgb(15 23 42 / 2%);
+  overflow: visible;
+}
+
+:root.dark .sc-journey {
+  --journey-muted: #a0a3a8;
+  --journey-surface: #1a1a1a;
+  --journey-passed: #5ee0b2;
+  --journey-gradient-start: #1f6f86;
+  --journey-gradient-middle: #38a9c8;
+  --journey-gradient-end: #7fe3ff;
+  box-shadow: var(--shadow-soft);
+}
+
+.sc-journey::after {
+  content: none;
+}
+
+.sc-journey .journey-content {
+  max-width: none;
+  padding: var(--journey-padding);
+}
+
+.sc-journey .journey-content > *,
+.sc-journey .journey-heading > * {
+  margin-block: 0;
+}
+
+.sc-journey .journey-content > * + * {
+  margin-top: 1rem;
+}
+
+.sc-journey .journey-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.5rem;
+  max-width: none;
+  margin-inline: 0;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+  text-align: start;
+}
+
+.sc-journey .journey-header > * {
+  margin: 0;
+  min-width: 0;
+}
+
+.sc-journey .journey-heading {
+  flex: 1 1 18rem;
+}
+
+.sc-journey .journey-heading > p {
+  color: var(--journey-muted);
+  font: 0.625rem/1.6 var(--font-mono);
+  letter-spacing: 0.08em;
+}
+
+.sc-journey .journey-heading h2 {
+  margin-top: 0.375rem;
+  color: var(--ink);
+  font-family: var(--font-serif);
+  font-size: 1.25rem;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.sc-journey .journey-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-left: auto;
+}
+
+.sc-journey .journey-summary-xp {
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--journey-surface);
+  color: var(--ink);
+  font: 0.6875rem/1.5 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.sc-journey .journey-header > p,
+.sc-journey .journey-header > div:last-child:not(.journey-summary) {
+  flex-basis: 100%;
+  color: var(--journey-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.sc-journey .journey-criteria p span {
+  color: var(--accent);
+}
+
+.sc-journey .journey-path-strip {
+  gap: 0;
+}
+
+.sc-journey .journey-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.sc-journey .journey-body > * {
+  margin-block: 0;
+}
+
+.sc-journey .journey-rail {
+  height: 4rem;
+}
+
+.sc-journey .journey-path path {
+  filter: none;
+  pointer-events: none;
+}
+
+.sc-journey .journey-track-halo {
+  stroke: var(--border);
+  stroke-width: 2px;
+  opacity: 1;
+}
+
+.sc-journey .journey-track {
+  stroke: var(--journey-muted);
+  stroke-width: 1px;
+  opacity: 0.25;
+}
+
+.sc-journey .journey-traveled {
+  stroke-width: 4.6875px;
+  stroke-linecap: butt;
+}
+
+.sc-journey .journey-level-up-zone {
+  display: none;
+}
+
+.sc-journey .journey-drop-line {
+  display: none;
+}
+
+.sc-journey .journey-stage-node {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+}
+
+.sc-journey .journey-stage-node > span {
+  position: relative;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--journey-muted) !important;
+  background: var(--journey-surface) !important;
+  box-shadow: none !important;
+  transform: none;
+  scale: 1;
+}
+
+.sc-journey .journey-stage-lock {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--journey-muted);
+  pointer-events: none;
+}
+
+.sc-journey .journey-stage-node[data-journey-state='current'] > span {
+  border: 2px solid var(--card-bg) !important;
+  background: var(--accent) !important;
+  box-shadow: 0 0 0 3px var(--accent-muted) !important;
+}
+
+.sc-journey .journey-stage-node[aria-pressed='true'] > span {
+  box-shadow: 0 0 0 3px var(--accent-muted) !important;
+}
+
+.sc-journey .journey-stage-node[data-journey-state='passed'] > span {
+  border: 2px solid var(--journey-passed) !important;
+  background: var(--card-bg) !important;
+}
+
+.sc-journey .journey-stage-node[data-journey-state='passed'] > span::after {
+  content: '';
+  position: absolute;
+  top: 25%;
+  left: 35%;
+  width: 25%;
+  height: 40%;
+  border: solid var(--journey-passed);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* The sampled path point is shared with the completed line; center the avatar on it. */
+.sc-journey .journey-user-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  margin-top: 0;
+}
+
+.sc-journey div.journey-user-marker {
+  pointer-events: none;
+}
+
+.sc-journey .journey-user-marker .ui-avatar {
+  width: 2rem;
+  height: 2rem;
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 2px var(--card-bg) !important;
+}
+
+.sc-journey .journey-marker-caption {
+  bottom: 100%;
+  top: auto;
+  left: 50%;
+  align-items: center;
+  gap: 0.125rem;
+  margin: 0 0 0.375rem;
+  transform: none;
+  translate: -50% 0;
+}
+
+.sc-journey .journey-marker-caption > div {
+  color: var(--accent);
+}
+
+.sc-journey .journey-marker-caption > div > span:first-child {
+  font-size: 0.6875rem !important;
+}
+
+.sc-journey .journey-marker-caption > span {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--journey-muted);
+  box-shadow: none;
+  font-size: 0.5625rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* Endpoint gutters keep the centered XP caption inside the original card width. */
+.sc-journey .journey-user-marker[data-caption-align='end'] .journey-marker-caption {
+  left: 50%;
+  right: auto;
+}
+
+.sc-journey .journey-stage-labels {
+  align-items: start;
+  gap: 0.25rem;
+}
+
+.sc-journey .journey-stage-labels > div {
+  padding: 0;
+}
+
+.sc-journey .journey-criteria {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.375rem 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--journey-surface);
+}
+
+.sc-journey .journey-criteria h3 {
+  color: var(--ink);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.sc-journey .journey-criteria p {
+  color: var(--journey-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.sc-journey .journey-stage-labels h3 {
+  color: var(--ink);
+  font: 600 0.625rem/1.5 var(--font-sans);
+  letter-spacing: 0;
+  text-transform: none;
+  overflow-wrap: anywhere;
+  opacity: 1;
+}
+
+.sc-journey .journey-stage-labels p {
+  color: var(--journey-muted) !important;
+  font: 0.5625rem/1.6 var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.sc-journey .journey-stage-labels p + p {
+  color: var(--accent) !important;
+  font-family: var(--font-sans);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.sc-journey .journey-skill-card {
+  border-color: var(--border);
+  border-radius: var(--radius-md);
+  background: var(--journey-surface);
+  padding: 1rem;
+  box-shadow: none;
+  backdrop-filter: none;
+  overflow-wrap: anywhere;
+}
+
+.sc-journey .journey-skill-card[aria-hidden='true'] {
+  visibility: hidden;
+}
+
+.sc-journey .journey-skill-card[data-journey-highlighted='true'] {
+  border-color: var(--accent);
+}
+
+.sc-journey .journey-skill-body :is(li, p) {
+  color: var(--journey-muted);
+  font-size: 0.75rem;
+}
+
+.sc-journey .journey-development-link {
+  min-height: 2.75rem;
+  color: var(--accent);
+  font-size: 0.75rem;
+}
+
+.sc-journey :is(button, a):focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+}
+
+@media (min-width: 640px) {
+  .sc-journey {
+    --journey-padding: 1.5rem;
+    width: calc(100% - 3rem);
+    margin-top: 1.5rem;
+  }
+
+  .sc-journey .journey-heading h2 {
+    font-size: 1.75rem;
+  }
+
+  .sc-journey .journey-rail {
+    height: 5rem;
+  }
+
+  .sc-journey .journey-traveled {
+    stroke-width: 4.375px;
+  }
+
+  .sc-journey .journey-stage-node > span {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .sc-journey .journey-stage-labels h3 {
+    font-size: 0.9375rem;
+  }
+
+  .sc-journey .journey-stage-labels p {
+    font-size: 0.6875rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-journey * {
+    animation: none;
+    transition: none;
+  }
+}

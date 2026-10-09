@@ -25,6 +25,8 @@ export interface JourneyMarkerParticipantInput {
 }
 
 export interface YourJourneySectionProps {
+  /** Home-only Stitch presentation; other Journey surfaces retain their existing visuals. */
+  appearance?: 'default' | 'cabinet';
   markerParticipant?: JourneyMarkerParticipantInput;
   skillConfig?: SkillConfig;
   userProfile?: UserProfile | null;

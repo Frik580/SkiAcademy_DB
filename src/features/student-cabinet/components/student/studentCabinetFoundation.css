@@ -1,0 +1,191 @@
+/* Phase 1: Home presentation only. Journey remains outside .sc-dashboard. */
+.sc-cabinet-home {
+  background-color: #f8fafc;
+}
+
+:root.dark .sc-cabinet-home {
+  background-color: var(--bg);
+}
+
+.sc-dashboard {
+  --sc-card-bg: var(--card-bg);
+  --sc-card-border: var(--border);
+  --sc-card-radius: var(--radius);
+  --sc-control-radius: 0.625rem;
+  --sc-card-padding: 1rem;
+  --sc-section-gap: 1rem;
+  --sc-body-gap: 1rem;
+  --sc-card-shadow: 0 4px 20px -3px rgb(15 23 42 / 3%), 0 1px 3px rgb(15 23 42 / 2%);
+  --sc-surface: #f3f6f8;
+  --sc-muted: #5b6676;
+  --sc-success: #08734f;
+  --sc-warning: #946000;
+  --sc-danger: #be123c;
+  /* Existing child controls consume these aliases, within Home's dashboard only. */
+  --ink-dim: var(--sc-muted);
+  --surface-tint: var(--sc-surface);
+  font-family: var(--font-sans);
+  color: var(--ink);
+  letter-spacing: -0.011em;
+}
+
+:root.dark .sc-dashboard {
+  --sc-card-shadow: var(--shadow-soft);
+  --sc-surface: #1a1a1a;
+  --sc-muted: #a0a3a8;
+  --sc-success: #5ee0b2;
+  --sc-warning: #f6c85f;
+  --sc-danger: #fda4af;
+}
+
+.sc-dashboard [data-testid='student-dashboard-grid'],
+.sc-dashboard [data-dashboard-column] {
+  gap: var(--sc-section-gap);
+}
+
+.sc-dashboard .sc-dashboard-card {
+  background-color: var(--sc-card-bg);
+  border: 1px solid var(--sc-card-border);
+  border-radius: var(--sc-card-radius);
+  box-shadow: var(--sc-card-shadow);
+  padding: var(--sc-card-padding);
+}
+
+.sc-dashboard [data-dashboard-header] {
+  align-items: flex-start;
+  flex-wrap: wrap;
+  height: auto;
+  row-gap: 0.5rem;
+}
+
+.sc-dashboard [data-dashboard-title] {
+  display: block;
+  height: auto;
+  min-height: 2.5rem;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.4;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+.sc-dashboard [data-dashboard-body] {
+  margin-top: var(--sc-body-gap);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.sc-dashboard .sc-tint-card {
+  border-radius: var(--radius-md);
+  min-width: 0;
+}
+
+.sc-dashboard :is(.btn-primary, .btn-secondary) {
+  min-height: 2.75rem;
+  border-radius: var(--sc-control-radius);
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.sc-dashboard .btn-primary {
+  background-color: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.sc-dashboard .btn-primary:hover:not(:disabled) {
+  background-color: var(--accent-hover);
+}
+
+.sc-dashboard .btn-secondary {
+  background-color: var(--sc-surface);
+  border: 1px solid var(--sc-card-border);
+  color: var(--ink);
+}
+
+.sc-dashboard .btn-secondary:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--ink) 8%, var(--sc-surface));
+}
+
+.sc-dashboard .sc-text-button {
+  min-height: 2.75rem;
+  max-width: 100%;
+  color: var(--accent);
+  white-space: normal;
+  text-align: start;
+}
+
+.sc-dashboard .sc-text-button:hover:not(:disabled) {
+  color: var(--accent-hover);
+}
+
+.sc-dashboard :is(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.sc-dashboard .sc-text-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Informational primitives, available to subsequent tile slices without new controls. */
+.sc-dashboard :is([data-participant-scope], .sc-status-badge, .sc-xp-indicator) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  max-width: 100%;
+  padding: 0.25rem 0.625rem;
+  border: 1px solid var(--sc-card-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--sc-surface);
+  color: var(--sc-muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.sc-dashboard .sc-status-badge[data-tone='success'] {
+  color: var(--sc-success);
+  background-color: color-mix(in srgb, var(--sc-success) 8%, var(--sc-card-bg));
+}
+
+.sc-dashboard .sc-status-badge[data-tone='warning'] {
+  color: var(--sc-warning);
+  background-color: color-mix(in srgb, var(--sc-warning) 8%, var(--sc-card-bg));
+}
+
+.sc-dashboard .sc-status-badge[data-tone='danger'] {
+  color: var(--sc-danger);
+  background-color: color-mix(in srgb, var(--sc-danger) 8%, var(--sc-card-bg));
+}
+
+.sc-dashboard .sc-xp-indicator {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  background-color: var(--accent-muted);
+}
+
+.sc-dashboard .sc-empty-state {
+  padding: var(--sc-card-padding);
+  border: 1px dashed var(--sc-card-border);
+  border-radius: var(--radius-md);
+  background-color: var(--sc-surface);
+  color: var(--sc-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 640px) {
+  .sc-dashboard {
+    --sc-card-padding: 1.5rem;
+    --sc-section-gap: 1.5rem;
+    --sc-body-gap: 1.25rem;
+  }
+}

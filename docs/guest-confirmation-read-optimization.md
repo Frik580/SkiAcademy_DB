@@ -111,11 +111,18 @@ Firestore default deny; Rules не менялись.
 Deployment evidence проверяет оператор; CLI не доказывает активность remote triggers через Cloud API.
 Перед cutover это обязательный внешний gate, а не обещание, выведенное из пустой очереди.
 
+Новый составной индекс нужен только очереди: `status ASC, nextAttemptAtMs ASC`.
+Recovery использует автоматический ascending индекс `attribution.bookingOrigin`, который
+уже сортирует равные значения по `__name__ ASC`; дополнительных составных индексов
+для этого запроса не требуется согласно [правилам индексации Firestore](https://firebase.google.com/docs/firestore/query-data/index-overview#default_ordering_and_the_name_field).
+Перед cutover проверить, что remote single-field exemptions не отключили индексацию
+`attribution.bookingOrigin` (в репозитории таких exemptions нет).
+
 Подготовленные PowerShell команды ниже **не выполнялись**. Использовать после отдельного разрешения:
 
 ```powershell
 firebase deploy --project ski-school-staging --only firestore:indexes
-# Дождаться READY/Enabled всех трёх новых индексов.
+# Дождаться READY/Enabled нового индекса очереди; проверить автоматические origin индексы.
 firebase deploy --project ski-school-staging --only "functions:syncGuestBookingConfirmationWork,functions:syncGuestEnrollmentConfirmationWork,functions:syncGuestPaymentConfirmationWork,functions:scheduledReconcileGuestConfirmationMismatches"
 npm run build:functions
 node functions/scripts/guestConfirmationQueueMigration.cjs --project ski-school-staging --action dry-run
@@ -207,7 +214,7 @@ Independent review выявил и закрыл invalid-source completion, poiso
 | Functions | Новые `syncGuestBookingConfirmationWork`, `syncGuestEnrollmentConfirmationWork`, `syncGuestPaymentConfirmationWork`; изменён `scheduledReconcileGuestConfirmationMismatches` |
 | Hosting | NO |
 | Firestore Rules | NO; новые server-only collections покрыты default deny |
-| Firestore Indexes | YES: work status/time и два guest origin/document ID индекса |
+| Firestore Indexes | YES: один новый составной индекс work status/time; recovery использует автоматические origin индексы |
 | Migration/Data migration | YES: отдельный bounded metadata backfill/cutover; не выполнен |
 | Settings/manual setup | YES: deployment evidence, control epoch, explicit readiness gate |
 | Schedulers/triggers | Existing scheduler остаётся every 5 minutes; 3 новых document triggers; bounded recovery запускается внутри scheduler раз в 6 часов |

@@ -267,14 +267,15 @@ describe('Guest confirmation incremental work index contracts', () => {
       ],
     });
     for (const collectionGroup of ['bookings', 'course_enrollments']) {
-      expectCompositeIndex(firestoreIndexes.indexes, {
-        collectionGroup,
-        queryScope: 'COLLECTION',
-        fields: [
-          { fieldPath: 'attribution.bookingOrigin', order: 'ASCENDING' },
-          { fieldPath: '__name__', order: 'ASCENDING' },
-        ],
-      });
+      // The automatic ascending origin index already sorts ties by document ID.
+      // Guard against exemptions on the field, its parent map, or the collection.
+      expect(
+        firestoreIndexes.fieldOverrides.filter(
+          (override) =>
+            override.collectionGroup === collectionGroup &&
+            ['*', 'attribution', 'attribution.bookingOrigin'].includes(override.fieldPath)
+        )
+      ).toEqual([]);
     }
   });
 });

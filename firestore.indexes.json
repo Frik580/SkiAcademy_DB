@@ -9,22 +9,6 @@
       ]
     },
     {
-      "collectionGroup": "bookings",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "attribution.bookingOrigin", "order": "ASCENDING" },
-        { "fieldPath": "__name__", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "course_enrollments",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "attribution.bookingOrigin", "order": "ASCENDING" },
-        { "fieldPath": "__name__", "order": "ASCENDING" }
-      ]
-    },
-    {
       "collectionGroup": "courses",
       "queryScope": "COLLECTION",
       "fields": [

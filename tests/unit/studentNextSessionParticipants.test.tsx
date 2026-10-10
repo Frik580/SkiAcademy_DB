@@ -1,5 +1,5 @@
 import { cabinetLessonTiming } from '../fixtures/cabinetLessonTiming';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type {
   CabinetSessionItem,
@@ -11,7 +11,10 @@ import {
   buildSessionParticipants,
 } from '../../src/features/student-cabinet/components/student/studentSessionParticipants';
 import { StudentTodaySection } from '../../src/features/student-cabinet/components/student/StudentTodaySection';
-import { NextSessionBlock } from '../../src/features/student-cabinet/components/student/StudentTodaySessionBlocks';
+import {
+  CurrentSessionsBlock,
+  NextSessionBlock,
+} from '../../src/features/student-cabinet/components/student/StudentTodaySessionBlocks';
 import type {
   NextSessionBlockInput,
   SessionParticipantInput,
@@ -110,6 +113,43 @@ function props(sessions: CabinetSessionItem[], participants = profiles): NextSes
 function participantLists() {
   return screen.getAllByRole('list', { name: 'bookingParticipantsLabel' });
 }
+
+describe('current sessions presentation', () => {
+  it('preserves simultaneous lesson/course membership and their distinct actions', () => {
+    const sessions = [lesson(['alice', 'bob']), course('enrollment_b', 'bob')];
+    const handlers = props(sessions);
+    const onViewCourseDetails = vi.fn();
+    render(
+      <CurrentSessionsBlock
+        {...handlers}
+        sessions={sessions}
+        onViewCourseDetails={onViewCourseDetails}
+        hasUnreadChat={() => true}
+      />
+    );
+    const cards = screen.getAllByRole('article');
+    expect(cards).toHaveLength(2);
+    expect(within(cards[0]).getByText('Alice Student')).toBeInTheDocument();
+    expect(within(cards[0]).getByText('Bob Student')).toBeInTheDocument();
+    expect(within(cards[1]).queryByText('Alice Student')).not.toBeInTheDocument();
+    expect(within(cards[1]).getByText('Bob Student')).toBeInTheDocument();
+    expect(screen.queryByText('Other Student')).not.toBeInTheDocument();
+    expect(
+      Array.from(cards[0].querySelectorAll('img')).map((img) => img.getAttribute('src'))
+    ).toEqual(['/alice.png', '/bob.png']);
+    fireEvent.click(within(cards[0]).getByRole('button', { name: 'scMoreDetails' }));
+    expect(handlers.onOpenLesson).toHaveBeenCalledWith(expect.objectContaining({ id: 'lesson_1' }));
+    const chat = within(cards[0]).getByRole('button', { name: /chat/ });
+    expect(chat).toHaveAttribute('title', 'chatNewMessages');
+    fireEvent.click(chat);
+    expect(handlers.onOpenSession).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'lesson_1' })
+    );
+    expect(within(cards[1]).queryByRole('button', { name: /chat/ })).not.toBeInTheDocument();
+    fireEvent.click(within(cards[1]).getByRole('button', { name: 'scMoreDetails' }));
+    expect(onViewCourseDetails).toHaveBeenCalledWith('same_course', 'enrollment_b');
+  });
+});
 
 describe('next session participants', () => {
   it('renders one booking participant with avatar and full displayName', () => {

@@ -24,6 +24,7 @@ import { SessionParticipants } from './SessionParticipants';
 import { cabinetItemToLegacyPresentation } from '../../../../features/lesson-bookings/mergeCabinetBookings';
 import { StudentDashboardTile } from './StudentDashboardTile';
 import { STUDENT_DASHBOARD_TILES } from '../../../settings/studentDashboardLayout';
+import './studentCurrentSessions.css';
 
 const CountdownDigits = memo<{
   startsAtMs: number;
@@ -154,24 +155,23 @@ const SessionCard = memo<
   const isCourseDay = session.kind === 'course_day';
 
   return (
-    <ScTintCard tint="green" className="px-4 py-3.5 space-y-2">
-      <p className="text-sm text-[var(--ink-dim)]">{t('scToday')}</p>
-      <p className="text-2xl font-serif font-light text-[var(--ink)]">
-        {formatCabinetSessionTimeRange(session)}
-      </p>
-      <p className="flex items-center gap-2 flex-wrap text-base font-medium text-[var(--ink)]">
+    <article className="sc-current-session">
+      <h3 className="sc-current-session-title">
         <span>{getCabinetSessionTitle(session, lang)}</span>
         {session.kind === 'lesson' && (
           <LessonFeedbackIndicator lessonBookingId={session.session.id} />
         )}
-      </p>
-      <p className="text-sm text-[var(--ink-dim)]">
-        {isCourseDay
-          ? formatCourseDayDateLabel(session, lang)
-          : getCabinetSessionSubtitle(session, lang)}
-      </p>
+      </h3>
+      <div className="sc-current-session-meta">
+        <p className="sc-current-session-time">{formatCabinetSessionTimeRange(session)}</p>
+        <p className="sc-current-session-subtitle">
+          {isCourseDay
+            ? formatCourseDayDateLabel(session, lang)
+            : getCabinetSessionSubtitle(session, lang)}
+        </p>
+      </div>
       <SessionParticipants participants={participants} />
-      <div className="flex flex-wrap gap-4 pt-2">
+      <div className="sc-current-session-actions">
         {session.kind === 'lesson' ? (
           <>
             <ScTextButton
@@ -199,6 +199,7 @@ const SessionCard = memo<
               courses={courses}
               instructors={instructors}
               usersList={usersList}
+              className="sc-current-session-contact"
             />
           </>
         ) : (
@@ -211,7 +212,7 @@ const SessionCard = memo<
           )
         )}
       </div>
-    </ScTintCard>
+    </article>
   );
 });
 
@@ -230,10 +231,10 @@ export const CurrentSessionsBlock = memo<CurrentSessionsBlockInput>(function Cur
 
   return (
     <>
-      <section>
+      <section className="sc-current-sessions">
         <StudentDashboardTileHeader title={t('scCurrentSessions')} />
         <StudentDashboardTileBody>
-          <div className="space-y-2">
+          <div className="sc-current-sessions-list">
             {sessions.map((session) => (
               <SessionCard
                 key={sessionItemKey(session)}

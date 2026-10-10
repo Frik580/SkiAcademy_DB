@@ -181,9 +181,9 @@ function expectMarkerProgress(name: string, id: string) {
   expect(marker(name).style.top).toBe('50%');
 }
 function scopeIn(title: string) {
-  return screen
-    .getByText(title)
-    .parentElement!.querySelector('[data-participant-scope]') as HTMLElement;
+  const label = screen.getByText(title);
+  const header = label.closest('[data-dashboard-header]') ?? label.parentElement!;
+  return header.querySelector('[data-participant-scope]') as HTMLElement;
 }
 function HeaderAndHome() {
   const { selectedParticipantId, selectParticipant } = useCabinetProgressParticipantSelection({
@@ -374,6 +374,13 @@ describe('Student Home dashboard grid', () => {
     for (const tile of Array.from(grid.querySelectorAll('[data-dashboard-tile]'))) {
       expect(tile).toHaveClass('ui-card', 'p-4', 'sm:p-5');
       const header = tile.querySelector('[data-dashboard-header]')!;
+      if (tile.getAttribute('data-dashboard-tile') === 'todayTasks') {
+        expect(header).toHaveClass('sc-today-tasks-header');
+        expect(header.querySelector('[data-dashboard-title]')).toHaveClass('sc-today-tasks-title');
+        expect(tile.querySelectorAll('[data-dashboard-header]')).toHaveLength(1);
+        expect(header.nextElementSibling).toHaveAttribute('data-dashboard-body');
+        continue;
+      }
       expect(header).toHaveClass('flex', 'items-center', 'h-12', 'min-h-12');
       expect(header.querySelector('[data-dashboard-title]')).toHaveClass(
         'text-sm',

@@ -25,12 +25,14 @@ import {
   shouldSyncAccountParticipantLessonStats,
 } from './accountLessonBookingSync';
 import { useAuthStore } from '../features/auth/authStore';
+import { useAccountCourseSessionSync } from '../features/course-enrollments/useAccountCourseSessionSync';
 import { useProfileStore } from '../features/profile/profileStore';
 import { useCabinetProgressParticipantSelectionStore } from '../features/student-cabinet/cabinetProgressParticipantSelectionStore';
 
 export const useStoreSync = () => {
   const location = useLocation();
   const firebaseUser = useAuthStore((state) => state.firebaseUser);
+  const authGeneration = useAuthStore((state) => state.authGeneration);
   const userProfile = useProfileStore((state) => state.userProfile);
   // Hydrate account_hot only on surfaces that render current/upcoming lessons.
   // History ownership is separate (History + Journey) so Training/Profile/etc.
@@ -80,6 +82,11 @@ export const useStoreSync = () => {
     isCustomerCanonicalCoursePath,
     firebaseUser?.uid,
     selectedCourseParticipantId
+  );
+  useAccountCourseSessionSync(
+    location.pathname.startsWith('/cabinet'),
+    firebaseUser?.uid,
+    authGeneration
   );
   useGuestCourseEnrollmentReadSync(!firebaseUser && isPublicCatalogPath);
   useCourseCatalogReadSync(isPublicCatalogPath);

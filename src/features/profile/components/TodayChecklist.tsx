@@ -5,6 +5,8 @@ import { useLanguage } from '../../../app/providers/LanguageContext';
 import { type TodayTask, type TodayTaskRef } from '../../../features/student-cabinet';
 
 export interface TodayChecklistProps {
+  variant?: 'default' | 'dashboard';
+  addInputRef?: React.RefObject<HTMLInputElement>;
   tasks: TodayTask[];
   bookings: Booking[];
   onToggleRecommendation?: (bookingId: string, recommendationId: string, checked: boolean) => void;
@@ -50,6 +52,8 @@ const groupRecommendationTasks = (tasks: TodayTask[]) => {
 };
 
 export const TodayChecklist: React.FC<TodayChecklistProps> = ({
+  variant = 'default',
+  addInputRef,
   tasks,
   bookings,
   onToggleRecommendation,
@@ -75,12 +79,13 @@ export const TodayChecklist: React.FC<TodayChecklistProps> = ({
   };
 
   return (
-    <div className="space-y-4">
+    <div className={variant === 'dashboard' ? 'sc-today-checklist space-y-3' : 'space-y-4'}>
       {groups.map(({ context, tasks: groupTasks }) => {
         const booking = bookingMap.get(context.bookingId);
         return (
           <div
             key={context.bookingId}
+            data-task-group
             className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-4 space-y-3"
           >
             <div className="flex items-center justify-between gap-2 text-xs text-[var(--ink-dim)]">
@@ -105,7 +110,13 @@ export const TodayChecklist: React.FC<TodayChecklistProps> = ({
                   isRecommendationPending?.(context.bookingId, task.recommendationId)
                 );
                 return (
-                  <div key={task.id} className="flex items-center justify-between gap-3 text-sm">
+                  <div
+                    key={task.id}
+                    data-task-row
+                    data-done={task.done}
+                    aria-busy={pending}
+                    className="flex items-center justify-between gap-3 text-sm"
+                  >
                     <label className="flex items-center gap-3 cursor-pointer select-none flex-1 min-w-0">
                       <input
                         type="checkbox"
@@ -138,7 +149,7 @@ export const TodayChecklist: React.FC<TodayChecklistProps> = ({
                         type="button"
                         onClick={() => onRemoveTask(toTaskRef(task))}
                         className="text-[var(--ink-dim)] hover:text-rose-500 transition-colors p-1"
-                        aria-label="Remove task"
+                        aria-label={t('scRemoveTodayTask')}
                       >
                         <X className="h-3.5 w-3.5" />
                       </button>
@@ -152,9 +163,17 @@ export const TodayChecklist: React.FC<TodayChecklistProps> = ({
       })}
 
       {other.length > 0 && (
-        <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-4 space-y-2">
+        <div
+          data-task-group
+          className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-4 space-y-2"
+        >
           {other.map((task) => (
-            <div key={task.id} className="flex items-center justify-between gap-3 text-sm">
+            <div
+              key={task.id}
+              data-task-row
+              data-done={task.done}
+              className="flex items-center justify-between gap-3 text-sm"
+            >
               <label className="flex items-center gap-3 cursor-pointer select-none flex-1 min-w-0">
                 <input
                   type="checkbox"
@@ -175,7 +194,7 @@ export const TodayChecklist: React.FC<TodayChecklistProps> = ({
                   type="button"
                   onClick={() => onRemoveTask(toTaskRef(task))}
                   className="text-[var(--ink-dim)] hover:text-rose-500 transition-colors p-1"
-                  aria-label="Remove task"
+                  aria-label={t('scRemoveTodayTask')}
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -188,6 +207,8 @@ export const TodayChecklist: React.FC<TodayChecklistProps> = ({
       {onAddTask && (
         <form onSubmit={handleAdd} className="flex gap-2">
           <input
+            ref={addInputRef}
+            aria-label={t('scAddTodayTask')}
             type="text"
             value={newText}
             onChange={(e) => setNewText(e.target.value)}

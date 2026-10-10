@@ -1,0 +1,146 @@
+/* Original Stitch daily-task rows, scoped to the Home checklist variant. */
+.sc-today-tasks-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.sc-dashboard .sc-today-tasks .sc-today-tasks-title {
+  min-height: 0;
+  color: var(--ink);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: -0.02em;
+}
+
+.sc-today-tasks-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.sc-today-tasks-add {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--surface-tint);
+  color: var(--ink-dim);
+  border: 1px solid var(--border);
+}
+
+.sc-today-tasks-add:hover {
+  color: var(--ink);
+  background: var(--surface-tint);
+}
+
+.sc-today-tasks-message {
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--ink-dim);
+}
+
+.sc-today-checklist [data-task-group] {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+.sc-today-checklist [data-task-row] {
+  padding: 8px 4px 8px 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  background: var(--card-bg);
+  gap: 8px;
+}
+
+.sc-today-checklist [data-task-row][data-done='true'] {
+  background: var(--surface-tint);
+  border-color: var(--border);
+}
+
+.sc-today-checklist [data-task-row] label {
+  min-height: 44px;
+  align-items: center;
+  gap: 12px;
+}
+
+.sc-today-checklist [data-task-row] label > span {
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+.sc-today-checklist input[type='checkbox'] {
+  appearance: none;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  background: var(--card-bg);
+  cursor: pointer;
+}
+
+.sc-today-checklist input[type='checkbox']:checked {
+  border-color: var(--sc-success);
+  background-color: var(--sc-success);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='m5 10 3 3 7-7' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+:root.dark .sc-today-checklist input[type='checkbox']:checked {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='m5 10 3 3 7-7' fill='none' stroke='%230a0a0a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+.sc-today-checklist input:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.sc-today-checklist [data-task-row] button {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 50%;
+}
+
+.sc-today-checklist form {
+  flex-wrap: wrap;
+}
+
+.sc-today-checklist form input {
+  min-width: 0;
+  min-height: 44px;
+  flex-basis: 140px;
+}
+
+.sc-today-checklist form button {
+  min-height: 44px;
+}
+
+@media (min-width: 640px) {
+  .sc-dashboard .sc-today-tasks .sc-today-tasks-title {
+    font-size: 18px;
+  }
+  .sc-today-checklist [data-task-row] {
+    padding-left: 14px;
+  }
+}
+
+@media (forced-colors: active) {
+  .sc-today-checklist input[type='checkbox'] {
+    appearance: auto;
+  }
+}

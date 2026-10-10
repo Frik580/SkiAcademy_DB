@@ -48,6 +48,7 @@ import type { StudentCabinetHomeContext } from './studentCabinetContracts';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 import { ParticipantScopeIndicator } from './ParticipantScopeIndicator';
 import { buildParticipantTodayProgress } from './studentTodayProgress';
+import { useCabinetSessionNow } from './useCabinetSessionNow';
 
 type StudentCabinetHomeProps = StudentCabinetHomeContext;
 
@@ -120,11 +121,15 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
   };
 
   const nextSessionItems = props.nextSessionItems ?? sessionItems;
+  const sessionNow = useCabinetSessionNow(nextSessionItems);
   const { nextSessions, participantsBySessionKey } = useMemo(
-    () => buildNextSessionCards(nextSessionItems, props.participantProfiles ?? [], new Date()),
-    [nextSessionItems, props.participantProfiles]
+    () => buildNextSessionCards(nextSessionItems, props.participantProfiles ?? [], sessionNow),
+    [nextSessionItems, props.participantProfiles, sessionNow]
   );
-  const countdown = useMemo(() => getTodaySessionCountdown(nextSessionItems), [nextSessionItems]);
+  const countdown = useMemo(
+    () => getTodaySessionCountdown(nextSessionItems, sessionNow),
+    [nextSessionItems, sessionNow]
+  );
   const countdownParticipants = useMemo(
     () =>
       countdown
@@ -135,8 +140,8 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     [countdown, props.participantProfiles]
   );
   const currentSessions = useMemo(
-    () => getCurrentSessions(nextSessionItems, new Date()),
-    [nextSessionItems]
+    () => getCurrentSessions(nextSessionItems, sessionNow),
+    [nextSessionItems, sessionNow]
   );
   const currentParticipantsBySessionKey = useMemo(
     () => buildSessionParticipants(currentSessions, props.participantProfiles ?? []),

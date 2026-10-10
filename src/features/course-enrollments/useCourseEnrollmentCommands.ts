@@ -34,6 +34,7 @@ import {
 } from './deriveEnrollmentIds';
 import { persistGuestCourseEnrollmentCredential } from './guestCourseEnrollmentCredentialStorage';
 import { useCourseEnrollmentStore } from './courseEnrollmentStore';
+import { refreshAccountCourseSessions } from './useAccountCourseSessionSync';
 import { mergeCatalogRecords, mergeCourseEnrollmentRecords } from './courseEnrollmentViewModel';
 import {
   loadGuestSingleCourseEnrollment,
@@ -70,6 +71,7 @@ async function refetchAccountHotEnrollments(): Promise<void> {
         .getState()
         .replaceCatalog(mergeCatalogRecords(new Map(), catalogResult.items));
     }),
+    refreshAccountCourseSessions(true),
   ]);
   if (!participantId) {
     return;

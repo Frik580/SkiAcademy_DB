@@ -1,6 +1,30 @@
 {
   "indexes": [
     {
+      "collectionGroup": "guest_confirmation_reconciliation_work",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "nextAttemptAtMs", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "bookings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "attribution.bookingOrigin", "order": "ASCENDING" },
+        { "fieldPath": "__name__", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "course_enrollments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "attribution.bookingOrigin", "order": "ASCENDING" },
+        { "fieldPath": "__name__", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "courses",
       "queryScope": "COLLECTION",
       "fields": [

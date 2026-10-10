@@ -255,3 +255,26 @@ describe('Firestore single-field index contracts', () => {
     );
   });
 });
+
+describe('Guest confirmation incremental work index contracts', () => {
+  it('supports bounded due work and stable guest recovery pagination', () => {
+    expectCompositeIndex(firestoreIndexes.indexes, {
+      collectionGroup: 'guest_confirmation_reconciliation_work',
+      queryScope: 'COLLECTION',
+      fields: [
+        { fieldPath: 'status', order: 'ASCENDING' },
+        { fieldPath: 'nextAttemptAtMs', order: 'ASCENDING' },
+      ],
+    });
+    for (const collectionGroup of ['bookings', 'course_enrollments']) {
+      expectCompositeIndex(firestoreIndexes.indexes, {
+        collectionGroup,
+        queryScope: 'COLLECTION',
+        fields: [
+          { fieldPath: 'attribution.bookingOrigin', order: 'ASCENDING' },
+          { fieldPath: '__name__', order: 'ASCENDING' },
+        ],
+      });
+    }
+  });
+});

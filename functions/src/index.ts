@@ -36,7 +36,8 @@ import { createQueryParticipantAchievementsReadModelsHandler } from './canonical
 import { createQueryParticipantLessonFeedbackReadModelsHandler } from './canonical/readModels/queryParticipantLessonFeedbackReadModelsCallable';
 import { createQueryTestSessionReadModelsHandler } from './canonical/readModels/queryTestSessionReadModelsCallable';
 import { createExecuteTestSessionLifecycleHandler } from './canonical/testSessions/executeTestSessionLifecycleCallable';
-import { sweepGuestConfirmationLifecycleMismatches } from './canonical/guestConfirmation/guestConfirmationReconciliationSweep';
+import { runScheduledGuestConfirmationReconciliation } from './canonical/guestConfirmation/guestConfirmationScheduler';
+import { syncGuestConfirmationWrite } from './canonical/guestConfirmation/guestConfirmationWork';
 import { sweepExpiredGuestLessonReservations } from './canonical/bookings/guestLessonReservationExpirySweep';
 import { sweepExpiredGuestCourseReservations } from './canonical/courses/guestCourseReservationExpirySweep';
 import { sweepLessonBookingAttendanceOutcomes } from './canonical/bookings/bookingAttendanceOutcomeSweep';
@@ -273,22 +274,56 @@ export const scheduledReconcileGuestConfirmationMismatches = onSchedule(
     maxInstances: 1,
   },
   async () => {
-    const result = await sweepGuestConfirmationLifecycleMismatches(getAdminFirestore());
+    const result = await runScheduledGuestConfirmationReconciliation(getAdminFirestore());
     console.log(
       JSON.stringify({
         job: 'scheduledReconcileGuestConfirmationMismatches',
-        scannedCandidates: result.scannedCandidates,
-        fullyFundedCandidates: result.fullyFundedCandidates,
-        alreadyOpenSkipped: result.alreadyOpenSkipped,
-        workCandidatesSelected: result.workCandidatesSelected,
-        reconciled: result.reconciled,
-        skipped: result.skipped,
-        pages: result.pages,
-        truncated: result.truncated,
-        subjectDocsRead: result.subjectDocsRead,
-        paymentLookupReads: result.paymentLookupReads,
-        issueLookupReads: result.issueLookupReads,
+        ...result,
       })
+    );
+  }
+);
+
+const GUEST_RECONCILIATION_TRIGGER_OPTIONS = {
+  region: 'us-central1',
+  cpu: 1,
+  memory: '256MiB' as const,
+  maxInstances: 10,
+  retry: true,
+};
+export const syncGuestBookingConfirmationWork = onDocumentWritten(
+  { ...GUEST_RECONCILIATION_TRIGGER_OPTIONS, document: 'bookings/{bookingId}' },
+  async (event) => {
+    await syncGuestConfirmationWrite(
+      getAdminFirestore(),
+      'bookings',
+      event.params.bookingId,
+      event.data?.before.data(),
+      event.data?.after.data()
+    );
+  }
+);
+export const syncGuestEnrollmentConfirmationWork = onDocumentWritten(
+  { ...GUEST_RECONCILIATION_TRIGGER_OPTIONS, document: 'course_enrollments/{enrollmentId}' },
+  async (event) => {
+    await syncGuestConfirmationWrite(
+      getAdminFirestore(),
+      'course_enrollments',
+      event.params.enrollmentId,
+      event.data?.before.data(),
+      event.data?.after.data()
+    );
+  }
+);
+export const syncGuestPaymentConfirmationWork = onDocumentWritten(
+  { ...GUEST_RECONCILIATION_TRIGGER_OPTIONS, document: 'payments/{paymentId}' },
+  async (event) => {
+    await syncGuestConfirmationWrite(
+      getAdminFirestore(),
+      'payments',
+      event.params.paymentId,
+      event.data?.before.data(),
+      event.data?.after.data()
     );
   }
 );

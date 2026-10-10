@@ -25,6 +25,18 @@ import { cabinetItemToLegacyPresentation } from '../../../../features/lesson-boo
 import { StudentDashboardTile } from './StudentDashboardTile';
 import { STUDENT_DASHBOARD_TILES } from '../../../settings/studentDashboardLayout';
 import './studentCurrentSessions.css';
+import './studentCountdown.css';
+
+// Only numeric values and fixed localized units from the shared formatter enter this markup.
+function countdownMarkup(ms: number, lang: 'en' | 'ru') {
+  return formatCountdownRemaining(ms, lang)
+    .split(/(\d+)/)
+    .map(
+      (text) =>
+        `<span class="${/^\d+$/.test(text) ? 'sc-countdown-value' : 'sc-countdown-unit'}">${text}</span>`
+    )
+    .join('');
+}
 
 const CountdownDigits = memo<{
   startsAtMs: number;
@@ -43,7 +55,7 @@ const CountdownDigits = memo<{
         return false;
       }
       if (ref.current) {
-        ref.current.textContent = formatCountdownRemaining(ms, lang);
+        ref.current.innerHTML = countdownMarkup(ms, lang);
       }
       return true;
     };
@@ -62,11 +74,10 @@ const CountdownDigits = memo<{
   return (
     <p
       ref={ref}
-      className="text-3xl sm:text-4xl font-serif font-light tabular-nums text-[#64D2FF]"
+      className="sc-countdown-digits"
       aria-live="polite"
-    >
-      {formatCountdownRemaining(initialMs, lang)}
-    </p>
+      dangerouslySetInnerHTML={{ __html: countdownMarkup(initialMs, lang) }}
+    />
   );
 });
 
@@ -90,10 +101,10 @@ export const SessionCountdownBlock = memo<SessionCountdownBlockInput>(
 
     return (
       <StudentDashboardTile tileKey={STUDENT_DASHBOARD_TILES.countdown.key} size={dashboardSize}>
-        <section>
+        <section className="sc-countdown">
           <StudentDashboardTileHeader title={t('scCountdownToSession')} />
           <StudentDashboardTileBody>
-            <ScTintCard tint="accent" className="px-4 py-4 space-y-2">
+            <div className="sc-countdown-content">
               <CountdownDigits
                 startsAtMs={countdown.startsAt.getTime()}
                 lang={lang}
@@ -102,19 +113,18 @@ export const SessionCountdownBlock = memo<SessionCountdownBlockInput>(
                   onExpire?.();
                 }}
               />
-              <p className="text-base font-medium text-[var(--ink)]">
-                {getCabinetSessionTitle(session, lang)}
-              </p>
-              <p className="text-sm text-[var(--ink-dim)]">
-                {formatCabinetSessionTimeRange(session)}
-                {' · '}
+              <div className="sc-countdown-meta">
+                <p className="sc-countdown-title">{getCabinetSessionTitle(session, lang)}</p>
+                <p className="sc-countdown-time">{formatCabinetSessionTimeRange(session)}</p>
+              </div>
+              <p className="sc-countdown-subtitle">
                 {isCourseDay
                   ? formatCourseDayDateLabel(session, lang)
                   : getCabinetSessionSubtitle(session, lang)}
               </p>
               <SessionParticipants participants={participants} />
               {session.kind === 'lesson' && (
-                <div className="flex flex-wrap gap-4 pt-1">
+                <div className="sc-countdown-actions">
                   <BookingCallCoachButton
                     booking={cabinetItemToLegacyPresentation(
                       session.session,
@@ -123,10 +133,12 @@ export const SessionCountdownBlock = memo<SessionCountdownBlockInput>(
                     courses={courses}
                     instructors={instructors}
                     usersList={usersList}
+                    variant="outline"
+                    className="sc-countdown-contact"
                   />
                 </div>
               )}
-            </ScTintCard>
+            </div>
           </StudentDashboardTileBody>
         </section>
         {!dashboardSize && <ScDivider />}

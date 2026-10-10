@@ -784,7 +784,75 @@ function currentPeople(card: HTMLElement) {
   return within(card).getByRole('list', { name: 'bookingParticipantsLabel' });
 }
 
+describe('live account session boundaries without reload', () => {
+  it('enters and leaves simultaneous course sessions at canonical boundaries through A → B → A', () => {
+    vi.useRealTimers();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-03T04:59:59Z'));
+    const props = shellProps();
+    props.accountSessionItems = props.sessionItems;
+    props.sessionItems = []; // The selected participant store may clear during Header switching.
+    const { unmount } = setup(props);
+    expect(screen.queryByText('scCurrentSessions')).not.toBeInTheDocument();
+    expect(screen.getByText('scCountdownToSession')).toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(1000));
+    expect(currentCards()).toHaveLength(2);
+    expect(screen.queryByText('scCountdownToSession')).not.toBeInTheDocument();
+    const cards = currentCards();
+    for (const name of ['Bob Full Name', 'Alice Full Name']) {
+      fireEvent.click(screen.getByRole('button', { name: `Select ${name}` }));
+      expect(currentCards()).toEqual(cards);
+    }
+    act(() => vi.advanceTimersByTime(1000));
+    expect(currentCards()).toHaveLength(2);
+    act(() => vi.advanceTimersByTime(3_598_000));
+    expect(currentCards()).toHaveLength(2); // One second before end.
+    act(() => vi.advanceTimersByTime(1000));
+    expect(screen.queryByText('scCurrentSessions')).not.toBeInTheDocument();
+    unmount();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('moves family lessons into and out of Current Sessions and advances the next countdown', () => {
+    vi.useRealTimers();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-02T08:59:59Z'));
+    const props = countdownProps([
+      upcomingLesson('first_live', ['a', 'b'], '14:00'),
+      upcomingLesson('second_live', ['b'], '15:00'),
+    ]);
+    const { unmount } = setup(props);
+    expect(screen.queryByText('scCurrentSessions')).not.toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(1000));
+    expect(currentCards()).toHaveLength(1);
+    expect(currentPeople(currentCards()[0] as HTMLElement).textContent).toBe(
+      'Alice Full NameBob Full Name'
+    );
+    expect(screen.getByText('scCountdownToSession')).toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(3_600_000));
+    expect(currentCards()).toHaveLength(1);
+    expect(
+      within(currentCards()[0] as HTMLElement).getByText('Coach second_live')
+    ).toBeInTheDocument();
+    expect(screen.queryByText('scCountdownToSession')).not.toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(3_600_000));
+    expect(screen.queryByText('scCurrentSessions')).not.toBeInTheDocument();
+    unmount();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
 describe('account-level current sessions through the real header', () => {
+  it('keeps scoped calendar sessions when the separate account hot projection is empty', () => {
+    const props = shellProps();
+    props.accountSessionItems = [];
+    setup(props);
+    expect(screen.queryByText('scCurrentSessions')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'calendar', exact: true }));
+    expect(screen.getByTestId('calendar-scope')).toHaveTextContent('ea');
+    expect(screen.getByTestId('calendar-scope')).not.toHaveTextContent('eb');
+  });
+
   it('keeps B, the instructor, card instance, and booking actions through A → B → A', () => {
     vi.setSystemTime(new Date('2026-10-02T12:30:00+05:00'));
     const booking = upcomingLesson('current_b', ['b'], '12:00');

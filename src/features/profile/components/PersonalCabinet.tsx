@@ -40,6 +40,7 @@ export interface PersonalCabinetProps {
   bookings: readonly LessonBookingCabinetItem[];
   courseEnrollments?: readonly CourseEnrollmentCabinetItem[];
   sessionItems?: readonly CabinetSessionItem[];
+  accountSessionItems?: readonly CabinetSessionItem[];
   reviews: Review[];
   reviewBookingStates?: readonly AccountReviewBookingState[];
   dismissedReviewIds?: string[];
@@ -82,6 +83,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   bookings: rawBookings,
   courseEnrollments = [],
   sessionItems = [],
+  accountSessionItems,
   reviews,
   reviewBookingStates = [],
   dismissedReviewIds = [],
@@ -267,6 +269,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
             bookings={userBookings}
             courseEnrollments={courseEnrollments}
             sessionItems={sessionItems}
+            accountSessionItems={accountSessionItems}
             courses={courses}
             instructors={instructors}
             reviews={reviews}

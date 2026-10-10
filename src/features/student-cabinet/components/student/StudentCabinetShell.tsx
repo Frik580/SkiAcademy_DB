@@ -114,6 +114,7 @@ export interface StudentCabinetShellProps {
   bookings: readonly import('./studentCabinetContracts').StudentBooking[];
   courseEnrollments?: readonly import('../../../../features/course-enrollments').CourseEnrollmentCabinetItem[];
   sessionItems?: readonly import('../../../../features/course-enrollments').CabinetSessionItem[];
+  accountSessionItems?: readonly import('../../../../features/course-enrollments').CabinetSessionItem[];
   courses: Course[];
   instructors: Instructor[];
   reviews: Review[];
@@ -288,7 +289,9 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
     () => props.bookings.filter(belongsToSelectedParticipant),
     [props.bookings, belongsToSelectedParticipant]
   );
-  const hasAnyParticipantSessionToday = hasTrainingTodayFromSessions(props.sessionItems ?? []);
+  const hasAnyParticipantSessionToday = hasTrainingTodayFromSessions(
+    props.accountSessionItems ?? props.sessionItems ?? []
+  );
 
   const isolatedSessionItems = useMemo(
     () =>
@@ -542,7 +545,10 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
         }
       >
         {activeTab === 'home' && (
-          <StudentCabinetHome {...ctx} nextSessionItems={props.sessionItems ?? []} />
+          <StudentCabinetHome
+            {...ctx}
+            nextSessionItems={props.accountSessionItems ?? props.sessionItems ?? []}
+          />
         )}
         {activeTab === 'training' && <StudentTrainingPanel onGoToTab={goToTab} />}
         {activeTab === 'history' && (

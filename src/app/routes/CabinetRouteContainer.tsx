@@ -36,6 +36,8 @@ import {
   type CabinetCancellationCommandResult,
 } from '../../features/student-cabinet/cabinetCancellationOutcome';
 import { presentCancellationError } from '../../features/student-cabinet/presentCancellationError';
+import { useAccountCourseSessionStore } from '../../features/course-enrollments/accountCourseSessionStore';
+import { refreshAccountCourseSessions } from '../../features/course-enrollments/useAccountCourseSessionSync';
 
 /** Connects personal cabinet UI to profile, bookings, courses, wallet and UI state. */
 export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
@@ -52,6 +54,8 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
   const activityLogs = useProfileStore((state) => state.activityLogs);
   const lessonBookings = useLessonBookingStore(selectLessonBookingItems);
   const courseEnrollments = useCourseEnrollmentStore(selectCourseEnrollmentItems);
+  const accountCourseEnrollments = useAccountCourseSessionStore((state) => state.items);
+  const accountCourseSessionError = useAccountCourseSessionStore((state) => state.error);
   const reviews = useBookingsStore((state) => state.reviews);
   const reviewBookingStates = useBookingsStore((state) => state.reviewBookingStates);
   const instructors = useBookingsStore((state) => state.instructors);
@@ -112,6 +116,14 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
   const sessionItems = useMemo(
     () => buildMixedCabinetSessionItems({ lessonBookings, courseEnrollments }),
     [lessonBookings, courseEnrollments]
+  );
+  const accountSessionItems = useMemo(
+    () =>
+      buildMixedCabinetSessionItems({
+        lessonBookings,
+        courseEnrollments: accountCourseEnrollments,
+      }),
+    [lessonBookings, accountCourseEnrollments]
   );
 
   const notifyCancellationOutcome = useCallback(
@@ -248,12 +260,25 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
   return (
     <ErrorBoundary>
       <div className="w-full min-w-0">
+        {userProfile && accountCourseSessionError && (
+          <div role="alert" className="mb-4 flex items-center gap-3">
+            <span>{t('requestFailed')}</span>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => void refreshAccountCourseSessions().catch(() => undefined)}
+            >
+              {t('retry')}
+            </button>
+          </div>
+        )}
         {userProfile && (
           <PersonalCabinet
             userProfile={userProfile}
             bookings={lessonBookings}
             courseEnrollments={courseEnrollments}
             sessionItems={sessionItems}
+            accountSessionItems={accountSessionItems}
             reviews={reviews}
             reviewBookingStates={reviewBookingStates}
             dismissedReviewIds={dismissedReviewIds}

@@ -122,13 +122,22 @@ export const StudentTodaySection = memo<StudentTodaySectionInput>(function Stude
               />
             </div>
             <StudentNextStepCard
+              key={`next-step:${selectedParticipantId}`}
               action={nextStepAction}
-              onStartExercise={(exerciseId) => {
-                const pinned = userProfile?.todaySkillItemIds?.includes(exerciseId);
-                if (!pinned) {
-                  void onToggleSkillToday?.(exerciseId, true);
-                }
-              }}
+              onStartExercise={
+                onToggleSkillToday
+                  ? (exerciseId) => {
+                      const pinned = userProfile?.todaySkillItemIds?.includes(exerciseId);
+                      if (!pinned) {
+                        return onToggleSkillToday(exerciseId, true);
+                      }
+                    }
+                  : undefined
+              }
+              recommendationAvailable={
+                nextStepAction.kind !== 'recommendation' ||
+                bookings.some((booking) => booking.id === nextStepAction.bookingId)
+              }
               onOpenRecommendation={(bookingId) => {
                 const booking = bookings.find((b) => b.id === bookingId);
                 if (booking) onOpenLesson(booking as never);

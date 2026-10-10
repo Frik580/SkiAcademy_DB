@@ -132,13 +132,19 @@ export const translations = {
     scGoodAfternoon: 'Good afternoon',
     scGoodEvening: 'Good evening',
     scPointsToNextLevel: '{pointsLabel} to the next level',
-    scNextStepTitle: '🎯 Next step',
+    scNextStepTitle: 'Next step',
+    scNextStepAddTask: 'Add to tasks',
+    scNextStepAdded: 'Added to tasks',
+    scNextStepInstructorTask: 'Your instructor’s development recommendation.',
+    scNextStepPotentialProgress:
+      'Potential gain after instructor assessment: {pointsLabel}, +{delta}% towards Level {level}.',
+    scNextStepPotentialPoints: 'Potential gain after instructor assessment: {pointsLabel}.',
     scNextStepExerciseBody:
       'Complete the exercise «{title}» — earn {pointsLabel} and get {delta}% closer to Level {level}.',
     scNextStepExerciseBodyPointsOnly: 'Complete the exercise «{title}» — earn {pointsLabel}.',
     scNextStepRecommendationBody: 'Complete your instructor task: «{title}».',
     scNextStepCompleteBody:
-      'You have completed all exercises for this stage. Keep training to maintain your skills.',
+      'No new exercises to add for this stage. Continue developing or review your tasks for today.',
     scNextStepStartTraining: 'Start training',
     scNextStepOpenLesson: 'Open lesson',
     scNextStepExploreDevelopment: 'Explore development',
@@ -2561,13 +2567,19 @@ export const translations = {
     scGoodAfternoon: 'Добрый день',
     scGoodEvening: 'Добрый вечер',
     scPointsToNextLevel: 'До следующего уровня осталось {pointsLabel}',
-    scNextStepTitle: '🎯 Следующий шаг',
+    scNextStepTitle: 'Следующий шаг',
+    scNextStepAddTask: 'Добавить в задачи',
+    scNextStepAdded: 'Добавлено в задачи',
+    scNextStepInstructorTask: 'Рекомендация инструктора для вашего развития.',
+    scNextStepPotentialProgress:
+      'Потенциальный прирост после оценки инструктора: {pointsLabel}, +{delta}% к уровню {level}.',
+    scNextStepPotentialPoints: 'Потенциальный прирост после оценки инструктора: {pointsLabel}.',
     scNextStepExerciseBody:
       'Выполните упражнение «{title}» — получите {pointsLabel} и приблизитесь к Уровню {level} на {delta}%.',
     scNextStepExerciseBodyPointsOnly: 'Выполните упражнение «{title}» — получите {pointsLabel}.',
     scNextStepRecommendationBody: 'Выполните задание от инструктора: «{title}».',
     scNextStepCompleteBody:
-      'Вы выполнили все упражнения на этом этапе. Продолжайте тренироваться, чтобы закрепить навыки.',
+      'Нет новых упражнений для добавления на этом этапе. Продолжайте развитие или вернитесь к задачам на сегодня.',
     scNextStepStartTraining: 'Начать тренировку',
     scNextStepOpenLesson: 'Открыть занятие',
     scNextStepExploreDevelopment: 'Перейти к развитию',

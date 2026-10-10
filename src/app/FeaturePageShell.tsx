@@ -27,9 +27,9 @@ export const FeaturePageShell: React.FC<FeaturePageShellProps> = ({
     >
       {dbStatusWarning && (
         <div className="lg:col-span-3 bg-amber-950/40 border border-amber-900/60 text-amber-200 p-4 rounded-none text-xs font-semibold flex items-center justify-between gap-3 animate-fade-in shrink-0 m-4">
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2">
             <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
-            <span>{dbStatusWarning}</span>
+            <span className="[overflow-wrap:anywhere]">{dbStatusWarning}</span>
           </div>
           <button
             onClick={onDismissDbWarning}

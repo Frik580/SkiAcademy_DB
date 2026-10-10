@@ -92,6 +92,18 @@ test('Next Step preserves participant pin persistence, development, XP and four 
   ).toBeVisible();
   await page.goto('/cabinet', { waitUntil: 'domcontentloaded' });
   await expect(title).toHaveText('Slide 20 m on a steep slope using side-slipping');
+  // Recreate the global warning captured in CI, independent of suite order.
+  // This is ephemeral UI state; no Firestore data or recommendation is changed.
+  await page.evaluate(async () => {
+    const moduleUrl = '/src/features/shell/uiStore.ts';
+    const { useUiStore } = await import(moduleUrl);
+    useUiStore
+      .getState()
+      .setDbStatusWarning(
+        'Database sync restricted. Using active sandboxed state. (Operation: get, Path: bookings/booking_c5ed88af8ff44d6baa9e46c511d61844/messages)'
+      );
+  });
+  await expect(page.getByText('Database sync restricted.', { exact: false })).toBeVisible();
   for (const [name, width, height, dark] of [
     ['desktop-light', 1440, 1000, false],
     ['mobile-light', 390, 844, false],
@@ -105,6 +117,15 @@ test('Next Step preserves participant pin persistence, development, XP and four 
     }, dark);
     await tile.evaluate((el) => el.scrollIntoView({ block: 'start' }));
     await page.evaluate(() => window.scrollBy(0, -100));
+    const dimensions = await page.evaluate(() => ({
+      innerWidth: window.innerWidth,
+      clientWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+    }));
+    await info.attach(name + '-dimensions.json', {
+      body: JSON.stringify(dimensions),
+      contentType: 'application/json',
+    });
     expect(await tile.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
@@ -113,10 +134,24 @@ test('Next Step preserves participant pin persistence, development, XP and four 
       await tile.locator('[data-dashboard-title]').evaluate((el) => getComputedStyle(el).fontSize)
     ).toBe('11px');
     expect(await title.evaluate((el) => getComputedStyle(el).fontFamily)).toContain('DM Sans');
+    expect(await title.evaluate((el) => el.scrollHeight <= el.clientHeight)).toBe(true);
+    for (const button of await tile.getByRole('button').all()) {
+      const bounds = await button.boundingBox();
+      expect(bounds?.height).toBeGreaterThanOrEqual(44);
+      expect(bounds?.width).toBeGreaterThanOrEqual(44);
+    }
+    const warning = page.getByText('Database sync restricted.', { exact: false });
+    expect(await warning.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+    await warning.locator('..').locator('..').screenshot({
+      path: info.outputPath(`${name}-warning.png`),
+    });
     await tile.screenshot({ path: info.outputPath(`${name}.png`) });
   }
   await page.setViewportSize({ width: 320, height: 844 });
   expect(await tile.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true
+  );
   const allLevelOneIds = DEFAULT_SKILL_CONFIG.items
     .filter((item) => item.levelTarget === 1)
     .map((item) => item.id);

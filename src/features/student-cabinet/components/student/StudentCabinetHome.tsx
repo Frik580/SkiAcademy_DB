@@ -49,6 +49,7 @@ import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 import { ParticipantScopeIndicator } from './ParticipantScopeIndicator';
 import { buildParticipantTodayProgress } from './studentTodayProgress';
 import { useCabinetSessionNow } from './useCabinetSessionNow';
+import { DEFAULT_SKILL_CONFIG, getSkillItemSection } from '../../../../domain/achievements';
 
 type StudentCabinetHomeProps = StudentCabinetHomeContext;
 
@@ -191,6 +192,23 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     () => getNextStepAction(userProfile, recommendationTodayTasks[0], skillConfig, lang),
     [userProfile, recommendationTodayTasks, skillConfig, lang]
   );
+  const nextStepExercise =
+    nextStepAction?.kind === 'exercise'
+      ? (skillConfig?.items ?? DEFAULT_SKILL_CONFIG.items).find(
+          (item) => item.id === nextStepAction.exerciseId
+        )
+      : undefined;
+  const nextStepContext = nextStepExercise
+    ? getSkillItemSection(nextStepExercise, lang)
+    : nextStepAction?.kind === 'recommendation'
+      ? [recommendationTodayTasks[0]?.title, recommendationTodayTasks[0]?.dateLabel]
+          .filter(Boolean)
+          .join(' · ')
+      : undefined;
+  const nextStepLoading = Boolean(
+    feedback.isLoadingPlaceholder ||
+    (feedback.participantId && feedback.participantId !== selectedParticipantId)
+  );
   const showCountdown = Boolean(
     countdown &&
     countdown.startsAt.getTime() > Date.now() &&
@@ -253,7 +271,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
         tileKey={STUDENT_DASHBOARD_TILES.nextStep.key}
         size={STUDENT_DASHBOARD_TILES.nextStep.defaultSize}
       >
-        <section>
+        <section className="sc-next-step">
           <StudentDashboardTileHeader
             title={t('scNextStepTitle')}
             actions={
@@ -265,15 +283,27 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
           />
           <StudentDashboardTileBody>
             <StudentNextStepCard
+              key={`next-step:${selectedParticipantId}`}
               action={nextStepAction}
-              onStartExercise={(exerciseId) => {
-                const pinned = userProfile.todaySkillItemIds?.includes(exerciseId);
-                if (!pinned) void onToggleSkillToday?.(exerciseId, true);
-              }}
-              onOpenRecommendation={(bookingId) => {
-                const booking = bookings.find((item) => item.id === bookingId);
-                if (booking) onOpenLesson(booking);
-              }}
+              contextLabel={nextStepContext}
+              loading={nextStepLoading}
+              loadError={feedback.loadState === 'error'}
+              onStartExercise={
+                onToggleSkillToday
+                  ? (exerciseId) => {
+                      const pinned = userProfile.todaySkillItemIds?.includes(exerciseId);
+                      if (!pinned) return onToggleSkillToday(exerciseId, true);
+                    }
+                  : undefined
+              }
+              onOpenRecommendation={openLessonById}
+              recommendationAvailable={
+                nextStepAction.kind !== 'recommendation' ||
+                Boolean(
+                  onOpenLessonByBookingId ||
+                  bookings.some((item) => item.id === nextStepAction.bookingId)
+                )
+              }
               onContinueDevelopment={onContinueDevelopment}
             />
           </StudentDashboardTileBody>

@@ -1,14 +1,16 @@
-import { StudentDashboardTileHeader, StudentDashboardTileBody } from './StudentDashboardTile';
-import { memo } from 'react';
+import { StudentDashboardTileBody } from './StudentDashboardTile';
+import { memo, useRef } from 'react';
+import { Plus } from 'lucide-react';
 import type { Booking } from '../../../../types';
 import { TodayChecklist } from '../../../../features/profile';
 import type { TodayTask } from './studentCabinetUtils';
 import type { TodayTaskRef } from '../..';
 import { participantLessonFeedbackItemKey } from '../../../participant-lesson-feedback/participantLessonFeedbackStore';
 import { useParticipantLessonFeedbackStore } from '../../../participant-lesson-feedback/participantLessonFeedbackStore';
-import { ParticipantScopeIndicator } from './ParticipantScopeIndicator';
 import type { SessionParticipantInput } from './studentCabinetContracts';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
+import './studentTodayTasks.css';
+import { ParticipantScopeIndicator } from './ParticipantScopeIndicator';
 
 export const TodayTasksBlock = memo<{
   scopeParticipant?: SessionParticipantInput;
@@ -32,24 +34,57 @@ export const TodayTasksBlock = memo<{
   onContinueDevelopment,
 }) {
   const { t } = useStudentCabinetTranslations();
+  const addInputRef = useRef<HTMLInputElement>(null);
   const presentationParticipantId = useParticipantLessonFeedbackStore(
     (state) => state.presentationParticipantId
   );
   const pendingKeys = useParticipantLessonFeedbackStore((state) => state.pendingKeys);
+  const feedbackState = useParticipantLessonFeedbackStore((state) =>
+    scopeParticipant ? state.byParticipantId[scopeParticipant.participantId]?.loadState : undefined
+  );
 
   return (
-    <section>
-      <StudentDashboardTileHeader
-        title={t('scQuickActions')}
-        actions={
+    <section className="sc-today-tasks">
+      <header data-dashboard-header className="sc-today-tasks-header">
+        <div className="min-w-0 flex-1">
+          <h2 data-dashboard-title className="sc-today-tasks-title">
+            {t('scQuickActions')}
+          </h2>
+        </div>
+        <div className="sc-today-tasks-actions">
           <ParticipantScopeIndicator
             participant={scopeParticipant}
             visible={Boolean(scopeParticipant)}
           />
-        }
-      />
+          {onAddCustomTodayTask && (
+            <button
+              type="button"
+              className="sc-today-tasks-add"
+              aria-label={t('scAddTodayTask')}
+              onClick={() => addInputRef.current?.focus()}
+            >
+              <Plus size={16} aria-hidden="true" />
+            </button>
+          )}
+        </div>
+      </header>
       <StudentDashboardTileBody>
+        {feedbackState === 'loading' && (
+          <p role="status" className="sc-today-tasks-message">
+            {t('loading')}
+          </p>
+        )}
+        {feedbackState === 'error' && (
+          <p role="alert" className="sc-today-tasks-message">
+            {t('requestFailed')}
+          </p>
+        )}
+        {todayTasks.length === 0 && feedbackState !== 'loading' && feedbackState !== 'error' && (
+          <p className="sc-today-tasks-message">{t('scNoTodayTasks')}</p>
+        )}
         <TodayChecklist
+          variant="dashboard"
+          addInputRef={addInputRef}
           tasks={todayTasks}
           bookings={bookings}
           onToggleRecommendation={onToggleRecommendation}

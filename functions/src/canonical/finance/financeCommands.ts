@@ -87,6 +87,10 @@ import {
 } from '../guestConfirmation/guestPaymentConfirmation';
 import { mergeGuestPaymentConfirmationAuditPlan } from '../guestConfirmation/guestPaymentConfirmationAudit';
 import { bookingPath, parseBooking } from '../bookings/bookingStore';
+import {
+  conversionEventsForPaidTransition,
+  stageConversionAnalyticsEvents,
+} from '../analytics/conversionAnalytics';
 
 interface CommandMetadata {
   readonly commandId: ReturnType<typeof resolveCommandIdempotencyIdentity>['commandKey'];
@@ -516,6 +520,25 @@ function recordProviderPaymentEventHandler(
           );
         }
 
+        stageConversionAnalyticsEvents(
+          conversionEventsForPaidTransition({
+            commandKind: envelope.kind,
+            commandId: metadata.commandId,
+            correlationId: metadata.correlationId,
+            occurredAt: decidedAt,
+            subjectType: payment.subjectType,
+            subjectId: payment.subjectId,
+            paymentId: payment.paymentId,
+            priceMinor: projectedPayment.price,
+            paidAmountMinor: projectedPayment.paidAmount,
+            previousPaymentStatus: payment.paymentStatus,
+            paymentStatus: projectedPayment.paymentStatus,
+            ...(projectedPayment.payerAccountId === undefined
+              ? {}
+              : { accountId: projectedPayment.payerAccountId }),
+          })
+        );
+
         return commandSuccessResult(envelope.kind, envelope.context.correlationId);
       } catch (error) {
         mapFinanceDomainError(envelope, error);
@@ -803,6 +826,25 @@ function adjustServicePriceHandler(
           );
         }
 
+        stageConversionAnalyticsEvents(
+          conversionEventsForPaidTransition({
+            commandKind: envelope.kind,
+            commandId: metadata.commandId,
+            correlationId: metadata.correlationId,
+            occurredAt: decidedAt,
+            subjectType: payment.subjectType,
+            subjectId: payment.subjectId,
+            paymentId: payment.paymentId,
+            priceMinor: projection.price,
+            paidAmountMinor: projection.paidAmount,
+            previousPaymentStatus: payment.paymentStatus,
+            paymentStatus: projection.paymentStatus,
+            ...(updatedPayment.payerAccountId === undefined
+              ? {}
+              : { accountId: updatedPayment.payerAccountId }),
+          })
+        );
+
         return commandSuccessResult(envelope.kind, envelope.context.correlationId);
       } catch (error) {
         if (error instanceof PaymentAccountingInvariantError) {
@@ -841,9 +883,7 @@ function resolveLinkedPayerAccountId(input: {
   readonly paymentPayerAccountId?: AccountId;
   readonly guestLinkedAccountId?: AccountId;
 }): AccountId | undefined {
-  return (
-    input.resourcePayerAccountId ?? input.paymentPayerAccountId ?? input.guestLinkedAccountId
-  );
+  return input.resourcePayerAccountId ?? input.paymentPayerAccountId ?? input.guestLinkedAccountId;
 }
 
 function payServiceFromWalletAsAdministratorHandler(
@@ -1210,6 +1250,23 @@ function payServiceFromWalletAsAdministratorHandler(
               issue: plannedPaymentStartIssueResolution.issue,
             });
           }
+
+          stageConversionAnalyticsEvents(
+            conversionEventsForPaidTransition({
+              commandKind: envelope.kind,
+              commandId: metadata.commandId,
+              correlationId: metadata.correlationId,
+              occurredAt: decidedAt,
+              subjectType: payment.subjectType,
+              subjectId: payment.subjectId,
+              paymentId: payment.paymentId,
+              priceMinor: projectedPayment.price,
+              paidAmountMinor: projectedPayment.paidAmount,
+              previousPaymentStatus: payment.paymentStatus,
+              paymentStatus: projectedPayment.paymentStatus,
+              accountId: payerAccountId,
+            })
+          );
 
           return commandSuccessResult(envelope.kind, envelope.context.correlationId);
         } catch (error) {

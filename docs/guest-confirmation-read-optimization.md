@@ -138,7 +138,159 @@ node functions/scripts/guestConfirmationQueueMigration.cjs --project ski-school-
 
 Dry-run cursor: `--after-booking` / `--after-enrollment` из `nextCursors` предыдущей страницы.
 Quarantine repair: `--action repair --apply`, затем `--after-quarantine` из `nextCursor`;
-неисправленные первые markers не скрывают следующие страницы. Production исключён из CLI.
+неисправленные первые markers не скрывают следующие страницы.
+
+## Production rollout: отдельная операторская процедура
+
+Подготовлено 2026-10-10 в `chore/guest-reconciliation-prod-rollout`. Следующие сведения предоставлены
+владельцем и не являются новой remote-проверкой: staging завершил два прохода и cutover;
+production `ski-school-8f3ca` имеет четыре Functions, provenance PASS для
+`b335d934266c6e8641dca2f47304317c2cb40e3e`, scheduler работает в `legacy_sweep`.
+Старая секция локального verdict выше описывает исходный implementation slice.
+Production migration/deploy в этом подготовительном slice не выполнялись.
+
+Пустота `payments` сообщена владельцем, отдельно здесь не проверялась. Она не доказывает отсутствие
+исторических guest `bookings`/`course_enrollments`, blocked work или quarantine. Все gates обязательны
+даже при пустых платежах. Dry-run проверяет subjects, а не доказывает пустоту коллекции `payments`.
+
+### 1. Preflight и независимое deployment evidence
+
+Работать из `D:\SkiAcademy_DB` в новой чистой операторской PowerShell-сессии с ADC и нужными IAM правами.
+Перед любым подключением CLI проверяет точный `--project`, `--allow-production` и
+`--confirm-project ski-school-8f3ca`. Любая мутация дополнительно требует `--apply`.
+Это относится также к `repair`, `rollback`, `restart`; автоматического cutover/цикла страниц нет.
+Не использовать aliases `prod`/`staging`, повторные, неизвестные аргументы или сокращённые project IDs.
+
+Проверить переменные без вывода credentials:
+
+```powershell
+Set-Location D:\SkiAcademy_DB
+Get-ChildItem Env: | Where-Object { $_.Name -match 'EMULATOR|^FIRESTORE_HOST$' } | Select-Object Name
+# Результат должен быть пустым, включая переменные с пустым значением.
+Get-Item Env:GCLOUD_PROJECT,Env:GOOGLE_CLOUD_PROJECT,Env:GCP_PROJECT -ErrorAction SilentlyContinue
+# Каждый установленный project hint должен точно равняться ski-school-8f3ca.
+# FIREBASE_CONFIG должен отсутствовать либо содержать inline JSON с соответствующим projectId.
+# Пути к config-файлам в FIREBASE_CONFIG в production запрещены.
+npm run build:functions
+if ($LASTEXITCODE -ne 0) { throw 'Functions build failed' }
+$prodArgs = @('--project', 'ski-school-8f3ca', '--allow-production', '--confirm-project', 'ski-school-8f3ca')
+```
+
+Не обходить отказ сменой target на staging/demo. Удалять конфликтующие переменные только после
+проверки их назначения или открыть чистую сессию. CLI явно инициализирует отдельный Admin app
+с project ID и проверяет project ID app и Firestore до первого запроса; `.firebaserc` не используется.
+Project ID credential/quota project сам по себе не является target; права ADC проверяются сервером.
+
+Вне CLI повторно проверить реально установленные версии
+`syncGuestBookingConfirmationWork`, `syncGuestEnrollmentConfirmationWork`,
+`syncGuestPaymentConfirmationWork`, `scheduledReconcileGuestConfirmationMismatches`;
+provenance/commit, trigger bindings для правильного project/database, retry и доставку всех трёх
+типов событий по staging evidence и доступным production logs. Проверить scheduler и отсутствие
+ошибок индексов. Новый work index `status ASC, nextAttemptAtMs ASC` должен быть READY/Enabled;
+origin ascending indexes для обеих subject-коллекций не должны быть выключены exemptions.
+Пустая очередь и deploy success этого не доказывают. Evidence — ссылка на независимый проверяемый
+отчёт/логи с временем и project ID, без PII; непустая строка CLI не заменяет проверку.
+
+### 2. Read-only dry-run и status
+
+```powershell
+node functions/scripts/guestConfirmationQueueMigration.cjs @prodArgs --action status
+node functions/scripts/guestConfirmationQueueMigration.cjs @prodArgs --action dry-run
+# При необходимости посмотреть следующий диапазон отдельно:
+node functions/scripts/guestConfirmationQueueMigration.cjs @prodArgs --action dry-run --after-booking '<nextCursors.bookings.after>' --after-enrollment '<nextCursors.course_enrollments.after>'
+```
+
+Использовать только непустые cursors для streams с `done=false`, опуская законченные/пустые параметры.
+Dry-run не пишет control/work/quarantine и не продвигает durable cursors. Он ограничен 25 guest
+subjects каждой коллекции, сообщает `quarantined` при невалидном Payment ID; финансовую полноту
+и отсутствие blocked work не устанавливает. Если control уже существует, dry-run начинает с
+его backfill cursors; завершённые streams без override не перечитывает.
+`status` читает один control doc и две query с `limit(1)` — blocked work и quarantine;
+показывает `backfillPass`, epoch, cursors, lease, evidence и точный project ID.
+Поле `ready` означает только наличие сохранённого evidence и может оставаться true после rollback.
+
+### 3. Явный begin, затем отдельные page-вызовы
+
+Каждую следующую изменяющую команду запускать только после отдельного разрешения на production migration.
+Команды ниже подготовлены и **не выполнялись**:
+
+```powershell
+node functions/scripts/guestConfirmationQueueMigration.cjs @prodArgs --action begin --apply --evidence '<deployment/index/trigger evidence reference>'
+node functions/scripts/guestConfirmationQueueMigration.cjs @prodArgs --action page --apply
+node functions/scripts/guestConfirmationQueueMigration.cjs @prodArgs --action status
+# Повторять page вручную отдельным процессом, проверяя exit code и status, до backfillPass=2.
+```
+
+`begin` не перезаписывает существующий control. При существующем backfill продолжать `page`.
+Страница ограничена 25 + 25 guest subjects с ID ordering и durable cursors: это полный обход
+guest-диапазонов за несколько вызовов, не полный drain за один вызов. Два прохода обязательны.
+Повторная `page` после двух проходов — no-op; она не включает queue. При ошибке остановить процедуру,
+проверить status, дождаться истечения lease (10 минут) и продолжить сохранённый cursor.
+Не удалять control, не сбрасывать lease вручную и не запускать параллельные операторы.
+Backfill пишет только queue/quarantine/control metadata; финансовые документы не редактирует.
+
+### 4. Проверки непосредственно перед cutover
+
+- Точный production project ID во всех evidence/выводах, четыре Functions и provenance проверены;
+  три triggers установлены с правильными bindings/retry, подтверждена доставка, индексы Enabled.
+- Текущий epoch взят из свежего status; `backfillPass=2`, обе передачи завершены без скрытых ошибок.
+- `leaseToken=null`, нет активного lease; `blockedWork=false`, `quarantine=false`.
+  Исправление источников — только отдельно разрешёнными canonical workflows, без обхода финансовых gates.
+- После разрешённого исправления источников при необходимости выполнить bounded metadata `repair`:
+  `node functions/scripts/guestConfirmationQueueMigration.cjs @prodArgs --action repair --apply`;
+  следующие страницы — отдельно с `--after-quarantine '<nextCursor>'`. Repair не исправляет financial statuses.
+- Независимое актуальное readiness evidence отдельно от deployment evidence; проверены logs/counters,
+  определены наблюдение после cutover, ответственный оператор и возможность rollback.
+
+```powershell
+$status = node functions/scripts/guestConfirmationQueueMigration.cjs @prodArgs --action status | ConvertFrom-Json
+if ($LASTEXITCODE -ne 0) { throw 'Status failed' }
+if ($status.projectId -ne 'ski-school-8f3ca' -or $status.backfillPass -ne 2 -or $status.leaseToken -or $status.leaseUntilMs -gt [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() -or $status.blockedWork -or $status.quarantine) { throw 'Not ready for cutover' }
+# Только после независимой проверки и отдельного разрешения:
+node functions/scripts/guestConfirmationQueueMigration.cjs @prodArgs --action cutover --apply --epoch $status.epoch --evidence '<independent readiness evidence reference>'
+node functions/scripts/guestConfirmationQueueMigration.cjs @prodArgs --action status
+```
+
+Cutover повторно проверяет gates транзакционно, включая epoch, два прохода, lease token,
+blocked work и quarantine. Старый epoch или пустое evidence не принимается.
+После cutover проверить `mode=queue`, `candidateSource=queue` в следующем scheduler run
+(каждые 5 минут), ошибки/retries/blocked work и финансовые reconciliation результаты.
+Recovery — по одной bounded странице каждой коллекции раз в 6 часов. Не ждать no-op scheduler как
+доказательства доставки событий и не генерировать реальные платежи только для проверки rollout.
+
+### 5. Rollback и restart — отдельные команды
+
+```powershell
+# При подтверждённой проблеме queue:
+node functions/scripts/guestConfirmationQueueMigration.cjs @prodArgs --action rollback --apply
+node functions/scripts/guestConfirmationQueueMigration.cjs @prodArgs --action status
+# Проверить mode=legacy и candidateSource=legacy_sweep на следующем scheduler run.
+# После исправления/проверенного redeployment, legacy mode и отсутствия активного lease:
+node functions/scripts/guestConfirmationQueueMigration.cjs @prodArgs --action restart --apply --evidence '<verified redeployment after rollback>'
+node functions/scripts/guestConfirmationQueueMigration.cjs @prodArgs --action page --apply
+node functions/scripts/guestConfirmationQueueMigration.cjs @prodArgs --action status
+# Вручную завершить два НОВЫХ прохода; повторить все gates и cutover с НОВЫМ epoch/evidence.
+```
+
+Rollback сохраняет очередь, quarantine, cursors, epoch, evidence; financial effects уже выполненных
+canonical commands не отменяет. Triggers продолжают работать, следующий scheduler выбирает legacy;
+уже начатый queue run может завершиться. Restart создаёт новый epoch и обнуляет backfill readiness,
+не удаляя work/финансовую историю. После возврата старого бинарного deployment повторный переход
+обязательно проходит verified redeployment, restart и два новых прохода.
+Не откатывать бинарный deployment с `mode=queue`; сначала control rollback и проверка scheduler.
+
+Локальные повторяемые проверки (не production):
+
+```powershell
+node --test functions/scripts/guestConfirmationQueueMigration.test.cjs
+npx firebase emulators:exec --project demo-ski-school-e2e --only firestore "node --test functions/scripts/guestConfirmationQueueMigration.emulator.test.cjs"
+```
+
+Этот slice не меняет Functions handlers, Rules, indexes, payment schemas или canonical commands;
+deploy не нужен. При последующем rollout изменяется только metadata в трёх server-only collections.
+Риски: исторические повреждённые subjects/отсутствующие Payment, потерянная доставка, незавершённый
+lease и устаревшее evidence. Они не обходятся из-за пустых платежей; при проблеме — остановить
+страницы/cutover, проверить sources/gates и при queue mode выполнить явный rollback.
 
 ## BEFORE / AFTER: измерения
 

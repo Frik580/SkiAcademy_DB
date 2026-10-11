@@ -15,6 +15,7 @@ import {
   formatLessonFeedbackDateLabel,
   type LessonFeedbackView,
 } from '../../studentLessonFeedbackPresentation';
+import './studentNeedsAttention.css';
 
 export interface NeedsAttentionFeedbackItem {
   readonly view: LessonFeedbackView;
@@ -107,34 +108,36 @@ export const StudentNeedsAttention: React.FC<StudentNeedsAttentionProps> = ({
   return (
     <StudentDashboardTile tileKey={STUDENT_DASHBOARD_TILES.needsAttention.key} size={dashboardSize}>
       {!dashboardSize && <ScDivider />}
-      <section>
+      <section className="sc-needs-attention">
         <StudentDashboardTileHeader title={t('scNeedsAttention')} />
         <StudentDashboardTileBody>
-          <p className="mb-4 text-sm text-[var(--ink-dim)]">{t('scNeedsAttentionSub')}</p>
-          <ul className="space-y-3">
+          <p className="sc-attention-subtitle">{t('scNeedsAttentionSub')}</p>
+          <ul className="sc-attention-list">
             {items.map((item) => (
-              <li
-                key={item.id}
-                className="rounded-lg border border-[var(--border-subtle)] bg-[var(--profile-bg)] px-4 py-3 space-y-2"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-[var(--ink)]">{item.instructorName}</p>
-                    <p className="text-xs text-[var(--ink-dim)]">{item.dateLabel}</p>
+              <li key={item.id} data-attention-lesson={item.id} className="sc-attention-row">
+                <div className="sc-attention-metadata">
+                  <div>
+                    {item.instructorName && (
+                      <p className="sc-attention-instructor">{item.instructorName}</p>
+                    )}
+                    {item.dateLabel && <p className="sc-attention-date">{item.dateLabel}</p>}
                   </div>
                   {item.hasPendingFeedback && <RecommendationIndicator pending />}
                 </div>
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="sc-attention-actions">
                   {item.needsReview && item.booking && (
                     <>
-                      <ScTextButton arrow onClick={() => onWriteReview(item.booking!)}>
+                      <ScTextButton
+                        className="sc-attention-review"
+                        onClick={() => onWriteReview(item.booking!)}
+                      >
                         {t('writeReviewBtn')}
                       </ScTextButton>
                       {onDismissReview && (
                         <button
                           type="button"
                           onClick={() => onDismissReview(item.booking!.id)}
-                          className="text-xs text-[var(--ink-dim)] hover:text-[var(--ink)] transition"
+                          className="sc-attention-dismiss"
                         >
                           {t('scDismissReviewPrompt')}
                         </button>
@@ -143,6 +146,7 @@ export const StudentNeedsAttention: React.FC<StudentNeedsAttentionProps> = ({
                   )}
                   {item.hasPendingFeedback && (
                     <ScTextButton
+                      className="sc-attention-recommendations"
                       onClick={() => {
                         if (item.booking) onOpenLesson(item.booking);
                         else onOpenFeedbackLesson(item.id);

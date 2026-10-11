@@ -68,10 +68,12 @@ function Harness() {
 function surfaces() {
   return ['home', 'cabinet'].map((id) => within(screen.getByTestId(id)));
 }
-function expectTemperature(value: number) {
+function expectTemperature(value: number, unit: 'celsius' | 'fahrenheit' = 'celsius') {
   const [home, cabinet] = surfaces();
   expect(home.getByText(`${value}°`)).toBeVisible();
-  expect(cabinet.getByRole('button').textContent).toBe(`${value}°`);
+  expect(cabinet.getByRole('button').textContent).toBe(
+    `${value}°${unit === 'celsius' ? 'C' : 'F'}`
+  );
 }
 beforeEach(() => {
   localStorage.clear();
@@ -100,9 +102,9 @@ describe('shared resort presentation across home and student cabinet', () => {
     await waitFor(() => expectTemperature(-7));
     const expectNames = (expected: string) => {
       const home = screen.getByTestId('home').querySelector('.conditions-strip__main > li');
-      const cabinet = screen.getByTestId('cabinet').querySelector('p.font-medium');
+      const cabinet = screen.getByTestId('cabinet').querySelector('[data-weather-resort-name]');
       expect(home?.textContent).toBe(expected);
-      expect(cabinet?.textContent).toBe(expected);
+      expect(cabinet?.textContent ?? '').toBe(expected);
       for (const surface of surfaces())
         expect(surface.queryByText(/Chamonix|Шамони/)).not.toBeInTheDocument();
     };
@@ -126,10 +128,10 @@ describe('shared resort presentation across home and student cabinet', () => {
         expect(surface.getByText(/18/).textContent).toContain('18');
       }
       fireEvent.click(cabinet.getByRole('button'));
-      expectTemperature(19);
+      expectTemperature(19, 'fahrenheit');
       expect(localStorage.getItem('carve_temperature_unit')).toBe('fahrenheit');
       fireEvent.click(home.getByRole('button'));
-      expectTemperature(-7);
+      expectTemperature(-7, 'celsius');
       expect(weatherService.get).toHaveBeenCalledTimes(1);
       expect(weatherService.get).toHaveBeenCalledWith(
         { latitude: config.latitude, longitude: config.longitude },
@@ -140,7 +142,7 @@ describe('shared resort presentation across home and student cabinet', () => {
   it('restores one persisted Fahrenheit preference for both consumers', async () => {
     localStorage.setItem('carve_temperature_unit', 'fahrenheit');
     render(<Harness />);
-    await waitFor(() => expectTemperature(19));
+    await waitFor(() => expectTemperature(19, 'fahrenheit'));
   });
   it('rounds fractional measurements once for both consumers', async () => {
     vi.mocked(weatherService.get).mockResolvedValue({
@@ -170,7 +172,7 @@ describe('shared resort presentation across home and student cabinet', () => {
       for (const surface of surfaces()) {
         expect(surface.queryByText(/42|18|Cloudy|Clear/)).not.toBeInTheDocument();
       }
-      expect(surfaces()[1].getByText('Weather temporarily unavailable')).toBeVisible();
+      expect(surfaces()[1].getByText('Condition unknown')).toBeVisible();
     }
   );
   it('shares loading and failed-response semantics without fake weather', async () => {

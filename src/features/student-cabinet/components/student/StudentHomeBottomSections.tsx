@@ -6,14 +6,34 @@ import {
   formatLessonFeedbackDateLabel,
   type LessonFeedbackView,
 } from '../../studentLessonFeedbackPresentation';
-import { ScTextButton, ScTintCard } from './StudentCabinetUI';
+import { ScTextButton } from './StudentCabinetUI';
 import { AnimatedNumber } from '../../../../ui/AnimatedNumber';
 import { RecommendationIndicator } from '../RecommendationIndicator';
 import { ParticipantScopeIndicator } from './ParticipantScopeIndicator';
 import type { SessionParticipantInput } from './studentCabinetContracts';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 import { ParticipantAvatarFace } from '../CabinetParticipantAvatarSwitcher';
+import {
+  Cloud,
+  CloudFog,
+  CloudLightning,
+  CloudRain,
+  Snowflake,
+  Sun,
+  type LucideIcon,
+} from 'lucide-react';
 import './studentLatestRecommendation.css';
+import './studentCabinetWeather.css';
+
+const WEATHER_CONDITION_ICONS: Partial<Record<string, LucideIcon>> = {
+  conditionsClear: Sun,
+  weatherSunny: Sun,
+  weatherCloudy: Cloud,
+  weatherFog: CloudFog,
+  weatherRain: CloudRain,
+  weatherSnow: Snowflake,
+  weatherThunderstorm: CloudLightning,
+};
 
 export type StudentCabinetResortSnapshot = ResortConditionsPresentation;
 
@@ -103,61 +123,123 @@ export const StudentCabinetWeatherSection: React.FC<StudentCabinetWeatherSection
 }) => {
   const { language, t } = useResortConditionsTranslations();
   const {
-    temperature: displayTemp,
+    temperature,
+    apparentTemperature,
     conditionKey,
-    snow: snowDepthCm,
-    wind: windKmh,
+    snow,
+    wind,
+    visibility,
     resortStatusKey,
   } = resort;
+  const resortName = (language === 'ru' ? resort.nameRu : resort.nameEn).trim();
+  const displayTemperature = temperature !== null && Number.isFinite(temperature);
+  const displayApparentTemperature =
+    apparentTemperature !== null && Number.isFinite(apparentTemperature);
+  const displaySnow = snow !== null && Number.isFinite(snow);
+  const displayWind = wind !== null && Number.isFinite(wind);
+  const ConditionIcon = (conditionKey && WEATHER_CONDITION_ICONS[conditionKey]) || Cloud;
+  const conditionFallbackKey =
+    resort.status === 'loading'
+      ? 'conditionsLoading'
+      : resort.status === 'error'
+        ? 'conditionsUnavailable'
+        : 'conditionsUnknown';
+  const conditionLabel = t(conditionKey ?? conditionFallbackKey);
+  const temperatureLabel = t(
+    resort.unit === 'celsius' ? 'conditionsSwitchFahrenheit' : 'conditionsSwitchCelsius'
+  );
 
   return (
-    <section>
-      <StudentDashboardTileHeader title={t('scWeatherOnSlope')} />
-      <StudentDashboardTileBody>
-        <ScTintCard tint="sky" className="px-4 py-3.5 space-y-3">
-          <div className="flex items-start justify-between gap-4">
-            <div className="space-y-1 min-w-0">
-              <p className="text-sm font-medium text-[var(--ink)]">
-                {language === 'ru' ? resort.nameRu : resort.nameEn}
-              </p>
-              <p className="text-xs text-[var(--ink-dim)]">
-                {t(
-                  conditionKey ??
-                    (resort.status === 'loading' ? 'conditionsLoading' : 'conditionsUnavailable')
-                )}
-              </p>
-            </div>
-            {displayTemp !== null && (
-              <button
-                type="button"
-                onClick={onToggleTemperatureUnit}
-                className="font-serif text-3xl font-light text-[var(--ink)] leading-none shrink-0 bg-transparent border-0 p-0 cursor-pointer"
-                aria-label={t('mountainTemp')}
-              >
-                <AnimatedNumber value={displayTemp} />°
-              </button>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs sm:text-sm text-[var(--ink-dim)]">
-            {snowDepthCm !== null && (
-              <span>
-                {t('snowCover')} <AnimatedNumber value={snowDepthCm} /> {t('centimetersShort')}
-              </span>
-            )}
-            {windKmh !== null && (
-              <span>
-                {t('windSpeed')} <AnimatedNumber value={windKmh} /> {t('kilometersPerHourShort')}
-              </span>
-            )}
-          </div>
-          {resortStatusKey && (
-            <p
-              className={`text-xs sm:text-sm font-medium ${resortStatusKey === 'closedToday' ? 'text-rose-500' : 'text-[var(--ink)]'}`}
+    <section className="sc-weather-tile" aria-busy={resort.status === 'loading'}>
+      <StudentDashboardTileHeader
+        title={t('scWeatherOnSlope')}
+        actions={
+          resortStatusKey ? (
+            <span
+              data-weather-status={resortStatusKey}
+              className={`sc-weather-status ${resortStatusKey === 'closedToday' ? 'is-closed' : ''}`}
             >
               {t(resortStatusKey)}
+            </span>
+          ) : undefined
+        }
+      />
+      <StudentDashboardTileBody>
+        <div className="sc-weather-summary">
+          <div className="sc-weather-copy">
+            {resortName && (
+              <p className="sc-weather-resort-name" data-weather-resort-name>
+                {resortName}
+              </p>
+            )}
+            <p className="sc-weather-condition" aria-live="polite">
+              <ConditionIcon
+                data-weather-condition-icon={conditionKey ?? 'unknown'}
+                aria-hidden="true"
+                focusable="false"
+              />
+              <span>{conditionLabel}</span>
             </p>
+          </div>
+          {displayTemperature && (
+            <div className="sc-weather-temperature-group">
+              {onToggleTemperatureUnit ? (
+                <button
+                  type="button"
+                  onClick={onToggleTemperatureUnit}
+                  className="sc-weather-temperature"
+                  data-weather-temperature
+                  data-testid="weather-temperature"
+                  aria-label={`${temperature}°${resort.unit === 'celsius' ? 'C' : 'F'}. ${temperatureLabel}`}
+                >
+                  <AnimatedNumber value={temperature} />°
+                  <span>{resort.unit === 'celsius' ? 'C' : 'F'}</span>
+                </button>
+              ) : (
+                <span
+                  className="sc-weather-temperature"
+                  data-weather-temperature
+                  data-testid="weather-temperature"
+                >
+                  <AnimatedNumber value={temperature} />°
+                  <span>{resort.unit === 'celsius' ? 'C' : 'F'}</span>
+                </span>
+              )}
+              {displayApparentTemperature && (
+                <span className="sc-weather-apparent">
+                  {t('conditionsFeelsLike')} {apparentTemperature}°
+                  {resort.unit === 'celsius' ? 'C' : 'F'}
+                </span>
+              )}
+            </div>
           )}
-        </ScTintCard>
+        </div>
+        {(displaySnow || displayWind || visibility) && (
+          <div className="sc-weather-metrics">
+            {displaySnow && (
+              <div className="sc-weather-metric">
+                <span className="sc-weather-metric-label">{t('snowCover')}</span>
+                <span className="sc-weather-metric-value">
+                  <AnimatedNumber value={snow} /> {t('centimetersShort')}
+                </span>
+              </div>
+            )}
+            {displayWind && (
+              <div className="sc-weather-metric">
+                <span className="sc-weather-metric-label">{t('windSpeed')}</span>
+                <span className="sc-weather-metric-value">
+                  <AnimatedNumber value={wind} /> {t('kilometersPerHourShort')}
+                </span>
+              </div>
+            )}
+            {visibility && (
+              <div className="sc-weather-metric">
+                <span className="sc-weather-metric-label">{t('conditionsVisibility')}</span>
+                <span className="sc-weather-metric-value">{t(visibility)}</span>
+              </div>
+            )}
+          </div>
+        )}
       </StudentDashboardTileBody>
     </section>
   );

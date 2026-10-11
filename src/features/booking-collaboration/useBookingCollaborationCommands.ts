@@ -1,7 +1,16 @@
 import { useCallback } from 'react';
-import { AggregateRevisionSchema } from "@ski-academy/shared-domain/canonical/primitives";
-import { BookingIdSchema, BookingProposalIdSchema, BookingChangeRequestIdSchema, InstructorIdSchema, ParticipantIdSchema } from "@ski-academy/shared-domain/canonical/identifiers";
-import { instructorRelationshipIdFromPair, participantBlockIdFromDirection } from "@ski-academy/shared-domain/canonical/deterministicIdentity";
+import { AggregateRevisionSchema } from '@ski-academy/shared-domain/canonical/primitives';
+import {
+  BookingIdSchema,
+  BookingProposalIdSchema,
+  BookingChangeRequestIdSchema,
+  InstructorIdSchema,
+  ParticipantIdSchema,
+} from '@ski-academy/shared-domain/canonical/identifiers';
+import {
+  instructorRelationshipIdFromPair,
+  participantBlockIdFromDirection,
+} from '@ski-academy/shared-domain/canonical/deterministicIdentity';
 import {
   executeAuthenticatedCanonicalCommand,
   type ClientCallableCapability,

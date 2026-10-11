@@ -40,18 +40,11 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
   const visibleCourses = sortVisibleCourses(courses);
 
   return (
-    <div
-      id="courses-grid"
-      className="space-y-6 w-full max-w-[1200px] mx-auto"
-    >
+    <div id="courses-grid" className="space-y-6 w-full max-w-[1200px] mx-auto">
       <div>
-        <h3 className="ui-section-title">
-          {t('intensiveGroupCourses')}
-        </h3>
+        <h3 className="ui-section-title">{t('intensiveGroupCourses')}</h3>
 
-        <p className="ui-section-eyebrow mt-2">
-          {t('intensiveGroupCoursesSub')}
-        </p>
+        <p className="ui-section-eyebrow mt-2">{t('intensiveGroupCoursesSub')}</p>
       </div>
 
       <div
@@ -63,11 +56,7 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
         {visibleCourses.map((rawCourse, index) => (
           <m.div
             key={rawCourse.id}
-            initial={
-              shouldReduceMotion
-                ? false
-                : { opacity: 0, y: 32, scale: 0.985 }
-            }
+            initial={shouldReduceMotion ? false : { opacity: 0, y: 32, scale: 0.985 }}
             whileInView={{
               opacity: 1,
               y: 0,
@@ -79,9 +68,7 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
             }}
             transition={{
               duration: shouldReduceMotion ? 0 : 1.2,
-              delay: shouldReduceMotion
-                ? 0
-                : Math.min(index * 0.12, 0.36),
+              delay: shouldReduceMotion ? 0 : Math.min(index * 0.12, 0.36),
               ease: [0.22, 1, 0.36, 1],
             }}
             className="w-[370px] h-full"
@@ -90,10 +77,7 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
               rawCourse={rawCourse}
               courseEnrollments={courseEnrollments}
               selectedParticipantId={selectedParticipantId}
-              catalogOperational={lookupCourseCatalogOperational(
-                catalogByCourseId,
-                rawCourse.id
-              )}
+              catalogOperational={lookupCourseCatalogOperational(catalogByCourseId, rawCourse.id)}
               userProfile={userProfile}
               language={language}
               onViewDetails={onViewDetails}
@@ -105,9 +89,7 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
       </div>
 
       {visibleCourses.length === 0 && (
-        <div className="ui-empty-state">
-          {t('noIntensiveCoursesAvailable')}
-        </div>
+        <div className="ui-empty-state">{t('noIntensiveCoursesAvailable')}</div>
       )}
     </div>
   );

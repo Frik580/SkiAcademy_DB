@@ -94,7 +94,8 @@ describe('adminBookingMonitorMapping', () => {
       },
     } as LessonBookingReadModel;
     expect(lessonBookingToMonitorRow(withContact)).toMatchObject({
-      guestPhone: '+7 701 123 45 67', guestEmail: 'guest@example.com',
+      guestPhone: '+7 701 123 45 67',
+      guestEmail: 'guest@example.com',
     });
   });
 

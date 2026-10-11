@@ -119,8 +119,7 @@ export const TestSessionResetSection: React.FC<TestSessionResetSectionProps> = (
       );
       setPreviewResult(result);
       setPreviewSessionId(testSession.testSessionId);
-      const expired =
-        result.manifest && isManifestExpired(result.manifest.expiresAt, Date.now());
+      const expired = result.manifest && isManifestExpired(result.manifest.expiresAt, Date.now());
       setPhase(expired ? 'preview_expired' : 'preview_ready');
     } catch (error) {
       setErrorCode(lifecycleErrorCode(error));
@@ -176,7 +175,10 @@ export const TestSessionResetSection: React.FC<TestSessionResetSectionProps> = (
   }, [manifest, manifestExpired, nowMs, t]);
 
   return (
-    <div className="border border-rose-500/30 bg-rose-500/5 p-4" data-testid="test-session-reset-section">
+    <div
+      className="border border-rose-500/30 bg-rose-500/5 p-4"
+      data-testid="test-session-reset-section"
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h4 className="font-mono text-xs uppercase tracking-wider text-rose-800">
@@ -212,7 +214,9 @@ export const TestSessionResetSection: React.FC<TestSessionResetSectionProps> = (
         </div>
         <div>
           <dt className="text-[var(--ink-dim)]">{t('adminTestingSessionId')}</dt>
-          <dd className="mt-1 font-mono text-[10px] text-[var(--ink)]">{testSession.testSessionId}</dd>
+          <dd className="mt-1 font-mono text-[10px] text-[var(--ink)]">
+            {testSession.testSessionId}
+          </dd>
         </div>
       </dl>
 
@@ -223,7 +227,10 @@ export const TestSessionResetSection: React.FC<TestSessionResetSectionProps> = (
       ) : null}
 
       {errorMessage ? (
-        <div className="mt-4 flex gap-2 border border-rose-500/50 bg-rose-500/10 p-3 text-sm text-rose-800" role="alert">
+        <div
+          className="mt-4 flex gap-2 border border-rose-500/50 bg-rose-500/10 p-3 text-sm text-rose-800"
+          role="alert"
+        >
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span data-testid="reset-error">{errorMessage}</span>
         </div>
@@ -232,7 +239,10 @@ export const TestSessionResetSection: React.FC<TestSessionResetSectionProps> = (
       {manifest && (phase === 'preview_ready' || phase === 'preview_expired') ? (
         <div className="mt-4 space-y-4 border border-[var(--border)] bg-[var(--surface)] p-4">
           {manifestExpired ? (
-            <p className="flex items-center gap-2 text-sm font-semibold text-amber-800" role="status">
+            <p
+              className="flex items-center gap-2 text-sm font-semibold text-amber-800"
+              role="status"
+            >
               <ShieldAlert className="h-4 w-4" aria-hidden="true" />
               {t('adminTestingResetPreviewExpired')}
             </p>
@@ -244,7 +254,9 @@ export const TestSessionResetSection: React.FC<TestSessionResetSectionProps> = (
             <div>
               <p className="text-[var(--ink-dim)]">{t('adminTestingResetManifestId')}</p>
               <div className="mt-1 flex items-center gap-2">
-                <code className="font-mono text-[10px] text-[var(--ink)]">{manifest.manifestId}</code>
+                <code className="font-mono text-[10px] text-[var(--ink)]">
+                  {manifest.manifestId}
+                </code>
                 <button
                   type="button"
                   className="text-[var(--ink-dim)] hover:text-[var(--ink)]"
@@ -258,7 +270,10 @@ export const TestSessionResetSection: React.FC<TestSessionResetSectionProps> = (
             <div>
               <p className="text-[var(--ink-dim)]">{t('adminTestingResetHash')}</p>
               <div className="mt-1 flex items-center gap-2">
-                <code className="font-mono text-[10px] text-[var(--ink)]" title={manifest.manifestHash}>
+                <code
+                  className="font-mono text-[10px] text-[var(--ink)]"
+                  title={manifest.manifestHash}
+                >
                   {shortHash(manifest.manifestHash)}
                 </code>
                 <button
@@ -293,7 +308,10 @@ export const TestSessionResetSection: React.FC<TestSessionResetSectionProps> = (
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-testid="reset-manifest-counts">
+          <div
+            className="grid grid-cols-2 gap-2 sm:grid-cols-4"
+            data-testid="reset-manifest-counts"
+          >
             {Object.entries(manifest.counts).map(([key, count]) => (
               <div key={key} className="border border-[var(--border)] p-2">
                 <p className="text-lg text-[var(--ink)]">{count}</p>
@@ -319,7 +337,9 @@ export const TestSessionResetSection: React.FC<TestSessionResetSectionProps> = (
               <p className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">
                 {t('adminTestingResetForeignTargets')}
               </p>
-              <p className="mt-1 text-2xl font-semibold">{safety?.foreignSessionTargetCount ?? 0}</p>
+              <p className="mt-1 text-2xl font-semibold">
+                {safety?.foreignSessionTargetCount ?? 0}
+              </p>
             </div>
           </div>
 
@@ -335,7 +355,10 @@ export const TestSessionResetSection: React.FC<TestSessionResetSectionProps> = (
                 {t('adminTestingResetWillDelete')}
               </p>
               <p className="mt-1 text-sm text-[var(--ink)]">
-                {t('adminTestingResetWillDeleteSummary').replace('{count}', String(destructiveTotal))}
+                {t('adminTestingResetWillDeleteSummary').replace(
+                  '{count}',
+                  String(destructiveTotal)
+                )}
               </p>
             </div>
             <div>
@@ -378,7 +401,10 @@ export const TestSessionResetSection: React.FC<TestSessionResetSectionProps> = (
       ) : null}
 
       {phase === 'complete' && executeResult ? (
-        <div className="mt-4 space-y-3 border border-emerald-500/40 bg-emerald-500/5 p-4" data-testid="reset-complete">
+        <div
+          className="mt-4 space-y-3 border border-emerald-500/40 bg-emerald-500/5 p-4"
+          data-testid="reset-complete"
+        >
           <p className="font-semibold text-emerald-900">{t('adminTestingResetComplete')}</p>
           <dl className="grid gap-2 text-sm sm:grid-cols-2">
             <div>
@@ -388,13 +414,17 @@ export const TestSessionResetSection: React.FC<TestSessionResetSectionProps> = (
             <div>
               <dt className="text-[var(--ink-dim)]">{t('adminTestingResetVerifier')}</dt>
               <dd className="font-mono text-xs">
-                {executeResult.verifier?.ok ? t('adminTestingResetVerifierOk') : t('adminTestingResetVerifierFailed')}
+                {executeResult.verifier?.ok
+                  ? t('adminTestingResetVerifierOk')
+                  : t('adminTestingResetVerifierFailed')}
               </dd>
             </div>
             {executeResult.verifier && !executeResult.verifier.ok ? (
               <div className="sm:col-span-2">
                 <dt className="text-[var(--ink-dim)]">{t('adminTestingResetVerifierChecks')}</dt>
-                <dd className="font-mono text-[10px]">{executeResult.verifier.failedChecks.join(', ')}</dd>
+                <dd className="font-mono text-[10px]">
+                  {executeResult.verifier.failedChecks.join(', ')}
+                </dd>
               </div>
             ) : null}
           </dl>
@@ -438,7 +468,9 @@ export const TestSessionResetSection: React.FC<TestSessionResetSectionProps> = (
                     <dd className="font-mono break-all">{manifest.manifestHash}</dd>
                   </div>
                   <div>
-                    <dt className="text-[var(--ink-dim)]">{t('adminTestingResetDestructiveTotal')}</dt>
+                    <dt className="text-[var(--ink-dim)]">
+                      {t('adminTestingResetDestructiveTotal')}
+                    </dt>
                     <dd>{destructiveTotal}</dd>
                   </div>
                   <div>

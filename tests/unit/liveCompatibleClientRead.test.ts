@@ -16,9 +16,7 @@ describe('liveCompatibleClientRead', () => {
   it('keeps legacy and explicit LIVE documents on mixed collection listeners', () => {
     expect(isLiveCompatibleResource({})).toBe(true);
     expect(isLiveCompatibleResource({ dataScope: 'live' })).toBe(true);
-    expect(
-      isLiveCompatibleResource({ dataScope: 'test', testSessionId: sessionA })
-    ).toBe(false);
+    expect(isLiveCompatibleResource({ dataScope: 'test', testSessionId: sessionA })).toBe(false);
     expect(documentMatchesReadScope(LIVE_CANONICAL_READ_SCOPE, { dataScope: 'live' })).toBe(
       isLiveCompatibleResource({ dataScope: 'live' })
     );
@@ -32,8 +30,8 @@ describe('liveCompatibleClientRead', () => {
         email: 'customer@example.com',
       })
     ).toBe(false);
-    expect(
-      isLiveCompatibleIdentity({ dataScope: 'test', email: 'customer@example.com' })
-    ).toBe(false);
+    expect(isLiveCompatibleIdentity({ dataScope: 'test', email: 'customer@example.com' })).toBe(
+      false
+    );
   });
 });

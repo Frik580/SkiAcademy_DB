@@ -76,10 +76,7 @@ export function parseAdminRequestedTestSessionId(
  * Tab changes preserve the selected TestSession as passive Admin navigation context.
  * Individual surfaces remain responsible for explicitly opting into Test reads/commands.
  */
-export function adminTabSearchParams(
-  previous: URLSearchParams,
-  tab: AdminTabId
-): URLSearchParams {
+export function adminTabSearchParams(previous: URLSearchParams, tab: AdminTabId): URLSearchParams {
   const next = new URLSearchParams(previous);
   next.set(ADMIN_TAB_QUERY_KEY, tab);
   return next;

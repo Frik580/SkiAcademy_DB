@@ -5,7 +5,10 @@ import { resolveBookingChatAttachmentStoragePath } from '../../src/features/chat
 describe('booking chat attachment storage contract', () => {
   it('uses the LIVE chat prefix for ordinary bookings', () => {
     expect(
-      resolveBookingChatAttachmentStoragePath({ id: 'booking_chat_01', chatId: 'booking_chat_01' }, 'photo.jpg')
+      resolveBookingChatAttachmentStoragePath(
+        { id: 'booking_chat_01', chatId: 'booking_chat_01' },
+        'photo.jpg'
+      )
     ).toBe('chat/booking_chat_01/photo.jpg');
   });
 

@@ -66,7 +66,7 @@ function dateInTimeZone(now: Date, timeZone: string): string {
 }
 
 function sessionTimeZone(item: CabinetSessionItem): string {
-  return item.kind === 'lesson' ? item.session.timeZone ?? RESORT_TIME_ZONE : item.timeZone;
+  return item.kind === 'lesson' ? (item.session.timeZone ?? RESORT_TIME_ZONE) : item.timeZone;
 }
 
 function resortCalendarDays(now: Date): Date[] {
@@ -285,7 +285,9 @@ export function getCabinetSessionTitle(item: CabinetSessionItem, language: 'en' 
   if (item.kind === 'lesson') {
     return item.session.difficulty
       ? getDifficultyLabel(item.session.difficulty, language)
-      : language === 'ru' ? 'Индивидуальное занятие' : 'Individual lesson';
+      : language === 'ru'
+        ? 'Индивидуальное занятие'
+        : 'Individual lesson';
   }
   return item.courseTitle;
 }

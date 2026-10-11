@@ -444,11 +444,7 @@ describe('bookings', () => {
 
     for (const state of states) {
       await seedData(async (context) => {
-        const migrationRef = doc(
-          context.firestore(),
-          'settings',
-          'availability_slots_migration'
-        );
+        const migrationRef = doc(context.firestore(), 'settings', 'availability_slots_migration');
         if (state.document === undefined) {
           await deleteDoc(migrationRef);
         } else {
@@ -488,9 +484,7 @@ describe('bookings', () => {
       adminGet: 'ALLOW',
       adminList: 'ALLOW(2)',
     };
-    expect(results).toEqual(
-      Object.fromEntries(states.map(({ name }) => [name, deniedState]))
-    );
+    expect(results).toEqual(Object.fromEntries(states.map(({ name }) => [name, deniedState])));
   });
 
   it('rejects anonymous guest booking creates because they belong to Callables', async () => {
@@ -3558,22 +3552,32 @@ describe('admin runtime unknown revision document', () => {
   });
 });
 
-
 describe('lesson-level-settings-permissions', () => {
   it('allows public reads and denies every direct client mutation including admin', async () => {
     await seedData(async (context) => {
-      await setDoc(doc(context.firestore(), 'users', ADMIN_ID), userProfile(ADMIN_ID, 'admin@example.com', 'admin'));
+      await setDoc(
+        doc(context.firestore(), 'users', ADMIN_ID),
+        userProfile(ADMIN_ID, 'admin@example.com', 'admin')
+      );
       await setDoc(doc(context.firestore(), 'settings', 'lesson_levels'), { levels: [] });
     });
     for (const uid of [ADMIN_ID, OWNER_ID, USER_ID, null]) {
-      const db = (uid ? testEnv.authenticatedContext(uid) : testEnv.unauthenticatedContext()).firestore();
+      const db = (
+        uid ? testEnv.authenticatedContext(uid) : testEnv.unauthenticatedContext()
+      ).firestore();
       const ref = doc(db, 'settings', 'lesson_levels');
       await assertSucceeds(getDoc(ref));
       await assertFails(setDoc(ref, { levels: [] }));
       await assertFails(updateDoc(ref, { levels: [] }));
       await assertFails(deleteDoc(ref));
     }
-    await seedData(async (context) => deleteDoc(doc(context.firestore(), 'settings', 'lesson_levels')));
-    await assertFails(setDoc(doc(testEnv.authenticatedContext(ADMIN_ID).firestore(), 'settings', 'lesson_levels'), { levels: [] }));
+    await seedData(async (context) =>
+      deleteDoc(doc(context.firestore(), 'settings', 'lesson_levels'))
+    );
+    await assertFails(
+      setDoc(doc(testEnv.authenticatedContext(ADMIN_ID).firestore(), 'settings', 'lesson_levels'), {
+        levels: [],
+      })
+    );
   });
 });

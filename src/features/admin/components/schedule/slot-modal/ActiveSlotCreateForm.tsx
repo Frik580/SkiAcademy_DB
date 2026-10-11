@@ -1,4 +1,8 @@
-import { activeLessonLevels, resolveLessonLevel, formatLessonLevelLabel } from '@ski-academy/shared-domain';
+import {
+  activeLessonLevels,
+  resolveLessonLevel,
+  formatLessonLevelLabel,
+} from '@ski-academy/shared-domain';
 import { useLessonLevelsStore } from '../../../../settings/lessonLevelsStore';
 import React, { useState } from 'react';
 import { Calendar, Check } from 'lucide-react';
@@ -219,7 +223,11 @@ export const ActiveSlotCreateForm: React.FC<ActiveSlotCreateFormProps> = ({
                 className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none cursor-pointer"
               >
                 {activeLessonLevels(levels).map((level) => (
-                  <option key={level.id} value={level.id} className="bg-[var(--card-bg)] text-[var(--ink)]">
+                  <option
+                    key={level.id}
+                    value={level.id}
+                    className="bg-[var(--card-bg)] text-[var(--ink)]"
+                  >
                     {formatLessonLevelLabel(level.id, language, levels)}
                   </option>
                 ))}

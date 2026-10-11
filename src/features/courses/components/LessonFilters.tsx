@@ -91,7 +91,11 @@ export const LessonFilters: React.FC<LessonFiltersProps> = ({
             className="ui-select focus:outline-none focus:border-[var(--ink)]"
           >
             {languageOptions.map((option) => (
-              <option key={option.value} value={option.value} className="bg-[var(--bg)] text-[var(--ink)]">
+              <option
+                key={option.value}
+                value={option.value}
+                className="bg-[var(--bg)] text-[var(--ink)]"
+              >
                 {t(option.label)}
               </option>
             ))}

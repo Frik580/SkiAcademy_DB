@@ -180,7 +180,9 @@ describe('ConditionsStrip', () => {
     expect(scopeEnd).toBeGreaterThan(home.indexOf('<YourJourneySection'));
     expect(home.slice(scopeStart, scopeEnd)).not.toMatch(/height|overflow|spacer/);
     expect(home.slice(scopeEnd)).toMatch(/^<\/div>\s*<div className="flex flex-col">/);
-    expect(home).not.toMatch(/addEventListener\(['"]scroll|IntersectionObserver|scrollDirection|scrollY/);
+    expect(home).not.toMatch(
+      /addEventListener\(['"]scroll|IntersectionObserver|scrollDirection|scrollY/
+    );
     expect(home).not.toContain('ResortConditionsSidebar');
     expect(hero).not.toMatch(
       /ConditionsStrip|weatherService|useResortConditions|resort-conditions/

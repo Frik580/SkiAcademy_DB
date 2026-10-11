@@ -31,13 +31,17 @@ describe('cancellation command errors', () => {
       correlationId: 'correlation_cancel_error',
       details: { field: 'paymentId', reason: 'unsupported' },
     });
-    expect(presentCancellationError(error, t, true).message).toBe(translations.en.cancelPaymentConflict);
+    expect(presentCancellationError(error, t, true).message).toBe(
+      translations.en.cancelPaymentConflict
+    );
   });
 
   it('describes a guest credential rejection without asking the guest to sign in', () => {
     const error = new CanonicalCommandClientError('unauthorized', {
       correlationId: 'correlation_cancel_error',
     });
-    expect(presentCancellationError(error, t, true).message).toBe(translations.en.cancelUnauthorized);
+    expect(presentCancellationError(error, t, true).message).toBe(
+      translations.en.cancelUnauthorized
+    );
   });
 });

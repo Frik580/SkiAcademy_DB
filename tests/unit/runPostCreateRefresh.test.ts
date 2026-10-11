@@ -18,7 +18,10 @@ describe('runPostCreateRefresh', () => {
   });
 
   it('returns empty result when refresh succeeds', async () => {
-    const result = await runPostCreateRefresh(async () => undefined, 'booking_created_refresh_failed');
+    const result = await runPostCreateRefresh(
+      async () => undefined,
+      'booking_created_refresh_failed'
+    );
     expect(result).toEqual({});
   });
 });

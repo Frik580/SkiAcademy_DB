@@ -68,7 +68,9 @@ export async function purgeExpiredNotificationsForUser(
 
     await Promise.all(
       snapshot.docs
-        .filter((notificationDoc) => notificationEligibleForUserPurge(notificationDoc.data(), userId))
+        .filter((notificationDoc) =>
+          notificationEligibleForUserPurge(notificationDoc.data(), userId)
+        )
         .map((notificationDoc) =>
           deleteDoc(doc(db, 'notifications', notificationDoc.id)).catch((err) =>
             logger.error('Failed to auto-delete expired notification:', err)

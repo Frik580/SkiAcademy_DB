@@ -122,7 +122,9 @@ function instructorDocument(
   };
 }
 
-function pickerNames(documents: readonly { id: string; data: Record<string, unknown> }[]): string[] {
+function pickerNames(
+  documents: readonly { id: string; data: Record<string, unknown> }[]
+): string[] {
   const instructors = liveCatalogueInstructors(documents);
   return getInstructorPickerGroups(profile, [], instructors).flatMap((group) =>
     group.instructors.map((instructor) => instructor.name)
@@ -245,18 +247,22 @@ describe('booking picker catalogue source', () => {
 
     expect(queryBookingInstructorCatalogueReadModels).toHaveBeenCalledWith();
     expect(pickerNamesFromStore()).toEqual(['Test Coach']);
-    expect(useBookingsStore.getState().instructors.map((instructor) => instructor.name)).not.toContain(
-      'E2E Test Coach'
-    );
+    expect(
+      useBookingsStore.getState().instructors.map((instructor) => instructor.name)
+    ).not.toContain('E2E Test Coach');
 
     const guestCallback = onSnapshot.mock.calls.at(-1)?.[1] as
-      | ((snapshot: { docs: Array<{ id: string; data: () => unknown }> }) => void)
-      | undefined;
+      ((snapshot: { docs: Array<{ id: string; data: () => unknown }> }) => void) | undefined;
     guestCallback?.({
       docs: [
         {
           id: 'e2e-instructor-1',
-          data: () => ({ name: 'E2E Test Coach', specialty: 'ski', isAvailable: true, pricePerHour: 50 }),
+          data: () => ({
+            name: 'E2E Test Coach',
+            specialty: 'ski',
+            isAvailable: true,
+            pricePerHour: 50,
+          }),
         },
       ],
     });

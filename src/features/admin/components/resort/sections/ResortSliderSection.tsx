@@ -457,9 +457,7 @@ export const ResortSliderSection: React.FC = () => {
                     leftLabel={t('mobileBackgroundPositionLeft')}
                     centerLabel={t('mobileBackgroundPositionCenter')}
                     rightLabel={t('mobileBackgroundPositionRight')}
-                    onChange={(next) =>
-                      handleUpdateSlideField(slide.id, 'mobileFocalPointX', next)
-                    }
+                    onChange={(next) => handleUpdateSlideField(slide.id, 'mobileFocalPointX', next)}
                   />
                 </div>
               );

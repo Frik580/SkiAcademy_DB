@@ -226,9 +226,7 @@ export const InstructorCourseSection: React.FC<InstructorCourseSectionProps> = (
             disabled={discoveryLoadingMore}
             onClick={() => void loadMoreDiscovery()}
           >
-            {discoveryLoadingMore ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : null}
+            {discoveryLoadingMore ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
             {t('instructorCourseDiscoveryLoadMore')}
           </ActionButton>
         </div>

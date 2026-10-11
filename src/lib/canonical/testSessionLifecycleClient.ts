@@ -38,7 +38,12 @@ export async function executeTestSessionLifecycle(
 }
 
 export function lifecycleErrorCode(error: unknown): string {
-  if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
+  if (
+    error &&
+    typeof error === 'object' &&
+    'message' in error &&
+    typeof error.message === 'string'
+  ) {
     const message = error.message.trim();
     if (/^(TEST_|LIFECYCLE_)/.test(message)) return message;
   }

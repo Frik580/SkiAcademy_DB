@@ -35,10 +35,7 @@ export async function addCourseService(course: Course): Promise<void> {
   const { testSessionId: _testSessionId, ...liveCourse } = stripUndefinedFields(
     course as unknown as Record<string, unknown>
   );
-  await setDoc(
-    doc(db, 'courses', course.id),
-    { ...liveCourse, dataScope: 'live' }
-  );
+  await setDoc(doc(db, 'courses', course.id), { ...liveCourse, dataScope: 'live' });
 }
 
 export async function updateCourseService(course: Course): Promise<void> {

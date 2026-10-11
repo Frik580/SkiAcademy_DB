@@ -16,7 +16,11 @@ import {
   resolveHeroOriginUrl,
 } from '../../lib/mediaAssets';
 import { normalizeBannerMediaMode, resolveBannerFocalPoint } from '../../lib/bannerMedia';
-import { BannerMedia, type BannerVideoFailureKind, type BannerVideoRole } from '../../ui/BannerMedia';
+import {
+  BannerMedia,
+  type BannerVideoFailureKind,
+  type BannerVideoRole,
+} from '../../ui/BannerMedia';
 import { logger } from '../../shared';
 
 interface HeroCarouselProps {
@@ -97,7 +101,11 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
   const sectionRef = useRef<HTMLElement | null>(null);
   const shouldReduceMotion = useReducedMotion();
   const [carousel, setCarousel] = useState<{
-    current: number; presented: number | null; outgoing: number | null; activation: number; pending: number | null;
+    current: number;
+    presented: number | null;
+    outgoing: number | null;
+    activation: number;
+    pending: number | null;
   }>({
     current: 0,
     presented: null,
@@ -108,28 +116,47 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
   const currentSlide = carousel.current;
   const outgoingSlide = carousel.outgoing;
   const [readyVideo, setReadyVideo] = useState<{
-    activation: number; slideId: string | undefined; source: string; hasVisibleMedia: boolean;
+    activation: number;
+    slideId: string | undefined;
+    source: string;
+    hasVisibleMedia: boolean;
     failureKind?: BannerVideoFailureKind;
   } | null>(null);
 
-  const slideReadinessRef = useRef<(index: number, activation: number) => {
-    settled: boolean; visible: boolean; video: boolean;
-  }>(() => ({ settled: false, visible: false, video: false }));
+  const slideReadinessRef = useRef<
+    (
+      index: number,
+      activation: number
+    ) => {
+      settled: boolean;
+      visible: boolean;
+      video: boolean;
+    }
+  >(() => ({ settled: false, visible: false, video: false }));
   const setCurrentSlide = useCallback((update: number | ((prev: number) => number)) => {
     setCarousel((prev) => {
       const next = typeof update === 'function' ? update(prev.pending ?? prev.current) : update;
       if (next === prev.current) return prev.pending === null ? prev : { ...prev, pending: null };
       const previous = slideReadinessRef.current(prev.current, prev.activation);
-      if (previous.settled && !previous.visible && next === prev.presented &&
-        slideReadinessRef.current(next, prev.activation).video) return prev;
+      if (
+        previous.settled &&
+        !previous.visible &&
+        next === prev.presented &&
+        slideReadinessRef.current(next, prev.activation).video
+      )
+        return prev;
       // Restarting the only visible outgoing video would erase its retained frame.
       // Finish the pending incoming frame first, then use it as the outgoing layer.
-      if (!previous.settled && next === prev.outgoing &&
-        slideReadinessRef.current(next, prev.activation).video) return { ...prev, pending: next };
+      if (
+        !previous.settled &&
+        next === prev.outgoing &&
+        slideReadinessRef.current(next, prev.activation).video
+      )
+        return { ...prev, pending: next };
       return {
         ...prev,
         current: next,
-        outgoing: previous.visible ? prev.current : prev.outgoing ?? prev.current,
+        outgoing: previous.visible ? prev.current : (prev.outgoing ?? prev.current),
         activation: prev.activation + 1,
         pending: null,
       };
@@ -200,90 +227,172 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
 
   const activeSlide = slides[currentSlide];
   const activeNeedsVideo = slideUsesVideo(activeSlide, shouldReduceMotion);
-  const activeVideoSource = resolveHeroOriginUrl(resolveSlideBackgroundKey(activeSlide, currentSlide));
+  const activeVideoSource = resolveHeroOriginUrl(
+    resolveSlideBackgroundKey(activeSlide, currentSlide)
+  );
   slideReadinessRef.current = (index, activation) => {
     const video = slideUsesVideo(slides[index], shouldReduceMotion);
-    const settled = !video || (readyVideo?.activation === activation && readyVideo.slideId === slides[index]?.id &&
-      readyVideo.source === resolveHeroOriginUrl(resolveSlideBackgroundKey(slides[index], index)));
+    const settled =
+      !video ||
+      (readyVideo?.activation === activation &&
+        readyVideo.slideId === slides[index]?.id &&
+        readyVideo.source ===
+          resolveHeroOriginUrl(resolveSlideBackgroundKey(slides[index], index)));
     return { video, settled, visible: !video || (settled && readyVideo?.hasVisibleMedia === true) };
   };
-  const activeFrameReady = Boolean(activeSlide) && (!activeNeedsVideo ||
-    (readyVideo?.activation === carousel.activation && readyVideo.slideId === activeSlide?.id &&
-      readyVideo.source === activeVideoSource));
-  const activeMediaVisible = Boolean(activeSlide) && (!activeNeedsVideo || (activeFrameReady && readyVideo?.hasVisibleMedia === true));
+  const activeFrameReady =
+    Boolean(activeSlide) &&
+    (!activeNeedsVideo ||
+      (readyVideo?.activation === carousel.activation &&
+        readyVideo.slideId === activeSlide?.id &&
+        readyVideo.source === activeVideoSource));
+  const activeMediaVisible =
+    Boolean(activeSlide) &&
+    (!activeNeedsVideo || (activeFrameReady && readyVideo?.hasVisibleMedia === true));
   // Commit all presentation bindings in the same render; keep the full previous slide while preparing.
   const presentedSlide = activeMediaVisible ? currentSlide : carousel.presented;
-  const sourceKey = useCallback((index: number) =>
-    `${slides[index]?.id}:${resolveHeroOriginUrl(resolveSlideBackgroundKey(slides[index], index))}`, [slides]);
-  const mediaConfiguration = slides.map((slide, index) =>
-    `${sourceKey(index)}:${normalizeBannerMediaMode(slide.backgroundMediaMode)}`).join('|');
-  const failedSourceState = useMemo(() => ({ configuration: mediaConfiguration,
-    sources: new Set<string>(), resources: new Set<string>() }), [mediaConfiguration]);
+  const sourceKey = useCallback(
+    (index: number) =>
+      `${slides[index]?.id}:${resolveHeroOriginUrl(resolveSlideBackgroundKey(slides[index], index))}`,
+    [slides]
+  );
+  const mediaConfiguration = slides
+    .map(
+      (slide, index) => `${sourceKey(index)}:${normalizeBannerMediaMode(slide.backgroundMediaMode)}`
+    )
+    .join('|');
+  const failedSourceState = useMemo(
+    () => ({
+      configuration: mediaConfiguration,
+      sources: new Set<string>(),
+      resources: new Set<string>(),
+    }),
+    [mediaConfiguration]
+  );
   const failedSources = failedSourceState.sources;
   const runtimeTrace = useRef<(event: string, extra?: Record<string, unknown>) => void>(() => {});
   runtimeTrace.current = (event, extra) => {
     if (!import.meta.env.DEV || import.meta.env.MODE === 'test') return;
-    const video = sectionRef.current?.querySelectorAll('.ui-hero > .z-0 > div')[currentSlide]?.querySelector('video');
-    logger.debug('[hero-video]', event, { timestamp: new Date().toISOString(), slideIndex: currentSlide,
-      slideId: activeSlide?.id, activationId: carousel.activation, desiredSlide: currentSlide,
-      currentSlide, outgoingSlide, presentedSlide, elementId: video?.dataset.heroElementId,
-      readyState: video?.readyState, networkState: video?.networkState, currentTime: video?.currentTime,
-      paused: video?.paused, error: video?.error?.code ?? null, reason: null, ...extra });
+    const video = sectionRef.current
+      ?.querySelectorAll('.ui-hero > .z-0 > div')
+      [currentSlide]?.querySelector('video');
+    logger.debug('[hero-video]', event, {
+      timestamp: new Date().toISOString(),
+      slideIndex: currentSlide,
+      slideId: activeSlide?.id,
+      activationId: carousel.activation,
+      desiredSlide: currentSlide,
+      currentSlide,
+      outgoingSlide,
+      presentedSlide,
+      elementId: video?.dataset.heroElementId,
+      readyState: video?.readyState,
+      networkState: video?.networkState,
+      currentTime: video?.currentTime,
+      paused: video?.paused,
+      error: video?.error?.code ?? null,
+      reason: null,
+      ...extra,
+    });
   };
-  useEffect(() => { runtimeTrace.current('carousel-init'); }, []);
   useEffect(() => {
-    if (slides.length) runtimeTrace.current('slides-ready', {
-      slides: slides.map((slide, index) => ({ index, slideId: slide.id, source: sourceKey(index) })) });
+    runtimeTrace.current('carousel-init');
+  }, []);
+  useEffect(() => {
+    if (slides.length)
+      runtimeTrace.current('slides-ready', {
+        slides: slides.map((slide, index) => ({
+          index,
+          slideId: slide.id,
+          source: sourceKey(index),
+        })),
+      });
   }, [slides, sourceKey]);
 
   useLayoutEffect(() => {
     if (!activeFrameReady) return;
     if (!activeMediaVisible) {
       failedSources.add(sourceKey(currentSlide));
-      if (readyVideo?.failureKind === 'resource') failedSourceState.resources.add(sourceKey(currentSlide));
+      if (readyVideo?.failureKind === 'resource')
+        failedSourceState.resources.add(sourceKey(currentSlide));
       // Skip empty failures. If only the presented slide remains, preserve it without restarting its video.
-      const candidates = Array.from({ length: slides.length }, (_, offset) =>
-        (currentSlide + offset + 1) % slides.length);
+      const candidates = Array.from(
+        { length: slides.length },
+        (_, offset) => (currentSlide + offset + 1) % slides.length
+      );
       if (carousel.pending !== null) candidates.unshift(carousel.pending);
-      const next = candidates.find((index) => index !== carousel.presented &&
-        !failedSources.has(sourceKey(index)));
-      runtimeTrace.current('skip-slide', { reason: readyVideo?.failureKind, nextSlide: next ?? null });
-      setCarousel((prev) => prev.activation !== carousel.activation ? prev : next === undefined
-        ? prev.pending === null ? prev : { ...prev, pending: null }
-        : { ...prev, current: next, activation: prev.activation + 1, pending: null });
+      const next = candidates.find(
+        (index) => index !== carousel.presented && !failedSources.has(sourceKey(index))
+      );
+      runtimeTrace.current('skip-slide', {
+        reason: readyVideo?.failureKind,
+        nextSlide: next ?? null,
+      });
+      setCarousel((prev) =>
+        prev.activation !== carousel.activation
+          ? prev
+          : next === undefined
+            ? prev.pending === null
+              ? prev
+              : { ...prev, pending: null }
+            : { ...prev, current: next, activation: prev.activation + 1, pending: null }
+      );
       return;
     }
     // Bound a chain of failed skips; allow transient failures again after a successful presentation.
     failedSources.clear();
     failedSourceState.resources.delete(sourceKey(currentSlide));
     failedSourceState.resources.forEach((source) => failedSources.add(source));
-    setCarousel((prev) => prev.activation !== carousel.activation ? prev : prev.pending === null
-      ? prev.presented === prev.current ? prev : { ...prev, presented: prev.current }
-      : {
-      ...prev, current: prev.pending, presented: prev.current, outgoing: prev.current,
-      activation: prev.activation + 1, pending: null,
-    });
-  }, [activeFrameReady, activeMediaVisible, carousel.activation, carousel.pending, carousel.presented, currentSlide, slides, failedSources, failedSourceState, sourceKey, readyVideo?.failureKind]);
+    setCarousel((prev) =>
+      prev.activation !== carousel.activation
+        ? prev
+        : prev.pending === null
+          ? prev.presented === prev.current
+            ? prev
+            : { ...prev, presented: prev.current }
+          : {
+              ...prev,
+              current: prev.pending,
+              presented: prev.current,
+              outgoing: prev.current,
+              activation: prev.activation + 1,
+              pending: null,
+            }
+    );
+  }, [
+    activeFrameReady,
+    activeMediaVisible,
+    carousel.activation,
+    carousel.pending,
+    carousel.presented,
+    currentSlide,
+    slides,
+    failedSources,
+    failedSourceState,
+    sourceKey,
+    readyVideo?.failureKind,
+  ]);
 
   useEffect(() => {
     if (outgoingSlide === null || !activeMediaVisible) return;
     const id = window.setTimeout(() => {
       if (import.meta.env.DEV && import.meta.env.MODE !== 'test') {
-        logger.debug('[hero-video]', 'crossfade-end', { timestamp: new Date().toISOString(),
-          currentSlide, outgoingSlide, presentedSlide });
+        logger.debug('[hero-video]', 'crossfade-end', {
+          timestamp: new Date().toISOString(),
+          currentSlide,
+          outgoingSlide,
+          presentedSlide,
+        });
       }
       setCarousel((prev) => (prev.outgoing === null ? prev : { ...prev, outgoing: null }));
     }, HERO_CROSSFADE_MS);
     return () => window.clearTimeout(id);
   }, [outgoingSlide, currentSlide, carousel.activation, activeMediaVisible, presentedSlide]);
-  const carouselHasVideo = slides.some((slide) =>
-    slideUsesVideo(slide, shouldReduceMotion)
-  );
+  const carouselHasVideo = slides.some((slide) => slideUsesVideo(slide, shouldReduceMotion));
   // Keep the two banner decoders/resources across cycles, including image slides.
   // Larger configurations retain the existing active/outgoing/next eviction budget.
-  const retainVideos = slides.filter((slide) =>
-    slideUsesVideo(slide, shouldReduceMotion)
-  ).length <= 2;
+  const retainVideos =
+    slides.filter((slide) => slideUsesVideo(slide, shouldReduceMotion)).length <= 2;
 
   // Image-only carousels keep a continuous interval that does not reset on manual navigation.
   useEffect(() => {
@@ -380,11 +489,18 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
 
   useEffect(() => {
     if (!import.meta.env.DEV || import.meta.env.MODE === 'test') return;
-    const trace = { timestamp: new Date().toISOString(), activationId: carousel.activation,
-      currentSlide, outgoingSlide, presentedSlide };
-    if (previousTrace.current.current !== currentSlide) logger.debug('[hero-video]', 'carousel-next', trace);
+    const trace = {
+      timestamp: new Date().toISOString(),
+      activationId: carousel.activation,
+      currentSlide,
+      outgoingSlide,
+      presentedSlide,
+    };
+    if (previousTrace.current.current !== currentSlide)
+      logger.debug('[hero-video]', 'carousel-next', trace);
     if (previousTrace.current.current !== currentSlide) runtimeTrace.current('desired-slide');
-    if (previousTrace.current.presented !== presentedSlide) logger.debug('[hero-video]', 'crossfade-start', trace);
+    if (previousTrace.current.presented !== presentedSlide)
+      logger.debug('[hero-video]', 'crossfade-start', trace);
     if (previousTrace.current.presented !== presentedSlide) {
       runtimeTrace.current('presented-slide');
       if (presentedSlide !== null) runtimeTrace.current('presentation-commit');
@@ -450,20 +566,33 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                   videoRole={videoRole}
                   slideIndex={idx}
                   slideId={slide.id}
-                  onVideoActivationStart={videoRole === 'ACTIVE' ? () => {
-                    setReadyVideo(null);
-                    // A source/mode replacement cannot retain a presentation whose resource was replaced.
-                    setCarousel((prev) => ({ ...prev, activation: prev.activation + 1,
-                      presented: prev.presented === idx && prev.current === idx ? null : prev.presented }));
-                  } : undefined}
+                  onVideoActivationStart={
+                    videoRole === 'ACTIVE'
+                      ? () => {
+                          setReadyVideo(null);
+                          // A source/mode replacement cannot retain a presentation whose resource was replaced.
+                          setCarousel((prev) => ({
+                            ...prev,
+                            activation: prev.activation + 1,
+                            presented:
+                              prev.presented === idx && prev.current === idx
+                                ? null
+                                : prev.presented,
+                          }));
+                        }
+                      : undefined
+                  }
                   onVideoReady={
-                    videoRole === 'ACTIVE' ? (hasVisibleMedia, failureKind) => setReadyVideo({
-                      activation: carousel.activation,
-                      slideId: slide.id,
-                      source: bgOriginUrl,
-                      hasVisibleMedia,
-                      failureKind,
-                    }) : undefined
+                    videoRole === 'ACTIVE'
+                      ? (hasVisibleMedia, failureKind) =>
+                          setReadyVideo({
+                            activation: carousel.activation,
+                            slideId: slide.id,
+                            source: bgOriginUrl,
+                            hasVisibleMedia,
+                            failureKind,
+                          })
+                      : undefined
                   }
                   mobileFocalPointX={resolveBannerFocalPoint(slide.mobileFocalPointX)}
                   className="hero-banner-media absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none"
@@ -496,11 +625,11 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                       <div
                         key={slide.id || `hero-copy-${idx}`}
                         aria-hidden={!isActive}
-                      className={`col-start-1 row-start-1 will-change-[opacity] transition-opacity ${
-                        isActive
-                          ? 'relative opacity-100 z-[2]'
-                          : 'absolute inset-0 opacity-0 z-[1] pointer-events-none'
-                      }`}
+                        className={`col-start-1 row-start-1 will-change-[opacity] transition-opacity ${
+                          isActive
+                            ? 'relative opacity-100 z-[2]'
+                            : 'absolute inset-0 opacity-0 z-[1] pointer-events-none'
+                        }`}
                         style={crossfadeStyle}
                       >
                         <div className="hero-copy space-y-3">
@@ -584,7 +713,9 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                 style={{ visibility: presentedSlide === null ? 'hidden' : undefined }}
                 aria-label={`${t('goToSlide')} ${(presentedSlide ?? currentSlide) + 1} / ${slides.length}`}
               >
-                <span aria-hidden="true">{padSlideIndex((presentedSlide ?? currentSlide) + 1)}</span>
+                <span aria-hidden="true">
+                  {padSlideIndex((presentedSlide ?? currentSlide) + 1)}
+                </span>
                 <span className="w-8 h-px bg-[var(--hero-ink)]/20" aria-hidden="true" />
                 <span className="text-[var(--hero-ink)]/40" aria-hidden="true">
                   {padSlideIndex(slides.length)}

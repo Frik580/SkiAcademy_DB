@@ -10,34 +10,39 @@ import { useCourseEnrollmentStore } from '../../src/features/course-enrollments/
 import { useCourseCatalogReadSync } from '../../src/features/course-enrollments/useCourseEnrollmentReadSync';
 
 const onSnapshot = vi.hoisted(() =>
-  vi.fn((_query: unknown, onNext: (snapshot: { docs: Array<{ id: string; data: () => unknown }> }) => void) => {
-    onNext({
-      docs: [
-        {
-          id: 'course_live_base',
-          data: () => ({
-            title: 'BASE',
-            price: 250000,
-            capacity: { totalSeats: 8, availableSeats: 8 },
-            lifecycle: 'active',
-            dataScope: 'live',
-          }),
-        },
-        {
-          id: 'course_test_clone',
-          data: () => ({
-            title: 'TEST BASE',
-            price: 250000,
-            capacity: { totalSeats: 8, availableSeats: 8 },
-            lifecycle: 'active',
-            dataScope: 'test',
-            testSessionId: 'test_course_client_a01',
-          }),
-        },
-      ],
-    });
-    return () => undefined;
-  })
+  vi.fn(
+    (
+      _query: unknown,
+      onNext: (snapshot: { docs: Array<{ id: string; data: () => unknown }> }) => void
+    ) => {
+      onNext({
+        docs: [
+          {
+            id: 'course_live_base',
+            data: () => ({
+              title: 'BASE',
+              price: 250000,
+              capacity: { totalSeats: 8, availableSeats: 8 },
+              lifecycle: 'active',
+              dataScope: 'live',
+            }),
+          },
+          {
+            id: 'course_test_clone',
+            data: () => ({
+              title: 'TEST BASE',
+              price: 250000,
+              capacity: { totalSeats: 8, availableSeats: 8 },
+              lifecycle: 'active',
+              dataScope: 'test',
+              testSessionId: 'test_course_client_a01',
+            }),
+          },
+        ],
+      });
+      return () => undefined;
+    }
+  )
 );
 
 const queryCourseCatalogReadModels = vi.hoisted(() => vi.fn());
@@ -140,10 +145,13 @@ describe('product course catalogue client', () => {
   });
 
   it('keeps the guest homepage on LIVE courses', async () => {
-    renderHook(() => {
-      useCoursesSync();
-      useCourseCatalogReadSync(true);
-    }, { wrapper });
+    renderHook(
+      () => {
+        useCoursesSync();
+        useCourseCatalogReadSync(true);
+      },
+      { wrapper }
+    );
 
     expect(useCoursesStore.getState().courses.map((course) => course.id)).toEqual([
       'course_live_base',
@@ -155,10 +163,13 @@ describe('product course catalogue client', () => {
   });
 
   it('shows only the server TEST course after sign-in and restores LIVE on logout', async () => {
-    renderHook(() => {
-      useCoursesSync();
-      useCourseCatalogReadSync(true);
-    }, { wrapper });
+    renderHook(
+      () => {
+        useCoursesSync();
+        useCourseCatalogReadSync(true);
+      },
+      { wrapper }
+    );
 
     await act(async () => {
       useAuthStore.getState().setFirebaseUser({ uid: 'account_test_actor' } as never);

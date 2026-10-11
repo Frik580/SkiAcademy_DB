@@ -359,7 +359,9 @@ describe('Canonical CoursesManager', () => {
     await user.click(screen.getByRole('button', { name: 'Create canonical course' }));
 
     await waitFor(() => expect(executeAuthenticatedCanonicalCommand).toHaveBeenCalledTimes(1));
-    expect(executeAuthenticatedCanonicalCommand.mock.calls[0]?.[1].intent.manifest.days[0]).toMatchObject({
+    expect(
+      executeAuthenticatedCanonicalCommand.mock.calls[0]?.[1].intent.manifest.days[0]
+    ).toMatchObject({
       localDate: '2026-12-01',
       localTime: '10:00',
       durationMinutes: 300,
@@ -375,7 +377,9 @@ describe('Canonical CoursesManager', () => {
     await user.click(screen.getByRole('button', { name: 'Create canonical course' }));
 
     await waitFor(() => expect(executeAuthenticatedCanonicalCommand).toHaveBeenCalledTimes(1));
-    expect(executeAuthenticatedCanonicalCommand.mock.calls[0]?.[1].intent.manifest.days[0]).toMatchObject({
+    expect(
+      executeAuthenticatedCanonicalCommand.mock.calls[0]?.[1].intent.manifest.days[0]
+    ).toMatchObject({
       localTime: '22:00',
       durationMinutes: 240,
     });
@@ -433,8 +437,12 @@ describe('Canonical CoursesManager', () => {
       assignInstructor: false,
     });
 
-    expect(await screen.findByText('No instructors are free for this time range.')).toBeInTheDocument();
-    expect(within(screen.getByLabelText(/Available instructor/)).queryByRole('option', { name: 'Coach' })).not.toBeInTheDocument();
+    expect(
+      await screen.findByText('No instructors are free for this time range.')
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByLabelText(/Available instructor/)).queryByRole('option', { name: 'Coach' })
+    ).not.toBeInTheDocument();
     expect(executeAuthenticatedCanonicalCommand).not.toHaveBeenCalled();
   });
 
@@ -525,11 +533,7 @@ describe('Canonical CoursesManager', () => {
   });
 
   it('does not start two provisioning commands for repeated create submits', async () => {
-    let resolveCommand!: (value: {
-      status: string;
-      kind: string;
-      correlationId: string;
-    }) => void;
+    let resolveCommand!: (value: { status: string; kind: string; correlationId: string }) => void;
     executeAuthenticatedCanonicalCommand.mockImplementation(
       () =>
         new Promise((resolve) => {

@@ -128,10 +128,9 @@ export async function seedTestStorageIsolationFixtures(testEnv: RulesTestEnviron
       doc(db, 'test_sessions', STORAGE_TEST_SESSION_A, 'membership', STORAGE_TEST_ACTOR_ID),
       { accountId: STORAGE_TEST_ACTOR_ID }
     );
-    await setDoc(
-      doc(db, 'test_sessions', STORAGE_TEST_SESSION_A, 'membership', STORAGE_ADMIN_ID),
-      { accountId: STORAGE_ADMIN_ID }
-    );
+    await setDoc(doc(db, 'test_sessions', STORAGE_TEST_SESSION_A, 'membership', STORAGE_ADMIN_ID), {
+      accountId: STORAGE_ADMIN_ID,
+    });
     await setDoc(
       doc(db, 'test_sessions', STORAGE_TEST_SESSION_B, 'membership', STORAGE_TEST_ACTOR_B_ID),
       { accountId: STORAGE_TEST_ACTOR_B_ID }

@@ -242,8 +242,7 @@ describe('Firestore single-field index contracts', () => {
   it('supports participant course-day occupancy without removing collection-group ordering', () => {
     const overrides = firestoreIndexes.fieldOverrides.filter(
       (override) =>
-        override.collectionGroup === 'days' &&
-        override.fieldPath === 'interval.startsAt.seconds'
+        override.collectionGroup === 'days' && override.fieldPath === 'interval.startsAt.seconds'
     );
 
     expect(overrides).toHaveLength(1);

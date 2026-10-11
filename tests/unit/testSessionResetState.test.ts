@@ -27,9 +27,10 @@ describe('testSessionResetState', () => {
       liveTargetCount: 0,
       foreignSessionTargetCount: 0,
     });
-    expect(
-      parseManifestSafetyMarkers(['live_targets:2', 'foreign_session_targets:1'])
-    ).toEqual({ liveTargetCount: 2, foreignSessionTargetCount: 1 });
+    expect(parseManifestSafetyMarkers(['live_targets:2', 'foreign_session_targets:1'])).toEqual({
+      liveTargetCount: 2,
+      foreignSessionTargetCount: 1,
+    });
   });
 
   it('blocks execute when expired, foreign, live, or wrong session', () => {
@@ -72,8 +73,8 @@ describe('testSessionResetState', () => {
   });
 
   it('detects manifest expiry', () => {
-    expect(isManifestExpired('2026-09-22T10:00:00.000Z', Date.parse('2026-09-22T10:00:01.000Z'))).toBe(
-      true
-    );
+    expect(
+      isManifestExpired('2026-09-22T10:00:00.000Z', Date.parse('2026-09-22T10:00:01.000Z'))
+    ).toBe(true);
   });
 });

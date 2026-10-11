@@ -83,7 +83,11 @@ describe('testSessionLifecycleClient', () => {
   it('maps callable maintenance codes from error message', () => {
     expect(
       lifecycleErrorCode(
-        new FunctionsClientError('TEST_MAINTENANCE_MANIFEST_STALE', 'functions/failed-precondition', {})
+        new FunctionsClientError(
+          'TEST_MAINTENANCE_MANIFEST_STALE',
+          'functions/failed-precondition',
+          {}
+        )
       )
     ).toBe('TEST_MAINTENANCE_MANIFEST_STALE');
     expect(lifecycleErrorCode(new Error('network'))).toBe('TEST_MAINTENANCE_FAILED');

@@ -23,6 +23,9 @@ export interface NeedsAttentionFeedbackItem {
 
 interface StudentNeedsAttentionProps {
   dashboardSize?: DashboardTileSize;
+  /** Account-authorized source for review prompts. */
+  reviewBookings?: Booking[];
+  /** Selected-participant source for recommendation actions. */
   bookings: Booking[];
   reviews: Review[];
   userId: string;
@@ -38,7 +41,8 @@ type NeedsAttentionRow = {
   readonly id: string;
   readonly instructorName: string;
   readonly dateLabel: string;
-  readonly booking?: Booking;
+  readonly reviewBooking?: Booking;
+  readonly feedbackBooking?: Booking;
   readonly needsReview: boolean;
   readonly hasPendingFeedback: boolean;
 };
@@ -46,6 +50,7 @@ type NeedsAttentionRow = {
 export const StudentNeedsAttention: React.FC<StudentNeedsAttentionProps> = ({
   dashboardSize,
   bookings,
+  reviewBookings = bookings,
   reviews,
   userId,
   dismissedReviewIds = [],
@@ -59,14 +64,19 @@ export const StudentNeedsAttention: React.FC<StudentNeedsAttentionProps> = ({
   const lang = language === 'ru' ? 'ru' : 'en';
 
   const items = useMemo(() => {
-    const reviewBookings = getNeedsAttentionBookings(bookings, reviews, dismissedReviewIds, userId);
+    const eligibleReviewBookings = getNeedsAttentionBookings(
+      reviewBookings,
+      reviews,
+      dismissedReviewIds,
+      userId
+    );
     const rows = new Map<string, NeedsAttentionRow>();
-    for (const booking of reviewBookings) {
+    for (const booking of eligibleReviewBookings) {
       rows.set(booking.id, {
         id: booking.id,
         instructorName: booking.instructorName,
         dateLabel: booking.date,
-        booking,
+        reviewBooking: booking,
         needsReview:
           isReviewEligibleLessonStatus(booking.status) &&
           !isBookingReviewed(booking, reviews, dismissedReviewIds),
@@ -80,9 +90,11 @@ export const StudentNeedsAttention: React.FC<StudentNeedsAttentionProps> = ({
         feedback.lessonDate ||
         existing?.dateLabel ||
         '';
+      const feedbackBooking = bookings.find((booking) => booking.id === feedback.lessonBookingId);
       if (existing) {
         rows.set(feedback.lessonBookingId, {
           ...existing,
+          feedbackBooking,
           hasPendingFeedback: true,
           dateLabel: existing.dateLabel || dateLabel,
           instructorName: existing.instructorName || feedback.instructorName || '',
@@ -93,7 +105,7 @@ export const StudentNeedsAttention: React.FC<StudentNeedsAttentionProps> = ({
         id: feedback.lessonBookingId,
         instructorName: feedback.instructorName || '',
         dateLabel,
-        booking: bookings.find((booking) => booking.id === feedback.lessonBookingId),
+        feedbackBooking,
         needsReview: false,
         hasPendingFeedback: true,
       });
@@ -101,7 +113,7 @@ export const StudentNeedsAttention: React.FC<StudentNeedsAttentionProps> = ({
     return [...rows.values()]
       .sort((left, right) => right.dateLabel.localeCompare(left.dateLabel))
       .slice(0, 5);
-  }, [bookings, dismissedReviewIds, lang, pendingFeedback, reviews, userId]);
+  }, [bookings, dismissedReviewIds, lang, pendingFeedback, reviewBookings, reviews, userId]);
 
   if (items.length === 0) return null;
 
@@ -125,18 +137,18 @@ export const StudentNeedsAttention: React.FC<StudentNeedsAttentionProps> = ({
                   {item.hasPendingFeedback && <RecommendationIndicator pending />}
                 </div>
                 <div className="sc-attention-actions">
-                  {item.needsReview && item.booking && (
+                  {item.needsReview && item.reviewBooking && (
                     <>
                       <ScTextButton
                         className="sc-attention-review"
-                        onClick={() => onWriteReview(item.booking!)}
+                        onClick={() => onWriteReview(item.reviewBooking!)}
                       >
                         {t('writeReviewBtn')}
                       </ScTextButton>
                       {onDismissReview && (
                         <button
                           type="button"
-                          onClick={() => onDismissReview(item.booking!.id)}
+                          onClick={() => onDismissReview(item.reviewBooking!.id)}
                           className="sc-attention-dismiss"
                         >
                           {t('scDismissReviewPrompt')}
@@ -148,7 +160,7 @@ export const StudentNeedsAttention: React.FC<StudentNeedsAttentionProps> = ({
                     <ScTextButton
                       className="sc-attention-recommendations"
                       onClick={() => {
-                        if (item.booking) onOpenLesson(item.booking);
+                        if (item.feedbackBooking) onOpenLesson(item.feedbackBooking);
                         else onOpenFeedbackLesson(item.id);
                       }}
                     >

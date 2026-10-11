@@ -32,6 +32,8 @@ test('Needs Attention preserves mixed scope, navigation, dismissal and responsiv
   const suffix = `${info.project.name}_p${info.parallelIndex}_r${info.repeatEachIndex}_try${info.retry}`;
   const ids = [r.studentParticipantId, r.studentChildParticipantId];
   const lessons = ['a', 'b'].map((label) => `booking_attention_${label}_${suffix}`);
+  const coachNames = ['Coach for participant A', 'Coach for participant B'] as const;
+  const secondInstructorId = `instructor_attention_b_${suffix}`;
   const stamp = timestampFromDate(new Date('2026-10-03T06:00:00Z'));
   const end = timestampFromDate(new Date('2026-10-03T07:00:00Z'));
   const audit = {
@@ -41,15 +43,31 @@ test('Needs Attention preserves mixed scope, navigation, dismissal and responsiv
   };
   const owned: import('firebase-admin/firestore').DocumentReference[] = [];
   const instructorRef = db.doc(`instructors/${r.instructorId}`);
+  const secondInstructorRef = db.doc(`instructors/${secondInstructorId}`);
+  owned.push(secondInstructorRef);
   const instructorOriginal = await instructorRef.get();
   const accountRef = db.doc(`users/${r.studentUid}`);
   const accountOriginal = await accountRef.get();
-  const coachName = 'Александр Константинович Мухамеджанов';
   try {
-    await instructorRef.update({ name: coachName });
+    await instructorRef.update({ name: coachNames[0] });
+    await secondInstructorRef.create({
+      id: secondInstructorId,
+      name: coachNames[1],
+      specialty: 'ski',
+      pricePerHour: 50,
+      pricePerHourKZT: 12_000,
+      bio: 'Playwright end-to-end instructor fixture.',
+      avatarUrl: 'https://example.com/e2e-instructor-b.jpg',
+      isAvailable: true,
+      rating: 5,
+      reviewsCount: 0,
+      languages: ['English'],
+      experienceYears: 5,
+    });
     for (const [i, participantId] of ids.entries()) {
       const lessonBookingId = lessons[i];
       const occurrenceId = `occurrence_attention_${i}_${suffix}`;
+      const instructorId = i === 0 ? r.instructorId : secondInstructorId;
       const booking = BookingSchema.parse({
         bookingId: lessonBookingId,
         paymentId: paymentIdFromBookingId(lessonBookingId as never),
@@ -61,7 +79,7 @@ test('Needs Attention preserves mixed scope, navigation, dismissal and responsiv
         party: { kind: 'individual', participantIds: [participantId] },
         occurrence: {
           occurrenceId,
-          instructorId: r.instructorId,
+          instructorId,
           interval: { startsAt: stamp, endsAt: end },
           timeZone: 'Asia/Almaty',
           scheduleRevision: 1,
@@ -119,8 +137,8 @@ test('Needs Attention preserves mixed scope, navigation, dismissal and responsiv
             participantId,
           },
           attendanceStatus: 'present',
-          recordedBy: { kind: 'instructor', instructorId: r.instructorId },
-          lastChangedBy: { kind: 'instructor', instructorId: r.instructorId },
+          recordedBy: { kind: 'instructor', instructorId },
+          lastChangedBy: { kind: 'instructor', instructorId },
           recordedAt: end,
           updatedAt: end,
           revision: 1,
@@ -138,7 +156,7 @@ test('Needs Attention preserves mixed scope, navigation, dismissal and responsiv
           feedbackId,
           participantId,
           lessonBookingId,
-          instructorId: r.instructorId,
+          instructorId,
           items: [{ itemId: 'attention_item', text: `Attention practice for ${i ? 'B' : 'A'}` }],
           completedItemIds: [],
           revision: 1,
@@ -165,6 +183,8 @@ test('Needs Attention preserves mixed scope, navigation, dismissal and responsiv
     await page.getByRole('button', { name: 'Home', exact: true }).last().click();
     const tile = page.locator('[data-dashboard-tile="needsAttention"]');
     const row = (id: string) => tile.locator(`[data-attention-lesson="${id}"]`);
+    const rowForCoach = (name: string) =>
+      tile.locator('.sc-attention-row').filter({ hasText: name });
     const selector = page
       .getByRole('banner')
       .locator('[data-testid="navbar-participant-switcher"]:visible');
@@ -174,32 +194,35 @@ test('Needs Attention preserves mixed scope, navigation, dismissal and responsiv
       [0, ids[0]],
     ] as const) {
       await selector.locator(`[data-participant-id="${id}"]`).click();
-      // Current Shell filters Home bookings to the selected participant before this tile.
-      // Characterize that existing boundary; account filtering inside the tile is unit-tested separately.
-      await expect(
-        row(lessons[i]).getByRole('button', { name: 'Write Review', exact: true })
-      ).toBeVisible();
-      await expect(row(lessons[1 - i])).toHaveCount(0);
+      await expect(tile.getByRole('listitem')).toHaveCount(2);
+      for (const lesson of lessons) {
+        await expect(
+          row(lesson).getByRole('button', { name: 'Write Review', exact: true })
+        ).toBeVisible();
+      }
       await expect(
         row(lessons[i]).getByRole('button', { name: 'Open recommendations' })
       ).toBeVisible();
       await expect(
         row(lessons[1 - i]).getByRole('button', { name: 'Open recommendations' })
       ).toHaveCount(0);
-      await expect(tile.getByRole('listitem')).toHaveCount(1);
       await row(lessons[i]).getByRole('button', { name: 'Open recommendations' }).click();
       const dialog = page.getByRole('dialog');
       await expect(dialog).toContainText(`Attention practice for ${i ? 'B' : 'A'}`);
       await expect(dialog).not.toContainText(`Attention practice for ${i ? 'A' : 'B'}`);
       await dialog.getByRole('button', { name: 'Close' }).click();
     }
-    await row(lessons[0]).getByRole('button', { name: 'Write Review' }).focus();
-    await page.keyboard.press('Enter');
+
+    // A can open B's account-level review prompt while B's recommendation stays hidden.
+    await row(lessons[1]).getByRole('button', { name: 'Write Review', exact: true }).click();
     const review = page
       .locator('.ui-modal')
       .filter({ has: page.locator('#review-comment-textarea') });
-    await expect(review).toContainText(coachName);
+    await expect(review).toContainText(coachNames[1]);
     // Existing modal's close control is the first button; its markup is outside this slice.
+    await review.getByRole('button').first().click();
+    await row(lessons[0]).getByRole('button', { name: 'Write Review', exact: true }).click();
+    await expect(review).toContainText(coachNames[0]);
     await review.getByRole('button').first().click();
     await page
       .getByRole('group', { name: /Switch language|Сменить язык/ })
@@ -222,7 +245,7 @@ test('Needs Attention preserves mixed scope, navigation, dismissal and responsiv
         window.dispatchEvent(new Event('theme-change'));
       }, dark);
       await tile.scrollIntoViewIfNeeded();
-      await expect(tile).toContainText(coachName);
+      for (const coachName of coachNames) await expect(tile).toContainText(coachName);
       await expect(page.locator('html')).toHaveClass(dark ? /dark/ : /^(?!.*\bdark\b).*$/);
       expect(await tile.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
       expect(
@@ -245,19 +268,24 @@ test('Needs Attention preserves mixed scope, navigation, dismissal and responsiv
       await tile.screenshot({ path: info.outputPath(`${name}.png`) });
     }
     await page.setViewportSize({ width: 1440, height: 1000 });
-    for (const [i, id] of [
-      [0, ids[0]],
-      [1, ids[1]],
-    ] as const) {
-      await selector.locator(`[data-participant-id="${id}"]`).click();
-      await row(lessons[i]).getByRole('button', { name: 'Скрыть', exact: true }).click();
-    }
+    await selector.locator(`[data-participant-id="${ids[0]}"]`).click();
+    await row(lessons[1]).getByRole('button', { name: 'Скрыть', exact: true }).click();
+    await expect(row(lessons[1])).toHaveCount(0);
+    await selector.locator(`[data-participant-id="${ids[1]}"]`).click();
+    await expect(
+      rowForCoach(coachNames[1]).getByRole('button', { name: 'Открыть рекомендации' })
+    ).toBeVisible();
+    await expect(
+      rowForCoach(coachNames[1]).getByRole('button', { name: 'Оставить отзыв' })
+    ).toHaveCount(0);
+    await rowForCoach(coachNames[0]).getByRole('button', { name: 'Скрыть', exact: true }).click();
+    await expect(rowForCoach(coachNames[0])).toHaveCount(0);
     await selector.locator(`[data-participant-id="${ids[0]}"]`).click();
     await expect(tile.getByRole('button', { name: 'Оставить отзыв' })).toHaveCount(0);
     await expect(
-      row(lessons[0]).getByRole('button', { name: 'Открыть рекомендации' })
+      rowForCoach(coachNames[0]).getByRole('button', { name: 'Открыть рекомендации' })
     ).toBeVisible();
-    await expect(row(lessons[1])).toHaveCount(0);
+    await expect(rowForCoach(coachNames[1])).toHaveCount(0);
     await page.reload();
     await expect(tile.getByRole('button', { name: 'Оставить отзыв' })).toHaveCount(0);
     // Factual completion fixture removes A's pending state; existing projection determines visibility.
@@ -268,9 +296,14 @@ test('Needs Attention preserves mixed scope, navigation, dismissal and responsiv
     await page.reload();
     await expect(tile).toHaveCount(0);
     await selector.locator(`[data-participant-id="${ids[1]}"]`).click();
+    const reloadedFeedbackRow = row(lessons[1]);
     await expect(
-      row(lessons[1]).getByRole('button', { name: 'Открыть рекомендации' })
+      reloadedFeedbackRow.getByRole('button', { name: 'Открыть рекомендации' })
     ).toBeVisible();
+    await reloadedFeedbackRow.getByRole('button', { name: 'Открыть рекомендации' }).click();
+    const feedbackDialog = page.getByRole('dialog');
+    await expect(feedbackDialog).toContainText('Attention practice for B');
+    await feedbackDialog.getByRole('button', { name: 'Закрыть' }).click();
     healthy();
   } finally {
     for (const ref of owned) await ref.delete();

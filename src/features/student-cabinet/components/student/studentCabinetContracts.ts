@@ -180,6 +180,8 @@ export interface StudentCabinetHomeContext {
   userProfile: UserProfile;
   selectedParticipantId?: string;
   bookings: Booking[];
+  /** Account-authorized bookings used only for account-level review prompts. */
+  reviewBookings?: Booking[];
   sessionItems: readonly CabinetSessionItem[];
   courses: Course[];
   instructors: Instructor[];

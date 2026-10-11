@@ -338,6 +338,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
     participantProgress: selectedProgress,
     selectedParticipantId: selectedProgressParticipantId,
     bookings: isolatedLegacyBookings,
+    reviewBookings: legacyBookings,
     sessionItems: isolatedSessionItems,
     hasAnyParticipantSessionToday,
     courses: props.courses,

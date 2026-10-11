@@ -76,7 +76,7 @@ it('keeps native keyboard check/uncheck, add validation, remove and development 
     customTaskId: 'a',
     skillItemId: undefined,
   });
-  await user.click(screen.getByRole('button', { name: /Development/ }));
+  await user.click(screen.getByRole('link', { name: 'Go to Development' }));
   expect(p.onContinueDevelopment).toHaveBeenCalledTimes(1);
   expect(view.container).not.toHaveTextContent('XP');
 });

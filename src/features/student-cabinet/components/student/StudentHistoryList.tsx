@@ -11,6 +11,7 @@ import {
 } from './studentCabinetUtils';
 import { ScTextButton } from './StudentCabinetUI';
 import { HistoryLessonCard } from './HistoryLessonCard';
+import { StudentDevelopmentLink } from '../../../../ui/StudentDevelopmentLink';
 
 const HISTORY_FILTERS: HistoryFilter[] = ['all', 'training', 'progress', 'homework'];
 
@@ -157,9 +158,16 @@ export const StudentHistoryList: React.FC<StudentHistoryListProps> = ({
             </div>
           )}
           {event.cta && (
-            <ScTextButton arrow onClick={() => handleAction(event.cta!.action)}>
-              {t(event.cta.labelKey)}
-            </ScTextButton>
+            event.cta.action.type === 'open_development' ? (
+              <StudentDevelopmentLink
+                label={t('studentDevelopmentLink')}
+                onNavigate={() => handleAction(event.cta!.action)}
+              />
+            ) : (
+              <ScTextButton arrow onClick={() => handleAction(event.cta!.action)}>
+                {t(event.cta.labelKey)}
+              </ScTextButton>
+            )
           )}
         </div>
         {showDivider && <div className="h-px bg-[var(--border-subtle)]" />}

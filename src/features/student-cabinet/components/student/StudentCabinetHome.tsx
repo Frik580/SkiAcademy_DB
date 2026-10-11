@@ -20,7 +20,7 @@ import {
 } from './studentCabinetUtils';
 import { buildCanonicalRecommendationTodayTasks } from '../../studentLessonFeedbackPresentation';
 import { usePresentedParticipantLessonFeedback } from '../../usePresentedParticipantLessonFeedback';
-import { ScTextButton } from './StudentCabinetUI';
+import { StudentDevelopmentLink } from '../../../../ui/StudentDevelopmentLink';
 import { StudentNeedsAttention } from './StudentNeedsAttention';
 import {
   CurrentSessionsBlock,
@@ -368,11 +368,11 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
               compact
               embed
             />
-            <div className="mt-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-tint)] px-3 py-2">
-              <ScTextButton arrow onClick={onContinueDevelopment}>
-                {t('scContinueDevelopment')}
-              </ScTextButton>
-            </div>
+            <StudentDevelopmentLink
+              label={t('studentDevelopmentLink')}
+              onNavigate={onContinueDevelopment}
+              className="mt-3"
+            />
           </StudentDashboardTileBody>
         </section>
       </StudentDashboardTile>

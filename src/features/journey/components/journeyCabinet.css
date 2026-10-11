@@ -354,13 +354,7 @@
   font-size: 0.75rem;
 }
 
-.sc-journey .journey-development-link {
-  min-height: 2.75rem;
-  color: var(--accent);
-  font-size: 0.75rem;
-}
-
-.sc-journey :is(button, a):focus-visible {
+.sc-journey :is(button, a):focus-visible:not(.student-development-link) {
   outline: 3px solid var(--accent);
   outline-offset: 3px;
   border-radius: var(--radius-sm);

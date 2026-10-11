@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { ArrowRight, Flag } from 'lucide-react';
 import { formatPointsGain } from '../../../../lib/i18n/pluralize';
+import { StudentDevelopmentLink } from '../../../../ui/StudentDevelopmentLink';
 import type { StudentNextStepInput } from './studentNextStepContracts';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 import './studentNextStep.css';
@@ -109,10 +110,10 @@ export const StudentNextStepCard = ({
           )}
         </>
       )}
-      <button type="button" onClick={onContinueDevelopment} className="sc-next-step-development">
-        {t('scNextStepExploreDevelopment')}
-        <ArrowRight size={14} aria-hidden="true" />
-      </button>
+      <StudentDevelopmentLink
+        label={t('studentDevelopmentLink')}
+        onNavigate={onContinueDevelopment}
+      />
     </div>
   );
 };

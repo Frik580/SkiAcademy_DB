@@ -57,6 +57,10 @@ it('renders real exercise context, labelled estimate and keyboard development na
   expect(screen.getByText('Balance')).toBeVisible();
   expect(screen.getByText(/Potential gain/)).toHaveTextContent('+6 XP');
   expect(screen.queryByText(/video|15 min/i)).not.toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Go to Development' })).toHaveAttribute(
+    'href',
+    '/cabinet/development'
+  );
   screen.getByRole('button', { name: 'Add to tasks' }).focus();
   await user.keyboard('{Enter}');
   expect(p.onStartExercise).toHaveBeenCalledTimes(1);
@@ -174,7 +178,7 @@ it('renders loading/error without stale recommendations and preserves complete/d
     </LanguageProvider>
   );
   expect(screen.getByText(/No new exercises/)).toBeVisible();
-  expect(screen.getAllByRole('button')).toHaveLength(1);
+  expect(screen.getAllByRole('link', { name: 'Go to Development' })).toHaveLength(1);
 });
 
 const homeProps = (participantId: string): StudentCabinetHomeContext => ({

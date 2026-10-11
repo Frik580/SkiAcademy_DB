@@ -2,7 +2,7 @@ import React, { useLayoutEffect, useRef, useState } from 'react';
 import { Check } from 'lucide-react';
 import { useLanguage } from '../../../app/providers/LanguageContext';
 import type { JourneyEarnedSkill, JourneyLevel } from './types';
-import { cabinetPathForTab } from '../../../lib/workspaceRoutes';
+import { StudentDevelopmentLink } from '../../../ui/StudentDevelopmentLink';
 
 export const LevelCardBody: React.FC<{
   level: JourneyLevel;
@@ -88,24 +88,12 @@ export const LevelCardBody: React.FC<{
       </div>
 
       {onOpenDevelopment ? (
-        <a
-          href={cabinetPathForTab('development')}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
-              e.preventDefault();
-              onOpenDevelopment();
-            }
-          }}
-          className={`journey-development-link mt-auto self-start shrink-0 py-2 text-left sm:text-xs font-medium transition-colors inline-flex items-center gap-1 no-underline ${
-            isDark
-              ? 'text-[#7ec8ff] hover:text-white'
-              : 'text-[var(--accent)] hover:text-[var(--ink)]'
-          }`}
-        >
-          {t('scMoreDetails')}
-          <span aria-hidden>→</span>
-        </a>
+        <StudentDevelopmentLink
+          label={t('studentDevelopmentLink')}
+          onNavigate={onOpenDevelopment}
+          stopPropagation
+          className="mt-auto shrink-0"
+        />
       ) : (
         <p
           className={`shrink-0 ${compact ? 'text-[10px] sm:text-[11px]' : 'text-[11px]'} pt-1 border-t ${

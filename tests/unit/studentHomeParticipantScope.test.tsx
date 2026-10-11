@@ -966,6 +966,7 @@ describe('Student Home participant scope', () => {
 
   it('switches through the shared header state without remounting Home or global weather', async () => {
     const user = userEvent.setup();
+    vi.mocked(base.onContinueDevelopment).mockClear();
     const view = render(
       <MemoryRouter>
         <HeaderAndHome />
@@ -973,8 +974,14 @@ describe('Student Home participant scope', () => {
     );
     const home = document.querySelector('#your-journey')!.parentElement!.parentElement;
     const weather = screen.getByText('scWeatherOnSlope').closest('section');
+    const skillRings = () =>
+      within(view.container.querySelector('[data-dashboard-tile="skillRadar"]') as HTMLElement);
+    const developmentLink = () =>
+      skillRings().getByRole('link', { name: 'studentDevelopmentLink' });
     expectMarkerProgress('Alice Student', 'alice');
     const before = marker('Alice Student').style.left;
+    await user.click(developmentLink());
+    expect(base.onContinueDevelopment).toHaveBeenCalledTimes(1);
     await user.click(screen.getByRole('button', { name: 'Select Bob Student' }));
     expect(useCabinetProgressParticipantSelectionStore.getState().selectedParticipantId).toBe(
       'bob'
@@ -993,6 +1000,14 @@ describe('Student Home participant scope', () => {
     expect(screen.getByTestId('radar-scores')).toHaveTextContent(
       JSON.stringify(progressById.bob.skillScores)
     );
+    await user.click(developmentLink());
+    expect(base.onContinueDevelopment).toHaveBeenCalledTimes(2);
+    await user.click(screen.getByRole('button', { name: 'Select Alice Student' }));
+    expect(useCabinetProgressParticipantSelectionStore.getState().selectedParticipantId).toBe(
+      'alice'
+    );
+    await user.click(developmentLink());
+    expect(base.onContinueDevelopment).toHaveBeenCalledTimes(3);
     expect(document.querySelector('#your-journey')!.parentElement!.parentElement).toBe(home);
     expect(screen.getByText('scWeatherOnSlope').closest('section')).toBe(weather);
   });

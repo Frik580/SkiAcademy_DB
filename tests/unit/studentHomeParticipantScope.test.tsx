@@ -699,6 +699,18 @@ describe('Student Home dashboard grid', () => {
       </MemoryRouter>
     );
     expect(tileOrder().slice(0, 3)).toEqual(['weather', 'countdown', 'nextSession']);
+    view.rerender(
+      <MemoryRouter>
+        <StudentCabinetHome {...base} nextSessionItems={[lesson]} resortSnapshot={undefined} />
+      </MemoryRouter>
+    );
+    expect(tileOrder()).not.toContain('weather');
+    view.rerender(
+      <MemoryRouter>
+        <StudentCabinetHome {...base} nextSessionItems={[lesson]} />
+      </MemoryRouter>
+    );
+    expect(tileOrder().slice(0, 3)).toEqual(['weather', 'countdown', 'nextSession']);
     vi.setSystemTime(cabinetLessonInstant('2099-01-01', '10:00'));
     view.rerender(
       <MemoryRouter>

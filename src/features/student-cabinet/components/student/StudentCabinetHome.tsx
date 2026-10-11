@@ -63,6 +63,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     userProfile,
     selectedParticipantId,
     bookings,
+    reviewBookings = bookings,
     sessionItems,
     courses,
     instructors,
@@ -111,7 +112,8 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
   const showAchievements = hasStudentTodayProgress(todayProgress, todayAchievements);
   const showAttention =
     pendingFeedback.length > 0 ||
-    getNeedsAttentionBookings(bookings, reviews, dismissedReviewIds, userProfile.uid).length > 0;
+    getNeedsAttentionBookings(reviewBookings, reviews, dismissedReviewIds, userProfile.uid).length >
+      0;
   const openLessonById = (lessonBookingId: string) => {
     if (onOpenLessonByBookingId) {
       onOpenLessonByBookingId(lessonBookingId);
@@ -380,6 +382,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
         key={`attention:${selectedParticipantId}`}
         dashboardSize={STUDENT_DASHBOARD_TILES.needsAttention.defaultSize}
         bookings={bookings}
+        reviewBookings={reviewBookings}
         reviews={reviews}
         userId={userProfile.uid}
         dismissedReviewIds={dismissedReviewIds}

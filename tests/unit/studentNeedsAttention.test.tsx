@@ -57,7 +57,7 @@ const row = (id: string) =>
   document.querySelector(`[data-attention-lesson="${id}"]`) as HTMLElement;
 
 // Exercise the real upstream projection/store, including loading and exact scope filtering.
-function PresentedTile(props: ReturnType<typeof base>) {
+function PresentedTile(props: ReturnType<typeof base> & { reviewBookings?: Booking[] }) {
   const presented = usePresentedParticipantLessonFeedback(props.bookings);
   const pendingFeedback = presented.incomplete
     .map((item) => presented.feedbackForLesson(item.lessonBookingId)!)
@@ -195,28 +195,93 @@ describe('Needs Attention presentation preserves existing actions', () => {
     expect(screen.getAllByRole('button', { name: 'Open recommendations' })).toHaveLength(2);
   });
 
-  it('keeps account reviews through A → B loading → B → A without stale feedback or duplicates', () => {
-    const props = base();
+  it('keeps account reviews stable while feedback and recommendation actions follow A → B → A', async () => {
+    const reviewA = booking({ id: 'lesson-a', instructorName: 'Account review A' });
+    const reviewB = booking({ id: 'lesson-b', instructorName: 'Account review B' });
+    const selectedA = booking({ id: 'lesson-a', instructorName: 'Selected booking A' });
+    const selectedB = booking({ id: 'lesson-b', instructorName: 'Selected booking B' });
+    const props = {
+      ...base(),
+      bookings: [selectedA],
+      reviewBookings: [reviewA, reviewB],
+    };
+    const user = userEvent.setup();
     const store = useParticipantLessonFeedbackStore.getState();
     store.setPresentationParticipantId('a');
-    store.replaceParticipantItems('a', [feedback('a', 'a-only'), feedback('b', 'foreign')]);
-    render(<PresentedTile {...props} />);
-    expect(row('a-only')).toBeInTheDocument();
+    store.replaceParticipantItems('a', [feedback('a', 'lesson-a'), feedback('b', 'foreign')]);
+    const view = render(<PresentedTile {...props} />);
+    expect(row('lesson-a')).toBeInTheDocument();
+    expect(row('lesson-b')).toBeInTheDocument();
+    expect(within(row('lesson-a')).getByRole('button', { name: 'Open recommendations' })).toBeVisible();
+    expect(within(row('lesson-a')).getByRole('button', { name: 'Write Review' })).toBeVisible();
+    expect(
+      within(row('lesson-b')).queryByRole('button', { name: 'Open recommendations' })
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByRole('listitem')).toHaveLength(2);
+    await user.click(within(row('lesson-a')).getByRole('button', { name: 'Write Review' }));
+    expect(props.onWriteReview).toHaveBeenLastCalledWith(reviewA);
+    await user.click(within(row('lesson-b')).getByRole('button', { name: 'Write Review' }));
+    expect(props.onWriteReview).toHaveBeenCalledWith(reviewB);
+    await user.click(within(row('lesson-a')).getByRole('button', { name: 'Open recommendations' }));
+    expect(props.onOpenLesson).toHaveBeenCalledWith(selectedA);
+
+    expect(row('lesson-a')).toBeInTheDocument();
     expect(row('foreign')).toBeNull();
     act(() => {
       store.setPresentationParticipantId('b');
       store.beginLoad('b');
     });
-    expect(row('a-only')).toBeNull();
+    view.rerender(<PresentedTile {...props} bookings={[selectedB]} />);
     expect(row('lesson-a')).toBeInTheDocument();
+    expect(row('lesson-b')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Open recommendations' })).not.toBeInTheDocument();
-    act(() => store.replaceParticipantItems('b', [feedback('b', 'b-only')]));
-    expect(row('b-only')).toBeInTheDocument();
-    expect(row('a-only')).toBeNull();
+    act(() =>
+      store.replaceParticipantItems('b', [feedback('b', 'lesson-b'), feedback('a', 'foreign')])
+    );
+    expect(row('lesson-a')).toBeInTheDocument();
+    expect(row('lesson-b')).toBeInTheDocument();
+    expect(
+      within(row('lesson-b')).getByRole('button', { name: 'Open recommendations' })
+    ).toBeVisible();
+    expect(
+      within(row('lesson-a')).queryByRole('button', { name: 'Open recommendations' })
+    ).not.toBeInTheDocument();
+    await user.click(within(row('lesson-b')).getByRole('button', { name: 'Open recommendations' }));
+    expect(props.onOpenLesson).toHaveBeenLastCalledWith(selectedB);
+
     act(() => store.setPresentationParticipantId('a'));
-    expect(row('a-only')).toBeInTheDocument();
-    expect(row('b-only')).toBeNull();
-    expect(screen.getAllByRole('button', { name: 'Write Review' })).toHaveLength(1);
+    view.rerender(<PresentedTile {...props} bookings={[selectedA]} />);
+    expect(row('lesson-a')).toBeInTheDocument();
+    expect(row('lesson-b')).toBeInTheDocument();
+    expect(
+      within(row('lesson-a')).getByRole('button', { name: 'Open recommendations' })
+    ).toBeVisible();
+    expect(
+      within(row('lesson-b')).queryByRole('button', { name: 'Open recommendations' })
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Write Review' })).toHaveLength(2);
+    expect(screen.getAllByRole('listitem')).toHaveLength(2);
+
+    await user.click(within(row('lesson-b')).getByRole('button', { name: 'Dismiss' }));
+    expect(props.onDismissReview).toHaveBeenCalledWith('lesson-b');
+    view.rerender(
+      <PresentedTile {...props} bookings={[selectedA]} dismissedReviewIds={['lesson-b']} />
+    );
+    expect(row('lesson-b')).toBeNull();
+    expect(row('lesson-a')).toBeInTheDocument();
+
+    act(() => store.setPresentationParticipantId('b'));
+    view.rerender(
+      <PresentedTile {...props} bookings={[selectedB]} dismissedReviewIds={['lesson-b']} />
+    );
+    expect(row('lesson-a')).toBeInTheDocument();
+    expect(row('lesson-b')).toBeInTheDocument();
+    expect(
+      within(row('lesson-b')).queryByRole('button', { name: 'Write Review' })
+    ).not.toBeInTheDocument();
+    expect(
+      within(row('lesson-b')).getByRole('button', { name: 'Open recommendations' })
+    ).toBeVisible();
     expect(screen.getAllByRole('listitem')).toHaveLength(2);
   });
 

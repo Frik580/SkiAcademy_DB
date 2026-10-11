@@ -786,6 +786,60 @@ describe('Student Home participant scope', () => {
       expect.objectContaining({ selectedParticipantId: 'bob', accountReviews: [] })
     );
   });
+
+  it('keeps account-level review prompts visible across participant selection changes', async () => {
+    const reviewA: Booking = {
+      id: 'review_alice',
+      userId: accountProfile.uid,
+      instructorId: 'coach',
+      instructorName: 'Coach A',
+      instructorAvatar: '',
+      date: '2098-12-31',
+      time: '10:00',
+      durationHours: 1,
+      totalPrice: 100,
+      status: 'completed',
+      difficulty: 'beginner',
+    };
+    const reviewB: Booking = { ...reviewA, id: 'review_bob', instructorName: 'Coach B' };
+    const onWriteReview = vi.fn();
+    const renderFor = (selected: 'alice' | 'bob') => (
+      <MemoryRouter>
+        <StudentCabinetHome
+          {...input(selected)}
+          bookings={[selected === 'alice' ? reviewA : reviewB]}
+          reviewBookings={[reviewA, reviewB]}
+          onWriteReview={onWriteReview}
+        />
+      </MemoryRouter>
+    );
+    const view = render(renderFor('alice'));
+    const row = (id: string) =>
+      document.querySelector(`[data-attention-lesson="${id}"]`) as HTMLElement;
+    const attentionRows = () =>
+      within(document.querySelector('[data-dashboard-tile="needsAttention"]')!).getAllByRole(
+        'listitem'
+      );
+
+    expect(row('review_alice')).toBeInTheDocument();
+    expect(row('review_bob')).toBeInTheDocument();
+    expect(attentionRows()).toHaveLength(2);
+    await userEvent.click(
+      within(row('review_bob')).getByRole('button', { name: 'writeReviewBtn' })
+    );
+    expect(onWriteReview).toHaveBeenCalledWith(reviewB);
+
+    view.rerender(renderFor('bob'));
+    expect(row('review_alice')).toBeInTheDocument();
+    expect(row('review_bob')).toBeInTheDocument();
+    expect(attentionRows()).toHaveLength(2);
+
+    view.rerender(renderFor('alice'));
+    expect(row('review_alice')).toBeInTheDocument();
+    expect(row('review_bob')).toBeInTheDocument();
+    expect(attentionRows()).toHaveLength(2);
+  });
+
   it('hides ordinary badges for one participant but always shows their journey avatar', () => {
     const view = render(
       <MemoryRouter>

@@ -356,6 +356,11 @@ export const NextSessionBlock = memo<NextSessionBlockInput>(function NextSession
                 return (
                   <article
                     key={`${sessionItemKey(session)}_${dateStr}_${index}`}
+                    data-session-id={
+                      session.kind === 'lesson'
+                        ? `lesson:${session.session.id}`
+                        : `course_day:${session.courseId}:${session.courseDayId}`
+                    }
                     className="sc-next-session-card"
                   >
                     <div className="sc-next-session-meta">

@@ -154,4 +154,29 @@ export async function attemptAuthenticatedCancellation(input: {
   return parseCallableResponse(response.status, (await response.json()) as CallablePayload);
 }
 
+export async function attemptAuthenticatedCourseEnrollmentCancellation(input: {
+  readonly email: string;
+  readonly password: string;
+  readonly enrollmentId: string;
+  readonly expectedRevision: number;
+  readonly exercisedCapability: 'account_owner' | 'parent_guardian';
+}): Promise<CallableAttemptResult> {
+  const idToken = await signInForIdToken(input.email, input.password);
+  const response = await fetch(functionsCallableUrl('executeCanonicalCommand'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+    body: JSON.stringify({
+      data: {
+        kind: 'request_course_enrollment_cancellation',
+        intent: { courseEnrollmentId: input.enrollmentId },
+        idempotencyKey: `e2e-cleanup:${input.enrollmentId}:${input.expectedRevision}`,
+        correlationId: `correlation_e2e_cleanup_${input.enrollmentId}`,
+        expectedRevision: input.expectedRevision,
+        exercisedCapability: input.exercisedCapability,
+      },
+    }),
+  });
+  return parseCallableResponse(response.status, (await response.json()) as CallablePayload);
+}
+
 export { E2E_PROJECT_ID };

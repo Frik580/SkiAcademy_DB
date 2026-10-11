@@ -86,6 +86,7 @@ describe('Next Session tile functional adaptation', () => {
     const user = userEvent.setup();
     render(<NextSessionBlock {...props} />);
     const card = screen.getByRole('article');
+    expect(card).toHaveAttribute('data-session-id', 'lesson:family');
     expect(card).toHaveTextContent('10:00–11:00');
     expect(card).toHaveTextContent('Actual coach');
     expect(within(card).getByText('Alice')).toBeInTheDocument();
@@ -177,6 +178,7 @@ describe('Next Session tile functional adaptation', () => {
       />
     );
     const card = screen.getByRole('article');
+    expect(card).toHaveAttribute('data-session-id', 'course_day:course:day');
     expect(card).toHaveTextContent('12:00–14:00');
     expect(within(card).queryByRole('button', { name: /Chat/ })).not.toBeInTheDocument();
     expect(within(card).queryByRole('link')).not.toBeInTheDocument();

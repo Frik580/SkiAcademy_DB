@@ -2,7 +2,7 @@ import { StudentDashboardTileHeader, StudentDashboardTileBody } from './StudentD
 import { memo, useMemo } from 'react';
 import { Award, Sparkles, Trophy, Zap } from 'lucide-react';
 
-import { ScTintCard } from './StudentCabinetUI';
+import './studentTodayAchievements.css';
 import type { TodayProgressBlockInput } from './studentCabinetContracts';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 import { ParticipantScopeIndicator } from './ParticipantScopeIndicator';
@@ -55,7 +55,10 @@ export const PresentedTodayProgressBlock = memo<
       tileKey={STUDENT_DASHBOARD_TILES.todayAchievements.key}
       size={dashboardSize}
     >
-      <section>
+      <section className="sc-today-achievements">
+        <p className="sc-today-achievements-eyebrow">
+          {lang === 'ru' ? 'Аналитика динамики' : 'Progress insights'}
+        </p>
         <StudentDashboardTileHeader
           title={lang === 'ru' ? 'Достижения за сегодня' : 'Today’s Progress'}
           actions={
@@ -66,19 +69,22 @@ export const PresentedTodayProgressBlock = memo<
           }
         />
         <StudentDashboardTileBody>
-          <ScTintCard tint="accent" className="p-4 space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--divider)] pb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-[#30D158]/15 text-[#30D158] flex items-center justify-center shrink-0">
+          <div className="sc-today-achievements-content">
+            <div className="sc-today-achievements-summary">
+              <div
+                className="sc-today-achievements-xp"
+                data-positive={(todayXP ?? 0) > 0 || undefined}
+              >
+                <div className="sc-today-achievements-xp-icon">
                   <Zap className="w-4 h-4" />
                 </div>
                 <div>
                   <p className="text-xs text-[var(--ink-dim)]">
                     {lang === 'ru' ? 'Заработанное за сегодня XP' : 'Today’s Earned XP'}
                   </p>
-                  <p className="text-lg font-bold text-[var(--ink)] tabular-nums">
+                  <p className="sc-today-achievements-xp-value">
                     {todayXP == null ? '—' : '+' + todayXP}{' '}
-                    <span className="text-xs font-semibold text-[#30D158]">XP</span>
+                    <span className="sc-today-achievements-xp-unit">XP</span>
                   </p>
                   {todayXP == null && (
                     <p className="text-xs text-[var(--ink-dim)]">
@@ -91,9 +97,9 @@ export const PresentedTodayProgressBlock = memo<
               </div>
 
               {todayLevelUp && (
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FFD60A]/15 border border-[#FFD60A]/30 text-[#FFD60A]">
+                <div className="sc-today-achievements-level" data-level-up>
                   <Trophy className="w-3.5 h-3.5" />
-                  <span className="text-xs font-bold uppercase tracking-wide">
+                  <span className="text-xs font-semibold">
                     {lang === 'ru'
                       ? `Новый уровень: ${todayLevelUp}`
                       : `New Level: ${todayLevelUp}`}
@@ -102,37 +108,37 @@ export const PresentedTodayProgressBlock = memo<
               )}
 
               {level && !todayLevelUp && (
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--surface-tint)] text-[var(--ink-dim)] text-xs font-medium">
+                <div className="sc-today-achievements-level">
                   <span>{lang === 'ru' ? `Уровень ${level}` : `Level ${level}`}</span>
                 </div>
               )}
             </div>
 
             {/* Exercises evaluated today by instructor */}
-            <div className="space-y-2 pt-1">
+            <div className="sc-today-achievements-exercises">
               <p className="text-xs font-semibold text-[var(--ink)] flex items-center gap-1.5">
-                <Award className="w-4 h-4 text-[#30D158]" />
+                <Award className="w-4 h-4 text-[var(--accent)]" />
                 {lang === 'ru'
                   ? 'Оценки за упражнения от тренера:'
                   : 'Exercise scores from instructor:'}
               </p>
 
               {todayExerciseItems.length > 0 ? (
-                <div className="space-y-1.5">
+                <div className="sc-today-achievements-score-list">
                   {todayExerciseItems.map((item) => (
-                    <div
-                      key={item.itemId}
-                      className="flex items-center justify-between p-2.5 rounded-lg bg-[var(--surface-card)] border border-[var(--border-subtle)] text-xs gap-3"
-                    >
+                    <div key={item.itemId} className="sc-today-achievements-score-row">
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium text-[var(--ink)] truncate">{item.title}</p>
-                        <p className="text-[11px] text-[var(--ink-dim)] mt-0.5">
+                        <p className="sc-today-achievements-exercise-title">{item.title}</p>
+                        <p className="sc-today-achievements-score-detail">
                           {lang === 'ru'
                             ? `Текущий балл: ${item.newScore} / ${item.maxPoints} XP (макс. ${item.maxPoints} XP)`
                             : `Current score: ${item.newScore} / ${item.maxPoints} XP (max ${item.maxPoints} XP)`}
                         </p>
                       </div>
-                      <div className="shrink-0 font-bold text-[#30D158] bg-[#30D158]/10 px-2.5 py-1 rounded-md border border-[#30D158]/20 text-xs tabular-nums">
+                      <div
+                        className="sc-today-achievements-delta"
+                        data-positive={item.delta > 0 || undefined}
+                      >
                         {item.delta >= 0 ? `+${item.delta}` : item.delta} XP
                       </div>
                     </div>
@@ -152,30 +158,29 @@ export const PresentedTodayProgressBlock = memo<
             </div>
 
             {todayAchievements.length > 0 && (
-              <div className="space-y-1.5 pt-2 border-t border-[var(--divider)]">
+              <div className="sc-today-achievements-earned">
                 <p className="text-xs font-semibold text-[var(--ink)] flex items-center gap-1.5">
-                  <Award className="w-4 h-4 text-[#FFD60A]" />
+                  <Award className="w-4 h-4 text-[var(--sc-warning)]" />
                   {lang === 'ru' ? 'Новые достижения сегодня:' : 'New achievements today:'}
                 </p>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="sc-today-achievements-badges">
                   {todayAchievements.map((ach, idx) => (
-                    <span
-                      key={ach.id || idx}
-                      className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-md bg-[#FFD60A]/15 text-[#FFD60A] font-medium border border-[#FFD60A]/30"
-                    >
-                      <Sparkles className="w-3 h-3" />
-                      {ach.label}
+                    <span key={ach.id || idx} className="sc-today-achievements-badge">
+                      <span className="sc-today-achievements-medal" aria-hidden="true">
+                        <Award className="w-4 h-4" />
+                      </span>
+                      <span>{ach.label}</span>
                     </span>
                   ))}
                 </div>
               </div>
             )}
 
-            <div className="pt-1 flex items-start gap-2 text-xs text-[var(--ink-dim)] leading-relaxed italic bg-[var(--surface-card)]/50 p-2.5 rounded-lg border border-[var(--border-subtle)]">
-              <Sparkles className="w-4 h-4 text-[#64D2FF] shrink-0 mt-0.5" />
+            <div className="sc-today-achievements-motivation">
+              <Sparkles className="w-4 h-4 text-[var(--accent)] shrink-0 mt-0.5" />
               <p>{motivationalPhrase}</p>
             </div>
-          </ScTintCard>
+          </div>
         </StudentDashboardTileBody>
       </section>
     </StudentDashboardTile>

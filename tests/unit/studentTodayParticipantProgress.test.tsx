@@ -1,4 +1,4 @@
-import { act, render, screen, within } from '@testing-library/react';
+import { act, render, renderHook, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -6,7 +6,10 @@ import {
   participantProgressDayKey,
   timestampFromDate,
 } from '@ski-academy/shared-domain';
-import { TodayProgressBlock } from '../../src/features/student-cabinet/components/student/StudentTodayProgressBlock';
+import {
+  TodayProgressBlock,
+  PresentedTodayProgressBlock,
+} from '../../src/features/student-cabinet/components/student/StudentTodayProgressBlock';
 import { buildParticipantTodayProgress } from '../../src/features/student-cabinet/components/student/studentTodayProgress';
 import { useParticipantProgressStore } from '../../src/features/participant-progress/participantProgressStore';
 import {
@@ -21,9 +24,12 @@ import { useCabinetProgressParticipantSelection } from '../../src/features/stude
 import { CabinetParticipantAvatarSwitcher } from '../../src/features/student-cabinet/components/CabinetParticipantAvatarSwitcher';
 import { toCabinetParticipantAvatarItems } from '../../src/features/student-cabinet/cabinetParticipantAvatarSwitcherContract';
 import type { ManagedParticipantOption } from '../../src/features/lesson-bookings/lessonBookingContracts';
+import { usePresentedParticipantAchievements } from '../../src/features/participant-achievements/usePresentedParticipantAchievements';
+import { useStudentTodayAchievements } from '../../src/features/student-cabinet/components/student/useStudentTodayAchievements';
 
+const locale = vi.hoisted(() => ({ language: 'en' as 'en' | 'ru' }));
 vi.mock('../../src/app/providers/LanguageContext', () => ({
-  useLanguage: () => ({ language: 'en', t: (key: string) => key }),
+  useLanguage: () => ({ language: locale.language, t: (key: string) => key }),
 }));
 const now = new Date('2026-10-05T20:00:00Z'); // Already Oct 6 in the school, independently of the browser timezone.
 const firstId = ParticipantIdSchema.parse('participant_daily_a');
@@ -113,6 +119,7 @@ function xp() {
   return screen.getByText('Today’s Earned XP').parentElement!;
 }
 beforeEach(() => {
+  locale.language = 'en';
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(now);
   useCabinetProgressParticipantSelectionStore.getState().reset();
@@ -170,6 +177,13 @@ describe('participant daily progress block', () => {
         .getByText('New achievements today:')
         .parentElement!.querySelector('[data-participant-scope]')
     ).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Select Alice' }));
+    expect(block()).toBe(root);
+    expect(xp()).toHaveTextContent('+5 XP');
+    expect(within(root).queryByText(/Current score: 15/)).toBeNull();
+    expect(within(root).getByText('New achievements today:').parentElement!.textContent).toBe(
+      beforeAchievements
+    );
   });
   it('has one scope indicator in the whole-block header and none inside achievements', () => {
     render(<Harness />);
@@ -247,5 +261,144 @@ describe('participant daily progress block', () => {
         now
       ).todayXP
     ).toBe(3);
+  });
+});
+
+describe('today achievements visual data states', () => {
+  it('excludes an evaluated achievement without trustworthy earnedAt from today', () => {
+    useParticipantAchievementsStore.getState().clear();
+    useParticipantProgressStore.getState().upsertItem({ ...a, level: 2 });
+    const input = {
+      selectedParticipantId: firstId,
+      language: 'en' as const,
+      accountReviews: [],
+      achievementsConfig: DEFAULT_ACHIEVEMENTS_CONFIG,
+      skillConfig: DEFAULT_SKILL_CONFIG,
+    };
+    const { result } = renderHook(() => ({
+      all: usePresentedParticipantAchievements(input).achievements,
+      today: useStudentTodayAchievements(input),
+    }));
+    expect(result.current.all.some((item) => !item.earnedAt)).toBe(true);
+    expect(result.current.today).toEqual([]);
+  });
+  it('shows verified zero only when existing evidence keeps the tile visible', () => {
+    useParticipantProgressStore
+      .getState()
+      .upsertItem({ ...a, skillScores: { [firstSkill.id]: 3 } });
+    render(<Harness />);
+    expect(xp()).toHaveTextContent('+0 XP');
+    expect(
+      screen.getByText('No exercise XP assigned by instructor today yet.')
+    ).toBeInTheDocument();
+    expect(block().querySelector('.sc-today-achievements-xp')).not.toHaveAttribute('data-positive');
+  });
+  it('retains unknown XP, real exercise evidence and actual level-up for an incomplete baseline', () => {
+    useParticipantProgressStore
+      .getState()
+      .upsertItem({ ...a, level: 2, dailyProgress: { ...a.dailyProgress!, complete: false } });
+    render(<Harness />);
+    expect(xp()).toHaveTextContent('— XP');
+    expect(screen.getByText(/Current score: 8/)).toBeInTheDocument();
+    expect(screen.getByText('New Level: 2')).toBeInTheDocument();
+    expect(screen.queryByText('Level 2')).toBeNull();
+  });
+  it('preserves multiple exercise limits and net deltas without interactive score controls', () => {
+    const progress = buildParticipantTodayProgress(
+      firstId,
+      {
+        ...a,
+        skillScores: { [firstSkill.id]: 8, [secondSkill.id]: secondSkill.maxPoints + 10 },
+        dailyProgress: {
+          ...a.dailyProgress!,
+          baselineSkillScores: { [firstSkill.id]: 3, [secondSkill.id]: secondSkill.maxPoints - 2 },
+        },
+      },
+      DEFAULT_SKILL_CONFIG,
+      'en',
+      now
+    );
+    render(<PresentedTodayProgressBlock progress={progress} todayAchievements={[]} />);
+    expect(xp()).toHaveTextContent('+7 XP');
+    expect(
+      screen.getByText(
+        `Current score: ${secondSkill.maxPoints} / ${secondSkill.maxPoints} XP (max ${secondSkill.maxPoints} XP)`
+      )
+    ).toBeInTheDocument();
+    expect(block().querySelectorAll('.sc-today-achievements-score-row')).toHaveLength(2);
+    expect(within(block()).queryByRole('button')).toBeNull();
+    expect(screen.queryByText('New achievements today:')).toBeNull();
+  });
+  it('keeps the existing hidden state for no selection, missing/loading evidence and verified empty days', () => {
+    const { rerender } = render(
+      <TodayProgressBlock progress={buildParticipantTodayProgress(undefined, a)} />
+    );
+    expect(screen.queryByText('Today’s Progress')).toBeNull();
+    act(() => useParticipantAchievementsStore.getState().clear());
+    rerender(
+      <TodayProgressBlock
+        selectedParticipantId={firstId}
+        progress={buildParticipantTodayProgress(firstId, undefined)}
+      />
+    );
+    expect(screen.queryByText('Today’s Progress')).toBeNull();
+    rerender(
+      <PresentedTodayProgressBlock
+        progress={{ todayXP: 0, todayLevelUp: null, exercises: [], level: 1 }}
+        todayAchievements={[]}
+      />
+    );
+    expect(screen.queryByText('Today’s Progress')).toBeNull();
+  });
+  it('does not display an older persisted achievement as earned today', () => {
+    useParticipantAchievementsStore.getState().setItems([
+      {
+        participantId: firstId,
+        revision: 2,
+        earned: {
+          first_lesson: {
+            earnedAt: timestampFromDate(new Date('2026-10-05T18:59:59Z')),
+            source: 'participant_attendance',
+          },
+        },
+        updatedAt: timestampFromDate(now),
+      },
+    ]);
+    render(<Harness />);
+    expect(xp()).toHaveTextContent('+5 XP');
+    expect(screen.queryByText('New achievements today:')).toBeNull();
+  });
+  it('uses the resort midnight for baseline expiry without recalculating browser-local XP', () => {
+    for (const instant of ['2026-10-06T18:59:59.999Z', '2026-10-06T19:00:00Z']) {
+      const progress = buildParticipantTodayProgress(
+        firstId,
+        a,
+        DEFAULT_SKILL_CONFIG,
+        'en',
+        new Date(instant)
+      );
+      expect(progress.todayXP).toBe(instant.includes('18:59') ? 5 : null);
+      expect(progress.exercises).toHaveLength(instant.includes('18:59') ? 1 : 0);
+    }
+  });
+  it('retains Russian labels, long achievement names and unknown history', () => {
+    locale.language = 'ru';
+    render(
+      <PresentedTodayProgressBlock
+        progress={{ todayXP: null, todayLevelUp: null, exercises: [], level: 1 }}
+        todayAchievements={[
+          {
+            id: 'fixture',
+            icon: '',
+            label: 'Длинное название подтверждённого достижения для проверки переноса текста',
+          },
+        ]}
+      />
+    );
+    expect(screen.getByText('Достижения за сегодня')).toBeInTheDocument();
+    expect(screen.getByText('Дневная история оценок ещё недоступна.')).toBeInTheDocument();
+    expect(screen.getByText('История оценок за сегодня ещё недоступна.')).toBeInTheDocument();
+    expect(screen.getByText('Уровень 1')).toBeInTheDocument();
+    expect(screen.getByText('Новые достижения сегодня:')).toBeInTheDocument();
   });
 });

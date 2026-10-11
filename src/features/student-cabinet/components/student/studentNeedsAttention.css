@@ -1,0 +1,169 @@
+/* Scoped presentation: account reviews and participant feedback keep their existing owners. */
+.sc-needs-attention {
+  container-type: inline-size;
+  min-width: 0;
+}
+
+.sc-dashboard .sc-needs-attention [data-dashboard-header] {
+  height: auto;
+  min-height: 0;
+}
+
+.sc-dashboard .sc-needs-attention [data-dashboard-title] {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  line-height: 1.5;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sc-warning, var(--ink));
+}
+
+.sc-dashboard .sc-needs-attention [data-dashboard-title]::before {
+  content: '';
+  flex: 0 0 0.375rem;
+  height: 0.375rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.sc-dashboard .sc-needs-attention [data-dashboard-body] {
+  margin-top: 0.625rem;
+}
+
+.sc-attention-subtitle {
+  margin: 0 0 0.75rem;
+  color: var(--ink-dim);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.sc-attention-list {
+  display: grid;
+  gap: 0.625rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sc-attention-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.75rem;
+  background: var(--sc-surface, var(--profile-bg));
+}
+
+.sc-attention-metadata {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  flex: 1 1 9rem;
+  min-width: 0;
+}
+
+.sc-attention-metadata > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.sc-attention-instructor,
+.sc-attention-date {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.sc-attention-instructor {
+  color: var(--ink);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.sc-attention-date {
+  margin-top: 0.125rem;
+  color: var(--ink-dim);
+  font-size: 0.6875rem;
+  line-height: 1.5;
+}
+
+.sc-attention-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem 0.5rem;
+  max-width: 100%;
+}
+
+.sc-needs-attention .sc-attention-actions button {
+  justify-content: center;
+  min-height: 2.75rem;
+  max-width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.5rem;
+  background: var(--card-bg);
+  color: var(--ink);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.sc-needs-attention .sc-attention-actions .sc-attention-review {
+  border-color: color-mix(in srgb, var(--sc-warning, var(--ink)) 28%, transparent);
+  background: color-mix(in srgb, var(--sc-warning, var(--ink)) 6%, var(--card-bg));
+  color: var(--sc-warning, var(--ink));
+}
+
+.sc-needs-attention .sc-attention-actions button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ink) 6%, var(--card-bg));
+  color: var(--ink);
+}
+
+.sc-needs-attention .sc-attention-actions .sc-attention-review:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--sc-warning, var(--ink)) 12%, var(--card-bg));
+  color: var(--sc-warning, var(--ink));
+}
+
+.sc-needs-attention .sc-attention-actions .sc-attention-dismiss {
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-dim);
+}
+
+.sc-needs-attention button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+@container (max-width: 420px) {
+  .sc-attention-metadata,
+  .sc-attention-actions {
+    flex-basis: 100%;
+    width: 100%;
+  }
+
+  .sc-attention-actions .sc-text-button {
+    flex: 1 1 10rem;
+  }
+
+  .sc-attention-actions .sc-attention-recommendations {
+    flex-basis: 100%;
+  }
+
+  .sc-attention-dismiss {
+    margin-left: auto;
+  }
+}

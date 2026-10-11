@@ -29,8 +29,13 @@ test('Student Cabinet weather shares data and unit preference across participant
   const bookingId = `booking_weather_${suffix}`;
   const paymentId = paymentIdFromBookingId(bookingId as never);
   const occurrenceId = `occurrence_weather_${suffix}`;
-  const startsAt = timestampFromDate(new Date('2026-10-11T05:00:00.000Z'));
-  const endsAt = timestampFromDate(new Date('2026-10-11T06:00:00.000Z'));
+  // account_hot uses the Functions clock, which page.clock cannot change.
+  // Keep the lesson safely in the server's future and on the browser's "today".
+  const mockNow = new Date();
+  mockNow.setUTCDate(mockNow.getUTCDate() + 1);
+  mockNow.setUTCHours(2, 0, 0, 0);
+  const startsAt = timestampFromDate(new Date(mockNow.getTime() + 3 * 60 * 60 * 1000));
+  const endsAt = timestampFromDate(new Date(mockNow.getTime() + 4 * 60 * 60 * 1000));
   const audit = {
     createdByCommandId: 'seed_weather',
     lastChangedByCommandId: 'seed_weather',
@@ -39,9 +44,22 @@ test('Student Cabinet weather shares data and unit preference across participant
   const bookingRef = db.doc(`bookings/${bookingId}`);
   const paymentRef = db.doc(`payments/${paymentId}`);
   const weatherRequests: string[] = [];
-  const mockNow = new Date('2026-10-11T02:00:00.000Z');
   const mockCurrentTime = Math.floor(mockNow.getTime() / 1000);
   const mockHour = Math.floor(mockCurrentTime / 3600) * 3600;
+  const browserErrors: string[] = [];
+  let lessonReadModel: unknown;
+  page.on('pageerror', (error) => browserErrors.push(`uncaught: ${error.message}`));
+  page.on('console', (message) => {
+    if (message.type() === 'error') browserErrors.push(message.text());
+  });
+  page.on('response', async (response) => {
+    if (
+      response.url().endsWith('/queryLessonBookingReadModels') &&
+      response.request().postDataJSON()?.data?.scope === 'account_hot'
+    ) {
+      lessonReadModel = await response.json().catch(() => null);
+    }
+  });
 
   try {
     await bookingRef.create(
@@ -118,16 +136,28 @@ test('Student Cabinet weather shares data and unit preference across participant
     });
     await page.addInitScript(() => {
       localStorage.setItem('alpine_glide_lang', 'en');
-      localStorage.setItem('carve_temperature_unit', 'celsius');
+      if (localStorage.getItem('carve_temperature_unit') === null) {
+        localStorage.setItem('carve_temperature_unit', 'celsius');
+      }
     });
     await page.setViewportSize({ width: 1440, height: 1000 });
     await waitForFunctionsEmulatorReady();
+    // Only replace Date; Firebase and React still need real timers/animation frames.
+    await page.clock.setFixedTime(mockNow);
     await signInStudent(page, runtime);
-    await page.clock.install({ time: mockNow });
-    await page.goto('/cabinet', { waitUntil: 'domcontentloaded' });
+    await expect(page).toHaveURL(/\/cabinet$/);
+    await expect
+      .poll(() => lessonReadModel, { timeout: 30_000, message: 'Seeded lesson in account_hot' })
+      .toMatchObject({
+        result: { items: expect.arrayContaining([expect.objectContaining({ bookingId })]) },
+      });
+    await expect(page.getByTestId('student-dashboard-grid')).toBeVisible();
 
     const tile = page.locator('[data-dashboard-tile="weather"]');
     await expect(tile).toBeVisible();
+    // The redesigned left column places weather below the initial viewport.
+    // AnimatedNumber starts only when IntersectionObserver sees the values.
+    await tile.scrollIntoViewIfNeeded();
     await expect(tile).toContainText('Clear');
     await expect(tile).toContainText('82 cm');
     await expect(tile).toContainText('12 km/h');
@@ -143,6 +173,10 @@ test('Student Cabinet weather shares data and unit preference across participant
       .filter({ visible: true });
     const selectParticipant = (participantId: string) =>
       participantSwitcher.locator(`[data-participant-id="${participantId}"]`);
+    await expect(selectParticipant(runtime.studentParticipantId)).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
     await selectParticipant(runtime.studentChildParticipantId).click();
     await expect(selectParticipant(runtime.studentChildParticipantId)).toHaveAttribute(
       'aria-pressed',
@@ -205,15 +239,51 @@ test('Student Cabinet weather shares data and unit preference across participant
     );
     await page.reload({ waitUntil: 'domcontentloaded' });
     await expect(tile).toBeVisible();
+    await tile.scrollIntoViewIfNeeded();
     await expect(tile.getByTestId('weather-temperature')).toHaveText('25°F');
     await expect.poll(() => weatherRequests.length).toBe(2);
 
+    // Sign Out is in the desktop navbar; the viewport loop ends at 320px.
+    await page.setViewportSize({ width: 1440, height: 1000 });
     await page.getByRole('button', { name: 'Sign Out' }).click();
     await expect(page.getByRole('button', { name: 'Sign In', exact: true }).first()).toBeVisible();
+    lessonReadModel = undefined;
     await signInStudentB(page, runtime);
-    await page.goto('/cabinet', { waitUntil: 'domcontentloaded' });
+    await expect(page).toHaveURL(/\/cabinet$/);
+    await expect
+      .poll(() => lessonReadModel, { timeout: 30_000, message: 'Second account data loaded' })
+      .toMatchObject({ result: { scope: 'account_hot' } });
+    await expect(page.getByTestId('student-dashboard-grid')).toBeVisible();
     await expect(page.locator('[data-dashboard-tile="weather"]')).toHaveCount(0);
     healthy();
+  } catch (error) {
+    await info.attach('weather-failure-context', {
+      contentType: 'application/json',
+      body: JSON.stringify({
+        url: page.url(),
+        mockNow: mockNow.toISOString(),
+        startsAt,
+        endsAt,
+        browserErrors,
+        lessonReadModel,
+        weatherRequests,
+        layout: (await db.doc('settings/student_dashboard_layout').get()).data() ?? 'default',
+        page: await page.evaluate(() => ({
+          now: new Date().toISOString(),
+          dark: document.documentElement.classList.contains('dark'),
+          unit: localStorage.getItem('carve_temperature_unit'),
+          tiles: Array.from(document.querySelectorAll('[data-dashboard-tile]'), (tile) =>
+            tile.getAttribute('data-dashboard-tile')
+          ),
+          selectedParticipants: Array.from(
+            document.querySelectorAll('[data-participant-id][aria-pressed="true"]'),
+            (participant) => participant.getAttribute('data-participant-id')
+          ),
+          text: document.querySelector('main')?.innerText,
+        })),
+      }),
+    });
+    throw error;
   } finally {
     await Promise.all([bookingRef.delete(), paymentRef.delete()]);
   }

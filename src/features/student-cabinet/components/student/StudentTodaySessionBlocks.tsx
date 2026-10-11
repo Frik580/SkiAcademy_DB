@@ -9,7 +9,7 @@ import {
   sessionItemKey,
 } from '../../../../features/course-enrollments/sessionScheduleHelpers';
 import { formatCountdownRemaining, formatSessionDayLabel } from './studentCabinetUtils';
-import { ScDivider, ScTextButton, ScTintCard } from './StudentCabinetUI';
+import { ScDivider, ScTextButton } from './StudentCabinetUI';
 import { BookingCallCoachButton } from './BookingCallCoachButton';
 import { LessonFeedbackIndicator } from '../LessonFeedbackIndicator';
 import { ChatUnreadIndicator } from '../../../../features/chat';
@@ -26,6 +26,7 @@ import { StudentDashboardTile } from './StudentDashboardTile';
 import { STUDENT_DASHBOARD_TILES } from '../../../settings/studentDashboardLayout';
 import './studentCurrentSessions.css';
 import './studentCountdown.css';
+import './studentNextSession.css';
 
 // Only numeric values and fixed localized units from the shared formatter enter this markup.
 function countdownMarkup(ms: number, lang: 'en' | 'ru') {
@@ -288,68 +289,95 @@ export const NextSessionBlock = memo<NextSessionBlockInput>(function NextSession
     [nextSessions]
   );
 
+  const calendarLabel = useMemo(() => {
+    const formatter = new Intl.DateTimeFormat(lang === 'ru' ? 'ru-RU' : 'en-US', {
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'UTC',
+    });
+    const labels = miniDays.map(({ dateStr }) =>
+      formatter.format(new Date(`${dateStr}T12:00:00Z`))
+    );
+    return [...new Set(labels)].join(' · ');
+  }, [miniDays, lang]);
+
   return (
-    <section>
+    <section className="sc-next-session">
+      <p className="sc-next-session-eyebrow">{t('scBookedSessionSchedule')}</p>
       <StudentDashboardTileHeader
         title={t('scNextSessionOrCourse')}
         actions={
-          <ScTextButton onClick={() => onGoToTab('calendar')}>{t('scFullCalendar')}</ScTextButton>
+          <ScTextButton
+            onClick={() => onGoToTab('calendar')}
+            className="sc-next-session-calendar-link"
+          >
+            {t('scFullCalendar')}
+          </ScTextButton>
         }
       />
       <StudentDashboardTileBody>
-        <ScTintCard tint="purple" className="px-4 py-4 sm:px-5 space-y-4">
-          <div className="flex justify-between gap-1 text-center text-sm overflow-x-auto no-scrollbar pb-1">
-            {miniDays.map(({ day, dateStr, hasSession, isToday, weekdayLabel }) => {
-              const isUpcomingDay = upcomingDatesSet.has(dateStr);
-              return (
-                <div key={dateStr} className="flex flex-col items-center gap-1 min-w-[2rem] flex-1">
-                  <span
-                    className={`text-[10px] uppercase ${
-                      isToday || isUpcomingDay ? 'text-[#BF5AF2]' : 'text-[var(--ink-dim)]'
-                    }`}
+        <div className="sc-next-session-layout">
+          <div className="sc-next-session-calendar">
+            {calendarLabel && <p className="sc-next-session-month">{calendarLabel}</p>}
+            <div className="sc-next-session-days">
+              {miniDays.map(({ day, dateStr, hasSession, isToday, weekdayLabel }) => {
+                const isUpcomingDay = upcomingDatesSet.has(dateStr);
+                return (
+                  <div
+                    key={dateStr}
+                    className="sc-next-session-day"
+                    data-today={isToday || undefined}
+                    data-upcoming={isUpcomingDay || undefined}
                   >
-                    {weekdayLabel}
-                  </span>
-                  <span
-                    className={`flex h-8 w-8 items-center justify-center rounded-full text-[var(--ink)] ${
-                      isToday || isUpcomingDay ? 'font-bold bg-[#BF5AF2]/20 text-[#BF5AF2]' : ''
-                    } ${isUpcomingDay && !isToday ? 'ring-2 ring-[#BF5AF2]/40' : ''}`}
-                  >
-                    {day}
-                  </span>
-                  <span
-                    className={`text-[10px] ${hasSession ? 'text-[#30D158]' : 'text-[var(--border)]'}`}
-                    title={hasSession ? t('bookedLesson') : t('noLessons')}
-                  >
-                    {hasSession ? '●' : '○'}
-                  </span>
-                </div>
-              );
-            })}
+                    <span className="sc-next-session-weekday">{weekdayLabel}</span>
+                    <span
+                      className="sc-next-session-date"
+                      aria-current={isToday ? 'date' : undefined}
+                    >
+                      {day}
+                    </span>
+                    <span
+                      className="sc-next-session-dot"
+                      data-booked={hasSession || undefined}
+                      title={hasSession ? t('bookedLesson') : t('noLessons')}
+                    >
+                      {hasSession ? '●' : '○'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           {nextSessions.length > 0 ? (
-            <div className="space-y-4 pt-1 border-t border-[#BF5AF2]/15 divide-y divide-[#BF5AF2]/15">
+            <div className="sc-next-session-list">
               {nextSessions.map(({ session, dateStr }, index) => {
                 const isCourseDay = session.kind === 'course_day';
                 return (
-                  <div
+                  <article
                     key={`${sessionItemKey(session)}_${dateStr}_${index}`}
-                    className={index > 0 ? 'pt-3 space-y-1' : 'space-y-1'}
+                    data-session-id={
+                      session.kind === 'lesson'
+                        ? `lesson:${session.session.id}`
+                        : `course_day:${session.courseId}:${session.courseDayId}`
+                    }
+                    className="sc-next-session-card"
                   >
-                    <p className="text-sm font-medium text-[var(--ink-dim)]">
-                      {formatSessionDayLabel(dateStr, lang, t)}
-                    </p>
-                    <p className="text-2xl font-serif font-light text-[var(--ink)]">
-                      {formatCabinetSessionTimeRange(session)}
-                    </p>
-                    <p className="flex items-center gap-2 flex-wrap text-base font-medium text-[var(--ink)]">
+                    <div className="sc-next-session-meta">
+                      <p className="sc-next-session-day-label">
+                        {formatSessionDayLabel(dateStr, lang, t)}
+                      </p>
+                      <p className="sc-next-session-time">
+                        {formatCabinetSessionTimeRange(session)}
+                      </p>
+                    </div>
+                    <h3 className="sc-next-session-title">
                       <span>{getCabinetSessionTitle(session, lang)}</span>
                       {session.kind === 'lesson' && (
                         <LessonFeedbackIndicator lessonBookingId={session.session.id} />
                       )}
-                    </p>
-                    <p className="text-sm text-[var(--ink-dim)]">
+                    </h3>
+                    <p className="sc-next-session-subtitle">
                       {isCourseDay
                         ? formatCourseDayDateLabel(session, lang)
                         : getCabinetSessionSubtitle(session, lang)}
@@ -357,7 +385,7 @@ export const NextSessionBlock = memo<NextSessionBlockInput>(function NextSession
                     <SessionParticipants
                       participants={participantsBySessionKey[sessionItemKey(session)] ?? []}
                     />
-                    <div className="flex flex-wrap gap-4 pt-2">
+                    <div className="sc-next-session-actions">
                       {session.kind === 'lesson' ? (
                         <>
                           <ScTextButton
@@ -391,6 +419,7 @@ export const NextSessionBlock = memo<NextSessionBlockInput>(function NextSession
                             />
                           </ScTextButton>
                           <BookingCallCoachButton
+                            className="sc-next-session-contact"
                             booking={cabinetItemToLegacyPresentation(
                               session.session,
                               usersList[0]?.uid ?? ''
@@ -411,16 +440,14 @@ export const NextSessionBlock = memo<NextSessionBlockInput>(function NextSession
                         )
                       )}
                     </div>
-                  </div>
+                  </article>
                 );
               })}
             </div>
           ) : (
-            <p className="text-sm text-[var(--ink-dim)] pt-1 border-t border-[#BF5AF2]/15">
-              {t('scNoUpcomingSession')}
-            </p>
+            <p className="sc-next-session-empty">{t('scNoUpcomingSession')}</p>
           )}
-        </ScTintCard>
+        </div>
       </StudentDashboardTileBody>
     </section>
   );

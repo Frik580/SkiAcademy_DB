@@ -29,10 +29,7 @@ import { shouldSyncAccountCourseEnrollments } from '../../store/accountCourseEnr
 import type { AppRoutesProps } from './routeTypes';
 
 /** Connects the public home screen to catalogue data and UI actions. */
-export const HomeRouteContainer: React.FC<AppRoutesProps> = ({
-  resortData,
-  setIsFahrenheit,
-}) => {
+export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIsFahrenheit }) => {
   const { t, language } = useLanguage();
   const { theme } = useTheme();
   const authLoading = useAuthStore((state) => state.authLoading);
@@ -41,9 +38,7 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({
   const firebaseUser = useAuthStore((state) => state.firebaseUser);
   const courses = useCoursesStore((state) => state.courses);
   const courseEnrollments = useCourseEnrollmentStore(selectCourseEnrollmentItems);
-  const catalogByCourseId = useCourseEnrollmentStore(
-    selectAllCourseCatalogOperationalStates
-  );
+  const catalogByCourseId = useCourseEnrollmentStore(selectAllCourseCatalogOperationalStates);
   const { participants } = useManagedParticipants(userProfile?.uid);
 
   const selectedParticipantId = useCabinetProgressParticipantSelectionStore(
@@ -57,9 +52,7 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({
       traceCourseEnrollmentCtaIdentity({
         courseId: course.id,
         selectedParticipantId,
-        availableParticipantIds: participants.map(
-          (participant) => participant.participantId
-        ),
+        availableParticipantIds: participants.map((participant) => participant.participantId),
         courseEnrollments,
         accountId: userProfile.uid,
         accountRole: userProfile.role,
@@ -83,18 +76,10 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({
   const filtersEnabled = useSettingsStore((state) => state.filtersEnabled);
   const skillConfig = useSettingsStore((state) => state.skillConfig);
 
-  const setSelectedInstructor = useUiStore(
-    (state) => state.setSelectedInstructor
-  );
-  const setSelectedCourseForAuth = useUiStore(
-    (state) => state.setSelectedCourseForAuth
-  );
-  const setSelectedCourseForDetails = useUiStore(
-    (state) => state.setSelectedCourseForDetails
-  );
-  const setReviewsInstructor = useUiStore(
-    (state) => state.setReviewsInstructor
-  );
+  const setSelectedInstructor = useUiStore((state) => state.setSelectedInstructor);
+  const setSelectedCourseForAuth = useUiStore((state) => state.setSelectedCourseForAuth);
+  const setSelectedCourseForDetails = useUiStore((state) => state.setSelectedCourseForDetails);
+  const setReviewsInstructor = useUiStore((state) => state.setReviewsInstructor);
 
   const {
     filteredInstructors,
@@ -142,10 +127,7 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({
           onToggleUnit={() => setIsFahrenheit(!resortData.isFahrenheit)}
         />
 
-        <YourJourneySection
-          skillConfig={skillConfig}
-          userProfile={null}
-        />
+        <YourJourneySection skillConfig={skillConfig} userProfile={null} />
       </div>
 
       <div className="flex flex-col">
@@ -169,18 +151,11 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({
               }}
             />
 
-            <div
-              id="coaches-grid"
-              className="space-y-10 w-full max-w-[1200px] mx-auto"
-            >
+            <div id="coaches-grid" className="space-y-10 w-full max-w-[1200px] mx-auto">
               <div>
-                <h3 className="ui-section-title">
-                  {t('meetGuides')}
-                </h3>
+                <h3 className="ui-section-title">{t('meetGuides')}</h3>
 
-                <p className="ui-section-eyebrow mt-2">
-                  {t('meetGuidesSub')}
-                </p>
+                <p className="ui-section-eyebrow mt-2">{t('meetGuidesSub')}</p>
               </div>
 
               {filtersEnabled && (

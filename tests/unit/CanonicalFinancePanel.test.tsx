@@ -323,7 +323,9 @@ describe('CanonicalFinancePanel admin test context', () => {
     );
 
     expect(await screen.findByText('adminFinanceAccountUnavailable')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'adminFinanceFundWallet' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'adminFinanceFundWallet' })
+    ).not.toBeInTheDocument();
     expect(mockQueryFinance.mock.calls[0]?.[0]).toMatchObject({
       scope: 'admin_wallet',
       accountId,

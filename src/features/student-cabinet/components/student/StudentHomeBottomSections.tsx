@@ -12,6 +12,8 @@ import { RecommendationIndicator } from '../RecommendationIndicator';
 import { ParticipantScopeIndicator } from './ParticipantScopeIndicator';
 import type { SessionParticipantInput } from './studentCabinetContracts';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
+import { ParticipantAvatarFace } from '../CabinetParticipantAvatarSwitcher';
+import './studentLatestRecommendation.css';
 
 export type StudentCabinetResortSnapshot = ResortConditionsPresentation;
 
@@ -41,7 +43,7 @@ export const StudentLatestRecommendationSection: React.FC<
   const instructorLabel = latest?.instructorName;
 
   return (
-    <section>
+    <section className="sc-latest-recommendation">
       <StudentDashboardTileHeader
         title={t('scLatestCoachRecommendation')}
         actions={
@@ -53,24 +55,37 @@ export const StudentLatestRecommendationSection: React.FC<
       />
       <StudentDashboardTileBody>
         {loading ? (
-          <p className="text-sm text-[var(--ink-dim)]">{t('loading')}</p>
+          <p className="sc-latest-recommendation-state" role="status">
+            {t('loading')}
+          </p>
         ) : !latest || !highlightText ? (
-          <p className="text-sm text-[var(--ink-dim)]">{t('scNoLatestRecommendation')}</p>
+          <p className="sc-latest-recommendation-state">{t('scNoLatestRecommendation')}</p>
         ) : (
-          <ScTintCard tint="amber" className="px-4 py-3.5 space-y-2">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 space-y-1">
-                <p className="text-xs text-[var(--ink-dim)]">
-                  {[dateLabel, instructorLabel].filter(Boolean).join(' · ')}
-                </p>
-                <p className="text-sm text-[var(--ink)] leading-relaxed">{highlightText}</p>
+          <div className="sc-latest-recommendation-content">
+            {(dateLabel || highlightPending) && (
+              <div className="sc-latest-recommendation-meta">
+                {dateLabel && <p className="sc-latest-recommendation-date">{dateLabel}</p>}
+                {highlightPending && <RecommendationIndicator pending />}
               </div>
-              {highlightPending && <RecommendationIndicator pending className="shrink-0 mt-0.5" />}
+            )}
+            <blockquote className="sc-latest-recommendation-quote">{highlightText}</blockquote>
+            <div className="sc-latest-recommendation-footer">
+              {instructorLabel && (
+                <div className="sc-latest-recommendation-coach">
+                  <span className="sc-latest-recommendation-avatar" aria-hidden="true">
+                    <ParticipantAvatarFace name={instructorLabel} />
+                  </span>
+                  <p className="sc-latest-recommendation-name">{instructorLabel}</p>
+                </div>
+              )}
+              <ScTextButton
+                className="sc-latest-recommendation-action"
+                onClick={() => onOpenLesson(latest.lessonBookingId)}
+              >
+                {t('scMoreDetails')}
+              </ScTextButton>
             </div>
-            <ScTextButton onClick={() => onOpenLesson(latest.lessonBookingId)}>
-              {t('scMoreDetails')}
-            </ScTextButton>
-          </ScTintCard>
+          </div>
         )}
       </StudentDashboardTileBody>
     </section>

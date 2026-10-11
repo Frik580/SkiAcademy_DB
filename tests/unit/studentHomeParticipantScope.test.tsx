@@ -24,6 +24,9 @@ import { useSettingsStore } from '../../src/features/settings/settingsStore';
 import { DEFAULT_STUDENT_DASHBOARD_LAYOUT } from '../../src/features/settings/studentDashboardLayout';
 import type { CabinetSessionItem } from '../../src/features/course-enrollments';
 import { canonicalTimestampToEpochMs } from '@ski-academy/shared-domain/canonical/bookingCancellationPolicy';
+import type { LessonFeedbackView } from '../../src/features/student-cabinet/studentLessonFeedbackPresentation';
+
+let latestFeedbackForHome: LessonFeedbackView | null = null;
 
 function cabinetLessonInstant(date: string, time: string): Date {
   const [hour, minute, seconds = '0'] = time.split(':');
@@ -55,8 +58,10 @@ vi.mock('../../src/features/student-cabinet/usePresentedParticipantLessonFeedbac
     incomplete: [],
     contextByLessonId: new Map(),
     flagsByLessonId: new Map(),
-    latestView: null,
-    latestHighlight: null,
+    latestView: latestFeedbackForHome,
+    latestHighlight: latestFeedbackForHome
+      ? { item: latestFeedbackForHome.items[0], isPending: false }
+      : null,
     isLoadingPlaceholder: false,
     feedbackForLesson: () => null,
   }),
@@ -207,6 +212,7 @@ function HeaderAndHome() {
 }
 
 beforeEach(() => {
+  latestFeedbackForHome = null;
   useSettingsStore.getState().setStudentDashboardLayout(undefined);
   vi.mocked(usePresentedParticipantAchievements).mockClear();
   useCabinetProgressParticipantSelectionStore.getState().reset();
@@ -458,11 +464,7 @@ describe('Student Home dashboard grid', () => {
       'xl:gap-5',
       'items-start'
     );
-    expect(columnOrder('left')).toEqual([
-      'weather',
-      'nextStep',
-      'skillRadar',
-    ]);
+    expect(columnOrder('left')).toEqual(['weather', 'nextStep', 'skillRadar']);
     expect(columnOrder('right')).toEqual([
       'todayTasks',
       'nextSession',
@@ -491,11 +493,7 @@ describe('Student Home dashboard grid', () => {
         tiles: { weather: { desktopSize: 'small', allowAutoGrow: false } },
       })
     );
-    expect(columnOrder('left')).toEqual([
-      'weather',
-      'skillRadar',
-      'nextStep',
-    ]);
+    expect(columnOrder('left')).toEqual(['weather', 'skillRadar', 'nextStep']);
     expect(columnOrder('right')).toEqual([
       'nextSession',
       'todayTasks',
@@ -763,6 +761,64 @@ afterEach(() => {
 });
 
 describe('Student Home participant scope', () => {
+  it.each([true, false])(
+    'latest recommendation preserves lesson navigation with ID callback=%s',
+    async (idCallback) => {
+      const booking: Booking = {
+        id: 'canonical_feedback_lesson',
+        userId: accountProfile.uid,
+        instructorId: 'coach',
+        instructorName: 'Coach',
+        instructorAvatar: '',
+        date: '2026-10-03',
+        time: '10:00',
+        durationHours: 1,
+        totalPrice: 10000,
+        status: 'completed',
+        difficulty: 'beginner',
+      };
+      latestFeedbackForHome = {
+        participantId: 'alice',
+        lessonBookingId: booking.id,
+        revision: 1,
+        hasPending: false,
+        items: [
+          {
+            participantId: 'alice',
+            lessonBookingId: booking.id,
+            itemId: 'done',
+            text: 'Actual completed recommendation',
+            completed: true,
+            revision: 1,
+          },
+        ],
+      };
+      const onOpenLesson = vi.fn();
+      const onOpenLessonByBookingId = vi.fn();
+      render(
+        <MemoryRouter>
+          <StudentCabinetHome
+            {...input('alice')}
+            bookings={idCallback ? [] : [booking]}
+            onOpenLesson={onOpenLesson}
+            onOpenLessonByBookingId={idCallback ? onOpenLessonByBookingId : undefined}
+          />
+        </MemoryRouter>
+      );
+      const tile = document.querySelector(
+        '[data-dashboard-tile="instructorRecommendations"]'
+      ) as HTMLElement;
+      await userEvent.click(within(tile).getByRole('button', { name: 'scMoreDetails' }));
+      if (idCallback) {
+        expect(onOpenLessonByBookingId).toHaveBeenCalledWith(booking.id);
+        expect(onOpenLesson).not.toHaveBeenCalled();
+      } else {
+        expect(onOpenLesson).toHaveBeenCalledWith(booking);
+        expect(onOpenLessonByBookingId).not.toHaveBeenCalled();
+      }
+    }
+  );
+
   it('does not pass account review evidence into the participant daily achievements block', () => {
     render(
       <MemoryRouter>

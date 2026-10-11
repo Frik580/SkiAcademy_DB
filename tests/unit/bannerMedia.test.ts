@@ -64,8 +64,7 @@ describe('deriveBannerVideoUrl', () => {
   });
 
   it('keeps direct video URLs unchanged', () => {
-    const girl =
-      'https://storage.yandexcloud.net/carve/images/girl.mp4';
+    const girl = 'https://storage.yandexcloud.net/carve/images/girl.mp4';
     expect(deriveBannerVideoUrl(girl)).toBe(girl);
     expect(deriveBannerVideoUrl('https://cdn.example.com/clip.webm?v=1')).toBe(
       'https://cdn.example.com/clip.webm?v=1'
@@ -78,9 +77,7 @@ describe('deriveBannerVideoUrl', () => {
 
 describe('isBannerVideoUrl', () => {
   it('detects common video extensions on the path', () => {
-    expect(
-      isBannerVideoUrl('https://storage.yandexcloud.net/carve/images/girl.mp4')
-    ).toBe(true);
+    expect(isBannerVideoUrl('https://storage.yandexcloud.net/carve/images/girl.mp4')).toBe(true);
     expect(isBannerVideoUrl('https://cdn.example.com/a.webm')).toBe(true);
     expect(isBannerVideoUrl('https://cdn.example.com/a.mov?x=1')).toBe(true);
     expect(isBannerVideoUrl('https://cdn.example.com/a.jpg')).toBe(false);

@@ -314,7 +314,9 @@ describe('storage TEST namespace isolation', () => {
     await seedTestStorageIsolationFixtures(testEnv);
 
     await seedStorageFirestore(testEnv, async (db) => {
-      await deleteDoc(doc(db, 'test_sessions', STORAGE_TEST_SESSION_A, 'membership', STORAGE_ADMIN_ID));
+      await deleteDoc(
+        doc(db, 'test_sessions', STORAGE_TEST_SESSION_A, 'membership', STORAGE_ADMIN_ID)
+      );
     });
     const adminWithoutContext = testEnv.authenticatedContext(STORAGE_ADMIN_ID).storage();
     await assertFails(

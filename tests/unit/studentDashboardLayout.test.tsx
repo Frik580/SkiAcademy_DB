@@ -75,15 +75,18 @@ describe('fixed dashboard order', () => {
     ] as const;
     const layout = normalizeStudentDashboardLayout({ version: 1, order: legacyOrder });
 
-    expect(layout.order).toEqual(legacyOrder.concat(
-      defaults.order.filter((key) => !legacyOrder.includes(key))
-    ));
-    expect(layout.order.filter((key) => getDashboardColumnKeys('left').includes(key))).not.toContain(
-      'instructorRecommendations'
+    expect(layout.order).toEqual(
+      legacyOrder.concat(defaults.order.filter((key) => !legacyOrder.includes(key)))
     );
     expect(
-      layout.order.filter((key) => getDashboardColumnKeys('right').includes(key))
-    ).toEqual(['instructorRecommendations', 'todayTasks', 'nextSession', 'todayAchievements']);
+      layout.order.filter((key) => getDashboardColumnKeys('left').includes(key))
+    ).not.toContain('instructorRecommendations');
+    expect(layout.order.filter((key) => getDashboardColumnKeys('right').includes(key))).toEqual([
+      'instructorRecommendations',
+      'todayTasks',
+      'nextSession',
+      'todayAchievements',
+    ]);
   });
   it('rejects incomplete and duplicate writes', () => {
     expect(() => validateStudentDashboardLayout({ ...defaults, order: ['weather'] })).toThrow();

@@ -140,7 +140,13 @@ export const CanonicalCourseDatabaseList: React.FC<CanonicalCourseDatabaseListPr
             </button>
             <div className="mt-3 flex flex-wrap items-center gap-1.5">
               <AdminCourseStatusChip tone={lifecycle === 'archived' ? 'archived' : 'active'}>
-                {lifecycle === 'archived' ? (ru ? 'Архив' : 'Archived') : ru ? 'Активный' : 'Active'}
+                {lifecycle === 'archived'
+                  ? ru
+                    ? 'Архив'
+                    : 'Archived'
+                  : ru
+                    ? 'Активный'
+                    : 'Active'}
               </AdminCourseStatusChip>
               {full ? (
                 <AdminCourseStatusChip tone="attention">
@@ -252,17 +258,14 @@ function CourseRowMenu({
   items,
 }: {
   readonly label: string;
-  readonly items: ReadonlyArray<
-    | {
-        readonly key: string;
-        readonly label: string;
-        readonly icon?: React.ReactNode;
-        readonly destructive?: boolean;
-        readonly disabled?: boolean;
-        readonly onClick: () => void;
-      }
-    | null
-  >;
+  readonly items: ReadonlyArray<{
+    readonly key: string;
+    readonly label: string;
+    readonly icon?: React.ReactNode;
+    readonly destructive?: boolean;
+    readonly disabled?: boolean;
+    readonly onClick: () => void;
+  } | null>;
 }) {
   const [open, setOpen] = useState(false);
   const visible = items.filter((item): item is NonNullable<typeof item> => item !== null);

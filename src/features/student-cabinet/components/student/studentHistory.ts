@@ -124,7 +124,9 @@ const mapActivityLogToHistoryEvent = (
         );
       }
       if (meta.difficulty ?? linkedBooking?.difficulty) {
-        subtitleParts.push(getDifficultyShort(meta.difficulty ?? linkedBooking!.difficulty, language));
+        subtitleParts.push(
+          getDifficultyShort(meta.difficulty ?? linkedBooking!.difficulty, language)
+        );
       }
 
       return {

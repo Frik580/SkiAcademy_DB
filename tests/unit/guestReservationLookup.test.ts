@@ -36,7 +36,9 @@ describe('saved guest reservation reference', () => {
 
   it('suppresses a stale course fallback without a saved pointer', () => {
     forgetGuestReservation('course', 'course_02', 'enrollment_unavailable');
-    expect(wasGuestReservationForgotten('course', 'course_02', 'enrollment_unavailable')).toBe(true);
+    expect(wasGuestReservationForgotten('course', 'course_02', 'enrollment_unavailable')).toBe(
+      true
+    );
     expect(rememberedGuestReservation('course', 'course_02')).toBeNull();
   });
 });

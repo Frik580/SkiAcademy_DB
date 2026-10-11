@@ -632,7 +632,9 @@ export const AdminTestingPanel: React.FC = () => {
             ))}
           </fieldset>
           <fieldset>
-            <legend className="text-sm text-[var(--ink-dim)]">{t('adminTestingSelectParents')}</legend>
+            <legend className="text-sm text-[var(--ink-dim)]">
+              {t('adminTestingSelectParents')}
+            </legend>
             {parentActors.map((actor) => (
               <label key={actor.accountId} className="mt-1 flex gap-2 text-xs text-[var(--ink)]">
                 <input
@@ -723,7 +725,12 @@ export const AdminTestingPanel: React.FC = () => {
           </ActionButton>
           <ActionButton
             variant="secondary"
-            disabled={!selectedSession || selectedSession.status !== 'active' || lifecyclePending || maintenanceLocked}
+            disabled={
+              !selectedSession ||
+              selectedSession.status !== 'active' ||
+              lifecyclePending ||
+              maintenanceLocked
+            }
             onClick={() =>
               selectedSession &&
               void runLifecycle({

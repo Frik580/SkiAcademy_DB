@@ -86,7 +86,8 @@ export function AdminClientParticipantDetail({
       ) : null}
       <section className="space-y-2 border border-[var(--border)] p-4 text-xs">
         <p>
-          {text.participantSkillLevel}: {adminClientSkillLevelLabel(detail.profile.skillLevel) ?? '—'}
+          {text.participantSkillLevel}:{' '}
+          {adminClientSkillLevelLabel(detail.profile.skillLevel) ?? '—'}
         </p>
         <p>
           {text.discipline}: {adminClientDisciplineLabel(detail.profile.discipline, text)}

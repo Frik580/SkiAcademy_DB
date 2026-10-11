@@ -77,8 +77,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   const { t, language } = useLanguage();
   const guestSkillOptions = GUEST_SKILL_LEVELS.map((value) => ({
     value,
-    label:
-      value === 'expert' ? t('journeyLevelExpert') : getParticipantSkillLabel(value, language),
+    label: value === 'expert' ? t('journeyLevelExpert') : getParticipantSkillLabel(value, language),
   }));
   const { formatPrice } = useCurrency();
   const { addNotification } = useNotifications();

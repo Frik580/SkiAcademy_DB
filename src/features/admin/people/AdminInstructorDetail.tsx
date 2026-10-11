@@ -364,19 +364,25 @@ export function AdminInstructorDetail({
           ) : null}
           {detail.bioRu ? (
             <div>
-              <dt className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">{text.bioRu}</dt>
+              <dt className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">
+                {text.bioRu}
+              </dt>
               <dd className="whitespace-pre-wrap">{detail.bioRu}</dd>
             </div>
           ) : null}
           {detail.bioEn ? (
             <div>
-              <dt className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">{text.bioEn}</dt>
+              <dt className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">
+                {text.bioEn}
+              </dt>
               <dd className="whitespace-pre-wrap">{detail.bioEn}</dd>
             </div>
           ) : null}
           {!detail.bioRu && !detail.bioEn && detail.bio ? (
             <div>
-              <dt className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">{text.bioRu}</dt>
+              <dt className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">
+                {text.bioRu}
+              </dt>
               <dd className="whitespace-pre-wrap">{detail.bio}</dd>
             </div>
           ) : null}

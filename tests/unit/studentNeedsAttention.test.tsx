@@ -212,7 +212,9 @@ describe('Needs Attention presentation preserves existing actions', () => {
     const view = render(<PresentedTile {...props} />);
     expect(row('lesson-a')).toBeInTheDocument();
     expect(row('lesson-b')).toBeInTheDocument();
-    expect(within(row('lesson-a')).getByRole('button', { name: 'Open recommendations' })).toBeVisible();
+    expect(
+      within(row('lesson-a')).getByRole('button', { name: 'Open recommendations' })
+    ).toBeVisible();
     expect(within(row('lesson-a')).getByRole('button', { name: 'Write Review' })).toBeVisible();
     expect(
       within(row('lesson-b')).queryByRole('button', { name: 'Open recommendations' })

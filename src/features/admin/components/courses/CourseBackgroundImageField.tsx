@@ -4,7 +4,11 @@ import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { useNotifications } from '../../../../features/notifications';
 import { optimizeCourseImage } from './courseImage';
 import { uploadImage } from '../../../../infrastructure/firebase';
-import { liveCourseCoverStoragePath, parseResourceStorageScope, assertTestStorageClientReachable } from '@ski-academy/shared-domain';
+import {
+  liveCourseCoverStoragePath,
+  parseResourceStorageScope,
+  assertTestStorageClientReachable,
+} from '@ski-academy/shared-domain';
 import { logger } from '../../../../shared';
 
 interface CourseBackgroundImageFieldProps {

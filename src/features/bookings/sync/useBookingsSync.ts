@@ -72,11 +72,13 @@ export const useBookingsSync = () => {
       return onSnapshot(
         doc(db, 'instructors', instructorId!),
         (snapshot) => {
-          useBookingsStore.getState().setInstructors(
-            liveCatalogueInstructors(
-              snapshot.exists() ? [{ id: snapshot.id, data: snapshot.data() }] : []
-            )
-          );
+          useBookingsStore
+            .getState()
+            .setInstructors(
+              liveCatalogueInstructors(
+                snapshot.exists() ? [{ id: snapshot.id, data: snapshot.data() }] : []
+              )
+            );
         },
         (error) => handleFirestoreError(error, OperationType.GET, 'instructors')
       );
@@ -109,16 +111,14 @@ export const useBookingsSync = () => {
       instructorsQuery,
       (snapshot) => {
         if (useAuthStore.getState().firebaseUser?.uid) return;
-        useBookingsStore
-          .getState()
-          .setInstructors(
-            liveCatalogueInstructors(
-              snapshot.docs.map((instructorDoc) => ({
-                id: instructorDoc.id,
-                data: instructorDoc.data(),
-              }))
-            )
-          );
+        useBookingsStore.getState().setInstructors(
+          liveCatalogueInstructors(
+            snapshot.docs.map((instructorDoc) => ({
+              id: instructorDoc.id,
+              data: instructorDoc.data(),
+            }))
+          )
+        );
       },
       (error) => handleFirestoreError(error, OperationType.LIST, 'instructors')
     );

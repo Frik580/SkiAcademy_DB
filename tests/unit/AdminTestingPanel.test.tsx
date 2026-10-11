@@ -189,7 +189,9 @@ describe('AdminTestingPanel', () => {
       `testSession=${activeSessionB.testSessionId}`
     );
     expect(screen.getAllByText('adminTestingBanner').length).toBeGreaterThan(0);
-    expect(screen.getByTestId('location-search')).not.toHaveTextContent(activeSession.testSessionId);
+    expect(screen.getByTestId('location-search')).not.toHaveTextContent(
+      activeSession.testSessionId
+    );
   });
 
   it('uses only bounded TestSession management reads before a Test context is opened', async () => {

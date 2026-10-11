@@ -110,7 +110,8 @@ export const CanonicalCourseDaysEditor: React.FC<CanonicalCourseDaysEditorProps>
   const can = (kind: AdminCourseReadModel['authorizedActions'][number]['kind']) =>
     course.authorizedActions.some((action) => action.kind === kind);
   const canEditDay = can('reschedule_course_day') || can('reassign_course_day_instructor');
-  const nameFor = (id: string) => instructors.find((instructor) => instructor.id === id)?.name ?? id;
+  const nameFor = (id: string) =>
+    instructors.find((instructor) => instructor.id === id)?.name ?? id;
   const inactive = (id: string) =>
     instructors.find((instructor) => instructor.id === id)?.inactive === true;
   const issueFor = (day: CourseDayRecord) =>
@@ -176,9 +177,7 @@ export const CanonicalCourseDaysEditor: React.FC<CanonicalCourseDaysEditorProps>
           onChange={onDraftChange}
           onSubmit={onSubmit}
           onCancel={() => onDraftChange(null)}
-          onRemove={
-            editingDay && can('remove_course_day') ? () => onRemove(editingDay) : undefined
-          }
+          onRemove={editingDay && can('remove_course_day') ? () => onRemove(editingDay) : undefined}
         />
       ) : null}
 

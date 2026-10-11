@@ -48,4 +48,4 @@ export const formatSessionDayLabel = (
 export const getDifficultyShort = (
   difficulty: Booking['difficulty'] | undefined,
   language: 'ru' | 'en' = 'en'
-) => difficulty ? getDifficultyLabel(difficulty, language) : '';
+) => (difficulty ? getDifficultyLabel(difficulty, language) : '');

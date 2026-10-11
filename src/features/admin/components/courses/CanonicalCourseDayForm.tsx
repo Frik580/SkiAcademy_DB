@@ -122,11 +122,23 @@ export const CanonicalCourseDayForm: React.FC<CanonicalCourseDayFormProps> = ({
         >
           {ru ? 'Сохранить день' : 'Save day'}
         </ActionButton>
-        <ActionButton type="button" size="sm" variant="secondary" disabled={pending} onClick={onCancel}>
+        <ActionButton
+          type="button"
+          size="sm"
+          variant="secondary"
+          disabled={pending}
+          onClick={onCancel}
+        >
           {ru ? 'Отмена' : 'Cancel'}
         </ActionButton>
         {onRemove && removeLabel ? (
-          <ActionButton type="button" size="sm" variant="danger" disabled={pending} onClick={onRemove}>
+          <ActionButton
+            type="button"
+            size="sm"
+            variant="danger"
+            disabled={pending}
+            onClick={onRemove}
+          >
             {removeLabel}
           </ActionButton>
         ) : null}

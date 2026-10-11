@@ -14,8 +14,7 @@ const STATUS_TONE = {
     'border-slate-500/20 bg-slate-500/10 text-slate-700 dark:border-slate-500/30 dark:text-slate-300',
   attention:
     'border-amber-500/25 bg-amber-500/10 text-amber-800 dark:border-amber-400/30 dark:text-amber-200',
-  neutral:
-    'border-[var(--border)] bg-[var(--profile-bg)] text-[var(--ink-dim)]',
+  neutral: 'border-[var(--border)] bg-[var(--profile-bg)] text-[var(--ink-dim)]',
   info: 'border-[color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[var(--accent-muted)] text-[var(--accent)]',
 } as const;
 

@@ -297,8 +297,7 @@ export async function queryParticipantLessonFeedbackReadModels(
 export async function queryTestSessionReadModels(
   input: QueryTestSessionReadModelsInput
 ): Promise<QueryTestSessionReadModelsResult> {
-  const target =
-    input.scope === 'test_session_inventory' ? input.testSessionId : input.scope;
+  const target = input.scope === 'test_session_inventory' ? input.testSessionId : input.scope;
   return invokeCanonicalReadCallable<
     QueryTestSessionReadModelsInput,
     QueryTestSessionReadModelsResult

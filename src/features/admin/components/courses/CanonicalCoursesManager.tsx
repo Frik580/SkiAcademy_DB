@@ -22,7 +22,11 @@ import { executeAuthenticatedCanonicalCommand } from '../../../../lib/canonical/
 import { toCanonicalCommandClientError } from '../../../../lib/canonical/mapCanonicalCommandError';
 import { Loader2, RefreshCw, X } from 'lucide-react';
 import { AdminLessonDetailTabs } from '../../lesson-bookings/AdminLessonBookingUi';
-import { AdminCourseStatusChip, adminFormControls, adminRecordCardClass } from './adminCourseSurface';
+import {
+  AdminCourseStatusChip,
+  adminFormControls,
+  adminRecordCardClass,
+} from './adminCourseSurface';
 import { ActionButton } from '../../../../ui/ActionButton';
 import {
   queryAdminCourseReadModels,
@@ -153,7 +157,7 @@ function minutesForDayTimes(startTime: string, endTime: string): number | undefi
 
 function endTimeFromDuration(startTime: string, durationMinutes: number): string {
   const [hour, minute] = startTime.split(':').map(Number);
-  const end = ((hour! * 60 + minute! + durationMinutes) % (24 * 60) + 24 * 60) % (24 * 60);
+  const end = (((hour! * 60 + minute! + durationMinutes) % (24 * 60)) + 24 * 60) % (24 * 60);
   return `${String(Math.floor(end / 60)).padStart(2, '0')}:${String(end % 60).padStart(2, '0')}`;
 }
 
@@ -163,7 +167,12 @@ function createCourseDayRowsFromSerialized(value: string): CreateCourseDayRow[] 
     .map((line) => line.trim().split(/\s+/))
     .filter((parts) => parts.length === 4)
     .flatMap((parts) => {
-      const [localDate, startTime, durationText, instructorId] = parts as [string, string, string, string];
+      const [localDate, startTime, durationText, instructorId] = parts as [
+        string,
+        string,
+        string,
+        string,
+      ];
       const durationMinutes = Number(durationText);
       if (
         !isValidCalendarDate(localDate) ||
@@ -231,7 +240,11 @@ function createCourseDayRowsForPeriod(
 
 function plannerDateWindows(localDates: readonly string[]) {
   const sortedDates = [...new Set(localDates.filter(isValidCalendarDate))].sort();
-  const windows: Array<{ readonly localDate: string; readonly dates: string[]; readonly windowDays: number }> = [];
+  const windows: Array<{
+    readonly localDate: string;
+    readonly dates: string[];
+    readonly windowDays: number;
+  }> = [];
   let index = 0;
   while (index < sortedDates.length) {
     const localDate = sortedDates[index]!;
@@ -292,14 +305,22 @@ function courseDurationSummary(rows: readonly CreateCourseDayRow[], language: 'e
   const totalMinutes = durations.reduce((sum, value) => sum + value, 0);
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
-  const time = language === 'ru'
-    ? `${hours ? `${hours} ч.` : ''}${minutes ? `${hours ? ' ' : ''}${minutes} мин.` : ''}`
-    : `${hours ? `${hours} hr${hours === 1 ? '' : 's'}` : ''}${minutes ? `${hours ? ' ' : ''}${minutes} min` : ''}`;
+  const time =
+    language === 'ru'
+      ? `${hours ? `${hours} ч.` : ''}${minutes ? `${hours ? ' ' : ''}${minutes} мин.` : ''}`
+      : `${hours ? `${hours} hr${hours === 1 ? '' : 's'}` : ''}${minutes ? `${hours ? ' ' : ''}${minutes} min` : ''}`;
   const dayCount = durations.length;
   if (language === 'ru') {
     const lastTwo = dayCount % 100;
     const last = dayCount % 10;
-    const noun = lastTwo >= 11 && lastTwo <= 14 ? 'дней' : last === 1 ? 'день' : last >= 2 && last <= 4 ? 'дня' : 'дней';
+    const noun =
+      lastTwo >= 11 && lastTwo <= 14
+        ? 'дней'
+        : last === 1
+          ? 'день'
+          : last >= 2 && last <= 4
+            ? 'дня'
+            : 'дней';
     return `${dayCount} ${noun} (${time})`;
   }
   return `${dayCount} ${dayCount === 1 ? 'day' : 'days'} (${time})`;
@@ -346,9 +367,7 @@ function isValidCalendarDate(value: string): boolean {
   date.setUTCFullYear(year, month - 1, day);
   date.setUTCHours(0, 0, 0, 0);
   return (
-    date.getUTCFullYear() === year &&
-    date.getUTCMonth() === month - 1 &&
-    date.getUTCDate() === day
+    date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
   );
 }
 
@@ -659,7 +678,10 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
         } catch {
           return {
             dates: window.dates,
-            availability: { loading: false, error: 'read-failed' } satisfies PlannerAvailabilityForDate,
+            availability: {
+              loading: false,
+              error: 'read-failed',
+            } satisfies PlannerAvailabilityForDate,
           };
         }
       })
@@ -856,7 +878,9 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
     createAttemptRef.current = null;
     setCreateFormError(null);
     setCreateValidationIssues((issues) =>
-      issues.filter((issue) => issue.field !== field && !(field === 'roster' && issue.field === 'days'))
+      issues.filter(
+        (issue) => issue.field !== field && !(field === 'roster' && issue.field === 'days')
+      )
     );
     setCreateForm((state) => ({ ...state, [field]: value }));
   };
@@ -1068,63 +1092,75 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
       const dayField = path[dayIndex > 0 ? 2 : 1];
       let message: string;
       if (field === 'days' && dayField === 'localDate') {
-        message = language === 'ru'
-          ? `Строка ${dayIndex}: укажите существующую дату в формате YYYY-MM-DD.`
-          : `Line ${dayIndex}: enter a real date in YYYY-MM-DD format.`;
+        message =
+          language === 'ru'
+            ? `Строка ${dayIndex}: укажите существующую дату в формате YYYY-MM-DD.`
+            : `Line ${dayIndex}: enter a real date in YYYY-MM-DD format.`;
       } else if (field === 'days' && dayField === 'localTime') {
-        message = language === 'ru'
-          ? `Строка ${dayIndex}: укажите время в формате HH:mm.`
-          : `Line ${dayIndex}: enter a time in HH:mm format.`;
+        message =
+          language === 'ru'
+            ? `Строка ${dayIndex}: укажите время в формате HH:mm.`
+            : `Line ${dayIndex}: enter a time in HH:mm format.`;
       } else if (field === 'days' && dayField === 'durationMinutes') {
-        message = language === 'ru'
-          ? `Строка ${dayIndex}: длительность должна быть целым числом от 15 до 1440 минут.`
-          : `Line ${dayIndex}: duration must be a whole number from 15 to 1440 minutes.`;
+        message =
+          language === 'ru'
+            ? `Строка ${dayIndex}: длительность должна быть целым числом от 15 до 1440 минут.`
+            : `Line ${dayIndex}: duration must be a whole number from 15 to 1440 minutes.`;
       } else if (field === 'days' && dayField === 'instructorId') {
-        message = language === 'ru'
-          ? `Строка ${dayIndex}: укажите корректный ID инструктора из состава курса.`
-          : `Line ${dayIndex}: enter a valid instructor ID from the course roster.`;
+        message =
+          language === 'ru'
+            ? `Строка ${dayIndex}: укажите корректный ID инструктора из состава курса.`
+            : `Line ${dayIndex}: enter a valid instructor ID from the course roster.`;
       } else if (field === 'days') {
-        message = language === 'ru'
-          ? 'Добавьте хотя бы один день; дни должны идти в хронологическом порядке.'
-          : 'Add at least one CourseDay and keep days in chronological order.';
+        message =
+          language === 'ru'
+            ? 'Добавьте хотя бы один день; дни должны идти в хронологическом порядке.'
+            : 'Add at least one CourseDay and keep days in chronological order.';
       } else if (field === 'roster') {
-        message = language === 'ru'
-          ? 'Выберите от 1 до 16 корректных инструкторов курса.'
-          : 'Select between 1 and 16 valid Course instructors.';
+        message =
+          language === 'ru'
+            ? 'Выберите от 1 до 16 корректных инструкторов курса.'
+            : 'Select between 1 and 16 valid Course instructors.';
       } else if (field === 'timeZone') {
-        message = language === 'ru'
-          ? 'Укажите корректный часовой пояс IANA, например Asia/Almaty.'
-          : 'Enter a valid IANA time zone, such as Asia/Almaty.';
+        message =
+          language === 'ru'
+            ? 'Укажите корректный часовой пояс IANA, например Asia/Almaty.'
+            : 'Enter a valid IANA time zone, such as Asia/Almaty.';
       } else if (field === 'title') {
-        message = language === 'ru'
-          ? 'Название обязательно и должно содержать не более 200 символов.'
-          : 'Title is required and must be at most 200 characters.';
+        message =
+          language === 'ru'
+            ? 'Название обязательно и должно содержать не более 200 символов.'
+            : 'Title is required and must be at most 200 characters.';
       } else if (field === 'price') {
-        message = language === 'ru'
-          ? 'Укажите целую сумму в KZT в допустимом диапазоне.'
-          : 'Enter a whole-number KZT price in the allowed range.';
+        message =
+          language === 'ru'
+            ? 'Укажите целую сумму в KZT в допустимом диапазоне.'
+            : 'Enter a whole-number KZT price in the allowed range.';
       } else if (field === 'totalSeats') {
         message = text.capacityRange;
       } else if (field === 'duration') {
-        message = language === 'ru'
-          ? 'Укажите длительность курса (не более 200 символов).'
-          : 'Enter a course duration of at most 200 characters.';
+        message =
+          language === 'ru'
+            ? 'Укажите длительность курса (не более 200 символов).'
+            : 'Enter a course duration of at most 200 characters.';
       } else if (field === 'bgImageUrl') {
-        message = language === 'ru'
-          ? 'Укажите корректный URL изображения.'
-          : 'Enter a valid image URL.';
+        message =
+          language === 'ru' ? 'Укажите корректный URL изображения.' : 'Enter a valid image URL.';
       } else if (field === 'titleRu') {
-        message = language === 'ru'
-          ? 'Название на русском должно содержать не более 200 символов.'
-          : 'Russian title must be at most 200 characters.';
+        message =
+          language === 'ru'
+            ? 'Название на русском должно содержать не более 200 символов.'
+            : 'Russian title must be at most 200 characters.';
       } else if (field === 'description') {
-        message = language === 'ru'
-          ? 'Описание должно содержать не более 10 000 символов.'
-          : 'Description must be at most 10,000 characters.';
+        message =
+          language === 'ru'
+            ? 'Описание должно содержать не более 10 000 символов.'
+            : 'Description must be at most 10,000 characters.';
       } else {
-        message = language === 'ru'
-          ? 'Проверьте значение и допустимую длину поля.'
-          : 'Check this value and the allowed field length.';
+        message =
+          language === 'ru'
+            ? 'Проверьте значение и допустимую длину поля.'
+            : 'Check this value and the allowed field length.';
       }
       return makeIssue(field, message, `${path.join('.') || field}:${issue.code}`);
     };
@@ -1132,29 +1168,42 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
     try {
       const issues: CreateFormValidationIssue[] = [];
       if (!createForm.title.trim()) {
-        issues.push(makeIssue('title', language === 'ru' ? 'Укажите название курса.' : 'Enter a course title.'));
+        issues.push(
+          makeIssue(
+            'title',
+            language === 'ru' ? 'Укажите название курса.' : 'Enter a course title.'
+          )
+        );
       }
       if (!createForm.discipline) {
-        issues.push(makeIssue(
-          'discipline',
-          language === 'ru' ? 'Выберите дисциплину курса.' : 'Select a course discipline.'
-        ));
+        issues.push(
+          makeIssue(
+            'discipline',
+            language === 'ru' ? 'Выберите дисциплину курса.' : 'Select a course discipline.'
+          )
+        );
       }
       if (!createForm.price.trim()) {
-        issues.push(makeIssue('price', language === 'ru' ? 'Укажите цену в KZT.' : 'Enter a KZT price.'));
+        issues.push(
+          makeIssue('price', language === 'ru' ? 'Укажите цену в KZT.' : 'Enter a KZT price.')
+        );
       }
       if (!createForm.totalSeats.trim()) {
         issues.push(makeIssue('totalSeats', text.capacityRange));
       }
       if (!createForm.timeZone.trim()) {
-        issues.push(makeIssue('timeZone', language === 'ru' ? 'Укажите часовой пояс.' : 'Enter a time zone.'));
+        issues.push(
+          makeIssue('timeZone', language === 'ru' ? 'Укажите часовой пояс.' : 'Enter a time zone.')
+        );
       } else if (!IanaTimeZoneSchema.safeParse(createForm.timeZone).success) {
-        issues.push(makeIssue(
-          'timeZone',
-          language === 'ru'
-            ? 'Укажите корректный часовой пояс IANA, например Asia/Almaty.'
-            : 'Enter a valid IANA time zone, such as Asia/Almaty.'
-        ));
+        issues.push(
+          makeIssue(
+            'timeZone',
+            language === 'ru'
+              ? 'Укажите корректный часовой пояс IANA, например Asia/Almaty.'
+              : 'Enter a valid IANA time zone, such as Asia/Almaty.'
+          )
+        );
       }
 
       const roster = createForm.roster
@@ -1162,32 +1211,39 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
         .map((value) => value.trim())
         .filter(Boolean);
       if (roster.length === 0) {
-        issues.push(makeIssue(
-          'roster',
-          language === 'ru'
-            ? 'Выберите хотя бы одного инструктора курса.'
-            : 'Select at least one instructor for this Course.'
-        ));
+        issues.push(
+          makeIssue(
+            'roster',
+            language === 'ru'
+              ? 'Выберите хотя бы одного инструктора курса.'
+              : 'Select at least one instructor for this Course.'
+          )
+        );
       } else if (roster.length > 16) {
-        issues.push(makeIssue(
-          'roster',
-          language === 'ru'
-            ? 'В составе курса может быть не более 16 инструкторов.'
-            : 'A Course can have at most 16 instructors in its roster.'
-        ));
+        issues.push(
+          makeIssue(
+            'roster',
+            language === 'ru'
+              ? 'В составе курса может быть не более 16 инструкторов.'
+              : 'A Course can have at most 16 instructors in its roster.'
+          )
+        );
       }
       const totalSeats = Number(createForm.totalSeats);
-      if (createForm.totalSeats.trim() && (!Number.isInteger(totalSeats) || totalSeats < 1 || totalSeats > 64)) {
+      if (
+        createForm.totalSeats.trim() &&
+        (!Number.isInteger(totalSeats) || totalSeats < 1 || totalSeats > 64)
+      ) {
         issues.push(makeIssue('totalSeats', text.capacityRange));
       }
 
       if (!createForm.bgImageUrl.trim() || !isValidCourseImageUrl(createForm.bgImageUrl.trim())) {
-        issues.push(makeIssue(
-          'bgImageUrl',
-          language === 'ru'
-            ? 'Укажите корректный URL изображения.'
-            : 'Enter a valid image URL.'
-        ));
+        issues.push(
+          makeIssue(
+            'bgImageUrl',
+            language === 'ru' ? 'Укажите корректный URL изображения.' : 'Enter a valid image URL.'
+          )
+        );
       }
 
       const parsedDayLines: Array<{
@@ -1197,167 +1253,219 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
         readonly instructorId: string;
         readonly interval: TimeInterval;
       }> = [];
-      if (createMode === 'create' && (!isValidCalendarDate(createPeriodStart) || !isValidCalendarDate(createPeriodEnd))) {
+      if (
+        createMode === 'create' &&
+        (!isValidCalendarDate(createPeriodStart) || !isValidCalendarDate(createPeriodEnd))
+      ) {
         const focusEnd = isValidCalendarDate(createPeriodStart);
-        issues.push(makeIssue(
-          'days',
-          language === 'ru'
-            ? 'Выберите начало и окончание периода курса в календаре.'
-            : 'Choose the course period start and end dates from the calendar.',
-          'period',
-          focusEnd ? 'canonical-course-period-end' : 'canonical-course-period-start',
-          language === 'ru' ? 'Период курса' : 'Course period'
-        ));
-      } else if (createMode === 'create' && calendarDateOrdinal(createPeriodEnd) < calendarDateOrdinal(createPeriodStart)) {
-        issues.push(makeIssue(
-          'days',
-          language === 'ru'
-            ? 'Окончание периода не может быть раньше его начала.'
-            : 'The period end cannot be earlier than its start.',
-          'period',
-          'canonical-course-period-end',
-          language === 'ru' ? 'Период курса' : 'Course period'
-        ));
-      }
-      if (createCourseDays.length === 0 && createMode === 'clone') {
-        issues.push(makeIssue(
-          'days',
-          language === 'ru' ? 'Добавьте хотя бы один день курса.' : 'Add at least one CourseDay.'
-        ));
-      } else if (createCourseDays.length > 64) {
-        issues.push(makeIssue(
-          'days',
-          language === 'ru'
-            ? 'На курс можно добавить не более 64 дней.'
-            : 'A Course can have at most 64 CourseDays.'
-        ));
-      }
-      if (createCourseDays.length <= 64) createCourseDays.forEach((row, index) => {
-        let valid = true;
-        if (!isValidCalendarDate(row.localDate)) {
-          valid = false;
-          issues.push(makeDayIssue(
-            row,
-            index,
-            'date',
-            language === 'ru' ? 'Выберите дату курса в календаре.' : 'Choose a course date from the calendar.'
-          ));
-        }
-        if (!isValidCourseTime(row.startTime)) {
-          valid = false;
-          issues.push(makeDayIssue(
-            row,
-            index,
-            'start',
-            language === 'ru' ? 'Укажите время начала в формате 00:00.' : 'Choose a start time in 00:00 format.'
-          ));
-        }
-        if (!isValidCourseTime(row.endTime)) {
-          valid = false;
-          issues.push(makeDayIssue(
-            row,
-            index,
-            'end',
-            language === 'ru' ? 'Укажите время окончания в формате 00:00.' : 'Choose an end time in 00:00 format.'
-          ));
-        }
-        const durationMinutes = minutesForDayTimes(row.startTime, row.endTime);
-        if (durationMinutes === undefined || durationMinutes < 15 || durationMinutes > 24 * 60) {
-          valid = false;
-          issues.push(makeDayIssue(
-            row,
-            index,
-            'end',
-            language === 'ru'
-              ? 'Интервал дня должен длиться от 15 минут до 24 часов.'
-              : 'The daily time range must be from 15 minutes to 24 hours.'
-          ));
-        }
-        if (!InstructorIdSchema.safeParse(row.instructorId).success) {
-          valid = false;
-          issues.push(makeDayIssue(
-            row,
-            index,
-            'instructor',
-            language === 'ru' ? 'Выберите инструктора.' : 'Choose an instructor.'
-          ));
-        } else if (!roster.includes(row.instructorId)) {
-          valid = false;
-          issues.push(makeDayIssue(
-            row,
-            index,
-            'instructor',
-            language === 'ru'
-              ? 'Инструктор должен входить в выбранный состав курса.'
-              : 'The instructor must be selected in the course roster.'
-          ));
-        }
-
-        const interval = courseDayInterval(row, createForm.timeZone);
-        if (interval && InstructorIdSchema.safeParse(row.instructorId).success && roster.includes(row.instructorId)) {
-          const availability = plannerAvailabilityByDate[row.localDate];
-          if (availability?.loading) {
-            valid = false;
-            issues.push(makeDayIssue(
-              row,
-              index,
-              'instructor',
-              language === 'ru' ? 'Дождитесь проверки доступности инструкторов.' : 'Wait for instructor availability to finish loading.'
-            ));
-          } else if (!availability?.item || availability.error) {
-            valid = false;
-            issues.push(makeDayIssue(
-              row,
-              index,
-              'instructor',
-              language === 'ru'
-                ? availability?.error === 'incomplete'
-                  ? 'Слишком много записей для проверки доступности. Уточните расписание и повторите.'
-                  : 'Не удалось проверить доступность инструкторов. Повторите попытку.'
-                : availability?.error === 'incomplete'
-                  ? 'Too many schedule entries to confirm availability. Review the schedule and retry.'
-                  : 'Instructor availability could not be checked. Retry the availability check.'
-            ));
-          } else if (
-            !availableInstructorIdsForCourseDay(
-              row,
-              createCourseDays,
-              roster,
-              availability,
-              createForm.timeZone
-            ).includes(row.instructorId)
-          ) {
-            valid = false;
-            issues.push(makeDayIssue(
-              row,
-              index,
-              'instructor',
-              language === 'ru'
-                ? 'Инструктор занят или недоступен в это время. Выберите другого.'
-                : 'This instructor is busy or unavailable at this time. Choose another.'
-            ));
-          }
-        }
-        if (valid && interval && durationMinutes !== undefined) {
-          parsedDayLines.push({
-            localDate: row.localDate,
-            localTime: row.startTime,
-            durationMinutes,
-            instructorId: row.instructorId,
-            interval: interval.interval,
-          });
-        }
-      });
-
-      parsedDayLines.sort((left, right) => left.interval.startsAt.seconds - right.interval.startsAt.seconds);
-      for (let index = 1; index < parsedDayLines.length; index += 1) {
-        if (parsedDayLines[index]!.interval.startsAt.seconds <= parsedDayLines[index - 1]!.interval.startsAt.seconds) {
-          issues.push(makeIssue(
+        issues.push(
+          makeIssue(
             'days',
             language === 'ru'
-              ? 'Для каждого CourseDay укажите отдельное время начала; дни должны идти в хронологическом порядке.'
-              : 'Give each CourseDay a distinct start time and keep the schedule chronological.'
-          ));
+              ? 'Выберите начало и окончание периода курса в календаре.'
+              : 'Choose the course period start and end dates from the calendar.',
+            'period',
+            focusEnd ? 'canonical-course-period-end' : 'canonical-course-period-start',
+            language === 'ru' ? 'Период курса' : 'Course period'
+          )
+        );
+      } else if (
+        createMode === 'create' &&
+        calendarDateOrdinal(createPeriodEnd) < calendarDateOrdinal(createPeriodStart)
+      ) {
+        issues.push(
+          makeIssue(
+            'days',
+            language === 'ru'
+              ? 'Окончание периода не может быть раньше его начала.'
+              : 'The period end cannot be earlier than its start.',
+            'period',
+            'canonical-course-period-end',
+            language === 'ru' ? 'Период курса' : 'Course period'
+          )
+        );
+      }
+      if (createCourseDays.length === 0 && createMode === 'clone') {
+        issues.push(
+          makeIssue(
+            'days',
+            language === 'ru' ? 'Добавьте хотя бы один день курса.' : 'Add at least one CourseDay.'
+          )
+        );
+      } else if (createCourseDays.length > 64) {
+        issues.push(
+          makeIssue(
+            'days',
+            language === 'ru'
+              ? 'На курс можно добавить не более 64 дней.'
+              : 'A Course can have at most 64 CourseDays.'
+          )
+        );
+      }
+      if (createCourseDays.length <= 64)
+        createCourseDays.forEach((row, index) => {
+          let valid = true;
+          if (!isValidCalendarDate(row.localDate)) {
+            valid = false;
+            issues.push(
+              makeDayIssue(
+                row,
+                index,
+                'date',
+                language === 'ru'
+                  ? 'Выберите дату курса в календаре.'
+                  : 'Choose a course date from the calendar.'
+              )
+            );
+          }
+          if (!isValidCourseTime(row.startTime)) {
+            valid = false;
+            issues.push(
+              makeDayIssue(
+                row,
+                index,
+                'start',
+                language === 'ru'
+                  ? 'Укажите время начала в формате 00:00.'
+                  : 'Choose a start time in 00:00 format.'
+              )
+            );
+          }
+          if (!isValidCourseTime(row.endTime)) {
+            valid = false;
+            issues.push(
+              makeDayIssue(
+                row,
+                index,
+                'end',
+                language === 'ru'
+                  ? 'Укажите время окончания в формате 00:00.'
+                  : 'Choose an end time in 00:00 format.'
+              )
+            );
+          }
+          const durationMinutes = minutesForDayTimes(row.startTime, row.endTime);
+          if (durationMinutes === undefined || durationMinutes < 15 || durationMinutes > 24 * 60) {
+            valid = false;
+            issues.push(
+              makeDayIssue(
+                row,
+                index,
+                'end',
+                language === 'ru'
+                  ? 'Интервал дня должен длиться от 15 минут до 24 часов.'
+                  : 'The daily time range must be from 15 minutes to 24 hours.'
+              )
+            );
+          }
+          if (!InstructorIdSchema.safeParse(row.instructorId).success) {
+            valid = false;
+            issues.push(
+              makeDayIssue(
+                row,
+                index,
+                'instructor',
+                language === 'ru' ? 'Выберите инструктора.' : 'Choose an instructor.'
+              )
+            );
+          } else if (!roster.includes(row.instructorId)) {
+            valid = false;
+            issues.push(
+              makeDayIssue(
+                row,
+                index,
+                'instructor',
+                language === 'ru'
+                  ? 'Инструктор должен входить в выбранный состав курса.'
+                  : 'The instructor must be selected in the course roster.'
+              )
+            );
+          }
+
+          const interval = courseDayInterval(row, createForm.timeZone);
+          if (
+            interval &&
+            InstructorIdSchema.safeParse(row.instructorId).success &&
+            roster.includes(row.instructorId)
+          ) {
+            const availability = plannerAvailabilityByDate[row.localDate];
+            if (availability?.loading) {
+              valid = false;
+              issues.push(
+                makeDayIssue(
+                  row,
+                  index,
+                  'instructor',
+                  language === 'ru'
+                    ? 'Дождитесь проверки доступности инструкторов.'
+                    : 'Wait for instructor availability to finish loading.'
+                )
+              );
+            } else if (!availability?.item || availability.error) {
+              valid = false;
+              issues.push(
+                makeDayIssue(
+                  row,
+                  index,
+                  'instructor',
+                  language === 'ru'
+                    ? availability?.error === 'incomplete'
+                      ? 'Слишком много записей для проверки доступности. Уточните расписание и повторите.'
+                      : 'Не удалось проверить доступность инструкторов. Повторите попытку.'
+                    : availability?.error === 'incomplete'
+                      ? 'Too many schedule entries to confirm availability. Review the schedule and retry.'
+                      : 'Instructor availability could not be checked. Retry the availability check.'
+                )
+              );
+            } else if (
+              !availableInstructorIdsForCourseDay(
+                row,
+                createCourseDays,
+                roster,
+                availability,
+                createForm.timeZone
+              ).includes(row.instructorId)
+            ) {
+              valid = false;
+              issues.push(
+                makeDayIssue(
+                  row,
+                  index,
+                  'instructor',
+                  language === 'ru'
+                    ? 'Инструктор занят или недоступен в это время. Выберите другого.'
+                    : 'This instructor is busy or unavailable at this time. Choose another.'
+                )
+              );
+            }
+          }
+          if (valid && interval && durationMinutes !== undefined) {
+            parsedDayLines.push({
+              localDate: row.localDate,
+              localTime: row.startTime,
+              durationMinutes,
+              instructorId: row.instructorId,
+              interval: interval.interval,
+            });
+          }
+        });
+
+      parsedDayLines.sort(
+        (left, right) => left.interval.startsAt.seconds - right.interval.startsAt.seconds
+      );
+      for (let index = 1; index < parsedDayLines.length; index += 1) {
+        if (
+          parsedDayLines[index]!.interval.startsAt.seconds <=
+          parsedDayLines[index - 1]!.interval.startsAt.seconds
+        ) {
+          issues.push(
+            makeIssue(
+              'days',
+              language === 'ru'
+                ? 'Для каждого CourseDay укажите отдельное время начала; дни должны идти в хронологическом порядке.'
+                : 'Give each CourseDay a distinct start time and keep the schedule chronological.'
+            )
+          );
           break;
         }
       }
@@ -2031,9 +2139,8 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
       </p>
     ) : null;
   };
-  const showWorkspace = (
-    ...sections: Array<typeof workspaceSection>
-  ) => workspaceSection === 'overview' || sections.includes(workspaceSection);
+  const showWorkspace = (...sections: Array<typeof workspaceSection>) =>
+    workspaceSection === 'overview' || sections.includes(workspaceSection);
   const courseWorkspaceSections = useMemo(
     () =>
       [
@@ -2074,7 +2181,11 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
           className="overflow-hidden rounded-[var(--radius)] bg-[var(--card-bg)] shadow-[var(--shadow-soft)]"
         >
           <div className="space-y-3 border-b border-[var(--border)] p-3">
-            <div className="inline-flex rounded-full bg-[var(--profile-bg)] p-1" role="tablist" aria-label={text.lifecycle}>
+            <div
+              className="inline-flex rounded-full bg-[var(--profile-bg)] p-1"
+              role="tablist"
+              aria-label={text.lifecycle}
+            >
               {(['active', 'archived'] as const).map((scope) => (
                 <button
                   key={scope}
@@ -2114,7 +2225,9 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                   [
                     'archived-loaded',
                     language === 'ru' ? 'Архив' : 'Archived',
-                    courseLists.archived.initialized ? String(courseLists.archived.items.length) : '—',
+                    courseLists.archived.initialized
+                      ? String(courseLists.archived.items.length)
+                      : '—',
                   ],
                   [
                     'seats-loaded',
@@ -2137,8 +2250,16 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                 placeholder={language === 'ru' ? 'Поиск курсов…' : 'Search courses…'}
                 className="min-w-40 flex-1 border border-[var(--border)] bg-[var(--bg)] p-1.5 text-xs"
               />
-              {pending ? <span role="status" className="text-xs">{text.pending}</span> : null}
-              {stale ? <span role="status" className="text-xs">{text.stale}</span> : null}
+              {pending ? (
+                <span role="status" className="text-xs">
+                  {text.pending}
+                </span>
+              ) : null}
+              {stale ? (
+                <span role="status" className="text-xs">
+                  {text.stale}
+                </span>
+              ) : null}
               <CoursesManagerToolbar
                 t={t}
                 showCourseForm={showCreate}
@@ -2202,70 +2323,71 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
             ) : (
               <CanonicalCourseDatabaseList
                 courses={visibleTableCourses}
-          selectedCourseId={selectedCourseId}
-          lifecycle={lifecycleScope}
-          actionsLabel={language === 'ru' ? 'Действия курса' : 'Course actions'}
-          instructors={tableInstructors}
-          language={language}
-          t={t}
-          onToggleVisibility={(course) => void handleToggleVisibility(course)}
-          onEdit={(course) => openCourseDetail(course.id, true)}
-          onView={(course) => openCourseDetail(course.id, false)}
-          onDelete={handleArchive}
-          onReactivate={handleReactivate}
-          onClone={(course) => void handleClone(course)}
-          onMove={(course, direction) => void handleMove(course, direction)}
-          canToggleVisibility={(course) =>
-            lifecycleScope === 'active' &&
-            courses
-              .find((candidate) => candidate.courseId === course.id)
-              ?.authorizedActions.some(
-                (action) => action.kind === 'update_course_catalog_content'
-              ) === true
-          }
-          canEdit={(course) =>
-            (() => {
-              const item = courses.find((candidate) => candidate.courseId === course.id);
-              if (!item) return false;
-              // Compact active v2 rows intentionally carry only list-grade actions;
-              // detail authoritatively resolves the complete edit action set.
-              if (item.lifecycle === 'active') return item.authorizedActions.length > 0;
-              return item.authorizedActions.some((action) =>
-                [
-                  'change_course_title',
-                  'change_course_price',
-                  'change_course_capacity',
-                  'add_course_roster_instructor',
-                  'remove_course_roster_instructor',
-                  'update_course_catalog_content',
-                ].includes(action.kind)
-              );
-            })()
-          }
-          canView={() => true}
-          canArchive={(course) =>
-            courses
-              .find((candidate) => candidate.courseId === course.id)
-              ?.authorizedActions.some((action) => action.kind === 'archive_course') === true
-          }
-          canReactivate={(course) =>
-            courses
-              .find((candidate) => candidate.courseId === course.id)
-              ?.authorizedActions.some((action) => action.kind === 'reactivate_course') === true
-          }
-          canClone={() => lifecycleScope === 'active'}
-          canMove={(course) =>
-            lifecycleScope === 'active' &&
-            courses
-              .find((candidate) => candidate.courseId === course.id)
-              ?.authorizedActions.some(
-                (action) => action.kind === 'update_course_catalog_content'
-              ) === true
-          }
-          archiveInsteadOfDelete
-          detailsLabel={text.details}
-          reactivateLabel={text.restore}
-        />
+                selectedCourseId={selectedCourseId}
+                lifecycle={lifecycleScope}
+                actionsLabel={language === 'ru' ? 'Действия курса' : 'Course actions'}
+                instructors={tableInstructors}
+                language={language}
+                t={t}
+                onToggleVisibility={(course) => void handleToggleVisibility(course)}
+                onEdit={(course) => openCourseDetail(course.id, true)}
+                onView={(course) => openCourseDetail(course.id, false)}
+                onDelete={handleArchive}
+                onReactivate={handleReactivate}
+                onClone={(course) => void handleClone(course)}
+                onMove={(course, direction) => void handleMove(course, direction)}
+                canToggleVisibility={(course) =>
+                  lifecycleScope === 'active' &&
+                  courses
+                    .find((candidate) => candidate.courseId === course.id)
+                    ?.authorizedActions.some(
+                      (action) => action.kind === 'update_course_catalog_content'
+                    ) === true
+                }
+                canEdit={(course) =>
+                  (() => {
+                    const item = courses.find((candidate) => candidate.courseId === course.id);
+                    if (!item) return false;
+                    // Compact active v2 rows intentionally carry only list-grade actions;
+                    // detail authoritatively resolves the complete edit action set.
+                    if (item.lifecycle === 'active') return item.authorizedActions.length > 0;
+                    return item.authorizedActions.some((action) =>
+                      [
+                        'change_course_title',
+                        'change_course_price',
+                        'change_course_capacity',
+                        'add_course_roster_instructor',
+                        'remove_course_roster_instructor',
+                        'update_course_catalog_content',
+                      ].includes(action.kind)
+                    );
+                  })()
+                }
+                canView={() => true}
+                canArchive={(course) =>
+                  courses
+                    .find((candidate) => candidate.courseId === course.id)
+                    ?.authorizedActions.some((action) => action.kind === 'archive_course') === true
+                }
+                canReactivate={(course) =>
+                  courses
+                    .find((candidate) => candidate.courseId === course.id)
+                    ?.authorizedActions.some((action) => action.kind === 'reactivate_course') ===
+                  true
+                }
+                canClone={() => lifecycleScope === 'active'}
+                canMove={(course) =>
+                  lifecycleScope === 'active' &&
+                  courses
+                    .find((candidate) => candidate.courseId === course.id)
+                    ?.authorizedActions.some(
+                      (action) => action.kind === 'update_course_catalog_content'
+                    ) === true
+                }
+                archiveInsteadOfDelete
+                detailsLabel={text.details}
+                reactivateLabel={text.restore}
+              />
             )}
 
             {currentList.hasMore && currentList.cursor ? (
@@ -2287,534 +2409,642 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
         >
           {showCreate ? (
             <form
-          className={`flex min-h-full flex-col ${adminFormControls}`}
-          onSubmit={(event) => void createCourse(event)}
-          noValidate
-          aria-label={text.create}
-        >
-          <div className="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-[var(--border)] bg-[var(--card-bg)] px-4 py-3">
-            <h3 className="text-sm font-medium text-[var(--ink)]">
-              {createMode === 'clone' ? text.createClone : text.create}
-            </h3>
-            <button
-              type="button"
-              className="flex h-8 w-8 shrink-0 items-center justify-center border border-[var(--border)] text-[var(--ink-dim)] hover:text-[var(--ink)]"
-              aria-label={t('closeForm')}
-              onClick={toggleCreate}
+              className={`flex min-h-full flex-col ${adminFormControls}`}
+              onSubmit={(event) => void createCourse(event)}
+              noValidate
+              aria-label={text.create}
             >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-          <div className="space-y-3 px-4 py-3">
-          {createFormError || createValidationIssues.length > 0 ? (
-            <div role="alert" className="grid gap-1 border border-red-500/30 bg-red-500/5 p-3 text-xs text-[var(--ink)] md:col-span-2">
-              {createFormError ? <p>{createFormError}</p> : null}
-              {createValidationIssues.length > 0 ? (
-                <ul className="list-inside list-disc">
-                  {createValidationIssues.map((issue) => (
-                    <li key={issue.key}>
-                      <strong>{issue.label}:</strong> {issue.message}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </div>
-          ) : null}
-          <p className="text-xs font-mono uppercase tracking-wider text-[var(--ink-dim)] md:col-span-2">
-            {language === 'ru' ? 'Основное' : 'Basic information'}
-          </p>
-          {(
-            [
-              ['title', 'text'],
-              ['titleRu', 'text'],
-              ['price', 'number'],
-              ['totalSeats', 'number'],
-              ['timeZone', 'text'],
-              ['bgImageUrl', 'url'],
-            ] as const
-          ).map(([field, type]) => (
-            <label key={field} htmlFor={`canonical-course-${field}`} className="grid gap-1 text-xs">
-              <span>
-                {createFieldLabel(field)}
-                {field === 'titleRu' ? null : (
-                  <span aria-hidden="true" className="text-rose-600">
-                    {' '}
-                    *
-                  </span>
-                )}
-              </span>
-              <input
-                id={`canonical-course-${field}`}
-                aria-label={createFieldLabel(field)}
-                required={
-                  field === 'title' ||
-                  field === 'price' ||
-                  field === 'totalSeats' ||
-                  field === 'timeZone' ||
-                  field === 'bgImageUrl'
-                }
-                type={type}
-                {...(field === 'totalSeats' ? { min: 1, max: 64 } : {})}
-                {...(field === 'price' ? { min: 0, step: 1 } : {})}
-                value={createForm[field]}
-                aria-invalid={createFieldIssue(field) ? true : undefined}
-                aria-describedby={
-                  createFieldIssue(field) ? `canonical-course-${field}-error` : undefined
-                }
-                onChange={(event) => updateCreateField(field, event.target.value)}
-              />
-              {field === 'titleRu' ? (
-                <span aria-hidden="true" className="text-[11px] text-[var(--ink-dim)]">
-                  {language === 'ru' ? 'Необязательно' : 'Optional'}
-                </span>
-              ) : null}
-              {renderCreateFieldError(field)}
-            </label>
-          ))}
-          <fieldset
-            id="canonical-course-instructor-roster"
-            tabIndex={-1}
-            className="grid gap-2"
-            aria-required="true"
-            aria-invalid={createFieldIssue('roster') ? true : undefined}
-            aria-describedby={createFieldIssue('roster') ? 'canonical-course-roster-error' : undefined}
-          >
-            <legend className="px-1 text-xs font-medium">
-              {language === 'ru' ? 'Инструкторы' : 'Instructors'}
-            </legend>
-            <p className="text-xs text-[var(--ink-dim)]">
-              {language === 'ru' ? 'Состав инструкторов курса' : 'Course instructor roster'}
-            </p>
-            <div className="grid gap-1.5">
-              {[...instructorOptions.entries()].map(([id, instructor]) => {
-                const selected = createForm.roster
-                  .split(',')
-                  .map((value) => value.trim())
-                  .filter(Boolean);
-                return (
-                  <label
-                    key={id}
-                    htmlFor={`canonical-course-instructor-${id}`}
-                    className="flex items-center gap-2 text-xs"
+              <div className="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-[var(--border)] bg-[var(--card-bg)] px-4 py-3">
+                <h3 className="text-sm font-medium text-[var(--ink)]">
+                  {createMode === 'clone' ? text.createClone : text.create}
+                </h3>
+                <button
+                  type="button"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center border border-[var(--border)] text-[var(--ink-dim)] hover:text-[var(--ink)]"
+                  aria-label={t('closeForm')}
+                  onClick={toggleCreate}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="space-y-3 px-4 py-3">
+                {createFormError || createValidationIssues.length > 0 ? (
+                  <div
+                    role="alert"
+                    className="grid gap-1 border border-red-500/30 bg-red-500/5 p-3 text-xs text-[var(--ink)] md:col-span-2"
                   >
+                    {createFormError ? <p>{createFormError}</p> : null}
+                    {createValidationIssues.length > 0 ? (
+                      <ul className="list-inside list-disc">
+                        {createValidationIssues.map((issue) => (
+                          <li key={issue.key}>
+                            <strong>{issue.label}:</strong> {issue.message}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                ) : null}
+                <p className="text-xs font-mono uppercase tracking-wider text-[var(--ink-dim)] md:col-span-2">
+                  {language === 'ru' ? 'Основное' : 'Basic information'}
+                </p>
+                {(
+                  [
+                    ['title', 'text'],
+                    ['titleRu', 'text'],
+                    ['price', 'number'],
+                    ['totalSeats', 'number'],
+                    ['timeZone', 'text'],
+                    ['bgImageUrl', 'url'],
+                  ] as const
+                ).map(([field, type]) => (
+                  <label
+                    key={field}
+                    htmlFor={`canonical-course-${field}`}
+                    className="grid gap-1 text-xs"
+                  >
+                    <span>
+                      {createFieldLabel(field)}
+                      {field === 'titleRu' ? null : (
+                        <span aria-hidden="true" className="text-rose-600">
+                          {' '}
+                          *
+                        </span>
+                      )}
+                    </span>
                     <input
-                      id={`canonical-course-instructor-${id}`}
-                      type="checkbox"
-                      checked={selected.includes(id)}
-                      onChange={() =>
-                        updateCreateField(
-                          'roster',
-                          (selected.includes(id)
-                            ? selected.filter((value) => value !== id)
-                            : [...selected, id]
-                          ).join(',')
-                        )
+                      id={`canonical-course-${field}`}
+                      aria-label={createFieldLabel(field)}
+                      required={
+                        field === 'title' ||
+                        field === 'price' ||
+                        field === 'totalSeats' ||
+                        field === 'timeZone' ||
+                        field === 'bgImageUrl'
                       }
+                      type={type}
+                      {...(field === 'totalSeats' ? { min: 1, max: 64 } : {})}
+                      {...(field === 'price' ? { min: 0, step: 1 } : {})}
+                      value={createForm[field]}
+                      aria-invalid={createFieldIssue(field) ? true : undefined}
+                      aria-describedby={
+                        createFieldIssue(field) ? `canonical-course-${field}-error` : undefined
+                      }
+                      onChange={(event) => updateCreateField(field, event.target.value)}
                     />
-                    {instructor.name}
-                    {!instructor.isAvailable ? ` (${text.unavailableInstructor})` : ''}
+                    {field === 'titleRu' ? (
+                      <span aria-hidden="true" className="text-[11px] text-[var(--ink-dim)]">
+                        {language === 'ru' ? 'Необязательно' : 'Optional'}
+                      </span>
+                    ) : null}
+                    {renderCreateFieldError(field)}
                   </label>
-                );
-              })}
-            </div>
-            {createFieldIssue('roster') ? (
-              <p id="canonical-course-roster-error" className="text-xs text-red-700">
-                {createFieldIssue('roster')?.message}
-              </p>
-            ) : null}
-          </fieldset>
-          <fieldset
-            id="canonical-course-days"
-            tabIndex={-1}
-            className="grid gap-3"
-            aria-required="true"
-            aria-invalid={createFieldIssue('days') ? true : undefined}
-            aria-describedby={createFieldIssue('days') ? 'canonical-course-days-error' : undefined}
-          >
-            <legend className="px-1 text-xs font-medium">{language === 'ru' ? 'Дни курса' : 'Course days'}</legend>
-            <p className="text-xs text-[var(--ink-dim)]">
-              {createMode === 'create'
-                ? language === 'ru'
-                  ? 'Выберите период курса: форма создаст день для каждой календарной даты. Для каждого дня укажите время начала и окончания; длительность рассчитается автоматически.'
-                  : 'Choose the course period: the form adds a day for every calendar date. Enter start and end times for each day; duration is calculated automatically.'
-                : language === 'ru'
-                  ? 'Для каждого дня выберите дату, время начала и окончания. Длительность рассчитается автоматически.'
-                  : 'Choose a date, start and end time for each day. Duration is calculated automatically.'}
-            </p>
-            {createMode === 'create' ? (
-              <div className="grid gap-2">
-                <label htmlFor="canonical-course-period-start" className="grid gap-1 text-xs">
-                  {language === 'ru' ? 'Период — с' : 'Period starts'}
-                  <input
-                    id="canonical-course-period-start"
-                    type="date"
-                    required
-                    value={createPeriodStart}
-                    aria-invalid={createValidationIssues.some((issue) => issue.targetId === 'canonical-course-period-start') || undefined}
-                    aria-describedby={createValidationIssues.some((issue) => issue.key === 'period') ? 'canonical-course-period-error' : undefined}
-                    onChange={(event) => updateCreatePeriod('start', event.target.value)}
-                  />
-                </label>
-                <label htmlFor="canonical-course-period-end" className="grid gap-1 text-xs">
-                  {language === 'ru' ? 'Период — по' : 'Period ends'}
-                  <input
-                    id="canonical-course-period-end"
-                    type="date"
-                    required
-                    value={createPeriodEnd}
-                    aria-invalid={createValidationIssues.some((issue) => issue.targetId === 'canonical-course-period-end') || undefined}
-                    aria-describedby={createValidationIssues.some((issue) => issue.key === 'period') ? 'canonical-course-period-error' : undefined}
-                    onChange={(event) => updateCreatePeriod('end', event.target.value)}
-                  />
-                </label>
-                {createValidationIssues.find((issue) => issue.key === 'period') ? (
-                  <p id="canonical-course-period-error" className="text-xs text-red-700 col-span-2">
-                    {createValidationIssues.find((issue) => issue.key === 'period')?.message}
+                ))}
+                <fieldset
+                  id="canonical-course-instructor-roster"
+                  tabIndex={-1}
+                  className="grid gap-2"
+                  aria-required="true"
+                  aria-invalid={createFieldIssue('roster') ? true : undefined}
+                  aria-describedby={
+                    createFieldIssue('roster') ? 'canonical-course-roster-error' : undefined
+                  }
+                >
+                  <legend className="px-1 text-xs font-medium">
+                    {language === 'ru' ? 'Инструкторы' : 'Instructors'}
+                  </legend>
+                  <p className="text-xs text-[var(--ink-dim)]">
+                    {language === 'ru' ? 'Состав инструкторов курса' : 'Course instructor roster'}
+                  </p>
+                  <div className="grid gap-1.5">
+                    {[...instructorOptions.entries()].map(([id, instructor]) => {
+                      const selected = createForm.roster
+                        .split(',')
+                        .map((value) => value.trim())
+                        .filter(Boolean);
+                      return (
+                        <label
+                          key={id}
+                          htmlFor={`canonical-course-instructor-${id}`}
+                          className="flex items-center gap-2 text-xs"
+                        >
+                          <input
+                            id={`canonical-course-instructor-${id}`}
+                            type="checkbox"
+                            checked={selected.includes(id)}
+                            onChange={() =>
+                              updateCreateField(
+                                'roster',
+                                (selected.includes(id)
+                                  ? selected.filter((value) => value !== id)
+                                  : [...selected, id]
+                                ).join(',')
+                              )
+                            }
+                          />
+                          {instructor.name}
+                          {!instructor.isAvailable ? ` (${text.unavailableInstructor})` : ''}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {createFieldIssue('roster') ? (
+                    <p id="canonical-course-roster-error" className="text-xs text-red-700">
+                      {createFieldIssue('roster')?.message}
+                    </p>
+                  ) : null}
+                </fieldset>
+                <fieldset
+                  id="canonical-course-days"
+                  tabIndex={-1}
+                  className="grid gap-3"
+                  aria-required="true"
+                  aria-invalid={createFieldIssue('days') ? true : undefined}
+                  aria-describedby={
+                    createFieldIssue('days') ? 'canonical-course-days-error' : undefined
+                  }
+                >
+                  <legend className="px-1 text-xs font-medium">
+                    {language === 'ru' ? 'Дни курса' : 'Course days'}
+                  </legend>
+                  <p className="text-xs text-[var(--ink-dim)]">
+                    {createMode === 'create'
+                      ? language === 'ru'
+                        ? 'Выберите период курса: форма создаст день для каждой календарной даты. Для каждого дня укажите время начала и окончания; длительность рассчитается автоматически.'
+                        : 'Choose the course period: the form adds a day for every calendar date. Enter start and end times for each day; duration is calculated automatically.'
+                      : language === 'ru'
+                        ? 'Для каждого дня выберите дату, время начала и окончания. Длительность рассчитается автоматически.'
+                        : 'Choose a date, start and end time for each day. Duration is calculated automatically.'}
+                  </p>
+                  {createMode === 'create' ? (
+                    <div className="grid gap-2">
+                      <label htmlFor="canonical-course-period-start" className="grid gap-1 text-xs">
+                        {language === 'ru' ? 'Период — с' : 'Period starts'}
+                        <input
+                          id="canonical-course-period-start"
+                          type="date"
+                          required
+                          value={createPeriodStart}
+                          aria-invalid={
+                            createValidationIssues.some(
+                              (issue) => issue.targetId === 'canonical-course-period-start'
+                            ) || undefined
+                          }
+                          aria-describedby={
+                            createValidationIssues.some((issue) => issue.key === 'period')
+                              ? 'canonical-course-period-error'
+                              : undefined
+                          }
+                          onChange={(event) => updateCreatePeriod('start', event.target.value)}
+                        />
+                      </label>
+                      <label htmlFor="canonical-course-period-end" className="grid gap-1 text-xs">
+                        {language === 'ru' ? 'Период — по' : 'Period ends'}
+                        <input
+                          id="canonical-course-period-end"
+                          type="date"
+                          required
+                          value={createPeriodEnd}
+                          aria-invalid={
+                            createValidationIssues.some(
+                              (issue) => issue.targetId === 'canonical-course-period-end'
+                            ) || undefined
+                          }
+                          aria-describedby={
+                            createValidationIssues.some((issue) => issue.key === 'period')
+                              ? 'canonical-course-period-error'
+                              : undefined
+                          }
+                          onChange={(event) => updateCreatePeriod('end', event.target.value)}
+                        />
+                      </label>
+                      {createValidationIssues.find((issue) => issue.key === 'period') ? (
+                        <p
+                          id="canonical-course-period-error"
+                          className="text-xs text-red-700 col-span-2"
+                        >
+                          {createValidationIssues.find((issue) => issue.key === 'period')?.message}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  {createCourseDays.map((row, index) => {
+                    const prefix = `canonical-course-day-${row.id}`;
+                    const durationMinutes = minutesForDayTimes(row.startTime, row.endTime);
+                    const availability = plannerAvailabilityByDate[row.localDate];
+                    const availableIds = availableInstructorIdsForCourseDay(
+                      row,
+                      createCourseDays,
+                      createForm.roster
+                        .split(',')
+                        .map((value) => value.trim())
+                        .filter(Boolean),
+                      availability,
+                      createForm.timeZone
+                    );
+                    const rowFieldIssue = (field: 'date' | 'start' | 'end' | 'instructor') =>
+                      createValidationIssues.find(
+                        (issue) => issue.targetId === `${prefix}-${field}`
+                      );
+                    const selectedInstructorIsUnavailable =
+                      row.instructorId !== '' && !availableIds.includes(row.instructorId);
+                    const updateRowField = (
+                      field: 'localDate' | 'startTime' | 'endTime' | 'instructorId',
+                      value: string
+                    ) =>
+                      updateCreateCourseDays(
+                        createCourseDays.map((candidate) =>
+                          candidate.id === row.id ? { ...candidate, [field]: value } : candidate
+                        )
+                      );
+                    return (
+                      <div
+                        key={row.id}
+                        className={`${adminRecordCardClass} grid gap-2 border-l-transparent`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <strong className="text-xs">
+                            {language === 'ru' ? `День ${index + 1}` : `Day ${index + 1}`}
+                            {createMode === 'create' ? ` · ${row.localDate}` : ''}
+                          </strong>
+                          {createMode === 'clone' && createCourseDays.length > 1 ? (
+                            <button
+                              type="button"
+                              className="text-xs text-rose-700 hover:underline dark:text-rose-300"
+                              onClick={() =>
+                                updateCreateCourseDays(
+                                  createCourseDays.filter((candidate) => candidate.id !== row.id)
+                                )
+                              }
+                            >
+                              {language === 'ru' ? 'Удалить день' : 'Remove day'}
+                            </button>
+                          ) : null}
+                        </div>
+                        {createMode === 'clone' ? (
+                          <label htmlFor={`${prefix}-date`} className="grid gap-1 text-xs">
+                            {language === 'ru' ? 'Дата' : 'Date'}
+                            <input
+                              id={`${prefix}-date`}
+                              type="date"
+                              required
+                              value={row.localDate}
+                              aria-invalid={rowFieldIssue('date') ? true : undefined}
+                              aria-describedby={
+                                rowFieldIssue('date') ? `${prefix}-date-error` : undefined
+                              }
+                              onChange={(event) => updateRowField('localDate', event.target.value)}
+                            />
+                            {rowFieldIssue('date') ? (
+                              <span id={`${prefix}-date-error`} className="text-red-700">
+                                {rowFieldIssue('date')?.message}
+                              </span>
+                            ) : null}
+                          </label>
+                        ) : null}
+                        <div className="grid gap-2">
+                          <label htmlFor={`${prefix}-start`} className="grid gap-1 text-xs">
+                            {language === 'ru' ? 'Начало' : 'Starts'}
+                            <input
+                              id={`${prefix}-start`}
+                              type="time"
+                              step={60}
+                              required
+                              value={row.startTime}
+                              aria-invalid={rowFieldIssue('start') ? true : undefined}
+                              aria-describedby={
+                                rowFieldIssue('start') ? `${prefix}-start-error` : undefined
+                              }
+                              onChange={(event) => updateRowField('startTime', event.target.value)}
+                            />
+                            {rowFieldIssue('start') ? (
+                              <span id={`${prefix}-start-error`} className="text-red-700">
+                                {rowFieldIssue('start')?.message}
+                              </span>
+                            ) : null}
+                          </label>
+                          <label htmlFor={`${prefix}-end`} className="grid gap-1 text-xs">
+                            {language === 'ru' ? 'Окончание' : 'Ends'}
+                            <input
+                              id={`${prefix}-end`}
+                              type="time"
+                              step={60}
+                              required
+                              value={row.endTime}
+                              aria-invalid={rowFieldIssue('end') ? true : undefined}
+                              aria-describedby={
+                                rowFieldIssue('end') ? `${prefix}-end-error` : undefined
+                              }
+                              onChange={(event) => updateRowField('endTime', event.target.value)}
+                            />
+                            {rowFieldIssue('end') ? (
+                              <span id={`${prefix}-end-error`} className="text-red-700">
+                                {rowFieldIssue('end')?.message}
+                              </span>
+                            ) : null}
+                          </label>
+                        </div>
+                        {durationMinutes !== undefined ? (
+                          <p className="text-[11px] text-[var(--ink-dim)]">
+                            {language === 'ru' ? 'Длительность' : 'Duration'}: {durationMinutes}{' '}
+                            {language === 'ru' ? 'мин.' : 'min'}
+                            {row.endTime < row.startTime
+                              ? language === 'ru'
+                                ? ' · окончание на следующие сутки'
+                                : ' · ends the next day'
+                              : row.endTime === row.startTime
+                                ? language === 'ru'
+                                  ? ' · полные сутки'
+                                  : ' · full day'
+                                : ''}
+                          </p>
+                        ) : null}
+                        <p className="text-[11px] text-[var(--ink-dim)]">
+                          {language === 'ru'
+                            ? 'Если окончание раньше начала, интервал продолжается до следующих суток.'
+                            : 'If the end time is earlier than the start, the interval continues into the next day.'}
+                        </p>
+                        <label htmlFor={`${prefix}-instructor`} className="grid gap-1 text-xs">
+                          {language === 'ru' ? 'Доступный инструктор' : 'Available instructor'}
+                          <select
+                            id={`${prefix}-instructor`}
+                            required
+                            value={row.instructorId}
+                            disabled={
+                              !courseDayInterval(row, createForm.timeZone) ||
+                              availability?.loading ||
+                              !availability?.item ||
+                              Boolean(availability.error)
+                            }
+                            aria-invalid={rowFieldIssue('instructor') ? true : undefined}
+                            aria-describedby={
+                              rowFieldIssue('instructor') ? `${prefix}-instructor-error` : undefined
+                            }
+                            onChange={(event) => updateRowField('instructorId', event.target.value)}
+                          >
+                            <option value="">
+                              {language === 'ru' ? 'Выберите инструктора' : 'Choose an instructor'}
+                            </option>
+                            {row.instructorId && selectedInstructorIsUnavailable ? (
+                              <option value={row.instructorId} disabled>
+                                {instructorOptionById(row.instructorId)?.name ?? row.instructorId} —{' '}
+                                {language === 'ru'
+                                  ? 'недоступен в это время'
+                                  : 'unavailable at this time'}
+                              </option>
+                            ) : null}
+                            {availableIds.map((id) => (
+                              <option key={id} value={id}>
+                                {instructorOptionById(id)?.name ??
+                                  availability?.item?.instructors.find(
+                                    (instructor) => String(instructor.instructorId) === id
+                                  )?.name ??
+                                  id}
+                              </option>
+                            ))}
+                          </select>
+                          {rowFieldIssue('instructor') ? (
+                            <span id={`${prefix}-instructor-error`} className="text-red-700">
+                              {rowFieldIssue('instructor')?.message}
+                            </span>
+                          ) : null}
+                          {availability?.loading ? (
+                            <span className="text-[var(--ink-dim)]">
+                              {language === 'ru' ? 'Проверяем расписание…' : 'Checking schedule…'}
+                            </span>
+                          ) : availability?.error ? (
+                            <span className="text-red-700">
+                              {language === 'ru'
+                                ? 'Не удалось подтвердить доступность.'
+                                : 'Availability could not be confirmed.'}{' '}
+                              <button
+                                type="button"
+                                className="underline"
+                                onClick={() => setAvailabilityRefreshToken((token) => token + 1)}
+                              >
+                                {language === 'ru' ? 'Повторить проверку' : 'Retry check'}
+                              </button>
+                            </span>
+                          ) : courseDayInterval(row, createForm.timeZone) &&
+                            availableIds.length === 0 ? (
+                            <span className="text-[var(--ink-dim)]">
+                              {language === 'ru'
+                                ? 'Нет свободных инструкторов на выбранный интервал.'
+                                : 'No instructors are free for this time range.'}
+                            </span>
+                          ) : null}
+                        </label>
+                      </div>
+                    );
+                  })}
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] pt-3 text-xs">
+                    {createMode === 'clone' ? (
+                      <ActionButton
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        disabled={createCourseDays.length >= 64}
+                        onClick={() =>
+                          updateCreateCourseDays([...createCourseDays, newCourseDayRow()])
+                        }
+                      >
+                        {language === 'ru' ? 'Добавить день' : 'Add day'}
+                      </ActionButton>
+                    ) : null}
+                    <span className="text-[var(--ink-dim)]">
+                      {courseDayDateSummary(createCourseDays) ||
+                        (language === 'ru' ? 'Даты курса не выбраны' : 'No course dates selected')}
+                      {createCourseDays.some(
+                        (row) => minutesForDayTimes(row.startTime, row.endTime) !== undefined
+                      )
+                        ? ` · ${courseDurationSummary(createCourseDays, language)}`
+                        : ''}
+                    </span>
+                  </div>
+                  {createFieldIssue('days') ? (
+                    <p id="canonical-course-days-error" className="text-xs text-red-700">
+                      {createFieldIssue('days')?.message}
+                    </p>
+                  ) : null}
+                </fieldset>
+                <details ref={createPresentationDetailsRef} className="space-y-3">
+                  <summary className="cursor-pointer text-xs font-medium">
+                    {text.presentation}
+                  </summary>
+                  <div className="mt-3 grid gap-3">
+                    <label
+                      htmlFor="canonical-course-description"
+                      className="grid gap-1 text-xs md:col-span-2"
+                    >
+                      {createFieldLabel('description')}
+                      <textarea
+                        id="canonical-course-description"
+                        rows={3}
+                        value={createForm.description}
+                        aria-invalid={createFieldIssue('description') ? true : undefined}
+                        aria-describedby={
+                          createFieldIssue('description')
+                            ? 'canonical-course-description-error'
+                            : undefined
+                        }
+                        onChange={(event) => updateCreateField('description', event.target.value)}
+                      />
+                      {renderCreateFieldError('description')}
+                    </label>
+                    {(
+                      [
+                        'shortDescription',
+                        'shortDescriptionRu',
+                        'detailedDescription',
+                        'detailedDescriptionRu',
+                        'badge',
+                        'badgeRu',
+                        'levelLabel',
+                        'videoUrl',
+                        'benefits',
+                        'benefitsRu',
+                        'program',
+                        'programRu',
+                        'faq',
+                        'faqRu',
+                        'galleryPhotos',
+                      ] as const
+                    ).map((field) => (
+                      <label
+                        key={field}
+                        htmlFor={`canonical-course-${field}`}
+                        className="grid gap-1 text-xs"
+                      >
+                        {createFieldLabel(field)}
+                        <textarea
+                          id={`canonical-course-${field}`}
+                          rows={field.startsWith('detailed') || field.startsWith('program') ? 4 : 2}
+                          value={createForm[field]}
+                          aria-invalid={createFieldIssue(field) ? true : undefined}
+                          aria-describedby={
+                            createFieldIssue(field) ? `canonical-course-${field}-error` : undefined
+                          }
+                          placeholder={
+                            field.startsWith('program')
+                              ? language === 'ru'
+                                ? 'День 1 | Заголовок | Описание'
+                                : 'Day 1 | Title | Description'
+                              : field.startsWith('faq')
+                                ? language === 'ru'
+                                  ? 'Вопрос | Ответ'
+                                  : 'Question | Answer'
+                                : field.startsWith('benefits')
+                                  ? language === 'ru'
+                                    ? 'Один пункт в строке'
+                                    : 'One item per line'
+                                  : field === 'galleryPhotos'
+                                    ? language === 'ru'
+                                      ? 'Один URL в строке'
+                                      : 'One URL per line'
+                                    : undefined
+                          }
+                          onChange={(event) => updateCreateField(field, event.target.value)}
+                        />
+                        {renderCreateFieldError(field)}
+                      </label>
+                    ))}
+                    <label htmlFor="canonical-course-level" className="grid gap-1 text-xs">
+                      {createFieldLabel('level')}
+                      <select
+                        id="canonical-course-level"
+                        value={createForm.level}
+                        onChange={(event) =>
+                          updateCreateField('level', event.target.value as CreateFormState['level'])
+                        }
+                      >
+                        <option value="">—</option>
+                        <option value="beginner">
+                          {language === 'ru' ? 'Начальный' : 'Beginner'}
+                        </option>
+                        <option value="intermediate">
+                          {language === 'ru' ? 'Средний' : 'Intermediate'}
+                        </option>
+                        <option value="advanced">
+                          {language === 'ru' ? 'Продвинутый' : 'Advanced'}
+                        </option>
+                        <option value="expert">
+                          {language === 'ru' ? 'Экспертный' : 'Expert'}
+                        </option>
+                      </select>
+                    </label>
+                    <label htmlFor="canonical-course-discipline" className="grid gap-1 text-xs">
+                      {createFieldLabel('discipline')} *
+                      <select
+                        id="canonical-course-discipline"
+                        required
+                        aria-invalid={createFieldIssue('discipline') ? true : undefined}
+                        aria-describedby={
+                          createFieldIssue('discipline')
+                            ? 'canonical-course-discipline-error'
+                            : undefined
+                        }
+                        value={createForm.discipline}
+                        onChange={(event) =>
+                          updateCreateField(
+                            'discipline',
+                            event.target.value as CreateFormState['discipline']
+                          )
+                        }
+                      >
+                        <option value="">—</option>
+                        <option value="ski">{language === 'ru' ? 'Лыжи' : 'Ski'}</option>
+                        <option value="snowboard">
+                          {language === 'ru' ? 'Сноуборд' : 'Snowboard'}
+                        </option>
+                      </select>
+                      {renderCreateFieldError('discipline')}
+                    </label>
+                    <label htmlFor="canonical-course-order" className="grid gap-1 text-xs">
+                      {createFieldLabel('order')}
+                      <input
+                        id="canonical-course-order"
+                        type="number"
+                        min="0"
+                        max="10000"
+                        value={createForm.order}
+                        onChange={(event) => updateCreateField('order', event.target.value)}
+                      />
+                    </label>
+                    <label
+                      htmlFor="canonical-course-is-hidden"
+                      className="flex items-center gap-2 text-xs"
+                    >
+                      <input
+                        id="canonical-course-is-hidden"
+                        type="checkbox"
+                        checked={createForm.isHidden}
+                        onChange={(event) => updateCreateField('isHidden', event.target.checked)}
+                      />
+                      {language === 'ru'
+                        ? 'Скрыть из публичного каталога'
+                        : 'Hide from public catalog'}
+                    </label>
+                  </div>
+                </details>
+                {createMode === 'clone' ? (
+                  <p className="text-xs md:col-span-2 text-[var(--ink-dim)]" role="status">
+                    {text.cloneDraftReady}
                   </p>
                 ) : null}
               </div>
-            ) : null}
-            {createCourseDays.map((row, index) => {
-              const prefix = `canonical-course-day-${row.id}`;
-              const durationMinutes = minutesForDayTimes(row.startTime, row.endTime);
-              const availability = plannerAvailabilityByDate[row.localDate];
-              const availableIds = availableInstructorIdsForCourseDay(
-                row,
-                createCourseDays,
-                createForm.roster.split(',').map((value) => value.trim()).filter(Boolean),
-                availability,
-                createForm.timeZone
-              );
-              const rowFieldIssue = (field: 'date' | 'start' | 'end' | 'instructor') =>
-                createValidationIssues.find((issue) => issue.targetId === `${prefix}-${field}`);
-              const selectedInstructorIsUnavailable =
-                row.instructorId !== '' && !availableIds.includes(row.instructorId);
-              const updateRowField = (
-                field: 'localDate' | 'startTime' | 'endTime' | 'instructorId',
-                value: string
-              ) =>
-                updateCreateCourseDays(
-                  createCourseDays.map((candidate) =>
-                    candidate.id === row.id ? { ...candidate, [field]: value } : candidate
-                  )
-                );
-              return (
-                <div key={row.id} className={`${adminRecordCardClass} grid gap-2 border-l-transparent`}>
-                  <div className="flex items-center justify-between gap-2">
-                    <strong className="text-xs">
-                      {language === 'ru' ? `День ${index + 1}` : `Day ${index + 1}`}
-                      {createMode === 'create' ? ` · ${row.localDate}` : ''}
-                    </strong>
-                    {createMode === 'clone' && createCourseDays.length > 1 ? (
-                      <button
-                        type="button"
-                        className="text-xs text-rose-700 hover:underline dark:text-rose-300"
-                        onClick={() => updateCreateCourseDays(createCourseDays.filter((candidate) => candidate.id !== row.id))}
-                      >
-                        {language === 'ru' ? 'Удалить день' : 'Remove day'}
-                      </button>
-                    ) : null}
-                  </div>
-                  {createMode === 'clone' ? (
-                    <label htmlFor={`${prefix}-date`} className="grid gap-1 text-xs">
-                      {language === 'ru' ? 'Дата' : 'Date'}
-                      <input
-                        id={`${prefix}-date`}
-                        type="date"
-                        required
-                        value={row.localDate}
-                        aria-invalid={rowFieldIssue('date') ? true : undefined}
-                        aria-describedby={rowFieldIssue('date') ? `${prefix}-date-error` : undefined}
-                        onChange={(event) => updateRowField('localDate', event.target.value)}
-                      />
-                      {rowFieldIssue('date') ? <span id={`${prefix}-date-error`} className="text-red-700">{rowFieldIssue('date')?.message}</span> : null}
-                    </label>
-                  ) : null}
-                  <div className="grid gap-2">
-                    <label htmlFor={`${prefix}-start`} className="grid gap-1 text-xs">
-                      {language === 'ru' ? 'Начало' : 'Starts'}
-                      <input
-                        id={`${prefix}-start`}
-                        type="time"
-                        step={60}
-                        required
-                        value={row.startTime}
-                        aria-invalid={rowFieldIssue('start') ? true : undefined}
-                        aria-describedby={rowFieldIssue('start') ? `${prefix}-start-error` : undefined}
-                        onChange={(event) => updateRowField('startTime', event.target.value)}
-                      />
-                      {rowFieldIssue('start') ? <span id={`${prefix}-start-error`} className="text-red-700">{rowFieldIssue('start')?.message}</span> : null}
-                    </label>
-                    <label htmlFor={`${prefix}-end`} className="grid gap-1 text-xs">
-                      {language === 'ru' ? 'Окончание' : 'Ends'}
-                      <input
-                        id={`${prefix}-end`}
-                        type="time"
-                        step={60}
-                        required
-                        value={row.endTime}
-                        aria-invalid={rowFieldIssue('end') ? true : undefined}
-                        aria-describedby={rowFieldIssue('end') ? `${prefix}-end-error` : undefined}
-                        onChange={(event) => updateRowField('endTime', event.target.value)}
-                      />
-                      {rowFieldIssue('end') ? <span id={`${prefix}-end-error`} className="text-red-700">{rowFieldIssue('end')?.message}</span> : null}
-                    </label>
-                  </div>
-                  {durationMinutes !== undefined ? (
-                    <p className="text-[11px] text-[var(--ink-dim)]">
-                      {language === 'ru' ? 'Длительность' : 'Duration'}: {durationMinutes} {language === 'ru' ? 'мин.' : 'min'}
-                      {row.endTime < row.startTime
-                        ? language === 'ru'
-                          ? ' · окончание на следующие сутки'
-                          : ' · ends the next day'
-                        : row.endTime === row.startTime
-                          ? language === 'ru'
-                            ? ' · полные сутки'
-                            : ' · full day'
-                          : ''}
-                    </p>
-                  ) : null}
-                  <p className="text-[11px] text-[var(--ink-dim)]">
-                    {language === 'ru'
-                      ? 'Если окончание раньше начала, интервал продолжается до следующих суток.'
-                      : 'If the end time is earlier than the start, the interval continues into the next day.'}
-                  </p>
-                  <label htmlFor={`${prefix}-instructor`} className="grid gap-1 text-xs">
-                    {language === 'ru' ? 'Доступный инструктор' : 'Available instructor'}
-                    <select
-                      id={`${prefix}-instructor`}
-                      required
-                      value={row.instructorId}
-                      disabled={!courseDayInterval(row, createForm.timeZone) || availability?.loading || !availability?.item || Boolean(availability.error)}
-                      aria-invalid={rowFieldIssue('instructor') ? true : undefined}
-                      aria-describedby={rowFieldIssue('instructor') ? `${prefix}-instructor-error` : undefined}
-                      onChange={(event) => updateRowField('instructorId', event.target.value)}
-                    >
-                      <option value="">{language === 'ru' ? 'Выберите инструктора' : 'Choose an instructor'}</option>
-                      {row.instructorId && selectedInstructorIsUnavailable ? (
-                        <option value={row.instructorId} disabled>
-                          {instructorOptionById(row.instructorId)?.name ?? row.instructorId} — {language === 'ru' ? 'недоступен в это время' : 'unavailable at this time'}
-                        </option>
-                      ) : null}
-                      {availableIds.map((id) => (
-                        <option key={id} value={id}>{instructorOptionById(id)?.name ?? availability?.item?.instructors.find((instructor) => String(instructor.instructorId) === id)?.name ?? id}</option>
-                      ))}
-                    </select>
-                    {rowFieldIssue('instructor') ? <span id={`${prefix}-instructor-error`} className="text-red-700">{rowFieldIssue('instructor')?.message}</span> : null}
-                    {availability?.loading ? (
-                      <span className="text-[var(--ink-dim)]">{language === 'ru' ? 'Проверяем расписание…' : 'Checking schedule…'}</span>
-                    ) : availability?.error ? (
-                      <span className="text-red-700">
-                        {language === 'ru' ? 'Не удалось подтвердить доступность.' : 'Availability could not be confirmed.'}{' '}
-                        <button
-                          type="button"
-                          className="underline"
-                          onClick={() => setAvailabilityRefreshToken((token) => token + 1)}
-                        >
-                          {language === 'ru' ? 'Повторить проверку' : 'Retry check'}
-                        </button>
-                      </span>
-                    ) : courseDayInterval(row, createForm.timeZone) && availableIds.length === 0 ? (
-                      <span className="text-[var(--ink-dim)]">{language === 'ru' ? 'Нет свободных инструкторов на выбранный интервал.' : 'No instructors are free for this time range.'}</span>
-                    ) : null}
-                  </label>
-                </div>
-              );
-            })}
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] pt-3 text-xs">
-              {createMode === 'clone' ? (
+              <div className="sticky bottom-0 z-20 border-t border-[var(--border)] bg-[var(--card-bg)] px-4 py-3">
                 <ActionButton
-                  type="button"
+                  pending={pending !== null}
+                  pendingLabel={text.pending}
+                  variant="primary"
                   size="sm"
-                  variant="secondary"
-                  disabled={createCourseDays.length >= 64}
-                  onClick={() => updateCreateCourseDays([...createCourseDays, newCourseDayRow()])}
+                  className="w-full"
+                  type="submit"
                 >
-                  {language === 'ru' ? 'Добавить день' : 'Add day'}
+                  {createMode === 'clone' ? text.createClone : text.create}
                 </ActionButton>
-              ) : null}
-              <span className="text-[var(--ink-dim)]">
-                {courseDayDateSummary(createCourseDays) || (language === 'ru' ? 'Даты курса не выбраны' : 'No course dates selected')}
-                {createCourseDays.some((row) => minutesForDayTimes(row.startTime, row.endTime) !== undefined)
-                  ? ` · ${courseDurationSummary(createCourseDays, language)}`
-                  : ''}
-              </span>
-            </div>
-            {createFieldIssue('days') ? (
-              <p id="canonical-course-days-error" className="text-xs text-red-700">
-                {createFieldIssue('days')?.message}
-              </p>
-            ) : null}
-          </fieldset>
-          <details
-            ref={createPresentationDetailsRef}
-            className="space-y-3"
-          >
-            <summary className="cursor-pointer text-xs font-medium">{text.presentation}</summary>
-            <div className="mt-3 grid gap-3">
-              <label
-                htmlFor="canonical-course-description"
-                className="grid gap-1 text-xs md:col-span-2"
-              >
-                {createFieldLabel('description')}
-                <textarea
-                  id="canonical-course-description"
-                  rows={3}
-                  value={createForm.description}
-                  aria-invalid={createFieldIssue('description') ? true : undefined}
-                  aria-describedby={
-                    createFieldIssue('description')
-                      ? 'canonical-course-description-error'
-                      : undefined
-                  }
-                  onChange={(event) => updateCreateField('description', event.target.value)}
-                />
-                {renderCreateFieldError('description')}
-              </label>
-              {(
-                [
-                  'shortDescription',
-                  'shortDescriptionRu',
-                  'detailedDescription',
-                  'detailedDescriptionRu',
-                  'badge',
-                  'badgeRu',
-                  'levelLabel',
-                  'videoUrl',
-                  'benefits',
-                  'benefitsRu',
-                  'program',
-                  'programRu',
-                  'faq',
-                  'faqRu',
-                  'galleryPhotos',
-                ] as const
-              ).map((field) => (
-                <label
-                  key={field}
-                  htmlFor={`canonical-course-${field}`}
-                  className="grid gap-1 text-xs"
-                >
-                  {createFieldLabel(field)}
-                  <textarea
-                    id={`canonical-course-${field}`}
-                    rows={field.startsWith('detailed') || field.startsWith('program') ? 4 : 2}
-                    value={createForm[field]}
-                    aria-invalid={createFieldIssue(field) ? true : undefined}
-                    aria-describedby={
-                      createFieldIssue(field) ? `canonical-course-${field}-error` : undefined
-                    }
-                    placeholder={
-                      field.startsWith('program')
-                        ? language === 'ru'
-                          ? 'День 1 | Заголовок | Описание'
-                          : 'Day 1 | Title | Description'
-                        : field.startsWith('faq')
-                          ? language === 'ru'
-                            ? 'Вопрос | Ответ'
-                            : 'Question | Answer'
-                          : field.startsWith('benefits')
-                            ? language === 'ru'
-                              ? 'Один пункт в строке'
-                              : 'One item per line'
-                            : field === 'galleryPhotos'
-                              ? language === 'ru'
-                                ? 'Один URL в строке'
-                                : 'One URL per line'
-                              : undefined
-                    }
-                    onChange={(event) => updateCreateField(field, event.target.value)}
-                  />
-                  {renderCreateFieldError(field)}
-                </label>
-              ))}
-              <label htmlFor="canonical-course-level" className="grid gap-1 text-xs">
-                {createFieldLabel('level')}
-                <select
-                  id="canonical-course-level"
-                  value={createForm.level}
-                  onChange={(event) =>
-                    updateCreateField('level', event.target.value as CreateFormState['level'])
-                  }
-                >
-                  <option value="">—</option>
-                  <option value="beginner">{language === 'ru' ? 'Начальный' : 'Beginner'}</option>
-                  <option value="intermediate">
-                    {language === 'ru' ? 'Средний' : 'Intermediate'}
-                  </option>
-                  <option value="advanced">
-                    {language === 'ru' ? 'Продвинутый' : 'Advanced'}
-                  </option>
-                  <option value="expert">{language === 'ru' ? 'Экспертный' : 'Expert'}</option>
-                </select>
-              </label>
-              <label htmlFor="canonical-course-discipline" className="grid gap-1 text-xs">
-                {createFieldLabel('discipline')} *
-                <select
-                  id="canonical-course-discipline"
-                  required
-                  aria-invalid={createFieldIssue('discipline') ? true : undefined}
-                  aria-describedby={
-                    createFieldIssue('discipline') ? 'canonical-course-discipline-error' : undefined
-                  }
-                  value={createForm.discipline}
-                  onChange={(event) =>
-                    updateCreateField(
-                      'discipline',
-                      event.target.value as CreateFormState['discipline']
-                    )
-                  }
-                >
-                  <option value="">—</option>
-                  <option value="ski">{language === 'ru' ? 'Лыжи' : 'Ski'}</option>
-                  <option value="snowboard">{language === 'ru' ? 'Сноуборд' : 'Snowboard'}</option>
-                </select>
-                {renderCreateFieldError('discipline')}
-              </label>
-              <label htmlFor="canonical-course-order" className="grid gap-1 text-xs">
-                {createFieldLabel('order')}
-                <input
-                  id="canonical-course-order"
-                  type="number"
-                  min="0"
-                  max="10000"
-                  value={createForm.order}
-                  onChange={(event) => updateCreateField('order', event.target.value)}
-                />
-              </label>
-              <label
-                htmlFor="canonical-course-is-hidden"
-                className="flex items-center gap-2 text-xs"
-              >
-                <input
-                  id="canonical-course-is-hidden"
-                  type="checkbox"
-                  checked={createForm.isHidden}
-                  onChange={(event) => updateCreateField('isHidden', event.target.checked)}
-                />
-                {language === 'ru' ? 'Скрыть из публичного каталога' : 'Hide from public catalog'}
-              </label>
-            </div>
-          </details>
-          {createMode === 'clone' ? (
-            <p className="text-xs md:col-span-2 text-[var(--ink-dim)]" role="status">
-              {text.cloneDraftReady}
-            </p>
-          ) : null}
-          </div>
-          <div className="sticky bottom-0 z-20 border-t border-[var(--border)] bg-[var(--card-bg)] px-4 py-3">
-          <ActionButton
-            pending={pending !== null}
-            pendingLabel={text.pending}
-            variant="primary"
-            size="sm"
-            className="w-full"
-            type="submit"
-          >
-            {createMode === 'clone' ? text.createClone : text.create}
-          </ActionButton>
-          </div>
-        </form>
+              </div>
+            </form>
           ) : selectedCourse ? (
             <article>
               <div className="sticky top-3 z-20 rounded-t-[var(--radius)] bg-[var(--card-bg)] shadow-[0_8px_20px_-18px_rgba(17,17,17,0.45)] lg:top-0">
@@ -2874,506 +3104,540 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                 />
               </div>
               <div className="space-y-4 p-4 pt-3">
-          <div
-            id="course-overview"
-            className={
-              workspaceSection === 'overview'
-                ? 'grid grid-cols-2 gap-x-6 gap-y-2 text-xs sm:grid-cols-4'
-                : 'hidden'
-            }
-          >
-            <div>
-              <div className="font-mono text-sm text-[var(--ink)]">
-                {selectedCourse.price.toLocaleString()} ₸
-              </div>
-              <div className="text-[var(--ink-dim)]">{language === 'ru' ? 'Цена' : 'Price'}</div>
-            </div>
-            <div>
-              <div className="font-mono text-sm text-[var(--ink)]">
-                {selectedCourse.capacity.totalSeats - selectedCourse.capacity.availableSeats} /{' '}
-                {selectedCourse.capacity.totalSeats}
-              </div>
-              <div className="text-[var(--ink-dim)]">{text.enrollments}</div>
-            </div>
-            <div>
-              <div className="font-mono text-sm text-[var(--ink)]">
-                {selectedCourse.catalogContent.content?.duration?.trim() || '—'}
-              </div>
-              <div className="text-[var(--ink-dim)]">
-                {language === 'ru' ? 'Длительность' : 'Duration'}
-              </div>
-            </div>
-            <div>
-              <div className="font-mono text-sm text-[var(--ink)]">
-                {catalogHidden
-                  ? language === 'ru'
-                    ? 'Скрыт'
-                    : 'Hidden'
-                  : language === 'ru'
-                    ? 'Публичный'
-                    : 'Public'}
-              </div>
-              <div className="text-[var(--ink-dim)]">{language === 'ru' ? 'Каталог' : 'Catalog'}</div>
-            </div>
-          </div>
-
-          {selectedCourse.instructors.some((instructor) => instructor.isAvailable === false) ? (
-            <p
-              role="status"
-              className={
-                showWorkspace('instructors') ? 'text-xs text-amber-700' : 'hidden'
-              }
-            >
-              {text.unavailableInstructor}
-            </p>
-          ) : null}
-
-          {editForm ? (
-            <form
-              className={
-                showWorkspace('settings', 'instructors')
-                  ? `grid gap-3 md:grid-cols-2 ${adminFormControls}`
-                  : 'hidden'
-              }
-              onSubmit={(event) => void saveStructuredEdit(event)}
-            >
-              <h4 className="text-sm font-bold md:col-span-2">
-                {language === 'ru' ? 'Редактирование курса' : 'Edit course'}
-              </h4>
-              <label htmlFor="course-edit-title" className="grid gap-1 text-xs">
-                {language === 'ru' ? 'Название' : 'Title'}
-                <input
-                  id="course-edit-title"
-                  required
-                  value={editForm.title}
-                  onChange={(event) => updateEditField('title', event.target.value)}
-                />
-              </label>
-              <label htmlFor="course-edit-title-ru" className="grid gap-1 text-xs">
-                {language === 'ru' ? 'Название (RU)' : 'Title (RU)'}
-                <input
-                  id="course-edit-title-ru"
-                  value={editForm.titleRu}
-                  onChange={(event) => updateEditField('titleRu', event.target.value)}
-                />
-              </label>
-              <label htmlFor="course-edit-price" className="grid gap-1 text-xs">
-                {language === 'ru' ? 'Цена (KZT)' : 'Price (KZT)'}
-                <input
-                  id="course-edit-price"
-                  required
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={editForm.price}
-                  onChange={(event) => updateEditField('price', event.target.value)}
-                />
-              </label>
-              <label htmlFor="course-edit-capacity" className="grid gap-1 text-xs">
-                {language === 'ru' ? 'Вместимость' : 'Capacity'}
-                <input
-                  id="course-edit-capacity"
-                  required
-                  type="number"
-                  min="1"
-                  max="64"
-                  value={editForm.totalSeats}
-                  onChange={(event) => updateEditField('totalSeats', event.target.value)}
-                />
-              </label>
-              <div className="grid gap-1 text-xs">
-                {language === 'ru' ? 'Изображение курса' : 'Course image'}
-                <input
-                  aria-label={language === 'ru' ? 'URL изображения' : 'Image URL'}
-                  type="url"
-                  value={editForm.bgImageUrl}
-                  onChange={(event) => updateEditField('bgImageUrl', event.target.value)}
-                />
-                <button
-                  type="button"
-                  className="border border-[var(--border)] px-3 py-1.5 text-xs hover:border-[var(--ink)]"
-                  onClick={() => setImageUploaderOpen((value) => !value)}
-                >
-                  {language === 'ru' ? 'Загрузить изображение' : 'Upload image'}
-                </button>
-                {imageUploaderOpen ? (
-                  <CourseBackgroundImageField
-                    value={editForm.bgImageUrl}
-                    courseId={selectedCourse.courseId}
-                    onChange={(value) => updateEditField('bgImageUrl', value)}
-                  />
-                ) : null}
-                {editForm.bgImageUrl ? (
-                  <img src={editForm.bgImageUrl} alt="" className="h-20 w-32 object-cover" />
-                ) : null}
-              </div>
-              <label htmlFor="course-edit-video" className="grid gap-1 text-xs">
-                {language === 'ru' ? 'Видео (URL)' : 'Video URL'}
-                <input
-                  id="course-edit-video"
-                  type="url"
-                  value={editForm.videoUrl}
-                  onChange={(event) => updateEditField('videoUrl', event.target.value)}
-                />
-              </label>
-              <fieldset id="course-instructors" className="grid gap-2 md:col-span-2">
-                <legend className="text-xs font-bold">
-                  {language === 'ru' ? 'Состав инструкторов курса' : 'Course instructor roster'}
-                </legend>
-                {instructorReads.instructors.loading ? (
-                  <p className="text-xs">{text.loading}</p>
-                ) : null}
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                  {instructorReads.instructors.items.map((instructor) => {
-                    const selected = editForm.roster
-                      .split(',')
-                      .map((item) => item.trim())
-                      .filter(Boolean);
-                    return (
-                      <label
-                        htmlFor={`course-roster-${instructor.instructorId}`}
-                        key={instructor.instructorId}
-                        className="flex gap-2 text-xs"
-                      >
-                        <input
-                          id={`course-roster-${instructor.instructorId}`}
-                          type="checkbox"
-                          disabled={
-                            !instructor.isAvailable && !selected.includes(instructor.instructorId)
-                          }
-                          checked={selected.includes(instructor.instructorId)}
-                          onChange={() =>
-                            updateEditField(
-                              'roster',
-                              (selected.includes(instructor.instructorId)
-                                ? selected.filter((id) => id !== instructor.instructorId)
-                                : [...selected, instructor.instructorId]
-                              ).join(',')
-                            )
-                          }
-                        />
-                        {instructor.name}
-                        {!instructor.isAvailable
-                          ? ` — ${language === 'ru' ? 'деактивирован' : 'inactive'}`
-                          : ''}
-                      </label>
-                    );
-                  })}
-                </div>
-              </fieldset>
-              <details id="course-settings" className="grid gap-2 md:col-span-2">
-                <summary className="cursor-pointer text-xs font-bold">{text.presentation}</summary>
-                <div className="grid gap-2 md:grid-cols-2">
-                  <label
-                    htmlFor="course-edit-description"
-                    className="grid gap-1 text-xs md:col-span-2"
-                  >
-                    {language === 'ru' ? 'Описание' : 'Description'}
-                    <textarea
-                      id="course-edit-description"
-                      rows={3}
-                      value={editForm.description}
-                      onChange={(event) => updateEditField('description', event.target.value)}
-                    />
-                  </label>
-                  <label htmlFor="course-edit-short-en" className="grid gap-1 text-xs">
-                    {language === 'ru' ? 'Краткое описание (EN)' : 'Short description (EN)'}
-                    <textarea
-                      id="course-edit-short-en"
-                      value={editForm.shortDescription}
-                      onChange={(event) => updateEditField('shortDescription', event.target.value)}
-                    />
-                  </label>
-                  <label htmlFor="course-edit-short-ru" className="grid gap-1 text-xs">
-                    {language === 'ru' ? 'Краткое описание (RU)' : 'Short description (RU)'}
-                    <textarea
-                      id="course-edit-short-ru"
-                      value={editForm.shortDescriptionRu}
-                      onChange={(event) =>
-                        updateEditField('shortDescriptionRu', event.target.value)
-                      }
-                    />
-                  </label>
-                  <label htmlFor="course-edit-detail-en" className="grid gap-1 text-xs">
-                    {language === 'ru' ? 'Подробное описание (EN)' : 'Detailed description (EN)'}
-                    <textarea
-                      id="course-edit-detail-en"
-                      value={editForm.detailedDescription}
-                      onChange={(event) =>
-                        updateEditField('detailedDescription', event.target.value)
-                      }
-                    />
-                  </label>
-                  <label htmlFor="course-edit-detail-ru" className="grid gap-1 text-xs">
-                    {language === 'ru' ? 'Подробное описание (RU)' : 'Detailed description (RU)'}
-                    <textarea
-                      id="course-edit-detail-ru"
-                      value={editForm.detailedDescriptionRu}
-                      onChange={(event) =>
-                        updateEditField('detailedDescriptionRu', event.target.value)
-                      }
-                    />
-                  </label>
-                  <label htmlFor="course-edit-benefits-en" className="grid gap-1 text-xs">
-                    {language === 'ru'
-                      ? 'Преимущества (по одному в строке)'
-                      : 'Benefits (one per line)'}
-                    <textarea
-                      id="course-edit-benefits-en"
-                      value={editForm.benefits}
-                      onChange={(event) => updateEditField('benefits', event.target.value)}
-                    />
-                  </label>
-                  <label htmlFor="course-edit-benefits-ru" className="grid gap-1 text-xs">
-                    {language === 'ru'
-                      ? 'Преимущества RU (по одному в строке)'
-                      : 'Benefits RU (one per line)'}
-                    <textarea
-                      id="course-edit-benefits-ru"
-                      value={editForm.benefitsRu}
-                      onChange={(event) => updateEditField('benefitsRu', event.target.value)}
-                    />
-                  </label>
-                  <label htmlFor="course-edit-badge-en" className="grid gap-1 text-xs">
-                    {language === 'ru' ? 'Бейдж' : 'Badge'}
-                    <input
-                      id="course-edit-badge-en"
-                      value={editForm.badge}
-                      onChange={(event) => updateEditField('badge', event.target.value)}
-                    />
-                  </label>
-                  <label htmlFor="course-edit-badge-ru" className="grid gap-1 text-xs">
-                    {language === 'ru' ? 'Бейдж (RU)' : 'Badge (RU)'}
-                    <input
-                      id="course-edit-badge-ru"
-                      value={editForm.badgeRu}
-                      onChange={(event) => updateEditField('badgeRu', event.target.value)}
-                    />
-                  </label>
-                  <label htmlFor="course-edit-level" className="grid gap-1 text-xs">
-                    {language === 'ru' ? 'Уровень' : 'Level'}
-                    <select
-                      id="course-edit-level"
-                      value={editForm.level}
-                      onChange={(event) =>
-                        updateEditField('level', event.target.value as CreateFormState['level'])
-                      }
-                    >
-                      <option value="">—</option>
-                      <option value="beginner">
-                        {language === 'ru' ? 'Начальный' : 'Beginner'}
-                      </option>
-                      <option value="intermediate">
-                        {language === 'ru' ? 'Средний' : 'Intermediate'}
-                      </option>
-                      <option value="advanced">
-                        {language === 'ru' ? 'Продвинутый' : 'Advanced'}
-                      </option>
-                      <option value="expert">{language === 'ru' ? 'Экспертный' : 'Expert'}</option>
-                    </select>
-                  </label>
-                  <label htmlFor="course-edit-discipline" className="grid gap-1 text-xs">
-                    {language === 'ru' ? 'Дисциплина' : 'Discipline'}
-                    <select
-                      id="course-edit-discipline"
-                      required={Boolean(editOriginal?.catalogContent.content?.discipline)}
-                      value={editForm.discipline}
-                      onChange={(event) =>
-                        updateEditField(
-                          'discipline',
-                          event.target.value as CreateFormState['discipline']
-                        )
-                      }
-                    >
-                      <option value="">—</option>
-                      <option value="ski">{language === 'ru' ? 'Лыжи' : 'Ski'}</option>
-                      <option value="snowboard">{language === 'ru' ? 'Сноуборд' : 'Snowboard'}</option>
-                    </select>
-                  </label>
-                  <label htmlFor="course-edit-level-label" className="grid gap-1 text-xs">
-                    {language === 'ru' ? 'Подпись уровня' : 'Level label'}
-                    <input
-                      id="course-edit-level-label"
-                      value={editForm.levelLabel}
-                      onChange={(event) => updateEditField('levelLabel', event.target.value)}
-                    />
-                  </label>
-                  <label htmlFor="course-edit-program-en" className="grid gap-1 text-xs">
-                    {language === 'ru'
-                      ? 'Программа EN (день | заголовок | описание)'
-                      : 'Program EN (day | title | description)'}
-                    <textarea
-                      id="course-edit-program-en"
-                      value={editForm.program}
-                      onChange={(event) => updateEditField('program', event.target.value)}
-                    />
-                  </label>
-                  <label htmlFor="course-edit-program-ru" className="grid gap-1 text-xs">
-                    {language === 'ru'
-                      ? 'Программа RU (день | заголовок | описание)'
-                      : 'Program RU (day | title | description)'}
-                    <textarea
-                      id="course-edit-program-ru"
-                      value={editForm.programRu}
-                      onChange={(event) => updateEditField('programRu', event.target.value)}
-                    />
-                  </label>
-                  <label htmlFor="course-edit-faq-en" className="grid gap-1 text-xs">
-                    {language === 'ru' ? 'FAQ EN (вопрос | ответ)' : 'FAQ EN (question | answer)'}
-                    <textarea
-                      id="course-edit-faq-en"
-                      value={editForm.faq}
-                      onChange={(event) => updateEditField('faq', event.target.value)}
-                    />
-                  </label>
-                  <label htmlFor="course-edit-faq-ru" className="grid gap-1 text-xs">
-                    {language === 'ru' ? 'FAQ RU (вопрос | ответ)' : 'FAQ RU (question | answer)'}
-                    <textarea
-                      id="course-edit-faq-ru"
-                      value={editForm.faqRu}
-                      onChange={(event) => updateEditField('faqRu', event.target.value)}
-                    />
-                  </label>
-                  <label htmlFor="course-edit-gallery" className="grid gap-1 text-xs md:col-span-2">
-                    {language === 'ru'
-                      ? 'Галерея (один URL в строке)'
-                      : 'Gallery (one URL per line)'}
-                    <textarea
-                      id="course-edit-gallery"
-                      value={editForm.galleryPhotos}
-                      onChange={(event) => updateEditField('galleryPhotos', event.target.value)}
-                    />
-                  </label>
-                  <label htmlFor="course-edit-order" className="grid gap-1 text-xs">
-                    {language === 'ru' ? 'Порядок' : 'Order'}
-                    <input
-                      id="course-edit-order"
-                      type="number"
-                      min="0"
-                      value={editForm.order}
-                      onChange={(event) => updateEditField('order', event.target.value)}
-                    />
-                  </label>
-                  <label htmlFor="course-edit-hidden" className="flex gap-2 text-xs">
-                    <input
-                      id="course-edit-hidden"
-                      type="checkbox"
-                      checked={editForm.isHidden}
-                      onChange={(event) => updateEditField('isHidden', event.target.checked)}
-                    />
-                    {language === 'ru' ? 'Скрыть из каталога' : 'Hide from catalog'}
-                  </label>
-                </div>
-              </details>
-              <label htmlFor="course-edit-reason" className="grid gap-1 text-xs md:col-span-2">
-                {language === 'ru' ? 'Причина изменения' : 'Reason for change'}
-                <input
-                  id="course-edit-reason"
-                  required
-                  value={editReason}
-                  onChange={(event) => setEditReason(event.target.value)}
-                />
-              </label>
-              <ActionButton
-                variant="primary"
-                size="sm"
-                pending={pending !== null}
-                pendingLabel={text.pending}
-                type="submit"
-              >
-                {language === 'ru' ? 'Сохранить изменения' : 'Save changes'}
-              </ActionButton>
-            </form>
-          ) : null}
-
-          <section
-            id="course-schedule"
-            className={showWorkspace('schedule') ? 'space-y-3' : 'hidden'}
-          >
-            <h4 className="text-xs font-bold uppercase tracking-wider">
-              {text.operationalSchedule}
-            </h4>
-            <CanonicalCourseDaysEditor
-              course={selectedCourse}
-              language={language}
-              draft={courseDayDraft}
-              pending={pending !== null}
-              pendingLabel={text.pending}
-              instructors={selectedCourse.instructorRosterIds.map((id) => ({
-                id,
-                name: instructorOptions.get(id)?.name ?? id,
-                inactive: instructorOptions.get(id)?.isAvailable === false,
-              }))}
-              dayIssue={courseDayIssue}
-              emptyLabel={text.noSchedule}
-              onDraftChange={setCourseDayDraft}
-              onSubmit={(event) => void submitCourseDayDraft(event)}
-              onRemove={(day) =>
-                onRequestConfirm(
-                  language === 'ru'
-                    ? `Удалить день курса ${day.dayOrder}?`
-                    : `Remove course day ${day.dayOrder}?`,
-                  async () => {
-                    const action = selectedCourse.authorizedActions.find(
-                      (item) => item.kind === 'remove_course_day'
-                    );
-                    if (action)
-                      await execute({
-                        kind: 'remove_course_day',
-                        expectedRevision: action.expectedRevision,
-                        intent: {
-                          courseId: selectedCourse.courseId,
-                          courseDayId: day.courseDayId,
-                          expectedCourseDayRevision: day.revision,
-                          reasonExplanation: editReason.trim() || 'Admin CourseDay removal',
-                        },
-                      });
+                <div
+                  id="course-overview"
+                  className={
+                    workspaceSection === 'overview'
+                      ? 'grid grid-cols-2 gap-x-6 gap-y-2 text-xs sm:grid-cols-4'
+                      : 'hidden'
                   }
-                )
-              }
-            />
-          </section>
-
-            {onOpenEnrollments ? (
-            <div
-              id="course-enrollment"
-              className={showWorkspace('enrollment', 'participants') ? 'space-y-2' : 'hidden'}
-            >
-              <p id="course-participants" className="text-xs text-[var(--ink-dim)]">
-                {text.activeEnrollments}: {selectedCourse.activeEnrollmentCount} ·{' '}
-                {text.totalEnrollments}: {selectedCourse.totalEnrollmentCount}
-              </p>
-              <button
-                type="button"
-                className="border border-[var(--border)] px-3 py-1.5 text-xs hover:border-[var(--ink)]"
-                onClick={() => onOpenEnrollments(selectedCourse.courseId)}
-              >
-                {text.manageEnrollments}
-              </button>
-            </div>
-          ) : null}
-          <div className="flex flex-wrap gap-2">
-            {(['archive_course', 'reactivate_course'] as const)
-              .filter((kind) =>
-                selectedCourse.authorizedActions.some((action) => action.kind === kind)
-              )
-              .map((kind) => (
-                <ActionButton
-                  key={kind}
-                  type="button"
-                  size="sm"
-                  variant={kind === 'archive_course' ? 'danger' : 'secondary'}
-                  disabled={pending !== null}
-                  onClick={() => {
-                    if (kind === 'archive_course')
-                      handleArchive(mapAdminCourseToTableCourse(selectedCourse));
-                    else handleReactivate(mapAdminCourseToTableCourse(selectedCourse));
-                  }}
                 >
-                  {actionLabel(kind)}
-                </ActionButton>
-              ))}
-          </div>
+                  <div>
+                    <div className="font-mono text-sm text-[var(--ink)]">
+                      {selectedCourse.price.toLocaleString()} ₸
+                    </div>
+                    <div className="text-[var(--ink-dim)]">
+                      {language === 'ru' ? 'Цена' : 'Price'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="font-mono text-sm text-[var(--ink)]">
+                      {selectedCourse.capacity.totalSeats - selectedCourse.capacity.availableSeats}{' '}
+                      / {selectedCourse.capacity.totalSeats}
+                    </div>
+                    <div className="text-[var(--ink-dim)]">{text.enrollments}</div>
+                  </div>
+                  <div>
+                    <div className="font-mono text-sm text-[var(--ink)]">
+                      {selectedCourse.catalogContent.content?.duration?.trim() || '—'}
+                    </div>
+                    <div className="text-[var(--ink-dim)]">
+                      {language === 'ru' ? 'Длительность' : 'Duration'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="font-mono text-sm text-[var(--ink)]">
+                      {catalogHidden
+                        ? language === 'ru'
+                          ? 'Скрыт'
+                          : 'Hidden'
+                        : language === 'ru'
+                          ? 'Публичный'
+                          : 'Public'}
+                    </div>
+                    <div className="text-[var(--ink-dim)]">
+                      {language === 'ru' ? 'Каталог' : 'Catalog'}
+                    </div>
+                  </div>
+                </div>
+
+                {selectedCourse.instructors.some(
+                  (instructor) => instructor.isAvailable === false
+                ) ? (
+                  <p
+                    role="status"
+                    className={showWorkspace('instructors') ? 'text-xs text-amber-700' : 'hidden'}
+                  >
+                    {text.unavailableInstructor}
+                  </p>
+                ) : null}
+
+                {editForm ? (
+                  <form
+                    className={
+                      showWorkspace('settings', 'instructors')
+                        ? `grid gap-3 md:grid-cols-2 ${adminFormControls}`
+                        : 'hidden'
+                    }
+                    onSubmit={(event) => void saveStructuredEdit(event)}
+                  >
+                    <h4 className="text-sm font-bold md:col-span-2">
+                      {language === 'ru' ? 'Редактирование курса' : 'Edit course'}
+                    </h4>
+                    <label htmlFor="course-edit-title" className="grid gap-1 text-xs">
+                      {language === 'ru' ? 'Название' : 'Title'}
+                      <input
+                        id="course-edit-title"
+                        required
+                        value={editForm.title}
+                        onChange={(event) => updateEditField('title', event.target.value)}
+                      />
+                    </label>
+                    <label htmlFor="course-edit-title-ru" className="grid gap-1 text-xs">
+                      {language === 'ru' ? 'Название (RU)' : 'Title (RU)'}
+                      <input
+                        id="course-edit-title-ru"
+                        value={editForm.titleRu}
+                        onChange={(event) => updateEditField('titleRu', event.target.value)}
+                      />
+                    </label>
+                    <label htmlFor="course-edit-price" className="grid gap-1 text-xs">
+                      {language === 'ru' ? 'Цена (KZT)' : 'Price (KZT)'}
+                      <input
+                        id="course-edit-price"
+                        required
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={editForm.price}
+                        onChange={(event) => updateEditField('price', event.target.value)}
+                      />
+                    </label>
+                    <label htmlFor="course-edit-capacity" className="grid gap-1 text-xs">
+                      {language === 'ru' ? 'Вместимость' : 'Capacity'}
+                      <input
+                        id="course-edit-capacity"
+                        required
+                        type="number"
+                        min="1"
+                        max="64"
+                        value={editForm.totalSeats}
+                        onChange={(event) => updateEditField('totalSeats', event.target.value)}
+                      />
+                    </label>
+                    <div className="grid gap-1 text-xs">
+                      {language === 'ru' ? 'Изображение курса' : 'Course image'}
+                      <input
+                        aria-label={language === 'ru' ? 'URL изображения' : 'Image URL'}
+                        type="url"
+                        value={editForm.bgImageUrl}
+                        onChange={(event) => updateEditField('bgImageUrl', event.target.value)}
+                      />
+                      <button
+                        type="button"
+                        className="border border-[var(--border)] px-3 py-1.5 text-xs hover:border-[var(--ink)]"
+                        onClick={() => setImageUploaderOpen((value) => !value)}
+                      >
+                        {language === 'ru' ? 'Загрузить изображение' : 'Upload image'}
+                      </button>
+                      {imageUploaderOpen ? (
+                        <CourseBackgroundImageField
+                          value={editForm.bgImageUrl}
+                          courseId={selectedCourse.courseId}
+                          onChange={(value) => updateEditField('bgImageUrl', value)}
+                        />
+                      ) : null}
+                      {editForm.bgImageUrl ? (
+                        <img src={editForm.bgImageUrl} alt="" className="h-20 w-32 object-cover" />
+                      ) : null}
+                    </div>
+                    <label htmlFor="course-edit-video" className="grid gap-1 text-xs">
+                      {language === 'ru' ? 'Видео (URL)' : 'Video URL'}
+                      <input
+                        id="course-edit-video"
+                        type="url"
+                        value={editForm.videoUrl}
+                        onChange={(event) => updateEditField('videoUrl', event.target.value)}
+                      />
+                    </label>
+                    <fieldset id="course-instructors" className="grid gap-2 md:col-span-2">
+                      <legend className="text-xs font-bold">
+                        {language === 'ru'
+                          ? 'Состав инструкторов курса'
+                          : 'Course instructor roster'}
+                      </legend>
+                      {instructorReads.instructors.loading ? (
+                        <p className="text-xs">{text.loading}</p>
+                      ) : null}
+                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                        {instructorReads.instructors.items.map((instructor) => {
+                          const selected = editForm.roster
+                            .split(',')
+                            .map((item) => item.trim())
+                            .filter(Boolean);
+                          return (
+                            <label
+                              htmlFor={`course-roster-${instructor.instructorId}`}
+                              key={instructor.instructorId}
+                              className="flex gap-2 text-xs"
+                            >
+                              <input
+                                id={`course-roster-${instructor.instructorId}`}
+                                type="checkbox"
+                                disabled={
+                                  !instructor.isAvailable &&
+                                  !selected.includes(instructor.instructorId)
+                                }
+                                checked={selected.includes(instructor.instructorId)}
+                                onChange={() =>
+                                  updateEditField(
+                                    'roster',
+                                    (selected.includes(instructor.instructorId)
+                                      ? selected.filter((id) => id !== instructor.instructorId)
+                                      : [...selected, instructor.instructorId]
+                                    ).join(',')
+                                  )
+                                }
+                              />
+                              {instructor.name}
+                              {!instructor.isAvailable
+                                ? ` — ${language === 'ru' ? 'деактивирован' : 'inactive'}`
+                                : ''}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </fieldset>
+                    <details id="course-settings" className="grid gap-2 md:col-span-2">
+                      <summary className="cursor-pointer text-xs font-bold">
+                        {text.presentation}
+                      </summary>
+                      <div className="grid gap-2 md:grid-cols-2">
+                        <label
+                          htmlFor="course-edit-description"
+                          className="grid gap-1 text-xs md:col-span-2"
+                        >
+                          {language === 'ru' ? 'Описание' : 'Description'}
+                          <textarea
+                            id="course-edit-description"
+                            rows={3}
+                            value={editForm.description}
+                            onChange={(event) => updateEditField('description', event.target.value)}
+                          />
+                        </label>
+                        <label htmlFor="course-edit-short-en" className="grid gap-1 text-xs">
+                          {language === 'ru' ? 'Краткое описание (EN)' : 'Short description (EN)'}
+                          <textarea
+                            id="course-edit-short-en"
+                            value={editForm.shortDescription}
+                            onChange={(event) =>
+                              updateEditField('shortDescription', event.target.value)
+                            }
+                          />
+                        </label>
+                        <label htmlFor="course-edit-short-ru" className="grid gap-1 text-xs">
+                          {language === 'ru' ? 'Краткое описание (RU)' : 'Short description (RU)'}
+                          <textarea
+                            id="course-edit-short-ru"
+                            value={editForm.shortDescriptionRu}
+                            onChange={(event) =>
+                              updateEditField('shortDescriptionRu', event.target.value)
+                            }
+                          />
+                        </label>
+                        <label htmlFor="course-edit-detail-en" className="grid gap-1 text-xs">
+                          {language === 'ru'
+                            ? 'Подробное описание (EN)'
+                            : 'Detailed description (EN)'}
+                          <textarea
+                            id="course-edit-detail-en"
+                            value={editForm.detailedDescription}
+                            onChange={(event) =>
+                              updateEditField('detailedDescription', event.target.value)
+                            }
+                          />
+                        </label>
+                        <label htmlFor="course-edit-detail-ru" className="grid gap-1 text-xs">
+                          {language === 'ru'
+                            ? 'Подробное описание (RU)'
+                            : 'Detailed description (RU)'}
+                          <textarea
+                            id="course-edit-detail-ru"
+                            value={editForm.detailedDescriptionRu}
+                            onChange={(event) =>
+                              updateEditField('detailedDescriptionRu', event.target.value)
+                            }
+                          />
+                        </label>
+                        <label htmlFor="course-edit-benefits-en" className="grid gap-1 text-xs">
+                          {language === 'ru'
+                            ? 'Преимущества (по одному в строке)'
+                            : 'Benefits (one per line)'}
+                          <textarea
+                            id="course-edit-benefits-en"
+                            value={editForm.benefits}
+                            onChange={(event) => updateEditField('benefits', event.target.value)}
+                          />
+                        </label>
+                        <label htmlFor="course-edit-benefits-ru" className="grid gap-1 text-xs">
+                          {language === 'ru'
+                            ? 'Преимущества RU (по одному в строке)'
+                            : 'Benefits RU (one per line)'}
+                          <textarea
+                            id="course-edit-benefits-ru"
+                            value={editForm.benefitsRu}
+                            onChange={(event) => updateEditField('benefitsRu', event.target.value)}
+                          />
+                        </label>
+                        <label htmlFor="course-edit-badge-en" className="grid gap-1 text-xs">
+                          {language === 'ru' ? 'Бейдж' : 'Badge'}
+                          <input
+                            id="course-edit-badge-en"
+                            value={editForm.badge}
+                            onChange={(event) => updateEditField('badge', event.target.value)}
+                          />
+                        </label>
+                        <label htmlFor="course-edit-badge-ru" className="grid gap-1 text-xs">
+                          {language === 'ru' ? 'Бейдж (RU)' : 'Badge (RU)'}
+                          <input
+                            id="course-edit-badge-ru"
+                            value={editForm.badgeRu}
+                            onChange={(event) => updateEditField('badgeRu', event.target.value)}
+                          />
+                        </label>
+                        <label htmlFor="course-edit-level" className="grid gap-1 text-xs">
+                          {language === 'ru' ? 'Уровень' : 'Level'}
+                          <select
+                            id="course-edit-level"
+                            value={editForm.level}
+                            onChange={(event) =>
+                              updateEditField(
+                                'level',
+                                event.target.value as CreateFormState['level']
+                              )
+                            }
+                          >
+                            <option value="">—</option>
+                            <option value="beginner">
+                              {language === 'ru' ? 'Начальный' : 'Beginner'}
+                            </option>
+                            <option value="intermediate">
+                              {language === 'ru' ? 'Средний' : 'Intermediate'}
+                            </option>
+                            <option value="advanced">
+                              {language === 'ru' ? 'Продвинутый' : 'Advanced'}
+                            </option>
+                            <option value="expert">
+                              {language === 'ru' ? 'Экспертный' : 'Expert'}
+                            </option>
+                          </select>
+                        </label>
+                        <label htmlFor="course-edit-discipline" className="grid gap-1 text-xs">
+                          {language === 'ru' ? 'Дисциплина' : 'Discipline'}
+                          <select
+                            id="course-edit-discipline"
+                            required={Boolean(editOriginal?.catalogContent.content?.discipline)}
+                            value={editForm.discipline}
+                            onChange={(event) =>
+                              updateEditField(
+                                'discipline',
+                                event.target.value as CreateFormState['discipline']
+                              )
+                            }
+                          >
+                            <option value="">—</option>
+                            <option value="ski">{language === 'ru' ? 'Лыжи' : 'Ski'}</option>
+                            <option value="snowboard">
+                              {language === 'ru' ? 'Сноуборд' : 'Snowboard'}
+                            </option>
+                          </select>
+                        </label>
+                        <label htmlFor="course-edit-level-label" className="grid gap-1 text-xs">
+                          {language === 'ru' ? 'Подпись уровня' : 'Level label'}
+                          <input
+                            id="course-edit-level-label"
+                            value={editForm.levelLabel}
+                            onChange={(event) => updateEditField('levelLabel', event.target.value)}
+                          />
+                        </label>
+                        <label htmlFor="course-edit-program-en" className="grid gap-1 text-xs">
+                          {language === 'ru'
+                            ? 'Программа EN (день | заголовок | описание)'
+                            : 'Program EN (day | title | description)'}
+                          <textarea
+                            id="course-edit-program-en"
+                            value={editForm.program}
+                            onChange={(event) => updateEditField('program', event.target.value)}
+                          />
+                        </label>
+                        <label htmlFor="course-edit-program-ru" className="grid gap-1 text-xs">
+                          {language === 'ru'
+                            ? 'Программа RU (день | заголовок | описание)'
+                            : 'Program RU (day | title | description)'}
+                          <textarea
+                            id="course-edit-program-ru"
+                            value={editForm.programRu}
+                            onChange={(event) => updateEditField('programRu', event.target.value)}
+                          />
+                        </label>
+                        <label htmlFor="course-edit-faq-en" className="grid gap-1 text-xs">
+                          {language === 'ru'
+                            ? 'FAQ EN (вопрос | ответ)'
+                            : 'FAQ EN (question | answer)'}
+                          <textarea
+                            id="course-edit-faq-en"
+                            value={editForm.faq}
+                            onChange={(event) => updateEditField('faq', event.target.value)}
+                          />
+                        </label>
+                        <label htmlFor="course-edit-faq-ru" className="grid gap-1 text-xs">
+                          {language === 'ru'
+                            ? 'FAQ RU (вопрос | ответ)'
+                            : 'FAQ RU (question | answer)'}
+                          <textarea
+                            id="course-edit-faq-ru"
+                            value={editForm.faqRu}
+                            onChange={(event) => updateEditField('faqRu', event.target.value)}
+                          />
+                        </label>
+                        <label
+                          htmlFor="course-edit-gallery"
+                          className="grid gap-1 text-xs md:col-span-2"
+                        >
+                          {language === 'ru'
+                            ? 'Галерея (один URL в строке)'
+                            : 'Gallery (one URL per line)'}
+                          <textarea
+                            id="course-edit-gallery"
+                            value={editForm.galleryPhotos}
+                            onChange={(event) =>
+                              updateEditField('galleryPhotos', event.target.value)
+                            }
+                          />
+                        </label>
+                        <label htmlFor="course-edit-order" className="grid gap-1 text-xs">
+                          {language === 'ru' ? 'Порядок' : 'Order'}
+                          <input
+                            id="course-edit-order"
+                            type="number"
+                            min="0"
+                            value={editForm.order}
+                            onChange={(event) => updateEditField('order', event.target.value)}
+                          />
+                        </label>
+                        <label htmlFor="course-edit-hidden" className="flex gap-2 text-xs">
+                          <input
+                            id="course-edit-hidden"
+                            type="checkbox"
+                            checked={editForm.isHidden}
+                            onChange={(event) => updateEditField('isHidden', event.target.checked)}
+                          />
+                          {language === 'ru' ? 'Скрыть из каталога' : 'Hide from catalog'}
+                        </label>
+                      </div>
+                    </details>
+                    <label
+                      htmlFor="course-edit-reason"
+                      className="grid gap-1 text-xs md:col-span-2"
+                    >
+                      {language === 'ru' ? 'Причина изменения' : 'Reason for change'}
+                      <input
+                        id="course-edit-reason"
+                        required
+                        value={editReason}
+                        onChange={(event) => setEditReason(event.target.value)}
+                      />
+                    </label>
+                    <ActionButton
+                      variant="primary"
+                      size="sm"
+                      pending={pending !== null}
+                      pendingLabel={text.pending}
+                      type="submit"
+                    >
+                      {language === 'ru' ? 'Сохранить изменения' : 'Save changes'}
+                    </ActionButton>
+                  </form>
+                ) : null}
+
+                <section
+                  id="course-schedule"
+                  className={showWorkspace('schedule') ? 'space-y-3' : 'hidden'}
+                >
+                  <h4 className="text-xs font-bold uppercase tracking-wider">
+                    {text.operationalSchedule}
+                  </h4>
+                  <CanonicalCourseDaysEditor
+                    course={selectedCourse}
+                    language={language}
+                    draft={courseDayDraft}
+                    pending={pending !== null}
+                    pendingLabel={text.pending}
+                    instructors={selectedCourse.instructorRosterIds.map((id) => ({
+                      id,
+                      name: instructorOptions.get(id)?.name ?? id,
+                      inactive: instructorOptions.get(id)?.isAvailable === false,
+                    }))}
+                    dayIssue={courseDayIssue}
+                    emptyLabel={text.noSchedule}
+                    onDraftChange={setCourseDayDraft}
+                    onSubmit={(event) => void submitCourseDayDraft(event)}
+                    onRemove={(day) =>
+                      onRequestConfirm(
+                        language === 'ru'
+                          ? `Удалить день курса ${day.dayOrder}?`
+                          : `Remove course day ${day.dayOrder}?`,
+                        async () => {
+                          const action = selectedCourse.authorizedActions.find(
+                            (item) => item.kind === 'remove_course_day'
+                          );
+                          if (action)
+                            await execute({
+                              kind: 'remove_course_day',
+                              expectedRevision: action.expectedRevision,
+                              intent: {
+                                courseId: selectedCourse.courseId,
+                                courseDayId: day.courseDayId,
+                                expectedCourseDayRevision: day.revision,
+                                reasonExplanation: editReason.trim() || 'Admin CourseDay removal',
+                              },
+                            });
+                        }
+                      )
+                    }
+                  />
+                </section>
+
+                {onOpenEnrollments ? (
+                  <div
+                    id="course-enrollment"
+                    className={showWorkspace('enrollment', 'participants') ? 'space-y-2' : 'hidden'}
+                  >
+                    <p id="course-participants" className="text-xs text-[var(--ink-dim)]">
+                      {text.activeEnrollments}: {selectedCourse.activeEnrollmentCount} ·{' '}
+                      {text.totalEnrollments}: {selectedCourse.totalEnrollmentCount}
+                    </p>
+                    <button
+                      type="button"
+                      className="border border-[var(--border)] px-3 py-1.5 text-xs hover:border-[var(--ink)]"
+                      onClick={() => onOpenEnrollments(selectedCourse.courseId)}
+                    >
+                      {text.manageEnrollments}
+                    </button>
+                  </div>
+                ) : null}
+                <div className="flex flex-wrap gap-2">
+                  {(['archive_course', 'reactivate_course'] as const)
+                    .filter((kind) =>
+                      selectedCourse.authorizedActions.some((action) => action.kind === kind)
+                    )
+                    .map((kind) => (
+                      <ActionButton
+                        key={kind}
+                        type="button"
+                        size="sm"
+                        variant={kind === 'archive_course' ? 'danger' : 'secondary'}
+                        disabled={pending !== null}
+                        onClick={() => {
+                          if (kind === 'archive_course')
+                            handleArchive(mapAdminCourseToTableCourse(selectedCourse));
+                          else handleReactivate(mapAdminCourseToTableCourse(selectedCourse));
+                        }}
+                      >
+                        {actionLabel(kind)}
+                      </ActionButton>
+                    ))}
+                </div>
               </div>
             </article>
           ) : (

@@ -44,3 +44,102 @@
   white-space: nowrap;
   margin-top: 0;
 }
+
+/* Dashboard only: the shared Development panel retains its original presentation. */
+.student-skill-rings .student-radar-activity {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.student-skill-rings .student-radar-content {
+  gap: 16px;
+}
+
+.student-skill-rings svg {
+  width: 180px;
+}
+
+.student-skill-rings .student-radar-legend {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 12px;
+}
+
+.student-skill-rings .student-radar-skill {
+  min-height: 44px;
+  padding: 5px 4px;
+  gap: 6px;
+  align-items: flex-start;
+  border-radius: 8px;
+}
+
+.student-skill-rings .student-radar-skill > p:first-child {
+  position: relative;
+  padding-left: 14px;
+  font-weight: 500;
+  font-size: 12px;
+  line-height: 1.4;
+  letter-spacing: normal;
+  overflow-wrap: anywhere;
+}
+
+.student-skill-rings-dot {
+  position: absolute;
+  top: 5px;
+  left: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.student-skill-rings .student-radar-values {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  color: var(--ink);
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+}
+
+.student-skill-rings .student-radar-values > span {
+  font-size: 9px;
+}
+
+.student-skill-rings .student-radar-skill:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@container student-radar-activity (min-width: 340px) {
+  .student-skill-rings .student-radar-content {
+    flex-direction: row;
+    gap: 16px;
+  }
+
+  .student-skill-rings svg {
+    width: 160px;
+  }
+
+  .student-skill-rings .student-radar-content > div:first-child {
+    flex-basis: 160px;
+  }
+
+  .student-skill-rings .student-radar-legend {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+}
+
+@container student-radar-activity (max-width: 289px) {
+  .student-skill-rings .student-radar-legend {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .student-skill-rings svg g,
+  .student-skill-rings .student-radar-skill {
+    transition: none;
+  }
+}

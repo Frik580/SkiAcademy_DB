@@ -84,6 +84,8 @@ function ActivityRing({
   simPercent,
   selected,
   dimmed,
+  dashboard,
+  dimensionKey,
   onClick,
 }: {
   cx: number;
@@ -96,6 +98,8 @@ function ActivityRing({
   simPercent?: number;
   selected: boolean;
   dimmed: boolean;
+  dashboard: boolean;
+  dimensionKey: RadarDimensionKey;
   onClick: (e: React.MouseEvent) => void;
 }) {
   const circumference = 2 * Math.PI * r;
@@ -107,6 +111,7 @@ function ActivityRing({
 
   return (
     <g
+      data-radar-dimension={dimensionKey}
       opacity={dimmed ? 0.28 : 1}
       className="transition-opacity duration-300"
       style={{ cursor: 'pointer' }}
@@ -118,9 +123,9 @@ function ActivityRing({
         cy={cy}
         r={r}
         fill="none"
-        stroke={color}
+        stroke={dashboard ? 'var(--border-subtle)' : color}
         strokeWidth={strokeWidth}
-        opacity={0.18}
+        opacity={dashboard ? 1 : 0.18}
       />
       {/* Simulated gain (orange) */}
       {hasSim && (
@@ -148,9 +153,10 @@ function ActivityRing({
         strokeWidth={strokeWidth}
         strokeLinecap="round"
         strokeDasharray={`${progressLen} ${circumference}`}
+        visibility={dashboard && animated === 0 ? 'hidden' : undefined}
         transform={`rotate(-90 ${cx} ${cy})`}
         className={
-          selected && drawProgress >= 1
+          !dashboard && selected && drawProgress >= 1
             ? '[filter:drop-shadow(0_0_1.5px_var(--ring-glow))] dark:[filter:drop-shadow(0_0_4px_var(--ring-glow))]'
             : undefined
         }
@@ -163,7 +169,7 @@ function ActivityRing({
         r={r}
         fill="none"
         stroke="transparent"
-        strokeWidth={strokeWidth + 10}
+        strokeWidth={dashboard ? strokeWidth + 4 : strokeWidth + 10}
       />
     </g>
   );
@@ -286,7 +292,13 @@ export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
   );
 
   const ringCount = Math.max(1, chartDimensions.length);
-  const { size, ringGap, strokeWidth, outerRadius, center } = getRadarGeometry(ringCount);
+  const dashboard = compact && embed;
+  const geometry = getRadarGeometry(ringCount);
+  const { size, center } = geometry;
+  // Match the Stitch spacing in the existing viewBox; scoring and full-view geometry stay shared.
+  const { ringGap, strokeWidth, outerRadius } = dashboard
+    ? { ringGap: 7, strokeWidth: 10, outerRadius: 101 }
+    : geometry;
   const hasAxisFocus = selectedDimensionKey !== 'all';
 
   const isSimulating = chartDimensions.some((d) => simulatedValues[d.key] > d.percent);
@@ -307,7 +319,7 @@ export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
   };
 
   const ringsSvg =
-    ringCount === 0 ? (
+    dashboard && chartDimensions.length === 0 ? (
       <p className="text-sm text-[var(--ink-dim)] text-center py-8">
         {t('scRadarNoExercises').replace('{n}', String(targetStage))}
       </p>
@@ -329,6 +341,8 @@ export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
           return (
             <ActivityRing
               key={dim.key}
+              dashboard={dashboard}
+              dimensionKey={dim.key}
               cx={center}
               cy={center}
               r={r}
@@ -370,6 +384,7 @@ export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
           <li key={`legend-${dim.key}`}>
             <button
               type="button"
+              aria-pressed={active}
               onClick={() => setSelectedDimensionKey(dim.key)}
               className={`text-center rounded-lg px-1.5 py-1 transition w-full ${
                 sideLegend ? 'student-radar-skill' : ''
@@ -380,13 +395,20 @@ export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
                   sideLegend ? 'min-w-0 text-xs' : 'text-[10px]'
                 }`}
               >
+                {dashboard && (
+                  <span
+                    className="student-skill-rings-dot"
+                    style={{ backgroundColor: dim.color }}
+                    aria-hidden="true"
+                  />
+                )}
                 {titleText}
               </p>
               <p
                 className={`font-semibold tabular-nums leading-tight mt-0.5 ${
                   sideLegend ? 'student-radar-values shrink-0 text-right text-[15px]' : 'text-xs'
                 }`}
-                style={{ color: dim.color }}
+                style={dashboard ? undefined : { color: dim.color }}
               >
                 {Math.round(dim.percent * drawProgress)}%
                 {showSim && <span className="text-[#FF9F0A] font-medium"> → {simVal}%</span>}
@@ -456,7 +478,9 @@ export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
 
   if (compact) {
     return (
-      <div className={`space-y-3 min-w-0 w-full ${className}`}>
+      <div
+        className={`space-y-3 min-w-0 w-full ${dashboard ? 'student-skill-rings' : ''} ${className}`}
+      >
         {activityCard}
         {chartDimensions.length > 0 && !embed && <div className="px-0.5">{dimensionPills}</div>}
       </div>

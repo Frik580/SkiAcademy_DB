@@ -813,7 +813,7 @@ describe('Student Home participant scope', () => {
     for (const title of [
       'scQuickActions',
       'scNextStepTitle',
-      'scRadarTitle',
+      'scSkillRingsTitle',
       'scLatestCoachRecommendation',
       'Today’s Progress',
     ]) {
@@ -885,7 +885,7 @@ describe('Student Home participant scope', () => {
     const avatar = screen.getByRole('img', { name: 'Bob Student' });
     expect(avatar.querySelector('img')).toBeNull();
     expect(avatar).toHaveTextContent('B');
-    expect(scopeIn('scRadarTitle').querySelector('img')).toBeNull();
+    expect(scopeIn('scSkillRingsTitle').querySelector('img')).toBeNull();
   });
 
   it('preserves actual membership of a lesson after selecting an unrelated participant', () => {
@@ -953,7 +953,7 @@ describe('Student Home participant scope', () => {
         </MemoryRouter>
       )
     );
-    expect(scopeIn('scRadarTitle')).toHaveAttribute('title', name);
+    expect(scopeIn('scSkillRingsTitle')).toHaveAttribute('title', name);
     expect(screen.getByRole('img', { name })).toHaveTextContent('О');
   });
 });

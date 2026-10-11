@@ -349,7 +349,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
       >
         <section>
           <StudentDashboardTileHeader
-            title={t('scRadarTitle')}
+            title={t('scSkillRingsTitle')}
             actions={
               <ParticipantScopeIndicator
                 participant={scopeParticipant}
@@ -366,7 +366,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
               compact
               embed
             />
-            <div className="pt-2">
+            <div className="mt-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-tint)] px-3 py-2">
               <ScTextButton arrow onClick={onContinueDevelopment}>
                 {t('scContinueDevelopment')}
               </ScTextButton>

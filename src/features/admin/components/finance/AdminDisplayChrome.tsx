@@ -11,10 +11,10 @@ export const AdminDisplayChrome: React.FC = () => {
   return (
     <div className="flex flex-wrap items-center justify-end gap-3">
       <div className="flex items-center gap-2">
-        <span className="text-xs text-[var(--ink-dim)] font-mono uppercase tracking-wider">
+        <span className="type-caption text-[var(--ink-dim)] uppercase">
           {t('currencyLabel') || 'Валюта'}:
         </span>
-        <span className="px-3 py-1 border border-[var(--border)] bg-[var(--bg)] text-xs font-mono font-bold tracking-wider text-[var(--ink)] flex items-center gap-1.5 shadow-xs">
+        <span className="px-3 py-1 border border-[var(--border)] bg-[var(--bg)] type-caption font-medium text-[var(--ink)] flex items-center gap-1.5 shadow-xs">
           ₸ KZT
         </span>
       </div>

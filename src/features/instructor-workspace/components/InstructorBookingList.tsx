@@ -94,10 +94,10 @@ export const InstructorBookingList: React.FC<InstructorBookingListProps> = ({
           {missingInWindowBookings.length > 0 ? (
             <div className="space-y-3 border border-slate-300/50 bg-slate-50/60 p-4 dark:border-slate-700/40 dark:bg-slate-900/20 rounded-xs">
               <div>
-                <h4 className="text-lg font-serif font-light text-[var(--ink)] tracking-tight">
+                <h4 className="type-card-title text-[var(--ink)]">
                   {t('instructorNeedsAttention')}
                 </h4>
-                <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] mt-1">
+                <p className="type-caption uppercase text-[var(--ink-dim)] mt-1">
                   {t('instructorAttendanceNotRecordedLessons')} — {missingInWindowBookings.length}
                 </p>
               </div>
@@ -108,16 +108,16 @@ export const InstructorBookingList: React.FC<InstructorBookingListProps> = ({
                     className="flex flex-wrap items-center justify-between gap-2 border border-slate-300/40 bg-[var(--card-bg)] px-3 py-2 rounded-xs"
                   >
                     <div className="min-w-0">
-                      <p className="text-xs font-mono font-bold text-[var(--ink)]">
+                      <p className="type-caption font-medium text-[var(--ink)]">
                         {booking.date} {booking.time}
                       </p>
-                      <p className="text-[10px] font-mono text-[var(--ink-dim)] truncate">
+                      <p className="type-caption text-[var(--ink-dim)] truncate">
                         {booking.participants
                           .map((participant) => participant.clientName)
                           .join(', ')}
                       </p>
                       {booking.missingAttendanceCount > 1 ? (
-                        <p className="text-[10px] font-mono text-[var(--ink-dim)]">
+                        <p className="type-caption text-[var(--ink-dim)]">
                           {booking.missingAttendanceCount}{' '}
                           {t('instructorAttendanceMissingParticipants')}
                         </p>
@@ -125,7 +125,7 @@ export const InstructorBookingList: React.FC<InstructorBookingListProps> = ({
                     </div>
                     <button
                       type="button"
-                      className="px-2.5 py-1 text-[9px] font-mono uppercase tracking-wider border border-accent/40 text-accent rounded-xs"
+                      className="px-2.5 py-1 type-button uppercase border border-accent/40 text-accent rounded-xs"
                       onClick={() =>
                         document.getElementById(`instructor-lesson-${booking.id}`)?.scrollIntoView({
                           behavior: 'smooth',
@@ -144,13 +144,13 @@ export const InstructorBookingList: React.FC<InstructorBookingListProps> = ({
           {overdueBookings.length > 0 ? (
             <div className="space-y-3 border border-amber-400/40 bg-amber-50/50 p-4 dark:border-amber-700/40 dark:bg-amber-950/20 rounded-xs">
               <div>
-                <h4 className="text-lg font-serif font-light text-[var(--ink)] tracking-tight">
+                <h4 className="type-card-title text-[var(--ink)]">
                   {t('instructorNeedsAttention')}
                 </h4>
-                <p className="text-[10px] font-mono uppercase tracking-wider text-amber-800 dark:text-amber-300 mt-1">
+                <p className="type-caption uppercase text-amber-800 dark:text-amber-300 mt-1">
                   {t('instructorAttendanceOverdueLessons')} — {overdueBookings.length}
                 </p>
-                <p className="text-[10px] font-mono text-amber-800 dark:text-amber-300 mt-1">
+                <p className="type-caption text-amber-800 dark:text-amber-300 mt-1">
                   {t('instructorAttendanceAdminRequired')}
                 </p>
               </div>
@@ -161,15 +161,15 @@ export const InstructorBookingList: React.FC<InstructorBookingListProps> = ({
                     className="flex flex-wrap items-center justify-between gap-2 border border-amber-400/30 bg-[var(--card-bg)] px-3 py-2 rounded-xs"
                   >
                     <div className="min-w-0">
-                      <p className="text-xs font-mono font-bold text-[var(--ink)]">
+                      <p className="type-caption font-medium text-[var(--ink)]">
                         {booking.date} {booking.time}
                       </p>
-                      <p className="text-[10px] font-mono text-[var(--ink-dim)] truncate">
+                      <p className="type-caption text-[var(--ink-dim)] truncate">
                         {booking.participants
                           .map((participant) => participant.clientName)
                           .join(', ')}
                       </p>
-                      <p className="text-[10px] font-mono text-amber-800 dark:text-amber-300">
+                      <p className="type-caption text-amber-800 dark:text-amber-300">
                         {t('instructorAttendanceOverdueBadge')}
                         {booking.missingAttendanceCount > 1
                           ? ` · ${booking.missingAttendanceCount} ${t('instructorAttendanceMissingParticipants')}`
@@ -178,7 +178,7 @@ export const InstructorBookingList: React.FC<InstructorBookingListProps> = ({
                     </div>
                     <button
                       type="button"
-                      className="px-2.5 py-1 text-[9px] font-mono uppercase tracking-wider border border-slate-400/40 text-[var(--ink-dim)] rounded-xs"
+                      className="px-2.5 py-1 type-button uppercase border border-slate-400/40 text-[var(--ink-dim)] rounded-xs"
                       title={t('instructorAttendanceAdminRequired')}
                       onClick={() =>
                         document.getElementById(`instructor-lesson-${booking.id}`)?.scrollIntoView({
@@ -198,7 +198,7 @@ export const InstructorBookingList: React.FC<InstructorBookingListProps> = ({
       ) : null}
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-200/80 dark:border-slate-800/80 pb-3">
-        <h4 className="text-lg font-serif font-light text-[var(--ink)] tracking-tight">
+        <h4 className="type-card-title text-[var(--ink)]">
           {t('instructorActiveRoster')} ({displayedBookings.length})
         </h4>
 
@@ -218,7 +218,7 @@ export const InstructorBookingList: React.FC<InstructorBookingListProps> = ({
               <button
                 key={filter}
                 onClick={() => setStatusFilter(filter)}
-                className={`px-2.5 py-1 text-[9px] font-mono uppercase tracking-wider rounded-xs transition cursor-pointer ${
+                className={`px-2.5 py-1 type-button uppercase rounded-xs transition cursor-pointer ${
                   isActive
                     ? 'bg-[var(--ink)] text-[var(--bg)] font-bold shadow-xs'
                     : 'border border-slate-200/80 dark:border-slate-800/80 text-[var(--ink-dim)] hover:text-[var(--ink)] hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -234,9 +234,7 @@ export const InstructorBookingList: React.FC<InstructorBookingListProps> = ({
       {displayedBookings.length === 0 ? (
         <div className="py-12 border border-dashed border-slate-200 dark:border-slate-800 text-center bg-[var(--card-bg)] rounded-xs">
           <Calendar className="w-8 h-8 mx-auto opacity-20 mb-2 text-[var(--ink-dim)]" />
-          <p className="text-xs font-mono uppercase tracking-wider text-[var(--ink-dim)]">
-            {t('noLessons')}
-          </p>
+          <p className="type-caption uppercase text-[var(--ink-dim)]">{t('noLessons')}</p>
         </div>
       ) : (
         <div className="space-y-4">

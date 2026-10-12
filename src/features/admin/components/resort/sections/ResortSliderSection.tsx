@@ -49,13 +49,10 @@ function MobileBackgroundPositionControl({
   return (
     <div className="space-y-1.5 pt-1">
       <div className="flex items-baseline justify-between gap-3">
-        <label
-          htmlFor={inputId}
-          className="block text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)]"
-        >
+        <label htmlFor={inputId} className="block type-caption uppercase text-[var(--ink-dim)]">
           {label}
         </label>
-        <span className="font-mono text-[10px] tabular-nums text-[var(--ink)]">{position}%</span>
+        <span className="type-caption tabular-nums text-[var(--ink)]">{position}%</span>
       </div>
       <input
         id={inputId}
@@ -69,9 +66,9 @@ function MobileBackgroundPositionControl({
         aria-valuemax={100}
         aria-valuenow={position}
         aria-label={label}
-        className="w-full cursor-pointer accent-[var(--ink)]"
+        className="w-full cursor-pointer accent-[var(--ink)] type-body"
       />
-      <div className="flex justify-between text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+      <div className="flex justify-between type-caption uppercase text-[var(--ink-dim)]">
         <span>{leftLabel}</span>
         <span>{centerLabel}</span>
         <span>{rightLabel}</span>
@@ -178,7 +175,7 @@ export const ResortSliderSection: React.FC = () => {
     <form onSubmit={handleSaveSliderConfig} className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1.5 border border-[var(--border)] p-3 bg-black/5 dark:bg-white/5">
-          <label className="block text-[10px] font-mono uppercase tracking-wider text-[var(--ink)] font-bold">
+          <label className="block type-caption uppercase text-[var(--ink)] font-medium">
             {t('slideIntervalLabel')}
           </label>
           <input
@@ -188,7 +185,7 @@ export const ResortSliderSection: React.FC = () => {
             max="60"
             value={resortSlideInterval}
             onChange={(e) => setResortSlideInterval(Number(e.target.value))}
-            className="w-32 bg-transparent border border-[var(--border)] px-3 py-1.5 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+            className="w-32 bg-transparent border border-[var(--border)] px-3 py-1.5 type-body text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
           />
         </div>
 
@@ -204,7 +201,7 @@ export const ResortSliderSection: React.FC = () => {
 
       <div className="space-y-4">
         <div className="flex justify-between items-center border-b border-[var(--border)] pb-2">
-          <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] font-bold">
+          <span className="type-caption uppercase text-[var(--ink-dim)] font-medium">
             {t('activeSlides')} ({visibleSlideCount}/{resortSlides.length})
           </span>
           <div className="flex items-center gap-2">
@@ -216,7 +213,7 @@ export const ResortSliderSection: React.FC = () => {
                   setSlidesRandomOrder(false);
                 }
               }}
-              className="border border-[var(--border)] px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--ink)] transition cursor-pointer flex items-center gap-1"
+              className="border border-[var(--border)] px-2.5 py-1 type-button uppercase text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--ink)] transition cursor-pointer flex items-center gap-1"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               {t('resetToDefaults')}
@@ -224,7 +221,7 @@ export const ResortSliderSection: React.FC = () => {
             <button
               type="button"
               onClick={handleAddSlide}
-              className="border border-[var(--border)] px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider text-[var(--ink)] hover:bg-[var(--ink)] hover:text-[var(--bg)] transition cursor-pointer flex items-center gap-1"
+              className="border border-[var(--border)] px-2.5 py-1 type-button uppercase text-[var(--ink)] hover:bg-[var(--ink)] hover:text-[var(--bg)] transition cursor-pointer flex items-center gap-1"
             >
               <Plus className="w-3 h-3" />
               {t('addSlide')}
@@ -233,7 +230,7 @@ export const ResortSliderSection: React.FC = () => {
         </div>
 
         {resortSlides.length === 0 ? (
-          <div className="text-center py-6 border border-dashed border-[var(--border)] text-[10px] font-mono text-[var(--ink-dim)]">
+          <div className="text-center py-6 border border-dashed border-[var(--border)] type-caption text-[var(--ink-dim)]">
             {t('noCustomSlides')}
           </div>
         ) : (
@@ -281,11 +278,11 @@ export const ResortSliderSection: React.FC = () => {
                         <ArrowDown className="w-3.5 h-3.5" />
                       </button>
                     </div>
-                    <span className="font-mono text-[9px] px-1.5 py-0.5 border border-[var(--border)] bg-[var(--bg)] text-[var(--ink-dim)]">
+                    <span className="type-caption px-1.5 py-0.5 border border-[var(--border)] bg-[var(--bg)] text-[var(--ink-dim)]">
                       #{index + 1}
                     </span>
                     {slide.hidden && (
-                      <span className="font-mono text-[9px] px-1.5 py-0.5 border border-rose-500/30 bg-rose-500/10 text-rose-500">
+                      <span className="type-caption px-1.5 py-0.5 border border-rose-500/30 bg-rose-500/10 text-rose-500">
                         {t('hiddenSlideBadge')}
                       </span>
                     )}
@@ -317,11 +314,11 @@ export const ResortSliderSection: React.FC = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-4">
                     <div className="space-y-3 border-r border-[var(--border)]/40 pr-0 md:pr-4">
-                      <h6 className="font-mono text-[9px] text-[var(--ink-dim)] uppercase tracking-widest font-bold">
+                      <h6 className="type-compact text-[var(--ink-dim)] uppercase font-medium">
                         English (EN)
                       </h6>
                       <div className="space-y-1">
-                        <label className="block text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+                        <label className="block type-caption uppercase text-[var(--ink-dim)]">
                           Line 1 (Accent text)
                         </label>
                         <input
@@ -331,11 +328,11 @@ export const ResortSliderSection: React.FC = () => {
                           onChange={(e) =>
                             handleUpdateSlideField(slide.id, 'line1En', e.target.value)
                           }
-                          className="w-full bg-transparent border border-[var(--border)] px-2.5 py-1 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+                          className="w-full bg-transparent border border-[var(--border)] px-2.5 py-1 type-body text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="block text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+                        <label className="block type-caption uppercase text-[var(--ink-dim)]">
                           Line 2 (Main heading)
                         </label>
                         <input
@@ -345,17 +342,17 @@ export const ResortSliderSection: React.FC = () => {
                           onChange={(e) =>
                             handleUpdateSlideField(slide.id, 'line2En', e.target.value)
                           }
-                          className="w-full bg-transparent border border-[var(--border)] px-2.5 py-1 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+                          className="w-full bg-transparent border border-[var(--border)] px-2.5 py-1 type-body text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
                         />
                       </div>
                     </div>
 
                     <div className="space-y-3">
-                      <h6 className="font-mono text-[9px] text-[var(--ink-dim)] uppercase tracking-widest font-bold">
+                      <h6 className="type-compact text-[var(--ink-dim)] uppercase font-medium">
                         Русский (RU)
                       </h6>
                       <div className="space-y-1">
-                        <label className="block text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+                        <label className="block type-caption uppercase text-[var(--ink-dim)]">
                           Строка 1 (Акцентный текст)
                         </label>
                         <input
@@ -365,11 +362,11 @@ export const ResortSliderSection: React.FC = () => {
                           onChange={(e) =>
                             handleUpdateSlideField(slide.id, 'line1Ru', e.target.value)
                           }
-                          className="w-full bg-transparent border border-[var(--border)] px-2.5 py-1 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+                          className="w-full bg-transparent border border-[var(--border)] px-2.5 py-1 type-body text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="block text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+                        <label className="block type-caption uppercase text-[var(--ink-dim)]">
                           Строка 2 (Основной заголовок)
                         </label>
                         <input
@@ -379,7 +376,7 @@ export const ResortSliderSection: React.FC = () => {
                           onChange={(e) =>
                             handleUpdateSlideField(slide.id, 'line2Ru', e.target.value)
                           }
-                          className="w-full bg-transparent border border-[var(--border)] px-2.5 py-1 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+                          className="w-full bg-transparent border border-[var(--border)] px-2.5 py-1 type-body text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
                         />
                       </div>
                     </div>
@@ -393,7 +390,7 @@ export const ResortSliderSection: React.FC = () => {
                       }
                     />
                     <div className="space-y-1.5">
-                      <label className="block text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+                      <label className="block type-caption uppercase text-[var(--ink-dim)]">
                         {t('backgroundWall')}
                       </label>
                       <select
@@ -406,7 +403,7 @@ export const ResortSliderSection: React.FC = () => {
                             handleUpdateSlideField(slide.id, 'backgroundImage', val);
                           }
                         }}
-                        className="w-full bg-transparent border border-[var(--border)] px-2 py-1 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none cursor-pointer"
+                        className="w-full bg-transparent border border-[var(--border)] px-2 py-1 type-body text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none cursor-pointer"
                       >
                         <option
                           value={RESORT_SLIDE_RANDOM_IMAGE_KEY}
@@ -433,7 +430,7 @@ export const ResortSliderSection: React.FC = () => {
 
                     {!isPreset && (
                       <div className="space-y-1">
-                        <label className="block text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+                        <label className="block type-caption uppercase text-[var(--ink-dim)]">
                           {t('customBackgroundUrl')}
                         </label>
                         <input
@@ -443,7 +440,7 @@ export const ResortSliderSection: React.FC = () => {
                           onChange={(e) =>
                             handleUpdateSlideField(slide.id, 'backgroundImage', e.target.value)
                           }
-                          className="w-full bg-transparent border border-[var(--border)] px-2.5 py-1 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+                          className="w-full bg-transparent border border-[var(--border)] px-2.5 py-1 type-body text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
                           placeholder="https://images.unsplash.com/..."
                         />
                       </div>
@@ -472,7 +469,7 @@ export const ResortSliderSection: React.FC = () => {
           pending={isSaving}
           pendingLabel={t('saving')}
           unstyled
-          className="bg-[var(--ink)] text-[var(--bg)] hover:bg-[var(--ink)]/90 px-4 py-2 text-xs font-mono uppercase tracking-wider font-bold transition duration-300 rounded-none disabled:opacity-50 cursor-pointer"
+          className="bg-[var(--ink)] text-[var(--bg)] hover:bg-[var(--ink)]/90 px-4 py-2 type-button uppercase transition duration-300 rounded-none disabled:opacity-50 cursor-pointer"
         >
           <Save className="w-3.5 h-3.5" />
           {t('saveResortSettings')}

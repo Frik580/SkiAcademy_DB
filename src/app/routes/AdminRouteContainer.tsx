@@ -14,7 +14,7 @@ const AdminLoadingFallback: React.FC<{ label: string }> = ({ label }) => (
   <div className="max-w-7xl mx-auto p-6 space-y-6">
     <div className="flex items-center justify-between">
       <Skeleton className="h-6 w-48" />
-      <span className="ui-section-eyebrow text-xs">{label}</span>
+      <span className="ui-section-eyebrow type-caption">{label}</span>
     </div>
     <CardSkeleton count={3} />
   </div>

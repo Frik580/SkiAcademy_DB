@@ -95,7 +95,7 @@ export const ApplePagination: React.FC<ApplePaginationProps> = ({
     >
       {/* Left: Summary pill badge */}
       {showSummary && (
-        <div className="text-xs font-medium text-[var(--ink-dim)] tracking-tight px-1 select-none flex items-center gap-1.5">
+        <div className="type-caption font-medium text-[var(--ink-dim)] px-1 select-none flex items-center gap-1.5">
           <span className="inline-block w-1.5 h-1.5 rounded-full bg-sky-500/80 animate-pulse" />
           <span>{summaryText}</span>
         </div>
@@ -141,7 +141,7 @@ export const ApplePagination: React.FC<ApplePaginationProps> = ({
                 whileHover={{ scale: isActive ? 1.02 : 1.08 }}
                 whileTap={{ scale: 0.94 }}
                 onClick={() => onPageChange(pageNum)}
-                className={`relative w-7 h-7 rounded-full text-xs font-medium flex items-center justify-center transition-all cursor-pointer ${
+                className={`relative w-7 h-7 rounded-full type-button flex items-center justify-center transition-all cursor-pointer ${
                   isActive
                     ? 'text-[var(--bg)] font-semibold shadow-xs'
                     : 'text-[var(--ink-dim)] hover:text-[var(--ink)] hover:bg-white/60 dark:hover:bg-neutral-700/60'

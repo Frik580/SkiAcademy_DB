@@ -32,7 +32,7 @@ export function ParticipantAvatarFace({
   return (
     <span
       data-participant-avatar-face={active ? 'active' : 'inactive'}
-      className={`flex h-full w-full items-center justify-center rounded-full bg-[var(--profile-bg)] text-[10px] font-semibold uppercase text-[var(--ink)] transition-[filter,opacity] duration-150 ${
+      className={`flex h-full w-full items-center justify-center rounded-full bg-[var(--profile-bg)] type-caption font-medium uppercase text-[var(--ink)] transition-[filter,opacity] duration-150 ${
         active ? 'grayscale-0 opacity-100' : 'grayscale opacity-80'
       }`}
     >
@@ -122,7 +122,7 @@ export const CabinetParticipantAvatarSwitcher: React.FC<CabinetParticipantAvatar
         })}
       </div>
       {showName ? (
-        <span className="hidden truncate text-sm font-normal text-[var(--ink)] 2xl:inline">
+        <span className="hidden truncate type-compact text-[var(--ink)] 2xl:inline">
           {displayName}
         </span>
       ) : null}

@@ -56,7 +56,7 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
   const fieldClass =
     'ui-field-plain focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)]';
 
-  const labelStyle = 'flex items-center gap-1.5 text-xs text-[var(--ink-dim)] mb-1';
+  const labelStyle = 'flex items-center gap-1.5 type-caption text-[var(--ink-dim)] mb-1';
 
   const hourlyRateKzt = targetInstructor
     ? resolveInstructorHourlyRateKztForDisplay(targetInstructor)
@@ -71,13 +71,13 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
             type="button"
             onClick={() => void checkPreviousGuestStatus()}
             disabled={guestRefreshing}
-            className="text-xs text-[var(--ink-dim)] underline-offset-2 hover:underline"
+            className="type-button text-[var(--ink-dim)] underline-offset-2 hover:underline"
           >
             {guestRefreshing ? t('processing') : t('guestHaveRequest')}
           </button>
         )}
         {guestLookupError && (
-          <p role="status" className="text-sm text-[var(--ink)]">
+          <p role="status" className="type-compact text-[var(--ink)]">
             {t(
               guestLookupError === 'stale' ? 'guestPreviousUnavailable' : 'guestStatusRefreshFailed'
             )}
@@ -118,7 +118,7 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
           </div>
         </div>
 
-        <label className="block space-y-1 text-xs text-[var(--ink-dim)]">
+        <label className="block space-y-1 type-caption text-[var(--ink-dim)]">
           <span>{t('participantsDisciplineLabel')} *</span>
           <select
             required
@@ -159,13 +159,13 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
           aria-expanded={showGuestOptionalDetails}
           aria-controls="guest-lesson-optional"
           onClick={() => setShowGuestOptionalDetails(!showGuestOptionalDetails)}
-          className="text-left text-xs text-[var(--ink-dim)] underline-offset-2 hover:underline"
+          className="text-left type-button text-[var(--ink-dim)] underline-offset-2 hover:underline"
         >
           {t('guestCourseAddOptionalDetails')}
         </button>
         {showGuestOptionalDetails && (
           <div id="guest-lesson-optional" className="space-y-3">
-            <label className="block space-y-1 text-xs text-[var(--ink-dim)]">
+            <label className="block space-y-1 type-caption text-[var(--ink-dim)]">
               <span className="flex items-center gap-1.5">
                 <Mail className="h-3.5 w-3.5" /> {t('guestCourseEmailLabel')} · {t('guestOptional')}
               </span>
@@ -177,7 +177,7 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
                 className={fieldClass}
               />
             </label>
-            <label className="block space-y-1 text-xs text-[var(--ink-dim)]">
+            <label className="block space-y-1 type-caption text-[var(--ink-dim)]">
               <span>
                 {t('guestCourseCommentLabel')} · {t('guestOptional')}
               </span>
@@ -196,8 +196,8 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
 
       <div className="shrink-0 border-t border-[var(--border)] bg-[var(--card-bg)] px-4 pb-4 pt-3">
         <div className="mb-3 flex items-center justify-between">
-          <span className="text-sm text-[var(--ink)]">{t('guestTotal')}</span>
-          <span className="text-lg font-extrabold text-[var(--accent)]">{totalFormatted}</span>
+          <span className="type-compact text-[var(--ink)]">{t('guestTotal')}</span>
+          <span className="type-card-title  text-[var(--accent)]">{totalFormatted}</span>
         </div>
 
         {guestQuotaError && (
@@ -221,7 +221,7 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
           <Send className="h-3.5 w-3.5" />
           {t('submitGuestCourseApplicationShort')}
         </ActionButton>
-        <p className="mt-2 text-center text-[11px] text-[var(--ink-dim)]">
+        <p className="mt-2 text-center type-caption text-[var(--ink-dim)]">
           {t('guestCoursePaymentNote')}
         </p>
       </div>

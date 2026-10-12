@@ -56,7 +56,7 @@ function SegmentedControl<T extends string>({
             role="tab"
             aria-selected={active}
             onClick={() => onChange(id)}
-            className={`relative flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium rounded-full transition-all duration-200 ${
+            className={`relative flex items-center gap-1.5 px-3.5 py-1.5 type-button rounded-full transition-all duration-200 ${
               active
                 ? 'bg-[var(--card-bg)] text-[var(--ink)] shadow-sm'
                 : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'
@@ -320,7 +320,7 @@ export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
 
   const ringsSvg =
     dashboard && chartDimensions.length === 0 ? (
-      <p className="text-sm text-[var(--ink-dim)] text-center py-8">
+      <p className="type-compact text-[var(--ink-dim)] text-center py-8">
         {t('scRadarNoExercises').replace('{n}', String(targetStage))}
       </p>
     ) : (
@@ -388,11 +388,11 @@ export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
               onClick={() => setSelectedDimensionKey(dim.key)}
               className={`text-center rounded-lg px-1.5 py-1 transition w-full ${
                 sideLegend ? 'student-radar-skill' : ''
-              } ${active ? 'opacity-100 bg-black/5 dark:bg-white/5' : hasAxisFocus ? 'opacity-45' : 'opacity-100'} hover:opacity-100`}
+              }  ${active ? 'opacity-100 bg-black/5 dark:bg-white/5' : hasAxisFocus ? 'opacity-45' : 'opacity-100'} hover:opacity-100`}
             >
               <p
                 className={`font-semibold tracking-wide text-[var(--ink)] leading-tight ${
-                  sideLegend ? 'min-w-0 text-xs' : 'text-[10px]'
+                  sideLegend ? 'min-w-0 type-caption' : 'type-caption'
                 }`}
               >
                 {dashboard && (
@@ -406,14 +406,14 @@ export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
               </p>
               <p
                 className={`font-semibold tabular-nums leading-tight mt-0.5 ${
-                  sideLegend ? 'student-radar-values shrink-0 text-right text-[15px]' : 'text-xs'
+                  sideLegend ? 'student-radar-values shrink-0 text-right type-body' : 'type-caption'
                 }`}
                 style={dashboard ? undefined : { color: dim.color }}
               >
                 {Math.round(dim.percent * drawProgress)}%
                 {showSim && <span className="text-[#FF9F0A] font-medium"> → {simVal}%</span>}
                 {sideLegend && (
-                  <span className="text-[var(--ink-dim)] font-normal text-[11px]">
+                  <span className="text-[var(--ink-dim)] type-caption">
                     · {dim.earned}/{dim.max}
                   </span>
                 )}
@@ -444,7 +444,7 @@ export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
         <button
           type="button"
           onClick={() => setSelectedDimensionKey('all')}
-          className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+          className={`rounded-full border px-3 py-1.5 type-button transition ${
             selectedDimensionKey === 'all'
               ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]'
               : 'border-[var(--border-subtle)] text-[var(--ink-dim)] hover:text-[var(--ink)]'
@@ -462,7 +462,7 @@ export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
             type="button"
             onClick={() => setSelectedDimensionKey(dim.key)}
             title={titleText}
-            className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+            className={`rounded-full border px-3 py-1.5 type-button transition ${
               active
                 ? 'border-transparent text-black'
                 : 'border-[var(--border-subtle)] text-[var(--ink-dim)] hover:text-[var(--ink)]'
@@ -479,7 +479,7 @@ export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
   if (compact) {
     return (
       <div
-        className={`space-y-3 min-w-0 w-full ${dashboard ? 'student-skill-rings' : ''} ${className}`}
+        className={`space-y-3 min-w-0 w-full ${dashboard ? 'student-skill-rings' : ''}  ${className}`}
       >
         {activityCard}
         {chartDimensions.length > 0 && !embed && <div className="px-0.5">{dimensionPills}</div>}
@@ -502,7 +502,7 @@ export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start">
         <div className="flex flex-col gap-3">
-          <p className="text-[10px] font-medium tracking-widest uppercase text-[var(--ink-dim)]">
+          <p className="type-caption font-medium uppercase text-[var(--ink-dim)]">
             {t('scRadarLevelMatrix').replace('{n}', String(targetStage))}
           </p>
           {activityCard}
@@ -522,7 +522,7 @@ export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
                     >
                       <selectedDimension.icon className="h-4 w-4" />
                     </span>
-                    <p className="text-sm font-medium text-[var(--ink)]">
+                    <p className="type-compact font-medium text-[var(--ink)]">
                       {t(selectedDimension.titleKey) || selectedDimension.defaultTitle}
                     </p>
                   </div>
@@ -541,13 +541,13 @@ export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
                             : ''
                         )}
                   </ScSectionTitle>
-                  <span className="text-[11px] text-[var(--ink-dim)] tabular-nums">
+                  <span className="type-caption text-[var(--ink-dim)] tabular-nums">
                     {t('scRadarItemsCount').replace('{n}', String(visibleExercises.length))}
                   </span>
                 </div>
 
                 {visibleExercises.length === 0 ? (
-                  <p className="text-sm text-[var(--ink-dim)] py-2">
+                  <p className="type-compact text-[var(--ink-dim)] py-2">
                     {t('scRadarNoExercises').replace('{n}', String(targetStage))}
                   </p>
                 ) : (
@@ -568,10 +568,10 @@ export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
                             }: ${levelLabel}`}
                             className="flex w-full items-center justify-between gap-2 px-0.5 py-1 text-left rounded-md hover:bg-[var(--profile-bg)] transition-colors"
                           >
-                            <span className="text-[10px] font-medium uppercase tracking-wider text-[var(--ink-dim)]">
+                            <span className="type-caption font-medium uppercase text-[var(--ink-dim)]">
                               {levelLabel}
                             </span>
-                            <span className="flex items-center gap-1.5 text-[10px] text-[var(--ink-dim)] tabular-nums shrink-0">
+                            <span className="flex items-center gap-1.5 type-caption text-[var(--ink-dim)] tabular-nums shrink-0">
                               <span>
                                 {t('scRadarItemsCount').replace(
                                   '{n}',
@@ -623,18 +623,18 @@ export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
                                           </button>
                                         )}
                                         <div className="min-w-0 flex-1">
-                                          <p className="text-sm leading-snug text-[var(--ink)]">
+                                          <p className="type-compact text-[var(--ink)]">
                                             {getSkillItemTitle(item, language)}
                                           </p>
                                           {coachComment && (
-                                            <p className="text-xs mt-0.5 leading-relaxed text-[var(--ink)] italic">
+                                            <p className="type-caption mt-0.5 text-[var(--ink)] italic">
                                               &ldquo;{coachComment}&rdquo;
                                             </p>
                                           )}
                                         </div>
                                       </div>
                                       <span
-                                        className={`shrink-0 text-xs tabular-nums ${
+                                        className={`shrink-0 type-caption tabular-nums ${
                                           isMaxScore
                                             ? 'font-semibold text-[#30D158]'
                                             : 'text-[var(--ink-dim)]'
@@ -657,9 +657,7 @@ export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
             </>
           ) : (
             <div className="space-y-4">
-              <p className="text-sm text-[var(--ink-dim)] leading-relaxed">
-                {t('scRadarSimulateDesc')}
-              </p>
+              <p className="type-compact text-[var(--ink-dim)]">{t('scRadarSimulateDesc')}</p>
 
               <div className="space-y-3">
                 {chartDimensions.map((dim) => {
@@ -671,7 +669,7 @@ export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
                       key={`sim-slider-${dim.key}`}
                       className="rounded-xl border border-[var(--border-subtle)] bg-[var(--profile-bg)] px-4 py-3 space-y-2.5"
                     >
-                      <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center justify-between type-caption">
                         <span className="font-medium text-[var(--ink)]">{titleText}</span>
                         <div className="tabular-nums flex items-center gap-1 text-[var(--ink-dim)]">
                           <span>{dim.percent}%</span>
@@ -695,7 +693,7 @@ export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
                             [dim.key]: parseInt(e.target.value, 10),
                           }))
                         }
-                        className="w-full h-1 accent-[var(--accent)] cursor-pointer"
+                        className="w-full h-1 accent-[var(--accent)] cursor-pointer type-body"
                         style={{ accentColor: dim.color }}
                       />
                     </div>
@@ -705,10 +703,10 @@ export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
 
               <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--profile-bg)] px-4 py-4 space-y-3">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-medium text-[var(--ink-dim)] tracking-wide">
+                  <span className="type-caption font-medium text-[var(--ink-dim)]">
                     {t('scRadarSimulatedProgress').replace('{level}', String(targetStage))}
                   </span>
-                  <span className="text-sm font-semibold tabular-nums text-[var(--ink)]">
+                  <span className="type-compact font-medium tabular-nums text-[var(--ink)]">
                     {simulatedSummary.targetEarnedPoints}/{simulatedSummary.targetRequiredPoints}
                   </span>
                 </div>
@@ -733,13 +731,13 @@ export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
                     <button
                       type="button"
                       onClick={handleResetSimulation}
-                      className="text-xs text-[var(--ink-dim)] hover:text-[var(--ink)] inline-flex items-center gap-1 transition"
+                      className="type-button text-[var(--ink-dim)] hover:text-[var(--ink)] inline-flex items-center gap-1 transition"
                     >
                       <RotateCcw className="h-3.5 w-3.5" />
                       {t('scRadarResetSimulation')}
                     </button>
                   ) : (
-                    <span className="text-xs text-[var(--ink-dim)]">
+                    <span className="type-caption text-[var(--ink-dim)]">
                       {t('scRadarAdjustSliders')}
                     </span>
                   )}
@@ -748,7 +746,7 @@ export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
                     <button
                       type="button"
                       onClick={handleApplySimulatedTasks}
-                      className="text-xs font-medium text-[var(--accent)] hover:opacity-80 transition inline-flex items-center gap-1"
+                      className="type-button text-[var(--accent)] hover:opacity-80 transition inline-flex items-center gap-1"
                     >
                       <Plus className="h-3.5 w-3.5" />
                       {t('scRadarApplyGoalTasks')}

@@ -47,7 +47,7 @@ export const TodayTasksBlock = memo<{
     <section className="sc-today-tasks">
       <header data-dashboard-header className="sc-today-tasks-header">
         <div className="min-w-0 flex-1">
-          <h2 data-dashboard-title className="sc-today-tasks-title">
+          <h2 data-dashboard-title className="sc-today-tasks-title type-section-title">
             {t('scQuickActions')}
           </h2>
         </div>

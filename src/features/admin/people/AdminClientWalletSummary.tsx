@@ -19,25 +19,25 @@ export function AdminClientWalletSummary({
 }: AdminClientWalletSummaryProps) {
   return (
     <section className="space-y-2 border border-[var(--border)] p-4">
-      <h4 className="text-sm font-medium">{text.finance}</h4>
-      {loading ? <p className="text-xs text-[var(--ink-dim)]">{text.loading}</p> : null}
+      <h4 className="type-card-title">{text.finance}</h4>
+      {loading ? <p className="type-caption text-[var(--ink-dim)]">{text.loading}</p> : null}
       {!loading && wallet && wallet.exists ? (
-        <p className="font-mono text-sm" data-testid="admin-client-wallet-balance">
+        <p className="type-compact" data-testid="admin-client-wallet-balance">
           {formatAdminClientKzt(wallet.balance, locale)}
         </p>
       ) : null}
       {!loading && wallet && !wallet.exists ? (
-        <p className="text-xs text-[var(--ink-dim)]" data-testid="admin-client-wallet-missing">
+        <p className="type-caption text-[var(--ink-dim)]" data-testid="admin-client-wallet-missing">
           {text.walletMissing}
         </p>
       ) : null}
       {!loading && !wallet ? (
-        <p className="text-xs text-[var(--ink-dim)]">{text.walletUnavailable}</p>
+        <p className="type-caption text-[var(--ink-dim)]">{text.walletUnavailable}</p>
       ) : null}
       <button
         type="button"
         onClick={onOpenFinance}
-        className="border border-[var(--border)] px-3 py-2 text-xs font-mono font-bold uppercase tracking-wider"
+        className="border border-[var(--border)] px-3 py-2 type-button uppercase"
       >
         {text.openFinance}
       </button>

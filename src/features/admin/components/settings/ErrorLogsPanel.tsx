@@ -115,7 +115,7 @@ export const ErrorLogsPanel: React.FC<ErrorLogsPanelProps> = ({ onRequestConfirm
             value={logSearch}
             onChange={(e) => setLogSearch(e.target.value)}
             placeholder={t('searchLogsPlaceholder')}
-            className="w-full pl-9 pr-3 py-2 border border-[var(--border)] bg-transparent text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none placeholder-[var(--ink-dim)] font-mono"
+            className="w-full pl-9 pr-3 py-2 border border-[var(--border)] bg-transparent type-body text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none placeholder-[var(--ink-dim)]"
           />
         </div>
 
@@ -123,7 +123,7 @@ export const ErrorLogsPanel: React.FC<ErrorLogsPanelProps> = ({ onRequestConfirm
           <select
             value={logSourceFilter}
             onChange={(e) => setLogSourceFilter(e.target.value)}
-            className="w-full px-3 py-2 border border-[var(--border)] bg-[var(--bg)] text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none font-mono"
+            className="w-full px-3 py-2 border border-[var(--border)] bg-[var(--bg)] type-body text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
           >
             <option value="all">{t('allSources')}</option>
             <option value="firestore">Firestore</option>
@@ -133,7 +133,7 @@ export const ErrorLogsPanel: React.FC<ErrorLogsPanelProps> = ({ onRequestConfirm
           </select>
         </div>
 
-        <div className="flex items-center text-xs text-[var(--ink-dim)] font-mono justify-end">
+        <div className="flex items-center type-caption text-[var(--ink-dim)] justify-end">
           {`${t('logsShowingPrefix')} ${filteredLogs.length} ${t('logsShowingOf')} ${errorLogs.length} ${t('logsShowingSuffix')}`}
         </div>
       </div>
@@ -147,13 +147,13 @@ export const ErrorLogsPanel: React.FC<ErrorLogsPanelProps> = ({ onRequestConfirm
           {filteredLogs.map((log) => (
             <div
               key={log.id}
-              className={`p-4 transition hover:bg-black/5 dark:hover:bg-white/5 flex flex-col gap-2 cursor-pointer w-full text-left font-mono text-[11px] ${selectedLog?.id === log.id ? 'bg-black/10 dark:bg-white/10 border-l-2 border-rose-500' : ''}`}
+              className={`p-4 transition hover:bg-black/5 dark:hover:bg-white/5 flex flex-col gap-2 cursor-pointer w-full text-left type-caption ${selectedLog?.id === log.id ? 'bg-black/10 dark:bg-white/10 border-l-2 border-rose-500' : ''}`}
               onClick={() => setSelectedLog(selectedLog?.id === log.id ? null : log)}
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <span
-                    className={`px-1.5 py-0.5 text-[8px] font-extrabold uppercase tracking-wider rounded-none shrink-0 ${
+                    className={`px-1.5 py-0.5 type-caption font-medium uppercase rounded-none shrink-0 ${
                       log.source === 'firestore'
                         ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-250/45 dark:border-amber-900/60'
                         : log.source === 'global_error'
@@ -163,7 +163,7 @@ export const ErrorLogsPanel: React.FC<ErrorLogsPanelProps> = ({ onRequestConfirm
                   >
                     {log.source}
                   </span>
-                  <span className="text-[var(--ink-dim)] text-[9px] shrink-0">
+                  <span className="text-[var(--ink-dim)] type-caption shrink-0">
                     {new Date(log.timestamp).toLocaleString()}
                   </span>
                 </div>
@@ -183,7 +183,7 @@ export const ErrorLogsPanel: React.FC<ErrorLogsPanelProps> = ({ onRequestConfirm
                 {log.message}
               </div>
 
-              <div className="text-[10px] text-[var(--ink-dim)] flex flex-wrap gap-x-4 gap-y-1 pt-1 border-t border-[var(--border)] border-dashed">
+              <div className="type-caption text-[var(--ink-dim)] flex flex-wrap gap-x-4 gap-y-1 pt-1 border-t border-[var(--border)] border-dashed">
                 <div>
                   <span className="font-bold">{t('userLabelColon')}</span>{' '}
                   {log.userEmail || 'anonymous'}
@@ -204,22 +204,22 @@ export const ErrorLogsPanel: React.FC<ErrorLogsPanelProps> = ({ onRequestConfirm
               </div>
 
               {selectedLog?.id === log.id && (
-                <div className="mt-3 p-3 bg-black/10 dark:bg-white/5 border border-[var(--border)] rounded-none space-y-3 animate-fade-in text-[10px] overflow-x-auto select-text">
+                <div className="mt-3 p-3 bg-black/10 dark:bg-white/5 border border-[var(--border)] rounded-none space-y-3 animate-fade-in type-caption overflow-x-auto select-text">
                   {log.stack && (
                     <div className="space-y-1">
-                      <span className="font-bold text-[var(--ink)] uppercase tracking-wider text-[9px] block">
+                      <span className="font-medium text-[var(--ink)] uppercase type-caption block">
                         {t('stackTraceLabel')}
                       </span>
-                      <pre className="whitespace-pre font-mono leading-relaxed text-rose-500/90 dark:text-rose-450 text-[9px] overflow-x-auto max-h-[200px] overflow-y-auto">
+                      <pre className="whitespace-pre text-rose-500/90 dark:text-rose-450 type-caption overflow-x-auto max-h-[200px] overflow-y-auto">
                         {log.stack}
                       </pre>
                     </div>
                   )}
                   <div className="space-y-1">
-                    <span className="font-bold text-[var(--ink)] uppercase tracking-wider text-[9px] block">
+                    <span className="font-medium text-[var(--ink)] uppercase type-caption block">
                       {t('clientEnvDetails')}
                     </span>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 font-mono text-[9px] leading-relaxed text-[var(--ink-dim)]">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 type-caption text-[var(--ink-dim)]">
                       <div>
                         <span className="font-bold text-[var(--ink)]">User Agent:</span>{' '}
                         {log.userAgent}

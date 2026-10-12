@@ -54,7 +54,7 @@ export const BookingSelectors: React.FC<BookingSelectorsProps> = ({
   showDifficulty = true,
 }) => {
   const levels = useLessonLevelsStore((state) => state.levels);
-  const labelStyle = 'mb-1.5 flex items-center gap-1.5 truncate text-xs text-[var(--ink-dim)]';
+  const labelStyle = 'mb-1.5 flex items-center gap-1.5 type-caption text-[var(--ink-dim)]';
 
   const timeOptions = useMemo(
     () =>

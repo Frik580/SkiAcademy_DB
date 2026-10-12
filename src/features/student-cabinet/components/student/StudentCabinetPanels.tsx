@@ -252,7 +252,7 @@ export const StudentCoursesPanel: React.FC<
         <section className="space-y-4">
           <div className="space-y-1">
             <ScSectionTitle>{t('scMyCourses')}</ScSectionTitle>
-            <p className="text-sm text-[var(--ink-dim)]">{t('scMyCoursesSub')}</p>
+            <p className="type-compact text-[var(--ink-dim)]">{t('scMyCoursesSub')}</p>
           </div>
           {renderCourseGrid(myCourses)}
         </section>
@@ -266,7 +266,7 @@ export const StudentCoursesPanel: React.FC<
             {myCourses.length > 0 ? t('scAvailableCourses') : t('intensiveGroupCourses')}
           </ScSectionTitle>
           {myCourses.length > 0 && (
-            <p className="text-sm text-[var(--ink-dim)]">{t('scAvailableCoursesSub')}</p>
+            <p className="type-compact text-[var(--ink-dim)]">{t('scAvailableCoursesSub')}</p>
           )}
         </div>
         {availableCourses.length > 0 ? (
@@ -274,7 +274,7 @@ export const StudentCoursesPanel: React.FC<
         ) : myCourses.length === 0 ? (
           <div className="ui-empty-state">{t('noIntensiveCoursesAvailable')}</div>
         ) : (
-          <p className="text-sm text-[var(--ink-dim)]">{t('scNoAvailableCourses')}</p>
+          <p className="type-compact text-[var(--ink-dim)]">{t('scNoAvailableCourses')}</p>
         )}
       </section>
     </div>
@@ -326,7 +326,7 @@ export const StudentInstructorsPanel: React.FC<
         <section className="space-y-4">
           <div className="space-y-1">
             <ScSectionTitle>{t('scRecommendedInstructors')}</ScSectionTitle>
-            <p className="text-sm text-[var(--ink-dim)]">{t('scRecommendedInstructorsSub')}</p>
+            <p className="type-compact text-[var(--ink-dim)]">{t('scRecommendedInstructorsSub')}</p>
           </div>
           <div className="flex flex-col gap-8">
             {recommendedInstructors.map((ins) => (
@@ -349,7 +349,7 @@ export const StudentInstructorsPanel: React.FC<
         <section className="space-y-4">
           <div className="space-y-1">
             <ScSectionTitle>{t('scMyInstructors')}</ScSectionTitle>
-            <p className="text-sm text-[var(--ink-dim)]">{t('scMyInstructorsSub')}</p>
+            <p className="type-compact text-[var(--ink-dim)]">{t('scMyInstructorsSub')}</p>
           </div>
           <div className="flex flex-col gap-8">
             {myInstructors.map((ins) => (
@@ -373,7 +373,7 @@ export const StudentInstructorsPanel: React.FC<
             {myInstructors.length > 0 ? t('scAvailableInstructors') : t('scInstructors')}
           </ScSectionTitle>
           {myInstructors.length > 0 && (
-            <p className="text-sm text-[var(--ink-dim)]">{t('meetGuidesSub')}</p>
+            <p className="type-compact text-[var(--ink-dim)]">{t('meetGuidesSub')}</p>
           )}
         </div>
         {availableInstructors.length > 0 ? (
@@ -388,9 +388,9 @@ export const StudentInstructorsPanel: React.FC<
             ))}
           </div>
         ) : myInstructors.length === 0 ? (
-          <p className="text-sm text-[var(--ink-dim)]">{t('noCoachesMatch')}</p>
+          <p className="type-compact text-[var(--ink-dim)]">{t('noCoachesMatch')}</p>
         ) : (
-          <p className="text-sm text-[var(--ink-dim)]">{t('scNoAvailableInstructors')}</p>
+          <p className="type-compact text-[var(--ink-dim)]">{t('scNoAvailableInstructors')}</p>
         )}
       </section>
     </div>

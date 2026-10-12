@@ -79,7 +79,7 @@ export const PresentedTodayProgressBlock = memo<
                   <Zap className="w-4 h-4" />
                 </div>
                 <div>
-                  <p className="text-xs text-[var(--ink-dim)]">
+                  <p className="type-caption text-[var(--ink-dim)]">
                     {lang === 'ru' ? 'Заработанное за сегодня XP' : 'Today’s Earned XP'}
                   </p>
                   <p className="sc-today-achievements-xp-value">
@@ -87,7 +87,7 @@ export const PresentedTodayProgressBlock = memo<
                     <span className="sc-today-achievements-xp-unit">XP</span>
                   </p>
                   {todayXP == null && (
-                    <p className="text-xs text-[var(--ink-dim)]">
+                    <p className="type-caption text-[var(--ink-dim)]">
                       {lang === 'ru'
                         ? 'Дневная история оценок ещё недоступна.'
                         : 'Daily score history is not available yet.'}
@@ -99,7 +99,7 @@ export const PresentedTodayProgressBlock = memo<
               {todayLevelUp && (
                 <div className="sc-today-achievements-level" data-level-up>
                   <Trophy className="w-3.5 h-3.5" />
-                  <span className="text-xs font-semibold">
+                  <span className="type-caption font-medium">
                     {lang === 'ru'
                       ? `Новый уровень: ${todayLevelUp}`
                       : `New Level: ${todayLevelUp}`}
@@ -116,7 +116,7 @@ export const PresentedTodayProgressBlock = memo<
 
             {/* Exercises evaluated today by instructor */}
             <div className="sc-today-achievements-exercises">
-              <p className="text-xs font-semibold text-[var(--ink)] flex items-center gap-1.5">
+              <p className="type-caption font-medium text-[var(--ink)] flex items-center gap-1.5">
                 <Award className="w-4 h-4 text-[var(--accent)]" />
                 {lang === 'ru'
                   ? 'Оценки за упражнения от тренера:'
@@ -145,7 +145,7 @@ export const PresentedTodayProgressBlock = memo<
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-[var(--ink-dim)] italic py-0.5">
+                <p className="type-caption text-[var(--ink-dim)] italic py-0.5">
                   {todayXP == null
                     ? lang === 'ru'
                       ? 'История оценок за сегодня ещё недоступна.'
@@ -159,7 +159,7 @@ export const PresentedTodayProgressBlock = memo<
 
             {todayAchievements.length > 0 && (
               <div className="sc-today-achievements-earned">
-                <p className="text-xs font-semibold text-[var(--ink)] flex items-center gap-1.5">
+                <p className="type-caption font-medium text-[var(--ink)] flex items-center gap-1.5">
                   <Award className="w-4 h-4 text-[var(--sc-warning)]" />
                   {lang === 'ru' ? 'Новые достижения сегодня:' : 'New achievements today:'}
                 </p>

@@ -466,7 +466,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
           {isCabinet && showUserPosition && currentUserLevelId != null && (
             <div className="journey-summary">
               <span
-                className={`journey-level-badge inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${getCourseLevelCardBadgeClass(userLevelToCourseLevel(currentUserLevelId))}`}
+                className={`journey-level-badge inline-flex shrink-0 items-center rounded-full px-2 py-0.5 type-caption font-medium ${getCourseLevelCardBadgeClass(userLevelToCourseLevel(currentUserLevelId))}`}
               >
                 {t(JOURNEY_LEVELS[currentUserLevelId - 1].labelKey)}
               </span>
@@ -480,7 +480,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
           ) : (
             (!isCabinet || !showUserPosition) && (
               <div
-                className={`space-y-0.5 text-sm leading-relaxed ${
+                className={`space-y-0.5 type-body ${
                   isDark ? 'text-white/55' : 'text-[var(--ink-dim)]'
                 }`}
               >

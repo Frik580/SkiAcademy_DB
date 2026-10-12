@@ -47,7 +47,7 @@ export const StudentPanelBackLink: React.FC<{
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex items-center gap-2 text-sm text-[var(--ink-dim)] hover:text-[var(--ink)] transition-colors ${className}`}
+      className={`inline-flex items-center gap-2 type-button text-[var(--ink-dim)] hover:text-[var(--ink)] transition-colors ${className}`}
     >
       <ArrowLeft className="h-4 w-4" aria-hidden />
       {label ?? t(labelKey)}
@@ -86,7 +86,7 @@ export const StudentCabinetTabBar: React.FC<StudentCabinetTabBarProps> = ({
         type="button"
         onClick={() => onSelect(id)}
         aria-current={active ? 'page' : undefined}
-        className={`relative z-10 group flex min-w-[44px] flex-1 shrink-0 flex-col items-center justify-center gap-1 px-1.5 h-full transition-all duration-200 ease-out active:scale-95 cursor-pointer ${
+        className={`relative z-10 group flex min-w-[44px] flex-auto shrink-0 flex-col items-center justify-center gap-0.5 px-0 h-full transition-all duration-200 ease-out active:scale-95 cursor-pointer ${
           active ? 'text-[var(--accent)]' : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'
         }`}
       >
@@ -105,7 +105,7 @@ export const StudentCabinetTabBar: React.FC<StudentCabinetTabBarProps> = ({
           aria-hidden
         />
         <span
-          className={`text-[10px] leading-none tracking-tight text-center truncate max-w-[4.5rem] relative z-10 ${
+          className={`type-nav text-center whitespace-nowrap w-full relative z-10 ${
             active ? 'font-semibold' : 'font-medium'
           }`}
         >
@@ -123,14 +123,14 @@ export const StudentCabinetTabBar: React.FC<StudentCabinetTabBarProps> = ({
       aria-label={t('scNavHome')}
     >
       <div
-        className="flex flex-1 items-center justify-center px-3 sm:px-6 pointer-events-none"
+        className="flex flex-1 items-center justify-center px-2 sm:px-6 pointer-events-none"
         style={{
           minHeight: `calc(${STUDENT_TAB_BAR_HEIGHT} + 2 * ${STUDENT_TAB_BAR_FOOTER_PADDING})`,
         }}
       >
-        <div className="pointer-events-auto w-full max-w-md sm:max-w-lg mx-auto flex items-center gap-4 relative">
+        <div className="pointer-events-auto w-full max-w-md sm:max-w-lg mx-auto flex items-center gap-2 relative">
           <div
-            className="relative flex items-center justify-between flex-1 min-w-0 overflow-hidden rounded-full px-2 bg-[color-mix(in_srgb,var(--card-bg)_70%,transparent)] backdrop-blur-xl backdrop-saturate-150 border border-[color-mix(in_srgb,var(--ink)_7%,transparent)] shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
+            className="relative flex items-center justify-between flex-1 min-w-0 overflow-hidden rounded-full px-1 bg-[color-mix(in_srgb,var(--card-bg)_70%,transparent)] backdrop-blur-xl backdrop-saturate-150 border border-[color-mix(in_srgb,var(--ink)_7%,transparent)] shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
             style={{ height: STUDENT_TAB_BAR_HEIGHT }}
             role="presentation"
           >
@@ -148,7 +148,7 @@ export const StudentCabinetTabBar: React.FC<StudentCabinetTabBarProps> = ({
               }`}
             >
               <div
-                className={`relative flex items-center justify-center size-[3.75rem] rounded-full bg-gradient-to-br from-[#34C759] to-[#28CD41] dark:from-[#30D158] dark:to-[#24B248] text-white transition-all ${
+                className={`relative flex items-center justify-center size-14 rounded-full bg-gradient-to-br from-[#34C759] to-[#28CD41] dark:from-[#30D158] dark:to-[#24B248] text-white transition-all ${
                   instructorPickerOpen
                     ? 'border-2 border-white ring-2 ring-[#30D158] ring-offset-2 ring-offset-black/20 shadow-[0_8px_28px_rgba(48,209,88,0.7)]'
                     : 'shadow-[0_8px_20px_rgba(52,199,89,0.38),0_3px_10px_rgba(0,0,0,0.14),inset_0_1.5px_1.5px_rgba(255,255,255,0.45)] hover:shadow-[0_10px_24px_rgba(48,209,88,0.5),0_4px_12px_rgba(0,0,0,0.18),inset_0_1.5px_1.5px_rgba(255,255,255,0.55)]'
@@ -175,10 +175,9 @@ export const ScDivider: React.FC = () => (
 );
 
 /** Page-level typography aligned to cabinet Editorial List (V1). */
-export const SC_PAGE_TITLE_CLASS =
-  'text-4xl font-serif font-light tracking-tight text-[var(--ink)] leading-[1.15]';
-export const SC_PAGE_SUBTITLE_CLASS = 'text-base text-[var(--ink-dim)]';
-export const SC_SECTION_TITLE_CLASS = 'font-serif text-xl font-light tracking-tight';
+export const SC_PAGE_TITLE_CLASS = 'type-page-title text-[var(--ink)]';
+export const SC_PAGE_SUBTITLE_CLASS = 'type-body text-[var(--ink-dim)]';
+export const SC_SECTION_TITLE_CLASS = 'type-section-title';
 
 export const ScPageTitle: React.FC<{
   children: React.ReactNode;
@@ -245,7 +244,9 @@ export const ScEditorialHubList: React.FC<{ items: ScEditorialHubItem[] }> = ({ 
             <span className={`block ${SC_SECTION_TITLE_CLASS} text-[var(--ink)] mb-1 truncate`}>
               {item.label}
             </span>
-            <span className="block text-sm text-[var(--ink-dim)] truncate">{item.description}</span>
+            <span className="block type-compact text-[var(--ink-dim)] truncate">
+              {item.description}
+            </span>
           </span>
           <ChevronRight
             className="h-5 w-5 shrink-0 text-[var(--ink-dim)] group-hover:text-[var(--ink)] transition-colors"
@@ -294,7 +295,9 @@ export const ScSectionTitle: React.FC<{
   children: React.ReactNode;
   tint?: ScTint;
 }> = ({ children, tint }) => (
-  <h2 className={`${SC_SECTION_TITLE_CLASS} ${tint ? SC_TINT_VALUE[tint] : 'text-[var(--ink)]'}`}>
+  <h2
+    className={`${SC_SECTION_TITLE_CLASS} ${tint ? SC_TINT_VALUE[tint] : 'text-[var(--ink)] type-section-title'}`}
+  >
     {children}
   </h2>
 );
@@ -315,10 +318,10 @@ export const ScProgressBar: React.FC<{
     const filled = Math.round((clamped / 100) * 20);
     const empty = 20 - filled;
     return (
-      <div className={`font-mono text-sm tracking-tight text-[var(--ink)] ${className}`}>
+      <div className={`type-compact text-[var(--ink)] ${className}`}>
         {'█'.repeat(filled)}
         <span className="text-[var(--border)]">{'░'.repeat(empty)}</span>
-        <span className="ml-2 text-[var(--ink-dim)] text-xs">{clamped}%</span>
+        <span className="ml-2 text-[var(--ink-dim)] type-caption">{clamped}%</span>
       </div>
     );
   }
@@ -342,7 +345,7 @@ export const ScProgressBar: React.FC<{
           />
         </div>
         {showLabel && (
-          <span className="text-[11px] font-semibold tabular-nums text-[var(--ink-dim)] shrink-0 min-w-[2rem] text-right">
+          <span className="type-caption font-medium tabular-nums text-[var(--ink-dim)] shrink-0 min-w-[2rem] text-right">
             {clamped}%
           </span>
         )}
@@ -371,7 +374,7 @@ export const ScTextButton: React.FC<
 > = ({ children, arrow, className = '', ...props }) => (
   <button
     type="button"
-    className={`sc-text-button text-sm font-medium text-[var(--ink)] hover:text-[var(--accent)] transition inline-flex items-center gap-1 ${className}`}
+    className={`sc-text-button type-button text-[var(--ink)] hover:text-[var(--accent)] transition inline-flex items-center gap-1 ${className}`}
     {...props}
   >
     {children}
@@ -387,12 +390,8 @@ export const ScStatGrid: React.FC<{
       const tint = item.tint ?? 'accent';
       return (
         <div key={item.label} className={`rounded-xl border px-3 py-3 ${SC_TINT_CARD[tint]}`}>
-          <dt className="text-[10px] uppercase tracking-wider text-[var(--ink-dim)]">
-            {item.label}
-          </dt>
-          <dd className={`text-2xl font-serif font-light mt-1 tabular-nums ${SC_TINT_VALUE[tint]}`}>
-            {item.value}
-          </dd>
+          <dt className="type-caption uppercase text-[var(--ink-dim)]">{item.label}</dt>
+          <dd className={`type-metric mt-1 tabular-nums ${SC_TINT_VALUE[tint]}`}>{item.value}</dd>
         </div>
       );
     })}

@@ -77,15 +77,15 @@ export const AdminCollapsibleSection: React.FC<AdminCollapsibleSectionProps> = (
           )}
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="font-serif text-lg font-light text-[var(--ink)] truncate">{title}</h3>
+              <h3 className="type-card-title text-[var(--ink)] truncate">{title}</h3>
               {badge !== undefined && (
-                <span className="text-[9px] font-mono px-2 py-0.5 border border-[var(--border)] bg-[var(--bg)] text-[var(--ink-dim)] uppercase tracking-widest font-bold">
+                <span className="type-caption px-2 py-0.5 border border-[var(--border)] bg-[var(--bg)] text-[var(--ink-dim)] uppercase font-medium">
                   {badge}
                 </span>
               )}
             </div>
             {subtitle && (
-              <p className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider mt-0.5 truncate">
+              <p className="type-caption text-[var(--ink-dim)] uppercase mt-0.5 truncate">
                 {subtitle}
               </p>
             )}
@@ -97,7 +97,7 @@ export const AdminCollapsibleSection: React.FC<AdminCollapsibleSectionProps> = (
           <button
             type="button"
             onClick={toggleOpen}
-            className="p-1.5 border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink-dim)] hover:text-[var(--ink)] bg-[var(--bg)] transition cursor-pointer flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider px-2.5"
+            className="p-1.5 border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink-dim)] hover:text-[var(--ink)] bg-[var(--bg)] transition cursor-pointer flex items-center gap-1.5 type-button uppercase px-2.5"
             title={isOpen ? t('hideTable') : t('showTable')}
           >
             {isOpen ? (

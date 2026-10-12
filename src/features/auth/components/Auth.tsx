@@ -309,9 +309,9 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
     <div className={`flex flex-col bg-transparent animate-fade-in ${sectionGap}`}>
       <div className={isSidebar ? 'space-y-3' : 'space-y-2'}>
         <h2
-          className={`font-serif font-light text-[var(--ink)] tracking-tight ${
-            isSidebar ? 'text-3xl' : 'text-3xl'
-          } ${isSidebar ? '' : 'text-center md:text-left'}`}
+          className={`text-[var(--ink)] type-section-title ${
+            isSidebar ? 'type-section-title' : 'type-section-title'
+          } ${isSidebar ? '' : 'text-center md:text-left type-section-title'}`}
         >
           {isForgotPassword
             ? t('authResetPassword')
@@ -321,13 +321,13 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
         </h2>
         {!isForgotPassword && !isSignUp && (
           <div className={`space-y-1 ${isSidebar ? '' : 'text-center md:text-left'}`}>
-            <p className="text-sm text-[var(--ink-dim)] leading-relaxed">{t('welcomeSub')}</p>
-            <p className="text-sm text-[var(--ink-dim)] leading-relaxed">{t('welcomeSub2')}</p>
+            <p className="type-compact text-[var(--ink-dim)]">{t('welcomeSub')}</p>
+            <p className="type-compact text-[var(--ink-dim)]">{t('welcomeSub2')}</p>
           </div>
         )}
         {!isForgotPassword && isSignUp && (
           <p
-            className={`text-sm text-[var(--ink-dim)] leading-relaxed ${
+            className={`type-compact text-[var(--ink-dim)] ${
               isSidebar ? '' : 'text-center md:text-left'
             }`}
           >
@@ -336,7 +336,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
         )}
         {isForgotPassword && (
           <p
-            className={`text-sm text-[var(--ink-dim)] leading-relaxed ${
+            className={`type-compact text-[var(--ink-dim)] ${
               isSidebar ? '' : 'text-center md:text-left'
             }`}
           >
@@ -350,7 +350,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
       )}
 
       {error && (
-        <div className="p-3 bg-red-950/20 border border-red-900/40 text-[10px] text-red-400 leading-normal rounded-[var(--radius-md)] font-sans normal-case text-sm border-red-500/20 bg-red-500/10">
+        <div className="p-3 bg-red-950/20 border border-red-900/40 type-caption text-red-400 rounded-[var(--radius-md)] normal-case border-red-500/20 bg-red-500/10">
           {error}
         </div>
       )}
@@ -399,11 +399,13 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
 
                 <div className="space-y-3 pt-2">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-[var(--ink-dim)]">{t('authChooseAvatar')}</span>
+                    <span className="type-compact text-[var(--ink-dim)]">
+                      {t('authChooseAvatar')}
+                    </span>
                     <button
                       type="button"
                       onClick={handleRandomizeAvatar}
-                      className="text-xs text-[var(--ink)] hover:underline cursor-pointer bg-transparent border-0 outline-none"
+                      className="type-button text-[var(--ink)] hover:underline cursor-pointer bg-transparent border-0 outline-none"
                     >
                       🎲 {t('authRandomize')}
                     </button>
@@ -475,7 +477,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
                       setIsForgotPassword(true);
                       setError('');
                     }}
-                    className="text-xs text-[var(--ink-dim)] hover:text-[var(--ink)] hover:underline bg-transparent border-0 p-0 outline-none cursor-pointer"
+                    className="type-button text-[var(--ink-dim)] hover:text-[var(--ink)] hover:underline bg-transparent border-0 p-0 outline-none cursor-pointer"
                   >
                     {t('authForgotPassword')}
                   </button>
@@ -514,7 +516,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
               setIsForgotPassword(false);
               setError('');
             }}
-            className="text-sm text-[var(--ink-dim)] hover:text-[var(--ink)] hover:underline transition cursor-pointer bg-transparent border-0"
+            className="type-button text-[var(--ink-dim)] hover:text-[var(--ink)] hover:underline transition cursor-pointer bg-transparent border-0"
           >
             {t('authBackToLogin')}
           </button>
@@ -525,7 +527,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
               setIsForgotPassword(false);
               setError('');
             }}
-            className="text-sm text-[var(--ink-dim)] hover:text-[var(--ink)] hover:underline transition cursor-pointer bg-transparent border-0"
+            className="type-button text-[var(--ink-dim)] hover:text-[var(--ink)] hover:underline transition cursor-pointer bg-transparent border-0"
           >
             {isSignUp ? t('haveAccount') : t('noAccount')}
           </button>

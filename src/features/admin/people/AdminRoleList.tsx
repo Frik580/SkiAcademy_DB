@@ -37,7 +37,7 @@ export function AdminRoleList({
 }: AdminRoleListProps) {
   if (loading) {
     return (
-      <p className="flex items-center gap-2 text-xs text-[var(--ink-dim)]">
+      <p className="flex items-center gap-2 type-caption text-[var(--ink-dim)]">
         <Loader2 className="h-4 w-4 animate-spin" />
         {text.loading}
       </p>
@@ -46,7 +46,7 @@ export function AdminRoleList({
 
   if (rows.length === 0) {
     return (
-      <div className="border border-dashed border-[var(--border)] py-6 text-center font-mono text-xs text-[var(--ink-dim)]">
+      <div className="border border-dashed border-[var(--border)] py-6 text-center type-caption text-[var(--ink-dim)]">
         {text.noAdministrators}
       </div>
     );
@@ -67,26 +67,26 @@ export function AdminRoleList({
             >
               <div className="min-w-0 space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="truncate text-xs font-bold text-[var(--ink)]">
+                  <span className="truncate type-caption font-medium text-[var(--ink)]">
                     {row.displayName || text.unnamed}
                   </span>
                   {isOwner ? (
-                    <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--ink)]">
+                    <span className="type-caption uppercase text-[var(--ink)]">
                       {text.ownerBadge}
                     </span>
                   ) : null}
                   {instructor ? (
-                    <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--ink-dim)]">
+                    <span className="type-caption uppercase text-[var(--ink-dim)]">
                       {text.instructorBadge}
                     </span>
                   ) : null}
                 </div>
                 {row.email ? (
-                  <span className="block truncate font-mono text-[10px] text-[var(--ink-dim)]">
+                  <span className="block truncate type-caption text-[var(--ink-dim)]">
                     {row.email}
                   </span>
                 ) : null}
-                <div className="flex flex-wrap gap-2 font-mono text-[9px] uppercase tracking-wider text-[var(--ink-dim)]">
+                <div className="flex flex-wrap gap-2 type-caption uppercase text-[var(--ink-dim)]">
                   <span>{text.roleAdmin}</span>
                   <span>{lifecycleLabel(row.lifecycle, text)}</span>
                 </div>
@@ -95,7 +95,7 @@ export function AdminRoleList({
                 <button
                   type="button"
                   onClick={() => onOpenClient(row.accountId)}
-                  className="border border-[var(--border)] px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--ink)]"
+                  className="border border-[var(--border)] px-2 py-1 type-button uppercase text-[var(--ink)]"
                 >
                   {text.openClient}
                 </button>
@@ -105,7 +105,7 @@ export function AdminRoleList({
                     disabled={pending}
                     onClick={() => onDemote(row)}
                     title={text.revokeAdmin}
-                    className="inline-flex items-center gap-1 border border-[var(--border)] px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-rose-600 disabled:opacity-50"
+                    className="inline-flex items-center gap-1 border border-[var(--border)] px-2 py-1 type-button uppercase text-rose-600 disabled:opacity-50"
                   >
                     <UserMinus className="h-3.5 w-3.5" />
                     {text.revokeAdmin}
@@ -121,7 +121,7 @@ export function AdminRoleList({
           type="button"
           disabled={loadingMore}
           onClick={onLoadMore}
-          className="border border-[var(--border)] px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wider disabled:opacity-50"
+          className="border border-[var(--border)] px-3 py-1.5 type-button uppercase disabled:opacity-50"
         >
           {loadingMore ? text.loading : text.loadMore}
         </button>

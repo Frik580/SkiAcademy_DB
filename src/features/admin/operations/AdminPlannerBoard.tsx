@@ -275,12 +275,12 @@ export function AdminPlannerBoard({
 
   return (
     <div className="space-y-3">
-      {planner.error ? <p className="text-xs font-mono text-rose-600">{planner.error}</p> : null}
+      {planner.error ? <p className="type-caption text-rose-600">{planner.error}</p> : null}
       {planner.loading ? (
-        <p className="text-xs font-mono text-[var(--ink-dim)]">Loading planner…</p>
+        <p className="type-caption text-[var(--ink-dim)]">Loading planner…</p>
       ) : null}
       {planner.item?.truncated ? (
-        <p className="text-xs font-mono text-amber-600 dark:text-amber-400">
+        <p className="type-caption text-amber-600 dark:text-amber-400">
           {t('plannerOccupancyTruncated')}
         </p>
       ) : null}

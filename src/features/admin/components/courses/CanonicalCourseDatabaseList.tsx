@@ -50,7 +50,7 @@ interface CanonicalCourseDatabaseListProps {
 }
 
 const menuItemClass =
-  'flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-[var(--ink)] hover:bg-[var(--accent-muted)] disabled:opacity-40';
+  'flex w-full items-center gap-2 px-3 py-1.5 text-left type-button text-[var(--ink)] hover:bg-[var(--accent-muted)] disabled:opacity-40';
 
 export const CanonicalCourseDatabaseList: React.FC<CanonicalCourseDatabaseListProps> = ({
   courses,
@@ -116,14 +116,16 @@ export const CanonicalCourseDatabaseList: React.FC<CanonicalCourseDatabaseListPr
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="break-words text-sm font-semibold text-[var(--ink)]">
+                  <p className="break-words type-compact font-medium text-[var(--ink)]">
                     {translated.title}
                   </p>
                   {secondary ? (
-                    <p className="mt-1 break-words text-xs text-[var(--ink-dim)]">{secondary}</p>
+                    <p className="mt-1 break-words type-caption text-[var(--ink-dim)]">
+                      {secondary}
+                    </p>
                   ) : null}
-                  <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[var(--ink-dim)]">
-                    <span className="font-mono font-medium text-[var(--ink)]">
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 type-caption text-[var(--ink-dim)]">
+                    <span className="font-sans font-medium text-[var(--ink)]">
                       {course.priceKZT != null ? `${course.priceKZT.toLocaleString()} ₸` : '—'}
                     </span>
                     <span aria-hidden="true">·</span>

@@ -47,7 +47,7 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3 pb-1">
-        <h3 className="text-xs font-mono uppercase tracking-widest text-[var(--ink-dim)] font-bold">
+        <h3 className="type-card-title uppercase text-[var(--ink-dim)]">
           {t('financialOverview') || 'Финансовый обзор'}
         </h3>
         <div className="flex flex-wrap items-center gap-1">
@@ -56,7 +56,7 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
               key={value}
               type="button"
               onClick={() => onPeriodChange(value)}
-              className={`px-2 py-1 text-[10px] font-mono font-bold uppercase tracking-wider border ${
+              className={`px-2 py-1 type-button uppercase border ${
                 period === value
                   ? 'border-[var(--ink)] bg-[var(--ink)] text-[var(--bg)]'
                   : 'border-[var(--border)] text-[var(--ink)] hover:border-[var(--ink)]'
@@ -75,18 +75,18 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
       <div className="grid grid-cols-1 gap-4">
         <div className="bg-transparent border border-[var(--border)] p-5 rounded-none flex items-center justify-between transition-colors duration-300">
           <div className="space-y-1.5">
-            <span className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-widest block">
+            <span className="type-caption text-[var(--ink-dim)] uppercase block">
               {t('totalRevenue')}
             </span>
             <span
-              className={`text-2xl font-serif font-light ${
+              className={`type-metric ${
                 revenueError ? 'text-[var(--ink-dim)]' : 'text-[var(--ink)]'
               }`}
             >
               {revenueLabel}
             </span>
             {revenueReady ? (
-              <span className="text-[9px] font-mono text-[var(--ink-dim)] block">
+              <span className="type-caption text-[var(--ink-dim)] block">
                 {t('adminFinanceOverviewSettled')}:{' '}
                 {formatCanonicalKztForDisplay(settledRevenueKzt ?? 0)}
                 {' · '}
@@ -95,7 +95,7 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
               </span>
             ) : null}
             {revenueTruncated ? (
-              <span className="text-[9px] font-mono text-amber-600 dark:text-amber-400 block">
+              <span className="type-caption text-amber-600 dark:text-amber-400 block">
                 {t('adminFinanceOverviewTruncated')}
               </span>
             ) : null}
@@ -103,7 +103,7 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
               <button
                 type="button"
                 onClick={onOpenPeriodMovement}
-                className="text-[9px] font-mono uppercase tracking-wider text-[var(--ink)] underline underline-offset-2"
+                className="type-button uppercase text-[var(--ink)] underline underline-offset-2"
               >
                 {t('adminFinanceOverviewOpenMovement')}
               </button>

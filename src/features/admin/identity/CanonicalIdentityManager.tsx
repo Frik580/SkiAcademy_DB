@@ -106,8 +106,8 @@ export function CanonicalIdentityManager({ adminAccountId }: CanonicalIdentityMa
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-sm font-medium">{text.title}</h3>
-        <p className="mt-1 text-xs text-[var(--ink-dim)]">{text.subtitle}</p>
+        <h3 className="type-card-title">{text.title}</h3>
+        <p className="mt-1 type-caption text-[var(--ink-dim)]">{text.subtitle}</p>
       </div>
       <div className="flex flex-wrap gap-2">
         {(['accounts', 'participants', 'instructors'] as const).map((item) => (
@@ -118,14 +118,14 @@ export function CanonicalIdentityManager({ adminAccountId }: CanonicalIdentityMa
               setDirectory(item);
               setConfirmation(undefined);
             }}
-            className={`border px-3 py-2 text-xs ${directory === item ? 'border-[var(--ink)] bg-[var(--ink)] text-[var(--bg)]' : 'border-[var(--border)]'}`}
+            className={`border px-3 py-2 type-button ${directory === item ? 'border-[var(--ink)] bg-[var(--ink)] text-[var(--bg)]' : 'border-[var(--border)]'}`}
           >
             {text[item]}
           </button>
         ))}
         <button
           type="button"
-          className="border border-[var(--border)] px-3 py-2 text-xs"
+          className="border border-[var(--border)] px-3 py-2 type-button"
           onClick={() => void reads.refresh()}
         >
           <RefreshCw className="mr-1 inline h-3 w-3" />
@@ -137,18 +137,18 @@ export function CanonicalIdentityManager({ adminAccountId }: CanonicalIdentityMa
         value={search}
         onChange={(event) => setSearch(event.target.value)}
         placeholder={text.searchHint}
-        className="w-full border border-[var(--border)] bg-[var(--bg)] p-2 text-xs"
+        className="w-full border border-[var(--border)] bg-[var(--bg)] p-2 type-body"
       />
       {list.error ? (
-        <p role="alert" className="text-xs text-red-600">
+        <p role="alert" className="type-caption text-red-600">
           {list.error === 'permission-denied' ? text.permissionDenied : text.mutationFailed}
         </p>
       ) : null}
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="border border-[var(--border)] p-3">
-          {list.loading ? <p className="text-xs">{text.loading}</p> : null}
+          {list.loading ? <p className="type-caption">{text.loading}</p> : null}
           {!list.loading && list.items.length === 0 ? (
-            <p className="text-xs">{text.empty}</p>
+            <p className="type-caption">{text.empty}</p>
           ) : null}
           <ul className="space-y-1">
             {directory === 'accounts'
@@ -156,7 +156,7 @@ export function CanonicalIdentityManager({ adminAccountId }: CanonicalIdentityMa
                   <li key={item.accountId}>
                     <button
                       type="button"
-                      className={`w-full border p-2 text-left text-xs ${selectedAccountId === item.accountId ? 'border-[var(--ink)]' : 'border-[var(--border)]'}`}
+                      className={`w-full border p-2 text-left type-button ${selectedAccountId === item.accountId ? 'border-[var(--ink)]' : 'border-[var(--border)]'}`}
                       onClick={() => setSelectedAccountId(item.accountId)}
                     >
                       {item.displayName} · {item.lifecycle}
@@ -170,7 +170,7 @@ export function CanonicalIdentityManager({ adminAccountId }: CanonicalIdentityMa
                   <li key={item.participantId}>
                     <button
                       type="button"
-                      className={`w-full border p-2 text-left text-xs ${selectedParticipantId === item.participantId ? 'border-[var(--ink)]' : 'border-[var(--border)]'}`}
+                      className={`w-full border p-2 text-left type-button ${selectedParticipantId === item.participantId ? 'border-[var(--ink)]' : 'border-[var(--border)]'}`}
                       onClick={() => setSelectedParticipantId(item.participantId)}
                     >
                       {item.displayName} · {item.classification} · {item.lifecycle}
@@ -183,7 +183,7 @@ export function CanonicalIdentityManager({ adminAccountId }: CanonicalIdentityMa
                   <li key={item.instructorId}>
                     <button
                       type="button"
-                      className={`w-full border p-2 text-left text-xs ${selectedInstructorId === item.instructorId ? 'border-[var(--ink)]' : 'border-[var(--border)]'}`}
+                      className={`w-full border p-2 text-left type-button ${selectedInstructorId === item.instructorId ? 'border-[var(--ink)]' : 'border-[var(--border)]'}`}
                       onClick={() => setSelectedInstructorId(item.instructorId)}
                     >
                       {item.name} · {item.isAvailable ? text.activate : text.deactivate}
@@ -193,13 +193,13 @@ export function CanonicalIdentityManager({ adminAccountId }: CanonicalIdentityMa
               : null}
           </ul>
           {list.hasMore ? (
-            <button type="button" className="mt-2 text-xs underline" onClick={reads.loadMore}>
+            <button type="button" className="mt-2 type-button underline" onClick={reads.loadMore}>
               {text.loadMore}
             </button>
           ) : null}
         </section>
         <section className="space-y-3 border border-[var(--border)] p-3">
-          {reads.detailLoading ? <p className="text-xs">{text.loading}</p> : null}
+          {reads.detailLoading ? <p className="type-caption">{text.loading}</p> : null}
           {directory === 'accounts' && reads.accountDetail ? (
             <AccountDetail
               detail={reads.accountDetail}
@@ -244,22 +244,22 @@ export function CanonicalIdentityManager({ adminAccountId }: CanonicalIdentityMa
           ) : null}
           {directory === 'instructors' ? (
             <div className="space-y-2 border-t border-[var(--border)] pt-3">
-              <p className="text-xs font-medium">{text.createCatalog}</p>
+              <p className="type-caption font-medium">{text.createCatalog}</p>
               <input
                 aria-label={text.displayName}
                 value={catalogName}
                 onChange={(event) => setCatalogName(event.target.value)}
-                className="w-full border border-[var(--border)] bg-[var(--bg)] p-2 text-xs"
+                className="w-full border border-[var(--border)] bg-[var(--bg)] p-2 type-body"
               />
               <input
                 aria-label={text.price}
                 value={catalogPrice}
                 onChange={(event) => setCatalogPrice(event.target.value)}
-                className="w-full border border-[var(--border)] bg-[var(--bg)] p-2 text-xs"
+                className="w-full border border-[var(--border)] bg-[var(--bg)] p-2 type-body"
               />
               <button
                 type="button"
-                className="border border-[var(--border)] px-3 py-2 text-xs"
+                className="border border-[var(--border)] px-3 py-2 type-button"
                 onClick={() => {
                   const instructorId = InstructorIdSchema.parse(
                     canonicalDeterministicHash(['instructor_catalog:v1', entropy()])
@@ -282,23 +282,23 @@ export function CanonicalIdentityManager({ adminAccountId }: CanonicalIdentityMa
               </button>
             </div>
           ) : null}
-          <label className="block text-xs">
+          <label className="block type-caption">
             {text.reason}
             <textarea
               aria-label={text.reason}
               value={reason}
               onChange={(event) => setReason(event.target.value)}
-              className="mt-1 w-full border border-[var(--border)] bg-[var(--bg)] p-2"
+              className="mt-1 w-full border border-[var(--border)] bg-[var(--bg)] p-2 type-body"
               rows={2}
             />
           </label>
           {error ? (
-            <p role="alert" className="text-xs text-red-600">
+            <p role="alert" className="type-caption text-red-600">
               {error}
             </p>
           ) : null}
           {confirmation ? (
-            <div className="border border-[var(--border)] p-3 text-xs">
+            <div className="border border-[var(--border)] p-3 type-caption">
               <p>{confirmation.message}</p>
               <p className="mt-1 text-[var(--ink-dim)]">
                 rev {confirmation.attempt.expectedRevision}
@@ -346,7 +346,7 @@ function AccountDetail(props: {
   const action = (kind: AdminIdentityAttempt['kind']) =>
     detail.authorizedActions.find((item) => item.kind === kind);
   return (
-    <div className="space-y-2 text-xs">
+    <div className="space-y-2 type-caption">
       <p className="font-medium">{detail.displayName}</p>
       <p>
         {text.lifecycle}: {detail.lifecycle} · {detail.role.role}
@@ -455,7 +455,7 @@ function AccountDetail(props: {
             aria-label={text.displayName}
             value={props.profileName}
             onChange={(event) => props.onProfileName(event.target.value)}
-            className="w-full border border-[var(--border)] bg-[var(--bg)] p-2"
+            className="w-full border border-[var(--border)] bg-[var(--bg)] p-2 type-body"
             placeholder={text.displayName}
           />
           <input
@@ -463,7 +463,7 @@ function AccountDetail(props: {
             type="date"
             value={props.profileBirthDate}
             onChange={(event) => props.onProfileBirthDate(event.target.value)}
-            className="w-full border border-[var(--border)] bg-[var(--bg)] p-2"
+            className="w-full border border-[var(--border)] bg-[var(--bg)] p-2 type-body"
           />
           <button
             type="button"
@@ -510,7 +510,7 @@ function AccountDetail(props: {
             aria-label={text.linkCatalog}
             value={props.linkInstructorId}
             onChange={(event) => props.onLinkInstructorId(event.target.value)}
-            className="w-full border border-[var(--border)] bg-[var(--bg)] p-2"
+            className="w-full border border-[var(--border)] bg-[var(--bg)] p-2 type-body"
             placeholder="instructorId"
           />
           <button
@@ -554,7 +554,7 @@ function ParticipantDetail(props: {
     detail.authorizedActions.find((item) => item.kind === kind);
   const manager = detail.managers[0];
   return (
-    <div className="space-y-2 text-xs">
+    <div className="space-y-2 type-caption">
       <p className="font-medium">{detail.displayName}</p>
       <p>
         {detail.classification} · {detail.lifecycle}
@@ -575,14 +575,14 @@ function ParticipantDetail(props: {
             aria-label={text.displayName}
             value={props.profileName}
             onChange={(event) => props.onProfileName(event.target.value)}
-            className="w-full border border-[var(--border)] bg-[var(--bg)] p-2"
+            className="w-full border border-[var(--border)] bg-[var(--bg)] p-2 type-body"
           />
           <input
             aria-label={text.birthDate}
             type="date"
             value={props.profileBirthDate}
             onChange={(event) => props.onProfileBirthDate(event.target.value)}
-            className="w-full border border-[var(--border)] bg-[var(--bg)] p-2"
+            className="w-full border border-[var(--border)] bg-[var(--bg)] p-2 type-body"
           />
           <button
             type="button"
@@ -654,7 +654,7 @@ function ParticipantDetail(props: {
             aria-label={text.assignManagement}
             value={props.assignAccountId}
             onChange={(event) => props.onAssignAccountId(event.target.value)}
-            className="w-full border border-[var(--border)] bg-[var(--bg)] p-2"
+            className="w-full border border-[var(--border)] bg-[var(--bg)] p-2 type-body"
             placeholder="accountId"
           />
           <button
@@ -722,7 +722,7 @@ function InstructorDetail(props: {
   const action = (kind: AdminIdentityAttempt['kind']) =>
     detail.authorizedActions.find((item) => item.kind === kind);
   return (
-    <div className="space-y-2 text-xs">
+    <div className="space-y-2 type-caption">
       <p className="font-medium">{detail.name}</p>
       <p>
         {text.lifecycle}: {detail.isAvailable ? 'available' : 'unavailable'}
@@ -732,7 +732,7 @@ function InstructorDetail(props: {
         aria-label={text.displayName}
         value={props.catalogName}
         onChange={(event) => props.onCatalogName(event.target.value)}
-        className="w-full border border-[var(--border)] bg-[var(--bg)] p-2"
+        className="w-full border border-[var(--border)] bg-[var(--bg)] p-2 type-body"
       />
       {action('update_instructor_catalog_profile') ? (
         <button

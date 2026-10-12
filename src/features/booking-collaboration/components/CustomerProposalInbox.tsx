@@ -22,7 +22,7 @@ export const CustomerProposalInbox: React.FC<CustomerProposalInboxProps> = ({
 
   return (
     <section className="space-y-3">
-      <h3 className="text-sm font-semibold text-[var(--ink)]">{copy.proposalInboxTitle}</h3>
+      <h3 className="type-card-title text-[var(--ink)]">{copy.proposalInboxTitle}</h3>
       <div className="space-y-3">
         {openProposals.map((proposal) => (
           <article
@@ -31,15 +31,15 @@ export const CustomerProposalInbox: React.FC<CustomerProposalInboxProps> = ({
           >
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
-                <p className="text-sm font-medium text-[var(--ink)]">
+                <p className="type-compact font-medium text-[var(--ink)]">
                   {proposal.instructorDisplayName}
                 </p>
-                <p className="text-xs text-[var(--ink-dim)]">
+                <p className="type-caption text-[var(--ink-dim)]">
                   {proposal.participantDisplayName} · {proposal.date} {proposal.time} ·{' '}
                   {proposal.durationHours}h
                 </p>
               </div>
-              <span className="text-[10px] uppercase tracking-wide text-[var(--accent)]">
+              <span className="type-caption uppercase text-[var(--accent)]">
                 {copy.proposalOpenLabel}
               </span>
             </div>
@@ -51,7 +51,7 @@ export const CustomerProposalInbox: React.FC<CustomerProposalInboxProps> = ({
                   pending={submittingProposalId === proposal.proposalId}
                   pendingLabel={copy.t('submitting')}
                   onClick={() => void onAccept(proposal)}
-                  className="px-3 py-1.5 text-xs font-medium rounded-lg bg-[var(--accent)] text-white"
+                  className="px-3 py-1.5 type-button rounded-lg bg-[var(--accent)] text-white"
                 >
                   {copy.acceptProposal}
                 </ActionButton>
@@ -62,7 +62,7 @@ export const CustomerProposalInbox: React.FC<CustomerProposalInboxProps> = ({
                   unstyled
                   pending={submittingProposalId === proposal.proposalId}
                   onClick={() => void onDecline(proposal)}
-                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-[var(--border-subtle)]"
+                  className="px-3 py-1.5 type-button rounded-lg border border-[var(--border-subtle)]"
                 >
                   {copy.declineProposal}
                 </ActionButton>

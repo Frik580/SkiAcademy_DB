@@ -113,14 +113,14 @@ export function AdminInstructorDetail({
               <img src={detail.avatarUrl} alt="" className="h-14 w-14 shrink-0 object-cover" />
             ) : null}
             <div className="min-w-0">
-              <h3 className="font-serif text-lg font-light">{detail.name}</h3>
-              <p className="text-xs text-[var(--ink-dim)]">
+              <h3 className="type-card-title">{detail.name}</h3>
+              <p className="type-caption text-[var(--ink-dim)]">
                 {specialtyLabel(detail.specialty, text)}
                 {detail.pricePerHourKZT !== undefined
                   ? ` · ${detail.pricePerHourKZT.toLocaleString('ru-RU')} ₸/ч`
                   : ''}
               </p>
-              <p className="text-xs text-[var(--ink-dim)]">
+              <p className="type-caption text-[var(--ink-dim)]">
                 {detail.isAvailable ? text.available : text.paused}
               </p>
             </div>
@@ -135,13 +135,13 @@ export function AdminInstructorDetail({
           </button>
         </div>
       </header>
-      <section className="space-y-1 text-xs">
-        <h4 className="text-sm font-medium">{text.account}</h4>
+      <section className="space-y-1 type-caption">
+        <h4 className="type-card-title">{text.account}</h4>
         {detail.linkedAccountId ? (
           <>
             <p>{detail.linkedAccountDisplayName ?? detail.linkedAccountId}</p>
             {detail.linkedAccountLifecycle ? (
-              <p className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">
+              <p className="type-caption uppercase text-[var(--ink-dim)]">
                 {text.linkedAccountLifecycle}: {lifecycleLabel(detail.linkedAccountLifecycle, text)}
               </p>
             ) : null}
@@ -151,8 +151,8 @@ export function AdminInstructorDetail({
         )}
       </section>
 
-      <section className="space-y-1 text-xs">
-        <h4 className="text-sm font-medium">{text.commitments}</h4>
+      <section className="space-y-1 type-caption">
+        <h4 className="type-card-title">{text.commitments}</h4>
         <p>
           {text.futureLessons}: {detail.futureLessonCommitmentCount}
         </p>
@@ -178,7 +178,7 @@ export function AdminInstructorDetail({
               type="button"
               disabled={pending}
               onClick={onStartEdit}
-              className="border border-[var(--border)] px-3 py-2 text-xs font-mono uppercase tracking-wider disabled:opacity-50"
+              className="border border-[var(--border)] px-3 py-2 type-button uppercase disabled:opacity-50"
             >
               {text.editProfile}
             </button>
@@ -188,7 +188,7 @@ export function AdminInstructorDetail({
               type="button"
               disabled={pending}
               onClick={onPause}
-              className="border border-[var(--border)] px-3 py-2 text-xs font-mono uppercase tracking-wider disabled:opacity-50"
+              className="border border-[var(--border)] px-3 py-2 type-button uppercase disabled:opacity-50"
             >
               {text.pauseNewBookings}
             </button>
@@ -198,7 +198,7 @@ export function AdminInstructorDetail({
               type="button"
               disabled={pending}
               onClick={onResume}
-              className="border border-[var(--border)] px-3 py-2 text-xs font-mono uppercase tracking-wider disabled:opacity-50"
+              className="border border-[var(--border)] px-3 py-2 type-button uppercase disabled:opacity-50"
             >
               {text.resumeNewBookings}
             </button>
@@ -208,7 +208,7 @@ export function AdminInstructorDetail({
               type="button"
               disabled={pending}
               onClick={onStartLink}
-              className="border border-[var(--border)] px-3 py-2 text-xs font-mono uppercase tracking-wider disabled:opacity-50"
+              className="border border-[var(--border)] px-3 py-2 type-button uppercase disabled:opacity-50"
             >
               {text.linkAccount}
             </button>
@@ -218,7 +218,7 @@ export function AdminInstructorDetail({
               type="button"
               disabled={pending || detail.unlinkBlockedByCommitments}
               onClick={onStopBeingInstructor}
-              className="border border-[var(--border)] px-3 py-2 text-xs font-mono uppercase tracking-wider disabled:opacity-50"
+              className="border border-[var(--border)] px-3 py-2 type-button uppercase disabled:opacity-50"
             >
               {text.stopBeingInstructor}
             </button>
@@ -227,7 +227,7 @@ export function AdminInstructorDetail({
             <button
               type="button"
               onClick={() => onOpenClient(detail.linkedAccountId!)}
-              className="border border-[var(--border)] px-3 py-2 text-xs font-mono uppercase tracking-wider"
+              className="border border-[var(--border)] px-3 py-2 type-button uppercase"
             >
               {text.openClient}
             </button>
@@ -235,7 +235,7 @@ export function AdminInstructorDetail({
           <button
             type="button"
             onClick={onOpenPlanner}
-            className="border border-[var(--border)] px-3 py-2 text-xs font-mono uppercase tracking-wider"
+            className="border border-[var(--border)] px-3 py-2 type-button uppercase"
           >
             {text.openPlanner}
           </button>
@@ -244,28 +244,26 @@ export function AdminInstructorDetail({
 
       {canDelete && !profileEditing && !linking ? (
         <section className="space-y-3 border border-red-700/70 bg-red-50/40 p-4">
-          <h4 className="text-sm font-medium text-red-800">{text.deleteInstructor}</h4>
+          <h4 className="type-card-title text-red-800">{text.deleteInstructor}</h4>
           {deleteConfirming ? (
             <>
-              <p role="alert" className="text-xs leading-relaxed text-red-900">
+              <p role="alert" className="type-caption text-red-900">
                 {text.deleteInstructorConfirm(detail.name)}
               </p>
-              <p className="text-[10px] font-mono text-red-800/80">
-                {text.deleteInstructorConfirmHint}
-              </p>
+              <p className="type-caption text-red-800/80">{text.deleteInstructorConfirmHint}</p>
               <input
                 type="text"
                 aria-label={text.deleteInstructorConfirmHint}
                 value={deleteConfirmText}
                 onChange={(event) => setDeleteConfirmText(event.target.value)}
-                className="w-full border border-red-700 bg-transparent px-3 py-2 font-mono text-xs text-[var(--ink)] focus:outline-none"
+                className="w-full border border-red-700 bg-transparent px-3 py-2 type-body text-[var(--ink)] focus:outline-none"
               />
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
                   disabled={pending || !deleteConfirmMatches}
                   onClick={onDeleteInstructor}
-                  className="border border-red-700 bg-red-700 px-3 py-2 text-xs font-mono uppercase tracking-wider text-white disabled:opacity-50"
+                  className="border border-red-700 bg-red-700 px-3 py-2 type-button uppercase text-white disabled:opacity-50"
                 >
                   {text.deleteInstructorConfirmAction}
                 </button>
@@ -276,7 +274,7 @@ export function AdminInstructorDetail({
                     setDeleteConfirming(false);
                     setDeleteConfirmText('');
                   }}
-                  className="border border-[var(--border)] px-3 py-2 text-xs font-mono uppercase tracking-wider disabled:opacity-50"
+                  className="border border-[var(--border)] px-3 py-2 type-button uppercase disabled:opacity-50"
                 >
                   {text.cancel}
                 </button>
@@ -290,7 +288,7 @@ export function AdminInstructorDetail({
                 setDeleteConfirming(true);
                 setDeleteConfirmText('');
               }}
-              className="border border-red-700 px-3 py-2 text-xs font-mono uppercase tracking-wider text-red-800 disabled:opacity-50"
+              className="border border-red-700 px-3 py-2 type-button uppercase text-red-800 disabled:opacity-50"
             >
               {text.deleteInstructor}
             </button>
@@ -299,14 +297,12 @@ export function AdminInstructorDetail({
       ) : null}
 
       {canPause && hasFutureCommitments && !profileEditing && !linking ? (
-        <p className="text-[10px] font-mono leading-relaxed text-[var(--ink-dim)]">
-          {text.confirmPauseWithFuture}
-        </p>
+        <p className="type-caption text-[var(--ink-dim)]">{text.confirmPauseWithFuture}</p>
       ) : null}
 
       {profileEditing ? (
         <section className="space-y-2 border border-[var(--border)] p-4">
-          <h4 className="text-sm font-medium">{text.profile}</h4>
+          <h4 className="type-card-title">{text.profile}</h4>
           <AdminInstructorProfileEditor
             draft={profileDraft}
             pending={pending}
@@ -327,7 +323,7 @@ export function AdminInstructorDetail({
           <button
             type="button"
             onClick={onCancelLink}
-            className="border border-[var(--border)] px-3 py-2 text-xs font-mono uppercase tracking-wider"
+            className="border border-[var(--border)] px-3 py-2 type-button uppercase"
           >
             {text.cancel}
           </button>
@@ -335,20 +331,16 @@ export function AdminInstructorDetail({
       ) : null}
 
       {!profileEditing ? (
-        <dl className="space-y-1 text-xs">
+        <dl className="space-y-1 type-caption">
           {detail.phoneNumber ? (
             <div>
-              <dt className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">
-                {text.phone}
-              </dt>
+              <dt className="type-caption uppercase text-[var(--ink-dim)]">{text.phone}</dt>
               <dd>{detail.phoneNumber}</dd>
             </div>
           ) : null}
           {detail.languages && detail.languages.length > 0 ? (
             <div>
-              <dt className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">
-                {text.languages}
-              </dt>
+              <dt className="type-caption uppercase text-[var(--ink-dim)]">{text.languages}</dt>
               <dd>
                 {formatInstructorSpokenLanguageList(detail.languages, text.spokenLanguageLabels)}
               </dd>
@@ -356,7 +348,7 @@ export function AdminInstructorDetail({
           ) : null}
           {detail.experienceYears !== undefined ? (
             <div>
-              <dt className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">
+              <dt className="type-caption uppercase text-[var(--ink-dim)]">
                 {text.experienceYears}
               </dt>
               <dd>{detail.experienceYears}</dd>
@@ -364,25 +356,19 @@ export function AdminInstructorDetail({
           ) : null}
           {detail.bioRu ? (
             <div>
-              <dt className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">
-                {text.bioRu}
-              </dt>
+              <dt className="type-caption uppercase text-[var(--ink-dim)]">{text.bioRu}</dt>
               <dd className="whitespace-pre-wrap">{detail.bioRu}</dd>
             </div>
           ) : null}
           {detail.bioEn ? (
             <div>
-              <dt className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">
-                {text.bioEn}
-              </dt>
+              <dt className="type-caption uppercase text-[var(--ink-dim)]">{text.bioEn}</dt>
               <dd className="whitespace-pre-wrap">{detail.bioEn}</dd>
             </div>
           ) : null}
           {!detail.bioRu && !detail.bioEn && detail.bio ? (
             <div>
-              <dt className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">
-                {text.bioRu}
-              </dt>
+              <dt className="type-caption uppercase text-[var(--ink-dim)]">{text.bioRu}</dt>
               <dd className="whitespace-pre-wrap">{detail.bio}</dd>
             </div>
           ) : null}

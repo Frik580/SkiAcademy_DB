@@ -207,7 +207,7 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
   return (
     <div className="space-y-5">
       {mutationNotice && (
-        <div role="status" className="border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
+        <div role="status" className="border border-amber-500/30 bg-amber-500/5 p-3 type-caption">
           {mutationNotice}
         </div>
       )}
@@ -223,7 +223,7 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
             key={candidate}
             type="button"
             onClick={() => setView(candidate)}
-            className={`border px-3 py-2 text-xs ${view === candidate ? 'border-[var(--ink)] bg-[var(--ink)] text-[var(--bg)]' : 'border-[var(--border)]'}`}
+            className={`border px-3 py-2 type-button ${view === candidate ? 'border-[var(--ink)] bg-[var(--ink)] text-[var(--bg)]' : 'border-[var(--border)]'}`}
           >
             {label}
           </button>
@@ -237,7 +237,7 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
               [ADMIN_COURSE_ENROLLMENT_QUERY_KEY]: undefined,
             })
           }
-          className="min-w-48 border border-[var(--border)] bg-[var(--bg)] p-2 text-xs"
+          className="min-w-48 border border-[var(--border)] bg-[var(--bg)] p-2 type-body"
         >
           <option value="">{t.allCourses}</option>
           {courses.map((course) => (
@@ -249,13 +249,13 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
       </div>
 
       <section className="space-y-3 border border-[var(--border)] p-4">
-        <h3 className="text-xs font-mono uppercase tracking-wider">{t.create}</h3>
+        <h3 className="type-card-title uppercase">{t.create}</h3>
         <div className="grid gap-2 md:grid-cols-3">
           <select
             aria-label={t.selectCourse}
             value={createCourseId}
             onChange={(event) => setCreateCourseId(event.target.value)}
-            className="border border-[var(--border)] bg-[var(--bg)] p-2 text-xs"
+            className="border border-[var(--border)] bg-[var(--bg)] p-2 type-body"
           >
             <option value="">{t.selectCourse}</option>
             {courses
@@ -272,30 +272,34 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
             value={reason}
             onChange={(event) => setReason(event.target.value)}
             placeholder={t.reason}
-            className="border border-[var(--border)] bg-transparent p-2 text-xs"
+            className="border border-[var(--border)] bg-transparent p-2 type-body"
           />
         </div>
-        <p className="text-[11px] text-[var(--ink-dim)]">{t.participantLimitation}</p>
+        <p className="type-caption text-[var(--ink-dim)]">{t.participantLimitation}</p>
         <button
           type="button"
           disabled={!createCourseId || !createSelection || !reason.trim()}
           onClick={requestCreate}
-          className="border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
+          className="border border-[var(--border)] px-3 py-2 type-button disabled:opacity-50"
         >
           {t.create}
         </button>
       </section>
 
       {courseError && (
-        <button type="button" onClick={() => void loadCourses()} className="text-xs text-red-700">
+        <button
+          type="button"
+          onClick={() => void loadCourses()}
+          className="type-button text-red-700"
+        >
           {t.failed} · {t.retry}
         </button>
       )}
 
       {readModels.list.loading ? (
-        <p className="text-xs text-[var(--ink-dim)]">{t.loading}</p>
+        <p className="type-caption text-[var(--ink-dim)]">{t.loading}</p>
       ) : readModels.list.error ? (
-        <div role="alert" className="flex items-center gap-2 text-xs text-red-700">
+        <div role="alert" className="flex items-center gap-2 type-caption text-red-700">
           <AlertTriangle className="h-4 w-4" />
           <span>{readModels.list.error === 'permission-denied' ? t.denied : t.failed}</span>
           <button type="button" onClick={() => void readModels.retryList()} className="underline">
@@ -303,11 +307,11 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
           </button>
         </div>
       ) : readModels.list.items.length === 0 ? (
-        <p className="text-xs text-[var(--ink-dim)]">{t.empty}</p>
+        <p className="type-caption text-[var(--ink-dim)]">{t.empty}</p>
       ) : (
         <div className="overflow-x-auto border border-[var(--border)]">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-[var(--surface)] font-mono uppercase text-[var(--ink-dim)]">
+          <table className="w-full text-left type-caption">
+            <thead className="bg-[var(--surface)] font-sans uppercase text-[var(--ink-dim)]">
               <tr>
                 <th className="p-3">Participant</th>
                 <th className="p-3">Course</th>
@@ -344,7 +348,7 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
           type="button"
           disabled={readModels.list.loadingMore}
           onClick={() => void readModels.loadMore?.()}
-          className="border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
+          className="border border-[var(--border)] px-3 py-2 type-button disabled:opacity-50"
         >
           {readModels.list.loadingMore ? t.loading : t.loadMore}
         </button>
@@ -353,12 +357,12 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
       {selectedEnrollmentId && (
         <aside className="fixed inset-y-0 right-0 z-50 w-full max-w-lg overflow-y-auto border-l border-[var(--border)] bg-[var(--bg)] p-5 shadow-2xl">
           {readModels.detail.loading ? (
-            <p className="text-xs text-[var(--ink-dim)]">{t.loading}</p>
+            <p className="type-caption text-[var(--ink-dim)]">{t.loading}</p>
           ) : readModels.detail.error ? (
             <button
               type="button"
               onClick={() => void readModels.retryDetail?.()}
-              className="text-xs text-red-700 underline"
+              className="type-button text-red-700 underline"
             >
               {t.failed} · {t.retry}
             </button>
@@ -430,17 +434,17 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
           className="fixed inset-0 z-60 flex items-center justify-center bg-black/55 p-4"
         >
           <div className="w-full max-w-md space-y-4 border border-[var(--border)] bg-[var(--bg)] p-5">
-            <h3 className="text-sm font-medium">{t.confirmTitle}</h3>
-            <p className="break-all text-xs text-[var(--ink-dim)]">{confirmation.message}</p>
+            <h3 className="type-card-title">{t.confirmTitle}</h3>
+            <p className="break-all type-caption text-[var(--ink-dim)]">{confirmation.message}</p>
             {confirmation.attempt.kind ===
               'link_guest_course_enrollment_to_account_as_administrator' && (
-              <p className="break-all font-mono text-[10px] text-[var(--ink-dim)]">
+              <p className="break-all type-caption text-[var(--ink-dim)]">
                 {confirmation.attempt.target.enrollmentId} @ rev{' '}
                 {confirmation.attempt.target.revision} → {confirmation.attempt.targetAccountId}/
                 {confirmation.attempt.targetParticipantId}
               </p>
             )}
-            {mutationError && <p className="text-xs text-red-700">{mutationError}</p>}
+            {mutationError && <p className="type-caption text-red-700">{mutationError}</p>}
             <div className="flex gap-2">
               <ActionButton
                 type="button"

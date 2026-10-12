@@ -21,8 +21,8 @@ export const CoursesManagerToolbar: React.FC<CoursesManagerToolbarProps> = ({
       onClick={onToggle}
       className={
         showCourseForm
-          ? 'inline-flex items-center gap-1.5 border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--ink)] transition-colors hover:border-[var(--ink)]'
-          : 'inline-flex items-center gap-1.5 border border-[var(--ink)] bg-[var(--ink)] px-3 py-1.5 text-xs font-semibold text-[var(--bg)] transition-colors hover:opacity-85'
+          ? 'inline-flex items-center gap-1.5 border border-[var(--border)] px-3 py-1.5 type-button text-[var(--ink)] transition-colors hover:border-[var(--ink)]'
+          : 'inline-flex items-center gap-1.5 border border-[var(--ink)] bg-[var(--ink)] px-3 py-1.5 type-button text-[var(--bg)] transition-colors hover:opacity-85'
       }
     >
       {showCourseForm ? (

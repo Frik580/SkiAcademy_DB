@@ -29,12 +29,12 @@ export const ToggleSwitch: React.FC<ToggleSwitchProps> = ({
           onClick={() => !disabled && onChange(!checked)}
         >
           {label && (
-            <span className="block text-xs font-mono uppercase tracking-wider text-[var(--ink)] font-bold">
+            <span className="block type-caption uppercase text-[var(--ink)] font-medium">
               {label}
             </span>
           )}
           {description && (
-            <span className="block text-[9px] text-[var(--ink-dim)] mt-0.5">{description}</span>
+            <span className="block type-caption text-[var(--ink-dim)] mt-0.5">{description}</span>
           )}
         </div>
       )}

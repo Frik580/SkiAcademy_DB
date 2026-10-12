@@ -65,9 +65,9 @@ export const CoursesTable: React.FC<CoursesTableProps> = ({
 
   return (
     <div className="overflow-x-auto border border-[var(--border)]">
-      <table className="w-full text-left border-collapse font-mono text-[11px]">
+      <table className="w-full text-left border-collapse type-caption">
         <thead>
-          <tr className="bg-slate-50 dark:bg-slate-800/40 border-b border-[var(--border)] text-[9px] uppercase tracking-wider text-[var(--ink-dim)]">
+          <tr className="bg-slate-50 dark:bg-slate-800/40 border-b border-[var(--border)] type-caption uppercase text-[var(--ink-dim)]">
             <th className="px-4 py-3 font-bold w-[60px]">{t('courseImageColumn')}</th>
             <th className="px-4 py-3 font-bold">{t('courseTitleColumn')}</th>
             <th className="px-4 py-3 font-bold w-[120px]">{t('durationColumn')}</th>
@@ -112,7 +112,7 @@ export const CoursesTable: React.FC<CoursesTableProps> = ({
           ))}
           {courses.length === 0 && (
             <tr>
-              <td colSpan={8} className="text-center py-8 text-xs text-[var(--ink-dim)]">
+              <td colSpan={8} className="text-center py-8 type-caption text-[var(--ink-dim)]">
                 {t('noCoursesFound')}
               </td>
             </tr>

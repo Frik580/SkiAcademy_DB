@@ -1,16 +1,13 @@
+@reference '../../../../index.css';
+
 .sc-dashboard .sc-next-step [data-dashboard-header] {
   min-height: 0;
   align-items: center;
 }
 
 .sc-dashboard .sc-next-step [data-dashboard-title] {
+  @apply type-card-title;
   min-height: 0;
-  font-family: var(--font-mono);
-  font-size: 0.6875rem;
-  font-weight: 600;
-  line-height: 1.6;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: var(--accent);
 }
 
@@ -28,21 +25,17 @@
 }
 
 .sc-next-step-name {
-  font-family: var(--font-sans);
-  font-size: 1.125rem;
-  font-weight: 600;
-  line-height: 1.4;
-  letter-spacing: -0.02em;
+  @apply type-card-title;
   color: var(--ink);
 }
 
 .sc-next-step-description {
-  font-size: 0.875rem;
-  line-height: 1.65;
+  @apply type-compact;
   color: var(--ink-dim);
 }
 
 .sc-next-step-context {
+  @apply type-caption;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -52,8 +45,6 @@
   border-radius: var(--radius-md);
   background: var(--surface-tint);
   color: var(--ink-dim);
-  font-size: 0.75rem;
-  line-height: 1.5;
 }
 
 .sc-next-step-context svg {
@@ -62,6 +53,7 @@
 }
 
 .sc-next-step-primary {
+  @apply type-button;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -70,8 +62,6 @@
   min-height: 2.75rem;
   padding: 0.625rem 1rem;
   border-radius: var(--radius-md);
-  font-size: 0.875rem;
-  line-height: 1.5;
   white-space: normal;
 }
 
@@ -85,6 +75,6 @@
 }
 
 .sc-next-step-error {
+  @apply type-caption;
   color: var(--sc-danger, var(--ink));
-  font-size: 0.8125rem;
 }

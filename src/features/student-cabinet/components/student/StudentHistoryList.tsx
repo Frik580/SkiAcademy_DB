@@ -95,7 +95,7 @@ export const StudentHistoryList: React.FC<StudentHistoryListProps> = ({
       return (
         <div key={event.id}>
           {showDateLabels && (
-            <p className="text-xs text-[var(--ink-dim)] pt-2">{event.dateLabel}</p>
+            <p className="type-caption text-[var(--ink-dim)] pt-2">{event.dateLabel}</p>
           )}
           <HistoryLessonCard
             booking={linkedBooking}
@@ -116,29 +116,31 @@ export const StudentHistoryList: React.FC<StudentHistoryListProps> = ({
     return (
       <div key={event.id}>
         <div className="py-4 space-y-2">
-          {showDateLabels && <p className="text-xs text-[var(--ink-dim)]">{event.dateLabel}</p>}
+          {showDateLabels && (
+            <p className="type-caption text-[var(--ink-dim)]">{event.dateLabel}</p>
+          )}
           {linkedBooking && !event.cta ? (
             <button
               type="button"
               onClick={() => onOpenLesson(linkedBooking)}
-              className="text-left text-sm text-[var(--ink)] hover:text-[var(--accent)] transition-colors"
+              className="text-left type-button text-[var(--ink)] hover:text-[var(--accent)] transition-colors"
             >
               {prefix}
               {event.title}
             </button>
           ) : (
-            <p className="text-sm text-[var(--ink)]">
+            <p className="type-compact text-[var(--ink)]">
               {prefix}
               {event.title}
             </p>
           )}
-          {event.subtitle && <p className="text-sm text-[var(--ink-dim)]">{event.subtitle}</p>}
+          {event.subtitle && <p className="type-compact text-[var(--ink-dim)]">{event.subtitle}</p>}
           {event.skillDeltas && event.skillDeltas.length > 0 && (
             <div className="mt-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-subtle)]/40 p-3 space-y-1.5">
-              <p className="text-[11px] font-semibold text-[var(--ink-dim)] uppercase tracking-wider">
+              <p className="type-caption font-medium text-[var(--ink-dim)] uppercase">
                 {t('scHistoryAssessedSkills')}
               </p>
-              <ul className="space-y-1 text-xs">
+              <ul className="space-y-1 type-caption">
                 {event.skillDeltas.map((item, idx) => (
                   <li key={idx} className="flex justify-between items-center gap-3">
                     <span className="text-[var(--ink)] font-medium min-w-0 break-words flex-1">
@@ -147,7 +149,7 @@ export const StudentHistoryList: React.FC<StudentHistoryListProps> = ({
                     <span className="text-[var(--accent)] font-semibold shrink-0 flex items-center gap-1.5">
                       <span>+{item.delta} XP</span>
                       {item.maxPoints != null && item.maxPoints > 0 && (
-                        <span className="text-[var(--ink-dim)] font-normal text-[11px]">
+                        <span className="text-[var(--ink-dim)] type-caption">
                           ({t('scHistoryMaxXp').replace('{n}', String(item.maxPoints))})
                         </span>
                       )}
@@ -157,8 +159,8 @@ export const StudentHistoryList: React.FC<StudentHistoryListProps> = ({
               </ul>
             </div>
           )}
-          {event.cta && (
-            event.cta.action.type === 'open_development' ? (
+          {event.cta &&
+            (event.cta.action.type === 'open_development' ? (
               <StudentDevelopmentLink
                 label={t('studentDevelopmentLink')}
                 onNavigate={() => handleAction(event.cta!.action)}
@@ -167,8 +169,7 @@ export const StudentHistoryList: React.FC<StudentHistoryListProps> = ({
               <ScTextButton arrow onClick={() => handleAction(event.cta!.action)}>
                 {t(event.cta.labelKey)}
               </ScTextButton>
-            )
-          )}
+            ))}
         </div>
         {showDivider && <div className="h-px bg-[var(--border-subtle)]" />}
       </div>
@@ -186,7 +187,7 @@ export const StudentHistoryList: React.FC<StudentHistoryListProps> = ({
                 key={item}
                 type="button"
                 onClick={() => onFilterChange(item)}
-                className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                className={`rounded-full border px-3 py-1.5 type-button transition ${
                   active
                     ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]'
                     : 'border-[var(--border-subtle)] text-[var(--ink-dim)] hover:text-[var(--ink)]'
@@ -200,12 +201,12 @@ export const StudentHistoryList: React.FC<StudentHistoryListProps> = ({
       )}
 
       {filteredEvents.length === 0 ? (
-        <p className="text-sm text-[var(--ink-dim)] py-2">{t('scHistoryEmpty')}</p>
+        <p className="type-compact text-[var(--ink-dim)] py-2">{t('scHistoryEmpty')}</p>
       ) : groupByMonth && groups ? (
         <div className="space-y-6">
           {groups.map((group) => (
             <div key={group.monthKey} className="space-y-1">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--ink-dim)] pb-2">
+              <h3 className="type-card-title uppercase text-[var(--ink-dim)] pb-2">
                 {group.monthLabel}
               </h3>
               {group.events.map((event, idx) => renderEvent(event, idx < group.events.length - 1))}

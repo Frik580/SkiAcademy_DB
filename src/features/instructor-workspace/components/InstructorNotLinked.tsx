@@ -12,13 +12,11 @@ export const InstructorNotLinked: React.FC<InstructorNotLinkedProps> = ({ t }) =
       <Lock className="w-8 h-8" />
     </div>
     <div className="space-y-2">
-      <h3 className="text-xl font-serif font-light text-[var(--ink)] tracking-tight">
-        {t('instructorProfileNotLinked')}
-      </h3>
-      <p className="text-xs text-[var(--ink-dim)] font-mono uppercase tracking-wider leading-relaxed pt-2">
+      <h3 className="type-card-title text-[var(--ink)]">{t('instructorProfileNotLinked')}</h3>
+      <p className="type-caption text-[var(--ink-dim)] uppercase pt-2">
         {t('instructorProfileNotLinkedDesc')}
       </p>
-      <p className="text-xs text-[var(--ink-dim)] font-mono uppercase tracking-wider leading-relaxed pt-2">
+      <p className="type-caption text-[var(--ink-dim)] uppercase pt-2">
         {t('instructorContactAdmin')}
       </p>
     </div>

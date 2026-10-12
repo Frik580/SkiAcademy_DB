@@ -35,7 +35,7 @@ export const BookingCollaborationActions: React.FC<BookingCollaborationActionsPr
           unstyled
           pending={submitting}
           onClick={() => void onWithdrawCancellation(booking)}
-          className="px-3 py-1.5 text-xs font-medium rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition"
+          className="px-3 py-1.5 type-button rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition"
         >
           {copy.withdrawCancellation}
         </ActionButton>
@@ -46,7 +46,7 @@ export const BookingCollaborationActions: React.FC<BookingCollaborationActionsPr
           unstyled
           pending={submitting}
           onClick={() => onReschedule(booking)}
-          className="px-3 py-1.5 text-xs font-medium rounded-lg border border-[var(--border-subtle)] text-[var(--ink)] hover:border-[var(--accent)] transition"
+          className="px-3 py-1.5 type-button rounded-lg border border-[var(--border-subtle)] text-[var(--ink)] hover:border-[var(--accent)] transition"
         >
           {copy.rescheduleBooking}
         </ActionButton>
@@ -57,7 +57,7 @@ export const BookingCollaborationActions: React.FC<BookingCollaborationActionsPr
           unstyled
           pending={submitting}
           onClick={() => onCancel(booking)}
-          className="px-3 py-1.5 text-xs font-medium rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition"
+          className="px-3 py-1.5 type-button rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition"
         >
           {copy.t('cancelBookingRefund')}
         </ActionButton>

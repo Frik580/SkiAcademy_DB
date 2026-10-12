@@ -97,20 +97,20 @@ export const CanonicalLessonPricingSettings: React.FC = () => {
   };
 
   if (configured === undefined) {
-    return <p className="text-sm text-[var(--muted)]">{text.loading}</p>;
+    return <p className="type-compact text-[var(--muted)]">{text.loading}</p>;
   }
 
   return (
     <div className="space-y-4">
       {!configured && (
-        <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+        <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 type-compact text-amber-900">
           {text.unconfigured}
         </p>
       )}
-      <label className="block space-y-1 text-sm">
+      <label className="block space-y-1 type-compact">
         <span>{text.surchargeLabel}</span>
         <input
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2"
+          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 type-body"
           type="number"
           min="0"
           step="1"
@@ -118,10 +118,10 @@ export const CanonicalLessonPricingSettings: React.FC = () => {
           onChange={(event) => setAmount(event.target.value)}
         />
       </label>
-      <label className="block space-y-1 text-sm">
+      <label className="block space-y-1 type-compact">
         <span>{text.maxParticipantsLabel}</span>
         <input
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2"
+          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 type-body"
           type="number"
           min="1"
           step="1"
@@ -129,10 +129,10 @@ export const CanonicalLessonPricingSettings: React.FC = () => {
           onChange={(event) => setMaxParticipants(event.target.value)}
         />
       </label>
-      <label className="block space-y-1 text-sm">
+      <label className="block space-y-1 type-compact">
         <span>{text.reasonLabel}</span>
         <input
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2"
+          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 type-body"
           value={reason}
           placeholder={text.reasonPlaceholder}
           onChange={(event) => setReason(event.target.value)}
@@ -145,17 +145,17 @@ export const CanonicalLessonPricingSettings: React.FC = () => {
           pending={pending}
           pendingLabel={text.saving}
           onClick={() => void save()}
-          className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+          className="rounded-lg bg-[var(--accent)] px-4 py-2 type-button text-white disabled:opacity-50"
         >
           {text.save}
         </ActionButton>
         {revision !== undefined && (
-          <span className="text-xs text-[var(--muted)]">
+          <span className="type-caption text-[var(--muted)]">
             {text.revision}: {revision}
           </span>
         )}
       </div>
-      {message && <p className="text-sm text-[var(--muted)]">{message}</p>}
+      {message && <p className="type-compact text-[var(--muted)]">{message}</p>}
     </div>
   );
 };

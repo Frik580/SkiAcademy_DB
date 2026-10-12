@@ -40,13 +40,13 @@ export const ScheduleInstructorCell: React.FC<ScheduleInstructorCellProps> = ({
         </div>
         <div className="min-w-0">
           <div
-            className={`text-xs font-bold truncate flex items-center gap-1 ${!instructor.isAvailable ? 'text-[var(--ink-dim)] line-through' : 'text-[var(--ink)]'}`}
+            className={`type-caption font-medium truncate flex items-center gap-1 ${!instructor.isAvailable ? 'text-[var(--ink-dim)] line-through' : 'text-[var(--ink)]'}`}
           >
             {instructor.name}
           </div>
-          <div className="text-[9px] text-[var(--ink-dim)] font-mono capitalize truncate flex items-center gap-1">
+          <div className="type-caption text-[var(--ink-dim)] capitalize truncate flex items-center gap-1">
             {!instructor.isAvailable ? (
-              <span className="text-rose-500 font-bold uppercase tracking-wider text-[8px]">
+              <span className="text-rose-500 font-medium uppercase type-caption">
                 {t('unavailableLabel')}
               </span>
             ) : (

@@ -115,7 +115,7 @@ export function CanonicalSchoolMovementPanel() {
               setPage(1);
             }}
             placeholder={t('searchPlaceholder') || 'Search'}
-            className="w-full pl-9 pr-3 py-2 border border-[var(--border)] bg-transparent text-xs font-mono"
+            className="w-full pl-9 pr-3 py-2 border border-[var(--border)] bg-transparent type-body"
           />
         </div>
         <select
@@ -124,7 +124,7 @@ export function CanonicalSchoolMovementPanel() {
             setDirection(event.target.value as typeof direction);
             setPage(1);
           }}
-          className="px-3 py-2 border border-[var(--border)] bg-transparent text-xs font-mono"
+          className="px-3 py-2 border border-[var(--border)] bg-transparent type-body"
         >
           <option value="all">all</option>
           <option value="in">in</option>
@@ -137,7 +137,7 @@ export function CanonicalSchoolMovementPanel() {
             setSourceKind(event.target.value);
             setPage(1);
           }}
-          className="px-3 py-2 border border-[var(--border)] bg-transparent text-xs font-mono"
+          className="px-3 py-2 border border-[var(--border)] bg-transparent type-body"
         >
           {sourceKinds.map((kind) => (
             <option key={kind} value={kind}>
@@ -146,11 +146,11 @@ export function CanonicalSchoolMovementPanel() {
           ))}
         </select>
       </div>
-      {loading ? <p className="text-xs font-mono text-[var(--ink-dim)]">Loading…</p> : null}
+      {loading ? <p className="type-caption text-[var(--ink-dim)]">Loading…</p> : null}
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="border-b border-[var(--border)] text-[10px] font-mono uppercase text-[var(--ink-dim)]">
+            <tr className="border-b border-[var(--border)] type-caption uppercase text-[var(--ink-dim)]">
               <th className="py-2 pr-2">time</th>
               <th className="py-2 pr-2">kind</th>
               <th className="py-2 pr-2">source</th>
@@ -162,10 +162,7 @@ export function CanonicalSchoolMovementPanel() {
           </thead>
           <tbody>
             {pageItems.map((event) => (
-              <tr
-                key={event.eventId}
-                className="border-b border-[var(--border)]/40 text-xs font-mono"
-              >
+              <tr key={event.eventId} className="border-b border-[var(--border)]/40 type-caption">
                 <td className="py-2 pr-2 whitespace-nowrap">
                   {new Date(event.occurredAt.seconds * 1_000).toLocaleString(locale)}
                 </td>
@@ -197,7 +194,7 @@ export function CanonicalSchoolMovementPanel() {
         <button
           type="button"
           onClick={() => void load(cursor, true)}
-          className="border border-[var(--border)] px-4 py-2 text-xs font-mono uppercase"
+          className="border border-[var(--border)] px-4 py-2 type-button uppercase"
         >
           Load more
         </button>

@@ -131,17 +131,15 @@ export function CanonicalGuestFinancePanel() {
 
   return (
     <div className="space-y-4">
-      <p className="text-[11px] font-mono text-[var(--ink-dim)] leading-relaxed">
-        {t('canonicalGuestFinanceHint')}
-      </p>
+      <p className="type-caption text-[var(--ink-dim)]">{t('canonicalGuestFinanceHint')}</p>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <label className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink-dim)]">
+        <label className="type-caption uppercase text-[var(--ink-dim)]">
           {t('canonicalGuestFundsFilterLabel')}
           <select
             value={filter}
             onChange={(event) => setFilter(event.target.value as AdminGuestFundsDiscoveryFilter)}
-            className="mt-1 block w-full sm:w-56 px-3 py-2 border border-[var(--border)] bg-transparent text-xs font-mono"
+            className="mt-1 block w-full sm:w-56 px-3 py-2 border border-[var(--border)] bg-transparent type-body"
           >
             {ADMIN_GUEST_FUNDS_DISCOVERY_FILTERS.map((value) => (
               <option key={value} value={value}>
@@ -150,27 +148,25 @@ export function CanonicalGuestFinancePanel() {
             ))}
           </select>
         </label>
-        <label className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink-dim)] flex-1">
+        <label className="type-caption uppercase text-[var(--ink-dim)] flex-1">
           {t('canonicalGuestFundsPageSearchLabel')}
           <input
             value={pageSearch}
             onChange={(event) => setPageSearch(event.target.value)}
             placeholder={t('canonicalGuestFundsPageSearchPlaceholder')}
-            className="mt-1 block w-full px-3 py-2 border border-[var(--border)] bg-transparent text-xs font-mono"
+            className="mt-1 block w-full px-3 py-2 border border-[var(--border)] bg-transparent type-body"
           />
         </label>
       </div>
-      <p className="text-[10px] font-mono text-[var(--ink-dim)]">
-        {t('canonicalGuestFundsPageSearchHint')}
-      </p>
+      <p className="type-caption text-[var(--ink-dim)]">{t('canonicalGuestFundsPageSearchHint')}</p>
 
       {read.loading ? (
-        <p className="text-xs font-mono text-[var(--ink-dim)]">{t('canonicalGuestFundsLoading')}</p>
+        <p className="type-caption text-[var(--ink-dim)]">{t('canonicalGuestFundsLoading')}</p>
       ) : null}
 
       {read.error ? (
         <div className="border border-[var(--border)] p-3 space-y-2">
-          <p className="text-xs font-mono text-[var(--ink)]">
+          <p className="type-caption text-[var(--ink)]">
             {read.error === 'permission-denied'
               ? t('adminFinancePermissionDenied')
               : t('canonicalGuestFundsLoadFailed')}
@@ -178,7 +174,7 @@ export function CanonicalGuestFinancePanel() {
           <button
             type="button"
             onClick={() => void read.refetch()}
-            className="text-xs font-mono underline"
+            className="type-button underline"
           >
             {t('canonicalGuestFundsRetry')}
           </button>
@@ -188,14 +184,14 @@ export function CanonicalGuestFinancePanel() {
       {!read.loading && !read.error && visibleRows.length === 0 ? (
         read.item?.hasMore ? (
           <div className="space-y-2">
-            <p className="text-xs font-mono text-[var(--ink-dim)]">
+            <p className="type-caption text-[var(--ink-dim)]">
               {t('canonicalGuestFundsContinueScan')}
             </p>
             <button
               type="button"
               disabled={read.loadingMore}
               onClick={() => void read.loadMore()}
-              className="border border-[var(--border)] px-3 py-2 text-xs font-mono disabled:opacity-50"
+              className="border border-[var(--border)] px-3 py-2 type-button disabled:opacity-50"
             >
               {read.loadingMore
                 ? t('canonicalGuestFundsLoadingMore')
@@ -203,7 +199,7 @@ export function CanonicalGuestFinancePanel() {
             </button>
           </div>
         ) : (
-          <p className="text-xs font-mono text-[var(--ink-dim)]">{t('canonicalGuestFundsEmpty')}</p>
+          <p className="type-caption text-[var(--ink-dim)]">{t('canonicalGuestFundsEmpty')}</p>
         )
       ) : null}
 
@@ -211,16 +207,16 @@ export function CanonicalGuestFinancePanel() {
         {visibleRows.map((row) => (
           <article
             key={row.rowId}
-            className="border border-[var(--border)] p-3 text-xs font-mono space-y-2"
+            className="border border-[var(--border)] p-3 type-caption space-y-2"
           >
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div className="space-y-1">
-                <div className="text-sm text-[var(--ink)]">
+                <div className="type-compact text-[var(--ink)]">
                   {row.guestDisplayName ?? t('canonicalGuestFundsIdentityUnknown')}
                 </div>
                 <div className="text-[var(--ink-dim)]">{serviceLabel(row)}</div>
               </div>
-              <span className="text-[10px] uppercase tracking-widest text-[var(--ink-dim)]">
+              <span className="type-caption uppercase text-[var(--ink-dim)]">
                 {row.linkState === 'linked'
                   ? t('canonicalGuestFinanceLinked')
                   : t('canonicalGuestFinanceUnlinked')}
@@ -273,7 +269,7 @@ export function CanonicalGuestFinancePanel() {
                 <button
                   type="button"
                   onClick={() => openPayment(row)}
-                  className="border border-[var(--border)] px-3 py-1.5 text-[11px]"
+                  className="border border-[var(--border)] px-3 py-1.5 type-button"
                 >
                   {t('canonicalGuestFundsOpenPayment')}
                 </button>
@@ -286,7 +282,7 @@ export function CanonicalGuestFinancePanel() {
                       openLesson(row.service.bookingId);
                     }
                   }}
-                  className="border border-[var(--border)] px-3 py-1.5 text-[11px]"
+                  className="border border-[var(--border)] px-3 py-1.5 type-button"
                 >
                   {t('canonicalGuestFundsOpenLesson')}
                 </button>
@@ -298,7 +294,7 @@ export function CanonicalGuestFinancePanel() {
                       openEnrollment(row.service.enrollmentId);
                     }
                   }}
-                  className="border border-[var(--border)] px-3 py-1.5 text-[11px]"
+                  className="border border-[var(--border)] px-3 py-1.5 type-button"
                 >
                   {t('canonicalGuestFundsOpenEnrollment')}
                 </button>
@@ -313,7 +309,7 @@ export function CanonicalGuestFinancePanel() {
           type="button"
           disabled={read.loadingMore}
           onClick={() => void read.loadMore()}
-          className="border border-[var(--border)] px-3 py-2 text-xs font-mono disabled:opacity-50"
+          className="border border-[var(--border)] px-3 py-2 type-button disabled:opacity-50"
         >
           {read.loadingMore
             ? t('canonicalGuestFundsLoadingMore')

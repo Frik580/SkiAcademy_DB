@@ -26,9 +26,7 @@ export const ParticipantLessonFeedbackList: React.FC<ParticipantLessonFeedbackLi
   return (
     <div className={compact ? 'space-y-1.5' : 'space-y-2'}>
       {!compact && (
-        <p className="text-xs text-[var(--ink-dim)] uppercase tracking-wider">
-          {t('scRecommendations')}
-        </p>
+        <p className="type-caption text-[var(--ink-dim)] uppercase">{t('scRecommendations')}</p>
       )}
       <ul className={compact ? 'space-y-1.5' : 'space-y-2'}>
         {items.map((item) => {
@@ -36,7 +34,7 @@ export const ParticipantLessonFeedbackList: React.FC<ParticipantLessonFeedbackLi
           const canToggle = Boolean(onToggle) && !pending;
 
           return (
-            <li key={item.itemId} className="flex items-start gap-2 text-sm text-[var(--ink)]">
+            <li key={item.itemId} className="flex items-start gap-2 type-compact text-[var(--ink)]">
               {onToggle ? (
                 <button
                   type="button"

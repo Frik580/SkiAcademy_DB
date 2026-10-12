@@ -152,7 +152,9 @@ export const ModalSkeleton: React.FC<{ title?: string; className?: string }> = (
     >
       <div className="flex justify-between items-center pb-3 border-b border-slate-100 dark:border-slate-800">
         {title ? (
-          <span className="font-semibold text-sm text-slate-500 dark:text-slate-400">{title}</span>
+          <span className="font-medium type-compact text-slate-500 dark:text-slate-400">
+            {title}
+          </span>
         ) : (
           <Skeleton className="h-5 w-40" />
         )}
@@ -206,7 +208,7 @@ export const AppInitSkeleton: React.FC<{ label?: string }> = ({ label }) => {
       </div>
 
       {label && (
-        <div className="py-3 text-center text-xs font-mono text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+        <div className="py-3 text-center type-caption text-slate-400 dark:text-slate-500 uppercase">
           {label}
         </div>
       )}

@@ -34,7 +34,7 @@ export const CourseHeader: React.FC<CourseHeaderProps> = ({ course, onClose }) =
       </button>
 
       <div className="absolute top-4 left-4 flex items-center gap-2 z-20">
-        <span className="font-mono text-[9px] uppercase tracking-widest text-sky-400 bg-sky-950/80 border border-sky-800/60 px-3 py-1 font-bold">
+        <span className="type-caption uppercase text-sky-400 bg-sky-950/80 border border-sky-800/60 px-3 py-1 font-medium">
           {course.duration}
         </span>
         {course.badge && (
@@ -48,7 +48,7 @@ export const CourseHeader: React.FC<CourseHeaderProps> = ({ course, onClose }) =
                 className="h-7 w-auto object-contain max-w-[95px] drop-shadow-md"
               />
             ) : (
-              <span className="font-mono text-[9px] font-bold uppercase tracking-widest text-white border border-white/40 bg-black/40 backdrop-blur-[2px] px-3 py-1 shadow-md">
+              <span className="type-caption font-medium uppercase text-white border border-white/40 bg-black/40 backdrop-blur-[2px] px-3 py-1 shadow-md">
                 {course.badge}
               </span>
             )}
@@ -59,12 +59,12 @@ export const CourseHeader: React.FC<CourseHeaderProps> = ({ course, onClose }) =
       <div className="absolute bottom-0 inset-x-0 p-6 sm:p-8 flex flex-col justify-end">
         {course.levelLabel && (
           <div
-            className={`text-[10px] font-mono uppercase tracking-widest font-extrabold mb-1.5 flex items-center gap-1.5 drop-shadow ${getCourseLevelModalClass(course.level)}`}
+            className={`type-caption uppercase font-medium mb-1.5 flex items-center gap-1.5 drop-shadow ${getCourseLevelModalClass(course.level)}`}
           >
             {course.levelLabel}
           </div>
         )}
-        <h1 className="font-serif text-2xl sm:text-4xl lg:text-5xl font-extralight text-white leading-tight tracking-tight max-w-3xl drop-shadow-sm">
+        <h1 className="type-page-title font-extralight text-white max-w-3xl drop-shadow-sm">
           {course.title}
         </h1>
       </div>

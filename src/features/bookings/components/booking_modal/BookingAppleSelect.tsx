@@ -107,7 +107,7 @@ export const BookingAppleSelect: React.FC<BookingAppleSelectProps> = ({
                     aria-selected={isSelected}
                     disabled={option.disabled}
                     onClick={() => !option.disabled && handleSelect(option.value)}
-                    className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
+                    className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left type-button transition-colors ${
                       option.disabled
                         ? 'cursor-not-allowed opacity-40'
                         : isSelected

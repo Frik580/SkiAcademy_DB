@@ -14,7 +14,7 @@ import type { StudentTodaySectionInput } from './studentCabinetContracts';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 import { ParticipantScopeIndicator } from './ParticipantScopeIndicator';
 
-const SUBSECTION_LABEL = 'text-[10px] font-medium tracking-widest uppercase text-[var(--ink-dim)]';
+const SUBSECTION_LABEL = 'type-caption font-medium text-[var(--ink-dim)]';
 
 export const StudentTodaySection = memo<StudentTodaySectionInput>(function StudentTodaySection({
   todayProgress = { todayXP: null, todayLevelUp: null, exercises: [] },

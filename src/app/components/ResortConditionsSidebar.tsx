@@ -47,12 +47,12 @@ export const ResortConditionsSidebar: React.FC<ResortConditionsSidebarProps> = (
       {/* Mobile & tablet */}
       <div className="flex flex-col gap-3 w-full lg:hidden">
         <div className="flex items-center justify-between gap-4 w-full min-w-0">
-          <p className="text-xs sm:text-sm text-[var(--ink)] leading-snug font-medium truncate min-w-0">
+          <p className="type-caption text-[var(--ink)] font-medium truncate min-w-0">
             {resortName}
           </p>
           {showLifts && (
             <p
-              className={`shrink-0 text-xs sm:text-sm font-medium whitespace-nowrap ${
+              className={`shrink-0 type-caption font-medium whitespace-nowrap ${
                 isClosed ? 'text-rose-500' : 'text-[var(--ink)]'
               }`}
             >
@@ -61,11 +61,11 @@ export const ResortConditionsSidebar: React.FC<ResortConditionsSidebarProps> = (
           )}
         </div>
 
-        <div className="flex items-center justify-between gap-2 w-full min-w-0 text-xs sm:text-sm text-[var(--ink-dim)]">
+        <div className="flex items-center justify-between gap-2 w-full min-w-0 type-caption text-[var(--ink-dim)]">
           <button
             type="button"
             onClick={onToggleTemperatureUnit}
-            className="shrink-0 font-serif text-xl sm:text-2xl font-light text-[var(--ink)] leading-none tracking-tight bg-transparent border-0 p-0 cursor-pointer"
+            className="shrink-0 type-metric text-[var(--ink)] bg-transparent border-0 p-0 cursor-pointer"
             aria-label={t('mountainTemp')}
           >
             {tempDisplay}
@@ -83,7 +83,7 @@ export const ResortConditionsSidebar: React.FC<ResortConditionsSidebarProps> = (
       {/* Desktop */}
       <div className="hidden lg:flex lg:flex-col lg:items-start lg:space-y-6 w-full lg:max-w-[180px]">
         <div className="flex flex-col items-start gap-2">
-          <p className="text-sm text-[var(--ink)] leading-snug font-medium">{resortName}</p>
+          <p className="type-compact text-[var(--ink)] font-medium">{resortName}</p>
 
           <div className="flex flex-col items-start gap-1">
             <button
@@ -94,11 +94,11 @@ export const ResortConditionsSidebar: React.FC<ResortConditionsSidebarProps> = (
             >
               {tempDisplay}
             </button>
-            <p className="text-sm text-[var(--ink)] whitespace-nowrap">{weatherLabel}</p>
+            <p className="type-compact text-[var(--ink)] whitespace-nowrap">{weatherLabel}</p>
           </div>
         </div>
 
-        <div className="flex flex-col items-start space-y-1.5 text-sm text-[var(--ink-dim)] leading-relaxed">
+        <div className="flex flex-col items-start space-y-1.5 type-compact text-[var(--ink-dim)]">
           <span className="whitespace-nowrap">
             {t('snowCover')} <AnimatedNumber value={snowDepthCm} /> {t('centimetersShort')}
           </span>
@@ -109,7 +109,7 @@ export const ResortConditionsSidebar: React.FC<ResortConditionsSidebarProps> = (
 
         {showLifts && (
           <p
-            className={`text-sm font-medium whitespace-nowrap ${
+            className={`type-compact font-medium whitespace-nowrap ${
               isClosed ? 'text-rose-500' : 'text-[var(--ink)]'
             }`}
           >

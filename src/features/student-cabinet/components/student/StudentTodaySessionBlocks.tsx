@@ -169,7 +169,7 @@ const SessionCard = memo<
 
   return (
     <article className="sc-current-session">
-      <h3 className="sc-current-session-title">
+      <h3 className="sc-current-session-title type-card-title">
         <span>{getCabinetSessionTitle(session, lang)}</span>
         {session.kind === 'lesson' && (
           <LessonFeedbackIndicator lessonBookingId={session.session.id} />
@@ -371,7 +371,7 @@ export const NextSessionBlock = memo<NextSessionBlockInput>(function NextSession
                           {formatSessionDayLabel(dateStr, lang, t)}
                         </p>
                       </div>
-                      <h3 className="sc-next-session-title">
+                      <h3 className="sc-next-session-title type-card-title">
                         <span>{getCabinetSessionTitle(session, lang)}</span>
                         {session.kind === 'lesson' && (
                           <LessonFeedbackIndicator lessonBookingId={session.session.id} />

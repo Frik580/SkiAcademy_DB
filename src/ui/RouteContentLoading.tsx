@@ -14,7 +14,7 @@ export const RouteContentLoading: React.FC = () => {
     >
       <div className="flex items-center justify-between">
         <Skeleton className="h-6 w-48" />
-        <span className="ui-section-eyebrow text-xs">{t('loading')}</span>
+        <span className="ui-section-eyebrow type-caption">{t('loading')}</span>
       </div>
       <CardSkeleton count={3} />
     </div>

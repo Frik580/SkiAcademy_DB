@@ -54,7 +54,7 @@ export function AdminClientParticipantDetail({
         <button
           type="button"
           onClick={onBack}
-          className="text-xs font-mono uppercase tracking-wider text-[var(--ink-dim)] underline"
+          className="type-button uppercase text-[var(--ink-dim)] underline"
         >
           {text.backToAccount}
         </button>
@@ -68,8 +68,8 @@ export function AdminClientParticipantDetail({
         </button>
       </div>
       <header className="space-y-1">
-        <h3 className="font-serif text-lg font-light">{detail.profile.displayName}</h3>
-        <p className="text-xs text-[var(--ink-dim)]">
+        <h3 className="type-card-title">{detail.profile.displayName}</h3>
+        <p className="type-caption text-[var(--ink-dim)]">
           {manager
             ? adminClientRelationshipLabel(manager.authority, text)
             : detail.classification === 'self'
@@ -82,9 +82,9 @@ export function AdminClientParticipantDetail({
         </p>
       </header>
       {detail.archiveBlockedByCommitments ? (
-        <p className="text-xs text-[var(--ink-dim)]">{text.archiveBlocked}</p>
+        <p className="type-caption text-[var(--ink-dim)]">{text.archiveBlocked}</p>
       ) : null}
-      <section className="space-y-2 border border-[var(--border)] p-4 text-xs">
+      <section className="space-y-2 border border-[var(--border)] p-4 type-caption">
         <p>
           {text.participantSkillLevel}:{' '}
           {adminClientSkillLevelLabel(detail.profile.skillLevel) ?? '—'}
@@ -118,7 +118,7 @@ export function AdminClientParticipantDetail({
             aria-label={text.displayName}
             value={draft.displayName}
             onChange={(event) => onDraftChange({ ...draft, displayName: event.target.value })}
-            className="w-full border border-[var(--border)] bg-transparent px-3 py-2 font-mono text-xs"
+            className="w-full border border-[var(--border)] bg-transparent px-3 py-2 type-body"
             required
           />
           <input
@@ -126,13 +126,13 @@ export function AdminClientParticipantDetail({
             type="date"
             value={draft.birthDate}
             onChange={(event) => onDraftChange({ ...draft, birthDate: event.target.value })}
-            className="w-full border border-[var(--border)] bg-transparent px-3 py-2 font-mono text-xs"
+            className="w-full border border-[var(--border)] bg-transparent px-3 py-2 type-body"
           />
           <input
             aria-label={text.participantSkillLevel}
             value={draft.skillLevel}
             onChange={(event) => onDraftChange({ ...draft, skillLevel: event.target.value })}
-            className="w-full border border-[var(--border)] bg-transparent px-3 py-2 font-mono text-xs"
+            className="w-full border border-[var(--border)] bg-transparent px-3 py-2 type-body"
             required
           />
           <select
@@ -144,7 +144,7 @@ export function AdminClientParticipantDetail({
                 discipline: event.target.value as 'ski' | 'snowboard',
               })
             }
-            className="w-full border border-[var(--border)] bg-transparent px-3 py-2 font-mono text-xs"
+            className="w-full border border-[var(--border)] bg-transparent px-3 py-2 type-body"
           >
             <option value="ski">{text.ski}</option>
             <option value="snowboard">{text.snowboard}</option>
@@ -153,7 +153,7 @@ export function AdminClientParticipantDetail({
             aria-label={text.instructorComment}
             value={draft.instructorComment}
             onChange={(event) => onDraftChange({ ...draft, instructorComment: event.target.value })}
-            className="w-full border border-[var(--border)] bg-transparent px-3 py-2 font-mono text-xs"
+            className="w-full border border-[var(--border)] bg-transparent px-3 py-2 type-body"
             rows={3}
           />
           <ActionButton type="submit" size="sm" pending={pending} pendingLabel={text.pending}>
@@ -167,7 +167,7 @@ export function AdminClientParticipantDetail({
             type="button"
             disabled={pending}
             onClick={onArchive}
-            className="border border-[var(--border)] px-3 py-2 text-xs font-mono uppercase tracking-wider disabled:opacity-50"
+            className="border border-[var(--border)] px-3 py-2 type-button uppercase disabled:opacity-50"
           >
             {text.archiveParticipant}
           </button>
@@ -177,7 +177,7 @@ export function AdminClientParticipantDetail({
             type="button"
             disabled={pending}
             onClick={onRestore}
-            className="border border-[var(--border)] px-3 py-2 text-xs font-mono uppercase tracking-wider disabled:opacity-50"
+            className="border border-[var(--border)] px-3 py-2 type-button uppercase disabled:opacity-50"
           >
             {text.restoreParticipant}
           </button>

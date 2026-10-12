@@ -41,7 +41,7 @@ export function AdminLessonStatusChip({
 }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold leading-none ${STATUS_TONE_CLASS[lessonAdminPrimaryStatusBadgeTone(status)]}`}
+      className={`inline-flex items-center rounded-full border px-2.5 py-1 type-caption font-medium ${STATUS_TONE_CLASS[lessonAdminPrimaryStatusBadgeTone(status)]}`}
     >
       {label}
     </span>
@@ -57,7 +57,7 @@ export function AdminLessonPaymentIndicator({
 }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2 py-1 text-[10px] font-medium leading-none ${PAYMENT_TONE_CLASS[status]}`}
+      className={`inline-flex items-center rounded-full border px-2 py-1 type-caption font-medium ${PAYMENT_TONE_CLASS[status]}`}
     >
       {label}
     </span>
@@ -82,7 +82,7 @@ export function AdminLessonOriginBadge({
 
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2 py-1 text-[10px] font-medium leading-none ${originClass}`}
+      className={`inline-flex items-center rounded-full border px-2 py-1 type-caption font-medium ${originClass}`}
     >
       {label}
     </span>
@@ -91,7 +91,7 @@ export function AdminLessonOriginBadge({
 
 export function AdminLessonKindChip({ label }: { readonly label: string }) {
   return (
-    <span className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--profile-bg)] px-2 py-1 text-[10px] font-medium leading-none text-[var(--ink)]">
+    <span className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--profile-bg)] px-2 py-1 type-caption font-medium text-[var(--ink)]">
       {label}
     </span>
   );
@@ -145,21 +145,21 @@ export function AdminLessonBookingListRow({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-[var(--ink)]">
+          <p className="truncate type-compact font-medium text-[var(--ink)]">
             {item.participantNames}
           </p>
           {item.subtitle ? (
-            <p className="mt-1 truncate text-xs text-[var(--ink)]">{item.subtitle}</p>
+            <p className="mt-1 truncate type-caption text-[var(--ink)]">{item.subtitle}</p>
           ) : null}
           {item.date || item.time || item.duration ? (
-            <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[var(--ink-dim)]">
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 type-caption text-[var(--ink-dim)]">
               {item.date ? <span>{item.date}</span> : null}
               {item.date && item.time ? <span aria-hidden="true">·</span> : null}
               {item.time ? (
                 <span className="font-medium text-[var(--ink)]">{item.time}</span>
               ) : null}
               {item.duration ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-[var(--profile-bg)] px-2 py-0.5 font-mono text-[10px] text-[var(--ink)]">
+                <span className="inline-flex items-center gap-1 rounded-full bg-[var(--profile-bg)] px-2 py-0.5 type-caption text-[var(--ink)]">
                   <Clock3 className="h-3 w-3" aria-hidden="true" />
                   {item.duration}
                 </span>
@@ -167,12 +167,14 @@ export function AdminLessonBookingListRow({
             </div>
           ) : null}
           {item.instructor ? (
-            <p className="mt-2 flex min-w-0 items-center gap-1.5 text-[11px] text-[var(--ink-dim)]">
+            <p className="mt-2 flex min-w-0 items-center gap-1.5 type-caption text-[var(--ink-dim)]">
               <UserRound className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               <span className="truncate">{item.instructor}</span>
             </p>
           ) : null}
-          {item.meta ? <p className="mt-2 text-[11px] text-[var(--ink-dim)]">{item.meta}</p> : null}
+          {item.meta ? (
+            <p className="mt-2 type-caption text-[var(--ink-dim)]">{item.meta}</p>
+          ) : null}
         </div>
         <ChevronRight
           className="mt-0.5 h-4 w-4 shrink-0 text-[var(--ink-dim)] transition-transform group-hover:translate-x-0.5"
@@ -264,7 +266,7 @@ export function AdminLessonDetailTabs({
           tabIndex={activeSection === section.id ? 0 : -1}
           onClick={() => onChange(section.id)}
           onKeyDown={(event) => handleKeyDown(event, sections.indexOf(section))}
-          className={`relative shrink-0 appearance-none rounded-[0px] border-0 border-b-2 border-solid px-2.5 py-3 text-xs font-medium outline-none transition-colors focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 ${
+          className={`relative shrink-0 appearance-none rounded-[0px] border-0 border-b-2 border-solid px-2.5 py-3 type-button outline-none transition-colors focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 ${
             activeSection === section.id
               ? 'border-b-[var(--accent)] text-[var(--accent)]'
               : 'border-b-transparent text-[var(--ink-dim)] hover:text-[var(--ink)]'

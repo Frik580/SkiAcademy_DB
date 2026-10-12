@@ -199,18 +199,18 @@ export function AdminManagedParticipantPicker({
 
   return (
     <div className={`grid gap-2 ${hideParticipantField ? '' : 'md:grid-cols-2'}`}>
-      <label className="text-xs">
+      <label className="type-caption">
         {text.pickerAccount}
         <input
           aria-label={text.pickerAccount}
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder={text.pickerSearchHint}
-          className="mt-1 w-full border border-[var(--border)] bg-[var(--bg)] p-2"
+          className="mt-1 w-full border border-[var(--border)] bg-[var(--bg)] p-2 type-body"
         />
         <select
           aria-label={text.selectAccount}
-          className="mt-1 w-full border border-[var(--border)] bg-[var(--bg)] p-2"
+          className="mt-1 w-full border border-[var(--border)] bg-[var(--bg)] p-2 type-body"
           value={accountId ?? ''}
           disabled={directoryLoading && mergedAccounts.length === 0}
           onChange={(event) => {
@@ -240,7 +240,7 @@ export function AdminManagedParticipantPicker({
         {hasMore ? (
           <button
             type="button"
-            className="mt-1 border border-[var(--border)] px-2 py-1 text-[10px] font-mono uppercase tracking-wider disabled:opacity-50"
+            className="mt-1 border border-[var(--border)] px-2 py-1 type-button uppercase disabled:opacity-50"
             disabled={loadingMore || directoryLoading}
             onClick={loadMore}
           >
@@ -274,11 +274,11 @@ export function AdminManagedParticipantPicker({
         ) : null}
       </label>
       {hideParticipantField ? null : (
-        <label className="text-xs">
+        <label className="type-caption">
           {text.eligibleParticipants}
           <select
             aria-label={text.eligibleParticipants}
-            className="mt-1 w-full border border-[var(--border)] bg-[var(--bg)] p-2"
+            className="mt-1 w-full border border-[var(--border)] bg-[var(--bg)] p-2 type-body"
             disabled={!accountId || eligible.loading}
             value={selected?.participantId ?? ''}
             onChange={(event) => {

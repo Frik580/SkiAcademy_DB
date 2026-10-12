@@ -65,7 +65,7 @@ export const InstructorParticipantLessonFeedbackEditor: React.FC<
       >
         <div className="flex items-center justify-between p-4 border-b border-slate-200/70 dark:border-slate-800/70">
           <div>
-            <h3 id={titleId} className="text-sm font-mono font-bold text-[var(--ink)]">
+            <h3 id={titleId} className="type-card-title text-[var(--ink)]">
               {t('instructorRecommendations')}: {studentName}
             </h3>
           </div>
@@ -81,14 +81,14 @@ export const InstructorParticipantLessonFeedbackEditor: React.FC<
 
         <div className="p-4 space-y-3 overflow-y-auto">
           {editor.loadState === 'loading' ? (
-            <p className="text-xs font-mono text-[var(--ink-dim)]">{t('loading')}</p>
+            <p className="type-caption text-[var(--ink-dim)]">{t('loading')}</p>
           ) : null}
 
           {editor.loadState === 'error' ? (
             <div className="space-y-2">
-              <p className="text-xs font-mono text-rose-600">{t('requestFailed')}</p>
+              <p className="type-caption text-rose-600">{t('requestFailed')}</p>
               {editor.loadError ? (
-                <p className="text-[10px] font-mono text-[var(--ink-dim)]">{editor.loadError}</p>
+                <p className="type-caption text-[var(--ink-dim)]">{editor.loadError}</p>
               ) : null}
               <ActionButton type="button" size="sm" onClick={() => void editor.retryLoad()}>
                 {t('retry')}
@@ -100,7 +100,7 @@ export const InstructorParticipantLessonFeedbackEditor: React.FC<
             <div className="space-y-2">
               {editor.drafts.map((item, index) => (
                 <div key={item.itemId} className="flex items-center gap-2">
-                  <span className="text-[10px] font-mono text-[var(--ink-dim)] w-4 shrink-0">
+                  <span className="type-caption text-[var(--ink-dim)] w-4 shrink-0">
                     {index + 1}.
                   </span>
                   <input
@@ -110,7 +110,7 @@ export const InstructorParticipantLessonFeedbackEditor: React.FC<
                     disabled={!canEdit}
                     maxLength={PARTICIPANT_LESSON_FEEDBACK_ITEM_TEXT_MAX_LENGTH}
                     placeholder={t('instructorRecommendationPlaceholder')}
-                    className="flex-1 min-w-0 px-2 py-1.5 text-xs font-mono bg-white dark:bg-slate-900/60 border border-slate-200/70 dark:border-slate-800/70 rounded-xs text-[var(--ink)] disabled:opacity-60"
+                    className="flex-1 min-w-0 px-2 py-1.5 type-body bg-white dark:bg-slate-900/60 border border-slate-200/70 dark:border-slate-800/70 rounded-xs text-[var(--ink)] disabled:opacity-60"
                   />
                   <button
                     type="button"
@@ -131,7 +131,7 @@ export const InstructorParticipantLessonFeedbackEditor: React.FC<
                   disabled={
                     !canEdit || editor.drafts.length >= PARTICIPANT_LESSON_FEEDBACK_ITEMS_MAX
                   }
-                  className="inline-flex items-center gap-1 px-2 py-1 text-[9px] font-mono uppercase tracking-wider border border-slate-200/80 dark:border-slate-800/80 rounded-xs text-[var(--ink-dim)] hover:text-[var(--ink)] transition disabled:opacity-50"
+                  className="inline-flex items-center gap-1 px-2 py-1 type-button uppercase border border-slate-200/80 dark:border-slate-800/80 rounded-xs text-[var(--ink-dim)] hover:text-[var(--ink)] transition disabled:opacity-50"
                 >
                   <Plus className="w-3 h-3" />
                   {t('instructorAddRecommendation')}
@@ -143,7 +143,7 @@ export const InstructorParticipantLessonFeedbackEditor: React.FC<
                   pendingLabel={t('saving')}
                   onClick={() => void editor.save()}
                   disabled={editor.loadState !== 'ready'}
-                  className="inline-flex items-center gap-1 px-2 py-1 text-[9px] font-mono uppercase tracking-wider bg-[var(--ink)] text-[var(--bg)] rounded-xs font-bold transition disabled:opacity-60"
+                  className="inline-flex items-center gap-1 px-2 py-1 type-button uppercase bg-[var(--ink)] text-[var(--bg)] rounded-xs transition disabled:opacity-60"
                 >
                   <Save className="w-3 h-3" />
                   {t('saveChanges')}
@@ -151,10 +151,10 @@ export const InstructorParticipantLessonFeedbackEditor: React.FC<
               </div>
 
               {editor.saveError ? (
-                <p className="text-xs font-mono text-rose-600">{editor.saveError}</p>
+                <p className="type-caption text-rose-600">{editor.saveError}</p>
               ) : null}
               {editor.saveSuccess ? (
-                <p className="text-xs font-mono text-emerald-700 dark:text-emerald-300">
+                <p className="type-caption text-emerald-700 dark:text-emerald-300">
                   {t('instructorRecommendationsSaved')}
                 </p>
               ) : null}

@@ -317,12 +317,12 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
   return (
     <div className="space-y-6">
       {mutationError && !confirmation && (
-        <div role="alert" className="border border-red-500/30 bg-red-500/5 p-3 text-xs">
+        <div role="alert" className="border border-red-500/30 bg-red-500/5 p-3 type-caption">
           {readableError(mutationError)}
         </div>
       )}
       {mutationNotice && (
-        <div role="status" className="border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
+        <div role="status" className="border border-amber-500/30 bg-amber-500/5 p-3 type-caption">
           {mutationNotice}
         </div>
       )}
@@ -350,11 +350,11 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
           tabIndex={-1}
         >
           {!bookingParam ? (
-            <p className="flex min-h-52 items-center justify-center text-center text-xs text-[var(--ink-dim)]">
+            <p className="flex min-h-52 items-center justify-center text-center type-caption text-[var(--ink-dim)]">
               {t('adminLessonSelectPrompt')}
             </p>
           ) : !parsedBooking.success ? (
-            <div role="alert" className="text-xs text-red-700">
+            <div role="alert" className="type-caption text-red-700">
               {t('adminLessonInvalidId')}
             </div>
           ) : reads.detail.loading ? (
@@ -362,7 +362,7 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
               <Loader2 className="h-5 w-5 animate-spin" />
             </div>
           ) : reads.detail.error ? (
-            <div role="alert" className="text-xs">
+            <div role="alert" className="type-caption">
               {reads.detail.error === 'permission-denied'
                 ? t('adminLessonPermissionDenied')
                 : t('adminLessonDetailFailed')}
@@ -375,9 +375,9 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
               </button>
             </div>
           ) : !detail ? (
-            <p className="text-xs text-[var(--ink-dim)]">{t('adminLessonNotFound')}</p>
+            <p className="type-caption text-[var(--ink-dim)]">{t('adminLessonNotFound')}</p>
           ) : !admin ? (
-            <p role="alert" className="text-xs text-red-700">
+            <p role="alert" className="type-caption text-red-700">
               {t('adminLessonProjectionMissing')}
             </p>
           ) : (
@@ -419,9 +419,9 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
           className="fixed inset-0 z-60 flex items-center justify-center bg-black/55 p-4"
         >
           <div className="w-full max-w-md space-y-4 border border-[var(--border)] bg-[var(--bg)] p-5">
-            <h3 className="text-sm font-medium">{t('adminLessonConfirmTitle')}</h3>
-            <p className="text-xs text-[var(--ink-dim)]">{confirmation.message}</p>
-            <p className="break-all font-mono text-[10px] text-[var(--ink-dim)]">
+            <h3 className="type-card-title">{t('adminLessonConfirmTitle')}</h3>
+            <p className="type-caption text-[var(--ink-dim)]">{confirmation.message}</p>
+            <p className="break-all type-caption text-[var(--ink-dim)]">
               Target:{' '}
               {confirmation.attempt.kind === 'create_confirmed_booking'
                 ? confirmation.attempt.bookingId
@@ -430,7 +430,7 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
                   : `${confirmation.attempt.target.bookingId} @ rev ${confirmation.attempt.target.revision}`}
             </p>
             {mutationError && (
-              <p role="alert" className="text-xs text-red-700">
+              <p role="alert" className="type-caption text-red-700">
                 {readableError(mutationError)}
               </p>
             )}

@@ -50,7 +50,7 @@ export const ClientSkillProgressView: React.FC<ClientSkillProgressViewProps> = (
 
         return (
           <div key={`level-group-${levelNum}`} className="space-y-1">
-            <h3 className="text-xs font-medium text-[var(--ink-dim)] uppercase tracking-wider px-1 pb-2">
+            <h3 className="type-card-title text-[var(--ink-dim)] uppercase px-1 pb-2">
               {t('instructorLevel')} {levelNum}
             </h3>
             <ul className="divide-y divide-[var(--border-subtle)]">
@@ -62,7 +62,7 @@ export const ClientSkillProgressView: React.FC<ClientSkillProgressViewProps> = (
                 return (
                   <li
                     key={item.id}
-                    className="flex items-start gap-3 py-3.5 px-1 text-sm text-[var(--ink)]"
+                    className="flex items-start gap-3 py-3.5 px-1 type-compact text-[var(--ink)]"
                   >
                     {isMaxScore ? (
                       <span
@@ -93,7 +93,7 @@ export const ClientSkillProgressView: React.FC<ClientSkillProgressViewProps> = (
                       </p>
                       {!hideScores && (
                         <p
-                          className={`text-xs tabular-nums ${
+                          className={`type-caption tabular-nums ${
                             isMaxScore
                               ? 'text-emerald-600 dark:text-emerald-400 font-medium'
                               : 'text-[var(--ink-dim)]'
@@ -104,10 +104,10 @@ export const ClientSkillProgressView: React.FC<ClientSkillProgressViewProps> = (
                       )}
                       {userProfile.skillComments?.[item.id]?.trim() && (
                         <div className="pt-1 space-y-0.5">
-                          <p className="text-[10px] uppercase tracking-wide text-[var(--ink-dim)]">
+                          <p className="type-caption uppercase text-[var(--ink-dim)]">
                             {t('scCoachExerciseComment')}
                           </p>
-                          <p className="text-xs text-[var(--ink)] italic leading-relaxed">
+                          <p className="type-caption text-[var(--ink)] italic">
                             &ldquo;{userProfile.skillComments[item.id].trim()}&rdquo;
                           </p>
                         </div>

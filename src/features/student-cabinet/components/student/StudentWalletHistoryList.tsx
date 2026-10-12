@@ -85,19 +85,19 @@ export const StudentWalletHistoryList: React.FC<StudentWalletHistoryListProps> =
                 <Icon className="h-4 w-4" strokeWidth={2} aria-hidden />
               </span>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-[var(--ink)] leading-snug">
+                <p className="type-compact font-medium text-[var(--ink)]">
                   {formatWalletOperationLabel(operation, t)}
                 </p>
-                <p className="text-xs text-[var(--ink-dim)] mt-1">{formattedDate}</p>
+                <p className="type-caption text-[var(--ink-dim)] mt-1">{formattedDate}</p>
                 {operation.balanceAfter != null && (
-                  <p className="text-[11px] text-[var(--ink-dim)] mt-1">
+                  <p className="type-caption text-[var(--ink-dim)] mt-1">
                     {t('scProfileWalletBalanceAfter')}: {formatWalletAmount(operation.balanceAfter)}
                   </p>
                 )}
               </div>
               <div className="text-right shrink-0">
                 <p
-                  className={`text-sm font-semibold font-mono ${
+                  className={`type-compact font-medium ${
                     isCredit
                       ? 'text-emerald-600 dark:text-emerald-400'
                       : 'text-rose-600 dark:text-rose-400'

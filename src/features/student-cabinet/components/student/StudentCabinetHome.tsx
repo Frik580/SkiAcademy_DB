@@ -439,10 +439,10 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
       </div>
       <div className="sc-dashboard max-w-7xl mx-auto w-full px-4 sm:px-6 min-w-0">
         <header className="py-6 space-y-2.5 min-w-0">
-          <p className="text-base sm:text-lg font-medium text-[var(--ink)] leading-snug break-words">
+          <p className="type-body font-medium text-[var(--ink)] break-words">
             {getGreeting(lang, getFirstName(userProfile.displayName))}
           </p>
-          <p className="text-[10px] font-medium tracking-widest uppercase text-[var(--ink-dim)]">
+          <p className="type-caption font-medium uppercase text-[var(--ink-dim)]">
             {t('scTodaySection')}
           </p>
         </header>

@@ -9,11 +9,7 @@ export const TrainingStreak: React.FC<{
   const { t, language } = useLanguage();
 
   return (
-    <p
-      className={`text-sm sm:text-base leading-relaxed ${
-        isDark ? 'text-white/70' : 'text-[var(--ink-dim)]'
-      }`}
-    >
+    <p className={`type-compact ${isDark ? 'text-white/70' : 'text-[var(--ink-dim)]'}`}>
       {xpToNextLevel.isMax ? (
         t('journeyMaxLevelReached')
       ) : (

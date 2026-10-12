@@ -26,7 +26,7 @@ export const UnreviewedCompletedBookingsNotice: React.FC<
           <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full animate-ping" />
           <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full" />
         </div>
-        <h4 className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink)] font-bold">
+        <h4 className="type-card-title uppercase text-[var(--ink)]">
           {t('newNotifications')} ({unreviewedCompletedBookings.length})
         </h4>
       </div>
@@ -44,12 +44,12 @@ export const UnreviewedCompletedBookingsNotice: React.FC<
                 className="w-8.5 h-8.5 rounded-full object-cover shrink-0 filter grayscale"
               />
               <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-sans text-[var(--ink)] leading-relaxed break-words">
+                <p className="type-caption text-[var(--ink)] break-words">
                   {t('reviewInvitationPrefix')}{' '}
                   <span className="font-bold">{inv.instructorName}</span>{' '}
                   {t('reviewInvitationSuffix')}
                 </p>
-                <span className="text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block mt-1">
+                <span className="type-caption uppercase text-[var(--ink-dim)] block mt-1">
                   {inv.date} • {inv.time}
                 </span>
               </div>
@@ -58,7 +58,7 @@ export const UnreviewedCompletedBookingsNotice: React.FC<
               <button
                 id={`notify-review-btn-${inv.id}`}
                 onClick={() => onWriteReview(inv)}
-                className="shrink-0 text-[9px] font-mono uppercase tracking-widest bg-[var(--ink)] hover:bg-[var(--ink)]/80 text-[var(--bg)] px-3 py-1.5 rounded-xs font-bold cursor-pointer transition shadow-xs"
+                className="shrink-0 type-button uppercase bg-[var(--ink)] hover:bg-[var(--ink)]/80 text-[var(--bg)] px-3 py-1.5 rounded-xs cursor-pointer transition shadow-xs"
               >
                 🌟 {t('writeReviewBtn')}
               </button>

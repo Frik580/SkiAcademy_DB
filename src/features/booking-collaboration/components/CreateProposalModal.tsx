@@ -78,7 +78,7 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
 
   const minBookingDateStr = useMemo(() => toLocalDateStr(), []);
   const locale = language === 'ru' ? 'ru-RU' : 'en-US';
-  const labelStyle = 'mb-1.5 flex items-center gap-1.5 truncate text-xs text-[var(--ink-dim)]';
+  const labelStyle = 'mb-1.5 flex items-center gap-1.5 type-caption text-[var(--ink-dim)]';
 
   useEffect(() => {
     if (!open) return;
@@ -178,9 +178,9 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-md rounded-xl bg-[var(--card-bg)] p-5 shadow-xl space-y-4">
-        <h3 className="text-lg font-serif text-[var(--ink)]">{copy.createProposal}</h3>
+        <h3 className="type-section-title text-[var(--ink)]">{copy.createProposal}</h3>
         <div className="space-y-2">
-          <div className="flex items-center justify-between gap-2 text-xs text-[var(--ink-dim)]">
+          <div className="flex items-center justify-between gap-2 type-caption text-[var(--ink-dim)]">
             <span>{copy.proposalParticipantsLabel}</span>
             <span>
               {copy.proposalParticipantCount(selectedParticipantIds.length, maxParticipants)}
@@ -202,7 +202,7 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
                         : [...current, participant.participantId]
                     );
                   }}
-                  className={`rounded-lg border px-3 py-1.5 text-xs ${
+                  className={`rounded-lg border px-3 py-1.5 type-button ${
                     selected
                       ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--ink)]'
                       : 'border-[var(--border-subtle)] text-[var(--ink-dim)]'
@@ -217,7 +217,7 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
             })}
           </div>
           {selectedLabels.length > 0 && (
-            <p className="text-xs text-[var(--ink)]">
+            <p className="type-caption text-[var(--ink)]">
               {copy.proposalSelectedParticipants}: {selectedLabels.join(' · ')}
             </p>
           )}
@@ -269,14 +269,16 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
             />
           </div>
         </div>
-        {pricePreviewLabel && <p className="text-xs text-[var(--ink-dim)]">{pricePreviewLabel}</p>}
+        {pricePreviewLabel && (
+          <p className="type-caption text-[var(--ink-dim)]">{pricePreviewLabel}</p>
+        )}
         <div className="flex justify-end gap-2">
           <ActionButton
             type="button"
             unstyled
             disabled={submitting}
             onClick={onClose}
-            className="px-4 py-2 text-sm rounded-lg border border-[var(--border-subtle)]"
+            className="px-4 py-2 type-button rounded-lg border border-[var(--border-subtle)]"
           >
             {copy.t('cancel')}
           </ActionButton>
@@ -300,7 +302,7 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
                 setSubmitting(false);
               }
             }}
-            className="px-4 py-2 text-sm rounded-lg bg-[var(--accent)] text-white disabled:opacity-50"
+            className="px-4 py-2 type-button rounded-lg bg-[var(--accent)] text-white disabled:opacity-50"
           >
             {copy.createProposal}
           </ActionButton>

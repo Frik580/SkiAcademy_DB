@@ -45,10 +45,10 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
     danger: 'border-rose-500/50 text-rose-600 hover:border-rose-500 hover:bg-rose-500/10',
     ghost: 'border-transparent text-[var(--ink-dim)] hover:text-[var(--ink)] hover:bg-black/5',
   }[variant];
-  const sizes = size === 'sm' ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm';
+  const sizes = size === 'sm' ? 'px-3 py-1.5' : 'px-4 py-2';
   const chrome = ownsChrome
     ? 'inline-flex items-center justify-center gap-2 transition disabled:cursor-not-allowed'
-    : `inline-flex items-center justify-center gap-2 border font-mono font-bold uppercase tracking-wider transition disabled:cursor-not-allowed disabled:opacity-50 ${variants} ${sizes}`;
+    : `inline-flex items-center justify-center gap-2 border type-button transition disabled:cursor-not-allowed disabled:opacity-50 ${variants} ${sizes}`;
   const pendingContent = pendingLabel !== undefined ? pendingLabel : children;
 
   return (

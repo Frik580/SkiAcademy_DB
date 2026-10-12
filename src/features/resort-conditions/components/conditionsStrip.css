@@ -1,3 +1,5 @@
+@reference '../../../index.css';
+
 .conditions-strip {
   position: sticky;
   top: var(--app-navbar-height);
@@ -25,21 +27,21 @@
 }
 
 .conditions-strip-row {
+  @apply type-caption;
   display: flex;
   align-items: center;
   width: 100%;
   min-width: max-content;
   height: 100%;
-  font-size: 0.75rem;
 }
 
 .conditions-strip-items {
+  @apply type-caption;
   display: flex;
   align-items: center;
   flex-wrap: nowrap;
   width: max-content;
   height: 100%;
-  font-size: 0.75rem;
   gap: 0;
 }
 

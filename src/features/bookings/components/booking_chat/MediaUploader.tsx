@@ -47,21 +47,21 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
             ref={fileInputRef}
             onChange={onImageSelect}
             accept="image/*"
-            className="hidden"
+            className="hidden type-body"
           />
           <input
             type="file"
             ref={videoInputRef}
             onChange={onVideoSelect}
             accept="video/*"
-            className="hidden"
+            className="hidden type-body"
           />
 
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={isSending || isCompressing}
-            className="py-1 text-[var(--ink-dim)] hover:text-[var(--ink)] bg-transparent transition rounded-none cursor-pointer flex items-center gap-1 text-[9px] font-mono uppercase tracking-widest"
+            className="py-1 text-[var(--ink-dim)] hover:text-[var(--ink)] bg-transparent transition rounded-none cursor-pointer flex items-center gap-1 type-button uppercase"
             title={t('chatAttachPhoto')}
           >
             <Image className="w-3.5 h-3.5" />
@@ -72,7 +72,7 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
             type="button"
             onClick={() => videoInputRef.current?.click()}
             disabled={isSending || isCompressing}
-            className="py-1 text-[var(--ink-dim)] hover:text-[var(--ink)] bg-transparent transition rounded-none cursor-pointer flex items-center gap-1 text-[9px] font-mono uppercase tracking-widest"
+            className="py-1 text-[var(--ink-dim)] hover:text-[var(--ink)] bg-transparent transition rounded-none cursor-pointer flex items-center gap-1 type-button uppercase"
             title={t('chatAttachVideo')}
           >
             <Video className="w-3.5 h-3.5" />
@@ -83,7 +83,7 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
             type="button"
             onClick={onToggleLinkInput}
             disabled={isSending || isCompressing}
-            className={`py-1 text-[var(--ink-dim)] hover:text-[var(--ink)] transition rounded-none cursor-pointer flex items-center gap-1 text-[9px] font-mono uppercase tracking-widest ${
+            className={`py-1 text-[var(--ink-dim)] hover:text-[var(--ink)] transition rounded-none cursor-pointer flex items-center gap-1 type-button uppercase ${
               linkInputVisible ? 'text-[var(--ink)] font-bold' : ''
             }`}
             title={t('chatAttachLink')}
@@ -94,7 +94,7 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
         </div>
 
         {isCompressing && (
-          <div className="flex items-center gap-1.5 text-[9px] font-mono text-accent uppercase tracking-widest animate-pulse font-bold">
+          <div className="flex items-center gap-1.5 type-caption text-accent uppercase animate-pulse font-medium">
             <Loader2 className="w-3 h-3 animate-spin" />
             <span>{compressionProgress}</span>
           </div>
@@ -108,7 +108,7 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
             value={linkInputVal}
             onChange={(e) => onLinkInputChange(e.target.value)}
             placeholder={t('chatLinkPlaceholder')}
-            className="flex-1 px-3 py-1.5 bg-[var(--bg)] border border-[var(--border)] text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none font-mono"
+            className="flex-1 px-3 py-1.5 bg-[var(--bg)] border border-[var(--border)] type-body text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none"
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault();
@@ -119,7 +119,7 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
           <button
             type="button"
             onClick={onLinkAttach}
-            className="px-3 py-1.5 border border-[var(--ink)] bg-[var(--ink)] text-[var(--bg)] hover:bg-transparent hover:text-[var(--ink)] transition text-[10px] font-mono uppercase tracking-wider rounded-none cursor-pointer"
+            className="px-3 py-1.5 border border-[var(--ink)] bg-[var(--ink)] text-[var(--bg)] hover:bg-transparent hover:text-[var(--ink)] transition type-button uppercase rounded-none cursor-pointer"
           >
             {t('chatAdd')}
           </button>
@@ -139,7 +139,7 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
               ) : attachment.type === 'video' ? (
                 <div className="relative w-full h-full flex items-center justify-center bg-black">
                   <Video className="w-5 h-5 text-accent" />
-                  <span className="absolute bottom-0 right-0 text-[6px] font-mono bg-black/75 px-0.5 text-accent">
+                  <span className="absolute bottom-0 right-0 type-caption bg-black/75 px-0.5 text-accent">
                     VM
                   </span>
                 </div>
@@ -148,18 +148,18 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
               )}
             </div>
             <div className="min-w-0">
-              <span className="text-[8px] font-mono uppercase tracking-wider text-accent font-bold block">
+              <span className="type-caption uppercase text-accent font-medium block">
                 {attachment.type === 'image'
                   ? t('chatImageReady')
                   : attachment.type === 'video'
                     ? t('chatOptimizedVideo')
                     : t('chatLinkAttachment')}
               </span>
-              <span className="text-[10px] font-mono text-[var(--ink)] truncate block">
+              <span className="type-caption text-[var(--ink)] truncate block">
                 {attachment.name || t('chatAttachment')}
               </span>
               {attachment.size && (
-                <span className="text-[8px] font-mono text-[var(--ink-dim)] block">
+                <span className="type-caption text-[var(--ink-dim)] block">
                   {t('chatSize')}: {(attachment.size / 1024).toFixed(1)} KB
                 </span>
               )}

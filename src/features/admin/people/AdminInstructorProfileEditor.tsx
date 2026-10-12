@@ -41,7 +41,7 @@ export function AdminInstructorProfileEditor({
       }}
     >
       <label
-        className="block space-y-1.5 text-[10px] font-mono uppercase text-[var(--ink-dim)]"
+        className="block space-y-1.5 type-caption uppercase text-[var(--ink-dim)]"
         htmlFor="admin-instructor-name"
       >
         {text.displayName}
@@ -50,12 +50,12 @@ export function AdminInstructorProfileEditor({
           aria-label={text.displayName}
           value={draft.name}
           onChange={(event) => onChange({ ...draft, name: event.target.value })}
-          className="w-full border border-[var(--border)] bg-transparent px-3.5 py-2 font-mono text-xs normal-case text-[var(--ink)] focus:border-[var(--ink)] focus:outline-none"
+          className="w-full border border-[var(--border)] bg-transparent px-3.5 py-2 type-body normal-case text-[var(--ink)] focus:border-[var(--ink)] focus:outline-none"
           required
         />
       </label>
       <label
-        className="block space-y-1.5 text-[10px] font-mono uppercase text-[var(--ink-dim)]"
+        className="block space-y-1.5 type-caption uppercase text-[var(--ink-dim)]"
         htmlFor="admin-instructor-specialty"
       >
         {text.specialty}
@@ -69,7 +69,7 @@ export function AdminInstructorProfileEditor({
               specialty: event.target.value as AdminInstructorProfileDraft['specialty'],
             })
           }
-          className="w-full border border-[var(--border)] bg-transparent px-3.5 py-2 font-mono text-xs normal-case text-[var(--ink)] focus:border-[var(--ink)] focus:outline-none"
+          className="w-full border border-[var(--border)] bg-transparent px-3.5 py-2 type-body normal-case text-[var(--ink)] focus:border-[var(--ink)] focus:outline-none"
         >
           <option value="ski">{text.specialtySki}</option>
           <option value="snowboard">{text.specialtySnowboard}</option>
@@ -77,7 +77,7 @@ export function AdminInstructorProfileEditor({
         </select>
       </label>
       <label
-        className="block space-y-1.5 text-[10px] font-mono uppercase text-[var(--ink-dim)]"
+        className="block space-y-1.5 type-caption uppercase text-[var(--ink-dim)]"
         htmlFor="admin-instructor-price"
       >
         {text.pricePerHourKZT}
@@ -89,14 +89,12 @@ export function AdminInstructorProfileEditor({
           step={1}
           value={draft.pricePerHourKZT}
           onChange={(event) => onChange({ ...draft, pricePerHourKZT: event.target.value })}
-          className="w-full border border-[var(--border)] bg-transparent px-3.5 py-2 font-mono text-xs normal-case text-[var(--ink)] focus:border-[var(--ink)] focus:outline-none"
+          className="w-full border border-[var(--border)] bg-transparent px-3.5 py-2 type-body normal-case text-[var(--ink)] focus:border-[var(--ink)] focus:outline-none"
           required
         />
       </label>
       <fieldset className="space-y-1.5">
-        <legend className="text-[10px] font-mono uppercase text-[var(--ink-dim)]">
-          {text.languages}
-        </legend>
+        <legend className="type-caption uppercase text-[var(--ink-dim)]">{text.languages}</legend>
         <div className="flex flex-wrap gap-2">
           {INSTRUCTOR_SPOKEN_LANGUAGE_CODES.map((code) => {
             const selected = new Set(parseInstructorLanguagesCsv(draft.languages));
@@ -104,7 +102,7 @@ export function AdminInstructorProfileEditor({
             return (
               <label
                 key={code}
-                className="inline-flex items-center gap-1.5 border border-[var(--border)] px-2 py-1 text-[10px] font-mono normal-case text-[var(--ink)]"
+                className="inline-flex items-center gap-1.5 border border-[var(--border)] px-2 py-1 type-caption normal-case text-[var(--ink)]"
               >
                 <input
                   type="checkbox"
@@ -133,7 +131,7 @@ export function AdminInstructorProfileEditor({
         </div>
       </fieldset>
       <label
-        className="block space-y-1.5 text-[10px] font-mono uppercase text-[var(--ink-dim)]"
+        className="block space-y-1.5 type-caption uppercase text-[var(--ink-dim)]"
         htmlFor="admin-instructor-experience"
       >
         {text.experienceYears}
@@ -146,11 +144,11 @@ export function AdminInstructorProfileEditor({
           step={1}
           value={draft.experienceYears}
           onChange={(event) => onChange({ ...draft, experienceYears: event.target.value })}
-          className="w-full border border-[var(--border)] bg-transparent px-3.5 py-2 font-mono text-xs normal-case text-[var(--ink)] focus:border-[var(--ink)] focus:outline-none"
+          className="w-full border border-[var(--border)] bg-transparent px-3.5 py-2 type-body normal-case text-[var(--ink)] focus:border-[var(--ink)] focus:outline-none"
         />
       </label>
       <label
-        className="block space-y-1.5 text-[10px] font-mono uppercase text-[var(--ink-dim)]"
+        className="block space-y-1.5 type-caption uppercase text-[var(--ink-dim)]"
         htmlFor="admin-instructor-phone"
       >
         {text.phone}
@@ -160,11 +158,11 @@ export function AdminInstructorProfileEditor({
           type="tel"
           value={draft.phoneNumber}
           onChange={(event) => onChange({ ...draft, phoneNumber: event.target.value })}
-          className="w-full border border-[var(--border)] bg-transparent px-3.5 py-2 font-mono text-xs normal-case text-[var(--ink)] focus:border-[var(--ink)] focus:outline-none"
+          className="w-full border border-[var(--border)] bg-transparent px-3.5 py-2 type-body normal-case text-[var(--ink)] focus:border-[var(--ink)] focus:outline-none"
         />
       </label>
       <label
-        className="block space-y-1.5 text-[10px] font-mono uppercase text-[var(--ink-dim)]"
+        className="block space-y-1.5 type-caption uppercase text-[var(--ink-dim)]"
         htmlFor="admin-instructor-bio-ru"
       >
         {text.bioRu}
@@ -174,11 +172,11 @@ export function AdminInstructorProfileEditor({
           value={draft.bioRu}
           onChange={(event) => onChange({ ...draft, bioRu: event.target.value })}
           rows={3}
-          className="w-full border border-[var(--border)] bg-transparent px-3.5 py-2 font-mono text-xs normal-case text-[var(--ink)] focus:border-[var(--ink)] focus:outline-none"
+          className="w-full border border-[var(--border)] bg-transparent px-3.5 py-2 type-body normal-case text-[var(--ink)] focus:border-[var(--ink)] focus:outline-none"
         />
       </label>
       <label
-        className="block space-y-1.5 text-[10px] font-mono uppercase text-[var(--ink-dim)]"
+        className="block space-y-1.5 type-caption uppercase text-[var(--ink-dim)]"
         htmlFor="admin-instructor-bio-en"
       >
         {text.bioEn}
@@ -188,12 +186,12 @@ export function AdminInstructorProfileEditor({
           value={draft.bioEn}
           onChange={(event) => onChange({ ...draft, bioEn: event.target.value })}
           rows={3}
-          className="w-full border border-[var(--border)] bg-transparent px-3.5 py-2 font-mono text-xs normal-case text-[var(--ink)] focus:border-[var(--ink)] focus:outline-none"
+          className="w-full border border-[var(--border)] bg-transparent px-3.5 py-2 type-body normal-case text-[var(--ink)] focus:border-[var(--ink)] focus:outline-none"
         />
       </label>
       <div className="space-y-1.5">
         <label
-          className="block space-y-1.5 text-[10px] font-mono uppercase text-[var(--ink-dim)]"
+          className="block space-y-1.5 type-caption uppercase text-[var(--ink-dim)]"
           htmlFor="admin-instructor-avatar"
         >
           {text.avatarUrl}
@@ -202,19 +200,19 @@ export function AdminInstructorProfileEditor({
             aria-label={text.avatarUrl}
             value={draft.avatarUrl}
             onChange={(event) => onChange({ ...draft, avatarUrl: event.target.value })}
-            className="w-full border border-[var(--border)] bg-transparent px-3.5 py-2 font-mono text-xs normal-case text-[var(--ink)] focus:border-[var(--ink)] focus:outline-none"
+            className="w-full border border-[var(--border)] bg-transparent px-3.5 py-2 type-body normal-case text-[var(--ink)] focus:border-[var(--ink)] focus:outline-none"
           />
         </label>
         {onUploadPhoto ? (
           <label
-            className="inline-flex cursor-pointer items-center border border-[var(--border)] px-3 py-2 text-[10px] font-mono uppercase tracking-wider"
+            className="inline-flex cursor-pointer items-center border border-[var(--border)] px-3 py-2 type-caption uppercase"
             htmlFor="admin-instructor-avatar-file"
           >
             <input
               id="admin-instructor-avatar-file"
               type="file"
               accept="image/*"
-              className="sr-only"
+              className="sr-only type-body"
               disabled={pending || uploading}
               onChange={(event) => {
                 const file = event.target.files?.[0];

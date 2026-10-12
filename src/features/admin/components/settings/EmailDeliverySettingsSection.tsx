@@ -102,12 +102,10 @@ export const EmailDeliverySettingsSection: React.FC = () => {
     >
       <div className="space-y-3 max-w-xl">
         <div className="flex items-center justify-between gap-3 border border-[var(--border)] p-3 bg-black/5 dark:bg-white/5">
-          <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+          <span className="type-caption uppercase text-[var(--ink-dim)]">
             {t('emailDeliveryProviderLabel')}
           </span>
-          <span className="text-xs font-mono uppercase tracking-wider text-[var(--ink)] font-bold">
-            {statusText}
-          </span>
+          <span className="type-caption uppercase text-[var(--ink)] font-medium">{statusText}</span>
         </div>
         <ToggleSwitch
           id="email-delivery-enabled"
@@ -120,17 +118,13 @@ export const EmailDeliverySettingsSection: React.FC = () => {
           description={description}
         />
         {pending ? (
-          <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
-            {t('emailDeliverySaving')}
-          </p>
+          <p className="type-caption uppercase text-[var(--ink-dim)]">{t('emailDeliverySaving')}</p>
         ) : null}
         {message === 'saved' ? (
-          <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink)]">
-            {t('emailDeliverySaved')}
-          </p>
+          <p className="type-caption uppercase text-[var(--ink)]">{t('emailDeliverySaved')}</p>
         ) : null}
         {message === 'failed' ? (
-          <p className="text-[10px] font-mono uppercase tracking-wider text-red-500" role="alert">
+          <p className="type-caption uppercase text-red-500" role="alert">
             {t('emailDeliverySaveFailed')}
           </p>
         ) : null}

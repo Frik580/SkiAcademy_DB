@@ -75,7 +75,7 @@ export function AdminClientAccountDetail({
     <div className="space-y-4">
       <header className="space-y-1 border-b border-[var(--border)] pb-3">
         <div className="flex items-start justify-between gap-3">
-          <h3 className="min-w-0 font-serif text-lg font-light">{detail.displayName}</h3>
+          <h3 className="min-w-0 type-card-title">{detail.displayName}</h3>
           <button
             type="button"
             aria-label={text.closeDetail}
@@ -85,27 +85,27 @@ export function AdminClientAccountDetail({
             <X className="h-3.5 w-3.5" aria-hidden />
           </button>
         </div>
-        {detail.email ? <p className="font-mono text-xs">{detail.email}</p> : null}
+        {detail.email ? <p className="type-caption">{detail.email}</p> : null}
         {detail.phoneNumber ? (
-          <p className="font-mono text-xs text-[var(--ink-dim)]">{detail.phoneNumber}</p>
+          <p className="type-caption text-[var(--ink-dim)]">{detail.phoneNumber}</p>
         ) : (
-          <p className="font-mono text-[10px] italic text-[var(--ink-dim)]">{text.noPhone}</p>
+          <p className="type-caption italic text-[var(--ink-dim)]">{text.noPhone}</p>
         )}
-        <p className="text-xs text-[var(--ink-dim)]">
+        <p className="type-caption text-[var(--ink-dim)]">
           {text.lifecycle}: {adminClientLifecycleLabel(detail.lifecycle, text)}
         </p>
         <div className="flex flex-wrap gap-1 pt-1">
           {detail.role.systemRole === 'owner' ? (
-            <span className="border border-[var(--ink)] px-2 py-0.5 text-[9px] font-mono uppercase">
+            <span className="border border-[var(--ink)] px-2 py-0.5 type-caption uppercase">
               {text.roleOwner}
             </span>
           ) : detail.role.role === 'admin' ? (
-            <span className="border border-[var(--ink)] px-2 py-0.5 text-[9px] font-mono uppercase">
+            <span className="border border-[var(--ink)] px-2 py-0.5 type-caption uppercase">
               {text.roleAdmin}
             </span>
           ) : null}
           {detail.instructorLink.isInstructor ? (
-            <span className="border border-accent-soft px-2 py-0.5 text-[9px] font-mono uppercase text-accent">
+            <span className="border border-accent-soft px-2 py-0.5 type-caption uppercase text-accent">
               {text.coachBadge}
             </span>
           ) : null}
@@ -117,7 +117,7 @@ export function AdminClientAccountDetail({
             type="button"
             disabled={pending}
             onClick={onDisable}
-            className="border border-[var(--border)] px-3 py-2 text-xs font-mono uppercase tracking-wider disabled:opacity-50"
+            className="border border-[var(--border)] px-3 py-2 type-button uppercase disabled:opacity-50"
           >
             {text.disable}
           </button>
@@ -127,7 +127,7 @@ export function AdminClientAccountDetail({
             type="button"
             disabled={pending}
             onClick={onEnable}
-            className="border border-[var(--border)] px-3 py-2 text-xs font-mono uppercase tracking-wider disabled:opacity-50"
+            className="border border-[var(--border)] px-3 py-2 type-button uppercase disabled:opacity-50"
           >
             {text.enable}
           </button>
@@ -136,14 +136,14 @@ export function AdminClientAccountDetail({
           <button
             type="button"
             onClick={onStartContactEdit}
-            className="border border-[var(--border)] px-3 py-2 text-xs font-mono uppercase tracking-wider"
+            className="border border-[var(--border)] px-3 py-2 type-button uppercase"
           >
             {text.editContact}
           </button>
         ) : null}
       </div>
       <section className="space-y-2 border border-[var(--border)] p-4">
-        <h4 className="text-sm font-medium">{text.contactDetails}</h4>
+        <h4 className="type-card-title">{text.contactDetails}</h4>
         {contactEditing ? (
           <AdminClientContactEditor
             draft={contactDraft}
@@ -155,23 +155,17 @@ export function AdminClientAccountDetail({
             onCancel={onCancelContact}
           />
         ) : (
-          <dl className="space-y-1 text-xs">
+          <dl className="space-y-1 type-caption">
             <div>
-              <dt className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">
-                {text.displayName}
-              </dt>
+              <dt className="type-caption uppercase text-[var(--ink-dim)]">{text.displayName}</dt>
               <dd>{detail.displayName}</dd>
             </div>
             <div>
-              <dt className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">
-                {text.email}
-              </dt>
+              <dt className="type-caption uppercase text-[var(--ink-dim)]">{text.email}</dt>
               <dd>{detail.email ?? '—'}</dd>
             </div>
             <div>
-              <dt className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">
-                {text.phone}
-              </dt>
+              <dt className="type-caption uppercase text-[var(--ink-dim)]">{text.phone}</dt>
               <dd>{detail.phoneNumber ?? text.noPhone}</dd>
             </div>
           </dl>

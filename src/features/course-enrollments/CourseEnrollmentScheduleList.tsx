@@ -13,13 +13,11 @@ export const CourseEnrollmentScheduleList: React.FC<{
     <section className="space-y-3" data-testid="course-enrollment-schedule">
       <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2">
         <Calendar className="w-4 h-4 text-violet-500" />
-        <h3 className="text-xs font-mono uppercase tracking-widest text-[var(--ink)] font-bold">
-          {t('scCourseSchedule')}
-        </h3>
+        <h3 className="type-card-title uppercase text-[var(--ink)]">{t('scCourseSchedule')}</h3>
       </div>
       <ul className="space-y-2">
         {lines.map((line) => (
-          <li key={line.courseDayId} className="text-sm text-[var(--ink)]">
+          <li key={line.courseDayId} className="type-compact text-[var(--ink)]">
             {line.label}
           </li>
         ))}

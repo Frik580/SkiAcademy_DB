@@ -16,9 +16,7 @@ export const CourseFAQ: React.FC<CourseFAQProps> = ({ faq }) => {
     <section className="space-y-4">
       <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2">
         <HelpCircle className="w-4 h-4 text-teal-500" />
-        <h3 className="text-xs font-mono uppercase tracking-widest text-[var(--ink)] font-bold">
-          {t('courseFaqTitle')}
-        </h3>
+        <h3 className="type-card-title uppercase text-[var(--ink)]">{t('courseFaqTitle')}</h3>
       </div>
       <div className="space-y-2 font-sans">
         {faq.map((item, idx) => {
@@ -30,7 +28,7 @@ export const CourseFAQ: React.FC<CourseFAQProps> = ({ faq }) => {
             >
               <button
                 onClick={() => setExpandedFaq(isExpanded ? null : idx)}
-                className="w-full px-4 py-3.5 text-left flex items-center justify-between gap-4 font-bold text-xs text-[var(--ink)] transition-colors hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer"
+                className="w-full px-4 py-3.5 text-left flex items-center justify-between gap-4 type-button text-[var(--ink)] transition-colors hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer"
               >
                 <span>{item.q}</span>
                 <ChevronDown
@@ -48,7 +46,7 @@ export const CourseFAQ: React.FC<CourseFAQProps> = ({ faq }) => {
                     exit={{ height: 0, opacity: 0 }}
                     transition={{ duration: 0.25, ease: 'easeInOut' }}
                   >
-                    <div className="px-4 pb-4 pt-1 text-xs text-[var(--ink-dim)] leading-relaxed border-t border-[var(--border)]/30 font-light">
+                    <div className="px-4 pb-4 pt-1 type-caption text-[var(--ink-dim)] border-t border-[var(--border)]/30">
                       {item.a}
                     </div>
                   </motion.div>

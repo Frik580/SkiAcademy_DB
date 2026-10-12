@@ -29,7 +29,7 @@ export const CourseDateRangePicker: React.FC<CourseDateRangePickerProps> = ({ da
 
   return (
     <div className="space-y-2">
-      <label className="text-[10px] text-[var(--ink-dim)] uppercase block">
+      <label className="type-caption text-[var(--ink-dim)] uppercase block">
         {t('datesTimeOfCourse')}
       </label>
 
@@ -41,7 +41,7 @@ export const CourseDateRangePicker: React.FC<CourseDateRangePickerProps> = ({ da
             required
             readOnly
             value={courseDates}
-            className="w-full px-3.5 py-2 pr-10 border border-[var(--border)] bg-black/5 dark:bg-white/5 text-[var(--ink)] text-xs font-mono focus:outline-none cursor-pointer rounded-none"
+            className="w-full px-3.5 py-2 pr-10 border border-[var(--border)] bg-black/5 dark:bg-white/5 text-[var(--ink)] type-body focus:outline-none cursor-pointer rounded-none"
             onClick={() => setShowCalendarPopover(!showCalendarPopover)}
             placeholder={t('openCalendarPlaceholder')}
           />
@@ -51,7 +51,7 @@ export const CourseDateRangePicker: React.FC<CourseDateRangePickerProps> = ({ da
         <button
           type="button"
           onClick={() => setShowCalendarPopover(!showCalendarPopover)}
-          className="px-3 py-2 border border-[var(--border)] text-xs text-[var(--ink)] hover:border-[var(--ink)] hover:bg-black/5 dark:hover:bg-white/5 transition rounded-none font-mono font-bold"
+          className="px-3 py-2 border border-[var(--border)] type-button text-[var(--ink)] hover:border-[var(--ink)] hover:bg-black/5 dark:hover:bg-white/5 transition rounded-none"
         >
           {showCalendarPopover ? t('closeCalendar') : t('openCalendar')}
         </button>
@@ -62,7 +62,7 @@ export const CourseDateRangePicker: React.FC<CourseDateRangePickerProps> = ({ da
         <div className="border border-[var(--border)] p-4 bg-black/5 dark:bg-white/5 space-y-4 animate-fade-in rounded-none">
           {/* Month Navigation */}
           <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
-            <span className="font-serif text-xs font-bold text-[var(--ink)] capitalize">
+            <span className="type-caption font-medium text-[var(--ink)] capitalize">
               {calendarViewMonth.toLocaleString(language === 'ru' ? 'ru-RU' : 'en-US', {
                 month: 'long',
                 year: 'numeric',
@@ -88,13 +88,13 @@ export const CourseDateRangePicker: React.FC<CourseDateRangePickerProps> = ({ da
           </div>
 
           {/* Calendar Grid */}
-          <div className="grid grid-cols-7 gap-1 text-center font-mono">
+          <div className="grid grid-cols-7 gap-1 text-center font-sans">
             {/* Weekday Headers */}
             {(language === 'ru'
               ? ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
               : ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']
             ).map((wd) => (
-              <span key={wd} className="text-[9px] font-bold text-[var(--ink-dim)] py-1">
+              <span key={wd} className="type-caption font-medium text-[var(--ink-dim)] py-1">
                 {wd}
               </span>
             ))}
@@ -126,7 +126,7 @@ export const CourseDateRangePicker: React.FC<CourseDateRangePickerProps> = ({ da
                   key={idx}
                   type="button"
                   onClick={() => handleCalendarDayClick(cell.date)}
-                  className={`h-7 w-7 text-[10px] flex items-center justify-center transition cursor-pointer rounded-none border border-transparent ${cellBgClass}`}
+                  className={`h-7 w-7 type-button flex items-center justify-center transition cursor-pointer rounded-none border border-transparent ${cellBgClass}`}
                 >
                   {cell.day}
                 </button>
@@ -135,37 +135,37 @@ export const CourseDateRangePicker: React.FC<CourseDateRangePickerProps> = ({ da
           </div>
 
           {/* Guide Text */}
-          <div className="text-[9px] text-[var(--ink-dim)] font-mono text-center">
+          <div className="type-caption text-[var(--ink-dim)] text-center">
             {t('calendarRangeHint')}
           </div>
 
           {/* Time Slot Customizer within calendar panel */}
           <div className="border-t border-[var(--border)] pt-3 space-y-3">
-            <span className="text-[10px] text-[var(--ink-dim)] uppercase tracking-wider font-bold block flex items-center gap-1">
+            <span className="type-caption text-[var(--ink-dim)] uppercase font-medium block flex items-center gap-1">
               <Clock className="w-3.5 h-3.5" />
               {t('dailyHours')}
             </span>
 
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
-                <label className="text-[9px] text-[var(--ink-dim)] block">{t('startTime')}</label>
+                <label className="type-caption text-[var(--ink-dim)] block">{t('startTime')}</label>
                 <input
                   type="time"
                   required
                   value={courseStartTime}
                   onChange={(e) => setCourseStartTime(e.target.value)}
-                  className="w-full px-2 py-1 bg-transparent border border-[var(--border)] text-[var(--ink)] text-xs font-mono focus:outline-none focus:border-[var(--ink)] rounded-none"
+                  className="w-full px-2 py-1 bg-transparent border border-[var(--border)] text-[var(--ink)] type-body focus:outline-none focus:border-[var(--ink)] rounded-none"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[9px] text-[var(--ink-dim)] block">{t('endTime')}</label>
+                <label className="type-caption text-[var(--ink-dim)] block">{t('endTime')}</label>
                 <input
                   type="time"
                   required
                   value={courseEndTime}
                   onChange={(e) => setCourseEndTime(e.target.value)}
-                  className="w-full px-2 py-1 bg-transparent border border-[var(--border)] text-[var(--ink)] text-xs font-mono focus:outline-none focus:border-[var(--ink)] rounded-none"
+                  className="w-full px-2 py-1 bg-transparent border border-[var(--border)] text-[var(--ink)] type-body focus:outline-none focus:border-[var(--ink)] rounded-none"
                 />
               </div>
             </div>

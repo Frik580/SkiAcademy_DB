@@ -24,30 +24,30 @@ export const CourseTranslationsSection: React.FC<CourseTranslationsSectionProps>
 
   return (
     <div className="border-t border-[var(--border)]/40 pt-4 space-y-4">
-      <span className="text-[10px] text-[var(--ink-dim)] uppercase tracking-wider font-bold block">
+      <span className="type-caption text-[var(--ink-dim)] uppercase font-medium block">
         {t('badgeDescriptionsSection')}
       </span>
 
       {/* Badges Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <label className="text-[10px] text-[var(--ink-dim)] block">{t('cardBadgeEn')}</label>
+          <label className="type-caption text-[var(--ink-dim)] block">{t('cardBadgeEn')}</label>
           <input
             type="text"
             value={courseBadge}
             onChange={(e) => setCourseBadge(e.target.value)}
             placeholder="e.g. PRO or https://example.com/badge.png"
-            className="w-full px-3 py-1.5 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none text-xs"
+            className="w-full px-3 py-1.5 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none type-body"
           />
         </div>
         <div className="space-y-1.5">
-          <label className="text-[10px] text-[var(--ink-dim)] block">{t('cardBadgeRu')}</label>
+          <label className="type-caption text-[var(--ink-dim)] block">{t('cardBadgeRu')}</label>
           <input
             type="text"
             value={courseBadgeRu}
             onChange={(e) => setCourseBadgeRu(e.target.value)}
             placeholder="напр. ПРО или https://example.com/badge.png"
-            className="w-full px-3 py-1.5 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none text-xs"
+            className="w-full px-3 py-1.5 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none type-body"
           />
         </div>
       </div>
@@ -55,23 +55,23 @@ export const CourseTranslationsSection: React.FC<CourseTranslationsSectionProps>
       {/* Short Descriptions Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <label className="text-[10px] text-[var(--ink-dim)] block">{t('shortDescEnCard')}</label>
+          <label className="type-caption text-[var(--ink-dim)] block">{t('shortDescEnCard')}</label>
           <textarea
             rows={2}
             value={courseShortDescription}
             onChange={(e) => setCourseShortDescription(e.target.value)}
             placeholder="Short catchy summary..."
-            className="w-full px-3 py-1.5 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none text-xs"
+            className="w-full px-3 py-1.5 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none type-body"
           />
         </div>
         <div className="space-y-1.5">
-          <label className="text-[10px] text-[var(--ink-dim)] block">{t('shortDescRuCard')}</label>
+          <label className="type-caption text-[var(--ink-dim)] block">{t('shortDescRuCard')}</label>
           <textarea
             rows={2}
             value={courseShortDescriptionRu}
             onChange={(e) => setCourseShortDescriptionRu(e.target.value)}
             placeholder="Краткое описание на русском..."
-            className="w-full px-3 py-1.5 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none text-xs"
+            className="w-full px-3 py-1.5 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none type-body"
           />
         </div>
       </div>
@@ -79,7 +79,7 @@ export const CourseTranslationsSection: React.FC<CourseTranslationsSectionProps>
       {/* Detailed Descriptions Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <label className="text-[10px] text-[var(--ink-dim)] block">
+          <label className="type-caption text-[var(--ink-dim)] block">
             {t('detailedDescEnModal')}
           </label>
           <textarea
@@ -87,11 +87,11 @@ export const CourseTranslationsSection: React.FC<CourseTranslationsSectionProps>
             value={courseDetailedDescription}
             onChange={(e) => setCourseDetailedDescription(e.target.value)}
             placeholder="Full curriculum details..."
-            className="w-full px-3 py-1.5 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none text-xs"
+            className="w-full px-3 py-1.5 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none type-body"
           />
         </div>
         <div className="space-y-1.5">
-          <label className="text-[10px] text-[var(--ink-dim)] block">
+          <label className="type-caption text-[var(--ink-dim)] block">
             {t('detailedDescRuModal')}
           </label>
           <textarea
@@ -99,7 +99,7 @@ export const CourseTranslationsSection: React.FC<CourseTranslationsSectionProps>
             value={courseDetailedDescriptionRu}
             onChange={(e) => setCourseDetailedDescriptionRu(e.target.value)}
             placeholder="Подробное описание на русском..."
-            className="w-full px-3 py-1.5 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none text-xs"
+            className="w-full px-3 py-1.5 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none type-body"
           />
         </div>
       </div>

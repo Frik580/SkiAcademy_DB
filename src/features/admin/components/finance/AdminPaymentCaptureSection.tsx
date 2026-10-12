@@ -50,18 +50,18 @@ export function AdminPaymentCaptureSection({
   return (
     <div className="space-y-3 border-t border-[var(--border)] pt-3">
       {canPayFromWallet && clientBalanceLabel !== undefined && walletBalance !== undefined ? (
-        <p className="text-xs">
+        <p className="type-caption">
           <span className="text-[var(--ink-dim)]">{clientBalanceLabel}: </span>
           <span className="tabular-nums">{formatAmount(walletBalance)}</span>
         </p>
       ) : null}
       {canPayFromWallet && insufficientFunds && insufficientFundsLabel ? (
-        <p role="status" className="text-xs text-amber-700">
+        <p role="status" className="type-caption text-amber-700">
           {insufficientFundsLabel}
         </p>
       ) : null}
       {canRecordPayment ? (
-        <label htmlFor={inputId} className="block text-xs">
+        <label htmlFor={inputId} className="block type-caption">
           {amountLabel}
           <input
             id={inputId}
@@ -74,7 +74,7 @@ export function AdminPaymentCaptureSection({
             value={amount}
             disabled={paymentBusy}
             onChange={(event) => onAmountChange(event.target.value)}
-            className="mt-1 w-full border border-[var(--border)] bg-transparent p-2 tabular-nums"
+            className="mt-1 w-full border border-[var(--border)] bg-transparent p-2 tabular-nums type-body"
           />
         </label>
       ) : null}
@@ -87,7 +87,7 @@ export function AdminPaymentCaptureSection({
             pending={pendingAction === 'cash'}
             pendingLabel={submittingLabel ?? recordLabel}
             onClick={onRecord}
-            className="w-full border border-[var(--ink)] bg-[var(--ink)] px-3 py-2 text-xs text-[var(--bg)] disabled:opacity-50"
+            className="w-full border border-[var(--ink)] bg-[var(--ink)] px-3 py-2 type-button text-[var(--bg)] disabled:opacity-50"
           >
             {recordLabel}
           </ActionButton>
@@ -100,7 +100,7 @@ export function AdminPaymentCaptureSection({
             pending={pendingAction === 'wallet'}
             pendingLabel={submittingLabel ?? payFromWalletLabel}
             onClick={onPayFromWallet}
-            className="w-full border border-[var(--ink)] px-3 py-2 text-xs disabled:opacity-50"
+            className="w-full border border-[var(--ink)] px-3 py-2 type-button disabled:opacity-50"
           >
             {payFromWalletLabel}
           </ActionButton>

@@ -30,10 +30,10 @@ export const BookingModalHeader: React.FC<BookingModalHeaderProps> = ({
           />
         </div>
         <div className="min-w-0">
-          <h3 className="truncate font-serif text-base font-light text-[var(--ink)]">
+          <h3 className="type-section-title break-words text-[var(--ink)]">
             {t('bookLessonWith')} {targetInstructor.name}
           </h3>
-          <p className="mt-0.5 truncate text-[11px] text-[var(--ink-dim)]">
+          <p className="mt-0.5 truncate type-caption text-[var(--ink-dim)]">
             {hourlyRateKzt === undefined ? '—' : formatPrice(hourlyRateKzt)}/{t('hr')}
           </p>
         </div>

@@ -64,9 +64,7 @@ function statusClass(status: TestSessionStatus): string {
 function StatusBadge({ status }: { readonly status: TestSessionStatus }) {
   const { t } = useAdminTestingTranslations();
   return (
-    <span
-      className={`inline-flex border px-2 py-1 text-[10px] font-mono uppercase tracking-wider ${statusClass(status)}`}
-    >
+    <span className={`inline-flex border px-2 py-1 type-caption uppercase ${statusClass(status)}`}>
       {t(statusTranslationKey[status])}
     </span>
   );
@@ -292,13 +290,13 @@ export const AdminTestingPanel: React.FC = () => {
         <div className="border-2 border-amber-500 bg-amber-500/10 p-4" role="status">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-amber-800">
+              <p className="type-caption font-medium uppercase text-amber-800">
                 {t('adminTestingBanner')}
               </p>
-              <p className="mt-1 text-sm font-semibold text-[var(--ink)]">
+              <p className="mt-1 type-compact font-medium text-[var(--ink)]">
                 {selectedSession.label} · {shortId(selectedSession.testSessionId)}
               </p>
-              <p className="mt-1 text-xs text-[var(--ink-dim)]">
+              <p className="mt-1 type-caption text-[var(--ink-dim)]">
                 {t('adminTestingBannerDescription')}
               </p>
             </div>
@@ -316,12 +314,12 @@ export const AdminTestingPanel: React.FC = () => {
         <div>
           <h3
             id="admin-testing-title"
-            className="flex items-center gap-2 font-serif text-xl text-[var(--ink)]"
+            className="flex items-center gap-2 type-card-title text-[var(--ink)]"
           >
             <FlaskConical className="h-5 w-5" aria-hidden="true" />
             {t('adminTestingTitle')}
           </h3>
-          <p className="mt-1 max-w-3xl text-sm text-[var(--ink-dim)]">
+          <p className="mt-1 max-w-3xl type-compact text-[var(--ink-dim)]">
             {t('adminTestingSubtitle')}
           </p>
         </div>
@@ -339,26 +337,26 @@ export const AdminTestingPanel: React.FC = () => {
 
       {error ? (
         <div
-          className="border border-rose-500/50 bg-rose-500/5 p-4 text-sm text-rose-700"
+          className="border border-rose-500/50 bg-rose-500/5 p-4 type-compact text-rose-700"
           role="alert"
         >
           {t('adminTestingLoadError')}
         </div>
       ) : loading ? (
-        <div className="border border-[var(--border)] p-5 text-sm text-[var(--ink-dim)]">
+        <div className="border border-[var(--border)] p-5 type-compact text-[var(--ink-dim)]">
           {t('adminTestingLoading')}
         </div>
       ) : state.sessions.length === 0 ? (
         <div className="border border-dashed border-[var(--border)] p-6">
-          <h4 className="font-serif text-lg text-[var(--ink)]">{t('adminTestingEmptyTitle')}</h4>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--ink-dim)]">
+          <h4 className="type-card-title text-[var(--ink)]">{t('adminTestingEmptyTitle')}</h4>
+          <p className="mt-2 max-w-2xl type-compact text-[var(--ink-dim)]">
             {t('adminTestingEmptyDescription')}
           </p>
         </div>
       ) : (
         <div className="grid gap-5 lg:grid-cols-[minmax(16rem,0.75fr)_minmax(0,1.5fr)]">
           <div className="border border-[var(--border)] p-3">
-            <h4 className="mb-3 font-mono text-xs uppercase tracking-wider text-[var(--ink-dim)]">
+            <h4 className="mb-3 type-card-title uppercase text-[var(--ink-dim)]">
               {t('adminTestingSessionList')}
             </h4>
             <div className="space-y-2">
@@ -378,13 +376,13 @@ export const AdminTestingPanel: React.FC = () => {
                     <span className="font-semibold text-[var(--ink)]">{session.label}</span>
                     <StatusBadge status={session.status} />
                   </div>
-                  <p className="mt-2 font-mono text-[10px] text-[var(--ink-dim)]">
+                  <p className="mt-2 type-caption text-[var(--ink-dim)]">
                     {shortId(session.testSessionId)}
                   </p>
-                  <p className="mt-1 text-xs text-[var(--ink-dim)]">
+                  <p className="mt-1 type-caption text-[var(--ink-dim)]">
                     {formatDate(session.createdAt)}
                   </p>
-                  <p className="mt-1 text-xs text-[var(--ink-dim)]">
+                  <p className="mt-1 type-caption text-[var(--ink-dim)]">
                     {session.createdByAccountId} · {formatKzt(session.startingBalanceKzt)} ·{' '}
                     {
                       state.actors.filter(
@@ -403,19 +401,19 @@ export const AdminTestingPanel: React.FC = () => {
               <div className="border border-[var(--border)] p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="font-mono text-xs uppercase tracking-wider text-[var(--ink-dim)]">
+                    <p className="type-caption uppercase text-[var(--ink-dim)]">
                       {t('adminTestingSelected')}
                     </p>
-                    <h4 className="mt-1 font-serif text-xl text-[var(--ink)]">
+                    <h4 className="mt-1 type-card-title text-[var(--ink)]">
                       {selectedSession.label}
                     </h4>
                   </div>
                   <StatusBadge status={selectedSession.status} />
                 </div>
-                <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                <dl className="mt-4 grid gap-3 type-compact sm:grid-cols-2">
                   <div>
                     <dt className="text-[var(--ink-dim)]">{t('adminTestingSessionId')}</dt>
-                    <dd className="mt-1 font-mono text-xs text-[var(--ink)]">
+                    <dd className="mt-1 type-caption text-[var(--ink)]">
                       {selectedSession.testSessionId}
                     </dd>
                   </div>
@@ -431,12 +429,12 @@ export const AdminTestingPanel: React.FC = () => {
                   </div>
                   <div>
                     <dt className="text-[var(--ink-dim)]">{t('adminTestingStartingBalance')}</dt>
-                    <dd className="mt-1 text-lg text-[var(--ink)]">
+                    <dd className="mt-1 type-card-title text-[var(--ink)]">
                       {formatKzt(selectedSession.startingBalanceKzt)}
                     </dd>
                   </div>
                 </dl>
-                <p className="mt-3 text-xs text-[var(--ink-dim)]">
+                <p className="mt-3 type-caption text-[var(--ink-dim)]">
                   {t('adminTestingStartingBalanceHint')}
                 </p>
                 {selectedSession.status === 'active' ? (
@@ -444,7 +442,7 @@ export const AdminTestingPanel: React.FC = () => {
                     {t('adminTestingOpen')}
                   </ActionButton>
                 ) : (
-                  <p className="mt-4 flex items-center gap-2 text-sm text-amber-700">
+                  <p className="mt-4 flex items-center gap-2 type-compact text-amber-700">
                     <ShieldAlert className="h-4 w-4" aria-hidden="true" />
                     {t('adminTestingUnavailable')}
                   </p>
@@ -452,24 +450,24 @@ export const AdminTestingPanel: React.FC = () => {
               </div>
 
               <div className="border border-[var(--border)] p-4">
-                <h4 className="font-mono text-xs uppercase tracking-wider text-[var(--ink-dim)]">
+                <h4 className="type-card-title uppercase text-[var(--ink-dim)]">
                   {t('adminTestingInventory')}
                 </h4>
                 {loadingInventory ? (
-                  <p className="mt-3 text-sm text-[var(--ink-dim)]">{t('adminTestingLoading')}</p>
+                  <p className="mt-3 type-compact text-[var(--ink-dim)]">
+                    {t('adminTestingLoading')}
+                  </p>
                 ) : inventory ? (
                   <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {Object.entries(inventory.counts).map(([key, count]) => (
                       <div key={key} className="border border-[var(--border)] p-2">
-                        <p className="text-lg text-[var(--ink)]">{count}</p>
-                        <p className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">
-                          {key}
-                        </p>
+                        <p className="type-card-title text-[var(--ink)]">{count}</p>
+                        <p className="type-caption uppercase text-[var(--ink-dim)]">{key}</p>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="mt-3 text-sm text-[var(--ink-dim)]">
+                  <p className="mt-3 type-compact text-[var(--ink-dim)]">
                     {t('adminTestingNoSessions')}
                   </p>
                 )}
@@ -490,37 +488,35 @@ export const AdminTestingPanel: React.FC = () => {
 
               {isTestContext && (
                 <div className="border border-amber-500/40 bg-amber-500/5 p-4">
-                  <p className="font-mono text-xs uppercase tracking-wider text-amber-800">
-                    {t('adminTestingBanner')}
-                  </p>
+                  <p className="type-caption uppercase text-amber-800">{t('adminTestingBanner')}</p>
                   <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <div className="border border-amber-500/30 p-2">
-                      <p className="text-lg text-[var(--ink)]">{inventory?.counts.bookings ?? 0}</p>
-                      <p className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">
-                        Lessons
+                      <p className="type-card-title text-[var(--ink)]">
+                        {inventory?.counts.bookings ?? 0}
                       </p>
+                      <p className="type-caption uppercase text-[var(--ink-dim)]">Lessons</p>
                     </div>
                     <div className="border border-amber-500/30 p-2">
-                      <p className="text-lg text-[var(--ink)]">
+                      <p className="type-card-title text-[var(--ink)]">
                         {inventory?.counts.courseClones ?? 0}
                       </p>
-                      <p className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">
+                      <p className="type-caption uppercase text-[var(--ink-dim)]">
                         {t('adminTestingTestCopy')}
                       </p>
                     </div>
                     <div className="border border-amber-500/30 p-2">
-                      <p className="text-lg text-[var(--ink)]">{inventory?.counts.payments ?? 0}</p>
-                      <p className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">
+                      <p className="type-card-title text-[var(--ink)]">
+                        {inventory?.counts.payments ?? 0}
+                      </p>
+                      <p className="type-caption uppercase text-[var(--ink-dim)]">
                         {t('adminTestingTestFunds')}
                       </p>
                     </div>
                     <div className="border border-amber-500/30 p-2">
-                      <p className="text-lg text-[var(--ink)]">
+                      <p className="type-card-title text-[var(--ink)]">
                         {testIssueCount ?? inventory?.counts.issues ?? 0}
                       </p>
-                      <p className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">
-                        Issues
-                      </p>
+                      <p className="type-caption uppercase text-[var(--ink-dim)]">Issues</p>
                     </div>
                   </div>
                 </div>
@@ -532,23 +528,26 @@ export const AdminTestingPanel: React.FC = () => {
 
       <div className="grid gap-5 lg:grid-cols-2">
         <div className="border border-[var(--border)] p-4">
-          <h4 className="flex items-center gap-2 font-serif text-lg text-[var(--ink)]">
+          <h4 className="flex items-center gap-2 type-card-title text-[var(--ink)]">
             <Users className="h-4 w-4" aria-hidden="true" />
             {t('adminTestingActors')}
           </h4>
           <div className="mt-3 space-y-2">
             {state.actors.length === 0 ? (
-              <p className="text-sm text-[var(--ink-dim)]">{t('adminTestingNoActors')}</p>
+              <p className="type-compact text-[var(--ink-dim)]">{t('adminTestingNoActors')}</p>
             ) : (
               state.actors.map((actor) => (
-                <div key={actor.accountId} className="border border-[var(--border)] p-3 text-sm">
+                <div
+                  key={actor.accountId}
+                  className="border border-[var(--border)] p-3 type-compact"
+                >
                   <div className="flex justify-between gap-2">
                     <span className="font-semibold text-[var(--ink)]">{actor.displayName}</span>
-                    <span className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">
+                    <span className="type-caption uppercase text-[var(--ink-dim)]">
                       {actor.kind}
                     </span>
                   </div>
-                  <p className="mt-1 text-xs text-[var(--ink-dim)]">
+                  <p className="mt-1 type-caption text-[var(--ink-dim)]">
                     {t('adminTestingParticipants')}: {actor.participantIds.length} ·{' '}
                     {actor.instructorId
                       ? t('adminTestingInstructor')
@@ -556,7 +555,7 @@ export const AdminTestingPanel: React.FC = () => {
                         ? t('adminTestingAllowed')
                         : t('adminTestingNotAllowed')}
                   </p>
-                  <p className="mt-1 text-xs text-[var(--ink-dim)]">
+                  <p className="mt-1 type-caption text-[var(--ink-dim)]">
                     {actor.activeTestSessionId === selectedSessionId
                       ? t('adminTestingAssigned')
                       : t('adminTestingNotAssigned')}
@@ -567,22 +566,21 @@ export const AdminTestingPanel: React.FC = () => {
           </div>
         </div>
         <div className="border border-[var(--border)] p-4">
-          <h4 className="font-serif text-lg text-[var(--ink)]">
-            {t('adminTestingCourseTemplates')}
-          </h4>
-          <p className="mt-1 text-xs text-[var(--ink-dim)]">
+          <h4 className="type-card-title text-[var(--ink)]">{t('adminTestingCourseTemplates')}</h4>
+          <p className="mt-1 type-caption text-[var(--ink-dim)]">
             {t('adminTestingCourseTemplatesHint')}
           </p>
           <div className="mt-3 space-y-2">
             {state.templates.length === 0 ? (
-              <p className="text-sm text-[var(--ink-dim)]">{t('adminTestingNoTemplates')}</p>
+              <p className="type-compact text-[var(--ink-dim)]">{t('adminTestingNoTemplates')}</p>
             ) : (
               state.templates.map((course) => (
-                <div key={course.courseId} className="border border-[var(--border)] p-3 text-sm">
+                <div
+                  key={course.courseId}
+                  className="border border-[var(--border)] p-3 type-compact"
+                >
                   <span className="font-semibold text-[var(--ink)]">{course.title}</span>
-                  <span className="ml-2 font-mono text-[10px] text-[var(--ink-dim)]">
-                    LIVE template
-                  </span>
+                  <span className="ml-2 type-caption text-[var(--ink-dim)]">LIVE template</span>
                 </div>
               ))
             )}
@@ -591,19 +589,19 @@ export const AdminTestingPanel: React.FC = () => {
       </div>
 
       <details className="border border-[var(--border)] p-4">
-        <summary className="cursor-pointer font-serif text-lg text-[var(--ink)]">
+        <summary className="cursor-pointer type-card-title text-[var(--ink)]">
           {t('adminTestingCreate')}
         </summary>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <label className="text-sm text-[var(--ink-dim)]">
+          <label className="type-compact text-[var(--ink-dim)]">
             {t('adminTestingTitle')}
             <input
               value={createLabel}
               onChange={(event) => setCreateLabel(event.target.value)}
-              className="mt-1 block w-full border border-[var(--border)] bg-transparent p-2 text-[var(--ink)]"
+              className="mt-1 block w-full border border-[var(--border)] bg-transparent p-2 text-[var(--ink)] type-body"
             />
           </label>
-          <label className="text-sm text-[var(--ink-dim)]">
+          <label className="type-compact text-[var(--ink-dim)]">
             {t('adminTestingStartingBalance')}
             <input
               type="number"
@@ -611,15 +609,18 @@ export const AdminTestingPanel: React.FC = () => {
               step="1"
               value={createBalance}
               onChange={(event) => setCreateBalance(event.target.value)}
-              className="mt-1 block w-full border border-[var(--border)] bg-transparent p-2 text-[var(--ink)]"
+              className="mt-1 block w-full border border-[var(--border)] bg-transparent p-2 text-[var(--ink)] type-body"
             />
           </label>
           <fieldset>
-            <legend className="text-sm text-[var(--ink-dim)]">
+            <legend className="type-compact text-[var(--ink-dim)]">
               {t('adminTestingCourseTemplates')}
             </legend>
             {state.templates.map((course) => (
-              <label key={course.courseId} className="mt-1 flex gap-2 text-xs text-[var(--ink)]">
+              <label
+                key={course.courseId}
+                className="mt-1 flex gap-2 type-caption text-[var(--ink)]"
+              >
                 <input
                   type="checkbox"
                   checked={selectedTemplateIds.includes(course.courseId)}
@@ -632,11 +633,14 @@ export const AdminTestingPanel: React.FC = () => {
             ))}
           </fieldset>
           <fieldset>
-            <legend className="text-sm text-[var(--ink-dim)]">
+            <legend className="type-compact text-[var(--ink-dim)]">
               {t('adminTestingSelectParents')}
             </legend>
             {parentActors.map((actor) => (
-              <label key={actor.accountId} className="mt-1 flex gap-2 text-xs text-[var(--ink)]">
+              <label
+                key={actor.accountId}
+                className="mt-1 flex gap-2 type-caption text-[var(--ink)]"
+              >
                 <input
                   type="checkbox"
                   checked={selectedActorIds.includes(actor.accountId)}
@@ -649,11 +653,14 @@ export const AdminTestingPanel: React.FC = () => {
             ))}
           </fieldset>
           <fieldset>
-            <legend className="text-sm text-[var(--ink-dim)]">
+            <legend className="type-compact text-[var(--ink-dim)]">
               {t('adminTestingSelectInstructor')}
             </legend>
             {instructorActors.map((actor) => (
-              <label key={actor.accountId} className="mt-1 flex gap-2 text-xs text-[var(--ink)]">
+              <label
+                key={actor.accountId}
+                className="mt-1 flex gap-2 type-caption text-[var(--ink)]"
+              >
                 <input
                   type="radio"
                   name="test-instructor"
@@ -666,30 +673,30 @@ export const AdminTestingPanel: React.FC = () => {
           </fieldset>
         </div>
         {lifecycleError ? (
-          <p className="mt-3 text-sm text-rose-700" role="alert">
+          <p className="mt-3 type-compact text-rose-700" role="alert">
             {lifecycleError}
           </p>
         ) : null}
         {lifecycleResult?.phase ? (
-          <p className="mt-3 text-sm text-[var(--ink)]">
+          <p className="mt-3 type-compact text-[var(--ink)]">
             {t(phaseTranslationKey[lifecycleResult.phase])}
           </p>
         ) : null}
         {lifecycleResult?.manifest ? (
-          <div className="mt-3 space-y-2 text-sm">
+          <div className="mt-3 space-y-2 type-compact">
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {Object.entries(lifecycleResult.manifest.counts).map(([key, count]) => (
                 <div key={key} className="border border-[var(--border)] p-2">
-                  <p className="text-lg text-[var(--ink)]">{count}</p>
-                  <p className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">{key}</p>
+                  <p className="type-card-title text-[var(--ink)]">{count}</p>
+                  <p className="type-caption uppercase text-[var(--ink-dim)]">{key}</p>
                 </div>
               ))}
             </div>
-            <p className="text-xs text-[var(--ink-dim)]">
+            <p className="type-caption text-[var(--ink-dim)]">
               {t('adminTestingPreserved')}: {lifecycleResult.manifest.preserve.join(', ')}
             </p>
             {previewKind === 'delete' ? (
-              <label className="block text-xs text-[var(--ink-dim)]">
+              <label className="block type-caption text-[var(--ink-dim)]">
                 {t('adminTestingConfirmation')}{' '}
                 <span className="font-mono text-[var(--ink)]">
                   {TEST_SESSION_DELETE_CONFIRMATION}
@@ -697,15 +704,15 @@ export const AdminTestingPanel: React.FC = () => {
                 <input
                   value={confirmation}
                   onChange={(event) => setConfirmation(event.target.value)}
-                  className="mt-1 block w-full border border-[var(--border)] bg-transparent p-2 font-mono text-[var(--ink)]"
+                  className="mt-1 block w-full border border-[var(--border)] bg-transparent p-2 text-[var(--ink)] type-body"
                 />
               </label>
             ) : null}
           </div>
         ) : null}
-        <p className="mt-3 text-xs text-[var(--ink-dim)]">{t('adminTestingCloseHint')}</p>
-        <p className="mt-1 text-xs text-[var(--ink-dim)]">{t('adminTestingResetHint')}</p>
-        <p className="mt-1 text-xs text-[var(--ink-dim)]">{t('adminTestingDeleteHint')}</p>
+        <p className="mt-3 type-caption text-[var(--ink-dim)]">{t('adminTestingCloseHint')}</p>
+        <p className="mt-1 type-caption text-[var(--ink-dim)]">{t('adminTestingResetHint')}</p>
+        <p className="mt-1 type-caption text-[var(--ink-dim)]">{t('adminTestingDeleteHint')}</p>
         <div className="mt-3 flex flex-wrap gap-2">
           <ActionButton
             disabled={!creationInputValid || lifecyclePending || maintenanceLocked}

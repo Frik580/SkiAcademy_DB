@@ -51,7 +51,7 @@ export const StudentDevelopmentPanel: React.FC<StudentDevelopmentPanelInput> = (
           {!hideProgress && (
             <>
               <ScProgressBar percent={percent} variant="apple" showLabel />
-              <p className="text-sm text-[var(--ink-dim)]">
+              <p className="type-compact text-[var(--ink-dim)]">
                 {t('scPointsToNextLevel').replace(
                   '{pointsLabel}',
                   formatPointsCount(remaining, lang)
@@ -68,7 +68,7 @@ export const StudentDevelopmentPanel: React.FC<StudentDevelopmentPanelInput> = (
           <section className="py-6 space-y-4">
             <div className="space-y-1">
               <ScSectionTitle>{t('scRadarTitle')}</ScSectionTitle>
-              <p className="text-sm text-[var(--ink-dim)]">{t('scRadarSubtitle')}</p>
+              <p className="type-compact text-[var(--ink-dim)]">{t('scRadarSubtitle')}</p>
             </div>
             <LazySkillRadarChart
               userProfile={userProfile}
@@ -84,14 +84,14 @@ export const StudentDevelopmentPanel: React.FC<StudentDevelopmentPanelInput> = (
         <>
           <ScDivider />
           <section className="py-6">
-            <p className="text-sm text-[var(--ink)]">
+            <p className="type-compact text-[var(--ink)]">
               {t('scDevLastScoreUpdate')}
               {lastSkillUpdate.metadata?.pointsDelta
                 ? ` +${lastSkillUpdate.metadata.pointsDelta}`
                 : ''}
             </p>
             {lastSkillUpdate.metadata?.instructorName && (
-              <p className="text-xs text-[var(--ink-dim)] mt-1">
+              <p className="type-caption text-[var(--ink-dim)] mt-1">
                 {lastSkillUpdate.metadata.instructorName}
               </p>
             )}
@@ -105,7 +105,7 @@ export const StudentDevelopmentPanel: React.FC<StudentDevelopmentPanelInput> = (
           <section className="py-6 space-y-3">
             <div className="space-y-1">
               <ScSectionTitle>{t('scDevPriorityExercises')}</ScSectionTitle>
-              <p className="text-sm text-[var(--ink-dim)]">{t('scDevPrioritySub')}</p>
+              <p className="type-compact text-[var(--ink-dim)]">{t('scDevPrioritySub')}</p>
             </div>
             <ul className="space-y-2">
               {priorityItems.map((item) => (
@@ -115,11 +115,11 @@ export const StudentDevelopmentPanel: React.FC<StudentDevelopmentPanelInput> = (
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm text-[var(--ink)] leading-snug">
+                      <p className="type-compact text-[var(--ink)]">
                         {getSkillItemTitle(item, language)}
                       </p>
                       {!hideProgress && (
-                        <p className="text-xs text-[var(--ink-dim)] tabular-nums mt-1">
+                        <p className="type-caption text-[var(--ink-dim)] tabular-nums mt-1">
                           {item.earned} / {item.maxPoints} · {item.percent}%
                         </p>
                       )}
@@ -128,7 +128,7 @@ export const StudentDevelopmentPanel: React.FC<StudentDevelopmentPanelInput> = (
                       type="button"
                       onClick={() => onToggleSkillToday?.(item.id, !item.pinned)}
                       disabled={!onToggleSkillToday}
-                      className={`shrink-0 text-xs font-medium transition ${
+                      className={`shrink-0 type-button transition ${
                         item.pinned
                           ? 'text-[var(--accent)]'
                           : 'text-[var(--ink-dim)] hover:text-[var(--accent)]'

@@ -35,18 +35,18 @@ export const ParticipantPicker: React.FC<ParticipantPickerProps> = ({
   onCreateDependent,
 }) => {
   if (loading) {
-    return <p className="text-xs text-[var(--ink-dim)]">{t('loading')}</p>;
+    return <p className="type-caption text-[var(--ink-dim)]">{t('loading')}</p>;
   }
 
   if (error) {
     return (
       <div className="space-y-2 rounded-lg border border-rose-200/60 bg-rose-50/40 p-3 dark:border-rose-900/40 dark:bg-rose-950/20">
-        <p className="text-xs text-rose-700 dark:text-rose-300">{error}</p>
+        <p className="type-caption text-rose-700 dark:text-rose-300">{error}</p>
         {onRetry && (
           <button
             type="button"
             onClick={() => void onRetry()}
-            className="text-xs font-medium text-[var(--accent)] hover:underline"
+            className="type-button text-[var(--accent)] hover:underline"
           >
             {t('retry')}
           </button>
@@ -62,9 +62,11 @@ export const ParticipantPicker: React.FC<ParticipantPickerProps> = ({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <label className="text-xs text-[var(--ink-dim)]">{t('bookingParticipantsLabel')}</label>
+        <label className="type-caption text-[var(--ink-dim)]">
+          {t('bookingParticipantsLabel')}
+        </label>
         {selectionMode !== 'single' && requiresSelectionHint(participants) && (
-          <span className="text-[10px] uppercase tracking-wide text-[var(--ink-dim)]">
+          <span className="type-caption uppercase text-[var(--ink-dim)]">
             {t('participantsChooseExplicitly')}
           </span>
         )}
@@ -82,7 +84,7 @@ export const ParticipantPicker: React.FC<ParticipantPickerProps> = ({
               type="button"
               disabled={atLimit}
               onClick={() => onToggleParticipant(participant.participantId)}
-              className={`rounded-lg border px-3 py-1.5 text-xs transition ${
+              className={`rounded-lg border px-3 py-1.5 type-button transition ${
                 selected
                   ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--ink)]'
                   : atLimit
@@ -91,7 +93,7 @@ export const ParticipantPicker: React.FC<ParticipantPickerProps> = ({
               }`}
             >
               <span>{participant.displayName}</span>
-              <span className="ml-1.5 text-[10px] uppercase tracking-wide opacity-70">
+              <span className="ml-1.5 type-caption uppercase opacity-70">
                 {authorityLabel(participant.authority, t)}
               </span>
             </button>
@@ -101,7 +103,7 @@ export const ParticipantPicker: React.FC<ParticipantPickerProps> = ({
       {selectionMode !== 'single' &&
         maxParticipants !== undefined &&
         selectedParticipantIds.length >= maxParticipants && (
-          <p className="text-[10px] text-[var(--ink-dim)]">
+          <p className="type-caption text-[var(--ink-dim)]">
             {t('participantsMaxSelected').replace('{count}', String(maxParticipants))}
           </p>
         )}
@@ -109,7 +111,7 @@ export const ParticipantPicker: React.FC<ParticipantPickerProps> = ({
         <button
           type="button"
           onClick={onCreateDependent}
-          className="text-xs font-medium text-[var(--accent)] hover:underline"
+          className="type-button text-[var(--accent)] hover:underline"
         >
           {t('participantsCreateDependent')}
         </button>

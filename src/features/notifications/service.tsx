@@ -96,10 +96,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             </div>
 
             <div className="flex-1 min-w-0">
-              <h4 className="font-serif text-sm font-medium text-[var(--ink)] leading-tight">
-                {n.title}
-              </h4>
-              <p className="text-xs text-[var(--ink-dim)] mt-1 leading-relaxed whitespace-pre-wrap">
+              <h4 className="type-card-title text-[var(--ink)]">{n.title}</h4>
+              <p className="type-caption text-[var(--ink-dim)] mt-1 whitespace-pre-wrap">
                 {n.message}
               </p>
             </div>
@@ -225,11 +223,9 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
                 <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full ring-1 ring-[var(--bg)]" />
               )}
             </div>
-            <h3 className="font-serif text-sm font-light text-[var(--ink)]">
-              {t('notificationHistory')}
-            </h3>
+            <h3 className="type-card-title text-[var(--ink)]">{t('notificationHistory')}</h3>
             {totalUnreadCount > 0 && (
-              <span className="text-[10px] font-mono uppercase tracking-wider text-rose-500 bg-rose-500/10 border border-rose-500/30 px-1.5 py-0.5 rounded-none">
+              <span className="type-caption uppercase text-rose-500 bg-rose-500/10 border border-rose-500/30 px-1.5 py-0.5 rounded-none">
                 {totalUnreadCount > 9 ? '9+' : totalUnreadCount}
               </span>
             )}
@@ -246,7 +242,7 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
           {/* Review Invitations Section */}
           {unreviewedCompletedBookings.length > 0 && (
             <div className="space-y-2 pb-3 border-b border-[var(--border)]">
-              <h4 className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink)] block mb-2">
+              <h4 className="type-card-title uppercase text-[var(--ink)] block mb-2">
                 🌟 {t('rateCompletedLessons')}
               </h4>
               <div className="space-y-2">
@@ -262,10 +258,10 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
                         className="w-8 h-8 rounded-none object-cover shrink-0 border border-[var(--border)]"
                       />
                       <div className="min-w-0">
-                        <p className="text-xs font-bold text-[var(--ink)] leading-tight truncate">
+                        <p className="type-caption font-medium text-[var(--ink)] truncate">
                           {b.instructorName}
                         </p>
-                        <span className="text-[10px] text-[var(--ink-dim)] block font-mono">
+                        <span className="type-caption text-[var(--ink-dim)] block">
                           {b.date} • {b.time}
                         </span>
                       </div>
@@ -297,7 +293,7 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
           {/* Standard Notifications Section */}
           <div className="space-y-3">
             {unreviewedCompletedBookings.length > 0 && notificationsToShow.length > 0 && (
-              <h4 className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] mb-2">
+              <h4 className="type-card-title uppercase text-[var(--ink-dim)] mb-2">
                 {t('systemHistory')}
               </h4>
             )}
@@ -322,10 +318,10 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
-                      <h4 className="text-xs font-semibold text-[var(--ink)]">{n.title}</h4>
+                      <h4 className="type-card-title text-[var(--ink)]">{n.title}</h4>
                       <div className="flex items-center gap-1.5 shrink-0">
                         {!n.isRead && (
-                          <span className="shrink-0 text-[9px] font-mono uppercase tracking-wider text-[var(--accent)]">
+                          <span className="shrink-0 type-caption uppercase text-[var(--accent)]">
                             {t('newBadge')}
                           </span>
                         )}
@@ -339,10 +335,10 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
                         </button>
                       </div>
                     </div>
-                    <p className="text-xs text-[var(--ink-dim)] mt-0.5 whitespace-pre-wrap">
+                    <p className="type-caption text-[var(--ink-dim)] mt-0.5 whitespace-pre-wrap">
                       {n.message}
                     </p>
-                    <span className="text-[10px] text-[var(--ink-dim)] block mt-2 font-mono">
+                    <span className="type-caption text-[var(--ink-dim)] block mt-2">
                       {n.timestamp.toLocaleTimeString()}
                     </span>
                   </div>

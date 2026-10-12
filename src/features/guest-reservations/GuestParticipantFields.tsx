@@ -31,7 +31,7 @@ export const GuestParticipantFields: React.FC<GuestParticipantFieldsInput> = ({
   const fieldId = useId();
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-      <label htmlFor={`${fieldId}-age`} className="space-y-1 text-xs text-[var(--ink-dim)]">
+      <label htmlFor={`${fieldId}-age`} className="space-y-1 type-caption text-[var(--ink-dim)]">
         <span>{labels.age} *</span>
         <input
           id={`${fieldId}-age`}
@@ -42,10 +42,13 @@ export const GuestParticipantFields: React.FC<GuestParticipantFieldsInput> = ({
           step={1}
           value={ageYears}
           onChange={(event) => onAgeYearsChange(event.target.value)}
-          className="ui-field-plain"
+          className="ui-field-plain type-body"
         />
       </label>
-      <label htmlFor={`${fieldId}-discipline`} className="space-y-1 text-xs text-[var(--ink-dim)]">
+      <label
+        htmlFor={`${fieldId}-discipline`}
+        className="space-y-1 type-caption text-[var(--ink-dim)]"
+      >
         <span>{labels.discipline} *</span>
         <select
           id={`${fieldId}-discipline`}
@@ -54,7 +57,7 @@ export const GuestParticipantFields: React.FC<GuestParticipantFieldsInput> = ({
           onChange={(event) =>
             onDisciplineChange(event.target.value as GuestParticipantFormInput['discipline'])
           }
-          className="ui-field-plain"
+          className="ui-field-plain type-body"
         >
           <option value="" disabled>
             —
@@ -64,14 +67,17 @@ export const GuestParticipantFields: React.FC<GuestParticipantFieldsInput> = ({
         </select>
       </label>
       {skill && (
-        <label htmlFor={`${fieldId}-skill`} className="space-y-1 text-xs text-[var(--ink-dim)]">
+        <label
+          htmlFor={`${fieldId}-skill`}
+          className="space-y-1 type-caption text-[var(--ink-dim)]"
+        >
           <span>{skill.label} *</span>
           <select
             id={`${fieldId}-skill`}
             required
             value={skill.value}
             onChange={(event) => skill.onChange(event.target.value)}
-            className="ui-field-plain"
+            className="ui-field-plain type-body"
           >
             <option value="" disabled>
               —

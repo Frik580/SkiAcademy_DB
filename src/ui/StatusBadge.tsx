@@ -119,9 +119,9 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
   }
 
   const sizeClasses = {
-    xs: 'px-1.5 py-0.5 text-[9px] gap-1',
-    sm: 'px-2 py-0.5 text-xs gap-1.5',
-    md: 'px-2.5 py-1 text-xs gap-2',
+    xs: 'px-1.5 py-0.5 type-caption-sm gap-1',
+    sm: 'px-2 py-0.5 type-caption gap-1.5',
+    md: 'px-2.5 py-1 type-caption gap-2',
   }[size];
 
   const dotSize = {
@@ -139,7 +139,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
           className={`rounded-full shrink-0 ${config.dot} ${dotSize} ${config.pulse ? 'animate-pulse' : ''}`}
         />
       )}
-      <span className="truncate">{displayLabel || key}</span>
+      <span className="min-w-0 break-words">{displayLabel || key}</span>
     </span>
   );
 };

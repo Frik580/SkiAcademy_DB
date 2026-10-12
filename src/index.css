@@ -4,6 +4,94 @@
   --font-sans: 'DM Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-serif: 'Cormorant Garamond', Georgia, Cambria, 'Times New Roman', Times, serif;
   --font-mono: 'Space Mono', ui-monospace, SFMono-Regular, monospace;
+
+  /* Semantic UI scale. Display/diagram typography is an explicit exception. */
+  --text-page-title: clamp(1.875rem, 1.75rem + 0.5vw, 2rem);
+  --text-page-title--line-height: 1.2;
+  --text-page-title--font-weight: 700;
+  --text-page-title--letter-spacing: -0.02em;
+  --text-section-title: clamp(1.375rem, 1.25rem + 0.5vw, 1.5rem);
+  --text-section-title--line-height: 1.3;
+  --text-section-title--font-weight: 600;
+  --text-section-title--letter-spacing: -0.015em;
+  --text-card-title: 1.125rem;
+  --text-card-title--line-height: 1.4;
+  --text-card-title--font-weight: 600;
+  --text-card-title--letter-spacing: -0.01em;
+  --text-body: 1rem;
+  --text-body--line-height: 1.5;
+  --text-body--font-weight: 400;
+  --text-body--letter-spacing: 0em;
+  --text-compact: 0.875rem;
+  --text-compact--line-height: 1.5;
+  --text-compact--font-weight: 400;
+  --text-compact--letter-spacing: 0em;
+  --text-caption: 0.8125rem;
+  --text-caption--line-height: 1.5;
+  --text-caption--font-weight: 400;
+  --text-caption--letter-spacing: 0em;
+  --text-caption-sm: 0.75rem;
+  --text-caption-sm--line-height: 1.5;
+  --text-caption-sm--font-weight: 500;
+  --text-caption-sm--letter-spacing: 0em;
+  --text-button: 0.875rem;
+  --text-button--line-height: 1.4;
+  --text-button--font-weight: 500;
+  --text-button--letter-spacing: 0em;
+  --text-button-lg: 1rem;
+  --text-button-lg--line-height: 1.5;
+  --text-button-lg--font-weight: 600;
+  --text-button-lg--letter-spacing: 0em;
+  --text-nav: 0.875rem;
+  --text-nav--line-height: 1.4;
+  --text-nav--font-weight: 500;
+  --text-nav--letter-spacing: 0em;
+  --text-metric: 1.5rem;
+  --text-metric--line-height: 1.2;
+  --text-metric--font-weight: 600;
+  --text-metric--letter-spacing: -0.02em;
+  --text-metric-lg: 2rem;
+  --text-metric-lg--line-height: 1.2;
+  --text-metric-lg--font-weight: 700;
+  --text-metric-lg--letter-spacing: -0.02em;
+}
+
+/* Bundles family with Tailwind's size/weight/leading/tracking theme metadata. */
+@utility type-page-title {
+  @apply font-sans text-page-title;
+}
+@utility type-section-title {
+  @apply font-sans text-section-title;
+}
+@utility type-card-title {
+  @apply font-sans text-card-title;
+}
+@utility type-body {
+  @apply font-sans text-body;
+}
+@utility type-compact {
+  @apply font-sans text-compact;
+}
+@utility type-caption {
+  @apply font-sans text-caption;
+}
+@utility type-caption-sm {
+  @apply font-sans text-caption-sm;
+}
+@utility type-button {
+  @apply font-sans text-button;
+}
+@utility type-button-lg {
+  @apply font-sans text-button-lg;
+}
+@utility type-nav {
+  @apply font-sans text-nav;
+}
+@utility type-metric {
+  @apply font-sans text-metric tabular-nums;
+}
+@utility type-metric-lg {
+  @apply font-sans text-metric-lg tabular-nums;
 }
 
 @variant dark (&:where(.dark, .dark *));
@@ -49,9 +137,11 @@
   --ui-shadow: var(--shadow-card);
   --section-gap: 4rem;
   --app-navbar-height: 4.5rem;
-  --app-student-tab-pill-height: 3.25rem;
+  --app-student-tab-pill-height: 4rem;
   --site-footer-height: calc(var(--app-student-tab-pill-height) + 40px);
-  --app-student-tab-bar-stack: calc(3.25rem + 2 * 1.25rem + env(safe-area-inset-bottom, 0px));
+  --app-student-tab-bar-stack: calc(
+    var(--app-student-tab-pill-height) + 2 * 1.25rem + env(safe-area-inset-bottom, 0px)
+  );
   --fab-book-bg: #15803d;
   --fab-book-bg-hover: #166534;
   --fab-book-fg: #ffffff;
@@ -107,26 +197,13 @@
   }
 
   body {
+    @apply type-body;
     background-color: var(--bg);
     color: var(--ink);
-    font-family: var(--font-sans);
-    line-height: 1.5;
     transition:
       background-color 0.3s,
       color 0.3s,
       border-color 0.3s;
-  }
-
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6 {
-    font-family: var(--font-serif);
-    font-weight: 400;
-    line-height: 1.15;
-    letter-spacing: -0.015em;
   }
 
   code,
@@ -141,12 +218,6 @@
   textarea {
     border-radius: var(--radius-sm);
   }
-
-  h1,
-  h2,
-  h3 {
-    letter-spacing: -0.02em;
-  }
 }
 
 @layer utilities {
@@ -157,13 +228,10 @@
 
 @layer components {
   .btn-primary {
+    @apply type-button;
     background-color: var(--accent);
     border: 1px solid var(--accent);
     color: var(--accent-foreground);
-    font-family: var(--font-sans);
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.05em;
     text-transform: uppercase;
     transition:
       background-color 0.2s,
@@ -219,13 +287,10 @@
   }
 
   .btn-secondary {
+    @apply type-button;
     background-color: transparent;
     border: 1px solid var(--border);
     color: var(--ink);
-    font-family: var(--font-sans);
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.05em;
     text-transform: uppercase;
     transition:
       border-color 0.2s,
@@ -250,13 +315,10 @@
 
   /* Secondary CTA on hero / photo backgrounds */
   .btn-secondary-hero {
+    @apply type-button;
     background-color: var(--hero-secondary-bg);
     border: 1px solid var(--hero-secondary-border);
     color: var(--hero-ink);
-    font-family: var(--font-sans);
-    font-size: 0.8125rem;
-    font-weight: 600;
-    letter-spacing: 0.05em;
     text-transform: uppercase;
     backdrop-filter: blur(10px);
     box-shadow: var(--hero-secondary-shadow);
@@ -280,13 +342,10 @@
 
   /* Primary hero CTA — ink/cream, distinct from app-wide accent buttons */
   .btn-primary-hero {
+    @apply type-button;
     background-color: var(--hero-cta-bg);
     border: 1px solid var(--hero-cta-border);
     color: var(--hero-cta-fg);
-    font-family: var(--font-sans);
-    font-size: 0.8125rem;
-    font-weight: 600;
-    letter-spacing: 0.05em;
     text-transform: uppercase;
     box-shadow: var(--hero-cta-shadow);
     transition:
@@ -399,12 +458,11 @@
   }
 
   .ui-field {
+    @apply type-body;
     width: 100%;
     padding: 0.625rem 1rem 0.625rem 2.5rem;
     border: 1px solid var(--border);
     border-radius: var(--ui-field-radius, 0px);
-    font-size: 0.8125rem;
-    font-family: var(--font-sans);
     background-color: color-mix(in srgb, var(--ink) 4%, transparent);
     color: var(--ink);
     transition:
@@ -426,12 +484,11 @@
   }
 
   .ui-field-plain {
+    @apply type-body;
     width: 100%;
     padding: 0.625rem 1rem;
     border: 1px solid var(--border);
     border-radius: var(--ui-field-radius, 0px);
-    font-size: 0.8125rem;
-    font-family: var(--font-sans);
     background-color: color-mix(in srgb, var(--ink) 4%, transparent);
     color: var(--ink);
     transition:
@@ -446,12 +503,11 @@
   }
 
   .ui-select {
+    @apply type-body;
     width: 100%;
     padding: 0.5rem 0.75rem;
     border: 1px solid var(--border);
     border-radius: var(--ui-field-radius, 0px);
-    font-size: 0.8125rem;
-    font-family: var(--font-sans);
     background-color: var(--bg);
     color: var(--ink);
     cursor: pointer;
@@ -498,32 +554,23 @@
   }
 
   .ui-section-eyebrow {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 500;
-    letter-spacing: 0.1em;
+    @apply type-caption;
     text-transform: uppercase;
     color: var(--ink-dim);
   }
 
   .ui-section-eyebrow {
-    font-family: var(--font-sans);
-    font-size: 0.8125rem;
-    font-weight: 400;
-    letter-spacing: 0;
+    @apply type-caption;
     text-transform: none;
   }
 
   .ui-section-title {
-    font-family: var(--font-serif);
-    font-size: 1.5rem;
-    font-weight: 300;
-    letter-spacing: -0.02em;
+    @apply type-section-title;
     color: var(--ink);
   }
 
   .ui-section-title {
-    font-size: 1.875rem;
+    @apply type-section-title;
   }
 
   .ui-empty-state {
@@ -586,11 +633,8 @@
   }
 
   .ui-chip {
+    @apply type-button;
     padding: 0.375rem 0.75rem;
-    font-family: var(--font-mono);
-    font-size: 9px;
-    font-weight: 500;
-    letter-spacing: 0.08em;
     text-transform: uppercase;
     transition:
       background-color 0.2s,
@@ -602,9 +646,7 @@
   }
 
   .ui-chip {
-    font-family: var(--font-sans);
-    font-size: 0.8125rem;
-    letter-spacing: 0;
+    @apply type-button;
     text-transform: none;
     border-radius: 9999px;
     background-color: var(--profile-bg);
@@ -689,7 +731,9 @@
 
   @media (min-width: 640px) {
     :root {
-      --app-student-tab-bar-stack: calc(3.25rem + 2 * 1.25rem + env(safe-area-inset-bottom, 0px));
+      --app-student-tab-bar-stack: calc(
+        var(--app-student-tab-pill-height) + 2 * 1.25rem + env(safe-area-inset-bottom, 0px)
+      );
     }
   }
 
@@ -720,40 +764,30 @@
   }
 
   .ui-label {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 0.1em;
+    @apply type-caption;
     text-transform: uppercase;
     color: var(--ink-dim);
   }
 
   .ui-label {
-    font-family: var(--font-sans);
-    font-size: 0.8125rem;
-    letter-spacing: 0;
+    @apply type-caption;
     text-transform: none;
   }
 
   /* Air theme button refinements */
   .btn-primary {
+    @apply type-button;
     border: none;
     border-radius: var(--radius-sm);
-    font-family: var(--font-sans);
-    font-size: 0.8125rem;
-    font-weight: 500;
-    letter-spacing: 0.02em;
     text-transform: none;
     padding-left: 1.25rem;
     padding-right: 1.25rem;
   }
 
   .btn-secondary {
+    @apply type-button;
     border: none;
     border-radius: var(--radius-sm);
-    font-family: var(--font-sans);
-    font-size: 0.8125rem;
-    font-weight: 500;
-    letter-spacing: 0.02em;
     text-transform: none;
     color: var(--ink-dim);
     background-color: var(--profile-bg);
@@ -765,22 +799,16 @@
   }
 
   .btn-primary-hero {
+    @apply type-button;
     border: none;
     border-radius: var(--radius-sm);
-    font-family: var(--font-sans);
-    font-size: 0.875rem;
-    font-weight: 500;
-    letter-spacing: 0.02em;
     text-transform: none;
   }
 
   .btn-secondary-hero {
+    @apply type-button;
     border: 1px solid var(--hero-secondary-border);
     border-radius: var(--radius-sm);
-    font-family: var(--font-sans);
-    font-size: 0.875rem;
-    font-weight: 500;
-    letter-spacing: 0.02em;
     text-transform: none;
     backdrop-filter: blur(12px);
   }

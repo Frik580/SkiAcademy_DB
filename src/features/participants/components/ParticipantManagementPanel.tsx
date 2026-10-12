@@ -205,7 +205,7 @@ export const ParticipantManagementPanel: React.FC<ParticipantManagementPanelProp
   };
 
   const fieldClassName =
-    'w-full min-h-[2.75rem] rounded-lg border border-[var(--border-subtle)] bg-[var(--profile-bg)] px-3 py-2.5 text-sm text-[var(--ink)] focus:outline-none focus:border-[var(--accent)] transition box-border';
+    'w-full min-h-[2.75rem] rounded-lg border border-[var(--border-subtle)] bg-[var(--profile-bg)] px-3 py-2.5 type-body text-[var(--ink)] focus:outline-none focus:border-[var(--accent)] transition box-border';
 
   const editingSelf = editorMode.kind === 'edit' && editorMode.participant.authority === 'self';
   const editorAvatarUrl =
@@ -221,15 +221,15 @@ export const ParticipantManagementPanel: React.FC<ParticipantManagementPanelProp
     <section className="space-y-4 rounded-xl border border-[var(--border-subtle)] p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-[var(--ink)]">
-            {t('participantsManageTitle')}
-          </h3>
-          <p className="mt-1 text-xs text-[var(--ink-dim)]">{t('participantsManageSubtitle')}</p>
+          <h3 className="type-card-title text-[var(--ink)]">{t('participantsManageTitle')}</h3>
+          <p className="mt-1 type-caption text-[var(--ink-dim)]">
+            {t('participantsManageSubtitle')}
+          </p>
         </div>
         <button
           type="button"
           onClick={openCreate}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] px-3 py-1.5 text-xs font-medium"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] px-3 py-1.5 type-button"
         >
           <Plus className="h-3.5 w-3.5" />
           {t('participantsCreateDependent')}
@@ -237,14 +237,14 @@ export const ParticipantManagementPanel: React.FC<ParticipantManagementPanelProp
       </div>
 
       {loading ? (
-        <p className="text-xs text-[var(--ink-dim)]">{t('loading')}</p>
+        <p className="type-caption text-[var(--ink-dim)]">{t('loading')}</p>
       ) : error ? (
         <div className="space-y-2">
-          <p className="text-xs text-rose-600 dark:text-rose-400">{error}</p>
+          <p className="type-caption text-rose-600 dark:text-rose-400">{error}</p>
           <button
             type="button"
             onClick={() => void reload()}
-            className="text-xs font-medium text-[var(--accent)] hover:underline"
+            className="type-button text-[var(--accent)] hover:underline"
           >
             {t('retry')}
           </button>
@@ -252,7 +252,7 @@ export const ParticipantManagementPanel: React.FC<ParticipantManagementPanelProp
       ) : (
         <div className="space-y-3">
           {!selfParticipant && (
-            <p className="text-xs text-amber-700 dark:text-amber-300">
+            <p className="type-caption text-amber-700 dark:text-amber-300">
               {t('participantsSelfMissing')}
             </p>
           )}
@@ -282,17 +282,17 @@ export const ParticipantManagementPanel: React.FC<ParticipantManagementPanelProp
                       )}
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-[var(--ink)]">
+                      <p className="truncate type-compact font-medium text-[var(--ink)]">
                         {participant.displayName}
                       </p>
-                      <p className="mt-1 text-[10px] uppercase tracking-wide text-[var(--ink-dim)]">
+                      <p className="mt-1 type-caption uppercase text-[var(--ink-dim)]">
                         {participant.authority === 'self'
                           ? t('participantAuthoritySelf')
                           : t('participantAuthorityDependent')}
                         {' · '}
                         {participant.discipline} · {participant.skillLevel}
                       </p>
-                      <p className="mt-1 text-[10px] text-[var(--ink-dim)]">
+                      <p className="mt-1 type-caption text-[var(--ink-dim)]">
                         {t('participantsManagedByYou')}
                       </p>
                     </div>
@@ -300,7 +300,7 @@ export const ParticipantManagementPanel: React.FC<ParticipantManagementPanelProp
                   <button
                     type="button"
                     onClick={() => openEdit(participant)}
-                    className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-subtle)] px-2.5 py-1.5 text-xs"
+                    className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-subtle)] px-2.5 py-1.5 type-button"
                   >
                     <Pencil className="h-3.5 w-3.5" />
                     {t('participantsEditProfile')}
@@ -311,7 +311,7 @@ export const ParticipantManagementPanel: React.FC<ParticipantManagementPanelProp
           )}
 
           {dependentParticipants.length === 0 && selfParticipant && (
-            <p className="text-xs text-[var(--ink-dim)]">{t('participantsNoDependents')}</p>
+            <p className="type-caption text-[var(--ink-dim)]">{t('participantsNoDependents')}</p>
           )}
         </div>
       )}
@@ -321,7 +321,7 @@ export const ParticipantManagementPanel: React.FC<ParticipantManagementPanelProp
           onSubmit={editorMode.kind === 'create' ? handleCreate : handleUpdate}
           className="space-y-3 rounded-lg border border-[var(--border-subtle)] bg-black/5 p-4 dark:bg-white/5"
         >
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--ink-dim)]">
+          <h4 className="type-card-title uppercase text-[var(--ink-dim)]">
             {editorMode.kind === 'create'
               ? t('participantsCreateDependent')
               : t('participantsEditProfile')}
@@ -360,7 +360,7 @@ export const ParticipantManagementPanel: React.FC<ParticipantManagementPanelProp
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
-                className="hidden"
+                className="hidden type-body"
                 onChange={(event) => {
                   const file = event.target.files?.[0];
                   if (file) {
@@ -369,12 +369,12 @@ export const ParticipantManagementPanel: React.FC<ParticipantManagementPanelProp
                   event.target.value = '';
                 }}
               />
-              <p className="text-xs text-[var(--ink-dim)]">{t('changeProfilePhoto')}</p>
+              <p className="type-caption text-[var(--ink-dim)]">{t('changeProfilePhoto')}</p>
             </div>
           )}
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="space-y-1 text-xs text-[var(--ink-dim)]">
+            <label className="space-y-1 type-caption text-[var(--ink-dim)]">
               {t('participantsDisplayNameLabel')}
               <input
                 type="text"
@@ -396,7 +396,7 @@ export const ParticipantManagementPanel: React.FC<ParticipantManagementPanelProp
             </label>
 
             {editingSelf && (
-              <label className="space-y-1 text-xs text-[var(--ink-dim)]">
+              <label className="space-y-1 type-caption text-[var(--ink-dim)]">
                 {t('phone')}
                 <input
                   type="tel"
@@ -409,7 +409,7 @@ export const ParticipantManagementPanel: React.FC<ParticipantManagementPanelProp
               </label>
             )}
 
-            <label className="space-y-1 text-xs text-[var(--ink-dim)]">
+            <label className="space-y-1 type-caption text-[var(--ink-dim)]">
               {editorMode.kind === 'create' || editForm?.age.kind === 'age_years'
                 ? t('participantsAgeLabel')
                 : t('participantsBirthDateLabel')}
@@ -452,7 +452,7 @@ export const ParticipantManagementPanel: React.FC<ParticipantManagementPanelProp
               )}
             </label>
 
-            <label className="space-y-1 text-xs text-[var(--ink-dim)]">
+            <label className="space-y-1 type-caption text-[var(--ink-dim)]">
               {t('participantsSkillLabel')}
               <input
                 type="text"
@@ -473,7 +473,7 @@ export const ParticipantManagementPanel: React.FC<ParticipantManagementPanelProp
               />
             </label>
 
-            <label className="space-y-1 text-xs text-[var(--ink-dim)]">
+            <label className="space-y-1 type-caption text-[var(--ink-dim)]">
               {t('participantsDisciplineLabel')}
               <select
                 value={
@@ -497,7 +497,7 @@ export const ParticipantManagementPanel: React.FC<ParticipantManagementPanelProp
             </label>
           </div>
 
-          <label className="block space-y-1 text-xs text-[var(--ink-dim)]">
+          <label className="block space-y-1 type-caption text-[var(--ink-dim)]">
             {t('participantsInstructorCommentLabel')}
             <textarea
               rows={2}
@@ -514,25 +514,27 @@ export const ParticipantManagementPanel: React.FC<ParticipantManagementPanelProp
                   setEditForm({ ...editForm, instructorComment: value });
                 }
               }}
-              className={`${fieldClassName} min-h-[4.5rem] resize-none`}
+              className={`${fieldClassName} min-h-[4.5rem] resize-none type-body`}
             />
           </label>
 
-          {formError && <p className="text-xs text-rose-600 dark:text-rose-400">{formError}</p>}
+          {formError && (
+            <p className="type-caption text-rose-600 dark:text-rose-400">{formError}</p>
+          )}
 
           <div className="flex flex-wrap gap-2">
             <ActionButton
               type="submit"
               pending={isSaving}
               pendingLabel={t('saving')}
-              className="btn-primary px-4 py-2 text-xs"
+              className="btn-primary px-4 py-2 type-button"
             >
               {t('saveChanges')}
             </ActionButton>
             <button
               type="button"
               onClick={closeEditor}
-              className="rounded-lg border border-[var(--border-subtle)] px-4 py-2 text-xs"
+              className="rounded-lg border border-[var(--border-subtle)] px-4 py-2 type-button"
             >
               {t('cancel')}
             </button>

@@ -43,7 +43,7 @@ export const BookingAuthShell: React.FC<BookingAuthShellProps> = ({ workspace })
           <button
             type="button"
             onClick={() => setUnauthTab(unauthTab === 'guest' ? 'auth' : 'guest')}
-            className="text-xs text-[var(--ink-dim)] underline-offset-2 hover:underline"
+            className="type-button text-[var(--ink-dim)] underline-offset-2 hover:underline"
           >
             {t(unauthTab === 'guest' ? 'guestCourseSignIn' : 'guestBookingTab')}
           </button>
@@ -76,7 +76,7 @@ export const BookingAuthShell: React.FC<BookingAuthShellProps> = ({ workspace })
                 !workspace.showGuestProfileCompletion ? (
                   <button
                     type="button"
-                    className="btn-secondary self-start px-4 py-2 text-sm"
+                    className="btn-secondary self-start px-4 py-2 type-button"
                     onClick={workspace.openGuestProfileCompletion}
                   >
                     {t('guestCompleteProfile')}
@@ -84,7 +84,7 @@ export const BookingAuthShell: React.FC<BookingAuthShellProps> = ({ workspace })
                 ) : (
                   <form onSubmit={workspace.completeGuestProfile} className="space-y-3">
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <label className="space-y-1 text-xs text-[var(--ink-dim)]">
+                      <label className="space-y-1 type-caption text-[var(--ink-dim)]">
                         <span>{t('participantsAgeLabel')} *</span>
                         <input
                           type="number"
@@ -94,16 +94,16 @@ export const BookingAuthShell: React.FC<BookingAuthShellProps> = ({ workspace })
                           step={1}
                           value={workspace.guestAgeYears}
                           onChange={(e) => workspace.setGuestAgeYears(e.target.value)}
-                          className="ui-field-plain"
+                          className="ui-field-plain type-body"
                         />
                       </label>
-                      <label className="space-y-1 text-xs text-[var(--ink-dim)]">
+                      <label className="space-y-1 type-caption text-[var(--ink-dim)]">
                         <span>{t('participantsSkillLabel')} *</span>
                         <select
                           required
                           value={workspace.guestProfileSkillLevel}
                           onChange={(e) => workspace.setGuestProfileSkillLevel(e.target.value)}
-                          className="ui-field-plain"
+                          className="ui-field-plain type-body"
                         >
                           <option value="" disabled>
                             —
@@ -129,7 +129,7 @@ export const BookingAuthShell: React.FC<BookingAuthShellProps> = ({ workspace })
                         type="submit"
                         pending={workspace.isCompletingGuestProfile}
                         pendingLabel={t('processing')}
-                        className="btn-primary px-4 py-2 text-sm"
+                        className="btn-primary px-4 py-2 type-button"
                       >
                         {t('guestSaveProfile')}
                       </ActionButton>
@@ -137,7 +137,7 @@ export const BookingAuthShell: React.FC<BookingAuthShellProps> = ({ workspace })
                         type="button"
                         disabled={workspace.isCompletingGuestProfile}
                         onClick={() => workspace.setShowGuestProfileCompletion(false)}
-                        className="btn-secondary px-4 py-2 text-sm"
+                        className="btn-secondary px-4 py-2 type-button"
                       >
                         {t('cancel')}
                       </button>
@@ -154,7 +154,7 @@ export const BookingAuthShell: React.FC<BookingAuthShellProps> = ({ workspace })
           />
         ) : unauthTab === 'auth' ? (
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">
-            <p className="text-center text-xs leading-relaxed text-[var(--ink-dim)]">
+            <p className="text-center type-caption text-[var(--ink-dim)]">
               {t('bookingSignInPrompt')}
             </p>
             <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-transparent p-4">

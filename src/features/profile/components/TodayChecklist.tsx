@@ -89,7 +89,7 @@ export const TodayChecklist: React.FC<TodayChecklistProps> = ({
             data-task-group
             className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-4 space-y-3"
           >
-            <div className="flex items-center justify-between gap-2 text-xs text-[var(--ink-dim)]">
+            <div className="flex items-center justify-between gap-2 type-caption text-[var(--ink-dim)]">
               <span>
                 {t('scRecommendations')} · {context.title} ({context.dateLabel})
               </span>
@@ -116,7 +116,7 @@ export const TodayChecklist: React.FC<TodayChecklistProps> = ({
                     data-task-row
                     data-done={task.done}
                     aria-busy={pending}
-                    className="flex items-center justify-between gap-3 text-sm"
+                    className="flex items-center justify-between gap-3 type-compact"
                   >
                     <label className="flex items-center gap-3 cursor-pointer select-none flex-1 min-w-0">
                       <input
@@ -135,7 +135,7 @@ export const TodayChecklist: React.FC<TodayChecklistProps> = ({
                             onToggleTaskComplete?.(task.id, e.target.checked);
                           }
                         }}
-                        className="h-4 w-4 rounded border-[var(--border)] text-[var(--accent)] focus:ring-[var(--accent)]/30"
+                        className="h-4 w-4 rounded border-[var(--border)] text-[var(--accent)] focus:ring-[var(--accent)]/30 type-body"
                       />
                       <span
                         className={`truncate ${
@@ -173,14 +173,14 @@ export const TodayChecklist: React.FC<TodayChecklistProps> = ({
               key={task.id}
               data-task-row
               data-done={task.done}
-              className="flex items-center justify-between gap-3 text-sm"
+              className="flex items-center justify-between gap-3 type-compact"
             >
               <label className="flex items-center gap-3 cursor-pointer select-none flex-1 min-w-0">
                 <input
                   type="checkbox"
                   checked={task.done}
                   onChange={(e) => onToggleTaskComplete?.(task.id, e.target.checked)}
-                  className="h-4 w-4 rounded border-[var(--border)] text-[var(--accent)] focus:ring-[var(--accent)]/30"
+                  className="h-4 w-4 rounded border-[var(--border)] text-[var(--accent)] focus:ring-[var(--accent)]/30 type-body"
                 />
                 <span
                   className={`truncate ${
@@ -214,12 +214,12 @@ export const TodayChecklist: React.FC<TodayChecklistProps> = ({
             value={newText}
             onChange={(e) => setNewText(e.target.value)}
             placeholder={t('scAddTodayTask')}
-            className="flex-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--ink)] placeholder:text-[var(--ink-dim)] focus:outline-none focus:border-[var(--accent)]"
+            className="flex-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-2 type-body text-[var(--ink)] placeholder:text-[var(--ink-dim)] focus:outline-none focus:border-[var(--accent)]"
           />
           <button
             type="submit"
             disabled={!newText.trim()}
-            className="btn-primary px-4 py-2 text-sm disabled:opacity-50"
+            className="btn-primary px-4 py-2 type-button disabled:opacity-50"
           >
             {t('scAddToToday')}
           </button>

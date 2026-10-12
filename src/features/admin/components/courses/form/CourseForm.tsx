@@ -33,7 +33,7 @@ export const CourseForm: React.FC<CourseFormProps> = ({ form, instructors }) => 
   return (
     <div className="lg:col-span-4 border border-[var(--border)] p-6 bg-transparent space-y-4 animate-fade-in shrink-0">
       <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
-        <h4 className="font-serif text-lg font-light text-[var(--ink)]">
+        <h4 className="type-card-title text-[var(--ink)]">
           {editingCourse ? t('editCourseForm') : t('newCourseForm')}
         </h4>
         <button
@@ -44,7 +44,7 @@ export const CourseForm: React.FC<CourseFormProps> = ({ form, instructors }) => 
         </button>
       </div>
 
-      <form onSubmit={handleCourseSubmit} className="space-y-4 font-mono text-xs">
+      <form onSubmit={handleCourseSubmit} className="space-y-4 type-caption">
         <CourseBasicInfoSection form={form} />
         <CourseTranslationsSection form={form} />
 
@@ -55,10 +55,10 @@ export const CourseForm: React.FC<CourseFormProps> = ({ form, instructors }) => 
           <button
             type="button"
             onClick={() => setShowRichCourseDetails(!showRichCourseDetails)}
-            className="w-full py-2 px-3 border border-[var(--border)] hover:border-[var(--ink)] bg-black/5 dark:bg-white/5 text-[var(--ink)] font-mono text-[10px] uppercase tracking-wider flex items-center justify-between transition rounded-none cursor-pointer"
+            className="w-full py-2 px-3 border border-[var(--border)] hover:border-[var(--ink)] bg-black/5 dark:bg-white/5 text-[var(--ink)] type-button uppercase flex items-center justify-between transition rounded-none cursor-pointer"
           >
             <span>{t('editCoursePageDetails')}</span>
-            <span className="font-bold text-xs">{showRichCourseDetails ? '−' : '+'}</span>
+            <span className="font-medium type-caption">{showRichCourseDetails ? '−' : '+'}</span>
           </button>
         </div>
 
@@ -81,7 +81,7 @@ export const CourseForm: React.FC<CourseFormProps> = ({ form, instructors }) => 
           pending={isSubmittingCourse}
           pendingLabel={t('saving')}
           unstyled
-          className="w-full py-2.5 px-4 border border-[var(--border)] hover:bg-[var(--ink)] hover:text-[var(--bg)] bg-transparent text-[var(--ink)] rounded-none text-xs font-bold transition cursor-pointer disabled:opacity-50"
+          className="w-full py-2.5 px-4 border border-[var(--border)] hover:bg-[var(--ink)] hover:text-[var(--bg)] bg-transparent text-[var(--ink)] rounded-none type-button transition cursor-pointer disabled:opacity-50"
         >
           <Check className="w-4 h-4" />
           {editingCourse ? t('updateCourse') : t('createCourse')}

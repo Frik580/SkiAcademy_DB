@@ -89,7 +89,7 @@ export const AdminLessonBookingMasterList = memo(function AdminLessonBookingMast
               type="button"
               aria-pressed={view === candidate}
               onClick={() => onViewChange(candidate)}
-              className={`px-4 py-2 text-xs font-semibold transition-colors ${
+              className={`px-4 py-2 type-button transition-colors ${
                 view === candidate
                   ? 'bg-[var(--ink)] text-[var(--bg)] shadow-sm'
                   : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'
@@ -103,11 +103,14 @@ export const AdminLessonBookingMasterList = memo(function AdminLessonBookingMast
 
       <div className="p-3">
         {loading ? (
-          <div role="status" className="flex min-h-36 items-center justify-center gap-2 text-xs">
+          <div
+            role="status"
+            className="flex min-h-36 items-center justify-center gap-2 type-caption"
+          >
             <Loader2 className="h-4 w-4 animate-spin" /> {t('adminLessonLoading')}
           </div>
         ) : error ? (
-          <div role="alert" className="border border-red-500/30 p-4 text-xs">
+          <div role="alert" className="border border-red-500/30 p-4 type-caption">
             {error === 'permission-denied'
               ? t('adminLessonPermissionDenied')
               : t('adminLessonReadFailed')}
@@ -120,14 +123,14 @@ export const AdminLessonBookingMasterList = memo(function AdminLessonBookingMast
             </button>
           </div>
         ) : items.length === 0 ? (
-          <div className="space-y-3 border border-dashed border-[var(--border)] p-8 text-center text-xs text-[var(--ink-dim)]">
+          <div className="space-y-3 border border-dashed border-[var(--border)] p-8 text-center type-caption text-[var(--ink-dim)]">
             <p>{t('adminLessonEmpty')}</p>
             {hasMore && (
               <button
                 type="button"
                 disabled={loadingMore}
                 onClick={onLoadMore}
-                className="border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
+                className="border border-[var(--border)] px-3 py-2 type-button disabled:opacity-50"
               >
                 {loadingMore ? t('adminLessonLoadingMore') : t('adminLessonLoadNextPage')}
               </button>
@@ -172,7 +175,7 @@ export const AdminLessonBookingMasterList = memo(function AdminLessonBookingMast
                 type="button"
                 disabled={loadingMore}
                 onClick={onLoadMore}
-                className="w-full border border-[var(--border)] px-3 py-2 text-xs font-medium disabled:opacity-50"
+                className="w-full border border-[var(--border)] px-3 py-2 type-button disabled:opacity-50"
               >
                 {loadingMore ? t('adminLessonLoadingMore') : t('adminLessonLoadMore')}
               </button>

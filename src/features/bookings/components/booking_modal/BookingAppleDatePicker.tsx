@@ -221,7 +221,7 @@ export const BookingAppleDatePicker: React.FC<BookingAppleDatePickerProps> = ({
             isOpen ? 'pointer-events-none' : ''
           }`}
         >
-          <span className="min-w-0 flex-1 truncate text-center text-sm font-semibold text-[var(--ink)]">
+          <span className="min-w-0 flex-1 truncate text-center type-compact font-medium text-[var(--ink)]">
             {displayLabel}
           </span>
           <ChevronDown

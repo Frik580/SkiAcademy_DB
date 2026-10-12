@@ -88,7 +88,7 @@ export const ResortDataSection: React.FC = () => {
     <form onSubmit={handleSaveResortData} className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1.5">
-          <label className="block text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] font-bold">
+          <label className="block type-caption uppercase text-[var(--ink-dim)] font-medium">
             {t('resortNameEnLabel')}
           </label>
           <input
@@ -96,13 +96,13 @@ export const ResortDataSection: React.FC = () => {
             required
             value={resortNameEn}
             onChange={(e) => setResortNameEn(e.target.value)}
-            className="w-full bg-transparent border border-[var(--border)] px-3 py-1.5 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+            className="w-full bg-transparent border border-[var(--border)] px-3 py-1.5 type-body text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
             placeholder={t('resortNameEnLabel')}
           />
         </div>
 
         <div className="space-y-1.5">
-          <label className="block text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] font-bold">
+          <label className="block type-caption uppercase text-[var(--ink-dim)] font-medium">
             {t('resortNameRuLabel')}
           </label>
           <input
@@ -110,13 +110,13 @@ export const ResortDataSection: React.FC = () => {
             required
             value={resortNameRu}
             onChange={(e) => setResortNameRu(e.target.value)}
-            className="w-full bg-transparent border border-[var(--border)] px-3 py-1.5 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+            className="w-full bg-transparent border border-[var(--border)] px-3 py-1.5 type-body text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
             placeholder={t('resortNameRuLabel')}
           />
         </div>
 
         <div className="space-y-1.5">
-          <label className="block text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] font-bold">
+          <label className="block type-caption uppercase text-[var(--ink-dim)] font-medium">
             {t('resortSubEnLabel')}
           </label>
           <input
@@ -124,13 +124,13 @@ export const ResortDataSection: React.FC = () => {
             required
             value={resortSubEn}
             onChange={(e) => setResortSubEn(e.target.value)}
-            className="w-full bg-transparent border border-[var(--border)] px-3 py-1.5 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+            className="w-full bg-transparent border border-[var(--border)] px-3 py-1.5 type-body text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
             placeholder="e.g. French Alps resort"
           />
         </div>
 
         <div className="space-y-1.5">
-          <label className="block text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] font-bold">
+          <label className="block type-caption uppercase text-[var(--ink-dim)] font-medium">
             {t('resortSubRuLabel')}
           </label>
           <input
@@ -138,13 +138,13 @@ export const ResortDataSection: React.FC = () => {
             required
             value={resortSubRu}
             onChange={(e) => setResortSubRu(e.target.value)}
-            className="w-full bg-transparent border border-[var(--border)] px-3 py-1.5 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+            className="w-full bg-transparent border border-[var(--border)] px-3 py-1.5 type-body text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
             placeholder="например, Курорт в Альпах"
           />
         </div>
 
         <div className="space-y-1.5">
-          <label className="block text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] font-bold">
+          <label className="block type-caption uppercase text-[var(--ink-dim)] font-medium">
             {t('latitudeLabel')}
           </label>
           <input
@@ -153,13 +153,13 @@ export const ResortDataSection: React.FC = () => {
             required
             value={resortLat}
             onChange={(e) => setResortLat(Number(e.target.value))}
-            className="w-full bg-transparent border border-[var(--border)] px-3 py-1.5 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+            className="w-full bg-transparent border border-[var(--border)] px-3 py-1.5 type-body text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
             placeholder="e.g. 45.9237"
           />
         </div>
 
         <div className="space-y-1.5">
-          <label className="block text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] font-bold">
+          <label className="block type-caption uppercase text-[var(--ink-dim)] font-medium">
             {t('longitudeLabel')}
           </label>
           <input
@@ -168,13 +168,13 @@ export const ResortDataSection: React.FC = () => {
             required
             value={resortLon}
             onChange={(e) => setResortLon(Number(e.target.value))}
-            className="w-full bg-transparent border border-[var(--border)] px-3 py-1.5 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+            className="w-full bg-transparent border border-[var(--border)] px-3 py-1.5 type-body text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
             placeholder="e.g. 6.8694"
           />
         </div>
 
         <div className="col-span-1 md:col-span-2 border-t border-[var(--border)] pt-4 mt-2">
-          <h5 className="font-mono text-[10px] uppercase tracking-wider font-bold text-[var(--ink)]">
+          <h5 className="type-compact uppercase text-[var(--ink)] font-medium">
             {t('liftsOperatingSettings')}
           </h5>
         </div>
@@ -189,7 +189,7 @@ export const ResortDataSection: React.FC = () => {
         </div>
 
         <div className="space-y-1.5">
-          <label className="block text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] font-bold">
+          <label className="block type-caption uppercase text-[var(--ink-dim)] font-medium">
             {t('openLiftsCount')}
           </label>
           <input
@@ -198,12 +198,12 @@ export const ResortDataSection: React.FC = () => {
             min="0"
             value={resortOpenLifts}
             onChange={(e) => setResortOpenLifts(Number(e.target.value))}
-            className="w-full bg-transparent border border-[var(--border)] px-3 py-1.5 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+            className="w-full bg-transparent border border-[var(--border)] px-3 py-1.5 type-body text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
           />
         </div>
 
         <div className="space-y-1.5">
-          <label className="block text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] font-bold">
+          <label className="block type-caption uppercase text-[var(--ink-dim)] font-medium">
             {t('totalLiftsCount')}
           </label>
           <input
@@ -212,7 +212,7 @@ export const ResortDataSection: React.FC = () => {
             min="0"
             value={resortTotalLifts}
             onChange={(e) => setResortTotalLifts(Number(e.target.value))}
-            className="w-full bg-transparent border border-[var(--border)] px-3 py-1.5 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+            className="w-full bg-transparent border border-[var(--border)] px-3 py-1.5 type-body text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
           />
         </div>
 
@@ -241,7 +241,7 @@ export const ResortDataSection: React.FC = () => {
           pending={isSaving}
           pendingLabel={t('saving')}
           unstyled
-          className="bg-[var(--ink)] text-[var(--bg)] hover:bg-[var(--ink)]/90 px-4 py-2 text-xs font-mono uppercase tracking-wider font-bold transition duration-300 rounded-none disabled:opacity-50 cursor-pointer"
+          className="bg-[var(--ink)] text-[var(--bg)] hover:bg-[var(--ink)]/90 px-4 py-2 type-button uppercase transition duration-300 rounded-none disabled:opacity-50 cursor-pointer"
         >
           <Save className="w-3.5 h-3.5" />
           {t('saveResortSettings')}

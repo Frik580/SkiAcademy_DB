@@ -912,16 +912,85 @@
   --hero-cta-text-inset: 1.75rem;
 }
 
-@media (max-width: 639px) {
-  .ui-hero.hero-layout .hero-secondary-cta {
-    padding-left: var(--hero-cta-text-inset);
+.ui-hero.hero-layout .hero-cta {
+  @apply type-button;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  max-width: 100%;
+  padding: 0.5rem var(--hero-cta-text-inset);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  overflow-wrap: anywhere;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.15s ease;
+}
+
+.ui-hero.hero-layout .hero-cta:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.ui-hero.hero-layout .hero-cta-arrow {
+  @apply transition-transform;
+}
+
+@media (hover: hover) {
+  .ui-hero.hero-layout .hero-cta:hover:not(:disabled) .hero-cta-arrow {
+    translate: calc(var(--spacing) * 0.5) 0;
+  }
+}
+
+.ui-hero.hero-layout .hero-secondary-cta {
+  /* Keep white text readable even when the frame beneath it is white snow. */
+  --hero-ghost-bg: rgba(10, 18, 26, 0.65);
+  --hero-ghost-bg-hover: rgba(10, 18, 26, 0.6);
+  border-color: rgba(255, 255, 255, 0.35);
+  background-color: var(--hero-ghost-bg);
+  color: var(--hero-cta-fg);
+  cursor: pointer;
+}
+
+.ui-hero.hero-layout .hero-secondary-cta:hover:not(:disabled) {
+  background-color: var(--hero-ghost-bg-hover);
+  border-color: rgba(255, 255, 255, 0.65);
+}
+
+.ui-hero.hero-layout .hero-secondary-cta:focus-visible {
+  outline: 2px solid var(--hero-cta-fg);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 5px rgba(10, 18, 26, 0.85);
+}
+
+.ui-hero.hero-layout .hero-secondary-cta:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-hero.hero-layout .hero-cta,
+  .ui-hero.hero-layout .hero-cta-arrow {
+    transition: none;
+  }
+
+  .ui-hero.hero-layout .hero-cta:active:not(:disabled) {
+    transform: none;
+  }
+
+  .ui-hero.hero-layout .hero-cta:hover:not(:disabled) .hero-cta-arrow {
+    translate: none;
   }
 }
 
 @media (min-width: 640px) {
   .ui-hero.hero-layout .hero-actions {
     flex-flow: row wrap;
-    align-items: center;
+    align-items: stretch;
     gap: 1.5rem;
   }
 }
@@ -957,13 +1026,6 @@
     font-size: clamp(1.75rem, 7.5vw, 2.25rem);
     line-height: 1.15;
   }
-
-  .ui-hero.hero-layout .hero-primary-cta.btn-primary-hero {
-    padding-top: 0.625rem;
-    padding-bottom: 0.625rem;
-    padding-left: var(--hero-cta-text-inset);
-    padding-right: var(--hero-cta-text-inset);
-  }
 }
 
 @media (orientation: landscape) and (max-height: 520px) {
@@ -986,13 +1048,8 @@
 
   .ui-hero.hero-layout .hero-actions {
     flex-flow: row wrap;
-    align-items: center;
+    align-items: stretch;
     gap: 0.5rem 1.25rem;
-  }
-
-  .ui-hero.hero-layout .hero-primary-cta.btn-primary-hero {
-    padding: 0.5rem 1.125rem;
-    font-size: 0.8125rem;
   }
 }
 

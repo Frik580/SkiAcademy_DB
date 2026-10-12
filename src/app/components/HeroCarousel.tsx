@@ -685,18 +685,18 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                     <button
                       type="button"
                       onClick={() => onScrollToSection('coaches-grid')}
-                      className="hero-primary-cta btn-primary-hero px-7 py-3.5 inline-flex items-center justify-center gap-2 group"
+                      className="hero-cta hero-primary-cta btn-primary-hero"
                     >
                       <span>{t('startYourJourney')}</span>
-                      <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+                      <ArrowRight className="hero-cta-arrow w-4 h-4 shrink-0" />
                     </button>
                     <button
                       type="button"
                       onClick={() => onScrollToSection('courses-grid')}
-                      className="hero-secondary-cta inline-flex items-center gap-1.5 text-sm font-medium text-[var(--hero-ink)]/80 hover:text-[var(--accent)] transition-colors bg-transparent border-0 p-0 cursor-pointer group"
+                      className="hero-cta hero-secondary-cta"
                     >
                       <span>{t('chooseCourse')}</span>
-                      <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+                      <ArrowRight className="hero-cta-arrow w-4 h-4 shrink-0" />
                     </button>
                   </m.div>
                 </div>

@@ -81,6 +81,78 @@ beforeEach(() => {
 });
 
 describe('Next Session tile functional adaptation', () => {
+  it('keeps four mixed sessions, repeated dates, long names and each navigation target', async () => {
+    const props = input();
+    const first = props.nextSessions[0];
+    if (first.session.kind !== 'lesson') throw new Error('Expected lesson fixture');
+    const course = {
+      kind: 'course_day' as const,
+      enrollmentId: 'enrollment',
+      participantId: 'b',
+      courseId: 'course',
+      courseDayId: 'day',
+      courseTitle: 'Family alpine course',
+      date: first.dateStr,
+      time: '12:00',
+      endTime: '14:00',
+      timeZone: 'Asia/Almaty',
+      dayOrder: 1,
+      lifecycleStatus: 'confirmed' as const,
+      revision: 1,
+      authorizedActions: { canRequestCancellation: false, canWithdraw: false },
+    };
+    props.nextSessions = [
+      first,
+      { dateStr: first.dateStr, session: course },
+      ...['second', 'third'].map((id) => ({
+        dateStr: first.dateStr,
+        session: {
+          kind: 'lesson' as const,
+          session: {
+            ...first.session.session,
+            id,
+            bookingId: id,
+            instructorName: 'Александр Константинович Мухамеджанов — инструктор по горным лыжам',
+          },
+        },
+      })),
+    ];
+    const longName = 'Александра Константиновна с длинным именем участника';
+    props.participantsBySessionKey = {
+      ...props.participantsBySessionKey,
+      'lesson:second': [{ participantId: 'b', displayName: longName }],
+    };
+    props.onViewCourseDetails = vi.fn();
+    render(<NextSessionBlock {...props} />);
+    const cards = screen.getAllByRole('article');
+    expect(cards.map((card) => card.dataset.sessionId)).toEqual([
+      'lesson:family',
+      'course_day:course:day',
+      'lesson:second',
+      'lesson:third',
+    ]);
+    expect(cards[2]).toHaveTextContent(longName);
+    const user = userEvent.setup();
+    for (const [index, id] of [
+      [0, 'family'],
+      [2, 'second'],
+      [3, 'third'],
+    ] as const) {
+      await user.click(
+        within(cards[index]).getByRole('button', { name: translations.en.scMoreDetails })
+      );
+      expect(props.onOpenLesson).toHaveBeenLastCalledWith(expect.objectContaining({ id }));
+      await user.click(within(cards[index]).getByRole('button', { name: /Chat/ }));
+      expect(props.onOpenSession).toHaveBeenLastCalledWith(expect.objectContaining({ id }));
+      expect(within(cards[index]).getByRole('link', { name: 'Call coach' })).toHaveAttribute(
+        'href',
+        'tel:+77011234567'
+      );
+    }
+    await user.click(within(cards[1]).getByRole('button', { name: translations.en.scMoreDetails }));
+    expect(props.onViewCourseDetails).toHaveBeenCalledWith('course');
+  });
+
   it('retains lesson details, unread chat, feedback ID, real phone and keyboard calendar action', async () => {
     const props = input();
     const user = userEvent.setup();

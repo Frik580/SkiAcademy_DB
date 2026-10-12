@@ -263,6 +263,7 @@ test('Next Session keeps account courses and family lesson actions, calendar, li
       ['mobile-light', 390, 844, false],
       ['desktop-dark', 1440, 1000, true],
       ['mobile-dark', 390, 844, true],
+      ['narrow-light', 320, 844, false],
       ['narrow-dark', 320, 844, true],
     ] as const) {
       await page.setViewportSize({ width, height });
@@ -282,6 +283,21 @@ test('Next Session keeps account courses and family lesson actions, calendar, li
       await tile.screenshot({
         path: info.outputPath(`${name}.png`),
       });
+      writeFileSync(
+        info.outputPath(`${name}-geometry.json`),
+        JSON.stringify(
+          await tile
+            .locator('.sc-next-session-card')
+            .evaluateAll((cards) =>
+              cards.map((card) => ({
+                width: card.getBoundingClientRect().width,
+                height: card.getBoundingClientRect().height,
+              }))
+            ),
+          null,
+          2
+        )
+      );
     }
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page

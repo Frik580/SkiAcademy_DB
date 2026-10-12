@@ -83,6 +83,25 @@
   overflow-wrap: anywhere;
 }
 
+.sc-attention-reasons {
+  display: grid;
+  gap: 0.125rem;
+  margin-bottom: 0.25rem;
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.sc-attention-reasons p {
+  margin: 0;
+}
+
+.sc-attention-reason-review {
+  color: var(--sc-warning, var(--ink));
+}
+
 .sc-attention-instructor {
   color: var(--ink);
   font-size: 0.8125rem;
@@ -125,6 +144,11 @@
   border-color: color-mix(in srgb, var(--sc-warning, var(--ink)) 28%, transparent);
   background: color-mix(in srgb, var(--sc-warning, var(--ink)) 6%, var(--card-bg));
   color: var(--sc-warning, var(--ink));
+}
+
+.sc-needs-attention .sc-attention-actions .sc-attention-recommendations {
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border-subtle));
+  color: var(--accent);
 }
 
 .sc-needs-attention .sc-attention-actions button:hover:not(:disabled) {

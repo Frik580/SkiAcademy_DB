@@ -129,6 +129,12 @@ export const StudentNeedsAttention: React.FC<StudentNeedsAttentionProps> = ({
               <li key={item.id} data-attention-lesson={item.id} className="sc-attention-row">
                 <div className="sc-attention-metadata">
                   <div>
+                    <div className="sc-attention-reasons">
+                      {item.needsReview && (
+                        <p className="sc-attention-reason-review">{t('scReviewRequested')}</p>
+                      )}
+                      {item.hasPendingFeedback && <p>{t('scPendingRecommendations')}</p>}
+                    </div>
                     {item.instructorName && (
                       <p className="sc-attention-instructor">{item.instructorName}</p>
                     )}

@@ -203,6 +203,13 @@ test('Needs Attention preserves mixed scope, navigation, dismissal and responsiv
       await expect(
         row(lessons[i]).getByRole('button', { name: 'Open recommendations' })
       ).toBeVisible();
+      for (const lesson of lessons) await expect(row(lesson)).toContainText('Review requested');
+      await expect(
+        row(lessons[i]).getByText('New recommendations from instructor', { exact: true })
+      ).toBeVisible();
+      await expect(
+        row(lessons[1 - i]).getByText('New recommendations from instructor', { exact: true })
+      ).toHaveCount(0);
       await expect(
         row(lessons[1 - i]).getByRole('button', { name: 'Open recommendations' })
       ).toHaveCount(0);
@@ -246,6 +253,10 @@ test('Needs Attention preserves mixed scope, navigation, dismissal and responsiv
       }, dark);
       await tile.scrollIntoViewIfNeeded();
       for (const coachName of coachNames) await expect(tile).toContainText(coachName);
+      await expect(row(lessons[0])).toContainText('Ожидается отзыв');
+      await expect(
+        row(lessons[0]).getByText('Новые рекомендации от инструктора', { exact: true })
+      ).toBeVisible();
       await expect(page.locator('html')).toHaveClass(dark ? /dark/ : /^(?!.*\bdark\b).*$/);
       expect(await tile.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
       expect(

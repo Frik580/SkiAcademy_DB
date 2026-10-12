@@ -80,6 +80,10 @@ describe('Needs Attention presentation preserves existing actions', () => {
     expect(screen.getAllByRole('listitem')).toHaveLength(1);
     expect(row('lesson-a')).toHaveTextContent(props.bookings[0].instructorName);
     expect(row('lesson-a')).toHaveTextContent('2026-10-03');
+    expect(row('lesson-a')).toHaveTextContent(translations.en.scReviewRequested);
+    expect(
+      within(row('lesson-a')).queryByText(translations.en.scPendingRecommendations)
+    ).not.toBeInTheDocument();
     await user.tab();
     expect(screen.getByRole('button', { name: 'Write Review' })).toHaveFocus();
     await user.keyboard('{Enter}');
@@ -160,6 +164,8 @@ describe('Needs Attention presentation preserves existing actions', () => {
     expect(screen.getAllByRole('listitem')).toHaveLength(1);
     expect(screen.getByLabelText(translations.en.scPendingRecommendations)).toBeInTheDocument();
     expect(within(row('lesson-a')).getAllByRole('button')).toHaveLength(3);
+    expect(row('lesson-a')).toHaveTextContent(translations.en.scReviewRequested);
+    expect(row('lesson-a')).toHaveTextContent(translations.en.scPendingRecommendations);
     await userEvent.click(screen.getByRole('button', { name: 'Open recommendations' }));
     expect(props.onOpenLesson).toHaveBeenCalledWith(props.bookings[0]);
     expect(props.onOpenFeedbackLesson).not.toHaveBeenCalled();
@@ -175,6 +181,11 @@ describe('Needs Attention presentation preserves existing actions', () => {
     ]);
     render(<PresentedTile {...props} />);
     expect(row('canonical-only')).not.toHaveTextContent('undefined');
+    expect(row('canonical-only')).not.toHaveTextContent('canonical-only');
+    expect(row('canonical-only')).toHaveTextContent(translations.en.scPendingRecommendations);
+    expect(
+      within(row('canonical-only')).queryByText(translations.en.scReviewRequested)
+    ).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Open recommendations' }));
     expect(props.onOpenFeedbackLesson).toHaveBeenCalledWith('canonical-only');
     expect(props.onOpenLesson).not.toHaveBeenCalled();
@@ -220,6 +231,12 @@ describe('Needs Attention presentation preserves existing actions', () => {
       within(row('lesson-b')).queryByRole('button', { name: 'Open recommendations' })
     ).not.toBeInTheDocument();
     expect(screen.getAllByRole('listitem')).toHaveLength(2);
+    expect(
+      within(row('lesson-a')).getByText(translations.en.scPendingRecommendations)
+    ).toBeVisible();
+    expect(
+      within(row('lesson-b')).queryByText(translations.en.scPendingRecommendations)
+    ).not.toBeInTheDocument();
     await user.click(within(row('lesson-a')).getByRole('button', { name: 'Write Review' }));
     expect(props.onWriteReview).toHaveBeenLastCalledWith(reviewA);
     await user.click(within(row('lesson-b')).getByRole('button', { name: 'Write Review' }));
@@ -262,6 +279,12 @@ describe('Needs Attention presentation preserves existing actions', () => {
       within(row('lesson-b')).queryByRole('button', { name: 'Open recommendations' })
     ).not.toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'Write Review' })).toHaveLength(2);
+    expect(
+      within(row('lesson-a')).getByText(translations.en.scPendingRecommendations)
+    ).toBeVisible();
+    expect(
+      within(row('lesson-b')).queryByText(translations.en.scPendingRecommendations)
+    ).not.toBeInTheDocument();
     expect(screen.getAllByRole('listitem')).toHaveLength(2);
 
     await user.click(within(row('lesson-b')).getByRole('button', { name: 'Dismiss' }));
@@ -294,6 +317,8 @@ describe('Needs Attention presentation preserves existing actions', () => {
     store.setPresentationParticipantId('a');
     store.replaceParticipantItems('a', [feedback('a', 'lesson-a')]);
     render(<PresentedTile {...props} />);
+    expect(row('lesson-a')).toHaveTextContent(translations[lang].scReviewRequested);
+    expect(row('lesson-a')).toHaveTextContent(translations[lang].scPendingRecommendations);
     for (const key of [
       'writeReviewBtn',
       'scDismissReviewPrompt',

@@ -189,7 +189,7 @@ describe('Next Session tile functional adaptation', () => {
     (language) => {
       locale.language = language;
       render(<NextSessionBlock {...input()} />);
-      expect(screen.getByText(translations[language].scBookedSessionSchedule)).toBeInTheDocument();
+      expect(screen.queryByText(translations[language].scBookedSessionSchedule)).not.toBeInTheDocument();
       expect(document.querySelectorAll('.sc-next-session-day')).toHaveLength(7);
       expect(document.querySelector('[aria-current="date"]')).toHaveTextContent('31');
       expect(document.querySelector('.sc-next-session-month')).toHaveTextContent(

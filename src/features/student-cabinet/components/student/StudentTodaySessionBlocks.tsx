@@ -303,7 +303,6 @@ export const NextSessionBlock = memo<NextSessionBlockInput>(function NextSession
 
   return (
     <section className="sc-next-session">
-      <p className="sc-next-session-eyebrow">{t('scBookedSessionSchedule')}</p>
       <StudentDashboardTileHeader
         title={t('scNextSessionOrCourse')}
         actions={
@@ -363,20 +362,22 @@ export const NextSessionBlock = memo<NextSessionBlockInput>(function NextSession
                     }
                     className="sc-next-session-card"
                   >
-                    <div className="sc-next-session-meta">
-                      <p className="sc-next-session-day-label">
-                        {formatSessionDayLabel(dateStr, lang, t)}
-                      </p>
-                      <p className="sc-next-session-time">
-                        {formatCabinetSessionTimeRange(session)}
-                      </p>
+                    <div className="sc-next-session-heading">
+                      <div className="sc-next-session-meta">
+                        <p className="sc-next-session-time">
+                          {formatCabinetSessionTimeRange(session)}
+                        </p>
+                        <p className="sc-next-session-day-label">
+                          {formatSessionDayLabel(dateStr, lang, t)}
+                        </p>
+                      </div>
+                      <h3 className="sc-next-session-title">
+                        <span>{getCabinetSessionTitle(session, lang)}</span>
+                        {session.kind === 'lesson' && (
+                          <LessonFeedbackIndicator lessonBookingId={session.session.id} />
+                        )}
+                      </h3>
                     </div>
-                    <h3 className="sc-next-session-title">
-                      <span>{getCabinetSessionTitle(session, lang)}</span>
-                      {session.kind === 'lesson' && (
-                        <LessonFeedbackIndicator lessonBookingId={session.session.id} />
-                      )}
-                    </h3>
                     <p className="sc-next-session-subtitle">
                       {isCourseDay
                         ? formatCourseDayDateLabel(session, lang)

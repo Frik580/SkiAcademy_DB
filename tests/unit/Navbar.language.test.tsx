@@ -75,7 +75,10 @@ describe('navbar language slider', () => {
     const user = userEvent.setup();
     const { unmount, container } = mount();
     await screen.findByText('Облачно');
-    const group = screen.getByRole('group');
+    const group = screen.getByRole('group', { name: 'Сменить язык' });
+    const weatherGroup = screen.getByRole('group', {
+      name: 'Условия курорта, прокрутите горизонтально для подробностей',
+    });
     const ru = within(group).getByRole('button', { name: 'RU' });
     const en = within(group).getByRole('button', { name: 'EN' });
     const strip = container.querySelector('.conditions-strip');
@@ -87,6 +90,10 @@ describe('navbar language slider', () => {
     expect(thumb).toHaveClass('bg-[var(--card-bg)]', 'duration-200', 'ease-in-out');
 
     await user.click(en);
+    expect(screen.getByRole('group', { name: 'Switch language' })).toBe(group);
+    expect(
+      screen.getByRole('group', { name: 'Resort conditions, scroll horizontally for more' })
+    ).toBe(weatherGroup);
     expect(en).toHaveAttribute('aria-pressed', 'true');
     expect(ru).toHaveAttribute('aria-pressed', 'false');
     expect(thumb).toHaveClass('translate-x-full');
@@ -98,6 +105,15 @@ describe('navbar language slider', () => {
     await user.tab({ shift: true });
     expect(ru).toHaveFocus();
     await user.keyboard('{Enter}');
+    expect(screen.getByRole('group', { name: 'Сменить язык' })).toBe(group);
+    expect(
+      screen.getByRole('group', {
+        name: 'Условия курорта, прокрутите горизонтально для подробностей',
+      })
+    ).toBe(weatherGroup);
+    expect(ru).toHaveAttribute('aria-pressed', 'true');
+    expect(en).toHaveAttribute('aria-pressed', 'false');
+    expect(thumb).toHaveClass('translate-x-0');
     expect(screen.getByText('Облачно')).toBeVisible();
     expect(screen.getByText('4 км/ч')).toBeVisible();
     expect(localStorage.getItem('alpine_glide_lang')).toBe('ru');
@@ -120,13 +136,28 @@ describe('navbar language slider', () => {
     const menuButton = container.querySelector('.lg\\:hidden button');
     expect(menuButton).not.toBeNull();
     await user.click(menuButton!);
-    const groups = screen.getAllByRole('group');
+    const groups = screen.getAllByRole('group', { name: 'Switch language' });
     expect(groups).toHaveLength(2);
+    for (const group of groups) {
+      expect(within(group).getByRole('button', { name: 'EN' })).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      );
+      expect(within(group).getByRole('button', { name: 'RU' })).toHaveAttribute(
+        'aria-pressed',
+        'false'
+      );
+    }
     await user.click(within(groups[1]).getByRole('button', { name: 'RU' }));
+    expect(screen.getAllByRole('group', { name: 'Сменить язык' })).toEqual(groups);
     for (const group of groups) {
       expect(within(group).getByRole('button', { name: 'RU' })).toHaveAttribute(
         'aria-pressed',
         'true'
+      );
+      expect(within(group).getByRole('button', { name: 'EN' })).toHaveAttribute(
+        'aria-pressed',
+        'false'
       );
     }
     expect(localStorage.getItem('alpine_glide_lang')).toBe('ru');

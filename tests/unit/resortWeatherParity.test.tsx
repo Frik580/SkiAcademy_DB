@@ -103,7 +103,7 @@ describe('shared resort presentation across home and student cabinet', () => {
     const expectNames = (expected: string) => {
       const home = screen.getByTestId('home').querySelector('.conditions-strip__main > li');
       const cabinet = screen.getByTestId('cabinet').querySelector('[data-weather-resort-name]');
-      expect(home?.textContent).toBe(expected);
+      expect(home?.querySelector('.conditions-resort-full')?.textContent).toBe(expected);
       expect(cabinet?.textContent ?? '').toBe(expected);
       for (const surface of surfaces())
         expect(surface.queryByText(/Chamonix|Шамони/)).not.toBeInTheDocument();

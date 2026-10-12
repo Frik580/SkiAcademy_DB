@@ -32,7 +32,7 @@ export const Logo: React.FC<LogoProps> = ({
       >
         <img
           src={sW}
-          alt=""
+          alt={alt}
           loading={isLight ? 'eager' : 'lazy'}
           decoding="async"
           fetchpriority="low"
@@ -42,12 +42,12 @@ export const Logo: React.FC<LogoProps> = ({
 
         <img
           src={logoW}
-          alt={alt}
+          alt=""
           loading={isLight ? 'eager' : 'lazy'}
           decoding="async"
           fetchpriority="low"
           referrerPolicy="no-referrer"
-          className="max-h-8 w-auto object-contain"
+          className="hidden md:block max-h-8 w-auto object-contain"
         />
       </span>
 
@@ -58,7 +58,7 @@ export const Logo: React.FC<LogoProps> = ({
       >
         <img
           src={sB}
-          alt=""
+          alt={alt}
           loading={!isLight ? 'eager' : 'lazy'}
           decoding="async"
           fetchpriority="low"
@@ -68,12 +68,12 @@ export const Logo: React.FC<LogoProps> = ({
 
         <img
           src={logoB}
-          alt={alt}
+          alt=""
           loading={!isLight ? 'eager' : 'lazy'}
           decoding="async"
           fetchpriority="low"
           referrerPolicy="no-referrer"
-          className="max-h-8 w-auto object-contain"
+          className="hidden md:block max-h-8 w-auto object-contain"
         />
       </span>
     </span>

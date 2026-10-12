@@ -1,7 +1,7 @@
 import { buildResortConditionsPresentation } from '../../src/features/resort-conditions';
 import { useState } from 'react';
 import { readFileSync } from 'node:fs';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { LanguageProvider } from '../../src/app/providers/LanguageContext';
@@ -75,9 +75,47 @@ describe('ConditionsStrip', () => {
       expect(screen.getByText(label)).toBeVisible();
   });
 
+  it('shortens only Shymbulak for mobile while keeping the full accessible name', () => {
+    localStorage.setItem('alpine_glide_lang', 'ru');
+    const presentation = buildResortConditionsPresentation(
+      { status: 'ready', data: weather },
+      'celsius',
+      {
+        nameEn: 'Shymbulak Mountain Resort',
+        nameRu: 'Shymbulak Mountain Resort',
+        showLifts: true,
+        liftsStatusEn: '',
+        liftsStatusRu: '',
+      }
+    );
+    const { container, rerender } = render(
+      <LanguageProvider>
+        <ConditionsStrip presentation={presentation} onToggleUnit={() => {}} />
+      </LanguageProvider>
+    );
+    expect(container.querySelector('.conditions-resort-full')).toHaveTextContent(
+      'Shymbulak Mountain Resort'
+    );
+    expect(screen.getByText('Шымбулак')).toHaveAttribute('aria-hidden', 'true');
+    rerender(
+      <LanguageProvider>
+        <ConditionsStrip
+          presentation={{
+            ...presentation,
+            nameEn: 'Other Mountain Resort',
+            nameRu: 'Другой горный курорт',
+          }}
+          onToggleUnit={() => {}}
+        />
+      </LanguageProvider>
+    );
+    expect(container.querySelector('.conditions-resort-short')).not.toBeInTheDocument();
+    expect(screen.getByText('Другой горный курорт')).toBeVisible();
+  });
+
   it('keeps updated time and the clickable source in a separate metadata group', () => {
     const { container } = render(<Harness />);
-    const main = container.querySelector('.conditions-strip__main');
+    const main = container.querySelector('.conditions-strip__secondary');
     const meta = container.querySelector('.conditions-strip__meta');
     const source = screen.getByRole('link', { name: 'Open-Meteo' });
     expect(main).toContainElement(screen.getByText('Wind'));
@@ -133,6 +171,26 @@ describe('ConditionsStrip', () => {
     expect(screen.getByText('Shymbulak')).toBeVisible();
   });
 
+  it('keeps condition text when temperature is missing and reflects refreshed metrics', () => {
+    const { rerender } = render(
+      <Harness
+        state={{
+          status: 'ready',
+          data: { ...weather, temperatureC: null, windKmh: null, visibilityM: null },
+        }}
+      />
+    );
+    expect(screen.getByText('Clear')).toBeVisible();
+    expect(screen.queryByText('-7°')).not.toBeInTheDocument();
+    expect(screen.queryByText('Wind')).not.toBeInTheDocument();
+    expect(screen.queryByText('Visibility')).not.toBeInTheDocument();
+    rerender(
+      <Harness state={{ status: 'ready', data: { ...weather, temperatureC: -3, windKmh: 12 } }} />
+    );
+    expect(screen.getByText('-3°')).toBeVisible();
+    expect(screen.getByText('12 km/h').closest('li')).toHaveAttribute('title', 'Gusts 18 km/h');
+  });
+
   it('switches temperature and apparent temperature with the keyboard', async () => {
     const user = userEvent.setup();
     render(<Harness />);
@@ -140,11 +198,14 @@ describe('ConditionsStrip', () => {
     await user.tab();
     const button = screen.getByRole('button', { name: 'Switch temperature to Fahrenheit' });
     expect(button).toHaveFocus();
+    expect(button).toHaveAccessibleDescription('°C');
     expect(screen.getByText('-7°').closest('li')).toHaveAttribute('title', 'Feels like -11°');
     await user.keyboard('{Enter}');
     expect(screen.getByText('19°')).toBeVisible();
     expect(screen.getByText('19°').closest('li')).toHaveAttribute('title', 'Feels like 12°');
     expect(screen.getByRole('button', { name: 'Switch temperature to Celsius' })).toHaveFocus();
+    expect(button).toHaveAccessibleDescription('°F');
+    expect(screen.getByText('9 km/h')).toBeVisible();
   });
 
   it('uses a focusable horizontal scroll region and one fixed-height row', () => {
@@ -163,6 +224,33 @@ describe('ConditionsStrip', () => {
     expect(css).toContain('top: var(--app-navbar-height)');
     expect(css.split('@media')[0]).toContain('position: sticky');
     expect(css).toContain('-webkit-overflow-scrolling: touch');
+  });
+
+  it('removes the overflow hint at the end and restores it after scrolling back', () => {
+    const { container } = render(<Harness />);
+    const metrics = screen.getByRole('group', { name: /scroll horizontally/ });
+    Object.defineProperties(metrics, {
+      scrollWidth: { configurable: true, value: 500 },
+      clientWidth: { configurable: true, value: 80 },
+      scrollLeft: { configurable: true, writable: true, value: 0 },
+    });
+    fireEvent.scroll(metrics);
+    expect(container.querySelector('.conditions-metrics-frame')).toHaveAttribute(
+      'data-more',
+      'true'
+    );
+    metrics.scrollLeft = 420;
+    fireEvent.scroll(metrics);
+    expect(container.querySelector('.conditions-metrics-frame')).toHaveAttribute(
+      'data-more',
+      'false'
+    );
+    metrics.scrollLeft = 10;
+    fireEvent.scroll(metrics);
+    expect(container.querySelector('.conditions-metrics-frame')).toHaveAttribute(
+      'data-more',
+      'true'
+    );
   });
 
   it('places exactly one strip after Hero and before Journey, with no weather inside Hero', () => {

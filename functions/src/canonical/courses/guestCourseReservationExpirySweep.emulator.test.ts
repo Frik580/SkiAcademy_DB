@@ -9,6 +9,8 @@ import {
   CourseEnrollmentIdSchema,
   CourseIdSchema,
   InstructorIdSchema,
+  KztMinorUnitsSchema,
+  LIVE_CANONICAL_EXECUTION_SCOPE,
   ParticipantIdSchema,
   PaymentIdSchema,
   accountCommandActor,
@@ -36,8 +38,9 @@ const courseId = CourseIdSchema.parse('course_guest_course_expiry_sweep_01');
 const courseDayId = CourseDayIdSchema.parse('course_day_guest_course_expiry_sweep_01');
 const instructorId = InstructorIdSchema.parse('instructor_guest_course_expiry_sweep_01');
 const createdAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
-const courseStartsAt = timestampFromDate(new Date('2026-02-01T03:00:00.000Z'));
-const courseEndsAt = timestampFromDate(new Date('2026-02-01T05:00:00.000Z'));
+// Keep the course after every reservation deadline without a month of seat-claim guard buckets.
+const courseStartsAt = timestampFromDate(new Date('2026-01-03T03:00:00.000Z'));
+const courseEndsAt = timestampFromDate(new Date('2026-01-03T05:00:00.000Z'));
 const COURSE_PRICE = 50_000;
 const INITIAL_SEATS = 20;
 
@@ -68,7 +71,7 @@ let firestore: Firestore;
 
 function createCommands(at: string) {
   return createProductionCanonicalCommands(
-    { clock: createAuthoritativeCommandClock(new Date(at)) },
+    { clock: createAuthoritativeCommandClock(new Date(at)), scope: LIVE_CANONICAL_EXECUTION_SCOPE },
     createFirestoreCanonicalTransactionExecutor(firestore),
     { guestActionTokenSecret: 'guest-course-expiry-sweep-secret' }
   );
@@ -192,7 +195,7 @@ async function createGuestEnrollment(suffix: string, at: string): Promise<Course
       correlationId,
       source: 'guest_callable',
       calendarInput: {
-        localDate: '2026-02-01',
+        localDate: '2026-01-03',
         localTime: '09:00',
         durationMinutes: 120,
       },
@@ -232,7 +235,7 @@ async function fundEnrollment(
     },
     intent: {
       paymentId: PaymentIdSchema.parse(paymentId),
-      amount,
+      amount: KztMinorUnitsSchema.parse(amount),
       sourceKind: 'manual_external',
       manualReference: `guest-course-expiry-${suffix}`,
     },
@@ -265,7 +268,7 @@ async function enrollmentClaims(id: CourseEnrollmentId) {
     .map((document) => document.data());
 }
 
-describe.sequential.runIf(runsOnFirestoreEmulator)(
+describe.runIf(runsOnFirestoreEmulator).sequential(
   'guest course reservation expiry sweep (firestore emulator)',
   () => {
     beforeAll(() => {

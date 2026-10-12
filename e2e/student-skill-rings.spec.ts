@@ -150,7 +150,27 @@ test('Skill Rings preserves participant scores, selection, Development and four 
       }
       await tile.screenshot({ path: info.outputPath(`${name}.png`) });
     }
-    await tile.getByRole('button', { name: 'Продолжить развитие' }).click();
+    const developmentLink = tile.getByRole('link', {
+      name: 'Перейти к развитию',
+      exact: true,
+    });
+    await page.evaluate(() => {
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    });
+    let focusedByTab = false;
+    for (let tabCount = 0; tabCount < 120; tabCount += 1) {
+      await page.keyboard.press('Tab');
+      if (await developmentLink.evaluate((element) => element === document.activeElement)) {
+        focusedByTab = true;
+        break;
+      }
+    }
+    expect(focusedByTab).toBe(true);
+    await expect(developmentLink).toBeFocused();
+    const documentTimeOrigin = await page.evaluate(() => performance.timeOrigin);
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(/\/cabinet\/development$/);
+    expect(await page.evaluate(() => performance.timeOrigin)).toBe(documentTimeOrigin);
     await expect(page.getByRole('tab', { name: 'Радар навыков' })).toBeVisible();
     await expect(page.getByText('Keep your shoulders quiet')).toBeVisible();
     await page.getByRole('tab', { name: 'Симулятор целей' }).click();

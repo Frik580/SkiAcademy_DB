@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { Booking } from '../../../types';
 import { useLanguage } from '../../../app/providers/LanguageContext';
 import { type TodayTask, type TodayTaskRef } from '../../../features/student-cabinet';
+import { StudentDevelopmentLink } from '../../../ui/StudentDevelopmentLink';
 
 export interface TodayChecklistProps {
   variant?: 'default' | 'dashboard';
@@ -226,14 +227,11 @@ export const TodayChecklist: React.FC<TodayChecklistProps> = ({
       )}
 
       {onOpenDevelopment && (
-        <div className="pt-1 text-right">
-          <button
-            type="button"
-            onClick={onOpenDevelopment}
-            className="text-xs text-[var(--accent)] hover:underline"
-          >
-            {t('scDevelopment')} →
-          </button>
+        <div className="pt-1 flex justify-end">
+          <StudentDevelopmentLink
+            label={t('studentDevelopmentLink')}
+            onNavigate={onOpenDevelopment}
+          />
         </div>
       )}
     </div>

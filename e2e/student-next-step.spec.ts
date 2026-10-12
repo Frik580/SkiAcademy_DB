@@ -86,7 +86,11 @@ test('Next Step preserves participant pin persistence, development, XP and four 
   expect((await profile.get()).data()?.participantTodayChecklists[b].todaySkillItemIds).toEqual([
     'l1_1',
   ]);
-  await tile.getByRole('button', { name: 'Explore development', exact: true }).click();
+  const developmentLink = tile.getByRole('link', { name: 'Go to Development', exact: true });
+  const documentTimeOrigin = await page.evaluate(() => performance.timeOrigin);
+  await developmentLink.click();
+  await expect(page).toHaveURL(/\/cabinet\/development$/);
+  expect(await page.evaluate(() => performance.timeOrigin)).toBe(documentTimeOrigin);
   await expect(
     page.getByRole('button', { name: 'Add to Today', exact: true }).first()
   ).toBeVisible();

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { type TranslationKey } from '../../../../app/providers/LanguageContext';
 import { DEFAULT_SKILL_CONFIG } from '../../../../domain/achievements';
+import { StudentDevelopmentLink } from '../../../../ui/StudentDevelopmentLink';
 import { StudentProfilePreferencesSection } from './StudentProfilePreferencesSection';
 import { LazySkillRadarChart } from './LazySkillRadarChart';
 import {
@@ -305,9 +306,10 @@ export const StudentProfileSkillsPanel: React.FC<ProfileSubPanelProps> = ({
         onToggleSkillToday={onToggleSkillToday}
         compact={false}
       />
-      <ScTextButton arrow onClick={() => onGoToTab('development')}>
-        {t('scContinueDevelopment')}
-      </ScTextButton>
+      <StudentDevelopmentLink
+        label={t('studentDevelopmentLink')}
+        onNavigate={() => onGoToTab('development')}
+      />
     </ProfilePanelShell>
   );
 };

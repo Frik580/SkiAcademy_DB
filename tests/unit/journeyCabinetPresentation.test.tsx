@@ -202,7 +202,7 @@ describe('Cabinet Journey retains configured progress', () => {
     expect(view.container.querySelector('.journey-skill-card')).toBeNull();
     view.rerender(journey(profile({ stage_1: 25 })));
     expect(view.container.querySelector('.journey-skill-card')).toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: /scMoreDetails/ }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('link', { name: /studentDevelopmentLink/ }).length).toBeGreaterThan(0);
     view.rerender(journey(profile({})));
     expect(view.container.querySelector('.journey-skill-card')).toBeNull();
   });
@@ -251,10 +251,11 @@ describe('Cabinet Journey retains configured progress', () => {
     node.focus();
     await userEvent.keyboard('{Enter}');
     expect(node).toHaveAttribute('aria-pressed', 'true');
-    const details = screen.getAllByRole('link', { name: /scMoreDetails/ })[0];
-    expect(details).toHaveAttribute('href', '/cabinet/development');
-    details.focus();
+    const developmentLink = screen.getAllByRole('link', { name: /studentDevelopmentLink/ })[0];
+    expect(developmentLink).toHaveAttribute('href', '/cabinet/development');
+    developmentLink.focus();
     await userEvent.keyboard('{Enter}');
     expect(onOpenDevelopment).toHaveBeenCalledTimes(1);
+    expect(node).toHaveAttribute('aria-pressed', 'true');
   });
 });

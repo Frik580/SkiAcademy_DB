@@ -43,7 +43,7 @@ it('uses SPA navigation for ordinary clicks and leaves modified clicks to the br
   expect(defaultPreventedStates).toEqual([true, false]);
 });
 
-it('activates with Enter and can stop Journey card click propagation', async () => {
+it('is reachable with Tab, activates with Enter, and can stop Journey card click propagation', async () => {
   const onNavigate = vi.fn();
   const onParentClick = vi.fn();
   const user = userEvent.setup();
@@ -58,7 +58,8 @@ it('activates with Enter and can stop Journey card click propagation', async () 
   );
 
   const link = screen.getByRole('link', { name: 'Go to Development' });
-  link.focus();
+  await user.tab();
+  expect(link).toHaveFocus();
   await user.keyboard('{Enter}');
 
   expect(onNavigate).toHaveBeenCalledOnce();

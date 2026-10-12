@@ -127,7 +127,11 @@ test('Today Tasks preserves participant persistence, pinning, keyboard and four 
   await expect
     .poll(async () => (await profile.get()).data()?.participantTodayChecklists[a].todaySkillItemIds)
     .toEqual([]);
-  await tile.getByRole('button', { name: /Development/ }).click();
+  const developmentLink = tile.getByRole('link', { name: 'Go to Development', exact: true });
+  const documentTimeOrigin = await page.evaluate(() => performance.timeOrigin);
+  await developmentLink.click();
+  await expect(page).toHaveURL(/\/cabinet\/development$/);
+  expect(await page.evaluate(() => performance.timeOrigin)).toBe(documentTimeOrigin);
   await page.getByRole('button', { name: 'Add to Today', exact: true }).first().click();
   await expect
     .poll(

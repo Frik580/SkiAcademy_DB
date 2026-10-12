@@ -8,7 +8,7 @@
   margin-bottom: 0.25rem;
   color: var(--ink-dim);
   font-family: var(--font-mono);
-  font-size: 0.625rem;
+  font-size: 0.6875rem;
   line-height: 1.6;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -126,14 +126,14 @@
 .sc-today-achievements-score-detail {
   margin-top: 0.25rem;
   color: var(--ink-dim);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-variant-numeric: tabular-nums;
 }
 
 .sc-today-achievements-delta {
   color: var(--ink-dim);
   font-family: var(--font-mono);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;

@@ -55,8 +55,8 @@
   margin: 0;
   color: var(--ink-dim);
   font-family: var(--font-mono);
-  font-size: 0.6875rem;
-  line-height: 1.6;
+  font-size: 0.75rem;
+  line-height: 1.5;
   overflow-wrap: anywhere;
 }
 
@@ -126,7 +126,7 @@
   border-radius: var(--sc-control-radius, var(--radius-sm));
   background: var(--sc-surface, var(--surface-tint));
   color: var(--ink);
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   line-height: 1.5;
   white-space: normal;
   overflow-wrap: anywhere;
@@ -158,6 +158,6 @@
 
   .sc-dashboard .sc-latest-recommendation [data-dashboard-title] {
     color: var(--accent);
-    font-size: 0.625rem;
+    font-size: 0.6875rem;
   }
 }

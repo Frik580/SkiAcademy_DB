@@ -67,7 +67,7 @@ const LIST_SCOPE_LABEL_KEYS = {
 
 interface ClientBookingsListProps {
   sessionItems: readonly CabinetSessionItem[];
-  /** Account sessions for the list; sessionItems retain calendar/day widget scope. */
+  /** Prepared sessions for the list; sessionItems supply the calendar/day widgets. */
   listSessionItems?: readonly CabinetSessionItem[];
   participantProfiles?: readonly SessionParticipantInput[];
   userBookings: LessonBookingCabinetItem[];

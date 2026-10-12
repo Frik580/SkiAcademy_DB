@@ -580,7 +580,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
           <StudentCalendarPanel
             {...panelProps}
             sessionItems={isolatedSessionItems}
-            listSessionItems={props.sessionItems ?? []}
+            listSessionItems={isolatedSessionItems}
             participantProfiles={ctx.participantProfiles}
             onViewCourseDetails={props.onViewCourseDetails}
             onCourseWithdraw={props.onCourseWithdraw}

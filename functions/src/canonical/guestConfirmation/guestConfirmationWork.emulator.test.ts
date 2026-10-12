@@ -1,4 +1,5 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { randomUUID } from 'node:crypto';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initializeApp, deleteApp, type App } from 'firebase-admin/app';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import {
@@ -10,10 +11,12 @@ import {
   MonetaryEventSchema,
   CommandIdSchema,
   CorrelationIdSchema,
+  TestSessionIdSchema,
   paymentIdFromBookingId,
   paymentIdFromCourseEnrollmentId,
   monetaryEventIdFromCommandEffect,
   timestampFromDate,
+  type CanonicalExecutionScope,
 } from '@ski-academy/shared-domain';
 import {
   canonicalBookingCollaborationFixtures,
@@ -47,20 +50,6 @@ const at = timestampFromDate(now);
 let app: App;
 let db: Firestore;
 const emulator = Boolean(process.env.FIRESTORE_EMULATOR_HOST);
-const collections = [
-  'bookings',
-  'course_enrollments',
-  'payments',
-  'monetary_events',
-  'courses',
-  'admin_issues',
-  'activity_logs',
-  'domain_outbox',
-  'command_idempotency',
-  GUEST_CONFIRMATION_WORK_COLLECTION,
-  'migration_control',
-  GUEST_CONFIRMATION_QUARANTINE_COLLECTION,
-];
 
 function booking(id: string, status: 'pending' | 'cancelled' | 'confirmed' = 'cancelled') {
   const bookingId = BookingIdSchema.parse(id);
@@ -113,16 +102,17 @@ function payment(subject: ReturnType<typeof booking>, funded = true) {
 async function seed(
   id: string,
   funded = true,
-  status: 'pending' | 'cancelled' | 'confirmed' = 'cancelled'
+  status: 'pending' | 'cancelled' | 'confirmed' = 'cancelled',
+  scope?: CanonicalExecutionScope
 ) {
-  const subject = booking(id, status);
-  const p = payment(subject, funded);
+  const subject = BookingSchema.parse({ ...booking(id, status), ...scope });
+  const p = PaymentSchema.parse({ ...payment(subject, funded), ...scope });
   await db.doc(`bookings/${id}`).set(subject);
   await db.doc(`payments/${p.paymentId}`).set(p);
-  if (funded) await seedEvent(p);
+  if (funded) await seedEvent(p, scope);
   return { subject, payment: p };
 }
-async function seedEvent(p: ReturnType<typeof payment>) {
+async function seedEvent(p: ReturnType<typeof payment>, scope?: CanonicalExecutionScope) {
   const commandId = CommandIdSchema.parse(`command_${p.paymentId}_fund`);
   const event = MonetaryEventSchema.parse({
     eventId: monetaryEventIdFromCommandEffect(commandId, 0),
@@ -144,6 +134,7 @@ async function seedEvent(p: ReturnType<typeof payment>) {
     paymentEventRevision: 1,
     occurredAt: at,
     recordedAt: at,
+    ...scope,
   });
   await db.doc(`monetary_events/${event.eventId}`).set(event);
 }
@@ -173,16 +164,27 @@ async function prepareQueue() {
 describe.skipIf(!emulator)(
   'guest confirmation incremental queue (Firestore Emulator integration)',
   () => {
-    beforeAll(() => {
-      app = initializeApp({ projectId: 'demo-ski-school-e2e' }, 'guest-work-tests');
-      db = getFirestore(app);
-    });
-    afterAll(async () => {
-      await deleteApp(app);
-    });
     beforeEach(async () => {
       vi.restoreAllMocks();
-      for (const collection of collections) await db.recursiveDelete(db.collection(collection));
+      // These tests deliver handlers explicitly. Sharing the Functions Emulator project also
+      // delivers seed/delete triggers asynchronously, including after collection cleanup.
+      const projectId = `demo-guest-work-${randomUUID()}`;
+      app = initializeApp({ projectId }, projectId);
+      db = getFirestore(app);
+      expect((await db.collection(GUEST_CONFIRMATION_WORK_COLLECTION).get()).empty).toBe(true);
+      expect((await db.doc(GUEST_CONFIRMATION_CONTROL_PATH).get()).exists).toBe(false);
+      expect((await db.collection(GUEST_CONFIRMATION_QUARANTINE_COLLECTION).get()).empty).toBe(
+        true
+      );
+    });
+    afterEach(async () => {
+      vi.restoreAllMocks();
+      try {
+        // This project belongs only to this test, so cleanup cannot delete another worker's data.
+        for (const collection of await db.listCollections()) await db.recursiveDelete(collection);
+      } finally {
+        await deleteApp(app);
+      }
     });
 
     it('preserves the legacy sweep until explicitly proven ready', async () => {
@@ -670,9 +672,16 @@ describe.skipIf(!emulator)(
         })
       );
       await beginGuestConfirmationBackfill(db, 'emulator evidence');
+      const workBeforeDryRun = await db.collection(GUEST_CONFIRMATION_WORK_COLLECTION).get();
+      const controlBeforeDryRun = await readGuestConfirmationControl(db);
       const dry = await runGuestConfirmationRecoveryPage(db, now, { backfill: true, dryRun: true });
       expect(dry.recoveryDocsRead).toBe(1);
-      expect((await db.collection(GUEST_CONFIRMATION_WORK_COLLECTION).get()).empty).toBe(true);
+      const workAfterDryRun = await db.collection(GUEST_CONFIRMATION_WORK_COLLECTION).get();
+      expect(workAfterDryRun.docs.map((document) => [document.id, document.data()])).toEqual(
+        workBeforeDryRun.docs.map((document) => [document.id, document.data()])
+      );
+      expect(workAfterDryRun.empty).toBe(true);
+      expect(await readGuestConfirmationControl(db)).toEqual(controlBeforeDryRun);
       await runGuestConfirmationRecoveryPage(db, now, { backfill: true });
       await runGuestConfirmationRecoveryPage(db, now, { backfill: true });
       const control = (await readGuestConfirmationControl(db))!;
@@ -700,13 +709,17 @@ describe.skipIf(!emulator)(
     });
 
     it('keeps TEST scoped financial state out of the LIVE reconciliation queue', async () => {
-      const fixture = await seed('booking_test_scope');
-      const scope = { dataScope: 'test', testSessionId: 'test_session_guest_work' };
-      await db.doc(`bookings/${fixture.subject.bookingId}`).update(scope);
-      await db.doc(`payments/${fixture.payment.paymentId}`).update(scope);
+      const fixture = await seed('booking_test_scope', true, 'cancelled', {
+        dataScope: 'test',
+        testSessionId: TestSessionIdSchema.parse('test_session_guest_work'),
+      });
       expect(
         await syncGuestConfirmationWork(db, { paymentId: fixture.payment.paymentId, now })
       ).toBe('ignored');
+      expect(
+        (await db.doc(`${GUEST_CONFIRMATION_WORK_COLLECTION}/${fixture.payment.paymentId}`).get())
+          .exists
+      ).toBe(false);
       expect((await db.collection(GUEST_CONFIRMATION_WORK_COLLECTION).get()).empty).toBe(true);
     });
   }

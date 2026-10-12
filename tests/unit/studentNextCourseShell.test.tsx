@@ -264,15 +264,15 @@ function shellProps(
     onViewInstructorReviews: vi.fn(),
   };
 }
-function Header() {
+function Header({ managedParticipants = participants }) {
   const selection = useCabinetProgressParticipantSelection({
     accountId,
-    participants,
+    participants: managedParticipants,
     loading: false,
   });
   return (
     <CabinetParticipantAvatarSwitcher
-      items={participants}
+      items={managedParticipants}
       selectedParticipantId={selection.selectedParticipantId}
       onSelect={selection.selectParticipant}
       fallbackDisplayName="Account"
@@ -281,10 +281,10 @@ function Header() {
     />
   );
 }
-function setup(props = shellProps()) {
+function setup(props = shellProps(), managedParticipants = participants) {
   return render(
     <MemoryRouter>
-      <Header />
+      <Header managedParticipants={managedParticipants} />
       <StudentCabinetShell {...props} />
     </MemoryRouter>
   );
@@ -460,8 +460,8 @@ function lessonShellProps() {
   return props;
 }
 
-describe('Shell → real BookingsPanel → account-level ClientBookingsList', () => {
-  it('keeps account lessons and their participants through header switches while the calendar stays scoped', async () => {
+describe('Shell → real BookingsPanel → participant-scoped ClientBookingsList', () => {
+  it('updates lessons, courses and empty state through header switches while home stays account-scoped', async () => {
     const user = userEvent.setup();
     const props = lessonShellProps();
     setup(props);
@@ -470,18 +470,17 @@ describe('Shell → real BookingsPanel → account-level ClientBookingsList', ()
     vi.mocked(props.hasUnreadChat!).mockClear();
     await user.click(screen.getByRole('button', { name: 'calendar', exact: true }));
     expect(screen.getByText('Coach only_a')).toBeInTheDocument();
-    expect(screen.getByText('Coach only_b')).toBeInTheDocument();
+    expect(screen.queryByText('Coach only_b')).not.toBeInTheDocument();
     expect(screen.getByText('Coach shared')).toBeInTheDocument();
     expect(
       calendarSpy.mock.lastCall?.[0].bookings.map((b: LessonBookingCabinetItem) => b.id)
     ).toEqual(['only_a', 'shared', 'done_a', 'done_shared']);
     expect(screen.getByTestId('calendar-scope')).toHaveTextContent('ea');
-    const assertMembership = () => {
+    const assertMembership = (participantId: 'a' | 'b') => {
       const cards = screen.getAllByTestId('lesson-booking-card');
-      expect(cards).toHaveLength(3);
+      expect(cards).toHaveLength(2);
       for (const [id, names] of [
-        ['only_a', ['Alice Full Name']],
-        ['only_b', ['Bob Full Name']],
+        ['only_' + participantId, [participantId === 'a' ? 'Alice Full Name' : 'Bob Full Name']],
         ['shared', ['Alice Full Name', 'Bob Full Name']],
       ] as const) {
         const card = document.getElementById('booking-card-' + id)!;
@@ -497,24 +496,20 @@ describe('Shell → real BookingsPanel → account-level ClientBookingsList', ()
         );
       }
       const courseCards = screen.getAllByTestId('course-enrollment-card');
-      expect(courseCards).toHaveLength(2);
+      expect(courseCards).toHaveLength(1);
+      expect(courseCards[0]).toHaveAttribute('data-enrollment-id', 'e' + participantId);
       expect(
-        within(courseCards.find((card) => card.dataset.enrollmentId === 'ea')!).getByText(
-          'Alice Full Name'
-        )
-      ).toBeInTheDocument();
-      expect(
-        within(courseCards.find((card) => card.dataset.enrollmentId === 'eb')!).getByText(
-          'Bob Full Name'
+        within(courseCards[0]).getByText(
+          participantId === 'a' ? 'Alice Full Name' : 'Bob Full Name'
         )
       ).toBeInTheDocument();
     };
-    assertMembership();
-    expect(props.hasUnreadChat).toHaveBeenCalledWith('only_b');
+    assertMembership('a');
+    expect(props.hasUnreadChat).not.toHaveBeenCalledWith('only_b');
     expect(
       screen.getAllByTitle('chatNewMessages').filter((element) => element.tagName === 'BUTTON')
-    ).toHaveLength(3);
-    expect(screen.getAllByRole('button', { name: 'cancelBookingRefund' })).toHaveLength(3);
+    ).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'cancelBookingRefund' })).toHaveLength(2);
     await user.click(
       screen.getAllByTitle('chatNewMessages').filter((element) => element.tagName === 'BUTTON')[0]
     );
@@ -524,23 +519,27 @@ describe('Shell → real BookingsPanel → account-level ClientBookingsList', ()
     await user.click(screen.getAllByRole('button', { name: 'rescheduleBtn' })[0]);
     expect(props.onRescheduleBooking).toHaveBeenCalledWith(props.bookings[0]);
     await user.click(screen.getByRole('button', { name: 'Select Bob Full Name' }));
-    expect(screen.getByText('Coach only_a')).toBeInTheDocument();
+    expect(screen.queryByText('Coach only_a')).not.toBeInTheDocument();
     expect(screen.getByText('Coach only_b')).toBeInTheDocument();
     expect(screen.getByText('Coach shared')).toBeInTheDocument();
     expect(screen.getByTestId('calendar-scope')).toHaveTextContent('eb');
-    assertMembership();
+    assertMembership('b');
     expect(
       calendarSpy.mock.lastCall?.[0].bookings.map((b: LessonBookingCabinetItem) => b.id)
     ).toEqual(['only_b', 'shared', 'done_b', 'done_shared']);
     await user.click(screen.getByRole('button', { name: 'Select Charlie Full Name' }));
-    assertMembership();
+    expect(screen.queryByTestId('lesson-booking-card')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('course-enrollment-card')).not.toBeInTheDocument();
+    expect(screen.getByText('noSessionsScheduledYet')).toBeInTheDocument();
     expect(calendarSpy.mock.lastCall?.[0].sessionItems).toEqual([]);
+    await user.click(screen.getByRole('button', { name: 'Select Alice Full Name' }));
+    assertMembership('a');
     await user.click(screen.getByRole('button', { name: 'home', exact: true }));
     expect(screen.getByText('Coach only_a')).toBeInTheDocument();
     expect(screen.getByText('Coach only_b')).toBeInTheDocument();
   });
 
-  it('keeps all completed lessons, review actions and the past tab through header switches', async () => {
+  it('keeps review actions and the past filter while completed lessons follow the header selection', async () => {
     const user = userEvent.setup();
     const props = lessonShellProps();
     setup(props);
@@ -552,10 +551,10 @@ describe('Shell → real BookingsPanel → account-level ClientBookingsList', ()
     ).toEqual(['done_a', 'done_b', 'done_shared']);
     await user.click(screen.getByRole('button', { name: 'scCalendarPast' }));
     expect(screen.getByText('Coach done_a')).toBeInTheDocument();
-    expect(screen.getByText('Coach done_b')).toBeInTheDocument();
+    expect(screen.queryByText('Coach done_b')).not.toBeInTheDocument();
     expect(screen.getByText('Coach done_shared')).toBeInTheDocument();
     const reviewButtons = screen.getAllByRole('button', { name: 'writeReviewBtn' });
-    expect(reviewButtons).toHaveLength(3);
+    expect(reviewButtons).toHaveLength(2);
     await user.click(reviewButtons[0]);
     expect(props.onWriteReview).toHaveBeenCalledWith(props.bookings.find((b) => b.id === 'done_a'));
     await user.click(screen.getByRole('button', { name: 'Select Bob Full Name' }));
@@ -564,12 +563,12 @@ describe('Shell → real BookingsPanel → account-level ClientBookingsList', ()
         (b: LessonBookingCabinetItem) => b.id
       )
     ).toEqual(['done_a', 'done_b', 'done_shared']);
-    expect(screen.getByText('Coach done_a')).toBeInTheDocument();
+    expect(screen.queryByText('Coach done_a')).not.toBeInTheDocument();
     expect(screen.getByText('Coach done_b')).toBeInTheDocument();
     expect(screen.getByText('Coach done_shared')).toBeInTheDocument();
   });
 
-  it('keeps four course days as one enrollment card for B with the account avatar while A is selected', async () => {
+  it('shows four course days as one enrollment card only when B is selected', async () => {
     const user = userEvent.setup();
     const props = shellProps([enrollment('eb', 'b')]);
     const first = props.sessionItems![0];
@@ -582,6 +581,9 @@ describe('Shell → real BookingsPanel → account-level ClientBookingsList', ()
     }));
     setup(props);
     await user.click(screen.getByRole('button', { name: 'calendar', exact: true }));
+    expect(screen.queryByTestId('course-enrollment-card')).not.toBeInTheDocument();
+    expect(screen.getByText('noSessionsScheduledYet')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Select Bob Full Name' }));
     const cards = screen.getAllByTestId('course-enrollment-card');
     expect(cards).toHaveLength(1);
     expect(cards[0]).toHaveAttribute('data-enrollment-id', 'eb');
@@ -597,6 +599,57 @@ describe('Shell → real BookingsPanel → account-level ClientBookingsList', ()
     expect(
       within(screen.getByTestId('course-enrollment-card')).getByText('Bob Full Name')
     ).toBeInTheDocument();
+  });
+
+  it('updates the pagination count when switching participants on the second page', async () => {
+    const user = userEvent.setup();
+    const props = shellProps([]);
+    props.bookings = [
+      ...Array.from({ length: 7 }, (_, index) => lesson('a_' + index, ['a'])),
+      ...Array.from({ length: 6 }, (_, index) => lesson('b_' + index, ['b'])),
+    ];
+    props.sessionItems = buildMixedCabinetSessionItems({
+      lessonBookings: props.bookings,
+      courseEnrollments: [],
+    });
+    setup(props);
+    await user.click(screen.getByRole('button', { name: 'calendar', exact: true }));
+    expect(screen.getByText('Showing 1–5 of 7 sessions')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Next page' }));
+    expect(screen.getByText('Showing 6–7 of 7 sessions')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Select Bob Full Name' }));
+    expect(screen.getByText('Showing 6–6 of 6 sessions')).toBeInTheDocument();
+    expect(screen.getAllByTestId('lesson-booking-card')).toHaveLength(1);
+    expect(screen.queryByText(/Coach a_/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Select Charlie Full Name' }));
+    expect(screen.queryByRole('button', { name: 'Next page' })).not.toBeInTheDocument();
+    expect(screen.getByText('noSessionsScheduledYet')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Select Alice Full Name' }));
+    expect(screen.getByText('Showing 1–5 of 7 sessions')).toBeInTheDocument();
+  });
+
+  it('initializes the list for an account with one participant', async () => {
+    const user = userEvent.setup();
+    const managedParticipants = [participants[0]];
+    managedMock.mockReturnValue({
+      participants: managedParticipants,
+      loading: false,
+      error: undefined,
+      reload: vi.fn(),
+    });
+    useCabinetProgressParticipantSelectionStore.getState().reset();
+    const props = shellProps([enrollment('ea', 'a')]);
+    props.bookings = [lesson('only_a', ['a'])];
+    props.sessionItems = buildMixedCabinetSessionItems({
+      lessonBookings: props.bookings,
+      courseEnrollments: props.courseEnrollments ?? [],
+    });
+    setup(props, managedParticipants);
+    await user.click(screen.getByRole('button', { name: 'calendar', exact: true }));
+    expect(useCabinetProgressParticipantSelectionStore.getState().selectedParticipantId).toBe('a');
+    expect(screen.getAllByTestId('lesson-booking-card')).toHaveLength(1);
+    expect(screen.getAllByTestId('course-enrollment-card')).toHaveLength(1);
+    expect(screen.queryByText('noSessionsScheduledYet')).not.toBeInTheDocument();
   });
 
   it('preserves account lesson lists when selection is absent', async () => {

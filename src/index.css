@@ -1008,7 +1008,12 @@
 
 @media (max-width: 767px) {
   .ui-hero.hero-layout .hero-stage {
+    grid-template-rows: minmax(0, 3fr) auto minmax(0, 2fr);
     padding-bottom: calc(var(--hero-pagination-reserve) + 2rem);
+  }
+
+  .ui-hero.hero-layout .hero-copy-shell {
+    grid-row: 2;
   }
 
   .ui-hero.hero-layout .hero-copy-stack {

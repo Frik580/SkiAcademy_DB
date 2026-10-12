@@ -839,8 +839,8 @@
 
 /*
  * HeroCarousel — one positioning model for all breakpoints:
- * - `.hero-copy-stack` in-flow height = copy only → shell centers at 50%
- * - `.hero-actions-shell` absolutely below copy (`top: 100% + gap`)
+ * - All slide copies share one grid cell, sized by the tallest copy.
+ * - CTA stays in flow below that stable cell; the whole stack is centered.
  * - `.hero-pagination-shell` pinned to hero bottom (mobile)
  */
 .ui-hero.hero-layout {
@@ -866,15 +866,13 @@
 .ui-hero.hero-layout .hero-stage {
   position: relative;
   width: 100%;
+  display: grid;
+  align-items: center;
+  padding-block: 3rem;
 }
 
 .ui-hero.hero-layout .hero-copy-shell {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
   z-index: 10;
-  transform: translateY(-50%);
   pointer-events: none;
 }
 
@@ -898,9 +896,7 @@
 }
 
 .ui-hero.hero-layout .hero-actions-shell {
-  position: absolute;
-  top: calc(100% + var(--hero-copy-actions-gap));
-  left: 0;
+  margin-top: var(--hero-copy-actions-gap);
   width: 100%;
 }
 
@@ -1012,7 +1008,11 @@
 
 @media (max-width: 767px) {
   .ui-hero.hero-layout .hero-stage {
-    padding-bottom: var(--hero-pagination-reserve);
+    padding-bottom: calc(var(--hero-pagination-reserve) + 2rem);
+  }
+
+  .ui-hero.hero-layout .hero-copy-stack {
+    max-width: min(100%, 80vw);
   }
 }
 

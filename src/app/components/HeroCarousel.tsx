@@ -628,7 +628,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                         className={`col-start-1 row-start-1 will-change-[opacity] transition-opacity ${
                           isActive
                             ? 'relative opacity-100 z-[2]'
-                            : 'absolute inset-0 opacity-0 z-[1] pointer-events-none'
+                            : 'relative opacity-0 z-[1] pointer-events-none'
                         }`}
                         style={crossfadeStyle}
                       >

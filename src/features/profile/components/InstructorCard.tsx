@@ -14,10 +14,11 @@ interface InstructorCardProps {
   onBook: (instructor: Instructor) => void;
   onViewReviews?: (instructor: Instructor) => void;
   bookLabel?: string;
+  hideEmptyReviews?: boolean;
 }
 
 export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardProps>(
-  ({ instructor, onBook, onViewReviews, bookLabel }, ref) => {
+  ({ instructor, onBook, onViewReviews, bookLabel, hideEmptyReviews = false }, ref) => {
     const { t, language } = useLanguage();
     const { formatPrice } = useCurrency();
     const shouldReduceMotion = useReducedMotion();
@@ -162,7 +163,9 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
               >
                 {instructor.name}
               </h3>
-              <div className="flex justify-center md:justify-end">{ratingControl}</div>
+              {(!hideEmptyReviews || instructor.reviewsCount > 0) && (
+                <div className="flex justify-center md:justify-end">{ratingControl}</div>
+              )}
             </div>
 
             <p className="type-compact text-[var(--ink-dim)] max-w-2xl mx-auto md:mx-0 mb-5 md:mb-6">

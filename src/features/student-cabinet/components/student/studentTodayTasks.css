@@ -1,3 +1,4 @@
+@reference '../../../../index.css';
 /* Original Stitch daily-task rows, scoped to the Home checklist variant. */
 .sc-today-tasks-header {
   display: flex;
@@ -7,13 +8,9 @@
 }
 
 .sc-dashboard .sc-today-tasks .sc-today-tasks-title {
+  @apply type-card-title;
   min-height: 0;
   color: var(--ink);
-  font-family: 'DM Sans', sans-serif;
-  font-size: 16px;
-  font-weight: 600;
-  line-height: 1.4;
-  letter-spacing: -0.02em;
 }
 
 .sc-today-tasks-actions {
@@ -41,8 +38,8 @@
 }
 
 .sc-today-tasks-message {
+  @apply type-caption;
   margin-bottom: 12px;
-  font-size: 13px;
   color: var(--ink-dim);
 }
 
@@ -73,12 +70,10 @@
 }
 
 .sc-today-checklist [data-task-row] label > span {
+  @apply type-compact;
   white-space: normal;
   overflow: visible;
   overflow-wrap: anywhere;
-  font-size: 14px;
-  font-weight: 500;
-  line-height: 1.6;
 }
 
 .sc-today-checklist input[type='checkbox'] {
@@ -132,7 +127,7 @@
 
 @media (min-width: 640px) {
   .sc-dashboard .sc-today-tasks .sc-today-tasks-title {
-    font-size: 18px;
+    @apply type-card-title;
   }
   .sc-today-checklist [data-task-row] {
     padding-left: 14px;

@@ -81,14 +81,14 @@ function ReasonField({
 }) {
   const inputId = useId();
   return (
-    <label htmlFor={inputId} className="block text-xs">
+    <label htmlFor={inputId} className="block type-caption">
       {label}
       <input
         id={inputId}
         aria-label={ariaLabel}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-1 w-full border border-[var(--border)] bg-transparent p-2"
+        className="mt-1 w-full border border-[var(--border)] bg-transparent p-2 type-body"
       />
     </label>
   );
@@ -229,7 +229,7 @@ export function AdminCourseEnrollmentDetail({
 
   const overview = (
     <section aria-label={t.overviewTab} className="space-y-5">
-      <dl className="grid grid-cols-[minmax(8rem,auto)_1fr] gap-x-6 gap-y-3 text-sm">
+      <dl className="grid grid-cols-[minmax(8rem,auto)_1fr] gap-x-6 gap-y-3 type-compact">
         <dt className="text-[var(--ink-dim)]">{t.participant}</dt>
         <dd>{detail.participant.displayName}</dd>
         <dt className="text-[var(--ink-dim)]">{t.course}</dt>
@@ -286,7 +286,7 @@ export function AdminCourseEnrollmentDetail({
             <select
               value={targetCourseId}
               onChange={(event) => onTargetCourseIdChange(event.target.value)}
-              className="border border-[var(--border)] bg-[var(--bg)] p-2 text-xs"
+              className="border border-[var(--border)] bg-[var(--bg)] p-2 type-body"
             >
               <option value="">{t.selectCourse}</option>
               {availableTargetCourses.map((course) => (
@@ -310,7 +310,7 @@ export function AdminCourseEnrollmentDetail({
                   `${t.transfer}: ${detail.enrollmentId} → ${parsed.data} @ rev ${detail.revision}`
                 );
               }}
-              className="border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
+              className="border border-[var(--border)] px-3 py-2 type-button disabled:opacity-50"
             >
               {t.transfer}
             </button>
@@ -319,7 +319,7 @@ export function AdminCourseEnrollmentDetail({
       )}
       {!hasAnyAction && (
         <div className="rounded-[var(--radius-md)] bg-[var(--profile-bg)] p-3">
-          <p className="flex gap-2 text-xs text-[var(--ink-dim)]">
+          <p className="flex gap-2 type-caption text-[var(--ink-dim)]">
             <Users className="h-4 w-4" /> {t.noActions}
           </p>
         </div>
@@ -329,10 +329,8 @@ export function AdminCourseEnrollmentDetail({
 
   const paymentSection = payment ? (
     <section aria-label={t.paymentTab} className="space-y-4">
-      {layout === 'stacked' ? (
-        <h4 className="text-xs font-medium uppercase tracking-wide">{t.paymentTab}</h4>
-      ) : null}
-      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
+      {layout === 'stacked' ? <h4 className="type-card-title uppercase">{t.paymentTab}</h4> : null}
+      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 type-caption">
         {courseEnrollmentPaymentPrimaryRows(payment).map((row) => (
           <div key={row.id} className="contents">
             <dt className="text-[var(--ink-dim)]">
@@ -363,7 +361,7 @@ export function AdminCourseEnrollmentDetail({
         <dd>{courseEnrollmentPaymentStatusLabel(payment.status, t)}</dd>
       </dl>
       {awaitingPayment && detail.guestState !== 'not_guest' && (
-        <p className="text-xs text-amber-700">{t.guestDeferred}</p>
+        <p className="type-caption text-amber-700">{t.guestDeferred}</p>
       )}
       <AdminPaymentCaptureSection
         canRecordPayment={detail.authorizedActions.canRecordPayment}
@@ -404,7 +402,7 @@ export function AdminCourseEnrollmentDetail({
       <button
         type="button"
         onClick={() => onOpenPayment(payment.paymentId)}
-        className="inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 text-xs"
+        className="inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 type-button"
       >
         {t.payment} <ChevronRight className="h-3.5 w-3.5" />
       </button>
@@ -413,14 +411,12 @@ export function AdminCourseEnrollmentDetail({
 
   const attendance = (
     <section aria-label={t.attendance} className="space-y-4">
-      {layout === 'stacked' ? (
-        <h4 className="text-xs font-medium uppercase tracking-wide">{t.attendance}</h4>
-      ) : null}
+      {layout === 'stacked' ? <h4 className="type-card-title uppercase">{t.attendance}</h4> : null}
       {attendanceDays.length === 0 ? (
-        <p className="text-xs text-[var(--ink-dim)]">{t.noCourseDays}</p>
+        <p className="type-caption text-[var(--ink-dim)]">{t.noCourseDays}</p>
       ) : (
         attendanceDays.map((day) => (
-          <div key={day.courseDayId} className="space-y-2 text-xs">
+          <div key={day.courseDayId} className="space-y-2 type-caption">
             <p className="font-medium">
               {formatCourseEnrollmentDate(day.startsAt.seconds, locale)}
             </p>
@@ -482,7 +478,7 @@ export function AdminCourseEnrollmentDetail({
               `${t.resolveOutcome}: ${detail.enrollmentId} @ rev ${detail.revision}`
             )
           }
-          className="border border-[var(--border)] px-3 py-2 text-xs"
+          className="border border-[var(--border)] px-3 py-2 type-button"
         >
           {t.resolveOutcome}
         </button>
@@ -501,10 +497,10 @@ export function AdminCourseEnrollmentDetail({
   const cancellation = showCancellation ? (
     <section aria-label={t.cancellationTab} className="space-y-4">
       {layout === 'stacked' ? (
-        <h4 className="text-xs font-medium uppercase tracking-wide">{t.cancellationTab}</h4>
+        <h4 className="type-card-title uppercase">{t.cancellationTab}</h4>
       ) : null}
       {detail.lifecycleStatus === 'pending_cancellation' && (
-        <p className="text-xs">{t.cancellationRequested}</p>
+        <p className="type-caption">{t.cancellationRequested}</p>
       )}
       {layout === 'tabs' ? (
         <ReasonField
@@ -529,13 +525,13 @@ export function AdminCourseEnrollmentDetail({
               `${t.cancelUnpaidGuest}: ${detail.enrollmentId} @ rev ${detail.revision}`
             )
           }
-          className="border border-rose-500 px-3 py-2 text-xs text-rose-600 disabled:opacity-50"
+          className="border border-rose-500 px-3 py-2 type-button text-rose-600 disabled:opacity-50"
         >
           {t.cancelUnpaidGuest}
         </button>
       )}
       {detail.authorizedActions.canResolveCancellation && detail.cancellation && (
-        <div className="space-y-2 text-xs">
+        <div className="space-y-2 type-caption">
           <label htmlFor="admin-course-enrollment-refund" className="block">
             {t.refund} · max {money(detail.cancellation.maximumRefund)}
             <input
@@ -546,7 +542,7 @@ export function AdminCourseEnrollmentDetail({
               step="1"
               value={refundAmount}
               onChange={(event) => onRefundAmountChange(event.target.value)}
-              className="mt-1 w-full border border-[var(--border)] bg-transparent p-2"
+              className="mt-1 w-full border border-[var(--border)] bg-transparent p-2 type-body"
             />
           </label>
           <div className="flex gap-2">
@@ -593,17 +589,15 @@ export function AdminCourseEnrollmentDetail({
 
   const guest = (
     <section aria-label={t.guestTab} className="space-y-4">
-      {layout === 'stacked' ? (
-        <h4 className="text-xs font-medium uppercase tracking-wide">{t.guestTab}</h4>
-      ) : null}
-      <p className="text-xs">{courseEnrollmentGuestStateLabel(detail.guestState, t)}</p>
-      <p className="text-xs">
+      {layout === 'stacked' ? <h4 className="type-card-title uppercase">{t.guestTab}</h4> : null}
+      <p className="type-caption">{courseEnrollmentGuestStateLabel(detail.guestState, t)}</p>
+      <p className="type-caption">
         {t.participant}: {detail.participant.displayName}
       </p>
-      {detail.guestContact?.phone && <p className="text-xs">📞 {detail.guestContact.phone}</p>}
-      {detail.guestContact?.email && <p className="text-xs">✉️ {detail.guestContact.email}</p>}
+      {detail.guestContact?.phone && <p className="type-caption">📞 {detail.guestContact.phone}</p>}
+      {detail.guestContact?.email && <p className="type-caption">✉️ {detail.guestContact.email}</p>}
       {detail.guestComment && (
-        <div className="space-y-1 text-xs">
+        <div className="space-y-1 type-caption">
           <p className="font-medium">{t.customerComment}</p>
           <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
             {detail.guestComment}
@@ -612,25 +606,25 @@ export function AdminCourseEnrollmentDetail({
       )}
       {detail.authorizedActions.canLinkGuest ? (
         <div className="space-y-2">
-          <p className="text-xs font-medium">{t.linkGuestTitle}</p>
-          <p className="text-xs text-[var(--ink-dim)]">{t.linkGuestHint}</p>
+          <p className="type-caption font-medium">{t.linkGuestTitle}</p>
+          <p className="type-caption text-[var(--ink-dim)]">{t.linkGuestHint}</p>
           <AdminManagedParticipantPicker
             selected={linkSelection}
             onChange={(selection) => {
               onLinkSelectionChange(selection);
             }}
           />
-          <label className="block text-xs">
+          <label className="block type-caption">
             {t.reason}
             <input
               aria-label="Link reason"
               value={linkReason}
               onChange={(event) => onLinkReasonChange(event.target.value)}
-              className="mt-1 w-full border border-[var(--border)] bg-[var(--bg)] p-2"
+              className="mt-1 w-full border border-[var(--border)] bg-[var(--bg)] p-2 type-body"
             />
           </label>
           {linkSelection && (
-            <p className="text-xs text-[var(--ink-dim)]">
+            <p className="type-caption text-[var(--ink-dim)]">
               {t.linkReview
                 .replace('{guest}', detail.participant.displayName)
                 .replace('{account}', linkSelection.accountDisplayName ?? linkSelection.accountId)
@@ -656,14 +650,14 @@ export function AdminCourseEnrollmentDetail({
                 t.confirmLinkGuest
               );
             }}
-            className="w-full border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
+            className="w-full border border-[var(--border)] px-3 py-2 type-button disabled:opacity-50"
           >
             {t.linkGuest}
           </button>
         </div>
       ) : (
         detail.guestState !== 'not_guest' && (
-          <div className="space-y-1 text-xs text-[var(--ink-dim)]">
+          <div className="space-y-1 type-caption text-[var(--ink-dim)]">
             <p>{t.linkUnavailable}</p>
             <p>
               {guestEnrollmentLinkUnavailableLabel(detail.guestIdentityLinkUnavailableReason, t)}
@@ -677,15 +671,13 @@ export function AdminCourseEnrollmentDetail({
   const issues =
     detail.relatedIssues.length > 0 ? (
       <section aria-label={t.issuesTab} className="space-y-3">
-        {layout === 'stacked' ? (
-          <h4 className="text-xs font-medium uppercase tracking-wide">{t.issuesTab}</h4>
-        ) : null}
+        {layout === 'stacked' ? <h4 className="type-card-title uppercase">{t.issuesTab}</h4> : null}
         {detail.relatedIssues.map((issue) => (
           <button
             key={issue.issueId}
             type="button"
             onClick={() => onOpenIssue(issue.issueId)}
-            className="block w-full rounded-[var(--radius-md)] border border-[var(--border)] p-3 text-left text-xs"
+            className="block w-full rounded-[var(--radius-md)] border border-[var(--border)] p-3 text-left type-button"
           >
             {t.issue}: {issue.kind} · {issue.lifecycleStatus}
           </button>
@@ -696,9 +688,9 @@ export function AdminCourseEnrollmentDetail({
   const technical = (
     <section aria-label={t.technicalTab} className="space-y-3">
       {layout === 'stacked' ? (
-        <h4 className="text-xs font-medium uppercase tracking-wide">{t.technicalTab}</h4>
+        <h4 className="type-card-title uppercase">{t.technicalTab}</h4>
       ) : null}
-      <dl className="rounded-[var(--radius-md)] bg-[var(--profile-bg)] p-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 break-all font-mono text-[10px] text-[var(--ink-dim)]">
+      <dl className="rounded-[var(--radius-md)] bg-[var(--profile-bg)] p-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 break-all type-caption text-[var(--ink-dim)]">
         <dt>{t.enrollmentId}</dt>
         <dd>{detail.enrollmentId}</dd>
         <dt>{t.courseId}</dt>
@@ -785,7 +777,7 @@ export function AdminCourseEnrollmentDetail({
               `${t.reconcile}: ${detail.reconciliation.evidenceIssueIds.join(', ')} @ rev ${detail.revision}`
             )
           }
-          className="inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 text-xs"
+          className="inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 type-button"
         >
           <RefreshCw className="h-3.5 w-3.5" /> {t.reconcile}
         </button>
@@ -797,8 +789,8 @@ export function AdminCourseEnrollmentDetail({
     <header className="space-y-3 p-4 pb-3">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h3 className="truncate text-xl font-medium">{detail.participant.displayName}</h3>
-          <p className="mt-1 text-xs text-[var(--ink-dim)]">{headerSubtitle}</p>
+          <h3 className="truncate type-card-title">{detail.participant.displayName}</h3>
+          <p className="mt-1 type-caption text-[var(--ink-dim)]">{headerSubtitle}</p>
           <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
             <AdminLessonStatusChip status={primaryStatus} label={statusLabel} />
             {payment ? (
@@ -827,7 +819,7 @@ export function AdminCourseEnrollmentDetail({
         openCriticalIssues.length > 0) && (
         <div className="grid gap-2 xl:grid-cols-2">
           {awaitingPayment && (
-            <div className="rounded-[var(--radius-md)] border border-amber-500/30 bg-amber-500/[0.07] p-3 text-xs">
+            <div className="rounded-[var(--radius-md)] border border-amber-500/30 bg-amber-500/[0.07] p-3 type-caption">
               <p className="flex items-center gap-1.5 font-semibold text-amber-900 dark:text-amber-200">
                 <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
                 {t.awaitingPaymentTitle}
@@ -841,7 +833,7 @@ export function AdminCourseEnrollmentDetail({
             </div>
           )}
           {detail.lifecycleStatus === 'pending_cancellation' && (
-            <div className="rounded-[var(--radius-md)] border border-rose-500/30 bg-rose-500/[0.07] p-3 text-xs">
+            <div className="rounded-[var(--radius-md)] border border-rose-500/30 bg-rose-500/[0.07] p-3 type-caption">
               <p className="flex items-center gap-1.5 font-semibold text-rose-900 dark:text-rose-200">
                 <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
                 {t.cancellationRequested}
@@ -850,7 +842,7 @@ export function AdminCourseEnrollmentDetail({
                 <button
                   type="button"
                   onClick={() => setActiveSection('cancellation')}
-                  className="mt-2 text-xs font-semibold text-rose-700 underline-offset-2 hover:underline dark:text-rose-300"
+                  className="mt-2 type-button text-rose-700 underline-offset-2 hover:underline dark:text-rose-300"
                 >
                   {t.openCancellation}
                 </button>
@@ -858,7 +850,7 @@ export function AdminCourseEnrollmentDetail({
             </div>
           )}
           {openCriticalIssues.length > 0 && (
-            <div className="rounded-[var(--radius-md)] border border-red-500/30 bg-red-500/[0.07] p-3 text-xs">
+            <div className="rounded-[var(--radius-md)] border border-red-500/30 bg-red-500/[0.07] p-3 type-caption">
               <p className="flex items-center gap-1.5 font-semibold text-red-900 dark:text-red-200">
                 <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
                 {t.criticalIssues.replace('{n}', String(openCriticalIssues.length))}
@@ -867,7 +859,7 @@ export function AdminCourseEnrollmentDetail({
                 <button
                   type="button"
                   onClick={() => setActiveSection('issues')}
-                  className="mt-2 text-xs font-semibold text-red-700 underline-offset-2 hover:underline dark:text-red-300"
+                  className="mt-2 type-button text-red-700 underline-offset-2 hover:underline dark:text-red-300"
                 >
                   {t.issuesTab}
                 </button>

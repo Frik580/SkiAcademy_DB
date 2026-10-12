@@ -15,7 +15,7 @@ export function ParticipantScopeIndicator({
     <span
       data-participant-scope={participant.participantId}
       title={participant.displayName}
-      className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-tint)] px-2 py-1 text-xs font-normal normal-case tracking-normal text-[var(--ink-dim)]"
+      className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-tint)] px-2 py-1 type-caption normal-case text-[var(--ink-dim)]"
     >
       <span className="ui-avatar h-5 w-5 shrink-0 overflow-hidden rounded-full" aria-hidden="true">
         <ParticipantAvatarFace url={participant.avatarUrl} name={participant.displayName} />

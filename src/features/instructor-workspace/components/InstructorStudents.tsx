@@ -11,20 +11,20 @@ export const InstructorStudents: React.FC<InstructorStudentsProps> = ({ workspac
 
   return (
     <div className="space-y-4">
-      <h4 className="text-lg font-serif font-light text-[var(--ink)] tracking-tight border-b border-slate-200/80 dark:border-slate-800/80 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+      <h4 className="type-card-title text-[var(--ink)] border-b border-slate-200/80 dark:border-slate-800/80 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Award className="w-5 h-5 text-accent" />
           <span>
             {t('instructorStudentsTitle')} ({myStudents.length})
           </span>
         </div>
-        <span className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider font-normal">
+        <span className="type-caption text-[var(--ink-dim)] uppercase">
           {t('instructorStudentsHint')}
         </span>
       </h4>
 
       {myStudents.length === 0 ? (
-        <div className="py-8 border border-dashed border-slate-200 dark:border-slate-800 text-center bg-[var(--card-bg)] rounded-xs font-mono text-xs text-[var(--ink-dim)]">
+        <div className="py-8 border border-dashed border-slate-200 dark:border-slate-800 text-center bg-[var(--card-bg)] rounded-xs type-caption text-[var(--ink-dim)]">
           {t('instructorNoStudents')}
         </div>
       ) : (
@@ -46,16 +46,16 @@ export const InstructorStudents: React.FC<InstructorStudentsProps> = ({ workspac
                         referrerPolicy="no-referrer"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-xs">
+                      <div className="w-full h-full flex items-center justify-center type-caption">
                         👤
                       </div>
                     )}
                   </div>
                   <div className="min-w-0">
-                    <h5 className="font-serif text-xs text-[var(--ink)] font-bold truncate">
+                    <h5 className="type-compact text-[var(--ink)] truncate font-medium">
                       {student.name}
                     </h5>
-                    <span className="text-[9px] font-mono text-[var(--ink-dim)] block">
+                    <span className="type-caption text-[var(--ink-dim)] block">
                       {student.lessonsCount} {t('instructorLessonsWord')}
                     </span>
                   </div>
@@ -84,7 +84,7 @@ export const InstructorStudents: React.FC<InstructorStudentsProps> = ({ workspac
                         Number(e.target.value)
                       )
                     }
-                    className="text-[9px] font-mono uppercase bg-white dark:bg-slate-900 text-[var(--ink)] border border-slate-200 dark:border-slate-700 rounded-xs px-1.5 py-1 focus:outline-none focus:ring-1 ring-accent cursor-pointer"
+                    className="type-body uppercase bg-white dark:bg-slate-900 text-[var(--ink)] border border-slate-200 dark:border-slate-700 rounded-xs px-1.5 py-1 focus:outline-none focus:ring-1 ring-accent cursor-pointer"
                   >
                     <option value={1}>{t('instructorLevelShort')} 1</option>
                     <option value={2}>{t('instructorLevelShort')} 2</option>

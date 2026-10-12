@@ -30,17 +30,17 @@ export const ScheduleToolbar: React.FC<ScheduleToolbarProps> = ({
   onAdjustDate,
   onToday,
 }) => (
-  <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs font-mono w-full">
+  <div className="flex flex-wrap items-center gap-2 sm:gap-3 type-caption w-full">
     <div className="flex items-center gap-1 border border-[var(--border)] p-1 rounded-none shrink-0">
       <button
         onClick={() => onViewModeChange('day')}
-        className={`px-2 sm:px-2.5 py-1 sm:text-xs font-mono rounded-none transition ${viewMode === 'day' ? 'bg-[var(--ink)] text-[var(--bg)]' : 'bg-transparent text-[var(--ink)]'}`}
+        className={`px-2 sm:px-2.5 py-1 type-button rounded-none transition ${viewMode === 'day' ? 'bg-[var(--ink)] text-[var(--bg)]' : 'bg-transparent text-[var(--ink)]'}`}
       >
         {t('scheduleDay')}
       </button>
       <button
         onClick={() => onViewModeChange('week')}
-        className={`px-2 sm:px-2.5 py-1 sm:text-xs font-mono rounded-none transition ${viewMode === 'week' ? 'bg-[var(--ink)] text-[var(--bg)]' : 'bg-transparent text-[var(--ink)]'}`}
+        className={`px-2 sm:px-2.5 py-1 type-button rounded-none transition ${viewMode === 'week' ? 'bg-[var(--ink)] text-[var(--bg)]' : 'bg-transparent text-[var(--ink)]'}`}
       >
         {t('scheduleWeek')}
       </button>
@@ -60,10 +60,10 @@ export const ScheduleToolbar: React.FC<ScheduleToolbarProps> = ({
           type="date"
           value={selectedDate}
           onChange={(event) => onDateChange(parsePlannerLocalDateInput(event.target.value))}
-          className="px-2 py-1.5 bg-black/5 dark:bg-white/5 border border-[var(--border)] rounded-none sm:text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] max-w-[130px] sm:max-w-none shrink"
+          className="px-2 py-1.5 bg-black/5 dark:bg-white/5 border border-[var(--border)] rounded-none type-body text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] max-w-[130px] sm:max-w-none shrink"
         />
       ) : (
-        <div className="px-2 py-1.5 bg-black/5 dark:bg-white/5 border border-[var(--border)] rounded-none sm:text-xs text-center text-[var(--ink)] w-auto min-w-[130px] sm:w-48 truncate shrink">
+        <div className="px-2 py-1.5 bg-black/5 dark:bg-white/5 border border-[var(--border)] rounded-none type-caption text-center text-[var(--ink)] w-auto min-w-[130px] sm:w-48 truncate shrink">
           {weekStart.toLocaleDateString(language === 'ru' ? 'ru-RU' : 'en-US', {
             month: 'short',
             day: 'numeric',
@@ -87,7 +87,7 @@ export const ScheduleToolbar: React.FC<ScheduleToolbarProps> = ({
 
       <button
         onClick={onToday}
-        className="px-2 py-1.5 sm:text-xs border border-[var(--border)] text-[var(--ink)] hover:border-[var(--ink)] hover:bg-black/5 dark:hover:bg-white/5 transition cursor-pointer bg-transparent rounded-none shrink-0"
+        className="px-2 py-1.5 type-button border border-[var(--border)] text-[var(--ink)] hover:border-[var(--ink)] hover:bg-black/5 dark:hover:bg-white/5 transition cursor-pointer bg-transparent rounded-none shrink-0"
       >
         {t('today')}
       </button>

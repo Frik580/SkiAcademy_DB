@@ -236,7 +236,7 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
       />
 
       {myInstructors.length === 0 && otherInstructors.length === 0 ? (
-        <p className="text-sm text-[var(--ink-dim)] py-4">{t('scCoachNoInstructors')}</p>
+        <p className="type-compact text-[var(--ink-dim)] py-4">{t('scCoachNoInstructors')}</p>
       ) : (
         <div className="space-y-8">
           {myInstructors.length > 0 && (
@@ -275,7 +275,7 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
             <section className="space-y-8">
               <div className="space-y-1">
                 <ScSectionTitle>{t('scAvailableInstructors')}</ScSectionTitle>
-                <p className="text-sm text-[var(--ink-dim)]">{t('meetGuidesSub')}</p>
+                <p className="type-compact text-[var(--ink-dim)]">{t('meetGuidesSub')}</p>
               </div>
               {otherInstructors.map((ins) => (
                 <InstructorCard
@@ -303,12 +303,12 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
         backLabel={selectedInstructor.name}
       >
         {instructorBookings.length === 0 ? (
-          <p className="text-sm text-[var(--ink-dim)]">{t('scCoachNoLessons')}</p>
+          <p className="type-compact text-[var(--ink-dim)]">{t('scCoachNoLessons')}</p>
         ) : (
           <div className="space-y-3">
             {preferred && (
               <ScTintCard tint="accent" className="px-4 py-3.5 space-y-2">
-                <p className="text-xs text-[var(--ink-dim)]">{t('scCoachOpenLatestChat')}</p>
+                <p className="type-caption text-[var(--ink-dim)]">{t('scCoachOpenLatestChat')}</p>
                 <ScTextButton onClick={() => onChat(preferred)}>
                   {t('scCoachOpenChat')}
                 </ScTextButton>
@@ -323,7 +323,7 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
                   onClick={() => onChat(booking)}
                   className="w-full flex items-center justify-between gap-3 rounded-xl border border-[var(--border-subtle)] px-4 py-3 text-left hover:bg-[var(--border-subtle)]/35 transition-colors"
                 >
-                  <span className="text-sm text-[var(--ink)]">
+                  <span className="type-compact text-[var(--ink)]">
                     {resolveMessageLessonDate(booking.id, bookings, courses, lang)} · {booking.time}
                   </span>
                   <MessageSquare className="h-4 w-4 shrink-0 text-[var(--accent)]" aria-hidden />
@@ -346,14 +346,14 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
         backLabel={selectedInstructor.name}
       >
         {messagesLoading ? (
-          <p className="text-sm text-[var(--ink-dim)]">{t('loading')}</p>
+          <p className="type-compact text-[var(--ink-dim)]">{t('loading')}</p>
         ) : videoMessages.length === 0 ? (
-          <p className="text-sm text-[var(--ink-dim)]">{t('scCoachNoVideos')}</p>
+          <p className="type-compact text-[var(--ink-dim)]">{t('scCoachNoVideos')}</p>
         ) : (
           <div className="space-y-4">
             {[...videoMessages].reverse().map((msg) => (
               <ScTintCard key={msg.id} tint="purple" className="px-4 py-3.5 space-y-2">
-                <p className="text-xs text-[var(--ink-dim)]">
+                <p className="type-caption text-[var(--ink-dim)]">
                   {resolveMessageLessonDate(
                     msg.bookingId,
                     bookings,
@@ -363,9 +363,7 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
                   )}{' '}
                   · {formatMessageTimestamp(msg.timestamp, lang)}
                 </p>
-                {msg.text?.trim() && (
-                  <p className="text-sm text-[var(--ink)] leading-relaxed">{msg.text}</p>
-                )}
+                {msg.text?.trim() && <p className="type-compact text-[var(--ink)]">{msg.text}</p>}
                 <video
                   src={msg.attachmentUrl}
                   controls
@@ -390,22 +388,22 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
         backLabel={selectedInstructor.name}
       >
         {skillComments.length === 0 ? (
-          <p className="text-sm text-[var(--ink-dim)]">{t('scCoachNoComments')}</p>
+          <p className="type-compact text-[var(--ink-dim)]">{t('scCoachNoComments')}</p>
         ) : (
           <div className="space-y-3">
             {skillComments.map(({ skillId, title, comment, score, maxPoints }) => (
               <ScTintCard key={skillId} tint="amber" className="px-4 py-3.5 space-y-1.5">
                 <div className="flex items-start justify-between gap-3">
-                  <p className="text-xs font-medium uppercase tracking-wide text-[var(--ink-dim)]">
+                  <p className="type-caption font-medium uppercase text-[var(--ink-dim)]">
                     {title}
                   </p>
-                  <p className="text-xs font-semibold text-amber-600 tabular-nums shrink-0">
+                  <p className="type-caption font-medium text-amber-600 tabular-nums shrink-0">
                     {t('scCoachSkillScore')
                       .replace('{earned}', String(score))
                       .replace('{max}', String(maxPoints))}
                   </p>
                 </div>
-                <p className="text-sm text-[var(--ink)] leading-relaxed">&ldquo;{comment}&rdquo;</p>
+                <p className="type-compact text-[var(--ink)]">&ldquo;{comment}&rdquo;</p>
               </ScTintCard>
             ))}
           </div>
@@ -424,9 +422,9 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
         backLabel={selectedInstructor.name}
       >
         {messagesLoading ? (
-          <p className="text-sm text-[var(--ink-dim)]">{t('loading')}</p>
+          <p className="type-compact text-[var(--ink-dim)]">{t('loading')}</p>
         ) : homeworkMessages.length === 0 ? (
-          <p className="text-sm text-[var(--ink-dim)]">{t('scCoachNoHomework')}</p>
+          <p className="type-compact text-[var(--ink-dim)]">{t('scCoachNoHomework')}</p>
         ) : (
           <div className="space-y-3">
             {[...homeworkMessages].reverse().map((msg) => {
@@ -448,16 +446,14 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
                 <ScTintCard key={msg.id} tint="green" className="px-4 py-3.5 space-y-2">
                   <div className="space-y-0.5">
                     {courseTitle && (
-                      <p className="text-sm font-medium text-[var(--ink)]">{courseTitle}</p>
+                      <p className="type-compact font-medium text-[var(--ink)]">{courseTitle}</p>
                     )}
-                    <p className="text-xs text-[var(--ink-dim)]">
+                    <p className="type-caption text-[var(--ink-dim)]">
                       {lessonDate && `${lessonDate} · `}
                       {formatMessageTimestamp(msg.timestamp, lang)}
                     </p>
                   </div>
-                  {msg.text?.trim() && (
-                    <p className="text-sm text-[var(--ink)] leading-relaxed">{msg.text}</p>
-                  )}
+                  {msg.text?.trim() && <p className="type-compact text-[var(--ink)]">{msg.text}</p>}
                   {msg.attachmentType === 'image' && msg.attachmentUrl && (
                     <a
                       href={msg.attachmentUrl}
@@ -473,7 +469,7 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
                         referrerPolicy="no-referrer"
                       />
                       {(msg.attachmentName || msg.attachmentSize) && (
-                        <div className="p-1 px-2 text-[8px] font-mono text-[var(--ink-dim)] bg-black/15 flex items-center justify-between gap-2 border-t border-black/10">
+                        <div className="p-1 px-2 type-caption text-[var(--ink-dim)] bg-black/15 flex items-center justify-between gap-2 border-t border-black/10">
                           <span className="truncate max-w-[150px]">{msg.attachmentName}</span>
                           {msg.attachmentSize && (
                             <span>{(msg.attachmentSize / 1024).toFixed(1)} KB</span>
@@ -496,7 +492,7 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
                       href={msg.attachmentUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-sm text-[var(--accent)] hover:underline"
+                      className="inline-flex items-center gap-1.5 type-button text-[var(--accent)] hover:underline"
                     >
                       {msg.attachmentName || msg.attachmentUrl}
                       <ExternalLink className="h-3.5 w-3.5" aria-hidden />
@@ -521,9 +517,9 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
         backLabel={selectedInstructor.name}
       >
         {feedback.isLoadingPlaceholder ? (
-          <p className="text-sm text-[var(--ink-dim)]">{t('loading')}</p>
+          <p className="type-compact text-[var(--ink-dim)]">{t('loading')}</p>
         ) : recommendationRows.length === 0 ? (
-          <p className="text-sm text-[var(--ink-dim)]">{t('scCoachNoRecommendations')}</p>
+          <p className="type-compact text-[var(--ink-dim)]">{t('scCoachNoRecommendations')}</p>
         ) : (
           <div className="space-y-4">
             {recommendationRows.map((row) => {
@@ -550,7 +546,7 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
                   className="px-4 py-3.5 space-y-3"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <p className="text-xs text-[var(--ink-dim)]">
+                    <p className="type-caption text-[var(--ink-dim)]">
                       {[
                         feedback.formatDate(row.lessonDate, lang) || row.lessonDate,
                         row.instructorName,
@@ -613,7 +609,7 @@ const CoachExtendedActions: React.FC<{
   return (
     <div className="rounded-2xl border border-[var(--border-subtle)] overflow-hidden">
       <div className="px-4 py-3 border-b border-[var(--border-subtle)] bg-[var(--border-subtle)]/20">
-        <p className="text-xs text-[var(--ink-dim)]">
+        <p className="type-caption text-[var(--ink-dim)]">
           {t('scCoachLessonsCount').replace('{n}', String(lessonCount))}
           {lastLesson ? ` · ${t('scCoachLastLesson').replace('{date}', lastLesson)}` : ''}
         </p>
@@ -630,8 +626,10 @@ const CoachExtendedActions: React.FC<{
               <Icon className="h-4 w-4" strokeWidth={1.8} aria-hidden />
             </span>
             <span className="flex-1 min-w-0">
-              <span className="block text-sm font-medium text-[var(--ink)]">{t(labelKey)}</span>
-              <span className="block text-xs text-[var(--ink-dim)] mt-0.5 truncate">
+              <span className="block type-compact font-medium text-[var(--ink)]">
+                {t(labelKey)}
+              </span>
+              <span className="block type-caption text-[var(--ink-dim)] mt-0.5 truncate">
                 {t(descKey)}
               </span>
             </span>

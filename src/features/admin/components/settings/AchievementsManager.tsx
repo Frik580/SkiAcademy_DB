@@ -112,12 +112,14 @@ export const AchievementsManager: React.FC<AchievementsManagerProps> = ({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-[var(--ink-dim)] max-w-2xl">{t('achievementsManagerSub')}</p>
+        <p className="type-caption text-[var(--ink-dim)] max-w-2xl">
+          {t('achievementsManagerSub')}
+        </p>
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={handleAdd}
-            className="inline-flex items-center gap-1.5 px-3 py-2 border border-[var(--border)] text-xs font-mono uppercase tracking-wider hover:border-[var(--accent)]"
+            className="inline-flex items-center gap-1.5 px-3 py-2 border border-[var(--border)] type-button uppercase hover:border-[var(--accent)]"
           >
             <Plus className="w-3.5 h-3.5" />
             {t('achievementsAdd')}
@@ -126,7 +128,7 @@ export const AchievementsManager: React.FC<AchievementsManagerProps> = ({
             type="button"
             pending={isSaving}
             pendingLabel={t('saving')}
-            className="btn-primary px-3 py-2 text-xs"
+            className="btn-primary px-3 py-2 type-button"
             onClick={() => void handleSave()}
           >
             <Save className="w-3.5 h-3.5" />
@@ -146,14 +148,14 @@ export const AchievementsManager: React.FC<AchievementsManagerProps> = ({
                 <input
                   value={item.icon}
                   onChange={(e) => updateItem(item.id, { icon: e.target.value })}
-                  className="w-12 text-center bg-transparent border border-[var(--border)] px-1 py-1 text-lg"
+                  className="w-12 text-center bg-transparent border border-[var(--border)] px-1 py-1 type-body"
                   aria-label={t('achievementsIconLabel')}
                 />
                 <div className="min-w-0 space-y-1">
-                  <p className="text-sm font-medium text-[var(--ink)] truncate">
+                  <p className="type-compact font-medium text-[var(--ink)] truncate">
                     {lang === 'ru' ? item.labelRu : item.labelEn}
                   </p>
-                  <p className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider">
+                  <p className="type-caption text-[var(--ink-dim)] uppercase">
                     {describeAchievementRule(item, skillItems, lang)}
                   </p>
                 </div>
@@ -170,27 +172,27 @@ export const AchievementsManager: React.FC<AchievementsManagerProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
               <label className="space-y-1">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+                <span className="type-caption uppercase text-[var(--ink-dim)]">
                   {t('achievementsLabelRu')}
                 </span>
                 <input
                   value={item.labelRu}
                   onChange={(e) => updateItem(item.id, { labelRu: e.target.value })}
-                  className="w-full border border-[var(--border)] bg-transparent px-2 py-1.5 text-sm"
+                  className="w-full border border-[var(--border)] bg-transparent px-2 py-1.5 type-body"
                 />
               </label>
               <label className="space-y-1">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+                <span className="type-caption uppercase text-[var(--ink-dim)]">
                   {t('achievementsLabelEn')}
                 </span>
                 <input
                   value={item.labelEn}
                   onChange={(e) => updateItem(item.id, { labelEn: e.target.value })}
-                  className="w-full border border-[var(--border)] bg-transparent px-2 py-1.5 text-sm"
+                  className="w-full border border-[var(--border)] bg-transparent px-2 py-1.5 type-body"
                 />
               </label>
               <label className="space-y-1">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+                <span className="type-caption uppercase text-[var(--ink-dim)]">
                   {t('achievementsRuleType')}
                 </span>
                 <select
@@ -202,7 +204,7 @@ export const AchievementsManager: React.FC<AchievementsManagerProps> = ({
                       skillItemIds: [],
                     })
                   }
-                  className="w-full border border-[var(--border)] bg-transparent px-2 py-1.5 text-sm"
+                  className="w-full border border-[var(--border)] bg-transparent px-2 py-1.5 type-body"
                 >
                   {RULE_TYPE_OPTIONS.map((type) => (
                     <option key={type} value={type}>
@@ -212,14 +214,14 @@ export const AchievementsManager: React.FC<AchievementsManagerProps> = ({
                 </select>
               </label>
               <label className="space-y-1">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+                <span className="type-caption uppercase text-[var(--ink-dim)]">
                   {t('achievementsOrder')}
                 </span>
                 <input
                   type="number"
                   value={item.order}
                   onChange={(e) => updateItem(item.id, { order: Number(e.target.value) || 0 })}
-                  className="w-full border border-[var(--border)] bg-transparent px-2 py-1.5 text-sm"
+                  className="w-full border border-[var(--border)] bg-transparent px-2 py-1.5 type-body"
                 />
               </label>
             </div>
@@ -231,7 +233,7 @@ export const AchievementsManager: React.FC<AchievementsManagerProps> = ({
               'exercises_mastered',
             ].includes(item.rule.type) && (
               <label className="block space-y-1 max-w-xs">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+                <span className="type-caption uppercase text-[var(--ink-dim)]">
                   {t('achievementsThreshold')}
                 </span>
                 <input
@@ -239,14 +241,14 @@ export const AchievementsManager: React.FC<AchievementsManagerProps> = ({
                   min={1}
                   value={item.rule.count ?? 1}
                   onChange={(e) => updateRule(item.id, { count: Number(e.target.value) || 1 })}
-                  className="w-full border border-[var(--border)] bg-transparent px-2 py-1.5 text-sm"
+                  className="w-full border border-[var(--border)] bg-transparent px-2 py-1.5 type-body"
                 />
               </label>
             )}
 
             {item.rule.type === 'skill_items_max' && (
               <div className="space-y-2">
-                <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+                <p className="type-caption uppercase text-[var(--ink-dim)]">
                   {t('achievementsSkillItems')}
                 </p>
                 <div className="max-h-48 overflow-y-auto border border-[var(--border)] divide-y divide-[var(--border-subtle)]">
@@ -255,13 +257,13 @@ export const AchievementsManager: React.FC<AchievementsManagerProps> = ({
                     return (
                       <label
                         key={`${item.id}_${skillItem.id}`}
-                        className="flex items-start gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-black/5"
+                        className="flex items-start gap-2 px-3 py-2 type-caption cursor-pointer hover:bg-black/5"
                       >
                         <input
                           type="checkbox"
                           checked={checked}
                           onChange={(e) => toggleSkillItem(item.id, skillItem.id, e.target.checked)}
-                          className="mt-0.5"
+                          className="mt-0.5 type-body"
                         />
                         <span>
                           <span className="font-mono text-[var(--ink-dim)]">{skillItem.id}</span>
@@ -278,7 +280,7 @@ export const AchievementsManager: React.FC<AchievementsManagerProps> = ({
       </div>
 
       {sortedItems.length === 0 && (
-        <p className="text-sm text-[var(--ink-dim)] py-8 text-center border border-dashed border-[var(--border)]">
+        <p className="type-compact text-[var(--ink-dim)] py-8 text-center border border-dashed border-[var(--border)]">
           {t('achievementsEmpty')}
         </p>
       )}

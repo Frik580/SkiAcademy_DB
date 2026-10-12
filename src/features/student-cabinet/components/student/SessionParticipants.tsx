@@ -13,7 +13,7 @@ export function SessionParticipants({
       {participants.map((participant) => (
         <li
           key={participant.participantId}
-          className="flex min-w-0 items-center gap-2 text-sm text-[var(--ink)]"
+          className="flex min-w-0 items-center gap-2 type-compact text-[var(--ink)]"
         >
           <span className="ui-avatar h-8 w-8 shrink-0 overflow-hidden rounded-full">
             <ParticipantAvatarFace url={participant.avatarUrl} name={participant.displayName} />

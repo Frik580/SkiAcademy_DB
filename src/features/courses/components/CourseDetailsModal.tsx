@@ -124,7 +124,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                   <section className="space-y-4">
                     <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2">
                       <Users className="w-4 h-4 text-violet-500" />
-                      <h3 className="text-xs font-mono uppercase tracking-widest text-[var(--ink)] font-bold">
+                      <h3 className="type-section-title uppercase text-[var(--ink)]">
                         {t('courseYourInstructors')}
                       </h3>
                     </div>
@@ -144,10 +144,10 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                               className="w-14 h-14 object-cover border border-[var(--border)] grayscale shrink-0"
                             />
                             <div className="min-w-0 leading-tight">
-                              <p className="text-xs font-extrabold text-[var(--ink)] truncate">
+                              <p className="type-caption font-medium text-[var(--ink)] truncate">
                                 {translateInstructorName(ins.name, language)}
                               </p>
-                              <p className="text-[10px] text-[var(--ink-dim)] mt-0.5 uppercase tracking-wide font-mono">
+                              <p className="type-caption text-[var(--ink-dim)] mt-0.5 uppercase">
                                 {ins.specialty === 'both'
                                   ? t('bothSpecialties')
                                   : ins.specialty === 'ski'
@@ -155,16 +155,16 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                                     : t('courseSnowboardSpecialist')}
                               </p>
                               <div className="flex items-center gap-2 mt-1.5">
-                                <span className="text-[9px] font-mono text-sky-500 bg-sky-500/10 dark:bg-sky-500/20 px-1.5 py-0.5 font-bold">
+                                <span className="type-caption text-sky-500 bg-sky-500/10 dark:bg-sky-500/20 px-1.5 py-0.5 font-medium">
                                   {ins.experienceYears} {t('courseYearsExperienceShort')}
                                 </span>
                                 {ins.rating !== null && ins.reviewsCount > 0 ? (
-                                  <span className="flex items-center gap-0.5 text-[9px] font-mono text-amber-500 font-bold">
+                                  <span className="flex items-center gap-0.5 type-caption text-amber-500 font-medium">
                                     <Star className="w-2.5 h-2.5 fill-amber-500 text-transparent" />
                                     {ins.rating.toFixed(1)}
                                   </span>
                                 ) : (
-                                  <span className="text-[9px] font-mono text-[var(--ink-dim)]">
+                                  <span className="type-caption text-[var(--ink-dim)]">
                                     {t('instructorNoReviews')}
                                   </span>
                                 )}
@@ -180,7 +180,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                 <section className="space-y-4">
                   <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2">
                     <Heart className="w-4 h-4 text-pink-500" />
-                    <h3 className="text-xs font-mono uppercase tracking-widest text-[var(--ink)] font-bold">
+                    <h3 className="type-section-title uppercase text-[var(--ink)]">
                       {t('courseStudentReviews')}
                     </h3>
                   </div>
@@ -199,10 +199,10 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                               className="w-7 h-7 object-cover grayscale border border-[var(--border)]"
                             />
                             <div>
-                              <p className="text-xs font-bold text-[var(--ink)]">{rev.name}</p>
-                              <p className="text-[9px] font-mono text-[var(--ink-dim)]">
-                                {rev.date}
+                              <p className="type-caption font-medium text-[var(--ink)]">
+                                {rev.name}
                               </p>
+                              <p className="type-caption text-[var(--ink-dim)]">{rev.date}</p>
                             </div>
                           </div>
                           <div className="flex gap-0.5">
@@ -211,7 +211,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                             ))}
                           </div>
                         </div>
-                        <p className="text-xs text-[var(--ink-dim)] italic leading-relaxed font-sans font-light">
+                        <p className="type-caption text-[var(--ink-dim)] italic">
                           {'"'}
                           {rev.comment}
                           {'"'}

@@ -86,7 +86,11 @@ const CanonicalCourseDayActions: React.FC<{
   const ru = language === 'ru';
   return (
     <div className="flex items-center justify-end">
-      <button type="button" className="text-xs text-[var(--ink)] hover:underline" onClick={onEdit}>
+      <button
+        type="button"
+        className="type-button text-[var(--ink)] hover:underline"
+        onClick={onEdit}
+      >
         {ru ? 'Редактировать' : 'Edit'}
       </button>
     </div>
@@ -129,10 +133,10 @@ export const CanonicalCourseDaysEditor: React.FC<CanonicalCourseDaysEditorProps>
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h4 className="text-sm font-semibold text-[var(--ink)]">
+          <h4 className="type-card-title text-[var(--ink)]">
             {ru ? 'Редактор дней курса' : 'Course day editor'}
           </h4>
-          <p className="text-[11px] text-[var(--ink-dim)]">
+          <p className="type-caption text-[var(--ink-dim)]">
             {ru
               ? `${ordered.length} дн.`
               : `${ordered.length} day${ordered.length === 1 ? '' : 's'}`}
@@ -182,7 +186,7 @@ export const CanonicalCourseDaysEditor: React.FC<CanonicalCourseDaysEditorProps>
       ) : null}
 
       {ordered.length === 0 ? (
-        <p className="border border-dashed border-[var(--border)] p-8 text-center text-xs text-[var(--ink-dim)]">
+        <p className="border border-dashed border-[var(--border)] p-8 text-center type-caption text-[var(--ink-dim)]">
           {emptyLabel}
         </p>
       ) : (
@@ -243,25 +247,29 @@ const DayLine: React.FC<{
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-baseline gap-x-3">
-            <h5 className="text-sm font-semibold text-[var(--ink)]">
+            <h5 className="type-compact text-[var(--ink)] font-medium">
               {ru ? `День ${day.dayOrder}` : `Day ${day.dayOrder}`}
             </h5>
-            <span className="text-xs text-[var(--ink)]">{formatAdminCourseDayLocalDate(day)}</span>
-            <span className="text-xs text-[var(--ink-dim)]">{weekdayLabel(day, language)}</span>
+            <span className="type-caption text-[var(--ink)]">
+              {formatAdminCourseDayLocalDate(day)}
+            </span>
+            <span className="type-caption text-[var(--ink-dim)]">
+              {weekdayLabel(day, language)}
+            </span>
           </div>
-          <p className="mt-1 text-xs text-[var(--ink)]">
+          <p className="mt-1 type-caption text-[var(--ink)]">
             {range}
             <span className="ml-3 text-[var(--ink-dim)]">{formatDurationHours(minutes, ru)}</span>
           </p>
-          <p className="mt-1 break-words text-xs text-[var(--ink-dim)]">{instructorName}</p>
-          <p className="font-mono text-[10px] text-[var(--ink-dim)]">{day.courseDayId}</p>
+          <p className="mt-1 break-words type-caption text-[var(--ink-dim)]">{instructorName}</p>
+          <p className="type-caption text-[var(--ink-dim)]">{day.courseDayId}</p>
         </div>
         <AdminCourseStatusChip tone={issue || instructorInactive ? 'attention' : 'info'}>
           {status}
         </AdminCourseStatusChip>
       </div>
       {issue ? (
-        <p role="alert" className="text-xs text-amber-500">
+        <p role="alert" className="type-caption text-amber-500">
           {issue}
         </p>
       ) : null}

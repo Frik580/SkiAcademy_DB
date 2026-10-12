@@ -91,18 +91,18 @@ function EventHistory(
   return (
     <div className="space-y-2">
       {props.events.length === 0 ? (
-        <p className="border border-dashed border-[var(--border)] p-4 text-xs text-[var(--ink-dim)]">
+        <p className="border border-dashed border-[var(--border)] p-4 type-caption text-[var(--ink-dim)]">
           {props.emptyLabel}
         </p>
       ) : (
         <ul className="divide-y divide-[var(--border)] border border-[var(--border)]">
           {props.events.map((event) => (
-            <li key={event.eventId} className="grid gap-2 p-3 text-xs sm:grid-cols-[1fr_auto]">
+            <li key={event.eventId} className="grid gap-2 p-3 type-caption sm:grid-cols-[1fr_auto]">
               <div className="min-w-0">
                 <p className="font-medium text-[var(--ink)]">
                   {event.eventKind} · {event.sourceKind}
                 </p>
-                <p className="mt-1 break-all font-mono text-[10px] text-[var(--ink-dim)]">
+                <p className="mt-1 break-all type-caption text-[var(--ink-dim)]">
                   {event.eventId} · {event.correlationId}
                 </p>
                 {event.reasonCode && (
@@ -122,7 +122,7 @@ function EventHistory(
                   {event.direction === 'in' ? '+' : event.direction === 'out' ? '−' : ''}
                   {formatKzt(event.amount, props.locale)}
                 </p>
-                <p className="mt-1 text-[10px] text-[var(--ink-dim)]">
+                <p className="mt-1 type-caption text-[var(--ink-dim)]">
                   {new Date(event.occurredAt.seconds * 1_000).toLocaleString(props.locale)}
                 </p>
               </div>
@@ -135,7 +135,7 @@ function EventHistory(
           type="button"
           disabled={props.loadingMore}
           onClick={props.onLoadMore}
-          className="w-full border border-[var(--border)] px-3 py-2 text-xs font-mono uppercase tracking-wider disabled:opacity-50"
+          className="w-full border border-[var(--border)] px-3 py-2 type-button uppercase disabled:opacity-50"
         >
           {props.loadingMore ? '…' : props.loadMoreLabel}
         </button>
@@ -154,14 +154,14 @@ function ReadError(
   }>
 ) {
   return (
-    <div role="alert" className="border border-red-500/30 bg-red-500/5 p-4 text-sm">
+    <div role="alert" className="border border-red-500/30 bg-red-500/5 p-4 type-compact">
       <p className="text-red-700 dark:text-red-300">
         {props.permissionDenied ? props.permissionLabel : props.failedLabel}
       </p>
       <button
         type="button"
         onClick={props.onRetry}
-        className="mt-3 inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 text-xs"
+        className="mt-3 inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 type-button"
       >
         <RefreshCw className="h-3.5 w-3.5" />
         {props.retryLabel}
@@ -414,7 +414,7 @@ export function CanonicalFinancePanel({
       <section className="space-y-4 border border-[var(--border)] p-4 sm:p-5">
         <div className="flex items-center gap-2">
           <Wallet className="h-4 w-4" />
-          <h3 className="text-sm font-medium">{t('adminFinanceWalletTitle')}</h3>
+          <h3 className="type-card-title">{t('adminFinanceWalletTitle')}</h3>
         </div>
         <form onSubmit={submitAccount} className="grid gap-2 sm:grid-cols-[1fr_auto]">
           <input
@@ -424,7 +424,7 @@ export function CanonicalFinancePanel({
             value={accountInput}
             onChange={(event) => setAccountInput(event.target.value)}
             placeholder={t('adminFinanceAccountPlaceholder')}
-            className="border border-[var(--border)] bg-transparent px-3 py-2 text-xs"
+            className="border border-[var(--border)] bg-transparent px-3 py-2 type-body"
           />
           <datalist id="admin-finance-accounts">
             {accountOptions.map((account) => (
@@ -436,7 +436,7 @@ export function CanonicalFinancePanel({
           <button
             type="submit"
             disabled={!parseAdminFinanceAccountId(accountInput)}
-            className="inline-flex items-center justify-center gap-2 border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-2 border border-[var(--border)] px-3 py-2 type-button disabled:opacity-50"
           >
             <Search className="h-3.5 w-3.5" /> {t('adminFinanceOpen')}
           </button>
@@ -458,25 +458,25 @@ export function CanonicalFinancePanel({
           <div className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="border border-[var(--border)] p-3">
-                <p className="text-[10px] uppercase tracking-wider text-[var(--ink-dim)]">
+                <p className="type-caption uppercase text-[var(--ink-dim)]">
                   {t('adminFinanceIdentity')}
                 </p>
-                <p className="mt-1 text-sm">{walletRead.item.accountIdentity.displayName}</p>
-                <p className="break-all text-[10px] text-[var(--ink-dim)]">
+                <p className="mt-1 type-compact">{walletRead.item.accountIdentity.displayName}</p>
+                <p className="break-all type-caption text-[var(--ink-dim)]">
                   {walletRead.item.accountIdentity.email ?? walletRead.item.accountId}
                 </p>
               </div>
               <div className="border border-[var(--border)] p-3">
-                <p className="text-[10px] uppercase tracking-wider text-[var(--ink-dim)]">
+                <p className="type-caption uppercase text-[var(--ink-dim)]">
                   {t('adminFinanceBalance')}
                 </p>
-                <p className="mt-1 text-xl">{formatKzt(walletRead.item.balance, locale)}</p>
+                <p className="mt-1 type-card-title">{formatKzt(walletRead.item.balance, locale)}</p>
               </div>
               <div className="border border-[var(--border)] p-3">
-                <p className="text-[10px] uppercase tracking-wider text-[var(--ink-dim)]">
+                <p className="type-caption uppercase text-[var(--ink-dim)]">
                   {t('adminFinanceRevision')}
                 </p>
-                <p className="mt-1 text-sm">
+                <p className="mt-1 type-compact">
                   {walletRead.item.revision} · event {walletRead.item.eventRevision}
                 </p>
               </div>
@@ -490,14 +490,14 @@ export function CanonicalFinancePanel({
                   onChange={(event) => setFundingAmount(event.target.value)}
                   inputMode="decimal"
                   placeholder={t('adminFinanceAmountKzt')}
-                  className="border border-[var(--border)] bg-transparent px-3 py-2 text-xs"
+                  className="border border-[var(--border)] bg-transparent px-3 py-2 type-body"
                 />
                 <input
                   aria-label={t('adminFinanceReason')}
                   value={fundingReason}
                   onChange={(event) => setFundingReason(event.target.value)}
                   placeholder={t('adminFinanceReason')}
-                  className="border border-[var(--border)] bg-transparent px-3 py-2 text-xs"
+                  className="border border-[var(--border)] bg-transparent px-3 py-2 type-body"
                 />
                 <ActionButton
                   type="button"
@@ -513,12 +513,12 @@ export function CanonicalFinancePanel({
                 </ActionButton>
               </div>
             ) : (
-              <p className="border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
+              <p className="border border-amber-500/30 bg-amber-500/5 p-3 type-caption">
                 {t('adminFinanceAccountUnavailable')}
               </p>
             )}
             {funding.error && (
-              <div role="alert" className="border border-red-500/30 bg-red-500/5 p-3 text-xs">
+              <div role="alert" className="border border-red-500/30 bg-red-500/5 p-3 type-caption">
                 <p>
                   {funding.error.code} · {funding.error.correlationId}
                 </p>
@@ -534,14 +534,12 @@ export function CanonicalFinancePanel({
               </div>
             )}
             {funding.success && (
-              <p role="status" className="flex items-center gap-2 text-xs text-emerald-600">
+              <p role="status" className="flex items-center gap-2 type-caption text-emerald-600">
                 <CheckCircle2 className="h-4 w-4" /> {t('adminFinanceFundingSuccess')}
               </p>
             )}
             <div>
-              <h4 className="mb-2 text-xs font-mono uppercase tracking-wider">
-                {t('adminFinanceMonetaryEvents')}
-              </h4>
+              <h4 className="mb-2 type-card-title uppercase">{t('adminFinanceMonetaryEvents')}</h4>
               <EventHistory
                 events={walletRead.item.events}
                 hasMore={walletRead.item.hasMore}
@@ -554,24 +552,24 @@ export function CanonicalFinancePanel({
             </div>
           </div>
         ) : (
-          <p className="text-xs text-[var(--ink-dim)]">{t('adminFinanceSelectAccount')}</p>
+          <p className="type-caption text-[var(--ink-dim)]">{t('adminFinanceSelectAccount')}</p>
         )}
       </section>
 
       <section className="space-y-4 border border-[var(--border)] p-4 sm:p-5">
-        <h3 className="text-sm font-medium">{t('adminFinancePaymentTitle')}</h3>
+        <h3 className="type-card-title">{t('adminFinancePaymentTitle')}</h3>
         <form onSubmit={submitPayment} className="grid gap-2 sm:grid-cols-[1fr_auto]">
           <input
             aria-label={t('adminFinancePaymentId')}
             value={paymentInput}
             onChange={(event) => setPaymentInput(event.target.value)}
             placeholder={t('adminFinancePaymentPlaceholder')}
-            className="border border-[var(--border)] bg-transparent px-3 py-2 text-xs"
+            className="border border-[var(--border)] bg-transparent px-3 py-2 type-body"
           />
           <button
             type="submit"
             disabled={!parseAdminFinancePaymentId(paymentInput)}
-            className="border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
+            className="border border-[var(--border)] px-3 py-2 type-button disabled:opacity-50"
           >
             {t('adminFinanceOpen')}
           </button>
@@ -590,12 +588,12 @@ export function CanonicalFinancePanel({
             onRetry={() => void paymentRead.refetch()}
           />
         ) : selectedPaymentId && !paymentRead.item ? (
-          <p className="border border-dashed border-[var(--border)] p-4 text-xs">
+          <p className="border border-dashed border-[var(--border)] p-4 type-caption">
             {t('adminFinancePaymentNotFound')}
           </p>
         ) : paymentRead.item ? (
           <div className="space-y-4">
-            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-xs">
+            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 type-caption">
               <dt className="text-[var(--ink-dim)]">{t('adminFinanceSubject')}</dt>
               <dd>
                 {paymentRead.item.subjectType} · {paymentRead.item.subjectId}
@@ -621,28 +619,26 @@ export function CanonicalFinancePanel({
                 [t('adminFinanceWrittenOff'), paymentRead.item.writtenOffAmount],
               ].map(([label, amount]) => (
                 <div key={String(label)} className="border border-[var(--border)] p-3">
-                  <p className="text-[9px] uppercase tracking-wider text-[var(--ink-dim)]">
-                    {label}
-                  </p>
-                  <p className="mt-1 text-sm">{formatKzt(Number(amount), locale)}</p>
+                  <p className="type-caption uppercase text-[var(--ink-dim)]">{label}</p>
+                  <p className="mt-1 type-compact">{formatKzt(Number(amount), locale)}</p>
                 </div>
               ))}
             </div>
             {paymentRead.item.providerState && (
-              <p className="border border-[var(--border)] p-3 text-xs text-[var(--ink-dim)]">
+              <p className="border border-[var(--border)] p-3 type-caption text-[var(--ink-dim)]">
                 {t('adminFinanceProvider')}: {paymentRead.item.providerState.providerKind ?? '—'} ·{' '}
                 {paymentRead.item.providerState.providerTransactionRef ??
                   paymentRead.item.providerState.latestEventId}
               </p>
             )}
             <div>
-              <h4 className="mb-2 text-xs font-mono uppercase tracking-wider">
-                {t('adminFinanceRelatedIssues')}
-              </h4>
+              <h4 className="mb-2 type-card-title uppercase">{t('adminFinanceRelatedIssues')}</h4>
               {paymentRead.item.relatedIssues.length === 0 ? (
-                <p className="text-xs text-[var(--ink-dim)]">{t('adminFinanceNoRelatedIssues')}</p>
+                <p className="type-caption text-[var(--ink-dim)]">
+                  {t('adminFinanceNoRelatedIssues')}
+                </p>
               ) : (
-                <ul className="space-y-1 text-xs">
+                <ul className="space-y-1 type-caption">
                   {paymentRead.item.relatedIssues.map((issue) => (
                     <li key={issue.issueId} className="border border-[var(--border)] p-2">
                       {issue.kind} · {issue.lifecycleStatus} · rev {issue.revision}
@@ -653,7 +649,7 @@ export function CanonicalFinancePanel({
             </div>
 
             {paymentRead.item.allowedActions.length === 0 ? (
-              <p className="flex gap-2 border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
+              <p className="flex gap-2 border border-amber-500/30 bg-amber-500/5 p-3 type-caption">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
                 {t('adminFinanceCorrectionsDeferred')}
               </p>
@@ -663,7 +659,7 @@ export function CanonicalFinancePanel({
                   aria-label={t('adminFinanceCorrectionAction')}
                   value={selectedActionIndex}
                   onChange={(event) => setSelectedActionIndex(Number(event.target.value))}
-                  className="w-full border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-xs"
+                  className="w-full border border-[var(--border)] bg-[var(--bg)] px-3 py-2 type-body"
                 >
                   {paymentRead.item.allowedActions.map((action, index) => (
                     <option key={`${action.adminIssueId}:${action.kind}`} value={index}>
@@ -681,7 +677,7 @@ export function CanonicalFinancePanel({
                         ? t('adminFinanceAmountKzt')
                         : `${t('adminFinanceAmountKzt')} ≤ ${formatKzt(selectedAction.maximumAmount, locale)}`
                     }
-                    className="w-full border border-[var(--border)] bg-transparent px-3 py-2 text-xs"
+                    className="w-full border border-[var(--border)] bg-transparent px-3 py-2 type-body"
                   />
                 )}
                 {selectedAction?.kind === 'admin_refund' &&
@@ -691,7 +687,7 @@ export function CanonicalFinancePanel({
                       value={manualReference}
                       onChange={(event) => setManualReference(event.target.value)}
                       placeholder={t('adminFinanceManualReference')}
-                      className="w-full border border-[var(--border)] bg-transparent px-3 py-2 text-xs"
+                      className="w-full border border-[var(--border)] bg-transparent px-3 py-2 type-body"
                     />
                   )}
                 <textarea
@@ -699,7 +695,7 @@ export function CanonicalFinancePanel({
                   value={correctionReason}
                   onChange={(event) => setCorrectionReason(event.target.value)}
                   placeholder={t('adminFinanceReason')}
-                  className="min-h-20 w-full border border-[var(--border)] bg-transparent px-3 py-2 text-xs"
+                  className="min-h-20 w-full border border-[var(--border)] bg-transparent px-3 py-2 type-body"
                 />
                 <ActionButton
                   type="button"
@@ -716,7 +712,7 @@ export function CanonicalFinancePanel({
               </div>
             )}
             {correction.error && (
-              <div role="alert" className="border border-red-500/30 bg-red-500/5 p-3 text-xs">
+              <div role="alert" className="border border-red-500/30 bg-red-500/5 p-3 type-caption">
                 <p>
                   {correction.error.code} · {correction.error.correlationId}
                 </p>
@@ -732,14 +728,12 @@ export function CanonicalFinancePanel({
               </div>
             )}
             {correction.success && (
-              <p role="status" className="flex items-center gap-2 text-xs text-emerald-600">
+              <p role="status" className="flex items-center gap-2 type-caption text-emerald-600">
                 <CheckCircle2 className="h-4 w-4" /> {t('adminFinanceCorrectionSuccess')}
               </p>
             )}
             <div>
-              <h4 className="mb-2 text-xs font-mono uppercase tracking-wider">
-                {t('adminFinanceMonetaryEvents')}
-              </h4>
+              <h4 className="mb-2 type-card-title uppercase">{t('adminFinanceMonetaryEvents')}</h4>
               <EventHistory
                 events={paymentRead.item.events}
                 hasMore={paymentRead.item.hasMore}
@@ -752,7 +746,7 @@ export function CanonicalFinancePanel({
             </div>
           </div>
         ) : (
-          <p className="text-xs text-[var(--ink-dim)]">{t('adminFinanceSelectPayment')}</p>
+          <p className="type-caption text-[var(--ink-dim)]">{t('adminFinanceSelectPayment')}</p>
         )}
       </section>
     </div>

@@ -108,7 +108,7 @@ export const BookingAppleWheelPicker: React.FC<BookingAppleWheelPickerProps> = (
             isOpen ? 'pointer-events-none' : ''
           }`}
         >
-          <span className="min-w-0 flex-1 truncate text-center text-sm font-semibold text-[var(--ink)]">
+          <span className="min-w-0 flex-1 truncate text-center type-compact font-medium text-[var(--ink)]">
             {displayLabel}
           </span>
           <ChevronDown

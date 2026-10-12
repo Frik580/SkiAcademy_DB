@@ -26,7 +26,9 @@ export const ParticipantAccessControls: React.FC<ParticipantAccessControlsProps>
   const actions = access?.authorizedActions;
 
   if (!access || !actions) {
-    return loading ? <p className="text-xs text-[var(--ink-dim)]">{copy.t('loading')}</p> : null;
+    return loading ? (
+      <p className="type-caption text-[var(--ink-dim)]">{copy.t('loading')}</p>
+    ) : null;
   }
 
   const managerBlockActive = scope === 'account_manager' && access.managerBlockStatus === 'active';
@@ -35,7 +37,7 @@ export const ParticipantAccessControls: React.FC<ParticipantAccessControlsProps>
   return (
     <div className="space-y-4 rounded-xl border border-[var(--border-subtle)] p-4">
       <div className="space-y-2">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--ink-dim)]">
+        <h4 className="type-card-title uppercase text-[var(--ink-dim)]">
           {copy.relationshipSection}
         </h4>
         <div className="flex flex-wrap gap-2">
@@ -44,7 +46,7 @@ export const ParticipantAccessControls: React.FC<ParticipantAccessControlsProps>
               type="button"
               disabled={loading}
               onClick={() => void onCreateRelationship()}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-[var(--accent)] text-white"
+              className="px-3 py-1.5 type-button rounded-lg bg-[var(--accent)] text-white"
             >
               {copy.createRelationship}
             </button>
@@ -54,18 +56,18 @@ export const ParticipantAccessControls: React.FC<ParticipantAccessControlsProps>
               type="button"
               disabled={loading}
               onClick={() => void onRevokeRelationship()}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-[var(--border-subtle)]"
+              className="px-3 py-1.5 type-button rounded-lg border border-[var(--border-subtle)]"
             >
               {copy.revokeRelationship}
             </button>
           )}
           {access.relationshipStatus === 'active' && !actions.canRevokeRelationship && (
-            <span className="text-xs text-[var(--ink-dim)]">
+            <span className="type-caption text-[var(--ink-dim)]">
               {copy.t('collabRelationshipActive')}
             </span>
           )}
           {access.relationshipStatus === 'revoked' && (
-            <span className="text-xs text-[var(--ink-dim)]">
+            <span className="type-caption text-[var(--ink-dim)]">
               {copy.t('collabRelationshipRevoked')}
             </span>
           )}
@@ -73,11 +75,11 @@ export const ParticipantAccessControls: React.FC<ParticipantAccessControlsProps>
       </div>
 
       <div className="space-y-2 border-t border-[var(--border-subtle)] pt-4">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--ink-dim)]">
-          {copy.blockSection}
-        </h4>
+        <h4 className="type-card-title uppercase text-[var(--ink-dim)]">{copy.blockSection}</h4>
         {(managerBlockActive || instructorBlockActive) && (
-          <p className="text-xs text-rose-600 dark:text-rose-400">{copy.t('collabBlockedState')}</p>
+          <p className="type-caption text-rose-600 dark:text-rose-400">
+            {copy.t('collabBlockedState')}
+          </p>
         )}
         {actions.canBlock && onBlock && (
           <div className="space-y-2">
@@ -86,13 +88,13 @@ export const ParticipantAccessControls: React.FC<ParticipantAccessControlsProps>
               value={blockReason}
               onChange={(event) => setBlockReason(event.target.value)}
               placeholder={copy.blockReasonPlaceholder}
-              className="w-full rounded-lg border border-[var(--border-subtle)] px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-[var(--border-subtle)] px-3 py-2 type-body"
             />
             <button
               type="button"
               disabled={loading || blockReason.trim().length === 0}
               onClick={() => void onBlock(blockReason.trim())}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-rose-200 text-rose-600"
+              className="px-3 py-1.5 type-button rounded-lg border border-rose-200 text-rose-600"
             >
               {copy.blockInstructor}
             </button>
@@ -103,7 +105,7 @@ export const ParticipantAccessControls: React.FC<ParticipantAccessControlsProps>
             type="button"
             disabled={loading}
             onClick={() => void onUnblock()}
-            className="px-3 py-1.5 text-xs font-medium rounded-lg border border-[var(--border-subtle)]"
+            className="px-3 py-1.5 type-button rounded-lg border border-[var(--border-subtle)]"
           >
             {copy.unblockInstructor}
           </button>

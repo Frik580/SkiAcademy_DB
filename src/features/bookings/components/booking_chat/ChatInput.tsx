@@ -32,7 +32,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         value={inputText}
         onChange={(e) => onInputChange(e.target.value)}
         placeholder={t('chatMessagePlaceholder')}
-        className="flex-1 px-3.5 py-2.5 bg-black/10 dark:bg-white/5 border border-[var(--border)] text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none"
+        className="flex-1 px-3.5 py-2.5 bg-black/10 dark:bg-white/5 border border-[var(--border)] type-body text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none"
         maxLength={1000}
         disabled={isSending || isCompressing}
       />

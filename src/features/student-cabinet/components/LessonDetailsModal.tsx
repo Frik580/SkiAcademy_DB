@@ -92,9 +92,7 @@ export const LessonDetailsModal: React.FC<LessonDetailsModalProps> = ({
         >
           <div className="sticky top-0 flex items-center justify-between px-5 py-4 border-b border-[var(--border)] bg-black/5 dark:bg-white/5 z-10">
             <div className="min-w-0 pr-2">
-              <h3 className="text-lg font-serif font-light text-[var(--ink)] truncate">
-                {modalTitle}
-              </h3>
+              <h3 className="type-section-title text-[var(--ink)] break-words">{modalTitle}</h3>
             </div>
             <button
               type="button"
@@ -109,18 +107,16 @@ export const LessonDetailsModal: React.FC<LessonDetailsModalProps> = ({
           <div className="px-5 py-5 space-y-5">
             <div className="space-y-1">
               {difficultyLabel ? (
-                <p className="text-xs tracking-widest uppercase text-[var(--ink-dim)]">
-                  {difficultyLabel}
-                </p>
+                <p className="type-caption uppercase text-[var(--ink-dim)]">{difficultyLabel}</p>
               ) : null}
-              <p className="text-base text-[var(--ink)]">{dateLabel || shortDate}</p>
-              <p className="text-sm text-[var(--ink-dim)]">{booking.instructorName}</p>
+              <p className="type-body text-[var(--ink)]">{dateLabel || shortDate}</p>
+              <p className="type-compact text-[var(--ink-dim)]">{booking.instructorName}</p>
             </div>
 
             {openChangeRequest ? <StudentOpenChangeRequestNotice /> : null}
 
             {feedback.isLoadingPlaceholder ? (
-              <p className="text-sm text-[var(--ink-dim)]">{t('loading')}</p>
+              <p className="type-compact text-[var(--ink-dim)]">{t('loading')}</p>
             ) : lessonFeedback ? (
               <ParticipantLessonFeedbackList
                 items={lessonFeedback.items}
@@ -132,7 +128,7 @@ export const LessonDetailsModal: React.FC<LessonDetailsModalProps> = ({
                 }
               />
             ) : (
-              <p className="text-sm text-[var(--ink-dim)]">{t('scNoRecommendations')}</p>
+              <p className="type-compact text-[var(--ink-dim)]">{t('scNoRecommendations')}</p>
             )}
 
             {onWriteReview && !hasReview && booking.status === 'completed' && (
@@ -142,7 +138,7 @@ export const LessonDetailsModal: React.FC<LessonDetailsModalProps> = ({
                   onClose();
                   onWriteReview(booking);
                 }}
-                className="w-full flex items-center justify-center gap-2 py-2.5 text-sm text-[var(--accent)] border border-[var(--border-subtle)] rounded-lg hover:bg-[var(--profile-bg)] transition"
+                className="w-full flex items-center justify-center gap-2 py-2.5 type-button text-[var(--accent)] border border-[var(--border-subtle)] rounded-lg hover:bg-[var(--profile-bg)] transition"
               >
                 <Star className="w-4 h-4" />
                 {t('writeReviewBtn')}

@@ -2134,7 +2134,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
   const renderCreateFieldError = (field: string) => {
     const issue = createFieldIssue(field);
     return issue ? (
-      <p id={`canonical-course-${field}-error`} className="text-xs text-red-700">
+      <p id={`canonical-course-${field}-error`} className="type-caption text-red-700">
         {issue.message}
       </p>
     ) : null;
@@ -2160,17 +2160,17 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
       aria-busy={pending !== null || currentList.loadingInitial || currentList.loadingMore}
     >
       {mutationError && mutationError !== courseDayIssue?.message ? (
-        <div role="alert" className="border border-red-500/30 bg-red-500/5 p-3 text-xs">
+        <div role="alert" className="border border-red-500/30 bg-red-500/5 p-3 type-caption">
           {mutationError}
         </div>
       ) : null}
       {pending ? (
-        <div role="status" className="border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
+        <div role="status" className="border border-amber-500/30 bg-amber-500/5 p-3 type-caption">
           {text.pending}
         </div>
       ) : null}
       {stale ? (
-        <div role="status" className="border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
+        <div role="status" className="border border-amber-500/30 bg-amber-500/5 p-3 type-caption">
           {text.stale}
         </div>
       ) : null}
@@ -2204,7 +2204,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                     setStale(false);
                     setWorkspaceSection('overview');
                   }}
-                  className={`px-4 py-2 text-xs font-semibold transition-colors ${
+                  className={`px-4 py-2 type-button transition-colors ${
                     lifecycleScope === scope
                       ? 'bg-[var(--ink)] text-[var(--bg)] shadow-sm'
                       : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'
@@ -2238,9 +2238,9 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                   ],
                 ] as const
               ).map(([key, label, value]) => (
-                <span key={key} className="text-xs text-[var(--ink-dim)]">
+                <span key={key} className="type-caption text-[var(--ink-dim)]">
                   {label}
-                  <span className="ml-1.5 font-mono font-medium text-[var(--ink)]">{value}</span>
+                  <span className="ml-1.5 font-sans font-medium text-[var(--ink)]">{value}</span>
                 </span>
               ))}
               <input
@@ -2248,15 +2248,15 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                 value={listQuery}
                 onChange={(event) => setListQuery(event.target.value)}
                 placeholder={language === 'ru' ? 'Поиск курсов…' : 'Search courses…'}
-                className="min-w-40 flex-1 border border-[var(--border)] bg-[var(--bg)] p-1.5 text-xs"
+                className="min-w-40 flex-1 border border-[var(--border)] bg-[var(--bg)] p-1.5 type-body"
               />
               {pending ? (
-                <span role="status" className="text-xs">
+                <span role="status" className="type-caption">
                   {text.pending}
                 </span>
               ) : null}
               {stale ? (
-                <span role="status" className="text-xs">
+                <span role="status" className="type-caption">
                   {text.stale}
                 </span>
               ) : null}
@@ -2268,7 +2268,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
               />
               <button
                 type="button"
-                className="flex items-center gap-1.5 border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--ink-dim)] hover:text-[var(--ink)]"
+                className="flex items-center gap-1.5 border border-[var(--border)] px-3 py-1.5 type-button text-[var(--ink-dim)] hover:text-[var(--ink)]"
                 onClick={() => void refresh()}
               >
                 <RefreshCw className="h-3.5 w-3.5" />
@@ -2276,7 +2276,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
               </button>
             </div>
             {currentList.error && courses.length > 0 ? (
-              <span role="alert" className="text-xs">
+              <span role="alert" className="type-caption">
                 {currentList.error}{' '}
                 <button
                   type="button"
@@ -2299,13 +2299,13 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
             {(!currentList.initialized || currentList.loadingInitial) && courses.length === 0 ? (
               <div
                 role="status"
-                className="flex min-h-36 items-center justify-center gap-2 text-xs"
+                className="flex min-h-36 items-center justify-center gap-2 type-caption"
               >
                 <Loader2 className="h-4 w-4 animate-spin" />
                 {text.loading}
               </div>
             ) : currentList.error && courses.length === 0 ? (
-              <div role="alert" className="border border-red-500/30 p-4 text-xs">
+              <div role="alert" className="border border-red-500/30 p-4 type-caption">
                 <p>{currentList.error}</p>
                 <button
                   type="button"
@@ -2317,7 +2317,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                 </button>
               </div>
             ) : courses.length === 0 ? (
-              <p className="border border-dashed border-[var(--border)] p-8 text-center text-xs text-[var(--ink-dim)]">
+              <p className="border border-dashed border-[var(--border)] p-8 text-center type-caption text-[var(--ink-dim)]">
                 {lifecycleScope === 'active' ? text.activeEmpty : text.archivedEmpty}
               </p>
             ) : (
@@ -2393,7 +2393,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
             {currentList.hasMore && currentList.cursor ? (
               <button
                 type="button"
-                className="mt-2 w-full border border-[var(--border)] px-3 py-2 text-xs font-medium disabled:opacity-50"
+                className="mt-2 w-full border border-[var(--border)] px-3 py-2 type-button disabled:opacity-50"
                 disabled={currentList.loadingMore}
                 onClick={() => void loadCoursePage(lifecycleScope, currentList.cursor, true)}
               >
@@ -2415,7 +2415,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
               aria-label={text.create}
             >
               <div className="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-[var(--border)] bg-[var(--card-bg)] px-4 py-3">
-                <h3 className="text-sm font-medium text-[var(--ink)]">
+                <h3 className="type-card-title text-[var(--ink)]">
                   {createMode === 'clone' ? text.createClone : text.create}
                 </h3>
                 <button
@@ -2431,7 +2431,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                 {createFormError || createValidationIssues.length > 0 ? (
                   <div
                     role="alert"
-                    className="grid gap-1 border border-red-500/30 bg-red-500/5 p-3 text-xs text-[var(--ink)] md:col-span-2"
+                    className="grid gap-1 border border-red-500/30 bg-red-500/5 p-3 type-caption text-[var(--ink)] md:col-span-2"
                   >
                     {createFormError ? <p>{createFormError}</p> : null}
                     {createValidationIssues.length > 0 ? (
@@ -2445,7 +2445,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                     ) : null}
                   </div>
                 ) : null}
-                <p className="text-xs font-mono uppercase tracking-wider text-[var(--ink-dim)] md:col-span-2">
+                <p className="type-caption uppercase text-[var(--ink-dim)] md:col-span-2">
                   {language === 'ru' ? 'Основное' : 'Basic information'}
                 </p>
                 {(
@@ -2461,7 +2461,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                   <label
                     key={field}
                     htmlFor={`canonical-course-${field}`}
-                    className="grid gap-1 text-xs"
+                    className="grid gap-1 type-caption"
                   >
                     <span>
                       {createFieldLabel(field)}
@@ -2493,7 +2493,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                       onChange={(event) => updateCreateField(field, event.target.value)}
                     />
                     {field === 'titleRu' ? (
-                      <span aria-hidden="true" className="text-[11px] text-[var(--ink-dim)]">
+                      <span aria-hidden="true" className="type-caption text-[var(--ink-dim)]">
                         {language === 'ru' ? 'Необязательно' : 'Optional'}
                       </span>
                     ) : null}
@@ -2510,10 +2510,10 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                     createFieldIssue('roster') ? 'canonical-course-roster-error' : undefined
                   }
                 >
-                  <legend className="px-1 text-xs font-medium">
+                  <legend className="px-1 type-caption font-medium">
                     {language === 'ru' ? 'Инструкторы' : 'Instructors'}
                   </legend>
-                  <p className="text-xs text-[var(--ink-dim)]">
+                  <p className="type-caption text-[var(--ink-dim)]">
                     {language === 'ru' ? 'Состав инструкторов курса' : 'Course instructor roster'}
                   </p>
                   <div className="grid gap-1.5">
@@ -2526,7 +2526,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                         <label
                           key={id}
                           htmlFor={`canonical-course-instructor-${id}`}
-                          className="flex items-center gap-2 text-xs"
+                          className="flex items-center gap-2 type-caption"
                         >
                           <input
                             id={`canonical-course-instructor-${id}`}
@@ -2549,7 +2549,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                     })}
                   </div>
                   {createFieldIssue('roster') ? (
-                    <p id="canonical-course-roster-error" className="text-xs text-red-700">
+                    <p id="canonical-course-roster-error" className="type-caption text-red-700">
                       {createFieldIssue('roster')?.message}
                     </p>
                   ) : null}
@@ -2564,10 +2564,10 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                     createFieldIssue('days') ? 'canonical-course-days-error' : undefined
                   }
                 >
-                  <legend className="px-1 text-xs font-medium">
+                  <legend className="px-1 type-caption font-medium">
                     {language === 'ru' ? 'Дни курса' : 'Course days'}
                   </legend>
-                  <p className="text-xs text-[var(--ink-dim)]">
+                  <p className="type-caption text-[var(--ink-dim)]">
                     {createMode === 'create'
                       ? language === 'ru'
                         ? 'Выберите период курса: форма создаст день для каждой календарной даты. Для каждого дня укажите время начала и окончания; длительность рассчитается автоматически.'
@@ -2578,7 +2578,10 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                   </p>
                   {createMode === 'create' ? (
                     <div className="grid gap-2">
-                      <label htmlFor="canonical-course-period-start" className="grid gap-1 text-xs">
+                      <label
+                        htmlFor="canonical-course-period-start"
+                        className="grid gap-1 type-caption"
+                      >
                         {language === 'ru' ? 'Период — с' : 'Period starts'}
                         <input
                           id="canonical-course-period-start"
@@ -2598,7 +2601,10 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                           onChange={(event) => updateCreatePeriod('start', event.target.value)}
                         />
                       </label>
-                      <label htmlFor="canonical-course-period-end" className="grid gap-1 text-xs">
+                      <label
+                        htmlFor="canonical-course-period-end"
+                        className="grid gap-1 type-caption"
+                      >
                         {language === 'ru' ? 'Период — по' : 'Period ends'}
                         <input
                           id="canonical-course-period-end"
@@ -2621,7 +2627,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                       {createValidationIssues.find((issue) => issue.key === 'period') ? (
                         <p
                           id="canonical-course-period-error"
-                          className="text-xs text-red-700 col-span-2"
+                          className="type-caption text-red-700 col-span-2"
                         >
                           {createValidationIssues.find((issue) => issue.key === 'period')?.message}
                         </p>
@@ -2663,14 +2669,14 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                         className={`${adminRecordCardClass} grid gap-2 border-l-transparent`}
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <strong className="text-xs">
+                          <strong className="type-caption">
                             {language === 'ru' ? `День ${index + 1}` : `Day ${index + 1}`}
                             {createMode === 'create' ? ` · ${row.localDate}` : ''}
                           </strong>
                           {createMode === 'clone' && createCourseDays.length > 1 ? (
                             <button
                               type="button"
-                              className="text-xs text-rose-700 hover:underline dark:text-rose-300"
+                              className="type-button text-rose-700 hover:underline dark:text-rose-300"
                               onClick={() =>
                                 updateCreateCourseDays(
                                   createCourseDays.filter((candidate) => candidate.id !== row.id)
@@ -2682,7 +2688,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                           ) : null}
                         </div>
                         {createMode === 'clone' ? (
-                          <label htmlFor={`${prefix}-date`} className="grid gap-1 text-xs">
+                          <label htmlFor={`${prefix}-date`} className="grid gap-1 type-caption">
                             {language === 'ru' ? 'Дата' : 'Date'}
                             <input
                               id={`${prefix}-date`}
@@ -2703,7 +2709,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                           </label>
                         ) : null}
                         <div className="grid gap-2">
-                          <label htmlFor={`${prefix}-start`} className="grid gap-1 text-xs">
+                          <label htmlFor={`${prefix}-start`} className="grid gap-1 type-caption">
                             {language === 'ru' ? 'Начало' : 'Starts'}
                             <input
                               id={`${prefix}-start`}
@@ -2723,7 +2729,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                               </span>
                             ) : null}
                           </label>
-                          <label htmlFor={`${prefix}-end`} className="grid gap-1 text-xs">
+                          <label htmlFor={`${prefix}-end`} className="grid gap-1 type-caption">
                             {language === 'ru' ? 'Окончание' : 'Ends'}
                             <input
                               id={`${prefix}-end`}
@@ -2745,7 +2751,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                           </label>
                         </div>
                         {durationMinutes !== undefined ? (
-                          <p className="text-[11px] text-[var(--ink-dim)]">
+                          <p className="type-caption text-[var(--ink-dim)]">
                             {language === 'ru' ? 'Длительность' : 'Duration'}: {durationMinutes}{' '}
                             {language === 'ru' ? 'мин.' : 'min'}
                             {row.endTime < row.startTime
@@ -2759,12 +2765,12 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                                 : ''}
                           </p>
                         ) : null}
-                        <p className="text-[11px] text-[var(--ink-dim)]">
+                        <p className="type-caption text-[var(--ink-dim)]">
                           {language === 'ru'
                             ? 'Если окончание раньше начала, интервал продолжается до следующих суток.'
                             : 'If the end time is earlier than the start, the interval continues into the next day.'}
                         </p>
-                        <label htmlFor={`${prefix}-instructor`} className="grid gap-1 text-xs">
+                        <label htmlFor={`${prefix}-instructor`} className="grid gap-1 type-caption">
                           {language === 'ru' ? 'Доступный инструктор' : 'Available instructor'}
                           <select
                             id={`${prefix}-instructor`}
@@ -2837,7 +2843,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                       </div>
                     );
                   })}
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] pt-3 text-xs">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] pt-3 type-caption">
                     {createMode === 'clone' ? (
                       <ActionButton
                         type="button"
@@ -2862,19 +2868,19 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                     </span>
                   </div>
                   {createFieldIssue('days') ? (
-                    <p id="canonical-course-days-error" className="text-xs text-red-700">
+                    <p id="canonical-course-days-error" className="type-caption text-red-700">
                       {createFieldIssue('days')?.message}
                     </p>
                   ) : null}
                 </fieldset>
                 <details ref={createPresentationDetailsRef} className="space-y-3">
-                  <summary className="cursor-pointer text-xs font-medium">
+                  <summary className="cursor-pointer type-caption font-medium">
                     {text.presentation}
                   </summary>
                   <div className="mt-3 grid gap-3">
                     <label
                       htmlFor="canonical-course-description"
-                      className="grid gap-1 text-xs md:col-span-2"
+                      className="grid gap-1 type-caption md:col-span-2"
                     >
                       {createFieldLabel('description')}
                       <textarea
@@ -2913,7 +2919,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                       <label
                         key={field}
                         htmlFor={`canonical-course-${field}`}
-                        className="grid gap-1 text-xs"
+                        className="grid gap-1 type-caption"
                       >
                         {createFieldLabel(field)}
                         <textarea
@@ -2948,7 +2954,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                         {renderCreateFieldError(field)}
                       </label>
                     ))}
-                    <label htmlFor="canonical-course-level" className="grid gap-1 text-xs">
+                    <label htmlFor="canonical-course-level" className="grid gap-1 type-caption">
                       {createFieldLabel('level')}
                       <select
                         id="canonical-course-level"
@@ -2972,7 +2978,10 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                         </option>
                       </select>
                     </label>
-                    <label htmlFor="canonical-course-discipline" className="grid gap-1 text-xs">
+                    <label
+                      htmlFor="canonical-course-discipline"
+                      className="grid gap-1 type-caption"
+                    >
                       {createFieldLabel('discipline')} *
                       <select
                         id="canonical-course-discipline"
@@ -2999,7 +3008,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                       </select>
                       {renderCreateFieldError('discipline')}
                     </label>
-                    <label htmlFor="canonical-course-order" className="grid gap-1 text-xs">
+                    <label htmlFor="canonical-course-order" className="grid gap-1 type-caption">
                       {createFieldLabel('order')}
                       <input
                         id="canonical-course-order"
@@ -3012,7 +3021,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                     </label>
                     <label
                       htmlFor="canonical-course-is-hidden"
-                      className="flex items-center gap-2 text-xs"
+                      className="flex items-center gap-2 type-caption"
                     >
                       <input
                         id="canonical-course-is-hidden"
@@ -3027,7 +3036,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                   </div>
                 </details>
                 {createMode === 'clone' ? (
-                  <p className="text-xs md:col-span-2 text-[var(--ink-dim)]" role="status">
+                  <p className="type-caption md:col-span-2 text-[var(--ink-dim)]" role="status">
                     {text.cloneDraftReady}
                   </p>
                 ) : null}
@@ -3051,9 +3060,9 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                 <header className="space-y-3 p-4 pb-0">
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
-                      <h3 className="break-words text-xl font-medium">{selectedCourse.title}</h3>
+                      <h3 className="break-words type-card-title">{selectedCourse.title}</h3>
                       <p
-                        className="mt-1 text-xs text-[var(--ink-dim)]"
+                        className="mt-1 type-caption text-[var(--ink-dim)]"
                         data-testid="admin-course-detail-dates"
                       >
                         {selectedCourseScheduleDates || selectedCourse.lifecycle}
@@ -3108,12 +3117,12 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                   id="course-overview"
                   className={
                     workspaceSection === 'overview'
-                      ? 'grid grid-cols-2 gap-x-6 gap-y-2 text-xs sm:grid-cols-4'
+                      ? 'grid grid-cols-2 gap-x-6 gap-y-2 type-caption sm:grid-cols-4'
                       : 'hidden'
                   }
                 >
                   <div>
-                    <div className="font-mono text-sm text-[var(--ink)]">
+                    <div className="type-compact text-[var(--ink)]">
                       {selectedCourse.price.toLocaleString()} ₸
                     </div>
                     <div className="text-[var(--ink-dim)]">
@@ -3121,14 +3130,14 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                     </div>
                   </div>
                   <div>
-                    <div className="font-mono text-sm text-[var(--ink)]">
+                    <div className="type-compact text-[var(--ink)]">
                       {selectedCourse.capacity.totalSeats - selectedCourse.capacity.availableSeats}{' '}
                       / {selectedCourse.capacity.totalSeats}
                     </div>
                     <div className="text-[var(--ink-dim)]">{text.enrollments}</div>
                   </div>
                   <div>
-                    <div className="font-mono text-sm text-[var(--ink)]">
+                    <div className="type-compact text-[var(--ink)]">
                       {selectedCourse.catalogContent.content?.duration?.trim() || '—'}
                     </div>
                     <div className="text-[var(--ink-dim)]">
@@ -3136,7 +3145,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                     </div>
                   </div>
                   <div>
-                    <div className="font-mono text-sm text-[var(--ink)]">
+                    <div className="type-compact text-[var(--ink)]">
                       {catalogHidden
                         ? language === 'ru'
                           ? 'Скрыт'
@@ -3156,7 +3165,9 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                 ) ? (
                   <p
                     role="status"
-                    className={showWorkspace('instructors') ? 'text-xs text-amber-700' : 'hidden'}
+                    className={
+                      showWorkspace('instructors') ? 'type-caption text-amber-700' : 'hidden'
+                    }
                   >
                     {text.unavailableInstructor}
                   </p>
@@ -3171,10 +3182,10 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                     }
                     onSubmit={(event) => void saveStructuredEdit(event)}
                   >
-                    <h4 className="text-sm font-bold md:col-span-2">
+                    <h4 className="type-card-title md:col-span-2">
                       {language === 'ru' ? 'Редактирование курса' : 'Edit course'}
                     </h4>
-                    <label htmlFor="course-edit-title" className="grid gap-1 text-xs">
+                    <label htmlFor="course-edit-title" className="grid gap-1 type-caption">
                       {language === 'ru' ? 'Название' : 'Title'}
                       <input
                         id="course-edit-title"
@@ -3183,7 +3194,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                         onChange={(event) => updateEditField('title', event.target.value)}
                       />
                     </label>
-                    <label htmlFor="course-edit-title-ru" className="grid gap-1 text-xs">
+                    <label htmlFor="course-edit-title-ru" className="grid gap-1 type-caption">
                       {language === 'ru' ? 'Название (RU)' : 'Title (RU)'}
                       <input
                         id="course-edit-title-ru"
@@ -3191,7 +3202,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                         onChange={(event) => updateEditField('titleRu', event.target.value)}
                       />
                     </label>
-                    <label htmlFor="course-edit-price" className="grid gap-1 text-xs">
+                    <label htmlFor="course-edit-price" className="grid gap-1 type-caption">
                       {language === 'ru' ? 'Цена (KZT)' : 'Price (KZT)'}
                       <input
                         id="course-edit-price"
@@ -3203,7 +3214,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                         onChange={(event) => updateEditField('price', event.target.value)}
                       />
                     </label>
-                    <label htmlFor="course-edit-capacity" className="grid gap-1 text-xs">
+                    <label htmlFor="course-edit-capacity" className="grid gap-1 type-caption">
                       {language === 'ru' ? 'Вместимость' : 'Capacity'}
                       <input
                         id="course-edit-capacity"
@@ -3215,7 +3226,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                         onChange={(event) => updateEditField('totalSeats', event.target.value)}
                       />
                     </label>
-                    <div className="grid gap-1 text-xs">
+                    <div className="grid gap-1 type-caption">
                       {language === 'ru' ? 'Изображение курса' : 'Course image'}
                       <input
                         aria-label={language === 'ru' ? 'URL изображения' : 'Image URL'}
@@ -3225,7 +3236,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                       />
                       <button
                         type="button"
-                        className="border border-[var(--border)] px-3 py-1.5 text-xs hover:border-[var(--ink)]"
+                        className="border border-[var(--border)] px-3 py-1.5 type-button hover:border-[var(--ink)]"
                         onClick={() => setImageUploaderOpen((value) => !value)}
                       >
                         {language === 'ru' ? 'Загрузить изображение' : 'Upload image'}
@@ -3241,7 +3252,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                         <img src={editForm.bgImageUrl} alt="" className="h-20 w-32 object-cover" />
                       ) : null}
                     </div>
-                    <label htmlFor="course-edit-video" className="grid gap-1 text-xs">
+                    <label htmlFor="course-edit-video" className="grid gap-1 type-caption">
                       {language === 'ru' ? 'Видео (URL)' : 'Video URL'}
                       <input
                         id="course-edit-video"
@@ -3251,13 +3262,13 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                       />
                     </label>
                     <fieldset id="course-instructors" className="grid gap-2 md:col-span-2">
-                      <legend className="text-xs font-bold">
+                      <legend className="type-caption font-medium">
                         {language === 'ru'
                           ? 'Состав инструкторов курса'
                           : 'Course instructor roster'}
                       </legend>
                       {instructorReads.instructors.loading ? (
-                        <p className="text-xs">{text.loading}</p>
+                        <p className="type-caption">{text.loading}</p>
                       ) : null}
                       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                         {instructorReads.instructors.items.map((instructor) => {
@@ -3269,7 +3280,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                             <label
                               htmlFor={`course-roster-${instructor.instructorId}`}
                               key={instructor.instructorId}
-                              className="flex gap-2 text-xs"
+                              className="flex gap-2 type-caption"
                             >
                               <input
                                 id={`course-roster-${instructor.instructorId}`}
@@ -3299,13 +3310,13 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                       </div>
                     </fieldset>
                     <details id="course-settings" className="grid gap-2 md:col-span-2">
-                      <summary className="cursor-pointer text-xs font-bold">
+                      <summary className="cursor-pointer type-caption font-medium">
                         {text.presentation}
                       </summary>
                       <div className="grid gap-2 md:grid-cols-2">
                         <label
                           htmlFor="course-edit-description"
-                          className="grid gap-1 text-xs md:col-span-2"
+                          className="grid gap-1 type-caption md:col-span-2"
                         >
                           {language === 'ru' ? 'Описание' : 'Description'}
                           <textarea
@@ -3315,7 +3326,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                             onChange={(event) => updateEditField('description', event.target.value)}
                           />
                         </label>
-                        <label htmlFor="course-edit-short-en" className="grid gap-1 text-xs">
+                        <label htmlFor="course-edit-short-en" className="grid gap-1 type-caption">
                           {language === 'ru' ? 'Краткое описание (EN)' : 'Short description (EN)'}
                           <textarea
                             id="course-edit-short-en"
@@ -3325,7 +3336,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                             }
                           />
                         </label>
-                        <label htmlFor="course-edit-short-ru" className="grid gap-1 text-xs">
+                        <label htmlFor="course-edit-short-ru" className="grid gap-1 type-caption">
                           {language === 'ru' ? 'Краткое описание (RU)' : 'Short description (RU)'}
                           <textarea
                             id="course-edit-short-ru"
@@ -3335,7 +3346,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                             }
                           />
                         </label>
-                        <label htmlFor="course-edit-detail-en" className="grid gap-1 text-xs">
+                        <label htmlFor="course-edit-detail-en" className="grid gap-1 type-caption">
                           {language === 'ru'
                             ? 'Подробное описание (EN)'
                             : 'Detailed description (EN)'}
@@ -3347,7 +3358,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                             }
                           />
                         </label>
-                        <label htmlFor="course-edit-detail-ru" className="grid gap-1 text-xs">
+                        <label htmlFor="course-edit-detail-ru" className="grid gap-1 type-caption">
                           {language === 'ru'
                             ? 'Подробное описание (RU)'
                             : 'Detailed description (RU)'}
@@ -3359,7 +3370,10 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                             }
                           />
                         </label>
-                        <label htmlFor="course-edit-benefits-en" className="grid gap-1 text-xs">
+                        <label
+                          htmlFor="course-edit-benefits-en"
+                          className="grid gap-1 type-caption"
+                        >
                           {language === 'ru'
                             ? 'Преимущества (по одному в строке)'
                             : 'Benefits (one per line)'}
@@ -3369,7 +3383,10 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                             onChange={(event) => updateEditField('benefits', event.target.value)}
                           />
                         </label>
-                        <label htmlFor="course-edit-benefits-ru" className="grid gap-1 text-xs">
+                        <label
+                          htmlFor="course-edit-benefits-ru"
+                          className="grid gap-1 type-caption"
+                        >
                           {language === 'ru'
                             ? 'Преимущества RU (по одному в строке)'
                             : 'Benefits RU (one per line)'}
@@ -3379,7 +3396,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                             onChange={(event) => updateEditField('benefitsRu', event.target.value)}
                           />
                         </label>
-                        <label htmlFor="course-edit-badge-en" className="grid gap-1 text-xs">
+                        <label htmlFor="course-edit-badge-en" className="grid gap-1 type-caption">
                           {language === 'ru' ? 'Бейдж' : 'Badge'}
                           <input
                             id="course-edit-badge-en"
@@ -3387,7 +3404,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                             onChange={(event) => updateEditField('badge', event.target.value)}
                           />
                         </label>
-                        <label htmlFor="course-edit-badge-ru" className="grid gap-1 text-xs">
+                        <label htmlFor="course-edit-badge-ru" className="grid gap-1 type-caption">
                           {language === 'ru' ? 'Бейдж (RU)' : 'Badge (RU)'}
                           <input
                             id="course-edit-badge-ru"
@@ -3395,7 +3412,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                             onChange={(event) => updateEditField('badgeRu', event.target.value)}
                           />
                         </label>
-                        <label htmlFor="course-edit-level" className="grid gap-1 text-xs">
+                        <label htmlFor="course-edit-level" className="grid gap-1 type-caption">
                           {language === 'ru' ? 'Уровень' : 'Level'}
                           <select
                             id="course-edit-level"
@@ -3422,7 +3439,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                             </option>
                           </select>
                         </label>
-                        <label htmlFor="course-edit-discipline" className="grid gap-1 text-xs">
+                        <label htmlFor="course-edit-discipline" className="grid gap-1 type-caption">
                           {language === 'ru' ? 'Дисциплина' : 'Discipline'}
                           <select
                             id="course-edit-discipline"
@@ -3442,7 +3459,10 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                             </option>
                           </select>
                         </label>
-                        <label htmlFor="course-edit-level-label" className="grid gap-1 text-xs">
+                        <label
+                          htmlFor="course-edit-level-label"
+                          className="grid gap-1 type-caption"
+                        >
                           {language === 'ru' ? 'Подпись уровня' : 'Level label'}
                           <input
                             id="course-edit-level-label"
@@ -3450,7 +3470,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                             onChange={(event) => updateEditField('levelLabel', event.target.value)}
                           />
                         </label>
-                        <label htmlFor="course-edit-program-en" className="grid gap-1 text-xs">
+                        <label htmlFor="course-edit-program-en" className="grid gap-1 type-caption">
                           {language === 'ru'
                             ? 'Программа EN (день | заголовок | описание)'
                             : 'Program EN (day | title | description)'}
@@ -3460,7 +3480,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                             onChange={(event) => updateEditField('program', event.target.value)}
                           />
                         </label>
-                        <label htmlFor="course-edit-program-ru" className="grid gap-1 text-xs">
+                        <label htmlFor="course-edit-program-ru" className="grid gap-1 type-caption">
                           {language === 'ru'
                             ? 'Программа RU (день | заголовок | описание)'
                             : 'Program RU (day | title | description)'}
@@ -3470,7 +3490,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                             onChange={(event) => updateEditField('programRu', event.target.value)}
                           />
                         </label>
-                        <label htmlFor="course-edit-faq-en" className="grid gap-1 text-xs">
+                        <label htmlFor="course-edit-faq-en" className="grid gap-1 type-caption">
                           {language === 'ru'
                             ? 'FAQ EN (вопрос | ответ)'
                             : 'FAQ EN (question | answer)'}
@@ -3480,7 +3500,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                             onChange={(event) => updateEditField('faq', event.target.value)}
                           />
                         </label>
-                        <label htmlFor="course-edit-faq-ru" className="grid gap-1 text-xs">
+                        <label htmlFor="course-edit-faq-ru" className="grid gap-1 type-caption">
                           {language === 'ru'
                             ? 'FAQ RU (вопрос | ответ)'
                             : 'FAQ RU (question | answer)'}
@@ -3492,7 +3512,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                         </label>
                         <label
                           htmlFor="course-edit-gallery"
-                          className="grid gap-1 text-xs md:col-span-2"
+                          className="grid gap-1 type-caption md:col-span-2"
                         >
                           {language === 'ru'
                             ? 'Галерея (один URL в строке)'
@@ -3505,7 +3525,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                             }
                           />
                         </label>
-                        <label htmlFor="course-edit-order" className="grid gap-1 text-xs">
+                        <label htmlFor="course-edit-order" className="grid gap-1 type-caption">
                           {language === 'ru' ? 'Порядок' : 'Order'}
                           <input
                             id="course-edit-order"
@@ -3515,7 +3535,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                             onChange={(event) => updateEditField('order', event.target.value)}
                           />
                         </label>
-                        <label htmlFor="course-edit-hidden" className="flex gap-2 text-xs">
+                        <label htmlFor="course-edit-hidden" className="flex gap-2 type-caption">
                           <input
                             id="course-edit-hidden"
                             type="checkbox"
@@ -3528,7 +3548,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                     </details>
                     <label
                       htmlFor="course-edit-reason"
-                      className="grid gap-1 text-xs md:col-span-2"
+                      className="grid gap-1 type-caption md:col-span-2"
                     >
                       {language === 'ru' ? 'Причина изменения' : 'Reason for change'}
                       <input
@@ -3554,9 +3574,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                   id="course-schedule"
                   className={showWorkspace('schedule') ? 'space-y-3' : 'hidden'}
                 >
-                  <h4 className="text-xs font-bold uppercase tracking-wider">
-                    {text.operationalSchedule}
-                  </h4>
+                  <h4 className="type-card-title uppercase">{text.operationalSchedule}</h4>
                   <CanonicalCourseDaysEditor
                     course={selectedCourse}
                     language={language}
@@ -3603,13 +3621,13 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                     id="course-enrollment"
                     className={showWorkspace('enrollment', 'participants') ? 'space-y-2' : 'hidden'}
                   >
-                    <p id="course-participants" className="text-xs text-[var(--ink-dim)]">
+                    <p id="course-participants" className="type-caption text-[var(--ink-dim)]">
                       {text.activeEnrollments}: {selectedCourse.activeEnrollmentCount} ·{' '}
                       {text.totalEnrollments}: {selectedCourse.totalEnrollmentCount}
                     </p>
                     <button
                       type="button"
-                      className="border border-[var(--border)] px-3 py-1.5 text-xs hover:border-[var(--ink)]"
+                      className="border border-[var(--border)] px-3 py-1.5 type-button hover:border-[var(--ink)]"
                       onClick={() => onOpenEnrollments(selectedCourse.courseId)}
                     >
                       {text.manageEnrollments}
@@ -3641,7 +3659,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
               </div>
             </article>
           ) : (
-            <p className="flex min-h-52 items-center justify-center text-center text-xs text-[var(--ink-dim)]">
+            <p className="flex min-h-52 items-center justify-center text-center type-caption text-[var(--ink-dim)]">
               {t('adminCourseDatabaseSelectPrompt')}
             </p>
           )}

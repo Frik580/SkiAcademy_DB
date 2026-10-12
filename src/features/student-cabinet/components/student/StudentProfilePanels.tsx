@@ -319,7 +319,7 @@ export const StudentProfileCertificatesPanel: React.FC<ProfileSubPanelProps> = (
 
   return (
     <ProfilePanelShell titleKey="scProfileCertificates" onGoToTab={onGoToTab}>
-      <p className="text-sm text-[var(--ink-dim)]">{t('scProfileCertificatesEmpty')}</p>
+      <p className="type-compact text-[var(--ink-dim)]">{t('scProfileCertificatesEmpty')}</p>
     </ProfilePanelShell>
   );
 };
@@ -351,20 +351,22 @@ export const StudentProfileAchievementsPanel: React.FC<ProfileSubPanelProps> = (
   return (
     <ProfilePanelShell titleKey="scProfileAchievements" onGoToTab={onGoToTab}>
       {achievements.length === 0 ? (
-        <p className="text-sm text-[var(--ink-dim)]">{t('scProfileAchievementsEmpty')}</p>
+        <p className="type-compact text-[var(--ink-dim)]">{t('scProfileAchievementsEmpty')}</p>
       ) : (
         <div className="flex flex-wrap gap-2">
           {achievements.map((item) => (
             <span
               key={item.id}
-              className="inline-flex flex-col gap-0.5 rounded-full border border-[#FFD60A]/28 bg-[#FFD60A]/10 px-3 py-1.5 text-sm text-[var(--ink)]"
+              className="inline-flex flex-col gap-0.5 rounded-full border border-[#FFD60A]/28 bg-[#FFD60A]/10 px-3 py-1.5 type-compact text-[var(--ink)]"
             >
               <span className="inline-flex items-center gap-1.5">
                 <span aria-hidden>{item.icon}</span>
                 {item.label}
               </span>
               {item.earnedAtLabel && (
-                <span className="text-[10px] text-[var(--ink-dim)] pl-6">{item.earnedAtLabel}</span>
+                <span className="type-caption text-[var(--ink-dim)] pl-6">
+                  {item.earnedAtLabel}
+                </span>
               )}
             </span>
           ))}
@@ -393,7 +395,7 @@ export const StudentProfileSeasonPanel: React.FC<ProfileSubPanelProps> = ({
 
   return (
     <ProfilePanelShell titleKey="scProfileSeason" onGoToTab={onGoToTab}>
-      <p className="text-sm text-[var(--ink-dim)]">
+      <p className="type-compact text-[var(--ink-dim)]">
         {t('scProfileSeasonYear').replace('{year}', String(seasonYear))}
       </p>
       <ScStatGrid
@@ -413,7 +415,7 @@ export const StudentProfileVideosPanel: React.FC<ProfileSubPanelProps> = ({ onGo
 
   return (
     <ProfilePanelShell titleKey="scProfileVideos" onGoToTab={onGoToTab}>
-      <p className="text-sm text-[var(--ink-dim)]">{t('scProfileVideosEmpty')}</p>
+      <p className="type-compact text-[var(--ink-dim)]">{t('scProfileVideosEmpty')}</p>
     </ProfilePanelShell>
   );
 };

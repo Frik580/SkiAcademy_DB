@@ -150,18 +150,18 @@ export const ScheduleTimetableCells: React.FC<ScheduleTimetableCellsProps> = ({
                   enrolledDetailsStr
               );
             }}
-            className="relative group/cell min-h-[44px] h-auto border border-violet-200/40 dark:border-violet-900/30 bg-violet-50/60 dark:bg-violet-950/15 hover:border-violet-400 dark:hover:border-violet-700 text-violet-950 dark:text-violet-200 rounded-xl px-2.5 py-1.5 flex flex-col justify-center transition text-[11px] leading-tight cursor-pointer"
+            className="relative group/cell min-h-[44px] h-auto border border-violet-200/40 dark:border-violet-900/30 bg-violet-50/60 dark:bg-violet-950/15 hover:border-violet-400 dark:hover:border-violet-700 text-violet-950 dark:text-violet-200 rounded-xl px-2.5 py-1.5 flex flex-col justify-center transition type-caption cursor-pointer"
           >
             <div className="flex items-center justify-between gap-1.5 min-w-0">
               <div className="font-bold truncate text-violet-900 dark:text-violet-200 flex items-center gap-1">
                 <BookOpen className="w-3 h-3 text-violet-500 shrink-0" />
                 <span className="truncate">{getScheduleCourseTitle(courseOverlap, language)}</span>
-                <span className="text-[8px] bg-violet-100 dark:bg-violet-900/40 border border-violet-250/45 dark:border-violet-800 text-violet-700 dark:text-violet-300 px-1 py-0.2 font-mono uppercase tracking-wider font-extrabold shrink-0">
+                <span className="type-caption bg-violet-100 dark:bg-violet-900/40 border border-violet-250/45 dark:border-violet-800 text-violet-700 dark:text-violet-300 px-1 py-0.2 uppercase font-medium shrink-0">
                   {t('courseLabelShort')}
                 </span>
               </div>
             </div>
-            <div className="text-[10px] font-mono flex items-center gap-1 mt-0.5 text-violet-600 dark:text-violet-400">
+            <div className="type-caption flex items-center gap-1 mt-0.5 text-violet-600 dark:text-violet-400">
               <Clock className="w-3.5 h-3.5 shrink-0 text-violet-400 dark:text-violet-500" />
               <span>
                 {(() => {
@@ -171,7 +171,7 @@ export const ScheduleTimetableCells: React.FC<ScheduleTimetableCellsProps> = ({
               </span>
             </div>
             {/* Seats Info */}
-            <div className="text-[9px] font-mono mt-1 text-violet-700 dark:text-violet-300 border-t border-violet-200/50 dark:border-violet-800/40 pt-1 flex flex-col gap-0.5">
+            <div className="type-caption mt-1 text-violet-700 dark:text-violet-300 border-t border-violet-200/50 dark:border-violet-800/40 pt-1 flex flex-col gap-0.5">
               <div className="flex items-center justify-between">
                 <span>{t('seatsLabel')}</span>
                 <span className="font-bold">
@@ -181,7 +181,7 @@ export const ScheduleTimetableCells: React.FC<ScheduleTimetableCellsProps> = ({
               </div>
               {enrolledNames.length > 0 && (
                 <div
-                  className="text-[8px] leading-tight text-violet-600 dark:text-violet-400 mt-0.5 max-w-full truncate"
+                  className="type-caption text-violet-600 dark:text-violet-400 mt-0.5 max-w-full truncate"
                   title={enrolledNames.join(', ')}
                 >
                   <span className="font-bold">{t('clientsLabel')}</span> {enrolledNames.join(', ')}

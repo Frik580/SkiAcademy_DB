@@ -23,10 +23,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ booking, onClose, childr
               <MessageSquare className="w-4.5 h-4.5" />
             </div>
             <div className="min-w-0">
-              <h4 className="font-serif text-sm font-medium text-[var(--ink)] truncate">
+              <h4 className="type-card-title text-[var(--ink)] truncate">
                 {t('chatDiscussionTitle')}
               </h4>
-              <p className="text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)] truncate mt-0.5">
+              <p className="type-caption uppercase text-[var(--ink-dim)] truncate mt-0.5">
                 {t('lessonWith')} {booking.instructorName} • {booking.date} @ {booking.time}
               </p>
             </div>

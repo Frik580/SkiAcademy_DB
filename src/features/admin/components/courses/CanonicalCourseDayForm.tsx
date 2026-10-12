@@ -56,13 +56,13 @@ export const CanonicalCourseDayForm: React.FC<CanonicalCourseDayFormProps> = ({
         : 'Edit day';
   return (
     <form className={`grid max-w-xl gap-3 ${adminFormControls}`} onSubmit={onSubmit}>
-      <h5 className="text-sm font-medium text-[var(--ink)]">{heading}</h5>
+      <h5 className="type-compact text-[var(--ink)] font-medium">{heading}</h5>
       {alertMessage ? (
-        <p role="alert" className="border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
+        <p role="alert" className="border border-amber-500/30 bg-amber-500/5 p-3 type-caption">
           {alertMessage}
         </p>
       ) : null}
-      <label htmlFor="course-day-date" className="grid gap-1 text-xs">
+      <label htmlFor="course-day-date" className="grid gap-1 type-caption">
         {ru ? 'Дата' : 'Date'}
         <input
           id="course-day-date"
@@ -73,7 +73,7 @@ export const CanonicalCourseDayForm: React.FC<CanonicalCourseDayFormProps> = ({
         />
       </label>
       <div className="grid gap-2 sm:grid-cols-2">
-        <label htmlFor="course-day-time" className="grid gap-1 text-xs">
+        <label htmlFor="course-day-time" className="grid gap-1 type-caption">
           {ru ? 'Время начала' : 'Start time'}
           <input
             id="course-day-time"
@@ -84,7 +84,7 @@ export const CanonicalCourseDayForm: React.FC<CanonicalCourseDayFormProps> = ({
             onChange={(event) => onChange({ ...draft, localTime: event.target.value })}
           />
         </label>
-        <label htmlFor="course-day-end" className="grid gap-1 text-xs">
+        <label htmlFor="course-day-end" className="grid gap-1 type-caption">
           {ru ? 'Время окончания' : 'End time'}
           <input
             id="course-day-end"
@@ -96,7 +96,7 @@ export const CanonicalCourseDayForm: React.FC<CanonicalCourseDayFormProps> = ({
           />
         </label>
       </div>
-      <label htmlFor="course-day-instructor" className="grid gap-1 text-xs">
+      <label htmlFor="course-day-instructor" className="grid gap-1 type-caption">
         {ru ? 'Фактический инструктор дня' : 'Actual day instructor'}
         <select
           id="course-day-instructor"

@@ -123,14 +123,14 @@ function ReasonField({
 }) {
   const inputId = useId();
   return (
-    <label htmlFor={inputId} className="block text-xs">
+    <label htmlFor={inputId} className="block type-caption">
       {t('adminLessonReason')}
       <input
         id={inputId}
         aria-label={ariaLabel}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-1 w-full border border-[var(--border)] bg-transparent p-2"
+        className="mt-1 w-full border border-[var(--border)] bg-transparent p-2 type-body"
       />
     </label>
   );
@@ -336,8 +336,8 @@ export function AdminLessonBookingDetail({
         <header className="space-y-3 p-4 pb-3">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <h3 className="truncate text-xl font-medium">{participantNames}</h3>
-              <p className="mt-1 text-xs text-[var(--ink-dim)]">
+              <h3 className="truncate type-card-title">{participantNames}</h3>
+              <p className="mt-1 type-caption text-[var(--ink-dim)]">
                 {occurrence.header} · {detail.instructor.displayName}
               </p>
               <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
@@ -366,7 +366,7 @@ export function AdminLessonBookingDetail({
               type="button"
               aria-label={t('openInPlanner')}
               onClick={onOpenPlanner}
-              className="inline-flex items-center gap-1.5 border border-[var(--accent)] bg-[var(--accent-muted)] px-3 py-2 text-xs font-semibold text-[var(--accent)]"
+              className="inline-flex items-center gap-1.5 border border-[var(--accent)] bg-[var(--accent-muted)] px-3 py-2 type-button text-[var(--accent)]"
             >
               <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
               {t('openInPlanner')}
@@ -376,14 +376,14 @@ export function AdminLessonBookingDetail({
               disabled
               aria-describedby="admin-lesson-sms-unavailable"
               title={t('adminLessonSmsUnavailable')}
-              className="inline-flex cursor-not-allowed items-center gap-1.5 border border-[var(--border)] px-3 py-2 text-xs text-[var(--ink-dim)] opacity-60"
+              className="inline-flex cursor-not-allowed items-center gap-1.5 border border-[var(--border)] px-3 py-2 type-button text-[var(--ink-dim)] opacity-60"
             >
               <MessageSquareText className="h-3.5 w-3.5" aria-hidden="true" />
               {t('adminLessonSendSms')}
             </button>
             <span
               id="admin-lesson-sms-unavailable"
-              className="basis-full text-[10px] text-[var(--ink-dim)]"
+              className="basis-full type-caption text-[var(--ink-dim)]"
             >
               {t('adminLessonSmsUnavailable')}
             </span>
@@ -394,7 +394,7 @@ export function AdminLessonBookingDetail({
             focusedChangeRequest) && (
             <div className="grid gap-2 xl:grid-cols-2">
               {awaitingPayment && (
-                <div className="rounded-[var(--radius-md)] border border-amber-500/30 bg-amber-500/[0.07] p-3 text-xs">
+                <div className="rounded-[var(--radius-md)] border border-amber-500/30 bg-amber-500/[0.07] p-3 type-caption">
                   <p className="flex items-center gap-1.5 font-semibold text-amber-900 dark:text-amber-200">
                     <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
                     {t('adminLessonAttentionAwaitingPayment')}
@@ -413,7 +413,7 @@ export function AdminLessonBookingDetail({
                 </div>
               )}
               {detail.lifecycle.status === 'pending_cancellation' && (
-                <div className="rounded-[var(--radius-md)] border border-rose-500/30 bg-rose-500/[0.07] p-3 text-xs">
+                <div className="rounded-[var(--radius-md)] border border-rose-500/30 bg-rose-500/[0.07] p-3 type-caption">
                   <p className="flex items-center gap-1.5 font-semibold text-rose-900 dark:text-rose-200">
                     <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
                     {t('adminLessonCancellationRequested')}
@@ -421,14 +421,14 @@ export function AdminLessonBookingDetail({
                   <button
                     type="button"
                     onClick={() => setActiveSection('cancellation')}
-                    className="mt-2 text-xs font-semibold text-rose-700 underline-offset-2 hover:underline dark:text-rose-300"
+                    className="mt-2 type-button text-rose-700 underline-offset-2 hover:underline dark:text-rose-300"
                   >
                     {t('adminLessonOpenCancellation')}
                   </button>
                 </div>
               )}
               {openCriticalIssues.length > 0 && (
-                <div className="rounded-[var(--radius-md)] border border-red-500/30 bg-red-500/[0.07] p-3 text-xs">
+                <div className="rounded-[var(--radius-md)] border border-red-500/30 bg-red-500/[0.07] p-3 type-caption">
                   <p className="flex items-center gap-1.5 font-semibold text-red-900 dark:text-red-200">
                     <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
                     {t('adminLessonCriticalIssues').replace(
@@ -439,7 +439,7 @@ export function AdminLessonBookingDetail({
                   <button
                     type="button"
                     onClick={() => setActiveSection('issues')}
-                    className="mt-2 text-xs font-semibold text-red-700 underline-offset-2 hover:underline dark:text-red-300"
+                    className="mt-2 type-button text-red-700 underline-offset-2 hover:underline dark:text-red-300"
                   >
                     {t('adminLessonRelatedIssues')}
                   </button>
@@ -448,7 +448,7 @@ export function AdminLessonBookingDetail({
               {focusedChangeRequest && (
                 <div
                   id={`admin-change-request-${focusedChangeRequest.requestId}`}
-                  className="rounded-[var(--radius-md)] border border-amber-500/30 bg-amber-500/[0.07] p-3 text-xs"
+                  className="rounded-[var(--radius-md)] border border-amber-500/30 bg-amber-500/[0.07] p-3 type-caption"
                 >
                   <p className="font-semibold">{t('adminLessonInstructorRequestedChange')}</p>
                   <p className="mt-1 text-[var(--ink-dim)]">{focusedChangeRequest.reason}</p>
@@ -481,7 +481,7 @@ export function AdminLessonBookingDetail({
       >
         {activeSection === 'overview' && (
           <section aria-label={t('adminLessonOverviewTitle')} className="space-y-5">
-            <dl className="grid grid-cols-[minmax(8rem,auto)_1fr] gap-x-6 gap-y-3 text-sm">
+            <dl className="grid grid-cols-[minmax(8rem,auto)_1fr] gap-x-6 gap-y-3 type-compact">
               <dt className="text-[var(--ink-dim)]">{t('adminLessonDate')}</dt>
               <dd>{occurrence.date}</dd>
               <dt className="text-[var(--ink-dim)]">{t('adminLessonTime')}</dt>
@@ -545,10 +545,8 @@ export function AdminLessonBookingDetail({
             {focusedChangeRequest && (
               <div className="space-y-3 rounded-[var(--radius-md)] border border-amber-500/30 bg-amber-500/[0.05] p-4">
                 <div>
-                  <h4 className="text-sm font-medium">
-                    {t('adminLessonInstructorRequestedChange')}
-                  </h4>
-                  <p className="mt-1 text-xs text-[var(--ink-dim)]">
+                  <h4 className="type-card-title">{t('adminLessonInstructorRequestedChange')}</h4>
+                  <p className="mt-1 type-caption text-[var(--ink-dim)]">
                     {focusedChangeRequest.reason} ·{' '}
                     {formatInstant(
                       focusedChangeRequest.createdAt,
@@ -557,14 +555,16 @@ export function AdminLessonBookingDetail({
                     )}
                   </p>
                 </div>
-                <p className="text-xs text-[var(--ink-dim)]">{t('adminLessonScheduleInPlanner')}</p>
+                <p className="type-caption text-[var(--ink-dim)]">
+                  {t('adminLessonScheduleInPlanner')}
+                </p>
                 <ReasonField
                   value={actionReason}
                   onChange={setActionReason}
                   t={t}
                   ariaLabel={t('adminLessonReason')}
                 />
-                <label htmlFor="admin-change-request-refund" className="block text-xs">
+                <label htmlFor="admin-change-request-refund" className="block type-caption">
                   {t('adminLessonRefund')}
                   <input
                     id="admin-change-request-refund"
@@ -574,14 +574,14 @@ export function AdminLessonBookingDetail({
                     max={admin.cancellationFinancial?.maximumRefund}
                     value={refundAmount}
                     onChange={(event) => setRefundAmount(event.target.value)}
-                    className="mt-1 w-full border border-[var(--border)] bg-transparent p-2"
+                    className="mt-1 w-full border border-[var(--border)] bg-transparent p-2 type-body"
                   />
                 </label>
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={onOpenPlanner}
-                    className="border border-[var(--accent)] bg-[var(--accent-muted)] px-3 py-2 text-xs font-semibold text-[var(--accent)]"
+                    className="border border-[var(--accent)] bg-[var(--accent-muted)] px-3 py-2 type-button text-[var(--accent)]"
                   >
                     {t('openInPlanner')}
                   </button>
@@ -601,7 +601,7 @@ export function AdminLessonBookingDetail({
                         t('adminLessonResolveChangeCancel')
                       )
                     }
-                    className="border border-rose-500/40 px-3 py-2 text-xs text-rose-700 disabled:opacity-50 dark:text-rose-300"
+                    className="border border-rose-500/40 px-3 py-2 type-button text-rose-700 disabled:opacity-50 dark:text-rose-300"
                   >
                     {t('adminLessonResolveChangeCancel')}
                   </button>
@@ -618,7 +618,7 @@ export function AdminLessonBookingDetail({
                         t('adminLessonResolveChangeReject')
                       )
                     }
-                    className="border border-[var(--border)] px-3 py-2 text-xs"
+                    className="border border-[var(--border)] px-3 py-2 type-button"
                   >
                     {t('adminLessonResolveChangeReject')}
                   </button>
@@ -628,12 +628,12 @@ export function AdminLessonBookingDetail({
             {(emptyActions || showPlannerHint) && (
               <div className="rounded-[var(--radius-md)] bg-[var(--profile-bg)] p-3">
                 {showPlannerHint && (
-                  <p className="text-xs text-[var(--ink-dim)]">
+                  <p className="type-caption text-[var(--ink-dim)]">
                     {t('adminLessonScheduleInPlanner')}
                   </p>
                 )}
                 {emptyActions && (
-                  <p className="text-xs text-[var(--ink-dim)]">
+                  <p className="type-caption text-[var(--ink-dim)]">
                     {t(LESSON_ADMIN_EMPTY_ACTIONS_KEYS[emptyActions])}
                   </p>
                 )}
@@ -644,10 +644,8 @@ export function AdminLessonBookingDetail({
 
         {activeSection === 'payment' && payment && (
           <section aria-label={t('adminLessonPaymentTitle')} className="space-y-4">
-            <h4 className="text-xs font-medium uppercase tracking-wide">
-              {t('adminLessonPaymentTitle')}
-            </h4>
-            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
+            <h4 className="type-card-title uppercase">{t('adminLessonPaymentTitle')}</h4>
+            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 type-caption">
               {lessonAdminPaymentPrimaryRows(payment).map((row) => (
                 <div key={row.id} className="contents">
                   <dt className="text-[var(--ink-dim)]">
@@ -717,7 +715,7 @@ export function AdminLessonBookingDetail({
             <button
               type="button"
               onClick={() => onOpenPayment(payment.paymentId)}
-              className="border border-[var(--border)] px-3 py-2 text-xs"
+              className="border border-[var(--border)] px-3 py-2 type-button"
             >
               {t('adminLessonOpenPayment')}
             </button>
@@ -726,9 +724,7 @@ export function AdminLessonBookingDetail({
 
         {activeSection === 'attendance' && showAttendance && (
           <section aria-label={t('adminLessonAttendanceTitle')} className="space-y-4">
-            <h4 className="text-xs font-medium uppercase tracking-wide">
-              {t('adminLessonAttendanceTitle')}
-            </h4>
+            <h4 className="type-card-title uppercase">{t('adminLessonAttendanceTitle')}</h4>
             {targetParticipantIds.map((participantId) => {
               const record = (admin.attendance ?? []).find(
                 (candidate) => candidate.participantId === participantId
@@ -741,7 +737,7 @@ export function AdminLessonBookingDetail({
               const draftStatus = attendanceDraft[participantId];
               const canEdit = canPresent || canAbsent;
               return (
-                <div key={participantId} className="space-y-2 text-xs">
+                <div key={participantId} className="space-y-2 type-caption">
                   <p className="font-medium">{participant?.displayName ?? participantId}</p>
                   <p className="text-[var(--ink-dim)]">
                     {draftStatus
@@ -786,7 +782,7 @@ export function AdminLessonBookingDetail({
               );
             })}
             {attendancePending && (
-              <p className="text-xs text-[var(--ink-dim)]">
+              <p className="type-caption text-[var(--ink-dim)]">
                 {t('adminLessonAttendanceAfterConfirm')}
               </p>
             )}
@@ -797,7 +793,7 @@ export function AdminLessonBookingDetail({
                   !allTargetParticipantsDrafted || !actionReason.trim() || attendanceFinalizePending
                 }
                 onClick={() => setAttendanceConfirmOpen(true)}
-                className="w-full border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
+                className="w-full border border-[var(--border)] px-3 py-2 type-button disabled:opacity-50"
               >
                 {t('adminLessonFinalizeAttendance')}
               </button>
@@ -815,16 +811,14 @@ export function AdminLessonBookingDetail({
 
         {activeSection === 'cancellation' && showCancellation && (
           <section aria-label={t('adminLessonCancellationTitle')} className="space-y-4">
-            <h4 className="text-xs font-medium uppercase tracking-wide">
-              {t('adminLessonCancellationTitle')}
-            </h4>
+            <h4 className="type-card-title uppercase">{t('adminLessonCancellationTitle')}</h4>
             {detail.lifecycle.status === 'pending_cancellation' && (
-              <p className="text-xs">{t('adminLessonCancellationRequested')}</p>
+              <p className="type-caption">{t('adminLessonCancellationRequested')}</p>
             )}
             {(admin.authorizedActions.canResolveCancellation ||
               admin.authorizedActions.canDirectCancel) && (
               <div className="space-y-2">
-                <label htmlFor="admin-cancellation-refund" className="block text-xs">
+                <label htmlFor="admin-cancellation-refund" className="block type-caption">
                   {t('adminLessonRefund')}
                   <input
                     id="admin-cancellation-refund"
@@ -834,7 +828,7 @@ export function AdminLessonBookingDetail({
                     max={admin.cancellationFinancial?.maximumRefund}
                     value={refundAmount}
                     onChange={(event) => setRefundAmount(event.target.value)}
-                    className="mt-1 w-full border border-[var(--border)] bg-transparent p-2"
+                    className="mt-1 w-full border border-[var(--border)] bg-transparent p-2 type-body"
                   />
                 </label>
                 {reasonInCancellation && (
@@ -864,7 +858,7 @@ export function AdminLessonBookingDetail({
                             t('adminLessonConfirmApproveCancel')
                           )
                         }
-                        className="border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
+                        className="border border-[var(--border)] px-3 py-2 type-button disabled:opacity-50"
                       >
                         {t('adminLessonApproveCancellation')}
                       </button>
@@ -882,7 +876,7 @@ export function AdminLessonBookingDetail({
                             t('adminLessonConfirmRejectCancel')
                           )
                         }
-                        className="border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
+                        className="border border-[var(--border)] px-3 py-2 type-button disabled:opacity-50"
                       >
                         {t('adminLessonRejectCancellation')}
                       </button>
@@ -905,7 +899,7 @@ export function AdminLessonBookingDetail({
                           t('adminLessonConfirmDirectCancel')
                         )
                       }
-                      className="border border-rose-500 px-3 py-2 text-xs text-rose-600 disabled:opacity-50"
+                      className="border border-rose-500 px-3 py-2 type-button text-rose-600 disabled:opacity-50"
                     >
                       {t('adminLessonDirectCancel')}
                     </button>
@@ -918,31 +912,31 @@ export function AdminLessonBookingDetail({
 
         {activeSection === 'guest' && showGuest && (
           <section aria-label={t('adminLessonGuestTitle')} className="space-y-4">
-            <h4 className="text-xs font-medium uppercase tracking-wide">
-              {t('adminLessonGuestTitle')}
-            </h4>
-            <p className="text-xs">
+            <h4 className="type-card-title uppercase">{t('adminLessonGuestTitle')}</h4>
+            <p className="type-caption">
               {t('adminLessonParticipant')}: {participantNames}
             </p>
             {admin.authorizedActions.canLinkGuestToAccount ? (
               <div className="space-y-2">
-                <p className="text-xs text-[var(--ink-dim)]">{t('adminLessonLinkGuestHint')}</p>
+                <p className="type-caption text-[var(--ink-dim)]">
+                  {t('adminLessonLinkGuestHint')}
+                </p>
                 <AdminManagedParticipantPicker
                   selected={linkSelection}
                   onChange={editLinkSelection}
                 />
-                <label htmlFor="admin-guest-link-reason" className="block text-xs">
+                <label htmlFor="admin-guest-link-reason" className="block type-caption">
                   {t('adminLessonReason')}
                   <input
                     id="admin-guest-link-reason"
                     aria-label="Link reason"
                     value={linkReason}
                     onChange={(event) => editLinkReason(event.target.value)}
-                    className="mt-1 w-full border border-[var(--border)] bg-[var(--bg)] p-2"
+                    className="mt-1 w-full border border-[var(--border)] bg-[var(--bg)] p-2 type-body"
                   />
                 </label>
                 {linkSelection && (
-                  <p className="text-xs text-[var(--ink-dim)]">
+                  <p className="type-caption text-[var(--ink-dim)]">
                     {t('adminLessonLinkReview')
                       .replace('{guest}', admin.participants[0]?.displayName ?? detail.bookingId)
                       .replace(
@@ -971,13 +965,13 @@ export function AdminLessonBookingDetail({
                       t('adminLessonConfirmLinkGuest')
                     );
                   }}
-                  className="w-full border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
+                  className="w-full border border-[var(--border)] px-3 py-2 type-button disabled:opacity-50"
                 >
                   {t('adminLessonLinkGuest')}
                 </button>
               </div>
             ) : (
-              <div className="space-y-1 text-xs text-[var(--ink-dim)]">
+              <div className="space-y-1 type-caption text-[var(--ink-dim)]">
                 <p>{t('adminLessonLinkUnavailable')}</p>
                 <p>
                   {t(
@@ -993,13 +987,11 @@ export function AdminLessonBookingDetail({
 
         {activeSection === 'issues' && admin.relatedIssues.length > 0 && (
           <section aria-label={t('adminLessonRelatedIssues')} className="space-y-3">
-            <h4 className="text-xs font-medium uppercase tracking-wide">
-              {t('adminLessonRelatedIssues')}
-            </h4>
+            <h4 className="type-card-title uppercase">{t('adminLessonRelatedIssues')}</h4>
             {admin.relatedIssues.map((issue) => (
               <div
                 key={issue.issueId}
-                className="space-y-2 rounded-[var(--radius-md)] border border-[var(--border)] p-3 text-xs"
+                className="space-y-2 rounded-[var(--radius-md)] border border-[var(--border)] p-3 type-caption"
               >
                 <p>
                   {t(issueSeverityLabelKey(issue.severity))} · {t(issueKindLabelKey(issue.kind))} ·{' '}
@@ -1019,10 +1011,10 @@ export function AdminLessonBookingDetail({
 
         {activeSection === 'technical' && (
           <details className="rounded-[var(--radius-md)] bg-[var(--profile-bg)] p-3">
-            <summary className="cursor-pointer text-xs text-[var(--ink-dim)]">
+            <summary className="cursor-pointer type-caption text-[var(--ink-dim)]">
               {t('adminLessonTechnicalDetails')}
             </summary>
-            <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 break-all font-mono text-[10px] text-[var(--ink-dim)]">
+            <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 break-all type-caption text-[var(--ink-dim)]">
               <dt>{t('adminLessonBookingId')}</dt>
               <dd>{detail.bookingId}</dd>
               <dt>{t('adminLessonRevisions')}</dt>
@@ -1098,8 +1090,8 @@ export function AdminLessonBookingDetail({
           className="fixed inset-0 z-60 flex items-center justify-center bg-black/55 p-4"
         >
           <div className="w-full max-w-md space-y-4 border border-[var(--border)] bg-[var(--bg)] p-5">
-            <h3 className="text-sm font-medium">{t('adminLessonConfirmAttendanceTitle')}</h3>
-            <ul className="space-y-2 text-xs">
+            <h3 className="type-card-title">{t('adminLessonConfirmAttendanceTitle')}</h3>
+            <ul className="space-y-2 type-caption">
               {targetParticipantIds.map((participantId) => {
                 const participant = admin.participants.find(
                   (candidate) => candidate.participantId === participantId
@@ -1117,13 +1109,13 @@ export function AdminLessonBookingDetail({
                 );
               })}
             </ul>
-            <p className="text-xs text-[var(--ink-dim)]">
+            <p className="type-caption text-[var(--ink-dim)]">
               {t('adminLessonAttendancePresentCount').replace('{n}', String(presentCount))}
             </p>
-            <p className="text-xs text-[var(--ink-dim)]">
+            <p className="type-caption text-[var(--ink-dim)]">
               {t('adminLessonAttendanceAbsentCount').replace('{n}', String(absentCount))}
             </p>
-            <p className="text-xs">{t('adminLessonConfirmAttendanceWarning')}</p>
+            <p className="type-caption">{t('adminLessonConfirmAttendanceWarning')}</p>
             <div className="flex gap-2">
               <ActionButton
                 type="button"

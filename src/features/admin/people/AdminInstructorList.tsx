@@ -29,7 +29,7 @@ export function AdminInstructorList({
     <div className="overflow-x-auto border border-[var(--border)]">
       <table className="w-full border-collapse text-left">
         <thead>
-          <tr className="border-b border-[var(--border)] text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+          <tr className="border-b border-[var(--border)] type-caption uppercase text-[var(--ink-dim)]">
             <th className="px-4 py-3">{text.instructor}</th>
             <th className="px-4 py-3">{text.specialty}</th>
             <th className="px-4 py-3">{text.rate}</th>
@@ -49,18 +49,18 @@ export function AdminInstructorList({
               }
             >
               <td className="px-4 py-3">
-                <span className="block text-xs font-bold">{item.name || text.unnamed}</span>
+                <span className="block type-caption font-medium">{item.name || text.unnamed}</span>
               </td>
-              <td className="px-4 py-3 text-xs">{specialtyLabel(item.specialty, text)}</td>
-              <td className="px-4 py-3 font-mono text-xs">
+              <td className="px-4 py-3 type-caption">{specialtyLabel(item.specialty, text)}</td>
+              <td className="px-4 py-3 type-caption">
                 {item.pricePerHourKZT === undefined
                   ? '—'
                   : item.pricePerHourKZT.toLocaleString('ru-RU')}
               </td>
-              <td className="px-4 py-3 text-xs">
+              <td className="px-4 py-3 type-caption">
                 {item.isAvailable ? text.available : text.paused}
               </td>
-              <td className="px-4 py-3 text-xs">
+              <td className="px-4 py-3 type-caption">
                 {item.linkedAccountDisplayName ||
                   (item.linkedAccountId ? item.linkedAccountId : text.accountNotLinked)}
               </td>
@@ -68,7 +68,7 @@ export function AdminInstructorList({
                 <button
                   type="button"
                   onClick={() => onOpen(item.instructorId)}
-                  className="border border-[var(--border)] px-2 py-1 text-[10px] font-mono uppercase tracking-wider"
+                  className="border border-[var(--border)] px-2 py-1 type-button uppercase"
                 >
                   {text.openDetail}
                 </button>

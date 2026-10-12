@@ -1,3 +1,4 @@
+@reference '../../../../index.css';
 /* Presentation only; account sessions and informational dates retain their owners. */
 .sc-next-session {
   min-width: 0;
@@ -11,19 +12,16 @@
 }
 
 .sc-dashboard .sc-next-session [data-dashboard-title] {
+  @apply type-card-title;
   margin: 0;
   min-height: 0;
-  font-size: 1rem;
-  line-height: 1.35;
-  font-weight: 600;
-  letter-spacing: -0.025em;
 }
 
 .sc-next-session-calendar-link {
+  @apply type-button;
   min-height: 2.75rem;
   min-width: 2.75rem;
   color: var(--accent);
-  font-size: 0.875rem;
   text-align: left;
   white-space: normal;
 }
@@ -48,11 +46,9 @@
 }
 
 .sc-next-session-month {
+  @apply type-caption;
   margin-bottom: 0.625rem;
   color: var(--ink);
-  font-size: 0.75rem;
-  font-weight: 600;
-  line-height: 1.5;
   text-transform: capitalize;
 }
 
@@ -61,7 +57,7 @@
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 0.125rem;
   text-align: center;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
 }
 
 .sc-next-session-day {
@@ -73,12 +69,12 @@
 }
 
 .sc-next-session-weekday {
+  @apply type-caption;
   color: var(--ink-dim);
-  font-size: 0.6875rem;
-  line-height: 1.5;
 }
 
 .sc-next-session-date {
+  @apply type-caption;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -88,7 +84,6 @@
   border: 1px solid transparent;
   border-radius: 0.5rem;
   color: var(--ink);
-  font-size: 0.6875rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -152,13 +147,12 @@
 }
 
 .sc-next-session-meta {
+  @apply type-caption;
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-start;
   align-items: baseline;
   gap: 0.25rem 0.625rem;
-  font-size: 0.75rem;
-  line-height: 1.5;
 }
 
 .sc-next-session-day-label {
@@ -166,29 +160,24 @@
 }
 
 .sc-next-session-time {
+  @apply type-compact;
   color: var(--ink);
-  font-size: 1.125rem;
-  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
 .sc-next-session-title {
+  @apply type-card-title;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.375rem;
-  font-family: var(--font-sans);
-  font-size: 0.9375rem;
-  font-weight: 600;
-  line-height: 1.4;
   color: var(--ink);
   margin: 0;
 }
 
 .sc-next-session-subtitle {
+  @apply type-caption;
   margin: 0.125rem 0 0.25rem;
-  font-size: 0.75rem;
-  line-height: 1.5;
   color: var(--ink-dim);
 }
 
@@ -197,9 +186,8 @@
 }
 
 .sc-next-session-card li {
+  @apply type-caption;
   max-width: 100%;
-  font-size: 0.75rem;
-  line-height: 1.5;
 }
 
 .sc-next-session-card .ui-avatar {
@@ -220,10 +208,10 @@
 }
 
 .sc-next-session-actions :is(.sc-text-button, .sc-next-session-contact) {
+  @apply type-button;
   min-height: 2.75rem;
   min-width: 2.75rem;
   max-width: 100%;
-  font-size: 0.875rem;
   color: var(--accent);
   white-space: normal;
 }
@@ -234,15 +222,14 @@
 }
 
 .sc-next-session-empty {
+  @apply type-caption;
   min-width: 0;
-  font-size: 0.8125rem;
-  line-height: 1.5;
   color: var(--ink-dim);
 }
 
 @media (min-width: 640px) {
   .sc-dashboard .sc-next-session [data-dashboard-title] {
-    font-size: 1.125rem;
+    @apply type-card-title;
   }
 }
 

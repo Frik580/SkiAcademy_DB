@@ -33,10 +33,8 @@ export const ActiveSlotDetails: React.FC<ActiveSlotDetailsProps> = ({
 
   return (
     <div className="bg-black/5 dark:bg-white/5 p-3.5 rounded-xl border border-[var(--border)] space-y-1.5">
-      <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink)]">
-        {t('currentDetails')}
-      </div>
-      <div className="text-xs text-[var(--ink-dim)]">
+      <div className="type-caption uppercase text-[var(--ink)]">{t('currentDetails')}</div>
+      <div className="type-caption text-[var(--ink-dim)]">
         <strong>{t('typeLabel')}:</strong>{' '}
         {booking.userId === 'system_block_break'
           ? t('breakLabel')
@@ -47,7 +45,7 @@ export const ActiveSlotDetails: React.FC<ActiveSlotDetailsProps> = ({
       {booking.userId !== 'system_block_break' &&
         booking.userId !== 'system_block_day_off' &&
         !isCourseBooking(booking) && (
-          <div className="text-xs text-[var(--ink-dim)]">
+          <div className="type-caption text-[var(--ink-dim)]">
             <strong>{t('trainingLevelLabel')}:</strong>{' '}
             {formatLessonDifficultyOrUnspecified(
               booking.difficulty,
@@ -58,7 +56,7 @@ export const ActiveSlotDetails: React.FC<ActiveSlotDetailsProps> = ({
           </div>
         )}
       {(booking.guestPhone || booking.guestEmail) && (
-        <div className="text-xs text-[var(--ink-dim)] space-y-0.5 font-mono">
+        <div className="type-caption text-[var(--ink-dim)] space-y-0.5">
           {booking.guestPhone && (
             <div>
               <strong>{t('phone') || (language === 'ru' ? 'Тел' : 'Phone')}:</strong>{' '}
@@ -84,14 +82,14 @@ export const ActiveSlotDetails: React.FC<ActiveSlotDetailsProps> = ({
         </div>
       )}
       {booking.notes && (
-        <div className="text-xs text-[var(--ink-dim)] italic">
+        <div className="type-caption text-[var(--ink-dim)] italic">
           {'"'}
           {booking.notes}
           {'"'}
         </div>
       )}
       {booking.status === 'pending_cancellation' && booking.cancellationReason && (
-        <div className="text-xs text-rose-400 font-mono bg-rose-955/20 px-2.5 py-1.5 border border-rose-900/40 mt-1 rounded-none">
+        <div className="type-caption text-rose-400 bg-rose-955/20 px-2.5 py-1.5 border border-rose-900/40 mt-1 rounded-none">
           <strong>{t('cancelReasonRequired')}:</strong> {booking.cancellationReason}
         </div>
       )}
@@ -102,7 +100,7 @@ export const ActiveSlotDetails: React.FC<ActiveSlotDetailsProps> = ({
             <button
               type="button"
               onClick={onOpenLinkModal}
-              className="w-full mt-2.5 py-2 px-3 border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-none text-xs font-mono uppercase tracking-wider flex items-center justify-center gap-2 transition cursor-pointer"
+              className="w-full mt-2.5 py-2 px-3 border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-none type-button uppercase flex items-center justify-center gap-2 transition cursor-pointer"
             >
               <Link2 className="w-4 h-4" />
               {t('linkToClientBtn')}
@@ -111,7 +109,7 @@ export const ActiveSlotDetails: React.FC<ActiveSlotDetailsProps> = ({
           <button
             type="button"
             onClick={() => onOpenChat(booking)}
-            className="w-full mt-2.5 py-2.5 px-3 border border-accent-soft bg-accent-muted hover:bg-accent-muted hover:border-accent text-accent rounded-none text-xs font-mono uppercase tracking-widest flex items-center justify-center gap-2 transition cursor-pointer"
+            className="w-full mt-2.5 py-2.5 px-3 border border-accent-soft bg-accent-muted hover:bg-accent-muted hover:border-accent text-accent rounded-none type-button uppercase flex items-center justify-center gap-2 transition cursor-pointer"
           >
             <MessageSquare className="w-4 h-4" />
             {t('openChatDiscussion')}

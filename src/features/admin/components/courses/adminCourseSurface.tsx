@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 
 /** Shared with Admin lesson/training records: field chrome, record cards, status chips. */
 export const adminFormControls =
-  '[&_input:not([type=checkbox])]:mt-1 [&_input:not([type=checkbox])]:w-full [&_input:not([type=checkbox])]:border [&_input:not([type=checkbox])]:border-[var(--border)] [&_input:not([type=checkbox])]:bg-[var(--bg)] [&_input:not([type=checkbox])]:p-2 [&_input:not([type=checkbox])]:text-xs [&_input:not([type=checkbox])]:text-[var(--ink)] [&_select]:mt-1 [&_select]:w-full [&_select]:border [&_select]:border-[var(--border)] [&_select]:bg-[var(--bg)] [&_select]:p-2 [&_select]:text-xs [&_select]:text-[var(--ink)] [&_textarea]:mt-1 [&_textarea]:w-full [&_textarea]:border [&_textarea]:border-[var(--border)] [&_textarea]:bg-[var(--bg)] [&_textarea]:p-2 [&_textarea]:text-xs [&_textarea]:text-[var(--ink)]';
+  '[&_input:not([type=checkbox])]:mt-1 [&_input:not([type=checkbox])]:w-full [&_input:not([type=checkbox])]:border [&_input:not([type=checkbox])]:border-[var(--border)] [&_input:not([type=checkbox])]:bg-[var(--bg)] [&_input:not([type=checkbox])]:p-2 [&_input:not([type=checkbox])]:type-body [&_input:not([type=checkbox])]:text-[var(--ink)] [&_select]:mt-1 [&_select]:w-full [&_select]:border [&_select]:border-[var(--border)] [&_select]:bg-[var(--bg)] [&_select]:p-2 [&_select]:type-body [&_select]:text-[var(--ink)] [&_textarea]:mt-1 [&_textarea]:w-full [&_textarea]:border [&_textarea]:border-[var(--border)] [&_textarea]:bg-[var(--bg)] [&_textarea]:p-2 [&_textarea]:type-body [&_textarea]:text-[var(--ink)]';
 
 export const adminRecordCardClass =
   'rounded-[var(--radius-md)] border border-[var(--border)] border-l-[3px] bg-[var(--card-bg)] p-3.5 transition-colors hover:border-[color-mix(in_srgb,var(--accent)_28%,transparent)] hover:bg-[var(--accent-muted)]';
@@ -27,7 +27,7 @@ export function AdminCourseStatusChip({
 }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold leading-none ${STATUS_TONE[tone]}`}
+      className={`inline-flex items-center rounded-full border px-2.5 py-1 type-caption font-medium ${STATUS_TONE[tone]}`}
     >
       {children}
     </span>

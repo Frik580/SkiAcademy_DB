@@ -56,7 +56,7 @@ export const CourseBackgroundImageField: React.FC<CourseBackgroundImageFieldProp
 
   return (
     <div className="space-y-1.5">
-      <label className="text-[10px] text-[var(--ink-dim)] uppercase block">
+      <label className="type-caption text-[var(--ink-dim)] uppercase block">
         {t('backgroundImageUrl')}
       </label>
       <input
@@ -64,7 +64,7 @@ export const CourseBackgroundImageField: React.FC<CourseBackgroundImageFieldProp
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="https://images.unsplash.com/..."
-        className="w-full px-3.5 py-2 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none mb-1"
+        className="w-full px-3.5 py-2 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none mb-1 type-body"
       />
 
       {/* File Upload zone */}
@@ -88,7 +88,7 @@ export const CourseBackgroundImageField: React.FC<CourseBackgroundImageFieldProp
           id="course-image-input"
           type="file"
           accept="image/*"
-          className="hidden"
+          className="hidden type-body"
           onChange={async (e) => {
             if (e.target.files && e.target.files.length > 0) {
               await processAndOptimizeCourseImage(e.target.files[0]);
@@ -101,7 +101,7 @@ export const CourseBackgroundImageField: React.FC<CourseBackgroundImageFieldProp
           ) : (
             <Camera className="w-5 h-5 text-[var(--ink-dim)]" />
           )}
-          <span className="text-[10px] text-[var(--ink-dim)]">{t('dragUploadBgPhoto')}</span>
+          <span className="type-caption text-[var(--ink-dim)]">{t('dragUploadBgPhoto')}</span>
         </div>
       </div>
     </div>

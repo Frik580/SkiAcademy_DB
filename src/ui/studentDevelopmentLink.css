@@ -1,4 +1,7 @@
+@reference '../index.css';
+
 .student-development-link {
+  @apply type-button;
   display: flex;
   align-self: flex-end;
   align-items: center;
@@ -9,10 +12,6 @@
   margin-inline-start: auto;
   padding-block: 0.375rem;
   color: var(--accent);
-  font-family: var(--font-sans);
-  font-size: 14px;
-  font-weight: 500;
-  line-height: 1.35;
   text-align: left;
   text-decoration: none;
 }

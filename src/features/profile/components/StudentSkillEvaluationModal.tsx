@@ -153,10 +153,10 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
               <Award className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-serif text-lg font-light text-[var(--ink)]">
+              <h3 className="type-section-title text-[var(--ink)]">
                 {t('studentSkillEvaluation')}: {studentName}
               </h3>
-              <p className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider">
+              <p className="type-caption text-[var(--ink-dim)] uppercase">
                 {t('instructorCurrentLevel')}: {studentLevel} • {t('projectedLevel')}:{' '}
                 {projectedLevel}
               </p>
@@ -175,7 +175,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
         <div className="flex border-b border-[var(--border)] bg-black/10 px-4 pt-3 gap-2">
           <button
             onClick={() => setActiveTargetLevel(1)}
-            className={`px-4 py-2 text-xs font-mono uppercase tracking-wider border-b-2 transition cursor-pointer ${
+            className={`px-4 py-2 type-button uppercase border-b-2 transition cursor-pointer ${
               activeTargetLevel === 1
                 ? 'border-accent font-bold text-accent bg-black/20'
                 : 'border-transparent text-[var(--ink-dim)] hover:text-[var(--ink)]'
@@ -185,7 +185,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
           </button>
           <button
             onClick={() => setActiveTargetLevel(2)}
-            className={`px-4 py-2 text-xs font-mono uppercase tracking-wider border-b-2 transition cursor-pointer ${
+            className={`px-4 py-2 type-button uppercase border-b-2 transition cursor-pointer ${
               activeTargetLevel === 2
                 ? 'border-accent font-bold text-accent bg-black/20'
                 : 'border-transparent text-[var(--ink-dim)] hover:text-[var(--ink)]'
@@ -195,7 +195,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
           </button>
           <button
             onClick={() => setActiveTargetLevel(3)}
-            className={`px-4 py-2 text-xs font-mono uppercase tracking-wider border-b-2 transition cursor-pointer ${
+            className={`px-4 py-2 type-button uppercase border-b-2 transition cursor-pointer ${
               activeTargetLevel === 3
                 ? 'border-accent font-bold text-accent bg-black/20'
                 : 'border-transparent text-[var(--ink-dim)] hover:text-[var(--ink)]'
@@ -208,36 +208,36 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
         {/* Summary Bar */}
         <div className="p-4 bg-black/30 border-b border-[var(--border)] grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
-            <span className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-wider block">
+            <span className="type-caption text-[var(--ink-dim)] uppercase block">
               {t('earnedPoints')}
             </span>
-            <span className="text-xl font-serif font-bold text-[var(--ink)]">
+            <span className="type-card-title text-[var(--ink)]">
               {progress.targetEarnedPoints} /{' '}
-              <span className="text-sm text-[var(--ink-dim)]">{progress.targetMaxPoints}</span>
+              <span className="type-compact text-[var(--ink-dim)]">{progress.targetMaxPoints}</span>
             </span>
           </div>
 
           <div>
-            <span className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-wider block">
+            <span className="type-caption text-[var(--ink-dim)] uppercase block">
               {t('requiredToLevelUp')}
             </span>
-            <span className="text-xl font-serif font-bold text-amber-400">
+            <span className="type-card-title text-amber-400">
               {progress.targetRequiredPoints}{' '}
-              <span className="text-xs text-[var(--ink-dim)]">({passPercentage}%)</span>
+              <span className="type-caption text-[var(--ink-dim)]">({passPercentage}%)</span>
             </span>
           </div>
 
           <div>
-            <span className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-wider block">
+            <span className="type-caption text-[var(--ink-dim)] uppercase block">
               {t('advancementStatus')}
             </span>
             {progress.targetEarnedPoints >= progress.targetRequiredPoints ? (
-              <span className="inline-flex items-center gap-1 text-xs font-mono font-bold text-emerald-400 uppercase tracking-wider">
+              <span className="inline-flex items-center gap-1 type-caption font-medium text-emerald-400 uppercase">
                 <CheckCircle2 className="w-4 h-4" />
                 {t('readyToAdvance')}
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 text-xs font-mono font-bold text-amber-400 uppercase tracking-wider">
+              <span className="inline-flex items-center gap-1 type-caption font-medium text-amber-400 uppercase">
                 <AlertCircle className="w-4 h-4" />
                 {progress.targetRequiredPoints - progress.targetEarnedPoints} {t('pointsLeft')}
               </span>
@@ -247,13 +247,13 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
           <div className="flex items-center justify-end gap-2">
             <button
               onClick={handleFillAllMax}
-              className="px-2.5 py-1 border border-accent/40 text-accent hover:bg-accent-muted text-[9px] font-mono uppercase tracking-wider transition cursor-pointer"
+              className="px-2.5 py-1 border border-accent/40 text-accent hover:bg-accent-muted type-button uppercase transition cursor-pointer"
             >
               {t('fillMax')}
             </button>
             <button
               onClick={handleClearStage}
-              className="px-2.5 py-1 border border-[var(--border)] text-[var(--ink-dim)] hover:text-[var(--ink)] text-[9px] font-mono uppercase tracking-wider transition cursor-pointer"
+              className="px-2.5 py-1 border border-[var(--border)] text-[var(--ink-dim)] hover:text-[var(--ink)] type-button uppercase transition cursor-pointer"
             >
               {t('clear')}
             </button>
@@ -263,7 +263,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
         {/* Exercise Items List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {stageItems.length === 0 ? (
-            <div className="py-12 text-center text-[var(--ink-dim)] font-mono text-xs">
+            <div className="py-12 text-center text-[var(--ink-dim)] type-caption">
               {t('noSkillItemsForLevel')}
             </div>
           ) : (
@@ -275,13 +275,13 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
                   className="p-3 bg-black/10 border border-[var(--border)]/60 hover:border-[var(--border)] transition flex flex-col md:flex-row md:items-center justify-between gap-3"
                 >
                   <div className="space-y-1 flex-1">
-                    <span className="text-[9px] font-mono uppercase tracking-wider text-accent block font-semibold">
+                    <span className="type-caption uppercase text-accent block font-medium">
                       {getSkillItemSection(item, language)}
                     </span>
-                    <h5 className="text-xs font-medium text-[var(--ink)] leading-snug">
+                    <h5 className="type-compact text-[var(--ink)] font-medium">
                       {getSkillItemTitle(item, language)}
                     </h5>
-                    <div className="text-[9px] font-mono text-[var(--ink-dim)]">
+                    <div className="type-caption text-[var(--ink-dim)]">
                       {t('radarAxisCol')}:{' '}
                       {getRadarDimensionLabel(classifySkillItemToRadarDimension(item), language)}
                     </div>
@@ -295,7 +295,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
                           <button
                             key={val}
                             onClick={() => handleScoreChange(item.id, val, item.maxPoints)}
-                            className={`w-6 h-6 text-[10px] font-mono font-bold transition cursor-pointer ${
+                            className={`w-6 h-6 type-button transition cursor-pointer ${
                               currentScore === val
                                 ? 'bg-[var(--accent)] text-[var(--accent-foreground)] shadow'
                                 : val <= currentScore
@@ -309,10 +309,10 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
                       </div>
 
                       <div className="text-right w-14">
-                        <span className="text-xs font-mono font-bold text-amber-400">
+                        <span className="type-caption font-medium text-amber-400">
                           {currentScore}
                         </span>
-                        <span className="text-[10px] font-mono text-[var(--ink-dim)]">
+                        <span className="type-caption text-[var(--ink-dim)]">
                           {' '}
                           / {item.maxPoints}
                         </span>
@@ -325,7 +325,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
                         onChange={(e) => handleCommentChange(item.id, e.target.value)}
                         placeholder={t('instructorExerciseCommentPlaceholder')}
                         rows={2}
-                        className="w-full md:w-72 rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2 text-xs text-[var(--ink)] placeholder:text-[var(--ink-dim)] focus:outline-none focus:border-[var(--accent)] resize-y min-h-[2.5rem]"
+                        className="w-full md:w-72 rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2 type-body text-[var(--ink)] placeholder:text-[var(--ink-dim)] focus:outline-none focus:border-[var(--accent)] resize-y min-h-[2.5rem]"
                       />
                     )}
                   </div>
@@ -337,14 +337,14 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
 
         {/* Footer */}
         <div className="p-4 border-t border-[var(--border)] bg-black/20 flex justify-between items-center">
-          <div className="text-xs font-mono text-[var(--ink-dim)]">
+          <div className="type-caption text-[var(--ink-dim)]">
             {t('studentLevelAfterSaving')} {projectedLevel}
           </div>
 
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 border border-[var(--border)] text-xs font-mono uppercase tracking-wider text-[var(--ink-dim)] hover:text-[var(--ink)] transition cursor-pointer"
+              className="px-4 py-2 border border-[var(--border)] type-button uppercase text-[var(--ink-dim)] hover:text-[var(--ink)] transition cursor-pointer"
             >
               {t('cancel')}
             </button>
@@ -352,7 +352,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
               onClick={handleSave}
               pending={isSaving}
               pendingLabel={t('saving')}
-              className="btn-primary px-5 py-2 text-xs shadow-lg"
+              className="btn-primary px-5 py-2 type-button shadow-lg"
             >
               <Save className="w-4 h-4" />
               {t('saveRatings')}

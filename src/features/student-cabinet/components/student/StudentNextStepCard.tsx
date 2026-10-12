@@ -70,7 +70,7 @@ export const StudentNextStepCard = ({
         </p>
       ) : (
         <>
-          <h3 className="sc-next-step-name">{title}</h3>
+          <h3 className="sc-next-step-name type-card-title">{title}</h3>
           <p className="sc-next-step-description">{body}</p>
           {contextLabel && (
             <div className="sc-next-step-context">

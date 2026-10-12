@@ -21,16 +21,14 @@ export function StudentCourseProgressSummary({
   return (
     <div className="space-y-3" data-enrollment-id={enrollmentId}>
       {lifecycleLabel && (
-        <p className={`text-[10px] font-medium tracking-widest uppercase ${lifecycleClass}`}>
-          {lifecycleLabel}
-        </p>
+        <p className={`type-caption font-medium uppercase ${lifecycleClass}`}>{lifecycleLabel}</p>
       )}
       <div className="space-y-1.5">
         <div className="flex items-baseline justify-between gap-3">
-          <p className="text-[10px] font-medium tracking-widest uppercase text-[var(--ink-dim)]">
+          <p className="type-caption font-medium uppercase text-[var(--ink-dim)]">
             {progressLabel}
           </p>
-          <p className="text-xs tabular-nums text-[var(--ink)]">{daysLabel}</p>
+          <p className="type-caption tabular-nums text-[var(--ink)]">{daysLabel}</p>
         </div>
         <div className="w-full h-1.5 bg-black/10 dark:bg-white/5 border border-[var(--border)] overflow-hidden">
           <div
@@ -39,7 +37,7 @@ export function StudentCourseProgressSummary({
           />
         </div>
       </div>
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--ink-dim)]">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 type-caption text-[var(--ink-dim)]">
         <p>
           {attendedLabel}: <span className="tabular-nums text-[var(--ink)]">{presentDays}</span>
         </p>

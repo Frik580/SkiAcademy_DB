@@ -48,7 +48,7 @@ export const LevelUpModal: React.FC<LevelUpModalProps> = ({ level, theme, onClos
           <X className="w-5 h-5" />
         </button>
 
-        <span className="text-xs font-mono font-bold tracking-widest text-amber-400 uppercase mb-2 animate-bounce relative z-10">
+        <span className="type-caption font-medium text-amber-400 uppercase mb-2 animate-bounce relative z-10">
           ✨ {t('newLevelUnlocked')} ✨
         </span>
 
@@ -65,7 +65,7 @@ export const LevelUpModal: React.FC<LevelUpModalProps> = ({ level, theme, onClos
           />
         </div>
 
-        <p className="text-xs font-sans text-[var(--ink-dim)] mt-4 mb-0 max-w-xs relative z-10">
+        <p className="type-caption text-[var(--ink-dim)] mt-4 mb-0 max-w-xs relative z-10">
           {t('levelUpCongrats')}
         </p>
       </div>

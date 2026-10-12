@@ -18,12 +18,12 @@ export const InstructorReviews: React.FC<InstructorReviewsProps> = ({ workspace 
 
   return (
     <div className="space-y-4">
-      <h4 className="text-lg font-serif font-light text-[var(--ink)] tracking-tight border-b border-slate-200/80 dark:border-slate-800/80 pb-3">
+      <h4 className="type-card-title text-[var(--ink)] border-b border-slate-200/80 dark:border-slate-800/80 pb-3">
         {t('instructorFeedback')} ({linkedInstructor?.reviewsCount ?? 0})
       </h4>
 
       {instructorReviews.length === 0 ? (
-        <div className="py-10 border border-dashed border-slate-200 dark:border-slate-800 text-center bg-[var(--card-bg)] rounded-xs font-mono text-xs text-[var(--ink-dim)]">
+        <div className="py-10 border border-dashed border-slate-200 dark:border-slate-800 text-center bg-[var(--card-bg)] rounded-xs type-caption text-[var(--ink-dim)]">
           {t('instructorNoReviews')}
         </div>
       ) : (
@@ -42,10 +42,8 @@ export const InstructorReviews: React.FC<InstructorReviewsProps> = ({ workspace 
                     referrerPolicy="no-referrer"
                   />
                   <div>
-                    <h5 className="font-serif text-xs text-[var(--ink)] font-bold leading-none">
-                      {rev.userName}
-                    </h5>
-                    <span className="text-[8px] font-mono text-[var(--ink-dim)] mt-1.5 block">
+                    <h5 className="type-compact text-[var(--ink)] font-medium">{rev.userName}</h5>
+                    <span className="type-caption text-[var(--ink-dim)] mt-1.5 block">
                       {rev.date}
                     </span>
                   </div>
@@ -57,7 +55,7 @@ export const InstructorReviews: React.FC<InstructorReviewsProps> = ({ workspace 
                 </div>
               </div>
               {rev.comment && (
-                <p className="text-xs text-[var(--ink-dim)] leading-relaxed italic font-mono">
+                <p className="type-caption text-[var(--ink-dim)] italic">
                   {'"'}
                   {rev.comment}
                   {'"'}
@@ -72,7 +70,7 @@ export const InstructorReviews: React.FC<InstructorReviewsProps> = ({ workspace 
           type="button"
           onClick={onLoadMoreReviews}
           disabled={reviewLoadingMore}
-          className="px-4 py-2 border border-[var(--border)] disabled:opacity-50 text-xs font-mono uppercase tracking-widest"
+          className="px-4 py-2 border border-[var(--border)] disabled:opacity-50 type-button uppercase"
         >
           {reviewLoadingMore ? t('loading') : t('loadMoreReviews')}
         </button>

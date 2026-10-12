@@ -45,8 +45,8 @@ export const LevelCardBody: React.FC<{
                 <li
                   key={skill.id}
                   className={`flex items-start gap-1.5 ${
-                    compact ? 'sm:text-xs' : 'text-xs'
-                  } leading-snug ${isDark ? 'text-white/70' : 'text-[var(--ink-dim)]'}`}
+                    compact ? 'type-caption' : 'type-caption'
+                  } ${isDark ? 'text-white/70' : 'text-[var(--ink-dim)]'}`}
                 >
                   <Check
                     className="w-3 h-3 shrink-0 mt-0.5"
@@ -59,7 +59,7 @@ export const LevelCardBody: React.FC<{
             </ul>
           ) : (
             <p
-              className={`${compact ? 'sm:text-xs' : 'text-xs'} leading-snug ${
+              className={`${compact ? 'type-caption' : 'type-caption'} ${
                 isDark ? 'text-white/40' : 'text-[var(--ink-dim)]/70'
               }`}
             >
@@ -72,8 +72,8 @@ export const LevelCardBody: React.FC<{
               <li
                 key={skillKey}
                 className={`flex items-start gap-1.5 ${
-                  compact ? 'sm:text-xs' : 'text-xs'
-                } leading-snug ${isDark ? 'text-white/70' : 'text-[var(--ink-dim)]'}`}
+                  compact ? 'type-caption' : 'type-caption'
+                } ${isDark ? 'text-white/70' : 'text-[var(--ink-dim)]'}`}
               >
                 <Check
                   className="w-3 h-3 shrink-0 mt-0.5"
@@ -96,7 +96,7 @@ export const LevelCardBody: React.FC<{
         />
       ) : (
         <p
-          className={`shrink-0 ${compact ? 'text-[10px] sm:text-[11px]' : 'text-[11px]'} pt-1 border-t ${
+          className={`shrink-0 ${compact ? 'type-caption' : 'type-caption'} pt-1 border-t ${
             isDark ? 'text-white/35 border-white/10' : 'text-[var(--ink-dim)]/80 border-black/8'
           }`}
         >

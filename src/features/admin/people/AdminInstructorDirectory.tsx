@@ -398,7 +398,7 @@ export function AdminInstructorDirectory({ adminAccountId }: AdminInstructorDire
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder={text.searchHint}
-            className="w-full border border-[var(--border)] bg-transparent py-2 pl-10 pr-4 font-mono text-xs text-[var(--ink)] placeholder-[var(--ink-dim)] focus:border-[var(--ink)] focus:outline-none"
+            className="w-full border border-[var(--border)] bg-transparent py-2 pl-10 pr-4 type-body text-[var(--ink)] placeholder-[var(--ink-dim)] focus:border-[var(--ink)] focus:outline-none"
           />
         </div>
         <button
@@ -418,22 +418,22 @@ export function AdminInstructorDirectory({ adminAccountId }: AdminInstructorDire
             setError(undefined);
             setNotice(undefined);
           }}
-          className="inline-flex items-center gap-1.5 border border-[var(--border)] px-3 py-2 text-xs font-mono font-bold uppercase tracking-wider"
+          className="inline-flex items-center gap-1.5 border border-[var(--border)] px-3 py-2 type-button uppercase"
         >
           <Plus className="h-3.5 w-3.5" />
           {text.addInstructor}
         </button>
       </div>
       {error ? (
-        <p role="alert" className="text-xs text-red-600">
+        <p role="alert" className="type-caption text-red-600">
           {error}
         </p>
       ) : null}
-      {notice ? <p className="text-xs text-[var(--ink-dim)]">{notice}</p> : null}
+      {notice ? <p className="type-caption text-[var(--ink-dim)]">{notice}</p> : null}
 
       {showAdd ? (
         <section className="space-y-4 border border-[var(--border)] p-4">
-          <h3 className="font-serif text-base font-light">{text.addInstructor}</h3>
+          <h3 className="type-card-title">{text.addInstructor}</h3>
           {accountPicker}
           <AdminInstructorProfileEditor
             draft={profileDraft}
@@ -467,26 +467,26 @@ export function AdminInstructorDirectory({ adminAccountId }: AdminInstructorDire
         <section className={selectedInstructorId && !showAdd ? 'min-w-0 lg:col-span-7' : 'min-w-0'}>
           {list.error ? (
             <div className="space-y-2 border border-[var(--border)] p-4">
-              <p role="alert" className="text-xs text-red-600">
+              <p role="alert" className="type-caption text-red-600">
                 {list.error === 'permission-denied' ? text.permissionDenied : text.readFailed}
               </p>
               <button
                 type="button"
                 onClick={() => void reads.refresh()}
-                className="border border-[var(--border)] px-3 py-2 text-xs font-mono uppercase tracking-wider"
+                className="border border-[var(--border)] px-3 py-2 type-button uppercase"
               >
                 {text.retry}
               </button>
             </div>
           ) : null}
           {list.loading ? (
-            <p className="flex items-center gap-2 text-xs text-[var(--ink-dim)]">
+            <p className="flex items-center gap-2 type-caption text-[var(--ink-dim)]">
               <Loader2 className="h-4 w-4 animate-spin" />
               {text.loading}
             </p>
           ) : null}
           {!list.loading && !list.error && list.items.length === 0 ? (
-            <p className="border border-[var(--border)] py-8 text-center font-mono text-xs text-[var(--ink-dim)]">
+            <p className="border border-[var(--border)] py-8 text-center type-caption text-[var(--ink-dim)]">
               {appliedSearch ? text.emptySearch : text.emptyDirectory}
             </p>
           ) : null}
@@ -508,7 +508,7 @@ export function AdminInstructorDirectory({ adminAccountId }: AdminInstructorDire
               type="button"
               disabled={list.loadingMore}
               onClick={() => reads.loadMore()}
-              className="mt-3 border border-[var(--border)] px-3 py-1.5 text-xs font-mono font-bold uppercase tracking-wider disabled:opacity-50"
+              className="mt-3 border border-[var(--border)] px-3 py-1.5 type-button uppercase disabled:opacity-50"
             >
               {list.loadingMore ? text.loading : text.loadMore}
             </button>
@@ -519,7 +519,7 @@ export function AdminInstructorDirectory({ adminAccountId }: AdminInstructorDire
           <aside className="min-w-0 border border-[var(--border)] p-6 lg:col-span-5">
             {reads.detailLoading ? (
               <div className="flex items-start justify-between gap-3">
-                <p className="flex items-center gap-2 text-xs text-[var(--ink-dim)]">
+                <p className="flex items-center gap-2 type-caption text-[var(--ink-dim)]">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   {text.loading}
                 </p>
@@ -540,7 +540,7 @@ export function AdminInstructorDirectory({ adminAccountId }: AdminInstructorDire
             {reads.detailError ? (
               <div className="space-y-2">
                 <div className="flex items-start justify-between gap-3">
-                  <p role="alert" className="text-xs text-red-600">
+                  <p role="alert" className="type-caption text-red-600">
                     {reads.detailError === 'permission-denied'
                       ? text.permissionDenied
                       : text.detailFailed}
@@ -561,7 +561,7 @@ export function AdminInstructorDirectory({ adminAccountId }: AdminInstructorDire
                 <button
                   type="button"
                   onClick={() => void reads.refresh()}
-                  className="border border-[var(--border)] px-3 py-2 text-xs font-mono uppercase tracking-wider"
+                  className="border border-[var(--border)] px-3 py-2 type-button uppercase"
                 >
                   {text.retry}
                 </button>
@@ -708,7 +708,7 @@ export function AdminInstructorDirectory({ adminAccountId }: AdminInstructorDire
               />
             ) : null}
             {!reads.detailLoading && !reads.detailError && !reads.instructorDetail ? (
-              <p className="text-xs text-[var(--ink-dim)]">{text.missingInstructor}</p>
+              <p className="type-caption text-[var(--ink-dim)]">{text.missingInstructor}</p>
             ) : null}
           </aside>
         ) : null}

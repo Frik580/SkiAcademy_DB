@@ -74,10 +74,10 @@ export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
                   />
                 </div>
                 <div>
-                  <h3 className="font-serif text-lg font-light text-[var(--ink)]">
+                  <h3 className="type-section-title text-[var(--ink)]">
                     {t('reviewsForInstructor')} {targetInstructor.name}
                   </h3>
-                  <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] mt-0.5">
+                  <p className="type-caption uppercase text-[var(--ink-dim)] mt-0.5">
                     {targetInstructor.experienceYears} {t('yearsOfCoachingExperience')}
                   </p>
                 </div>
@@ -95,8 +95,8 @@ export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
               {/* Summary / Stats Block */}
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-5 bg-black/5 dark:bg-white/5 p-4 border border-[var(--border)] rounded-xl">
                 {/* Big Rating */}
-                <div className="sm:col-span-5 flex flex-col items-center justify-center text-center sm:border-r border-[var(--border)] pr-2 font-mono">
-                  <span className="text-4xl font-light text-[var(--ink)] leading-none">
+                <div className="sm:col-span-5 flex flex-col items-center justify-center text-center sm:border-r border-[var(--border)] pr-2 font-sans">
+                  <span className="type-metric-lg text-[var(--ink)]">
                     {avgRating ?? t('instructorNoReviews')}
                   </span>
                   <div className="flex items-center gap-0.5 mt-2 text-amber-500">
@@ -111,14 +111,14 @@ export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
                       );
                     })}
                   </div>
-                  <span className="text-[10px] text-[var(--ink-dim)] uppercase tracking-wider mt-2.5 font-medium flex items-center gap-1">
+                  <span className="type-caption text-[var(--ink-dim)] uppercase mt-2.5 font-medium flex items-center gap-1">
                     <MessageSquare className="w-3 h-3" />
                     {totalReviews} {t('reviewsTotal')}
                   </span>
                 </div>
 
                 {/* Progress distribution bars */}
-                <div className="sm:col-span-7 flex flex-col justify-center space-y-1.5 font-mono text-[10px]">
+                <div className="sm:col-span-7 flex flex-col justify-center space-y-1.5 type-caption">
                   {[5, 4, 3, 2, 1].map((stars) => {
                     const count = ratingDistribution[stars - 1];
                     const percentage = totalReviews > 0 ? (count / totalReviews) * 100 : 0;
@@ -143,17 +143,17 @@ export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
 
               {/* List of individual reviews */}
               <div className="space-y-4">
-                <h4 className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider">
+                <h4 className="type-card-title text-[var(--ink-dim)] uppercase">
                   {t('reviewFeed')}
                 </h4>
 
                 {instructorReviews.length === 0 ? (
                   <div className="py-12 text-center border border-dashed border-[var(--border)] rounded-none bg-black/5">
                     <MessageSquare className="w-8 h-8 text-[var(--ink-dim)] mx-auto mb-2 opacity-55" />
-                    <p className="text-xs text-[var(--ink)] font-mono">
+                    <p className="type-caption text-[var(--ink)]">
                       {t('noInstructorWrittenReviews')}
                     </p>
-                    <p className="text-[10px] text-[var(--ink-dim)] font-mono mt-1 uppercase tracking-wider">
+                    <p className="type-caption text-[var(--ink-dim)] mt-1 uppercase">
                       {t('firstInstructorReviewPrompt')}
                     </p>
                   </div>
@@ -179,7 +179,7 @@ export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
                               )}
                             </div>
                             <div>
-                              <div className="text-xs font-bold text-[var(--ink)]">
+                              <div className="type-caption font-medium text-[var(--ink)]">
                                 {rev.userName || 'Anonymous'}
                               </div>
                               <div className="flex items-center gap-0.5 text-amber-500 mt-0.5">
@@ -192,7 +192,7 @@ export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
                               </div>
                             </div>
                           </div>
-                          <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1 shrink-0">
+                          <span className="type-caption uppercase text-[var(--ink-dim)] flex items-center gap-1 shrink-0">
                             <Calendar className="w-3 h-3" />
                             {rev.date}
                           </span>
@@ -200,9 +200,7 @@ export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
 
                         {/* Review text comment */}
                         {rev.comment && (
-                          <p className="text-xs text-[var(--ink)] leading-relaxed pl-10">
-                            {rev.comment}
-                          </p>
+                          <p className="type-caption text-[var(--ink)] pl-10">{rev.comment}</p>
                         )}
                       </div>
                     ))}
@@ -218,7 +216,7 @@ export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
                   type="button"
                   onClick={onLoadMore}
                   disabled={loadingMore}
-                  className="px-4 py-2 border border-[var(--border)] bg-transparent hover:bg-black/5 disabled:opacity-50 text-[var(--ink)] rounded-none text-xs font-mono uppercase tracking-widest transition cursor-pointer"
+                  className="px-4 py-2 border border-[var(--border)] bg-transparent hover:bg-black/5 disabled:opacity-50 text-[var(--ink)] rounded-none type-button uppercase transition cursor-pointer"
                 >
                   {loadingMore ? t('loading') : t('loadMoreReviews')}
                 </button>
@@ -227,7 +225,7 @@ export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
               )}
               <button
                 onClick={onClose}
-                className="px-4 py-2 border border-[var(--border)] bg-[var(--ink)] hover:bg-transparent text-[var(--bg)] hover:text-[var(--ink)] rounded-none text-xs font-mono uppercase tracking-widest transition cursor-pointer"
+                className="px-4 py-2 border border-[var(--border)] bg-[var(--ink)] hover:bg-transparent text-[var(--bg)] hover:text-[var(--ink)] rounded-none type-button uppercase transition cursor-pointer"
               >
                 {t('closeBtn')}
               </button>

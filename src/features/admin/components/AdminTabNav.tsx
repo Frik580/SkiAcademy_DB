@@ -26,7 +26,7 @@ export const AdminTabNav: React.FC<AdminTabNavProps> = ({ activeTab, onChange })
               type="button"
               onClick={() => onChange(tabId)}
               aria-current={isActive ? 'page' : undefined}
-              className={`shrink-0 px-3 py-1.5 border text-[10px] font-mono uppercase tracking-widest transition cursor-pointer ${
+              className={`shrink-0 px-3 py-1.5 border type-nav uppercase transition cursor-pointer ${
                 isActive
                   ? 'border-[var(--ink)] bg-[var(--ink)] text-[var(--bg)]'
                   : 'border-[var(--border)] text-[var(--ink-dim)] hover:border-[var(--ink)] hover:text-[var(--ink)] bg-transparent'

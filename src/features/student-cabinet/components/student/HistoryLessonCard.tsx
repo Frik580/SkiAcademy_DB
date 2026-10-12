@@ -80,10 +80,10 @@ export const HistoryLessonCard: React.FC<HistoryLessonCardProps> = ({
           <span className="break-words min-w-0">{title}</span>
           {lessonFeedback && <RecommendationIndicator pending={lessonFeedback.hasPending} />}
         </span>
-        <span className="text-xs text-[var(--ink-dim)] shrink-0">{dateLabel}</span>
+        <span className="type-caption text-[var(--ink-dim)] shrink-0">{dateLabel}</span>
       </div>
-      <p className="text-sm text-[var(--ink-dim)]">{instructorName}</p>
-      <div className="text-xs text-[var(--ink-dim)] flex flex-wrap items-center gap-x-2.5 gap-y-1 pt-0.5">
+      <p className="type-compact text-[var(--ink-dim)]">{instructorName}</p>
+      <div className="type-caption text-[var(--ink-dim)] flex flex-wrap items-center gap-x-2.5 gap-y-1 pt-0.5">
         <span>
           {t('scHistoryTimeLabel')}:{' '}
           <strong className="font-medium text-[var(--ink)]">{timeRange}</strong>
@@ -101,7 +101,7 @@ export const HistoryLessonCard: React.FC<HistoryLessonCardProps> = ({
         )}
       </div>
       {!needsReview && review && (
-        <p className="text-amber-500 text-sm">
+        <p className="text-amber-500 type-compact">
           {'★'.repeat(review.rating)}
           {'☆'.repeat(5 - review.rating)}
         </p>
@@ -119,7 +119,7 @@ export const HistoryLessonCard: React.FC<HistoryLessonCardProps> = ({
         />
       )}
       {review?.comment && (
-        <div className="text-sm space-y-1">
+        <div className="type-compact space-y-1">
           <p className="text-[var(--ink-dim)]">{t('scCoachReview')}</p>
           <p className="text-[var(--ink)] italic">&ldquo;{review.comment}&rdquo;</p>
         </div>

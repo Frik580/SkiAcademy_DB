@@ -115,7 +115,7 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
       <div className="flex items-center justify-end gap-2 border-b border-[var(--border)] pb-3">
         <button
           onClick={handleResetToDefault}
-          className="px-3 py-1.5 border border-rose-500/40 text-rose-400 hover:bg-rose-500/10 text-[10px] font-mono uppercase tracking-wider transition flex items-center gap-1.5 cursor-pointer"
+          className="px-3 py-1.5 border border-rose-500/40 text-rose-400 hover:bg-rose-500/10 type-button uppercase transition flex items-center gap-1.5 cursor-pointer"
         >
           <RotateCcw className="w-3.5 h-3.5" />
           {t('reset')}
@@ -134,7 +134,7 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
       {/* Passing score setting */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-black/20 p-4 border border-[var(--border)]/60">
         <div>
-          <label className="block text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider mb-1">
+          <label className="block type-caption text-[var(--ink-dim)] uppercase mb-1">
             {t('advancementThreshold')}
           </label>
           <div className="flex items-center gap-2">
@@ -144,30 +144,30 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
               max={100}
               value={passPercentage}
               onChange={(e) => setPassPercentage(Number(e.target.value))}
-              className="w-24 bg-[var(--bg)] border border-[var(--border)] px-3 py-1.5 text-xs font-mono text-[var(--ink)] focus:outline-none focus:border-accent"
+              className="w-24 bg-[var(--bg)] border border-[var(--border)] px-3 py-1.5 type-body text-[var(--ink)] focus:outline-none focus:border-accent"
             />
-            <span className="text-xs font-mono font-bold text-accent">%</span>
+            <span className="type-caption font-medium text-accent">%</span>
           </div>
-          <span className="text-[9px] text-[var(--ink-dim)] mt-1 block">
+          <span className="type-caption text-[var(--ink-dim)] mt-1 block">
             {t('minimumAdvancementThresholdPrefix')} {passPercentage}%{' '}
             {t('minimumAdvancementThresholdSuffix')}
           </span>
         </div>
 
         <div>
-          <span className="block text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider mb-1">
+          <span className="block type-caption text-[var(--ink-dim)] uppercase mb-1">
             {t('totalSkillItems')}
           </span>
-          <span className="text-lg font-serif font-bold text-[var(--ink)]">{items.length}</span>
+          <span className="type-card-title text-[var(--ink)]">{items.length}</span>
         </div>
 
         <div>
-          <span className="block text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider mb-1">
+          <span className="block type-caption text-[var(--ink-dim)] uppercase mb-1">
             {t('currentTransitionMaxPoints')}
           </span>
-          <span className="text-lg font-serif font-bold text-emerald-400">
+          <span className="type-card-title text-emerald-400">
             {transitionMaxPoints} {t('points')}
-            <span className="text-xs font-mono text-[var(--ink-dim)] ml-2">
+            <span className="type-caption text-[var(--ink-dim)] ml-2">
               ({t('requiredPrefix')}: {Math.ceil(transitionMaxPoints * (passPercentage / 100))})
             </span>
           </span>
@@ -178,7 +178,7 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
       <div className="flex flex-wrap gap-2 border-b border-[var(--border)] pb-2">
         <button
           onClick={() => setSelectedLevelTransition(1)}
-          className={`px-3 py-1.5 text-[11px] font-mono uppercase tracking-wider border transition cursor-pointer ${
+          className={`px-3 py-1.5 type-button uppercase border transition cursor-pointer ${
             selectedLevelTransition === 1
               ? 'border-accent bg-accent-muted text-accent font-bold'
               : 'border-[var(--border)] text-[var(--ink-dim)] hover:text-[var(--ink)]'
@@ -188,7 +188,7 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
         </button>
         <button
           onClick={() => setSelectedLevelTransition(2)}
-          className={`px-3 py-1.5 text-[11px] font-mono uppercase tracking-wider border transition cursor-pointer ${
+          className={`px-3 py-1.5 type-button uppercase border transition cursor-pointer ${
             selectedLevelTransition === 2
               ? 'border-accent bg-accent-muted text-accent font-bold'
               : 'border-[var(--border)] text-[var(--ink-dim)] hover:text-[var(--ink)]'
@@ -198,7 +198,7 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
         </button>
         <button
           onClick={() => setSelectedLevelTransition(3)}
-          className={`px-3 py-1.5 text-[11px] font-mono uppercase tracking-wider border transition cursor-pointer ${
+          className={`px-3 py-1.5 type-button uppercase border transition cursor-pointer ${
             selectedLevelTransition === 3
               ? 'border-accent bg-accent-muted text-accent font-bold'
               : 'border-[var(--border)] text-[var(--ink-dim)] hover:text-[var(--ink)]'
@@ -210,12 +210,12 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
 
       {/* Action header */}
       <div className="flex justify-between items-center">
-        <span className="text-xs font-mono text-[var(--ink)] font-bold">
+        <span className="type-caption text-[var(--ink)] font-medium">
           {t('exercisesForStage')} ({filteredItems.length} {t('items')})
         </span>
         <button
           onClick={handleAddItem}
-          className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-mono uppercase tracking-wider transition flex items-center gap-1 cursor-pointer"
+          className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white type-button uppercase transition flex items-center gap-1 cursor-pointer"
         >
           <Plus className="w-3.5 h-3.5" />
           {t('addItem')}
@@ -226,7 +226,7 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
       <div className="overflow-x-auto border border-[var(--border)]">
         <table className="w-full text-left border-collapse min-w-[560px]">
           <thead>
-            <tr className="bg-black/30 text-[9px] font-mono uppercase text-[var(--ink-dim)] tracking-wider border-b border-[var(--border)]">
+            <tr className="bg-black/30 type-caption uppercase text-[var(--ink-dim)] border-b border-[var(--border)]">
               <th className="p-2 border-r border-[var(--border)]/40 w-12">{t('numberCol')}</th>
               <th className="p-2 border-r border-[var(--border)]/40">{t('categoryCol')}</th>
               <th className="p-2 border-r border-[var(--border)]/40">{t('exerciseTitleCol')}</th>
@@ -239,7 +239,7 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
               <th className="p-2 w-20 text-center">{t('actionsCol')}</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[var(--border)]/40 text-xs font-mono text-[var(--ink)]">
+          <tbody className="divide-y divide-[var(--border)]/40 type-caption text-[var(--ink)]">
             {filteredItems.map((item, idx) => {
               const isEditing = editingItemId === item.id;
               const displaySection = getSkillItemSection(item, language);
@@ -263,7 +263,7 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
                           }
                           handleUpdateItemField(item.id, 'section', e.target.value);
                         }}
-                        className="w-full bg-[var(--bg)] border border-[var(--border)] px-1.5 py-0.5 text-xs text-[var(--ink)]"
+                        className="w-full bg-[var(--bg)] border border-[var(--border)] px-1.5 py-0.5 type-body text-[var(--ink)]"
                       />
                     ) : (
                       <span className="font-semibold text-accent">{displaySection}</span>
@@ -282,7 +282,7 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
                           }
                           handleUpdateItemField(item.id, 'title', e.target.value);
                         }}
-                        className="w-full bg-[var(--bg)] border border-[var(--border)] px-1.5 py-0.5 text-xs text-[var(--ink)]"
+                        className="w-full bg-[var(--bg)] border border-[var(--border)] px-1.5 py-0.5 type-body text-[var(--ink)]"
                       />
                     ) : (
                       <span>{displayTitle}</span>
@@ -299,7 +299,7 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
                         onChange={(e) =>
                           handleUpdateItemField(item.id, 'maxPoints', Number(e.target.value))
                         }
-                        className="w-14 bg-[var(--bg)] border border-[var(--border)] text-center px-1 py-0.5 text-xs text-[var(--ink)]"
+                        className="w-14 bg-[var(--bg)] border border-[var(--border)] text-center px-1 py-0.5 type-body text-[var(--ink)]"
                       />
                     ) : (
                       <span className="font-bold text-amber-400">{item.maxPoints}</span>
@@ -318,7 +318,7 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
                             e.target.value as RadarDimensionKey
                           )
                         }
-                        className="w-full max-w-[7.5rem] bg-[var(--bg)] border border-[var(--border)] px-1 py-0.5 text-[10px] text-[var(--ink)]"
+                        className="w-full max-w-[7.5rem] bg-[var(--bg)] border border-[var(--border)] px-1 py-0.5 type-body text-[var(--ink)]"
                       >
                         {RADAR_DIMENSION_KEYS.map((key) => (
                           <option key={key} value={key}>
@@ -327,7 +327,7 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
                         ))}
                       </select>
                     ) : (
-                      <span className="text-[10px] text-[var(--ink-dim)]">
+                      <span className="type-caption text-[var(--ink-dim)]">
                         {getRadarDimensionLabel(classifySkillItemToRadarDimension(item), language)}
                       </span>
                     )}

@@ -153,7 +153,7 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
 
             <div id="coaches-grid" className="space-y-10 w-full max-w-[1200px] mx-auto">
               <div>
-                <h3 className="ui-section-title">{t('meetGuides')}</h3>
+                <h3 className="ui-section-title type-section-title">{t('meetGuides')}</h3>
 
                 <p className="ui-section-eyebrow mt-2">{t('meetGuidesSub')}</p>
               </div>
@@ -175,13 +175,13 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
                 <div className="ui-empty-state py-16">
                   <Compass className="w-10 h-10 text-[var(--ink-dim)] mx-auto mb-3" />
 
-                  <p className="text-xs font-mono text-[var(--ink-dim)] uppercase tracking-wider">
+                  <p className="type-caption text-[var(--ink-dim)] uppercase">
                     {t('noCoachesMatch')}
                   </p>
 
                   <button
                     onClick={resetFilters}
-                    className="text-xs font-mono uppercase tracking-widest text-accent text-accent-hover mt-2 hover:underline transition cursor-pointer"
+                    className="type-button uppercase text-accent text-accent-hover mt-2 hover:underline transition cursor-pointer"
                   >
                     {t('resetFilters')}
                   </button>

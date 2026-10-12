@@ -91,7 +91,7 @@ export const ActiveSlotCreateForm: React.FC<ActiveSlotCreateFormProps> = ({
             role="tab"
             aria-selected={modalTab === tab}
             onClick={() => setModalTab(tab)}
-            className={`min-w-24 flex-1 py-2 text-center text-[10px] font-mono uppercase tracking-wider transition-all cursor-pointer rounded-none ${
+            className={`min-w-24 flex-1 py-2 text-center type-button uppercase transition-all cursor-pointer rounded-none ${
               modalTab === tab
                 ? 'bg-[var(--ink)] text-[var(--bg)] font-bold'
                 : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'
@@ -107,14 +107,14 @@ export const ActiveSlotCreateForm: React.FC<ActiveSlotCreateFormProps> = ({
       {modalTab === 'break' && (
         <div className="space-y-3 animate-fade-in">
           <div className="space-y-1.5">
-            <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
+            <label className="type-caption uppercase text-[var(--ink-dim)] block">
               {t('breakDuration')}
             </label>
             <select
               value={blockDuration}
               onChange={(event) => setBlockDuration(Number(event.target.value))}
               disabled={availableBreakDurations.length === 0}
-              className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none cursor-pointer font-mono disabled:opacity-60"
+              className="w-full px-3 py-2 border border-[var(--border)] type-body bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none cursor-pointer disabled:opacity-60"
             >
               {availableBreakDurations.length === 0 ? (
                 <option value="" className="bg-[var(--bg)] text-[var(--ink)]">
@@ -135,7 +135,7 @@ export const ActiveSlotCreateForm: React.FC<ActiveSlotCreateFormProps> = ({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
+            <label className="type-caption uppercase text-[var(--ink-dim)] block">
               {t('notesTitle')}
             </label>
             <input
@@ -143,15 +143,15 @@ export const ActiveSlotCreateForm: React.FC<ActiveSlotCreateFormProps> = ({
               value={blockNotes}
               onChange={(event) => setBlockNotes(event.target.value)}
               placeholder={t('lunchBreakPlaceholder')}
-              className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none"
+              className="w-full px-3 py-2 border border-[var(--border)] type-body bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none"
             />
           </div>
         </div>
       )}
 
       {modalTab === 'day_off' && (
-        <div className="p-3 bg-black/10 border border-[var(--border)] text-xs text-[var(--ink-dim)] leading-relaxed animate-fade-in space-y-2 rounded-none">
-          <div className="font-serif text-xs font-light text-[var(--ink)] flex items-center gap-1">
+        <div className="p-3 bg-black/10 border border-[var(--border)] type-caption text-[var(--ink-dim)] animate-fade-in space-y-2 rounded-none">
+          <div className="type-caption text-[var(--ink)] flex items-center gap-1">
             <Calendar className="w-4 h-4 text-[var(--ink-dim)]" />
             {t('fullDayOff')}
           </div>
@@ -162,16 +162,16 @@ export const ActiveSlotCreateForm: React.FC<ActiveSlotCreateFormProps> = ({
       {modalTab === 'booking' && (
         <div className="space-y-3 animate-fade-in">
           {!instructor.isAvailable && (
-            <div className="bg-rose-955/20 border border-rose-900/40 p-3 text-xs text-rose-400 rounded-none font-mono">
+            <div className="bg-rose-955/20 border border-rose-900/40 p-3 type-caption text-rose-400 rounded-none">
               <p className="font-bold">⚠️ {t('instructorUnavailableTitle')}</p>
-              <p className="text-[11px] opacity-90 mt-0.5">
+              <p className="type-caption opacity-90 mt-0.5">
                 {`${instructor.name} ${t('instructorUnavailableSlotDesc')}`}
               </p>
             </div>
           )}
 
           <div className="space-y-1.5">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
+            <span className="type-caption uppercase text-[var(--ink-dim)] block">
               {t('selectClient')}
             </span>
             <AdminManagedParticipantPicker
@@ -186,14 +186,14 @@ export const ActiveSlotCreateForm: React.FC<ActiveSlotCreateFormProps> = ({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
+              <label className="type-caption uppercase text-[var(--ink-dim)] block">
                 {t('hoursLabel')}
               </label>
               <select
                 value={bookingDuration}
                 onChange={(event) => setBookingDuration(Number(event.target.value))}
                 disabled={availableBookingDurations.length === 0}
-                className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none cursor-pointer font-mono disabled:opacity-60"
+                className="w-full px-3 py-2 border border-[var(--border)] type-body bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none cursor-pointer disabled:opacity-60"
               >
                 {availableBookingDurations.length === 0 ? (
                   <option value="" className="bg-[var(--bg)] text-[var(--ink)]">
@@ -214,13 +214,13 @@ export const ActiveSlotCreateForm: React.FC<ActiveSlotCreateFormProps> = ({
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
+              <label className="type-caption uppercase text-[var(--ink-dim)] block">
                 {t('skillLevel')}
               </label>
               <select
                 value={bookingDifficulty}
                 onChange={(event) => setBookingDifficulty(event.target.value as LessonDifficulty)}
-                className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none cursor-pointer"
+                className="w-full px-3 py-2 border border-[var(--border)] type-body bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none cursor-pointer"
               >
                 {activeLessonLevels(levels).map((level) => (
                   <option
@@ -236,7 +236,7 @@ export const ActiveSlotCreateForm: React.FC<ActiveSlotCreateFormProps> = ({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
+            <label className="type-caption uppercase text-[var(--ink-dim)] block">
               {t('bookingNotesAdmin')}
             </label>
             <input
@@ -244,7 +244,7 @@ export const ActiveSlotCreateForm: React.FC<ActiveSlotCreateFormProps> = ({
               value={bookingNotes}
               onChange={(event) => setBookingNotes(event.target.value)}
               placeholder={t('bookingNotesPlaceholder')}
-              className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none"
+              className="w-full px-3 py-2 border border-[var(--border)] type-body bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none"
             />
           </div>
         </div>
@@ -254,7 +254,7 @@ export const ActiveSlotCreateForm: React.FC<ActiveSlotCreateFormProps> = ({
         <button
           type="button"
           onClick={onClose}
-          className="flex-1 py-2 px-4 border border-[var(--border)] bg-black/5 hover:border-[var(--ink)] hover:bg-black/10 text-[var(--ink-dim)] hover:text-[var(--ink)] rounded-none text-xs font-mono uppercase tracking-widest transition cursor-pointer text-center"
+          className="flex-1 py-2 px-4 border border-[var(--border)] bg-black/5 hover:border-[var(--ink)] hover:bg-black/10 text-[var(--ink-dim)] hover:text-[var(--ink)] rounded-none type-button uppercase transition cursor-pointer text-center"
         >
           {t('cancel')}
         </button>
@@ -265,7 +265,7 @@ export const ActiveSlotCreateForm: React.FC<ActiveSlotCreateFormProps> = ({
           pendingLabel={t('saveSchedule')}
           disabled={submitDisabled}
           unstyled
-          className="flex-1 py-2 px-4 border border-[var(--border)] bg-[var(--ink)] hover:bg-transparent text-[var(--bg)] hover:text-[var(--ink)] disabled:bg-black/5 disabled:text-[var(--ink-dim)] disabled:border-[var(--border)] disabled:cursor-not-allowed rounded-none text-xs font-mono uppercase tracking-widest transition cursor-pointer text-center"
+          className="flex-1 py-2 px-4 border border-[var(--border)] bg-[var(--ink)] hover:bg-transparent text-[var(--bg)] hover:text-[var(--ink)] disabled:bg-black/5 disabled:text-[var(--ink-dim)] disabled:border-[var(--border)] disabled:cursor-not-allowed rounded-none type-button uppercase transition cursor-pointer text-center"
         >
           <Check className="w-4 h-4" />
           {t('saveSchedule')}

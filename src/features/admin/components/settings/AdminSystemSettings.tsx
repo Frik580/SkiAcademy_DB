@@ -107,11 +107,11 @@ export const AdminSystemSettings: React.FC<AdminSystemSettingsProps> = ({
     <div className="space-y-6 animate-fade-in transition-colors duration-300 w-full min-w-0 overflow-hidden">
       <div className="border border-[var(--border)] p-5 bg-black/5 dark:bg-white/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h3 className="font-serif text-xl font-light text-[var(--ink)] flex items-center gap-2">
+          <h3 className="type-card-title text-[var(--ink)] flex items-center gap-2">
             <Settings className="w-4.5 h-4.5 text-[var(--ink-dim)]" />
             {t('systemSettingsTitle')}
           </h3>
-          <p className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider mt-1.5 leading-relaxed">
+          <p className="type-caption text-[var(--ink-dim)] uppercase mt-1.5">
             {t('systemSettingsSub')}
           </p>
         </div>
@@ -137,13 +137,11 @@ export const AdminSystemSettings: React.FC<AdminSystemSettingsProps> = ({
           <div className="space-y-1.5 border border-[var(--border)] p-3 bg-black/5 dark:bg-white/5">
             <label
               htmlFor="notification-retention-days"
-              className="block text-[10px] font-mono uppercase tracking-wider text-[var(--ink)] font-bold"
+              className="block type-caption uppercase text-[var(--ink)] font-medium"
             >
               {t('notificationRetentionLabel')}
             </label>
-            <p className="text-[10px] text-[var(--ink-dim)] leading-relaxed">
-              {t('notificationRetentionDesc')}
-            </p>
+            <p className="type-caption text-[var(--ink-dim)]">{t('notificationRetentionDesc')}</p>
             <div className="flex items-center gap-3 pt-1">
               <input
                 id="notification-retention-days"
@@ -158,9 +156,9 @@ export const AdminSystemSettings: React.FC<AdminSystemSettingsProps> = ({
                     void handleSaveRetention();
                   }
                 }}
-                className="w-24 bg-transparent border border-[var(--border)] px-3 py-1.5 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+                className="w-24 bg-transparent border border-[var(--border)] px-3 py-1.5 type-body text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
               />
-              <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+              <span className="type-caption uppercase text-[var(--ink-dim)]">
                 {t('notificationRetentionUnit')}
               </span>
             </div>
@@ -169,7 +167,7 @@ export const AdminSystemSettings: React.FC<AdminSystemSettingsProps> = ({
             type="button"
             pending={isSavingRetention}
             pendingLabel={t('saving')}
-            className="btn-primary px-4 py-2 text-sm"
+            className="btn-primary px-4 py-2 type-button"
             onClick={() => void handleSaveRetention()}
           >
             {t('saveChanges')}
@@ -188,13 +186,11 @@ export const AdminSystemSettings: React.FC<AdminSystemSettingsProps> = ({
           <div className="space-y-1.5 border border-[var(--border)] p-3 bg-black/5 dark:bg-white/5">
             <label
               htmlFor="starter-credit-kzt"
-              className="block text-[10px] font-mono uppercase tracking-wider text-[var(--ink)] font-bold"
+              className="block type-caption uppercase text-[var(--ink)] font-medium"
             >
               {t('starterCreditSettingLabel')}
             </label>
-            <p className="text-[10px] text-[var(--ink-dim)] leading-relaxed">
-              {t('starterCreditSettingDesc')}
-            </p>
+            <p className="type-caption text-[var(--ink-dim)]">{t('starterCreditSettingDesc')}</p>
             <div className="flex items-center gap-3 pt-1">
               <input
                 id="starter-credit-kzt"
@@ -210,11 +206,9 @@ export const AdminSystemSettings: React.FC<AdminSystemSettingsProps> = ({
                     void handleSaveStarterCredit();
                   }
                 }}
-                className="w-36 bg-transparent border border-[var(--border)] px-3 py-1.5 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+                className="w-36 bg-transparent border border-[var(--border)] px-3 py-1.5 type-body text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
               />
-              <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
-                ₸ KZT
-              </span>
+              <span className="type-caption uppercase text-[var(--ink-dim)]">₸ KZT</span>
             </div>
           </div>
           <ActionButton
@@ -222,7 +216,7 @@ export const AdminSystemSettings: React.FC<AdminSystemSettingsProps> = ({
             pending={isSavingStarterCredit}
             pendingLabel={t('saving')}
             disabled={!onSetStarterCreditKzt}
-            className="btn-primary px-4 py-2 text-sm"
+            className="btn-primary px-4 py-2 type-button"
             onClick={() => void handleSaveStarterCredit()}
           >
             {t('saveChanges')}
@@ -277,9 +271,7 @@ export const AdminSystemSettings: React.FC<AdminSystemSettingsProps> = ({
         defaultOpen={false}
       >
         <div className="max-w-2xl border border-amber-500/30 bg-amber-500/5 p-4">
-          <p className="text-[11px] text-[var(--ink)] leading-relaxed font-mono">
-            {t('destructiveAdminToolsDisabled')}
-          </p>
+          <p className="type-caption text-[var(--ink)]">{t('destructiveAdminToolsDisabled')}</p>
         </div>
       </AdminCollapsibleSection>
     </div>

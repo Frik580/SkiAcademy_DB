@@ -37,7 +37,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
       <BodyScrollLock />
       <div className="ui-modal shadow-2xl w-full max-w-sm max-h-[80vh] overflow-y-auto relative rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)] m-auto">
         <div className="flex justify-between items-center p-4 border-b border-[var(--border)] bg-black/5 dark:bg-white/5">
-          <h4 className="font-serif text-sm font-light text-[var(--ink)]">
+          <h4 className="type-card-title text-[var(--ink)]">
             {t('reviewAbout')} {booking.instructorName}
           </h4>
           <button
@@ -49,7 +49,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
         </div>
         <form onSubmit={onSubmit} className="p-5 space-y-4">
           <div className="space-y-1.5 text-center">
-            <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
+            <label className="type-caption uppercase text-[var(--ink-dim)] block">
               {t('rateInstructor')}
             </label>
             <div className="flex items-center justify-center gap-1">
@@ -75,7 +75,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
           <div className="space-y-1">
             <label
               htmlFor="review-comment-textarea"
-              className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block"
+              className="type-caption uppercase text-[var(--ink-dim)] block"
             >
               {t('yourFeedback')}
             </label>
@@ -86,7 +86,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               placeholder={t('reviewDetailPlaceholder')}
-              className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition h-20 resize-none rounded-none"
+              className="w-full px-3 py-2 border border-[var(--border)] type-body bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition h-20 resize-none rounded-none"
             />
           </div>
 
@@ -95,7 +95,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
             pending={isSubmitting}
             pendingLabel={t('submitting')}
             unstyled
-            className="w-full py-2.5 border border-[var(--border)] bg-transparent hover:border-[var(--ink)] hover:bg-black/5 disabled:bg-black/5 disabled:text-[var(--ink-dim)] disabled:border-[var(--border)] disabled:cursor-not-allowed text-[var(--ink)] rounded-none text-xs font-mono uppercase tracking-widest transition cursor-pointer"
+            className="w-full py-2.5 border border-[var(--border)] bg-transparent hover:border-[var(--ink)] hover:bg-black/5 disabled:bg-black/5 disabled:text-[var(--ink-dim)] disabled:border-[var(--border)] disabled:cursor-not-allowed text-[var(--ink)] rounded-none type-button uppercase transition cursor-pointer"
           >
             {t('postInstructorReview')}
           </ActionButton>

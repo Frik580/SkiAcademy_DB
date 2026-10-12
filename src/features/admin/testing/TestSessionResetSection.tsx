@@ -181,10 +181,10 @@ export const TestSessionResetSection: React.FC<TestSessionResetSectionProps> = (
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h4 className="font-mono text-xs uppercase tracking-wider text-rose-800">
+          <h4 className="type-card-title uppercase text-rose-800">
             {t('adminTestingResetSectionTitle')}
           </h4>
-          <p className="mt-1 max-w-2xl text-sm text-[var(--ink-dim)]">
+          <p className="mt-1 max-w-2xl type-compact text-[var(--ink-dim)]">
             {t('adminTestingResetSectionDescription')}
           </p>
         </div>
@@ -203,32 +203,30 @@ export const TestSessionResetSection: React.FC<TestSessionResetSectionProps> = (
         ) : null}
       </div>
 
-      <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-3">
+      <dl className="mt-4 grid gap-2 type-compact sm:grid-cols-3">
         <div>
           <dt className="text-[var(--ink-dim)]">{t('adminTestingStatus')}</dt>
-          <dd className="mt-1 font-mono text-xs text-[var(--ink)]">{testSession.status}</dd>
+          <dd className="mt-1 type-caption text-[var(--ink)]">{testSession.status}</dd>
         </div>
         <div>
           <dt className="text-[var(--ink-dim)]">{t('adminTestingResetInventoryRevision')}</dt>
-          <dd className="mt-1 font-mono text-xs text-[var(--ink)]">{inventoryRevision}</dd>
+          <dd className="mt-1 type-caption text-[var(--ink)]">{inventoryRevision}</dd>
         </div>
         <div>
           <dt className="text-[var(--ink-dim)]">{t('adminTestingSessionId')}</dt>
-          <dd className="mt-1 font-mono text-[10px] text-[var(--ink)]">
-            {testSession.testSessionId}
-          </dd>
+          <dd className="mt-1 type-caption text-[var(--ink)]">{testSession.testSessionId}</dd>
         </div>
       </dl>
 
       {phase === 'preview_loading' ? (
-        <p className="mt-4 text-sm text-[var(--ink-dim)]" role="status">
+        <p className="mt-4 type-compact text-[var(--ink-dim)]" role="status">
           {t('adminTestingResetPreviewLoading')}
         </p>
       ) : null}
 
       {errorMessage ? (
         <div
-          className="mt-4 flex gap-2 border border-rose-500/50 bg-rose-500/10 p-3 text-sm text-rose-800"
+          className="mt-4 flex gap-2 border border-rose-500/50 bg-rose-500/10 p-3 type-compact text-rose-800"
           role="alert"
         >
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -240,23 +238,21 @@ export const TestSessionResetSection: React.FC<TestSessionResetSectionProps> = (
         <div className="mt-4 space-y-4 border border-[var(--border)] bg-[var(--surface)] p-4">
           {manifestExpired ? (
             <p
-              className="flex items-center gap-2 text-sm font-semibold text-amber-800"
+              className="flex items-center gap-2 type-compact font-medium text-amber-800"
               role="status"
             >
               <ShieldAlert className="h-4 w-4" aria-hidden="true" />
               {t('adminTestingResetPreviewExpired')}
             </p>
           ) : remainingValidity ? (
-            <p className="text-xs text-[var(--ink-dim)]">{remainingValidity}</p>
+            <p className="type-caption text-[var(--ink-dim)]">{remainingValidity}</p>
           ) : null}
 
-          <div className="grid gap-3 text-sm sm:grid-cols-2">
+          <div className="grid gap-3 type-compact sm:grid-cols-2">
             <div>
               <p className="text-[var(--ink-dim)]">{t('adminTestingResetManifestId')}</p>
               <div className="mt-1 flex items-center gap-2">
-                <code className="font-mono text-[10px] text-[var(--ink)]">
-                  {manifest.manifestId}
-                </code>
+                <code className="type-caption text-[var(--ink)]">{manifest.manifestId}</code>
                 <button
                   type="button"
                   className="text-[var(--ink-dim)] hover:text-[var(--ink)]"
@@ -270,10 +266,7 @@ export const TestSessionResetSection: React.FC<TestSessionResetSectionProps> = (
             <div>
               <p className="text-[var(--ink-dim)]">{t('adminTestingResetHash')}</p>
               <div className="mt-1 flex items-center gap-2">
-                <code
-                  className="font-mono text-[10px] text-[var(--ink)]"
-                  title={manifest.manifestHash}
-                >
+                <code className="type-caption text-[var(--ink)]" title={manifest.manifestHash}>
                   {shortHash(manifest.manifestHash)}
                 </code>
                 <button
@@ -288,23 +281,23 @@ export const TestSessionResetSection: React.FC<TestSessionResetSectionProps> = (
             </div>
             <div>
               <p className="text-[var(--ink-dim)]">{t('adminTestingCreatedAt')}</p>
-              <p className="mt-1 text-xs text-[var(--ink)]">
+              <p className="mt-1 type-caption text-[var(--ink)]">
                 {new Date(manifest.createdAt).toLocaleString()}
               </p>
             </div>
             <div>
               <p className="text-[var(--ink-dim)]">{t('adminTestingResetExpiresAt')}</p>
-              <p className="mt-1 text-xs text-[var(--ink)]">
+              <p className="mt-1 type-caption text-[var(--ink)]">
                 {new Date(manifest.expiresAt).toLocaleString()}
               </p>
             </div>
             <div>
               <p className="text-[var(--ink-dim)]">{t('adminTestingResetInventoryRevision')}</p>
-              <p className="mt-1 font-mono text-xs">{manifest.inventoryRevision}</p>
+              <p className="mt-1 type-caption">{manifest.inventoryRevision}</p>
             </div>
             <div>
               <p className="text-[var(--ink-dim)]">{t('adminTestingResetDestructiveTotal')}</p>
-              <p className="mt-1 text-lg font-semibold text-[var(--ink)]">{destructiveTotal}</p>
+              <p className="mt-1 type-card-title text-[var(--ink)]">{destructiveTotal}</p>
             </div>
           </div>
 
@@ -314,8 +307,8 @@ export const TestSessionResetSection: React.FC<TestSessionResetSectionProps> = (
           >
             {Object.entries(manifest.counts).map(([key, count]) => (
               <div key={key} className="border border-[var(--border)] p-2">
-                <p className="text-lg text-[var(--ink)]">{count}</p>
-                <p className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">{key}</p>
+                <p className="type-card-title text-[var(--ink)]">{count}</p>
+                <p className="type-caption uppercase text-[var(--ink-dim)]">{key}</p>
               </div>
             ))}
           </div>
@@ -325,36 +318,34 @@ export const TestSessionResetSection: React.FC<TestSessionResetSectionProps> = (
               className={`border p-3 ${safety && safety.liveTargetCount === 0 ? 'border-emerald-500/40' : 'border-rose-500/50'}`}
               data-testid="reset-live-targets"
             >
-              <p className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">
+              <p className="type-caption uppercase text-[var(--ink-dim)]">
                 {t('adminTestingResetLiveTargets')}
               </p>
-              <p className="mt-1 text-2xl font-semibold">{safety?.liveTargetCount ?? 0}</p>
+              <p className="mt-1 type-metric">{safety?.liveTargetCount ?? 0}</p>
             </div>
             <div
               className={`border p-3 ${safety && safety.foreignSessionTargetCount === 0 ? 'border-emerald-500/40' : 'border-rose-500/50'}`}
               data-testid="reset-foreign-targets"
             >
-              <p className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">
+              <p className="type-caption uppercase text-[var(--ink-dim)]">
                 {t('adminTestingResetForeignTargets')}
               </p>
-              <p className="mt-1 text-2xl font-semibold">
-                {safety?.foreignSessionTargetCount ?? 0}
-              </p>
+              <p className="mt-1 type-metric">{safety?.foreignSessionTargetCount ?? 0}</p>
             </div>
           </div>
 
           {(safety?.liveTargetCount ?? 0) > 0 || (safety?.foreignSessionTargetCount ?? 0) > 0 ? (
-            <p className="text-sm font-semibold text-rose-800" role="alert">
+            <p className="type-compact font-medium text-rose-800" role="alert">
               {t('adminTestingResetSafetyBlocked')}
             </p>
           ) : null}
 
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
-              <p className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">
+              <p className="type-caption uppercase text-[var(--ink-dim)]">
                 {t('adminTestingResetWillDelete')}
               </p>
-              <p className="mt-1 text-sm text-[var(--ink)]">
+              <p className="mt-1 type-compact text-[var(--ink)]">
                 {t('adminTestingResetWillDeleteSummary').replace(
                   '{count}',
                   String(destructiveTotal)
@@ -362,20 +353,20 @@ export const TestSessionResetSection: React.FC<TestSessionResetSectionProps> = (
               </p>
             </div>
             <div>
-              <p className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">
+              <p className="type-caption uppercase text-[var(--ink-dim)]">
                 {t('adminTestingResetWillPreserve')}
               </p>
-              <ul className="mt-1 list-inside list-disc text-xs text-[var(--ink)]">
+              <ul className="mt-1 list-inside list-disc type-caption text-[var(--ink)]">
                 {manifest.preserve.map((item) => (
                   <li key={item}>{item}</li>
                 ))}
               </ul>
             </div>
             <div>
-              <p className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">
+              <p className="type-caption uppercase text-[var(--ink-dim)]">
                 {t('adminTestingResetWillReseed')}
               </p>
-              <ul className="mt-1 list-inside list-disc text-xs text-[var(--ink)]">
+              <ul className="mt-1 list-inside list-disc type-caption text-[var(--ink)]">
                 <li>{t('adminTestingResetReseedWallet').replace('{amount}', reseedWallet)}</li>
                 <li>{t('adminTestingResetReseedCourses').replace('{courses}', reseedCourses)}</li>
               </ul>
@@ -395,7 +386,7 @@ export const TestSessionResetSection: React.FC<TestSessionResetSectionProps> = (
       ) : null}
 
       {phase === 'executing' ? (
-        <p className="mt-4 text-sm text-[var(--ink-dim)]" role="status">
+        <p className="mt-4 type-compact text-[var(--ink-dim)]" role="status">
           {t('adminTestingResetExecuting')}
         </p>
       ) : null}
@@ -406,14 +397,14 @@ export const TestSessionResetSection: React.FC<TestSessionResetSectionProps> = (
           data-testid="reset-complete"
         >
           <p className="font-semibold text-emerald-900">{t('adminTestingResetComplete')}</p>
-          <dl className="grid gap-2 text-sm sm:grid-cols-2">
+          <dl className="grid gap-2 type-compact sm:grid-cols-2">
             <div>
               <dt className="text-[var(--ink-dim)]">{t('adminTestingStatus')}</dt>
-              <dd className="font-mono text-xs">{executeResult.status ?? testSession.status}</dd>
+              <dd className="type-caption">{executeResult.status ?? testSession.status}</dd>
             </div>
             <div>
               <dt className="text-[var(--ink-dim)]">{t('adminTestingResetVerifier')}</dt>
-              <dd className="font-mono text-xs">
+              <dd className="type-caption">
                 {executeResult.verifier?.ok
                   ? t('adminTestingResetVerifierOk')
                   : t('adminTestingResetVerifierFailed')}
@@ -422,9 +413,7 @@ export const TestSessionResetSection: React.FC<TestSessionResetSectionProps> = (
             {executeResult.verifier && !executeResult.verifier.ok ? (
               <div className="sm:col-span-2">
                 <dt className="text-[var(--ink-dim)]">{t('adminTestingResetVerifierChecks')}</dt>
-                <dd className="font-mono text-[10px]">
-                  {executeResult.verifier.failedChecks.join(', ')}
-                </dd>
+                <dd className="type-caption">{executeResult.verifier.failedChecks.join(', ')}</dd>
               </div>
             ) : null}
           </dl>
@@ -450,15 +439,15 @@ export const TestSessionResetSection: React.FC<TestSessionResetSectionProps> = (
               >
                 <h5
                   id="reset-confirm-title"
-                  className="font-serif text-sm font-light text-[var(--ink)] flex items-center gap-2"
+                  className="type-compact text-[var(--ink)] flex items-center gap-2 font-medium"
                 >
                   <Shield className="w-4.5 h-4.5 text-[var(--ink-dim)]" aria-hidden="true" />
                   {t('adminTestingResetConfirmTitle')}
                 </h5>
-                <p className="text-xs text-[var(--ink-dim)] leading-relaxed">
+                <p className="type-caption text-[var(--ink-dim)]">
                   {t('adminTestingResetConfirmBody').replace('{count}', String(destructiveTotal))}
                 </p>
-                <dl className="space-y-2 text-xs">
+                <dl className="space-y-2 type-caption">
                   <div>
                     <dt className="text-[var(--ink-dim)]">{t('adminTestingResetManifestId')}</dt>
                     <dd className="font-mono">{manifest.manifestId}</dd>

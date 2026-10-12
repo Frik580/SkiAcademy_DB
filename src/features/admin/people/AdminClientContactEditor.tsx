@@ -31,7 +31,7 @@ export function AdminClientContactEditor({
     >
       <div className="space-y-1.5">
         <label
-          className="block text-[10px] font-mono uppercase text-[var(--ink-dim)]"
+          className="block type-caption uppercase text-[var(--ink-dim)]"
           htmlFor="admin-client-display-name"
         >
           {text.displayName}
@@ -41,13 +41,13 @@ export function AdminClientContactEditor({
           aria-label={text.displayName}
           value={draft.displayName}
           onChange={(event) => onChange({ ...draft, displayName: event.target.value })}
-          className="w-full border border-[var(--border)] bg-transparent px-3.5 py-2 font-mono text-xs text-[var(--ink)] focus:border-[var(--ink)] focus:outline-none"
+          className="w-full border border-[var(--border)] bg-transparent px-3.5 py-2 type-body text-[var(--ink)] focus:border-[var(--ink)] focus:outline-none"
           required
         />
       </div>
       <div className="space-y-1.5">
         <label
-          className="block text-[10px] font-mono uppercase text-[var(--ink-dim)]"
+          className="block type-caption uppercase text-[var(--ink-dim)]"
           htmlFor="admin-client-email"
         >
           {text.email}
@@ -57,15 +57,13 @@ export function AdminClientContactEditor({
           aria-label={text.email}
           value={email ?? ''}
           disabled
-          className="w-full cursor-not-allowed border border-[var(--border)] bg-transparent px-3.5 py-2 font-mono text-xs text-[var(--ink)] opacity-60"
+          className="w-full cursor-not-allowed border border-[var(--border)] bg-transparent px-3.5 py-2 type-body text-[var(--ink)] opacity-60"
         />
-        <p className="text-[10px] font-mono leading-relaxed text-[var(--ink-dim)]">
-          {text.emailReadOnly}
-        </p>
+        <p className="type-caption text-[var(--ink-dim)]">{text.emailReadOnly}</p>
       </div>
       <div className="space-y-1.5">
         <label
-          className="block text-[10px] font-mono uppercase text-[var(--ink-dim)]"
+          className="block type-caption uppercase text-[var(--ink-dim)]"
           htmlFor="admin-client-phone"
         >
           {text.phone}
@@ -76,7 +74,7 @@ export function AdminClientContactEditor({
           type="tel"
           value={draft.phoneNumber}
           onChange={(event) => onChange({ ...draft, phoneNumber: event.target.value })}
-          className="w-full border border-[var(--border)] bg-transparent px-3.5 py-2 font-mono text-xs text-[var(--ink)] focus:border-[var(--ink)] focus:outline-none"
+          className="w-full border border-[var(--border)] bg-transparent px-3.5 py-2 type-body text-[var(--ink)] focus:border-[var(--ink)] focus:outline-none"
         />
       </div>
       <div className="flex gap-2">

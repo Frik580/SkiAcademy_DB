@@ -69,7 +69,7 @@ export function AdminStudentDashboardSettings() {
           const columnTiles = tiles.filter((tile) => tile.desktopColumn === column);
           return (
             <section key={column} aria-label={labels.column(column)}>
-              <h3 className="mb-2 text-sm font-semibold">{labels.column(column)}</h3>
+              <h3 className="mb-2 type-card-title">{labels.column(column)}</h3>
               <ol aria-label={labels.column(column)} className="space-y-2">
                 {columnTiles.map((tile, index) => {
                   const label = tile.label[labels.lang];
@@ -108,8 +108,8 @@ export function AdminStudentDashboardSettings() {
                       >
                         <GripVertical className="h-4 w-4" />
                       </button>
-                      <span className="text-sm tabular-nums">{index + 1}.</span>
-                      <span className="min-w-0 flex-1 text-sm">{label}</span>
+                      <span className="type-compact tabular-nums">{index + 1}.</span>
+                      <span className="min-w-0 flex-1 type-compact">{label}</span>
                       <button
                         type="button"
                         aria-label={labels.moveUp(label)}
@@ -136,7 +136,7 @@ export function AdminStudentDashboardSettings() {
           );
         })}
         <div className="space-y-2">
-          <p className="text-sm text-[var(--ink-dim)]">{labels.preview}</p>
+          <p className="type-compact text-[var(--ink-dim)]">{labels.preview}</p>
           <div
             aria-label={labels.preview}
             data-testid="dashboard-layout-preview"
@@ -158,7 +158,7 @@ export function AdminStudentDashboardSettings() {
                     <div
                       key={tile.key}
                       data-preview-tile={tile.key}
-                      className="w-full min-w-0 break-words border border-[var(--border)] bg-[var(--surface-card)] p-3 text-xs text-[var(--ink)]"
+                      className="w-full min-w-0 break-words border border-[var(--border)] bg-[var(--surface-card)] p-3 type-caption text-[var(--ink)]"
                     >
                       {tile.label[labels.lang]}
                     </div>
@@ -171,7 +171,7 @@ export function AdminStudentDashboardSettings() {
           <button
             type="button"
             disabled={!dirty}
-            className="btn-primary px-4 py-2 text-sm disabled:opacity-40"
+            className="btn-primary px-4 py-2 type-button disabled:opacity-40"
             onClick={() => void save()}
           >
             {saving ? labels.saving : labels.save}
@@ -179,7 +179,7 @@ export function AdminStudentDashboardSettings() {
           <button
             type="button"
             disabled={!dirty}
-            className="btn-secondary px-4 py-2 text-sm disabled:opacity-40"
+            className="btn-secondary px-4 py-2 type-button disabled:opacity-40"
             onClick={() => {
               setDraftOverride(null);
               setMessage(null);
@@ -189,7 +189,7 @@ export function AdminStudentDashboardSettings() {
           </button>
           <button
             type="button"
-            className="btn-secondary px-4 py-2 text-sm"
+            className="btn-secondary px-4 py-2 type-button"
             onClick={() =>
               updateDraft(normalizeStudentDashboardLayout(DEFAULT_STUDENT_DASHBOARD_LAYOUT))
             }
@@ -200,7 +200,7 @@ export function AdminStudentDashboardSettings() {
       </fieldset>
       {message && (
         <p
-          className="mt-3 text-sm text-[var(--ink)]"
+          className="mt-3 type-compact text-[var(--ink)]"
           role={message === 'error' ? 'alert' : 'status'}
         >
           {labels[message]}

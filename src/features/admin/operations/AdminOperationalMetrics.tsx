@@ -19,18 +19,16 @@ export function AdminOperationalMetrics({
 
   return (
     <div className="space-y-3">
-      <h3 className="text-xs font-mono uppercase tracking-widest text-[var(--ink-dim)] font-bold">
+      <h3 className="type-card-title uppercase text-[var(--ink-dim)]">
         {t('financialOverview') || 'Финансовый обзор'}
       </h3>
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <div className="bg-transparent border border-[var(--border)] p-5 rounded-none flex items-center justify-between transition-colors duration-300">
           <div className="space-y-1.5">
-            <span className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-widest block">
+            <span className="type-caption text-[var(--ink-dim)] uppercase block">
               {t('activeLessons')}
             </span>
-            <span className="text-2xl font-serif font-light text-[var(--ink)]">
-              {activeBookings}
-            </span>
+            <span className="type-metric text-[var(--ink)]">{activeBookings}</span>
           </div>
           <div className="w-10 h-10 border border-[var(--border)] rounded-none flex items-center justify-center text-[var(--ink)] bg-black/5 dark:bg-white/5">
             <BookOpen className="w-4 h-4" />
@@ -39,13 +37,11 @@ export function AdminOperationalMetrics({
 
         <div className="bg-transparent border border-[var(--border)] p-5 rounded-none flex items-center justify-between transition-colors duration-300">
           <div className="space-y-1.5">
-            <span className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-widest block">
+            <span className="type-caption text-[var(--ink-dim)] uppercase block">
               {t('completedLessons')}
             </span>
-            <span className="text-2xl font-serif font-light text-[var(--ink)]">
-              {completedBookings}
-            </span>
-            <span className="text-[8px] font-mono text-[var(--ink-dim)] uppercase tracking-widest block">
+            <span className="type-metric text-[var(--ink)]">{completedBookings}</span>
+            <span className="type-caption text-[var(--ink-dim)] uppercase block">
               {noShowBookings} {t('noShowShort')}
             </span>
           </div>
@@ -56,12 +52,10 @@ export function AdminOperationalMetrics({
 
         <div className="bg-transparent border border-[var(--border)] p-5 rounded-none flex items-center justify-between transition-colors duration-300">
           <div className="space-y-1.5">
-            <span className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-widest block">
+            <span className="type-caption text-[var(--ink-dim)] uppercase block">
               {t('allGuidesCount')}
             </span>
-            <span className="text-2xl font-serif font-light text-[var(--ink)]">
-              {instructorsCount}
-            </span>
+            <span className="type-metric text-[var(--ink)]">{instructorsCount}</span>
           </div>
           <div className="w-10 h-10 border border-[var(--border)] rounded-none flex items-center justify-center text-[var(--ink)] bg-black/5 dark:bg-white/5">
             <Users className="w-4 h-4" />

@@ -113,21 +113,19 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
                 referrerPolicy="no-referrer"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-[10px] font-serif">
-                👤
-              </div>
+              <div className="w-full h-full flex items-center justify-center type-caption">👤</div>
             )}
           </div>
           <div className="min-w-0">
-            <div className="text-xs font-mono text-[var(--ink)] font-medium flex items-center gap-1.5">
+            <div className="type-caption text-[var(--ink)] font-medium flex items-center gap-1.5">
               {studentName}
               {b.isGuest && (
-                <span className="px-1.5 py-0.2 bg-amber-500/15 text-amber-600 dark:text-amber-400 text-[9px] font-mono rounded-xs border border-amber-500/30">
+                <span className="px-1.5 py-0.2 bg-amber-500/15 text-amber-600 dark:text-amber-400 type-caption rounded-xs border border-amber-500/30">
                   {t('guestBadge') || 'Гость'}
                 </span>
               )}
             </div>
-            <div className="text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+            <div className="type-caption uppercase text-[var(--ink-dim)]">
               {t('instructorLessonAttendance')}: {attendanceLabel}
             </div>
           </div>
@@ -135,7 +133,7 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
 
         <div className="flex flex-wrap items-center gap-2">
           {b.attendanceFollowUp === 'overdue_admin_required' ? (
-            <span className="text-[9px] font-mono uppercase tracking-wider text-amber-800 dark:text-amber-300">
+            <span className="type-caption uppercase text-amber-800 dark:text-amber-300">
               {t('instructorAttendanceAdminRequired')}
             </span>
           ) : (
@@ -148,7 +146,7 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
                 disabled={!participant.canRecordPresent}
                 aria-label={`${studentName}: ${t('instructorAttendancePresent')}`}
                 aria-pressed={participant.attendanceStatus === 'present'}
-                className={`h-8 px-2.5 text-[10px] font-mono font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                className={`h-8 px-2.5 type-button transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                   participant.attendanceStatus === 'present'
                     ? 'border border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200'
                     : 'border border-slate-300 text-[var(--ink)] hover:border-slate-400 dark:border-slate-700 dark:hover:border-slate-600'
@@ -165,7 +163,7 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
                 disabled={!participant.canRecordAbsent}
                 aria-label={`${studentName}: ${t('instructorAttendanceAbsent')}`}
                 aria-pressed={participant.attendanceStatus === 'absent'}
-                className={`h-8 px-2.5 text-[10px] font-mono font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                className={`h-8 px-2.5 type-button transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                   participant.attendanceStatus === 'absent'
                     ? 'border border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200'
                     : 'border border-slate-300 text-[var(--ink)] hover:border-slate-400 dark:border-slate-700 dark:hover:border-slate-600'
@@ -236,17 +234,17 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
       <div className="flex flex-col md:flex-row justify-between items-start gap-4">
         <div className="space-y-3 flex-1">
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1 text-[10px] font-mono text-[var(--ink)] font-bold">
+            <div className="flex items-center gap-1 type-caption text-[var(--ink)] font-medium">
               <Calendar className="w-3.5 h-3.5 text-accent" />
               {b.date}
             </div>
-            <div className="flex items-center gap-1 text-[10px] font-mono text-[var(--ink)] font-bold">
+            <div className="flex items-center gap-1 type-caption text-[var(--ink)] font-medium">
               <Clock className="w-3.5 h-3.5 text-accent" />
               {b.time} ({b.durationHours}h)
             </div>
             <StatusBadge status={b.status} size="xs" />
             {b.attendanceFollowUp === 'overdue_admin_required' ? (
-              <span className="px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 rounded-xs">
+              <span className="px-1.5 py-0.5 type-caption uppercase bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 rounded-xs">
                 {t('instructorAttendanceOverdueBadge')}
                 {b.missingAttendanceCount > 1
                   ? ` · ${b.missingAttendanceCount} ${t('instructorAttendanceMissingParticipants')}`
@@ -254,7 +252,7 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
                 {` · ${t('instructorAttendanceAdminRequired')}`}
               </span>
             ) : b.attendanceFollowUp === 'missing_in_window' ? (
-              <span className="px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider bg-slate-500/10 text-[var(--ink-dim)] border border-slate-400/30 rounded-xs">
+              <span className="px-1.5 py-0.5 type-caption uppercase bg-slate-500/10 text-[var(--ink-dim)] border border-slate-400/30 rounded-xs">
                 {t('instructorAttendanceNotRecordedBadge')}
                 {b.missingAttendanceCount > 1
                   ? ` · ${b.missingAttendanceCount} ${t('instructorAttendanceMissingParticipants')}`
@@ -264,7 +262,7 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
           </div>
 
           <div className="p-3.5 border border-slate-200/60 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/30 rounded-xs w-full space-y-2.5">
-            <h5 className="text-[9px] font-mono uppercase tracking-widest text-[var(--ink-dim)] flex items-center gap-1.5 font-bold">
+            <h5 className="type-compact uppercase text-[var(--ink-dim)] flex items-center gap-1.5 font-medium">
               <Users className="w-3.5 h-3.5 text-accent" />
               {t('instructorLessonClient')}
             </h5>
@@ -277,9 +275,9 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono text-[var(--ink-dim)] border-t border-slate-200/60 dark:border-slate-800/60 pt-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 type-caption text-[var(--ink-dim)] border-t border-slate-200/60 dark:border-slate-800/60 pt-3">
             <div>
-              <span className="uppercase text-[9px] tracking-wider text-[var(--ink-dim)] block mb-1">
+              <span className="uppercase type-caption text-[var(--ink-dim)] block mb-1">
                 {t('instructorDifficulty')}
               </span>
               <span className="text-[var(--ink)] font-bold">
@@ -292,7 +290,7 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
               </span>
             </div>
             <div>
-              <span className="uppercase text-[9px] tracking-wider text-[var(--ink-dim)] block mb-1">
+              <span className="uppercase type-caption text-[var(--ink-dim)] block mb-1">
                 {t('instructorStudentNotes')}
               </span>
               <span className="text-[var(--ink)] italic leading-relaxed block">
@@ -305,7 +303,7 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
         <div className="flex flex-col gap-2 w-full md:w-56 justify-end shrink-0 self-stretch">
           <button
             onClick={() => onOpenChat(b)}
-            className="w-full py-2.5 px-4 badge-accent-outline text-[10px] font-mono uppercase tracking-widest font-bold flex items-center justify-center gap-2 transition cursor-pointer rounded-xs"
+            className="w-full py-2.5 px-4 badge-accent-outline type-button uppercase flex items-center justify-center gap-2 transition cursor-pointer rounded-xs"
           >
             <MessageSquare className="w-4 h-4 text-accent" />
             {t('instructorChatStudent')}

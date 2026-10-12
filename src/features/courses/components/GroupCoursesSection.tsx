@@ -42,7 +42,7 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
   return (
     <div id="courses-grid" className="space-y-6 w-full max-w-[1200px] mx-auto">
       <div>
-        <h3 className="ui-section-title">{t('intensiveGroupCourses')}</h3>
+        <h3 className="ui-section-title type-section-title">{t('intensiveGroupCourses')}</h3>
 
         <p className="ui-section-eyebrow mt-2">{t('intensiveGroupCoursesSub')}</p>
       </div>

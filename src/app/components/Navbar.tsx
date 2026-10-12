@@ -155,7 +155,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <Logo theme={theme} className="h-8 sm:h-9 md:h-10" />
           </Link>
 
-          <div className="hidden lg:flex items-center gap-1.5 xl:gap-3 font-mono text-xs tracking-wider">
+          <div className="hidden lg:flex items-center gap-1.5 xl:gap-3 type-caption">
             {!userProfile && (
               <>
                 <button
@@ -196,7 +196,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     onClick={() => setIsWorkspaceMenuOpen((open) => !open)}
                     aria-expanded={isWorkspaceMenuOpen}
                     aria-haspopup="menu"
-                    className={`flex items-center gap-1.5 px-3 xl:px-4 py-1.5 xl:py-2 transition cursor-pointer font-sans normal-case text-xs xl:text-sm tracking-normal rounded-full whitespace-nowrap shrink-0 ${
+                    className={`flex items-center gap-1.5 px-3 xl:px-4 py-1.5 xl:py-2 transition cursor-pointer normal-case type-nav rounded-full whitespace-nowrap shrink-0 ${
                       workspaceItems.some((item) => item.active)
                         ? 'bg-[var(--accent-muted)] text-[var(--accent)]'
                         : 'bg-transparent border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] border-none bg-[var(--profile-bg)]'
@@ -209,7 +209,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </button>
                 )}
 
-                <div className="flex items-center gap-1.5 xl:gap-2 select-none text-[var(--ink)] font-sans text-xs xl:text-sm px-1 xl:px-2 whitespace-nowrap">
+                <div className="flex items-center gap-1.5 xl:gap-2 select-none text-[var(--ink)] type-caption px-1 xl:px-2 whitespace-nowrap">
                   <span className="text-[var(--ink-dim)] normal-case hidden xl:inline">
                     {t('balance')}:
                   </span>
@@ -243,7 +243,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <Bell className={`w-4 h-4 ${hasUnreadNotifications ? 'animate-pulse' : ''}`} />
                     {hasUnreadNotifications && (
                       <>
-                        <span className="absolute -top-0.5 -right-0.5 min-w-[0.95rem] h-[0.95rem] px-0.5 bg-rose-500 text-white text-[9px] font-bold leading-none rounded-full ring-1 ring-[var(--bg)] flex items-center justify-center">
+                        <span className="absolute -top-0.5 -right-0.5 min-w-5 h-5 px-0.5 bg-rose-500 text-white type-caption-sm rounded-full ring-1 ring-[var(--bg)] flex items-center justify-center">
                           {badgeLabel}
                         </span>
                         <span className="absolute -top-0.5 -right-0.5 min-w-[0.95rem] h-[0.95rem] bg-rose-500 rounded-full animate-ping opacity-60" />
@@ -335,7 +335,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   to={item.to}
                   role="menuitem"
                   onClick={() => setIsWorkspaceMenuOpen(false)}
-                  className={`px-5 py-2.5 font-sans normal-case text-xs tracking-normal no-underline whitespace-nowrap transition ${
+                  className={`px-5 py-2.5 normal-case type-nav no-underline whitespace-nowrap transition ${
                     item.active
                       ? 'bg-[var(--accent-muted)] text-[var(--accent)]'
                       : 'text-[var(--ink)] hover:bg-[var(--profile-bg)]'
@@ -364,7 +364,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <Link
                     to="/cabinet"
                     onClick={() => setIsMenuOpen(false)}
-                    className={`w-full px-4 py-3 transition text-xs rounded-full font-sans normal-case no-underline text-center ${
+                    className={`w-full px-4 py-3 transition type-nav rounded-full normal-case no-underline text-center ${
                       isCabinetView
                         ? 'bg-[var(--accent-muted)] text-[var(--accent)]'
                         : 'bg-[var(--profile-bg)] border border-[var(--border)] text-[var(--ink)] border-none'
@@ -378,7 +378,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <Link
                     to="/instructor"
                     onClick={() => setIsMenuOpen(false)}
-                    className={`w-full px-4 py-3 transition text-xs rounded-full font-sans normal-case no-underline text-center ${
+                    className={`w-full px-4 py-3 transition type-nav rounded-full normal-case no-underline text-center ${
                       isInstructorView
                         ? 'bg-[var(--accent-muted)] text-[var(--accent)]'
                         : 'bg-[var(--profile-bg)] border border-[var(--border)] text-[var(--ink)] border-none'
@@ -394,7 +394,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       navigate(isAdminView ? '/' : '/admin');
                       setIsMenuOpen(false);
                     }}
-                    className={`w-full px-4 py-3 transition cursor-pointer text-xs rounded-full font-sans normal-case ${
+                    className={`w-full px-4 py-3 transition cursor-pointer type-nav rounded-full normal-case ${
                       isAdminView
                         ? 'bg-amber-500 border border-amber-500 text-white'
                         : 'bg-[var(--profile-bg)] border border-[var(--border)] text-[var(--ink)] border-none'
@@ -404,7 +404,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </button>
                 )}
 
-                <div className="flex items-center justify-between gap-2 text-sm text-[var(--ink)]">
+                <div className="flex items-center justify-between gap-2 type-compact text-[var(--ink)]">
                   <span className="text-[var(--ink-dim)]">{t('balance')}:</span>
                   <span className="font-bold" data-testid="navbar-balance-mobile">
                     {formattedBalance}
@@ -416,12 +416,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                     onOpenNotifications();
                     setIsMenuOpen(false);
                   }}
-                  className="w-full flex justify-between items-center text-sm text-[var(--ink)]"
+                  className="w-full flex justify-between items-center type-nav text-[var(--ink)]"
                 >
                   <span className="flex items-center gap-2">
                     {t('notifications')}
                     {hasUnreadNotifications && (
-                      <span className="min-w-[1.1rem] h-[1.1rem] px-1 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                      <span className="min-w-5 h-5 px-1 bg-rose-500 text-white type-caption-sm rounded-full flex items-center justify-center">
                         {badgeLabel}
                       </span>
                     )}
@@ -433,7 +433,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </>
             )}
 
-            <div className="flex items-center justify-between text-sm text-[var(--ink)]">
+            <div className="flex items-center justify-between type-compact text-[var(--ink)]">
               <span>{t(theme === 'light' ? 'lightTheme' : 'darkTheme')}</span>
               <button onClick={onToggleTheme} className="ui-icon-btn">
                 {theme === 'light' ? (
@@ -443,7 +443,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 )}
               </button>
             </div>
-            <div className="flex items-center justify-between text-sm text-[var(--ink)]">
+            <div className="flex items-center justify-between type-compact text-[var(--ink)]">
               <span>{t('languageLabel')}</span>
               <LanguageSwitch
                 language={language}
@@ -457,7 +457,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   onSignInClick();
                   setIsMenuOpen(false);
                 }}
-                className="w-full max-w-xs mx-auto mt-2 px-4 py-3 btn-primary text-sm text-center"
+                className="w-full max-w-xs mx-auto mt-2 px-4 py-3 btn-primary type-nav text-center"
               >
                 {t('signInBtn')}
               </button>
@@ -468,7 +468,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   onSignOut();
                   setIsMenuOpen(false);
                 }}
-                className="w-full mt-2 px-4 py-3 text-rose-500 hover:bg-rose-500/10 transition cursor-pointer text-sm rounded-full"
+                className="w-full mt-2 px-4 py-3 text-rose-500 hover:bg-rose-500/10 transition cursor-pointer type-nav rounded-full"
               >
                 {t('signOut')}
               </button>

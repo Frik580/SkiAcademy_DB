@@ -26,13 +26,11 @@ export const BookingOverlapWarnings: React.FC<BookingOverlapWarningsProps> = ({
   return (
     <>
       {isTimeSlotOccupied && overlappingBooking && (
-        <div className="bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/50 rounded-none p-3.5 flex items-start gap-2.5 text-xs text-rose-900 dark:text-rose-300 animate-fade-in">
+        <div className="bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/50 rounded-none p-3.5 flex items-start gap-2.5 type-caption text-rose-900 dark:text-rose-300 animate-fade-in">
           <ShieldAlert className="w-4 h-4 text-rose-600 dark:text-rose-500 shrink-0 mt-0.5" />
           <div className="space-y-0.5">
-            <p className="font-extrabold uppercase tracking-wide font-mono text-[10px]">
-              {t('timeSlotOccupied')}
-            </p>
-            <p className="text-[11px] leading-relaxed opacity-90">
+            <p className="font-medium uppercase type-caption">{t('timeSlotOccupied')}</p>
+            <p className="type-caption opacity-90">
               {`${targetInstructor.name} ${t('bookingConflictFrom')} ${overlappingBooking.time} ${t('bookingConflictFor')} ${formatDurationLabel(overlappingBooking.durationHours, lang)}. ${t('chooseAnotherSlot')}`}
             </p>
           </div>
@@ -40,13 +38,11 @@ export const BookingOverlapWarnings: React.FC<BookingOverlapWarningsProps> = ({
       )}
 
       {isTimeSlotOccupied && overlappingCourse && (
-        <div className="bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/50 rounded-none p-3.5 flex items-start gap-2.5 text-xs text-rose-900 dark:text-rose-300 animate-fade-in">
+        <div className="bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/50 rounded-none p-3.5 flex items-start gap-2.5 type-caption text-rose-900 dark:text-rose-300 animate-fade-in">
           <ShieldAlert className="w-4 h-4 text-rose-600 dark:text-rose-500 shrink-0 mt-0.5" />
           <div className="space-y-0.5">
-            <p className="font-extrabold uppercase tracking-wide font-mono text-[10px]">
-              {t('reservedGroupCourse')}
-            </p>
-            <p className="text-[11px] leading-relaxed opacity-90">
+            <p className="font-medium uppercase type-caption">{t('reservedGroupCourse')}</p>
+            <p className="type-caption opacity-90">
               {`${targetInstructor.name} ${t('leadsGroupCourse')} "${overlappingCourse.title}" ${t('groupCourseOnDate')} (${overlappingCourse.dates}). ${t('chooseAnotherSlot')}`}
             </p>
           </div>
@@ -54,13 +50,11 @@ export const BookingOverlapWarnings: React.FC<BookingOverlapWarningsProps> = ({
       )}
 
       {!targetInstructor.isAvailable && (
-        <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-none p-3.5 flex items-start gap-2.5 text-xs text-amber-900 dark:text-amber-300 animate-fade-in">
+        <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-none p-3.5 flex items-start gap-2.5 type-caption text-amber-900 dark:text-amber-300 animate-fade-in">
           <ShieldAlert className="w-4 h-4 text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
           <div className="space-y-0.5">
-            <p className="font-extrabold uppercase tracking-wide font-mono text-[10px]">
-              {t('instructorUnavailable')}
-            </p>
-            <p className="text-[11px] leading-relaxed opacity-90">
+            <p className="font-medium uppercase type-caption">{t('instructorUnavailable')}</p>
+            <p className="type-caption opacity-90">
               {`${targetInstructor.name} ${t('instructorUnavailableChoice')}`}
             </p>
           </div>

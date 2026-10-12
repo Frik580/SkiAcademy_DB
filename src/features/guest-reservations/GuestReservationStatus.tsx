@@ -90,26 +90,26 @@ export function GuestReservationStatus({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-5" role="status">
-      <h3 className="font-serif text-xl text-[var(--ink)]">{title}</h3>
+      <h3 className="type-card-title text-[var(--ink)]">{title}</h3>
       {reservationDetails && (
-        <div className="space-y-3 text-sm text-[var(--ink)]">
+        <div className="space-y-3 type-compact text-[var(--ink)]">
           <p>{reservationDetails.title}</p>
           <p>{reservationDetails.participantName}</p>
           <CourseEnrollmentScheduleList lines={reservationDetails.scheduleLines} />
         </div>
       )}
       {confirmed ? (
-        <p className="text-sm text-[var(--ink)]">{t('guestConfirmedBody')}</p>
+        <p className="type-compact text-[var(--ink)]">{t('guestConfirmedBody')}</p>
       ) : expired ? (
-        <p className="text-sm text-[var(--ink)]">
+        <p className="type-compact text-[var(--ink)]">
           {t(kind === 'lesson' ? 'guestLessonExpiredBody' : 'guestCourseExpiredBody')}
         </p>
       ) : cancelled ? (
-        <p className="text-sm text-[var(--ink)]">{t('guestCancelledBody')}</p>
+        <p className="type-compact text-[var(--ink)]">{t('guestCancelledBody')}</p>
       ) : createdWithoutStatusDetails ? (
-        <p className="text-sm text-[var(--ink)]">{t('postCreateRefreshFailedBody')}</p>
+        <p className="type-compact text-[var(--ink)]">{t('postCreateRefreshFailedBody')}</p>
       ) : (
-        <div className="space-y-3 text-sm text-[var(--ink)]">
+        <div className="space-y-3 type-compact text-[var(--ink)]">
           {formattedDeadline && (
             <p>
               {t(kind === 'lesson' ? 'guestLessonHoldUntil' : 'guestCourseHoldUntil').replace(
@@ -152,21 +152,21 @@ export function GuestReservationStatus({
       )}
       {profileCompletion}
       {refreshError && statusHydrated && (
-        <p className="text-sm text-rose-600">{t('guestStatusRefreshFailed')}</p>
+        <p className="type-compact text-rose-600">{t('guestStatusRefreshFailed')}</p>
       )}
       <div className="mt-auto flex flex-wrap gap-2 pt-3">
         {canCancelPending && !confirmCancellation && (
           <button
             type="button"
             onClick={() => setConfirmCancellation(true)}
-            className="btn-secondary px-4 py-2 text-sm"
+            className="btn-secondary px-4 py-2 type-button"
           >
             {t('guestCancelPending')}
           </button>
         )}
         {canCancelPending && confirmCancellation && (
           <div className="w-full space-y-2">
-            <p className="text-sm text-[var(--ink)]">{t('guestCancelConfirm')}</p>
+            <p className="type-compact text-[var(--ink)]">{t('guestCancelConfirm')}</p>
             <button
               type="button"
               disabled={cancelling}
@@ -179,21 +179,25 @@ export function GuestReservationStatus({
                   setCancelling(false);
                 }
               }}
-              className="btn-secondary px-4 py-2 text-sm"
+              className="btn-secondary px-4 py-2 type-button"
             >
               {t('guestCancelPending')}
             </button>
             <button
               type="button"
               onClick={() => setConfirmCancellation(false)}
-              className="btn-secondary px-4 py-2 text-sm"
+              className="btn-secondary px-4 py-2 type-button"
             >
               {t('cancel')}
             </button>
           </div>
         )}
         {cancelled && onNewBooking ? (
-          <button type="button" onClick={onNewBooking} className="btn-secondary px-4 py-2 text-sm">
+          <button
+            type="button"
+            onClick={onNewBooking}
+            className="btn-secondary px-4 py-2 type-button"
+          >
             {t('guestNewBooking')}
           </button>
         ) : (
@@ -201,12 +205,12 @@ export function GuestReservationStatus({
             type="button"
             onClick={onRefresh}
             disabled={refreshing}
-            className="btn-secondary px-4 py-2 text-sm"
+            className="btn-secondary px-4 py-2 type-button"
           >
             {refreshing ? t('processing') : t('guestCheckStatus')}
           </button>
         )}
-        <button type="button" onClick={onClose} className="btn-primary px-4 py-2 text-sm">
+        <button type="button" onClick={onClose} className="btn-primary px-4 py-2 type-button">
           {t('closeBtn')}
         </button>
       </div>

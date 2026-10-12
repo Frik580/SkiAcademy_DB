@@ -56,9 +56,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
       ) : messages.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center text-[var(--ink-dim)] p-8">
           <MessageSquare className="w-8 h-8 opacity-20 mb-2" />
-          <p className="text-xs font-mono uppercase tracking-wider max-w-xs">
-            {t('chatNoMessages')}
-          </p>
+          <p className="type-caption uppercase max-w-xs">{t('chatNoMessages')}</p>
         </div>
       ) : (
         messages.map((msg) => {
@@ -108,13 +106,13 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
 
               <div className="space-y-1">
                 <div
-                  className={`flex items-center gap-1.5 text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-wider ${isMe ? 'justify-end' : 'justify-start'}`}
+                  className={`flex items-center gap-1.5 type-caption text-[var(--ink-dim)] uppercase ${isMe ? 'justify-end' : 'justify-start'}`}
                 >
                   <span className="font-bold text-[var(--ink)] truncate max-w-[120px]">
                     {msg.senderName}
                   </span>
                   <span
-                    className={`px-1 py-0.5 text-[7px] border rounded-none font-bold ${
+                    className={`px-1 py-0.5 type-caption border rounded-none font-medium ${
                       isMe || isSenderClient
                         ? 'border-accent text-accent bg-accent-muted'
                         : isSenderAdmin
@@ -125,14 +123,14 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                     {roleBadge}
                   </span>
                   {msg.isHomework && (
-                    <span className="px-1 py-0.5 text-[7px] border rounded-none font-bold border-emerald-500/30 text-emerald-500 bg-emerald-500/10">
+                    <span className="px-1 py-0.5 type-caption border rounded-none font-medium border-emerald-500/30 text-emerald-500 bg-emerald-500/10">
                       {t('chatHomeworkBadge')}
                     </span>
                   )}
                 </div>
 
                 <div
-                  className={`p-3 text-xs leading-relaxed border transition-all duration-300 ${
+                  className={`p-3 type-caption border transition-all duration-300 ${
                     isMe
                       ? 'bg-[var(--ink)] text-[var(--bg)] border-transparent'
                       : 'bg-[var(--bg)] text-[var(--ink)] border-[var(--border)]'
@@ -150,7 +148,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                         className="max-h-[220px] w-auto max-w-full object-contain mx-auto hover:scale-[1.02] transition-transform duration-300"
                         referrerPolicy="no-referrer"
                       />
-                      <div className="p-1 px-2 text-[8px] font-mono text-[var(--ink-dim)] bg-black/15 flex items-center justify-between gap-2 border-t border-black/10">
+                      <div className="p-1 px-2 type-caption text-[var(--ink-dim)] bg-black/15 flex items-center justify-between gap-2 border-t border-black/10">
                         <span className="truncate max-w-[150px]">{msg.attachmentName}</span>
                         {msg.attachmentSize && (
                           <span>{(msg.attachmentSize / 1024).toFixed(1)} KB</span>
@@ -169,7 +167,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                         playsInline
                         className="max-h-[220px] w-auto max-w-full object-contain mx-auto"
                       />
-                      <div className="p-1 px-2 text-[8px] font-mono text-[var(--ink-dim)] bg-black/15 flex items-center justify-between gap-2 border-t border-black/10">
+                      <div className="p-1 px-2 type-caption text-[var(--ink-dim)] bg-black/15 flex items-center justify-between gap-2 border-t border-black/10">
                         <span className="truncate max-w-[150px]">{msg.attachmentName}</span>
                         {msg.attachmentSize && (
                           <span>{(msg.attachmentSize / 1024).toFixed(1)} KB</span>
@@ -184,7 +182,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                         href={msg.attachmentUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className={`flex items-center gap-2 p-2 border text-[10px] font-mono uppercase tracking-widest transition-all duration-300 ${
+                        className={`flex items-center gap-2 p-2 border type-button uppercase transition-all duration-300 ${
                           isMe
                             ? 'border-white/20 text-white bg-white/10 hover:bg-white/20'
                             : 'border-[var(--border)] text-accent hover:border-accent bg-black/5'
@@ -200,21 +198,21 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                 </div>
 
                 <div
-                  className={`flex items-center gap-1 text-[8px] font-mono text-[var(--ink-dim)] ${isMe ? 'justify-end' : 'justify-start'}`}
+                  className={`flex items-center gap-1 type-caption text-[var(--ink-dim)] ${isMe ? 'justify-end' : 'justify-start'}`}
                 >
                   <Clock className="w-2.5 h-2.5" />
                   <span>{formattedTime}</span>
                 </div>
                 {fromInstructorPanel && isMe && (
                   <label
-                    className={`flex items-center gap-1.5 text-[8px] font-mono uppercase tracking-wider text-[var(--ink-dim)] mt-0.5 cursor-pointer ${isMe ? 'justify-end' : ''}`}
+                    className={`flex items-center gap-1.5 type-caption uppercase text-[var(--ink-dim)] mt-0.5 cursor-pointer ${isMe ? 'justify-end' : ''}`}
                   >
                     <input
                       type="checkbox"
                       checked={msg.isHomework ?? false}
                       disabled={homeworkTogglingId === msg.id}
                       onChange={(e) => onToggleHomework(msg, e.target.checked)}
-                      className="accent-[var(--accent)]"
+                      className="accent-[var(--accent)] type-body"
                     />
                     <span>{t('chatMarkHomework')}</span>
                   </label>

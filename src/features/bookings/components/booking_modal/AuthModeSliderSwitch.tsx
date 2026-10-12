@@ -41,7 +41,7 @@ export const AuthModeSliderSwitch: React.FC<AuthModeSliderSwitchProps> = ({
         <button
           type="button"
           onClick={() => onChange('guest')}
-          className={`relative z-10 flex-1 min-w-0 py-1.5 px-2 text-center sm:text-xs font-sans normal-case text-xs font-medium transition-colors duration-200 flex items-center justify-center cursor-pointer ${
+          className={`relative z-10 flex-1 min-w-0 py-1.5 px-2 text-center type-button normal-case transition-colors duration-200 flex items-center justify-center cursor-pointer ${
             isGuest
               ? 'text-[var(--ink)] font-bold'
               : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'
@@ -56,7 +56,7 @@ export const AuthModeSliderSwitch: React.FC<AuthModeSliderSwitchProps> = ({
         <button
           type="button"
           onClick={() => onChange('auth')}
-          className={`relative z-10 flex-1 min-w-0 py-1.5 px-2 text-center sm:text-xs font-sans normal-case text-xs font-medium transition-colors duration-200 flex items-center justify-center cursor-pointer ${
+          className={`relative z-10 flex-1 min-w-0 py-1.5 px-2 text-center type-button normal-case transition-colors duration-200 flex items-center justify-center cursor-pointer ${
             !isGuest
               ? 'text-[var(--ink)] font-bold'
               : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'

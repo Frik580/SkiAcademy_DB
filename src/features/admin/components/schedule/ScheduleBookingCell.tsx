@@ -26,7 +26,7 @@ export const ScheduleBookingCell: React.FC<ScheduleBookingCellProps> = ({
 
   if (booking.userId === 'system_block_day_off') {
     return (
-      <div className="relative group/cell h-11 bg-slate-100/50 dark:bg-slate-800/15 border border-slate-300/40 dark:border-slate-800/40 rounded-xl px-2.5 py-1 flex items-center justify-between transition text-xs font-semibold text-slate-500 dark:text-slate-400">
+      <div className="relative group/cell h-11 bg-slate-100/50 dark:bg-slate-800/15 border border-slate-300/40 dark:border-slate-800/40 rounded-xl px-2.5 py-1 flex items-center justify-between transition type-caption font-medium text-slate-500 dark:text-slate-400">
         <div className="flex items-center gap-1.5 min-w-0">
           <Calendar className="w-3.5 h-3.5 shrink-0 text-slate-400 dark:text-slate-650" />
           <span className="truncate">{t('dayOffLabel')}</span>
@@ -47,7 +47,7 @@ export const ScheduleBookingCell: React.FC<ScheduleBookingCellProps> = ({
 
   if (booking.userId === 'system_block_break') {
     return (
-      <div className="relative group/cell h-11 bg-amber-50/60 dark:bg-amber-950/15 border border-amber-200/40 dark:border-amber-900/40 rounded-xl px-2.5 py-1 flex items-center justify-between transition text-xs font-semibold text-amber-700 dark:text-amber-400">
+      <div className="relative group/cell h-11 bg-amber-50/60 dark:bg-amber-950/15 border border-amber-200/40 dark:border-amber-900/40 rounded-xl px-2.5 py-1 flex items-center justify-between transition type-caption font-medium text-amber-700 dark:text-amber-400">
         <div className="flex items-center gap-1.5 min-w-0">
           <Coffee className="w-3.5 h-3.5 shrink-0 text-amber-500 dark:text-amber-600" />
           <span className="truncate">{booking.notes || t('breakLabel')}</span>
@@ -101,7 +101,7 @@ export const ScheduleBookingCell: React.FC<ScheduleBookingCellProps> = ({
   return (
     <div
       onClick={() => onOpen(instructor, booking.time, booking)}
-      className={`relative group/cell h-11 rounded-xl px-2.5 py-1 flex flex-col justify-center transition text-[11px] leading-tight cursor-pointer ${cardBgClasses}`}
+      className={`relative group/cell min-h-14 rounded-xl px-2.5 py-1 flex flex-col justify-center transition type-caption cursor-pointer ${cardBgClasses}`}
     >
       <div className="flex items-center justify-between gap-1.5 min-w-0">
         <div className={`font-bold truncate flex items-center gap-1.5 ${titleColorClasses}`}>
@@ -123,22 +123,22 @@ export const ScheduleBookingCell: React.FC<ScheduleBookingCellProps> = ({
             })}
           </span>
           {isPendingCancellation && (
-            <span className="ml-1 text-[9px] font-bold text-amber-600 dark:text-amber-400">
+            <span className="ml-1 type-caption font-medium text-amber-600 dark:text-amber-400">
               ({t('cancelReqShort')})
             </span>
           )}
           {isCompleted && (
-            <span className="ml-1 text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
+            <span className="ml-1 type-caption font-medium text-emerald-600 dark:text-emerald-400">
               ✓ ({t('doneShort')})
             </span>
           )}
           {isNoShow && (
-            <span className="ml-1 text-[9px] font-bold text-orange-600 dark:text-orange-400">
+            <span className="ml-1 type-caption font-medium text-orange-600 dark:text-orange-400">
               ({t('noShowShort')})
             </span>
           )}
           {booking.attendanceOverdue && (
-            <span className="ml-1 text-[9px] font-bold text-amber-700 dark:text-amber-400">
+            <span className="ml-1 type-caption font-medium text-amber-700 dark:text-amber-400">
               ({t('plannerAttendanceNotRecorded')})
             </span>
           )}
@@ -156,9 +156,7 @@ export const ScheduleBookingCell: React.FC<ScheduleBookingCellProps> = ({
           </button>
         )}
       </div>
-      <div
-        className={`text-[10px] font-mono flex items-center gap-1 mt-0.5 min-w-0 ${textTimeClasses}`}
-      >
+      <div className={`type-caption flex items-center gap-1 mt-0.5 min-w-0 ${textTimeClasses}`}>
         <Clock className="w-3.5 h-3.5 shrink-0" />
         <span className="truncate">
           {booking.time} ({booking.durationHours}h)

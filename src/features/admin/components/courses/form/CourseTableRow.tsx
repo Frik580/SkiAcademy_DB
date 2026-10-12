@@ -107,31 +107,31 @@ export const CourseTableRow: React.FC<CourseTableRowProps> = ({
       </td>
       <td className="px-4 py-2">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-bold text-[var(--ink)] block text-xs">
+          <span className="font-medium text-[var(--ink)] block type-caption">
             {translatedCourse.title}
           </span>
           {translatedCourse.levelLabel && (
             <span
-              className={`border text-[8px] font-bold px-1.5 py-0.5 uppercase tracking-wide rounded-none shrink-0 ${levelClass}`}
+              className={`border type-caption font-medium px-1.5 py-0.5 uppercase rounded-none shrink-0 ${levelClass}`}
             >
               {translatedCourse.levelLabel}
             </span>
           )}
           {course.isHidden && (
-            <span className="bg-rose-950/20 text-rose-400 border border-rose-900/50 text-[8px] font-bold px-1.5 py-0.5 uppercase tracking-wide rounded-none shrink-0">
+            <span className="bg-rose-950/20 text-rose-400 border border-rose-900/50 type-caption font-medium px-1.5 py-0.5 uppercase rounded-none shrink-0">
               {t('hiddenLabel')}
             </span>
           )}
         </div>
         {(translatedCourse.shortDescription || translatedCourse.description) && (
-          <span className="text-[10px] text-[var(--ink-dim)] line-clamp-1 mt-0.5">
+          <span className="type-caption text-[var(--ink-dim)] line-clamp-1 mt-0.5">
             {translatedCourse.shortDescription || translatedCourse.description}
           </span>
         )}
 
         {course.instructorIds && course.instructorIds.length > 0 && (
           <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-            <span className="text-[9px] text-[var(--ink-dim)] uppercase tracking-wider">
+            <span className="type-caption text-[var(--ink-dim)] uppercase">
               {t('instructorsColon')}
             </span>
             {course.instructorIds.map((insId) => {
@@ -140,7 +140,7 @@ export const CourseTableRow: React.FC<CourseTableRowProps> = ({
               return (
                 <span
                   key={insId}
-                  className="bg-black/10 dark:bg-white/10 border border-[var(--border)] text-[9px] px-1.5 py-0.5 text-[var(--ink)] font-bold"
+                  className="bg-black/10 dark:bg-white/10 border border-[var(--border)] type-caption px-1.5 py-0.5 text-[var(--ink)] font-medium"
                 >
                   {translateInstructorName(ins.name, language)}
                 </span>
@@ -159,18 +159,16 @@ export const CourseTableRow: React.FC<CourseTableRowProps> = ({
         </span>
         {enrolledNames.length > 0 && (
           <div
-            className="text-[9px] text-[var(--ink-dim)] mt-1 font-mono leading-tight max-w-[120px] truncate"
+            className="type-caption text-[var(--ink-dim)] mt-1 max-w-[120px] truncate"
             title={enrolledNames.join(', ')}
           >
-            <span className="font-bold text-[8px] uppercase tracking-wider block">
-              {t('enrolledColon')}
-            </span>
+            <span className="font-medium type-caption uppercase block">{t('enrolledColon')}</span>
             {enrolledNames.join(', ')}
           </div>
         )}
       </td>
       <td className="px-4 py-2 text-[var(--ink)] font-bold">
-        <div className="font-mono">
+        <div className="font-sans">
           {course.priceKZT != null ? `${course.priceKZT.toLocaleString()} ₸` : '—'}
         </div>
       </td>

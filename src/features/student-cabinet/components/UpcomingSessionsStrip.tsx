@@ -78,7 +78,7 @@ export const UpcomingSessionsStrip: React.FC<UpcomingSessionsStripProps> = ({
   return (
     <div className="space-y-4">
       <div className="space-y-2.5 pb-2.5 border-b border-slate-200/80 dark:border-slate-800/80">
-        <div className="flex justify-between items-center text-[10px] font-mono text-[var(--ink)] font-bold uppercase tracking-wider">
+        <div className="flex justify-between items-center type-caption text-[var(--ink)] font-medium uppercase">
           <span>{content.header}</span>
         </div>
         <div className="grid grid-cols-7 gap-1.5">
@@ -89,7 +89,7 @@ export const UpcomingSessionsStrip: React.FC<UpcomingSessionsStripProps> = ({
             return (
               <div
                 key={dateStr}
-                className={`text-center py-2 text-[11px] font-mono transition duration-300 rounded-xs ${
+                className={`text-center py-2 type-caption transition duration-300 rounded-xs ${
                   hasBooking
                     ? 'bg-[var(--accent)] text-[var(--accent-foreground)] font-bold shadow-xs'
                     : 'bg-slate-100/70 dark:bg-slate-800/50 text-[var(--ink)] hover:bg-slate-200/60 dark:hover:bg-slate-800 font-medium'
@@ -104,7 +104,7 @@ export const UpcomingSessionsStrip: React.FC<UpcomingSessionsStripProps> = ({
       </div>
 
       <div className="space-y-3">
-        <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--ink)] font-bold block">
+        <span className="type-caption uppercase text-[var(--ink)] font-medium block">
           {t('upcomingSessions7Days')}
         </span>
         {content.sortedActiveSessions.length > 0 ? (
@@ -136,23 +136,23 @@ export const UpcomingSessionsStrip: React.FC<UpcomingSessionsStripProps> = ({
                           className="w-full h-full object-cover filter grayscale"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-violet-700 dark:text-violet-300">
+                        <div className="w-full h-full flex items-center justify-center type-caption font-medium text-violet-700 dark:text-violet-300">
                           GC
                         </div>
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h3 className="font-serif text-base font-normal text-[var(--ink)] leading-none truncate">
+                      <h3 className="type-card-title text-[var(--ink)] truncate">
                         {item.kind === 'lesson' ? item.session.instructorName : item.courseTitle}
                       </h3>
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1.5">
-                        <p className="text-[10px] font-mono text-[var(--ink)] uppercase tracking-wider font-medium">
+                        <p className="type-caption text-[var(--ink)] uppercase font-medium">
                           {item.kind === 'lesson'
                             ? `${formatLessonDifficultyOrUnspecified(item.session.difficulty, language, t('difficultyUnspecified'), 'short')} • ${item.session.durationHours}${getHourSuffix(language)}`
                             : getCabinetSessionSubtitle(item, language === 'ru' ? 'ru' : 'en')}
                         </p>
-                        <span className="text-[10px] font-mono text-[var(--ink-dim)]">•</span>
-                        <p className="text-[10px] font-mono text-accent font-bold">
+                        <span className="type-caption text-[var(--ink-dim)]">•</span>
+                        <p className="type-caption text-accent font-medium">
                           {lessonLegacy
                             ? formatShortBookingDate(lessonLegacy, language, [])
                             : sessionDisplayDate(item)}
@@ -161,7 +161,7 @@ export const UpcomingSessionsStrip: React.FC<UpcomingSessionsStripProps> = ({
                     </div>
                   </div>
                   <div className="flex justify-between items-center pt-2 border-t border-slate-200/60 dark:border-slate-800/60">
-                    <span className="font-mono text-[10px] text-[var(--ink)] font-bold">
+                    <span className="type-caption text-[var(--ink)] font-medium">
                       {formatCabinetSessionTimeRange(item)}
                     </span>
                     <StatusBadge
@@ -182,7 +182,7 @@ export const UpcomingSessionsStrip: React.FC<UpcomingSessionsStripProps> = ({
             })}
           </div>
         ) : (
-          <p className="text-[11px] font-mono text-[var(--ink-dim)] text-center py-3 bg-slate-50/50 dark:bg-slate-900/20 border border-slate-200/50 dark:border-slate-800/50 rounded-xs">
+          <p className="type-caption text-[var(--ink-dim)] text-center py-3 bg-slate-50/50 dark:bg-slate-900/20 border border-slate-200/50 dark:border-slate-800/50 rounded-xs">
             {t('noSessionsThisWeek')}
           </p>
         )}

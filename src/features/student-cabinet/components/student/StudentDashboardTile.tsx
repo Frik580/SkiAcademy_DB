@@ -29,7 +29,7 @@ export function StudentDashboardTile({
   );
 }
 
-/** Reserve two title lines; the Home foundation allows extra lines without clipping. */
+/** Titles may wrap without clipping, including longer localized labels. */
 export function StudentDashboardTileHeader({
   title,
   actions,
@@ -38,11 +38,11 @@ export function StudentDashboardTileHeader({
   actions?: ReactNode;
 }) {
   return (
-    <header data-dashboard-header className="flex h-12 min-h-12 items-center gap-3">
+    <header data-dashboard-header className="flex min-h-12 flex-wrap items-start gap-3">
       <h2
         data-dashboard-title
         title={title}
-        className="h-10 min-w-0 flex-1 line-clamp-2 font-sans text-sm font-semibold leading-5 tracking-normal text-[var(--ink)]"
+        className="min-w-0 flex-1 break-words type-card-title text-[var(--ink)]"
       >
         {title}
       </h2>

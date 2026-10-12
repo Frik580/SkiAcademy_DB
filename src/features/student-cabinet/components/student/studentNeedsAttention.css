@@ -1,3 +1,4 @@
+@reference '../../../../index.css';
 /* Scoped presentation: account reviews and participant feedback keep their existing owners. */
 .sc-needs-attention {
   container-type: inline-size;
@@ -10,18 +11,13 @@
 }
 
 .sc-dashboard .sc-needs-attention [data-dashboard-title] {
+  @apply type-card-title;
   display: flex;
   align-items: center;
   gap: 0.5rem;
   height: auto;
   min-height: 0;
   overflow: visible;
-  font-family: var(--font-mono);
-  font-size: 0.6875rem;
-  line-height: 1.5;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: var(--sc-warning, var(--ink));
 }
 
@@ -38,10 +34,9 @@
 }
 
 .sc-attention-subtitle {
+  @apply type-caption;
   margin: 0 0 0.75rem;
   color: var(--ink-dim);
-  font-size: 0.75rem;
-  line-height: 1.5;
 }
 
 .sc-attention-list {
@@ -84,13 +79,11 @@
 }
 
 .sc-attention-reasons {
+  @apply type-caption;
   display: grid;
   gap: 0.125rem;
   margin-bottom: 0.25rem;
   color: var(--accent);
-  font-size: 0.75rem;
-  font-weight: 600;
-  line-height: 1.5;
   overflow-wrap: anywhere;
 }
 
@@ -103,17 +96,14 @@
 }
 
 .sc-attention-instructor {
+  @apply type-caption;
   color: var(--ink);
-  font-size: 0.8125rem;
-  font-weight: 500;
-  line-height: 1.5;
 }
 
 .sc-attention-date {
+  @apply type-caption;
   margin-top: 0.125rem;
   color: var(--ink-dim);
-  font-size: 0.75rem;
-  line-height: 1.5;
 }
 
 .sc-attention-actions {
@@ -125,6 +115,7 @@
 }
 
 .sc-needs-attention .sc-attention-actions button {
+  @apply type-button;
   justify-content: center;
   min-height: 2.75rem;
   max-width: 100%;
@@ -133,8 +124,6 @@
   border-radius: 0.5rem;
   background: var(--card-bg);
   color: var(--ink);
-  font-size: 0.875rem;
-  line-height: 1.5;
   text-align: center;
   white-space: normal;
   overflow-wrap: anywhere;

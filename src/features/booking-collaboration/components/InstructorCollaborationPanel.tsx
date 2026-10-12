@@ -57,30 +57,30 @@ export const InstructorCollaborationPanel: React.FC<InstructorCollaborationPanel
     <div className="space-y-4 border-t border-slate-200/60 dark:border-slate-800/60 pt-4">
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">
-          <h5 className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink-dim)]">
+          <h5 className="type-compact uppercase text-[var(--ink-dim)] font-medium">
             {copy.proposalInboxTitle}
           </h5>
           {onCreateProposal && participantIds && participantIds.length > 0 && canCreateProposal ? (
             <button
               type="button"
               onClick={onCreateProposal}
-              className="text-[10px] font-mono uppercase tracking-widest text-[var(--accent)]"
+              className="type-button uppercase text-[var(--accent)]"
             >
               {copy.createProposal}
             </button>
           ) : participantIds && participantIds.length > 0 && onCreateProposal ? (
-            <p className="text-[10px] font-mono text-[var(--ink-dim)] text-right max-w-[14rem]">
+            <p className="type-caption text-[var(--ink-dim)] text-right max-w-[14rem]">
               {copy.proposalNotPermitted}
             </p>
           ) : null}
         </div>
         {scopedProposals.length === 0 ? (
-          <p className="text-xs text-[var(--ink-dim)]">{copy.t('collabNoOpenProposals')}</p>
+          <p className="type-caption text-[var(--ink-dim)]">{copy.t('collabNoOpenProposals')}</p>
         ) : (
           scopedProposals.map((proposal) => (
             <div
               key={proposal.proposalId}
-              className="rounded-xs border border-slate-200/70 dark:border-slate-800/70 p-3 text-xs space-y-2"
+              className="rounded-xs border border-slate-200/70 dark:border-slate-800/70 p-3 type-caption space-y-2"
             >
               <p className="font-medium text-[var(--ink)]">
                 {proposal.participantDisplayName} · {proposal.date} {proposal.time}
@@ -103,11 +103,11 @@ export const InstructorCollaborationPanel: React.FC<InstructorCollaborationPanel
 
       {bookingId && (openChangeRequest || onCreateChangeRequest) && (
         <div className="space-y-2">
-          <h5 className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink-dim)]">
+          <h5 className="type-compact uppercase text-[var(--ink-dim)] font-medium">
             {copy.changeRequestOpen}
           </h5>
           {openChangeRequest ? (
-            <div className="rounded-xs border border-slate-200/70 dark:border-slate-800/70 p-3 text-xs space-y-2">
+            <div className="rounded-xs border border-slate-200/70 dark:border-slate-800/70 p-3 type-caption space-y-2">
               <p className="text-[var(--ink)]">{openChangeRequest.reason}</p>
               {openChangeRequest.authorizedActions.canWithdraw && (
                 <ActionButton
@@ -127,7 +127,7 @@ export const InstructorCollaborationPanel: React.FC<InstructorCollaborationPanel
                 value={changeReason}
                 onChange={(event) => setChangeReason(event.target.value)}
                 placeholder={copy.changeRequestReasonPlaceholder}
-                className="w-full rounded-xs border border-slate-200/70 dark:border-slate-800/70 px-3 py-2 text-xs min-h-[72px]"
+                className="w-full rounded-xs border border-slate-200/70 dark:border-slate-800/70 px-3 py-2 type-body min-h-[72px]"
               />
               <ActionButton
                 type="button"
@@ -136,7 +136,7 @@ export const InstructorCollaborationPanel: React.FC<InstructorCollaborationPanel
                 pendingLabel={copy.t('submitting')}
                 disabled={changeReason.trim().length === 0}
                 onClick={() => void onCreateChangeRequest(changeReason.trim())}
-                className="px-2 py-1 rounded-xs bg-slate-800 text-white text-[10px] font-mono uppercase"
+                className="px-2 py-1 rounded-xs bg-slate-800 text-white type-button uppercase"
               >
                 {copy.createChangeRequest}
               </ActionButton>

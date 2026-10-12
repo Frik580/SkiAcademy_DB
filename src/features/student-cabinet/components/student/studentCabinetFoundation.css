@@ -1,3 +1,4 @@
+@reference '../../../../index.css';
 /* Phase 1: Home presentation only. Journey remains outside .sc-dashboard. */
 .sc-cabinet-home {
   background-color: #f8fafc;
@@ -26,7 +27,7 @@
   --surface-tint: var(--sc-surface);
   font-family: var(--font-sans);
   color: var(--ink);
-  letter-spacing: -0.011em;
+  letter-spacing: var(--text-body--letter-spacing);
 }
 
 :root.dark .sc-dashboard {
@@ -59,22 +60,18 @@
 }
 
 .sc-dashboard [data-dashboard-title] {
+  @apply type-card-title;
   display: block;
   height: auto;
   min-height: 2.5rem;
   overflow: visible;
   -webkit-line-clamp: unset;
-  font-family: var(--font-sans);
-  font-size: 1rem;
-  line-height: 1.4;
-  font-weight: 600;
-  letter-spacing: -0.02em;
   overflow-wrap: anywhere;
 }
 
 .sc-dashboard [data-dashboard-body] {
   margin-top: var(--sc-body-gap);
-  line-height: 1.6;
+  line-height: var(--text-body--line-height);
   overflow-wrap: anywhere;
 }
 
@@ -84,11 +81,9 @@
 }
 
 .sc-dashboard :is(.btn-primary, .btn-secondary) {
+  @apply type-button;
   min-height: 2.75rem;
   border-radius: var(--sc-control-radius);
-  font-size: 0.875rem;
-  font-weight: 500;
-  letter-spacing: 0;
   white-space: normal;
   overflow-wrap: anywhere;
 }
@@ -113,12 +108,11 @@
 }
 
 .sc-dashboard .sc-text-button {
+  @apply type-button;
   min-height: 2.75rem;
   min-width: 2.75rem;
   max-width: 100%;
   gap: 0.5rem;
-  font-size: 0.875rem;
-  line-height: 1.5;
   color: var(--accent);
   white-space: normal;
   text-align: start;
@@ -185,6 +179,7 @@
 
 /* Informational primitives, available to subsequent tile slices without new controls. */
 .sc-dashboard :is([data-participant-scope], .sc-status-badge, .sc-xp-indicator) {
+  @apply type-caption;
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
@@ -194,8 +189,6 @@
   border-radius: var(--radius-sm);
   background-color: var(--sc-surface);
   color: var(--sc-muted);
-  font-size: 0.75rem;
-  line-height: 1.5;
 }
 
 .sc-dashboard .sc-status-badge[data-tone='success'] {
@@ -214,20 +207,19 @@
 }
 
 .sc-dashboard .sc-xp-indicator {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-variant-numeric: tabular-nums;
   color: var(--accent);
   background-color: var(--accent-muted);
 }
 
 .sc-dashboard .sc-empty-state {
+  @apply type-compact;
   padding: var(--sc-card-padding);
   border: 1px dashed var(--sc-card-border);
   border-radius: var(--radius-md);
   background-color: var(--sc-surface);
   color: var(--sc-muted);
-  font-size: 0.875rem;
-  line-height: 1.6;
   overflow-wrap: anywhere;
 }
 

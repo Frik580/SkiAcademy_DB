@@ -134,7 +134,7 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
         )}
 
         <div className="space-y-1">
-          <label className="flex items-center gap-1.5 text-xs text-[var(--ink-dim)]">
+          <label className="flex items-center gap-1.5 type-caption text-[var(--ink-dim)]">
             {t('personalGoalsNotes')}
           </label>
           <textarea
@@ -156,7 +156,7 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
         />
 
         {lessonSettingsUnavailable && (
-          <p className="px-4 pt-2 text-xs text-rose-600 dark:text-rose-400">
+          <p className="px-4 pt-2 type-caption text-rose-600 dark:text-rose-400">
             {language === 'ru'
               ? 'Канонические настройки урока не заданы; отправка недоступна.'
               : 'Canonical lesson settings are not configured; submission is unavailable.'}
@@ -164,7 +164,7 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
         )}
 
         {participantSelectionExceedsMax && maxParticipantsPerLesson !== undefined && (
-          <p className="px-4 pt-2 text-xs text-rose-600 dark:text-rose-400">
+          <p className="px-4 pt-2 type-caption text-rose-600 dark:text-rose-400">
             {language === 'ru'
               ? `Выбрано слишком много участников. Максимум: ${maxParticipantsPerLesson}.`
               : `Too many participants selected. Maximum: ${maxParticipantsPerLesson}.`}
@@ -172,19 +172,19 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
         )}
 
         {effectiveParticipantIds.length > 1 && !lessonSettingsUnavailable && (
-          <p className="px-4 pt-2 text-xs text-[var(--ink-dim)]">
+          <p className="px-4 pt-2 type-caption text-[var(--ink-dim)]">
             {`${language === 'ru' ? 'Доплата за дополнительного участника, ₸/час' : 'Additional participant surcharge, ₸/hour'}: ${formatPrice(additionalParticipantSurchargePerHourKzt ?? 0)}`}
           </p>
         )}
 
         <div className="space-y-2.5 px-4 pb-4 pt-3">
           {userProfile?.isClientActive === false ? (
-            <div className="flex items-center gap-2 text-xs font-medium text-rose-600 dark:text-rose-400">
+            <div className="flex items-center gap-2 type-caption font-medium text-rose-600 dark:text-rose-400">
               <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
               <span>{t('bookingAccessRestricted')}</span>
             </div>
           ) : (
-            <p className="text-xs text-[var(--ink-dim)]">
+            <p className="type-caption text-[var(--ink-dim)]">
               Payment is confirmed server-side when you submit.
             </p>
           )}

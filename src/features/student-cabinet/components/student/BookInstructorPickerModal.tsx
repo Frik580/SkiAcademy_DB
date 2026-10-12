@@ -81,10 +81,10 @@ export const BookInstructorPickerModal: React.FC<BookInstructorPickerModalProps>
             >
               <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-[var(--border)] shrink-0">
                 <div className="min-w-0">
-                  <h3 id="book-instructor-picker-title" className="text-lg font-serif font-light">
+                  <h3 id="book-instructor-picker-title" className="type-section-title">
                     {t('scChooseInstructor')}
                   </h3>
-                  <p className="text-sm text-[var(--ink-dim)] mt-0.5">
+                  <p className="type-compact text-[var(--ink-dim)] mt-0.5">
                     {t('scChooseInstructorSub')}
                   </p>
                 </div>
@@ -100,18 +100,18 @@ export const BookInstructorPickerModal: React.FC<BookInstructorPickerModalProps>
 
               <div className="overflow-y-auto flex-1 px-5 py-4 space-y-5">
                 {!hasInstructors ? (
-                  <p className="text-sm text-[var(--ink-dim)] py-4 text-center">
+                  <p className="type-compact text-[var(--ink-dim)] py-4 text-center">
                     {t('scNoAvailableInstructors')}
                   </p>
                 ) : (
                   groups.map((group) => (
                     <section key={group.id} className="space-y-2">
                       <div>
-                        <p className="text-xs font-medium tracking-widest uppercase text-[var(--ink-dim)]">
+                        <p className="type-caption font-medium uppercase text-[var(--ink-dim)]">
                           {t(group.labelKey)}
                         </p>
                         {group.subtitleKey && (
-                          <p className="text-xs text-[var(--ink-dim)] mt-0.5">
+                          <p className="type-caption text-[var(--ink-dim)] mt-0.5">
                             {t(group.subtitleKey)}
                           </p>
                         )}
@@ -138,10 +138,10 @@ export const BookInstructorPickerModal: React.FC<BookInstructorPickerModalProps>
                                 className="h-12 w-12 rounded-full object-cover shrink-0 bg-[var(--border-subtle)]"
                               />
                               <span className="flex-1 min-w-0">
-                                <span className="block text-sm font-medium text-[var(--ink)] truncate">
+                                <span className="block type-compact font-medium text-[var(--ink)] truncate">
                                   {instructor.name}
                                 </span>
-                                <span className="flex items-center gap-2 text-xs text-[var(--ink-dim)] mt-0.5">
+                                <span className="flex items-center gap-2 type-caption text-[var(--ink-dim)] mt-0.5">
                                   {instructor.rating !== null && instructor.reviewsCount > 0 ? (
                                     <span className="inline-flex items-center gap-0.5">
                                       <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
@@ -155,7 +155,7 @@ export const BookInstructorPickerModal: React.FC<BookInstructorPickerModalProps>
                                   </span>
                                 </span>
                               </span>
-                              <span className="text-xs font-medium text-[var(--accent)] shrink-0">
+                              <span className="type-caption font-medium text-[var(--accent)] shrink-0">
                                 {instructor.isAvailable
                                   ? t(group.bookLabelKey ?? 'bookNow')
                                   : t('instructorFull')}
@@ -177,7 +177,7 @@ export const BookInstructorPickerModal: React.FC<BookInstructorPickerModalProps>
                       onBrowseCourses();
                       onClose();
                     }}
-                    className="w-full text-sm font-medium text-[var(--ink-dim)] hover:text-[var(--accent)] transition"
+                    className="w-full type-button text-[var(--ink-dim)] hover:text-[var(--accent)] transition"
                   >
                     {t('scBrowseCourses')} →
                   </button>

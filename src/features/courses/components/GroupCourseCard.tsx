@@ -31,7 +31,7 @@ import {
 } from '../courseCatalogDisplaySchedule';
 
 const metaChipClass = (enrolled: boolean) =>
-  `inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-sans text-[var(--ink-dim)] ${
+  `inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 type-caption text-[var(--ink-dim)] ${
     enrolled
       ? 'border-[var(--border)]/50 bg-[var(--profile-bg)]/70'
       : 'border-[var(--border)]/50 bg-[var(--profile-bg)]'
@@ -119,7 +119,7 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
                 className="h-7 w-auto object-contain max-w-[80px]"
               />
             ) : (
-              <span className="text-[9px] font-bold text-white bg-black/30 backdrop-blur-sm px-3 py-1 rounded-full font-sans normal-case text-xs">
+              <span className="type-caption font-medium text-white bg-black/30 backdrop-blur-sm px-3 py-1 rounded-full normal-case">
                 {course.badge}
               </span>
             )}
@@ -144,12 +144,12 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
       <div className="p-5 lg:p-6 flex-1 flex flex-col justify-between">
         <div className="flex flex-col gap-4">
           <div className="flex items-start justify-between gap-3">
-            <h4 className="font-serif text-[1.375rem] sm:text-2xl font-normal leading-[1.2] tracking-[-0.02em] flex items-start gap-2 min-w-0 flex-1 text-[var(--ink)]">
+            <h4 className="type-card-title flex items-start gap-2 min-w-0 flex-1 text-[var(--ink)]">
               <span className="min-w-0">{course.title}</span>
             </h4>
             {rawCourse.level && (
               <span
-                className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${isEnrolled ? 'opacity-70' : ''} ${getCourseLevelCardBadgeClass(rawCourse.level)}`}
+                className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2 py-0.5 type-caption font-medium uppercase ${isEnrolled ? 'opacity-70' : ''} ${getCourseLevelCardBadgeClass(rawCourse.level)}`}
               >
                 {courseLevelBadgeLabel[rawCourse.level]}
               </span>
@@ -173,17 +173,17 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
             </div>
           )}
 
-          <p className="text-[0.8125rem] leading-[1.6] text-[var(--ink-dim)]/90 font-sans">
+          <p className="type-caption text-[var(--ink-dim)]/90">
             {course.shortDescription || course.description}
           </p>
         </div>
 
         <div className="mt-3 space-y-6 pt-1">
           <div className="flex items-baseline gap-2">
-            <p className="text-4xl font-serif font-light tracking-[-0.03em] text-[var(--ink)] leading-none">
+            <p className="type-metric-lg text-[var(--ink)]">
               {displayPriceMinorUnits != null ? formatPrice(displayPriceMinorUnits) : '—'}
             </p>
-            <p className="text-xs text-[var(--ink-dim)]/60 font-sans">{t('perCourse')}</p>
+            <p className="type-caption text-[var(--ink-dim)]/60">{t('perCourse')}</p>
           </div>
 
           <div className="grid grid-cols-[minmax(0,7fr)_minmax(0,3fr)] gap-3 w-full">
@@ -207,12 +207,12 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
                 t('guestCheckStatus')
               ) : cta.label === 'enrolled' ? (
                 <span className="flex items-center justify-center gap-1">
-                  <span className="text-emerald-500 font-bold text-xs">✔</span>{' '}
+                  <span className="text-emerald-500 font-medium type-caption">✔</span>{' '}
                   {t('courseEnrolled')}
                 </span>
               ) : cta.label === 'awaitingPayment' ? (
                 <span className="flex items-center justify-center gap-1">
-                  <span className="text-amber-500 font-bold text-xs">✔</span>{' '}
+                  <span className="text-amber-500 font-medium type-caption">✔</span>{' '}
                   {t('courseAwaitingPayment')}
                 </span>
               ) : cta.label === 'accessSuspended' ? (

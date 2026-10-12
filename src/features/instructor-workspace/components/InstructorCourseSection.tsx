@@ -152,7 +152,7 @@ export const InstructorCourseSection: React.FC<InstructorCourseSectionProps> = (
             <button
               type="button"
               onClick={() => void reload()}
-              className="inline-flex items-center gap-2 px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider border border-slate-200 dark:border-slate-700 rounded-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              className="inline-flex items-center gap-2 px-3 py-1.5 type-button uppercase border border-slate-200 dark:border-slate-700 rounded-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               {t('retry')}
@@ -199,17 +199,15 @@ export const InstructorCourseSection: React.FC<InstructorCourseSectionProps> = (
                   : 'border-slate-200/70 dark:border-slate-800/70 bg-[var(--card-bg)] hover:border-slate-300 dark:hover:border-slate-700'
               }`}
             >
-              <h5 className="font-serif text-sm text-[var(--ink)] font-bold leading-snug">
-                {assignment.title}
-              </h5>
+              <h5 className="type-compact text-[var(--ink)] font-medium">{assignment.title}</h5>
               {scheduleSummary ? (
-                <p className="text-[10px] font-mono text-[var(--ink-dim)] flex items-center gap-1.5">
+                <p className="type-caption text-[var(--ink-dim)] flex items-center gap-1.5">
                   <Calendar className="w-3.5 h-3.5 text-accent shrink-0" />
                   {scheduleSummary}
                 </p>
               ) : null}
               {assignedDaysSummary ? (
-                <p className="text-[10px] font-mono text-[var(--ink-dim)]">
+                <p className="type-caption text-[var(--ink-dim)]">
                   {t('instructorCourseAssignedDays')}: {assignedDaysSummary}
                 </p>
               ) : null}
@@ -235,11 +233,11 @@ export const InstructorCourseSection: React.FC<InstructorCourseSectionProps> = (
       {selectedAssignment ? (
         <div className="border border-slate-200/70 dark:border-slate-800/70 bg-[var(--card-bg)] rounded-xs p-4 space-y-4">
           <div className="flex items-center justify-between gap-3 border-b border-slate-200/80 dark:border-slate-800/80 pb-3">
-            <h5 className="text-sm font-serif text-[var(--ink)] font-bold flex items-center gap-2">
+            <h5 className="type-compact text-[var(--ink)] flex items-center gap-2 font-medium">
               <Users className="w-4 h-4 text-accent" />
               {t('instructorCourseDaysTitle')}
             </h5>
-            <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+            <span className="type-caption uppercase text-[var(--ink-dim)]">
               {selectedAssignment.title}
             </span>
           </div>
@@ -307,16 +305,16 @@ const CourseDayButton: React.FC<{
   >
     <div className="flex items-start justify-between gap-3">
       <div>
-        <p className="text-xs font-serif font-bold text-[var(--ink)]">
+        <p className="type-caption font-medium text-[var(--ink)]">
           {t('instructorCourseDay')} {courseDay.dayOrder}
         </p>
-        <p className="text-[10px] font-mono text-[var(--ink-dim)]">{courseDay.title}</p>
+        <p className="type-caption text-[var(--ink-dim)]">{courseDay.title}</p>
       </div>
-      <span className="text-[8px] font-mono uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+      <span className="type-caption uppercase text-emerald-700 dark:text-emerald-300">
         {t('instructorCourseDayAssigned')}
       </span>
     </div>
-    <p className="text-[10px] font-mono text-[var(--ink-dim)] flex flex-wrap gap-x-3 gap-y-1">
+    <p className="type-caption text-[var(--ink-dim)] flex flex-wrap gap-x-3 gap-y-1">
       <span>{formatInstructorCourseDayDate(courseDay)}</span>
       <span>{formatInstructorCourseDayTimeRange(courseDay)}</span>
       <span>
@@ -331,7 +329,7 @@ const AttendanceSummary: React.FC<{
   courseDay: InstructorCourseDayViewModel;
   t: (key: TranslationKey) => string;
 }> = ({ courseDay, t }) => (
-  <p className="text-[9px] font-mono text-[var(--ink-dim)] flex flex-wrap gap-x-3 gap-y-1">
+  <p className="type-caption text-[var(--ink-dim)] flex flex-wrap gap-x-3 gap-y-1">
     <span>
       {t('instructorAttendancePresent')}: {courseDay.attendanceSummary.present}
     </span>
@@ -365,17 +363,17 @@ const CourseDayDetail: React.FC<{
   <section className="border-t border-slate-200/80 dark:border-slate-800/80 pt-4 space-y-3">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h6 className="text-sm font-serif font-bold text-[var(--ink)]">
+        <h6 className="type-compact text-[var(--ink)] font-medium">
           {t('instructorCourseDay')} {courseDay.dayOrder} ·{' '}
           {formatInstructorCourseDayDate(courseDay)}
         </h6>
-        <p className="text-[10px] font-mono text-[var(--ink-dim)] flex items-center gap-1.5 mt-1">
+        <p className="type-caption text-[var(--ink-dim)] flex items-center gap-1.5 mt-1">
           <Clock3 className="w-3.5 h-3.5" />
           {formatInstructorCourseDayTimeRange(courseDay)} · {courseDay.timeZone}
         </p>
       </div>
       <div className="text-right">
-        <p className="text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+        <p className="type-caption uppercase text-[var(--ink-dim)]">
           {courseDay.canRecordAttendance
             ? t('instructorAttendanceWindowOpen')
             : t('instructorAttendanceEditingUnavailable')}
@@ -458,14 +456,14 @@ const AttendanceRow: React.FC<{
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-mono text-[var(--ink)] font-medium truncate">
+          <p className="type-caption text-[var(--ink)] font-medium truncate">
             {participant.displayName}
           </p>
-          <p className="text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+          <p className="type-caption uppercase text-[var(--ink-dim)]">
             {lifecycleStatusLabel(participant.lifecycleStatus, t)}
           </p>
         </div>
-        <span className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-[var(--ink)]">
+        <span className="inline-flex items-center gap-1.5 type-caption uppercase text-[var(--ink)]">
           <CheckCircle2 className="w-3.5 h-3.5 text-accent" />
           {attendanceStateLabel(participant.factualState, t)}
         </span>
@@ -491,7 +489,7 @@ const AttendanceRow: React.FC<{
           icon={<X className="w-3.5 h-3.5" />}
         />
         {pending ? (
-          <span className="inline-flex items-center gap-1.5 text-[10px] font-mono text-[var(--ink-dim)]">
+          <span className="inline-flex items-center gap-1.5 type-caption text-[var(--ink-dim)]">
             {t(
               mutationState?.status === 'refreshing'
                 ? 'instructorAttendanceRefreshing'
@@ -502,7 +500,7 @@ const AttendanceRow: React.FC<{
       </div>
 
       {!participant.canRecordAttendance ? (
-        <p className="text-[10px] font-mono text-[var(--ink-dim)]">
+        <p className="type-caption text-[var(--ink-dim)]">
           {t('instructorAttendanceUnavailableReason')}
         </p>
       ) : null}
@@ -510,7 +508,7 @@ const AttendanceRow: React.FC<{
       {mutationState?.status === 'error' && mutationState.error ? (
         <div
           role="alert"
-          className="flex flex-wrap items-center gap-2 border-l-2 border-rose-400 pl-2 text-[10px] font-mono text-rose-700 dark:text-rose-300"
+          className="flex flex-wrap items-center gap-2 border-l-2 border-rose-400 pl-2 type-caption text-rose-700 dark:text-rose-300"
         >
           <AlertCircle className="w-3.5 h-3.5 shrink-0" />
           <span>{mutationState.error.message}</span>
@@ -562,7 +560,7 @@ const AttendanceActionButton: React.FC<{
     disabled={disabled}
     aria-label={`${participantName}: ${label}`}
     aria-pressed={active}
-    className={`h-8 px-2.5 text-[10px] font-mono font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+    className={`h-8 px-2.5 type-button transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
       active
         ? 'border border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200'
         : 'border border-slate-300 text-[var(--ink)] hover:border-slate-400 dark:border-slate-700 dark:hover:border-slate-600'
@@ -591,7 +589,7 @@ const SectionHeader: React.FC<{
   t: (key: TranslationKey) => string;
   count?: number;
 }> = ({ t, count }) => (
-  <h4 className="text-lg font-serif font-light text-[var(--ink)] tracking-tight border-b border-slate-200/80 dark:border-slate-800/80 pb-3 flex items-center gap-2">
+  <h4 className="type-card-title text-[var(--ink)] border-b border-slate-200/80 dark:border-slate-800/80 pb-3 flex items-center gap-2">
     <BookOpen className="w-5 h-5 text-accent" />
     <span>
       {t('instructorAssignedCoursesTitle')}
@@ -607,9 +605,7 @@ const StatePanel: React.FC<{
 }> = ({ icon, message, action }) => (
   <div className="py-10 border border-dashed border-slate-200 dark:border-slate-800 text-center bg-[var(--card-bg)] rounded-xs space-y-3">
     <div className="flex justify-center">{icon}</div>
-    <p className="text-xs font-mono uppercase tracking-wider text-[var(--ink-dim)] px-4">
-      {message}
-    </p>
+    <p className="type-caption uppercase text-[var(--ink-dim)] px-4">{message}</p>
     {action ? <div>{action}</div> : null}
   </div>
 );

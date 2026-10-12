@@ -223,39 +223,39 @@ export function AdminClientDirectory({ adminAccountId }: AdminClientDirectoryPro
             setSearch(event.target.value);
           }}
           placeholder={text.searchHint}
-          className="w-full border border-[var(--border)] bg-transparent py-2 pl-10 pr-4 font-mono text-xs text-[var(--ink)] placeholder-[var(--ink-dim)] focus:border-[var(--ink)] focus:outline-none"
+          className="w-full border border-[var(--border)] bg-transparent py-2 pl-10 pr-4 type-body text-[var(--ink)] placeholder-[var(--ink-dim)] focus:border-[var(--ink)] focus:outline-none"
         />
       </div>
       {error ? (
-        <p role="alert" className="text-xs text-red-600">
+        <p role="alert" className="type-caption text-red-600">
           {error}
         </p>
       ) : null}
-      {notice ? <p className="text-xs text-[var(--ink-dim)]">{notice}</p> : null}
+      {notice ? <p className="type-caption text-[var(--ink-dim)]">{notice}</p> : null}
       <div className={`grid gap-6 ${selectedAccountId ? 'lg:grid-cols-12' : ''}`}>
         <section className={selectedAccountId ? 'min-w-0 lg:col-span-7' : 'min-w-0'}>
           {list.error ? (
             <div className="space-y-2 border border-[var(--border)] p-4">
-              <p role="alert" className="text-xs text-red-600">
+              <p role="alert" className="type-caption text-red-600">
                 {list.error === 'permission-denied' ? text.permissionDenied : text.readFailed}
               </p>
               <button
                 type="button"
                 onClick={() => void reads.refresh()}
-                className="border border-[var(--border)] px-3 py-2 text-xs font-mono uppercase tracking-wider"
+                className="border border-[var(--border)] px-3 py-2 type-button uppercase"
               >
                 {text.retry}
               </button>
             </div>
           ) : null}
           {list.loading ? (
-            <p className="flex items-center gap-2 text-xs text-[var(--ink-dim)]">
+            <p className="flex items-center gap-2 type-caption text-[var(--ink-dim)]">
               <Loader2 className="h-4 w-4 animate-spin" />
               {text.loading}
             </p>
           ) : null}
           {!list.loading && !list.error && list.items.length === 0 ? (
-            <p className="border border-[var(--border)] py-8 text-center font-mono text-xs text-[var(--ink-dim)]">
+            <p className="border border-[var(--border)] py-8 text-center type-caption text-[var(--ink-dim)]">
               {appliedSearch ? text.emptySearch : text.emptyDirectory}
             </p>
           ) : null}
@@ -263,7 +263,7 @@ export function AdminClientDirectory({ adminAccountId }: AdminClientDirectoryPro
             <div className="overflow-x-auto border border-[var(--border)]">
               <table className="w-full border-collapse text-left">
                 <thead>
-                  <tr className="border-b border-[var(--border)] text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+                  <tr className="border-b border-[var(--border)] type-caption uppercase text-[var(--ink-dim)]">
                     <th className="px-4 py-3">{text.client}</th>
                     <th className="px-4 py-3">{text.contact}</th>
                     <th className="px-4 py-3">{text.lifecycle}</th>
@@ -282,34 +282,32 @@ export function AdminClientDirectory({ adminAccountId }: AdminClientDirectoryPro
                       }
                     >
                       <td className="px-4 py-3">
-                        <span className="block text-xs font-bold">
+                        <span className="block type-caption font-medium">
                           {item.displayName || text.unnamed}
                           {item.accountId === adminAccountId ? (
-                            <span className="ml-1 bg-black/10 px-1.5 py-0.5 text-[8px] font-mono uppercase text-[var(--ink-dim)] dark:bg-white/10">
+                            <span className="ml-1 bg-black/10 px-1.5 py-0.5 type-caption uppercase text-[var(--ink-dim)] dark:bg-white/10">
                               {text.youBadge}
                             </span>
                           ) : null}
                         </span>
                         {item.role.systemRole === 'owner' || item.role.role === 'admin' ? (
-                          <span className="mt-1 inline-block border border-[var(--border)] px-1.5 py-0.5 text-[8px] font-mono uppercase">
+                          <span className="mt-1 inline-block border border-[var(--border)] px-1.5 py-0.5 type-caption uppercase">
                             {item.role.systemRole === 'owner' ? text.roleOwner : text.roleAdmin}
                           </span>
                         ) : null}
                         {item.instructorLink.isInstructor ? (
-                          <span className="ml-1 mt-1 inline-block border border-accent-soft px-1.5 py-0.5 text-[8px] font-mono uppercase text-accent">
+                          <span className="ml-1 mt-1 inline-block border border-accent-soft px-1.5 py-0.5 type-caption uppercase text-accent">
                             {text.coachBadge}
                           </span>
                         ) : null}
                       </td>
                       <td className="px-4 py-3">
-                        <span className="block text-xs">{item.email ?? '—'}</span>
+                        <span className="block type-caption">{item.email ?? '—'}</span>
                       </td>
-                      <td className="px-4 py-3 text-xs">
+                      <td className="px-4 py-3 type-caption">
                         {adminClientLifecycleLabel(item.lifecycle, text)}
                       </td>
-                      <td className="px-4 py-3 font-mono text-xs">
-                        {item.managedParticipantCount}
-                      </td>
+                      <td className="px-4 py-3 type-caption">{item.managedParticipantCount}</td>
                       <td className="px-4 py-3 text-right">
                         <button
                           type="button"
@@ -318,7 +316,7 @@ export function AdminClientDirectory({ adminAccountId }: AdminClientDirectoryPro
                             setSelectedParticipantId(undefined);
                             setContactEditing(false);
                           }}
-                          className="border border-[var(--border)] px-2 py-1 text-[10px] font-mono uppercase tracking-wider"
+                          className="border border-[var(--border)] px-2 py-1 type-button uppercase"
                         >
                           {text.openDetail}
                         </button>
@@ -334,7 +332,7 @@ export function AdminClientDirectory({ adminAccountId }: AdminClientDirectoryPro
               type="button"
               disabled={list.loadingMore}
               onClick={() => reads.loadMore()}
-              className="mt-3 border border-[var(--border)] px-3 py-1.5 text-xs font-mono font-bold uppercase tracking-wider disabled:opacity-50"
+              className="mt-3 border border-[var(--border)] px-3 py-1.5 type-button uppercase disabled:opacity-50"
             >
               {list.loadingMore ? text.loading : text.loadMore}
             </button>
@@ -344,7 +342,7 @@ export function AdminClientDirectory({ adminAccountId }: AdminClientDirectoryPro
           <aside className="relative min-w-0 border border-[var(--border)] p-6 lg:col-span-5">
             {reads.detailLoading || participantRead.loading ? (
               <div className="flex items-start justify-between gap-3">
-                <p className="flex items-center gap-2 text-xs text-[var(--ink-dim)]">
+                <p className="flex items-center gap-2 type-caption text-[var(--ink-dim)]">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   {text.loading}
                 </p>
@@ -361,7 +359,7 @@ export function AdminClientDirectory({ adminAccountId }: AdminClientDirectoryPro
             {reads.detailError || participantRead.error ? (
               <div className="space-y-2">
                 <div className="flex items-start justify-between gap-3">
-                  <p role="alert" className="text-xs text-red-600">
+                  <p role="alert" className="type-caption text-red-600">
                     {reads.detailError === 'permission-denied' ||
                     participantRead.error === 'permission-denied'
                       ? text.permissionDenied
@@ -379,7 +377,7 @@ export function AdminClientDirectory({ adminAccountId }: AdminClientDirectoryPro
                 <button
                   type="button"
                   onClick={() => void reads.refresh()}
-                  className="border border-[var(--border)] px-3 py-2 text-xs font-mono uppercase tracking-wider"
+                  className="border border-[var(--border)] px-3 py-2 type-button uppercase"
                 >
                   {text.retry}
                 </button>
@@ -581,7 +579,7 @@ export function AdminClientDirectory({ adminAccountId }: AdminClientDirectoryPro
             !participantRead.error &&
             !reads.accountDetail &&
             !participantRead.item ? (
-              <p className="text-xs text-[var(--ink-dim)]">
+              <p className="type-caption text-[var(--ink-dim)]">
                 {selectedParticipantId ? text.missingParticipant : text.missingAccount}
               </p>
             ) : null}

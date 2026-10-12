@@ -55,9 +55,7 @@ export const CourseGallery: React.FC<CourseGalleryProps> = ({ photos, videoUrl, 
       <section className="space-y-4">
         <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2">
           <ImageIcon className="w-4 h-4 text-accent" />
-          <h3 className="text-xs font-mono uppercase tracking-widest text-[var(--ink)] font-bold">
-            {t('courseGallery')}
-          </h3>
+          <h3 className="type-card-title uppercase text-[var(--ink)]">{t('courseGallery')}</h3>
         </div>
         <div className="grid grid-cols-3 gap-2 sm:gap-3">
           {photos.map((p, idx) => (
@@ -81,7 +79,7 @@ export const CourseGallery: React.FC<CourseGalleryProps> = ({ photos, videoUrl, 
         <section className="space-y-4">
           <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2">
             <Film className="w-4 h-4 text-rose-500" />
-            <h3 className="text-xs font-mono uppercase tracking-widest text-[var(--ink)] font-bold">
+            <h3 className="type-card-title uppercase text-[var(--ink)]">
               {t('courseVideoTeaser')}
             </h3>
           </div>
@@ -99,10 +97,10 @@ export const CourseGallery: React.FC<CourseGalleryProps> = ({ photos, videoUrl, 
 
             {!isPlaying && (
               <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center p-4 transition-opacity duration-300 pointer-events-none">
-                <span className="text-[10px] font-mono tracking-widest uppercase text-white/70 mb-2">
+                <span className="type-caption uppercase text-white/70 mb-2">
                   {t('courseFeelAdrenaline')}
                 </span>
-                <span className="text-xs font-serif italic text-white/50 text-center max-w-xs mb-4">
+                <span className="type-caption italic text-white/50 text-center max-w-xs mb-4">
                   {'"'}
                   {courseTitle}
                   {'"'}

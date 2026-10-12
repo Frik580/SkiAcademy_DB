@@ -53,7 +53,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
       <button
         type="button"
         onClick={() => onViewReviews(instructor)}
-        className="inline-flex items-center gap-1 text-sm text-amber-500 hover:text-amber-400 hover:underline transition select-none font-sans bg-transparent border-0 p-0 cursor-pointer"
+        className="inline-flex items-center gap-1 type-button text-amber-500 hover:text-amber-400 hover:underline transition select-none bg-transparent border-0 p-0 cursor-pointer"
         title={t('readReviews')}
       >
         {hasCanonicalRating && (
@@ -62,7 +62,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
         <span>{ratingLabel}</span>
       </button>
     ) : (
-      <span className="inline-flex items-center gap-1 text-sm text-amber-500 font-sans">
+      <span className="inline-flex items-center gap-1 type-compact text-amber-500">
         {hasCanonicalRating && (
           <Star className="w-3 h-3 fill-amber-400 stroke-amber-500 shrink-0" />
         )}
@@ -72,7 +72,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
 
     const specialtyChip = (
       <span
-        className={`inline-flex items-center px-3 py-1 rounded-md text-sm font-bold normal-case ${
+        className={`inline-flex items-center px-3 py-1 rounded-md type-compact font-medium normal-case ${
           isAvailable
             ? 'bg-[var(--accent-muted)] text-[var(--accent)]'
             : 'bg-[var(--profile-bg)] text-[var(--ink-dim)]'
@@ -83,7 +83,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
     );
 
     const languagesRow = (
-      <div className="inline-flex flex-wrap items-center justify-center md:justify-start gap-1 text-sm text-[var(--ink-dim)] font-sans">
+      <div className="inline-flex flex-wrap items-center justify-center md:justify-start gap-1 type-compact text-[var(--ink-dim)]">
         <Globe className="w-3 h-3 shrink-0" />
         <span>{languagesText}</span>
       </div>
@@ -91,12 +91,12 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
 
     const priceBlock = (
       <div
-        className={`font-serif font-light text-4xl text-center md:text-left ${
+        className={`type-metric-lg text-center md:text-left ${
           isAvailable ? 'text-[var(--ink)]' : 'text-[var(--ink-dim)]'
         }`}
       >
         {hourlyRateKzt !== undefined ? formatPrice(hourlyRateKzt) : '—'}{' '}
-        <span className="text-xs tracking-wider text-[var(--ink-dim)] font-sans">/ {t('hr')}</span>
+        <span className="type-caption text-[var(--ink-dim)]">/ {t('hr')}</span>
       </div>
     );
 
@@ -144,7 +144,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
             className="w-full h-full object-cover transition-all duration-300 rounded-full"
           />
           {!isAvailable && (
-            <span className="absolute bottom-0 right-0 translate-x-1 translate-y-1 rounded-md border-2 border-[var(--bg)] bg-[var(--ink)] px-2 py-0.5 text-xs tracking-wider text-[var(--bg)] font-sans font-bold normal-case">
+            <span className="absolute bottom-0 right-0 translate-x-1 translate-y-1 rounded-md border-2 border-[var(--bg)] bg-[var(--ink)] px-2 py-0.5 type-caption text-[var(--bg)] font-medium normal-case">
               {t('instructorOffline')}
             </span>
           )}
@@ -154,10 +154,10 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
           <div className="w-full text-center md:text-left">
             <div className="flex flex-col md:flex-row md:items-baseline md:justify-between gap-2 mb-3 md:mb-4">
               <h3
-                className={`font-serif font-light tracking-tight text-3xl transition ${
+                className={`type-card-title transition ${
                   isAvailable
-                    ? 'text-[var(--ink)] group-hover:text-[var(--accent)]'
-                    : 'text-[var(--ink-dim)]'
+                    ? 'text-[var(--ink)] group-hover:text-[var(--accent)] type-card-title'
+                    : 'text-[var(--ink-dim)] type-card-title'
                 }`}
               >
                 {instructor.name}
@@ -165,7 +165,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
               <div className="flex justify-center md:justify-end">{ratingControl}</div>
             </div>
 
-            <p className="text-sm text-[var(--ink-dim)] leading-relaxed max-w-2xl mx-auto md:mx-0 mb-5 md:mb-6">
+            <p className="type-compact text-[var(--ink-dim)] max-w-2xl mx-auto md:mx-0 mb-5 md:mb-6">
               {bio}
             </p>
           </div>

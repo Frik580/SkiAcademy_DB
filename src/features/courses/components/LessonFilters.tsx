@@ -49,7 +49,9 @@ export const LessonFilters: React.FC<LessonFiltersProps> = ({
     <div className="ui-card p-5 lg:p-6 space-y-5 bg-transparent shadow-none bg-[var(--profile-bg)]">
       <div className="flex items-center gap-2 pb-1">
         <SlidersHorizontal className="w-3.5 h-3.5 text-[var(--ink)]" />
-        <h3 className="ui-section-eyebrow text-[var(--ink)] font-bold">{t('filterInstructors')}</h3>
+        <h3 className="ui-section-eyebrow text-[var(--ink)] type-card-title">
+          {t('filterInstructors')}
+        </h3>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
@@ -61,7 +63,7 @@ export const LessonFilters: React.FC<LessonFiltersProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t('searchPlaceholder')}
-              className="ui-field-plain pl-9 focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)]"
+              className="ui-field-plain pl-9 focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)] type-body"
             />
             <Search className="w-3.5 h-3.5 text-[var(--ink-dim)] absolute left-3 top-1/2 -translate-y-1/2" />
           </div>
@@ -88,7 +90,7 @@ export const LessonFilters: React.FC<LessonFiltersProps> = ({
           <select
             value={selectedLanguage}
             onChange={(e) => setSelectedLanguage(e.target.value)}
-            className="ui-select focus:outline-none focus:border-[var(--ink)]"
+            className="ui-select focus:outline-none focus:border-[var(--ink)] type-body"
           >
             {languageOptions.map((option) => (
               <option
@@ -107,7 +109,7 @@ export const LessonFilters: React.FC<LessonFiltersProps> = ({
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as any)}
-            className="ui-select focus:outline-none focus:border-[var(--ink)]"
+            className="ui-select focus:outline-none focus:border-[var(--ink)] type-body"
           >
             <option value="rating" className="bg-[var(--bg)] text-[var(--ink)]">
               ★ {t('ratingHighToLow')}

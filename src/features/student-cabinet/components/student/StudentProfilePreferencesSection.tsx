@@ -47,7 +47,7 @@ export const StudentProfilePreferencesSection: React.FC<StudentProfilePreference
       <button
         type="button"
         onClick={onSignOut}
-        className="inline-flex items-center gap-2 text-sm text-rose-500 hover:text-rose-600 transition"
+        className="inline-flex items-center gap-2 type-button text-rose-500 hover:text-rose-600 transition"
       >
         <LogOut className="w-4 h-4" />
         {t('signOutAccount')}

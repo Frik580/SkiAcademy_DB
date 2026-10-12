@@ -21,7 +21,7 @@ export const AchievementGrid: React.FC<{
       }`}
     >
       {SUMMARY_STATS.map(({ key, icon: Icon }) => (
-        <li key={key} className="inline-flex items-center gap-2 text-xs sm:text-sm">
+        <li key={key} className="inline-flex items-center gap-2 type-caption">
           <Icon
             className={`w-3.5 h-3.5 shrink-0 ${isDark ? 'text-[#7ec8ff]' : 'text-[var(--accent)]'}`}
             strokeWidth={1.75}

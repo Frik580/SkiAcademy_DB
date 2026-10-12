@@ -129,9 +129,7 @@ const AdminIssueCenter = lazy(() =>
 const SectionLoadingFallback: React.FC<{ label: string }> = ({ label }) => (
   <div className="space-y-3 p-4">
     <div className="flex items-center justify-between pb-2">
-      <span className="font-mono text-xs uppercase tracking-wider text-[var(--ink-dim)]">
-        {label}
-      </span>
+      <span className="type-caption uppercase text-[var(--ink-dim)]">{label}</span>
     </div>
     <TableSkeleton rows={5} cols={5} />
   </div>
@@ -480,18 +478,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <div className="ui-modal-overlay fixed inset-0 z-55 flex items-center justify-center p-4 animate-fade-in">
             <BodyScrollLock />
             <div className="bg-[var(--bg)] border border-[var(--border)] rounded-none w-full max-w-sm p-6 shadow-2xl relative space-y-4 animate-scale-up">
-              <h4 className="font-serif text-sm font-light text-[var(--ink)] flex items-center gap-2">
+              <h4 className="type-card-title text-[var(--ink)] flex items-center gap-2">
                 <Shield className="w-4.5 h-4.5 text-[var(--ink-dim)]" />
                 {t('confirmAction')}
               </h4>
-              <p className="text-xs text-[var(--ink-dim)] leading-relaxed">
-                {confirmModal.message}
-              </p>
+              <p className="type-caption text-[var(--ink-dim)]">{confirmModal.message}</p>
               <div className="flex gap-2.5 pt-2">
                 <button
                   type="button"
                   onClick={() => setConfirmModal(null)}
-                  className="flex-1 py-2 px-4 border border-[var(--border)] bg-black/5 hover:border-[var(--ink)] hover:bg-black/10 text-[var(--ink-dim)] hover:text-[var(--ink)] rounded-none text-xs font-mono uppercase tracking-widest transition cursor-pointer text-center"
+                  className="flex-1 py-2 px-4 border border-[var(--border)] bg-black/5 hover:border-[var(--ink)] hover:bg-black/10 text-[var(--ink-dim)] hover:text-[var(--ink)] rounded-none type-button uppercase transition cursor-pointer text-center"
                 >
                   {t('cancel')}
                 </button>
@@ -502,7 +498,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     setConfirmModal(null);
                     await action();
                   }}
-                  className="flex-1 py-2 px-4 border border-[var(--border)] bg-[var(--ink)] hover:bg-transparent text-[var(--bg)] hover:text-[var(--ink)] rounded-none text-xs font-mono uppercase tracking-widest transition cursor-pointer text-center"
+                  className="flex-1 py-2 px-4 border border-[var(--border)] bg-[var(--ink)] hover:bg-transparent text-[var(--bg)] hover:text-[var(--ink)] rounded-none type-button uppercase transition cursor-pointer text-center"
                 >
                   {t('confirm')}
                 </button>

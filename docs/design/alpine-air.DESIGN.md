@@ -34,11 +34,20 @@ Editorial alpine aesthetic for a premium ski and snowboard school. Stitch screen
 
 ## Typography
 
-- **Headlines / display**: Cormorant Garamond (serif) — elegant, editorial
-- **Body / UI**: DM Sans — clean, readable
-- **Monospace / labels**: Space Mono — sparingly for data labels
+- **Product UI**: DM Sans with the existing system sans fallback, including headings,
+  forms, navigation, labels, and metrics. No additional external fonts.
+- **Editorial display**: Cormorant Garamond for Hero, public Journey display,
+  oversized resort temperature, and the instructor recommendation quotation.
+- **Technical / diagram text**: Space Mono for code, identifiers, and dense diagram annotations.
 
-Hierarchy: generous whitespace, clear size steps, uppercase eyebrow labels for section intros.
+Semantic `--text-*` tokens and their weight, line-height, and letter-spacing metadata
+live in `src/index.css` (`@theme`). Use the corresponding `type-*` utilities in JSX
+or `@apply` in feature CSS with an `@reference` to `index.css`. Do not combine a role
+with independent size/leading/tracking utilities. Use `font-medium` for emphasized
+compact text/captions and `type-caption-sm` for small status/counter labels. Inputs,
+selects, and textareas use `type-body` (16px) at every breakpoint.
+
+See [typography audit and scale](typography-system.md) for roles, exceptions, and validation.
 
 ## Shape & elevation
 

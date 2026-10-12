@@ -34,7 +34,7 @@ export const StudentLevelControls: React.FC<StudentLevelControlsProps> = ({
       onChange={(e) => onChange(Number(e.target.value))}
       disabled={disabled}
       aria-label={selectAriaLabel}
-      className="text-[9px] font-mono bg-white dark:bg-slate-900 text-[var(--ink)] border border-slate-200 dark:border-slate-700 rounded-xs px-1.5 py-0.5 focus:outline-none focus:ring-1 ring-accent cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+      className="type-body bg-white dark:bg-slate-900 text-[var(--ink)] border border-slate-200 dark:border-slate-700 rounded-xs px-1.5 py-0.5 focus:outline-none focus:ring-1 ring-accent cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
     >
       <option value={1}>{t(selectLabelKey)} 1</option>
       <option value={2}>{t(selectLabelKey)} 2</option>
@@ -62,14 +62,14 @@ export const StudentLevelControls: React.FC<StudentLevelControlsProps> = ({
             e.currentTarget.style.display = 'none';
           }}
         />
-        <span className="text-[9px] font-mono font-bold text-[var(--ink)]">
+        <span className="type-caption font-medium text-[var(--ink)]">
           {t(badgeLabelKey)} {studentLevel}
         </span>
       </div>
 
       {showSetLevelLabel ? (
         <div className="flex items-center gap-1">
-          <span className="text-[8px] font-mono text-[var(--ink-dim)] uppercase tracking-wider hidden sm:inline">
+          <span className="type-caption text-[var(--ink-dim)] uppercase hidden sm:inline">
             {t('instructorSetLevel')}
           </span>
           {select}

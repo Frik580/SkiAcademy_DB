@@ -24,7 +24,7 @@ export function LanguageSwitch({ language, onChange, label }: LanguageSwitchInpu
           type="button"
           aria-pressed={language === option}
           onClick={() => onChange(option)}
-          className={`relative px-2.5 py-1.5 text-xs font-medium rounded-full transition-colors duration-200 cursor-pointer focus-visible:outline-2 focus-visible:outline-[var(--accent)] focus-visible:outline-offset-2 ${
+          className={`relative px-2.5 py-1.5 type-button rounded-full transition-colors duration-200 cursor-pointer focus-visible:outline-2 focus-visible:outline-[var(--accent)] focus-visible:outline-offset-2 ${
             language === option
               ? 'text-[var(--ink)]'
               : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'

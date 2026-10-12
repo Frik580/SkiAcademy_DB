@@ -620,11 +620,11 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
         </button>
 
         <div>
-          <h4 className="font-serif text-sm font-light text-[var(--ink)] flex items-center gap-2">
+          <h4 className="type-card-title text-[var(--ink)] flex items-center gap-2">
             <Clock className="w-4.5 h-4.5 text-[var(--ink-dim)]" />
             {activeSlot.booking ? t('manageScheduleBlock') : t('scheduleAction')}
           </h4>
-          <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] mt-1.5">
+          <p className="type-caption uppercase text-[var(--ink-dim)] mt-1.5">
             {activeSlot.instructor.name} • {selectedDate} @ {activeSlot.time}
           </p>
         </div>
@@ -639,9 +639,9 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
             />
             {insufficientFundsPrompt && (
               <div className="space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
-                <div className="flex items-start gap-2 text-xs text-amber-800 dark:text-amber-200">
+                <div className="flex items-start gap-2 type-caption text-amber-800 dark:text-amber-200">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
-                  <div className="space-y-1 font-mono">
+                  <div className="space-y-1 font-sans">
                     <p className="font-bold">{t('reassignInsufficientFundsTitle')}</p>
                     <p>
                       {t('reassignInsufficientFundsDescPrefix')}{' '}
@@ -664,7 +664,7 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
                     type="button"
                     disabled={isSlotActionSubmitting}
                     onClick={() => void handleApproveNegativeBalance()}
-                    className="flex-1 rounded-md bg-amber-600 px-3 py-2 text-xs font-mono font-bold text-white transition hover:bg-amber-700 disabled:opacity-50 cursor-pointer"
+                    className="flex-1 rounded-md bg-amber-600 px-3 py-2 type-button text-white transition hover:bg-amber-700 disabled:opacity-50 cursor-pointer"
                   >
                     {t('reassignAllowNegativeBalance')}
                   </button>
@@ -672,7 +672,7 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
                     type="button"
                     disabled={isSlotActionSubmitting}
                     onClick={() => setInsufficientFundsPrompt(null)}
-                    className="flex-1 rounded-md border border-[var(--border)] px-3 py-2 text-xs font-mono font-bold text-[var(--ink)] transition hover:bg-[var(--profile-bg)] disabled:opacity-50 cursor-pointer"
+                    className="flex-1 rounded-md border border-[var(--border)] px-3 py-2 type-button text-[var(--ink)] transition hover:bg-[var(--profile-bg)] disabled:opacity-50 cursor-pointer"
                   >
                     {t('reassignCancelMove')}
                   </button>
@@ -844,18 +844,16 @@ export const ScheduleSlotActionModal = forwardRef<
             <div className="ui-modal-overlay fixed inset-0 z-55 flex items-center justify-center p-4 animate-fade-in">
               <BodyScrollLock />
               <div className="bg-[var(--bg)] border border-[var(--border)] rounded-none w-full max-w-sm p-6 shadow-2xl relative space-y-4 animate-scale-up">
-                <h4 className="font-serif text-sm font-light text-[var(--ink)] flex items-center gap-2">
+                <h4 className="type-card-title text-[var(--ink)] flex items-center gap-2">
                   <Shield className="w-4.5 h-4.5 text-[var(--ink-dim)]" />
                   {t('confirmAction')}
                 </h4>
-                <p className="text-xs text-[var(--ink-dim)] leading-relaxed">
-                  {confirmModal.message}
-                </p>
+                <p className="type-caption text-[var(--ink-dim)]">{confirmModal.message}</p>
                 <div className="flex gap-2.5 pt-2">
                   <button
                     type="button"
                     onClick={() => setConfirmModal(null)}
-                    className="flex-1 py-2 px-4 border border-[var(--border)] bg-black/5 hover:border-[var(--ink)] hover:bg-black/10 text-[var(--ink-dim)] hover:text-[var(--ink)] rounded-none text-xs font-mono uppercase tracking-widest transition cursor-pointer text-center"
+                    className="flex-1 py-2 px-4 border border-[var(--border)] bg-black/5 hover:border-[var(--ink)] hover:bg-black/10 text-[var(--ink-dim)] hover:text-[var(--ink)] rounded-none type-button uppercase transition cursor-pointer text-center"
                   >
                     {t('cancel')}
                   </button>
@@ -866,7 +864,7 @@ export const ScheduleSlotActionModal = forwardRef<
                       setConfirmModal(null);
                       await action();
                     }}
-                    className="flex-1 py-2 px-4 border border-[var(--border)] bg-[var(--ink)] hover:bg-transparent text-[var(--bg)] hover:text-[var(--ink)] rounded-none text-xs font-mono uppercase tracking-widest transition cursor-pointer text-center"
+                    className="flex-1 py-2 px-4 border border-[var(--border)] bg-[var(--ink)] hover:bg-transparent text-[var(--bg)] hover:text-[var(--ink)] rounded-none type-button uppercase transition cursor-pointer text-center"
                   >
                     {t('confirm')}
                   </button>

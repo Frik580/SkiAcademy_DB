@@ -1,3 +1,4 @@
+@reference '../../../index.css';
 /* Phase 2: scoped to Student Home's opt-in Journey presentation. */
 .sc-journey {
   --journey-muted: #5b6676;
@@ -71,18 +72,14 @@
 }
 
 .sc-journey .journey-heading > p {
+  @apply type-caption;
   color: var(--journey-muted);
-  font: 0.6875rem/1.5 var(--font-mono);
-  letter-spacing: 0.08em;
 }
 
 .sc-journey .journey-heading h2 {
+  @apply type-section-title;
   margin-top: 0.375rem;
   color: var(--ink);
-  font-family: var(--font-serif);
-  font-size: 1.25rem;
-  font-weight: 500;
-  line-height: 1.2;
 }
 
 .sc-journey .journey-summary {
@@ -94,22 +91,21 @@
 }
 
 .sc-journey .journey-summary-xp {
+  @apply type-caption;
   padding: 0.375rem 0.75rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--journey-surface);
   color: var(--ink);
-  font: 0.6875rem/1.5 var(--font-mono);
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
 
 .sc-journey .journey-header > p,
 .sc-journey .journey-header > div:last-child:not(.journey-summary) {
+  @apply type-compact;
   flex-basis: 100%;
   color: var(--journey-muted);
-  font-size: 0.8125rem;
-  line-height: 1.6;
 }
 
 .sc-journey .journey-criteria p span {
@@ -298,15 +294,13 @@
 }
 
 .sc-journey .journey-criteria h3 {
+  @apply type-card-title;
   color: var(--ink);
-  font-size: 0.75rem;
-  font-weight: 600;
 }
 
 .sc-journey .journey-criteria p {
+  @apply type-compact;
   color: var(--journey-muted);
-  font-size: 0.8125rem;
-  line-height: 1.6;
 }
 
 .sc-journey .journey-stage-labels h3 {
@@ -368,7 +362,7 @@
   }
 
   .sc-journey .journey-heading h2 {
-    font-size: 1.75rem;
+    @apply type-section-title;
   }
 
   .sc-journey .journey-rail {

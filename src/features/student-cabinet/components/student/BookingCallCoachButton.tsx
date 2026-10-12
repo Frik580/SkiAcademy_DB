@@ -27,8 +27,8 @@ export const BookingCallCoachButton: React.FC<BookingCallCoachButtonProps> = ({
 
   const baseClass =
     variant === 'outline'
-      ? 'px-3 py-1.5 text-xs font-medium border border-[var(--border-subtle)] rounded-lg text-[var(--ink)] hover:border-[var(--accent)] transition inline-flex items-center gap-1.5'
-      : 'text-sm font-medium text-[var(--ink)] hover:text-[var(--accent)] transition inline-flex items-center gap-1.5';
+      ? 'px-3 py-1.5 type-button border border-[var(--border-subtle)] rounded-lg text-[var(--ink)] hover:border-[var(--accent)] transition inline-flex items-center gap-1.5'
+      : 'type-button text-[var(--ink)] hover:text-[var(--accent)] transition inline-flex items-center gap-1.5';
 
   return (
     <a href={normalizeTelHref(phone)} className={`${baseClass} ${className}`.trim()}>

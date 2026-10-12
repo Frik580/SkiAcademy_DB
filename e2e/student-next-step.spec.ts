@@ -136,7 +136,7 @@ test('Next Step preserves participant pin persistence, development, XP and four 
     ).toBe(true);
     expect(
       await tile.locator('[data-dashboard-title]').evaluate((el) => getComputedStyle(el).fontSize)
-    ).toBe('11px');
+    ).toBe('18px');
     expect(await title.evaluate((el) => getComputedStyle(el).fontFamily)).toContain('DM Sans');
     expect(await title.evaluate((el) => el.scrollHeight <= el.clientHeight)).toBe(true);
     for (const button of await tile.getByRole('button').all()) {

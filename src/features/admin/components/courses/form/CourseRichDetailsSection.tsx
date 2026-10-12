@@ -46,14 +46,14 @@ export const CourseRichDetailsSection: React.FC<CourseRichDetailsSectionProps> =
   };
 
   return (
-    <div className="space-y-4 p-3 border border-[var(--border)] bg-black/5 dark:bg-white/5 animate-fade-in font-mono text-xs">
-      <p className="text-[9px] text-[var(--ink-dim)] uppercase tracking-widest font-bold border-b border-[var(--border)] pb-1.5 mb-2">
+    <div className="space-y-4 p-3 border border-[var(--border)] bg-black/5 dark:bg-white/5 animate-fade-in type-caption">
+      <p className="type-caption text-[var(--ink-dim)] uppercase font-medium border-b border-[var(--border)] pb-1.5 mb-2">
         {t('courseDetailsOverrides')}
       </p>
 
       {/* Video URL */}
       <div className="space-y-1">
-        <label className="text-[9px] text-[var(--ink-dim)] uppercase block">
+        <label className="type-caption text-[var(--ink-dim)] uppercase block">
           {t('promoVideoUrl')}
         </label>
         <input
@@ -61,14 +61,14 @@ export const CourseRichDetailsSection: React.FC<CourseRichDetailsSectionProps> =
           value={courseVideoUrl}
           onChange={(e) => setCourseVideoUrl(e.target.value)}
           placeholder="https://player.vimeo.com/external/...mp4 or other direct stream URL"
-          className="w-full px-2.5 py-1.5 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none text-xs font-mono"
+          className="w-full px-2.5 py-1.5 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none type-body"
         />
       </div>
 
       {/* Benefits Section */}
       <div className="grid grid-cols-1 gap-3">
         <div className="space-y-1">
-          <label className="text-[9px] text-[var(--ink-dim)] uppercase block">
+          <label className="type-caption text-[var(--ink-dim)] uppercase block">
             {t('benefitsEn')}
           </label>
           <textarea
@@ -76,11 +76,11 @@ export const CourseRichDetailsSection: React.FC<CourseRichDetailsSectionProps> =
             value={courseBenefitsEn}
             onChange={(e) => setCourseBenefitsEn(e.target.value)}
             placeholder="e.g.&#10;Professional video analysis&#10;Custom ski tuning advice&#10;Skipass inclusion"
-            className="w-full px-2.5 py-1.5 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none text-xs font-mono"
+            className="w-full px-2.5 py-1.5 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none type-body"
           />
         </div>
         <div className="space-y-1">
-          <label className="text-[9px] text-[var(--ink-dim)] uppercase block">
+          <label className="type-caption text-[var(--ink-dim)] uppercase block">
             {t('benefitsRu')}
           </label>
           <textarea
@@ -88,7 +88,7 @@ export const CourseRichDetailsSection: React.FC<CourseRichDetailsSectionProps> =
             value={courseBenefitsRu}
             onChange={(e) => setCourseBenefitsRu(e.target.value)}
             placeholder="напр.&#10;Профессиональный видеоанализ&#10;Советы по подготовке лыж&#10;Скипасс включен в стоимость"
-            className="w-full px-2.5 py-1.5 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none text-xs font-mono"
+            className="w-full px-2.5 py-1.5 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none type-body"
           />
         </div>
       </div>
@@ -96,7 +96,7 @@ export const CourseRichDetailsSection: React.FC<CourseRichDetailsSectionProps> =
       {/* Program Section */}
       <div className="border-t border-[var(--border)] pt-3 space-y-3">
         <div className="flex items-center justify-between">
-          <span className="text-[10px] text-[var(--ink-dim)] uppercase tracking-wider font-bold">
+          <span className="type-caption text-[var(--ink-dim)] uppercase font-medium">
             {t('dayByDayProgram')}
           </span>
           <div className="flex gap-2">
@@ -108,7 +108,7 @@ export const CourseRichDetailsSection: React.FC<CourseRichDetailsSectionProps> =
                 }
               }}
               disabled={courseProgramDays.length <= 1}
-              className="px-2 py-1 border border-[var(--border)] text-[9px] uppercase tracking-wider hover:border-[var(--ink)] disabled:opacity-50 disabled:cursor-not-allowed font-mono text-[var(--ink)] bg-transparent rounded-none transition cursor-pointer"
+              className="px-2 py-1 border border-[var(--border)] type-button uppercase hover:border-[var(--ink)] disabled:opacity-50 disabled:cursor-not-allowed text-[var(--ink)] bg-transparent rounded-none transition cursor-pointer"
             >
               {t('removeDay')}
             </button>
@@ -120,7 +120,7 @@ export const CourseRichDetailsSection: React.FC<CourseRichDetailsSectionProps> =
                   { titleEn: '', descEn: '', titleRu: '', descRu: '' },
                 ]);
               }}
-              className="px-2 py-1 border border-[var(--border)] text-[9px] uppercase tracking-wider hover:border-[var(--ink)] font-mono text-[var(--ink)] bg-transparent rounded-none transition cursor-pointer"
+              className="px-2 py-1 border border-[var(--border)] type-button uppercase hover:border-[var(--ink)] text-[var(--ink)] bg-transparent rounded-none transition cursor-pointer"
             >
               {t('addDay')}
             </button>
@@ -129,7 +129,7 @@ export const CourseRichDetailsSection: React.FC<CourseRichDetailsSectionProps> =
 
         {courseProgramDays.map((day, idx) => (
           <div key={idx} className="space-y-2 border-l border-[var(--border)] pl-2.5">
-            <p className="text-[9px] font-bold uppercase text-[var(--ink-dim)]">
+            <p className="type-caption font-medium uppercase text-[var(--ink-dim)]">
               {`${t('dayPrefix')} ${idx + 1}`}
             </p>
             <div className="grid grid-cols-2 gap-2">
@@ -138,14 +138,14 @@ export const CourseRichDetailsSection: React.FC<CourseRichDetailsSectionProps> =
                 value={day.titleEn}
                 onChange={(e) => updateProgramDay(idx, 'titleEn', e.target.value)}
                 placeholder="Title (EN)"
-                className="w-full px-2 py-1 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none text-xs font-mono"
+                className="w-full px-2 py-1 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none type-body"
               />
               <input
                 type="text"
                 value={day.titleRu}
                 onChange={(e) => updateProgramDay(idx, 'titleRu', e.target.value)}
                 placeholder="Название (RU)"
-                className="w-full px-2 py-1 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none text-xs font-mono"
+                className="w-full px-2 py-1 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none type-body"
               />
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -154,14 +154,14 @@ export const CourseRichDetailsSection: React.FC<CourseRichDetailsSectionProps> =
                 value={day.descEn}
                 onChange={(e) => updateProgramDay(idx, 'descEn', e.target.value)}
                 placeholder="Description (EN)"
-                className="w-full px-2 py-1 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none text-xs font-mono"
+                className="w-full px-2 py-1 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none type-body"
               />
               <textarea
                 rows={2}
                 value={day.descRu}
                 onChange={(e) => updateProgramDay(idx, 'descRu', e.target.value)}
                 placeholder="Описание (RU)"
-                className="w-full px-2 py-1 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none text-xs font-mono"
+                className="w-full px-2 py-1 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none type-body"
               />
             </div>
           </div>
@@ -170,7 +170,7 @@ export const CourseRichDetailsSection: React.FC<CourseRichDetailsSectionProps> =
 
       {/* FAQ 1-3 Section */}
       <div className="border-t border-[var(--border)] pt-3 space-y-3">
-        <span className="text-[10px] text-[var(--ink-dim)] uppercase tracking-wider font-bold block">
+        <span className="type-caption text-[var(--ink-dim)] uppercase font-medium block">
           {t('faqSection')}
         </span>
 
@@ -179,21 +179,23 @@ export const CourseRichDetailsSection: React.FC<CourseRichDetailsSectionProps> =
           const labelKey = faqIdx === 0 ? 'faq1' : faqIdx === 1 ? 'faq2' : 'faq3';
           return (
             <div key={faqIdx} className="space-y-2 border-l border-[var(--border)] pl-2.5">
-              <p className="text-[9px] font-bold uppercase text-[var(--ink-dim)]">{t(labelKey)}</p>
+              <p className="type-caption font-medium uppercase text-[var(--ink-dim)]">
+                {t(labelKey)}
+              </p>
               <div className="grid grid-cols-2 gap-2">
                 <input
                   type="text"
                   value={faq.qEn}
                   onChange={(e) => updateFaq(faq, setFaq, 'qEn', e.target.value)}
                   placeholder="Question (EN)"
-                  className="w-full px-2 py-1 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none text-xs font-mono"
+                  className="w-full px-2 py-1 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none type-body"
                 />
                 <input
                   type="text"
                   value={faq.qRu}
                   onChange={(e) => updateFaq(faq, setFaq, 'qRu', e.target.value)}
                   placeholder="Вопрос (RU)"
-                  className="w-full px-2 py-1 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none text-xs font-mono"
+                  className="w-full px-2 py-1 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none type-body"
                 />
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -202,14 +204,14 @@ export const CourseRichDetailsSection: React.FC<CourseRichDetailsSectionProps> =
                   value={faq.aEn}
                   onChange={(e) => updateFaq(faq, setFaq, 'aEn', e.target.value)}
                   placeholder="Answer (EN)"
-                  className="w-full px-2 py-1 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none text-xs font-mono"
+                  className="w-full px-2 py-1 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none type-body"
                 />
                 <textarea
                   rows={2}
                   value={faq.aRu}
                   onChange={(e) => updateFaq(faq, setFaq, 'aRu', e.target.value)}
                   placeholder="Ответ (RU)"
-                  className="w-full px-2 py-1 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none text-xs font-mono"
+                  className="w-full px-2 py-1 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none type-body"
                 />
               </div>
             </div>
@@ -219,7 +221,7 @@ export const CourseRichDetailsSection: React.FC<CourseRichDetailsSectionProps> =
 
       {/* Gallery Photos Section */}
       <div className="border-t border-[var(--border)] pt-3 space-y-1">
-        <label className="text-[9px] text-[var(--ink-dim)] uppercase block">
+        <label className="type-caption text-[var(--ink-dim)] uppercase block">
           {t('galleryPhotos')}
         </label>
         <textarea
@@ -227,7 +229,7 @@ export const CourseRichDetailsSection: React.FC<CourseRichDetailsSectionProps> =
           value={courseGalleryPhotos}
           onChange={(e) => setCourseGalleryPhotos(e.target.value)}
           placeholder="https://images.unsplash.com/photo-1551698618-1ffdfe1d9772?auto=format&fit=crop&q=80&w=800"
-          className="w-full px-2.5 py-1.5 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none text-xs font-mono"
+          className="w-full px-2.5 py-1.5 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none type-body"
         />
       </div>
     </div>

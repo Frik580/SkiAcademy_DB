@@ -408,17 +408,17 @@ export function AdminTrainingRecordsPanel({
   return (
     <div className="space-y-6">
       {typeof mutationError === 'object' && mutationError && !confirmation && (
-        <div role="alert" className="border border-red-500/30 bg-red-500/5 p-3 text-xs">
+        <div role="alert" className="border border-red-500/30 bg-red-500/5 p-3 type-caption">
           {readableError(mutationError)}
         </div>
       )}
       {typeof mutationError === 'string' && !confirmation && (
-        <div role="alert" className="border border-red-500/30 bg-red-500/5 p-3 text-xs">
+        <div role="alert" className="border border-red-500/30 bg-red-500/5 p-3 type-caption">
           {mutationError}
         </div>
       )}
       {mutationNotice && (
-        <div role="status" className="border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
+        <div role="status" className="border border-amber-500/30 bg-amber-500/5 p-3 type-caption">
           {mutationNotice}
         </div>
       )}
@@ -436,7 +436,7 @@ export function AdminTrainingRecordsPanel({
                   type="button"
                   aria-pressed={kind === candidate}
                   onClick={() => setKind(candidate)}
-                  className={`px-4 py-2 text-xs font-semibold transition-colors ${
+                  className={`px-4 py-2 type-button transition-colors ${
                     kind === candidate
                       ? 'bg-[var(--ink)] text-[var(--bg)] shadow-sm'
                       : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'
@@ -457,7 +457,7 @@ export function AdminTrainingRecordsPanel({
                   type="button"
                   aria-pressed={scope === candidate}
                   onClick={() => setScope(candidate)}
-                  className={`border px-3 py-1.5 text-xs ${
+                  className={`border px-3 py-1.5 type-button ${
                     scope === candidate
                       ? 'border-[var(--ink)] bg-[var(--ink)] text-[var(--bg)]'
                       : 'border-[var(--border)]'
@@ -480,7 +480,7 @@ export function AdminTrainingRecordsPanel({
                       [ADMIN_COURSE_ENROLLMENT_QUERY_KEY]: undefined,
                     })
                   }
-                  className="min-w-40 border border-[var(--border)] bg-[var(--bg)] p-1.5 text-xs"
+                  className="min-w-40 border border-[var(--border)] bg-[var(--bg)] p-1.5 type-body"
                 >
                   <option value="">{courseCopy.allCourses}</option>
                   {courses.map((course) => (
@@ -495,13 +495,13 @@ export function AdminTrainingRecordsPanel({
 
           {kind !== 'lesson' && (
             <section className="space-y-3 border-b border-[var(--border)] p-3">
-              <h3 className="text-xs font-mono uppercase tracking-wider">{courseCopy.create}</h3>
+              <h3 className="type-card-title uppercase">{courseCopy.create}</h3>
               <div className="grid gap-2">
                 <select
                   aria-label={courseCopy.selectCourse}
                   value={createCourseId || courseId || ''}
                   onChange={(event) => setCreateCourseId(event.target.value)}
-                  className="border border-[var(--border)] bg-[var(--bg)] p-2 text-xs"
+                  className="border border-[var(--border)] bg-[var(--bg)] p-2 type-body"
                 >
                   <option value="">{courseCopy.selectCourse}</option>
                   {courses
@@ -521,7 +521,7 @@ export function AdminTrainingRecordsPanel({
                   value={createReason}
                   onChange={(event) => setCreateReason(event.target.value)}
                   placeholder={courseCopy.reason}
-                  className="border border-[var(--border)] bg-transparent p-2 text-xs"
+                  className="border border-[var(--border)] bg-transparent p-2 type-body"
                 />
                 <button
                   type="button"
@@ -544,7 +544,7 @@ export function AdminTrainingRecordsPanel({
                       `${createSelection.displayName} → ${course.title} @ course rev ${course.revision}`
                     );
                   }}
-                  className="border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
+                  className="border border-[var(--border)] px-3 py-2 type-button disabled:opacity-50"
                 >
                   {courseCopy.create}
                 </button>
@@ -556,12 +556,12 @@ export function AdminTrainingRecordsPanel({
             {listLoading ? (
               <div
                 role="status"
-                className="flex min-h-36 items-center justify-center gap-2 text-xs"
+                className="flex min-h-36 items-center justify-center gap-2 type-caption"
               >
                 <Loader2 className="h-4 w-4 animate-spin" /> {t('adminLessonLoading')}
               </div>
             ) : listError ? (
-              <div role="alert" className="border border-red-500/30 p-4 text-xs">
+              <div role="alert" className="border border-red-500/30 p-4 type-caption">
                 {listError === 'permission-denied'
                   ? t('adminLessonPermissionDenied')
                   : t('adminLessonReadFailed')}
@@ -577,7 +577,7 @@ export function AdminTrainingRecordsPanel({
                 </button>
               </div>
             ) : records.length === 0 ? (
-              <p className="border border-dashed border-[var(--border)] p-8 text-center text-xs text-[var(--ink-dim)]">
+              <p className="border border-dashed border-[var(--border)] p-8 text-center type-caption text-[var(--ink-dim)]">
                 {t('adminLessonEmpty')}
               </p>
             ) : (
@@ -679,7 +679,7 @@ export function AdminTrainingRecordsPanel({
                       if (lessonReads.list.hasMore) void lessonReads.loadMore();
                       if (courseReads.list.hasMore) void courseReads.loadMore?.();
                     }}
-                    className="w-full border border-[var(--border)] px-3 py-2 text-xs font-medium disabled:opacity-50"
+                    className="w-full border border-[var(--border)] px-3 py-2 type-button disabled:opacity-50"
                   >
                     {lessonReads.list.loadingMore || courseReads.list.loadingMore
                       ? t('adminLessonLoadingMore')
@@ -698,7 +698,7 @@ export function AdminTrainingRecordsPanel({
           tabIndex={-1}
         >
           {!selectedBookingId && !selectedEnrollmentId ? (
-            <p className="flex min-h-52 items-center justify-center text-center text-xs text-[var(--ink-dim)]">
+            <p className="flex min-h-52 items-center justify-center text-center type-caption text-[var(--ink-dim)]">
               {t('adminTrainingSelectPrompt')}
             </p>
           ) : selectedBookingId ? (
@@ -707,7 +707,7 @@ export function AdminTrainingRecordsPanel({
                 <Loader2 className="h-5 w-5 animate-spin" />
               </div>
             ) : !lessonDetail || !lessonAdmin ? (
-              <p className="p-4 text-xs text-[var(--ink-dim)]">{t('adminLessonNotFound')}</p>
+              <p className="p-4 type-caption text-[var(--ink-dim)]">{t('adminLessonNotFound')}</p>
             ) : (
               <AdminLessonBookingDetail
                 key={lessonDetail.bookingId}
@@ -769,7 +769,7 @@ export function AdminTrainingRecordsPanel({
               <Loader2 className="h-5 w-5 animate-spin" />
             </div>
           ) : !courseDetail ? (
-            <p className="p-4 text-xs text-[var(--ink-dim)]">{courseCopy.empty}</p>
+            <p className="p-4 type-caption text-[var(--ink-dim)]">{courseCopy.empty}</p>
           ) : (
             <AdminCourseEnrollmentDetail
               key={courseDetail.enrollmentId}
@@ -851,12 +851,12 @@ export function AdminTrainingRecordsPanel({
           className="fixed inset-0 z-60 flex items-center justify-center bg-black/55 p-4"
         >
           <div className="w-full max-w-md space-y-4 border border-[var(--border)] bg-[var(--bg)] p-5">
-            <h3 className="text-sm font-medium">
+            <h3 className="type-card-title">
               {lessonConfirmation ? t('adminLessonConfirmTitle') : courseCopy.confirmTitle}
             </h3>
-            <p className="text-xs text-[var(--ink-dim)]">{confirmation.message}</p>
+            <p className="type-caption text-[var(--ink-dim)]">{confirmation.message}</p>
             {mutationError && (
-              <p role="alert" className="text-xs text-red-700">
+              <p role="alert" className="type-caption text-red-700">
                 {typeof mutationError === 'string' ? mutationError : readableError(mutationError)}
               </p>
             )}

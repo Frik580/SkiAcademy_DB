@@ -550,12 +550,12 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                 <div>
                   <h3
                     id="course-enrollment-modal-title"
-                    className="font-serif text-lg font-light text-[var(--ink)]"
+                    className="type-section-title text-[var(--ink)]"
                   >
                     {t('courseEnrollment')}
                   </h3>
                   {courseSubtitle && (
-                    <p className="text-xs text-[var(--ink-dim)] mt-0.5">{courseSubtitle}</p>
+                    <p className="type-caption text-[var(--ink-dim)] mt-0.5">{courseSubtitle}</p>
                   )}
                 </div>
                 <button
@@ -572,7 +572,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setUnauthTab(unauthTab === 'guest' ? 'auth' : 'guest')}
-                    className="text-xs text-[var(--ink-dim)] underline underline-offset-4 hover:text-[var(--ink)]"
+                    className="type-button text-[var(--ink-dim)] underline underline-offset-4 hover:text-[var(--ink)]"
                   >
                     {t(unauthTab === 'guest' ? 'guestCourseSignIn' : 'guestBookingTab')}
                   </button>
@@ -612,14 +612,14 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                         <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--accent-muted)] p-3">
                           {!showGuestProfileCompletion ? (
                             <div className="space-y-2">
-                              <p className="text-sm text-[var(--ink)]">
+                              <p className="type-compact text-[var(--ink)]">
                                 {language === 'ru'
                                   ? 'Дополните данные участника: возраст и текущий уровень.'
                                   : 'Complete the participant profile with age and current skill level.'}
                               </p>
                               <button
                                 type="button"
-                                className="btn-secondary px-4 py-2 text-sm"
+                                className="btn-secondary px-4 py-2 type-button"
                                 onClick={() => setShowGuestProfileCompletion(true)}
                               >
                                 {language === 'ru' ? 'Дополнить профиль' : 'Complete profile'}
@@ -628,7 +628,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                           ) : (
                             <form onSubmit={completeGuestProfile} className="space-y-3">
                               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                <label className="space-y-1 text-xs text-[var(--ink-dim)]">
+                                <label className="space-y-1 type-caption text-[var(--ink-dim)]">
                                   <span>{t('participantsAgeLabel')} *</span>
                                   <input
                                     type="number"
@@ -640,10 +640,10 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                                     onChange={(event) =>
                                       setGuestProfileAgeYears(event.target.value)
                                     }
-                                    className="ui-field-plain"
+                                    className="ui-field-plain type-body"
                                   />
                                 </label>
-                                <label className="space-y-1 text-xs text-[var(--ink-dim)]">
+                                <label className="space-y-1 type-caption text-[var(--ink-dim)]">
                                   <span>{t('participantsSkillLabel')} *</span>
                                   <select
                                     required
@@ -651,7 +651,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                                     onChange={(event) =>
                                       setGuestProfileSkillLevel(event.target.value)
                                     }
-                                    className="ui-field-plain"
+                                    className="ui-field-plain type-body"
                                   >
                                     <option value="" disabled>
                                       —
@@ -669,13 +669,13 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                                   type="submit"
                                   pending={isCompletingGuestProfile}
                                   pendingLabel={t('processing')}
-                                  className="btn-primary px-4 py-2 text-sm"
+                                  className="btn-primary px-4 py-2 type-button"
                                 >
                                   {language === 'ru' ? 'Сохранить данные' : 'Save profile'}
                                 </ActionButton>
                                 <button
                                   type="button"
-                                  className="btn-secondary px-4 py-2 text-sm"
+                                  className="btn-secondary px-4 py-2 type-button"
                                   disabled={isCompletingGuestProfile}
                                   onClick={() => setShowGuestProfileCompletion(false)}
                                 >
@@ -695,7 +695,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                     {showParticipantPicker && (
                       <>
                         {requiresExplicitParticipantSelection(participants) && (
-                          <p className="text-xs text-[var(--ink-dim)] leading-relaxed">
+                          <p className="type-caption text-[var(--ink-dim)]">
                             {t('courseEnrollmentParticipantPrompt')}
                           </p>
                         )}
@@ -715,21 +715,21 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
 
                     <div className="p-3.5 border border-[var(--border)] bg-black/5 dark:bg-white/5 rounded-none rounded-[var(--radius-md)] space-y-1">
                       <div className="flex justify-between items-baseline">
-                        <span className="text-xs text-[var(--ink)] font-sans normal-case text-sm">
+                        <span className="type-caption text-[var(--ink)] normal-case">
                           {t('courseTotalTuition')}
                         </span>
-                        <span className="text-lg font-extrabold text-[var(--accent)] font-sans">
+                        <span className="type-metric text-[var(--accent)]">
                           {authenticatedDisplayTotalKZT !== undefined
                             ? formatPrice(authenticatedDisplayTotalKZT)
                             : '—'}
                         </span>
                       </div>
                       {selectedParticipantCount > 1 && course.priceKZT != null && (
-                        <div className="text-xs text-[var(--ink-dim)]">
+                        <div className="type-caption text-[var(--ink-dim)]">
                           {formatPrice(course.priceKZT)} × {selectedParticipantCount}
                         </div>
                       )}
-                      <div className="text-xs text-[var(--ink-dim)]">📅 {course.dates}</div>
+                      <div className="type-caption text-[var(--ink-dim)]">📅 {course.dates}</div>
                     </div>
 
                     <ActionButton
@@ -746,7 +746,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                     >
                       {selectedAlreadyEnrolled ? (
                         <>
-                          <span className="text-emerald-500 font-bold text-xs">✔</span>
+                          <span className="text-emerald-500 font-medium type-caption">✔</span>
                           {t('courseEnrolled')}
                         </>
                       ) : (
@@ -759,7 +759,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                   </form>
                 ) : unauthTab === 'auth' ? (
                   <div className="space-y-4">
-                    <p className="text-xs text-[var(--ink-dim)] text-center leading-relaxed">
+                    <p className="type-caption text-[var(--ink-dim)] text-center">
                       {t('courseEnrollmentAuthPrompt')}
                     </p>
 
@@ -780,13 +780,13 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                         type="button"
                         onClick={() => void checkPreviousGuestStatus()}
                         disabled={guestRefreshing}
-                        className="btn-secondary w-full px-4 py-2 text-sm"
+                        className="btn-secondary w-full px-4 py-2 type-button"
                       >
                         {guestRefreshing ? t('processing') : t('guestCheckPreviousStatus')}
                       </button>
                     )}
                     {guestLookupError && (
-                      <p role="status" className="text-sm text-[var(--ink)]">
+                      <p role="status" className="type-compact text-[var(--ink)]">
                         {t(
                           guestLookupError === 'stale'
                             ? 'guestPreviousUnavailable'
@@ -799,7 +799,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                         <div className="flex flex-col justify-end">
                           <label
                             htmlFor="course-guest-name"
-                            className="text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 font-sans text-xs min-h-[20px]"
+                            className="text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 type-caption min-h-[20px]"
                           >
                             <User className="w-3.5 h-3.5 shrink-0" />{' '}
                             <span className="truncate">{t('guestCourseNameLabel')} *</span>
@@ -811,13 +811,13 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                             value={guestName}
                             onChange={(e) => setGuestName(e.target.value)}
                             placeholder={t('guestNamePlaceholder')}
-                            className="ui-field-plain focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)]"
+                            className="ui-field-plain focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)] type-body"
                           />
                         </div>
                         <div className="flex flex-col justify-end">
                           <label
                             htmlFor="course-guest-phone"
-                            className="text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 font-sans text-xs min-h-[20px]"
+                            className="text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 type-caption min-h-[20px]"
                           >
                             <Phone className="w-3.5 h-3.5 shrink-0" />{' '}
                             <span className="truncate">{t('guestCoursePhoneLabel')} *</span>
@@ -829,7 +829,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                             value={guestPhone}
                             onChange={(e) => setGuestPhone(e.target.value)}
                             placeholder={t('guestPhonePlaceholder')}
-                            className="ui-field-plain focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)]"
+                            className="ui-field-plain focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)] type-body"
                           />
                         </div>
                       </div>
@@ -840,7 +840,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                           aria-expanded={false}
                           aria-controls="course-guest-optional-details"
                           onClick={() => setShowGuestOptionalDetails(true)}
-                          className="text-xs text-[var(--ink-dim)] hover:text-[var(--ink)]"
+                          className="type-button text-[var(--ink-dim)] hover:text-[var(--ink)]"
                         >
                           {t('guestCourseAddOptionalDetails')}
                         </button>
@@ -849,7 +849,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                           <div>
                             <label
                               htmlFor="course-guest-email"
-                              className="text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 font-sans text-xs"
+                              className="text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 type-caption"
                             >
                               <Mail className="w-3.5 h-3.5" /> {t('guestCourseEmailLabel')}
                             </label>
@@ -859,14 +859,14 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                               value={guestEmail}
                               onChange={(e) => setGuestEmail(e.target.value)}
                               placeholder={t('guestEmailPlaceholder')}
-                              className="ui-field-plain focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)]"
+                              className="ui-field-plain focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)] type-body"
                             />
                           </div>
 
                           <div>
                             <label
                               htmlFor="course-guest-comment"
-                              className="text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 font-sans text-xs"
+                              className="text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 type-caption"
                             >
                               {t('guestCourseCommentLabel')}
                             </label>
@@ -876,7 +876,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                               value={guestNotes}
                               onChange={(e) => setGuestNotes(e.target.value)}
                               placeholder={t('personalGoalsPlaceholder')}
-                              className="ui-field-plain focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)] h-16 resize-none"
+                              className="ui-field-plain focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)] h-16 resize-none type-body"
                             />
                           </div>
                         </div>
@@ -884,7 +884,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                     </div>
 
                     {!course.discipline && (
-                      <label className="space-y-1 text-xs text-[var(--ink-dim)]">
+                      <label className="space-y-1 type-caption text-[var(--ink-dim)]">
                         <span>{t('participantsDisciplineLabel')} *</span>
                         <select
                           required
@@ -892,7 +892,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                           onChange={(event) =>
                             setGuestDiscipline(event.target.value as '' | 'ski' | 'snowboard')
                           }
-                          className="ui-field-plain"
+                          className="ui-field-plain type-body"
                         >
                           <option value="" disabled>
                             —
@@ -900,7 +900,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                           <option value="ski">{t('participantsDisciplineSki')}</option>
                           <option value="snowboard">{t('participantsDisciplineSnowboard')}</option>
                         </select>
-                        <span className="block text-[11px]">
+                        <span className="block type-caption">
                           {language === 'ru'
                             ? 'Для старого курса дисциплина ещё не указана в каталоге.'
                             : 'This legacy course does not yet have a catalog discipline.'}
@@ -909,8 +909,8 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                     )}
 
                     <div className="flex items-center justify-between gap-3 py-2 border-t border-[var(--border)]">
-                      <span className="text-xs text-[var(--ink-dim)]">{course.dates}</span>
-                      <span className="shrink-0 text-base font-bold text-[var(--ink)]">
+                      <span className="type-caption text-[var(--ink-dim)]">{course.dates}</span>
+                      <span className="shrink-0 type-body font-bold text-[var(--ink)]">
                         {course.priceKZT != null ? formatPrice(course.priceKZT) : '—'}
                       </span>
                     </div>
@@ -931,12 +931,12 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                     >
                       {guestActiveEnrollment?.lifecycleStatus === 'pending' ? (
                         <>
-                          <span className="text-amber-500 font-bold text-xs">✔</span>
+                          <span className="text-amber-500 font-medium type-caption">✔</span>
                           {t('courseAwaitingPayment')}
                         </>
                       ) : guestActiveEnrollment ? (
                         <>
-                          <span className="text-emerald-500 font-bold text-xs">✔</span>
+                          <span className="text-emerald-500 font-medium type-caption">✔</span>
                           {t('courseEnrolled')}
                         </>
                       ) : (
@@ -946,7 +946,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                         </>
                       )}
                     </ActionButton>
-                    <p className="text-center text-xs text-[var(--ink-dim)]">
+                    <p className="text-center type-caption text-[var(--ink-dim)]">
                       {t('guestCoursePaymentNote')}
                     </p>
                   </form>

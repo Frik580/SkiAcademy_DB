@@ -234,8 +234,8 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="space-y-1">
-              <h3 className="text-lg font-medium text-[var(--ink)]">{t('yourSlopesCalendar')}</h3>
-              <p className="text-sm text-[var(--ink-dim)]">{t('manageLessonsSub')}</p>
+              <h3 className="type-card-title text-[var(--ink)]">{t('yourSlopesCalendar')}</h3>
+              <p className="type-compact text-[var(--ink-dim)]">{t('manageLessonsSub')}</p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
@@ -252,7 +252,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
           {sessionItems.length > 0 && (
             <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--profile-bg)] p-4 space-y-3 w-full min-w-0">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 flex-wrap w-full min-w-0">
-                <span className="text-sm font-medium text-[var(--ink)]">
+                <span className="type-compact font-medium text-[var(--ink)]">
                   {t('interactiveCalendar')}
                 </span>
                 <div className="flex items-center gap-2 shrink-0">
@@ -265,7 +265,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
-                  <span className="text-sm text-[var(--ink)] min-w-[120px] text-center">
+                  <span className="type-compact text-[var(--ink)] min-w-[120px] text-center">
                     {language === 'ru' ? MONTHS_RU[month] : MONTHS_EN[month]} {year}
                   </span>
                   <button
@@ -280,16 +280,16 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                 </div>
               </div>
               {calendarMonth.status === 'loading' && (
-                <p className="text-sm text-[var(--ink-dim)]">{t('loading')}</p>
+                <p className="type-compact text-[var(--ink-dim)]">{t('loading')}</p>
               )}
               {calendarMonth.error && (
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm text-[var(--ink-dim)]">{calendarMonth.error}</p>
+                  <p className="type-compact text-[var(--ink-dim)]">{calendarMonth.error}</p>
                   <ScTextButton onClick={calendarMonth.retry}>{t('retry')}</ScTextButton>
                 </div>
               )}
 
-              <div className="grid grid-cols-7 gap-1 text-center text-[10px] uppercase text-[var(--ink-dim)] pb-1">
+              <div className="grid grid-cols-7 gap-1 text-center type-caption uppercase text-[var(--ink-dim)] pb-1">
                 {(language === 'ru' ? WEEKDAYS_RU : WEEKDAYS_EN).map((day) => (
                   <div key={day}>{day}</div>
                 ))}
@@ -316,7 +316,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                           handleSelectDateFilter(isSelected ? null : dateStr);
                         }
                       }}
-                      className={`h-9 flex flex-col items-center justify-center rounded-lg transition text-sm relative ${
+                      className={`h-9 flex flex-col items-center justify-center rounded-lg transition type-button relative ${
                         isSelected
                           ? 'bg-[var(--accent)] text-white font-medium'
                           : hasCourse
@@ -343,7 +343,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
 
           {selectedDateFilter && (
             <div className="flex items-center justify-between rounded-lg border border-[var(--border-subtle)] bg-[var(--profile-bg)] px-3 py-2">
-              <span className="text-sm text-[var(--ink-dim)]">
+              <span className="type-compact text-[var(--ink-dim)]">
                 {t('showingLessonsFor')} {selectedDateFilter}
               </span>
               <ScTextButton onClick={() => handleSelectDateFilter(null)}>
@@ -364,7 +364,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                       setListScope(scope);
                       setCurrentPage(1);
                     }}
-                    className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                    className={`rounded-full border px-3 py-1.5 type-button transition ${
                       active
                         ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]'
                         : 'border-[var(--border-subtle)] text-[var(--ink-dim)] hover:text-[var(--ink)]'
@@ -422,16 +422,16 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                           />
                         </div>
                         <div className="space-y-1.5 min-w-0 flex-1">
-                          <h4 className="text-sm font-medium text-[var(--ink)] flex items-center gap-2 flex-wrap">
+                          <h4 className="type-card-title text-[var(--ink)] flex items-center gap-2 flex-wrap">
                             {b.instructorName}
                             <LessonFeedbackIndicator lessonBookingId={b.id} />
                           </h4>
-                          <p className="text-xs text-[var(--ink-dim)]">
+                          <p className="type-caption text-[var(--ink-dim)]">
                             {b.difficulty ? `${getDifficultyLabel(b.difficulty, language)} · ` : ''}
                             {b.durationHours} {t('hrSession')}
                           </p>
                           <SessionParticipants participants={participantsBySessionKey[key] ?? []} />
-                          <div className="flex items-center gap-2 flex-wrap text-xs text-[var(--ink-dim)]">
+                          <div className="flex items-center gap-2 flex-wrap type-caption text-[var(--ink-dim)]">
                             <span className="inline-flex items-center gap-1">
                               <Calendar className="w-3.5 h-3.5 text-[var(--accent)]" />{' '}
                               {displayDate}
@@ -441,7 +441,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                             </span>
                           </div>
                           {b.status === 'pending_cancellation' && b.cancellationReason && (
-                            <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">
+                            <p className="type-caption text-rose-600 dark:text-rose-400 mt-1">
                               <span className="font-medium">{t('reason')} </span>
                               {b.cancellationReason}
                             </p>
@@ -454,12 +454,10 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
 
                       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border-subtle)] pt-3">
                         <div>
-                          <span className="text-xs text-[var(--ink-dim)] block">
+                          <span className="type-caption text-[var(--ink-dim)] block">
                             {t('totalFee')}
                           </span>
-                          <span className="text-lg font-serif text-[var(--ink)]">
-                            {paymentLabel}
-                          </span>
+                          <span className="type-card-title text-[var(--ink)]">{paymentLabel}</span>
                         </div>
 
                         <div className="flex items-center gap-2 flex-wrap">
@@ -471,7 +469,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                               title={
                                 hasUnreadChat?.(b.id) ? t('chatNewMessages') : t('chatAboutLesson')
                               }
-                              className="px-3 py-1.5 text-xs font-medium border border-[var(--border-subtle)] rounded-lg text-[var(--ink)] hover:border-[var(--accent)] transition flex items-center gap-1.5"
+                              className="px-3 py-1.5 type-button border border-[var(--border-subtle)] rounded-lg text-[var(--ink)] hover:border-[var(--accent)] transition flex items-center gap-1.5"
                             >
                               <MessageSquare className="w-3.5 h-3.5" />
                               {t('chat')}
@@ -493,7 +491,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                             <button
                               type="button"
                               onClick={() => onOpenLesson(b)}
-                              className="px-3 py-1.5 text-xs font-medium border border-[var(--border-subtle)] rounded-lg text-[var(--ink)] hover:border-[var(--accent)] transition"
+                              className="px-3 py-1.5 type-button border border-[var(--border-subtle)] rounded-lg text-[var(--ink)] hover:border-[var(--accent)] transition"
                             >
                               {t('scMoreDetails')}
                             </button>
@@ -503,7 +501,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                             <button
                               type="button"
                               onClick={() => onWriteReview(b)}
-                              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-[var(--accent)] text-white transition"
+                              className="px-3 py-1.5 type-button rounded-lg bg-[var(--accent)] text-white transition"
                             >
                               {t('writeReviewBtn')}
                             </button>
@@ -540,17 +538,15 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                     className="p-4 rounded-lg border flex flex-col gap-4 transition border-violet-200/80 dark:border-violet-800/40 bg-violet-50/40 dark:bg-violet-950/20"
                   >
                     <div className="flex flex-1 items-start gap-4 min-w-0 w-full">
-                      <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center text-violet-700 dark:text-violet-300 text-xs font-medium">
+                      <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center text-violet-700 dark:text-violet-300 type-caption font-medium">
                         {t('scGroupCourse').slice(0, 2).toUpperCase()}
                       </div>
                       <div className="space-y-1.5 min-w-0 flex-1">
-                        <h4 className="text-sm font-medium text-[var(--ink)]">
-                          {item.courseTitle}
-                        </h4>
-                        <p className="text-xs text-[var(--ink-dim)]">
+                        <h4 className="type-card-title text-[var(--ink)]">{item.courseTitle}</h4>
+                        <p className="type-caption text-[var(--ink-dim)]">
                           {t('scGroupCourse')} · {dayCountLabel}
                         </p>
-                        <p className="text-xs text-[var(--ink-dim)]">
+                        <p className="type-caption text-[var(--ink-dim)]">
                           {formatCourseEnrollmentDateRange(item, locale)}
                         </p>
                         <SessionParticipants
@@ -572,7 +568,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                             type="button"
                             data-testid="course-enrollment-details"
                             onClick={() => onViewCourseDetails(item.courseId, item.enrollmentId)}
-                            className="px-3 py-1.5 text-xs font-medium border border-violet-200 dark:border-violet-800 rounded-lg text-[var(--ink)] hover:border-violet-400 transition"
+                            className="px-3 py-1.5 type-button border border-violet-200 dark:border-violet-800 rounded-lg text-[var(--ink)] hover:border-violet-400 transition"
                           >
                             {t('scMoreDetails')}
                           </button>
@@ -582,7 +578,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                           <button
                             type="button"
                             onClick={() => void onCourseWithdraw(item.enrollmentId)}
-                            className="px-3 py-1.5 text-xs font-medium border border-rose-200 dark:border-rose-800 rounded-lg text-rose-600 transition"
+                            className="px-3 py-1.5 type-button border border-rose-200 dark:border-rose-800 rounded-lg text-rose-600 transition"
                           >
                             {t('collabWithdrawCancellation')}
                           </button>
@@ -594,7 +590,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                               type="button"
                               data-testid="cancel-course-enrollment"
                               onClick={() => void onCourseRequestCancellation(item.enrollmentId)}
-                              className="px-3 py-1.5 text-xs font-medium border border-rose-200 dark:border-rose-800 rounded-lg text-rose-600 transition"
+                              className="px-3 py-1.5 type-button border border-rose-200 dark:border-rose-800 rounded-lg text-rose-600 transition"
                             >
                               {t('requestCourseCancellation')}
                             </button>

@@ -30,7 +30,7 @@ export const CourseBasicInfoSection: React.FC<CourseBasicInfoSectionProps> = ({ 
       {/* Title EN / RU */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <label className="text-[10px] text-[var(--ink-dim)] uppercase block">
+          <label className="type-caption text-[var(--ink-dim)] uppercase block">
             {t('courseTitleFieldEn')}
           </label>
           <input
@@ -39,11 +39,11 @@ export const CourseBasicInfoSection: React.FC<CourseBasicInfoSectionProps> = ({ 
             value={courseTitle}
             onChange={(e) => setCourseTitle(e.target.value)}
             placeholder={t('courseTitlePlaceholder')}
-            className="w-full px-3.5 py-2 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+            className="w-full px-3.5 py-2 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none type-body"
           />
         </div>
         <div className="space-y-1.5">
-          <label className="text-[10px] text-[var(--ink-dim)] uppercase block">
+          <label className="type-caption text-[var(--ink-dim)] uppercase block">
             {t('courseTitleFieldRu')}
           </label>
           <input
@@ -52,14 +52,14 @@ export const CourseBasicInfoSection: React.FC<CourseBasicInfoSectionProps> = ({ 
             value={courseTitleRu}
             onChange={(e) => setCourseTitleRu(e.target.value)}
             placeholder={t('courseTitlePlaceholderRu')}
-            className="w-full px-3.5 py-2 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+            className="w-full px-3.5 py-2 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none type-body"
           />
         </div>
       </div>
 
       {/* Duration */}
       <div className="space-y-1.5">
-        <label className="text-[10px] text-[var(--ink-dim)] uppercase block">
+        <label className="type-caption text-[var(--ink-dim)] uppercase block">
           {t('durationDescription')}
         </label>
         <input
@@ -68,7 +68,7 @@ export const CourseBasicInfoSection: React.FC<CourseBasicInfoSectionProps> = ({ 
           value={form.courseDuration}
           onChange={(e) => form.setCourseDuration(e.target.value)}
           placeholder={t('durationPlaceholder')}
-          className="w-full px-3.5 py-2 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+          className="w-full px-3.5 py-2 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none type-body"
         />
       </div>
 
@@ -77,13 +77,13 @@ export const CourseBasicInfoSection: React.FC<CourseBasicInfoSectionProps> = ({ 
 
       {/* Course Level (Difficulty) */}
       <div className="space-y-1.5">
-        <label className="text-[10px] text-[var(--ink-dim)] uppercase block">
+        <label className="type-caption text-[var(--ink-dim)] uppercase block">
           {t('courseDifficultyLevel')}
         </label>
         <select
           value={courseLevel}
           onChange={(e) => setCourseLevel(e.target.value as any)}
-          className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none cursor-pointer font-mono"
+          className="w-full px-3 py-2 border border-[var(--border)] type-body bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none cursor-pointer"
         >
           <option value="" className="bg-[var(--bg)] text-[var(--ink)]">
             {t('selectLevelNone')}
@@ -118,7 +118,7 @@ export const CourseBasicInfoSection: React.FC<CourseBasicInfoSectionProps> = ({ 
       {/* Grid for Seats & Price (KZT) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <label className="text-[10px] text-[var(--ink-dim)] uppercase block">
+          <label className="type-caption text-[var(--ink-dim)] uppercase block">
             {t('totalSeats')}
           </label>
           <input
@@ -127,12 +127,12 @@ export const CourseBasicInfoSection: React.FC<CourseBasicInfoSectionProps> = ({ 
             required
             value={courseTotalSeats}
             onChange={(e) => setCourseTotalSeats(Number(e.target.value))}
-            className="w-full px-3 py-2 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+            className="w-full px-3 py-2 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none type-body"
           />
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-[10px] text-[var(--ink-dim)] uppercase block">
+          <label className="type-caption text-[var(--ink-dim)] uppercase block">
             {t('priceKztLabel') || 'Стоимость (₸ KZT)'}
           </label>
           <input
@@ -145,7 +145,7 @@ export const CourseBasicInfoSection: React.FC<CourseBasicInfoSectionProps> = ({ 
               form.setCoursePriceKZT(next);
               if (next !== '') setCoursePrice(Number(next));
             }}
-            className="w-full px-3 py-2 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+            className="w-full px-3 py-2 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none type-body"
           />
         </div>
       </div>

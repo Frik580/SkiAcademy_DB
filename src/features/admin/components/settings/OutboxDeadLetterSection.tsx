@@ -35,11 +35,11 @@ export const OutboxDeadLetterSection: React.FC = () => {
       defaultOpen
     >
       {failed ? (
-        <p className="text-[10px] font-mono uppercase tracking-wider text-red-500" role="alert">
+        <p className="type-caption uppercase text-red-500" role="alert">
           {t('outboxDeadLetterLoadFailed')}
         </p>
       ) : items === undefined ? null : items.length === 0 ? (
-        <p className="text-xs text-[var(--ink-dim)]">{t('outboxDeadLetterEmpty')}</p>
+        <p className="type-caption text-[var(--ink-dim)]">{t('outboxDeadLetterEmpty')}</p>
       ) : (
         <ul className="space-y-2 max-w-3xl">
           {items.map((item) => (
@@ -48,15 +48,11 @@ export const OutboxDeadLetterSection: React.FC = () => {
               className="border border-[var(--border)] p-3 bg-black/5 dark:bg-white/5 space-y-1"
             >
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <span className="text-xs font-mono text-[var(--ink)]">{item.templateId}</span>
-                <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
-                  {item.channel}
-                </span>
+                <span className="type-caption text-[var(--ink)]">{item.templateId}</span>
+                <span className="type-caption uppercase text-[var(--ink-dim)]">{item.channel}</span>
               </div>
-              <p className="text-[10px] font-mono text-[var(--ink-dim)] break-all">
-                {item.outboxId}
-              </p>
-              <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink)]">
+              <p className="type-caption text-[var(--ink-dim)] break-all">{item.outboxId}</p>
+              <p className="type-caption uppercase text-[var(--ink)]">
                 {item.errorCode}
                 {' · '}
                 {t('outboxDeadLetterAttempts')} {item.attemptCount}

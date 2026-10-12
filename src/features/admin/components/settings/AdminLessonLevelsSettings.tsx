@@ -50,7 +50,7 @@ export function AdminLessonLevelsSettings() {
     [next[index], next[index + offset]] = [next[index + offset], next[index]];
     void save(next.map((level, order) => ({ ...level, order })));
   };
-  const inputClass = 'w-full border border-[var(--border)] bg-transparent px-3 py-2 text-sm';
+  const inputClass = 'w-full border border-[var(--border)] bg-transparent px-3 py-2 type-body';
 
   return (
     <AdminCollapsibleSection
@@ -61,7 +61,7 @@ export function AdminLessonLevelsSettings() {
       defaultOpen={false}
     >
       <div className="space-y-4">
-        <p className="text-sm text-[var(--ink-dim)]">{text.hint}</p>
+        <p className="type-compact text-[var(--ink-dim)]">{text.hint}</p>
         {error ? <p role="alert">{text.unavailable}</p> : !loaded ? <p>{text.loading}</p> : null}
         {message && <p role="alert">{message}</p>}
         <ul className="space-y-2">
@@ -75,7 +75,7 @@ export function AdminLessonLevelsSettings() {
                 <p>
                   {level.nameRu} / {level.nameEn}
                 </p>
-                <p className="text-xs text-[var(--ink-dim)]">
+                <p className="type-caption text-[var(--ink-dim)]">
                   {level.id} · {level.isActive ? text.active : text.archived}
                 </p>
               </div>
@@ -133,9 +133,9 @@ export function AdminLessonLevelsSettings() {
               );
             }}
           >
-            <p className="text-xs text-[var(--ink-dim)]">ID: {draft.id}</p>
+            <p className="type-caption text-[var(--ink-dim)]">ID: {draft.id}</p>
             {(['nameRu', 'nameEn', 'marker'] as const).map((field) => (
-              <label key={field} className="block text-sm">
+              <label key={field} className="block type-compact">
                 {field === 'nameRu' ? text.ru : field === 'nameEn' ? text.en : text.marker}
                 <input
                   required

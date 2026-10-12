@@ -174,9 +174,9 @@ export function AdminRoleDirectory({ adminAccountId, onRequestConfirm }: AdminRo
         : undefined;
 
   return (
-    <div className="space-y-4 font-mono">
+    <div className="space-y-4 font-sans">
       {!actorCanMutateRoles && !adminReads.accounts.loading ? (
-        <div className="flex items-start gap-2.5 border border-[var(--border)] bg-black/5 p-4 text-xs text-[var(--ink)] dark:bg-white/5">
+        <div className="flex items-start gap-2.5 border border-[var(--border)] bg-black/5 p-4 type-caption text-[var(--ink)] dark:bg-white/5">
           <Shield className="mt-0.5 h-4 w-4 shrink-0 text-[var(--ink-dim)]" />
           <div>
             <p className="font-bold">{text.ownerOnlyMutations}</p>
@@ -185,23 +185,23 @@ export function AdminRoleDirectory({ adminAccountId, onRequestConfirm }: AdminRo
       ) : null}
 
       {listError ? (
-        <div className="space-y-2 border border-[var(--border)] p-3 text-xs text-[var(--ink)]">
+        <div className="space-y-2 border border-[var(--border)] p-3 type-caption text-[var(--ink)]">
           <p>{listError}</p>
           <button
             type="button"
             onClick={() => void adminReads.refresh()}
-            className="border border-[var(--border)] px-3 py-1.5 font-bold uppercase tracking-wider"
+            className="border border-[var(--border)] px-3 py-1.5 type-button"
           >
             {text.retry}
           </button>
         </div>
       ) : null}
 
-      {error ? <p className="text-xs text-rose-600">{error}</p> : null}
-      {notice ? <p className="text-xs text-[var(--ink-dim)]">{notice}</p> : null}
+      {error ? <p className="type-caption text-rose-600">{error}</p> : null}
+      {notice ? <p className="type-caption text-[var(--ink-dim)]">{notice}</p> : null}
 
       <div className="space-y-3">
-        <h4 className="text-[10px] uppercase tracking-wider text-[var(--ink-dim)]">
+        <h4 className="type-card-title uppercase text-[var(--ink-dim)]">
           {text.currentAdministrators}
         </h4>
         <AdminRoleList
@@ -228,7 +228,7 @@ export function AdminRoleDirectory({ adminAccountId, onRequestConfirm }: AdminRo
                 setError(undefined);
                 setNotice(undefined);
               }}
-              className="inline-flex items-center gap-1.5 border border-[var(--border)] px-3 py-2 text-xs font-bold uppercase tracking-wider disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 border border-[var(--border)] px-3 py-2 type-button uppercase disabled:opacity-50"
             >
               <UserPlus className="h-3.5 w-3.5" />
               {text.addAdministrator}
@@ -261,7 +261,7 @@ export function AdminRoleDirectory({ adminAccountId, onRequestConfirm }: AdminRo
       ) : null}
 
       {pending ? (
-        <p className="flex items-center gap-2 text-xs text-[var(--ink-dim)]">
+        <p className="flex items-center gap-2 type-caption text-[var(--ink-dim)]">
           <Loader2 className="h-4 w-4 animate-spin" />
           {text.pending}
         </p>

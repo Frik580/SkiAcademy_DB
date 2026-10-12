@@ -89,10 +89,10 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
               <Link2 className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-bold font-mono tracking-wide">
-                {t('linkGuestBookingTitle')}
-              </h3>
-              <p className="text-[11px] text-[var(--ink-dim)] mt-0.5">{t('linkGuestBookingSub')}</p>
+              <h3 className="type-section-title">{t('linkGuestBookingTitle')}</h3>
+              <p className="type-caption text-[var(--ink-dim)] mt-0.5">
+                {t('linkGuestBookingSub')}
+              </p>
             </div>
           </div>
           <button
@@ -113,11 +113,11 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
             <div className="w-12 h-12 mx-auto bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 flex items-center justify-center rounded-full">
               <Check className="w-6 h-6" />
             </div>
-            <h4 className="text-sm font-bold font-mono text-emerald-600 dark:text-emerald-400">
+            <h4 className="type-card-title text-emerald-600 dark:text-emerald-400">
               {successMessage}
             </h4>
             {selectedUser && (
-              <p className="text-xs text-[var(--ink-dim)]">
+              <p className="type-caption text-[var(--ink-dim)]">
                 {selectedUser.displayName} ({selectedUser.email || selectedUser.uid})
               </p>
             )}
@@ -126,7 +126,7 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
           <form onSubmit={handleSubmit} className="p-4 space-y-4 overflow-y-auto flex-1">
             {/* Error Message */}
             {errorMessage && (
-              <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-xs font-mono flex items-start gap-2">
+              <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 type-caption flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-500" />
                 <div>
                   <span className="font-bold block">
@@ -138,17 +138,17 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
             )}
 
             {/* Booking Card Summary */}
-            <div className="p-3 bg-black/5 dark:bg-white/5 border border-[var(--border)] space-y-2 font-mono text-xs">
+            <div className="p-3 bg-black/5 dark:bg-white/5 border border-[var(--border)] space-y-2 type-caption">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] text-[var(--ink-dim)] uppercase tracking-wider font-bold">
+                <span className="type-caption text-[var(--ink-dim)] uppercase font-medium">
                   {t('bookingId')}: {booking.id}
                 </span>
                 <StatusBadge status={booking.status} size="xs" />
               </div>
 
-              <div className="grid grid-cols-3 gap-2 text-[11px] pt-1">
+              <div className="grid grid-cols-3 gap-2 type-caption pt-1">
                 <div>
-                  <span className="text-[var(--ink-dim)] block text-[10px]">
+                  <span className="text-[var(--ink-dim)] block type-caption">
                     {t('dateTimeColumn')}
                   </span>
                   <span className="font-bold">
@@ -156,11 +156,13 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
                   </span>
                 </div>
                 <div>
-                  <span className="text-[var(--ink-dim)] block text-[10px]">{t('coachLabel')}</span>
+                  <span className="text-[var(--ink-dim)] block type-caption">
+                    {t('coachLabel')}
+                  </span>
                   <span className="font-bold">{booking.instructorName}</span>
                 </div>
                 <div>
-                  <span className="text-[var(--ink-dim)] block text-[10px]">
+                  <span className="text-[var(--ink-dim)] block type-caption">
                     {t('costLabel') || 'Стоимость:'}
                   </span>
                   <span className="font-bold text-amber-600 dark:text-amber-400">
@@ -169,15 +171,15 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
                 </div>
               </div>
 
-              <div className="pt-2 border-t border-[var(--border)]/60 text-[11px]">
-                <span className="text-[var(--ink-dim)] block text-[10px] uppercase font-bold text-amber-600 dark:text-amber-400">
+              <div className="pt-2 border-t border-[var(--border)]/60 type-caption">
+                <span className="text-[var(--ink-dim)] block type-caption uppercase font-medium text-amber-600 dark:text-amber-400">
                   {t('guestBadge')}
                 </span>
                 <div className="font-bold text-[var(--ink)] mt-0.5">
                   {booking.guestName || 'Незарегистрированный гость'}
                 </div>
                 {(booking.guestPhone || booking.guestEmail) && (
-                  <div className="text-[10px] text-[var(--ink-dim)] flex flex-wrap gap-2 mt-0.5">
+                  <div className="type-caption text-[var(--ink-dim)] flex flex-wrap gap-2 mt-0.5">
                     {booking.guestPhone && <span>📞 {booking.guestPhone}</span>}
                     {booking.guestEmail && <span>✉️ {booking.guestEmail}</span>}
                   </div>
@@ -187,7 +189,7 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
 
             {/* Client Search and Selection */}
             <div className="space-y-2">
-              <label className="text-xs font-bold font-mono text-[var(--ink)] block">
+              <label className="type-caption font-medium text-[var(--ink)] block">
                 {t('selectClientToLink')}
               </label>
 
@@ -201,13 +203,13 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
                     setSearchTerm(e.target.value);
                     setErrorMessage(null);
                   }}
-                  className="w-full pl-9 pr-3 py-1.5 border border-[var(--border)] bg-transparent text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] font-mono transition"
+                  className="w-full pl-9 pr-3 py-1.5 border border-[var(--border)] bg-transparent type-body text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition"
                 />
               </div>
 
               <div className="max-h-52 overflow-y-auto border border-[var(--border)] divide-y divide-[var(--border)]/50 bg-black/5 dark:bg-white/5">
                 {clientUsers.length === 0 ? (
-                  <div className="p-4 text-center text-xs text-[var(--ink-dim)] font-mono">
+                  <div className="p-4 text-center type-caption text-[var(--ink-dim)]">
                     {t('noClientsFoundForLink')}
                   </div>
                 ) : (
@@ -228,7 +230,7 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
                         }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 border border-[var(--border)] flex items-center justify-center shrink-0 overflow-hidden text-xs">
+                          <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 border border-[var(--border)] flex items-center justify-center shrink-0 overflow-hidden type-caption">
                             {user.avatarUrl ? (
                               <img
                                 src={user.avatarUrl}
@@ -239,17 +241,17 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
                               <User className="w-4 h-4 text-[var(--ink-dim)]" />
                             )}
                           </div>
-                          <div className="min-w-0 font-mono">
-                            <div className="text-xs font-bold text-[var(--ink)] truncate">
+                          <div className="min-w-0 font-sans">
+                            <div className="type-caption font-medium text-[var(--ink)] truncate">
                               {user.displayName || 'Без имени'}
                             </div>
-                            <div className="text-[10px] text-[var(--ink-dim)] truncate">
+                            <div className="type-caption text-[var(--ink-dim)] truncate">
                               {user.email || user.phoneNumber || user.uid}
                             </div>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-3 shrink-0 font-mono text-right">
+                        <div className="flex items-center gap-3 shrink-0 font-sans text-right">
                           {isSelected && (
                             <div className="p-1 bg-amber-500 text-white rounded-full shrink-0">
                               <Check className="w-3.5 h-3.5" />
@@ -264,7 +266,7 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
             </div>
 
             {/* Modal Actions */}
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border)] font-mono">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border)] font-sans">
               <ActionButton
                 type="button"
                 size="sm"
@@ -274,7 +276,7 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
                   onClose();
                 }}
                 disabled={isSubmitting}
-                className="px-3 py-1.5 text-xs border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] transition cursor-pointer"
+                className="px-3 py-1.5 type-button border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] transition cursor-pointer"
               >
                 {t('cancel')}
               </ActionButton>
@@ -285,7 +287,7 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
                 pending={isSubmitting}
                 pendingLabel={t('saving')}
                 disabled={!selectedUserId}
-                className="px-4 py-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                className="px-4 py-1.5 type-button bg-amber-500 hover:bg-amber-600 text-slate-950 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
               >
                 <UserCheck className="w-4 h-4" />
                 {`${t('confirmLinkToClient')} ${selectedUser ? selectedUser.displayName : ''}`}

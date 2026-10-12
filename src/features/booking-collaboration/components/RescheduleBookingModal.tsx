@@ -34,7 +34,7 @@ export const RescheduleBookingModal: React.FC<RescheduleBookingModalProps> = ({
 
   const minBookingDateStr = useMemo(() => toLocalDateStr(), []);
   const locale = language === 'ru' ? 'ru-RU' : 'en-US';
-  const labelStyle = 'mb-1.5 flex items-center gap-1.5 truncate text-xs text-[var(--ink-dim)]';
+  const labelStyle = 'mb-1.5 flex items-center gap-1.5 type-caption text-[var(--ink-dim)]';
 
   useEffect(() => {
     if (!booking) return;
@@ -82,7 +82,7 @@ export const RescheduleBookingModal: React.FC<RescheduleBookingModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-md rounded-xl bg-[var(--card-bg)] p-5 shadow-xl space-y-4">
-        <h3 className="text-lg font-serif text-[var(--ink)]">{copy.rescheduleTitle}</h3>
+        <h3 className="type-section-title text-[var(--ink)]">{copy.rescheduleTitle}</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className={labelStyle}>
@@ -125,7 +125,7 @@ export const RescheduleBookingModal: React.FC<RescheduleBookingModalProps> = ({
             unstyled
             disabled={submitting}
             onClick={onClose}
-            className="px-4 py-2 text-sm rounded-lg border border-[var(--border-subtle)]"
+            className="px-4 py-2 type-button rounded-lg border border-[var(--border-subtle)]"
           >
             {copy.t('cancel')}
           </ActionButton>
@@ -148,7 +148,7 @@ export const RescheduleBookingModal: React.FC<RescheduleBookingModalProps> = ({
                 setSubmitting(false);
               }
             }}
-            className="px-4 py-2 text-sm rounded-lg bg-[var(--accent)] text-white disabled:opacity-50"
+            className="px-4 py-2 type-button rounded-lg bg-[var(--accent)] text-white disabled:opacity-50"
           >
             {copy.rescheduleConfirm}
           </ActionButton>

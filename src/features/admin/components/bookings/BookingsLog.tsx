@@ -46,7 +46,7 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="border-b border-[var(--border)] text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider">
+            <tr className="border-b border-[var(--border)] type-caption text-[var(--ink-dim)] uppercase">
               <th className="py-3 px-1 w-[4.5rem] max-w-[4.5rem]">{t('bookingId')}</th>
               <th className="py-3 px-2 whitespace-nowrap">{t('bookingDateColumn')}</th>
               <th className="py-3 px-2">{t('skierLabel')}</th>
@@ -61,10 +61,7 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
           <tbody>
             {visibleBookings.length === 0 ? (
               <tr>
-                <td
-                  colSpan={9}
-                  className="text-center py-6 text-xs text-[var(--ink-dim)] font-mono"
-                >
+                <td colSpan={9} className="text-center py-6 type-caption text-[var(--ink-dim)]">
                   {t('noScheduledSessions')}
                 </td>
               </tr>
@@ -75,21 +72,21 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                 return (
                   <tr
                     key={b.id}
-                    className="border-b border-[var(--border)]/40 text-xs hover:bg-black/5 dark:hover:bg-white/5 transition"
+                    className="border-b border-[var(--border)]/40 type-caption hover:bg-black/5 dark:hover:bg-white/5 transition"
                   >
                     <td
-                      className="py-3 px-1 w-[4.5rem] max-w-[4.5rem] font-mono text-[9px] text-[var(--ink-dim)] truncate align-top"
+                      className="py-3 px-1 w-[4.5rem] max-w-[4.5rem] type-caption text-[var(--ink-dim)] truncate align-top"
                       title={b.id}
                     >
                       {shortenBookingId(b.id)}
                     </td>
-                    <td className="py-3 px-2 font-mono text-[11px] text-[var(--ink-dim)] whitespace-nowrap">
+                    <td className="py-3 px-2 type-caption text-[var(--ink-dim)] whitespace-nowrap">
                       {formatBookingCreatedAt(b, language) ?? t('bookingCreatedAtUnknown')}
                     </td>
                     <td className="py-3 px-2">
                       {b.isGuest || b.userId?.startsWith('guest_') ? (
                         <div className="space-y-1">
-                          <span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/40 font-mono text-[9px] uppercase font-bold tracking-wider inline-block">
+                          <span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/40 type-caption uppercase font-medium inline-block">
                             {t('guestBadge')}
                           </span>
                           <span className="font-bold text-[var(--ink)] block leading-tight">
@@ -101,7 +98,7 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                           {b.guestPhone && (
                             <a
                               href={`tel:${b.guestPhone}`}
-                              className="text-sky-600 dark:text-sky-400 font-mono text-[10px] flex items-center gap-1 hover:underline"
+                              className="text-sky-600 dark:text-sky-400 type-button flex items-center gap-1 hover:underline"
                             >
                               📞 {b.guestPhone}
                             </a>
@@ -109,7 +106,7 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                           {b.guestEmail && (
                             <a
                               href={`mailto:${b.guestEmail}`}
-                              className="text-[var(--ink-dim)] font-mono text-[10px] flex items-center gap-1 hover:underline"
+                              className="text-[var(--ink-dim)] type-button flex items-center gap-1 hover:underline"
                             >
                               ✉️ {b.guestEmail}
                             </a>
@@ -119,7 +116,7 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                             onClick={() =>
                               isCourseBooking(b) ? onOpenEnrollment?.(b.id) : onOpenLesson?.(b.id)
                             }
-                            className="mt-1.5 px-2 py-0.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-[10px] font-mono font-bold transition flex items-center gap-1 cursor-pointer"
+                            className="mt-1.5 px-2 py-0.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 type-button transition flex items-center gap-1 cursor-pointer"
                             title={t('linkToClientBtn')}
                           >
                             <Link2 className="w-3 h-3" />
@@ -131,14 +128,14 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                           <span className="font-bold text-[var(--ink)] block leading-none">
                             {b.guestName || client?.displayName || t('skierLabel')}
                           </span>
-                          <span className="font-mono text-[9px] text-[var(--ink-dim)] mt-1 block">
+                          <span className="type-caption text-[var(--ink-dim)] mt-1 block">
                             {b.userId.substring(0, 8)}...
                           </span>
                         </>
                       )}
                     </td>
                     <td className="py-3 px-2 font-bold text-[var(--ink)]">{instructorName}</td>
-                    <td className="py-3 px-2 font-mono text-[10px] text-[var(--ink-dim)] whitespace-nowrap">
+                    <td className="py-3 px-2 type-caption text-[var(--ink-dim)] whitespace-nowrap">
                       {isCourseBooking(b)
                         ? '—'
                         : formatLessonDifficultyOrUnspecified(
@@ -148,23 +145,23 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                             'short'
                           )}
                     </td>
-                    <td className="py-3 px-2 font-mono text-[11px] text-[var(--ink-dim)]">
+                    <td className="py-3 px-2 type-caption text-[var(--ink-dim)]">
                       <div>
                         {b.date} @ {b.time} ({formatMonitorDuration(b.durationHours, language)})
                       </div>
                       {b.notes && (
-                        <div className="mt-1 text-[10px] text-[var(--ink)] italic bg-black/5 dark:bg-white/5 border border-[var(--border)] p-1.5 max-w-xs font-sans">
+                        <div className="mt-1 type-caption text-[var(--ink)] italic bg-black/5 dark:bg-white/5 border border-[var(--border)] p-1.5 max-w-xs">
                           💬 {b.notes}
                         </div>
                       )}
                       {b.status === 'pending_cancellation' && b.cancellationReason && (
-                        <div className="mt-1 text-[10px] text-rose-600 dark:text-rose-400 font-bold bg-rose-500/10 border border-rose-500/30 px-1.5 py-0.5 rounded-none inline-block">
+                        <div className="mt-1 type-caption text-rose-600 dark:text-rose-400 font-medium bg-rose-500/10 border border-rose-500/30 px-1.5 py-0.5 rounded-none inline-block">
                           {t('reasonPrefix')}
                           {b.cancellationReason}
                         </div>
                       )}
                     </td>
-                    <td className="py-3 px-2 font-mono text-[var(--ink)]">
+                    <td className="py-3 px-2 font-sans text-[var(--ink)]">
                       {formatPrice(b.totalPrice)}
                     </td>
                     <td className="py-3 px-2">
@@ -174,10 +171,10 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                         <StatusBadge status={b.status} size="xs" />
                       )}
                     </td>
-                    <td className="py-3 px-2 text-right font-mono">
+                    <td className="py-3 px-2 text-right font-sans">
                       {b.status === 'pending' && (
                         <div className="flex items-center justify-end gap-1.5">
-                          <span className="text-[9px] font-mono text-amber-700 dark:text-amber-300">
+                          <span className="type-caption text-amber-700 dark:text-amber-300">
                             {t('paymentDrivenGuestConfirmation')}
                           </span>
                           {isCourseBooking(b) ? (
@@ -185,7 +182,7 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                               <button
                                 type="button"
                                 onClick={() => onOpenEnrollment(b.id)}
-                                className="px-2 py-0.5 text-[9px] font-bold border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] rounded-none transition cursor-pointer"
+                                className="px-2 py-0.5 type-button border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] rounded-none transition cursor-pointer"
                               >
                                 {t('openEnrollmentAttendance')}
                               </button>
@@ -194,7 +191,7 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                             <button
                               type="button"
                               onClick={() => onOpenLesson?.(b.id)}
-                              className="px-2 py-0.5 text-[9px] font-bold border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] rounded-none transition cursor-pointer"
+                              className="px-2 py-0.5 type-button border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] rounded-none transition cursor-pointer"
                             >
                               {t('openLessonDetail')}
                             </button>
@@ -207,7 +204,7 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                             <button
                               type="button"
                               onClick={() => onOpenEnrollment?.(b.id)}
-                              className="px-2.5 py-1 text-[10px] font-bold border border-amber-500 text-amber-700 dark:text-amber-300 hover:bg-amber-50 rounded-none transition cursor-pointer"
+                              className="px-2.5 py-1 type-button border border-amber-500 text-amber-700 dark:text-amber-300 hover:bg-amber-50 rounded-none transition cursor-pointer"
                             >
                               {t('openEnrollmentAttendance')}
                             </button>
@@ -215,7 +212,7 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                             <button
                               type="button"
                               onClick={() => onOpenLesson?.(b.id)}
-                              className="px-2.5 py-1 text-[10px] font-bold border border-amber-500 text-amber-700 dark:text-amber-300 hover:bg-amber-50 rounded-none transition cursor-pointer"
+                              className="px-2.5 py-1 type-button border border-amber-500 text-amber-700 dark:text-amber-300 hover:bg-amber-50 rounded-none transition cursor-pointer"
                             >
                               {t('openCancellationDetail')}
                             </button>
@@ -229,7 +226,7 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                               <button
                                 type="button"
                                 onClick={() => onOpenEnrollment(b.id)}
-                                className="px-2 py-0.5 text-[9px] font-bold border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] rounded-none transition cursor-pointer"
+                                className="px-2 py-0.5 type-button border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] rounded-none transition cursor-pointer"
                               >
                                 {t('openEnrollmentAttendance')}
                               </button>
@@ -238,7 +235,7 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                             <button
                               type="button"
                               onClick={() => onOpenLesson?.(b.id)}
-                              className="px-2 py-0.5 text-[9px] font-bold border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] rounded-none transition cursor-pointer"
+                              className="px-2 py-0.5 type-button border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] rounded-none transition cursor-pointer"
                             >
                               {t('openLessonDetail')}
                             </button>
@@ -247,7 +244,7 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                       )}
                       {b.status === 'cancelled' && (
                         <div className="flex items-center justify-end gap-1.5">
-                          <span className="text-[10px] text-[var(--ink-dim)] italic font-mono">
+                          <span className="type-caption text-[var(--ink-dim)] italic">
                             {t('cancelledLabel')}
                           </span>
                           {isCourseBooking(b) ? (
@@ -255,7 +252,7 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                               <button
                                 type="button"
                                 onClick={() => onOpenEnrollment(b.id)}
-                                className="px-2 py-0.5 text-[9px] font-bold border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] rounded-none transition cursor-pointer"
+                                className="px-2 py-0.5 type-button border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] rounded-none transition cursor-pointer"
                               >
                                 {t('openEnrollmentAttendance')}
                               </button>
@@ -264,7 +261,7 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                             <button
                               type="button"
                               onClick={() => onOpenLesson?.(b.id)}
-                              className="px-2 py-0.5 text-[9px] font-bold border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] rounded-none transition cursor-pointer"
+                              className="px-2 py-0.5 type-button border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] rounded-none transition cursor-pointer"
                             >
                               {t('openLessonDetail')}
                             </button>
@@ -273,7 +270,7 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                       )}
                       {b.status === 'completed' && (
                         <div className="flex items-center justify-end gap-1.5">
-                          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 italic font-mono">
+                          <span className="type-caption text-emerald-600 dark:text-emerald-400 italic">
                             {t('finishedLabel')}
                           </span>
                           {isCourseBooking(b) ? (
@@ -281,7 +278,7 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                               <button
                                 type="button"
                                 onClick={() => onOpenEnrollment(b.id)}
-                                className="px-2 py-0.5 text-[9px] font-bold border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] rounded-none transition cursor-pointer"
+                                className="px-2 py-0.5 type-button border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] rounded-none transition cursor-pointer"
                               >
                                 {t('openEnrollmentAttendance')}
                               </button>
@@ -290,7 +287,7 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                             <button
                               type="button"
                               onClick={() => onOpenLesson?.(b.id)}
-                              className="px-2 py-0.5 text-[9px] font-bold border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] rounded-none transition cursor-pointer"
+                              className="px-2 py-0.5 type-button border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] rounded-none transition cursor-pointer"
                             >
                               {t('openLessonDetail')}
                             </button>

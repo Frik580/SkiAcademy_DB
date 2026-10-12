@@ -377,30 +377,38 @@ describe('Student Home dashboard grid', () => {
       grid.querySelector('[data-dashboard-tile="instructorRecommendations"]')?.parentElement
         ?.parentElement
     ).toBe(grid.querySelector('[data-dashboard-column="right"]'));
+    expect(grid.querySelectorAll('[data-dashboard-tile]')).toHaveLength(10);
     for (const tile of Array.from(grid.querySelectorAll('[data-dashboard-tile]'))) {
-      expect(tile).toHaveClass('ui-card', 'p-4', 'sm:p-5');
+      expect(tile).toHaveClass('sc-dashboard-card', 'ui-card', 'p-4', 'sm:p-5', 'min-w-0', 'w-full');
       const header = tile.querySelector('[data-dashboard-header]')!;
-      if (tile.getAttribute('data-dashboard-tile') === 'todayTasks') {
-        expect(header).toHaveClass('sc-today-tasks-header');
-        expect(header.querySelector('[data-dashboard-title]')).toHaveClass('sc-today-tasks-title');
-        expect(tile.querySelectorAll('[data-dashboard-header]')).toHaveLength(1);
-        expect(header.nextElementSibling).toHaveAttribute('data-dashboard-body');
-        continue;
-      }
-      expect(header).toHaveClass('flex', 'items-center', 'h-12', 'min-h-12');
-      expect(header.querySelector('[data-dashboard-title]')).toHaveClass(
-        'text-sm',
-        'font-semibold',
-        'leading-5',
-        'tracking-normal',
-        'h-10'
-      );
+      const title = header.querySelector('[data-dashboard-title]')!;
+      expect(header.tagName).toBe('HEADER');
+      expect(title.tagName).toBe('H2');
       expect(tile.querySelectorAll('[data-dashboard-header]')).toHaveLength(1);
+      expect(tile.querySelectorAll('[data-dashboard-title]')).toHaveLength(1);
       expect(tile.querySelectorAll('[data-dashboard-body]')).toHaveLength(1);
       expect(header.nextElementSibling).toHaveAttribute('data-dashboard-body');
-      expect(header.nextElementSibling).toHaveClass('mt-4');
+      expect(header.nextElementSibling).toHaveClass('mt-4', 'min-w-0');
+      // Localized titles must grow and wrap rather than regain a fixed height or clipping.
+      for (const element of [header, title]) {
+        expect(
+          [...element.classList].filter((token) =>
+            /^(h-|max-h-|line-clamp-|truncate$|overflow-hidden$)/.test(token)
+          )
+        ).toEqual([]);
+      }
+      if (tile.getAttribute('data-dashboard-tile') === 'todayTasks') {
+        expect(header).toHaveClass('sc-today-tasks-header');
+        expect(title).toHaveClass('sc-today-tasks-title');
+        expect(title.parentElement).toHaveClass('min-w-0', 'flex-1');
+        continue;
+      }
+      expect(header).toHaveClass('flex', 'min-h-12', 'flex-wrap', 'items-start', 'gap-3');
+      expect(title.parentElement).toBe(header);
+      expect(title).toHaveClass('min-w-0', 'flex-1', 'break-words', 'type-card-title');
     }
     const journey = view.container.querySelector('#your-journey')!;
+    expect(grid.contains(journey)).toBe(false);
     expect(journey.closest('[data-dashboard-tile]')).toBeNull();
     expect(journey.querySelector('[data-dashboard-header]')).toBeNull();
 

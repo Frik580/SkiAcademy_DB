@@ -23,7 +23,7 @@
   min-height: 2.75rem;
   min-width: 2.75rem;
   color: var(--accent);
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   text-align: left;
   white-space: normal;
 }
@@ -74,7 +74,7 @@
 
 .sc-next-session-weekday {
   color: var(--ink-dim);
-  font-size: 0.5625rem;
+  font-size: 0.6875rem;
   line-height: 1.5;
 }
 
@@ -223,7 +223,7 @@
   min-height: 2.75rem;
   min-width: 2.75rem;
   max-width: 100%;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   color: var(--accent);
   white-space: normal;
 }

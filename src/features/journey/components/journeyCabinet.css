@@ -72,7 +72,7 @@
 
 .sc-journey .journey-heading > p {
   color: var(--journey-muted);
-  font: 0.625rem/1.6 var(--font-mono);
+  font: 0.6875rem/1.5 var(--font-mono);
   letter-spacing: 0.08em;
 }
 
@@ -266,7 +266,7 @@
   background: transparent;
   color: var(--journey-muted);
   box-shadow: none;
-  font-size: 0.5625rem;
+  font-size: 0.6875rem;
   letter-spacing: 0;
   text-transform: none;
 }
@@ -311,7 +311,7 @@
 
 .sc-journey .journey-stage-labels h3 {
   color: var(--ink);
-  font: 600 0.625rem/1.5 var(--font-sans);
+  font: 600 0.75rem/1.5 var(--font-sans);
   letter-spacing: 0;
   text-transform: none;
   overflow-wrap: anywhere;
@@ -320,7 +320,7 @@
 
 .sc-journey .journey-stage-labels p {
   color: var(--journey-muted) !important;
-  font: 0.5625rem/1.6 var(--font-mono);
+  font: 0.6875rem/1.5 var(--font-mono);
   overflow-wrap: anywhere;
 }
 

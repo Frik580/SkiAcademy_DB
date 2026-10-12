@@ -120,7 +120,7 @@
   border-radius: var(--sc-control-radius, var(--radius-md));
   background: var(--sc-surface, var(--profile-bg));
   color: var(--ink);
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   white-space: normal;
 }
 

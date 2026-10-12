@@ -112,7 +112,7 @@
 .sc-attention-date {
   margin-top: 0.125rem;
   color: var(--ink-dim);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   line-height: 1.5;
 }
 
@@ -133,7 +133,7 @@
   border-radius: 0.5rem;
   background: var(--card-bg);
   color: var(--ink);
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   line-height: 1.5;
   text-align: center;
   white-space: normal;

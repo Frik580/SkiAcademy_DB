@@ -287,7 +287,11 @@ export async function executeAdminLessonBookingAttempt(
 
 export type AdminLessonBookingAttemptResult =
   | { readonly status: 'success'; readonly refreshFailed?: boolean }
-  | { readonly status: 'error'; readonly error: CanonicalCommandClientError };
+  | {
+      readonly status: 'error';
+      readonly error: CanonicalCommandClientError;
+      readonly refreshFailed?: boolean;
+    };
 
 export function useAdminLessonBookingCommands(input: {
   readonly adminAccountId: string;
@@ -326,7 +330,12 @@ export function useAdminLessonBookingCommands(input: {
             ? error
             : toCanonicalCommandClientError(error, 'correlation_admin_lesson_unknown');
         if (normalized.code === 'stale_version') {
-          await refreshCanonicalProjections();
+          const refresh = await refreshCanonicalProjections();
+          return {
+            status: 'error',
+            error: normalized,
+            ...(refresh.status === 'failure' ? { refreshFailed: true } : {}),
+          };
         }
         return { status: 'error', error: normalized };
       }
@@ -337,7 +346,8 @@ export function useAdminLessonBookingCommands(input: {
       if (
         attempt.kind === 'create_confirmed_booking' ||
         attempt.kind === 'record_provider_payment_event' ||
-        attempt.kind === 'pay_service_from_wallet_as_administrator'
+        attempt.kind === 'pay_service_from_wallet_as_administrator' ||
+        attempt.kind === 'finalize_booking_attendance'
       ) {
         return { status: 'success', refreshFailed: true };
       }

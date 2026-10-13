@@ -252,7 +252,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   undefined
                 }
               >
-                <AdminIssueCenter />
+                <AdminIssueCenter adminAccountId={currentUserProfile.uid} />
               </AdminCollapsibleSection>
             </Suspense>
 

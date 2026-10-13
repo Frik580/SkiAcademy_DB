@@ -970,6 +970,24 @@ export const translations = {
     adminIssueSeverityUrgent: 'Urgent',
     adminIssueSeverityNormal: 'Normal',
     adminIssueLoading: 'Loading issues…',
+    adminIssueRetry: 'Retry',
+    adminIssueAttendanceAllPresent: 'Everyone attended',
+    adminIssueAttendanceSaving: 'Saving...',
+    adminIssueAttendanceSaved: 'Attendance saved',
+    adminIssueAttendanceSaveFailed: 'Could not save attendance',
+    adminIssueAttendanceStale:
+      'Attendance was changed. The lesson data has been refreshed; review it before trying again.',
+    adminIssueAttendanceStaleRefreshFailed:
+      'Attendance was changed. Reload the lesson data before trying again.',
+    adminIssueAttendanceRefreshPending:
+      'Attendance is saved. The data could not be refreshed; retry loading or wait for the next update.',
+    adminIssueAttendanceReadFailed: 'Could not load the lesson attendance.',
+    adminIssueAttendanceForbidden: 'You do not have permission to manage this lesson attendance.',
+    adminIssueAttendanceInconsistent:
+      'The confirmed participant list or attendance evidence is incomplete. Open the lesson details to check it.',
+    adminIssueAttendanceUnavailable:
+      'Bulk attendance is unavailable for the current lesson state or your permissions.',
+    adminIssueAttendanceComplete: 'All participants already have an attendance status.',
     adminIssueLoadMore: 'Load more',
     adminIssueClose: 'Close',
     adminIssuePermissionDenied: 'Your account does not have canonical administrator read access.',
@@ -3416,6 +3434,24 @@ export const translations = {
     adminIssueSeverityUrgent: 'Срочно',
     adminIssueSeverityNormal: 'Обычно',
     adminIssueLoading: 'Загрузка проблем…',
+    adminIssueRetry: 'Повторить',
+    adminIssueAttendanceAllPresent: 'Все присутствовали',
+    adminIssueAttendanceSaving: 'Сохраняем...',
+    adminIssueAttendanceSaved: 'Посещаемость сохранена',
+    adminIssueAttendanceSaveFailed: 'Не удалось сохранить посещаемость',
+    adminIssueAttendanceStale:
+      'Посещаемость была изменена. Данные занятия обновлены; проверьте их перед повторной попыткой.',
+    adminIssueAttendanceStaleRefreshFailed:
+      'Посещаемость была изменена. Обновите данные занятия перед повторной попыткой.',
+    adminIssueAttendanceRefreshPending:
+      'Посещаемость сохранена. Данные временно не обновились; повторите загрузку или дождитесь следующего обновления.',
+    adminIssueAttendanceReadFailed: 'Не удалось загрузить посещаемость занятия.',
+    adminIssueAttendanceForbidden: 'У вас нет прав на управление посещаемостью этого занятия.',
+    adminIssueAttendanceInconsistent:
+      'Подтверждённый состав участников или данные посещаемости неполны. Проверьте подробности занятия.',
+    adminIssueAttendanceUnavailable:
+      'Массовая отметка недоступна при текущем состоянии занятия или ваших полномочиях.',
+    adminIssueAttendanceComplete: 'Посещаемость уже отмечена у всех участников.',
     adminIssueLoadMore: 'Загрузить ещё',
     adminIssueClose: 'Закрыть',
     adminIssuePermissionDenied: 'У аккаунта нет канонического права администратора на чтение.',

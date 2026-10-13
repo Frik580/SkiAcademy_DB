@@ -87,7 +87,7 @@ export function useAdminIssueReadModels(
   const loadList = useCallback(
     async (cursor?: string, append = false, quiet = false) => {
       const generation = ++listRequestGeneration.current;
-      if (!enabled) return;
+      if (!enabled) return { status: 'success' as const };
       setList((current) => ({
         ...(append || quiet ? current : INITIAL_LIST_STATE),
         loading: !append && !quiet,
@@ -101,7 +101,7 @@ export function useAdminIssueReadModels(
           ...(cursor ? { cursor } : {}),
         });
         if (listRequestGeneration.current !== generation || result.scope === 'admin_detail') {
-          return;
+          return { status: 'success' as const };
         }
         setList((current) => ({
           items: append ? mergeAdminIssueInboxItems(current.items, result.items) : result.items,
@@ -110,14 +110,16 @@ export function useAdminIssueReadModels(
           hasMore: result.hasMore,
           ...(result.nextCursor === undefined ? {} : { cursor: result.nextCursor }),
         }));
+        return { status: 'success' as const };
       } catch (error) {
-        if (listRequestGeneration.current !== generation) return;
+        if (listRequestGeneration.current !== generation) return { status: 'success' as const };
         setList((current) => ({
           ...current,
           loading: false,
           loadingMore: false,
           error: classifyAdminIssueReadError(error),
         }));
+        return { status: 'failure' as const };
       }
     },
     [enabled, scope, severity]
@@ -128,7 +130,7 @@ export function useAdminIssueReadModels(
       const generation = ++detailRequestGeneration.current;
       if (!enabled || !selectedIssueId) {
         setDetail(INITIAL_DETAIL_STATE);
-        return;
+        return { status: 'success' as const };
       }
       if (!quiet) {
         setDetail({ loading: true });
@@ -139,15 +141,17 @@ export function useAdminIssueReadModels(
           issueId: selectedIssueId,
         });
         if (detailRequestGeneration.current !== generation || result.scope !== 'admin_detail') {
-          return;
+          return { status: 'success' as const };
         }
         setDetail({ item: result.item, loading: false });
+        return { status: 'success' as const };
       } catch (error) {
-        if (detailRequestGeneration.current !== generation) return;
+        if (detailRequestGeneration.current !== generation) return { status: 'success' as const };
         setDetail({
           loading: false,
           error: classifyAdminIssueReadError(error),
         });
+        return { status: 'failure' as const };
       }
     },
     [enabled, selectedIssueId]

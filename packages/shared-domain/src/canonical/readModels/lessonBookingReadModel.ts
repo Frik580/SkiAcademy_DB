@@ -265,6 +265,7 @@ export const LessonBookingAdminAuthorizedActionsSchema = z
     canChangeInstructor: z.boolean(),
     canChangeDuration: z.boolean(),
     canRecordAttendance: z.boolean(),
+    canFinalizeAttendance: z.boolean().default(false),
     canResolveCancellation: z.boolean(),
     canResolveAttendanceOutcome: z.boolean(),
     canLinkGuestToAccount: z.boolean(),

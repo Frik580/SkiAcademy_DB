@@ -511,6 +511,48 @@ describe('Admin lesson booking read models', () => {
     };
   }
 
+  it.each([
+    ['confirmed', true, '2026-08-02T10:00:00.000Z', true],
+    ['pending_cancellation', true, '2026-08-02T10:00:00.000Z', true],
+    ['confirmed', false, '2026-08-02T10:00:00.000Z', false],
+    ['confirmed', true, '2026-08-02T08:00:00.000Z', false],
+    ['completed', true, '2026-08-02T10:00:00.000Z', false],
+    ['no_show', true, '2026-08-02T10:00:00.000Z', false],
+  ] as const)(
+    'projects precise bulk authorization: %s frozen=%s at %s',
+    async (status, frozen, now, expected) => {
+      const base = canonicalBooking('booking_admin_bulk_auth', '2026-08-01T12:00:00.000Z', {
+        status: 'confirmed',
+      });
+      const booking = BookingSchema.parse({
+        ...base,
+        updatedAt: base.occurrence.interval.endsAt,
+        lifecycle:
+          status === 'completed'
+            ? { status, completedAt: base.occurrence.interval.endsAt }
+            : status === 'no_show'
+              ? { status, noShowAt: base.occurrence.interval.endsAt }
+              : status === 'pending_cancellation'
+                ? { status, requestedAt: base.updatedAt }
+                : { status },
+        occurrence: {
+          ...base.occurrence,
+          serviceParty: {
+            participantIds: base.occurrence.serviceParty.participantIds,
+            ...(frozen ? { frozenAt: base.createdAt } : {}),
+          },
+        },
+      });
+      const { firestore } = adminFixture([booking]);
+      const result = await queryLessonBookingReadModels(
+        firestore,
+        { scope: 'admin_detail', bookingId: booking.bookingId },
+        { administratorActor: adminActor, now: new Date(now) }
+      );
+      expect(result.items[0]?.admin?.authorizedActions.canFinalizeAttendance).toBe(expected);
+    }
+  );
+
   it('deduplicates same-request Instructor, actor, and payer reads across 20 rows', async () => {
     const bookings = Array.from({ length: 20 }, (_, index) =>
       canonicalBooking(

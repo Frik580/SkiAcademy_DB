@@ -177,7 +177,8 @@ function adminEnvelope(
   attendanceStatus: 'present' | 'absent',
   input: {
     reasonExplanation?: string;
-    targetParticipantId?: typeof participantId | typeof participantTwoId | typeof participantThreeId;
+    targetParticipantId?:
+      typeof participantId | typeof participantTwoId | typeof participantThreeId;
     expectedBookingRevision?: number;
     expectedAttendanceRevision?: number;
   } = {}
@@ -390,7 +391,9 @@ describe('bookingAttendanceCommands', () => {
     expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe(
       'completed'
     );
-    expect(executor.snapshot().docs.get(`participant_achievements/${participantId}`)).toBeUndefined();
+    expect(
+      executor.snapshot().docs.get(`participant_achievements/${participantId}`)
+    ).toBeUndefined();
     expect(
       executor.snapshot().docs.get(`participant_achievements/${participantTwoId}`)
     ).toBeUndefined();
@@ -1067,7 +1070,13 @@ describe('bookingAttendanceCommands', () => {
       executor
     );
     const result = await commands.execute(
-      instructorEnvelope('same-status-after-end', '2026-01-15T10:00:00.000Z', 'present', participantId, 1)
+      instructorEnvelope(
+        'same-status-after-end',
+        '2026-01-15T10:00:00.000Z',
+        'present',
+        participantId,
+        1
+      )
     );
     expect(result.status).toBe('success');
     expect(executor.snapshot().docs.get(present.path)?.data.revision).toBe(1);
@@ -1207,15 +1216,16 @@ describe('bookingAttendanceCommands', () => {
       })
     );
     expect(result.status).toBe('success');
-    expect(executor.snapshot().docs.get(`admin_issues/${issue.issueId}`)?.data.lifecycle.status).toBe(
-      'resolved'
-    );
+    expect(
+      executor.snapshot().docs.get(`admin_issues/${issue.issueId}`)?.data.lifecycle.status
+    ).toBe('resolved');
   });
 
   function adminFinalizeEnvelope(
     idempotencyKey: string,
     attendance: Array<{
-      targetParticipantId: typeof participantId | typeof participantTwoId | typeof participantThreeId;
+      targetParticipantId:
+        typeof participantId | typeof participantTwoId | typeof participantThreeId;
       attendanceStatus: 'present' | 'absent';
       expectedAttendanceRevision?: number;
     }>,
@@ -1313,6 +1323,89 @@ describe('bookingAttendanceCommands', () => {
       )
     ).toBeUndefined();
     expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe('confirmed');
+  });
+
+  it('bulk finalization preserves existing present/absent evidence and resolves the issue idempotently', async () => {
+    const seededBooking = groupBooking();
+    const present = attendanceSeed(participantId, 'present', 2);
+    const absent = attendanceSeed(participantTwoId, 'absent', 3);
+    const issue = createOpenAdminIssue({
+      identity: missingBookingAttendanceIssueIdentity({ bookingId, occurrenceId }),
+      now: endsAt,
+      correlationId,
+      commandId: 'command_bulk_missing',
+    });
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`bookings/${bookingId}`]: seededBooking as unknown as Record<string, unknown>,
+      [present.path]: present.data,
+      [absent.path]: absent.data,
+      [`admin_issues/${issue.issueId}`]: issue as unknown as Record<string, unknown>,
+    });
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-15T11:00:00.000Z'),
+      executor
+    );
+    const envelope = adminFinalizeEnvelope(
+      'bulk-preserve-evidence',
+      [
+        {
+          targetParticipantId: participantId,
+          attendanceStatus: 'present',
+          expectedAttendanceRevision: 2,
+        },
+        {
+          targetParticipantId: participantTwoId,
+          attendanceStatus: 'absent',
+          expectedAttendanceRevision: 3,
+        },
+        { targetParticipantId: participantThreeId, attendanceStatus: 'present' },
+      ],
+      { expectedBookingRevision: 1 }
+    );
+    expect((await commands.execute(envelope)).status).toBe('success');
+    const snapshot = executor.snapshot();
+    expect(snapshot.docs.get(present.path)?.data).toEqual(present.data);
+    expect(snapshot.docs.get(absent.path)?.data).toEqual(absent.data);
+    expect(snapshot.docs.get(`admin_issues/${issue.issueId}`)?.data.lifecycle.status).toBe(
+      'resolved'
+    );
+    expect((await commands.execute(envelope)).status).toBe('success');
+    expect(executor.snapshot().docs.get(absent.path)?.data.revision).toBe(3);
+  });
+
+  it('bulk finalization rejects a stale attendance revision without any partial write', async () => {
+    const seededBooking = groupBooking();
+    const absent = attendanceSeed(participantTwoId, 'absent', 3);
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`bookings/${bookingId}`]: seededBooking as unknown as Record<string, unknown>,
+      [absent.path]: absent.data,
+    });
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-15T11:00:00.000Z'),
+      executor
+    );
+    const result = await commands.execute(
+      adminFinalizeEnvelope(
+        'bulk-stale-attendance',
+        [
+          { targetParticipantId: participantId, attendanceStatus: 'present' },
+          {
+            targetParticipantId: participantTwoId,
+            attendanceStatus: 'absent',
+            expectedAttendanceRevision: 2,
+          },
+          { targetParticipantId: participantThreeId, attendanceStatus: 'present' },
+        ],
+        { expectedBookingRevision: 1 }
+      )
+    );
+    expect(result).toMatchObject({ status: 'error', error: { code: 'stale_version' } });
+    const snapshot = executor.snapshot();
+    expect([...snapshot.docs.keys()].filter((path) => path.startsWith('attendance/'))).toEqual([
+      absent.path,
+    ]);
+    expect(snapshot.docs.get(absent.path)?.data).toEqual(absent.data);
+    expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.revision).toBe(1);
   });
 
   it('admin record_booking_attendance does not complete group booking with partial attendance', async () => {

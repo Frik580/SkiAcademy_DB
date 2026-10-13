@@ -39,6 +39,8 @@ import {
 import { useAdminAttentionChangeRequests } from './useAdminAttentionChangeRequests';
 import { useAdminIssueReadModels } from './useAdminIssueReadModels';
 import { useAdminIssueTranslations } from './useAdminIssueTranslations';
+import { AdminIssueAttendancePanel } from './AdminIssueAttendancePanel';
+import { useAdminIssueAttendance } from './useAdminIssueAttendance';
 
 function timestampDate(value: { seconds: number }): Date {
   return new Date(value.seconds * 1_000);
@@ -100,7 +102,7 @@ function formatInterval(locale: string, startsAt: { seconds: number }, timeZone?
   }).format(timestampDate(startsAt));
 }
 
-export function AdminIssueCenter() {
+export function AdminIssueCenter({ adminAccountId }: { readonly adminAccountId: string }) {
   const { t, language } = useAdminIssueTranslations();
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
@@ -149,6 +151,31 @@ export function AdminIssueCenter() {
   );
 
   const locale = language === 'ru' ? 'ru-RU' : 'en-US';
+  const attendanceIssue =
+    view === 'open' &&
+    !selectedChangeRequestParam &&
+    detail.item &&
+    detail.item?.issueId === selectedIssueId &&
+    detail.item.kind === 'missing_attendance' &&
+    detail.item.lifecycle.status === 'open' &&
+    detail.item.subjectRef.subjectKind === 'booking'
+      ? detail.item
+      : undefined;
+  const attendance = useAdminIssueAttendance({
+    adminAccountId,
+    selectedIssueId,
+    bookingId:
+      attendanceIssue?.subjectRef.subjectKind === 'booking'
+        ? attendanceIssue.subjectRef.bookingId
+        : undefined,
+    locale,
+    refreshIssues: async () => {
+      const results = await Promise.all([retryList(), retryDetail(true)]);
+      return results.every((result) => result.status === 'success')
+        ? { status: 'success' }
+        : { status: 'failure' };
+    },
+  });
   const formatDate = (value: { seconds: number }) =>
     new Intl.DateTimeFormat(locale, {
       dateStyle: 'medium',
@@ -546,6 +573,23 @@ export function AdminIssueCenter() {
             : 'hidden min-h-56 lg:flex lg:items-center lg:justify-center'
         }`}
       >
+        {attendance.notice && (
+          <div
+            role={attendance.notice.errorCode ? 'alert' : 'status'}
+            aria-live="polite"
+            className="mb-4 space-y-2 type-compact text-[var(--ink)]"
+          >
+            <p>
+              {t(attendance.notice.key)}
+              {attendance.notice.errorCode && attendance.notice.errorCode !== 'stale_version'
+                ? ` (${attendance.notice.errorCode})`
+                : ''}
+            </p>
+            {attendance.notice.refreshFailed && (
+              <p className="text-[var(--ink-dim)]">{t('adminIssueAttendanceRefreshPending')}</p>
+            )}
+          </div>
+        )}
         {selectedChangeRequestParam ? (
           !selectedChangeRequestResult.success ? (
             <div role="alert" className="space-y-3 type-compact text-red-700">
@@ -796,6 +840,39 @@ export function AdminIssueCenter() {
                 </>
               )}
             </dl>
+
+            {attendanceIssue && (
+              <>
+                {attendance.loading && (
+                  <p
+                    role="status"
+                    className="flex items-center gap-2 type-caption text-[var(--ink-dim)]"
+                  >
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                    {t('adminIssueLoading')}
+                  </p>
+                )}
+                {attendance.readError && (
+                  <div role="alert" className="space-y-2 type-caption">
+                    <p>{t(attendance.readError)}</p>
+                    <button
+                      type="button"
+                      onClick={() => void attendance.retry()}
+                      className="border border-[var(--border)] px-3 py-2 type-button"
+                    >
+                      {t('adminIssueRetry')}
+                    </button>
+                  </div>
+                )}
+                {attendance.panel && (
+                  <AdminIssueAttendancePanel
+                    input={attendance.panel}
+                    pending={attendance.pending}
+                    onSubmit={() => void attendance.submit()}
+                  />
+                )}
+              </>
+            )}
 
             <button
               type="button"

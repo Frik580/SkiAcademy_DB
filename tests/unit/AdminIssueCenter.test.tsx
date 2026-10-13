@@ -5,6 +5,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const useReadModelsMock = vi.fn();
 const useAttentionMock = vi.fn();
 const retryListMock = vi.fn();
+const attendanceMock = vi.fn();
+
+vi.mock('../../src/features/admin/issues/useAdminIssueAttendance', () => ({
+  useAdminIssueAttendance: (...args: unknown[]) => attendanceMock(...args),
+}));
 
 vi.mock('../../src/features/admin/issues/useAdminIssueReadModels', () => ({
   useAdminIssueReadModels: (...args: unknown[]) => useReadModelsMock(...args),
@@ -61,6 +66,7 @@ describe('AdminIssueCenter', () => {
     retryListMock.mockReset();
     useReadModelsMock.mockReset();
     useAttentionMock.mockReset();
+    attendanceMock.mockReset().mockReturnValue({ loading: false, pending: false, submit: vi.fn() });
     useAttentionMock.mockReturnValue({
       list: { items: [], loading: false },
       detail: { loading: false },
@@ -84,7 +90,7 @@ describe('AdminIssueCenter', () => {
     });
     render(
       <MemoryRouter>
-        <AdminIssueCenter />
+        <AdminIssueCenter adminAccountId="admin_account_01" />
       </MemoryRouter>
     );
     expect(screen.getByText('adminAttentionEmptyOpen')).toBeInTheDocument();
@@ -94,6 +100,88 @@ describe('AdminIssueCenter', () => {
     expect(screen.queryByRole('button', { name: 'All' })).not.toBeInTheDocument();
     expect(screen.queryByText('adminIssueViewAll')).not.toBeInTheDocument();
     expect(screen.queryByText('adminIssueCategoryGuest')).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['open', 'open', 'booking', 'booking_component_bulk_01'],
+    ['history', 'resolved', 'booking', undefined],
+    ['open', 'resolved', 'booking', undefined],
+    ['open', 'open', 'course_enrollment', undefined],
+  ])(
+    'enables inline attendance only for an open booking issue: %s %s %s',
+    (view, status, subjectKind, expectedBookingId) => {
+      const item = {
+        ...commonItem,
+        kind: 'missing_attendance',
+        blockingCondition: 'outcome',
+        lifecycle: { ...commonItem.lifecycle, status },
+        subjectRef:
+          subjectKind === 'booking'
+            ? { subjectKind, bookingId: 'booking_component_bulk_01' }
+            : commonItem.subjectRef,
+        attendance: [],
+        references: {},
+        resolutionGuidance: 'record_attendance',
+        authorizedActions: { canResolveDirectly: false, actions: [] },
+      };
+      useReadModelsMock.mockReturnValue({
+        list: { items: [item], loading: false, loadingMore: false, hasMore: false },
+        detail: { item, loading: false },
+        retryList: retryListMock,
+        retryDetail: vi.fn(),
+        loadMore: vi.fn(),
+      });
+      const submit = vi.fn();
+      attendanceMock.mockReturnValue({
+        panel: {
+          lessonTime: '14 October, 10:00',
+          participants: [{ id: 'participant_bulk_01', displayName: 'Alex', status: undefined }],
+          missingCount: 1,
+        },
+        pending: false,
+        loading: false,
+        submit,
+      });
+      render(
+        <MemoryRouter initialEntries={[`/?issue=${issueId}&issueView=${view}`]}>
+          <AdminIssueCenter adminAccountId="admin_account_01" />
+        </MemoryRouter>
+      );
+      expect(attendanceMock.mock.lastCall?.[0].bookingId).toBe(expectedBookingId);
+      if (expectedBookingId) {
+        fireEvent.click(screen.getByRole('button', { name: 'adminIssueAttendanceAllPresent' }));
+        expect(submit).toHaveBeenCalledTimes(1);
+      } else {
+        expect(
+          screen.queryByRole('button', { name: 'adminIssueAttendanceAllPresent' })
+        ).not.toBeInTheDocument();
+      }
+    }
+  );
+
+  it('keeps the accessible success notice after confirmed resolution removes the detail', () => {
+    useReadModelsMock.mockReturnValue({
+      list: { items: [], loading: false, loadingMore: false, hasMore: false },
+      detail: { loading: false },
+      retryList: retryListMock,
+      retryDetail: vi.fn(),
+      loadMore: vi.fn(),
+    });
+    attendanceMock.mockReturnValue({
+      loading: false,
+      pending: false,
+      notice: { issueId, key: 'adminIssueAttendanceSaved', refreshFailed: true },
+    });
+    render(
+      <MemoryRouter initialEntries={[`/?issue=${issueId}`]}>
+        <AdminIssueCenter adminAccountId="admin_account_01" />
+      </MemoryRouter>
+    );
+    expect(screen.getByRole('status')).toHaveTextContent('adminIssueAttendanceSaved');
+    expect(screen.getByRole('status')).toHaveTextContent('adminIssueAttendanceRefreshPending');
+    expect(
+      screen.queryByRole('button', { name: 'adminIssueAttendanceAllPresent' })
+    ).not.toBeInTheDocument();
   });
 
   it('renders attendance_payment_conflict context and deferred server actions', () => {
@@ -172,7 +260,7 @@ describe('AdminIssueCenter', () => {
     });
     render(
       <MemoryRouter initialEntries={[`/admin?tab=operations&issue=${issueId}`]}>
-        <AdminIssueCenter />
+        <AdminIssueCenter adminAccountId="admin_account_01" />
         <LocationProbe />
       </MemoryRouter>
     );
@@ -245,7 +333,7 @@ describe('AdminIssueCenter', () => {
     });
     render(
       <MemoryRouter initialEntries={[`/admin?tab=operations&issue=${issueId}`]}>
-        <AdminIssueCenter />
+        <AdminIssueCenter adminAccountId="admin_account_01" />
         <LocationProbe />
       </MemoryRouter>
     );
@@ -273,7 +361,7 @@ describe('AdminIssueCenter', () => {
     });
     render(
       <MemoryRouter>
-        <AdminIssueCenter />
+        <AdminIssueCenter adminAccountId="admin_account_01" />
       </MemoryRouter>
     );
     fireEvent.click(screen.getByRole('button', { name: /retry/i }));
@@ -334,7 +422,7 @@ describe('AdminIssueCenter', () => {
     });
     render(
       <MemoryRouter initialEntries={[`/admin?tab=operations&changeRequest=${requestId}`]}>
-        <AdminIssueCenter />
+        <AdminIssueCenter adminAccountId="admin_account_01" />
         <LocationProbe />
       </MemoryRouter>
     );
@@ -374,7 +462,7 @@ describe('AdminIssueCenter', () => {
     });
     render(
       <MemoryRouter>
-        <AdminIssueCenter />
+        <AdminIssueCenter adminAccountId="admin_account_01" />
       </MemoryRouter>
     );
     expect(screen.getByText('adminIssueUnknownSubject')).toBeInTheDocument();
@@ -398,7 +486,7 @@ describe('AdminIssueCenter', () => {
     });
     render(
       <MemoryRouter>
-        <AdminIssueCenter />
+        <AdminIssueCenter adminAccountId="admin_account_01" />
       </MemoryRouter>
     );
     expect(screen.getByRole('option', { name: 'adminIssueCategoryGuest' })).toBeInTheDocument();

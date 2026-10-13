@@ -453,6 +453,7 @@ function createGuestBookingRequestHandler(
           reservationExpiresAt,
         },
         paymentId,
+        ...(envelope.intent.discipline ? { discipline: envelope.intent.discipline } : {}),
         ...lessonContentFields({
           difficulty: envelope.intent.difficulty,
           notes: envelope.intent.notes,

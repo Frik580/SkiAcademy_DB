@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ManagedParticipantOption } from '../../src/features/lesson-bookings/lessonBookingContracts';
@@ -69,6 +69,8 @@ function createWorkspace(
     setDuration: vi.fn(),
     difficulty: 'beginner',
     setDifficulty: vi.fn(),
+    guestDiscipline: 'ski',
+    setGuestDiscipline: vi.fn(),
     notes: '',
     setNotes: vi.fn(),
     isSubmitting: false,
@@ -108,6 +110,28 @@ function createWorkspace(
 }
 
 describe('AuthBookingForm participant picker', () => {
+  it('requires an explicit lesson discipline for a dual-discipline instructor', () => {
+    const setDiscipline = vi.fn();
+    const workspace = createWorkspace({
+      guestDiscipline: '',
+      setGuestDiscipline: setDiscipline,
+      targetInstructor: {
+        id: 'instructor_1',
+        name: 'Coach',
+        specialty: 'both',
+        isAvailable: true,
+        pricePerHourKZT: 10000,
+      },
+    });
+    const view = render(<AuthBookingForm workspace={workspace} />);
+    const select = screen.getByRole('combobox', { name: 'participantsDisciplineLabel' });
+    expect(screen.getByRole('button', { name: /payConfirmLesson/ })).toBeDisabled();
+    fireEvent.change(select, { target: { value: 'snowboard' } });
+    expect(setDiscipline).toHaveBeenCalledWith('snowboard');
+    view.rerender(<AuthBookingForm workspace={{ ...workspace, guestDiscipline: 'snowboard' }} />);
+    expect(screen.getByRole('button', { name: /payConfirmLesson/ })).toBeEnabled();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
   });

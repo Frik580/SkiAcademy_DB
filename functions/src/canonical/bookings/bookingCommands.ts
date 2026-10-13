@@ -527,6 +527,7 @@ function createConfirmedBookingHandler(
             totalPriceKzt: servicePrice,
           },
           payerAccountId: authorization.payerAccountId,
+          ...(envelope.intent.discipline ? { discipline: envelope.intent.discipline } : {}),
           ...lessonContentFields({
             difficulty: envelope.intent.difficulty,
             notes: envelope.intent.notes,

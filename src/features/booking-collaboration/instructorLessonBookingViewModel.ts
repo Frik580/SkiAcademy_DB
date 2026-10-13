@@ -36,6 +36,7 @@ export function mapInstructorLessonBookingReadModel(
     })),
     partyKind: readModel.partyKind,
     ...(readModel.difficulty ? { difficulty: readModel.difficulty } : {}),
+    ...(readModel.discipline ? { discipline: readModel.discipline } : {}),
     notes: readModel.notes,
     bookingOrigin: readModel.bookingOrigin,
     authorizedActions: readModel.authorizedActions,

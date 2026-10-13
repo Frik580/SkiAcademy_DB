@@ -69,6 +69,7 @@ export interface InstructorLessonBookingItem {
   }[];
   readonly partyKind: 'individual' | 'family_group';
   readonly difficulty?: LessonBookingReadModel['difficulty'];
+  readonly discipline?: LessonBookingReadModel['discipline'];
   readonly notes?: string;
   readonly bookingOrigin: 'account' | 'instructor' | 'admin' | 'guest';
   readonly authorizedActions: LessonBookingReadModelAuthorizedActions;

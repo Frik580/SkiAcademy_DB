@@ -43,6 +43,7 @@ import { ScTextButton } from './student/StudentCabinetUI';
 import { LessonFeedbackIndicator } from './LessonFeedbackIndicator';
 import { ChatUnreadIndicator } from '../../../features/chat';
 import { ApplePagination } from '../../../ui/ApplePagination';
+import { formatDurationLabel } from '../../../lib/i18n/duration';
 import {
   BookingCollaborationActions,
   selectCollaborationChangeRequests,
@@ -427,8 +428,11 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                             <LessonFeedbackIndicator lessonBookingId={b.id} />
                           </h4>
                           <p className="type-caption text-[var(--ink-dim)]">
+                            {b.discipline
+                              ? `${t(b.discipline === 'ski' ? 'participantsDisciplineSki' : 'participantsDisciplineSnowboard')} · `
+                              : ''}
                             {b.difficulty ? `${getDifficultyLabel(b.difficulty, language)} · ` : ''}
-                            {b.durationHours} {t('hrSession')}
+                            {formatDurationLabel(b.durationHours, language)}
                           </p>
                           <SessionParticipants participants={participantsBySessionKey[key] ?? []} />
                           <div className="flex items-center gap-2 flex-wrap type-caption text-[var(--ink-dim)]">

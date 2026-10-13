@@ -842,6 +842,11 @@ export const useBookingModal = ({
       return;
     }
 
+    if (guestDiscipline !== 'ski' && guestDiscipline !== 'snowboard') {
+      addNotification('warning', t('missingDetails'), t('participantsDisciplineLabel'));
+      return;
+    }
+
     isSubmittingRef.current = true;
     setIsSubmitting(true);
 
@@ -871,6 +876,7 @@ export const useBookingModal = ({
             idempotencyKey: deriveAuthenticatedCreateIdempotencyKey(bookingId),
           },
           difficulty,
+          discipline: guestDiscipline,
           notes: notes.trim() || undefined,
         });
         addNotification(

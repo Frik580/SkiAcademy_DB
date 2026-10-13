@@ -48,6 +48,7 @@ export interface LessonBookingCabinetItem {
   readonly totalPrice?: number;
   readonly bookingOrigin: 'account' | 'guest' | 'instructor' | 'admin';
   readonly isLessonBooking: boolean;
+  readonly discipline?: 'ski' | 'snowboard';
   readonly difficulty?: LessonDifficulty;
   readonly notes?: string;
   readonly cancellationReason?: string;
@@ -65,6 +66,7 @@ export interface AuthenticatedLessonBookingCommandResult {
 }
 
 export interface AuthenticatedLessonBookingInput {
+  readonly discipline?: 'ski' | 'snowboard';
   readonly instructorId: string;
   readonly participantIds: readonly string[];
   readonly exercisedCapability: ClientCallableCapability;

@@ -105,6 +105,7 @@ export interface AdminLessonBookingListRowInput {
   readonly time?: string;
   readonly instructor?: string;
   readonly duration?: string;
+  readonly discipline?: string;
   readonly meta?: string;
   readonly primaryStatus: LessonAdminPrimaryStatusKind;
   readonly primaryStatusLabel: string;
@@ -165,6 +166,9 @@ export function AdminLessonBookingListRow({
                 </span>
               ) : null}
             </div>
+          ) : null}
+          {item.discipline ? (
+            <p className="mt-1.5 type-caption text-[var(--ink)]">{item.discipline}</p>
           ) : null}
           {item.instructor ? (
             <p className="mt-2 flex min-w-0 items-center gap-1.5 type-caption text-[var(--ink-dim)]">

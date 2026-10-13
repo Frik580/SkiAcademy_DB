@@ -553,6 +553,12 @@ function buildAdminAuthorizedActions(input: {
       canChangeInstructor: managedServiceChange,
       canChangeDuration: managedServiceChange,
       canRecordAttendance: accountActive && attendanceLifecycle && servicePartyFrozen && started,
+      canFinalizeAttendance:
+        accountActive &&
+        servicePartyFrozen &&
+        started &&
+        (input.booking.lifecycle.status === 'confirmed' ||
+          input.booking.lifecycle.status === 'pending_cancellation'),
       canResolveCancellation:
         accountActive && input.payment !== undefined && isPendingCancellationBooking(input.booking),
       canResolveAttendanceOutcome: accountActive && outcomeLifecycle && ended,

@@ -1,5 +1,4 @@
 import { AdminModal } from '../components/AdminModal';
-import { getParticipantSkillLabel } from '../../../lib/i18n/participantSkillLabels';
 import type {
   LessonBookingAdminProjection,
   LessonBookingReadModel,
@@ -228,9 +227,6 @@ export function AdminLessonBookingDetail({
   const guestAgeLabel = guestParticipant
     ? lessonAdminGuestProfileAgeLabel(guestParticipant.age)
     : undefined;
-  const guestSkillLabel = guestParticipant?.skillLevel
-    ? getParticipantSkillLabel(guestParticipant.skillLevel, language)
-    : '—';
   const primaryStatus = resolveLessonAdminPrimaryStatus(detail);
   const statusLabel = t(LESSON_ADMIN_PRIMARY_STATUS_KEYS[primaryStatus]);
   const emptyActions = resolveLessonAdminEmptyActionsReason(detail);
@@ -502,8 +498,6 @@ export function AdminLessonBookingDetail({
                 <>
                   <dt className="text-[var(--ink-dim)]">{t('participantsAgeLabel')}</dt>
                   <dd>{guestAgeLabel}</dd>
-                  <dt className="text-[var(--ink-dim)]">{t('participantsSkillLabel')}</dt>
-                  <dd>{guestSkillLabel}</dd>
                 </>
               )}
               {admin.guestContact?.phone && (

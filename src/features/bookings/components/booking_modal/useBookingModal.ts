@@ -214,8 +214,16 @@ export const useBookingModal = ({
     setGuestAgeYears('');
     setGuestProfileSkillLevel('');
   }, [guestCreatedBookingId]);
-  const [guestDiscipline, setGuestDiscipline] =
+  const [selectedGuestDiscipline, setGuestDiscipline] =
     useState<GuestParticipantFormInput['discipline']>('');
+  const guestDiscipline =
+    targetInstructor?.specialty === 'ski' || targetInstructor?.specialty === 'snowboard'
+      ? targetInstructor.specialty
+      : selectedGuestDiscipline;
+
+  useEffect(() => {
+    if (isOpen) setGuestDiscipline('');
+  }, [isOpen, targetInstructor?.id, targetInstructor?.specialty]);
 
   const [instructorBookings, setInstructorBookings] = useState<AvailabilitySlot[]>([]);
   const [occupancyCourses, setOccupancyCourses] = useState<Course[]>([]);

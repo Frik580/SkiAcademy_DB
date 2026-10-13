@@ -118,21 +118,23 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
           </div>
         </div>
 
-        <label className="block space-y-1 type-caption text-[var(--ink-dim)]">
-          <span>{t('participantsDisciplineLabel')} *</span>
-          <select
-            required
-            value={guestDiscipline}
-            onChange={(e) => setGuestDiscipline(e.target.value as typeof guestDiscipline)}
-            className={fieldClass}
-          >
-            <option value="" disabled>
-              —
-            </option>
-            <option value="ski">{t('participantsDisciplineSki')}</option>
-            <option value="snowboard">{t('participantsDisciplineSnowboard')}</option>
-          </select>
-        </label>
+        {targetInstructor?.specialty === 'both' && (
+          <label className="block space-y-1 type-caption text-[var(--ink-dim)]">
+            <span>{t('participantsDisciplineLabel')} *</span>
+            <select
+              required
+              value={guestDiscipline}
+              onChange={(e) => setGuestDiscipline(e.target.value as typeof guestDiscipline)}
+              className={fieldClass}
+            >
+              <option value="" disabled>
+                —
+              </option>
+              <option value="ski">{t('participantsDisciplineSki')}</option>
+              <option value="snowboard">{t('participantsDisciplineSnowboard')}</option>
+            </select>
+          </label>
+        )}
 
         <BookingSelectors
           date={date}

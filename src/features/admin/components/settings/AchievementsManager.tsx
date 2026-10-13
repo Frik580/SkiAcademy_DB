@@ -1,3 +1,4 @@
+import { useAdminDialog } from '../useAdminDialog';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Plus, Save, Trash2 } from 'lucide-react';
 import { ActionButton } from '../../../../ui/ActionButton';
@@ -45,6 +46,7 @@ export const AchievementsManager: React.FC<AchievementsManagerProps> = ({
   onSaveConfig,
 }) => {
   const { language, t } = useLanguage();
+  const { confirm: confirmAdminDialog, dialog: adminDialog } = useAdminDialog();
   const lang = language === 'ru' ? 'ru' : 'en';
   const [items, setItems] = useState<AchievementDefinition[]>(
     normalizeAchievementsConfig(config).items
@@ -93,8 +95,8 @@ export const AchievementsManager: React.FC<AchievementsManagerProps> = ({
     setItems((prev) => [...prev, createEmptyAchievement(nextOrder)]);
   };
 
-  const handleDelete = (id: string) => {
-    if (!window.confirm(t('achievementsDeleteConfirm'))) return;
+  const handleDelete = async (id: string) => {
+    if (!(await confirmAdminDialog(t('achievementsDeleteConfirm')))) return;
     setItems((prev) => prev.filter((item) => item.id !== id));
   };
 
@@ -111,6 +113,7 @@ export const AchievementsManager: React.FC<AchievementsManagerProps> = ({
 
   return (
     <div className="space-y-4">
+      {adminDialog}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="type-caption text-[var(--ink-dim)] max-w-2xl">
           {t('achievementsManagerSub')}

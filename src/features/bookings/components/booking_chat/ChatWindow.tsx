@@ -3,15 +3,39 @@ import { MessageSquare, X } from 'lucide-react';
 import { Booking } from '../../../../types';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { BodyScrollLock } from '../../../../ui/BodyScrollLock';
+import { AdminModal } from '../../../admin/components/AdminModal';
 
 interface ChatWindowProps {
   booking: Booking;
   onClose: () => void;
   children: React.ReactNode;
+  fromAdminPanel?: boolean;
 }
 
-export const ChatWindow: React.FC<ChatWindowProps> = ({ booking, onClose, children }) => {
+export const ChatWindow: React.FC<ChatWindowProps> = ({
+  booking,
+  onClose,
+  children,
+  fromAdminPanel,
+}) => {
   const { t } = useLanguage();
+
+  if (fromAdminPanel) {
+    return (
+      <AdminModal
+        title={t('chatDiscussionTitle')}
+        closeLabel={t('closeBtn')}
+        onClose={onClose}
+        width="lg"
+        bodyLayout="flex"
+      >
+        <p className="shrink-0 px-4 pt-3 type-caption text-[var(--ink-dim)]">
+          {t('lessonWith')} {booking.instructorName} • {booking.date} @ {booking.time}
+        </p>
+        {children}
+      </AdminModal>
+    );
+  }
 
   return (
     <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4">

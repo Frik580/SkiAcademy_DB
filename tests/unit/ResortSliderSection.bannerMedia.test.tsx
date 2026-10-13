@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { FALLBACK_SLIDES } from '../../src/app/config/fallbackHeroSlides';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ResortSliderSection } from '../../src/features/admin/components/resort/sections/ResortSliderSection';
 
@@ -71,6 +72,26 @@ describe('ResortSliderSection banner background mode', () => {
     expect(screen.getByRole('button', { name: 'bannerBackgroundImage' })).toHaveClass(
       'bg-[var(--ink)]'
     );
+  });
+
+  it('preserves Cancel and resets only the local slider draft after confirmation', async () => {
+    render(<ResortSliderSection />);
+    await screen.findByText('bannerBackgroundMode');
+    fireEvent.click(screen.getByRole('button', { name: 'resetToDefaults' }));
+    await act(async () => fireEvent.keyDown(document, { key: 'Escape' }));
+    fireEvent.click(screen.getByRole('button', { name: 'saveResortSettings' }));
+    await waitFor(() => expect(saveResortConfig).toHaveBeenCalledTimes(1));
+    expect(saveResortConfig.mock.calls[0][0].slides).toEqual([baseSlide]);
+    fireEvent.click(screen.getByRole('button', { name: 'resetToDefaults' }));
+    await act(async () =>
+      fireEvent.click(
+        within(screen.getByRole('dialog')).getByRole('button', { name: 'Confirm', exact: true })
+      )
+    );
+    expect(saveResortConfig).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'saveResortSettings' }));
+    await waitFor(() => expect(saveResortConfig).toHaveBeenCalledTimes(2));
+    expect(saveResortConfig.mock.calls[1][0].slides).toEqual(FALLBACK_SLIDES);
   });
 
   it('defaults a banner without mobileFocalPointX to 50 and does not write the field until it changes', async () => {

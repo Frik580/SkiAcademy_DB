@@ -1,10 +1,9 @@
+import { AdminModal } from '../AdminModal';
 import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { AlertCircle, Clock, Shield, X } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import type { Booking, Course, Instructor, UserProfile } from '../../../../types';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { resolveInstructorHourlyRateKztForDisplay } from '../../../../domain/pricing';
-import { BodyScrollLock } from '../../../../ui/BodyScrollLock';
 import { useNotifications } from '../../../../features/notifications';
 import { BookingChatModal } from '../../../../features/bookings';
 import { InsufficientFundsError } from '../../../../features/bookings/bookingTransactions';
@@ -600,136 +599,117 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
     }
   };
 
-  return createPortal(
-    <div className="ui-modal-overlay fixed inset-0 z-50 flex items-end p-0 sm:items-center sm:justify-center sm:p-4">
-      <BodyScrollLock />
-      <div
-        role="dialog"
-        aria-modal="true"
-        className="ui-modal relative max-h-[92dvh] w-full overflow-y-auto rounded-t-2xl border border-[var(--border)] bg-[var(--card-bg)] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] text-[var(--ink)] shadow-2xl space-y-4 sm:max-h-[80vh] sm:max-w-md sm:rounded-2xl sm:p-6"
-      >
-        <div
-          className="mx-auto -mt-2 mb-1 h-1 w-10 rounded-full bg-[var(--border)] sm:hidden"
-          aria-hidden="true"
-        />
-        <button
-          onClick={onClose}
-          className="absolute right-3 top-3 z-10 rounded-full p-2 text-[var(--ink-dim)] transition-colors hover:bg-[var(--profile-bg)] hover:text-[var(--ink)] cursor-pointer sm:right-4 sm:top-4"
-        >
-          <X className="w-5 h-5" />
-        </button>
-
-        <div>
-          <h4 className="type-card-title text-[var(--ink)] flex items-center gap-2">
-            <Clock className="w-4.5 h-4.5 text-[var(--ink-dim)]" />
-            {activeSlot.booking ? t('manageScheduleBlock') : t('scheduleAction')}
-          </h4>
-          <p className="type-caption uppercase text-[var(--ink-dim)] mt-1.5">
-            {activeSlot.instructor.name} • {selectedDate} @ {activeSlot.time}
-          </p>
-        </div>
-
-        {activeSlot.booking ? (
-          <>
-            <ActiveSlotDetails
-              booking={activeSlot.booking}
-              usersList={usersList}
-              onOpenChat={onOpenChat}
-              onOpenLinkModal={() => setIsLinkModalOpen(true)}
-            />
-            {insufficientFundsPrompt && (
-              <div className="space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
-                <div className="flex items-start gap-2 type-caption text-amber-800 dark:text-amber-200">
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
-                  <div className="space-y-1 font-sans">
-                    <p className="font-bold">{t('reassignInsufficientFundsTitle')}</p>
-                    <p>
-                      {t('reassignInsufficientFundsDescPrefix')}{' '}
-                      {insufficientFundsPrompt.currentBalance.toLocaleString('ru-RU')} ₸
-                      {t('reassignInsufficientFundsDescMiddle')}
-                      {insufficientFundsPrompt.required.toLocaleString('ru-RU')} ₸
-                      {t('reassignInsufficientFundsDescSuffix')}
-                    </p>
-                    <p>
-                      {t('reassignNegativeBalanceResultPrefix')}
-                      {(
-                        insufficientFundsPrompt.currentBalance - insufficientFundsPrompt.required
-                      ).toLocaleString('ru-RU')}{' '}
-                      ₸{t('reassignNegativeBalanceResultSuffix')}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <button
-                    type="button"
-                    disabled={isSlotActionSubmitting}
-                    onClick={() => void handleApproveNegativeBalance()}
-                    className="flex-1 rounded-md bg-amber-600 px-3 py-2 type-button text-white transition hover:bg-amber-700 disabled:opacity-50 cursor-pointer"
-                  >
-                    {t('reassignAllowNegativeBalance')}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isSlotActionSubmitting}
-                    onClick={() => setInsufficientFundsPrompt(null)}
-                    className="flex-1 rounded-md border border-[var(--border)] px-3 py-2 type-button text-[var(--ink)] transition hover:bg-[var(--profile-bg)] disabled:opacity-50 cursor-pointer"
-                  >
-                    {t('reassignCancelMove')}
-                  </button>
+  return (
+    <AdminModal
+      title={activeSlot.booking ? t('manageScheduleBlock') : t('scheduleAction')}
+      closeLabel={t('cancel')}
+      onClose={onClose}
+      closeDisabled={isSlotActionSubmitting}
+      width="md"
+    >
+      <p className="type-caption text-[var(--ink-dim)]">
+        {activeSlot.instructor.name} • {selectedDate} @ {activeSlot.time}
+      </p>
+      {activeSlot.booking ? (
+        <>
+          <ActiveSlotDetails
+            booking={activeSlot.booking}
+            usersList={usersList}
+            onOpenChat={onOpenChat}
+            onOpenLinkModal={() => setIsLinkModalOpen(true)}
+          />
+          {insufficientFundsPrompt && (
+            <div className="space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+              <div className="flex items-start gap-2 type-caption text-amber-800 dark:text-amber-200">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                <div className="space-y-1 font-sans">
+                  <p className="font-bold">{t('reassignInsufficientFundsTitle')}</p>
+                  <p>
+                    {t('reassignInsufficientFundsDescPrefix')}{' '}
+                    {insufficientFundsPrompt.currentBalance.toLocaleString('ru-RU')} ₸
+                    {t('reassignInsufficientFundsDescMiddle')}
+                    {insufficientFundsPrompt.required.toLocaleString('ru-RU')} ₸
+                    {t('reassignInsufficientFundsDescSuffix')}
+                  </p>
+                  <p>
+                    {t('reassignNegativeBalanceResultPrefix')}
+                    {(
+                      insufficientFundsPrompt.currentBalance - insufficientFundsPrompt.required
+                    ).toLocaleString('ru-RU')}{' '}
+                    ₸{t('reassignNegativeBalanceResultSuffix')}
+                  </p>
                 </div>
               </div>
-            )}
-            <ActiveSlotMoveForm
-              booking={activeSlot.booking}
-              canReassignInstructor={canReassignInstructor}
-              canChangeDuration={canChangeDuration}
-              canCompleteLesson={canCompleteLesson}
-              newInstructorId={newInstructorId}
-              setNewInstructorId={setNewInstructorIdAndClearPrompt}
-              availableInstructors={availableInstructors}
-              newMoveDate={newMoveDate}
-              setNewMoveDate={setNewMoveDateAndClearPrompt}
-              newMoveTime={newMoveTime}
-              setNewMoveTime={setNewMoveTimeAndClearPrompt}
-              newMoveDuration={newMoveDuration}
-              setNewMoveDuration={setNewMoveDurationAndClearPrompt}
-              availableMoveTimeSlots={availableMoveTimeSlots}
-              availableMoveDurations={availableMoveDurations}
-              isSlotActionSubmitting={isSlotActionSubmitting}
-              onCompleteBooking={canCompleteLesson ? onCompleteBooking : undefined}
-              onOpenLessonDetail={canOpenLessonDetail ? onOpenLessonDetail : undefined}
-              onDeleteRequest={onDeleteRequest}
-              onSubmit={handleSlotMoveSubmit}
-              onClose={onClose}
-            />
-          </>
-        ) : (
-          <ActiveSlotCreateForm
-            instructor={activeSlot.instructor}
-            modalTab={modalTab}
-            setModalTab={setModalTab}
-            blockDuration={blockDuration}
-            setBlockDuration={setBlockDuration}
-            availableBreakDurations={availableBreakDurations}
-            blockNotes={blockNotes}
-            setBlockNotes={setBlockNotes}
-            createSelection={createSelection}
-            setCreateSelection={setCreateSelection}
-            onCreateAccountIdChange={setCreateAccountId}
-            clientAccounts={clientAccounts}
-            bookingDuration={bookingDuration}
-            setBookingDuration={setBookingDuration}
-            availableBookingDurations={availableBookingDurations}
-            bookingDifficulty={bookingDifficulty}
-            setBookingDifficulty={setBookingDifficulty}
-            bookingNotes={bookingNotes}
-            setBookingNotes={setBookingNotes}
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  disabled={isSlotActionSubmitting}
+                  onClick={() => void handleApproveNegativeBalance()}
+                  className="flex-1 rounded-md bg-amber-600 px-3 py-2 type-button text-white transition hover:bg-amber-700 disabled:opacity-50 cursor-pointer"
+                >
+                  {t('reassignAllowNegativeBalance')}
+                </button>
+                <button
+                  type="button"
+                  disabled={isSlotActionSubmitting}
+                  onClick={() => setInsufficientFundsPrompt(null)}
+                  className="flex-1 rounded-md border border-[var(--border)] px-3 py-2 type-button text-[var(--ink)] transition hover:bg-[var(--profile-bg)] disabled:opacity-50 cursor-pointer"
+                >
+                  {t('reassignCancelMove')}
+                </button>
+              </div>
+            </div>
+          )}
+          <ActiveSlotMoveForm
+            booking={activeSlot.booking}
+            canReassignInstructor={canReassignInstructor}
+            canChangeDuration={canChangeDuration}
+            canCompleteLesson={canCompleteLesson}
+            newInstructorId={newInstructorId}
+            setNewInstructorId={setNewInstructorIdAndClearPrompt}
+            availableInstructors={availableInstructors}
+            newMoveDate={newMoveDate}
+            setNewMoveDate={setNewMoveDateAndClearPrompt}
+            newMoveTime={newMoveTime}
+            setNewMoveTime={setNewMoveTimeAndClearPrompt}
+            newMoveDuration={newMoveDuration}
+            setNewMoveDuration={setNewMoveDurationAndClearPrompt}
+            availableMoveTimeSlots={availableMoveTimeSlots}
+            availableMoveDurations={availableMoveDurations}
             isSlotActionSubmitting={isSlotActionSubmitting}
-            onSubmit={handleSlotActionSubmit}
+            onCompleteBooking={canCompleteLesson ? onCompleteBooking : undefined}
+            onOpenLessonDetail={canOpenLessonDetail ? onOpenLessonDetail : undefined}
+            onDeleteRequest={onDeleteRequest}
+            onSubmit={handleSlotMoveSubmit}
             onClose={onClose}
           />
-        )}
-      </div>
+        </>
+      ) : (
+        <ActiveSlotCreateForm
+          instructor={activeSlot.instructor}
+          modalTab={modalTab}
+          setModalTab={setModalTab}
+          blockDuration={blockDuration}
+          setBlockDuration={setBlockDuration}
+          availableBreakDurations={availableBreakDurations}
+          blockNotes={blockNotes}
+          setBlockNotes={setBlockNotes}
+          createSelection={createSelection}
+          setCreateSelection={setCreateSelection}
+          onCreateAccountIdChange={setCreateAccountId}
+          clientAccounts={clientAccounts}
+          bookingDuration={bookingDuration}
+          setBookingDuration={setBookingDuration}
+          availableBookingDurations={availableBookingDurations}
+          bookingDifficulty={bookingDifficulty}
+          setBookingDifficulty={setBookingDifficulty}
+          bookingNotes={bookingNotes}
+          setBookingNotes={setBookingNotes}
+          isSlotActionSubmitting={isSlotActionSubmitting}
+          onSubmit={handleSlotActionSubmit}
+          onClose={onClose}
+        />
+      )}
 
       {activeSlot.booking && (
         <LinkGuestBookingModal
@@ -746,8 +726,7 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
           }}
         />
       )}
-    </div>,
-    document.body
+    </AdminModal>
   );
 };
 
@@ -839,43 +818,42 @@ export const ScheduleSlotActionModal = forwardRef<
           />
         )}
 
-        {confirmModal &&
-          createPortal(
-            <div className="ui-modal-overlay fixed inset-0 z-55 flex items-center justify-center p-4 animate-fade-in">
-              <BodyScrollLock />
-              <div className="bg-[var(--bg)] border border-[var(--border)] rounded-none w-full max-w-sm p-6 shadow-2xl relative space-y-4 animate-scale-up">
-                <h4 className="type-card-title text-[var(--ink)] flex items-center gap-2">
-                  <Shield className="w-4.5 h-4.5 text-[var(--ink-dim)]" />
-                  {t('confirmAction')}
-                </h4>
-                <p className="type-caption text-[var(--ink-dim)]">{confirmModal.message}</p>
-                <div className="flex gap-2.5 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setConfirmModal(null)}
-                    className="flex-1 py-2 px-4 border border-[var(--border)] bg-black/5 hover:border-[var(--ink)] hover:bg-black/10 text-[var(--ink-dim)] hover:text-[var(--ink)] rounded-none type-button uppercase transition cursor-pointer text-center"
-                  >
-                    {t('cancel')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      const action = confirmModal.onConfirm;
-                      setConfirmModal(null);
-                      await action();
-                    }}
-                    className="flex-1 py-2 px-4 border border-[var(--border)] bg-[var(--ink)] hover:bg-transparent text-[var(--bg)] hover:text-[var(--ink)] rounded-none type-button uppercase transition cursor-pointer text-center"
-                  >
-                    {t('confirm')}
-                  </button>
-                </div>
-              </div>
-            </div>,
-            document.body
-          )}
+        {confirmModal && (
+          <AdminModal
+            title={t('confirmAction')}
+            closeLabel={t('cancel')}
+            onClose={() => setConfirmModal(null)}
+            width="sm"
+            footer={
+              <>
+                <button
+                  type="button"
+                  onClick={() => setConfirmModal(null)}
+                  className="btn-secondary flex-1 px-4 py-3 type-button"
+                >
+                  {t('cancel')}
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const action = confirmModal.onConfirm;
+                    setConfirmModal(null);
+                    await action();
+                  }}
+                  className="btn-primary flex-1 px-4 py-3"
+                >
+                  {t('confirm')}
+                </button>
+              </>
+            }
+          >
+            <p className="type-caption text-[var(--ink-dim)]">{confirmModal.message}</p>
+          </AdminModal>
+        )}
 
         {selectedChatBooking && (
           <BookingChatModal
+            fromAdminPanel
             booking={selectedChatBooking}
             currentUserProfile={adminProfile}
             onClose={() => setSelectedChatBooking(null)}

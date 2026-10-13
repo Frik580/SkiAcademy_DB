@@ -1,3 +1,4 @@
+import { useAdminDialog } from '../useAdminDialog';
 import React, { useState, useEffect } from 'react';
 import {
   SkillConfig,
@@ -24,6 +25,7 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
   onSaveConfig,
 }) => {
   const { t, language } = useLanguage();
+  const { confirm: confirmAdminDialog, dialog: adminDialog } = useAdminDialog();
   const [items, setItems] = useState<SkillItem[]>(config.items || DEFAULT_SKILL_CONFIG.items);
   const [passPercentage, setPassPercentage] = useState<number>(config.passPercentage ?? 80);
   const [selectedLevelTransition, setSelectedLevelTransition] = useState<number>(1); // 1 = Lvl1->2, 2 = Lvl2->3, 3 = Lvl3->4
@@ -91,8 +93,8 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
     setItems((prev) => prev.filter((item) => item.id !== id));
   };
 
-  const handleResetToDefault = () => {
-    if (window.confirm(t('resetSkillTableConfirm'))) {
+  const handleResetToDefault = async () => {
+    if (await confirmAdminDialog(t('resetSkillTableConfirm'))) {
       setItems(DEFAULT_SKILL_CONFIG.items);
       setPassPercentage(80);
     }
@@ -112,6 +114,7 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
 
   return (
     <div className="space-y-4 transition-colors duration-300 w-full min-w-0 overflow-hidden">
+      {adminDialog}
       <div className="flex items-center justify-end gap-2 border-b border-[var(--border)] pb-3">
         <button
           onClick={handleResetToDefault}

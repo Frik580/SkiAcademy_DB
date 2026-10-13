@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   AccountIdSchema,
@@ -252,6 +252,27 @@ describe('AdminClientDirectory canonical identity UX', () => {
       phoneNumber: '+77019999999',
     });
     expect(JSON.stringify(mockExecute.mock.calls[0]?.[1])).not.toContain('email');
+  });
+
+  it('keeps account disable cancelled until the admin modal is explicitly accepted', async () => {
+    mockReads.accountDetail = { ...accountRow(), managedParticipants: [], diagnostics: [] };
+    render(<AdminClientDirectory adminAccountId={adminId} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Disable', exact: true }));
+    expect(mockExecute).not.toHaveBeenCalled();
+    await act(async () => fireEvent.keyDown(document, { key: 'Escape' }));
+    expect(mockExecute).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Disable', exact: true }));
+    await act(async () =>
+      fireEvent.click(
+        within(screen.getByRole('dialog')).getByRole('button', { name: 'Confirm', exact: true })
+      )
+    );
+    expect(mockExecute).toHaveBeenCalledTimes(1);
+    expect(mockExecute).toHaveBeenCalledWith(
+      adminId,
+      expect.objectContaining({ kind: 'disable_account', accountId: familyId, expectedRevision: 1 })
+    );
   });
 
   it('does not show a synthetic zero wallet when the canonical wallet is absent', () => {

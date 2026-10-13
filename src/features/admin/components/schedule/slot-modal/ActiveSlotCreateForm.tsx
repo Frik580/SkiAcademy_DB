@@ -1,4 +1,10 @@
 import {
+  ADMIN_MODAL_CHOICE_CLASS,
+  ADMIN_MODAL_FIELD_CLASS,
+  ADMIN_MODAL_PRIMARY_CLASS,
+  ADMIN_MODAL_SECONDARY_CLASS,
+} from '../../adminModalStyles';
+import {
   activeLessonLevels,
   resolveLessonLevel,
   formatLessonLevelLabel,
@@ -81,7 +87,7 @@ export const ActiveSlotCreateForm: React.FC<ActiveSlotCreateFormProps> = ({
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <div
-        className="flex gap-1 overflow-x-auto border border-[var(--border)] bg-black/10 p-1 [scrollbar-width:none]"
+        className="flex gap-1 rounded-[var(--radius-md)] border border-[var(--border)] bg-black/5 p-1"
         role="tablist"
       >
         {(['break', 'day_off', 'booking'] as const).map((tab) => (
@@ -91,7 +97,7 @@ export const ActiveSlotCreateForm: React.FC<ActiveSlotCreateFormProps> = ({
             role="tab"
             aria-selected={modalTab === tab}
             onClick={() => setModalTab(tab)}
-            className={`min-w-24 flex-1 py-2 text-center type-button uppercase transition-all cursor-pointer rounded-none ${
+            className={`min-w-0 flex-1 rounded-[10px] px-1 py-2 text-center type-button transition-all cursor-pointer ${
               modalTab === tab
                 ? 'bg-[var(--ink)] text-[var(--bg)] font-bold'
                 : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'
@@ -114,7 +120,7 @@ export const ActiveSlotCreateForm: React.FC<ActiveSlotCreateFormProps> = ({
               value={blockDuration}
               onChange={(event) => setBlockDuration(Number(event.target.value))}
               disabled={availableBreakDurations.length === 0}
-              className="w-full px-3 py-2 border border-[var(--border)] type-body bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none cursor-pointer disabled:opacity-60"
+              className={ADMIN_MODAL_CHOICE_CLASS}
             >
               {availableBreakDurations.length === 0 ? (
                 <option value="" className="bg-[var(--bg)] text-[var(--ink)]">
@@ -143,7 +149,7 @@ export const ActiveSlotCreateForm: React.FC<ActiveSlotCreateFormProps> = ({
               value={blockNotes}
               onChange={(event) => setBlockNotes(event.target.value)}
               placeholder={t('lunchBreakPlaceholder')}
-              className="w-full px-3 py-2 border border-[var(--border)] type-body bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none"
+              className={ADMIN_MODAL_FIELD_CLASS}
             />
           </div>
         </div>
@@ -175,6 +181,7 @@ export const ActiveSlotCreateForm: React.FC<ActiveSlotCreateFormProps> = ({
               {t('selectClient')}
             </span>
             <AdminManagedParticipantPicker
+              appearance="booking"
               selected={createSelection}
               onChange={setCreateSelection}
               autoSelectUniqueSelf
@@ -193,7 +200,7 @@ export const ActiveSlotCreateForm: React.FC<ActiveSlotCreateFormProps> = ({
                 value={bookingDuration}
                 onChange={(event) => setBookingDuration(Number(event.target.value))}
                 disabled={availableBookingDurations.length === 0}
-                className="w-full px-3 py-2 border border-[var(--border)] type-body bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none cursor-pointer disabled:opacity-60"
+                className={ADMIN_MODAL_CHOICE_CLASS}
               >
                 {availableBookingDurations.length === 0 ? (
                   <option value="" className="bg-[var(--bg)] text-[var(--ink)]">
@@ -220,7 +227,7 @@ export const ActiveSlotCreateForm: React.FC<ActiveSlotCreateFormProps> = ({
               <select
                 value={bookingDifficulty}
                 onChange={(event) => setBookingDifficulty(event.target.value as LessonDifficulty)}
-                className="w-full px-3 py-2 border border-[var(--border)] type-body bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none cursor-pointer"
+                className={ADMIN_MODAL_CHOICE_CLASS}
               >
                 {activeLessonLevels(levels).map((level) => (
                   <option
@@ -244,18 +251,14 @@ export const ActiveSlotCreateForm: React.FC<ActiveSlotCreateFormProps> = ({
               value={bookingNotes}
               onChange={(event) => setBookingNotes(event.target.value)}
               placeholder={t('bookingNotesPlaceholder')}
-              className="w-full px-3 py-2 border border-[var(--border)] type-body bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none"
+              className={ADMIN_MODAL_FIELD_CLASS}
             />
           </div>
         </div>
       )}
 
-      <div className="flex gap-2.5 pt-3">
-        <button
-          type="button"
-          onClick={onClose}
-          className="flex-1 py-2 px-4 border border-[var(--border)] bg-black/5 hover:border-[var(--ink)] hover:bg-black/10 text-[var(--ink-dim)] hover:text-[var(--ink)] rounded-none type-button uppercase transition cursor-pointer text-center"
-        >
+      <div className="admin-modal-actions">
+        <button type="button" onClick={onClose} className={ADMIN_MODAL_SECONDARY_CLASS}>
           {t('cancel')}
         </button>
 
@@ -265,7 +268,7 @@ export const ActiveSlotCreateForm: React.FC<ActiveSlotCreateFormProps> = ({
           pendingLabel={t('saveSchedule')}
           disabled={submitDisabled}
           unstyled
-          className="flex-1 py-2 px-4 border border-[var(--border)] bg-[var(--ink)] hover:bg-transparent text-[var(--bg)] hover:text-[var(--ink)] disabled:bg-black/5 disabled:text-[var(--ink-dim)] disabled:border-[var(--border)] disabled:cursor-not-allowed rounded-none type-button uppercase transition cursor-pointer text-center"
+          className={ADMIN_MODAL_PRIMARY_CLASS}
         >
           <Check className="w-4 h-4" />
           {t('saveSchedule')}

@@ -1,5 +1,5 @@
+import { AdminModal } from './AdminModal';
 import React, { useCallback, useState, Suspense, lazy } from 'react';
-import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import { Instructor, UserProfile } from '../../../types';
 import {
@@ -16,7 +16,6 @@ import { SkillConfig } from '../../../domain/achievements';
 import { AchievementsConfig } from '../../../domain/achievements';
 import { AdminCollapsibleSection } from './settings';
 import { TableSkeleton } from '../../../ui/Skeleton';
-import { BodyScrollLock } from '../../../ui/BodyScrollLock';
 import {
   adminCourseEnrollmentSearchParams,
   ADMIN_CLIENT_ACCOUNT_QUERY_KEY,
@@ -473,40 +472,38 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       )}
 
-      {confirmModal &&
-        createPortal(
-          <div className="ui-modal-overlay fixed inset-0 z-55 flex items-center justify-center p-4 animate-fade-in">
-            <BodyScrollLock />
-            <div className="bg-[var(--bg)] border border-[var(--border)] rounded-none w-full max-w-sm p-6 shadow-2xl relative space-y-4 animate-scale-up">
-              <h4 className="type-card-title text-[var(--ink)] flex items-center gap-2">
-                <Shield className="w-4.5 h-4.5 text-[var(--ink-dim)]" />
-                {t('confirmAction')}
-              </h4>
-              <p className="type-caption text-[var(--ink-dim)]">{confirmModal.message}</p>
-              <div className="flex gap-2.5 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setConfirmModal(null)}
-                  className="flex-1 py-2 px-4 border border-[var(--border)] bg-black/5 hover:border-[var(--ink)] hover:bg-black/10 text-[var(--ink-dim)] hover:text-[var(--ink)] rounded-none type-button uppercase transition cursor-pointer text-center"
-                >
-                  {t('cancel')}
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const action = confirmModal.onConfirm;
-                    setConfirmModal(null);
-                    await action();
-                  }}
-                  className="flex-1 py-2 px-4 border border-[var(--border)] bg-[var(--ink)] hover:bg-transparent text-[var(--bg)] hover:text-[var(--ink)] rounded-none type-button uppercase transition cursor-pointer text-center"
-                >
-                  {t('confirm')}
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
+      {confirmModal && (
+        <AdminModal
+          title={t('confirmAction')}
+          closeLabel={t('cancel')}
+          onClose={() => setConfirmModal(null)}
+          width="sm"
+          footer={
+            <>
+              <button
+                type="button"
+                onClick={() => setConfirmModal(null)}
+                className="btn-secondary flex-1 px-4 py-3 type-button"
+              >
+                {t('cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const action = confirmModal.onConfirm;
+                  setConfirmModal(null);
+                  await action();
+                }}
+                className="btn-primary flex-1 px-4 py-3"
+              >
+                {t('confirm')}
+              </button>
+            </>
+          }
+        >
+          <p className="type-caption text-[var(--ink-dim)]">{confirmModal.message}</p>
+        </AdminModal>
+      )}
     </div>
   );
 };

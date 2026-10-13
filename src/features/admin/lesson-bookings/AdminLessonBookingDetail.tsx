@@ -1,3 +1,4 @@
+import { AdminModal } from '../components/AdminModal';
 import { getParticipantSkillLabel } from '../../../lib/i18n/participantSkillLabels';
 import type {
   LessonBookingAdminProjection,
@@ -1089,41 +1090,18 @@ export function AdminLessonBookingDetail({
           />
         ))}
       {attendanceConfirmOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={t('adminLessonConfirmAttendanceTitle')}
-          className="fixed inset-0 z-60 flex items-center justify-center bg-black/55 p-4"
-        >
-          <div className="w-full max-w-md space-y-4 border border-[var(--border)] bg-[var(--bg)] p-5">
-            <h3 className="type-card-title">{t('adminLessonConfirmAttendanceTitle')}</h3>
-            <ul className="space-y-2 type-caption">
-              {targetParticipantIds.map((participantId) => {
-                const participant = admin.participants.find(
-                  (candidate) => candidate.participantId === participantId
-                );
-                const status = attendanceDraft[participantId];
-                return (
-                  <li key={participantId} className="flex justify-between gap-4">
-                    <span>{participant?.displayName ?? participantId}</span>
-                    <span className="text-[var(--ink-dim)]">
-                      {status === 'present'
-                        ? t('adminLessonAttendancePresent')
-                        : t('adminLessonAttendanceAbsent')}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-            <p className="type-caption text-[var(--ink-dim)]">
-              {t('adminLessonAttendancePresentCount').replace('{n}', String(presentCount))}
-            </p>
-            <p className="type-caption text-[var(--ink-dim)]">
-              {t('adminLessonAttendanceAbsentCount').replace('{n}', String(absentCount))}
-            </p>
-            <p className="type-caption">{t('adminLessonConfirmAttendanceWarning')}</p>
-            <div className="flex gap-2">
+        <AdminModal
+          title={t('adminLessonConfirmAttendanceTitle')}
+          closeLabel={t('adminLessonConfirmAttendanceBack')}
+          closeDisabled={attendanceFinalizePending}
+          onClose={() => {
+            setAttendanceConfirmOpen(false);
+          }}
+          footer={
+            <>
               <ActionButton
+                unstyled
+                className="btn-secondary flex-1 px-4 py-3"
                 type="button"
                 size="sm"
                 variant="secondary"
@@ -1133,6 +1111,7 @@ export function AdminLessonBookingDetail({
                 {t('adminLessonConfirmAttendanceBack')}
               </ActionButton>
               <ActionButton
+                className="btn-primary flex-1 px-4 py-3"
                 type="button"
                 size="sm"
                 disabled={attendanceFinalizePending}
@@ -1145,9 +1124,35 @@ export function AdminLessonBookingDetail({
               >
                 {t('adminLessonConfirmAttendanceSubmit')}
               </ActionButton>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+        >
+          <ul className="space-y-2 type-caption">
+            {targetParticipantIds.map((participantId) => {
+              const participant = admin.participants.find(
+                (candidate) => candidate.participantId === participantId
+              );
+              const status = attendanceDraft[participantId];
+              return (
+                <li key={participantId} className="flex justify-between gap-4">
+                  <span>{participant?.displayName ?? participantId}</span>
+                  <span className="text-[var(--ink-dim)]">
+                    {status === 'present'
+                      ? t('adminLessonAttendancePresent')
+                      : t('adminLessonAttendanceAbsent')}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="type-caption text-[var(--ink-dim)]">
+            {t('adminLessonAttendancePresentCount').replace('{n}', String(presentCount))}
+          </p>
+          <p className="type-caption text-[var(--ink-dim)]">
+            {t('adminLessonAttendanceAbsentCount').replace('{n}', String(absentCount))}
+          </p>
+          <p className="type-caption">{t('adminLessonConfirmAttendanceWarning')}</p>
+        </AdminModal>
       )}
     </div>
   );

@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AccountIdSchema, InstructorIdSchema } from '@ski-academy/shared-domain';
 
@@ -167,6 +167,31 @@ describe('AdminInstructorDirectory canonical identity UX', () => {
       directory: 'instructors',
       enabled: true,
     });
+  });
+
+  it('preserves the pause target and revision, and does not execute after modal cancellation', async () => {
+    mockReads.instructorDetail = instructorDetail();
+    render(<AdminInstructorDirectory adminAccountId={adminId} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Pause new bookings' }));
+    expect(mockExecute).not.toHaveBeenCalled();
+    await act(async () => fireEvent.keyDown(document, { key: 'Escape' }));
+    expect(mockExecute).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Pause new bookings' }));
+    await act(async () =>
+      fireEvent.click(
+        within(screen.getByRole('dialog')).getByRole('button', { name: 'Confirm', exact: true })
+      )
+    );
+    expect(mockExecute).toHaveBeenCalledTimes(1);
+    expect(mockExecute).toHaveBeenCalledWith(
+      adminId,
+      expect.objectContaining({
+        kind: 'deactivate_instructor_catalog',
+        instructorId,
+        expectedRevision: 2,
+      })
+    );
   });
 
   it('uses canonical server search for instructors', async () => {

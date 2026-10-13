@@ -1,3 +1,4 @@
+import { useAdminDialog } from '../../admin/components/useAdminDialog';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Booking, UserProfile, ChatMessage, Instructor, Course } from '../../../types';
@@ -46,6 +47,7 @@ interface BookingChatModalProps {
   instructors?: Instructor[];
   courses?: Course[];
   fromInstructorPanel?: boolean;
+  fromAdminPanel?: boolean;
 }
 
 export const BookingChatModal: React.FC<BookingChatModalProps> = ({
@@ -56,8 +58,10 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
   instructors = [],
   courses = [],
   fromInstructorPanel = false,
+  fromAdminPanel = false,
 }) => {
   const { t } = useLanguage();
+  const { alert: alertAdminDialog, dialog: adminDialog } = useAdminDialog();
   const [messages, setMessages] = useState<ChatMessageRow[]>([]);
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -197,7 +201,9 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
       });
     } catch (err: unknown) {
       logger.error(err);
-      alert(formatCompressionError(err, t, 'chatImageProcessingFailed'));
+      if (fromAdminPanel)
+        void alertAdminDialog(formatCompressionError(err, t, 'chatImageProcessingFailed'));
+      else alert(formatCompressionError(err, t, 'chatImageProcessingFailed'));
     } finally {
       setIsCompressing(false);
       setCompressionProgress('');
@@ -210,7 +216,8 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
     if (!file) return;
 
     if (file.size > 40 * 1024 * 1024) {
-      alert(t('chatVideoTooLarge'));
+      if (fromAdminPanel) void alertAdminDialog(t('chatVideoTooLarge'));
+      else alert(t('chatVideoTooLarge'));
       return;
     }
 
@@ -220,7 +227,8 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
       const result = await compressVideo(file);
 
       if (result.size > 800 * 1024) {
-        alert(t('chatOptimizedVideoTooLarge'));
+        if (fromAdminPanel) void alertAdminDialog(t('chatOptimizedVideoTooLarge'));
+        else alert(t('chatOptimizedVideoTooLarge'));
         return;
       }
 
@@ -239,7 +247,9 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
       });
     } catch (err: unknown) {
       logger.error(err);
-      alert(formatCompressionError(err, t, 'chatVideoProcessingFailed'));
+      if (fromAdminPanel)
+        void alertAdminDialog(formatCompressionError(err, t, 'chatVideoProcessingFailed'));
+      else alert(formatCompressionError(err, t, 'chatVideoProcessingFailed'));
     } finally {
       setIsCompressing(false);
       setCompressionProgress('');
@@ -264,7 +274,8 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
       setLinkInputVal('');
       setLinkInputVisible(false);
     } catch {
-      alert(t('chatInvalidLink'));
+      if (fromAdminPanel) void alertAdminDialog(t('chatInvalidLink'));
+      else alert(t('chatInvalidLink'));
     }
   };
 
@@ -343,7 +354,8 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
   };
 
   return createPortal(
-    <ChatWindow booking={booking} onClose={onClose}>
+    <ChatWindow booking={booking} onClose={onClose} fromAdminPanel={fromAdminPanel}>
+      {adminDialog}
       <ChatMessageList
         messages={messages}
         isLoading={isLoading}
@@ -359,6 +371,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
       />
 
       <MediaUploader
+        fromAdminPanel={fromAdminPanel}
         isSending={isSending}
         isCompressing={isCompressing}
         compressionProgress={compressionProgress}
@@ -393,6 +406,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
       />
 
       <ChatInput
+        fromAdminPanel={fromAdminPanel}
         inputText={inputText}
         onInputChange={setInputText}
         onSubmit={handleSendMessage}

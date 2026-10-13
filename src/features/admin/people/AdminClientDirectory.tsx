@@ -1,3 +1,4 @@
+import { useAdminDialog } from '../components/useAdminDialog';
 import {
   AccountIdSchema,
   ParticipantIdSchema,
@@ -72,6 +73,7 @@ function profileDraftFromDetail(
 
 export function AdminClientDirectory({ adminAccountId }: AdminClientDirectoryProps) {
   const { text, locale } = useAdminClientTranslations();
+  const { confirm: confirmAdminDialog, dialog: adminDialog } = useAdminDialog();
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -157,7 +159,11 @@ export function AdminClientDirectory({ adminAccountId }: AdminClientDirectoryPro
     attempt: Parameters<typeof executeAdminIdentityAttempt>[1],
     confirmMessage?: string
   ) => {
-    if (confirmMessage && typeof window !== 'undefined' && !window.confirm(confirmMessage)) {
+    if (
+      confirmMessage &&
+      typeof window !== 'undefined' &&
+      !(await confirmAdminDialog(confirmMessage))
+    ) {
       return;
     }
     setPending(true);
@@ -213,6 +219,7 @@ export function AdminClientDirectory({ adminAccountId }: AdminClientDirectoryPro
 
   return (
     <div className="space-y-4">
+      {adminDialog}
       <div className="relative">
         <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ink-dim)]" />
         <input

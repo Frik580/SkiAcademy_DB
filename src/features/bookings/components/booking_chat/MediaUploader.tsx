@@ -2,6 +2,7 @@ import React from 'react';
 import { Image, Video, Link as LinkIcon, Loader2, Trash2 } from 'lucide-react';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 import type { PendingAttachment } from './chatCompression';
+import { ADMIN_MODAL_FIELD_CLASS } from '../../../admin/components/adminModalStyles';
 
 interface MediaUploaderProps {
   isSending: boolean;
@@ -18,6 +19,7 @@ interface MediaUploaderProps {
   onLinkInputChange: (value: string) => void;
   onLinkAttach: () => void;
   onClearAttachment: () => void;
+  fromAdminPanel?: boolean;
 }
 
 export const MediaUploader: React.FC<MediaUploaderProps> = ({
@@ -35,12 +37,15 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
   onLinkInputChange,
   onLinkAttach,
   onClearAttachment,
+  fromAdminPanel,
 }) => {
   const { t } = useLanguage();
 
   return (
     <>
-      <div className="px-4 py-1.5 border-t border-[var(--border)] bg-black/10 flex items-center justify-between shrink-0">
+      <div
+        className={`px-4 py-1.5 border-t border-[var(--border)] bg-black/10 flex items-center justify-between shrink-0 ${fromAdminPanel ? 'flex-wrap gap-2' : ''}`}
+      >
         <div className="flex items-center gap-3">
           <input
             type="file"
@@ -108,7 +113,11 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
             value={linkInputVal}
             onChange={(e) => onLinkInputChange(e.target.value)}
             placeholder={t('chatLinkPlaceholder')}
-            className="flex-1 px-3 py-1.5 bg-[var(--bg)] border border-[var(--border)] type-body text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none"
+            className={
+              fromAdminPanel
+                ? `${ADMIN_MODAL_FIELD_CLASS} flex-1`
+                : 'flex-1 px-3 py-1.5 bg-[var(--bg)] border border-[var(--border)] type-body text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none'
+            }
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault();
@@ -119,7 +128,11 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
           <button
             type="button"
             onClick={onLinkAttach}
-            className="px-3 py-1.5 border border-[var(--ink)] bg-[var(--ink)] text-[var(--bg)] hover:bg-transparent hover:text-[var(--ink)] transition type-button uppercase rounded-none cursor-pointer"
+            className={
+              fromAdminPanel
+                ? 'btn-primary shrink-0 px-3 py-2'
+                : 'px-3 py-1.5 border border-[var(--ink)] bg-[var(--ink)] text-[var(--bg)] hover:bg-transparent hover:text-[var(--ink)] transition type-button uppercase rounded-none cursor-pointer'
+            }
           >
             {t('chatAdd')}
           </button>

@@ -9,6 +9,7 @@ import {
 import type { AdminManagedParticipantSelection } from './identityContracts';
 import { useAdminEligibleParticipants } from './useAdminIdentityReadModels';
 import { useAdminIdentityTranslations } from './useAdminIdentityTranslations';
+import { ADMIN_MODAL_CHOICE_CLASS, ADMIN_MODAL_FIELD_CLASS } from '../components/adminModalStyles';
 
 interface AdminManagedParticipantPickerProps {
   readonly selected?: AdminManagedParticipantSelection;
@@ -19,6 +20,7 @@ interface AdminManagedParticipantPickerProps {
   /** True when Account (+ Participant when required) is ready for submit. */
   readonly onReadyChange?: (ready: boolean) => void;
   readonly additionalAccounts?: readonly AccountDirectoryOption[];
+  readonly appearance?: 'default' | 'booking';
 }
 
 function buildSelection(input: {
@@ -42,6 +44,7 @@ export function AdminManagedParticipantPicker({
   onAccountIdChange,
   onReadyChange,
   additionalAccounts,
+  appearance = 'default',
 }: AdminManagedParticipantPickerProps) {
   const { text } = useAdminIdentityTranslations();
   const [search, setSearch] = useState('');
@@ -206,11 +209,19 @@ export function AdminManagedParticipantPicker({
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder={text.pickerSearchHint}
-          className="mt-1 w-full border border-[var(--border)] bg-[var(--bg)] p-2 type-body"
+          className={
+            appearance === 'booking'
+              ? `mt-1 ${ADMIN_MODAL_FIELD_CLASS}`
+              : 'mt-1 w-full border border-[var(--border)] bg-[var(--bg)] p-2 type-body'
+          }
         />
         <select
           aria-label={text.selectAccount}
-          className="mt-1 w-full border border-[var(--border)] bg-[var(--bg)] p-2 type-body"
+          className={
+            appearance === 'booking'
+              ? `mt-1 ${ADMIN_MODAL_CHOICE_CLASS}`
+              : 'mt-1 w-full border border-[var(--border)] bg-[var(--bg)] p-2 type-body'
+          }
           value={accountId ?? ''}
           disabled={directoryLoading && mergedAccounts.length === 0}
           onChange={(event) => {
@@ -278,7 +289,11 @@ export function AdminManagedParticipantPicker({
           {text.eligibleParticipants}
           <select
             aria-label={text.eligibleParticipants}
-            className="mt-1 w-full border border-[var(--border)] bg-[var(--bg)] p-2 type-body"
+            className={
+              appearance === 'booking'
+                ? `mt-1 ${ADMIN_MODAL_CHOICE_CLASS}`
+                : 'mt-1 w-full border border-[var(--border)] bg-[var(--bg)] p-2 type-body'
+            }
             disabled={!accountId || eligible.loading}
             value={selected?.participantId ?? ''}
             onChange={(event) => {

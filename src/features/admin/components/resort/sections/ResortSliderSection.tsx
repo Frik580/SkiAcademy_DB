@@ -1,3 +1,4 @@
+import { useAdminDialog } from '../../useAdminDialog';
 import React, { useEffect, useState } from 'react';
 import { ArrowDown, ArrowUp, Eye, EyeOff, Plus, RefreshCw, Save, Trash2 } from 'lucide-react';
 import {
@@ -79,6 +80,7 @@ function MobileBackgroundPositionControl({
 
 export const ResortSliderSection: React.FC = () => {
   const { t } = useLanguage();
+  const { confirm: confirmAdminDialog, dialog: adminDialog } = useAdminDialog();
   const { addNotification } = useNotifications();
 
   const [resortSlides, setResortSlides] = useState<CustomHeroSlide[]>([]);
@@ -173,6 +175,7 @@ export const ResortSliderSection: React.FC = () => {
 
   return (
     <form onSubmit={handleSaveSliderConfig} className="space-y-4">
+      {adminDialog}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1.5 border border-[var(--border)] p-3 bg-black/5 dark:bg-white/5">
           <label className="block type-caption uppercase text-[var(--ink)] font-medium">
@@ -207,8 +210,8 @@ export const ResortSliderSection: React.FC = () => {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => {
-                if (window.confirm(t('resetSlidesConfirm'))) {
+              onClick={async () => {
+                if (await confirmAdminDialog(t('resetSlidesConfirm'))) {
                   setResortSlides(JSON.parse(JSON.stringify(FALLBACK_SLIDES)));
                   setSlidesRandomOrder(false);
                 }

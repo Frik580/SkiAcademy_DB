@@ -94,6 +94,33 @@ describe('AdminManagedParticipantPicker account search', () => {
     expect(queryAdminIdentityReadModels.mock.calls[0]?.[0]?.cursor).toBeUndefined();
   });
 
+  it('uses booking chrome in a modal without changing the Account/Participant selection path', async () => {
+    useAdminEligibleParticipants.mockReturnValue({
+      items: [eligibleItem('self', 'self'), eligibleItem('child', 'parent_guardian')],
+      loading: false,
+    });
+    const onChange = vi.fn();
+    render(<AdminManagedParticipantPicker appearance="booking" onChange={onChange} />);
+    await waitFor(() =>
+      expect(screen.getByRole('option', { name: /Alice Snow/ })).toBeInTheDocument()
+    );
+    expect(screen.getByRole('textbox')).toHaveClass('ui-field-plain');
+    const selects = screen.getAllByRole('combobox');
+    selects.forEach((select) =>
+      expect(select).toHaveClass('rounded-[10px]', 'border', 'type-compact')
+    );
+    fireEvent.change(selects[0], { target: { value: aliceId } });
+    fireEvent.change(selects[1], {
+      target: { value: eligibleItem('child', 'parent_guardian').participantId },
+    });
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        accountId: aliceId,
+        participantId: eligibleItem('child', 'parent_guardian').participantId,
+      })
+    );
+  });
+
   it('does not auto-drain remaining Account pages; Load more fetches exactly one next page', async () => {
     queryAdminIdentityReadModels
       .mockResolvedValueOnce({

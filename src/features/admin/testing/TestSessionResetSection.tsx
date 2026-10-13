@@ -1,6 +1,6 @@
+import { AdminModal } from '../components/AdminModal';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { AlertTriangle, Copy, Shield, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, Copy, ShieldAlert } from 'lucide-react';
 import {
   TEST_SESSION_RESET_CONFIRMATION,
   type TestSessionLifecycleResult,
@@ -12,7 +12,6 @@ import {
   lifecycleErrorCode,
 } from '../../../lib/canonical/testSessionLifecycleClient';
 import { ActionButton } from '../../../ui/ActionButton';
-import { BodyScrollLock } from '../../../ui/BodyScrollLock';
 import { useAdminTestingTranslations } from './useAdminTestingTranslations';
 import {
   canExecuteResetPreview,
@@ -423,76 +422,64 @@ export const TestSessionResetSection: React.FC<TestSessionResetSectionProps> = (
         </div>
       ) : null}
 
-      {confirmOpen && manifest && canExecute
-        ? createPortal(
-            <div
-              className="ui-modal-overlay fixed inset-0 z-55 flex items-center justify-center p-4 animate-fade-in"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="reset-confirm-title"
-              data-testid="reset-confirm-modal"
-            >
-              <BodyScrollLock />
-              <div
-                className="ui-modal w-full max-w-lg max-h-[80vh] overflow-y-auto p-6 shadow-2xl relative space-y-4 rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)] animate-scale-up"
-                onClick={(e) => e.stopPropagation()}
+      {confirmOpen && manifest && canExecute ? (
+        <AdminModal
+          title={t('adminTestingResetConfirmTitle')}
+          closeLabel={t('adminTestingResetConfirmCancel')}
+          onClose={() => setConfirmOpen(false)}
+          closeDisabled={phase === 'executing'}
+          width="lg"
+          data-testid="reset-confirm-modal"
+          footer={
+            <>
+              <ActionButton
+                variant="secondary"
+                unstyled
+                className="btn-secondary flex-1 px-4 py-3"
+                data-testid="reset-confirm-cancel"
+                onClick={() => setConfirmOpen(false)}
               >
-                <h5
-                  id="reset-confirm-title"
-                  className="type-compact text-[var(--ink)] flex items-center gap-2 font-medium"
-                >
-                  <Shield className="w-4.5 h-4.5 text-[var(--ink-dim)]" aria-hidden="true" />
-                  {t('adminTestingResetConfirmTitle')}
-                </h5>
-                <p className="type-caption text-[var(--ink-dim)]">
-                  {t('adminTestingResetConfirmBody').replace('{count}', String(destructiveTotal))}
-                </p>
-                <dl className="space-y-2 type-caption">
-                  <div>
-                    <dt className="text-[var(--ink-dim)]">{t('adminTestingResetManifestId')}</dt>
-                    <dd className="font-mono">{manifest.manifestId}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-[var(--ink-dim)]">{t('adminTestingResetHash')}</dt>
-                    <dd className="font-mono break-all">{manifest.manifestHash}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-[var(--ink-dim)]">
-                      {t('adminTestingResetDestructiveTotal')}
-                    </dt>
-                    <dd>{destructiveTotal}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-[var(--ink-dim)]">{t('adminTestingResetReseedWallet')}</dt>
-                    <dd>{reseedWallet}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-[var(--ink-dim)]">{t('adminTestingResetReseedCourses')}</dt>
-                    <dd>{reseedCourses}</dd>
-                  </div>
-                </dl>
-                <div className="flex flex-wrap justify-end gap-2 pt-2">
-                  <ActionButton
-                    variant="secondary"
-                    data-testid="reset-confirm-cancel"
-                    onClick={() => setConfirmOpen(false)}
-                  >
-                    {t('adminTestingResetConfirmCancel')}
-                  </ActionButton>
-                  <ActionButton
-                    variant="danger"
-                    data-testid="reset-confirm-execute"
-                    pending={phase === 'executing'}
-                    onClick={() => void runExecute()}
-                  >
-                    {t('adminTestingResetConfirmExecute')}
-                  </ActionButton>
-                </div>
-              </div>
-            </div>,
-            document.body
-          )
-        : null}
+                {t('adminTestingResetConfirmCancel')}
+              </ActionButton>
+              <ActionButton
+                variant="danger"
+                className="flex-1 rounded-full px-4 py-3"
+                data-testid="reset-confirm-execute"
+                pending={phase === 'executing'}
+                onClick={() => void runExecute()}
+              >
+                {t('adminTestingResetConfirmExecute')}
+              </ActionButton>
+            </>
+          }
+        >
+          <p className="type-caption text-[var(--ink-dim)]">
+            {t('adminTestingResetConfirmBody').replace('{count}', String(destructiveTotal))}
+          </p>
+          <dl className="space-y-2 type-caption">
+            <div>
+              <dt className="text-[var(--ink-dim)]">{t('adminTestingResetManifestId')}</dt>
+              <dd className="font-mono">{manifest.manifestId}</dd>
+            </div>
+            <div>
+              <dt className="text-[var(--ink-dim)]">{t('adminTestingResetHash')}</dt>
+              <dd className="font-mono break-all">{manifest.manifestHash}</dd>
+            </div>
+            <div>
+              <dt className="text-[var(--ink-dim)]">{t('adminTestingResetDestructiveTotal')}</dt>
+              <dd>{destructiveTotal}</dd>
+            </div>
+            <div>
+              <dt className="text-[var(--ink-dim)]">{t('adminTestingResetReseedWallet')}</dt>
+              <dd>{reseedWallet}</dd>
+            </div>
+            <div>
+              <dt className="text-[var(--ink-dim)]">{t('adminTestingResetReseedCourses')}</dt>
+              <dd>{reseedCourses}</dd>
+            </div>
+          </dl>
+        </AdminModal>
+      ) : null}
     </div>
   );
 };

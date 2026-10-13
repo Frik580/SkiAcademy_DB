@@ -1,3 +1,4 @@
+import { AdminModal } from '../components/AdminModal';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
@@ -427,26 +428,19 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
       )}
 
       {confirmation && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={t.confirmTitle}
-          className="fixed inset-0 z-60 flex items-center justify-center bg-black/55 p-4"
-        >
-          <div className="w-full max-w-md space-y-4 border border-[var(--border)] bg-[var(--bg)] p-5">
-            <h3 className="type-card-title">{t.confirmTitle}</h3>
-            <p className="break-all type-caption text-[var(--ink-dim)]">{confirmation.message}</p>
-            {confirmation.attempt.kind ===
-              'link_guest_course_enrollment_to_account_as_administrator' && (
-              <p className="break-all type-caption text-[var(--ink-dim)]">
-                {confirmation.attempt.target.enrollmentId} @ rev{' '}
-                {confirmation.attempt.target.revision} → {confirmation.attempt.targetAccountId}/
-                {confirmation.attempt.targetParticipantId}
-              </p>
-            )}
-            {mutationError && <p className="type-caption text-red-700">{mutationError}</p>}
-            <div className="flex gap-2">
+        <AdminModal
+          title={t.confirmTitle}
+          closeLabel={t.cancel}
+          closeDisabled={mutationPending}
+          onClose={() => {
+            setConfirmation(undefined);
+            setMutationError(undefined);
+          }}
+          footer={
+            <>
               <ActionButton
+                unstyled
+                className="btn-secondary flex-1 px-4 py-3"
                 type="button"
                 size="sm"
                 disabled={mutationPending}
@@ -454,24 +448,34 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
                   setConfirmation(undefined);
                   setMutationError(undefined);
                 }}
-                className="flex-1"
               >
                 {t.cancel}
               </ActionButton>
               <ActionButton
+                className="btn-primary flex-1 px-4 py-3"
                 type="button"
                 variant="primary"
                 size="sm"
                 pending={mutationPending}
                 pendingLabel={t.submitting}
                 onClick={() => void runConfirmation()}
-                className="flex-1"
               >
                 {mutationError ? t.retrySame : t.confirm}
               </ActionButton>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+        >
+          <p className="break-all type-caption text-[var(--ink-dim)]">{confirmation.message}</p>
+          {confirmation.attempt.kind ===
+            'link_guest_course_enrollment_to_account_as_administrator' && (
+            <p className="break-all type-caption text-[var(--ink-dim)]">
+              {confirmation.attempt.target.enrollmentId} @ rev{' '}
+              {confirmation.attempt.target.revision} → {confirmation.attempt.targetAccountId}/
+              {confirmation.attempt.targetParticipantId}
+            </p>
+          )}
+          {mutationError && <p className="type-caption text-red-700">{mutationError}</p>}
+        </AdminModal>
       )}
     </div>
   );

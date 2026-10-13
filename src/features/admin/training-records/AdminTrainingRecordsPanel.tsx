@@ -1,3 +1,4 @@
+import { AdminModal } from '../components/AdminModal';
 import {
   BookingChangeRequestIdSchema,
   BookingIdSchema,
@@ -844,24 +845,20 @@ export function AdminTrainingRecordsPanel({
       </div>
 
       {confirmation && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={lessonConfirmation ? t('adminLessonConfirmTitle') : courseCopy.confirmTitle}
-          className="fixed inset-0 z-60 flex items-center justify-center bg-black/55 p-4"
-        >
-          <div className="w-full max-w-md space-y-4 border border-[var(--border)] bg-[var(--bg)] p-5">
-            <h3 className="type-card-title">
-              {lessonConfirmation ? t('adminLessonConfirmTitle') : courseCopy.confirmTitle}
-            </h3>
-            <p className="type-caption text-[var(--ink-dim)]">{confirmation.message}</p>
-            {mutationError && (
-              <p role="alert" className="type-caption text-red-700">
-                {typeof mutationError === 'string' ? mutationError : readableError(mutationError)}
-              </p>
-            )}
-            <div className="flex gap-2">
+        <AdminModal
+          title={lessonConfirmation ? t('adminLessonConfirmTitle') : courseCopy.confirmTitle}
+          closeLabel={lessonConfirmation ? t('adminLessonConfirmCancel') : courseCopy.cancel}
+          closeDisabled={mutationPending}
+          onClose={() => {
+            setLessonConfirmation(undefined);
+            setCourseConfirmation(undefined);
+            setMutationError(undefined);
+          }}
+          footer={
+            <>
               <ActionButton
+                unstyled
+                className="btn-secondary flex-1 px-4 py-3"
                 type="button"
                 size="sm"
                 disabled={mutationPending}
@@ -870,11 +867,11 @@ export function AdminTrainingRecordsPanel({
                   setCourseConfirmation(undefined);
                   setMutationError(undefined);
                 }}
-                className="flex-1"
               >
                 {lessonConfirmation ? t('adminLessonConfirmCancel') : courseCopy.cancel}
               </ActionButton>
               <ActionButton
+                className="btn-primary flex-1 px-4 py-3"
                 type="button"
                 variant="primary"
                 size="sm"
@@ -883,7 +880,6 @@ export function AdminTrainingRecordsPanel({
                   lessonConfirmation ? t('adminLessonSubmitting') : courseCopy.submitting
                 }
                 onClick={() => void runConfirmation()}
-                className="flex-1"
               >
                 {mutationError
                   ? lessonConfirmation
@@ -893,9 +889,16 @@ export function AdminTrainingRecordsPanel({
                     ? t('adminLessonConfirmSubmit')
                     : courseCopy.confirm}
               </ActionButton>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+        >
+          <p className="type-caption text-[var(--ink-dim)]">{confirmation.message}</p>
+          {mutationError && (
+            <p role="alert" className="type-caption text-red-700">
+              {typeof mutationError === 'string' ? mutationError : readableError(mutationError)}
+            </p>
+          )}
+        </AdminModal>
       )}
     </div>
   );

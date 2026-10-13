@@ -1,3 +1,4 @@
+import { ADMIN_MODAL_CHOICE_CLASS, ADMIN_MODAL_PRIMARY_CLASS } from '../../adminModalStyles';
 import React from 'react';
 import { Check, Trash2 } from 'lucide-react';
 import { ActionButton } from '../../../../../ui/ActionButton';
@@ -69,7 +70,7 @@ export const ActiveSlotMoveForm: React.FC<ActiveSlotMoveFormProps> = ({
             <select
               value={newInstructorId}
               onChange={(event) => setNewInstructorId(event.target.value)}
-              className="w-full px-3 py-2 border border-[var(--border)] type-body bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none cursor-pointer"
+              className={ADMIN_MODAL_CHOICE_CLASS}
             >
               {availableInstructors.map((instructor) => (
                 <option
@@ -95,7 +96,7 @@ export const ActiveSlotMoveForm: React.FC<ActiveSlotMoveFormProps> = ({
               required
               value={newMoveDate}
               onChange={(event) => setNewMoveDate(event.target.value)}
-              className="w-full px-3 py-2 border border-[var(--border)] type-body bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none cursor-pointer"
+              className={ADMIN_MODAL_CHOICE_CLASS}
             />
           </div>
 
@@ -108,7 +109,7 @@ export const ActiveSlotMoveForm: React.FC<ActiveSlotMoveFormProps> = ({
               value={newMoveTime}
               onChange={(event) => setNewMoveTime(event.target.value)}
               disabled={availableMoveTimeSlots.length === 0}
-              className="w-full px-3 py-2 border border-[var(--border)] type-body bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none cursor-pointer disabled:opacity-60"
+              className={ADMIN_MODAL_CHOICE_CLASS}
             >
               {availableMoveTimeSlots.length === 0 ? (
                 <option value="" className="bg-[var(--bg)] text-[var(--ink)]">
@@ -135,7 +136,7 @@ export const ActiveSlotMoveForm: React.FC<ActiveSlotMoveFormProps> = ({
               value={newMoveDuration}
               onChange={(event) => setNewMoveDuration(Number(event.target.value))}
               disabled={availableMoveDurations.length === 0}
-              className="w-full px-3 py-2 border border-[var(--border)] type-body bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none cursor-pointer disabled:opacity-60"
+              className={ADMIN_MODAL_CHOICE_CLASS}
             >
               {availableMoveDurations.length === 0 ? (
                 <option value="" className="bg-[var(--bg)] text-[var(--ink)]">
@@ -167,7 +168,7 @@ export const ActiveSlotMoveForm: React.FC<ActiveSlotMoveFormProps> = ({
             }
           }}
           disabled={isSlotActionSubmitting}
-          className="w-full py-2.5 border border-emerald-900/40 bg-emerald-950/20 hover:bg-emerald-955/40 hover:border-emerald-500 text-emerald-400 rounded-none type-button uppercase flex items-center justify-center gap-2 transition cursor-pointer mb-2"
+          className="w-full py-2.5 border border-emerald-900/40 bg-emerald-950/20 hover:bg-emerald-955/40 hover:border-emerald-500 text-emerald-400 rounded-full type-button uppercase flex items-center justify-center gap-2 transition cursor-pointer mb-2"
         >
           <Check className="w-4 h-4" />
           {t('markLessonCompleted')}
@@ -182,17 +183,17 @@ export const ActiveSlotMoveForm: React.FC<ActiveSlotMoveFormProps> = ({
             onOpenLessonDetail(booking.id);
             onClose();
           }}
-          className="w-full py-2.5 border border-[var(--border)] bg-black/5 hover:border-[var(--ink)] hover:bg-black/10 text-[var(--ink)] rounded-none type-button uppercase transition cursor-pointer"
+          className="w-full py-2.5 border border-[var(--border)] bg-black/5 hover:border-[var(--ink)] hover:bg-black/10 text-[var(--ink)] rounded-full type-button uppercase transition cursor-pointer"
         >
           {t('openLessonDetail')}
         </button>
       )}
 
-      <div className="flex gap-2 pt-2">
+      <div className="admin-modal-actions">
         <button
           type="button"
           onClick={() => onDeleteRequest(booking.id)}
-          className="flex-1 py-2.5 border border-rose-900/40 bg-rose-955/20 hover:bg-rose-955/40 hover:border-rose-500 text-rose-400 rounded-none type-button uppercase flex items-center justify-center gap-2 transition cursor-pointer"
+          className="flex-1 py-2.5 border border-rose-900/40 bg-rose-955/20 hover:bg-rose-955/40 hover:border-rose-500 text-rose-400 rounded-full type-button uppercase flex items-center justify-center gap-2 transition cursor-pointer"
         >
           <Trash2 className="w-4 h-4" />
           {t('deleteCancelBlock')}
@@ -203,7 +204,7 @@ export const ActiveSlotMoveForm: React.FC<ActiveSlotMoveFormProps> = ({
           pending={isSlotActionSubmitting}
           pendingLabel={t('applyMove')}
           unstyled
-          className="flex-1 py-2 px-3 border border-[var(--border)] bg-[var(--ink)] hover:bg-transparent text-[var(--bg)] hover:text-[var(--ink)] disabled:bg-black/5 disabled:text-[var(--ink-dim)] disabled:border-[var(--border)] disabled:cursor-not-allowed rounded-none type-button uppercase transition cursor-pointer"
+          className={ADMIN_MODAL_PRIMARY_CLASS}
         >
           <Check className="w-4 h-4" />
           {t('applyMove')}

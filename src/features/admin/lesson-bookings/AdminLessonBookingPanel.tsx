@@ -1,3 +1,4 @@
+import { AdminModal } from '../components/AdminModal';
 import {
   BookingChangeRequestIdSchema,
   BookingIdSchema,
@@ -412,30 +413,19 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
       </div>
 
       {confirmation && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={t('adminLessonConfirmTitle')}
-          className="fixed inset-0 z-60 flex items-center justify-center bg-black/55 p-4"
-        >
-          <div className="w-full max-w-md space-y-4 border border-[var(--border)] bg-[var(--bg)] p-5">
-            <h3 className="type-card-title">{t('adminLessonConfirmTitle')}</h3>
-            <p className="type-caption text-[var(--ink-dim)]">{confirmation.message}</p>
-            <p className="break-all type-caption text-[var(--ink-dim)]">
-              Target:{' '}
-              {confirmation.attempt.kind === 'create_confirmed_booking'
-                ? confirmation.attempt.bookingId
-                : confirmation.attempt.kind === 'link_guest_booking_to_account_as_administrator'
-                  ? `${confirmation.attempt.target.bookingId} @ rev ${confirmation.attempt.target.revision} → ${confirmation.attempt.targetAccountId}/${confirmation.attempt.targetParticipantId}`
-                  : `${confirmation.attempt.target.bookingId} @ rev ${confirmation.attempt.target.revision}`}
-            </p>
-            {mutationError && (
-              <p role="alert" className="type-caption text-red-700">
-                {readableError(mutationError)}
-              </p>
-            )}
-            <div className="flex gap-2">
+        <AdminModal
+          title={t('adminLessonConfirmTitle')}
+          closeLabel={t('adminLessonConfirmCancel')}
+          closeDisabled={mutationPending}
+          onClose={() => {
+            setConfirmation(undefined);
+            setMutationError(undefined);
+          }}
+          footer={
+            <>
               <ActionButton
+                unstyled
+                className="btn-secondary flex-1 px-4 py-3"
                 type="button"
                 size="sm"
                 disabled={mutationPending}
@@ -443,24 +433,38 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
                   setConfirmation(undefined);
                   setMutationError(undefined);
                 }}
-                className="flex-1"
               >
                 {t('adminLessonConfirmCancel')}
               </ActionButton>
               <ActionButton
+                className="btn-primary flex-1 px-4 py-3"
                 type="button"
                 variant="primary"
                 size="sm"
                 pending={mutationPending}
                 pendingLabel={t('adminLessonSubmitting')}
                 onClick={() => void runConfirmation()}
-                className="flex-1"
               >
                 {mutationError ? t('adminLessonRetrySame') : t('adminLessonConfirmSubmit')}
               </ActionButton>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+        >
+          <p className="type-caption text-[var(--ink-dim)]">{confirmation.message}</p>
+          <p className="break-all type-caption text-[var(--ink-dim)]">
+            Target:{' '}
+            {confirmation.attempt.kind === 'create_confirmed_booking'
+              ? confirmation.attempt.bookingId
+              : confirmation.attempt.kind === 'link_guest_booking_to_account_as_administrator'
+                ? `${confirmation.attempt.target.bookingId} @ rev ${confirmation.attempt.target.revision} → ${confirmation.attempt.targetAccountId}/${confirmation.attempt.targetParticipantId}`
+                : `${confirmation.attempt.target.bookingId} @ rev ${confirmation.attempt.target.revision}`}
+          </p>
+          {mutationError && (
+            <p role="alert" className="type-caption text-red-700">
+              {readableError(mutationError)}
+            </p>
+          )}
+        </AdminModal>
       )}
     </div>
   );

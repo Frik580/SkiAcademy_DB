@@ -1,0 +1,84 @@
+/* Position in the visual viewport, including its keyboard-resized mobile bounds. */
+.admin-modal-viewport {
+  position: fixed;
+  inset: 0;
+  height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+    max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  isolation: isolate;
+}
+
+.admin-modal.ui-modal {
+  /* The booking shell is a bottom sheet on mobile; admin windows stay centered. */
+  border-radius: var(--radius);
+  background: var(--card-bg);
+  max-height: min(85dvh, 100%);
+  min-width: 0;
+  font-family: var(--font-sans);
+}
+
+.admin-modal-body {
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  overflow-wrap: anywhere;
+  padding: 16px;
+}
+
+.admin-modal-body-flex {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  height: 480px;
+}
+
+.admin-modal-footer {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  border-top: 1px solid var(--border);
+  background: var(--card-bg);
+  padding: 12px 16px 16px;
+}
+
+.admin-modal-footer > * {
+  min-width: 0;
+}
+.admin-modal-actions {
+  position: sticky;
+  bottom: -16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 16px -16px -16px;
+  padding: 12px 16px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--card-bg);
+  z-index: 1;
+}
+.admin-modal-actions > * {
+  min-width: 0;
+}
+.admin-modal :is(input, select, textarea) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (min-width: 640px) {
+  .admin-modal-viewport {
+    padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right))
+      max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+  }
+  .admin-modal-body:not(.admin-modal-body-flex) {
+    padding: 20px;
+  }
+  .admin-modal-actions {
+    bottom: -20px;
+    margin: 20px -20px -20px;
+  }
+}

@@ -21,19 +21,17 @@ const instructor: Instructor = {
 
 const t = (key: TranslationKey) => (key === 'hr' ? 'ч' : key);
 
-describe('BookingModalHeader KZT pricing', () => {
-  it('displays the canonical KZT rate when the legacy rate conflicts', () => {
+describe('BookingModalHeader', () => {
+  it('keeps the instructor image and close button without visible text', () => {
     const { container } = render(
       <BookingModalHeader targetInstructor={instructor} t={t} onClose={() => undefined} />
     );
-    const text = (container.textContent ?? '').replace(/\s/g, '');
-
-    expect(text).toContain('30000₸/ч');
-    expect(text).not.toContain('$60');
-    expect(text).not.toMatch(/(^|[^0-9])60₸\/ч/);
+    expect(container.textContent).toBe('');
+    expect(container.querySelector('img')?.alt).toBe(instructor.name);
+    expect(container.querySelector('button')?.getAttribute('aria-label')).toBe('cancel');
   });
 
-  it('does not reinterpret the legacy rate when a KZT rate is missing', () => {
+  it('keeps the header text-free when a KZT rate is missing', () => {
     const { container } = render(
       <BookingModalHeader
         targetInstructor={{ ...instructor, pricePerHourKZT: undefined }}
@@ -42,7 +40,6 @@ describe('BookingModalHeader KZT pricing', () => {
       />
     );
 
-    expect(container.textContent).toContain('—/ч');
-    expect(container.textContent).not.toContain('$60');
+    expect(container.textContent).toBe('');
   });
 });

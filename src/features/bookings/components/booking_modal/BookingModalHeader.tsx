@@ -2,8 +2,6 @@ import React from 'react';
 import { X } from 'lucide-react';
 import { Instructor } from '../../../../types';
 import { type TranslationKey } from '../../../../app/providers/LanguageContext';
-import { useCurrency } from '../../../../app/providers/CurrencyContext';
-import { resolveInstructorHourlyRateKztForDisplay } from '../../../../domain/pricing';
 
 interface BookingModalHeaderProps {
   targetInstructor: Instructor;
@@ -16,9 +14,6 @@ export const BookingModalHeader: React.FC<BookingModalHeaderProps> = ({
   t,
   onClose,
 }) => {
-  const { formatPrice } = useCurrency();
-  const hourlyRateKzt = resolveInstructorHourlyRateKztForDisplay(targetInstructor);
-
   return (
     <div className="flex shrink-0 items-center justify-between border-b border-[var(--border)] bg-black/5 p-4 dark:bg-white/5">
       <div className="flex min-w-0 items-center gap-2.5">
@@ -28,14 +23,6 @@ export const BookingModalHeader: React.FC<BookingModalHeaderProps> = ({
             alt={targetInstructor.name}
             className="w-full h-full object-cover"
           />
-        </div>
-        <div className="min-w-0">
-          <h3 className="type-section-title break-words text-[var(--ink)]">
-            {t('bookLessonWith')} {targetInstructor.name}
-          </h3>
-          <p className="mt-0.5 truncate type-caption text-[var(--ink-dim)]">
-            {hourlyRateKzt === undefined ? '—' : formatPrice(hourlyRateKzt)}/{t('hr')}
-          </p>
         </div>
       </div>
       <button

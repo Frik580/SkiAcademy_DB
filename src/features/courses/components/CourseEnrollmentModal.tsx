@@ -488,11 +488,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
     }
   };
 
-  const courseSubtitle = course.level
-    ? course.level === 'expert'
-      ? t('journeyLevelExpert')
-      : getParticipantSkillLabel(course.level, language)
-    : course.levelLabel?.trim();
+  const courseSubtitle = course.title;
   const showAuthenticatedEnrollment = Boolean(authenticatedProfile);
   const guestProfileIncomplete =
     Boolean(guestReservation?.participant) &&

@@ -103,6 +103,7 @@ import { GuestReservationStatus } from '../../src/features/guest-reservations/Gu
 const instructor = {
   id: 'instructor_fixture_01',
   name: 'Coach',
+  specialty: 'both',
   isAvailable: true,
   pricePerHourKZT: 10_000,
 } as Instructor;
@@ -299,6 +300,79 @@ describe('booking modal submit success UX', () => {
         maxParticipantsPerLesson: 6,
       },
     });
+  });
+
+  it.each(['ski', 'snowboard'] as const)(
+    'automatically submits %s for a single-specialty instructor without a discipline selector',
+    async (specialty) => {
+      const props = createProps({ instructor: { ...instructor, specialty } });
+      const { result } = renderHook(() => useBookingModal(props));
+      await waitForAvailableSlot(result);
+      render(React.createElement(GuestBookingForm, { workspace: result.current }));
+      expect(
+        screen.queryByRole('combobox', { name: 'participantsDisciplineLabel *' })
+      ).not.toBeInTheDocument();
+      act(() => {
+        result.current.setGuestName('Guest');
+        result.current.setGuestPhone('12345');
+      });
+      await act(async () => {
+        await result.current.handleSubmitGuest({
+          preventDefault: vi.fn(),
+        } as unknown as React.FormEvent);
+      });
+      expect(mocks.createGuestBooking).toHaveBeenCalledWith(
+        expect.objectContaining({ guestDiscipline: specialty })
+      );
+    }
+  );
+
+  it('requires an explicit discipline for a multi-specialty instructor', async () => {
+    const { result } = renderHook(() => useBookingModal(createProps()));
+    await waitForAvailableSlot(result);
+    render(React.createElement(GuestBookingForm, { workspace: result.current }));
+    expect(screen.getByRole('combobox', { name: 'participantsDisciplineLabel *' })).toHaveValue('');
+    act(() => {
+      result.current.setGuestName('Guest');
+      result.current.setGuestPhone('12345');
+    });
+    await act(async () => {
+      await result.current.handleSubmitGuest({
+        preventDefault: vi.fn(),
+      } as unknown as React.FormEvent);
+    });
+    expect(mocks.createGuestBooking).not.toHaveBeenCalled();
+    act(() => result.current.setGuestDiscipline('snowboard'));
+    await act(async () => {
+      await result.current.handleSubmitGuest({
+        preventDefault: vi.fn(),
+      } as unknown as React.FormEvent);
+    });
+    expect(mocks.createGuestBooking).toHaveBeenCalledWith(
+      expect.objectContaining({ guestDiscipline: 'snowboard' })
+    );
+  });
+
+  it('resolves discipline again when switching instructors and reopening the modal', async () => {
+    const props = createProps();
+    const { result, rerender } = renderHook((input: BookingModalInput) => useBookingModal(input), {
+      initialProps: props,
+    });
+    await waitForAvailableSlot(result);
+    act(() => result.current.setGuestDiscipline('ski'));
+    rerender({
+      ...props,
+      instructor: { ...instructor, id: 'coach_snowboard', specialty: 'snowboard' },
+    });
+    expect(result.current.guestDiscipline).toBe('snowboard');
+    rerender({ ...props, instructor: { ...instructor, id: 'coach_ski', specialty: 'ski' } });
+    expect(result.current.guestDiscipline).toBe('ski');
+    rerender(props);
+    expect(result.current.guestDiscipline).toBe('');
+    act(() => result.current.setGuestDiscipline('snowboard'));
+    rerender({ ...props, isOpen: false });
+    rerender(props);
+    expect(result.current.guestDiscipline).toBe('');
   });
 
   it('shows the canonical KZT rate in the guest total when legacy data conflicts', async () => {

@@ -670,12 +670,12 @@ describe('CourseEnrollmentModal guest enrollment', () => {
   });
 
   it.each([
-    ['ru', undefined, 'Новичок'],
-    ['en', undefined, 'Beginner'],
-    ['ru', userProfile, 'Новичок'],
-    ['en', userProfile, 'Beginner'],
+    ['ru', undefined, 'Новичок (Групповой курс)'],
+    ['en', undefined, 'Новичок (Групповой курс)'],
+    ['ru', userProfile, 'Новичок (Групповой курс)'],
+    ['en', userProfile, 'Новичок (Групповой курс)'],
   ] as const)(
-    'uses only the structured level in the %s header for guest/authenticated enrollment',
+    'uses the course title in the %s header for guest/authenticated enrollment',
     (language, profile, subtitle) => {
       mocks.language = language;
       render(
@@ -691,11 +691,11 @@ describe('CourseEnrollmentModal guest enrollment', () => {
       const header = screen.getByRole('heading', { name: title }).parentElement!;
       expect(within(header).getByText(subtitle)).toBeInTheDocument();
       expect(header.textContent).toBe(title + subtitle);
-      expect(header).not.toHaveTextContent(/Групповой курс|Group Course|45000/);
+      expect(header).not.toHaveTextContent('45000');
     }
   );
 
-  it('uses the structured level label when the course has no level', () => {
+  it('uses the course title instead of a custom level label', () => {
     render(
       <CourseEnrollmentModal
         isOpen
@@ -705,10 +705,10 @@ describe('CourseEnrollmentModal guest enrollment', () => {
       />
     );
     const header = screen.getByRole('heading', { name: 'Course Enrollment' }).parentElement!;
-    expect(header.textContent).toBe('Course EnrollmentCustom level');
+    expect(header.textContent).toBe('Course EnrollmentBeginner (Group Course)');
   });
 
-  it('omits the subtitle when no structured level metadata exists', () => {
+  it('shows the course title when no structured level metadata exists', () => {
     render(
       <CourseEnrollmentModal
         isOpen
@@ -718,10 +718,10 @@ describe('CourseEnrollmentModal guest enrollment', () => {
       />
     );
     const header = screen.getByRole('heading', { name: 'Course Enrollment' }).parentElement!;
-    expect(header.textContent).toBe('Course Enrollment');
+    expect(header.textContent).toBe('Course EnrollmentBeginner (Group Course)');
   });
 
-  it('localizes the expert course level', () => {
+  it('uses the course title instead of the expert course level', () => {
     mocks.language = 'ru';
     render(
       <CourseEnrollmentModal
@@ -732,7 +732,7 @@ describe('CourseEnrollmentModal guest enrollment', () => {
       />
     );
     const header = screen.getByRole('heading', { name: 'Запись на курс' }).parentElement!;
-    expect(within(header).getByText('Эксперт')).toBeInTheDocument();
+    expect(within(header).getByText(course.title)).toBeInTheDocument();
   });
 
   it('starts with only required contacts and discloses optional details without losing them in auth', async () => {

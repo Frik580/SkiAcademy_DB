@@ -22,6 +22,8 @@ export const E2E_ADMIN_DISPLAY_NAME = 'E2E Admin';
 
 export const E2E_INSTRUCTOR_ID = 'e2e-instructor-1';
 export const E2E_INSTRUCTOR_NAME = 'E2E Test Coach';
+export const E2E_GUEST_INSTRUCTOR_ID = 'e2e-guest-multi-discipline-instructor';
+export const E2E_GUEST_INSTRUCTOR_NAME = 'E2E Guest Ski and Snowboard Coach';
 
 export const E2E_STUDENT_DISPLAY_NAME = 'E2E Student';
 export const E2E_CHILD_DISPLAY_NAME = 'E2E Child Skier';

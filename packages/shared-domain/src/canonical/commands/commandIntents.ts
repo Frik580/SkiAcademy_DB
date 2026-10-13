@@ -298,6 +298,7 @@ export const CommandIntentSchemaByKind = {
       instructorId: InstructorIdSchema,
       participantIds: z.array(ParticipantIdSchema).min(1),
       payerAccountId: AccountIdSchema.optional(),
+      discipline: z.enum(['ski', 'snowboard']).optional(),
       difficulty: LessonDifficultySchema.optional(),
       notes: BookingLessonNotesSchema,
       reasonExplanation: z.string().trim().min(1).max(1_000).optional(),
@@ -308,6 +309,7 @@ export const CommandIntentSchemaByKind = {
       bookingId: BookingIdSchema,
       instructorId: InstructorIdSchema,
       participantIds: z.array(ParticipantIdSchema).length(1),
+      discipline: z.enum(['ski', 'snowboard']).optional(),
       difficulty: LessonDifficultySchema.optional(),
       notes: BookingLessonNotesSchema,
     })

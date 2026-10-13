@@ -17,6 +17,7 @@ import {
   lessonAdminGuestProfileAgeLabel,
   attendanceUnavailableReason,
   formatLessonAdminDuration,
+  lessonAdminDisciplineLabel,
   guestLinkUnavailableLabelKey,
   hasSchedulingPlannerHint,
   isPendingUnpaidOutstanding,
@@ -526,6 +527,11 @@ export function AdminLessonBookingDetail({
                   <dd>{admin.payer.displayName}</dd>
                 </>
               )}
+              <dt className="text-[var(--ink-dim)]">{t('participantsDisciplineLabel')}</dt>
+              <dd>
+                {lessonAdminDisciplineLabel(detail.discipline, t) ??
+                  t('lessonDisciplineUnspecified')}
+              </dd>
               <dt className="text-[var(--ink-dim)]">{t('adminLessonDifficulty')}</dt>
               <dd>
                 {formatLessonDifficultyOrUnspecified(

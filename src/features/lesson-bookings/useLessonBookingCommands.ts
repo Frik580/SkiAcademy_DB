@@ -117,6 +117,7 @@ export function useLessonBookingCommands(
           bookingId: BookingIdSchema.parse(input.identity.bookingId),
           instructorId: InstructorIdSchema.parse(input.instructorId),
           participantIds: input.participantIds.map((id) => ParticipantIdSchema.parse(id)),
+          ...(input.discipline ? { discipline: input.discipline } : {}),
           ...lessonContentFields({
             difficulty: input.difficulty,
             notes: input.notes,
@@ -147,6 +148,7 @@ export function useLessonBookingCommands(
           bookingId: BookingIdSchema.parse(input.identity.bookingId),
           instructorId: InstructorIdSchema.parse(input.instructorId),
           participantIds: [ParticipantIdSchema.parse(input.participantId)],
+          discipline: input.guestDiscipline,
           ...lessonContentFields({
             difficulty: input.difficulty,
             notes: input.notes,

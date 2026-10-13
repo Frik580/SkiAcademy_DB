@@ -57,6 +57,7 @@ export function mapLessonBookingReadModelToCabinetItem(
       : {}),
     cancellationReason: readModel.lifecycle.reasonCode,
     ...(readModel.difficulty ? { difficulty: readModel.difficulty } : {}),
+    ...(readModel.discipline ? { discipline: readModel.discipline } : {}),
     ...(readModel.notes ? { notes: readModel.notes } : {}),
   };
 }

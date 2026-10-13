@@ -111,6 +111,7 @@ describe('lessonBooking commands integration', () => {
         idempotencyKey: `create-confirmed:${bookingId}`,
       },
       difficulty: 'intermediate',
+      discipline: 'snowboard',
       notes: '  Work on carving  ',
     });
 
@@ -122,6 +123,7 @@ describe('lessonBooking commands integration', () => {
         intent: expect.objectContaining({
           bookingId: BookingIdSchema.parse(bookingId),
           difficulty: 'intermediate',
+          discipline: 'snowboard',
           notes: 'Work on carving',
         }),
       })
@@ -186,6 +188,7 @@ describe('lessonBooking commands integration', () => {
           guestParticipantDiscipline: discipline,
           guestParticipantAgeYears: 12,
           intent: expect.objectContaining({
+            discipline,
             difficulty: 'freeride',
             notes: 'First off-piste',
           }),

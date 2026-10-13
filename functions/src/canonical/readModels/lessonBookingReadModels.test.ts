@@ -19,6 +19,7 @@ import {
 import {
   buildAdminLessonBookingReadModel,
   buildInstructorLessonBookingReadModel,
+  buildLessonBookingReadModel,
   canAccountViewLessonBookingFinancial,
   canAccountViewLessonBookingService,
   queryLessonBookingReadModels,
@@ -568,6 +569,37 @@ describe('Admin lesson booking read models', () => {
         incompleteGuest ? undefined : 'intermediate'
       );
       expect(reads.get(`participants/${booking.party.participantIds[0]}`)).toBe(1);
+    }
+  );
+
+  it.each(['ski', 'snowboard', undefined] as const)(
+    'projects persisted lesson discipline %s consistently for all roles after reload',
+    async (discipline) => {
+      const base = canonicalBooking('booking_discipline_reload', '2026-08-01T12:00:00.000Z', {
+        status: 'confirmed',
+      });
+      // Reconstruct persisted data; neither profile discipline nor level is lesson authority.
+      const booking = BookingSchema.parse(JSON.parse(JSON.stringify({ ...base, discipline })));
+      const { firestore } = adminFixture([booking]);
+      const admin = await buildAdminLessonBookingReadModel(firestore, adminActor, booking, {
+        now: readNow,
+      });
+      const instructor = await buildInstructorLessonBookingReadModel(
+        firestore,
+        instructorId,
+        booking
+      );
+      const student = await buildLessonBookingReadModel(firestore, adminId, booking, {
+        now: readNow,
+        authContext: { participantManagement: [], participants: [] },
+      });
+      expect(admin).toBeDefined();
+      expect(instructor).toBeDefined();
+      expect(student).toBeDefined();
+      expect(admin?.discipline).toBe(discipline);
+      expect(instructor?.discipline).toBe(discipline);
+      expect(student?.discipline).toBe(discipline);
+      expect(admin?.admin?.participants[0]?.discipline).toBe('ski');
     }
   );
 

@@ -7,6 +7,7 @@ import type {
 } from './lessonBookingAdminContracts';
 import {
   formatLessonAdminDuration,
+  lessonAdminDisciplineLabel,
   LESSON_ADMIN_ORIGIN_LABEL_KEYS,
   LESSON_ADMIN_PRIMARY_STATUS_KEYS,
   PAYMENT_STATUS_LABEL_KEYS,
@@ -156,6 +157,7 @@ export const AdminLessonBookingMasterList = memo(function AdminLessonBookingMast
                     time: occurrence.time,
                     instructor: item.instructor.displayName,
                     duration: formatLessonAdminDuration(item.occurrence.durationMinutes, t),
+                    discipline: lessonAdminDisciplineLabel(item.discipline, t),
                     primaryStatus,
                     primaryStatusLabel: t(LESSON_ADMIN_PRIMARY_STATUS_KEYS[primaryStatus]),
                     ...(paymentStatus

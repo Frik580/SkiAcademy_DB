@@ -356,6 +356,7 @@ export const LessonBookingReadModelSchema = z
     clientExercisedCapability: z.enum(['account_owner', 'parent_guardian']).optional(),
     paymentPresentation: LessonBookingReadModelPaymentPresentationSchema.optional(),
     guestPaymentSummary: GuestPaymentSummarySchema.optional(),
+    discipline: z.enum(['ski', 'snowboard']).optional(),
     difficulty: LessonDifficultySchema.optional(),
     notes: BookingLessonNotesSchema,
     /** Credential-scoped guest profile; hydrated from the existing Participant read. */

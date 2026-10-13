@@ -276,6 +276,20 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 type-caption text-[var(--ink-dim)] border-t border-slate-200/60 dark:border-slate-800/60 pt-3">
+            {b.discipline && (
+              <div>
+                <span className="uppercase type-caption text-[var(--ink-dim)] block mb-1">
+                  {t('participantsDisciplineLabel')}:
+                </span>
+                <span className="text-[var(--ink)] font-bold">
+                  {t(
+                    b.discipline === 'ski'
+                      ? 'participantsDisciplineSki'
+                      : 'participantsDisciplineSnowboard'
+                  )}
+                </span>
+              </div>
+            )}
             <div>
               <span className="uppercase type-caption text-[var(--ink-dim)] block mb-1">
                 {t('instructorDifficulty')}

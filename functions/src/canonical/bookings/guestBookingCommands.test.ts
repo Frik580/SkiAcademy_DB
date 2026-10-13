@@ -640,6 +640,7 @@ describe('create_guest_booking_request command', () => {
           bookingId,
           instructorId,
           participantIds: [participantId],
+          discipline: 'snowboard',
           difficulty: 'freeride',
           notes: 'First time off-piste',
         },
@@ -649,6 +650,8 @@ describe('create_guest_booking_request command', () => {
     const snapshot = executor.snapshot();
     const booking = snapshot.docs.get(`bookings/${bookingId}`)?.data;
     const participant = snapshot.docs.get(`participants/${participantId}`)?.data;
+    expect(booking?.discipline).toBe('snowboard');
+    expect(participant?.discipline).toBe('ski');
     expect(booking?.difficulty).toBe('freeride');
     expect(booking?.notes).toBe('First time off-piste');
     expect(participant?.skillLevel).toBe('beginner');

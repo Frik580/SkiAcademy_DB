@@ -412,6 +412,7 @@ describe('create_confirmed_booking command', () => {
           bookingId,
           instructorId,
           participantIds: [participantId],
+          discipline: 'snowboard',
           difficulty: 'intermediate',
           notes: '  Focus on carving  ',
         },
@@ -421,6 +422,10 @@ describe('create_confirmed_booking command', () => {
     const booking = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data;
     expect(booking?.difficulty).toBe('intermediate');
     expect(booking?.notes).toBe('Focus on carving');
+    expect(booking?.discipline).toBe('snowboard');
+    expect(executor.snapshot().docs.get(`participants/${participantId}`)?.data?.discipline).toBe(
+      'ski'
+    );
   });
 
   it('omits empty notes and does not invent a beginner difficulty', async () => {
@@ -438,6 +443,7 @@ describe('create_confirmed_booking command', () => {
     );
     expect(result.status).toBe('success');
     const booking = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data;
+    expect(booking?.discipline).toBeUndefined();
     expect(booking?.difficulty).toBeUndefined();
     expect(booking?.notes).toBeUndefined();
   });

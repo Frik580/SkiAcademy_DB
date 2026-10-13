@@ -6,6 +6,15 @@ import type {
 import type { TranslationKey } from '../../../lib/i18n/translations';
 import { ADMIN_ISSUE_KIND_LABEL_KEYS } from '../issues/adminIssuePresentation';
 
+export function lessonAdminDisciplineLabel(
+  discipline: LessonBookingReadModel['discipline'],
+  t: (key: TranslationKey) => string
+): string | undefined {
+  return discipline
+    ? t(discipline === 'ski' ? 'participantsDisciplineSki' : 'participantsDisciplineSnowboard')
+    : undefined;
+}
+
 export type LessonAdminPrimaryStatusKind =
   | 'awaiting_payment'
   | 'pending'

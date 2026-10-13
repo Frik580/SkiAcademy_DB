@@ -150,6 +150,7 @@ export function buildFrontendGuestLessonBookingCallablePayload(input: {
       bookingId: input.bookingId,
       instructorId: input.instructorId,
       participantIds: [input.participantId],
+      discipline: input.guestDiscipline,
       ...(input.difficulty !== undefined ? { difficulty: input.difficulty } : {}),
       ...(input.notes ? { notes: input.notes } : {}),
     }),

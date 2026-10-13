@@ -43,6 +43,7 @@ An independent prohibition created either by a Parent/Guardian against an Instru
 
 **Booking**:
 The lifecycle record for an individual or family/group lesson. It identifies who booked, who participates, who pays, the reserved service, its price snapshot, and its current lifecycle state.
+The lesson's ski/snowboard `discipline` is stored on canonical Booking at creation and projected through `LessonBookingReadModel` for all cabinets. It is independent of current Participant discipline, Instructor specialty, and lesson difficulty. Historical Bookings without it remain unspecified: compact cards omit it and detail views may show a localized “Not specified”.
 _Avoid_: Course Enrollment.
 
 **Individual Lesson**:

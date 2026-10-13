@@ -1,5 +1,6 @@
 import { configDefaults, defineConfig } from 'vitest/config';
 import { fileURLToPath, URL } from 'node:url';
+import { availableParallelism } from 'node:os';
 import react from '@vitejs/plugin-react';
 
 /** Files exercised by integration / Firestore rules tests, not unit coverage. */
@@ -52,6 +53,10 @@ export default defineConfig({
   },
   plugins: [react()],
   test: {
+    // Bound CPU-heavy jsdom/V8 work on large hosts while retaining Vitest's
+    // usual one-CPU reserve on smaller runners.
+    maxWorkers: Math.max(1, Math.min(4, availableParallelism() - 1)),
+    minWorkers: 1,
     exclude: [...configDefaults.exclude, '.scratch/**'],
     environment: 'jsdom',
     environmentMatchGlobs: [

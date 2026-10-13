@@ -55,6 +55,7 @@ export interface EnrichedBooking {
   endsAtEpochMs: number;
   status: BookingStatus;
   difficulty?: LessonDifficulty;
+  discipline?: InstructorLessonBookingItem['discipline'];
   notes: string;
   participantId: string;
   participantIds: readonly string[];
@@ -216,6 +217,7 @@ export const useInstructorWorkspace = ({
           endsAtEpochMs: booking.endsAtEpochMs,
           status: booking.status,
           ...(booking.difficulty ? { difficulty: booking.difficulty } : {}),
+          ...(booking.discipline ? { discipline: booking.discipline } : {}),
           notes: booking.notes ?? '',
           participantId: primaryParticipant.participantId,
           participantIds: booking.participantIds,

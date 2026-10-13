@@ -259,6 +259,7 @@ export function buildPaymentPresentation(
 function lessonContentFromBooking(booking: Booking) {
   return {
     ...(booking.difficulty !== undefined ? { difficulty: booking.difficulty } : {}),
+    ...(booking.discipline !== undefined ? { discipline: booking.discipline } : {}),
     ...(booking.notes ? { notes: booking.notes } : {}),
   };
 }

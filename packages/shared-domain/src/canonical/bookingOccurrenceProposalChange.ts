@@ -583,6 +583,7 @@ const BookingRecordSchema = z
       })
       .optional(),
     payerAccountId: AccountIdSchema.optional(),
+    discipline: z.enum(['ski', 'snowboard']).optional(),
     difficulty: LessonDifficultySchema.optional(),
     notes: BookingLessonNotesSchema,
     clientSelfServiceRescheduleConsumedAt: CanonicalTimestampSchema.optional(),

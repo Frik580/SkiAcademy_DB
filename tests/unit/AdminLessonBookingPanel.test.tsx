@@ -1045,6 +1045,8 @@ describe('AdminLessonBookingPanel', () => {
     expect(screen.queryByText('booking 5 · schedule 2')).not.toBeInTheDocument();
     openDetailSection('adminLessonOverviewTitle');
     expect(screen.getByText('adminLessonScheduleInPlanner')).toBeVisible();
+    expect(screen.getByText('participantsAgeLabel')).toBeVisible();
+    expect(screen.queryByText('participantsSkillLabel')).not.toBeInTheDocument();
     expect(screen.getByText('adminLessonDifficulty')).toBeVisible();
     expect(screen.getByText('🏔️ Freeride')).toBeVisible();
     expect(screen.getByText('Bring a helmet')).toBeVisible();

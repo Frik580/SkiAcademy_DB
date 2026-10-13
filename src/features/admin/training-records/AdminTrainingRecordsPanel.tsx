@@ -694,7 +694,7 @@ export function AdminTrainingRecordsPanel({
 
         <aside
           ref={detailPanelRef}
-          className="min-h-[32rem] rounded-[var(--radius)] bg-[var(--card-bg)] shadow-[var(--shadow-soft)] lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto"
+          className="min-h-[32rem] rounded-[var(--radius)] bg-[var(--card-bg)] shadow-[var(--shadow-soft)]"
           aria-label={t('adminTrainingDetailLabel')}
           tabIndex={-1}
         >

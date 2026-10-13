@@ -314,7 +314,11 @@ describe('useAdminCourseEnrollmentReadModels realtime invalidation', () => {
     });
 
     const { result } = renderHook(() => useAdminCourseEnrollmentReadModels({ view: 'roster' }));
-    await waitFor(() => expect(queryMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => {
+      expect(queryMock).toHaveBeenCalledTimes(1);
+      expect(result.current.list.loading).toBe(false);
+      expect(result.current.loadMore).toBeTypeOf('function');
+    });
     await act(async () => {
       await result.current.loadMore?.();
     });

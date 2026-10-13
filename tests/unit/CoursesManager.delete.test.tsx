@@ -181,7 +181,7 @@ describe('Canonical CoursesManager', () => {
         },
       })
     );
-    executeAuthenticatedCanonicalCommand.mockResolvedValue({
+    executeAuthenticatedCanonicalCommand.mockReset().mockResolvedValue({
       status: 'success',
       kind: 'archive_course',
       correlationId: 'correlation_component_01',

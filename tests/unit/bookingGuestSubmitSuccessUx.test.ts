@@ -970,6 +970,7 @@ describe('booking modal submit success UX', () => {
         localDate: '2026-06-15',
         timeZone: 'Asia/Almaty',
       });
+      act(() => result.current.setGuestDiscipline('snowboard'));
       const event = { preventDefault: vi.fn() } as unknown as React.FormEvent;
 
       act(() => {
@@ -986,6 +987,7 @@ describe('booking modal submit success UX', () => {
           localDate: '2026-06-15',
           localTime: '08:00',
           durationMinutes: 120,
+          discipline: 'snowboard',
         })
       );
       expect(mocks.createGuestBooking).not.toHaveBeenCalled();
@@ -998,6 +1000,39 @@ describe('booking modal submit success UX', () => {
       expect(mocks.confetti).toHaveBeenCalledTimes(1);
     }
   );
+
+  it('blocks authenticated submit for a multi-specialty instructor without a discipline', async () => {
+    mocks.managedParticipants.push({ participantId: 'participant_fixture_01', authority: 'self' });
+    const props = createProps({
+      userProfile: { uid: 'account_fixture_01', isClientActive: true } as UserProfile,
+    });
+    const { result } = renderHook(() => useBookingModal(props));
+    await waitForAvailableSlot(result);
+    await waitFor(() => expect(result.current.lessonSettingsUnavailable).toBe(false));
+    expect(result.current.guestDiscipline).toBe('');
+
+    vi.useFakeTimers();
+    try {
+      await act(async () => {
+        await result.current.handleSubmit({ preventDefault: vi.fn() } as unknown as React.FormEvent);
+        await vi.advanceTimersByTimeAsync(300);
+      });
+
+      expect(mocks.createAuthenticatedBooking).not.toHaveBeenCalled();
+      expect(mocks.createGuestBooking).not.toHaveBeenCalled();
+      expect(mocks.addNotification).toHaveBeenCalledTimes(1);
+      expect(mocks.addNotification).toHaveBeenCalledWith(
+        'warning',
+        'missingDetails',
+        'participantsDisciplineLabel'
+      );
+      expect(mocks.confetti).not.toHaveBeenCalled();
+      expect(props.onClose).not.toHaveBeenCalled();
+      expect(result.current.isSubmitting).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 
   it('does not fall back to local bookings when canonical occupancy fails', async () => {
     localStorage.setItem('alpine_glide_bookings_local_account_fixture_01', '[]');

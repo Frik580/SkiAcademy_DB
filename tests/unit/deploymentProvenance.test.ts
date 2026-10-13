@@ -1,6 +1,5 @@
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { E2E_PROJECT_ID } from '../../e2e/emulator-config';
@@ -264,7 +263,9 @@ describe('deployment provenance', () => {
   });
 
   it('derives a clean temporary checkout SHA from Git without hardcoding it', () => {
-    const directory = mkdtempSync(join(tmpdir(), 'carve-provenance-'));
+    // Keep the disposable checkout inside the writable workspace: sandbox temp
+    // directories may allow files while denying Git's .git/config writes.
+    const directory = mkdtempSync(join(process.cwd(), 'node_modules', 'carve-provenance-'));
     const gitEnv = {
       ...process.env,
       GIT_AUTHOR_NAME: 'Provenance Test',
@@ -276,7 +277,7 @@ describe('deployment provenance', () => {
       execFileSync('git', args, {
         cwd: directory,
         env: gitEnv,
-        stdio: 'ignore',
+        stdio: 'pipe',
         windowsHide: true,
       });
     };

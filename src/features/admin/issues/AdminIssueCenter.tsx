@@ -435,7 +435,7 @@ export function AdminIssueCenter() {
                       [ADMIN_ISSUE_QUERY_KEY]: undefined,
                     })
                   }
-                  className={`w-full border p-4 text-left transition hover:border-[var(--ink-dim)] ${
+                  className={`w-full rounded-[var(--radius-md)] border p-4 text-left transition hover:border-[var(--ink-dim)] ${
                     selectedChangeRequestId === entry.changeRequest.requestId
                       ? 'border-[var(--ink)] bg-black/5'
                       : 'border-[var(--border)]'
@@ -476,7 +476,7 @@ export function AdminIssueCenter() {
                       [ADMIN_CHANGE_REQUEST_QUERY_KEY]: undefined,
                     })
                   }
-                  className={`w-full border p-4 text-left transition hover:border-[var(--ink-dim)] ${
+                  className={`w-full rounded-[var(--radius-md)] border p-4 text-left transition hover:border-[var(--ink-dim)] ${
                     selectedIssueId === entry.issue.issueId
                       ? 'border-[var(--ink)] bg-black/5'
                       : 'border-[var(--border)]'

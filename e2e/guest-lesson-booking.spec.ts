@@ -169,9 +169,7 @@ for (const disciplineScenario of ['multi', 'single'] as const) {
     await expect(
       overview.locator('dt').filter({ hasText: 'Age (years)' }).locator('+ dd')
     ).toHaveText('—');
-    await expect(
-      overview.locator('dt').filter({ hasText: 'Skill level' }).locator('+ dd')
-    ).toHaveText('—');
+    await expect(overview.locator('dt').filter({ hasText: 'Skill level' })).toHaveCount(0);
 
     await modal.getByRole('button', { name: 'Close', exact: true }).click();
     await openGuestBookingModal(page, instructorName);
@@ -206,9 +204,7 @@ for (const disciplineScenario of ['multi', 'single'] as const) {
     await expect(
       overview.locator('dt').filter({ hasText: 'Age (years)' }).locator('+ dd')
     ).toHaveText('32');
-    await expect(
-      overview.locator('dt').filter({ hasText: 'Skill level' }).locator('+ dd')
-    ).toContainText('Intermediate');
+    await expect(overview.locator('dt').filter({ hasText: 'Skill level' })).toHaveCount(0);
 
     await modal.getByRole('button', { name: 'Cancel request', exact: true }).click();
     const cancellationResponse = page.waitForResponse(

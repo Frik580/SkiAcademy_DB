@@ -8,6 +8,8 @@ import {
   E2E_ADMIN_EMAIL,
   E2E_ADMIN_PASSWORD,
   E2E_CHILD_DISPLAY_NAME,
+  E2E_GUEST_INSTRUCTOR_ID,
+  E2E_GUEST_INSTRUCTOR_NAME,
   E2E_INSTRUCTOR_ID,
   E2E_INSTRUCTOR_EMAIL,
   E2E_INSTRUCTOR_NAME,
@@ -68,6 +70,8 @@ export interface E2ERuntimeConfig {
   studentBParticipantId: string;
   instructorId: string;
   instructorName: string;
+  guestInstructorId: string;
+  guestInstructorName: string;
   instructorEmail: string;
   instructorPassword: string;
   workspaceInstructorId: string;
@@ -383,6 +387,15 @@ async function seedCanonicalFirestoreFixtures(
     experienceYears: 5,
   });
 
+  // Keep the shared ski fixture unchanged; guest discipline selection needs both.
+  const instructorFixture = await firestore.doc(`instructors/${E2E_INSTRUCTOR_ID}`).get();
+  await firestore.doc(`instructors/${E2E_GUEST_INSTRUCTOR_ID}`).set({
+    ...instructorFixture.data(),
+    id: E2E_GUEST_INSTRUCTOR_ID,
+    name: E2E_GUEST_INSTRUCTOR_NAME,
+    specialty: 'both',
+  });
+
   await firestore.doc('lesson_pricing_settings/lesson_booking').set({
     settingsId: 'lesson_booking',
     additionalParticipantSurchargePerHourKzt: 6_000,
@@ -489,6 +502,8 @@ export default async function globalSetup(): Promise<void> {
     studentBParticipantId: participantIds.studentBParticipantId,
     instructorId: E2E_INSTRUCTOR_ID,
     instructorName: E2E_INSTRUCTOR_NAME,
+    guestInstructorId: E2E_GUEST_INSTRUCTOR_ID,
+    guestInstructorName: E2E_GUEST_INSTRUCTOR_NAME,
     instructorEmail: E2E_INSTRUCTOR_EMAIL,
     instructorPassword: E2E_INSTRUCTOR_PASSWORD,
     workspaceInstructorId: E2E_WORKSPACE_INSTRUCTOR_ID,

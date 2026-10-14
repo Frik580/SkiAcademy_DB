@@ -79,8 +79,7 @@ export const TEST_SESSION_MAINTENANCE_ERROR_CODES = [
   'LIFECYCLE_FORBIDDEN',
 ] as const;
 
-export type TestSessionMaintenanceErrorCode =
-  (typeof TEST_SESSION_MAINTENANCE_ERROR_CODES)[number];
+export type TestSessionMaintenanceErrorCode = (typeof TEST_SESSION_MAINTENANCE_ERROR_CODES)[number];
 
 export class TestSessionMaintenanceError extends Error {
   constructor(readonly code: TestSessionMaintenanceErrorCode) {
@@ -198,6 +197,7 @@ const DISPOSABLE_ROOTS = new Set([
   'course_chat_access',
   'homework',
   'participant_progress',
+  'participant_progress_events',
   'participant_achievements',
   'instructor_rating_summaries',
 ]);
@@ -269,7 +269,11 @@ export function assertCandidateDeletable(
     throw new TestSessionMaintenanceError('TEST_MAINTENANCE_SCOPE_VIOLATION');
   }
   const disposable = DISPOSABLE_ROOTS.has(root) || wallet || (operation === 'delete' && membership);
-  if (!disposable || candidate.dataScope !== 'test' || candidate.testSessionId !== requestedTestSessionId) {
+  if (
+    !disposable ||
+    candidate.dataScope !== 'test' ||
+    candidate.testSessionId !== requestedTestSessionId
+  ) {
     throw new TestSessionMaintenanceError('TEST_MAINTENANCE_SCOPE_VIOLATION');
   }
 }
@@ -426,6 +430,7 @@ export const MAINTENANCE_COLLECTION_COUNT_KEYS: Readonly<
   payments: 'payments',
   monetary_events: 'monetaryEvents',
   participant_progress: 'progress',
+  participant_progress_events: 'activityLogs',
   participant_achievements: 'achievements',
   instructor_reviews: 'reviews',
   participant_lesson_feedback: 'feedback',
@@ -448,7 +453,9 @@ export const MAINTENANCE_COLLECTION_COUNT_KEYS: Readonly<
   instructor_rating_summaries: 'ratingSummaries',
 };
 
-export function countKeyForMaintenancePath(path: string): TestSessionMaintenanceCountKey | undefined {
+export function countKeyForMaintenancePath(
+  path: string
+): TestSessionMaintenanceCountKey | undefined {
   const normalized = normalizedPath(path);
   if (isWalletStatePath(normalized)) return 'wallets';
   if (/^test_sessions\/[^/]+\/membership\/[^/]+$/.test(normalized)) return 'memberships';
@@ -529,14 +536,7 @@ export const TestSessionLifecycleManifestSchema = z
 export const TestSessionLifecycleResultSchema = z
   .object({
     command: z.enum(TEST_SESSION_LIFECYCLE_COMMANDS),
-    outcome: z.enum([
-      'created',
-      'resumed',
-      'already_completed',
-      'preview',
-      'executed',
-      'closed',
-    ]),
+    outcome: z.enum(['created', 'resumed', 'already_completed', 'preview', 'executed', 'closed']),
     testSessionId: TestSessionIdSchema.optional(),
     status: TestSessionStatusSchema.optional(),
     phase: TestSessionMaintenancePhaseSchema.optional(),

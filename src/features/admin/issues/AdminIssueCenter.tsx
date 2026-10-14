@@ -1,3 +1,4 @@
+import { AdminLevelRequests } from './AdminLevelRequests';
 import {
   AdminIssueIdSchema,
   ADMIN_ISSUE_SEVERITIES,
@@ -282,6 +283,7 @@ export function AdminIssueCenter({ adminAccountId }: { readonly adminAccountId: 
 
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.8fr)]">
+      {view === 'open' && <AdminLevelRequests accountId={adminAccountId} />}
       <section aria-label={t('adminIssueInboxTitle')} className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
           <div className="inline-flex border border-[var(--border)]">

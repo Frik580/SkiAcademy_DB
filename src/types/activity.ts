@@ -3,6 +3,7 @@ import { LessonDifficulty } from './booking';
 export type ActivityLogType =
   | 'booking_completed'
   | 'level_up'
+  | 'level_changed'
   | 'skill_scores_updated'
   | 'review_created'
   | 'recommendation_completed'

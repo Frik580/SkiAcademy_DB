@@ -1,3 +1,4 @@
+import { ParticipantLevelStateSchema } from './participantLevelProgression';
 import { z } from 'zod';
 import {
   AccountIdSchema,
@@ -23,10 +24,7 @@ export const ParticipantProgressSkillIdSchema = z
   .trim()
   .min(1)
   .max(PARTICIPANT_PROGRESS_SKILL_ID_MAX_LENGTH)
-  .regex(
-    /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/,
-    'Skill id must be a bounded URL-safe opaque value'
-  );
+  .regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/, 'Skill id must be a bounded URL-safe opaque value');
 
 export const ParticipantProgressSkillScoreSchema = z
   .number()
@@ -68,11 +66,7 @@ export type ParticipantProgressUpdatedBy = Readonly<
   z.output<typeof ParticipantProgressUpdatedBySchema>
 >;
 
-function addSkillMapSizeIssue(
-  context: z.RefinementCtx,
-  path: string,
-  size: number
-): void {
+function addSkillMapSizeIssue(context: z.RefinementCtx, path: string, size: number): void {
   if (size > PARTICIPANT_PROGRESS_SKILL_ENTRY_MAX) {
     context.addIssue({
       code: 'custom',
@@ -170,6 +164,7 @@ export const ParticipantProgressSchema = z
     skillScores: ParticipantProgressSkillScoresSchema,
     skillComments: ParticipantProgressSkillCommentsSchema,
     dailyProgress: ParticipantDailyProgressSchema.optional(),
+    levelState: ParticipantLevelStateSchema.optional(),
     updatedBy: ParticipantProgressUpdatedBySchema.optional(),
     revision: PersistedAggregateRevisionSchema,
     createdAt: CanonicalTimestampSchema,

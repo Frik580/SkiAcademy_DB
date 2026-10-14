@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import {
   SkillConfig,
   DEFAULT_SKILL_CONFIG,
-  calculateStudentLevel,
   calculateSkillProgress,
   classifySkillItemToRadarDimension,
   getSkillItemTitle,
@@ -28,7 +27,8 @@ interface StudentSkillEvaluationModalProps {
     participantId: string,
     updatedScores: Record<string, number>,
     calculatedLevel: number,
-    updatedComments: Record<string, string>
+    updatedComments: Record<string, string>,
+    correctionReason?: string
   ) => Promise<void>;
 }
 
@@ -50,9 +50,12 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
     Math.min(studentLevel || 1, 3)
   );
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
     if (isOpen) {
+      setCorrectionReason('');
+      setSaveError('');
       setScores(existingScores || {});
       setComments(existingComments || {});
       setActiveTargetLevel(Math.min(studentLevel || 1, 3));
@@ -72,10 +75,8 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
     return calculateSkillProgress(scores, items, activeTargetLevel, passPercentage);
   }, [scores, items, activeTargetLevel, passPercentage]);
 
-  // Projected new overall level for student
-  const projectedLevel = useMemo(() => {
-    return calculateStudentLevel(scores, items, passPercentage);
-  }, [scores, items, passPercentage]);
+  const [correctionReason, setCorrectionReason] = useState('');
+  const correcting = Object.entries(existingScores).some(([id, score]) => scores[id] !== score);
 
   if (!isOpen) return null;
 
@@ -125,7 +126,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
     const updated = { ...scores };
     const clearedComments = { ...comments };
     stageItems.forEach((item) => {
-      updated[item.id] = 0;
+      delete updated[item.id];
       delete clearedComments[item.id];
     });
     setScores(updated);
@@ -134,9 +135,18 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
 
   const handleSave = async () => {
     setIsSaving(true);
+    setSaveError('');
     try {
-      await onSaveScores(participantId, scores, projectedLevel, pruneComments(comments));
+      await onSaveScores(
+        participantId,
+        scores,
+        studentLevel,
+        pruneComments(comments),
+        correcting ? correctionReason.trim() : undefined
+      );
       onClose();
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : String(error));
     } finally {
       setIsSaving(false);
     }
@@ -157,8 +167,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
                 {t('studentSkillEvaluation')}: {studentName}
               </h3>
               <p className="type-caption text-[var(--ink-dim)] uppercase">
-                {t('instructorCurrentLevel')}: {studentLevel} • {t('projectedLevel')}:{' '}
-                {projectedLevel}
+                {t('instructorCurrentLevel')}: {studentLevel}
               </p>
             </div>
           </div>
@@ -172,7 +181,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
         </div>
 
         {/* Level Transition Tabs */}
-        <div className="flex border-b border-[var(--border)] bg-black/10 px-4 pt-3 gap-2">
+        <div className="flex overflow-x-auto border-b border-[var(--border)] bg-black/10 px-4 pt-3 gap-2">
           <button
             onClick={() => setActiveTargetLevel(1)}
             className={`px-4 py-2 type-button uppercase border-b-2 transition cursor-pointer ${
@@ -231,7 +240,8 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
             <span className="type-caption text-[var(--ink-dim)] uppercase block">
               {t('advancementStatus')}
             </span>
-            {progress.targetEarnedPoints >= progress.targetRequiredPoints ? (
+            {progress.targetMaxPoints > 0 &&
+            progress.targetEarnedPoints >= progress.targetRequiredPoints ? (
               <span className="inline-flex items-center gap-1 type-caption font-medium text-emerald-400 uppercase">
                 <CheckCircle2 className="w-4 h-4" />
                 {t('readyToAdvance')}
@@ -296,7 +306,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
                             key={val}
                             onClick={() => handleScoreChange(item.id, val, item.maxPoints)}
                             className={`w-6 h-6 type-button transition cursor-pointer ${
-                              currentScore === val
+                              Object.hasOwn(scores, item.id) && currentScore === val
                                 ? 'bg-[var(--accent)] text-[var(--accent-foreground)] shadow'
                                 : val <= currentScore
                                   ? 'bg-accent-muted text-accent'
@@ -310,7 +320,11 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
 
                       <div className="text-right w-14">
                         <span className="type-caption font-medium text-amber-400">
-                          {currentScore}
+                          {Object.hasOwn(scores, item.id)
+                            ? currentScore
+                            : language === 'ru'
+                              ? 'Не оценено'
+                              : 'Not evaluated'}
                         </span>
                         <span className="type-caption text-[var(--ink-dim)]">
                           {' '}
@@ -335,10 +349,26 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
           )}
         </div>
 
+        {correcting && (
+          <label className="p-4 type-caption">
+            {language === 'ru' ? 'Причина исправления оценок' : 'Reason for correcting scores'}
+            <textarea
+              value={correctionReason}
+              maxLength={2000}
+              onChange={(e) => setCorrectionReason(e.target.value)}
+              className="w-full border border-[var(--border)] bg-[var(--card-bg)] p-2"
+            />
+          </label>
+        )}
+        {saveError && (
+          <p role="alert" className="p-4 text-red-600 dark:text-red-300">
+            {saveError}
+          </p>
+        )}
         {/* Footer */}
         <div className="p-4 border-t border-[var(--border)] bg-black/20 flex justify-between items-center">
           <div className="type-caption text-[var(--ink-dim)]">
-            {t('studentLevelAfterSaving')} {projectedLevel}
+            {t('instructorCurrentLevel')}: {studentLevel}
           </div>
 
           <div className="flex items-center gap-3">
@@ -350,6 +380,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
             </button>
             <ActionButton
               onClick={handleSave}
+              disabled={correcting && !correctionReason.trim()}
               pending={isSaving}
               pendingLabel={t('saving')}
               className="btn-primary px-5 py-2 type-button shadow-lg"

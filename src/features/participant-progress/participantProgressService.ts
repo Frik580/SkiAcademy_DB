@@ -1,3 +1,4 @@
+import { canonicalDeterministicHash } from '@ski-academy/shared-domain';
 import { AggregateRevisionSchema } from '@ski-academy/shared-domain/canonical/primitives';
 import { ParticipantIdSchema } from '@ski-academy/shared-domain/canonical/identifiers';
 import { parseCommandResultPayload } from '@ski-academy/shared-domain/canonical/commands/commandResultPayloads';
@@ -8,7 +9,6 @@ import {
   queryInstructorParticipantProgressReadModels,
   queryManagedParticipantProgressReadModels,
 } from '../../lib/canonical/canonicalReadModelClient';
-import { logger } from '../../shared';
 import {
   toParticipantProgressView,
   type ParticipantProgressView,
@@ -56,20 +56,26 @@ export async function updateCanonicalParticipantProgress(input: {
   readonly skillScores: Record<string, number>;
   readonly skillComments: Record<string, string>;
   readonly expectedRevision: number;
+  readonly correctionReason?: string;
 }): Promise<ParticipantProgressView> {
   const participantId = ParticipantIdSchema.parse(input.participantId);
   const result = await executeAuthenticatedCanonicalCommand(input.accountId, {
     kind: 'update_participant_progress',
     intent: {
       participantId,
+      ...(input.correctionReason ? { correctionReason: input.correctionReason } : {}),
       level: input.level,
       skillScores: input.skillScores,
       skillComments: input.skillComments,
     },
-    idempotencyKey: deriveUpdateParticipantProgressIdempotencyKey(
+    idempotencyKey: (deriveUpdateParticipantProgressIdempotencyKey(
       participantId,
       input.expectedRevision
-    ),
+    ) +
+      ':' +
+      canonicalDeterministicHash([
+        JSON.stringify([input.skillScores, input.skillComments, input.correctionReason ?? '']),
+      ])) as IdempotencyKey,
     expectedRevision: AggregateRevisionSchema.parse(input.expectedRevision),
     exercisedCapability: 'instructor',
   });
@@ -80,20 +86,33 @@ export async function updateCanonicalParticipantProgress(input: {
   if (!payload.success) {
     throw new Error('Participant progress command returned an invalid payload.');
   }
-  const nextView: ParticipantProgressView = {
-    participantId,
-    level: input.level,
-    skillScores: { ...input.skillScores },
-    skillComments: { ...input.skillComments },
-    revision: payload.data.revision,
-  };
-  useParticipantProgressStore.getState().upsertItem(nextView);
-  try {
-    await refreshInstructorParticipantProgress([participantId]);
-  } catch (error) {
-    logger.warn('Failed to refresh participant progress after update', error);
-  }
-  return useParticipantProgressStore.getState().byId[participantId] ?? nextView;
+  const views = await refreshInstructorParticipantProgress([participantId]);
+  const view = views.find((item) => item.participantId === participantId);
+  if (!view) throw new Error('Participant progress refresh failed.');
+  return view;
 }
 
 export type { ParticipantId };
+
+export async function manageCanonicalParticipantLevel(input: {
+  accountId: string;
+  participantId: string;
+  expectedRevision: number;
+  operation: import('@ski-academy/shared-domain').LevelOperation;
+  administrator?: boolean;
+}): Promise<void> {
+  const result = await executeAuthenticatedCanonicalCommand(input.accountId, {
+    kind: 'manage_participant_level',
+    intent: {
+      participantId: ParticipantIdSchema.parse(input.participantId),
+      operation: input.operation,
+    },
+    expectedRevision: AggregateRevisionSchema.parse(input.expectedRevision),
+    idempotencyKey:
+      `participant-level:${input.participantId}:${input.expectedRevision}:${input.operation.action}:${canonicalDeterministicHash([JSON.stringify(input.operation)])}` as IdempotencyKey,
+    ...(input.administrator
+      ? { administratorContext: true }
+      : { exercisedCapability: 'instructor' as const }),
+  });
+  if (result.status === 'error') throw mapCanonicalCommandResultError(result);
+}

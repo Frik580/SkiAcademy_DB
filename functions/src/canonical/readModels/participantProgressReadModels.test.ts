@@ -13,6 +13,7 @@ import {
   instructorRelationshipIdFromPair,
   paymentIdFromBookingId,
   timestampFromDate,
+  calculateParticipantStage,
 } from '@ski-academy/shared-domain';
 import {
   ParticipantProgressReadDeniedError,
@@ -50,6 +51,7 @@ function createFixtureFirestore(
   options: Readonly<{
     childDailyProgress?: import('@ski-academy/shared-domain').ParticipantDailyProgress;
     omitProgress?: boolean;
+    omitSkillScores?: boolean;
     leftoverUserProgress?: boolean;
     bookedChildAttendance?: 'present' | 'absent' | 'missing';
     bookedChildStartsAt?: ReturnType<typeof timestampFromDate>;
@@ -163,7 +165,7 @@ function createFixtureFirestore(
       {
         participantId: selfParticipantId,
         level: 3,
-        skillScores: { carving: 12 },
+        ...(options.omitSkillScores ? {} : { skillScores: { carving: 12 } }),
         skillComments: { carving: 'Self note' },
         revision: 2,
         createdAt: decidedAt,
@@ -176,7 +178,7 @@ function createFixtureFirestore(
       {
         participantId: childParticipantId,
         level: 2,
-        skillScores: { skating: 6 },
+        ...(options.omitSkillScores ? {} : { skillScores: { skating: 6 } }),
         ...(options.childDailyProgress ? { dailyProgress: options.childDailyProgress } : {}),
         skillComments: {},
         revision: 1,
@@ -525,6 +527,24 @@ describe('participant progress read models', () => {
       }
     );
     expect(result.items.map((item) => item.participantId)).toEqual([childParticipantId]);
+  });
+
+  it('handles incomplete historical documents without manufacturing scores or promotion readiness', async () => {
+    const result = await queryParticipantProgressReadModels(
+      createFixtureFirestore({ omitSkillScores: true, leftoverUserProgress: true }),
+      { scope: 'managed' },
+      { accountId }
+    );
+    expect(result.items).toHaveLength(2);
+    for (const item of result.items) {
+      expect(item).toMatchObject({ skillScores: {}, skillComments: {}, revision: 0 });
+      expect(
+        calculateParticipantStage(item.level, item.skillScores, {
+          passPercentage: 80,
+          items: [{ id: 'carving', levelTarget: 1, maxPoints: 100 }],
+        })
+      ).toMatchObject({ earned: 0, evaluated: 0, ready: false });
+    }
   });
 
   it('projects missing canonical docs as empty start and ignores leftover /users progress', async () => {

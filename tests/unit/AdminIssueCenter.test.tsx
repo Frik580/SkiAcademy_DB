@@ -7,6 +7,14 @@ const useAttentionMock = vi.fn();
 const retryListMock = vi.fn();
 const attendanceMock = vi.fn();
 
+// This suite owns the issues inbox. Exercise the new progression inbox separately,
+// including its language context and canonical reads/mutations.
+vi.mock('../../src/features/admin/issues/AdminLevelRequests', () => ({
+  AdminLevelRequests: ({ accountId }: { accountId: string }) => (
+    <section aria-label="Level change requests" data-account-id={accountId} />
+  ),
+}));
+
 vi.mock('../../src/features/admin/issues/useAdminIssueAttendance', () => ({
   useAdminIssueAttendance: (...args: unknown[]) => attendanceMock(...args),
 }));
@@ -94,6 +102,10 @@ describe('AdminIssueCenter', () => {
       </MemoryRouter>
     );
     expect(screen.getByText('adminAttentionEmptyOpen')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Level change requests' })).toHaveAttribute(
+      'data-account-id',
+      'admin_account_01'
+    );
     expect(screen.getByRole('button', { name: 'adminIssueActionable' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'adminIssueResolved' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Все' })).not.toBeInTheDocument();

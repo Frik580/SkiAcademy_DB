@@ -1,8 +1,8 @@
+import { ParticipantLevelPanel } from '../../participant-progress/ParticipantLevelPanel';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   DEFAULT_SKILL_CONFIG,
   calculateSkillProgress,
-  calculateStudentLevel,
   getJourneyLevelXpThresholds,
 } from '../../../domain/achievements';
 import { useLanguage } from '../../../app/providers/LanguageContext';
@@ -20,7 +20,6 @@ import { JourneyPathStrip } from './JourneyProgress';
 import {
   buildWavyPath,
   createPathSampler,
-  getFirstUnlockedJourneyLevelId,
   getJourneyLevelUpZones,
   getJourneyPathProgress,
   getTopEarnedSkillsForJourneyLevel,
@@ -67,15 +66,10 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
   const showAllCards = breakpoint === 'desktop';
   const isCompactJourneyLayout = !showAllCards;
   const showUserPosition = Boolean(userProfile && !userProfile.hideProgressTracking);
-  /** Текущий уровень по XP — его подсвечиваем при авторизации. */
   const currentUserLevelId = useMemo(() => {
     if (!userProfile || userProfile.hideProgressTracking) return null;
-    return calculateStudentLevel(
-      userProfile.skillScores || {},
-      skillConfig.items,
-      skillConfig.passPercentage ?? 80
-    );
-  }, [userProfile, skillConfig]);
+    return userProfile.level ?? 1;
+  }, [userProfile]);
 
   const xpToNextLevel = useMemo(() => {
     if (!userProfile || userProfile.hideProgressTracking) return null;
@@ -121,12 +115,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
     if (currentUserLevelId == null) return;
 
     if (isCompactJourneyLayout && showUserPosition) {
-      const preferred = isJourneyLevelUnlocked(currentUserLevelId, earnedSkillsByLevel)
-        ? currentUserLevelId
-        : getFirstUnlockedJourneyLevelId(earnedSkillsByLevel);
-      if (preferred != null) {
-        setSelectedLevelId(preferred);
-      }
+      setSelectedLevelId(currentUserLevelId);
       return;
     }
 
@@ -353,8 +342,13 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
   }, [pathSampler, displayProgress, markerStops]);
 
   const totalUserXp = useMemo(() => {
-    if (!userProfile) return 0;
-    return calculateSkillProgress(userProfile.skillScores || {}, skillConfig.items).overall.earned;
+    if (!userProfile || (userProfile.level ?? 1) >= 4) return 0;
+    return calculateSkillProgress(
+      userProfile.skillScores || {},
+      skillConfig.items,
+      userProfile.level ?? 1,
+      skillConfig.passPercentage
+    ).targetEarnedPoints;
   }, [userProfile, skillConfig.items]);
 
   const animatedXp = useMemo(() => {
@@ -384,6 +378,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
     if (
       isCompactJourneyLayout &&
       showUserPosition &&
+      levelId > (currentUserLevelId ?? 1) &&
       !isJourneyLevelUnlocked(levelId, earnedSkillsByLevel)
     ) {
       return;
@@ -401,6 +396,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
     if (
       isCompactJourneyLayout &&
       showUserPosition &&
+      levelId > (currentUserLevelId ?? 1) &&
       !isJourneyLevelUnlocked(levelId, earnedSkillsByLevel)
     ) {
       return;
@@ -570,6 +566,16 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
 
         {!userProfile && <AchievementGrid isDark={isDark} visibleLevelCount={visibleLevelCount} />}
       </div>
+      {showUserPosition && userProfile && (
+        <ParticipantLevelPanel
+          progress={{
+            level: userProfile.level ?? 1,
+            skillScores: userProfile.skillScores ?? {},
+            levelState: userProfile.levelState,
+          }}
+          config={skillConfig}
+        />
+      )}
     </section>
   );
 };

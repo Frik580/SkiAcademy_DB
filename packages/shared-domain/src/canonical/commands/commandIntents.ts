@@ -1,3 +1,4 @@
+import { LevelOperationSchema } from '../participantLevelProgression';
 import { z } from 'zod';
 import {
   AccountIdSchema,
@@ -537,12 +538,16 @@ export const CommandIntentSchemaByKind = {
       ),
     })
     .strict(),
+  manage_participant_level: z
+    .object({ participantId: ParticipantIdSchema, operation: LevelOperationSchema })
+    .strict(),
   update_participant_progress: z
     .object({
       participantId: ParticipantIdSchema,
       level: ParticipantProgressLevelSchema,
       skillScores: ParticipantProgressSkillScoresSchema,
       skillComments: ParticipantProgressSkillCommentsSchema,
+      correctionReason: z.string().trim().min(1).max(2000).optional(),
     })
     .strict(),
   record_participant_achievements: RecordParticipantAchievementsIntentSchema,

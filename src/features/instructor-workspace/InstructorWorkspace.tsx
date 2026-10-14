@@ -1,3 +1,5 @@
+import { ParticipantLevelManager } from '../participant-progress/ParticipantLevelManager';
+import { BodyScrollLock } from '../../ui/BodyScrollLock';
 import React from 'react';
 import { UserProfile, Instructor, Booking, Review, Course } from '../../types';
 import { SkillConfig } from '../../domain/achievements';
@@ -92,6 +94,33 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = (props) =
         onSaveScores={handleSaveStudentScores}
       />
 
+      {workspace.levelModal && (
+        <div className="ui-modal-overlay fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <BodyScrollLock />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={workspace.levelModal.studentName}
+            className="ui-modal max-h-[85vh] w-full max-w-xl overflow-y-auto bg-[var(--card-bg)] p-4"
+          >
+            <button
+              className="float-right p-2"
+              onClick={() => workspace.setLevelModal(null)}
+              aria-label={shellT('cancel')}
+            >
+              ×
+            </button>
+            <h3>{workspace.levelModal.studentName}</h3>
+            <ParticipantLevelManager
+              accountId={userProfile.uid}
+              participantId={workspace.levelModal.participantId}
+              role="instructor"
+              config={skillConfig}
+              initial={workspace.progressById[workspace.levelModal.participantId]}
+            />
+          </div>
+        </div>
+      )}
       <CreateProposalModal
         open={collaboration.createProposalParty !== null}
         instructorId={userProfile.instructorId!}

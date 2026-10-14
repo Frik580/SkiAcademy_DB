@@ -23,6 +23,16 @@ The Account Owner capability used when managing a dependent Participant. Parent 
 The person who attends training and owns progress, skills, level, achievements, Attendance, and no-show history. A Participant may be the Account Owner or a dependent without a login.
 _Avoid_: User, account, child when the rule applies to every attendee.
 
+**Participant mastery progression** (source implementation, 2026-10-14; not deployed):
+`participant_progress.level` is the official Participant-scoped mastery level (Beginner 1,
+Carve 2, Performance 3, Expert 4). Exercise scores and current-stage XP establish readiness;
+only an authorized canonical confirmation or administrative qualification changes the level.
+`Participant.skillLevel` remains initial self-assessment/classification, not mastery authority.
+Administrative qualification preserves scores, comments and XP. Corrections never demote
+an official level automatically; confirmed qualifications may require review. Level requests
+share the progress aggregate's revision and allow one pending request per Participant.
+Append-only `participant_progress_events` preserve evaluation and level-operation evidence.
+
 **Booked By**:
 The account or originating actor that initiated a Booking. It is distinct from the Participant and Payer.
 

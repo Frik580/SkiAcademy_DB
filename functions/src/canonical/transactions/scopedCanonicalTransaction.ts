@@ -37,6 +37,7 @@ const SCOPE_STAMPED_COLLECTIONS = new Set([
   'monetary_events',
   'provider_event_receipts',
   'participant_progress',
+  'participant_progress_events',
   'participant_achievements',
   'participant_lesson_feedback',
   'instructor_reviews',

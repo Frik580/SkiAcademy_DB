@@ -226,7 +226,8 @@ describe('AdminClientDirectory canonical identity UX', () => {
     expect(screen.getByText(/Self/)).toBeInTheDocument();
     expect(screen.getByText(/Parent \/ guardian/)).toBeInTheDocument();
     expect(screen.getByText('Masha Petrova')).toBeInTheDocument();
-    expect(screen.getAllByText(/Participant skill level/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Initial self-assessment/)).toHaveLength(2);
+    expect(screen.queryByText(/Participant skill level/)).not.toBeInTheDocument();
   });
 
   it('persists contact edits through the canonical admin command and keeps email read-only', async () => {
@@ -324,7 +325,7 @@ describe('AdminClientDirectory canonical identity UX', () => {
     expect(next.get('movement')).toBeNull();
   });
 
-  it('edits participant skillLevel through update_participant_profile', async () => {
+  it('edits initial self-assessment through update_participant_profile without changing mastery', async () => {
     mockReads.accountDetail = {
       ...accountRow(),
       managedParticipants: [
@@ -367,7 +368,7 @@ describe('AdminClientDirectory canonical identity UX', () => {
     render(<AdminClientDirectory adminAccountId={adminId} />);
     fireEvent.click(screen.getByRole('button', { name: 'Open' }));
     fireEvent.click(screen.getByRole('button', { name: 'Open participant' }));
-    fireEvent.change(screen.getByLabelText('Participant skill level'), {
+    fireEvent.change(screen.getByLabelText('Initial self-assessment'), {
       target: { value: 'advanced' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Save participant' }));
@@ -378,6 +379,11 @@ describe('AdminClientDirectory canonical identity UX', () => {
       participantId: selfId,
     });
     expect(JSON.stringify(mockExecute.mock.calls[0]?.[1])).not.toContain('difficulty');
+    expect(mockExecute).toHaveBeenCalledTimes(1);
+    expect(mockExecute.mock.calls[0]?.[1]).not.toHaveProperty('level');
+    expect(mockExecute.mock.calls[0]?.[1]).not.toHaveProperty('skillScores');
+    expect(mockExecute.mock.calls[0]?.[1]).not.toHaveProperty('levelState');
+    expect(screen.queryByRole('button', { name: /Assign level|Confirm promotion/ })).toBeNull();
   });
 
   it('keeps identity boundary mutations out of the Clients surface', () => {

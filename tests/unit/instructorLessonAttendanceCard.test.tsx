@@ -6,6 +6,7 @@ import { isInstructorBookingVisibleForStatusFilter } from '../../src/features/in
 import { LanguageProvider } from '../../src/app/providers/LanguageContext';
 import { translations } from '../../src/lib/i18n/translations';
 import { InstructorStudents } from '../../src/features/instructor-workspace/components/InstructorStudents';
+import { ParticipantProgressSchema } from '@ski-academy/shared-domain';
 
 vi.mock('../../src/features/booking-collaboration', () => ({
   InstructorCollaborationPanel: () => null,
@@ -485,7 +486,22 @@ describe('InstructorBookingCard lesson-context progress assessment', () => {
 });
 
 describe('InstructorStudents global progress surface', () => {
-  it('keeps level editing available without lesson attendance gate', () => {
+  it('opens the canonical level request workflow without a lesson attendance gate', () => {
+    const handleUpdateStudentLevel = vi.fn();
+    const progress = ParticipantProgressSchema.parse({
+      participantId: 'participant_global_01',
+      level: 2,
+      skillScores: {},
+      skillComments: {},
+      revision: 1,
+      createdAt: { seconds: 1, nanoseconds: 0 },
+      updatedAt: { seconds: 1, nanoseconds: 0 },
+      audit: {
+        createdByCommandId: 'command_global_01',
+        lastChangedByCommandId: 'command_global_01',
+        correlationId: 'correlation_global_01',
+      },
+    });
     render(
       <LanguageProvider>
         <InstructorStudents
@@ -500,17 +516,26 @@ describe('InstructorStudents global progress surface', () => {
                   lessonsCount: 3,
                 },
               ],
-              handleUpdateStudentLevel: vi.fn(),
+              handleUpdateStudentLevel,
               progressById: {
-                participant_global_01: { participantId: 'participant_global_01', level: 2 },
+                participant_global_01: progress,
               },
             } as never
           }
         />
       </LanguageProvider>
     );
-    const select = screen.getByRole('combobox') as HTMLSelectElement;
-    expect(select.disabled).toBe(false);
+    const request = screen.getByRole('button', { name: 'Request level change' });
+    expect(request).toBeEnabled();
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Ready for promotion/)).not.toBeInTheDocument();
+    fireEvent.click(request);
+    expect(handleUpdateStudentLevel).toHaveBeenCalledTimes(1);
+    expect(handleUpdateStudentLevel).toHaveBeenCalledWith(
+      'participant_global_01',
+      'Global Student'
+    );
+    expect(progress).toMatchObject({ level: 2, skillScores: {} });
   });
 });
 

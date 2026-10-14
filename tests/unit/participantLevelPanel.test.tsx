@@ -81,6 +81,37 @@ describe('mastery level panel and map', () => {
       reason: { category: 'expert_assessment', text: 'Qualification observed' },
     });
   });
+  it('submits an instructor request with a reason and comment without changing level or XP', async () => {
+    const onOperation = vi.fn();
+    const progress = { level: 1, skillScores: { s1: 20 } };
+    render(
+      <ParticipantLevelPanel
+        progress={progress}
+        config={config}
+        role="instructor"
+        onOperation={onOperation}
+      />
+    );
+    const request = screen.getByRole('button', { name: 'Request level change' });
+    expect(request).toBeDisabled();
+    await userEvent.type(
+      screen.getByRole('textbox', { name: 'Required reason' }),
+      'Observed skills'
+    );
+    await userEvent.type(
+      screen.getByRole('textbox', { name: 'Additional comment' }),
+      'Review please'
+    );
+    await userEvent.click(request);
+    expect(onOperation).toHaveBeenCalledTimes(1);
+    expect(onOperation).toHaveBeenCalledWith({
+      action: 'request',
+      level: 2,
+      reason: { category: 'expert_assessment', text: 'Observed skills' },
+      comment: 'Review please',
+    });
+    expect(progress).toEqual({ level: 1, skillScores: { s1: 20 } });
+  });
   it('renders max level without promotion controls and localizes Russian text', () => {
     state.language = 'ru';
     render(

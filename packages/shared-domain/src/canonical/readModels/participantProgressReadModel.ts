@@ -55,6 +55,7 @@ export const QueryParticipantProgressReadModelsInputSchema = z.discriminatedUnio
       scope: z.literal('admin'),
       participantIds: z.array(ParticipantIdSchema).min(1).max(32).optional(),
       cursor: ParticipantIdSchema.optional(),
+      idempotencyKey: IdempotencyKeySchema.optional(),
     })
     .strict(),
   z

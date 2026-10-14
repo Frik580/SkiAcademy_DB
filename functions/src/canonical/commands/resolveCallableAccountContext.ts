@@ -72,6 +72,7 @@ export const ADMINISTRATOR_COMMAND_KINDS: ReadonlySet<CommandKind> = new Set([
 ]);
 
 export const ADMINISTRATOR_CONTEXT_COMMAND_KINDS: ReadonlySet<CommandKind> = new Set([
+  'manage_participant_level',
   'create_confirmed_booking',
   'create_course_enrollments',
   'reschedule_booking',

@@ -1,3 +1,5 @@
+import { FieldPath } from 'firebase-admin/firestore';
+import { type ReadModelAdministratorActor } from '@ski-academy/shared-domain';
 import {
   AccountIdSchema,
   InstructorIdSchema,
@@ -23,9 +25,7 @@ import {
 } from '@ski-academy/shared-domain';
 import type { Firestore } from 'firebase-admin/firestore';
 import { loadInstructorProgressBookingScopedEvidence } from '../progress/participantProgressAuthorization';
-import {
-  buildParticipantAccessTopology,
-} from '../participantAccess/participantAccessAuthorization';
+import { buildParticipantAccessTopology } from '../participantAccess/participantAccessAuthorization';
 import {
   instructorRelationshipPath,
   parseAccount,
@@ -56,6 +56,7 @@ function toReadModel(
   return ParticipantProgressReadModelSchema.parse({
     participantId: progress.participantId,
     level: progress.level,
+    ...(progress.levelState ? { levelState: progress.levelState } : {}),
     skillScores: progress.skillScores,
     skillComments: progress.skillComments,
     ...(progress.dailyProgress ? { dailyProgress: progress.dailyProgress } : {}),
@@ -125,7 +126,9 @@ async function assertManagedAccess(
   }
 
   const participantSnaps = await firestore.getAll(
-    ...participantIds.map((participantId) => firestore.collection('participants').doc(participantId))
+    ...participantIds.map((participantId) =>
+      firestore.collection('participants').doc(participantId)
+    )
   );
 
   for (let index = 0; index < participantIds.length; index += 1) {
@@ -133,7 +136,9 @@ async function assertManagedAccess(
       participantSnaps[index]?.data() as Record<string, unknown> | undefined
     );
     if (!participant || participant.management.kind !== 'managed') {
-      throw Object.assign(new Error('This action is not permitted.'), { code: 'permission-denied' });
+      throw Object.assign(new Error('This action is not permitted.'), {
+        code: 'permission-denied',
+      });
     }
     const managementSnap = await firestore
       .collection('participant_management')
@@ -143,7 +148,9 @@ async function assertManagedAccess(
       managementSnap.data() as Record<string, unknown> | undefined
     );
     if (!management || management.status !== 'active') {
-      throw Object.assign(new Error('This action is not permitted.'), { code: 'permission-denied' });
+      throw Object.assign(new Error('This action is not permitted.'), {
+        code: 'permission-denied',
+      });
     }
     const topology = buildParticipantAccessTopology({
       account,
@@ -155,7 +162,9 @@ async function assertManagedAccess(
       participantId: participant.participantId,
     });
     if (!access.allowed) {
-      throw Object.assign(new Error('This action is not permitted.'), { code: 'permission-denied' });
+      throw Object.assign(new Error('This action is not permitted.'), {
+        code: 'permission-denied',
+      });
     }
   }
 }
@@ -246,12 +255,79 @@ export async function queryParticipantProgressReadModels(
   options: Readonly<{
     accountId: AccountId;
     instructorId?: InstructorId;
+    administratorActor?: ReadModelAdministratorActor;
     now?: () => Date;
     readContext?: ReadModelRequestContext;
     readScope?: CanonicalReadScope;
   }>
 ): Promise<QueryParticipantProgressReadModelsResult> {
-  const readScope = options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
+  const readScope =
+    options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
+  if (input.scope === 'admin') {
+    if (
+      options.administratorActor?.kind !== 'administrator' ||
+      options.administratorActor.accountId !== options.accountId
+    )
+      throw new ParticipantProgressReadDeniedError();
+    let ids = input.participantIds;
+    let pendingDocs: Map<string, Record<string, unknown> | undefined> | undefined;
+    let nextCursor: ParticipantId | undefined;
+    if (!ids) {
+      let query = firestore
+        .collection('participant_progress')
+        .where('dataScope', '==', readScope.dataScope)
+        .where('levelState.request.status', '==', 'pending');
+      if (readScope.dataScope === 'test')
+        query = query.where('testSessionId', '==', readScope.testSessionId);
+      query = query.orderBy(FieldPath.documentId());
+      if (input.cursor) query = query.startAfter(input.cursor);
+      const page = await query.limit(21).get();
+      ids = page.docs.slice(0, 20).map((doc) => doc.id as ParticipantId);
+      pendingDocs = new Map(page.docs.slice(0, 20).map((doc) => [doc.id, doc.data()]));
+      if (page.docs.length > 20) nextCursor = ids[ids.length - 1];
+    }
+    const docs = pendingDocs ?? (await loadProgressDocs(firestore, ids));
+    if (ids.length === 0) return { scope: 'admin', items: [] };
+    const people = await firestore.getAll(...ids.map((id) => firestore.doc(`participants/${id}`)));
+    const models = ids.map((id) => toReadModel(id, docs.get(id), readScope));
+    const instructorIds = [
+      ...new Set(
+        models.flatMap((item) =>
+          item.levelState?.request ? [item.levelState.request.instructorId] : []
+        )
+      ),
+    ];
+    const coaches = instructorIds.length
+      ? await firestore.getAll(...instructorIds.map((id) => firestore.doc(`instructors/${id}`)))
+      : [];
+    const coachNames = new Map(
+      coaches.map((doc, i) => [
+        instructorIds[i],
+        typeof doc.data()?.name === 'string' ? (doc.data()!.name as string) : undefined,
+      ])
+    );
+    const items = models.flatMap((item, index) => {
+      const person = parseIfVisibleInReadScope(
+        people[index]?.data(),
+        parseParticipant,
+        readScope,
+        'identity'
+      );
+      if (!person) return [];
+      const instructorName = item.levelState?.request
+        ? coachNames.get(item.levelState.request.instructorId)
+        : undefined;
+      return [
+        {
+          ...item,
+          participantName: person.displayName,
+          ...(person.avatarUrl ? { participantAvatar: person.avatarUrl } : {}),
+          ...(instructorName ? { instructorName } : {}),
+        },
+      ];
+    });
+    return { scope: 'admin', items, ...(nextCursor ? { nextCursor } : {}) };
+  }
   if (input.scope === 'managed') {
     const managedIds = await loadManagedParticipantIds(firestore, options.accountId);
     const requested = input.participantIds ?? [...managedIds];
@@ -276,7 +352,9 @@ export async function queryParticipantProgressReadModels(
   }
   const uniqueRequested = [...new Set(input.participantIds)];
   const participantSnaps = await firestore.getAll(
-    ...uniqueRequested.map((participantId) => firestore.collection('participants').doc(participantId))
+    ...uniqueRequested.map((participantId) =>
+      firestore.collection('participants').doc(participantId)
+    )
   );
   const at = timestampFromDate(options.now?.() ?? new Date());
   const authorized: ParticipantId[] = [];
@@ -298,7 +376,9 @@ export async function queryParticipantProgressReadModels(
   const docs = await loadProgressDocs(firestore, authorized);
   return {
     scope: 'instructor',
-    items: authorized.map((participantId) => toReadModel(participantId, docs.get(participantId), readScope)),
+    items: authorized.map((participantId) =>
+      toReadModel(participantId, docs.get(participantId), readScope)
+    ),
   };
 }
 

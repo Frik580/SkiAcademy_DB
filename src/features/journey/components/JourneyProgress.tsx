@@ -440,7 +440,7 @@ export const JourneyPathStrip: React.FC<{
   clearHover,
   selectLevel,
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
 
   return (
@@ -484,7 +484,10 @@ export const JourneyPathStrip: React.FC<{
           {levelsWithXp.map((level, index) => {
             const earnedSkills = showUserPosition ? (earnedSkillsByLevel[level.id] ?? []) : null;
             const isLocked =
-              isCompactJourneyLayout && showUserPosition && (earnedSkills?.length ?? 0) === 0;
+              isCompactJourneyLayout &&
+              showUserPosition &&
+              level.id > (currentUserLevelId ?? 1) &&
+              (earnedSkills?.length ?? 0) === 0;
             const isActive = activeLevelId === level.id;
             const isCurrent = currentUserLevelId === level.id;
             const topPct = markerYs[index];
@@ -552,7 +555,10 @@ export const JourneyPathStrip: React.FC<{
         {levelsWithXp.map((level) => {
           const earnedSkills = showUserPosition ? (earnedSkillsByLevel[level.id] ?? []) : null;
           const isLocked =
-            isCompactJourneyLayout && showUserPosition && (earnedSkills?.length ?? 0) === 0;
+            isCompactJourneyLayout &&
+            showUserPosition &&
+            level.id > (currentUserLevelId ?? 1) &&
+            (earnedSkills?.length ?? 0) === 0;
           const isActive = activeLevelId === level.id;
           const isCurrent = currentUserLevelId === level.id;
           const isRevealed = level.id <= visibleLevelCount;
@@ -590,6 +596,18 @@ export const JourneyPathStrip: React.FC<{
               >
                 {level.xp} {t('journeyXp')}
               </p>
+              {showUserPosition &&
+                userProfile?.levelState &&
+                level.id <=
+                  (userProfile.levelState.assignedThroughLevel ??
+                    (userProfile.levelState.method === 'admin_assignment' ||
+                    userProfile.levelState.method === 'admin_request'
+                      ? (currentUserLevelId ?? 1) - 1
+                      : 0)) && (
+                  <p className="type-caption text-[var(--ink-dim)]">
+                    {language === 'ru' ? 'Пройдено по квалификации' : 'Passed by qualification'}
+                  </p>
+                )}
               {isCurrent && (
                 <p
                   className={`text-[9px] sm:text-[10px] font-semibold tracking-[0.14em] uppercase ${

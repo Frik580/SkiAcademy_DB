@@ -1,3 +1,4 @@
+import { createParticipantLevelCommandHandlers } from '../progress/participantLevelCommands';
 import {
   CanonicalCommandError,
   CommandKindSchema,
@@ -242,6 +243,7 @@ export function createProductionCanonicalCommands(
     ...createBookingAttendanceCommandHandlers(executor),
     ...createInstructorReviewCommandHandlers(executor),
     ...createParticipantProgressCommandHandlers(executor),
+    ...createParticipantLevelCommandHandlers(executor),
     ...createParticipantAchievementsCommandHandlers(executor),
     ...createParticipantLessonFeedbackCommandHandlers(executor),
     ...createCourseDayCommandHandlers(executor),

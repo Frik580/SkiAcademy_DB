@@ -1,4 +1,8 @@
 import {
+  parseParticipantProgress,
+  participantProgressPath,
+} from '../progress/participantProgressStore';
+import {
   AUDIT_REASON_REGISTRY_VERSION,
   AggregateRevisionSchema,
   CanonicalCommandError,
@@ -74,9 +78,7 @@ function buildAuditPlan(input: {
       ],
       monetaryEventIds: [],
       adminIssueIds: [],
-      resultingRevisions: [
-        { subject: participantRef, revision: input.achievements.revision },
-      ],
+      resultingRevisions: [{ subject: participantRef, revision: input.achievements.revision }],
     },
     outboxObligations: [],
   };
@@ -196,6 +198,20 @@ function recordParticipantAchievementsHandler(
             correlationId: envelope.context.correlationId,
             currentRevision: AggregateRevisionSchema.parse(0),
           });
+        }
+
+        if (
+          envelope.intent.earned.some((item) => item.achievementId === 'level_up') &&
+          !current?.earned.level_up
+        ) {
+          const progressPath = participantProgressPath(participantId);
+          const progressRead = await session.tx.get({ path: progressPath });
+          session.plan.planRead({ path: progressPath, category: 'aggregate' });
+          if ((parseParticipantProgress(progressRead.data)?.level ?? 1) < 2) {
+            throw new CanonicalCommandError('invalid_transition', {
+              correlationId: envelope.context.correlationId,
+            });
+          }
         }
 
         const merged = mergeOnceEarnedParticipantAchievements(

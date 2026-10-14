@@ -94,6 +94,7 @@ export const TEST_SESSION_COMMAND_SUPPORT = {
   record_booking_no_show: 'TEST_SUPPORTED',
   create_instructor_review: 'TEST_SUPPORTED',
   update_participant_progress: 'TEST_SUPPORTED',
+  manage_participant_level: 'TEST_SUPPORTED',
   record_participant_achievements: 'TEST_SUPPORTED',
   save_participant_lesson_feedback: 'TEST_SUPPORTED',
   set_participant_lesson_feedback_item_completion: 'TEST_SUPPORTED',
@@ -208,9 +209,7 @@ export function isTestSessionStarterCreditBootstrapNoOp(kind: CommandKind): bool
 export const TEST_CHAT_CLIENT_REACHABILITY = 'deferred_until_firestore_rules' as const;
 
 export type HomeworkTargetErrorCode =
-  | 'CROSS_SCOPE_FORBIDDEN'
-  | 'TARGET_NOT_IN_PARTY'
-  | 'HOMEWORK_USER_IDS_FORBIDDEN';
+  'CROSS_SCOPE_FORBIDDEN' | 'TARGET_NOT_IN_PARTY' | 'HOMEWORK_USER_IDS_FORBIDDEN';
 
 export class HomeworkTargetError extends Error {
   constructor(readonly code: HomeworkTargetErrorCode) {

@@ -21,6 +21,7 @@ import {
   timestampFromDate,
   type CommandEnvelope,
   type ParticipantId,
+  type LevelOperation,
 } from '@ski-academy/shared-domain';
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
@@ -136,6 +137,13 @@ function seedRelationship(
 
 function seedWorld() {
   return {
+    'settings/skill_config': {
+      passPercentage: 80,
+      items: [
+        { id: 'carving', title: 'Carving', levelTarget: 1, maxPoints: 25 },
+        { id: 'skating', title: 'Skating', levelTarget: 2, maxPoints: 25 },
+      ],
+    },
     [`users/${studentAccountId}`]: seedAccount(studentAccountId),
     [`users/${instructorAccountId}`]: {
       ...seedAccount(instructorAccountId),
@@ -205,6 +213,7 @@ function envelope(
     intent: {
       participantId: input.participantId ?? participantId,
       level: input.level ?? 2,
+      correctionReason: 'Corrected instructor assessment',
       skillScores: input.skillScores ?? { carving: 10 },
       skillComments: input.skillComments ?? { carving: 'Good edge' },
     },
@@ -264,7 +273,7 @@ describe('participantProgressCommands', () => {
     expect(executor.snapshot().docs.get(path)?.data.dailyProgress).toMatchObject({
       date: '2026-01-02',
       baselineSkillScores: { carving: 15 },
-      baselineLevel: 3,
+      baselineLevel: 1,
       complete: true,
     });
     expect(executor.snapshot().docs.has(`participant_progress/${participantId}`)).toBe(false);
@@ -273,7 +282,7 @@ describe('participantProgressCommands', () => {
     const executor = createInMemoryCanonicalTransactionExecutor({
       ...seedWorld(),
       'settings/skill_config': {
-        items: [{ id: 'carving', title: 'Configured carving', maxPoints: 25 }],
+        items: [{ id: 'carving', title: 'Configured carving', levelTarget: 1, maxPoints: 25 }],
       },
     });
     const commands = createProductionCanonicalCommands(environment(), executor);
@@ -295,15 +304,17 @@ describe('participantProgressCommands', () => {
       executor.snapshot().docs.get(`participant_progress/${participantId}`)?.data
     ).toMatchObject({
       participantId,
-      level: 3,
+      level: 1,
       skillScores: { carving: 20 },
       revision: 2,
     });
-    const levelLog = executor.snapshot().docs.get(`activity_logs/act_level_${studentAccountId}_2`);
+    const levelLog = [...executor.snapshot().docs.values()].find(
+      (doc) => doc.data.type === 'skill_scores_updated'
+    );
     expect(levelLog?.data).toMatchObject({
       userId: studentAccountId,
       actorId: instructorAccountId,
-      type: 'level_up',
+      type: 'skill_scores_updated',
       dataScope: 'live',
       metadata: {
         skillDeltas: [
@@ -351,11 +362,13 @@ describe('participantProgressCommands', () => {
     expect((await commands.execute(request)).status).toBe('success');
     expect((await commands.execute(request)).status).toBe('success');
 
-    const logPath = `activity_logs/act_level_${studentAccountId}_2_${testSessionId}`;
+    const logPath = [...executor.snapshot().docs.entries()].find(
+      ([, doc]) => doc.data.type === 'skill_scores_updated'
+    )![0];
     const log = executor.snapshot().docs.get(logPath);
     expect(log?.data).toMatchObject({
       userId: studentAccountId,
-      type: 'level_up',
+      type: 'skill_scores_updated',
       dataScope: 'test',
       testSessionId,
     });
@@ -382,7 +395,7 @@ describe('participantProgressCommands', () => {
       executor.snapshot().docs.get(`participant_progress/${participantId}`)?.data
     ).toMatchObject({
       participantId,
-      level: 2,
+      level: 1,
       skillScores: { carving: 10 },
       skillComments: { carving: 'Good edge' },
       revision: 1,
@@ -409,7 +422,7 @@ describe('participantProgressCommands', () => {
     expect(replay.status).toBe('success');
     expect(
       executor.snapshot().docs.get(`participant_progress/${participantId}`)?.data
-    ).toMatchObject({ revision: 1, level: 2 });
+    ).toMatchObject({ revision: 1, level: 1 });
   });
 
   it('requires expectedRevision and instructor capability', async () => {
@@ -463,11 +476,11 @@ describe('participantProgressCommands', () => {
     ).toBe('success');
     expect(
       executor.snapshot().docs.get(`participant_progress/${participantId}`)?.data
-    ).toMatchObject({ level: 3, skillScores: { carving: 10 } });
+    ).toMatchObject({ level: 1, skillScores: { carving: 10 } });
     expect(
       executor.snapshot().docs.get(`participant_progress/${childParticipantId}`)?.data
     ).toMatchObject({
-      level: 2,
+      level: 1,
       skillScores: { skating: 8 },
       skillComments: { skating: 'Child note' },
     });
@@ -480,6 +493,312 @@ const lessonStartsAt = timestampFromDate(new Date('2025-12-31T09:00:00.000Z'));
 const lessonEndsAt = timestampFromDate(new Date('2025-12-31T10:00:00.000Z'));
 const futureStartsAt = timestampFromDate(new Date('2026-06-01T09:00:00.000Z'));
 const futureEndsAt = timestampFromDate(new Date('2026-06-01T10:00:00.000Z'));
+
+const levelReason = {
+  category: 'expert_assessment' as const,
+  text: 'Observed qualification on snow',
+};
+function levelEnvelope(
+  operation: LevelOperation,
+  revision: number,
+  admin = false,
+  key = `${operation.action}-${revision}`
+): CommandEnvelope<'manage_participant_level'> {
+  return {
+    kind: 'manage_participant_level',
+    intent: { participantId, operation },
+    context: {
+      actor: accountCommandActor(admin ? studentAccountId : instructorAccountId),
+      source: admin ? 'admin_callable' : 'client_callable',
+      exercisedCapability: admin ? 'administrator' : 'instructor',
+      expectedRevision: revision,
+      correlationId,
+      idempotencyKey: key,
+    },
+  };
+}
+
+describe('unified participant levels', () => {
+  it('keeps TEST command identity and events scoped without notifying an unstamped LIVE account', async () => {
+    const testSessionId = TestSessionIdSchema.parse('test_level_identity_01');
+    const scope = testCanonicalExecutionScope(testSessionId);
+    const world = seedWorld() as Record<string, Record<string, unknown>>;
+    for (const path of [`instructors/${instructorId}`, `participants/${participantId}`]) {
+      world[path] = { ...world[path], dataScope: 'test', testSessionId };
+    }
+    const executor = createInMemoryCanonicalTransactionExecutor(world);
+    const commands = createProductionCanonicalCommands({ ...environment(), scope }, executor);
+    expect(
+      (await commands.execute(envelope({ expectedRevision: 0, skillScores: { carving: 20 } })))
+        .status
+    ).toBe('success');
+    expect((await commands.execute(levelEnvelope({ action: 'confirm' }, 1))).status).toBe(
+      'success'
+    );
+    const docs = executor.snapshot().docs;
+    const progress = docs.get(`participant_progress/${participantId}`)!.data;
+    const audit = progress.audit as { lastChangedByCommandId: string };
+    expect(docs.get(`participant_progress_events/${participantId}_2`)?.data).toMatchObject({
+      commandId: audit.lastChangedByCommandId,
+      dataScope: 'test',
+      testSessionId,
+    });
+    expect([...docs.values()].some((doc) => doc.data.type === 'level_up')).toBe(false);
+    expect(
+      [...docs.values()].filter((doc) => doc.data.commandKind === 'manage_participant_level')
+    ).toHaveLength(1);
+  });
+  const read = (executor: ReturnType<typeof createInMemoryCanonicalTransactionExecutor>) =>
+    executor.snapshot().docs.get(`participant_progress/${participantId}`)?.data;
+  it('does not invent administrative provenance for a historical official level', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      ...seedWorld(),
+      [`participant_progress/${participantId}`]: {
+        participantId,
+        level: 3,
+        skillScores: { carving: 10 },
+        skillComments: {},
+        revision: 4,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'command_historical_level',
+          lastChangedByCommandId: 'command_historical_level',
+          correlationId,
+        },
+      },
+    });
+    const commands = createProductionCanonicalCommands(environment(), executor);
+    expect(
+      (
+        await commands.execute(
+          levelEnvelope({ action: 'request', level: 2, reason: levelReason }, 4)
+        )
+      ).status
+    ).toBe('success');
+    const progress = executor.snapshot().docs.get(`participant_progress/${participantId}`)!.data;
+    expect(progress).toMatchObject({
+      level: 3,
+      skillScores: { carving: 10 },
+      levelState: { method: 'historical', qualifications: [] },
+    });
+    expect((progress.levelState as Record<string, unknown>).assignedThroughLevel).toBeUndefined();
+  });
+  it('keeps low/ready XP separate from level and confirms once with OCC and replay', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedWorld());
+    const commands = createProductionCanonicalCommands(environment(), executor);
+    expect(
+      (await commands.execute(envelope({ expectedRevision: 0, skillScores: { carving: 19 } })))
+        .status
+    ).toBe('success');
+    expect((await commands.execute(levelEnvelope({ action: 'confirm' }, 1))).status).toBe('error');
+    expect(read(executor)?.level).toBe(1);
+    expect(
+      (
+        await commands.execute(
+          envelope({ expectedRevision: 1, idempotencyKey: 'ready', skillScores: { carving: 20 } })
+        )
+      ).status
+    ).toBe('success');
+    expect(read(executor)?.level).toBe(1);
+    const confirmation = levelEnvelope({ action: 'confirm' }, 2);
+    expect((await commands.execute(confirmation)).status).toBe('success');
+    expect((await commands.execute(confirmation)).status).toBe('success');
+    expect(read(executor)).toMatchObject({ level: 2, revision: 3, skillScores: { carving: 20 } });
+    expect(
+      (await commands.execute(levelEnvelope({ action: 'confirm' }, 2, false, 'second-click')))
+        .status
+    ).toBe('error');
+    expect(
+      [...executor.snapshot().docs.keys()].filter((path) =>
+        path.startsWith('participant_progress_events/')
+      )
+    ).toHaveLength(3);
+  });
+  it('rechecks corrected scores before confirmation and reviews a confirmed qualification without demoting', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedWorld());
+    const commands = createProductionCanonicalCommands(environment(), executor);
+    await commands.execute(envelope({ expectedRevision: 0, skillScores: { carving: 20 } }));
+    await commands.execute(
+      envelope({
+        expectedRevision: 1,
+        idempotencyKey: 'correct-before',
+        skillScores: { carving: 10 },
+      })
+    );
+    expect((await commands.execute(levelEnvelope({ action: 'confirm' }, 2))).status).toBe('error');
+    await commands.execute(
+      envelope({ expectedRevision: 2, idempotencyKey: 'restore', skillScores: { carving: 20 } })
+    );
+    expect((await commands.execute(levelEnvelope({ action: 'confirm' }, 3))).status).toBe(
+      'success'
+    );
+    await commands.execute(
+      envelope({
+        expectedRevision: 4,
+        idempotencyKey: 'correct-after',
+        skillScores: { carving: 5 },
+      })
+    );
+    expect(read(executor)).toMatchObject({
+      level: 2,
+      levelState: { qualifications: [{ stage: 1, status: 'review' }] },
+    });
+    expect(
+      (await commands.execute(levelEnvelope({ action: 'retain', reason: levelReason }, 5))).status
+    ).toBe('success');
+    expect(read(executor)).toMatchObject({
+      level: 2,
+      levelState: { qualifications: [{ status: 'retained' }] },
+    });
+    await commands.execute(
+      envelope({
+        expectedRevision: 6,
+        idempotencyKey: 'correct-again',
+        skillScores: { carving: 1 },
+      })
+    );
+    expect(read(executor)).toMatchObject({
+      level: 2,
+      levelState: { qualifications: [{ status: 'review' }] },
+    });
+  });
+  it('assigns Performance with no artificial scores/XP and preserves existing scores on demotion', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedWorld());
+    const commands = createProductionCanonicalCommands(environment(), executor);
+    expect(
+      await commands.execute(
+        levelEnvelope({ action: 'assign', level: 3, reason: levelReason }, 0, true)
+      )
+    ).toMatchObject({ status: 'success' });
+    expect(read(executor)).toMatchObject({ level: 3, skillScores: {}, skillComments: {} });
+    await commands.execute(
+      envelope({
+        expectedRevision: 1,
+        skillScores: { carving: 10 },
+        idempotencyKey: 'score-manual',
+      })
+    );
+    expect(
+      (
+        await commands.execute(
+          levelEnvelope({ action: 'assign', level: 1, reason: levelReason }, 2, true)
+        )
+      ).status
+    ).toBe('success');
+    expect(read(executor)).toMatchObject({ level: 1, skillScores: { carving: 10 } });
+  });
+  it('creates one active request, approves atomically and never processes it twice', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedWorld());
+    const commands = createProductionCanonicalCommands(environment(), executor);
+    expect(
+      (
+        await commands.execute(
+          levelEnvelope({ action: 'request', level: 3, reason: levelReason }, 0)
+        )
+      ).status
+    ).toBe('success');
+    const request = read(executor)?.levelState as {
+      request: { requestId: LevelOperation & string };
+    };
+    expect(
+      (
+        await commands.execute(
+          levelEnvelope({ action: 'request', level: 2, reason: levelReason }, 1)
+        )
+      ).status
+    ).toBe('error');
+    const approval = levelEnvelope(
+      { action: 'approve', requestId: request.request.requestId },
+      1,
+      true
+    );
+    expect((await commands.execute(approval)).status).toBe('success');
+    expect((await commands.execute(approval)).status).toBe('success');
+    expect(read(executor)).toMatchObject({
+      level: 3,
+      revision: 2,
+      skillScores: {},
+      levelState: { request: { status: 'approved' } },
+    });
+    expect(
+      (
+        await commands.execute(
+          levelEnvelope({ action: 'approve', requestId: request.request.requestId }, 2, true)
+        )
+      ).status
+    ).toBe('error');
+  });
+  it.each(['reject', 'cancel'] as const)(
+    '%s closes a request without changing scores or level',
+    async (action) => {
+      const executor = createInMemoryCanonicalTransactionExecutor(seedWorld());
+      const commands = createProductionCanonicalCommands(environment(), executor);
+      await commands.execute(
+        levelEnvelope({ action: 'request', level: 3, reason: levelReason }, 0)
+      );
+      const requestId = (read(executor)?.levelState as { request: { requestId: never } }).request
+        .requestId;
+      const operation =
+        action === 'reject' ? { action, requestId, reason: levelReason } : { action, requestId };
+      expect(
+        (await commands.execute(levelEnvelope(operation, 1, action === 'reject'))).status
+      ).toBe('success');
+      expect(read(executor)).toMatchObject({
+        level: 1,
+        skillScores: {},
+        levelState: { request: { status: action === 'reject' ? 'rejected' : 'cancelled' } },
+      });
+    }
+  );
+  it('marks pending request stale after manual assignment and rejects its approval', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedWorld());
+    const commands = createProductionCanonicalCommands(environment(), executor);
+    await commands.execute(levelEnvelope({ action: 'request', level: 3, reason: levelReason }, 0));
+    const requestId = (read(executor)?.levelState as { request: { requestId: never } }).request
+      .requestId;
+    await commands.execute(
+      levelEnvelope({ action: 'assign', level: 2, reason: levelReason }, 1, true)
+    );
+    expect(read(executor)).toMatchObject({
+      level: 2,
+      levelState: { request: { status: 'stale' } },
+    });
+    expect(
+      (await commands.execute(levelEnvelope({ action: 'approve', requestId }, 2, true))).status
+    ).toBe('error');
+  });
+  it('denies unrelated instructors and account owners; requires correction and rejection reasons', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedWorld());
+    const commands = createProductionCanonicalCommands(environment(), executor);
+    const alien = levelEnvelope({ action: 'request', level: 3, reason: levelReason }, 0);
+    alien.context.actor = accountCommandActor(otherInstructorAccountId);
+    expect((await commands.execute(alien)).status).toBe('error');
+    const owner = levelEnvelope({ action: 'assign', level: 3, reason: levelReason }, 0);
+    owner.context.exercisedCapability = 'account_owner';
+    expect((await commands.execute(owner)).status).toBe('error');
+    await commands.execute(envelope({ expectedRevision: 0, skillScores: { carving: 10 } }));
+    const correction = envelope({ expectedRevision: 1, skillScores: {} });
+    delete correction.intent.correctionReason;
+    expect((await commands.execute(correction)).status).toBe('error');
+  });
+  it('uses current server configuration at confirmation and refuses a maximum-level promotion', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      ...seedWorld(),
+      'settings/skill_config': {
+        passPercentage: 90,
+        items: [{ id: 'carving', levelTarget: 1, maxPoints: 25 }],
+      },
+    });
+    const commands = createProductionCanonicalCommands(environment(), executor);
+    await commands.execute(envelope({ expectedRevision: 0, skillScores: { carving: 20 } }));
+    expect((await commands.execute(levelEnvelope({ action: 'confirm' }, 1))).status).toBe('error');
+    await commands.execute(
+      levelEnvelope({ action: 'assign', level: 4, reason: levelReason }, 1, true)
+    );
+    expect((await commands.execute(levelEnvelope({ action: 'confirm' }, 2))).status).toBe('error');
+  });
+});
 
 function seedWorldWithoutRelationships() {
   const world = seedWorld() as Record<string, unknown>;

@@ -1,3 +1,4 @@
+import type { ParticipantLevelState } from '@ski-academy/shared-domain';
 import type { UserProfile } from '../../types';
 import { AccountIdSchema } from '@ski-academy/shared-domain/canonical/identifiers';
 import { selfParticipantIdFromAccountId } from '@ski-academy/shared-domain/canonical/deterministicIdentity';
@@ -11,6 +12,7 @@ export interface ParticipantProgressView {
   readonly skillComments: Record<string, string>;
   readonly revision: number;
   readonly dailyProgress?: ParticipantDailyProgress;
+  readonly levelState?: ParticipantLevelState;
 }
 
 export function toParticipantProgressView(
@@ -19,6 +21,7 @@ export function toParticipantProgressView(
   return {
     participantId: item.participantId,
     level: item.level,
+    ...(item.levelState ? { levelState: item.levelState } : {}),
     skillScores: { ...item.skillScores },
     skillComments: { ...item.skillComments },
     revision: item.revision,
@@ -58,6 +61,7 @@ export function applyParticipantProgressToProfile(
     return {
       ...profile,
       level: undefined,
+      levelState: undefined,
       skillScores: undefined,
       skillComments: undefined,
     };
@@ -65,6 +69,7 @@ export function applyParticipantProgressToProfile(
   return {
     ...profile,
     level: progress.level,
+    levelState: progress.levelState,
     skillScores: { ...progress.skillScores },
     skillComments: { ...progress.skillComments },
   };

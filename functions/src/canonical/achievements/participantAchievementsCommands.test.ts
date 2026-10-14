@@ -142,6 +142,37 @@ function envelope(
 }
 
 describe('participantAchievementsCommands', () => {
+  it('rejects a level achievement before official promotion and accepts an assigned qualification once', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedWorld());
+    const denied = await createProductionCanonicalCommands(environment(), executor).execute(
+      envelope({ achievementId: 'level_up', expectedRevision: 0 })
+    );
+    expect(denied.status).toBe('error');
+    const qualified = createInMemoryCanonicalTransactionExecutor({
+      ...seedWorld(),
+      [`participant_progress/${participantId}`]: {
+        participantId,
+        level: 3,
+        skillScores: {},
+        skillComments: {},
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'command_qualification',
+          lastChangedByCommandId: 'command_qualification',
+          correlationId,
+        },
+      },
+    });
+    const commands = createProductionCanonicalCommands(environment(), qualified);
+    const request = envelope({ achievementId: 'level_up', expectedRevision: 0 });
+    expect((await commands.execute(request)).status).toBe('success');
+    expect((await commands.execute(request)).status).toBe('success');
+    expect(
+      qualified.snapshot().docs.get(`participant_achievements/${participantId}`)?.data.revision
+    ).toBe(1);
+  });
   it('28. records a participant achievement once and ignores a duplicate earn', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(seedWorld());
     const commands = createProductionCanonicalCommands(environment(), executor);

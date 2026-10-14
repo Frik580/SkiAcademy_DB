@@ -334,7 +334,8 @@ export const useInstructorWorkspace = ({
     participantId: string,
     updatedScores: Record<string, number>,
     calculatedLevel: number,
-    updatedComments: Record<string, string> = {}
+    updatedComments: Record<string, string> = {},
+    correctionReason?: string
   ) => {
     try {
       const previous = currentProgress(participantId);
@@ -355,7 +356,8 @@ export const useInstructorWorkspace = ({
       await updateCanonicalParticipantProgress({
         accountId: userProfile.uid,
         participantId,
-        level: calculatedLevel,
+        level: previous.level,
+        correctionReason,
         skillScores: updatedScores,
         skillComments: mergedComments,
         expectedRevision: previous.revision,
@@ -368,35 +370,16 @@ export const useInstructorWorkspace = ({
       );
     } catch (err) {
       logger.error('Error saving student skill scores:', err);
+      throw err;
     }
   };
 
-  const handleUpdateStudentLevel = async (
-    participantId: string,
-    studentName: string,
-    newLevel: number
-  ) => {
-    try {
-      const previous = currentProgress(participantId);
-      await updateCanonicalParticipantProgress({
-        accountId: userProfile.uid,
-        participantId,
-        level: newLevel,
-        skillScores: previous.skillScores,
-        skillComments: previous.skillComments,
-        expectedRevision: previous.revision,
-      });
-
-      addNotification(
-        'info',
-        t('instructorLevelUpdated'),
-        `${t('instructorLevelUpdatedPrefix')} ${studentName} ${t('instructorLevelUpdatedTo')} ${newLevel}`
-      );
-    } catch (err) {
-      logger.error('Error updating student level:', err);
-    }
-  };
-
+  const [levelModal, setLevelModal] = useState<{
+    participantId: string;
+    studentName: string;
+  } | null>(null);
+  const handleUpdateStudentLevel = (participantId: string, studentName: string) =>
+    setLevelModal({ participantId, studentName });
   const openEvalModal = (
     participantId: string,
     studentName: string,
@@ -450,9 +433,11 @@ export const useInstructorWorkspace = ({
     setStatusFilter,
     evalModalState,
     openEvalModal,
+    levelModal,
+    setLevelModal,
+    handleUpdateStudentLevel,
     closeEvalModal,
     handleSaveStudentScores,
-    handleUpdateStudentLevel,
     hasUnreadChat,
     markBookingChatRead,
     userProfile,

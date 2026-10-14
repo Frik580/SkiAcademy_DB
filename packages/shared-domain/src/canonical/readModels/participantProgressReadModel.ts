@@ -1,3 +1,4 @@
+import { ParticipantLevelStateSchema } from '../participantLevelProgression';
 import { z } from 'zod';
 import { IdempotencyKeySchema } from '../commands/commandContext';
 import { ParticipantIdSchema } from '../identifiers';
@@ -21,6 +22,10 @@ export const ParticipantProgressReadModelSchema = z
     skillScores: ParticipantProgressSkillScoresSchema,
     skillComments: ParticipantProgressSkillCommentsSchema,
     dailyProgress: ParticipantDailyProgressSchema.optional(),
+    levelState: ParticipantLevelStateSchema.optional(),
+    participantName: z.string().optional(),
+    participantAvatar: z.string().optional(),
+    instructorName: z.string().optional(),
     revision: AggregateRevisionSchema,
     updatedAt: CanonicalTimestampSchema.optional(),
     updatedBy: ParticipantProgressUpdatedBySchema.optional(),
@@ -45,6 +50,13 @@ export function emptyParticipantProgressReadModel(
 }
 
 export const QueryParticipantProgressReadModelsInputSchema = z.discriminatedUnion('scope', [
+  z
+    .object({
+      scope: z.literal('admin'),
+      participantIds: z.array(ParticipantIdSchema).min(1).max(32).optional(),
+      cursor: ParticipantIdSchema.optional(),
+    })
+    .strict(),
   z
     .object({
       scope: z.literal('managed'),
@@ -73,7 +85,8 @@ export type QueryParticipantProgressReadModelsInput = Readonly<
 
 export const QueryParticipantProgressReadModelsResultSchema = z
   .object({
-    scope: z.enum(['managed', 'instructor']),
+    scope: z.enum(['managed', 'instructor', 'admin']),
+    nextCursor: ParticipantIdSchema.optional(),
     items: z.array(ParticipantProgressReadModelSchema),
   })
   .strict();

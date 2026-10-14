@@ -1,3 +1,5 @@
+import { ParticipantLevelManager } from '../../participant-progress/ParticipantLevelManager';
+import { useSettingsStore } from '../../settings/settingsStore';
 import { useAdminDialog } from '../components/useAdminDialog';
 import {
   AccountIdSchema,
@@ -72,6 +74,7 @@ function profileDraftFromDetail(
 }
 
 export function AdminClientDirectory({ adminAccountId }: AdminClientDirectoryProps) {
+  const progressionSkillConfig = useSettingsStore((state) => state.skillConfig);
   const { text, locale } = useAdminClientTranslations();
   const { confirm: confirmAdminDialog, dialog: adminDialog } = useAdminDialog();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -394,60 +397,69 @@ export function AdminClientDirectory({ adminAccountId }: AdminClientDirectoryPro
             !participantRead.loading &&
             selectedParticipantId &&
             participantRead.item ? (
-              <AdminClientParticipantDetail
-                detail={participantRead.item}
-                draft={participantDraft}
-                pending={pending}
-                text={text}
-                onDraftChange={setParticipantDraft}
-                onSaveProfile={() =>
-                  void runAttempt({
-                    kind: 'update_participant_profile',
-                    participantId: participantRead.item!.participantId,
-                    displayName: participantDraft.displayName.trim(),
-                    ...(participantDraft.birthDate
-                      ? { birthDate: participantDraft.birthDate }
-                      : {}),
-                    skillLevel: participantDraft.skillLevel.trim(),
-                    discipline: participantDraft.discipline,
-                    ...(participantDraft.instructorComment.trim()
-                      ? { instructorComment: participantDraft.instructorComment.trim() }
-                      : {}),
-                    expectedRevision: participantActionRevision('update_participant_profile'),
-                    idempotencyKey: adminClientAttemptKey(
-                      'update_participant_profile',
-                      participantRead.item!.participantId
-                    ),
-                    reasonExplanation: ADMIN_CLIENT_PARTICIPANT_REASON,
-                  })
-                }
-                onArchive={() =>
-                  void runAttempt({
-                    kind: 'archive_participant',
-                    participantId: participantRead.item!.participantId,
-                    expectedRevision: participantActionRevision('archive_participant'),
-                    idempotencyKey: adminClientAttemptKey(
-                      'archive_participant',
-                      participantRead.item!.participantId
-                    ),
-                    reasonExplanation: ADMIN_CLIENT_PARTICIPANT_REASON,
-                  })
-                }
-                onRestore={() =>
-                  void runAttempt({
-                    kind: 'reactivate_participant',
-                    participantId: participantRead.item!.participantId,
-                    expectedRevision: participantActionRevision('reactivate_participant'),
-                    idempotencyKey: adminClientAttemptKey(
-                      'reactivate_participant',
-                      participantRead.item!.participantId
-                    ),
-                    reasonExplanation: ADMIN_CLIENT_PARTICIPANT_REASON,
-                  })
-                }
-                onBack={() => setSelectedParticipantId(undefined)}
-                onClose={closeClientDetail}
-              />
+              <>
+                <ParticipantLevelManager
+                  key={selectedParticipantId}
+                  accountId={adminAccountId}
+                  participantId={selectedParticipantId}
+                  role="admin"
+                  config={progressionSkillConfig}
+                />
+                <AdminClientParticipantDetail
+                  detail={participantRead.item}
+                  draft={participantDraft}
+                  pending={pending}
+                  text={text}
+                  onDraftChange={setParticipantDraft}
+                  onSaveProfile={() =>
+                    void runAttempt({
+                      kind: 'update_participant_profile',
+                      participantId: participantRead.item!.participantId,
+                      displayName: participantDraft.displayName.trim(),
+                      ...(participantDraft.birthDate
+                        ? { birthDate: participantDraft.birthDate }
+                        : {}),
+                      skillLevel: participantDraft.skillLevel.trim(),
+                      discipline: participantDraft.discipline,
+                      ...(participantDraft.instructorComment.trim()
+                        ? { instructorComment: participantDraft.instructorComment.trim() }
+                        : {}),
+                      expectedRevision: participantActionRevision('update_participant_profile'),
+                      idempotencyKey: adminClientAttemptKey(
+                        'update_participant_profile',
+                        participantRead.item!.participantId
+                      ),
+                      reasonExplanation: ADMIN_CLIENT_PARTICIPANT_REASON,
+                    })
+                  }
+                  onArchive={() =>
+                    void runAttempt({
+                      kind: 'archive_participant',
+                      participantId: participantRead.item!.participantId,
+                      expectedRevision: participantActionRevision('archive_participant'),
+                      idempotencyKey: adminClientAttemptKey(
+                        'archive_participant',
+                        participantRead.item!.participantId
+                      ),
+                      reasonExplanation: ADMIN_CLIENT_PARTICIPANT_REASON,
+                    })
+                  }
+                  onRestore={() =>
+                    void runAttempt({
+                      kind: 'reactivate_participant',
+                      participantId: participantRead.item!.participantId,
+                      expectedRevision: participantActionRevision('reactivate_participant'),
+                      idempotencyKey: adminClientAttemptKey(
+                        'reactivate_participant',
+                        participantRead.item!.participantId
+                      ),
+                      reasonExplanation: ADMIN_CLIENT_PARTICIPANT_REASON,
+                    })
+                  }
+                  onBack={() => setSelectedParticipantId(undefined)}
+                  onClose={closeClientDetail}
+                />
+              </>
             ) : null}
             {!reads.detailLoading && !selectedParticipantId && reads.accountDetail ? (
               <AdminClientAccountDetail

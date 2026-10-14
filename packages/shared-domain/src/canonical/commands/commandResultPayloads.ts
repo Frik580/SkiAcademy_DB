@@ -217,6 +217,7 @@ export const CommandResultPayloadSchemaByKind = {
   request_course_enrollment_cancellation: RequestCancellationResultPayloadSchema,
   create_instructor_review: CreateInstructorReviewResultPayloadSchema,
   update_participant_progress: UpdateParticipantProgressResultPayloadSchema,
+  manage_participant_level: UpdateParticipantProgressResultPayloadSchema,
   record_participant_achievements: RecordParticipantAchievementsResultPayloadSchema,
   save_participant_lesson_feedback: SaveParticipantLessonFeedbackResultPayloadSchema,
   set_participant_lesson_feedback_item_completion:

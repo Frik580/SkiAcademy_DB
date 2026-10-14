@@ -43,6 +43,7 @@ export interface WalletLedgerEntry {
 }
 
 export interface UserProfile {
+  levelState?: import('@ski-academy/shared-domain').ParticipantLevelState;
   uid: string;
   dataScope?: 'live' | 'test';
   email: string;

@@ -76,7 +76,7 @@ export function useAdminClientTranslations() {
       relationshipSelf: ru ? 'Сам клиент' : 'Self',
       relationshipGuardian: ru ? 'Родитель / опекун' : 'Parent / guardian',
       openParticipant: ru ? 'Открыть участника' : 'Open participant',
-      participantSkillLevel: ru ? 'Уровень участника' : 'Participant skill level',
+      participantSkillLevel: ru ? 'Первичная самооценка' : 'Initial self-assessment',
       discipline: ru ? 'Дисциплина' : 'Discipline',
       ski: ru ? 'Лыжи' : 'Ski',
       snowboard: ru ? 'Сноуборд' : 'Snowboard',

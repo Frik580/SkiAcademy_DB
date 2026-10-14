@@ -1,9 +1,5 @@
-import {
-  getJourneyLevelXpThresholds,
-  getSkillItemTitle,
-  type SkillConfig,
-  type SkillItem,
-} from '../../../domain/achievements';
+import { calculateParticipantStage } from '@ski-academy/shared-domain/canonical/participantLevelProgression';
+import { getSkillItemTitle, type SkillConfig, type SkillItem } from '../../../domain/achievements';
 import type { Language } from '../../../lib/i18n/translations';
 import type { UserProfile } from '../../../types';
 import { EQUAL_MARKER_STOPS, JOURNEY_LEVELS } from './constants';
@@ -66,7 +62,10 @@ export function resolveCompactJourneyActiveLevel(
   earnedSkillsByLevel: Record<number, JourneyEarnedSkill[]>
 ): number {
   for (const levelId of [hoveredLevelId, selectedLevelId, currentUserLevelId, 1]) {
-    if (levelId != null && isJourneyLevelUnlocked(levelId, earnedSkillsByLevel)) {
+    if (
+      levelId != null &&
+      (levelId <= (currentUserLevelId ?? 1) || isJourneyLevelUnlocked(levelId, earnedSkillsByLevel))
+    ) {
       return levelId;
     }
   }
@@ -124,24 +123,10 @@ export function getLevelUpZoneStartRatio(passPercentage: number): number {
  * чтобы метка совпадала с отображаемым XP (например, 125 XP — между Carve и Performance).
  */
 export function getJourneyPathProgress(userProfile: UserProfile, skillConfig: SkillConfig): number {
-  const scores = userProfile.skillScores || {};
-  const items = skillConfig.items;
-  const thresholds = getJourneyLevelXpThresholds(items);
-  const totalEarned = items.reduce((acc, item) => acc + (scores[item.id] || 0), 0);
-
-  if (totalEarned <= 0) return 0;
-  if (totalEarned >= thresholds[3]) return 1;
-
-  for (let i = 0; i < 3; i++) {
-    const start = thresholds[i];
-    const end = thresholds[i + 1];
-    if (totalEarned < end) {
-      const span = end - start;
-      const frac = span > 0 ? (totalEarned - start) / span : 0;
-      return (i + frac) / 3;
-    }
-  }
-  return 1;
+  const level = Math.max(1, Math.min(4, userProfile.level ?? 1));
+  const stage = calculateParticipantStage(level, userProfile.skillScores ?? {}, skillConfig);
+  // Stay within the official stage until an explicit canonical confirmation.
+  return stage.isMax ? 1 : (level - 1 + Math.min(stage.ratio, 0.99)) / 3;
 }
 
 /** Зоны повышения уровня: логические доли 0…1 (равные сегменты уровней). */

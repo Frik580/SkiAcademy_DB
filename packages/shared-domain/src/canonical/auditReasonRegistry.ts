@@ -52,13 +52,10 @@ const COMMAND_KIND_REASON_CODES: Partial<Record<CommandKind, readonly AuditReaso
     'manual_override',
     'other',
   ],
-  finalize_booking_attendance: [
-    'attendance_correction',
-    'manual_override',
-    'other',
-  ],
+  finalize_booking_attendance: ['attendance_correction', 'manual_override', 'other'],
   create_instructor_review: ['customer_review'],
   update_participant_progress: ['instructor_evaluation'],
+  manage_participant_level: ['instructor_evaluation', 'manual_override'],
   record_participant_achievements: ['participant_management', 'self_service_completion'],
   save_participant_lesson_feedback: ['instructor_evaluation'],
   set_participant_lesson_feedback_item_completion: [

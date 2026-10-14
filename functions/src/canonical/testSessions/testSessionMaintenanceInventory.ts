@@ -22,6 +22,7 @@ export const TEST_SESSION_MAINTENANCE_COLLECTIONS = [
   'command_idempotency',
   'domain_outbox',
   'activity_logs',
+  'participant_progress_events',
   'notifications',
   'instructor_reviews',
   'participant_lesson_feedback',
@@ -55,7 +56,10 @@ async function pageAll(
   const docs: QueryDocumentSnapshot[] = [];
   let cursor: QueryDocumentSnapshot | undefined;
   for (;;) {
-    let query = firestore.collection(collectionPath).orderBy(FieldPath.documentId()).limit(PAGE_SIZE);
+    let query = firestore
+      .collection(collectionPath)
+      .orderBy(FieldPath.documentId())
+      .limit(PAGE_SIZE);
     if (cursor) query = query.startAfter(cursor);
     const snap = await query.get();
     docs.push(...snap.docs);
@@ -102,7 +106,10 @@ export async function collectQueryableSessionCandidates(
       const days = await pageAll(firestore, `courses/${doc.id}/days`);
       for (const day of days) {
         candidates.push(
-          candidateFromData(`courses/${doc.id}/days/${day.id}`, day.data() as Record<string, unknown>)
+          candidateFromData(
+            `courses/${doc.id}/days/${day.id}`,
+            day.data() as Record<string, unknown>
+          )
         );
       }
     }
@@ -143,7 +150,11 @@ export async function collectMembershipCandidates(
   firestore: Firestore,
   testSessionId: string
 ): Promise<TestSessionMaintenanceCandidate[]> {
-  const docs = await pageEquals(firestore, `test_sessions/${testSessionId}/membership`, testSessionId);
+  const docs = await pageEquals(
+    firestore,
+    `test_sessions/${testSessionId}/membership`,
+    testSessionId
+  );
   return docs.map((doc) =>
     candidateFromData(
       `test_sessions/${testSessionId}/membership/${doc.id}`,

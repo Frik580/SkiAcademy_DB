@@ -1519,6 +1519,19 @@ describe('T32.8A identity authority containment', () => {
       })
     );
     await assertFails(getDoc(doc(userDb, 'participant_progress', 'participant-progress-1')));
+    for (const clientDb of [userDb, instructorDb, adminDb]) {
+      await assertFails(
+        setDoc(doc(clientDb, 'participant_progress_events', 'participant-progress-1_1'), {
+          participantId: 'participant-progress-1',
+          oldLevel: 1,
+          newLevel: 4,
+        })
+      );
+      await assertFails(
+        getDoc(doc(clientDb, 'participant_progress_events', 'participant-progress-1_1'))
+      );
+    }
+
     await assertFails(
       setDoc(doc(adminDb, 'participant_progress', 'participant-progress-1'), {
         participantId: 'participant-progress-1',

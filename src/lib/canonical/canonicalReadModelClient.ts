@@ -189,7 +189,9 @@ export async function queryParticipantProgressReadModels(
   const target =
     input.scope === 'managed'
       ? [...(input.participantIds ?? [])].sort().join(',') || 'all'
-      : [...input.participantIds].sort().join(',');
+      : input.scope === 'admin'
+        ? [...(input.participantIds ?? [])].sort().join(',') || `pending:${input.cursor ?? 'first'}`
+        : [...input.participantIds].sort().join(',');
   const identityHash = canonicalDeterministicHash([
     'read:participant_progress:v1',
     input.scope,

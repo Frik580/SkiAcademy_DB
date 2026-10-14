@@ -86,3 +86,6 @@ export * from './identityAdministration';
 export * from './instructorSpokenLanguage';
 export * from './readModels';
 export * from './readModelAuthorization';
+
+export * from './participantLevelProgression';
+export * from './masterySkillDefaults';

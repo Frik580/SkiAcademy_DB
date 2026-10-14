@@ -1,3 +1,6 @@
+import { useLevelProgressionTranslations } from '../../participant-progress/useLevelProgressionTranslations';
+import { calculateParticipantStage } from '@ski-academy/shared-domain/canonical/participantLevelProgression';
+import { DEFAULT_SKILL_CONFIG } from '../../../domain/achievements';
 import React from 'react';
 import { Award } from 'lucide-react';
 import { useInstructorWorkspace } from './useInstructorWorkspace';
@@ -7,7 +10,8 @@ interface InstructorStudentsProps {
 }
 
 export const InstructorStudents: React.FC<InstructorStudentsProps> = ({ workspace }) => {
-  const { t, theme, myStudents, handleUpdateStudentLevel, progressById } = workspace;
+  const { text } = useLevelProgressionTranslations();
+  const { t, theme, myStudents, progressById, handleUpdateStudentLevel, skillConfig } = workspace;
 
   return (
     <div className="space-y-4">
@@ -30,11 +34,20 @@ export const InstructorStudents: React.FC<InstructorStudentsProps> = ({ workspac
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {myStudents.map((student) => {
+            const progress = progressById[student.participantId];
+            const ready =
+              progress &&
+              calculateParticipantStage(
+                progress.level,
+                progress.skillScores,
+                skillConfig ?? DEFAULT_SKILL_CONFIG
+              ).ready;
+            const review = progress?.levelState?.qualifications.some((q) => q.status === 'review');
             const studentLevel = progressById[student.participantId]?.level || 1;
             return (
               <div
                 key={student.participantId}
-                className="border border-slate-200/70 dark:border-slate-800/70 p-3 space-y-2 bg-[var(--card-bg)] rounded-xs shadow-xs flex items-center justify-between gap-3 hover:border-slate-300 dark:hover:border-slate-700 transition-colors duration-200"
+                className="border border-slate-200/70 dark:border-slate-800/70 p-3 space-y-2 bg-[var(--card-bg)] rounded-xs shadow-xs flex flex-col items-stretch justify-between gap-3 hover:border-slate-300 dark:hover:border-slate-700 transition-colors duration-200"
               >
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 bg-slate-100 dark:bg-slate-800">
@@ -75,23 +88,18 @@ export const InstructorStudents: React.FC<InstructorStudentsProps> = ({ workspac
                       e.currentTarget.style.display = 'none';
                     }}
                   />
-                  <select
-                    value={studentLevel}
-                    onChange={(e) =>
-                      handleUpdateStudentLevel(
-                        student.participantId,
-                        student.name,
-                        Number(e.target.value)
-                      )
-                    }
-                    className="type-body uppercase bg-white dark:bg-slate-900 text-[var(--ink)] border border-slate-200 dark:border-slate-700 rounded-xs px-1.5 py-1 focus:outline-none focus:ring-1 ring-accent cursor-pointer"
-                  >
-                    <option value={1}>{t('instructorLevelShort')} 1</option>
-                    <option value={2}>{t('instructorLevelShort')} 2</option>
-                    <option value={3}>{t('instructorLevelShort')} 3</option>
-                    <option value={4}>{t('instructorLevelShort')} 4</option>
-                  </select>
+                  <span>
+                    {t('instructorLevelShort')} {studentLevel}
+                  </span>
                 </div>
+                {ready && <p className="type-caption">{text.ready}</p>}
+                {review && <p className="type-caption">{text.review}</p>}
+                <button
+                  className="border border-[var(--border)] rounded-lg p-2 type-button"
+                  onClick={() => handleUpdateStudentLevel(student.participantId, student.name)}
+                >
+                  {ready ? text.confirm : text.request}
+                </button>
               </div>
             );
           })}

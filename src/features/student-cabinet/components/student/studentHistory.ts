@@ -139,6 +139,7 @@ const mapActivityLogToHistoryEvent = (
         bookingId: meta.bookingId,
       };
     }
+    case 'level_changed':
     case 'level_up': {
       const skillDeltas = meta.skillDeltas?.map((d) => {
         const item = DEFAULT_SKILL_ITEMS.find((i) => i.id === d.itemId);
@@ -155,7 +156,12 @@ const mapActivityLogToHistoryEvent = (
         id: log.id,
         date: log.timestamp,
         dateLabel,
-        title: t('scHistoryNewLevel'),
+        title:
+          log.type === 'level_changed'
+            ? language === 'ru'
+              ? 'Уровень изменён'
+              : 'Level changed'
+            : t('scHistoryNewLevel'),
         subtitle: t('scHistoryLevelReached').replace('{n}', String(meta.newLevel ?? '')),
         kind: 'level',
         skillDeltas,

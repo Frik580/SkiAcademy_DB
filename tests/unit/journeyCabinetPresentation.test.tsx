@@ -3,11 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { YourJourneySection } from '../../src/features/journey';
-import {
-  DEFAULT_SKILL_CONFIG,
-  calculateStudentLevel,
-  getJourneyLevelXpThresholds,
-} from '../../src/domain/achievements';
+import { DEFAULT_SKILL_CONFIG, getJourneyLevelXpThresholds } from '../../src/domain/achievements';
 import { getJourneyPathProgress } from '../../src/features/journey/components/journeyUtils';
 import type { UserProfile } from '../../src/types';
 import { getCourseLevelCardBadgeClass, userLevelToCourseLevel } from '../../src/domain/course';
@@ -29,12 +25,12 @@ const config = {
     maxPoints: 100,
   })),
 };
-const profile = (scores: Record<string, number>) =>
+const profile = (scores: Record<string, number>, level = 1) =>
   ({
     uid: 'journey_account',
     displayName: 'Journey Student',
     skillScores: scores,
-    level: calculateStudentLevel(scores, config.items, config.passPercentage),
+    level,
   }) as UserProfile;
 
 beforeEach(() => {
@@ -90,30 +86,53 @@ function journey(
 }
 
 describe('Cabinet Journey retains configured progress', () => {
+  it.each([390, 768, 1440])('shows an assigned Performance stage at zero XP at %ipx', (width) => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
+    const userProfile = {
+      ...profile({}, 3),
+      levelState: {
+        levelRevision: 1 as never,
+        method: 'admin_assignment' as const,
+        assignedThroughLevel: 2,
+        qualifications: [],
+      },
+    };
+    const { container } = render(journey(userProfile));
+    expect(container.querySelector('[aria-current="step"]')).toHaveAttribute(
+      'aria-label',
+      'journeyLevelPerformance'
+    );
+    expect(container.querySelector('[aria-current="step"]')).not.toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
+    expect(screen.getAllByText('Passed by qualification')).toHaveLength(2);
+    expect(
+      screen.getByRole('heading', { name: 'Official mastery level: Performance' })
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Current stage XP: 0 \/ 100/)).toBeInTheDocument();
+  });
   it.each([
     [{}, 0, 0, 1],
     [{ stage_1: 25 }, 25, 1 / 12, 1],
     [{ stage_1: 79 }, 79, 79 / 300, 1],
-    [{ stage_1: 80 }, 80, 80 / 300, 2],
-    [{ stage_1: 81 }, 81, 81 / 300, 2],
-    [{ stage_1: 99 }, 99, 99 / 300, 2],
-    [{ stage_1: 100 }, 100, 1 / 3, 2],
-    [{ stage_1: 100, stage_2: 1 }, 101, 101 / 300, 2],
-    [{ stage_1: 100, stage_2: 50 }, 150, 0.5, 2],
-    [{ stage_1: 100, stage_2: 99 }, 199, 199 / 300, 3],
-    [{ stage_1: 100, stage_2: 100 }, 200, 2 / 3, 3],
-    [{ stage_1: 100, stage_2: 100, stage_3: 1 }, 201, 201 / 300, 3],
-    [{ stage_1: 95, stage_2: 95, stage_3: 95 }, 285, 0.95, 4],
-    [{ stage_1: 100, stage_2: 100, stage_3: 99 }, 299, 299 / 300, 4],
-    [{ stage_1: 100, stage_2: 100, stage_3: 100 }, 300, 1, 4],
+    [{ stage_1: 80 }, 80, 80 / 300, 1],
+    [{ stage_1: 100 }, 100, 0.99 / 3, 1],
+    [{ stage_1: 100 }, 0, 1 / 3, 2],
+    [{ stage_1: 100, stage_2: 1 }, 1, 101 / 300, 2],
+    [{ stage_1: 100, stage_2: 50 }, 50, 0.5, 2],
+    [{ stage_1: 100, stage_2: 99 }, 0, 2 / 3, 3],
+    [{ stage_1: 100, stage_2: 100, stage_3: 1 }, 1, 201 / 300, 3],
+    [{ stage_1: 95, stage_2: 95, stage_3: 95 }, 0, 1, 4],
+    [{}, 0, 2 / 3, 3],
   ] as const)(
     'renders actual scores %j without replacing XP thresholds',
     (scores, xp, progress, level) => {
-      const userProfile = profile(scores);
+      const userProfile = profile(scores, level);
       const { container } = render(journey(userProfile));
       expect(getJourneyLevelXpThresholds(config.items)).toEqual([0, 100, 200, 300]);
       expect(getJourneyPathProgress(userProfile, config)).toBeCloseTo(progress);
-      expect(calculateStudentLevel(scores, config.items, config.passPercentage)).toBe(level);
+      expect(userProfile.level).toBe(level);
       const section = container.querySelector('#your-journey')!;
       expect(
         within(section.querySelector('header')!).getByText(`${xp} journeyXp`)
@@ -202,7 +221,9 @@ describe('Cabinet Journey retains configured progress', () => {
     expect(view.container.querySelector('.journey-skill-card')).toBeNull();
     view.rerender(journey(profile({ stage_1: 25 })));
     expect(view.container.querySelector('.journey-skill-card')).toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: /studentDevelopmentLink/ }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('link', { name: /studentDevelopmentLink/ }).length).toBeGreaterThan(
+      0
+    );
     view.rerender(journey(profile({})));
     expect(view.container.querySelector('.journey-skill-card')).toBeNull();
   });
@@ -212,7 +233,7 @@ describe('Cabinet Journey retains configured progress', () => {
     expect(view.container.querySelector('.journey-level-badge')).toHaveTextContent(
       'journeyLevelBeginner'
     );
-    view.rerender(journey(profile({ stage_1: 100, stage_2: 100, stage_3: 100 })));
+    view.rerender(journey(profile({ stage_1: 100, stage_2: 100, stage_3: 100 }, 4)));
     expect(view.container.querySelector('.journey-level-badge')).toHaveTextContent(
       'journeyLevelExpert'
     );

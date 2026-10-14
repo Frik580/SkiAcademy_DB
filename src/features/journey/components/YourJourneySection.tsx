@@ -1,4 +1,5 @@
 import { ParticipantLevelPanel } from '../../participant-progress/ParticipantLevelPanel';
+import { calculateParticipantStage } from '@ski-academy/shared-domain/canonical/participantLevelProgression';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   DEFAULT_SKILL_CONFIG,
@@ -74,14 +75,18 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
   const xpToNextLevel = useMemo(() => {
     if (!userProfile || userProfile.hideProgressTracking) return null;
     const level = userProfile.level || currentUserLevelId || 1;
-    if (level >= 4) return { remaining: 0, isMax: true as const };
+    if (level >= 4) return { remaining: 0, isMax: true as const, ready: false };
     const progress = calculateSkillProgress(
       userProfile.skillScores || {},
       skillConfig.items,
       level,
       skillConfig.passPercentage ?? 80
     );
-    return { remaining: progress.remainingPointsNeeded, isMax: false as const };
+    return {
+      remaining: progress.remainingPointsNeeded,
+      isMax: false as const,
+      ready: calculateParticipantStage(level, userProfile.skillScores || {}, skillConfig).ready,
+    };
   }, [userProfile, skillConfig, currentUserLevelId]);
 
   const [hoveredLevelId, setHoveredLevelId] = useState<number | null>(null);
@@ -529,7 +534,11 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
           {isCabinet && showUserPosition && xpToNextLevel && (
             <div className="journey-criteria">
               <h3>{t('journeyCurrentLevel')}</h3>
-              <TrainingStreak isDark={isDark} xpToNextLevel={xpToNextLevel} />
+              <TrainingStreak
+                isDark={isDark}
+                xpToNextLevel={xpToNextLevel}
+                showPromotionReadiness={xpToNextLevel.ready}
+              />
             </div>
           )}
 
@@ -566,7 +575,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
 
         {!userProfile && <AchievementGrid isDark={isDark} visibleLevelCount={visibleLevelCount} />}
       </div>
-      {showUserPosition && userProfile && (
+      {!isCabinet && showUserPosition && userProfile && (
         <ParticipantLevelPanel
           progress={{
             level: userProfile.level ?? 1,

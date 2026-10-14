@@ -7,11 +7,17 @@ import { DEFAULT_SKILL_CONFIG, getJourneyLevelXpThresholds } from '../../src/dom
 import { getJourneyPathProgress } from '../../src/features/journey/components/journeyUtils';
 import type { UserProfile } from '../../src/types';
 import { getCourseLevelCardBadgeClass, userLevelToCourseLevel } from '../../src/domain/course';
+import { translations, type TranslationKey } from '../../src/lib/i18n/translations';
 
 const themeState = vi.hoisted(() => ({ theme: 'light' }));
+const languageState = vi.hoisted(() => ({ language: 'en' as 'en' | 'ru', localized: false }));
 
 vi.mock('../../src/app/providers/LanguageContext', () => ({
-  useLanguage: () => ({ language: 'en', t: (key: string) => key }),
+  useLanguage: () => ({
+    language: languageState.language,
+    t: (key: TranslationKey) =>
+      languageState.localized ? translations[languageState.language][key] : key,
+  }),
 }));
 vi.mock('../../src/hooks/useTheme', () => ({ useTheme: () => themeState }));
 
@@ -35,6 +41,8 @@ const profile = (scores: Record<string, number>, level = 1) =>
 
 beforeEach(() => {
   themeState.theme = 'light';
+  languageState.language = 'en';
+  languageState.localized = false;
   Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1440 });
   Object.defineProperty(SVGElement.prototype, 'getTotalLength', {
     configurable: true,
@@ -86,32 +94,34 @@ function journey(
 }
 
 describe('Cabinet Journey retains configured progress', () => {
-  it.each([390, 768, 1440])('shows an assigned Performance stage at zero XP at %ipx', (width) => {
-    Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
-    const userProfile = {
-      ...profile({}, 3),
-      levelState: {
-        levelRevision: 1 as never,
-        method: 'admin_assignment' as const,
-        assignedThroughLevel: 2,
-        qualifications: [],
-      },
-    };
-    const { container } = render(journey(userProfile));
-    expect(container.querySelector('[aria-current="step"]')).toHaveAttribute(
-      'aria-label',
-      'journeyLevelPerformance'
-    );
-    expect(container.querySelector('[aria-current="step"]')).not.toHaveAttribute(
-      'aria-disabled',
-      'true'
-    );
-    expect(screen.getAllByText('Passed by qualification')).toHaveLength(2);
-    expect(
-      screen.getByRole('heading', { name: 'Official mastery level: Performance' })
-    ).toBeInTheDocument();
-    expect(screen.getByText(/Current stage XP: 0 \/ 100/)).toBeInTheDocument();
-  });
+  it.each([320, 390, 768, 1440])(
+    'shows an assigned Performance stage at zero XP at %ipx',
+    (width) => {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
+      const userProfile = {
+        ...profile({}, 3),
+        levelState: {
+          levelRevision: 1 as never,
+          method: 'admin_assignment' as const,
+          assignedThroughLevel: 2,
+          qualifications: [],
+        },
+      };
+      const { container } = render(journey(userProfile));
+      expect(container.querySelector('[aria-current="step"]')).toHaveAttribute(
+        'aria-label',
+        'journeyLevelPerformance'
+      );
+      expect(container.querySelector('[aria-current="step"]')).not.toHaveAttribute(
+        'aria-disabled',
+        'true'
+      );
+      expect(screen.getAllByText('Passed by qualification')).toHaveLength(2);
+      expect(container.querySelector('.journey-summary-xp')).toHaveTextContent('0 journeyXp');
+      expect(screen.queryByText(/Official mastery level|Current stage XP/)).toBeNull();
+      expect(screen.queryByRole('progressbar')).toBeNull();
+    }
+  );
   it.each([
     [{}, 0, 0, 1],
     [{ stage_1: 25 }, 25, 1 / 12, 1],
@@ -166,6 +176,7 @@ describe('Cabinet Journey retains configured progress', () => {
       expect(Number(gradient.getAttribute('x2'))).toBeCloseTo(50 + 300 * progress);
       expect(gradient.querySelectorAll('stop')).toHaveLength(3);
       expect(section.querySelector('.journey-criteria')).toHaveTextContent('journeyCurrentLevel');
+      expect(section.querySelector('progress')).toBeNull();
       expect(section.querySelectorAll('.journey-stage-lock')).toHaveLength(4 - level);
       expect(section.querySelector('[aria-current="step"] .journey-stage-lock')).toBeNull();
       expect(section.querySelector('[aria-current="step"]')).toHaveAttribute(
@@ -186,6 +197,75 @@ describe('Cabinet Journey retains configured progress', () => {
       }
     }
   );
+
+  for (const width of [320, 390, 1440]) {
+    for (const language of ['ru', 'en'] as const) {
+      it.each(['light', 'dark'])(
+        `keeps one XP visualization and promotion status at ${width}px in ${language}/%s`,
+        (theme) => {
+          languageState.language = language;
+          languageState.localized = true;
+          themeState.theme = theme;
+          Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
+          const view = render(journey(profile({ stage_1: 27 })));
+          const t = translations[language];
+          const criteria = () => view.container.querySelector('.journey-criteria')!;
+          expect(criteria()).toHaveTextContent(
+            language === 'ru' ? 'До следующего уровня осталось 53 XP' : '53 XP to the next level'
+          );
+          expect(screen.queryByRole('progressbar')).toBeNull();
+          expect(
+            screen.queryByText(/Официальный уровень мастерства|Official mastery level/)
+          ).toBeNull();
+          expect(screen.queryByRole('status')).toBeNull();
+          expect(
+            screen.getAllByRole('link', { name: t.studentDevelopmentLink }).length
+          ).toBeGreaterThan(0);
+
+          // Crossing the threshold keeps the official stage until instructor confirmation.
+          view.rerender(journey(profile({ stage_1: 80 })));
+          expect(within(criteria()).getByRole('status')).toHaveTextContent(
+            t.journeyReadyForPromotion
+          );
+          expect(view.container.querySelector('[aria-current="step"]')).toHaveAttribute(
+            'aria-label',
+            t.journeyLevelBeginner
+          );
+          view.rerender(journey(profile({ stage_1: 100 })));
+          expect(within(criteria()).getByRole('status')).toHaveTextContent(
+            t.journeyReadyForPromotion
+          );
+
+          // Switching to another participant must clear the first participant's readiness.
+          view.rerender(journey(profile({}, 3)));
+          expect(screen.queryByRole('status')).toBeNull();
+          expect(view.container.querySelector('.journey-summary-xp')).toHaveTextContent('0 XP');
+          expect(view.container.querySelector('[aria-current="step"]')).toHaveAttribute(
+            'aria-label',
+            t.journeyLevelPerformance
+          );
+          view.rerender(journey(profile({}, 4)));
+          expect(criteria()).toHaveTextContent(t.journeyMaxLevelReached);
+          expect(screen.queryByRole('status')).toBeNull();
+          expect(screen.queryByRole('progressbar')).toBeNull();
+        }
+      );
+    }
+  }
+
+  it('does not report readiness without evaluated exercises or a configured stage', () => {
+    render(
+      <MemoryRouter>
+        <YourJourneySection
+          appearance="cabinet"
+          userProfile={profile({})}
+          skillConfig={{ ...config, items: [] }}
+          animateSequence={false}
+        />
+      </MemoryRouter>
+    );
+    expect(screen.queryByRole('status')).toBeNull();
+  });
 
   it.each(['light', 'dark'])(
     'retains minimum progress and avatar fallback on mobile in %s',

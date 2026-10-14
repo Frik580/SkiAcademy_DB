@@ -1,5 +1,7 @@
 @import 'tailwindcss';
 
+@source not "../e2e";
+
 @theme {
   --font-sans: 'DM Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-serif: 'Cormorant Garamond', Georgia, Cambria, 'Times New Roman', Times, serif;

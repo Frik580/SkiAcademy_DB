@@ -1,6 +1,7 @@
 import './deploymentProvenanceBootstrap';
 import { defineSecret } from 'firebase-functions/params';
 import { onCall } from 'firebase-functions/v2/https';
+import { createQueryAccountWalletHistoryHandler } from './canonical/readModels/queryAccountWalletHistoryCallable';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { onDocumentCreated, onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { OUTBOX_RECOVERY_INTERVAL_MINUTES } from '@ski-academy/shared-domain';
@@ -123,6 +124,10 @@ export const queryAdminIssueReadModels = onCall(CANONICAL_CALLABLE_OPTIONS, asyn
 
 export const queryAdminFinanceReadModels = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>
   createQueryAdminFinanceReadModelsHandler(getAdminFirestore())(request)
+);
+
+export const queryAccountWalletHistory = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>
+  createQueryAccountWalletHistoryHandler(getAdminFirestore())(request)
 );
 
 export const queryAdminCourseReadModels = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>

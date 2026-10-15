@@ -5,13 +5,16 @@ import { formatPointsCount } from '../../../lib/i18n/pluralize';
 export const TrainingStreak: React.FC<{
   isDark: boolean;
   xpToNextLevel: { remaining: number; isMax: true } | { remaining: number; isMax: false };
-}> = ({ isDark, xpToNextLevel }) => {
+  showPromotionReadiness?: boolean;
+}> = ({ isDark, xpToNextLevel, showPromotionReadiness = false }) => {
   const { t, language } = useLanguage();
 
   return (
     <p className={`type-compact ${isDark ? 'text-white/70' : 'text-[var(--ink-dim)]'}`}>
       {xpToNextLevel.isMax ? (
         t('journeyMaxLevelReached')
+      ) : showPromotionReadiness && xpToNextLevel.remaining === 0 ? (
+        <span role="status">{t('journeyReadyForPromotion')}</span>
       ) : (
         <>
           {t('scPointsToNextLevel')

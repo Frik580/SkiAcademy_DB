@@ -6,9 +6,19 @@ import { seedStudentAccount, waitForFunctionsEmulatorReady } from './global-setu
 
 const requireFunctions = createRequire(`${process.cwd()}/functions/package.json`);
 const requireRoot = createRequire(`${process.cwd()}/package.json`);
-const { MonetaryEventSchema, timestampFromDate, selfParticipantIdFromAccountId } = requireRoot(
-  '@ski-academy/shared-domain'
-) as typeof import('@ski-academy/shared-domain');
+const {
+  AccountIdSchema,
+  IdempotencyKeySchema,
+  MonetaryEventSchema,
+  WalletSchema,
+  accountCommandActor,
+  deriveCommandKey,
+  encodeCommandActorScope,
+  monetaryEventIdFromCommandEffect,
+  normalizeFirestoreDocument,
+  timestampFromDate,
+  selfParticipantIdFromAccountId,
+} = requireRoot('@ski-academy/shared-domain') as typeof import('@ski-academy/shared-domain');
 
 test('wallet history survives reload and participant changes in RU/EN, mobile/desktop and light/dark', async ({
   page,
@@ -21,7 +31,9 @@ test('wallet history survives reload and participant changes in RU/EN, mobile/de
     'firebase-admin/firestore'
   ).getFirestore() as import('firebase-admin/firestore').Firestore;
   const sharedRuntime = loadRuntimeConfig();
-  const { getAuth } = requireFunctions('firebase-admin/auth') as typeof import('firebase-admin/auth');
+  const { getAuth } = requireFunctions(
+    'firebase-admin/auth'
+  ) as typeof import('firebase-admin/auth');
   // Other specs leave real monetary events on the shared student. Keep this
   // history below the UI page size without deleting or reordering those events.
   const suffix = randomUUID();
@@ -136,12 +148,68 @@ test('wallet history survives reload and participant changes in RU/EN, mobile/de
     });
     expect(creditBefore?.dataScope).toBeUndefined();
     expect((await db.doc(`test_actors/${runtime.studentUid}`).get()).exists).toBe(false);
+    const walletRef = db.doc(`users/${runtime.studentUid}/wallet/state`);
+    const walletBefore = WalletSchema.parse(
+      normalizeFirestoreDocument((await walletRef.get()).data())
+    );
+    const starterCommandId = deriveCommandKey(
+      encodeCommandActorScope(accountCommandActor(AccountIdSchema.parse(runtime.studentUid))),
+      IdempotencyKeySchema.parse('grant-starter-credit-v1')
+    );
+    const starterRef = db.doc(
+      `monetary_events/${monetaryEventIdFromCommandEffect(starterCommandId, 0)}`
+    );
+    expect((await starterRef.get()).exists).toBe(false);
     await page.setViewportSize({ width: 1440, height: 1000 });
     let reads = 0;
     page.on('request', (request) => {
       if (request.url().endsWith('/queryAccountWalletHistory')) reads++;
     });
+    // Auth/profile provisioning runs in the background. Wait for its real
+    // monetary command and wallet subscription before mounting the history.
+    const starterGrantResponse = page.waitForResponse(
+      (response) =>
+        response.url().endsWith('/executeCanonicalCommand') &&
+        response.request().method() === 'POST' &&
+        response.request().postDataJSON()?.data?.kind === 'grant_starter_credit'
+    );
     await signInStudent(page, runtime);
+    const grantResponse = await starterGrantResponse;
+    expect(grantResponse.status()).toBe(200);
+    expect((await grantResponse.json()).result).toMatchObject({
+      kind: 'grant_starter_credit',
+      status: 'success',
+    });
+    const starter = MonetaryEventSchema.parse(
+      normalizeFirestoreDocument((await starterRef.get()).data())
+    );
+    const walletReady = WalletSchema.parse(
+      normalizeFirestoreDocument((await walletRef.get()).data())
+    );
+    const grant = (
+      await db.doc(`users/${runtime.studentUid}/wallet/starter_credit_grant`).get()
+    ).data();
+    expect(grant).toMatchObject({ granted: true });
+    expect(starter).toMatchObject({
+      eventKind: 'wallet_credit',
+      walletAccountId: runtime.studentUid,
+      walletBalanceDelta: grant?.amountKzt,
+      currency: 'KZT',
+      sourceKind: 'system',
+      commandId: starterCommandId,
+      walletEventRevision: walletBefore.eventRevision + 1,
+    });
+    expect(starter.walletBalanceDelta).toBeGreaterThan(0);
+    expect(starter.occurredAt).toEqual(starter.recordedAt);
+    expect(walletReady.eventRevision).toBe(starter.walletEventRevision);
+    // Header balance and eventRevision are set together by useWalletSync.
+    await expect(page.getByRole('banner')).toContainText(
+      `${walletReady.balance.toLocaleString('ru-RU')} ₸`
+    );
+    await info.attach('wallet-initialization', {
+      body: JSON.stringify({ walletBefore, walletReady, starter }, null, 2),
+      contentType: 'application/json',
+    });
     const firstHistoryResponse = page.waitForResponse(
       (response) =>
         response.request().method() === 'POST' &&
@@ -167,6 +235,7 @@ test('wallet history survives reload and participant changes in RU/EN, mobile/de
     );
     expect((await creditRef.get()).data()).toEqual(creditBefore);
     const history = page.getByTestId('wallet-operation-history');
+    await expect(history.locator(`[data-operation-id="event:${starter.eventId}"]`)).toHaveCount(1);
     await expect(history.getByText('+12,345 ₸', { exact: true })).toBeVisible({ timeout: 60000 });
     await expect(history.getByText('−2,345 ₸', { exact: true })).toBeVisible();
     await expect(history.getByText('+345 ₸', { exact: true })).toHaveCount(1);
@@ -175,6 +244,7 @@ test('wallet history survives reload and participant changes in RU/EN, mobile/de
     const originalIds = await history
       .getByRole('listitem')
       .evaluateAll((nodes) => nodes.map((n) => n.getAttribute('data-operation-id')));
+    expect(new Set(originalIds).size).toBe(originalIds.length);
     const previousReads = reads;
     const switcher = page
       .getByRole('banner')
@@ -190,6 +260,8 @@ test('wallet history survives reload and participant changes in RU/EN, mobile/de
         .evaluateAll((nodes) => nodes.map((n) => n.getAttribute('data-operation-id')))
     ).toEqual(originalIds);
     expect(reads).toBe(previousReads);
+    expect(normalizeFirestoreDocument((await walletRef.get()).data())).toEqual(walletReady);
+    expect(normalizeFirestoreDocument((await starterRef.get()).data())).toEqual(starter);
 
     for (const language of ['en', 'ru'] as const) {
       await page.evaluate((lang) => localStorage.setItem('alpine_glide_lang', lang), language);

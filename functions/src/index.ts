@@ -2,6 +2,11 @@ import './deploymentProvenanceBootstrap';
 import { defineSecret } from 'firebase-functions/params';
 import { onCall } from 'firebase-functions/v2/https';
 import { createQueryAccountWalletHistoryHandler } from './canonical/readModels/queryAccountWalletHistoryCallable';
+import { createResolveInstructorLessonRevenueHandler } from './canonical/readModels/resolveInstructorLessonRevenueCallable';
+import {
+  syncInstructorLessonRevenue,
+  syncInstructorLessonRevenuePayment as syncInstructorLessonRevenuePaymentWrite,
+} from './canonical/readModels/instructorLessonRevenueProjection';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { onDocumentCreated, onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { OUTBOX_RECOVERY_INTERVAL_MINUTES } from '@ski-academy/shared-domain';
@@ -128,6 +133,10 @@ export const queryAdminFinanceReadModels = onCall(CANONICAL_CALLABLE_OPTIONS, as
 
 export const queryAccountWalletHistory = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>
   createQueryAccountWalletHistoryHandler(getAdminFirestore())(request)
+);
+
+export const resolveInstructorLessonRevenue = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>
+  createResolveInstructorLessonRevenueHandler(getAdminFirestore())(request)
 );
 
 export const queryAdminCourseReadModels = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>
@@ -296,6 +305,24 @@ const GUEST_RECONCILIATION_TRIGGER_OPTIONS = {
   maxInstances: 10,
   retry: true,
 };
+
+export const syncInstructorLessonRevenueBooking = onDocumentWritten(
+  { ...GUEST_RECONCILIATION_TRIGGER_OPTIONS, document: 'bookings/{bookingId}' },
+  async (event) => {
+    await syncInstructorLessonRevenue(getAdminFirestore(), event.params.bookingId);
+  }
+);
+
+export const syncInstructorLessonRevenuePayment = onDocumentWritten(
+  { ...GUEST_RECONCILIATION_TRIGGER_OPTIONS, document: 'payments/{paymentId}' },
+  async (event) => {
+    await syncInstructorLessonRevenuePaymentWrite(
+      getAdminFirestore(),
+      event.data?.before.data(),
+      event.data?.after.data()
+    );
+  }
+);
 export const syncGuestBookingConfirmationWork = onDocumentWritten(
   { ...GUEST_RECONCILIATION_TRIGGER_OPTIONS, document: 'bookings/{bookingId}' },
   async (event) => {

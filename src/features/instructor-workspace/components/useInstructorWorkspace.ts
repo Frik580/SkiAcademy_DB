@@ -21,6 +21,7 @@ import {
 } from '../../participant-progress';
 import type { InstructorLessonBookingItem } from '../../booking-collaboration/bookingCollaborationContracts';
 import { useLessonStartClock } from '../../booking-collaboration/useLessonStartClock';
+import { useInstructorLessonRevenue } from '../useInstructorLessonRevenue';
 import {
   computeInstructorLessonMetrics,
   countInstructorRosterLessons,
@@ -172,6 +173,7 @@ export const useInstructorWorkspace = ({
     existingComments: {} as Record<string, string>,
   });
   const progressById = useParticipantProgressStore((state) => state.byId);
+  const revenue = useInstructorLessonRevenue(userProfile.uid, userProfile.instructorId);
   const nowMs = useLessonStartClock(lessonBookings);
 
   const linkedInstructor = useMemo(() => {
@@ -415,6 +417,7 @@ export const useInstructorWorkspace = ({
     language,
     linkedInstructor,
     stats,
+    revenue,
     displayedBookings,
     missingInWindowBookings,
     overdueBookings,

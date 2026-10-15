@@ -1107,6 +1107,35 @@ describe('user profiles and roles', () => {
     );
   });
 
+  it('keeps MonetaryEvent reads server-only even for an own-account filtered query', async () => {
+    const userDb = testEnv.authenticatedContext(USER_ID).firestore();
+    await seedData(async (context) => {
+      await setDoc(doc(context.firestore(), 'monetary_events', 'own-wallet-event'), {
+        walletAccountId: USER_ID,
+        walletBalanceDelta: 1000,
+      });
+    });
+    await assertFails(getDoc(doc(userDb, 'monetary_events', 'own-wallet-event')));
+    await assertFails(
+      getDocs(
+        query(
+          collection(userDb, 'monetary_events'),
+          where('walletAccountId', '==', USER_ID),
+          limit(30)
+        )
+      )
+    );
+    await assertFails(
+      getDocs(
+        query(
+          collection(userDb, 'monetary_events'),
+          where('walletAccountId', '==', OTHER_USER_ID),
+          limit(30)
+        )
+      )
+    );
+  });
+
   it('blocks users from appending wallet ledger entries for other users', async () => {
     const userDb = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
 

@@ -66,6 +66,24 @@ import {
 } from '@ski-academy/shared-domain';
 import { callFunction, type FunctionsCallOptions } from '../functions/functionsClient';
 import { auth } from '../../infrastructure/firebase';
+import {
+  AccountWalletHistoryResultSchema,
+  type AccountWalletHistoryResult,
+} from '@ski-academy/shared-domain';
+
+export async function queryAccountWalletHistory(
+  cursor?: string
+): Promise<AccountWalletHistoryResult> {
+  const result = await invokeCanonicalReadCallable(
+    'queryAccountWalletHistory',
+    cursor ? { cursor } : {},
+    {
+      idempotencyKey: `read:account_wallet:${boundCanonicalReadIdempotencyCursor(cursor)}`,
+      maxAttempts: 1,
+    }
+  );
+  return AccountWalletHistoryResultSchema.parse(result);
+}
 
 export const QUERY_LESSON_BOOKING_READ_MODELS_CALLABLE = 'queryLessonBookingReadModels';
 export const QUERY_MANAGED_PARTICIPANT_PICKER_READ_MODELS_CALLABLE =

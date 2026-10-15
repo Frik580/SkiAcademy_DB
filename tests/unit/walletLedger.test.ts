@@ -1,22 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildWalletOperationHistory, walletLedgerBookingEntryId } from '../../src/domain/wallet';
-import type { Booking, Course, WalletLedgerEntry } from '../../src/types';
-
-const course: Course = {
-  id: 'course-1',
-  title: 'Freeride Camp',
-  titleRu: 'Фрирайд кэмп',
-  description: 'Desc',
-  descriptionRu: 'Описание',
-  level: 'intermediate',
-  duration: '5 days',
-  dates: 'Dec 1-5',
-  price: 200,
-  totalSeats: 10,
-  availableSeats: 5,
-  instructorIds: [],
-  bgImageUrl: '',
-};
+import type { Booking, WalletLedgerEntry } from '../../src/types';
 
 const lessonBooking = (overrides: Partial<Booking> = {}): Booking => ({
   id: 'booking-lesson-1',
@@ -35,15 +19,12 @@ const lessonBooking = (overrides: Partial<Booking> = {}): Booking => ({
 });
 
 describe('walletLedger history', () => {
-  it('builds synthetic lesson payment from bookings when ledger is empty', () => {
-    const history = buildWalletOperationHistory('user-1', [lessonBooking()], [], [], 'en');
-
-    expect(history).toHaveLength(1);
-    expect(history[0].amount).toBe(-100);
-    expect(history[0].labelKey).toBe('walletOpLessonPayment');
-    expect(history[0].subjectName).toBe('Coach A');
-    expect(history[0].sessionDateLabel).toBe('December 2');
-    expect(history[0].durationLabel).toBe('2 hours');
+  it('does not fabricate payments or refunds from booking status', () => {
+    for (const status of ['confirmed', 'completed', 'cancelled'] as const) {
+      expect(
+        buildWalletOperationHistory('user-1', [lessonBooking({ status })], [], [], 'en')
+      ).toEqual([]);
+    }
   });
 
   it('prefers ledger entries over synthetic booking history', () => {
@@ -69,7 +50,7 @@ describe('walletLedger history', () => {
     expect(history[0].durationLabel).toBe('2 hours');
   });
 
-  it('does not display historical USD ledger entries as KZT', () => {
+  it('preserves historical USD rows with their original currency', () => {
     const ledger: WalletLedgerEntry[] = [
       {
         id: 'wl_legacy_usd',
@@ -93,47 +74,31 @@ describe('walletLedger history', () => {
 
     const history = buildWalletOperationHistory('user-1', [], [], ledger, 'en');
 
-    expect(history.map((entry) => entry.id)).toEqual(['wl_current_kzt']);
+    expect(history.map((entry) => entry.id)).toEqual(['wl_current_kzt', 'wl_legacy_usd']);
+    expect(history[1].currency).toBe('USD');
     expect(history[0].amount).toBe(-30_000);
     expect(history[0].currency).toBe('KZT');
   });
 
-  it('adds refund synthetic entry for cancelled bookings with prior payment', () => {
-    const history = buildWalletOperationHistory(
-      'user-1',
-      [lessonBooking({ status: 'cancelled' })],
-      [],
-      [],
-      'en'
-    );
-
-    expect(history).toHaveLength(2);
-    expect(history.some((item) => item.amount < 0)).toBe(true);
-    expect(history.some((item) => item.amount > 0 && item.labelKey === 'walletOpRefund')).toBe(
-      true
-    );
-  });
-
-  it('labels course payments with translated course title', () => {
-    const history = buildWalletOperationHistory(
-      'user-1',
-      [
-        lessonBooking({
-          id: 'booking-course-1',
-          instructorId: 'course_course-1',
-          courseId: 'course-1',
-          instructorName: 'Group course',
-          totalPrice: 200,
-        }),
-      ],
-      [course],
-      [],
-      'ru'
-    );
-
-    expect(history[0].labelKey).toBe('walletOpCoursePayment');
-    expect(history[0].subjectName).toBe('Фрирайд кэмп');
-    expect(history[0].durationLabel).toBe('5 days');
+  it('does not expose another account ledger', () => {
+    expect(
+      buildWalletOperationHistory(
+        'other',
+        [],
+        [],
+        [
+          {
+            id: 'old',
+            userId: 'user-1',
+            amount: 100,
+            balanceAfter: 100,
+            type: 'top_up',
+            createdAt: '2026-12-01T10:00:00.000Z',
+          },
+        ],
+        'en'
+      )
+    ).toEqual([]);
   });
 
   it('builds unique ledger ids per booking payment cycle', () => {

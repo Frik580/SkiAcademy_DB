@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import type { StateCreator } from 'zustand';
 import { WalletLedgerEntry } from './types';
-import { QUERY_LIMITS } from '../../shared';
 
 export interface BalanceOptimisticState {
   optimisticBalanceDelta: number;
@@ -12,6 +11,8 @@ export interface BalanceOptimisticState {
 export interface CanonicalWalletSnapshot {
   /** Authoritative spendable balance from `/users/{accountId}/wallet/state` (KZT minor units). */
   canonicalBalanceKzt: number | null;
+  /** Refresh history on committed monetary changes, even if the net balance is unchanged. */
+  canonicalWalletEventRevision: number | null;
   /** False when the signed-in account has no wallet document yet. */
   canonicalWalletExists: boolean;
   /** True after the first wallet snapshot for the current auth session (or clear on logout). */
@@ -20,13 +21,12 @@ export interface CanonicalWalletSnapshot {
 
 interface WalletState extends BalanceOptimisticState, CanonicalWalletSnapshot {
   walletLedgerEntries: WalletLedgerEntry[];
-  walletLedgerPageSize: number;
-  walletLedgerHasMore: boolean;
   setWalletLedgerEntries: (entries: WalletLedgerEntry[]) => void;
-  setWalletLedgerHasMore: (hasMore: boolean) => void;
-  loadMoreWalletLedger: () => void;
-  resetWalletLedgerPagination: () => void;
-  syncCanonicalWalletFromSnapshot: (input: { exists: boolean; balanceKzt: number | null }) => void;
+  syncCanonicalWalletFromSnapshot: (input: {
+    exists: boolean;
+    balanceKzt: number | null;
+    eventRevision?: number;
+  }) => void;
   resetCanonicalWallet: () => void;
 }
 
@@ -60,6 +60,7 @@ export const balanceOptimisticMiddleware: BalanceOptimisticImpl =
 
 const EMPTY_CANONICAL_WALLET: CanonicalWalletSnapshot = {
   canonicalBalanceKzt: null,
+  canonicalWalletEventRevision: null,
   canonicalWalletExists: false,
   canonicalWalletLoaded: false,
 };
@@ -68,22 +69,14 @@ export const useWalletStore = create<WalletState>()(
   balanceOptimisticMiddleware((set) => ({
     ...EMPTY_CANONICAL_WALLET,
     walletLedgerEntries: [],
-    walletLedgerPageSize: QUERY_LIMITS.walletLedger,
-    walletLedgerHasMore: false,
     optimisticBalanceDelta: 0,
 
     setWalletLedgerEntries: (entries) => set({ walletLedgerEntries: entries }),
-    setWalletLedgerHasMore: (walletLedgerHasMore) => set({ walletLedgerHasMore }),
-    loadMoreWalletLedger: () =>
-      set((state) => ({
-        walletLedgerPageSize: state.walletLedgerPageSize + QUERY_LIMITS.walletLedger,
-      })),
-    resetWalletLedgerPagination: () =>
-      set({ walletLedgerPageSize: QUERY_LIMITS.walletLedger, walletLedgerHasMore: false }),
-    syncCanonicalWalletFromSnapshot: ({ exists, balanceKzt }) =>
+    syncCanonicalWalletFromSnapshot: ({ exists, balanceKzt, eventRevision }) =>
       set({
         canonicalWalletExists: exists,
         canonicalBalanceKzt: exists ? (balanceKzt ?? 0) : 0,
+        canonicalWalletEventRevision: exists ? (eventRevision ?? null) : null,
         canonicalWalletLoaded: true,
         optimisticBalanceDelta: 0,
       }),

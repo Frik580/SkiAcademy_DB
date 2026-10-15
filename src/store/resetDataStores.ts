@@ -44,10 +44,9 @@ export function resetUserScopedStores(): void {
   });
   useWalletStore.setState({
     walletLedgerEntries: [],
-    walletLedgerPageSize: QUERY_LIMITS.walletLedger,
-    walletLedgerHasMore: false,
     optimisticBalanceDelta: 0,
     canonicalBalanceKzt: null,
+    canonicalWalletEventRevision: null,
     canonicalWalletExists: false,
     canonicalWalletLoaded: false,
   });

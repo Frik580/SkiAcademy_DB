@@ -249,7 +249,9 @@ export const UserPathMarker: React.FC<{
           </span>
         </span>
       )}
-      <div className="journey-marker-caption absolute left-1/2 bottom-full mb-3.5 -translate-x-1/2 whitespace-nowrap z-20 flex flex-col items-center gap-1">
+      <div
+        className={`journey-marker-caption absolute left-1/2 bottom-full mb-3.5 whitespace-nowrap z-20 flex flex-col items-center gap-1 ${isCabinet ? '' : '-translate-x-1/2'}`}
+      >
         <div
           className={`bg-transparent font-mono font-bold tracking-wider flex items-baseline justify-center gap-1 ${
             isDark ? 'text-[#f5d76e]' : 'text-[#b8860b]'
@@ -314,12 +316,13 @@ export const UserPathMarker: React.FC<{
 };
 
 export const LevelNode: React.FC<{
+  isCabinet?: boolean;
   shape: LevelShape;
   accent: string;
   active: boolean;
   current?: boolean;
   isDark: boolean;
-}> = ({ shape, accent, active, current = false, isDark }) => {
+}> = ({ isCabinet = false, shape, accent, active, current = false, isDark }) => {
   const fill = isDark ? '#070b14' : '#f4f6fa';
   const emphasized = active || current;
   const glow = current
@@ -328,7 +331,8 @@ export const LevelNode: React.FC<{
       ? `0 0 16px ${accent}cc, 0 0 32px ${accent}66`
       : `0 0 10px ${accent}88`;
   const borderWidth = current ? 3 : 2;
-  const scaleClass = current ? 'scale-125' : '';
+  // Cabinet CSS owns marker geometry; do not compose a Tailwind scale with it.
+  const scaleClass = current && !isCabinet ? 'scale-125' : '';
 
   if (shape === 'circle') {
     return (
@@ -530,6 +534,7 @@ export const JourneyPathStrip: React.FC<{
                   onClick={() => !isLocked && selectLevel(level.id)}
                 >
                   <LevelNode
+                    isCabinet={isCabinet}
                     shape={isCabinet ? 'circle' : level.shape}
                     accent={level.accent}
                     active={isActive}

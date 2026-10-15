@@ -1,11 +1,12 @@
 import { test, expect } from '@playwright/test';
 import { createRequire } from 'node:module';
+import { randomUUID } from 'node:crypto';
 import { loadRuntimeConfig, signInStudent } from './fixtures';
-import { waitForFunctionsEmulatorReady } from './global-setup';
+import { seedStudentAccount, waitForFunctionsEmulatorReady } from './global-setup';
 
 const requireFunctions = createRequire(`${process.cwd()}/functions/package.json`);
 const requireRoot = createRequire(`${process.cwd()}/package.json`);
-const { MonetaryEventSchema, timestampFromDate } = requireRoot(
+const { MonetaryEventSchema, timestampFromDate, selfParticipantIdFromAccountId } = requireRoot(
   '@ski-academy/shared-domain'
 ) as typeof import('@ski-academy/shared-domain');
 
@@ -19,7 +20,24 @@ test('wallet history survives reload and participant changes in RU/EN, mobile/de
   const db = requireFunctions(
     'firebase-admin/firestore'
   ).getFirestore() as import('firebase-admin/firestore').Firestore;
-  const runtime = loadRuntimeConfig();
+  const sharedRuntime = loadRuntimeConfig();
+  const { getAuth } = requireFunctions('firebase-admin/auth') as typeof import('firebase-admin/auth');
+  // Other specs leave real monetary events on the shared student. Keep this
+  // history below the UI page size without deleting or reordering those events.
+  const suffix = randomUUID();
+  const studentEmail = `wallet-${suffix}@e2e.test`;
+  const student = await getAuth().createUser({
+    email: studentEmail,
+    password: sharedRuntime.studentPassword,
+  });
+  const runtime = {
+    ...sharedRuntime,
+    studentEmail,
+    studentUid: student.uid,
+    studentParticipantId: selfParticipantIdFromAccountId(student.uid),
+    studentChildParticipantId: `participant_wallet_child_${suffix}`,
+  };
+  const childManagementId = `management_wallet_child_${suffix}`;
   const refs: import('firebase-admin/firestore').DocumentReference[] = [];
   const historyResponses: unknown[] = [];
   page.on('response', async (response) => {
@@ -38,8 +56,22 @@ test('wallet history survives reload and participant changes in RU/EN, mobile/de
     ['adjustment', 'wallet_adjustment', -45],
     ['course', 'course_charge', -1000],
   ] as const;
-  const suffix = `${info.workerIndex}_${info.retry}`;
   try {
+    await seedStudentAccount({
+      studentUid: runtime.studentUid,
+      email: runtime.studentEmail,
+      displayName: runtime.studentDisplayName,
+      childParticipantId: runtime.studentChildParticipantId,
+      childParticipantManagementId: childManagementId,
+      childDisplayName: runtime.studentChildDisplayName,
+    });
+    refs.push(
+      db.doc(`users/${runtime.studentUid}`),
+      db.doc(`users/${runtime.studentUid}/wallet/state`),
+      db.doc(`participants/${runtime.studentParticipantId}`),
+      db.doc(`participants/${runtime.studentChildParticipantId}`),
+      db.doc(`participant_management/${childManagementId}`)
+    );
     for (const [name, eventKind, walletBalanceDelta] of definitions) {
       const ref = db.doc(`monetary_events/event_wallet_e2e_${name}_${suffix}`);
       refs.push(ref);
@@ -95,13 +127,45 @@ test('wallet history survives reload and participant changes in RU/EN, mobile/de
       })
     );
     await waitForFunctionsEmulatorReady();
+    const creditRef = db.doc(`monetary_events/event_wallet_e2e_credit_${suffix}`);
+    const creditBefore = (await creditRef.get()).data();
+    expect(creditBefore).toMatchObject({
+      walletAccountId: runtime.studentUid,
+      walletBalanceDelta: 12345,
+      currency: 'KZT',
+    });
+    expect(creditBefore?.dataScope).toBeUndefined();
+    expect((await db.doc(`test_actors/${runtime.studentUid}`).get()).exists).toBe(false);
     await page.setViewportSize({ width: 1440, height: 1000 });
     let reads = 0;
     page.on('request', (request) => {
       if (request.url().endsWith('/queryAccountWalletHistory')) reads++;
     });
     await signInStudent(page, runtime);
+    const firstHistoryResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' &&
+        response.url().endsWith('/queryAccountWalletHistory')
+    );
     await page.goto('/cabinet/profile_wallet');
+    const response = await firstHistoryResponse;
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expect(body.result.operations).toEqual(
+      expect.arrayContaining(
+        definitions.map(([name, , amount]) =>
+          expect.objectContaining({
+            id: `event:event_wallet_e2e_${name}_${suffix}`,
+            amount,
+            currency: 'KZT',
+          })
+        )
+      )
+    );
+    expect(body.result.operations).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: `event:${foreign.id}` })])
+    );
+    expect((await creditRef.get()).data()).toEqual(creditBefore);
     const history = page.getByTestId('wallet-operation-history');
     await expect(history.getByText('+12,345 ₸', { exact: true })).toBeVisible({ timeout: 60000 });
     await expect(history.getByText('−2,345 ₸', { exact: true })).toBeVisible();
@@ -187,5 +251,6 @@ test('wallet history survives reload and participant changes in RU/EN, mobile/de
     throw error;
   } finally {
     await Promise.all(refs.map((ref) => ref.delete()));
+    await getAuth().deleteUser(student.uid);
   }
 });

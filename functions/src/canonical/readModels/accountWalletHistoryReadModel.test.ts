@@ -39,12 +39,20 @@ function fakeFirestore(
   };
   const docId = (row: Record<string, unknown>) => String(row.eventId ?? row.id);
   const field = (row: Record<string, unknown>, path: string): unknown =>
-    path === '__name__' ? docId(row) : path.split('.').reduce((v: any, key) => v?.[key], row);
+    path === '__name__'
+      ? docId(row)
+      : path.split('.').reduce<unknown>(
+          (value, key) =>
+            typeof value === 'object' && value !== null
+              ? (value as Record<string, unknown>)[key]
+              : undefined,
+          row
+        );
   const snapshot = (row: Record<string, unknown>) => ({ id: docId(row), data: () => row });
   const db = {
     collection(name: string) {
       let rows = [...(data[name] ?? [])];
-      let orders: [string, string][] = [];
+      const orders: [string, string][] = [];
       let after: unknown[] | undefined;
       let bound = 0;
       const compare = (a: unknown[], b: unknown[]) => {
@@ -60,7 +68,7 @@ function fakeFirestore(
           rows = rows.filter((r) => field(r, key) === value);
           return query;
         },
-        orderBy(key: any, direction: string) {
+        orderBy(key: unknown, direction: string) {
           orders.push([typeof key === 'string' ? key : '__name__', direction]);
           return query;
         },

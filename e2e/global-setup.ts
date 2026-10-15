@@ -209,7 +209,7 @@ async function createAuthUser(email: string, password: string): Promise<string> 
   return signInPayload.localId;
 }
 
-async function seedStudentAccount(input: {
+export async function seedStudentAccount(input: {
   readonly studentUid: string;
   readonly email: string;
   readonly displayName: string;

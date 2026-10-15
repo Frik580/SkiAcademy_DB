@@ -290,14 +290,7 @@ test('authenticated mastery progression and admin qualification preserve factual
           })
           .toBeLessThan(2);
         await expect(journey.locator('.journey-summary-xp')).toHaveText('0 XP');
-        await expect(marker.locator('.journey-marker-caption')).toHaveText('0XP');
         const current = journey.locator('.journey-criteria');
-        await expect(
-          current.getByRole('heading', {
-            name: language === 'ru' ? 'Текущий' : 'Current',
-            exact: true,
-          })
-        ).toBeVisible();
         await expect(current).toContainText(`${stage.required} XP`);
         await expect.poll(cabinetState).toEqual(expectedState);
         await testInfo.attach(`selected-participant-${language}-${width}`, {

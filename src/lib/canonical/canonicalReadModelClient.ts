@@ -125,6 +125,20 @@ export const QUERY_TEST_SESSION_READ_MODELS_CALLABLE = 'queryTestSessionReadMode
 
 type CanonicalReadQueryInput<T> = T & CanonicalReadSessionRequest;
 
+export function resolveInstructorLessonRevenue(): Promise<{
+  readonly summaryPath: string;
+  readonly statePath: string;
+}> {
+  return invokeCanonicalReadCallable(
+    'resolveInstructorLessonRevenue',
+    {},
+    {
+      idempotencyKey: 'read:instructor_lesson_revenue',
+      maxAttempts: 1,
+    }
+  );
+}
+
 function requestedReadSessionKey(input: unknown): string {
   if (!input || typeof input !== 'object' || !('requestedTestSessionId' in input)) {
     return 'live';

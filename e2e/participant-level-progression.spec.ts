@@ -20,6 +20,7 @@ const { getFirestore } = requireFunctions(
 const requireRoot = createRequire(new URL('../package.json', import.meta.url));
 const {
   DEFAULT_SKILL_CONFIG,
+  calculateParticipantStage,
   ParticipantIdSchema,
   ParticipantManagementIdSchema,
   ParticipantSchema,
@@ -37,7 +38,7 @@ test.afterEach(async () => {
 test('authenticated mastery progression and admin qualification preserve factual XP', async ({
   page,
   request,
-}) => {
+}, testInfo) => {
   test.setTimeout(180_000);
   const runtime = loadRuntimeConfig();
   expect(runtime.projectId).toBe(E2E_PROJECT_ID);
@@ -193,6 +194,10 @@ test('authenticated mastery progression and admin qualification preserve factual
     const assigned = (await db.doc(`participant_progress/${participantId}`).get()).data()!;
     expect(assigned.level).toBe(3);
     expect(assigned.skillScores).toEqual(scores);
+    const stage = calculateParticipantStage(assigned.level, assigned.skillScores, config);
+    expect(stage.earned).toBe(0);
+    expect(stage.evaluated).toBe(0);
+    expect(assigned.levelState.request.status).toBe('approved');
     const managedRead = page.waitForResponse(
       async (response) => {
         if (
@@ -225,10 +230,88 @@ test('authenticated mastery progression and admin qualification preserve factual
     expect(projected.items).toEqual(
       expect.arrayContaining([expect.objectContaining({ participantId, level: 3 })])
     );
-    await expect(
-      page.getByRole('heading', { name: 'Official mastery level: Performance' })
-    ).toBeVisible({ timeout: 60000 });
-    await expect(page.getByText(/Current stage XP: 0 \/ /)).toBeVisible();
+    // A successful response alone does not prove that the cabinet consumed it.
+    // Read the same Vite module instances as the app, without writing either store.
+    const cabinetState = () =>
+      page.evaluate(async (id) => {
+        const selectionUrl =
+          '/src/features/student-cabinet/cabinetProgressParticipantSelectionStore.ts';
+        const progressUrl = '/src/features/participant-progress/participantProgressStore.ts';
+        const { useCabinetProgressParticipantSelectionStore } = await import(selectionUrl);
+        const { useParticipantProgressStore } = await import(progressUrl);
+        const selection = useCabinetProgressParticipantSelectionStore.getState();
+        const progress = useParticipantProgressStore.getState().byId[id];
+        return {
+          selectedParticipantId: selection.selectedParticipantId,
+          participantId: progress?.participantId,
+          level: progress?.level,
+          skillScores: progress?.skillScores,
+        };
+      }, participantId);
+    const expectedState = {
+      selectedParticipantId: participantId,
+      participantId,
+      level: 3,
+      skillScores: scores,
+    };
+    await expect.poll(cabinetState).toEqual(expectedState);
+    await expect(target).toHaveAttribute('aria-pressed', 'true');
+
+    // Scope every mastery assertion to the journey whose avatar is the selected
+    // Participant. Level labels elsewhere (e.g. lessons) are not evidence.
+    const journey = page.locator('#your-journey').filter({
+      has: page.getByRole('img', { name: 'E2E Level Student', exact: true }),
+    });
+    for (const language of ['en', 'ru'] as const) {
+      const levelLabel = language === 'ru' ? 'Мастерство' : 'Performance';
+      await page.setViewportSize({ width: 1440, height: 1000 });
+      await page
+        .getByRole('banner')
+        .getByRole('button', { name: language.toUpperCase(), exact: true })
+        .click();
+      for (const width of [1440, 390]) {
+        await page.setViewportSize({ width, height: 1000 });
+        await expect(journey).toBeVisible();
+        await expect(journey.locator('.journey-level-badge')).toHaveText(levelLabel);
+        const currentNode = journey.getByRole('button', { name: levelLabel, exact: true });
+        await expect(currentNode).toHaveAttribute('aria-current', 'step');
+        await expect(currentNode).toHaveAttribute('data-journey-state', 'current');
+        const marker = journey.locator('.journey-user-marker');
+        await expect(
+          marker.getByRole('img', { name: 'E2E Level Student', exact: true })
+        ).toBeVisible();
+        await expect
+          .poll(async () => {
+            const avatar = await marker.boundingBox();
+            const node = await currentNode.boundingBox();
+            return avatar && node
+              ? Math.abs(avatar.x + avatar.width / 2 - node.x - node.width / 2)
+              : Infinity;
+          })
+          .toBeLessThan(2);
+        await expect(journey.locator('.journey-summary-xp')).toHaveText('0 XP');
+        await expect(marker.locator('.journey-marker-caption')).toHaveText('0XP');
+        const current = journey.locator('.journey-criteria');
+        await expect(
+          current.getByRole('heading', {
+            name: language === 'ru' ? 'Текущий' : 'Current',
+            exact: true,
+          })
+        ).toBeVisible();
+        await expect(current).toContainText(`${stage.required} XP`);
+        await expect.poll(cabinetState).toEqual(expectedState);
+        await testInfo.attach(`selected-participant-${language}-${width}`, {
+          body: await journey.screenshot(),
+          contentType: 'image/png',
+        });
+      }
+    }
+    // Qualification changes level, never the factual exercise evidence.
+    const finalProgress = (await progressRef.get()).data()!;
+    expect(finalProgress.skillScores).toEqual(scores);
+    expect(
+      calculateParticipantStage(finalProgress.level, finalProgress.skillScores, config).earned
+    ).toBe(0);
   } finally {
     const cleanup = db.batch();
     // Only the four documents owned by this attempt; keep command receipts/events.

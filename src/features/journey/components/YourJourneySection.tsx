@@ -533,7 +533,6 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
 
           {isCabinet && showUserPosition && xpToNextLevel && (
             <div className="journey-criteria">
-              <h3>{t('journeyCurrentLevel')}</h3>
               <TrainingStreak
                 isDark={isDark}
                 xpToNextLevel={xpToNextLevel}

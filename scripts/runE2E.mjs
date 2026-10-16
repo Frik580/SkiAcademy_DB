@@ -15,48 +15,47 @@ const guardPath = fileURLToPath(
 const localEnvPath = fileURLToPath(new URL('../functions/.env.local', import.meta.url));
 
 async function captureFailedEmulatorState(args) {
-  assertEmulators(process.env, ['firestore']);
-  const outputIndex = args.indexOf('--output');
-  const output =
-    args.find((arg) => arg.startsWith('--output='))?.slice('--output='.length) ??
-    (outputIndex >= 0 ? args[outputIndex + 1] : undefined) ??
-    'test-results';
-  const directory = resolve(root, output);
-  mkdirSync(directory, { recursive: true });
-  const snapshot = { projectId, collections: {} };
-  for (const collection of ['participants', 'course_enrollments', 'courses']) {
-    const url = new URL(
-      `http://${process.env.FIRESTORE_EMULATOR_HOST}/v1/projects/${projectId}/databases/(default)/documents/${collection}`
-    );
-    url.searchParams.set('pageSize', '100');
-    for (const field of [
-      'participantId',
-      'displayName',
-      'age',
-      'skillLevel',
-      'discipline',
-      'enrollmentId',
-      'courseId',
-      'lifecycle',
-      'revision',
-      'capacity',
-    ])
-      url.searchParams.append('mask.fieldPaths', field);
-    const response = await fetch(url, { signal: AbortSignal.timeout(5000) });
-    if (!response.ok) throw new Error(`Emulator snapshot ${collection}: HTTP ${response.status}`);
-    const body = await response.json();
-    snapshot.collections[collection] = {
-      documents: body.documents ?? [],
-      truncated: Boolean(body.nextPageToken),
-    };
+  if (process.env.GCLOUD_PROJECT !== projectId) {
+    throw new Error('Diagnostic snapshot requires the isolated E2E demo project.');
   }
-  writeFileSync(
-    resolve(directory, 'emulator-firestore-failure.json'),
-    JSON.stringify(snapshot, null, 2)
-  );
+  assertEmulators(process.env, ['firestore']);
+  const requireFunctions = createRequire(new URL('../functions/package.json', import.meta.url));
+  const { initializeApp, deleteApp } = requireFunctions('firebase-admin/app');
+  const { getFirestore } = requireFunctions('firebase-admin/firestore');
+  const app = initializeApp({ projectId }, 'e2e-failure-diagnostics');
+  const db = getFirestore(app);
+  try {
+    db.settings({ host: process.env.FIRESTORE_EMULATOR_HOST, ssl: false });
+    const outputIndex = args.indexOf('--output');
+    const output =
+      args.find((arg) => arg.startsWith('--output='))?.slice('--output='.length) ??
+      (outputIndex >= 0 ? args[outputIndex + 1] : undefined) ??
+      'test-results';
+    const directory = resolve(root, output);
+    mkdirSync(directory, { recursive: true });
+    const snapshot = { projectId, collections: {} };
+    for (const collection of ['participants', 'course_enrollments', 'courses']) {
+      // Empty projection: never read or serialize personal fields, credentials or document IDs.
+      const result = await db.collection(collection).select().limit(101).get();
+      snapshot.collections[collection] = {
+        documentCount: Math.min(result.size, 100),
+        truncated: result.size > 100,
+      };
+    }
+    writeFileSync(
+      resolve(directory, 'emulator-firestore-failure.json'),
+      JSON.stringify(snapshot, null, 2)
+    );
+  } finally {
+    try {
+      await db.terminate();
+    } finally {
+      await deleteApp(app);
+    }
+  }
 }
 
-async function run(relativeCli, args, env = process.env) {
+async function run(relativeCli, args, env = process.env, timeoutMs) {
   const child = spawn(
     process.execPath,
     [fileURLToPath(new URL(relativeCli, import.meta.url)), ...args],
@@ -80,18 +79,28 @@ async function run(relativeCli, args, env = process.env) {
   };
   process.on('SIGINT', interrupt);
   process.on('SIGTERM', interrupt);
+  // Diagnostics run in a separate process so a stuck SDK retry cannot hold CI open.
+  const timer = timeoutMs ? setTimeout(interrupt, timeoutMs) : undefined;
   try {
     return await new Promise((resolve, reject) => {
       child.once('error', reject);
       child.once('exit', (code) => resolve(code ?? 1));
     });
   } finally {
+    clearTimeout(timer);
     process.off('SIGINT', interrupt);
     process.off('SIGTERM', interrupt);
   }
 }
 
-if (process.argv[2] === '--playwright') {
+if (process.argv[2] === '--snapshot') {
+  try {
+    await captureFailedEmulatorState(process.argv.slice(3));
+  } catch {
+    console.error('Emulator diagnostic snapshot failed.');
+    process.exitCode = 1;
+  }
+} else if (process.argv[2] === '--playwright') {
   if (process.env.GCLOUD_PROJECT !== projectId || !process.env.FIRESTORE_EMULATOR_HOST) {
     throw new Error('Run E2E through npm run test:e2e with the demo emulators.');
   }
@@ -100,9 +109,15 @@ if (process.argv[2] === '--playwright') {
   process.exitCode = await run('../node_modules/@playwright/test/cli.js', ['test', ...args]);
   if (process.exitCode) {
     try {
-      await captureFailedEmulatorState(args);
-    } catch (error) {
-      console.error(`Emulator diagnostic snapshot failed: ${error.message}`);
+      const diagnosticCode = await run(
+        './runE2E.mjs',
+        ['--snapshot', ...args],
+        process.env,
+        15_000
+      );
+      if (diagnosticCode) throw new Error('Diagnostic subprocess failed or timed out.');
+    } catch {
+      console.error('Emulator diagnostic snapshot failed; preserving the Playwright exit code.');
     }
   }
 } else {

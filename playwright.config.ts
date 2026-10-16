@@ -28,7 +28,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `npm exec vite -- preview --mode e2e --outDir .scratch/e2e-dist --host 127.0.0.1 --port ${port} --strictPort`,
+    command: `npm exec vite -- --mode e2e --host 127.0.0.1 --port ${port} --strictPort`,
     url: `http://127.0.0.1:${port}`,
     reuseExistingServer: false,
     timeout: 120_000,

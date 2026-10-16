@@ -27,6 +27,12 @@ vi.mock('../../src/features/admin/finance/adminFinanceRevisionCoordinator', () =
   resetAdminFinanceRevisionCoordinatorForTests: vi.fn(),
 }));
 
+vi.mock('../../src/features/admin/issues/adminBookingChangeRequestsRevisionCoordinator', () => ({
+  registerAdminBookingChangeRequestsRevisionListener: () => () => {},
+  registerAdminBookingChangeRequestsRevisionFromCommand: vi.fn(),
+  resetAdminBookingChangeRequestsRevisionCoordinatorForTests: vi.fn(),
+}));
+
 import {
   captureAdminLessonBookingTarget,
   createAdminLessonBookingAttemptId,

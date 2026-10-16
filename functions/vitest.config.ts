@@ -17,6 +17,9 @@ export default defineConfig({
     },
   },
   test: {
+    setupFiles: [
+      fileURLToPath(new URL('../tests/helpers/firestoreNetworkGuard.ts', import.meta.url)),
+    ],
     environment: 'node',
     include: ['src/**/*.test.ts'],
   },

@@ -187,7 +187,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['functions/scripts/**/*.cjs'],
+    files: ['functions/scripts/**/*.cjs', 'scripts/*.cjs'],
     languageOptions: {
       sourceType: 'commonjs',
       globals: globals.node,

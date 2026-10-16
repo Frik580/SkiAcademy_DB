@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { EventEmitter } from 'node:events';
+import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { runInNewContext } from 'node:vm';
 import { describe, expect, it, vi } from 'vitest';
@@ -15,18 +16,32 @@ import {
 const repoRoot = process.cwd();
 
 /** Execute the real runner with process and filesystem effects intercepted. */
-async function captureE2ERunner(argv: string[] = [], env: Record<string, string> = {}) {
+async function captureE2ERunner(
+  argv: string[] = [],
+  env: Record<string, string> = {},
+  childExitCode = 0
+) {
   const runnerPath = resolve(repoRoot, 'scripts/runE2E.mjs');
   const source = readFileSync(runnerPath, 'utf8')
-    .replace(/^import .* from 'node:[^']+';\r?\n/gm, '')
+    .replace(/^import[\s\S]*? from 'node:[^']+';\r?\n/gm, '')
     .replace(/import\.meta\.url/g, 'runnerUrl');
   const spawn = vi.fn(() => {
     const child = new EventEmitter();
-    queueMicrotask(() => child.emit('exit', 0));
+    queueMicrotask(() => child.emit('exit', childExitCode));
     return child;
   });
-  const writeFileSync = vi.fn();
-  const unlinkSync = vi.fn();
+  const files = new Map([
+    [
+      resolve(repoRoot, 'functions/.secret.local'),
+      'GUEST_ACTION_TOKEN_SECRET=e2e-guest-action-token-secret\n',
+    ],
+  ]);
+  const writeFileSync = vi.fn((path: string, value: string) => files.set(path, value));
+  const unlinkSync = vi.fn((path: string) => files.delete(path));
+  const fetch = vi.fn(async (_input: URL, _options: unknown) => ({
+    ok: true,
+    json: async () => ({ documents: [] }),
+  }));
   const runnerProcess = {
     argv: [process.execPath, runnerPath, ...argv],
     execPath: process.execPath,
@@ -40,17 +55,25 @@ async function captureE2ERunner(argv: string[] = [], env: Record<string, string>
     runnerUrl: pathToFileURL(runnerPath).href,
     URL,
     fileURLToPath,
+    resolve,
+    createRequire,
+    console,
+    fetch,
+    AbortSignal: { timeout: vi.fn() },
     process: runnerProcess,
     spawn,
     spawnSync: vi.fn(),
-    existsSync: () => true,
-    readFileSync: () => 'GUEST_ACTION_TOKEN_SECRET=e2e-guest-action-token-secret\n',
+    existsSync: (path: string) => files.has(path),
+    readFileSync: (path: string) => files.get(path),
+    mkdirSync: vi.fn(),
     writeFileSync,
     unlinkSync,
   });
-  expect(writeFileSync).not.toHaveBeenCalled();
-  expect(unlinkSync).not.toHaveBeenCalled();
-  return spawn;
+  expect(files.get(resolve(repoRoot, 'functions/.secret.local'))).toBe(
+    'GUEST_ACTION_TOKEN_SECRET=e2e-guest-action-token-secret\n'
+  );
+  expect(files.has(resolve(repoRoot, 'functions/.env.local'))).toBe(false);
+  return { spawn, fetch, files, exitCode: runnerProcess.exitCode };
 }
 
 function parseEnv(text: string): Record<string, string> {
@@ -277,9 +300,9 @@ describe('vite firebase env resolution', () => {
       scripts: Record<string, string>;
     };
     expect(packageJson.scripts['test:e2e']).toBe(
-      'npm run build:functions && node scripts/runE2E.mjs'
+      'npm run build:functions && vite build --mode e2e --outDir .scratch/e2e-dist && node scripts/runE2E.mjs'
     );
-    const spawn = await captureE2ERunner(['--project=chromium'], {
+    const { spawn } = await captureE2ERunner(['--project=chromium'], {
       GCLOUD_PROJECT: PRODUCTION_FIREBASE_PROJECT_ID,
     });
     expect(spawn).toHaveBeenCalledTimes(1);
@@ -308,7 +331,7 @@ describe('vite firebase env resolution', () => {
       FIREBASE_STORAGE_EMULATOR_HOST: '127.0.0.1:9199',
       CARVE_E2E_PLAYWRIGHT_ARGS: JSON.stringify(['--project=chromium']),
     };
-    const playwrightSpawn = await captureE2ERunner(['--playwright'], emulatorEnv);
+    const { spawn: playwrightSpawn } = await captureE2ERunner(['--playwright'], emulatorEnv);
     expect(playwrightSpawn).toHaveBeenCalledTimes(1);
     expect(playwrightSpawn).toHaveBeenCalledWith(
       process.execPath,
@@ -325,8 +348,42 @@ describe('vite firebase env resolution', () => {
       );
     }
     expect(readFileSync(resolve(repoRoot, 'playwright.config.ts'), 'utf8')).toMatch(
-      /npm run dev -- --mode e2e/
+      /npm exec vite -- preview --mode e2e/
     );
+  });
+
+  it('preserves a failed test verdict while capturing bounded masked emulator state', async () => {
+    const result = await captureE2ERunner(
+      ['--playwright'],
+      {
+        GCLOUD_PROJECT: E2E_PROJECT_ID,
+        FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080',
+        FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9299',
+        FIREBASE_STORAGE_EMULATOR_HOST: '127.0.0.1:9199',
+        CARVE_E2E_PLAYWRIGHT_ARGS: JSON.stringify(['--output=.scratch/e2e-diagnostics-test']),
+      },
+      1
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.fetch).toHaveBeenCalledTimes(3);
+    for (const [input] of result.fetch.mock.calls) {
+      const url = new URL(String(input));
+      expect(url.origin).toBe('http://127.0.0.1:8080');
+      expect(url.pathname).toContain(`/projects/${E2E_PROJECT_ID}/`);
+      expect(url.searchParams.get('pageSize')).toBe('100');
+      expect(url.searchParams.getAll('mask.fieldPaths')).not.toContain('guestLinkCredentials');
+    }
+    const saved = result.files.get(
+      resolve(repoRoot, '.scratch/e2e-diagnostics-test/emulator-firestore-failure.json')
+    );
+    expect(JSON.parse(saved!)).toMatchObject({
+      projectId: E2E_PROJECT_ID,
+      collections: {
+        participants: { truncated: false },
+        course_enrollments: { truncated: false },
+        courses: { truncated: false },
+      },
+    });
   });
 
   it('npm run dev uses the staging mode instead of the ignored development config', () => {

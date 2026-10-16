@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import type { ReactNode } from 'react';
 import { vi } from 'vitest';
+import './helpers/firestoreNetworkGuard';
 
 vi.mock('../src/app/providers/CurrencyContext', () => ({
   useCurrency: () => ({

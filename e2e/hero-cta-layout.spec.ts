@@ -8,6 +8,11 @@ for (const width of [1440, 768, 390, 320]) {
         localStorage.setItem('alpine_glide_lang', lang);
       }, language);
       await page.goto('/e2e/hero-layout/');
+      await expect(
+        page.locator('#after-hero'),
+        'Dedicated Hero fixture must be mounted'
+      ).toHaveCount(1);
+      await expect(page.locator('#after-hero')).toHaveText('After hero');
       await page.evaluate(() => document.fonts.ready);
       // Initial CTA entrance is intentionally animated; slide changes must stay stable afterwards.
       await page.waitForTimeout(1500);

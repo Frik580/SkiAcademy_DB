@@ -169,7 +169,7 @@ export const queryInstructorOccupancyReadModels = onCall(
 );
 
 export const queryParticipantOccupancyReadModels = onCall(
-  PLATFORM_DEFAULT_CALLABLE_OPTIONS,
+  CANONICAL_CALLABLE_OPTIONS,
   async (request) => createQueryParticipantOccupancyReadModelsHandler(getAdminFirestore())(request)
 );
 
@@ -185,12 +185,12 @@ export const queryLessonPricingSettingsReadModel = onCall(
 );
 
 export const queryEmailDeliverySettingsReadModel = onCall(
-  PLATFORM_DEFAULT_CALLABLE_OPTIONS,
+  CANONICAL_CALLABLE_OPTIONS,
   async (request) => createQueryEmailDeliverySettingsReadModelHandler(getAdminFirestore())(request)
 );
 
 export const queryOutboxDeadLetterReadModel = onCall(
-  PLATFORM_DEFAULT_CALLABLE_OPTIONS,
+  CANONICAL_CALLABLE_OPTIONS,
   async (request) => createQueryOutboxDeadLetterReadModelHandler(getAdminFirestore())(request)
 );
 

@@ -4,7 +4,7 @@ import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import { CorrelationIdSchema, TRANSACTION_SAFETY_BUDGET } from '@ski-academy/shared-domain';
 import { createFirestoreCanonicalTransactionExecutor } from './firestoreTransactionExecutor';
 
-const PROJECT_ID = 'ski-academy-canonical-tx-test';
+const PROJECT_ID = 'demo-ski-school-e2e';
 const correlationId = CorrelationIdSchema.parse('correlation_tx_emulator_01');
 
 let app: App;

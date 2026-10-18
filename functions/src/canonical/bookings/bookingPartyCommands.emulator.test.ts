@@ -25,7 +25,7 @@ import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
 
-const PROJECT_ID = 'ski-academy-party-emulator-test';
+const PROJECT_ID = 'demo-ski-school-e2e';
 const correlationId = CorrelationIdSchema.parse('correlation_party_emulator_01');
 const accountId = AccountIdSchema.parse('account_party_emulator_01');
 const adminAccountId = AccountIdSchema.parse('account_party_emulator_admin');

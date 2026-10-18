@@ -23,7 +23,7 @@ import { createFirestoreCanonicalTransactionExecutor } from '../transactions/fir
 import { sweepGuestConfirmationLifecycleMismatches } from '../guestConfirmation/guestConfirmationReconciliationSweep';
 import { sweepExpiredGuestLessonReservations } from './guestLessonReservationExpirySweep';
 
-const PROJECT_ID = 'ski-academy-guest-expiry-sweep-test';
+const PROJECT_ID = 'demo-ski-school-e2e';
 const correlationId = CorrelationIdSchema.parse('correlation_guest_expiry_sweep_01');
 const instructorId = InstructorIdSchema.parse('instructor_guest_expiry_sweep_01');
 const participantId = ParticipantIdSchema.parse('participant_guest_expiry_sweep_01');

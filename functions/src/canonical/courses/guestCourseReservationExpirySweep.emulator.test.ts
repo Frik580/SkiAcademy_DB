@@ -31,7 +31,7 @@ import {
   sweepExpiredGuestCourseReservations,
 } from './guestCourseReservationExpirySweep';
 
-const PROJECT_ID = 'ski-academy-guest-course-expiry-sweep-test';
+const PROJECT_ID = 'demo-ski-school-e2e';
 const correlationId = CorrelationIdSchema.parse('correlation_guest_course_expiry_sweep_01');
 const adminAccountId = AccountIdSchema.parse('account_guest_course_expiry_sweep_admin');
 const courseId = CourseIdSchema.parse('course_guest_course_expiry_sweep_01');

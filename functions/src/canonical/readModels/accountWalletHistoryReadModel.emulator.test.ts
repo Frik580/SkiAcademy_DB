@@ -16,7 +16,7 @@ let app: App;
 let db: Firestore;
 describeEmulator('account wallet history Firestore integration', () => {
   beforeAll(async () => {
-    app = initializeApp({ projectId: 'demo-wallet-history' }, 'wallet-history-integration');
+    app = initializeApp({ projectId: 'demo-ski-school-e2e' }, 'wallet-history-integration');
     db = getFirestore(app);
     const at = timestampFromDate(new Date('2026-08-01T00:00:00Z'));
     await db.doc(`users/${accountId}`).set(

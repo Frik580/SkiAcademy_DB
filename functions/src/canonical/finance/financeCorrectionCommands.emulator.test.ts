@@ -37,7 +37,7 @@ import { createFirestoreCanonicalTransactionExecutor } from '../transactions/fir
 import { seedLessonPricingSettingsFixture } from '../../../testSupport/lessonPricingSettingsFixture';
 import { createFirestoreMonetaryEventLoader } from './financeCorrectionCommands';
 
-const PROJECT_ID = 'ski-academy-finance-correction-emulator';
+const PROJECT_ID = 'demo-ski-school-e2e';
 const correlationId = CorrelationIdSchema.parse('correlation_fin_corr_emulator_01');
 const correlationIdB = CorrelationIdSchema.parse('correlation_fin_corr_emulator_02');
 const accountId = 'account_fin_corr_emulator_01';

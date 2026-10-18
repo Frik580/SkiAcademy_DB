@@ -271,8 +271,13 @@ export async function migratePreExistingProfile(
   email: string,
   customDisplayName?: string
 ): Promise<any | null> {
-  if (!email) return null;
+  // Email is evidence of ownership only after Firebase Auth verifies it. Rules
+  // independently enforce this boundary against direct SDK/old-client bypasses.
+  const user = auth.currentUser;
+  if (!email || !user || user.uid !== newUid || !user.emailVerified) return null;
   const normalizedEmail = email.toLowerCase().trim();
+  if (user.email?.toLowerCase().trim() !== normalizedEmail) return null;
+  await user.getIdToken(true);
   logger.debug(`Starting migration for email: ${normalizedEmail} to newUid: ${newUid}`);
 
   try {

@@ -51,7 +51,7 @@ import { parsePayment } from '../finance/financeStore';
 import { parseGuestContact, guestContactPath } from '../guestContact/guestContactStore';
 import { queryAdminCourseEnrollmentReadModels } from '../readModels/adminCourseEnrollmentReadModels';
 
-const PROJECT_ID = 'ski-academy-guest-course-transport-emulator-test';
+const PROJECT_ID = 'demo-ski-school-e2e';
 const guestActionTokenSecret = 'guest-course-transport-emulator-secret';
 const correlationId = CorrelationIdSchema.parse('correlation_guest_transport_emulator_01');
 const courseId = CourseIdSchema.parse('course_guest_transport_emulator_01');

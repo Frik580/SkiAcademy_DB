@@ -26,7 +26,7 @@ import { createFirestoreCanonicalTransactionExecutor } from '../transactions/fir
 import { courseDayInstructorClaimIdentity } from './courseDayClaimOperations';
 import { seedLessonPricingSettingsFixture } from '../../../testSupport/lessonPricingSettingsFixture';
 
-const PROJECT_ID = 'ski-academy-course-day-emulator-test';
+const PROJECT_ID = 'demo-ski-school-e2e';
 const correlationId = CorrelationIdSchema.parse('correlation_course_day_emulator_01');
 const adminAccountId = AccountIdSchema.parse('account_course_day_admin_01');
 const accountId = AccountIdSchema.parse('account_course_day_owner_01');

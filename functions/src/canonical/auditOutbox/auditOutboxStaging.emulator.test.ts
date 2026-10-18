@@ -20,7 +20,7 @@ import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { executeAuthoritativeIdempotentCanonicalCommand } from '../commands/idempotentCommandExecution';
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
 
-const PROJECT_ID = 'ski-academy-canonical-audit-test';
+const PROJECT_ID = 'demo-ski-school-e2e';
 const correlationId = CorrelationIdSchema.parse('correlation_audit_emulator_01');
 const accountId = AccountIdSchema.parse('account_audit_emulator_01');
 const bookingId = BookingIdSchema.parse('booking_audit_emulator_01');

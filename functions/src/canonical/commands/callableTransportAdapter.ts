@@ -24,6 +24,8 @@ export interface CallableCommandTransportInput<Kind extends CommandKind> {
   readonly bookingRevision?: CommandContext['expectedRevision'];
   /** Request-level context only; the server resolves authority independently. */
   readonly requestedTestSessionId?: unknown;
+  /** Protocol capability only; never grants identity or authorization. */
+  readonly participantProgressContract?: unknown;
 }
 
 export interface CallableAuthenticatedAccountContext {
@@ -58,9 +60,7 @@ export function buildCommandContextFromCallableAccount(
     ...(input.timezone === undefined ? {} : { timezone: input.timezone }),
     transportMetadata: {
       transport: 'firebase_callable',
-      ...(transport.instructorId === undefined
-        ? {}
-        : { instructor_id: transport.instructorId }),
+      ...(transport.instructorId === undefined ? {} : { instructor_id: transport.instructorId }),
       ...(input.bookingRevision === undefined
         ? {}
         : { [BOOKING_REVISION_TRANSPORT_KEY]: String(input.bookingRevision) }),
@@ -68,9 +68,7 @@ export function buildCommandContextFromCallableAccount(
   };
 }
 
-export function buildCommandEnvelopeFromCallable<
-  Kind extends CommandKind,
->(
+export function buildCommandEnvelopeFromCallable<Kind extends CommandKind>(
   transport: CallableAuthenticatedAccountContext,
   input: CallableCommandTransportInput<Kind>
 ): CommandEnvelope<Kind> {

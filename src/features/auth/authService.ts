@@ -1,6 +1,7 @@
 import {
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
+  sendEmailVerification,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut as fbSignOut,
@@ -35,6 +36,17 @@ export async function signInWithEmailService(email: string, password: string): P
 
 export async function signUpWithEmailService(email: string, password: string): Promise<User> {
   return (await createUserWithEmailAndPassword(auth, email, password)).user;
+}
+
+export async function requestEmailVerificationService(user: User): Promise<void> {
+  await sendEmailVerification(user);
+}
+
+export async function refreshEmailVerificationService(user: User): Promise<boolean> {
+  await user.reload();
+  if (!user.emailVerified) return false;
+  await user.getIdToken(true);
+  return true;
 }
 
 export async function signInWithGoogleService(): Promise<User> {

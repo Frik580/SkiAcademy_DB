@@ -32,12 +32,12 @@ async function seed(id = 'revenue_booking', patch = {}) {
 
 describeEmulator('instructor revenue transactions and callable authorization', () => {
   beforeAll(() => {
-    app = initializeApp({ projectId: 'demo-instructor-revenue' }, 'instructor-revenue-tests');
+    app = initializeApp({ projectId: 'demo-ski-school-e2e' }, 'instructor-revenue-tests');
     db = getFirestore(app);
   });
   beforeEach(async () => {
     await fetch(
-      `http://${process.env.FIRESTORE_EMULATOR_HOST}/emulator/v1/projects/demo-instructor-revenue/databases/(default)/documents`,
+      `http://${process.env.FIRESTORE_EMULATOR_HOST}/emulator/v1/projects/demo-ski-school-e2e/databases/(default)/documents`,
       { method: 'DELETE' }
     );
   });

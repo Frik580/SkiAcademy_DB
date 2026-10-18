@@ -56,6 +56,13 @@ export const translations = {
       'Name must contain only English or Russian letters, spaces, and hyphens.',
     authWelcomeAcademy: 'Welcome to Carve Academy!',
     authRegisteredCredits: 'Registered successfully. Enjoy your starter credits!',
+    authVerificationInstructions:
+      'Confirm your email using the link, then continue here. Your profile will be created after confirmation.',
+    authVerificationCheck: 'I confirmed my email',
+    authVerificationResend: 'Resend confirmation email',
+    authVerificationPending: 'Your email is not confirmed yet. Open the confirmation link first.',
+    authVerificationSendFailed:
+      'Your account was created, but the confirmation email could not be sent. Try resending it.',
     authWelcomeBack: 'Welcome Back!',
     authLinkedProfileName: 'Found and linked your pre-existing profile under name',
     authWithBalance: 'with balance',
@@ -2522,6 +2529,13 @@ export const translations = {
       'Имя должно содержать только английские или русские буквы, пробелы и дефисы.',
     authWelcomeAcademy: 'Добро пожаловать в Академию карвинга!',
     authRegisteredCredits: 'Регистрация успешна! Получите стартовый баланс на счёт!',
+    authVerificationInstructions:
+      'Подтвердите почту по ссылке из письма и продолжите здесь. Профиль будет создан после подтверждения.',
+    authVerificationCheck: 'Я подтвердил почту',
+    authVerificationResend: 'Отправить письмо повторно',
+    authVerificationPending: 'Почта ещё не подтверждена. Сначала откройте ссылку из письма.',
+    authVerificationSendFailed:
+      'Аккаунт создан, но письмо подтверждения не отправлено. Попробуйте отправить его повторно.',
     authWelcomeBack: 'С возвращением!',
     authLinkedProfileName: 'Найден существующий профиль, привязанный к имени',
     authWithBalance: 'с балансом',

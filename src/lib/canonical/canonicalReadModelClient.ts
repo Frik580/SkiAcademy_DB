@@ -230,12 +230,16 @@ export async function queryParticipantProgressReadModels(
     target,
   ]);
   return invokeCanonicalReadCallable<
-    QueryParticipantProgressReadModelsInput,
+    QueryParticipantProgressReadModelsInput & { participantProgressContract: number },
     QueryParticipantProgressReadModelsResult
-  >(QUERY_PARTICIPANT_PROGRESS_READ_MODELS_CALLABLE, input, {
-    idempotencyKey: `read:participant_progress:${identityHash}`,
-    maxAttempts: 1,
-  });
+  >(
+    QUERY_PARTICIPANT_PROGRESS_READ_MODELS_CALLABLE,
+    { ...input, participantProgressContract: 2 },
+    {
+      idempotencyKey: `read:participant_progress:${identityHash}`,
+      maxAttempts: 1,
+    }
+  );
 }
 
 function chunkIds<T>(ids: readonly T[], size: number): T[][] {

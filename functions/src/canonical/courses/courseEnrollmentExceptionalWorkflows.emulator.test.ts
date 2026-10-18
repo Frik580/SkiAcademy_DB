@@ -37,7 +37,7 @@ import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
 
-const PROJECT_ID = 'ski-academy-course-exceptional-emulator-test';
+const PROJECT_ID = 'demo-ski-school-e2e';
 const correlationId = CorrelationIdSchema.parse('correlation_course_exceptional_emulator_01');
 const correlationIdB = CorrelationIdSchema.parse('correlation_course_exceptional_emulator_02');
 const accountId = 'account_course_exceptional_emulator_01';

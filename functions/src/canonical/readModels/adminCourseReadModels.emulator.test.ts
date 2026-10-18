@@ -15,7 +15,7 @@ import {
 import { canonicalCourseDeliveryFixtures } from '@ski-academy/shared-domain/testing';
 import { queryAdminCourseReadModels } from './adminCourseReadModels';
 
-const PROJECT_ID = 'ski-academy-admin-course-read-model-test';
+const PROJECT_ID = 'demo-ski-school-e2e';
 const runsOnFirestoreEmulator = Boolean(
   process.env.FIREBASE_EMULATOR_HUB ?? process.env.FIRESTORE_EMULATOR_HOST
 );

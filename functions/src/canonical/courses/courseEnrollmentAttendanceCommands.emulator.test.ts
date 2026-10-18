@@ -45,7 +45,7 @@ import { createProductionCanonicalCommands } from '../commands/canonicalCommands
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
 import { courseDayInstructorClaimIdentity } from './courseDayClaimOperations';
 
-const PROJECT_ID = 'ski-academy-course-attendance-emulator-test';
+const PROJECT_ID = 'demo-ski-school-e2e';
 const correlationId = CorrelationIdSchema.parse('correlation_course_attendance_emulator_01');
 const accountId = AccountIdSchema.parse('account_course_attendance_emulator_01');
 const adminAccountId = AccountIdSchema.parse('account_course_attendance_emulator_admin');

@@ -25,7 +25,7 @@ export function createQueryParticipantProgressReadModelsHandler(firestore: Fires
   return async (
     request: CallableRequest<Record<string, unknown>>
   ): Promise<QueryParticipantProgressReadModelsResult> => {
-    const raw = request.data ?? {};
+    const { participantProgressContract, ...raw } = request.data ?? {};
     rejectSpoofedParticipantProgressReadInput(raw);
     const { input, requestedTestSessionId } = parseReadModelCallableData(
       QueryParticipantProgressReadModelsInputSchema,
@@ -69,13 +69,25 @@ export function createQueryParticipantProgressReadModelsHandler(firestore: Fires
         }
       }
 
-      return await queryParticipantProgressReadModels(firestore, input, {
+      const result = await queryParticipantProgressReadModels(firestore, input, {
         accountId,
         instructorId,
         administratorActor,
         readContext,
         readScope,
       });
+      // Old strict readers do not know levelState. This is a wire projection,
+      // never a rewrite of historical/canonical progress.
+      return participantProgressContract === 2
+        ? result
+        : {
+            ...result,
+            items: result.items.map((item) => {
+              const legacyItem = { ...item };
+              delete legacyItem.levelState;
+              return legacyItem;
+            }),
+          };
     } catch (error) {
       if (error instanceof ParticipantProgressReadDeniedError) {
         throw new HttpsError('permission-denied', 'This action is not permitted.');

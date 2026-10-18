@@ -29,7 +29,7 @@ const runsOnFirestoreEmulator = Boolean(
   process.env.FIREBASE_EMULATOR_HUB ?? process.env.FIRESTORE_EMULATOR_HOST
 );
 const describeEmulator = runsOnFirestoreEmulator ? describe : describe.skip;
-const PROJECT_ID = 'ski-academy-instructor-review-emulator-test';
+const PROJECT_ID = 'demo-ski-school-e2e';
 const accountId = 'account_review_emulator_01';
 const participantId = ParticipantIdSchema.parse('participant_review_emulator_01');
 const managementId = ParticipantManagementIdSchema.parse('management_review_emulator_01');

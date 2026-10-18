@@ -59,7 +59,13 @@ import { syncCourseEnrollmentOutcomeWorkForEnrollmentWrite } from './canonical/c
 export { optimizeImage } from './images/optimizeImageHttp';
 
 /** Browser callables need public Cloud Run invoker; auth is enforced inside the handler. */
-const CANONICAL_CALLABLE_OPTIONS = { region: 'us-central1', invoker: 'public' as const };
+const PLATFORM_DEFAULT_CALLABLE_OPTIONS = { region: 'us-central1', invoker: 'public' as const };
+const CANONICAL_CALLABLE_OPTIONS = {
+  ...PLATFORM_DEFAULT_CALLABLE_OPTIONS,
+  // Preserve the production cap explicitly; an unspecified SDK option is reset
+  // to the platform default by Firebase CLI, rather than kept at 20.
+  maxInstances: 20,
+};
 
 /** Guest action credential signing/verification — only bound to callables that read it. */
 const guestActionTokenSecret = defineSecret('GUEST_ACTION_TOKEN_SECRET');
@@ -74,9 +80,10 @@ export const executeCanonicalCommand = onCall(GUEST_SECRET_CALLABLE_OPTIONS, asy
 );
 
 export const executeGuestCanonicalCommand = onCall(GUEST_SECRET_CALLABLE_OPTIONS, async (request) =>
-  createExecuteGuestCanonicalCommandHandler(getAdminFirestore(), GUEST_RESERVATION_ACTIVE_LIMITS)(
-    request
-  )
+  createExecuteGuestCanonicalCommandHandler(
+    getAdminFirestore(),
+    GUEST_RESERVATION_ACTIVE_LIMITS
+  )(request)
 );
 
 export const queryLessonBookingReadModels = onCall(GUEST_SECRET_CALLABLE_OPTIONS, async (request) =>
@@ -179,12 +186,12 @@ export const queryLessonPricingSettingsReadModel = onCall(
 
 export const queryEmailDeliverySettingsReadModel = onCall(
   CANONICAL_CALLABLE_OPTIONS,
-  async (request) =>
-    createQueryEmailDeliverySettingsReadModelHandler(getAdminFirestore())(request)
+  async (request) => createQueryEmailDeliverySettingsReadModelHandler(getAdminFirestore())(request)
 );
 
-export const queryOutboxDeadLetterReadModel = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>
-  createQueryOutboxDeadLetterReadModelHandler(getAdminFirestore())(request)
+export const queryOutboxDeadLetterReadModel = onCall(
+  CANONICAL_CALLABLE_OPTIONS,
+  async (request) => createQueryOutboxDeadLetterReadModelHandler(getAdminFirestore())(request)
 );
 
 export const queryInstructorReviewReadModels = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>
@@ -263,6 +270,7 @@ export const scheduledPurgeExpiredNotifications = onSchedule(
   {
     schedule: 'every 24 hours',
     timeZone: 'Asia/Almaty',
+    maxInstances: 20,
   },
   async () => {
     const firestore = getAdminFirestore();

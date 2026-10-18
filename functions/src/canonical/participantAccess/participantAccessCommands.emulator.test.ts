@@ -18,7 +18,7 @@ import { createProductionCanonicalCommands } from '../commands/canonicalCommands
 import { queryManagedParticipantPickerReadModels } from '../readModels/managedParticipantPickerReadModels';
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
 
-const PROJECT_ID = 'ski-academy-participant-access-test';
+const PROJECT_ID = 'demo-ski-school-e2e';
 const correlationId = CorrelationIdSchema.parse('correlation_participant_emulator_01');
 const accountA = AccountIdSchema.parse('account_participant_emulator_a');
 const accountB = AccountIdSchema.parse('account_participant_emulator_b');

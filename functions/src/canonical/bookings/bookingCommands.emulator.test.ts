@@ -20,7 +20,7 @@ import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
 
-const PROJECT_ID = 'ski-academy-booking-emulator-test';
+const PROJECT_ID = 'demo-ski-school-e2e';
 const correlationId = CorrelationIdSchema.parse('correlation_booking_emulator_01');
 const correlationIdB = CorrelationIdSchema.parse('correlation_booking_emulator_02');
 const accountId = AccountIdSchema.parse('account_booking_emulator_01');

@@ -13,6 +13,25 @@ vi.mock('../../src/lib/functions/functionsClient', () => ({
 }));
 
 describe('canonicalCommandClient', () => {
+  it('marks the current progress contract outside the canonical intent', async () => {
+    callFunctionMock.mockResolvedValueOnce({
+      status: 'success',
+      kind: 'update_participant_progress',
+    });
+    await executeAuthenticatedCanonicalCommand('account_client_01', {
+      kind: 'update_participant_progress',
+      intent: {
+        participantId: 'participant_progress_01',
+        level: 1,
+        skillScores: {},
+        skillComments: {},
+      } as never,
+      idempotencyKey: 'progress-current-contract' as never,
+    });
+    const payload = callFunctionMock.mock.calls.at(-1)?.[1];
+    expect(payload.participantProgressContract).toBe(2);
+    expect(payload.intent).not.toHaveProperty('participantProgressContract');
+  });
   it('forwards the guest course comment in canonical intent', async () => {
     callFunctionMock.mockResolvedValue({
       status: 'success',

@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
   pull_request:
@@ -107,6 +108,105 @@ jobs:
       - name: Functions unit tests
         run: npm run test:unit:functions
 
+      - name: Build Functions on Linux Node 22
+        run: npm run build:functions
+
+      - name: Release configuration comparator and network egress guard
+        run: node --test scripts/compareFunctionConfig.test.mjs scripts/testFirestoreNetworkGuard.test.mjs
+
+  functions-emulator:
+    name: Functions emulator suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      GCLOUD_PROJECT: demo-ski-school-e2e
+      GOOGLE_CLOUD_PROJECT: demo-ski-school-e2e
+      JAVA_TOOL_OPTIONS: -Xms512m -Xmx2g -XX:ActiveProcessorCount=2
+      NODE_OPTIONS: --max-old-space-size=3072
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm ci --ignore-scripts
+      - run: npm ci --prefix functions --ignore-scripts
+      - run: npm run build:functions
+      - name: Run full sequential Functions emulator suite
+        shell: bash
+        run: |
+          set -o pipefail
+          node node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --project demo-ski-school-e2e --only firestore "npm run test:functions:emulator -- --maxWorkers=1 --minWorkers=1 --reporter=default --reporter=json --outputFile=functions-emulator-results.json" 2>&1 | tee functions-emulator-suite.log
+      - name: Verify zero Firestore egress attempts
+        if: always()
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { readdirSync, readFileSync } from 'node:fs';
+          const directory = '.scratch/test-egress';
+          const ledgers = readdirSync(directory).filter(name => /^vitest-.*\.log$/.test(name));
+          if (!ledgers.length) throw new Error('Missing Firestore egress ledger');
+          for (const name of ledgers) {
+            if (readFileSync(`${directory}/${name}`, 'utf8').trim()) {
+              throw new Error(`Firestore egress attempt recorded: ${name}`);
+            }
+          }
+          console.log(`Firestore egress ledger: 0 attempts (${ledgers.length} ledgers)`);
+          NODE
+      - name: Upload emulator results and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: functions-emulator-diagnostics
+          include-hidden-files: true
+          path: |
+            functions/functions-emulator-results.json
+            functions-emulator-suite.log
+            *-debug.log
+            .scratch/test-egress/*.log
+          if-no-files-found: error
+          retention-days: 7
+
+  emulator-integration:
+    name: Emulator integration and Storage rules
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm ci --ignore-scripts
+      - run: npm ci --prefix functions --ignore-scripts
+      - run: npm run build:functions
+      - name: Run isolated Firebase integration suites
+        run: node node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --project demo-ski-school-e2e --only auth,firestore,storage "npm run test:vitest:integration"
+
+      - name: Upload integration diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-failure-diagnostics
+          include-hidden-files: true
+          path: |
+            *-debug.log
+            .scratch/test-egress/*.log
+          if-no-files-found: ignore
+          retention-days: 7
+
   firestore:
     name: Firestore rules
     runs-on: ubuntu-latest
@@ -172,7 +272,17 @@ jobs:
   quality:
     name: quality
     if: always()
-    needs: [lint, app-tests, functions-tests, firestore, build]
+    needs:
+      [
+        lint,
+        app-tests,
+        functions-tests,
+        functions-emulator,
+        firestore,
+        build,
+        emulator-integration,
+        e2e,
+      ]
     runs-on: ubuntu-latest
     steps:
       - name: Verify quality jobs
@@ -180,14 +290,20 @@ jobs:
           LINT_RESULT: ${{ needs.lint.result }}
           APP_TESTS_RESULT: ${{ needs.app-tests.result }}
           FUNCTIONS_TESTS_RESULT: ${{ needs.functions-tests.result }}
+          FUNCTIONS_EMULATOR_RESULT: ${{ needs.functions-emulator.result }}
           FIRESTORE_RESULT: ${{ needs.firestore.result }}
           BUILD_RESULT: ${{ needs.build.result }}
+          INTEGRATION_RESULT: ${{ needs.emulator-integration.result }}
+          E2E_RESULT: ${{ needs.e2e.result }}
         run: |
           test "$LINT_RESULT" = "success"
           test "$APP_TESTS_RESULT" = "success"
           test "$FUNCTIONS_TESTS_RESULT" = "success"
+          test "$FUNCTIONS_EMULATOR_RESULT" = "success"
           test "$FIRESTORE_RESULT" = "success"
           test "$BUILD_RESULT" = "success"
+          test "$INTEGRATION_RESULT" = "success"
+          test "$E2E_RESULT" = "success"
 
   e2e:
     name: Playwright E2E

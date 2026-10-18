@@ -33,7 +33,7 @@ import { bookingClaimIdentities } from './bookingClaimOperations';
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
 import { seedLessonPricingSettingsFixture } from '../../../testSupport/lessonPricingSettingsFixture';
 
-const PROJECT_ID = 'ski-academy-reschedule-emulator-test';
+const PROJECT_ID = 'demo-ski-school-e2e';
 const correlationId = CorrelationIdSchema.parse('correlation_reschedule_emulator_01');
 const accountId = AccountIdSchema.parse('account_reschedule_emulator_01');
 const accountTwoId = AccountIdSchema.parse('account_reschedule_emulator_02');

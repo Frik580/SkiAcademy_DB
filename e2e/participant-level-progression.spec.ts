@@ -134,7 +134,7 @@ test('authenticated mastery progression and admin qualification preserve factual
     const call = async (idToken: string, data: Record<string, unknown>) => {
       const response = await request.post(functionsCallableUrl('executeCanonicalCommand'), {
         headers: { Authorization: `Bearer ${idToken}` },
-        data: { data },
+        data: { data: { ...data, participantProgressContract: 2 } },
       });
       const body = await response.json();
       return body.result ?? { status: 'error', error: body.error };

@@ -17,10 +17,16 @@
     "alpine-glide-bookings": "file:..",
     "firebase-admin": "^12.7.0",
     "firebase-functions": "^5.1.1",
-    "sharp": "^0.33.5",
+    "sharp": "0.35.5",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "typescript": "^5.7.2"
+  },
+  "overrides": {
+    "proxy-addr": "2.0.8",
+    "@fastify/busboy": "3.2.2",
+    "@grpc/grpc-js": "1.14.5",
+    "qs": "6.16.0"
   }
 }

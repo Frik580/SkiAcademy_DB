@@ -13,6 +13,7 @@ import {
 const mockCreateUserWithEmailAndPassword = vi.fn();
 const mockSignInWithEmailAndPassword = vi.fn();
 const mockSendPasswordResetEmail = vi.fn();
+const mockSendEmailVerification = vi.fn();
 const mockSignInWithPopup = vi.fn();
 const mockSetDoc = vi.fn();
 const mockGetDoc = vi.fn();
@@ -46,6 +47,7 @@ vi.mock('firebase/auth', () => ({
   signInWithEmailAndPassword: (...args: any[]) => mockSignInWithEmailAndPassword(...args),
   createUserWithEmailAndPassword: (...args: any[]) => mockCreateUserWithEmailAndPassword(...args),
   sendPasswordResetEmail: (...args: any[]) => mockSendPasswordResetEmail(...args),
+  sendEmailVerification: (...args: any[]) => mockSendEmailVerification(...args),
 }));
 
 vi.mock('../../src/features/notifications', () => ({
@@ -106,7 +108,7 @@ describe('Auth', () => {
 
   it('creates a new user profile on successful sign-up', async () => {
     mockCreateUserWithEmailAndPassword.mockResolvedValue({
-      user: { uid: 'new-user', email: 'user@example.com' },
+      user: { emailVerified: true, uid: 'new-user', email: 'user@example.com' },
     });
 
     render(<Auth onSuccess={onSuccess} />);
@@ -151,9 +153,47 @@ describe('Auth', () => {
     });
   });
 
+  it('retains the signup draft, supports resend after delivery failure, and claims only after verification', async () => {
+    const user = {
+      uid: 'verified-signup',
+      email: 'guest@example.com',
+      emailVerified: false,
+      reload: vi.fn(async () => {}),
+      getIdToken: vi.fn().mockResolvedValue('refreshed-token'),
+    };
+    mockCreateUserWithEmailAndPassword.mockResolvedValue({ user });
+    mockSendEmailVerification
+      .mockRejectedValueOnce(new Error('delivery failed'))
+      .mockResolvedValue(undefined);
+    render(<Auth onSuccess={onSuccess} />);
+    await userEvent.click(screen.getByRole('button', { name: /noAccount/i }));
+    await userEvent.type(screen.getByPlaceholderText('fullName'), 'Alex Carter');
+    await userEvent.type(screen.getByPlaceholderText('emailAddress'), user.email);
+    await userEvent.type(screen.getByPlaceholderText('password'), 'password123');
+    await userEvent.click(screen.getByRole('button', { name: /signUpBtn/i }));
+    expect(await screen.findByText('authVerificationSendFailed')).toBeInTheDocument();
+    expect(mockSetDoc).not.toHaveBeenCalled();
+    expect(mockMigratePreExistingProfile).not.toHaveBeenCalled();
+    expect(onSuccess).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'authVerificationResend' }));
+    expect(mockSendEmailVerification).toHaveBeenCalledTimes(2);
+    await userEvent.click(screen.getByRole('button', { name: 'authVerificationCheck' }));
+    expect(await screen.findByText('authVerificationPending')).toBeInTheDocument();
+    expect(mockSetDoc).not.toHaveBeenCalled();
+    user.emailVerified = true;
+    const claimed = { uid: user.uid, email: user.email, displayName: 'Alex Carter', role: 'user' };
+    mockMigratePreExistingProfile.mockResolvedValue(claimed);
+    await userEvent.click(screen.getByRole('button', { name: 'authVerificationCheck' }));
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledWith(claimed));
+    expect(user.getIdToken).toHaveBeenCalledWith(true);
+    expect(mockMigratePreExistingProfile).toHaveBeenCalledWith(user.uid, user.email, 'Alex Carter');
+    expect(mockSetDoc).not.toHaveBeenCalled();
+    expect(mockCreateUserWithEmailAndPassword).toHaveBeenCalledTimes(1);
+  });
+
   it('signs in an existing user and calls onSuccess with their profile', async () => {
     mockSignInWithEmailAndPassword.mockResolvedValue({
-      user: { uid: 'existing-user', email: 'user@example.com' },
+      user: { emailVerified: true, uid: 'existing-user', email: 'user@example.com' },
     });
     mockGetDoc.mockResolvedValue({
       exists: () => true,
@@ -191,7 +231,7 @@ describe('Auth', () => {
 
   it('uses legacy migration only when the authenticated UID has no profile', async () => {
     mockSignInWithEmailAndPassword.mockResolvedValue({
-      user: { uid: 'claimed-user', email: 'claimed@example.com' },
+      user: { emailVerified: true, uid: 'claimed-user', email: 'claimed@example.com' },
     });
     mockMigratePreExistingProfile.mockResolvedValue({
       uid: 'claimed-user',
@@ -221,7 +261,7 @@ describe('Auth', () => {
 
   it('does not treat an invalid existing profile as missing or overwrite it', async () => {
     mockSignInWithEmailAndPassword.mockResolvedValue({
-      user: { uid: 'invalid-user', email: 'invalid@example.com' },
+      user: { emailVerified: true, uid: 'invalid-user', email: 'invalid@example.com' },
     });
     mockGetDoc.mockResolvedValue({
       exists: () => true,
@@ -246,7 +286,7 @@ describe('Auth', () => {
 
   it('does not report authentication success when required profile creation is denied', async () => {
     mockSignInWithEmailAndPassword.mockResolvedValue({
-      user: { uid: 'missing-user', email: 'missing@example.com' },
+      user: { emailVerified: true, uid: 'missing-user', email: 'missing@example.com' },
     });
     mockSetDoc.mockRejectedValue(
       Object.assign(new Error('Missing or insufficient permissions.'), {
@@ -268,7 +308,11 @@ describe('Auth', () => {
 
   it('signs in a production-shaped ksusha profile without writing users/{uid}', async () => {
     mockSignInWithEmailAndPassword.mockResolvedValue({
-      user: { uid: PROD_SHAPED_KSUSHA_ACCOUNT_ID, email: PROD_SHAPED_KSUSHA_EMAIL },
+      user: {
+        emailVerified: true,
+        uid: PROD_SHAPED_KSUSHA_ACCOUNT_ID,
+        email: PROD_SHAPED_KSUSHA_EMAIL,
+      },
     });
     mockGetDoc.mockResolvedValue({
       exists: () => true,

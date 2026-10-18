@@ -18,7 +18,7 @@ describeEmulator('instructor revenue sanitized exact-document permissions', () =
   beforeAll(async () => {
     const [host, port] = process.env.FIRESTORE_EMULATOR_HOST!.split(':');
     env = await initializeEmulatorTestEnvironment({
-      projectId: 'demo-instructor-revenue-rules',
+      projectId: 'demo-ski-school-e2e',
       firestore: { host, port: Number(port), rules: readRepoFile('firestore.rules') },
     });
   });

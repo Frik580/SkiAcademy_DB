@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { FirebaseError } from 'firebase/app';
+import type { User } from 'firebase/auth';
 import { UserProfile } from '../../../types';
 import { useNotifications } from '../../../features/notifications';
 import { useLanguage } from '../../../app/providers/LanguageContext';
@@ -8,6 +9,8 @@ import {
   getUserProfileService,
   migrateExistingProfileService,
   requestPasswordResetService,
+  requestEmailVerificationService,
+  refreshEmailVerificationService,
   saveUserProfileService,
   signInWithEmailService,
   signInWithGoogleService,
@@ -33,6 +36,68 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [verificationUser, setVerificationUser] = useState<User | null>(null);
+
+  const requestVerification = async (user: User) => {
+    setVerificationUser(user);
+    try {
+      await requestEmailVerificationService(user);
+      setError('');
+    } catch {
+      setError(t('authVerificationSendFailed'));
+    }
+  };
+
+  const completeVerifiedRegistration = async (user: User) => {
+    // A repeated verification check must never overwrite an existing Account.
+    const existing = await getUserProfileService(user.uid);
+    if (existing) {
+      onSuccess(existing);
+      return;
+    }
+    const name = displayName.trim() || user.displayName || 'Alpine Glider';
+    const claimed = await migrateExistingProfileService(
+      user.uid,
+      user.email || email,
+      isSignUp ? name : undefined
+    );
+    if (claimed) {
+      onSuccess(claimed);
+      return;
+    }
+    const profile: UserProfile = {
+      uid: user.uid,
+      email: user.email || email,
+      displayName: name,
+      role: 'user',
+      avatarUrl:
+        user.photoURL ||
+        `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(avatarSeed)}`,
+      isClientActive: true,
+      ...(phoneNumber ? { phoneNumber } : {}),
+    };
+    await saveUserProfileService(profile);
+    addNotification('success', t('authWelcomeAcademy'), t('authRegisteredCredits'));
+    onSuccess(profile);
+  };
+
+  const checkVerification = async () => {
+    if (!verificationUser) return;
+    setIsLoading(true);
+    setError('');
+    try {
+      if (!(await refreshEmailVerificationService(verificationUser))) {
+        setError(t('authVerificationPending'));
+        return;
+      }
+      await completeVerifiedRegistration(verificationUser);
+      setVerificationUser(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('authFailed'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleRandomizeAvatar = () => {
     const chars = 'abcdefghijklmnopqrstuvwxyz';
@@ -46,6 +111,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (verificationUser) return;
     setError('');
     setIsLoading(true);
 
@@ -66,38 +132,11 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
 
         // Register new user
         const user = await signUpWithEmailService(email, password);
-
-        let finalProfile: UserProfile | null = null;
-        try {
-          finalProfile = await migrateExistingProfileService(user.uid, email, displayName);
-        } catch (err) {
-          logger.warn('Could not check/migrate pre-existing profile', err);
+        if (!user.emailVerified) {
+          await requestVerification(user);
+          return;
         }
-
-        if (!finalProfile) {
-          finalProfile = {
-            uid: user.uid,
-            email: user.email || email,
-            displayName,
-            role: 'user',
-            avatarUrl: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(avatarSeed)}`,
-            isClientActive: true,
-          };
-          if (phoneNumber) {
-            finalProfile.phoneNumber = phoneNumber;
-          }
-
-          await saveUserProfileService(finalProfile);
-          addNotification('success', t('authWelcomeAcademy'), t('authRegisteredCredits'));
-        } else {
-          addNotification(
-            'success',
-            t('authWelcomeBack'),
-            `${t('authLinkedProfileName')} "${displayName}".`
-          );
-        }
-
-        onSuccess(finalProfile);
+        await completeVerifiedRegistration(user);
       } else {
         // Sign in existing user
         const user = await signInWithEmailService(email, password);
@@ -114,6 +153,10 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
           );
           onSuccess(existingProfile);
         } else {
+          if (!user.emailVerified) {
+            await requestVerification(user);
+            return;
+          }
           // Legacy admin-created profiles are optional compatibility data. A
           // failed claim must not be mistaken for a successful profile create.
           let migratedProfile: UserProfile | null = null;
@@ -355,7 +398,32 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
         </div>
       )}
 
-      <form onSubmit={isForgotPassword ? handlePasswordReset : handleSubmit} className={formGap}>
+      {verificationUser && (
+        <div className="space-y-4" role="status">
+          <p>{t('authVerificationInstructions')}</p>
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={isLoading}
+            onClick={() => void checkVerification()}
+          >
+            {t('authVerificationCheck')}
+          </button>
+          <button
+            type="button"
+            className="btn-secondary"
+            disabled={isLoading}
+            onClick={() => void requestVerification(verificationUser)}
+          >
+            {t('authVerificationResend')}
+          </button>
+        </div>
+      )}
+      <form
+        hidden={verificationUser !== null}
+        onSubmit={isForgotPassword ? handlePasswordReset : handleSubmit}
+        className={formGap}
+      >
         {isForgotPassword ? (
           <>
             <input
@@ -492,7 +560,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
         )}
       </form>
 
-      {!isForgotPassword && (
+      {!isForgotPassword && !verificationUser && (
         <>
           <div className="h-px bg-[var(--border)]" aria-hidden="true" />
 

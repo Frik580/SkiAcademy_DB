@@ -143,6 +143,28 @@ jobs:
         run: |
           set -o pipefail
           node node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --project demo-ski-school-e2e --only firestore "npm run test:functions:emulator -- --maxWorkers=1 --minWorkers=1 --reporter=default --reporter=json --outputFile=functions-emulator-results.json" 2>&1 | tee functions-emulator-suite.log
+      - name: Require executed Attendance migration guard and CLI regressions
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const report = JSON.parse(readFileSync('functions/functions-emulator-results.json', 'utf8'));
+          for (const [file, minimum] of [
+            ['bookingAttendanceMigrationGuard.emulator.test.ts', 18],
+            ['bookingAttendanceCommands.emulator.test.ts', 30],
+          ]) {
+            const suite = report.testResults.find(result => result.name.replaceAll('\\', '/').endsWith(`/${file}`));
+            if (!suite || suite.assertionResults.length < minimum ||
+                suite.assertionResults.some(test => test.status !== 'passed')) {
+              throw new Error(`Missing, skipped or failed Attendance regressions: ${file}`);
+            }
+            if (file.includes('MigrationGuard') && !suite.assertionResults.some(test =>
+              test.title === 'runs the actual CLI twice and requires explicit cutover' && test.status === 'passed')) {
+              throw new Error('Actual migration CLI regression was not executed');
+            }
+            console.log(`${file}: ${suite.assertionResults.length} passed, zero skipped`);
+          }
+          NODE
       - name: Verify zero Firestore egress attempts
         if: always()
         shell: bash

@@ -27,6 +27,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -58,6 +60,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -92,6 +96,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -105,19 +111,19 @@ jobs:
       - name: Install Functions dependencies
         run: npm ci --prefix functions --ignore-scripts
 
-      - name: Functions unit tests
-        run: npm run test:unit:functions
-
       - name: Build Functions on Linux Node 22
         run: npm run build:functions
 
+      - name: Functions unit tests
+        run: npm run test:unit:functions
+
       - name: Release configuration comparator and network egress guard
-        run: node --test scripts/compareFunctionConfig.test.mjs scripts/testFirestoreNetworkGuard.test.mjs
+        run: node --test scripts/compareFunctionConfig.test.mjs scripts/compareStagingResetRelease.test.mjs scripts/testFirestoreNetworkGuard.test.mjs
 
   functions-emulator:
     name: Functions emulator suite
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     permissions:
       contents: read
     env:
@@ -127,6 +133,8 @@ jobs:
       NODE_OPTIONS: --max-old-space-size=3072
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -165,6 +173,31 @@ jobs:
             console.log(`${file}: ${suite.assertionResults.length} passed, zero skipped`);
           }
           NODE
+      - name: Run reset Auth, Firestore and Storage rehearsals
+        shell: bash
+        run: |
+          set -o pipefail
+          node node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --project demo-ski-school-e2e --only auth,firestore,storage "node scripts/runVitest.mjs --require-emulators=auth,firestore,storage --config functions/vitest.config.ts functions/src/maintenance/dataResetAuthorization.emulator.test.ts functions/src/maintenance/dataReset.emulator.test.ts functions/src/maintenance/dataResetLiveFixtures.emulator.test.ts functions/src/canonical/guestConfirmation/guestConfirmationWork.emulator.test.ts --no-file-parallelism --maxWorkers=1 --minWorkers=1 --testTimeout=90000 --hookTimeout=60000 --reporter=default --reporter=json --outputFile=reset-emulator-results.json" 2>&1 | tee reset-emulator-suite.log
+      - name: Require executed reset and Guest Confirmation regressions
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const report = JSON.parse(readFileSync('functions/reset-emulator-results.json', 'utf8'));
+          for (const [file, minimum] of [
+            ['dataReset.emulator.test.ts', 20],
+            ['dataResetLiveFixtures.emulator.test.ts', 4],
+            ['dataResetAuthorization.emulator.test.ts', 8],
+            ['guestConfirmationWork.emulator.test.ts', 24],
+          ]) {
+            const suite = report.testResults.find(result => result.name.replaceAll('\\', '/').endsWith(`/${file}`));
+            if (!suite || suite.assertionResults.length < minimum ||
+                suite.assertionResults.some(test => test.status !== 'passed')) {
+              throw new Error(`Missing, skipped or failed reset regression: ${file}`);
+            }
+            console.log(`${file}: ${suite.assertionResults.length} passed, zero skipped`);
+          }
+          NODE
       - name: Verify zero Firestore egress attempts
         if: always()
         shell: bash
@@ -190,6 +223,8 @@ jobs:
           path: |
             functions/functions-emulator-results.json
             functions-emulator-suite.log
+            functions/reset-emulator-results.json
+            reset-emulator-suite.log
             *-debug.log
             .scratch/test-egress/*.log
           if-no-files-found: error
@@ -203,6 +238,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -244,6 +281,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -278,6 +317,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -337,6 +378,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

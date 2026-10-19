@@ -157,7 +157,14 @@ async function readSource(
     ].filter((value): value is number => value !== undefined);
     if (deadlines.length) futureCheckAtMs = Math.min(...deadlines);
   }
-  return { fingerprint, subjectPath, valid, eligible, futureCheckAtMs };
+  return {
+    fingerprint,
+    subjectPath,
+    valid,
+    eligible,
+    futureCheckAtMs,
+    missingAuthority: !paymentSnapshot.exists || !snapshot.exists,
+  };
 }
 
 /** Retains completed fingerprints, so duplicate/out-of-order events cannot resurrect finished work. */
@@ -182,6 +189,9 @@ export async function syncGuestConfirmationWork(
       metrics
     );
     if (!source) return 'ignored';
+    // A delayed event is only a routing hint. Do not synthesize orphan work
+    // after its authority was deleted; existing obligations still fail closed.
+    if (!previous && source.missingAuthority) return 'ignored';
     if (
       previous?.fingerprint === source.fingerprint &&
       !(input.recovery && previous.status === 'complete' && source.eligible)

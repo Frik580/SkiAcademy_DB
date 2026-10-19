@@ -28,7 +28,14 @@ function fakeFirestore(seed: Map<string, Record<string, unknown>>): Firestore {
         .map(([key, data]) => ({ id: key.slice(path.length + 1), data: () => data })),
     }),
   });
-  return { collection } as unknown as Firestore;
+  return {
+    collection,
+    runTransaction: async (callback: (tx: unknown) => unknown) =>
+      callback({
+        get: (ref: { get: () => unknown }) => ref.get(),
+        set: (ref: { set: (data: unknown) => unknown }, data: unknown) => ref.set(data),
+      }),
+  } as unknown as Firestore;
 }
 
 function canonicalSeed() {

@@ -118,7 +118,7 @@ jobs:
         run: npm run test:unit:functions
 
       - name: Release configuration comparator and network egress guard
-        run: node --test scripts/compareFunctionConfig.test.mjs scripts/compareStagingResetRelease.test.mjs scripts/testFirestoreNetworkGuard.test.mjs
+        run: node --test scripts/compareFunctionConfig.test.mjs scripts/compareStagingResetRelease.test.mjs scripts/syncSharedDomain.test.mjs scripts/testFirestoreNetworkGuard.test.mjs
 
   functions-emulator:
     name: Functions emulator suite

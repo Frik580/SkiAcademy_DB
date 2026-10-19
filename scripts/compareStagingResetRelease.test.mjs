@@ -25,7 +25,13 @@ function pair() {
     })),
     eventarc: Array.from({ length: 8 }, (_, i) => ({
       name: project + `triggers/trigger${i}`,
-      eventFilters: [{ value: 'original' }],
+      eventFilters: [
+        { attribute: 'type', value: 'google.cloud.firestore.document.v1.written' },
+        { attribute: 'document', value: 'bookings/{id}', operator: 'match-path-pattern' },
+      ],
+      destination: { cloudRun: { service: 'retained', region: 'us-central1' } },
+      serviceAccount: 'retained',
+      transport: { pubsub: { topic: 'retained' } },
     })),
     subscriptions: Array.from({ length: 8 }, (_, i) => ({
       name: project + `subscriptions/sub${i}`,
@@ -60,6 +66,12 @@ function pair() {
         { bindings: [{ role: 'roles/run.invoker', members: ['original'] }] },
       ])
     ),
+  };
+  before.functions[0].eventTrigger = {
+    eventType: 'google.cloud.firestore.document.v1.written',
+    eventFilters: structuredClone(before.eventarc[0].eventFilters),
+    serviceAccountEmail: 'retained',
+    retryPolicy: 'RETRY_POLICY_RETRY',
   };
   const after = JSON.parse(JSON.stringify(before));
   for (const name of resetFunctions) {
@@ -108,6 +120,66 @@ test('rejects missing target and omitted persistent config drift', () => {
 test('accepts exactly five new ready revisions with preserved configuration', () => {
   const { before, after } = pair();
   assert.equal(compareResetRelease(before, after, commit).status, 'PASS');
+});
+test('accepts only filter permutations on Functions and Eventarc without mutating inputs', () => {
+  for (const surface of ['functions', 'eventarc', 'both']) {
+    const { before, after } = pair();
+    if (surface !== 'eventarc') after.functions[0].eventTrigger.eventFilters.reverse();
+    if (surface !== 'functions') after.eventarc[0].eventFilters.reverse();
+    const captured = structuredClone({ before, after });
+    assert.deepEqual(compareResetRelease(before, after, commit), { status: 'PASS', errors: [] });
+    assert.deepEqual({ before, after }, captured);
+  }
+});
+test('rejects filter content, multiplicity and non-filter trigger drift after permutations', () => {
+  for (const surface of ['functions', 'eventarc']) {
+    for (const mutate of [
+      (t) => (t.eventFilters[0].attribute = 'other'),
+      (t) => (t.eventFilters[0].value = 'other/{id}'),
+      (t) => (t.eventFilters[0].operator = 'other'),
+      (t) => (t.eventFilters[1].value = 'google.cloud.firestore.document.v1.created'),
+      (t) => t.eventFilters.push(structuredClone(t.eventFilters[0])),
+      (t) => t.eventFilters.pop(),
+      (t) => (t.eventFilters = null),
+      (t) => delete t.eventFilters,
+      (t) => (t.eventType = 'other'),
+      (t) => (t.serviceAccountEmail = 'other'),
+      (t) => (t.serviceAccount = 'other'),
+      (t) => (t.destination = { cloudRun: { service: 'other' } }),
+      (t) => (t.transport = { pubsub: { topic: 'other' } }),
+      (t) => (t.retryPolicy = 'RETRY_POLICY_DO_NOT_RETRY'),
+      (t) => (t.unrecognizedFutureField = true),
+    ]) {
+      const { before, after } = pair();
+      const trigger = surface === 'functions' ? after.functions[0].eventTrigger : after.eventarc[0];
+      trigger.eventFilters.reverse();
+      mutate(trigger);
+      const expected =
+        surface === 'functions'
+          ? `${resetFunctions[0]}: trigger drift`
+          : 'Eventarc configuration drift';
+      assert.ok(
+        compareResetRelease(before, after, commit).errors.includes(expected),
+        `${surface}: ${mutate}`
+      );
+    }
+  }
+});
+test('preserves strict comparison outside filter lists', () => {
+  for (const mutate of [
+    (x) => (x.functions[0].serviceConfig.ingressSettings = 'ALLOW_ALL'),
+    (x) => (x.services[resetFunctions[0]].ingress = 'INGRESS_TRAFFIC_ALL'),
+    (x) => (x.scheduler[0].schedule = 'every 1 minutes'),
+    (x) => (x.scheduler[0].retryConfig = { retryCount: 1 }),
+    (x) => x.eventarc.reverse(),
+    (x) => (x.services[resetFunctions[0]].labels.commit_dirty = 'true'),
+  ]) {
+    const { before, after } = pair();
+    after.functions[0].eventTrigger.eventFilters.reverse();
+    after.eventarc[0].eventFilters.reverse();
+    mutate(after);
+    assert.equal(compareResetRelease(before, after, commit).status, 'BLOCKED');
+  }
 });
 test('rejects changed service account, capacity and invoker', () => {
   for (const mutate of [

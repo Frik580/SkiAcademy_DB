@@ -27,6 +27,18 @@ function sort(value) {
 const omit = (value, keys) =>
   Object.fromEntries(Object.entries(value ?? {}).filter(([key]) => !keys.includes(key)));
 const labels = (value) => omit(value, ['commit_sha', 'commit_dirty', 'firebase-functions-hash']);
+// Only these API filter lists are unordered; every field and duplicate is retained.
+function normalizeEventFilters(trigger) {
+  if (!trigger || !Array.isArray(trigger.eventFilters)) return trigger;
+  return {
+    ...trigger,
+    eventFilters: [...trigger.eventFilters].sort((a, b) => {
+      const left = canonical(a),
+        right = canonical(b);
+      return left < right ? -1 : left > right ? 1 : 0;
+    }),
+  };
+}
 export function loadResetRelease(directory) {
   const report = JSON.parse(readFileSync(join(directory, 'fence-report.json'), 'utf8'));
   const read = (name) => {
@@ -121,7 +133,11 @@ export function compareResetRelease(before, after, commit) {
       omit(next.serviceConfig, ['revision']),
       `${name}: service configuration drift`
     );
-    equal(f.eventTrigger ?? null, next.eventTrigger ?? null, `${name}: trigger drift`);
+    equal(
+      normalizeEventFilters(f.eventTrigger ?? null),
+      normalizeEventFilters(next.eventTrigger ?? null),
+      `${name}: trigger drift`
+    );
     equal(
       omit(f.buildConfig, ['build', 'source', 'sourceProvenance']),
       omit(next.buildConfig, ['build', 'source', 'sourceProvenance']),
@@ -213,8 +229,8 @@ export function compareResetRelease(before, after, commit) {
     'Scheduler configuration/state drift'
   );
   equal(
-    before.eventarc.map((t) => omit(t, ['uid', 'createTime', 'updateTime'])),
-    after.eventarc.map((t) => omit(t, ['uid', 'createTime', 'updateTime'])),
+    before.eventarc.map((t) => normalizeEventFilters(omit(t, ['uid', 'createTime', 'updateTime']))),
+    after.eventarc.map((t) => normalizeEventFilters(omit(t, ['uid', 'createTime', 'updateTime']))),
     'Eventarc configuration drift'
   );
   equal(before.subscriptions, after.subscriptions, 'PubSub configuration drift');

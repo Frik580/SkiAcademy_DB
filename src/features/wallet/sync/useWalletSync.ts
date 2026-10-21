@@ -20,21 +20,31 @@ function parseCanonicalWallet(data: Record<string, unknown> | undefined): Wallet
  */
 export const useWalletSync = () => {
   const firebaseUser = useAuthStore((s) => s.firebaseUser);
+  const authGeneration = useAuthStore((s) => s.authGeneration);
+  const refreshNonce = useWalletStore((s) => s.canonicalWalletRefreshNonce);
 
   // Canonical wallet balance — source of truth for Header / spendable balance UI.
   useEffect(() => {
+    useWalletStore.getState().resetCanonicalWallet();
     if (!firebaseUser) {
-      useWalletStore.getState().resetCanonicalWallet();
       return;
     }
 
     const walletRef = doc(db, 'users', firebaseUser.uid, 'wallet', 'state');
-    return onSnapshot(
+    let active = true;
+    const isCurrentSession = () =>
+      active &&
+      useAuthStore.getState().authGeneration === authGeneration &&
+      useAuthStore.getState().firebaseUser?.uid === firebaseUser.uid;
+    const unsubscribe = onSnapshot(
       walletRef,
+      { includeMetadataChanges: true },
       (snapshot) => {
+        if (!isCurrentSession()) return;
         if (!snapshot.exists()) {
           useWalletStore.getState().syncCanonicalWalletFromSnapshot({
             exists: false,
+            accountId: firebaseUser.uid,
             balanceKzt: 0,
           });
           return;
@@ -47,6 +57,7 @@ export const useWalletSync = () => {
           });
           useWalletStore.getState().syncCanonicalWalletFromSnapshot({
             exists: false,
+            accountId: firebaseUser.uid,
             balanceKzt: 0,
           });
           return;
@@ -59,24 +70,33 @@ export const useWalletSync = () => {
           });
           useWalletStore.getState().syncCanonicalWalletFromSnapshot({
             exists: false,
+            accountId: firebaseUser.uid,
             balanceKzt: 0,
           });
           return;
         }
 
         useWalletStore.getState().syncCanonicalWalletFromSnapshot({
+          accountId: firebaseUser.uid,
+          trusted: !snapshot.metadata.fromCache && !snapshot.metadata.hasPendingWrites,
           exists: true,
           balanceKzt: wallet.balance,
           eventRevision: wallet.eventRevision,
         });
       },
       (error) => {
+        if (!isCurrentSession()) return;
         logger.error('Canonical wallet sync error:', error);
         useWalletStore.getState().syncCanonicalWalletFromSnapshot({
           exists: false,
+          accountId: firebaseUser.uid,
           balanceKzt: 0,
         });
       }
     );
-  }, [firebaseUser]);
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [firebaseUser, authGeneration, refreshNonce]);
 };

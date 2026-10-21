@@ -927,6 +927,12 @@ export const translations = {
     walletSufficient: 'is sufficient.',
     insufficientCreditsPrefix: 'Insufficient credits (Wallet Balance:',
     instantTopUp: 'Instantly Top Up',
+    bookingWalletBalance: 'Current balance',
+    bookingLessonCost: 'Lesson cost',
+    bookingWalletLoading: 'Loading wallet balance…',
+    bookingWalletUnavailable: 'Wallet balance is unavailable. Please try again later.',
+    bookingInsufficientFunds:
+      'Insufficient funds to pay for the lesson. Top up your balance to continue booking.',
     payConfirmLesson: 'Confirm — deduct {amount} from balance',
 
     // Payment Gateway
@@ -3403,6 +3409,12 @@ export const translations = {
     walletSufficient: 'достаточен.',
     insufficientCreditsPrefix: 'Недостаточно средств (баланс кошелька:',
     instantTopUp: 'Пополнить баланс на',
+    bookingWalletBalance: 'Текущий баланс',
+    bookingLessonCost: 'Стоимость занятия',
+    bookingWalletLoading: 'Загрузка баланса…',
+    bookingWalletUnavailable: 'Баланс кошелька недоступен. Попробуйте позже.',
+    bookingInsufficientFunds:
+      'Недостаточно средств для оплаты занятия. Пополните баланс, чтобы продолжить бронирование',
     payConfirmLesson: 'Подтвердить — списать {amount} с баланса',
 
     // Payment Gateway

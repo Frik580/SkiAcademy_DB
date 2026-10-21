@@ -2,7 +2,8 @@
 
 Scope: `ski-school-staging/(default)` only. Production unchanged. This document
 prepares future execution; **no cloud writes, deploy or merge are authorized**.
-Commit/push/PR for the guard are authorized. Execute this plan only after explicit
+The current preparation task does not authorize commit, push, merge or cloud changes.
+Execute this plan only after explicit
 migration/cutover permission, approved source revision, green PR CI and an approved
 maintenance window. Staging contains recoverable test data: backup/rehearsal is
 optional. Production backup/recovery requirements remain mandatory.
@@ -13,7 +14,13 @@ Functions TypeScript/build/provenance PASS; application TypeScript and full ESLi
 PASS (0 errors, existing formatting warnings); independent review and diff check
 PASS. CI now fails if the required emulator suites or actual CLI regression are
 absent, skipped or failed; its verifier also passed against the local JSON report.
-GitHub CI for the exact PR head is a separate required gate.
+GitHub CI for the exact PR head is a separate required gate. These release results
+are historical, not a claim that this preparation reran them.
+
+**Current execution gate: BLOCKED.** See
+[the no-deny fence assessment and fresh evidence](staging-attendance-no-deny-fence.md).
+That assessment supersedes earlier IAM-deny proposals in ignored scratch artifacts.
+Public-invoker restrictions and Rules alone do not close privileged writers.
 
 ## Preconditions and fresh inventory
 
@@ -131,12 +138,23 @@ if ($LASTEXITCODE -ne 0) { throw 'Blocked/incomplete backfill; no cutover' }
 ```
 
 Inspect all page summaries: advancing document-ID cursors, final page exhausted,
-sum(outcomes)=scannedBookings=full Booking count, blocked=deleted=0. With the six
-already repaired, require unchanged=full Booking count and no new work changes;
-otherwise STOP and review the additional rows. Verify all 52 work schemas, scopes,
+sum(outcomes)=scannedBookings=full Booking count, blocked=deleted=0. With only the six
+pending repaired, the first backfill must report **updated=10, unchanged=42,
+created=deleted=blocked=0**. The ten cancelled Booking projections change only
+sourceBookingRevision (1→2), sourceLifecycleStatus (pending→cancelled), workRevision
+(1→2), and updatedAt. Verify each exact diff. A second separate backfill must report
+**unchanged=52**, all other outcomes zero, and no work payload changes. Otherwise
+STOP. Do not manually reconcile the ten before that first backfill; doing so changes
+the expected counters. Verify all 52 work schemas, scopes,
 identities and source relationships, six results, unchanged domain manifests and
 absent marker with a fresh read-only snapshot. Original pre-write baseline
 assertions above intentionally no longer apply after completion.
+
+```powershell
+# Separate repeat-backfill action; compare all typed manifests before continuing.
+node functions/scripts/backfillBookingAttendanceOutcomeWork.cjs --project ski-school-staging --page-size 100 --apply
+if ($LASTEXITCODE -ne 0) { throw 'Repeat backfill failed; no cutover' }
+```
 
 ```powershell
 # Separate cutover approval required; this invocation rechecks an idempotent full

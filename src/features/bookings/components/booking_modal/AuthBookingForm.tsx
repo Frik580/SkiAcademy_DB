@@ -46,6 +46,7 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
     overlappingBooking,
     overlappingCourse,
     totalCost,
+    bookingWallet,
     additionalParticipantSurchargePerHourKzt,
     maxParticipantsPerLesson,
     pricingSettingsLoading,
@@ -86,6 +87,7 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
       clientActive: userProfile?.isClientActive !== false,
       selectedParticipantCount: effectiveParticipantIds.length,
     }) ||
+    !bookingWallet.canPay ||
     hourlyRateKzt === undefined ||
     pricingSettingsLoading ||
     lessonSettingsUnavailable ||
@@ -159,6 +161,7 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
 
         {showParticipantPicker && (
           <ParticipantPicker
+            hideDependentLabel
             participants={managedParticipants}
             selectedParticipantIds={selectedParticipantIds}
             onToggleParticipant={toggleParticipant}
@@ -215,15 +218,32 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
         )}
 
         <div className="space-y-2.5 px-4 pb-4 pt-3">
-          {userProfile?.isClientActive === false ? (
+          <div role="status" className="space-y-1 type-caption text-[var(--ink-dim)]">
+            <p>
+              {t('bookingWalletBalance')}:{' '}
+              {bookingWallet.balance === null ? '—' : formatPrice(bookingWallet.balance)}
+            </p>
+            <p>
+              {t('bookingLessonCost')}: {totalFormatted}
+            </p>
+            {bookingWallet.status !== 'ready' && (
+              <p>
+                {t(
+                  bookingWallet.status === 'loading'
+                    ? 'bookingWalletLoading'
+                    : 'bookingWalletUnavailable'
+                )}
+              </p>
+            )}
+            {bookingWallet.insufficient && (
+              <p className="text-rose-600 dark:text-rose-400">{t('bookingInsufficientFunds')}</p>
+            )}
+          </div>
+          {userProfile?.isClientActive === false && (
             <div className="flex items-center gap-2 type-caption font-medium text-rose-600 dark:text-rose-400">
               <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
               <span>{t('bookingAccessRestricted')}</span>
             </div>
-          ) : (
-            <p className="type-caption text-[var(--ink-dim)]">
-              Payment is confirmed server-side when you submit.
-            </p>
           )}
 
           <ActionButton

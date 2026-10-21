@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ManagedParticipantOption } from '../../src/features/lesson-bookings/lessonBookingContracts';
 import { AuthBookingForm } from '../../src/features/bookings/components/booking_modal/AuthBookingForm';
+import { translations } from '../../src/lib/i18n/translations';
+import { ParticipantPicker } from '../../src/features/participants/components/ParticipantPicker';
 import type { useBookingModal } from '../../src/features/bookings/components/booking_modal/useBookingModal';
 
 vi.mock('../../src/app/providers/CurrencyContext', () => ({
@@ -82,6 +84,7 @@ function createWorkspace(
     overlappingBooking: null,
     overlappingCourse: null,
     totalCost: 20000,
+    bookingWallet: { balance: 100000, status: 'ready', insufficient: false, canPay: true },
     additionalParticipantSurchargePerHourKzt: 6000,
     maxParticipantsPerLesson: 4,
     pricingSettingsLoading: false,
@@ -292,4 +295,59 @@ describe('AuthBookingForm participant picker', () => {
     expect(screen.queryByText(/payConfirmLesson/i)).not.toBeInTheDocument();
     expect(submit.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
   });
+});
+
+describe('booking wallet presentation', () => {
+  it.each(['ru', 'en'] as const)(
+    'localizes wallet feedback and hides only the booking dependent label (%s)',
+    (language) => {
+      const t = (key: string) => translations[language][key as keyof typeof translations.en];
+      const workspace = createWorkspace({
+        language,
+        t,
+        managedParticipants: [selfOnly, dependent],
+        selectedParticipantIds: [selfOnly.participantId, dependent.participantId],
+        bookingWallet: { balance: 0, status: 'ready', insufficient: true, canPay: false },
+      });
+      const view = render(<AuthBookingForm workspace={workspace} />);
+      expect(screen.getByText(t('bookingInsufficientFunds'))).toBeInTheDocument();
+      expect(screen.getByText(`${t('bookingWalletBalance')}: 0`)).toBeInTheDocument();
+      expect(screen.getByText(`${t('bookingLessonCost')}: 20000`)).toBeInTheDocument();
+      expect(screen.queryByText(t('participantAuthorityDependent'))).not.toBeInTheDocument();
+      expect(
+        screen.queryByText('Payment is confirmed server-side when you submit.')
+      ).not.toBeInTheDocument();
+      expect(view.container.querySelector('button[type="submit"]')).toBeDisabled();
+      view.unmount();
+      render(
+        <ParticipantPicker
+          participants={[selfOnly, dependent]}
+          selectedParticipantIds={[]}
+          onToggleParticipant={vi.fn()}
+          loading={false}
+          maxParticipants={4}
+          t={t}
+        />
+      );
+      expect(screen.getByText(t('participantAuthorityDependent'))).toBeInTheDocument();
+    }
+  );
+
+  it.each(['loading', 'unavailable'] as const)(
+    'blocks payment with neutral %s feedback',
+    (status) => {
+      render(
+        <AuthBookingForm
+          workspace={createWorkspace({
+            bookingWallet: { balance: null, status, insufficient: false, canPay: false },
+          })}
+        />
+      );
+      expect(
+        screen.getByText(status === 'loading' ? 'bookingWalletLoading' : 'bookingWalletUnavailable')
+      ).toBeInTheDocument();
+      expect(screen.queryByText('bookingInsufficientFunds')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /payConfirmLesson/ })).toBeDisabled();
+    }
+  );
 });

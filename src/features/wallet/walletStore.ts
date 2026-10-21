@@ -9,6 +9,8 @@ export interface BalanceOptimisticState {
 }
 
 export interface CanonicalWalletSnapshot {
+  canonicalWalletAccountId: string | null;
+  canonicalWalletTrusted: boolean;
   /** Authoritative spendable balance from `/users/{accountId}/wallet/state` (KZT minor units). */
   canonicalBalanceKzt: number | null;
   /** Refresh history on committed monetary changes, even if the net balance is unchanged. */
@@ -20,12 +22,16 @@ export interface CanonicalWalletSnapshot {
 }
 
 interface WalletState extends BalanceOptimisticState, CanonicalWalletSnapshot {
+  canonicalWalletRefreshNonce: number;
+  refreshCanonicalWallet: () => void;
   walletLedgerEntries: WalletLedgerEntry[];
   setWalletLedgerEntries: (entries: WalletLedgerEntry[]) => void;
   syncCanonicalWalletFromSnapshot: (input: {
     exists: boolean;
     balanceKzt: number | null;
     eventRevision?: number;
+    accountId?: string;
+    trusted?: boolean;
   }) => void;
   resetCanonicalWallet: () => void;
 }
@@ -59,6 +65,8 @@ export const balanceOptimisticMiddleware: BalanceOptimisticImpl =
   };
 
 const EMPTY_CANONICAL_WALLET: CanonicalWalletSnapshot = {
+  canonicalWalletAccountId: null,
+  canonicalWalletTrusted: false,
   canonicalBalanceKzt: null,
   canonicalWalletEventRevision: null,
   canonicalWalletExists: false,
@@ -68,12 +76,20 @@ const EMPTY_CANONICAL_WALLET: CanonicalWalletSnapshot = {
 export const useWalletStore = create<WalletState>()(
   balanceOptimisticMiddleware((set) => ({
     ...EMPTY_CANONICAL_WALLET,
+    canonicalWalletRefreshNonce: 0,
+    refreshCanonicalWallet: () =>
+      set((state) => ({
+        ...EMPTY_CANONICAL_WALLET,
+        canonicalWalletRefreshNonce: state.canonicalWalletRefreshNonce + 1,
+      })),
     walletLedgerEntries: [],
     optimisticBalanceDelta: 0,
 
     setWalletLedgerEntries: (entries) => set({ walletLedgerEntries: entries }),
-    syncCanonicalWalletFromSnapshot: ({ exists, balanceKzt, eventRevision }) =>
+    syncCanonicalWalletFromSnapshot: ({ exists, balanceKzt, eventRevision, accountId, trusted }) =>
       set({
+        canonicalWalletAccountId: accountId ?? null,
+        canonicalWalletTrusted: trusted === true,
         canonicalWalletExists: exists,
         canonicalBalanceKzt: exists ? (balanceKzt ?? 0) : 0,
         canonicalWalletEventRevision: exists ? (eventRevision ?? null) : null,

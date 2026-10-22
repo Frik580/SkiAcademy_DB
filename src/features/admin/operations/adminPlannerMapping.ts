@@ -1,9 +1,10 @@
+import type { ScheduleBooking } from '../components/schedule/scheduleContracts';
 import type { AdminPlannerOccupancyItem, AdminPlannerReadModel } from '@ski-academy/shared-domain';
 import type { Booking, Course, Instructor } from '../../../types';
 import { plannerDayWindow } from './adminPlannerDayWindow';
 
 function durationHours(minutes: number): number {
-  return Math.max(1, Math.round(minutes / 60));
+  return Math.max(1, minutes) / 60;
 }
 
 export function normalizeScheduleTime(time: string): string {
@@ -12,7 +13,10 @@ export function normalizeScheduleTime(time: string): string {
   return `${hour.padStart(2, '0')}:${rawMinute.padStart(2, '0')}`;
 }
 
-function localDateTime(seconds: number, timeZone: string): { date: string; time: string } {
+export function plannerLocalDateTime(
+  seconds: number,
+  timeZone: string
+): { date: string; time: string } {
   const values = Object.fromEntries(
     new Intl.DateTimeFormat('en-CA', {
       timeZone,
@@ -32,11 +36,15 @@ function localDateTime(seconds: number, timeZone: string): { date: string; time:
   };
 }
 
-function occupancyPresentationForDay(item: AdminPlannerOccupancyItem, localDate: string) {
-  const dayWindow = plannerDayWindow(localDate, item.timeZone);
+function occupancyPresentationForDay(
+  item: AdminPlannerOccupancyItem,
+  localDate: string,
+  timeZone = item.timeZone
+) {
+  const dayWindow = plannerDayWindow(localDate, timeZone);
   const clipStartSeconds = Math.max(item.interval.startsAt.seconds, dayWindow.startsAt.seconds);
   const clipEndSeconds = Math.min(item.interval.endsAt.seconds, dayWindow.endsAt.seconds);
-  const local = localDateTime(clipStartSeconds, item.timeZone);
+  const local = plannerLocalDateTime(clipStartSeconds, timeZone);
   return {
     date: local.date,
     time: local.time,
@@ -69,14 +77,16 @@ export function mapPlannerInstructors(model: AdminPlannerReadModel): Instructor[
 
 export function mapPlannerOccupancyToBookings(
   occupancy: readonly AdminPlannerOccupancyItem[],
-  displayLocalDate?: string
-): Booking[] {
-  return occupancy.flatMap<Booking>((item) => {
+  displayLocalDate?: string,
+  displayTimeZone?: string
+): (Booking & Pick<ScheduleBooking, 'participantLabel'>)[] {
+  return occupancy.flatMap<Booking & Pick<ScheduleBooking, 'participantLabel'>>((item) => {
     const presentation = displayLocalDate
-      ? occupancyPresentationForDay(item, displayLocalDate)
+      ? occupancyPresentationForDay(item, displayLocalDate, displayTimeZone)
       : {
-          date: item.localDate,
-          time: normalizeScheduleTime(item.localTime),
+          ...(displayTimeZone
+            ? plannerLocalDateTime(item.interval.startsAt.seconds, displayTimeZone)
+            : { date: item.localDate, time: normalizeScheduleTime(item.localTime) }),
           durationMinutes: item.durationMinutes,
         };
     const status: Booking['status'] =
@@ -121,6 +131,7 @@ export function mapPlannerOccupancyToBookings(
         status,
         ...(item.difficulty ? { difficulty: item.difficulty } : {}),
         ...(item.notes ? { notes: item.notes } : {}),
+        participantLabel: item.participantNames?.join(', ') || item.displayTitle,
         isGuest: item.isGuest,
         guestName: item.isGuest ? item.displayTitle : undefined,
         ...(item.attendanceOverdue ? { attendanceOverdue: true } : {}),
@@ -134,17 +145,20 @@ export function mapPlannerOccupancyToBookings(
 
 export function mapPlannerCourses(
   occupancy: readonly AdminPlannerOccupancyItem[],
-  displayLocalDate?: string
+  displayLocalDate?: string,
+  displayTimeZone?: string
 ): Course[] {
   return occupancy.flatMap<Course>((item) => {
     if (item.occupancyKind !== 'course_day' || !item.courseId) return [];
     const presentation = displayLocalDate
-      ? occupancyPresentationForDay(item, displayLocalDate)
+      ? occupancyPresentationForDay(item, displayLocalDate, displayTimeZone)
       : undefined;
-    const end = localDateTime(item.interval.endsAt.seconds, item.timeZone);
-    const startDate = courseDate(presentation?.date ?? item.localDate);
+    const timeZone = displayTimeZone ?? item.timeZone;
+    const start = plannerLocalDateTime(item.interval.startsAt.seconds, timeZone);
+    const end = plannerLocalDateTime(item.interval.endsAt.seconds, timeZone);
+    const startDate = courseDate(presentation?.date ?? start.date);
     const endDate = courseDate(end.date);
-    const startTime = presentation?.time ?? normalizeScheduleTime(item.localTime);
+    const startTime = presentation?.time ?? start.time;
     return [
       {
         id: item.occupancyId,

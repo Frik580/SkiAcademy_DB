@@ -6,4 +6,4 @@ import type { ScheduleCourse } from './scheduleContracts';
 export const getScheduleCourseTitle = (
   course: ScheduleCourse,
   language: Parameters<typeof translateCourse>[1]
-) => translateCourse(course as Course, language).title;
+) => translateCourse({ ...course, duration: '' } as Course, language).title;

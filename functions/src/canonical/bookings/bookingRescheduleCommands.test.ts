@@ -417,6 +417,72 @@ async function createConfirmedBookingForParticipants(
 }
 
 describe('booking reschedule commands', () => {
+  it('keeps instructor occupancy after a same-day reschedule and rejects another canonical booking', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
+    await createConfirmedBooking(executor);
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-01T00:00:00.000Z'),
+      executor
+    );
+    const target = { localDate: '2026-01-15', localTime: '10:00', durationMinutes: 60 };
+    expect(
+      (await commands.execute(rescheduleEnvelope('same-bucket-move', 'administrator', 1, target)))
+        .status
+    ).toBe('success');
+    const result = await commands.execute({
+      kind: 'create_confirmed_booking',
+      context: accountContext(
+        'account_owner',
+        accountId,
+        'same-bucket-conflict',
+        undefined,
+        target
+      ),
+      intent: {
+        bookingId: BookingIdSchema.parse('booking_same_bucket_conflict'),
+        instructorId,
+        participantIds: [participantTwoId],
+      },
+    });
+    expect(resultErrorCode(result)).toBe('instructor_conflict');
+  });
+
+  it.each(['duration', 'instructor'] as const)(
+    'preserves guard entries after %s changes',
+    async (mode) => {
+      const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
+      await createConfirmedBooking(executor);
+      const commands = createProductionCanonicalCommands(
+        environment('2026-01-01T00:00:00.000Z'),
+        executor
+      );
+      const context = accountContext('administrator', adminAccountId, `guard-${mode}`, 1);
+      const result =
+        mode === 'duration'
+          ? await commands.execute({
+              kind: 'change_booking_duration',
+              context,
+              intent: { bookingId, durationMinutes: 120, reasonExplanation: 'Regression' },
+            })
+          : await commands.execute({
+              kind: 'change_booking_instructor',
+              context,
+              intent: { bookingId, instructorId: instructorTwoId, reasonExplanation: 'Regression' },
+            });
+      expect(result.status).toBe('success');
+      const docs = executor.snapshot().docs;
+      const guards = [...docs.entries()]
+        .filter(([path]) => path.startsWith('resource_claim_guards/'))
+        .flatMap(([, doc]) => doc.data.entries);
+      const activeClaims = [...docs.entries()].filter(
+        ([path, doc]) =>
+          path.startsWith('resource_claims/') && doc.data.lifecycle.status === 'active'
+      );
+      for (const [, claim] of activeClaims)
+        expect(guards.some((entry) => entry.claimId === claim.data.claimId)).toBe(true);
+    }
+  );
+
   it('reschedules the whole multi-participant party with one instructor claim', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
     await createConfirmedBooking(executor);

@@ -1,3 +1,5 @@
+import { ScheduleConflictDay } from './ScheduleConflictDay';
+import { scheduleDayEvents, scheduleDayNeedsList } from './scheduleDayViewPlacement';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { BookOpen, Clock, Lock, Plus } from 'lucide-react';
 import { Instructor, Booking, UserProfile, Course } from '../../../../types';
@@ -207,6 +209,9 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
               !booking.isDeleted
           );
 
+          const events = scheduleDayEvents(bookings, courses, instructor.id, selectedDate);
+          const hasConflict = scheduleDayNeedsList(events);
+
           return (
             <section
               key={instructor.id}
@@ -230,81 +235,93 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
                 {!instructor.isAvailable && <Lock className="h-4 w-4 text-[var(--ink-dim)]" />}
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                {SCHEDULE_TIME_SLOTS.map((time, slotIndex) => {
-                  const slotBooking = dayViewBookingForSlot(
-                    bookings,
-                    instructor.id,
-                    selectedDate,
-                    time,
-                    slotIndex
-                  );
-                  const booking = slotBooking?.startsHere ? slotBooking.booking : undefined;
-                  if (booking) {
-                    return (
-                      <ScheduleBookingCell
-                        key={time}
-                        booking={booking}
-                        instructor={instructor}
-                        usersList={usersList}
-                        onOpen={handleOpenSlotAction}
-                        onDelete={handleSlotDeleteClick}
-                      />
+              {hasConflict ? (
+                <ScheduleConflictDay
+                  events={events}
+                  instructor={instructor}
+                  instructors={instructors}
+                  bookings={bookings}
+                  usersList={usersList}
+                  onOpenSlot={handleOpenSlotAction}
+                  onDeleteSlot={handleSlotDeleteClick}
+                />
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  {SCHEDULE_TIME_SLOTS.map((time, slotIndex) => {
+                    const slotBooking = dayViewBookingForSlot(
+                      bookings,
+                      instructor.id,
+                      selectedDate,
+                      time,
+                      slotIndex
                     );
-                  }
+                    const booking = slotBooking?.startsHere ? slotBooking.booking : undefined;
+                    if (booking) {
+                      return (
+                        <ScheduleBookingCell
+                          key={time}
+                          booking={booking}
+                          instructor={instructor}
+                          usersList={usersList}
+                          onOpen={handleOpenSlotAction}
+                          onDelete={handleSlotDeleteClick}
+                        />
+                      );
+                    }
 
-                  const course = courses.find((item) => {
-                    if (!item.instructorIds?.includes(instructor.id)) return false;
-                    const { start, end, startTime, endTime } = parseCourseDates(item.dates);
-                    const courseStart = formatDateLocalYMD(start);
-                    const courseEnd = formatDateLocalYMD(end);
-                    const slotHour = Number(time.slice(0, 2));
-                    return (
-                      selectedDate >= courseStart &&
-                      selectedDate <= courseEnd &&
-                      slotHour >= Number(startTime.slice(0, 2)) &&
-                      slotHour < Number(endTime.slice(0, 2))
-                    );
-                  });
+                    const course = courses.find((item) => {
+                      if (!item.instructorIds?.includes(instructor.id)) return false;
+                      const { start, end, startTime, endTime } = parseCourseDates(item.dates);
+                      const courseStart = formatDateLocalYMD(start);
+                      const courseEnd = formatDateLocalYMD(end);
+                      const slotHour = Number(time.slice(0, 2));
+                      return (
+                        selectedDate >= courseStart &&
+                        selectedDate <= courseEnd &&
+                        slotHour >= Number(startTime.slice(0, 2)) &&
+                        slotHour < Number(endTime.slice(0, 2))
+                      );
+                    });
 
-                  if (course) {
+                    if (course) {
+                      return (
+                        <div
+                          key={time}
+                          className="flex min-h-12 items-center gap-2 border border-violet-200/50 bg-violet-50/60 px-3 type-caption text-violet-800 dark:border-violet-900/40 dark:bg-violet-950/20 dark:text-violet-200"
+                        >
+                          <BookOpen className="h-3.5 w-3.5 shrink-0" />
+                          <span className="min-w-0 truncate">
+                            {translateCourse(course, language).title}
+                          </span>
+                        </div>
+                      );
+                    }
+
+                    const isOccupied = dayBookings.some((item) => {
+                      const start = Number(item.time.slice(0, 2));
+                      const slot = Number(time.slice(0, 2));
+                      return slot > start && slot < start + item.durationHours;
+                    });
+
                     return (
-                      <div
+                      <button
                         key={time}
-                        className="flex min-h-12 items-center gap-2 border border-violet-200/50 bg-violet-50/60 px-3 type-caption text-violet-800 dark:border-violet-900/40 dark:bg-violet-950/20 dark:text-violet-200"
+                        type="button"
+                        disabled={!instructor.isAvailable || isOccupied}
+                        onClick={() => handleOpenSlotAction(instructor, time)}
+                        className="flex min-h-12 items-center justify-between border border-dashed border-[var(--border)] px-3 text-left type-button text-[var(--ink-dim)] transition enabled:hover:border-accent enabled:hover:bg-accent-muted disabled:cursor-not-allowed disabled:opacity-45"
                       >
-                        <BookOpen className="h-3.5 w-3.5 shrink-0" />
-                        <span className="min-w-0 truncate">
-                          {translateCourse(course, language).title}
-                        </span>
-                      </div>
+                        <span>{time}</span>
+                        {instructor.isAvailable && !isOccupied ? (
+                          <Plus className="h-4 w-4" />
+                        ) : (
+                          <Lock className="h-3.5 w-3.5" />
+                        )}
+                      </button>
                     );
-                  }
-
-                  const isOccupied = dayBookings.some((item) => {
-                    const start = Number(item.time.slice(0, 2));
-                    const slot = Number(time.slice(0, 2));
-                    return slot > start && slot < start + item.durationHours;
-                  });
-
-                  return (
-                    <button
-                      key={time}
-                      type="button"
-                      disabled={!instructor.isAvailable || isOccupied}
-                      onClick={() => handleOpenSlotAction(instructor, time)}
-                      className="flex min-h-12 items-center justify-between border border-dashed border-[var(--border)] px-3 text-left type-button text-[var(--ink-dim)] transition enabled:hover:border-accent enabled:hover:bg-accent-muted disabled:cursor-not-allowed disabled:opacity-45"
-                    >
-                      <span>{time}</span>
-                      {instructor.isAvailable && !isOccupied ? (
-                        <Plus className="h-4 w-4" />
-                      ) : (
-                        <Lock className="h-3.5 w-3.5" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+                  })}
+                </div>
+              )}
             </section>
           );
         })

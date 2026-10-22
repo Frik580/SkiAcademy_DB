@@ -363,6 +363,44 @@ describe.skipIf(!runsOnFirestoreEmulator)('booking reschedule Firestore emulator
     await seedSharedFixture();
   }, 30_000);
 
+  it('keeps same-day reschedule guards and rejects parallel canonical conflicts', async () => {
+    const commands = createCommands();
+    await createConfirmedBooking(commands);
+    const target = { localDate: '2026-01-15', localTime: '10:00', durationMinutes: 60 };
+    const moved = await commands.execute(
+      rescheduleEnvelope('same-day-guard-regression', 1, target)
+    );
+    expect(moved.status).toBe('success');
+    const before = await firestore.collection('bookings').get();
+    const attempts = await Promise.all(
+      [1, 2].map((index) =>
+        commands.execute({
+          kind: 'create_confirmed_booking',
+          context: {
+            ...accountContext(
+              'account_owner',
+              accountId,
+              `same-day-race-${index}`,
+              undefined,
+              target
+            ),
+          },
+          intent: {
+            bookingId: BookingIdSchema.parse(`booking_same_day_race_${index}`),
+            instructorId,
+            participantIds: [participantId],
+          },
+        })
+      )
+    );
+    expect(
+      attempts.every(
+        (result) => result.status === 'error' && result.error.code === 'instructor_conflict'
+      )
+    ).toBe(true);
+    expect((await firestore.collection('bookings').get()).size).toBe(before.size);
+  });
+
   it('A. serializes concurrent client self-service reschedules to one winner with single occurrence rotation', async () => {
     const commands = createCommands('2026-01-01T00:00:00.000Z');
     await createConfirmedBooking(commands);

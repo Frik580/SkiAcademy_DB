@@ -1,6 +1,6 @@
 import type { Booking, Course } from '../../../../types';
 import { parseCourseDates } from '../../../../app/providers/LanguageContext';
-import { formatDateLocalYMD, hourToMinutes } from './scheduleUtils';
+import { formatDateLocalYMD, hourToMinutes, scheduleIntervalsOverlap } from './scheduleUtils';
 
 export const SCHEDULE_TIME_SLOTS = [
   '08:00',
@@ -50,7 +50,7 @@ export function hasScheduleOverlap({
 
     const bookingStart = hourToMinutes(booking.time);
     const bookingEnd = bookingStart + booking.durationHours * 60;
-    return startMin < bookingEnd && endMin > bookingStart;
+    return scheduleIntervalsOverlap(startMin, endMin, bookingStart, bookingEnd);
   });
 
   if (hasBookingOverlap) return true;
@@ -71,7 +71,7 @@ export function hasScheduleOverlap({
 
     const courseStartMinutes = hourToMinutes(startTime);
     const courseEndMinutes = hourToMinutes(endTime);
-    return startMin < courseEndMinutes && endMin > courseStartMinutes;
+    return scheduleIntervalsOverlap(startMin, endMin, courseStartMinutes, courseEndMinutes);
   });
 }
 

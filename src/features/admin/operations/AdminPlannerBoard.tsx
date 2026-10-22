@@ -106,17 +106,19 @@ export function AdminPlannerBoard({
     () =>
       mapPlannerOccupancyToBookings(
         view === 'day' ? visibleOccupancy : occupancy,
-        view === 'day' ? localDate : undefined
+        view === 'day' ? localDate : undefined,
+        plannerTimeZone
       ),
-    [localDate, occupancy, view, visibleOccupancy]
+    [localDate, occupancy, view, visibleOccupancy, plannerTimeZone]
   );
   const courses = useMemo(
     () =>
       mapPlannerCourses(
         view === 'day' ? visibleOccupancy : occupancy,
-        view === 'day' ? localDate : undefined
+        view === 'day' ? localDate : undefined,
+        plannerTimeZone
       ),
-    [localDate, occupancy, view, visibleOccupancy]
+    [localDate, occupancy, view, visibleOccupancy, plannerTimeZone]
   );
 
   const handleWindowChange = useCallback(
@@ -141,12 +143,13 @@ export function AdminPlannerBoard({
         () =>
           createPlannerOccupancyFromLegacyBookingShape({
             adminAccountId: adminProfile.uid,
+            displayTimeZone: plannerTimeZone,
             booking,
           }),
         refreshAllProjections
       );
     },
-    [adminProfile.uid, refreshAllProjections]
+    [adminProfile.uid, refreshAllProjections, plannerTimeZone]
   );
 
   const handleReschedule = useCallback(
@@ -155,6 +158,7 @@ export function AdminPlannerBoard({
         () =>
           reschedulePlannerOccupancy({
             adminAccountId: adminProfile.uid,
+            displayTimeZone: plannerTimeZone,
             occupancy,
             occupancyId: id,
             localDate: newDate,
@@ -163,7 +167,7 @@ export function AdminPlannerBoard({
         refreshAllProjections
       );
     },
-    [adminProfile.uid, occupancy, refreshAllProjections]
+    [adminProfile.uid, occupancy, refreshAllProjections, plannerTimeZone]
   );
 
   const handleReassign = useCallback(
@@ -172,6 +176,7 @@ export function AdminPlannerBoard({
         () =>
           reassignPlannerOccupancy({
             adminAccountId: adminProfile.uid,
+            displayTimeZone: plannerTimeZone,
             occupancy,
             occupancyId: id,
             instructor,
@@ -181,7 +186,7 @@ export function AdminPlannerBoard({
         refreshAllProjections
       );
     },
-    [adminProfile.uid, occupancy, refreshAllProjections]
+    [adminProfile.uid, occupancy, refreshAllProjections, plannerTimeZone]
   );
 
   const handleChangeDuration = useCallback(

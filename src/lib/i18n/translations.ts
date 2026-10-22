@@ -1274,6 +1274,14 @@ export const translations = {
     adminLessonAttendanceLastChangedBy: 'Last changed by',
     adminLessonRecordPresent: 'Present',
     adminLessonRecordAbsent: 'Absent',
+    adminLessonRefreshAttendance: 'Refresh attendance',
+    adminLessonCorrectAttendance: 'Correct attendance',
+    adminLessonConfirmCorrectionTitle: 'Confirm attendance correction',
+    adminLessonConfirmCorrectionSubmit: 'Confirm correction',
+    adminLessonConfirmCorrectionWarning:
+      'Attendance will be corrected and the lesson status recalculated: present — completed, absent — no-show.',
+    adminLessonAttendanceRefreshPending:
+      'Attendance was saved. Refresh the lesson before making another change.',
     adminLessonFinalizeAttendance: 'Calculate attendance results',
     adminLessonConfirmAttendanceTitle: 'Confirm attendance',
     adminLessonConfirmAttendanceWarning:
@@ -3753,6 +3761,14 @@ export const translations = {
     adminLessonAttendanceLastChangedBy: 'Последнее изменение',
     adminLessonRecordPresent: 'Присутствовал',
     adminLessonRecordAbsent: 'Отсутствовал',
+    adminLessonRefreshAttendance: 'Обновить посещаемость',
+    adminLessonCorrectAttendance: 'Исправить посещаемость',
+    adminLessonConfirmCorrectionTitle: 'Подтвердите исправление посещаемости',
+    adminLessonConfirmCorrectionSubmit: 'Подтвердить исправление',
+    adminLessonConfirmCorrectionWarning:
+      'Посещаемость будет исправлена, статус тренировки пересчитан: присутствовал — завершена, отсутствовал — неявка.',
+    adminLessonAttendanceRefreshPending:
+      'Посещаемость сохранена. Обновите тренировку перед следующим изменением.',
     adminLessonFinalizeAttendance: 'Рассчитать результаты посещаемости',
     adminLessonConfirmAttendanceTitle: 'Подтвердите посещаемость',
     adminLessonConfirmAttendanceWarning:

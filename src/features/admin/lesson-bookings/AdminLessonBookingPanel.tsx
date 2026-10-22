@@ -106,6 +106,8 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
   const [confirmation, setConfirmation] = useState<Confirmation>();
   const [mutationPending, setMutationPending] = useState(false);
   const [attendanceFinalizeSuccessNonce, setAttendanceFinalizeSuccessNonce] = useState(0);
+  const attendanceInFlight = useRef(false);
+  const [attendanceRefreshBlocked, setAttendanceRefreshBlocked] = useState<string>();
   const [mutationError, setMutationError] = useState<{ code: string; message: string }>();
   const [mutationNotice, setMutationNotice] = useState<string>();
   const detailPanelRef = useRef<HTMLElement>(null);
@@ -241,7 +243,14 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
   const handleCommitAttendanceFinalize = useCallback(
     async (attempt: AdminLessonBookingMutationDraft): Promise<boolean> => {
       const item = detailRef.current;
-      if (!item || mutationPending) return false;
+      if (
+        !item ||
+        mutationPending ||
+        attendanceInFlight.current ||
+        attendanceRefreshBlocked === JSON.stringify(item)
+      )
+        return false;
+      attendanceInFlight.current = true;
       setMutationPending(true);
       setMutationError(undefined);
       const fullAttempt = {
@@ -250,15 +259,27 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
         idempotencyKey: createAdminLessonBookingAttemptId(attempt.kind),
       } as AdminLessonBookingMutationAttempt;
       const result = await commands.runAttempt(fullAttempt);
+      attendanceInFlight.current = false;
       setMutationPending(false);
       if (result.status === 'success') {
+        if (result.refreshFailed) {
+          setAttendanceRefreshBlocked(
+            JSON.stringify(
+              detailRef.current?.bookingId === item.bookingId ? detailRef.current : item
+            )
+          );
+          setMutationNotice(t('adminLessonAttendanceRefreshPending'));
+        }
         setAttendanceFinalizeSuccessNonce((value) => value + 1);
         return true;
+      }
+      if (result.error.code === 'stale_version') {
+        setAttendanceRefreshBlocked(JSON.stringify(item));
       }
       setMutationError(result.error);
       return false;
     },
-    [commands, mutationPending]
+    [commands, mutationPending, attendanceRefreshBlocked, t]
   );
 
   const handleSelectBooking = useCallback(
@@ -327,6 +348,25 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
           {mutationNotice}
         </div>
       )}
+      {attendanceRefreshBlocked && detail && (
+        <button
+          type="button"
+          className="btn-secondary px-3 py-2 type-button"
+          disabled={mutationPending}
+          onClick={() => {
+            const bookingId = detail.bookingId;
+            void refreshBookingWithProjections(bookingId)
+              .then((result) => {
+                if (result.status !== 'success') return;
+                setAttendanceRefreshBlocked(undefined);
+                setMutationNotice(undefined);
+              })
+              .catch(() => {});
+          }}
+        >
+          {t('adminLessonRefreshAttendance')}
+        </button>
+      )}
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(320px,38fr)_minmax(0,62fr)]">
         <AdminLessonBookingMasterList
@@ -392,6 +432,7 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
               onRequestAttempt={handleRequestAttempt}
               onCommitAttendanceFinalize={handleCommitAttendanceFinalize}
               attendanceFinalizePending={mutationPending}
+              attendanceSubmissionBlocked={attendanceRefreshBlocked === JSON.stringify(detail)}
               attendanceFinalizeSuccessNonce={attendanceFinalizeSuccessNonce}
               onClearConfirmation={handleClearConfirmation}
               onOpenPlanner={handleOpenPlanner}

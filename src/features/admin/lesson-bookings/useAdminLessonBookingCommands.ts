@@ -347,7 +347,8 @@ export function useAdminLessonBookingCommands(input: {
         attempt.kind === 'create_confirmed_booking' ||
         attempt.kind === 'record_provider_payment_event' ||
         attempt.kind === 'pay_service_from_wallet_as_administrator' ||
-        attempt.kind === 'finalize_booking_attendance'
+        attempt.kind === 'finalize_booking_attendance' ||
+        attempt.kind === 'record_booking_attendance'
       ) {
         return { status: 'success', refreshFailed: true };
       }

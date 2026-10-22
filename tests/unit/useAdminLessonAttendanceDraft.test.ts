@@ -109,7 +109,10 @@ describe('useAdminLessonAttendanceDraft', () => {
       ...seeded,
       detail: { ...seeded.detail, revision: 2 },
     });
+    expect(result.current.stale).toBe(true);
     expect(result.current.draft.participant_b).toBe('absent');
+    act(() => result.current.setParticipantStatus('participant_b', 'present'));
+    expect(result.current.stale).toBe(false);
     expect(result.current.draft.participant_a).toBe('present');
   });
 

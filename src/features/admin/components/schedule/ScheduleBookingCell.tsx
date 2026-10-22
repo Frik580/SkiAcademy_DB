@@ -7,6 +7,7 @@ import { resolveLessonBookingCellTitle } from './scheduleUtils';
 import { useScheduleTranslations } from './useScheduleTranslations';
 
 interface ScheduleBookingCellProps {
+  expanded?: boolean;
   booking: ScheduleBooking;
   instructor: ScheduleInstructor;
   usersList: ScheduleClient[];
@@ -16,6 +17,7 @@ interface ScheduleBookingCellProps {
 
 export const ScheduleBookingCell: React.FC<ScheduleBookingCellProps> = ({
   booking,
+  expanded = false,
   instructor,
   usersList,
   onOpen,
@@ -104,7 +106,9 @@ export const ScheduleBookingCell: React.FC<ScheduleBookingCellProps> = ({
       className={`relative group/cell min-h-14 rounded-xl px-2.5 py-1 flex flex-col justify-center transition type-caption cursor-pointer ${cardBgClasses}`}
     >
       <div className="flex items-center justify-between gap-1.5 min-w-0">
-        <div className={`font-bold truncate flex items-center gap-1.5 ${titleColorClasses}`}>
+        <div
+          className={`font-bold min-w-0 ${expanded ? 'flex-wrap' : 'truncate'} flex items-center gap-1.5 ${titleColorClasses}`}
+        >
           {client?.avatarUrl && (
             <img
               src={client.avatarUrl}
@@ -112,15 +116,16 @@ export const ScheduleBookingCell: React.FC<ScheduleBookingCellProps> = ({
               className="w-4 h-4 rounded-none border border-black/10 shrink-0"
             />
           )}
-          <span className="truncate">
-            {resolveLessonBookingCellTitle({
-              clientDisplayName: client?.displayName,
-              guestName: booking.guestName,
-              isGuest: booking.isGuest,
-              userId: booking.userId,
-              guestBadgeLabel: t('guestBadge'),
-              clientLessonLabel: t('clientLesson'),
-            })}
+          <span className={expanded ? 'min-w-0 break-words whitespace-normal' : 'truncate'}>
+            {booking.participantLabel ||
+              resolveLessonBookingCellTitle({
+                clientDisplayName: client?.displayName,
+                guestName: booking.guestName,
+                isGuest: booking.isGuest,
+                userId: booking.userId,
+                guestBadgeLabel: t('guestBadge'),
+                clientLessonLabel: t('clientLesson'),
+              })}
           </span>
           {isPendingCancellation && (
             <span className="ml-1 type-caption font-medium text-amber-600 dark:text-amber-400">
@@ -158,7 +163,7 @@ export const ScheduleBookingCell: React.FC<ScheduleBookingCellProps> = ({
       </div>
       <div className={`type-caption flex items-center gap-1 mt-0.5 min-w-0 ${textTimeClasses}`}>
         <Clock className="w-3.5 h-3.5 shrink-0" />
-        <span className="truncate">
+        <span className={expanded ? 'min-w-0 break-words whitespace-normal' : 'truncate'}>
           {booking.time} ({booking.durationHours}h)
           {!isCourseBooking(booking) && (
             <>

@@ -164,6 +164,47 @@ describe('Admin Planner sequential revision flow', () => {
     });
   });
 
+  it('interprets edited planner times in the displayed timezone', async () => {
+    queryLessonDetail.mockResolvedValue({
+      scope: 'admin_detail',
+      items: [{ bookingId, revision: 1, occurrence: { durationMinutes: 60 } }],
+    });
+    await reschedulePlannerOccupancy({
+      adminAccountId,
+      occupancy: [{ ...occupancyItem, timeZone: 'Europe/Istanbul', localTime: '07:00' }],
+      occupancyId: bookingId,
+      localDate: '2026-09-02',
+      localTime: '10:00',
+      displayTimeZone: 'Asia/Qyzylorda',
+    });
+    expect(executeAttempt).toHaveBeenCalledWith(
+      adminAccountId,
+      expect.objectContaining({
+        kind: 'reschedule_booking',
+        localTime: '10:00',
+        timezone: 'Asia/Qyzylorda',
+      })
+    );
+  });
+
+  it('does not reschedule when reassigning an unchanged displayed time from another timezone', async () => {
+    await reassignPlannerOccupancy({
+      adminAccountId,
+      occupancy: [{ ...occupancyItem, timeZone: 'Europe/Istanbul', localTime: '07:00' }],
+      occupancyId: bookingId,
+      instructor: nextInstructor,
+      localDate: '2026-09-02',
+      localTime: '09:00',
+      displayTimeZone: 'Asia/Qyzylorda',
+    });
+    expect(executeAttempt).toHaveBeenCalledTimes(1);
+    expect(executeAttempt).toHaveBeenCalledWith(
+      adminAccountId,
+      expect.objectContaining({ kind: 'change_booking_instructor' })
+    );
+    expect(queryLessonDetail).not.toHaveBeenCalled();
+  });
+
   it('refetches a fresh booking revision between combined reschedule and instructor change', async () => {
     queryLessonDetail
       .mockResolvedValueOnce({

@@ -1,5 +1,7 @@
-import type { ScheduleBooking } from './scheduleContracts';
-import { hourToMinutes, normalizeScheduleTime } from './scheduleUtils';
+import { parseCourseDates } from '../../../../app/providers/LanguageContext';
+import { formatDateLocalYMD } from './scheduleUtils';
+import type { ScheduleBooking, ScheduleCourse } from './scheduleContracts';
+import { hourToMinutes, normalizeScheduleTime, scheduleIntervalsOverlap } from './scheduleUtils';
 import { SCHEDULE_TIME_SLOTS } from './scheduleOverlap';
 
 export function isActiveScheduleBooking(
@@ -29,7 +31,7 @@ export function scheduleBookingOverlapsSlot(booking: ScheduleBooking, slotTime: 
   const slotEnd = slotStart + 60;
   const bookingStart = hourToMinutes(normalizeScheduleTime(booking.time));
   const bookingEnd = bookingStart + booking.durationHours * 60;
-  return slotStart < bookingEnd && slotEnd > bookingStart;
+  return scheduleIntervalsOverlap(slotStart, slotEnd, bookingStart, bookingEnd);
 }
 
 export function scheduleBookingStartsAtSlot(booking: ScheduleBooking, slotTime: string): boolean {
@@ -81,4 +83,77 @@ export function dayViewColSpanForBooking(booking: ScheduleBooking, slotIndex: nu
     }
   }
   return Math.min(span, SCHEDULE_TIME_SLOTS.length - slotIndex);
+}
+
+export type ScheduleDayEvent = {
+  key: string;
+  start: number;
+  end: number;
+  conflict: boolean;
+} & ({ kind: 'booking'; booking: ScheduleBooking } | { kind: 'course'; course: ScheduleCourse });
+
+export { scheduleIntervalsOverlap } from './scheduleUtils';
+
+/** Keep every entity once, including events outside the hourly viewport. */
+export function scheduleDayEvents(
+  bookings: readonly ScheduleBooking[],
+  courses: readonly ScheduleCourse[],
+  instructorId: string,
+  date: string
+): ScheduleDayEvent[] {
+  const events: ScheduleDayEvent[] = scheduleBookingsForDay(bookings, instructorId, date).map(
+    (booking) => {
+      const start = hourToMinutes(normalizeScheduleTime(booking.time));
+      return {
+        key: `booking:${booking.id}`,
+        kind: 'booking',
+        booking,
+        start,
+        end: start + booking.durationHours * 60,
+        conflict: false,
+      };
+    }
+  );
+  for (const course of courses) {
+    if (!course.instructorIds?.includes(instructorId)) continue;
+    const { start, end, startTime, endTime } = parseCourseDates(course.dates);
+    if (date < formatDateLocalYMD(start) || date > formatDateLocalYMD(end)) continue;
+    events.push({
+      key: `course:${course.id}`,
+      kind: 'course',
+      course,
+      start: hourToMinutes(startTime),
+      end: hourToMinutes(endTime),
+      conflict: false,
+    });
+  }
+  events.sort((a, b) => a.start - b.start || a.end - b.end || a.key.localeCompare(b.key));
+  // Sweep the sorted intervals; mark both ends of every conflicting pair.
+  const active: ScheduleDayEvent[] = [];
+  for (const event of events) {
+    for (let index = active.length - 1; index >= 0; index--) {
+      if (active[index]!.end <= event.start) active.splice(index, 1);
+    }
+    for (const previous of active) {
+      if (scheduleIntervalsOverlap(previous.start, previous.end, event.start, event.end)) {
+        previous.conflict = true;
+        event.conflict = true;
+      }
+    }
+    active.push(event);
+  }
+  return events;
+}
+
+/** The hourly grid also cannot represent two adjacent fractional-hour events in one cell. */
+export function scheduleDayNeedsList(events: readonly ScheduleDayEvent[]): boolean {
+  if (events.some((event) => event.conflict || event.start < 8 * 60 || event.end > 19 * 60))
+    return true;
+  return SCHEDULE_TIME_SLOTS.some((time) => {
+    const start = hourToMinutes(time);
+    return (
+      events.filter((event) => scheduleIntervalsOverlap(start, start + 60, event.start, event.end))
+        .length > 1
+    );
+  });
 }

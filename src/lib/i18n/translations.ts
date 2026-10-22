@@ -1645,6 +1645,7 @@ export const translations = {
     configSaveErrorDesc: 'Failed to save resort configuration',
 
     // Schedule calendar
+    scheduleConflict: 'Schedule conflict',
     plannerOccupancyTruncated:
       'Planner occupancy was truncated for this window. Narrow the day/week view if a slot is missing.',
     scheduleBoardTitle: 'Instructor Timetable & Schedule Board',
@@ -4134,6 +4135,7 @@ export const translations = {
     configSaveErrorDesc: 'Не удалось сохранить конфигурацию курорта',
 
     // Schedule calendar
+    scheduleConflict: 'Конфликт расписания',
     plannerOccupancyTruncated:
       'Занятость планера для этого окна обрезана. Сузьте день/неделю, если слот отсутствует.',
     scheduleBoardTitle: 'Интерактивный планер и расписание инструкторов',

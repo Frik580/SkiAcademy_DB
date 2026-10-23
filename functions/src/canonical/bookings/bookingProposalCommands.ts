@@ -53,6 +53,10 @@ import {
   KztMinorUnitsSchema,
   debitWalletBalance,
 } from '@ski-academy/shared-domain';
+import {
+  conversionEventsForNewCommercialSubject,
+  stageConversionAnalyticsEvents,
+} from '../analytics/conversionAnalytics';
 import { getFirestore } from 'firebase-admin/firestore';
 import type { CommandHandlerMap } from '../commands/canonicalCommands';
 import {
@@ -1171,6 +1175,23 @@ function acceptBookingProposalHandler(
           indexes: openProposalIndexes,
           decidedAt,
         });
+
+        stageConversionAnalyticsEvents(
+          conversionEventsForNewCommercialSubject({
+            commandKind: envelope.kind,
+            commandId: metadata.commandId,
+            correlationId: metadata.correlationId,
+            occurredAt: decidedAt,
+            subjectType: 'booking',
+            subjectId: bookingId,
+            paymentId,
+            priceMinor: paymentProjection.price,
+            paidAmountMinor: paymentProjection.paidAmount,
+            paymentStatus: paymentProjection.paymentStatus,
+            subjectLifecycle: 'confirmed',
+            accountId: authorization.payerAccountId,
+          })
+        );
 
         return commandSuccessResult(envelope.kind, envelope.context.correlationId);
       } catch (error) {

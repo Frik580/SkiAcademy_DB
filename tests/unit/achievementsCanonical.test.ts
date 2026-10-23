@@ -114,6 +114,16 @@ function earnedIds(evaluation: AchievementEvaluationContext) {
 }
 
 describe('canonical achievement evaluation — lessons', () => {
+  it('first_lesson date changes only when earlier present evidence arrives, not with the clock', () => {
+    const later = presentLessons(selfId, 2)[1];
+    const first = (value: AchievementEvaluationContext) =>
+      evaluateEarnedAchievements(value, DEFAULT_ACHIEVEMENTS_CONFIG).find(
+        (item) => item.id === 'first_lesson'
+      )?.earnedAt;
+    const initial = first(ctx({ lessonEvidence: [later], now: new Date('2026-04-01') }));
+    expect(first(ctx({ lessonEvidence: [later], now: new Date('2026-05-01') }))).toBe(initial);
+    expect(first(ctx({ lessonEvidence: presentLessons(selfId, 2) }))).not.toBe(initial);
+  });
   it('1. first_lesson: present 1 → earned', () => {
     expect(earnedIds(ctx({ lessonEvidence: presentLessons(selfId, 1) }))).toContain('first_lesson');
   });

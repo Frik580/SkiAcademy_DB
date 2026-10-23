@@ -22,7 +22,10 @@ export const isAllowedImageSource = (url: string): boolean => {
       !parsed.username &&
       !parsed.password &&
       (!parsed.port || parsed.port === '443') &&
-      parsed.pathname.startsWith('/carve/')
+      parsed.pathname.startsWith('/carve/') &&
+      parsed.pathname.length <= 1024 &&
+      !parsed.search &&
+      !parsed.hash
     );
   } catch {
     return false;
@@ -30,13 +33,16 @@ export const isAllowedImageSource = (url: string): boolean => {
 };
 
 export const cacheObjectPath = (sourceUrl: string, width: number, quality: number): string => {
-  const digest = createHash('sha256').update(`${sourceUrl}|${width}|${quality}|webp`).digest('hex');
+  const normalized = new URL(sourceUrl).href;
+  const digest = createHash('sha256')
+    .update(`${normalized}|${width}|${quality}|webp`)
+    .digest('hex');
   return `${IMAGE_CACHE_PREFIX}/${digest}_w${width}_q${quality}.webp`;
 };
 
 const parsePositiveInt = (value: unknown, fallback: number): number => {
-  const n = typeof value === 'string' ? Number.parseInt(value, 10) : Number(value);
-  return Number.isFinite(n) && n > 0 ? n : fallback;
+  if (value === undefined) return fallback;
+  return typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : NaN;
 };
 
 export type OptimizeImageResult =
@@ -98,6 +104,7 @@ export async function optimizeImageFromParams(params: {
   sourceUrl: string;
   width: number;
   quality: number;
+  admitCacheMiss?: () => Promise<void>;
 }): Promise<OptimizeImageResult> {
   const { sourceUrl, width, quality } = params;
 
@@ -107,7 +114,7 @@ export async function optimizeImageFromParams(params: {
   if (!ALLOWED_PROXY_WIDTHS.has(width)) {
     return { ok: false, status: 400, message: 'Unsupported width' };
   }
-  if (quality < 40 || quality > 90) {
+  if (!Number.isInteger(quality) || quality < 40 || quality > 90) {
     return { ok: false, status: 400, message: 'Unsupported quality' };
   }
 
@@ -122,6 +129,7 @@ export async function optimizeImageFromParams(params: {
     return { ok: true, body, contentType: 'image/webp', cacheHit: true };
   }
 
+  await params.admitCacheMiss?.();
   const sourceBuffer = await fetchImageSource(sourceUrl);
   if (!Buffer.isBuffer(sourceBuffer)) return sourceBuffer;
 
@@ -154,6 +162,8 @@ export async function optimizeImageFromParams(params: {
 export const parseOptimizeImageQuery = (
   query: Record<string, unknown>
 ): { sourceUrl: string; width: number; quality: number } | { error: string } => {
+  if (Object.keys(query).some((key) => !['u', 'w', 'q'].includes(key)))
+    return { error: 'Unsupported query parameter' };
   const rawUrl = typeof query.u === 'string' ? query.u : '';
   if (!rawUrl) {
     return { error: 'Missing u parameter' };
@@ -161,12 +171,20 @@ export const parseOptimizeImageQuery = (
 
   let sourceUrl: string;
   try {
-    sourceUrl = decodeURIComponent(rawUrl);
+    sourceUrl = new URL(rawUrl).href;
   } catch {
     return { error: 'Invalid u parameter' };
   }
 
   const width = parsePositiveInt(query.w, 1920);
   const quality = parsePositiveInt(query.q, DEFAULT_PROXY_QUALITY);
+  if (
+    !isAllowedImageSource(sourceUrl) ||
+    !ALLOWED_PROXY_WIDTHS.has(width) ||
+    !Number.isInteger(quality) ||
+    quality < 40 ||
+    quality > 90
+  )
+    return { error: 'Unsupported image parameters' };
   return { sourceUrl, width, quality };
 };

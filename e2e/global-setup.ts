@@ -120,10 +120,12 @@ async function probeFunctionsCallable(functionName: string): Promise<boolean> {
     const response = await fetch(functionsCallableUrl(functionName), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ data: {} }),
+      // Missing callable envelope is rejected by the SDK before admission or
+      // domain handlers. Readiness must not write counters or contend on them.
+      body: JSON.stringify({}),
       signal: AbortSignal.timeout(FUNCTIONS_READINESS_ATTEMPT_TIMEOUT_MS),
     });
-    return response.status < 502;
+    return response.status === 400;
   } catch {
     return false;
   }

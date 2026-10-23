@@ -34,6 +34,8 @@ const eventDocuments: Record<string, string> = {
   syncLessonBookingAttendanceOutcomeWork: 'bookings/{bookingId}',
 };
 const maxTwenty = [
+  'claimGuestProfile',
+  'reportClientErrors',
   'executeCanonicalCommand',
   'executeGuestCanonicalCommand',
   'executeTestSessionLifecycle',
@@ -72,12 +74,9 @@ const expectedCaps = Object.fromEntries([
   ...[...Object.keys(eventDocuments), 'optimizeImage'].map((name) => [name, 10]),
   ...maxTwenty.map((name) => [name, 20]),
 ]);
-const secretCallables = new Set([
-  'executeCanonicalCommand',
-  'executeGuestCanonicalCommand',
-  'queryCourseEnrollmentReadModels',
-  'queryLessonBookingReadModels',
-]);
+const secretCallables = new Set(
+  maxTwenty.filter((name) => name !== 'scheduledPurgeExpiredNotifications')
+);
 
 function deploymentSpec(): Record<string, Record<string, unknown>> {
   const endpoints = {};
@@ -90,7 +89,7 @@ function deploymentSpec(): Record<string, Record<string, unknown>> {
 describe('reviewed Functions deployment configuration', () => {
   it('requires the exact scaling map and export inventory in the generated specification', () => {
     const spec = deploymentSpec();
-    expect(Object.keys(spec)).toHaveLength(47);
+    expect(Object.keys(spec)).toHaveLength(49);
     expect(
       Object.fromEntries(Object.entries(spec).map(([name, e]) => [name, e.maxInstances]))
     ).toEqual(expectedCaps);

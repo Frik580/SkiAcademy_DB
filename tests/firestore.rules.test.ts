@@ -958,7 +958,7 @@ describe('user profiles and roles', () => {
     });
     await assertFails(updateDoc(doc(ownerDb, 'users', clientId), { email: 'owner@example.com' }));
     await assertFails(deleteDoc(doc(ownerDb, 'users', clientId)));
-    await assertSucceeds(deleteDoc(doc(claimantDb, 'users', clientId)));
+    await assertFails(deleteDoc(doc(claimantDb, 'users', clientId)));
     await assertFails(
       setDoc(doc(newUserDb, 'users', 'new-user'), {
         ...userProfile('new-user', 'new-user@example.com'),
@@ -1813,7 +1813,7 @@ describe('resort configuration and error logs', () => {
     await assertSucceeds(setDoc(doc(ownerDb, 'resort_data', 'config'), { nameEn: 'Chamonix' }));
   });
 
-  it('accepts bounded logs only from the authenticated owner', async () => {
+  it('rejects all direct client log writes, including bounded owner logs', async () => {
     const anonymousDb = testEnv.unauthenticatedContext().firestore();
     const userDb = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
     const validLog = {
@@ -1824,7 +1824,7 @@ describe('resort configuration and error logs', () => {
     };
 
     await assertFails(setDoc(doc(anonymousDb, 'error_logs', 'anonymous-log'), validLog));
-    await assertSucceeds(setDoc(doc(userDb, 'error_logs', 'owned-log'), validLog));
+    await assertFails(setDoc(doc(userDb, 'error_logs', 'owned-log'), validLog));
     await assertFails(
       setDoc(doc(userDb, 'error_logs', 'spoofed-log'), {
         ...validLog,
@@ -1902,10 +1902,12 @@ describe('release identity and course access security', () => {
           dataScope: 'live',
         })
       );
+      await assertFails(updateDoc(doc(db, 'users', 'email-attacker'), { email: 'changed@example.com' }));
+      await assertFails(updateDoc(doc(db, 'users', 'email-attacker'), { systemRole: 'owner' }));
     }
   );
 
-  it('permits verified email lookup but never cross-UID profile creation', async () => {
+  it('requires a server claim even for a verified email and pins it to UID', async () => {
     await seedData(async (context) => {
       await setDoc(
         doc(context.firestore(), 'users', 'client_email_victim'),
@@ -1915,10 +1917,23 @@ describe('release identity and course access security', () => {
     const db = testEnv
       .authenticatedContext('verified-owner', { email: 'victim@example.com', email_verified: true })
       .firestore();
+    await assertFails(getDoc(doc(db, 'users', 'client_email_victim')));
+    await assertFails(getDocs(query(collection(db, 'users'), where('email', '==', 'victim@example.com'))));
+    await seedData(async (context) => {
+      await updateDoc(doc(context.firestore(), 'users', 'client_email_victim'), { claimedByAccountId: 'verified-owner' });
+    });
     await assertSucceeds(getDoc(doc(db, 'users', 'client_email_victim')));
-    await assertSucceeds(
-      getDocs(query(collection(db, 'users'), where('email', '==', 'victim@example.com')))
-    );
+    const changedEmailDb = testEnv.authenticatedContext('another-uid', { email: 'victim@example.com', email_verified: true }).firestore();
+    await assertFails(getDoc(doc(changedEmailDb, 'users', 'client_email_victim')));
+    await assertFails(updateDoc(doc(db, 'users', 'client_email_victim'), { claimedByAccountId: 'another-uid' }));
+    await assertFails(deleteDoc(doc(db, 'users', 'client_email_victim')));
+    await seedData(async (context) => {
+      await setDoc(doc(context.firestore(), 'bookings', 'legacy-claim-security'), {
+        userId: 'client_email_victim', instructorId: 'legacy-coach', status: 'pending',
+      });
+    });
+    await assertSucceeds(getDoc(doc(db, 'bookings', 'legacy-claim-security')));
+    await assertFails(updateDoc(doc(db, 'bookings', 'legacy-claim-security'), { userId: 'verified-owner' }));
     await assertFails(
       setDoc(doc(db, 'users', 'client_forged'), {
         ...userProfile('client_forged', 'victim@example.com'),
@@ -2048,10 +2063,10 @@ describe('notifications', () => {
     );
   });
 
-  it('requires explicit LIVE scope on new client notifications', async () => {
+  it('rejects client notification creation regardless of scope', async () => {
     const ownerDb = testEnv.authenticatedContext(USER_ID).firestore();
     const notification = { userId: USER_ID, title: 'Lesson update', message: 'Changed' };
-    await assertSucceeds(
+    await assertFails(
       setDoc(doc(ownerDb, 'notifications', 'notification-live'), {
         ...notification,
         dataScope: 'live',

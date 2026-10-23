@@ -10,15 +10,25 @@ service firebase.storage {
       return isAuthenticated() && request.auth.uid == uid;
     }
 
+    function rolePrincipalIsActive() {
+      let profile = firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+      return !('lifecycle' in profile) ||
+        (profile.lifecycle is map && profile.lifecycle.status == 'active');
+    }
+
     function isAdmin() {
       return isAuthenticated() &&
         firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
-        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
+        rolePrincipalIsActive() && (
+          firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.get('role', '') == 'admin' ||
+          firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.get('systemRole', '') == 'owner'
+        );
     }
 
     function isAssignedInstructorForBooking(bookingId) {
       return isAuthenticated() &&
         firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
+        rolePrincipalIsActive() &&
         firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.instructorId is string &&
         firestore.exists(/databases/(default)/documents/bookings/$(bookingId)) &&
         firestore.get(/databases/(default)/documents/bookings/$(bookingId)).data.instructorId ==
@@ -39,11 +49,15 @@ service firebase.storage {
     function isInstructorForCourse(courseId) {
       return isAuthenticated() &&
         firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
+        rolePrincipalIsActive() &&
         firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.instructorId is string &&
         firestore.exists(/databases/(default)/documents/courses/$(courseId)) &&
-        ('instructorIds' in firestore.get(/databases/(default)/documents/courses/$(courseId)).data) &&
-        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.instructorId in
-          firestore.get(/databases/(default)/documents/courses/$(courseId)).data.instructorIds;
+        (
+          firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.instructorId in
+            firestore.get(/databases/(default)/documents/courses/$(courseId)).data.get('instructorRosterIds', []) ||
+          firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.instructorId in
+            firestore.get(/databases/(default)/documents/courses/$(courseId)).data.get('instructorIds', [])
+        );
     }
 
     function isBookingParticipant(bookingId) {

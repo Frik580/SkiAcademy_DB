@@ -1,6 +1,13 @@
 import './deploymentProvenanceBootstrap';
 import { defineSecret } from 'firebase-functions/params';
-import { onCall } from 'firebase-functions/v2/https';
+import {
+  onCall as firebaseOnCall,
+  type CallableOptions,
+  type CallableRequest,
+} from 'firebase-functions/v2/https';
+import { admitRequest, requestPrincipalKey } from './security/requestAdmission';
+import { createClaimGuestProfileHandler } from './security/claimGuestProfile';
+import { createReportClientErrorsHandler } from './security/reportClientErrors';
 import { createQueryAccountWalletHistoryHandler } from './canonical/readModels/queryAccountWalletHistoryCallable';
 import { createResolveInstructorLessonRevenueHandler } from './canonical/readModels/resolveInstructorLessonRevenueCallable';
 import {
@@ -58,6 +65,8 @@ import { syncCourseEnrollmentOutcomeWorkForEnrollmentWrite } from './canonical/c
 
 export { optimizeImage } from './images/optimizeImageHttp';
 
+const guestActionTokenSecret = defineSecret('GUEST_ACTION_TOKEN_SECRET');
+
 /** Browser callables need public Cloud Run invoker; auth is enforced inside the handler. */
 const PLATFORM_DEFAULT_CALLABLE_OPTIONS = { region: 'us-central1', invoker: 'public' as const };
 const CANONICAL_CALLABLE_OPTIONS = {
@@ -65,162 +74,249 @@ const CANONICAL_CALLABLE_OPTIONS = {
   // Preserve the production cap explicitly; an unspecified SDK option is reset
   // to the platform default by Firebase CLI, rather than kept at 20.
   maxInstances: 20,
+  enforceAppCheck: false, // Observe staging metrics before a separately approved enforcement rollout.
+  secrets: [guestActionTokenSecret],
 };
 
-/** Guest action credential signing/verification — only bound to callables that read it. */
-const guestActionTokenSecret = defineSecret('GUEST_ACTION_TOKEN_SECRET');
+/** Admission runs before parsing/expensive reads, including failed requests.
+ * UID quota avoids imposing a shared-IP quota on signed-in families. Public
+ * traffic has a generous network allowance; reservation admission stays 3/2.
+ * Scope counters by endpoint so independent reads do not contend on one doc. */
+function onCall<T = CallableRequest['data'], R = unknown>(
+  endpoint: string,
+  options: CallableOptions & { guestAttempts?: boolean },
+  handler: (request: CallableRequest<T>) => Promise<R>
+) {
+  const { guestAttempts, ...firebaseOptions } = options;
+  return firebaseOnCall(firebaseOptions, async (request: CallableRequest<T>) => {
+    const secret = guestActionTokenSecret.value();
+    const principal = requestPrincipalKey(request, secret);
+    await admitRequest(
+      getAdminFirestore(),
+      `callable_${endpoint}_${principal}`,
+      request.auth ? 120 : 300
+    );
+    if (guestAttempts) {
+      // Guest actors cannot escape their network limit by rotating Auth accounts.
+      const network = requestPrincipalKey({ ...request, auth: undefined }, secret);
+      await admitRequest(getAdminFirestore(), `guest_attempt_${network}`, 30);
+    }
+    return handler(request);
+  });
+}
 
 const GUEST_SECRET_CALLABLE_OPTIONS = {
   ...CANONICAL_CALLABLE_OPTIONS,
   secrets: [guestActionTokenSecret],
 };
 
-export const executeCanonicalCommand = onCall(GUEST_SECRET_CALLABLE_OPTIONS, async (request) =>
-  createExecuteCanonicalCommandHandler(getAdminFirestore())(request)
+export const claimGuestProfile = onCall(
+  'claimGuestProfile',
+  CANONICAL_CALLABLE_OPTIONS,
+  async (request) => createClaimGuestProfileHandler(getAdminFirestore())(request)
 );
 
-export const executeGuestCanonicalCommand = onCall(GUEST_SECRET_CALLABLE_OPTIONS, async (request) =>
-  createExecuteGuestCanonicalCommandHandler(
-    getAdminFirestore(),
-    GUEST_RESERVATION_ACTIVE_LIMITS
-  )(request)
+export const reportClientErrors = onCall(
+  'reportClientErrors',
+  CANONICAL_CALLABLE_OPTIONS,
+  async (request) =>
+    createReportClientErrorsHandler(getAdminFirestore(), guestActionTokenSecret.value())(request)
 );
 
-export const queryLessonBookingReadModels = onCall(GUEST_SECRET_CALLABLE_OPTIONS, async (request) =>
-  createQueryLessonBookingReadModelsHandler(getAdminFirestore())(request)
+export const executeCanonicalCommand = onCall(
+  'executeCanonicalCommand',
+  GUEST_SECRET_CALLABLE_OPTIONS,
+  async (request) => createExecuteCanonicalCommandHandler(getAdminFirestore())(request)
+);
+
+export const executeGuestCanonicalCommand = onCall(
+  'executeGuestCanonicalCommand',
+  { ...GUEST_SECRET_CALLABLE_OPTIONS, guestAttempts: true },
+  async (request) =>
+    createExecuteGuestCanonicalCommandHandler(
+      getAdminFirestore(),
+      GUEST_RESERVATION_ACTIVE_LIMITS
+    )(request)
+);
+
+export const queryLessonBookingReadModels = onCall(
+  'queryLessonBookingReadModels',
+  GUEST_SECRET_CALLABLE_OPTIONS,
+  async (request) => createQueryLessonBookingReadModelsHandler(getAdminFirestore())(request)
 );
 
 export const queryManagedParticipantPickerReadModels = onCall(
+  'queryManagedParticipantPickerReadModels',
   CANONICAL_CALLABLE_OPTIONS,
   async (request) =>
     createQueryManagedParticipantPickerReadModelsHandler(getAdminFirestore())(request)
 );
 
-export const queryBookingProposalReadModels = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>
-  createQueryBookingProposalReadModelsHandler(getAdminFirestore())(request)
+export const queryBookingProposalReadModels = onCall(
+  'queryBookingProposalReadModels',
+  CANONICAL_CALLABLE_OPTIONS,
+  async (request) => createQueryBookingProposalReadModelsHandler(getAdminFirestore())(request)
 );
 
 export const queryBookingChangeRequestReadModels = onCall(
+  'queryBookingChangeRequestReadModels',
   CANONICAL_CALLABLE_OPTIONS,
   async (request) => createQueryBookingChangeRequestReadModelsHandler(getAdminFirestore())(request)
 );
 
 export const queryParticipantInstructorAccessReadModels = onCall(
+  'queryParticipantInstructorAccessReadModels',
   CANONICAL_CALLABLE_OPTIONS,
   async (request) =>
     createQueryParticipantInstructorAccessReadModelsHandler(getAdminFirestore())(request)
 );
 
 export const queryCourseEnrollmentReadModels = onCall(
+  'queryCourseEnrollmentReadModels',
   GUEST_SECRET_CALLABLE_OPTIONS,
   async (request) => createQueryCourseEnrollmentReadModelsHandler(getAdminFirestore())(request)
 );
 
-export const queryCourseCatalogReadModels = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>
-  createQueryCourseCatalogReadModelsHandler(getAdminFirestore())(request)
+export const queryCourseCatalogReadModels = onCall(
+  'queryCourseCatalogReadModels',
+  CANONICAL_CALLABLE_OPTIONS,
+  async (request) => createQueryCourseCatalogReadModelsHandler(getAdminFirestore())(request)
 );
 
-export const queryCourseAttendanceReadModels = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>
-  createQueryCourseAttendanceReadModelsHandler(getAdminFirestore())(request)
+export const queryCourseAttendanceReadModels = onCall(
+  'queryCourseAttendanceReadModels',
+  CANONICAL_CALLABLE_OPTIONS,
+  async (request) => createQueryCourseAttendanceReadModelsHandler(getAdminFirestore())(request)
 );
 
 export const queryInstructorCourseAssignmentReadModels = onCall(
+  'queryInstructorCourseAssignmentReadModels',
   CANONICAL_CALLABLE_OPTIONS,
   async (request) =>
     createQueryInstructorCourseAssignmentReadModelsHandler(getAdminFirestore())(request)
 );
 
-export const queryAdminIssueReadModels = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>
-  createQueryAdminIssueReadModelsHandler(getAdminFirestore())(request)
+export const queryAdminIssueReadModels = onCall(
+  'queryAdminIssueReadModels',
+  CANONICAL_CALLABLE_OPTIONS,
+  async (request) => createQueryAdminIssueReadModelsHandler(getAdminFirestore())(request)
 );
 
-export const queryAdminFinanceReadModels = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>
-  createQueryAdminFinanceReadModelsHandler(getAdminFirestore())(request)
+export const queryAdminFinanceReadModels = onCall(
+  'queryAdminFinanceReadModels',
+  CANONICAL_CALLABLE_OPTIONS,
+  async (request) => createQueryAdminFinanceReadModelsHandler(getAdminFirestore())(request)
 );
 
-export const queryAccountWalletHistory = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>
-  createQueryAccountWalletHistoryHandler(getAdminFirestore())(request)
+export const queryAccountWalletHistory = onCall(
+  'queryAccountWalletHistory',
+  CANONICAL_CALLABLE_OPTIONS,
+  async (request) => createQueryAccountWalletHistoryHandler(getAdminFirestore())(request)
 );
 
-export const resolveInstructorLessonRevenue = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>
-  createResolveInstructorLessonRevenueHandler(getAdminFirestore())(request)
+export const resolveInstructorLessonRevenue = onCall(
+  'resolveInstructorLessonRevenue',
+  CANONICAL_CALLABLE_OPTIONS,
+  async (request) => createResolveInstructorLessonRevenueHandler(getAdminFirestore())(request)
 );
 
-export const queryAdminCourseReadModels = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>
-  createQueryAdminCourseReadModelsHandler(getAdminFirestore())(request)
+export const queryAdminCourseReadModels = onCall(
+  'queryAdminCourseReadModels',
+  CANONICAL_CALLABLE_OPTIONS,
+  async (request) => createQueryAdminCourseReadModelsHandler(getAdminFirestore())(request)
 );
 
 export const queryAdminCourseEnrollmentReadModels = onCall(
+  'queryAdminCourseEnrollmentReadModels',
   CANONICAL_CALLABLE_OPTIONS,
   async (request) => createQueryAdminCourseEnrollmentReadModelsHandler(getAdminFirestore())(request)
 );
 
-export const queryAdminIdentityReadModels = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>
-  createQueryAdminIdentityReadModelsHandler(getAdminFirestore())(request)
+export const queryAdminIdentityReadModels = onCall(
+  'queryAdminIdentityReadModels',
+  CANONICAL_CALLABLE_OPTIONS,
+  async (request) => createQueryAdminIdentityReadModelsHandler(getAdminFirestore())(request)
 );
 
-export const queryAdminPlannerReadModels = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>
-  createQueryAdminPlannerReadModelsHandler(getAdminFirestore())(request)
+export const queryAdminPlannerReadModels = onCall(
+  'queryAdminPlannerReadModels',
+  CANONICAL_CALLABLE_OPTIONS,
+  async (request) => createQueryAdminPlannerReadModelsHandler(getAdminFirestore())(request)
 );
 
 export const queryInstructorOccupancyReadModels = onCall(
+  'queryInstructorOccupancyReadModels',
   CANONICAL_CALLABLE_OPTIONS,
   async (request) => createQueryInstructorOccupancyReadModelsHandler(getAdminFirestore())(request)
 );
 
 export const queryParticipantOccupancyReadModels = onCall(
+  'queryParticipantOccupancyReadModels',
   CANONICAL_CALLABLE_OPTIONS,
   async (request) => createQueryParticipantOccupancyReadModelsHandler(getAdminFirestore())(request)
 );
 
 export const queryBookingInstructorCatalogueReadModels = onCall(
+  'queryBookingInstructorCatalogueReadModels',
   CANONICAL_CALLABLE_OPTIONS,
   async (request) =>
     createQueryBookingInstructorCatalogueReadModelsHandler(getAdminFirestore())(request)
 );
 
 export const queryLessonPricingSettingsReadModel = onCall(
+  'queryLessonPricingSettingsReadModel',
   CANONICAL_CALLABLE_OPTIONS,
   async (request) => createQueryLessonPricingSettingsReadModelHandler(getAdminFirestore())(request)
 );
 
 export const queryEmailDeliverySettingsReadModel = onCall(
+  'queryEmailDeliverySettingsReadModel',
   CANONICAL_CALLABLE_OPTIONS,
   async (request) => createQueryEmailDeliverySettingsReadModelHandler(getAdminFirestore())(request)
 );
 
 export const queryOutboxDeadLetterReadModel = onCall(
+  'queryOutboxDeadLetterReadModel',
   CANONICAL_CALLABLE_OPTIONS,
   async (request) => createQueryOutboxDeadLetterReadModelHandler(getAdminFirestore())(request)
 );
 
-export const queryInstructorReviewReadModels = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>
-  createQueryInstructorReviewReadModelsHandler(getAdminFirestore())(request)
+export const queryInstructorReviewReadModels = onCall(
+  'queryInstructorReviewReadModels',
+  CANONICAL_CALLABLE_OPTIONS,
+  async (request) => createQueryInstructorReviewReadModelsHandler(getAdminFirestore())(request)
 );
 
 export const queryParticipantProgressReadModels = onCall(
+  'queryParticipantProgressReadModels',
   CANONICAL_CALLABLE_OPTIONS,
   async (request) => createQueryParticipantProgressReadModelsHandler(getAdminFirestore())(request)
 );
 
 export const queryParticipantAchievementsReadModels = onCall(
+  'queryParticipantAchievementsReadModels',
   CANONICAL_CALLABLE_OPTIONS,
   async (request) =>
     createQueryParticipantAchievementsReadModelsHandler(getAdminFirestore())(request)
 );
 
 export const queryParticipantLessonFeedbackReadModels = onCall(
+  'queryParticipantLessonFeedbackReadModels',
   CANONICAL_CALLABLE_OPTIONS,
   async (request) =>
     createQueryParticipantLessonFeedbackReadModelsHandler(getAdminFirestore())(request)
 );
 
-export const queryTestSessionReadModels = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>
-  createQueryTestSessionReadModelsHandler(getAdminFirestore())(request)
+export const queryTestSessionReadModels = onCall(
+  'queryTestSessionReadModels',
+  CANONICAL_CALLABLE_OPTIONS,
+  async (request) => createQueryTestSessionReadModelsHandler(getAdminFirestore())(request)
 );
 
-export const executeTestSessionLifecycle = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>
-  createExecuteTestSessionLifecycleHandler(getAdminFirestore())(request)
+export const executeTestSessionLifecycle = onCall(
+  'executeTestSessionLifecycle',
+  CANONICAL_CALLABLE_OPTIONS,
+  async (request) => createExecuteTestSessionLifecycleHandler(getAdminFirestore())(request)
 );
 
 export const deliverDomainOutboxOnCreate = onDocumentCreated(

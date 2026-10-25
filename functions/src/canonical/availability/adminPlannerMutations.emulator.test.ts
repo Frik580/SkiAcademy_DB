@@ -17,7 +17,7 @@ import { queryAdminIdentityReadModels } from '../readModels/adminIdentityReadMod
 import { createQueryAdminPlannerReadModelsHandler } from '../readModels/queryAdminPlannerReadModelsCallable';
 import { seedLessonPricingSettingsFixture } from '../../../testSupport/lessonPricingSettingsFixture';
 
-const PROJECT_ID = 'demo-ski-school-e2e';
+const PROJECT_ID = 'ski-academy-admin-planner-mutations-emulator';
 const runsOnFirestoreEmulator = Boolean(
   process.env.FIREBASE_EMULATOR_HUB ?? process.env.FIRESTORE_EMULATOR_HOST
 );

@@ -17,7 +17,7 @@ import { createProductionCanonicalCommands } from '../commands/canonicalCommands
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
 import { queryAdminIdentityReadModels } from '../readModels/adminIdentityReadModels';
 
-const PROJECT_ID = 'demo-ski-school-e2e';
+const PROJECT_ID = 'ski-academy-identity-admin-emulator';
 const correlationId = CorrelationIdSchema.parse('correlation_identity_admin_emulator_01');
 const adminAccountId = AccountIdSchema.parse('account_identity_admin_emulator_01');
 const targetAccountId = AccountIdSchema.parse('account_identity_admin_emulator_02');

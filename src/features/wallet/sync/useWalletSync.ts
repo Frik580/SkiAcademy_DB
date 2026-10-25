@@ -2,10 +2,20 @@ import { useEffect } from 'react';
 import { WalletSchema } from '@ski-academy/shared-domain/canonical/paymentWallet';
 import { normalizeFirestoreDocument } from '@ski-academy/shared-domain/canonical/firestoreSerialization';
 import { type Wallet } from '@ski-academy/shared-domain';
-import { db, doc, onSnapshot } from '../../../infrastructure/firebase';
+import {
+  collection,
+  db,
+  doc,
+  limit,
+  onSnapshot,
+  query,
+  where,
+} from '../../../infrastructure/firebase';
+import { toWalletLedgerEntry } from '../../../infrastructure/firebase';
 import { logger } from '../../../shared';
 import { useAuthStore } from '../../auth/authStore';
 import { useWalletStore } from '../walletStore';
+import { useDataSyncScope } from '../../../store/useDataSyncScope';
 
 function parseCanonicalWallet(data: Record<string, unknown> | undefined): Wallet | undefined {
   const normalized = normalizeFirestoreDocument(data);
@@ -15,36 +25,33 @@ function parseCanonicalWallet(data: Record<string, unknown> | undefined): Wallet
 }
 
 /**
- * Synchronizes canonical Account Wallet balance. History is read lazily by the
- * wallet panel through the owner-scoped server read model.
+ * Synchronizes:
+ * 1) Canonical Account Wallet balance from `/users/{accountId}/wallet/state`
+ * 2) Legacy `wallet_ledger` history (still used by cabinet history UI)
  */
 export const useWalletSync = () => {
+  const { shouldSyncActivityLogs } = useDataSyncScope();
   const firebaseUser = useAuthStore((s) => s.firebaseUser);
-  const authGeneration = useAuthStore((s) => s.authGeneration);
-  const refreshNonce = useWalletStore((s) => s.canonicalWalletRefreshNonce);
+  const walletLedgerPageSize = useWalletStore((s) => s.walletLedgerPageSize);
+
+  useEffect(() => {
+    useWalletStore.getState().resetWalletLedgerPagination();
+  }, [firebaseUser?.uid, shouldSyncActivityLogs]);
 
   // Canonical wallet balance — source of truth for Header / spendable balance UI.
   useEffect(() => {
-    useWalletStore.getState().resetCanonicalWallet();
     if (!firebaseUser) {
+      useWalletStore.getState().resetCanonicalWallet();
       return;
     }
 
     const walletRef = doc(db, 'users', firebaseUser.uid, 'wallet', 'state');
-    let active = true;
-    const isCurrentSession = () =>
-      active &&
-      useAuthStore.getState().authGeneration === authGeneration &&
-      useAuthStore.getState().firebaseUser?.uid === firebaseUser.uid;
-    const unsubscribe = onSnapshot(
+    return onSnapshot(
       walletRef,
-      { includeMetadataChanges: true },
       (snapshot) => {
-        if (!isCurrentSession()) return;
         if (!snapshot.exists()) {
           useWalletStore.getState().syncCanonicalWalletFromSnapshot({
             exists: false,
-            accountId: firebaseUser.uid,
             balanceKzt: 0,
           });
           return;
@@ -57,7 +64,6 @@ export const useWalletSync = () => {
           });
           useWalletStore.getState().syncCanonicalWalletFromSnapshot({
             exists: false,
-            accountId: firebaseUser.uid,
             balanceKzt: 0,
           });
           return;
@@ -70,33 +76,52 @@ export const useWalletSync = () => {
           });
           useWalletStore.getState().syncCanonicalWalletFromSnapshot({
             exists: false,
-            accountId: firebaseUser.uid,
             balanceKzt: 0,
           });
           return;
         }
 
         useWalletStore.getState().syncCanonicalWalletFromSnapshot({
-          accountId: firebaseUser.uid,
-          trusted: !snapshot.metadata.fromCache && !snapshot.metadata.hasPendingWrites,
           exists: true,
           balanceKzt: wallet.balance,
-          eventRevision: wallet.eventRevision,
         });
       },
       (error) => {
-        if (!isCurrentSession()) return;
         logger.error('Canonical wallet sync error:', error);
         useWalletStore.getState().syncCanonicalWalletFromSnapshot({
           exists: false,
-          accountId: firebaseUser.uid,
           balanceKzt: 0,
         });
       }
     );
-    return () => {
-      active = false;
-      unsubscribe();
-    };
-  }, [firebaseUser, authGeneration, refreshNonce]);
+  }, [firebaseUser]);
+
+  // Wallet ledger synchronization (legacy history UI)
+  useEffect(() => {
+    if (!firebaseUser || !shouldSyncActivityLogs) {
+      useWalletStore.getState().setWalletLedgerEntries([]);
+      return;
+    }
+
+    const ledgerQuery = query(
+      collection(db, 'wallet_ledger'),
+      where('userId', '==', firebaseUser.uid),
+      limit(walletLedgerPageSize + 1)
+    );
+
+    return onSnapshot(
+      ledgerQuery,
+      (snapshot) => {
+        const entries = snapshot.docs
+          .slice(0, walletLedgerPageSize)
+          .map((ledgerDoc) => toWalletLedgerEntry(ledgerDoc.id, ledgerDoc.data()))
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        useWalletStore.getState().setWalletLedgerEntries(entries);
+        useWalletStore
+          .getState()
+          .setWalletLedgerHasMore(snapshot.docs.length > walletLedgerPageSize);
+      },
+      (error) => logger.error('Wallet ledger sync error:', error)
+    );
+  }, [firebaseUser, shouldSyncActivityLogs, walletLedgerPageSize]);
 };

@@ -29,7 +29,7 @@ import {
 } from './testSessionLifecycleEngine';
 import type { TestSessionStorageObjectStore } from './deleteTestSessionStorage';
 
-const PROJECT_ID = 'demo-ski-school-e2e';
+const PROJECT_ID = 'ski-academy-t42b7-lifecycle-emulator';
 const runsOnFirestoreEmulator = Boolean(process.env.FIREBASE_EMULATOR_HUB ?? process.env.FIRESTORE_EMULATOR_HOST);
 const at = timestampFromDate(new Date('2026-09-22T00:00:00.000Z'));
 const audit = {

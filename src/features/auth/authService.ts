@@ -21,6 +21,7 @@ import {
   readUserProfile,
 } from '../../infrastructure/firebase';
 import type { UserProfile } from '../../types';
+import type { Language } from '../../lib/i18n/translations';
 
 export async function signOutService(): Promise<void> {
   await fbSignOut(auth);
@@ -38,8 +39,22 @@ export async function signUpWithEmailService(email: string, password: string): P
   return (await createUserWithEmailAndPassword(auth, email, password)).user;
 }
 
-export async function requestEmailVerificationService(user: User): Promise<void> {
-  await sendEmailVerification(user);
+/** The built-in Firebase handler verifies the email before offering this return link. */
+export function getVerificationEmailActionSettings(language: Language, origin: string) {
+  const returnUrl = new URL('/email-verified', origin);
+  returnUrl.searchParams.set('lang', language);
+  return { url: returnUrl.toString(), handleCodeInApp: false };
+}
+
+export async function requestEmailVerificationService(
+  user: User,
+  language: Language
+): Promise<void> {
+  auth.languageCode = language;
+  await sendEmailVerification(
+    user,
+    getVerificationEmailActionSettings(language, window.location.origin)
+  );
 }
 
 export async function refreshEmailVerificationService(user: User): Promise<boolean> {
@@ -53,7 +68,11 @@ export async function signInWithGoogleService(): Promise<User> {
   return (await signInWithPopup(auth, googleProvider)).user;
 }
 
-export async function requestPasswordResetService(email: string): Promise<void> {
+export async function requestPasswordResetService(
+  email: string,
+  language: Language
+): Promise<void> {
+  auth.languageCode = language;
   await sendPasswordResetEmail(auth, email);
 }
 

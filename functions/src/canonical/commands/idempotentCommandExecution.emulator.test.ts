@@ -16,7 +16,7 @@ import { createAuthoritativeCommandClock } from './commandClock';
 import { executeIdempotentCanonicalCommand } from './idempotentCommandExecution';
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
 
-const PROJECT_ID = 'demo-ski-school-e2e';
+const PROJECT_ID = 'ski-academy-canonical-idem-test';
 const correlationId = CorrelationIdSchema.parse('correlation_idem_emulator_01');
 const accountId = AccountIdSchema.parse('account_idem_emulator_01');
 const bookingId = BookingIdSchema.parse('booking_idem_emulator_01');

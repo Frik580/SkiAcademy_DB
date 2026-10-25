@@ -6,7 +6,7 @@ import {
 import { readRepoFile } from '../helpers/readRepoFile';
 import { doc, setDoc } from 'firebase/firestore';
 
-export const PROJECT_ID = 'demo-ski-school-e2e';
+export const PROJECT_ID = 'ski-academy-integration-test';
 export const USER_ID = 'user-1';
 export const OTHER_USER_ID = 'user-2';
 export const OWNER_ID = 'owner-1';

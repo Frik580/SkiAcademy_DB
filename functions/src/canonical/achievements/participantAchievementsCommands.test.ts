@@ -142,35 +142,6 @@ function envelope(
 }
 
 describe('participantAchievementsCommands', () => {
-  it.each(['earnedAt', 'source'] as const)(
-    'reproduces legacy key collision when %s changes',
-    async (field) => {
-      const executor = createInMemoryCanonicalTransactionExecutor(seedWorld());
-      const commands = createProductionCanonicalCommands(environment(), executor);
-      const original = envelope({ expectedRevision: 0 });
-      expect((await commands.execute(original)).status).toBe('success');
-      const changed = {
-        ...original,
-        intent: {
-          ...original.intent,
-          earned: original.intent.earned.map((item) => ({
-            ...item,
-            ...(field === 'earnedAt'
-              ? { earnedAt: timestampFromDate(new Date('2026-01-09T12:00:00.000Z')) }
-              : { source: 'participant_progress' as const }),
-          })),
-        },
-      };
-      const result = await commands.execute(changed);
-      expect(result).toMatchObject({
-        status: 'error',
-        error: { code: 'idempotency_conflict', retryable: false },
-      });
-      expect(
-        executor.snapshot().docs.get(`participant_achievements/${participantId}`)?.data.revision
-      ).toBe(1);
-    }
-  );
   it('rejects a level achievement before official promotion and accepts an assigned qualification once', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(seedWorld());
     const denied = await createProductionCanonicalCommands(environment(), executor).execute(

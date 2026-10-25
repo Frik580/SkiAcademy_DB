@@ -14,19 +14,6 @@ export class FirebaseEnvironmentGuardError extends Error {
   }
 }
 
-export function assertFirebaseTestEnvironment(input: {
-  mode: string;
-  projectId: string;
-  useEmulators: boolean;
-}): void {
-  if (input.mode !== 'test' && input.mode !== 'e2e') return;
-  if (!input.projectId.startsWith('demo-') || (input.mode === 'e2e' && !input.useEmulators)) {
-    throw new FirebaseEnvironmentGuardError(
-      'Tests require a demo Firebase project and E2E requires emulators.'
-    );
-  }
-}
-
 export interface FirebaseEnvironmentGuardInput {
   readonly hostname: string;
   readonly projectId: string;

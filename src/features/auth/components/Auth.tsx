@@ -26,7 +26,7 @@ const PRESET_SEEDS = ['Felix', 'Aneka', 'Jack', 'Buster', 'Bella', 'Luna'];
 
 export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) => {
   const { addNotification } = useNotifications();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -41,7 +41,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
   const requestVerification = async (user: User) => {
     setVerificationUser(user);
     try {
-      await requestEmailVerificationService(user);
+      await requestEmailVerificationService(user, language);
       setError('');
     } catch {
       setError(t('authVerificationSendFailed'));
@@ -321,7 +321,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
 
     setIsLoading(true);
     try {
-      await requestPasswordResetService(email);
+      await requestPasswordResetService(email, language);
       addNotification(
         'success',
         t('authResetEmailSent'),

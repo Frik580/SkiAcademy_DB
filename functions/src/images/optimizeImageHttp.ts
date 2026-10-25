@@ -1,8 +1,8 @@
-import { HttpsError } from 'firebase-functions/v2/https';
-import { admitRequest } from '../security/requestAdmission';
-import { getAdminFirestore } from '../adminFirestore';
 import { onRequest } from 'firebase-functions/v2/https';
-import { optimizeImageFromParams, parseOptimizeImageQuery } from './optimizeImage';
+import {
+  optimizeImageFromParams,
+  parseOptimizeImageQuery,
+} from './optimizeImage';
 
 /**
  * GET /api/img?u=<https carve url>&w=960|1920&q=72
@@ -17,9 +17,6 @@ export const optimizeImage = onRequest(
     cors: true,
   },
   async (req, res) => {
-    // Only successful image bodies may be cached; quota/validation/upstream
-    // failures must recover immediately instead of being retained by the CDN.
-    res.setHeader('Cache-Control', 'no-store');
     if (req.method === 'OPTIONS') {
       res.status(204).send('');
       return;
@@ -36,12 +33,7 @@ export const optimizeImage = onRequest(
     }
 
     try {
-      const result = await optimizeImageFromParams({
-        ...parsed,
-        admitCacheMiss: async () => {
-          await admitRequest(getAdminFirestore(), 'image_global_misses', 120);
-        },
-      });
+      const result = await optimizeImageFromParams(parsed);
       if (!result.ok) {
         res.status(result.status).send(result.message);
         return;
@@ -59,14 +51,7 @@ export const optimizeImage = onRequest(
       }
       res.status(200).send(result.body);
     } catch (err) {
-      if (err instanceof HttpsError && err.code === 'resource-exhausted') {
-        res.setHeader('Retry-After', '60');
-        res.status(429).send('Image rate limit exceeded');
-        return;
-      }
-      console.error('optimizeImage failed', {
-        code: err instanceof HttpsError ? err.code : 'processing_error',
-      });
+      console.error('optimizeImage failed', err);
       res.status(500).send('Image optimization failed');
     }
   }

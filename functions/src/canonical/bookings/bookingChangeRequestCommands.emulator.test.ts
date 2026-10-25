@@ -23,7 +23,7 @@ import { createFirestoreCanonicalTransactionExecutor } from '../transactions/fir
 import { BOOKING_REVISION_TRANSPORT_KEY } from './bookingChangeRequestAuthorization';
 import { seedLessonPricingSettingsFixture } from '../../../testSupport/lessonPricingSettingsFixture';
 
-const PROJECT_ID = 'demo-ski-school-e2e';
+const PROJECT_ID = 'ski-academy-change-request-emulator-test';
 const correlationId = CorrelationIdSchema.parse('correlation_change_req_emulator_01');
 const accountId = AccountIdSchema.parse('account_change_req_emulator_01');
 const instructorAccountId = AccountIdSchema.parse('account_change_req_emulator_instructor_01');

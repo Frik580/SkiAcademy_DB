@@ -87,7 +87,7 @@ describe('firestore.rules guardrails', () => {
     expect(rulesSource).toContain('function authoritativeMoneyFieldsUnchanged');
     expect(rulesSource).toContain('function validStarterCreditSetting');
     expect(rulesSource).toMatch(
-      /match \/users\/\{userId\}[\s\S]*allow delete: if false;/
+      /allow delete: if userId\.matches\('\^client_\.\*'\)[\s\S]*isOwnEmail\(resource\.data\.email\)/
     );
     expect(rulesSource).toMatch(
       /match \/settings\/\{settingId\}[\s\S]*settingId != 'guest_wallet'/

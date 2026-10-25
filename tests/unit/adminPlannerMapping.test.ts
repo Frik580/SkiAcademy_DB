@@ -68,16 +68,6 @@ describe('Admin Planner compatibility mapping', () => {
       }),
     ]);
     expect(mapped[0]?.userId).not.toBe(participantId);
-    const fractional = mapPlannerOccupancyToBookings([
-      {
-        ...item,
-        durationMinutes: 90,
-        participantNames: ['child1', 'child2'],
-        displayTitle: 'child1, child2',
-      },
-    ]);
-    expect(fractional[0]?.durationHours).toBe(1.5);
-    expect(fractional[0]?.participantLabel).toBe('child1, child2');
   });
 
   it('does not invent beginner difficulty when occupancy has none', () => {
@@ -401,41 +391,4 @@ describe('Admin Planner compatibility mapping', () => {
       })
     ).toBe('Alex Guest');
   });
-});
-
-it('uses one planner timezone for Booking and CourseDay in day and week views', () => {
-  const item: AdminPlannerOccupancyItem = {
-    occupancyKind: 'lesson_booking',
-    occupancyId: 'incident_b',
-    bookingId: BookingIdSchema.parse('booking_timezone_incident_b'),
-    instructorId,
-    participantId: ParticipantIdSchema.parse('participant_timezone_incident_b'),
-    interval: interval('2026-10-22T07:00:00Z', '2026-10-22T09:00:00Z'),
-    timeZone: 'Europe/Istanbul',
-    localDate: '2026-10-22',
-    localTime: '10:00',
-    durationMinutes: 120,
-    displayTitle: 'child2',
-    lifecycleStatus: 'no_show',
-    revision: 4,
-  };
-  for (const day of ['2026-10-22', undefined]) {
-    expect(mapPlannerOccupancyToBookings([item], day, 'Asia/Qyzylorda')[0]).toMatchObject({
-      time: '12:00',
-      durationHours: 2,
-      status: 'no_show',
-    });
-    const course = mapPlannerCourses(
-      [
-        {
-          ...item,
-          occupancyKind: 'course_day',
-          courseId: CourseIdSchema.parse('course_timezone_incident_b'),
-        },
-      ],
-      day,
-      'Asia/Qyzylorda'
-    )[0]!;
-    expect(parseCourseDates(course.dates)).toMatchObject({ startTime: '12:00', endTime: '14:00' });
-  }
 });

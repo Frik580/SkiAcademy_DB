@@ -27,7 +27,7 @@ import {
   readAndPlanAcquireActiveCourseEnrollmentGuard,
 } from './uniquenessGuards';
 
-const PROJECT_ID = 'demo-ski-school-e2e';
+const PROJECT_ID = 'ski-academy-claim-engine-test';
 const correlationId = CorrelationIdSchema.parse('correlation_claim_emulator_01');
 const commandId = CommandIdSchema.parse('command_claim_emulator_01');
 const instructorId = InstructorIdSchema.parse('instructor_claim_emulator_01');

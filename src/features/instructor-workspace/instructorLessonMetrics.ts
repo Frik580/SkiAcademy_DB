@@ -35,6 +35,8 @@ export type InstructorLessonMetrics = {
   /** completed + no_show; occupancy helper, not labelled “completed”. */
   readonly occupied: number;
   readonly cancelled: number;
+  /** Revenue is canonical Payment only; dashboard keeps a placeholder. */
+  readonly revenue: undefined;
 };
 
 export type InstructorRosterParticipant = {
@@ -101,6 +103,7 @@ export function computeInstructorLessonMetrics(
     noShow,
     occupied,
     cancelled,
+    revenue: undefined,
   };
 }
 

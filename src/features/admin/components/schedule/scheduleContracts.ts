@@ -22,7 +22,7 @@ export type ScheduleBooking = Pick<
   | 'isDeleted'
   | 'attendanceOverdue'
   | 'missingAttendanceCount'
-> & { readonly participantLabel?: string };
+>;
 
 export type ScheduleClient = Pick<UserProfile, 'uid' | 'displayName' | 'avatarUrl' | 'email'>;
 

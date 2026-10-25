@@ -85,13 +85,3 @@ export function getSpecialtyLabel(spec: string, language: Language): string {
       return spec;
   }
 }
-
-/** Half-open intervals: touching endpoints never conflict. */
-export function scheduleIntervalsOverlap(
-  aStart: number,
-  aEnd: number,
-  bStart: number,
-  bEnd: number
-): boolean {
-  return aStart < bEnd && bStart < aEnd;
-}

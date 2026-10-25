@@ -1,17 +1,13 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { initializeApp, deleteApp, type App } from 'firebase-admin/app';
+import { initializeApp, getApps, deleteApp, type App } from 'firebase-admin/app';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import {
   AccountSchema,
-  AccountIdSchema,
   BookingIdSchema,
   BookingSchema,
   CorrelationIdSchema,
-  KztMinorUnitsSchema,
-  LIVE_CANONICAL_EXECUTION_SCOPE,
   OccurrenceIdSchema,
   PaymentSchema,
-  SystemActorIdSchema,
   accountCommandActor,
   adminIssueDedupeKeyFromIdentity,
   adminIssueIdFromDedupeKey,
@@ -25,12 +21,12 @@ import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
 
-const PROJECT_ID = 'demo-ski-school-e2e';
+const PROJECT_ID = 'ski-academy-payment-gate-emulator-test';
 const correlationId = CorrelationIdSchema.parse('correlation_payment_gate_emulator_01');
 const correlationIdB = CorrelationIdSchema.parse('correlation_payment_gate_emulator_02');
 const bookingId = BookingIdSchema.parse('booking_payment_gate_emulator_01');
 const occurrenceId = OccurrenceIdSchema.parse('occurrence_payment_gate_emulator_01');
-const accountId = AccountIdSchema.parse('account_payment_gate_emulator_01');
+const accountId = 'account_payment_gate_emulator_01';
 const startAt = new Date('2026-01-15T04:00:00.000Z');
 const createdAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
 const startTimestamp = timestampFromDate(startAt);
@@ -156,7 +152,7 @@ async function seedUnderfundedFixture(): Promise<void> {
 
 function createCommands() {
   return createProductionCanonicalCommands(
-    { clock: createAuthoritativeCommandClock(startAt), scope: LIVE_CANONICAL_EXECUTION_SCOPE },
+    { clock: createAuthoritativeCommandClock(startAt) },
     createFirestoreCanonicalTransactionExecutor(firestore)
   );
 }
@@ -168,7 +164,7 @@ function gateEnvelope(
   return {
     kind: 'enforce_payment_start_gate',
     context: {
-      actor: systemCommandActor(SystemActorIdSchema.parse('system_payment_gate_emulator_01')),
+      actor: systemCommandActor('system_payment_gate_emulator_01'),
       exercisedCapability: 'system',
       idempotencyKey,
       correlationId: correlation,
@@ -190,7 +186,7 @@ function fundingEnvelope(): CommandEnvelope<'record_provider_payment_event'> {
     },
     intent: {
       paymentId: paymentIdFromBookingId(bookingId),
-      amount: KztMinorUnitsSchema.parse(100_000),
+      amount: 100_000,
       sourceKind: 'cash',
     },
   };
@@ -199,7 +195,7 @@ function fundingEnvelope(): CommandEnvelope<'record_provider_payment_event'> {
 describe.skipIf(!runsOnFirestoreEmulator)('enforce_payment_start_gate (firestore emulator)', () => {
   beforeAll(() => {
     process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8080';
-    app = initializeApp({ projectId: PROJECT_ID }, PROJECT_ID);
+    app = getApps().length > 0 ? getApps()[0]! : initializeApp({ projectId: PROJECT_ID });
     firestore = getFirestore(app);
   }, 30_000);
 

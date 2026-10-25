@@ -8,16 +8,14 @@ import { useParticipantAchievementsStore } from './participantAchievementsStore'
 export function useParticipantAchievementsSync() {
   const firebaseUser = useAuthStore((state) => state.firebaseUser);
   const userProfile = useProfileStore((state) => state.userProfile);
-  const canonicalReadyAccountId = useProfileStore((state) => state.canonicalReadyAccountId);
 
   useEffect(() => {
-    if (!firebaseUser || !userProfile || userProfile.role !== 'user' ||
-        canonicalReadyAccountId !== firebaseUser.uid || userProfile.uid !== firebaseUser.uid) {
+    if (!firebaseUser || !userProfile || userProfile.role !== 'user') {
       useParticipantAchievementsStore.getState().clear();
       return;
     }
     void refreshManagedParticipantAchievements().catch((error) => {
       logger.warn('Failed to load managed participant achievements', error);
     });
-  }, [firebaseUser, userProfile, canonicalReadyAccountId]);
+  }, [firebaseUser, userProfile]);
 }

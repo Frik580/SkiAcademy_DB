@@ -58,7 +58,7 @@ function command(
 }
 suite('participant levels real Firestore transactions', () => {
   beforeAll(async () => {
-    app = initializeApp({ projectId: 'demo-ski-school-e2e' }, 'participant-levels-emulator');
+    app = initializeApp({ projectId: 'demo-participant-levels' }, 'participant-levels-emulator');
     firestore = getFirestore(app);
     const relationshipId = instructorRelationshipIdFromPair({
       instructorId: coachId,

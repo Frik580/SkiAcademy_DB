@@ -34,34 +34,6 @@ const validIntent = {
 };
 
 describe('canonical participant achievements contract', () => {
-  it('v2 keys bind date, source, capability and array order to the exact fingerprint', () => {
-    const key = (
-      earned = validIntent.earned,
-      capability: 'account_owner' | 'parent_guardian' = 'account_owner'
-    ) =>
-      deriveRecordParticipantAchievementsIdempotencyKey(
-        participantId as never,
-        0,
-        earned,
-        capability
-      );
-    expect(key()).toBe(key());
-    expect(
-      key([
-        { ...validIntent.earned[0], earnedAt: timestampFromDate(new Date('2026-01-09T12:00:00Z')) },
-      ])
-    ).not.toBe(key());
-    expect(
-      deriveRecordParticipantAchievementsIdempotencyKey(participantId as never, 0, [
-        { ...validIntent.earned[0], source: 'participant_progress' },
-      ])
-    ).not.toBe(key());
-    expect(key(validIntent.earned, 'parent_guardian')).not.toBe(key());
-    const two = [...validIntent.earned, { ...validIntent.earned[0], achievementId: 'ten_lessons' }];
-    expect(key(two)).not.toBe(key([...two].reverse()));
-    expect(key()).toMatch(/^record-participant-achievements:v2:/);
-    expect(key().length).toBeLessThanOrEqual(200);
-  });
   it('requires participantId and rejects account-level spoof fields', () => {
     expect(parseCommandIntent('record_participant_achievements', validIntent).success).toBe(true);
     expect(
@@ -117,20 +89,20 @@ describe('canonical participant achievements contract', () => {
 
   it('33. idempotency keys are deterministic per participant, revision, and ids', () => {
     const keyA = deriveRecordParticipantAchievementsIdempotencyKey(participantId as never, 0, [
-      { achievementId: 'first_lesson', earnedAt, source: 'participant_attendance' },
+      { achievementId: 'first_lesson' },
     ]);
     const keyB = deriveRecordParticipantAchievementsIdempotencyKey(participantId as never, 0, [
-      { achievementId: 'first_lesson', earnedAt, source: 'participant_attendance' },
+      { achievementId: 'first_lesson' },
     ]);
     const otherRevision = deriveRecordParticipantAchievementsIdempotencyKey(
       participantId as never,
       1,
-      [{ achievementId: 'first_lesson', earnedAt, source: 'participant_attendance' }]
+      [{ achievementId: 'first_lesson' }]
     );
     const otherParticipant = deriveRecordParticipantAchievementsIdempotencyKey(
       'participant_achievements_contract_02' as never,
       0,
-      [{ achievementId: 'first_lesson', earnedAt, source: 'participant_attendance' }]
+      [{ achievementId: 'first_lesson' }]
     );
     expect(keyA).toBe(keyB);
     expect(keyA).not.toBe(otherRevision);

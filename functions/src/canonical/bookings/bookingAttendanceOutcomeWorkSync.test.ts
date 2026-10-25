@@ -18,47 +18,10 @@ import {
 import {
   bookingWriteRequiresAttendanceOutcomeWorkReconciliation,
   syncLessonBookingAttendanceOutcomeWorkForBookingWrite,
-  markLessonBookingAttendanceOutcomeWorkMigrationReady,
 } from './bookingAttendanceOutcomeWorkSync';
 
 const booking = canonicalBookingCollaborationFixtures.individualBooking;
 const testSessionId = TestSessionIdSchema.parse('test_session_booking_work_01');
-
-describe('Attendance migration evidence guard', () => {
-  it.each([
-    undefined,
-    {
-      scannedBookings: 1,
-      outcomes: { created: 0, updated: 0, unchanged: 0, deleted: 0, blocked: 1 },
-      truncated: false,
-    },
-    {
-      scannedBookings: 1,
-      outcomes: { created: 1, updated: 0, unchanged: 0, deleted: 0, blocked: 0 },
-      truncated: true,
-    },
-    {
-      scannedBookings: 2,
-      outcomes: { created: 1, updated: 0, unchanged: 0, deleted: 0, blocked: 0 },
-      truncated: false,
-    },
-  ])(
-    'rejects missing, blocked, or incomplete evidence before accessing Firestore',
-    async (evidence) => {
-      const firestore = new Proxy(
-        {},
-        {
-          get() {
-            throw Error('Firestore must not be accessed');
-          },
-        }
-      ) as Firestore;
-      await expect(
-        markLessonBookingAttendanceOutcomeWorkMigrationReady(firestore, new Date(), evidence)
-      ).rejects.toThrow('Attendance migration blocked');
-    }
-  );
-});
 
 function raw(value: Booking): Record<string, unknown> {
   return value as unknown as Record<string, unknown>;

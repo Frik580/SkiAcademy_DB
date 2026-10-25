@@ -494,14 +494,6 @@ Account lesson data is read in two account-scoped projections: `account_hot` (cu
 
 Instructor capability and administrative role are independent dimensions and may coexist. When one person has both, each action is still authorized and audited under the capability used.
 
-Instructor dashboard revenue is a separate sanitized aggregate: lifetime
-`sum(Payment.retainedAmount)` for unique completed individual/family Bookings
-currently assigned to that Instructor. It excludes CourseEnrollment and personal
-compensation, preserves live/product_test isolation, and exposes no per-client
-financial details. See [the projection contract](docs/INSTRUCTOR_LESSON_REVENUE.md)
-and the aggregate-only visibility exception in ADR-0003. This source change
-requires separate deployment and initial projection fill.
-
 Administrator-created confirmed underpayment applies only to `bookingOrigin = admin` creation. It is not unpaid guest confirmation. Guest confirmation remains payment-funded as defined in ADR-0007.
 
 ## Archival, terminal states, and audit

@@ -25,7 +25,7 @@ import {
 } from '@ski-academy/shared-domain/testing';
 import { sweepGuestConfirmationLifecycleMismatches } from './guestConfirmationReconciliationSweep';
 
-const PROJECT_ID = 'demo-ski-school-e2e';
+const PROJECT_ID = 'ski-academy-guest-confirmation-sweep-test';
 const createdAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
 const mismatchAt = timestampFromDate(new Date('2026-01-01T11:00:00.000Z'));
 const historicalAt = timestampFromDate(new Date('2020-01-01T00:00:00.000Z'));

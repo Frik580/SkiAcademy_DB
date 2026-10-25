@@ -111,10 +111,10 @@ describe('instructor lesson metrics — canonical booking lifecycle', () => {
     expect(counts.get('p2')).toBe(1);
   });
 
-  it('keeps financial revenue outside booking-lifecycle metrics', () => {
+  it('does not treat revenue as a booking-lifecycle number', () => {
     expect(
-      computeInstructorLessonMetrics([item('booking_completed', 'completed')])
-    ).not.toHaveProperty('revenue');
+      computeInstructorLessonMetrics([item('booking_completed', 'completed')]).revenue
+    ).toBeUndefined();
   });
 
   it('reachable instructor/admin metric paths do not use isAttendedLessonStatus', () => {

@@ -638,12 +638,6 @@
   ],
   "fieldOverrides": [
     {
-      "collectionGroup": "security_request_limits",
-      "fieldPath": "deleteAt",
-      "ttl": true,
-      "indexes": []
-    },
-    {
       "collectionGroup": "guest_reservation_admission",
       "fieldPath": "deleteAt",
       "ttl": true,

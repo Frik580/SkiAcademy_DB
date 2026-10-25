@@ -105,18 +105,6 @@ export function createExecuteCanonicalCommandHandler(firestore: Firestore) {
     }
 
     const transportInput = parseAuthenticatedCallableCommandTransportInput(request);
-    // Old tabs silently submitted level assignments through progress updates.
-    // Reject before any domain transaction; refreshing loads the canonical UX.
-    if (
-      ['update_participant_progress', 'manage_participant_level'].includes(transportInput.kind) &&
-      transportInput.participantProgressContract !== 2
-    ) {
-      throw new HttpsError(
-        'failed-precondition',
-        'Обновите страницу перед изменением уровня или навыков. Refresh this page before changing levels or skills.',
-        { code: 'unavailable', retryable: false, clientUpdateRequired: true }
-      );
-    }
     const userSnap = await firestore.collection('users').doc(request.auth.uid).get();
     const userData = userSnap.data() as Record<string, unknown> | undefined;
     const profile = readCallableAccountProfile(userData);

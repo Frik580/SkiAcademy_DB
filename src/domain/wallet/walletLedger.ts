@@ -4,7 +4,6 @@ import { translateCourse } from '../../lib/i18n/contentTranslation';
 import { parseCourseDates } from '../../lib/i18n/courseDates';
 import { formatDurationLabel } from '../../lib/i18n/duration';
 import type { TranslationKey } from '../../lib/i18n/translations';
-import type { AccountWalletOperation } from '@ski-academy/shared-domain';
 import type {
   Booking,
   Course,
@@ -40,7 +39,35 @@ export interface WalletOperationView {
   bookingId?: string;
   sessionDateLabel?: string;
   durationLabel?: string;
-  source: 'ledger' | 'monetary_event';
+  source: 'ledger' | 'synthetic';
+}
+
+const PAID_BOOKING_STATUSES = new Set<Booking['status']>([
+  'pending',
+  'confirmed',
+  'completed',
+  'pending_cancellation',
+]);
+
+function ledgerBookingIds(entries: WalletLedgerEntry[]): Set<string> {
+  const ids = new Set<string>();
+  for (const entry of entries) {
+    if (entry.bookingId) ids.add(entry.bookingId);
+  }
+  return ids;
+}
+
+function ledgerHasBookingAction(
+  entries: WalletLedgerEntry[],
+  bookingId: string,
+  type: WalletLedgerType
+): boolean {
+  return entries.some((entry) => entry.bookingId === bookingId && entry.type === type);
+}
+
+function resolveCourseTitle(course: Course | undefined, language: 'en' | 'ru'): string | undefined {
+  if (!course) return undefined;
+  return translateCourse(course, language).title;
 }
 
 function formatWalletSessionDate(
@@ -87,26 +114,106 @@ function enrichWalletOperationWithBooking(
   courses: Course[],
   language: 'en' | 'ru'
 ): WalletOperationView {
-  const bookingId = operation.bookingId;
+  const bookingId =
+    operation.bookingId ??
+    (operation.id.startsWith('synthetic_payment_')
+      ? operation.id.slice('synthetic_payment_'.length)
+      : operation.id.startsWith('synthetic_refund_')
+        ? operation.id.slice('synthetic_refund_'.length)
+        : undefined);
 
   if (!bookingId) return operation;
 
   const booking = bookings.find((item) => item.id === bookingId);
   if (!booking) return { ...operation, bookingId };
-  const courseId = booking.courseId ?? booking.instructorId.slice('course_'.length);
-  const course = isCourseBooking(booking)
-    ? courses.find((item) => item.id === courseId)
-    : undefined;
 
   return {
     ...operation,
     bookingId,
-    subjectName:
-      operation.subjectName ??
-      (course ? translateCourse(course, language).title : booking.instructorName),
     sessionDateLabel: formatWalletSessionDate(booking, courses, language),
     durationLabel: formatWalletSessionDuration(booking, courses, language),
   };
+}
+
+export function buildSyntheticWalletOperations(
+  userId: string,
+  bookings: Booking[],
+  courses: Course[],
+  ledgerEntries: WalletLedgerEntry[],
+  language: 'en' | 'ru'
+): WalletOperationView[] {
+  const courseById = new Map(courses.map((course) => [course.id, course]));
+  const coveredBookingIds = ledgerBookingIds(ledgerEntries);
+  const synthetic: WalletOperationView[] = [];
+
+  for (const booking of bookings) {
+    if (booking.userId !== userId || booking.isDeleted) continue;
+    if (booking.totalPrice == null || booking.totalPrice <= 0) continue;
+
+    const createdAt = resolveBookingCreatedAt(booking)?.toISOString();
+    if (!createdAt) continue;
+
+    const isCourse = isCourseBooking(booking);
+    const courseId =
+      booking.courseId ?? (isCourse ? booking.instructorId.slice('course_'.length) : undefined);
+    const subjectName = isCourse
+      ? (resolveCourseTitle(courseById.get(courseId ?? ''), language) ?? booking.instructorName)
+      : booking.instructorName;
+
+    if (
+      PAID_BOOKING_STATUSES.has(booking.status) &&
+      !coveredBookingIds.has(booking.id) &&
+      !ledgerHasBookingAction(
+        ledgerEntries,
+        booking.id,
+        isCourse ? 'course_payment' : 'lesson_payment'
+      )
+    ) {
+      synthetic.push({
+        id: `synthetic_payment_${booking.id}`,
+        amount: -booking.totalPrice,
+        createdAt,
+        labelKey: isCourse ? 'walletOpCoursePayment' : 'walletOpLessonPayment',
+        subjectName,
+        bookingId: booking.id,
+        source: 'synthetic',
+      });
+    }
+
+    if (booking.status === 'cancelled') {
+      const paymentType = isCourse ? 'course_payment' : 'lesson_payment';
+      const hasLedgerPayment = ledgerHasBookingAction(ledgerEntries, booking.id, paymentType);
+      const hasSyntheticPayment = synthetic.some(
+        (item) => item.id === `synthetic_payment_${booking.id}`
+      );
+
+      if (!hasLedgerPayment && !hasSyntheticPayment) {
+        synthetic.push({
+          id: `synthetic_payment_${booking.id}`,
+          amount: -booking.totalPrice,
+          createdAt,
+          labelKey: isCourse ? 'walletOpCoursePayment' : 'walletOpLessonPayment',
+          subjectName,
+          bookingId: booking.id,
+          source: 'synthetic',
+        });
+      }
+
+      if (!ledgerHasBookingAction(ledgerEntries, booking.id, 'refund')) {
+        synthetic.push({
+          id: `synthetic_refund_${booking.id}`,
+          amount: booking.totalPrice,
+          createdAt,
+          labelKey: 'walletOpRefund',
+          subjectName,
+          bookingId: booking.id,
+          source: 'synthetic',
+        });
+      }
+    }
+  }
+
+  return synthetic;
 }
 
 export const WALLET_LEDGER_LABEL_KEYS: Record<WalletLedgerType, TranslationKey> = {
@@ -133,25 +240,6 @@ export function ledgerEntryToView(entry: WalletLedgerEntry): WalletOperationView
   };
 }
 
-export function prepareAccountWalletHistory(
-  operations: readonly AccountWalletOperation[],
-  bookings: Booking[],
-  courses: Course[],
-  language: 'en' | 'ru'
-): WalletOperationView[] {
-  return operations.map((operation) =>
-    enrichWalletOperationWithBooking(
-      {
-        ...operation,
-        labelKey: WALLET_LEDGER_LABEL_KEYS[operation.type],
-      },
-      bookings,
-      courses,
-      language
-    )
-  );
-}
-
 export function buildWalletOperationHistory(
   userId: string,
   bookings: Booking[],
@@ -159,11 +247,20 @@ export function buildWalletOperationHistory(
   ledgerEntries: WalletLedgerEntry[],
   language: 'en' | 'ru'
 ): WalletOperationView[] {
-  // Persisted history only; booking status is not financial evidence.
+  // Historical USD ledger rows remain in storage for compatibility, but this
+  // KZT wallet surface must not relabel their amounts or balances as ₸.
   const fromLedger = ledgerEntries
-    .filter((entry) => entry.userId === userId)
+    .filter((entry) => entry.currency !== 'USD')
     .map(ledgerEntryToView);
-  return fromLedger
+  const synthetic = buildSyntheticWalletOperations(
+    userId,
+    bookings,
+    courses,
+    ledgerEntries,
+    language
+  );
+
+  return [...fromLedger, ...synthetic]
     .map((operation) => enrichWalletOperationWithBooking(operation, bookings, courses, language))
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }

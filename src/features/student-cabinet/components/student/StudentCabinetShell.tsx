@@ -540,11 +540,9 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
       )}
       <div
         key={
-          activeTab === 'profile_wallet'
-            ? 'cabinet-account-wallet'
-            : activeTab === 'home' || activeTab === 'calendar'
-              ? 'cabinet-account-sessions'
-              : progressViewKey
+          activeTab === 'home' || activeTab === 'calendar'
+            ? 'cabinet-account-sessions'
+            : progressViewKey
         }
       >
         {activeTab === 'home' && (

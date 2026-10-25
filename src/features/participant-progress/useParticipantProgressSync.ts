@@ -23,8 +23,6 @@ export function useParticipantProgressSync() {
   const participantAccess = useBookingCollaborationStore((state) => state.participantAccess);
   const nowMs = useLessonStartClock(lessonBookings);
   const accountId = firebaseUser?.uid;
-  const profileAccountId = userProfile?.uid;
-  const canonicalReadyAccountId = useProfileStore((state) => state.canonicalReadyAccountId);
   const instructorId = userProfile?.instructorId;
   const isInstructorRoute = location.pathname === '/instructor';
   const isCabinetOrHome = location.pathname === '/' || location.pathname.startsWith('/cabinet');
@@ -34,14 +32,10 @@ export function useParticipantProgressSync() {
       useParticipantProgressStore.getState().clear();
       return;
     }
-    // Firebase Auth can resolve before the Account document exists (e.g. while
-    // email verification is pending). Never request managed progress for an
-    // absent profile or one belonging to a previous signed-in principal.
-    if (profileAccountId !== accountId || canonicalReadyAccountId !== accountId) return;
     void refreshManagedParticipantProgress().catch((error) => {
       logger.warn('Failed to load managed participant progress', error);
     });
-  }, [accountId, profileAccountId, canonicalReadyAccountId, isCabinetOrHome]);
+  }, [accountId, isCabinetOrHome]);
 
   useEffect(() => {
     if (!accountId || !isInstructorRoute || !instructorId) return;

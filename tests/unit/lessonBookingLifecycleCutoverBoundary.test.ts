@@ -344,7 +344,7 @@ describe('T32.9A.9B.3 canonical lesson feedback isolation', () => {
     expect(rules).toContain(
       'Legacy bookings.recommendations / completedRecommendationIds client writes are closed.'
     );
-    expect(rules).toContain("affectedKeys().hasOnly(['isHomework', 'homeworkForParticipantIds'])");
+    expect(rules).toContain("changedKeys().hasOnly(['isHomework', 'homeworkForParticipantIds'])");
     const chatService = readRepoFile('src/features/chat/chatService.ts');
     expect(chatService).toContain('setChatMessageHomework');
     expect(chatService).toContain('isHomework');

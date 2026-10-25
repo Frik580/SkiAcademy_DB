@@ -4,7 +4,7 @@ import type {
   LessonBookingReadModel,
 } from '@ski-academy/shared-domain';
 import { AlertTriangle, CalendarDays, MessageSquareText, X } from 'lucide-react';
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { ActionButton } from '../../../ui/ActionButton';
 import { formatLessonDifficultyOrUnspecified } from '../../../lib/i18n/bookingLabels';
 import type { Language, TranslationKey } from '../../../lib/i18n/translations';
@@ -48,7 +48,6 @@ import {
   AdminLessonStatusChip,
   type AdminLessonDetailSection,
 } from './AdminLessonBookingUi';
-import { buildAdminLessonAttendanceAttempt } from './lessonBookingAttendanceAttempt';
 import { useAdminLessonAttendanceDraft } from './useAdminLessonAttendanceDraft';
 
 export interface AdminLessonBookingDetailProps {
@@ -62,7 +61,6 @@ export interface AdminLessonBookingDetailProps {
     attempt: AdminLessonBookingMutationDraft
   ) => Promise<boolean>;
   readonly attendanceFinalizePending: boolean;
-  readonly attendanceSubmissionBlocked?: boolean;
   readonly attendanceFinalizeSuccessNonce: number;
   /**
    * Editing a draft after a mutation confirmation was requested would capture a stale attempt,
@@ -148,7 +146,6 @@ export function AdminLessonBookingDetail({
   onRequestAttempt,
   onCommitAttendanceFinalize,
   attendanceFinalizePending,
-  attendanceSubmissionBlocked = false,
   attendanceFinalizeSuccessNonce,
   onClearConfirmation,
   onOpenPlanner,
@@ -174,8 +171,7 @@ export function AdminLessonBookingDetail({
     targetParticipantIds,
     draft: attendanceDraft,
     setParticipantStatus,
-    stale: attendanceDraftStale,
-    projectionKey: attendanceProjectionKey,
+    allTargetParticipantsDrafted,
     clearDraftAfterSuccess,
     presentCount,
     absentCount,
@@ -211,10 +207,7 @@ export function AdminLessonBookingDetail({
   useEffect(() => {
     setAttendanceConfirmOpen(false);
   }, [detail.bookingId]);
-  const previousAttendanceSuccess = useRef(attendanceFinalizeSuccessNonce);
   useEffect(() => {
-    if (previousAttendanceSuccess.current === attendanceFinalizeSuccessNonce) return;
-    previousAttendanceSuccess.current = attendanceFinalizeSuccessNonce;
     clearDraftAfterSuccess();
   }, [attendanceFinalizeSuccessNonce, clearDraftAfterSuccess]);
 
@@ -319,14 +312,21 @@ export function AdminLessonBookingDetail({
     }
   }, [activeSection, sections]);
 
-  const attendanceAttempt =
-    attendanceDraftStale || attendanceSubmissionBlocked
-      ? undefined
-      : buildAdminLessonAttendanceAttempt(detail, attendanceDraft, actionReason);
-  const isAttendanceCorrection =
-    detail.lifecycle.status === 'completed' || detail.lifecycle.status === 'no_show';
-  const attendanceSubmitRef = useRef(false);
-  useEffect(() => setAttendanceConfirmOpen(false), [attendanceProjectionKey]);
+  const buildFinalizeAttendanceAttempt = (): AdminLessonBookingMutationDraft => ({
+    kind: 'finalize_booking_attendance',
+    reasonExplanation: actionReason.trim(),
+    attendance: targetParticipantIds.map((participantId) => {
+      const record = (admin.attendance ?? []).find(
+        (candidate) => candidate.participantId === participantId
+      );
+      const status = attendanceDraft[participantId];
+      return {
+        participantId,
+        attendanceStatus: status === 'absent' ? 'absent' : 'present',
+        ...(record?.revision === undefined ? {} : { expectedAttendanceRevision: record.revision }),
+      };
+    }),
+  });
 
   return (
     <div>
@@ -736,11 +736,7 @@ export function AdminLessonBookingDetail({
               const canPresent = record?.authorizedActions.canRecordPresent ?? false;
               const canAbsent = record?.authorizedActions.canRecordAbsent ?? false;
               const draftStatus = attendanceDraft[participantId];
-              const canEdit =
-                !attendanceFinalizePending &&
-                (isAttendanceCorrection
-                  ? detail.partyKind === 'individual' && (canPresent || canAbsent)
-                  : admin.authorizedActions.canFinalizeAttendance && (canPresent || canAbsent));
+              const canEdit = canPresent || canAbsent;
               return (
                 <div key={participantId} className="space-y-2 type-caption">
                   <p className="font-medium">{participant?.displayName ?? participantId}</p>
@@ -794,15 +790,13 @@ export function AdminLessonBookingDetail({
             {attendanceHasMutations && (
               <button
                 type="button"
-                disabled={!attendanceAttempt || attendanceFinalizePending}
+                disabled={
+                  !allTargetParticipantsDrafted || !actionReason.trim() || attendanceFinalizePending
+                }
                 onClick={() => setAttendanceConfirmOpen(true)}
                 className="w-full border border-[var(--border)] px-3 py-2 type-button disabled:opacity-50"
               >
-                {t(
-                  isAttendanceCorrection
-                    ? 'adminLessonCorrectAttendance'
-                    : 'adminLessonFinalizeAttendance'
-                )}
+                {t('adminLessonFinalizeAttendance')}
               </button>
             )}
             {reasonInAttendance && (
@@ -1091,11 +1085,7 @@ export function AdminLessonBookingDetail({
         ))}
       {attendanceConfirmOpen && (
         <AdminModal
-          title={t(
-            isAttendanceCorrection
-              ? 'adminLessonConfirmCorrectionTitle'
-              : 'adminLessonConfirmAttendanceTitle'
-          )}
+          title={t('adminLessonConfirmAttendanceTitle')}
           closeLabel={t('adminLessonConfirmAttendanceBack')}
           closeDisabled={attendanceFinalizePending}
           onClose={() => {
@@ -1118,30 +1108,15 @@ export function AdminLessonBookingDetail({
                 className="btn-primary flex-1 px-4 py-3"
                 type="button"
                 size="sm"
-                disabled={!attendanceAttempt || attendanceFinalizePending}
+                disabled={attendanceFinalizePending}
                 pending={attendanceFinalizePending}
                 onClick={() => {
-                  if (
-                    !attendanceAttempt ||
-                    attendanceSubmitRef.current ||
-                    attendanceFinalizePending
-                  )
-                    return;
-                  attendanceSubmitRef.current = true;
-                  void onCommitAttendanceFinalize(attendanceAttempt)
-                    .then((ok) => {
-                      if (ok) setAttendanceConfirmOpen(false);
-                    })
-                    .finally(() => {
-                      attendanceSubmitRef.current = false;
-                    });
+                  void onCommitAttendanceFinalize(buildFinalizeAttendanceAttempt()).then((ok) => {
+                    if (ok) setAttendanceConfirmOpen(false);
+                  });
                 }}
               >
-                {t(
-                  isAttendanceCorrection
-                    ? 'adminLessonConfirmCorrectionSubmit'
-                    : 'adminLessonConfirmAttendanceSubmit'
-                )}
+                {t('adminLessonConfirmAttendanceSubmit')}
               </ActionButton>
             </>
           }
@@ -1170,13 +1145,7 @@ export function AdminLessonBookingDetail({
           <p className="type-caption text-[var(--ink-dim)]">
             {t('adminLessonAttendanceAbsentCount').replace('{n}', String(absentCount))}
           </p>
-          <p className="type-caption">
-            {t(
-              isAttendanceCorrection
-                ? 'adminLessonConfirmCorrectionWarning'
-                : 'adminLessonConfirmAttendanceWarning'
-            )}
-          </p>
+          <p className="type-caption">{t('adminLessonConfirmAttendanceWarning')}</p>
         </AdminModal>
       )}
     </div>

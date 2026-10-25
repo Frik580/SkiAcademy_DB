@@ -11,7 +11,7 @@ import {
 import { queryAdminIdentityReadModels } from './adminIdentityReadModels';
 import { INSTRUCTOR_PRESENTATION_AVATAR_URL_MAX } from './instructorPresentationAvatar';
 
-const PROJECT_ID = 'demo-ski-school-e2e';
+const PROJECT_ID = 'ski-academy-admin-identity-avatar-emulator';
 const runsOnFirestoreEmulator = Boolean(
   process.env.FIREBASE_EMULATOR_HUB ?? process.env.FIRESTORE_EMULATOR_HOST
 );

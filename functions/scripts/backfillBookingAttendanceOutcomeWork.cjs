@@ -1,7 +1,7 @@
 'use strict';
 
 const { initializeApp } = require('firebase-admin/app');
-const { getFirestore, FieldPath } = require('firebase-admin/firestore');
+const { getFirestore } = require('firebase-admin/firestore');
 const {
   backfillLessonBookingAttendanceOutcomeWork,
   markLessonBookingAttendanceOutcomeWorkMigrationReady,
@@ -15,7 +15,6 @@ function readOption(name) {
 }
 
 const apply = process.argv.includes('--apply');
-const cutover = process.argv.includes('--cutover');
 const projectId = readOption('--project');
 const pageSize = Number(readOption('--page-size') ?? '100');
 const nowText = readOption('--now');
@@ -27,16 +26,6 @@ if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 500) {
 if (Number.isNaN(now.getTime())) {
   throw new Error('--now must be an ISO-8601 date.');
 }
-if (!projectId || (projectId !== 'ski-school-staging' && !projectId.startsWith('demo-'))) {
-  throw new Error('Explicit staging or demo project required.');
-}
-if (projectId.startsWith('demo-') && !process.env.FIRESTORE_EMULATOR_HOST) {
-  throw new Error('Demo project requires FIRESTORE_EMULATOR_HOST.');
-}
-if (apply && nowText && !process.env.FIRESTORE_EMULATOR_HOST) {
-  throw new Error('--now is only supported for emulator writes.');
-}
-if (cutover && !apply) throw new Error('--cutover requires --apply.');
 
 initializeApp(projectId ? { projectId } : undefined);
 const firestore = getFirestore();
@@ -45,15 +34,13 @@ async function dryRun() {
   let cursor;
   let scannedBookings = 0;
   while (true) {
-    let query = firestore
-      .collection('bookings')
-      .orderBy(FieldPath.documentId(), 'asc')
-      .limit(pageSize);
+    let query = firestore.collection('bookings').orderBy('bookingId', 'asc').limit(pageSize);
     if (cursor) query = query.startAfter(cursor);
     const snapshot = await query.get();
     scannedBookings += snapshot.size;
     const lastDocument = snapshot.docs.at(-1);
-    cursor = lastDocument?.id;
+    const lastBookingId = lastDocument?.get('bookingId');
+    cursor = typeof lastBookingId === 'string' ? lastBookingId : lastDocument?.id;
     if (snapshot.size < pageSize) break;
   }
   console.log(
@@ -73,9 +60,6 @@ async function applyBackfill() {
     });
     scannedBookings += page.scannedBookings;
     for (const [key, value] of Object.entries(page.outcomes)) outcomes[key] += value;
-    if (page.truncated && (!page.cursor || (cursor && page.cursor <= cursor))) {
-      throw new Error('Attendance migration blocked: cursor did not advance.');
-    }
     cursor = page.cursor;
     console.log(
       JSON.stringify({
@@ -88,20 +72,9 @@ async function applyBackfill() {
     );
     if (!page.truncated) break;
   }
-  if (outcomes.blocked > 0) throw new Error('Attendance migration blocked: blocked backfill rows.');
-  if (cutover) {
-    await markLessonBookingAttendanceOutcomeWorkMigrationReady(
-      firestore,
-      nowText ? now : new Date(),
-      {
-        scannedBookings,
-        outcomes,
-        truncated: false,
-      }
-    );
-  }
+  await markLessonBookingAttendanceOutcomeWorkMigrationReady(firestore, now);
   console.log(
-    JSON.stringify({ mode: 'complete', scannedBookings, outcomes, migrationReady: cutover })
+    JSON.stringify({ mode: 'complete', scannedBookings, outcomes, migrationReady: true })
   );
 }
 

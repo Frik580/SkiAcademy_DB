@@ -69,7 +69,7 @@
 nvm use          # или: fnm use
 ```
 
-Firebase Functions (`functions/`) деплоятся с runtime **Node 22** — это задается в `functions/package.json`, не в версии Node на вашем ПК.
+Firebase Functions (`functions/`) деплоятся с runtime **Node 20** — это задается в `functions/package.json`, не в версии Node на вашем ПК.
 
 ### Установка
 

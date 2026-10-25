@@ -12,10 +12,7 @@ import {
 } from '@ski-academy/shared-domain';
 import { deriveRecordParticipantAchievementsIdempotencyKey } from '@ski-academy/shared-domain/canonical/participantAchievementCommandIdempotency';
 import { executeAuthenticatedCanonicalCommand } from '../../lib/canonical/canonicalCommandClient';
-import {
-  CanonicalCommandClientError,
-  mapCanonicalCommandResultError,
-} from '../../lib/canonical/mapCanonicalCommandError';
+import { mapCanonicalCommandResultError } from '../../lib/canonical/mapCanonicalCommandError';
 import { queryManagedParticipantAchievementsReadModels } from '../../lib/canonical/canonicalReadModelClient';
 import type { ClientCallableCapability } from '../../lib/canonical/canonicalCommandClient';
 import { logger } from '../../shared';
@@ -37,14 +34,12 @@ export async function refreshManagedParticipantAchievements(participantIds?: rea
 export function deriveRecordParticipantAchievementsClientKey(
   participantId: string,
   expectedRevision: number,
-  earned: readonly RecordParticipantAchievementInput[],
-  exercisedCapability: 'account_owner' | 'parent_guardian' = 'account_owner'
+  earned: readonly { achievementId: string }[]
 ): IdempotencyKey {
   return deriveRecordParticipantAchievementsIdempotencyKey(
     ParticipantIdSchema.parse(participantId),
     expectedRevision,
-    earned,
-    exercisedCapability
+    earned
   );
 }
 
@@ -62,7 +57,6 @@ export async function recordManagedParticipantAchievements(input: {
     'account_owner' | 'parent_guardian'
   >;
 }) {
-  const syncGeneration = useParticipantAchievementsStore.getState().syncGeneration;
   const participantId = ParticipantIdSchema.parse(input.participantId);
   const earned: RecordParticipantAchievementInput[] = input.earned.map((item) => ({
     achievementId: item.achievementId,
@@ -78,8 +72,7 @@ export async function recordManagedParticipantAchievements(input: {
     idempotencyKey: deriveRecordParticipantAchievementsClientKey(
       participantId,
       input.expectedRevision,
-      earned,
-      input.exercisedCapability
+      earned
     ),
     expectedRevision: AggregateRevisionSchema.parse(input.expectedRevision),
     exercisedCapability: input.exercisedCapability,
@@ -91,23 +84,6 @@ export async function recordManagedParticipantAchievements(input: {
   if (!payload.success) {
     throw new Error('Participant achievements command returned an invalid payload.');
   }
-  // A committed result must survive unmount and a failed follow-up read.
-  const store = useParticipantAchievementsStore.getState();
-  if (store.syncGeneration !== syncGeneration) return payload.data;
-  const current = store.byId[participantId];
-  store.upsertItem({
-    ...current,
-    participantId,
-    revision: payload.data.revision,
-    earned: {
-      ...Object.fromEntries(
-        earned
-          .filter((item) => payload.data.newlyEarnedAchievementIds.includes(item.achievementId))
-          .map(({ achievementId, ...record }) => [achievementId, record])
-      ),
-      ...current?.earned,
-    },
-  });
   try {
     await refreshManagedParticipantAchievements([participantId]);
   } catch (error) {
@@ -117,91 +93,3 @@ export async function recordManagedParticipantAchievements(input: {
 }
 
 export type { ParticipantId };
-
-export async function loadManagedParticipantAchievementsOnce(participantId: string) {
-  const store = useParticipantAchievementsStore.getState();
-  const generation = store.syncGeneration;
-  if (!store.beginRecording(participantId, `load:${participantId}`)) return;
-  try {
-    await refreshManagedParticipantAchievements([participantId]);
-  } catch (error) {
-    logger.warn('Failed to load selected participant achievements', error);
-  } finally {
-    if (useParticipantAchievementsStore.getState().syncGeneration === generation) {
-      useParticipantAchievementsStore.getState().setRecording(participantId, false);
-    }
-  }
-}
-
-/** One automatic operation per Participant across component instances.
- * Failures allow at most one recovery read and settle the attempted IDs for this
- * auth session. New achievements remain eligible; no component lifecycle retries.
- */
-export async function recordManagedParticipantAchievementsOnce(
-  input: Parameters<typeof recordManagedParticipantAchievements>[0]
-) {
-  const store = useParticipantAchievementsStore.getState();
-  const generation = store.syncGeneration;
-  if (
-    input.earned.some((item) =>
-      store.blockedAchievements[input.participantId]?.includes(item.achievementId)
-    )
-  )
-    return;
-  const attemptKey = JSON.stringify([
-    input.accountId,
-    input.participantId,
-    input.exercisedCapability,
-    input.expectedRevision,
-    input.earned.map((item) => item.achievementId).sort(),
-  ]);
-  if (!store.beginRecording(input.participantId, attemptKey)) return;
-  try {
-    await recordManagedParticipantAchievements(input);
-    const settled = useParticipantAchievementsStore.getState();
-    if (settled.syncGeneration === generation) {
-      // A successful no-op does not return historical dates/sources. If the read
-      // failed, settle those IDs without guessing their persisted evidence.
-      const missing = input.earned.filter(
-        (item) => !settled.byId[input.participantId]?.earned[item.achievementId]
-      );
-      if (missing.length)
-        settled.blockAchievements(
-          input.participantId,
-          missing.map((item) => item.achievementId)
-        );
-    }
-  } catch (error) {
-    if (useParticipantAchievementsStore.getState().syncGeneration !== generation) return;
-    if (
-      error instanceof CanonicalCommandClientError &&
-      (error.retryable || ['idempotency_conflict', 'stale_version'].includes(error.code))
-    ) {
-      try {
-        const items = await refreshManagedParticipantAchievements([input.participantId]);
-        if (
-          items.some(
-            (item) =>
-              item.participantId === input.participantId &&
-              input.earned.every((earned) => item.earned[earned.achievementId])
-          )
-        )
-          return;
-      } catch (refreshError) {
-        logger.warn('Failed to recover participant achievements', refreshError);
-      }
-    }
-    if (useParticipantAchievementsStore.getState().syncGeneration !== generation) return;
-    // Bound recovery even if unrelated aggregate revisions keep advancing.
-    // New achievements remain eligible; failed achievements wait for a new session.
-    useParticipantAchievementsStore.getState().blockAchievements(
-      input.participantId,
-      input.earned.map((item) => item.achievementId)
-    );
-    logger.warn('Failed to record participant achievements; automatic attempt settled', error);
-  } finally {
-    if (useParticipantAchievementsStore.getState().syncGeneration === generation) {
-      useParticipantAchievementsStore.getState().setRecording(input.participantId, false);
-    }
-  }
-}

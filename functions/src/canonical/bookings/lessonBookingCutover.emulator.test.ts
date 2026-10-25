@@ -32,7 +32,7 @@ import { parseBooking } from '../bookings/bookingStore';
 import { parsePayment } from '../finance/financeStore';
 import { seedLessonPricingSettingsFixture } from '../../../testSupport/lessonPricingSettingsFixture';
 
-const PROJECT_ID = 'demo-ski-school-e2e';
+const PROJECT_ID = 'ski-academy-lesson-cutover-emulator';
 const correlationId = CorrelationIdSchema.parse('correlation_lesson_cutover_01');
 const payerAccountId = AccountIdSchema.parse('account_lesson_cutover_payer');
 const managerAccountId = AccountIdSchema.parse('account_lesson_cutover_manager');

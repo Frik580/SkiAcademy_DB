@@ -29,7 +29,7 @@ import {
 } from '../commands/guestReservationAdmission';
 import { sweepGuestConfirmationLifecycleMismatches } from '../guestConfirmation/guestConfirmationReconciliationSweep';
 
-const PROJECT_ID = 'demo-ski-school-e2e';
+const PROJECT_ID = 'ski-academy-guest-emulator-test';
 const correlationId = CorrelationIdSchema.parse('correlation_guest_emulator_01');
 const instructorId = InstructorIdSchema.parse('instructor_guest_emulator_01');
 const participantId = ParticipantIdSchema.parse('participant_guest_emulator_01');

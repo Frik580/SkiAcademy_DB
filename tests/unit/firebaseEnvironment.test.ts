@@ -1,7 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { EventEmitter } from 'node:events';
-import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { runInNewContext } from 'node:vm';
 import { describe, expect, it, vi } from 'vitest';
@@ -16,53 +15,18 @@ import {
 const repoRoot = process.cwd();
 
 /** Execute the real runner with process and filesystem effects intercepted. */
-async function captureE2ERunner(
-  argv: string[] = [],
-  env: Record<string, string> = {},
-  childExitCode = 0,
-  diagnosticFailure = false
-) {
+async function captureE2ERunner(argv: string[] = [], env: Record<string, string> = {}) {
   const runnerPath = resolve(repoRoot, 'scripts/runE2E.mjs');
   const source = readFileSync(runnerPath, 'utf8')
-    .replace(/^import[\s\S]*? from 'node:[^']+';\r?\n/gm, '')
+    .replace(/^import .* from 'node:[^']+';\r?\n/gm, '')
     .replace(/import\.meta\.url/g, 'runnerUrl');
   const spawn = vi.fn(() => {
     const child = new EventEmitter();
-    queueMicrotask(() => child.emit('exit', childExitCode));
+    queueMicrotask(() => child.emit('exit', 0));
     return child;
   });
-  const files = new Map([
-    [
-      resolve(repoRoot, 'functions/.secret.local'),
-      'GUEST_ACTION_TOKEN_SECRET=e2e-guest-action-token-secret\n',
-    ],
-  ]);
-  const writeFileSync = vi.fn((path: string, value: string) => files.set(path, value));
-  const unlinkSync = vi.fn((path: string) => files.delete(path));
-  const fetch = vi.fn(async (_input: URL, _options: unknown) => ({
-    ok: true,
-    json: async () => ({ documents: [] }),
-  }));
-  const query = {
-    select: vi.fn(() => query),
-    limit: vi.fn(() => query),
-    get: vi.fn(async () => {
-      if (diagnosticFailure) throw new Error('sensitive SDK error');
-      return { size: 101 };
-    }),
-  };
-  const db = {
-    settings: vi.fn(),
-    collection: vi.fn(() => query),
-    terminate: vi.fn(async () => {}),
-  };
-  const app = {};
-  const initializeApp = vi.fn(() => app);
-  const deleteApp = vi.fn(async () => {});
-  const getFirestore = vi.fn(() => db);
-  const diagnosticConsole = { ...console, error: vi.fn() };
-  const diagnosticTimer = vi.fn(() => 1);
-  const clearDiagnosticTimer = vi.fn();
+  const writeFileSync = vi.fn();
+  const unlinkSync = vi.fn();
   const runnerProcess = {
     argv: [process.execPath, runnerPath, ...argv],
     execPath: process.execPath,
@@ -76,46 +40,17 @@ async function captureE2ERunner(
     runnerUrl: pathToFileURL(runnerPath).href,
     URL,
     fileURLToPath,
-    resolve,
-    createRequire: (url: string | URL) => {
-      const realRequire = createRequire(url);
-      return (id: string) => {
-        if (id === 'firebase-admin/app') return { initializeApp, deleteApp };
-        if (id === 'firebase-admin/firestore') return { getFirestore };
-        return realRequire(id);
-      };
-    },
-    console: diagnosticConsole,
-    setTimeout: diagnosticTimer,
-    clearTimeout: clearDiagnosticTimer,
-    fetch,
-    AbortSignal: { timeout: vi.fn() },
     process: runnerProcess,
     spawn,
     spawnSync: vi.fn(),
-    existsSync: (path: string) => files.has(path),
-    readFileSync: (path: string) => files.get(path),
-    mkdirSync: vi.fn(),
+    existsSync: () => true,
+    readFileSync: () => 'GUEST_ACTION_TOKEN_SECRET=e2e-guest-action-token-secret\n',
     writeFileSync,
     unlinkSync,
   });
-  expect(files.get(resolve(repoRoot, 'functions/.secret.local'))).toBe(
-    'GUEST_ACTION_TOKEN_SECRET=e2e-guest-action-token-secret\n'
-  );
-  expect(files.has(resolve(repoRoot, 'functions/.env.local'))).toBe(false);
-  return {
-    spawn,
-    fetch,
-    files,
-    exitCode: runnerProcess.exitCode,
-    db,
-    query,
-    initializeApp,
-    deleteApp,
-    diagnosticConsole,
-    diagnosticTimer,
-    clearDiagnosticTimer,
-  };
+  expect(writeFileSync).not.toHaveBeenCalled();
+  expect(unlinkSync).not.toHaveBeenCalled();
+  return spawn;
 }
 
 function parseEnv(text: string): Record<string, string> {
@@ -344,7 +279,7 @@ describe('vite firebase env resolution', () => {
     expect(packageJson.scripts['test:e2e']).toBe(
       'npm run build:functions && node scripts/runE2E.mjs'
     );
-    const { spawn } = await captureE2ERunner(['--project=chromium'], {
+    const spawn = await captureE2ERunner(['--project=chromium'], {
       GCLOUD_PROJECT: PRODUCTION_FIREBASE_PROJECT_ID,
     });
     expect(spawn).toHaveBeenCalledTimes(1);
@@ -373,7 +308,7 @@ describe('vite firebase env resolution', () => {
       FIREBASE_STORAGE_EMULATOR_HOST: '127.0.0.1:9199',
       CARVE_E2E_PLAYWRIGHT_ARGS: JSON.stringify(['--project=chromium']),
     };
-    const { spawn: playwrightSpawn } = await captureE2ERunner(['--playwright'], emulatorEnv);
+    const playwrightSpawn = await captureE2ERunner(['--playwright'], emulatorEnv);
     expect(playwrightSpawn).toHaveBeenCalledTimes(1);
     expect(playwrightSpawn).toHaveBeenCalledWith(
       process.execPath,
@@ -390,106 +325,8 @@ describe('vite firebase env resolution', () => {
       );
     }
     expect(readFileSync(resolve(repoRoot, 'playwright.config.ts'), 'utf8')).toMatch(
-      /npm exec vite -- --mode e2e --host 127\.0\.0\.1/
+      /npm run dev -- --mode e2e/
     );
-  });
-
-  it('captures bounded anonymous emulator counts through Admin', async () => {
-    const result = await captureE2ERunner(
-      ['--snapshot', '--output=.scratch/e2e-diagnostics-test'],
-      {
-        GCLOUD_PROJECT: E2E_PROJECT_ID,
-        FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080',
-        FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9299',
-        FIREBASE_STORAGE_EMULATOR_HOST: '127.0.0.1:9199',
-        CARVE_E2E_PLAYWRIGHT_ARGS: JSON.stringify(['--output=.scratch/e2e-diagnostics-test']),
-      },
-      1
-    );
-    expect(result.exitCode).toBeUndefined();
-    expect(result.fetch).not.toHaveBeenCalled();
-    expect(result.initializeApp).toHaveBeenCalledWith(
-      { projectId: E2E_PROJECT_ID },
-      'e2e-failure-diagnostics'
-    );
-    expect(result.db.settings).toHaveBeenCalledWith({ host: '127.0.0.1:8080', ssl: false });
-    expect(result.db.collection.mock.calls.map(([name]) => name)).toEqual([
-      'participants',
-      'course_enrollments',
-      'courses',
-    ]);
-    expect(result.query.select.mock.calls).toEqual([[], [], []]);
-    expect(result.query.limit.mock.calls).toEqual([[101], [101], [101]]);
-    expect(result.deleteApp).toHaveBeenCalledTimes(1);
-    expect(result.db.terminate).toHaveBeenCalledTimes(1);
-    const saved = result.files.get(
-      resolve(repoRoot, '.scratch/e2e-diagnostics-test/emulator-firestore-failure.json')
-    );
-    expect(JSON.parse(saved!)).toEqual({
-      projectId: E2E_PROJECT_ID,
-      collections: {
-        participants: { documentCount: 100, truncated: true },
-        course_enrollments: { documentCount: 100, truncated: true },
-        courses: { documentCount: 100, truncated: true },
-      },
-    });
-  });
-
-  it('closes Admin when diagnostics fail without logging SDK error details', async () => {
-    const result = await captureE2ERunner(
-      ['--snapshot'],
-      {
-        GCLOUD_PROJECT: E2E_PROJECT_ID,
-        FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080',
-        FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9299',
-        FIREBASE_STORAGE_EMULATOR_HOST: '127.0.0.1:9199',
-      },
-      7,
-      true
-    );
-    expect(result.exitCode).toBe(1);
-    expect(result.deleteApp).toHaveBeenCalledTimes(1);
-    expect(result.db.terminate).toHaveBeenCalledTimes(1);
-    expect(result.diagnosticConsole.error).toHaveBeenCalledWith(
-      'Emulator diagnostic snapshot failed.'
-    );
-    expect(result.fetch).not.toHaveBeenCalled();
-  });
-
-  it('bounds the diagnostic subprocess and preserves the primary Playwright exit code', async () => {
-    const result = await captureE2ERunner(
-      ['--playwright'],
-      {
-        GCLOUD_PROJECT: E2E_PROJECT_ID,
-        FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080',
-        FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9299',
-        FIREBASE_STORAGE_EMULATOR_HOST: '127.0.0.1:9199',
-      },
-      7
-    );
-    expect(result.exitCode).toBe(7);
-    expect(result.spawn).toHaveBeenCalledTimes(2);
-    expect(result.spawn.mock.calls[1][1]).toEqual([
-      resolve(repoRoot, 'scripts/runE2E.mjs'),
-      '--snapshot',
-    ]);
-    expect(result.diagnosticTimer).toHaveBeenCalledWith(expect.any(Function), 15_000);
-    expect(result.clearDiagnosticTimer).toHaveBeenCalledWith(1);
-    expect(result.diagnosticConsole.error).toHaveBeenCalledWith(
-      'Emulator diagnostic snapshot failed; preserving the Playwright exit code.'
-    );
-  });
-
-  it('rejects unsafe snapshot environments before initializing Admin', async () => {
-    for (const env of [
-      { GCLOUD_PROJECT: PRODUCTION_FIREBASE_PROJECT_ID, FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080' },
-      { GCLOUD_PROJECT: E2E_PROJECT_ID, FIRESTORE_EMULATOR_HOST: 'firestore.googleapis.com:443' },
-      { GCLOUD_PROJECT: E2E_PROJECT_ID, FIRESTORE_EMULATOR_HOST: '' },
-    ]) {
-      const result = await captureE2ERunner(['--snapshot'], env);
-      expect(result.exitCode).toBe(1);
-      expect(result.initializeApp).not.toHaveBeenCalled();
-    }
   });
 
   it('npm run dev uses the staging mode instead of the ignored development config', () => {

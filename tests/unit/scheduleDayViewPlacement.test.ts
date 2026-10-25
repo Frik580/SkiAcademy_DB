@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Booking } from '../../src/types';
 import {
-  scheduleDayEvents,
-  scheduleDayNeedsList,
   dayViewBookingForSlot,
   dayViewColSpanForBooking,
   scheduleBookingOverlapsSlot,
@@ -117,101 +115,4 @@ describe('schedule day view placement', () => {
       breakBlock
     );
   });
-});
-
-describe('conflicting day events', () => {
-  it.each([
-    [
-      'partial',
-      [
-        ['08:00', 3],
-        ['10:00', 2],
-      ],
-    ],
-    [
-      'same start',
-      [
-        ['08:00', 3],
-        ['08:00', 2],
-      ],
-    ],
-    [
-      'nested',
-      [
-        ['08:00', 4],
-        ['09:00', 1],
-      ],
-    ],
-    [
-      'three',
-      [
-        ['08:00', 4],
-        ['09:00', 2],
-        ['10:00', 3],
-      ],
-    ],
-  ] as const)('retains every %s interval once and marks every conflict', (_label, intervals) => {
-    const bookings = intervals.map(([time, durationHours], index) =>
-      blockBooking({ id: `booking_${index}`, time, durationHours })
-    );
-    const events = scheduleDayEvents(bookings, [], instructorId, selectedDate);
-    expect(events).toHaveLength(bookings.length);
-    expect(new Set(events.map((event) => event.key)).size).toBe(bookings.length);
-    expect(events.every((event) => event.conflict)).toBe(true);
-    expect(
-      events
-        .filter((event) => event.kind === 'booking')
-        .map((event) => event.booking.id)
-        .sort()
-    ).toEqual(bookings.map((b) => b.id).sort());
-  });
-  it('does not mark adjacent intervals as conflicting', () => {
-    const events = scheduleDayEvents(
-      [
-        blockBooking({ time: '08:00', durationHours: 2 }),
-        blockBooking({ id: 'adjacent', time: '10:00', durationHours: 2 }),
-      ],
-      [],
-      instructorId,
-      selectedDate
-    );
-    expect(events.every((event) => !event.conflict)).toBe(true);
-  });
-  it('retains a Booking overlapping a CourseDay and ignores cancelled or other-day records', () => {
-    const booking = blockBooking({ time: '10:00', durationHours: 2 });
-    const course = {
-      id: 'course_day',
-      title: 'Course',
-      instructorIds: [instructorId],
-      dates: '02.09.2026, 09:00 - 11:00',
-      availableSeats: 1,
-      totalSeats: 2,
-    };
-    const events = scheduleDayEvents(
-      [
-        booking,
-        blockBooking({ id: 'cancelled', status: 'cancelled' }),
-        blockBooking({ id: 'other_day', date: '2026-09-03' }),
-      ],
-      [course],
-      instructorId,
-      selectedDate
-    );
-    expect(events.map((event) => event.kind)).toEqual(['course', 'booking']);
-    expect(events.every((event) => event.conflict)).toBe(true);
-  });
-});
-
-it('uses the list for adjacent sub-hour events without inventing a conflict', () => {
-  const events = scheduleDayEvents(
-    [
-      blockBooking({ time: '08:00', durationHours: 0.5 }),
-      blockBooking({ id: 'half-hour', time: '08:30', durationHours: 0.5 }),
-    ],
-    [],
-    instructorId,
-    selectedDate
-  );
-  expect(events.every((event) => !event.conflict)).toBe(true);
-  expect(scheduleDayNeedsList(events)).toBe(true);
 });

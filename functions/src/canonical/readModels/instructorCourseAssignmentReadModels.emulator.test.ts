@@ -15,7 +15,7 @@ import {
 } from '@ski-academy/shared-domain';
 import { queryInstructorCourseAssignmentReadModels } from './instructorCourseAssignmentReadModels';
 
-const PROJECT_ID = 'demo-ski-school-e2e';
+const PROJECT_ID = 'ski-academy-instructor-assignment-pagination';
 const instructorId = InstructorIdSchema.parse('instructor_assignment_pagination');
 const otherInstructorId = InstructorIdSchema.parse('instructor_assignment_pagination_other');
 const testSessionId = TestSessionIdSchema.parse('test_session_assignment_pagination');

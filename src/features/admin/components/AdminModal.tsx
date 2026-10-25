@@ -6,7 +6,7 @@ import { BodyScrollLock } from '../../../ui/BodyScrollLock';
 import './adminModal.css';
 
 const ModalDepth = createContext(0);
-const widths = { sm: 384, md: 448, lg: 512, xl: 768, '2xl': 896 };
+const widths = { sm: 384, md: 448, lg: 512, xl: 768 };
 
 interface AdminModalProps {
   title: React.ReactNode;

@@ -66,24 +66,6 @@ import {
 } from '@ski-academy/shared-domain';
 import { callFunction, type FunctionsCallOptions } from '../functions/functionsClient';
 import { auth } from '../../infrastructure/firebase';
-import {
-  AccountWalletHistoryResultSchema,
-  type AccountWalletHistoryResult,
-} from '@ski-academy/shared-domain';
-
-export async function queryAccountWalletHistory(
-  cursor?: string
-): Promise<AccountWalletHistoryResult> {
-  const result = await invokeCanonicalReadCallable(
-    'queryAccountWalletHistory',
-    cursor ? { cursor } : {},
-    {
-      idempotencyKey: `read:account_wallet:${boundCanonicalReadIdempotencyCursor(cursor)}`,
-      maxAttempts: 1,
-    }
-  );
-  return AccountWalletHistoryResultSchema.parse(result);
-}
 
 export const QUERY_LESSON_BOOKING_READ_MODELS_CALLABLE = 'queryLessonBookingReadModels';
 export const QUERY_MANAGED_PARTICIPANT_PICKER_READ_MODELS_CALLABLE =
@@ -124,20 +106,6 @@ export const QUERY_PARTICIPANT_LESSON_FEEDBACK_READ_MODELS_CALLABLE =
 export const QUERY_TEST_SESSION_READ_MODELS_CALLABLE = 'queryTestSessionReadModels';
 
 type CanonicalReadQueryInput<T> = T & CanonicalReadSessionRequest;
-
-export function resolveInstructorLessonRevenue(): Promise<{
-  readonly summaryPath: string;
-  readonly statePath: string;
-}> {
-  return invokeCanonicalReadCallable(
-    'resolveInstructorLessonRevenue',
-    {},
-    {
-      idempotencyKey: 'read:instructor_lesson_revenue',
-      maxAttempts: 1,
-    }
-  );
-}
 
 function requestedReadSessionKey(input: unknown): string {
   if (!input || typeof input !== 'object' || !('requestedTestSessionId' in input)) {
@@ -230,16 +198,12 @@ export async function queryParticipantProgressReadModels(
     target,
   ]);
   return invokeCanonicalReadCallable<
-    QueryParticipantProgressReadModelsInput & { participantProgressContract: number },
+    QueryParticipantProgressReadModelsInput,
     QueryParticipantProgressReadModelsResult
-  >(
-    QUERY_PARTICIPANT_PROGRESS_READ_MODELS_CALLABLE,
-    { ...input, participantProgressContract: 2 },
-    {
-      idempotencyKey: `read:participant_progress:${identityHash}`,
-      maxAttempts: 1,
-    }
-  );
+  >(QUERY_PARTICIPANT_PROGRESS_READ_MODELS_CALLABLE, input, {
+    idempotencyKey: `read:participant_progress:${identityHash}`,
+    maxAttempts: 1,
+  });
 }
 
 function chunkIds<T>(ids: readonly T[], size: number): T[][] {

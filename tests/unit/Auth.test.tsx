@@ -21,6 +21,7 @@ const mockMigratePreExistingProfile = vi.fn();
 const mockAddNotification = vi.fn();
 const mockToUserProfile = vi.fn((data: any) => data);
 const mockReadUserProfile = vi.fn();
+const mockLanguage = vi.hoisted(() => ({ current: 'en' as 'en' | 'ru' }));
 
 vi.mock('../../src/infrastructure/firebase', async () => {
   const { omitLegacyAccountProgressFields } =
@@ -55,7 +56,7 @@ vi.mock('../../src/features/notifications', () => ({
 }));
 
 vi.mock('../../src/app/providers/LanguageContext', () => ({
-  useLanguage: () => ({ t: (key: string) => key, language: 'en' }),
+  useLanguage: () => ({ t: (key: string) => key, language: mockLanguage.current }),
 }));
 
 describe('Auth', () => {
@@ -63,6 +64,7 @@ describe('Auth', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockLanguage.current = 'en';
     mockMigratePreExistingProfile.mockResolvedValue(null);
     mockGetDoc.mockResolvedValue({ exists: () => false });
     mockToUserProfile.mockImplementation((data: any, id?: string) => {
@@ -183,6 +185,10 @@ describe('Auth', () => {
     expect(onSuccess).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole('button', { name: 'authVerificationResend' }));
     expect(mockSendEmailVerification).toHaveBeenCalledTimes(2);
+    expect(mockSendEmailVerification).toHaveBeenCalledWith(user, {
+      url: expect.stringMatching(/\/email-verified\?lang=en$/),
+      handleCodeInApp: false,
+    });
     await userEvent.click(screen.getByRole('button', { name: 'authVerificationCheck' }));
     expect(await screen.findByText('authVerificationPending')).toBeInTheDocument();
     expect(mockSetDoc).not.toHaveBeenCalled();
@@ -195,6 +201,50 @@ describe('Auth', () => {
     expect(mockMigratePreExistingProfile).toHaveBeenCalledWith(user.uid, user.email, 'Alex Carter');
     expect(mockSetDoc).not.toHaveBeenCalled();
     expect(mockCreateUserWithEmailAndPassword).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses Russian for Firebase verification emails and the return URL', async () => {
+    mockLanguage.current = 'ru';
+    const user = {
+      uid: 'new-ru-user',
+      email: 'new-ru@example.com',
+      emailVerified: false,
+      reload: vi.fn(async () => {}),
+      getIdToken: vi.fn(async () => 'token'),
+    };
+    mockCreateUserWithEmailAndPassword.mockResolvedValue({ user });
+    mockSendEmailVerification.mockResolvedValue(undefined);
+
+    render(<Auth onSuccess={onSuccess} />);
+    await userEvent.click(screen.getByRole('button', { name: /noAccount/i }));
+    await userEvent.type(screen.getByPlaceholderText('fullName'), 'Иван Иванов');
+    await userEvent.type(screen.getByPlaceholderText('emailAddress'), user.email);
+    await userEvent.type(screen.getByPlaceholderText('password'), 'password123');
+    await userEvent.click(screen.getByRole('button', { name: /signUpBtn/i }));
+
+    await waitFor(() =>
+      expect(mockSendEmailVerification).toHaveBeenCalledWith(user, {
+        url: expect.stringMatching(/\/email-verified\?lang=ru$/),
+        handleCodeInApp: false,
+      })
+    );
+    expect(mockSetDoc).not.toHaveBeenCalled();
+    expect(onSuccess).not.toHaveBeenCalled();
+  });
+
+  it('sends password-reset emails in the chosen language', async () => {
+    mockLanguage.current = 'ru';
+    mockSendPasswordResetEmail.mockResolvedValue(undefined);
+    render(<Auth onSuccess={onSuccess} />);
+    await userEvent.click(screen.getByRole('button', { name: 'authForgotPassword' }));
+    await userEvent.type(screen.getByPlaceholderText('emailAddress'), 'reset@example.com');
+    await userEvent.click(screen.getByRole('button', { name: 'authSendRecoveryLink' }));
+    await waitFor(() =>
+      expect(mockSendPasswordResetEmail).toHaveBeenCalledWith(
+        expect.objectContaining({ languageCode: 'ru' }),
+        'reset@example.com'
+      )
+    );
   });
 
   it('signs in an existing user and calls onSuccess with their profile', async () => {

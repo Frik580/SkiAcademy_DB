@@ -10,15 +10,7 @@ interface InstructorDashboardHeaderProps {
 export const InstructorDashboardHeader: React.FC<InstructorDashboardHeaderProps> = ({
   workspace,
 }) => {
-  const { t, language, linkedInstructor, stats, revenue, userProfile } = workspace;
-  const revenueValue =
-    revenue.status === 'loaded'
-      ? `${revenue.retainedAmount.toLocaleString('ru-RU')}\u00a0₸`
-      : revenue.status === 'loading'
-        ? t('instructorRevenueLoading')
-        : revenue.status === 'error'
-          ? t('instructorRevenueError')
-          : t('instructorRevenueUnavailable');
+  const { t, language, linkedInstructor, stats, userProfile } = workspace;
 
   return (
     <div className="space-y-8">
@@ -120,18 +112,13 @@ export const InstructorDashboardHeader: React.FC<InstructorDashboardHeaderProps>
 
         <div className="border border-slate-200/70 dark:border-slate-800/70 p-4 bg-[var(--card-bg)] rounded-xs shadow-xs space-y-1">
           <span className="type-caption text-[var(--ink-dim)] uppercase block">
-            {t('instructorCompletedLessonRevenue')}
+            {t('instructorEstimatedEarnings')}
           </span>
-          <span
-            role="status"
-            aria-live="polite"
-            aria-busy={revenue.status === 'loading'}
-            className={`break-words text-[var(--ink)] block ${revenue.status === 'loaded' ? 'type-metric max-[359px]:text-lg lg:type-metric-lg' : 'type-compact'}`}
-          >
-            {revenueValue}
+          <span className="type-metric lg:type-metric-lg break-words text-[var(--ink)] block">
+            {stats.revenue === undefined ? '—' : `₸${stats.revenue}`}
           </span>
           <span className="type-caption text-[var(--ink-dim)] uppercase block">
-            {t('instructorRevenueSchoolGross')}
+            {t('instructorCompletedEarnings')}
           </span>
         </div>
       </div>

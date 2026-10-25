@@ -1,4 +1,4 @@
-import { FieldPath, type Firestore, type Query } from 'firebase-admin/firestore';
+import type { Firestore, Query } from 'firebase-admin/firestore';
 import {
   ATTENDANCE_IDENTITY_STRATEGY_VERSION,
   BookingIdSchema,
@@ -15,8 +15,6 @@ import {
   type CanonicalExecutionScope,
   parsePersistedCanonicalScope,
   assertSameCanonicalScope,
-  normalizeFirestoreDocument,
-  parseCommandIdempotencyRecord,
 } from '@ski-academy/shared-domain';
 import { attendancePath, parseAttendance } from './attendanceStore';
 import { parseBooking } from './bookingStore';
@@ -168,16 +166,6 @@ async function missingFrozenAttendanceParticipantIdsForWork(
       snapshot.exists ? (snapshot.data() as Record<string, unknown>) : undefined
     );
     if (attendance) {
-      assertSameCanonicalScope(parsePersistedCanonicalScope(booking), attendance);
-      if (
-        attendance.subject.subjectKind !== 'booking' ||
-        attendance.subject.bookingId !== booking.bookingId ||
-        attendance.subject.occurrenceId !== booking.occurrence.occurrenceId ||
-        attendance.subject.participantId !== participantId ||
-        attendance.attendanceId !== attendanceId
-      ) {
-        throw new Error('Attendance identity integrity mismatch.');
-      }
       facts.set(participantId, { attendanceStatus: attendance.attendanceStatus });
     }
   }
@@ -283,7 +271,6 @@ export async function reconcileLessonBookingAttendanceOutcomeWork(
   nowDate: Date = new Date(),
   options: {
     readonly minimumEndsAt?: Booking['occurrence']['interval']['endsAt'];
-    readonly preserveHistoricalWork?: boolean;
   } = {}
 ): Promise<BookingAttendanceOutcomeWorkSyncOutcome> {
   const parsedBookingId = BookingIdSchema.safeParse(rawBookingId);
@@ -302,14 +289,12 @@ export async function reconcileLessonBookingAttendanceOutcomeWork(
     );
 
     if (!bookingSnapshot.exists) {
-      if (options.preserveHistoricalWork && workSnapshot.exists) return 'blocked';
       if (workSnapshot.exists) transaction.delete(workRef);
       return workSnapshot.exists ? 'deleted' : 'unchanged';
     }
 
     const booking = parseBooking(bookingSnapshot.data() as Record<string, unknown> | undefined);
     if (!booking || booking.bookingId !== bookingId) {
-      if (options.preserveHistoricalWork) return 'blocked';
       if (workSnapshot.exists) transaction.delete(workRef);
       return 'blocked';
     }
@@ -320,13 +305,6 @@ export async function reconcileLessonBookingAttendanceOutcomeWork(
     } catch {
       return 'blocked';
     }
-    if (options.preserveHistoricalWork && workSnapshot.exists && !existing) return 'blocked';
-
-    const terminalWithPendingWork =
-      (booking.lifecycle.status === 'completed' || booking.lifecycle.status === 'no_show') &&
-      existing?.status === 'pending';
-    if (terminalWithPendingWork && existing.sourceBookingRevision > booking.revision)
-      return 'blocked';
 
     const migrationExpired =
       booking.lifecycle.status === 'confirmed' &&
@@ -335,7 +313,6 @@ export async function reconcileLessonBookingAttendanceOutcomeWork(
 
     if (
       existing &&
-      !terminalWithPendingWork &&
       existing.sourceBookingRevision >= booking.revision &&
       (!migrationExpired ||
         (existing.status === 'complete' && existing.completedReason === 'legacy_lookback_expired'))
@@ -345,22 +322,15 @@ export async function reconcileLessonBookingAttendanceOutcomeWork(
 
     const now = timestampFromDate(nowDate);
     let next: BookingAttendanceOutcomeWork;
+    const terminalWithPendingWork =
+      (booking.lifecycle.status === 'completed' || booking.lifecycle.status === 'no_show') &&
+      existing?.status === 'pending';
     if (terminalWithPendingWork) {
-      if (!frozenServiceParticipantIds(booking)) return 'blocked';
       const missingParticipantIds = await missingFrozenAttendanceParticipantIdsForWork(
         firestore,
         transaction,
         booking
       );
-      // A repeated backfill must not churn the revision of unresolved historical work.
-      if (
-        missingParticipantIds.length > 0 &&
-        existing.sourceLifecycleStatus === booking.lifecycle.status &&
-        existing.sourceBookingRevision === booking.revision &&
-        sameOccurrenceSchedule(existing, booking) &&
-        existing.deadlineId === BOOKING_ATTENDANCE_OUTCOME_SWEEP_DEADLINE.instructorWindow
-      )
-        return 'unchanged';
       next =
         missingParticipantIds.length > 0
           ? pendingBookingAttendanceOutcomeWork(booking, {
@@ -446,7 +416,7 @@ export async function backfillLessonBookingAttendanceOutcomeWork(
   );
   let query: Query = firestore
     .collection('bookings')
-    .orderBy(FieldPath.documentId(), 'asc')
+    .orderBy('bookingId', 'asc')
     .limit(maxBookings);
   if (options.startAfterBookingId) {
     query = query.startAfter(options.startAfterBookingId);
@@ -465,13 +435,14 @@ export async function backfillLessonBookingAttendanceOutcomeWork(
       firestore,
       document.id,
       nowDate,
-      { minimumEndsAt, preserveHistoricalWork: true }
+      { minimumEndsAt }
     );
     outcomes[outcome] += 1;
   }
 
   const lastDocument = snapshot.docs.at(-1);
-  const cursor = lastDocument?.id;
+  const lastBookingId = lastDocument?.get('bookingId');
+  const cursor = typeof lastBookingId === 'string' ? lastBookingId : lastDocument?.id;
   return {
     scannedBookings: snapshot.size,
     outcomes,
@@ -489,136 +460,11 @@ export async function isLessonBookingAttendanceOutcomeWorkMigrationReady(
 
 export async function markLessonBookingAttendanceOutcomeWorkMigrationReady(
   firestore: Firestore,
-  completedAt: Date = new Date(),
-  evidence?: BookingAttendanceOutcomeWorkBackfillResult
+  completedAt: Date = new Date()
 ): Promise<void> {
-  if (
-    !evidence ||
-    evidence.truncated ||
-    evidence.outcomes.blocked > 0 ||
-    !Number.isSafeInteger(evidence.scannedBookings) ||
-    evidence.scannedBookings < 0 ||
-    Object.values(evidence.outcomes).some((value) => !Number.isSafeInteger(value) || value < 0) ||
-    Object.values(evidence.outcomes).reduce((sum, value) => sum + value, 0) !==
-      evidence.scannedBookings
-  ) {
-    throw new Error('Attendance migration blocked: incomplete or blocked backfill evidence.');
-  }
-  // One consistent, bounded verification and marker write. Fail closed beyond this cap.
-  // Run under a maintenance fence; backfill itself spans multiple transactions.
-  const limit = 1_000;
-  await firestore.runTransaction(async (transaction) => {
-    const bookings = await transaction.get(
-      firestore
-        .collection('bookings')
-        .orderBy(FieldPath.documentId())
-        .limit(limit + 1)
-    );
-    const works = await transaction.get(
-      firestore
-        .collection('booking_attendance_outcome_work')
-        .orderBy(FieldPath.documentId())
-        .limit(limit + 1)
-    );
-    const fail = (reason: string): never => {
-      throw new Error(`Attendance migration blocked: ${reason}`);
-    };
-    if (bookings.size > limit || works.size > limit) fail('verification inventory truncated');
-    if (bookings.size !== evidence.scannedBookings) fail('backfill coverage changed');
-    const workById = new Map(works.docs.map((document) => [document.id, document]));
-    if (works.size !== bookings.size) fail('missing or orphan work');
-    const now = timestampFromDate(completedAt);
-    const successfulDeadline = async (
-      booking: Booking,
-      deadlineId: BookingAttendanceOutcomeSweepDeadline
-    ) => {
-      const identity = resolveCommandIdempotencyIdentity(
-        resolveLessonBookingAttendanceEnvelope({
-          bookingId: booking.bookingId,
-          occurrenceId: booking.occurrence.occurrenceId,
-          deadlineId,
-        }),
-        parsePersistedCanonicalScope(booking)
-      );
-      const result = await transaction.get(firestore.doc(identity.recordPath.replace(/^\//, '')));
-      const parsed = parseCommandIdempotencyRecord(normalizeFirestoreDocument(result.data()));
-      return (
-        parsed.success &&
-        parsed.data.completionState === 'completed' &&
-        parsed.data.commandKind === 'resolve_attendance_outcome' &&
-        parsed.data.fingerprint === identity.fingerprint &&
-        parsed.data.result.status === 'success'
-      );
-    };
-    for (const document of bookings.docs) {
-      const booking = parseBooking(document.data());
-      const work = parseBookingAttendanceOutcomeWork(workById.get(document.id)?.data());
-      if (
-        !booking ||
-        booking.bookingId !== document.id ||
-        !work ||
-        work.bookingId !== document.id
-      ) {
-        fail(`invalid booking/work ${document.id}`);
-      }
-      // Explicit narrowing keeps the guard fail-closed on malformed persisted records.
-      if (!booking || !work) throw new Error('Unreachable invalid migration record');
-      assertSameCanonicalScope(parsePersistedCanonicalScope(booking), work);
-      if (
-        !sameOccurrenceSchedule(work, booking) ||
-        work.sourceLifecycleStatus !== booking.lifecycle.status ||
-        work.sourceBookingRevision > booking.revision ||
-        work.status === 'blocked'
-      )
-        fail(`work integrity ${document.id}`);
-      if (work.status === 'pending') {
-        if (
-          booking.lifecycle.status !== 'confirmed' ||
-          !sameTimestamp(work.dueAt, bookingAttendanceOutcomeDueAt(booking, work.deadlineId)) ||
-          compareCanonicalTimestamps(work.dueAt, now) <= 0
-        )
-          fail(`unresolved pending ${document.id}`);
-        if (
-          work.deadlineId === 'instructor_window' &&
-          !(await successfulDeadline(booking, 'outcome'))
-        ) {
-          fail(`unproven outcome ${document.id}`);
-        }
-      } else if (work.status === 'complete') {
-        if (work.completedReason === 'lifecycle_ineligible') {
-          if (booking.lifecycle.status === 'confirmed')
-            fail(`eligible booking retired ${document.id}`);
-          if (
-            (booking.lifecycle.status === 'completed' || booking.lifecycle.status === 'no_show') &&
-            (!frozenServiceParticipantIds(booking) ||
-              (await missingFrozenAttendanceParticipantIdsForWork(firestore, transaction, booking))
-                .length > 0)
-          )
-            fail(`missing Attendance ${document.id}`);
-        } else if (work.completedReason === 'legacy_lookback_expired') {
-          if (
-            booking.lifecycle.status !== 'confirmed' ||
-            compareCanonicalTimestamps(
-              booking.occurrence.interval.endsAt,
-              addMillisecondsToCanonicalTimestamp(
-                now,
-                -BOOKING_ATTENDANCE_OUTCOME_WORK_MIGRATION_LOOKBACK_MS
-              )
-            ) >= 0
-          )
-            fail(`invalid lookback retirement ${document.id}`);
-        } else {
-          if (!(await successfulDeadline(booking, 'instructor_window')))
-            fail(`unproven deadline ${document.id}`);
-        }
-      }
-    }
-    transaction.set(firestore.doc(BOOKING_ATTENDANCE_OUTCOME_WORK_MIGRATION_PATH), {
-      status: 'ready',
-      completedAt: now,
-      lookbackMs: BOOKING_ATTENDANCE_OUTCOME_WORK_MIGRATION_LOOKBACK_MS,
-      verifiedBookings: bookings.size,
-      verifiedWorks: works.size,
-    });
+  await firestore.doc(BOOKING_ATTENDANCE_OUTCOME_WORK_MIGRATION_PATH).set({
+    status: 'ready',
+    completedAt: timestampFromDate(completedAt),
+    lookbackMs: BOOKING_ATTENDANCE_OUTCOME_WORK_MIGRATION_LOOKBACK_MS,
   });
 }

@@ -120,12 +120,10 @@ async function probeFunctionsCallable(functionName: string): Promise<boolean> {
     const response = await fetch(functionsCallableUrl(functionName), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      // Missing callable envelope is rejected by the SDK before admission or
-      // domain handlers. Readiness must not write counters or contend on them.
-      body: JSON.stringify({}),
+      body: JSON.stringify({ data: {} }),
       signal: AbortSignal.timeout(FUNCTIONS_READINESS_ATTEMPT_TIMEOUT_MS),
     });
-    return response.status === 400;
+    return response.status < 502;
   } catch {
     return false;
   }
@@ -211,7 +209,7 @@ async function createAuthUser(email: string, password: string): Promise<string> 
   return signInPayload.localId;
 }
 
-export async function seedStudentAccount(input: {
+async function seedStudentAccount(input: {
   readonly studentUid: string;
   readonly email: string;
   readonly displayName: string;

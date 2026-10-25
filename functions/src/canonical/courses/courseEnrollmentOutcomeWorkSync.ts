@@ -41,10 +41,14 @@ export async function syncCourseEnrollmentOutcomeWorkForEnrollmentWrite(
   const parsedId = CourseEnrollmentIdSchema.safeParse(input.rawEnrollmentId);
   if (!parsedId.success) return 'invalid_enrollment';
 
-  const enrollmentRef = firestore.collection('course_enrollments').doc(parsedId.data);
-  const enrollmentSnapshot = await enrollmentRef.get();
+  const enrollmentSnapshot = await firestore
+    .collection('course_enrollments')
+    .doc(parsedId.data)
+    .get();
   const enrollment = parseCourseEnrollment(
-    enrollmentSnapshot.exists ? (enrollmentSnapshot.data() as Record<string, unknown>) : undefined
+    enrollmentSnapshot.exists
+      ? (enrollmentSnapshot.data() as Record<string, unknown>)
+      : input.afterData
   );
   if (!enrollment || enrollment.enrollmentId !== parsedId.data) {
     return enrollmentSnapshot.exists ? 'invalid_enrollment' : 'not_applicable';
@@ -63,23 +67,6 @@ export async function syncCourseEnrollmentOutcomeWorkForEnrollmentWrite(
   const existing = parseCourseEnrollmentOutcomeWork(
     existingSnapshot.exists ? (existingSnapshot.data() as Record<string, unknown>) : undefined
   );
-  // Events are routing hints. An old afterData payload cannot recreate work
-  // after its Enrollment has been deleted. Recheck the source and work at the
-  // same commit boundary to cover deletion after the initial planning reads.
-  const writeIfCurrent = (payload: Record<string, unknown>) =>
-    firestore.runTransaction(async (tx) => {
-      const source = await tx.get(enrollmentRef);
-      const work = await tx.get(workRef);
-      if (
-        !source.exists ||
-        !semanticallyEqual(source.data(), enrollmentSnapshot.data()) ||
-        work.exists !== existingSnapshot.exists ||
-        !semanticallyEqual(work.data(), existingSnapshot.data())
-      )
-        return false;
-      tx.set(workRef, payload);
-      return true;
-    });
   if (existing) {
     try {
       assertSameCanonicalScope(enrollmentScope, existing);
@@ -95,7 +82,8 @@ export async function syncCourseEnrollmentOutcomeWorkForEnrollmentWrite(
       completedReason: 'lifecycle_ineligible',
       updatedAt: now,
     });
-    return (await writeIfCurrent(completed as Record<string, unknown>)) ? 'completed' : 'unchanged';
+    await workRef.set(completed as Record<string, unknown>);
+    return 'completed';
   }
 
   const courseSnapshot = await firestore.collection('courses').doc(enrollment.courseId).get();
@@ -135,6 +123,6 @@ export async function syncCourseEnrollmentOutcomeWorkForEnrollmentWrite(
     };
     if (semanticallyEqual(existing, comparable)) return 'unchanged';
   }
-  if (!(await writeIfCurrent(desired as Record<string, unknown>))) return 'unchanged';
+  await workRef.set(desired as Record<string, unknown>);
   return existing ? 'pending_updated' : 'pending_created';
 }

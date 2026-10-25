@@ -19,12 +19,6 @@ export const isProxyableImageUrl = (url: string): boolean => {
     return (
       parsed.protocol === 'https:' &&
       parsed.hostname === 'storage.yandexcloud.net' &&
-      !parsed.username &&
-      !parsed.password &&
-      (!parsed.port || parsed.port === '443') &&
-      !parsed.search &&
-      !parsed.hash &&
-      parsed.pathname.length <= 1024 &&
       parsed.pathname.startsWith('/carve/')
     );
   } catch {

@@ -39,7 +39,7 @@ import { parseCourseCatalogContent, courseCatalogContentPath } from './courseCat
 import { queryCourseCatalogReadModels } from '../readModels/courseCatalogReadModels';
 import { queryCourseEnrollmentReadModels } from '../readModels/courseEnrollmentReadModels';
 
-const PROJECT_ID = 'demo-ski-school-e2e';
+const PROJECT_ID = 'ski-academy-course-provision-emulator-test';
 const correlationId = CorrelationIdSchema.parse('correlation_course_provision_emulator_01');
 const adminAccountId = AccountIdSchema.parse('account_course_provision_emulator_admin');
 const accountId = AccountIdSchema.parse('account_course_provision_emulator_owner');

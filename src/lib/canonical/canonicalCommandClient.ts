@@ -104,9 +104,6 @@ export async function executeAuthenticatedCanonicalCommand<Kind extends CommandK
   const correlationId = parseCorrelationId(submission.correlationId ?? createCorrelationId());
   const payload = {
     kind: submission.kind,
-    ...(['update_participant_progress', 'manage_participant_level'].includes(submission.kind)
-      ? { participantProgressContract: 2 }
-      : {}),
     intent: submission.intent,
     idempotencyKey: submission.idempotencyKey,
     correlationId,

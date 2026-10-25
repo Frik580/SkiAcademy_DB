@@ -28,7 +28,6 @@ export interface ProfileState {
   userProfile: UserProfile | null;
   /** True while a signed-in session awaits the first profile snapshot. */
   profileLoading: boolean;
-  canonicalReadyAccountId: string | null;
   usersList: UserProfile[];
   dismissedReviewIds: string[];
   activityLogs: ActivityLog[];
@@ -39,7 +38,6 @@ export interface ProfileState {
 
   setUserProfile: (profile: UserProfile | null) => void;
   setProfileLoading: (loading: boolean) => void;
-  setCanonicalReadyAccountId: (accountId: string | null) => void;
   syncUserProfileFromSnapshot: (profile: UserProfile | null) => void;
   setUsersList: (users: UserProfile[]) => void;
   setDismissedReviewIds: (ids: string[]) => void;
@@ -70,7 +68,6 @@ const selectedTodayParticipantId = (): string | undefined =>
 export const useProfileStore = create<ProfileState>((set, get) => ({
   userProfile: null,
   profileLoading: false,
-  canonicalReadyAccountId: null,
   usersList: [],
   dismissedReviewIds: [],
   activityLogs: [],
@@ -81,7 +78,6 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
 
   setUserProfile: (profile) => set({ userProfile: profile }),
   setProfileLoading: (loading) => set({ profileLoading: loading }),
-  setCanonicalReadyAccountId: (accountId) => set({ canonicalReadyAccountId: accountId }),
   syncUserProfileFromSnapshot: (profile) => set({ userProfile: profile, profileLoading: false }),
   setUsersList: (users) => set({ usersList: users }),
   setDismissedReviewIds: (ids) => set({ dismissedReviewIds: ids }),
@@ -98,7 +94,6 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
     set({
       userProfile: null,
       profileLoading: false,
-      canonicalReadyAccountId: null,
       usersList: [],
       dismissedReviewIds: [],
       activityLogs: [],

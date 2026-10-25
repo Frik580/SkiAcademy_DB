@@ -30,7 +30,7 @@ import { createProductionCanonicalCommands } from '../commands/canonicalCommands
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
 import { seedLessonPricingSettingsFixture } from '../../../testSupport/lessonPricingSettingsFixture';
 
-const PROJECT_ID = 'demo-ski-school-e2e';
+const PROJECT_ID = 'ski-academy-cancel-emulator-test';
 const correlationId = CorrelationIdSchema.parse('correlation_cancel_emulator_01');
 const accountId = AccountIdSchema.parse('account_cancel_emulator_01');
 const adminAccountId = AccountIdSchema.parse('account_cancel_emulator_admin');

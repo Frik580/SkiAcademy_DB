@@ -106,19 +106,6 @@ describe('storage avatars', () => {
 });
 
 describe('storage courses and instructors', () => {
-  it('preserves active Owner authority and denies ordinary and disabled accounts', async () => {
-    await seedStorageFirestore(testEnv, async (db) => {
-      await setDoc(doc(db, 'users', 'owner-only'), userProfile('owner-only', 'owner@example.com', 'user', { systemRole: 'owner', lifecycle: { status: 'active' } }));
-      await setDoc(doc(db, 'users', 'ordinary'), userProfile('ordinary', 'user@example.com'));
-    });
-    const owner = testEnv.authenticatedContext('owner-only').storage();
-    await assertSucceeds(uploadImage(owner, 'courses/owner-security-test'));
-    await assertFails(uploadImage(testEnv.authenticatedContext('ordinary').storage(), 'courses/owner-security-forged'));
-    await seedStorageFirestore(testEnv, async (db) => {
-      await setDoc(doc(db, 'users', 'owner-only'), userProfile('owner-only', 'owner@example.com', 'admin', { systemRole: 'owner', lifecycle: { status: 'disabled' } }));
-    });
-    await assertFails(uploadImage(owner, 'courses/owner-security-disabled'));
-  });
   beforeEach(async () => {
     await seedStorageFirestore(testEnv, async (db) => {
       await setDoc(

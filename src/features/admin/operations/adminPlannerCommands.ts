@@ -19,7 +19,7 @@ import {
   createAdminLessonBookingAttemptId,
   createAdminLogicalBookingId,
 } from '../lesson-bookings/lessonBookingAdminUtils';
-import { occupancyForId, plannerLocalDateTime } from './adminPlannerMapping';
+import { occupancyForId } from './adminPlannerMapping';
 import { applyAdminFinanceCommandResult } from '../finance/adminFinanceLocalSync';
 import { applyAdminPeopleCommandResult } from '../identity/adminPeopleLocalSync';
 import { applyAdminPlannerCommandResult } from './adminPlannerLocalSync';
@@ -154,10 +154,9 @@ async function resolvePayerParticipant(adminAccountId: string, accountId: string
 
 export async function createPlannerOccupancyFromLegacyBookingShape(input: {
   readonly adminAccountId: string;
-  readonly displayTimeZone?: string;
   readonly booking: Booking & { readonly participantId?: string };
 }): Promise<void> {
-  const timezone = input.displayTimeZone ?? resolveAdminTimeZone();
+  const timezone = resolveAdminTimeZone();
   const durationMinutes = Math.max(1, Math.round(input.booking.durationHours * 60));
   if (
     input.booking.userId === 'system_block_break' ||
@@ -210,7 +209,6 @@ export async function createPlannerOccupancyFromLegacyBookingShape(input: {
 
 export async function reschedulePlannerOccupancy(input: {
   readonly adminAccountId: string;
-  readonly displayTimeZone?: string;
   readonly occupancy: readonly AdminPlannerOccupancyItem[];
   readonly occupancyId: string;
   readonly localDate: string;
@@ -220,7 +218,7 @@ export async function reschedulePlannerOccupancy(input: {
   if (!item || item.revision === undefined) {
     throw new Error('Planner occupancy is stale or missing');
   }
-  const timezone = input.displayTimeZone ?? (item.timeZone || resolveAdminTimeZone());
+  const timezone = item.timeZone || resolveAdminTimeZone();
   if (item.occupancyKind === 'availability_block' && item.blockId) {
     await assertSucceeded(
       executeAuthenticatedCanonicalCommand(input.adminAccountId, {
@@ -282,7 +280,6 @@ export async function reschedulePlannerOccupancy(input: {
 
 export async function reassignPlannerOccupancy(input: {
   readonly adminAccountId: string;
-  readonly displayTimeZone?: string;
   readonly occupancy: readonly AdminPlannerOccupancyItem[];
   readonly occupancyId: string;
   readonly instructor: Instructor;
@@ -293,20 +290,16 @@ export async function reassignPlannerOccupancy(input: {
   if (!item || item.revision === undefined) {
     throw new Error('Planner occupancy is stale or missing');
   }
-  const displayed = input.displayTimeZone
-    ? plannerLocalDateTime(item.interval.startsAt.seconds, input.displayTimeZone)
-    : { date: item.localDate, time: item.localTime };
   const scheduleChanged =
-    (input.localDate !== undefined && input.localDate !== displayed.date) ||
-    (input.localTime !== undefined && input.localTime !== displayed.time);
+    (input.localDate !== undefined && input.localDate !== item.localDate) ||
+    (input.localTime !== undefined && input.localTime !== item.localTime);
   if (scheduleChanged) {
     await reschedulePlannerOccupancy({
       adminAccountId: input.adminAccountId,
-      displayTimeZone: input.displayTimeZone,
       occupancy: input.occupancy,
       occupancyId: input.occupancyId,
-      localDate: input.localDate ?? displayed.date,
-      localTime: input.localTime ?? displayed.time,
+      localDate: input.localDate ?? item.localDate,
+      localTime: input.localTime ?? item.localTime,
     });
   }
   if (item.occupancyKind === 'course_day' && item.courseId && item.courseDayId) {

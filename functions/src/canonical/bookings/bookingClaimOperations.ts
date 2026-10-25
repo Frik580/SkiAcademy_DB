@@ -14,10 +14,6 @@ import {
 } from '@ski-academy/shared-domain';
 import {
   commitResourceClaimPlan,
-  commitResourceClaimBatch,
-  planResourceClaimBatch,
-  registerResourceClaimPlanInGuardOverlay,
-  type InTransactionGuardOverlay,
   readAndPlanAcquireResourceClaim,
   readAndPlanReleaseResourceClaim,
 } from '../resourceClaims/resourceClaimEngine';
@@ -140,15 +136,13 @@ export async function planReleaseBookingClaims(
     readonly correlationId: CorrelationId;
     readonly commandId: CommandId;
   },
-  decidedAt: Date,
-  deferPlanMutations = false
+  decidedAt: Date
 ) {
   const claimIds = bookingClaimIds(booking, session.scope ?? LIVE_CANONICAL_EXECUTION_SCOPE);
   const claimMetadata = {
     correlationId: metadata.correlationId,
     commandId: metadata.commandId,
     decidedAt,
-    deferPlanMutations,
   };
   const instructorClaimId = bookingClaimIdentities({
     bookingId: booking.bookingId,
@@ -187,8 +181,6 @@ export async function planAcquireBookingOccurrenceClaims(
     readonly correlationId: CorrelationId;
     readonly commandId: CommandId;
     readonly decidedAt: Date;
-    readonly inTransactionGuardOverlay?: InTransactionGuardOverlay;
-    readonly deferPlanMutations?: boolean;
   }
 ) {
   const instructorIdentity = bookingClaimIdentities({
@@ -202,8 +194,6 @@ export async function planAcquireBookingOccurrenceClaims(
     correlationId: input.correlationId,
     commandId: input.commandId,
     decidedAt: input.decidedAt,
-    inTransactionGuardOverlay: input.inTransactionGuardOverlay,
-    deferPlanMutations: input.deferPlanMutations,
   };
   const instructorClaimPlan = await readAndPlanAcquireResourceClaim(session, {
     ...claimMetadata,
@@ -259,13 +249,8 @@ export async function planSwapBookingOccurrenceClaims(
     session,
     input.booking,
     { correlationId: input.correlationId, commandId: input.commandId },
-    input.decidedAt,
-    true
+    input.decidedAt
   );
-  // Later plans must see earlier releases within the same atomic transaction.
-  const inTransactionGuardOverlay: InTransactionGuardOverlay = new Map();
-  for (const plan of releasePlans)
-    registerResourceClaimPlanInGuardOverlay(inTransactionGuardOverlay, plan);
   const acquired = await planAcquireBookingOccurrenceClaims(session, {
     bookingId: input.booking.bookingId,
     occurrenceId: input.newOccurrenceId,
@@ -276,14 +261,7 @@ export async function planSwapBookingOccurrenceClaims(
     correlationId: input.correlationId,
     commandId: input.commandId,
     decidedAt: input.decidedAt,
-    inTransactionGuardOverlay,
-    deferPlanMutations: true,
   });
-  planResourceClaimBatch(session, [
-    ...releasePlans,
-    acquired.instructorClaimPlan,
-    ...acquired.participantClaimPlans,
-  ]);
   return {
     releasePlans,
     instructorClaimPlan: acquired.instructorClaimPlan,
@@ -324,9 +302,11 @@ export function commitPlannedBookingOccurrenceClaimSwap(
     commandId: metadata.commandId,
     decidedAt,
   };
-  commitResourceClaimBatch(
-    session,
-    [...plan.releasePlans, plan.instructorClaimPlan, ...plan.participantClaimPlans],
-    claimMetadata
-  );
+  commitResourceClaimPlan(session, plan.instructorClaimPlan, claimMetadata);
+  for (const participantClaimPlan of plan.participantClaimPlans) {
+    commitResourceClaimPlan(session, participantClaimPlan, claimMetadata);
+  }
+  for (const releasePlan of plan.releasePlans) {
+    commitResourceClaimPlan(session, releasePlan, claimMetadata);
+  }
 }

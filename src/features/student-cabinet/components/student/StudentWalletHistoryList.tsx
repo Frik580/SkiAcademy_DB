@@ -1,29 +1,40 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowDownLeft, ArrowUpRight } from 'lucide-react';
 import { ApplePagination } from '../../../../ui/ApplePagination';
-import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
-import { formatWalletOperationLabel } from '../../../../domain/wallet';
-import type { StudentWalletHistoryInput } from './studentWalletHistoryContracts';
+import { useLanguage } from '../../../../app/providers/LanguageContext';
+import { buildWalletOperationHistory, formatWalletOperationLabel } from '../../../../domain/wallet';
+import type { Booking, Course, WalletLedgerEntry } from '../../../../types';
+import { useWalletStore } from '../../../../features/wallet';
 import { ActionButton } from '../../../../ui/ActionButton';
 import { StateCard } from '../../../../ui/StateCard';
 
 const ITEMS_PER_PAGE = 15;
 
-export const StudentWalletHistoryList: React.FC<StudentWalletHistoryInput> = ({
-  operations,
-  loading,
-  error,
-  hasMore,
-  loadMore,
-  retry,
+interface StudentWalletHistoryListProps {
+  userId: string;
+  bookings: Booking[];
+  courses: Course[];
+  ledgerEntries: WalletLedgerEntry[];
+}
+
+export const StudentWalletHistoryList: React.FC<StudentWalletHistoryListProps> = ({
+  userId,
+  bookings,
+  courses,
+  ledgerEntries,
 }) => {
-  const { lang, t } = useStudentCabinetTranslations();
+  const { language, t } = useLanguage();
+  const lang = language === 'ru' ? 'ru' : 'en';
 
   const [currentPage, setCurrentPage] = useState(1);
-  // Current pricing/Wallet adapters use integer KZT 1:1 (despite the
-  // KztMinorUnits type name). Never divide these values a second time.
-  const formatWalletAmount = (amount: number, currency: 'KZT' | 'USD') =>
-    `${amount.toLocaleString(lang === 'ru' ? 'ru-RU' : 'en-US')} ${currency === 'KZT' ? '₸' : 'USD'}`;
+  const walletLedgerHasMore = useWalletStore((state) => state.walletLedgerHasMore);
+  const loadMoreWalletLedger = useWalletStore((state) => state.loadMoreWalletLedger);
+  const formatWalletAmount = (amount: number) => `${amount.toLocaleString('ru-RU')} ₸`;
+
+  const operations = useMemo(
+    () => buildWalletOperationHistory(userId, bookings, courses, ledgerEntries, lang),
+    [userId, bookings, courses, ledgerEntries, lang]
+  );
 
   const totalPages = Math.max(1, Math.ceil(operations.length / ITEMS_PER_PAGE));
 
@@ -38,34 +49,13 @@ export const StudentWalletHistoryList: React.FC<StudentWalletHistoryInput> = ({
     return operations.slice(startIndex, startIndex + ITEMS_PER_PAGE);
   }, [operations, currentPage]);
 
-  if (loading && operations.length === 0)
-    return (
-      <div role="status">
-        <StateCard title={t('loading')} />
-      </div>
-    );
-  const errorCard = error ? (
-    <div role="alert">
-      <StateCard title={t('walletHistoryLoadError')}>
-        <ActionButton onClick={retry} size="sm">
-          {t('retry')}
-        </ActionButton>
-      </StateCard>
-    </div>
-  ) : null;
-  if (error && operations.length === 0) return errorCard;
-  if (operations.length === 0 && !hasMore) {
+  if (operations.length === 0) {
     return <StateCard title={t('scProfileWalletHistoryEmpty')} />;
   }
 
   return (
     <div>
-      {errorCard}
-      <div
-        role="list"
-        data-testid="wallet-operation-history"
-        className="rounded-2xl border border-[var(--border-subtle)] overflow-hidden divide-y divide-[var(--border-subtle)]"
-      >
+      <div className="rounded-2xl border border-[var(--border-subtle)] overflow-hidden divide-y divide-[var(--border-subtle)]">
         {paginatedOperations.map((operation) => {
           const isCredit = operation.amount > 0;
           const Icon = isCredit ? ArrowDownLeft : ArrowUpRight;
@@ -83,8 +73,6 @@ export const StudentWalletHistoryList: React.FC<StudentWalletHistoryInput> = ({
           return (
             <div
               key={operation.id}
-              role="listitem"
-              data-operation-id={operation.id}
               className="flex items-start gap-3 px-4 py-3.5 bg-[var(--surface)]"
             >
               <span
@@ -103,8 +91,7 @@ export const StudentWalletHistoryList: React.FC<StudentWalletHistoryInput> = ({
                 <p className="type-caption text-[var(--ink-dim)] mt-1">{formattedDate}</p>
                 {operation.balanceAfter != null && (
                   <p className="type-caption text-[var(--ink-dim)] mt-1">
-                    {t('scProfileWalletBalanceAfter')}:{' '}
-                    {formatWalletAmount(operation.balanceAfter, operation.currency ?? 'KZT')}
+                    {t('scProfileWalletBalanceAfter')}: {formatWalletAmount(operation.balanceAfter)}
                   </p>
                 )}
               </div>
@@ -117,7 +104,7 @@ export const StudentWalletHistoryList: React.FC<StudentWalletHistoryInput> = ({
                   }`}
                 >
                   {isCredit ? '+' : '−'}
-                  {formatWalletAmount(Math.abs(operation.amount), operation.currency ?? 'KZT')}
+                  {formatWalletAmount(Math.abs(operation.amount))}
                 </p>
               </div>
             </div>
@@ -133,10 +120,10 @@ export const StudentWalletHistoryList: React.FC<StudentWalletHistoryInput> = ({
         onPageChange={setCurrentPage}
         itemLabel={lang === 'ru' ? 'операций' : 'transactions'}
       />
-      {hasMore && !error && (
+      {walletLedgerHasMore && (
         <div className="flex justify-center pt-3">
-          <ActionButton onClick={loadMore} disabled={loading} size="sm">
-            {loading ? t('loading') : t('walletHistoryLoadMore')}
+          <ActionButton onClick={loadMoreWalletLedger} size="sm">
+            Load more transactions
           </ActionButton>
         </div>
       )}

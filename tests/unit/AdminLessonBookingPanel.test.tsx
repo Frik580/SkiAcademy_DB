@@ -298,7 +298,6 @@ function isolationDetail(bookingId: string, participantName: string): LessonBook
         canRecordGuestPayment: true,
         canResolveCancellation: true,
         canRecordAttendance: true,
-        canFinalizeAttendance: true,
         canResolveAttendanceOutcome: false,
       },
     },
@@ -981,7 +980,6 @@ describe('AdminLessonBookingPanel', () => {
           canChangeInstructor: true,
           canChangeDuration: true,
           canRecordAttendance: true,
-          canFinalizeAttendance: true,
           canResolveAttendanceOutcome: true,
           canDirectCancel: true,
         },
@@ -1209,7 +1207,6 @@ describe('AdminLessonBookingPanel', () => {
           canDirectCancel: false,
           canResolveCancellation: false,
           canRecordAttendance: true,
-          canFinalizeAttendance: true,
           canResolveAttendanceOutcome: false,
           canLinkGuestToAccount: false,
         },
@@ -1315,172 +1312,5 @@ describe('AdminLessonBookingPanel', () => {
     expect(screen.getByText('adminFinanceSettled')).toBeVisible();
     expect(screen.queryByText('adminFinanceRefunded')).not.toBeInTheDocument();
     expect(screen.queryByText('adminFinanceWrittenOff')).not.toBeInTheDocument();
-  });
-});
-
-describe('administrator attendance correction', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-  afterEach(cleanup);
-  function attendanceItem(status: 'completed' | 'no_show' | 'confirmed' | 'pending_cancellation') {
-    const item = isolationDetail('booking_admin_panel_01', 'Student');
-    item.lifecycle = { status } as LessonBookingReadModel['lifecycle'];
-    item.admin!.attendance![0].attendanceStatus =
-      status === 'completed' ? 'present' : status === 'no_show' ? 'absent' : 'unknown';
-    return item;
-  }
-  function prepareCorrection(item: LessonBookingReadModel) {
-    renderPanel(item);
-    openDetailSection('adminLessonAttendanceTitle');
-    fireEvent.change(screen.getByLabelText('adminLessonReason'), {
-      target: { value: '  Correct evidence  ' },
-    });
-    fireEvent.click(
-      screen.getByRole('button', {
-        name:
-          item.lifecycle.status === 'completed'
-            ? 'adminLessonRecordAbsent'
-            : 'adminLessonRecordPresent',
-      })
-    );
-    const terminal = ['completed', 'no_show'].includes(item.lifecycle.status);
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: terminal ? 'adminLessonCorrectAttendance' : 'adminLessonFinalizeAttendance',
-      })
-    );
-    return screen.getByRole('button', {
-      name: terminal ? 'adminLessonConfirmCorrectionSubmit' : 'adminLessonConfirmAttendanceSubmit',
-    });
-  }
-  it.each(['completed', 'no_show', 'confirmed', 'pending_cancellation'] as const)(
-    'routes %s to its supported command',
-    async (status) => {
-      runAttemptMock.mockResolvedValue({ status: 'success' });
-      const submit = prepareCorrection(attendanceItem(status));
-      fireEvent.click(submit);
-      await waitFor(() => expect(runAttemptMock).toHaveBeenCalledTimes(1));
-      const terminal = status === 'completed' || status === 'no_show';
-      const attempt = runAttemptMock.mock.calls[0][0];
-      expect(attempt).toMatchObject({
-        kind: terminal ? 'record_booking_attendance' : 'finalize_booking_attendance',
-        target: { revision: 5 },
-        reasonExplanation: 'Correct evidence',
-      });
-      expect(terminal ? attempt : attempt.attendance[0]).toMatchObject({
-        participantId: 'participant_admin_panel_01',
-        attendanceStatus: status === 'completed' ? 'absent' : 'present',
-        expectedAttendanceRevision: 1,
-      });
-      if (terminal) expect(attempt).not.toHaveProperty('attendance');
-    }
-  );
-  it.each(['forbidden'])(
-    'preserves %s and creates a fresh key for a deliberate retry',
-    async (code) => {
-      runAttemptMock
-        .mockResolvedValueOnce({ status: 'error', error: { code, message: code } })
-        .mockResolvedValueOnce({ status: 'success' });
-      const submit = prepareCorrection(attendanceItem('completed'));
-      fireEvent.click(submit);
-      await waitFor(() => expect(submit).toBeEnabled());
-      expect(screen.getByText(`${code} (${code})`)).toBeVisible();
-      fireEvent.click(submit);
-      await waitFor(() => expect(runAttemptMock).toHaveBeenCalledTimes(2));
-      expect(runAttemptMock.mock.calls[0][0].idempotencyKey).not.toBe(
-        runAttemptMock.mock.calls[1][0].idempotencyKey
-      );
-    }
-  );
-  it('submits only once while pending', async () => {
-    let finish!: (value: unknown) => void;
-    runAttemptMock.mockReturnValue(
-      new Promise((resolve) => {
-        finish = resolve;
-      })
-    );
-    const submit = prepareCorrection(attendanceItem('completed'));
-    fireEvent.click(submit);
-    fireEvent.click(submit);
-    expect(runAttemptMock).toHaveBeenCalledTimes(1);
-    await act(async () => finish({ status: 'success' }));
-  });
-  it('blocks commands without changes and for terminal groups', () => {
-    const item = attendanceItem('completed');
-    item.partyKind = 'family_group';
-    renderPanel(item);
-    openDetailSection('adminLessonAttendanceTitle');
-    fireEvent.change(screen.getByLabelText('adminLessonReason'), { target: { value: 'Reason' } });
-    expect(screen.getByRole('button', { name: 'adminLessonCorrectAttendance' })).toBeDisabled();
-    expect(
-      screen.queryByRole('button', { name: 'adminLessonRecordAbsent' })
-    ).not.toBeInTheDocument();
-    expect(runAttemptMock).not.toHaveBeenCalled();
-  });
-  it('blocks the rejected stale projection without automatically replaying it', async () => {
-    runAttemptMock.mockResolvedValue({
-      status: 'error',
-      error: { code: 'stale_version', message: 'Stale evidence' },
-      refreshFailed: true,
-    });
-    const submit = prepareCorrection(attendanceItem('completed'));
-    fireEvent.click(submit);
-    await waitFor(() =>
-      expect(screen.getByText('Stale evidence (stale_version)')).toBeInTheDocument()
-    );
-    expect(submit).toBeDisabled();
-    fireEvent.click(submit);
-    expect(runAttemptMock).toHaveBeenCalledTimes(1);
-    for (const back of screen.getAllByRole('button', { name: 'adminLessonConfirmAttendanceBack' }))
-      expect(back).toBeEnabled();
-  });
-  it('recovers from committed correction with failed refresh even when projection data is unchanged', async () => {
-    runAttemptMock.mockResolvedValue({ status: 'success', refreshFailed: true });
-    const item = attendanceItem('completed');
-    const submit = prepareCorrection(item);
-    const refresh = readMock.mock.results.at(-1)!.value.refreshBooking;
-    refresh.mockResolvedValue({ status: 'success' });
-    fireEvent.click(submit);
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-    fireEvent.click(screen.getByRole('button', { name: 'adminLessonRecordAbsent' }));
-    fireEvent.change(screen.getByLabelText('adminLessonReason'), {
-      target: { value: 'Review again' },
-    });
-    expect(screen.getByRole('button', { name: 'adminLessonCorrectAttendance' })).toBeDisabled();
-    fireEvent.click(screen.getByRole('button', { name: 'adminLessonRefreshAttendance' }));
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'adminLessonCorrectAttendance' })).toBeEnabled()
-    );
-    expect(refresh).toHaveBeenCalledWith(item.bookingId);
-    expect(runAttemptMock).toHaveBeenCalledTimes(1);
-  });
-  it('disables a dirty draft when Booking or Attendance projection changes', () => {
-    const item = attendanceItem('completed');
-    const view = renderPanel(item);
-    openDetailSection('adminLessonAttendanceTitle');
-    fireEvent.change(screen.getByLabelText('adminLessonReason'), { target: { value: 'Reason' } });
-    fireEvent.click(screen.getByRole('button', { name: 'adminLessonRecordAbsent' }));
-    fireEvent.click(screen.getByRole('button', { name: 'adminLessonCorrectAttendance' }));
-    const reads = readMock.mock.results.at(-1)!.value;
-    const next = {
-      ...item,
-      admin: {
-        ...item.admin!,
-        attendance: item.admin!.attendance!.map((entry) => ({ ...entry, revision: 2 })),
-      },
-    };
-    readMock.mockReturnValue({ ...reads, detail: { item: next, loading: false } });
-    view.rerender(
-      <MemoryRouter initialEntries={['/admin?tab=operations&booking=booking_admin_panel_01']}>
-        <AdminLessonBookingPanel adminAccountId="admin_account_01" instructors={[]} />
-        <LocationProbe />
-      </MemoryRouter>
-    );
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'adminLessonCorrectAttendance' })).toBeDisabled();
-    fireEvent.click(screen.getByRole('button', { name: 'adminLessonRecordAbsent' }));
-    expect(screen.getByRole('button', { name: 'adminLessonCorrectAttendance' })).toBeEnabled();
-    expect(runAttemptMock).not.toHaveBeenCalled();
   });
 });

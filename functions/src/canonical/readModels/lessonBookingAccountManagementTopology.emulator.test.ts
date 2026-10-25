@@ -17,7 +17,7 @@ import {
 } from './lessonBookingReadModels';
 import { ACTIVE_ACCOUNT_MANAGEMENT_QUERY_PAGE_SIZE } from './readModelRequestContext';
 
-const PROJECT_ID = 'demo-ski-school-e2e';
+const PROJECT_ID = 'ski-academy-lesson-mgmt-topology-m1';
 const runsOnFirestoreEmulator = Boolean(
   process.env.FIREBASE_EMULATOR_HUB ?? process.env.FIRESTORE_EMULATOR_HOST
 );

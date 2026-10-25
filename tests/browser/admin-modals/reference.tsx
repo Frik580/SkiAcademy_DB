@@ -54,7 +54,6 @@ export function Reference({
     reloadManagedParticipants: () => {},
     toggleParticipant: () => {},
     totalCost: 24000,
-    bookingWallet: { balance: 20000, status: 'ready', insufficient: true, canPay: false },
     maxParticipantsPerLesson: 4,
     additionalParticipantSurchargePerHourKzt: 6000,
     targetInstructor: instructor,

@@ -1,7 +1,4 @@
 import { activeLessonLevels, resolveLessonLevel } from '@ski-academy/shared-domain';
-import { useWalletStore } from '../../../wallet/walletStore';
-import { useAuthStore } from '../../../auth/authStore';
-import { resolveBookingWalletState } from './bookingWalletState';
 import { useLessonLevelsStore } from '../../../settings/lessonLevelsStore';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import confetti from 'canvas-confetti';
@@ -86,8 +83,6 @@ export const useBookingModal = ({
 }: BookingModalInput) => {
   const { addNotification } = useNotifications();
   const { t, language } = useLanguage();
-  const wallet = useWalletStore();
-  const authenticatedAccountId = useAuthStore((state) => state.firebaseUser?.uid);
   const {
     createAuthenticatedBooking,
     createGuestBooking,
@@ -490,12 +485,6 @@ export const useBookingModal = ({
   const lessonSettingsUnavailable =
     additionalParticipantSurchargePerHourKzt === undefined ||
     maxParticipantsPerLesson === undefined;
-  const bookingWallet = resolveBookingWalletState(
-    wallet,
-    userProfile?.uid,
-    authenticatedAccountId,
-    totalCost
-  );
   const participantSelectionExceedsMax =
     maxParticipantsPerLesson !== undefined &&
     effectiveParticipantIds.length > maxParticipantsPerLesson;
@@ -858,15 +847,6 @@ export const useBookingModal = ({
       return;
     }
 
-    if (
-      !resolveBookingWalletState(
-        useWalletStore.getState(),
-        userProfile.uid,
-        useAuthStore.getState().firebaseUser?.uid,
-        totalCost
-      ).canPay
-    )
-      return;
     isSubmittingRef.current = true;
     setIsSubmitting(true);
 
@@ -875,18 +855,6 @@ export const useBookingModal = ({
     }
 
     submitTimerRef.current = setTimeout(async () => {
-      if (
-        !resolveBookingWalletState(
-          useWalletStore.getState(),
-          userProfile.uid,
-          useAuthStore.getState().firebaseUser?.uid,
-          totalCost
-        ).canPay
-      ) {
-        isSubmittingRef.current = false;
-        setIsSubmitting(false);
-        return;
-      }
       const bookingId = bookingAttemptIdRef.current ?? createLogicalBookingAttemptId();
       bookingAttemptIdRef.current = bookingId;
 
@@ -927,12 +895,6 @@ export const useBookingModal = ({
         onClose();
       } catch (err) {
         const presented = presentBookingCommandError(err);
-        if (
-          presented.code === 'insufficient_funds' &&
-          useAuthStore.getState().firebaseUser?.uid === userProfile.uid
-        ) {
-          useWalletStore.getState().refreshCanonicalWallet();
-        }
         if (presented.code === 'participant_conflict' && presented.correlationId) {
           logger.warn('Booking participant_conflict', {
             correlationId: presented.correlationId,
@@ -1014,7 +976,6 @@ export const useBookingModal = ({
     overlappingCourse,
     isTimeSlotOccupied,
     totalCost,
-    bookingWallet,
     additionalParticipantSurchargePerHourKzt,
     maxParticipantsPerLesson,
     pricingSettingsLoading,

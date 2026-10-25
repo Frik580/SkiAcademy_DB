@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { cacheObjectPath, isAllowedImageSource, parseOptimizeImageQuery } from './optimizeImage';
+import {
+  cacheObjectPath,
+  isAllowedImageSource,
+  parseOptimizeImageQuery,
+} from './optimizeImage';
 
 describe('optimizeImage allowlist', () => {
   it('allows carve Object Storage HTTPS URLs only', () => {
@@ -42,22 +46,5 @@ describe('optimizeImage allowlist', () => {
 
   it('rejects missing u', () => {
     expect(parseOptimizeImageQuery({})).toEqual({ error: 'Missing u parameter' });
-  });
-
-  it('rejects cache-busting source URLs and malformed expensive variants', () => {
-    for (const u of [
-      'https://storage.yandexcloud.net/carve/wall.webp?nonce=1',
-      'https://storage.yandexcloud.net/carve/wall.webp#nonce',
-    ]) {
-      expect(isAllowedImageSource(u)).toBe(false);
-      expect(parseOptimizeImageQuery({ u })).toHaveProperty('error');
-    }
-    const u = 'https://storage.yandexcloud.net/carve/wall.webp';
-    for (const args of [{ w: '960junk' }, { q: '72.5' }, { q: '100' }, { w: ['960'] }]) {
-      expect(parseOptimizeImageQuery({ u, ...args })).toHaveProperty('error');
-    }
-    expect(cacheObjectPath('https://STORAGE.YANDEXCLOUD.NET/carve/wall.webp', 960, 72)).toBe(
-      cacheObjectPath(u, 960, 72)
-    );
   });
 });

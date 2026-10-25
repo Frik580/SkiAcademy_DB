@@ -22,7 +22,7 @@ import {
 } from '../helpers/firebaseEmulatorTestEnv';
 import { readRepoFile } from '../helpers/readRepoFile';
 
-export const CALLABLE_PROJECT_ID = 'demo-ski-school-e2e';
+export const CALLABLE_PROJECT_ID = 'ski-school-8f3ca';
 export const CALLABLE_USER_EMAIL = 'callable-user@example.com';
 export const CALLABLE_USER_PASSWORD = 'password123';
 export const CALLABLE_INSTRUCTOR_ID = 'callable-instructor-1';

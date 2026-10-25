@@ -27,7 +27,7 @@ import { createProductionCanonicalCommands } from '../commands/canonicalCommands
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
 import { seedLessonPricingSettingsFixture } from '../../../testSupport/lessonPricingSettingsFixture';
 
-const PROJECT_ID = 'demo-ski-school-e2e';
+const PROJECT_ID = 'ski-academy-proposal-emulator-test';
 const correlationId = CorrelationIdSchema.parse('correlation_proposal_emulator_01');
 const accountId = AccountIdSchema.parse('account_proposal_emulator_01');
 const instructorAccountId = AccountIdSchema.parse('account_proposal_emulator_instructor_01');

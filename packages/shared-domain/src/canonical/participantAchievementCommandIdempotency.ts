@@ -2,22 +2,17 @@ import { buildCanonicalCommandIdempotencyKey } from './boundedCanonicalIdempoten
 import type { IdempotencyKey } from './commands/commandContext';
 import type { ParticipantId } from './identifiers';
 import type { RecordParticipantAchievementInput } from './participantAchievements';
-import { computeCommandFingerprint } from './commandFingerprint';
 
 export function deriveRecordParticipantAchievementsIdempotencyKey(
   participantId: ParticipantId,
   expectedRevision: number,
-  earned: readonly RecordParticipantAchievementInput[],
-  exercisedCapability: 'account_owner' | 'parent_guardian' = 'account_owner'
+  earned: readonly Pick<RecordParticipantAchievementInput, 'achievementId'>[]
 ): IdempotencyKey {
+  const ids = [...new Set(earned.map((item) => item.achievementId))].sort().join(',');
   return buildCanonicalCommandIdempotencyKey([
-    'record-participant-achievements:v2',
+    'record-participant-achievements',
     participantId,
     String(expectedRevision),
-    computeCommandFingerprint({
-      kind: 'record_participant_achievements',
-      exercisedCapability,
-      intent: { participantId, earned },
-    }),
+    ids,
   ]);
 }

@@ -23,7 +23,7 @@ import { createProductionCanonicalCommands } from '../commands/canonicalCommands
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
 import { bookingClaimIdentities } from './bookingClaimOperations';
 
-const PROJECT_ID = 'demo-ski-school-e2e';
+const PROJECT_ID = 'ski-academy-admin-guest-booking-link-emulator';
 const correlationId = CorrelationIdSchema.parse('correlation_admin_guest_booking_link_em_01');
 const instructorId = InstructorIdSchema.parse('instructor_admin_guest_booking_link_em_01');
 const guestParticipantId = ParticipantIdSchema.parse('participant_admin_guest_booking_link_em_guest');

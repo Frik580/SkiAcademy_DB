@@ -89,5 +89,3 @@ export * from './readModelAuthorization';
 
 export * from './participantLevelProgression';
 export * from './masterySkillDefaults';
-export * from './readModels/accountWalletHistoryReadModel';
-export * from './readModels/instructorLessonRevenue';

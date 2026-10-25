@@ -5,6 +5,7 @@ import { useParticipantProgressStore } from '../../src/features/participant-prog
 const mocks = vi.hoisted(() => ({
   authUid: 'pending-account' as string | null,
   profileUid: null as string | null,
+  readyUid: null as string | null,
   pathname: '/' as string,
   refreshManaged: vi.fn(),
   refreshInstructor: vi.fn(),
@@ -17,8 +18,8 @@ vi.mock('../../src/features/auth/authStore', () => ({
 }));
 
 vi.mock('../../src/features/profile/profileStore', () => ({
-  useProfileStore: (selector: (state: { userProfile: { uid: string } | null }) => unknown) =>
-    selector({ userProfile: mocks.profileUid ? { uid: mocks.profileUid } : null }),
+  useProfileStore: (selector: (state: { userProfile: { uid: string } | null; canonicalReadyAccountId: string | null }) => unknown) =>
+    selector({ userProfile: mocks.profileUid ? { uid: mocks.profileUid } : null, canonicalReadyAccountId: mocks.readyUid }),
 }));
 
 vi.mock('../../src/features/booking-collaboration/bookingCollaborationStore', () => ({
@@ -50,6 +51,7 @@ describe('useParticipantProgressSync account readiness', () => {
     vi.clearAllMocks();
     mocks.authUid = 'pending-account';
     mocks.profileUid = null;
+    mocks.readyUid = null;
     mocks.pathname = '/';
     mocks.refreshManaged.mockResolvedValue([]);
     mocks.refreshInstructor.mockResolvedValue([]);
@@ -63,13 +65,16 @@ describe('useParticipantProgressSync account readiness', () => {
     expect(mocks.warn).not.toHaveBeenCalled();
   });
 
-  it('loads progress when the matching profile arrives without changing the auth session', async () => {
+  it('waits for canonical initialization after the matching profile arrives', async () => {
     const { rerender } = renderHook(() => useParticipantProgressSync());
     expect(mocks.refreshManaged).not.toHaveBeenCalled();
 
     mocks.profileUid = 'pending-account';
     rerender();
+    expect(mocks.refreshManaged).not.toHaveBeenCalled();
 
+    mocks.readyUid = 'pending-account';
+    rerender();
     await waitFor(() => expect(mocks.refreshManaged).toHaveBeenCalledTimes(1));
     expect(mocks.refreshInstructor).not.toHaveBeenCalled();
   });
@@ -80,6 +85,7 @@ describe('useParticipantProgressSync account readiness', () => {
     expect(mocks.refreshManaged).not.toHaveBeenCalled();
 
     mocks.profileUid = 'pending-account';
+    mocks.readyUid = 'pending-account';
     rerender();
     await waitFor(() => expect(mocks.refreshManaged).toHaveBeenCalledTimes(1));
 

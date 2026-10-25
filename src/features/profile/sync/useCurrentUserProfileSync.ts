@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { db, doc, onSnapshot } from '../../../infrastructure/firebase';
 import { logger } from '../../../shared';
 import { toUserProfile } from '../../../infrastructure/firebase';
+import { isCanonicalAccountReadyForReads } from '../canonicalAccountReadiness';
 import { useAuthStore } from '../../auth/authStore';
 import { useProfileStore } from '../profileStore';
 
@@ -29,6 +30,13 @@ export const useCurrentUserProfileSync = () => {
           useProfileStore.getState().resetProfileState();
           return;
         }
+        // Gate canonical reads on the authoritative Account fields, not on the
+        // presentation-only UserProfile (which exists before provisioning).
+        useProfileStore.getState().setCanonicalReadyAccountId(
+          isCanonicalAccountReadyForReads(userSnap.data(), firebaseUser.uid)
+            ? firebaseUser.uid
+            : null
+        );
         useProfileStore.getState().syncUserProfileFromSnapshot(profile);
         if (Array.isArray(profile.dismissedReviewIds)) {
           useProfileStore.getState().setDismissedReviewIds(profile.dismissedReviewIds);
@@ -44,6 +52,7 @@ export const useCurrentUserProfileSync = () => {
       },
       (error) => {
         logger.error('Current user profile sync error:', error);
+        useProfileStore.getState().setCanonicalReadyAccountId(null);
         useProfileStore.getState().setProfileLoading(false);
       }
     );

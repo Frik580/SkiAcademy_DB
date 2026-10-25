@@ -34,36 +34,38 @@ export const useStoreSync = () => {
   const firebaseUser = useAuthStore((state) => state.firebaseUser);
   const authGeneration = useAuthStore((state) => state.authGeneration);
   const userProfile = useProfileStore((state) => state.userProfile);
+  const canonicalReadyAccountId = useProfileStore((state) => state.canonicalReadyAccountId);
+  const readyAccountId = canonicalReadyAccountId === firebaseUser?.uid ? firebaseUser.uid : undefined;
   // Hydrate account_hot only on surfaces that render current/upcoming lessons.
   // History ownership is separate (History + Journey) so Training/Profile/etc.
   // never poll account_hot.
   const isCustomerCanonicalLessonHotPath = shouldSyncAccountLessonBookings({
     pathname: location.pathname,
-    accountId: firebaseUser?.uid,
+    accountId: readyAccountId,
   });
   const isCustomerCanonicalLessonHistoryPath = shouldSyncAccountLessonHistory({
     pathname: location.pathname,
-    accountId: firebaseUser?.uid,
+    accountId: readyAccountId,
   });
   const isCustomerCanonicalLessonPath =
     isCustomerCanonicalLessonHotPath || isCustomerCanonicalLessonHistoryPath;
   const isParticipantLessonStatsPath = shouldSyncAccountParticipantLessonStats({
     pathname: location.pathname,
-    accountId: firebaseUser?.uid,
+    accountId: readyAccountId,
   });
   // Hydrate account course enrollments on `/` and `/cabinet*` for any signed-in
   // account. Do not gate on role/instructorId — that left Arsenii-style admin /
   // dual-role accounts with an empty enrollment store and an active enroll CTA.
   const isCustomerCanonicalCoursePath = shouldSyncAccountCourseEnrollments({
     pathname: location.pathname,
-    accountId: firebaseUser?.uid,
+    accountId: readyAccountId,
   });
   const isPublicCatalogPath = location.pathname === '/' || location.pathname.startsWith('/cabinet');
   const selectedCourseParticipantId = useCabinetProgressParticipantSelectionStore(
     (state) => state.selectedParticipantId
   );
   const isInstructorCollaborationPath =
-    location.pathname === '/instructor' && Boolean(userProfile?.instructorId);
+    location.pathname === '/instructor' && Boolean(readyAccountId && userProfile?.instructorId);
 
   useSessionSync();
   useCurrentUserProfileSync();
@@ -73,19 +75,19 @@ export const useStoreSync = () => {
   useBookingsSync();
   useLessonBookingReadSync(
     isCustomerCanonicalLessonPath,
-    firebaseUser?.uid,
+    readyAccountId,
     isCustomerCanonicalLessonHistoryPath,
     isCustomerCanonicalLessonHotPath
   );
-  useAccountParticipantLessonStatsSync(isParticipantLessonStatsPath, firebaseUser?.uid);
+  useAccountParticipantLessonStatsSync(isParticipantLessonStatsPath, readyAccountId);
   useCourseEnrollmentReadSync(
     isCustomerCanonicalCoursePath,
-    firebaseUser?.uid,
+    readyAccountId,
     selectedCourseParticipantId
   );
   useAccountCourseSessionSync(
-    location.pathname.startsWith('/cabinet'),
-    firebaseUser?.uid,
+    location.pathname.startsWith('/cabinet') && Boolean(readyAccountId),
+    readyAccountId,
     authGeneration
   );
   useGuestCourseEnrollmentReadSync(!firebaseUser && isPublicCatalogPath);
@@ -93,7 +95,7 @@ export const useStoreSync = () => {
   useBookingCollaborationReadSync({
     customerEnabled: isCustomerCanonicalLessonHotPath,
     instructorEnabled: isInstructorCollaborationPath,
-    accountId: firebaseUser?.uid,
+    accountId: readyAccountId,
     instructorId: userProfile?.instructorId,
   });
   useCoursesSync();

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { HomeRouteContainer } from './HomeRouteContainer';
-import { EmailVerificationReturnPage } from '../../features/auth/components/EmailVerificationReturnPage';
+import { EmailVerificationReturnPage } from '../../features/auth';
 import { CabinetRoute } from './CabinetRoute';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { RouteContentLoading } from '../../ui/RouteContentLoading';

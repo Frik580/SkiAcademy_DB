@@ -10,7 +10,7 @@ import {
 import { queryManagedParticipantPickerReadModels } from './managedParticipantPickerReadModels';
 import { ACTIVE_ACCOUNT_MANAGEMENT_QUERY_PAGE_SIZE } from './readModelRequestContext';
 
-const PROJECT_ID = 'ski-academy-picker-mgmt-topology-m2';
+const PROJECT_ID = 'demo-ski-school-e2e';
 const runsOnFirestoreEmulator = Boolean(
   process.env.FIREBASE_EMULATOR_HUB ?? process.env.FIRESTORE_EMULATOR_HOST
 );

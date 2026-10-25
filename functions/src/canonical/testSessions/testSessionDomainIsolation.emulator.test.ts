@@ -32,7 +32,7 @@ import { createProductionCanonicalCommands } from '../commands/canonicalCommands
 import { executeIdempotentCanonicalCommand } from '../commands/idempotentCommandExecution';
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
 
-const PROJECT_ID = 'ski-academy-t42b3-isolation-emulator';
+const PROJECT_ID = 'demo-ski-school-e2e';
 const correlationA = CorrelationIdSchema.parse('correlation_t42b3_em_a');
 const correlationB = CorrelationIdSchema.parse('correlation_t42b3_em_b');
 const testSessionId = TestSessionIdSchema.parse('test_session_t42b3_em_01');

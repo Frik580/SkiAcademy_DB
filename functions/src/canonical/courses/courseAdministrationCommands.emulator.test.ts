@@ -19,7 +19,7 @@ import { createProductionCanonicalCommands } from '../commands/canonicalCommands
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
 import { courseDayInstructorClaimIdentity } from './courseDayClaimOperations';
 
-const PROJECT_ID = 'ski-academy-course-admin-emulator-test';
+const PROJECT_ID = 'demo-ski-school-e2e';
 const runsOnFirestoreEmulator = Boolean(
   process.env.FIREBASE_EMULATOR_HUB ?? process.env.FIRESTORE_EMULATOR_HOST
 );

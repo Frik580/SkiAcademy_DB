@@ -53,6 +53,13 @@ export default defineConfig({
   },
   plugins: [react()],
   test: {
+    env: {
+      VITE_FIREBASE_PROJECT_ID: 'demo-ski-school-e2e',
+      VITE_FIREBASE_API_KEY: 'demo-api-key',
+      VITE_FIREBASE_APP_ID: 'demo-app-id',
+      VITE_FIREBASE_AUTH_DOMAIN: 'localhost',
+      VITE_FIREBASE_STORAGE_BUCKET: 'demo-ski-school-e2e.appspot.com',
+    },
     // Bound CPU-heavy jsdom/V8 work on large hosts while retaining Vitest's
     // usual one-CPU reserve on smaller runners.
     maxWorkers: Math.max(1, Math.min(4, availableParallelism() - 1)),

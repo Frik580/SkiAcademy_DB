@@ -1,0 +1,7 @@
+{
+  "accountIds": ["REPLACE_WITH_TEST_ACCOUNT_UID"],
+  "participantIds": ["REPLACE_WITH_TEST_PARTICIPANT_ID"],
+  "testSessionIds": ["REPLACE_WITH_EXISTING_CLOSED_TEST_SESSION_ID"],
+  "documents": [],
+  "storageObjects": []
+}

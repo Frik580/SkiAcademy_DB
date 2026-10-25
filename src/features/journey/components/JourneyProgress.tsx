@@ -249,26 +249,26 @@ export const UserPathMarker: React.FC<{
           </span>
         </span>
       )}
-      <div
-        className={`journey-marker-caption absolute left-1/2 bottom-full mb-3.5 whitespace-nowrap z-20 flex flex-col items-center gap-1 ${isCabinet ? '' : '-translate-x-1/2'}`}
-      >
+      {!isCabinet && (
         <div
-          className={`bg-transparent font-mono font-bold tracking-wider flex items-baseline justify-center gap-1 ${
-            isDark ? 'text-[#f5d76e]' : 'text-[#b8860b]'
-          }`}
+          className={`journey-marker-caption absolute left-1/2 bottom-full mb-3.5 whitespace-nowrap z-20 flex flex-col items-center gap-1 ${isCabinet ? '' : '-translate-x-1/2'}`}
         >
-          <span
-            className="inline-block"
-            style={{
-              fontSize: `${xpFontSizePx}px`,
-              lineHeight: '1',
-            }}
+          <div
+            className={`bg-transparent font-mono font-bold tracking-wider flex items-baseline justify-center gap-1 ${
+              isDark ? 'text-[#f5d76e]' : 'text-[#b8860b]'
+            }`}
           >
-            {xp}
-          </span>
-          <span className="text-[10px] font-sans font-semibold opacity-85 leading-none">XP</span>
-        </div>
-        {!isCabinet && (
+            <span
+              className="inline-block"
+              style={{
+                fontSize: `${xpFontSizePx}px`,
+                lineHeight: '1',
+              }}
+            >
+              {xp}
+            </span>
+            <span className="text-[10px] font-sans font-semibold opacity-85 leading-none">XP</span>
+          </div>
           <span
             className={`rounded-full px-2.5 py-0.5 text-[9px] sm:text-[10px] font-semibold tracking-[0.12em] uppercase shadow-sm transition-opacity ${
               isDark
@@ -278,8 +278,8 @@ export const UserPathMarker: React.FC<{
           >
             {label}
           </span>
-        )}
-      </div>
+        </div>
+      )}
     </>
   );
 

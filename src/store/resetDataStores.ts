@@ -34,6 +34,7 @@ export function resetUserScopedStores(): void {
   useProfileStore.setState({
     userProfile: null,
     profileLoading: false,
+    canonicalReadyAccountId: null,
     usersList: [],
     dismissedReviewIds: [],
     activityLogs: [],
@@ -44,10 +45,9 @@ export function resetUserScopedStores(): void {
   });
   useWalletStore.setState({
     walletLedgerEntries: [],
-    walletLedgerPageSize: QUERY_LIMITS.walletLedger,
-    walletLedgerHasMore: false,
     optimisticBalanceDelta: 0,
     canonicalBalanceKzt: null,
+    canonicalWalletEventRevision: null,
     canonicalWalletExists: false,
     canonicalWalletLoaded: false,
   });

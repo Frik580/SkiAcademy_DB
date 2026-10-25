@@ -85,13 +85,29 @@
                                                     ]
                                     },
                                     {
-                                        "source":  "/api/img",
-                                        "headers":  [
-                                                        {
-                                                            "key":  "Cache-Control",
-                                                            "value":  "public, max-age=604800, s-maxage=604800"
-                                                        }
-                                                    ]
+                                        "regex": "^[\\\\/]([^_].*|_([^_].*)?)?$",
+                                        "headers": [
+                                            {
+                                                "key": "Content-Security-Policy-Report-Only",
+                                                "value": "default-src 'self'; script-src 'self' https://apis.google.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https://*.googleapis.com https://*.cloudfunctions.net https://*.run.app https://*.firebaseio.com wss://*.firebaseio.com https://storage.yandexcloud.net https://www.google.com https://www.recaptcha.net; frame-src https://*.firebaseapp.com https://*.web.app https://www.google.com https://www.recaptcha.net; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
+                                            },
+                                            {
+                                                "key": "X-Frame-Options",
+                                                "value": "DENY"
+                                            },
+                                            {
+                                                "key": "X-Content-Type-Options",
+                                                "value": "nosniff"
+                                            },
+                                            {
+                                                "key": "Referrer-Policy",
+                                                "value": "strict-origin-when-cross-origin"
+                                            },
+                                            {
+                                                "key": "Permissions-Policy",
+                                                "value": "camera=(), microphone=(), geolocation=()"
+                                            }
+                                        ]
                                     }
                                 ],
                     "rewrites":  [

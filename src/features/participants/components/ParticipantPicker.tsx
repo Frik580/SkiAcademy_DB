@@ -11,6 +11,7 @@ export interface ParticipantPickerProps {
   readonly maxParticipants?: number;
   /** `single` replaces the current id (cabinet switcher). Default stays multi-select. */
   readonly selectionMode?: 'single' | 'multiple';
+  readonly hideDependentLabel?: boolean;
   readonly t: (key: string) => string;
   readonly onCreateDependent?: () => void;
 }
@@ -31,6 +32,7 @@ export const ParticipantPicker: React.FC<ParticipantPickerProps> = ({
   onRetry,
   maxParticipants,
   selectionMode = 'multiple',
+  hideDependentLabel = false,
   t,
   onCreateDependent,
 }) => {
@@ -93,9 +95,11 @@ export const ParticipantPicker: React.FC<ParticipantPickerProps> = ({
               }`}
             >
               <span>{participant.displayName}</span>
-              <span className="ml-1.5 type-caption uppercase opacity-70">
-                {authorityLabel(participant.authority, t)}
-              </span>
+              {(!hideDependentLabel || participant.authority === 'self') && (
+                <span className="ml-1.5 type-caption uppercase opacity-70">
+                  {authorityLabel(participant.authority, t)}
+                </span>
+              )}
             </button>
           );
         })}

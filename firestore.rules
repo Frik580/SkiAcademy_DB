@@ -19,14 +19,21 @@ service cloud.firestore {
         (
           userId.matches('^client_.*') &&
           exists(/databases/$(database)/documents/users/$(userId)) &&
-          isOwnEmail(get(/databases/$(database)/documents/users/$(userId)).data.email)
+          get(/databases/$(database)/documents/users/$(userId)).data.get('claimedByAccountId', '') == request.auth.uid
         )
       );
+    }
+
+    function rolePrincipalIsActive() {
+      let profile = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return !('lifecycle' in profile) ||
+        (profile.lifecycle is map && profile.lifecycle.status == 'active');
     }
 
     function isSystemOwner() {
       return isAuthenticated() &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        rolePrincipalIsActive() &&
         ('systemRole' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data) &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.systemRole == 'owner';
     }
@@ -35,6 +42,7 @@ service cloud.firestore {
       return isSystemOwner() ||
         (isAuthenticated() &&
          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         rolePrincipalIsActive() &&
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
     }
 
@@ -141,7 +149,8 @@ service cloud.firestore {
     }
 
     function selfServiceAccountCreateHasNoCanonicalAuthority() {
-      return !('systemRole' in request.resource.data) &&
+      return !('claimedByAccountId' in request.resource.data) &&
+        !('systemRole' in request.resource.data) &&
         !('instructorId' in request.resource.data) &&
         !('lifecycle' in request.resource.data) &&
         !('accountId' in request.resource.data) &&
@@ -155,7 +164,8 @@ service cloud.firestore {
 
     function validSelfServiceAccountCreate(userId) {
       return request.resource.data.uid == userId &&
-        isOwnEmail(request.resource.data.email) &&
+        request.auth.uid == userId &&
+        tokenEmailMatches(request.resource.data.email) &&
         request.resource.data.role == 'user' &&
         selfServiceAccountCreateHasNoCanonicalAuthority() &&
         selfServiceAccountCreateHasNoMoneyFields();
@@ -172,7 +182,33 @@ service cloud.firestore {
     function isInstructor() {
       return isAuthenticated() &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        rolePrincipalIsActive() &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.instructorId is string;
+    }
+
+    function revenuePrincipalIsActive() {
+      return isInstructor() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.lifecycle.status == 'active';
+    }
+
+    function revenueScopeAllowed(scopeKey) {
+      let account = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      let actorPath = /databases/$(database)/documents/test_actors/$(request.auth.uid);
+      return !exists(actorPath)
+        ? scopeKey == 'live' && account.get('dataScope', 'live') == 'live' &&
+          !('testSessionId' in account)
+        : revenueTestScopeAllowed(scopeKey, account, get(actorPath).data);
+    }
+
+    function revenueTestScopeAllowed(scopeKey, account, actor) {
+      let assignment = get(/databases/$(database)/documents/test_actor_assignments/$(request.auth.uid)).data;
+      let sessionId = assignment.activeTestSessionId;
+      return actor.accountId == request.auth.uid && actor.allowed == true &&
+        actor.dataScope == 'test' && assignment.accountId == request.auth.uid &&
+        sessionId is string && scopeKey == 'test_' + sessionId &&
+        account.get('dataScope', 'test') == 'test' &&
+        (!('testSessionId' in account) || account.testSessionId == sessionId) &&
+        get(/databases/$(database)/documents/test_sessions/$(sessionId)).data.status == 'active';
     }
 
     function isAssignedInstructor(booking) {
@@ -194,9 +230,9 @@ service cloud.firestore {
     function isInstructorForCourse(courseId) {
       return isInstructor() &&
         exists(/databases/$(database)/documents/courses/$(courseId)) &&
-        ('instructorIds' in get(/databases/$(database)/documents/courses/$(courseId)).data) &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.instructorId in
-          get(/databases/$(database)/documents/courses/$(courseId)).data.instructorIds;
+          get(/databases/$(database)/documents/courses/$(courseId)).data.get('instructorRosterIds',
+            get(/databases/$(database)/documents/courses/$(courseId)).data.get('instructorIds', []));
     }
 
     function isActiveCourseEnrollmentBooking(booking) {
@@ -294,9 +330,11 @@ service cloud.firestore {
         );
     }
 
-    function isOwnEmail(email) {
+    // Matching an unverified claim is safe only for the caller's own new UID.
+    function tokenEmailMatches(email) {
       return isAuthenticated() &&
         ('email' in request.auth.token) &&
+        request.auth.token.email is string &&
         email is string &&
         email.lower() == request.auth.token.email.lower();
     }
@@ -416,20 +454,9 @@ service cloud.firestore {
         request.resource.data.instructorId == resource.data.instructorId;
     }
 
-    function isMigratableClientBooking(booking) {
-      return isAuthenticated() &&
-        booking.userId.matches('^client_.*') &&
-        exists(/databases/$(database)/documents/users/$(booking.userId)) &&
-        isOwnEmail(
-          get(
-            /databases/$(database)/documents/users/$(booking.userId)
-          ).data.email
-        );
-    }
-
     // User Profiles
     // Preserved client writes (non-authoritative only):
-    // - create: signup / guest-claim migration (Auth.tsx, migratePreExistingProfile)
+    // - create: own UID signup only. Guest claims are server transactions.
     // - update self presentation: today tasks (legacy fields and
     //   participantTodayChecklists), dismissReview, preferences
     //   (owner only, and only while stored Account lifecycle is active/absent)
@@ -441,7 +468,7 @@ service cloud.firestore {
     // New Account creates must not write leftover progress or money fields.
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin() || (resource != null && isOwnEmail(resource.data.email));
+      allow list: if isAdmin();
 
       allow create: if isOwner(userId) && validSelfServiceAccountCreate(userId);
 
@@ -463,9 +490,7 @@ service cloud.firestore {
           'dismissedReviewIds'
         ]);
 
-      allow delete: if userId.matches('^client_.*') &&
-        (!('systemRole' in resource.data) || resource.data.systemRole != 'owner') &&
-        isOwnEmail(resource.data.email);
+      allow delete: if false;
 
       // Canonical Account Wallet (`/users/{accountId}/wallet/state`): owner may read
       // own spendable balance for Header/cabinet. Client SDK never writes; Admin finance
@@ -527,6 +552,16 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Exact sanitized totals only. No list access and no client writes, even Admin.
+    match /instructor_lesson_revenue/state {
+      allow get: if revenuePrincipalIsActive();
+    }
+    match /instructor_lesson_revenue/{scopeKey}/instructors/{instructorId} {
+      allow get: if revenuePrincipalIsActive() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.instructorId == instructorId &&
+        revenueScopeAllowed(scopeKey);
+    }
+
     match /participant_progress/{participantId} {
       allow read, write: if false;
     }
@@ -549,8 +584,7 @@ service cloud.firestore {
       allow read: if isAdmin() ||
         !exists(/databases/$(database)/documents/bookings/$(bookingId)) ||
         isOwner(resource.data.userId) ||
-        isAssignedInstructor(resource.data) ||
-        isMigratableClientBooking(resource.data);
+        isAssignedInstructor(resource.data);
 
       // Booking documents are created by server Callables. Clients cannot insert bookings.
       allow create: if false;
@@ -559,13 +593,6 @@ service cloud.firestore {
       // Canonical lesson feedback lives on /participant_lesson_feedback (callable only).
       // Legacy bookings.recommendations / completedRecommendationIds client writes are closed.
       allow update: if (
-        resource.data.userId.matches('^client_.*') &&
-        request.resource.data.userId == request.auth.uid &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['userId']) &&
-        isOwnEmail(
-          get(/databases/$(database)/documents/users/$(resource.data.userId)).data.email
-        )
-      ) || (
         isAdmin() &&
         bookingStatusUnchanged() &&
         bookingScheduleUnchanged() &&
@@ -588,7 +615,7 @@ service cloud.firestore {
           isAuthenticated() &&
           resource.data.senderId == request.auth.uid &&
           canAccessChatMessages(bookingId) &&
-          request.resource.data.diff(resource.data).changedKeys().hasOnly(['isHomework', 'homeworkForParticipantIds']) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isHomework', 'homeworkForParticipantIds']) &&
           !('homeworkForUserIds' in request.resource.data) &&
           (
             !('isHomework' in request.resource.data) ||
@@ -650,10 +677,11 @@ service cloud.firestore {
     // Notifications
     match /notifications/{notificationId} {
       allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isAuthenticated() &&
-        explicitlyScopedLiveClientCreate() &&
-        (request.resource.data.userId == request.auth.uid || isAdmin());
-      allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if false;
+      allow update: if isAuthenticated() &&
+        resource.data.userId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']) &&
+        request.resource.data.isRead is bool;
       allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
     }
 
@@ -674,7 +702,7 @@ service cloud.firestore {
       match /courses/{courseId} {
         allow read: if isAuthenticated() && (
           isAdmin() ||
-          isInstructor() ||
+          isInstructorForCourse(courseId) ||
           accountId == request.auth.uid
         );
         allow create, update, delete: if false;
@@ -684,13 +712,7 @@ service cloud.firestore {
     // Error Logs
     match /error_logs/{logId} {
       allow read: if isAdmin();
-      allow create: if isAuthenticated() &&
-        request.resource.data.userId == request.auth.uid &&
-        isOwnEmail(request.resource.data.userEmail) &&
-        request.resource.data.message is string &&
-        request.resource.data.message.size() <= 5000 &&
-        request.resource.data.stack is string &&
-        request.resource.data.stack.size() <= 20000;
+      allow create: if false;
       allow update: if false;
       allow delete: if isAdmin();
     }

@@ -26,7 +26,7 @@ import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
 
-const PROJECT_ID = 'ski-academy-admin-guest-enroll-link-emulator';
+const PROJECT_ID = 'demo-ski-school-e2e';
 const correlationId = CorrelationIdSchema.parse('correlation_admin_guest_enroll_link_em_01');
 const adminAccountId = AccountIdSchema.parse('account_admin_guest_enroll_link_em_admin');
 const targetAccountId = AccountIdSchema.parse('account_admin_guest_enroll_link_em_target');

@@ -3,6 +3,8 @@ import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Instructor, UserProfile } from '../../src/types';
 import { CanonicalCommandClientError } from '../../src/lib/canonical/mapCanonicalCommandError';
+import { useWalletStore } from '../../src/features/wallet/walletStore';
+import { useAuthStore } from '../../src/features/auth/authStore';
 import { translations } from '../../src/lib/i18n/translations';
 
 const mocks = vi.hoisted(() => ({
@@ -264,6 +266,10 @@ describe('booking modal submit success UX', () => {
     expect(screen.getByText('30000')).toBeInTheDocument();
   });
   beforeEach(() => {
+    // jsdom lacks element scrolling used by the real booking wheel controls.
+    HTMLElement.prototype.scrollTo = vi.fn();
+    useWalletStore.getState().resetCanonicalWallet();
+    useAuthStore.setState({ firebaseUser: null });
     localStorage.clear();
     mocks.addNotification.mockReset();
     mocks.confetti.mockReset();
@@ -938,6 +944,17 @@ describe('booking modal submit success UX', () => {
   it.each(['account_fixture_01', 'local_account_fixture_01'])(
     'uses canonical reads and authenticated submit for %s, ignoring stale local bookings',
     async (uid) => {
+      useAuthStore.setState({
+        firebaseUser: { uid } as NonNullable<
+          ReturnType<typeof useAuthStore.getState>['firebaseUser']
+        >,
+      });
+      useWalletStore.getState().syncCanonicalWalletFromSnapshot({
+        accountId: uid,
+        exists: true,
+        trusted: true,
+        balanceKzt: 100000,
+      });
       localStorage.setItem(
         `alpine_glide_bookings_${uid}`,
         JSON.stringify([{ instructorId: instructor.id, date: '2026-06-15', time: '08:00' }])
@@ -1014,7 +1031,9 @@ describe('booking modal submit success UX', () => {
     vi.useFakeTimers();
     try {
       await act(async () => {
-        await result.current.handleSubmit({ preventDefault: vi.fn() } as unknown as React.FormEvent);
+        await result.current.handleSubmit({
+          preventDefault: vi.fn(),
+        } as unknown as React.FormEvent);
         await vi.advanceTimersByTimeAsync(300);
       });
 
@@ -1056,5 +1075,169 @@ describe('booking modal submit success UX', () => {
       'slotUnavailable',
       expect.stringContaining('Coach')
     );
+  });
+  it.each([0, 19999, null])('guards direct authenticated submit at balance %s', async (balance) => {
+    const uid = 'account_wallet_guard';
+    useAuthStore.setState({
+      firebaseUser: { uid } as NonNullable<
+        ReturnType<typeof useAuthStore.getState>['firebaseUser']
+      >,
+    });
+    if (balance !== null)
+      useWalletStore.getState().syncCanonicalWalletFromSnapshot({
+        accountId: uid,
+        exists: true,
+        trusted: true,
+        balanceKzt: balance,
+      });
+    mocks.managedParticipants.push({ participantId: 'participant_fixture_01', authority: 'self' });
+    const { result } = renderHook(() =>
+      useBookingModal(createProps({ userProfile: { uid } as UserProfile }))
+    );
+    await waitForAvailableSlot(result);
+    act(() => result.current.setGuestDiscipline('ski'));
+    await act(async () =>
+      result.current.handleSubmit({ preventDefault: vi.fn() } as unknown as React.FormEvent)
+    );
+    expect(result.current.isSubmitting).toBe(false);
+    expect(mocks.createAuthenticatedBooking).not.toHaveBeenCalled();
+  });
+
+  it('recalculates affordability for duration, party surcharge, price, realtime balance and account changes', async () => {
+    const uid = 'account_wallet_reactive';
+    useAuthStore.setState({
+      firebaseUser: { uid } as NonNullable<
+        ReturnType<typeof useAuthStore.getState>['firebaseUser']
+      >,
+    });
+    const sync = (balance: number) =>
+      useWalletStore.getState().syncCanonicalWalletFromSnapshot({
+        accountId: uid,
+        exists: true,
+        trusted: true,
+        balanceKzt: balance,
+      });
+    sync(20000);
+    mocks.managedParticipants.push(
+      { participantId: 'participant_fixture_01', authority: 'self' },
+      { participantId: 'participant_fixture_02', authority: 'parent_guardian' }
+    );
+    mocks.queryLessonPricingSettings.mockResolvedValue({
+      item: {
+        configured: true,
+        additionalParticipantSurchargePerHourKzt: 6000,
+        maxParticipantsPerLesson: 6,
+      },
+    });
+    const props = createProps({ userProfile: { uid } as UserProfile });
+    const { result, rerender } = renderHook((input) => useBookingModal(input), {
+      initialProps: props,
+    });
+    await waitForAvailableSlot(result);
+    await waitFor(() => expect(result.current.maxParticipantsPerLesson).toBe(6));
+    act(() => result.current.toggleParticipant('participant_fixture_01'));
+    expect(result.current.totalCost).toBe(20000);
+    expect(result.current.bookingWallet.canPay).toBe(true);
+    act(() => result.current.setDuration(3));
+    expect(result.current.totalCost).toBe(30000);
+    expect(result.current.bookingWallet.insufficient).toBe(true);
+    act(() => result.current.setDuration(1));
+    act(() => result.current.toggleParticipant('participant_fixture_02'));
+    expect(result.current.totalCost).toBe(16000);
+    act(() => result.current.setDuration(2));
+    expect(result.current.totalCost).toBe(32000);
+    expect(result.current.bookingWallet.canPay).toBe(false);
+    act(() => sync(32000));
+    expect(result.current.bookingWallet.canPay).toBe(true);
+    rerender({ ...props, instructor: { ...instructor, pricePerHourKZT: 11000 } });
+    await waitFor(() => expect(result.current.totalCost).toBe(34000));
+    expect(result.current.bookingWallet.canPay).toBe(false);
+    act(() =>
+      useAuthStore.setState({
+        firebaseUser: { uid: 'other_account' } as NonNullable<
+          ReturnType<typeof useAuthStore.getState>['firebaseUser']
+        >,
+      })
+    );
+    expect(result.current.bookingWallet.balance).toBeNull();
+    expect(result.current.bookingWallet.canPay).toBe(false);
+  });
+
+  it('keeps the server insufficient_funds error and invalidates the wallet for refresh', async () => {
+    const uid = 'account_server_insufficient';
+    useAuthStore.setState({
+      firebaseUser: { uid } as NonNullable<
+        ReturnType<typeof useAuthStore.getState>['firebaseUser']
+      >,
+    });
+    useWalletStore.getState().syncCanonicalWalletFromSnapshot({
+      accountId: uid,
+      exists: true,
+      trusted: true,
+      balanceKzt: 20000,
+    });
+    mocks.managedParticipants.push({ participantId: 'participant_fixture_01', authority: 'self' });
+    mocks.createAuthenticatedBooking.mockRejectedValue(
+      new CanonicalCommandClientError('insufficient_funds', {
+        cause: new Error('Server insufficient funds'),
+      })
+    );
+    const { result } = renderHook(() =>
+      useBookingModal(createProps({ userProfile: { uid } as UserProfile }))
+    );
+    await waitForAvailableSlot(result);
+    act(() => result.current.setGuestDiscipline('ski'));
+    const nonce = useWalletStore.getState().canonicalWalletRefreshNonce;
+    await act(async () =>
+      result.current.handleSubmit({ preventDefault: vi.fn() } as unknown as React.FormEvent)
+    );
+    await waitFor(() => expect(mocks.createAuthenticatedBooking).toHaveBeenCalledOnce());
+    await waitFor(() =>
+      expect(useWalletStore.getState().canonicalWalletRefreshNonce).toBe(nonce + 1)
+    );
+    expect(result.current.bookingWallet.canPay).toBe(false);
+    expect(mocks.addNotification).toHaveBeenCalledWith(
+      'error',
+      'bookingError',
+      'Server insufficient funds'
+    );
+  });
+  it('rechecks the live Wallet before the delayed command if balance drops after submit', async () => {
+    const uid = 'account_submit_race';
+    useAuthStore.setState({
+      firebaseUser: { uid } as NonNullable<
+        ReturnType<typeof useAuthStore.getState>['firebaseUser']
+      >,
+    });
+    useWalletStore
+      .getState()
+      .syncCanonicalWalletFromSnapshot({
+        accountId: uid,
+        exists: true,
+        trusted: true,
+        balanceKzt: 20000,
+      });
+    mocks.managedParticipants.push({ participantId: 'participant_fixture_01', authority: 'self' });
+    const { result } = renderHook(() =>
+      useBookingModal(createProps({ userProfile: { uid } as UserProfile }))
+    );
+    await waitForAvailableSlot(result);
+    act(() => result.current.setGuestDiscipline('ski'));
+    await act(async () =>
+      result.current.handleSubmit({ preventDefault: vi.fn() } as unknown as React.FormEvent)
+    );
+    expect(result.current.isSubmitting).toBe(true);
+    act(() =>
+      useWalletStore
+        .getState()
+        .syncCanonicalWalletFromSnapshot({
+          accountId: uid,
+          exists: true,
+          trusted: true,
+          balanceKzt: 0,
+        })
+    );
+    await waitFor(() => expect(result.current.isSubmitting).toBe(false));
+    expect(mocks.createAuthenticatedBooking).not.toHaveBeenCalled();
   });
 });

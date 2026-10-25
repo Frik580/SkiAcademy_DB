@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
   pull_request:
@@ -26,6 +27,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -57,6 +60,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -91,6 +96,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -104,8 +111,160 @@ jobs:
       - name: Install Functions dependencies
         run: npm ci --prefix functions --ignore-scripts
 
+      - name: Build Functions on Linux Node 22
+        run: npm run build:functions
+
       - name: Functions unit tests
         run: npm run test:unit:functions
+
+      - name: Release configuration comparator and network egress guard
+        run: node --test scripts/compareFunctionConfig.test.mjs scripts/compareStagingResetRelease.test.mjs scripts/syncSharedDomain.test.mjs scripts/testFirestoreNetworkGuard.test.mjs
+
+  functions-emulator:
+    name: Functions emulator suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+    env:
+      GCLOUD_PROJECT: demo-ski-school-e2e
+      GOOGLE_CLOUD_PROJECT: demo-ski-school-e2e
+      JAVA_TOOL_OPTIONS: -Xms512m -Xmx2g -XX:ActiveProcessorCount=2
+      NODE_OPTIONS: --max-old-space-size=3072
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm ci --ignore-scripts
+      - run: npm ci --prefix functions --ignore-scripts
+      - run: npm run build:functions
+      - name: Run full sequential Functions emulator suite
+        shell: bash
+        run: |
+          set -o pipefail
+          node node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --project demo-ski-school-e2e --only firestore "npm run test:functions:emulator -- --maxWorkers=1 --minWorkers=1 --reporter=default --reporter=json --outputFile=functions-emulator-results.json" 2>&1 | tee functions-emulator-suite.log
+      - name: Require executed Attendance migration guard and CLI regressions
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const report = JSON.parse(readFileSync('functions/functions-emulator-results.json', 'utf8'));
+          for (const [file, minimum] of [
+            ['bookingAttendanceMigrationGuard.emulator.test.ts', 18],
+            ['bookingAttendanceCommands.emulator.test.ts', 30],
+          ]) {
+            const suite = report.testResults.find(result => result.name.replaceAll('\\', '/').endsWith(`/${file}`));
+            if (!suite || suite.assertionResults.length < minimum ||
+                suite.assertionResults.some(test => test.status !== 'passed')) {
+              throw new Error(`Missing, skipped or failed Attendance regressions: ${file}`);
+            }
+            if (file.includes('MigrationGuard') && !suite.assertionResults.some(test =>
+              test.title === 'runs the actual CLI twice and requires explicit cutover' && test.status === 'passed')) {
+              throw new Error('Actual migration CLI regression was not executed');
+            }
+            console.log(`${file}: ${suite.assertionResults.length} passed, zero skipped`);
+          }
+          NODE
+      - name: Run reset Auth, Firestore and Storage rehearsals
+        shell: bash
+        run: |
+          set -o pipefail
+          node node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --project demo-ski-school-e2e --only auth,firestore,storage "node scripts/runVitest.mjs --require-emulators=auth,firestore,storage --config functions/vitest.config.ts functions/src/maintenance/dataResetAuthorization.emulator.test.ts functions/src/maintenance/dataReset.emulator.test.ts functions/src/maintenance/dataResetLiveFixtures.emulator.test.ts functions/src/canonical/guestConfirmation/guestConfirmationWork.emulator.test.ts --no-file-parallelism --maxWorkers=1 --minWorkers=1 --testTimeout=90000 --hookTimeout=60000 --reporter=default --reporter=json --outputFile=reset-emulator-results.json" 2>&1 | tee reset-emulator-suite.log
+      - name: Require executed reset and Guest Confirmation regressions
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const report = JSON.parse(readFileSync('functions/reset-emulator-results.json', 'utf8'));
+          for (const [file, minimum] of [
+            ['dataReset.emulator.test.ts', 20],
+            ['dataResetLiveFixtures.emulator.test.ts', 4],
+            ['dataResetAuthorization.emulator.test.ts', 8],
+            ['guestConfirmationWork.emulator.test.ts', 24],
+          ]) {
+            const suite = report.testResults.find(result => result.name.replaceAll('\\', '/').endsWith(`/${file}`));
+            if (!suite || suite.assertionResults.length < minimum ||
+                suite.assertionResults.some(test => test.status !== 'passed')) {
+              throw new Error(`Missing, skipped or failed reset regression: ${file}`);
+            }
+            console.log(`${file}: ${suite.assertionResults.length} passed, zero skipped`);
+          }
+          NODE
+      - name: Verify zero Firestore egress attempts
+        if: always()
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { readdirSync, readFileSync } from 'node:fs';
+          const directory = '.scratch/test-egress';
+          const ledgers = readdirSync(directory).filter(name => /^vitest-.*\.log$/.test(name));
+          if (!ledgers.length) throw new Error('Missing Firestore egress ledger');
+          for (const name of ledgers) {
+            if (readFileSync(`${directory}/${name}`, 'utf8').trim()) {
+              throw new Error(`Firestore egress attempt recorded: ${name}`);
+            }
+          }
+          console.log(`Firestore egress ledger: 0 attempts (${ledgers.length} ledgers)`);
+          NODE
+      - name: Upload emulator results and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: functions-emulator-diagnostics
+          include-hidden-files: true
+          path: |
+            functions/functions-emulator-results.json
+            functions-emulator-suite.log
+            functions/reset-emulator-results.json
+            reset-emulator-suite.log
+            *-debug.log
+            .scratch/test-egress/*.log
+          if-no-files-found: error
+          retention-days: 7
+
+  emulator-integration:
+    name: Emulator integration and Storage rules
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm ci --ignore-scripts
+      - run: npm ci --prefix functions --ignore-scripts
+      - run: npm run build:functions
+      - name: Run isolated Firebase integration suites
+        run: node node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --project demo-ski-school-e2e --only auth,firestore,storage "npm run test:vitest:integration"
+
+      - name: Upload integration diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-failure-diagnostics
+          include-hidden-files: true
+          path: |
+            *-debug.log
+            .scratch/test-egress/*.log
+          if-no-files-found: ignore
+          retention-days: 7
 
   firestore:
     name: Firestore rules
@@ -122,6 +281,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -156,6 +317,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -172,7 +335,17 @@ jobs:
   quality:
     name: quality
     if: always()
-    needs: [lint, app-tests, functions-tests, firestore, build]
+    needs:
+      [
+        lint,
+        app-tests,
+        functions-tests,
+        functions-emulator,
+        firestore,
+        build,
+        emulator-integration,
+        e2e,
+      ]
     runs-on: ubuntu-latest
     steps:
       - name: Verify quality jobs
@@ -180,25 +353,33 @@ jobs:
           LINT_RESULT: ${{ needs.lint.result }}
           APP_TESTS_RESULT: ${{ needs.app-tests.result }}
           FUNCTIONS_TESTS_RESULT: ${{ needs.functions-tests.result }}
+          FUNCTIONS_EMULATOR_RESULT: ${{ needs.functions-emulator.result }}
           FIRESTORE_RESULT: ${{ needs.firestore.result }}
           BUILD_RESULT: ${{ needs.build.result }}
+          INTEGRATION_RESULT: ${{ needs.emulator-integration.result }}
+          E2E_RESULT: ${{ needs.e2e.result }}
         run: |
           test "$LINT_RESULT" = "success"
           test "$APP_TESTS_RESULT" = "success"
           test "$FUNCTIONS_TESTS_RESULT" = "success"
+          test "$FUNCTIONS_EMULATOR_RESULT" = "success"
           test "$FIRESTORE_RESULT" = "success"
           test "$BUILD_RESULT" = "success"
+          test "$INTEGRATION_RESULT" = "success"
+          test "$E2E_RESULT" = "success"
 
   e2e:
     name: Playwright E2E
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
     permissions:
       contents: read
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

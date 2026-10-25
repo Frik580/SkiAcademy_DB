@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import type { ParticipantAchievementSource } from '@ski-academy/shared-domain';
 import {
   achievementProductScope,
@@ -7,10 +7,12 @@ import {
   participantAchievementSourceForRule,
   type AchievementEvaluationContext,
 } from '../../domain/achievements';
-import { logger } from '../../shared';
 import { resolveLessonFeedbackCompletionCapability } from '../student-cabinet/useSelectedParticipantLessonFeedback';
 import type { ManagedParticipantOption } from '../lesson-bookings/lessonBookingContracts';
-import { recordManagedParticipantAchievements } from './participantAchievementsService';
+import {
+  loadManagedParticipantAchievementsOnce,
+  recordManagedParticipantAchievementsOnce,
+} from './participantAchievementsService';
 import { useParticipantAchievementsStore } from './participantAchievementsStore';
 
 export function useSelectedParticipantAchievementsRecorder(input: {
@@ -26,7 +28,9 @@ export function useSelectedParticipantAchievementsRecorder(input: {
   const recording = useParticipantAchievementsStore((state) =>
     input.selectedParticipantId ? Boolean(state.recordingKeys[input.selectedParticipantId]) : false
   );
-  const generationRef = useRef(0);
+  const blocked = useParticipantAchievementsStore((state) =>
+    input.selectedParticipantId ? state.blockedAchievements[input.selectedParticipantId] : undefined
+  );
 
   useEffect(() => {
     const participantId = input.selectedParticipantId;
@@ -37,10 +41,14 @@ export function useSelectedParticipantAchievementsRecorder(input: {
     )?.authority;
     const capability = resolveLessonFeedbackCompletionCapability(authority);
     if (!capability) return;
+    if (!persisted) {
+      void loadManagedParticipantAchievementsOnce(participantId);
+      return;
+    }
 
     const config = normalizeAchievementsConfig(input.achievementsConfig);
     const evaluated = evaluateEarnedAchievements(evaluation, config);
-    const already = new Set(Object.keys(persisted?.earned ?? {}));
+    const already = new Set([...Object.keys(persisted.earned), ...(blocked ?? [])]);
     const earned = evaluated.flatMap((item) => {
       const definition = config.items.find((entry) => entry.id === item.id);
       if (!definition) return [];
@@ -60,25 +68,13 @@ export function useSelectedParticipantAchievementsRecorder(input: {
     if (earned.length === 0) return;
     if (recording) return;
 
-    const generation = generationRef.current + 1;
-    generationRef.current = generation;
-    const store = useParticipantAchievementsStore.getState();
-    store.setRecording(participantId, true);
-    void recordManagedParticipantAchievements({
+    void recordManagedParticipantAchievementsOnce({
       accountId: input.accountId,
       participantId,
-      expectedRevision: persisted?.revision ?? 0,
+      expectedRevision: persisted.revision,
       earned,
       exercisedCapability: capability,
-    })
-      .catch((error) => {
-        logger.warn('Failed to record participant achievements', error);
-      })
-      .finally(() => {
-        if (generationRef.current === generation) {
-          useParticipantAchievementsStore.getState().setRecording(participantId, false);
-        }
-      });
+    });
   }, [
     input.accountId,
     input.selectedParticipantId,
@@ -87,5 +83,6 @@ export function useSelectedParticipantAchievementsRecorder(input: {
     input.achievementsConfig,
     persisted,
     recording,
+    blocked,
   ]);
 }

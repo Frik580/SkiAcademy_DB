@@ -63,25 +63,35 @@ export function useAdminLessonAttendanceDraft(input: {
     draftFromServerAttendance(admin, targetParticipantIds)
   );
   const dirtyRef = useRef(false);
+  const projectionKey = `${detail.bookingId}:${detail.revision}:${detail.lifecycle.status}:${serverSeedKey}`;
+  const draftProjectionRef = useRef(projectionKey);
+  const stale = dirtyRef.current && draftProjectionRef.current !== projectionKey;
   const bookingIdRef = useRef(detail.bookingId);
 
   useEffect(() => {
     if (bookingIdRef.current !== detail.bookingId) {
       bookingIdRef.current = detail.bookingId;
+      draftProjectionRef.current = projectionKey;
       dirtyRef.current = false;
       setDraft(draftFromServerAttendance(admin, targetParticipantIds));
       return;
     }
     if (dirtyRef.current) return;
+    draftProjectionRef.current = projectionKey;
     setDraft(draftFromServerAttendance(admin, targetParticipantIds));
-  }, [admin, detail.bookingId, serverSeedKey, targetParticipantIds]);
+  }, [admin, detail.bookingId, serverSeedKey, targetParticipantIds, projectionKey]);
 
   const setParticipantStatus = useCallback(
     (participantId: ParticipantId, status: AdminLessonAttendanceDraftStatus) => {
+      const seed =
+        draftProjectionRef.current !== projectionKey
+          ? draftFromServerAttendance(admin, targetParticipantIds)
+          : undefined;
+      draftProjectionRef.current = projectionKey;
       dirtyRef.current = true;
-      setDraft((current) => ({ ...current, [participantId]: status }));
+      setDraft((current) => ({ ...(seed ?? current), [participantId]: status }));
     },
-    []
+    [admin, targetParticipantIds, projectionKey]
   );
 
   const allTargetParticipantsDrafted = useMemo(
@@ -95,8 +105,9 @@ export function useAdminLessonAttendanceDraft(input: {
 
   const clearDraftAfterSuccess = useCallback(() => {
     dirtyRef.current = false;
+    draftProjectionRef.current = projectionKey;
     setDraft(draftFromServerAttendance(admin, targetParticipantIds));
-  }, [admin, targetParticipantIds]);
+  }, [admin, targetParticipantIds, projectionKey]);
 
   const presentCount = useMemo(
     () => targetParticipantIds.filter((participantId) => draft[participantId] === 'present').length,
@@ -109,6 +120,8 @@ export function useAdminLessonAttendanceDraft(input: {
 
   return {
     targetParticipantIds,
+    stale,
+    projectionKey,
     draft,
     setParticipantStatus,
     allTargetParticipantsDrafted,

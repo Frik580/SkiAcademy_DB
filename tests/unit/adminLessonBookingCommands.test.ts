@@ -27,6 +27,12 @@ vi.mock('../../src/features/admin/finance/adminFinanceRevisionCoordinator', () =
   resetAdminFinanceRevisionCoordinatorForTests: vi.fn(),
 }));
 
+vi.mock('../../src/features/admin/issues/adminBookingChangeRequestsRevisionCoordinator', () => ({
+  registerAdminBookingChangeRequestsRevisionListener: () => () => {},
+  registerAdminBookingChangeRequestsRevisionFromCommand: vi.fn(),
+  resetAdminBookingChangeRequestsRevisionCoordinatorForTests: vi.fn(),
+}));
+
 import {
   captureAdminLessonBookingTarget,
   createAdminLessonBookingAttemptId,
@@ -51,6 +57,38 @@ describe('canonical Admin lesson booking commands', () => {
     queryMock.mockReset();
     queryMock.mockResolvedValue({ scope: 'admin_hot', items: [], hasMore: false });
   });
+
+  it.each(['success', 'failure'])(
+    'refreshes Booking and embedded Attendance after correction, with refresh %s',
+    async (refreshStatus) => {
+      const refresh = vi.fn().mockResolvedValue({ status: refreshStatus });
+      const { result } = renderHook(() =>
+        useAdminLessonBookingCommands({
+          adminAccountId: 'admin_account_01',
+          refreshBooking: refresh,
+        })
+      );
+      let outcome;
+      await act(async () => {
+        outcome = await result.current.runAttempt({
+          kind: 'record_booking_attendance',
+          target,
+          idempotencyKey: createAdminLessonBookingAttemptId('correction'),
+          participantId: ParticipantIdSchema.parse('participant_01'),
+          attendanceStatus: 'absent',
+          expectedAttendanceRevision: 3,
+          reasonExplanation: 'Verified evidence',
+        });
+      });
+      expect(refresh).toHaveBeenCalledWith(target.bookingId);
+      expect(executeMock).toHaveBeenCalledTimes(1);
+      expect(outcome).toEqual(
+        refreshStatus === 'success'
+          ? { status: 'success' }
+          : { status: 'success', refreshFailed: true }
+      );
+    }
+  );
 
   it('captures the booking target and creates fresh user-action identities', () => {
     const captured = captureAdminLessonBookingTarget(target);

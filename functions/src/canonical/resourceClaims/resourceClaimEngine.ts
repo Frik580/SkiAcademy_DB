@@ -65,6 +65,7 @@ export interface ResourceClaimGuardReadSnapshot {
 }
 
 export interface ReleaseResourceClaimInput extends ResourceClaimCommandMetadata {
+  readonly deferPlanMutations?: boolean;
   readonly claimId: ResourceClaimId;
 }
 
@@ -947,7 +948,7 @@ export async function readAndPlanReleaseResourceClaim(
     guardWrites,
   };
 
-  planBudgetForOperation(session, plan);
+  if (!input.deferPlanMutations) planBudgetForOperation(session, plan);
   return plan;
 }
 

@@ -34,7 +34,7 @@ import { queryCourseEnrollmentReadModels } from './courseEnrollmentReadModels';
 import { queryInstructorCourseAssignmentReadModels } from './instructorCourseAssignmentReadModels';
 import { ReadModelAccessDeniedError } from './readModelAccessDenied';
 
-const PROJECT_ID = 'ski-academy-instructor-roster-read-emulator-test';
+const PROJECT_ID = 'demo-ski-school-e2e';
 const correlationId = CorrelationIdSchema.parse('correlation_instructor_roster_read_01');
 const rosterInstructorAccountId = AccountIdSchema.parse('account_instructor_roster_read_roster');
 const courseDayInstructorAccountId = AccountIdSchema.parse('account_instructor_roster_read_day');

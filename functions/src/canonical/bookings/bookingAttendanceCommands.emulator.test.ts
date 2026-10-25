@@ -1,15 +1,19 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { initializeApp, getApps, deleteApp, type App } from 'firebase-admin/app';
+import { initializeApp, deleteApp, type App } from 'firebase-admin/app';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import {
   AccountIdSchema,
   AccountSchema,
   AggregateRevisionSchema,
   BookingIdSchema,
+  BookingSchema,
   CorrelationIdSchema,
   InstructorIdSchema,
+  LIVE_CANONICAL_EXECUTION_SCOPE,
+  OccurrenceIdSchema,
   ParticipantIdSchema,
   ParticipantManagementIdSchema,
+  SystemActorIdSchema,
   WalletSchema,
   INDIVIDUAL_BOOKING_CLIENT_RESCHEDULE_WINDOW_MS,
   addMillisecondsToCanonicalTimestamp,
@@ -38,11 +42,12 @@ import {
 } from './bookingAttendanceOutcomeWorkSync';
 import {
   BookingAttendanceOutcomeWorkSchema,
+  bookingAttendanceOutcomeDueAt,
   parseBookingAttendanceOutcomeWork,
   resolveLessonBookingAttendanceEnvelope,
 } from './bookingAttendanceOutcomeWork';
 
-const PROJECT_ID = 'ski-academy-attendance-emulator-test';
+const PROJECT_ID = 'demo-ski-school-e2e';
 const correlationId = CorrelationIdSchema.parse('correlation_attendance_emulator_01');
 const accountId = AccountIdSchema.parse('account_attendance_emulator_01');
 const adminAccountId = AccountIdSchema.parse('account_attendance_emulator_admin');
@@ -86,7 +91,10 @@ let app: App;
 let firestore: Firestore;
 
 function environment(at = '2026-01-15T10:00:00.000Z') {
-  return { clock: createAuthoritativeCommandClock(new Date(at)) };
+  return {
+    clock: createAuthoritativeCommandClock(new Date(at)),
+    scope: LIVE_CANONICAL_EXECUTION_SCOPE,
+  };
 }
 
 function createCommands(at = '2026-01-15T10:00:00.000Z') {
@@ -96,7 +104,7 @@ function createCommands(at = '2026-01-15T10:00:00.000Z') {
 
 function instructorContext(idempotencyKey: string) {
   return {
-    actor: accountCommandActor('account_instructor_attendance_emulator'),
+    actor: accountCommandActor(AccountIdSchema.parse('account_instructor_attendance_emulator')),
     exercisedCapability: 'instructor' as const,
     idempotencyKey,
     correlationId,
@@ -190,18 +198,33 @@ function adminRecordEnvelope(
   };
 }
 
-function resolveEnvelope(idempotencyKey: string): CommandEnvelope<'resolve_attendance_outcome'> {
-  return {
-    kind: 'resolve_attendance_outcome',
-    context: {
-      actor: systemCommandActor('system_actor_resolve_attendance_outcome_01'),
-      exercisedCapability: 'system',
-      idempotencyKey,
-      correlationId,
-      source: 'scheduler',
-    },
-    intent: { subjectKind: 'booking', subjectId: bookingId },
-  };
+async function resolveEnvelope(
+  deadlineId: 'outcome' | 'instructor_window' = 'instructor_window'
+): Promise<CommandEnvelope<'resolve_attendance_outcome'>> {
+  const booking = BookingSchema.parse((await firestore.doc(`bookings/${bookingId}`).get()).data());
+  const dueAt = bookingAttendanceOutcomeDueAt(booking, deadlineId);
+  // Emulate projection delivery using the scenario's clock, before worker execution.
+  await reconcileLessonBookingAttendanceOutcomeWork(
+    firestore,
+    bookingId,
+    new Date(isoFromTimestamp(dueAt))
+  );
+  if (booking.lifecycle.status === 'confirmed') {
+    const work = (await firestore.doc(`booking_attendance_outcome_work/${bookingId}`).get()).data();
+    expect(work).toMatchObject({
+      status: 'pending',
+      deadlineId,
+      dueAt,
+      occurrenceId: booking.occurrence.occurrenceId,
+      sourceScheduleRevision: booking.occurrence.scheduleRevision,
+      sourceLifecycleStatus: 'confirmed',
+    });
+  }
+  return resolveLessonBookingAttendanceEnvelope({
+    bookingId,
+    occurrenceId: booking.occurrence.occurrenceId,
+    deadlineId,
+  });
 }
 
 function rescheduleEnvelope(
@@ -433,7 +456,7 @@ async function freezeServiceParty(commands: ReturnType<typeof createCommands>): 
   await commands.execute({
     kind: 'rollback_unpaid_booking_party_additions',
     context: {
-      actor: systemCommandActor('system_actor_rollback_unpaid_party_01'),
+      actor: systemCommandActor(SystemActorIdSchema.parse('system_actor_rollback_unpaid_party_01')),
       exercisedCapability: 'system',
       idempotencyKey: 'freeze-party',
       correlationId,
@@ -489,7 +512,7 @@ async function attendanceIdFor(
   return attendanceIdFromBookingIdentity({
     strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
     subjectKind: 'booking',
-    occurrenceId,
+    occurrenceId: OccurrenceIdSchema.parse(occurrenceId),
     participantId: targetParticipantId,
   });
 }
@@ -497,11 +520,7 @@ async function attendanceIdFor(
 describe.skipIf(!runsOnFirestoreEmulator)('bookingAttendanceCommands.emulator', () => {
   beforeAll(async () => {
     process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8080';
-    if (getApps().length === 0) {
-      app = initializeApp({ projectId: PROJECT_ID });
-    } else {
-      app = getApps()[0]!;
-    }
+    app = initializeApp({ projectId: PROJECT_ID }, PROJECT_ID);
     firestore = getFirestore(app);
   }, 30_000);
 
@@ -568,9 +587,7 @@ describe.skipIf(!runsOnFirestoreEmulator)('bookingAttendanceCommands.emulator', 
         ? recordEnvelope('concurrent-present', 'present')
         : recordEnvelope('concurrent-absent', 'absent');
     const loserIdentity = resolveCommandIdempotencyIdentity(loserEnvelope);
-    const loserIdempotency = await firestore
-      .doc(`command_idempotency/${loserIdentity.identityKey}`)
-      .get();
+    const loserIdempotency = await firestore.doc(loserIdentity.recordPath).get();
     expect(loserIdempotency.exists).toBe(false);
   }, 30_000);
 
@@ -605,12 +622,37 @@ describe.skipIf(!runsOnFirestoreEmulator)('bookingAttendanceCommands.emulator', 
     expect(booking?.lifecycle.status).toBe('no_show');
   }, 30_000);
 
+  it('rejects an arbitrary resolver key for pending deterministic work without changing it', async () => {
+    const setupCommands = createCommands('2026-01-01T00:00:00.000Z');
+    await createConfirmedBooking(setupCommands);
+    await freezeServiceParty(setupCommands);
+    const envelope = await resolveEnvelope();
+    const workRef = firestore.doc(`booking_attendance_outcome_work/${bookingId}`);
+    const before = (await workRef.get()).data();
+    const commands = createCommands(isoAfterAutomationFallback(await lessonInterval()));
+    const result = await commands.execute({
+      ...envelope,
+      context: { ...envelope.context, idempotencyKey: 'arbitrary-resolver-key' },
+    });
+    expect(result).toMatchObject({
+      status: 'error',
+      error: {
+        code: 'validation',
+        retryable: false,
+        details: { field: 'idempotencyKey', reason: 'conflict' },
+      },
+    });
+    expect((await workRef.get()).data()).toEqual(before);
+    expect((await firestore.collection('attendance').get()).empty).toBe(true);
+    expect((await firestore.collection('admin_issues').get()).empty).toBe(true);
+  }, 30_000);
+
   it('F. missing attendance opens one deterministic issue on resolver replay', async () => {
     const setupCommands = createCommands('2026-01-01T00:00:00.000Z');
     await createConfirmedBooking(setupCommands);
     await freezeServiceParty(setupCommands);
     const commands = createCommands(isoAfterAutomationFallback(await lessonInterval()));
-    const envelope = resolveEnvelope('resolve-missing');
+    const envelope = await resolveEnvelope();
     expect((await commands.execute(envelope)).status).toBe('success');
     expect((await commands.execute(envelope)).status).toBe('success');
     const issues = await firestore.collection('admin_issues').get();
@@ -674,7 +716,7 @@ describe.skipIf(!runsOnFirestoreEmulator)('bookingAttendanceCommands.emulator', 
     );
 
     const resolveCommands = createCommands(isoAfterAutomationFallback(await lessonInterval()));
-    const partialResolve = resolveEnvelope('resolve-group-partial-missing');
+    const partialResolve = await resolveEnvelope();
     expect((await resolveCommands.execute(partialResolve)).status).toBe('success');
     expect((await resolveCommands.execute(partialResolve)).status).toBe('success');
 
@@ -691,7 +733,7 @@ describe.skipIf(!runsOnFirestoreEmulator)('bookingAttendanceCommands.emulator', 
     const allMissingSetup = createCommands('2026-01-01T00:00:00.000Z');
     await createFrozenGroupBooking(allMissingSetup);
     const allMissingCommands = createCommands(isoAfterAutomationFallback(await lessonInterval()));
-    const allMissingResolve = resolveEnvelope('resolve-group-all-missing');
+    const allMissingResolve = await resolveEnvelope();
     expect((await allMissingCommands.execute(allMissingResolve)).status).toBe('success');
     const allMissingIssues = (await firestore.collection('admin_issues').get()).docs.filter(
       (doc) => doc.data().kind === 'missing_attendance'
@@ -752,7 +794,7 @@ describe.skipIf(!runsOnFirestoreEmulator)('bookingAttendanceCommands.emulator', 
     await commands.execute({
       kind: 'enforce_payment_start_gate',
       context: {
-        actor: systemCommandActor('system_actor_payment_start_gate_01'),
+        actor: systemCommandActor(SystemActorIdSchema.parse('system_actor_payment_start_gate_01')),
         exercisedCapability: 'system',
         idempotencyKey: 'gate-open',
         correlationId,
@@ -793,7 +835,7 @@ describe.skipIf(!runsOnFirestoreEmulator)('bookingAttendanceCommands.emulator', 
 
     const afterLessonCommands = createCommands(isoAfterEndsAt(interval));
     await afterLessonCommands.execute(recordEnvelope('pending-present', 'present'));
-    await afterLessonCommands.execute(resolveEnvelope('pending-resolve'));
+    await afterLessonCommands.execute(await resolveEnvelope('outcome'));
 
     const booking = (await firestore.doc(`bookings/${bookingId}`).get()).data();
     expect(booking?.lifecycle.status).toBe('pending_cancellation');
@@ -848,9 +890,7 @@ describe.skipIf(!runsOnFirestoreEmulator)('bookingAttendanceCommands.emulator', 
 
     const newInterval = bookingAfterReschedule!.occurrence.interval;
     const resolveCommands = createCommands(isoAfterAutomationFallback(newInterval));
-    expect((await resolveCommands.execute(resolveEnvelope('resolve-new-occurrence'))).status).toBe(
-      'success'
-    );
+    expect((await resolveCommands.execute(await resolveEnvelope())).status).toBe('success');
 
     const booking = (await firestore.doc(`bookings/${bookingId}`).get()).data();
     expect(booking?.lifecycle.status).toBe('confirmed');
@@ -870,9 +910,10 @@ describe.skipIf(!runsOnFirestoreEmulator)('bookingAttendanceCommands.emulator', 
     await freezeServiceParty(setupCommands);
     const commands = createCommands(isoAfterEndsAt(await lessonInterval()));
 
+    const envelope = await resolveEnvelope('outcome');
     const [recordResult, resolveResult] = await Promise.allSettled([
       commands.execute(recordEnvelope('race-record-present', 'present')),
-      commands.execute(resolveEnvelope('race-resolve-outcome')),
+      commands.execute(envelope),
     ]);
     expect(
       [recordResult.status, resolveResult.status].every((status) => status === 'fulfilled')
@@ -912,9 +953,10 @@ describe.skipIf(!runsOnFirestoreEmulator)('bookingAttendanceCommands.emulator', 
     );
 
     const resolveCommands = createCommands(isoAfterAutomationFallback(interval));
+    const envelope = await resolveEnvelope();
     const [resolveA, resolveB] = await Promise.allSettled([
-      resolveCommands.execute(resolveEnvelope('retry-resolve-a')),
-      resolveCommands.execute(resolveEnvelope('retry-resolve-b')),
+      resolveCommands.execute(envelope),
+      resolveCommands.execute(envelope),
     ]);
     expect([resolveA, resolveB].filter((result) => result.status === 'fulfilled')).toHaveLength(2);
     const resolveStatuses = [resolveA, resolveB].map((result) =>
@@ -930,9 +972,7 @@ describe.skipIf(!runsOnFirestoreEmulator)('bookingAttendanceCommands.emulator', 
 
     const attendanceDocs = await firestore.collection('attendance').get();
     expect(attendanceDocs.size).toBe(2);
-    expect((await resolveCommands.execute(resolveEnvelope('retry-resolve-a'))).status).toBe(
-      'success'
-    );
+    expect((await resolveCommands.execute(envelope)).status).toBe('success');
     const missingIssuesAfterReplay = (await firestore.collection('admin_issues').get()).docs.filter(
       (doc) => doc.data().kind === 'missing_attendance'
     );
@@ -964,9 +1004,7 @@ describe.skipIf(!runsOnFirestoreEmulator)('bookingAttendanceCommands.emulator', 
     await freezeServiceParty(setupCommands);
     const interval = await lessonInterval();
     const resolveCommands = createCommands(isoAfterAutomationFallback(interval));
-    expect((await resolveCommands.execute(resolveEnvelope('admin-missing-open'))).status).toBe(
-      'success'
-    );
+    expect((await resolveCommands.execute(await resolveEnvelope())).status).toBe('success');
     const missingBefore = (await firestore.collection('admin_issues').get()).docs.filter(
       (doc) => doc.data().kind === 'missing_attendance' && doc.data().lifecycle?.status === 'open'
     );
@@ -1191,7 +1229,7 @@ describe.skipIf(!runsOnFirestoreEmulator)('bookingAttendanceCommands.emulator', 
     );
 
     const after = createCommands(isoAfterEndsAt(interval));
-    expect((await after.execute(resolveEnvelope('resolve-early-present'))).status).toBe('success');
+    expect((await after.execute(await resolveEnvelope('outcome'))).status).toBe('success');
     expect((await firestore.doc(`bookings/${bookingId}`).get()).data()?.lifecycle.status).toBe(
       'completed'
     );

@@ -47,7 +47,7 @@ import {
   STUDENT_DASHBOARD_LAYOUT_SETTING_ID,
 } from '../src/features/settings/studentDashboardLayout';
 
-const PROJECT_ID = 'ski-academy-rules-test';
+const PROJECT_ID = 'demo-ski-school-e2e';
 const USER_ID = 'user-1';
 const OTHER_USER_ID = 'user-2';
 const ADMIN_ID = 'admin-1';
@@ -919,7 +919,10 @@ describe('user profiles and roles', () => {
       .authenticatedContext('new-user', { email: 'new-user@example.com' })
       .firestore();
     const claimantDb = testEnv
-      .authenticatedContext('claimed-auth-uid', { email: 'contained@example.com' })
+      .authenticatedContext('claimed-auth-uid', {
+        email: 'contained@example.com',
+        email_verified: true,
+      })
       .firestore();
     const clientId = 'client_contained_wallet';
     const clientProfile = {
@@ -955,7 +958,7 @@ describe('user profiles and roles', () => {
     });
     await assertFails(updateDoc(doc(ownerDb, 'users', clientId), { email: 'owner@example.com' }));
     await assertFails(deleteDoc(doc(ownerDb, 'users', clientId)));
-    await assertSucceeds(deleteDoc(doc(claimantDb, 'users', clientId)));
+    await assertFails(deleteDoc(doc(claimantDb, 'users', clientId)));
     await assertFails(
       setDoc(doc(newUserDb, 'users', 'new-user'), {
         ...userProfile('new-user', 'new-user@example.com'),
@@ -1104,6 +1107,35 @@ describe('user profiles and roles', () => {
         eventId: 'event-rules-forged',
         walletBalanceDelta: 999_999,
       })
+    );
+  });
+
+  it('keeps MonetaryEvent reads server-only even for an own-account filtered query', async () => {
+    const userDb = testEnv.authenticatedContext(USER_ID).firestore();
+    await seedData(async (context) => {
+      await setDoc(doc(context.firestore(), 'monetary_events', 'own-wallet-event'), {
+        walletAccountId: USER_ID,
+        walletBalanceDelta: 1000,
+      });
+    });
+    await assertFails(getDoc(doc(userDb, 'monetary_events', 'own-wallet-event')));
+    await assertFails(
+      getDocs(
+        query(
+          collection(userDb, 'monetary_events'),
+          where('walletAccountId', '==', USER_ID),
+          limit(30)
+        )
+      )
+    );
+    await assertFails(
+      getDocs(
+        query(
+          collection(userDb, 'monetary_events'),
+          where('walletAccountId', '==', OTHER_USER_ID),
+          limit(30)
+        )
+      )
     );
   });
 
@@ -1781,7 +1813,7 @@ describe('resort configuration and error logs', () => {
     await assertSucceeds(setDoc(doc(ownerDb, 'resort_data', 'config'), { nameEn: 'Chamonix' }));
   });
 
-  it('accepts bounded logs only from the authenticated owner', async () => {
+  it('rejects all direct client log writes, including bounded owner logs', async () => {
     const anonymousDb = testEnv.unauthenticatedContext().firestore();
     const userDb = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
     const validLog = {
@@ -1792,7 +1824,7 @@ describe('resort configuration and error logs', () => {
     };
 
     await assertFails(setDoc(doc(anonymousDb, 'error_logs', 'anonymous-log'), validLog));
-    await assertSucceeds(setDoc(doc(userDb, 'error_logs', 'owned-log'), validLog));
+    await assertFails(setDoc(doc(userDb, 'error_logs', 'owned-log'), validLog));
     await assertFails(
       setDoc(doc(userDb, 'error_logs', 'spoofed-log'), {
         ...validLog,
@@ -1800,6 +1832,190 @@ describe('resort configuration and error logs', () => {
       })
     );
   });
+});
+
+describe('release identity and course access security', () => {
+  it('revokes role authority for disabled Admin/Owner and Instructor Accounts', async () => {
+    await seedData(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, 'users', ADMIN_ID), { ...userProfile(ADMIN_ID, 'admin@example.com', 'admin', 'owner'), lifecycle: { status: 'disabled' } });
+      await setDoc(doc(db, 'users', INSTRUCTOR_USER_ID), { ...userProfile(INSTRUCTOR_USER_ID, 'coach@example.com'), instructorId: 'coach-own', lifecycle: { status: 'disabled' } });
+      await setDoc(doc(db, 'courses', 'own-course'), { instructorRosterIds: ['coach-own'] });
+      await setDoc(doc(db, 'course_chat_access', USER_ID, 'courses', 'own-course'), { activeCount: 1 });
+    });
+    const adminDb = testEnv.authenticatedContext(ADMIN_ID).firestore();
+    const instructorDb = testEnv.authenticatedContext(INSTRUCTOR_USER_ID).firestore();
+    await assertFails(setDoc(doc(adminDb, 'settings', 'role-security-test'), { value: true }));
+    await assertFails(getDoc(doc(instructorDb, 'course_chat_access', USER_ID, 'courses', 'own-course')));
+    await seedData(async (context) => {
+      await updateDoc(doc(context.firestore(), 'users', ADMIN_ID), { lifecycle: { status: 'active' } });
+      await updateDoc(doc(context.firestore(), 'users', INSTRUCTOR_USER_ID), { lifecycle: { status: 'active' } });
+    });
+    await assertSucceeds(setDoc(doc(adminDb, 'settings', 'role-security-test'), { value: true }));
+    await assertSucceeds(getDoc(doc(instructorDb, 'course_chat_access', USER_ID, 'courses', 'own-course')));
+  });
+  it.each([undefined, false])(
+    'rejects unverified email ownership (%s) while allowing own signup',
+    async (verified) => {
+      await seedData(async (context) => {
+        const db = context.firestore();
+        await setDoc(
+          doc(db, 'users', 'client_email_victim'),
+          userProfile('client_email_victim', 'victim@example.com')
+        );
+        await setDoc(doc(db, 'users', 'client_email_victim', 'wallet', 'state'), { amount: 100 });
+        await setDoc(doc(db, 'participants', 'participant_victim'), { displayName: 'Victim' });
+      });
+      const db = testEnv
+        .authenticatedContext('email-attacker', {
+          email: 'victim@example.com',
+          ...(verified === undefined ? {} : { email_verified: verified }),
+        })
+        .firestore();
+      await assertFails(getDoc(doc(db, 'users', 'client_email_victim')));
+      await assertFails(
+        getDocs(query(collection(db, 'users'), where('email', '==', 'victim@example.com')))
+      );
+      await assertFails(
+        updateDoc(doc(db, 'users', 'client_email_victim'), { displayName: 'Stolen' })
+      );
+      await assertFails(deleteDoc(doc(db, 'users', 'client_email_victim')));
+      await assertFails(getDoc(doc(db, 'users', 'client_email_victim', 'wallet', 'state')));
+      await assertFails(
+        setDoc(doc(db, 'participant_management', 'forged'), {
+          participantId: 'participant_victim',
+          accountId: 'email-attacker',
+        })
+      );
+      await assertFails(
+        updateDoc(doc(db, 'participants', 'participant_victim'), {
+          management: { accountId: 'email-attacker' },
+        })
+      );
+      await assertSucceeds(
+        setDoc(doc(db, 'users', 'email-attacker'), {
+          uid: 'email-attacker',
+          email: 'victim@example.com',
+          displayName: 'New signup',
+          role: 'user',
+          avatarUrl: '',
+          dataScope: 'live',
+        })
+      );
+      await assertFails(updateDoc(doc(db, 'users', 'email-attacker'), { email: 'changed@example.com' }));
+      await assertFails(updateDoc(doc(db, 'users', 'email-attacker'), { systemRole: 'owner' }));
+    }
+  );
+
+  it('requires a server claim even for a verified email and pins it to UID', async () => {
+    await seedData(async (context) => {
+      await setDoc(
+        doc(context.firestore(), 'users', 'client_email_victim'),
+        userProfile('client_email_victim', 'victim@example.com')
+      );
+    });
+    const db = testEnv
+      .authenticatedContext('verified-owner', { email: 'victim@example.com', email_verified: true })
+      .firestore();
+    await assertFails(getDoc(doc(db, 'users', 'client_email_victim')));
+    await assertFails(getDocs(query(collection(db, 'users'), where('email', '==', 'victim@example.com'))));
+    await seedData(async (context) => {
+      await updateDoc(doc(context.firestore(), 'users', 'client_email_victim'), { claimedByAccountId: 'verified-owner' });
+    });
+    await assertSucceeds(getDoc(doc(db, 'users', 'client_email_victim')));
+    const changedEmailDb = testEnv.authenticatedContext('another-uid', { email: 'victim@example.com', email_verified: true }).firestore();
+    await assertFails(getDoc(doc(changedEmailDb, 'users', 'client_email_victim')));
+    await assertFails(updateDoc(doc(db, 'users', 'client_email_victim'), { claimedByAccountId: 'another-uid' }));
+    await assertFails(deleteDoc(doc(db, 'users', 'client_email_victim')));
+    await seedData(async (context) => {
+      await setDoc(doc(context.firestore(), 'bookings', 'legacy-claim-security'), {
+        userId: 'client_email_victim', instructorId: 'legacy-coach', status: 'pending',
+      });
+    });
+    await assertSucceeds(getDoc(doc(db, 'bookings', 'legacy-claim-security')));
+    await assertFails(updateDoc(doc(db, 'bookings', 'legacy-claim-security'), { userId: 'verified-owner' }));
+    await assertFails(
+      setDoc(doc(db, 'users', 'client_forged'), {
+        ...userProfile('client_forged', 'victim@example.com'),
+        dataScope: 'live',
+      })
+    );
+  });
+
+  it.each(['instructorRosterIds', 'instructorIds'])(
+    'scopes instructor projection and message access to the course (%s)',
+    async (rosterField) => {
+      await seedData(async (context) => {
+        const db = context.firestore();
+        await setDoc(doc(db, 'users', INSTRUCTOR_USER_ID), {
+          ...userProfile(INSTRUCTOR_USER_ID, 'coach@example.com'),
+          instructorId: 'coach-own',
+        });
+        for (const [id, coach] of [
+          ['own-course', 'coach-own'],
+          ['other-course', 'coach-other'],
+        ]) {
+          await setDoc(doc(db, 'courses', id), { [rosterField]: [coach] });
+          await setDoc(doc(db, 'course_chat_access', USER_ID, 'courses', id), {
+            accountId: USER_ID,
+            courseId: id,
+            activeCount: 1,
+          });
+          await setDoc(doc(db, 'bookings', id, 'messages', 'message'), {
+            senderId: USER_ID,
+            text: 'Private',
+          });
+        }
+      });
+      const instructorDb = testEnv.authenticatedContext(INSTRUCTOR_USER_ID).firestore();
+      await assertSucceeds(
+        getDoc(doc(instructorDb, 'course_chat_access', USER_ID, 'courses', 'own-course'))
+      );
+      await assertFails(
+        getDoc(doc(instructorDb, 'course_chat_access', USER_ID, 'courses', 'other-course'))
+      );
+      await assertFails(
+        getDoc(doc(instructorDb, 'bookings', 'other-course', 'messages', 'message'))
+      );
+      await assertSucceeds(
+        getDoc(
+          doc(
+            testEnv.authenticatedContext(USER_ID).firestore(),
+            'course_chat_access',
+            USER_ID,
+            'courses',
+            'other-course'
+          )
+        )
+      );
+      await assertFails(
+        getDoc(
+          doc(
+            testEnv.authenticatedContext(OTHER_USER_ID).firestore(),
+            'course_chat_access',
+            USER_ID,
+            'courses',
+            'own-course'
+          )
+        )
+      );
+      await assertFails(
+        setDoc(
+          doc(instructorDb, 'course_chat_access', INSTRUCTOR_USER_ID, 'courses', 'other-course'),
+          { activeCount: 1 }
+        )
+      );
+      const message = doc(
+        testEnv.authenticatedContext(USER_ID).firestore(),
+        'bookings',
+        'own-course',
+        'messages',
+        'message'
+      );
+      await assertFails(updateDoc(message, { addedAuthority: 'forged' }));
+      await assertSucceeds(updateDoc(message, { isHomework: true }));
+    }
+  );
 });
 
 describe('notifications', () => {
@@ -1821,10 +2037,36 @@ describe('notifications', () => {
     await assertSucceeds(deleteDoc(doc(ownerDb, 'notifications', 'notification-1')));
   });
 
-  it('requires explicit LIVE scope on new client notifications', async () => {
+  it('allows only a boolean isRead update, preserving recipient and server content', async () => {
+    const db = testEnv.authenticatedContext(USER_ID).firestore();
+    const ref = doc(db, 'notifications', 'notification-1');
+    await assertSucceeds(updateDoc(ref, { isRead: true }));
+    await assertSucceeds(updateDoc(ref, { isRead: false }));
+    for (const patch of [
+      { userId: OTHER_USER_ID },
+      { title: 'Forged' },
+      { message: 'Forged' },
+      { dataScope: 'test' },
+      { isRead: 'yes' },
+      { isRead: true, userId: OTHER_USER_ID },
+    ])
+      await assertFails(updateDoc(ref, patch));
+    await assertFails(
+      updateDoc(
+        doc(
+          testEnv.authenticatedContext(OTHER_USER_ID).firestore(),
+          'notifications',
+          'notification-1'
+        ),
+        { isRead: true }
+      )
+    );
+  });
+
+  it('rejects client notification creation regardless of scope', async () => {
     const ownerDb = testEnv.authenticatedContext(USER_ID).firestore();
     const notification = { userId: USER_ID, title: 'Lesson update', message: 'Changed' };
-    await assertSucceeds(
+    await assertFails(
       setDoc(doc(ownerDb, 'notifications', 'notification-live'), {
         ...notification,
         dataScope: 'live',

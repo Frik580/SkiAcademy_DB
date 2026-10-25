@@ -10,7 +10,7 @@ import {
 } from '@ski-academy/shared-domain';
 import { queryInstructorOccupancyReadModels } from './instructorOccupancyReadModels';
 
-const PROJECT_ID = 'ski-academy-instructor-occupancy-read-model-test';
+const PROJECT_ID = 'demo-ski-school-e2e';
 const runsOnFirestoreEmulator = Boolean(
   process.env.FIREBASE_EMULATOR_HUB ?? process.env.FIRESTORE_EMULATOR_HOST
 );

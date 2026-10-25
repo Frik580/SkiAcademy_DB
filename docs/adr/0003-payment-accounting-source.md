@@ -569,6 +569,14 @@ Firestore Rules deny those mutations as defense in depth; Administrator SDK poss
 
 Instructors never receive Wallet balance, outstanding amount, write-off, price, payment/refund history, provenance, or monetary events. They receive only the sanitized operational permission or restriction needed to deliver the service.
 
+Instructor dashboard revenue exception (2026-10-15): the assigned Instructor may
+also read a sanitized lifetime school-revenue total for their unique completed
+individual/family Bookings: `sum(Payment.retainedAmount)`. This is school gross
+revenue after refunds, not instructor compensation. The server validates Payment
+accounting and subject/scope associations; it exposes no per-client or per-Payment
+financial details. CourseEnrollment revenue is excluded. See
+[projection and recovery contract](../INSTRUCTOR_LESSON_REVENUE.md).
+
 ## Required verification
 
 The implementation is not complete without:

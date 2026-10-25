@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { getFunctions } from 'firebase/functions';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { initializeWebAppCheck } from './webAppCheck';
 import {
   arrayUnion,
   arrayRemove,
@@ -26,8 +27,10 @@ import {
 } from 'firebase/firestore';
 import { OperationType } from '../../types';
 import { logger } from '../../shared';
-import { assertFirebaseEnvironment } from './firebaseEnvironmentGuard';
-import { omitLegacyAccountProgressFields } from './omitLegacyAccountProgressFields';
+import {
+  assertFirebaseEnvironment,
+  assertFirebaseTestEnvironment,
+} from './firebaseEnvironmentGuard';
 
 const requiredEnvVars = [
   'VITE_FIREBASE_API_KEY',
@@ -57,6 +60,12 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
+assertFirebaseTestEnvironment({
+  mode: import.meta.env.MODE,
+  projectId: firebaseConfig.projectId,
+  useEmulators: import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true',
+});
+
 if (typeof window !== 'undefined' && import.meta.env.MODE !== 'test') {
   assertFirebaseEnvironment({
     hostname: window.location.hostname,
@@ -66,6 +75,7 @@ if (typeof window !== 'undefined' && import.meta.env.MODE !== 'test') {
 }
 
 export const app = initializeApp(firebaseConfig);
+initializeWebAppCheck(app);
 
 // Initialize with specific databaseId if required by config
 export const db = getFirestore(app, import.meta.env.VITE_FIREBASE_DATABASE_ID || '(default)');
@@ -86,12 +96,8 @@ type ErrorLogPayload = {
   stack: string;
   timestamp: string;
   userId: string;
-  userEmail: string;
-  url: string;
-  userAgent: string;
   source: string;
   operation: string;
-  path: string;
 };
 
 const ERROR_LOG_THROTTLE_MS = 5_000;
@@ -120,7 +126,21 @@ function persistBufferedErrorLogs(): void {
   if (typeof window === 'undefined') return;
   try {
     if (errorLogQueue.length === 0) window.localStorage.removeItem(ERROR_LOG_STORAGE_KEY);
-    else window.localStorage.setItem(ERROR_LOG_STORAGE_KEY, JSON.stringify(errorLogQueue));
+    else
+      window.localStorage.setItem(
+        ERROR_LOG_STORAGE_KEY,
+        JSON.stringify(
+          errorLogQueue.map(({ id, userId, timestamp, source, operation }) => ({
+            id,
+            userId,
+            timestamp,
+            source,
+            operation,
+            message: 'Buffered client error',
+            stack: '',
+          }))
+        )
+      );
   } catch {
     // Logging must never make the application fail when browser storage is unavailable.
   }
@@ -152,13 +172,11 @@ async function flushErrorLogs(): Promise<void> {
   persistBufferedErrorLogs();
 
   try {
-    const batch = writeBatch(db);
-    for (const entry of batchEntries) {
-      batch.set(doc(db, 'error_logs', entry.id), entry);
-    }
-    await batch.commit();
+    const entries = batchEntries.filter((entry) => entry.userId === auth.currentUser?.uid);
+    if (entries.length) await httpsCallable(functions, 'reportClientErrors')({ entries });
   } catch (error) {
-    errorLogQueue = [...batchEntries, ...errorLogQueue].slice(-ERROR_LOG_SESSION_LIMIT);
+    // Drop terminal/rejected telemetry; never retry a rate-limit forever.
+    errorLogQueue = errorLogQueue.slice(-ERROR_LOG_SESSION_LIMIT);
     persistBufferedErrorLogs();
     logger.warn('Failed to flush buffered Firestore error logs:', error);
   } finally {
@@ -176,7 +194,7 @@ export function logErrorToFirestore(
   stack?: string,
   source: string = 'custom',
   operation?: string,
-  path?: string
+  _path?: string
 ) {
   const user = auth.currentUser;
   // Firestore rules intentionally reject anonymous error logs, so do not retain them forever.
@@ -190,12 +208,8 @@ export function logErrorToFirestore(
     stack: (stack || '').slice(0, 20_000),
     timestamp: new Date().toISOString(),
     userId: user.uid,
-    userEmail: user.email || '',
-    url: typeof window !== 'undefined' ? window.location.href : '',
-    userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
     source,
     operation: operation || '',
-    path: path || '',
   });
   errorLogQueue = errorLogQueue.slice(-ERROR_LOG_SESSION_LIMIT);
   persistBufferedErrorLogs();
@@ -262,80 +276,22 @@ export async function migratePreExistingProfile(
   email: string,
   customDisplayName?: string
 ): Promise<any | null> {
-  if (!email) return null;
-  const normalizedEmail = email.toLowerCase().trim();
-  logger.debug(`Starting migration for email: ${normalizedEmail} to newUid: ${newUid}`);
-
-  try {
-    let usnap;
-    try {
-      const uq = query(collection(db, 'users'), where('email', '==', normalizedEmail));
-      usnap = await getDocs(uq);
-      logger.debug(`Successfully fetched users count: ${usnap.size}`);
-    } catch (err: any) {
-      logger.error('Migration error at step 1: Query users by email failed', err);
-      throw new Error(`Query users failed: ${err.message}`);
-    }
-
-    let oldProfile: any = null;
-    let oldUid = '';
-
-    usnap.forEach((doc) => {
-      if (doc.id !== newUid) {
-        oldProfile = doc.data();
-        oldUid = doc.id;
-      }
-    });
-
-    if (!oldProfile || !oldUid) {
-      logger.debug('No pre-existing profile to migrate.');
-      return null;
-    }
-
-    logger.debug(
-      `Found pre-existing user: oldUid=${oldUid}, startsWith('client_')=${oldUid.startsWith('client_')}`
-    );
-
-    // Only migrate if the pre-existing profile was created by an admin
-    if (!oldUid.startsWith('client_')) {
-      logger.debug(
-        `Found pre-existing user with uid ${oldUid}, but it is not an admin-created client profile.`
-      );
-      return null;
-    }
-
-    // Keep displayName/phone/balance/etc. Do not copy leftover /users progress
-    // onto the claimed Account; canonical progress starts empty.
-    const { testSessionId: _testSessionId, ...claimableProfile } = oldProfile;
-    const migratedProfile = omitLegacyAccountProgressFields({
-      ...claimableProfile,
-      uid: newUid,
-      dataScope: 'live',
-      ...(customDisplayName ? { displayName: customDisplayName } : {}),
-    });
-
-    try {
-      logger.debug(`Writing migrated profile to users/${newUid}...`);
-      await setDoc(doc(db, 'users', newUid), migratedProfile);
-      logger.debug(`Successfully wrote migrated profile to users/${newUid}`);
-    } catch (err: any) {
-      logger.error(`Migration error at step 2: setDoc to users/${newUid} failed`, err);
-      throw new Error(`Write user profile failed: ${err.message}`);
-    }
-
-    // Booking identity is canonical-only. Do not rewrite legacy Booking.userId
-    // during profile migration; participant linking is owned by canonical commands.
-
-    // The browser is intentionally not authorized to delete `/users` documents.
-    // Keep the legacy source as compatibility data; destructive cleanup belongs
-    // to an explicit Admin SDK migration, not to authentication bootstrap.
-
-    logger.debug(`Successfully claimed profile data from ${oldUid} to ${newUid}`);
-    return migratedProfile;
-  } catch (err: any) {
-    logger.error('Error migrating pre-existing profile:', err);
-    throw err;
-  }
+  const user = auth.currentUser;
+  if (
+    !user ||
+    user.uid !== newUid ||
+    !user.emailVerified ||
+    user.email?.trim().toLowerCase() !== email.trim().toLowerCase()
+  )
+    return null;
+  await user.getIdToken(true);
+  const result = await httpsCallable<{ displayName?: string }, { claimed: boolean }>(
+    functions,
+    'claimGuestProfile'
+  )(customDisplayName ? { displayName: customDisplayName } : {});
+  if (!result.data.claimed) return null;
+  const profile = await getDoc(doc(db, 'users', newUid));
+  return profile.exists() ? profile.data() : null;
 }
 
 export {

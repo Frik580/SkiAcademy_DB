@@ -150,7 +150,7 @@ describe('Cabinet Journey retains configured progress', () => {
       const marker = screen.getByRole('img', { name: 'Journey Student' }).parentElement!;
       expect(parseFloat(marker.style.left)).toBeCloseTo((50 + 300 * progress) / 4);
       expect(marker.style.top).toBe('50%');
-      expect(within(marker).getByText(String(xp))).toBeInTheDocument();
+      expect(marker.querySelector('.journey-marker-caption')).toBeNull();
       expect(screen.queryByText('journeyYouAreHere')).toBeNull();
       const badge = section.querySelector('.journey-level-badge')!;
       expect(badge).toHaveTextContent(
@@ -175,7 +175,7 @@ describe('Cabinet Journey retains configured progress', () => {
       expect(gradient).toHaveAttribute('gradientUnits', 'userSpaceOnUse');
       expect(Number(gradient.getAttribute('x2'))).toBeCloseTo(50 + 300 * progress);
       expect(gradient.querySelectorAll('stop')).toHaveLength(3);
-      expect(section.querySelector('.journey-criteria')).toHaveTextContent('journeyCurrentLevel');
+      expect(section.querySelector('.journey-criteria h3')).toBeNull();
       expect(section.querySelector('progress')).toBeNull();
       expect(section.querySelectorAll('.journey-stage-lock')).toHaveLength(4 - level);
       expect(section.querySelector('[aria-current="step"] .journey-stage-lock')).toBeNull();

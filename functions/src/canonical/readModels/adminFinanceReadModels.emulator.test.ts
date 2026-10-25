@@ -12,7 +12,7 @@ import {
 } from '@ski-academy/shared-domain';
 import { queryAdminFinanceReadModels } from './adminFinanceReadModels';
 
-const PROJECT_ID = 'ski-academy-admin-finance-read-model-test';
+const PROJECT_ID = 'demo-ski-school-e2e';
 const runsOnFirestoreEmulator = Boolean(
   process.env.FIREBASE_EMULATOR_HUB ?? process.env.FIRESTORE_EMULATOR_HOST
 );

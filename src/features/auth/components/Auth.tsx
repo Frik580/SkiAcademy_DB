@@ -401,22 +401,24 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
       {verificationUser && (
         <div className="space-y-4" role="status">
           <p>{t('authVerificationInstructions')}</p>
-          <button
-            type="button"
-            className="btn-primary"
-            disabled={isLoading}
-            onClick={() => void checkVerification()}
-          >
-            {t('authVerificationCheck')}
-          </button>
-          <button
-            type="button"
-            className="btn-secondary"
-            disabled={isLoading}
-            onClick={() => void requestVerification(verificationUser)}
-          >
-            {t('authVerificationResend')}
-          </button>
+          <div className="grid grid-cols-1 gap-3">
+            <button
+              type="button"
+              className="btn-primary w-full min-h-11 px-4 py-2.5"
+              disabled={isLoading}
+              onClick={() => void checkVerification()}
+            >
+              {t('authVerificationCheck')}
+            </button>
+            <button
+              type="button"
+              className="btn-secondary w-full min-h-11 px-4 py-2.5"
+              disabled={isLoading}
+              onClick={() => void requestVerification(verificationUser)}
+            >
+              {t('authVerificationResend')}
+            </button>
+          </div>
         </div>
       )}
       <form

@@ -34,6 +34,7 @@ export function resetUserScopedStores(): void {
   useProfileStore.setState({
     userProfile: null,
     profileLoading: false,
+    canonicalReadyAccountId: null,
     usersList: [],
     dismissedReviewIds: [],
     activityLogs: [],

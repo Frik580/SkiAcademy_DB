@@ -17,7 +17,7 @@ export function isCanonicalAccountReadyForReads(
   const audit = raw.audit;
   return (
     raw.accountId === authenticatedUid &&
-    raw.dataScope === 'live' &&
+    (raw.dataScope === 'live' || raw.dataScope === 'test') &&
     lifecycle !== null &&
     typeof lifecycle === 'object' &&
     !Array.isArray(lifecycle) &&

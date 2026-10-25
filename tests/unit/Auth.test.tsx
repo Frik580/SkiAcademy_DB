@@ -172,6 +172,12 @@ describe('Auth', () => {
     await userEvent.type(screen.getByPlaceholderText('password'), 'password123');
     await userEvent.click(screen.getByRole('button', { name: /signUpBtn/i }));
     expect(await screen.findByText('authVerificationSendFailed')).toBeInTheDocument();
+    const verifyButton = screen.getByRole('button', { name: 'authVerificationCheck' });
+    const resendButton = screen.getByRole('button', { name: 'authVerificationResend' });
+    expect(verifyButton.parentElement).toBe(resendButton.parentElement);
+    expect(verifyButton.parentElement).toHaveClass('grid', 'grid-cols-1', 'gap-3');
+    expect(verifyButton).toHaveClass('w-full', 'min-h-11');
+    expect(resendButton).toHaveClass('w-full', 'min-h-11');
     expect(mockSetDoc).not.toHaveBeenCalled();
     expect(mockMigratePreExistingProfile).not.toHaveBeenCalled();
     expect(onSuccess).not.toHaveBeenCalled();

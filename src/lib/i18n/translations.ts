@@ -59,6 +59,15 @@ export const translations = {
     authVerificationInstructions:
       'Confirm your email using the link, then continue here. Your profile will be created after confirmation.',
     authVerificationCheck: 'I confirmed my email',
+    authVerificationReturnChecking: 'Checking email confirmation…',
+    authVerificationReturnVerified: 'Email verified',
+    authVerificationReturnVerifiedDesc:
+      'Your email is confirmed. Sign in to finish setting up your Carve Academy profile.',
+    authVerificationReturnPending: 'Confirmation not finished',
+    authVerificationReturnPendingDesc:
+      'Open the confirmation link in your email first. If it expired, sign in to request another.',
+    authVerificationReturnSignIn: 'Sign in or finish registration',
+    authVerificationReturnHome: 'Back to Carve Academy',
     authVerificationResend: 'Resend confirmation email',
     authVerificationPending: 'Your email is not confirmed yet. Open the confirmation link first.',
     authVerificationSendFailed:
@@ -2547,6 +2556,15 @@ export const translations = {
     authVerificationInstructions:
       'Подтвердите почту по ссылке из письма и продолжите здесь. Профиль будет создан после подтверждения.',
     authVerificationCheck: 'Я подтвердил почту',
+    authVerificationReturnChecking: 'Проверяем подтверждение почты…',
+    authVerificationReturnVerified: 'Электронная почта подтверждена',
+    authVerificationReturnVerifiedDesc:
+      'Адрес подтверждён. Войдите, чтобы завершить создание профиля Carve Academy.',
+    authVerificationReturnPending: 'Подтверждение ещё не завершено',
+    authVerificationReturnPendingDesc:
+      'Сначала откройте ссылку из письма. Если срок ссылки истёк, войдите и запросите новое письмо.',
+    authVerificationReturnSignIn: 'Войти или завершить регистрацию',
+    authVerificationReturnHome: 'Вернуться в Carve Academy',
     authVerificationResend: 'Отправить письмо повторно',
     authVerificationPending: 'Почта ещё не подтверждена. Сначала откройте ссылку из письма.',
     authVerificationSendFailed:

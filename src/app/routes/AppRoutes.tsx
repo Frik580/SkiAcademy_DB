@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { HomeRouteContainer } from './HomeRouteContainer';
+import { EmailVerificationReturnPage } from '../../features/auth';
 import { CabinetRoute } from './CabinetRoute';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { RouteContentLoading } from '../../ui/RouteContentLoading';
@@ -54,6 +55,7 @@ export const AppRoutes: React.FC<AppRoutesProps> = (props) => (
       {import.meta.env.DEV && T31bCoursePilotPage ? (
         <Route path="/__dev/t31b-course-pilot" element={<T31bCoursePilotPage />} />
       ) : null}
+      <Route path="/email-verified" element={<EmailVerificationReturnPage />} />
       <Route path="/" element={<HomeRouteContainer {...props} />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

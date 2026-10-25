@@ -39,7 +39,10 @@ export async function signUpWithEmailService(email: string, password: string): P
 }
 
 export async function requestEmailVerificationService(user: User): Promise<void> {
-  await sendEmailVerification(user);
+  // Keep Firebase's sender while branded delivery is not configured. Its hosted
+  // action handler may offer the user a return link to the requesting app.
+  const url = new URL('/', window.location.origin).toString();
+  await sendEmailVerification(user, { url, handleCodeInApp: false });
 }
 
 export async function refreshEmailVerificationService(user: User): Promise<boolean> {

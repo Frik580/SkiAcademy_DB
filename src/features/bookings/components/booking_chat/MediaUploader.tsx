@@ -3,6 +3,7 @@ import { Image, Video, Link as LinkIcon, Loader2, Trash2 } from 'lucide-react';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 import type { PendingAttachment } from './chatCompression';
 import { ADMIN_MODAL_FIELD_CLASS } from '../../../admin/components/adminModalStyles';
+import { ChatMedia } from './ChatMedia';
 
 interface MediaUploaderProps {
   isSending: boolean;
@@ -144,11 +145,7 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-12 h-12 border border-[var(--border)] bg-black/20 overflow-hidden flex items-center justify-center shrink-0">
               {attachment.type === 'image' ? (
-                <img
-                  src={attachment.url}
-                  alt={t('chatPreviewAlt')}
-                  className="w-full h-full object-cover"
-                />
+                <ChatMedia value={attachment.url} type="image" name={t('chatPreviewAlt')} />
               ) : attachment.type === 'video' ? (
                 <div className="relative w-full h-full flex items-center justify-center bg-black">
                   <Video className="w-5 h-5 text-accent" />

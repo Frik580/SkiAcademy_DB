@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { TestStoragePathError } from '@ski-academy/shared-domain';
 import { resolveBookingChatAttachmentStoragePath } from '../../src/features/chat/chatAttachmentStorage';
 
 describe('booking chat attachment storage contract', () => {
@@ -12,8 +11,8 @@ describe('booking chat attachment storage contract', () => {
     ).toBe('chat/booking_chat_01/photo.jpg');
   });
 
-  it('does not upload TEST attachments through the client path until Rules rollout', () => {
-    expect(() =>
+  it('uses the isolated TEST prefix for the authorized media gateway', () => {
+    expect(
       resolveBookingChatAttachmentStoragePath(
         {
           id: 'booking_chat_01',
@@ -22,6 +21,6 @@ describe('booking chat attachment storage contract', () => {
         },
         'photo.jpg'
       )
-    ).toThrow(new TestStoragePathError('TEST_STORAGE_CLIENT_UNREACHABLE'));
+    ).toBe('test-sessions/test_session_storage_a/booking-chat/booking_chat_01/photo.jpg');
   });
 });

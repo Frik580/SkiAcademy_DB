@@ -25,80 +25,15 @@ service firebase.storage {
         );
     }
 
-    function isAssignedInstructorForBooking(bookingId) {
-      return isAuthenticated() &&
-        firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
-        rolePrincipalIsActive() &&
-        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.instructorId is string &&
-        firestore.exists(/databases/(default)/documents/bookings/$(bookingId)) &&
-        firestore.get(/databases/(default)/documents/bookings/$(bookingId)).data.instructorId ==
-          firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.instructorId;
-    }
-
-    function isCourseGroupChatThread(threadId) {
-      return firestore.exists(/databases/(default)/documents/courses/$(threadId));
-    }
-
-    function isEnrolledInCourse(courseId) {
-      return isAuthenticated() &&
-        firestore.exists(
-          /databases/(default)/documents/course_chat_access/$(request.auth.uid)/courses/$(courseId)
-        );
-    }
-
-    function isInstructorForCourse(courseId) {
-      return isAuthenticated() &&
-        firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
-        rolePrincipalIsActive() &&
-        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.instructorId is string &&
-        firestore.exists(/databases/(default)/documents/courses/$(courseId)) &&
-        (
-          firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.instructorId in
-            firestore.get(/databases/(default)/documents/courses/$(courseId)).data.get('instructorRosterIds', []) ||
-          firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.instructorId in
-            firestore.get(/databases/(default)/documents/courses/$(courseId)).data.get('instructorIds', [])
-        );
-    }
-
-    function isBookingParticipant(bookingId) {
-      return isAuthenticated() && (
-        isAdmin() ||
-        (
-          firestore.exists(/databases/(default)/documents/bookings/$(bookingId)) &&
-          (
-            firestore.get(/databases/(default)/documents/bookings/$(bookingId)).data.userId == request.auth.uid ||
-            isAssignedInstructorForBooking(bookingId)
-          )
-        ) ||
-        (
-          isCourseGroupChatThread(bookingId) &&
-          (isEnrolledInCourse(bookingId) || isInstructorForCourse(bookingId))
-        )
-      );
-    }
-
     function isValidImageUpload() {
       return request.resource.contentType.matches('image/.*') &&
         request.resource.size < 5 * 1024 * 1024;
-    }
-
-    function isValidVideoUpload() {
-      return request.resource.contentType.matches('video/.*') &&
-        request.resource.size < 50 * 1024 * 1024;
-    }
-
-    function isValidChatMediaUpload() {
-      return isValidImageUpload() || isValidVideoUpload();
     }
 
     function isAllowedTestActor() {
       return isAuthenticated() &&
         firestore.exists(/databases/(default)/documents/test_actors/$(request.auth.uid)) &&
         firestore.get(/databases/(default)/documents/test_actors/$(request.auth.uid)).data.allowed == true;
-    }
-
-    function resourceScopeIsLive(data) {
-      return !('dataScope' in data) || data.dataScope == 'live';
     }
 
     function isActiveTestSession(testSessionId) {
@@ -119,37 +54,10 @@ service firebase.storage {
         (isAllowedTestActor() || isAdmin());
     }
 
-    function isTestBookingInSession(bookingId, testSessionId) {
-      return firestore.exists(/databases/(default)/documents/bookings/$(bookingId)) &&
-        firestore.get(/databases/(default)/documents/bookings/$(bookingId)).data.dataScope == 'test' &&
-        firestore.get(/databases/(default)/documents/bookings/$(bookingId)).data.testSessionId == testSessionId;
-    }
-
     function isTestCourseInSession(courseId, testSessionId) {
       return firestore.exists(/databases/(default)/documents/courses/$(courseId)) &&
         firestore.get(/databases/(default)/documents/courses/$(courseId)).data.dataScope == 'test' &&
         firestore.get(/databases/(default)/documents/courses/$(courseId)).data.testSessionId == testSessionId;
-    }
-
-    function isLiveChatThread(threadId) {
-      return (
-        !firestore.exists(/databases/(default)/documents/bookings/$(threadId)) ||
-        resourceScopeIsLive(firestore.get(/databases/(default)/documents/bookings/$(threadId)).data)
-      ) && (
-        !firestore.exists(/databases/(default)/documents/courses/$(threadId)) ||
-        resourceScopeIsLive(firestore.get(/databases/(default)/documents/courses/$(threadId)).data)
-      );
-    }
-
-    function canAccessTestChatThread(testSessionId, threadId) {
-      return canAccessTestSessionStorage(testSessionId) &&
-        (
-          (isTestBookingInSession(threadId, testSessionId) && isBookingParticipant(threadId)) ||
-          (
-            isTestCourseInSession(threadId, testSessionId) &&
-            (isAdmin() || isEnrolledInCourse(threadId) || isInstructorForCourse(threadId))
-          )
-        );
     }
 
     match /avatars/{uid} {
@@ -185,13 +93,13 @@ service firebase.storage {
     }
 
     match /chat/{bookingId}/{allPaths=**} {
-      allow read: if !isAllowedTestActor() && isLiveChatThread(bookingId) && isBookingParticipant(bookingId);
-      allow write: if !isAllowedTestActor() && isLiveChatThread(bookingId) && isBookingParticipant(bookingId) && isValidChatMediaUpload();
+      // bookingChatMedia verifies current canonical authority on every operation.
+      // Direct SDK reads would also expose long-lived download tokens.
+      allow read, write: if false;
     }
 
     match /test-sessions/{testSessionId}/booking-chat/{bookingId}/{allPaths=**} {
-      allow read: if canAccessTestChatThread(testSessionId, bookingId);
-      allow write: if canAccessTestChatThread(testSessionId, bookingId) && isValidChatMediaUpload();
+      allow read, write: if false;
     }
 
     match /test-sessions/{testSessionId}/course-assets/{courseId}/{allPaths=**} {

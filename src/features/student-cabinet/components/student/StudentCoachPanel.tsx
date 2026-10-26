@@ -7,6 +7,7 @@ import {
   type TranslationKey,
 } from '../../../../app/providers/LanguageContext';
 import { InstructorCard } from '../../../../features/profile';
+import { ChatMedia } from '../../../bookings/components/booking_chat/ChatMedia';
 import {
   ScDivider,
   ScPageIntro,
@@ -364,11 +365,11 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
                   · {formatMessageTimestamp(msg.timestamp, lang)}
                 </p>
                 {msg.text?.trim() && <p className="type-compact text-[var(--ink)]">{msg.text}</p>}
-                <video
-                  src={msg.attachmentUrl}
-                  controls
+                <ChatMedia
+                  value={msg.attachmentUrl!}
+                  type="video"
+                  name={msg.attachmentName || t('chatVideo')}
                   className="w-full rounded-lg max-h-64 bg-black/20"
-                  preload="metadata"
                 />
               </ScTintCard>
             ))}
@@ -455,18 +456,16 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
                   </div>
                   {msg.text?.trim() && <p className="type-compact text-[var(--ink)]">{msg.text}</p>}
                   {msg.attachmentType === 'image' && msg.attachmentUrl && (
-                    <a
-                      href={msg.attachmentUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <div
                       className="block overflow-hidden border border-black/10 bg-black/5 max-w-full rounded-none"
                       title={t('chatAttachedPhotoAlt')}
                     >
-                      <img
-                        src={msg.attachmentUrl}
-                        alt={msg.attachmentName || t('chatAttachedPhotoAlt')}
+                      <ChatMedia
+                        value={msg.attachmentUrl}
+                        type="image"
+                        name={msg.attachmentName || t('chatAttachedPhotoAlt')}
+                        openImage
                         className="max-h-[220px] w-auto max-w-full object-contain mx-auto hover:scale-[1.02] transition-transform duration-300 cursor-zoom-in"
-                        referrerPolicy="no-referrer"
                       />
                       {(msg.attachmentName || msg.attachmentSize) && (
                         <div className="p-1 px-2 type-caption text-[var(--ink-dim)] bg-black/15 flex items-center justify-between gap-2 border-t border-black/10">
@@ -476,15 +475,14 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
                           )}
                         </div>
                       )}
-                    </a>
+                    </div>
                   )}
                   {msg.attachmentType === 'video' && msg.attachmentUrl && (
-                    <video
-                      src={msg.attachmentUrl}
-                      controls
-                      playsInline
+                    <ChatMedia
+                      value={msg.attachmentUrl}
+                      type="video"
+                      name={msg.attachmentName || t('chatVideo')}
                       className="w-full rounded-lg max-h-64 bg-black/20"
-                      preload="metadata"
                     />
                   )}
                   {msg.attachmentType === 'link' && msg.attachmentUrl && (

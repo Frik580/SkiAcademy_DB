@@ -183,6 +183,62 @@ async function bookingReadOutcome(operation: Promise<unknown>): Promise<string> 
   }
 }
 
+describe('/users self-service profile creation', () => {
+  const uid = 'verified-signup';
+  const email = 'signup@example.com';
+  const profile = { uid, email, displayName: 'New user', role: 'user', dataScope: 'live' };
+
+  it('allows a verified token to create its own profile with matching UID and email', async () => {
+    const db = testEnv.authenticatedContext(uid, { email, email_verified: true }).firestore();
+    await assertSucceeds(setDoc(doc(db, 'users', uid), profile));
+  });
+
+  it.each([false, undefined])('denies profile creation with email_verified=%s', async (verified) => {
+    const db = testEnv.authenticatedContext(uid, {
+      email,
+      ...(verified === undefined ? {} : { email_verified: verified }),
+    }).firestore();
+    await assertFails(setDoc(doc(db, 'users', uid), profile));
+  });
+
+  it('denies a verified token creating a profile under another UID', async () => {
+    const db = testEnv.authenticatedContext(uid, { email, email_verified: true }).firestore();
+    await assertFails(setDoc(doc(db, 'users', OTHER_USER_ID), { ...profile, uid: OTHER_USER_ID }));
+  });
+
+  it('denies a mismatched document UID even with a verified token', async () => {
+    const db = testEnv.authenticatedContext(uid, { email, email_verified: true }).firestore();
+    await assertFails(setDoc(doc(db, 'users', uid), { ...profile, uid: OTHER_USER_ID }));
+  });
+
+  it('denies a mismatched email even with a verified token', async () => {
+    const db = testEnv.authenticatedContext(uid, { email, email_verified: true }).firestore();
+    await assertFails(setDoc(doc(db, 'users', uid), { ...profile, email: 'other@example.com' }));
+  });
+
+  it.each([
+    { role: 'admin' },
+    { systemRole: 'owner' },
+    { claimedByAccountId: uid },
+    { instructorId: 'instructor-forged' },
+    { isInstructor: true },
+    { lifecycle: { status: 'active' } },
+    { accountId: uid },
+    { revision: 1 },
+    { audit: {} },
+    { level: 1 },
+    { skillScores: { carving: 1 } },
+    { skillComments: { carving: 'Forged' } },
+    { balanceUSD: 100 },
+    { walletBalances: { KZT: 100 } },
+    { pendingWalletCredit: 100 },
+    { lastRefundBookingId: 'booking-forged' },
+  ])('denies authority or money fields on verified signup: %j', async (forged) => {
+    const db = testEnv.authenticatedContext(uid, { email, email_verified: true }).firestore();
+    await assertFails(setDoc(doc(db, 'users', uid), { ...profile, ...forged }));
+  });
+});
+
 describe('/users account reads', () => {
   beforeEach(async () => {
     await seedData(async (context) => {
@@ -916,7 +972,7 @@ describe('user profiles and roles', () => {
       .authenticatedContext(OWNER_ID, { email: 'owner@example.com' })
       .firestore();
     const newUserDb = testEnv
-      .authenticatedContext('new-user', { email: 'new-user@example.com' })
+      .authenticatedContext('new-user', { email: 'new-user@example.com', email_verified: true })
       .firestore();
     const claimantDb = testEnv
       .authenticatedContext('claimed-auth-uid', {
@@ -1441,7 +1497,7 @@ describe('T32.8A identity authority containment', () => {
       .authenticatedContext(INSTRUCTOR_USER_ID, { email: 'instructor@example.com' })
       .firestore();
     const newUserDb = testEnv
-      .authenticatedContext('new-identity-user', { email: 'new-identity@example.com' })
+      .authenticatedContext('new-identity-user', { email: 'new-identity@example.com', email_verified: true })
       .firestore();
 
     await assertSucceeds(
@@ -1855,7 +1911,7 @@ describe('release identity and course access security', () => {
     await assertSucceeds(getDoc(doc(instructorDb, 'course_chat_access', USER_ID, 'courses', 'own-course')));
   });
   it.each([undefined, false])(
-    'rejects unverified email ownership (%s) while allowing own signup',
+    'rejects unverified email ownership (%s) and own signup',
     async (verified) => {
       await seedData(async (context) => {
         const db = context.firestore();
@@ -1892,7 +1948,7 @@ describe('release identity and course access security', () => {
           management: { accountId: 'email-attacker' },
         })
       );
-      await assertSucceeds(
+      await assertFails(
         setDoc(doc(db, 'users', 'email-attacker'), {
           uid: 'email-attacker',
           email: 'victim@example.com',

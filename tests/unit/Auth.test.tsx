@@ -155,7 +155,7 @@ describe('Auth', () => {
     });
   });
 
-  it('retains the signup draft, supports resend after delivery failure, and claims only after verification', async () => {
+  it.each([true, false])('retains the signup draft and only claims or creates a profile after verification (guest match: %s)', async (hasGuestProfile) => {
     const user = {
       uid: 'verified-signup',
       email: 'guest@example.com',
@@ -194,12 +194,19 @@ describe('Auth', () => {
     expect(mockSetDoc).not.toHaveBeenCalled();
     user.emailVerified = true;
     const claimed = { uid: user.uid, email: user.email, displayName: 'Alex Carter', role: 'user' };
-    mockMigratePreExistingProfile.mockResolvedValue(claimed);
+    mockMigratePreExistingProfile.mockResolvedValue(hasGuestProfile ? claimed : null);
     await userEvent.click(screen.getByRole('button', { name: 'authVerificationCheck' }));
-    await waitFor(() => expect(onSuccess).toHaveBeenCalledWith(claimed));
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledWith(expect.objectContaining(claimed)));
     expect(user.getIdToken).toHaveBeenCalledWith(true);
     expect(mockMigratePreExistingProfile).toHaveBeenCalledWith(user.uid, user.email, 'Alex Carter');
-    expect(mockSetDoc).not.toHaveBeenCalled();
+    if (hasGuestProfile) {
+      expect(mockSetDoc).not.toHaveBeenCalled();
+    } else {
+      expect(mockSetDoc).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining(claimed));
+      expect(user.getIdToken.mock.invocationCallOrder[0]).toBeLessThan(
+        mockSetDoc.mock.invocationCallOrder[0]
+      );
+    }
     expect(mockCreateUserWithEmailAndPassword).toHaveBeenCalledTimes(1);
   });
 

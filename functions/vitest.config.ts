@@ -1,5 +1,5 @@
 import { fileURLToPath, URL } from 'node:url';
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 
 export default defineConfig({
   root: __dirname,
@@ -22,5 +22,6 @@ export default defineConfig({
     ],
     environment: 'node',
     include: ['src/**/*.test.ts'],
+    exclude: [...configDefaults.exclude, '**/.worktrees/**'],
   },
 });

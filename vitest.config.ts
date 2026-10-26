@@ -64,7 +64,7 @@ export default defineConfig({
     // usual one-CPU reserve on smaller runners.
     maxWorkers: Math.max(1, Math.min(4, availableParallelism() - 1)),
     minWorkers: 1,
-    exclude: [...configDefaults.exclude, '.scratch/**'],
+    exclude: [...configDefaults.exclude, '.scratch/**', '**/.worktrees/**'],
     environment: 'jsdom',
     environmentMatchGlobs: [
       ['tests/callable/**', 'node'],

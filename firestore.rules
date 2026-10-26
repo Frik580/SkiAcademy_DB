@@ -165,6 +165,7 @@ service cloud.firestore {
     function validSelfServiceAccountCreate(userId) {
       return request.resource.data.uid == userId &&
         request.auth.uid == userId &&
+        request.auth.token.email_verified == true &&
         tokenEmailMatches(request.resource.data.email) &&
         request.resource.data.role == 'user' &&
         selfServiceAccountCreateHasNoCanonicalAuthority() &&

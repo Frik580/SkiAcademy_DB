@@ -1,5 +1,4 @@
-/// <reference types="vitest/config" />
-import { defineConfig } from 'vite';
+import { configDefaults, defineConfig } from 'vitest/config';
 import { fileURLToPath, URL } from 'node:url';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
@@ -36,6 +35,7 @@ export default defineConfig({
     strictPort: true,
   },
   test: {
+    exclude: [...configDefaults.exclude, '**/.worktrees/**'],
     include: [
       'tests/unit/**/*.test.ts',
       'tests/integration/**/*.test.ts',

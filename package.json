@@ -22,7 +22,7 @@
     "test:unit:app": "node scripts/runVitest.mjs --config vitest.config.ts tests/unit && npm run test:unit:shared-domain",
     "test:index-contracts": "node scripts/runVitest.mjs tests/unit/firestoreIndexContracts.test.ts",
     "test:functions": "node scripts/runVitest.mjs --config functions/vitest.config.ts --exclude \"**/*.emulator.test.ts\"",
-    "test:functions:emulator": "node scripts/runVitest.mjs --require-emulators=firestore --config functions/vitest.config.ts .emulator.test.ts --no-file-parallelism --testTimeout=30000 --hookTimeout=60000",
+    "test:functions:emulator": "node scripts/runVitest.mjs --require-emulators=auth,firestore,storage --config functions/vitest.config.ts .emulator.test.ts --no-file-parallelism --testTimeout=30000 --hookTimeout=60000",
     "test:unit:functions": "npm run test:functions",
     "test:unit": "npm run test:unit:app && npm run test:unit:functions",
     "test:coverage": "node scripts/runVitest.mjs --config vitest.config.ts tests/unit --coverage",

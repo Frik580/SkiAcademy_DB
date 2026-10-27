@@ -1,5 +1,6 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page, type Locator } from '@playwright/test';
 import { createRequire } from 'node:module';
+import type { DocumentSnapshot } from 'firebase-admin/firestore';
 import {
   loadRuntimeConfig,
   signInStudent,
@@ -67,6 +68,12 @@ async function browserRead(page: Page, token: string, path: string) {
   );
 }
 
+async function expectBlobImage(scope: Page | Locator, name: string) {
+  const image = scope.getByRole('img', { name, exact: true });
+  await expect(image).toBeVisible();
+  await expect(image).toHaveAttribute('src', /^blob:/);
+}
+
 test('authenticated lesson chat uploads, sends and reloads a private image and plays video', async ({
   page,
 }, testInfo) => {
@@ -132,7 +139,10 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
     console.log('pending page resources', [...pending]);
     throw error;
   }
-  await fillBookingSelectors(page, 7, {
+  // A failed attempt keeps its canonical Booking and resource reservation.
+  // Give every retry/repeat a different date without bypassing availability.
+  const dayOffset = 7 + testInfo.repeatEachIndex * (testInfo.project.retries + 1) + testInfo.retry;
+  await fillBookingSelectors(page, dayOffset, {
     participantDisplayName: runtime.studentDisplayName,
     time: '11:00',
   });
@@ -142,11 +152,16 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
     before,
     (candidate) => candidate.lifecycleStatus === 'confirmed'
   );
+  const coachVideoName = `coach-feedback-${booking.bookingId}.webm`;
+  const coachImageName = `coach-homework-${booking.bookingId}.jpg`;
+  const svgName = `hostile-image-${booking.bookingId}.svg`;
+  const mislabeledVideoName = `mislabeled-svg-${booking.bookingId}.webm`;
+  const coachVideoText = `Coach video E2E ${booking.bookingId}`;
   await page.goto('/cabinet/calendar', { waitUntil: 'domcontentloaded' });
   const openChat = async () => {
     await page
+      .locator(`[id="booking-card-${booking.bookingId}"]`)
       .getByRole('button', { name: /Chat|Чат/ })
-      .first()
       .click();
     const chat = page.locator('.ui-modal').filter({
       has: page.getByRole('heading', { name: /Lesson Discussion|Обсуждение занятия/ }),
@@ -172,7 +187,7 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
     mimeType: 'image/jpeg',
     buffer: image,
   });
-  await expect(chat.locator('img[src^="blob:"]')).toBeVisible();
+  await expectBlobImage(chat, 'Attachment preview');
   // Use the real composer; attachment persists in the message after pending preview disappears.
   await chat.locator('input[type=text]').fill('Private media E2E');
   await chat.locator('input[type=text]').press('Enter');
@@ -180,11 +195,12 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
   console.log('Browser: JPEG uploaded and attachment message sent');
   await chat.getByTitle('Close', { exact: true }).click();
   chat = await openChat();
-  await expect(chat.locator('img[src^="blob:"]')).toBeVisible();
+  await expectBlobImage(chat, 'private-photo.jpg');
   await page.reload();
   chat = await openChat();
-  const rendered = chat.locator('img[src^="blob:"]');
+  const rendered = chat.getByRole('img', { name: 'private-photo.jpg', exact: true });
   await expect(rendered).toBeVisible();
+  await expect(rendered).toHaveAttribute('src', /^blob:/);
   await expect
     .poll(() => rendered.evaluate((img) => (img as HTMLImageElement).naturalWidth))
     .toBeGreaterThan(0);
@@ -227,8 +243,9 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
   await chat.locator('input[type=text]').press('Enter');
   await expect(chat.getByText('Private video E2E', { exact: true })).toBeVisible();
   await chat.getByRole('button', { name: 'private-video.webm' }).click();
-  const video = chat.locator('video[src^="blob:"]');
+  const video = chat.getByText('Private video E2E', { exact: true }).locator('..').locator('video');
   await expect(video).toBeVisible();
+  await expect(video).toHaveAttribute('src', /^blob:/);
   await video.evaluate((element) => (element as HTMLVideoElement).play());
   await expect
     .poll(() => video.evaluate((element) => (element as HTMLVideoElement).currentTime))
@@ -238,9 +255,14 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
   await page.evaluate(() => localStorage.setItem('alpine_glide_lang', 'ru'));
   await page.reload();
   chat = await openChat();
-  await expect(chat.locator('img[src^="blob:"]')).toBeVisible();
+  await expectBlobImage(chat, 'private-photo.jpg');
   await chat.getByRole('button', { name: 'private-video.webm' }).click();
-  await expect(chat.locator('video[src^="blob:"]')).toBeVisible();
+  const reloadedVideo = chat
+    .getByText('Private video E2E', { exact: true })
+    .locator('..')
+    .locator('video');
+  await expect(reloadedVideo).toBeVisible();
+  await expect(reloadedVideo).toHaveAttribute('src', /^blob:/);
   await page.screenshot({ path: testInfo.outputPath('student-mobile-ru.png') });
   await chat.getByTitle('Закрыть', { exact: true }).click();
   expect(
@@ -262,7 +284,7 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
   await expect(retry).toBeVisible();
   await page.unroute('**/bookingChatMedia?**');
   await retry.click();
-  await expect(chat.locator('img[src^="blob:"]')).toBeVisible();
+  await expectBlobImage(chat, 'private-photo.jpg');
   expect(directUrls).toEqual([]);
   const messages = await getFirestore()
     .collection('bookings')
@@ -285,6 +307,7 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
   expect((await browserRead(page, studentToken, mediaPath)).status).toBe(200);
 
   const rolePages: Page[] = [];
+  const testDocumentsBefore: DocumentSnapshot[] = [];
   const livePath = mediaPath;
   try {
     const login = async (
@@ -322,28 +345,31 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
       '/instructor'
     );
     expect((await browserRead(instructor.page, instructor.token, mediaPath)).status).toBe(200);
-    await instructor.page.getByRole('button', { name: /Chat/ }).first().click();
-    await expect(instructor.page.locator('img[src^="blob:"]')).toBeVisible();
+    await instructor.page
+      .locator(`[id="instructor-lesson-${booking.bookingId}"]`)
+      .getByRole('button', { name: /Chat/ })
+      .click();
     const instructorChat = instructor.page.locator('.ui-modal');
+    await expectBlobImage(instructorChat, 'private-photo.jpg');
     await instructorChat.locator('input[type=file][accept="video/*"]').setInputFiles({
-      name: 'coach-feedback.webm',
+      name: coachVideoName,
       mimeType: 'video/webm',
       buffer: Buffer.from(bytes),
     });
-    await expect(instructorChat.getByText('coach-feedback.webm', { exact: true })).toBeVisible();
-    await instructorChat.locator('input[type=text]').fill('Coach video E2E');
+    await expect(instructorChat.getByText(coachVideoName, { exact: true })).toBeVisible();
+    await instructorChat.locator('input[type=text]').fill(coachVideoText);
     await instructorChat.locator('input[type=text]').press('Enter');
-    await expect(instructorChat.getByText('Coach video E2E', { exact: true })).toBeVisible();
+    await expect(instructorChat.getByText(coachVideoText, { exact: true })).toBeVisible();
     await instructorChat
       .getByRole('checkbox', { name: 'Homework assignment', exact: true })
       .last()
       .check();
     await instructorChat.locator('input[type=file][accept="image/*"]').setInputFiles({
-      name: 'coach-homework.jpg',
+      name: coachImageName,
       mimeType: 'image/jpeg',
       buffer: image,
     });
-    await expect(instructorChat.getByText('coach-homework.jpg', { exact: true })).toBeVisible();
+    await expect(instructorChat.getByText(coachImageName, { exact: true })).toBeVisible();
     await instructorChat.locator('input[type=text]').fill('Coach homework E2E');
     await instructorChat.locator('input[type=text]').press('Enter');
     await expect(instructorChat.getByText('Coach homework E2E', { exact: true })).toBeVisible();
@@ -352,6 +378,8 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
       '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" onload="localStorage.setItem(\'h1-svg-executed\',\'yes\')"><script>localStorage.setItem("h1-svg-executed","yes")</script><rect width="16" height="16" fill="red"/></svg>'
     );
     const svgPath = `chat/${booking.bookingId}/hostile-image.svg`;
+    const svgMessageId = `svg-regression-${booking.bookingId}`;
+    const svgVideoMessageId = `svg-video-regression-${booking.bookingId}`;
     expect(
       await instructor.page.evaluate(
         async ({ token, url, bytes }) => {
@@ -387,26 +415,26 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
       .get();
     expect(homeworkFixture.size).toBe(1);
     await getFirestore()
-      .doc(`bookings/${booking.bookingId}/messages/svg-regression`)
+      .doc(`bookings/${booking.bookingId}/messages/${svgMessageId}`)
       .set({
         ...homeworkFixture.docs[0].data(),
-        id: 'svg-regression',
+        id: svgMessageId,
         text: 'SVG passive viewer regression',
         attachmentUrl: `chat-media:${svgPath}`,
-        attachmentName: 'hostile-image.svg',
+        attachmentName: svgName,
         attachmentSize: svg.length,
         timestamp: new Date().toISOString(),
       });
     await page.evaluate(() => localStorage.removeItem('h1-svg-executed'));
     await getFirestore()
-      .doc(`bookings/${booking.bookingId}/messages/svg-video-regression`)
+      .doc(`bookings/${booking.bookingId}/messages/${svgVideoMessageId}`)
       .set({
         ...homeworkFixture.docs[0].data(),
-        id: 'svg-video-regression',
+        id: svgVideoMessageId,
         text: 'SVG mislabeled video regression',
         attachmentType: 'video',
         attachmentUrl: `chat-media:${svgPath}`,
-        attachmentName: 'mislabeled-svg.webm',
+        attachmentName: mislabeledVideoName,
         attachmentSize: svg.length,
         timestamp: new Date().toISOString(),
       });
@@ -423,9 +451,13 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
       .getByRole('button', { name: /Video reviews/ })
       .first()
       .click();
-    await page.getByRole('button', { name: 'coach-feedback.webm', exact: true }).click();
-    const galleryVideo = page.locator('video[src^="blob:"]');
+    await page.getByRole('button', { name: coachVideoName, exact: true }).click();
+    const galleryVideo = page
+      .getByText(coachVideoText, { exact: true })
+      .locator('..')
+      .locator('video');
     await expect(galleryVideo).toBeVisible();
+    await expect(galleryVideo).toHaveAttribute('src', /^blob:/);
     await galleryVideo.evaluate((element) => (element as HTMLVideoElement).play());
     await expect
       .poll(() => galleryVideo.evaluate((element) => (element as HTMLVideoElement).currentTime))
@@ -435,26 +467,32 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
       .getByRole('button', { name: /Homework/ })
       .first()
       .click();
-    const galleryImage = page.getByRole('img', { name: 'coach-homework.jpg', exact: true });
+    const galleryImage = page.getByRole('img', { name: coachImageName, exact: true });
     await expect(galleryImage).toBeVisible();
-    const mislabeledVideo = page.getByRole('button', { name: 'mislabeled-svg.webm', exact: true });
+    await expect(galleryImage).toHaveAttribute('src', /^blob:/);
+    const mislabeledVideo = page.getByRole('button', { name: mislabeledVideoName, exact: true });
     await mislabeledVideo.click();
     await expect(mislabeledVideo).toHaveText(/↻/);
     await expect(page.locator('video[src^="blob:"]')).toHaveCount(0);
     const viewerOpened = page.waitForEvent('popup');
-    await page.getByRole('button', { name: 'coach-homework.jpg', exact: true }).click();
+    await page.getByRole('button', { name: coachImageName, exact: true }).click();
     const viewer = await viewerOpened;
-    await expect(viewer.locator('img')).toHaveAttribute('src', /^blob:/);
+    await expect(viewer.getByRole('img', { name: coachImageName, exact: true })).toHaveAttribute(
+      'src',
+      /^blob:/
+    );
     expect(viewer.url()).toBe('about:blank');
     await viewer.close();
-    await expect(page.getByRole('img', { name: 'hostile-image.svg', exact: true })).toBeVisible();
+    await expect(page.getByRole('img', { name: svgName, exact: true })).toBeVisible();
     const svgViewerOpened = page.waitForEvent('popup');
-    await page.getByRole('button', { name: 'hostile-image.svg', exact: true }).click();
+    await page.getByRole('button', { name: svgName, exact: true }).click();
     const svgViewer = await svgViewerOpened;
     expect(svgViewer.url()).toBe('about:blank');
     await expect
       .poll(() =>
-        svgViewer.locator('img').evaluate((element) => (element as HTMLImageElement).naturalWidth)
+        svgViewer
+          .getByRole('img', { name: svgName, exact: true })
+          .evaluate((element) => (element as HTMLImageElement).naturalWidth)
       )
       .toBe(16);
     expect(await svgViewer.evaluate(() => localStorage.getItem('h1-svg-executed'))).toBeNull();
@@ -462,7 +500,7 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
     await svgViewer.close();
     // Exercise the same raw-URL navigation as the native "Open image in new tab" action.
     const displayedSvg = await page
-      .getByRole('img', { name: 'hostile-image.svg', exact: true })
+      .getByRole('img', { name: svgName, exact: true })
       .getAttribute('src');
     expect(
       await page.evaluate(async (url) => (await (await fetch(url!)).blob()).type, displayedSvg)
@@ -498,9 +536,10 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
       .first()
       .click();
     await admin.page.getByRole('button', { name: 'Open Chat / Discussion', exact: true }).click();
-    await expect(
-      admin.page.getByRole('dialog', { name: 'Lesson Discussion' }).locator('img[src^="blob:"]')
-    ).toBeVisible();
+    await expectBlobImage(
+      admin.page.getByRole('dialog', { name: 'Lesson Discussion' }),
+      'private-photo.jpg'
+    );
     await admin.page.screenshot({ path: testInfo.outputPath('admin-chat-desktop-en.png') });
     const outsider = await login(runtime.studentBEmail, runtime.studentBPassword, '/cabinet');
     expect((await browserRead(outsider.page, outsider.token, livePath)).status).toBe(403);
@@ -537,6 +576,16 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
       requireFunctions('@ski-academy/shared-domain') as typeof import('@ski-academy/shared-domain');
     const testSessionId = 'test_session_media_browser';
     const testBookingId = 'booking_media_browser_test';
+    // Restore only this scenario's fixtures, including the outsider's LIVE/TEST identity.
+    testDocumentsBefore.push(
+      ...(await db.getAll(
+        db.doc(`test_sessions/${testSessionId}`),
+        db.doc(`test_actors/${runtime.studentBUid}`),
+        db.doc(`test_actor_assignments/${runtime.studentBUid}`),
+        db.doc(`test_sessions/${testSessionId}/membership/${runtime.studentBUid}`),
+        db.doc(`bookings/${testBookingId}`)
+      ))
+    );
     const metadata = {
       revision: 1,
       createdAt: original.createdAt,
@@ -641,5 +690,13 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
     throw error;
   } finally {
     await Promise.allSettled(rolePages.map((rolePage) => rolePage.context().close()));
+    if (testDocumentsBefore.length) {
+      const restore = getFirestore().batch();
+      for (const snapshot of testDocumentsBefore) {
+        if (snapshot.exists) restore.set(snapshot.ref, snapshot.data()!);
+        else restore.delete(snapshot.ref);
+      }
+      await restore.commit();
+    }
   }
 });

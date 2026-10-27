@@ -4,6 +4,7 @@ import { Booking, ChatMessage, Course, Instructor, UserProfile } from '../../../
 import { Skeleton } from '../../../../ui/Skeleton';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { resolveChatSenderRole } from '../../../../domain/chat';
+import { ChatMedia } from './ChatMedia';
 
 export type ChatMessageRow = ChatMessage & { threadId?: string };
 
@@ -142,11 +143,10 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                     <div
                       className={`overflow-hidden border border-black/10 bg-black/5 max-w-full ${msg.text ? 'mt-2.5' : ''}`}
                     >
-                      <img
-                        src={msg.attachmentUrl}
-                        alt={msg.attachmentName || t('chatAttachedPhotoAlt')}
-                        className="max-h-[220px] w-auto max-w-full object-contain mx-auto hover:scale-[1.02] transition-transform duration-300"
-                        referrerPolicy="no-referrer"
+                      <ChatMedia
+                        value={msg.attachmentUrl}
+                        type="image"
+                        name={msg.attachmentName || t('chatAttachedPhotoAlt')}
                       />
                       <div className="p-1 px-2 type-caption text-[var(--ink-dim)] bg-black/15 flex items-center justify-between gap-2 border-t border-black/10">
                         <span className="truncate max-w-[150px]">{msg.attachmentName}</span>
@@ -161,11 +161,10 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                     <div
                       className={`overflow-hidden border border-black/10 bg-black/5 max-w-full ${msg.text ? 'mt-2.5' : ''}`}
                     >
-                      <video
-                        src={msg.attachmentUrl}
-                        controls
-                        playsInline
-                        className="max-h-[220px] w-auto max-w-full object-contain mx-auto"
+                      <ChatMedia
+                        value={msg.attachmentUrl}
+                        type="video"
+                        name={msg.attachmentName || ''}
                       />
                       <div className="p-1 px-2 type-caption text-[var(--ink-dim)] bg-black/15 flex items-center justify-between gap-2 border-t border-black/10">
                         <span className="truncate max-w-[150px]">{msg.attachmentName}</span>

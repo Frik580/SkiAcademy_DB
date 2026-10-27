@@ -1,6 +1,6 @@
 import { RulesTestEnvironment } from '@firebase/rules-unit-testing';
 import { deleteDoc, doc, setDoc } from 'firebase/firestore';
-import { getBytes, ref, uploadBytes, uploadString } from 'firebase/storage';
+import { getBytes, getDownloadURL, ref, uploadBytes, uploadString } from 'firebase/storage';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   cleanupEmulatorTestEnvironment,
@@ -12,8 +12,10 @@ import {
   imageBytes,
   loadFirestoreRules,
   loadStorageRules,
-  seedBookingChatFixtures,
+  seedCanonicalBookingChatFixtures,
+  canonicalStorageBooking,
   seedCourseGroupChatFixtures,
+  seedLegacyBookingChatFixtures,
   seedStorageFirestore,
   STORAGE_ADMIN_ID,
   STORAGE_INSTRUCTOR_USER_ID,
@@ -108,14 +110,31 @@ describe('storage avatars', () => {
 describe('storage courses and instructors', () => {
   it('preserves active Owner authority and denies ordinary and disabled accounts', async () => {
     await seedStorageFirestore(testEnv, async (db) => {
-      await setDoc(doc(db, 'users', 'owner-only'), userProfile('owner-only', 'owner@example.com', 'user', { systemRole: 'owner', lifecycle: { status: 'active' } }));
+      await setDoc(
+        doc(db, 'users', 'owner-only'),
+        userProfile('owner-only', 'owner@example.com', 'user', {
+          systemRole: 'owner',
+          lifecycle: { status: 'active' },
+        })
+      );
       await setDoc(doc(db, 'users', 'ordinary'), userProfile('ordinary', 'user@example.com'));
     });
     const owner = testEnv.authenticatedContext('owner-only').storage();
     await assertSucceeds(uploadImage(owner, 'courses/owner-security-test'));
-    await assertFails(uploadImage(testEnv.authenticatedContext('ordinary').storage(), 'courses/owner-security-forged'));
+    await assertFails(
+      uploadImage(
+        testEnv.authenticatedContext('ordinary').storage(),
+        'courses/owner-security-forged'
+      )
+    );
     await seedStorageFirestore(testEnv, async (db) => {
-      await setDoc(doc(db, 'users', 'owner-only'), userProfile('owner-only', 'owner@example.com', 'admin', { systemRole: 'owner', lifecycle: { status: 'disabled' } }));
+      await setDoc(
+        doc(db, 'users', 'owner-only'),
+        userProfile('owner-only', 'owner@example.com', 'admin', {
+          systemRole: 'owner',
+          lifecycle: { status: 'disabled' },
+        })
+      );
     });
     await assertFails(uploadImage(owner, 'courses/owner-security-disabled'));
   });
@@ -159,61 +178,53 @@ describe('storage courses and instructors', () => {
   });
 });
 
-describe('storage booking chat media', () => {
-  it('allows admins to upload chat media for any booking thread', async () => {
-    await seedBookingChatFixtures(testEnv);
-
-    const adminStorage = testEnv.authenticatedContext(STORAGE_ADMIN_ID).storage();
-    await assertSucceeds(uploadImage(adminStorage, 'chat/booking-chat-1/admin-note.jpg'));
-  });
-
-  it('allows booking participants to upload and read chat media', async () => {
-    await seedBookingChatFixtures(testEnv);
-
-    const studentStorage = testEnv.authenticatedContext(STORAGE_USER_ID).storage();
-    const instructorStorage = testEnv.authenticatedContext(STORAGE_INSTRUCTOR_USER_ID).storage();
-    const otherStorage = testEnv.authenticatedContext(STORAGE_OTHER_USER_ID).storage();
-    const adminStorage = testEnv.authenticatedContext(STORAGE_ADMIN_ID).storage();
-    const imagePath = 'chat/booking-chat-1/photo.jpg';
-    const videoPath = 'chat/booking-chat-1/review.mp4';
-
-    await assertSucceeds(uploadImage(studentStorage, imagePath));
-    await assertSucceeds(getBytes(ref(instructorStorage, imagePath)));
-    await assertSucceeds(uploadVideo(instructorStorage, videoPath, 50 * 1024 * 1024 - 1));
-    await assertSucceeds(getBytes(ref(adminStorage, videoPath)));
-    await assertFails(uploadImage(otherStorage, 'chat/booking-chat-1/other.jpg'));
-    await assertFails(getBytes(ref(otherStorage, imagePath)));
-    await assertFails(
-      uploadVideo(studentStorage, 'chat/booking-chat-1/too-large.mp4', 50 * 1024 * 1024)
-    );
-    await assertFails(
-      uploadBytes(ref(studentStorage, 'chat/booking-chat-1/file.txt'), imageBytes(32), {
-        contentType: 'text/plain',
-      })
-    );
-  }, 30_000);
-
-  it('allows course group chat participants to exchange media', async () => {
-    await seedCourseGroupChatFixtures(testEnv);
-
-    const studentStorage = testEnv.authenticatedContext(STORAGE_USER_ID).storage();
-    const instructorStorage = testEnv.authenticatedContext(STORAGE_INSTRUCTOR_USER_ID).storage();
-    const otherStorage = testEnv.authenticatedContext(STORAGE_OTHER_USER_ID).storage();
-    const mediaPath = 'chat/course-group-1/group-photo.jpg';
-
-    await assertSucceeds(uploadImage(studentStorage, mediaPath));
-    await assertSucceeds(getBytes(ref(instructorStorage, mediaPath)));
-    await assertFails(uploadImage(otherStorage, mediaPath));
-  });
-
-  it('rejects cancelled course enrollment chat access', async () => {
-    await seedCourseGroupChatFixtures(testEnv);
-    await seedStorageFirestore(testEnv, async (db) => {
-      await deleteDoc(doc(db, 'course_chat_access', STORAGE_USER_ID, 'courses', 'course-group-1'));
+describe('private chat media gateway boundary', () => {
+  it.each([
+    STORAGE_USER_ID,
+    'second-participant-owner',
+    STORAGE_INSTRUCTOR_USER_ID,
+    STORAGE_ADMIN_ID,
+    STORAGE_OTHER_USER_ID,
+    'unassigned-instructor',
+    null,
+  ])('denies direct canonical SDK reads, metadata and uploads for %s', async (uid) => {
+    await seedCanonicalBookingChatFixtures(testEnv);
+    const path = `chat/${canonicalStorageBooking.bookingId}/photo.jpg`;
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await uploadImage(context.storage(), path);
     });
+    const storage = uid
+      ? testEnv.authenticatedContext(uid).storage()
+      : testEnv.unauthenticatedContext().storage();
+    await assertFails(getBytes(ref(storage, path)));
+    await assertFails(getDownloadURL(ref(storage, path)));
+    await assertFails(uploadImage(storage, path));
+    await assertFails(uploadVideo(storage, path));
+  });
 
-    const studentStorage = testEnv.authenticatedContext(STORAGE_USER_ID).storage();
-    await assertFails(uploadImage(studentStorage, 'chat/course-group-1/group-photo.jpg'));
+  it('contains legacy Booking and course direct access after gateway cutover', async () => {
+    await seedCourseGroupChatFixtures(testEnv);
+    await seedLegacyBookingChatFixtures(testEnv);
+    for (const uid of [STORAGE_USER_ID, STORAGE_INSTRUCTOR_USER_ID, STORAGE_ADMIN_ID]) {
+      const storage = testEnv.authenticatedContext(uid).storage();
+      await assertFails(uploadImage(storage, 'chat/booking-chat-1/photo.jpg'));
+      await assertFails(uploadVideo(storage, 'chat/course-group-1/video.mp4'));
+    }
+  });
+
+  it('documents the release blocker: historical bearer tokens survive Rules denial', async () => {
+    const path = 'chat/historical-booking/photo.jpg';
+    let url = '';
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await uploadImage(context.storage(), path);
+      url = await getDownloadURL(ref(context.storage(), path));
+    });
+    expect(['127.0.0.1', 'localhost']).toContain(new URL(url).hostname);
+    await assertFails(getBytes(ref(testEnv.unauthenticatedContext().storage(), path)));
+    const response = await fetch(url);
+    await response.arrayBuffer();
+    // This is evidence for the mandatory historical-token retirement gate, not a secure outcome.
+    expect(response.status).toBe(200);
   });
 });
 
@@ -292,7 +303,7 @@ describe('storage participant avatars', () => {
 });
 
 describe('storage TEST namespace isolation', () => {
-  it('allows same-session TEST members and denies cross-session, live customers, and TestActors on LIVE prefixes', async () => {
+  it('closes direct TEST chat access and preserves other namespace isolation', async () => {
     await seedTestStorageIsolationFixtures(testEnv);
 
     const actorA = testEnv.authenticatedContext(STORAGE_TEST_ACTOR_ID).storage();
@@ -307,9 +318,9 @@ describe('storage TEST namespace isolation', () => {
     const testCover = `test-sessions/${STORAGE_TEST_SESSION_A}/course-assets/course_test_a/cover.webp`;
     const actorAvatar = `test-actors/${STORAGE_TEST_ACTOR_ID}/avatar`;
 
-    await assertSucceeds(uploadImage(actorA, testChatA));
-    await assertSucceeds(getBytes(ref(actorA, testChatA)));
-    await assertSucceeds(uploadImage(adminWithContext, testChatA));
+    await assertFails(uploadImage(actorA, testChatA));
+    await assertFails(getBytes(ref(actorA, testChatA)));
+    await assertFails(uploadImage(adminWithContext, testChatA));
     await assertSucceeds(uploadImage(adminWithContext, testCover));
     await assertSucceeds(uploadImage(actorA, actorAvatar));
 
@@ -355,6 +366,15 @@ describe('storage TEST namespace isolation', () => {
   });
 
   it('does not grant chat access through leftover course_* instructorId bookings', async () => {
+    await seedStorageFirestore(testEnv, async (db) => {
+      await setDoc(doc(db, 'bookings', 'booking-course-star'), {
+        id: 'booking-course-star',
+        userId: STORAGE_OTHER_USER_ID,
+        instructorId: 'course_legacy_group',
+        courseId: 'course-group-1',
+        status: 'confirmed',
+      });
+    });
     await seedCourseGroupChatFixtures(testEnv);
     await seedTestStorageIsolationFixtures(testEnv);
 

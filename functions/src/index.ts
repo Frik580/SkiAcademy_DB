@@ -64,6 +64,7 @@ import { sweepCourseEnrollmentOutcomes } from './canonical/courses/courseEnrollm
 import { syncCourseEnrollmentOutcomeWorkForEnrollmentWrite } from './canonical/courses/courseEnrollmentOutcomeWorkSync';
 
 export { optimizeImage } from './images/optimizeImageHttp';
+export { bookingChatMedia } from './chat/chatMediaHttp';
 
 const guestActionTokenSecret = defineSecret('GUEST_ACTION_TOKEN_SECRET');
 

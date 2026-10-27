@@ -2,7 +2,7 @@ import { useAdminDialog } from '../../admin/components/useAdminDialog';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Booking, UserProfile, ChatMessage, Instructor, Course } from '../../../types';
-import { uploadImage } from '../../../infrastructure/firebase';
+import { uploadChatMedia } from '../../chat/chatMediaClient';
 import { useLanguage } from '../../../app/providers/LanguageContext';
 import { logger } from '../../../shared';
 import { resolveChatId, getCourseChatThreadIds } from '../../../domain/chat';
@@ -192,7 +192,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
         { ...booking, chatId },
         `${Date.now()}_${sanitizedName}`
       );
-      const downloadUrl = await uploadImage(result.blob, path);
+      const downloadUrl = await uploadChatMedia(result.blob, path);
       setAttachment({
         type: 'image',
         url: downloadUrl,
@@ -238,7 +238,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
         { ...booking, chatId },
         `${Date.now()}_${sanitizedName}`
       );
-      const downloadUrl = await uploadImage(result.blob, path);
+      const downloadUrl = await uploadChatMedia(result.blob, path);
       setAttachment({
         type: 'video',
         url: downloadUrl,

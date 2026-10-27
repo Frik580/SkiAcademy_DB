@@ -1,5 +1,4 @@
 import {
-  assertTestStorageClientReachable,
   bookingChatStoragePath,
   parseResourceStorageScope,
 } from '@ski-academy/shared-domain/canonical/testStoragePaths';
@@ -18,6 +17,5 @@ export function resolveBookingChatAttachmentStoragePath(
     throw new Error('MISSING_CHAT_THREAD');
   }
   const scope = parseResourceStorageScope(booking);
-  assertTestStorageClientReachable(scope);
   return bookingChatStoragePath(scope, threadId, fileName);
 }

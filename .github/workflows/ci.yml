@@ -123,7 +123,8 @@ jobs:
   functions-emulator:
     name: Functions emulator suite
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    # Measured suites total ~38 minutes locally; also allow dependency setup/build.
+    timeout-minutes: 45
     permissions:
       contents: read
     env:
@@ -146,25 +147,27 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm ci --prefix functions --ignore-scripts
       - run: npm run build:functions
-      - name: Run full sequential Functions emulator suite
+      - name: Run sequential Functions emulator suite (reset authorization runs below)
         shell: bash
         run: |
           set -o pipefail
-          node node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --project demo-ski-school-e2e --only firestore "npm run test:functions:emulator -- --maxWorkers=1 --minWorkers=1 --reporter=default --reporter=json --outputFile=functions-emulator-results.json" 2>&1 | tee functions-emulator-suite.log
+          node node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --project demo-ski-school-e2e --only auth,firestore,storage "npm run test:functions:emulator -- --exclude=**/dataResetAuthorization.emulator.test.ts --maxWorkers=1 --minWorkers=1 --reporter=default --reporter=json --outputFile=functions-emulator-results.json" 2>&1 | tee functions-emulator-suite.log
       - name: Require executed Attendance migration guard and CLI regressions
         shell: bash
         run: |
           node --input-type=module <<'NODE'
           import { readFileSync } from 'node:fs';
           const report = JSON.parse(readFileSync('functions/functions-emulator-results.json', 'utf8'));
+          if (report.success !== true) throw new Error('Functions emulator suite did not pass');
           for (const [file, minimum] of [
             ['bookingAttendanceMigrationGuard.emulator.test.ts', 18],
             ['bookingAttendanceCommands.emulator.test.ts', 30],
+            ['chatMedia.emulator.test.ts', 32],
           ]) {
             const suite = report.testResults.find(result => result.name.replaceAll('\\', '/').endsWith(`/${file}`));
-            if (!suite || suite.assertionResults.length < minimum ||
+            if (!suite || suite.status !== 'passed' || suite.assertionResults.length < minimum ||
                 suite.assertionResults.some(test => test.status !== 'passed')) {
-              throw new Error(`Missing, skipped or failed Attendance regressions: ${file}`);
+              throw new Error(`Missing, skipped or failed Functions regressions: ${file}`);
             }
             if (file.includes('MigrationGuard') && !suite.assertionResults.some(test =>
               test.title === 'runs the actual CLI twice and requires explicit cutover' && test.status === 'passed')) {
@@ -177,6 +180,8 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
+          # Authorization/resume performs repeated complete inventories and runs only here,
+          # under the existing rehearsal budget, rather than the general 30-second suite.
           node node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --project demo-ski-school-e2e --only auth,firestore,storage "node scripts/runVitest.mjs --require-emulators=auth,firestore,storage --config functions/vitest.config.ts functions/src/maintenance/dataResetAuthorization.emulator.test.ts functions/src/maintenance/dataReset.emulator.test.ts functions/src/maintenance/dataResetLiveFixtures.emulator.test.ts functions/src/canonical/guestConfirmation/guestConfirmationWork.emulator.test.ts --no-file-parallelism --maxWorkers=1 --minWorkers=1 --testTimeout=90000 --hookTimeout=60000 --reporter=default --reporter=json --outputFile=reset-emulator-results.json" 2>&1 | tee reset-emulator-suite.log
       - name: Require executed reset and Guest Confirmation regressions
         shell: bash
@@ -184,6 +189,7 @@ jobs:
           node --input-type=module <<'NODE'
           import { readFileSync } from 'node:fs';
           const report = JSON.parse(readFileSync('functions/reset-emulator-results.json', 'utf8'));
+          if (report.success !== true) throw new Error('Reset emulator suite did not pass');
           for (const [file, minimum] of [
             ['dataReset.emulator.test.ts', 20],
             ['dataResetLiveFixtures.emulator.test.ts', 4],
@@ -191,9 +197,14 @@ jobs:
             ['guestConfirmationWork.emulator.test.ts', 24],
           ]) {
             const suite = report.testResults.find(result => result.name.replaceAll('\\', '/').endsWith(`/${file}`));
-            if (!suite || suite.assertionResults.length < minimum ||
+            if (!suite || suite.status !== 'passed' || suite.assertionResults.length < minimum ||
                 suite.assertionResults.some(test => test.status !== 'passed')) {
               throw new Error(`Missing, skipped or failed reset regression: ${file}`);
+            }
+            if (file === 'dataResetAuthorization.emulator.test.ts' && !suite.assertionResults.some(test =>
+              test.title === 'serializes parallel apply and requires new authorization for safe partial resume/bootstrap' &&
+              test.status === 'passed')) {
+              throw new Error('Actual reset authorization/resume regression was not executed');
             }
             console.log(`${file}: ${suite.assertionResults.length} passed, zero skipped`);
           }

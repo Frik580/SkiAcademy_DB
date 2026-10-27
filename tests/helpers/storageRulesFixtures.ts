@@ -3,6 +3,11 @@ import { readRepoFile } from './readRepoFile';
 import { doc, setDoc } from 'firebase/firestore';
 import { getBytes, ref, uploadBytes } from 'firebase/storage';
 import { E2E_PROJECT_ID } from '../../e2e/emulator-config';
+import {
+  BookingSchema,
+  ParticipantManagementActiveOwnerGuardSchema,
+} from '@ski-academy/shared-domain';
+import { canonicalBookingCollaborationFixtures } from '@ski-academy/shared-domain/testing';
 
 export const STORAGE_RULES_PROJECT_ID = E2E_PROJECT_ID;
 
@@ -61,7 +66,7 @@ export async function seedStorageFirestore(
   });
 }
 
-export async function seedBookingChatFixtures(testEnv: RulesTestEnvironment) {
+export async function seedLegacyBookingChatFixtures(testEnv: RulesTestEnvironment) {
   await seedStorageFirestore(testEnv, async (db) => {
     await setDoc(
       doc(db, 'users', STORAGE_USER_ID),
@@ -92,8 +97,55 @@ export async function seedBookingChatFixtures(testEnv: RulesTestEnvironment) {
   });
 }
 
+// Schema-validated canonical records: deliberately no legacy userId/instructorId.
+export const canonicalStorageBooking = BookingSchema.parse({
+  ...canonicalBookingCollaborationFixtures.familyGroupBooking,
+  bookingId: 'booking_storage_canonical',
+  payerAccountId: STORAGE_OTHER_USER_ID,
+  occurrence: {
+    ...canonicalBookingCollaborationFixtures.familyGroupBooking.occurrence,
+    instructorId: 'instructor-1',
+  },
+});
+
+export async function seedCanonicalBookingChatFixtures(testEnv: RulesTestEnvironment) {
+  await seedStorageFirestore(testEnv, async (db) => {
+    for (const [uid, extra] of [
+      [STORAGE_USER_ID, {}],
+      [STORAGE_OTHER_USER_ID, {}],
+      [STORAGE_ADMIN_ID, { role: 'admin' }],
+      [STORAGE_INSTRUCTOR_USER_ID, { instructorId: 'instructor-1' }],
+      ['second-participant-owner', {}],
+      ['unassigned-instructor', { instructorId: 'instructor-2' }],
+    ] as const) {
+      await setDoc(
+        doc(db, 'users', uid),
+        userProfile(uid, `${uid}@example.com`, 'user', {
+          lifecycle: { status: 'active' },
+          ...extra,
+        })
+      );
+    }
+    await setDoc(doc(db, 'bookings', canonicalStorageBooking.bookingId), canonicalStorageBooking);
+    for (const [index, participantId] of canonicalStorageBooking.party.participantIds.entries()) {
+      await setDoc(
+        doc(db, 'participant_management_active_owner', participantId),
+        ParticipantManagementActiveOwnerGuardSchema.parse({
+          participantId,
+          accountId: index === 0 ? STORAGE_USER_ID : 'second-participant-owner',
+          participantManagementId: `management_storage_${index}`,
+          managementRevision: 1,
+          updatedAt: canonicalStorageBooking.updatedAt,
+          lastChangedByCommandId: 'command_storage_fixture',
+          correlationId: 'correlation_storage_fixture',
+        })
+      );
+    }
+  });
+}
+
 export async function seedCourseGroupChatFixtures(testEnv: RulesTestEnvironment) {
-  await seedBookingChatFixtures(testEnv);
+  await seedCanonicalBookingChatFixtures(testEnv);
   await seedStorageFirestore(testEnv, async (db) => {
     await setDoc(doc(db, 'courses', 'course-group-1'), {
       title: 'Group Course',
@@ -111,7 +163,7 @@ export async function seedCourseGroupChatFixtures(testEnv: RulesTestEnvironment)
 }
 
 export async function seedTestStorageIsolationFixtures(testEnv: RulesTestEnvironment) {
-  await seedBookingChatFixtures(testEnv);
+  await seedCanonicalBookingChatFixtures(testEnv);
   await seedStorageFirestore(testEnv, async (db) => {
     await setDoc(doc(db, 'users', STORAGE_TEST_ACTOR_ID), {
       ...userProfile(STORAGE_TEST_ACTOR_ID, 'test-actor-a@example.com'),
@@ -135,46 +187,38 @@ export async function seedTestStorageIsolationFixtures(testEnv: RulesTestEnviron
       doc(db, 'test_sessions', STORAGE_TEST_SESSION_B, 'membership', STORAGE_TEST_ACTOR_B_ID),
       { accountId: STORAGE_TEST_ACTOR_B_ID }
     );
-    await setDoc(doc(db, 'bookings', 'booking_test_a'), {
-      id: 'booking_test_a',
-      userId: STORAGE_TEST_ACTOR_ID,
-      instructorId: 'test-instructor-a',
-      dataScope: 'test',
-      testSessionId: STORAGE_TEST_SESSION_A,
-      date: '2026-12-01',
-      time: '09:00',
-      durationHours: 1,
-      totalPrice: 50,
-      status: 'confirmed',
-    });
-    await setDoc(doc(db, 'bookings', 'booking_test_b'), {
-      id: 'booking_test_b',
-      userId: STORAGE_TEST_ACTOR_B_ID,
-      instructorId: 'test-instructor-b',
-      dataScope: 'test',
-      testSessionId: STORAGE_TEST_SESSION_B,
-      date: '2026-12-01',
-      time: '10:00',
-      durationHours: 1,
-      totalPrice: 50,
-      status: 'confirmed',
-    });
+    for (const [bookingId, uid, instructorId, sessionId] of [
+      ['booking_test_a', STORAGE_TEST_ACTOR_ID, 'test-instructor-a', STORAGE_TEST_SESSION_A],
+      ['booking_test_b', STORAGE_TEST_ACTOR_B_ID, 'test-instructor-b', STORAGE_TEST_SESSION_B],
+    ] as const) {
+      const participantId = `participant_${bookingId}`;
+      await setDoc(
+        doc(db, 'bookings', bookingId),
+        BookingSchema.parse({
+          ...canonicalStorageBooking,
+          bookingId,
+          dataScope: 'test',
+          testSessionId: sessionId,
+          party: { kind: 'individual', participantIds: [participantId] },
+          occurrence: {
+            ...canonicalStorageBooking.occurrence,
+            instructorId,
+            serviceParty: { participantIds: [participantId] },
+          },
+        })
+      );
+      await setDoc(doc(db, 'participant_management_active_owner', participantId), {
+        participantId,
+        accountId: uid,
+        participantManagementId: `management_${bookingId}`,
+        managementRevision: 1,
+      });
+    }
     await setDoc(doc(db, 'courses', 'course_test_a'), {
       title: 'TEST Course',
       dataScope: 'test',
       testSessionId: STORAGE_TEST_SESSION_A,
       instructorIds: ['test-instructor-a'],
-    });
-    await setDoc(doc(db, 'bookings', 'booking-course-star'), {
-      id: 'booking-course-star',
-      userId: STORAGE_OTHER_USER_ID,
-      instructorId: 'course_legacy_group',
-      courseId: 'course-group-1',
-      date: '2026-12-01',
-      time: '11:00',
-      durationHours: 1,
-      totalPrice: 50,
-      status: 'confirmed',
     });
   });
 }

@@ -1,0 +1,65 @@
+{
+  "verdict": "PARTIAL",
+  "tests": "PASS",
+  "deploymentParity": "QUALIFIED; literal wire DIFF; live prepare/env values/Secret version resolution not certified",
+  "main": {
+    "files": 57,
+    "passed": 550,
+    "failed": 0,
+    "skipped": 0,
+    "durationSeconds": 2403.36,
+    "wrapperExit": 0
+  },
+  "reset": {
+    "files": 4,
+    "passed": 56,
+    "failed": 0,
+    "skipped": 0,
+    "durationSeconds": 473.41,
+    "wrapperExit": 0
+  },
+  "uniqueEmulatorFiles": 58,
+  "uniqueEmulatorTests": 558,
+  "totalEmulatorExecutions": 606,
+  "appCoverage": {
+    "success": true,
+    "files": 363,
+    "passed": 2965,
+    "failed": 0,
+    "skipped": 0
+  },
+  "functionsUnit": {
+    "files": 130,
+    "passed": 1489
+  },
+  "sharedUnit": {
+    "files": 50,
+    "passed": 370
+  },
+  "configurationGuards": 25,
+  "firestoreEgress": {
+    "attempts": 0,
+    "ledgers": 235
+  },
+  "builds": {
+    "functions": "PASS",
+    "production": "PASS",
+    "staging": "PASS"
+  },
+  "ci": {
+    "yaml": "PASS",
+    "jobs": 9,
+    "functionsEmulatorBudgetMinutes": 60,
+    "githubRun": "NOT RUN"
+  },
+  "review": "PASS",
+  "graphifyCodeUpdate": "PASS",
+  "commit": false,
+  "push": false,
+  "deploy": false,
+  "merge": false,
+  "diffCheck": "PASS",
+  "changedExecutableLint": "PASS",
+  "finalReportsStoredIn": "docs/security/h2-2026-10-28",
+  "emulatorCleanup": "PASS; task ports 4400/8080/9199/9299/9150 refused connections"
+}

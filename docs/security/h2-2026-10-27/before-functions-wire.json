@@ -1,0 +1,4532 @@
+{
+  "cliVersion": "13.35.1",
+  "sdkVersion": "5.1.1",
+  "runtime": "nodejs22",
+  "manifest": {
+    "endpoints": {
+      "optimizeImage": {
+        "availableMemoryMb": 512,
+        "timeoutSeconds": 60,
+        "minInstances": null,
+        "maxInstances": 10,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "httpsTrigger": {},
+        "entryPoint": "optimizeImage"
+      },
+      "bookingChatMedia": {
+        "availableMemoryMb": 512,
+        "timeoutSeconds": 120,
+        "minInstances": null,
+        "maxInstances": 10,
+        "ingressSettings": null,
+        "concurrency": 1,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "httpsTrigger": {},
+        "entryPoint": "bookingChatMedia"
+      },
+      "claimGuestProfile": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET"
+          }
+        ],
+        "callableTrigger": {},
+        "entryPoint": "claimGuestProfile"
+      },
+      "reportClientErrors": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET"
+          }
+        ],
+        "callableTrigger": {},
+        "entryPoint": "reportClientErrors"
+      },
+      "executeCanonicalCommand": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET"
+          }
+        ],
+        "callableTrigger": {},
+        "entryPoint": "executeCanonicalCommand"
+      },
+      "executeGuestCanonicalCommand": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET"
+          }
+        ],
+        "callableTrigger": {},
+        "entryPoint": "executeGuestCanonicalCommand"
+      },
+      "queryLessonBookingReadModels": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET"
+          }
+        ],
+        "callableTrigger": {},
+        "entryPoint": "queryLessonBookingReadModels"
+      },
+      "queryManagedParticipantPickerReadModels": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET"
+          }
+        ],
+        "callableTrigger": {},
+        "entryPoint": "queryManagedParticipantPickerReadModels"
+      },
+      "queryBookingProposalReadModels": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET"
+          }
+        ],
+        "callableTrigger": {},
+        "entryPoint": "queryBookingProposalReadModels"
+      },
+      "queryBookingChangeRequestReadModels": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET"
+          }
+        ],
+        "callableTrigger": {},
+        "entryPoint": "queryBookingChangeRequestReadModels"
+      },
+      "queryParticipantInstructorAccessReadModels": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET"
+          }
+        ],
+        "callableTrigger": {},
+        "entryPoint": "queryParticipantInstructorAccessReadModels"
+      },
+      "queryCourseEnrollmentReadModels": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET"
+          }
+        ],
+        "callableTrigger": {},
+        "entryPoint": "queryCourseEnrollmentReadModels"
+      },
+      "queryCourseCatalogReadModels": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET"
+          }
+        ],
+        "callableTrigger": {},
+        "entryPoint": "queryCourseCatalogReadModels"
+      },
+      "queryCourseAttendanceReadModels": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET"
+          }
+        ],
+        "callableTrigger": {},
+        "entryPoint": "queryCourseAttendanceReadModels"
+      },
+      "queryInstructorCourseAssignmentReadModels": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET"
+          }
+        ],
+        "callableTrigger": {},
+        "entryPoint": "queryInstructorCourseAssignmentReadModels"
+      },
+      "queryAdminIssueReadModels": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET"
+          }
+        ],
+        "callableTrigger": {},
+        "entryPoint": "queryAdminIssueReadModels"
+      },
+      "queryAdminFinanceReadModels": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET"
+          }
+        ],
+        "callableTrigger": {},
+        "entryPoint": "queryAdminFinanceReadModels"
+      },
+      "queryAccountWalletHistory": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET"
+          }
+        ],
+        "callableTrigger": {},
+        "entryPoint": "queryAccountWalletHistory"
+      },
+      "resolveInstructorLessonRevenue": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET"
+          }
+        ],
+        "callableTrigger": {},
+        "entryPoint": "resolveInstructorLessonRevenue"
+      },
+      "queryAdminCourseReadModels": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET"
+          }
+        ],
+        "callableTrigger": {},
+        "entryPoint": "queryAdminCourseReadModels"
+      },
+      "queryAdminCourseEnrollmentReadModels": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET"
+          }
+        ],
+        "callableTrigger": {},
+        "entryPoint": "queryAdminCourseEnrollmentReadModels"
+      },
+      "queryAdminIdentityReadModels": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET"
+          }
+        ],
+        "callableTrigger": {},
+        "entryPoint": "queryAdminIdentityReadModels"
+      },
+      "queryAdminPlannerReadModels": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET"
+          }
+        ],
+        "callableTrigger": {},
+        "entryPoint": "queryAdminPlannerReadModels"
+      },
+      "queryInstructorOccupancyReadModels": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET"
+          }
+        ],
+        "callableTrigger": {},
+        "entryPoint": "queryInstructorOccupancyReadModels"
+      },
+      "queryParticipantOccupancyReadModels": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET"
+          }
+        ],
+        "callableTrigger": {},
+        "entryPoint": "queryParticipantOccupancyReadModels"
+      },
+      "queryBookingInstructorCatalogueReadModels": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET"
+          }
+        ],
+        "callableTrigger": {},
+        "entryPoint": "queryBookingInstructorCatalogueReadModels"
+      },
+      "queryLessonPricingSettingsReadModel": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET"
+          }
+        ],
+        "callableTrigger": {},
+        "entryPoint": "queryLessonPricingSettingsReadModel"
+      },
+      "queryEmailDeliverySettingsReadModel": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET"
+          }
+        ],
+        "callableTrigger": {},
+        "entryPoint": "queryEmailDeliverySettingsReadModel"
+      },
+      "queryOutboxDeadLetterReadModel": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET"
+          }
+        ],
+        "callableTrigger": {},
+        "entryPoint": "queryOutboxDeadLetterReadModel"
+      },
+      "queryInstructorReviewReadModels": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET"
+          }
+        ],
+        "callableTrigger": {},
+        "entryPoint": "queryInstructorReviewReadModels"
+      },
+      "queryParticipantProgressReadModels": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET"
+          }
+        ],
+        "callableTrigger": {},
+        "entryPoint": "queryParticipantProgressReadModels"
+      },
+      "queryParticipantAchievementsReadModels": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET"
+          }
+        ],
+        "callableTrigger": {},
+        "entryPoint": "queryParticipantAchievementsReadModels"
+      },
+      "queryParticipantLessonFeedbackReadModels": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET"
+          }
+        ],
+        "callableTrigger": {},
+        "entryPoint": "queryParticipantLessonFeedbackReadModels"
+      },
+      "queryTestSessionReadModels": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET"
+          }
+        ],
+        "callableTrigger": {},
+        "entryPoint": "queryTestSessionReadModels"
+      },
+      "executeTestSessionLifecycle": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "region": [
+          "us-central1"
+        ],
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET"
+          }
+        ],
+        "callableTrigger": {},
+        "entryPoint": "executeTestSessionLifecycle"
+      },
+      "deliverDomainOutboxOnCreate": {
+        "availableMemoryMb": 256,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 10,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "cpu": 1,
+        "region": [
+          "us-central1"
+        ],
+        "eventTrigger": {
+          "eventType": "google.cloud.firestore.document.v1.created",
+          "eventFilters": {
+            "database": "(default)",
+            "namespace": "(default)"
+          },
+          "eventFilterPathPatterns": {
+            "document": "domain_outbox/{outboxId}"
+          },
+          "retry": true
+        },
+        "entryPoint": "deliverDomainOutboxOnCreate"
+      },
+      "scheduledDeliverDomainOutbox": {
+        "availableMemoryMb": 256,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 1,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "cpu": "gcf_gen1",
+        "scheduleTrigger": {
+          "schedule": "every 30 minutes",
+          "retryConfig": {},
+          "timeZone": "UTC"
+        },
+        "entryPoint": "scheduledDeliverDomainOutbox"
+      },
+      "scheduledPurgeExpiredNotifications": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "scheduleTrigger": {
+          "schedule": "every 24 hours",
+          "retryConfig": {},
+          "timeZone": "Asia/Almaty"
+        },
+        "entryPoint": "scheduledPurgeExpiredNotifications"
+      },
+      "scheduledReconcileGuestConfirmationMismatches": {
+        "availableMemoryMb": 256,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 1,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "cpu": "gcf_gen1",
+        "scheduleTrigger": {
+          "schedule": "every 5 minutes",
+          "retryConfig": {},
+          "timeZone": "UTC"
+        },
+        "entryPoint": "scheduledReconcileGuestConfirmationMismatches"
+      },
+      "syncInstructorLessonRevenueBooking": {
+        "availableMemoryMb": 256,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 10,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "cpu": 1,
+        "region": [
+          "us-central1"
+        ],
+        "eventTrigger": {
+          "eventType": "google.cloud.firestore.document.v1.written",
+          "eventFilters": {
+            "database": "(default)",
+            "namespace": "(default)"
+          },
+          "eventFilterPathPatterns": {
+            "document": "bookings/{bookingId}"
+          },
+          "retry": true
+        },
+        "entryPoint": "syncInstructorLessonRevenueBooking"
+      },
+      "syncInstructorLessonRevenuePayment": {
+        "availableMemoryMb": 256,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 10,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "cpu": 1,
+        "region": [
+          "us-central1"
+        ],
+        "eventTrigger": {
+          "eventType": "google.cloud.firestore.document.v1.written",
+          "eventFilters": {
+            "database": "(default)",
+            "namespace": "(default)"
+          },
+          "eventFilterPathPatterns": {
+            "document": "payments/{paymentId}"
+          },
+          "retry": true
+        },
+        "entryPoint": "syncInstructorLessonRevenuePayment"
+      },
+      "syncGuestBookingConfirmationWork": {
+        "availableMemoryMb": 256,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 10,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "cpu": 1,
+        "region": [
+          "us-central1"
+        ],
+        "eventTrigger": {
+          "eventType": "google.cloud.firestore.document.v1.written",
+          "eventFilters": {
+            "database": "(default)",
+            "namespace": "(default)"
+          },
+          "eventFilterPathPatterns": {
+            "document": "bookings/{bookingId}"
+          },
+          "retry": true
+        },
+        "entryPoint": "syncGuestBookingConfirmationWork"
+      },
+      "syncGuestEnrollmentConfirmationWork": {
+        "availableMemoryMb": 256,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 10,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "cpu": 1,
+        "region": [
+          "us-central1"
+        ],
+        "eventTrigger": {
+          "eventType": "google.cloud.firestore.document.v1.written",
+          "eventFilters": {
+            "database": "(default)",
+            "namespace": "(default)"
+          },
+          "eventFilterPathPatterns": {
+            "document": "course_enrollments/{enrollmentId}"
+          },
+          "retry": true
+        },
+        "entryPoint": "syncGuestEnrollmentConfirmationWork"
+      },
+      "syncGuestPaymentConfirmationWork": {
+        "availableMemoryMb": 256,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 10,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "cpu": 1,
+        "region": [
+          "us-central1"
+        ],
+        "eventTrigger": {
+          "eventType": "google.cloud.firestore.document.v1.written",
+          "eventFilters": {
+            "database": "(default)",
+            "namespace": "(default)"
+          },
+          "eventFilterPathPatterns": {
+            "document": "payments/{paymentId}"
+          },
+          "retry": true
+        },
+        "entryPoint": "syncGuestPaymentConfirmationWork"
+      },
+      "scheduledExpireGuestLessonReservations": {
+        "availableMemoryMb": 256,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 1,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "cpu": "gcf_gen1",
+        "scheduleTrigger": {
+          "schedule": "every 5 minutes",
+          "retryConfig": {},
+          "timeZone": "UTC"
+        },
+        "entryPoint": "scheduledExpireGuestLessonReservations"
+      },
+      "scheduledExpireGuestCourseReservations": {
+        "availableMemoryMb": 256,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 1,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "cpu": "gcf_gen1",
+        "scheduleTrigger": {
+          "schedule": "every 5 minutes",
+          "retryConfig": {},
+          "timeZone": "UTC"
+        },
+        "entryPoint": "scheduledExpireGuestCourseReservations"
+      },
+      "scheduledResolveLessonBookingAttendanceOutcomes": {
+        "availableMemoryMb": 256,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 1,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "cpu": "gcf_gen1",
+        "scheduleTrigger": {
+          "schedule": "every 5 minutes",
+          "retryConfig": {},
+          "timeZone": "UTC"
+        },
+        "entryPoint": "scheduledResolveLessonBookingAttendanceOutcomes"
+      },
+      "scheduledResolveCourseEnrollmentOutcomes": {
+        "availableMemoryMb": 256,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 1,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "cpu": "gcf_gen1",
+        "scheduleTrigger": {
+          "schedule": "every 5 minutes",
+          "retryConfig": {},
+          "timeZone": "UTC"
+        },
+        "entryPoint": "scheduledResolveCourseEnrollmentOutcomes"
+      },
+      "syncLessonBookingAttendanceOutcomeWork": {
+        "availableMemoryMb": 256,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 10,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "cpu": 1,
+        "region": [
+          "us-central1"
+        ],
+        "eventTrigger": {
+          "eventType": "google.cloud.firestore.document.v1.written",
+          "eventFilters": {
+            "database": "(default)",
+            "namespace": "(default)"
+          },
+          "eventFilterPathPatterns": {
+            "document": "bookings/{bookingId}"
+          },
+          "retry": true
+        },
+        "entryPoint": "syncLessonBookingAttendanceOutcomeWork"
+      },
+      "syncCourseEnrollmentOutcomeWork": {
+        "availableMemoryMb": 256,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 10,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": null,
+        "vpc": null,
+        "platform": "gcfv2",
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "cpu": 1,
+        "region": [
+          "us-central1"
+        ],
+        "eventTrigger": {
+          "eventType": "google.cloud.firestore.document.v1.written",
+          "eventFilters": {
+            "database": "(default)",
+            "namespace": "(default)"
+          },
+          "eventFilterPathPatterns": {
+            "document": "course_enrollments/{enrollmentId}"
+          },
+          "retry": true
+        },
+        "entryPoint": "syncCourseEnrollmentOutcomeWork"
+      }
+    },
+    "specVersion": "v1alpha1",
+    "requiredAPIs": [
+      {
+        "api": "cloudscheduler.googleapis.com",
+        "reason": "Needed for scheduled functions."
+      }
+    ],
+    "extensions": {},
+    "params": [
+      {
+        "type": "secret",
+        "name": "GUEST_ACTION_TOKEN_SECRET"
+      }
+    ]
+  },
+  "wire": {
+    "optimizeImage": {
+      "endpoint": {
+        "id": "optimizeImage",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "optimizeImage",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "httpsTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "ingressSettings": null,
+        "availableMemoryMb": 512,
+        "serviceAccount": null,
+        "timeoutSeconds": 60,
+        "maxInstances": 10,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/optimizeImage",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "optimizeImage",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "ingressSettings": null,
+          "timeoutSeconds": 60,
+          "serviceAccountEmail": null,
+          "availableMemory": "512Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 10,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        }
+      }
+    },
+    "bookingChatMedia": {
+      "endpoint": {
+        "id": "bookingChatMedia",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "bookingChatMedia",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "httpsTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "ingressSettings": null,
+        "availableMemoryMb": 512,
+        "serviceAccount": null,
+        "timeoutSeconds": 120,
+        "maxInstances": 10,
+        "minInstances": null,
+        "concurrency": 1,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/bookingChatMedia",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "bookingChatMedia",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "ingressSettings": null,
+          "timeoutSeconds": 120,
+          "serviceAccountEmail": null,
+          "availableMemory": "512Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 10,
+          "maxInstanceRequestConcurrency": 1,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        }
+      }
+    },
+    "claimGuestProfile": {
+      "endpoint": {
+        "id": "claimGuestProfile",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "claimGuestProfile",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "callableTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET",
+            "secret": "GUEST_ACTION_TOKEN_SECRET",
+            "projectId": "demo-ski-school-e2e"
+          }
+        ],
+        "ingressSettings": null,
+        "availableMemoryMb": null,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 20,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/claimGuestProfile",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "claimGuestProfile",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "secretEnvironmentVariables": [
+            {
+              "key": "GUEST_ACTION_TOKEN_SECRET",
+              "secret": "GUEST_ACTION_TOKEN_SECRET",
+              "projectId": "demo-ski-school-e2e"
+            }
+          ],
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-callable": "true"
+        }
+      }
+    },
+    "reportClientErrors": {
+      "endpoint": {
+        "id": "reportClientErrors",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "reportClientErrors",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "callableTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET",
+            "secret": "GUEST_ACTION_TOKEN_SECRET",
+            "projectId": "demo-ski-school-e2e"
+          }
+        ],
+        "ingressSettings": null,
+        "availableMemoryMb": null,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 20,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/reportClientErrors",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "reportClientErrors",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "secretEnvironmentVariables": [
+            {
+              "key": "GUEST_ACTION_TOKEN_SECRET",
+              "secret": "GUEST_ACTION_TOKEN_SECRET",
+              "projectId": "demo-ski-school-e2e"
+            }
+          ],
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-callable": "true"
+        }
+      }
+    },
+    "executeCanonicalCommand": {
+      "endpoint": {
+        "id": "executeCanonicalCommand",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "executeCanonicalCommand",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "callableTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET",
+            "secret": "GUEST_ACTION_TOKEN_SECRET",
+            "projectId": "demo-ski-school-e2e"
+          }
+        ],
+        "ingressSettings": null,
+        "availableMemoryMb": null,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 20,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/executeCanonicalCommand",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "executeCanonicalCommand",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "secretEnvironmentVariables": [
+            {
+              "key": "GUEST_ACTION_TOKEN_SECRET",
+              "secret": "GUEST_ACTION_TOKEN_SECRET",
+              "projectId": "demo-ski-school-e2e"
+            }
+          ],
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-callable": "true"
+        }
+      }
+    },
+    "executeGuestCanonicalCommand": {
+      "endpoint": {
+        "id": "executeGuestCanonicalCommand",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "executeGuestCanonicalCommand",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "callableTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET",
+            "secret": "GUEST_ACTION_TOKEN_SECRET",
+            "projectId": "demo-ski-school-e2e"
+          }
+        ],
+        "ingressSettings": null,
+        "availableMemoryMb": null,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 20,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/executeGuestCanonicalCommand",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "executeGuestCanonicalCommand",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "secretEnvironmentVariables": [
+            {
+              "key": "GUEST_ACTION_TOKEN_SECRET",
+              "secret": "GUEST_ACTION_TOKEN_SECRET",
+              "projectId": "demo-ski-school-e2e"
+            }
+          ],
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-callable": "true"
+        }
+      }
+    },
+    "queryLessonBookingReadModels": {
+      "endpoint": {
+        "id": "queryLessonBookingReadModels",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "queryLessonBookingReadModels",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "callableTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET",
+            "secret": "GUEST_ACTION_TOKEN_SECRET",
+            "projectId": "demo-ski-school-e2e"
+          }
+        ],
+        "ingressSettings": null,
+        "availableMemoryMb": null,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 20,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/queryLessonBookingReadModels",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "queryLessonBookingReadModels",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "secretEnvironmentVariables": [
+            {
+              "key": "GUEST_ACTION_TOKEN_SECRET",
+              "secret": "GUEST_ACTION_TOKEN_SECRET",
+              "projectId": "demo-ski-school-e2e"
+            }
+          ],
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-callable": "true"
+        }
+      }
+    },
+    "queryManagedParticipantPickerReadModels": {
+      "endpoint": {
+        "id": "queryManagedParticipantPickerReadModels",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "queryManagedParticipantPickerReadModels",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "callableTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET",
+            "secret": "GUEST_ACTION_TOKEN_SECRET",
+            "projectId": "demo-ski-school-e2e"
+          }
+        ],
+        "ingressSettings": null,
+        "availableMemoryMb": null,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 20,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/queryManagedParticipantPickerReadModels",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "queryManagedParticipantPickerReadModels",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "secretEnvironmentVariables": [
+            {
+              "key": "GUEST_ACTION_TOKEN_SECRET",
+              "secret": "GUEST_ACTION_TOKEN_SECRET",
+              "projectId": "demo-ski-school-e2e"
+            }
+          ],
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-callable": "true"
+        }
+      }
+    },
+    "queryBookingProposalReadModels": {
+      "endpoint": {
+        "id": "queryBookingProposalReadModels",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "queryBookingProposalReadModels",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "callableTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET",
+            "secret": "GUEST_ACTION_TOKEN_SECRET",
+            "projectId": "demo-ski-school-e2e"
+          }
+        ],
+        "ingressSettings": null,
+        "availableMemoryMb": null,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 20,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/queryBookingProposalReadModels",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "queryBookingProposalReadModels",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "secretEnvironmentVariables": [
+            {
+              "key": "GUEST_ACTION_TOKEN_SECRET",
+              "secret": "GUEST_ACTION_TOKEN_SECRET",
+              "projectId": "demo-ski-school-e2e"
+            }
+          ],
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-callable": "true"
+        }
+      }
+    },
+    "queryBookingChangeRequestReadModels": {
+      "endpoint": {
+        "id": "queryBookingChangeRequestReadModels",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "queryBookingChangeRequestReadModels",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "callableTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET",
+            "secret": "GUEST_ACTION_TOKEN_SECRET",
+            "projectId": "demo-ski-school-e2e"
+          }
+        ],
+        "ingressSettings": null,
+        "availableMemoryMb": null,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 20,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/queryBookingChangeRequestReadModels",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "queryBookingChangeRequestReadModels",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "secretEnvironmentVariables": [
+            {
+              "key": "GUEST_ACTION_TOKEN_SECRET",
+              "secret": "GUEST_ACTION_TOKEN_SECRET",
+              "projectId": "demo-ski-school-e2e"
+            }
+          ],
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-callable": "true"
+        }
+      }
+    },
+    "queryParticipantInstructorAccessReadModels": {
+      "endpoint": {
+        "id": "queryParticipantInstructorAccessReadModels",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "queryParticipantInstructorAccessReadModels",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "callableTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET",
+            "secret": "GUEST_ACTION_TOKEN_SECRET",
+            "projectId": "demo-ski-school-e2e"
+          }
+        ],
+        "ingressSettings": null,
+        "availableMemoryMb": null,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 20,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/queryParticipantInstructorAccessReadModels",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "queryParticipantInstructorAccessReadModels",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "secretEnvironmentVariables": [
+            {
+              "key": "GUEST_ACTION_TOKEN_SECRET",
+              "secret": "GUEST_ACTION_TOKEN_SECRET",
+              "projectId": "demo-ski-school-e2e"
+            }
+          ],
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-callable": "true"
+        }
+      }
+    },
+    "queryCourseEnrollmentReadModels": {
+      "endpoint": {
+        "id": "queryCourseEnrollmentReadModels",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "queryCourseEnrollmentReadModels",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "callableTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET",
+            "secret": "GUEST_ACTION_TOKEN_SECRET",
+            "projectId": "demo-ski-school-e2e"
+          }
+        ],
+        "ingressSettings": null,
+        "availableMemoryMb": null,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 20,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/queryCourseEnrollmentReadModels",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "queryCourseEnrollmentReadModels",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "secretEnvironmentVariables": [
+            {
+              "key": "GUEST_ACTION_TOKEN_SECRET",
+              "secret": "GUEST_ACTION_TOKEN_SECRET",
+              "projectId": "demo-ski-school-e2e"
+            }
+          ],
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-callable": "true"
+        }
+      }
+    },
+    "queryCourseCatalogReadModels": {
+      "endpoint": {
+        "id": "queryCourseCatalogReadModels",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "queryCourseCatalogReadModels",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "callableTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET",
+            "secret": "GUEST_ACTION_TOKEN_SECRET",
+            "projectId": "demo-ski-school-e2e"
+          }
+        ],
+        "ingressSettings": null,
+        "availableMemoryMb": null,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 20,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/queryCourseCatalogReadModels",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "queryCourseCatalogReadModels",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "secretEnvironmentVariables": [
+            {
+              "key": "GUEST_ACTION_TOKEN_SECRET",
+              "secret": "GUEST_ACTION_TOKEN_SECRET",
+              "projectId": "demo-ski-school-e2e"
+            }
+          ],
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-callable": "true"
+        }
+      }
+    },
+    "queryCourseAttendanceReadModels": {
+      "endpoint": {
+        "id": "queryCourseAttendanceReadModels",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "queryCourseAttendanceReadModels",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "callableTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET",
+            "secret": "GUEST_ACTION_TOKEN_SECRET",
+            "projectId": "demo-ski-school-e2e"
+          }
+        ],
+        "ingressSettings": null,
+        "availableMemoryMb": null,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 20,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/queryCourseAttendanceReadModels",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "queryCourseAttendanceReadModels",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "secretEnvironmentVariables": [
+            {
+              "key": "GUEST_ACTION_TOKEN_SECRET",
+              "secret": "GUEST_ACTION_TOKEN_SECRET",
+              "projectId": "demo-ski-school-e2e"
+            }
+          ],
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-callable": "true"
+        }
+      }
+    },
+    "queryInstructorCourseAssignmentReadModels": {
+      "endpoint": {
+        "id": "queryInstructorCourseAssignmentReadModels",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "queryInstructorCourseAssignmentReadModels",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "callableTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET",
+            "secret": "GUEST_ACTION_TOKEN_SECRET",
+            "projectId": "demo-ski-school-e2e"
+          }
+        ],
+        "ingressSettings": null,
+        "availableMemoryMb": null,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 20,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/queryInstructorCourseAssignmentReadModels",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "queryInstructorCourseAssignmentReadModels",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "secretEnvironmentVariables": [
+            {
+              "key": "GUEST_ACTION_TOKEN_SECRET",
+              "secret": "GUEST_ACTION_TOKEN_SECRET",
+              "projectId": "demo-ski-school-e2e"
+            }
+          ],
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-callable": "true"
+        }
+      }
+    },
+    "queryAdminIssueReadModels": {
+      "endpoint": {
+        "id": "queryAdminIssueReadModels",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "queryAdminIssueReadModels",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "callableTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET",
+            "secret": "GUEST_ACTION_TOKEN_SECRET",
+            "projectId": "demo-ski-school-e2e"
+          }
+        ],
+        "ingressSettings": null,
+        "availableMemoryMb": null,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 20,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/queryAdminIssueReadModels",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "queryAdminIssueReadModels",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "secretEnvironmentVariables": [
+            {
+              "key": "GUEST_ACTION_TOKEN_SECRET",
+              "secret": "GUEST_ACTION_TOKEN_SECRET",
+              "projectId": "demo-ski-school-e2e"
+            }
+          ],
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-callable": "true"
+        }
+      }
+    },
+    "queryAdminFinanceReadModels": {
+      "endpoint": {
+        "id": "queryAdminFinanceReadModels",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "queryAdminFinanceReadModels",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "callableTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET",
+            "secret": "GUEST_ACTION_TOKEN_SECRET",
+            "projectId": "demo-ski-school-e2e"
+          }
+        ],
+        "ingressSettings": null,
+        "availableMemoryMb": null,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 20,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/queryAdminFinanceReadModels",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "queryAdminFinanceReadModels",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "secretEnvironmentVariables": [
+            {
+              "key": "GUEST_ACTION_TOKEN_SECRET",
+              "secret": "GUEST_ACTION_TOKEN_SECRET",
+              "projectId": "demo-ski-school-e2e"
+            }
+          ],
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-callable": "true"
+        }
+      }
+    },
+    "queryAccountWalletHistory": {
+      "endpoint": {
+        "id": "queryAccountWalletHistory",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "queryAccountWalletHistory",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "callableTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET",
+            "secret": "GUEST_ACTION_TOKEN_SECRET",
+            "projectId": "demo-ski-school-e2e"
+          }
+        ],
+        "ingressSettings": null,
+        "availableMemoryMb": null,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 20,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/queryAccountWalletHistory",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "queryAccountWalletHistory",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "secretEnvironmentVariables": [
+            {
+              "key": "GUEST_ACTION_TOKEN_SECRET",
+              "secret": "GUEST_ACTION_TOKEN_SECRET",
+              "projectId": "demo-ski-school-e2e"
+            }
+          ],
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-callable": "true"
+        }
+      }
+    },
+    "resolveInstructorLessonRevenue": {
+      "endpoint": {
+        "id": "resolveInstructorLessonRevenue",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "resolveInstructorLessonRevenue",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "callableTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET",
+            "secret": "GUEST_ACTION_TOKEN_SECRET",
+            "projectId": "demo-ski-school-e2e"
+          }
+        ],
+        "ingressSettings": null,
+        "availableMemoryMb": null,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 20,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/resolveInstructorLessonRevenue",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "resolveInstructorLessonRevenue",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "secretEnvironmentVariables": [
+            {
+              "key": "GUEST_ACTION_TOKEN_SECRET",
+              "secret": "GUEST_ACTION_TOKEN_SECRET",
+              "projectId": "demo-ski-school-e2e"
+            }
+          ],
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-callable": "true"
+        }
+      }
+    },
+    "queryAdminCourseReadModels": {
+      "endpoint": {
+        "id": "queryAdminCourseReadModels",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "queryAdminCourseReadModels",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "callableTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET",
+            "secret": "GUEST_ACTION_TOKEN_SECRET",
+            "projectId": "demo-ski-school-e2e"
+          }
+        ],
+        "ingressSettings": null,
+        "availableMemoryMb": null,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 20,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/queryAdminCourseReadModels",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "queryAdminCourseReadModels",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "secretEnvironmentVariables": [
+            {
+              "key": "GUEST_ACTION_TOKEN_SECRET",
+              "secret": "GUEST_ACTION_TOKEN_SECRET",
+              "projectId": "demo-ski-school-e2e"
+            }
+          ],
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-callable": "true"
+        }
+      }
+    },
+    "queryAdminCourseEnrollmentReadModels": {
+      "endpoint": {
+        "id": "queryAdminCourseEnrollmentReadModels",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "queryAdminCourseEnrollmentReadModels",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "callableTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET",
+            "secret": "GUEST_ACTION_TOKEN_SECRET",
+            "projectId": "demo-ski-school-e2e"
+          }
+        ],
+        "ingressSettings": null,
+        "availableMemoryMb": null,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 20,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/queryAdminCourseEnrollmentReadModels",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "queryAdminCourseEnrollmentReadModels",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "secretEnvironmentVariables": [
+            {
+              "key": "GUEST_ACTION_TOKEN_SECRET",
+              "secret": "GUEST_ACTION_TOKEN_SECRET",
+              "projectId": "demo-ski-school-e2e"
+            }
+          ],
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-callable": "true"
+        }
+      }
+    },
+    "queryAdminIdentityReadModels": {
+      "endpoint": {
+        "id": "queryAdminIdentityReadModels",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "queryAdminIdentityReadModels",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "callableTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET",
+            "secret": "GUEST_ACTION_TOKEN_SECRET",
+            "projectId": "demo-ski-school-e2e"
+          }
+        ],
+        "ingressSettings": null,
+        "availableMemoryMb": null,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 20,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/queryAdminIdentityReadModels",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "queryAdminIdentityReadModels",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "secretEnvironmentVariables": [
+            {
+              "key": "GUEST_ACTION_TOKEN_SECRET",
+              "secret": "GUEST_ACTION_TOKEN_SECRET",
+              "projectId": "demo-ski-school-e2e"
+            }
+          ],
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-callable": "true"
+        }
+      }
+    },
+    "queryAdminPlannerReadModels": {
+      "endpoint": {
+        "id": "queryAdminPlannerReadModels",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "queryAdminPlannerReadModels",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "callableTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET",
+            "secret": "GUEST_ACTION_TOKEN_SECRET",
+            "projectId": "demo-ski-school-e2e"
+          }
+        ],
+        "ingressSettings": null,
+        "availableMemoryMb": null,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 20,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/queryAdminPlannerReadModels",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "queryAdminPlannerReadModels",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "secretEnvironmentVariables": [
+            {
+              "key": "GUEST_ACTION_TOKEN_SECRET",
+              "secret": "GUEST_ACTION_TOKEN_SECRET",
+              "projectId": "demo-ski-school-e2e"
+            }
+          ],
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-callable": "true"
+        }
+      }
+    },
+    "queryInstructorOccupancyReadModels": {
+      "endpoint": {
+        "id": "queryInstructorOccupancyReadModels",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "queryInstructorOccupancyReadModels",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "callableTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET",
+            "secret": "GUEST_ACTION_TOKEN_SECRET",
+            "projectId": "demo-ski-school-e2e"
+          }
+        ],
+        "ingressSettings": null,
+        "availableMemoryMb": null,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 20,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/queryInstructorOccupancyReadModels",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "queryInstructorOccupancyReadModels",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "secretEnvironmentVariables": [
+            {
+              "key": "GUEST_ACTION_TOKEN_SECRET",
+              "secret": "GUEST_ACTION_TOKEN_SECRET",
+              "projectId": "demo-ski-school-e2e"
+            }
+          ],
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-callable": "true"
+        }
+      }
+    },
+    "queryParticipantOccupancyReadModels": {
+      "endpoint": {
+        "id": "queryParticipantOccupancyReadModels",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "queryParticipantOccupancyReadModels",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "callableTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET",
+            "secret": "GUEST_ACTION_TOKEN_SECRET",
+            "projectId": "demo-ski-school-e2e"
+          }
+        ],
+        "ingressSettings": null,
+        "availableMemoryMb": null,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 20,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/queryParticipantOccupancyReadModels",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "queryParticipantOccupancyReadModels",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "secretEnvironmentVariables": [
+            {
+              "key": "GUEST_ACTION_TOKEN_SECRET",
+              "secret": "GUEST_ACTION_TOKEN_SECRET",
+              "projectId": "demo-ski-school-e2e"
+            }
+          ],
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-callable": "true"
+        }
+      }
+    },
+    "queryBookingInstructorCatalogueReadModels": {
+      "endpoint": {
+        "id": "queryBookingInstructorCatalogueReadModels",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "queryBookingInstructorCatalogueReadModels",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "callableTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET",
+            "secret": "GUEST_ACTION_TOKEN_SECRET",
+            "projectId": "demo-ski-school-e2e"
+          }
+        ],
+        "ingressSettings": null,
+        "availableMemoryMb": null,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 20,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/queryBookingInstructorCatalogueReadModels",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "queryBookingInstructorCatalogueReadModels",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "secretEnvironmentVariables": [
+            {
+              "key": "GUEST_ACTION_TOKEN_SECRET",
+              "secret": "GUEST_ACTION_TOKEN_SECRET",
+              "projectId": "demo-ski-school-e2e"
+            }
+          ],
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-callable": "true"
+        }
+      }
+    },
+    "queryLessonPricingSettingsReadModel": {
+      "endpoint": {
+        "id": "queryLessonPricingSettingsReadModel",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "queryLessonPricingSettingsReadModel",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "callableTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET",
+            "secret": "GUEST_ACTION_TOKEN_SECRET",
+            "projectId": "demo-ski-school-e2e"
+          }
+        ],
+        "ingressSettings": null,
+        "availableMemoryMb": null,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 20,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/queryLessonPricingSettingsReadModel",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "queryLessonPricingSettingsReadModel",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "secretEnvironmentVariables": [
+            {
+              "key": "GUEST_ACTION_TOKEN_SECRET",
+              "secret": "GUEST_ACTION_TOKEN_SECRET",
+              "projectId": "demo-ski-school-e2e"
+            }
+          ],
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-callable": "true"
+        }
+      }
+    },
+    "queryEmailDeliverySettingsReadModel": {
+      "endpoint": {
+        "id": "queryEmailDeliverySettingsReadModel",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "queryEmailDeliverySettingsReadModel",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "callableTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET",
+            "secret": "GUEST_ACTION_TOKEN_SECRET",
+            "projectId": "demo-ski-school-e2e"
+          }
+        ],
+        "ingressSettings": null,
+        "availableMemoryMb": null,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 20,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/queryEmailDeliverySettingsReadModel",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "queryEmailDeliverySettingsReadModel",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "secretEnvironmentVariables": [
+            {
+              "key": "GUEST_ACTION_TOKEN_SECRET",
+              "secret": "GUEST_ACTION_TOKEN_SECRET",
+              "projectId": "demo-ski-school-e2e"
+            }
+          ],
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-callable": "true"
+        }
+      }
+    },
+    "queryOutboxDeadLetterReadModel": {
+      "endpoint": {
+        "id": "queryOutboxDeadLetterReadModel",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "queryOutboxDeadLetterReadModel",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "callableTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET",
+            "secret": "GUEST_ACTION_TOKEN_SECRET",
+            "projectId": "demo-ski-school-e2e"
+          }
+        ],
+        "ingressSettings": null,
+        "availableMemoryMb": null,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 20,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/queryOutboxDeadLetterReadModel",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "queryOutboxDeadLetterReadModel",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "secretEnvironmentVariables": [
+            {
+              "key": "GUEST_ACTION_TOKEN_SECRET",
+              "secret": "GUEST_ACTION_TOKEN_SECRET",
+              "projectId": "demo-ski-school-e2e"
+            }
+          ],
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-callable": "true"
+        }
+      }
+    },
+    "queryInstructorReviewReadModels": {
+      "endpoint": {
+        "id": "queryInstructorReviewReadModels",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "queryInstructorReviewReadModels",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "callableTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET",
+            "secret": "GUEST_ACTION_TOKEN_SECRET",
+            "projectId": "demo-ski-school-e2e"
+          }
+        ],
+        "ingressSettings": null,
+        "availableMemoryMb": null,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 20,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/queryInstructorReviewReadModels",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "queryInstructorReviewReadModels",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "secretEnvironmentVariables": [
+            {
+              "key": "GUEST_ACTION_TOKEN_SECRET",
+              "secret": "GUEST_ACTION_TOKEN_SECRET",
+              "projectId": "demo-ski-school-e2e"
+            }
+          ],
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-callable": "true"
+        }
+      }
+    },
+    "queryParticipantProgressReadModels": {
+      "endpoint": {
+        "id": "queryParticipantProgressReadModels",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "queryParticipantProgressReadModels",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "callableTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET",
+            "secret": "GUEST_ACTION_TOKEN_SECRET",
+            "projectId": "demo-ski-school-e2e"
+          }
+        ],
+        "ingressSettings": null,
+        "availableMemoryMb": null,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 20,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/queryParticipantProgressReadModels",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "queryParticipantProgressReadModels",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "secretEnvironmentVariables": [
+            {
+              "key": "GUEST_ACTION_TOKEN_SECRET",
+              "secret": "GUEST_ACTION_TOKEN_SECRET",
+              "projectId": "demo-ski-school-e2e"
+            }
+          ],
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-callable": "true"
+        }
+      }
+    },
+    "queryParticipantAchievementsReadModels": {
+      "endpoint": {
+        "id": "queryParticipantAchievementsReadModels",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "queryParticipantAchievementsReadModels",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "callableTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET",
+            "secret": "GUEST_ACTION_TOKEN_SECRET",
+            "projectId": "demo-ski-school-e2e"
+          }
+        ],
+        "ingressSettings": null,
+        "availableMemoryMb": null,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 20,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/queryParticipantAchievementsReadModels",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "queryParticipantAchievementsReadModels",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "secretEnvironmentVariables": [
+            {
+              "key": "GUEST_ACTION_TOKEN_SECRET",
+              "secret": "GUEST_ACTION_TOKEN_SECRET",
+              "projectId": "demo-ski-school-e2e"
+            }
+          ],
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-callable": "true"
+        }
+      }
+    },
+    "queryParticipantLessonFeedbackReadModels": {
+      "endpoint": {
+        "id": "queryParticipantLessonFeedbackReadModels",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "queryParticipantLessonFeedbackReadModels",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "callableTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET",
+            "secret": "GUEST_ACTION_TOKEN_SECRET",
+            "projectId": "demo-ski-school-e2e"
+          }
+        ],
+        "ingressSettings": null,
+        "availableMemoryMb": null,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 20,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/queryParticipantLessonFeedbackReadModels",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "queryParticipantLessonFeedbackReadModels",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "secretEnvironmentVariables": [
+            {
+              "key": "GUEST_ACTION_TOKEN_SECRET",
+              "secret": "GUEST_ACTION_TOKEN_SECRET",
+              "projectId": "demo-ski-school-e2e"
+            }
+          ],
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-callable": "true"
+        }
+      }
+    },
+    "queryTestSessionReadModels": {
+      "endpoint": {
+        "id": "queryTestSessionReadModels",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "queryTestSessionReadModels",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "callableTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET",
+            "secret": "GUEST_ACTION_TOKEN_SECRET",
+            "projectId": "demo-ski-school-e2e"
+          }
+        ],
+        "ingressSettings": null,
+        "availableMemoryMb": null,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 20,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/queryTestSessionReadModels",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "queryTestSessionReadModels",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "secretEnvironmentVariables": [
+            {
+              "key": "GUEST_ACTION_TOKEN_SECRET",
+              "secret": "GUEST_ACTION_TOKEN_SECRET",
+              "projectId": "demo-ski-school-e2e"
+            }
+          ],
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-callable": "true"
+        }
+      }
+    },
+    "executeTestSessionLifecycle": {
+      "endpoint": {
+        "id": "executeTestSessionLifecycle",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "executeTestSessionLifecycle",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "callableTrigger": {},
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "secretEnvironmentVariables": [
+          {
+            "key": "GUEST_ACTION_TOKEN_SECRET",
+            "secret": "GUEST_ACTION_TOKEN_SECRET",
+            "projectId": "demo-ski-school-e2e"
+          }
+        ],
+        "ingressSettings": null,
+        "availableMemoryMb": null,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 20,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/executeTestSessionLifecycle",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "executeTestSessionLifecycle",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "secretEnvironmentVariables": [
+            {
+              "key": "GUEST_ACTION_TOKEN_SECRET",
+              "secret": "GUEST_ACTION_TOKEN_SECRET",
+              "projectId": "demo-ski-school-e2e"
+            }
+          ],
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-callable": "true"
+        }
+      }
+    },
+    "deliverDomainOutboxOnCreate": {
+      "endpoint": {
+        "id": "deliverDomainOutboxOnCreate",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "deliverDomainOutboxOnCreate",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "eventTrigger": {
+          "eventType": "google.cloud.firestore.document.v1.created",
+          "retry": true,
+          "eventFilters": {
+            "database": "(default)",
+            "namespace": "(default)"
+          },
+          "eventFilterPathPatterns": {
+            "document": "domain_outbox/{outboxId}"
+          }
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "ingressSettings": null,
+        "availableMemoryMb": 256,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 10,
+        "minInstances": null,
+        "concurrency": null,
+        "cpu": 1,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/deliverDomainOutboxOnCreate",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "deliverDomainOutboxOnCreate",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 10,
+          "maxInstanceRequestConcurrency": null,
+          "availableCpu": "1",
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null,
+          "environmentVariables": {
+            "FUNCTION_SIGNATURE_TYPE": "cloudevent"
+          }
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "eventTrigger": {
+          "eventType": "google.cloud.firestore.document.v1.created",
+          "retryPolicy": "RETRY_POLICY_RETRY",
+          "eventFilters": [
+            {
+              "attribute": "database",
+              "value": "(default)"
+            },
+            {
+              "attribute": "namespace",
+              "value": "(default)"
+            },
+            {
+              "attribute": "document",
+              "value": "domain_outbox/{outboxId}",
+              "operator": "match-path-pattern"
+            }
+          ]
+        }
+      }
+    },
+    "scheduledDeliverDomainOutbox": {
+      "endpoint": {
+        "id": "scheduledDeliverDomainOutbox",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "scheduledDeliverDomainOutbox",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "scheduleTrigger": {
+          "schedule": "every 30 minutes",
+          "timeZone": "UTC",
+          "retryConfig": {}
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "ingressSettings": null,
+        "availableMemoryMb": 256,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 1,
+        "minInstances": null,
+        "concurrency": null,
+        "cpu": "gcf_gen1",
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/scheduledDeliverDomainOutbox",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "scheduledDeliverDomainOutbox",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 1,
+          "maxInstanceRequestConcurrency": null,
+          "availableCpu": "gcf_gen1",
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-scheduled": "true"
+        }
+      },
+      "scheduler": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/jobs/firebase-schedule-scheduledDeliverDomainOutbox-us-central1",
+        "timeZone": "UTC",
+        "httpTarget": {
+          "httpMethod": "POST",
+          "oidcToken": {
+            "serviceAccountEmail": "123456789-compute@developer.gserviceaccount.com"
+          }
+        },
+        "schedule": "every 30 minutes"
+      }
+    },
+    "scheduledPurgeExpiredNotifications": {
+      "endpoint": {
+        "id": "scheduledPurgeExpiredNotifications",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "scheduledPurgeExpiredNotifications",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "scheduleTrigger": {
+          "schedule": "every 24 hours",
+          "timeZone": "Asia/Almaty",
+          "retryConfig": {}
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "ingressSettings": null,
+        "availableMemoryMb": null,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 20,
+        "minInstances": null,
+        "concurrency": null,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/scheduledPurgeExpiredNotifications",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "scheduledPurgeExpiredNotifications",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": null,
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-scheduled": "true"
+        }
+      },
+      "scheduler": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/jobs/firebase-schedule-scheduledPurgeExpiredNotifications-us-central1",
+        "timeZone": "Asia/Almaty",
+        "httpTarget": {
+          "httpMethod": "POST",
+          "oidcToken": {
+            "serviceAccountEmail": "123456789-compute@developer.gserviceaccount.com"
+          }
+        },
+        "schedule": "every 24 hours"
+      }
+    },
+    "scheduledReconcileGuestConfirmationMismatches": {
+      "endpoint": {
+        "id": "scheduledReconcileGuestConfirmationMismatches",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "scheduledReconcileGuestConfirmationMismatches",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "scheduleTrigger": {
+          "schedule": "every 5 minutes",
+          "timeZone": "UTC",
+          "retryConfig": {}
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "ingressSettings": null,
+        "availableMemoryMb": 256,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 1,
+        "minInstances": null,
+        "concurrency": null,
+        "cpu": "gcf_gen1",
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/scheduledReconcileGuestConfirmationMismatches",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "scheduledReconcileGuestConfirmationMismatches",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 1,
+          "maxInstanceRequestConcurrency": null,
+          "availableCpu": "gcf_gen1",
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-scheduled": "true"
+        }
+      },
+      "scheduler": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/jobs/firebase-schedule-scheduledReconcileGuestConfirmationMismatches-us-central1",
+        "timeZone": "UTC",
+        "httpTarget": {
+          "httpMethod": "POST",
+          "oidcToken": {
+            "serviceAccountEmail": "123456789-compute@developer.gserviceaccount.com"
+          }
+        },
+        "schedule": "every 5 minutes"
+      }
+    },
+    "syncInstructorLessonRevenueBooking": {
+      "endpoint": {
+        "id": "syncInstructorLessonRevenueBooking",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "syncInstructorLessonRevenueBooking",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "eventTrigger": {
+          "eventType": "google.cloud.firestore.document.v1.written",
+          "retry": true,
+          "eventFilters": {
+            "database": "(default)",
+            "namespace": "(default)"
+          },
+          "eventFilterPathPatterns": {
+            "document": "bookings/{bookingId}"
+          }
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "ingressSettings": null,
+        "availableMemoryMb": 256,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 10,
+        "minInstances": null,
+        "concurrency": null,
+        "cpu": 1,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/syncInstructorLessonRevenueBooking",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "syncInstructorLessonRevenueBooking",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 10,
+          "maxInstanceRequestConcurrency": null,
+          "availableCpu": "1",
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null,
+          "environmentVariables": {
+            "FUNCTION_SIGNATURE_TYPE": "cloudevent"
+          }
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "eventTrigger": {
+          "eventType": "google.cloud.firestore.document.v1.written",
+          "retryPolicy": "RETRY_POLICY_RETRY",
+          "eventFilters": [
+            {
+              "attribute": "database",
+              "value": "(default)"
+            },
+            {
+              "attribute": "namespace",
+              "value": "(default)"
+            },
+            {
+              "attribute": "document",
+              "value": "bookings/{bookingId}",
+              "operator": "match-path-pattern"
+            }
+          ]
+        }
+      }
+    },
+    "syncInstructorLessonRevenuePayment": {
+      "endpoint": {
+        "id": "syncInstructorLessonRevenuePayment",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "syncInstructorLessonRevenuePayment",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "eventTrigger": {
+          "eventType": "google.cloud.firestore.document.v1.written",
+          "retry": true,
+          "eventFilters": {
+            "database": "(default)",
+            "namespace": "(default)"
+          },
+          "eventFilterPathPatterns": {
+            "document": "payments/{paymentId}"
+          }
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "ingressSettings": null,
+        "availableMemoryMb": 256,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 10,
+        "minInstances": null,
+        "concurrency": null,
+        "cpu": 1,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/syncInstructorLessonRevenuePayment",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "syncInstructorLessonRevenuePayment",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 10,
+          "maxInstanceRequestConcurrency": null,
+          "availableCpu": "1",
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null,
+          "environmentVariables": {
+            "FUNCTION_SIGNATURE_TYPE": "cloudevent"
+          }
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "eventTrigger": {
+          "eventType": "google.cloud.firestore.document.v1.written",
+          "retryPolicy": "RETRY_POLICY_RETRY",
+          "eventFilters": [
+            {
+              "attribute": "database",
+              "value": "(default)"
+            },
+            {
+              "attribute": "namespace",
+              "value": "(default)"
+            },
+            {
+              "attribute": "document",
+              "value": "payments/{paymentId}",
+              "operator": "match-path-pattern"
+            }
+          ]
+        }
+      }
+    },
+    "syncGuestBookingConfirmationWork": {
+      "endpoint": {
+        "id": "syncGuestBookingConfirmationWork",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "syncGuestBookingConfirmationWork",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "eventTrigger": {
+          "eventType": "google.cloud.firestore.document.v1.written",
+          "retry": true,
+          "eventFilters": {
+            "database": "(default)",
+            "namespace": "(default)"
+          },
+          "eventFilterPathPatterns": {
+            "document": "bookings/{bookingId}"
+          }
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "ingressSettings": null,
+        "availableMemoryMb": 256,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 10,
+        "minInstances": null,
+        "concurrency": null,
+        "cpu": 1,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/syncGuestBookingConfirmationWork",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "syncGuestBookingConfirmationWork",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 10,
+          "maxInstanceRequestConcurrency": null,
+          "availableCpu": "1",
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null,
+          "environmentVariables": {
+            "FUNCTION_SIGNATURE_TYPE": "cloudevent"
+          }
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "eventTrigger": {
+          "eventType": "google.cloud.firestore.document.v1.written",
+          "retryPolicy": "RETRY_POLICY_RETRY",
+          "eventFilters": [
+            {
+              "attribute": "database",
+              "value": "(default)"
+            },
+            {
+              "attribute": "namespace",
+              "value": "(default)"
+            },
+            {
+              "attribute": "document",
+              "value": "bookings/{bookingId}",
+              "operator": "match-path-pattern"
+            }
+          ]
+        }
+      }
+    },
+    "syncGuestEnrollmentConfirmationWork": {
+      "endpoint": {
+        "id": "syncGuestEnrollmentConfirmationWork",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "syncGuestEnrollmentConfirmationWork",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "eventTrigger": {
+          "eventType": "google.cloud.firestore.document.v1.written",
+          "retry": true,
+          "eventFilters": {
+            "database": "(default)",
+            "namespace": "(default)"
+          },
+          "eventFilterPathPatterns": {
+            "document": "course_enrollments/{enrollmentId}"
+          }
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "ingressSettings": null,
+        "availableMemoryMb": 256,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 10,
+        "minInstances": null,
+        "concurrency": null,
+        "cpu": 1,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/syncGuestEnrollmentConfirmationWork",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "syncGuestEnrollmentConfirmationWork",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 10,
+          "maxInstanceRequestConcurrency": null,
+          "availableCpu": "1",
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null,
+          "environmentVariables": {
+            "FUNCTION_SIGNATURE_TYPE": "cloudevent"
+          }
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "eventTrigger": {
+          "eventType": "google.cloud.firestore.document.v1.written",
+          "retryPolicy": "RETRY_POLICY_RETRY",
+          "eventFilters": [
+            {
+              "attribute": "database",
+              "value": "(default)"
+            },
+            {
+              "attribute": "namespace",
+              "value": "(default)"
+            },
+            {
+              "attribute": "document",
+              "value": "course_enrollments/{enrollmentId}",
+              "operator": "match-path-pattern"
+            }
+          ]
+        }
+      }
+    },
+    "syncGuestPaymentConfirmationWork": {
+      "endpoint": {
+        "id": "syncGuestPaymentConfirmationWork",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "syncGuestPaymentConfirmationWork",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "eventTrigger": {
+          "eventType": "google.cloud.firestore.document.v1.written",
+          "retry": true,
+          "eventFilters": {
+            "database": "(default)",
+            "namespace": "(default)"
+          },
+          "eventFilterPathPatterns": {
+            "document": "payments/{paymentId}"
+          }
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "ingressSettings": null,
+        "availableMemoryMb": 256,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 10,
+        "minInstances": null,
+        "concurrency": null,
+        "cpu": 1,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/syncGuestPaymentConfirmationWork",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "syncGuestPaymentConfirmationWork",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 10,
+          "maxInstanceRequestConcurrency": null,
+          "availableCpu": "1",
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null,
+          "environmentVariables": {
+            "FUNCTION_SIGNATURE_TYPE": "cloudevent"
+          }
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "eventTrigger": {
+          "eventType": "google.cloud.firestore.document.v1.written",
+          "retryPolicy": "RETRY_POLICY_RETRY",
+          "eventFilters": [
+            {
+              "attribute": "database",
+              "value": "(default)"
+            },
+            {
+              "attribute": "namespace",
+              "value": "(default)"
+            },
+            {
+              "attribute": "document",
+              "value": "payments/{paymentId}",
+              "operator": "match-path-pattern"
+            }
+          ]
+        }
+      }
+    },
+    "scheduledExpireGuestLessonReservations": {
+      "endpoint": {
+        "id": "scheduledExpireGuestLessonReservations",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "scheduledExpireGuestLessonReservations",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "scheduleTrigger": {
+          "schedule": "every 5 minutes",
+          "timeZone": "UTC",
+          "retryConfig": {}
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "ingressSettings": null,
+        "availableMemoryMb": 256,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 1,
+        "minInstances": null,
+        "concurrency": null,
+        "cpu": "gcf_gen1",
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/scheduledExpireGuestLessonReservations",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "scheduledExpireGuestLessonReservations",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 1,
+          "maxInstanceRequestConcurrency": null,
+          "availableCpu": "gcf_gen1",
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-scheduled": "true"
+        }
+      },
+      "scheduler": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/jobs/firebase-schedule-scheduledExpireGuestLessonReservations-us-central1",
+        "timeZone": "UTC",
+        "httpTarget": {
+          "httpMethod": "POST",
+          "oidcToken": {
+            "serviceAccountEmail": "123456789-compute@developer.gserviceaccount.com"
+          }
+        },
+        "schedule": "every 5 minutes"
+      }
+    },
+    "scheduledExpireGuestCourseReservations": {
+      "endpoint": {
+        "id": "scheduledExpireGuestCourseReservations",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "scheduledExpireGuestCourseReservations",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "scheduleTrigger": {
+          "schedule": "every 5 minutes",
+          "timeZone": "UTC",
+          "retryConfig": {}
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "ingressSettings": null,
+        "availableMemoryMb": 256,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 1,
+        "minInstances": null,
+        "concurrency": null,
+        "cpu": "gcf_gen1",
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/scheduledExpireGuestCourseReservations",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "scheduledExpireGuestCourseReservations",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 1,
+          "maxInstanceRequestConcurrency": null,
+          "availableCpu": "gcf_gen1",
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-scheduled": "true"
+        }
+      },
+      "scheduler": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/jobs/firebase-schedule-scheduledExpireGuestCourseReservations-us-central1",
+        "timeZone": "UTC",
+        "httpTarget": {
+          "httpMethod": "POST",
+          "oidcToken": {
+            "serviceAccountEmail": "123456789-compute@developer.gserviceaccount.com"
+          }
+        },
+        "schedule": "every 5 minutes"
+      }
+    },
+    "scheduledResolveLessonBookingAttendanceOutcomes": {
+      "endpoint": {
+        "id": "scheduledResolveLessonBookingAttendanceOutcomes",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "scheduledResolveLessonBookingAttendanceOutcomes",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "scheduleTrigger": {
+          "schedule": "every 5 minutes",
+          "timeZone": "UTC",
+          "retryConfig": {}
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "ingressSettings": null,
+        "availableMemoryMb": 256,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 1,
+        "minInstances": null,
+        "concurrency": null,
+        "cpu": "gcf_gen1",
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/scheduledResolveLessonBookingAttendanceOutcomes",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "scheduledResolveLessonBookingAttendanceOutcomes",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 1,
+          "maxInstanceRequestConcurrency": null,
+          "availableCpu": "gcf_gen1",
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-scheduled": "true"
+        }
+      },
+      "scheduler": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/jobs/firebase-schedule-scheduledResolveLessonBookingAttendanceOutcomes-us-central1",
+        "timeZone": "UTC",
+        "httpTarget": {
+          "httpMethod": "POST",
+          "oidcToken": {
+            "serviceAccountEmail": "123456789-compute@developer.gserviceaccount.com"
+          }
+        },
+        "schedule": "every 5 minutes"
+      }
+    },
+    "scheduledResolveCourseEnrollmentOutcomes": {
+      "endpoint": {
+        "id": "scheduledResolveCourseEnrollmentOutcomes",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "scheduledResolveCourseEnrollmentOutcomes",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "scheduleTrigger": {
+          "schedule": "every 5 minutes",
+          "timeZone": "UTC",
+          "retryConfig": {}
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "ingressSettings": null,
+        "availableMemoryMb": 256,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 1,
+        "minInstances": null,
+        "concurrency": null,
+        "cpu": "gcf_gen1",
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/scheduledResolveCourseEnrollmentOutcomes",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "scheduledResolveCourseEnrollmentOutcomes",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 1,
+          "maxInstanceRequestConcurrency": null,
+          "availableCpu": "gcf_gen1",
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true",
+          "deployment-scheduled": "true"
+        }
+      },
+      "scheduler": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/jobs/firebase-schedule-scheduledResolveCourseEnrollmentOutcomes-us-central1",
+        "timeZone": "UTC",
+        "httpTarget": {
+          "httpMethod": "POST",
+          "oidcToken": {
+            "serviceAccountEmail": "123456789-compute@developer.gserviceaccount.com"
+          }
+        },
+        "schedule": "every 5 minutes"
+      }
+    },
+    "syncLessonBookingAttendanceOutcomeWork": {
+      "endpoint": {
+        "id": "syncLessonBookingAttendanceOutcomeWork",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "syncLessonBookingAttendanceOutcomeWork",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "eventTrigger": {
+          "eventType": "google.cloud.firestore.document.v1.written",
+          "retry": true,
+          "eventFilters": {
+            "database": "(default)",
+            "namespace": "(default)"
+          },
+          "eventFilterPathPatterns": {
+            "document": "bookings/{bookingId}"
+          }
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "ingressSettings": null,
+        "availableMemoryMb": 256,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 10,
+        "minInstances": null,
+        "concurrency": null,
+        "cpu": 1,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/syncLessonBookingAttendanceOutcomeWork",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "syncLessonBookingAttendanceOutcomeWork",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 10,
+          "maxInstanceRequestConcurrency": null,
+          "availableCpu": "1",
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null,
+          "environmentVariables": {
+            "FUNCTION_SIGNATURE_TYPE": "cloudevent"
+          }
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "eventTrigger": {
+          "eventType": "google.cloud.firestore.document.v1.written",
+          "retryPolicy": "RETRY_POLICY_RETRY",
+          "eventFilters": [
+            {
+              "attribute": "database",
+              "value": "(default)"
+            },
+            {
+              "attribute": "namespace",
+              "value": "(default)"
+            },
+            {
+              "attribute": "document",
+              "value": "bookings/{bookingId}",
+              "operator": "match-path-pattern"
+            }
+          ]
+        }
+      }
+    },
+    "syncCourseEnrollmentOutcomeWork": {
+      "endpoint": {
+        "id": "syncCourseEnrollmentOutcomeWork",
+        "project": "demo-ski-school-e2e",
+        "region": "us-central1",
+        "entryPoint": "syncCourseEnrollmentOutcomeWork",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "eventTrigger": {
+          "eventType": "google.cloud.firestore.document.v1.written",
+          "retry": true,
+          "eventFilters": {
+            "database": "(default)",
+            "namespace": "(default)"
+          },
+          "eventFilterPathPatterns": {
+            "document": "course_enrollments/{enrollmentId}"
+          }
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "ingressSettings": null,
+        "availableMemoryMb": 256,
+        "serviceAccount": null,
+        "timeoutSeconds": null,
+        "maxInstances": 10,
+        "minInstances": null,
+        "concurrency": null,
+        "cpu": 1,
+        "vpc": null
+      },
+      "function": {
+        "name": "projects/demo-ski-school-e2e/locations/us-central1/functions/syncCourseEnrollmentOutcomeWork",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "syncCourseEnrollmentOutcomeWork",
+          "source": {},
+          "environmentVariables": {}
+        },
+        "serviceConfig": {
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": null,
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 10,
+          "maxInstanceRequestConcurrency": null,
+          "availableCpu": "1",
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null,
+          "environmentVariables": {
+            "FUNCTION_SIGNATURE_TYPE": "cloudevent"
+          }
+        },
+        "labels": {
+          "commit_sha": "1e7ca6f093e2b7ffa27a93fd74679726965ad970",
+          "commit_dirty": "true"
+        },
+        "eventTrigger": {
+          "eventType": "google.cloud.firestore.document.v1.written",
+          "retryPolicy": "RETRY_POLICY_RETRY",
+          "eventFilters": [
+            {
+              "attribute": "database",
+              "value": "(default)"
+            },
+            {
+              "attribute": "namespace",
+              "value": "(default)"
+            },
+            {
+              "attribute": "document",
+              "value": "course_enrollments/{enrollmentId}",
+              "operator": "match-path-pattern"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

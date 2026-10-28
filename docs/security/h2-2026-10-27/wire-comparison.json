@@ -1,0 +1,880 @@
+{
+  "manifestEqual": true,
+  "endpointsEqual": true,
+  "literalWireEqual": false,
+  "baselineCli": "13.35.1",
+  "updatedCli": "15.34.1",
+  "functionCount": 50,
+  "defaultSchedulerAccount": "offline demo fixture, not a deployed IAM lookup",
+  "deltas": [
+    {
+      "path": "wire.optimizeImage.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.optimizeImage.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.optimizeImage.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.bookingChatMedia.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.bookingChatMedia.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.bookingChatMedia.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.claimGuestProfile.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.claimGuestProfile.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.claimGuestProfile.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.reportClientErrors.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.reportClientErrors.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.reportClientErrors.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.executeCanonicalCommand.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.executeCanonicalCommand.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.executeCanonicalCommand.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.executeGuestCanonicalCommand.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.executeGuestCanonicalCommand.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.executeGuestCanonicalCommand.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryLessonBookingReadModels.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.queryLessonBookingReadModels.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryLessonBookingReadModels.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryManagedParticipantPickerReadModels.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.queryManagedParticipantPickerReadModels.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryManagedParticipantPickerReadModels.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryBookingProposalReadModels.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.queryBookingProposalReadModels.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryBookingProposalReadModels.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryBookingChangeRequestReadModels.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.queryBookingChangeRequestReadModels.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryBookingChangeRequestReadModels.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryParticipantInstructorAccessReadModels.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.queryParticipantInstructorAccessReadModels.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryParticipantInstructorAccessReadModels.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryCourseEnrollmentReadModels.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.queryCourseEnrollmentReadModels.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryCourseEnrollmentReadModels.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryCourseCatalogReadModels.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.queryCourseCatalogReadModels.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryCourseCatalogReadModels.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryCourseAttendanceReadModels.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.queryCourseAttendanceReadModels.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryCourseAttendanceReadModels.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryInstructorCourseAssignmentReadModels.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.queryInstructorCourseAssignmentReadModels.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryInstructorCourseAssignmentReadModels.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryAdminIssueReadModels.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.queryAdminIssueReadModels.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryAdminIssueReadModels.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryAdminFinanceReadModels.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.queryAdminFinanceReadModels.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryAdminFinanceReadModels.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryAccountWalletHistory.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.queryAccountWalletHistory.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryAccountWalletHistory.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.resolveInstructorLessonRevenue.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.resolveInstructorLessonRevenue.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.resolveInstructorLessonRevenue.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryAdminCourseReadModels.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.queryAdminCourseReadModels.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryAdminCourseReadModels.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryAdminCourseEnrollmentReadModels.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.queryAdminCourseEnrollmentReadModels.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryAdminCourseEnrollmentReadModels.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryAdminIdentityReadModels.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.queryAdminIdentityReadModels.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryAdminIdentityReadModels.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryAdminPlannerReadModels.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.queryAdminPlannerReadModels.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryAdminPlannerReadModels.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryInstructorOccupancyReadModels.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.queryInstructorOccupancyReadModels.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryInstructorOccupancyReadModels.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryParticipantOccupancyReadModels.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.queryParticipantOccupancyReadModels.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryParticipantOccupancyReadModels.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryBookingInstructorCatalogueReadModels.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.queryBookingInstructorCatalogueReadModels.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryBookingInstructorCatalogueReadModels.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryLessonPricingSettingsReadModel.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.queryLessonPricingSettingsReadModel.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryLessonPricingSettingsReadModel.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryEmailDeliverySettingsReadModel.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.queryEmailDeliverySettingsReadModel.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryEmailDeliverySettingsReadModel.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryOutboxDeadLetterReadModel.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.queryOutboxDeadLetterReadModel.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryOutboxDeadLetterReadModel.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryInstructorReviewReadModels.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.queryInstructorReviewReadModels.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryInstructorReviewReadModels.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryParticipantProgressReadModels.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.queryParticipantProgressReadModels.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryParticipantProgressReadModels.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryParticipantAchievementsReadModels.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.queryParticipantAchievementsReadModels.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryParticipantAchievementsReadModels.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryParticipantLessonFeedbackReadModels.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.queryParticipantLessonFeedbackReadModels.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryParticipantLessonFeedbackReadModels.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryTestSessionReadModels.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.queryTestSessionReadModels.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.queryTestSessionReadModels.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.executeTestSessionLifecycle.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.executeTestSessionLifecycle.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.executeTestSessionLifecycle.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.deliverDomainOutboxOnCreate.function.serviceConfig.environmentVariables.FUNCTION_REGION",
+      "before": "(absent)",
+      "after": "us-central1"
+    },
+    {
+      "path": "wire.deliverDomainOutboxOnCreate.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.deliverDomainOutboxOnCreate.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.scheduledDeliverDomainOutbox.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.scheduledDeliverDomainOutbox.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.scheduledDeliverDomainOutbox.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.scheduledDeliverDomainOutbox.scheduler.attemptDeadline",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.scheduledPurgeExpiredNotifications.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.scheduledPurgeExpiredNotifications.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.scheduledPurgeExpiredNotifications.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.scheduledPurgeExpiredNotifications.scheduler.attemptDeadline",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.scheduledReconcileGuestConfirmationMismatches.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.scheduledReconcileGuestConfirmationMismatches.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.scheduledReconcileGuestConfirmationMismatches.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.scheduledReconcileGuestConfirmationMismatches.scheduler.attemptDeadline",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.syncInstructorLessonRevenueBooking.function.serviceConfig.environmentVariables.FUNCTION_REGION",
+      "before": "(absent)",
+      "after": "us-central1"
+    },
+    {
+      "path": "wire.syncInstructorLessonRevenueBooking.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.syncInstructorLessonRevenueBooking.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.syncInstructorLessonRevenuePayment.function.serviceConfig.environmentVariables.FUNCTION_REGION",
+      "before": "(absent)",
+      "after": "us-central1"
+    },
+    {
+      "path": "wire.syncInstructorLessonRevenuePayment.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.syncInstructorLessonRevenuePayment.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.syncGuestBookingConfirmationWork.function.serviceConfig.environmentVariables.FUNCTION_REGION",
+      "before": "(absent)",
+      "after": "us-central1"
+    },
+    {
+      "path": "wire.syncGuestBookingConfirmationWork.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.syncGuestBookingConfirmationWork.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.syncGuestEnrollmentConfirmationWork.function.serviceConfig.environmentVariables.FUNCTION_REGION",
+      "before": "(absent)",
+      "after": "us-central1"
+    },
+    {
+      "path": "wire.syncGuestEnrollmentConfirmationWork.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.syncGuestEnrollmentConfirmationWork.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.syncGuestPaymentConfirmationWork.function.serviceConfig.environmentVariables.FUNCTION_REGION",
+      "before": "(absent)",
+      "after": "us-central1"
+    },
+    {
+      "path": "wire.syncGuestPaymentConfirmationWork.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.syncGuestPaymentConfirmationWork.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.scheduledExpireGuestLessonReservations.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.scheduledExpireGuestLessonReservations.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.scheduledExpireGuestLessonReservations.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.scheduledExpireGuestLessonReservations.scheduler.attemptDeadline",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.scheduledExpireGuestCourseReservations.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.scheduledExpireGuestCourseReservations.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.scheduledExpireGuestCourseReservations.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.scheduledExpireGuestCourseReservations.scheduler.attemptDeadline",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.scheduledResolveLessonBookingAttendanceOutcomes.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.scheduledResolveLessonBookingAttendanceOutcomes.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.scheduledResolveLessonBookingAttendanceOutcomes.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.scheduledResolveLessonBookingAttendanceOutcomes.scheduler.attemptDeadline",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.scheduledResolveCourseEnrollmentOutcomes.function.serviceConfig.environmentVariables",
+      "before": "(absent)",
+      "after": {
+        "FUNCTION_REGION": "us-central1"
+      }
+    },
+    {
+      "path": "wire.scheduledResolveCourseEnrollmentOutcomes.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.scheduledResolveCourseEnrollmentOutcomes.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.scheduledResolveCourseEnrollmentOutcomes.scheduler.attemptDeadline",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.syncLessonBookingAttendanceOutcomeWork.function.serviceConfig.environmentVariables.FUNCTION_REGION",
+      "before": "(absent)",
+      "after": "us-central1"
+    },
+    {
+      "path": "wire.syncLessonBookingAttendanceOutcomeWork.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.syncLessonBookingAttendanceOutcomeWork.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.syncCourseEnrollmentOutcomeWork.function.serviceConfig.environmentVariables.FUNCTION_REGION",
+      "before": "(absent)",
+      "after": "us-central1"
+    },
+    {
+      "path": "wire.syncCourseEnrollmentOutcomeWork.function.serviceConfig.directVpcNetworkInterface",
+      "before": "(absent)",
+      "after": null
+    },
+    {
+      "path": "wire.syncCourseEnrollmentOutcomeWork.function.serviceConfig.directVpcEgress",
+      "before": "(absent)",
+      "after": null
+    }
+  ]
+}

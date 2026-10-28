@@ -22,9 +22,14 @@ describe('official startup feature public subpaths', () => {
     ['src/app/AppBootstrap.tsx', '../features/profile/runtime'],
     ['src/app/AppShell.tsx', '../features/auth/session'],
     ['src/app/routes/HomeRouteContainer.tsx', '../../features/profile/instructors'],
-  ])('allows the public API %s → %s', async (filePath, importPath) => {
-    expect(await violations(filePath, importPath)).toEqual([]);
-  });
+  ])(
+    'allows the public API %s → %s',
+    async (filePath, importPath) => {
+      expect(await violations(filePath, importPath)).toEqual([]);
+    },
+    // Loading the real ESLint configuration is a cold start under V8 coverage.
+    30_000
+  );
 
   it.each([
     '../../features/student-cabinet/useNavbarParticipantSwitcher',

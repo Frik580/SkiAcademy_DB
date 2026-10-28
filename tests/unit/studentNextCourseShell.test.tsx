@@ -866,33 +866,38 @@ describe('live account session boundaries without reload', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it('moves family lessons into and out of Current Sessions and advances the next countdown', () => {
-    vi.useRealTimers();
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-10-02T08:59:59Z'));
-    const props = countdownProps([
-      upcomingLesson('first_live', ['a', 'b'], '14:00'),
-      upcomingLesson('second_live', ['b'], '15:00'),
-    ]);
-    const { unmount } = setup(props);
-    expect(screen.queryByText('scCurrentSessions')).not.toBeInTheDocument();
-    act(() => vi.advanceTimersByTime(1000));
-    expect(currentCards()).toHaveLength(1);
-    expect(currentPeople(currentCards()[0] as HTMLElement).textContent).toBe(
-      'Alice Full NameBob Full Name'
-    );
-    expect(screen.getByText('scCountdownToSession')).toBeInTheDocument();
-    act(() => vi.advanceTimersByTime(3_600_000));
-    expect(currentCards()).toHaveLength(1);
-    expect(
-      within(currentCards()[0] as HTMLElement).getByText('Coach second_live')
-    ).toBeInTheDocument();
-    expect(screen.queryByText('scCountdownToSession')).not.toBeInTheDocument();
-    act(() => vi.advanceTimersByTime(3_600_000));
-    expect(screen.queryByText('scCurrentSessions')).not.toBeInTheDocument();
-    unmount();
-    expect(vi.getTimerCount()).toBe(0);
-  });
+  // Advancing two hours executes thousands of clock ticks under V8 coverage.
+  it(
+    'moves family lessons into and out of Current Sessions and advances the next countdown',
+    { timeout: 30_000 },
+    () => {
+      vi.useRealTimers();
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-10-02T08:59:59Z'));
+      const props = countdownProps([
+        upcomingLesson('first_live', ['a', 'b'], '14:00'),
+        upcomingLesson('second_live', ['b'], '15:00'),
+      ]);
+      const { unmount } = setup(props);
+      expect(screen.queryByText('scCurrentSessions')).not.toBeInTheDocument();
+      act(() => vi.advanceTimersByTime(1000));
+      expect(currentCards()).toHaveLength(1);
+      expect(currentPeople(currentCards()[0] as HTMLElement).textContent).toBe(
+        'Alice Full NameBob Full Name'
+      );
+      expect(screen.getByText('scCountdownToSession')).toBeInTheDocument();
+      act(() => vi.advanceTimersByTime(3_600_000));
+      expect(currentCards()).toHaveLength(1);
+      expect(
+        within(currentCards()[0] as HTMLElement).getByText('Coach second_live')
+      ).toBeInTheDocument();
+      expect(screen.queryByText('scCountdownToSession')).not.toBeInTheDocument();
+      act(() => vi.advanceTimersByTime(3_600_000));
+      expect(screen.queryByText('scCurrentSessions')).not.toBeInTheDocument();
+      unmount();
+      expect(vi.getTimerCount()).toBe(0);
+    }
+  );
 });
 
 describe('account-level current sessions through the real header', () => {

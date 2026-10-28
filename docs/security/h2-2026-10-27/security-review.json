@@ -1,0 +1,54 @@
+{
+  "review": "independent security/code review",
+  "result": "PASS for dependency remediation; deployment gates remain blocked",
+  "scope": [
+    "package.json",
+    "package-lock.json",
+    "functions/package.json",
+    "functions/package-lock.json",
+    "packages/shared-domain/package.json",
+    "functions/shared-domain/package.json",
+    "functions/scripts/syncSharedDomain.cjs",
+    "vitest.config.ts",
+    "scripts/snapshotFunctionsWire.cjs",
+    ".github/workflows/ci.yml"
+  ],
+  "confirmed": [
+    "Both production audits and complete Functions audit have zero advisories",
+    "Five Moderate dev entries represent OpenTelemetry and UUID primary advisories",
+    "HTTPS registry URLs; Node 22 compatibility; Firebase client retained at 12.16.0",
+    "50 SDK discovery endpoints and numeric source caps preserved",
+    "Node/jsdom split and Firestore egress protection retained",
+    "Final awaited Scheduler fixture avoids Compute API calls in offline capture",
+    "JSON roundtrip matches SDK discovery boundary without hiding literal wire differences",
+    "Targeted follow-up review: only two removed Vitest 4 --minWorkers flags; maxWorkers=1, budgets and guards preserved",
+    "GHSA set comparison independently checked: root 75 closed, UUID remains, OpenTelemetry newly introduced as Moderate dev-only; Functions all 5 primary advisories closed"
+  ],
+  "resolvedFindings": [
+    {
+      "file": "vitest.config.ts",
+      "issue": "Broad Node include patterns discovered helper files as suites",
+      "resolution": "Dedicated test-file include patterns, retaining broad app excludes"
+    }
+  ],
+  "limitations": [
+    "No certification of then-pending emulator/E2E tests",
+    "Offline snapshots do not certify full deployment prepare or deployed IAM parity"
+  ],
+  "releaseGates": [
+    "H2-WIRE: literal serializer changes and full operational comparison",
+    "H2-PROD-SCOPE: production runtime/export set differs from current source"
+  ],
+  "hashes": {
+    "package.json": "0f0993490bcb239e151ee5123e16a2f4870af5395d0c15908e0e8523cf992f66",
+    "package-lock.json": "6e6da631b0a5b087d079fa00af7f222262e7d83be6c2cc23bb856a86be8fbaed",
+    "functions/package.json": "5a90df37a29e67eab0fc8ba9f4258617e3061324119aff3e2f292b5087b11ecb",
+    "functions/package-lock.json": "d8d8f7e5cd09c1c9931f4a3478fc508d6afec4910aa3f19ed038cd3f93b83ccc",
+    "packages/shared-domain/package.json": "d603cec6aee163b5c4ef4e66e8436dd397857ee9d101d30f1d564cde0aa35cd9",
+    "functions/shared-domain/package.json": "f6b0bde8314d66707478d4748c79f8f7c756d43b69138f6d28954b2cd517bf52",
+    "functions/scripts/syncSharedDomain.cjs": "1afaff08888fbe527e1f8cde4cf4d045f47c9a9dabaa13ee2ac230aec41a7da9",
+    "vitest.config.ts": "16a22c47ba0111b91cc2cb4fa7b8d2202dcb30c27be8ae919b3353270ca9e85c",
+    "scripts/snapshotFunctionsWire.cjs": "d6bcfd57733a8e5e5404da4cf1728700582a23da4980f367d29e77a9327d6dd5",
+    ".github/workflows/ci.yml": "4efca39bf031dc797cf74a15d8a49d63246b5f36c5057864ac78e4664fb12b07"
+  }
+}

@@ -28,6 +28,19 @@ const COVERAGE_EXCLUDE = [
   'src/lib/useBookingChatUnread.ts',
 ];
 
+const NODE_TESTS = [
+  'tests/callable/**',
+  'tests/integration/**',
+  'tests/firestore.rules.test.ts',
+  'tests/storage.rules.test.ts',
+];
+
+const NODE_TEST_INCLUDES = [
+  'tests/{callable,integration}/**/*.{test,spec}.?(c|m)[jt]s?(x)',
+  'tests/firestore.rules.test.ts',
+  'tests/storage.rules.test.ts',
+];
+
 export default defineConfig({
   resolve: {
     alias: {
@@ -63,14 +76,14 @@ export default defineConfig({
     // Bound CPU-heavy jsdom/V8 work on large hosts while retaining Vitest's
     // usual one-CPU reserve on smaller runners.
     maxWorkers: Math.max(1, Math.min(4, availableParallelism() - 1)),
-    minWorkers: 1,
     exclude: [...configDefaults.exclude, '.scratch/**', '**/.worktrees/**'],
     environment: 'jsdom',
-    environmentMatchGlobs: [
-      ['tests/callable/**', 'node'],
-      ['tests/integration/**', 'node'],
-      ['tests/firestore.rules.test.ts', 'node'],
-      ['tests/storage.rules.test.ts', 'node'],
+    projects: [
+      { extends: true, test: { name: 'app', exclude: NODE_TESTS } },
+      {
+        extends: true,
+        test: { name: 'firebase', environment: 'node', include: NODE_TEST_INCLUDES },
+      },
     ],
     globals: true,
     setupFiles: ['./tests/setup.ts'],

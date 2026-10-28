@@ -123,8 +123,8 @@ jobs:
   functions-emulator:
     name: Functions emulator suite
     runs-on: ubuntu-latest
-    # Measured suites total ~38 minutes locally; also allow dependency setup/build.
-    timeout-minutes: 45
+    # Measured suites total ~48 minutes locally; also allow dependency setup/build.
+    timeout-minutes: 60
     permissions:
       contents: read
     env:
@@ -151,7 +151,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          node node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --project demo-ski-school-e2e --only auth,firestore,storage "npm run test:functions:emulator -- --exclude=**/dataResetAuthorization.emulator.test.ts --maxWorkers=1 --minWorkers=1 --reporter=default --reporter=json --outputFile=functions-emulator-results.json" 2>&1 | tee functions-emulator-suite.log
+          node node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --project demo-ski-school-e2e --only auth,firestore,storage "npm run test:functions:emulator -- --exclude=**/dataResetAuthorization.emulator.test.ts --maxWorkers=1 --reporter=default --reporter=json --outputFile=functions-emulator-results.json" 2>&1 | tee functions-emulator-suite.log
       - name: Require executed Attendance migration guard and CLI regressions
         shell: bash
         run: |
@@ -182,7 +182,7 @@ jobs:
           set -o pipefail
           # Authorization/resume performs repeated complete inventories and runs only here,
           # under the existing rehearsal budget, rather than the general 30-second suite.
-          node node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --project demo-ski-school-e2e --only auth,firestore,storage "node scripts/runVitest.mjs --require-emulators=auth,firestore,storage --config functions/vitest.config.ts functions/src/maintenance/dataResetAuthorization.emulator.test.ts functions/src/maintenance/dataReset.emulator.test.ts functions/src/maintenance/dataResetLiveFixtures.emulator.test.ts functions/src/canonical/guestConfirmation/guestConfirmationWork.emulator.test.ts --no-file-parallelism --maxWorkers=1 --minWorkers=1 --testTimeout=90000 --hookTimeout=60000 --reporter=default --reporter=json --outputFile=reset-emulator-results.json" 2>&1 | tee reset-emulator-suite.log
+          node node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --project demo-ski-school-e2e --only auth,firestore,storage "node scripts/runVitest.mjs --require-emulators=auth,firestore,storage --config functions/vitest.config.ts functions/src/maintenance/dataResetAuthorization.emulator.test.ts functions/src/maintenance/dataReset.emulator.test.ts functions/src/maintenance/dataResetLiveFixtures.emulator.test.ts functions/src/canonical/guestConfirmation/guestConfirmationWork.emulator.test.ts --no-file-parallelism --maxWorkers=1 --testTimeout=90000 --hookTimeout=60000 --reporter=default --reporter=json --outputFile=reset-emulator-results.json" 2>&1 | tee reset-emulator-suite.log
       - name: Require executed reset and Guest Confirmation regressions
         shell: bash
         run: |

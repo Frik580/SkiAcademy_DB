@@ -1,0 +1,4148 @@
+{
+  "readAt": "2026-10-28T08:26:08.565Z",
+  "readOnly": true,
+  "cliBefore": "13.35.1",
+  "cliAfter": "15.34.1",
+  "manifestEqual": true,
+  "endpointsEqual": true,
+  "sourceRuntime": "nodejs22",
+  "numericSourceCaps": 50,
+  "nullMaxInstanceCounts": 0,
+  "literalWireEqual": false,
+  "wireChanges": [
+    {
+      "field": "FUNCTION_REGION",
+      "functions": 50,
+      "change": "added; value us-central1"
+    },
+    {
+      "field": "directVpcNetworkInterface",
+      "functions": 50,
+      "change": "absent -> null"
+    },
+    {
+      "field": "directVpcEgress",
+      "functions": 50,
+      "change": "absent -> null"
+    },
+    {
+      "field": "Scheduler attemptDeadline",
+      "jobs": 7,
+      "change": "absent -> null"
+    }
+  ],
+  "envComparison": {
+    "localDotenvKeys": [],
+    "oldNewUserEnvsEqual": true,
+    "oldNewGeneratedFirebaseEnvsEqual": true,
+    "existingValuesExported": false
+  },
+  "limitations": [
+    "Offline exported prepare helpers only; full prepare is not invoked because it can enable APIs or change cloud resources.",
+    "Existing cloud env keys use sentinel values; actual cloud env values are not certified. Separate old/new local dotenv parsing returned no user env keys and identical generated Firebase env.",
+    "Actual CLI defaults (us-central1 vs REGION_TBD) are resolved against existing inventory; database location eur3 is an offline fixture inferred from matching Function/Eventarc trigger locations.",
+    "Scheduler account fixture comes from inventory; actual default-account resolution is not invoked. CLI fallback implementation was inspected.",
+    "No deploy performed; no post-deploy parity claim."
+  ],
+  "environments": {
+    "ski-school-staging": {
+      "readAt": "2026-10-28T07:53:19.057Z",
+      "deployedCount": 50,
+      "runtimes": {
+        "nodejs22": 50
+      },
+      "numericRuntimeFieldsMatch": true,
+      "sourceOnly": [],
+      "secretReferenceDrift": [],
+      "sourceSecretCount": 33,
+      "httpsAndSchedulerInvokerChecks": 42,
+      "invokerMismatches": [],
+      "eventarc": {
+        "regions": [
+          "eur3"
+        ],
+        "count": 8,
+        "complete": true
+      },
+      "eventFilterMismatches": [],
+      "eventRegionNotResolvedByPartialPrepare": [],
+      "eventRegionObserved": "eur3",
+      "eventDirectIamPolicies": [
+        {
+          "name": "deliverDomainOutboxOnCreate",
+          "members": [],
+          "note": "Inherited project/org IAM not evaluated; direct service bindings only."
+        },
+        {
+          "name": "syncInstructorLessonRevenueBooking",
+          "members": [],
+          "note": "Inherited project/org IAM not evaluated; direct service bindings only."
+        },
+        {
+          "name": "syncInstructorLessonRevenuePayment",
+          "members": [],
+          "note": "Inherited project/org IAM not evaluated; direct service bindings only."
+        },
+        {
+          "name": "syncGuestBookingConfirmationWork",
+          "members": [],
+          "note": "Inherited project/org IAM not evaluated; direct service bindings only."
+        },
+        {
+          "name": "syncGuestEnrollmentConfirmationWork",
+          "members": [],
+          "note": "Inherited project/org IAM not evaluated; direct service bindings only."
+        },
+        {
+          "name": "syncGuestPaymentConfirmationWork",
+          "members": [],
+          "note": "Inherited project/org IAM not evaluated; direct service bindings only."
+        },
+        {
+          "name": "syncLessonBookingAttendanceOutcomeWork",
+          "members": [],
+          "note": "Inherited project/org IAM not evaluated; direct service bindings only."
+        },
+        {
+          "name": "syncCourseEnrollmentOutcomeWork",
+          "members": [],
+          "note": "Inherited project/org IAM not evaluated; direct service bindings only."
+        }
+      ],
+      "runIam": {
+        "count": 50,
+        "complete": true,
+        "public": 35
+      },
+      "networkConfigured": [],
+      "scheduler": {
+        "count": 7,
+        "deadlines": [
+          "180s"
+        ],
+        "scheduleTimezoneAccountMismatches": [],
+        "audienceOmittedByBothSerializers": [
+          "scheduledDeliverDomainOutbox",
+          "scheduledPurgeExpiredNotifications",
+          "scheduledReconcileGuestConfirmationMismatches",
+          "scheduledExpireGuestLessonReservations",
+          "scheduledExpireGuestCourseReservations",
+          "scheduledResolveLessonBookingAttendanceOutcomes",
+          "scheduledResolveCourseEnrollmentOutcomes"
+        ]
+      },
+      "perFunction": [
+        {
+          "name": "optimizeImage",
+          "source": {
+            "max": 10,
+            "min": 0,
+            "memory": "512Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 10,
+            "min": 0,
+            "memory": "512Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "bookingChatMedia",
+          "source": {
+            "max": 10,
+            "min": 0,
+            "memory": "512Mi",
+            "timeout": 120,
+            "concurrency": 1,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 10,
+            "min": 0,
+            "memory": "512Mi",
+            "timeout": 120,
+            "concurrency": 1,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "claimGuestProfile",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "reportClientErrors",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "executeCanonicalCommand",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "executeGuestCanonicalCommand",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryLessonBookingReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryManagedParticipantPickerReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryBookingProposalReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryBookingChangeRequestReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryParticipantInstructorAccessReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryCourseEnrollmentReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryCourseCatalogReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryCourseAttendanceReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryInstructorCourseAssignmentReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryAdminIssueReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryAdminFinanceReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryAccountWalletHistory",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "resolveInstructorLessonRevenue",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryAdminCourseReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryAdminCourseEnrollmentReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryAdminIdentityReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryAdminPlannerReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryInstructorOccupancyReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryParticipantOccupancyReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryBookingInstructorCatalogueReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryLessonPricingSettingsReadModel",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryEmailDeliverySettingsReadModel",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryOutboxDeadLetterReadModel",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryInstructorReviewReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryParticipantProgressReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryParticipantAchievementsReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryParticipantLessonFeedbackReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryTestSessionReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "executeTestSessionLifecycle",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "deliverDomainOutboxOnCreate",
+          "source": {
+            "max": 10,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 10,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "scheduledDeliverDomainOutbox",
+          "source": {
+            "max": 1,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 1,
+            "cpu": 0.1666,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 1,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 1,
+            "cpu": 0.1666,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "scheduledPurgeExpiredNotifications",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "scheduledReconcileGuestConfirmationMismatches",
+          "source": {
+            "max": 1,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 1,
+            "cpu": 0.1666,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 1,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 1,
+            "cpu": 0.1666,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "syncInstructorLessonRevenueBooking",
+          "source": {
+            "max": 10,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 10,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "syncInstructorLessonRevenuePayment",
+          "source": {
+            "max": 10,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 10,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "syncGuestBookingConfirmationWork",
+          "source": {
+            "max": 10,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 10,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "syncGuestEnrollmentConfirmationWork",
+          "source": {
+            "max": 10,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 10,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "syncGuestPaymentConfirmationWork",
+          "source": {
+            "max": 10,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 10,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "scheduledExpireGuestLessonReservations",
+          "source": {
+            "max": 1,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 1,
+            "cpu": 0.1666,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 1,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 1,
+            "cpu": 0.1666,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "scheduledExpireGuestCourseReservations",
+          "source": {
+            "max": 1,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 1,
+            "cpu": 0.1666,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 1,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 1,
+            "cpu": 0.1666,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "scheduledResolveLessonBookingAttendanceOutcomes",
+          "source": {
+            "max": 1,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 1,
+            "cpu": 0.1666,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 1,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 1,
+            "cpu": 0.1666,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "scheduledResolveCourseEnrollmentOutcomes",
+          "source": {
+            "max": 1,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 1,
+            "cpu": 0.1666,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 1,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 1,
+            "cpu": 0.1666,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "syncLessonBookingAttendanceOutcomeWork",
+          "source": {
+            "max": 10,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 10,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "syncCourseEnrollmentOutcomeWork",
+          "source": {
+            "max": 10,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 10,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "numericRuntimeDifferences": [],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        }
+      ]
+    },
+    "ski-school-8f3ca": {
+      "readAt": "2026-10-28T07:53:57.553Z",
+      "deployedCount": 43,
+      "runtimes": {
+        "nodejs20": 43
+      },
+      "numericRuntimeFieldsMatch": true,
+      "sourceOnly": [
+        "bookingChatMedia",
+        "claimGuestProfile",
+        "reportClientErrors",
+        "queryAccountWalletHistory",
+        "resolveInstructorLessonRevenue",
+        "syncInstructorLessonRevenueBooking",
+        "syncInstructorLessonRevenuePayment"
+      ],
+      "secretReferenceDrift": [
+        "queryManagedParticipantPickerReadModels",
+        "queryBookingProposalReadModels",
+        "queryBookingChangeRequestReadModels",
+        "queryParticipantInstructorAccessReadModels",
+        "queryCourseCatalogReadModels",
+        "queryCourseAttendanceReadModels",
+        "queryInstructorCourseAssignmentReadModels",
+        "queryAdminIssueReadModels",
+        "queryAdminFinanceReadModels",
+        "queryAdminCourseReadModels",
+        "queryAdminCourseEnrollmentReadModels",
+        "queryAdminIdentityReadModels",
+        "queryAdminPlannerReadModels",
+        "queryInstructorOccupancyReadModels",
+        "queryParticipantOccupancyReadModels",
+        "queryBookingInstructorCatalogueReadModels",
+        "queryLessonPricingSettingsReadModel",
+        "queryEmailDeliverySettingsReadModel",
+        "queryOutboxDeadLetterReadModel",
+        "queryInstructorReviewReadModels",
+        "queryParticipantProgressReadModels",
+        "queryParticipantAchievementsReadModels",
+        "queryParticipantLessonFeedbackReadModels",
+        "queryTestSessionReadModels",
+        "executeTestSessionLifecycle"
+      ],
+      "sourceSecretCount": 33,
+      "httpsAndSchedulerInvokerChecks": 37,
+      "invokerMismatches": [],
+      "eventarc": {
+        "regions": [
+          "eur3"
+        ],
+        "count": 6,
+        "complete": true
+      },
+      "eventFilterMismatches": [],
+      "eventRegionNotResolvedByPartialPrepare": [],
+      "eventRegionObserved": "eur3",
+      "eventDirectIamPolicies": [
+        {
+          "name": "deliverDomainOutboxOnCreate",
+          "members": [],
+          "note": "Inherited project/org IAM not evaluated; direct service bindings only."
+        },
+        {
+          "name": "syncGuestBookingConfirmationWork",
+          "members": [],
+          "note": "Inherited project/org IAM not evaluated; direct service bindings only."
+        },
+        {
+          "name": "syncGuestEnrollmentConfirmationWork",
+          "members": [],
+          "note": "Inherited project/org IAM not evaluated; direct service bindings only."
+        },
+        {
+          "name": "syncGuestPaymentConfirmationWork",
+          "members": [],
+          "note": "Inherited project/org IAM not evaluated; direct service bindings only."
+        },
+        {
+          "name": "syncLessonBookingAttendanceOutcomeWork",
+          "members": [],
+          "note": "Inherited project/org IAM not evaluated; direct service bindings only."
+        },
+        {
+          "name": "syncCourseEnrollmentOutcomeWork",
+          "members": [],
+          "note": "Inherited project/org IAM not evaluated; direct service bindings only."
+        }
+      ],
+      "runIam": {
+        "count": 43,
+        "complete": true,
+        "public": 30
+      },
+      "networkConfigured": [],
+      "scheduler": {
+        "count": 7,
+        "deadlines": [
+          "180s"
+        ],
+        "scheduleTimezoneAccountMismatches": [],
+        "audienceOmittedByBothSerializers": [
+          "scheduledDeliverDomainOutbox",
+          "scheduledPurgeExpiredNotifications",
+          "scheduledReconcileGuestConfirmationMismatches",
+          "scheduledExpireGuestLessonReservations",
+          "scheduledExpireGuestCourseReservations",
+          "scheduledResolveLessonBookingAttendanceOutcomes",
+          "scheduledResolveCourseEnrollmentOutcomes"
+        ]
+      },
+      "perFunction": [
+        {
+          "name": "optimizeImage",
+          "source": {
+            "max": 10,
+            "min": 0,
+            "memory": "512Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 10,
+            "min": 0,
+            "memory": "512Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "bookingChatMedia",
+          "source": {
+            "max": 10,
+            "min": 0,
+            "memory": "512Mi",
+            "timeout": 120,
+            "concurrency": 1,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": null,
+          "numericRuntimeDifferences": [
+            {
+              "path": "export",
+              "before": "(absent)",
+              "after": "new"
+            }
+          ],
+          "secretReferenceDifferences": null,
+          "environmentKeys": [
+            "FUNCTION_REGION"
+          ]
+        },
+        {
+          "name": "claimGuestProfile",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": null,
+          "numericRuntimeDifferences": [
+            {
+              "path": "export",
+              "before": "(absent)",
+              "after": "new"
+            }
+          ],
+          "secretReferenceDifferences": null,
+          "environmentKeys": [
+            "FUNCTION_REGION"
+          ]
+        },
+        {
+          "name": "reportClientErrors",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": null,
+          "numericRuntimeDifferences": [
+            {
+              "path": "export",
+              "before": "(absent)",
+              "after": "new"
+            }
+          ],
+          "secretReferenceDifferences": null,
+          "environmentKeys": [
+            "FUNCTION_REGION"
+          ]
+        },
+        {
+          "name": "executeCanonicalCommand",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "executeGuestCanonicalCommand",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryLessonBookingReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryManagedParticipantPickerReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [
+            {
+              "path": "",
+              "before": [],
+              "after": [
+                {
+                  "key": "GUEST_ACTION_TOKEN_SECRET",
+                  "secret": "GUEST_ACTION_TOKEN_SECRET",
+                  "projectId": "ski-school-8f3ca"
+                }
+              ]
+            }
+          ],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryBookingProposalReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [
+            {
+              "path": "",
+              "before": [],
+              "after": [
+                {
+                  "key": "GUEST_ACTION_TOKEN_SECRET",
+                  "secret": "GUEST_ACTION_TOKEN_SECRET",
+                  "projectId": "ski-school-8f3ca"
+                }
+              ]
+            }
+          ],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryBookingChangeRequestReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [
+            {
+              "path": "",
+              "before": [],
+              "after": [
+                {
+                  "key": "GUEST_ACTION_TOKEN_SECRET",
+                  "secret": "GUEST_ACTION_TOKEN_SECRET",
+                  "projectId": "ski-school-8f3ca"
+                }
+              ]
+            }
+          ],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryParticipantInstructorAccessReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [
+            {
+              "path": "",
+              "before": [],
+              "after": [
+                {
+                  "key": "GUEST_ACTION_TOKEN_SECRET",
+                  "secret": "GUEST_ACTION_TOKEN_SECRET",
+                  "projectId": "ski-school-8f3ca"
+                }
+              ]
+            }
+          ],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryCourseEnrollmentReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryCourseCatalogReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [
+            {
+              "path": "",
+              "before": [],
+              "after": [
+                {
+                  "key": "GUEST_ACTION_TOKEN_SECRET",
+                  "secret": "GUEST_ACTION_TOKEN_SECRET",
+                  "projectId": "ski-school-8f3ca"
+                }
+              ]
+            }
+          ],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryCourseAttendanceReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [
+            {
+              "path": "",
+              "before": [],
+              "after": [
+                {
+                  "key": "GUEST_ACTION_TOKEN_SECRET",
+                  "secret": "GUEST_ACTION_TOKEN_SECRET",
+                  "projectId": "ski-school-8f3ca"
+                }
+              ]
+            }
+          ],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryInstructorCourseAssignmentReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [
+            {
+              "path": "",
+              "before": [],
+              "after": [
+                {
+                  "key": "GUEST_ACTION_TOKEN_SECRET",
+                  "secret": "GUEST_ACTION_TOKEN_SECRET",
+                  "projectId": "ski-school-8f3ca"
+                }
+              ]
+            }
+          ],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryAdminIssueReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [
+            {
+              "path": "",
+              "before": [],
+              "after": [
+                {
+                  "key": "GUEST_ACTION_TOKEN_SECRET",
+                  "secret": "GUEST_ACTION_TOKEN_SECRET",
+                  "projectId": "ski-school-8f3ca"
+                }
+              ]
+            }
+          ],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryAdminFinanceReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [
+            {
+              "path": "",
+              "before": [],
+              "after": [
+                {
+                  "key": "GUEST_ACTION_TOKEN_SECRET",
+                  "secret": "GUEST_ACTION_TOKEN_SECRET",
+                  "projectId": "ski-school-8f3ca"
+                }
+              ]
+            }
+          ],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryAccountWalletHistory",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": null,
+          "numericRuntimeDifferences": [
+            {
+              "path": "export",
+              "before": "(absent)",
+              "after": "new"
+            }
+          ],
+          "secretReferenceDifferences": null,
+          "environmentKeys": [
+            "FUNCTION_REGION"
+          ]
+        },
+        {
+          "name": "resolveInstructorLessonRevenue",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": null,
+          "numericRuntimeDifferences": [
+            {
+              "path": "export",
+              "before": "(absent)",
+              "after": "new"
+            }
+          ],
+          "secretReferenceDifferences": null,
+          "environmentKeys": [
+            "FUNCTION_REGION"
+          ]
+        },
+        {
+          "name": "queryAdminCourseReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [
+            {
+              "path": "",
+              "before": [],
+              "after": [
+                {
+                  "key": "GUEST_ACTION_TOKEN_SECRET",
+                  "secret": "GUEST_ACTION_TOKEN_SECRET",
+                  "projectId": "ski-school-8f3ca"
+                }
+              ]
+            }
+          ],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryAdminCourseEnrollmentReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [
+            {
+              "path": "",
+              "before": [],
+              "after": [
+                {
+                  "key": "GUEST_ACTION_TOKEN_SECRET",
+                  "secret": "GUEST_ACTION_TOKEN_SECRET",
+                  "projectId": "ski-school-8f3ca"
+                }
+              ]
+            }
+          ],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryAdminIdentityReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [
+            {
+              "path": "",
+              "before": [],
+              "after": [
+                {
+                  "key": "GUEST_ACTION_TOKEN_SECRET",
+                  "secret": "GUEST_ACTION_TOKEN_SECRET",
+                  "projectId": "ski-school-8f3ca"
+                }
+              ]
+            }
+          ],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryAdminPlannerReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [
+            {
+              "path": "",
+              "before": [],
+              "after": [
+                {
+                  "key": "GUEST_ACTION_TOKEN_SECRET",
+                  "secret": "GUEST_ACTION_TOKEN_SECRET",
+                  "projectId": "ski-school-8f3ca"
+                }
+              ]
+            }
+          ],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryInstructorOccupancyReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [
+            {
+              "path": "",
+              "before": [],
+              "after": [
+                {
+                  "key": "GUEST_ACTION_TOKEN_SECRET",
+                  "secret": "GUEST_ACTION_TOKEN_SECRET",
+                  "projectId": "ski-school-8f3ca"
+                }
+              ]
+            }
+          ],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryParticipantOccupancyReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [
+            {
+              "path": "",
+              "before": [],
+              "after": [
+                {
+                  "key": "GUEST_ACTION_TOKEN_SECRET",
+                  "secret": "GUEST_ACTION_TOKEN_SECRET",
+                  "projectId": "ski-school-8f3ca"
+                }
+              ]
+            }
+          ],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryBookingInstructorCatalogueReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [
+            {
+              "path": "",
+              "before": [],
+              "after": [
+                {
+                  "key": "GUEST_ACTION_TOKEN_SECRET",
+                  "secret": "GUEST_ACTION_TOKEN_SECRET",
+                  "projectId": "ski-school-8f3ca"
+                }
+              ]
+            }
+          ],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryLessonPricingSettingsReadModel",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [
+            {
+              "path": "",
+              "before": [],
+              "after": [
+                {
+                  "key": "GUEST_ACTION_TOKEN_SECRET",
+                  "secret": "GUEST_ACTION_TOKEN_SECRET",
+                  "projectId": "ski-school-8f3ca"
+                }
+              ]
+            }
+          ],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryEmailDeliverySettingsReadModel",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [
+            {
+              "path": "",
+              "before": [],
+              "after": [
+                {
+                  "key": "GUEST_ACTION_TOKEN_SECRET",
+                  "secret": "GUEST_ACTION_TOKEN_SECRET",
+                  "projectId": "ski-school-8f3ca"
+                }
+              ]
+            }
+          ],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryOutboxDeadLetterReadModel",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [
+            {
+              "path": "",
+              "before": [],
+              "after": [
+                {
+                  "key": "GUEST_ACTION_TOKEN_SECRET",
+                  "secret": "GUEST_ACTION_TOKEN_SECRET",
+                  "projectId": "ski-school-8f3ca"
+                }
+              ]
+            }
+          ],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryInstructorReviewReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [
+            {
+              "path": "",
+              "before": [],
+              "after": [
+                {
+                  "key": "GUEST_ACTION_TOKEN_SECRET",
+                  "secret": "GUEST_ACTION_TOKEN_SECRET",
+                  "projectId": "ski-school-8f3ca"
+                }
+              ]
+            }
+          ],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryParticipantProgressReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [
+            {
+              "path": "",
+              "before": [],
+              "after": [
+                {
+                  "key": "GUEST_ACTION_TOKEN_SECRET",
+                  "secret": "GUEST_ACTION_TOKEN_SECRET",
+                  "projectId": "ski-school-8f3ca"
+                }
+              ]
+            }
+          ],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryParticipantAchievementsReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [
+            {
+              "path": "",
+              "before": [],
+              "after": [
+                {
+                  "key": "GUEST_ACTION_TOKEN_SECRET",
+                  "secret": "GUEST_ACTION_TOKEN_SECRET",
+                  "projectId": "ski-school-8f3ca"
+                }
+              ]
+            }
+          ],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryParticipantLessonFeedbackReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [
+            {
+              "path": "",
+              "before": [],
+              "after": [
+                {
+                  "key": "GUEST_ACTION_TOKEN_SECRET",
+                  "secret": "GUEST_ACTION_TOKEN_SECRET",
+                  "projectId": "ski-school-8f3ca"
+                }
+              ]
+            }
+          ],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "queryTestSessionReadModels",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [
+            {
+              "path": "",
+              "before": [],
+              "after": [
+                {
+                  "key": "GUEST_ACTION_TOKEN_SECRET",
+                  "secret": "GUEST_ACTION_TOKEN_SECRET",
+                  "projectId": "ski-school-8f3ca"
+                }
+              ]
+            }
+          ],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "executeTestSessionLifecycle",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [
+            {
+              "path": "",
+              "before": [],
+              "after": [
+                {
+                  "key": "GUEST_ACTION_TOKEN_SECRET",
+                  "secret": "GUEST_ACTION_TOKEN_SECRET",
+                  "projectId": "ski-school-8f3ca"
+                }
+              ]
+            }
+          ],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "deliverDomainOutboxOnCreate",
+          "source": {
+            "max": 10,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 10,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "scheduledDeliverDomainOutbox",
+          "source": {
+            "max": 1,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 1,
+            "cpu": 0.1666,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 1,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 1,
+            "cpu": 0.1666,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "scheduledPurgeExpiredNotifications",
+          "source": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 20,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "scheduledReconcileGuestConfirmationMismatches",
+          "source": {
+            "max": 1,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 1,
+            "cpu": 0.1666,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 1,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 1,
+            "cpu": 0.1666,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "syncInstructorLessonRevenueBooking",
+          "source": {
+            "max": 10,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": null,
+          "numericRuntimeDifferences": [
+            {
+              "path": "export",
+              "before": "(absent)",
+              "after": "new"
+            }
+          ],
+          "secretReferenceDifferences": null,
+          "environmentKeys": [
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE"
+          ]
+        },
+        {
+          "name": "syncInstructorLessonRevenuePayment",
+          "source": {
+            "max": 10,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": null,
+          "numericRuntimeDifferences": [
+            {
+              "path": "export",
+              "before": "(absent)",
+              "after": "new"
+            }
+          ],
+          "secretReferenceDifferences": null,
+          "environmentKeys": [
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE"
+          ]
+        },
+        {
+          "name": "syncGuestBookingConfirmationWork",
+          "source": {
+            "max": 10,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 10,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "syncGuestEnrollmentConfirmationWork",
+          "source": {
+            "max": 10,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 10,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "syncGuestPaymentConfirmationWork",
+          "source": {
+            "max": 10,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 10,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "scheduledExpireGuestLessonReservations",
+          "source": {
+            "max": 1,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 1,
+            "cpu": 0.1666,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 1,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 1,
+            "cpu": 0.1666,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "scheduledExpireGuestCourseReservations",
+          "source": {
+            "max": 1,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 1,
+            "cpu": 0.1666,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 1,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 1,
+            "cpu": 0.1666,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "scheduledResolveLessonBookingAttendanceOutcomes",
+          "source": {
+            "max": 1,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 1,
+            "cpu": 0.1666,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 1,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 1,
+            "cpu": 0.1666,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "scheduledResolveCourseEnrollmentOutcomes",
+          "source": {
+            "max": 1,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 1,
+            "cpu": 0.1666,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 1,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 1,
+            "cpu": 0.1666,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "syncLessonBookingAttendanceOutcomeWork",
+          "source": {
+            "max": 10,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 10,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        },
+        {
+          "name": "syncCourseEnrollmentOutcomeWork",
+          "source": {
+            "max": 10,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs22"
+          },
+          "deployed": {
+            "max": 10,
+            "min": 0,
+            "memory": "256Mi",
+            "timeout": 60,
+            "concurrency": 80,
+            "cpu": 1,
+            "region": "us-central1",
+            "runtime": "nodejs20"
+          },
+          "numericRuntimeDifferences": [
+            {
+              "path": "runtime",
+              "before": "nodejs20",
+              "after": "nodejs22"
+            }
+          ],
+          "secretReferenceDifferences": [],
+          "environmentKeys": [
+            "EVENTARC_CLOUD_EVENT_SOURCE",
+            "FIREBASE_CONFIG",
+            "FUNCTION_REGION",
+            "FUNCTION_SIGNATURE_TYPE",
+            "FUNCTION_TARGET",
+            "GCLOUD_PROJECT",
+            "LOG_EXECUTION_ID"
+          ]
+        }
+      ]
+    }
+  },
+  "snapshotHashes": {
+    "before": "9b4865336f4bbe50639088cb2d7b8f1711fd8c693fd0f0f107b9ece211745373",
+    "afterRecorded": "ad6f0f6bb3701b087995a7998ebdd2bbe84fab68bf689f8aa25653c4f01accb2",
+    "afterFresh": "3f5498667b083d2cdd9d3b5b90ab84bd946df94dae59392407db403aa893b589"
+  }
+}

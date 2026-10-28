@@ -40,7 +40,7 @@ const manifest = `${JSON.stringify(
         default: './dist/testing/index.js',
       },
     },
-    dependencies: { zod: '^4.4.3' },
+    dependencies: { zod: '^4.6.6' },
   },
   null,
   2

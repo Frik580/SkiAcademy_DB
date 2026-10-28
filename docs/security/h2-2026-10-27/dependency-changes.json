@@ -1,0 +1,1991 @@
+{
+  "root": [
+    {
+      "path": "node_modules/@ampproject/remapping",
+      "before": "2.3.0",
+      "after": null
+    },
+    {
+      "path": "node_modules/@apidevtools/json-schema-ref-parser/node_modules/argparse",
+      "before": "2.0.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/@apidevtools/json-schema-ref-parser/node_modules/js-yaml",
+      "before": "4.3.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/@bcoe/v8-coverage",
+      "before": "0.2.3",
+      "after": "1.0.2"
+    },
+    {
+      "path": "node_modules/@electric-sql/pglite",
+      "before": "0.2.17",
+      "after": "0.3.16"
+    },
+    {
+      "path": "node_modules/@esbuild/aix-ppc64",
+      "before": "0.21.5",
+      "after": "0.25.12"
+    },
+    {
+      "path": "node_modules/@esbuild/android-arm",
+      "before": "0.21.5",
+      "after": "0.25.12"
+    },
+    {
+      "path": "node_modules/@esbuild/android-arm64",
+      "before": "0.21.5",
+      "after": "0.25.12"
+    },
+    {
+      "path": "node_modules/@esbuild/android-x64",
+      "before": "0.21.5",
+      "after": "0.25.12"
+    },
+    {
+      "path": "node_modules/@esbuild/darwin-arm64",
+      "before": "0.21.5",
+      "after": "0.25.12"
+    },
+    {
+      "path": "node_modules/@esbuild/darwin-x64",
+      "before": "0.21.5",
+      "after": "0.25.12"
+    },
+    {
+      "path": "node_modules/@esbuild/freebsd-arm64",
+      "before": "0.21.5",
+      "after": "0.25.12"
+    },
+    {
+      "path": "node_modules/@esbuild/freebsd-x64",
+      "before": "0.21.5",
+      "after": "0.25.12"
+    },
+    {
+      "path": "node_modules/@esbuild/linux-arm",
+      "before": "0.21.5",
+      "after": "0.25.12"
+    },
+    {
+      "path": "node_modules/@esbuild/linux-arm64",
+      "before": "0.21.5",
+      "after": "0.25.12"
+    },
+    {
+      "path": "node_modules/@esbuild/linux-ia32",
+      "before": "0.21.5",
+      "after": "0.25.12"
+    },
+    {
+      "path": "node_modules/@esbuild/linux-loong64",
+      "before": "0.21.5",
+      "after": "0.25.12"
+    },
+    {
+      "path": "node_modules/@esbuild/linux-mips64el",
+      "before": "0.21.5",
+      "after": "0.25.12"
+    },
+    {
+      "path": "node_modules/@esbuild/linux-ppc64",
+      "before": "0.21.5",
+      "after": "0.25.12"
+    },
+    {
+      "path": "node_modules/@esbuild/linux-riscv64",
+      "before": "0.21.5",
+      "after": "0.25.12"
+    },
+    {
+      "path": "node_modules/@esbuild/linux-s390x",
+      "before": "0.21.5",
+      "after": "0.25.12"
+    },
+    {
+      "path": "node_modules/@esbuild/linux-x64",
+      "before": "0.21.5",
+      "after": "0.25.12"
+    },
+    {
+      "path": "node_modules/@esbuild/netbsd-x64",
+      "before": "0.21.5",
+      "after": "0.25.12"
+    },
+    {
+      "path": "node_modules/@esbuild/openbsd-x64",
+      "before": "0.21.5",
+      "after": "0.25.12"
+    },
+    {
+      "path": "node_modules/@esbuild/sunos-x64",
+      "before": "0.21.5",
+      "after": "0.25.12"
+    },
+    {
+      "path": "node_modules/@esbuild/win32-arm64",
+      "before": "0.21.5",
+      "after": "0.25.12"
+    },
+    {
+      "path": "node_modules/@esbuild/win32-ia32",
+      "before": "0.21.5",
+      "after": "0.25.12"
+    },
+    {
+      "path": "node_modules/@esbuild/win32-x64",
+      "before": "0.21.5",
+      "after": "0.25.12"
+    },
+    {
+      "path": "node_modules/@eslint/eslintrc/node_modules/argparse",
+      "before": "2.0.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/@eslint/eslintrc/node_modules/js-yaml",
+      "before": "4.3.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/@google-cloud/cloud-sql-connector/node_modules/data-uri-to-buffer",
+      "before": "4.0.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/@google-cloud/paginator",
+      "before": "5.0.2",
+      "after": "6.1.0"
+    },
+    {
+      "path": "node_modules/@google-cloud/precise-date",
+      "before": "4.0.0",
+      "after": "5.2.0"
+    },
+    {
+      "path": "node_modules/@google-cloud/projectify",
+      "before": "4.0.0",
+      "after": "5.2.0"
+    },
+    {
+      "path": "node_modules/@google-cloud/promisify",
+      "before": "4.0.0",
+      "after": "5.1.0"
+    },
+    {
+      "path": "node_modules/@google-cloud/pubsub",
+      "before": "4.11.0",
+      "after": "5.3.1"
+    },
+    {
+      "path": "node_modules/@grpc/grpc-js",
+      "before": "1.9.16",
+      "after": "1.14.5"
+    },
+    {
+      "path": "node_modules/@istanbuljs/schema",
+      "before": "0.1.6",
+      "after": null
+    },
+    {
+      "path": "node_modules/@opentelemetry/semantic-conventions",
+      "before": "1.30.0",
+      "after": "1.39.0"
+    },
+    {
+      "path": "node_modules/@tootallnate/once",
+      "before": "2.0.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/@tootallnate/quickjs-emscripten",
+      "before": "0.23.0",
+      "after": null
+    },
+    {
+      "path": "node_modules/@types/caseless",
+      "before": "0.12.5",
+      "after": null
+    },
+    {
+      "path": "node_modules/@types/long",
+      "before": "4.0.2",
+      "after": null
+    },
+    {
+      "path": "node_modules/@types/request",
+      "before": "2.48.13",
+      "after": null
+    },
+    {
+      "path": "node_modules/@types/request/node_modules/form-data",
+      "before": "2.5.6",
+      "after": null
+    },
+    {
+      "path": "node_modules/@types/tough-cookie",
+      "before": "4.0.5",
+      "after": null
+    },
+    {
+      "path": "node_modules/@typescript-eslint/typescript-estree/node_modules/brace-expansion",
+      "before": "5.0.9",
+      "after": "5.0.12"
+    },
+    {
+      "path": "node_modules/@vitest/coverage-v8",
+      "before": "2.1.9",
+      "after": "4.1.12"
+    },
+    {
+      "path": "node_modules/@vitest/expect",
+      "before": "2.1.9",
+      "after": "4.1.12"
+    },
+    {
+      "path": "node_modules/@vitest/mocker",
+      "before": "2.1.9",
+      "after": "4.1.12"
+    },
+    {
+      "path": "node_modules/@vitest/pretty-format",
+      "before": "2.1.9",
+      "after": "4.1.12"
+    },
+    {
+      "path": "node_modules/@vitest/runner",
+      "before": "2.1.9",
+      "after": "4.1.12"
+    },
+    {
+      "path": "node_modules/@vitest/snapshot",
+      "before": "2.1.9",
+      "after": "4.1.12"
+    },
+    {
+      "path": "node_modules/@vitest/spy",
+      "before": "2.1.9",
+      "after": "4.1.12"
+    },
+    {
+      "path": "node_modules/@vitest/utils",
+      "before": "2.1.9",
+      "after": "4.1.12"
+    },
+    {
+      "path": "node_modules/ansi-escapes",
+      "before": "4.3.2",
+      "after": null
+    },
+    {
+      "path": "node_modules/argparse",
+      "before": "1.0.10",
+      "after": "2.0.1"
+    },
+    {
+      "path": "node_modules/ast-types",
+      "before": "0.13.4",
+      "after": null
+    },
+    {
+      "path": "node_modules/basic-ftp",
+      "before": "5.3.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/body-parser",
+      "before": "1.20.6",
+      "after": "1.20.9"
+    },
+    {
+      "path": "node_modules/boxen/node_modules/type-fest",
+      "before": "0.20.2",
+      "after": null
+    },
+    {
+      "path": "node_modules/brace-expansion",
+      "before": "1.1.18",
+      "after": "1.1.21"
+    },
+    {
+      "path": "node_modules/cac",
+      "before": "6.7.14",
+      "after": null
+    },
+    {
+      "path": "node_modules/chai",
+      "before": "5.3.3",
+      "after": "6.3.0"
+    },
+    {
+      "path": "node_modules/check-error",
+      "before": "2.1.3",
+      "after": null
+    },
+    {
+      "path": "node_modules/chownr",
+      "before": "2.0.0",
+      "after": "3.0.0"
+    },
+    {
+      "path": "node_modules/cli-width",
+      "before": "3.0.0",
+      "after": "4.1.0"
+    },
+    {
+      "path": "node_modules/compression",
+      "before": "1.8.1",
+      "after": "1.8.2"
+    },
+    {
+      "path": "node_modules/csv-parse",
+      "before": "5.6.0",
+      "after": "7.0.3"
+    },
+    {
+      "path": "node_modules/data-uri-to-buffer",
+      "before": "6.0.2",
+      "after": "4.0.1"
+    },
+    {
+      "path": "node_modules/deep-eql",
+      "before": "5.0.2",
+      "after": null
+    },
+    {
+      "path": "node_modules/deep-equal-in-any-order",
+      "before": "2.2.0",
+      "after": null
+    },
+    {
+      "path": "node_modules/degenerator",
+      "before": "5.0.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/es-module-lexer",
+      "before": "1.7.0",
+      "after": "2.3.2"
+    },
+    {
+      "path": "node_modules/esbuild",
+      "before": "0.21.5",
+      "after": "0.25.12"
+    },
+    {
+      "path": "node_modules/escape-string-regexp",
+      "before": "1.0.5",
+      "after": null
+    },
+    {
+      "path": "node_modules/escodegen",
+      "before": "2.1.0",
+      "after": null
+    },
+    {
+      "path": "node_modules/esprima",
+      "before": "4.0.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/express",
+      "before": "4.22.2",
+      "after": "4.22.3"
+    },
+    {
+      "path": "node_modules/fast-uri",
+      "before": "3.1.5",
+      "after": "3.1.9"
+    },
+    {
+      "path": "node_modules/figures",
+      "before": "3.2.0",
+      "after": null
+    },
+    {
+      "path": "node_modules/filesize",
+      "before": "6.4.0",
+      "after": null
+    },
+    {
+      "path": "node_modules/firebase-tools",
+      "before": "13.35.1",
+      "after": "15.34.1"
+    },
+    {
+      "path": "node_modules/fs-minipass",
+      "before": "2.1.0",
+      "after": null
+    },
+    {
+      "path": "node_modules/fs-minipass/node_modules/minipass",
+      "before": "3.3.6",
+      "after": null
+    },
+    {
+      "path": "node_modules/fs-minipass/node_modules/yallist",
+      "before": "4.0.0",
+      "after": null
+    },
+    {
+      "path": "node_modules/gaxios/node_modules/node-fetch",
+      "before": "2.7.0",
+      "after": null
+    },
+    {
+      "path": "node_modules/gaxios/node_modules/uuid",
+      "before": "9.0.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/get-uri",
+      "before": "6.0.5",
+      "after": null
+    },
+    {
+      "path": "node_modules/glob/node_modules/brace-expansion",
+      "before": "2.1.4",
+      "after": "2.1.7"
+    },
+    {
+      "path": "node_modules/google-gax",
+      "before": "4.6.1",
+      "after": "5.0.8"
+    },
+    {
+      "path": "node_modules/google-gax/node_modules/@grpc/grpc-js",
+      "before": "1.14.4",
+      "after": null
+    },
+    {
+      "path": "node_modules/google-gax/node_modules/@grpc/grpc-js/node_modules/@grpc/proto-loader",
+      "before": "0.8.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/google-gax/node_modules/node-fetch",
+      "before": "2.7.0",
+      "after": "3.3.2"
+    },
+    {
+      "path": "node_modules/google-gax/node_modules/uuid",
+      "before": "9.0.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/google-logging-utils",
+      "before": "0.0.2",
+      "after": null
+    },
+    {
+      "path": "node_modules/googleapis-common/node_modules/data-uri-to-buffer",
+      "before": "4.0.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/inquirer",
+      "before": "8.2.7",
+      "after": null
+    },
+    {
+      "path": "node_modules/inquirer-autocomplete-prompt",
+      "before": "2.0.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/install-artifact-from-github",
+      "before": "1.7.0",
+      "after": "1.8.1"
+    },
+    {
+      "path": "node_modules/ip-address",
+      "before": "10.4.0",
+      "after": "10.7.5"
+    },
+    {
+      "path": "node_modules/is-buffer",
+      "before": "1.1.6",
+      "after": null
+    },
+    {
+      "path": "node_modules/is-number",
+      "before": "2.1.0",
+      "after": null
+    },
+    {
+      "path": "node_modules/istanbul-lib-source-maps",
+      "before": "5.0.6",
+      "after": null
+    },
+    {
+      "path": "node_modules/js-yaml",
+      "before": "3.15.1",
+      "after": "4.3.2"
+    },
+    {
+      "path": "node_modules/jsdom/node_modules/ws",
+      "before": "8.21.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/kind-of",
+      "before": "3.2.2",
+      "after": null
+    },
+    {
+      "path": "node_modules/leven",
+      "before": "3.1.0",
+      "after": null
+    },
+    {
+      "path": "node_modules/loupe",
+      "before": "3.2.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/lsofi",
+      "before": "1.0.0",
+      "after": "2.0.0"
+    },
+    {
+      "path": "node_modules/magicast",
+      "before": "0.3.5",
+      "after": "0.5.5"
+    },
+    {
+      "path": "node_modules/minizlib",
+      "before": "2.1.2",
+      "after": "3.1.0"
+    },
+    {
+      "path": "node_modules/minizlib/node_modules/minipass",
+      "before": "3.3.6",
+      "after": null
+    },
+    {
+      "path": "node_modules/minizlib/node_modules/yallist",
+      "before": "4.0.0",
+      "after": null
+    },
+    {
+      "path": "node_modules/mkdirp",
+      "before": "1.0.4",
+      "after": null
+    },
+    {
+      "path": "node_modules/morgan",
+      "before": "1.11.0",
+      "after": "1.12.1"
+    },
+    {
+      "path": "node_modules/mute-stream",
+      "before": "0.0.8",
+      "after": "2.0.0"
+    },
+    {
+      "path": "node_modules/nan",
+      "before": "2.28.0",
+      "after": "2.30.0"
+    },
+    {
+      "path": "node_modules/netmask",
+      "before": "2.1.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/node-fetch",
+      "before": "2.6.7",
+      "after": "2.7.0"
+    },
+    {
+      "path": "node_modules/node-gyp",
+      "before": "13.0.1",
+      "after": "13.1.0"
+    },
+    {
+      "path": "node_modules/node-gyp/node_modules/chownr",
+      "before": "3.0.0",
+      "after": null
+    },
+    {
+      "path": "node_modules/node-gyp/node_modules/minizlib",
+      "before": "3.1.0",
+      "after": null
+    },
+    {
+      "path": "node_modules/node-gyp/node_modules/tar",
+      "before": "7.5.22",
+      "after": null
+    },
+    {
+      "path": "node_modules/node-gyp/node_modules/undici",
+      "before": "8.9.0",
+      "after": "8.12.3"
+    },
+    {
+      "path": "node_modules/node-gyp/node_modules/yallist",
+      "before": "5.0.0",
+      "after": null
+    },
+    {
+      "path": "node_modules/pac-proxy-agent",
+      "before": "7.2.0",
+      "after": null
+    },
+    {
+      "path": "node_modules/pac-resolver",
+      "before": "7.0.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/pathe",
+      "before": "1.1.2",
+      "after": "2.0.3"
+    },
+    {
+      "path": "node_modules/pathval",
+      "before": "2.0.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/proto3-json-serializer",
+      "before": "2.0.2",
+      "after": "3.0.4"
+    },
+    {
+      "path": "node_modules/proxy-addr",
+      "before": "2.0.7",
+      "after": "2.0.8"
+    },
+    {
+      "path": "node_modules/proxy-agent",
+      "before": "6.5.0",
+      "after": null
+    },
+    {
+      "path": "node_modules/proxy-agent/node_modules/lru-cache",
+      "before": "7.18.3",
+      "after": null
+    },
+    {
+      "path": "node_modules/proxy-from-env",
+      "before": "1.1.0",
+      "after": null
+    },
+    {
+      "path": "node_modules/qs",
+      "before": "6.15.3",
+      "after": "6.16.1"
+    },
+    {
+      "path": "node_modules/re2",
+      "before": "1.26.1",
+      "after": "1.27.0"
+    },
+    {
+      "path": "node_modules/readdir-glob/node_modules/brace-expansion",
+      "before": "2.1.4",
+      "after": "2.1.7"
+    },
+    {
+      "path": "node_modules/retry-request",
+      "before": "7.0.2",
+      "after": "8.0.4"
+    },
+    {
+      "path": "node_modules/run-async",
+      "before": "2.4.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/rxjs",
+      "before": "7.8.2",
+      "after": null
+    },
+    {
+      "path": "node_modules/smart-buffer",
+      "before": "4.2.0",
+      "after": null
+    },
+    {
+      "path": "node_modules/socks",
+      "before": "2.8.9",
+      "after": null
+    },
+    {
+      "path": "node_modules/socks-proxy-agent",
+      "before": "8.0.5",
+      "after": null
+    },
+    {
+      "path": "node_modules/sort-any",
+      "before": "4.0.7",
+      "after": null
+    },
+    {
+      "path": "node_modules/source-map",
+      "before": "0.6.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/source-map-js",
+      "before": "1.2.1",
+      "after": "1.2.2"
+    },
+    {
+      "path": "node_modules/sprintf-js",
+      "before": "1.0.3",
+      "after": null
+    },
+    {
+      "path": "node_modules/sql-formatter/node_modules/argparse",
+      "before": "2.0.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/std-env",
+      "before": "3.10.0",
+      "after": "4.3.0"
+    },
+    {
+      "path": "node_modules/stream-chain",
+      "before": "2.2.5",
+      "after": "4.3.0"
+    },
+    {
+      "path": "node_modules/stream-json",
+      "before": "1.9.1",
+      "after": "3.7.0"
+    },
+    {
+      "path": "node_modules/superstatic",
+      "before": "9.2.0",
+      "after": "10.0.0"
+    },
+    {
+      "path": "node_modules/superstatic/node_modules/brace-expansion",
+      "before": "2.1.4",
+      "after": "2.1.7"
+    },
+    {
+      "path": "node_modules/tar",
+      "before": "6.2.1",
+      "after": "7.5.22"
+    },
+    {
+      "path": "node_modules/tar/node_modules/minipass",
+      "before": "5.0.0",
+      "after": null
+    },
+    {
+      "path": "node_modules/tar/node_modules/yallist",
+      "before": "4.0.0",
+      "after": "5.0.0"
+    },
+    {
+      "path": "node_modules/teeny-request",
+      "before": "9.0.0",
+      "after": "10.1.4"
+    },
+    {
+      "path": "node_modules/teeny-request/node_modules/agent-base",
+      "before": "6.0.2",
+      "after": null
+    },
+    {
+      "path": "node_modules/teeny-request/node_modules/http-proxy-agent",
+      "before": "5.0.0",
+      "after": null
+    },
+    {
+      "path": "node_modules/teeny-request/node_modules/https-proxy-agent",
+      "before": "5.0.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/teeny-request/node_modules/node-fetch",
+      "before": "2.7.0",
+      "after": "3.3.2"
+    },
+    {
+      "path": "node_modules/teeny-request/node_modules/uuid",
+      "before": "9.0.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/test-exclude",
+      "before": "7.0.2",
+      "after": null
+    },
+    {
+      "path": "node_modules/test-exclude/node_modules/balanced-match",
+      "before": "4.0.4",
+      "after": null
+    },
+    {
+      "path": "node_modules/test-exclude/node_modules/brace-expansion",
+      "before": "5.0.9",
+      "after": null
+    },
+    {
+      "path": "node_modules/test-exclude/node_modules/minimatch",
+      "before": "10.2.6",
+      "after": null
+    },
+    {
+      "path": "node_modules/through",
+      "before": "2.3.8",
+      "after": null
+    },
+    {
+      "path": "node_modules/through2",
+      "before": "2.0.5",
+      "after": null
+    },
+    {
+      "path": "node_modules/through2/node_modules/readable-stream",
+      "before": "2.3.8",
+      "after": null
+    },
+    {
+      "path": "node_modules/through2/node_modules/safe-buffer",
+      "before": "5.1.2",
+      "after": null
+    },
+    {
+      "path": "node_modules/through2/node_modules/string_decoder",
+      "before": "1.1.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/tinyexec",
+      "before": "0.3.2",
+      "after": "1.3.1"
+    },
+    {
+      "path": "node_modules/tinypool",
+      "before": "1.1.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/tinyrainbow",
+      "before": "1.2.0",
+      "after": "3.2.0"
+    },
+    {
+      "path": "node_modules/tinyspy",
+      "before": "3.0.2",
+      "after": null
+    },
+    {
+      "path": "node_modules/type-fest",
+      "before": "0.21.3",
+      "after": "0.20.2"
+    },
+    {
+      "path": "node_modules/universal-analytics",
+      "before": "0.5.3",
+      "after": null
+    },
+    {
+      "path": "node_modules/uuid",
+      "before": "8.3.2",
+      "after": "9.0.1"
+    },
+    {
+      "path": "node_modules/vite",
+      "before": "5.4.21",
+      "after": "6.4.5"
+    },
+    {
+      "path": "node_modules/vite-node",
+      "before": "2.1.9",
+      "after": null
+    },
+    {
+      "path": "node_modules/vitest",
+      "before": "2.1.9",
+      "after": "4.1.12"
+    },
+    {
+      "path": "node_modules/ws",
+      "before": "7.5.13",
+      "after": "8.22.0"
+    },
+    {
+      "path": "node_modules/zod",
+      "before": "4.4.3",
+      "after": "4.6.7"
+    },
+    {
+      "path": "node_modules/@electric-sql/pglite-tools",
+      "before": null,
+      "after": "0.2.21"
+    },
+    {
+      "path": "node_modules/@esbuild/netbsd-arm64",
+      "before": null,
+      "after": "0.25.12"
+    },
+    {
+      "path": "node_modules/@esbuild/openbsd-arm64",
+      "before": null,
+      "after": "0.25.12"
+    },
+    {
+      "path": "node_modules/@esbuild/openharmony-arm64",
+      "before": null,
+      "after": "0.25.12"
+    },
+    {
+      "path": "node_modules/@google-cloud/pubsub/node_modules/gaxios",
+      "before": null,
+      "after": "7.3.1"
+    },
+    {
+      "path": "node_modules/@google-cloud/pubsub/node_modules/gcp-metadata",
+      "before": null,
+      "after": "8.1.2"
+    },
+    {
+      "path": "node_modules/@google-cloud/pubsub/node_modules/google-auth-library",
+      "before": null,
+      "after": "10.9.1"
+    },
+    {
+      "path": "node_modules/@google-cloud/pubsub/node_modules/google-logging-utils",
+      "before": null,
+      "after": "1.1.3"
+    },
+    {
+      "path": "node_modules/@google-cloud/pubsub/node_modules/node-fetch",
+      "before": null,
+      "after": "3.3.2"
+    },
+    {
+      "path": "node_modules/@grpc/grpc-js/node_modules/@grpc/proto-loader",
+      "before": null,
+      "after": "0.8.1"
+    },
+    {
+      "path": "node_modules/@hono/node-server",
+      "before": null,
+      "after": "2.1.5"
+    },
+    {
+      "path": "node_modules/@inquirer/ansi",
+      "before": null,
+      "after": "1.0.2"
+    },
+    {
+      "path": "node_modules/@inquirer/checkbox",
+      "before": null,
+      "after": "4.3.2"
+    },
+    {
+      "path": "node_modules/@inquirer/confirm",
+      "before": null,
+      "after": "5.1.21"
+    },
+    {
+      "path": "node_modules/@inquirer/core",
+      "before": null,
+      "after": "10.3.2"
+    },
+    {
+      "path": "node_modules/@inquirer/editor",
+      "before": null,
+      "after": "4.2.23"
+    },
+    {
+      "path": "node_modules/@inquirer/expand",
+      "before": null,
+      "after": "4.0.23"
+    },
+    {
+      "path": "node_modules/@inquirer/figures",
+      "before": null,
+      "after": "1.0.15"
+    },
+    {
+      "path": "node_modules/@inquirer/input",
+      "before": null,
+      "after": "4.3.1"
+    },
+    {
+      "path": "node_modules/@inquirer/number",
+      "before": null,
+      "after": "3.0.23"
+    },
+    {
+      "path": "node_modules/@inquirer/password",
+      "before": null,
+      "after": "4.0.23"
+    },
+    {
+      "path": "node_modules/@inquirer/prompts",
+      "before": null,
+      "after": "7.10.1"
+    },
+    {
+      "path": "node_modules/@inquirer/rawlist",
+      "before": null,
+      "after": "4.1.11"
+    },
+    {
+      "path": "node_modules/@inquirer/search",
+      "before": null,
+      "after": "3.2.2"
+    },
+    {
+      "path": "node_modules/@inquirer/select",
+      "before": null,
+      "after": "4.4.2"
+    },
+    {
+      "path": "node_modules/@inquirer/type",
+      "before": null,
+      "after": "3.0.10"
+    },
+    {
+      "path": "node_modules/@modelcontextprotocol/sdk",
+      "before": null,
+      "after": "1.32.2"
+    },
+    {
+      "path": "node_modules/@modelcontextprotocol/sdk/node_modules/accepts",
+      "before": null,
+      "after": "2.0.0"
+    },
+    {
+      "path": "node_modules/@modelcontextprotocol/sdk/node_modules/body-parser",
+      "before": null,
+      "after": "2.4.0"
+    },
+    {
+      "path": "node_modules/@modelcontextprotocol/sdk/node_modules/body-parser/node_modules/content-type",
+      "before": null,
+      "after": "2.1.0"
+    },
+    {
+      "path": "node_modules/@modelcontextprotocol/sdk/node_modules/content-disposition",
+      "before": null,
+      "after": "2.0.1"
+    },
+    {
+      "path": "node_modules/@modelcontextprotocol/sdk/node_modules/cookie-signature",
+      "before": null,
+      "after": "1.2.2"
+    },
+    {
+      "path": "node_modules/@modelcontextprotocol/sdk/node_modules/express",
+      "before": null,
+      "after": "5.3.0"
+    },
+    {
+      "path": "node_modules/@modelcontextprotocol/sdk/node_modules/express/node_modules/content-type",
+      "before": null,
+      "after": "2.1.0"
+    },
+    {
+      "path": "node_modules/@modelcontextprotocol/sdk/node_modules/finalhandler",
+      "before": null,
+      "after": "2.1.1"
+    },
+    {
+      "path": "node_modules/@modelcontextprotocol/sdk/node_modules/fresh",
+      "before": null,
+      "after": "2.0.0"
+    },
+    {
+      "path": "node_modules/@modelcontextprotocol/sdk/node_modules/iconv-lite",
+      "before": null,
+      "after": "0.7.3"
+    },
+    {
+      "path": "node_modules/@modelcontextprotocol/sdk/node_modules/media-typer",
+      "before": null,
+      "after": "1.1.1"
+    },
+    {
+      "path": "node_modules/@modelcontextprotocol/sdk/node_modules/merge-descriptors",
+      "before": null,
+      "after": "2.0.0"
+    },
+    {
+      "path": "node_modules/@modelcontextprotocol/sdk/node_modules/mime-db",
+      "before": null,
+      "after": "1.54.0"
+    },
+    {
+      "path": "node_modules/@modelcontextprotocol/sdk/node_modules/mime-types",
+      "before": null,
+      "after": "3.0.2"
+    },
+    {
+      "path": "node_modules/@modelcontextprotocol/sdk/node_modules/negotiator",
+      "before": null,
+      "after": "1.1.0"
+    },
+    {
+      "path": "node_modules/@modelcontextprotocol/sdk/node_modules/negotiator/node_modules/content-type",
+      "before": null,
+      "after": "2.1.0"
+    },
+    {
+      "path": "node_modules/@modelcontextprotocol/sdk/node_modules/qs",
+      "before": null,
+      "after": "6.17.0"
+    },
+    {
+      "path": "node_modules/@modelcontextprotocol/sdk/node_modules/raw-body",
+      "before": null,
+      "after": "3.0.2"
+    },
+    {
+      "path": "node_modules/@modelcontextprotocol/sdk/node_modules/send",
+      "before": null,
+      "after": "1.2.1"
+    },
+    {
+      "path": "node_modules/@modelcontextprotocol/sdk/node_modules/serve-static",
+      "before": null,
+      "after": "2.2.1"
+    },
+    {
+      "path": "node_modules/@modelcontextprotocol/sdk/node_modules/type-is",
+      "before": null,
+      "after": "2.1.0"
+    },
+    {
+      "path": "node_modules/@modelcontextprotocol/sdk/node_modules/type-is/node_modules/content-type",
+      "before": null,
+      "after": "2.1.0"
+    },
+    {
+      "path": "node_modules/@opentelemetry/core",
+      "before": null,
+      "after": "1.30.1"
+    },
+    {
+      "path": "node_modules/@opentelemetry/core/node_modules/@opentelemetry/semantic-conventions",
+      "before": null,
+      "after": "1.28.0"
+    },
+    {
+      "path": "node_modules/@standard-schema/spec",
+      "before": null,
+      "after": "1.1.0"
+    },
+    {
+      "path": "node_modules/@tailwindcss/oxide-wasm32-wasi/node_modules/@emnapi/core",
+      "before": null,
+      "after": "1.11.1"
+    },
+    {
+      "path": "node_modules/@tailwindcss/oxide-wasm32-wasi/node_modules/@emnapi/runtime",
+      "before": null,
+      "after": "1.11.1"
+    },
+    {
+      "path": "node_modules/@tailwindcss/oxide-wasm32-wasi/node_modules/@emnapi/wasi-threads",
+      "before": null,
+      "after": "1.2.2"
+    },
+    {
+      "path": "node_modules/@tailwindcss/oxide-wasm32-wasi/node_modules/@napi-rs/wasm-runtime",
+      "before": null,
+      "after": "1.1.4"
+    },
+    {
+      "path": "node_modules/@tailwindcss/oxide-wasm32-wasi/node_modules/@tybys/wasm-util",
+      "before": null,
+      "after": "0.10.2"
+    },
+    {
+      "path": "node_modules/@tailwindcss/oxide-wasm32-wasi/node_modules/tslib",
+      "before": null,
+      "after": "2.8.1"
+    },
+    {
+      "path": "node_modules/@types/chai",
+      "before": null,
+      "after": "5.2.3"
+    },
+    {
+      "path": "node_modules/@types/deep-eql",
+      "before": null,
+      "after": "4.0.2"
+    },
+    {
+      "path": "node_modules/ast-v8-to-istanbul",
+      "before": null,
+      "after": "1.0.7"
+    },
+    {
+      "path": "node_modules/ast-v8-to-istanbul/node_modules/js-tokens",
+      "before": null,
+      "after": "10.0.0"
+    },
+    {
+      "path": "node_modules/eventsource",
+      "before": null,
+      "after": "3.0.7"
+    },
+    {
+      "path": "node_modules/eventsource-parser",
+      "before": null,
+      "after": "3.1.1"
+    },
+    {
+      "path": "node_modules/express-rate-limit",
+      "before": null,
+      "after": "8.7.1"
+    },
+    {
+      "path": "node_modules/firebase-tools/node_modules/ignore",
+      "before": null,
+      "after": "7.0.14"
+    },
+    {
+      "path": "node_modules/gcp-metadata/node_modules/google-logging-utils",
+      "before": null,
+      "after": "0.0.2"
+    },
+    {
+      "path": "node_modules/google-gax/node_modules/@grpc/proto-loader",
+      "before": null,
+      "after": "0.8.1"
+    },
+    {
+      "path": "node_modules/google-gax/node_modules/gaxios",
+      "before": null,
+      "after": "7.3.1"
+    },
+    {
+      "path": "node_modules/google-gax/node_modules/gcp-metadata",
+      "before": null,
+      "after": "8.1.4"
+    },
+    {
+      "path": "node_modules/google-gax/node_modules/gcp-metadata/node_modules/gaxios",
+      "before": null,
+      "after": "7.1.3"
+    },
+    {
+      "path": "node_modules/google-gax/node_modules/google-auth-library",
+      "before": null,
+      "after": "10.5.0"
+    },
+    {
+      "path": "node_modules/google-gax/node_modules/google-logging-utils",
+      "before": null,
+      "after": "1.1.3"
+    },
+    {
+      "path": "node_modules/google-gax/node_modules/gtoken",
+      "before": null,
+      "after": "8.0.0"
+    },
+    {
+      "path": "node_modules/hono",
+      "before": null,
+      "after": "4.13.14"
+    },
+    {
+      "path": "node_modules/jose",
+      "before": null,
+      "after": "6.2.13"
+    },
+    {
+      "path": "node_modules/json-schema-typed",
+      "before": null,
+      "after": "8.0.2"
+    },
+    {
+      "path": "node_modules/obug",
+      "before": null,
+      "after": "2.2.1"
+    },
+    {
+      "path": "node_modules/pg-gateway",
+      "before": null,
+      "after": "0.3.0-beta.4"
+    },
+    {
+      "path": "node_modules/pglite-2",
+      "before": null,
+      "after": "0.2.17"
+    },
+    {
+      "path": "node_modules/pkce-challenge",
+      "before": null,
+      "after": "5.0.1"
+    },
+    {
+      "path": "node_modules/undici",
+      "before": null,
+      "after": "6.29.1"
+    },
+    {
+      "path": "node_modules/vite/node_modules/fdir",
+      "before": null,
+      "after": "6.5.0"
+    },
+    {
+      "path": "node_modules/vite/node_modules/picomatch",
+      "before": null,
+      "after": "4.0.7"
+    },
+    {
+      "path": "node_modules/vitest/node_modules/picomatch",
+      "before": null,
+      "after": "4.0.7"
+    },
+    {
+      "path": "node_modules/yoctocolors-cjs",
+      "before": null,
+      "after": "2.1.3"
+    },
+    {
+      "path": "node_modules/zod-to-json-schema",
+      "before": null,
+      "after": "3.25.2"
+    }
+  ],
+  "functions": [
+    {
+      "path": "node_modules/@firebase/app-check-interop-types",
+      "before": "0.3.2",
+      "after": "0.3.5"
+    },
+    {
+      "path": "node_modules/@firebase/app-types",
+      "before": "0.9.2",
+      "after": "0.9.6"
+    },
+    {
+      "path": "node_modules/@firebase/auth-interop-types",
+      "before": "0.2.3",
+      "after": "0.2.6"
+    },
+    {
+      "path": "node_modules/@firebase/component",
+      "before": "0.6.9",
+      "after": "0.7.5"
+    },
+    {
+      "path": "node_modules/@firebase/database",
+      "before": "1.0.8",
+      "after": "1.1.5"
+    },
+    {
+      "path": "node_modules/@firebase/database-compat",
+      "before": "1.0.8",
+      "after": "2.1.7"
+    },
+    {
+      "path": "node_modules/@firebase/database-types",
+      "before": "1.0.5",
+      "after": "1.0.22"
+    },
+    {
+      "path": "node_modules/@firebase/logger",
+      "before": "0.4.2",
+      "after": "0.5.2"
+    },
+    {
+      "path": "node_modules/@firebase/util",
+      "before": "1.10.0",
+      "after": "1.15.3"
+    },
+    {
+      "path": "node_modules/@google-cloud/firestore",
+      "before": "7.11.6",
+      "after": "9.4.0"
+    },
+    {
+      "path": "node_modules/@google-cloud/paginator",
+      "before": "5.0.2",
+      "after": "7.2.0"
+    },
+    {
+      "path": "node_modules/@google-cloud/projectify",
+      "before": "4.0.0",
+      "after": "6.2.1"
+    },
+    {
+      "path": "node_modules/@google-cloud/promisify",
+      "before": "4.0.0",
+      "after": "6.2.1"
+    },
+    {
+      "path": "node_modules/@google-cloud/storage",
+      "before": "7.21.0",
+      "after": "8.4.0"
+    },
+    {
+      "path": "node_modules/@grpc/grpc-js/node_modules/@grpc/proto-loader",
+      "before": "0.8.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/@grpc/proto-loader",
+      "before": "0.7.15",
+      "after": "0.8.1"
+    },
+    {
+      "path": "node_modules/@nodable/entities",
+      "before": "3.0.0",
+      "after": "3.1.0"
+    },
+    {
+      "path": "node_modules/@opentelemetry/api",
+      "before": "1.9.1",
+      "after": "1.10.0"
+    },
+    {
+      "path": "node_modules/@tootallnate/once",
+      "before": "2.0.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/@types/caseless",
+      "before": "0.12.5",
+      "after": null
+    },
+    {
+      "path": "node_modules/@types/express",
+      "before": "4.17.3",
+      "after": "4.17.25"
+    },
+    {
+      "path": "node_modules/@types/express-serve-static-core",
+      "before": "5.1.3",
+      "after": "4.19.9"
+    },
+    {
+      "path": "node_modules/@types/long",
+      "before": "4.0.2",
+      "after": null
+    },
+    {
+      "path": "node_modules/@types/request",
+      "before": "2.48.13",
+      "after": null
+    },
+    {
+      "path": "node_modules/@types/serve-static",
+      "before": "2.2.0",
+      "after": "1.15.10"
+    },
+    {
+      "path": "node_modules/@types/tough-cookie",
+      "before": "4.0.5",
+      "after": null
+    },
+    {
+      "path": "node_modules/arrify",
+      "before": "2.0.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/asynckit",
+      "before": "0.4.0",
+      "after": null
+    },
+    {
+      "path": "node_modules/body-parser",
+      "before": "1.20.6",
+      "after": "1.20.9"
+    },
+    {
+      "path": "node_modules/combined-stream",
+      "before": "1.0.8",
+      "after": null
+    },
+    {
+      "path": "node_modules/delayed-stream",
+      "before": "1.0.0",
+      "after": null
+    },
+    {
+      "path": "node_modules/es-set-tostringtag",
+      "before": "2.1.0",
+      "after": null
+    },
+    {
+      "path": "node_modules/express",
+      "before": "4.22.2",
+      "after": "4.22.3"
+    },
+    {
+      "path": "node_modules/farmhash-modern",
+      "before": "1.1.0",
+      "after": null
+    },
+    {
+      "path": "node_modules/fast-xml-builder",
+      "before": "1.3.0",
+      "after": "1.3.1"
+    },
+    {
+      "path": "node_modules/fast-xml-parser",
+      "before": "5.10.1",
+      "after": "5.11.2"
+    },
+    {
+      "path": "node_modules/firebase-admin",
+      "before": "12.7.0",
+      "after": "14.4.0"
+    },
+    {
+      "path": "node_modules/firebase-functions",
+      "before": "5.1.1",
+      "after": "7.3.0"
+    },
+    {
+      "path": "node_modules/form-data",
+      "before": "2.5.6",
+      "after": null
+    },
+    {
+      "path": "node_modules/gaxios",
+      "before": "6.7.1",
+      "after": "7.3.1"
+    },
+    {
+      "path": "node_modules/gaxios/node_modules/uuid",
+      "before": "9.0.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/gcp-metadata",
+      "before": "6.1.1",
+      "after": "8.1.2"
+    },
+    {
+      "path": "node_modules/google-auth-library",
+      "before": "9.15.1",
+      "after": "10.9.1"
+    },
+    {
+      "path": "node_modules/google-gax",
+      "before": "4.6.1",
+      "after": "6.13.0"
+    },
+    {
+      "path": "node_modules/google-gax/node_modules/uuid",
+      "before": "9.0.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/google-logging-utils",
+      "before": "0.0.2",
+      "after": "1.1.3"
+    },
+    {
+      "path": "node_modules/gtoken",
+      "before": "7.1.0",
+      "after": "8.0.0"
+    },
+    {
+      "path": "node_modules/has-tostringtag",
+      "before": "1.0.2",
+      "after": null
+    },
+    {
+      "path": "node_modules/http-proxy-agent",
+      "before": "5.0.0",
+      "after": "7.0.2"
+    },
+    {
+      "path": "node_modules/http-proxy-agent/node_modules/agent-base",
+      "before": "6.0.2",
+      "after": null
+    },
+    {
+      "path": "node_modules/is-stream",
+      "before": "2.0.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/is-unsafe",
+      "before": "2.0.0",
+      "after": "2.0.2"
+    },
+    {
+      "path": "node_modules/jose",
+      "before": "4.15.9",
+      "after": "6.2.13"
+    },
+    {
+      "path": "node_modules/jwks-rsa",
+      "before": "3.2.2",
+      "after": "4.1.0"
+    },
+    {
+      "path": "node_modules/lru-cache",
+      "before": "6.0.0",
+      "after": "11.5.3"
+    },
+    {
+      "path": "node_modules/lru-memoizer",
+      "before": "2.3.0",
+      "after": "3.0.0"
+    },
+    {
+      "path": "node_modules/node-fetch",
+      "before": "2.7.0",
+      "after": "3.3.2"
+    },
+    {
+      "path": "node_modules/node-forge",
+      "before": "1.4.0",
+      "after": null
+    },
+    {
+      "path": "node_modules/proto3-json-serializer",
+      "before": "2.0.2",
+      "after": "4.1.0"
+    },
+    {
+      "path": "node_modules/qs",
+      "before": "6.16.0",
+      "after": "6.17.0"
+    },
+    {
+      "path": "node_modules/retry-request",
+      "before": "7.0.2",
+      "after": "9.1.0"
+    },
+    {
+      "path": "node_modules/strnum",
+      "before": "2.4.1",
+      "after": "2.5.1"
+    },
+    {
+      "path": "node_modules/teeny-request",
+      "before": "9.0.0",
+      "after": "11.1.1"
+    },
+    {
+      "path": "node_modules/teeny-request/node_modules/agent-base",
+      "before": "6.0.2",
+      "after": null
+    },
+    {
+      "path": "node_modules/teeny-request/node_modules/debug",
+      "before": "4.4.3",
+      "after": null
+    },
+    {
+      "path": "node_modules/teeny-request/node_modules/https-proxy-agent",
+      "before": "5.0.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/teeny-request/node_modules/ms",
+      "before": "2.1.3",
+      "after": null
+    },
+    {
+      "path": "node_modules/teeny-request/node_modules/uuid",
+      "before": "9.0.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/tr46",
+      "before": "0.0.3",
+      "after": null
+    },
+    {
+      "path": "node_modules/uuid",
+      "before": "10.0.0",
+      "after": null
+    },
+    {
+      "path": "node_modules/webidl-conversions",
+      "before": "3.0.1",
+      "after": null
+    },
+    {
+      "path": "node_modules/whatwg-url",
+      "before": "5.0.0",
+      "after": null
+    },
+    {
+      "path": "node_modules/yallist",
+      "before": "4.0.0",
+      "after": null
+    },
+    {
+      "path": "node_modules/zod",
+      "before": "4.4.3",
+      "after": "4.6.7"
+    },
+    {
+      "path": "node_modules/@google-cloud/firestore-api",
+      "before": null,
+      "after": "0.2.0"
+    },
+    {
+      "path": "node_modules/@google-cloud/firestore-api/node_modules/google-auth-library",
+      "before": null,
+      "after": "10.5.0"
+    },
+    {
+      "path": "node_modules/@google-cloud/firestore-api/node_modules/google-gax",
+      "before": null,
+      "after": "5.0.8"
+    },
+    {
+      "path": "node_modules/@google-cloud/firestore-api/node_modules/proto3-json-serializer",
+      "before": null,
+      "after": "3.0.4"
+    },
+    {
+      "path": "node_modules/@google-cloud/firestore-api/node_modules/retry-request",
+      "before": null,
+      "after": "8.0.4"
+    },
+    {
+      "path": "node_modules/@google-cloud/firestore-api/node_modules/teeny-request",
+      "before": null,
+      "after": "10.1.4"
+    },
+    {
+      "path": "node_modules/@google-cloud/storage/node_modules/gcp-metadata",
+      "before": null,
+      "after": "9.2.2"
+    },
+    {
+      "path": "node_modules/@google-cloud/storage/node_modules/gcp-metadata/node_modules/gaxios",
+      "before": null,
+      "after": "8.3.2"
+    },
+    {
+      "path": "node_modules/@google-cloud/storage/node_modules/google-auth-library",
+      "before": null,
+      "after": "11.3.1"
+    },
+    {
+      "path": "node_modules/@google-cloud/storage/node_modules/google-auth-library/node_modules/gaxios",
+      "before": null,
+      "after": "8.3.2"
+    },
+    {
+      "path": "node_modules/@google-cloud/storage/node_modules/google-logging-utils",
+      "before": null,
+      "after": "2.1.0"
+    },
+    {
+      "path": "node_modules/@isaacs/cliui",
+      "before": null,
+      "after": "8.0.2"
+    },
+    {
+      "path": "node_modules/@isaacs/cliui/node_modules/ansi-regex",
+      "before": null,
+      "after": "6.4.0"
+    },
+    {
+      "path": "node_modules/@isaacs/cliui/node_modules/ansi-styles",
+      "before": null,
+      "after": "6.2.3"
+    },
+    {
+      "path": "node_modules/@isaacs/cliui/node_modules/emoji-regex",
+      "before": null,
+      "after": "9.2.2"
+    },
+    {
+      "path": "node_modules/@isaacs/cliui/node_modules/string-width",
+      "before": null,
+      "after": "5.1.2"
+    },
+    {
+      "path": "node_modules/@isaacs/cliui/node_modules/strip-ansi",
+      "before": null,
+      "after": "7.2.0"
+    },
+    {
+      "path": "node_modules/@isaacs/cliui/node_modules/wrap-ansi",
+      "before": null,
+      "after": "8.1.0"
+    },
+    {
+      "path": "node_modules/@pkgjs/parseargs",
+      "before": null,
+      "after": "0.11.0"
+    },
+    {
+      "path": "node_modules/@types/mime",
+      "before": null,
+      "after": "1.3.5"
+    },
+    {
+      "path": "node_modules/@types/serve-static/node_modules/@types/send",
+      "before": null,
+      "after": "0.17.6"
+    },
+    {
+      "path": "node_modules/balanced-match",
+      "before": null,
+      "after": "1.0.2"
+    },
+    {
+      "path": "node_modules/brace-expansion",
+      "before": null,
+      "after": "2.1.7"
+    },
+    {
+      "path": "node_modules/cross-spawn",
+      "before": null,
+      "after": "7.0.6"
+    },
+    {
+      "path": "node_modules/data-uri-to-buffer",
+      "before": null,
+      "after": "4.0.1"
+    },
+    {
+      "path": "node_modules/eastasianwidth",
+      "before": null,
+      "after": "0.2.0"
+    },
+    {
+      "path": "node_modules/fetch-blob",
+      "before": null,
+      "after": "3.2.0"
+    },
+    {
+      "path": "node_modules/foreground-child",
+      "before": null,
+      "after": "3.3.1"
+    },
+    {
+      "path": "node_modules/formdata-polyfill",
+      "before": null,
+      "after": "4.0.10"
+    },
+    {
+      "path": "node_modules/glob",
+      "before": null,
+      "after": "10.5.0"
+    },
+    {
+      "path": "node_modules/google-gax/node_modules/gaxios",
+      "before": null,
+      "after": "8.3.2"
+    },
+    {
+      "path": "node_modules/google-gax/node_modules/gcp-metadata",
+      "before": null,
+      "after": "9.2.2"
+    },
+    {
+      "path": "node_modules/google-gax/node_modules/google-auth-library",
+      "before": null,
+      "after": "11.3.1"
+    },
+    {
+      "path": "node_modules/google-gax/node_modules/google-logging-utils",
+      "before": null,
+      "after": "2.1.0"
+    },
+    {
+      "path": "node_modules/isexe",
+      "before": null,
+      "after": "2.0.0"
+    },
+    {
+      "path": "node_modules/jackspeak",
+      "before": null,
+      "after": "3.4.3"
+    },
+    {
+      "path": "node_modules/minimatch",
+      "before": null,
+      "after": "9.0.9"
+    },
+    {
+      "path": "node_modules/minipass",
+      "before": null,
+      "after": "7.1.3"
+    },
+    {
+      "path": "node_modules/node-domexception",
+      "before": null,
+      "after": "1.0.0"
+    },
+    {
+      "path": "node_modules/package-json-from-dist",
+      "before": null,
+      "after": "1.0.1"
+    },
+    {
+      "path": "node_modules/path-key",
+      "before": null,
+      "after": "3.1.1"
+    },
+    {
+      "path": "node_modules/path-scurry",
+      "before": null,
+      "after": "1.11.1"
+    },
+    {
+      "path": "node_modules/path-scurry/node_modules/lru-cache",
+      "before": null,
+      "after": "10.4.3"
+    },
+    {
+      "path": "node_modules/rimraf",
+      "before": null,
+      "after": "5.0.10"
+    },
+    {
+      "path": "node_modules/shebang-command",
+      "before": null,
+      "after": "2.0.0"
+    },
+    {
+      "path": "node_modules/shebang-regex",
+      "before": null,
+      "after": "3.0.0"
+    },
+    {
+      "path": "node_modules/signal-exit",
+      "before": null,
+      "after": "4.1.0"
+    },
+    {
+      "path": "node_modules/string-width-cjs",
+      "before": null,
+      "after": "4.2.3"
+    },
+    {
+      "path": "node_modules/strip-ansi-cjs",
+      "before": null,
+      "after": "6.0.1"
+    },
+    {
+      "path": "node_modules/web-streams-polyfill",
+      "before": null,
+      "after": "3.3.3"
+    },
+    {
+      "path": "node_modules/which",
+      "before": null,
+      "after": "2.0.2"
+    },
+    {
+      "path": "node_modules/wrap-ansi-cjs",
+      "before": null,
+      "after": "7.0.0"
+    }
+  ]
+}

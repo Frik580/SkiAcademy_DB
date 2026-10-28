@@ -1,0 +1,119 @@
+{
+  "readAt": "2026-10-27T19:01:45.084Z",
+  "readOnly": true,
+  "notes": [
+    "No deployment, IAM update, application-data read or cloud configuration mutation.",
+    "Private raw operational metadata retained in ignored .scratch; environment values and secret values were not exported."
+  ],
+  "environments": {
+    "ski-school-staging": {
+      "functions": 50,
+      "runtimes": {
+        "nodejs22": 50
+      },
+      "sourceOnly": [],
+      "deployedOnly": [],
+      "capDifferences": [],
+      "vpcConfigured": 0,
+      "scheduler": {
+        "count": 7,
+        "error": null,
+        "complete": true,
+        "deadlines": [
+          "180s"
+        ],
+        "defaultAccountMatches": null
+      },
+      "eventarc": {
+        "count": null,
+        "error": null,
+        "complete": false,
+        "note": "Separate Eventarc REST inventory not established; Cloud Functions metadata reports event handlers. Do not infer zero triggers."
+      },
+      "computeLookupError": "Compute Engine API has not been used in project ski-school-staging before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=ski-school-staging then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.",
+      "missingCaps": [],
+      "generations": {
+        "GEN_2": 50
+      },
+      "eventFunctionCount": 8,
+      "vpcEvidenceScope": "Cloud Functions API only; externally managed Cloud Run network settings were not inventoried",
+      "observedCapDifferences": []
+    },
+    "ski-school-8f3ca": {
+      "functions": 43,
+      "runtimes": {
+        "nodejs20": 43
+      },
+      "sourceOnly": [
+        "bookingChatMedia",
+        "claimGuestProfile",
+        "reportClientErrors",
+        "queryAccountWalletHistory",
+        "resolveInstructorLessonRevenue",
+        "syncInstructorLessonRevenueBooking",
+        "syncInstructorLessonRevenuePayment"
+      ],
+      "deployedOnly": [],
+      "capDifferences": [
+        {
+          "name": "queryOutboxDeadLetterReadModel",
+          "deployed": null,
+          "source": 20
+        },
+        {
+          "name": "queryParticipantOccupancyReadModels",
+          "deployed": null,
+          "source": 20
+        },
+        {
+          "name": "queryEmailDeliverySettingsReadModel",
+          "deployed": null,
+          "source": 20
+        }
+      ],
+      "vpcConfigured": 0,
+      "scheduler": {
+        "count": 7,
+        "error": null,
+        "complete": true,
+        "deadlines": [
+          "180s"
+        ],
+        "defaultAccountMatches": null
+      },
+      "eventarc": {
+        "count": null,
+        "error": null,
+        "complete": false,
+        "note": "Separate Eventarc REST inventory not established; Cloud Functions metadata reports event handlers. Do not infer zero triggers."
+      },
+      "computeLookupError": "Compute Engine API has not been used in project ski-school-8f3ca before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=ski-school-8f3ca then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.",
+      "missingCaps": [
+        {
+          "name": "queryOutboxDeadLetterReadModel",
+          "scaling": {
+            "maxInstanceCount": 20
+          }
+        },
+        {
+          "name": "queryParticipantOccupancyReadModels",
+          "scaling": {
+            "maxInstanceCount": 20
+          }
+        },
+        {
+          "name": "queryEmailDeliverySettingsReadModel",
+          "scaling": {
+            "maxInstanceCount": 20
+          }
+        }
+      ],
+      "generations": {
+        "GEN_2": 43
+      },
+      "eventFunctionCount": 6,
+      "vpcEvidenceScope": "Cloud Functions API only; externally managed Cloud Run network settings were not inventoried",
+      "observedCapDifferences": []
+    }
+  }
+}

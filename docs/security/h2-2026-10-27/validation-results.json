@@ -1,0 +1,58 @@
+{
+  "verdict": "PARTIAL",
+  "rootCi": 0,
+  "functionsCi": 0,
+  "productionBuild": 0,
+  "stagingBuild": 0,
+  "functionsBuild": 0,
+  "appUnit": {
+    "passed": 2964,
+    "failed": 1,
+    "reason": "5s cold ESLint initialization timeout",
+    "isolatedRetryPassed": 13,
+    "isolatedRetryTimeoutMs": 30000
+  },
+  "sharedUnit": {
+    "passed": 370
+  },
+  "functionsUnit": {
+    "passed": 1489
+  },
+  "fullFunctionsEmulator": "INTERRUPTED; no final certification",
+  "focusedFunctions": {
+    "passed": 62
+  },
+  "resetRetries": {
+    "passed": 2,
+    "filteredOtherCases": 18,
+    "timeoutMs": 90000
+  },
+  "integrationRulesCallable": {
+    "passed": 149,
+    "files": 5,
+    "exitCode": 0
+  },
+  "e2e": {
+    "passed": 5,
+    "skipped": 2,
+    "skipReason": "Hosting emulator required",
+    "exitCode": 0,
+    "fullSuite": "NOT RUN locally"
+  },
+  "lint": {
+    "fullExitCode": 1,
+    "reason": "nested .worktrees and built assets",
+    "currentCheckoutExitCode": 0,
+    "currentCheckoutWarnings": 102209,
+    "changedFilesExitCode": 0
+  },
+  "deploymentGuardTests": {
+    "passed": 12
+  },
+  "ciYaml": "PASS,9 jobs, unsupported flags absent",
+  "diffCheck": 0,
+  "independentReview": "PASS; deployment gates unresolved",
+  "graphifyUpdate": 0,
+  "serversRemaining": 0,
+  "temporarySecretRemaining": false
+}

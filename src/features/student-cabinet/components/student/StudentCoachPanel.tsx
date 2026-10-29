@@ -137,7 +137,8 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
 }) => {
   const { t, language } = useLanguage();
   const lang = language === 'ru' ? 'ru' : 'en';
-  const { evidence } = useSelectedParticipantLessonStats(selectedParticipantId);
+  const { evidence, loading: statsLoading, loaded: statsLoaded, error: statsError } =
+    useSelectedParticipantLessonStats(selectedParticipantId);
   const feedback = usePresentedParticipantLessonFeedback(bookings);
   const pendingKeys = useParticipantLessonFeedbackStore((state) => state.pendingKeys);
   const [view, setView] = useState<CoachView>('list');
@@ -236,7 +237,17 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
         subtitle={t('scCoachHubSub')}
       />
 
-      {myInstructors.length === 0 && otherInstructors.length === 0 ? (
+      {statsLoading && !statsLoaded && (
+        <p role="status" className="type-compact text-[var(--ink-dim)] py-2">
+          {t('loading')}
+        </p>
+      )}
+      {statsError && !statsLoading && (
+        <p role="alert" className="type-compact text-[var(--ink-dim)] py-2">
+          {t('requestFailed')}
+        </p>
+      )}
+      {!statsLoading && myInstructors.length === 0 && otherInstructors.length === 0 ? (
         <p className="type-compact text-[var(--ink-dim)] py-4">{t('scCoachNoInstructors')}</p>
       ) : (
         <div className="space-y-8">
@@ -263,6 +274,7 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
                     <CoachParticipantAccessPanel
                       accountId={userProfile.uid}
                       instructorId={ins.id}
+                      participantId={selectedParticipantId}
                     />
                   </div>
                 );

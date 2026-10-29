@@ -22,6 +22,7 @@ import { hasTrainingTodayFromSessions } from '../../../course-enrollments/sessio
 import { toCabinetParticipantAvatarItems } from '../../cabinetParticipantAvatarSwitcherContract';
 import { StudentHistoryPanel } from './StudentHistoryPanel';
 import { StudentCoachPanel } from './StudentCoachPanel';
+import { useCoachLessonHistoryHydration } from '../../useCoachLessonHistoryHydration';
 import { BookInstructorPickerModal } from './BookInstructorPickerModal';
 import {
   StudentCalendarPanel,
@@ -195,6 +196,10 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
   );
 
   const activeTab = props.syncTabWithRoute ? routeTab : tab;
+  useCoachLessonHistoryHydration(
+    activeTab === 'coach' || activeTab === 'instructors',
+    props.userProfile.uid
+  );
   const { t } = useStudentCabinetTranslations();
   const {
     participants,

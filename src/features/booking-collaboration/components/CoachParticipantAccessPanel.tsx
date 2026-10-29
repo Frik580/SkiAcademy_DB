@@ -27,7 +27,10 @@ export const CoachParticipantAccessPanel: React.FC<CoachParticipantAccessPanelPr
   participantId,
 }) => {
   const { participants } = useManagedParticipants(accountId);
-  const resolvedParticipantId = participantId ?? participants[0]?.participantId;
+  // Never silently select the first child while a multi-participant account
+  // is still resolving its explicit cabinet selection.
+  const resolvedParticipantId =
+    participantId ?? (participants.length === 1 ? participants[0]?.participantId : undefined);
   const accessKey =
     resolvedParticipantId !== undefined
       ? participantInstructorAccessKey(resolvedParticipantId, instructorId)

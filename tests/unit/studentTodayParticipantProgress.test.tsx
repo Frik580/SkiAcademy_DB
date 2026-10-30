@@ -1,4 +1,4 @@
-import { act, render, renderHook, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, renderHook, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -26,6 +26,7 @@ import { toCabinetParticipantAvatarItems } from '../../src/features/student-cabi
 import type { ManagedParticipantOption } from '../../src/features/lesson-bookings/lessonBookingContracts';
 import { usePresentedParticipantAchievements } from '../../src/features/participant-achievements/usePresentedParticipantAchievements';
 import { useStudentTodayAchievements } from '../../src/features/student-cabinet/components/student/useStudentTodayAchievements';
+import { useParticipantProgressDay } from '../../src/features/student-cabinet/components/student/useParticipantProgressDay';
 
 const locale = vi.hoisted(() => ({ language: 'en' as 'en' | 'ru' }));
 vi.mock('../../src/app/providers/LanguageContext', () => ({
@@ -82,6 +83,15 @@ function Harness({ participants = managed }: { participants?: ManagedParticipant
     selectedParticipantId ? state.byId[selectedParticipantId] : undefined
   );
   const profiles = toCabinetParticipantAvatarItems(participants);
+  const day = useParticipantProgressDay();
+  const achievements = useStudentTodayAchievements(
+    {
+      selectedParticipantId,
+      achievementsConfig: DEFAULT_ACHIEVEMENTS_CONFIG,
+      skillConfig: DEFAULT_SKILL_CONFIG,
+    },
+    day
+  );
   return (
     <>
       <CabinetParticipantAvatarSwitcher
@@ -92,7 +102,7 @@ function Harness({ participants = managed }: { participants?: ManagedParticipant
         groupLabel="Participants"
         switchToParticipantLabel="Select {name}"
       />
-      <TodayProgressBlock
+      <PresentedTodayProgressBlock
         selectedParticipantId={selectedParticipantId}
         scopeParticipant={
           participants.length > 1
@@ -104,8 +114,10 @@ function Harness({ participants = managed }: { participants?: ManagedParticipant
           progress,
           DEFAULT_SKILL_CONFIG,
           'en',
-          now
+          now,
+          day
         )}
+        todayAchievements={achievements}
         achievementsConfig={DEFAULT_ACHIEVEMENTS_CONFIG}
         skillConfig={DEFAULT_SKILL_CONFIG}
       />
@@ -150,6 +162,54 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe('participant daily progress block', () => {
+  it('rolls the entire participant tile over at school midnight and on visibility return', () => {
+    vi.useRealTimers();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-06T18:59:00Z'));
+    const { unmount } = render(<Harness />);
+    expect(xp()).toHaveTextContent('+5 XP');
+    expect(screen.getByText('New achievements today:')).toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(60_000));
+    expect(screen.queryByText('Today’s Progress')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Select Bob' }));
+    expect(screen.queryByText('Today’s Progress')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Select Alice' }));
+    expect(screen.queryByText('Today’s Progress')).toBeNull();
+    act(() => vi.advanceTimersByTime(60_000));
+    expect(screen.queryByText('Today’s Progress')).toBeNull();
+    act(() => {
+      vi.setSystemTime(new Date('2026-10-06T18:59:00Z'));
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    expect(xp()).toHaveTextContent('+5 XP');
+    act(() => {
+      vi.setSystemTime(new Date('2026-10-06T19:01:00Z'));
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    expect(screen.queryByText('Today’s Progress')).toBeNull();
+    unmount();
+  });
+  it('cleans up its one timer and visibility listener on remount', () => {
+    vi.useRealTimers();
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+    const add = vi.spyOn(document, 'addEventListener');
+    const remove = vi.spyOn(document, 'removeEventListener');
+    const first = renderHook(() => useParticipantProgressDay());
+    expect(vi.getTimerCount()).toBe(1);
+    first.unmount();
+    expect(vi.getTimerCount()).toBe(0);
+    const second = renderHook(() => useParticipantProgressDay());
+    expect(vi.getTimerCount()).toBe(1);
+    second.unmount();
+    expect(vi.getTimerCount()).toBe(0);
+    const listeners = add.mock.calls.filter(([event]) => event === 'visibilitychange');
+    for (const [, listener] of listeners) {
+      expect(remove).toHaveBeenCalledWith('visibilitychange', listener);
+    }
+    add.mockRestore();
+    remove.mockRestore();
+  });
   it('switches XP, current level, trainer scores and persisted achievements through the shared header state', async () => {
     const user = userEvent.setup();
     render(<Harness />);

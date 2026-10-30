@@ -12,13 +12,14 @@ export function buildParticipantTodayProgress(
   progress: ParticipantProgressView | undefined,
   skillConfig: SkillConfig = DEFAULT_SKILL_CONFIG,
   language: 'en' | 'ru' = 'ru',
-  now = new Date()
+  now = new Date(),
+  dayKey = participantProgressDayKey(now)
 ): ParticipantTodayProgressInput {
   if (!selectedParticipantId || progress?.participantId !== selectedParticipantId) {
     return { todayXP: null, todayLevelUp: null, exercises: [] };
   }
   const daily = progress.dailyProgress;
-  if (!daily || daily.date !== participantProgressDayKey(now)) {
+  if (!daily || daily.date !== dayKey) {
     return { level: progress.level, todayXP: null, todayLevelUp: null, exercises: [] };
   }
   const exercises = Object.entries(progress.skillScores).flatMap(([itemId, score]) => {

@@ -49,6 +49,7 @@ import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 import { ParticipantScopeIndicator } from './ParticipantScopeIndicator';
 import { buildParticipantTodayProgress } from './studentTodayProgress';
 import { useCabinetSessionNow } from './useCabinetSessionNow';
+import { useParticipantProgressDay } from './useParticipantProgressDay';
 import { DEFAULT_SKILL_CONFIG, getSkillItemSection } from '../../../../domain/achievements';
 
 type StudentCabinetHomeProps = StudentCabinetHomeContext;
@@ -95,17 +96,23 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
   const scopeParticipant =
     (props.participantProfiles?.length ?? 0) > 1 ? selectedParticipant : undefined;
   const feedback = usePresentedParticipantLessonFeedback(bookings);
+  const progressDay = useParticipantProgressDay();
   const todayProgress = buildParticipantTodayProgress(
     selectedParticipantId,
     props.participantProgress,
     skillConfig,
-    lang
+    lang,
+    undefined,
+    progressDay
   );
-  const todayAchievements = useStudentTodayAchievements({
-    selectedParticipantId,
-    achievementsConfig: props.achievementsConfig,
-    skillConfig,
-  });
+  const todayAchievements = useStudentTodayAchievements(
+    {
+      selectedParticipantId,
+      achievementsConfig: props.achievementsConfig,
+      skillConfig,
+    },
+    progressDay
+  );
   const pendingFeedback = feedback.incomplete
     .map((item) => feedback.feedbackForLesson(item.lessonBookingId))
     .filter((item): item is NonNullable<typeof item> => item != null);

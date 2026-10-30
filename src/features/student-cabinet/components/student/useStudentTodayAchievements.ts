@@ -13,7 +13,8 @@ export function useStudentTodayAchievements(
   input: Pick<
     TodayProgressBlockInput,
     'selectedParticipantId' | 'achievementsConfig' | 'skillConfig'
-  >
+  >,
+  dayKey = participantProgressDayKey(new Date())
 ) {
   const { lang } = useStudentCabinetTranslations();
   const { selectedParticipantId, achievementsConfig, skillConfig } = input;
@@ -25,7 +26,6 @@ export function useStudentTodayAchievements(
     skillConfig,
   });
 
-  const dayKey = participantProgressDayKey(new Date());
   const todayAchievements = useMemo(
     () =>
       achievements.filter(

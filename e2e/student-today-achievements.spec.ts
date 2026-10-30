@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
 import { createRequire } from 'node:module';
-import { writeFileSync } from 'node:fs';
 import { DEFAULT_SKILL_CONFIG } from '../src/domain/achievements';
 import { loadRuntimeConfig, signInStudent, watchBrowserFailures } from './fixtures';
 
@@ -16,7 +15,7 @@ const {
 test('Today achievements isolates canonical participant fixtures and renders four variants', async ({
   page,
 }, info) => {
-  test.setTimeout(180_000);
+  test.setTimeout(360_000);
   // Direct seed is confined to disposable demo emulators; schemas validate all fixtures.
   expect(process.env.GCLOUD_PROJECT).toBe('demo-ski-school-e2e');
   expect(process.env.FIRESTORE_EMULATOR_HOST).toMatch(/^(127\.0\.0\.1|localhost):8080$/);
@@ -112,10 +111,34 @@ test('Today achievements isolates canonical participant fixtures and renders fou
     const cdp = await page.context().newCDPSession(page);
     for (const timezoneId of ['Asia/Almaty', 'UTC', 'America/New_York']) {
       await cdp.send('Emulation.setTimezoneOverride', { timezoneId });
+      await page.clock.setSystemTime(new Date('2026-10-06T18:59:00Z'));
       await page.reload();
       await expect(tile.locator('.sc-today-achievements-xp-value')).toHaveText('+7 XP');
       await expect(tile.locator('.sc-today-achievements-badge')).toHaveCount(1);
+      let navigations = 0;
+      const onNavigation = () => {
+        navigations += 1;
+      };
+      page.on('load', onNavigation);
+      await page.clock.fastForward(60_000);
+      await expect(tile).toHaveCount(0);
+      await page.clock.fastForward(60_000);
+      await expect(tile).toHaveCount(0);
+      expect(navigations).toBe(0);
+      page.off('load', onNavigation);
+      // Simulate a suspended timer: moving wall time does not fire timers.
+      await page.clock.setSystemTime(new Date('2026-10-06T18:59:00Z'));
+      await page.reload();
+      await expect(tile.locator('.sc-today-achievements-xp-value')).toHaveText('+7 XP');
+      await page.clock.setSystemTime(new Date('2026-10-06T19:01:00Z'));
+      await expect(tile.locator('.sc-today-achievements-xp-value')).toHaveText('+7 XP');
+      await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+      await expect(tile).toHaveCount(0);
     }
+    await page.clock.setSystemTime(now);
+    await page.reload();
+    await expect(tile.locator('.sc-today-achievements-xp-value')).toHaveText('+7 XP');
+    await page.clock.resume();
     await page
       .getByRole('group', { name: /Switch language|Сменить язык/ })
       .getByRole('button', { name: 'RU', exact: true })
@@ -152,19 +175,6 @@ test('Today achievements isolates canonical participant fixtures and renders fou
     await page.reload();
     await expect(tile.locator('.sc-today-achievements-xp-value')).toHaveText('— XP');
     await expect(tile).toContainText('Дневная история оценок ещё недоступна.');
-    // Observe existing idle day refresh separately; a reload must use the new resort day.
-    await page.clock.setSystemTime(new Date('2026-10-06T19:00:00Z'));
-    const midnightPath = info.outputPath('idle-resort-midnight.json');
-    writeFileSync(
-      midnightPath,
-      JSON.stringify({ tileVisibleBeforeRefresh: await tile.isVisible() })
-    );
-    await info.attach('idle-resort-midnight', {
-      path: midnightPath,
-      contentType: 'application/json',
-    });
-    await page.reload();
-    await expect(tile).toHaveCount(0);
     healthy();
   } finally {
     for (const original of originals) {

@@ -83,6 +83,28 @@ test('Today achievements isolates canonical participant fixtures and renders fou
       );
     }
     const healthy = watchBrowserFailures(page);
+    const pending = new Set<import('@playwright/test').Request>();
+    let requestCount = 0;
+    page.on('request', (request) => {
+      if (/^http:\/\/127\.0\.0\.1:(5001|9299)\//.test(request.url())) {
+        pending.add(request);
+        requestCount += 1;
+      }
+    });
+    page.on('requestfinished', (request) => pending.delete(request));
+    page.on('requestfailed', (request) => pending.delete(request));
+    const waitForFirebaseIdle = async () => {
+      // The tile can render before catalogue/auth hydration finishes. Fast-forwarding
+      // also fires Firebase's 70s callable deadline, while network time stays real.
+      // Wait for bodies and chained requests, using the test runner's real clock.
+      await expect
+        .poll(async () => {
+          const count = requestCount;
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          return pending.size === 0 && requestCount === count;
+        })
+        .toBe(true);
+    };
     await page.route(/^https:\/\/fonts\.(googleapis|gstatic)\.com\//, (route) => route.abort());
     await page.clock.install({ time: now });
     await signInStudent(page, runtime);
@@ -111,6 +133,7 @@ test('Today achievements isolates canonical participant fixtures and renders fou
     const cdp = await page.context().newCDPSession(page);
     for (const timezoneId of ['Asia/Almaty', 'UTC', 'America/New_York']) {
       await cdp.send('Emulation.setTimezoneOverride', { timezoneId });
+      await waitForFirebaseIdle();
       await page.clock.setSystemTime(new Date('2026-10-06T18:59:00Z'));
       await page.reload();
       await expect(tile.locator('.sc-today-achievements-xp-value')).toHaveText('+7 XP');
@@ -120,21 +143,26 @@ test('Today achievements isolates canonical participant fixtures and renders fou
         navigations += 1;
       };
       page.on('load', onNavigation);
+      await waitForFirebaseIdle();
       await page.clock.fastForward(60_000);
       await expect(tile).toHaveCount(0);
+      await waitForFirebaseIdle();
       await page.clock.fastForward(60_000);
       await expect(tile).toHaveCount(0);
       expect(navigations).toBe(0);
       page.off('load', onNavigation);
       // Simulate a suspended timer: moving wall time does not fire timers.
+      await waitForFirebaseIdle();
       await page.clock.setSystemTime(new Date('2026-10-06T18:59:00Z'));
       await page.reload();
       await expect(tile.locator('.sc-today-achievements-xp-value')).toHaveText('+7 XP');
+      await waitForFirebaseIdle();
       await page.clock.setSystemTime(new Date('2026-10-06T19:01:00Z'));
       await expect(tile.locator('.sc-today-achievements-xp-value')).toHaveText('+7 XP');
       await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
       await expect(tile).toHaveCount(0);
     }
+    await waitForFirebaseIdle();
     await page.clock.setSystemTime(now);
     await page.reload();
     await expect(tile.locator('.sc-today-achievements-xp-value')).toHaveText('+7 XP');

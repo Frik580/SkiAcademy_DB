@@ -248,13 +248,13 @@ describe('deployment release and verification CLI', () => {
 
   it('invokes hosting-only verification for hosting releases', async () => {
     const runPostVerify = vi.fn(async () => ({ exitCode: 0 }));
-    await runRelease('hosting:prod', {
+    await runRelease('hosting:staging', {
       spawnDeploy: () => ({ status: 0 }),
       runPostVerify,
     });
     expect(runPostVerify).toHaveBeenCalledWith({
-      verifyArgv: ['--environment', 'production'],
-      spec: expect.objectContaining({ scope: 'hosting', environment: 'production' }),
+      verifyArgv: ['--environment', 'staging'],
+      spec: expect.objectContaining({ scope: 'hosting', environment: 'staging' }),
       env: process.env,
     });
   });

@@ -12,7 +12,7 @@ import {
 export const POST_DEPLOY_VERIFY_RETRY_DELAYS_MS = [0, 3000, 7000, 15000, 20000];
 
 const FATAL_HOSTING_REASONS = new Set(['local-dirty', 'environment', 'project', 'cache']);
-const PROPAGATION_HOSTING_REASONS = new Set(['sha']);
+const PROPAGATION_HOSTING_REASONS = new Set(['sha', 'timestamp']);
 
 export function readCliOption(argv, name) {
   const index = argv.indexOf(name);
@@ -22,7 +22,11 @@ export function readCliOption(argv, name) {
 
 export function parseVerifyArgv(argv) {
   const environment = readCliOption(argv, '--environment');
-  const target = HOSTING_ENVIRONMENTS[environment];
+  const configuredTarget = HOSTING_ENVIRONMENTS[environment];
+  const target =
+    argv.includes('--primary-only') && configuredTarget
+      ? { ...configuredTarget, secondaryOrigin: null }
+      : configuredTarget;
   if (!target?.origin && !argv.includes('--functions-only')) {
     return { error: 'Expected --environment production or --environment staging' };
   }
@@ -179,6 +183,7 @@ export async function runVerification({
   listServicesImpl,
   env = process.env,
   gitInputs = null,
+  expectedHostingBuildInfo = null,
 }) {
   const git = gitInputs ?? readGitProvenanceInputs(cwd);
   const local = createSourceIdentity({
@@ -210,13 +215,69 @@ export async function runVerification({
   let functionsResult = null;
 
   const shouldCheckHosting = argvMode !== 'functions-only';
-  const shouldCheckFunctions = argvMode === 'functions-only' || argvMode === 'hosting-and-functions';
+  const shouldCheckFunctions =
+    argvMode === 'functions-only' || argvMode === 'hosting-and-functions';
 
   if (shouldCheckHosting) {
-    try {
-      const fetched = await fetchHostingBuildInfo(target.origin, fetchImpl);
-      if (!fetched.ok) {
-        push(`${environment} Hosting`, ['commit: UNVERIFIED', `environment: ${environment}`]);
+    const origins = [target.origin, target.secondaryOrigin].filter(Boolean);
+    const hostingReasons = new Set();
+    let referenceBuildInfo = expectedHostingBuildInfo;
+    for (const origin of origins) {
+      try {
+        const fetched = await fetchHostingBuildInfo(origin, fetchImpl);
+        if (!fetched.ok) {
+          push(`${environment} Hosting: ${origin}`, [
+            'commit: UNVERIFIED',
+            `environment: ${environment}`,
+          ]);
+          lines.push('Hosting MISMATCH');
+          if (!shouldCheckFunctions) {
+            lines.push('Functions NOT CHECKED');
+          }
+          return {
+            exitCode: 2,
+            retryable: false,
+            localHeadLines: [`commit: ${local.commitSha}`, `dirty: ${local.dirty}`],
+            lines,
+            error: `Hosting provenance request failed: ${fetched.error}`,
+          };
+        }
+
+        push(`${environment} Hosting: ${origin}`, [
+          `commit: ${fetched.buildInfo.commitSha}`,
+          `environment: ${fetched.buildInfo.environment}`,
+          `dirty: ${fetched.buildInfo.dirty}`,
+          `project: ${fetched.buildInfo.firebaseProjectId}`,
+          `built: ${fetched.buildInfo.buildTimestamp}`,
+        ]);
+
+        hostingResult = evaluateHostingComparison({
+          localCommitSha: local.commitSha,
+          localDirty: local.dirty,
+          buildInfo: fetched.buildInfo,
+          expectedEnvironment: environment,
+          cacheControl: fetched.cacheControl,
+        });
+        if (
+          referenceBuildInfo &&
+          fetched.buildInfo.buildTimestamp !== referenceBuildInfo.buildTimestamp
+        ) {
+          hostingResult.reasons.push('timestamp');
+          hostingResult.match = false;
+        }
+        referenceBuildInfo ??= fetched.buildInfo;
+        for (const reason of hostingResult.reasons) hostingReasons.add(reason);
+        lines.push(hostingResult.match ? 'Hosting MATCH' : 'Hosting MISMATCH');
+        if (!hostingResult.match) {
+          lines.push(`reasons: ${hostingResult.reasons.join(', ')}`);
+          exitCode = 1;
+        }
+      } catch (error) {
+        const message = error instanceof Error && error.message ? error.message : 'request failed';
+        push(`${environment} Hosting: ${origin}`, [
+          'commit: UNVERIFIED',
+          `environment: ${environment}`,
+        ]);
         lines.push('Hosting MISMATCH');
         if (!shouldCheckFunctions) {
           lines.push('Functions NOT CHECKED');
@@ -224,45 +285,14 @@ export async function runVerification({
         return {
           exitCode: 2,
           retryable: false,
-          localHeadLines: [`commit: ${local.commitSha}`, `dirty: ${local.dirty}`],
           lines,
-          error: `Hosting provenance request failed: ${fetched.error}`,
+          error: `Hosting provenance request failed: ${message.split('\n')[0]}`,
         };
       }
-
-      push(`${environment} Hosting`, [
-        `commit: ${fetched.buildInfo.commitSha}`,
-        `environment: ${fetched.buildInfo.environment}`,
-        `dirty: ${fetched.buildInfo.dirty}`,
-        `project: ${fetched.buildInfo.firebaseProjectId}`,
-        `built: ${fetched.buildInfo.buildTimestamp}`,
-      ]);
-
-      hostingResult = evaluateHostingComparison({
-        localCommitSha: local.commitSha,
-        localDirty: local.dirty,
-        buildInfo: fetched.buildInfo,
-        expectedEnvironment: environment,
-        cacheControl: fetched.cacheControl,
-      });
-      lines.push(hostingResult.match ? 'Hosting MATCH' : 'Hosting MISMATCH');
-      if (!hostingResult.match) {
-        lines.push(`reasons: ${hostingResult.reasons.join(', ')}`);
-        exitCode = 1;
-      }
-    } catch (error) {
-      const message = error instanceof Error && error.message ? error.message : 'request failed';
-      push(`${environment} Hosting`, ['commit: UNVERIFIED', `environment: ${environment}`]);
-      lines.push('Hosting MISMATCH');
-      if (!shouldCheckFunctions) {
-        lines.push('Functions NOT CHECKED');
-      }
-      return {
-        exitCode: 2,
-        retryable: false,
-        lines,
-        error: `Hosting provenance request failed: ${message.split('\n')[0]}`,
-      };
+    }
+    hostingResult = { match: hostingReasons.size === 0, reasons: [...hostingReasons] };
+    if (origins.length > 1) {
+      lines.push(`Production Hosting Sync: ${hostingResult.match ? 'PASS' : 'FAIL'}`);
     }
   }
 

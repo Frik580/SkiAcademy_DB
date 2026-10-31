@@ -8,6 +8,7 @@ export const HOSTING_ENVIRONMENTS = {
   production: {
     firebaseProjectId: 'ski-school-8f3ca',
     origin: 'https://ski-school-8f3ca.web.app',
+    secondaryOrigin: 'https://carveacademy.web.app',
   },
   staging: {
     firebaseProjectId: 'ski-school-staging',
@@ -88,8 +89,7 @@ export function missingCommitMessage(target) {
   return 'Cannot determine source commit for hosting build';
 }
 
-export const DIRTY_RELEASE_MESSAGE =
-  'Refusing to create a release build from a dirty working tree';
+export const DIRTY_RELEASE_MESSAGE = 'Refusing to create a release build from a dirty working tree';
 
 function assertTimestamp(buildTimestamp) {
   if (typeof buildTimestamp !== 'string' || !BUILD_TIMESTAMP_PATTERN.test(buildTimestamp)) {
@@ -209,7 +209,13 @@ export function systemCaAlreadyEnabled(execArgv, env = {}) {
   return execArgv.includes('--use-system-ca') || env.NODE_USE_SYSTEM_CA === '1';
 }
 
-export function resolveHostingBuildInfo({ mode, env, cwd, buildTimestamp, runGitCommand = runGit }) {
+export function resolveHostingBuildInfo({
+  mode,
+  env,
+  cwd,
+  buildTimestamp,
+  runGitCommand = runGit,
+}) {
   const git = readGitProvenanceInputs(cwd, runGitCommand);
   return prepareHostingBuildInfo({
     mode,
@@ -252,12 +258,16 @@ export function parseHostingBuildInfo(value) {
   if (extraKeys.length > 0) {
     throw new Error('Hosting provenance response contained unexpected fields');
   }
-  return createHostingBuildInfo({
+  const parsed = createHostingBuildInfo({
     commitSha: record.commitSha,
     buildTimestamp: record.buildTimestamp,
     environment: record.environment,
     dirty: record.dirty,
   });
+  if (typeof record.firebaseProjectId !== 'string') {
+    throw new Error('Hosting provenance response is missing Firebase project ID');
+  }
+  return { ...parsed, firebaseProjectId: record.firebaseProjectId };
 }
 
 export function hostingCacheRequiresRevalidation(cacheControl) {
@@ -265,7 +275,13 @@ export function hostingCacheRequiresRevalidation(cacheControl) {
   return value.includes('no-cache') || value.includes('no-store');
 }
 
-export function evaluateHostingComparison({ localCommitSha, localDirty, buildInfo, expectedEnvironment, cacheControl }) {
+export function evaluateHostingComparison({
+  localCommitSha,
+  localDirty,
+  buildInfo,
+  expectedEnvironment,
+  cacheControl,
+}) {
   const reasons = [];
   if (localDirty) reasons.push('local-dirty');
   if (buildInfo.dirty) reasons.push('remote-dirty');
@@ -337,6 +353,11 @@ export function evaluateFunctionsComparison({
 }
 
 export const RELEASE_TARGET_SPECS = {
+  'full:prod': {
+    environment: 'production',
+    scope: 'full',
+    deploy: 'npm run build:prod && firebase deploy --project prod',
+  },
   'hosting:staging': {
     environment: 'staging',
     scope: 'hosting',

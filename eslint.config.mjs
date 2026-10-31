@@ -157,6 +157,7 @@ const featureBoundaryPlugin = {
 export default tseslint.config(
   {
     ignores: [
+      '.worktrees/**',
       'dist',
       'packages/*/dist',
       'functions/lib',

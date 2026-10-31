@@ -32,11 +32,13 @@ export const useCurrentUserProfileSync = () => {
         }
         // Gate canonical reads on the authoritative Account fields, not on the
         // presentation-only UserProfile (which exists before provisioning).
-        useProfileStore.getState().setCanonicalReadyAccountId(
-          isCanonicalAccountReadyForReads(userSnap.data(), firebaseUser.uid)
-            ? firebaseUser.uid
-            : null
-        );
+        useProfileStore
+          .getState()
+          .setCanonicalReadyAccountId(
+            isCanonicalAccountReadyForReads(userSnap.data(), firebaseUser.uid)
+              ? firebaseUser.uid
+              : null
+          );
         useProfileStore.getState().syncUserProfileFromSnapshot(profile);
         if (Array.isArray(profile.dismissedReviewIds)) {
           useProfileStore.getState().setDismissedReviewIds(profile.dismissedReviewIds);

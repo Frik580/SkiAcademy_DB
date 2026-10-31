@@ -137,8 +137,12 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
 }) => {
   const { t, language } = useLanguage();
   const lang = language === 'ru' ? 'ru' : 'en';
-  const { evidence, loading: statsLoading, loaded: statsLoaded, error: statsError } =
-    useSelectedParticipantLessonStats(selectedParticipantId);
+  const {
+    evidence,
+    loading: statsLoading,
+    loaded: statsLoaded,
+    error: statsError,
+  } = useSelectedParticipantLessonStats(selectedParticipantId);
   const feedback = usePresentedParticipantLessonFeedback(bookings);
   const pendingKeys = useParticipantLessonFeedbackStore((state) => state.pendingKeys);
   const [view, setView] = useState<CoachView>('list');

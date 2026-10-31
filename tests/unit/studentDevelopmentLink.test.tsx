@@ -49,11 +49,7 @@ it('is reachable with Tab, activates with Enter, and can stop Journey card click
   const user = userEvent.setup();
   render(
     <div onClick={onParentClick}>
-      <StudentDevelopmentLink
-        label="Go to Development"
-        onNavigate={onNavigate}
-        stopPropagation
-      />
+      <StudentDevelopmentLink label="Go to Development" onNavigate={onNavigate} stopPropagation />
     </div>
   );
 

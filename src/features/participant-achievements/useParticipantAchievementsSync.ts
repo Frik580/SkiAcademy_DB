@@ -11,8 +11,13 @@ export function useParticipantAchievementsSync() {
   const canonicalReadyAccountId = useProfileStore((state) => state.canonicalReadyAccountId);
 
   useEffect(() => {
-    if (!firebaseUser || !userProfile || userProfile.role !== 'user' ||
-        canonicalReadyAccountId !== firebaseUser.uid || userProfile.uid !== firebaseUser.uid) {
+    if (
+      !firebaseUser ||
+      !userProfile ||
+      userProfile.role !== 'user' ||
+      canonicalReadyAccountId !== firebaseUser.uid ||
+      userProfile.uid !== firebaseUser.uid
+    ) {
       useParticipantAchievementsStore.getState().clear();
       return;
     }

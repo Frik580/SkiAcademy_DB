@@ -379,7 +379,14 @@ describe('Student Home dashboard grid', () => {
     ).toBe(grid.querySelector('[data-dashboard-column="right"]'));
     expect(grid.querySelectorAll('[data-dashboard-tile]')).toHaveLength(10);
     for (const tile of Array.from(grid.querySelectorAll('[data-dashboard-tile]'))) {
-      expect(tile).toHaveClass('sc-dashboard-card', 'ui-card', 'p-4', 'sm:p-5', 'min-w-0', 'w-full');
+      expect(tile).toHaveClass(
+        'sc-dashboard-card',
+        'ui-card',
+        'p-4',
+        'sm:p-5',
+        'min-w-0',
+        'w-full'
+      );
       const header = tile.querySelector('[data-dashboard-header]')!;
       const title = header.querySelector('[data-dashboard-title]')!;
       expect(header.tagName).toBe('HEADER');

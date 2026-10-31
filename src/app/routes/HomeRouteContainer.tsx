@@ -153,7 +153,9 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
 
             <div id="coaches-grid" className="space-y-10 w-full max-w-[1200px] mx-auto">
               <div>
-                <h3 className="font-serif text-[30px] md:text-[36px] font-medium leading-[1.15] tracking-[-0.02em] text-[var(--ink)]">{t('meetGuides')}</h3>
+                <h3 className="font-serif text-[30px] md:text-[36px] font-medium leading-[1.15] tracking-[-0.02em] text-[var(--ink)]">
+                  {t('meetGuides')}
+                </h3>
 
                 <p className="ui-section-eyebrow mt-2">{t('meetGuidesSub')}</p>
               </div>

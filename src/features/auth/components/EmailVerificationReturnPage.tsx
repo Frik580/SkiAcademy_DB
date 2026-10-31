@@ -60,21 +60,34 @@ export const EmailVerificationReturnPage: React.FC = () => {
     <main className="w-full flex-1 flex items-center justify-center px-4 py-12">
       <section className="ui-modal w-full max-w-lg rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] px-6 py-10 text-center shadow-xl sm:px-10">
         <div className="mx-auto mb-5 flex size-16 items-center justify-center rounded-full bg-[var(--profile-bg)] text-[var(--ink)]">
-          {verified ? <CheckCircle2 size={34} aria-hidden="true" /> : <Mail size={34} aria-hidden="true" />}
+          {verified ? (
+            <CheckCircle2 size={34} aria-hidden="true" />
+          ) : (
+            <Mail size={34} aria-hidden="true" />
+          )}
         </div>
         <h1 className="type-section-title text-[var(--ink)]">{title}</h1>
         {!checking && (
           <p className="mt-4 type-body text-[var(--ink-dim)]">
-            {t(verified ? 'authVerificationReturnVerifiedDesc' : 'authVerificationReturnPendingDesc')}
+            {t(
+              verified ? 'authVerificationReturnVerifiedDesc' : 'authVerificationReturnPendingDesc'
+            )}
           </p>
         )}
         <div className="mt-8 flex flex-col gap-3">
           {!profile && (
-            <button type="button" className="btn-primary min-h-11 w-full px-5 py-3" onClick={() => openAuthModal(true)}>
+            <button
+              type="button"
+              className="btn-primary min-h-11 w-full px-5 py-3"
+              onClick={() => openAuthModal(true)}
+            >
               {t('authVerificationReturnSignIn')}
             </button>
           )}
-          <Link to={profile ? getDefaultWorkspacePath(profile) : '/'} className="btn-secondary min-h-11 w-full px-5 py-3">
+          <Link
+            to={profile ? getDefaultWorkspacePath(profile) : '/'}
+            className="btn-secondary min-h-11 w-full px-5 py-3"
+          >
             {t('authVerificationReturnHome')}
           </Link>
         </div>

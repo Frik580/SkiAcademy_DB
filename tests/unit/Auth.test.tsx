@@ -155,60 +155,75 @@ describe('Auth', () => {
     });
   });
 
-  it.each([true, false])('retains the signup draft and only claims or creates a profile after verification (guest match: %s)', async (hasGuestProfile) => {
-    const user = {
-      uid: 'verified-signup',
-      email: 'guest@example.com',
-      emailVerified: false,
-      reload: vi.fn(async () => {}),
-      getIdToken: vi.fn().mockResolvedValue('refreshed-token'),
-    };
-    mockCreateUserWithEmailAndPassword.mockResolvedValue({ user });
-    mockSendEmailVerification
-      .mockRejectedValueOnce(new Error('delivery failed'))
-      .mockResolvedValue(undefined);
-    render(<Auth onSuccess={onSuccess} />);
-    await userEvent.click(screen.getByRole('button', { name: /noAccount/i }));
-    await userEvent.type(screen.getByPlaceholderText('fullName'), 'Alex Carter');
-    await userEvent.type(screen.getByPlaceholderText('emailAddress'), user.email);
-    await userEvent.type(screen.getByPlaceholderText('password'), 'password123');
-    await userEvent.click(screen.getByRole('button', { name: /signUpBtn/i }));
-    expect(await screen.findByText('authVerificationSendFailed')).toBeInTheDocument();
-    const verifyButton = screen.getByRole('button', { name: 'authVerificationCheck' });
-    const resendButton = screen.getByRole('button', { name: 'authVerificationResend' });
-    expect(verifyButton.parentElement).toBe(resendButton.parentElement);
-    expect(verifyButton.parentElement).toHaveClass('grid', 'grid-cols-1', 'gap-3');
-    expect(verifyButton).toHaveClass('w-full', 'min-h-11');
-    expect(resendButton).toHaveClass('w-full', 'min-h-11');
-    expect(mockSetDoc).not.toHaveBeenCalled();
-    expect(mockMigratePreExistingProfile).not.toHaveBeenCalled();
-    expect(onSuccess).not.toHaveBeenCalled();
-    await userEvent.click(screen.getByRole('button', { name: 'authVerificationResend' }));
-    expect(mockSendEmailVerification).toHaveBeenCalledTimes(2);
-    expect(mockSendEmailVerification).toHaveBeenCalledWith(user, {
-      url: expect.stringMatching(/\/email-verified\?lang=en$/),
-      handleCodeInApp: false,
-    });
-    await userEvent.click(screen.getByRole('button', { name: 'authVerificationCheck' }));
-    expect(await screen.findByText('authVerificationPending')).toBeInTheDocument();
-    expect(mockSetDoc).not.toHaveBeenCalled();
-    user.emailVerified = true;
-    const claimed = { uid: user.uid, email: user.email, displayName: 'Alex Carter', role: 'user' };
-    mockMigratePreExistingProfile.mockResolvedValue(hasGuestProfile ? claimed : null);
-    await userEvent.click(screen.getByRole('button', { name: 'authVerificationCheck' }));
-    await waitFor(() => expect(onSuccess).toHaveBeenCalledWith(expect.objectContaining(claimed)));
-    expect(user.getIdToken).toHaveBeenCalledWith(true);
-    expect(mockMigratePreExistingProfile).toHaveBeenCalledWith(user.uid, user.email, 'Alex Carter');
-    if (hasGuestProfile) {
+  it.each([true, false])(
+    'retains the signup draft and only claims or creates a profile after verification (guest match: %s)',
+    async (hasGuestProfile) => {
+      const user = {
+        uid: 'verified-signup',
+        email: 'guest@example.com',
+        emailVerified: false,
+        reload: vi.fn(async () => {}),
+        getIdToken: vi.fn().mockResolvedValue('refreshed-token'),
+      };
+      mockCreateUserWithEmailAndPassword.mockResolvedValue({ user });
+      mockSendEmailVerification
+        .mockRejectedValueOnce(new Error('delivery failed'))
+        .mockResolvedValue(undefined);
+      render(<Auth onSuccess={onSuccess} />);
+      await userEvent.click(screen.getByRole('button', { name: /noAccount/i }));
+      await userEvent.type(screen.getByPlaceholderText('fullName'), 'Alex Carter');
+      await userEvent.type(screen.getByPlaceholderText('emailAddress'), user.email);
+      await userEvent.type(screen.getByPlaceholderText('password'), 'password123');
+      await userEvent.click(screen.getByRole('button', { name: /signUpBtn/i }));
+      expect(await screen.findByText('authVerificationSendFailed')).toBeInTheDocument();
+      const verifyButton = screen.getByRole('button', { name: 'authVerificationCheck' });
+      const resendButton = screen.getByRole('button', { name: 'authVerificationResend' });
+      expect(verifyButton.parentElement).toBe(resendButton.parentElement);
+      expect(verifyButton.parentElement).toHaveClass('grid', 'grid-cols-1', 'gap-3');
+      expect(verifyButton).toHaveClass('w-full', 'min-h-11');
+      expect(resendButton).toHaveClass('w-full', 'min-h-11');
       expect(mockSetDoc).not.toHaveBeenCalled();
-    } else {
-      expect(mockSetDoc).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining(claimed));
-      expect(user.getIdToken.mock.invocationCallOrder[0]).toBeLessThan(
-        mockSetDoc.mock.invocationCallOrder[0]
+      expect(mockMigratePreExistingProfile).not.toHaveBeenCalled();
+      expect(onSuccess).not.toHaveBeenCalled();
+      await userEvent.click(screen.getByRole('button', { name: 'authVerificationResend' }));
+      expect(mockSendEmailVerification).toHaveBeenCalledTimes(2);
+      expect(mockSendEmailVerification).toHaveBeenCalledWith(user, {
+        url: expect.stringMatching(/\/email-verified\?lang=en$/),
+        handleCodeInApp: false,
+      });
+      await userEvent.click(screen.getByRole('button', { name: 'authVerificationCheck' }));
+      expect(await screen.findByText('authVerificationPending')).toBeInTheDocument();
+      expect(mockSetDoc).not.toHaveBeenCalled();
+      user.emailVerified = true;
+      const claimed = {
+        uid: user.uid,
+        email: user.email,
+        displayName: 'Alex Carter',
+        role: 'user',
+      };
+      mockMigratePreExistingProfile.mockResolvedValue(hasGuestProfile ? claimed : null);
+      await userEvent.click(screen.getByRole('button', { name: 'authVerificationCheck' }));
+      await waitFor(() => expect(onSuccess).toHaveBeenCalledWith(expect.objectContaining(claimed)));
+      expect(user.getIdToken).toHaveBeenCalledWith(true);
+      expect(mockMigratePreExistingProfile).toHaveBeenCalledWith(
+        user.uid,
+        user.email,
+        'Alex Carter'
       );
+      if (hasGuestProfile) {
+        expect(mockSetDoc).not.toHaveBeenCalled();
+      } else {
+        expect(mockSetDoc).toHaveBeenCalledWith(
+          expect.any(Object),
+          expect.objectContaining(claimed)
+        );
+        expect(user.getIdToken.mock.invocationCallOrder[0]).toBeLessThan(
+          mockSetDoc.mock.invocationCallOrder[0]
+        );
+      }
+      expect(mockCreateUserWithEmailAndPassword).toHaveBeenCalledTimes(1);
     }
-    expect(mockCreateUserWithEmailAndPassword).toHaveBeenCalledTimes(1);
-  });
+  );
 
   it('uses Russian for Firebase verification emails and the return URL', async () => {
     mockLanguage.current = 'ru';

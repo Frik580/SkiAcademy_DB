@@ -3,7 +3,12 @@ export const PRODUCTION_FIREBASE_PROJECT_ID = 'ski-school-8f3ca';
 
 const STAGING_HOSTS = new Set(['ski-school-staging.web.app', 'ski-school-staging.firebaseapp.com']);
 
-const PRODUCTION_HOSTS = new Set(['ski-school-8f3ca.web.app', 'ski-school-8f3ca.firebaseapp.com']);
+const PRODUCTION_HOSTS = new Set([
+  'ski-school-8f3ca.web.app',
+  'ski-school-8f3ca.firebaseapp.com',
+  'carveacademy.web.app',
+  'carveacademy.firebaseapp.com',
+]);
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
 

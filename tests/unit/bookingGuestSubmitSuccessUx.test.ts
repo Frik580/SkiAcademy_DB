@@ -1209,14 +1209,12 @@ describe('booking modal submit success UX', () => {
         ReturnType<typeof useAuthStore.getState>['firebaseUser']
       >,
     });
-    useWalletStore
-      .getState()
-      .syncCanonicalWalletFromSnapshot({
-        accountId: uid,
-        exists: true,
-        trusted: true,
-        balanceKzt: 20000,
-      });
+    useWalletStore.getState().syncCanonicalWalletFromSnapshot({
+      accountId: uid,
+      exists: true,
+      trusted: true,
+      balanceKzt: 20000,
+    });
     mocks.managedParticipants.push({ participantId: 'participant_fixture_01', authority: 'self' });
     const { result } = renderHook(() =>
       useBookingModal(createProps({ userProfile: { uid } as UserProfile }))
@@ -1228,14 +1226,12 @@ describe('booking modal submit success UX', () => {
     );
     expect(result.current.isSubmitting).toBe(true);
     act(() =>
-      useWalletStore
-        .getState()
-        .syncCanonicalWalletFromSnapshot({
-          accountId: uid,
-          exists: true,
-          trusted: true,
-          balanceKzt: 0,
-        })
+      useWalletStore.getState().syncCanonicalWalletFromSnapshot({
+        accountId: uid,
+        exists: true,
+        trusted: true,
+        balanceKzt: 0,
+      })
     );
     await waitFor(() => expect(result.current.isSubmitting).toBe(false));
     expect(mocks.createAuthenticatedBooking).not.toHaveBeenCalled();

@@ -18,8 +18,16 @@ vi.mock('../../src/features/auth/authStore', () => ({
 }));
 
 vi.mock('../../src/features/profile/profileStore', () => ({
-  useProfileStore: (selector: (state: { userProfile: { uid: string } | null; canonicalReadyAccountId: string | null }) => unknown) =>
-    selector({ userProfile: mocks.profileUid ? { uid: mocks.profileUid } : null, canonicalReadyAccountId: mocks.readyUid }),
+  useProfileStore: (
+    selector: (state: {
+      userProfile: { uid: string } | null;
+      canonicalReadyAccountId: string | null;
+    }) => unknown
+  ) =>
+    selector({
+      userProfile: mocks.profileUid ? { uid: mocks.profileUid } : null,
+      canonicalReadyAccountId: mocks.readyUid,
+    }),
 }));
 
 vi.mock('../../src/features/booking-collaboration/bookingCollaborationStore', () => ({
@@ -79,7 +87,7 @@ describe('useParticipantProgressSync account readiness', () => {
     expect(mocks.refreshInstructor).not.toHaveBeenCalled();
   });
 
-  it('never reads a previous principal\'s progress during an account switch', async () => {
+  it("never reads a previous principal's progress during an account switch", async () => {
     mocks.profileUid = 'old-account';
     const { rerender } = renderHook(() => useParticipantProgressSync());
     expect(mocks.refreshManaged).not.toHaveBeenCalled();

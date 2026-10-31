@@ -14,12 +14,15 @@ const canonical = {
 describe('canonical Account readiness for client read sync', () => {
   it('waits for server initialization after a verified signup creates only the presentation profile', () => {
     expect(
-      isCanonicalAccountReadyForReads({
-        uid: accountId,
-        email: 'verified@example.com',
-        role: 'user',
-        dataScope: 'live',
-      }, accountId)
+      isCanonicalAccountReadyForReads(
+        {
+          uid: accountId,
+          email: 'verified@example.com',
+          role: 'user',
+          dataScope: 'live',
+        },
+        accountId
+      )
     ).toBe(false);
   });
 
@@ -29,12 +32,23 @@ describe('canonical Account readiness for client read sync', () => {
 
   it('never accepts a different, disabled, or malformed canonical Account', () => {
     expect(isCanonicalAccountReadyForReads(canonical, 'another-uid')).toBe(false);
-    expect(isCanonicalAccountReadyForReads({ ...canonical, lifecycle: { status: 'disabled' } }, accountId)).toBe(false);
-    expect(isCanonicalAccountReadyForReads({ ...canonical, revision: undefined }, accountId)).toBe(false);
-    expect(isCanonicalAccountReadyForReads({ ...canonical, audit: undefined }, accountId)).toBe(false);
+    expect(
+      isCanonicalAccountReadyForReads(
+        { ...canonical, lifecycle: { status: 'disabled' } },
+        accountId
+      )
+    ).toBe(false);
+    expect(isCanonicalAccountReadyForReads({ ...canonical, revision: undefined }, accountId)).toBe(
+      false
+    );
+    expect(isCanonicalAccountReadyForReads({ ...canonical, audit: undefined }, accountId)).toBe(
+      false
+    );
   });
 
   it('preserves active canonical test accounts in their assigned read scope', () => {
-    expect(isCanonicalAccountReadyForReads({ ...canonical, dataScope: 'test' }, accountId)).toBe(true);
+    expect(isCanonicalAccountReadyForReads({ ...canonical, dataScope: 'test' }, accountId)).toBe(
+      true
+    );
   });
 });

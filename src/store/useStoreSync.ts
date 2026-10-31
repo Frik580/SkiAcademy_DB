@@ -35,7 +35,8 @@ export const useStoreSync = () => {
   const authGeneration = useAuthStore((state) => state.authGeneration);
   const userProfile = useProfileStore((state) => state.userProfile);
   const canonicalReadyAccountId = useProfileStore((state) => state.canonicalReadyAccountId);
-  const readyAccountId = canonicalReadyAccountId === firebaseUser?.uid ? firebaseUser.uid : undefined;
+  const readyAccountId =
+    canonicalReadyAccountId === firebaseUser?.uid ? firebaseUser.uid : undefined;
   // Hydrate account_hot only on surfaces that render current/upcoming lessons.
   // History ownership is separate (History + Journey) so Training/Profile/etc.
   // never poll account_hot.

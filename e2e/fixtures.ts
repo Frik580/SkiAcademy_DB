@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { expect, type Page, type TestInfo } from '@playwright/test';
+import { expect, type Page, type Request, type TestInfo } from '@playwright/test';
 import type { E2ERuntimeConfig } from './global-setup';
 import { DEFAULT_LESSON_DURATION_MINUTES } from './emulator-config';
 
@@ -57,8 +57,65 @@ export function isolatedCourseDayOffset(
   return baseOffset + testInfo.repeatEachIndex * testInfo.config.projects.length + projectIndex;
 }
 
+const browserDiagnostics = new WeakMap<Page, string[]>();
+const pendingRequests = new WeakMap<Page, Set<Request>>();
+
+/** Capture secondary pages before their manually owned context is closed. */
+export async function captureBrowserFailure(page: Page, info: TestInfo): Promise<void> {
+  await info.attach('admin-browser-state', {
+    body: JSON.stringify(
+      {
+        url: page.url(),
+        errors: browserDiagnostics.get(page) ?? [],
+        pendingRequests: [...(pendingRequests.get(page) ?? [])].map((request) => ({
+          url: request.url(),
+          method: request.method(),
+          resourceType: request.resourceType(),
+        })),
+      },
+      null,
+      2
+    ),
+    contentType: 'application/json',
+  });
+  const captures = await Promise.allSettled([
+    page.content().then((body) => info.attach('admin-dom', { body, contentType: 'text/html' })),
+    page
+      .screenshot({ timeout: 5_000 })
+      .then((body) => info.attach('admin-screenshot', { body, contentType: 'image/png' })),
+  ]);
+  await info.attach('admin-capture-errors', {
+    body: JSON.stringify(
+      captures.flatMap((result) => (result.status === 'rejected' ? [String(result.reason)] : []))
+    ),
+    contentType: 'application/json',
+  });
+}
+
 export function watchBrowserFailures(page: Page): () => void {
   const failures: string[] = [];
+  const diagnostics: string[] = [];
+  const pending = new Set<Request>();
+  pendingRequests.set(page, pending);
+  page.on('request', (request) => pending.add(request));
+  page.on('requestfinished', (request) => pending.delete(request));
+  page.on('requestfailed', (request) => pending.delete(request));
+  page.on('framenavigated', (frame) => {
+    if (frame === page.mainFrame()) diagnostics.push(`navigation: ${frame.url()}`);
+  });
+  page.on('console', (message) => {
+    if (message.type() === 'error') diagnostics.push(`console: ${message.text()}`);
+  });
+  page.on('pageerror', (error) => diagnostics.push(`uncaught: ${error.stack ?? error.message}`));
+  page.on('requestfailed', (request) =>
+    diagnostics.push(
+      `requestfailed: ${request.method()} ${request.url()} ${request.failure()?.errorText}`
+    )
+  );
+  page.on('response', (response) => {
+    if (response.status() >= 400) diagnostics.push(`http: ${response.status()} ${response.url()}`);
+  });
+  browserDiagnostics.set(page, diagnostics);
   page.on('pageerror', (error) => failures.push(`uncaught: ${error.message}`));
   page.on('console', (message) => {
     if (

@@ -39,11 +39,20 @@ jobs:
       - name: Install dependencies
         run: npm ci --ignore-scripts
 
-      - name: Lint
-        run: npm run lint
+      - name: Lint and i18n from canonical manifest
+        run: node scripts/runManifestTests.mjs --group lint
 
-      - name: i18n key parity
-        run: npm run i18n:check
+      - name: Preserve translation parity reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: translation-parity-results
+          include-hidden-files: true
+          path: |
+            .scratch/test-manifest/**
+            .scratch/test-egress/*.log
+          if-no-files-found: error
+          retention-days: 7
 
   app-tests:
     name: App unit coverage
@@ -75,11 +84,20 @@ jobs:
       - name: Install Functions dependencies
         run: npm ci --prefix functions --ignore-scripts
 
-      - name: Unit tests with coverage
-        run: npm run test:coverage
+      - name: App and shared domain from canonical manifest
+        run: node scripts/runManifestTests.mjs --group app
 
-      - name: Shared domain unit tests
-        run: npm run test:unit:shared-domain
+      - name: Preserve manifest reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-test-results
+          include-hidden-files: true
+          path: |
+            .scratch/test-manifest/**
+            .scratch/test-egress/*.log
+          if-no-files-found: error
+          retention-days: 7
 
   functions-tests:
     name: Functions unit tests
@@ -111,14 +129,20 @@ jobs:
       - name: Install Functions dependencies
         run: npm ci --prefix functions --ignore-scripts
 
-      - name: Build Functions on Linux Node 22
-        run: npm run build:functions
+      - name: Functions build, units and infrastructure guards from manifest
+        run: node scripts/runManifestTests.mjs --group functions-unit
 
-      - name: Functions unit tests
-        run: npm run test:unit:functions
-
-      - name: Release configuration comparator and network egress guard
-        run: node --test scripts/compareFunctionConfig.test.mjs scripts/compareStagingResetRelease.test.mjs scripts/syncSharedDomain.test.mjs scripts/testFirestoreNetworkGuard.test.mjs
+      - name: Preserve manifest reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: functions-unit-results
+          include-hidden-files: true
+          path: |
+            .scratch/test-manifest/**
+            .scratch/test-egress/*.log
+          if-no-files-found: error
+          retention-days: 7
 
   functions-emulator:
     name: Functions emulator suite
@@ -147,68 +171,10 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm ci --prefix functions --ignore-scripts
       - run: npm run build:functions
-      - name: Run sequential Functions emulator suite (reset authorization runs below)
-        shell: bash
-        run: |
-          set -o pipefail
-          node node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --project demo-ski-school-e2e --only auth,firestore,storage "npm run test:functions:emulator -- --exclude=**/dataResetAuthorization.emulator.test.ts --maxWorkers=1 --reporter=default --reporter=json --outputFile=functions-emulator-results.json" 2>&1 | tee functions-emulator-suite.log
-      - name: Require executed Attendance migration guard and CLI regressions
-        shell: bash
-        run: |
-          node --input-type=module <<'NODE'
-          import { readFileSync } from 'node:fs';
-          const report = JSON.parse(readFileSync('functions/functions-emulator-results.json', 'utf8'));
-          if (report.success !== true) throw new Error('Functions emulator suite did not pass');
-          for (const [file, minimum] of [
-            ['bookingAttendanceMigrationGuard.emulator.test.ts', 18],
-            ['bookingAttendanceCommands.emulator.test.ts', 30],
-            ['chatMedia.emulator.test.ts', 32],
-          ]) {
-            const suite = report.testResults.find(result => result.name.replaceAll('\\', '/').endsWith(`/${file}`));
-            if (!suite || suite.status !== 'passed' || suite.assertionResults.length < minimum ||
-                suite.assertionResults.some(test => test.status !== 'passed')) {
-              throw new Error(`Missing, skipped or failed Functions regressions: ${file}`);
-            }
-            if (file.includes('MigrationGuard') && !suite.assertionResults.some(test =>
-              test.title === 'runs the actual CLI twice and requires explicit cutover' && test.status === 'passed')) {
-              throw new Error('Actual migration CLI regression was not executed');
-            }
-            console.log(`${file}: ${suite.assertionResults.length} passed, zero skipped`);
-          }
-          NODE
-      - name: Run reset Auth, Firestore and Storage rehearsals
-        shell: bash
-        run: |
-          set -o pipefail
-          # Authorization/resume performs repeated complete inventories and runs only here,
-          # under the existing rehearsal budget, rather than the general 30-second suite.
-          node node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --project demo-ski-school-e2e --only auth,firestore,storage "node scripts/runVitest.mjs --require-emulators=auth,firestore,storage --config functions/vitest.config.ts functions/src/maintenance/dataResetAuthorization.emulator.test.ts functions/src/maintenance/dataReset.emulator.test.ts functions/src/maintenance/dataResetLiveFixtures.emulator.test.ts functions/src/canonical/guestConfirmation/guestConfirmationWork.emulator.test.ts --no-file-parallelism --maxWorkers=1 --testTimeout=90000 --hookTimeout=60000 --reporter=default --reporter=json --outputFile=reset-emulator-results.json" 2>&1 | tee reset-emulator-suite.log
-      - name: Require executed reset and Guest Confirmation regressions
-        shell: bash
-        run: |
-          node --input-type=module <<'NODE'
-          import { readFileSync } from 'node:fs';
-          const report = JSON.parse(readFileSync('functions/reset-emulator-results.json', 'utf8'));
-          if (report.success !== true) throw new Error('Reset emulator suite did not pass');
-          for (const [file, minimum] of [
-            ['dataReset.emulator.test.ts', 20],
-            ['dataResetLiveFixtures.emulator.test.ts', 4],
-            ['dataResetAuthorization.emulator.test.ts', 8],
-            ['guestConfirmationWork.emulator.test.ts', 24],
-          ]) {
-            const suite = report.testResults.find(result => result.name.replaceAll('\\', '/').endsWith(`/${file}`));
-            if (!suite || suite.status !== 'passed' || suite.assertionResults.length < minimum ||
-                suite.assertionResults.some(test => test.status !== 'passed')) {
-              throw new Error(`Missing, skipped or failed reset regression: ${file}`);
-            }
-            if (file === 'dataResetAuthorization.emulator.test.ts' && !suite.assertionResults.some(test =>
-              test.title === 'serializes parallel apply and requires new authorization for safe partial resume/bootstrap' &&
-              test.status === 'passed')) {
-              throw new Error('Actual reset authorization/resume regression was not executed');
-            }
-            console.log(`${file}: ${suite.assertionResults.length} passed, zero skipped`);
-          }
-          NODE
+      - name: Canonical backend without reset duplicates or Functions triggers
+        run: node scripts/runManifestTests.mjs --group backend
+      - name: Isolated reset authorization and restoration rehearsal
+        run: node scripts/runManifestTests.mjs --group reset
       - name: Verify zero Firestore egress attempts
         if: always()
         shell: bash
@@ -232,10 +198,7 @@ jobs:
           name: functions-emulator-diagnostics
           include-hidden-files: true
           path: |
-            functions/functions-emulator-results.json
-            functions-emulator-suite.log
-            functions/reset-emulator-results.json
-            reset-emulator-suite.log
+            .scratch/test-manifest/**
             *-debug.log
             .scratch/test-egress/*.log
           if-no-files-found: error
@@ -263,15 +226,16 @@ jobs:
       - run: npm ci --prefix functions --ignore-scripts
       - run: npm run build:functions
       - name: Run isolated Firebase integration suites
-        run: node node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --project demo-ski-school-e2e --only auth,firestore,storage "npm run test:vitest:integration"
+        run: node scripts/runManifestTests.mjs --group integration
 
-      - name: Upload integration diagnostics
-        if: failure()
+      - name: Upload integration results and diagnostics
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: integration-failure-diagnostics
+          name: integration-results
           include-hidden-files: true
           path: |
+            .scratch/test-manifest/**
             *-debug.log
             .scratch/test-egress/*.log
           if-no-files-found: ignore
@@ -310,8 +274,20 @@ jobs:
       - name: Install dependencies
         run: npm ci --ignore-scripts
 
-      - name: Firestore rules and course enrollment tests
-        run: npm run test:firestore-enrollment
+      - name: Firestore Rules from canonical manifest
+        run: node scripts/runManifestTests.mjs --group firestore
+
+      - name: Preserve Rules manifest reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: firestore-rules-results
+          include-hidden-files: true
+          path: |
+            .scratch/test-manifest/**
+            .scratch/test-egress/*.log
+          if-no-files-found: error
+          retention-days: 7
 
   build:
     name: Production build
@@ -341,7 +317,7 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Production build
-        run: npm run build
+        run: node scripts/runManifestTests.mjs --group build
 
   quality:
     name: quality
@@ -414,13 +390,17 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run canonical E2E suite
-        run: npm run test:e2e
+        run: node scripts/runManifestTests.mjs --group e2e
 
-      - name: Upload Playwright failure artifacts
-        if: failure()
+      - name: Upload Playwright results and failure artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-e2e-failure-artifacts
-          path: test-results/
+          include-hidden-files: true
+          path: |
+            test-results/
+            .scratch/test-manifest/**
+            .scratch/test-egress/*.log
           if-no-files-found: ignore
           retention-days: 7

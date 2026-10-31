@@ -7,6 +7,7 @@ import {
   signInStudent,
   signInAccount,
   watchBrowserFailures,
+  captureBrowserFailure,
 } from './fixtures';
 import { getParticipantProfile, hasCourseEnrollment, seedE2ECourse } from './firestore-admin';
 import { waitForFunctionsEmulatorReady } from './global-setup';
@@ -129,6 +130,11 @@ test('same browser guest changes from Petr to Ars on a new course application', 
     await expect(list.getByText('Ars', { exact: true })).toHaveCount(1, { timeout: 60_000 });
     await expect(list.getByText('Petr', { exact: true })).toHaveCount(0);
     assertAdminHealthy();
+  } catch (error) {
+    for (const admin of adminContext.pages()) {
+      await captureBrowserFailure(admin, testInfo).catch(() => {});
+    }
+    throw error;
   } finally {
     await adminContext.close();
   }
@@ -378,6 +384,11 @@ test('guest course request appears live for admin and cancellation refreshes bot
     await expect(list.getByText(guestName, { exact: true })).toHaveCount(1);
     assertAdminHealthy();
     assertGuestHealthy();
+  } catch (error) {
+    for (const admin of adminContext.pages()) {
+      await captureBrowserFailure(admin, testInfo).catch(() => {});
+    }
+    throw error;
   } finally {
     await adminContext.close();
   }

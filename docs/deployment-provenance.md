@@ -38,7 +38,7 @@ SHA lookup order:
 
 If none of the three sources is a full 40-character SHA, the build fails. It does not write `unknown`.
 
-`CARVE_RELEASE=1` also fails when `git status --porcelain` is not empty. `npm run deploy:prod`, `npm run deploy:staging`, `npm run deploy:functions:prod`, and `npm run deploy:functions:staging` set that flag. Ordinary `npm run build` and `npm run build:functions` still succeed on a dirty tree and set `dirty: true`.
+`CARVE_RELEASE=1` also fails when `git status --porcelain` is not empty. `npm run deploy:prod`, `npm run deploy:prod:full`, `npm run deploy:staging`, `npm run deploy:functions:prod`, and `npm run deploy:functions:staging` set that flag. Ordinary `npm run build` and `npm run build:functions` still succeed on a dirty tree and set `dirty: true`.
 
 | Build                               | Environment | Project               |
 | ----------------------------------- | ----------- | --------------------- |
@@ -56,6 +56,10 @@ If none of the three sources is a full 40-character SHA, the build fails. It doe
 
 Hosting release commands verify Hosting only. Functions release commands verify Functions only, so a Functions deploy is not failed by Hosting that legitimately remains on another commit.
 
+Production Hosting releases (`deploy:prod` and `deploy:prod:full`) build the frontend once, deploy the primary site, then verify it against HEAD and the local artifact timestamp before running `firebase hosting:clone ski-school-8f3ca:live carveacademy:live --project ski-school-8f3ca`. Both sites are verified afterward. The full command retains one Firebase deploy of all configured resources and also verifies Functions. The clone never builds or deploys backend resources. Firebase multisite targets are unchanged; staging never clones.
+
+A failed primary deploy or primary verification prevents cloning. Clone or final verification failures exit non-zero and report a partial production release. There is no automatic rollback; inspect the failure and rerun the release from the intended clean checkout after resolving it. Releases must be serialized: cloning the live channel cannot lock out a separate concurrent publisher, though final verification detects a changed artifact.
+
 Post-deploy verification retries briefly when Cloud Run or Hosting metadata may still show the previous revision. Manual `deploy:verify` stays read-only and does not retry.
 
 ## Manual verification (diagnostics)
@@ -72,6 +76,8 @@ npm run deploy:verify -- --environment staging
 ```
 
 Exit `0` means the live Hosting manifest matches local `HEAD`, is clean, names the requested environment and project, and is served with a revalidation cache header. Any other result exits non-zero.
+
+Production verification checks both `https://ski-school-8f3ca.web.app/build-info.json` and `https://carveacademy.web.app/build-info.json`. Their complete provenance, including `buildTimestamp`, must agree. `Production Hosting Sync: PASS` is printed only when both match. The release wrapper uses `--primary-only` internally before cloning; manual diagnostics should use the commands above to check both sites.
 
 The command runs Node with `--use-system-ca`, which adds the operating system trust store to Node's bundled certificate authorities. Certificate validation stays enabled. Application runtime TLS is unchanged.
 

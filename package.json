@@ -40,7 +40,7 @@
     "staging:grant-owner": "npm run build:functions && node functions/lib/staging/stagingOwnerCli.js --project ski-school-staging",
     "staging:export-config": "npm run build:functions && node functions/lib/staging/configPromotionCli.js export --project ski-school-staging",
     "prod:promote-config": "npm run build:functions && node functions/lib/staging/configPromotionCli.js promote --project ski-school-8f3ca",
-    "deploy:prod:full": "npm run build:prod && firebase deploy --project prod",
+    "deploy:prod:full": "node scripts/runReleaseCommand.mjs full:prod",
     "deploy:staging": "node scripts/runReleaseCommand.mjs hosting:staging",
     "deploy:prod": "node scripts/runReleaseCommand.mjs hosting:prod",
     "deploy:verify": "node --use-system-ca scripts/verifyDeployment.mjs",

@@ -1,7 +1,8 @@
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { RELEASE_TARGET_SPECS } from './deploymentProvenance.mjs';
+import { RELEASE_TARGET_SPECS, parseHostingBuildInfo } from './deploymentProvenance.mjs';
 import {
   parseFunctionTargetsFromDeployCommand,
   parseVerifyArgv,
@@ -14,6 +15,7 @@ const verifyScriptPath = join(scriptsDir, 'verifyDeployment.mjs');
 
 export function releaseKeyToVerificationArgv(releaseKey, spec) {
   const environment = spec.environment;
+  if (spec.scope === 'full') return ['--environment', environment, '--functions'];
   if (spec.scope === 'hosting') {
     return ['--environment', environment];
   }
@@ -34,11 +36,7 @@ export function buildVerifyNodeCommand(verifyArgv) {
 
 export async function runRelease(
   releaseKey,
-  {
-    spawnDeploy = defaultSpawnDeploy,
-    runPostVerify = defaultRunPostVerify,
-    env = process.env,
-  } = {}
+  { spawnDeploy = defaultSpawnDeploy, runPostVerify = defaultRunPostVerify, env = process.env } = {}
 ) {
   const spec = RELEASE_TARGET_SPECS[releaseKey];
   if (!spec) {
@@ -51,9 +49,38 @@ export async function runRelease(
   }
 
   const verifyArgv = releaseKeyToVerificationArgv(releaseKey, spec);
+  const syncHosting = spec.environment === 'production' && spec.scope !== 'functions';
+  if (syncHosting) {
+    // Verify only the source before cloning: the destination still has the previous release.
+    const primary = await runPostVerify({
+      verifyArgv: [...verifyArgv, '--primary-only'],
+      spec,
+      env,
+    });
+    if (primary.exitCode !== 0) {
+      console.error(
+        'Partial production release: primary deployment completed, verification failed; carveacademy was not updated.'
+      );
+      return { exitCode: primary.exitCode, deployed: true, verified: false };
+    }
+    const clone = spawnDeploy(
+      'firebase hosting:clone ski-school-8f3ca:live carveacademy:live --project ski-school-8f3ca',
+      env
+    );
+    if (clone.status !== 0) {
+      console.error(
+        'Partial production release: primary verified, Hosting clone failed; carveacademy was not updated.'
+      );
+      return { exitCode: clone.status ?? 1, deployed: true, verified: false };
+    }
+  }
   const verifyResult = await runPostVerify({ verifyArgv, spec, env });
   if (verifyResult.exitCode !== 0) {
-    console.error('Deployment completed, but provenance verification failed.');
+    console.error(
+      syncHosting
+        ? 'Partial production release: clone completed, but Hosting synchronization verification failed.'
+        : 'Deployment completed, but provenance verification failed.'
+    );
   }
   return {
     exitCode: verifyResult.exitCode,
@@ -70,16 +97,28 @@ function defaultSpawnDeploy(command, env) {
   });
 }
 
-async function defaultRunPostVerify({ verifyArgv, env }) {
+async function defaultRunPostVerify({ verifyArgv, spec, env }) {
   const parsed = parseVerifyArgv(['node', verifyScriptPath, ...verifyArgv]);
   if (parsed.error) {
     console.error(parsed.error);
     return { exitCode: 2 };
   }
 
+  let expectedHostingBuildInfo;
+  if (spec.environment === 'production' && spec.scope !== 'functions') {
+    try {
+      expectedHostingBuildInfo = parseHostingBuildInfo(
+        JSON.parse(readFileSync('dist/build-info.json', 'utf8'))
+      );
+    } catch (error) {
+      console.error(`Cannot verify local Hosting artifact: ${error.message}`);
+      return { exitCode: 2 };
+    }
+  }
   return await runPostDeployVerificationInProcess({
     parsed,
     env,
+    expectedHostingBuildInfo,
   });
 }
 

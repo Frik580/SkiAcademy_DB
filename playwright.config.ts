@@ -16,7 +16,7 @@ export default defineConfig({
   globalSetup: './e2e/global-setup.ts',
   use: {
     baseURL: `http://127.0.0.1:${port}`,
-    trace: 'on-first-retry',
+    trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
     locale: 'en-US',

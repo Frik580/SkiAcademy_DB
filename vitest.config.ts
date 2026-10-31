@@ -28,6 +28,10 @@ const COVERAGE_EXCLUDE = [
   'src/lib/useBookingChatUnread.ts',
 ];
 
+// Child projects override root/CLI excludes; the manifest supplies the same
+// exclusions here so discovery and runtime execution stay identical.
+const manifestExcludes: string[] = JSON.parse(process.env.CARVE_TEST_EXCLUDES ?? '[]');
+
 const NODE_TESTS = [
   'tests/callable/**',
   'tests/integration/**',
@@ -79,7 +83,7 @@ export default defineConfig({
     exclude: [...configDefaults.exclude, '.scratch/**', '**/.worktrees/**'],
     environment: 'jsdom',
     projects: [
-      { extends: true, test: { name: 'app', exclude: NODE_TESTS } },
+      { extends: true, test: { name: 'app', exclude: [...NODE_TESTS, ...manifestExcludes] } },
       {
         extends: true,
         test: { name: 'firebase', environment: 'node', include: NODE_TEST_INCLUDES },

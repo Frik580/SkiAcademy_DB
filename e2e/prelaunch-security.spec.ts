@@ -15,71 +15,77 @@ const { getStorage } = requireFunctions(
 ) as typeof import('firebase-admin/storage');
 
 const projectId = 'demo-ski-school-e2e';
-test('Hosting serves security headers without applying frame denial to Firebase Auth reserved URLs', async ({
-  request,
-}) => {
-  test.skip(
-    process.env.CARVE_TEST_HOSTING !== 'true',
-    'Requires local Hosting emulator and CARVE_TEST_HOSTING=true'
-  );
-  for (const path of ['/', '/index.html', '/courses']) {
-    const response = await request.get(`http://127.0.0.1:5000${path}`);
-    expect(response.status()).toBe(200);
-    const headers = response.headers();
-    expect(headers['x-frame-options']).toBe('DENY');
-    expect(headers['x-content-type-options']).toBe('nosniff');
-    expect(headers['referrer-policy']).toBe('strict-origin-when-cross-origin');
-    expect(headers['permissions-policy']).toContain('camera=()');
-    expect(headers['content-security-policy-report-only']).toContain("object-src 'none'");
-    expect(headers['content-security-policy-report-only']).not.toMatch(/unsafe-inline|unsafe-eval/);
-    expect(headers['content-security-policy']).toBeUndefined();
-  }
-  const reserved = await request.get('http://127.0.0.1:5000/__/auth/iframe', { maxRedirects: 0 });
-  expect(reserved.headers()['x-frame-options']).not.toBe('DENY');
-});
-
-test('public image rewrite preserves cached GET/HEAD and limits uncached transforms', async ({
-  request,
-}) => {
-  test.skip(process.env.CARVE_TEST_HOSTING !== 'true', 'Requires local Hosting emulator');
-  if (!process.env.FIREBASE_STORAGE_EMULATOR_HOST || !process.env.FIRESTORE_EMULATOR_HOST)
-    throw new Error('Local emulators required');
-  const app =
-    getApps().find((item) => item.name === 'prelaunch-images') ??
-    initializeApp({ projectId }, 'prelaunch-images');
-  const db = getFirestore(app);
-  const source = 'https://storage.yandexcloud.net/carve/prelaunch-cache-test.webp';
-  const digest = createHash('sha256').update(`${source}|960|72|webp`).digest('hex');
-  const file = getStorage(app)
-    .bucket(`${projectId}.appspot.com`)
-    .file(`image-cache/${digest}_w960_q72.webp`);
-  const image = Buffer.from('UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEADsD+JaQAA3AAAAAA', 'base64');
-  const counter = db.doc('security_request_limits/image_global_misses');
-  const before = await counter.get();
-  await file.save(image, { resumable: false, contentType: 'image/webp' });
-  try {
-    // A wrong cache fixture must fail closed instead of fetching a real upstream.
-    await counter.set({ count: 120, resetAt: Date.now() + 180_000 });
-    const url = `http://127.0.0.1:5000/api/img?${new URLSearchParams({ u: source, w: '960', q: '72' })}`;
-    const cached = await request.get(url);
-    expect(cached.status()).toBe(200);
-    expect(cached.headers()['x-image-cache']).toBe('HIT');
-    expect(await cached.body()).toEqual(image);
-    expect((await request.head(url)).status()).toBe(200);
-    await counter.set({ count: 120, resetAt: Date.now() + 60_000 });
-    const limited = await request.get(
-      url.replace('prelaunch-cache-test.webp', 'prelaunch-uncached-test.webp')
+test(
+  'Hosting serves security headers without applying frame denial to Firebase Auth reserved URLs',
+  { tag: '@hosting' },
+  async ({ request }) => {
+    test.skip(
+      process.env.CARVE_TEST_HOSTING !== 'true',
+      'Requires local Hosting emulator and CARVE_TEST_HOSTING=true'
     );
-    expect(limited.status()).toBe(429);
-    expect(limited.headers()['retry-after']).toBe('60');
-    expect(limited.headers()['cache-control']).toContain('no-store');
-    expect((await request.get(`${url}&nonce=1`)).status()).toBe(400);
-  } finally {
-    await file.delete();
-    if (before.exists) await counter.set(before.data()!);
-    else await counter.delete();
+    for (const path of ['/', '/index.html', '/courses']) {
+      const response = await request.get(`http://127.0.0.1:5000${path}`);
+      expect(response.status()).toBe(200);
+      const headers = response.headers();
+      expect(headers['x-frame-options']).toBe('DENY');
+      expect(headers['x-content-type-options']).toBe('nosniff');
+      expect(headers['referrer-policy']).toBe('strict-origin-when-cross-origin');
+      expect(headers['permissions-policy']).toContain('camera=()');
+      expect(headers['content-security-policy-report-only']).toContain("object-src 'none'");
+      expect(headers['content-security-policy-report-only']).not.toMatch(
+        /unsafe-inline|unsafe-eval/
+      );
+      expect(headers['content-security-policy']).toBeUndefined();
+    }
+    const reserved = await request.get('http://127.0.0.1:5000/__/auth/iframe', { maxRedirects: 0 });
+    expect(reserved.headers()['x-frame-options']).not.toBe('DENY');
   }
-});
+);
+
+test(
+  'public image rewrite preserves cached GET/HEAD and limits uncached transforms',
+  { tag: '@hosting' },
+  async ({ request }) => {
+    test.skip(process.env.CARVE_TEST_HOSTING !== 'true', 'Requires local Hosting emulator');
+    if (!process.env.FIREBASE_STORAGE_EMULATOR_HOST || !process.env.FIRESTORE_EMULATOR_HOST)
+      throw new Error('Local emulators required');
+    const app =
+      getApps().find((item) => item.name === 'prelaunch-images') ??
+      initializeApp({ projectId }, 'prelaunch-images');
+    const db = getFirestore(app);
+    const source = 'https://storage.yandexcloud.net/carve/prelaunch-cache-test.webp';
+    const digest = createHash('sha256').update(`${source}|960|72|webp`).digest('hex');
+    const file = getStorage(app)
+      .bucket(`${projectId}.appspot.com`)
+      .file(`image-cache/${digest}_w960_q72.webp`);
+    const image = Buffer.from('UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEADsD+JaQAA3AAAAAA', 'base64');
+    const counter = db.doc('security_request_limits/image_global_misses');
+    const before = await counter.get();
+    await file.save(image, { resumable: false, contentType: 'image/webp' });
+    try {
+      // A wrong cache fixture must fail closed instead of fetching a real upstream.
+      await counter.set({ count: 120, resetAt: Date.now() + 180_000 });
+      const url = `http://127.0.0.1:5000/api/img?${new URLSearchParams({ u: source, w: '960', q: '72' })}`;
+      const cached = await request.get(url);
+      expect(cached.status()).toBe(200);
+      expect(cached.headers()['x-image-cache']).toBe('HIT');
+      expect(await cached.body()).toEqual(image);
+      expect((await request.head(url)).status()).toBe(200);
+      await counter.set({ count: 120, resetAt: Date.now() + 60_000 });
+      const limited = await request.get(
+        url.replace('prelaunch-cache-test.webp', 'prelaunch-uncached-test.webp')
+      );
+      expect(limited.status()).toBe(429);
+      expect(limited.headers()['retry-after']).toBe('60');
+      expect(limited.headers()['cache-control']).toContain('no-store');
+      expect((await request.get(`${url}&nonce=1`)).status()).toBe(400);
+    } finally {
+      await file.delete();
+      if (before.exists) await counter.set(before.data()!);
+      else await counter.delete();
+    }
+  }
+);
 
 test('real emulator Auth tokens cannot claim a guest until verified, and retries stay idempotent', async ({
   request,

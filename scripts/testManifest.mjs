@@ -49,7 +49,7 @@ export const executionGroups = [
   {
     id: 'e2e',
     ciGate: 'e2e',
-    checks: ['build:functions'],
+    checks: ['build:functions', 'build:e2e'],
     emulators: [...DATA_EMULATORS, 'functions'],
     managedLifecycle: true,
   },
@@ -116,27 +116,26 @@ export const suites = [
   }),
 ];
 
-// Existing coverage gaps are inventory entries, not newly enabled gates.
+// Historical release-only inventory owners; FULL promotion is defined below.
 export const deferredSuites = [
   {
     id: 'colocated',
     files: ['src/**/*.test.ts'],
     proposedGroup: 'app',
-    reason:
-      'Existing colocated tests outside the tests/unit selection; separate coverage change required.',
+    reason: 'Release-only colocated tests; exact source selection preserves isolation.',
   },
   {
     id: 'cutover-node',
     files: ['scripts/individual-booking-cutover-inventory.test.mjs'],
     proposedGroup: 'functions-unit',
-    reason: 'Existing Node cutover test outside the required gate.',
+    reason: 'Release-only Node cutover contract tests.',
   },
   {
     id: 'migration-cli',
     files: ['functions/scripts/**/*.test.cjs'],
     proposedGroup: 'isolated-migration',
     reason:
-      'Do not auto-enable destructive CLI rehearsals; review demo-only guards and isolation first.',
+      'Release-only CLI rehearsals require isolated demo Firestore and inherited cloud egress guard.',
   },
   {
     id: 'compile-contracts',
@@ -152,3 +151,143 @@ export const deferredSuites = [
       'Separate browser fixture configurations; preserve inventory without expanding the required E2E gate.',
   },
 ];
+
+// Profiles are views of canonical owners, never independent inventories.
+export const smokeFiles = [
+  'e2e/auth-smoke.spec.ts',
+  'e2e/booking-flow.spec.ts',
+  'e2e/booking-invariants.spec.ts',
+  'e2e/course-enrollment-smoke.spec.ts',
+  'e2e/admin-smoke.spec.ts',
+  'e2e/instructor-smoke.spec.ts',
+  'e2e/guest-lesson-booking.spec.ts',
+  'e2e/prelaunch-security.spec.ts',
+];
+export const profiles = {
+  quick: ['translations', 'app-unit', 'shared-domain', 'functions-unit', 'node-guards'],
+  pr: suites.map((item) => item.id),
+  full: suites.map((item) => item.id),
+};
+export function profileSuite(suite, profile = 'pr') {
+  if (!['quick', 'pr', 'full', 'e2e', 'smoke', 'hosting'].includes(profile))
+    throw new Error(`Unknown test profile: ${profile}`);
+  if (suite.id !== 'playwright')
+    return {
+      ...suite,
+      coverage: profile === 'quick' ? false : suite.coverage,
+      pureFrontend: profile === 'quick' && suite.id === 'app-unit',
+      exactSelection: suite.exactSelection || (profile === 'quick' && suite.id === 'app-unit'),
+    };
+  if (profile === 'hosting')
+    return {
+      ...suite,
+      files: ['e2e/prelaunch-security.spec.ts'],
+      allowedSkips: [],
+      playwrightArgs: ['--grep', '@hosting'],
+      hosting: true,
+    };
+  if (['pr', 'smoke'].includes(profile))
+    return {
+      ...suite,
+      files: smokeFiles,
+      preview: true,
+      liveFixtures: false,
+      allowedSkips: [],
+      playwrightArgs: ['--grep-invert', '@hosting', ...smokeFiles],
+    };
+  return {
+    ...suite,
+    allowedSkips: [],
+    preview: true,
+    liveFixtures: true,
+    // FULL executes Hosting bodies in its separate lifecycle exactly once.
+    playwrightArgs: ['--grep-invert', '@hosting'],
+  };
+}
+export const releaseGroups = [
+  { id: 'release-unit', checks: ['build:functions'], emulators: [] },
+  { id: 'migration', checks: [], emulators: ['firestore'] },
+  { id: 'contracts', checks: ['test:contracts'], emulators: [] },
+  {
+    id: 'fixtures',
+    checks: ['test:fixture:planner:build', 'test:fixture:admin-modals:build'],
+    emulators: [],
+  },
+  {
+    id: 'hosting',
+    checks: ['build:functions', 'build'],
+    managedLifecycle: true,
+    emulators: [...DATA_EMULATORS, 'functions', 'hosting'],
+  },
+];
+// Deferred classifications retain their canonical inventory owner. Full promotes
+// each owner to one execution stage, with no second list of test paths.
+export const releaseSuites = deferredSuites.flatMap((item) => {
+  if (item.id === 'compile-contracts') return [];
+  const base = {
+    ...item,
+    id: `release-${item.id}`,
+    required: true,
+    skipPolicy: 'none',
+    functionsRequired: false,
+  };
+  if (item.id === 'colocated')
+    return [
+      {
+        ...base,
+        executionGroup: 'release-unit',
+        exactSelection: true,
+        runner: 'vitest',
+        config: 'vitest.config.ts',
+        emulators: [],
+      },
+    ];
+  if (item.id === 'cutover-node')
+    return [{ ...base, executionGroup: 'release-unit', runner: 'node', emulators: [] }];
+  if (item.id === 'migration-cli')
+    return [
+      {
+        ...base,
+        id: 'migration-unit',
+        files: ['functions/scripts/guestConfirmationQueueMigration.test.cjs'],
+        executionGroup: 'release-unit',
+        runner: 'node',
+        emulators: [],
+      },
+      {
+        ...base,
+        files: ['functions/scripts/guestConfirmationQueueMigration.emulator.test.cjs'],
+        executionGroup: 'migration',
+        runner: 'node',
+        emulators: ['firestore'],
+        guarded: true,
+      },
+    ];
+  return [
+    {
+      ...base,
+      executionGroup: 'fixtures',
+      runner: 'fixtures',
+      emulators: [],
+      configs: [
+        'playwright.admin-modals.config.ts',
+        'playwright.admin-issue-attendance.config.ts',
+        'playwright.level-modals.config.ts',
+        'playwright.participant-levels.config.ts',
+        'playwright.journey-geometry.config.ts',
+        'tests/browser/planner-overlap/playwright.config.ts',
+      ],
+    },
+  ];
+});
+
+export function executionPlan(profile = 'pr') {
+  if (profile === 'quick')
+    return executionGroups.filter((group) =>
+      suites.some((suite) => suite.executionGroup === group.id && profiles.quick.includes(suite.id))
+    );
+  if (profile === 'pr') return executionGroups;
+  if (profile === 'full') return [...executionGroups, ...releaseGroups];
+  if (profile === 'release') return releaseGroups;
+  throw new Error(`Unknown profile: ${profile}`);
+}

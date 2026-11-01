@@ -1,5 +1,8 @@
 import { expect, test } from '@playwright/test';
 
+// This scenario needs Vite's fixture route or the app's live source-store modules.
+test.use({ baseURL: 'http://127.0.0.1:5174' });
+
 for (const width of [1440, 768, 390, 320]) {
   for (const language of ['ru', 'en']) {
     test(`CTA stays stable at ${width}px (${language})`, async ({ page }, testInfo) => {

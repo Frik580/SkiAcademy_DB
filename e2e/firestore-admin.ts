@@ -13,7 +13,7 @@ const {
   ParticipantSchema,
   timestampFromDate,
 } = requireRoot('@ski-academy/shared-domain') as typeof import('@ski-academy/shared-domain');
-const { initializeApp, getApps } = requireFunctions(
+const { initializeApp, getApp } = requireFunctions(
   'firebase-admin/app'
 ) as typeof import('firebase-admin/app');
 const { getFirestore } = requireFunctions(
@@ -46,15 +46,19 @@ const BLOCKING_BOOKING_STATUSES = new Set<BookingLifecycleStatus>([
   'pending_cancellation',
 ]);
 
-function ensureFirestore() {
+export function ensureFirestore() {
   process.env.FIRESTORE_EMULATOR_HOST =
     process.env.FIRESTORE_EMULATOR_HOST ?? FIRESTORE_EMULATOR_HOST;
-
-  if (getApps().length === 0) {
-    initializeApp({ projectId: E2E_PROJECT_ID });
+  let app: ReturnType<typeof getApp>;
+  try {
+    app = getApp();
+  } catch {
+    app = initializeApp({ projectId: E2E_PROJECT_ID });
   }
-
-  return getFirestore();
+  if (app.options.projectId !== E2E_PROJECT_ID) {
+    throw new Error('E2E Firestore requires the isolated demo default app.');
+  }
+  return getFirestore(app);
 }
 
 export async function seedE2ECourse(input: {
@@ -338,4 +342,11 @@ export async function getLatestGuestParticipant(): Promise<{
     skillLevel: String(latest.skillLevel),
     age: latest.age,
   };
+}
+
+export async function hasBookingAttendanceTriggerWork(bookingId: string): Promise<boolean> {
+  const snapshot = await ensureFirestore()
+    .doc(`booking_attendance_outcome_work/${bookingId}`)
+    .get();
+  return snapshot.exists;
 }

@@ -4,13 +4,26 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
-import { ROOT, suites, executionGroups, deferredSuites } from './testManifest.mjs';
+import {
+  ROOT,
+  suites,
+  executionGroups,
+  deferredSuites,
+  releaseSuites,
+  profiles,
+  profileSuite,
+  smokeFiles,
+  executionPlan,
+  releaseGroups,
+} from './testManifest.mjs';
 import {
   discoverTests,
   matches,
   selectFiles,
+  selectProfileFiles,
   validateManifest,
   validateResults,
+  validateReleaseMapping,
 } from './validateTestManifest.mjs';
 import { runGroup, runProcess, vitestArgs } from './runManifestTests.mjs';
 const copy = (value) => structuredClone(value);
@@ -137,16 +150,17 @@ describe('canonical manifest integrity', () => {
           text.slice(match.index, headings[index + 1]?.index ?? text.length),
         ])
       );
+      const prText = text.split('  release-validation:')[0];
       const calls = [
-        ...text.matchAll(
-          /^        run: node scripts\/runManifestTests\.mjs --group ([\w-]+)\r?$/gm
+        ...prText.matchAll(
+          /^        run: node scripts\/runManifestTests\.mjs --group ([\w-]+)(?: --profile [^\n]+)?\r?$/gm
         ),
       ].map((match) => match[1]);
       assert.deepEqual(calls.sort(), executionGroups.map((group) => group.id).sort());
       for (const group of executionGroups)
         assert.ok(
           jobs[group.ciGate]?.includes(
-            `        run: node scripts/runManifestTests.mjs --group ${group.id}\n`
+            `        run: node scripts/runManifestTests.mjs --group ${group.id}`
           )
         );
       const needs = jobs.quality
@@ -170,7 +184,7 @@ describe('canonical manifest integrity', () => {
     );
     assert.throws(() => assertBindings(workflow.replace('        firestore,', '')));
     const local = readFileSync(new URL('./runLocalTestSuite.mjs', import.meta.url), 'utf8');
-    assert.ok(local.includes('for (const group of executionGroups)'));
+    assert.ok(local.includes('for (const group of groups)'));
   });
 });
 it('matches real Vitest discovery for app projects and backend filters', () => {
@@ -302,4 +316,191 @@ describe('execution result guards', () => {
     await assert.rejects(runProcess('carve-missing-runner-0123456789', []), /ENOENT/);
     await assert.rejects(runGroup('unknown'), /Unknown execution group/);
   });
+});
+
+describe('Phase 2 profile safety', () => {
+  it('derives quick logic selection from canonical ownership with complete coverage reserved for PR', () => {
+    assert.deepEqual(profiles.quick, [
+      'translations',
+      'app-unit',
+      'shared-domain',
+      'functions-unit',
+      'node-guards',
+    ]);
+    const app = suites.find((suite) => suite.id === 'app-unit');
+    assert.deepEqual(profileSuite(app, 'quick').files, app.files);
+    assert.equal(profileSuite(app, 'quick').coverage, false);
+    assert.equal(profileSuite(app, 'pr').coverage, true);
+    const candidates = [
+      'tests/unit/logic.test.ts',
+      'tests/unit/hook.test.ts',
+      'tests/unit/panel.test.tsx',
+    ];
+    const quick = profileSuite(app, 'quick');
+    assert.deepEqual(
+      selectProfileFiles(quick, candidates, (file) =>
+        file.includes('hook')
+          ? "import { renderHook } from '@testing-library/react'"
+          : "it('calculates policy', () => {});"
+      ),
+      [candidates[0]]
+    );
+    assert.deepEqual(selectProfileFiles(profileSuite(app, 'pr'), candidates), candidates);
+    assert.deepEqual(
+      selectProfileFiles(quick, [candidates[0]], (file) =>
+        file.startsWith('tests/')
+          ? "import { resolveUiLanguage } from '../../src/lib/i18n/translations';"
+          : 'navigator.language'
+      ),
+      []
+    );
+    const selected = selectProfileFiles(quick, files);
+    assert.ok(selected.length > 0);
+    assert.ok(selected.length < selectFiles(app, files).length);
+    assert.ok(selected.every((file) => inventory[file] === 'app-unit'));
+  });
+  it('composes all full/release stages once and keeps QUICK free of emulators', () => {
+    assert.deepEqual(executionPlan('pr'), executionGroups);
+    assert.deepEqual(executionPlan('release'), releaseGroups);
+    assert.deepEqual(executionPlan('full'), [...executionGroups, ...releaseGroups]);
+    assert.equal(
+      new Set(executionPlan('full').map((group) => group.id)).size,
+      executionPlan('full').length
+    );
+    assert.ok(executionPlan('quick').every((group) => !group.emulators?.length));
+    assert.throws(() => executionPlan('invalid'), /Unknown/);
+    const workflow = readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8');
+    assert.ok(workflow.includes('run: node scripts/runLocalTestSuite.mjs release'));
+  });
+  it('partitions Hosting bodies from smoke/full without weakening skip validation', () => {
+    const browser = suites.find((suite) => suite.id === 'playwright');
+    for (const profile of ['pr', 'smoke', 'full', 'e2e', 'hosting']) {
+      const selection = profileSuite(browser, profile);
+      assert.deepEqual(selection.allowedSkips, []);
+      assert.ok(selection.playwrightArgs.includes('@hosting'));
+      assert.equal(selection.playwrightArgs[0], profile === 'hosting' ? '--grep' : '--grep-invert');
+    }
+    assert.deepEqual(profileSuite(browser, 'smoke').files, smokeFiles);
+    assert.equal(profileSuite(browser, 'smoke').preview, true);
+    assert.equal(profileSuite(browser, 'smoke').liveFixtures, false);
+    assert.equal(profileSuite(browser, 'full').preview, true);
+    assert.equal(profileSuite(browser, 'full').liveFixtures, true);
+    assert.equal(profileSuite(browser, 'e2e').preview, true);
+    assert.equal(profileSuite(browser, 'e2e').liveFixtures, true);
+    for (const name of [
+      'prelaunch-security',
+      'booking-flow',
+      'booking-invariants',
+      'course-enrollment-smoke',
+    ])
+      assert.ok(smokeFiles.includes(`e2e/${name}.spec.ts`));
+    assert.throws(() => profileSuite(browser, 'invalid'), /Unknown/);
+  });
+  it('promotes every deferred runtime file exactly once with Windows-safe report IDs', () => {
+    const promoted = releaseSuites.flatMap((suite) => selectFiles(suite, files));
+    const expected = Object.entries(inventory)
+      .filter(
+        ([, owner]) => owner.startsWith('deferred:') && owner !== 'deferred:compile-contracts'
+      )
+      .map(([file]) => file);
+    assert.deepEqual(promoted.sort(), expected.sort());
+    assert.equal(promoted.length, new Set(promoted).size);
+    for (const suite of releaseSuites) assert.doesNotMatch(suite.id, /[<>:"/\\|?*]/);
+  });
+  it('rejects profiles that could turn mandatory backend or release gates into empty success', async () => {
+    for (const [group, profile] of [
+      ['backend', 'quick'],
+      ['reset', 'quick'],
+      ['e2e', 'quick'],
+      ['migration', 'pr'],
+      ['hosting', 'pr'],
+      ['app', 'smoke'],
+    ])
+      await assert.rejects(runGroup(group, { profile }), /Invalid group/);
+  });
+  it('discovers exactly the QUICK frontend selection with an explicit include', () => {
+    const suite = profileSuite(
+      suites.find((suite) => suite.id === 'app-unit'),
+      'quick'
+    );
+    const expected = selectProfileFiles(suite, files);
+    const output = execFileSync(
+      process.execPath,
+      ['node_modules/vitest/vitest.mjs', 'list', '--config', suite.config, '--filesOnly', '--json'],
+      {
+        cwd: ROOT,
+        encoding: 'utf8',
+        windowsHide: true,
+        env: {
+          ...process.env,
+          CARVE_TEST_INCLUDES: JSON.stringify(expected),
+          CARVE_TEST_ENVIRONMENT: 'node',
+        },
+      }
+    );
+    const actual = JSON.parse(output)
+      .map((entry) => entry.file.replaceAll('\\', '/').slice(ROOT.replaceAll('\\', '/').length))
+      .sort();
+    assert.deepEqual(actual, expected.sort());
+  });
+  it('rejects orphaned release mappings and missing compile/Hosting gates', () => {
+    const releases = structuredClone(releaseSuites);
+    releases[0].executionGroup = 'missing-release-group';
+    assert.throws(() => validateReleaseMapping(releases), /mapping/);
+    assert.throws(() => validateReleaseMapping(releaseSuites, []), /mapping/);
+  });
+  it('discovers exactly the promoted colocated inventory using exact source paths', () => {
+    const suite = releaseSuites.find((suite) => suite.id === 'release-colocated');
+    const expected = selectFiles(suite, files);
+    const output = execFileSync(
+      process.execPath,
+      [
+        'node_modules/vitest/vitest.mjs',
+        'list',
+        '--config',
+        suite.config,
+        ...expected.map((file) => resolve(ROOT, file)),
+        '--filesOnly',
+        '--json',
+      ],
+      { cwd: ROOT, encoding: 'utf8', windowsHide: true }
+    );
+    const actual = JSON.parse(output)
+      .map((entry) => entry.file.replaceAll('\\', '/').slice(ROOT.replaceAll('\\', '/').length))
+      .sort();
+    assert.deepEqual(actual, expected.sort());
+  });
+});
+
+it('Playwright discovery preserves full bodies and partitions Hosting with every security transport in smoke', () => {
+  const browser = suites.find((suite) => suite.id === 'playwright');
+  const discover = (args) => {
+    const output = execFileSync(
+      process.execPath,
+      ['node_modules/@playwright/test/cli.js', 'test', '--list', '--reporter=json', ...args],
+      { cwd: ROOT, encoding: 'utf8', windowsHide: true }
+    );
+    const report = JSON.parse(output);
+    assert.equal(report.errors.length, 0);
+    const results = [];
+    const visit = (section) => {
+      for (const spec of section.specs ?? []) results.push(`${spec.file}::${spec.title}`);
+      for (const child of section.suites ?? []) visit(child);
+    };
+    for (const section of report.suites) visit(section);
+    return results;
+  };
+  const all = discover([]);
+  const full = discover(profileSuite(browser, 'full').playwrightArgs);
+  const hosting = discover([
+    ...profileSuite(browser, 'hosting').playwrightArgs,
+    'e2e/prelaunch-security.spec.ts',
+  ]);
+  const smoke = discover(profileSuite(browser, 'smoke').playwrightArgs);
+  assert.deepEqual([...full, ...hosting].sort(), all.sort());
+  assert.equal(new Set([...full, ...hosting]).size, all.length);
+  assert.equal(hosting.length, 2);
+  assert.ok(smoke.length < full.length);
+  for (const id of smoke) assert.ok(full.includes(id));
+  assert.equal(smoke.filter((id) => id.startsWith('prelaunch-security.spec.ts::')).length, 3);
 });

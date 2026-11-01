@@ -4,6 +4,15 @@ import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 
+const lifecycleStarted = Date.now();
+const lifecyclePath = process.env.CARVE_E2E_TIMING_PATH;
+function markTiming(key) {
+  if (!lifecyclePath) return;
+  const timings = existsSync(lifecyclePath) ? JSON.parse(readFileSync(lifecyclePath, 'utf8')) : {};
+  timings[key] = Date.now();
+  writeFileSync(lifecyclePath, JSON.stringify(timings, null, 2));
+}
+
 const root = fileURLToPath(new URL('../', import.meta.url));
 const projectId = 'demo-ski-school-e2e';
 const secretPath = fileURLToPath(new URL('../functions/.secret.local', import.meta.url));
@@ -101,12 +110,14 @@ if (process.argv[2] === '--snapshot') {
     process.exitCode = 1;
   }
 } else if (process.argv[2] === '--playwright') {
+  markTiming('emulatorsReadyAt');
   if (process.env.GCLOUD_PROJECT !== projectId || !process.env.FIRESTORE_EMULATOR_HOST) {
     throw new Error('Run E2E through npm run test:e2e with the demo emulators.');
   }
   assertEmulators(process.env, ['firestore', 'auth', 'storage']);
   const args = JSON.parse(process.env.CARVE_E2E_PLAYWRIGHT_ARGS ?? '[]');
   process.exitCode = await run('../node_modules/@playwright/test/cli.js', ['test', ...args]);
+  markTiming('playwrightFinishedAt');
   if (process.exitCode) {
     try {
       const diagnosticCode = await run(
@@ -133,6 +144,12 @@ if (process.argv[2] === '--snapshot') {
   writeFileSync(ledger, '');
   const nodeOptions =
     `${process.env.NODE_OPTIONS ?? ''} --require=${JSON.stringify(guardPath)}`.trim();
+  const timingPath = resolve(
+    process.env.CARVE_MANIFEST_RUN_DIR ?? resolve(root, '.scratch/test-manifest'),
+    `e2e-${process.pid}.timing.json`
+  );
+  mkdirSync(resolve(timingPath, '..'), { recursive: true });
+  writeFileSync(timingPath, JSON.stringify({ lifecycleStartedAt: lifecycleStarted }));
   let createdSecret = false;
   try {
     if (existsSync(secretPath)) {
@@ -152,13 +169,21 @@ if (process.argv[2] === '--snapshot') {
         '--project',
         projectId,
         '--only',
-        'auth,firestore,functions,storage',
+        process.argv.includes('--hosting')
+          ? 'auth,firestore,functions,storage,hosting'
+          : 'auth,firestore,functions,storage',
         'node scripts/runE2E.mjs --playwright',
       ],
       {
         ...process.env,
-        CARVE_E2E_PLAYWRIGHT_ARGS: JSON.stringify(process.argv.slice(2)),
+        CARVE_E2E_TIMING_PATH: timingPath,
+        CARVE_E2E_PLAYWRIGHT_ARGS: JSON.stringify(
+          process.argv.slice(2).filter((arg) => arg !== '--hosting')
+        ),
         GUEST_ACTION_TOKEN_SECRET: 'e2e-guest-action-token-secret',
+        GCLOUD_PROJECT: projectId,
+        GOOGLE_CLOUD_PROJECT: projectId,
+        CARVE_TEST_HOSTING: process.argv.includes('--hosting') ? 'true' : 'false',
         NODE_OPTIONS: nodeOptions,
         CARVE_TEST_EGRESS_LOG: ledger,
         VITE_FIREBASE_PROJECT_ID: projectId,
@@ -174,6 +199,16 @@ if (process.argv[2] === '--snapshot') {
       unlinkSync(secretPath);
     }
   }
+  const timings = JSON.parse(readFileSync(timingPath, 'utf8'));
+  timings.lifecycleFinishedAt = Date.now();
+  timings.startupMs = timings.emulatorsReadyAt ? timings.emulatorsReadyAt - lifecycleStarted : null;
+  timings.shutdownMs = timings.playwrightFinishedAt
+    ? Date.now() - timings.playwrightFinishedAt
+    : null;
+  timings.fixtureSetupMs = timings.fixturesReadyAt - timings.globalSetupStartedAt || null;
+  timings.functionReadinessMs = timings.functionsReadyAt - timings.fixturesReadyAt || null;
+  timings.playwrightMs = timings.playwrightFinishedAt - timings.emulatorsReadyAt || null;
+  writeFileSync(timingPath, JSON.stringify(timings, null, 2));
   const violations = readFileSync(ledger, 'utf8').trim();
   console.log(
     `Firestore egress ledger: ${ledger} (${violations ? 'BLOCKED ATTEMPT' : '0 attempts'})`

@@ -1,16 +1,11 @@
+import { ensureFirestore } from './firestore-admin';
 import { test, expect } from '@playwright/test';
-import { createRequire } from 'node:module';
 import { loadRuntimeConfig, signInStudent, watchBrowserFailures } from './fixtures';
 
-const requireFunctions = createRequire(`${process.cwd()}/functions/package.json`);
 function emulatorDb() {
   expect(process.env.GCLOUD_PROJECT).toBe('demo-ski-school-e2e');
   expect(process.env.FIRESTORE_EMULATOR_HOST).toMatch(/^(127\.0\.0\.1|localhost):8080$/);
-  const { getApps, initializeApp } = requireFunctions('firebase-admin/app');
-  if (!getApps().length) initializeApp({ projectId: 'demo-ski-school-e2e' });
-  return requireFunctions(
-    'firebase-admin/firestore'
-  ).getFirestore() as import('firebase-admin/firestore').Firestore;
+  return ensureFirestore();
 }
 
 test('Today Tasks preserves participant persistence, pinning, keyboard and four visual variants', async ({

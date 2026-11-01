@@ -6,6 +6,12 @@ const { execFile } = require('node:child_process');
 const { promisify } = require('node:util');
 const emulator = process.env.FIRESTORE_EMULATOR_HOST;
 // This suite performs writes only in the explicitly selected local demo emulator.
+if (
+  process.env.GCLOUD_PROJECT !== 'demo-ski-school-e2e' ||
+  process.env.GOOGLE_CLOUD_PROJECT !== 'demo-ski-school-e2e'
+) {
+  throw new Error('CLI integration tests require explicit isolated demo project environment.');
+}
 if (!emulator || !/^(127\.0\.0\.1|localhost):\d+$/.test(emulator)) {
   throw new Error('CLI integration tests require a local FIRESTORE_EMULATOR_HOST.');
 }

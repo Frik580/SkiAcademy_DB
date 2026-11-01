@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { isAbsolute, relative, resolve } from 'node:path';
+import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   ROOT,
@@ -7,6 +7,10 @@ import {
   executionGroups,
   deferredSuites,
   criticalAssertions,
+  releaseSuites,
+  releaseGroups,
+  smokeFiles,
+  profileSuite,
 } from './testManifest.mjs';
 
 export const normalize = (value) => value.replaceAll('\\', '/');
@@ -58,6 +62,76 @@ export function selectFiles(suite, files) {
       !(suite.exclude ?? []).some((pattern) => matches(file, pattern))
   );
 }
+// Conservative source-layer classification: React mounting, hooks and browser API
+// tests belong to the complete PR coverage stage. Unknown/UI-shaped tests stay there.
+export function selectProfileFiles(
+  suite,
+  files,
+  readSource = (file) => readFileSync(resolve(ROOT, file), 'utf8')
+) {
+  const selection = selectFiles(suite, files);
+  if (!suite.pureFrontend) return selection;
+  const sources = new Map();
+  const browserDependency = (file, visiting = new Set()) => {
+    // A cycle or unresolved local import is conservatively retained in the PR suite.
+    if (visiting.has(file) || file.endsWith('.tsx')) return true;
+    if (!sources.has(file)) sources.set(file, readSource(file));
+    const source = sources.get(file);
+    if (
+      /@testing-library\/(react|user-event)|react-dom|from\s*['"]react(?:-router-dom)?['"]|\b(renderHook|render|screen|fireEvent|document|window|navigator|localStorage|sessionStorage|HTMLElement|HTMLInputElement|MouseEvent)\b/.test(
+        source
+      )
+    )
+      return true;
+    const next = new Set(visiting).add(file);
+    const imports = source.matchAll(
+      /(?:import|export)\s+(?!type\b)(?:[^;]*?\s+from\s*)?['"]([^'"]+)['"]/g
+    );
+    for (const [, specifier] of imports) {
+      if (!specifier.startsWith('.')) continue;
+      const base = resolve(dirname(resolve(ROOT, file)), specifier);
+      const dependency = [
+        base,
+        `${base}.ts`,
+        `${base}.tsx`,
+        resolve(base, 'index.ts'),
+        resolve(base, 'index.tsx'),
+      ].find((candidate) => existsSync(candidate) && /\.tsx?$/.test(candidate));
+      if (!dependency || browserDependency(normalize(relative(ROOT, dependency)), next))
+        return true;
+    }
+    return false;
+  };
+  return selection.filter((file) => file.endsWith('.test.ts') && !browserDependency(file));
+}
+
+export function validateReleaseMapping(releases = releaseSuites, groups = releaseGroups) {
+  const ids = new Set();
+  for (const group of groups) {
+    if (ids.has(group.id)) throw new Error(`Duplicate release group: ${group.id}`);
+    ids.add(group.id);
+  }
+  const suiteIds = new Set();
+  for (const suite of releases) {
+    const group = groups.find((group) => group.id === suite.executionGroup);
+    if (!group || suite.required !== true || suiteIds.has(suite.id))
+      throw new Error(`Invalid release mapping: ${suite.id}`);
+    suiteIds.add(suite.id);
+    if (
+      JSON.stringify(suite.emulators) !== JSON.stringify(group.emulators ?? []) ||
+      suite.functionsRequired
+    )
+      throw new Error(`Invalid release emulator isolation: ${suite.id}`);
+    if (!['node', 'vitest', 'fixtures'].includes(suite.runner))
+      throw new Error(`Invalid release runner: ${suite.id}`);
+  }
+  if (
+    !groups.find((group) => group.id === 'contracts')?.checks?.includes('test:contracts') ||
+    !groups.find((group) => group.id === 'hosting')?.emulators?.includes('hosting')
+  )
+    throw new Error('Required contracts/Hosting release stage missing');
+}
+
 export function validateManifest({
   root = ROOT,
   manifest = suites,
@@ -130,6 +204,35 @@ export function validateManifest({
     if (!files.includes(file)) throw new Error(`Inventory test missing: ${file}`);
   for (const id of new Set(Object.values(inventory).filter((id) => !id.startsWith('deferred:'))))
     if (!selected.has(id)) throw new Error(`Required suite removed: ${id}`);
+  if (manifest === suites && deferred === deferredSuites) {
+    validateReleaseMapping();
+    const releaseFiles = new Set();
+    for (const release of releaseSuites) {
+      const selection = selectFiles(release, files);
+      if (!selection.length) throw new Error(`Empty release suite: ${release.id}`);
+      for (const file of selection) {
+        if (!assignments.get(file)?.startsWith('deferred:') || releaseFiles.has(file))
+          throw new Error(`Duplicate or non-deferred release selection: ${file}`);
+        releaseFiles.add(file);
+      }
+    }
+    for (const [file, owner] of assignments)
+      if (
+        owner.startsWith('deferred:') &&
+        owner !== 'deferred:compile-contracts' &&
+        !releaseFiles.has(file)
+      )
+        throw new Error(`Missing release selection: ${file}`);
+    for (const file of smokeFiles)
+      if (assignments.get(file) !== 'playwright')
+        throw new Error(`Invalid smoke selection: ${file}`);
+    if (new Set(smokeFiles).size !== smokeFiles.length)
+      throw new Error('Duplicate smoke selection');
+    profileSuite(
+      suites.find((suite) => suite.id === 'playwright'),
+      'smoke'
+    );
+  }
   return { files, selected, assignments };
 }
 export function assertRequiredSuites(report, kind) {

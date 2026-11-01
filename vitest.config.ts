@@ -31,6 +31,9 @@ const COVERAGE_EXCLUDE = [
 // Child projects override root/CLI excludes; the manifest supplies the same
 // exclusions here so discovery and runtime execution stay identical.
 const manifestExcludes: string[] = JSON.parse(process.env.CARVE_TEST_EXCLUDES ?? '[]');
+const manifestIncludes: string[] | undefined = process.env.CARVE_TEST_INCLUDES
+  ? JSON.parse(process.env.CARVE_TEST_INCLUDES)
+  : undefined;
 
 const NODE_TESTS = [
   'tests/callable/**',
@@ -83,10 +86,22 @@ export default defineConfig({
     exclude: [...configDefaults.exclude, '.scratch/**', '**/.worktrees/**'],
     environment: 'jsdom',
     projects: [
-      { extends: true, test: { name: 'app', exclude: [...NODE_TESTS, ...manifestExcludes] } },
       {
         extends: true,
-        test: { name: 'firebase', environment: 'node', include: NODE_TEST_INCLUDES },
+        test: {
+          name: 'app',
+          exclude: [...NODE_TESTS, ...manifestExcludes],
+          ...(manifestIncludes ? { include: manifestIncludes } : {}),
+          environment: process.env.CARVE_TEST_ENVIRONMENT === 'node' ? 'node' : 'jsdom',
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'firebase',
+          environment: 'node',
+          include: manifestIncludes ? [] : NODE_TEST_INCLUDES,
+        },
       },
     ],
     globals: true,

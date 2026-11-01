@@ -2,6 +2,11 @@ name: CI
 
 on:
   workflow_dispatch:
+    inputs:
+      full_validation:
+        description: Run all release additions after required PR gates
+        type: boolean
+        default: false
   push:
     branches: [main]
   pull_request:
@@ -389,8 +394,10 @@ jobs:
       - name: Install Playwright Chromium and system dependencies
         run: npx playwright install --with-deps chromium
 
-      - name: Run canonical E2E suite
-        run: node scripts/runManifestTests.mjs --group e2e
+      - name: Run canonical E2E suite (PR smoke or release full)
+        env:
+          CARVE_E2E_PROFILE: ${{ github.event_name == 'workflow_dispatch' && inputs.full_validation && 'full' || 'pr' }}
+        run: node scripts/runManifestTests.mjs --group e2e --profile "$CARVE_E2E_PROFILE"
 
       - name: Upload Playwright results and failure artifacts
         if: always()
@@ -404,3 +411,49 @@ jobs:
             .scratch/test-egress/*.log
           if-no-files-found: ignore
           retention-days: 7
+
+  release-validation:
+    name: Full release additions
+    if: github.event_name == 'workflow_dispatch' && inputs.full_validation
+    needs: quality
+    runs-on: ubuntu-latest
+    env:
+      VITE_FIREBASE_API_KEY: ci-placeholder-api-key
+      VITE_FIREBASE_APP_ID: ci-placeholder-app-id
+      VITE_FIREBASE_AUTH_DOMAIN: ci-placeholder.firebaseapp.com
+      VITE_FIREBASE_MESSAGING_SENDER_ID: '000000000000'
+      VITE_FIREBASE_PROJECT_ID: ci-placeholder-project
+      VITE_FIREBASE_STORAGE_BUCKET: ci-placeholder-project.appspot.com
+      VITE_FIREBASE_MEASUREMENT_ID: G-PLACEHOLDER
+      VITE_FIREBASE_DATABASE_ID: '(default)'
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm ci --ignore-scripts
+      - run: npm ci --prefix functions --ignore-scripts
+      - run: npx playwright install --with-deps chromium
+      - name: Release additions from canonical manifest (shared builds once)
+        run: node scripts/runLocalTestSuite.mjs release
+      - name: Release diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-validation-results
+          include-hidden-files: true
+          path: |
+            .scratch/test-manifest/**
+            .scratch/test-egress/*.log
+            test-results/
+            *-debug.log
+          if-no-files-found: error
+          retention-days: 14

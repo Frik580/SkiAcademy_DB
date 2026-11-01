@@ -17,24 +17,37 @@ async function measure(page: Page, port: number, query: string) {
         )
     )
     .toBeCloseTo(1, 3);
+  const summary = page.locator('#your-journey .journey-summary-xp');
+  await expect(summary).toHaveCount(1);
+  await expect(summary).toBeVisible();
+  // Cabinet XP now lives in the summary; marker captions belong to the default appearance.
+  await expect(page.locator('#your-journey .journey-marker-caption')).toHaveCount(0);
   return page.locator('#your-journey').evaluate((section) => {
     const circle = section.querySelector<HTMLElement>(
       '.journey-stage-node[data-journey-state="current"] > span'
     )!;
     const avatar = section.querySelector<HTMLElement>('.journey-user-marker .ui-avatar')!;
-    const caption = section.querySelector<HTMLElement>('.journey-marker-caption')!;
+    const marker = section.querySelector<HTMLElement>('.journey-user-marker')!;
+    const xp = section.querySelector<HTMLElement>('.journey-summary-xp')!;
     const c = circle.getBoundingClientRect();
     const a = avatar.getBoundingClientRect();
-    const x = caption.getBoundingClientRect();
-    const style = getComputedStyle(caption);
+    const m = marker.getBoundingClientRect();
+    const x = xp.getBoundingClientRect();
+    const card = section.getBoundingClientRect();
+    const style = getComputedStyle(marker);
     const matrix = new DOMMatrixReadOnly(style.transform);
     return {
       circleScale: c.width / parseFloat(getComputedStyle(circle).width),
       circleWidth: c.width,
       circleHeight: c.height,
       avatarWidth: a.width,
-      captionWidth: x.width,
-      xpCenterOffset: x.x + x.width / 2 - (a.x + a.width / 2),
+      summaryWidth: x.width,
+      summaryHeight: x.height,
+      summaryLeftInset: x.left - card.left,
+      summaryRightInset: card.right - x.right,
+      summaryTopInset: x.top - card.top,
+      summaryBottomInset: card.bottom - x.bottom,
+      markerCenterOffset: m.x + m.width / 2 - (a.x + a.width / 2),
       transformX: matrix.m41,
       translate: style.translate,
     };
@@ -68,7 +81,17 @@ for (const width of [390, 768, 1440]) {
           expect(metrics.circleWidth).toBe(width < 640 ? 32 : 44);
           expect(metrics.circleHeight).toBe(metrics.circleWidth);
           expect(metrics.avatarWidth).toBe(32);
-          expect(Math.abs(metrics.xpCenterOffset)).toBeLessThanOrEqual(1);
+          expect(Math.abs(metrics.markerCenterOffset)).toBeLessThanOrEqual(1);
+          expect(metrics.summaryWidth).toBeGreaterThan(0);
+          expect(metrics.summaryHeight).toBeGreaterThan(0);
+          for (const inset of [
+            metrics.summaryLeftInset,
+            metrics.summaryRightInset,
+            metrics.summaryTopInset,
+            metrics.summaryBottomInset,
+          ]) {
+            expect(inset).toBeGreaterThanOrEqual(-0.1);
+          }
           // A horizontal shift must have exactly one owner, even after CSS optimization.
           const individualShift = !['none', '0px', '0px 0px'].includes(metrics.translate);
           expect(individualShift && Math.abs(metrics.transformX) > 0.01).toBe(false);
@@ -78,8 +101,13 @@ for (const width of [390, 768, 1440]) {
           'circleWidth',
           'circleHeight',
           'avatarWidth',
-          'captionWidth',
-          'xpCenterOffset',
+          'summaryWidth',
+          'summaryHeight',
+          'summaryLeftInset',
+          'summaryRightInset',
+          'summaryTopInset',
+          'summaryBottomInset',
+          'markerCenterOffset',
         ] as const) {
           expect(Math.abs(dev[key] - preview[key]), key).toBeLessThanOrEqual(0.1);
         }

@@ -148,13 +148,15 @@ export function loadRuntimeConfig(): E2ERuntimeConfig {
 
 export async function signInAccount(
   page: Page,
-  credentials: { email: string; password: string; expectedPath?: '/cabinet' | '/instructor' }
+  credentials: { email: string; password: string; expectedPath?: '/cabinet' | '/instructor' },
+  beforeSubmit?: () => void
 ): Promise<void> {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: 'Sign In', exact: true }).first().click();
   const authModal = page.locator('.ui-modal');
   await authModal.getByPlaceholder('Email Address').fill(credentials.email);
   await authModal.getByPlaceholder('Password').fill(credentials.password);
+  beforeSubmit?.();
   await authModal.getByRole('button', { name: 'Sign In', exact: true }).click();
   if (credentials.expectedPath) {
     await expect(page).toHaveURL(new RegExp(`${credentials.expectedPath}(?:/|$)`));

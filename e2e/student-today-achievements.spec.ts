@@ -1,3 +1,4 @@
+import { ensureFirestore } from './firestore-admin';
 import { test, expect } from '@playwright/test';
 import { createRequire } from 'node:module';
 import { DEFAULT_SKILL_CONFIG } from '../src/domain/achievements';
@@ -19,11 +20,7 @@ test('Today achievements isolates canonical participant fixtures and renders fou
   // Direct seed is confined to disposable demo emulators; schemas validate all fixtures.
   expect(process.env.GCLOUD_PROJECT).toBe('demo-ski-school-e2e');
   expect(process.env.FIRESTORE_EMULATOR_HOST).toMatch(/^(127\.0\.0\.1|localhost):8080$/);
-  const { getApps, initializeApp } = requireFunctions('firebase-admin/app');
-  if (!getApps().length) initializeApp({ projectId: 'demo-ski-school-e2e' });
-  const db = requireFunctions(
-    'firebase-admin/firestore'
-  ).getFirestore() as import('firebase-admin/firestore').Firestore;
+  const db = ensureFirestore();
   const runtime = loadRuntimeConfig();
   const now = new Date('2026-10-06T07:00:00Z');
   const stamp = timestampFromDate(now);
@@ -105,6 +102,18 @@ test('Today achievements isolates canonical participant fixtures and renders fou
         })
         .toBe(true);
     };
+    const reloadTodayData = async () => {
+      const progressResponse = page.waitForResponse(
+        (response) =>
+          response.url().includes('/queryParticipantProgressReadModels') &&
+          response.request().method() === 'POST'
+      );
+      await page.reload();
+      const refreshed = await progressResponse;
+      expect(refreshed.ok()).toBe(true);
+      await refreshed.json();
+      await waitForFirebaseIdle();
+    };
     await page.route(/^https:\/\/fonts\.(googleapis|gstatic)\.com\//, (route) => route.abort());
     await page.clock.install({ time: now });
     await signInStudent(page, runtime);
@@ -135,7 +144,7 @@ test('Today achievements isolates canonical participant fixtures and renders fou
       await cdp.send('Emulation.setTimezoneOverride', { timezoneId });
       await waitForFirebaseIdle();
       await page.clock.setSystemTime(new Date('2026-10-06T18:59:00Z'));
-      await page.reload();
+      await reloadTodayData();
       await expect(tile.locator('.sc-today-achievements-xp-value')).toHaveText('+7 XP');
       await expect(tile.locator('.sc-today-achievements-badge')).toHaveCount(1);
       let navigations = 0;
@@ -154,7 +163,7 @@ test('Today achievements isolates canonical participant fixtures and renders fou
       // Simulate a suspended timer: moving wall time does not fire timers.
       await waitForFirebaseIdle();
       await page.clock.setSystemTime(new Date('2026-10-06T18:59:00Z'));
-      await page.reload();
+      await reloadTodayData();
       await expect(tile.locator('.sc-today-achievements-xp-value')).toHaveText('+7 XP');
       await waitForFirebaseIdle();
       await page.clock.setSystemTime(new Date('2026-10-06T19:01:00Z'));
@@ -164,7 +173,7 @@ test('Today achievements isolates canonical participant fixtures and renders fou
     }
     await waitForFirebaseIdle();
     await page.clock.setSystemTime(now);
-    await page.reload();
+    await reloadTodayData();
     await expect(tile.locator('.sc-today-achievements-xp-value')).toHaveText('+7 XP');
     await page.clock.resume();
     await page
@@ -200,7 +209,7 @@ test('Today achievements isolates canonical participant fixtures and renders fou
     await db
       .doc(`participant_progress/${ids[0]}`)
       .update({ dailyProgress: requireFunctions('firebase-admin/firestore').FieldValue.delete() });
-    await page.reload();
+    await reloadTodayData();
     await expect(tile.locator('.sc-today-achievements-xp-value')).toHaveText('— XP');
     await expect(tile).toContainText('Дневная история оценок ещё недоступна.');
     healthy();

@@ -1,4 +1,4 @@
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
@@ -456,7 +456,16 @@ async function seedCanonicalFirestoreFixtures(
   };
 }
 
+function markSetupTiming(key: string): void {
+  const path = process.env.CARVE_E2E_TIMING_PATH;
+  if (!path) return;
+  const timings = JSON.parse(readFileSync(path, 'utf8'));
+  timings[key] = Date.now();
+  writeFileSync(path, JSON.stringify(timings, null, 2));
+}
+
 export default async function globalSetup(): Promise<void> {
+  markSetupTiming('globalSetupStartedAt');
   await clearFirestoreEmulator();
 
   const studentUid = await createAuthUser(E2E_STUDENT_EMAIL, E2E_STUDENT_PASSWORD);
@@ -520,5 +529,7 @@ export default async function globalSetup(): Promise<void> {
     JSON.stringify(runtimeConfig, null, 2)
   );
 
+  markSetupTiming('fixturesReadyAt');
   await waitForFunctionsEmulatorReady();
+  markSetupTiming('functionsReadyAt');
 }

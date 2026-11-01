@@ -1,8 +1,8 @@
+import { ensureFirestore } from './firestore-admin';
 import { test, expect } from '@playwright/test';
 import { createRequire } from 'node:module';
 import { loadRuntimeConfig, signInStudent, watchBrowserFailures } from './fixtures';
 
-const requireFunctions = createRequire(`${process.cwd()}/functions/package.json`);
 const requireRoot = createRequire(`${process.cwd()}/package.json`);
 const {
   BookingSchema,
@@ -22,11 +22,7 @@ test('Needs Attention preserves mixed scope, navigation, dismissal and responsiv
   test.setTimeout(180_000);
   expect(process.env.GCLOUD_PROJECT).toBe('demo-ski-school-e2e');
   expect(process.env.FIRESTORE_EMULATOR_HOST).toMatch(/^(127\.0\.0\.1|localhost):8080$/);
-  const { getApps, initializeApp } = requireFunctions('firebase-admin/app');
-  if (!getApps().length) initializeApp({ projectId: 'demo-ski-school-e2e' });
-  const db = requireFunctions(
-    'firebase-admin/firestore'
-  ).getFirestore() as import('firebase-admin/firestore').Firestore;
+  const db = ensureFirestore();
   const r = loadRuntimeConfig();
   // Every mutable lesson/feedback/attendance identity includes repeat/retry isolation.
   const suffix = `${info.project.name}_p${info.parallelIndex}_r${info.repeatEachIndex}_try${info.retry}`;

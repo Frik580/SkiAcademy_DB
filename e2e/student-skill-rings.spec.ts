@@ -1,3 +1,4 @@
+import { ensureFirestore } from './firestore-admin';
 import { test, expect } from '@playwright/test';
 import { createRequire } from 'node:module';
 import { DEFAULT_SKILL_CONFIG } from '../src/domain/achievements';
@@ -7,7 +8,6 @@ import {
 } from '../src/features/student-cabinet/components/student/studentSkillRadarData';
 import { loadRuntimeConfig, signInStudent, watchBrowserFailures } from './fixtures';
 
-const requireFunctions = createRequire(`${process.cwd()}/functions/package.json`);
 const requireRoot = createRequire(`${process.cwd()}/package.json`);
 const { ParticipantProgressSchema, timestampFromDate } = requireRoot(
   '@ski-academy/shared-domain'
@@ -20,11 +20,7 @@ test('Skill Rings preserves participant scores, selection, Development and four 
   // One serial test in a disposable demo-emulator run; restore all existing fixture documents.
   expect(process.env.GCLOUD_PROJECT).toBe('demo-ski-school-e2e');
   expect(process.env.FIRESTORE_EMULATOR_HOST).toMatch(/^(127\.0\.0\.1|localhost):8080$/);
-  const { getApps, initializeApp } = requireFunctions('firebase-admin/app');
-  if (!getApps().length) initializeApp({ projectId: 'demo-ski-school-e2e' });
-  const db = requireFunctions(
-    'firebase-admin/firestore'
-  ).getFirestore() as import('firebase-admin/firestore').Firestore;
+  const db = ensureFirestore();
   const runtime = loadRuntimeConfig();
   const ids = [runtime.studentParticipantId, runtime.studentChildParticipantId];
   const refs = ids.map((id) => db.doc(`participant_progress/${id}`));

@@ -1,17 +1,15 @@
+import { ensureFirestore } from './firestore-admin';
 import { test, expect } from '@playwright/test';
-import { createRequire } from 'node:module';
+
+// This scenario needs Vite's fixture route or the app's live source-store modules.
+test.use({ baseURL: 'http://127.0.0.1:5174' });
 import { loadRuntimeConfig, signInStudent, watchBrowserFailures } from './fixtures';
 import { DEFAULT_SKILL_CONFIG } from '../src/domain/achievements';
 
-const requireFunctions = createRequire(`${process.cwd()}/functions/package.json`);
 function emulatorDb() {
   expect(process.env.GCLOUD_PROJECT).toBe('demo-ski-school-e2e');
   expect(process.env.FIRESTORE_EMULATOR_HOST).toMatch(/^(127\.0\.0\.1|localhost):8080$/);
-  const { getApps, initializeApp } = requireFunctions('firebase-admin/app');
-  if (!getApps().length) initializeApp({ projectId: 'demo-ski-school-e2e' });
-  return requireFunctions(
-    'firebase-admin/firestore'
-  ).getFirestore() as import('firebase-admin/firestore').Firestore;
+  return ensureFirestore();
 }
 
 test('Next Step preserves participant pin persistence, development, XP and four visual variants', async ({
@@ -146,9 +144,12 @@ test('Next Step preserves participant pin persistence, development, XP and four 
     }
     const warning = page.getByText('Database sync restricted.', { exact: false });
     expect(await warning.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
-    await warning.locator('..').locator('..').screenshot({
-      path: info.outputPath(`${name}-warning.png`),
-    });
+    await warning
+      .locator('..')
+      .locator('..')
+      .screenshot({
+        path: info.outputPath(`${name}-warning.png`),
+      });
     await tile.screenshot({ path: info.outputPath(`${name}.png`) });
   }
   await page.setViewportSize({ width: 320, height: 844 });

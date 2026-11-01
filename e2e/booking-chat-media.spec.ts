@@ -331,11 +331,13 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
       await rolePage.route(/^https:\/\/fonts\.(googleapis|gstatic)\.com\//, (route) =>
         route.abort()
       );
-      const response = rolePage.waitForResponse((response) =>
-        response.url().includes('accounts:signInWithPassword')
-      );
-      await signInAccount(rolePage, { email, password, expectedPath });
-      const { idToken } = (await (await response).json()) as { idToken: string };
+      let response: ReturnType<typeof rolePage.waitForResponse> | undefined;
+      await signInAccount(rolePage, { email, password, expectedPath }, () => {
+        response = rolePage.waitForResponse((response) =>
+          response.url().includes('accounts:signInWithPassword')
+        );
+      });
+      const { idToken } = (await (await response!).json()) as { idToken: string };
       console.log('Browser: role login passed', expectedPath ?? 'admin');
       return { page: rolePage, token: idToken };
     };

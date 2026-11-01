@@ -29,7 +29,7 @@
     "test:integration": "firebase emulators:exec --project demo-ski-school-e2e --only firestore \"node scripts/runVitest.mjs --require-emulators=firestore --config vitest.config.ts tests/integration --no-file-parallelism\"",
     "test:vitest:integration": "node scripts/runManifestTests.mjs --group integration",
     "test:under-emulators": "node scripts/runLocalTestSuite.mjs",
-    "test:e2e": "npm run build:functions && node scripts/runE2E.mjs",
+    "test:e2e": "node scripts/runManifestTests.mjs --group e2e --profile e2e",
     "test:e2e:integration": "firebase emulators:exec --project demo-ski-school-e2e --only firestore \"node scripts/runVitest.mjs --require-emulators=firestore --config vitest.config.ts tests/integration --no-file-parallelism\"",
     "test:rules": "node scripts/runManifestTests.mjs --group firestore",
     "test:firestore": "firebase emulators:exec --project demo-ski-school-e2e --only firestore \"node scripts/runVitest.mjs --require-emulators=firestore --config vitest.config.ts tests/firestore.rules.test.ts tests/integration --no-file-parallelism\"",
@@ -55,7 +55,16 @@
     "test:all": "npm run test",
     "i18n:check": "node scripts/check-translations.mjs",
     "test:manifest": "node scripts/validateTestManifest.mjs",
-    "test:manifest:unit": "node --test scripts/runLocalTestSuite.test.mjs scripts/testManifest.test.mjs"
+    "test:manifest:unit": "node --test scripts/runLocalTestSuite.test.mjs scripts/testManifest.test.mjs",
+    "test:quick": "node scripts/runLocalTestSuite.mjs quick",
+    "test:full": "node scripts/runLocalTestSuite.mjs full",
+    "test:e2e:smoke": "node scripts/runManifestTests.mjs --group e2e --profile smoke",
+    "test:hosting-security": "node scripts/runManifestTests.mjs --group hosting --profile hosting",
+    "test:contracts": "tsc -p packages/shared-domain/tsconfig.contracts.json",
+    "test:quick:types": "npm --prefix packages/shared-domain run build && tsc --noEmit && node functions/scripts/syncSharedDomain.cjs && node scripts/writeFunctionsProvenance.mjs && tsc -p functions/tsconfig.json --noEmit",
+    "test:fixture:admin-modals:build": "vite build --mode e2e --config vite.admin-modals.config.ts",
+    "test:fixture:planner:build": "vite build --mode e2e --config tests/browser/planner-overlap/vite.config.ts",
+    "build:e2e": "vite build --mode e2e --outDir .scratch/e2e-app"
   },
   "dependencies": {
     "@ski-academy/shared-domain": "file:packages/shared-domain",

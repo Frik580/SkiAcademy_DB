@@ -6,5 +6,10 @@ export default mergeConfig(
   appConfig,
   defineConfig({
     cacheDir: '.scratch/admin-modal-unification/vite-cache',
+    build: {
+      outDir: '.scratch/admin-modal-unification/preview',
+      emptyOutDir: true,
+      rollupOptions: { input: 'tests/browser/admin-modals/index.html' },
+    },
   })
 );

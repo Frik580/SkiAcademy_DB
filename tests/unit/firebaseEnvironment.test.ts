@@ -342,7 +342,7 @@ describe('vite firebase env resolution', () => {
       scripts: Record<string, string>;
     };
     expect(packageJson.scripts['test:e2e']).toBe(
-      'npm run build:functions && node scripts/runE2E.mjs'
+      'node scripts/runManifestTests.mjs --group e2e --profile e2e'
     );
     const { spawn } = await captureE2ERunner(['--project=chromium'], {
       GCLOUD_PROJECT: PRODUCTION_FIREBASE_PROJECT_ID,
@@ -389,8 +389,12 @@ describe('vite firebase env resolution', () => {
         'Run E2E through npm run test:e2e with the demo emulators.'
       );
     }
-    expect(readFileSync(resolve(repoRoot, 'playwright.config.ts'), 'utf8')).toMatch(
-      /npm exec vite -- --mode e2e --host 127\.0\.0\.1/
+    const playwrightConfig = readFileSync(resolve(repoRoot, 'playwright.config.ts'), 'utf8');
+    expect(playwrightConfig).toMatch(
+      /npm exec vite -- --mode e2e --config e2e\/vite\.live\.config\.ts --host 127\.0\.0\.1 --port 5174 --strictPort/
+    );
+    expect(playwrightConfig).toMatch(
+      /npm exec vite -- preview --mode e2e --outDir \.scratch\/e2e-app --host 127\.0\.0\.1/
     );
   });
 
@@ -523,4 +527,136 @@ describe('vite firebase env resolution', () => {
       }
     }
   });
+});
+
+describe('E2E harness synchronization and Admin app isolation', () => {
+  it('arms a response observer after navigation/form readiness and before submit', async () => {
+    const events: string[] = [];
+    let releaseNavigation!: () => void;
+    const navigation = new Promise<void>((resolve) => {
+      releaseNavigation = resolve;
+    });
+    vi.resetModules();
+    vi.doMock('@playwright/test', () => ({
+      expect: () => ({
+        toHaveURL: async () => {
+          events.push('authenticated');
+        },
+      }),
+    }));
+    try {
+      const { signInAccount } = await import('../../e2e/fixtures');
+      const modal = {
+        getByPlaceholder: (name: string) => ({
+          fill: async () => {
+            events.push(name);
+          },
+        }),
+        getByRole: () => ({
+          click: async () => {
+            events.push('submit');
+          },
+        }),
+      };
+      const page = {
+        goto: async () => {
+          events.push('navigation');
+          await navigation;
+        },
+        getByRole: () => ({
+          first: () => ({
+            click: async () => {
+              events.push('open form');
+            },
+          }),
+        }),
+        locator: () => modal,
+      };
+      const login = signInAccount(
+        page as never,
+        {
+          email: 'fixture@e2e.test',
+          password: 'fixture-password',
+          expectedPath: '/instructor',
+        },
+        () => {
+          events.push('observer armed');
+        }
+      );
+      expect(events).toEqual(['navigation']);
+      releaseNavigation();
+      await login;
+      expect(events).toEqual([
+        'navigation',
+        'open form',
+        'Email Address',
+        'Password',
+        'observer armed',
+        'submit',
+        'authenticated',
+      ]);
+    } finally {
+      releaseNavigation();
+      vi.doUnmock('@playwright/test');
+      vi.resetModules();
+    }
+  });
+
+  for (const wrongDefault of [false, true]) {
+    it(
+      wrongDefault
+        ? 'refuses a non-demo default app before accessing Firestore'
+        : 'initializes an isolated default app despite existing named apps and reuses it',
+      async () => {
+        let defaultApp = wrongDefault
+          ? { name: '[DEFAULT]', options: { projectId: 'non-demo-project' } }
+          : undefined;
+        const db = {};
+        const sdk = {
+          getApps: () => [{ name: 'prelaunch-auth', options: { projectId: E2E_PROJECT_ID } }],
+          getApp: () => {
+            if (!defaultApp) throw new Error('No default app');
+            return defaultApp;
+          },
+          initializeApp: vi.fn((options: { projectId: string }) => {
+            defaultApp = { name: '[DEFAULT]', options };
+            return defaultApp;
+          }),
+        };
+        const getFirestore = vi.fn(() => {
+          sdk.getApp();
+          return db;
+        });
+        const previousHost = process.env.FIRESTORE_EMULATOR_HOST;
+        vi.resetModules();
+        const fakeModule = {
+          createRequire: () => (id: string) =>
+            id === 'firebase-admin/app'
+              ? sdk
+              : id === 'firebase-admin/firestore'
+                ? { getFirestore }
+                : {},
+        };
+        vi.doMock('node:module', () => ({ ...fakeModule, default: fakeModule }));
+        try {
+          const { ensureFirestore } = await import('../../e2e/firestore-admin');
+          if (wrongDefault) {
+            expect(() => ensureFirestore()).toThrow('isolated demo default app');
+            expect(getFirestore).not.toHaveBeenCalled();
+          } else {
+            expect(ensureFirestore()).toBe(db);
+            expect(ensureFirestore()).toBe(db);
+            expect(sdk.initializeApp).toHaveBeenCalledExactlyOnceWith({
+              projectId: E2E_PROJECT_ID,
+            });
+          }
+        } finally {
+          if (previousHost === undefined) delete process.env.FIRESTORE_EMULATOR_HOST;
+          else process.env.FIRESTORE_EMULATOR_HOST = previousHost;
+          vi.doUnmock('node:module');
+          vi.resetModules();
+        }
+      }
+    );
+  }
 });

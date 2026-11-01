@@ -1,3 +1,4 @@
+import { ensureFirestore } from './firestore-admin';
 import { test, expect } from '@playwright/test';
 import { createRequire } from 'node:module';
 import { randomUUID } from 'node:crypto';
@@ -25,11 +26,7 @@ test('wallet history survives reload and participant changes in RU/EN, mobile/de
 }, info) => {
   test.setTimeout(300_000);
   expect(process.env.GCLOUD_PROJECT).toBe('demo-ski-school-e2e');
-  const { getApps, initializeApp } = requireFunctions('firebase-admin/app');
-  if (!getApps().length) initializeApp({ projectId: 'demo-ski-school-e2e' });
-  const db = requireFunctions(
-    'firebase-admin/firestore'
-  ).getFirestore() as import('firebase-admin/firestore').Firestore;
+  const db = ensureFirestore();
   const sharedRuntime = loadRuntimeConfig();
   const { getAuth } = requireFunctions(
     'firebase-admin/auth'

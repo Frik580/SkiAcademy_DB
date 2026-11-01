@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ROOT, executionGroups } from './testManifest.mjs';
+import { ROOT, executionGroups, executionPlan } from './testManifest.mjs';
 import { validateManifest } from './validateTestManifest.mjs';
 import { runGroup, withInterruptHandlers } from './runManifestTests.mjs';
 export { assertRequiredSuites } from './validateTestManifest.mjs';
@@ -17,7 +17,10 @@ export function buildEmulatorTestStages() {
       command: ['node', 'scripts/runManifestTests.mjs', '--group', group.id],
     }));
 }
-export async function runLocalTestSuite() {
+export async function runLocalTestSuite(profile = 'pr') {
+  if (!['quick', 'pr', 'full', 'release'].includes(profile))
+    throw new Error(`Unknown profile: ${profile}`);
+  const completedChecks = new Set();
   validateManifest();
   const started = Date.now();
   const ledgerDir = join(ROOT, '.scratch/test-egress');
@@ -49,15 +52,20 @@ export async function runLocalTestSuite() {
   let groupStarted;
   const reportDir = join(ROOT, '.scratch/test-manifest', `local-${Date.now()}-${process.pid}`);
   mkdirSync(reportDir, { recursive: true });
-  const summary = { status: 'RUNNING', startedAt: new Date().toISOString(), groups: [] };
+  const summary = { profile, status: 'RUNNING', startedAt: new Date().toISOString(), groups: [] };
   try {
     await withInterruptHandlers(async () => {
-      for (const group of executionGroups) {
+      const groups = executionPlan(profile);
+      for (const group of groups) {
         console.log(`\n=== ${group.id} (${group.ciGate}) ===`);
         const stageStart = Date.now();
         activeGroup = group.id;
         groupStarted = stageStart;
-        const result = await runGroup(group.id, { reportDir });
+        const result = await runGroup(group.id, {
+          reportDir,
+          profile: profile === 'release' ? 'full' : profile,
+          completedChecks,
+        });
         summary.groups.push({ ...result, wallMs: Date.now() - stageStart });
         writeFileSync(join(reportDir, 'summary.json'), JSON.stringify(summary, null, 2));
       }
@@ -80,7 +88,7 @@ export async function runLocalTestSuite() {
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
-    await runLocalTestSuite();
+    await runLocalTestSuite(process.argv[2] ?? 'pr');
   } catch (error) {
     console.error(`FAIL: ${error.message}`);
     process.exitCode = 1;

@@ -9,7 +9,8 @@ export default defineConfig({
   reporter: 'list',
   use: { baseURL: 'http://127.0.0.1:5175', browserName: 'chromium' },
   webServer: {
-    command: 'npm run dev -- --config vite.admin-modals.config.ts --host 127.0.0.1 --port 5175',
+    command:
+      'npm exec vite -- preview --config vite.admin-modals.config.ts --host 127.0.0.1 --port 5175 --strictPort',
     url: 'http://127.0.0.1:5175/tests/browser/admin-modals/index.html',
     reuseExistingServer: false,
   },

@@ -112,7 +112,7 @@ describe('fixed dashboard order', () => {
     let width = 900;
     const listeners = new Set<() => void>();
     vi.stubGlobal('matchMedia', (query: string) => ({
-      matches: width >= Number(query.match(/\\d+/)?.[0] ?? 0),
+      matches: width >= Number(query.match(/[0-9]+/)?.[0] ?? 0),
       addEventListener: (_event: string, listener: () => void) => listeners.add(listener),
       removeEventListener: (_event: string, listener: () => void) => listeners.delete(listener),
     }));

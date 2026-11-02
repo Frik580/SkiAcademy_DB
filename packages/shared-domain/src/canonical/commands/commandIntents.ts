@@ -2,6 +2,7 @@ import { LevelOperationSchema } from '../participantLevelProgression';
 import { z } from 'zod';
 import {
   KaspiCreateRequestIntentSchema,
+  SaveKaspiConfigurationIntentSchema,
   KaspiClaimRequestIntentSchema,
   KaspiReviewRequestIntentSchema,
 } from '../kaspiManualPayment';
@@ -813,6 +814,7 @@ export const CommandIntentSchemaByKind = {
   claim_kaspi_payment: KaspiClaimRequestIntentSchema,
   review_kaspi_payment: KaspiReviewRequestIntentSchema,
   set_kaspi_payment_enabled: z.object({ enabled: z.boolean() }).strict(),
+  save_kaspi_configuration: SaveKaspiConfigurationIntentSchema,
   grant_starter_credit: z.object({}).strict(),
   adjust_service_price: adjustServicePriceIntent,
   record_financial_correction: recordFinancialCorrectionIntent,

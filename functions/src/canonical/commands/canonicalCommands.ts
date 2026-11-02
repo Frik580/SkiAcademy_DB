@@ -1,5 +1,6 @@
 import { createParticipantLevelCommandHandlers } from '../progress/participantLevelCommands';
 import { createKaspiConfigurationCommandHandlers } from '../finance/kaspiConfigurationCommands';
+import { createKaspiMerchantSettingsCommandHandlers } from '../finance/kaspiMerchantSettingsCommands';
 import { createKaspiPaymentCommandHandlers } from '../finance/kaspiPaymentCommands';
 import {
   CanonicalCommandError,
@@ -198,6 +199,7 @@ export function createProductionCanonicalCommands(
   executor: CanonicalTransactionExecutor,
   options: {
     readonly guestActionTokenSecret?: string;
+    readonly verifyKaspiQrUpload?: (path: string) => Promise<string>;
     readonly guestReservationAdmission?: GuestReservationAdmissionPolicy;
     readonly monetaryEventLoader?: MonetaryEventLoader;
     readonly isEmailProviderConfigured?: () => boolean;
@@ -226,6 +228,7 @@ export function createProductionCanonicalCommands(
     ...createFinanceCommandHandlers(executor, options.monetaryEventLoader),
     ...createKaspiPaymentCommandHandlers(executor, options.guestActionTokenSecret),
     ...createKaspiConfigurationCommandHandlers(executor),
+    ...createKaspiMerchantSettingsCommandHandlers(executor, options.verifyKaspiQrUpload),
     ...createLessonPricingSettingsCommandHandlers(executor),
     ...createLessonLevelsCommandHandlers(executor),
     ...createEmailDeliverySettingsCommandHandlers(

@@ -17,6 +17,107 @@ const { timestampFromDate, KASPI_CONFIGURATION_PATH } = requireRoot(
   '@ski-academy/shared-domain'
 ) as typeof import('@ski-academy/shared-domain');
 
+test('Kaspi merchant setup: immutable QR upload, verified settings OFF, separate activation and customer visibility', async ({
+  page,
+  browser,
+}) => {
+  test.setTimeout(240_000);
+  expect(process.env.GCLOUD_PROJECT).toBe('demo-ski-school-e2e');
+  const db = ensureFirestore();
+  const runtime = loadRuntimeConfig();
+  const configRef = db.doc(KASPI_CONFIGURATION_PATH);
+  const previous = await configRef.get();
+  const customerContext = await browser.newContext({ locale: 'en-US' });
+  const customer = await customerContext.newPage();
+  try {
+    await configRef.delete();
+    await signInAccount(page, { email: runtime.adminEmail, password: runtime.adminPassword });
+    await page.goto('/admin?tab=finance');
+    await page
+      .locator('#canonical_finance')
+      .getByRole('button', { name: 'Show', exact: true })
+      .click();
+    const setting = page.getByRole('region', {
+      name: 'Kaspi QR — payment acceptance',
+      exact: true,
+    });
+    const toggle = setting.getByRole('switch');
+    await expect(toggle).not.toBeChecked();
+    await expect(toggle).toBeDisabled();
+    await setting.getByLabel('Recipient name', { exact: true }).fill('EMULATOR MERCHANT ONLY');
+    const sharp = requireFunctions('sharp') as typeof import('sharp');
+    const image = await sharp({
+      create: { width: 64, height: 64, channels: 3, background: '#162c3c' },
+    })
+      .png()
+      .toBuffer();
+    await setting
+      .getByLabel('QR image', { exact: true })
+      .setInputFiles({ name: 'test-qr.png', mimeType: 'image/png', buffer: image });
+    await expect(setting.getByRole('img', { name: 'QR image preview' })).toBeVisible();
+    await setting
+      .getByLabel('Wallet payment request validity (minutes)', { exact: true })
+      .fill('90');
+    await setting
+      .getByLabel('I have checked that this QR code belongs to the specified payment recipient.', {
+        exact: true,
+      })
+      .check();
+    await setting.getByRole('button', { name: 'Save Kaspi QR settings', exact: true }).click();
+    await page
+      .getByRole('dialog', { name: 'Save Kaspi QR settings', exact: true })
+      .getByRole('button', { name: 'Confirm', exact: true })
+      .click();
+    await expect(
+      setting.getByText('Kaspi QR payment setting saved.', { exact: true })
+    ).toBeVisible();
+    await expect(toggle).not.toBeChecked();
+    await expect(toggle).toBeEnabled();
+    const saved = (await configRef.get()).data()!;
+    expect(saved).toMatchObject({
+      enabled: false,
+      merchantName: 'EMULATOR MERCHANT ONLY',
+      walletRequestTtlSeconds: 5400,
+      revision: 1,
+    });
+    expect(saved.merchantKey).toMatch(/^[0-9a-f-]{36}$/);
+    expect(saved.qrVerifiedBy).toBe(saved.updatedBy);
+    expect(saved.qrVerifiedAt).toBeTruthy();
+    expect(saved.qrImageUrl).toMatch(/^https:\/\/firebasestorage.googleapis.com\//);
+    expect(saved.qrStoragePath).toMatch(/^kaspi-qr\//);
+    await toggle.click();
+    await page
+      .getByRole('dialog', { name: 'Enable Kaspi QR payments?', exact: true })
+      .getByRole('button', { name: 'Confirm', exact: true })
+      .click();
+    await expect(toggle).toBeChecked();
+    await signInStudent(customer, runtime);
+    await customer.goto('/cabinet/profile_wallet');
+    const payment = customer.getByRole('region', { name: 'Kaspi QR payment', exact: true });
+    await payment.getByRole('spinbutton', { name: 'Amount in KZT' }).fill('500');
+    await payment.getByRole('button', { name: 'Request a top-up', exact: true }).click();
+    const qr = payment.getByRole('img', { name: 'Verified merchant Kaspi QR' });
+    await expect(qr).toBeVisible();
+    await expect.poll(() => qr.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(64);
+    await toggle.click();
+    await page
+      .getByRole('dialog', { name: 'Disable Kaspi QR payments?', exact: true })
+      .getByRole('button', { name: 'Confirm', exact: true })
+      .click();
+    await expect(toggle).not.toBeChecked();
+    await customer.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await expect(payment).toHaveCount(0);
+    await expect(
+      customer.getByRole('region', { name: 'Kaspi payment history', exact: true })
+    ).toBeVisible();
+    expect((await configRef.get()).data()!.merchantKey).toBe(saved.merchantKey);
+  } finally {
+    if (previous.exists) await configRef.set(previous.data()!);
+    else await configRef.delete();
+    await customerContext.close();
+  }
+});
+
 test('Kaspi top-up: guest-safe flag, customer statement, clarification, admin bank verification and exactly-once balance', async ({
   page,
   browser,

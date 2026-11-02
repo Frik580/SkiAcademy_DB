@@ -88,6 +88,16 @@ export function createQueryKaspiPaymentsHandler(
         revision: revision.data,
         ready: KaspiConfigurationSchema.safeParse({ ...data, enabled: true }).success,
         ...(typeof data?.merchantName === 'string' ? { merchantName: data.merchantName } : {}),
+        ...(typeof data?.merchantKey === 'string' ? { merchantKey: data.merchantKey } : {}),
+        ...(KaspiConfigurationSchema.shape.qrImageUrl.safeParse(data?.qrImageUrl).success
+          ? { qrImageUrl: data?.qrImageUrl }
+          : {}),
+        ...(typeof data?.qrStoragePath === 'string' ? { qrStoragePath: data.qrStoragePath } : {}),
+        ...(typeof data?.walletRequestTtlSeconds === 'number'
+          ? { walletRequestTtlSeconds: data.walletRequestTtlSeconds }
+          : {}),
+        ...(data?.qrVerifiedAt ? { qrVerifiedAt: data.qrVerifiedAt } : {}),
+        ...(typeof data?.qrVerifiedBy === 'string' ? { qrVerifiedBy: data.qrVerifiedBy } : {}),
       };
     }
     if (input.scope === 'configuration') {

@@ -154,6 +154,7 @@ export const TEST_SESSION_COMMAND_SUPPORT = {
   claim_kaspi_payment: 'T43_DEFERRED',
   review_kaspi_payment: 'T43_DEFERRED',
   set_kaspi_payment_enabled: 'TEST_FORBIDDEN',
+  save_kaspi_configuration: 'TEST_FORBIDDEN',
   // LIVE onboarding finance only. TEST login may no-op this command after
   // scope resolution; it must not credit a TestSession wallet.
   grant_starter_credit: 'TEST_FORBIDDEN',

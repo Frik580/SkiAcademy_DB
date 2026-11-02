@@ -1,6 +1,15 @@
 import { RulesTestEnvironment } from '@firebase/rules-unit-testing';
+import { randomUUID } from 'node:crypto';
 import { deleteDoc, doc, setDoc } from 'firebase/firestore';
-import { getBytes, getDownloadURL, ref, uploadBytes, uploadString } from 'firebase/storage';
+import {
+  getBytes,
+  getDownloadURL,
+  ref,
+  uploadBytes,
+  uploadString,
+  updateMetadata,
+  deleteObject,
+} from 'firebase/storage';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   cleanupEmulatorTestEnvironment,
@@ -77,6 +86,76 @@ describe('storage default deny', () => {
   it('rejects reads of existing objects outside allowed paths', async () => {
     const authenticatedStorage = testEnv.authenticatedContext(STORAGE_USER_ID).storage();
     await assertFails(getBytes(ref(authenticatedStorage, 'existing/image.txt')));
+  });
+});
+
+describe('storage Kaspi immutable QR', () => {
+  const newPath = () => `kaspi-qr/${STORAGE_ADMIN_ID}/${randomUUID()}`;
+  async function adminStorage() {
+    await seedStorageFirestore(testEnv, async (db) => {
+      await setDoc(
+        doc(db, 'users', STORAGE_ADMIN_ID),
+        userProfile(STORAGE_ADMIN_ID, 'admin@example.com', 'admin')
+      );
+    });
+    return testEnv.authenticatedContext(STORAGE_ADMIN_ID).storage();
+  }
+  it('allows admin create and private draft read, denies anonymous/ordinary upload', async () => {
+    const path = newPath();
+    const admin = await adminStorage();
+    await assertSucceeds(uploadImage(admin, path));
+    await assertSucceeds(getBytes(ref(admin, path)));
+    await assertFails(getBytes(ref(testEnv.unauthenticatedContext().storage(), path)));
+    await assertFails(uploadImage(testEnv.unauthenticatedContext().storage(), newPath()));
+    await assertFails(
+      uploadImage(testEnv.authenticatedContext(STORAGE_USER_ID).storage(), newPath())
+    );
+  });
+  it('denies MIME, size, cross-owner path, overwrite, metadata update and deletion', async () => {
+    const path = newPath();
+    const admin = await adminStorage();
+    await assertFails(
+      uploadBytes(ref(admin, path), imageBytes(10), { contentType: 'image/svg+xml' })
+    );
+    await assertFails(uploadImage(admin, path, 5 * 1024 * 1024));
+    await assertFails(uploadImage(admin, path.replace(STORAGE_ADMIN_ID, 'another-admin')));
+    await assertSucceeds(uploadImage(admin, path));
+    await assertFails(uploadImage(admin, path));
+    await assertFails(updateMetadata(ref(admin, path), { contentType: 'image/png' }));
+    await assertFails(deleteObject(ref(admin, path)));
+  });
+  it('publishes only the configured QR for guest reads, independently from payment availability', async () => {
+    const path = newPath();
+    const admin = await adminStorage();
+    await uploadImage(admin, path);
+    const anonymous = testEnv.unauthenticatedContext().storage();
+    await seedStorageFirestore(testEnv, async (db) => {
+      await setDoc(doc(db, 'payment_configuration/kaspi_manual'), {
+        enabled: false,
+        qrStoragePath: path,
+      });
+    });
+    await assertSucceeds(getBytes(ref(anonymous, path)));
+    await seedStorageFirestore(testEnv, async (db) => {
+      await setDoc(doc(db, 'payment_configuration/kaspi_manual'), {
+        enabled: true,
+        qrStoragePath: 'different',
+      });
+    });
+    await assertFails(getBytes(ref(anonymous, path)));
+  });
+  it('denies disabled administrator uploads', async () => {
+    const path = newPath();
+    const admin = await adminStorage();
+    await seedStorageFirestore(testEnv, async (db) => {
+      await setDoc(
+        doc(db, 'users', STORAGE_ADMIN_ID),
+        userProfile(STORAGE_ADMIN_ID, 'admin@example.com', 'admin', {
+          lifecycle: { status: 'disabled' },
+        })
+      );
+    });
+    await assertFails(uploadImage(admin, path));
   });
 });
 

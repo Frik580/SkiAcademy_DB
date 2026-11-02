@@ -3,6 +3,7 @@ import type { KaspiGuestInput, KaspiPage, KaspiPublicRequest } from './kaspiCont
 import { claimKaspiRequest, createKaspiRequest, loadKaspiRequests } from './kaspiService';
 import { useKaspiTranslations } from './useKaspiTranslations';
 import { useKaspiAvailability } from './useKaspiAvailability';
+import { kaspiQrImageSource } from './kaspiQrImage';
 
 const statusKey = (status: KaspiPublicRequest['status']) => `kaspiStatus_${status}` as const;
 export function KaspiPaymentPanel({
@@ -180,7 +181,11 @@ export function KaspiPaymentPanel({
                 {t('kaspiRequest')}: {current.requestId}
               </p>
               <img
-                src={configuration.qrImageUrl}
+                src={
+                  configuration.qrImageUrl
+                    ? kaspiQrImageSource(configuration.qrImageUrl)
+                    : undefined
+                }
                 alt={t('kaspiQrAlt')}
                 className="h-56 w-56 max-w-full bg-white object-contain"
                 referrerPolicy="no-referrer"

@@ -5,6 +5,7 @@ import { AdminModal } from '../admin/components/AdminModal';
 import type { KaspiAdminConfigurationInput } from './kaspiContracts';
 import { queryKaspi } from './kaspiService';
 import { useKaspiTranslations } from './useKaspiTranslations';
+import { KaspiMerchantSettingsForm } from './KaspiMerchantSettingsForm';
 
 export function KaspiConfigurationAdmin({ accountId }: { accountId: string }) {
   const { t } = useKaspiTranslations();
@@ -16,6 +17,7 @@ export function KaspiConfigurationAdmin({ accountId }: { accountId: string }) {
   const [saved, setSaved] = useState(false);
   const [pending, setPending] = useState<{ enabled: boolean; revision: number; key: string }>();
   const lock = useRef(false);
+  const [editingBusy, setEditingBusy] = useState(false);
   const generation = useRef(0);
   const refresh = useCallback(async () => {
     const current = ++generation.current;
@@ -96,7 +98,7 @@ export function KaspiConfigurationAdmin({ accountId }: { accountId: string }) {
               type="checkbox"
               role="switch"
               checked={config.enabled}
-              disabled={loading || saving || (!config.enabled && !config.ready)}
+              disabled={loading || saving || editingBusy || (!config.enabled && !config.ready)}
               onChange={() => {
                 setSaved(false);
                 setPending({
@@ -110,13 +112,29 @@ export function KaspiConfigurationAdmin({ accountId }: { accountId: string }) {
           </label>
         </>
       )}
+      {config && (
+        <KaspiMerchantSettingsForm
+          key={config.revision}
+          accountId={accountId}
+          configuration={config}
+          disabled={loading || saving}
+          onBusy={(busy) => {
+            lock.current = busy;
+            setEditingBusy(busy);
+          }}
+          onSaved={async () => {
+            setSaved(await refresh());
+            window.dispatchEvent(new Event('kaspi-configuration-changed'));
+          }}
+        />
+      )}
       {saving && <p role="status">{t('processing')}</p>}
       {saved && <p role="status">{t('kaspiSettingsSaved')}</p>}
       {error && <p role="alert">{t('kaspiSettingsError')}</p>}
       <button
         type="button"
         className="btn-secondary px-3 py-2"
-        disabled={loading || saving}
+        disabled={loading || saving || editingBusy}
         onClick={() => {
           setSaved(false);
           void refresh();

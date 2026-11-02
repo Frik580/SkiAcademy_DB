@@ -7,6 +7,7 @@ export const AUDIT_EFFECT_REGISTRY_VERSION = 'effect:v1' as const;
 
 const COMMAND_KIND_ALLOWED_EFFECTS: Partial<Record<CommandKind, readonly AuditEffectKind[]>> = {
   set_kaspi_payment_enabled: [],
+  save_kaspi_configuration: [],
   create_kaspi_payment_request: ['payment_state_changed'],
   claim_kaspi_payment: ['payment_state_changed'],
   review_kaspi_payment: [

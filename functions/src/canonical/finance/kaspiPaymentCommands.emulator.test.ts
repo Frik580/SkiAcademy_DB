@@ -96,7 +96,7 @@ describe('Kaspi atomic financial commands on Firestore emulator', () => {
     const call = (uid?: string) => ({ data: { scope: 'admin_configuration' }, ...(uid ? { auth: { uid } } : {}) }) as CallableRequest<unknown>;
     await expect(query(call())).rejects.toMatchObject({ code: 'unauthenticated' });
     await expect(query(call(kaspiAccount))).rejects.toMatchObject({ code: 'permission-denied' });
-    await expect(query(call(kaspiAdmin))).resolves.toEqual({ enabled: true, ready: true, revision: 0, merchantName: 'EMULATOR ONLY' });
+    await expect(query(call(kaspiAdmin))).resolves.toMatchObject({ enabled: true, ready: true, revision: 0, merchantName: 'EMULATOR ONLY' });
     await run(kaspiToggle(false));
     await expect(query(call(kaspiAdmin))).resolves.toMatchObject({ enabled: false, ready: true, revision: 1 });
     await expect(query({ data: { scope: 'configuration' } } as CallableRequest<unknown>)).resolves.toEqual({ enabled: false });

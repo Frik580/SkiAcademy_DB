@@ -43,6 +43,7 @@ export const translations = {
     kaspiTitle: 'Kaspi QR payment',
     kaspiAdminTitle: 'Kaspi payment requests',
     kaspiUnavailable: 'Kaspi QR payments are currently unavailable.',
+    kaspiHistoryTitle: 'Kaspi payment history',
     kaspiManualNotice:
       'An administrator verifies the bank receipt. Reporting payment does not confirm it.',
     kaspiError: 'Could not complete the operation. Refresh the status before retrying.',
@@ -2608,6 +2609,7 @@ export const translations = {
     kaspiTitle: 'Оплата через Kaspi QR',
     kaspiAdminTitle: 'Заявки Kaspi на оплату',
     kaspiUnavailable: 'Оплата через Kaspi QR сейчас недоступна.',
+    kaspiHistoryTitle: 'История платежей Kaspi',
     kaspiManualNotice:
       'Поступление проверяет администратор. Сообщение об оплате не подтверждает платёж.',
     kaspiError: 'Не удалось выполнить операцию. Обновите статус перед повторной попыткой.',

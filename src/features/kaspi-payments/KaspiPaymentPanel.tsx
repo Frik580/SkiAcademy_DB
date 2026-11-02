@@ -1,17 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type {
-  KaspiConfigurationInput,
-  KaspiGuestInput,
-  KaspiPage,
-  KaspiPublicRequest,
-} from './kaspiContracts';
-import {
-  claimKaspiRequest,
-  createKaspiRequest,
-  kaspiConfiguration,
-  loadKaspiRequests,
-} from './kaspiService';
+import type { KaspiGuestInput, KaspiPage, KaspiPublicRequest } from './kaspiContracts';
+import { claimKaspiRequest, createKaspiRequest, loadKaspiRequests } from './kaspiService';
 import { useKaspiTranslations } from './useKaspiTranslations';
+import { useKaspiAvailability } from './useKaspiAvailability';
 
 const statusKey = (status: KaspiPublicRequest['status']) => `kaspiStatus_${status}` as const;
 export function KaspiPaymentPanel({
@@ -24,7 +15,6 @@ export function KaspiPaymentPanel({
   canCreate?: boolean;
 }) {
   const { t, formatKzt } = useKaspiTranslations();
-  const [configuration, setConfiguration] = useState<KaspiConfigurationInput>();
   const [page, setPage] = useState<KaspiPage<KaspiPublicRequest>>({ items: [], hasMore: false });
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
@@ -34,6 +24,12 @@ export function KaspiPaymentPanel({
   const attempt = useRef<string>();
   const guestType = guest?.type;
   const subjectId = guest?.subjectId;
+  const scope = JSON.stringify([accountId, guestType, subjectId, canCreate]);
+  const availability = useKaspiAvailability(scope);
+  const configuration = availability.configuration;
+  const historyGeneration = useRef(0);
+  const actionLifetime = useRef(0);
+  const [historyScope, setHistoryScope] = useState('');
   useEffect(() => {
     const deadlines = page.items
       .map(
@@ -49,39 +45,36 @@ export function KaspiPaymentPanel({
   }, [page.items, now]);
   const refresh = useCallback(
     async (cursor?: string) => {
-      const [config, result] = await Promise.all([
-        kaspiConfiguration(),
-        loadKaspiRequests(
-          guestType && subjectId ? { type: guestType, subjectId } : undefined,
-          cursor
-        ),
-      ]);
-      setConfiguration(config);
+      const current = ++historyGeneration.current;
+      const result = await loadKaspiRequests(
+        guestType && subjectId ? { type: guestType, subjectId } : undefined,
+        cursor
+      );
+      if (current !== historyGeneration.current) return;
+      setHistoryScope(scope);
       setPage((previous) =>
         cursor ? { ...result, items: [...previous.items, ...result.items] } : result
       );
     },
-    [guestType, subjectId]
+    [guestType, subjectId, scope]
   );
   useEffect(() => {
     let active = true;
-    void Promise.all([
-      kaspiConfiguration(),
-      loadKaspiRequests(guestType && subjectId ? { type: guestType, subjectId } : undefined),
-    ])
-      .then(([config, result]) => {
-        if (active) {
-          setConfiguration(config);
-          setPage(result);
-        }
-      })
-      .catch(() => {
-        if (active) setError(true);
-      });
+    const requests = historyGeneration;
+    const actions = actionLifetime;
+    setPage({ items: [], hasMore: false });
+    setHistoryScope('');
+    setError(false);
+    attempt.current = undefined;
+    void refresh().catch(() => {
+      if (active) setError(true);
+    });
     return () => {
       active = false;
+      ++requests.current;
+      ++actions.current;
     };
-  }, [guestType, subjectId, canCreate]);
+  }, [refresh]);
   useEffect(() => {
     const reload = () => {
       void refresh().catch(() => setError(true));
@@ -96,13 +89,17 @@ export function KaspiPaymentPanel({
   async function run(action: () => Promise<void>, reload = true) {
     if (lock.current) return;
     lock.current = true;
+    const lifetime = actionLifetime.current;
     setBusy(true);
     setError(false);
     try {
       await action();
-      if (reload) await refresh();
+      if (lifetime !== actionLifetime.current) return;
+      if (reload) await Promise.all([availability.refresh(), refresh()]);
     } catch {
+      if (lifetime !== actionLifetime.current) return;
       setError(true);
+      await availability.refresh();
     } finally {
       lock.current = false;
       setBusy(false);
@@ -119,18 +116,18 @@ export function KaspiPaymentPanel({
     )
   );
   const validAmount = Number.isSafeInteger(Number(amount)) && Number(amount) > 0;
+  const hasHistory = historyScope === scope && page.items.length > 0;
+  const showPayment = availability.status === 'enabled' && historyScope === scope;
+  if (!showPayment && !hasHistory) return null;
+  const title = t(showPayment ? 'kaspiTitle' : 'kaspiHistoryTitle');
   return (
     <section
       className="space-y-3 border border-[var(--border)] bg-[var(--card-bg)] p-4 text-[var(--ink)]"
-      aria-label={t('kaspiTitle')}
+      aria-label={title}
     >
-      <h3 className="type-card-title">{t('kaspiTitle')}</h3>
+      <h3 className="type-card-title">{title}</h3>
       {error && <p role="alert">{t('kaspiError')}</p>}
-      {!configuration ? (
-        <p role="status">{t('processing')}</p>
-      ) : !configuration.enabled ? (
-        <p>{t('kaspiUnavailable')}</p>
-      ) : (
+      {showPayment && configuration && (
         <>
           <p className="type-compact">{t('kaspiManualNotice')}</p>
           {!activeRequest && canCreate && (
@@ -138,6 +135,7 @@ export function KaspiPaymentPanel({
               className="flex flex-wrap items-end gap-2"
               onSubmit={(event) => {
                 event.preventDefault();
+                if (!showPayment || !canCreate || activeRequest || busy) return;
                 void run(async () => {
                   const id = attempt.current ?? crypto.randomUUID();
                   attempt.current = id;
@@ -204,7 +202,7 @@ export function KaspiPaymentPanel({
         </>
       )}
       <ul className="space-y-2">
-        {page.items.map((item) => (
+        {(hasHistory ? page.items : []).map((item) => (
           <li key={item.requestId} className="border-t border-[var(--border)] pt-2 type-compact">
             <span className="break-all">{item.requestId}</span> · {formatKzt(item.amount)} ·{' '}
             <span>

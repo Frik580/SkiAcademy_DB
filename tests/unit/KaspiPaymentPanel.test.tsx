@@ -63,6 +63,22 @@ describe('Kaspi payment request UI', () => {
     expect(screen.queryByText('kaspiTopup')).not.toBeInTheDocument();
     expect(service.createKaspiRequest).not.toHaveBeenCalled();
   });
+  it.each(['awaiting_payment', 'requires_clarification'])(
+    'allows reporting an existing %s payment after disable',
+    async (status) => {
+      service.kaspiConfiguration.mockResolvedValue({ enabled: false });
+      const existing = { ...request, status };
+      service.loadKaspiRequests.mockResolvedValue({ items: [existing], hasMore: false });
+      render(<KaspiPaymentPanel accountId="owner" />);
+      const report = await screen.findByRole('button', { name: 'kaspiReportPastPayment' });
+      expect(screen.queryByRole('img')).not.toBeInTheDocument();
+      expect(screen.queryByText('kaspiTopup')).not.toBeInTheDocument();
+      fireEvent.click(report);
+      await waitFor(() =>
+        expect(service.claimKaspiRequest).toHaveBeenCalledWith(existing, 'owner', undefined)
+      );
+    }
+  );
   it('creates a request and shows only server-provided QR and amount', async () => {
     service.loadKaspiRequests
       .mockResolvedValueOnce({ items: [], hasMore: false })

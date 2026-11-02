@@ -82,6 +82,17 @@ export function KaspiPaymentPanel({
       active = false;
     };
   }, [guestType, subjectId, canCreate]);
+  useEffect(() => {
+    const reload = () => {
+      void refresh().catch(() => setError(true));
+    };
+    window.addEventListener('focus', reload);
+    window.addEventListener('kaspi-configuration-changed', reload);
+    return () => {
+      window.removeEventListener('focus', reload);
+      window.removeEventListener('kaspi-configuration-changed', reload);
+    };
+  }, [refresh]);
   async function run(action: () => Promise<void>, reload = true) {
     if (lock.current) return;
     lock.current = true;
@@ -206,7 +217,9 @@ export function KaspiPaymentPanel({
               )}
             </span>
             {item.status === 'payment_claimed' && <p>{t('kaspiAwaitingReview')}</p>}
-            {(item.status === 'expired' ||
+            {((!configuration?.enabled &&
+              ['awaiting_payment', 'requires_clarification'].includes(item.status)) ||
+              item.status === 'expired' ||
               (item.status === 'awaiting_payment' && item.expiresAt?.seconds * 1000 <= now)) &&
               !item.claimedAt && (
                 <button

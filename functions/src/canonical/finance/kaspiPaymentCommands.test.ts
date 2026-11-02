@@ -12,6 +12,8 @@ import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createInMemoryCanonicalTransactionExecutor } from '../transactions';
 import {
   kaspiFixtures,
+  kaspiToggle,
+  kaspiAdmin,
   kaspiGuest,
   kaspiReview,
   kaspiTopup,
@@ -717,5 +719,121 @@ describe('Kaspi request financial boundary', () => {
     expect(h.get(`users/${kaspiAccount}/wallet/state`)?.balance).toBe(5000);
     expect(h.get(`payments/${booking.paymentId}`)?.refundedAmount).toBe(15000);
     expect(h.get(kaspiRequestPath(kaspiRequestA))?.refundedAmount).toBe(10000);
+  });
+});
+
+describe('Kaspi Administrator configuration toggle', () => {
+  it('enables without legal reference, disables, and audits only once on replay', async () => {
+    const config: Record<string, unknown> = {
+      ...kaspiFixtures().docs[KASPI_CONFIGURATION_PATH],
+      enabled: false,
+    };
+    delete config.legalApprovalReference;
+    const h = harness({ [KASPI_CONFIGURATION_PATH]: config });
+    const enable = kaspiToggle(true);
+    expect((await h.run(enable)).status).toBe('success');
+    expect((await h.run(enable)).status).toBe('success');
+    expect(h.get(KASPI_CONFIGURATION_PATH)).toMatchObject({
+      enabled: true,
+      revision: 1,
+      updatedBy: kaspiAdmin,
+    });
+    expect(h.get(KASPI_CONFIGURATION_PATH)?.updatedAt).toEqual({
+      seconds: 1767261600,
+      nanoseconds: 0,
+    });
+    const actions = () =>
+      [...h.executor.snapshot().docs].filter(([path]) =>
+        path.startsWith(`${KASPI_CONFIGURATION_PATH}/actions/`)
+      );
+    expect(actions()).toHaveLength(1);
+    expect(actions()[0][1].data).toMatchObject({
+      enabled: true,
+      previousEnabled: false,
+      updatedBy: kaspiAdmin,
+    });
+    expect((await h.run(kaspiToggle(false, 1))).status).toBe('success');
+    expect(actions()).toHaveLength(2);
+    expect(h.get(KASPI_CONFIGURATION_PATH)).toMatchObject({ enabled: false, revision: 2 });
+    expect(h.events()).toHaveLength(0);
+  });
+  it.each([
+    'merchantKey',
+    'qrImageUrl',
+    'merchantName',
+    'qrVerifiedBy',
+    'qrVerifiedAt',
+    'walletRequestTtlSeconds',
+    'provider',
+  ])('rejects activation missing %s while allowing disable', async (field) => {
+    const config: Record<string, unknown> = {
+      ...kaspiFixtures().docs[KASPI_CONFIGURATION_PATH],
+      enabled: false,
+    };
+    delete config[field];
+    const h = harness({ [KASPI_CONFIGURATION_PATH]: config });
+    expect((await h.run(kaspiToggle(true))).status).toBe('error');
+    expect((await h.run(kaspiToggle(false))).status).toBe('success');
+    expect(h.get(KASPI_CONFIGURATION_PATH)?.enabled).toBe(false);
+  });
+  it('rejects client capability, guest actor, disabled administrator and missing revision', async () => {
+    for (const context of [
+      { ...kaspiTopup().context, expectedRevision: 0 },
+      { ...kaspiGuest('guest_booking_payment').context, expectedRevision: 0 },
+      { ...kaspiToggle(true).context, expectedRevision: undefined },
+    ]) {
+      const h = harness();
+      expect(
+        (
+          await h.run({
+            ...kaspiToggle(true),
+            context,
+          } as CommandEnvelope<'set_kaspi_payment_enabled'>)
+        ).status
+      ).toBe('error');
+      expect(h.get(KASPI_CONFIGURATION_PATH)?.revision).toBeUndefined();
+    }
+    const h = harness({
+      [`users/${kaspiAdmin}`]: {
+        ...kaspiFixtures().docs[`users/${kaspiAdmin}`],
+        lifecycle: { status: 'disabled' },
+      },
+    });
+    expect((await h.run(kaspiToggle(false))).status).toBe('error');
+  });
+  it('rejects stale changes and prevents bank detail editing through command intent', async () => {
+    const h = harness();
+    expect((await h.run(kaspiToggle(false))).status).toBe('success');
+    expect((await h.run(kaspiToggle(true, 0, 'kaspi_stale'))).status).toBe('error');
+    expect(
+      (
+        await h.run({
+          ...kaspiToggle(true, 1),
+          intent: { enabled: true, merchantKey: 'injected' },
+        } as never)
+      ).status
+    ).toBe('error');
+    expect(h.get(KASPI_CONFIGURATION_PATH)?.merchantKey).toBe('demo-merchant');
+  });
+  it('blocks new wallet/guest requests after disable but keeps review and refunds working', async () => {
+    const h = harness();
+    expect((await h.run(kaspiTopup())).status).toBe('success');
+    expect((await h.run(kaspiToggle(false))).status).toBe('success');
+    expect((await h.run(kaspiTopup(kaspiRequestB))).status).toBe('error');
+    for (const type of ['guest_booking_payment', 'guest_course_payment'] as const)
+      expect((await h.run(kaspiGuest(type, kaspiRequestB))).status).toBe('error');
+    expect((await h.run(kaspiReview())).status).toBe('success');
+    expect((await h.run(kaspiReview(kaspiRequestA, 2, 'require_refund'))).status).toBe('success');
+    expect(
+      (
+        await h.run(
+          kaspiReview(kaspiRequestA, 3, 'record_refund', {
+            refundBankReference: 'BANK-DISABLED-REFUND',
+            refundedAt: { seconds: 1767261600, nanoseconds: 0 },
+          })
+        )
+      ).status
+    ).toBe('success');
+    expect(h.get(kaspiRequestPath(kaspiRequestA))?.status).toBe('refunded');
   });
 });

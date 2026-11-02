@@ -17,6 +17,8 @@ import type { CallableRequest } from 'firebase-functions/v2/https';
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions';
 import {
   kaspiFixtures,
+  kaspiToggle,
+  kaspiAdmin,
   kaspiTopup,
   kaspiGuest,
   kaspiReview,
@@ -75,6 +77,29 @@ describe('Kaspi atomic financial commands on Firestore emulator', () => {
   });
   afterAll(async () => {
     if (app) await deleteApp(app);
+  });
+  it('serializes concurrent configuration toggles and replays without duplicate audit', async () => {
+    const commands = [kaspiToggle(false, 0, 'toggle_a'), kaspiToggle(true, 0, 'toggle_b')];
+    const results = await Promise.all(commands.map((command) => run(command)));
+    expect(results.filter((result) => result.status === 'success')).toHaveLength(1);
+    const winner = commands[results.findIndex((result) => result.status === 'success')]!;
+    expect((await run(winner)).status).toBe('success');
+    const snapshot = await firestore.doc('payment_configuration/kaspi_manual').get();
+    expect(snapshot.data()).toMatchObject({ revision: 1, enabled: winner.intent.enabled });
+    expect(
+      (await firestore.collection('payment_configuration/kaspi_manual/actions').get()).size
+    ).toBe(1);
+    expect((await firestore.collection('monetary_events').get()).size).toBe(0);
+  });
+  it('authorizes Administrator configuration reads without exposing merchant credentials', async () => {
+    const query = createQueryKaspiPaymentsHandler(firestore, kaspiSecret);
+    const call = (uid?: string) => ({ data: { scope: 'admin_configuration' }, ...(uid ? { auth: { uid } } : {}) }) as CallableRequest<unknown>;
+    await expect(query(call())).rejects.toMatchObject({ code: 'unauthenticated' });
+    await expect(query(call(kaspiAccount))).rejects.toMatchObject({ code: 'permission-denied' });
+    await expect(query(call(kaspiAdmin))).resolves.toEqual({ enabled: true, ready: true, revision: 0, merchantName: 'EMULATOR ONLY' });
+    await run(kaspiToggle(false));
+    await expect(query(call(kaspiAdmin))).resolves.toMatchObject({ enabled: false, ready: true, revision: 1 });
+    await expect(query({ data: { scope: 'configuration' } } as CallableRequest<unknown>)).resolves.toEqual({ enabled: false });
   });
   it('serializes two administrators confirming one request and credits exactly once', async () => {
     expect((await run(kaspiTopup())).status).toBe('success');

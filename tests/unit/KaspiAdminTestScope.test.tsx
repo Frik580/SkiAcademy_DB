@@ -35,6 +35,7 @@ describe('Kaspi Administrator test-session isolation', () => {
       createdAt: { seconds: 1 },
     };
     query.mockImplementation(async ({ scope }: { scope: string }) => ({
+      ...(scope === 'admin_configuration' ? { enabled: false, ready: true, revision: 0 } : {}),
       items: scope === 'admin' ? [request] : [],
       hasMore: false,
     }));

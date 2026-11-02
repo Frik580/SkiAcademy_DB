@@ -16,6 +16,23 @@ export function resolveUiLanguage(saved?: string | null): Language {
 
 export const translations = {
   en: {
+    kaspiSettingsTitle: 'Kaspi QR — payment acceptance',
+    kaspiEnabled: 'Enabled',
+    kaspiDisabled: 'Disabled',
+    kaspiAllowPayments: 'Allow payments via Kaspi QR',
+    kaspiConfigurationMissing:
+      'Recipient or verified QR configuration is incomplete. Enabling payments is unavailable.',
+    kaspiSettingsSaved: 'Kaspi QR payment setting saved.',
+    kaspiSettingsError:
+      'Could not save or refresh the setting. Refresh the status and try again; another administrator may have changed it.',
+    kaspiEnableTitle: 'Enable Kaspi QR payments?',
+    kaspiDisableTitle: 'Disable Kaspi QR payments?',
+    kaspiEnableExplanation: 'Users will be able to create new Kaspi QR payment requests.',
+    kaspiDisableExplanation:
+      'New requests will be unavailable. Existing payments and refunds will be preserved.',
+    kaspiAgreementConfirmation:
+      'By enabling payments, you confirm an agreement with the sole proprietor to accept payments.',
+
     kaspiRefreshPayment: 'Refresh payment status',
     kaspiTestUnavailable: 'Bank payments are unavailable in a test session.',
     kaspiMerchantChanged:
@@ -2563,6 +2580,24 @@ export const translations = {
     priceKztLabel: 'Price (₸ KZT)',
   },
   ru: {
+    kaspiSettingsTitle: 'Kaspi QR — приём платежей',
+    kaspiEnabled: 'Включено',
+    kaspiDisabled: 'Выключено',
+    kaspiAllowPayments: 'Разрешить оплату через Kaspi QR',
+    kaspiConfigurationMissing:
+      'Конфигурация получателя или подтверждённого QR неполна. Включение оплаты недоступно.',
+    kaspiSettingsSaved: 'Настройка оплаты Kaspi QR сохранена.',
+    kaspiSettingsError:
+      'Не удалось сохранить или обновить настройку. Обновите статус и повторите попытку: другой администратор мог изменить её.',
+    kaspiEnableTitle: 'Включить оплату Kaspi QR?',
+    kaspiDisableTitle: 'Отключить оплату Kaspi QR?',
+    kaspiEnableExplanation:
+      'После включения пользователи смогут создавать новые заявки на оплату через Kaspi QR.',
+    kaspiDisableExplanation:
+      'Новые заявки будут недоступны. Существующие платежи и возвраты сохранятся.',
+    kaspiAgreementConfirmation:
+      'Включая оплату, вы подтверждаете наличие договорённости с владельцем ИП о приёме платежей.',
+
     kaspiRefreshPayment: 'Обновить статус оплаты',
     kaspiTestUnavailable: 'Банковские платежи недоступны в тестовой сессии.',
     kaspiMerchantChanged:

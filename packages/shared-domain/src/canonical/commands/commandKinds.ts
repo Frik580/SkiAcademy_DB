@@ -76,6 +76,7 @@ export const COMMAND_KINDS = [
   'create_kaspi_payment_request',
   'claim_kaspi_payment',
   'review_kaspi_payment',
+  'set_kaspi_payment_enabled',
   'grant_starter_credit',
   'adjust_service_price',
   'record_financial_correction',

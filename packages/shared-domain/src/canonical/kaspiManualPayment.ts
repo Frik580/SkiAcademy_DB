@@ -37,7 +37,11 @@ export const KaspiConfigurationSchema = z
       .url()
       .refine((value) => new URL(value).protocol === 'https:'),
     merchantName: z.string().trim().min(1).max(200),
-    legalApprovalReference: z.string().trim().min(1).max(500),
+    // Retained as compatibility data; activation is the Administrator decision.
+    legalApprovalReference: z.unknown().optional(),
+    revision: AggregateRevisionSchema.optional(),
+    updatedBy: AccountIdSchema.optional(),
+    updatedAt: CanonicalTimestampSchema.optional(),
     qrVerifiedBy: AccountIdSchema,
     qrVerifiedAt: CanonicalTimestampSchema,
     walletRequestTtlSeconds: z.number().int().positive().max(2_592_000),

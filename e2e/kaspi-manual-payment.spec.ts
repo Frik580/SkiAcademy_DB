@@ -357,3 +357,90 @@ for (const kind of ['lesson', 'course'] as const) {
     }
   });
 }
+
+test('admin finance Kaspi QR toggle enables and disables new requests', async ({
+  page,
+  browser,
+}) => {
+  test.setTimeout(180_000);
+  expect(process.env.GCLOUD_PROJECT).toBe('demo-ski-school-e2e');
+  const db = ensureFirestore();
+  const runtime = loadRuntimeConfig();
+  const configRef = db.doc(KASPI_CONFIGURATION_PATH);
+  const previous = await configRef.get();
+  const { getAuth } = requireFunctions(
+    'firebase-admin/auth'
+  ) as typeof import('firebase-admin/auth');
+  const adminUser = await getAuth().getUserByEmail(runtime.adminEmail);
+  const customerContext = await browser.newContext({ locale: 'en-US' });
+  const customer = await customerContext.newPage();
+  try {
+    // Technical fixture only. Activation happens through the Administrator UI.
+    await configRef.set({
+      enabled: false,
+      provider: 'kaspi_manual',
+      merchantKey: 'demo-toggle-merchant',
+      qrImageUrl: 'https://example.invalid/kaspi-toggle.png',
+      merchantName: 'EMULATOR TOGGLE ONLY',
+      qrVerifiedBy: adminUser.uid,
+      qrVerifiedAt: timestampFromDate(new Date()),
+      walletRequestTtlSeconds: 3600,
+    });
+    await signInAccount(page, { email: runtime.adminEmail, password: runtime.adminPassword });
+    await page.goto('/admin?tab=finance');
+    await page
+      .locator('#canonical_finance')
+      .getByRole('button', { name: 'Show', exact: true })
+      .click();
+    const setting = page.getByRole('region', {
+      name: 'Kaspi QR — payment acceptance',
+      exact: true,
+    });
+    const toggle = setting.getByRole('switch', { name: 'Allow payments via Kaspi QR' });
+    await expect(toggle).not.toBeChecked();
+    await signInStudent(customer, runtime);
+    await customer.goto('/cabinet/profile_wallet');
+    const wallet = customer.getByRole('region', { name: 'Kaspi QR payment', exact: true });
+    await expect(wallet.getByText('Kaspi QR payments are currently unavailable.')).toBeVisible();
+    await toggle.click();
+    await expect(toggle).not.toBeChecked();
+    await page
+      .getByRole('dialog', { name: 'Enable Kaspi QR payments?' })
+      .getByRole('button', { name: 'Confirm', exact: true })
+      .click();
+    await expect(toggle).toBeChecked();
+    expect((await configRef.get()).data()).toMatchObject({
+      enabled: true,
+      revision: 1,
+      updatedBy: adminUser.uid,
+    });
+    await wallet.getByRole('button', { name: 'Check status', exact: true }).click();
+    await expect(
+      wallet.getByRole('button', { name: 'Request a top-up', exact: true })
+    ).toBeVisible();
+    await toggle.click();
+    await page
+      .getByRole('dialog', { name: 'Disable Kaspi QR payments?' })
+      .getByRole('button', { name: 'Confirm', exact: true })
+      .click();
+    await expect(toggle).not.toBeChecked();
+    expect((await configRef.get()).data()).toMatchObject({
+      enabled: false,
+      revision: 2,
+      updatedBy: adminUser.uid,
+    });
+    await wallet.getByRole('button', { name: 'Check status', exact: true }).click();
+    await expect(wallet.getByRole('button', { name: 'Request a top-up', exact: true })).toHaveCount(
+      0
+    );
+    const actions = await configRef.collection('actions').get();
+    expect(actions.size).toBe(2);
+    expect(
+      actions.docs.every((doc) => doc.data().updatedBy === adminUser.uid && doc.data().updatedAt)
+    ).toBe(true);
+  } finally {
+    if (previous.exists) await configRef.set(previous.data()!);
+    else await configRef.delete();
+    await customerContext.close();
+  }
+});

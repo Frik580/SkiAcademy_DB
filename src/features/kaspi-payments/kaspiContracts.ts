@@ -28,6 +28,12 @@ export interface KaspiConfigurationInput {
   merchantName?: string;
   merchantKey?: string;
 }
+export interface KaspiAdminConfigurationInput {
+  enabled: boolean;
+  revision: number;
+  ready: boolean;
+  merchantName?: string;
+}
 export interface KaspiPage<T> {
   items: T[];
   hasMore: boolean;

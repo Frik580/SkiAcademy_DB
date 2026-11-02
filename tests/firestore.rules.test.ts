@@ -3967,3 +3967,30 @@ describe('lesson-level-settings-permissions', () => {
     );
   });
 });
+
+describe('Kaspi configuration server-only access', () => {
+  it('denies anonymous, user, owner and administrator configuration mutations', async () => {
+    await seedData(async (context) => {
+      await setDoc(
+        doc(context.firestore(), 'users', ADMIN_ID),
+        userProfile(ADMIN_ID, 'admin@example.com', 'admin')
+      );
+      await setDoc(doc(context.firestore(), 'payment_configuration', 'kaspi_manual'), {
+        enabled: false,
+      });
+    });
+    for (const uid of [ADMIN_ID, OWNER_ID, USER_ID, null]) {
+      const db = (
+        uid ? testEnv.authenticatedContext(uid) : testEnv.unauthenticatedContext()
+      ).firestore();
+      const ref = doc(db, 'payment_configuration', 'kaspi_manual');
+      await assertFails(getDoc(ref));
+      await assertFails(setDoc(ref, { enabled: true }));
+      await assertFails(updateDoc(ref, { enabled: true }));
+      await assertFails(deleteDoc(ref));
+      await assertFails(
+        setDoc(doc(db, 'payment_configuration/kaspi_manual/actions/forged'), { enabled: true })
+      );
+    }
+  });
+});

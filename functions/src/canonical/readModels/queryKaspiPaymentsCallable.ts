@@ -7,6 +7,8 @@ import {
   KaspiRequestStatusSchema,
   CanonicalTimestampSchema,
   readEnabledKaspiConfiguration,
+  KaspiConfigurationSchema,
+  AggregateRevisionSchema,
   normalizeFirestoreDocument,
   timestampFromDate,
   kaspiRequestExpired,
@@ -26,7 +28,7 @@ import { resolveAdministratorCanonicalRead } from './resolveAdministratorCanonic
 const InputSchema = z
   .object({
     idempotencyKey: z.string().min(1).max(256).optional(),
-    scope: z.enum(['configuration', 'mine', 'guest', 'admin', 'history']),
+    scope: z.enum(['configuration', 'admin_configuration', 'mine', 'guest', 'admin', 'history']),
     requestId: KaspiRequestIdSchema.optional(),
     status: KaspiRequestStatusSchema.optional(),
     cursor: z.string().max(128).optional(),
@@ -68,6 +70,26 @@ export function createQueryKaspiPaymentsHandler(
     const parsed = InputSchema.safeParse(call.data);
     if (!parsed.success) throw new HttpsError('invalid-argument', 'Invalid payment query.');
     const input = parsed.data;
+    if (input.scope === 'admin_configuration') {
+      const { readScope } = await resolveAdministratorCanonicalRead(firestore, call.auth?.uid);
+      if (readScope.dataScope !== 'live')
+        throw new HttpsError(
+          'failed-precondition',
+          'Manual payments are not available in test sessions.'
+        );
+      const data = normalizeFirestoreDocument(
+        (await firestore.doc(KASPI_CONFIGURATION_PATH).get()).data()
+      );
+      const revision = AggregateRevisionSchema.safeParse(data?.revision ?? 0);
+      if (!revision.success)
+        throw new HttpsError('failed-precondition', 'Invalid configuration revision.');
+      return {
+        enabled: data?.enabled === true,
+        revision: revision.data,
+        ready: KaspiConfigurationSchema.safeParse({ ...data, enabled: true }).success,
+        ...(typeof data?.merchantName === 'string' ? { merchantName: data.merchantName } : {}),
+      };
+    }
     if (input.scope === 'configuration') {
       const snapshot = await firestore.doc(KASPI_CONFIGURATION_PATH).get();
       const config = readEnabledKaspiConfiguration(normalizeFirestoreDocument(snapshot.data()));

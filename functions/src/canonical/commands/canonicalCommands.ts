@@ -1,4 +1,5 @@
 import { createParticipantLevelCommandHandlers } from '../progress/participantLevelCommands';
+import { createKaspiConfigurationCommandHandlers } from '../finance/kaspiConfigurationCommands';
 import { createKaspiPaymentCommandHandlers } from '../finance/kaspiPaymentCommands';
 import {
   CanonicalCommandError,
@@ -224,6 +225,7 @@ export function createProductionCanonicalCommands(
     ...createAdministrativeAvailabilityBlockCommandHandlers(executor),
     ...createFinanceCommandHandlers(executor, options.monetaryEventLoader),
     ...createKaspiPaymentCommandHandlers(executor, options.guestActionTokenSecret),
+    ...createKaspiConfigurationCommandHandlers(executor),
     ...createLessonPricingSettingsCommandHandlers(executor),
     ...createLessonLevelsCommandHandlers(executor),
     ...createEmailDeliverySettingsCommandHandlers(

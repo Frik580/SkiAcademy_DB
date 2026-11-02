@@ -13,6 +13,7 @@ import { executeAuthenticatedCanonicalCommand } from '../../lib/canonical/canoni
 import { AdminModal } from '../admin/components/AdminModal';
 import type { KaspiPage } from './kaspiContracts';
 import { queryKaspi } from './kaspiService';
+import { KaspiConfigurationAdmin } from './KaspiConfigurationAdmin';
 import { useKaspiTranslations } from './useKaspiTranslations';
 
 type Intent = CommandEnvelope<'review_kaspi_payment'>['intent'];
@@ -148,6 +149,7 @@ export function KaspiPaymentsAdmin({ accountId }: { accountId: string }) {
       className="space-y-4 border border-[var(--border)] p-4 text-[var(--ink)]"
       aria-label={t('kaspiAdminTitle')}
     >
+      <KaspiConfigurationAdmin accountId={accountId} />
       <h3 className="type-card-title">{t('kaspiAdminTitle')}</h3>
       {error && <p role="alert">{t('kaspiError')}</p>}
       <label>

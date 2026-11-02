@@ -295,3 +295,19 @@ export function kaspiReview(
     },
   };
 }
+
+export function kaspiToggle(
+  enabled: boolean,
+  revision = 0,
+  key = `kaspi_toggle_${revision}_${enabled}`
+): CommandEnvelope<'set_kaspi_payment_enabled'> {
+  return {
+    kind: 'set_kaspi_payment_enabled',
+    intent: { enabled },
+    context: {
+      ...kaspiReview().context,
+      expectedRevision: AggregateRevisionSchema.parse(revision),
+      idempotencyKey: IdempotencyKeySchema.parse(key),
+    },
+  };
+}

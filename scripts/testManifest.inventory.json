@@ -320,6 +320,7 @@
   "tests/unit/HeroCarousel.typography.test.tsx": "app-unit",
   "tests/unit/InstructorBookingList.attendanceFollowUp.test.tsx": "app-unit",
   "tests/unit/KaspiAdminTestScope.test.tsx": "app-unit",
+  "tests/unit/KaspiConfigurationAdmin.test.tsx": "app-unit",
   "tests/unit/KaspiPaymentPanel.test.tsx": "app-unit",
   "tests/unit/ModalHost.lazy.test.tsx": "app-unit",
   "tests/unit/Navbar.height.test.tsx": "app-unit",

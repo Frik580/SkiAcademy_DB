@@ -9,17 +9,28 @@ import { STUDENT_DASHBOARD_GRID_CLASSES } from './StudentDashboardTile';
 
 const LEFT_TILES = getDashboardColumnKeys('left');
 const RIGHT_TILES = getDashboardColumnKeys('right');
+const tabletQuery = '(min-width: 768px)';
 const desktopQuery = '(min-width: 1280px)';
-const readDesktop = () =>
-  typeof window.matchMedia === 'function' && window.matchMedia(desktopQuery).matches;
-const subscribeDesktop = (onChange: () => void) => {
+type DashboardViewport = 'mobile' | 'tablet' | 'desktop';
+
+const readViewport = (): DashboardViewport => {
+  if (typeof window.matchMedia !== 'function') return 'mobile';
+  if (window.matchMedia(desktopQuery).matches) return 'desktop';
+  return window.matchMedia(tabletQuery).matches ? 'tablet' : 'mobile';
+};
+const subscribeViewport = (onChange: () => void) => {
   if (typeof window.matchMedia !== 'function') return () => {};
-  const query = window.matchMedia(desktopQuery);
-  query.addEventListener('change', onChange);
-  return () => query.removeEventListener('change', onChange);
+  const tablet = window.matchMedia(tabletQuery);
+  const desktop = window.matchMedia(desktopQuery);
+  tablet.addEventListener('change', onChange);
+  desktop.addEventListener('change', onChange);
+  return () => {
+    tablet.removeEventListener('change', onChange);
+    desktop.removeEventListener('change', onChange);
+  };
 };
 
-/** Stable portal hosts preserve card state while both DOM and visual order change at xl. */
+/** Stable portal hosts preserve card state when switching between mobile, tablet and desktop. */
 export function StudentDashboardColumns({
   tiles,
   order,
@@ -27,7 +38,7 @@ export function StudentDashboardColumns({
   tiles: Readonly<Record<StudentDashboardTileKey, ReactNode>>;
   order: readonly StudentDashboardTileKey[];
 }) {
-  const isDesktop = useSyncExternalStore(subscribeDesktop, readDesktop, () => false);
+  const viewport = useSyncExternalStore(subscribeViewport, readViewport, () => 'mobile');
   const gridRef = useRef<HTMLDivElement>(null);
   const leftRef = useRef<HTMLDivElement>(null);
   const rightRef = useRef<HTMLDivElement>(null);
@@ -59,7 +70,7 @@ export function StudentDashboardColumns({
         if (next !== host) parent.insertBefore(host, next ?? null);
       });
     };
-    if (isDesktop) {
+    if (viewport === 'desktop') {
       place(
         leftRef.current!,
         order.filter((key) => STUDENT_DASHBOARD_TILES[key].desktopColumn === 'left')
@@ -69,10 +80,20 @@ export function StudentDashboardColumns({
         order.filter((key) => STUDENT_DASHBOARD_TILES[key].desktopColumn === 'right')
       );
     } else {
-      place(
-        gridRef.current!,
-        visibleIdentity.split('|').filter(Boolean) as StudentDashboardTileKey[]
-      );
+      const visibleOrder = visibleIdentity.split('|').filter(Boolean) as StudentDashboardTileKey[];
+      if (viewport === 'tablet') {
+        // Independent equal-width stacks avoid Grid row gaps under shorter cards.
+        place(
+          leftRef.current!,
+          visibleOrder.filter((_, index) => index % 2 === 0)
+        );
+        place(
+          rightRef.current!,
+          visibleOrder.filter((_, index) => index % 2 === 1)
+        );
+      } else {
+        place(gridRef.current!, visibleOrder);
+      }
     }
     if (
       focusedElement instanceof HTMLElement &&
@@ -81,7 +102,7 @@ export function StudentDashboardColumns({
     ) {
       focusedElement.focus({ preventScroll: true });
     }
-  }, [hosts, isDesktop, visibleIdentity, order]);
+  }, [hosts, viewport, visibleIdentity, order]);
 
   return (
     <div
@@ -92,12 +113,12 @@ export function StudentDashboardColumns({
       <div
         ref={leftRef}
         data-dashboard-column="left"
-        className="contents xl:col-span-1 xl:flex xl:flex-col xl:gap-5 min-w-0"
+        className="contents min-w-0 md:col-span-1 md:flex md:flex-col md:gap-4 xl:gap-5"
       />
       <div
         ref={rightRef}
         data-dashboard-column="right"
-        className="contents xl:col-span-2 xl:flex xl:flex-col xl:gap-5 min-w-0"
+        className="contents min-w-0 md:col-span-1 md:flex md:flex-col md:gap-4 xl:col-span-2 xl:gap-5"
       />
       {visibleKeys.map((key) => createPortal(tiles[key], hosts[key], key))}
     </div>

@@ -1,4 +1,4 @@
-import { cleanup, render } from '@testing-library/react';
+import { act, cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_STUDENT_DASHBOARD_LAYOUT as defaults,
@@ -107,6 +107,52 @@ describe('fixed dashboard order', () => {
     expect(
       moveDashboardTile(defaults, 'instructorRecommendations', 'todayTasks').order
     ).not.toEqual(defaults.order);
+  });
+  it('stacks visible tablet cards in two columns without row placeholders and keeps desktop assignments', () => {
+    let width = 900;
+    const listeners = new Set<() => void>();
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: width >= Number(query.match(/[0-9]+/)?.[0] ?? 0),
+      addEventListener: (_event: string, listener: () => void) => listeners.add(listener),
+      removeEventListener: (_event: string, listener: () => void) => listeners.delete(listener),
+    }));
+    const tiles = Object.fromEntries(
+      defaults.order.map((key) => [key, <span key={key}>{key}</span>])
+    ) as Parameters<typeof StudentDashboardColumns>[0]['tiles'];
+    const { container, rerender } = render(
+      <StudentDashboardColumns
+        tiles={{ ...tiles, countdown: null, todayAchievements: null }}
+        order={defaults.order}
+      />
+    );
+    const keys = (column: string) =>
+      [...container.querySelectorAll(`[data-dashboard-column="${column}"] > [data-dashboard-item]`)]
+        .map((element) => element.getAttribute('data-dashboard-item'));
+    expect(keys('left')).toEqual([
+      'currentSessions', 'nextStep', 'skillRadar', 'instructorRecommendations',
+    ]);
+    expect(keys('right')).toEqual([
+      'todayTasks', 'nextSession', 'needsAttention', 'weather',
+    ]);
+    expect(container.querySelectorAll('[data-testid="student-dashboard-grid"] > [data-dashboard-item]'))
+      .toHaveLength(0);
+    rerender(<StudentDashboardColumns tiles={tiles} order={defaults.order} />);
+    expect(keys('left')).toEqual(defaults.order.filter((_, index) => index % 2 === 0));
+    expect(keys('right')).toEqual(defaults.order.filter((_, index) => index % 2 === 1));
+
+    width = 1280;
+    act(() => listeners.forEach((listener) => listener()));
+    expect(keys('left')).toEqual(getDashboardColumnKeys('left'));
+    expect(keys('right')).toEqual(getDashboardColumnKeys('right'));
+
+    width = 390;
+    act(() => listeners.forEach((listener) => listener()));
+    expect(keys('left')).toEqual([]);
+    expect(keys('right')).toEqual([]);
+    expect(
+      [...container.querySelectorAll('[data-testid="student-dashboard-grid"] > [data-dashboard-item]')]
+        .map((element) => element.getAttribute('data-dashboard-item'))
+    ).toEqual(defaults.order);
   });
   it('renders saved column order and restores conditional cards without empty hosts', () => {
     vi.stubGlobal('matchMedia', () => ({

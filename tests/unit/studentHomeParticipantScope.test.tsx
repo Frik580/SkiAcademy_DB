@@ -485,18 +485,22 @@ describe('Student Home dashboard grid', () => {
       'nextSession',
       'instructorRecommendations',
     ]);
+    // Tablet columns use independent stacks; desktop keeps the fixed 1:2 widths.
     expect(grid.querySelector('[data-dashboard-column="left"]')).toHaveClass(
       'contents',
-      'xl:col-span-1',
-      'xl:flex',
-      'xl:flex-col',
+      'md:col-span-1',
+      'md:flex',
+      'md:flex-col',
+      'md:gap-4',
       'xl:gap-5'
     );
     expect(grid.querySelector('[data-dashboard-column="right"]')).toHaveClass(
       'contents',
+      'md:col-span-1',
+      'md:flex',
+      'md:flex-col',
+      'md:gap-4',
       'xl:col-span-2',
-      'xl:flex',
-      'xl:flex-col',
       'xl:gap-5'
     );
     const weather = grid.querySelector('[data-dashboard-tile="weather"]');

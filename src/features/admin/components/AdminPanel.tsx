@@ -44,6 +44,11 @@ const CanonicalFinancePanel = lazy(() =>
     default: m.CanonicalFinancePanel,
   }))
 );
+const KaspiPaymentsAdmin = lazy(() =>
+  import('../../kaspi-payments/KaspiPaymentsAdmin').then((module) => ({
+    default: module.KaspiPaymentsAdmin,
+  }))
+);
 const CanonicalSchoolMovementPanel = lazy(() =>
   import('../finance/CanonicalSchoolMovementPanel').then((m) => ({
     default: m.CanonicalSchoolMovementPanel,
@@ -325,6 +330,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 undefined
               }
             >
+              <KaspiPaymentsAdmin accountId={currentUserProfile.uid} />
               <CanonicalFinancePanel
                 adminAccountId={currentUserProfile.uid}
                 accounts={usersList}

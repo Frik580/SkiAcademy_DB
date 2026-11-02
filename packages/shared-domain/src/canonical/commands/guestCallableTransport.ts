@@ -81,6 +81,8 @@ function guestCallableTransportSchemaForKind<Kind extends CommandKind>(kind: Kin
 const guestCallableTransportSchemas = [
   CreateGuestBookingRequestTransportSchema,
   guestCallableTransportSchemaForKind('request_booking_cancellation'),
+  guestCallableTransportSchemaForKind('create_kaspi_payment_request'),
+  guestCallableTransportSchemaForKind('claim_kaspi_payment'),
   z
     .object({
       kind: z.literal('create_course_enrollments'),

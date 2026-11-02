@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { KaspiPaymentPanel } from '../../kaspi-payments/KaspiPaymentPanel';
 import { Booking, Course, WalletLedgerEntry } from '../../../types';
 import { StudentWalletHistoryList } from '../../../features/student-cabinet';
 import { ScPageIntro } from '../../../features/student-cabinet';
@@ -17,6 +18,7 @@ export interface WalletPanelProps {
 }
 
 export const WalletPanel: React.FC<WalletPanelProps> = ({
+  userId,
   bookings,
   courses,
   onGoToTab,
@@ -43,6 +45,7 @@ export const WalletPanel: React.FC<WalletPanelProps> = ({
         title={t('scProfileWalletHistory')}
         subtitle={t('scProfileWalletHistorySub')}
       />
+      <KaspiPaymentPanel accountId={userId} />
       <StudentWalletHistoryList {...history} operations={operations} />
     </div>
   );

@@ -167,7 +167,23 @@ function planFinancialCorrection(
   payment: Payment
 ): FinancialCorrectionPlan {
   const before = paymentAccountingFields(payment);
+  if (
+    payment.manualPaymentRequestId &&
+    envelope.intent.correctionKind === 'compensating_event' &&
+    (envelope.intent.paymentEffect?.refundedAmountDelta ?? 0) > 0
+  ) {
+    throw new CanonicalCommandError('invalid_transition', {
+      correlationId: envelope.context.correlationId,
+      details: { field: 'manualPaymentRequestId', reason: 'unsupported' },
+    });
+  }
   if (envelope.intent.correctionKind === 'admin_refund') {
+    if (payment.manualPaymentRequestId) {
+      throw new CanonicalCommandError('invalid_transition', {
+        correlationId: envelope.context.correlationId,
+        details: { field: 'manualPaymentRequestId', reason: 'unsupported' },
+      });
+    }
     const destination =
       envelope.intent.walletAccountId !== undefined || payment.payerAccountId !== undefined
         ? ('wallet' as const)
@@ -975,15 +991,15 @@ export function recordAuditCorrectionHandler(
 }
 
 export type GuestConfirmationLifecycleMismatchReconciliationOutcome =
-  | 'aligned'
-  | 'already_open'
-  | 'reconciled';
+  'aligned' | 'already_open' | 'reconciled';
 
 export async function reconcileGuestConfirmationLifecycleMismatchAfterCommand(input: {
   readonly correlationId: CommandEnvelope['context']['correlationId'];
   readonly paymentId: Payment['paymentId'];
   readonly environment: CommandExecutionEnvironment;
-  readonly executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor'];
+  readonly executor: Parameters<
+    typeof executeAuthoritativeIdempotentCanonicalCommand
+  >[0]['executor'];
   readonly eventLoader?: MonetaryEventLoader;
 }): Promise<GuestConfirmationLifecycleMismatchReconciliationOutcome> {
   const mismatch = await input.executor.runAtomic({

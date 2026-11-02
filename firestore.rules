@@ -646,6 +646,14 @@ service cloud.firestore {
       allow create, delete: if isAdmin();
     }
 
+    // Bank configuration, receipt guards and request evidence are callable-only.
+    match /payment_configuration/{id} { allow read, write: if false; }
+    match /payment_requests/{id} {
+      allow read, write: if false;
+      match /actions/{actionId} { allow read, write: if false; }
+    }
+    match /bank_receipt_guards/{id} { allow read, write: if false; }
+
     // Settings
     match /settings/{settingId} {
       allow read: if true;

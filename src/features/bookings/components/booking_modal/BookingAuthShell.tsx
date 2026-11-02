@@ -1,5 +1,6 @@
 import { getParticipantSkillLabel } from '../../../../lib/i18n/participantSkillLabels';
 import React from 'react';
+import { KaspiPaymentPanel } from '../../../kaspi-payments/KaspiPaymentPanel';
 import { motion } from 'motion/react';
 import { Auth } from '../../../../features/auth';
 import { BookingModalHeader } from './BookingModalHeader';
@@ -18,6 +19,11 @@ export const BookingAuthShell: React.FC<BookingAuthShellProps> = ({ workspace })
   const { targetInstructor, t, unauthTab, setUnauthTab, onAuthSuccess } = workspace;
 
   if (!targetInstructor) return null;
+  const canCreateGuestPayment = Boolean(
+    workspace.guestReservation?.lifecycle.status === 'pending' &&
+    (workspace.guestReservation.lifecycle.reservationExpiresAt?.seconds ?? 0) * 1000 > Date.now() &&
+    (workspace.guestReservation.guestPaymentSummary?.outstandingAmount ?? 0) > 0
+  );
 
   return (
     <motion.div
@@ -54,6 +60,15 @@ export const BookingAuthShell: React.FC<BookingAuthShellProps> = ({ workspace })
         {workspace.guestCreatedBookingId ? (
           <GuestReservationStatus
             kind="lesson"
+            paymentActions={
+              <KaspiPaymentPanel
+                guest={{
+                  type: 'guest_booking_payment',
+                  subjectId: workspace.guestCreatedBookingId,
+                }}
+                canCreate={canCreateGuestPayment}
+              />
+            }
             lifecycleStatus={workspace.guestReservation?.lifecycle.status ?? 'pending'}
             reasonCode={workspace.guestReservation?.lifecycle.reasonCode}
             reservationExpiresAt={workspace.guestReservation?.lifecycle.reservationExpiresAt}

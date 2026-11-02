@@ -43,6 +43,7 @@ const maxTwenty = [
   'queryAdminCourseEnrollmentReadModels',
   'queryAdminCourseReadModels',
   'queryAdminFinanceReadModels',
+  'queryKaspiPayments',
   'queryAdminIdentityReadModels',
   'queryAdminIssueReadModels',
   'queryAdminPlannerReadModels',
@@ -71,7 +72,10 @@ const maxTwenty = [
 ];
 const expectedCaps = Object.fromEntries([
   ...maxOne.map((name) => [name, 1]),
-  ...[...Object.keys(eventDocuments), 'optimizeImage', 'bookingChatMedia'].map((name) => [name, 10]),
+  ...[...Object.keys(eventDocuments), 'optimizeImage', 'bookingChatMedia'].map((name) => [
+    name,
+    10,
+  ]),
   ...maxTwenty.map((name) => [name, 20]),
 ]);
 const secretCallables = new Set(
@@ -89,7 +93,7 @@ function deploymentSpec(): Record<string, Record<string, unknown>> {
 describe('reviewed Functions deployment configuration', () => {
   it('requires the exact scaling map and export inventory in the generated specification', () => {
     const spec = deploymentSpec();
-    expect(Object.keys(spec)).toHaveLength(50);
+    expect(Object.keys(spec)).toHaveLength(51);
     expect(
       Object.fromEntries(Object.entries(spec).map(([name, e]) => [name, e.maxInstances]))
     ).toEqual(expectedCaps);
@@ -110,7 +114,11 @@ describe('reviewed Functions deployment configuration', () => {
         platform: 'gcfv2',
         entryPoint: name,
         availableMemoryMb:
-          name === 'optimizeImage' || chatMedia ? 512 : lowCpuScheduler || eventDocument ? 256 : null,
+          name === 'optimizeImage' || chatMedia
+            ? 512
+            : lowCpuScheduler || eventDocument
+              ? 256
+              : null,
         timeoutSeconds: chatMedia ? 120 : name === 'optimizeImage' ? 60 : null,
         minInstances: null,
         maxInstances: expectedCaps[name],

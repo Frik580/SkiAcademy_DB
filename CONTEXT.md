@@ -110,7 +110,7 @@ The Account Owner's simulated stored-value balance used for lessons and Courses.
 An immutable entry in the append-only `monetary_events` history that records canonical financial effects and provenance. Monetary Events explain Payment and Wallet projections but do not replace their current-state authority.
 
 **Payment Provenance**:
-The historical origin of money applied to a Booking or Course Enrollment. Account linking may change future refund destination but never rewrites how earlier payment was made.
+The historical origin of money applied to a Booking or Course Enrollment. Account linking may change future refund destination but never rewrites how earlier payment was made. Guest Kaspi manual receipts retain their original bank refund destination after linking; mixed cancellation refunds allocate to the Kaspi portion first, then to Wallet (ADR-0007).
 
 **Activity Log**:
 An immutable audit record of an actor and an authoritative command or domain-significant action. It is written synchronously and atomically with the authoritative domain transaction, explains history, and is never the source of current lifecycle, financial, Attendance, or access state.

@@ -52,6 +52,7 @@ import {
   type MonetaryEventLoader,
 } from './financeCorrectionCommands';
 import { createStarterCreditCommandHandlers } from './starterCreditCommands';
+import { assertNoImplicitKaspiRefund } from './kaspiCancellation';
 import { crossScopeCommandError } from '../testSessions/assertTestMutableResourceScope';
 import { assertPayerAccountAuthority } from '../testSessions/persistentTestAccountAuthority';
 import { assertFinanceAuthorization, mapFinanceDomainError } from './financeAuthorization';
@@ -298,6 +299,12 @@ function recordProviderPaymentEventHandler(
         });
       }
       payment = parsedPayment;
+      if (payment.manualPaymentRequestId) {
+        throw new CanonicalCommandError('invalid_transition', {
+          correlationId: envelope.context.correlationId,
+          details: { field: 'manualPaymentRequestId', reason: 'unsupported' },
+        });
+      }
       await assertGuestManualPaymentAcceptance({
         session,
         payment,
@@ -587,6 +594,12 @@ function adjustServicePriceHandler(
       const before = paymentAccountingFields(payment);
       if (envelope.intent.newPrice < payment.price) {
         const decreasePreview = applyPriceDecrease(before, envelope.intent.newPrice);
+        await assertNoImplicitKaspiRefund(
+          session,
+          payment,
+          decreasePreview.refundDelta,
+          envelope.context.correlationId
+        );
         if (decreasePreview.refundDelta > 0 && envelope.intent.walletAccountId === undefined) {
           throw new CanonicalCommandError('validation', {
             correlationId: envelope.context.correlationId,
@@ -841,9 +854,7 @@ function resolveLinkedPayerAccountId(input: {
   readonly paymentPayerAccountId?: AccountId;
   readonly guestLinkedAccountId?: AccountId;
 }): AccountId | undefined {
-  return (
-    input.resourcePayerAccountId ?? input.paymentPayerAccountId ?? input.guestLinkedAccountId
-  );
+  return input.resourcePayerAccountId ?? input.paymentPayerAccountId ?? input.guestLinkedAccountId;
 }
 
 function payServiceFromWalletAsAdministratorHandler(

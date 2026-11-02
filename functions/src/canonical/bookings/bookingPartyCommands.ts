@@ -1,3 +1,4 @@
+import { assertNoImplicitKaspiRefund } from '../finance/kaspiCancellation';
 import {
   AggregateRevisionSchema,
   BookingSchema,
@@ -527,6 +528,12 @@ function changeBookingPartyHandler(
           }
         }
       } else if (priceDelta < 0) {
+        await assertNoImplicitKaspiRefund(
+          session,
+          payment,
+          applyPartyPriceDecrease(paymentAccountingFields(payment), nextPrice).refundDelta,
+          envelope.context.correlationId
+        );
         const tariffDifference = KztMinorUnitsSchema.parse(-priceDelta);
         if (mode === 'client_self_service') {
           refundAmount = calculateSelfServiceRemoveRefundBasisKzt({
@@ -944,6 +951,12 @@ function rollbackUnpaidBookingPartyAdditionsHandler(
           nextPrice
         );
         refundAmount = decreasePreview.refundDelta;
+        await assertNoImplicitKaspiRefund(
+          session,
+          payment,
+          refundAmount,
+          envelope.context.correlationId
+        );
         const refundDestination = resolveRefundDestination({ booking, payment });
         const payerAccountId = booking.payerAccountId ?? payment.payerAccountId;
         if (refundAmount > 0 && refundDestination === 'wallet' && payerAccountId) {

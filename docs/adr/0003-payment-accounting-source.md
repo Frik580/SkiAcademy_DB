@@ -350,6 +350,12 @@ Historical provenance belongs to each immutable event through `sourceKind`, `pay
 
 ## Refund model
 
+### Optional manual Kaspi receipt evidence
+
+The server-only Kaspi Payment Request tracks verification workflow and references canonical events; it is not a balance or financial ledger. `Payment.manualPaymentRequestId` identifies the attached workflow. A `MonetaryEvent.externalAmount` records the whole-KZT bank fact, including a receipt that could not be allocated to a service. Such an unallocated receipt has no Payment or Wallet delta and must not be treated as service funding. Confirmed service receipts carry the normal Payment deltas; confirmed Wallet top-ups carry the normal Wallet delta.
+
+For a refund of a credited Kaspi Wallet top-up, `require_refund` first makes a canonical Wallet debit/correction atomically, while funds are still available. Administrators must only perform the bank refund after this preparation succeeds. `record_refund` subsequently records the actual external refund with its bank reference and timestamp; it does not debit Wallet again or depend on its later spendable balance. Preparation does not claim the bank has refunded money. Insufficient Wallet funds prevent preparation, without creating a bank refund obligation. Unallocated receipts require no Wallet correction. See ADR-0007 for guest and mixed-source cancellation allocation.
+
 Refund policy percentages apply to money actually paid, never nominal price. For a normalized refund fraction `p`, the command calculates a deterministic integer target from `paidAmount`, clamps it to `0..paidAmount`, and applies only the cumulative difference:
 
 ```text

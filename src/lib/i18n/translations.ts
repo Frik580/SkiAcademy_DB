@@ -17,6 +17,26 @@ export function resolveUiLanguage(saved?: string | null): Language {
 export const translations = {
   en: {
     kaspiSettingsTitle: 'Kaspi QR — payment acceptance',
+    kaspiMerchantSettings: 'Kaspi QR settings',
+    kaspiMerchantName: 'Recipient name',
+    kaspiQrFile: 'QR image',
+    kaspiQrFileHelp:
+      'PNG, JPEG or WebP, smaller than 5 MB. Confirm the recipient again when replacing the QR.',
+    kaspiQrFileError: 'Choose a PNG, JPEG or WebP image smaller than 5 MB.',
+    kaspiQrPreview: 'QR image preview',
+    kaspiRequestMinutes: 'Wallet payment request validity (minutes)',
+    kaspiMerchantKey: 'Recipient ID',
+    kaspiReplaceMerchant: 'Change to a different payment recipient',
+    kaspiReplaceMerchantHelp:
+      'Turn payments OFF first. A new QR is required. Recipient replacement is blocked while any payment requests await payment, review, clarification or refund. Existing requests keep their original recipient.',
+    kaspiQrVerification:
+      'I have checked that this QR code belongs to the specified payment recipient.',
+    kaspiSaveSettings: 'Save Kaspi QR settings',
+    kaspiMinutes: 'minutes',
+    kaspiSaveExplanation:
+      'Saving settings does not turn payments ON. Name and QR edits refer to the same recipient unless recipient replacement is selected. QR verification is an internal administrative check, not bank verification.',
+    kaspiMerchantSaveError:
+      'Could not save settings. Check the upload, refresh the configuration and resolve outstanding requests before replacing the recipient.',
     kaspiEnabled: 'Enabled',
     kaspiDisabled: 'Disabled',
     kaspiAllowPayments: 'Allow payments via Kaspi QR',
@@ -43,6 +63,7 @@ export const translations = {
     kaspiTitle: 'Kaspi QR payment',
     kaspiAdminTitle: 'Kaspi payment requests',
     kaspiUnavailable: 'Kaspi QR payments are currently unavailable.',
+    kaspiHistoryTitle: 'Kaspi payment history',
     kaspiManualNotice:
       'An administrator verifies the bank receipt. Reporting payment does not confirm it.',
     kaspiError: 'Could not complete the operation. Refresh the status before retrying.',
@@ -2581,6 +2602,25 @@ export const translations = {
   },
   ru: {
     kaspiSettingsTitle: 'Kaspi QR — приём платежей',
+    kaspiMerchantSettings: 'Настройки Kaspi QR',
+    kaspiMerchantName: 'Название получателя',
+    kaspiQrFile: 'Изображение QR-кода',
+    kaspiQrFileHelp:
+      'PNG, JPEG или WebP, меньше 5 МБ. При замене QR подтвердите правильность получателя заново.',
+    kaspiQrFileError: 'Выберите изображение PNG, JPEG или WebP размером меньше 5 МБ.',
+    kaspiQrPreview: 'Предварительный просмотр QR-кода',
+    kaspiRequestMinutes: 'Срок заявки на пополнение Wallet (минуты)',
+    kaspiMerchantKey: 'Идентификатор получателя',
+    kaspiReplaceMerchant: 'Сменить получателя платежей',
+    kaspiReplaceMerchantHelp:
+      'Сначала выключите оплату. Нужен новый QR. Смена получателя запрещена при заявках, ожидающих оплаты, проверки, уточнения или возврата. Прежние заявки сохраняют своего получателя.',
+    kaspiQrVerification: 'Я проверил, что QR-код принадлежит указанному получателю платежей.',
+    kaspiSaveSettings: 'Сохранить настройки Kaspi QR',
+    kaspiMinutes: 'минут',
+    kaspiSaveExplanation:
+      'Сохранение настроек не включает оплату. Изменение названия и QR относится к прежнему получателю, если не выбрана его смена. Подтверждение QR — внутренняя административная проверка, а не банковская верификация.',
+    kaspiMerchantSaveError:
+      'Не удалось сохранить настройки. Проверьте загрузку, обновите конфигурацию и завершите незакрытые заявки перед сменой получателя.',
     kaspiEnabled: 'Включено',
     kaspiDisabled: 'Выключено',
     kaspiAllowPayments: 'Разрешить оплату через Kaspi QR',
@@ -2608,6 +2648,7 @@ export const translations = {
     kaspiTitle: 'Оплата через Kaspi QR',
     kaspiAdminTitle: 'Заявки Kaspi на оплату',
     kaspiUnavailable: 'Оплата через Kaspi QR сейчас недоступна.',
+    kaspiHistoryTitle: 'История платежей Kaspi',
     kaspiManualNotice:
       'Поступление проверяет администратор. Сообщение об оплате не подтверждает платёж.',
     kaspiError: 'Не удалось выполнить операцию. Обновите статус перед повторной попыткой.',

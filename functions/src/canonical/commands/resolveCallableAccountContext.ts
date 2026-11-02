@@ -29,6 +29,7 @@ export const ADMINISTRATOR_COMMAND_KINDS: ReadonlySet<CommandKind> = new Set([
   'record_manual_wallet_funding',
   'review_kaspi_payment',
   'set_kaspi_payment_enabled',
+  'save_kaspi_configuration',
   'record_provider_payment_event',
   'pay_service_from_wallet_as_administrator',
   'record_audit_correction',

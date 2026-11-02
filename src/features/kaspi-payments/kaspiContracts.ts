@@ -33,6 +33,12 @@ export interface KaspiAdminConfigurationInput {
   revision: number;
   ready: boolean;
   merchantName?: string;
+  merchantKey?: string;
+  qrImageUrl?: string;
+  qrStoragePath?: string;
+  walletRequestTtlSeconds?: number;
+  qrVerifiedAt?: CanonicalTimestamp;
+  qrVerifiedBy?: string;
 }
 export interface KaspiPage<T> {
   items: T[];

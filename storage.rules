@@ -87,6 +87,21 @@ service firebase.storage {
       allow write: if !isAllowedTestActor() && isAdmin() && isValidImageUpload();
     }
 
+    // Immutable QR artifacts. Only the configured artifact is publicly readable;
+    // draft previews use local browser URLs. No list, overwrite, metadata edit or deletion.
+    match /kaspi-qr/{uploaderId}/{assetId} {
+      allow create: if resource == null && !isAllowedTestActor() && isOwner(uploaderId) && isAdmin() &&
+        assetId.matches('[0-9a-f-]{36}') && request.resource.size > 0 &&
+        request.resource.size < 5 * 1024 * 1024 &&
+        request.resource.contentType in ['image/png', 'image/jpeg', 'image/webp'];
+      allow get: if isAdmin() || (
+        firestore.exists(/databases/(default)/documents/payment_configuration/kaspi_manual) &&
+        firestore.get(/databases/(default)/documents/payment_configuration/kaspi_manual).data.get('qrStoragePath', '') ==
+          'kaspi-qr/' + uploaderId + '/' + assetId
+      );
+      allow list, update, delete: if false;
+    }
+
     match /instructors/{instructorId} {
       allow read: if true;
       allow write: if !isAllowedTestActor() && isAdmin() && isValidImageUpload();

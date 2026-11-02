@@ -14,6 +14,20 @@ import {
 import { DataScopeSchema } from './canonicalScope';
 
 export const KASPI_CONFIGURATION_PATH = 'payment_configuration/kaspi_manual';
+export const KASPI_QR_MAX_BYTES = 5 * 1024 * 1024;
+export const KASPI_QR_MIME_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const;
+export const KaspiQrStoragePathSchema = z
+  .string()
+  .regex(/^kaspi-qr\/[A-Za-z0-9_-]{1,128}\/[0-9a-f-]{36}$/);
+export const SaveKaspiConfigurationIntentSchema = z
+  .object({
+    merchantName: z.string().trim().min(1).max(200),
+    walletRequestTtlSeconds: z.number().int().min(60).max(2_592_000),
+    qrStoragePath: KaspiQrStoragePathSchema.optional(),
+    qrVerified: z.literal(true),
+    replaceMerchant: z.boolean().optional(),
+  })
+  .strict();
 export const KaspiRequestIdSchema = z.string().uuid();
 export const KaspiPositiveAmountSchema = KztMinorUnitsSchema.refine((amount) => amount > 0);
 export const KaspiRequestStatusSchema = z.enum([
@@ -37,6 +51,7 @@ export const KaspiConfigurationSchema = z
       .url()
       .refine((value) => new URL(value).protocol === 'https:'),
     merchantName: z.string().trim().min(1).max(200),
+    qrStoragePath: KaspiQrStoragePathSchema.optional(),
     // Retained as compatibility data; activation is the Administrator decision.
     legalApprovalReference: z.unknown().optional(),
     revision: AggregateRevisionSchema.optional(),

@@ -78,6 +78,7 @@ const COMMAND_KIND_REASON_CODES: Partial<Record<CommandKind, readonly AuditReaso
   claim_kaspi_payment: ['other'],
   review_kaspi_payment: ['other'],
   set_kaspi_payment_enabled: ['manual_override'],
+  save_kaspi_configuration: ['manual_override'],
   grant_starter_credit: ['participant_management', 'other'],
   record_provider_payment_event: ['provider_callback_processed', 'manual_override', 'other'],
   pay_service_from_wallet_as_administrator: ['manual_override', 'other'],

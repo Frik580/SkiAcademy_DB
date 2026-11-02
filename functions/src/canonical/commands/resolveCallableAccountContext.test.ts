@@ -349,20 +349,23 @@ describe('resolveCallableAccountContext', () => {
 });
 
 describe('Kaspi toggle callable authorization', () => {
-  it('derives Administrator capability only from an Administrator account profile', () => {
-    const input = {
-      authUid: 'account_kaspi_toggle',
-      commandKind: 'set_kaspi_payment_enabled' as const,
-    };
-    expect(resolveCallableAccountContext({ role: 'admin' }, input).capability).toBe(
-      'administrator'
-    );
-    expect(() => resolveCallableAccountContext({ role: 'user' }, input)).toThrow();
-    expect(() =>
-      resolveCallableAccountContext({ role: 'instructor', isInstructor: true }, input)
-    ).toThrow();
-    expect(() =>
-      resolveCallableAccountContext({ role: 'admin' }, { ...input, authUid: '' })
-    ).toThrow();
-  });
+  it.each(['set_kaspi_payment_enabled', 'save_kaspi_configuration'] as const)(
+    'derives Administrator capability only from an Administrator account profile for %s',
+    (commandKind) => {
+      const input = {
+        authUid: 'account_kaspi_toggle',
+        commandKind,
+      };
+      expect(resolveCallableAccountContext({ role: 'admin' }, input).capability).toBe(
+        'administrator'
+      );
+      expect(() => resolveCallableAccountContext({ role: 'user' }, input)).toThrow();
+      expect(() =>
+        resolveCallableAccountContext({ role: 'instructor', isInstructor: true }, input)
+      ).toThrow();
+      expect(() =>
+        resolveCallableAccountContext({ role: 'admin' }, { ...input, authUid: '' })
+      ).toThrow();
+    }
+  );
 });

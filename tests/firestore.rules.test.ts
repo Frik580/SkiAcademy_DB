@@ -58,6 +58,42 @@ const CANONICAL_VICTIM_BOOKING_ID = 'booking_security_rule_01';
 
 let testEnv: RulesTestEnvironment;
 
+describe('Kaspi manual payment server-only boundaries', () => {
+  it('denies customer, other account, guest and admin SDK-client access to bank evidence and configuration', async () => {
+    const paths = [
+      'payment_configuration/kaspi_manual',
+      'payment_requests/known_request',
+      'payment_requests/known_request/actions/known_action',
+      'bank_receipt_guards/known_receipt',
+    ];
+    await seedData(async (context) => {
+      for (const path of paths)
+        await setDoc(doc(context.firestore(), path), {
+          accountId: USER_ID,
+          status: 'awaiting_payment',
+          amount: 10000,
+        });
+      await setDoc(
+        doc(context.firestore(), 'users', ADMIN_ID),
+        userProfile(ADMIN_ID, 'admin@example.com', 'admin')
+      );
+    });
+    for (const uid of [USER_ID, OTHER_USER_ID, ADMIN_ID, null]) {
+      const db = (
+        uid ? testEnv.authenticatedContext(uid) : testEnv.unauthenticatedContext()
+      ).firestore();
+      for (const path of paths) {
+        await assertFails(getDoc(doc(db, path)));
+        await assertFails(
+          setDoc(doc(db, path), { status: 'confirmed', confirmedBy: uid, amount: 1 })
+        );
+        await assertFails(updateDoc(doc(db, path), { status: 'confirmed' }));
+        await assertFails(deleteDoc(doc(db, path)));
+      }
+    }
+  });
+});
+
 describe('student-dashboard-layout-settings-permissions', () => {
   beforeEach(async () => {
     await seedData(async (context) => {

@@ -64,6 +64,7 @@ export * from './errors';
 export * from './identifiers';
 export * from './paths';
 export * from './paymentWallet';
+export * from './kaspiManualPayment';
 export * from './paymentWalletOperations';
 export * from './starterCredit';
 export * from './testSessions';

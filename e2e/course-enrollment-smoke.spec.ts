@@ -84,8 +84,12 @@ test('same browser guest changes from Petr to Ars on a new course application', 
       status: 'success',
       payload: { outcome: 'created' },
     });
-    await expect(modal.getByRole('status')).toContainText('Request created');
-    await expect(modal.getByRole('status')).toContainText(name);
+    await expect(
+      modal.getByRole('status').filter({ has: page.getByRole('heading') })
+    ).toContainText('Request created');
+    await expect(
+      modal.getByRole('status').filter({ has: page.getByRole('heading') })
+    ).toContainText(name);
     await modal.getByRole('button', { name: 'Close', exact: true }).last().click();
     await expect(modal).not.toBeVisible();
     return {
@@ -111,7 +115,10 @@ test('same browser guest changes from Petr to Ars on a new course application', 
   await expect(secondCard).toHaveCount(1);
   await secondCard.getByRole('button', { name: 'Check status', exact: true }).click();
   await expect(
-    page.getByRole('dialog', { name: 'Course Enrollment' }).getByRole('status')
+    page
+      .getByRole('dialog', { name: 'Course Enrollment' })
+      .getByRole('status')
+      .filter({ has: page.getByRole('heading') })
   ).toContainText('Ars');
   const adminContext = await browser.newContext({ locale: 'en-US' });
   try {
@@ -337,9 +344,15 @@ test('guest course request appears live for admin and cancellation refreshes bot
     expect(createResult.status).toBe('success');
     expect(createResult.payload.outcome).toBe('created');
     const enrollmentId = createResult.payload.guestLinkCredentials[0].enrollmentId;
-    await expect(modal.getByRole('status')).toContainText('Request created', { timeout: 30_000 });
-    await expect(modal.getByRole('status')).toContainText(courseTitle);
-    await expect(modal.getByRole('status')).toContainText(guestName);
+    await expect(
+      modal.getByRole('status').filter({ has: page.getByRole('heading') })
+    ).toContainText('Request created', { timeout: 30_000 });
+    await expect(
+      modal.getByRole('status').filter({ has: page.getByRole('heading') })
+    ).toContainText(courseTitle);
+    await expect(
+      modal.getByRole('status').filter({ has: page.getByRole('heading') })
+    ).toContainText(guestName);
     const storedCredential = await page.evaluate(
       (id) =>
         JSON.parse(
@@ -354,8 +367,12 @@ test('guest course request appears live for admin and cancellation refreshes bot
     await modal.getByRole('button', { name: 'Close', exact: true }).last().click();
     await expect(modal).not.toBeVisible();
     await card.getByRole('button', { name: 'Check status', exact: true }).click();
-    await expect(modal.getByRole('status')).toContainText('Request created');
-    await expect(modal.getByRole('status')).toContainText(guestName);
+    await expect(
+      modal.getByRole('status').filter({ has: page.getByRole('heading') })
+    ).toContainText('Request created');
+    await expect(
+      modal.getByRole('status').filter({ has: page.getByRole('heading') })
+    ).toContainText(guestName);
     await admin.reload();
     await expect(list.getByText(guestName, { exact: true })).toHaveCount(1);
     adminDocumentLoads = 0;
@@ -376,7 +393,9 @@ test('guest course request appears live for admin and cancellation refreshes bot
     const response = await cancelledResponse;
     expect(response.ok()).toBe(true);
     expect((await response.json()).result.status).toBe('success');
-    await expect(modal.getByRole('status')).toContainText('Course enrollment cancelled');
+    await expect(
+      modal.getByRole('status').filter({ has: page.getByRole('heading') })
+    ).toContainText('Course enrollment cancelled');
     await expect(list.getByText(guestName, { exact: true })).toHaveCount(0);
     expect(adminDocumentLoads).toBe(0);
 

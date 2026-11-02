@@ -21,6 +21,7 @@ import {
   type Wallet,
   KztMinorUnitsSchema,
 } from '@ski-academy/shared-domain';
+import { assertNoImplicitKaspiRefund } from '../finance/kaspiCancellation';
 import type { CanonicalAtomicTransactionSession } from '../transactions';
 import { mapFinanceDomainError } from '../finance/financeAuthorization';
 import {
@@ -102,12 +103,22 @@ export async function planServicePriceChangeFinance(
   }
 
   const walletAccountId = accountLinked
-    ? input.walletAccountId ?? linkedPayerAccountId
+    ? (input.walletAccountId ?? linkedPayerAccountId)
     : undefined;
 
   if (input.newPrice < input.payment.price) {
     const decreasePreview = applyPriceDecrease(before, input.newPrice);
-    if (decreasePreview.refundDelta > 0 && refundDestination === 'wallet' && walletAccountId === undefined) {
+    await assertNoImplicitKaspiRefund(
+      session,
+      input.payment,
+      decreasePreview.refundDelta,
+      input.correlationId
+    );
+    if (
+      decreasePreview.refundDelta > 0 &&
+      refundDestination === 'wallet' &&
+      walletAccountId === undefined
+    ) {
       throw new Error('Wallet account required for account-linked refund');
     }
   }
@@ -207,7 +218,11 @@ export function commitPlannedServicePriceChangeFinance(
     } else {
       const decrease = applyPriceDecrease(before, input.newPrice);
       projection = decrease.payment;
-      if (decrease.refundDelta > 0 && refundDestination === 'wallet' && input.planned.wallet !== undefined) {
+      if (
+        decrease.refundDelta > 0 &&
+        refundDestination === 'wallet' &&
+        input.planned.wallet !== undefined
+      ) {
         walletBalanceDelta = decrease.refundDelta;
       }
     }
@@ -234,7 +249,9 @@ export function commitPlannedServicePriceChangeFinance(
           subjectId: input.payment.subjectId,
           paymentEffect: paymentEffectFromProjectionChange(before, projection),
           sourceKind:
-            walletBalanceDelta !== undefined && walletBalanceDelta > 0 ? 'wallet' : 'manual_external',
+            walletBalanceDelta !== undefined && walletBalanceDelta > 0
+              ? 'wallet'
+              : 'manual_external',
           ...(walletAccountId === undefined ? {} : { payerAccountIdAtEvent: walletAccountId }),
           ...(walletBalanceDelta === undefined ? {} : { walletAccountId, walletBalanceDelta }),
           actor: monetaryActorFromEnvelope(input.envelope),
@@ -288,7 +305,10 @@ export function commitPlannedServicePriceChangeFinance(
       const updatedWallet =
         walletBalanceDelta > 0
           ? creditWalletBalance(input.planned.wallet.balance, walletBalanceDelta)
-          : debitWalletBalance(input.planned.wallet.balance, KztMinorUnitsSchema.parse(-walletBalanceDelta));
+          : debitWalletBalance(
+              input.planned.wallet.balance,
+              KztMinorUnitsSchema.parse(-walletBalanceDelta)
+            );
       const mergedWallet = mergeWalletBalance(input.planned.wallet, updatedWallet, {
         revision: input.planned.walletRevision!,
         eventRevision: nextAggregateRevision(input.planned.wallet.eventRevision),

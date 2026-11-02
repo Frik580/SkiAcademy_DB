@@ -1,4 +1,5 @@
 import './deploymentProvenanceBootstrap';
+import { createQueryKaspiPaymentsHandler } from './canonical/readModels/queryKaspiPaymentsCallable';
 import { defineSecret } from 'firebase-functions/params';
 import {
   onCall as firebaseOnCall,
@@ -78,6 +79,12 @@ const CANONICAL_CALLABLE_OPTIONS = {
   enforceAppCheck: false, // Observe staging metrics before a separately approved enforcement rollout.
   secrets: [guestActionTokenSecret],
 };
+
+export const queryKaspiPayments = onCall(
+  'queryKaspiPayments',
+  CANONICAL_CALLABLE_OPTIONS,
+  (request) => createQueryKaspiPaymentsHandler(getAdminFirestore())(request)
+);
 
 /** Admission runs before parsing/expensive reads, including failed requests.
  * UID quota avoids imposing a shared-IP quota on signed-in families. Public

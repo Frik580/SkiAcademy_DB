@@ -24,6 +24,11 @@ import {
   KztMinorUnitsSchema,
 } from '@ski-academy/shared-domain';
 import type { CanonicalAtomicTransactionSession } from '../transactions';
+import {
+  planKaspiCancellation,
+  assertNoImplicitKaspiRefund,
+  type PlannedKaspiCancellation,
+} from '../finance/kaspiCancellation';
 import { mapFinanceDomainError } from '../finance/financeAuthorization';
 import {
   FINANCE_PLANNING_ESTIMATES,
@@ -38,6 +43,7 @@ import {
 import { toFirestoreWritePayload as financeToFirestoreWritePayload } from '../finance/financeStore';
 
 export interface PlannedCourseEnrollmentCancellationFinance {
+  readonly kaspiCancellation?: PlannedKaspiCancellation;
   readonly payment: Payment;
   readonly wallet?: Wallet;
   readonly monetaryEvents: readonly MonetaryEvent[];
@@ -75,8 +81,15 @@ export async function planCourseEnrollmentCancellationFinance(
 ): Promise<PlannedCourseEnrollmentCancellationFinance> {
   try {
     const beforeFields = paymentAccountingFields(input.payment);
-    const { payment: projected, refundDelta, writeOffDelta } =
-      projectCourseCancellationFinancialEffects(beforeFields, input.refundAmount);
+    const kaspiCancellation = await planKaspiCancellation(session, input);
+    const {
+      payment: projected,
+      refundDelta,
+      writeOffDelta,
+    } = projectCourseCancellationFinancialEffects(
+      beforeFields,
+      kaspiCancellation?.effectiveRefundAmount ?? input.refundAmount
+    );
 
     const destination = resolveCourseEnrollmentRefundDestination(input.payment);
     const walletAccountId = input.payment.payerAccountId;
@@ -205,6 +218,7 @@ export async function planCourseEnrollmentCancellationFinance(
     }
 
     return {
+      kaspiCancellation,
       payment,
       wallet,
       monetaryEvents,
@@ -222,6 +236,7 @@ export function commitPlannedCourseEnrollmentCancellationFinance(
   session: CanonicalAtomicTransactionSession,
   planned: PlannedCourseEnrollmentCancellationFinance
 ): void {
+  planned.kaspiCancellation?.commit(session);
   session.tx.update(
     { path: paymentPath(planned.payment.paymentId) },
     financeToFirestoreWritePayload(planned.payment as Record<string, unknown>)
@@ -273,6 +288,12 @@ export async function planCourseEnrollmentTransferFinance(
 
   if (input.newPrice < input.payment.price) {
     const decreasePreview = applyPriceDecrease(before, input.newPrice);
+    await assertNoImplicitKaspiRefund(
+      session,
+      input.payment,
+      decreasePreview.refundDelta,
+      input.correlationId
+    );
     if (
       decreasePreview.refundDelta > 0 &&
       destination === 'wallet' &&
@@ -366,11 +387,15 @@ export async function planCourseEnrollmentTransferFinance(
 
     if (decreased.refundDelta > 0 && destination === 'wallet' && wallet && walletAccountId) {
       const walletEventRevision = nextAggregateRevision(wallet.eventRevision);
-      wallet = mergeWalletBalance(wallet, creditWalletBalance(wallet.balance, decreased.refundDelta), {
-        revision: walletRevision!,
-        eventRevision: walletEventRevision,
-        updatedAt: input.decidedAt,
-      });
+      wallet = mergeWalletBalance(
+        wallet,
+        creditWalletBalance(wallet.balance, decreased.refundDelta),
+        {
+          revision: walletRevision!,
+          eventRevision: walletEventRevision,
+          updatedAt: input.decidedAt,
+        }
+      );
       monetaryEvents.push({
         eventId: monetaryEventIdFromCommandEffect(input.commandId, monetaryEvents.length),
         eventKind: 'refund_to_wallet',

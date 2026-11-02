@@ -20,6 +20,7 @@ import {
   type Wallet,
 } from '@ski-academy/shared-domain';
 import type { CanonicalAtomicTransactionSession } from '../transactions';
+import { planKaspiCancellation, type PlannedKaspiCancellation } from '../finance/kaspiCancellation';
 import { mapFinanceDomainError } from '../finance/financeAuthorization';
 import {
   FINANCE_PLANNING_ESTIMATES,
@@ -34,6 +35,7 @@ import {
 import { toFirestoreWritePayload as financeToFirestoreWritePayload } from '../finance/financeStore';
 
 export interface PlannedCancellationFinance {
+  readonly kaspiCancellation?: PlannedKaspiCancellation;
   readonly payment: Payment;
   readonly wallet?: Wallet;
   readonly walletExists: boolean;
@@ -79,9 +81,14 @@ export async function planCancellationFinance(
 ): Promise<PlannedCancellationFinance> {
   try {
     const beforeFields = paymentAccountingFields(input.payment);
-    const { payment: projected, refundDelta, writeOffDelta } = projectCancellationFinancialEffects(
+    const kaspiCancellation = await planKaspiCancellation(session, input);
+    const {
+      payment: projected,
+      refundDelta,
+      writeOffDelta,
+    } = projectCancellationFinancialEffects(
       beforeFields,
-      input.refundAmount
+      kaspiCancellation?.effectiveRefundAmount ?? input.refundAmount
     );
 
     const destination = resolveRefundDestination({
@@ -218,6 +225,7 @@ export async function planCancellationFinance(
     }
 
     return {
+      kaspiCancellation,
       payment,
       wallet,
       walletExists,
@@ -237,6 +245,7 @@ export function commitPlannedCancellationFinanceEffects(
   session: CanonicalAtomicTransactionSession,
   planned: PlannedCancellationFinance
 ): void {
+  planned.kaspiCancellation?.commit(session);
   session.tx.update(
     { path: paymentPath(planned.payment.paymentId) },
     financeToFirestoreWritePayload(planned.payment as Record<string, unknown>)

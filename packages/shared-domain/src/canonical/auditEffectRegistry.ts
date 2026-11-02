@@ -6,6 +6,15 @@ import type { CorrelationId } from './identifiers';
 export const AUDIT_EFFECT_REGISTRY_VERSION = 'effect:v1' as const;
 
 const COMMAND_KIND_ALLOWED_EFFECTS: Partial<Record<CommandKind, readonly AuditEffectKind[]>> = {
+  create_kaspi_payment_request: ['payment_state_changed'],
+  claim_kaspi_payment: ['payment_state_changed'],
+  review_kaspi_payment: [
+    'payment_state_changed',
+    'wallet_balance_changed',
+    'booking_lifecycle_changed',
+    'course_enrollment_lifecycle_changed',
+    'outbox_obligation_created',
+  ],
   complete_booking: ['booking_lifecycle_changed'],
   create_confirmed_booking: [
     'booking_lifecycle_changed',

@@ -150,6 +150,9 @@ export const TEST_SESSION_COMMAND_SUPPORT = {
   record_provider_payment_event: 'TEST_SUPPORTED',
   pay_service_from_wallet_as_administrator: 'TEST_SUPPORTED',
   record_manual_wallet_funding: 'TEST_SUPPORTED',
+  create_kaspi_payment_request: 'T43_DEFERRED',
+  claim_kaspi_payment: 'T43_DEFERRED',
+  review_kaspi_payment: 'T43_DEFERRED',
   // LIVE onboarding finance only. TEST login may no-op this command after
   // scope resolution; it must not credit a TestSession wallet.
   grant_starter_credit: 'TEST_FORBIDDEN',

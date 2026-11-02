@@ -27,6 +27,7 @@ import { presentCanonicalCommandErrorWithContext } from '../../../features/lesso
 import type { AuthenticatedCourseEnrollmentSelection } from '../useCourseActions';
 import { ParticipantPicker } from '../../participants/components/ParticipantPicker';
 import { GuestReservationStatus } from '../../guest-reservations/GuestReservationStatus';
+import { KaspiPaymentPanel } from '../../kaspi-payments/KaspiPaymentPanel';
 import { presentCancellationError } from '../../student-cabinet/presentCancellationError';
 import { getParticipantSkillLabel } from '../../../lib/i18n/participantSkillLabels';
 import {
@@ -177,9 +178,10 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
           setGuestLookupError('recoverable');
         }
       } finally {
-        if (guestLookupInFlightRef.current?.request === request)
+        if (guestLookupInFlightRef.current?.request === request) {
           guestLookupInFlightRef.current = null;
-        if (isCurrent()) setGuestRefreshing(false);
+          setGuestRefreshing(false);
+        }
       }
     },
     [courseId, previousGuestEnrollmentId]
@@ -508,6 +510,13 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
         }
       : undefined;
 
+  const canCreateGuestPayment = Boolean(
+    guestReservation?.lifecycle.status === 'pending' &&
+      (guestReservation.lifecycle.reservationExpiresAt?.seconds ?? 0) * 1000 > Date.now() &&
+      'guestPaymentSummary' in guestReservation &&
+      (guestReservation.guestPaymentSummary?.outstandingAmount ?? 0) > 0
+  );
+
   return createPortal(
     <AnimatePresence>
       {isOpen && (
@@ -579,6 +588,15 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                 {guestCreatedEnrollmentId ? (
                   <GuestReservationStatus
                     kind="course"
+                    paymentActions={
+                      <KaspiPaymentPanel
+                        guest={{
+                          type: 'guest_course_payment',
+                          subjectId: guestCreatedEnrollmentId,
+                        }}
+                        canCreate={canCreateGuestPayment}
+                      />
+                    }
                     reservationDetails={guestReservationDetails}
                     lifecycleStatus={guestReservation?.lifecycle.status ?? 'pending'}
                     reasonCode={guestReservation?.lifecycle.reasonCode}

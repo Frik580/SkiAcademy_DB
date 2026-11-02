@@ -215,6 +215,7 @@ export const PaymentSchema = z
     outstandingAmount: KztMinorUnitsSchema,
     paymentStatus: PaymentStatusSchema,
     payerAccountId: AccountIdSchema.optional(),
+    manualPaymentRequestId: z.string().uuid().optional(),
     incrementalRequirements: z.array(IncrementalRequirementSchema).max(7),
     revision: PersistedAggregateRevisionSchema,
     eventRevision: PersistedEventRevisionSchema,
@@ -388,6 +389,8 @@ export const MonetaryEventSchema = z
     providerEventId: z.string().trim().min(1).max(128).optional(),
     providerTransactionRef: z.string().trim().min(1).max(128).optional(),
     manualReference: z.string().trim().min(1).max(128).optional(),
+    /** Actual bank fact, including money that could not fund a service. */
+    externalAmount: KztMinorUnitsSchema.optional(),
     refundDestinationKind: z.enum(REFUND_DESTINATION_KINDS).optional(),
     refundAccountIdAtEvent: AccountIdSchema.optional(),
     incrementalRequirementId: IncrementalRequirementIdSchema.optional(),

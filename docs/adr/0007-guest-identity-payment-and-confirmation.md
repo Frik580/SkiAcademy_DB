@@ -83,6 +83,18 @@ Credential-scoped `guest_single` read models expose only a minimal Payment summa
 
 ## Guest Lesson Booking lifecycle
 
+### Optional Kaspi manual QR workflow (2026-11-01)
+
+The optional `kaspi_manual` workflow adds a Payment Request, not a second Payment or guest Wallet. It is unavailable unless the server-only `payment_configuration/kaspi_manual` document is complete, explicitly enabled, and records verified QR and legal approval evidence. No real merchant configuration is supplied by the implementation.
+
+`create_kaspi_payment_request` attaches a request UUID to the existing unpaid Payment. `claim_kaspi_payment` records only the guest's statement. `review_kaspi_payment` requires an Administrator, the request revision, actual amount/time, matching basis, and a unique bank reference. A single bank-receipt guard is shared by all three Kaspi request types. Receipt confirmation, canonical MonetaryEvent, Payment funding, existing guest confirmation, audit/outbox and request transition commit atomically. Older manual capture commands cannot fund a Payment owned by this workflow.
+
+The existing lesson/course deadlines remain unchanged. An external bank receipt that is recorded after the deadline is not previously accepted canonical funding, even when its bank timestamp precedes the deadline. The received amount is recorded in an unallocated canonical MonetaryEvent (`externalAmount`), and the request becomes `refund_required`; no reservation is resurrected or reacquired. Missing claims, terminal subjects and other confirmation conflicts take the same path. A guest can report a payment already made after the deadline, without being shown an expired payable QR.
+
+For these guest Kaspi receipts, cancellation creates a bank refund obligation; it does not record a completed external refund. The original bank destination remains authoritative after guest linking. For mixed funding, cancellation allocates the approved refund to the remaining Kaspi-funded portion first; any remainder follows the existing Wallet refund path. `record_refund` records a verified bank fact, applies only the bank portion to Payment and appends a canonical refund event. Cumulative refunded amount and per-bank-reference guards prevent over-refund and duplicate execution while supporting distinct partial refunds. Other payment methods keep their existing cancellation behavior.
+
+Price/party changes that would implicitly refund Kaspi funds must first complete the explicit bank refund workflow; they cannot manufacture a bank refund or redirect that portion into Wallet. Linking itself retains `manualPaymentRequestId`, original guest attribution, Payment and monetary history, without new funding or a new subject.
+
 Guest creation remains:
 
 ```text

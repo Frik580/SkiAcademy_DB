@@ -50,6 +50,9 @@ vi.mock('../../src/features/auth', () => ({
 }));
 
 vi.mock('canvas-confetti', () => ({ default: mocks.confetti }));
+vi.mock('../../src/features/kaspi-payments/KaspiPaymentPanel', () => ({
+  KaspiPaymentPanel: () => null,
+}));
 
 vi.mock('../../src/app/providers/LanguageContext', () => ({
   useLanguage: () => ({
@@ -1001,6 +1004,51 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     fireEvent.click(screen.getByRole('button', { name: 'guestCheckStatus' }));
     await waitFor(() => expect(screen.getByText('guestCourseConfirmedTitle')).toBeInTheDocument());
     expect(onClose).not.toHaveBeenCalled();
+  });
+  it('clears the saved-lookup spinner when creation takes over the same enrollment', async () => {
+    let finishCreation!: (value: unknown) => void;
+    let finishLookup!: (value: unknown) => void;
+    mocks.createGuestEnrollment.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishCreation = resolve;
+        })
+    );
+    mocks.loadGuestSingleCourseEnrollment
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishLookup = resolve;
+          })
+      )
+      .mockResolvedValueOnce(pendingGuestReservation);
+    const props = { isOpen: true, onClose: vi.fn(), course, onEnroll: vi.fn() };
+    const { rerender } = render(<CourseEnrollmentModal {...props} />);
+    fireEvent.change(screen.getByPlaceholderText('guestNamePlaceholder'), {
+      target: { value: 'Guest One' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
+      target: { value: '+77001234567' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Send request/i }));
+    persistGuestCourseEnrollmentCredential(guestCredential as never);
+    localStorage.setItem('ski_academy_guest_reservation:course:course_01', 'attempt_01');
+    rerender(<CourseEnrollmentModal {...props} />);
+    await waitFor(() => expect(mocks.loadGuestSingleCourseEnrollment).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      finishCreation(guestCredential);
+    });
+    await waitFor(() => expect(screen.getByText('guestPendingTitle')).toBeInTheDocument());
+    await act(async () => {
+      finishLookup(pendingGuestReservation);
+    });
+    expect(screen.getByRole('button', { name: 'guestCheckStatus' })).toBeEnabled();
+    mocks.loadGuestSingleCourseEnrollment.mockResolvedValueOnce({
+      ...pendingGuestReservation,
+      lifecycle: { status: 'confirmed' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'guestCheckStatus' }));
+    await waitFor(() => expect(screen.getByText('guestCourseConfirmedTitle')).toBeInTheDocument());
   });
 
   it('reopens a stored course request to read its current expired state', async () => {

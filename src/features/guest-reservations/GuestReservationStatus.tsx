@@ -26,6 +26,7 @@ interface GuestReservationStatusProps {
     readonly scheduleLines: readonly CourseEnrollmentScheduleLine[];
   };
   profileCompletion?: ReactNode;
+  paymentActions?: ReactNode;
 }
 
 export function GuestReservationStatus({
@@ -45,6 +46,7 @@ export function GuestReservationStatus({
   onCancelPending,
   reservationDetails,
   profileCompletion,
+  paymentActions,
 }: GuestReservationStatusProps) {
   const [confirmCancellation, setConfirmCancellation] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -150,6 +152,7 @@ export function GuestReservationStatus({
           ) : null}
         </div>
       )}
+      {paymentActions}
       {profileCompletion}
       {refreshError && statusHydrated && (
         <p className="type-compact text-rose-600">{t('guestStatusRefreshFailed')}</p>

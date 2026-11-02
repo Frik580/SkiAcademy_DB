@@ -94,8 +94,9 @@ test('Kaspi merchant setup: immutable QR upload, verified settings OFF, separate
     await signInStudent(customer, runtime);
     await customer.goto('/cabinet/profile_wallet');
     const payment = customer.getByRole('region', { name: 'Kaspi QR payment', exact: true });
+    await payment.getByRole('button', { name: 'Top up', exact: true }).click();
     await payment.getByRole('spinbutton', { name: 'Amount in KZT' }).fill('500');
-    await payment.getByRole('button', { name: 'Request a top-up', exact: true }).click();
+    await payment.getByRole('button', { name: 'Confirm amount', exact: true }).click();
     const qr = payment.getByRole('img', { name: 'Verified merchant Kaspi QR' });
     await expect(qr).toBeVisible();
     await expect.poll(() => qr.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(64);
@@ -128,6 +129,16 @@ test('Kaspi top-up: guest-safe flag, customer statement, clarification, admin ba
   const runtime = loadRuntimeConfig();
   const adminContext = await browser.newContext({ locale: 'en-US', timezoneId: 'UTC' });
   const admin = await adminContext.newPage();
+  const browserEgress: string[] = [];
+  for (const context of [page.context(), adminContext]) {
+    await context.route(
+      /https?:\/\/(?:[^/]+\.)?firestore(?:\.[a-z0-9-]+)*\.googleapis\.com\//i,
+      (route) => {
+        browserEgress.push(route.request().url());
+        return route.abort('blockedbyclient');
+      }
+    );
+  }
   const configRef = db.doc(KASPI_CONFIGURATION_PATH);
   const previous = await configRef.get();
   const suffix = randomUUID();
@@ -161,13 +172,12 @@ test('Kaspi top-up: guest-safe flag, customer statement, clarification, admin ba
       })
     );
     await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-    await expect(
-      wallet.getByRole('button', { name: 'Request a top-up', exact: true })
-    ).toBeVisible();
+    await expect(wallet.getByRole('button', { name: 'Top up', exact: true })).toBeVisible();
     const balanceBefore = (await db.doc(`users/${runtime.studentUid}/wallet/state`).get()).data()!
       .balance as number;
+    await wallet.getByRole('button', { name: 'Top up', exact: true }).click();
     await wallet.getByRole('spinbutton', { name: 'Amount in KZT' }).fill('1234');
-    await wallet.getByRole('button', { name: 'Request a top-up', exact: true }).click();
+    await wallet.getByRole('button', { name: 'Confirm amount', exact: true }).dblclick();
     await expect(wallet.getByRole('img', { name: 'Verified merchant Kaspi QR' })).toBeVisible();
     const requests = await db
       .collection('payment_requests')
@@ -176,9 +186,7 @@ test('Kaspi top-up: guest-safe flag, customer statement, clarification, admin ba
     expect(requests.size).toBe(1);
     const requestId = requests.docs[0]!.id;
     await wallet.getByRole('button', { name: 'I have paid', exact: true }).dblclick();
-    await expect(
-      wallet.getByText('Payment reported; awaiting review', { exact: true })
-    ).toBeVisible();
+    await expect(wallet.getByText('Checking payment', { exact: true })).toBeVisible();
     expect((await db.doc(`users/${runtime.studentUid}/wallet/state`).get()).data()!.balance).toBe(
       balanceBefore
     );
@@ -218,19 +226,22 @@ test('Kaspi top-up: guest-safe flag, customer statement, clarification, admin ba
         async () => (await db.doc(`users/${runtime.studentUid}/wallet/state`).get()).data()!.balance
       )
       .toBe(balanceBefore + 1234);
-    await wallet.getByRole('button', { name: 'Check status', exact: true }).click();
-    await expect(wallet.getByText('Bank receipt confirmed', { exact: true })).toBeVisible();
+    await expect(wallet.getByText('Money credited', { exact: true })).toBeVisible();
+    await expect(page.getByText(requestId, { exact: false })).toHaveCount(0);
+    const balanceAfter = balanceBefore + 1234;
+    await expect(page.getByTestId('navbar-balance')).toHaveText(
+      `${balanceAfter.toLocaleString('ru-RU')} ₸`
+    );
+    await expect(
+      page.getByTestId('wallet-operation-history').getByText('+1,234 ₸', { exact: true })
+    ).toBeVisible();
+    await expect(page.getByText('Wallet top-up', { exact: true }).first()).toBeVisible();
     const events = await db
       .collection('monetary_events')
       .where('manualReference', '==', `EMULATOR-${suffix}`)
       .get();
     expect(events.size).toBe(1);
-    await page.reload();
-    await expect(
-      page
-        .getByRole('region', { name: 'Kaspi QR payment' })
-        .getByText('Bank receipt confirmed', { exact: true })
-    ).toBeVisible();
+    await expect(wallet.getByText('Money credited', { exact: true })).toBeVisible();
     expect((await db.doc(`users/${runtime.studentUid}/wallet/state`).get()).data()!.balance).toBe(
       balanceBefore + 1234
     );
@@ -238,6 +249,7 @@ test('Kaspi top-up: guest-safe flag, customer statement, clarification, admin ba
     if (previous.exists) await configRef.set(previous.data()!);
     else await configRef.delete();
     await adminContext.close();
+    expect(browserEgress, 'Browser Firestore egress attempts').toEqual([]);
   }
 });
 
@@ -516,11 +528,10 @@ test('admin finance Kaspi QR toggle enables and disables new requests', async ({
       updatedBy: adminUser.uid,
     });
     await customer.evaluate(() => window.dispatchEvent(new Event('focus')));
-    await expect(
-      wallet.getByRole('button', { name: 'Request a top-up', exact: true })
-    ).toBeVisible();
+    await expect(wallet.getByRole('button', { name: 'Top up', exact: true })).toBeVisible();
+    await wallet.getByRole('button', { name: 'Top up', exact: true }).click();
     await wallet.getByRole('spinbutton', { name: 'Amount in KZT' }).fill('456');
-    await wallet.getByRole('button', { name: 'Request a top-up', exact: true }).click();
+    await wallet.getByRole('button', { name: 'Confirm amount', exact: true }).click();
     await expect(wallet.getByRole('button', { name: 'I have paid', exact: true })).toBeVisible();
     await toggle.click();
     await page
@@ -541,9 +552,7 @@ test('admin finance Kaspi QR toggle enables and disables new requests', async ({
     await expect(
       history.getByRole('button', { name: 'Report a payment already made', exact: true })
     ).toBeVisible();
-    await expect(wallet.getByRole('button', { name: 'Request a top-up', exact: true })).toHaveCount(
-      0
-    );
+    await expect(wallet.getByRole('button', { name: 'Top up', exact: true })).toHaveCount(0);
     const actions = await configRef.collection('actions').get();
     expect(actions.size).toBe(2);
     expect(

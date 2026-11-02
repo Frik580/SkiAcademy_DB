@@ -1,11 +1,21 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { KaspiGuestInput, KaspiPage, KaspiPublicRequest } from './kaspiContracts';
-import { claimKaspiRequest, createKaspiRequest, loadKaspiRequests } from './kaspiService';
+import {
+  claimKaspiRequest,
+  createKaspiRequest,
+  loadKaspiRequest,
+  loadKaspiRequests,
+} from './kaspiService';
 import { useKaspiTranslations } from './useKaspiTranslations';
 import { useKaspiAvailability } from './useKaspiAvailability';
 import { kaspiQrImageSource } from './kaspiQrImage';
+import { useWalletStore } from '../wallet/walletStore';
 
 const statusKey = (status: KaspiPublicRequest['status']) => `kaspiStatus_${status}` as const;
+const walletStatusKey = (status: KaspiPublicRequest['status']) =>
+  `kaspiWalletStatus_${status}` as const;
+const expiresAtMs = (item: KaspiPublicRequest) =>
+  item.expiresAt.seconds * 1000 + item.expiresAt.nanoseconds / 1_000_000;
 export function KaspiPaymentPanel({
   accountId = '',
   guest,
@@ -18,13 +28,22 @@ export function KaspiPaymentPanel({
   const { t, formatKzt } = useKaspiTranslations();
   const [page, setPage] = useState<KaspiPage<KaspiPublicRequest>>({ items: [], hasMore: false });
   const [amount, setAmount] = useState('');
+  const [enteringAmount, setEnteringAmount] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
   const [now, setNow] = useState(Date.now);
   const lock = useRef(false);
   const attempt = useRef<string>();
+  const focusedRequest = useRef<string>();
+  const amountInputId = useId();
   const guestType = guest?.type;
   const subjectId = guest?.subjectId;
+  const walletRevision = useWalletStore((state) =>
+    !guest && state.canonicalWalletAccountId === accountId
+      ? state.canonicalWalletEventRevision
+      : null
+  );
+  const previousWalletRevision = useRef(walletRevision);
   const scope = JSON.stringify([accountId, guestType, subjectId, canCreate]);
   const availability = useKaspiAvailability(scope);
   const configuration = availability.configuration;
@@ -52,9 +71,34 @@ export function KaspiPaymentPanel({
         cursor
       );
       if (current !== historyGeneration.current) return;
+      if (
+        !cursor &&
+        !guestType &&
+        focusedRequest.current &&
+        !result.items.some((item) => item.requestId === focusedRequest.current)
+      ) {
+        const focused = await loadKaspiRequest(focusedRequest.current);
+        if (current !== historyGeneration.current) return;
+        result.items = [...focused.items, ...result.items];
+      }
+      setNow(Date.now());
+      if (attempt.current && result.items.some((item) => item.requestId === attempt.current)) {
+        attempt.current = undefined;
+        setEnteringAmount(false);
+        setAmount('');
+      }
       setHistoryScope(scope);
       setPage((previous) =>
-        cursor ? { ...result, items: [...previous.items, ...result.items] } : result
+        cursor
+          ? {
+              ...result,
+              items: [
+                ...new Map(
+                  [...previous.items, ...result.items].map((item) => [item.requestId, item])
+                ).values(),
+              ],
+            }
+          : result
       );
     },
     [guestType, subjectId, scope]
@@ -66,7 +110,10 @@ export function KaspiPaymentPanel({
     setPage({ items: [], hasMore: false });
     setHistoryScope('');
     setError(false);
+    setEnteringAmount(false);
+    setAmount('');
     attempt.current = undefined;
+    focusedRequest.current = undefined;
     void refresh().catch(() => {
       if (active) setError(true);
     });
@@ -76,6 +123,11 @@ export function KaspiPaymentPanel({
       ++actions.current;
     };
   }, [refresh]);
+  useEffect(() => {
+    if (previousWalletRevision.current === walletRevision) return;
+    previousWalletRevision.current = walletRevision;
+    if (walletRevision !== null) void refresh().catch(() => setError(true));
+  }, [walletRevision, refresh]);
   useEffect(() => {
     const reload = () => {
       void refresh().catch(() => setError(true));
@@ -109,12 +161,12 @@ export function KaspiPaymentPanel({
   const current = page.items.find(
     (item) =>
       ['awaiting_payment', 'requires_clarification'].includes(item.status) &&
-      item.expiresAt?.seconds * 1000 > now
+      expiresAtMs(item) > now
   );
-  const activeRequest = page.items.some((item) =>
-    ['awaiting_payment', 'payment_claimed', 'requires_clarification', 'refund_required'].includes(
-      item.status
-    )
+  const activeRequest = page.items.some(
+    (item) =>
+      (item.status === 'awaiting_payment' && expiresAtMs(item) > now) ||
+      ['payment_claimed', 'requires_clarification', 'refund_required'].includes(item.status)
   );
   const validAmount = Number.isSafeInteger(Number(amount)) && Number(amount) > 0;
   const hasHistory = historyScope === scope && page.items.length > 0;
@@ -131,34 +183,45 @@ export function KaspiPaymentPanel({
       {showPayment && configuration && (
         <>
           <p className="type-compact">{t('kaspiManualNotice')}</p>
-          {!activeRequest && canCreate && (
+          {!guest && !activeRequest && canCreate && !enteringAmount && (
+            <button
+              type="button"
+              className="btn-primary px-4 py-2"
+              disabled={busy}
+              onClick={() => setEnteringAmount(true)}
+            >
+              {t('kaspiTopup')}
+            </button>
+          )}
+          {!activeRequest && canCreate && (guest || enteringAmount) && (
             <form
               className="flex flex-wrap items-end gap-2"
               onSubmit={(event) => {
                 event.preventDefault();
-                if (!showPayment || !canCreate || activeRequest || busy) return;
+                if (!showPayment || !canCreate || activeRequest || busy || (!guest && !validAmount))
+                  return;
                 void run(async () => {
                   const id = attempt.current ?? crypto.randomUUID();
                   attempt.current = id;
+                  if (!guest) focusedRequest.current = id;
                   await createKaspiRequest(id, accountId, Number(amount), guest);
-                  attempt.current = undefined;
                 });
               }}
             >
               {!guest && (
-                <label className="type-caption">
+                <label className="type-caption" htmlFor={amountInputId}>
                   {t('kaspiAmount')}
                   <input
+                    id={amountInputId}
                     className="ui-field-plain block"
                     type="number"
                     min="1"
                     step="1"
                     required
                     value={amount}
-                    disabled={busy}
+                    disabled={busy || !!attempt.current}
                     onChange={(event) => {
                       setAmount(event.target.value);
-                      attempt.current = undefined;
                     }}
                   />
                 </label>
@@ -168,7 +231,7 @@ export function KaspiPaymentPanel({
                 className="btn-primary px-4 py-2"
                 disabled={busy || (!guest && !validAmount)}
               >
-                {t(guest ? 'kaspiOpenPayment' : 'kaspiTopup')}
+                {t(guest ? 'kaspiOpenPayment' : 'kaspiConfirmAmount')}
               </button>
             </form>
           )}
@@ -176,9 +239,6 @@ export function KaspiPaymentPanel({
             <div className="space-y-2">
               <p>
                 {configuration.merchantName} · {formatKzt(current.amount)}
-              </p>
-              <p className="break-all type-caption">
-                {t('kaspiRequest')}: {current.requestId}
               </p>
               <img
                 src={
@@ -190,12 +250,18 @@ export function KaspiPaymentPanel({
                 className="h-56 w-56 max-w-full bg-white object-contain"
                 referrerPolicy="no-referrer"
               />
-              <p className="type-compact">{t('kaspiHoldNotice')}</p>
+              {guest && <p className="type-compact">{t('kaspiHoldNotice')}</p>}
               <button
                 type="button"
                 className="btn-primary px-4 py-2"
                 disabled={busy}
-                onClick={() => void run(() => claimKaspiRequest(current, accountId, guest))}
+                onClick={() => {
+                  if (expiresAtMs(current) <= Date.now()) {
+                    setNow(Date.now());
+                    return;
+                  }
+                  void run(() => claimKaspiRequest(current, accountId, guest));
+                }}
               >
                 {t('kaspiIHavePaid')}
               </button>
@@ -209,11 +275,11 @@ export function KaspiPaymentPanel({
       <ul className="space-y-2">
         {(hasHistory ? page.items : []).map((item) => (
           <li key={item.requestId} className="border-t border-[var(--border)] pt-2 type-compact">
-            <span className="break-all">{item.requestId}</span> · {formatKzt(item.amount)} ·{' '}
+            {formatKzt(item.amount)} ·{' '}
             <span>
               {t(
-                statusKey(
-                  item.status === 'awaiting_payment' && item.expiresAt?.seconds * 1000 <= now
+                (guest ? statusKey : walletStatusKey)(
+                  item.status === 'awaiting_payment' && expiresAtMs(item) <= now
                     ? 'expired'
                     : item.status
                 )
@@ -223,7 +289,7 @@ export function KaspiPaymentPanel({
             {((!configuration?.enabled &&
               ['awaiting_payment', 'requires_clarification'].includes(item.status)) ||
               item.status === 'expired' ||
-              (item.status === 'awaiting_payment' && item.expiresAt?.seconds * 1000 <= now)) &&
+              (item.status === 'awaiting_payment' && expiresAtMs(item) <= now)) &&
               !item.claimedAt && (
                 <button
                   type="button"

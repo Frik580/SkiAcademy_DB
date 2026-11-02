@@ -170,6 +170,14 @@ export function createQueryKaspiPaymentsHandler(
       if (!account || account.lifecycle.status !== 'active')
         throw new HttpsError('permission-denied', 'Payment access denied.');
     }
+    if (input.scope === 'mine' && input.requestId) {
+      const request = parseKaspiRequest(
+        (await firestore.doc(kaspiRequestPath(input.requestId)).get()).data()
+      );
+      if (!request || request.accountId !== call.auth.uid || request.dataScope === 'test')
+        throw new HttpsError('permission-denied', 'Payment access denied.');
+      return { items: [publicKaspiRequest(request)], hasMore: false };
+    }
     if (input.scope === 'history') {
       if (!input.requestId) throw new HttpsError('invalid-argument', 'Request required.');
       let query = firestore

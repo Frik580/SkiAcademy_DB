@@ -101,6 +101,55 @@ describe('Kaspi atomic financial commands on Firestore emulator', () => {
     await expect(query(call(kaspiAdmin))).resolves.toMatchObject({ enabled: false, ready: true, revision: 1 });
     await expect(query({ data: { scope: 'configuration' } } as CallableRequest<unknown>)).resolves.toEqual({ enabled: false });
   });
+  it('reads a created request beyond the first page only for its active owner', async () => {
+    expect((await run(kaspiTopup())).status).toBe('success');
+    const original = (await firestore.doc(`payment_requests/${kaspiRequestA}`).get()).data()!;
+    const batch = firestore.batch();
+    for (let index = 0; index < 21; index++) {
+      const requestId = `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`;
+      batch.set(firestore.doc(`payment_requests/${requestId}`), {
+        ...original,
+        requestId,
+        status: 'expired',
+      });
+    }
+    await batch.commit();
+    const query = createQueryKaspiPaymentsHandler(firestore, kaspiSecret);
+    const call = (uid?: string, requestId?: string) =>
+      ({
+        data: { scope: 'mine', ...(requestId ? { requestId } : {}) },
+        ...(uid ? { auth: { uid } } : {}),
+      }) as CallableRequest<unknown>;
+    const firstPage = await query(call(kaspiAccount));
+    expect(firstPage.items).toHaveLength(20);
+    expect(firstPage.items).not.toContainEqual(
+      expect.objectContaining({ requestId: kaspiRequestA })
+    );
+    const focused = await query(call(kaspiAccount, kaspiRequestA));
+    expect(focused).toMatchObject({
+      items: [{ requestId: kaspiRequestA, amount: 10000 }],
+      hasMore: false,
+    });
+    expect(focused.items[0]).not.toHaveProperty('bankReference');
+    expect(focused.items[0]).not.toHaveProperty('audit');
+    await expect(query(call(undefined, kaspiRequestA))).rejects.toMatchObject({
+      code: 'unauthenticated',
+    });
+    await expect(query(call(kaspiAdminB, kaspiRequestA))).rejects.toMatchObject({
+      code: 'permission-denied',
+    });
+    await expect(query(call(kaspiAccount, kaspiRequestB))).rejects.toMatchObject({
+      code: 'permission-denied',
+    });
+    await firestore.doc(`payment_requests/${kaspiRequestA}`).update({ dataScope: 'test' });
+    await expect(query(call(kaspiAccount, kaspiRequestA))).rejects.toMatchObject({
+      code: 'permission-denied',
+    });
+    await firestore.doc(`users/${kaspiAccount}`).update({ 'lifecycle.status': 'suspended' });
+    await expect(query(call(kaspiAccount, kaspiRequestA))).rejects.toMatchObject({
+      code: 'permission-denied',
+    });
+  });
   it('serializes two administrators confirming one request and credits exactly once', async () => {
     expect((await run(kaspiTopup())).status).toBe('success');
     const commands = [kaspiReview(), kaspiReview(kaspiRequestA, 1, 'confirm', {}, kaspiAdminB)];

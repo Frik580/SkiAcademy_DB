@@ -43,6 +43,9 @@ export async function loadKaspiRequests(guest?: KaspiGuestInput, cursor?: string
       : { scope: 'mine', ...(cursor ? { cursor } : {}) }
   );
 }
+export function loadKaspiRequest(requestId: string) {
+  return queryKaspi<KaspiPage<KaspiPublicRequest>>({ scope: 'mine', requestId });
+}
 function assertSuccess(result: { status: string }) {
   if (result.status !== 'success') throw new Error('Payment command failed');
 }

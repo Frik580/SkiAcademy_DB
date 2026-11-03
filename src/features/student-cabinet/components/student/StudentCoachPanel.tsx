@@ -269,13 +269,14 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
                       instructorId={ins.id}
                       participantId={selectedParticipantId}
                     >
-                      {({ blocked, action }) => (
+                      {({ blocked, bookingAllowed, action }) => (
                         <InstructorCard
                           instructor={ins}
                           onBook={onBookInstructor}
                           onViewReviews={onViewInstructorReviews}
                           bookLabel={t('scBookAgain')}
                           blocked={blocked}
+                          bookingAllowed={bookingAllowed}
                           actions={action}
                         />
                       )}

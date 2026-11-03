@@ -59,12 +59,20 @@ export function InstructorBlockAction({
           setError('');
           setConfirming(true);
         }}
-        className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-current bg-[var(--card-bg)] transition hover:bg-[var(--border-subtle)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current disabled:opacity-40 ${blocked ? 'text-green-700' : 'text-red-600'}`}
+        className={`group/block-action relative inline-flex h-11 w-11 shrink-0 items-center justify-center border-0 bg-transparent p-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current ${blocked ? 'text-red-600' : 'text-green-700'}`}
       >
         {blocked ? (
-          <Check className="h-5 w-5" aria-hidden />
+          <X
+            viewBox="5 5 14 14"
+            className="absolute right-0 top-0 h-3 w-3 md:h-4 md:w-4 origin-top-right transition-transform duration-150 ease-out motion-safe:group-hover/block-action:scale-110 motion-reduce:scale-100 motion-reduce:transition-none"
+            aria-hidden
+          />
         ) : (
-          <X className="h-5 w-5" aria-hidden />
+          <Check
+            viewBox="3 5 18 18"
+            className="absolute right-0 top-0 h-3 w-3 md:h-4 md:w-4 origin-top-right transition-transform duration-150 ease-out motion-safe:group-hover/block-action:scale-110 motion-reduce:scale-100 motion-reduce:transition-none"
+            aria-hidden
+          />
         )}
       </button>
       {confirming &&

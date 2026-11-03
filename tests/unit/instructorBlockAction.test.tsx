@@ -66,7 +66,8 @@ describe('instructor card block action', () => {
   });
   it.each([false, true])(
     'renders the direct action and grayscale only when blocked=%s',
-    (blocked) => {
+    async (blocked) => {
+      const user = userEvent.setup();
       const onBook = vi.fn();
       render(
         <InstructorCard
@@ -82,17 +83,135 @@ describe('instructor card block action', () => {
         name: blocked ? 'Unblock instructor' : 'Block instructor',
       });
       expect(button).toHaveAttribute('title', blocked ? 'Unblock instructor' : 'Block instructor');
-      expect(button).toHaveClass(blocked ? 'text-green-700' : 'text-red-600');
-      expect(button.querySelector(blocked ? '.lucide-check' : '.lucide-x')).toBeInTheDocument();
+      expect(button).toHaveClass(blocked ? 'text-red-600' : 'text-green-700');
+      expect(button.querySelector(blocked ? '.lucide-x' : '.lucide-check')).toBeInTheDocument();
       expect(button).toHaveClass('focus-visible:outline-2', 'h-11', 'w-11');
+      expect(button).toHaveClass('border-0', 'bg-transparent', 'focus-visible:outline-offset-2');
+      expect(Array.from(button.classList).filter((name) => name.startsWith('border'))).toEqual([
+        'border-0',
+      ]);
+      expect(Array.from(button.classList).filter((name) => name.startsWith('bg-'))).toEqual([
+        'bg-transparent',
+      ]);
       expect(button.parentElement).toHaveClass('absolute', 'right-0', 'top-0');
-      expect(screen.getByRole('img', { name: 'Elena' }).classList.contains('grayscale')).toBe(
-        blocked
+      expect(button).toHaveClass('relative');
+      expect(button).not.toHaveClass('hover:scale-110');
+      const icon = button.querySelector('svg')!;
+      expect(icon).toHaveClass(
+        'absolute',
+        'h-3',
+        'w-3',
+        'md:h-4',
+        'md:w-4',
+        'right-0',
+        'top-0',
+        'origin-top-right',
+        'transition-transform',
+        'duration-150',
+        'motion-safe:group-hover/block-action:scale-110',
+        'motion-reduce:scale-100',
+        'motion-reduce:transition-none'
       );
+      expect(icon.className.baseVal).not.toMatch(/shadow|hover:text|hover:bg|opacity/);
+      const avatar = screen.getByRole('img', { name: 'Elena' });
+      const avatarBlock = avatar.parentElement!;
+      expect(avatarBlock).toContainElement(button);
+      expect(avatarBlock).toHaveClass('relative', 'w-24', 'h-24', 'md:w-32', 'md:h-32');
+      for (const className of ['ui-avatar', 'overflow-hidden', 'border']) {
+        expect(avatarBlock).not.toHaveClass(className);
+      }
+      expect(avatar.classList.contains('grayscale')).toBe(blocked);
+      expect(avatar.classList.contains('opacity-75')).toBe(blocked);
+      const card = avatarBlock.parentElement!;
+      expect(card).not.toHaveClass('bg-[var(--profile-bg)]/40');
+      expect(card).not.toHaveClass('pr-14');
+      const name = screen.getByRole('heading', { name: 'Elena' });
+      const content = name.closest('.flex-1')!;
+      expect(content.classList.contains('opacity-80')).toBe(blocked);
+      expect(name).toHaveClass('text-[var(--ink)]');
+      expect(name.classList.contains('group-hover:text-[var(--accent)]')).toBe(!blocked);
+      expect(content).not.toContainElement(button);
       expect(screen.queryByRole('menu')).not.toBeInTheDocument();
       expect(onBook).not.toHaveBeenCalled();
+      const bookingButton = screen.getByRole('button', { name: 'Book Lesson' });
+      if (blocked) {
+        expect(bookingButton).toBeDisabled();
+        expect(bookingButton).toHaveClass('btn-secondary', 'cursor-not-allowed');
+        await user.click(bookingButton);
+        expect(onBook).not.toHaveBeenCalled();
+      } else expect(bookingButton).toBeEnabled();
+      await user.tab();
+      expect(button).toHaveFocus();
+      await user.keyboard('{Enter}');
+      expect(screen.getByRole('dialog')).toHaveAccessibleName(
+        blocked ? 'Unblock instructor?' : 'Block instructor?'
+      );
+      await user.keyboard('{Escape}');
+      expect(button).toHaveFocus();
+      await user.click(button);
+      expect(screen.getByRole('dialog')).toHaveAccessibleName(
+        blocked ? 'Unblock instructor?' : 'Block instructor?'
+      );
     }
   );
+
+  it.each(['en', 'ru'] as const)(
+    'disables reviews while blocked and restores keyboard access in %s',
+    async (language) => {
+      locale.language = language;
+      const user = userEvent.setup();
+      const onViewReviews = vi.fn();
+      const card = (blocked: boolean) => (
+        <InstructorCard
+          instructor={instructor}
+          blocked={blocked}
+          onBook={vi.fn()}
+          onViewReviews={onViewReviews}
+        />
+      );
+      const { rerender } = render(card(true));
+      const reviews = screen.getByRole('button', { name: '5.0 (2)' });
+      expect(reviews).toBeDisabled();
+      expect(reviews).toHaveAttribute('title', translations[language].readReviews);
+      expect(reviews).toHaveClass('text-[var(--ink-dim)]', 'cursor-not-allowed');
+      expect(reviews).not.toHaveClass('hover:underline');
+      await user.click(reviews);
+      await user.tab();
+      expect(reviews).not.toHaveFocus();
+      expect(onViewReviews).not.toHaveBeenCalled();
+      rerender(card(false));
+      expect(reviews).toBeEnabled();
+      await user.tab();
+      expect(reviews).toHaveFocus();
+      await user.keyboard('{Enter}');
+      expect(onViewReviews).toHaveBeenCalledExactlyOnceWith(instructor);
+      rerender(card(true));
+      await user.click(reviews);
+      expect(onViewReviews).toHaveBeenCalledTimes(1);
+    }
+  );
+
+  it('disables and restores booking without reloading and preserves the price', () => {
+    const card = (blocked: boolean, bookingAllowed = true) => (
+      <InstructorCard
+        instructor={instructor}
+        onBook={vi.fn()}
+        blocked={blocked}
+        bookingAllowed={bookingAllowed}
+      />
+    );
+    const { rerender } = render(card(false));
+    const price = screen.getByText(/10[\s\u00a0]?000/);
+    expect(screen.getByRole('button', { name: 'Book Lesson' })).toBeInTheDocument();
+    rerender(card(true));
+    expect(screen.getByRole('button', { name: 'Book Lesson' })).toBeDisabled();
+    expect(price).toBeInTheDocument();
+    rerender(card(false));
+    expect(screen.getByRole('button', { name: 'Book Lesson' })).toBeEnabled();
+    expect(screen.getByRole('img')).not.toHaveClass('grayscale');
+    rerender(card(false, false));
+    expect(screen.queryByRole('button', { name: 'Book Lesson' })).not.toBeInTheDocument();
+  });
 
   it.each([
     [

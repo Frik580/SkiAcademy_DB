@@ -6,6 +6,7 @@ import {
   ParticipantBlockIdSchema,
 } from '@ski-academy/shared-domain/canonical/identifiers';
 import { type IdempotencyKey } from '@ski-academy/shared-domain';
+import { canonicalDeterministicHash } from '@ski-academy/shared-domain/canonical/deterministicIdentity';
 
 export function createLogicalBookingProposalId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -112,8 +113,20 @@ export function deriveRevokeRelationshipIdempotencyKey(
   return `revoke-relationship:${relationshipId}:${expectedRevision}` as IdempotencyKey;
 }
 
-export function deriveBlockParticipantIdempotencyKey(blockId: string): IdempotencyKey {
-  return `block-participant:${blockId}` as IdempotencyKey;
+export function deriveBlockParticipantIdempotencyKey(input: {
+  readonly blockId: string;
+  readonly blockRevision: number;
+  readonly reason: string;
+  readonly exercisedCapability: string;
+}): IdempotencyKey {
+  // One retry identity per block generation and semantic intent. Keep the reason
+  // out of the key itself, since keys also appear in transport diagnostics.
+  return `block-participant:v2:${canonicalDeterministicHash([
+    input.blockId,
+    String(input.blockRevision),
+    input.reason,
+    input.exercisedCapability,
+  ])}` as IdempotencyKey;
 }
 
 export function deriveUnblockParticipantIdempotencyKey(

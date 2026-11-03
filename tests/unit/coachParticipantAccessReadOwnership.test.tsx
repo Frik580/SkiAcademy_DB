@@ -75,6 +75,23 @@ vi.mock('../../src/features/booking-collaboration/useBookingCollaborationCommand
 const PARTICIPANT_ID = 'b73191c9dfea69703c70e4be692abb9569f0af9cf17050e77a4ccfca9b5d4d5e';
 const INSTRUCTOR_ID = 'ins_elena';
 
+function BookingAccessCard({ participantId = PARTICIPANT_ID }: { participantId?: string }) {
+  return (
+    <CoachParticipantAccessPanel
+      accountId="account_fixture_01"
+      instructorId={INSTRUCTOR_ID}
+      participantId={participantId}
+    >
+      {({ blocked, bookingAllowed, action }) => (
+        <div data-testid="access-card" data-blocked={blocked}>
+          {action}
+          {bookingAllowed && <button type="button">Book lesson</button>}
+        </div>
+      )}
+    </CoachParticipantAccessPanel>
+  );
+}
+
 function item(
   overrides: Partial<ParticipantInstructorAccessReadModel> = {}
 ): ParticipantInstructorAccessReadModel {
@@ -677,6 +694,84 @@ describe('T32.9R.UI1B preserve access across Trainer remounts', () => {
       instructorId: INSTRUCTOR_A,
     });
   });
+
+  it('does not allow booking before access resolves, after failure, or while stale', async () => {
+    let rejectRead!: (error: Error) => void;
+    queryParticipantInstructorAccessReadModelsMock.mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectRead = reject;
+        })
+    );
+    render(<BookingAccessCard />);
+    expect(screen.queryByRole('button', { name: 'Book lesson' })).not.toBeInTheDocument();
+    await act(async () => {
+      rejectRead(new Error('Unavailable'));
+    });
+    expect(screen.queryByRole('button', { name: 'Book lesson' })).not.toBeInTheDocument();
+    const key = participantInstructorAccessQueryKey(
+      'account_manager',
+      PARTICIPANT_ID,
+      INSTRUCTOR_ID
+    );
+    act(() =>
+      useBookingCollaborationStore.getState().setParticipantAccessQuery(key, { status: 'loaded' })
+    );
+    expect(screen.getByRole('button', { name: 'Book lesson' })).toBeInTheDocument();
+    act(() =>
+      useBookingCollaborationStore.getState().setParticipantAccessQuery(key, { status: 'stale' })
+    );
+    expect(screen.queryByRole('button', { name: 'Book lesson' })).not.toBeInTheDocument();
+  });
+
+  it('switches A → B → A without leaking blocked or permitted state between participants', async () => {
+    const participantB = 'participant_dependent';
+    managedParticipantState.includeDependent = true;
+    let resolveB!: (value: unknown) => void;
+    queryParticipantInstructorAccessReadModelsMock
+      .mockResolvedValueOnce({
+        scope: 'account_manager',
+        item: item({
+          managerBlock: { participantBlockId: 'block_a', revision: 1, status: 'active' },
+        }),
+      })
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveB = resolve;
+          })
+      );
+    const { rerender } = render(<BookingAccessCard />);
+    await waitFor(() =>
+      expect(screen.getByTestId('access-card')).toHaveAttribute('data-blocked', 'true')
+    );
+    expect(screen.queryByRole('button', { name: 'Book lesson' })).not.toBeInTheDocument();
+    rerender(<BookingAccessCard participantId={participantB} />);
+    expect(screen.getByTestId('access-card')).toHaveAttribute('data-blocked', 'false');
+    expect(screen.queryByRole('button', { name: 'Book lesson' })).not.toBeInTheDocument();
+    await act(async () => {
+      resolveB({ scope: 'account_manager', item: item({ participantId: participantB }) });
+    });
+    expect(screen.getByRole('button', { name: 'Book lesson' })).toBeInTheDocument();
+    rerender(<BookingAccessCard />);
+    expect(screen.getByTestId('access-card')).toHaveAttribute('data-blocked', 'true');
+    expect(screen.queryByRole('button', { name: 'Book lesson' })).not.toBeInTheDocument();
+    expect(queryParticipantInstructorAccessReadModelsMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps booking unavailable when the instructor has blocked the participant', async () => {
+    queryParticipantInstructorAccessReadModelsMock.mockResolvedValue({
+      scope: 'account_manager',
+      item: item({
+        instructorBlock: { participantBlockId: 'block_instructor', revision: 1, status: 'active' },
+      }),
+    });
+    render(<BookingAccessCard />);
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'collabBlockInstructor' })).toBeInTheDocument()
+    );
+    expect(screen.queryByRole('button', { name: 'Book lesson' })).not.toBeInTheDocument();
+  });
 });
 
 describe('participant-scoped instructor blocking menu', () => {
@@ -687,36 +782,51 @@ describe('participant-scoped instructor blocking menu', () => {
     unblockParticipantMock.mockReset();
     queryParticipantInstructorAccessReadModelsMock.mockReset();
   });
-  it('has no manual grant controls and requires a reason and confirmation for the selected dependent', async () => {
-    const user = userEvent.setup();
-    const dependent = 'participant_dependent';
-    managedParticipantState.includeDependent = true;
-    queryParticipantInstructorAccessReadModelsMock.mockResolvedValue({
-      scope: 'account_manager',
-      item: item({ participantId: dependent }),
-    });
-    render(
-      <CoachParticipantAccessPanel
-        accountId="account_fixture_01"
-        instructorId={INSTRUCTOR_ID}
-        participantId={dependent}
-      />
-    );
-    await user.click(await screen.findByRole('button', { name: 'collabBlockInstructor' }));
-    expect(screen.queryByText('collabCreateRelationship')).not.toBeInTheDocument();
-    expect(screen.queryByText('collabRevokeRelationship')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'collabBlockConfirm' })).toBeDisabled();
-    await user.type(screen.getByRole('textbox'), 'Selected participant reason');
-    expect(blockParticipantMock).not.toHaveBeenCalled();
-    await user.click(screen.getByRole('button', { name: 'collabBlockConfirm' }));
-    expect(blockParticipantMock).toHaveBeenCalledWith({
-      participantId: dependent,
-      targetInstructorId: INSTRUCTOR_ID,
-      reason: 'Selected participant reason',
-      scope: 'account_manager',
-      exercisedCapability: 'parent_guardian',
-    });
-  });
+  it.each([undefined, 2])(
+    'requires a reason for the selected dependent and sends block revision %s',
+    async (revision) => {
+      const user = userEvent.setup();
+      const dependent = 'participant_dependent';
+      managedParticipantState.includeDependent = true;
+      queryParticipantInstructorAccessReadModelsMock.mockResolvedValue({
+        scope: 'account_manager',
+        item: item({
+          participantId: dependent,
+          ...(revision === undefined
+            ? {}
+            : {
+                managerBlock: {
+                  participantBlockId: 'block_manager',
+                  revision,
+                  status: 'removed' as const,
+                },
+              }),
+        }),
+      });
+      render(
+        <CoachParticipantAccessPanel
+          accountId="account_fixture_01"
+          instructorId={INSTRUCTOR_ID}
+          participantId={dependent}
+        />
+      );
+      await user.click(await screen.findByRole('button', { name: 'collabBlockInstructor' }));
+      expect(screen.queryByText('collabCreateRelationship')).not.toBeInTheDocument();
+      expect(screen.queryByText('collabRevokeRelationship')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'collabBlockConfirm' })).toBeDisabled();
+      await user.type(screen.getByRole('textbox'), 'Selected participant reason');
+      expect(blockParticipantMock).not.toHaveBeenCalled();
+      await user.click(screen.getByRole('button', { name: 'collabBlockConfirm' }));
+      expect(blockParticipantMock).toHaveBeenCalledWith({
+        participantId: dependent,
+        targetInstructorId: INSTRUCTOR_ID,
+        reason: 'Selected participant reason',
+        blockRevision: revision ?? 0,
+        scope: 'account_manager',
+        exercisedCapability: 'parent_guardian',
+      });
+    }
+  );
   it('only removes the manager-created block, with confirmation', async () => {
     const user = userEvent.setup();
     queryParticipantInstructorAccessReadModelsMock.mockResolvedValue({

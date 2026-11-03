@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   AccountIdSchema,
   AccountSchema,
+  AggregateRevisionSchema,
   BookingIdSchema,
   CorrelationIdSchema,
   InstructorIdSchema,
@@ -330,6 +331,92 @@ describe('create_confirmed_booking command', () => {
       expect(result.error.code).toBe('blocked_relationship');
     }
   });
+
+  it.each(['account_owner', 'parent_guardian'] as const)(
+    'enforces manager blocks for %s across direct, individual and group commands without cancelling existing lessons',
+    async (capability) => {
+      const executor = createInMemoryCanonicalTransactionExecutor(
+        baseFixture({
+          [`participant_management/${managementTwoId}`]: {
+            ...seedAdditionalManagement(participantTwoId, managementTwoId),
+            authority: capability === 'parent_guardian' ? 'parent_guardian' : 'self',
+          },
+        })
+      );
+      const commands = createProductionCanonicalCommands(environment(), executor);
+      const createFor = (ids: (typeof participantId)[], key: string, hour: string) =>
+        commands.execute(
+          createEnvelope({
+            context: {
+              ...accountContext(
+                ids.includes(participantTwoId) ? capability : 'account_owner',
+                accountId,
+                key
+              ),
+              calendarInput: { localDate: '2026-01-15', localTime: hour, durationMinutes: 60 },
+            },
+            intent: {
+              bookingId: BookingIdSchema.parse(`booking_${key}`),
+              instructorId,
+              participantIds: ids,
+            },
+          })
+        );
+      expect((await createFor([participantTwoId], 'before_block', '09:00')).status).toBe('success');
+      const existing = executor.snapshot().docs.get('bookings/booking_before_block')?.data;
+      const blockId = participantBlockIdFromDirection({
+        participantId: participantTwoId,
+        instructorId,
+        createdByKind: 'participant_manager',
+      });
+      expect(
+        (
+          await commands.execute({
+            kind: 'block_participant',
+            context: accountContext(capability, accountId, 'block_for_booking'),
+            intent: {
+              participantBlockId: blockId,
+              participantId: participantTwoId,
+              instructorId,
+              reason: 'Do not book new lessons',
+            },
+          })
+        ).status
+      ).toBe('success');
+      expect((await createFor([participantId], 'other_participant', '10:00')).status).toBe(
+        'success'
+      );
+      const beforeDenied = executor.snapshot();
+      for (const [key, ids] of [
+        ['denied_individual', [participantTwoId]],
+        ['denied_group', [participantId, participantTwoId]],
+      ] as const) {
+        const result = await createFor([...ids], key, '11:00');
+        expect(result).toMatchObject({ status: 'error', error: { code: 'blocked_relationship' } });
+        expect(executor.snapshot().docs.has(`bookings/booking_${key}`)).toBe(false);
+      }
+      expect(executor.snapshot().docs.get(`users/${accountId}/wallet/state`)).toEqual(
+        beforeDenied.docs.get(`users/${accountId}/wallet/state`)
+      );
+      expect(
+        (
+          await commands.execute({
+            kind: 'unblock_participant',
+            context: {
+              ...accountContext(capability, accountId, 'unblock_for_booking'),
+              expectedRevision: AggregateRevisionSchema.parse(1),
+            },
+            intent: { participantBlockId: blockId },
+          })
+        ).status
+      ).toBe('success');
+      expect(executor.snapshot().docs.get('bookings/booking_before_block')?.data).toEqual(existing);
+      expect(executor.snapshot().docs.has('bookings/booking_after_unblock')).toBe(false);
+      expect(
+        (await createFor([participantId, participantTwoId], 'after_unblock', '11:00')).status
+      ).toBe('success');
+    }
+  );
 
   it('allows admin underfunded creation with mandatory reason', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(

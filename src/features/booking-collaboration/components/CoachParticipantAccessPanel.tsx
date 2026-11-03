@@ -17,7 +17,11 @@ export interface CoachParticipantAccessPanelProps {
   readonly accountId: string;
   readonly instructorId: string;
   readonly participantId?: string;
-  readonly children?: (state: { blocked: boolean; action: React.ReactNode }) => React.ReactNode;
+  readonly children?: (state: {
+    blocked: boolean;
+    bookingAllowed: boolean;
+    action: React.ReactNode;
+  }) => React.ReactNode;
 }
 
 const ACCESS_SCOPE = 'account_manager' as const;
@@ -61,7 +65,9 @@ export const CoachParticipantAccessPanel: React.FC<CoachParticipantAccessPanelPr
   }, [instructorId, resolvedParticipantId, shouldEnsure]);
 
   if (!resolvedParticipantId)
-    return children ? <>{children({ blocked: false, action: null })}</> : null;
+    return children ? (
+      <>{children({ blocked: false, bookingAllowed: false, action: null })}</>
+    ) : null;
 
   const loading = mutationLoading || queryStatus?.status === 'loading';
 
@@ -79,6 +85,7 @@ export const CoachParticipantAccessPanel: React.FC<CoachParticipantAccessPanelPr
                   participantId: resolvedParticipantId,
                   targetInstructorId: instructorId,
                   reason,
+                  blockRevision: access.managerBlockRevision ?? 0,
                   scope: ACCESS_SCOPE,
                   exercisedCapability:
                     participants.find((item) => item.participantId === resolvedParticipantId)
@@ -120,7 +127,17 @@ export const CoachParticipantAccessPanel: React.FC<CoachParticipantAccessPanelPr
     />
   );
   return children ? (
-    <>{children({ blocked: access?.managerBlockStatus === 'active', action })}</>
+    <>
+      {children({
+        blocked: access?.managerBlockStatus === 'active',
+        bookingAllowed:
+          queryStatus?.status === 'loaded' &&
+          !mutationLoading &&
+          access?.managerBlockStatus !== 'active' &&
+          access?.instructorBlockStatus !== 'active',
+        action,
+      })}
+    </>
   ) : (
     action
   );

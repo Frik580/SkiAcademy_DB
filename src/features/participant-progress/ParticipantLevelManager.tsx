@@ -19,6 +19,7 @@ export function ParticipantLevelManager({
   config = DEFAULT_SKILL_CONFIG,
   initial,
   onChanged,
+  readOnly = false,
 }: {
   accountId: string;
   participantId: string;
@@ -26,6 +27,7 @@ export function ParticipantLevelManager({
   config?: SkillConfig;
   initial?: ParticipantProgressView;
   onChanged?: () => void;
+  readOnly?: boolean;
 }) {
   const { text } = useLevelProgressionTranslations();
   const [progress, setProgress] = useState<ParticipantProgressView | undefined>(initial);
@@ -64,7 +66,7 @@ export function ParticipantLevelManager({
     };
   }, [participantId, role, initial]);
   const operate = async (operation: LevelOperation) => {
-    if (busy || !progress) return;
+    if (readOnly || busy || !progress) return;
     setBusy(true);
     setError('');
     try {
@@ -91,7 +93,7 @@ export function ParticipantLevelManager({
         <ParticipantLevelPanel
           progress={progress}
           config={config}
-          role={role}
+          role={readOnly ? undefined : role}
           canCancelRequest={progress.levelState?.request?.accountId === accountId}
           busy={busy}
           onOperation={operate}

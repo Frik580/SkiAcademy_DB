@@ -329,6 +329,14 @@ export const useInstructorWorkspace = ({
     return Array.from(map.values());
   }, [instructorBookings]);
 
+  const canAssessParticipant = (participantId: string) =>
+    instructorBookings.some(
+      (booking) =>
+        (booking.status === 'confirmed' || booking.status === 'completed') &&
+        booking.startsAtEpochMs <= nowMs &&
+        booking.participantIds.includes(participantId)
+    );
+
   const currentProgress = (participantId: string): ParticipantProgressView =>
     progressById[participantId] ?? emptyParticipantProgressView(participantId);
 
@@ -429,6 +437,7 @@ export const useInstructorWorkspace = ({
     myStudents,
     progressById,
     nowMs,
+    canAssessParticipant,
     selectedChatBooking,
     setSelectedChatBooking,
     closeChatModal,

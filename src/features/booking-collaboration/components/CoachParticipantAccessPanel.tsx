@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ParticipantAccessControls } from './ParticipantAccessControls';
+import { InstructorBlockMenu } from './InstructorBlockMenu';
 import {
   selectParticipantAccessByPair,
   selectParticipantAccessQuery,
@@ -63,54 +63,10 @@ export const CoachParticipantAccessPanel: React.FC<CoachParticipantAccessPanelPr
   const loading = mutationLoading || queryStatus?.status === 'loading';
 
   return (
-    <ParticipantAccessControls
+    <InstructorBlockMenu
+      key={`${resolvedParticipantId}:${instructorId}`}
       access={access}
-      scope={ACCESS_SCOPE}
       loading={loading}
-      onCreateRelationship={
-        access?.authorizedActions.canCreateRelationship
-          ? async () => {
-              setMutationLoading(true);
-              try {
-                await commands.createRelationship({
-                  participantId: resolvedParticipantId,
-                  targetInstructorId: instructorId,
-                  exercisedCapability:
-                    participants.find((item) => item.participantId === resolvedParticipantId)
-                      ?.authority === 'parent_guardian'
-                      ? 'parent_guardian'
-                      : 'account_owner',
-                });
-              } finally {
-                setMutationLoading(false);
-              }
-            }
-          : undefined
-      }
-      onRevokeRelationship={
-        access?.authorizedActions.canRevokeRelationship &&
-        access.instructorRelationshipId &&
-        access.relationshipRevision !== undefined
-          ? async () => {
-              setMutationLoading(true);
-              try {
-                await commands.revokeRelationship({
-                  instructorRelationshipId: access.instructorRelationshipId!,
-                  relationshipRevision: access.relationshipRevision!,
-                  participantId: resolvedParticipantId,
-                  targetInstructorId: instructorId,
-                  exercisedCapability:
-                    participants.find((item) => item.participantId === resolvedParticipantId)
-                      ?.authority === 'parent_guardian'
-                      ? 'parent_guardian'
-                      : 'account_owner',
-                });
-              } finally {
-                setMutationLoading(false);
-              }
-            }
-          : undefined
-      }
       onBlock={
         access?.authorizedActions.canBlock
           ? async (reason) => {

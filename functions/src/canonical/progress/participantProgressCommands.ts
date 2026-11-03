@@ -267,27 +267,19 @@ export async function assertInstructorMayUpdateParticipantProgress(
     instructorRelationship,
     additionalBlocks: participantBlocks,
   });
-  const relationshipAccess = evaluateInstructorParticipantAccess(topology, {
+  // Historical manual grants remain stored, but never authorize assessment.
+  const bookingScopedEvidence = await readInstructorProgressBookingScopedEvidence(session, {
     instructorId: input.instructorId,
     participantId: input.participant.participantId,
     at: input.at,
-    bookingScopedEvidence: [],
   });
-  const bookingScopedEvidence =
-    relationshipAccess.allowed && relationshipAccess.scope === 'relationship'
-      ? []
-      : await readInstructorProgressBookingScopedEvidence(session, {
-          instructorId: input.instructorId,
-          participantId: input.participant.participantId,
-          at: input.at,
-        });
   const access = evaluateInstructorParticipantAccess(topology, {
     instructorId: input.instructorId,
     participantId: input.participant.participantId,
     at: input.at,
     bookingScopedEvidence,
   });
-  if (!access.allowed) {
+  if (!access.allowed || bookingScopedEvidence.length === 0) {
     throw new CanonicalCommandError('forbidden', {
       correlationId: envelope.context.correlationId,
       details: { resourceKind: 'participant', reason: 'conflict' },

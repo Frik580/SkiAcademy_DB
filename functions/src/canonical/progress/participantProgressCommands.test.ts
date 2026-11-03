@@ -137,6 +137,10 @@ function seedRelationship(
 
 function seedWorld() {
   return {
+    [`bookings/${bookingId}`]: seedBooking({
+      status: 'confirmed',
+      participantIds: [participantId, childParticipantId],
+    }),
     'settings/skill_config': {
       passPercentage: 80,
       items: [
@@ -278,7 +282,7 @@ describe('participantProgressCommands', () => {
     });
     expect(executor.snapshot().docs.has(`participant_progress/${participantId}`)).toBe(false);
   });
-  it('lets an instructor with relationship authority create and then OCC-update progress', async () => {
+  it('lets an instructor with started booking authority create and then OCC-update progress', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor({
       ...seedWorld(),
       'settings/skill_config': {
@@ -333,6 +337,11 @@ describe('participantProgressCommands', () => {
     const testSessionId = TestSessionIdSchema.parse('test_progress_activity_01');
     const scope = testCanonicalExecutionScope(testSessionId);
     const world = seedWorld();
+    world[`bookings/${bookingId}`] = {
+      ...world[`bookings/${bookingId}`],
+      dataScope: 'test',
+      testSessionId,
+    };
     world[`users/${studentAccountId}`] = {
       ...seedAccount(studentAccountId),
       dataScope: 'test',
@@ -523,7 +532,11 @@ describe('unified participant levels', () => {
     const testSessionId = TestSessionIdSchema.parse('test_level_identity_01');
     const scope = testCanonicalExecutionScope(testSessionId);
     const world = seedWorld() as Record<string, Record<string, unknown>>;
-    for (const path of [`instructors/${instructorId}`, `participants/${participantId}`]) {
+    for (const path of [
+      `instructors/${instructorId}`,
+      `participants/${participantId}`,
+      `bookings/${bookingId}`,
+    ]) {
       world[path] = { ...world[path], dataScope: 'test', testSessionId };
     }
     const executor = createInMemoryCanonicalTransactionExecutor(world);
@@ -802,6 +815,7 @@ describe('unified participant levels', () => {
 
 function seedWorldWithoutRelationships() {
   const world = seedWorld() as Record<string, unknown>;
+  delete world[`bookings/${bookingId}`];
   delete world[`instructor_relationships/${relationshipId}`];
   delete world[`instructor_relationships/${childRelationshipId}`];
   return world as ReturnType<typeof seedWorld>;
@@ -889,7 +903,7 @@ function seedAttendance(
 }
 
 describe('participantProgressCommands booking-scoped evidence', () => {
-  it('keeps active InstructorRelationship authority even when the only Booking is no_show', async () => {
+  it('denies manual relationship assessment when the only Booking is no_show', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor({
       ...seedWorld(),
       [`bookings/${bookingId}`]: seedBooking({ status: 'no_show' }) as unknown as Record<
@@ -900,7 +914,7 @@ describe('participantProgressCommands booking-scoped evidence', () => {
     const result = await createProductionCanonicalCommands(environment(), executor).execute(
       envelope({ expectedRevision: 0 })
     );
-    expect(result.status).toBe('success');
+    expect(result.status).toBe('error');
   });
   it('allows confirmed booking-based progress without Attendance after startsAt', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor({
@@ -1093,4 +1107,54 @@ describe('participantProgressCommands booking-scoped evidence', () => {
     expect(unrelated.status).toBe('error');
     if (unrelated.status === 'error') expect(unrelated.error.code).toBe('forbidden');
   });
+});
+
+it('manual grants cannot bypass the first lesson start for scores, comments or level requests', async () => {
+  const world = {
+    ...seedWorld(),
+    [`bookings/${bookingId}`]: seedBooking({
+      status: 'confirmed',
+      startsAt: futureStartsAt,
+      endsAt: futureEndsAt,
+    }),
+  };
+  const executor = createInMemoryCanonicalTransactionExecutor(world);
+  const commands = createProductionCanonicalCommands(environment(), executor);
+  expect((await commands.execute(envelope({ expectedRevision: 0 }))).status).toBe('error');
+  expect(
+    (await commands.execute(levelEnvelope({ action: 'request', level: 3, reason: levelReason }, 0)))
+      .status
+  ).toBe('error');
+  expect(executor.snapshot().docs.has(`participant_progress/${participantId}`)).toBe(false);
+});
+
+it('pages past deleted qualifying matches and avoids draining unrelated booking history', async () => {
+  const world: Record<string, Record<string, unknown>> = { ...seedWorldWithoutRelationships() };
+  const valid = seedBooking({ status: 'confirmed' });
+  for (let i = 0; i < 450; i += 1) {
+    world[`bookings/unrelated_${i}`] = {
+      ...valid,
+      bookingId: `unrelated_${i}`,
+      occurrence: { ...valid.occurrence, instructorId: otherInstructorId },
+    };
+  }
+  for (let i = 0; i < 26; i += 1) {
+    world[`bookings/aaa_archived_${String(i).padStart(2, '0')}`] = {
+      ...valid,
+      bookingId: `aaa_archived_${i}`,
+      archival: {
+        isDeleted: true,
+        deletedAt: valid.updatedAt,
+      },
+    };
+  }
+  world[`bookings/${bookingId}`] = valid as unknown as Record<string, unknown>;
+  const executor = createInMemoryCanonicalTransactionExecutor(world);
+  expect(
+    (
+      await createProductionCanonicalCommands(environment(), executor).execute(
+        envelope({ expectedRevision: 0 })
+      )
+    ).status
+  ).toBe('success');
 });

@@ -269,16 +269,18 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
                       onBook={onBookInstructor}
                       onViewReviews={onViewInstructorReviews}
                       bookLabel={t('scBookAgain')}
+                      actions={
+                        <CoachParticipantAccessPanel
+                          accountId={userProfile.uid}
+                          instructorId={ins.id}
+                          participantId={selectedParticipantId}
+                        />
+                      }
                     />
                     <CoachExtendedActions
                       lessonCount={lessonCount}
                       lastLesson={lastLesson}
                       onSelect={(section) => openCoachSection(ins.id, section)}
-                    />
-                    <CoachParticipantAccessPanel
-                      accountId={userProfile.uid}
-                      instructorId={ins.id}
-                      participantId={selectedParticipantId}
                     />
                   </div>
                 );

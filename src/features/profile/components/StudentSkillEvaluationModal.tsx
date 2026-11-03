@@ -1,3 +1,4 @@
+import { SkillRadarChart } from '../../student-cabinet/components/student/SkillRadarChart';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   SkillConfig,
@@ -15,6 +16,7 @@ import { ActionButton } from '../../../ui/ActionButton';
 
 interface StudentSkillEvaluationModalProps {
   isOpen: boolean;
+  readOnly?: boolean;
   onClose: () => void;
   participantId: string;
   studentName: string;
@@ -33,6 +35,7 @@ interface StudentSkillEvaluationModalProps {
 
 export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalProps> = ({
   isOpen,
+  readOnly = false,
   onClose,
   participantId,
   studentName,
@@ -133,6 +136,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
   };
 
   const handleSave = async () => {
+    if (readOnly) return;
     setIsSaving(true);
     setSaveError('');
     try {
@@ -185,20 +189,37 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
             >
               {t('cancel')}
             </button>
-            <ActionButton
-              onClick={handleSave}
-              disabled={correcting && !correctionReason.trim()}
-              pending={isSaving}
-              pendingLabel={t('saving')}
-              className="btn-primary px-5 py-2 type-button shadow-lg"
-            >
-              <Save className="w-4 h-4" />
-              {t('saveRatings')}
-            </ActionButton>
+            {!readOnly && (
+              <ActionButton
+                onClick={handleSave}
+                disabled={correcting && !correctionReason.trim()}
+                pending={isSaving}
+                pendingLabel={t('saving')}
+                className="btn-primary px-5 py-2 type-button shadow-lg"
+              >
+                <Save className="w-4 h-4" />
+                {t('saveRatings')}
+              </ActionButton>
+            )}
           </div>
         </div>
       }
     >
+      {readOnly && (
+        <p role="status" className="p-4 type-compact">
+          {t('instructorProgressReadOnly')}
+        </p>
+      )}
+      <SkillRadarChart
+        userProfile={{
+          level: studentLevel,
+          skillScores: existingScores,
+          skillComments: existingComments,
+        }}
+        skillConfig={skillConfig}
+        compact
+        embed
+      />
       {/* Level Transition Tabs */}
       <div className="flex overflow-x-auto border-b border-[var(--border)] bg-black/10 px-4 pt-3 gap-2">
         <button
@@ -275,12 +296,14 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
 
         <div className="col-span-2 md:col-span-1 flex flex-wrap items-center md:justify-end gap-2">
           <button
+            disabled={readOnly}
             onClick={handleFillAllMax}
             className="px-2.5 py-1 border border-accent/40 text-accent hover:bg-accent-muted type-button uppercase transition cursor-pointer"
           >
             {t('fillMax')}
           </button>
           <button
+            disabled={readOnly}
             onClick={handleClearStage}
             className="px-2.5 py-1 border border-[var(--border)] text-[var(--ink-dim)] hover:text-[var(--ink)] type-button uppercase transition cursor-pointer"
           >
@@ -323,6 +346,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
                       {[...Array(item.maxPoints + 1)].map((_, val) => (
                         <button
                           key={val}
+                          disabled={readOnly}
                           aria-label={`${getSkillItemTitle(item, language)}: ${val} / ${item.maxPoints}`}
                           aria-pressed={Object.hasOwn(scores, item.id) && currentScore === val}
                           onClick={() => handleScoreChange(item.id, val, item.maxPoints)}
@@ -356,6 +380,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
 
                   {currentScore > 0 && (
                     <textarea
+                      readOnly={readOnly}
                       value={comments[item.id] ?? ''}
                       onChange={(e) => handleCommentChange(item.id, e.target.value)}
                       placeholder={t('instructorExerciseCommentPlaceholder')}
@@ -370,7 +395,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
         )}
       </div>
 
-      {correcting && (
+      {!readOnly && correcting && (
         <label className="p-4 type-caption">
           {language === 'ru' ? 'Причина исправления оценок' : 'Reason for correcting scores'}
           <textarea

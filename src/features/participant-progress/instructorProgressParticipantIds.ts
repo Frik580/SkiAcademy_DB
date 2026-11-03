@@ -15,8 +15,7 @@ export function instructorProgressParticipantIds(
   for (const booking of bookings) {
     if (
       (booking.status !== 'confirmed' && booking.status !== 'completed') ||
-      booking.instructorId !== instructorId ||
-      booking.startsAtEpochMs > nowEpochMs
+      booking.instructorId !== instructorId
     ) {
       continue;
     }

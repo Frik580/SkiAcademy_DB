@@ -84,6 +84,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = (props) =
 
       <StudentSkillEvaluationModal
         isOpen={evalModalState.isOpen}
+        readOnly={!workspace.canAssessParticipant(evalModalState.participantId)}
         onClose={closeEvalModal}
         participantId={evalModalState.participantId}
         studentName={evalModalState.studentName}
@@ -105,6 +106,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = (props) =
             accountId={userProfile.uid}
             participantId={workspace.levelModal.participantId}
             role="instructor"
+            readOnly={!workspace.canAssessParticipant(workspace.levelModal.participantId)}
             config={skillConfig}
             initial={workspace.progressById[workspace.levelModal.participantId]}
           />

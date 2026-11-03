@@ -5,10 +5,7 @@ import {
 import type { Booking } from './bookingOccurrenceProposalChange';
 import { addMillisecondsToCanonicalTimestamp } from './guestBooking';
 import type { InstructorId, ParticipantId } from './identifiers';
-import {
-  compareCanonicalTimestamps,
-  type CanonicalTimestamp,
-} from './primitives';
+import { compareCanonicalTimestamps, type CanonicalTimestamp } from './primitives';
 
 export const BOOKING_LIFECYCLES_THAT_PROVIDE_INSTRUCTOR_PROGRESS_EVIDENCE = [
   'confirmed',
@@ -47,7 +44,7 @@ function progressEvidenceWindow(input: {
   return { validFrom, validUntil };
 }
 
-export function bookingProvidesInstructorProgressEvidence(input: {
+export function bookingProvidesInstructorProgressReadEvidence(input: {
   readonly booking: Booking;
   readonly instructorId: InstructorId;
   readonly participantId: ParticipantId;
@@ -58,7 +55,29 @@ export function bookingProvidesInstructorProgressEvidence(input: {
   const status = input.booking.lifecycle.status;
   if (status === 'no_show') return false;
   if (status !== 'confirmed' && status !== 'completed') return false;
-  return compareCanonicalTimestamps(input.at, input.booking.occurrence.interval.startsAt) >= 0;
+  return true;
+}
+
+/** Assessment authority is deliberately stricter than progress read authority. */
+export function bookingProvidesInstructorProgressEvidence(
+  input: Parameters<typeof bookingProvidesInstructorProgressReadEvidence>[0]
+): boolean {
+  return (
+    bookingProvidesInstructorProgressReadEvidence(input) &&
+    compareCanonicalTimestamps(input.at, input.booking.occurrence.interval.startsAt) >= 0
+  );
+}
+
+export function bookingScopedEvidenceFromQualifyingProgressReadBooking(
+  input: Parameters<typeof bookingProvidesInstructorProgressReadEvidence>[0]
+): BookingScopedParticipantAccessEvidence | undefined {
+  if (!bookingProvidesInstructorProgressReadEvidence(input)) return undefined;
+  return BookingScopedParticipantAccessEvidenceSchema.parse({
+    source: { kind: 'booking', bookingId: input.booking.bookingId },
+    participantId: input.participantId,
+    instructorId: input.instructorId,
+    ...progressEvidenceWindow(input),
+  });
 }
 
 export function bookingScopedEvidenceFromQualifyingProgressBooking(input: {

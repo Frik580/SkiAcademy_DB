@@ -115,17 +115,30 @@ class InMemoryCanonicalTransactionOperations implements CanonicalTransactionOper
         const fieldValue: unknown = readQueryField(document.data, input.where.field);
         const compareValue: unknown = input.where.value;
         const matchesFilter = matchesQueryFilter(input.where.op, fieldValue, compareValue);
-        if (!matchesFilter) continue;
+        if (
+          !matchesFilter ||
+          !(input.additionalWhere ?? []).every((filter) =>
+            matchesQueryFilter(filter.op, readQueryField(document.data, filter.field), filter.value)
+          )
+        )
+          continue;
         results.push({
           path,
           exists: true,
           data: { ...document.data },
         });
-        if (input.limit !== undefined && results.length >= input.limit) {
-          break;
-        }
       }
-      return results;
+      if (input.orderBy) {
+        results.sort((a, b) => {
+          const av = readQueryField(a.data!, input.orderBy!) as number;
+          const bv = readQueryField(b.data!, input.orderBy!) as number;
+          return av - bv || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
+        });
+      }
+      const offset = input.startAfter?.path
+        ? results.findIndex((row) => row.path === input.startAfter?.path) + 1
+        : 0;
+      return results.slice(offset, input.limit === undefined ? undefined : offset + input.limit);
     });
     this.pendingReads.add(readPromise);
     try {

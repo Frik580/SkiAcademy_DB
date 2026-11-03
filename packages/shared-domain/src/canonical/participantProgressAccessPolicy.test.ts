@@ -6,6 +6,7 @@ import { bookingScopedEvidenceFromQualifyingBooking } from './bookingProposalPol
 
 import {
   bookingProvidesInstructorProgressEvidence,
+  bookingProvidesInstructorProgressReadEvidence,
   bookingScopedEvidenceFromQualifyingProgressBooking,
 } from './participantProgressAccessPolicy';
 
@@ -122,4 +123,20 @@ describe('instructor progress booking-scoped evidence', () => {
       })
     ).toBeUndefined();
   });
+});
+
+it('future confirmed booking grants read but never assessment authority', () => {
+  const input = { booking: individual, instructorId, participantId, at: beforeStart };
+  expect(bookingProvidesInstructorProgressReadEvidence(input)).toBe(true);
+  expect(bookingProvidesInstructorProgressEvidence(input)).toBe(false);
+  for (const booking of [
+    { ...individual, archival: { isDeleted: true } },
+    { ...individual, lifecycle: { status: 'pending' } },
+  ])
+    expect(
+      bookingProvidesInstructorProgressReadEvidence({
+        ...input,
+        booking: booking as typeof individual,
+      })
+    ).toBe(false);
 });

@@ -749,6 +749,10 @@ export const translations = {
     collabBlockSection: 'Block instructor',
     collabCreateRelationship: 'Allow instructor',
     collabRevokeRelationship: 'Revoke access',
+    instructorMoreActions: 'Instructor actions',
+    instructorViewProgress: 'View progress and skills',
+    instructorProgressReadOnly:
+      'Viewing is available. Assessment will be available after the lesson starts.',
     collabBlockInstructor: 'Block instructor',
     collabUnblockInstructor: 'Unblock instructor',
     collabBlockReasonPlaceholder: 'Reason for blocking',
@@ -3346,6 +3350,10 @@ export const translations = {
     collabBlockSection: 'Блокировка инструктора',
     collabCreateRelationship: 'Разрешить инструктора',
     collabRevokeRelationship: 'Отозвать доступ',
+    instructorMoreActions: 'Действия с инструктором',
+    instructorViewProgress: 'Просмотр прогресса и навыков',
+    instructorProgressReadOnly:
+      'Просмотр доступен. Оценивание будет доступно после начала занятия.',
     collabBlockInstructor: 'Заблокировать инструктора',
     collabUnblockInstructor: 'Снять блокировку',
     collabBlockReasonPlaceholder: 'Причина блокировки',

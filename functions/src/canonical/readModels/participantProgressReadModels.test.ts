@@ -470,17 +470,15 @@ describe('participant progress read models', () => {
     expect(missing.items.map((item) => item.participantId)).toEqual([childParticipantId]);
   });
 
-  it('denies before start and allows at start and long after it', async () => {
+  it('allows future confirmed progress as well as started and historical progress', async () => {
     const firestore = createFixtureFirestore({ bookedChildAttendance: 'missing' });
     const input = { scope: 'instructor' as const, participantIds: [childParticipantId] };
     const actor = { accountId: instructorAccountId, instructorId };
-    await expect(
-      queryParticipantProgressReadModels(firestore, input, {
-        ...actor,
-        now: () => new Date('2026-01-02T08:59:59.999Z'),
-      })
-    ).rejects.toBeInstanceOf(ParticipantProgressReadDeniedError);
-    for (const date of ['2026-01-02T09:00:00.000Z', '2030-01-01T00:00:00.000Z']) {
+    for (const date of [
+      '2026-01-02T08:59:59.999Z',
+      '2026-01-02T09:00:00.000Z',
+      '2030-01-01T00:00:00.000Z',
+    ]) {
       const result = await queryParticipantProgressReadModels(firestore, input, {
         ...actor,
         now: () => new Date(date),

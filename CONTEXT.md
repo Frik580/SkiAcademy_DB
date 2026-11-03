@@ -169,25 +169,21 @@ GuestContact is persisted atomically with its guest application. Replaying the s
 
 ### Instructor access to Participant progress
 
-Instructor progress/skills access has three canonical authorization bases:
+Instructor progress reading and assessment use separate authorization checks.
 
-- an active `instructor_relationship`;
-- valid `Attendance = present`;
-- a valid assigned Lesson Booking after `booking.occurrence.interval.startsAt`.
+A valid assigned canonical Booking (`confirmed` or `completed`, not deleted,
+Participant present in both party and service party) grants read access immediately,
+including before lesson start. Existing valid InstructorRelationship read access
+remains available. Cancellation removes the Booking basis unless another valid
+basis exists.
 
-For lesson-based access, the backend must verify all of the following:
+Assessment (scores, comments and Instructor level operations) additionally requires
+server-authoritative time at or after the canonical Booking start. Historical
+manual relationships alone cannot authorize assessment. Completed qualifying
+lessons retain access without a fixed post-lesson expiry.
 
-- the requesting Instructor is canonically assigned to the Booking;
-- the target Participant belongs to that Booking;
-- the Booking lifecycle is eligible (`confirmed` or `completed`);
-- the Booking is not deleted;
-- server-authoritative current time is greater than or equal to the canonical lesson start time.
-
-There is no fixed post-lesson expiry window for lesson-based progress/skills access.
-
-Before lesson start, assignment to a future lesson does not by itself grant progress/skills access unless another valid authorization basis already exists.
-
-After lesson start, the assigned Instructor may read and update the Participant's progress and skills.
+Blocks retain canonical semantics: they prevent new activity and relationship-only
+access but do not cancel confirmed lessons or remove valid Booking-scoped access.
 
 Client-supplied `participantId`, `instructorId`, `bookingId`, local UI state, and browser time are never authorization authority.
 

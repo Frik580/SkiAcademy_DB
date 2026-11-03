@@ -24,7 +24,7 @@ import {
   type CanonicalReadScope,
 } from '@ski-academy/shared-domain';
 import type { Firestore } from 'firebase-admin/firestore';
-import { loadInstructorProgressBookingScopedEvidence } from '../progress/participantProgressAuthorization';
+import { loadInstructorProgressReadBookingScopedEvidence } from '../progress/participantProgressAuthorization';
 import { buildParticipantAccessTopology } from '../participantAccess/participantAccessAuthorization';
 import {
   instructorRelationshipPath,
@@ -228,7 +228,7 @@ async function instructorHasProgressAccess(
   });
   if (relationshipAccess.allowed) return true;
 
-  const bookingScopedEvidence = await loadInstructorProgressBookingScopedEvidence(firestore, {
+  const bookingScopedEvidence = await loadInstructorProgressReadBookingScopedEvidence(firestore, {
     instructorId,
     participantId: participant.participantId,
     at,

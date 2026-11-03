@@ -754,6 +754,14 @@ export const translations = {
     instructorProgressReadOnly:
       'Viewing is available. Assessment will be available after the lesson starts.',
     collabBlockInstructor: 'Block instructor',
+    collabBlockTitle: 'Block instructor?',
+    collabBlockBody:
+      'New interactions with this instructor will be restricted for the selected student. Existing confirmed bookings will remain active.',
+    collabUnblockTitle: 'Unblock instructor?',
+    collabUnblockBody:
+      'The instructor will be able to interact with the selected student again according to system rules.',
+    collabBlockConfirm: 'Block',
+    collabUnblockConfirm: 'Unblock',
     collabUnblockInstructor: 'Unblock instructor',
     collabBlockReasonPlaceholder: 'Reason for blocking',
     collabChangeRequestReasonPlaceholder: 'Explain why this lesson needs to change',
@@ -3355,7 +3363,15 @@ export const translations = {
     instructorProgressReadOnly:
       'Просмотр доступен. Оценивание будет доступно после начала занятия.',
     collabBlockInstructor: 'Заблокировать инструктора',
-    collabUnblockInstructor: 'Снять блокировку',
+    collabBlockTitle: 'Заблокировать инструктора?',
+    collabBlockBody:
+      'Новые взаимодействия с этим инструктором будут ограничены для выбранного ученика. Уже подтверждённые занятия сохранятся.',
+    collabUnblockTitle: 'Разблокировать инструктора?',
+    collabUnblockBody:
+      'Инструктор снова сможет взаимодействовать с выбранным учеником в рамках правил системы.',
+    collabBlockConfirm: 'Заблокировать',
+    collabUnblockConfirm: 'Разблокировать',
+    collabUnblockInstructor: 'Разблокировать инструктора',
     collabBlockReasonPlaceholder: 'Причина блокировки',
     collabChangeRequestReasonPlaceholder: 'Почему нужно изменить этот урок',
     collabInstructorRequestedScheduleChange: 'Инструктор запросил изменение расписания',

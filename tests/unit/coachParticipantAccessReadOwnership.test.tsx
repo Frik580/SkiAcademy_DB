@@ -17,6 +17,7 @@ import { resetUserScopedStores } from '../../src/store/resetDataStores';
 
 const queryParticipantInstructorAccessReadModelsMock = vi.fn();
 const createRelationshipMock = vi.fn();
+const managedParticipantState = vi.hoisted(() => ({ includeDependent: false }));
 const blockParticipantMock = vi.fn();
 const unblockParticipantMock = vi.fn();
 const queryBookingProposalReadModelsMock = vi.fn();
@@ -41,6 +42,9 @@ vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
 vi.mock('../../src/features/lesson-bookings/useManagedParticipants', () => ({
   useManagedParticipants: () => ({
     participants: [
+      ...(managedParticipantState.includeDependent
+        ? [{ participantId: 'participant_dependent', authority: 'parent_guardian' }]
+        : []),
       {
         participantId: 'b73191c9dfea69703c70e4be692abb9569f0af9cf17050e77a4ccfca9b5d4d5e',
         participantManagementId: 'mgmt_fixture_01',
@@ -91,6 +95,7 @@ function item(
 
 describe('CoachParticipantAccessPanel access read ownership', () => {
   beforeEach(() => {
+    managedParticipantState.includeDependent = false;
     useBookingCollaborationStore.getState().reset();
     queryParticipantInstructorAccessReadModelsMock.mockReset();
     createRelationshipMock.mockReset();
@@ -155,9 +160,9 @@ describe('CoachParticipantAccessPanel access read ownership', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'instructorMoreActions' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'collabBlockInstructor' })).toBeInTheDocument();
     });
-    expect(screen.getByRole('button', { name: 'instructorMoreActions' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'collabBlockInstructor' })).toBeInTheDocument();
 
     const queryKey = participantInstructorAccessQueryKey(
       'account_manager',
@@ -201,7 +206,7 @@ describe('CoachParticipantAccessPanel access read ownership', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'instructorMoreActions' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'collabBlockInstructor' })).toBeInTheDocument();
     });
     expect(queryParticipantInstructorAccessReadModelsMock).toHaveBeenCalledTimes(1);
   });
@@ -240,7 +245,7 @@ describe('CoachParticipantAccessPanel access read ownership', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'instructorMoreActions' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'collabBlockInstructor' })).toBeInTheDocument();
     });
     expect(queryParticipantInstructorAccessReadModelsMock).toHaveBeenCalledTimes(1);
   });
@@ -411,17 +416,16 @@ describe('CoachParticipantAccessPanel access read ownership', () => {
       <CoachParticipantAccessPanel accountId="account_fixture_01" instructorId={INSTRUCTOR_ID} />
     );
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'instructorMoreActions' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'collabBlockInstructor' })).toBeInTheDocument();
     });
     expect(queryParticipantInstructorAccessReadModelsMock).toHaveBeenCalledTimes(1);
 
     blockParticipantMock.mockImplementationOnce(async () => {
       await refetchParticipantAccessRead('account_manager', PARTICIPANT_ID, INSTRUCTOR_ID);
     });
-    await user.click(screen.getByRole('button', { name: 'instructorMoreActions' }));
-    await user.click(screen.getByText('collabBlockInstructor'));
+    await user.click(screen.getByRole('button', { name: 'collabBlockInstructor' }));
     await user.type(screen.getByRole('textbox'), 'Reason');
-    await user.click(screen.getByRole('button', { name: 'confirmAction' }));
+    await user.click(screen.getByRole('button', { name: 'collabBlockConfirm' }));
 
     await waitFor(() => {
       expect(queryParticipantInstructorAccessReadModelsMock).toHaveBeenCalledTimes(2);
@@ -478,6 +482,7 @@ function TwoInstructorTrainerPanels() {
 
 describe('T32.9R.UI1B preserve access across Trainer remounts', () => {
   beforeEach(() => {
+    managedParticipantState.includeDependent = false;
     useBookingCollaborationStore.getState().reset();
     queryParticipantInstructorAccessReadModelsMock.mockReset();
     createRelationshipMock.mockReset();
@@ -676,6 +681,7 @@ describe('T32.9R.UI1B preserve access across Trainer remounts', () => {
 
 describe('participant-scoped instructor blocking menu', () => {
   beforeEach(() => {
+    managedParticipantState.includeDependent = false;
     useBookingCollaborationStore.getState().reset();
     blockParticipantMock.mockReset();
     unblockParticipantMock.mockReset();
@@ -684,6 +690,7 @@ describe('participant-scoped instructor blocking menu', () => {
   it('has no manual grant controls and requires a reason and confirmation for the selected dependent', async () => {
     const user = userEvent.setup();
     const dependent = 'participant_dependent';
+    managedParticipantState.includeDependent = true;
     queryParticipantInstructorAccessReadModelsMock.mockResolvedValue({
       scope: 'account_manager',
       item: item({ participantId: dependent }),
@@ -695,17 +702,20 @@ describe('participant-scoped instructor blocking menu', () => {
         participantId={dependent}
       />
     );
-    await user.click(await screen.findByRole('button', { name: 'instructorMoreActions' }));
+    await user.click(await screen.findByRole('button', { name: 'collabBlockInstructor' }));
     expect(screen.queryByText('collabCreateRelationship')).not.toBeInTheDocument();
     expect(screen.queryByText('collabRevokeRelationship')).not.toBeInTheDocument();
-    await user.click(screen.getByText('collabBlockInstructor'));
-    expect(screen.getByRole('button', { name: 'confirmAction' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'collabBlockConfirm' })).toBeDisabled();
     await user.type(screen.getByRole('textbox'), 'Selected participant reason');
     expect(blockParticipantMock).not.toHaveBeenCalled();
-    await user.click(screen.getByRole('button', { name: 'confirmAction' }));
-    expect(blockParticipantMock).toHaveBeenCalledWith(
-      expect.objectContaining({ participantId: dependent, reason: 'Selected participant reason' })
-    );
+    await user.click(screen.getByRole('button', { name: 'collabBlockConfirm' }));
+    expect(blockParticipantMock).toHaveBeenCalledWith({
+      participantId: dependent,
+      targetInstructorId: INSTRUCTOR_ID,
+      reason: 'Selected participant reason',
+      scope: 'account_manager',
+      exercisedCapability: 'parent_guardian',
+    });
   });
   it('only removes the manager-created block, with confirmation', async () => {
     const user = userEvent.setup();
@@ -725,10 +735,9 @@ describe('participant-scoped instructor blocking menu', () => {
     render(
       <CoachParticipantAccessPanel accountId="account_fixture_01" instructorId={INSTRUCTOR_ID} />
     );
-    await user.click(await screen.findByRole('button', { name: 'instructorMoreActions' }));
-    await user.click(screen.getByText('collabUnblockInstructor'));
+    await user.click(await screen.findByRole('button', { name: 'collabUnblockInstructor' }));
     expect(unblockParticipantMock).not.toHaveBeenCalled();
-    await user.click(screen.getByRole('button', { name: 'confirmAction' }));
+    await user.click(screen.getByRole('button', { name: 'collabUnblockConfirm' }));
     await waitFor(() =>
       expect(unblockParticipantMock).toHaveBeenCalledWith(
         expect.objectContaining({

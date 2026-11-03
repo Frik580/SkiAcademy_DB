@@ -506,6 +506,7 @@
   "tests/unit/guestReservationLookup.test.ts": "app-unit",
   "tests/unit/instructorAttendanceOverdue.test.ts": "app-unit",
   "tests/unit/instructorAttendanceToast.test.tsx": "app-unit",
+  "tests/unit/instructorBlockAction.test.tsx": "app-unit",
   "tests/unit/instructorChangeRequestAvailability.test.tsx": "app-unit",
   "tests/unit/instructorCourseAttendanceMutation.test.ts": "app-unit",
   "tests/unit/instructorCourseCommandError.test.ts": "app-unit",

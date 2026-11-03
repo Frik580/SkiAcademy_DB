@@ -15,11 +15,23 @@ interface InstructorCardProps {
   onViewReviews?: (instructor: Instructor) => void;
   bookLabel?: string;
   actions?: React.ReactNode;
+  blocked?: boolean;
   hideEmptyReviews?: boolean;
 }
 
 export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardProps>(
-  ({ instructor, onBook, onViewReviews, bookLabel, actions, hideEmptyReviews = false }, ref) => {
+  (
+    {
+      instructor,
+      onBook,
+      onViewReviews,
+      bookLabel,
+      actions,
+      blocked = false,
+      hideEmptyReviews = false,
+    },
+    ref
+  ) => {
     const { t, language } = useLanguage();
     const { formatPrice } = useCurrency();
     const shouldReduceMotion = useReducedMotion();
@@ -130,10 +142,9 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
           transform: 'translate3d(0,0,0)',
           willChange: 'opacity, transform',
         }}
-        className={`ui-list-row w-full flex flex-col md:flex-row items-center md:items-start gap-6 md:gap-8 group ${
-          !isAvailable ? 'opacity-70' : ''
-        }`}
+        className={`ui-list-row relative w-full flex flex-col md:flex-row items-center md:items-start gap-6 md:gap-8 group ${!isAvailable ? 'opacity-70' : ''} ${actions ? 'pr-14' : ''}`}
       >
+        {actions && <div className="absolute right-0 top-0">{actions}</div>}
         <div className="ui-avatar relative w-24 h-24 md:w-32 md:h-32 shrink-0">
           <img
             src={instructor.avatarUrl}
@@ -143,7 +154,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
               backfaceVisibility: 'hidden',
               transform: 'translateZ(0)',
             }}
-            className="w-full h-full object-cover transition-all duration-300 rounded-full"
+            className={`w-full h-full object-cover transition-all duration-300 rounded-full ${blocked ? 'grayscale' : ''}`}
           />
           {!isAvailable && (
             <span className="absolute bottom-0 right-0 translate-x-1 translate-y-1 rounded-md border-2 border-[var(--bg)] bg-[var(--ink)] px-2 py-0.5 type-caption text-[var(--bg)] font-medium normal-case">
@@ -164,7 +175,6 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
               >
                 {instructor.name}
               </h3>
-              {actions}
               {(!hideEmptyReviews || instructor.reviewsCount > 0) && (
                 <div className="flex justify-center md:justify-end">{ratingControl}</div>
               )}

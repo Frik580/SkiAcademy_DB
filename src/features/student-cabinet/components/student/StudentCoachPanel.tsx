@@ -264,19 +264,22 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
                 const lastLesson = lastAttended ? formatEvidenceDayMonth(lastAttended, lang) : null;
                 return (
                   <div key={ins.id} className="space-y-4">
-                    <InstructorCard
-                      instructor={ins}
-                      onBook={onBookInstructor}
-                      onViewReviews={onViewInstructorReviews}
-                      bookLabel={t('scBookAgain')}
-                      actions={
-                        <CoachParticipantAccessPanel
-                          accountId={userProfile.uid}
-                          instructorId={ins.id}
-                          participantId={selectedParticipantId}
+                    <CoachParticipantAccessPanel
+                      accountId={userProfile.uid}
+                      instructorId={ins.id}
+                      participantId={selectedParticipantId}
+                    >
+                      {({ blocked, action }) => (
+                        <InstructorCard
+                          instructor={ins}
+                          onBook={onBookInstructor}
+                          onViewReviews={onViewInstructorReviews}
+                          bookLabel={t('scBookAgain')}
+                          blocked={blocked}
+                          actions={action}
                         />
-                      }
-                    />
+                      )}
+                    </CoachParticipantAccessPanel>
                     <CoachExtendedActions
                       lessonCount={lessonCount}
                       lastLesson={lastLesson}

@@ -1,5 +1,6 @@
 import {
   bookingScopedEvidenceFromQualifyingProgressBooking,
+  bookingScopedEvidenceFromQualifyingProgressReadBooking,
   timestampFromDate,
   type BookingScopedParticipantAccessEvidence,
   type InstructorId,
@@ -17,32 +18,48 @@ export async function readInstructorProgressBookingScopedEvidence(
     at: ReturnType<typeof timestampFromDate>;
   }>
 ): Promise<readonly BookingScopedParticipantAccessEvidence[]> {
-  const bookingReads = await session.tx.query({
-    collection: 'bookings',
-    where: {
-      field: 'party.participantIds',
-      op: 'array-contains',
-      value: input.participantId,
-    },
-  });
-
-  const evidence: BookingScopedParticipantAccessEvidence[] = [];
-  for (const document of bookingReads) {
-    session.plan.planRead({ path: document.path, category: 'authorization_check' });
-    const booking = parseBooking(document.data);
-    if (!booking) continue;
-    const scoped = bookingScopedEvidenceFromQualifyingProgressBooking({
-      booking,
-      instructorId: input.instructorId,
-      participantId: input.participantId,
-      at: input.at,
-    });
-    if (scoped) evidence.push(scoped);
+  // Existential evidence: server-filtered pages, stop at the first valid Booking.
+  for (const status of ['confirmed', 'completed'] as const) {
+    let startAfter: { path: string; orderValue: number } | undefined;
+    while (true) {
+      const page = await session.tx.query({
+        collection: 'bookings',
+        where: { field: 'party.participantIds', op: 'array-contains', value: input.participantId },
+        additionalWhere: [
+          { field: 'occurrence.instructorId', op: '==', value: input.instructorId },
+          { field: 'lifecycle.status', op: '==', value: status },
+          { field: 'occurrence.interval.startsAt.seconds', op: '<=', value: input.at.seconds },
+        ],
+        orderBy: 'occurrence.interval.startsAt.seconds',
+        limit: 25,
+        ...(startAfter ? { startAfter } : {}),
+      });
+      for (const document of page) {
+        session.plan.planRead({ path: document.path, category: 'authorization_check' });
+      }
+      session.assertWithinBudget();
+      for (const document of page) {
+        const booking = parseBooking(document.data);
+        if (!booking) continue;
+        const scoped = bookingScopedEvidenceFromQualifyingProgressBooking({
+          booking,
+          instructorId: input.instructorId,
+          participantId: input.participantId,
+          at: input.at,
+        });
+        if (scoped) return [scoped];
+      }
+      if (page.length < 25) break;
+      const last = page[page.length - 1]!;
+      const startsAt = (last.data!.occurrence as { interval: { startsAt: { seconds: number } } })
+        .interval.startsAt;
+      startAfter = { path: last.path, orderValue: startsAt.seconds };
+    }
   }
-  return evidence;
+  return [];
 }
 
-export async function loadInstructorProgressBookingScopedEvidence(
+export async function loadInstructorProgressReadBookingScopedEvidence(
   firestore: Firestore,
   input: Readonly<{
     instructorId: InstructorId;
@@ -55,7 +72,6 @@ export async function loadInstructorProgressBookingScopedEvidence(
     .where('party.participantIds', 'array-contains', input.participantId)
     .where('occurrence.instructorId', '==', input.instructorId)
     .where('lifecycle.status', 'in', ['confirmed', 'completed'])
-    .where('occurrence.interval.startsAt.seconds', '<=', input.at.seconds)
     .orderBy('occurrence.interval.startsAt.seconds', 'asc');
 
   let cursor: QueryDocumentSnapshot | undefined;
@@ -64,7 +80,7 @@ export async function loadInstructorProgressBookingScopedEvidence(
     for (const doc of page.docs) {
       const booking = parseBooking(doc.data() as Record<string, unknown>);
       if (!booking) continue;
-      const scoped = bookingScopedEvidenceFromQualifyingProgressBooking({
+      const scoped = bookingScopedEvidenceFromQualifyingProgressReadBooking({
         booking,
         instructorId: input.instructorId,
         participantId: input.participantId,

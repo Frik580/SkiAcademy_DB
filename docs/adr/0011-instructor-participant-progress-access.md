@@ -19,49 +19,50 @@ The authorization contract must allow lesson-time assessment while preserving le
 
 ## Decision
 
-An instructor may read and update Participant progress/skills when any existing valid access basis applies:
+Read and assessment authorization are separate.
 
-1. an active `instructor_relationship`; or
-2. valid `Attendance = present`; or
-3. a valid assigned lesson that has already started.
+An assigned Instructor may read Participant progress immediately after a canonical
+Booking is confirmed. The server verifies assignment, membership in both Booking
+party and frozen service party, lifecycle (`confirmed` or `completed`), and that
+the Booking is not deleted. Reading does not require the lesson to have started.
+Cancellation removes this Booking basis; another independently valid read basis
+may remain. Existing valid InstructorRelationship read access is retained.
 
-For lesson-based access, all of the following must be true:
+Assessment commands (skill scores, skill comments and all Instructor level
+operations) require a qualifying canonical Booking whose `startsAt` has passed.
+An existing InstructorRelationship alone never authorizes assessment, including
+historical guardian permissions. No relationship data is deleted or migrated.
+Completed qualifying lessons retain authority without a fixed post-lesson expiry.
 
-- the requesting instructor is canonically assigned to the lesson;
-- the target Participant belongs to that Booking;
-- the Booking is valid for instructor progress access;
-- the Booking lifecycle is `confirmed` or `completed`;
-- the Booking is not deleted;
-- server-authoritative current time is greater than or equal to
-  `booking.occurrence.interval.startsAt`.
-
-There is no fixed post-lesson expiry window for this access basis.
-
-A completed historical lesson may therefore continue to authorize progress/skills access when the canonical lesson relationship remains valid.
+Participant blocks retain the canonical policy: they prevent new activity and
+relationship-only access, while valid Booking-scoped access remains available.
+Blocking does not cancel confirmed lessons. Each actor may remove only their own
+block. Account/Participant management boundaries remain unchanged.
 
 ## Time authority
 
-Lesson-start authorization is server-authoritative.
-
-Client/browser time is not an authorization source.
-
-Backend read and write paths determine whether the lesson has started using server-side time.
-
-Client-side clocks may be used only to update presentation state, enable controls, or trigger a refetch at lesson start.
+The backend uses server-authoritative time for assessment. Client identifiers,
+status and clocks cannot grant authority. The UI clock only refreshes presentation
+at the next lesson start, including an already-open progress dialog.
 
 ## Read access
 
-After the canonical lesson start time, the assigned instructor may read the Participant progress required by the instructor workspace and skills/radar UI.
+Progress, skill scores, comments and level state are exposed through authorized
+Participant progress read models. Future confirmed Bookings grant read access,
+not access to account contacts, financial data or unrelated Participants.
 
-Before lesson start, the lesson itself and Participant context may be visible through authorized lesson read models, but lesson assignment alone does not grant progress access.
+Read authorization uses instructor/Participant/status-scoped Booking pages of 50,
+stopping at the first valid Booking. Assessment transaction queries additionally
+filter by start time, page in batches of 25 and stop at the first valid Booking.
+Malformed/deleted matches may require further pages; normal historical records
+do not cause a full-history drain. Existing composite indexes cover these shapes.
 
 ## Write access
 
-After the canonical lesson start time, the assigned instructor may submit canonical progress/skill assessment updates for Participants belonging to that lesson.
-
-Write authorization must use the same canonical instructor/lesson/Participant relationship as read authorization.
-
-Client-supplied `participantId`, `instructorId`, `bookingId`, local state, or browser time are not authorization authorities.
+`update_participant_progress` and Instructor `manage_participant_level` operations
+share the stricter started-Booking guard. They never use the prelesson read guard
+as a write capability. Transactionality, OCC, idempotency and owner/admin policy
+remain unchanged.
 
 ## Lesson feedback
 
@@ -82,46 +83,35 @@ The following remain denied:
 - another instructor using a lesson they are not assigned to;
 - invalid, cancelled, or otherwise ineligible Booking-based access.
 
-Existing owner/student and valid relationship-based access remains unchanged.
+Existing owner/student read access remains unchanged.
 
 ## UI behavior
 
-Before lesson start:
+The student instructor card exposes blocking/unblocking under the additional
+actions menu, with a required block reason and confirmation. Manual relationship
+grant/revoke controls are removed from this flow. The selected Participant,
+including a dependent, determines the affected block.
 
-- the instructor may see the assigned lesson and Participant;
-- progress/skills controls remain unavailable unless another valid access basis exists;
-- the UI must not intentionally issue unauthorized progress requests.
-
-At lesson start:
-
-- progress/skills eligibility is re-evaluated;
-- controls become available without requiring a manual page reload;
-- backend authorization remains authoritative.
+The Instructor may view future confirmed students, level, radar, scores and
+comments. Before the first qualifying lesson starts, assessment and level mutation
+controls are unavailable and the UI explains when assessment becomes available.
+The existing lesson-start timer updates controls without manual reload.
 
 ## Consequences
 
-Positive:
-
-- instructors can assess students during the lesson;
-- Attendance does not need to be recorded before skill assessment;
-- broad `/users` access is not reintroduced;
-- read and write authorization share the same domain policy.
-
-Trade-offs:
-
-- lesson-based authorization requires querying instructor Booking relationships;
-- authorization queries must remain bounded and indexed;
-- runtime behavior still requires authenticated smoke verification.
+- The Instructor can prepare for a confirmed lesson by viewing progress.
+- Read access cannot be reused to mutate progress before lesson start.
+- Manual permissions no longer bypass assessment timing.
+- Broad `/users` access and client-authoritative mutation are not introduced.
 
 ## Deployment
 
 Required deployment order:
 
-1. deploy required Firestore indexes;
-2. wait until indexes are READY / Enabled;
-3. deploy:
+1. Existing Firestore indexes must be READY / Enabled; no new indexes are required.
+2. Deploy:
    - `queryParticipantProgressReadModels`;
    - `executeCanonicalCommand`;
-4. deploy Hosting.
+3. Deploy Hosting.
 
 No Firestore Rules or data migration is required.

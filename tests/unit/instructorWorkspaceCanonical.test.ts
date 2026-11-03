@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import type { Course, UserProfile } from '../../src/types';
 import type { InstructorLessonBookingItem } from '../../src/features/booking-collaboration/bookingCollaborationContracts';
 
@@ -307,4 +307,29 @@ describe('useInstructorWorkspace canonical lesson isolation', () => {
         ?.attendanceOverdue
     ).toBe(false);
   });
+});
+
+it('lists confirmed future dependents and unlocks assessment at lesson start without a reload', () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date(individualBooking.startsAtEpochMs - 1000));
+  const bookings = [individualBooking];
+  try {
+    const { result, unmount } = renderHook(() =>
+      useInstructorWorkspace({
+        userProfile,
+        instructors: [],
+        lessonBookings: bookings,
+        reviews: [],
+        courses,
+        usersList: [],
+      })
+    );
+    expect(result.current.myStudents).toHaveLength(2);
+    expect(result.current.canAssessParticipant(individualBooking.participantIds[1]!)).toBe(false);
+    act(() => vi.advanceTimersByTime(1000));
+    expect(result.current.canAssessParticipant(individualBooking.participantIds[1]!)).toBe(true);
+    unmount();
+  } finally {
+    vi.useRealTimers();
+  }
 });

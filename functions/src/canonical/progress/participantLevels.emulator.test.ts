@@ -3,6 +3,9 @@ import { deleteApp, initializeApp, type App } from 'firebase-admin/app';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import {
   AccountIdSchema,
+  BookingSchema,
+  paymentIdFromBookingId,
+  type BookingId,
   CorrelationIdSchema,
   InstructorIdSchema,
   ParticipantIdSchema,
@@ -64,7 +67,32 @@ suite('participant levels real Firestore transactions', () => {
       instructorId: coachId,
       participantId,
     });
+    const bookingId = 'booking_level_emulator' as BookingId;
+    const booking = BookingSchema.parse({
+      ...meta,
+      bookingId,
+      attribution: { bookingOrigin: 'admin', bookedBy: { kind: 'account', accountId } },
+      party: { kind: 'individual', participantIds: [participantId] },
+      occurrence: {
+        occurrenceId: 'occurrence_level_emulator',
+        instructorId: coachId,
+        interval: { startsAt: at, endsAt: timestampFromDate(new Date('2026-10-14T11:00:00Z')) },
+        timeZone: 'Asia/Almaty',
+        scheduleRevision: 1,
+        serviceParty: { participantIds: [participantId], frozenAt: at },
+      },
+      lifecycle: { status: 'confirmed' },
+      paymentId: paymentIdFromBookingId(bookingId),
+    });
     await Promise.all([
+      firestore.doc(`bookings/${bookingId}`).set(booking),
+      ...Array.from({ length: 26 }, (_, index) =>
+        firestore.doc(`bookings/aaa_level_archived_${String(index).padStart(2, '0')}`).set({
+          ...booking,
+          bookingId: `aaa_level_archived_${index}`,
+          archival: { isDeleted: true, deletedAt: at },
+        })
+      ),
       firestore
         .doc(`users/${accountId}`)
         .set({ ...meta, accountId, role: 'admin', lifecycle: { status: 'active' } }),
@@ -117,6 +145,82 @@ suite('participant levels real Firestore transactions', () => {
   });
   afterAll(async () => {
     if (app) await deleteApp(app);
+  });
+  it('allows prelesson reads while denying scores, comments and level changes despite a manual grant', async () => {
+    const now = new Date('2026-10-14T09:59:59Z');
+    const read = await queryParticipantProgressReadModels(
+      firestore,
+      { scope: 'instructor', participantIds: [participantId] },
+      { accountId: coachAccount, instructorId: coachId, now: () => now }
+    );
+    expect(read.items[0]?.participantId).toBe(participantId);
+    const commands = createProductionCanonicalCommands(
+      { clock: createAuthoritativeCommandClock(now) },
+      createFirestoreCanonicalTransactionExecutor(firestore)
+    );
+    const scores: CommandEnvelope<'update_participant_progress'> = {
+      ...command(
+        { action: 'request', level: 3, reason: { category: 'expert_assessment', text: 'Future' } },
+        0,
+        'future-score'
+      ),
+      kind: 'update_participant_progress',
+      intent: {
+        participantId,
+        level: 1,
+        skillScores: { skill_one: 80 },
+        skillComments: { skill_one: 'Future comment' },
+      },
+    };
+    expect((await commands.execute(scores)).status).toBe('error');
+    expect(
+      (
+        await commands.execute(
+          command(
+            {
+              action: 'request',
+              level: 3,
+              reason: { category: 'expert_assessment', text: 'Future' },
+            },
+            0,
+            'future-request'
+          )
+        )
+      ).status
+    ).toBe('error');
+    expect((await firestore.doc(`participant_progress/${participantId}`).get()).exists).toBe(false);
+    // Remove the old read basis temporarily to verify Booking-only revocation.
+    const relationship = firestore.doc(
+      `instructor_relationships/${instructorRelationshipIdFromPair({ instructorId: coachId, participantId })}`
+    );
+    const saved = (await relationship.get()).data()!;
+    await relationship.delete();
+    try {
+      expect(
+        (
+          await queryParticipantProgressReadModels(
+            firestore,
+            { scope: 'instructor', participantIds: [participantId] },
+            { accountId: coachAccount, instructorId: coachId, now: () => now }
+          )
+        ).items
+      ).toHaveLength(1);
+      await firestore.doc('bookings/booking_level_emulator').update({
+        lifecycle: { status: 'cancelled', cancelledAt: at, reasonCode: 'account_owner_cancelled' },
+      });
+      await expect(
+        queryParticipantProgressReadModels(
+          firestore,
+          { scope: 'instructor', participantIds: [participantId] },
+          { accountId: coachAccount, instructorId: coachId, now: () => now }
+        )
+      ).rejects.toThrow();
+    } finally {
+      await relationship.set(saved);
+      await firestore
+        .doc('bookings/booking_level_emulator')
+        .update({ lifecycle: { status: 'confirmed' } });
+    }
   });
   it('serializes conflicting requests and two admin approvals, preserves audit and exposes the bounded inbox', async () => {
     const commands = createProductionCanonicalCommands(

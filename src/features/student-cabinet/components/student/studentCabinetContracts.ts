@@ -95,7 +95,10 @@ export interface TodayProgressBlockInput {
 }
 
 export interface SkillRadarChartInput {
-  userProfile: StudentProfile;
+  userProfile: Pick<
+    StudentProfile,
+    'level' | 'skillScores' | 'skillComments' | 'todaySkillItemIds'
+  >;
   skillConfig?: StudentSkillConfig;
   onToggleSkillToday?: (skillItemId: string, pinned: boolean) => void;
   onPinSkillsToday?: (skillItemIds: string[]) => void | Promise<void>;

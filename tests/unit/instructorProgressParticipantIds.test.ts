@@ -55,13 +55,15 @@ function relationship(participantId: string): ParticipantAccessCabinetItem {
 }
 
 describe('instructor progress participant selection', () => {
-  it('skips future and invalid bookings', () => {
+  it('includes future confirmed bookings and skips invalid bookings', () => {
     const bookings = [
       booking({ participantId: 'future', startsAtEpochMs: now + 60_000 }),
       booking({ participantId: 'no_show', status: 'no_show', attendanceStatus: 'present' }),
       booking({ participantId: 'cancelled', status: 'cancelled' }),
     ];
-    expect(instructorProgressParticipantIds(bookings, new Map(), 'instructor_a', now)).toEqual([]);
+    expect(instructorProgressParticipantIds(bookings, new Map(), 'instructor_a', now)).toEqual([
+      'future',
+    ]);
   });
 
   it('selects all participants of started valid bookings once, regardless of Attendance', () => {

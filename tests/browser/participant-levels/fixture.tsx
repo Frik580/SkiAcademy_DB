@@ -1,3 +1,4 @@
+import { PrelessonFixture } from './prelesson-fixture';
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { LanguageProvider } from '../../../src/app/providers/LanguageContext';
@@ -61,4 +62,12 @@ function Fixture() {
     </LanguageProvider>
   );
 }
-createRoot(document.getElementById('root')!).render(<Fixture />);
+createRoot(document.getElementById('root')!).render(
+  params.get('scenario') === 'prelesson' ? (
+    <LanguageProvider>
+      <PrelessonFixture />
+    </LanguageProvider>
+  ) : (
+    <Fixture />
+  )
+);

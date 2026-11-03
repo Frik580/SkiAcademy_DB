@@ -7,7 +7,7 @@ export default defineConfig({
   reporter: 'list',
   use: { baseURL: 'http://127.0.0.1:5177', browserName: 'chromium' },
   webServer: {
-    command: 'npm run dev -- --host 127.0.0.1 --port 5177',
+    command: 'npm exec vite -- --mode e2e --host 127.0.0.1 --port 5177',
     url: 'http://127.0.0.1:5177/tests/browser/participant-levels/index.html',
     reuseExistingServer: false,
   },

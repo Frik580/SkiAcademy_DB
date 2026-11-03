@@ -92,9 +92,31 @@ export const InstructorStudents: React.FC<InstructorStudentsProps> = ({ workspac
                     {t('instructorLevelShort')} {studentLevel}
                   </span>
                 </div>
+                {!workspace.canAssessParticipant(student.participantId) && progress && (
+                  <p className="type-caption text-[var(--ink-dim)]">
+                    {t('instructorProgressReadOnly')}
+                  </p>
+                )}
                 {ready && <p className="type-caption">{text.ready}</p>}
                 {review && <p className="type-caption">{text.review}</p>}
                 <button
+                  type="button"
+                  disabled={!progress}
+                  className="border border-[var(--border)] rounded-lg p-2 type-button disabled:opacity-40"
+                  onClick={() =>
+                    workspace.openEvalModal(
+                      student.participantId,
+                      student.name,
+                      studentLevel,
+                      progress?.skillScores,
+                      progress?.skillComments
+                    )
+                  }
+                >
+                  {t('instructorViewProgress')}
+                </button>
+                <button
+                  disabled={!progress || !workspace.canAssessParticipant(student.participantId)}
                   className="border border-[var(--border)] rounded-lg p-2 type-button"
                   onClick={() => handleUpdateStudentLevel(student.participantId, student.name)}
                 >

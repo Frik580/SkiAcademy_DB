@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { StudentSkillEvaluationModal } from '../../src/features/profile/components/StudentSkillEvaluationModal';
 import { DEFAULT_SKILL_CONFIG } from '../../src/domain/achievements';
 
@@ -9,7 +9,11 @@ vi.mock('../../src/app/providers/LanguageContext', () => ({
   useLanguage: () => ({ language: 'en', t: (key: string) => key }),
 }));
 
-afterEach(cleanup);
+beforeEach(() => vi.stubGlobal('matchMedia', () => ({ matches: true })));
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 const scores = { skill: 1 };
 const comments = { skill: 'Existing comment' };
 const config = {

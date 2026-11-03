@@ -82,7 +82,7 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
           ? t('instructorAttendanceAbsent')
           : t('instructorAttendanceMissing');
     const canAssessInLesson = isLessonContextProgressAssessmentEnabled(b, nowMs);
-    const canOpenProgress = participant.attendanceStatus === 'present';
+    const canOpenProgress = b.status === 'confirmed' || b.status === 'completed';
     const assessDisabledTitle = !canAssessInLesson
       ? t('instructorAssessAfterLessonStart')
       : undefined;
@@ -178,7 +178,8 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
             t={t}
             disabled={!canOpenProgress}
             title={canOpenProgress ? undefined : progressDisabledTitle}
-            ariaLabel={`${studentName}: ${t('instructorAssess')}`}
+            labelKey={canAssessInLesson ? 'instructorAssess' : 'instructorViewProgress'}
+            ariaLabel={`${studentName}: ${t(canAssessInLesson ? 'instructorAssess' : 'instructorViewProgress')}`}
             onClick={() =>
               onOpenEval(
                 participant.participantId,

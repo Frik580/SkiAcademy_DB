@@ -21,6 +21,11 @@ export interface CanonicalTransactionCollectionQuery {
   readonly collection: string;
   readonly where: CanonicalTransactionQueryFilter;
   readonly limit?: number;
+  readonly additionalWhere?: readonly CanonicalTransactionQueryFilter[];
+  /** Ascending numeric field, with document ID as the tie-breaker. */
+  readonly orderBy?: string;
+  /** Values from the last result; continuing does not reread the cursor document. */
+  readonly startAfter?: Readonly<{ path: string; orderValue: number }>;
   /** When true, match any nested collection with this id (Firestore collectionGroup). */
   readonly collectionGroup?: boolean;
 }

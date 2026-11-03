@@ -281,6 +281,7 @@
   "tests/browser/journey-geometry/geometry.spec.ts": "deferred:browser-fixtures",
   "tests/browser/level-modals/visibility.spec.ts": "deferred:browser-fixtures",
   "tests/browser/participant-levels/levels.spec.ts": "deferred:browser-fixtures",
+  "tests/browser/participant-levels/prelesson.spec.ts": "deferred:browser-fixtures",
   "tests/browser/planner-overlap/planner.spec.ts": "deferred:browser-fixtures",
   "tests/firestore.rules.test.ts": "firestore-rules",
   "tests/integration/availabilityMigration.test.ts": "firebase-integration",

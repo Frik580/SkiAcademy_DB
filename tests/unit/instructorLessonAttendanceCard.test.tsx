@@ -126,9 +126,12 @@ function renderCard(
 }
 
 function assessButton(studentName: string) {
-  return screen.getByRole('button', {
+  return (screen.queryByRole('button', {
     name: `${studentName}: ${translations.en.instructorAssess}`,
-  }) as HTMLButtonElement;
+  }) ??
+    screen.getByRole('button', {
+      name: `${studentName}: ${translations.en.instructorViewProgress}`,
+    })) as HTMLButtonElement;
 }
 
 function levelSelect(studentName: string) {
@@ -218,10 +221,10 @@ describe('InstructorBookingCard factual attendance', () => {
 });
 
 describe('InstructorBookingCard lesson-context progress assessment', () => {
-  it('keeps progress disabled when Attendance is missing, even after lesson start', () => {
+  it('allows progress independently of missing Attendance after lesson start', () => {
     renderCard(booking(), { handleRecordLessonAttendance: vi.fn() });
-    expect(assessButton('Alice').disabled).toBe(true);
-    expect(assessButton('Alice').title).toBe(translations.en.instructorProgressMarkPresent);
+    expect(assessButton('Alice').disabled).toBe(false);
+    expect(assessButton('Alice').title).toBe(translations.en.instructorAssess);
     expect(levelSelect('Alice').disabled).toBe(false);
     expect(recommendationsButton('Alice').disabled).toBe(true);
     expect(recommendationsButton('Alice').title).toBe(
@@ -229,17 +232,17 @@ describe('InstructorBookingCard lesson-context progress assessment', () => {
     );
   });
 
-  it('keeps progress and feedback locked before the lesson starts', () => {
+  it('allows viewing before lesson start while level changes and feedback remain locked', () => {
     renderCard(booking({ startsAtEpochMs: Date.parse('2026-01-15T09:00:00.001Z') }), {
       handleRecordLessonAttendance: vi.fn(),
     });
-    expect(assessButton('Alice').disabled).toBe(true);
+    expect(assessButton('Alice').disabled).toBe(false);
     expect(levelSelect('Alice').disabled).toBe(true);
     expect(recommendationsButton('Alice').disabled).toBe(true);
-    expect(assessButton('Alice').title).toBe(translations.en.instructorProgressMarkPresent);
+    expect(assessButton('Alice').title).toBe(translations.en.instructorViewProgress);
   });
 
-  it('uses present Attendance even when the lesson start gate is closed', () => {
+  it('allows prelesson viewing but never level changes even with present Attendance', () => {
     renderCard(
       booking({
         startsAtEpochMs: Date.parse('2026-01-15T09:00:00.001Z'),
@@ -280,7 +283,7 @@ describe('InstructorBookingCard lesson-context progress assessment', () => {
     expect(recommendationsButton('Alice').disabled).toBe(false);
   });
 
-  it('keeps progress and lesson feedback locked when Attendance is absent', () => {
+  it('allows progress while keeping lesson feedback locked when Attendance is absent', () => {
     renderCard(
       booking({
         participants: [
@@ -296,13 +299,13 @@ describe('InstructorBookingCard lesson-context progress assessment', () => {
       }),
       { handleRecordLessonAttendance: vi.fn() }
     );
-    expect(assessButton('Alice').disabled).toBe(true);
-    expect(assessButton('Alice').title).toBe(translations.en.instructorProgressAbsent);
+    expect(assessButton('Alice').disabled).toBe(false);
+    expect(assessButton('Alice').title).toBe(translations.en.instructorAssess);
     expect(levelSelect('Alice').disabled).toBe(false);
     expect(recommendationsButton('Alice').disabled).toBe(true);
   });
 
-  it('gates each participant independently in a multi-participant booking', () => {
+  it('keeps feedback participant-scoped while all linked participants have progress access', () => {
     renderCard(
       booking({
         participants: [
@@ -333,8 +336,8 @@ describe('InstructorBookingCard lesson-context progress assessment', () => {
       { handleRecordLessonAttendance: vi.fn() }
     );
     expect(assessButton('Alice').disabled).toBe(false);
-    expect(assessButton('Bob').disabled).toBe(true);
-    expect(assessButton('Cara').disabled).toBe(true);
+    expect(assessButton('Bob').disabled).toBe(false);
+    expect(assessButton('Cara').disabled).toBe(false);
     expect(levelSelect('Alice').disabled).toBe(false);
     expect(levelSelect('Bob').disabled).toBe(false);
     expect(levelSelect('Cara').disabled).toBe(false);
@@ -367,7 +370,7 @@ describe('InstructorBookingCard lesson-context progress assessment', () => {
       { handleRecordLessonAttendance: vi.fn() },
       { onOpenEval }
     );
-    expect(assessButton('Alice').disabled).toBe(true);
+    expect(assessButton('Alice').disabled).toBe(false);
     fireEvent.click(assessButton('Bob'));
     expect(onOpenEval).toHaveBeenCalledTimes(1);
     expect(onOpenEval).toHaveBeenCalledWith('participant_f4_b', 'Bob', 1, {}, {});
@@ -393,7 +396,7 @@ describe('InstructorBookingCard lesson-context progress assessment', () => {
     expect(recommendationsButton('Child Dependent').disabled).toBe(false);
   });
 
-  it('updates progress when server-backed Attendance changes from missing to present to absent', () => {
+  it('preserves progress access while feedback follows server-backed Attendance', () => {
     const onOpenEval = vi.fn();
     const handleRecordLessonAttendance = vi.fn();
     const cardWithAttendance = (attendanceStatus?: 'present' | 'absent') => (
@@ -435,11 +438,11 @@ describe('InstructorBookingCard lesson-context progress assessment', () => {
       </LanguageProvider>
     );
     const { rerender } = render(cardWithAttendance());
-    expect(assessButton('Alice').disabled).toBe(true);
+    expect(assessButton('Alice').disabled).toBe(false);
     expect(recommendationsButton('Alice').disabled).toBe(true);
     fireEvent.click(screen.getByRole('button', { name: 'Alice: Present' }));
     expect(handleRecordLessonAttendance).toHaveBeenCalled();
-    expect(assessButton('Alice').disabled).toBe(true);
+    expect(assessButton('Alice').disabled).toBe(false);
     expect(recommendationsButton('Alice').disabled).toBe(true);
 
     rerender(cardWithAttendance('present'));
@@ -450,8 +453,8 @@ describe('InstructorBookingCard lesson-context progress assessment', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Alice: Absent' }));
     expect(assessButton('Alice').disabled).toBe(false);
     rerender(cardWithAttendance('absent'));
-    expect(assessButton('Alice').disabled).toBe(true);
-    expect(assessButton('Alice').title).toBe(translations.en.instructorProgressAbsent);
+    expect(assessButton('Alice').disabled).toBe(false);
+    expect(assessButton('Alice').title).toBe(translations.en.instructorAssess);
     expect(recommendationsButton('Alice').disabled).toBe(true);
   });
 
@@ -460,11 +463,11 @@ describe('InstructorBookingCard lesson-context progress assessment', () => {
       submittingId: 'booking_f4_01:participant_f4_a',
       handleRecordLessonAttendance: vi.fn(),
     });
-    expect(assessButton('Alice').disabled).toBe(true);
+    expect(assessButton('Alice').disabled).toBe(false);
     expect(recommendationsButton('Alice').disabled).toBe(true);
   });
 
-  it('keeps progress disabled when Attendance is absent', () => {
+  it('keeps progress available when Attendance is absent', () => {
     renderCard(
       booking({
         participants: [
@@ -480,7 +483,7 @@ describe('InstructorBookingCard lesson-context progress assessment', () => {
       }),
       { handleRecordLessonAttendance: vi.fn() }
     );
-    expect(assessButton('Alice').disabled).toBe(true);
+    expect(assessButton('Alice').disabled).toBe(false);
     expect(recommendationsButton('Alice').disabled).toBe(true);
   });
 });
@@ -517,6 +520,7 @@ describe('InstructorStudents global progress surface', () => {
                 },
               ],
               handleUpdateStudentLevel,
+              canAssessParticipant: () => true,
               progressById: {
                 participant_global_01: progress,
               },

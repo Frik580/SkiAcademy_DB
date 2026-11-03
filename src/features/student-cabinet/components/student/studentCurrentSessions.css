@@ -128,3 +128,19 @@
     @apply type-card-title;
   }
 }
+
+
+/* Фон плитки «Сейчас идут» — как у бейджа */
+.sc-dashboard .sc-dashboard-card[data-dashboard-tile='currentSessions'] {
+  background: color-mix(
+    in srgb,
+    var(--sc-success) 12%,
+    var(--card-bg)
+  );
+
+  border: 1px solid color-mix(
+    in srgb,
+    var(--sc-success) 20%,
+    transparent
+  );
+}

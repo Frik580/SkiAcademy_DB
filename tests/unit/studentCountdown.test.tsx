@@ -79,6 +79,48 @@ describe('countdown presentation preserves the existing lifecycle', () => {
     }
   });
 
+
+  it('renders every simultaneous lesson with its own participants and one shared timer', () => {
+    const props = input();
+    const first = props.countdown;
+    const second = {
+      startsAt: new Date(first.startsAt),
+      session: {
+        kind: 'lesson' as const,
+        session: {
+          ...((first.session.kind === 'lesson' ? first.session.session : null)!),
+          id: 'countdown-second',
+          bookingId: 'countdown-second',
+          instructorName: 'Бекзат',
+          participantIds: ['charlie'],
+          participantDisplayNames: { charlie: 'Саша' },
+        },
+      },
+    };
+    const later = {
+      ...second,
+      startsAt: new Date(first.startsAt.getTime() + 3600000),
+    };
+    const { container } = render(
+      <SessionCountdownBlock
+        {...props}
+        countdowns={[first, second]}
+        participantsBySessionKey={{
+          'lesson:countdown-lesson': props.participants ?? [],
+          'lesson:countdown-second': [{ participantId: 'charlie', displayName: 'Саша' }],
+        }}
+      />
+    );
+    expect(container.querySelectorAll('.sc-countdown-digits')).toHaveLength(1);
+    expect(container.querySelectorAll('.sc-countdown-session')).toHaveLength(2);
+    expect(screen.getByText('Арман')).toBeInTheDocument();
+    expect(screen.getByText('Бекзат')).toBeInTheDocument();
+    expect(screen.getByText('Айгерим')).toBeInTheDocument();
+    expect(screen.getByText('Саша')).toBeInTheDocument();
+    expect(screen.getAllByRole('link')).toHaveLength(2);
+    expect(later.startsAt.getTime()).toBeGreaterThan(first.startsAt.getTime());
+  });
+
   it('ticks once a second, does not restart on rerender and expires once without negative text', () => {
     const props = input();
     props.countdown.startsAt = new Date(Date.now() + 2000);

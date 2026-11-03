@@ -5,16 +5,12 @@ import {
 import { StudentDashboardTileHeader, StudentDashboardTileBody } from './StudentDashboardTile';
 import React, { useMemo, useState } from 'react';
 import { YourJourneySection } from '../../../../features/journey';
-import {
-  getMiniCalendarDaysFromSessions,
-  sessionItemKey,
-} from '../../../../features/course-enrollments/sessionScheduleHelpers';
+import { getMiniCalendarDaysFromSessions } from '../../../../features/course-enrollments/sessionScheduleHelpers';
 import {
   getCurrentSessions,
   getFirstName,
   getGreeting,
   getTodayTasks,
-  getTodaySessionCountdown,
   getNextStepAction,
   getNeedsAttentionBookings,
 } from './studentCabinetUtils';
@@ -44,6 +40,7 @@ import {
   StudentLatestRecommendationSection,
 } from './StudentHomeBottomSections';
 import { buildNextSessionCards, buildSessionParticipants } from './studentSessionParticipants';
+import { getTodaySessionCountdownsFromSessions } from '../../../course-enrollments/sessionScheduleHelpers';
 import type { StudentCabinetHomeContext } from './studentCabinetContracts';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 import { ParticipantScopeIndicator } from './ParticipantScopeIndicator';
@@ -136,18 +133,14 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     () => buildNextSessionCards(nextSessionItems, props.participantProfiles ?? [], sessionNow),
     [nextSessionItems, props.participantProfiles, sessionNow]
   );
-  const countdown = useMemo(
-    () => getTodaySessionCountdown(nextSessionItems, sessionNow),
+  const countdowns = useMemo(
+    () => getTodaySessionCountdownsFromSessions(nextSessionItems, sessionNow),
     [nextSessionItems, sessionNow]
   );
-  const countdownParticipants = useMemo(
-    () =>
-      countdown
-        ? (buildSessionParticipants([countdown.session], props.participantProfiles ?? [])[
-            sessionItemKey(countdown.session)
-          ] ?? [])
-        : [],
-    [countdown, props.participantProfiles]
+  const countdown = countdowns[0] ?? null;
+  const countdownParticipantsBySessionKey = useMemo(
+    () => buildSessionParticipants(countdowns.map(({ session }) => session), props.participantProfiles ?? []),
+    [countdowns, props.participantProfiles]
   );
   const currentSessions = useMemo(
     () => getCurrentSessions(nextSessionItems, sessionNow),
@@ -250,7 +243,8 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
           dashboardSize={STUDENT_DASHBOARD_TILES.countdown.defaultSize}
           countdown={countdown}
           onExpire={() => setExpiredCountdown(countdown.startsAt.getTime())}
-          participants={countdownParticipants}
+          countdowns={countdowns}
+          participantsBySessionKey={countdownParticipantsBySessionKey}
           courses={courses}
           instructors={instructors}
           usersList={usersList}

@@ -45,7 +45,9 @@ export interface SessionCountdownBlockInput {
   onExpire?: () => void;
   dashboardSize?: DashboardTileSize;
   countdown: TodaySessionCountdown;
+  countdowns?: readonly TodaySessionCountdown[];
   participants?: readonly SessionParticipantInput[];
+  participantsBySessionKey?: Readonly<Record<string, readonly SessionParticipantInput[]>>;
   courses: StudentCourse[];
   instructors: StudentInstructor[];
   usersList: StudentProfile[];

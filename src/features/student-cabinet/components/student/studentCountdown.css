@@ -121,3 +121,9 @@
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
+
+.sc-countdown-session + .sc-countdown-session {
+  margin-top: 1rem;
+  padding-top: 0.125rem;
+  border-top: 1px solid var(--border-subtle);
+}

@@ -87,7 +87,9 @@ export const SessionCountdownBlock = memo<SessionCountdownBlockInput>(
     dashboardSize,
     onExpire,
     countdown,
+    countdowns,
     participants = [],
+    participantsBySessionKey,
     courses,
     instructors,
     usersList,
@@ -97,8 +99,27 @@ export const SessionCountdownBlock = memo<SessionCountdownBlockInput>(
 
     if (!visible) return null;
 
-    const { session } = countdown;
-    const isCourseDay = session.kind === 'course_day';
+    const sessions = countdowns ?? [countdown];
+    const courseParticipants = new Map<string, Map<string, SessionParticipantInput>>();
+    for (const { session } of sessions) {
+      if (session.kind !== 'course_day') continue;
+      const byId = courseParticipants.get(session.courseId) ?? new Map<string, SessionParticipantInput>();
+      for (const participant of participantsBySessionKey?.[sessionItemKey(session)] ?? participants) {
+        byId.set(participant.participantId, participant);
+      }
+      courseParticipants.set(session.courseId, byId);
+    }
+    const seenCourseDays = new Set<string>();
+    const visibleSessions = sessions.filter(({ session }) => {
+      if (session.kind !== 'course_day') return true;
+      const key = JSON.stringify([
+        session.courseId, session.courseDayId, session.date, session.time,
+        session.endTime, session.timeZone,
+      ]);
+      if (seenCourseDays.has(key)) return false;
+      seenCourseDays.add(key);
+      return true;
+    });
 
     return (
       <StudentDashboardTile tileKey={STUDENT_DASHBOARD_TILES.countdown.key} size={dashboardSize}>
@@ -114,31 +135,41 @@ export const SessionCountdownBlock = memo<SessionCountdownBlockInput>(
                   onExpire?.();
                 }}
               />
-              <div className="sc-countdown-meta">
-                <p className="sc-countdown-title">{getCabinetSessionTitle(session, lang)}</p>
-                <p className="sc-countdown-time">{formatCabinetSessionTimeRange(session)}</p>
-              </div>
-              <p className="sc-countdown-subtitle">
-                {isCourseDay
-                  ? formatCourseDayDateLabel(session, lang)
-                  : getCabinetSessionSubtitle(session, lang)}
-              </p>
-              <SessionParticipants participants={participants} />
-              {session.kind === 'lesson' && (
-                <div className="sc-countdown-actions">
-                  <BookingCallCoachButton
-                    booking={cabinetItemToLegacyPresentation(
-                      session.session,
-                      usersList[0]?.uid ?? ''
-                    )}
-                    courses={courses}
-                    instructors={instructors}
-                    usersList={usersList}
-                    variant="outline"
-                    className="sc-countdown-contact"
+              {visibleSessions.map(({ session }) => (
+                <div className="sc-countdown-session" key={sessionItemKey(session)}>
+                  <div className="sc-countdown-meta">
+                    <p className="sc-countdown-title">{getCabinetSessionTitle(session, lang)}</p>
+                    <p className="sc-countdown-time">{formatCabinetSessionTimeRange(session)}</p>
+                  </div>
+                  <p className="sc-countdown-subtitle">
+                    {session.kind === 'course_day'
+                      ? formatCourseDayDateLabel(session, lang)
+                      : getCabinetSessionSubtitle(session, lang)}
+                  </p>
+                  <SessionParticipants
+                    participants={
+                      session.kind === 'course_day'
+                        ? [...(courseParticipants.get(session.courseId)?.values() ?? [])]
+                        : (participantsBySessionKey?.[sessionItemKey(session)] ?? participants)
+                    }
                   />
+                  {session.kind === 'lesson' && (
+                    <div className="sc-countdown-actions">
+                      <BookingCallCoachButton
+                        booking={cabinetItemToLegacyPresentation(
+                          session.session,
+                          usersList[0]?.uid ?? ''
+                        )}
+                        courses={courses}
+                        instructors={instructors}
+                        usersList={usersList}
+                        variant="outline"
+                        className="sc-countdown-contact"
+                      />
+                    </div>
+                  )}
                 </div>
-              )}
+              ))}
             </div>
           </StudentDashboardTileBody>
         </section>

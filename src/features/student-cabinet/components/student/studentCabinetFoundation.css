@@ -1,8 +1,8 @@
 @reference '../../../../index.css';
 /* Phase 1: Home presentation only. Journey remains outside .sc-dashboard. */
-.sc-cabinet-home {
+/* .sc-cabinet-home {
   background-color: #f8fafc;
-}
+} */
 
 :root.dark .sc-cabinet-home {
   background-color: var(--bg);

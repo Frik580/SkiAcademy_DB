@@ -127,3 +127,19 @@
   padding-top: 0.125rem;
   border-top: 1px solid var(--border-subtle);
 }
+
+
+/* Фон плитки такой же, как у бейджа «До начала» */
+.sc-dashboard .sc-dashboard-card[data-dashboard-tile='countdown'] {
+  background: color-mix(
+    in srgb,
+    var(--sc-warning) 12%,
+    var(--card-bg)
+  );
+
+  border: 1px solid color-mix(
+    in srgb,
+    var(--sc-warning) 24%,
+    transparent
+  );
+}

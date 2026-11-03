@@ -100,7 +100,17 @@ export function parseParticipantBlock(
   const normalized = normalizeFirestoreDocument(data);
   if (!normalized) return undefined;
   const parsed = ParticipantBlockSchema.safeParse(normalized);
-  return parsed.success ? parsed.data : undefined;
+  if (parsed.success) return parsed.data;
+  // A prior reactivation retained the removed-state fields. Accept only that
+  // exact canonical shape, including the original creator and chronology checks.
+  if (normalized.status !== 'active') return undefined;
+  const priorRemoval = ParticipantBlockSchema.safeParse({ ...normalized, status: 'removed' });
+  if (!priorRemoval.success || priorRemoval.data.status !== 'removed') return undefined;
+  const active = { ...normalized };
+  delete active.removedAt;
+  delete active.removedBy;
+  const recovered = ParticipantBlockSchema.safeParse(active);
+  return recovered.success ? recovered.data : undefined;
 }
 
 export function parseAccount(data: Record<string, unknown> | undefined): Account | undefined {

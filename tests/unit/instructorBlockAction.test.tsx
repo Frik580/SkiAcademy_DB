@@ -308,6 +308,113 @@ describe('instructor card block action', () => {
     }
   );
 
+  describe.each(['en', 'ru'] as const)('stable confirmation in %s', (language) => {
+    it.each([
+      [false, false],
+      [true, false],
+      [false, true],
+      [true, true],
+    ])(
+      'preserves the operation while pending (blocked=%s, failure=%s)',
+      async (blocked, failure) => {
+        locale.language = language;
+        const copy = translations[language];
+        const user = userEvent.setup();
+        let resolveCommand!: () => void;
+        let rejectCommand!: (error: Error) => void;
+        const command = new Promise<void>((resolve, reject) => {
+          resolveCommand = resolve;
+          rejectCommand = reject;
+        });
+        const onBlock = vi.fn(() => command);
+        const onUnblock = vi.fn(() => command);
+        const action = (currentBlocked: boolean, loading = false) => (
+          <InstructorBlockAction
+            access={access(currentBlocked)}
+            loading={loading}
+            onBlock={onBlock}
+            onUnblock={onUnblock}
+          />
+        );
+        const { rerender } = render(action(blocked));
+        const trigger = screen.getByRole('button');
+        await user.click(trigger);
+        if (!blocked) await user.type(screen.getByRole('textbox'), 'Reason');
+        const title = copy[blocked ? 'collabUnblockTitle' : 'collabBlockTitle'];
+        const body = copy[blocked ? 'collabUnblockBody' : 'collabBlockBody'];
+        const confirm = copy[blocked ? 'collabUnblockConfirm' : 'collabBlockConfirm'];
+        const assertOriginalContent = () => {
+          const dialog = screen.getByRole('dialog', { name: title });
+          expect(dialog).toHaveAccessibleDescription(body);
+          expect(
+            within(dialog).getByRole('button', { name: confirm, exact: true })
+          ).toBeInTheDocument();
+          if (blocked) expect(within(dialog).queryByRole('textbox')).not.toBeInTheDocument();
+          else expect(within(dialog).getByRole('textbox')).toHaveValue('Reason');
+        };
+        await user.click(screen.getByRole('button', { name: confirm, exact: true }));
+        // Simulate the access subscription updating before the command settles.
+        rerender(action(!blocked, true));
+        assertOriginalContent();
+        expect(screen.getByRole('button', { name: confirm, exact: true })).toBeDisabled();
+        await user.click(screen.getByRole('button', { name: confirm, exact: true }));
+        await user.keyboard('{Escape}');
+        expect(screen.getByRole('dialog')).toBeInTheDocument();
+        expect(blocked ? onUnblock : onBlock).toHaveBeenCalledTimes(1);
+        expect(blocked ? onBlock : onUnblock).not.toHaveBeenCalled();
+        await act(async () => {
+          if (failure) rejectCommand(new Error('Command failed'));
+          else resolveCommand();
+          rerender(action(!blocked));
+        });
+        if (failure) {
+          assertOriginalContent();
+          expect(screen.getByRole('alert')).toHaveTextContent('Command failed');
+          await user.keyboard('{Escape}');
+        }
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+        expect(trigger).toHaveFocus();
+        // The next dialog follows the updated card state.
+        await user.click(trigger);
+        expect(screen.getByRole('dialog')).toHaveAccessibleName(
+          copy[blocked ? 'collabBlockTitle' : 'collabUnblockTitle']
+        );
+      }
+    );
+
+    it.each([false, true])(
+      'submits the original operation after access changes (blocked=%s)',
+      async (blocked) => {
+        locale.language = language;
+        const copy = translations[language];
+        const user = userEvent.setup();
+        const onBlock = vi.fn().mockResolvedValue(undefined);
+        const onUnblock = vi.fn().mockResolvedValue(undefined);
+        const action = (currentBlocked: boolean) => (
+          <InstructorBlockAction
+            access={access(currentBlocked)}
+            onBlock={onBlock}
+            onUnblock={onUnblock}
+          />
+        );
+        const { rerender } = render(action(blocked));
+        await user.click(screen.getByRole('button'));
+        if (!blocked) await user.type(screen.getByRole('textbox'), 'Reason');
+        rerender(action(!blocked));
+        await user.click(
+          screen.getByRole('button', {
+            name: copy[blocked ? 'collabUnblockConfirm' : 'collabBlockConfirm'],
+            exact: true,
+          })
+        );
+        if (blocked) expect(onUnblock).toHaveBeenCalledExactlyOnceWith();
+        else expect(onBlock).toHaveBeenCalledExactlyOnceWith('Reason');
+        expect(blocked ? onBlock : onUnblock).not.toHaveBeenCalled();
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      }
+    );
+  });
+
   it('keeps the dialog and reason after a server error and allows cancellation', async () => {
     const user = userEvent.setup();
     const onBlock = vi.fn().mockRejectedValue(new Error('Permission denied'));

@@ -16,7 +16,8 @@ export function InstructorBlockAction({
   const reasonId = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
-  const [confirming, setConfirming] = useState(false);
+  const [operation, setOperation] = useState<'block' | 'unblock' | null>(null);
+  const confirming = operation !== null;
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
   const blocked = access?.managerBlockStatus === 'active';
@@ -31,15 +32,16 @@ export function InstructorBlockAction({
     if (confirming && loading) dialogRef.current?.focus();
   }, [confirming, loading]);
   const action = blocked ? onUnblock : onBlock;
-  if (!action) return null;
+  if (!action && !confirming) return null;
   const label = blocked ? unblockInstructor : blockInstructor;
   const submit = async () => {
-    if (loading || (!blocked && !reason.trim())) return;
+    const command = operation === 'unblock' ? onUnblock : onBlock;
+    if (!operation || !command || loading || (operation === 'block' && !reason.trim())) return;
     try {
       setError('');
-      if (blocked) await onUnblock?.();
+      if (operation === 'unblock') await onUnblock?.();
       else await onBlock?.(reason.trim());
-      setConfirming(false);
+      setOperation(null);
       setReason('');
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -57,7 +59,7 @@ export function InstructorBlockAction({
         onClick={() => {
           setReason('');
           setError('');
-          setConfirming(true);
+          setOperation(blocked ? 'unblock' : 'block');
         }}
         className={`group/block-action relative inline-flex h-11 w-11 shrink-0 items-center justify-center border-0 bg-transparent p-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current ${blocked ? 'text-red-600' : 'text-green-700'}`}
       >
@@ -89,7 +91,7 @@ export function InstructorBlockAction({
               onKeyDownCapture={(event) => {
                 if (event.key === 'Escape') {
                   event.stopPropagation();
-                  if (!loading) setConfirming(false);
+                  if (!loading) setOperation(null);
                 }
                 if (event.key === 'Tab') {
                   const controls = Array.from(
@@ -115,10 +117,10 @@ export function InstructorBlockAction({
               className="w-full max-w-md max-h-[85dvh] overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-5 text-[var(--ink)] shadow-xl space-y-4"
             >
               <h3 id={`${reasonId}-title`} className="type-section-title">
-                {t(blocked ? 'collabUnblockTitle' : 'collabBlockTitle')}
+                {t(operation === 'unblock' ? 'collabUnblockTitle' : 'collabBlockTitle')}
               </h3>
               <p id={`${reasonId}-body`} className="type-compact">
-                {t(blocked ? 'collabUnblockBody' : 'collabBlockBody')}
+                {t(operation === 'unblock' ? 'collabUnblockBody' : 'collabBlockBody')}
               </p>
               <form
                 onSubmit={(event) => {
@@ -127,7 +129,7 @@ export function InstructorBlockAction({
                 }}
                 className="space-y-4"
               >
-                {!blocked && (
+                {operation === 'block' && (
                   <label htmlFor={reasonId} className="block type-caption">
                     {blockReasonPlaceholder}
                     <input
@@ -145,17 +147,17 @@ export function InstructorBlockAction({
                   <button
                     type="button"
                     disabled={loading}
-                    onClick={() => setConfirming(false)}
+                    onClick={() => setOperation(null)}
                     className="btn-secondary focus-visible:outline-2 focus-visible:outline-offset-2"
                   >
                     {t('cancel')}
                   </button>
                   <button
                     type="submit"
-                    disabled={loading || (!blocked && !reason.trim())}
+                    disabled={loading || (operation === 'block' && !reason.trim())}
                     className="btn-primary focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-40"
                   >
-                    {t(blocked ? 'collabUnblockConfirm' : 'collabBlockConfirm')}
+                    {t(operation === 'unblock' ? 'collabUnblockConfirm' : 'collabBlockConfirm')}
                   </button>
                 </div>
                 {error && (

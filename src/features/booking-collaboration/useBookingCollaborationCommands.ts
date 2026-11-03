@@ -383,6 +383,7 @@ export function useBookingCollaborationCommands(input: {
       readonly participantId: string;
       readonly targetInstructorId: string;
       readonly reason: string;
+      readonly blockRevision: number;
       readonly scope: 'account_manager' | 'instructor';
       readonly exercisedCapability?: ClientCallableCapability;
     }): Promise<void> => {
@@ -392,19 +393,26 @@ export function useBookingCollaborationCommands(input: {
         instructorId: InstructorIdSchema.parse(params.targetInstructorId),
         createdByKind: params.scope === 'account_manager' ? 'participant_manager' : 'instructor',
       });
+      const reason = params.reason.trim();
+      const exercisedCapability =
+        params.scope === 'instructor'
+          ? 'instructor'
+          : (params.exercisedCapability ?? 'account_owner');
       const result = await executeAuthenticatedCanonicalCommand(accountId, {
         kind: 'block_participant',
         intent: {
           participantBlockId: blockId,
           participantId: ParticipantIdSchema.parse(params.participantId),
           instructorId: InstructorIdSchema.parse(params.targetInstructorId),
-          reason: params.reason,
+          reason,
         },
-        idempotencyKey: deriveBlockParticipantIdempotencyKey(blockId),
-        exercisedCapability:
-          params.scope === 'instructor'
-            ? 'instructor'
-            : (params.exercisedCapability ?? 'account_owner'),
+        idempotencyKey: deriveBlockParticipantIdempotencyKey({
+          blockId,
+          blockRevision: params.blockRevision,
+          reason,
+          exercisedCapability,
+        }),
+        exercisedCapability,
       });
       const error = mapCanonicalCommandResultError(result);
       if (error) throw error;

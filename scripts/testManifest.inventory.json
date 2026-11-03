@@ -278,6 +278,7 @@
   "src/features/auth/authService.test.ts": "deferred:colocated",
   "tests/browser/admin-issue-attendance/attendance.spec.ts": "deferred:browser-fixtures",
   "tests/browser/admin-modals/admin-modals.spec.ts": "deferred:browser-fixtures",
+  "tests/browser/instructor-card/card.spec.ts": "deferred:browser-fixtures",
   "tests/browser/journey-geometry/geometry.spec.ts": "deferred:browser-fixtures",
   "tests/browser/level-modals/visibility.spec.ts": "deferred:browser-fixtures",
   "tests/browser/participant-levels/levels.spec.ts": "deferred:browser-fixtures",

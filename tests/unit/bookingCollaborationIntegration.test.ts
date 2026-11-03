@@ -6,6 +6,7 @@ import {
   BookingChangeRequestIdSchema,
   InstructorIdSchema,
   ParticipantIdSchema,
+  IdempotencyKeySchema,
   timestampFromDate,
 } from '@ski-academy/shared-domain';
 import { useBookingCollaborationStore } from '../../src/features/booking-collaboration/bookingCollaborationStore';
@@ -17,6 +18,7 @@ const executeAuthenticatedMock = vi.fn();
 const queryLessonBookingReadModelsMock = vi.fn();
 const queryBookingProposalReadModelsMock = vi.fn();
 const queryBookingChangeRequestReadModelsMock = vi.fn();
+const queryParticipantInstructorAccessReadModelsMock = vi.fn();
 
 vi.mock('../../src/lib/canonical/canonicalCommandClient', () => ({
   executeAuthenticatedCanonicalCommand: (...args: unknown[]) => executeAuthenticatedMock(...args),
@@ -28,6 +30,8 @@ vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
     queryBookingProposalReadModelsMock(...args),
   queryBookingChangeRequestReadModels: (...args: unknown[]) =>
     queryBookingChangeRequestReadModelsMock(...args),
+  queryParticipantInstructorAccessReadModels: (...args: unknown[]) =>
+    queryParticipantInstructorAccessReadModelsMock(...args),
 }));
 
 import { useBookingCollaborationCommands } from '../../src/features/booking-collaboration/useBookingCollaborationCommands';
@@ -40,6 +44,11 @@ describe('booking collaboration integration', () => {
     queryLessonBookingReadModelsMock.mockReset();
     queryBookingProposalReadModelsMock.mockReset();
     queryBookingChangeRequestReadModelsMock.mockReset();
+    queryParticipantInstructorAccessReadModelsMock.mockReset();
+    queryParticipantInstructorAccessReadModelsMock.mockResolvedValue({
+      scope: 'account_manager',
+      item: null,
+    });
     queryLessonBookingReadModelsMock.mockResolvedValue({
       scope: 'account_hot',
       items: [],
@@ -47,6 +56,78 @@ describe('booking collaboration integration', () => {
     });
     queryBookingProposalReadModelsMock.mockResolvedValue({ scope: 'account_open', items: [] });
     queryBookingChangeRequestReadModelsMock.mockResolvedValue({ scope: 'account_open', items: [] });
+  });
+
+  it.each(['account_owner', 'parent_guardian', 'instructor'] as const)(
+    'keeps block retries stable but separates new revisions and reasons for %s',
+    async (capability) => {
+      executeAuthenticatedMock.mockResolvedValue({ status: 'success', payload: {} });
+      const { result } = renderHook(() =>
+        useBookingCollaborationCommands({ accountId: 'account_fixture_01' })
+      );
+      const params = {
+        participantId: 'participant_selected_child',
+        targetInstructorId: 'instructor_fixture_01',
+        reason: 'First reason',
+        blockRevision: 0,
+        scope: capability === 'instructor' ? ('instructor' as const) : ('account_manager' as const),
+        exercisedCapability: capability,
+      };
+      await result.current.blockParticipant(params);
+      await result.current.blockParticipant(params);
+      await result.current.blockParticipant({ ...params, reason: 'Different reason' });
+      await result.current.blockParticipant({ ...params, blockRevision: 2 });
+      await result.current.blockParticipant({ ...params, reason: ' First reason ' });
+      const submissions = executeAuthenticatedMock.mock.calls.map((call) => call[1]);
+      expect(submissions[1].idempotencyKey).toBe(submissions[0].idempotencyKey);
+      expect(submissions[2].idempotencyKey).not.toBe(submissions[0].idempotencyKey);
+      expect(submissions[3].idempotencyKey).not.toBe(submissions[0].idempotencyKey);
+      expect(submissions[4].idempotencyKey).toBe(submissions[0].idempotencyKey);
+      expect(submissions[4].intent).toEqual(submissions[0].intent);
+      expect(IdempotencyKeySchema.safeParse(submissions[0].idempotencyKey).success).toBe(true);
+      expect(submissions[0].idempotencyKey).not.toBe(
+        `block-participant:${submissions[0].intent.participantBlockId}`
+      );
+      expect(submissions[0].idempotencyKey).not.toContain(params.reason);
+      expect(submissions[0]).toMatchObject({
+        exercisedCapability: capability,
+        intent: {
+          participantId: params.participantId,
+          instructorId: params.targetInstructorId,
+          reason: params.reason,
+        },
+      });
+    }
+  );
+
+  it('reuses the block attempt key after a lost response and a hook rerender', async () => {
+    const lostResponse = new Error('Response lost after submission');
+    executeAuthenticatedMock
+      .mockRejectedValueOnce(lostResponse)
+      .mockResolvedValueOnce({ status: 'success', payload: {} });
+    const { result, rerender } = renderHook(() =>
+      useBookingCollaborationCommands({ accountId: 'account_fixture_01' })
+    );
+    const params = {
+      participantId: 'participant_selected_child',
+      targetInstructorId: 'instructor_fixture_01',
+      reason: 'Retry safely',
+      blockRevision: 2,
+      scope: 'account_manager' as const,
+      exercisedCapability: 'parent_guardian' as const,
+    };
+    await expect(result.current.blockParticipant(params)).rejects.toBe(lostResponse);
+    expect(queryParticipantInstructorAccessReadModelsMock).not.toHaveBeenCalled();
+    rerender();
+    await result.current.blockParticipant(params);
+    expect(executeAuthenticatedMock.mock.calls[1][1]).toEqual(
+      executeAuthenticatedMock.mock.calls[0][1]
+    );
+    expect(queryParticipantInstructorAccessReadModelsMock).toHaveBeenCalledExactlyOnceWith({
+      scope: 'account_manager',
+      participantId: params.participantId,
+      instructorId: params.targetInstructorId,
+    });
   });
 
   it('withdraws cancellation with expectedRevision and refetches reads', async () => {

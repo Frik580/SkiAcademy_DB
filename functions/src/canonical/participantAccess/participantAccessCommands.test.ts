@@ -403,6 +403,40 @@ describe('participant access commands', () => {
     expect(executor.snapshot().docs.get(`participant_blocks/${instructorBlockId}`)?.data.status).toBe(
       'active'
     );
+
+    // Reusing a previous logical command after unblock cannot create a new block:
+    // changed intent conflicts, identical intent only replays the stored success.
+    const changedReason = { ...managerBlockEnvelope.intent, reason: 'Block again after removal' };
+    expect(
+      await runCommand(executor, { ...managerBlockEnvelope, intent: changedReason })
+    ).toMatchObject({
+      status: 'error',
+      error: { code: 'idempotency_conflict' },
+    });
+    expect((await runCommand(executor, managerBlockEnvelope)).status).toBe('success');
+    expect(executor.snapshot().docs.get(`participant_blocks/${managerBlockId}`)?.data.status).toBe(
+      'removed'
+    );
+
+    const reblockEnvelope: CommandEnvelope<'block_participant'> = {
+      ...managerBlockEnvelope,
+      context: { ...managerBlockEnvelope.context, idempotencyKey: 'block-manager-revision-2' },
+      intent: changedReason,
+    };
+    expect((await runCommand(executor, reblockEnvelope)).status).toBe('success');
+    const reblocked = executor.snapshot().docs.get(`participant_blocks/${managerBlockId}`)?.data;
+    expect(reblocked).toMatchObject({
+      status: 'active',
+      revision: 3,
+      reason: changedReason.reason,
+    });
+    expect((await runCommand(executor, reblockEnvelope)).status).toBe('success');
+    expect(executor.snapshot().docs.get(`participant_blocks/${managerBlockId}`)?.data).toEqual(
+      reblocked
+    );
+    expect(
+      executor.snapshot().docs.get(`participant_blocks/${instructorBlockId}`)?.data
+    ).toMatchObject({ status: 'active', revision: 1 });
   });
 
   it('cancels open proposals while preserving confirmed bookings through block and unblock', async () => {

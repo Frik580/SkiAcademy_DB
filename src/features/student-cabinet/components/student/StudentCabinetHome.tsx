@@ -5,10 +5,7 @@ import {
 import { StudentDashboardTileHeader, StudentDashboardTileBody } from './StudentDashboardTile';
 import React, { useMemo, useState } from 'react';
 import { YourJourneySection } from '../../../../features/journey';
-import {
-  getMiniCalendarDaysFromSessions,
-  sessionItemKey,
-} from '../../../../features/course-enrollments/sessionScheduleHelpers';
+import { getMiniCalendarDaysFromSessions } from '../../../../features/course-enrollments/sessionScheduleHelpers';
 import {
   getCurrentSessions,
   getFirstName,
